@@ -323,6 +323,24 @@ Si le parsing échoue (Claude ne suit pas le format), la fonction **`createProdu
   finish: "Sans pelliculage",
   suggestions: ["Précisez le format", "Pelliculage disponible"]
 }
+
+// 9. 🗳️ BULLETINS DE VOTE (NOUVEAU)
+{
+  format: "148 × 105 mm (format réglementaire français)",
+  material: "Papier offset blanc",
+  weight: 70,
+  finish: "Sans finition",
+  printing: { 
+    recto: "Noir seul (texte réglementaire)", 
+    verso: "Sans impression"
+  },
+  suggestions: [
+    "• Format conforme aux normes électorales françaises",
+    "• Papier 70g/m² obligatoire pour transparence",
+    "• Impression noir seul pour conformité légale",
+    "• Découpe nette et précise"
+  ]
+}
 ```
 
 ### Détection Intelligente des Variantes
@@ -727,6 +745,202 @@ MAGRIT=sk-ant-api03-[...]  # Clé API Anthropic valide
 
 ---
 
+## 📚 Historique des Conversations (Nouveau)
+
+### 🎯 Système de Persistance
+
+Magrit intègre désormais un **système complet d'historique des conversations** permettant de retrouver et restaurer les résultats de prompts précédents.
+
+### Architecture du Système
+
+```typescript
+interface ConversationHistory {
+  id: string;                    // Identifiant unique (ex: "conv-1710174320000")
+  timestamp: number;             // Date de création (Date.now())
+  title: string;                 // Premier message utilisateur (tronqué à 50 caractères)
+  messages: Array<{              // Tous les messages de la conversation
+    role: string;                // "user" ou "assistant"
+    content: string;             // Contenu du message
+  }>;
+  products: any[];               // ProductCards générées durant la conversation
+}
+```
+
+### 💾 Persistance localStorage
+
+**Stratégie :**
+- **Sauvegarde automatique** après chaque réponse de Claude
+- **Stockage local** dans `localStorage` (clé: `magrit_conversation_history`)
+- **Format JSON** pour sérialisation/désérialisation
+- **Survit aux rechargements** de page
+
+```typescript
+// Sauvegarde automatique
+useEffect(() => {
+  if (conversationHistory.length > 0) {
+    localStorage.setItem('magrit_conversation_history', JSON.stringify(conversationHistory));
+  }
+}, [conversationHistory]);
+
+// Chargement au démarrage
+useEffect(() => {
+  const savedHistory = localStorage.getItem('magrit_conversation_history');
+  if (savedHistory) {
+    setConversationHistory(JSON.parse(savedHistory));
+  }
+}, []);
+```
+
+### 🎨 Interface Utilisateur
+
+#### Bouton Historique (Header)
+- **Position** : En haut à gauche du header
+- **Badge** : Affiche le nombre de conversations sauvegardées
+- **Icône** : `History` de lucide-react
+
+#### Sidebar Historique
+```typescript
+// Ouverture : Overlay + Sidebar gauche
+<div className="fixed inset-0 z-50 flex">
+  {/* Overlay semi-transparent */}
+  <div className="absolute inset-0 bg-black/50" onClick={closeHistory} />
+  
+  {/* Sidebar 320px */}
+  <div className="relative w-80 bg-white shadow-2xl">
+    {/* Header */}
+    {/* Bouton "Nouvelle conversation" */}
+    {/* Liste des conversations */}
+  </div>
+</div>
+```
+
+**Fonctionnalités de la Sidebar :**
+1. **Liste des conversations** (triée par date décroissante)
+   - Titre (premier message utilisateur)
+   - Date formatée en français (ex: "11 mars, 14:30")
+   - Nombre de produits générés
+   - Highlight de la conversation active (fond bleu)
+
+2. **Actions disponibles :**
+   - **Clic sur une conversation** → Restaure messages + ProductCards
+   - **Bouton X (hover)** → Supprime la conversation
+   - **Bouton "Nouvelle conversation"** → Réinitialise l'interface
+   - **Clic sur overlay** → Ferme la sidebar
+
+### 🔄 Gestion des Conversations
+
+#### Sauvegarde Automatique
+```typescript
+const saveCurrentConversation = (newMessages: Array<Message>, newProducts: any[]) => {
+  const firstUserMessage = newMessages.find(m => m.role === 'user')?.content || 'Nouvelle conversation';
+  const title = firstUserMessage.length > 50 ? firstUserMessage.substring(0, 50) + '...' : firstUserMessage;
+
+  if (currentConversationId) {
+    // Mettre à jour conversation existante
+    setConversationHistory(prev => 
+      prev.map(conv => 
+        conv.id === currentConversationId 
+          ? { ...conv, messages: newMessages, products: newProducts, timestamp: Date.now() }
+          : conv
+      )
+    );
+  } else {
+    // Créer nouvelle conversation
+    const newId = `conv-${Date.now()}`;
+    setCurrentConversationId(newId);
+    setConversationHistory(prev => [newConversation, ...prev]);
+  }
+};
+```
+
+#### Restauration d'une Conversation
+```typescript
+const loadConversation = (conversation: ConversationHistory) => {
+  setMessages(conversation.messages);          // Restaure les messages
+  setProducts(conversation.products);          // Restaure les ProductCards
+  setCurrentConversationId(conversation.id);   // Marque comme active
+  setShowHistory(false);                       // Ferme la sidebar
+  
+  if (conversation.products.length > 0) {
+    onShowResults();                           // Affiche la grille de produits
+  }
+};
+```
+
+#### Suppression
+```typescript
+const deleteConversation = (id: string, e: React.MouseEvent) => {
+  e.stopPropagation();  // Empêche le clic de charger la conversation
+  setConversationHistory(prev => prev.filter(conv => conv.id !== id));
+  
+  // Si c'est la conversation actuelle, réinitialiser
+  if (currentConversationId === id) {
+    setCurrentConversationId(null);
+    setMessages([]);
+    setProducts([]);
+  }
+};
+```
+
+### ⚡ Accumulation des Produits (RÈGLE IMPORTANTE)
+
+**CHANGEMENT MAJEUR :** Les ProductCards s'accumulent maintenant au lieu d'être remplacées.
+
+**Avant (❌ Bug) :**
+```typescript
+setProducts(parsedProducts);  // REMPLACE tous les produits
+```
+
+**Après (✅ Correct) :**
+```typescript
+setProducts(prev => [...prev, ...parsedProducts]);  // ACCUMULE les produits
+```
+
+**Comportement :**
+- **Prompt 1** : "500 cartes de visite" → 1 ProductCard
+- **Prompt 2** : "1000 flyers A5 recto verso" → 2 ProductCards (cartes + flyers)
+- **Prompt 3** : "3000 bulletins de vote" → 3 ProductCards (cartes + flyers + bulletins)
+- **Pas de changement de page** → Tout s'affiche sur la même interface
+
+**Sauvegarde des produits accumulés :**
+```typescript
+finally {
+  setIsLoading(false);
+  const finalMessages = [...newMessages, { role: "assistant", content: assistantMessage }];
+  const allProducts = [...products, ...parsedProducts]; // Anciens + Nouveaux
+  saveCurrentConversation(finalMessages, allProducts);
+}
+```
+
+### 🎯 Cas d'Usage Typique
+
+**Scénario :** Utilisateur demande progressivement plusieurs produits
+
+1. **"500 cartes de visite"**
+   - Génération de 1 ProductCard
+   - Sauvegarde auto dans conversation `conv-1710174320000`
+
+2. **"1000 flyers A5 recto verso"**
+   - Génération de 1 nouvelle ProductCard
+   - **Accumulation** → Affichage de 2 ProductCards (cartes + flyers)
+   - Mise à jour de la conversation existante
+
+3. **"3000 bulletins de vote"**
+   - Génération de 1 nouvelle ProductCard
+   - **Accumulation** → Affichage de 3 ProductCards
+   - Mise à jour de la conversation
+
+4. **Clic sur "Historique"**
+   - Sidebar s'ouvre
+   - Liste affiche "500 cartes de visite..." (3 produits)
+   - Clic → Restaure les 3 ProductCards
+
+5. **Bouton "Nouvelle conversation"**
+   - Réinitialise messages et produits
+   - Nouvelle conversation créée au prochain prompt
+
+---
+
 ## 🔗 Liens Utiles
 
 - **API Claude :** https://docs.anthropic.com/claude/reference
@@ -781,6 +995,38 @@ MAGRIT=sk-ant-api03-[...]  # Clé API Anthropic valide
 - **Section Stratégie Claude** : explication du prompt système
 - **Section `createProductFromName()`** : 8 types avec détection intelligente
 - **Expression régulière documentée** avec groupes de capture
+
+#### ✅ Système d'Historique des Conversations (NOUVEAU - 11 mars 2026)
+- **Persistance localStorage** : Sauvegarde automatique de toutes les conversations
+- **Interface complète** :
+  - Bouton "Historique" dans le header avec badge du nombre de conversations
+  - Sidebar élégante (320px) avec overlay
+  - Liste triée par date avec titre, timestamp et nombre de produits
+  - Actions : charger, supprimer, nouvelle conversation
+- **Gestion intelligente** :
+  - Sauvegarde après chaque réponse de Claude
+  - Restauration complète (messages + ProductCards)
+  - Suppression avec réinitialisation si conversation active
+- **Type TypeScript** : `ConversationHistory` avec id, timestamp, title, messages, products
+
+#### ✅ Accumulation des Produits (FIX CRITIQUE)
+- **Bug corrigé** : Les ProductCards se **remplaçaient** au lieu de s'**accumuler**
+- **Solution** : `setProducts(prev => [...prev, ...parsedProducts])`
+- **Comportement** :
+  - Prompt 1: "500 cartes" → 1 ProductCard
+  - Prompt 2: "1000 flyers" → 2 ProductCards (cartes + flyers)
+  - Prompt 3: "3000 bulletins" → 3 ProductCards (tous affichés)
+- **Pas de changement de page** : Tous les produits s'empilent sur la même interface
+
+#### ✅ Support des Bulletins de Vote (Type #9)
+- **Nouveau type** ajouté à `createProductFromName()`
+- **Spécifications réglementaires françaises** :
+  - Format : 148 × 105 mm (obligatoire)
+  - Papier : Offset blanc 70g/m² (transparence légale)
+  - Impression : Noir seul (conformité)
+  - Sans finition
+- **Ajout au prompt système de Claude** avec exemple complet
+- **Détection** : `nameLower.includes("bulletin") && nameLower.includes("vote")`
 
 ### 🎯 Prochaine Priorité : Test du Kit
 **Action :** Tester "kit campagne électorale" pour vérifier que Claude génère bien 3 ProductCards séparées (affiches, flyers, cartes de visite).
