@@ -1,0 +1,575 @@
+<body class="feature_flag_fpl_korean_font_weight feature_flag_fpl_select_aria_disabled feature_flag_fpl_a11y_grid feature_flag_plan_level_file_export_controls feature_flag_ds_extended_collections feature_flag_dse_fpl_wave_2 feature_flag_aip_content_fill feature_flag_fpl_split_input feature_flag_dse_fpl_wave_1 feature_flag_fpl_a11y_rotation feature_flag_fpl_submenu_stay_open feature_flag_fpl_menu_under_curator feature_flag_fpl_flash_view_migration feature_flag_bake_chat_message_revamp feature_flag_aip_magnolia feature_flag_qa_user_additional_feedback feature_flag_fpl_dont_soft_dismiss_floating_overlay_clicks feature_flag_fpl_tooltip feature_flag_ds_extended_collections_plankey feature_flag_unified_index_v3_modal_z feature_flag_bake_manual_edits feature_flag_ds_no_auto_min_max_size_override_on_detach feature_flag_aip_content_fill_no_autolayout feature_flag_fpl_a11y_place_image_announcement feature_flag_cmty_release_plugin_row_v2 feature_flag_ds_gradient_variables feature_flag_ui3_mixin_changes fullscreen_view--fullscreenBody--6XRri" data-preferred-theme="light" data-fpl-version="ui3" data-editor-theme="design" style="color-scheme: light;"><div tabindex="0" id="__DESKTOP_SKIP_LINK__" style="position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0px; white-space: nowrap; border-width: 0px; overflow: hidden; clip: rect(0px, 0px, 0px, 0px); clip-path: inset(50%); user-select: none;"></div>
+
+
+    <div id="react-page"><div data-testid="statsig-comp"><div class="in_app_page--app--KxUei in_app_page--appFont--2LLwy" data-fpl-audit="true"><div class="in_app_page--content--5Tb91"><div class="fullscreen_view--flexContainer--yQS30"><div style="flex: 1 1 auto;"><div aria-hidden="false" class="fullscreen_view--fullscreenViewportWrapper--PgMb6"><div class="fullscreen_view--page--aHLvX" data-forward-events-to-fullscreen="true"><div><div id="fullscreen-root" style="visibility: visible;"><div class="view container-view" style="inset: 0px; width: auto; height: auto;"><div class="view container-view" style="inset: 0px 241px 0px 0px; width: auto; height: auto;"><div class="view container-view" style="inset: 0px 0px 0px 241px; width: auto; height: auto;"><div class="view container-view _e79goc69tl" style="inset: 0px; width: auto; height: auto;"><div class="view gpu-view-content" style="display: block; inset: 0px; width: auto; height: auto;"><canvas width="1836" height="1124" style="width: 918px; height: 562px;"></canvas></div></div></div><div class="view container-view" style="inset: 0px auto 0px 0px; width: 240px; height: auto;"></div><div class="view container-view" style="inset: 0px auto 0px 240px; width: 2px; height: auto;"></div></div></div><div contenteditable="true" role="document" aria-multiline="true" tabindex="-1" aria-hidden="true" spellcheck="false" autocorrect="off" aria-expanded="false" aria-haspopup="listbox" aria-autocomplete="list" class="focus-target">⁨⁩</div><input readonly="" tabindex="-1" aria-hidden="true" role="application" class="focus-target" style="top: -200px;"></div></div><div class="visually_hidden--visuallyHidden--sMum-" role="status"><i18n-text>Le support des lecteurs d’écran pour le tableau est actuellement désactivé. Pour l'activer via les paramètres d'accessibilité, appuyez sur ⌘:, saisissez les paramètres d'accessibilité, puis appuyez sur Entrée. Pour voir les raccourcis clavier disponibles, saisissez ⌃⇧Point d'interrogation .</i18n-text></div><div class="viewport_overlay--overflowContainer--JinC8" style="top: 0px; left: 241px; height: 562px; width: 918px;"><div class="viewport_overlay--innerContainer--9I2w-" style="top: 0px; left: -241px;"><div class="_14wijgr1"><div role="region" aria-label="Commentaires sur le plan de travail" class="accessible_area--displayContent--TuRM4"><button aria-label="Créer un commentaire" class="xjbqb8w xixxii4 x11lhmoz x1vjfegm xgq9j65   xjbys53" data-fullscreen-intercept="true" data-kb-comment-insertion-button="true" type="button" style="--x-left: 709px; --x-top: 276px;"></button><clustered-pins data-fullscreen-intercept="true"></clustered-pins></div></div></div></div><div data-keyboard-receiver="2" data-non-interactive="true" style="position: absolute;"><div data-forward-events-to-fullscreen="true" class="comments_view--viewContainer--5kMZh comments_view--_container--XGEcp"><div data-allow-component-drop="true" data-forward-events-to-fullscreen="true" class="comments_view--outerAnchorContainer--g8-w6 comments_view--_container--XGEcp" style="left: 241px; top: 0px; width: 918px; height: 562px;"></div></div></div><div class="viewport_overlay--overflowContainer--JinC8" style="top: 0px; left: 241px; height: 562px; width: 918px;"><div class="viewport_overlay--innerContainer--9I2w-" style="top: 0px; left: -241px;"><div aria-hidden="true" data-forward-events-to-fullscreen="true" class="multiplayer_cursors--overlay--faG7K" style="top: 281px; left: 700px; transform: translate(0px, 151px);"><div class="multiplayer_cursors--multiplayerCursorsContainer--S0K82"></div></div></div></div><div aria-hidden="true" data-forward-events-to-fullscreen="true" class="multiplayer_cursors--root--cdJg0" style="left: 241px; top: 0px; width: 918px; height: 562px;"></div><div class="viewport_overlay--overflowContainer--JinC8" style="top: 0px; left: 241px; height: 562px; width: 918px;"><div class="viewport_overlay--innerContainer--9I2w-" style="top: 0px; left: -241px;"><div aria-hidden="true" data-forward-events-to-fullscreen="true" class="offscreen_indicators--overlay--MdYer" style="transform: translate(0px, 1px);"></div></div></div><div class="inline_editor_layer--animationRoot--CS1vu"></div><div></div><div class="_14wijgr1"><div role="region" aria-label="Barre latérale gauche" class="accessible_area--displayContent--TuRM4"><div class="left_panel_positioner--leftPanelPositioner--GlQU8 left_panel_positioner--withAnimation--n2gGH left_panel_positioner--withInsetEditorEnabled--Wwwv-"><div><div class="left_panel_container--positionContainer---xfAj"><div class="js-fullscreen-prevent-event-capture left_panel_container--sizeContainer--2hwFK" data-cancel-insertable-resource-drag-and-drop="true" id="left-panel-container" style="max-width: 500px; width: 240px;"><div class="left_panel_container--panel--KJaEO left_panel_container--withInsetEditorEnabled---L2pF left_panel_container--newResizablePanel--O6ez6"><div class="js-fullscreen-prevent-event-capture left_panel_island_container--islandContainer--qpBD5 left_panel_island_container--withInsetEditor---IeeE"><div data-fpl-component="primitive" role="presentation" style="display: block;"><button aria-controls="507dd308-f43f-4c4d-ae33-565c3196ba32" aria-expanded="false" aria-haspopup="menu" aria-label="Menu principal" class="action--enabled--UsdPf action--root--iB6FV toolbar_styles--enabledButton--aJVqf toolbar_view--menuButton--ecxh4" data-onboarding-key="FULLSCREEN_TOGGLE_MENU" data-tooltip="main-menu" data-tooltip-offset-x="0" data-tooltip-show-right="false" data-tooltip-type="lookup" id="toggle-menu-button"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" data-fpl-icon-size="24L"><path fill="var(--fpl-icon-color, var(--color-icon))" fill-rule="evenodd" d="M6.5 7c0 1.043.533 1.963 1.341 2.5A3 3 0 0 0 6.5 12c0 1.043.533 1.963 1.341 2.5A3 3 0 1 0 12.5 17v-2.764A3 3 0 1 0 16.159 9.5 3 3 0 0 0 14.5 4h-5a3 3 0 0 0-3 3m8 2a2 2 0 1 0 0-4h-2v4zm-2 3a2 2 0 1 0 4 0 2 2 0 0 0-4 0m-1 2h-2a2 2 0 1 1 0-4h2zm-2 1h2v2a2 2 0 1 1-2-2m2-6h-2a2 2 0 1 1 0-4h2z" clip-rule="evenodd"></path></svg><div class="action--ui3SvgChevron--UvLys action--svgChevron--AJaNF"><svg width="16" height="16" fill="none" viewBox="0 0 16 16" data-fpl-icon-size="16"><path fill="var(--fpl-icon-color, var(--color-icon))" d="M9.768 6.768a.5.5 0 0 1 .707.707l-2.12 2.121a.5.5 0 0 1-.708 0L5.525 7.475a.5.5 0 0 1 .708-.707l1.768 1.767z"></path></svg></div></button></div><div class="design_dev_handoff_left_panel_island--expandedIconSection--oToVF"><div><div class="_14wijgr0" data-fpl-sr-only="true"><div data-fpl-component="primitive" aria-relevant="all" role="status"></div></div></div><button data-fpl-component="primitive" aria-label="Minimiser l'UI" data-onboarding-key="minimize-ui-onboarding-key" data-tooltip="Minimiser l'UI" data-tooltip-type="text" data-tooltip-shortcut-key="toggle-sidebar" type="button" tabindex="0" data-show-focus="true" class="button-reset__buttonReset__zO1D7 icon_button_32--iconButton--E0ZHG"><span aria-hidden="true" class="icon_button_32--icon---5uYV"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" data-fpl-icon-size="24"><path fill="var(--fpl-icon-color, var(--color-icon))" fill-rule="evenodd" d="M10 7h8a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-8zM9 7H6a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h3zM4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" clip-rule="evenodd"></path></svg></span></button></div></div><div class="x16ye13r x82snj4" style="--x-height: calc(32px + var(--spacer-2) + var(--spacer-1)); --x-minHeight: calc(32px + var(--spacer-2) + var(--spacer-1));"></div><div class="left_panel_header_components--container--Ce6-c left_panel_header_components--withBottomBorder--HKV1J"><div class="accessible_area--displayContent--TuRM4" data-fullscreen-bubble-phase="true"><div class="left_panel_header_components--row--0yXll" data-file-header-hover="false"><div class="filename_view--filenameView--Gj2E6"><span class="filename_view--filenameText--UrHW- filename_view--enableSecondaryHover--Kw0AU"><button data-fpl-component="primitive" data-tooltip-type="text" data-testid="filename" aria-label="Sans titre, nom du fichier" type="button" tabindex="0" data-show-focus="true" class="button-reset__buttonReset__zO1D7 filename_view--title--Qhcgs ellipsis--ellipsis--70pHK filename_view--signedIn--iLJXF">Sans titre</button><label for="filename" class="visually_hidden--visuallyHidden--sMum-">Nom de fichier</label><input class="input--input--QtrL6 filename_view--pageTitleInput--PyYW- ellipsis--ellipsis--70pHK filename_view--hidden--XMegq" dir="auto" id="filename" maxlength="100"></span></div><div><div class="file_menu--chevronContainer--gGwRO file_menu--enableSecondaryHover--1rtXs"><div data-fpl-component="primitive" role="presentation" style="display: contents;"><span class="xjmxbmz"><button data-fpl-component="" aria-haspopup="menu" aria-expanded="false" id=":r11:" aria-label="Modifier le menu Fichier" data-onboarding-key="FULLSCREEN_FILENAME_CHEVRON" data-tooltip="Modifier le menu Fichier" data-tooltip-type="text" type="button" tabindex="0" class="button-reset__buttonReset__zO1D7 base-icon-button__baseIconButton__TXKzr icon-button__iconButton__CTj-- icon-button__ghost__1ok6j"><span aria-hidden="true" class="base-icon-button__icon__FIIFq"><svg width="16" height="16" fill="none" viewBox="0 0 16 16" data-fpl-icon-size="16"><path fill="var(--fpl-icon-color, var(--color-icon))" d="M9.768 6.768a.5.5 0 0 1 .707.707l-2.12 2.121a.5.5 0 0 1-.708 0L5.525 7.475a.5.5 0 0 1 .708-.707l1.768 1.767z"></path></svg></span></button></span></div></div></div></div></div><div class="left_panel_header_components--row--0yXll" data-onboarding-key="folder_paid_status_row_onboarding_key"><span class="filename_view--folder--iZYVV"><a data-fpl-component="primitive" data-testid="folder-name-link" class="filename_view--folderName--Q2b88 ellipsis--ellipsis--70pHK" aria-label="Brouillons" href="https://www.figma.com/files/team/1582453326939667366/project/517131169" rel="noopener" target="_blank">Brouillons</a></span></div></div><div data-testid="left-panel-body" class="left_panel_body--container--aM8oX sf_pro--uiFontWithSFProFallback--iJ25E leftPanelBody left_panel_body--flexGrow--fE3Rb"><div class="tabs_header--tabsHeader--mCKhR tabs_header--withBorder--UAaF2"><div class="ui3_tabs--tabStrip--ka3f-"><div data-fpl-component="" class="tabs__tabStrip__6GiU-" role="tablist" aria-orientation="horizontal" data-tab-group=":r14:"><button data-fpl-component="" data-testid="FILE_LAYERS_TAB_TEST_ID" tabindex="0" type="button" class="tabs__tabButton__UEhB4" role="tab" aria-selected="true" aria-controls="tab:r14:-0-panel" id="tab:r14:-0-trigger"><span aria-hidden="true" class="tabs__tabButtonStrong__Kgz2o"><i18n-text>Fichier</i18n-text></span><span><i18n-text>Fichier</i18n-text></span></button><button data-fpl-component="" data-onboarding-key="ASSETS_PANEL_ONBOARDING_KEY" tabindex="-1" type="button" class="tabs__tabButton__UEhB4" role="tab" aria-selected="false" aria-controls="tab:r14:-1-panel" id="tab:r14:-1-trigger"><span aria-hidden="true" class="tabs__tabButtonStrong__Kgz2o"><i18n-text>Ressources</i18n-text></span><span><i18n-text>Ressources</i18n-text></span></button></div></div><div class="ui3_tabs_row--iconContainer--A1dC9"><button data-fpl-component="" aria-label="Rechercher" id="canvas-search-icon-button" data-onboarding-key="canvas-search" data-tooltip="canvas-search" data-tooltip-type="lookup" type="button" tabindex="0" data-show-focus="true" class="button-reset__buttonReset__zO1D7 base-icon-button__baseIconButton__TXKzr icon-button__iconButton__CTj-- icon-button__ghost__1ok6j"><span aria-hidden="true" class="base-icon-button__icon__FIIFq"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" data-fpl-icon-size="24"><path fill="var(--fpl-icon-color, var(--color-icon))" d="M11.5 6a5.5 5.5 0 0 1 4.226 9.019l2.127 2.127a.5.5 0 1 1-.707.707l-2.127-2.127A5.5 5.5 0 1 1 11.5 6m0 1a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9"></path></svg></span></button></div></div><div data-fpl-component="primitive" role="presentation" style="display: block;"><div class="pages_panel--pagesPanelContent--xsgwV"><div data-fpl-component="" class="collapse__collapseRoot__nSZ1e"><h2><div data-fpl-component="" class="collapse__collapseHeader__PGUuS collapse__largeSize__lDD-m collapse__fillWidth__9mtAx collapse__leftPanelVariant__Q8P4s"><button data-fpl-component="" aria-expanded="true" type="button" tabindex="0" data-show-focus="true" class="button-reset__buttonReset__zO1D7 collapse__collapseLabelButton__gN4Af"><span class="collapse__collapseChevron__SnIUQ"><svg width="16" height="16" fill="none" viewBox="0 0 16 16" aria-hidden="true" data-fpl-icon-size="16"><path fill="var(--fpl-icon-color, var(--color-icon))" d="M9.768 6.768a.5.5 0 0 1 .707.707l-2.12 2.121a.5.5 0 0 1-.708 0L5.525 7.475a.5.5 0 0 1 .708-.707l1.768 1.767z"></path></svg></span><span class="collapse__collapseLabel__cVIMx collapse__mediumLabelSize__YZ57W">Pages</span></button><div data-fpl-component="" class="collapse__collapseTrail__nTP9O"><button data-fpl-component="" aria-label="Ajouter une nouvelle page" data-testid="new-page-button" data-tooltip="Ajouter une nouvelle page" data-tooltip-type="text" data-tooltip-show-above="true" type="button" tabindex="0" data-show-focus="true" class="button-reset__buttonReset__zO1D7 base-icon-button__baseIconButton__TXKzr icon-button__iconButton__CTj-- icon-button__ghost__1ok6j"><span aria-hidden="true" class="base-icon-button__icon__FIIFq"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" data-fpl-icon-size="24"><path fill="var(--fpl-icon-color, var(--color-icon))" fill-rule="evenodd" d="M12 6a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 12 6" clip-rule="evenodd"></path></svg></span></button></div></div></h2><div data-fpl-component="" class="collapse__collapseContent__J6Fze"><div><div class="legacy_pages_panel--pagesList--IgtF8" style="height: 40px;"><div class="legacy_pages_panel--scrollContainer--D9z-X scroll_container--clipContainer--cL0WX js-fullscreen-wheel-event-capture" data-non-interactive="true"><div class="scroll_container--scrollContainer--WKNyX scroll_container--full--S7bP3" data-non-interactive="true"><div class="scroll_container--full--S7bP3" data-non-interactive="true"><div data-non-interactive="true"><div><div><div><div data-fpl-component="primitive" role="presentation" style="display: block;"><div class="pages_list--pagesRowWrapper--1v7Fv" data-testid="PagesRowWrapper"><div class="pages_panel_row--pageRowContainer--BaOAx"><button aria-current="page" class="legacy_pages_panel--pageRow--9OnkY legacy_pages_panel--pageRowBase--dQ3Qk legacy_pages_panel--pageRowActive--hZAkg legacy_pages_panel--hoverByMouse--g07Bk legacy_pages_panel--pageRowButton--31SQE" draggable="false" type="button"><div class="legacy_pages_panel--renameableNode--wjbFO"><span class="legacy_pages_panel--renameableNodeText--vzN2p ellipsis--ellipsis--70pHK">Page 1</span></div><div class="legacy_pages_panel--pageRowRight--Qt5pm"></div></button></div></div></div></div></div></div></div></div></div></div><div data-fpl-component="" class="use-drag__base__YCEp1 js-fullscreen-prevent-event-capture ri3hjr0" data-fpl-side="bottom" tabindex="0" role="slider" aria-label="Poignée de redimensionnement" aria-orientation="vertical" aria-valuenow="40" aria-valuetext="40&nbsp;pixels"></div></div></div></div></div></div></div><div class="objects_panel_container--container--UxrNI"><div data-fpl-component="" height="fill" class="collapse__collapseRoot__nSZ1e collapse__fillHeight__BK9lI"><h2><div data-fpl-component="" class="collapse__collapseHeader__PGUuS collapse__largeSize__lDD-m collapse__fillWidth__9mtAx collapse__leftPanelVariant__Q8P4s"><button data-fpl-component="" aria-expanded="true" type="button" tabindex="0" data-show-focus="true" class="button-reset__buttonReset__zO1D7 collapse__collapseLabelButton__gN4Af"><span class="collapse__collapseChevron__SnIUQ"><svg width="16" height="16" fill="none" viewBox="0 0 16 16" aria-hidden="true" data-fpl-icon-size="16"><path fill="var(--fpl-icon-color, var(--color-icon))" d="M9.768 6.768a.5.5 0 0 1 .707.707l-2.12 2.121a.5.5 0 0 1-.708 0L5.525 7.475a.5.5 0 0 1 .708-.707l1.768 1.767z"></path></svg></span><span class="collapse__collapseLabel__cVIMx collapse__mediumLabelSize__YZ57W"><i18n-text>Calques</i18n-text></span></button><div data-fpl-component="" class="collapse__collapseTrail__nTP9O"></div></div></h2><div data-fpl-component="" class="collapse__collapseContent__J6Fze"><div class="cx_absolute--c8Br6 cx_invisible--iymi0 object_row--invisibleMeasurementNode--OVN-3" data-testid="autoscroll-measurement-node"></div><div class="objects_panel--scrollContainer--uCLpi scroll_container--clipContainer--cL0WX js-fullscreen-wheel-event-capture" data-non-interactive="true" style="width: 240px; min-width: 240px;"><div class="scroll_container--scrollContainer--WKNyX scroll_container--full--S7bP3 scroll_container--horizontalScrollingEnabled--Rqczs scroll_container--propagateScrolling--lhU4B" data-non-interactive="true"><div class="scroll_container--full--S7bP3" data-non-interactive="true" style="min-height: 56px;"><div class="objects_panel--reserveBottomHeight--ddeAw" data-non-interactive="true"><div><div class="objects_panel--rowContainer--Y1-LY objects_panel--horizontalScrollBarPadding--zvLj4" data-testid="objects-panel" style="width: max(0px, 100%); height: 0px; --row-gap: 4px;"></div></div></div></div></div></div></div></div></div></div></div><div data-fpl-component="" class="use-drag__base__YCEp1 js-fullscreen-prevent-event-capture ri3hjr0" data-testid="leftPanelContainer.resizablePanel" data-fpl-side="right" tabindex="0" role="slider" data-fpl-extrema="min" aria-label="Poignée de redimensionnement" aria-orientation="horizontal" aria-valuenow="240" aria-valuetext="240&nbsp;pixels (min)" aria-valuemin="240" aria-valuemax="500"></div></div></div></div></div></div></div><div data-keyboard-receiver="3" data-non-interactive="true"><div class="_14wijgr1"><div role="region" aria-label="Barre latérale droite" class="accessible_area--displayContent--TuRM4"><div><div class="properties_panel--drillDownContainer--KR-kD properties_panel--withInsetEditorEnabled--s9HKR" data-cancel-insertable-resource-drag-and-drop="true" data-onboarding-key="properties-panel" data-testid="properties-panel" style="--inProductHelpSidePanelWidth: 0px; width: 241px;"><div><div class="properties_panel--panelPosition--a0Zi0 js-fullscreen-prevent-event-capture properties_panel--withInsetEditorEnabled--s9HKR properties_panel--withAnimation--az2dY"><div class="properties_panel--panelContainer---Vpdt properties_panel--withInsetEditorEnabled--s9HKR"><div><div class="properties_panel--panelHeaderControls--wX4Uu"><div class="properties_panel--left--3qZao"><style nonce="">
+  @layer css-modules {
+    .multiplayer-animation-svg {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 30px;
+    }
+
+    .multiplayer-animation-droplet {
+      left: 8.5px;
+      top: 0px;
+      height: 2px;
+      width: 13px;
+      border-radius: 0px;
+      position: absolute;
+    }
+
+    .multiplayer-animation-droplet-horizontal {
+      left: 0px;
+      top: 50%;
+      transform: translateY(-50%);
+      height: 13px;
+      width: 2px;
+      border-radius: 0px;
+      position: absolute;
+    }
+
+    .multiplayer-animation-droplet.selected {
+      animation: droplet 0.3s ease-in forwards;
+    }
+
+    .multiplayer-animation-droplet-horizontal.selected {
+      animation: droplet-horizontal 0.3s ease-in forwards;
+    }
+
+    .multiplayer-animation-droplet.deselected {
+      animation: droplet-reverse 0.2s ease-out 0.4s forwards;
+      left: 11.75px;
+      top: 0px;
+      height: 0px;
+      width: 0px;
+      border-radius: 0px;
+    }
+
+    .multiplayer-animation-droplet-horizontal.deselected {
+      animation: droplet-horizontal-reverse 0.2s ease-out 0.4s forwards;
+      left: 11.75px;
+      height: 0px;
+      width: 0px;
+      border-radius: 0px;
+    }
+
+    .multiplayer-animation-circle {
+      stroke-dasharray: 400;
+      stroke-dashoffset: 400;
+      transform-origin: center;
+      transform: rotateZ(-90deg);
+    }
+
+    .multiplayer-animation-circle.horizontal {
+      transform: rotateZ(-180deg);
+    }
+
+    .multiplayer-animation-circle.selected {
+      animation: draw-circle 0.15s ease-in 0.3s forwards;
+    }
+
+    .multiplayer-animation-circle-horizontal.selected {
+      animation: draw-circle-horizontal 0.15s ease-in 0.3s forwards;
+    }
+
+    .multiplayer-animation-circle.deselected {
+      animation: draw-circle-reverse 0.4s ease-in forwards;
+    }
+
+    .multiplayer-animation-circle.presenting {
+      stroke-dasharray: 3.4;
+      animation: rotating 30s linear infinite
+    }
+
+    @keyframes rotating {
+      from {
+        transform: rotateZ(0deg);
+      }
+      to {
+        transform: rotateZ(360deg);
+      }
+    }
+
+    @keyframes droplet {
+      0% {
+        top: 0px;
+        height: 2px;
+        width: 13px;
+        border-radius: 0px;
+      }
+      20% {
+        top: -3.5px;
+        height: 6.5px;
+        width:  6.5px;
+        border-radius: 100%;
+      }
+      66% {
+        top: -2px;
+        height: 7px;
+      }
+      98% {
+        top: 5px;
+        height: 3px;
+        width: 3px;
+        border-radius: 100%;
+      }
+      99% {
+        top: 5px;
+        height: 1px;
+        width: 1px;
+        border-radius: 100%;
+      }
+      100% {
+        top: 5px;
+        height: 0px;
+        width: 0px;
+        border-radius: 100%;
+      }
+    }
+
+    @keyframes droplet-horizontal {
+      0% {
+        left: 0;
+        height: 13px;
+        width: 2px;
+        border-radius: 0px;
+      }
+      20% {
+        left: -3.5px;
+        height: 6.5px;
+        width: 6.5px;
+        border-radius: 100%;
+      }
+      66% {
+        left: -2px;
+        width: 6.5px;
+      }
+      99% {
+        left: 5px;
+        height: 3px;
+        width: 3px;
+        border-radius: 100%;
+      }
+      100% {
+        left: 5px;
+        height: 0px;
+        width: 0px;
+        border-radius: 100%;
+      }
+    }
+
+    @keyframes draw-circle {
+      0% {
+        stroke-dashoffset: 400;
+      }
+      100% {
+        stroke-dashoffset: 300;
+      }
+    }
+
+    @keyframes droplet-reverse {
+      0% {
+        top: 0px;
+        height: 2px;
+        width: 2px;
+        border-radius: 0px;
+      }
+      100% {
+        top: 0px;
+        height: 2px;
+        width: 13;
+        border-radius: 0px;
+      }
+    }
+
+    @keyframes droplet-horizontal-reverse {
+      0% {
+        left: 0px;
+        height: 2px;
+        width: 2px;
+        border-radius: 0px;
+      }
+      100% {
+        left: 0px;
+        width: 2px;
+        height: 13px;
+        border-radius: 0px;
+      }
+    }
+  }
+  </style><span class="multiplayer_view--usersContainer--lI-68" data-onboarding-key="multiplayer-users-container"><div class="accessible_area--displayContent--TuRM4" data-fullscreen-bubble-phase="true"><button aria-expanded="false" aria-label="Outils multi-utilisateurs" class="multiplayer_view--avatarWithCollaborationToolsContainer--2AFdO multiplayer_view--fullHeightSidebarAvatarWithToolsOverrides--o6yG5" data-tooltip="Outils multi-utilisateurs" data-tooltip-offset-x="11.5" data-tooltip-offset-y="8" data-tooltip-type="text" id="multiplayer-toolbar-container" aria-controls=":r17:" aria-haspopup="dialog"><span class="multiplayer_view--disabled--kLBpM"><span class="voice_toolbar--avatarWrapper--M4a68"><div class="multiplayer_view--userIconView--dDvae"><div data-tooltip="view_user_profile" data-tooltip-click-action="none" data-tooltip-interactive="true" data-tooltip-max-width="300" data-tooltip-offset-y="8" data-tooltip-timeout-delay="150" data-tooltip-type="special" data-tooltip-user-handle="Arnaud (Vous)" data-tooltip-user-profile-url="/files/null/user/1582453323205532924" data-tooltip-user-session-id="3" id="voice-avatar-session-3" style="display: inherit;"><svg class="multiplayer-animation-svg " viewBox="0 0 30 40" aria-hidden="true"><circle class="multiplayer-animation-circle  " cx="15" cy="20" r="13" fill="none" stroke="var(--color-bg-brand)" stroke-width="2"></circle></svg><div class="multiplayer_view--normal---P25j"><span data-testid="initial-avatar" class="avatar--avatar--gnJ3d avatar--circle--llyF0 multiplayer_view--userIconAvatar--JUHxu" aria-hidden="true" style="display: flex; justify-content: center; color: var(--color-textonmultiplayeryellow); background-color: rgb(255, 205, 41);">A</span></div></div></div></span></span><span data-onboarding-key="multiplayer-spotlight-nux-key" class="multiplayer_view--onboardingTarget--nnqVO"><span><svg width="16" height="16" fill="none" viewBox="0 0 16 16" class="multiplayer_view--chevron--dnZaH" data-fpl-icon-size="16"><path fill="var(--fpl-icon-color, var(--color-icon))" d="M9.768 6.768a.5.5 0 0 1 .707.707l-2.12 2.121a.5.5 0 0 1-.708 0L5.525 7.475a.5.5 0 0 1 .708-.707l1.768 1.767z"></path></svg></span></span></button></div><div data-onboarding-key="multiplayer-avatars" style="width: 0px; position: relative; height: 100%; pointer-events: none;"><div style="width: 154px; position: absolute; right: -8px; display: flex; flex-direction: row-reverse; justify-content: flex-start; transform: none; transform-origin: 50% 50% 0px;"></div></div></span></div><div class="properties_panel--rightButtons--T9PgY"><div class="cx_flex--uQqQ4 cx_itemsCenter--q5Zbc"><div data-fpl-component="primitive" role="presentation" style="display: contents;"><div data-fpl-component="" aria-label="Vue du prototype" class="button-group__buttonGroup__p1E0s" role="group" data-fpl-group="true"><button data-fpl-component="" aria-label="Présenter" data-onboarding-key="prototype-view-flyout" data-testid="present-as-prototype" data-tooltip="present-as-prototype" data-tooltip-type="lookup" id=":r1f:" type="button" tabindex="0" class="button-reset__buttonReset__zO1D7 base-icon-button__baseIconButton__TXKzr icon-button__iconButton__CTj-- icon-button__ghost__1ok6j icon-button__largeSize__jKNM1"><span aria-hidden="true" class="base-icon-button__icon__FIIFq"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" data-fpl-icon-size="24L"><path fill="var(--fpl-icon-color, var(--color-icon))" fill-rule="evenodd" d="M6 5.903C6 4.43 7.604 3.517 8.87 4.269l10.15 6.028c1.307.776 1.305 2.669-.003 3.442l-10.15 5.995c-1.228.724-2.768-.11-2.863-1.5L6 18.098zm1 12.195a.9.9 0 0 0 1.357.774l10.152-5.995a1 1 0 0 0 .002-1.72L8.359 5.129A.9.9 0 0 0 7 5.903z" clip-rule="evenodd"></path></svg></span></button><button data-fpl-component="" aria-haspopup="menu" id=":r1e:" aria-label="Vue du prototype" data-tooltip="Vue du prototype" data-tooltip-type="text" aria-expanded="false" type="button" tabindex="0" data-show-focus="true" class="button-reset__buttonReset__zO1D7 button-group__triggerButton__bxStO base-icon-button__baseIconButton__TXKzr dialog-trigger-button__dialogTriggerButton__bjzvt dialog-trigger-button__ghost__OrMww button-group__largeSize__tou-J"><span class="button-group__triggerButtonIcon__UZhip base-icon-button__icon__FIIFq" aria-hidden="true"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" data-fpl-icon-size="24"><path fill="var(--fpl-icon-color, var(--color-icon))" fill-rule="evenodd" d="M9.646 11.146a.5.5 0 0 1 .708 0L12 12.793l1.646-1.647a.5.5 0 0 1 .708.708l-2 2a.5.5 0 0 1-.708 0l-2-2a.5.5 0 0 1 0-.708" clip-rule="evenodd"></path></svg></span></button></div></div><div class="share_button--legacyShareButtonContainer--eNNDf" data-onboarding-key="cooper_publish_templates_target_key"><button type="button" class="share_button--shareButton--TKi3k share_button--textButtonContainer--VHfRC share_button--textButton--okkx6 basic_form--primaryBtn--jDHWr basic_form--btn--t7Y67 ellipsis--ellipsis--70pHK text--fontPos11--rO47d text--_fontBase--VaHfk properties_panel--shareButton--5uBeJ" data-onboarding-key="share" data-tooltip-is-current-user-file-owner="true" data-tooltip-type="text" data-tooltip-interactive="false" data-tooltip-show-immediately="true" data-tooltip-offset-y="6" data-testid="multiplayer-toolbar-share-button"><i18n-text>Partager</i18n-text></button><div data-fpl-component="primitive" aria-relevant="all" role="status"></div></div></div></div></div></div><div class="x78zum5 xuk3077 x10w6t97 xso031l x1q0q8m5 x1h6zu7b x1qughib xdnwjd9 x1n2onr6" data-testid="property-panel-tab-header"><div class="x78zum5 x6s0dn4 x2lah0s x1vqgdyp xia6lk6 xrdokzc x1nhvcw1 xdnwjd9"><div data-fpl-component="" class="tabs__tabStrip__6GiU-" role="tablist" aria-orientation="horizontal" data-tab-group=":r1i:"><button data-fpl-component="" tabindex="0" type="button" class="tabs__tabButton__UEhB4" role="tab" aria-selected="true" aria-controls="tab:r1i:-0-panel" id="tab:r1i:-0-trigger"><span aria-hidden="true" class="tabs__tabButtonStrong__Kgz2o">Design</span><span>Design</span></button><button data-fpl-component="" tabindex="-1" type="button" class="tabs__tabButton__UEhB4" role="tab" aria-selected="false" aria-controls="tab:r1i:-1-panel" id="tab:r1i:-1-trigger"><span aria-hidden="true" class="tabs__tabButtonStrong__Kgz2o">Prototype</span><span>Prototype</span></button></div></div><div class="x78zum5 x1qughib xdnwjd9 x6s0dn4 x1fuw9x7 xb3r6kr x1vqgdyp"><div data-fpl-component="primitive" role="presentation" style="display: contents;"><button data-fpl-component="primitive" aria-haspopup="menu" aria-expanded="false" id=":r1l:" type="button" tabindex="0" data-show-focus="true" class="button-reset__buttonReset__zO1D7 xkrshzq xagxu50 x7r0jtz xgsvwom xak7rv0 x1cemz1n x1a2a7pz xiwbtd4">100%<svg width="16" height="16" fill="none" viewBox="0 0 16 16" data-fpl-icon-size="16"><path fill="var(--fpl-icon-color, var(--color-icon))" d="M9.768 6.768a.5.5 0 0 1 .707.707l-2.12 2.121a.5.5 0 0 1-.708 0L5.525 7.475a.5.5 0 0 1 .708-.707l1.768 1.767z"></path></svg></button></div></div></div><div class="properties_panel--scrollOuterContainer--gi3Dg"><div class="properties_panel--scrollContainer--NGdzl scroll_container--clipContainer--cL0WX js-fullscreen-wheel-event-capture" data-non-interactive="true"><div id="properties-panel-scroll-container" class="scroll_container--scrollContainer--WKNyX scroll_container--full--S7bP3" data-non-interactive="true"><div class="scroll_container--full--S7bP3" data-non-interactive="true" style="min-height: 438px;"><div data-non-interactive="true"><div class="properties_panel--propertiesPanel--gOq1f" data-non-interactive="true" data-fpl-audit="true"><div class="cachedSubtree displayContents"><div class="propertiesPanel " data-non-interactive="true"><div><div class="raw_components--singleRow--QDrBw raw_components--_singleRow--haOPc raw_components--singleRowHeight--r92RH raw_components--_row--6Yz0U raw_components--row--UhGzp background_panel--panelTitleRow--XyTfF" data-non-interactive="true"><div class="panel_title--panelTitle--v8TJS " tabindex="-1"><div class="collapsible_panel--icon--mh39w collapsible_panel--hiddenIcon--A9QLo" aria-hidden="true"><svg width="16" height="16" fill="none" viewBox="0 0 16 16" data-fpl-icon-size="16"><path fill="var(--fpl-icon-color, var(--color-icon))" d="M6.768 5.525a.5.5 0 0 1 .707 0l2.121 2.121a.5.5 0 0 1 0 .707l-2.121 2.122a.5.5 0 0 1-.707-.708L8.535 8 6.768 6.232a.5.5 0 0 1 0-.707"></path></svg></div><i18n-text>Page</i18n-text></div></div><div class="xrvj5dj xrrek2q x1lqv20w x1fuw9x7 x1ra2ayo xdzfydn x16zb2db"><div class="xamitd3 xeuugli xnrwi1y" data-non-interactive="true"><div class="background_panel--colorValueContainer--vIY5E paint_panels--colorValueContainer--QPBbG raw_components--borderFocusWithin--mSvWa paint_panels--_baseColorValueContainer--vZ0G7 raw_components--base--O8WhL raw_components--singleRowHeight--r92RH"><div data-fpl-component="primitive" role="presentation" style="display: contents;"><button data-fpl-component="primitive" aria-label="Couleur unie hex : F5F5F5" type="button" tabindex="0" data-show-focus="true" class="button-reset__buttonReset__zO1D7 chit--chit---YjnO paint_panels--chit--o24xS" style="background-color: rgb(245, 245, 245);"><div class="chit--chitAlpha--V5xdL" style="opacity: 0;"></div><div class="chit--chitBorder--eykfP" style="box-shadow: inset 0px 0px 0px 2px var(--color-bordertranslucent);"></div></button><input autocomplete="false" spellcheck="false" aria-label="Couleur" name="Couleur" class="raw_components--textInput--DZIFa raw_components--base--O8WhL raw_components--input--iFGv3 raw_components--singleRowHeight--r92RH paint_panels--colorInput--fcNWY" dir="auto" value="F5F5F5"></div><label aria-label="" class="paint_panels--opacityInputContainer--vGHrs scrubbable_control--container--myvKL scrubbable_control--noScrubCursor--hznxz" data-onboarding-key="scrubbable-control-" data-tooltip="" data-tooltip-type="text" data-temporary-fpl-no-drag=""><input autocomplete="false" spellcheck="false" class="raw_components--textInput--DZIFa raw_components--base--O8WhL raw_components--input--iFGv3 raw_components--singleRowHeight--r92RH cx_ellipsis--r0C3i scrubbable_control--inputNarrow---kn-3 scrubbable_control--scrubbableInput--b-l47 raw_components--noLeftBorder--BHVbN" dir="auto" value="100"><div data-temporary-fpl-no-drag="" style="cursor: ew-resize; pointer-events: auto;"><span class="scrubbable_control--inactiveLabel--tvW4A"><i18n-text>%</i18n-text></span></div></label></div></div><div class="x1y8v6su xeuugli x1cnu6j2 x10w6t97 x78zum5 x6s0dn4" data-non-interactive="true"><span class="background_panel--visible--d6cJW"><div data-fpl-component="" class="qvliwo1"><span data-fpl-component="" class="base-icon-button__baseIconButton__TXKzr toggle-button__toggleButton__opcx3"><input data-fpl-component="primitive" data-tooltip-type="text" data-tooltip="Activer/désactiver la visibilité" class="toggle-button__input__NF3YA toggle-button__primary__M0VC3" id=":r1o:" tabindex="0" type="checkbox" checked=""><label data-fpl-component="" class="label__label__kls2I label__primary__DAarw toggle-button__label__NRP2k" for=":r1o:"><span class="_14wijgr0">Activer/désactiver la visibilité</span><span aria-hidden="true" class="base-icon-button__icon__FIIFq"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" data-fpl-icon-size="24"><path fill="var(--fpl-icon-color, var(--color-icon))" fill-rule="evenodd" d="M6 12c0-.066.054-.358.313-.825a5.9 5.9 0 0 1 1.12-1.414C8.443 8.816 9.956 8 12 8s3.558.816 4.566 1.76c.508.477.88.98 1.121 1.415.258.467.313.76.313.825 0 .066-.055.358-.313.825-.24.435-.613.938-1.12 1.414C15.557 15.184 14.044 16 12 16s-3.558-.816-4.566-1.76a5.9 5.9 0 0 1-1.121-1.415C6.055 12.358 6 12.065 6 12m-1 0c0-1.25 2.333-5 7-5s7 3.75 7 5-2.333 5-7 5-7-3.75-7-5m8 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0m1 0a2 2 0 1 1-4 0 2 2 0 0 1 4 0" clip-rule="evenodd"></path></svg></span></label></span></div></span></div></div></div></div></div><div class="cachedSubtree displayContents"><div class="propertiesPanel " data-non-interactive="true"><div class="raw_components--singleRow--QDrBw raw_components--_singleRow--haOPc raw_components--singleRowHeight--r92RH raw_components--_row--6Yz0U raw_components--row--UhGzp local_variables_panel--localVariablesPanelRowFaded--UQelT local_variables_panel--localVariablesPanelRow---r7yV draggable_list--panelHeaderRowFaded--JR1vo" data-non-interactive="true"><button data-fpl-component="primitive" data-onboarding-key="local-variables-panel-title" type="button" tabindex="-1" data-show-focus="true" class="button-reset__buttonReset__zO1D7 panel_title--panelTitle--v8TJS local_variables_panel--titleText--OyoQF draggable_list--panelTitleText--Bj2Hu"><div class="collapsible_panel--icon--mh39w collapsible_panel--hiddenIcon--A9QLo" aria-hidden="true"><svg width="16" height="16" fill="none" viewBox="0 0 16 16" data-fpl-icon-size="16"><path fill="var(--fpl-icon-color, var(--color-icon))" d="M6.768 5.525a.5.5 0 0 1 .707 0l2.121 2.121a.5.5 0 0 1 0 .707l-2.121 2.122a.5.5 0 0 1-.707-.708L8.535 8 6.768 6.232a.5.5 0 0 1 0-.707"></path></svg></div><i18n-text>Variables</i18n-text></button><div class="displayContents"><button data-fpl-component="" aria-label="Ouvrir les variables" data-tooltip="Ouvrir les variables" data-tooltip-type="text" aria-haspopup="dialog" aria-expanded="false" type="button" tabindex="0" data-show-focus="true" class="button-reset__buttonReset__zO1D7 base-icon-button__baseIconButton__TXKzr dialog-trigger-button__dialogTriggerButton__bjzvt dialog-trigger-button__ghost__OrMww"><span class="base-icon-button__icon__FIIFq" aria-hidden="true"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" data-fpl-icon-size="24"><path fill="var(--fpl-icon-color, var(--color-icon))" d="M8.5 18a.5.5 0 0 0 .5-.5v-1.55a2.5 2.5 0 0 0 0-4.9V6.5a.5.5 0 0 0-1 0v4.55a2.501 2.501 0 0 0 0 4.9v1.55a.5.5 0 0 0 .5.5m7 0a.5.5 0 0 0 .5-.5v-4.55a2.501 2.501 0 0 0 0-4.9V6.5a.5.5 0 0 0-1 0v1.55a2.5 2.5 0 0 0 0 4.9v4.55a.5.5 0 0 0 .5.5m0-6a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3m-7 3a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3"></path></svg></span></button></div></div></div></div><div class="cachedSubtree displayContents"><div class="propertiesPanel " data-non-interactive="true"><div class="styles--localStylesPanel--YMhCU"><div class="raw_components--singleRow--QDrBw raw_components--_singleRow--haOPc raw_components--singleRowHeight--r92RH raw_components--_row--6Yz0U raw_components--row--UhGzp styles--panelHeaderRowFaded--m-qir styles--panelHeaderRow--n16bi styles--styleTypeSectionRow--Z-Hyk draggable_list--panelHeaderRowFaded--JR1vo" data-non-interactive="true"><h2 class="styles--panelTitleText--gmwwF draggable_list--panelTitleText--Bj2Hu"><button data-fpl-component="primitive" type="button" tabindex="-1" data-show-focus="true" class="button-reset__buttonReset__zO1D7 styles--panelTitleButton--Y-ii2"><i18n-text>Styles</i18n-text></button></h2><div data-fpl-component="primitive" role="presentation" style="display: contents;"><button data-fpl-component="" aria-label="Créer un style" aria-haspopup="menu" id=":r1r:" data-tooltip="Créer un style" data-tooltip-type="text" aria-expanded="false" type="button" tabindex="0" data-show-focus="true" class="button-reset__buttonReset__zO1D7 base-icon-button__baseIconButton__TXKzr dialog-trigger-button__dialogTriggerButton__bjzvt dialog-trigger-button__ghost__OrMww"><span class="base-icon-button__icon__FIIFq" aria-hidden="true"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" data-fpl-icon-size="24L"><path fill="var(--fpl-icon-color, var(--color-icon))" fill-rule="evenodd" d="M12 6a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 12 6" clip-rule="evenodd"></path></svg></span></button></div></div></div></div></div><div class="cachedSubtree displayContents"><div class="propertiesPanel " data-non-interactive="true"><div data-keyboard-receiver="4" data-non-interactive="true"><div class="raw_components--singleRow--QDrBw raw_components--_singleRow--haOPc raw_components--singleRowHeight--r92RH raw_components--_row--6Yz0U raw_components--row--UhGzp draggable_list--panelHeaderRow--SIbeN draggable_list--panelHeaderRowFaded--JR1vo draggable_list--hover--coq-S" data-non-interactive="true"><div class="draggable_list--headerRow--ccjEd"><button data-fpl-component="primitive" type="button" tabindex="-1" data-show-focus="true" class="button-reset__buttonReset__zO1D7 panel_title--panelTitle--v8TJS draggable_list--panelTitle--ipyg-"><div class="collapsible_panel--icon--mh39w collapsible_panel--hiddenIcon--A9QLo" aria-hidden="true"><svg width="16" height="16" fill="none" viewBox="0 0 16 16" data-fpl-icon-size="16"><path fill="var(--fpl-icon-color, var(--color-icon))" d="M6.768 5.525a.5.5 0 0 1 .707 0l2.121 2.121a.5.5 0 0 1 0 .707l-2.121 2.122a.5.5 0 0 1-.707-.708L8.535 8 6.768 6.232a.5.5 0 0 1 0-.707"></path></svg></div><span class="draggable_list--panelTitleText--Bj2Hu">Exporter</span></button><div class="draggable_list--headerControls--4VXS-"><div class="draggable_list--addPropertyButtonsContainer--i1ovp"><span class="draggable_list--addButton--9xznH"><button data-fpl-component="" aria-label="Ajouter des paramètres d'exportation" data-tooltip="Ajouter des paramètres d'exportation" data-tooltip-type="text" type="button" tabindex="0" class="button-reset__buttonReset__zO1D7 base-icon-button__baseIconButton__TXKzr icon-button__iconButton__CTj-- icon-button__ghost__1ok6j"><span aria-hidden="true" class="base-icon-button__icon__FIIFq"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" class="draggable_list--addButton--9xznH" data-fpl-icon-size="24L"><path fill="var(--fpl-icon-color, var(--color-icon))" fill-rule="evenodd" d="M12 6a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 12 6" clip-rule="evenodd"></path></svg></span></button></span><div class="draggable_list--entrypointMenuContainer--Z7zLb"></div></div></div></div></div></div></div></div><div class="cachedSubtree displayContents"></div></div></div></div></div></div></div></div></div></div><div data-fpl-component="" class="use-drag__base__YCEp1 js-fullscreen-prevent-event-capture ri3hjr0" data-testid="propertiesPanelContainer.resizablePanel" data-fpl-side="left" tabindex="0" role="slider" data-fpl-extrema="min" aria-label="Poignée de redimensionnement" aria-orientation="horizontal" aria-valuenow="241" aria-valuetext="241&nbsp;pixels (min)" aria-valuemin="241" aria-valuemax="500"></div></div></div></div></div></div></div><div class="nav_container--flexContainer--eosIH nav_container--baseContainer--uwXlv overflow--overflowYAuto--LbWUF overflow--momentumScroll--EdX9A js-fullscreen-prevent-event-capture fullscreen_view--additionalRightNav--gzzeI" style="right: calc(253px); top: 12px;"></div></div></div><div class="positioned_design_toolbelt--root--HlBuN" style="visibility: inherit; margin-bottom: 0px; margin-right: 0px;"><div class="accessible_area--displayContent--TuRM4" data-fullscreen-bubble-phase="true"><div class="_14wijgr1"><div role="region" aria-label="Barre d'outils de l'application" class="accessible_area--displayContent--TuRM4"><div class="toolbelt--toolbeltWrapper--nqLdG" data-testid="design-toolbelt-wrapper"><div><div data-fpl-component="primitive" aria-label="Éditeur" class="toolbelt--root---Vk24 js-fullscreen-prevent-event-capture" role="toolbar" aria-orientation="horizontal"><div data-onboarding-key="toolbar-key"><div class="toolbelt_left_side--leftSideCarouselContainer--iKTRu" style="width: 373px; will-change: auto; transition: width 0.5s;"><div class="toolbelt_left_side--leftSideCarouselRows--vXm-B" style="transform: translateY(-48px);"><div class="toolbelt_left_side--hiddenCarouselRow--sBeSa"><div class="toolbelt_left_side--leftSideRow--UZhB6"><div data-editor-theme="dev-handoff" data-preferred-theme="light" style="display: contents;"><div class="design_toolbelt--enabledToolsRow--KzoLt" data-onboarding-key="toolbar-enabled-tools-key"><button data-fpl-component="primitive" aria-hidden="true" aria-label="Déplacer" aria-pressed="true" data-testid="Déplacer-tool" data-tooltip="Déplacer" data-tooltip-shortcut="" data-tooltip-show-above="true" data-tooltip-type="text" type="button" tabindex="0" data-show-focus="true" class="button-reset__buttonReset__zO1D7 toolbelt_button--topLevelButtonNew--KhQeE toolbelt_button--disabledButton--cUgNv toolbelt_button--selectedButton--ebyl7 toolbelt_button--topLevelButtonPrimaryPadding--iBHjf" aria-disabled="true"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" data-fpl-icon-size="24L"><path fill="var(--fpl-icon-color, var(--color-icon))" d="M4.586 4.586a2 2 0 0 1 2.005-.497l.14.05 13 5.107a2 2 0 0 1 1.267 1.779v.159a2 2 0 0 1-1.26 1.782l-.15.053-5.024 1.545-1.545 5.024a2 2 0 0 1-1.677 1.398l-.158.012a2 2 0 0 1-1.938-1.267l-5.107-13a2 2 0 0 1 .447-2.145m1.78.484a1 1 0 0 0-1.073.223l-.097.112a1 1 0 0 0-.127.96l5.108 13a1 1 0 0 0 .811.628l.158.006a1 1 0 0 0 .859-.558l.058-.147 1.7-5.53 5.531-1.701a1 1 0 0 0 .687-.76l.018-.157a1 1 0 0 0-.492-.9l-.142-.069z"></path></svg></button><button data-fpl-component="primitive" aria-hidden="true" aria-label="Copier les couleurs" aria-pressed="false" data-onboarding-key="eyedropper-dev-mode-onboarding" data-testid="Copier les couleurs-tool" data-tooltip="Copier les couleurs" data-tooltip-shortcut="⌃C" data-tooltip-show-above="true" data-tooltip-type="text" type="button" tabindex="0" data-show-focus="true" class="button-reset__buttonReset__zO1D7 toolbelt_button--topLevelButtonNew--KhQeE toolbelt_button--disabledButton--cUgNv toolbelt_button--topLevelButtonPrimaryPadding--iBHjf" aria-disabled="true"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" data-fpl-icon-size="24L"><path fill="var(--fpl-icon-color, var(--color-icon))" d="M16.922 3.56a2.501 2.501 0 0 1 3.517 3.517l-.172.19-2.206 2.205a.33.33 0 0 0 0 .466h.001c.548.549.582 1.418.103 2.007l-.104.115a1.5 1.5 0 0 1-2.12 0l-.233-.233-6.94 6.94a2.5 2.5 0 0 1-2.12.705L5.56 20.56a1.5 1.5 0 0 1-2.12-2.121l1.086-1.09a2.5 2.5 0 0 1 .706-2.118l6.94-6.939-.232-.232a1.5 1.5 0 0 1 0-2.122l.114-.103a1.5 1.5 0 0 1 1.893 0l.114.103.052.042c.127.084.3.07.411-.042l2.208-2.207zM5.939 15.939a1.5 1.5 0 0 0-.405 1.37c.044.208.013.435-.137.585l-1.25 1.25v.002a.5.5 0 0 0 .706.706l1.251-1.251c.15-.15.377-.181.584-.137.48.102 1-.032 1.372-.404L15 11.12 12.88 9zm13.621-11.5a1.5 1.5 0 0 0-2.12 0l-2.21 2.206a1.327 1.327 0 0 1-1.877 0 .5.5 0 0 0-.707.707l3.994 3.994.005.005h.001a.5.5 0 0 0 .707-.707l-.004-.003a1.33 1.33 0 0 1 .004-1.877L19.56 6.56a1.5 1.5 0 0 0 0-2.122"></path></svg></button><button data-fpl-component="primitive" aria-hidden="true" aria-label="Mesure" aria-pressed="false" data-onboarding-key="tool-measurements-onboarding" data-testid="Mesure-tool" data-tooltip="Mesure" data-tooltip-shortcut="⇧M" data-tooltip-show-above="true" data-tooltip-type="text" type="button" tabindex="0" data-show-focus="true" class="button-reset__buttonReset__zO1D7 toolbelt_button--topLevelButtonNew--KhQeE toolbelt_button--disabledButton--cUgNv toolbelt_button--topLevelButtonPrimaryPadding--iBHjf" aria-disabled="true"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" data-fpl-icon-size="24L"><path fill="var(--fpl-icon-color, var(--color-icon))" fill-rule="evenodd" d="M3.293 7.793a1 1 0 0 0 0 1.414l11.5 11.5a1 1 0 0 0 1.414 0l4.5-4.5a1 1 0 0 0 0-1.414l-11.5-11.5a1 1 0 0 0-1.414 0zM4 8.5l.707.707.69.69.75-.75a.5.5 0 1 1 .707.707l-.75.75 1.292 1.292 2.25-2.25a.5.5 0 0 1 .708.708l-2.25 2.25 1.292 1.292.75-.75a.5.5 0 0 1 .708.708l-.75.75 1.292 1.292 2.25-2.25a.5.5 0 0 1 .708.708l-2.25 2.25 2.689 2.689.707.707.707-.707 3.086-3.086L20 15.5l-.707-.707L9.207 4.707 8.5 4l-.707.707-3.086 3.086zM16 17a1 1 0 1 0 0-2 1 1 0 0 0 0 2" clip-rule="evenodd"></path></svg></button><button data-fpl-component="primitive" aria-hidden="true" aria-label="Annotation" aria-pressed="false" data-onboarding-key="tool-annotations-onboarding" data-testid="Annotation-tool" data-tooltip="Annotation" data-tooltip-shortcut="Y" data-tooltip-show-above="true" data-tooltip-type="text" type="button" tabindex="0" data-show-focus="true" class="button-reset__buttonReset__zO1D7 toolbelt_button--topLevelButtonNew--KhQeE toolbelt_button--disabledButton--cUgNv toolbelt_button--topLevelButtonPrimaryPadding--iBHjf" aria-disabled="true"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" data-fpl-icon-size="24L"><path fill="var(--fpl-icon-color, var(--color-icon))" fill-rule="evenodd" d="M16.8 5H8.2c-.577 0-.949 0-1.232.024-.272.022-.373.06-.422.085a1 1 0 0 0-.437.437c-.025.05-.063.15-.085.422C6 6.25 6 6.623 6 7.2v7.3a.5.5 0 0 1-1 0V7.2c0-1.12 0-1.68.218-2.108a2 2 0 0 1 .874-.874C6.52 4 7.08 4 8.2 4h8.6c1.12 0 1.68 0 2.108.218a2 2 0 0 1 .874.874C20 5.52 20 6.08 20 7.2v8.6c0 1.12 0 1.68-.218 2.108a2 2 0 0 1-.874.874C18.48 19 17.92 19 16.8 19H9.5a.5.5 0 0 1 0-1h7.3c.577 0 .949 0 1.232-.024.272-.022.372-.06.422-.085a1 1 0 0 0 .437-.437c.025-.05.063-.15.085-.422C19 16.75 19 16.377 19 15.8V7.2c0-.577 0-.949-.024-1.232-.022-.272-.06-.373-.085-.422a1 1 0 0 0-.437-.437c-.05-.025-.15-.063-.422-.085C17.75 5 17.377 5 16.8 5M7 18.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0m1 0a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0m1-5a.5.5 0 0 1 .5-.5h4a.5.5 0 0 1 0 1h-4a.5.5 0 0 1-.5-.5M9.5 9a.5.5 0 0 0 0 1h6a.5.5 0 0 0 0-1z" clip-rule="evenodd"></path></svg></button><button data-fpl-component="primitive" aria-hidden="true" aria-label="Commentaire" aria-pressed="false" data-onboarding-key="user_groups_comment_tool_onboarding_key" data-testid="Commentaire-tool" data-tooltip="Commentaire" data-tooltip-shortcut="C" data-tooltip-show-above="true" data-tooltip-type="text" type="button" tabindex="0" data-show-focus="true" class="button-reset__buttonReset__zO1D7 toolbelt_button--topLevelButtonNew--KhQeE toolbelt_button--disabledButton--cUgNv toolbelt_button--topLevelButtonPrimaryPadding--iBHjf" aria-disabled="true"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" data-fpl-icon-size="24L"><path fill="var(--fpl-icon-color, var(--color-icon))" d="M12.5 3a8.5 8.5 0 0 1 0 17H7.09c-.89 0-1.39 0-1.767-.121l-.154-.06a2 2 0 0 1-.906-.828l-.082-.16c-.136-.297-.17-.657-.178-1.248L4 16.909V11.5A8.5 8.5 0 0 1 12.5 3m0 1A7.5 7.5 0 0 0 5 11.5v5.41c0 .523 0 .861.02 1.12.018.247.05.34.07.385a1 1 0 0 0 .495.494c.045.02.138.053.386.072.258.019.596.019 1.12.019H12.5a7.5 7.5 0 0 0 0-15"></path></svg></button></div></div></div></div><div class="toolbelt_left_side--visibleCarouselRow--GPXXq"><div class="toolbelt_left_side--leftSideRow--UZhB6"><div data-editor-theme="design" data-preferred-theme="light" style="display: contents;"><div class="design_toolbelt--enabledToolsRow--KzoLt" data-onboarding-key="toolbar-enabled-tools-key"><div data-fpl-component="primitive" role="presentation" style="display: contents;"><div data-fpl-component="primitive" class="tool_group--toolGroup--dSfxx" aria-label="Déplacer" role="group" data-fpl-group="true"><button data-fpl-component="primitive" aria-hidden="false" aria-label="Déplacer" aria-pressed="true" data-testid="Déplacer-tool" data-tooltip="Déplacer" data-tooltip-shortcut="V" data-tooltip-show-above="true" data-tooltip-type="text" type="button" tabindex="0" data-show-focus="true" class="button-reset__buttonReset__zO1D7 toolbelt_button--topLevelButtonNew--KhQeE toolbelt_button--selectedButton--ebyl7 toolbelt_button--topLevelButtonPrimaryPadding--iBHjf"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" data-fpl-icon-size="24L"><path fill="var(--fpl-icon-color, var(--color-icon))" d="M4.586 4.586a2 2 0 0 1 2.005-.497l.14.05 13 5.107a2 2 0 0 1 1.267 1.779v.159a2 2 0 0 1-1.26 1.782l-.15.053-5.024 1.545-1.545 5.024a2 2 0 0 1-1.677 1.398l-.158.012a2 2 0 0 1-1.938-1.267l-5.107-13a2 2 0 0 1 .447-2.145m1.78.484a1 1 0 0 0-1.073.223l-.097.112a1 1 0 0 0-.127.96l5.108 13a1 1 0 0 0 .811.628l.158.006a1 1 0 0 0 .859-.558l.058-.147 1.7-5.53 5.531-1.701a1 1 0 0 0 .687-.76l.018-.157a1 1 0 0 0-.492-.9l-.142-.069z"></path></svg></button><button data-fpl-component="primitive" aria-hidden="false" aria-label="Outils Déplacer" aria-pressed="false" data-testid="SelectTools-chevron" data-tooltip="Outils Déplacer" data-tooltip-show-above="true" data-tooltip-type="text" aria-haspopup="menu" aria-expanded="false" id=":r2q:" type="button" tabindex="0" data-show-focus="true" class="button-reset__buttonReset__zO1D7 tool_group--flyoutChevron--2HxuG"><span aria-hidden="true"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" data-fpl-icon-size="24"><path fill="var(--fpl-icon-color, var(--color-icon))" fill-rule="evenodd" d="M9.646 11.146a.5.5 0 0 1 .708 0L12 12.793l1.646-1.647a.5.5 0 0 1 .708.708l-2 2a.5.5 0 0 1-.708 0l-2-2a.5.5 0 0 1 0-.708" clip-rule="evenodd"></path></svg></span></button></div></div><div data-fpl-component="primitive" role="presentation" style="display: contents;"><div data-fpl-component="primitive" class="tool_group--toolGroup--dSfxx" aria-label="Frame" role="group" data-fpl-group="true"><button data-fpl-component="primitive" aria-hidden="false" aria-label="Frame" aria-pressed="false" data-onboarding-key="frame" data-testid="Frame-tool" data-tooltip="Frame" data-tooltip-shortcut="F" data-tooltip-show-above="true" data-tooltip-type="text" type="button" tabindex="0" data-show-focus="true" class="button-reset__buttonReset__zO1D7 toolbelt_button--topLevelButtonNew--KhQeE toolbelt_button--topLevelButtonPrimaryPadding--iBHjf"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" data-fpl-icon-size="24L"><path fill="var(--fpl-icon-color, var(--color-icon))" fill-rule="evenodd" d="M7.5 4a.5.5 0 0 0-.5.5V7H4.5a.5.5 0 0 0 0 1H7v8H4.5a.5.5 0 0 0 0 1H7v2.5a.5.5 0 0 0 1 0V17h8v2.5a.5.5 0 0 0 1 0V17h2.5a.5.5 0 0 0 0-1H17V8h2.5a.5.5 0 0 0 0-1H17V4.5a.5.5 0 0 0-1 0V7H8V4.5a.5.5 0 0 0-.5-.5M16 8H8v8h8z" clip-rule="evenodd"></path></svg></button><button data-fpl-component="primitive" aria-hidden="false" aria-label="Outils de zones" aria-pressed="false" data-testid="FrameTools-chevron" data-tooltip="Outils de zones" data-tooltip-show-above="true" data-tooltip-type="text" aria-haspopup="menu" aria-expanded="false" id=":r2v:" type="button" tabindex="0" data-show-focus="true" class="button-reset__buttonReset__zO1D7 tool_group--flyoutChevron--2HxuG"><span aria-hidden="true"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" data-fpl-icon-size="24"><path fill="var(--fpl-icon-color, var(--color-icon))" fill-rule="evenodd" d="M9.646 11.146a.5.5 0 0 1 .708 0L12 12.793l1.646-1.647a.5.5 0 0 1 .708.708l-2 2a.5.5 0 0 1-.708 0l-2-2a.5.5 0 0 1 0-.708" clip-rule="evenodd"></path></svg></span></button></div></div><div data-fpl-component="primitive" role="presentation" style="display: contents;"><div data-fpl-component="primitive" class="tool_group--toolGroup--dSfxx" aria-label="Rectangle" role="group" data-fpl-group="true"><button data-fpl-component="primitive" aria-hidden="false" aria-label="Rectangle" aria-pressed="false" data-testid="Rectangle-tool" data-tooltip="Rectangle" data-tooltip-shortcut="R" data-tooltip-show-above="true" data-tooltip-type="text" type="button" tabindex="0" data-show-focus="true" class="button-reset__buttonReset__zO1D7 toolbelt_button--topLevelButtonNew--KhQeE toolbelt_button--topLevelButtonPrimaryPadding--iBHjf"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" data-fpl-icon-size="24L"><path fill="var(--fpl-icon-color, var(--color-icon))" fill-rule="evenodd" d="M18 5H6a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1M6 4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z" clip-rule="evenodd"></path></svg></button><button data-fpl-component="primitive" aria-hidden="false" aria-label="Outils de formes" aria-pressed="false" data-testid="ShapeTools-chevron" data-tooltip="Outils de formes" data-tooltip-show-above="true" data-tooltip-type="text" aria-haspopup="menu" aria-expanded="false" id=":r34:" type="button" tabindex="0" data-show-focus="true" class="button-reset__buttonReset__zO1D7 tool_group--flyoutChevron--2HxuG"><span aria-hidden="true"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" data-fpl-icon-size="24"><path fill="var(--fpl-icon-color, var(--color-icon))" fill-rule="evenodd" d="M9.646 11.146a.5.5 0 0 1 .708 0L12 12.793l1.646-1.647a.5.5 0 0 1 .708.708l-2 2a.5.5 0 0 1-.708 0l-2-2a.5.5 0 0 1 0-.708" clip-rule="evenodd"></path></svg></span></button></div></div><div data-fpl-component="primitive" role="presentation" style="display: contents;"><div data-fpl-component="primitive" class="tool_group--toolGroup--dSfxx" aria-label="Stylo" role="group" data-fpl-group="true"><button data-fpl-component="primitive" aria-hidden="false" aria-label="Stylo" aria-pressed="false" data-testid="Stylo-tool" data-tooltip="Stylo" data-tooltip-shortcut="P" data-tooltip-show-above="true" data-tooltip-type="text" type="button" tabindex="0" data-show-focus="true" class="button-reset__buttonReset__zO1D7 toolbelt_button--topLevelButtonNew--KhQeE toolbelt_button--topLevelButtonPrimaryPadding--iBHjf"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" data-fpl-icon-size="24L"><path fill="var(--fpl-icon-color, var(--color-icon))" d="M4.886 3.21a1 1 0 0 1 .812-.19l7.698 1.56.338.076a7.67 7.67 0 0 1 5.806 7.266v.346l-.008.329 1.197 1.197a1 1 0 0 1 0 1.414l-5.523 5.522a1 1 0 0 1-1.413 0l-1.198-1.197-.328.008a7.67 7.67 0 0 1-7.612-5.806l-.077-.338L3.02 5.7a1 1 0 0 1 .274-.906l1.5-1.5zm.674 9.99a6.666 6.666 0 0 0 6.383 5.342h.3l.756-.018 1.5 1.5 5.523-5.522-1.5-1.5.018-.756a6.67 6.67 0 0 0-5.048-6.619l-.295-.066L5.5 4l-.396.397 5.16 5.16A3 3 0 0 1 12 9.001 3.001 3.001 0 0 1 12 15a3 3 0 0 1-2.444-4.737l-5.16-5.16L4 5.5zM12 10.001a2 2 0 0 0-2 2l.01.204a2 2 0 0 0 1.786 1.785L12 14a2 2 0 0 0 1.989-1.795l.01-.204a2 2 0 0 0-1.795-1.99z"></path></svg></button><button data-fpl-component="primitive" aria-hidden="false" aria-label="Outils de création" aria-pressed="false" data-testid="PenTools-chevron" data-tooltip="Outils de création" data-tooltip-show-above="true" data-tooltip-type="text" aria-haspopup="menu" aria-expanded="false" id=":r39:" type="button" tabindex="0" data-show-focus="true" class="button-reset__buttonReset__zO1D7 tool_group--flyoutChevron--2HxuG"><span aria-hidden="true"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" data-fpl-icon-size="24"><path fill="var(--fpl-icon-color, var(--color-icon))" fill-rule="evenodd" d="M9.646 11.146a.5.5 0 0 1 .708 0L12 12.793l1.646-1.647a.5.5 0 0 1 .708.708l-2 2a.5.5 0 0 1-.708 0l-2-2a.5.5 0 0 1 0-.708" clip-rule="evenodd"></path></svg></span></button></div></div><button data-fpl-component="primitive" aria-hidden="false" aria-label="Texte" aria-pressed="false" data-onboarding-key="tool-type-onboarding" data-testid="Texte-tool" data-tooltip="Texte" data-tooltip-shortcut="T" data-tooltip-show-above="true" data-tooltip-type="text" type="button" tabindex="0" data-show-focus="true" class="button-reset__buttonReset__zO1D7 toolbelt_button--topLevelButtonNew--KhQeE toolbelt_button--topLevelButtonPrimaryPadding--iBHjf"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" data-fpl-icon-size="24L"><path fill="var(--fpl-icon-color, var(--color-icon))" d="M19.5 4a.5.5 0 0 1 .5.5v3a.5.5 0 0 1-1 0V5h-6.5v14H15a.5.5 0 0 1 0 1H9a.5.5 0 0 1 0-1h2.5V5H5v2.5a.5.5 0 0 1-1 0v-3a.5.5 0 0 1 .5-.5z"></path></svg></button><div data-fpl-component="primitive" role="presentation" style="display: contents;"><div data-fpl-component="primitive" class="tool_group--toolGroup--dSfxx" aria-label="Commentaire" role="group" data-fpl-group="true"><button data-fpl-component="primitive" aria-hidden="false" aria-label="Commentaire" aria-pressed="false" data-element-target="design-toolbar-comments-group" data-onboarding-key="user_groups_comment_tool_onboarding_key" data-testid="Commentaire-tool" data-tooltip="Commentaire" data-tooltip-shortcut="C" data-tooltip-show-above="true" data-tooltip-type="text" type="button" tabindex="0" data-show-focus="true" class="button-reset__buttonReset__zO1D7 toolbelt_button--topLevelButtonNew--KhQeE toolbelt_button--topLevelButtonPrimaryPadding--iBHjf"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" data-fpl-icon-size="24L"><path fill="var(--fpl-icon-color, var(--color-icon))" d="M12.5 3a8.5 8.5 0 0 1 0 17H7.09c-.89 0-1.39 0-1.767-.121l-.154-.06a2 2 0 0 1-.906-.828l-.082-.16c-.136-.297-.17-.657-.178-1.248L4 16.909V11.5A8.5 8.5 0 0 1 12.5 3m0 1A7.5 7.5 0 0 0 5 11.5v5.41c0 .523 0 .861.02 1.12.018.247.05.34.07.385a1 1 0 0 0 .495.494c.045.02.138.053.386.072.258.019.596.019 1.12.019H12.5a7.5 7.5 0 0 0 0-15"></path></svg></button><button data-fpl-component="primitive" aria-hidden="false" aria-label="Outils de commentaire" aria-pressed="false" data-testid="CommentTools-chevron" data-tooltip="Outils de commentaire" data-tooltip-show-above="true" data-tooltip-type="text" aria-haspopup="menu" aria-expanded="false" id=":r3e:" type="button" tabindex="0" data-show-focus="true" class="button-reset__buttonReset__zO1D7 tool_group--flyoutChevron--2HxuG"><span aria-hidden="true"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" data-fpl-icon-size="24"><path fill="var(--fpl-icon-color, var(--color-icon))" fill-rule="evenodd" d="M9.646 11.146a.5.5 0 0 1 .708 0L12 12.793l1.646-1.647a.5.5 0 0 1 .708.708l-2 2a.5.5 0 0 1-.708 0l-2-2a.5.5 0 0 1 0-.708" clip-rule="evenodd"></path></svg></span></button></div></div><button data-fpl-component="primitive" aria-hidden="false" aria-label="Actions" aria-pressed="false" data-onboarding-key="toolbelt-actions" data-testid="Actions-tool" data-tooltip="Actions" data-tooltip-shortcut="⌘:" data-tooltip-show-above="true" data-tooltip-type="text" type="button" tabindex="0" data-show-focus="true" class="button-reset__buttonReset__zO1D7 toolbelt_button--topLevelButtonNew--KhQeE toolbelt_button--topLevelButtonPrimaryPadding--iBHjf"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" data-fpl-icon-size="24L"><path fill="var(--fpl-icon-color, var(--color-icon))" d="M9 13a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2zm7.5 0a.5.5 0 0 1 .5.5V16h2.5a.5.5 0 0 1 0 1H17v2.5a.5.5 0 0 1-1 0V17h-2.5a.5.5 0 0 1 0-1H16v-2.5a.5.5 0 0 1 .5-.5M6 14a1 1 0 0 0-1 1v3a1 1 0 0 0 .897.995L6 19h3a1 1 0 0 0 1-1v-3a1 1 0 0 0-1-1zm.87-10.275a1 1 0 0 1 1.337.068l3 3a1 1 0 0 1 0 1.414l-3 3a1 1 0 0 1-1.414 0l-3-3a1 1 0 0 1 0-1.414l3-3zM16.5 4a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7m-12 3.5 3 3 3-3-3-3zm12-2.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5"></path></svg></button></div></div></div></div><div class="toolbelt_left_side--hiddenCarouselRow--sBeSa"><div class="toolbelt_left_side--leftSideRow--UZhB6"><div data-editor-theme="sulli" data-preferred-theme="light" style="display: contents;"><div class="design_toolbelt--enabledToolsRow--KzoLt" data-onboarding-key="toolbar-enabled-tools-key"><div data-fpl-component="primitive" role="presentation" style="display: contents;"><div data-fpl-component="primitive" class="tool_group--toolGroup--dSfxx" aria-label="Déplacer" role="group" data-fpl-group="true"><button data-fpl-component="primitive" aria-hidden="true" aria-label="Déplacer" aria-pressed="true" data-testid="Déplacer-tool" data-tooltip="Déplacer" data-tooltip-shortcut="V" data-tooltip-show-above="true" data-tooltip-type="text" type="button" tabindex="0" data-show-focus="true" class="button-reset__buttonReset__zO1D7 toolbelt_button--topLevelButtonNew--KhQeE toolbelt_button--disabledButton--cUgNv toolbelt_button--selectedButton--ebyl7 toolbelt_button--topLevelButtonPrimaryPadding--iBHjf" aria-disabled="true"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" data-fpl-icon-size="24L"><path fill="var(--fpl-icon-color, var(--color-icon))" d="M4.586 4.586a2 2 0 0 1 2.005-.497l.14.05 13 5.107a2 2 0 0 1 1.267 1.779v.159a2 2 0 0 1-1.26 1.782l-.15.053-5.024 1.545-1.545 5.024a2 2 0 0 1-1.677 1.398l-.158.012a2 2 0 0 1-1.938-1.267l-5.107-13a2 2 0 0 1 .447-2.145m1.78.484a1 1 0 0 0-1.073.223l-.097.112a1 1 0 0 0-.127.96l5.108 13a1 1 0 0 0 .811.628l.158.006a1 1 0 0 0 .859-.558l.058-.147 1.7-5.53 5.531-1.701a1 1 0 0 0 .687-.76l.018-.157a1 1 0 0 0-.492-.9l-.142-.069z"></path></svg></button><button data-fpl-component="primitive" aria-hidden="true" aria-label="Outils Déplacer" aria-pressed="false" data-testid="SelectTools-chevron" data-tooltip="Outils Déplacer" data-tooltip-show-above="true" data-tooltip-type="text" aria-haspopup="menu" aria-expanded="false" id=":r3j:" type="button" tabindex="0" data-show-focus="true" class="button-reset__buttonReset__zO1D7 tool_group--flyoutChevron--2HxuG tool_group--flyoutChevronDisabled--2rTx8" aria-disabled="true"><span aria-hidden="true"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" data-fpl-icon-size="24"><path fill="var(--fpl-icon-color, var(--color-icon))" fill-rule="evenodd" d="M9.646 11.146a.5.5 0 0 1 .708 0L12 12.793l1.646-1.647a.5.5 0 0 1 .708.708l-2 2a.5.5 0 0 1-.708 0l-2-2a.5.5 0 0 1 0-.708" clip-rule="evenodd"></path></svg></span></button></div></div><div class="toolbelt_divider--divider--Pizvj toolbelt_divider--extendedDivider--MXoyr"></div><div class="drawing_tools--container--tUPE4"><div class="drawing_tools--clip1--yAimH"><div class="drawing_tools--clip2--eyB-8"><div class="drawing_tools--toolContainer--KZnb-"><div class="drawing_tools--toolWrapper--LVsxc"><div class="dlt_drawing_tool_submenu--submenuToolButtonCompactSize--9FW64"><div class="toolbar--passthruLayout--pgCpz toolbar--fakeButtonContainer--0cYwM" data-fullscreen-intercept="true" data-tooltip="set-tool-pen" data-tooltip-offset-x="0" data-tooltip-offset-y="-20" data-tooltip-show-above="true" data-tooltip-submenu-open="false" data-tooltip-type="lookup"><div aria-disabled="false" aria-hidden="true" class="toolbar--horizontalButton--lp3qk" data-fullscreen-intercept="true"><div class="toolbar--toolIcon--oi2aa"><div data-test-animate-state="initial" data-projection-id="1" style="transform-origin: 50% 50% 0px;"><div class="drawing_tools--toolWrapper--LVsxc"><div class="assets--relContainer--3-eA3"><img data-test-key="1773144314088-eo17ars" src="https://static.figma.com/uploads/d5d9cad647cd2f5267b6f0f2acab527b8b11c4e2"><svg width="34" height="68" viewBox="0 0 34 68" fill="none" xmlns="http://www.w3.org/2000/svg" class="assets--overlay--7sUsi"><path d="M29 67H5V40H29V67ZM17 18C19.2091 18 21 19.7909 21 22C21 24.2091 19.2091 26 17 26C14.7909 26 13 24.2091 13 22C13 19.7909 14.7909 18 17 18Z" fill="#000000"></path></svg><img data-test-key="1773144314088-wh1p3sl" src="https://static.figma.com/uploads/66522e608abb68b211db911554eca95cbf046a27" class="assets--overlay--7sUsi"></div></div></div></div></div><div aria-disabled="false" aria-hidden="true" class="toolbar--toolbarFakeButtonTarget--GQgYu toolbar--focusVisibleHover--iPqqZ" data-fullscreen-intercept="true" tabindex="-1"></div></div></div></div><div class="drawing_tools--toolWrapper--LVsxc"><div class="dlt_drawing_tool_submenu--submenuToolButtonCompactSize--9FW64"><div class="toolbar--passthruLayout--pgCpz toolbar--fakeButtonContainer--0cYwM" data-fullscreen-intercept="true" data-tooltip="set-tool-brush" data-tooltip-offset-x="0" data-tooltip-offset-y="-20" data-tooltip-show-above="true" data-tooltip-submenu-open="false" data-tooltip-type="lookup"><div aria-disabled="false" aria-hidden="true" class="toolbar--horizontalButton--lp3qk" data-fullscreen-intercept="true"><div class="toolbar--toolIcon--oi2aa"><div data-test-animate-state="initial" data-projection-id="2" style="transform-origin: 50% 50% 0px;"><div class="drawing_tools--toolWrapper--LVsxc"><div class="assets--relContainer--3-eA3"><img data-test-key="1773144314089-iijlim2" src="https://static.figma.com/uploads/5d3465d6480fb1e5bb638da3e5cc39fe692ad65b"><svg viewBox="0 0 36 67" fill="none" xmlns="http://www.w3.org/2000/svg" class="assets--overlay--7sUsi"><path d="M29.791 66H5.79103V39H29.791V66ZM17.791 3C22.107 3 26.2235 3.85434 29.9805 5.40332C30.3686 5.56335 30.6063 5.95599 30.5801 6.375L30.2803 11.1562C17.1547 18.1095 15.1274 5.38666 5.31153 11.333L5.00196 6.375C4.97578 5.95599 5.21345 5.56335 5.60157 5.40332C9.35851 3.85433 13.475 3.00001 17.791 3Z" fill="#000000"></path></svg><img data-test-key="1773144314089-7axj79y" src="https://static.figma.com/uploads/2f83cafd8d45624778a5070f02edfcb38c8aa8f1" class="assets--overlay--7sUsi"></div></div></div></div></div><div aria-disabled="false" aria-hidden="true" class="toolbar--toolbarFakeButtonTarget--GQgYu toolbar--focusVisibleHover--iPqqZ" data-fullscreen-intercept="true" tabindex="-1"></div></div></div></div><div class="drawing_tools--toolWrapper--LVsxc"><div class="dlt_drawing_tool_submenu--submenuToolButtonCompactSize--9FW64"><div class="toolbar--passthruLayout--pgCpz toolbar--fakeButtonContainer--0cYwM" data-fullscreen-intercept="true" data-tooltip="set-tool-pencil" data-tooltip-offset-x="0" data-tooltip-offset-y="-20" data-tooltip-show-above="true" data-tooltip-submenu-open="false" data-tooltip-type="lookup"><div aria-disabled="false" aria-hidden="true" class="toolbar--horizontalButton--lp3qk" data-fullscreen-intercept="true"><div class="toolbar--toolIcon--oi2aa"><div data-test-animate-state="initial" data-projection-id="3" style="transform-origin: 50% 50% 0px;"><div class="drawing_tools--toolWrapper--LVsxc"><div class="assets--relContainer--3-eA3"><img data-test-key="1773144314089-ap7jo2z" src="https://static.figma.com/uploads/c173cee2845ae89ae2d5acbda78e1519c6a4cbc2"><svg width="34" height="67" viewBox="0 0 34 67" fill="none" xmlns="http://www.w3.org/2000/svg" class="assets--overlay--7sUsi"><path d="M23.1182 31.7116C23.2728 31.4348 23.635 31.338 23.9072 31.5007C25.4221 32.4058 27.2476 32.7183 29 32.3347V65.3083H5V32.3337C6.75385 32.719 8.58133 32.4066 10.0977 31.5007C10.3699 31.338 10.732 31.4348 10.8867 31.7116C12.0827 33.8564 14.3729 35.3083 17.0029 35.3083C19.6328 35.3082 21.9223 33.8562 23.1182 31.7116ZM16.0713 3.62861C16.4065 2.79046 17.5935 2.79046 17.9287 3.62861L20.7139 10.5915C19.5654 11.0513 18.3127 11.3073 17 11.3073C15.6869 11.3073 14.4339 11.0516 13.2852 10.5915L16.0713 3.62861Z" fill="#000000"></path></svg><img data-test-key="1773144314089-eghdtob" src="https://static.figma.com/uploads/fb90f0daa9ae0c82cbd8937127f78ab482112cd3" class="assets--overlay--7sUsi"></div></div></div></div></div><div aria-disabled="false" aria-hidden="true" class="toolbar--toolbarFakeButtonTarget--GQgYu toolbar--focusVisibleHover--iPqqZ" data-fullscreen-intercept="true" tabindex="-1"></div></div></div></div></div></div></div></div><div class="toolbelt_divider--divider--Pizvj toolbelt_divider--extendedDivider--MXoyr"></div><div data-fpl-component="primitive" role="presentation" style="display: contents;"><div data-fpl-component="primitive" class="tool_group--toolGroup--dSfxx" aria-label="Frame" role="group" data-fpl-group="true"><button data-fpl-component="primitive" aria-hidden="true" aria-label="Frame" aria-pressed="false" data-onboarding-key="frame" data-testid="Frame-tool" data-tooltip="Frame" data-tooltip-shortcut="F" data-tooltip-show-above="true" data-tooltip-type="text" type="button" tabindex="0" data-show-focus="true" class="button-reset__buttonReset__zO1D7 toolbelt_button--topLevelButtonNew--KhQeE toolbelt_button--disabledButton--cUgNv toolbelt_button--topLevelButtonPrimaryPadding--iBHjf" aria-disabled="true"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" data-fpl-icon-size="24L"><path fill="var(--fpl-icon-color, var(--color-icon))" fill-rule="evenodd" d="M7.5 4a.5.5 0 0 0-.5.5V7H4.5a.5.5 0 0 0 0 1H7v8H4.5a.5.5 0 0 0 0 1H7v2.5a.5.5 0 0 0 1 0V17h8v2.5a.5.5 0 0 0 1 0V17h2.5a.5.5 0 0 0 0-1H17V8h2.5a.5.5 0 0 0 0-1H17V4.5a.5.5 0 0 0-1 0V7H8V4.5a.5.5 0 0 0-.5-.5M16 8H8v8h8z" clip-rule="evenodd"></path></svg></button><button data-fpl-component="primitive" aria-hidden="true" aria-label="Outils de zones" aria-pressed="false" data-testid="FrameTools-chevron" data-tooltip="Outils de zones" data-tooltip-show-above="true" data-tooltip-type="text" aria-haspopup="menu" aria-expanded="false" id=":r3r:" type="button" tabindex="0" data-show-focus="true" class="button-reset__buttonReset__zO1D7 tool_group--flyoutChevron--2HxuG tool_group--flyoutChevronDisabled--2rTx8" aria-disabled="true"><span aria-hidden="true"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" data-fpl-icon-size="24"><path fill="var(--fpl-icon-color, var(--color-icon))" fill-rule="evenodd" d="M9.646 11.146a.5.5 0 0 1 .708 0L12 12.793l1.646-1.647a.5.5 0 0 1 .708.708l-2 2a.5.5 0 0 1-.708 0l-2-2a.5.5 0 0 1 0-.708" clip-rule="evenodd"></path></svg></span></button></div></div><div data-fpl-component="primitive" role="presentation" style="display: contents;"><div data-fpl-component="primitive" class="tool_group--toolGroup--dSfxx" aria-label="Rectangle" role="group" data-fpl-group="true"><button data-fpl-component="primitive" aria-hidden="true" aria-label="Rectangle" aria-pressed="false" data-testid="Rectangle-tool" data-tooltip="Rectangle" data-tooltip-shortcut="R" data-tooltip-show-above="true" data-tooltip-type="text" type="button" tabindex="0" data-show-focus="true" class="button-reset__buttonReset__zO1D7 toolbelt_button--topLevelButtonNew--KhQeE toolbelt_button--disabledButton--cUgNv toolbelt_button--topLevelButtonPrimaryPadding--iBHjf" aria-disabled="true"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" data-fpl-icon-size="24L"><path fill="var(--fpl-icon-color, var(--color-icon))" fill-rule="evenodd" d="M18 5H6a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1M6 4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z" clip-rule="evenodd"></path></svg></button><button data-fpl-component="primitive" aria-hidden="true" aria-label="Outils de formes" aria-pressed="false" data-testid="ShapeTools-chevron" data-tooltip="Outils de formes" data-tooltip-show-above="true" data-tooltip-type="text" aria-haspopup="menu" aria-expanded="false" id=":r40:" type="button" tabindex="0" data-show-focus="true" class="button-reset__buttonReset__zO1D7 tool_group--flyoutChevron--2HxuG tool_group--flyoutChevronDisabled--2rTx8" aria-disabled="true"><span aria-hidden="true"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" data-fpl-icon-size="24"><path fill="var(--fpl-icon-color, var(--color-icon))" fill-rule="evenodd" d="M9.646 11.146a.5.5 0 0 1 .708 0L12 12.793l1.646-1.647a.5.5 0 0 1 .708.708l-2 2a.5.5 0 0 1-.708 0l-2-2a.5.5 0 0 1 0-.708" clip-rule="evenodd"></path></svg></span></button></div></div><button data-fpl-component="primitive" aria-hidden="true" aria-label="Texte" aria-pressed="false" data-onboarding-key="tool-type-onboarding" data-testid="Texte-tool" data-tooltip="Texte" data-tooltip-shortcut="T" data-tooltip-show-above="true" data-tooltip-type="text" type="button" tabindex="0" data-show-focus="true" class="button-reset__buttonReset__zO1D7 toolbelt_button--topLevelButtonNew--KhQeE toolbelt_button--disabledButton--cUgNv toolbelt_button--topLevelButtonPrimaryPadding--iBHjf" aria-disabled="true"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" data-fpl-icon-size="24L"><path fill="var(--fpl-icon-color, var(--color-icon))" d="M19.5 4a.5.5 0 0 1 .5.5v3a.5.5 0 0 1-1 0V5h-6.5v14H15a.5.5 0 0 1 0 1H9a.5.5 0 0 1 0-1h2.5V5H5v2.5a.5.5 0 0 1-1 0v-3a.5.5 0 0 1 .5-.5z"></path></svg></button><button data-fpl-component="primitive" aria-hidden="true" aria-label="Commentaire" aria-pressed="false" data-onboarding-key="user_groups_comment_tool_onboarding_key" data-testid="Commentaire-tool" data-tooltip="Commentaire" data-tooltip-shortcut="C" data-tooltip-show-above="true" data-tooltip-type="text" type="button" tabindex="0" data-show-focus="true" class="button-reset__buttonReset__zO1D7 toolbelt_button--topLevelButtonNew--KhQeE toolbelt_button--disabledButton--cUgNv toolbelt_button--topLevelButtonPrimaryPadding--iBHjf" aria-disabled="true"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" data-fpl-icon-size="24L"><path fill="var(--fpl-icon-color, var(--color-icon))" d="M12.5 3a8.5 8.5 0 0 1 0 17H7.09c-.89 0-1.39 0-1.767-.121l-.154-.06a2 2 0 0 1-.906-.828l-.082-.16c-.136-.297-.17-.657-.178-1.248L4 16.909V11.5A8.5 8.5 0 0 1 12.5 3m0 1A7.5 7.5 0 0 0 5 11.5v5.41c0 .523 0 .861.02 1.12.018.247.05.34.07.385a1 1 0 0 0 .495.494c.045.02.138.053.386.072.258.019.596.019 1.12.019H12.5a7.5 7.5 0 0 0 0-15"></path></svg></button><button data-fpl-component="primitive" aria-hidden="true" aria-label="Actions" aria-pressed="false" data-onboarding-key="toolbelt-actions" data-testid="Actions-tool" data-tooltip="Actions" data-tooltip-shortcut="⌘:" data-tooltip-show-above="true" data-tooltip-type="text" type="button" tabindex="0" data-show-focus="true" class="button-reset__buttonReset__zO1D7 toolbelt_button--topLevelButtonNew--KhQeE toolbelt_button--disabledButton--cUgNv toolbelt_button--topLevelButtonPrimaryPadding--iBHjf" aria-disabled="true"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" data-fpl-icon-size="24L"><path fill="var(--fpl-icon-color, var(--color-icon))" d="M9 13a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2zm7.5 0a.5.5 0 0 1 .5.5V16h2.5a.5.5 0 0 1 0 1H17v2.5a.5.5 0 0 1-1 0V17h-2.5a.5.5 0 0 1 0-1H16v-2.5a.5.5 0 0 1 .5-.5M6 14a1 1 0 0 0-1 1v3a1 1 0 0 0 .897.995L6 19h3a1 1 0 0 0 1-1v-3a1 1 0 0 0-1-1zm.87-10.275a1 1 0 0 1 1.337.068l3 3a1 1 0 0 1 0 1.414l-3 3a1 1 0 0 1-1.414 0l-3-3a1 1 0 0 1 0-1.414l3-3zM16.5 4a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7m-12 3.5 3 3 3-3-3-3zm12-2.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5"></path></svg></button></div></div></div></div></div></div></div><div class="mode_toggle_switch_divider--hideIfLast--bxAuD"><div class="toolbelt_divider--divider--Pizvj" data-testid="mode-toggle-switch-divider"></div></div><div class="toolbelt_mode_segmented_control--container--6JZ-C"><fieldset data-fpl-component="primitive" class="toolbelt_mode_segmented_control--fieldset--eZKfl" data-active-mode="design" value="design" data-testid="toolbelt-mode-segmented-control" data-onboarding-key="mode_switcher_onboarding_key" role="radiogroup"><legend data-fpl-component="primitive" class="_14wijgr0">Mode barre d'outils</legend><div data-radio-options-root="true"><div class="toolbelt_mode_segmented_control--selectedOption--M-gww" aria-hidden="true" style="transform: translateX(30px); transition: all;"></div><div data-fpl-component="primitive" class="_16btwim1 toolbelt_mode_segmented_control--option--8DLei"><input data-testid="toolbelt-mode-option-illustration" data-tooltip-show-above="true" class="_16btwim0" id=":r2n:-illustration" data-tooltip="Dessiner" data-tooltip-type="text" name=":r2n:" type="radio" value="illustration"><span aria-hidden="true"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" data-fpl-icon-size="24"><path fill="var(--fpl-icon-color, var(--color-icon))" fill-rule="evenodd" d="M13.407 5.06c.61-.123 1.227-.079 1.657.343l.135.15c.277.361.316.79.208 1.204-.115.44-.397.887-.734 1.314-.68.86-1.74 1.829-2.748 2.76-1.031.952-2.01 1.867-2.606 2.662-.3.4-.466.724-.517.97-.044.21-.003.34.12.46l.065.052c.072.044.167.062.313.039.217-.034.505-.155.866-.378.72-.445 1.561-1.183 2.445-1.966.862-.763 1.768-1.571 2.57-2.076.4-.252.817-.457 1.221-.527.427-.074.87.002 1.223.346l.102.112c.22.271.296.593.266.918-.032.344-.183.684-.364.993-.363.617-.963 1.296-1.515 1.922-.574.651-1.1 1.251-1.403 1.767-.151.257-.218.449-.23.581-.01.106.012.163.072.22l.054.04c.074.038.214.062.474-.031.356-.128.853-.456 1.465-1.1a.5.5 0 0 1 .725.687c-.666.702-1.291 1.153-1.853 1.354-.535.192-1.08.173-1.485-.163l-.08-.071a1.23 1.23 0 0 1-.369-1.03c.033-.344.183-.684.364-.993.363-.617.964-1.297 1.516-1.923.574-.651 1.1-1.25 1.402-1.766.152-.258.22-.449.232-.581.007-.08-.004-.132-.035-.177l-.038-.045c-.07-.068-.162-.108-.353-.075-.213.037-.5.161-.858.388-.717.451-1.555 1.194-2.44 1.978-.862.764-1.774 1.57-2.584 2.07-.404.249-.826.45-1.237.514-.38.06-.767 0-1.095-.247l-.136-.118c-.402-.394-.502-.887-.399-1.38.097-.46.367-.923.696-1.363.663-.885 1.718-1.865 2.728-2.798 1.033-.954 2.023-1.862 2.642-2.645.31-.393.489-.71.55-.946.04-.152.028-.246-.017-.32l-.057-.069c-.082-.08-.284-.172-.76-.076-.468.094-1.091.352-1.863.803-1.537.898-3.552 2.496-5.893 4.786a.5.5 0 0 1-.699-.715c2.37-2.319 4.45-3.98 6.087-4.935.815-.476 1.55-.794 2.17-.92" clip-rule="evenodd"></path></svg></span><label class="_14wijgr0" for=":r2n:-illustration">Dessiner</label></div><div data-fpl-component="primitive" class="_16btwim1 toolbelt_mode_segmented_control--option--8DLei toolbelt_mode_segmented_control--selected--FGkQI"><input data-testid="toolbelt-mode-option-design" data-tooltip-show-above="true" class="_16btwim0" id=":r2n:-design" data-tooltip="Design" data-tooltip-type="text" name=":r2n:" type="radio" value="design" checked=""><span aria-hidden="true"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" data-fpl-icon-size="24"><path fill="var(--fpl-icon-color, var(--color-icon))" d="M12.11 13.956c-.44-1.121.618-2.23 1.738-1.885l.108.038 4.15 1.63.115.051c1.136.556 1.027 2.254-.218 2.637l-1.205.372-.37 1.205c-.397 1.29-2.196 1.356-2.689.102zm1.48-.916a.425.425 0 0 0-.55.55l1.63 4.15c.138.35.618.356.775.038l.027-.068.526-1.711 1.711-.527a.425.425 0 0 0 .031-.802zM16.5 6A1.5 1.5 0 0 1 18 7.5v1a1.5 1.5 0 0 1-1.5 1.5H10v6.5A1.5 1.5 0 0 1 8.5 18h-1A1.5 1.5 0 0 1 6 16.5v-9A1.5 1.5 0 0 1 7.5 6zM7 16.5a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5V15h-.5a.5.5 0 0 1 0-1H9v-1h-.5a.5.5 0 0 1 0-1H9v-2H7zM7.5 7a.5.5 0 0 0-.5.5V9h2V7zM10 9h2v-.5a.5.5 0 0 1 1 0V9h1v-.5a.5.5 0 0 1 1 0V9h1.5a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5H10z"></path></svg></span><label class="_14wijgr0" for=":r2n:-design">Design</label></div><div data-fpl-component="primitive" class="_16btwim1 toolbelt_mode_segmented_control--option--8DLei"><input data-testid="toolbelt-mode-option-handoff" data-tooltip-show-above="true" data-onboarding-key="mode_switcher_onboarding_key_dev_mode" class="_16btwim0" id=":r2n:-handoff" data-tooltip="Dev&nbsp;Mode" data-tooltip-type="text" name=":r2n:" type="radio" value="handoff"><span aria-hidden="true"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" data-fpl-icon-size="24"><path fill="var(--fpl-icon-color, var(--color-icon))" d="M13.631 6.018a.5.5 0 0 1 .367.513l-.016.1-3 11-.036.095a.5.5 0 0 1-.93-.358l3-11 .037-.095a.5.5 0 0 1 .578-.255M8.224 8.582a.501.501 0 0 1 .693.693l-.064.079L6.206 12l2.647 2.646a.5.5 0 1 1-.707.707l-3-3a.5.5 0 0 1 0-.707l3-3zm6.922.064a.5.5 0 0 1 .707 0l3 3a.5.5 0 0 1 0 .707l-3 3-.078.065a.5.5 0 0 1-.694-.693l.065-.079L17.792 12l-2.646-2.646a.5.5 0 0 1 0-.707"></path></svg></span><label class="_14wijgr0" for=":r2n:-handoff">Dev&nbsp;Mode</label></div></div></fieldset></div></div></div></div></div></div></div></div></div><div class="flash_view--flashes--pcDZK"></div><div data-fpl-component="primitive" aria-relevant="all" role="status"></div><div class="jsvm_ui--pluginUI--YQm-H in_app_page--appFont--2LLwy" style="display: none;"><iframe id="plugin-iframe-for-fetch" name="Shim Plugin Iframe" title="Shim Plugin Iframe" allow="local-network-access *" src="/plugin-sandbox" style="width: 300px; height: 200px; display: none; pointer-events: auto; color-scheme: initial;"></iframe></div><div class="visual_bell_DEPRECATED--base--cqq3V visual_bell_DEPRECATED--fplBase--61Mw0" style="transform: translateY(100vh);"><div data-editor-theme="design" data-preferred-theme="dark" style="display: contents;"><div data-fpl-component="" data-testid="visual-bell-root" role="presentation"><div class="toast__root__nVszD" role="group"><span class="xjp7ctv"><div data-fpl-component="" aria-relevant="all" data-testid="visual-bell-message" class="toast__message__wf2fG" role="alert"><span></span><span></span></div></span><span class="x10l6tqk x1nj6f5o"><div data-fpl-component="" aria-relevant="all" class="toast__message__wf2fG" role="alert"></div></span></div></div></div></div><div data-editor-theme="design" data-preferred-theme="dark" style="display: contents;"><div class="blocked_ui_loading_indicator--base--iBE49 blocked_ui_loading_indicator--fpl--VyUlf" style="transform: translateY(-64px);"></div></div><div class="accessible_area--displayContent--TuRM4" data-fullscreen-bubble-phase="true"><div class="_14wijgr1"><div role="region" aria-label="Barre d'outils Aide/zoom" class="accessible_area--displayContent--TuRM4"><div class="bottom_right_tools_container--container--wpPX8 bottom_right_tools_container--design--KVUF3" data-testid="bottom-right-tools-container" style="margin-bottom: 0px; --inProductHelpSidePanelWidth: 0px; --cookieBannerHeight: 0px;"><div data-fpl-component="primitive" aria-label="Barre d'outils Aide/zoom" class="x1q0g3np x78zum5 xrdokzc" data-testid="buzz-help-and-zoom-menu" role="toolbar" aria-orientation="horizontal"><div class="cx_flexColumn--t73d9 cx_gap12--0Fs-t cx_justifyCenter--8nP9s cx_itemsEnd--WSL2I"><div data-fpl-component="primitive" role="presentation" style="display: contents;"><button data-fpl-component="primitive" aria-haspopup="menu" aria-expanded="false" id=":rn:" aria-label="Aide" data-fullscreen-intercept="true" data-onboarding-key="help-widget-zendesk" data-testid="help-widget-button" data-tooltip="Aide et ressources" data-tooltip-hide-immediately="true" data-tooltip-show-above="true" data-tooltip-show-immediately="true" data-tooltip-submenu-open="false" data-tooltip-type="text" type="button" tabindex="0" data-show-focus="true" class="button-reset__buttonReset__zO1D7 help_widget--clickableSvg--q86Am help_widget--helpWidget--1t2eV help_widget--helpWidgetShared--Qb3pt text--_negText--7Cnf0"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" class="help_widget--helpWidgetIcon--ZxhAq" data-fpl-icon-size="24L"><path fill="var(--fpl-icon-color, var(--color-icon))" d="M12 15.5a.75.75 0 1 1 0 1.5.75.75 0 0 1 0-1.5M12 7c1.844 0 3.5 1.262 3.5 3 0 .69-.271 1.251-.731 1.661-.447.398-1.045.632-1.685.747-.364.066-.584.337-.584.592v1a.5.5 0 0 1-1 0v-1c0-.849.683-1.445 1.406-1.576.528-.095.932-.275 1.196-.51.25-.223.398-.514.398-.914 0-1.023-1.03-2-2.5-2s-2.5.977-2.5 2a.5.5 0 0 1-1 0c0-1.738 1.656-3 3.5-3"></path></svg></button></div><div class="zendesk-web-widget"></div></div></div></div></div></div></div><div class="_1pz8ves0"><div class="_14wijgr1"><div data-fpl-component="" class="use-drag__base__YCEp1 js-fullscreen-prevent-event-capture _1sm4cu20" data-testid="pluginModalWindow" hidden="" role="dialog" aria-labelledby=":rq:" tabindex="-1" style="z-index: 4; left: 0px; top: 0px;"><div data-fpl-component="primitive" class="vip1ck0" style="width: fit-content; height: fit-content; --fpl-contents-height: 100%; --fpl-contents-max-height: 100%;"><div data-fpl-component="true" class="_1ymwlhz4 _1ymwlhz3 _1ymwlhz2"><div data-fpl-component="" class="_1ymwlhze _1ymwlhzc" data-fpl-header="true"><h2 data-fpl-component="" class="_1ymwlhzf _14wijgra" id=":rq:"><div class="cx_flex--uQqQ4 cx_justifyBetween---nfXi cx_alignCenter--FRuGU cx_cursorDefault--Smhdd cx_selectNone--vJsrd"><div style="display: flex; align-items: center; flex: 1 1 0%;"><div class="header_modal--headerModalTitleWithoutOverflow---jCBm header_modal--headerModalTitle--5vfIk ellipsis--ellipsis--70pHK" style="max-width: calc(180px);"></div></div></div></h2><div data-fpl-component="" class="_1ymwlhzv"></div></div><div role="none" class="_1rthyo83 _1ymwlhzr _1rthyo88" data-fpl-scroll-x="none" data-fpl-scroll-y="none"><div role="none" data-fpl-component="" class="_1rthyo86 _1rthyo84"><div role="none" class="_1rthyo89 _1ymwlhzs _14wijgr9" style="padding: 0px;"><iframe id="plugin-iframe-in-modal" name="Shim Plugin Iframe" title="Shim Plugin Iframe" allow="local-network-access *" src="/plugin-sandbox" style="width: 300px; height: 200px; display: none; pointer-events: auto; color-scheme: initial;"></iframe></div></div><div aria-hidden="true" class="use-drag__base__YCEp1 js-fullscreen-prevent-event-capture _1rthyo8a" hidden=""><div data-fpl-component="" data-fpl-orientation="vertical" class="_1rthyo8c" style="--_1rthyo80: 0; --_1rthyo81: NaN%;"></div></div></div></div></div><div data-fpl-component="" data-slot="close" class="_1ymwlhzg"><button data-fpl-component="" aria-label="Fermer" data-tooltip="Fermer" data-tooltip-type="text" type="button" tabindex="0" data-show-focus="true" class="button-reset__buttonReset__zO1D7 base-icon-button__baseIconButton__TXKzr icon-button__iconButton__CTj-- icon-button__ghost__1ok6j"><span aria-hidden="true" class="base-icon-button__icon__FIIFq"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" data-fpl-icon-size="24"><path fill="var(--fpl-icon-color, var(--color-icon))" d="M16.224 7.082a.501.501 0 0 1 .694.693l-.065.078L12.707 12l4.146 4.146.065.078a.5.5 0 0 1-.694.694l-.078-.065L12 12.706l-4.147 4.147a.5.5 0 1 1-.707-.707l4.147-4.147-4.147-4.146-.064-.078a.501.501 0 0 1 .693-.693l.078.064L12 11.293l4.146-4.147z"></path></svg></span></button></div></div></div></div></div></div></div></div>
+
+      <script nonce="">
+  const themePreference = window.localStorage.getItem('global-debug-theme-preference') || 'system'
+
+  let theme
+  if (themePreference === 'dark') {
+    theme = 'dark'
+  } else if (themePreference === 'system') {
+    theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  } else {
+    theme = 'light'
+  }
+
+  document.querySelector("body").dataset.preferredTheme = theme
+</script>
+
+
+
+      <div class="file-browser-loading-page-container">
+  <div id="filebrowser-loading-page" class="fb-page-layout hidden fadeOut">
+  <div id="filebrowser-loading-progress-bar"></div>
+
+  <div class="fb-flex-row">
+    <div id="filebrowser-loading-sidebar" class="fb-sidebar">
+      <div class="fb-sidebar-account-and-notifications">
+        <div class="fb-circle-24 fb-shrink-0"></div>
+        <div class="fb-rectangle-16 fb-width-120"></div>
+      </div>
+      <div class="fb-sidebar-searchbar">
+        <div class="fb-rectangle-32 fb-width-full"></div>
+      </div>
+      <div class="fb-sidebar-row">
+        <div class="fb-rectangle-16 fb-width-16 fb-shrink-0"></div>
+        <div class="fb-rectangle-16 fb-width-70"></div>
+      </div>
+      <div class="fb-divider"></div>
+      <div class="fb-sidebar-row">
+        <div class="fb-circle-16"></div>
+        <div class="fb-rectangle-16 fb-width-115"></div>
+      </div>
+      <div class="fb-sidebar-row">
+        <div class="fb-rectangle-16 fb-width-16 fb-shrink-0"></div>
+        <div class="fb-rectangle-16 fb-width-70"></div>
+      </div>
+      <div class="fb-sidebar-row">
+        <div class="fb-rectangle-16 fb-width-16 fb-shrink-0"></div>
+        <div class="fb-rectangle-16 fb-width-100"></div>
+      </div>
+      <div class="fb-sidebar-row">
+        <div class="fb-rectangle-16 fb-width-60"></div>
+      </div>
+      <div class="fb-sidebar-row">
+        <div class="fb-rectangle-16 fb-width-16 fb-shrink-0"></div>
+        <div class="fb-rectangle-16 fb-width-100"></div>
+      </div>
+      <div class="fb-sidebar-row">
+        <div class="fb-rectangle-16 fb-width-16 fb-shrink-0"></div>
+        <div class="fb-rectangle-16 fb-width-80"></div>
+      </div>
+      <div class="fb-sidebar-row">
+        <div class="fb-rectangle-16 fb-width-16 fb-shrink-0"></div>
+        <div class="fb-rectangle-16 fb-width-120"></div>
+      </div>
+      <div class="fb-sidebar-row">
+        <div class="fb-rectangle-16 fb-width-16 fb-shrink-0"></div>
+        <div class="fb-rectangle-16 fb-width-105"></div>
+      </div>
+    </div>
+
+
+    <div class="fb-page">
+
+
+          <div class="fb-toolbar-48">
+            <div class="fb-rectangle-16 fb-width-120"></div>
+          </div>
+
+
+
+      <div class="fb-page-content-columns">
+
+        <div class="fb-page-content">
+
+          <div id="loading-content-pane">
+            <div class="fb-fading-content">
+
+
+                  <div class="fb-tile-grid fb-tile-grid-top-padding">
+
+                      <div class="fb-card">
+                        <div class="fb-file-thumbnail"></div>
+                        <div class="fb-file-card-footer">
+                          <div class="fb-rectangle-16 fb-width-16"></div>
+                          <div class="fb-file-card-footer-text-container">
+                            <div class="fb-rectangle-16 fb-width-120"></div>
+                            <div class="fb-rectangle-16 fb-width-88"></div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="fb-card">
+                        <div class="fb-file-thumbnail"></div>
+                        <div class="fb-file-card-footer">
+                          <div class="fb-rectangle-16 fb-width-16"></div>
+                          <div class="fb-file-card-footer-text-container">
+                            <div class="fb-rectangle-16 fb-width-120"></div>
+                            <div class="fb-rectangle-16 fb-width-88"></div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="fb-card">
+                        <div class="fb-file-thumbnail"></div>
+                        <div class="fb-file-card-footer">
+                          <div class="fb-rectangle-16 fb-width-16"></div>
+                          <div class="fb-file-card-footer-text-container">
+                            <div class="fb-rectangle-16 fb-width-120"></div>
+                            <div class="fb-rectangle-16 fb-width-88"></div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="fb-card">
+                        <div class="fb-file-thumbnail"></div>
+                        <div class="fb-file-card-footer">
+                          <div class="fb-rectangle-16 fb-width-16"></div>
+                          <div class="fb-file-card-footer-text-container">
+                            <div class="fb-rectangle-16 fb-width-120"></div>
+                            <div class="fb-rectangle-16 fb-width-88"></div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="fb-card">
+                        <div class="fb-file-thumbnail"></div>
+                        <div class="fb-file-card-footer">
+                          <div class="fb-rectangle-16 fb-width-16"></div>
+                          <div class="fb-file-card-footer-text-container">
+                            <div class="fb-rectangle-16 fb-width-120"></div>
+                            <div class="fb-rectangle-16 fb-width-88"></div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="fb-card">
+                        <div class="fb-file-thumbnail"></div>
+                        <div class="fb-file-card-footer">
+                          <div class="fb-rectangle-16 fb-width-16"></div>
+                          <div class="fb-file-card-footer-text-container">
+                            <div class="fb-rectangle-16 fb-width-120"></div>
+                            <div class="fb-rectangle-16 fb-width-88"></div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="fb-card">
+                        <div class="fb-file-thumbnail"></div>
+                        <div class="fb-file-card-footer">
+                          <div class="fb-rectangle-16 fb-width-16"></div>
+                          <div class="fb-file-card-footer-text-container">
+                            <div class="fb-rectangle-16 fb-width-120"></div>
+                            <div class="fb-rectangle-16 fb-width-88"></div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="fb-card">
+                        <div class="fb-file-thumbnail"></div>
+                        <div class="fb-file-card-footer">
+                          <div class="fb-rectangle-16 fb-width-16"></div>
+                          <div class="fb-file-card-footer-text-container">
+                            <div class="fb-rectangle-16 fb-width-120"></div>
+                            <div class="fb-rectangle-16 fb-width-88"></div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="fb-card">
+                        <div class="fb-file-thumbnail"></div>
+                        <div class="fb-file-card-footer">
+                          <div class="fb-rectangle-16 fb-width-16"></div>
+                          <div class="fb-file-card-footer-text-container">
+                            <div class="fb-rectangle-16 fb-width-120"></div>
+                            <div class="fb-rectangle-16 fb-width-88"></div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="fb-card">
+                        <div class="fb-file-thumbnail"></div>
+                        <div class="fb-file-card-footer">
+                          <div class="fb-rectangle-16 fb-width-16"></div>
+                          <div class="fb-file-card-footer-text-container">
+                            <div class="fb-rectangle-16 fb-width-120"></div>
+                            <div class="fb-rectangle-16 fb-width-88"></div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="fb-card">
+                        <div class="fb-file-thumbnail"></div>
+                        <div class="fb-file-card-footer">
+                          <div class="fb-rectangle-16 fb-width-16"></div>
+                          <div class="fb-file-card-footer-text-container">
+                            <div class="fb-rectangle-16 fb-width-120"></div>
+                            <div class="fb-rectangle-16 fb-width-88"></div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="fb-card">
+                        <div class="fb-file-thumbnail"></div>
+                        <div class="fb-file-card-footer">
+                          <div class="fb-rectangle-16 fb-width-16"></div>
+                          <div class="fb-file-card-footer-text-container">
+                            <div class="fb-rectangle-16 fb-width-120"></div>
+                            <div class="fb-rectangle-16 fb-width-88"></div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="fb-card">
+                        <div class="fb-file-thumbnail"></div>
+                        <div class="fb-file-card-footer">
+                          <div class="fb-rectangle-16 fb-width-16"></div>
+                          <div class="fb-file-card-footer-text-container">
+                            <div class="fb-rectangle-16 fb-width-120"></div>
+                            <div class="fb-rectangle-16 fb-width-88"></div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="fb-card">
+                        <div class="fb-file-thumbnail"></div>
+                        <div class="fb-file-card-footer">
+                          <div class="fb-rectangle-16 fb-width-16"></div>
+                          <div class="fb-file-card-footer-text-container">
+                            <div class="fb-rectangle-16 fb-width-120"></div>
+                            <div class="fb-rectangle-16 fb-width-88"></div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="fb-card">
+                        <div class="fb-file-thumbnail"></div>
+                        <div class="fb-file-card-footer">
+                          <div class="fb-rectangle-16 fb-width-16"></div>
+                          <div class="fb-file-card-footer-text-container">
+                            <div class="fb-rectangle-16 fb-width-120"></div>
+                            <div class="fb-rectangle-16 fb-width-88"></div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="fb-card">
+                        <div class="fb-file-thumbnail"></div>
+                        <div class="fb-file-card-footer">
+                          <div class="fb-rectangle-16 fb-width-16"></div>
+                          <div class="fb-file-card-footer-text-container">
+                            <div class="fb-rectangle-16 fb-width-120"></div>
+                            <div class="fb-rectangle-16 fb-width-88"></div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="fb-card">
+                        <div class="fb-file-thumbnail"></div>
+                        <div class="fb-file-card-footer">
+                          <div class="fb-rectangle-16 fb-width-16"></div>
+                          <div class="fb-file-card-footer-text-container">
+                            <div class="fb-rectangle-16 fb-width-120"></div>
+                            <div class="fb-rectangle-16 fb-width-88"></div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="fb-card">
+                        <div class="fb-file-thumbnail"></div>
+                        <div class="fb-file-card-footer">
+                          <div class="fb-rectangle-16 fb-width-16"></div>
+                          <div class="fb-file-card-footer-text-container">
+                            <div class="fb-rectangle-16 fb-width-120"></div>
+                            <div class="fb-rectangle-16 fb-width-88"></div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="fb-card">
+                        <div class="fb-file-thumbnail"></div>
+                        <div class="fb-file-card-footer">
+                          <div class="fb-rectangle-16 fb-width-16"></div>
+                          <div class="fb-file-card-footer-text-container">
+                            <div class="fb-rectangle-16 fb-width-120"></div>
+                            <div class="fb-rectangle-16 fb-width-88"></div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="fb-card">
+                        <div class="fb-file-thumbnail"></div>
+                        <div class="fb-file-card-footer">
+                          <div class="fb-rectangle-16 fb-width-16"></div>
+                          <div class="fb-file-card-footer-text-container">
+                            <div class="fb-rectangle-16 fb-width-120"></div>
+                            <div class="fb-rectangle-16 fb-width-88"></div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="fb-card">
+                        <div class="fb-file-thumbnail"></div>
+                        <div class="fb-file-card-footer">
+                          <div class="fb-rectangle-16 fb-width-16"></div>
+                          <div class="fb-file-card-footer-text-container">
+                            <div class="fb-rectangle-16 fb-width-120"></div>
+                            <div class="fb-rectangle-16 fb-width-88"></div>
+                          </div>
+                        </div>
+                      </div>
+                  </div>
+
+            </div>
+          </div>
+        </div>
+
+        &nbsp;
+
+
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+
+    <script nonce="" data-entrypoint="figma_app">
+      window.ENTRY_POINT = document.currentScript.dataset.entrypoint
+    </script>
+
+    
+
+      <script nonce="">
+    window['sentryConfig'] = {
+      id: 1582453323205532924,
+    }
+  </script>
+
+    
+
+      <script nonce="">performance?.mark('loadTimings:jsEvalStart')</script>
+        <script nonce="" src="https://www.figma.com/webpack-artifacts/assets/runtime~figma_app-05b67dac89a51d06.min.js.br" defer="" crossorigin="anonymous"></script>
+        <script nonce="" src="https://www.figma.com/webpack-artifacts/assets/vendor-core-ade2edecaf4781c7.min.js.br" defer="" crossorigin="anonymous"></script>
+        <script nonce="" src="https://www.figma.com/webpack-artifacts/assets/svg-773ec884034c346e.min.js.br" defer="" crossorigin="anonymous"></script>
+        <script nonce="" src="https://www.figma.com/webpack-artifacts/assets/svg-1243c0722dac1c69.min.js.br" defer="" crossorigin="anonymous"></script>
+        <script nonce="" src="https://www.figma.com/webpack-artifacts/assets/svg-be02c1ffbf0aec0d.min.js.br" defer="" crossorigin="anonymous"></script>
+        <script nonce="" src="https://www.figma.com/webpack-artifacts/assets/svg-8302926740278639.min.js.br" defer="" crossorigin="anonymous"></script>
+        <script nonce="" src="https://www.figma.com/webpack-artifacts/assets/svg-10e6dcec46a9da5b.min.js.br" defer="" crossorigin="anonymous"></script>
+        <script nonce="" src="https://www.figma.com/webpack-artifacts/assets/cssbuilder-4924a9f8a79aa64a.min.js.br" defer="" crossorigin="anonymous"></script>
+        <script nonce="" src="https://www.figma.com/webpack-artifacts/assets/svg-039572250fe3ab4b.min.js.br" defer="" crossorigin="anonymous"></script>
+        <script nonce="" src="https://www.figma.com/webpack-artifacts/assets/svg-e23b98fc45c25527.min.js.br" defer="" crossorigin="anonymous"></script>
+        <script nonce="" src="https://www.figma.com/webpack-artifacts/assets/svg-a337b013ed90d899.min.js.br" defer="" crossorigin="anonymous"></script>
+        <script nonce="" src="https://www.figma.com/webpack-artifacts/assets/svg-2eb127e51a93b20b.min.js.br" defer="" crossorigin="anonymous"></script>
+        <script nonce="" src="https://www.figma.com/webpack-artifacts/assets/vendor-e02619323541de64.min.js.br" defer="" crossorigin="anonymous"></script>
+        <script nonce="" src="https://www.figma.com/webpack-artifacts/assets/vendor-fdcc732e0d2d4c0f.min.js.br" defer="" crossorigin="anonymous"></script>
+        <script nonce="" src="https://www.figma.com/webpack-artifacts/assets/vendor-8113207a091b7299.min.js.br" defer="" crossorigin="anonymous"></script>
+        <script nonce="" src="https://www.figma.com/webpack-artifacts/assets/vendor-61558bc8fb46456d.min.js.br" defer="" crossorigin="anonymous"></script>
+        <script nonce="" src="https://www.figma.com/webpack-artifacts/assets/vendor-5fdbd10ea5780ca3.min.js.br" defer="" crossorigin="anonymous"></script>
+        <script nonce="" src="https://www.figma.com/webpack-artifacts/assets/6691-414ba1a969aeb0d5.min.js.br" defer="" crossorigin="anonymous"></script>
+        <script nonce="" src="https://www.figma.com/webpack-artifacts/assets/406-656fac6d09c8fbc1.min.js.br" defer="" crossorigin="anonymous"></script>
+        <script nonce="" src="https://www.figma.com/webpack-artifacts/assets/5340-37939770a92d139c.min.js.br" defer="" crossorigin="anonymous"></script>
+        <script nonce="" src="https://www.figma.com/webpack-artifacts/assets/3435-1e6f92413321c0ba.min.js.br" defer="" crossorigin="anonymous"></script>
+        <script nonce="" src="https://www.figma.com/webpack-artifacts/assets/8222-714b50f6fa462b79.min.js.br" defer="" crossorigin="anonymous"></script>
+        <script nonce="" src="https://www.figma.com/webpack-artifacts/assets/2179-5414bc746bc7df54.min.js.br" defer="" crossorigin="anonymous"></script>
+        <script nonce="" src="https://www.figma.com/webpack-artifacts/assets/2438-b90021d4e1b0015e.min.js.br" defer="" crossorigin="anonymous"></script>
+        <script nonce="" src="https://www.figma.com/webpack-artifacts/assets/8821-758693fd0ed2b56f.min.js.br" defer="" crossorigin="anonymous"></script>
+        <script nonce="" src="https://www.figma.com/webpack-artifacts/assets/1165-295195d6dc6228df.min.js.br" defer="" crossorigin="anonymous"></script>
+        <script nonce="" src="https://www.figma.com/webpack-artifacts/assets/1709-a9e5b3918781030c.min.js.br" defer="" crossorigin="anonymous"></script>
+        <script nonce="" src="https://www.figma.com/webpack-artifacts/assets/7554-2f3ce7498cc1b720.min.js.br" defer="" crossorigin="anonymous"></script>
+        <script nonce="" src="https://www.figma.com/webpack-artifacts/assets/1772-75b46c7a96d0a01e.min.js.br" defer="" crossorigin="anonymous"></script>
+        <script nonce="" src="https://www.figma.com/webpack-artifacts/assets/8804-b1e42bf9ef0b389d.min.js.br" defer="" crossorigin="anonymous"></script>
+        <script nonce="" src="https://www.figma.com/webpack-artifacts/assets/figma_app-20aa55bacd9a5197.min.js.br" defer="" crossorigin="anonymous"></script>
+    <script nonce="">
+      document.addEventListener('DOMContentLoaded', (e) => {
+        performance?.mark('loadTimings:DCL', { startTime: e.timeStamp })
+      })
+      window.addEventListener('load', (e) => {
+        performance?.mark('loadTimings:LOAD', { startTime: e.timeStamp })
+      })
+    </script>
+  
+
+</div><div class="desktop__split-tab-drag-and-drop-target" style="left: 0px; right: calc(50% + 3px);"></div><div class="desktop__split-tab-drag-and-drop-target" style="left: calc(50% + 3px); right: 0px;"></div><div class="desktop__split-tab-drag-and-drop-target" style="left: 0px; right: 0px;"></div></body>

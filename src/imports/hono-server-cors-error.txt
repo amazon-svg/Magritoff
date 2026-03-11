@@ -1,0 +1,83 @@
+📤 Envoi de la requête au serveur Hono...
+code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:28 URL: https://jynxrpzwgzrrfuooputw.supabase.co/functions/v1/server/make-server-e3db71a4/claude-proxy
+247a3ab0-706a-43a9-9685-3aa89caf017a-v2-figmaiframepreview.figma.site/:1 Access to fetch at 'https://jynxrpzwgzrrfuooputw.supabase.co/functions/v1/server/make-server-e3db71a4/claude-proxy' from origin 'https://247a3ab0-706a-43a9-9685-3aa89caf017a-v2-figmaiframepreview.figma.site' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: It does not have HTTP ok status.
+247a3ab0-706a-43a9-9685-3aa89caf017a-v2-figmaiframepreview.figma.site/:1 Access to fetch at 'https://jynxrpzwgzrrfuooputw.supabase.co/functions/v1/server/make-server-e3db71a4/claude-proxy' from origin 'https://247a3ab0-706a-43a9-9685-3aa89caf017a-v2-figmaiframepreview.figma.site' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: It does not have HTTP ok status.
+code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:28 
+        
+        
+       POST https://jynxrpzwgzrrfuooputw.supabase.co/functions/v1/server/make-server-e3db71a4/claude-proxy net::ERR_FAILED
+(anonymous) @ code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:28
+handleSend @ ChatInterface.tsx:134
+y @ code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:77
+i @ code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:28
+ik @ code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:77
+ij @ code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:77
+iz @ code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:77
+dP @ code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:89
+dM @ code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:89
+dG @ code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:89
+dk @ code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:89
+(anonymous) @ code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:89
+SR @ code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:89
+iR @ code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:77
+d$ @ code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:89
+lO @ code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:77
+lN @ code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:77
+lv @ code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:77
+i @ code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:28
+jynxrpzwgzrrfuooputw.supabase.co/functions/v1/server/make-server-e3db71a4/claude-proxy:1 
+        
+        
+       Failed to load resource: net::ERR_FAILED
+code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:28 Error calling Claude: TypeError: Failed to fetch
+    at code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:28:9794
+    at handleSend (ChatInterface.tsx:134:30)
+    at HTMLUnknownElement.y (code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:77:54006)
+    at HTMLUnknownElement.i (code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:28:4861)
+    at Object.ik (code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:77:54331)
+    at ij (code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:77:55284)
+    at iz (code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:77:55341)
+    at dP (code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:89:10702)
+    at dM (code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:89:11042)
+    at dG (code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:89:11125)
+    at dk (code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:89:11212)
+    at code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:89:12595
+    at SR (code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:89:158583)
+    at iR (code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:77:51978)
+    at d$ (code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:89:12574)
+    at lO (code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:77:72034)
+    at lN (code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:77:71970)
+    at lv (code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:77:71781)
+    at HTMLDivElement.i (code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:28:4861)
+(anonymous) @ code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:28
+r @ code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:69
+error @ code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:28
+handleSend @ ChatInterface.tsx:239
+await in handleSend (async)
+y @ code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:77
+i @ code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:28
+ik @ code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:77
+ij @ code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:77
+iz @ code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:77
+dP @ code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:89
+dM @ code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:89
+dG @ code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:89
+dk @ code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:89
+(anonymous) @ code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:89
+SR @ code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:89
+iR @ code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:77
+d$ @ code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:89
+lO @ code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:77
+lN @ code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:77
+lv @ code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:77
+i @ code_components_preview_iframe-c7239de3eebdcfa0.min.js.br:28
+content_script.js:1 Uncaught TypeError: undefined is not a function
+    at Array.map (<anonymous>)
+    at new FormMetadataFieldPatternMatcher (content_script.js:1:156062)
+    at <static_initializer> (content_script.js:1:157180)
+    at content_script.js:1:155899
+FormMetadataFieldPatternMatcher @ content_script.js:1
+<static_initializer> @ content_script.js:1
+(anonymous) @ content_script.js:1
+Show 3 more frames
+Show less

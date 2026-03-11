@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
+      padding: 0;
+      background: #f8f9fa;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .header h1 {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    
+    .header p {
+      font-size: 12px;
+      opacity: 0.9;
+    }
+    
+    .content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+    }
+    
+    .chat-container {
+      background: white;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    .message {
+      margin-bottom: 12px;
+      padding: 10px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    
+    .message.user {
+      background: #e3f2fd;
+      border-left: 3px solid #2196f3;
+    }
+    
+    .message.assistant {
+      background: #f3e5f5;
+      border-left: 3px solid #9c27b0;
+    }
+    
+    .message.system {
+      background: #fff3e0;
+      border-left: 3px solid #ff9800;
+      font-size: 12px;
+    }
+    
+    .input-area {
+      background: white;
+      padding: 12px 16px;
+      border-top: 1px solid #e0e0e0;
+    }
+    
+    .button-group {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    
+    button {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+    
+    .btn-primary {
+      background: #667eea;
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: #5568d3;
+    }
+    
+    .btn-secondary {
+      background: #e0e0e0;
+      color: #333;
+    }
+    
+    .btn-secondary:hover {
+      background: #d0d0d0;
+    }
+    
+    textarea {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      font-size: 13px;
+      font-family: inherit;
+      resize: vertical;
+      min-height: 60px;
+    }
+    
+    textarea:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    
+    .loading {
+      text-align: center;
+      padding: 20px;
+      color: #999;
+      font-size: 13px;
+    }
+    
+    .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid #f3f3f3;
+      border-top: 2px solid #667eea;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-right: 8px;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🤖 Claude Assistant</h1>
+    <p>Analysez vos designs avec l'IA</p>
+  </div>
+  
+  <div class="content" id="content">
+    <div class="chat-container" id="chatContainer">
+      <div class="message system">
+        👋 Bienvenue ! Sélectionnez un élément et cliquez sur "Analyser" pour commencer.
+      </div>
+    </div>
+  </div>
+  
+  <div class="input-area">
+    <div class="button-group">
+      <button class="btn-primary" id="btnAnalyze">📊 Analyser la sélection</button>
+      <button class="btn-secondary" id="btnClear">🗑️ Effacer</button>
+    </div>
+    <textarea id="userInput" placeholder="Posez une question à Claude..."></textarea>
+    <button class="btn-primary" id="btnSend" style="width: 100%; margin-top: 8px;">Envoyer</button>
+  </div>
+  
+  <script>
+    const SUPABASE_PROJECT_ID = 'YOUR_PROJECT_ID'; // À remplacer
+    const SUPABASE_ANON_KEY = 'YOUR_ANON_KEY'; // À remplacer
+    
+    let conversationHistory = [];
+    let currentSelection = null;
+    
+    // Ajouter un message au chat
+    function addMessage(content, type = 'assistant') {
+      const chatContainer = document.getElementById('chatContainer');
+      const messageDiv = document.createElement('div');
+      messageDiv.className = `message ${type}`;
+      messageDiv.textContent = content;
+      chatContainer.appendChild(messageDiv);
+      
+      // Scroll vers le bas
+      document.getElementById('content').scrollTop = document.getElementById('content').scrollHeight;
+    }
+    
+    // Afficher le loading
+    function showLoading() {
+      const chatContainer = document.getElementById('chatContainer');
+      const loadingDiv = document.createElement('div');
+      loadingDiv.className = 'loading';
+      loadingDiv.id = 'loading';
+      loadingDiv.innerHTML = '<span class="spinner"></span>Claude réfléchit...';
+      chatContainer.appendChild(loadingDiv);
+    }
+    
+    function hideLoading() {
+      const loading = document.getElementById('loading');
+      if (loading) loading.remove();
+    }
+    
+    // Analyser la sélection
+    document.getElementById('btnAnalyze').onclick = async function() {
+      parent.postMessage({ pluginMessage: { type: 'get-selection' } }, '*');
+    };
+    
+    // Effacer le chat
+    document.getElementById('btnClear').onclick = function() {
+      const chatContainer = document.getElementById('chatContainer');
+      chatContainer.innerHTML = '<div class="message system">Chat effacé. Prêt pour une nouvelle conversation.</div>';
+      conversationHistory = [];
+      currentSelection = null;
+    };
+    
+    // Envoyer un message à Claude
+    document.getElementById('btnSend').onclick = async function() {
+      const input = document.getElementById('userInput');
+      const userMessage = input.value.trim();
+      
+      if (!userMessage) return;
+      
+      addMessage(userMessage, 'user');
+      input.value = '';
+      
+      // Préparer le contexte
+      let context = userMessage;
+      if (currentSelection) {
+        context = `Sélection Figma: ${JSON.stringify(currentSelection, null, 2)}\n\nQuestion: ${userMessage}`;
+      }
+      
+      await sendToClaude(context);
+    };
+    
+    // Envoyer à Claude via Supabase Edge Function
+    async function sendToClaude(userMessage) {
+      showLoading();
+      
+      try {
+        const url = `https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/claude-proxy`;
+        
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+          },
+          body: JSON.stringify({
+            messages: [
+              {
+                role: 'user',
+                content: userMessage
+              }
+            ]
+          })
+        });
+        
+        hideLoading();
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Erreur ${response.status}: ${errorText}`);
+        }
+        
+        const data = await response.json();
+        const claudeResponse = data.content[0].text;
+        
+        addMessage(claudeResponse, 'assistant');
+        
+      } catch (error) {
+        hideLoading();
+        addMessage(`❌ Erreur: ${error.message}`, 'system');
+        console.error('Erreur Claude:', error);
+      }
+    }
+    
+    // Recevoir les messages du plugin
+    window.onmessage = function(event) {
+      const msg = event.data.pluginMessage;
+      console.log('UI reçoit:', msg);
+      
+      if (msg.type === 'selection-result') {
+        if (msg.data) {
+          currentSelection = msg.data;
+          addMessage(`✅ ${msg.data.length} élément(s) sélectionné(s)`, 'system');
+          
+          // Envoyer automatiquement à Claude
+          const summary = `Analyse cette sélection Figma: ${JSON.stringify(msg.data, null, 2)}`;
+          sendToClaude(summary);
+        } else {
+          addMessage(`⚠️ ${msg.message}`, 'system');
+        }
+      }
+    };
+    
+    // Envoyer avec Enter
+    document.getElementById('userInput').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        document.getElementById('btnSend').click();
+      }
+    });
+  </script>
+</body>
+</html>

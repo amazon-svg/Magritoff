@@ -1,0 +1,116 @@
+Running frontend commit 1a279600f2ee56ba1bd4f8a230d1c84e52af87d6
+vendor-core-ade2edecaf4781c7.min.js.br:54 Statsig is not ready to log exposures, will retry in 1 seconds
+(anonymous) @ vendor-core-ade2edecaf4781c7.min.js.br:54
+vendor-core-ade2edecaf4781c7.min.js.br:54 [import] git: 32316aad430e1702f36b927d849d2e88aab330ca, stamp: 9356B1DF1C1877B4
+icon16.png:1  Failed to load resource: net::ERR_FAILED
+vendor-core-ade2edecaf4781c7.min.js.br:54 Loaded 31 scripts (5926597b), 31 from cache (5926597b)
+9Canvas2D: Multiple readback operations using getImageData are faster with the willReadFrequently attribute set to true. See: <URL>
+vendor-core-ade2edecaf4781c7.min.js.br:54 Opening file xGtrn6EfsnPbM4OhgKLliY in a preloaded new tab at /file/xGtrn6EfsnPbM4OhgKLliY with org null
+vendor-core-ade2edecaf4781c7.min.js.br:54 [file_browser.navigation_mark] You appear to be logging a relative timestamp and not an epoch timestamp. Try adding performance.timeOrigin to the timestamp.
+(anonymous) @ vendor-core-ade2edecaf4781c7.min.js.br:54
+vendor-core-ade2edecaf4781c7.min.js.br:11 Unrecognized feature: 'local-network-access'.
+x @ vendor-core-ade2edecaf4781c7.min.js.br:11
+vendor-core-ade2edecaf4781c7.min.js.br:54 Autosave Changes not available or already claimed by another tab undefined
+vendor-core-ade2edecaf4781c7.min.js.br:54 [Local fonts] using agent
+vendor-core-ade2edecaf4781c7.min.js.br:54 [Fullscreen] Booting... (emscripten version 4.0.21)
+vendor-core-ade2edecaf4781c7.min.js.br:54 [GPU] graphicsAPI:"WebGPU", vendor:"Google Inc. (Apple)" renderer:"ANGLE (Apple, ANGLE Metal Renderer: Apple M3, Unspecified Version)" deviceArchitecture:"metal-3" deviceDescription:"" webGPUDevice:"" webGPUVendor:"apple" bindings:"emdawnwebgpu"
+vendor-core-ade2edecaf4781c7.min.js.br:54 [Fullscreen] Ready in 63.7ms
+vendor-core-ade2edecaf4781c7.min.js.br:54 [FullscreenApp] calling setEditorTheme and setting preference light
+vendor-core-ade2edecaf4781c7.min.js.br:54 [MultiplayerSession] connecting to wss://www.figma.com/api/multiplayer/xGtrn6EfsnPbM4OhgKLliY?role=editor&tracking_session_id=hp3jwMA7XsLZh9gC&version=151&recentReload=0&file-load-streaming-compression&user-id=1582453323205532924&client_release=1a279600f2ee56ba1bd4f8a230d1c84e52af87d6&clientID=8f1c325b16f54e33bb4d888695ad0e8d
+vendor-core-ade2edecaf4781c7.min.js.br:54 [FullscreenApp] calling setEditorTheme and setting preference light
+vendor-core-ade2edecaf4781c7.min.js.br:54 [MultiplayerSession] Joining file version 106 (initial load)
+vendor-core-ade2edecaf4781c7.min.js.br:54 Migration succeeded: context: fullscreen_migrate_SceneGraphManager, version: 106, duration: 0ms.
+vendor-core-ade2edecaf4781c7.min.js.br:54 afterJoinEnd PageSyncing: Loaded incrementally Object
+/design/xGtrn6EfsnPbM4OhgKLliY/Sans-titre?node-id=0-1&p=f&t=VIjgS24xkRVkhvlR-0:1 Access to image at 'https://www.gravatar.com/avatar/ab3b614e306398b13b93525095264817?size=240&default=https%3A%2F%2Fs3-alpha.figma.com%2Fstatic%2Fuser_a_v2.png?c=1' from origin 'https://www.figma.com' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.
+www.gravatar.com/avatar/ab3b614e306398b13b93525095264817?size=240&default=https%3A%2F%2Fs3-alpha.figma.com%2Fstatic%2Fuser_a_v2.png?c=1:1  Failed to load resource: net::ERR_FAILED
+vendor-core-ade2edecaf4781c7.min.js.br:54 [Fullscreen] loadtime=0.96s maxmem=7447060
+/api/make/fetch_ds_code_gen_status:1  Failed to load resource: the server responded with a status of 400 ()
+vendor-core-ade2edecaf4781c7.min.js.br:54 [Local fonts] using agent
+vendor-core-ade2edecaf4781c7.min.js.br:54 Manifest error: Capability "inspect" requires "editorType" to include "dev"
+(anonymous) @ vendor-core-ade2edecaf4781c7.min.js.br:54
+5Blocked aria-hidden on an element because its descendant retained focus. The focus must not be hidden from assistive technology users. Avoid using aria-hidden on a focused element or its ancestor. Consider using the inert attribute instead, which will also prevent focus. For more details, see the aria-hidden section of the WAI-ARIA specification at <URL>.
+Element with focus: <input.focus-target>
+Ancestor with aria-hidden: <input.focus-target>
+vendor-core-ade2edecaf4781c7.min.js.br:54 [Local fonts] using agent
+vendor-core-ade2edecaf4781c7.min.js.br:54 [Local fonts] using agent
+vendor-core-ade2edecaf4781c7.min.js.br:54 Manifest error: Capability "inspect" requires "editorType" to include "dev"
+(anonymous) @ vendor-core-ade2edecaf4781c7.min.js.br:54
+vendor-core-ade2edecaf4781c7.min.js.br:54 [Local fonts] using agent
+vendor-core-ade2edecaf4781c7.min.js.br:54 [jsvm-cpp] main called (emscripten version 4.0.21)
+[Violation] Potential permissions policy violation: camera is not allowed in this document.
+[Violation] Potential permissions policy violation: microphone is not allowed in this document.
+[Violation] Potential permissions policy violation: clipboard-write is not allowed in this document.
+[Violation] Potential permissions policy violation: display-capture is not allowed in this document.
+[Violation] Potential permissions policy violation: camera is not allowed in this document.
+[Violation] Potential permissions policy violation: microphone is not allowed in this document.
+[Violation] Potential permissions policy violation: clipboard-write is not allowed in this document.
+[Violation] Potential permissions policy violation: display-capture is not allowed in this document.
+vendor-core-ade2edecaf4781c7.min.js.br:54 Error: This plugin template uses TypeScript. Follow the instructions in `README.md` to generate `code.js`.
+    at <anonymous> (PLUGIN_3_SOURCE:1:589)
+    at call (native)
+    at <eval> (PLUGIN_3_SOURCE:3:9)
+
+(anonymous) @ vendor-core-ade2edecaf4781c7.min.js.br:54
+vendor-core-ade2edecaf4781c7.min.js.br:54 [Local fonts] using agent
+vendor-core-ade2edecaf4781c7.min.js.br:54 [file_browser.navigation_mark] You appear to be logging a relative timestamp and not an epoch timestamp. Try adding performance.timeOrigin to the timestamp.
+(anonymous) @ vendor-core-ade2edecaf4781c7.min.js.br:54
+/api/make/fetch_ds_code_gen_status:1  Failed to load resource: the server responded with a status of 400 ()
+vendor-core-ade2edecaf4781c7.min.js.br:54 Syntax error on line 1: Unexpected token ILLEGAL
+(anonymous) @ vendor-core-ade2edecaf4781c7.min.js.br:54
+2vendor-core-ade2edecaf4781c7.min.js.br:54 Error: Syntax error on line 1: Unexpected token ILLEGAL
+    at u (3435-1e6f92413321c0ba.min.js.br:417:45)
+    at async figma_app-20aa55bacd9a5197.min.js.br:232:32366
+(anonymous) @ vendor-core-ade2edecaf4781c7.min.js.br:54
+vendor-core-ade2edecaf4781c7.min.js.br:54 [Local fonts] using agent
+vendor-core-ade2edecaf4781c7.min.js.br:54 Error(s) from ExtensionForm.validate: Array(1)
+(anonymous) @ vendor-core-ade2edecaf4781c7.min.js.br:54
+vendor-core-ade2edecaf4781c7.min.js.br:54 Error(s) from TaglineField.validate: Array(1)
+(anonymous) @ vendor-core-ade2edecaf4781c7.min.js.br:54
+vendor-core-ade2edecaf4781c7.min.js.br:54 Error(s) from DescriptionField.validate: Array(1)
+(anonymous) @ vendor-core-ade2edecaf4781c7.min.js.br:54
+vendor-core-ade2edecaf4781c7.min.js.br:54 Error(s) from CategoryField.validate: Array(1)
+(anonymous) @ vendor-core-ade2edecaf4781c7.min.js.br:54
+vendor-core-ade2edecaf4781c7.min.js.br:54 Error(s) from IconField.validate: Array(1)
+(anonymous) @ vendor-core-ade2edecaf4781c7.min.js.br:54
+vendor-core-ade2edecaf4781c7.min.js.br:54 Error(s) from CarouselMediaField.validate: Array(2)
+(anonymous) @ vendor-core-ade2edecaf4781c7.min.js.br:54
+vendor-core-ade2edecaf4781c7.min.js.br:54 Error(s) from ExtensionForm.validate: Array(1)
+(anonymous) @ vendor-core-ade2edecaf4781c7.min.js.br:54
+vendor-core-ade2edecaf4781c7.min.js.br:54 Error(s) from ProfileHandleField.validate: Array(1)
+(anonymous) @ vendor-core-ade2edecaf4781c7.min.js.br:54
+vendor-core-ade2edecaf4781c7.min.js.br:54 Error(s) from ExtensionForm.validate: Array(1)
+(anonymous) @ vendor-core-ade2edecaf4781c7.min.js.br:54
+vendor-core-ade2edecaf4781c7.min.js.br:54 Error(s) from ExtensionForm.validate: Array(1)
+(anonymous) @ vendor-core-ade2edecaf4781c7.min.js.br:54
+vendor-core-ade2edecaf4781c7.min.js.br:54 Error(s) from ExtensionForm.validate: Array(1)
+(anonymous) @ vendor-core-ade2edecaf4781c7.min.js.br:54
+vendor-core-ade2edecaf4781c7.min.js.br:54 Error(s) from ExtensionForm.validate: Array(1)
+(anonymous) @ vendor-core-ade2edecaf4781c7.min.js.br:54
+vendor-core-ade2edecaf4781c7.min.js.br:54 [Local fonts] using agent
+vendor-core-ade2edecaf4781c7.min.js.br:54 Syntax error on line 1: Unexpected token ILLEGAL
+(anonymous) @ vendor-core-ade2edecaf4781c7.min.js.br:54
+2vendor-core-ade2edecaf4781c7.min.js.br:54 Error: Syntax error on line 1: Unexpected token ILLEGAL
+    at u (3435-1e6f92413321c0ba.min.js.br:417:45)
+    at async figma_app-20aa55bacd9a5197.min.js.br:232:32366
+(anonymous) @ vendor-core-ade2edecaf4781c7.min.js.br:54
+vendor-core-ade2edecaf4781c7.min.js.br:54 [Local fonts] using agent
+2vendor-core-ade2edecaf4781c7.min.js.br:54 Error: Unable to load code: Error: Error invoking remote method 'web:getLocalFileExtensionSource': Error: ENOENT: no such file or directory, lstat '/Users/arnaudmazon/Documents/Clariprint/Magrit/Claude Assistant/code.js'
+    at eu (figma_app-20aa55bacd9a5197.min.js.br:232:11172)
+    at async figma_app-20aa55bacd9a5197.min.js.br:232:28275
+    at async Promise.all (/design/xGtrn6EfsnPbM4OhgKLliY/index 0)
+    at async ea (figma_app-20aa55bacd9a5197.min.js.br:232:28246)
+    at async figma_app-20aa55bacd9a5197.min.js.br:232:25793
+(anonymous) @ vendor-core-ade2edecaf4781c7.min.js.br:54
+8vendor-core-ade2edecaf4781c7.min.js.br:54 [Local fonts] using agent
+vendor-core-ade2edecaf4781c7.min.js.br:54 Syntax error on line 1: Unexpected token ILLEGAL
+(anonymous) @ vendor-core-ade2edecaf4781c7.min.js.br:54
+2vendor-core-ade2edecaf4781c7.min.js.br:54 Error: Syntax error on line 1: Unexpected token ILLEGAL
+    at u (3435-1e6f92413321c0ba.min.js.br:417:45)
+    at async figma_app-20aa55bacd9a5197.min.js.br:232:32366
+(anonymous) @ vendor-core-ade2edecaf4781c7.min.js.br:54
+vendor-core-ade2edecaf4781c7.min.js.br:54 Syntax error on line 1: Unexpected token ILLEGAL
+(anonymous) @ vendor-core-ade2edecaf4781c7.min.js.br:54
+2vendor-core-ade2edecaf4781c7.min.js.br:54 Error: Syntax error on line 1: Unexpected token ILLEGAL
+    at u (3435-1e6f92413321c0ba.min.js.br:417:45)
+    at async figma_app-20aa55bacd9a5197.min.js.br:232:32366
+(anonymous) @ vendor-core-ade2edecaf4781c7.min.js.br:54

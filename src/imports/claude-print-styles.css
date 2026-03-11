@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
+      padding: 0;
+      background: #f8f9fa;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .header h1 {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    
+    .header p {
+      font-size: 12px;
+      opacity: 0.9;
+    }
+    
+    .content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+    }
+    
+    .chat-container {
+      background: white;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      min-height: 300px;
+    }
+    
+    .message {
+      margin-bottom: 16px;
+      padding: 12px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    
+    .message.user {
+      background: #e3f2fd;
+      border-left: 3px solid #2196f3;
+    }
+    
+    .message.assistant {
+      background: #ffffff;
+      border: 1px solid #e0e0e0;
+      padding: 20px;
+    }
+    
+    .message.system {
+      background: #fff3e0;
+      border-left: 3px solid #ff9800;
+      font-size: 12px;
+    }
+    
+    /* FORMAT BON DE COMMANDE */
+    .order-summary {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    
+    .order-summary h3 {
+      font-size: 15px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 14px;
+    }
+    
+    .order-summary p {
+      font-size: 13px;
+      line-height: 1.7;
+      color: #333;
+      margin-bottom: 10px;
+    }
+    
+    .order-summary strong {
+      font-weight: 600;
+      color: #000;
+    }
+    
+    .order-summary .suggestion {
+      display: block;
+      margin: 8px 0;
+      padding-left: 16px;
+      position: relative;
+      color: #555;
+      font-size: 13px;
+    }
+    
+    .order-summary .suggestion:before {
+      content: "✦";
+      position: absolute;
+      left: 0;
+      color: #667eea;
+      font-size: 14px;
+    }
+    
+    .order-summary .actions {
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid #e0e0e0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      font-size: 13px;
+    }
+    
+    .order-summary .actions:before {
+      content: "▶";
+      font-size: 11px;
+      color: #333;
+    }
+    
+    .order-summary .action-link {
+      color: #333;
+      text-decoration: none;
+      cursor: pointer;
+      padding: 0 4px;
+      border-bottom: 1px solid transparent;
+      transition: all 0.2s;
+    }
+    
+    .order-summary .action-link:hover {
+      color: #667eea;
+      border-bottom-color: #667eea;
+    }
+    
+    .order-summary .action-separator {
+      color: #999;
+    }
+    
+    .input-area {
+      background: white;
+      padding: 12px 16px;
+      border-top: 1px solid #e0e0e0;
+    }
+    
+    .button-group {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    
+    button {
+      padding: 10px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+    
+    .btn-primary {
+      background: #667eea;
+      color: white;
+      flex: 1;
+    }
+    
+    .btn-primary:hover {
+      background: #5568d3;
+    }
+    
+    .btn-secondary {
+      background: #e0e0e0;
+      color: #333;
+      flex: 1;
+    }
+    
+    .btn-secondary:hover {
+      background: #d0d0d0;
+    }
+    
+    textarea {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      font-size: 13px;
+      font-family: inherit;
+      resize: vertical;
+      min-height: 60px;
+    }
+    
+    textarea:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    
+    .loading {
+      text-align: center;
+      padding: 20px;
+      color: #999;
+      font-size: 13px;
+    }
+    
+    .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid #f3f3f3;
+      border-top: 2px solid #667eea;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-right: 8px;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🖨️ Claude Print Expert</h1>
+    <p>Assistant IA spécialisé web-to-print</p>
+  </div>
+  
+  <div class="content">
+    <div class="chat-container" id="chatContainer"></div>
+  </div>
+  
+  <div class="input-area">
+    <div class="button-group">
+      <button class="btn-secondary" id="btnAnalyze">📊 Analyser sélection</button>
+      <button class="btn-secondary" id="btnClear">🗑️ Effacer</button>
+    </div>
+    <textarea id="userInput" placeholder="Posez votre question ou sélectionnez un élément Figma..."></textarea>
+    <button class="btn-primary" id="btnSend" style="width: 100%; margin-top: 8px;">Envoyer</button>
+  </div>
+  
+  <script>
+    const SUPABASE_PROJECT_ID = 'jynxrpzwgzrrfuooputw';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5bnhycHp3Z3pycmZ1b29wdXR3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNTY1MDQsImV4cCI6MjA4ODYzMjUwNH0.QPGWKXKvQiiIMAjSY8Y-nR0hCEWKIJV6BTonVvwHOMI';
+    
+    const PRINT_EXPERT_CONTEXT = `Tu es Claude, expert en web-to-print comme Vistaprint, Mixam ou Exaprint.
+
+IMPORTANT : Tu dois TOUJOURS répondre dans ce FORMAT EXACT (bon de commande fluide) :
+
+Vous avez demandé :
+
+[Quantité] [type de produit], [dimensions] mm × [dimensions] mm, impression [quadricouleur/noir et blanc] / [quadricouleur/noir et blanc] sur papier **[Type de papier + grammage]**, finition **[type de pelliculage ou vernis (recto)] / [type de pelliculage ou vernis (verso)]**.
+
+Conditionnement : [description du conditionnement], [nombre] [unité] par paquet.
+
+Livraison : destination [pays, région], adresse fournie : [oui/non/aucune].
+
+Pour plus d'impact je vous propose :
+
+✦[Suggestion concrète 1]
+
+✦[Suggestion concrète 2]
+
+✦[Suggestion concrète 3 si pertinente]
+
+▶ Product Sheet | Calculer le prix | Mokup & 3D | Editer le formulaire
+
+---
+
+EXEMPLE CONCRET pour des cartes de visite :
+
+Vous avez demandé :
+
+600 carte de visite, 85 mm × 55 mm, impression quadricouleur / quadricouleur sur papier **Carte Graphique 350 g**, finition **pelliculage polypropylène mat (recto) / pelliculage polypropylène mat (verso)**.
+
+Conditionnement : en paquets scellés par ruban papier, 1 carte(s) par paquet.
+
+Livraison : destination France, Bourgogne-Franche-Comté (90), adresse fournie : aucune.
+
+Pour plus d'impact je vous propose :
+
+✦Ajouter pelliculage brillant (recto) pour des couleurs plus vives et un aspect premium
+
+✦Ajouter une découpe spéciale (die-cut) pour une forme de carte distinctive
+
+▶ Product Sheet | Calculer le prix | Mokup & 3D | Editer le formulaire
+
+---
+
+RÈGLES STRICTES :
+- TOUJOURS utiliser ce format FLUIDE (pas de sections séparées)
+- Mettre en **gras** les éléments importants (papier, finitions)
+- Utiliser ✦ pour les suggestions
+- Terminer par la ligne d'actions avec ▶
+- Adapter au produit analysé (flyer, brochure, affiche, etc.)
+- Baser les dimensions sur l'analyse Figma fournie
+- Vérifier fond perdu, zone de sécurité, couleurs CMJN, résolution 300 DPI`;
+
+    let currentSelection = null;
+    
+    function formatClaudeResponse(content) {
+      const container = document.createElement('div');
+      container.className = 'message assistant';
+      
+      const orderDiv = document.createElement('div');
+      orderDiv.className = 'order-summary';
+      
+      let html = '';
+      const lines = content.split('\n');
+      
+      for (let line of lines) {
+        line = line.trim();
+        if (!line) continue;
+        
+        if (line.match(/^Vous avez demandé\s*:/i)) {
+          html += '<h3>Vous avez demandé :</h3>';
+          continue;
+        }
+        
+        if (line.match(/^Pour plus d'impact/i)) {
+          html += '<p style="margin-top: 16px; font-weight: 600;">Pour plus d\'impact je vous propose :</p>';
+          continue;
+        }
+        
+        if (line.startsWith('✦')) {
+          html += `<span class="suggestion">${line.substring(1).trim()}</span>`;
+          continue;
+        }
+        
+        if (line.startsWith('▶')) {
+          const actions = line.substring(1).split('|').map(a => a.trim());
+          html += '<div class="actions">';
+          actions.forEach((action, idx) => {
+            html += `<span class="action-link">${action}</span>`;
+            if (idx < actions.length - 1) {
+              html += '<span class="action-separator">|</span>';
+            }
+          });
+          html += '</div>';
+          continue;
+        }
+        
+        const formattedLine = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        html += `<p>${formattedLine}</p>`;
+      }
+      
+      orderDiv.innerHTML = html;
+      container.appendChild(orderDiv);
+      
+      return container;
+    }
+    
+    function addMessage(content, type = 'assistant') {
+      const chatContainer = document.getElementById('chatContainer');
+      
+      if (type === 'assistant') {
+        const formattedMsg = formatClaudeResponse(content);
+        chatContainer.appendChild(formattedMsg);
+      } else {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${type}`;
+        messageDiv.textContent = content;
+        chatContainer.appendChild(messageDiv);
+      }
+      
+      chatContainer.parentElement.scrollTop = chatContainer.parentElement.scrollHeight;
+    }
+    
+    function showLoading() {
+      const chatContainer = document.getElementById('chatContainer');
+      const loadingDiv = document.createElement('div');
+      loadingDiv.className = 'loading';
+      loadingDiv.id = 'loading';
+      loadingDiv.innerHTML = '<span class="spinner"></span>Claude analyse...';
+      chatContainer.appendChild(loadingDiv);
+      chatContainer.parentElement.scrollTop = chatContainer.parentElement.scrollHeight;
+    }
+    
+    function hideLoading() {
+      const loading = document.getElementById('loading');
+      if (loading) loading.remove();
+    }
+    
+    document.getElementById('btnAnalyze').onclick = function() {
+      parent.postMessage({ pluginMessage: { type: 'get-selection' } }, '*');
+    };
+    
+    document.getElementById('btnClear').onclick = function() {
+      document.getElementById('chatContainer').innerHTML = '';
+      currentSelection = null;
+    };
+    
+    document.getElementById('btnSend').onclick = async function() {
+      const input = document.getElementById('userInput');
+      const userMessage = input.value.trim();
+      
+      if (!userMessage) return;
+      
+      addMessage(userMessage, 'user');
+      input.value = '';
+      
+      let context = userMessage;
+      if (currentSelection) {
+        context = `Contexte Figma :\n${JSON.stringify(currentSelection, null, 2)}\n\nDemande : ${userMessage}`;
+      }
+      
+      await sendToClaude(context);
+    };
+    
+    async function sendToClaude(userMessage) {
+      showLoading();
+      
+      try {
+        const url = `https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/claude-proxy`;
+        
+        const messages = [
+          {
+            role: 'user',
+            content: PRINT_EXPERT_CONTEXT + '\n\n' + userMessage
+          }
+        ];
+        
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+          },
+          body: JSON.stringify({ messages })
+        });
+        
+        hideLoading();
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Erreur ${response.status}: ${errorText}`);
+        }
+        
+        const data = await response.json();
+        const claudeResponse = data.content[0].text;
+        
+        addMessage(claudeResponse, 'assistant');
+        
+      } catch (error) {
+        hideLoading();
+        addMessage(`❌ Erreur: ${error.message}`, 'system');
+        console.error('Erreur Claude:', error);
+      }
+    }
+    
+    window.onmessage = function(event) {
+      const msg = event.data.pluginMessage;
+      
+      if (msg.type === 'selection-result') {
+        if (msg.data) {
+          currentSelection = msg.data;
+          addMessage(`✅ ${msg.data.length} élément(s) sélectionné(s)`, 'system');
+          
+          const context = `Sélection Figma :\n${JSON.stringify(msg.data, null, 2)}\n\nDemande : Configure ce design pour l'impression professionnelle.`;
+          
+          sendToClaude(context);
+        } else {
+          addMessage(`⚠️ ${msg.message}`, 'system');
+        }
+      }
+    };
+    
+    document.getElementById('userInput').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        document.getElementById('btnSend').click();
+      }
+    });
+  </script>
+</body>
+</html>

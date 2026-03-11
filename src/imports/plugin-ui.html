@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
+      padding: 0;
+      background: #f8f9fa;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .header h1 {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    
+    .header p {
+      font-size: 12px;
+      opacity: 0.9;
+    }
+    
+    .tabs {
+      display: flex;
+      background: white;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    
+    .tab {
+      flex: 1;
+      padding: 12px;
+      text-align: center;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+      color: #666;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+    
+    .tab:hover {
+      background: #f5f5f5;
+    }
+    
+    .tab.active {
+      color: #667eea;
+      border-bottom-color: #667eea;
+    }
+    
+    .content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+    }
+    
+    .tab-content {
+      display: none;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+    
+    .prompts-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    
+    .prompt-btn {
+      padding: 10px 12px;
+      background: white;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      text-align: left;
+      transition: all 0.2s;
+    }
+    
+    .prompt-btn:hover {
+      border-color: #667eea;
+      background: #f5f5ff;
+    }
+    
+    .prompt-btn .icon {
+      font-size: 16px;
+      margin-bottom: 4px;
+    }
+    
+    .prompt-btn .label {
+      font-weight: 500;
+      color: #333;
+    }
+    
+    .chat-container {
+      background: white;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      min-height: 300px;
+    }
+    
+    .message {
+      margin-bottom: 12px;
+      padding: 10px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      line-height: 1.5;
+      word-wrap: break-word;
+    }
+    
+    .message.user {
+      background: #e3f2fd;
+      border-left: 3px solid #2196f3;
+    }
+    
+    .message.assistant {
+      background: #f3e5f5;
+      border-left: 3px solid #9c27b0;
+    }
+    
+    .message.system {
+      background: #fff3e0;
+      border-left: 3px solid #ff9800;
+      font-size: 12px;
+    }
+    
+    .message img {
+      max-width: 100%;
+      border-radius: 4px;
+      margin-top: 8px;
+    }
+    
+    .input-area {
+      background: white;
+      padding: 12px 16px;
+      border-top: 1px solid #e0e0e0;
+    }
+    
+    .button-group {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    
+    button {
+      padding: 10px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+    
+    .btn-primary {
+      background: #667eea;
+      color: white;
+      flex: 1;
+    }
+    
+    .btn-primary:hover {
+      background: #5568d3;
+    }
+    
+    .btn-secondary {
+      background: #e0e0e0;
+      color: #333;
+    }
+    
+    .btn-secondary:hover {
+      background: #d0d0d0;
+    }
+    
+    .btn-small {
+      padding: 6px 10px;
+      font-size: 11px;
+    }
+    
+    textarea {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      font-size: 13px;
+      font-family: inherit;
+      resize: vertical;
+      min-height: 60px;
+    }
+    
+    textarea:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    
+    .loading {
+      text-align: center;
+      padding: 20px;
+      color: #999;
+      font-size: 13px;
+    }
+    
+    .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid #f3f3f3;
+      border-top: 2px solid #667eea;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-right: 8px;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .history-list {
+      background: white;
+      border-radius: 8px;
+      padding: 8px;
+    }
+    
+    .history-item {
+      padding: 10px;
+      border-radius: 6px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      border: 1px solid #e0e0e0;
+      transition: all 0.2s;
+    }
+    
+    .history-item:hover {
+      background: #f5f5f5;
+      border-color: #667eea;
+    }
+    
+    .history-item .date {
+      font-size: 11px;
+      color: #999;
+      margin-bottom: 4px;
+    }
+    
+    .history-item .preview {
+      font-size: 13px;
+      color: #333;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    
+    .checkbox-group {
+      margin-bottom: 12px;
+      padding: 10px;
+      background: #f5f5f5;
+      border-radius: 6px;
+    }
+    
+    .checkbox-group label {
+      display: flex;
+      align-items: center;
+      font-size: 12px;
+      color: #666;
+      cursor: pointer;
+    }
+    
+    .checkbox-group input[type="checkbox"] {
+      margin-right: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🖨️ Claude Print Expert</h1>
+    <p>Assistant IA spécialisé web-to-print</p>
+  </div>
+  
+  <div class="tabs">
+    <div class="tab active" data-tab="chat">💬 Chat</div>
+    <div class="tab" data-tab="prompts">⚡ Prompts</div>
+    <div class="tab" data-tab="history">📚 Historique</div>
+  </div>
+  
+  <div class="content" id="content">
+    <!-- TAB CHAT -->
+    <div class="tab-content active" data-tab="chat">
+      <div class="checkbox-group">
+        <label>
+          <input type="checkbox" id="includeImage">
+          Inclure les screenshots dans l'analyse
+        </label>
+      </div>
+      
+      <div class="chat-container" id="chatContainer">
+        <div class="message system">
+          👋 Bonjour ! Je suis Claude, expert en web-to-print et fabrication print. Je connais les standards de l'industrie (Vistaprint, Mixam, Exaprint) et peux vous aider à :
+          <br><br>
+          • Analyser vos designs pour l'impression
+          <br>• Vérifier les zones de sécurité et fonds perdus
+          <br>• Optimiser les formats et couleurs
+          <br>• Suggérer des produits adaptés
+          <br><br>
+          Sélectionnez un élément pour commencer !
+        </div>
+      </div>
+    </div>
+    
+    <!-- TAB PROMPTS -->
+    <div class="tab-content" data-tab="prompts">
+      <h3 style="margin-bottom: 12px; font-size: 14px;">Prompts prédéfinis Print</h3>
+      
+      <div class="prompts-grid">
+        <button class="prompt-btn" data-prompt="cartes-visite">
+          <div class="icon">📇</div>
+          <div class="label">Carte de visite</div>
+        </button>
+        
+        <button class="prompt-btn" data-prompt="flyers">
+          <div class="icon">📄</div>
+          <div class="label">Flyer A5</div>
+        </button>
+        
+        <button class="prompt-btn" data-prompt="brochures">
+          <div class="icon">📑</div>
+          <div class="label">Brochure</div>
+        </button>
+        
+        <button class="prompt-btn" data-prompt="affiches">
+          <div class="icon">🖼️</div>
+          <div class="label">Affiche</div>
+        </button>
+        
+        <button class="prompt-btn" data-prompt="packaging">
+          <div class="icon">📦</div>
+          <div class="label">Packaging</div>
+        </button>
+        
+        <button class="prompt-btn" data-prompt="autocollants">
+          <div class="icon">🏷️</div>
+          <div class="label">Autocollants</div>
+        </button>
+        
+        <button class="prompt-btn" data-prompt="depliants">
+          <div class="icon">📋</div>
+          <div class="label">Dépliant 3 volets</div>
+        </button>
+        
+        <button class="prompt-btn" data-prompt="catalogues">
+          <div class="icon">📚</div>
+          <div class="label">Catalogue</div>
+        </button>
+        
+        <button class="prompt-btn" data-prompt="check-bleed">
+          <div class="icon">✂️</div>
+          <div class="label">Vérifier fond perdu</div>
+        </button>
+        
+        <button class="prompt-btn" data-prompt="check-colors">
+          <div class="icon">🎨</div>
+          <div class="label">Vérifier couleurs CMJN</div>
+        </button>
+        
+        <button class="prompt-btn" data-prompt="check-resolution">
+          <div class="icon">🔍</div>
+          <div class="label">Vérifier résolution</div>
+        </button>
+        
+        <button class="prompt-btn" data-prompt="optimize">
+          <div class="icon">⚡</div>
+          <div class="label">Optimiser pour print</div>
+        </button>
+      </div>
+    </div>
+    
+    <!-- TAB HISTORY -->
+    <div class="tab-content" data-tab="history">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <h3 style="font-size: 14px;">Conversations sauvegardées</h3>
+        <button class="btn-secondary btn-small" id="btnClearHistory">Tout effacer</button>
+      </div>
+      
+      <div class="history-list" id="historyList">
+        <div class="message system">Aucune conversation sauvegardée</div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="input-area">
+    <div class="button-group">
+      <button class="btn-primary" id="btnAnalyze">📊 Analyser</button>
+      <button class="btn-secondary" id="btnSave" style="flex: 0.5;">💾</button>
+      <button class="btn-secondary" id="btnClear" style="flex: 0.5;">🗑️</button>
+    </div>
+    <textarea id="userInput" placeholder="Posez une question sur le print..."></textarea>
+    <button class="btn-primary" id="btnSend" style="width: 100%; margin-top: 8px;">Envoyer</button>
+  </div>
+  
+  <script>
+    const SUPABASE_PROJECT_ID = 'jynxrpzwgzrrfuooputw';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5bnhycHp3Z3pycmZ1b29wdXR3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNTY1MDQsImV4cCI6MjA4ODYzMjUwNH0.QPGWKXKvQiiIMAjSY8Y-nR0hCEWKIJV6BTonVvwHOMI';
+    
+    // Contexte système pour Claude
+    const PRINT_EXPERT_CONTEXT = `Tu es Claude, un expert en web-to-print et fabrication print. Tu connais parfaitement :
+
+• Les standards de l'industrie de l'impression (Vistaprint, Mixam, Exaprint)
+• Les formats standards (cartes de visite 85x55mm, flyers A5/A4, brochures, catalogues)
+• Les zones de sécurité (3mm minimum du bord)
+• Les fonds perdus (bleed : 3-5mm selon produit)
+• Les profils couleur (CMJN pour l'impression, pas RGB)
+• Les résolutions minimales (300 DPI pour print)
+• Les papiers et finitions (mat, brillant, recyclé, grammage)
+• Les techniques d'impression (offset, numérique, sérigraphie)
+• Les contraintes de fabrication (pliage, découpe, pelliculage)
+
+Analyse TOUJOURS les designs Figma sous l'angle de la faisabilité print et donne des recommandations professionnelles.`;
+
+    let conversationHistory = [];
+    let currentSelection = null;
+    let currentConversationId = null;
+    
+    // Gestion des onglets
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', function() {
+        const targetTab = this.dataset.tab;
+        
+        // Activer l'onglet
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        this.classList.add('active');
+        
+        // Afficher le contenu
+        document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+        document.querySelector(`.tab-content[data-tab="${targetTab}"]`).classList.add('active');
+        
+        // Charger l'historique si nécessaire
+        if (targetTab === 'history') {
+          loadHistoryList();
+        }
+      });
+    });
+    
+    // Prompts prédéfinis
+    const PRINT_PROMPTS = {
+      'cartes-visite': 'Analyse ce design pour en faire une carte de visite professionnelle (85x55mm). Vérifie les marges de sécurité, le fond perdu, la lisibilité et propose des améliorations.',
+      'flyers': 'Analyse ce design pour créer un flyer A5 (148x210mm). Vérifie le format, les zones de sécurité, les couleurs CMJN et suggère des optimisations.',
+      'brochures': 'Transforme ce design en brochure imprimable. Analyse la mise en page, vérifie les fonds perdus, la cohérence typographique et propose un format adapté.',
+      'affiches': 'Analyse ce design pour une affiche print (A3 ou A2). Vérifie la résolution, les couleurs, les contrastes et donne des conseils d\'impression.',
+      'packaging': 'Évalue ce design pour du packaging. Analyse les dimensions, les zones de pliage, les contraintes de découpe et suggère des matériaux adaptés.',
+      'autocollants': 'Optimise ce design pour des autocollants. Vérifie le tracé de découpe, les couleurs vives, la taille minimum et propose des formats.',
+      'depliants': 'Analyse ce design pour un dépliant 3 volets. Vérifie les zones de pliage, l\'ordre de lecture, les marges et propose des améliorations.',
+      'catalogues': 'Optimise ce design pour un catalogue. Analyse la grille, la cohérence des pages, le format et donne des conseils d\'impression.',
+      'check-bleed': 'Vérifie les fonds perdus (bleed) de ce design. Assure-toi que les éléments qui touchent le bord dépassent de 3-5mm pour éviter les liserés blancs après découpe.',
+      'check-colors': 'Analyse les couleurs de ce design pour l\'impression CMJN. Identifie les couleurs RGB qui pourraient poser problème et suggère des alternatives CMJN.',
+      'check-resolution': 'Vérifie que ce design a une résolution suffisante pour l\'impression (minimum 300 DPI). Identifie les images pixelisées.',
+      'optimize': 'Optimise ce design complet pour l\'impression professionnelle : fonds perdus, marges de sécurité, couleurs CMJN, résolution, typographie.'
+    };
+    
+    // Gérer les clics sur les prompts
+    document.querySelectorAll('.prompt-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const promptKey = this.dataset.prompt;
+        const promptText = PRINT_PROMPTS[promptKey];
+        
+        // Basculer vers l'onglet chat
+        document.querySelector('.tab[data-tab="chat"]').click();
+        
+        // Déclencher l'analyse avec le prompt
+        parent.postMessage({ 
+          pluginMessage: { 
+            type: 'get-selection',
+            includeImage: document.getElementById('includeImage').checked
+          } 
+        }, '*');
+        
+        // Stocker le prompt pour l'utiliser après
+        window.pendingPrompt = promptText;
+      });
+    });
+    
+    // Ajouter un message au chat
+    function addMessage(content, type = 'assistant') {
+      const chatContainer = document.getElementById('chatContainer');
+      const messageDiv = document.createElement('div');
+      messageDiv.className = `message ${type}`;
+      
+      if (type === 'assistant' && content.includes('```')) {
+        // Parser le markdown basique pour le code
+        messageDiv.innerHTML = content.replace(/```(.*?)```/gs, '<pre style="background: #f5f5f5; padding: 8px; border-radius: 4px; overflow-x: auto;">$1</pre>');
+      } else {
+        messageDiv.textContent = content;
+      }
+      
+      chatContainer.appendChild(messageDiv);
+      
+      // Ajouter à l'historique
+      conversationHistory.push({ role: type === 'user' ? 'user' : 'assistant', content });
+      
+      // Scroll vers le bas
+      document.getElementById('content').scrollTop = document.getElementById('content').scrollHeight;
+    }
+    
+    // Afficher le loading
+    function showLoading() {
+      const chatContainer = document.getElementById('chatContainer');
+      const loadingDiv = document.createElement('div');
+      loadingDiv.className = 'loading';
+      loadingDiv.id = 'loading';
+      loadingDiv.innerHTML = '<span class="spinner"></span>Claude analyse votre design...';
+      chatContainer.appendChild(loadingDiv);
+      
+      document.getElementById('content').scrollTop = document.getElementById('content').scrollHeight;
+    }
+    
+    function hideLoading() {
+      const loading = document.getElementById('loading');
+      if (loading) loading.remove();
+    }
+    
+    // Analyser la sélection
+    document.getElementById('btnAnalyze').onclick = function() {
+      parent.postMessage({ 
+        pluginMessage: { 
+          type: 'get-selection',
+          includeImage: document.getElementById('includeImage').checked
+        } 
+      }, '*');
+    };
+    
+    // Sauvegarder la conversation
+    document.getElementById('btnSave').onclick = function() {
+      if (conversationHistory.length === 0) {
+        addMessage('⚠️ Aucune conversation à sauvegarder', 'system');
+        return;
+      }
+      
+      const conversationId = currentConversationId || Date.now().toString();
+      const conversation = {
+        id: conversationId,
+        date: new Date().toISOString(),
+        messages: conversationHistory,
+        selection: currentSelection
+      };
+      
+      // Sauvegarder dans localStorage
+      const saved = JSON.parse(localStorage.getItem('conversations') || '[]');
+      const existingIndex = saved.findIndex(c => c.id === conversationId);
+      
+      if (existingIndex >= 0) {
+        saved[existingIndex] = conversation;
+      } else {
+        saved.unshift(conversation);
+      }
+      
+      // Limiter à 20 conversations
+      if (saved.length > 20) saved.length = 20;
+      
+      localStorage.setItem('conversations', JSON.stringify(saved));
+      
+      currentConversationId = conversationId;
+      addMessage('✅ Conversation sauvegardée', 'system');
+    };
+    
+    // Effacer le chat
+    document.getElementById('btnClear').onclick = function() {
+      const chatContainer = document.getElementById('chatContainer');
+      chatContainer.innerHTML = '<div class="message system">Chat effacé. Nouvelle conversation.</div>';
+      conversationHistory = [];
+      currentSelection = null;
+      currentConversationId = null;
+    };
+    
+    // Effacer l'historique complet
+    document.getElementById('btnClearHistory').onclick = function() {
+      if (confirm('Effacer toutes les conversations sauvegardées ?')) {
+        localStorage.removeItem('conversations');
+        loadHistoryList();
+      }
+    };
+    
+    // Charger la liste de l'historique
+    function loadHistoryList() {
+      const historyList = document.getElementById('historyList');
+      const saved = JSON.parse(localStorage.getItem('conversations') || '[]');
+      
+      if (saved.length === 0) {
+        historyList.innerHTML = '<div class="message system">Aucune conversation sauvegardée</div>';
+        return;
+      }
+      
+      historyList.innerHTML = '';
+      
+      saved.forEach(conv => {
+        const item = document.createElement('div');
+        item.className = 'history-item';
+        
+        const date = new Date(conv.date);
+        const dateStr = date.toLocaleString('fr-FR', { 
+          day: '2-digit', 
+          month: '2-digit', 
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+        
+        const preview = conv.messages.find(m => m.role === 'user')?.content || 'Conversation sans message';
+        
+        item.innerHTML = `
+          <div class="date">${dateStr}</div>
+          <div class="preview">${preview.substring(0, 100)}${preview.length > 100 ? '...' : ''}</div>
+        `;
+        
+        item.onclick = () => loadConversation(conv);
+        
+        historyList.appendChild(item);
+      });
+    }
+    
+    // Charger une conversation
+    function loadConversation(conv) {
+      // Basculer vers l'onglet chat
+      document.querySelector('.tab[data-tab="chat"]').click();
+      
+      // Vider le chat actuel
+      const chatContainer = document.getElementById('chatContainer');
+      chatContainer.innerHTML = '';
+      
+      // Restaurer les messages
+      conversationHistory = conv.messages;
+      currentSelection = conv.selection;
+      currentConversationId = conv.id;
+      
+      conv.messages.forEach(msg => {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${msg.role === 'user' ? 'user' : 'assistant'}`;
+        messageDiv.textContent = msg.content;
+        chatContainer.appendChild(messageDiv);
+      });
+      
+      addMessage('📚 Conversation restaurée', 'system');
+    }
+    
+    // Envoyer un message à Claude
+    document.getElementById('btnSend').onclick = async function() {
+      const input = document.getElementById('userInput');
+      const userMessage = input.value.trim();
+      
+      if (!userMessage) return;
+      
+      addMessage(userMessage, 'user');
+      input.value = '';
+      
+      // Préparer le contexte
+      let context = userMessage;
+      if (currentSelection) {
+        context = `Contexte de la sélection Figma :\n${JSON.stringify(currentSelection, null, 2)}\n\nQuestion : ${userMessage}`;
+      }
+      
+      await sendToClaude(context);
+    };
+    
+    // Envoyer à Claude via Supabase Edge Function
+    async function sendToClaude(userMessage) {
+      showLoading();
+      
+      try {
+        const url = `https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/claude-proxy`;
+        
+        // Construire les messages avec le contexte print
+        const messages = [
+          {
+            role: 'user',
+            content: PRINT_EXPERT_CONTEXT + '\n\n' + userMessage
+          }
+        ];
+        
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+          },
+          body: JSON.stringify({ messages })
+        });
+        
+        hideLoading();
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Erreur ${response.status}: ${errorText}`);
+        }
+        
+        const data = await response.json();
+        const claudeResponse = data.content[0].text;
+        
+        addMessage(claudeResponse, 'assistant');
+        
+      } catch (error) {
+        hideLoading();
+        addMessage(`❌ Erreur de connexion à Claude: ${error.message}`, 'system');
+        console.error('Erreur Claude:', error);
+      }
+    }
+    
+    // Recevoir les messages du plugin
+    window.onmessage = function(event) {
+      const msg = event.data.pluginMessage;
+      console.log('UI reçoit:', msg);
+      
+      if (msg.type === 'selection-result') {
+        if (msg.data) {
+          currentSelection = msg.data;
+          addMessage(`✅ ${msg.data.length} élément(s) sélectionné(s) sur la page "${msg.pageName}"`, 'system');
+          
+          // Utiliser le prompt en attente s'il y en a un
+          const promptToUse = window.pendingPrompt || 'Analyse cette sélection Figma du point de vue de l\'impression professionnelle. Donne des recommandations pour optimiser ce design pour le print.';
+          window.pendingPrompt = null;
+          
+          // Préparer le contexte complet
+          const context = `Sélection Figma (page "${msg.pageName}") :\n${JSON.stringify(msg.data, null, 2)}\n\nDemande : ${promptToUse}`;
+          
+          sendToClaude(context);
+        } else {
+          addMessage(`⚠️ ${msg.message}`, 'system');
+        }
+      }
+      
+      if (msg.type === 'create-result' || msg.type === 'modify-result' || msg.type === 'variant-result') {
+        if (msg.success) {
+          addMessage(`✅ ${msg.message}`, 'system');
+        } else {
+          addMessage(`❌ ${msg.message}`, 'system');
+        }
+      }
+    };
+    
+    // Envoyer avec Enter
+    document.getElementById('userInput').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        document.getElementById('btnSend').click();
+      }
+    });
+    
+    // Charger l'historique au démarrage
+    loadHistoryList();
+  </script>
+</body>
+</html>
