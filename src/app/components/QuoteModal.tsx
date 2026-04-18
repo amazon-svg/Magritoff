@@ -19,13 +19,15 @@ export function QuoteModal({ isOpen, onClose, product }: QuoteModalProps) {
   };
 
   const handlePrintQuote = () => {
-    // Ouvrir la fenêtre de prévisualisation du devis
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
-    const totalHT = product.price || 0;
+    // Utiliser le prix Clariprint si disponible, sinon le prix estimé
+    const clariprintQuote = product.clariprintQuote;
+    const totalHT = clariprintQuote?.costs?.total || clariprintQuote?.priceHT || product.price || 0;
     const tva = totalHT * 0.2;
     const totalTTC = totalHT * 1.2;
+    const isClariprintPrice = !!(clariprintQuote?.success);
 
     // Générer le HTML du devis
     printWindow.document.write(`
@@ -334,6 +336,18 @@ export function QuoteModal({ isOpen, onClose, product }: QuoteModalProps) {
 
           <!-- Total -->
           <div class="total-section">
+            ${isClariprintPrice && clariprintQuote?.costs ? `
+            <div style="font-size:12px;color:#666;margin-bottom:12px;padding:8px;background:#f0f9ff;border-radius:4px;">
+              <strong>Détail des coûts (source : Clariprint)</strong><br>
+              ${clariprintQuote.costs.paper ? `Papier : ${clariprintQuote.costs.paper.toFixed(2)} €<br>` : ''}
+              ${clariprintQuote.costs.print ? `Impression : ${clariprintQuote.costs.print.toFixed(2)} €<br>` : ''}
+              ${clariprintQuote.costs.makeready ? `Calage : ${clariprintQuote.costs.makeready.toFixed(2)} €<br>` : ''}
+              ${clariprintQuote.costs.packaging ? `Conditionnement : ${clariprintQuote.costs.packaging.toFixed(2)} €<br>` : ''}
+              ${clariprintQuote.costs.delivery ? `Livraison : ${clariprintQuote.costs.delivery.toFixed(2)} €<br>` : ''}
+              ${clariprintQuote.delais ? `Délai estimé : ${clariprintQuote.delais} jour(s)<br>` : ''}
+              ${clariprintQuote.fournisseur ? `Imprimeur : ${clariprintQuote.fournisseur}` : ''}
+            </div>
+            ` : '<div style="font-size:11px;color:#999;margin-bottom:12px;">Prix estimé — Connectez Clariprint pour un prix réel</div>'}
             <div class="total-row">
               <span>Total HT</span>
               <span>${totalHT.toFixed(2)} €</span>
@@ -384,13 +398,25 @@ export function QuoteModal({ isOpen, onClose, product }: QuoteModalProps) {
         {/* Prix */}
         <div className="p-6 bg-gray-50 border-b border-gray-200">
           <div className="text-center">
+            {product.clariprintQuote?.success && (
+              <div className="inline-flex items-center gap-1 bg-green-100 text-green-700 text-xs px-3 py-1 rounded-full mb-2 font-medium">
+                🖨️ Prix réel Clariprint
+              </div>
+            )}
             <div className="text-sm text-gray-600 mb-2">Total TTC</div>
             <div className="text-4xl font-bold text-blue-600 mb-1">
-              {((product.price || 0) * 1.2).toFixed(2)} €
+              {((product.clariprintQuote?.costs?.total || product.clariprintQuote?.priceHT || product.price || 0) * 1.2).toFixed(2)} €
             </div>
             <div className="text-xs text-gray-500">
-              ({(product.price || 0).toFixed(2)} € HT + {((product.price || 0) * 0.2).toFixed(2)} € TVA)
+              ({(product.clariprintQuote?.costs?.total || product.clariprintQuote?.priceHT || product.price || 0).toFixed(2)} € HT
+              + {((product.clariprintQuote?.costs?.total || product.clariprintQuote?.priceHT || product.price || 0) * 0.2).toFixed(2)} € TVA)
             </div>
+            {product.clariprintQuote?.delais && (
+              <div className="text-xs text-green-600 mt-1">⏱ Délai : {product.clariprintQuote.delais} jour(s)</div>
+            )}
+            {product.clariprintQuote?.fournisseur && (
+              <div className="text-xs text-green-600">🏭 {product.clariprintQuote.fournisseur}</div>
+            )}
           </div>
         </div>
 

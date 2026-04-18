@@ -34,9 +34,10 @@ Magrit doit devenir un **expert digital** capable de :
 ```
 Frontend : React + TypeScript + Tailwind CSS
 Router  : React Router v7
-Backend : Supabase Edge Functions (Deno)
+Backend : Supabase Edge Functions (Deno / Hono)
 IA      : Claude API (Anthropic) via clé MAGRIT
 Modèle  : claude-sonnet-4-20250514
+Tarif   : Clariprint API (web-to-print) — appel manuel uniquement
 ```
 
 ### Flux de Données
@@ -56,36 +57,37 @@ Modèle  : claude-sonnet-4-20250514
                      │
                      ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  3. EDGE FUNCTION (/functions/v1/claude-proxy)              │
+│  3. EDGE FUNCTION (/make-server-e3db71a4/claude-proxy)      │
 │     - Reçoit la demande                                     │
 │     - Injecte le SYSTEM PROMPT expert imprimerie            │
 │     - Appelle l'API Claude avec la clé MAGRIT               │
-│     - Retourne la réponse structurée                        │
+│     - Retourne : { configs: [...], content: [...] }         │
 └────────────────────┬────────────────────────────────────────┘
                      │
                      ▼
 ┌─────────────────────────────────────────────────────────────┐
 │  4. API CLAUDE (Anthropic)                                  │
 │     - Modèle : claude-sonnet-4-20250514                     │
-│     - Analyse la demande en français                        │
-│     - Génère UNE SECTION PAR PRODUIT avec structure :       │
-│       **[QUANTITÉ] [NOM DU PRODUIT]**                       │
-│       - **Format** : [dimensions]                           │
-│       - **Support** : [type de papier]                      │
-│       - **Grammage** : [poids]g/m²                          │
-│       - **Finition** : [type]                               │
-│       - **Conseils** : liste avec prix                      │
-│     - Pour les KITS : décompose en produits séparés         │
+│     - Répond UNIQUEMENT en JSON valide (aucun texte libre)  │
+│     - Format JSON double-couche par produit :               │
+│       {                                                     │
+│         "products": [                                       │
+│           {                                                 │
+│             "clariprint": { ... },  ← données API Clariprint│
+│             "display": { ... }      ← données UI card       │
+│           }                                                 │
+│         ]                                                   │
+│       }                                                     │
 └────────────────────┬────────────────────────────────────────┘
                      │
                      ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  5. PARSER INTELLIGENT (ChatInterface.tsx)                  │
-│     - Détecte chaque produit : **[QTÉ] [NOM]**             │
-│     - Extrait les 6 champs : Format, Support, Grammage,     │
-│       Finition, Conseils                                    │
-│     - Fallback : createProductFromName() si parsing échoue  │
-│     - Calcule le prix estimé automatiquement                │
+│  5. PARSER JSON (claude-proxy / index.tsx)                  │
+│     - Parse JSON brut retourné par Claude                   │
+│     - Nettoie les éventuels blocs ```json ... ```           │
+│     - Extrait parsed.products[]                             │
+│     - Génère le résumé Markdown lisible (generateReadable…) │
+│     - Retourne configs[] au frontend                        │
 └────────────────────┬────────────────────────────────────────┘
                      │
                      ▼
@@ -95,10 +97,157 @@ Modèle  : claude-sonnet-4-20250514
 │                           3-6 produits = 2 cols             │
 │                           7-12 produits = 3 cols            │
 │                           13+ produits = 4 cols             │
+│     - Données affichées = display.* (uniquement depuis Claude)│
+│     - Données Clariprint = clariprintData (stockées, n/a UI)│
 │     - Valeurs techniques cliquables et éditables            │
 │     - Mode compact auto si 12+ produits                     │
+│     - 5 onglets : Fiche / Prix & Devis / Mockup 3D /        │
+│                   Éditer / 🔍 Debug                         │
+└────────────────────┬────────────────────────────────────────┘
+                     │  (sur action explicite utilisateur)
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│  7. CLARIPRINT API (optionnel — manuel uniquement)          │
+│     - Bouton "Obtenir le prix réel Clariprint"              │
+│       dans l'onglet "Prix & Devis"                          │
+│     - Frontend → /make-server-e3db71a4/clariprint-quote     │
+│     - Edge function → POST https://lrdp.clariprint.com/     │
+│                            optimproject/json.wcl            │
+│     - Retourne : prix HT, délai, poids, fournisseur, costs  │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## 🖨️ Intégration Clariprint
+
+### Principe Fondamental
+
+**RÈGLE ABSOLUE :** Clariprint n'est appelé **que sur action explicite de l'utilisateur** via le bouton "Obtenir le prix réel Clariprint" dans l'onglet "Prix & Devis" de chaque ProductCard. Jamais automatiquement.
+
+### JSON Double-Couche (Format Claude)
+
+Claude génère systématiquement un JSON à deux couches pour chaque produit :
+
+```json
+{
+  "products": [
+    {
+      "clariprint": {
+        "reference": "Flyers A5 recto-verso",
+        "kind": "leaflet",
+        "quantity": "1000",
+        "width": "14.8",
+        "height": "21.0",
+        "with_bleeds": "1",
+        "front_colors": ["4-color"],
+        "back_colors": ["4-color"],
+        "papers": {
+          "custom": {
+            "quality": "Couché Brillant PEFC",
+            "weight": "170"
+          }
+        },
+        "finishing_front": "PELLIC_ACETATE_MAT",
+        "finishing_back": "",
+        "deliveries": {
+          "d_livraison": {
+            "iso": "FR-75",
+            "address": "",
+            "quantity": "1000"
+          }
+        }
+      },
+      "display": {
+        "productName": "Flyers A5 recto-verso",
+        "quantity": 1000,
+        "format": "A5 (148 × 210 mm)",
+        "support": "Papier couché brillant",
+        "grammage": 170,
+        "impression": {
+          "recto": "Quadrichromie (CMJN)",
+          "verso": "Quadrichromie (CMJN)"
+        },
+        "finitionRecto": "Pelliculage mat",
+        "finitionVerso": "Sans finition",
+        "suggestions": [
+          "• Passez à 250g/m² pour plus de rigidité (+20%)",
+          "• Vernis UV sélectif sur le logo (+25€)",
+          "• Format A4 pour plus d'impact visuel"
+        ]
+      }
+    }
+  ]
+}
+```
+
+**Couche `clariprint`** : Structure API conforme à la doc Clariprint (`kind`, `quantity` en string, `papers.custom`, `deliveries`, codes finitions, etc.)
+
+**Couche `display`** : Données pour l'affichage dans les ProductCards (`productName`, `format`, `grammage` en entier, `impression`, `suggestions`, etc.)
+
+### Règles Clariprint dans le Prompt Système
+
+| Champ | Règle |
+|---|---|
+| `quantity` | String avec guillemets (ex: `"1000"` pas `1000`) |
+| `grammage` (display) | Entier sans guillemets (ex: `170` pas `"170"`) |
+| `kind` | `"leaflet"` (plat), `"folded"` (dépliant), `"book"` (brochure) |
+| `back_colors` | `["4-color"]` si recto-verso, `[]` si recto seul |
+| `finishing_front/back` | Code exact (`""`, `"PELLIC_ACETATE_MAT"`, etc.) |
+| `deliveries` | Toujours présent, `iso: "FR-75"`, même quantité |
+| Pour `kind="folded"` | Ajouter `folds`, `openwidth`, `openheight` |
+| Pour `kind="book"` | Ajouter `binding` et `pages` |
+
+### Endpoint `/clariprint-quote`
+
+```typescript
+// POST /make-server-e3db71a4/clariprint-quote
+// Body : { clariprint: <données clariprint du produit> }
+
+app.post("/make-server-e3db71a4/clariprint-quote", async (c) => {
+  // 1. Construction robuste de l'URL (gère host seul / avec path / avec ou sans https://)
+  const rawHost = Deno.env.get("CLARIPRINT_HOST") || "https://lrdp.clariprint.com";
+  let normalizedHost = rawHost.trim().replace(/\/$/, "");
+  if (!normalizedHost.startsWith("http")) normalizedHost = "https://" + normalizedHost;
+  const apiUrl = normalizedHost.includes("/optimproject/json.wcl")
+    ? normalizedHost
+    : `${normalizedHost}/optimproject/json.wcl`;
+
+  // 2. Envoi avec URLSearchParams (application/x-www-form-urlencoded)
+  const params = new URLSearchParams();
+  params.append("login", login);
+  params.append("password", password);
+  params.append("action", "QuoteRequest");
+  params.append("datas", JSON.stringify({ clariprint_product: clariprintProduct }));
+
+  // 3. Réponse Clariprint
+  // { success, response (prix HT), costs, delais, weight, fournisseur, all_process, all_faulty_process }
+});
+```
+
+**Secrets requis :**
+- `CLARIPRINT_HOST` : host de l'API (ex: `lrdp.clariprint.com` ou URL complète)
+- `CLARIPRINT_LOGIN` : login Clariprint
+- `CLARIPRINT_PASSWORD` : mot de passe Clariprint
+
+### Onglet 🔍 Debug (ProductCard)
+
+Chaque ProductCard dispose d'un **5ème onglet "🔍 Debug"** (fond sombre) affichant :
+1. **La requête JSON envoyée** à Clariprint (`clariprint_product`) — visible avant tout appel, en vert
+2. **La réponse brute** reçue de Clariprint — visible après appel, en jaune
+3. **Bouton "Copier"** sur chaque bloc pour export/diagnostic
+
+> **Usage :** Cliquer "🔍 Debug" → vérifier la requête → lancer "Obtenir le prix réel Clariprint" → revenir sur Debug pour lire la réponse brute (`all_faulty_process` indique les erreurs de calcul par imprimeur).
+
+### Bugs Clariprint Corrigés
+
+#### Bug C1 : URL dupliquée → réponse HTML non-JSON
+**Symptôme :** Erreur "Réponse Clariprint invalide (non-JSON)"
+**Cause :** Si `CLARIPRINT_HOST` contient l'URL complète avec path, le serveur construisait `/optimproject/json.wcl/optimproject/json.wcl` → 404 HTML.
+**Fix :** Détection du path dans le host avant concaténation.
+
+#### Bug C2 : Prix négatif ou incohérent
+**En cours de diagnostic** via l'onglet 🔍 Debug. Vérifier `all_faulty_process` dans la réponse brute pour identifier quelle gamme échoue et pourquoi (grammage non reconnu, qualité papier invalide, format incorrect).
 
 ---
 
@@ -539,45 +688,37 @@ interface ProductCardProps {
 ```
 
 **Fonctionnalités :**
+- Données affichées : **uniquement depuis `display.*` retourné par Claude** (jamais de valeurs inventées)
 - Valeurs techniques **cliquables** (quantité, format, papier, etc.)
-- 4 onglets dépliables : Product Sheet, Pricing, Mockup, Form
+- **5 onglets** dépliables : Fiche Produit / Prix & Devis / Mockup 3D / Éditer / 🔍 Debug
 - Mode compact automatique (texte réduit, boutons courts)
+- **Prix estimé** (fallback) + **Prix réel Clariprint** (sur demande)
+- **États Clariprint** : `clariprintLoading`, `clariprintQuote`, `lastRawResponse`
 
-**💡 AMÉLIORATION FUTURE :**
-- Calculer le **prix réel** basé sur une API tarifaire
-- Générer un **mockup 3D** via API externe
-- Exporter la config en **PDF BAT** (Bon À Tirer)
-
-### 3. `/supabase/functions/server/index.tsx`
-**Rôle :** Edge function proxy vers API Claude
-
-**Route critique :**
+**Onglet Debug :**
 ```typescript
-app.post('/make-server-e3db71a4/claude-proxy', async (c) => {
-  const { message } = await c.req.json();
-  
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'x-api-key': Deno.env.get('MAGRIT'),
-      'anthropic-version': '2023-06-01',
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 4096,
-      messages: [{ role: 'user', content: message }],
-    }),
-  });
-  
-  return c.json(await response.json());
-});
+const [lastRawResponse, setLastRawResponse] = useState<string | null>(null);
+// Stocké à chaque appel Clariprint réussi
+setLastRawResponse(JSON.stringify(data, null, 2));
 ```
 
-**💡 AMÉLIORATION FUTURE :**
-- Ajouter un **system prompt** spécialisé imprimerie
-- Logger toutes les requêtes dans Supabase
-- Implémenter un **cache** pour les demandes identiques
+### 3. `/supabase/functions/server/index.tsx`
+**Rôle :** Serveur Hono — proxy Claude + API Clariprint
+
+**Routes disponibles :**
+```
+GET  /make-server-e3db71a4/health           → Health check
+GET  /make-server-e3db71a4/claude-test      → Diagnostic Claude + Clariprint
+GET  /make-server-e3db71a4/clariprint-test  → Test authentification Clariprint (CheckAuth)
+POST /make-server-e3db71a4/claude-proxy     → Génération JSON double-couche via Claude
+POST /make-server-e3db71a4/clariprint-quote → Demande de prix Clariprint (manuel)
+```
+
+**Helpers serveur :**
+```typescript
+generateReadableSummary(configs)  // Génère résumé Markdown depuis les configs parsées
+generateDemoConfigs(userMessage)  // Configs de démo si Claude indisponible
+```
 
 ---
 
@@ -590,10 +731,10 @@ app.post('/make-server-e3db71a4/claude-proxy', async (c) => {
 - [ ] Exporter les données en CSV pour analyse
 
 ### Phase 2 : Tarification Intelligente
-- [ ] Construire une table de prix (quantité, format, papier, finitions)
-- [ ] Calculer automatiquement le prix dans ProductCard
-- [ ] Proposer des alternatives moins chères
-- [ ] Afficher le "prix moyen du marché"
+- [x] ~~Intégration Clariprint pour prix réels~~ ✅ **FAIT (18 mars 2026)**
+- [ ] Prix automatique Clariprint à la modification d'un champ (Éditer)
+- [ ] Proposer des alternatives moins chères via multi-résultats Clariprint (`all_process`)
+- [ ] Afficher le prix par unité en plus du total
 
 ### Phase 3 : Enrichissement de l'Expertise
 - [ ] Ajouter un **system prompt expert** à Claude :
@@ -739,6 +880,11 @@ SUPABASE_SERVICE_ROLE_KEY=eyJ[...]
 
 # Claude API (clé fournie par l'utilisateur)
 MAGRIT=sk-ant-api03-[...]  # Clé API Anthropic valide
+
+# Clariprint API (optionnel)
+CLARIPRINT_HOST=lrdp.clariprint.com
+CLARIPRINT_LOGIN=login_clariprint
+CLARIPRINT_PASSWORD=password_clariprint
 ```
 
 **⚠️ IMPORTANT :** La clé `MAGRIT` est déjà configurée et fonctionnelle.
@@ -953,8 +1099,8 @@ finally {
 ## 📞 Contact & Maintenance
 
 **Projet :** Magrit - Configurateur d'impression intelligent
-**Stack :** React + Supabase + Claude AI
-**Dernière mise à jour :** 11 mars 2026
+**Stack :** React + Supabase + Claude AI + Clariprint API
+**Dernière mise à jour :** 18 mars 2026
 
 **Pour toute question, référez-vous à ce document en priorité.** 🚀
 
@@ -962,7 +1108,32 @@ finally {
 
 ## 📅 Journal des Améliorations
 
-### 🆕 11 Mars 2026 - Session Actuelle
+### 🆕 18 Mars 2026
+
+#### ✅ Intégration Clariprint complète
+- **Endpoint `/clariprint-quote`** opérationnel dans le serveur Hono
+- **Prompt Claude JSON double-couche** : chaque produit contient `clariprint` (données API) + `display` (données UI)
+- **Appel uniquement sur action explicite** : bouton "Obtenir le prix réel Clariprint" dans l'onglet "Prix & Devis"
+- **Secrets configurés** : `CLARIPRINT_HOST`, `CLARIPRINT_LOGIN`, `CLARIPRINT_PASSWORD` dans Supabase
+- **Réponse affichée** : prix HT détaillé (papier, impression, calage, conditionnement, livraison), délai, poids, fournisseur
+- **URL Clariprint** : `https://lrdp.clariprint.com/optimproject/json.wcl`
+
+#### ✅ Correction architecturale ConfiguratorPage.tsx
+- **Bug supprimé** : bifurcation `showResults` qui cachait les ProductCards Claude
+- **`ChatInterface` toujours affiché** directement, sans condition
+- **Hauteur ajustée** : `h-[calc(100vh-56px)]` pour le header global de 56px
+
+#### ✅ Onglet 🔍 Debug dans ProductCard
+- **5ème onglet** ajouté à la barre de navigation de chaque ProductCard
+- **Requête JSON** envoyée à Clariprint affichée en vert (fond noir) — visible avant tout appel
+- **Réponse brute** de Clariprint affichée en jaune après appel
+- **Bouton "Copier"** sur chaque bloc pour export
+
+#### ✅ Correction bug URL Clariprint dupliquée
+- **Cause** : Si `CLARIPRINT_HOST` contenait l'URL complète avec path, le serveur construisait une URL dupliquée → réponse HTML 404
+- **Fix** : Construction robuste de l'URL (détection du path, ajout https:// si absent)
+
+### 🆕 11 Mars 2026 - Session Précédente
 
 #### ✅ Restauration de `createProductFromName()`
 - **Fonction intelligente** qui génère des ProductCards avec configurations prédéfinies
@@ -976,7 +1147,7 @@ finally {
 - **Format strict imposé** : **[QUANTITÉ] [NOM]** + 6 champs obligatoires
 - **Exemples exhaustifs** : "kit campagne électorale" → 3 ProductCards distinctes
 
-#### ✅ Parser Markdown Amélioré
+#### ✅ Parser Markdown Am��lioré
 - **Regex complexe** capturant 6 champs : Format, Support, Grammage, Finition, Conseils
 - **Extraction numérique** du grammage (ex: "350g/m²" → 350)
 - **Parsing des conseils** avec bullet points (• ou ✦)

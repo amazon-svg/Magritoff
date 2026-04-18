@@ -1,0 +1,621 @@
+= Clariprint Json API =
+
+
+== Listes utilisées ==
+ * [JsonVarnish Vernis]
+ * [JsonFold Pliage]
+ * [JsonFolderDie Formes de découpe]
+
+
+== Structure d'une requête ==
+
+=== Requête ===  
+ * Type : HTTP POST
+ * url : [clariprint host]/optimproject/json.wcl
+ * variables :
+  * login (Client Optimproject)
+  * password
+  * action : chaine de charatere
+  * datas : donnes au formant JSON
+
+=== Réponse ===
+ * format : Json encoded raw
+
+
+== Actions ==
+=== !CheckAuth ===
+
+Vérification des données d'authentification voir : JsonApiCheckAuth
+
+=== !QuoteRequest ===
+
+Demande de prix
+
+{{{
+datas : 
+{
+   "pdf_options" : {
+	"allpdfs" : true,
+	"hide_printer_name" : false ,
+	"hide_resume" : false ,
+	"hide_resume_costs" : false ,
+	"hide_impositions" : false ,
+	"hide_components_table_of_content" : false ,
+	"hide_sheets_table_of_content" : false ,
+	"hide_paper_procurement" : false ,
+	"hide_paper_procurement_costs" : true,
+	"hide_print_operations" : false ,
+	"hide_print_operations_costs" : false ,
+	"hide_finish_operations" : false ,
+	"hide_finish_operations_costs" : false ,
+	"hide_packaging_operations" : false ,
+	"hide_packaging_operations_costs" : false ,
+	"hide_delivery_operations" : false ,
+	"hide_delivery_operations_costs" : false ,
+	"number_impositions_cols" : 3 
+	},
+
+   "clariprint_product": {
+       group:string // groupe de classement dans optimproject),
+       reference:string // reference du projet
+       labels:list[string] // liste des labels
+/* liste des labels reconnus pour le papier
+	"RECYCLED","FSC","FSC_AUTO","FSC_MIXED","FSC_RECYCLED",
+	"PEFC","PEFC_70","PEFC_RECYCLED","PEFC_AUTO",
+	"ECOLABEL","BLUE_ANGEL","NORDIC_SWAN","APUR","PAPER_BY_NATURE",
+	"M1"
+*/
+       quantity:integer // quantité du produit
+  
+}
+}}}
+
+
+= Exemples produits = 
+== Feuillet ==
+{{{
+{
+	"clariprint_product": {
+		"reference": "Feuillet simple", // libre
+		"kind": "leaflet",  // leaflet:"feuillet" // folded:"dépliant" // book:"brochure" // cover:"couverture" // section:"intérieur de brochure"
+		"quantity": "2000", // libre obligatoire
+		"labels":["PEFC","M1"], // labels du projet
+	
+	// uniquement si multi-modèle de quantité identite, "_assembed" si les modèles sont assemblés
+		"models_qt_mode": "same_qt", // ou "same_qt_assembled" 
+		"models_qt" : "12" // nombre de modèles
+
+	// uniquement si multi-modèle de quantité différentes
+		"models": [  			{
+				"reference": "Model 2",
+				"quantity": "3000"
+			},
+			{
+				"reference": "Model 3",
+				"quantity": "1500"
+			}
+
+		],
+		"size": "21x29.7:A4", // lxh:commentaires  peut etre remplace par width: et height:
+                "width": "21",  // optionnel, soit size soit width + height
+                "height": "29.7", // optionnel
+
+		"with_bleeds": "1", // 1 avec blanc tournant, 0 sans fonds perdus
+		"pms1": { // optionnel, définition d'une teinte Pantone
+			"class": "PMS", // PMS:Pantone std / Spot:Pantone fluo / Metal:Pantone métallique
+			"back": "1", // 1 présente au verso, 0 non présente  
+			"front": "1", // 1 présente au recto, 0 non présente
+                        "code": "253"
+		},
+		"front_colors": [
+			"4-color"  /// liste des encres : c/m/y/b/4-color/quadri/q
+		],
+		"back_colors": [
+			"4-color"
+		],
+
+                "identical_side":"1", // optionnel : seulement si les gravure Recto et Verso sont identique sinon ne pas mentionner
+
+		"finishing_front": "OFFSET_SATIN", // liste des finitions
+		"finishing_back": [                // exemple finition combinée
+                        "PELLIC_ACETATE_BRILLANT",
+                        "UVS_MAT_RESERVE"
+                ],
+		"papers": { // obligatoire
+			"custom": { // "of" pour offset ou "custom"
+                                "processes": [ // optionnel liste des procédés d'impression autorisés, si absent sont actifs : of, n, ofuv, or
+                                   "of", // procédé offset feuille
+                                   "n",  // procédé numérique
+                                   "ofuv", // procédé offset UV
+                                   "or", // procédé Offset Roto
+                                   "h"   // procédé hélio
+                                 ]
+				"quality": "Couché Brillant PEFC", // texte exact de la qualité dans le référentiel
+				"weight": "250", // grammage
+				"brand": "Condat Gloss", // optionnel : texte exact de la marque dans le référentiel 
+				"color": "blanc", // optionnel : texte exact de la couleur dans le référentiel
+				"sizeHxLcm":"65x92" // optionnel : pour imposer la dimension du papier (si papier en stock etc ...)
+			}
+		},
+		// paramètres de façonnage optionnel
+                "creasing": "0", // rainage, 0: pas de rainage, 1:rainage au mieux, 2:rainage sur typo imposé
+		"embossing_top": "", // embossing = gaufrage
+		"embossing_left": "",
+		"embossing_height": "",
+		"embossing_width": "",
+		"gilding": "", // gilding = dorure
+		"gilding_side": "", 
+		"gilding_top": "",
+		"gilding_left": "",
+		"gilding_height": "",
+		"gilding_width": "",
+		"gilding3d": "", // gilding3d = dorure 3D
+		"cutting_die_exists": "0", // cutting_die = forme de découpe, 1:l'outil de forme existe, 0: il n'existe pas
+		"cutting_die": "0", // 0 si pas de forme, si forme :id de forme de découpe, voir aide JsonFolderDie
+		"holes": "0", // holes: trous, 0: pas de trous, 1 2 ou 4 trous classeurs
+		// Méthode 1 pour renseigner 1 seul lot de conditionnement
+		// utilisation des tags "wrapping_0", "wrapping_1", "wrapping_2", pour indiquer jusqu'à 3 emballages
+                "wrapping_0": { 
+			"method": "shrink", // shrink:mise sous film
+/*
+					{"shrink"  } MISE_SOUS_FILM,
+					{"cardboard"  } MISE_EN_CARTON,
+					{"cardboardbox"  } MISE_EN_POCHETTE_CARTON,
+					{"lostpallet"  } MISE_EN_PALETTE,
+					{"halfpallet"  } MISE_EN_DEMI_PALETTE,
+					{"boxpallet"  } MISE_EN_BOX_PALETTE,
+					{"eupallet"  } MISE_EN_PALETTE_EUROPE,
+					{"elasticband"  } MISE_SOUS_ELASTIQUE,
+					{"kraft"  } MISE_SOUS_PAPIER_KRAFT,
+					{"crosslink"} MISE_SOUS_LIEN_CROISE,
+					{"roundtube"} MISE_EN_TUBE_ROND,
+					{"squaretube"} MISE_EN_TUBE_CARRE,
+					{"triangletube"} MISE_EN_TUBE_TRIANGLE,
+
+*/
+
+
+			"quantity": "1000" // optionnel, si rien calcul au mieux
+			"etiket" : "1" // vide si pas identifié, "1" si identifié
+		},
+		"wrapping_1": {
+			"method": "cardboard", // cardboard: mise en carton
+			"quantity": "10"
+		},
+		"wrapping_2": {
+			"method": "",
+			"quantity": ""
+		},
+
+		// Méthode 2 pour renseigner x lots de conditionnement
+		// utilisation du tag "wrapping", pour encapsuler les lot
+		// ex si dessous : 3 lots 
+			// lot 1 de 10000ex conditionné sous élastique par 10ex puis en carton max 10kg puis sur palette perdue au mieux
+			// lot 2 de 2000ex conditionné sous film par 20ex puis en carton max 12kg identifié par étiquette
+			// lot 3 de 1000ex conditionné en carton au mieux identifié par étiquette
+		
+		"wrapping": "e/10-c/10kg-pp:10000 f/20-c/12kg/@:2000 c/@:1000"
+		
+// Abréviation des différents emballages
+/*
+			{"pp"} MISE_EN_PALETTE,// lxh:commentaires  peut etre remplace par width: et height:
+			{"pe"} MISE_EN_PALETTE_EUROPE,
+			{"dp"} MISE_EN_DEMI_PALETTE,
+			{"bp"} MISE_EN_BOX_PALETTE,
+			{"f"} MISE_SOUS_FILM,
+			{"c"} MISE_EN_CARTON,
+			{"pc"} MISE_EN_POCHETTE_CARTON,
+			{"pk"} MISE_SOUS_PAPIER_KRAFT,
+			{"e"} MISE_SOUS_ELASTIQUE,
+			{"lc"} MISE_SOUS_LIEN_CROISE,
+			{"rt"} MISE_EN_TUBE_ROND,
+			{"st"} MISE_EN_TUBE_CARRE,
+			{"tt"} MISE_EN_TUBE_TRIANGLE,
+
+*/
+
+		// deliveries : livraison,
+                "deliveries": {
+                      // 1 structure par point de livraison
+			"d55044": { // texte libre
+				"iso": "FR-17", // obligatoire : code iso de la zone (voir la liste dans Clariprint/optimProcess/Paramétrage/Zones géo iso
+				"address": "", // indicatif : champs libre
+				"quantity": "100" // obligatoire : quantité
+			}
+		},
+		"proofing": "soft", // ne pas tenir compte
+		"discounts_group": "" // ne pas tenir compte 
+	},
+	"clariprint_product_paper_iso": "" // ne pas tenir compte
+}
+}}}
+== Dépliant ==
+{{{
+{
+	"clariprint_product": {
+		"reference": "depliant",
+		"kind": "folded",
+		"quantity": "3000",
+		"size": "21x29,7:62x29,7", // lxh:l_a_platxh_a_plat // peut etre remplace par width:, height:, openwidth: et openheight:
+                "width": "21",  // optionnel, soit size soit width + height + openwidth + openheight
+                "height": "29.7", // optionnel
+                "openwidth":"62", // optionnel
+                "openheight":"29.7", // optionnel
+
+		"with_bleeds": "",
+		"folds": "2", // !!! type de plis
+		"label": "",
+		"papers": {
+			"of": {
+				"quality": "Offset Blanc",
+				"weight": "100",
+				"brand": "",
+				"color": "BLANC"
+			}
+		},
+		"front_colors": [
+			"4color"
+		],
+		"finishing_front": "",
+		"finishing_back": "",
+		"creasing": "0",
+		"embossing_top": "",
+		"embossing_left": "",
+		"embossing_height": "",
+		"embossing_width": "",
+		"gilding_top": "",
+		"gilding_left": "",
+		"gilding_height": "",
+		"gilding_width": "",
+		"gilding_material": "",
+		"cutting_die_exists": "0",
+		"cutting_die": "0",
+		"holes": "1",
+		"linear_perforating": "1", // perfo linéaire 0: pas de perfo, 1: perfo
+		"numbering": "1", // numérotation, 0: non, 1: oui
+		"wrapping_0": {
+			"method": "",
+			"quantity": ""
+		},
+		"wrapping_1": {
+			"method": "",
+			"quantity": ""
+		},
+		"wrapping_2": {
+			"method": "",
+			"quantity": ""
+		},
+		"deliveries": [
+			{
+				"iso": "",
+				"address": "",
+				"quantity": ""
+			}
+		],
+		"proofing": "soft",
+		"extra": {
+			"justificative": {
+				"mode": "",
+				"delivery_cost": "",
+				"invoice_cost": "",
+				"other_cost": "",
+				"address": ""
+			}
+		},
+		"discounts_group": ""
+	}
+}
+}}}
+
+== Brochure simple ==
+{{{
+{
+	"clariprint_product": {
+		"reference": "",
+		"kind": "book",
+		"quantity": "2000",
+		"size": "21x29", // definition du format fini de la brochure
+		"binding": "Stitching3", // binding: méthode d'assemblage,
+                     // "PerfectBinding","DCC" :  BrochageDosCarreColleItem(),
+                     // "PerfectBindingPUR","DCCPUR" :  BrochageDosCarreColleItem(PUR?  = true),
+                     // "SewnBinding","DCCC" :  BrochageDosCarreCousuItem(),
+                     // "Stitching2","PC" :  PiqureChevalItem(nbPiqures = 2),
+                     // "Stitching3" :  PiqureChevalItem(nbPiqures = 3),
+                     // "Stitching4" :  PiqureChevalItem(nbPiqures = 4),
+                     // "OpenEyesStitching2","PB" :  PiqureBoucletteItem(nbPiqures = 2),
+                     // "OpenEyesStitching3" :  PiqureBoucletteItem(nbPiqures = 3),
+                     // "OpenEyesStitching4" :  PiqureBoucletteItem(nbPiqures = 4),
+                     // "WireO","WO" :  ReliureWireOItem(),
+                     // "InlineStiching","PL" :  PiqureEnLigneItem(),
+                     // "GluedOnFold","CP" :  CollageAuPliItem(),
+
+		"cover": {
+			"label": "", // optionnel
+			"papers": {
+				"of": {
+					"quality": "Couché Brillant PEFC",
+					"weight": "300",
+					"brand": "",
+					"color": ""
+				}
+			}
+		},
+		"components": {
+			"component_5490c092c962e": { // nom libre
+				"kind": "section",
+				"pages": 64, // nombre de pages de la section
+				"size" : "override", // optionnel : prend la dimension generale sinon on peut preciser une autre dimension ex 19x18
+				"papers": {
+					"of": {
+						"quality": "Offset Blanc",
+						"weight": "100",
+						"brand": "",
+						"color": ""
+					}
+				},
+				"front_colors": [
+					"4color"
+				],
+				"back_colors": [
+					"4color"
+				],
+			}
+		},
+		"deliveries": [
+			{
+				"iso": "FR-12",
+				"address": "",
+				"quantity": "2000"
+			}
+		]
+	}
+}
+
+}}}
+
+
+
+== Reponse ==
+{{{
+
+{
+"success":true,
+"action":"QuoteRequest",
+"total_process_duration":30, // durée de fabrication en 1/10eme d'heure
+"delais":1,  // délai de livraison arrondi au jour supérieur, prend en compte le délai d'appro papier, le temps de fabrication et le délai de livraison
+"weight":7.371, // masse en kg
+"html":"",  // description html de la demande
+"text":"",  // description texte de la demande
+"fournisseur":"", // nom du fournisseur pour la meilleur gamme
+"quote_process":"",  // gamme en PDF en base 64 de la meilleur gamme
+
+// details des couts de la meilleur gamme
+"costs":{
+	"paper":8.098834,
+	"print":129.49,
+	"makeready":37.36,
+	"packaging":4.0,
+	"delivery":0.0,
+	"total":178.948834},
+
+// si multi-résultat
+"multiresults":true, // true si mode multirésultat
+"nb_results":5, // nombre de résultat
+"all_process":[ // liste de structure comme suit
+		{
+			"printer":"nom de l'imprimeur",
+			"external_id": "id externe renseigné sur la page modification du parc machine"
+			"currency":"EUR", // monnaie
+			"paper":312.43, // cout papier
+			"print":282.34, // cout d'impression
+			"mille_plus":3.45, // cout du mille plus
+			"makeready":0.0, // cout de changement de plaque ou calage à la suite
+			"packaging":23.0, // cout du conditionnement
+			"delivery":45.0, // cout de la livraison
+			"total":667,22, // cout total
+                        "deliveries":[
+                     {"type":"miseEnPalette", "number":1, "weight":30, "dimensions":[120,30,80]},
+                     {"type":"miseEnCarton", "number":4, "weight":15, "dimensions":[35,20,25]}
+                         ],
+                        "CSV":"...", // détails de la gamme de fabrication en CSV voir la doc Gamme CSV ci-dessous
+                        "PDF":"<pdf encode64>"
+		}
+	]
+
+"all_faulty_process": {
+	"nom de l'imprimeur": "commentaire sur l erreur de calcul",
+}
+// cout simplifié
+"response":178
+}
+
+
+}}}
+
+== Documentation du calcul des délais ==
+=== la valeur de "total_process_duration" en 1/10èmes d'heure est calculé de la manière suivante : ===
+ * Chaque opération (impression, vernis ext, typo, pliage, assemblage, conditionnement hors livraison) est "planifiée" lors du calcul. 
+ * Un temps d'opération est calculé grâce :
+  * au coût fixe Cf
+  * au coût variable Cv
+  * ET au taux horaire de la machine Txh.
+  * Top = (Cf + Cv) / Txh en 1/10 ème d'heure
+ * Ensuite l'opération est planifiée en fonction de la disponibilité de la machine (uniquement dans le cycle de fabrication de la requête en cours, Clariprint n'a pas connaissance du planning réel) et du temps d'opération, un t0 (heure de démarrage) de l'opération est déterminé. 
+ * Le délai Dop d'une opération est obtenu en ajoutant 
+  * le temps de transport éventuel vers un sous-traitant Ttss 
+  * le temps d'opération Top 
+  * en majorant la somme de 25% : Dop = (Ttss + Top) x 1.25 
+ * le "total_process_duration" est égal à la plus grande valeur de (t0 + Dop) sur toutes les opérations.
+
+=== La valeur de "delais" en jour(s) est obtenu en ajoutant : ===
+ * le délai maxi d'approvisionnement de tous les papiers : 
+  * peut être renseigné dans le CSV d'import papier au format "Clariprint import/export"
+  * sinon par défaut, 1 jour pour du stock distributeur, 3 jours pour du stock usine et 15 jours pour du papier sur fabircation
+ * le temps de fabrication = ARRONDI_SUP(total_process_duration / 240)
+ * le délai de livraison précisé dans la grille
+
+
+== Documentation du CSV de la gamme de fabrication ==
+Le format CSV gamme sur une ligne se présente en "pages" de 10 cellules (ci-dessous numéroté C1 à C10).
+
+La cellule C1 indique toujours le type de page codé sur 3 caractères (001,002,022 etc) ":" le label associé au type de page.
+
+Ci-dessous la documentation pour chaque type de page.
+
+=== Pages Informations générales du calcul ===
+ * C1 000:Resume du calcul
+  * C2 num projet 
+  * C3 date simulation
+  * C4 nom imprimeur
+  * C5 monaie
+  * C6 fin de validité
+  * C7 ref dossier
+  * C8 client
+  * C9 code client
+  * C10 resume condensé (comme pour les statistiques)
+
+ * C1 001:Resume des couts
+  * C2 total papier
+  * C3 total impression
+  * C4 fixe impression
+  * C5 variable impression
+  * C6 total façonnage
+  * C7 fixe façonnage
+  * C8 variable façonnage
+  * C9 total conditionnement
+  * C10 total livraison
+
+ * C1 001b:Resume des 1000+
+  * C2 1000+ total
+  * C3 1000+ hors papier
+  * C4 1000+ papier
+  * C5 1000+ impression
+  * C6 1000+ façonnage
+  * C7 1000+ conditionnement
+  * C8 1000+ livraison
+  * C9-10 libre
+
+=== Pages de nomenclature des produits ===
+ * C1 002:Page de nomenclature de produit
+  * C2 composant 1
+  * C3 composant 2
+  * C4 composant 3
+  * ...
+  * C10 composant 9
+(x page(s) de nomenclature)
+
+=== Pages de nomenclature des feuilles et bandes ===
+ * C1 003:Nomenclature d'une feuille d'impression
+  * C2 Reference interne
+  * C3 format utile d'impression hxl
+  * C4 format maxi hxl
+  * C5 liste des composants imposés
+  * C6 nombre de poses
+  * C7 option de bascule
+  * C8-10 libre
+(autant de séquences que de feuilles d'impression)
+
+ * C1 004:Nomenclature d'une bobine
+  * C2 Reference interne
+  * C3 format utile laizexcoupe
+  * C4 format maxi laizeXcoupe
+  * C5 composants imposés
+  * C6 nombre de poses
+  * C7-10 libre
+(autant de séquences que de bobine)
+
+=== Page d'appro papier (autant de pages que de lignes de commande) ===
+ * C1 005:Ligne de commande papier feuille
+  * C2 listes des references internes de feuille
+  * C3 fournisseur
+  * C4 marque : référence fournisseur (grammage)
+  * C5 hauteurXlargeur
+  * C6 nombre de feuilles utiles
+  * C7 nombre de feuilles commandées
+  * C8 tonnage pour papier sur fabrication ou nombre de conditionnement pour le stock
+  * C9 prix total
+  * C10 mille+
+
+ * C1 006:Ligne de commande papier en bobine
+  * C2 listes de références internes de bobine
+  * C3 fournisseur
+  * C4 marque : référence fournisseur
+  * C5 grammage
+  * C6 laize
+  * C7 nombre de bobines / tonnage utile
+  * C8 tonnage commandé
+  * C9 prix total
+  * C10 mille+
+
+
+=== Opérations de livraison ===
+ * C1 010:Livraison
+  * C2 référence produit x quantité
+  * C3 zone de destination
+  * C4 prestataire
+  * C5 poids transporté
+  * C6-8 libre
+  * C9 prix total
+  * C10 mille+
+
+=== Opérations de conditionnement ===
+ * C1 011:Conditionnement
+  * C2 référence produit x quantité
+  * C3 prestataire
+  * C4 emballage 1
+  * C5 embalage 2
+  * C6 embalage 3
+  * C7-8 libre
+  * C9 prix total
+  * C10 mille+
+
+=== Opérations d'assemblage ===
+ * C1 020:[prestataire]:[machine]:Operation d assemblage[:commentaires][:x2p sup si necessaire] / X passage(s)
+  * C2 liste des composants assemnblés
+  * C3 quantité en entrée
+  * C4 quantité en sortie
+  * C5 calage
+  * C6 roule
+  * C7 transport sous traitance
+  * C8 remises
+  * C9 prix total
+  * C10 mille+
+
+=== Opérations de trou classeur ===
+ * C1 021:[prestataire]:[machine]:type d'opération[:commentaires]
+  * C2 liste des feuilles en entrées
+  * C3 quantité en entrée
+  * C4 quantité en sortie
+  * C5 calage
+  * C6 roule
+  * C7 transport sous traitance
+  * C8 remises
+  * C9 prix total
+  * C10 mille+
+
+
+=== Autres opérations de façonnage ===
+ * C1 022:[prestataire]:[machine]:type d'opération[:commentaires]
+  * C2 liste des feuilles en entrées
+  * C3 quantité en entrée
+  * C4 quantité en sortie
+  * C5 calage
+  * C6 roule
+  * C7 transport sous traitance
+  * C8 remises
+  * C9 prix total
+  * C10 mille+
+
+=== Opérations d'impression ===
+ * C1 030:[prestataire]:[machine]:[nombre de plaque 1er calage + nombre de changement de plaques x nombre de plaques changées]:[nombre couleurs Recto/nombre de couleurs changées]:[nombre couleurs Vecto/nombre de couleurs changées]:[Vernis Recto]:[Vernis Verso]:[Méthode d'impression][:commentaires]
+  * C2 liste des références de feuilles ou bobines en entrées
+  * C3 quantité en entrée
+  * C4 quantité en sortie
+  * C5 calage
+  * C6 roule
+  * C7 transport sous traitance
+  * C8 remises
+  * C9 prix total
+  * C10 mille+
+
+
