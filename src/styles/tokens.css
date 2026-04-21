@@ -57,17 +57,17 @@
   --v2-shadow-lg:    0 1px 2px rgba(0,0,0,0.04), 0 24px 60px rgba(9,9,11,0.12);
   --v2-shadow-focus: 0 0 0 2px var(--paper), 0 0 0 4px var(--brand);
 
-  /* ---------- Typographie scale ---------- */
-  --fs-xs:   11px;
-  --fs-sm:   12.5px;
-  --fs-base: 13.5px;
-  --fs-md:   14.5px;
-  --fs-lg:   16px;
-  --fs-xl:   20px;
-  --fs-2xl:  24px;
-  --fs-3xl:  28px;
-  --fs-4xl:  34px;
-  --fs-5xl:  48px;
+  /* ---------- Typographie scale (v2 bumped +1px pour lisibilité) ---------- */
+  --fs-xs:   12px;
+  --fs-sm:   13.5px;
+  --fs-base: 14.5px;
+  --fs-md:   15.5px;
+  --fs-lg:   17px;
+  --fs-xl:   21px;
+  --fs-2xl:  25px;
+  --fs-3xl:  29px;
+  --fs-4xl:  35px;
+  --fs-5xl:  49px;
 
   --tracking-tight: -0.025em;
   --tracking-snug:  -0.015em;

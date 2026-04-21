@@ -222,14 +222,14 @@ export function ProductCard({
             <div className="text-2xl">⚠️</div>
             <div>
               <h3 className="text-lg font-bold text-amber-900 mb-1">Précisions nécessaires</h3>
-              <p className="text-sm text-amber-700">
+              <p className="text-base text-amber-700">
                 J'ai besoin de plus d'informations pour configurer votre produit.
               </p>
             </div>
           </div>
           <div className="bg-white rounded-xl p-4 mb-4">
             <h4 className="font-semibold text-gray-900 mb-3">📋 Informations disponibles</h4>
-            <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="grid grid-cols-2 gap-3 text-base">
               <div>
                 <span className="text-gray-600">Produit :</span>
                 <span className="font-semibold text-gray-900 ml-2">{localProduct.name}</span>
@@ -245,7 +245,7 @@ export function ProductCard({
               <h4 className="font-semibold text-gray-900 mb-3">❓ Questions à préciser</h4>
               <ul className="space-y-2">
                 {localProduct.suggestions.map((q, i) => (
-                  <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
+                  <li key={i} className="flex items-start gap-2 text-base text-gray-700">
                     <span className="text-amber-600 font-bold">{i + 1}.</span>
                     <span>{q}</span>
                   </li>
@@ -299,7 +299,7 @@ export function ProductCard({
               {!selectable && localProduct.clariprintData?.kind && (
                 <div className="absolute top-2 left-2 flex gap-1.5">
                   <span
-                    className="font-mono uppercase text-[10px] tracking-wide px-1.5 py-0.5 rounded text-white"
+                    className="font-mono uppercase text-[11px] tracking-wide px-1.5 py-0.5 rounded text-white"
                     style={{ background: "rgba(10,10,10,0.8)" }}
                   >
                     {localProduct.clariprintData.kind}
@@ -322,7 +322,7 @@ export function ProductCard({
             <div className={`${compact ? "p-3" : "px-5 py-4"} flex-1 flex flex-col`}>
               <div
                 className="font-mono uppercase tracking-wider text-ink-muted mb-2"
-                style={{ fontSize: "10.5px", letterSpacing: "0.08em", fontWeight: 500 }}
+                style={{ fontSize: "11.5px", letterSpacing: "0.08em", fontWeight: 500 }}
               >
                 {enriched?.gamme?.name || localProduct.clariprintData?.kind || "Produit"}
               </div>
@@ -332,7 +332,7 @@ export function ProductCard({
                   className="text-ink m-0 leading-tight"
                   style={{
                     fontWeight: 400,
-                    fontSize: compact ? "15px" : "20px",
+                    fontSize: compact ? "16px" : "21px",
                     letterSpacing: "-0.01em",
                   }}
                 >
@@ -342,19 +342,19 @@ export function ProductCard({
                   className="text-ink whitespace-nowrap"
                   style={{
                     fontWeight: 500,
-                    fontSize: compact ? "16px" : "20px",
+                    fontSize: compact ? "17px" : "21px",
                     letterSpacing: "-0.015em",
                     fontVariantNumeric: "tabular-nums",
                   }}
                 >
                   <span
                     className="font-mono uppercase text-ink-muted mr-1.5"
-                    style={{ fontSize: "10.5px", letterSpacing: "0.06em", fontWeight: 500 }}
+                    style={{ fontSize: "11.5px", letterSpacing: "0.06em", fontWeight: 500 }}
                   >
                     dès
                   </span>
                   {displayPriceHT.toFixed(0)}
-                  <small className="text-ink-muted ml-1" style={{ fontSize: "12px", fontWeight: 400 }}>
+                  <small className="text-ink-muted ml-1" style={{ fontSize: "13px", fontWeight: 400 }}>
                     € /{localProduct.quantity ?? 100} ex.
                   </small>
                 </div>
@@ -364,7 +364,7 @@ export function ProductCard({
               {!compact && (
                 <p
                   className="text-ink-2 m-0 mb-3 max-w-[420px]"
-                  style={{ fontSize: "13.5px", lineHeight: 1.55, fontWeight: 400 }}
+                  style={{ fontSize: "14.5px", lineHeight: 1.55, fontWeight: 400 }}
                 >
                   {enriched?.resolved.short_description ||
                     `${localProduct.material ?? "Papier standard"}${
@@ -385,7 +385,7 @@ export function ProductCard({
                   <span
                     className="font-mono px-2 py-1 rounded bg-ink text-paper"
                     style={{
-                      fontSize: "10.5px",
+                      fontSize: "11.5px",
                       letterSpacing: "0.04em",
                       fontWeight: 500,
                     }}
@@ -396,7 +396,7 @@ export function ProductCard({
                     <span
                       className="font-mono px-2 py-1 rounded"
                       style={{
-                        fontSize: "10.5px",
+                        fontSize: "11.5px",
                         letterSpacing: "0.04em",
                         fontWeight: 500,
                         background: "#F5F5F5",
@@ -410,7 +410,7 @@ export function ProductCard({
                     <span
                       className="font-mono px-2 py-1 rounded"
                       style={{
-                        fontSize: "10.5px",
+                        fontSize: "11.5px",
                         letterSpacing: "0.04em",
                         fontWeight: 500,
                         background: "#F5F5F5",
@@ -461,13 +461,13 @@ export function ProductCard({
                   >
                     <div
                       className="font-mono uppercase text-ink-muted mb-1"
-                      style={{ fontSize: "10px", letterSpacing: "0.06em", fontWeight: 500 }}
+                      style={{ fontSize: "11px", letterSpacing: "0.06em", fontWeight: 500 }}
                     >
                       {cell.k}
                     </div>
                     <div
                       className="text-ink"
-                      style={{ fontSize: "13px", fontWeight: 500, letterSpacing: "-0.005em" }}
+                      style={{ fontSize: "14px", fontWeight: 500, letterSpacing: "-0.005em" }}
                     >
                       {cell.v}
                     </div>
@@ -500,7 +500,7 @@ export function ProductCard({
                   <Icon className="w-4 h-4" strokeWidth={1.5} />
                   <span
                     className="leading-none"
-                    style={{ fontSize: "11px", fontWeight: 500, letterSpacing: "-0.005em" }}
+                    style={{ fontSize: "12px", fontWeight: 500, letterSpacing: "-0.005em" }}
                   >
                     {label}
                   </span>
@@ -527,7 +527,7 @@ export function ProductCard({
                   )}
                   <span
                     className="leading-none"
-                    style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "-0.005em" }}
+                    style={{ fontSize: "12px", fontWeight: 600, letterSpacing: "-0.005em" }}
                   >
                     {libraryState === "saved" ? "Ajouté" : "Ajouter"}
                   </span>
@@ -538,7 +538,7 @@ export function ProductCard({
                   aria-hidden="true"
                 >
                   <Lock className="w-4 h-4" strokeWidth={1.5} />
-                  <span className="leading-none" style={{ fontSize: "11px", fontWeight: 500 }}>
+                  <span className="leading-none" style={{ fontSize: "12px", fontWeight: 500 }}>
                     Bibli
                   </span>
                 </div>
@@ -575,7 +575,7 @@ export function ProductCard({
                   <ChevronUp className="w-5 h-5" />
                 </button>
               </div>
-              <div className="space-y-2 text-sm">
+              <div className="space-y-2 text-base">
                 {[
                   ["Produit", localProduct.name],
                   ["Quantité", localProduct.quantity || 0],
@@ -617,7 +617,7 @@ export function ProductCard({
               {enriched?.definition && (
                 <div className="mt-5 pt-4 border-t border-gray-200 space-y-3">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-blue-700">
+                    <span className="text-sm font-semibold uppercase tracking-wider text-blue-700">
                       Fiche commerciale
                     </span>
                     {enriched.gamme && (
@@ -627,17 +627,17 @@ export function ProductCard({
                     )}
                   </div>
                   {enriched.resolved.short_description && (
-                    <p className="text-sm text-gray-700 italic">{enriched.resolved.short_description}</p>
+                    <p className="text-base text-gray-700 italic">{enriched.resolved.short_description}</p>
                   )}
                   {enriched.resolved.description && (
-                    <div className="text-sm text-gray-700 whitespace-pre-line">
+                    <div className="text-base text-gray-700 whitespace-pre-line">
                       {enriched.resolved.description}
                     </div>
                   )}
                   {enriched.resolved.usage_examples.length > 0 && (
                     <div>
-                      <p className="text-xs font-semibold text-gray-700 mb-1">Cas d'usage</p>
-                      <ul className="space-y-1 text-xs text-gray-600">
+                      <p className="text-sm font-semibold text-gray-700 mb-1">Cas d'usage</p>
+                      <ul className="space-y-1 text-sm text-gray-600">
                         {enriched.resolved.usage_examples.map((ex, i) => (
                           <li key={i}>
                             <span className="font-medium text-gray-800">{ex.title}</span>
@@ -649,12 +649,12 @@ export function ProductCard({
                   )}
                   {enriched.resolved.faq.length > 0 && (
                     <details>
-                      <summary className="text-xs font-semibold text-gray-700 cursor-pointer hover:text-gray-900">
+                      <summary className="text-sm font-semibold text-gray-700 cursor-pointer hover:text-gray-900">
                         FAQ ({enriched.resolved.faq.length})
                       </summary>
                       <div className="mt-2 space-y-2">
                         {enriched.resolved.faq.map((qa, i) => (
-                          <div key={i} className="text-xs">
+                          <div key={i} className="text-sm">
                             <p className="font-medium text-gray-800">{qa.question}</p>
                             <p className="text-gray-600 mt-0.5">{qa.answer}</p>
                           </div>
@@ -680,10 +680,10 @@ export function ProductCard({
               {/* Config Clariprint brute */}
               {localProduct.clariprintData && (
                 <details className="mt-4">
-                  <summary className="text-xs text-gray-500 cursor-pointer hover:text-gray-900">
+                  <summary className="text-sm text-gray-500 cursor-pointer hover:text-gray-900">
                     🔧 Voir la config Clariprint (JSON API)
                   </summary>
-                  <pre className="mt-2 p-3 bg-gray-50 rounded-lg text-xs text-gray-600 overflow-auto max-h-48">
+                  <pre className="mt-2 p-3 bg-gray-50 rounded-lg text-sm text-gray-600 overflow-auto max-h-48">
                     {JSON.stringify(localProduct.clariprintData, null, 2)}
                   </pre>
                 </details>
@@ -703,14 +703,14 @@ export function ProductCard({
 
               {/* ─ Prix estimé (floutés si non-authentifié) ─ */}
               {!user && (
-                <div className="mb-3 bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center gap-2 text-sm text-amber-800">
+                <div className="mb-3 bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center gap-2 text-base text-amber-800">
                   <Lock className="w-4 h-4 shrink-0" />
                   <span>Connectez-vous pour voir les prix.</span>
                 </div>
               )}
-              <div className="space-y-2 text-sm mb-4">
+              <div className="space-y-2 text-base mb-4">
                 <div className="flex justify-between py-2 border-b border-gray-100">
-                  <span className="text-gray-500 text-xs">
+                  <span className="text-gray-500 text-sm">
                     {clariprintQuote?.success ? "Prix Clariprint HT" : "Prix estimé HT"}
                   </span>
                   <span className={`font-semibold ${!user ? "blur-sm select-none" : ""}`}>
@@ -728,7 +728,7 @@ export function ProductCard({
                   onClick={() => setIsQuoteModalOpen(true)}
                   title="Cliquer pour le devis"
                 >
-                  <span className="font-semibold text-sm">Total TTC</span>
+                  <span className="font-semibold text-base">Total TTC</span>
                   <span className={`text-xl font-bold ${!user ? "blur-sm select-none" : ""}`}>
                     {(displayPriceHT * 1.2).toFixed(2)} €
                   </span>
@@ -741,12 +741,12 @@ export function ProductCard({
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <Printer className="w-4 h-4 text-indigo-600" />
-                      <h4 className="text-sm font-semibold text-gray-800">Prix réel Clariprint</h4>
+                      <h4 className="text-base font-semibold text-gray-800">Prix réel Clariprint</h4>
                     </div>
                     {/* Bouton debug */}
                     <button
                       onClick={() => setShowDebug((v) => !v)}
-                      className={`text-xs px-2 py-1 rounded border transition-colors ${
+                      className={`text-sm px-2 py-1 rounded border transition-colors ${
                         showDebug
                           ? "bg-gray-800 text-white border-gray-800"
                           : "text-gray-400 border-gray-200 hover:border-gray-400 hover:text-gray-600"
@@ -763,7 +763,7 @@ export function ProductCard({
                       {/* Requête envoyée */}
                       <div className="bg-slate-900 rounded-xl p-3">
                         <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs font-mono font-bold text-slate-300">
+                          <span className="text-sm font-mono font-bold text-slate-300">
                             📤 POST /optimproject/json.wcl
                           </span>
                           <button
@@ -776,12 +776,12 @@ export function ProductCard({
                                 )
                               );
                             }}
-                            className="text-xs text-slate-400 hover:text-white transition-colors"
+                            className="text-sm text-slate-400 hover:text-white transition-colors"
                           >
                             Copier
                           </button>
                         </div>
-                        <pre className="text-xs text-green-300 overflow-auto max-h-64 leading-relaxed">
+                        <pre className="text-sm text-green-300 overflow-auto max-h-64 leading-relaxed">
                           {JSON.stringify({ clariprint_product: localProduct.clariprintData }, null, 2)}
                         </pre>
                       </div>
@@ -790,24 +790,24 @@ export function ProductCard({
                       {lastRawResponse && (
                         <div className="bg-slate-800 rounded-xl p-3">
                           <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs font-mono font-bold text-slate-300">
+                            <span className="text-sm font-mono font-bold text-slate-300">
                               📩 Réponse Clariprint (brute)
                             </span>
                             <button
                               onClick={() => navigator.clipboard.writeText(lastRawResponse)}
-                              className="text-xs text-slate-400 hover:text-white transition-colors"
+                              className="text-sm text-slate-400 hover:text-white transition-colors"
                             >
                               Copier
                             </button>
                           </div>
-                          <pre className="text-xs text-yellow-200 overflow-auto max-h-64 leading-relaxed">
+                          <pre className="text-sm text-yellow-200 overflow-auto max-h-64 leading-relaxed">
                             {lastRawResponse}
                           </pre>
                         </div>
                       )}
 
                       {!lastRawResponse && !clariprintLoading && (
-                        <p className="text-xs text-slate-400 italic">
+                        <p className="text-sm text-slate-400 italic">
                           La réponse brute s'affichera ici après l'appel.
                         </p>
                       )}
@@ -816,7 +816,7 @@ export function ProductCard({
 
                   {/* Loading */}
                   {clariprintLoading && (
-                    <div className="flex items-center gap-2 text-indigo-600 text-sm py-3">
+                    <div className="flex items-center gap-2 text-indigo-600 text-base py-3">
                       <Loader2 className="w-4 h-4 animate-spin" />
                       <span>Calcul en cours auprès des imprimeurs...</span>
                     </div>
@@ -824,12 +824,12 @@ export function ProductCard({
 
                   {/* Credentials manquants */}
                   {!clariprintLoading && clariprintQuote?.credentialsMissing && (
-                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm">
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-base">
                       <div className="flex items-start gap-2">
                         <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
                         <div>
                           <p className="font-medium text-amber-800 mb-1">Credentials non configurés</p>
-                          <p className="text-amber-700 text-xs">
+                          <p className="text-amber-700 text-sm">
                             Ajoutez <code className="bg-amber-100 px-1 rounded">CLARIPRINT_LOGIN</code> et{" "}
                             <code className="bg-amber-100 px-1 rounded">CLARIPRINT_PASSWORD</code> dans vos secrets Supabase.
                           </p>
@@ -837,7 +837,7 @@ export function ProductCard({
                       </div>
                       <button
                         onClick={fetchClariprintQuote}
-                        className="mt-3 text-xs text-amber-700 underline hover:no-underline"
+                        className="mt-3 text-sm text-amber-700 underline hover:no-underline"
                       >
                         Réessayer
                       </button>
@@ -846,17 +846,17 @@ export function ProductCard({
 
                   {/* Succès Clariprint */}
                   {!clariprintLoading && clariprintQuote?.success && (
-                    <div className="bg-green-50 border border-green-200 rounded-xl p-4 space-y-2 text-sm">
+                    <div className="bg-green-50 border border-green-200 rounded-xl p-4 space-y-2 text-base">
                       <div className="flex items-center gap-1 mb-2">
                         <CheckCircle className="w-4 h-4 text-green-600" />
-                        <span className="text-xs font-medium text-green-700">
+                        <span className="text-sm font-medium text-green-700">
                           Prix obtenu depuis le réseau Clariprint
                         </span>
                       </div>
 
                       {/* Détail des coûts */}
                       {clariprintQuote.costs && (
-                        <div className="space-y-1 text-xs">
+                        <div className="space-y-1 text-sm">
                           {[
                             ["Papier", clariprintQuote.costs.paper],
                             ["Impression", clariprintQuote.costs.print],
@@ -879,7 +879,7 @@ export function ProductCard({
                       )}
 
                       {/* Total TTC */}
-                      <div className="flex justify-between bg-green-700 text-white px-3 py-2 rounded-lg font-bold text-sm">
+                      <div className="flex justify-between bg-green-700 text-white px-3 py-2 rounded-lg font-bold text-base">
                         <span>Total TTC</span>
                         <span className={!user ? "blur-sm select-none" : ""}>
                           {(
@@ -890,7 +890,7 @@ export function ProductCard({
                       </div>
 
                       {/* Infos complémentaires */}
-                      <div className="grid grid-cols-2 gap-2 pt-1 text-xs text-green-700">
+                      <div className="grid grid-cols-2 gap-2 pt-1 text-sm text-green-700">
                         {clariprintQuote.delais != null && (
                           <div className="bg-white rounded-lg p-2 border border-green-100">
                             <div className="text-gray-500 mb-0.5">Délai estimé</div>
@@ -916,7 +916,7 @@ export function ProductCard({
                       {/* Recalculer */}
                       <button
                         onClick={fetchClariprintQuote}
-                        className="w-full mt-1 flex items-center justify-center gap-1.5 text-xs text-green-700 hover:text-green-900 transition-colors"
+                        className="w-full mt-1 flex items-center justify-center gap-1.5 text-sm text-green-700 hover:text-green-900 transition-colors"
                       >
                         <RefreshCw className="w-3 h-3" />
                         Recalculer
@@ -929,24 +929,24 @@ export function ProductCard({
                     clariprintQuote &&
                     !clariprintQuote.success &&
                     !clariprintQuote.credentialsMissing && (
-                      <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm">
+                      <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-base">
                         <p className="text-red-700 font-medium mb-1">❌ Erreur Clariprint</p>
-                        <p className="text-red-600 text-xs mb-1">
+                        <p className="text-red-600 text-sm mb-1">
                           {clariprintQuote.message || clariprintQuote.error || "Erreur inconnue"}
                         </p>
                         {clariprintQuote.details && (
                           <details className="mt-1">
-                            <summary className="text-xs text-red-500 cursor-pointer hover:text-red-700">
+                            <summary className="text-sm text-red-500 cursor-pointer hover:text-red-700">
                               Voir les détails techniques
                             </summary>
-                            <pre className="mt-1 p-2 bg-red-100 rounded text-xs text-red-700 overflow-auto max-h-32 whitespace-pre-wrap">
+                            <pre className="mt-1 p-2 bg-red-100 rounded text-sm text-red-700 overflow-auto max-h-32 whitespace-pre-wrap">
                               {clariprintQuote.details}
                             </pre>
                           </details>
                         )}
                         <button
                           onClick={fetchClariprintQuote}
-                          className="mt-2 text-xs text-red-600 underline hover:no-underline"
+                          className="mt-2 text-sm text-red-600 underline hover:no-underline"
                         >
                           Réessayer
                         </button>
@@ -957,7 +957,7 @@ export function ProductCard({
                   {!clariprintLoading && !clariprintQuote && (
                     <button
                       onClick={fetchClariprintQuote}
-                      className="w-full px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl transition-colors flex items-center justify-center gap-2 text-sm"
+                      className="w-full px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl transition-colors flex items-center justify-center gap-2 text-base"
                     >
                       <Printer className="w-4 h-4" />
                       Obtenir le prix réel Clariprint
@@ -985,7 +985,7 @@ export function ProductCard({
                   <ChevronUp className="w-5 h-5" />
                 </button>
               </div>
-              <div className="text-sm text-gray-600">
+              <div className="text-base text-gray-600">
                 <p className="mb-3">Visualisez votre produit en 3D avant impression.</p>
                 <div className="bg-gray-100 rounded-lg p-12 text-center">
                   <div className="text-gray-400 text-6xl mb-3">🎨</div>
@@ -1006,12 +1006,12 @@ export function ProductCard({
               </div>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-base font-medium text-gray-700 mb-1">
                     Client associé
                   </label>
                   {user ? (
                     clients.length === 0 ? (
-                      <p className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                      <p className="text-sm text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
                         Aucun client enregistré. Créez-en un depuis{" "}
                         <a href="/dashboard/clients" className="text-blue-600 hover:underline">
                           le tableau de bord
@@ -1034,13 +1034,13 @@ export function ProductCard({
                       </select>
                     )
                   ) : (
-                    <p className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                    <p className="text-sm text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
                       Connectez-vous pour associer ce produit à un client.
                     </p>
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Quantité</label>
+                  <label className="block text-base font-medium text-gray-700 mb-1">Quantité</label>
                   <input
                     type="number"
                     value={localProduct.quantity || 0}
@@ -1049,7 +1049,7 @@ export function ProductCard({
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Type de papier</label>
+                  <label className="block text-base font-medium text-gray-700 mb-1">Type de papier</label>
                   <input
                     type="text"
                     value={localProduct.material || ""}
@@ -1058,7 +1058,7 @@ export function ProductCard({
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Grammage (g/m²)</label>
+                  <label className="block text-base font-medium text-gray-700 mb-1">Grammage (g/m²)</label>
                   <input
                     type="number"
                     value={localProduct.weight || 0}
@@ -1084,7 +1084,7 @@ export function ProductCard({
             <div className="bg-slate-900 border-2 border-slate-700 rounded-2xl p-4 mb-3 shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  <span className="text-slate-300 font-mono font-bold text-sm">🔍 Debug Clariprint</span>
+                  <span className="text-slate-300 font-mono font-bold text-base">🔍 Debug Clariprint</span>
                 </div>
                 <button onClick={() => setActiveTab(null)} className="text-slate-400 hover:text-white">
                   <ChevronUp className="w-5 h-5" />
@@ -1094,7 +1094,7 @@ export function ProductCard({
               {/* Requête envoyée */}
               <div className="mb-3">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-mono font-bold text-slate-300">
+                  <span className="text-sm font-mono font-bold text-slate-300">
                     📤 Requête envoyée à Clariprint (POST /optimproject/json.wcl)
                   </span>
                   <button
@@ -1103,17 +1103,17 @@ export function ProductCard({
                         JSON.stringify({ clariprint_product: localProduct.clariprintData }, null, 2)
                       )
                     }
-                    className="text-xs text-slate-400 hover:text-white border border-slate-600 px-2 py-0.5 rounded transition-colors"
+                    className="text-sm text-slate-400 hover:text-white border border-slate-600 px-2 py-0.5 rounded transition-colors"
                   >
                     Copier
                   </button>
                 </div>
                 {localProduct.clariprintData ? (
-                  <pre className="text-xs text-green-300 overflow-auto max-h-72 leading-relaxed bg-slate-950 rounded-lg p-3">
+                  <pre className="text-sm text-green-300 overflow-auto max-h-72 leading-relaxed bg-slate-950 rounded-lg p-3">
                     {JSON.stringify({ clariprint_product: localProduct.clariprintData }, null, 2)}
                   </pre>
                 ) : (
-                  <p className="text-xs text-slate-500 italic p-3 bg-slate-950 rounded-lg">
+                  <p className="text-sm text-slate-500 italic p-3 bg-slate-950 rounded-lg">
                     Aucune donnée Clariprint disponible sur ce produit.
                   </p>
                 )}
@@ -1122,24 +1122,24 @@ export function ProductCard({
               {/* Réponse brute reçue */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-mono font-bold text-slate-300">
+                  <span className="text-sm font-mono font-bold text-slate-300">
                     📩 Réponse brute Clariprint
                   </span>
                   {lastRawResponse && (
                     <button
                       onClick={() => navigator.clipboard.writeText(lastRawResponse)}
-                      className="text-xs text-slate-400 hover:text-white border border-slate-600 px-2 py-0.5 rounded transition-colors"
+                      className="text-sm text-slate-400 hover:text-white border border-slate-600 px-2 py-0.5 rounded transition-colors"
                     >
                       Copier
                     </button>
                   )}
                 </div>
                 {lastRawResponse ? (
-                  <pre className="text-xs text-yellow-200 overflow-auto max-h-72 leading-relaxed bg-slate-950 rounded-lg p-3">
+                  <pre className="text-sm text-yellow-200 overflow-auto max-h-72 leading-relaxed bg-slate-950 rounded-lg p-3">
                     {lastRawResponse}
                   </pre>
                 ) : (
-                  <p className="text-xs text-slate-500 italic p-3 bg-slate-950 rounded-lg">
+                  <p className="text-sm text-slate-500 italic p-3 bg-slate-950 rounded-lg">
                     {clariprintLoading
                       ? "⏳ Appel en cours..."
                       : "Aucune réponse encore — cliquez \"Obtenir le prix réel Clariprint\" dans l'onglet Prix & Devis."}
