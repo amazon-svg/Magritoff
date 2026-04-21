@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Send, History, X, CheckSquare, Square, BookmarkPlus } from "lucide-react";
 import { projectId, publicAnonKey } from "/utils/supabase/info";
-import logoImage from "figma:asset/48de195d09839b5e2071e781c31fa390056b1db8.png";
+import { MagritLogo } from "./brand/MagritLogo";
 import { ProductCard } from "./ProductCard";
 import { CartButton } from "./CartButton";
 import { LibraryPickerModal } from "./LibraryPickerModal";
@@ -320,8 +320,8 @@ export function ChatInterface({ onShowResults, onProductConfigReceived }: ChatIn
           {/* Logo intro */}
           {messages.length === 0 && (
             <div className="text-center mb-12">
-              <div className="inline-flex items-center justify-center w-20 h-20 mb-6">
-                <img src={logoImage} alt="Magrit" className="w-20 h-20 rounded-2xl shadow-lg" />
+              <div className="inline-flex items-center justify-center mb-6">
+                <MagritLogo size={80} />
               </div>
               <h1 className="text-4xl font-bold text-gray-900 mb-4">Magrit Copilot AI</h1>
               <p className="text-lg text-gray-600">
