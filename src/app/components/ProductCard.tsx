@@ -269,11 +269,12 @@ export function ProductCard({
             style={{ fontFamily: "var(--font-ui)" }}
           >
             {/* Visuel : mockup SVG schematique selon le kind Clariprint.
-                aspect-video (16/9) identique au viewBox du SVG : empeche
-                tout debordement vers le corps du texte en dessous. */}
+                Hauteur fixe + shrink-0 : evite que flexbox ne compresse le
+                container et ne cause de debordement visuel. */}
             <div
-              className={`relative w-full ${compact ? "aspect-[16/10]" : "aspect-video"} border-b border-line bg-bg`}
-              style={{ maxHeight: compact ? 120 : 220 }}
+              className={`relative w-full shrink-0 border-b border-line bg-bg ${
+                compact ? "h-[120px]" : "h-[208px]"
+              }`}
             >
               <ProductMockup
                 name={localProduct.name}

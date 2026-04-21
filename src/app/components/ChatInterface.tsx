@@ -347,12 +347,16 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
               </div>
             )}
 
-            {/* Messages (sans bulles, Claude-like) */}
+            {/* Messages (sans bulles, Claude-like).
+                Quand des productcards sont affichees, on masque les messages
+                assistants texte — les infos sont deja dans la productcard, pas
+                de doublon. Les messages user restent visibles (contextualisent
+                la demande). */}
             <div className="space-y-6">
-              {messages.map((message, index) => (
-                <div key={index}>
-                  {message.role === "user" && (
-                    <div className="flex justify-end mb-2">
+              {messages.map((message, index) => {
+                if (message.role === "user") {
+                  return (
+                    <div key={index} className="flex justify-end mb-2">
                       <div
                         className="bg-[#F5F5F5] rounded-xl px-4 py-3 text-ink max-w-full"
                         style={{ fontSize: "15px", lineHeight: 1.5, fontWeight: 400 }}
@@ -360,17 +364,22 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
                         {message.content}
                       </div>
                     </div>
-                  )}
-                  {message.role === "assistant" && (
+                  );
+                }
+                // Message assistant : masque si au moins un produit est affiche.
+                if (message.role === "assistant" && products.length === 0) {
+                  return (
                     <div
+                      key={index}
                       className="text-ink-2 whitespace-pre-line"
                       style={{ fontSize: "15.5px", lineHeight: 1.65, fontWeight: 300 }}
                     >
                       {message.content}
                     </div>
-                  )}
-                </div>
-              ))}
+                  );
+                }
+                return null;
+              })}
 
               {/* Loading : shimmer doux plutôt que bounce */}
               {isLoading && (
