@@ -13,6 +13,7 @@ import { usePlan } from "../hooks/usePlan";
 import { LibraryPickerModal } from "./LibraryPickerModal";
 import { enrichProduct } from "../utils/productEnrichment";
 import { ProductMockup } from "./brand/ProductMockup";
+import { resolveProductImage } from "../utils/productImages";
 
 interface ClariprintQuoteResult {
   success: boolean;
@@ -279,12 +280,14 @@ export function ProductCard({
               }`}
             >
               {(() => {
-                const customImg = (localProduct as any).image_url as string | undefined;
-                const seedBase = localProduct.clariprintData?.kind || localProduct.name || "product";
-                const seed = encodeURIComponent(`${seedBase}-${localProduct.id ?? ""}`);
-                const autoImg = `https://picsum.photos/seed/${seed}/800/450`;
-                const src = customImg || autoImg;
-                if (imgError) {
+                const src = resolveProductImage({
+                  name: localProduct.name,
+                  id: localProduct.id,
+                  image_url: (localProduct as any).image_url,
+                  gammeSlug: enriched?.gamme?.slug,
+                  kind: localProduct.clariprintData?.kind,
+                });
+                if (imgError || !src) {
                   return (
                     <ProductMockup
                       name={localProduct.name}
@@ -305,7 +308,7 @@ export function ProductCard({
                       loading="lazy"
                     />
                     {/* Overlay sombre tres leger pour la lisibilite des badges */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/10 via-transparent to-transparent pointer-events-none" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent pointer-events-none" />
                     {/* Pill kind en corner (cohérent avec le design handoff) */}
                     {!selectable && localProduct.clariprintData?.kind && (
                       <div className="absolute top-2 left-2 pointer-events-none">
