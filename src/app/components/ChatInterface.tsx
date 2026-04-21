@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   Send, History, X, CheckSquare, Square, BookmarkPlus,
-  MessageSquare, SquarePen, Search, Paperclip, Mic, CornerDownLeft,
+  MessageSquare, SquarePen, Paperclip, Mic,
 } from "lucide-react";
 import { projectId, publicAnonKey } from "/utils/supabase/info";
 import { MagritLogo } from "./brand/MagritLogo";
@@ -221,20 +221,12 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
       }}
     >
       {/* ══════════════════════════════════════════════════════════
-          Rail latéral 56px : logo + actions + avatar
+          Rail latéral 56px : actions + avatar
+          Le logo Magrit est dans le Header global — on ne le duplique pas.
           ══════════════════════════════════════════════════════════ */}
       <aside
-        className="flex flex-col items-center gap-2 py-3.5 px-2 border-r border-line bg-bg"
+        className="flex flex-col items-center gap-2 py-4 px-2 border-r border-line bg-bg"
       >
-        <button
-          type="button"
-          onClick={startNewConversation}
-          className="mb-3"
-          aria-label="Nouvelle conversation (retour au logo)"
-        >
-          <MagritLogo size={32} radius={8} />
-        </button>
-
         <RailIcon
           icon={MessageSquare}
           label="Conversation en cours"
@@ -250,11 +242,6 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
           label="Historique (⌘K)"
           onClick={() => setShowHistory(true)}
           badge={conversationHistory.length > 0 ? conversationHistory.length : undefined}
-        />
-        <RailIcon
-          icon={Search}
-          label="Rechercher (⌘K)"
-          onClick={() => setShowHistory(true)}
         />
 
         {/* Avatar user en bas (placeholder) */}
@@ -303,12 +290,12 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
           </div>
         </div>
 
-        {/* Feed scrollable */}
+        {/* Feed scrollable — deux wrappers : messages centrés 760px,
+            grille produits 1180px. Evite que le texte soit mal cadré
+            quand des produits sont présents. */}
         <div className="flex-1 overflow-y-auto pb-40">
-          <div
-            className="mx-auto w-full px-6 py-8"
-            style={{ maxWidth: products.length > 0 ? "1180px" : "760px" }}
-          >
+          {/* Zone messages — toujours max 760px, centrée */}
+          <div className="mx-auto w-full px-6 py-8" style={{ maxWidth: "760px" }}>
             {/* Empty state : logo + suggestions */}
             {messages.length === 0 && (
               <div className="text-center pt-12 pb-8">
@@ -367,7 +354,7 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
                   {message.role === "user" && (
                     <div className="flex justify-end mb-2">
                       <div
-                        className="bg-[#F5F5F5] rounded-xl px-4 py-3 text-ink max-w-[620px]"
+                        className="bg-[#F5F5F5] rounded-xl px-4 py-3 text-ink max-w-full"
                         style={{ fontSize: "15px", lineHeight: 1.5, fontWeight: 400 }}
                       >
                         {message.content}
@@ -376,7 +363,7 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
                   )}
                   {message.role === "assistant" && (
                     <div
-                      className="text-ink-2 max-w-[720px] whitespace-pre-line"
+                      className="text-ink-2 whitespace-pre-line"
                       style={{ fontSize: "15.5px", lineHeight: 1.65, fontWeight: 300 }}
                     >
                       {message.content}
@@ -387,13 +374,17 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
 
               {/* Loading : shimmer doux plutôt que bounce */}
               {isLoading && (
-                <div className="max-w-[720px]" aria-label="Magrit réfléchit">
+                <div aria-label="Magrit réfléchit">
                   <div className="h-3 w-40 rounded bg-line animate-pulse mb-2" />
                   <div className="h-3 w-64 rounded bg-line animate-pulse mb-2" />
                   <div className="h-3 w-52 rounded bg-line animate-pulse" />
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Zone produits — wrapper indépendant, plus large si besoin */}
+          <div className="mx-auto w-full px-6 pb-8" style={{ maxWidth: "1180px" }}>
 
             {/* Barre de sélection groupée (≥5 produits, Pro+) */}
             {products.length >= 5 && user && canUse('library') && (

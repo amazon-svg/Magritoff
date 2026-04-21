@@ -187,18 +187,36 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
   );
 
   const loadConversation = useCallback((conv: ConversationHistory) => {
-    console.log('[Conversation] load', {
+    console.log('[Conversation] load (append)', {
       id: conv.id,
       title: conv.title,
       messages: conv.messages?.length ?? 0,
       products: conv.products?.length ?? 0,
     });
-    // Deep-clone pour découpler la conv en historique de l'état courant :
-    // éviter qu'une modif ultérieure (ex: ajout de produits, édition client)
-    // ne pollue la version stockée en historique.
-    setMessages(Array.isArray(conv.messages) ? conv.messages.map((m) => ({ ...m })) : []);
-    setProducts(Array.isArray(conv.products) ? conv.products.map((p) => ({ ...p })) : []);
-    setCurrentConversationId(conv.id);
+    // APPEND : cliquer sur une conv de l'historique ajoute ses messages
+    // et ses produits à l'état courant, sans tout écraser. Permet de
+    // construire une session en piochant dans les conversations passées.
+    // Déduplication par product.id pour éviter les doublons.
+    const clonedMsgs = Array.isArray(conv.messages)
+      ? conv.messages.map((m) => ({ ...m }))
+      : [];
+    const clonedProducts = Array.isArray(conv.products)
+      ? conv.products.map((p) => ({ ...p }))
+      : [];
+
+    setMessages((prev) => [...prev, ...clonedMsgs]);
+    setProducts((prev) => {
+      const existingIds = new Set(
+        prev.map((p: any) => p?.id).filter(Boolean) as string[]
+      );
+      const additions = clonedProducts.filter(
+        (p: any) => !p?.id || !existingIds.has(p.id as string)
+      );
+      return [...prev, ...additions];
+    });
+    // On conserve currentConversationId inchangé : les nouveaux messages
+    // qu'envoie ensuite l'utilisateur continuent à s'ajouter à la conv en
+    // cours (ou en créent une nouvelle si pas encore de conv active).
   }, []);
 
   const deleteConversation = useCallback(

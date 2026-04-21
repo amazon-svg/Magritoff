@@ -12,6 +12,7 @@ import { usePIM } from "../contexts/PIMContext";
 import { usePlan } from "../hooks/usePlan";
 import { LibraryPickerModal } from "./LibraryPickerModal";
 import { enrichProduct } from "../utils/productEnrichment";
+import { ProductMockup } from "./brand/ProductMockup";
 
 interface ClariprintQuoteResult {
   success: boolean;
@@ -267,19 +268,14 @@ export function ProductCard({
             }`}
             style={{ fontFamily: "var(--font-ui)" }}
           >
-            {/* Visuel 16/9 avec corner pills + fav */}
-            <div
-              className={`relative ${compact ? "h-28" : "h-44"} overflow-hidden`}
-              style={{
-                background:
-                  "linear-gradient(135deg, #F5F5F5, #E4E4E7)",
-              }}
-            >
-              {/* Motif décoratif central (évoque une impression empilée) */}
-              <div
-                className="absolute inset-[30%_35%] rounded-sm"
-                style={{ background: "#D4D4D8" }}
-                aria-hidden="true"
+            {/* Visuel 16/9 : mockup SVG schematique selon le kind Clariprint */}
+            <div className={`relative ${compact ? "h-28" : "h-44"}`}>
+              <ProductMockup
+                name={localProduct.name}
+                kind={localProduct.clariprintData?.kind}
+                category={enriched?.gamme?.name}
+                corner={!selectable ? localProduct.clariprintData?.kind : undefined}
+                className="absolute inset-0"
               />
 
               {/* Checkbox sélection */}
@@ -293,18 +289,6 @@ export function ProductCard({
                     aria-label="Sélectionner ce produit"
                   />
                 </label>
-              )}
-
-              {/* Pills top-left : variations / badges */}
-              {!selectable && localProduct.clariprintData?.kind && (
-                <div className="absolute top-2 left-2 flex gap-1.5">
-                  <span
-                    className="font-mono uppercase text-[11px] tracking-wide px-1.5 py-0.5 rounded text-white"
-                    style={{ background: "rgba(10,10,10,0.8)" }}
-                  >
-                    {localProduct.clariprintData.kind}
-                  </span>
-                </div>
               )}
 
               {/* Fav icon top-right (placeholder pour favoris futurs) */}
