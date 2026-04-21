@@ -1,5 +1,8 @@
 import { useState } from "react";
-import { ChevronUp, Loader2, RefreshCw, Printer, CheckCircle, AlertTriangle, Lock, BookmarkPlus, Check } from "lucide-react";
+import {
+  ChevronUp, Loader2, RefreshCw, Printer, CheckCircle, AlertTriangle, Lock,
+  BookmarkPlus, Check, FileText, Tag, Box, Pencil, Bug, Plus, Heart,
+} from "lucide-react";
 import { QuoteModal } from "./QuoteModal";
 import { projectId, publicAnonKey } from "/utils/supabase/info";
 import { useAuth } from "../contexts/AuthContext";
@@ -176,21 +179,8 @@ export function ProductCard({
     if (added) setTimeout(() => setLibraryState('idle'), 2000);
   };
 
-  // ─── Composant valeur cliquable ─────────────────────────────────────────
-  const BoldValue = ({
-    value,
-    onClick,
-  }: {
-    value: string | number;
-    onClick?: () => void;
-  }) => (
-    <strong
-      className={onClick ? "cursor-pointer hover:text-blue-600 transition-colors" : ""}
-      onClick={onClick}
-    >
-      {value}
-    </strong>
-  );
+  // (BoldValue retiré : l'édition inline prompt() n'est plus utilisée dans la v2.
+  //  Toute modif passe par l'onglet "Éditer" — meilleure UX, cohérent avec la typo.)
 
   // ─── Prix estimé (fallback si pas Clariprint) ────────────────────────────
   const estimatePrice = (): number => {
@@ -266,160 +256,304 @@ export function ProductCard({
         </div>
       ) : (
         <div className="h-full flex flex-col">
-          {/* ── Bloc principal ── */}
-          <div
-            className={`relative bg-white border-2 border-gray-300 rounded-2xl shadow-sm mb-3 flex-1 ${
-              compact ? "p-4" : "p-6"
-            } ${selectable && selected ? "ring-2 ring-blue-500 border-blue-500" : ""}`}
+          {/* ══════════════════════════════════════════════════════════
+              v2 — carte catalogue stacked : visuel 16/9, meta, title,
+              desc, chips, spec-bar 4 champs, tools bar 6 cases.
+              Source : .design-handoff/designs/02 - ProductCard.html
+              ══════════════════════════════════════════════════════════ */}
+          <article
+            className={`pc-v2 relative bg-paper border border-line rounded-xl overflow-hidden mb-3 flex-1 flex flex-col shadow-xs ${
+              selectable && selected ? "outline outline-2 outline-brand" : ""
+            }`}
+            style={{ fontFamily: "var(--font-ui)" }}
           >
-            {selectable && (
-              <label className="absolute top-2 left-2 flex items-center justify-center cursor-pointer z-10">
-                <input
-                  type="checkbox"
-                  checked={!!selected}
-                  onChange={(e) => onSelectedChange?.(e.target.checked)}
-                  className="w-5 h-5 cursor-pointer accent-blue-600"
-                />
-              </label>
-            )}
-            <div className={`leading-relaxed text-gray-900 ${compact ? "text-xs" : "text-sm"}`}>
-              <p className="mb-2">Vous avez demandé :</p>
+            {/* Visuel 16/9 avec corner pills + fav */}
+            <div
+              className={`relative ${compact ? "h-28" : "h-44"} overflow-hidden`}
+              style={{
+                background:
+                  "linear-gradient(135deg, #F5F5F5, #E4E4E7)",
+              }}
+            >
+              {/* Motif décoratif central (évoque une impression empilée) */}
+              <div
+                className="absolute inset-[30%_35%] rounded-sm"
+                style={{ background: "#D4D4D8" }}
+                aria-hidden="true"
+              />
 
-              <p>
-                <BoldValue
-                  value={localProduct.quantity || 0}
-                  onClick={() => {
-                    const v = prompt("Nouvelle quantité :", String(localProduct.quantity || 0));
-                    if (v) updateProduct({ quantity: parseInt(v) });
-                  }}
-                />{" "}
-                {localProduct.name},<br />
-                Format :{" "}
-                <BoldValue
-                  value={
-                    localProduct.format ||
-                    `${localProduct.dimensions?.width || 0} mm×${localProduct.dimensions?.height || 0} mm`
-                  }
-                  onClick={() => {
-                    const w = prompt("Largeur (mm) :", String(localProduct.dimensions?.width || 0));
-                    const h = prompt("Hauteur (mm) :", String(localProduct.dimensions?.height || 0));
-                    if (w && h)
-                      updateProduct({ dimensions: { width: parseInt(w), height: parseInt(h) } });
-                  }}
-                />
-                <br />
-                impression{" "}
-                <BoldValue
-                  value={localProduct.printing?.recto || "Quadrichromie (CMJN)"}
-                  onClick={() => {
-                    const v = prompt("Impression recto :", localProduct.printing?.recto);
-                    if (v) updateProduct({ printing: { ...localProduct.printing, recto: v } });
-                  }}
-                />{" "}
-                /{" "}
-                <BoldValue
-                  value={localProduct.printing?.verso || "Sans impression"}
-                  onClick={() => {
-                    const v = prompt("Impression verso :", localProduct.printing?.verso);
-                    if (v) updateProduct({ printing: { ...localProduct.printing, verso: v } });
-                  }}
-                />{" "}
-                sur papier{" "}
-                <BoldValue
-                  value={`${localProduct.material || ""} ${localProduct.weight || 0} g`}
-                  onClick={() => {
-                    const m = prompt("Type de papier :", localProduct.material || "");
-                    const w = prompt("Grammage (g) :", String(localProduct.weight || 0));
-                    if (m || w)
-                      updateProduct({
-                        material: m || localProduct.material,
-                        weight: w ? parseInt(w) : localProduct.weight,
-                      });
-                  }}
-                />
-                ,<br />
-                finition{" "}
-                <BoldValue
-                  value={localProduct.finishRecto || localProduct.finish || "Sans finition"}
-                  onClick={() => {
-                    const v = prompt("Finition recto :", localProduct.finishRecto || localProduct.finish || "");
-                    if (v) updateProduct({ finishRecto: v, finish: v });
-                  }}
-                />{" "}
-                /{" "}
-                <BoldValue
-                  value={localProduct.finishVerso || "Sans finition"}
-                  onClick={() => {
-                    const v = prompt("Finition verso :", localProduct.finishVerso || "");
-                    if (v) updateProduct({ finishVerso: v });
-                  }}
-                />
-                .
-              </p>
+              {/* Checkbox sélection */}
+              {selectable && (
+                <label className="absolute top-2 left-2 z-10 bg-paper/90 backdrop-blur-sm rounded p-1 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={!!selected}
+                    onChange={(e) => onSelectedChange?.(e.target.checked)}
+                    className="w-4 h-4 cursor-pointer accent-black"
+                    aria-label="Sélectionner ce produit"
+                  />
+                </label>
+              )}
 
-              {!compact && localProduct.suggestions && localProduct.suggestions.length > 0 && (
-                <>
-                  <p className="mt-3 mb-1">Pour plus d'impact je vous propose :</p>
-                  {localProduct.suggestions.map((s, i) => (
-                    <p key={i} className="text-gray-700">
-                      {s}
-                    </p>
-                  ))}
-                </>
+              {/* Pills top-left : variations / badges */}
+              {!selectable && localProduct.clariprintData?.kind && (
+                <div className="absolute top-2 left-2 flex gap-1.5">
+                  <span
+                    className="font-mono uppercase text-[10px] tracking-wide px-1.5 py-0.5 rounded text-white"
+                    style={{ background: "rgba(10,10,10,0.8)" }}
+                  >
+                    {localProduct.clariprintData.kind}
+                  </span>
+                </div>
+              )}
+
+              {/* Fav icon top-right (placeholder pour favoris futurs) */}
+              <button
+                type="button"
+                aria-label="Ajouter aux favoris"
+                className="absolute top-2 right-2 w-7 h-7 rounded-full bg-paper/85 backdrop-blur-sm grid place-items-center text-ink-muted hover:text-ink transition-colors"
+                onClick={(e) => e.preventDefault()}
+              >
+                <Heart className="w-3.5 h-3.5" strokeWidth={1.5} />
+              </button>
+            </div>
+
+            {/* Corps : meta, title-row, desc, chips */}
+            <div className={`${compact ? "p-3" : "px-5 py-4"} flex-1 flex flex-col`}>
+              <div
+                className="font-mono uppercase tracking-wider text-ink-muted mb-2"
+                style={{ fontSize: "10.5px", letterSpacing: "0.08em", fontWeight: 500 }}
+              >
+                {enriched?.gamme?.name || localProduct.clariprintData?.kind || "Produit"}
+              </div>
+
+              <div className="flex items-baseline justify-between gap-4 mb-1.5">
+                <h3
+                  className="text-ink m-0 leading-tight"
+                  style={{
+                    fontWeight: 400,
+                    fontSize: compact ? "15px" : "20px",
+                    letterSpacing: "-0.01em",
+                  }}
+                >
+                  {enriched?.resolved.title || localProduct.name}
+                </h3>
+                <div
+                  className="text-ink whitespace-nowrap"
+                  style={{
+                    fontWeight: 500,
+                    fontSize: compact ? "16px" : "20px",
+                    letterSpacing: "-0.015em",
+                    fontVariantNumeric: "tabular-nums",
+                  }}
+                >
+                  <span
+                    className="font-mono uppercase text-ink-muted mr-1.5"
+                    style={{ fontSize: "10.5px", letterSpacing: "0.06em", fontWeight: 500 }}
+                  >
+                    dès
+                  </span>
+                  {displayPriceHT.toFixed(0)}
+                  <small className="text-ink-muted ml-1" style={{ fontSize: "12px", fontWeight: 400 }}>
+                    € /{localProduct.quantity ?? 100} ex.
+                  </small>
+                </div>
+              </div>
+
+              {/* Description courte */}
+              {!compact && (
+                <p
+                  className="text-ink-2 m-0 mb-3 max-w-[420px]"
+                  style={{ fontSize: "13.5px", lineHeight: 1.55, fontWeight: 400 }}
+                >
+                  {enriched?.resolved.short_description ||
+                    `${localProduct.material ?? "Papier standard"}${
+                      localProduct.finishRecto && localProduct.finishRecto !== "Sans finition"
+                        ? ` · ${localProduct.finishRecto.toLowerCase()}`
+                        : ""
+                    }${
+                      localProduct.printing?.verso && localProduct.printing.verso !== "Sans impression"
+                        ? " · impression recto/verso"
+                        : " · impression recto"
+                    }.`}
+                </p>
+              )}
+
+              {/* Chips variantes */}
+              {!compact && (
+                <div className="flex gap-1.5 flex-wrap mb-3">
+                  <span
+                    className="font-mono px-2 py-1 rounded bg-ink text-paper"
+                    style={{
+                      fontSize: "10.5px",
+                      letterSpacing: "0.04em",
+                      fontWeight: 500,
+                    }}
+                  >
+                    {localProduct.weight ?? 0}g {localProduct.material?.toLowerCase().split(" ").pop() ?? ""}
+                  </span>
+                  {localProduct.finishRecto && localProduct.finishRecto !== "Sans finition" && (
+                    <span
+                      className="font-mono px-2 py-1 rounded"
+                      style={{
+                        fontSize: "10.5px",
+                        letterSpacing: "0.04em",
+                        fontWeight: 500,
+                        background: "#F5F5F5",
+                        color: "var(--ink-2)",
+                      }}
+                    >
+                      {localProduct.finishRecto}
+                    </span>
+                  )}
+                  {localProduct.pages && (
+                    <span
+                      className="font-mono px-2 py-1 rounded"
+                      style={{
+                        fontSize: "10.5px",
+                        letterSpacing: "0.04em",
+                        fontWeight: 500,
+                        background: "#F5F5F5",
+                        color: "var(--ink-2)",
+                      }}
+                    >
+                      {localProduct.pages} pages
+                    </span>
+                  )}
+                </div>
               )}
             </div>
-          </div>
 
-          {/* ── Boutons d'actions ── */}
-          <div className={`grid grid-cols-5 mb-2 ${compact ? "gap-1" : "gap-2"}`}>
-            {(["sheet", "pricing", "mockup", "form", "debug"] as TabType[]).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => toggleTab(tab)}
-                className={`font-medium rounded-xl border-2 transition-colors ${
-                  compact ? "px-1 py-1.5 text-xs" : "px-2 py-2.5 text-xs"
-                } ${
-                  activeTab === tab
-                    ? tab === "debug"
-                      ? "bg-slate-800 text-white border-slate-800"
-                      : "bg-gray-900 text-white border-gray-900"
-                    : tab === "debug"
-                    ? "bg-slate-50 text-slate-500 border-slate-300 hover:bg-slate-100 hover:text-slate-700"
-                    : "bg-white text-gray-900 border-gray-300 hover:bg-gray-50"
-                }`}
+            {/* Spec-bar 4 champs, border-top + border-bottom */}
+            {!compact && (
+              <div
+                className="grid grid-cols-4 border-t border-b border-line"
+                style={{ fontFamily: "var(--font-ui)" }}
               >
-                {tab === "sheet" && (compact ? "Fiche" : "Fiche")}
-                {tab === "pricing" && (compact ? "Prix" : "Prix & Devis")}
-                {tab === "mockup" && (compact ? "3D" : "Mockup 3D")}
-                {tab === "form" && (compact ? "Éditer" : "Éditer")}
-                {tab === "debug" && "🔍 Debug"}
-              </button>
-            ))}
-          </div>
+                {[
+                  {
+                    k: "Format",
+                    v:
+                      localProduct.format ||
+                      (localProduct.dimensions
+                        ? `${localProduct.dimensions.width}×${localProduct.dimensions.height} mm`
+                        : "—"),
+                  },
+                  {
+                    k: "Grammage",
+                    v: localProduct.weight ? `${localProduct.weight} g/m²` : "—",
+                  },
+                  {
+                    k: "Délai",
+                    v:
+                      clariprintQuote?.delais != null
+                        ? `${clariprintQuote.delais}j`
+                        : "72h",
+                  },
+                  {
+                    k: "Min.",
+                    v: `${localProduct.quantity ?? 100} ex.`,
+                  },
+                ].map((cell, i, arr) => (
+                  <div
+                    key={cell.k}
+                    className={`px-4 py-3 ${i < arr.length - 1 ? "border-r border-line" : ""}`}
+                  >
+                    <div
+                      className="font-mono uppercase text-ink-muted mb-1"
+                      style={{ fontSize: "10px", letterSpacing: "0.06em", fontWeight: 500 }}
+                    >
+                      {cell.k}
+                    </div>
+                    <div
+                      className="text-ink"
+                      style={{ fontSize: "13px", fontWeight: 500, letterSpacing: "-0.005em" }}
+                    >
+                      {cell.v}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
-          {user && canUse('library') && (
-            <button
-              onClick={() => setLibraryPickerOpen(true)}
-              disabled={libraryState !== 'idle'}
-              className={`w-full mb-3 flex items-center justify-center gap-2 rounded-xl border-2 transition-colors text-xs font-medium py-2 ${
-                libraryState === 'saved'
-                  ? 'bg-green-50 text-green-700 border-green-300'
-                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              {libraryState === 'saving' ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : libraryState === 'saved' ? (
-                <Check className="w-4 h-4" />
+            {/* Tools bar : 6 cases (5 tools + 1 primary Ajouter) */}
+            <div className="flex border-t border-line">
+              {[
+                { key: "sheet" as TabType, label: "Fiche", icon: FileText },
+                { key: "pricing" as TabType, label: "Prix", icon: Tag },
+                { key: "mockup" as TabType, label: "3D", icon: Box },
+                { key: "form" as TabType, label: "Éditer", icon: Pencil },
+                { key: "debug" as TabType, label: "Debug", icon: Bug },
+              ].map(({ key, label, icon: Icon }, idx, arr) => (
+                <button
+                  key={key}
+                  onClick={() => toggleTab(key)}
+                  className={`flex-1 flex flex-col items-center gap-1 py-2.5 px-1 transition-colors ${
+                    idx < arr.length - 1 ? "border-r border-line" : ""
+                  } ${
+                    activeTab === key
+                      ? "bg-ink text-paper"
+                      : "bg-paper text-ink-2 hover:bg-bg hover:text-ink"
+                  }`}
+                  aria-label={label}
+                >
+                  <Icon className="w-4 h-4" strokeWidth={1.5} />
+                  <span
+                    className="leading-none"
+                    style={{ fontSize: "11px", fontWeight: 500, letterSpacing: "-0.005em" }}
+                  >
+                    {label}
+                  </span>
+                </button>
+              ))}
+              {/* CTA primary : Ajouter à la bibliothèque */}
+              {user && canUse("library") ? (
+                <button
+                  onClick={() => setLibraryPickerOpen(true)}
+                  disabled={libraryState !== "idle"}
+                  className={`flex-1 flex flex-col items-center gap-1 py-2.5 px-1 border-l border-line transition-colors ${
+                    libraryState === "saved"
+                      ? "bg-ok-fg text-paper"
+                      : "bg-ink text-paper hover:bg-black"
+                  }`}
+                  aria-label="Ajouter à la bibliothèque"
+                >
+                  {libraryState === "saving" ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : libraryState === "saved" ? (
+                    <Check className="w-4 h-4" strokeWidth={1.5} />
+                  ) : (
+                    <Plus className="w-4 h-4" strokeWidth={1.8} />
+                  )}
+                  <span
+                    className="leading-none"
+                    style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "-0.005em" }}
+                  >
+                    {libraryState === "saved" ? "Ajouté" : "Ajouter"}
+                  </span>
+                </button>
               ) : (
-                <BookmarkPlus className="w-4 h-4" />
+                <div
+                  className="flex-1 flex flex-col items-center gap-1 py-2.5 px-1 border-l border-line bg-bg text-ink-mute-2"
+                  aria-hidden="true"
+                >
+                  <Lock className="w-4 h-4" strokeWidth={1.5} />
+                  <span className="leading-none" style={{ fontSize: "11px", fontWeight: 500 }}>
+                    Bibli
+                  </span>
+                </div>
               )}
-              {libraryState === 'saved'
-                ? 'Ajouté à la bibliothèque'
-                : libraryState === 'saving'
-                ? 'Ajout…'
-                : 'Ajouter à la bibliothèque'}
-            </button>
+            </div>
+          </article>
+
+          {libraryPickerOpen && (
+            <LibraryPickerModal
+              preferredClientId={(localProduct as any).client_id ?? null}
+              onPick={async (libraryId) => {
+                await handleAddToLibrary(libraryId);
+              }}
+              onClose={() => setLibraryPickerOpen(false)}
+            />
           )}
 
           {libraryPickerOpen && (
