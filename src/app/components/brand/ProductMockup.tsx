@@ -54,11 +54,17 @@ export function ProductMockup({
   const ink = '#0A0A0A';
 
   return (
-    <div className={`relative overflow-hidden ${className}`}>
+    <div
+      className={`relative overflow-hidden ${className}`}
+      style={{
+        // Fond de secours si le SVG est rendu en "meet" (bordures visibles)
+        background: `linear-gradient(135deg, ${bg1} 0%, ${bg2} 100%)`,
+      }}
+    >
       <svg
         viewBox="0 0 400 225"
-        preserveAspectRatio="xMidYMid slice"
-        className="w-full h-full block"
+        preserveAspectRatio="xMidYMid meet"
+        className="absolute inset-0 w-full h-full block"
         aria-hidden="true"
       >
         <defs>

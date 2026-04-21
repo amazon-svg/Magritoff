@@ -269,10 +269,10 @@ export function ProductCard({
             style={{ fontFamily: "var(--font-ui)" }}
           >
             {/* Visuel : mockup SVG schematique selon le kind Clariprint.
-                Hauteur fixe + shrink-0 : evite que flexbox ne compresse le
-                container et ne cause de debordement visuel. */}
+                Hauteur fixe + shrink-0 + overflow-hidden explicite pour
+                empecher le SVG (slice) de deborder sur le corps en dessous. */}
             <div
-              className={`relative w-full shrink-0 border-b border-line bg-bg ${
+              className={`relative w-full shrink-0 overflow-hidden border-b border-line bg-bg ${
                 compact ? "h-[120px]" : "h-[208px]"
               }`}
             >
