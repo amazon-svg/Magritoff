@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<title>C · ProductCard — catalogue 2-col, version retenue</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@200;300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --mg-font-sans: "Helvetica Neue", "HelveticaNeue", "Inter Tight", Helvetica, Arial, sans-serif;
+    --mg-font-mono: 'JetBrains Mono', ui-monospace, monospace;
+    --mg-ink: #0A0A0A;
+    --mg-ink-2: #2A2A2D;
+    --mg-ink-3: #52525B;
+    --mg-ink-4: #8A8A93;
+    --mg-line: #ECECEC;
+    --mg-bg: #FAFAFA;
+    --mg-bg-2: #F5F5F5;
+    --gold: #E8B339;
+    --ok: #166534;
+  }
+
+  body { margin: 0; background: var(--mg-bg); color: var(--mg-ink); padding: 48px 40px 140px; font-family: var(--mg-font-sans); -webkit-font-smoothing: antialiased; font-weight: 300; }
+  .wrap { max-width: 1200px; margin: 0 auto; }
+  .crumb { font-family: var(--mg-font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mg-ink-3); margin-bottom: 8px; font-weight: 500; }
+  .crumb a { color: var(--mg-ink-3); text-decoration: none; }
+  h1.page { font-weight: 200; font-size: 56px; letter-spacing: -0.035em; margin: 8px 0 16px; line-height: 1; }
+  .lede { color: var(--mg-ink-2); max-width: 780px; margin: 0 0 40px; line-height: 1.6; font-size: 15.5px; font-weight: 400; }
+  .lede b { font-weight: 500; color: var(--mg-ink); }
+  .lede code { font-family: var(--mg-font-mono); font-size: 13px; background: var(--mg-bg-2); padding: 2px 6px; border-radius: 4px; }
+
+  .card-ref { background: #FFF; border: 1px solid var(--mg-line); border-radius: 16px; overflow: hidden; margin-bottom: 28px; }
+  .card-head { display: flex; align-items: baseline; gap: 16px; padding: 22px 32px 18px; border-bottom: 1px solid var(--mg-line); background: var(--mg-bg); }
+  .card-head .num { font-family: var(--mg-font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mg-ink-3); font-weight: 500; }
+  .card-head h2 { font-weight: 400; font-size: 22px; letter-spacing: -0.015em; margin: 0; }
+  .card-head .tag { margin-left: auto; font-family: var(--mg-font-mono); font-size: 11px; color: var(--mg-ink-3); }
+
+  .frame { padding: 40px 28px; background: var(--mg-bg-2); display: grid; place-items: center; gap: 24px; }
+  .spec { padding: 18px 32px 22px; font-family: var(--mg-font-mono); font-size: 12px; color: var(--mg-ink-2); background: var(--mg-bg); border-top: 1px solid var(--mg-line); display: flex; flex-wrap: wrap; gap: 24px; font-weight: 400; }
+  .spec b { color: var(--mg-ink); font-weight: 500; }
+
+  .note { margin-top: 40px; background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 12px; padding: 20px 24px; color: #78350F; font-size: 14px; line-height: 1.6; font-weight: 400; }
+  .note strong { color: #451A03; font-weight: 500; }
+
+  /* ProductCard tokens */
+  .pc { background: #FFF; font-family: var(--mg-font-sans); color: var(--mg-ink); font-weight: 300; border: 1px solid var(--mg-line); border-radius: 12px; overflow: hidden; box-shadow: 0 1px 2px rgba(9,9,11,0.04); }
+  .pc-img { background: linear-gradient(135deg, #F5F5F5, #E4E4E7); position: relative; }
+  .pc-img::after { content: ''; position: absolute; inset: 30% 35%; background: #D4D4D8; border-radius: 2px; }
+  .pc-img .corner { position: absolute; top: 10px; left: 10px; display: flex; gap: 6px; }
+  .pc-img .corner .pill { font-family: var(--mg-font-mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 7px; background: rgba(10,10,10,0.8); color: #FFF; border-radius: 3px; font-weight: 500; }
+  .pc-img .corner .pill.gold { background: var(--gold); color: #0A0A0A; }
+  .pc-img .fav { position: absolute; top: 10px; right: 10px; width: 28px; height: 28px; background: rgba(255,255,255,0.85); backdrop-filter: blur(6px); border-radius: 50%; display: grid; place-items: center; font-size: 13px; color: var(--mg-ink-3); }
+
+  .pc .meta { font-family: var(--mg-font-mono); font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mg-ink-3); font-weight: 500; }
+  .pc h3.title { font-weight: 400; font-size: 21px; letter-spacing: -0.01em; margin: 0; line-height: 1.15; }
+  .pc .price { font-weight: 500; font-size: 22px; letter-spacing: -0.015em; color: var(--mg-ink); }
+  .pc .price .from { font-family: var(--mg-font-mono); font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--mg-ink-3); margin-right: 6px; font-weight: 500; }
+  .pc .price small { font-size: 12px; color: var(--mg-ink-3); font-weight: 400; margin-left: 4px; }
+
+  .pc .kv-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; border-top: 1px solid var(--mg-line); border-bottom: 1px solid var(--mg-line); }
+  .pc .kv { padding: 12px 16px; border-right: 1px solid var(--mg-line); }
+  .pc .kv:last-child { border-right: none; }
+  .pc .kv .k { font-family: var(--mg-font-mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--mg-ink-3); font-weight: 500; margin-bottom: 3px; }
+  .pc .kv .v { font-size: 13px; color: var(--mg-ink); font-weight: 500; letter-spacing: -0.005em; }
+
+  .tools { display: flex; border-top: 1px solid var(--mg-line); }
+  .tool { flex: 1; padding: 10px 6px; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; color: var(--mg-ink-2); border-right: 1px solid var(--mg-line); background: #FFF; font-weight: 500; cursor: default; letter-spacing: -0.005em; }
+  .tool:last-child { border-right: none; }
+  .tool:hover { background: var(--mg-bg); color: var(--mg-ink); }
+  .tool .ic { width: 18px; height: 18px; display: grid; place-items: center; color: var(--mg-ink-2); }
+  .tool .ic svg { width: 16px; height: 16px; stroke-width: 1.5; stroke: currentColor; fill: none; }
+  .tool.primary { background: var(--mg-ink); color: #FFF; font-weight: 600; }
+  .tool.primary .ic { color: #FFF; }
+  .tool.primary:hover { background: #000; color: #FFF; }
+
+  .c2 { width: 520px; }
+  .c2 .pc-img { aspect-ratio: 16/9; }
+  .c2 .body { padding: 20px 22px 18px; }
+  .c2 .meta { margin-bottom: 10px; }
+  .c2 .title-row { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 6px; }
+  .c2 .desc { font-size: 13.5px; color: var(--mg-ink-2); line-height: 1.55; margin: 0 0 14px; max-width: 420px; font-weight: 400; }
+  .c2 .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+  .c2 .chip { font-family: var(--mg-font-mono); font-size: 10.5px; letter-spacing: 0.04em; padding: 4px 9px; background: var(--mg-bg-2); border-radius: 3px; color: var(--mg-ink-2); font-weight: 500; }
+  .c2 .chip.on { background: var(--mg-ink); color: #FFF; font-weight: 500; }
+</style>
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute;" aria-hidden="true">
+    <defs>
+      <symbol id="i-fiche" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="5" y="3" width="14" height="18" rx="1.5"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="13" y2="16"/></symbol>
+      <symbol id="i-price" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M20 12L12 20 4 12l8-8z"/><circle cx="9" cy="9" r="1.2" fill="currentColor"/></symbol>
+      <symbol id="i-3d" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M12 3l8 4.5v9L12 21 4 16.5v-9L12 3z"/><path d="M4 7.5L12 12l8-4.5"/><line x1="12" y1="12" x2="12" y2="21"/></symbol>
+      <symbol id="i-edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 17l9.5-9.5 3 3L7 20H4v-3z"/><path d="M14 6.5l2-2a1.4 1.4 0 012 0l1 1a1.4 1.4 0 010 2l-2 2"/></symbol>
+      <symbol id="i-debug" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="7" y="8" width="10" height="11" rx="3"/><line x1="4" y1="12" x2="7" y2="12"/><line x1="17" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="7" y2="16"/><line x1="17" y1="16" x2="20" y2="17"/><line x1="9" y1="8" x2="8" y2="5"/><line x1="15" y1="8" x2="16" y2="5"/></symbol>
+      <symbol id="i-add" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></symbol>
+    </defs>
+  </svg>
+
+  <div class="wrap">
+    <div class="crumb"><a href="À valider demain.html">← retour à l'index</a></div>
+    <h1 class="page">C · ProductCard</h1>
+    <p class="lede">
+      Version retenue : <b>catalogue 2-col · moyen</b> (520px). Stacked densifié, description courte, chips de variantes, spec-bar 4 champs, et barre d'outils 6 cases au pied : <code>Fiche · Prix &amp; Devis · Mockup 3D · Éditer · Debug</code> + CTA <b>Ajouter</b> distinct. Utilisable en grille 2-col desktop, en liste panier, ou en page catalogue.
+    </p>
+
+    <div class="card-ref">
+      <div class="card-head">
+        <span class="num">C2</span>
+        <h2>Catalogue 2-col · moyen</h2>
+        <span class="tag">520px · desc + chips variantes · spec-bar 4 champs · outils labellisés</span>
+      </div>
+      <div class="frame">
+
+        <article class="pc c2">
+          <div class="pc-img">
+            <div class="corner"><span class="pill gold">Bestseller</span><span class="pill">Velours</span></div>
+            <div class="fav">♡</div>
+          </div>
+          <div class="body">
+            <div class="meta">Papeterie · Cartes de visite</div>
+            <div class="title-row">
+              <h3 class="title">Cartes Royal velours 350g</h3>
+              <div class="price"><span class="from">dès</span>19<small>€ /100 ex.</small></div>
+            </div>
+            <p class="desc">Papier coton-toucher velours, pelliculage soft touch recto-verso. Quadri inclus, coins droits ou arrondis.</p>
+            <div class="chips">
+              <span class="chip on">350g velours</span>
+              <span class="chip">Soft touch</span>
+              <span class="chip">Dorure</span>
+              <span class="chip">+3 finitions</span>
+            </div>
+          </div>
+          <div class="kv-row">
+            <div class="kv"><div class="k">Format</div><div class="v">85×55 mm</div></div>
+            <div class="kv"><div class="k">Grammage</div><div class="v">350 g/m²</div></div>
+            <div class="kv"><div class="k">Délai</div><div class="v">72h</div></div>
+            <div class="kv"><div class="k">Min.</div><div class="v">100 ex.</div></div>
+          </div>
+          <div class="tools">
+            <div class="tool"><span class="ic"><svg><use href="#i-fiche"/></svg></span>Fiche</div>
+            <div class="tool"><span class="ic"><svg><use href="#i-price"/></svg></span>Prix &amp; Devis</div>
+            <div class="tool"><span class="ic"><svg><use href="#i-3d"/></svg></span>Mockup 3D</div>
+            <div class="tool"><span class="ic"><svg><use href="#i-edit"/></svg></span>Éditer</div>
+            <div class="tool"><span class="ic"><svg><use href="#i-debug"/></svg></span>Debug</div>
+            <div class="tool primary"><span class="ic"><svg><use href="#i-add"/></svg></span>Ajouter</div>
+          </div>
+        </article>
+
+        <article class="pc c2">
+          <div class="pc-img">
+            <div class="corner"><span class="pill">Nouveau</span></div>
+            <div class="fav">♡</div>
+          </div>
+          <div class="body">
+            <div class="meta">Marketing · Flyers</div>
+            <div class="title-row">
+              <h3 class="title">Flyer A5 couché 135g</h3>
+              <div class="price"><span class="from">dès</span>32<small>€ /250 ex.</small></div>
+            </div>
+            <p class="desc">Couché brillant 135g, quadri recto-verso, livré plié ou à plat. Délai presse 48h ouvrées.</p>
+            <div class="chips">
+              <span class="chip on">Brillant 135g</span>
+              <span class="chip">Mat 170g</span>
+              <span class="chip">Recyclé 120g</span>
+            </div>
+          </div>
+          <div class="kv-row">
+            <div class="kv"><div class="k">Format</div><div class="v">148×210 mm</div></div>
+            <div class="kv"><div class="k">Grammage</div><div class="v">135 g/m²</div></div>
+            <div class="kv"><div class="k">Délai</div><div class="v">48h</div></div>
+            <div class="kv"><div class="k">Min.</div><div class="v">250 ex.</div></div>
+          </div>
+          <div class="tools">
+            <div class="tool"><span class="ic"><svg><use href="#i-fiche"/></svg></span>Fiche</div>
+            <div class="tool"><span class="ic"><svg><use href="#i-price"/></svg></span>Prix &amp; Devis</div>
+            <div class="tool"><span class="ic"><svg><use href="#i-3d"/></svg></span>Mockup 3D</div>
+            <div class="tool"><span class="ic"><svg><use href="#i-edit"/></svg></span>Éditer</div>
+            <div class="tool"><span class="ic"><svg><use href="#i-debug"/></svg></span>Debug</div>
+            <div class="tool primary"><span class="ic"><svg><use href="#i-add"/></svg></span>Ajouter</div>
+          </div>
+        </article>
+
+      </div>
+      <div class="spec">
+        <span><b>Usage</b> page catalogue 2-col · liste panier / bibliothèque</span>
+        <span><b>Largeur</b> 520px · hauteur ~ 530px</span>
+        <span><b>Pied</b> 6 cases labellisées · CTA "Ajouter" inversé</span>
+        <span><b>Graisses</b> titre 400 · prix + specs 500 · desc 400</span>
+      </div>
+    </div>
+
+    <div class="note">
+      <strong>Version retenue.</strong> Stacked gardé, densifié : description courte (2 lignes), chips variantes visibles, spec-bar 4 champs (format, grammage, délai, min.), et les 6 outils au pied en cases égales. Le CTA "Ajouter" occupe la 6ᵉ case, inversé, pour rester distinct sans casser la grille. Graisses relevées sur les specs et le prix (500) pour la lisibilité.
+    </div>
+  </div>
+</body>
+</html>

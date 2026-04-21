@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<title>E · Admin — Linear dense</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --ui: 'Helvetica Neue', 'Helvetica', 'Arial', sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, monospace;
+    --ink: #0A0A0A;
+    --ink-2: #2A2A2D;
+    --muted: #52525B;
+    --mute-2: #8A8A93;
+    --line: #ECECEC;
+    --line-2: #D4D4D8;
+    --bg: #FAFAFA;
+    --paper: #FFF;
+    --accent: #0F172A;
+  }
+  * { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+  body { margin: 0; background: var(--bg); color: var(--ink); padding: 64px 48px 140px; font-family: var(--ui); font-weight: 300; }
+  .wrap { max-width: 1400px; margin: 0 auto; }
+  .crumb { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mute-2); margin-bottom: 8px; }
+  .crumb a { color: var(--muted); text-decoration: none; }
+  .crumb a:hover { text-decoration: underline; }
+  h1.page { font-family: var(--ui); font-weight: 400; font-size: 48px; letter-spacing: -0.03em; margin: 10px 0 16px; line-height: 1.05; }
+  .lede { color: var(--muted); max-width: 700px; margin: 0 0 48px; line-height: 1.6; font-size: 15.5px; font-weight: 300; }
+  .lede b { color: var(--ink); font-weight: 500; }
+
+  .card-ref { background: var(--paper); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; margin-bottom: 32px; }
+  .card-head { display: flex; align-items: baseline; gap: 16px; padding: 24px 32px 20px; border-bottom: 1px solid var(--line); }
+  .card-head .num { font-family: var(--mono); font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mute-2); }
+  .card-head h2 { font-family: var(--ui); font-weight: 400; font-size: 24px; letter-spacing: -0.02em; margin: 0; }
+  .card-head .pill { margin-left: auto; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; background: #ECFDF3; color: #0E8F5A; font-weight: 500; }
+
+  .frame { padding: 28px; background: #F5F5F5; }
+  .frame-inner { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; overflow-x: auto; overflow-y: hidden; min-height: 680px; }
+  .e { min-width: 1100px; }
+  .table-scroll { overflow-x: auto; }
+  .table-scroll table { min-width: 880px; }
+
+  .spec { padding: 20px 32px 24px; font-family: var(--mono); font-size: 12px; color: var(--muted); background: var(--bg); border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 24px; }
+  .spec b { color: var(--ink); font-weight: 500; }
+
+  /* === E1 — Linear dense (retenu) === */
+  .e { display: grid; grid-template-columns: 220px 1fr; font-family: var(--ui); color: var(--ink); }
+  .e .side { background: var(--bg); border-right: 1px solid var(--line); padding: 12px 10px; display: flex; flex-direction: column; gap: 2px; min-height: 680px; }
+  .e .brand { display: flex; align-items: center; gap: 8px; padding: 8px 10px; font-weight: 500; font-size: 13px; margin-bottom: 8px; }
+  .e .brand .logo { width: 20px; height: 20px; border-radius: 5px; background: linear-gradient(135deg, #E5F0FC, #B7D3F2); }
+  .e .side .gr { font-family: var(--mono); font-size: 10.5px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--mute-2); padding: 10px; margin-top: 4px; }
+  .e .side .i { padding: 5px 10px; font-size: 13px; font-weight: 400; color: var(--ink-2); border-radius: 5px; display: flex; align-items: center; gap: 8px; }
+  .e .side .i::before { content: ''; width: 13px; height: 13px; border-radius: 3px; background: var(--line-2); flex: none; }
+  .e .side .i.active { background: var(--line); font-weight: 500; color: var(--ink); }
+  .e .side .i.active::before { background: var(--accent); }
+  .e .side .i .count { margin-left: auto; font-family: var(--mono); font-size: 10.5px; font-weight: 500; color: var(--mute-2); }
+  .e .side .foot { margin-top: auto; padding: 10px; font-size: 12px; font-weight: 400; color: var(--muted); border-top: 1px solid var(--line); display: flex; align-items: center; gap: 8px; }
+  .e .side .foot .avatar { width: 22px; height: 22px; border-radius: 999px; background: var(--line-2); }
+
+  .e .main { display: flex; flex-direction: column; background: var(--paper); }
+  .e .topbar { padding: 10px 28px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 12px; }
+  .e .crumb-r { font-size: 12.5px; color: var(--mute-2); font-family: var(--mono); font-weight: 400; }
+  .e .crumb-r b { color: var(--ink); font-weight: 500; }
+  .e .topbar .actions { margin-left: auto; display: flex; gap: 6px; }
+  .e .topbar .btn { padding: 5px 11px; border-radius: 5px; font-size: 12.5px; font-weight: 400; border: 1px solid var(--line); background: var(--paper); color: var(--ink-2); font-family: var(--ui); cursor: pointer; }
+  .e .topbar .btn-p { background: var(--accent); color: var(--paper); border-color: var(--accent); font-weight: 500; }
+
+  .e .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--line); border-bottom: 1px solid var(--line); }
+  .e .kpi { background: var(--paper); padding: 16px 20px; }
+  .e .kpi .lbl { font-size: 11px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: var(--mute-2); font-family: var(--mono); margin-bottom: 6px; }
+  .e .kpi .val { font-size: 24px; font-weight: 500; letter-spacing: -0.02em; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .e .kpi .delta { font-size: 11.5px; font-weight: 500; color: #0E8F5A; font-family: var(--mono); }
+  .e .kpi .delta.neg { color: #B42318; }
+  .e .kpi .spark { margin-top: 8px; display: flex; gap: 2px; align-items: flex-end; height: 18px; }
+  .e .kpi .spark span { width: 4px; background: var(--line-2); border-radius: 1px; }
+
+  .e .filters { display: flex; gap: 8px; padding: 12px 28px; border-bottom: 1px solid var(--line); background: var(--bg); align-items: center; }
+  .e .filter { padding: 4px 10px; border: 1px solid var(--line); border-radius: 5px; background: var(--paper); font-size: 12px; font-weight: 400; color: var(--muted); display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  .e .filter.on { background: var(--accent); color: var(--paper); border-color: var(--accent); font-weight: 500; }
+  .e .filter .n { font-family: var(--mono); font-size: 11px; font-weight: 500; opacity: 0.7; }
+  .e .filters .search { margin-left: auto; padding: 4px 10px; border: 1px solid var(--line); border-radius: 5px; background: var(--paper); font-size: 12px; font-weight: 400; color: var(--mute-2); display: flex; align-items: center; gap: 6px; min-width: 220px; }
+
+  .e table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .e th { text-align: left; padding: 8px 14px; font-size: 11px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: var(--mute-2); font-family: var(--mono); border-bottom: 1px solid var(--line); background: var(--bg); }
+  .e td { padding: 8px 14px; border-bottom: 1px solid #F5F5F5; color: var(--ink-2); vertical-align: middle; font-weight: 400; }
+  .e tr.sel td { background: var(--bg); }
+  .e td.num { font-family: var(--mono); color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; }
+  .e .state { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; font-family: var(--mono); }
+  .e .st-draft { background: #F5F5F5; color: var(--muted); }
+  .e .st-sent { background: #EEF4FF; color: #1D4ED8; }
+  .e .st-won { background: #ECFDF3; color: #0E8F5A; }
+  .e .st-lost { background: #FEF2F2; color: #B42318; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="crumb"><a href="À valider demain.html">← retour à l'index</a></div>
+    <h1 class="page">E · Admin</h1>
+    <p class="lede">Version retenue : Linear dense pour une équipe qui passe sa journée dans le back-office. Lignes compactes, KPIs inline avec sparklines, filtres segmentés. Typo <b>A</b> appliquée : Helvetica Neue, corps 400, labels/chiffres 500 en tabular-nums.</p>
+
+    <div class="card-ref">
+      <div class="card-head">
+        <span class="num">E · Choix retenu</span>
+        <h2>Linear — dense &amp; efficace</h2>
+        <span class="pill">Validé ✓</span>
+      </div>
+      <div class="frame">
+        <div class="frame-inner">
+          <div class="e">
+            <aside class="side">
+              <div class="brand"><div class="logo"></div>Magrit</div>
+              <div class="gr">Atelier</div>
+              <div class="i">Conversations <span class="count">12</span></div>
+              <div class="i active">Devis <span class="count">48</span></div>
+              <div class="i">Commandes <span class="count">24</span></div>
+              <div class="i">Production</div>
+              <div class="i">Clients</div>
+              <div class="i">Produits</div>
+              <div class="gr">Config</div>
+              <div class="i">Boutique</div>
+              <div class="i">Équipe</div>
+              <div class="i">Intégrations</div>
+              <div class="foot"><div class="avatar"></div>Léa · Studio Magrit</div>
+            </aside>
+            <main class="main">
+              <div class="topbar">
+                <span class="crumb-r">Atelier / <b>Devis</b></span>
+                <div class="actions">
+                  <button class="btn">Exporter</button>
+                  <button class="btn btn-p">+ Nouveau devis</button>
+                </div>
+              </div>
+              <div class="kpis">
+                <div class="kpi">
+                  <div class="lbl">En cours</div>
+                  <div class="val">12 840€</div>
+                  <div class="delta">+18% · 7j</div>
+                  <div class="spark"><span style="height:30%"></span><span style="height:45%"></span><span style="height:40%"></span><span style="height:55%"></span><span style="height:60%"></span><span style="height:50%"></span><span style="height:80%; background:#0F172A"></span></div>
+                </div>
+                <div class="kpi">
+                  <div class="lbl">Taux conversion</div>
+                  <div class="val">58%</div>
+                  <div class="delta neg">−4 pts · 30j</div>
+                  <div class="spark"><span style="height:70%"></span><span style="height:75%"></span><span style="height:68%"></span><span style="height:72%"></span><span style="height:62%"></span><span style="height:60%"></span><span style="height:55%; background:#0F172A"></span></div>
+                </div>
+                <div class="kpi">
+                  <div class="lbl">Panier moyen</div>
+                  <div class="val">267€</div>
+                  <div class="delta">+12€ · 30j</div>
+                  <div class="spark"><span style="height:40%"></span><span style="height:50%"></span><span style="height:55%"></span><span style="height:48%"></span><span style="height:60%"></span><span style="height:65%"></span><span style="height:70%; background:#0F172A"></span></div>
+                </div>
+                <div class="kpi">
+                  <div class="lbl">Délai réponse</div>
+                  <div class="val">14 min</div>
+                  <div class="delta">−6 min · 7j</div>
+                  <div class="spark"><span style="height:80%"></span><span style="height:65%"></span><span style="height:50%"></span><span style="height:55%"></span><span style="height:45%"></span><span style="height:38%"></span><span style="height:30%; background:#0F172A"></span></div>
+                </div>
+              </div>
+              <div class="filters">
+                <span class="filter on">Tous <span class="n">48</span></span>
+                <span class="filter">Brouillons <span class="n">6</span></span>
+                <span class="filter">Envoyés <span class="n">22</span></span>
+                <span class="filter">Gagnés <span class="n">18</span></span>
+                <span class="filter">Perdus <span class="n">2</span></span>
+                <span class="filter" style="margin-left:12px; background:var(--bg);">+ Filtre</span>
+                <span class="search">⌕ Rechercher un client, un numéro…</span>
+              </div>
+              <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>N°</th><th>Client</th><th>Produit</th><th>Qté</th><th>Montant</th><th>État</th><th>Maj</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr class="sel">
+                    <td class="num">#0248</td><td>Boutique Desbois</td><td>Cartes Royal velours</td><td class="num">500</td><td class="num">78,00€</td><td><span class="state st-sent">envoyé</span></td><td>il y a 12 min</td>
+                  </tr>
+                  <tr>
+                    <td class="num">#0247</td><td>Atelier Bloom</td><td>Flyers A5 RV</td><td class="num">1 000</td><td class="num">142,00€</td><td><span class="state st-won">gagné</span></td><td>il y a 2h</td>
+                  </tr>
+                  <tr>
+                    <td class="num">#0246</td><td>La Tour café</td><td>Affiches A2</td><td class="num">50</td><td class="num">68,00€</td><td><span class="state st-draft">brouillon</span></td><td>il y a 3h</td>
+                  </tr>
+                  <tr>
+                    <td class="num">#0245</td><td>Studio Noir</td><td>Packaging carton kraft</td><td class="num">250</td><td class="num">412,00€</td><td><span class="state st-sent">envoyé</span></td><td>hier</td>
+                  </tr>
+                  <tr>
+                    <td class="num">#0244</td><td>Bouquinerie Louise</td><td>Marques-pages dorés</td><td class="num">500</td><td class="num">96,00€</td><td><span class="state st-won">gagné</span></td><td>hier</td>
+                  </tr>
+                  <tr>
+                    <td class="num">#0243</td><td>Maison Léto</td><td>Dépliants 2 plis</td><td class="num">1 000</td><td class="num">178,00€</td><td><span class="state st-lost">perdu</span></td><td>il y a 2j</td>
+                  </tr>
+                  <tr>
+                    <td class="num">#0242</td><td>Clément &amp; Co</td><td>Cartes tranche dorée</td><td class="num">300</td><td class="num">148,00€</td><td><span class="state st-sent">envoyé</span></td><td>il y a 3j</td>
+                  </tr>
+                </tbody>
+              </table>
+              </div>
+            </main>
+          </div>
+        </div>
+      </div>
+      <div class="spec">
+        <span><b>Densité</b> haute · lignes 36px · sparklines inline</span>
+        <span><b>Typo</b> Helvetica Neue 12.5–13 · tabular-nums sur chiffres</span>
+        <span><b>Sidebar</b> 220px · compteurs mono</span>
+        <span><b>KPIs</b> 4 inline, delta + mini-chart 7 points</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

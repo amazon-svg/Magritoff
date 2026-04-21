@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<title>Magrit — À valider demain matin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet" />
+<style>
+  body { margin: 0; font-family: "Helvetica Neue", "HelveticaNeue", "Inter Tight", Helvetica, Arial, sans-serif; font-weight: 300; background: #FAFAFA; color: #0A0A0A; padding: 80px 48px 160px; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 920px; margin: 0 auto; }
+  .eyebrow { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #8A8A93; }
+  h1 { font-family: inherit; font-weight: 200; font-size: 56px; letter-spacing: -0.035em; margin: 14px 0 20px; line-height: 1.05; }
+  .lede { color: #52525B; max-width: 680px; margin: 0 0 48px; line-height: 1.6; font-size: 16px; }
+
+  .validated { 
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 18px; background: #ECFDF3; border: 1px solid #BBF7D0;
+    border-radius: 10px; margin-bottom: 40px; color: #166534;
+    font-size: 14px;
+  }
+  .check { flex: none; width: 18px; height: 18px; border-radius: 50%; background: #16A34A; display: grid; place-items: center; color: white; font-size: 12px; }
+
+  .queue { display: flex; flex-direction: column; gap: 14px; }
+  .card {
+    display: flex; align-items: stretch; gap: 0;
+    background: #FFFFFF; border: 1px solid #ECECEC; border-radius: 14px;
+    overflow: hidden;
+    transition: border-color 180ms, transform 180ms;
+  }
+  .card:hover { border-color: #D4D4D8; transform: translateY(-1px); }
+  .card a { flex: 1; display: flex; align-items: center; gap: 24px; padding: 24px 28px; color: inherit; }
+  .card .idx { flex: none; width: 44px; height: 44px; border-radius: 10px; background: #F5F5F5; display: grid; place-items: center; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #52525B; }
+  .card h3 { margin: 0 0 4px; font-family: inherit; font-weight: 400; font-size: 20px; letter-spacing: -0.01em; }
+  .card p { margin: 0; color: #52525B; font-size: 13.5px; line-height: 1.5; }
+  .card .prio { flex: none; font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; padding: 4px 8px; border-radius: 999px; }
+  .prio-1 { background: #FEF2F2; color: #B42318; }
+  .prio-2 { background: #FEF3C7; color: #B45309; }
+  .prio-3 { background: #EEF4FF; color: #1D4ED8; }
+  .prio-fdn { background: #F5F5F5; color: #52525B; }
+  .prio-ok { background: #ECFDF3; color: #166534; }
+  .arrow { flex: none; padding-right: 24px; color: #B5B5BC; font-size: 20px; }
+
+  .foot { margin-top: 56px; padding-top: 28px; border-top: 1px solid #ECECEC; color: #8A8A93; font-size: 13px; display: flex; justify-content: space-between; }
+  .foot a { color: #52525B; text-decoration: underline; text-underline-offset: 3px; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <span class="eyebrow">Magrit · à valider · demain matin</span>
+    <h1>Six décisions à trancher.</h1>
+    <p class="lede">
+      Les cinq décisions sont prises et la typo <b style="color:#0A0A0A;font-weight:500;">A</b> est appliquée partout :
+      <b style="color:#0A0A0A;font-weight:500;">A</b> Helvetica Neue graisses fines ·
+      <b style="color:#0A0A0A;font-weight:500;">B</b> portail ERP-like aéré ·
+      <b style="color:#0A0A0A;font-weight:500;">C</b> catalogue 2-col 520px ·
+      <b style="color:#0A0A0A;font-weight:500;">D</b> Claude.ai-like (rail 56px + canvas centré) ·
+      <b style="color:#0A0A0A;font-weight:500;">E</b> Linear dense. Prochain chantier : propager dans le handoff principal.
+    </p>
+
+    <div class="validated">
+      <span class="check">✓</span>
+      <div>
+        <strong style="color:#14532D;">Logo validé — direction 01, la vraie marguerite.</strong>
+        <span style="color:#166534; opacity:0.8;"> · Propagé dans l'app et dans le handoff.</span>
+      </div>
+    </div>
+
+    <div class="queue">
+
+      <div class="card">
+        <a href="A%20-%20Typographie.html">
+          <div class="idx">A</div>
+          <div style="flex:1;">
+            <h3>Typographie — Helvetica Neue, graisses fines</h3>
+            <p>Proposition unique : Helvetica Neue (fallbacks Inter Tight), display 100/200, body 300. Appliquée à cet index.</p>
+          </div>
+          <span class="prio prio-ok">Choix A ✓</span>
+          <span class="arrow">→</span>
+        </a>
+      </div>
+
+      <div class="card">
+        <a href="B%20-%20Boutique%20publique.html">
+          <div class="idx">B</div>
+          <div style="flex:1;">
+            <h3>Boutique — ERP-like aéré</h3>
+            <p>Version retenue : panneaux séparés, KPI en cards, marges généreuses entre blocs. Catalogue templates brandés, workflow N+1/Achats, audit trail temps réel.</p>
+          </div>
+          <span class="prio prio-ok">Choix B ✓</span>
+          <span class="arrow">→</span>
+        </a>
+      </div>
+
+      <div class="card">
+        <a href="C%20-%20ProductCard.html">
+          <div class="idx">C</div>
+          <div style="flex:1;">
+            <h3>ProductCard — catalogue 2-col (520px)</h3>
+            <p>Version retenue : stacked densifié, desc courte, chips variantes, spec-bar 4 champs, pied 5 outils + CTA Ajouter.</p>
+          </div>
+          <span class="prio prio-ok">Choix C ✓</span>
+          <span class="arrow">→</span>
+        </a>
+      </div>
+
+      <div class="card">
+        <a href="D%20-%20Chat.html">
+          <div class="idx">D</div>
+          <div style="flex:1;">
+            <h3>Chat — Claude.ai-like</h3>
+            <p>Version retenue : rail icônes 56px + canvas centré 760px, historique via ⌘K, generative-UI cards inline. Typo A appliquée.</p>
+          </div>
+          <span class="prio prio-ok">Choix D ✓</span>
+          <span class="arrow">→</span>
+        </a>
+      </div>
+
+      <div class="card">
+        <a href="E%20-%20Admin.html">
+          <div class="idx">E</div>
+          <div style="flex:1;">
+            <h3>Admin — Linear dense</h3>
+            <p>Version retenue : sidebar 220px, KPIs inline avec sparklines, table devis compacte, filtres segmentés. Typo A appliquée (tabular-nums sur chiffres).</p>
+          </div>
+          <span class="prio prio-ok">Choix E ✓</span>
+          <span class="arrow">→</span>
+        </a>
+      </div>
+
+      <div class="card">
+        <a href="F%20-%20Front%20portail%20B2B.html">
+          <div class="idx">F</div>
+          <div style="flex:1;">
+            <h3>Front portail B2B — parcours acheteur</h3>
+            <p>4 écrans côté client corporate : home connecté (budget + réimpression), catalogue (templates brandés vs négociés), fiche produit + configurateur, panier avec workflow N+1 → Achats → Magrit.</p>
+          </div>
+          <span class="prio prio-2">À relire</span>
+          <span class="arrow">→</span>
+        </a>
+      </div>
+
+    </div>
+
+    <div class="foot">
+      <span>Une fois tranché, je mets à jour le handoff principal.</span>
+      <a href="index.html">Voir le handoff courant →</a>
+    </div>
+  </div>
+</body>
+</html>

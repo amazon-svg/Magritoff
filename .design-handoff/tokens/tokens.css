@@ -1,0 +1,132 @@
+/* ============================================================
+   Magrit v2 — Design tokens
+   Source of truth extraite des maquettes HTML.
+   À importer dans src/styles/ (ex : src/styles/tokens.css)
+   puis chargé depuis index.css.
+   ============================================================ */
+
+:root {
+  /* ---------- Typographie ---------- */
+  /* Stack principale : system-first macOS/iOS, fallback Helvetica Neue.
+     Passer à Inter / Geist si besoin d'homogénéité cross-platform. */
+  --font-ui: 'Helvetica Neue', 'Helvetica', 'Arial', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  /* Serif optionnelle pour la boutique publique (hero, titres éditoriaux).
+     Remplacer par Canela / GT Sectra / Recoleta via @font-face si licence. */
+  --font-serif: 'Recoleta', 'GT Sectra', Georgia, serif;
+
+  /* ---------- Palette neutre (light) ---------- */
+  --ink:     #0A0A0A;  /* texte principal  (pas #000 pur) */
+  --ink-2:   #2A2A2D;  /* texte secondaire */
+  --muted:   #52525B;  /* texte tertiaire / meta */
+  --mute-2:  #8A8A93;  /* labels, compteurs mono, placeholder */
+  --line:    #ECECEC;  /* border très fine (Linear/Vercel) */
+  --line-2:  #D4D4D8;  /* border appuyée (hover, focus soft) */
+  --bg:      #FAFAFA;  /* background app (pas #FFF) */
+  --paper:   #FFFFFF;  /* surface cards / modals */
+
+  /* ---------- Accent ---------- */
+  --accent:       #0F172A;   /* slate-900 — accent sobre unique */
+  --accent-soft:  #EEF4FF;   /* fond pour active state discret */
+  --accent-ink:   #FFFFFF;   /* texte sur accent */
+
+  /* ---------- Status (usage parcimonieux) ---------- */
+  --ok-bg:    #ECFDF3;
+  --ok-fg:    #0E8F5A;
+  --ok-line:  #BBF7D0;
+  --warn-bg:  #FEF3C7;
+  --warn-fg:  #B45309;
+  --err-bg:   #FEE2E2;
+  --err-fg:   #B91C1C;
+  --info-bg:  #EEF4FF;
+  --info-fg:  #1D4ED8;
+
+  /* ---------- Boutique thémable (overridé par le slug) ---------- */
+  --shop-primary: var(--accent);
+  --shop-accent:  var(--ok-fg);
+  --shop-radius:  10px;
+
+  /* ---------- Radius ---------- */
+  --radius-sm:  4px;   /* badges, micro-chips */
+  --radius:     6px;   /* boutons */
+  --radius-md:  8px;   /* cards produit, inputs */
+  --radius-lg:  10px;  /* cards principales */
+  --radius-xl:  12px;  /* modales, panels */
+  --radius-2xl: 16px;  /* hero cards, sections */
+
+  /* ---------- Shadows (Vercel/Linear-style, jamais shadow-lg) ---------- */
+  --shadow-xs: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.04), 0 1px 3px rgba(0,0,0,0.04);
+  --shadow-md: 0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06);
+  --shadow-lg: 0 1px 2px rgba(0,0,0,0.04), 0 24px 60px rgba(9,9,11,0.12);
+  --shadow-focus: 0 0 0 2px var(--paper), 0 0 0 4px var(--accent);
+
+  /* ---------- Spacing (rappel Tailwind mais explicitement nommé) ---------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* ---------- Typographie scale ---------- */
+  --fs-xs:   11px;   /* labels mono, kbd */
+  --fs-sm:   12.5px; /* meta, chips */
+  --fs-base: 13.5px; /* texte admin dense */
+  --fs-md:   14.5px; /* texte boutique */
+  --fs-lg:   16px;   /* sous-titres */
+  --fs-xl:   20px;
+  --fs-2xl:  24px;
+  --fs-3xl:  28px;
+  --fs-4xl:  34px;
+  --fs-5xl:  48px;
+
+  --tracking-tight: -0.025em; /* titres grands */
+  --tracking-snug:  -0.015em; /* h3, h4 */
+  --tracking-base:  -0.005em; /* body serré */
+  --tracking-wide:   0.08em;  /* labels mono uppercase */
+
+  --lh-tight: 1.05;
+  --lh-snug:  1.3;
+  --lh-base:  1.5;
+  --lh-relax: 1.6;
+
+  /* ---------- Motion ---------- */
+  --ease-out:   cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --dur-fast:   120ms;
+  --dur-base:   180ms;
+  --dur-slow:   320ms;
+}
+
+/* Dark mode — appliquer via [data-theme="dark"] sur <html> ou au shop root */
+[data-theme="dark"] {
+  --ink:     #F5F5F7;
+  --ink-2:   #D4D4D8;
+  --muted:   #A1A1AA;
+  --mute-2:  #71717A;
+  --line:    #27272A;
+  --line-2:  #3F3F46;
+  --bg:      #0A0A0A;
+  --paper:   #111113;
+  --accent:       #F5F5F7;
+  --accent-ink:   #0A0A0A;
+  --accent-soft:  #1E293B;
+}
+
+/* Focus visible global (WCAG AA) */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+
+/* Scrollbar fine (Webkit + Firefox) */
+* { scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+*::-webkit-scrollbar-thumb:hover { background: var(--mute-2); background-clip: padding-box; border: 2px solid transparent; }
+*::-webkit-scrollbar-track { background: transparent; }
