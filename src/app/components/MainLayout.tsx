@@ -1,5 +1,6 @@
 import { Outlet } from "react-router";
 import { Header } from "./Header";
+import { UnauthBanner } from "./UnauthBanner";
 
 export function MainLayout() {
   return (
@@ -8,6 +9,7 @@ export function MainLayout() {
       <main>
         <Outlet />
       </main>
+      <UnauthBanner />
     </div>
   );
 }

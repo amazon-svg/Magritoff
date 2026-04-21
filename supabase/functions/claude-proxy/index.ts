@@ -432,15 +432,15 @@ Format de réponse OBLIGATOIRE :
 {
   "products": [
     {
-      "productName": "Nom du produit",
-      "name": "Nom du produit",
+      "productName": "Nom du produit (inclure la variation, ex: 'Carte de visite coins ronds recto/verso')",
+      "name": "Nom du produit (identique à productName)",
       "quantity": 500,
       "dimensions": { "width": 85, "height": 55, "unit": "mm" },
       "material": "Type de papier",
       "weight": 350,
-      "printing": { 
-        "recto": "Quadrichromie (CMJN)", 
-        "verso": "Sans impression" 
+      "printing": {
+        "recto": "Quadrichromie (CMJN)",
+        "verso": "Sans impression"
       },
       "finishRecto": "Pelliculage mat",
       "finishVerso": "Sans finition",
@@ -459,14 +459,29 @@ Format de réponse OBLIGATOIRE :
   ]
 }
 
-RÈGLES :
-- Si l'utilisateur demande plusieurs produits (ex: "500 cartes ET 1000 flyers"), crée PLUSIEURS objets dans le tableau "products"
-- Utilise les termes techniques français d'imprimerie
-- Sois précis sur les finitions (pelliculage, vernis, etc.)
-- Chaque produit doit avoir des suggestions pertinentes
-- Pour les brochures, ajoute le champ "pages"
-- Pour les formats, utilise A4 (210×297mm), A5 (148×210mm), A2 (420×594mm), etc.
-- Cartes de visite standard : 85×55mm`;
+RÈGLES GÉNÉRALES :
+- Si l'utilisateur demande plusieurs produits hétérogènes (ex: "500 cartes ET 1000 flyers"), crée PLUSIEURS objets dans le tableau "products".
+- Utilise les termes techniques français d'imprimerie.
+- Sois précis sur les finitions (pelliculage, vernis, coins ronds, etc.).
+- Chaque produit a des suggestions pertinentes.
+- Pour les brochures, ajoute le champ "pages".
+- Formats : A4 (210×297mm), A5 (148×210mm), A6 (105×148mm), A2 (420×594mm), A3 (297×420mm).
+- Cartes de visite standard : 85×55mm.
+
+RÈGLES POUR LES DEMANDES EN NOMBRE / CATALOGUE (CMS e-commerce) :
+Si l'utilisateur demande plusieurs produits DIFFÉRENTS d'une même gamme ou famille (ex: "15 produits de la gamme carterie", "10 variantes de flyers", "8 modèles de cartes"), tu dois générer AUTANT D'ENTRÉES DISTINCTES dans le tableau "products" que demandé, chacune étant une VARIATION UNIQUE basée sur :
+- La forme et découpe (coins carrés, coins ronds, forme spéciale, découpe créative)
+- Le type d'impression (recto seul, recto/verso, recto quadri + verso noir, etc.)
+- Le papier et le grammage (couché mat, couché brillant, offset, recyclé ; 250 / 300 / 350 / 400 g)
+- Les finitions (sans finition, pelliculage mat, pelliculage brillant, pelliculage soft touch, vernis sélectif, dorure à chaud, gaufrage, marquage à chaud, tranche colorée)
+- Les quantités (50, 100, 250, 500, 1000, 2500, 5000)
+- Le format (standard 85×55, carré 55×55, mini 55×85, maxi 90×54, pliée/dépliante, etc.)
+
+OBJECTIF : produire un catalogue riche et varié qui peut alimenter un CMS e-commerce. Chaque produit doit être UNIQUE par sa combinaison de caractéristiques.
+
+NOMMAGE : chaque \`productName\` inclut la variation pour distinguer les produits (ex: "Carte de visite 85×55 pelliculage mat recto/verso", "Carte de visite coins ronds vernis sélectif", "Carte de visite carrée 55×55 couché brillant", etc.).
+
+IMPORTANT : si l'utilisateur demande 15 produits, le tableau "products" DOIT contenir exactement 15 entrées distinctes. Tu peux en générer jusqu'à 30 sur une seule demande.`;
 
     // Appel à l'API Claude
     console.log("🤖 Appel à l'API Claude via proxy...");
@@ -480,7 +495,7 @@ RÈGLES :
         },
         body: JSON.stringify({
           model: "claude-3-haiku-20240307",
-          max_tokens: 2048,
+          max_tokens: 8192,
           system: systemPrompt,
           messages: messages,
         }),

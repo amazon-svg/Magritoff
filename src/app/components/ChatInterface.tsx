@@ -1,95 +1,57 @@
-import { useState, useEffect } from "react";
-import { Send, History, X } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Send, History, X, CheckSquare, Square, BookmarkPlus } from "lucide-react";
 import { projectId, publicAnonKey } from "/utils/supabase/info";
 import logoImage from "figma:asset/48de195d09839b5e2071e781c31fa390056b1db8.png";
 import { ProductCard } from "./ProductCard";
 import { CartButton } from "./CartButton";
+import { LibraryPickerModal } from "./LibraryPickerModal";
+import { useConversation, ConversationHistory } from "../contexts/ConversationContext";
+import { useAuth } from "../contexts/AuthContext";
+import { useLibrary } from "../contexts/LibraryContext";
+import { usePlan } from "../hooks/usePlan";
 
 interface ChatInterfaceProps {
   onShowResults?: () => void;
   onProductConfigReceived?: (config: any) => void;
 }
 
-interface ConversationHistory {
-  id: string;
-  timestamp: number;
-  title: string;
-  messages: Array<{ role: string; content: string }>;
-  products: any[];
-}
-
 export function ChatInterface({ onShowResults, onProductConfigReceived }: ChatInterfaceProps) {
-  const [messages, setMessages] = useState<Array<{ role: string; content: string }>>([]);
+  const {
+    messages,
+    setMessages,
+    products,
+    setProducts,
+    history: conversationHistory,
+    currentConversationId,
+    saveCurrent: saveCurrentConversation,
+    loadConversation: loadFromContext,
+    deleteConversation: deleteFromContext,
+    startNewConversation: resetConversation,
+  } = useConversation();
+
+  const { user } = useAuth();
+  const { canUse } = usePlan();
+  const { addProductsBulk } = useLibrary();
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isDemoMode, setIsDemoMode] = useState(false);
-  const [products, setProducts] = useState<any[]>([]);
-
-  const [conversationHistory, setConversationHistory] = useState<ConversationHistory[]>([]);
   const [showHistory, setShowHistory] = useState(false);
-  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
-
-  // ─── Historique localStorage ──────────────────────────────────────────────
-  useEffect(() => {
-    const saved = localStorage.getItem("magrit_conversation_history");
-    if (saved) {
-      try { setConversationHistory(JSON.parse(saved)); } catch {}
-    }
-  }, []);
-
-  useEffect(() => {
-    if (conversationHistory.length > 0) {
-      localStorage.setItem("magrit_conversation_history", JSON.stringify(conversationHistory));
-    }
-  }, [conversationHistory]);
-
-  const saveCurrentConversation = (
-    newMessages: Array<{ role: string; content: string }>,
-    newProducts: any[]
-  ) => {
-    const firstUser = newMessages.find((m) => m.role === "user")?.content || "Nouvelle conversation";
-    const title = firstUser.length > 50 ? firstUser.substring(0, 50) + "..." : firstUser;
-
-    if (currentConversationId) {
-      setConversationHistory((prev) =>
-        prev.map((conv) =>
-          conv.id === currentConversationId
-            ? { ...conv, messages: newMessages, products: newProducts, timestamp: Date.now() }
-            : conv
-        )
-      );
-    } else {
-      const newId = `conv-${Date.now()}`;
-      setCurrentConversationId(newId);
-      setConversationHistory((prev) => [
-        { id: newId, timestamp: Date.now(), title, messages: newMessages, products: newProducts },
-        ...prev,
-      ]);
-    }
-  };
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkLibraryPickerOpen, setBulkLibraryPickerOpen] = useState(false);
 
   const loadConversation = (conv: ConversationHistory) => {
-    setMessages(conv.messages);
-    setProducts(conv.products);
-    setCurrentConversationId(conv.id);
+    loadFromContext(conv);
     setShowHistory(false);
-    if (conv.products.length > 0) onShowResults();
+    if (conv.products.length > 0) onShowResults?.();
   };
 
   const deleteConversation = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setConversationHistory((prev) => prev.filter((c) => c.id !== id));
-    if (currentConversationId === id) {
-      setCurrentConversationId(null);
-      setMessages([]);
-      setProducts([]);
-    }
+    deleteFromContext(id);
   };
 
   const startNewConversation = () => {
-    setMessages([]);
-    setProducts([]);
-    setCurrentConversationId(null);
+    resetConversation();
     setShowHistory(false);
   };
 
@@ -404,18 +366,93 @@ export function ChatInterface({ onShowResults, onProductConfigReceived }: ChatIn
             )}
           </div>
 
+          {/* Barre de sélection groupée (≥ 5 produits, user Pro+) */}
+          {products.length >= 5 && user && canUse('library') && (
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => {
+                    if (selectedIds.size === products.length) {
+                      setSelectedIds(new Set());
+                    } else {
+                      setSelectedIds(new Set(products.map((p) => p.id)));
+                    }
+                  }}
+                  className="flex items-center gap-2 text-sm font-medium text-gray-900 hover:text-blue-700"
+                >
+                  {selectedIds.size === products.length ? (
+                    <CheckSquare className="w-4 h-4" />
+                  ) : (
+                    <Square className="w-4 h-4" />
+                  )}
+                  {selectedIds.size === products.length
+                    ? 'Tout désélectionner'
+                    : 'Sélectionner tous les produits'}
+                </button>
+                {selectedIds.size > 0 && (
+                  <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full font-medium">
+                    {selectedIds.size} / {products.length} sélectionné{selectedIds.size > 1 ? 's' : ''}
+                  </span>
+                )}
+              </div>
+              {selectedIds.size > 0 && (
+                <button
+                  onClick={() => setBulkLibraryPickerOpen(true)}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-gray-900 text-white rounded-lg hover:bg-gray-800 text-sm font-medium"
+                >
+                  <BookmarkPlus className="w-4 h-4" />
+                  Ajouter {selectedIds.size} produit{selectedIds.size > 1 ? 's' : ''} à une bibliothèque
+                </button>
+              )}
+            </div>
+          )}
+
           {/* ProductCards */}
           {products.length > 0 && (
             <div className={gridClass}>
               {products.map((product, index) => (
                 <ProductCard
-                  key={index}
+                  key={product.id ?? `p-${index}`}
                   product={product}
                   onProductUpdate={(updated) => handleProductUpdate(index, updated)}
                   compact={products.length >= 12}
+                  selectable={products.length >= 5 && !!user && canUse('library')}
+                  selected={selectedIds.has(product.id)}
+                  onSelectedChange={(checked) => {
+                    setSelectedIds((prev) => {
+                      const next = new Set(prev);
+                      if (checked) next.add(product.id);
+                      else next.delete(product.id);
+                      return next;
+                    });
+                  }}
                 />
               ))}
             </div>
+          )}
+
+          {bulkLibraryPickerOpen && (
+            <LibraryPickerModal
+              productCount={selectedIds.size}
+              onPick={async (libraryId) => {
+                const items = products.filter((p) => selectedIds.has(p.id));
+                await addProductsBulk(
+                  items.map((p) => ({
+                    library_id: libraryId,
+                    client_id: p.client_id ?? null,
+                    name: p.name,
+                    category: p.clariprintData?.kind || 'Autres',
+                    description: `${p.quantity ?? ''} · ${p.format ?? ''} · ${p.material ?? ''}`.trim(),
+                    price_ht: p.price ?? 0,
+                    image_url: '',
+                    config: p,
+                    active: true,
+                  }))
+                );
+                setSelectedIds(new Set());
+              }}
+              onClose={() => setBulkLibraryPickerOpen(false)}
+            />
           )}
 
           {/* Suggestions d'exemples */}

@@ -1,7 +1,14 @@
 import { useState } from "react";
-import { ChevronUp, Loader2, RefreshCw, Printer, CheckCircle, AlertTriangle } from "lucide-react";
+import { ChevronUp, Loader2, RefreshCw, Printer, CheckCircle, AlertTriangle, Lock, BookmarkPlus, Check } from "lucide-react";
 import { QuoteModal } from "./QuoteModal";
 import { projectId, publicAnonKey } from "/utils/supabase/info";
+import { useAuth } from "../contexts/AuthContext";
+import { useClients } from "../contexts/ClientsContext";
+import { useLibrary } from "../contexts/LibraryContext";
+import { usePIM } from "../contexts/PIMContext";
+import { usePlan } from "../hooks/usePlan";
+import { LibraryPickerModal } from "./LibraryPickerModal";
+import { enrichProduct } from "../utils/productEnrichment";
 
 interface ClariprintQuoteResult {
   success: boolean;
@@ -49,17 +56,45 @@ interface ProductCardProps {
     claudeResponse?: string;
     // ✅ Données Clariprint brutes (champs API)
     clariprintData?: any;
+    client_id?: string | null;
   };
   onProductUpdate?: (updatedProduct: any) => void;
   compact?: boolean;
+  // Sélection multiple (externe) pour actions groupées
+  selectable?: boolean;
+  selected?: boolean;
+  onSelectedChange?: (selected: boolean) => void;
 }
 
 type TabType = "sheet" | "pricing" | "mockup" | "form" | "debug" | null;
 
-export function ProductCard({ product, onProductUpdate, compact }: ProductCardProps) {
+export function ProductCard({
+  product,
+  onProductUpdate,
+  compact,
+  selectable,
+  selected,
+  onSelectedChange,
+}: ProductCardProps) {
+  const { user } = useAuth();
+  const { clients } = useClients();
+  const { addProduct: addToLibrary } = useLibrary();
+  const { gammes, definitions } = usePIM();
+  const { canUse } = usePlan();
   const [localProduct, setLocalProduct] = useState(product);
   const [activeTab, setActiveTab] = useState<TabType>(null);
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
+  const [libraryState, setLibraryState] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [libraryPickerOpen, setLibraryPickerOpen] = useState(false);
+
+  // Enrichissement PIM (gamme + definition) à partir de la config courante
+  const enriched = (() => {
+    try {
+      return enrichProduct(product as any, gammes, definitions, 'fr');
+    } catch {
+      return null;
+    }
+  })();
 
   // ─── États Clariprint ───────────────────────────────────────────────────
   const [clariprintLoading, setClariprintLoading] = useState(false);
@@ -117,6 +152,28 @@ export function ProductCard({ product, onProductUpdate, compact }: ProductCardPr
 
   const toggleTab = (tab: TabType) => {
     setActiveTab(activeTab === tab ? null : tab);
+  };
+
+  const handleAddToLibrary = async (libraryId: string) => {
+    setLibraryState('saving');
+    const priceHT =
+      clariprintQuote?.costs?.total ??
+      clariprintQuote?.priceHT ??
+      localProduct.price ??
+      estimatePrice();
+    const added = await addToLibrary({
+      library_id: libraryId,
+      client_id: (localProduct as any).client_id ?? null,
+      name: localProduct.name,
+      category: localProduct.clariprintData?.kind || 'Autres',
+      description: `${localProduct.quantity ?? ''} · ${localProduct.format ?? ''} · ${localProduct.material ?? ''}`.trim(),
+      price_ht: priceHT,
+      image_url: '',
+      config: localProduct,
+      active: true,
+    });
+    setLibraryState(added ? 'saved' : 'idle');
+    if (added) setTimeout(() => setLibraryState('idle'), 2000);
   };
 
   // ─── Composant valeur cliquable ─────────────────────────────────────────
@@ -211,10 +268,20 @@ export function ProductCard({ product, onProductUpdate, compact }: ProductCardPr
         <div className="h-full flex flex-col">
           {/* ── Bloc principal ── */}
           <div
-            className={`bg-white border-2 border-gray-300 rounded-2xl shadow-sm mb-3 flex-1 ${
+            className={`relative bg-white border-2 border-gray-300 rounded-2xl shadow-sm mb-3 flex-1 ${
               compact ? "p-4" : "p-6"
-            }`}
+            } ${selectable && selected ? "ring-2 ring-blue-500 border-blue-500" : ""}`}
           >
+            {selectable && (
+              <label className="absolute top-2 left-2 flex items-center justify-center cursor-pointer z-10">
+                <input
+                  type="checkbox"
+                  checked={!!selected}
+                  onChange={(e) => onSelectedChange?.(e.target.checked)}
+                  className="w-5 h-5 cursor-pointer accent-blue-600"
+                />
+              </label>
+            )}
             <div className={`leading-relaxed text-gray-900 ${compact ? "text-xs" : "text-sm"}`}>
               <p className="mb-2">Vous avez demandé :</p>
 
@@ -303,8 +370,8 @@ export function ProductCard({ product, onProductUpdate, compact }: ProductCardPr
             </div>
           </div>
 
-          {/* ── 4 boutons ── */}
-          <div className={`grid grid-cols-5 mb-3 ${compact ? "gap-1" : "gap-2"}`}>
+          {/* ── Boutons d'actions ── */}
+          <div className={`grid grid-cols-5 mb-2 ${compact ? "gap-1" : "gap-2"}`}>
             {(["sheet", "pricing", "mockup", "form", "debug"] as TabType[]).map((tab) => (
               <button
                 key={tab}
@@ -329,6 +396,41 @@ export function ProductCard({ product, onProductUpdate, compact }: ProductCardPr
               </button>
             ))}
           </div>
+
+          {user && canUse('library') && (
+            <button
+              onClick={() => setLibraryPickerOpen(true)}
+              disabled={libraryState !== 'idle'}
+              className={`w-full mb-3 flex items-center justify-center gap-2 rounded-xl border-2 transition-colors text-xs font-medium py-2 ${
+                libraryState === 'saved'
+                  ? 'bg-green-50 text-green-700 border-green-300'
+                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              {libraryState === 'saving' ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : libraryState === 'saved' ? (
+                <Check className="w-4 h-4" />
+              ) : (
+                <BookmarkPlus className="w-4 h-4" />
+              )}
+              {libraryState === 'saved'
+                ? 'Ajouté à la bibliothèque'
+                : libraryState === 'saving'
+                ? 'Ajout…'
+                : 'Ajouter à la bibliothèque'}
+            </button>
+          )}
+
+          {libraryPickerOpen && (
+            <LibraryPickerModal
+              preferredClientId={(localProduct as any).client_id ?? null}
+              onPick={async (libraryId) => {
+                await handleAddToLibrary(libraryId);
+              }}
+              onClose={() => setLibraryPickerOpen(false)}
+            />
+          )}
 
           {/* ── Fiche produit ── */}
           {activeTab === "sheet" && (
@@ -360,6 +462,12 @@ export function ProductCard({ product, onProductUpdate, compact }: ProductCardPr
                   ...(localProduct.clariprintData?.kind
                     ? [["Type Clariprint", localProduct.clariprintData.kind]]
                     : []),
+                  ...(localProduct.client_id
+                    ? [[
+                        "Client",
+                        clients.find((c) => c.id === localProduct.client_id)?.company || "—",
+                      ]]
+                    : []),
                 ].map(([label, value], i, arr) => (
                   <div
                     key={String(label)}
@@ -370,6 +478,70 @@ export function ProductCard({ product, onProductUpdate, compact }: ProductCardPr
                   </div>
                 ))}
               </div>
+
+              {/* Contenu enrichi PIM */}
+              {enriched?.definition && (
+                <div className="mt-5 pt-4 border-t border-gray-200 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-blue-700">
+                      Fiche commerciale
+                    </span>
+                    {enriched.gamme && (
+                      <span className="text-[10px] bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.5 rounded">
+                        {enriched.gamme.name}
+                      </span>
+                    )}
+                  </div>
+                  {enriched.resolved.short_description && (
+                    <p className="text-sm text-gray-700 italic">{enriched.resolved.short_description}</p>
+                  )}
+                  {enriched.resolved.description && (
+                    <div className="text-sm text-gray-700 whitespace-pre-line">
+                      {enriched.resolved.description}
+                    </div>
+                  )}
+                  {enriched.resolved.usage_examples.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-gray-700 mb-1">Cas d'usage</p>
+                      <ul className="space-y-1 text-xs text-gray-600">
+                        {enriched.resolved.usage_examples.map((ex, i) => (
+                          <li key={i}>
+                            <span className="font-medium text-gray-800">{ex.title}</span>
+                            {ex.description ? <span> — {ex.description}</span> : null}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {enriched.resolved.faq.length > 0 && (
+                    <details>
+                      <summary className="text-xs font-semibold text-gray-700 cursor-pointer hover:text-gray-900">
+                        FAQ ({enriched.resolved.faq.length})
+                      </summary>
+                      <div className="mt-2 space-y-2">
+                        {enriched.resolved.faq.map((qa, i) => (
+                          <div key={i} className="text-xs">
+                            <p className="font-medium text-gray-800">{qa.question}</p>
+                            <p className="text-gray-600 mt-0.5">{qa.answer}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  )}
+                  {enriched.resolved.keywords.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {enriched.resolved.keywords.slice(0, 8).map((k, i) => (
+                        <span
+                          key={i}
+                          className="text-[10px] bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded"
+                        >
+                          {k}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Config Clariprint brute */}
               {localProduct.clariprintData && (
@@ -395,17 +567,27 @@ export function ProductCard({ product, onProductUpdate, compact }: ProductCardPr
                 </button>
               </div>
 
-              {/* ─ Prix estimé (toujours visible) ─ */}
+              {/* ─ Prix estimé (floutés si non-authentifié) ─ */}
+              {!user && (
+                <div className="mb-3 bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center gap-2 text-sm text-amber-800">
+                  <Lock className="w-4 h-4 shrink-0" />
+                  <span>Connectez-vous pour voir les prix.</span>
+                </div>
+              )}
               <div className="space-y-2 text-sm mb-4">
                 <div className="flex justify-between py-2 border-b border-gray-100">
                   <span className="text-gray-500 text-xs">
                     {clariprintQuote?.success ? "Prix Clariprint HT" : "Prix estimé HT"}
                   </span>
-                  <span className="font-semibold">{displayPriceHT.toFixed(2)} €</span>
+                  <span className={`font-semibold ${!user ? "blur-sm select-none" : ""}`}>
+                    {displayPriceHT.toFixed(2)} €
+                  </span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-gray-100">
                   <span className="text-gray-600">TVA (20%)</span>
-                  <span className="font-semibold">{(displayPriceHT * 0.2).toFixed(2)} €</span>
+                  <span className={`font-semibold ${!user ? "blur-sm select-none" : ""}`}>
+                    {(displayPriceHT * 0.2).toFixed(2)} €
+                  </span>
                 </div>
                 <div
                   className="flex justify-between items-center py-3 bg-gray-900 text-white px-4 rounded-lg mt-1 cursor-pointer hover:bg-gray-800 transition-colors"
@@ -413,7 +595,9 @@ export function ProductCard({ product, onProductUpdate, compact }: ProductCardPr
                   title="Cliquer pour le devis"
                 >
                   <span className="font-semibold text-sm">Total TTC</span>
-                  <span className="text-xl font-bold">{(displayPriceHT * 1.2).toFixed(2)} €</span>
+                  <span className={`text-xl font-bold ${!user ? "blur-sm select-none" : ""}`}>
+                    {(displayPriceHT * 1.2).toFixed(2)} €
+                  </span>
                 </div>
               </div>
 
@@ -550,12 +734,12 @@ export function ProductCard({ product, onProductUpdate, compact }: ProductCardPr
                             .map(([label, val]) => (
                               <div key={String(label)} className="flex justify-between text-gray-600">
                                 <span>{label}</span>
-                                <span>{(val as number).toFixed(2)} €</span>
+                                <span className={!user ? "blur-sm select-none" : ""}>{(val as number).toFixed(2)} €</span>
                               </div>
                             ))}
                           <div className="flex justify-between font-semibold text-green-800 border-t border-green-200 pt-1 mt-1">
                             <span>Total HT</span>
-                            <span>{(clariprintQuote.costs.total || clariprintQuote.priceHT || 0).toFixed(2)} €</span>
+                            <span className={!user ? "blur-sm select-none" : ""}>{(clariprintQuote.costs.total || clariprintQuote.priceHT || 0).toFixed(2)} €</span>
                           </div>
                         </div>
                       )}
@@ -563,7 +747,7 @@ export function ProductCard({ product, onProductUpdate, compact }: ProductCardPr
                       {/* Total TTC */}
                       <div className="flex justify-between bg-green-700 text-white px-3 py-2 rounded-lg font-bold text-sm">
                         <span>Total TTC</span>
-                        <span>
+                        <span className={!user ? "blur-sm select-none" : ""}>
                           {(
                             (clariprintQuote.costs?.total || clariprintQuote.priceHT || 0) * 1.2
                           ).toFixed(2)}{" "}
@@ -688,6 +872,40 @@ export function ProductCard({ product, onProductUpdate, compact }: ProductCardPr
               </div>
               <div className="space-y-4">
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Client associé
+                  </label>
+                  {user ? (
+                    clients.length === 0 ? (
+                      <p className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                        Aucun client enregistré. Créez-en un depuis{" "}
+                        <a href="/dashboard/clients" className="text-blue-600 hover:underline">
+                          le tableau de bord
+                        </a>
+                        .
+                      </p>
+                    ) : (
+                      <select
+                        value={(localProduct as any).client_id || ""}
+                        onChange={(e) => updateProduct({ client_id: e.target.value || null })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">— Aucun —</option>
+                        {clients.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.company}
+                            {c.contact_name ? ` — ${c.contact_name}` : ""}
+                          </option>
+                        ))}
+                      </select>
+                    )
+                  ) : (
+                    <p className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                      Connectez-vous pour associer ce produit à un client.
+                    </p>
+                  )}
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Quantité</label>
                   <input
                     type="number"
@@ -806,6 +1024,7 @@ export function ProductCard({ product, onProductUpdate, compact }: ProductCardPr
               price: displayPriceHT,
               clariprintQuote: clariprintQuote?.success ? clariprintQuote : undefined,
             }}
+            onClientChange={(clientId) => updateProduct({ client_id: clientId })}
           />
         </div>
       )}

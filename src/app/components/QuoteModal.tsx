@@ -1,24 +1,33 @@
 import { X, FileText, ShoppingCart } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
+import { useAuth } from '../contexts/AuthContext';
+import { useClients } from '../contexts/ClientsContext';
+import { makeQuoteReference, persistQuote, renderClientBlockHtml } from '../utils/quote';
 import devisTemplate from 'figma:asset/227369c3072447219837cadaaa943294de19bf62.png';
 
 interface QuoteModalProps {
   isOpen: boolean;
   onClose: () => void;
   product: any;
+  onClientChange?: (clientId: string | null) => void;
 }
 
-export function QuoteModal({ isOpen, onClose, product }: QuoteModalProps) {
+export function QuoteModal({ isOpen, onClose, product, onClientChange }: QuoteModalProps) {
   const { addToCart } = useCart();
+  const { user } = useAuth();
+  const { clients } = useClients();
 
   if (!isOpen) return null;
 
+  const currentClientId: string = product.client_id || '';
+  const selectedClient = clients.find((c) => c.id === currentClientId) || null;
+
   const handleAddToCart = () => {
-    addToCart(product);
+    addToCart({ ...product });
     onClose();
   };
 
-  const handlePrintQuote = () => {
+  const handlePrintQuote = async () => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
@@ -28,6 +37,18 @@ export function QuoteModal({ isOpen, onClose, product }: QuoteModalProps) {
     const tva = totalHT * 0.2;
     const totalTTC = totalHT * 1.2;
     const isClariprintPrice = !!(clariprintQuote?.success);
+    const reference = makeQuoteReference();
+
+    if (user) {
+      await persistQuote(user.id, {
+        reference,
+        client_id: currentClientId || null,
+        product_name: product.name,
+        product_config: product,
+        total_ht: totalHT,
+        total_ttc: totalTTC,
+      });
+    }
 
     // Générer le HTML du devis
     printWindow.document.write(`
@@ -209,7 +230,7 @@ export function QuoteModal({ isOpen, onClose, product }: QuoteModalProps) {
               <div class="devis-subtitle">Offre de prix — Impression & Façonnage</div>
             </div>
             <div class="devis-info">
-              <div class="devis-number">N° DEVIS<br><strong>DEV-2025-____</strong></div>
+              <div class="devis-number">N° DEVIS<br><strong>${reference}</strong></div>
               <div class="devis-date">Date : ${new Date().toLocaleDateString('fr-FR')}</div>
               <div class="devis-date">Validité : 30 jours</div>
             </div>
@@ -226,10 +247,7 @@ export function QuoteModal({ isOpen, onClose, product }: QuoteModalProps) {
             </div>
             <div class="partie">
               <div class="partie-title">CLIENT / DONNEUR D'ORDRE</div>
-              <div class="partie-field">Société / Nom : </div>
-              <div class="partie-field">Adresse : </div>
-              <div class="partie-field">CP / Ville : </div>
-              <div class="partie-field">Tél. / Email : </div>
+              ${renderClientBlockHtml(selectedClient)}
             </div>
           </div>
 
@@ -419,6 +437,35 @@ export function QuoteModal({ isOpen, onClose, product }: QuoteModalProps) {
             )}
           </div>
         </div>
+
+        {/* Sélecteur de client */}
+        {user && (
+          <div className="px-6 pt-6">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Client associé</label>
+            {clients.length === 0 ? (
+              <p className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                Aucun client enregistré.{' '}
+                <a href="/dashboard/clients" className="text-blue-600 hover:underline">
+                  Ajouter un client
+                </a>
+              </p>
+            ) : (
+              <select
+                value={currentClientId}
+                onChange={(e) => onClientChange?.(e.target.value || null)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">— Aucun client —</option>
+                {clients.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.company}
+                    {c.contact_name ? ` — ${c.contact_name}` : ''}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+        )}
 
         {/* Actions */}
         <div className="p-6 space-y-3">
