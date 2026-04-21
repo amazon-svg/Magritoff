@@ -268,8 +268,13 @@ export function ProductCard({
             }`}
             style={{ fontFamily: "var(--font-ui)" }}
           >
-            {/* Visuel 16/9 : mockup SVG schematique selon le kind Clariprint */}
-            <div className={`relative ${compact ? "h-28" : "h-44"}`}>
+            {/* Visuel : mockup SVG schematique selon le kind Clariprint.
+                aspect-video (16/9) identique au viewBox du SVG : empeche
+                tout debordement vers le corps du texte en dessous. */}
+            <div
+              className={`relative w-full ${compact ? "aspect-[16/10]" : "aspect-video"} border-b border-line bg-bg`}
+              style={{ maxHeight: compact ? 120 : 220 }}
+            >
               <ProductMockup
                 name={localProduct.name}
                 kind={localProduct.clariprintData?.kind}
@@ -313,14 +318,17 @@ export function ProductCard({
 
               <div className="flex items-baseline justify-between gap-4 mb-1.5">
                 <h3
-                  className="text-ink m-0 leading-tight"
+                  className="text-ink m-0 leading-tight line-clamp-2"
                   style={{
                     fontWeight: 400,
                     fontSize: compact ? "16px" : "21px",
                     letterSpacing: "-0.01em",
                   }}
+                  title={enriched?.resolved.title || localProduct.name}
                 >
-                  {enriched?.resolved.title || localProduct.name}
+                  {/* On prefere le nom court brut ; le title PIM resolu peut
+                      etre verbeux et casser la mise en page. */}
+                  {localProduct.name || enriched?.resolved.title || "Produit"}
                 </h3>
                 <div
                   className="text-ink whitespace-nowrap"
@@ -344,10 +352,10 @@ export function ProductCard({
                 </div>
               </div>
 
-              {/* Description courte */}
+              {/* Description courte — clampee a 2 lignes pour ne pas deborder */}
               {!compact && (
                 <p
-                  className="text-ink-2 m-0 mb-3 max-w-[420px]"
+                  className="text-ink-2 m-0 mb-3 max-w-[420px] line-clamp-2"
                   style={{ fontSize: "14.5px", lineHeight: 1.55, fontWeight: 400 }}
                 >
                   {enriched?.resolved.short_description ||
