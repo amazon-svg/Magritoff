@@ -39,13 +39,53 @@ export function PublicShop() {
   const [selectedProduct, setSelectedProduct] = useState<ShopProduct | null>(null);
   const [cart, setCart] = useState<CartLine[]>([]);
 
-  // (gardés pour éventuelle surcharge future : enrichissement PIM dans la fiche)
-  const [, setPimGammes] = useState<Gamme[]>([]);
-  const [, setPimDefinitions] = useState<ProductDefinition[]>([]);
+  // PIM (gammes + definitions) — utilise pour resoudre les images produit
+  const [pimGammes, setPimGammes] = useState<Gamme[]>([]);
+  const [pimDefinitions, setPimDefinitions] = useState<ProductDefinition[]>([]);
 
-  // ─── Chargement shop + produits ──────────────────────────────────────────
+  // Fonction refetch produits (peut être appelee pour rafraichir a chaud)
+  const refetchProducts = async (shopId: string, libraryIds: string[]) => {
+    const { data: prodData } = await supabase
+      .from('shop_products')
+      .select('*')
+      .eq('shop_id', shopId)
+      .order('display_order', { ascending: true });
+    const manual = (prodData ?? []) as ShopProduct[];
+
+    let linked: ShopProduct[] = [];
+    if (libraryIds.length > 0) {
+      const { data: libData } = await supabase
+        .from('product_library')
+        .select('*')
+        .in('library_id', libraryIds)
+        .eq('active', true)
+        .order('created_at', { ascending: false });
+      if (libData) {
+        linked = (libData as any[]).map((p) => ({
+          id: `lib-${p.id}`,
+          shop_id: shopId,
+          product_id: p.id,
+          name: p.name,
+          category: p.category || 'Autres',
+          description: p.description || '',
+          price_ht: Number(p.price_ht) || 0,
+          image_url: p.image_url || '',
+          config: p.config || {},
+          display_order: 0,
+          created_at: p.created_at,
+        })) as ShopProduct[];
+      }
+    }
+    const manualIds = new Set(manual.map((p) => p.product_id).filter(Boolean));
+    const deduped = linked.filter((p) => !p.product_id || !manualIds.has(p.product_id));
+    setProducts([...manual, ...deduped]);
+  };
+
+  // ─── Chargement shop + produits + realtime subscription ──────────────────
   useEffect(() => {
     if (!slug) return;
+    let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
+
     (async () => {
       const { data: shopData, error: shopError } = await supabase
         .from('shops')
@@ -60,46 +100,13 @@ export function PublicShop() {
       }
       setShop(shopData as Shop);
 
-      // Produits : shop_products manuels + produits des bibliothèques liées
-      const { data: prodData } = await supabase
-        .from('shop_products')
-        .select('*')
-        .eq('shop_id', (shopData as Shop).id)
-        .order('display_order', { ascending: true });
-      const manual = (prodData ?? []) as ShopProduct[];
-
       const libraryIds = Array.isArray((shopData as Shop).library_ids)
         ? (shopData as Shop).library_ids
         : [];
-      let linked: ShopProduct[] = [];
-      if (libraryIds.length > 0) {
-        const { data: libData } = await supabase
-          .from('product_library')
-          .select('*')
-          .in('library_id', libraryIds)
-          .eq('active', true)
-          .order('created_at', { ascending: false });
-        if (libData) {
-          linked = (libData as any[]).map((p) => ({
-            id: `lib-${p.id}`,
-            shop_id: (shopData as Shop).id,
-            product_id: p.id,
-            name: p.name,
-            category: p.category || 'Autres',
-            description: p.description || '',
-            price_ht: Number(p.price_ht) || 0,
-            image_url: p.image_url || '',
-            config: p.config || {},
-            display_order: 0,
-            created_at: p.created_at,
-          })) as ShopProduct[];
-        }
-      }
-      const manualIds = new Set(manual.map((p) => p.product_id).filter(Boolean));
-      const deduped = linked.filter((p) => !p.product_id || !manualIds.has(p.product_id));
-      setProducts([...manual, ...deduped]);
 
-      // PIM lecture publique (reserve pour enrichissement ulterieur)
+      await refetchProducts((shopData as Shop).id, libraryIds);
+
+      // PIM lecture publique
       const [gr, dr] = await Promise.all([
         supabase.from('product_gammes').select('*').order('display_order'),
         supabase.from('product_definitions').select('*'),
@@ -108,7 +115,39 @@ export function PublicShop() {
       if (dr.data) setPimDefinitions(dr.data as ProductDefinition[]);
 
       setLoading(false);
+
+      // Realtime : push les updates quand un produit est ajouté, modifié ou
+      // supprimé dans shop_products ou product_library (lib liées).
+      // Évite d'avoir à refresh manuellement la page pour voir les nouveautés.
+      realtimeChannel = supabase
+        .channel(`shop-${(shopData as Shop).id}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'shop_products' },
+          () => refetchProducts((shopData as Shop).id, libraryIds)
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'product_library' },
+          () => refetchProducts((shopData as Shop).id, libraryIds)
+        )
+        .subscribe();
     })();
+
+    // Refetch quand l'onglet redevient actif (cas pas de realtime)
+    const onFocus = () => {
+      if (shop) {
+        const libraryIds = Array.isArray(shop.library_ids) ? shop.library_ids : [];
+        refetchProducts(shop.id, libraryIds);
+      }
+    };
+    window.addEventListener('focus', onFocus);
+
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      if (realtimeChannel) supabase.removeChannel(realtimeChannel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
 
   // ─── SEO : title ─────────────────────────────────────────────────────────
@@ -120,12 +159,13 @@ export function PublicShop() {
   }, [shop]);
 
   // ─── Budget mock (à remplacer par backend B2B) ────────────────────────────
+  // Note : on n'affiche PAS de mention d'approbateur N+1 tant que le workflow
+  // de validation n'est pas câblé. Budget = juste consommation / limite.
   const budget: BudgetInfo | undefined = shop
     ? {
         label: 'Communication Groupe',
         used: 8420,
         total: 13500,
-        approver: 'Claire D.',
       }
     : undefined;
 
@@ -169,12 +209,10 @@ export function PublicShop() {
       })),
       total_ht,
       total_ttc,
-      notes: `Validation N+1 demandée (${budget?.approver ?? 'N+1'})`,
+      notes: '',
       status: 'pending',
     });
-    alert(
-      `Demande envoyée pour validation à ${budget?.approver ?? 'votre N+1'}. Vous recevrez une notification à chaque étape.`
-    );
+    alert('Commande envoyée. Vous recevrez un email de confirmation.');
     setCart([]);
     setView('home');
   };
@@ -248,6 +286,8 @@ export function PublicShop() {
             setView('product');
           }}
           onReorder={(p) => addToCart(p, 1)}
+          pimGammes={pimGammes}
+          pimDefinitions={pimDefinitions}
         />
       )}
 
@@ -259,6 +299,8 @@ export function PublicShop() {
             setView('product');
           }}
           onAddToCart={(p, qty) => addToCart(p, qty ?? 1)}
+          pimGammes={pimGammes}
+          pimDefinitions={pimDefinitions}
         />
       )}
 
@@ -270,6 +312,8 @@ export function PublicShop() {
             addToCart(p, qty);
             setView('cart');
           }}
+          pimGammes={pimGammes}
+          pimDefinitions={pimDefinitions}
         />
       )}
 
@@ -281,10 +325,12 @@ export function PublicShop() {
           onRemove={removeFromCart}
           onSubmit={submitCart}
           onContinue={() => setView('catalog')}
+          pimGammes={pimGammes}
+          pimDefinitions={pimDefinitions}
         />
       )}
 
-      {(view === 'orders' || view === 'templates' || view === 'team') && (
+      {view === 'orders' && (
         <div
           className="max-w-3xl mx-auto px-9 py-24 text-center"
           style={{ fontFamily: 'var(--font-ui)' }}
@@ -293,17 +339,13 @@ export function PublicShop() {
             className="text-ink m-0 mb-3"
             style={{ fontSize: '28px', fontWeight: 300, letterSpacing: '-0.025em' }}
           >
-            {view === 'orders'
-              ? 'Mes commandes'
-              : view === 'templates'
-              ? 'Templates brandés'
-              : 'Équipe'}
+            Mes commandes
           </h2>
           <p
             className="text-ink-muted m-0"
             style={{ fontSize: '14.5px', fontWeight: 400, lineHeight: 1.55 }}
           >
-            Cette section du portail sera disponible dans une prochaine itération. En attendant,{' '}
+            L'historique de vos commandes sera disponible dans une prochaine itération. En attendant,{' '}
             <button
               onClick={() => setView('catalog')}
               className="text-ink underline decoration-line-2 underline-offset-2 hover:decoration-ink"

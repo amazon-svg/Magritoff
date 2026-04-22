@@ -2,16 +2,26 @@ import { useState, useMemo } from 'react';
 import { Search, Sparkles, Plus, X } from 'lucide-react';
 import type { ShopProduct } from '../../../contexts/ShopsContext';
 import { resolveProductImage } from '../../../utils/productImages';
+import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
+import { ProductMockup } from '../../brand/ProductMockup';
 
 interface Props {
   products: ShopProduct[];
   onSelectProduct: (p: ShopProduct) => void;
   onAddToCart: (p: ShopProduct, qty?: number) => void;
+  pimGammes?: Gamme[];
+  pimDefinitions?: ProductDefinition[];
 }
 
 // F2 — Catalogue recherche conversationnelle
 // Design source : .design-handoff/designs/05 - Portail B2B.html (section .f2b)
-export function PortalCatalog({ products, onSelectProduct, onAddToCart }: Props) {
+export function PortalCatalog({
+  products,
+  onSelectProduct,
+  onAddToCart,
+  pimGammes,
+  pimDefinitions,
+}: Props) {
   const [query, setQuery] = useState('');
   const [chips, setChips] = useState<string[]>([]);
 
@@ -198,6 +208,9 @@ export function PortalCatalog({ products, onSelectProduct, onAddToCart }: Props)
               id: p.id,
               image_url: p.image_url,
               kind: (p.config as any)?.kind,
+              clariprintData: p.config,
+              gammes: pimGammes,
+              definitions: pimDefinitions,
             });
             return (
               <article
@@ -217,7 +230,12 @@ export function PortalCatalog({ products, onSelectProduct, onAddToCart }: Props)
                       loading="lazy"
                     />
                   ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-bg to-line" />
+                    <ProductMockup
+                      name={p.name}
+                      kind={(p.config as any)?.kind}
+                      category={p.category}
+                      className="w-full h-full"
+                    />
                   )}
                   <span
                     className="absolute top-2.5 left-2.5 font-mono uppercase px-2 py-1 rounded bg-ink text-paper"

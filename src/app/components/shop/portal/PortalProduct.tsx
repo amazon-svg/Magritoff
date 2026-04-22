@@ -1,17 +1,21 @@
 import { useState } from 'react';
-import { ChevronRight, Check, Minus, Plus } from 'lucide-react';
+import { ChevronRight, Minus, Plus } from 'lucide-react';
 import type { ShopProduct } from '../../../contexts/ShopsContext';
 import { resolveProductImage } from '../../../utils/productImages';
+import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
+import { ProductMockup } from '../../brand/ProductMockup';
 
 interface Props {
   product: ShopProduct;
   onBack: () => void;
   onAddToCart: (p: ShopProduct, qty: number, opts: Record<string, string>) => void;
+  pimGammes?: Gamme[];
+  pimDefinitions?: ProductDefinition[];
 }
 
 // F3 — Fiche produit + configurateur
 // Design source : .design-handoff/designs/05 - Portail B2B.html (section .f3)
-export function PortalProduct({ product, onBack, onAddToCart }: Props) {
+export function PortalProduct({ product, onBack, onAddToCart, pimGammes, pimDefinitions }: Props) {
   const [qty, setQty] = useState(500);
   const [selectedOpts, setSelectedOpts] = useState<Record<string, string>>({
     paper: '350g velours',
@@ -28,6 +32,9 @@ export function PortalProduct({ product, onBack, onAddToCart }: Props) {
     id: product.id,
     image_url: product.image_url,
     kind: (product.config as any)?.kind,
+    clariprintData: product.config,
+    gammes: pimGammes,
+    definitions: pimDefinitions,
   });
 
   const cfg = product.config || {};
@@ -57,32 +64,16 @@ export function PortalProduct({ product, onBack, onAddToCart }: Props) {
       <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_1fr] gap-10">
         {/* Visuel */}
         <div>
-          <div
-            className="aspect-[4/3] rounded-xl overflow-hidden border border-line relative"
-            style={{ background: '#F5F5F5' }}
-          >
+          <div className="aspect-[4/3] rounded-xl overflow-hidden border border-line relative">
             {imgSrc ? (
               <img src={imgSrc} alt={product.name} className="w-full h-full object-cover" />
             ) : (
-              <div
-                className="absolute inset-[18%] bg-paper rounded-lg grid place-items-center"
-                style={{ boxShadow: 'var(--v2-shadow-lg)' }}
-              >
-                <div className="text-center">
-                  <div
-                    className="text-ink"
-                    style={{ fontSize: '22px', fontWeight: 500, letterSpacing: '-0.015em' }}
-                  >
-                    {product.name}
-                  </div>
-                  <div
-                    className="font-mono uppercase text-ink-muted mt-1"
-                    style={{ fontSize: '11px', letterSpacing: '0.04em' }}
-                  >
-                    Aperçu
-                  </div>
-                </div>
-              </div>
+              <ProductMockup
+                name={product.name}
+                kind={(product.config as any)?.kind}
+                category={product.category}
+                className="w-full h-full"
+              />
             )}
           </div>
 
@@ -129,20 +120,6 @@ export function PortalProduct({ product, onBack, onAddToCart }: Props) {
                 {product.description}
               </p>
             )}
-          </div>
-
-          {/* Contract indicator */}
-          <div
-            className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg bg-ok-bg border border-ok-line"
-            style={{ fontSize: '13px' }}
-          >
-            <Check className="w-4 h-4 text-ok-fg shrink-0" strokeWidth={1.5} />
-            <span className="text-ok-fg" style={{ fontWeight: 400 }}>
-              Prix négocié groupe ·{' '}
-              <b className="font-mono" style={{ fontWeight: 500 }}>
-                auto-validé jusqu'à 500€
-              </b>
-            </span>
           </div>
 
           {/* Configurateur */}

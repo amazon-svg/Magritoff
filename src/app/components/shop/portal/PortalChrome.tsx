@@ -1,4 +1,4 @@
-import { ShoppingCart, Search } from 'lucide-react';
+import { ShoppingCart } from 'lucide-react';
 import type { Shop } from '../../../contexts/ShopsContext';
 import type { PortalView } from './types';
 
@@ -7,19 +7,21 @@ interface Props {
   view: PortalView;
   onView: (v: PortalView) => void;
   cartCount: number;
-  // Mock values le temps qu'on branche le backend B2B
-  budget?: { label: string; used: number; total: number; approver?: string };
+  // Budget corporate affiché dans la strip (mock ou futur backend B2B).
+  // On n'affiche PAS de mention "validation / N+1" tant que ce n'est pas
+  // implémenté côté backend.
+  budget?: { label: string; used: number; total: number };
 }
 
 // Top chrome corporate partagé entre F1 / F2 / F3 / F4.
 // Design source : .design-handoff/designs/05 - Portail B2B.html (section .top + .budget)
+// v2.1 : retrait des menus non-implémentés (Templates, Équipe) et du bouton
+// de recherche redondant avec "Catalogue".
 export function PortalChrome({ shop, view, onView, cartCount, budget }: Props) {
   const navItems: Array<{ key: PortalView; label: string }> = [
     { key: 'home', label: 'Accueil' },
     { key: 'catalog', label: 'Catalogue' },
     { key: 'orders', label: 'Mes commandes' },
-    { key: 'templates', label: 'Templates' },
-    { key: 'team', label: 'Équipe' },
   ];
 
   const pct = budget ? Math.min(100, Math.round((budget.used / budget.total) * 100)) : 0;
@@ -70,23 +72,8 @@ export function PortalChrome({ shop, view, onView, cartCount, budget }: Props) {
         </nav>
 
         <button
-          className="ml-auto flex items-center gap-2 px-3 py-1.5 rounded-lg border border-line bg-bg text-ink-mute-2 hover:text-ink hover:border-line-2 min-w-[280px]"
-          style={{ fontSize: '13px', fontWeight: 400 }}
-          onClick={() => onView('catalog')}
-        >
-          <Search className="w-3.5 h-3.5" strokeWidth={1.5} />
-          <span>Rechercher cartes, flyers, réf…</span>
-          <span
-            className="ml-auto font-mono px-1.5 py-0.5 rounded bg-paper border border-line text-ink-mute-2"
-            style={{ fontSize: '10.5px', fontWeight: 500 }}
-          >
-            ⌘K
-          </span>
-        </button>
-
-        <button
           onClick={() => onView('cart')}
-          className="relative flex items-center gap-2 px-3 py-1.5 rounded-lg border border-line bg-paper text-ink-2 hover:text-ink"
+          className="ml-auto relative flex items-center gap-2 px-3 py-1.5 rounded-lg border border-line bg-paper text-ink-2 hover:text-ink"
           style={{ fontSize: '13px', fontWeight: 400 }}
         >
           <ShoppingCart className="w-3.5 h-3.5" strokeWidth={1.5} />
@@ -137,14 +124,6 @@ export function PortalChrome({ shop, view, onView, cartCount, budget }: Props) {
               style={{ width: `${pct}%`, background: 'var(--brand)' }}
             />
           </div>
-          {budget.approver && (
-            <span
-              className="inline-block px-2.5 py-1 rounded-full bg-ok-bg text-ok-fg font-mono"
-              style={{ fontSize: '11px', fontWeight: 500, letterSpacing: '0.02em' }}
-            >
-              N+1 : {budget.approver}
-            </span>
-          )}
         </div>
       )}
     </>

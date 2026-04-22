@@ -1,6 +1,8 @@
 import { X, Plus, Minus, MapPin } from 'lucide-react';
 import type { CartLine, BudgetInfo } from './types';
 import { resolveProductImage } from '../../../utils/productImages';
+import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
+import { ProductMockup } from '../../brand/ProductMockup';
 
 interface Props {
   cart: CartLine[];
@@ -9,18 +11,25 @@ interface Props {
   onRemove: (productId: string) => void;
   onSubmit: () => void;
   onContinue: () => void;
+  pimGammes?: Gamme[];
+  pimDefinitions?: ProductDefinition[];
 }
 
 // F4 — Panier + workflow validation N+1
 // Design source : .design-handoff/designs/05 - Portail B2B.html (section .f4)
-export function PortalCart({ cart, budget, onUpdateQty, onRemove, onSubmit, onContinue }: Props) {
+export function PortalCart({
+  cart,
+  budget,
+  onUpdateQty,
+  onRemove,
+  onSubmit,
+  onContinue,
+  pimGammes,
+  pimDefinitions,
+}: Props) {
   const subtotalHT = cart.reduce((s, l) => s + l.product.price_ht * l.qty, 0);
   const tva = subtotalHT * 0.2;
-  const totalTTC = subtotalHT + tva;
-  // Discount négocié mock : -8% sur total si budget défini (contrat négocié)
-  const discountPct = budget ? 0.08 : 0;
-  const discount = subtotalHT * discountPct;
-  const totalFinal = (subtotalHT - discount) * 1.2;
+  const totalFinal = subtotalHT + tva;
 
   const budgetPctAfter = budget
     ? Math.min(100, Math.round(((budget.used + totalFinal) / budget.total) * 100))
@@ -71,6 +80,9 @@ export function PortalCart({ cart, budget, onUpdateQty, onRemove, onSubmit, onCo
                 id: line.product.id,
                 image_url: line.product.image_url,
                 kind: (line.product.config as any)?.kind,
+                clariprintData: line.product.config,
+                gammes: pimGammes,
+                definitions: pimDefinitions,
               });
               return (
                 <div
@@ -79,18 +91,20 @@ export function PortalCart({ cart, budget, onUpdateQty, onRemove, onSubmit, onCo
                     i < cart.length - 1 ? 'border-b border-line' : ''
                   }`}
                 >
-                  <div
-                    className="w-[72px] h-[60px] rounded-lg overflow-hidden shrink-0"
-                    style={{
-                      background: imgSrc ? undefined : 'linear-gradient(135deg, #F5F5F5, var(--line))',
-                    }}
-                  >
-                    {imgSrc && (
+                  <div className="w-[72px] h-[60px] rounded-lg overflow-hidden shrink-0">
+                    {imgSrc ? (
                       <img
                         src={imgSrc}
                         alt=""
                         className="w-full h-full object-cover"
                         loading="lazy"
+                      />
+                    ) : (
+                      <ProductMockup
+                        name={line.product.name}
+                        kind={(line.product.config as any)?.kind}
+                        category={line.product.category}
+                        className="w-full h-full"
                       />
                     )}
                   </div>
@@ -161,85 +175,9 @@ export function PortalCart({ cart, budget, onUpdateQty, onRemove, onSubmit, onCo
           )}
         </section>
 
-        {/* Workflow validation N+1 */}
-        {cart.length > 0 && (
-          <section className="bg-paper border border-line rounded-xl mt-6 overflow-hidden">
-            <div className="flex items-baseline px-5.5 py-4 border-b border-line">
-              <h5
-                className="text-ink m-0"
-                style={{ fontSize: '14.5px', fontWeight: 500 }}
-              >
-                Circuit de validation
-              </h5>
-              <span
-                className="ml-auto font-mono text-ink-muted"
-                style={{ fontSize: '11.5px', fontWeight: 400 }}
-              >
-                ~24h selon votre N+1
-              </span>
-            </div>
-            <div className="grid grid-cols-4 relative px-5.5 py-5">
-              {/* Ligne reliant les steps */}
-              <div
-                className="absolute left-[56px] right-[56px] top-[50px] h-[2px] bg-line"
-                aria-hidden="true"
-              />
-              {[
-                { label: 'Panier', state: 'active' as const, name: 'Léa Morel', time: 'Maintenant' },
-                { label: 'N+1', state: 'wait' as const, name: budget?.approver ?? 'Claire D.', time: 'Sous 8h' },
-                { label: 'Achats', state: 'wait' as const, name: 'Service Achats', time: 'Sous 24h' },
-                { label: 'Magrit', state: 'wait' as const, name: 'Production', time: 'J+2' },
-              ].map((step) => (
-                <div
-                  key={step.label}
-                  className="relative flex flex-col items-start gap-1.5 z-10"
-                >
-                  <div
-                    className={`w-9 h-9 rounded-full grid place-items-center font-mono border-2 ${
-                      step.state === 'active'
-                        ? 'border-brand text-brand bg-paper'
-                        : 'border-line bg-paper text-ink-mute-2'
-                    }`}
-                    style={{
-                      fontSize: '13px',
-                      fontWeight: 500,
-                      boxShadow: step.state === 'active' ? '0 0 0 4px rgba(15,23,42,0.08)' : undefined,
-                    }}
-                  >
-                    {step.state === 'active' ? '●' : '○'}
-                  </div>
-                  <div
-                    className="font-mono uppercase text-ink-mute-2 mt-1"
-                    style={{
-                      fontSize: '10.5px',
-                      letterSpacing: '0.06em',
-                      fontWeight: 500,
-                      color: step.state === 'active' ? 'var(--brand)' : undefined,
-                    }}
-                  >
-                    {step.label}
-                  </div>
-                  <div
-                    className="text-ink"
-                    style={{
-                      fontSize: '13px',
-                      fontWeight: 500,
-                      color: step.state === 'active' ? 'var(--ink)' : 'var(--ink-2)',
-                    }}
-                  >
-                    {step.name}
-                  </div>
-                  <div
-                    className="font-mono text-ink-muted"
-                    style={{ fontSize: '11.5px', fontWeight: 400 }}
-                  >
-                    {step.time}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
+        {/* Workflow de validation N+1 : retiré tant que le backend B2B
+            correspondant n'est pas implémenté. Sera réintégré quand on
+            câblera le circuit Panier → N+1 → Achats → Magrit. */}
       </div>
 
       {/* Summary sticky */}
@@ -255,7 +193,6 @@ export function PortalCart({ cart, budget, onUpdateQty, onRemove, onSubmit, onCo
         <div className="flex flex-col">
           {[
             { label: 'Sous-total HT', value: `${subtotalHT.toFixed(2)}€` },
-            ...(discount > 0 ? [{ label: 'Remise groupe (-8%)', value: `-${discount.toFixed(2)}€`, neg: true }] : []),
             { label: 'TVA (20%)', value: `${tva.toFixed(2)}€` },
             { label: 'Livraison', value: 'Offerte' },
           ].map((row) => (
@@ -332,13 +269,13 @@ export function PortalCart({ cart, budget, onUpdateQty, onRemove, onSubmit, onCo
           className="w-full mt-4 py-3.5 rounded-lg bg-ink text-paper hover:bg-black disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           style={{ fontSize: '14.5px', fontWeight: 500, fontFamily: 'var(--font-ui)' }}
         >
-          Envoyer pour validation N+1
+          Passer commande
         </button>
         <p
           className="m-0 mt-2.5 text-ink-muted text-center"
           style={{ fontSize: '12px', fontWeight: 400, lineHeight: 1.5 }}
         >
-          Vous recevrez une notification à chaque étape du circuit.
+          Vous recevrez un email de confirmation.
         </p>
       </aside>
     </div>

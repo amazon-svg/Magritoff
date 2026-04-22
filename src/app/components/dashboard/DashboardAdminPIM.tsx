@@ -255,6 +255,10 @@ export function DashboardAdminPIM() {
 
         {isExpanded && (
           <div className="pb-2" style={{ paddingLeft: `${depth * 16 + 28}px` }}>
+            {/* Image par défaut de la gamme (utilisee si une definition n'a
+                pas d'image_url propre). Input inline avec save onBlur. */}
+            <GammeImageInput gamme={g} onSave={(url) => upsertGamme({ ...g, image_url: url })} />
+
             {/* Definitions de cette gamme */}
             {defs.length > 0 && (
               <div className="space-y-1 my-2">
@@ -582,6 +586,26 @@ function DefinitionEditorModal(props: {
             />
           </Field>
 
+          <Field label="Image URL" hint="image produit affichée sur la boutique (override variation-spécifique de l'image par défaut de la gamme)">
+            <input
+              type="url"
+              value={editing.image_url ?? ''}
+              onChange={(e) => set({ image_url: e.target.value } as any)}
+              placeholder="https://…"
+              className="input"
+            />
+            {editing.image_url && (
+              <img
+                src={editing.image_url}
+                alt=""
+                className="mt-2 h-24 w-auto rounded border border-gray-200 object-cover"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = 'none';
+                }}
+              />
+            )}
+          </Field>
+
           <Field label="Usage examples (JSON)">
             <textarea
               rows={4}
@@ -637,6 +661,49 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
         {label} {hint && <span className="font-normal text-gray-400">— {hint}</span>}
       </label>
       {children}
+    </div>
+  );
+}
+
+// Input inline pour editer l'image par defaut d'une gamme.
+// Save onBlur pour ne pas trigger un upsert a chaque caractère.
+function GammeImageInput({
+  gamme,
+  onSave,
+}: {
+  gamme: Gamme;
+  onSave: (url: string) => void | Promise<any>;
+}) {
+  const [val, setVal] = useState(gamme.image_url ?? '');
+  const initial = gamme.image_url ?? '';
+  return (
+    <div className="flex items-center gap-2 my-2 bg-white border border-blue-100 rounded px-2 py-1.5">
+      <label
+        className="text-[10px] font-mono uppercase tracking-wider text-gray-500 shrink-0"
+        style={{ letterSpacing: '0.08em' }}
+      >
+        IMAGE GAMME
+      </label>
+      <input
+        type="url"
+        value={val}
+        onChange={(e) => setVal(e.target.value)}
+        onBlur={() => {
+          if (val !== initial) onSave(val);
+        }}
+        placeholder="URL d'image par défaut pour cette gamme…"
+        className="flex-1 min-w-0 bg-transparent border-0 focus:outline-none text-xs text-gray-900"
+      />
+      {val && (
+        <img
+          src={val}
+          alt=""
+          className="h-8 w-8 object-cover rounded border border-gray-200"
+          onError={(e) => {
+            (e.target as HTMLImageElement).style.display = 'none';
+          }}
+        />
+      )}
     </div>
   );
 }

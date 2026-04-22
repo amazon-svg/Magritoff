@@ -4,7 +4,7 @@
 
 import type { ShopProduct } from '../../../contexts/ShopsContext';
 
-export type PortalView = 'home' | 'catalog' | 'product' | 'cart' | 'orders' | 'templates' | 'team';
+export type PortalView = 'home' | 'catalog' | 'product' | 'cart' | 'orders';
 
 export interface CartLine {
   product: ShopProduct;
@@ -15,5 +15,4 @@ export interface BudgetInfo {
   label: string;
   used: number;
   total: number;
-  approver?: string;
 }

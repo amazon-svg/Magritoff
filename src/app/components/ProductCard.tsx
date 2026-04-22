@@ -284,8 +284,10 @@ export function ProductCard({
                   name: localProduct.name,
                   id: localProduct.id,
                   image_url: (localProduct as any).image_url,
-                  gammeSlug: enriched?.gamme?.slug,
                   kind: localProduct.clariprintData?.kind,
+                  clariprintData: localProduct.clariprintData,
+                  gammes,
+                  definitions,
                 });
                 if (imgError || !src) {
                   return (

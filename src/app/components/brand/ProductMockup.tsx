@@ -1,19 +1,17 @@
 /**
- * ProductMockup — mockups SVG schématiques par type de produit Clariprint.
+ * ProductMockup — picto SVG monoline, fallback esthétique quand aucune
+ * image produit n'est dispo (ni sur le produit, ni dans le PIM).
  *
- * Respecte le handoff v2 (directive "SVG isométrique ou pattern, jamais emoji").
- * Dessine une stack de papier vue légèrement en perspective, variable selon :
- *  - kind Clariprint (leaflet | folded | book | cover | section)
- *  - gamme Magrit (inferred depuis name/category)
- *
- * Palette : dégradés pastel tirés du hash du nom produit, pour varier
- * tout en restant dans une direction graphique cohérente.
+ * Direction graphique : monoline sobre, palette ink/line/bg cohérente avec
+ * le reste du design system v2 (pas d'emoji, pas de dégradé criard, pas de
+ * perspective isométrique cartoon). Un papier posé, contours fins.
+ * Respecte la directive handoff : "SVG isométrique ou pattern, jamais emoji".
  */
 
 interface ProductMockupProps {
-  /** Nom produit (source du hash couleur) */
+  /** Nom produit — influence couleur d'accent discrète */
   name: string;
-  /** Kind Clariprint : leaflet / folded / book / etc. */
+  /** Kind Clariprint (leaflet | folded | book | cover | section) */
   kind?: string;
   /** Catégorie / gamme (influence le pattern si kind absent) */
   category?: string;
@@ -48,18 +46,15 @@ export function ProductMockup({
 }: ProductMockupProps) {
   const resolvedKind = inferKind(kind, category, name);
   const hue = hashHue(name || category || 'p');
-  const bg1 = `hsl(${hue}, 40%, 96%)`;
-  const bg2 = `hsl(${(hue + 30) % 360}, 35%, 88%)`;
-  const accent = `hsl(${hue}, 45%, 55%)`;
-  const ink = '#0A0A0A';
+  // Teinte pastel très discrète, alignée sur la charte bg (#FAFAFA).
+  const accent = `hsl(${hue}, 30%, 58%)`;
+  const softBg1 = `hsl(${hue}, 18%, 97%)`;
+  const softBg2 = `hsl(${(hue + 30) % 360}, 14%, 94%)`;
 
   return (
     <div
       className={`relative overflow-hidden ${className}`}
-      style={{
-        // Fond de secours si le SVG est rendu en "meet" (bordures visibles)
-        background: `linear-gradient(135deg, ${bg1} 0%, ${bg2} 100%)`,
-      }}
+      style={{ background: `linear-gradient(180deg, ${softBg1} 0%, ${softBg2} 100%)` }}
     >
       <svg
         viewBox="0 0 400 225"
@@ -67,54 +62,38 @@ export function ProductMockup({
         className="absolute inset-0 w-full h-full block"
         aria-hidden="true"
       >
-        <defs>
-          <linearGradient id={`mkbg-${hue}`} x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor={bg1} />
-            <stop offset="100%" stopColor={bg2} />
-          </linearGradient>
-          <linearGradient id={`mkpaper-${hue}`} x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#FFFFFF" />
-            <stop offset="100%" stopColor="#F5F5F5" />
-          </linearGradient>
-          <filter id={`mkshadow-${hue}`} x="-20%" y="-20%" width="140%" height="140%">
-            <feDropShadow dx="2" dy="4" stdDeviation="3" floodOpacity="0.12" />
-          </filter>
-        </defs>
-
-        {/* Fond dégradé pastel */}
-        <rect width="400" height="225" fill={`url(#mkbg-${hue})`} />
-
-        {/* Motif pointillé subtil pour la texture */}
-        <g opacity="0.22">
-          {Array.from({ length: 12 }, (_, i) =>
-            Array.from({ length: 20 }, (_, j) => (
-              <circle
-                key={`${i}-${j}`}
-                cx={20 + j * 20}
-                cy={20 + i * 17}
-                r="0.8"
-                fill="#FFFFFF"
-              />
-            ))
-          )}
+        {/* Grille subtile façon guide — évoque le calage d'impression */}
+        <g opacity="0.12" stroke="#0A0A0A" strokeWidth="0.5">
+          <line x1="0" y1="56" x2="400" y2="56" strokeDasharray="3 5" />
+          <line x1="0" y1="168" x2="400" y2="168" strokeDasharray="3 5" />
+          <line x1="100" y1="0" x2="100" y2="225" strokeDasharray="3 5" />
+          <line x1="300" y1="0" x2="300" y2="225" strokeDasharray="3 5" />
         </g>
 
-        {/* Mockup selon le kind */}
-        {resolvedKind === 'leaflet' && <LeafletMockup accent={accent} hue={hue} ink={ink} />}
-        {resolvedKind === 'folded' && <FoldedMockup accent={accent} hue={hue} ink={ink} />}
-        {resolvedKind === 'book' && <BookMockup accent={accent} hue={hue} ink={ink} />}
+        {resolvedKind === 'leaflet' && <LeafletMark accent={accent} />}
+        {resolvedKind === 'folded' && <FoldedMark accent={accent} />}
+        {resolvedKind === 'book' && <BookMark accent={accent} />}
+
+        {/* Marque CMYK discrète en coin (clin d'œil imprimeur) */}
+        <g transform="translate(372 24)">
+          <circle cx="0" cy="0" r="2" fill="#00A7E1" opacity="0.55" />
+          <circle cx="5" cy="0" r="2" fill="#EC008C" opacity="0.55" />
+          <circle cx="2.5" cy="4" r="2" fill="#FFC600" opacity="0.55" />
+          <circle cx="2.5" cy="8" r="2" fill="#0A0A0A" opacity="0.65" />
+        </g>
       </svg>
 
       {/* Badge corner optionnel */}
       {corner && (
         <div className="absolute top-2 left-2 pointer-events-none">
           <span
-            className="inline-block font-mono uppercase tracking-wider px-2 py-0.5 rounded text-white"
+            className="inline-block font-mono uppercase tracking-wider px-2 py-0.5 rounded"
             style={{
               fontSize: '11px',
               letterSpacing: '0.08em',
               fontWeight: 500,
-              background: 'rgba(10,10,10,0.75)',
+              background: 'rgba(10,10,10,0.85)',
+              color: '#FFFFFF',
             }}
           >
             {corner}
@@ -125,97 +104,140 @@ export function ProductMockup({
   );
 }
 
-// ─── Leaflet : 3 feuilles empilées legerement offset ────────────────────────
-function LeafletMockup({ accent, hue, ink }: { accent: string; hue: number; ink: string }) {
+// ─── Marks monoline par kind ────────────────────────────────────────────────
+
+function LeafletMark({ accent }: { accent: string }) {
+  // Une pile de 3 feuilles (carte / flyer) posées avec legere perspective
   return (
-    <g transform="translate(200 112)" filter={`url(#mkshadow-${hue})`}>
+    <g transform="translate(200 112)">
       {/* Feuille 3 (arrière) */}
-      <g transform="translate(14 10) rotate(-4)">
-        <rect x="-80" y="-55" width="160" height="110" rx="3" fill="#FFFFFF" opacity="0.85" />
+      <g transform="translate(16 10) rotate(-5)">
+        <rect
+          x="-78"
+          y="-48"
+          width="156"
+          height="96"
+          rx="3"
+          fill="#FFFFFF"
+          stroke="#D4D4D8"
+          strokeWidth="1"
+        />
       </g>
       {/* Feuille 2 (milieu) */}
-      <g transform="translate(7 5) rotate(2)">
-        <rect x="-80" y="-55" width="160" height="110" rx="3" fill={`url(#mkpaper-${hue})`} />
-      </g>
-      {/* Feuille 1 (avant, avec contenu schematique) */}
-      <g>
-        <rect x="-80" y="-55" width="160" height="110" rx="3" fill="#FFFFFF" />
-        {/* Lignes de texte simulées */}
-        <rect x="-65" y="-38" width="80" height="4" rx="1" fill={ink} opacity="0.85" />
-        <rect x="-65" y="-26" width="130" height="2" rx="1" fill={ink} opacity="0.25" />
-        <rect x="-65" y="-20" width="120" height="2" rx="1" fill={ink} opacity="0.25" />
-        <rect x="-65" y="-14" width="80" height="2" rx="1" fill={ink} opacity="0.25" />
-        {/* Accent color block */}
-        <rect x="-65" y="10" width="40" height="30" rx="2" fill={accent} opacity="0.85" />
-        <rect x="-18" y="10" width="80" height="3" rx="1" fill={ink} opacity="0.6" />
-        <rect x="-18" y="19" width="60" height="2" rx="1" fill={ink} opacity="0.25" />
-        <rect x="-18" y="27" width="70" height="2" rx="1" fill={ink} opacity="0.25" />
-        <rect x="-18" y="35" width="50" height="2" rx="1" fill={ink} opacity="0.25" />
-      </g>
-    </g>
-  );
-}
-
-// ─── Folded : feuille pliée en V (dépliant) ─────────────────────────────────
-function FoldedMockup({ accent, hue, ink }: { accent: string; hue: number; ink: string }) {
-  return (
-    <g transform="translate(200 112)" filter={`url(#mkshadow-${hue})`}>
-      {/* Volet gauche */}
-      <g>
-        <path
-          d="M -80 -60 L -5 -50 L -5 55 L -80 45 Z"
-          fill={`url(#mkpaper-${hue})`}
-        />
-        <rect x="-70" y="-42" width="55" height="3" fill={ink} opacity="0.7" />
-        <rect x="-70" y="-34" width="60" height="1.5" fill={ink} opacity="0.22" />
-        <rect x="-70" y="-28" width="45" height="1.5" fill={ink} opacity="0.22" />
-      </g>
-      {/* Volet droit (plus clair, comme en perspective) */}
-      <g>
-        <path
-          d="M -5 -50 L 80 -58 L 80 47 L -5 55 Z"
+      <g transform="translate(8 5) rotate(2)">
+        <rect
+          x="-78"
+          y="-48"
+          width="156"
+          height="96"
+          rx="3"
           fill="#FFFFFF"
+          stroke="#D4D4D8"
+          strokeWidth="1"
         />
-        <rect x="8" y="-40" width="55" height="4" fill={accent} opacity="0.85" />
-        <rect x="8" y="-30" width="60" height="1.5" fill={ink} opacity="0.25" />
-        <rect x="8" y="-24" width="48" height="1.5" fill={ink} opacity="0.25" />
-        <rect x="8" y="0" width="60" height="35" rx="2" fill={accent} opacity="0.15" />
-        <rect x="8" y="40" width="50" height="1.5" fill={ink} opacity="0.22" />
       </g>
-      {/* Ligne de pliure */}
-      <line x1="-5" y1="-50" x2="-5" y2="55" stroke={ink} strokeWidth="0.4" opacity="0.2" strokeDasharray="1.5 1.5" />
+      {/* Feuille 1 (avant, avec contenu schématique monoline) */}
+      <g>
+        <rect
+          x="-78"
+          y="-48"
+          width="156"
+          height="96"
+          rx="3"
+          fill="#FFFFFF"
+          stroke="#0A0A0A"
+          strokeWidth="1"
+          strokeOpacity="0.35"
+        />
+        {/* Titre */}
+        <rect x="-62" y="-32" width="60" height="3" fill="#0A0A0A" opacity="0.85" />
+        {/* Sous-titre */}
+        <rect x="-62" y="-22" width="42" height="1.5" fill="#0A0A0A" opacity="0.35" />
+        {/* Bloc accent (petit carré couleur) */}
+        <rect x="-62" y="8" width="28" height="28" fill={accent} opacity="0.85" rx="1.5" />
+        {/* Lignes texte */}
+        <rect x="-24" y="10" width="64" height="2" fill="#0A0A0A" opacity="0.6" />
+        <rect x="-24" y="18" width="48" height="1.5" fill="#0A0A0A" opacity="0.3" />
+        <rect x="-24" y="26" width="52" height="1.5" fill="#0A0A0A" opacity="0.3" />
+        <rect x="-24" y="34" width="38" height="1.5" fill="#0A0A0A" opacity="0.3" />
+      </g>
     </g>
   );
 }
 
-// ─── Book : pile de pages reliées (brochure) ────────────────────────────────
-function BookMockup({ accent, hue, ink }: { accent: string; hue: number; ink: string }) {
+function FoldedMark({ accent }: { accent: string }) {
+  // Depliant plie en V
   return (
-    <g transform="translate(200 112)" filter={`url(#mkshadow-${hue})`}>
-      {/* Dos / épaisseur (tranche des pages visible) */}
-      <rect x="-84" y="-60" width="6" height="120" fill="#E4E4E7" />
-      <rect x="-84" y="-60" width="2" height="120" fill="#D4D4D8" />
-      {/* Pages internes suggérées par lignes horizontales */}
-      {[-45, -30, -15, 0, 15, 30, 45].map((y) => (
-        <line
-          key={y}
-          x1="-84"
-          y1={y}
-          x2="-78"
-          y2={y}
-          stroke="#D4D4D8"
-          strokeWidth="0.4"
-        />
+    <g transform="translate(200 112)">
+      {/* Volet gauche */}
+      <path
+        d="M -76 -48 L -4 -42 L -4 48 L -76 42 Z"
+        fill="#FFFFFF"
+        stroke="#0A0A0A"
+        strokeWidth="1"
+        strokeOpacity="0.35"
+      />
+      <rect x="-66" y="-32" width="48" height="3" fill="#0A0A0A" opacity="0.85" />
+      <rect x="-66" y="-22" width="54" height="1.5" fill="#0A0A0A" opacity="0.3" />
+      <rect x="-66" y="-16" width="40" height="1.5" fill="#0A0A0A" opacity="0.3" />
+
+      {/* Volet droit (legerement plus clair, perspective) */}
+      <path
+        d="M -4 -42 L 76 -50 L 76 40 L -4 48 Z"
+        fill="#FCFCFC"
+        stroke="#0A0A0A"
+        strokeWidth="1"
+        strokeOpacity="0.35"
+      />
+      <rect x="8" y="-32" width="48" height="4" fill={accent} opacity="0.9" rx="0.5" />
+      <rect x="8" y="-22" width="54" height="1.5" fill="#0A0A0A" opacity="0.3" />
+      <rect x="8" y="-16" width="40" height="1.5" fill="#0A0A0A" opacity="0.3" />
+      <rect x="8" y="6" width="58" height="28" fill={accent} opacity="0.15" rx="1.5" />
+
+      {/* Ligne de pli verticale */}
+      <line
+        x1="-4"
+        y1="-42"
+        x2="-4"
+        y2="48"
+        stroke="#0A0A0A"
+        strokeWidth="0.7"
+        strokeOpacity="0.28"
+        strokeDasharray="2 2"
+      />
+    </g>
+  );
+}
+
+function BookMark({ accent }: { accent: string }) {
+  // Brochure/livre relié avec dos
+  return (
+    <g transform="translate(200 112)">
+      {/* Dos / épaisseur (tranche des pages) */}
+      <rect x="-82" y="-52" width="6" height="104" fill="#E4E4E7" />
+      <rect x="-82" y="-52" width="2" height="104" fill="#D4D4D8" />
+      {[-36, -20, -4, 12, 28, 44].map((y) => (
+        <line key={y} x1="-82" y1={y} x2="-76" y2={y} stroke="#D4D4D8" strokeWidth="0.4" />
       ))}
       {/* Couverture */}
-      <rect x="-78" y="-60" width="155" height="120" rx="1" fill={`url(#mkpaper-${hue})`} />
-      {/* Titre en haut */}
-      <rect x="-65" y="-45" width="75" height="5" fill={ink} opacity="0.85" />
-      <rect x="-65" y="-35" width="100" height="2" fill={ink} opacity="0.25" />
-      <rect x="-65" y="-29" width="90" height="2" fill={ink} opacity="0.25" />
-      {/* Illustration accent */}
-      <rect x="-55" y="-5" width="110" height="50" rx="2" fill={accent} opacity="0.18" />
-      <circle cx="0" cy="20" r="14" fill={accent} opacity="0.6" />
+      <rect
+        x="-76"
+        y="-52"
+        width="152"
+        height="104"
+        rx="2"
+        fill="#FFFFFF"
+        stroke="#0A0A0A"
+        strokeWidth="1"
+        strokeOpacity="0.35"
+      />
+      {/* Titre */}
+      <rect x="-62" y="-34" width="72" height="5" fill="#0A0A0A" opacity="0.85" />
+      <rect x="-62" y="-22" width="92" height="1.5" fill="#0A0A0A" opacity="0.3" />
+      <rect x="-62" y="-16" width="80" height="1.5" fill="#0A0A0A" opacity="0.3" />
+      {/* Zone visuelle accent */}
+      <rect x="-52" y="-2" width="104" height="44" rx="1.5" fill={accent} opacity="0.16" />
+      <circle cx="0" cy="20" r="12" fill={accent} opacity="0.7" />
     </g>
   );
 }

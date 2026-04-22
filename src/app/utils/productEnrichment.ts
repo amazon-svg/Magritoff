@@ -7,6 +7,8 @@ export interface Gamme {
   parent_slug: string | null;
   matching_rules: MatchingRules;
   display_order: number;
+  /** Image par défaut pour toutes les variations de cette gamme (PIM). */
+  image_url?: string | null;
 }
 
 export interface ProductDefinition {
@@ -28,6 +30,8 @@ export interface ProductDefinition {
   quality_score: number | null;
   generated_by: 'llm' | 'human' | 'hybrid' | null;
   validated_by: 'llm' | 'human' | 'pending' | null;
+  /** Image spécifique à cette variation (override du niveau gamme). */
+  image_url?: string | null;
 }
 
 export interface MatchingRules {
