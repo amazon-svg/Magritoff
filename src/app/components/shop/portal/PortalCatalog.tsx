@@ -1,9 +1,10 @@
 import { useState, useMemo } from 'react';
-import { Search, Sparkles, Plus, X } from 'lucide-react';
+import { Search, Sparkles, Plus, X, Loader2, AlertTriangle } from 'lucide-react';
 import type { ShopProduct } from '../../../contexts/ShopsContext';
 import { resolveProductImage } from '../../../utils/productImages';
 import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
 import { ProductMockup } from '../../brand/ProductMockup';
+import { projectId, publicAnonKey } from '/utils/supabase/info';
 
 interface Props {
   products: ShopProduct[];
@@ -11,6 +12,44 @@ interface Props {
   onAddToCart: (p: ShopProduct, qty?: number) => void;
   pimGammes?: Gamme[];
   pimDefinitions?: ProductDefinition[];
+}
+
+// Convertit une config LLM (format claude-proxy : { clariprint, display }) en
+// ShopProduct éphémère affichable dans la grille du catalogue.
+function configToEphemeralShopProduct(config: any, index: number): ShopProduct {
+  const d = config.display || {};
+  const c = config.clariprint || {};
+  const quantity = d.quantity ?? c.quantity ?? 0;
+  const width = c.width;
+  const height = c.height;
+  return {
+    id: `ai-${Date.now()}-${index}`,
+    shop_id: '',
+    product_id: null,
+    name: d.productName || c.reference || 'Produit',
+    category: (c.kind || 'Suggestion').toString(),
+    description:
+      d.format || (width && height ? `${width}×${height} cm` : '') +
+      (d.support ? ` · ${d.support}` : '') +
+      (d.grammage ? ` · ${d.grammage}g` : ''),
+    price_ht: 0, // estimation cote portail : on laisse le detail a la fiche produit
+    image_url: '',
+    config: {
+      ...c,
+      ...d,
+      clariprintData: c,
+      quantity,
+      format: d.format,
+      material: d.support,
+      weight: typeof d.grammage === 'number' ? d.grammage : parseInt(d.grammage) || undefined,
+      printing: d.impression,
+      finishRecto: d.finitionRecto,
+      finishVerso: d.finitionVerso,
+      pages: c.pages,
+    } as any,
+    display_order: index,
+    created_at: new Date().toISOString(),
+  } as ShopProduct;
 }
 
 // F2 — Catalogue recherche conversationnelle
@@ -24,6 +63,51 @@ export function PortalCatalog({
 }: Props) {
   const [query, setQuery] = useState('');
   const [chips, setChips] = useState<string[]>([]);
+
+  // Resultats generes par Magrit (claude-proxy). Produits ephemeres qu'on peut
+  // ajouter au panier meme s'ils n'existent pas dans le catalogue shop.
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiResults, setAiResults] = useState<ShopProduct[]>([]);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [aiQuery, setAiQuery] = useState(''); // query reellement envoyee
+
+  const askMagrit = async () => {
+    const prompt = query.trim();
+    if (!prompt || aiLoading) return;
+    setAiLoading(true);
+    setAiError(null);
+    setAiResults([]);
+    setAiQuery(prompt);
+    try {
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-e3db71a4/claude-proxy`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${publicAnonKey}`,
+          },
+          body: JSON.stringify({ messages: [{ role: 'user', content: prompt }] }),
+        }
+      );
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      const configs = Array.isArray(data?.configs) ? data.configs : [];
+      if (configs.length === 0) {
+        setAiError(
+          data?.demoMode
+            ? "Mode demo actif — l'API Claude n'est pas jointe depuis ce portail."
+            : "Magrit n'a pas suggere de configuration. Essayez de reformuler."
+        );
+        return;
+      }
+      setAiResults(configs.map(configToEphemeralShopProduct));
+    } catch (err: any) {
+      setAiError(err?.message || 'Erreur lors de l\'appel à Magrit.');
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   // Categories calculees depuis les produits
   const categories = useMemo(() => {
@@ -92,14 +176,23 @@ export function PortalCatalog({
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                askMagrit();
+              }
+            }}
             placeholder="cartes de visite pour l'équipe direction, papier premium, livrées avant fin de mois"
             className="flex-1 bg-transparent border-0 focus:outline-none text-ink placeholder:text-ink-mute-2"
             style={{ fontSize: '15px', fontWeight: 400, letterSpacing: '-0.005em' }}
           />
           <button
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-ink text-paper hover:bg-black shrink-0"
+            onClick={askMagrit}
+            disabled={aiLoading || !query.trim()}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-ink text-paper hover:bg-black shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ fontSize: '13px', fontWeight: 500 }}
           >
+            {aiLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={1.8} />}
             Demander à Magrit
             <span
               className="font-mono opacity-70 px-1.5 py-0.5 rounded bg-white/10"
@@ -308,6 +401,123 @@ export function PortalCatalog({
           })
         )}
       </div>
+
+      {/* ══════════════════════════════════════════════════════════
+          Section "Suggéré par Magrit" — appel à claude-proxy
+          Affichee sous la grille quand on a des resultats AI ou un loading/error.
+          ══════════════════════════════════════════════════════════ */}
+      {(aiLoading || aiError || aiResults.length > 0) && (
+        <div className="px-12 py-8 bg-bg border-t border-line">
+          <div className="flex items-center gap-2.5 mb-4">
+            <Sparkles className="w-4 h-4 text-brand" strokeWidth={1.5} />
+            <h4
+              className="text-ink m-0"
+              style={{ fontSize: '18px', fontWeight: 500, letterSpacing: '-0.015em' }}
+            >
+              Suggéré par Magrit
+            </h4>
+            {aiQuery && (
+              <span
+                className="text-ink-muted ml-1"
+                style={{ fontSize: '13px', fontWeight: 400 }}
+              >
+                pour « {aiQuery} »
+              </span>
+            )}
+            {!aiLoading && aiResults.length > 0 && (
+              <span
+                className="ml-auto font-mono text-ink-muted"
+                style={{ fontSize: '11px', letterSpacing: '0.04em', fontWeight: 500 }}
+              >
+                {aiResults.length} PROPOSITION{aiResults.length > 1 ? 'S' : ''}
+              </span>
+            )}
+          </div>
+
+          {aiLoading && (
+            <div className="flex items-center gap-3 text-ink-muted">
+              <Loader2 className="w-4 h-4 animate-spin" strokeWidth={1.5} />
+              <span style={{ fontSize: '13.5px', fontWeight: 400 }}>
+                Magrit compose les configurations les plus adaptées…
+              </span>
+            </div>
+          )}
+
+          {aiError && !aiLoading && (
+            <div
+              className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-lg bg-warn-bg border border-warn-fg/20 text-warn-fg"
+              style={{ fontSize: '13px', fontWeight: 400 }}
+            >
+              <AlertTriangle className="w-4 h-4 shrink-0" strokeWidth={1.5} />
+              {aiError}
+            </div>
+          )}
+
+          {!aiLoading && aiResults.length > 0 && (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mt-1">
+              {aiResults.map((p) => (
+                <article
+                  key={p.id}
+                  className="group bg-paper border border-line rounded-lg overflow-hidden cursor-pointer hover:border-line-2 transition-colors"
+                  onClick={() => onSelectProduct(p)}
+                >
+                  <div className="aspect-[4/3] overflow-hidden rounded-t-lg">
+                    <ProductMockup
+                      name={p.name}
+                      kind={(p.config as any)?.kind}
+                      category={p.category}
+                      className="w-full h-full"
+                    />
+                  </div>
+                  <div className="p-3 flex flex-col gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <Sparkles className="w-3 h-3 text-brand" strokeWidth={1.5} />
+                      <span
+                        className="font-mono uppercase text-brand"
+                        style={{ fontSize: '10px', letterSpacing: '0.08em', fontWeight: 500 }}
+                      >
+                        Suggestion
+                      </span>
+                    </div>
+                    <h4
+                      className="text-ink m-0"
+                      style={{ fontSize: '14.5px', fontWeight: 500, letterSpacing: '-0.005em', lineHeight: 1.35 }}
+                    >
+                      {p.name}
+                    </h4>
+                    {p.description && (
+                      <p
+                        className="text-ink-muted m-0 line-clamp-2"
+                        style={{ fontSize: '12.5px', fontWeight: 400, lineHeight: 1.5 }}
+                      >
+                        {p.description}
+                      </p>
+                    )}
+                    <div className="flex items-center justify-between mt-1.5">
+                      <span
+                        className="font-mono text-ink-muted"
+                        style={{ fontSize: '11.5px', fontWeight: 400 }}
+                      >
+                        Prix à calculer
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSelectProduct(p);
+                        }}
+                        className="px-3 py-1.5 bg-ink text-paper rounded-md hover:bg-black"
+                        style={{ fontSize: '12.5px', fontWeight: 500 }}
+                      >
+                        Configurer
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
