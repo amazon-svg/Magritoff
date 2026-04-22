@@ -5,6 +5,7 @@ import { resolveProductImage } from '../../../utils/productImages';
 import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
 import { ProductMockup } from '../../brand/ProductMockup';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
+import { fetchClariprintQuote } from '../../../utils/clariprintQuote';
 
 interface Props {
   products: ShopProduct[];
@@ -101,7 +102,23 @@ export function PortalCatalog({
         );
         return;
       }
-      setAiResults(configs.map(configToEphemeralShopProduct));
+      const initialProducts = configs.map(configToEphemeralShopProduct);
+      setAiResults(initialProducts);
+
+      // Appel Clariprint en parallele pour obtenir les prix reels
+      // (chaque card affiche un skeleton prix tant qu'on attend).
+      const withPrices = await Promise.all(
+        initialProducts.map(async (p) => {
+          const quote = await fetchClariprintQuote(p.config?.clariprintData ?? p.config);
+          if (!quote.success || quote.priceHT == null) return p;
+          return {
+            ...p,
+            price_ht: quote.priceHT,
+            config: { ...p.config, clariprintQuote: quote },
+          };
+        })
+      );
+      setAiResults(withPrices);
     } catch (err: any) {
       setAiError(err?.message || 'Erreur lors de l\'appel à Magrit.');
     } finally {
@@ -494,12 +511,38 @@ export function PortalCatalog({
                       </p>
                     )}
                     <div className="flex items-center justify-between mt-1.5">
-                      <span
-                        className="font-mono text-ink-muted"
-                        style={{ fontSize: '11.5px', fontWeight: 400 }}
-                      >
-                        Prix à calculer
-                      </span>
+                      {p.price_ht > 0 ? (
+                        <div
+                          className="font-mono text-ink"
+                          style={{ fontSize: '16px', fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}
+                        >
+                          {p.price_ht.toFixed(0)}
+                          <span className="text-ink-muted ml-1" style={{ fontSize: '12px' }}>
+                            €
+                          </span>
+                          <span
+                            className="text-ink-muted ml-1.5"
+                            style={{ fontSize: '11.5px', fontWeight: 400 }}
+                          >
+                            / {(p.config as any)?.quantity ?? 500} ex.
+                          </span>
+                        </div>
+                      ) : aiLoading ? (
+                        <span
+                          className="font-mono text-ink-mute-2 inline-flex items-center gap-1.5"
+                          style={{ fontSize: '11.5px', fontWeight: 400 }}
+                        >
+                          <Loader2 className="w-3 h-3 animate-spin" strokeWidth={1.5} />
+                          Calcul Clariprint…
+                        </span>
+                      ) : (
+                        <span
+                          className="font-mono text-ink-muted"
+                          style={{ fontSize: '11.5px', fontWeight: 400 }}
+                        >
+                          Prix à calculer
+                        </span>
+                      )}
                       <button
                         onClick={(e) => {
                           e.stopPropagation();

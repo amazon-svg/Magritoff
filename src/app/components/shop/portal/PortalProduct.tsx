@@ -1,9 +1,10 @@
-import { useState } from 'react';
-import { ChevronRight, Minus, Plus } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { ChevronRight, Minus, Plus, Calculator, Loader2, CheckCircle, AlertTriangle, RefreshCw } from 'lucide-react';
 import type { ShopProduct } from '../../../contexts/ShopsContext';
 import { resolveProductImage } from '../../../utils/productImages';
 import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
 import { ProductMockup } from '../../brand/ProductMockup';
+import { fetchClariprintQuote, priceFingerprint, type ClariprintQuoteResult } from '../../../utils/clariprintQuote';
 
 interface Props {
   product: ShopProduct;
@@ -16,16 +17,63 @@ interface Props {
 // F3 — Fiche produit + configurateur
 // Design source : .design-handoff/designs/05 - Portail B2B.html (section .f3)
 export function PortalProduct({ product, onBack, onAddToCart, pimGammes, pimDefinitions }: Props) {
-  const [qty, setQty] = useState(500);
+  const initialQty = Number((product.config as any)?.quantity) || 500;
+  const [qty, setQty] = useState(initialQty);
   const [selectedOpts, setSelectedOpts] = useState<Record<string, string>>({
     paper: '350g velours',
     finish: 'Soft touch',
     corners: 'Droits',
   });
 
+  // ─── Calcul Clariprint ──────────────────────────────────────────────────
+  // Reprend le prix deja calcule s'il est stocke dans la config du produit,
+  // sinon state initial vide. Marque le prix comme 'stale' si les parametres
+  // qui l'influencent (qty en particulier) ont change depuis le calcul.
+  const initialQuote =
+    (product.config as any)?.clariprintQuote ??
+    (product.price_ht > 0
+      ? ({ success: true, priceHT: product.price_ht } as ClariprintQuoteResult)
+      : null);
+  const [quote, setQuote] = useState<ClariprintQuoteResult | null>(initialQuote);
+  const [quoteFingerprint, setQuoteFingerprint] = useState<string>(
+    initialQuote ? priceFingerprint({ ...((product.config as any)?.clariprintData ?? product.config), quantity: initialQty }) : ''
+  );
+  const [calcLoading, setCalcLoading] = useState(false);
+
+  // Fingerprint courant : change quand qty ou les options mappees changent
+  const currentFingerprint = useMemo(() => {
+    const clariprintData = (product.config as any)?.clariprintData ?? product.config;
+    return priceFingerprint({ ...clariprintData, quantity: qty });
+  }, [product, qty]);
+
+  const priceStale = quote != null && currentFingerprint !== quoteFingerprint;
+  const hasCalcd = quote?.success && quote.priceHT != null;
+
+  const calculatePrice = async () => {
+    setCalcLoading(true);
+    const clariprintData = (product.config as any)?.clariprintData ?? product.config ?? {};
+    const payload = { ...clariprintData, quantity: qty };
+    const result = await fetchClariprintQuote(payload);
+    setQuote(result);
+    setQuoteFingerprint(currentFingerprint);
+    setCalcLoading(false);
+  };
+
+  // Si l'user arrive sur la fiche sans prix calcule et que la config est
+  // valide (kind + dimensions), on lance le calcul une fois automatiquement.
+  useEffect(() => {
+    const c = (product.config as any)?.clariprintData ?? product.config;
+    if (!quote && c?.kind) {
+      void calculatePrice();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product.id]);
+
   const quantityPresets = [100, 250, 500, 1000, 2500];
-  const priceHT = product.price_ht * (qty / 500); // approx scale lineaire
-  const priceTTC = priceHT * 1.2;
+
+  // Prix affiche : priorite au calcul Clariprint, fallback sur le prix passe
+  const activePriceHT = hasCalcd ? (quote!.priceHT as number) : product.price_ht * (qty / 500);
+  const priceTTC = activePriceHT * 1.2;
 
   const imgSrc = resolveProductImage({
     name: product.name,
@@ -261,33 +309,117 @@ export function PortalProduct({ product, onBack, onAddToCart, pimGammes, pimDefi
             </div>
           </div>
 
-          {/* Total inversé */}
-          <div
-            className="flex items-baseline gap-3.5 px-4.5 py-4 rounded-lg bg-ink text-paper"
-          >
-            <div
-              className="font-mono tabular-nums"
-              style={{ fontSize: '26px', fontWeight: 500, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}
-            >
-              {priceTTC.toFixed(0)}€
+          {/* Zone Prix : Clariprint calcule ou placeholder avec bouton 'Calculer' */}
+          {hasCalcd ? (
+            <div className="rounded-lg bg-ink text-paper overflow-hidden">
+              <div className="flex items-baseline gap-3.5 px-4.5 py-4">
+                <div
+                  className="font-mono tabular-nums"
+                  style={{ fontSize: '26px', fontWeight: 500, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}
+                >
+                  {priceTTC.toFixed(0)}€
+                </div>
+                <div style={{ fontSize: '12.5px', color: '#B5B5BC', fontWeight: 400 }}>
+                  TTC · {qty} ex. · {activePriceHT.toFixed(2)}€ HT
+                </div>
+                <div
+                  className="ml-auto font-mono"
+                  style={{ fontSize: '12.5px', color: '#B5B5BC', fontWeight: 400 }}
+                >
+                  {quote?.delais ? `Livraison ${quote.delais} j` : 'Livraison 72 h'}
+                </div>
+              </div>
+              {(quote?.fournisseur || priceStale) && (
+                <div
+                  className="flex items-center justify-between px-4.5 py-2 border-t"
+                  style={{ borderColor: 'rgba(255,255,255,0.1)' }}
+                >
+                  {quote?.fournisseur && (
+                    <span
+                      className="font-mono inline-flex items-center gap-1.5"
+                      style={{ fontSize: '11px', color: '#B5B5BC', fontWeight: 400, letterSpacing: '0.02em' }}
+                    >
+                      <CheckCircle className="w-3 h-3" strokeWidth={1.5} />
+                      Clariprint · {quote.fournisseur}
+                    </span>
+                  )}
+                  {priceStale && (
+                    <button
+                      onClick={calculatePrice}
+                      disabled={calcLoading}
+                      className="ml-auto inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-warn-bg text-warn-fg hover:brightness-105 disabled:opacity-50"
+                      style={{ fontSize: '11.5px', fontWeight: 500 }}
+                    >
+                      {calcLoading ? (
+                        <Loader2 className="w-3 h-3 animate-spin" strokeWidth={1.5} />
+                      ) : (
+                        <RefreshCw className="w-3 h-3" strokeWidth={1.5} />
+                      )}
+                      Recalculer le prix
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
-            <div style={{ fontSize: '12.5px', color: '#B5B5BC', fontWeight: 400 }}>
-              TTC · {qty} ex. · {priceHT.toFixed(0)}€ HT
+          ) : (
+            <div className="rounded-lg border-2 border-dashed border-line-2 bg-bg p-4.5 flex items-center gap-3">
+              <div
+                className="grid place-items-center w-10 h-10 rounded-full bg-paper border border-line"
+              >
+                <Calculator className="w-4 h-4 text-ink" strokeWidth={1.5} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div
+                  className="text-ink"
+                  style={{ fontSize: '14px', fontWeight: 500, letterSpacing: '-0.005em' }}
+                >
+                  Prix réel Clariprint à calculer
+                </div>
+                <div
+                  className="text-ink-muted mt-0.5"
+                  style={{ fontSize: '12.5px', fontWeight: 400 }}
+                >
+                  Ajustez la quantité, les options, puis lancez le calcul.
+                </div>
+                {quote && !quote.success && (
+                  <div
+                    className="mt-1.5 inline-flex items-center gap-1.5 text-err-fg"
+                    style={{ fontSize: '12px', fontWeight: 400 }}
+                  >
+                    <AlertTriangle className="w-3 h-3" strokeWidth={1.5} />
+                    {quote.message || quote.error || 'Erreur Clariprint, réessayez.'}
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={calculatePrice}
+                disabled={calcLoading}
+                className="shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md bg-ink text-paper hover:bg-black disabled:opacity-50"
+                style={{ fontSize: '13px', fontWeight: 500 }}
+              >
+                {calcLoading ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={1.5} />
+                ) : (
+                  <Calculator className="w-3.5 h-3.5" strokeWidth={1.5} />
+                )}
+                Calculer le prix
+              </button>
             </div>
-            <div
-              className="ml-auto font-mono"
-              style={{ fontSize: '12.5px', color: '#B5B5BC', fontWeight: 400 }}
-            >
-              Livraison 72 h
-            </div>
-          </div>
+          )}
 
           <button
-            onClick={() => onAddToCart(product, qty, selectedOpts)}
-            className="py-3.5 px-5 rounded-lg bg-brand text-brand-ink hover:bg-black transition-colors"
+            onClick={() => {
+              // On passe au panier le prix réel s'il a ete calcule via Clariprint
+              const productWithPrice = hasCalcd
+                ? { ...product, price_ht: activePriceHT, config: { ...(product.config ?? {}), clariprintQuote: quote } }
+                : product;
+              onAddToCart(productWithPrice, qty, selectedOpts);
+            }}
+            disabled={!hasCalcd && !calcLoading}
+            className="py-3.5 px-5 rounded-lg bg-brand text-brand-ink hover:bg-black transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             style={{ fontSize: '14.5px', fontWeight: 500, fontFamily: 'var(--font-ui)' }}
           >
-            Ajouter au panier · {qty} ex.
+            {hasCalcd ? `Ajouter au panier · ${qty} ex.` : 'Calculez le prix avant d\'ajouter au panier'}
           </button>
         </div>
       </div>
