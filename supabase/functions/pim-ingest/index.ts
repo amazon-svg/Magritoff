@@ -95,22 +95,74 @@ interface IngestReport {
 // ─── Helpers ─────────────────────────────────────────────────────────────
 
 /**
+ * Normalise une raw_config en aplatissant les champs techniques. La config
+ * Magrit stocke kind/width/height/papers/etc. sous `clariprintData`, mais
+ * la UI-level config stocke certains champs au top-level (name, quantity,
+ * format, material, weight, finish...). On merge intelligemment pour que
+ * le reste du pipeline puisse chercher ses champs au meme niveau.
+ *
+ * Priorite en cas de collision : top-level > clariprintData (le top-level
+ * est la version "resolue" avec les noms humains, clariprintData la version
+ * brute API).
+ *
+ * Les champs techniques clefs (kind, width, height, papers, finishing_*,
+ * binding, folds, pages) sont eux toujours pris depuis clariprintData en
+ * priorite car c est la source de verite API.
+ */
+function normalizeRaw(
+  raw: Record<string, unknown>
+): Record<string, unknown> {
+  const cp = (raw.clariprintData ?? raw.clariprint) as Record<string, unknown> | undefined;
+  if (!cp || typeof cp !== "object") return raw;
+
+  // On construit un objet qui fusionne les deux niveaux.
+  const merged: Record<string, unknown> = { ...raw };
+
+  // Champs API techniques : clariprintData prime.
+  const TECHNICAL_KEYS = [
+    "kind",
+    "width",
+    "height",
+    "papers",
+    "paper",
+    "front_colors",
+    "back_colors",
+    "finishing_front",
+    "finishing_back",
+    "binding",
+    "folds",
+    "pages",
+    "with_bleeds",
+    "labels",
+    "reference",
+  ];
+  for (const k of TECHNICAL_KEYS) {
+    if (cp[k] !== undefined) merged[k] = cp[k];
+  }
+  // Quantity : prend celui du clariprintData si present, sinon le top-level.
+  if (cp.quantity !== undefined) merged.quantity = cp.quantity;
+
+  return merged;
+}
+
+/**
  * Retourne true si le candidat a assez de contenu pour etre ingere.
  * Critere tres basique : un `name` non vide OU un `kind` ET une dimension.
  */
 function isRichEnough(raw: Record<string, unknown>): { ok: boolean; reason?: string } {
-  const name = (raw.name as string | undefined)?.trim();
-  const kind = (raw.kind as string | undefined)?.trim();
-  const width = raw.width;
-  const height = raw.height;
+  const n = normalizeRaw(raw);
+  const name = (n.name as string | undefined)?.trim();
+  const kind = (n.kind as string | undefined)?.trim();
+  const width = n.width;
+  const height = n.height;
 
-  if (name && name.length > 2) return { ok: true };
   if (kind && (width != null || height != null)) return { ok: true };
-  if (kind && (raw.quantity != null)) return { ok: true };
+  if (kind && (n.quantity != null)) return { ok: true };
+  if (name && name.length > 2 && kind) return { ok: true };
 
   return {
     ok: false,
-    reason: "Candidat trop pauvre — ni nom lisible, ni kind+dimensions, ni kind+quantity",
+    reason: "Candidat trop pauvre — manque kind+(dimensions OU quantity)",
   };
 }
 
@@ -120,9 +172,10 @@ function isRichEnough(raw: Record<string, unknown>): { ok: boolean; reason?: str
  * Logique calquee sur utils/productEnrichment.ts cote frontend.
  */
 function resolveGamme(raw: Record<string, unknown>, gammes: Gamme[]): Gamme | null {
-  const kind = (raw.kind as string | undefined)?.trim().toLowerCase();
-  const w = Number(raw.width);
-  const h = Number(raw.height);
+  const n = normalizeRaw(raw);
+  const kind = (n.kind as string | undefined)?.trim().toLowerCase();
+  const w = Number(n.width);
+  const h = Number(n.height);
   const maxDim = Math.max(w || 0, h || 0);
 
   // On sort par display_order desc pour preferer les gammes les plus specifiques
@@ -160,14 +213,14 @@ function resolveGamme(raw: Record<string, unknown>, gammes: Gamme[]): Gamme | nu
     // binding_in : pour kind=book
     const bi = (rules as any).binding_in;
     if (bi && Array.isArray(bi)) {
-      const binding = (raw.binding as string | undefined);
+      const binding = (n.binding as string | undefined);
       if (!binding || !bi.includes(binding)) continue;
     }
 
     // folds : pour kind=folded
     const folds = (rules as any).folds;
     if (folds != null) {
-      const rf = (raw.folds as string | undefined);
+      const rf = (n.folds as string | undefined);
       if (rf !== folds) continue;
     }
 
@@ -183,21 +236,22 @@ function resolveGamme(raw: Record<string, unknown>, gammes: Gamme[]): Gamme | nu
  * paper, finishing, binding, pages). Meme signature → meme product_definition.
  */
 function canonicalKey(raw: Record<string, unknown>): string {
-  const paper = raw.papers as any;
+  const n = normalizeRaw(raw);
+  const paper = n.papers as any;
   const paperKey = paper?.custom
     ? `${paper.custom.quality ?? ''}|${paper.custom.weight ?? ''}`
     : (typeof paper === 'string' ? paper : '');
 
   const parts = [
-    String(raw.kind ?? '').toLowerCase(),
-    String(raw.width ?? ''),
-    String(raw.height ?? ''),
+    String(n.kind ?? '').toLowerCase(),
+    String(n.width ?? ''),
+    String(n.height ?? ''),
     paperKey,
-    String(raw.finishing_front ?? ''),
-    String(raw.finishing_back ?? ''),
-    String(raw.binding ?? ''),
-    String(raw.folds ?? ''),
-    String(raw.pages ?? ''),
+    String(n.finishing_front ?? ''),
+    String(n.finishing_back ?? ''),
+    String(n.binding ?? ''),
+    String(n.folds ?? ''),
+    String(n.pages ?? ''),
   ];
   return parts.join('|').toLowerCase();
 }
