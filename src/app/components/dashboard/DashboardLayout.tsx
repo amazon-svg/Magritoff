@@ -80,19 +80,25 @@ export function DashboardLayout() {
     {
       title: 'Config',
       items: [
-        { to: `${basePath}/gammes`, label: 'Gammes actives', icon: Layers, show: canManageMembers ?? false },
         { to: `${basePath}/plan`, label: 'Plan & abonnement', icon: CreditCard, show: true },
         { to: `${basePath}/preferences`, label: 'Préférences', icon: Settings, show: true },
       ],
     },
     {
-      title: 'Admin',
+      title: 'Admin PIM',
       items: [
         {
           to: `${basePath}/admin/pim`,
-          label: 'Admin PIM',
+          label: 'PIM global',
           icon: Shield,
           show: isAdmin || isSuperAdmin,
+        },
+        {
+          to: `${basePath}/gammes`,
+          label: 'Gammes actives',
+          icon: Layers,
+          show: canManageMembers ?? false,
+          sub: true,
         },
       ],
     },
