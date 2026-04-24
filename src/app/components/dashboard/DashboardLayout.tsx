@@ -1,11 +1,12 @@
 import { Navigate, NavLink, Outlet, useLocation } from 'react-router';
 import {
   User, Settings, MessageSquare, FileText, ShoppingBag, Users,
-  CreditCard, Package, Store, Shield,
+  CreditCard, Package, Store, Shield, LayoutTemplate, UserCog, Building,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlan } from '../../hooks/usePlan';
 import { useIsAdmin } from '../../hooks/useIsAdmin';
+import { useTenant } from '../../contexts/TenantContext';
 import { PLAN_LABEL } from '../../utils/plans';
 import { MagritLogo } from '../brand/MagritLogo';
 
@@ -15,7 +16,17 @@ export function DashboardLayout() {
   const { user, loading } = useAuth();
   const { plan, canUse } = usePlan();
   const isAdmin = useIsAdmin();
+  const { currentTenant, currentRole, isSuperAdmin } = useTenant();
   const location = useLocation();
+
+  // Raccourci : tenantSlug extrait du path courant pour construire les `to` absolus.
+  // On prefere absolus pour que la NavLink active-match fonctionne sans surprise.
+  const tenantSlug = currentTenant?.slug ?? '';
+  const basePath = `/t/${tenantSlug}/dashboard`;
+
+  const canManageMembers = currentRole === 'owner' || currentRole === 'admin';
+  const canManageSpaces =
+    canManageMembers && currentTenant && !currentTenant.parent_tenant_id;
 
   if (loading) {
     return (
@@ -30,31 +41,58 @@ export function DashboardLayout() {
   if (!user) return <Navigate to="/" replace />;
 
   // Groupes de navigation Linear-like
-  type Item = { to: string; end?: boolean; label: string; icon: any; show: boolean };
+  // `sub: true` → item indente visuellement, signale un sous-menu (ex: gabarits sous devis).
+  type Item = {
+    to: string;
+    end?: boolean;
+    label: string;
+    icon: any;
+    show: boolean;
+    sub?: boolean;
+  };
   const GROUPS: Array<{ title: string; items: Item[] }> = [
     {
       title: 'Atelier',
       items: [
-        { to: '/dashboard', end: true, label: 'Profil', icon: User, show: true },
-        { to: '/dashboard/history', label: 'Historique', icon: MessageSquare, show: true },
-        { to: '/dashboard/quotes', label: 'Devis', icon: FileText, show: true },
-        { to: '/dashboard/orders', label: 'Commandes', icon: ShoppingBag, show: true },
-        { to: '/dashboard/clients', label: 'Clients', icon: Users, show: true },
-        { to: '/dashboard/library', label: 'Bibliothèque', icon: Package, show: canUse('library') },
-        { to: '/dashboard/shops', label: 'Boutiques', icon: Store, show: canUse('shops') },
+        { to: `${basePath}`, end: true, label: 'Profil', icon: User, show: true },
+        { to: `${basePath}/history`, label: 'Historique', icon: MessageSquare, show: true },
+        { to: `${basePath}/quotes`, label: 'Devis', icon: FileText, show: true },
+        {
+          to: `${basePath}/quote-templates`,
+          label: 'Gabarits de devis',
+          icon: LayoutTemplate,
+          show: true,
+          sub: true,
+        },
+        { to: `${basePath}/orders`, label: 'Commandes', icon: ShoppingBag, show: true },
+        { to: `${basePath}/clients`, label: 'Clients', icon: Users, show: true },
+        { to: `${basePath}/library`, label: 'Bibliothèque', icon: Package, show: canUse('library') },
+        { to: `${basePath}/shops`, label: 'Boutiques', icon: Store, show: canUse('shops') },
+      ],
+    },
+    {
+      title: 'Équipe',
+      items: [
+        { to: `${basePath}/members`, label: 'Membres', icon: UserCog, show: true },
+        { to: `${basePath}/spaces`, label: 'Sous-espaces', icon: Building, show: canManageSpaces ?? false },
       ],
     },
     {
       title: 'Config',
       items: [
-        { to: '/dashboard/plan', label: 'Plan & abonnement', icon: CreditCard, show: true },
-        { to: '/dashboard/preferences', label: 'Préférences', icon: Settings, show: true },
+        { to: `${basePath}/plan`, label: 'Plan & abonnement', icon: CreditCard, show: true },
+        { to: `${basePath}/preferences`, label: 'Préférences', icon: Settings, show: true },
       ],
     },
     {
       title: 'Admin',
       items: [
-        { to: '/dashboard/admin/pim', label: 'Admin PIM', icon: Shield, show: isAdmin },
+        {
+          to: `${basePath}/admin/pim`,
+          label: 'Admin PIM',
+          icon: Shield,
+          show: isAdmin || isSuperAdmin,
+        },
       ],
     },
   ].map((g) => ({ ...g, items: g.items.filter((i) => i.show) }))
@@ -124,16 +162,18 @@ export function DashboardLayout() {
                   to={item.to}
                   end={item.end}
                   className={({ isActive }) =>
-                    `flex items-center gap-2.5 px-2.5 py-1.5 rounded-md transition-colors ${
+                    `flex items-center gap-2.5 py-1.5 rounded-md transition-colors ${
+                      item.sub ? 'pl-7 pr-2.5' : 'px-2.5'
+                    } ${
                       isActive
                         ? 'bg-line text-ink'
                         : 'text-ink-2 hover:bg-line/60 hover:text-ink'
                     }`
                   }
-                  style={{ fontSize: '13.5px', fontWeight: 400 }}
+                  style={{ fontSize: item.sub ? '13px' : '13.5px', fontWeight: 400 }}
                 >
                   <item.icon
-                    className="w-4 h-4 shrink-0"
+                    className={`shrink-0 ${item.sub ? 'w-3.5 h-3.5' : 'w-4 h-4'}`}
                     strokeWidth={1.5}
                   />
                   <span className="truncate">{item.label}</span>

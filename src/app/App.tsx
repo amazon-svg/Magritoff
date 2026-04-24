@@ -1,12 +1,20 @@
 import { RouterProvider } from 'react-router';
 import { router } from './routes';
-import { CartProvider } from './contexts/CartContext';
-import { ConversationProvider } from './contexts/ConversationContext';
+
+/**
+ * App.tsx v3
+ * ──────────
+ * La composition des providers a legerement bouge : le TenantProvider depend
+ * du router (useParams, useNavigate), donc il ne peut pas wrapper le
+ * RouterProvider. On le place dans `AppShell` qui est le premier element
+ * rendu PAR le router (cf routes.tsx, element: <AppShell />).
+ *
+ * Les providers "router-agnostiques" (Auth, Preferences, PIM…) restent
+ * autour de RouterProvider pour eviter de les ressusciter a chaque
+ * navigation.
+ */
 import { AuthProvider } from './contexts/AuthContext';
 import { PreferencesProvider } from './contexts/PreferencesContext';
-import { ClientsProvider } from './contexts/ClientsContext';
-import { LibraryProvider } from './contexts/LibraryContext';
-import { ShopsProvider } from './contexts/ShopsContext';
 import { PIMProvider } from './contexts/PIMContext';
 
 export default function App() {
@@ -14,17 +22,7 @@ export default function App() {
     <AuthProvider>
       <PreferencesProvider>
         <PIMProvider>
-          <ConversationProvider>
-            <ClientsProvider>
-              <LibraryProvider>
-                <ShopsProvider>
-                  <CartProvider>
-                    <RouterProvider router={router} />
-                  </CartProvider>
-                </ShopsProvider>
-              </LibraryProvider>
-            </ClientsProvider>
-          </ConversationProvider>
+          <RouterProvider router={router} />
         </PIMProvider>
       </PreferencesProvider>
     </AuthProvider>

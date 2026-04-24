@@ -1,5 +1,10 @@
-import { createBrowserRouter } from "react-router";
+import { createBrowserRouter, Navigate } from "react-router";
+import { AppShell } from "./AppShell";
 import { MainLayout } from "./components/MainLayout";
+import { TenantAwareLayout } from "./components/tenant/TenantAwareLayout";
+import { TenantPicker } from "./components/tenant/TenantPicker";
+import { TenantOnboarding } from "./components/tenant/TenantOnboarding";
+import { AcceptInvitation } from "./components/tenant/AcceptInvitation";
 import { ConfiguratorPage } from "./components/ConfiguratorPage";
 import { ProductSheet } from "./components/ProductSheet";
 import { PersonalizationPage } from "./components/PersonalizationPage";
@@ -10,6 +15,7 @@ import { DashboardProfile } from "./components/dashboard/DashboardProfile";
 import { DashboardPreferences } from "./components/dashboard/DashboardPreferences";
 import { DashboardHistory } from "./components/dashboard/DashboardHistory";
 import { DashboardQuotes } from "./components/dashboard/DashboardQuotes";
+import { DashboardQuoteTemplates } from "./components/dashboard/DashboardQuoteTemplates";
 import { DashboardOrders } from "./components/dashboard/DashboardOrders";
 import { DashboardClients } from "./components/dashboard/DashboardClients";
 import { DashboardPlan } from "./components/dashboard/DashboardPlan";
@@ -18,39 +24,81 @@ import { DashboardLibraryDetail } from "./components/dashboard/DashboardLibraryD
 import { DashboardShops } from "./components/dashboard/DashboardShops";
 import { DashboardShopEditor } from "./components/dashboard/DashboardShopEditor";
 import { DashboardAdminPIM } from "./components/dashboard/DashboardAdminPIM";
+import { DashboardTenantMembers } from "./components/dashboard/DashboardTenantMembers";
+import { DashboardTenantSpaces } from "./components/dashboard/DashboardTenantSpaces";
 import { PublicShop } from "./components/shop/PublicShop";
 
+/**
+ * Routage v3 multi-tenant
+ * ───────────────────────
+ * Toutes les URLs applicatives sont prefixees par le slug du tenant :
+ *   /t/imprimerie-dupont/                → chat home
+ *   /t/imprimerie-dupont/dashboard/...   → dashboard du tenant
+ *
+ * Routes hors-tenant :
+ *   /                          → redirige vers /tenants (picker)
+ *   /tenants                   → liste des tenants accessibles + "creer"
+ *   /tenants/new               → wizard de creation de tenant (signup)
+ *   /invitations/:token        → accept invitation flow
+ *   /shop/:slug                → boutique publique (anonyme, pas de tenant)
+ *   /reset-password            → auth reset (hors tenant)
+ *
+ * AppShell est le root element qui monte les providers router-aware
+ * (TenantProvider notamment).
+ */
 export const router = createBrowserRouter([
-  // Boutique publique — hors du layout de l'app
-  { path: "/shop/:slug", element: <PublicShop /> },
-
-  // App principale
   {
-    path: "/",
-    element: <MainLayout />,
+    element: <AppShell />,
     children: [
-      { index: true, element: <ConfiguratorPage /> },
-      { path: "product/:id", element: <ProductSheet /> },
-      { path: "personalization/:id", element: <PersonalizationPage /> },
-      { path: "reset-password", element: <ResetPasswordPage /> },
+      // Boutique publique — anonyme, pas de tenant
+      { path: "/shop/:slug", element: <PublicShop /> },
+
+      // Flux hors-tenant (auth, onboarding, picker, invitation)
       {
-        path: "dashboard",
-        element: <DashboardLayout />,
+        path: "/",
+        element: <MainLayout />,
         children: [
-          { index: true, element: <DashboardProfile /> },
-          { path: "plan", element: <DashboardPlan /> },
-          { path: "preferences", element: <DashboardPreferences /> },
-          { path: "history", element: <DashboardHistory /> },
-          { path: "quotes", element: <DashboardQuotes /> },
-          { path: "orders", element: <DashboardOrders /> },
-          { path: "clients", element: <DashboardClients /> },
-          { path: "library", element: <DashboardLibraries /> },
-          { path: "library/:id", element: <DashboardLibraryDetail /> },
-          { path: "shops", element: <DashboardShops /> },
-          { path: "shops/:id", element: <DashboardShopEditor /> },
-          { path: "admin/pim", element: <DashboardAdminPIM /> },
+          { index: true, element: <Navigate to="/tenants" replace /> },
+          { path: "reset-password", element: <ResetPasswordPage /> },
+          { path: "tenants", element: <TenantPicker /> },
+          { path: "tenants/new", element: <TenantOnboarding /> },
+          { path: "invitations/:token", element: <AcceptInvitation /> },
         ],
       },
+
+      // App principale, tenant-scoped
+      {
+        path: "/t/:tenantSlug",
+        element: <TenantAwareLayout />,
+        children: [
+          { index: true, element: <ConfiguratorPage /> },
+          { path: "product/:id", element: <ProductSheet /> },
+          { path: "personalization/:id", element: <PersonalizationPage /> },
+          {
+            path: "dashboard",
+            element: <DashboardLayout />,
+            children: [
+              { index: true, element: <DashboardProfile /> },
+              { path: "plan", element: <DashboardPlan /> },
+              { path: "preferences", element: <DashboardPreferences /> },
+              { path: "history", element: <DashboardHistory /> },
+              { path: "quotes", element: <DashboardQuotes /> },
+              { path: "quote-templates", element: <DashboardQuoteTemplates /> },
+              { path: "orders", element: <DashboardOrders /> },
+              { path: "clients", element: <DashboardClients /> },
+              { path: "library", element: <DashboardLibraries /> },
+              { path: "library/:id", element: <DashboardLibraryDetail /> },
+              { path: "shops", element: <DashboardShops /> },
+              { path: "shops/:id", element: <DashboardShopEditor /> },
+              // Nouveautes v3
+              { path: "members", element: <DashboardTenantMembers /> },
+              { path: "spaces", element: <DashboardTenantSpaces /> },
+              { path: "admin/pim", element: <DashboardAdminPIM /> },
+            ],
+          },
+        ],
+      },
+
       { path: "*", element: <NotFound /> },
     ],
   },

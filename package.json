@@ -1,11 +1,11 @@
 {
-  "name": "@figma/my-make-file",
+  "name": "magritoff-v3",
   "private": true,
-  "version": "0.0.1",
+  "version": "0.3.0-alpha.0",
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "dev": "vite"
+    "dev": "vite --port 5175 --strictPort"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",
