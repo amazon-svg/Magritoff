@@ -1,6 +1,14 @@
+/**
+ * ShopsContext — v3 tenant-scoped
+ * ───────────────────────────────
+ * Les shops (et leurs shop_products) appartiennent a un tenant. Les RLS
+ * v3 exigent tenant_id pour insert/select. On denormalise tenant_id sur
+ * shop_products a l'insert pour eviter un join a chaque select.
+ */
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
 import { supabase } from '/utils/supabase/client';
 import { useAuth } from './AuthContext';
+import { useTenant } from './TenantContext';
 
 export interface ShopTheme {
   primaryColor: string;
@@ -76,11 +84,12 @@ function randomSlug(): string {
 
 export function ShopsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
+  const { currentTenant } = useTenant();
   const [shops, setShops] = useState<Shop[]>([]);
   const [loading, setLoading] = useState(false);
 
   const refresh = useCallback(async () => {
-    if (!user) {
+    if (!user || !currentTenant) {
       setShops([]);
       return;
     }
@@ -88,23 +97,24 @@ export function ShopsProvider({ children }: { children: ReactNode }) {
     const { data, error } = await supabase
       .from('shops')
       .select('*')
-      .eq('owner_user_id', user.id)
+      .eq('tenant_id', currentTenant.id)
       .order('created_at', { ascending: false });
     if (error) console.error('[Shops] fetch failed', error.message);
     if (data) setShops(data as Shop[]);
     setLoading(false);
-  }, [user]);
+  }, [user, currentTenant?.id]);
 
   useEffect(() => {
     refresh();
   }, [refresh]);
 
   const createShop = async (input: NewShopInput) => {
-    if (!user) return null;
+    if (!user || !currentTenant) return null;
     const { data, error } = await supabase
       .from('shops')
       .insert({
         owner_user_id: user.id,
+        tenant_id: currentTenant.id,
         client_id: input.client_id ?? null,
         slug: randomSlug(),
         name: input.name,
@@ -183,7 +193,10 @@ export function ShopsProvider({ children }: { children: ReactNode }) {
     shopId: string,
     product: Omit<ShopProduct, 'id' | 'shop_id' | 'created_at'>
   ) => {
-    const { error } = await supabase.from('shop_products').insert({ ...product, shop_id: shopId });
+    if (!currentTenant) return;
+    const { error } = await supabase
+      .from('shop_products')
+      .insert({ ...product, shop_id: shopId, tenant_id: currentTenant.id });
     if (error) console.error('[Shops] add product failed', error.message);
   };
 

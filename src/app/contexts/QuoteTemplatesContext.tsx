@@ -23,6 +23,7 @@ import {
 } from 'react';
 import { supabase } from '/utils/supabase/client';
 import { useAuth } from './AuthContext';
+import { useTenant } from './TenantContext';
 import { BUILTIN_QUOTE_TEMPLATES, QuoteTemplate } from '../utils/quote';
 
 interface QuoteTemplatesContextType {
@@ -44,11 +45,12 @@ const QuoteTemplatesContext = createContext<QuoteTemplatesContextType | undefine
 
 export function QuoteTemplatesProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
+  const { currentTenant } = useTenant();
   const [customTemplates, setCustomTemplates] = useState<QuoteTemplate[]>([]);
   const [loading, setLoading] = useState(false);
 
   const reload = useCallback(async () => {
-    if (!user) {
+    if (!user || !currentTenant) {
       setCustomTemplates([]);
       return;
     }
@@ -56,7 +58,7 @@ export function QuoteTemplatesProvider({ children }: { children: ReactNode }) {
     const { data, error } = await supabase
       .from('quote_templates')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('tenant_id', currentTenant.id)
       .order('created_at', { ascending: true });
     if (error) {
       console.error('[quote_templates] load error:', error.message);
@@ -88,7 +90,7 @@ export function QuoteTemplatesProvider({ children }: { children: ReactNode }) {
       );
     }
     setLoading(false);
-  }, [user]);
+  }, [user, currentTenant?.id]);
 
   useEffect(() => {
     reload();
@@ -121,11 +123,12 @@ export function QuoteTemplatesProvider({ children }: { children: ReactNode }) {
   const createTemplate = async (
     input: Partial<QuoteTemplate>
   ): Promise<QuoteTemplate | null> => {
-    if (!user) return null;
+    if (!user || !currentTenant) return null;
     const { data, error } = await supabase
       .from('quote_templates')
       .insert({
         user_id: user.id,
+        tenant_id: currentTenant.id,
         name: input.name || 'Nouveau gabarit',
         style: input.style || 'custom',
         company_name: input.company_name,
@@ -156,7 +159,7 @@ export function QuoteTemplatesProvider({ children }: { children: ReactNode }) {
   };
 
   const updateTemplate = async (id: string, input: Partial<QuoteTemplate>) => {
-    if (!user) return;
+    if (!user || !currentTenant) return;
     // on n'update que les customs (les builtins sont statiques)
     if (id.startsWith('builtin-')) return;
     const { error } = await supabase
@@ -183,19 +186,19 @@ export function QuoteTemplatesProvider({ children }: { children: ReactNode }) {
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)
-      .eq('user_id', user.id);
+      .eq('tenant_id', currentTenant.id);
     if (error) console.error('[quote_templates] update error:', error.message);
     await reload();
   };
 
   const deleteTemplate = async (id: string) => {
-    if (!user) return;
+    if (!user || !currentTenant) return;
     if (id.startsWith('builtin-')) return;
     const { error } = await supabase
       .from('quote_templates')
       .delete()
       .eq('id', id)
-      .eq('user_id', user.id);
+      .eq('tenant_id', currentTenant.id);
     if (error) console.error('[quote_templates] delete error:', error.message);
     if (defaultTemplateId === id) {
       await setDefault('');

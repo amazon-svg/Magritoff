@@ -1,6 +1,14 @@
+/**
+ * ConversationContext — v3 tenant-scoped
+ * ──────────────────────────────────────
+ * L'historique chat est desormais scope par tenant_id. Changer de tenant
+ * = changer d'historique. Local storage garde un cache par tenant
+ * (cle suffixee du tenant.id) pour eviter de fuiter entre espaces.
+ */
 import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { supabase } from '/utils/supabase/client';
 import { useAuth } from './AuthContext';
+import { useTenant } from './TenantContext';
 
 export interface ConversationMessage {
   role: string;
@@ -28,15 +36,18 @@ interface ConversationContextType {
   startNewConversation: () => void;
 }
 
-const STORAGE_KEY = 'magrit_conversation_history';
+// Cle localStorage suffixee par tenant_id : chaque espace a son cache
+// d'historique. Empeche le bleed entre tenants si un user a plusieurs.
+const storageKey = (tenantId: string | null) =>
+  tenantId ? `magrit_conversation_history__${tenantId}` : 'magrit_conversation_history';
 
 const ConversationContext = createContext<ConversationContextType | undefined>(undefined);
 
-async function fetchRemote(userId: string): Promise<ConversationHistory[]> {
+async function fetchRemote(tenantId: string): Promise<ConversationHistory[]> {
   const { data, error } = await supabase
     .from('conversations')
     .select('*')
-    .eq('user_id', userId)
+    .eq('tenant_id', tenantId)
     .order('timestamp', { ascending: false });
   if (error) console.error('[Conversation] fetch failed', error.message);
   if (!data) return [];
@@ -49,11 +60,16 @@ async function fetchRemote(userId: string): Promise<ConversationHistory[]> {
   }));
 }
 
-async function upsertRemote(userId: string, conv: ConversationHistory): Promise<{ ok: boolean; rlsBlocked: boolean }> {
+async function upsertRemote(
+  userId: string,
+  tenantId: string,
+  conv: ConversationHistory
+): Promise<{ ok: boolean; rlsBlocked: boolean }> {
   const { error } = await supabase.from('conversations').upsert(
     {
       id: conv.id,
       user_id: userId,
+      tenant_id: tenantId,
       title: conv.title,
       messages: conv.messages,
       products: conv.products,
@@ -73,13 +89,18 @@ async function upsertRemote(userId: string, conv: ConversationHistory): Promise<
   return { ok: true, rlsBlocked: false };
 }
 
-async function deleteRemote(userId: string, id: string) {
-  const { error } = await supabase.from('conversations').delete().eq('id', id).eq('user_id', userId);
+async function deleteRemote(tenantId: string, id: string) {
+  const { error } = await supabase
+    .from('conversations')
+    .delete()
+    .eq('id', id)
+    .eq('tenant_id', tenantId);
   if (error) console.error('[Conversation] delete failed', { convId: id, message: error.message });
 }
 
 export function ConversationProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
+  const { currentTenant } = useTenant();
   const [messages, setMessages] = useState<ConversationMessage[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [history, setHistory] = useState<ConversationHistory[]>([]);
@@ -87,19 +108,28 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
   const migratedRef = useRef(false);
 
   useEffect(() => {
-    if (user) {
-      fetchRemote(user.id).then(async (remote) => {
+    // Reset le cache de migration quand on change de tenant
+    migratedRef.current = false;
+    // Reset aussi les messages et produits en cours (ils appartiennent a
+    // un tenant, ne doivent pas bleedthrough vers un autre).
+    setMessages([]);
+    setProducts([]);
+    setCurrentConversationId(null);
+
+    if (user && currentTenant) {
+      fetchRemote(currentTenant.id).then(async (remote) => {
         if (!migratedRef.current) {
-          const local = localStorage.getItem(STORAGE_KEY);
+          const localKey = storageKey(currentTenant.id);
+          const local = localStorage.getItem(localKey);
           if (local) {
             try {
               const parsed: ConversationHistory[] = JSON.parse(local);
               const missing = parsed.filter((p) => !remote.some((r) => r.id === p.id));
               for (const conv of missing) {
-                await upsertRemote(user.id, conv);
+                await upsertRemote(user.id, currentTenant.id, conv);
               }
               if (missing.length > 0) {
-                const refreshed = await fetchRemote(user.id);
+                const refreshed = await fetchRemote(currentTenant.id);
                 setHistory(refreshed);
                 migratedRef.current = true;
                 return;
@@ -111,21 +141,22 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
         setHistory(remote);
       });
     } else {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      const localKey = storageKey(currentTenant?.id ?? null);
+      const saved = localStorage.getItem(localKey);
       if (saved) {
         try { setHistory(JSON.parse(saved)); } catch {}
       } else {
         setHistory([]);
       }
-      migratedRef.current = false;
     }
-  }, [user]);
+  }, [user, currentTenant?.id]);
 
   useEffect(() => {
     // Le localStorage sert de cache hors-ligne et de source pour la migration
-    // au login. On le garde synchronisé en permanence avec l'état courant.
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
-  }, [history]);
+    // au login. On le garde synchronise en permanence avec l'etat courant.
+    // Cle suffixee par tenant : un espace = un cache.
+    localStorage.setItem(storageKey(currentTenant?.id ?? null), JSON.stringify(history));
+  }, [history, currentTenant?.id]);
 
   const saveCurrent = useCallback(
     (nextMessages: ConversationMessage[], nextProducts: any[]) => {
@@ -170,11 +201,11 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
           products: conv.products.length,
           action: currentConversationId ? 'update' : 'create',
         });
-        if (user) {
-          void upsertRemote(user.id, conv).then((res) => {
+        if (user && currentTenant) {
+          void upsertRemote(user.id, currentTenant.id, conv).then((res) => {
             if (!res.ok && res.rlsBlocked) {
-              // Conv appartient à un autre user → on la retire localement et
-              // on reset currentConversationId pour éviter de spammer.
+              // Conv appartient a un autre tenant/user -> on la retire localement
+              // pour eviter de spammer en rejeu.
               setHistory((prev2) => prev2.filter((c) => c.id !== conv.id));
               setCurrentConversationId((cur) => (cur === conv.id ? null : cur));
             }
@@ -183,7 +214,7 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
         return next;
       });
     },
-    [currentConversationId, user]
+    [currentConversationId, user, currentTenant?.id]
   );
 
   const loadConversation = useCallback((conv: ConversationHistory) => {
@@ -222,14 +253,14 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
   const deleteConversation = useCallback(
     (id: string) => {
       setHistory((prev) => prev.filter((c) => c.id !== id));
-      if (user) void deleteRemote(user.id, id);
+      if (user && currentTenant) void deleteRemote(currentTenant.id, id);
       if (currentConversationId === id) {
         setCurrentConversationId(null);
         setMessages([]);
         setProducts([]);
       }
     },
-    [currentConversationId, user]
+    [currentConversationId, user, currentTenant?.id]
   );
 
   const startNewConversation = useCallback(() => {

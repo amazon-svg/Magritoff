@@ -10,6 +10,7 @@ import {
   renderQuoteHtml,
 } from '../utils/quote';
 import { useQuoteTemplates } from '../contexts/QuoteTemplatesContext';
+import { useTenant } from '../contexts/TenantContext';
 import { useTenantPath } from '../hooks/useTenantPath';
 
 interface CartButtonProps {
@@ -25,6 +26,7 @@ export function CartButton({ variant = 'pill' }: CartButtonProps) {
   const { user } = useAuth();
   const { clients } = useClients();
   const tp = useTenantPath();
+  const { currentTenant } = useTenant();
   const { templates, defaultTemplateId } = useQuoteTemplates();
 
   // Selection du gabarit a appliquer aux devis imprimes depuis le panier.
@@ -94,14 +96,14 @@ export function CartButton({ variant = 'pill' }: CartButtonProps) {
       );
     }
 
-    if (user) {
+    if (user && currentTenant) {
       void Promise.all(
         toPersist.flatMap(({ ref, clientId, items }) =>
           items.map((item) => {
             const p = item.product;
             const cp = p.clariprintQuote;
             const totalHT = cp?.costs?.total ?? cp?.priceHT ?? p.price ?? 0;
-            return persistQuote(user.id, {
+            return persistQuote(user.id, currentTenant.id, {
               reference: ref,
               client_id: clientId,
               product_name: p.name,

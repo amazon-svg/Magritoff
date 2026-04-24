@@ -22,9 +22,19 @@ export interface QuoteRowInput {
   total_ttc: number;
 }
 
-export async function persistQuote(userId: string, input: QuoteRowInput) {
+/**
+ * Insere une ligne dans `quotes`. En v3, tenant_id est REQUIS par la RLS —
+ * il est donc passe explicitement par l'appelant (qui dispose du tenant
+ * courant via useTenant()).
+ */
+export async function persistQuote(
+  userId: string,
+  tenantId: string,
+  input: QuoteRowInput
+) {
   const { error } = await supabase.from('quotes').insert({
     user_id: userId,
+    tenant_id: tenantId,
     client_id: input.client_id,
     reference: input.reference,
     product_name: input.product_name,

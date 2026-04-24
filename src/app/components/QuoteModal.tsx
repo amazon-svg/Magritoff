@@ -4,6 +4,7 @@ import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useClients } from '../contexts/ClientsContext';
 import { useQuoteTemplates } from '../contexts/QuoteTemplatesContext';
+import { useTenant } from '../contexts/TenantContext';
 import { useTenantPath } from '../hooks/useTenantPath';
 import {
   makeQuoteReference,
@@ -24,6 +25,7 @@ export function QuoteModal({ isOpen, onClose, product, onClientChange }: QuoteMo
   const { user } = useAuth();
   const { clients } = useClients();
   const { templates, defaultTemplateId } = useQuoteTemplates();
+  const { currentTenant } = useTenant();
   const tp = useTenantPath();
 
   // Gabarit a appliquer a l'impression. Initialise sur le defaut utilisateur
@@ -58,8 +60,8 @@ export function QuoteModal({ isOpen, onClose, product, onClientChange }: QuoteMo
     const totalTTC = totalHT * 1.2;
     const reference = makeQuoteReference();
 
-    if (user) {
-      await persistQuote(user.id, {
+    if (user && currentTenant) {
+      await persistQuote(user.id, currentTenant.id, {
         reference,
         client_id: currentClientId || null,
         product_name: product.name,
