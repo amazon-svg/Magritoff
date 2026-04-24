@@ -26,6 +26,7 @@ import { DashboardShopEditor } from "./components/dashboard/DashboardShopEditor"
 import { DashboardAdminPIM } from "./components/dashboard/DashboardAdminPIM";
 import { DashboardTenantMembers } from "./components/dashboard/DashboardTenantMembers";
 import { DashboardTenantSpaces } from "./components/dashboard/DashboardTenantSpaces";
+import { DashboardTenantGammes } from "./components/dashboard/DashboardTenantGammes";
 import { PublicShop } from "./components/shop/PublicShop";
 
 /**
@@ -93,6 +94,7 @@ export const router = createBrowserRouter([
               // Nouveautes v3
               { path: "members", element: <DashboardTenantMembers /> },
               { path: "spaces", element: <DashboardTenantSpaces /> },
+              { path: "gammes", element: <DashboardTenantGammes /> },
               { path: "admin/pim", element: <DashboardAdminPIM /> },
             ],
           },

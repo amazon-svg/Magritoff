@@ -4,10 +4,12 @@ import { Plus, Library as LibraryIcon, Pencil, Trash2, X, Loader2, Sparkles } fr
 import { useLibrary, Library } from '../../contexts/LibraryContext';
 import { useClients } from '../../contexts/ClientsContext';
 import { usePlan } from '../../hooks/usePlan';
+import { useTenantPath } from '../../hooks/useTenantPath';
 import { UpgradeCTA } from './UpgradeCTA';
 
 export function DashboardLibraries() {
   const { canUse } = usePlan();
+  const tp = useTenantPath();
   const {
     libraries,
     librariesLoading,
@@ -110,7 +112,7 @@ export function DashboardLibraries() {
                 key={lib.id}
                 className="border border-gray-200 rounded-xl bg-white overflow-hidden hover:border-gray-400 transition-colors"
               >
-                <Link to={`/dashboard/library/${lib.id}`} className="block p-4">
+                <Link to={tp(`/dashboard/library/${lib.id}`)} className="block p-4">
                   <div className="flex items-start gap-2 mb-2">
                     <LibraryIcon className="w-5 h-5 text-gray-500 shrink-0 mt-0.5" />
                     <div className="min-w-0 flex-1">

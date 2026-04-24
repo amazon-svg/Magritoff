@@ -1,7 +1,7 @@
 import { Navigate, NavLink, Outlet, useLocation } from 'react-router';
 import {
   User, Settings, MessageSquare, FileText, ShoppingBag, Users,
-  CreditCard, Package, Store, Shield, LayoutTemplate, UserCog, Building,
+  CreditCard, Package, Store, Shield, LayoutTemplate, UserCog, Building, Layers,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlan } from '../../hooks/usePlan';
@@ -80,6 +80,7 @@ export function DashboardLayout() {
     {
       title: 'Config',
       items: [
+        { to: `${basePath}/gammes`, label: 'Gammes actives', icon: Layers, show: canManageMembers ?? false },
         { to: `${basePath}/plan`, label: 'Plan & abonnement', icon: CreditCard, show: true },
         { to: `${basePath}/preferences`, label: 'Préférences', icon: Settings, show: true },
       ],

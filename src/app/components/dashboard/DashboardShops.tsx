@@ -4,11 +4,13 @@ import { Plus, Store, Trash2, Copy, ExternalLink, X, Loader2 } from 'lucide-reac
 import { useShops, NewShopInput } from '../../contexts/ShopsContext';
 import { useClients } from '../../contexts/ClientsContext';
 import { usePlan } from '../../hooks/usePlan';
+import { useTenantPath } from '../../hooks/useTenantPath';
 import { UpgradeCTA } from './UpgradeCTA';
 
 export function DashboardShops() {
   const navigate = useNavigate();
   const { canUse } = usePlan();
+  const tp = useTenantPath();
   const { shops, loading, createShop, deleteShop } = useShops();
   const { clients } = useClients();
   const [modalOpen, setModalOpen] = useState(false);
@@ -32,7 +34,7 @@ export function DashboardShops() {
       if (shop) {
         setModalOpen(false);
         setDraft({ name: '', description: '', client_id: null });
-        navigate(`/dashboard/shops/${shop.id}`);
+        navigate(tp(`/dashboard/shops/${shop.id}`));
       }
     } catch (err: any) {
       setSaving(false);
@@ -74,7 +76,7 @@ export function DashboardShops() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <Link
-                        to={`/dashboard/shops/${shop.id}`}
+                        to={tp(`/dashboard/shops/${shop.id}`)}
                         className="font-semibold text-gray-900 hover:underline"
                       >
                         {shop.name}
