@@ -1,10 +1,21 @@
-import { useMemo, useState } from 'react';
-import { ChevronDown, ChevronRight, Sparkles, Pencil, Trash2, Plus, Loader2, Check, X, AlertCircle, Zap } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { ChevronDown, ChevronRight, Sparkles, Pencil, Trash2, Plus, Loader2, Check, X, AlertCircle, Zap, Download, Inbox, Play } from 'lucide-react';
 import { usePIM } from '../../contexts/PIMContext';
 import { useIsAdmin } from '../../hooks/useIsAdmin';
 import { useTenant } from '../../contexts/TenantContext';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
+import { supabase } from '/utils/supabase/client';
 import type { Gamme, ProductDefinition } from '../../utils/productEnrichment';
+
+// Type du rapport renvoye par l'edge function pim-ingest
+interface IngestReport {
+  dryRun: boolean;
+  totalCandidates: number;
+  matched: Array<{ candidateId: string; matchedTo: string; gamme: string }>;
+  rejected: Array<{ candidateId: string; reason: string }>;
+  enriched: Array<{ candidateId: string; definitionId: string; gamme: string }>;
+  errors: Array<{ candidateId: string; error: string }>;
+}
 
 const LOCALES = ['fr', 'en'];
 
@@ -30,6 +41,54 @@ export function DashboardAdminPIM() {
     current: string;
     errors: string[];
   }>({ running: false, done: 0, total: 0, current: '', errors: [] });
+
+  // ─── Ingestion queue ───────────────────────────────────────────────────
+  const [pendingCount, setPendingCount] = useState<number | null>(null);
+  const [ingestRunning, setIngestRunning] = useState<false | 'dry' | 'live'>(false);
+  const [ingestReport, setIngestReport] = useState<IngestReport | null>(null);
+  const [ingestError, setIngestError] = useState<string | null>(null);
+
+  const refreshPendingCount = async () => {
+    const { count, error } = await supabase
+      .from('pim_candidates')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'pending');
+    if (!error) setPendingCount(count ?? 0);
+  };
+
+  useEffect(() => {
+    if (hasAccess) refreshPendingCount();
+  }, [hasAccess]);
+
+  const runIngest = async (dryRun: boolean) => {
+    setIngestRunning(dryRun ? 'dry' : 'live');
+    setIngestError(null);
+    setIngestReport(null);
+    try {
+      const resp = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/pim-ingest`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${publicAnonKey}`,
+          },
+          body: JSON.stringify({ dryRun }),
+        }
+      );
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${await resp.text()}`);
+      const report = (await resp.json()) as IngestReport;
+      setIngestReport(report);
+      if (!dryRun) {
+        await refreshPendingCount();
+        await refresh(); // Refresh PIM context pour voir les nouvelles definitions
+      }
+    } catch (err) {
+      setIngestError((err as Error).message);
+    } finally {
+      setIngestRunning(false);
+    }
+  };
 
   const gammesByParent = useMemo(() => {
     const map = new Map<string | null, Gamme[]>();
@@ -372,6 +431,119 @@ export function DashboardAdminPIM() {
         </div>
       </div>
 
+      {/* ─── Pipeline d'ingestion automatique ─── */}
+      <div className="border border-gray-200 rounded-xl bg-white p-4 space-y-3">
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+              <Inbox className="w-4 h-4 text-indigo-600" />
+              File d'ingestion PIM
+              {pendingCount != null && pendingCount > 0 && (
+                <span className="ml-1 px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 text-xs font-semibold">
+                  {pendingCount} en attente
+                </span>
+              )}
+            </h3>
+            <p className="text-sm text-gray-600 max-w-2xl">
+              Les produits commandés sur les boutiques sont poussés ici par trigger DB.
+              L'ingestion auto vérifie la richesse du candidat, matche contre les définitions
+              existantes (dédup), et enrichit via Claude (SEO, commercial, FAQ) avant merge
+              dans le PIM global.
+            </p>
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            <button
+              onClick={() => runIngest(true)}
+              disabled={!!ingestRunning || (pendingCount ?? 0) === 0}
+              className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 text-sm font-medium flex items-center gap-2"
+              title="Simulation — aucun écrit en DB"
+            >
+              {ingestRunning === 'dry' ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Play className="w-4 h-4" />
+              )}
+              Simulation
+            </button>
+            <button
+              onClick={() => runIngest(false)}
+              disabled={!!ingestRunning || (pendingCount ?? 0) === 0}
+              className="px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-40 text-sm font-medium flex items-center gap-2"
+            >
+              {ingestRunning === 'live' ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
+              Lancer l'ingestion
+            </button>
+          </div>
+        </div>
+
+        {ingestError && (
+          <div className="px-3 py-2 rounded-lg bg-red-50 text-red-800 text-sm">
+            <strong>Erreur :</strong> {ingestError}
+          </div>
+        )}
+
+        {ingestReport && (
+          <div className="border-t border-gray-200 pt-3 space-y-2">
+            <div className="text-sm text-gray-700">
+              <strong>Rapport {ingestReport.dryRun ? '(simulation)' : 'd\'ingestion'}</strong>
+              {' · '}
+              {ingestReport.totalCandidates} candidat
+              {ingestReport.totalCandidates > 1 ? 's' : ''} traité
+              {ingestReport.totalCandidates > 1 ? 's' : ''}
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+              <ReportBadge
+                color="emerald"
+                label="Enrichis"
+                value={ingestReport.enriched.length}
+                hint="Nouveaux produits créés dans le PIM via Claude"
+              />
+              <ReportBadge
+                color="blue"
+                label="Matchés"
+                value={ingestReport.matched.length}
+                hint="Déjà dans le PIM, order_count incrémenté"
+              />
+              <ReportBadge
+                color="amber"
+                label="Rejetés"
+                value={ingestReport.rejected.length}
+                hint="Trop pauvres ou aucune gamme matchée"
+              />
+              <ReportBadge
+                color="red"
+                label="Erreurs"
+                value={ingestReport.errors.length}
+                hint="Candidats en échec, restés en pending"
+              />
+            </div>
+            {(ingestReport.rejected.length > 0 || ingestReport.errors.length > 0) && (
+              <details className="text-xs text-gray-600">
+                <summary className="cursor-pointer hover:text-gray-900">
+                  Détails rejets et erreurs
+                </summary>
+                <div className="mt-2 space-y-1 max-h-48 overflow-y-auto">
+                  {ingestReport.rejected.map((r) => (
+                    <div key={r.candidateId} className="font-mono">
+                      ⚠️ {r.candidateId.slice(0, 8)}… : {r.reason}
+                    </div>
+                  ))}
+                  {ingestReport.errors.map((e) => (
+                    <div key={e.candidateId} className="font-mono text-red-700">
+                      ❌ {e.candidateId.slice(0, 8)}… : {e.error}
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Actions batch */}
       <div className="border border-gray-200 rounded-xl bg-white p-4 space-y-3">
         <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -712,6 +884,35 @@ function GammeImageInput({
           }}
         />
       )}
+    </div>
+  );
+}
+
+// ─── Badge du rapport d'ingestion ────────────────────────────────────────
+function ReportBadge({
+  color,
+  label,
+  value,
+  hint,
+}: {
+  color: 'emerald' | 'blue' | 'amber' | 'red';
+  label: string;
+  value: number;
+  hint: string;
+}) {
+  const bg = {
+    emerald: 'bg-emerald-50 border-emerald-200 text-emerald-800',
+    blue: 'bg-blue-50 border-blue-200 text-blue-800',
+    amber: 'bg-amber-50 border-amber-200 text-amber-800',
+    red: 'bg-red-50 border-red-200 text-red-800',
+  }[color];
+  return (
+    <div
+      className={`px-3 py-2 rounded-lg border ${bg}`}
+      title={hint}
+    >
+      <div className="text-xs font-medium opacity-80">{label}</div>
+      <div className="text-xl font-bold">{value}</div>
     </div>
   );
 }
