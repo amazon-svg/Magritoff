@@ -95,25 +95,11 @@ export function DashboardShopEditor() {
     }
   }, [id, shops]);
 
-  if (!canUse('shops')) return <UpgradeCTA feature="Boutiques en ligne" />;
-  if (loading) return <p className="text-sm text-gray-500">Chargement...</p>;
-  if (!shop) {
-    return (
-      <div className="space-y-3">
-        <p className="text-sm text-gray-600">Boutique introuvable.</p>
-        <Link to={tp('/dashboard/shops')} className="text-sm text-blue-600 hover:underline">
-          ← Retour aux boutiques
-        </Link>
-      </div>
-    );
-  }
-
-  const publicUrl = `${window.location.origin}/shop/${shop.slug}`;
-
   // ─── Liste agregee des produits affichable dans la boutique ─────────────
-  // Les produits issus des bibliotheques liees (moins les exclus) + les
-  // shop_products legacy (sans product_id ou product_id hors-library).
+  // IMPORTANT : le useMemo doit etre declare AVANT les early returns (regle
+  // des hooks React). On gere le cas shop=null a l'interieur du callback.
   const displayProducts: DisplayProduct[] = useMemo(() => {
+    if (!shop) return [];
     const excluded = new Set(shop.excluded_product_ids ?? []);
     const libIds = new Set(shop.library_ids ?? []);
 
@@ -153,7 +139,24 @@ export function DashboardShopEditor() {
       }));
 
     return [...fromLibraries, ...fromShop];
-  }, [library, shopProducts, shop.excluded_product_ids, shop.library_ids]);
+    // On depend uniquement des champs primitifs du shop pour que la memo
+    // se recalcule quand library_ids ou excluded_product_ids changent.
+  }, [library, shopProducts, shop?.excluded_product_ids, shop?.library_ids]);
+
+  if (!canUse('shops')) return <UpgradeCTA feature="Boutiques en ligne" />;
+  if (loading) return <p className="text-sm text-gray-500">Chargement...</p>;
+  if (!shop) {
+    return (
+      <div className="space-y-3">
+        <p className="text-sm text-gray-600">Boutique introuvable.</p>
+        <Link to={tp('/dashboard/shops')} className="text-sm text-blue-600 hover:underline">
+          ← Retour aux boutiques
+        </Link>
+      </div>
+    );
+  }
+
+  const publicUrl = `${window.location.origin}/shop/${shop.slug}`;
 
   // ─── Actions shop ────────────────────────────────────────────────────────
 
