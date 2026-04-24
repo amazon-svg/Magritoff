@@ -43,8 +43,17 @@ export function PublicShop() {
   const [pimGammes, setPimGammes] = useState<Gamme[]>([]);
   const [pimDefinitions, setPimDefinitions] = useState<ProductDefinition[]>([]);
 
-  // Fonction refetch produits (peut être appelee pour rafraichir a chaud)
-  const refetchProducts = async (shopId: string, libraryIds: string[]) => {
+  // Fonction refetch produits (peut être appelee pour rafraichir a chaud).
+  // v3 : on filtre les excluded_product_ids (produits retires de la
+  // boutique mais gardes dans la bibliotheque via le dialog "Juste de
+  // cette boutique" dans DashboardShopEditor).
+  const refetchProducts = async (
+    shopId: string,
+    libraryIds: string[],
+    excludedIds: string[] = []
+  ) => {
+    const excludedSet = new Set(excludedIds);
+
     const { data: prodData } = await supabase
       .from('shop_products')
       .select('*')
@@ -61,19 +70,21 @@ export function PublicShop() {
         .eq('active', true)
         .order('created_at', { ascending: false });
       if (libData) {
-        linked = (libData as any[]).map((p) => ({
-          id: `lib-${p.id}`,
-          shop_id: shopId,
-          product_id: p.id,
-          name: p.name,
-          category: p.category || 'Autres',
-          description: p.description || '',
-          price_ht: Number(p.price_ht) || 0,
-          image_url: p.image_url || '',
-          config: p.config || {},
-          display_order: 0,
-          created_at: p.created_at,
-        })) as ShopProduct[];
+        linked = (libData as any[])
+          .filter((p) => !excludedSet.has(p.id))
+          .map((p) => ({
+            id: `lib-${p.id}`,
+            shop_id: shopId,
+            product_id: p.id,
+            name: p.name,
+            category: p.category || 'Autres',
+            description: p.description || '',
+            price_ht: Number(p.price_ht) || 0,
+            image_url: p.image_url || '',
+            config: p.config || {},
+            display_order: 0,
+            created_at: p.created_at,
+          })) as ShopProduct[];
       }
     }
     const manualIds = new Set(manual.map((p) => p.product_id).filter(Boolean));
@@ -103,8 +114,11 @@ export function PublicShop() {
       const libraryIds = Array.isArray((shopData as Shop).library_ids)
         ? (shopData as Shop).library_ids
         : [];
+      const excludedIds = Array.isArray((shopData as Shop).excluded_product_ids)
+        ? (shopData as Shop).excluded_product_ids
+        : [];
 
-      await refetchProducts((shopData as Shop).id, libraryIds);
+      await refetchProducts((shopData as Shop).id, libraryIds, excludedIds);
 
       // PIM lecture publique
       const [gr, dr] = await Promise.all([
@@ -124,12 +138,12 @@ export function PublicShop() {
         .on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'shop_products' },
-          () => refetchProducts((shopData as Shop).id, libraryIds)
+          () => refetchProducts((shopData as Shop).id, libraryIds, excludedIds)
         )
         .on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'product_library' },
-          () => refetchProducts((shopData as Shop).id, libraryIds)
+          () => refetchProducts((shopData as Shop).id, libraryIds, excludedIds)
         )
         .subscribe();
     })();
@@ -138,7 +152,10 @@ export function PublicShop() {
     const onFocus = () => {
       if (shop) {
         const libraryIds = Array.isArray(shop.library_ids) ? shop.library_ids : [];
-        refetchProducts(shop.id, libraryIds);
+        const excludedIds = Array.isArray(shop.excluded_product_ids)
+          ? shop.excluded_product_ids
+          : [];
+        refetchProducts(shop.id, libraryIds, excludedIds);
       }
     };
     window.addEventListener('focus', onFocus);

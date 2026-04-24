@@ -29,6 +29,7 @@ export interface Shop {
   contact_email: string;
   active: boolean;
   library_ids: string[];
+  excluded_product_ids: string[];
   created_at?: string;
 }
 
@@ -73,6 +74,12 @@ interface ShopsContextType {
   addShopProduct: (shopId: string, product: Omit<ShopProduct, 'id' | 'shop_id' | 'created_at'>) => Promise<void>;
   updateShopProduct: (id: string, patch: Partial<ShopProduct>) => Promise<void>;
   removeShopProduct: (id: string) => Promise<void>;
+  /** Ajoute un product_library.id a shops.excluded_product_ids : masque
+   *  ce produit de la boutique sans le supprimer de la bibliotheque. */
+  excludeProduct: (shopId: string, libraryProductId: string) => Promise<void>;
+  /** Retire un product_library.id de shops.excluded_product_ids (le produit
+   *  reapparait dans la boutique si sa bibliotheque est toujours liee). */
+  includeProduct: (shopId: string, libraryProductId: string) => Promise<void>;
 }
 
 const ShopsContext = createContext<ShopsContextType | undefined>(undefined);
@@ -125,6 +132,7 @@ export function ShopsProvider({ children }: { children: ReactNode }) {
         theme: { ...DEFAULT_THEME, ...(input.theme ?? {}) },
         active: true,
         library_ids: [],
+        excluded_product_ids: [],
       })
       .select()
       .single();
@@ -210,6 +218,27 @@ export function ShopsProvider({ children }: { children: ReactNode }) {
     if (error) console.error('[Shops] remove product failed', error.message);
   };
 
+  // Exclusions : ajoute/retire un product_library.id du array
+  // shops.excluded_product_ids. Permet de masquer un produit dans une
+  // boutique sans le supprimer de la bibliotheque associee.
+  const excludeProduct = async (shopId: string, libraryProductId: string) => {
+    const target = shops.find((s) => s.id === shopId);
+    if (!target) return;
+    const current = target.excluded_product_ids ?? [];
+    if (current.includes(libraryProductId)) return;
+    const next = [...current, libraryProductId];
+    await updateShop(shopId, { excluded_product_ids: next });
+  };
+
+  const includeProduct = async (shopId: string, libraryProductId: string) => {
+    const target = shops.find((s) => s.id === shopId);
+    if (!target) return;
+    const current = target.excluded_product_ids ?? [];
+    if (!current.includes(libraryProductId)) return;
+    const next = current.filter((id) => id !== libraryProductId);
+    await updateShop(shopId, { excluded_product_ids: next });
+  };
+
   return (
     <ShopsContext.Provider
       value={{
@@ -223,6 +252,8 @@ export function ShopsProvider({ children }: { children: ReactNode }) {
         addShopProduct,
         updateShopProduct,
         removeShopProduct,
+        excludeProduct,
+        includeProduct,
       }}
     >
       {children}
