@@ -298,7 +298,7 @@ export function ProductCard({
                       kind={localProduct.clariprintData?.kind}
                       category={enriched?.gamme?.name}
                       corner={!selectable ? localProduct.clariprintData?.kind : undefined}
-                      className="absolute inset-0"
+                      className="w-full h-full"
                     />
                   );
                 }

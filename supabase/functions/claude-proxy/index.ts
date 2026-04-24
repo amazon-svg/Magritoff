@@ -426,10 +426,11 @@ Deno.serve(async (req) => {
     // System prompt pour structurer les réponses de Claude
     const systemPrompt = `Tu es un assistant spécialisé dans le web-to-print et l'imprimerie française (comme Vistaprint, Mixam, Exaprint).
 
-IMPORTANT : Tu dois répondre UNIQUEMENT avec un objet JSON valide contenant un tableau "products". Pas de texte avant ou après.
+IMPORTANT : Tu dois répondre UNIQUEMENT avec un objet JSON valide. Pas de texte avant ou après.
 
 Format de réponse OBLIGATOIRE :
 {
+  "teachingNote": "Commentaire pédagogique en markdown (OPTIONNEL — vide ou absent pour les demandes classiques). À remplir UNIQUEMENT pour les questions de COMPARAISON, PÉDAGOGIE ou CONSEIL. Voir règles plus bas.",
   "products": [
     {
       "productName": "Nom du produit (inclure la variation, ex: 'Carte de visite coins ronds recto/verso')",
@@ -467,6 +468,27 @@ RÈGLES GÉNÉRALES :
 - Pour les brochures, ajoute le champ "pages".
 - Formats : A4 (210×297mm), A5 (148×210mm), A6 (105×148mm), A2 (420×594mm), A3 (297×420mm).
 - Cartes de visite standard : 85×55mm.
+
+RÈGLES POUR LES QUESTIONS PÉDAGOGIQUES / COMPARATIVES :
+Détecte les questions du type :
+- "C'est quoi la différence entre X et Y ?"
+- "Quel est le meilleur papier pour... ?"
+- "Comment choisir entre... ?"
+- "Quelle différence entre pelliculage mat et brillant ?"
+- "Couché ou non couché ?"
+- "Explique-moi X"
+- "Conseille-moi entre..."
+
+Pour ces questions tu DOIS :
+1. Remplir \`teachingNote\` avec une explication pédagogique en markdown :
+   - Un paragraphe d'explication générale (2-4 phrases)
+   - Une section "**En pratique**" avec 2-3 bullets ("- Couché : ..." / "- Non couché : ...")
+   - Une section "**À retenir**" avec les points clés techniques
+   - Ton professionnel mais accessible, tutoyer.
+   - Pas de quantité ni prix dans le teachingNote, uniquement du contenu métier.
+2. Générer 2 ou 3 produits comparatifs dans \`products\` pour illustrer la différence. Prends un produit typique (ex: carte de visite, flyer A5) et décline-le en 2-3 variantes qui illustrent la question posée. Chaque produit a une quantité raisonnable (500 ou 1000) pour montrer un prix comparable.
+
+Pour les demandes de CALCUL DE PRIX classiques (ex: "500 flyers A5 130g"), LAISSE teachingNote vide ou absent.
 
 RÈGLES POUR LES DEMANDES EN NOMBRE / CATALOGUE (CMS e-commerce) :
 Si l'utilisateur demande plusieurs produits DIFFÉRENTS d'une même gamme ou famille (ex: "15 produits de la gamme carterie", "10 variantes de flyers", "8 modèles de cartes"), tu dois générer AUTANT D'ENTRÉES DISTINCTES dans le tableau "products" que demandé, chacune étant une VARIATION UNIQUE basée sur :
@@ -537,26 +559,33 @@ IMPORTANT : si l'utilisateur demande 15 produits, le tableau "products" DOIT con
       const responseText = data.content[0].text;
       console.log("📝 Réponse brute de Claude:", responseText);
       
-      let parsedConfigs = [];
+      let parsedConfigs: any[] = [];
+      let teachingNote: string | null = null;
       try {
         // D'abord essayer de parser directement comme JSON
         try {
           const directJson = JSON.parse(responseText);
           if (directJson.products && Array.isArray(directJson.products)) {
             parsedConfigs = directJson.products;
-            console.log(`✅ JSON parsé directement : ${parsedConfigs.length} produit(s)`);
+            if (typeof directJson.teachingNote === 'string' && directJson.teachingNote.trim()) {
+              teachingNote = directJson.teachingNote.trim();
+            }
+            console.log(`✅ JSON parsé directement : ${parsedConfigs.length} produit(s)`
+              + (teachingNote ? ` + teachingNote (${teachingNote.length} chars)` : ''));
           }
         } catch (directParseError) {
           console.log("⚠️ Parsing JSON direct échoué, tentative d'extraction via regex...");
-          
-          // Sinon, extraire le JSON de la réponse (au cas où Claude ajoute du texte avant/après)
-          // Rechercher le pattern { ... "products": [...] ... }
-          const jsonMatch = responseText.match(/\{[\s\S]*?"products"[\s\S]*?\[[^\]]*\][\s\S]*?\}/);
+          // Sinon extraire le JSON de la réponse (Claude peut ajouter du texte autour)
+          const jsonMatch = responseText.match(/\{[\s\S]*"products"[\s\S]*\}/);
           if (jsonMatch) {
             console.log("📄 JSON extrait via regex:", jsonMatch[0].substring(0, 200));
             const jsonResponse = JSON.parse(jsonMatch[0]);
             parsedConfigs = jsonResponse.products || [];
-            console.log(`✅ ${parsedConfigs.length} produit(s) parsé(s) depuis la réponse Claude via regex`);
+            if (typeof jsonResponse.teachingNote === 'string' && jsonResponse.teachingNote.trim()) {
+              teachingNote = jsonResponse.teachingNote.trim();
+            }
+            console.log(`✅ ${parsedConfigs.length} produit(s) parsé(s) via regex`
+              + (teachingNote ? ` + teachingNote` : ''));
           } else {
             console.log("⚠️ Pas de JSON trouvé dans la réponse, fallback au mode démo");
             parsedConfigs = generateMultipleConfigs(userMessage);
@@ -568,17 +597,18 @@ IMPORTANT : si l'utilisateur demande 15 produits, le tableau "products" DOIT con
         parsedConfigs = generateMultipleConfigs(userMessage);
       }
 
-      console.log("🎯 Configs finales à envoyer:", parsedConfigs.map(c => `${c.productName} (${c.quantity})`));
+      console.log("🎯 Configs finales à envoyer:", parsedConfigs.map((c: any) => `${c.productName} (${c.quantity})`));
 
       return new Response(
         JSON.stringify({
           success: true,
-          configs: parsedConfigs, // Retourner le tableau de configs
+          configs: parsedConfigs,
+          teachingNote, // string ou null : commentaire pédagogique pour questions de comparaison/conseil
           content: data.content,
           rawResponse: responseText,
           demoMode: false,
         }),
-        { 
+        {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );

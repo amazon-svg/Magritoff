@@ -346,6 +346,7 @@ const CLAUDE_SYSTEM_PROMPT = `Tu es un expert en imprimerie professionnelle et w
 
 FORMAT DE RÉPONSE OBLIGATOIRE :
 {
+  "teachingNote": "OPTIONNEL — Commentaire pédagogique en markdown. Voir règles spéciales en bas du prompt. Laisse vide ou omet ce champ pour les demandes classiques.",
   "products": [
     {
       "clariprint": {
@@ -451,7 +452,29 @@ RÈGLES IMPORTANTES :
 - Toujours inclure "deliveries" avec iso "FR-75" et la MÊME quantity (en string) que le produit
 - Toujours 3 suggestions minimum avec prix indicatifs en euros
 - Suggestions commencent par "•"
-- Réponds UNIQUEMENT en JSON valide. Aucun texte hors JSON.`;
+- Réponds UNIQUEMENT en JSON valide. Aucun texte hors JSON.
+
+🎓 RÈGLES SPÉCIALES — QUESTIONS PÉDAGOGIQUES / COMPARATIVES :
+Détecte les questions du type :
+- "C'est quoi la différence entre X et Y ?"
+- "Quel est le meilleur papier pour ... ?"
+- "Comment choisir entre ... ?"
+- "Pelliculage mat ou brillant ?"
+- "Couché ou non couché ?"
+- "Quel grammage pour ... ?"
+- "Explique-moi X"
+- "Conseille-moi entre..."
+
+Pour ces questions tu DOIS :
+1. Remplir le champ "teachingNote" au TOP du JSON (hors "products") avec une explication en markdown :
+   - 1 paragraphe d'explication générale (2-4 phrases)
+   - Une section "**En pratique**" avec 2-3 bullets type "- Couché : ..." / "- Non couché : ..."
+   - Une section "**À retenir**" avec les points clés techniques
+   - Ton professionnel mais accessible, tutoyer.
+   - Pas de quantité ni prix dans teachingNote, uniquement du contenu métier éducatif.
+2. Générer 2 ou 3 produits COMPARATIFS dans "products" pour illustrer concrètement la différence. Prends un produit typique (carte de visite, flyer A5) et décline-le en 2-3 variantes qui illustrent la question. Quantité raisonnable (500 ou 1000). Chaque variante doit être UNIQUE sur l'axe de la question posée.
+
+Pour les demandes de CALCUL DE PRIX / CATALOGUE classiques, LAISSE teachingNote vide ou omet-le complètement.`;
 
 // ============================================================================
 // API ENDPOINTS
@@ -631,10 +654,17 @@ app.post("/make-server-e3db71a4/claude-proxy", async (c) => {
         .trim();
 
       let configs: any[] = [];
+      let teachingNote: string | null = null;
       try {
         const parsed = JSON.parse(rawText);
         configs = Array.isArray(parsed.products) ? parsed.products : [];
-        console.log(`✅ JSON parsé : ${configs.length} produit(s)`);
+        if (typeof parsed.teachingNote === "string" && parsed.teachingNote.trim()) {
+          teachingNote = parsed.teachingNote.trim();
+        }
+        console.log(
+          `✅ JSON parsé : ${configs.length} produit(s)` +
+            (teachingNote ? ` + teachingNote (${teachingNote.length} chars)` : "")
+        );
       } catch (parseError) {
         console.error("❌ Impossible de parser le JSON de Claude:", parseError);
         console.error("Texte brut:", rawText.substring(0, 500));
@@ -642,12 +672,13 @@ app.post("/make-server-e3db71a4/claude-proxy", async (c) => {
         configs = generateDemoConfigs(userMessage);
       }
 
-      // Générer le résumé lisible pour le chat
+      // Générer le résumé lisible pour le chat (utilisé si pas de teachingNote)
       const readableSummary = generateReadableSummary(configs);
 
       return c.json({
         content: [{ type: "text", text: readableSummary }],
         configs: configs,
+        teachingNote, // string ou null — commentaire pédagogique pour questions comparatives
         model: data.model,
         usage: data.usage,
         demoMode: false,

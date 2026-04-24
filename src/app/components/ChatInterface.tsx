@@ -134,11 +134,26 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
       }
 
       const data = await response.json();
-      assistantMessage =
-        data.content?.[0]?.text ||
-        "Désolé, je n'ai pas pu traiter votre demande.";
 
-      setMessages((prev) => [...prev, { role: "assistant", content: assistantMessage }]);
+      // v3 : le edge function peut retourner un teachingNote (reponse
+      // pedagogique en markdown) pour les questions du type
+      // "quelle difference entre X et Y", "quel papier choisir pour...".
+      // S'il est present, c'est ce qu'on affiche dans le message assistant,
+      // sinon on fallback sur un texte generique (on n'affiche plus le
+      // JSON brut de Claude qui etait illisible).
+      if (typeof data.teachingNote === "string" && data.teachingNote.trim()) {
+        assistantMessage = data.teachingNote.trim();
+      } else if (data.configs && Array.isArray(data.configs) && data.configs.length > 0) {
+        // Demande classique : on laisse les ProductCards parler d'elles-memes.
+        assistantMessage = "";
+      } else {
+        assistantMessage = "Désolé, je n'ai pas pu traiter votre demande.";
+      }
+
+      // Ne push un message assistant que s'il a du contenu utile a afficher.
+      if (assistantMessage) {
+        setMessages((prev) => [...prev, { role: "assistant", content: assistantMessage }]);
+      }
       setIsDemoMode(!!data.demoMode);
 
       if (data.configs && Array.isArray(data.configs) && data.configs.length > 0) {
@@ -353,10 +368,11 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
             )}
 
             {/* Messages (sans bulles, Claude-like).
-                Quand des productcards sont affichees, on masque les messages
-                assistants texte — les infos sont deja dans la productcard, pas
-                de doublon. Les messages user restent visibles (contextualisent
-                la demande). */}
+                v3 : les messages assistants restent AFFICHES meme quand des
+                productcards sont presentes, parce qu'ils peuvent contenir un
+                "teachingNote" pedagogique pour les questions de comparaison
+                (ex: couche vs non couche). Rendu markdown simple (bold,
+                bullets, titres) via le helper renderMarkdown. */}
             <div className="space-y-6">
               {messages.map((message, index) => {
                 if (message.role === "user") {
@@ -371,15 +387,14 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
                     </div>
                   );
                 }
-                // Message assistant : masque si au moins un produit est affiche.
-                if (message.role === "assistant" && products.length === 0) {
+                if (message.role === "assistant" && message.content.trim()) {
                   return (
                     <div
                       key={index}
-                      className="text-ink-2 whitespace-pre-line"
+                      className="text-ink-2"
                       style={{ fontSize: "15.5px", lineHeight: 1.65, fontWeight: 300 }}
                     >
-                      {message.content}
+                      {renderMarkdown(message.content)}
                     </div>
                   );
                 }
@@ -709,4 +724,101 @@ function ChipTool({
       {label}
     </button>
   );
+}
+
+// ─── Rendu markdown tres light (bold, listes, titres) ─────────────────────
+// Pas de dep externe. Gere **bold**, `- item`, `## Titre`, lignes vides.
+// Appeles sur des texts courts (teachingNotes), pas un risque de perf.
+function renderMarkdown(text: string): React.ReactNode[] {
+  const lines = text.split("\n");
+  const out: React.ReactNode[] = [];
+  let listBuffer: string[] = [];
+
+  const flushList = () => {
+    if (listBuffer.length === 0) return;
+    out.push(
+      <ul
+        key={`ul-${out.length}`}
+        className="list-disc list-outside pl-5 my-2 space-y-1"
+      >
+        {listBuffer.map((item, i) => (
+          <li key={i}>{renderInline(item)}</li>
+        ))}
+      </ul>
+    );
+    listBuffer = [];
+  };
+
+  lines.forEach((raw, i) => {
+    const line = raw.trimEnd();
+    const bulletMatch = line.match(/^\s*[-*]\s+(.+)/);
+    const h2Match = line.match(/^##\s+(.+)/);
+    const h3Match = line.match(/^###\s+(.+)/);
+
+    if (bulletMatch) {
+      listBuffer.push(bulletMatch[1]);
+      return;
+    }
+    flushList();
+
+    if (h2Match) {
+      out.push(
+        <h3
+          key={`h2-${i}`}
+          className="text-ink mt-3 mb-1"
+          style={{ fontSize: "15.5px", fontWeight: 500 }}
+        >
+          {renderInline(h2Match[1])}
+        </h3>
+      );
+      return;
+    }
+    if (h3Match) {
+      out.push(
+        <h4
+          key={`h3-${i}`}
+          className="text-ink mt-2 mb-1"
+          style={{ fontSize: "14.5px", fontWeight: 500 }}
+        >
+          {renderInline(h3Match[1])}
+        </h4>
+      );
+      return;
+    }
+    if (line.trim() === "") {
+      out.push(<div key={`sp-${i}`} className="h-2" />);
+      return;
+    }
+    out.push(
+      <p key={`p-${i}`} className="my-1">
+        {renderInline(line)}
+      </p>
+    );
+  });
+  flushList();
+  return out;
+}
+
+// Gere **bold** dans une ligne inline.
+function renderInline(text: string): React.ReactNode {
+  const parts: React.ReactNode[] = [];
+  const regex = /\*\*([^*]+)\*\*/g;
+  let lastIndex = 0;
+  let match;
+  let idx = 0;
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
+    }
+    parts.push(
+      <strong key={`b-${idx++}`} className="text-ink" style={{ fontWeight: 500 }}>
+        {match[1]}
+      </strong>
+    );
+    lastIndex = regex.lastIndex;
+  }
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+  return parts;
 }
