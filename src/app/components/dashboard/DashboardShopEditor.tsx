@@ -6,12 +6,14 @@ import { useLibrary } from '../../contexts/LibraryContext';
 import { useClients } from '../../contexts/ClientsContext';
 import { usePIM } from '../../contexts/PIMContext';
 import { usePlan } from '../../hooks/usePlan';
+import { useTenantPath } from '../../hooks/useTenantPath';
 import { UpgradeCTA } from './UpgradeCTA';
 import { exportShopToShopifyCsv, exportShopToJson } from '../../utils/shopExport';
 
 export function DashboardShopEditor() {
   const { id } = useParams<{ id: string }>();
   const { canUse } = usePlan();
+  const tp = useTenantPath();
   const { shops, updateShop, getShopProducts, addShopProduct, removeShopProduct } = useShops();
   const { products: library, libraries, productsByLibrary } = useLibrary();
   const { clients } = useClients();
@@ -46,7 +48,7 @@ export function DashboardShopEditor() {
     return (
       <div className="space-y-3">
         <p className="text-sm text-gray-600">Boutique introuvable.</p>
-        <Link to="/dashboard/shops" className="text-sm text-blue-600 hover:underline">
+        <Link to={tp('/dashboard/shops')} className="text-sm text-blue-600 hover:underline">
           ← Retour aux boutiques
         </Link>
       </div>
@@ -147,7 +149,7 @@ export function DashboardShopEditor() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <Link to="/dashboard/shops" className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900">
+        <Link to={tp('/dashboard/shops')} className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900">
           <ArrowLeft className="w-4 h-4" />
           Retour
         </Link>
@@ -395,7 +397,7 @@ export function DashboardShopEditor() {
         {libraries.length === 0 ? (
           <p className="text-sm text-gray-500 italic">
             Aucune bibliothèque.{' '}
-            <Link to="/dashboard/library" className="text-blue-600 hover:underline">
+            <Link to={tp('/dashboard/library')} className="text-blue-600 hover:underline">
               Crée-en une
             </Link>
           </p>
@@ -441,7 +443,7 @@ export function DashboardShopEditor() {
         {libraries.length === 0 ? (
           <p className="text-sm text-gray-500 italic">
             Aucune bibliothèque.{' '}
-            <Link to="/dashboard/library" className="text-blue-600 hover:underline">
+            <Link to={tp('/dashboard/library')} className="text-blue-600 hover:underline">
               Crée-en une
             </Link>
           </p>
@@ -480,7 +482,7 @@ export function DashboardShopEditor() {
         {library.length === 0 ? (
           <p className="text-sm text-gray-500 italic">
             Votre bibliothèque est vide.{' '}
-            <Link to="/dashboard/library" className="text-blue-600 hover:underline">
+            <Link to={tp('/dashboard/library')} className="text-blue-600 hover:underline">
               Ajouter des produits
             </Link>
           </p>

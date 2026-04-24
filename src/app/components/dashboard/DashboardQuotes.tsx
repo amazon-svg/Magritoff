@@ -3,6 +3,7 @@ import { FileText, Download, Plus, Search, Filter } from 'lucide-react';
 import { Link } from 'react-router';
 import { supabase } from '/utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTenantPath } from '../../hooks/useTenantPath';
 
 // Design source : .design-handoff/designs/04 - Admin dashboard.html
 // Pattern : Linear-dense — KPIs inline + sparklines + filtres segmentes + table compacte.
@@ -29,6 +30,7 @@ const STATUS_LABEL: Record<string, { label: string; cls: string }> = {
 
 export function DashboardQuotes() {
   const { user } = useAuth();
+  const tp = useTenantPath();
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterKey>('all');
@@ -127,7 +129,7 @@ export function DashboardQuotes() {
             Exporter
           </button>
           <Link
-            to="/dashboard/quote-templates"
+            to={tp('/dashboard/quote-templates')}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-line bg-paper text-ink-2 hover:bg-bg"
             style={{ fontSize: '13px', fontWeight: 400 }}
           >

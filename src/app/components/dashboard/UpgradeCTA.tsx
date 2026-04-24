@@ -1,11 +1,13 @@
 import { Link } from 'react-router';
 import { Lock, Sparkles } from 'lucide-react';
+import { useTenantPath } from '../../hooks/useTenantPath';
 
 interface Props {
   feature: string;
 }
 
 export function UpgradeCTA({ feature }: Props) {
+  const tp = useTenantPath();
   return (
     <div className="max-w-lg mx-auto text-center py-12">
       <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-amber-100 text-amber-600 mb-4">
@@ -17,7 +19,7 @@ export function UpgradeCTA({ feature }: Props) {
         <strong>Enterprise</strong>.
       </p>
       <Link
-        to="/dashboard/plan"
+        to={tp('/dashboard/plan')}
         className="inline-flex items-center gap-2 px-5 py-2.5 bg-gray-900 text-white rounded-lg hover:bg-gray-800 font-medium"
       >
         <Sparkles className="w-4 h-4" />

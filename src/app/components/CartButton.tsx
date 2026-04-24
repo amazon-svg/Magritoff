@@ -10,6 +10,7 @@ import {
   renderQuoteHtml,
 } from '../utils/quote';
 import { useQuoteTemplates } from '../contexts/QuoteTemplatesContext';
+import { useTenantPath } from '../hooks/useTenantPath';
 
 interface CartButtonProps {
   /** `rail` : icon-only, pour le rail lateral du chat v2.
@@ -23,6 +24,7 @@ export function CartButton({ variant = 'pill' }: CartButtonProps) {
   const { items, removeFromCart, clearCart, getTotalPrice, updateItemClient } = useCart();
   const { user } = useAuth();
   const { clients } = useClients();
+  const tp = useTenantPath();
   const { templates, defaultTemplateId } = useQuoteTemplates();
 
   // Selection du gabarit a appliquer aux devis imprimes depuis le panier.
@@ -286,7 +288,7 @@ export function CartButton({ variant = 'pill' }: CartButtonProps) {
                               <p className="text-ink-mute-2" style={{ fontSize: '12px' }}>
                                 Aucun client.{' '}
                                 <a
-                                  href="/dashboard/clients"
+                                  href={tp('/dashboard/clients')}
                                   className="text-brand hover:underline"
                                 >
                                   Ajouter un client
@@ -396,7 +398,7 @@ export function CartButton({ variant = 'pill' }: CartButtonProps) {
                     </select>
                   </div>
                   <a
-                    href="/dashboard/quote-templates"
+                    href={tp('/dashboard/quote-templates')}
                     className="text-ink-muted hover:text-ink underline"
                     style={{ fontSize: '12px' }}
                   >

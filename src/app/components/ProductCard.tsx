@@ -10,6 +10,7 @@ import { useClients } from "../contexts/ClientsContext";
 import { useLibrary } from "../contexts/LibraryContext";
 import { usePIM } from "../contexts/PIMContext";
 import { usePlan } from "../hooks/usePlan";
+import { useTenantPath } from "../hooks/useTenantPath";
 import { LibraryPickerModal } from "./LibraryPickerModal";
 import { enrichProduct } from "../utils/productEnrichment";
 import { ProductMockup } from "./brand/ProductMockup";
@@ -86,6 +87,7 @@ export function ProductCard({
   const { addProduct: addToLibrary } = useLibrary();
   const { gammes, definitions } = usePIM();
   const { canUse } = usePlan();
+  const tp = useTenantPath();
   const [localProduct, setLocalProduct] = useState(product);
   const [activeTab, setActiveTab] = useState<TabType>(null);
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
@@ -1053,7 +1055,7 @@ export function ProductCard({
                     clients.length === 0 ? (
                       <p className="text-sm text-ink-muted bg-bg border border-line rounded-lg px-3 py-2">
                         Aucun client enregistré. Créez-en un depuis{" "}
-                        <a href="/dashboard/clients" className="text-brand hover:underline">
+                        <a href={tp('/dashboard/clients')} className="text-brand hover:underline">
                           le tableau de bord
                         </a>
                         .

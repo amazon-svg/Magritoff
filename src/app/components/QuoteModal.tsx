@@ -4,6 +4,7 @@ import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useClients } from '../contexts/ClientsContext';
 import { useQuoteTemplates } from '../contexts/QuoteTemplatesContext';
+import { useTenantPath } from '../hooks/useTenantPath';
 import {
   makeQuoteReference,
   persistQuote,
@@ -23,6 +24,7 @@ export function QuoteModal({ isOpen, onClose, product, onClientChange }: QuoteMo
   const { user } = useAuth();
   const { clients } = useClients();
   const { templates, defaultTemplateId } = useQuoteTemplates();
+  const tp = useTenantPath();
 
   // Gabarit a appliquer a l'impression. Initialise sur le defaut utilisateur
   // (ou builtin-classique si aucun defaut), mais l'user peut en choisir un
@@ -205,14 +207,14 @@ export function QuoteModal({ isOpen, onClose, product, onClientChange }: QuoteMo
               <>
                 <Star className="w-3 h-3" strokeWidth={1.5} />
                 Gabarit appliqué par défaut — modifiable dans{' '}
-                <a href="/dashboard/quote-templates" className="text-blue-600 hover:underline">
+                <a href={tp('/dashboard/quote-templates')} className="text-blue-600 hover:underline">
                   Devis › Gabarits
                 </a>
               </>
             ) : (
               <>
                 Gabarit temporaire pour cette impression.{' '}
-                <a href="/dashboard/quote-templates" className="text-blue-600 hover:underline">
+                <a href={tp('/dashboard/quote-templates')} className="text-blue-600 hover:underline">
                   Changer mon gabarit par défaut
                 </a>
               </>
@@ -227,7 +229,7 @@ export function QuoteModal({ isOpen, onClose, product, onClientChange }: QuoteMo
             {clients.length === 0 ? (
               <p className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
                 Aucun client enregistré.{' '}
-                <a href="/dashboard/clients" className="text-blue-600 hover:underline">
+                <a href={tp('/dashboard/clients')} className="text-blue-600 hover:underline">
                   Ajouter un client
                 </a>
               </p>

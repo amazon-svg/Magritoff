@@ -4,11 +4,13 @@ import { ArrowLeft, Package, Pencil, Trash2, X, Loader2 } from 'lucide-react';
 import { useLibrary, LibraryProduct } from '../../contexts/LibraryContext';
 import { useClients } from '../../contexts/ClientsContext';
 import { usePlan } from '../../hooks/usePlan';
+import { useTenantPath } from '../../hooks/useTenantPath';
 import { UpgradeCTA } from './UpgradeCTA';
 
 export function DashboardLibraryDetail() {
   const { id } = useParams<{ id: string }>();
   const { canUse } = usePlan();
+  const tp = useTenantPath();
   const { libraries, productsByLibrary, updateProduct, deleteProduct } = useLibrary();
   const { clients } = useClients();
 
@@ -23,7 +25,7 @@ export function DashboardLibraryDetail() {
   if (!library) {
     return (
       <div className="space-y-3">
-        <Link to="/dashboard/library" className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900">
+        <Link to={tp('/dashboard/library')} className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900">
           <ArrowLeft className="w-4 h-4" />
           Retour aux bibliothèques
         </Link>
@@ -59,7 +61,7 @@ export function DashboardLibraryDetail() {
 
   return (
     <div className="space-y-5">
-      <Link to="/dashboard/library" className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900">
+      <Link to={tp('/dashboard/library')} className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900">
         <ArrowLeft className="w-4 h-4" />
         Retour aux bibliothèques
       </Link>
