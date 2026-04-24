@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FileText, Download, Plus, Search, Filter } from 'lucide-react';
+import { Link } from 'react-router';
 import { supabase } from '/utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -125,7 +126,17 @@ export function DashboardQuotes() {
             <Download className="w-3.5 h-3.5" strokeWidth={1.5} />
             Exporter
           </button>
+          <Link
+            to="/dashboard/quote-templates"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-line bg-paper text-ink-2 hover:bg-bg"
+            style={{ fontSize: '13px', fontWeight: 400 }}
+          >
+            Gabarits
+          </Link>
           <button
+            onClick={() => {
+              window.location.href = '/';
+            }}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-ink text-paper hover:bg-black"
             style={{ fontSize: '13px', fontWeight: 500 }}
           >

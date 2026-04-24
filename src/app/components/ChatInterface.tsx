@@ -6,6 +6,7 @@ import {
 import { projectId, publicAnonKey } from "/utils/supabase/info";
 import { MagritLogo } from "./brand/MagritLogo";
 import { ProductCard } from "./ProductCard";
+import { CartButton } from "./CartButton";
 import { LibraryPickerModal } from "./LibraryPickerModal";
 import { useConversation, ConversationHistory } from "../contexts/ConversationContext";
 import { useAuth } from "../contexts/AuthContext";
@@ -243,6 +244,10 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
           onClick={() => setShowHistory(true)}
           badge={conversationHistory.length > 0 ? conversationHistory.length : undefined}
         />
+
+        {/* Panier — permet d'agreger plusieurs productcards pour imprimer
+            un devis groupe par client. Le composant gere lui-meme le badge. */}
+        <CartButton variant="rail" />
 
         {/* Avatar user en bas (placeholder) */}
         <div

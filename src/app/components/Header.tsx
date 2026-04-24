@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import { Settings } from "lucide-react";
 import { MagritLogo } from "./brand/MagritLogo";
 import { DiagnosticPanel } from "./DiagnosticPanel";
+import { CartButton } from "./CartButton";
 import { useConversation } from "../contexts/ConversationContext";
 import { AuthMenu } from "./auth/AuthMenu";
 
@@ -38,9 +39,7 @@ export function Header() {
             >
               <Settings className="w-4 h-4" />
             </button>
-            <button className="px-6 py-2 bg-yellow-400 hover:bg-yellow-500 text-gray-900 rounded text-sm font-medium">
-              Calculer le prix
-            </button>
+            <CartButton variant="pill" />
             <AuthMenu />
           </div>
         </div>
