@@ -2,13 +2,20 @@ import { useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight, Sparkles, Pencil, Trash2, Plus, Loader2, Check, X, AlertCircle, Zap } from 'lucide-react';
 import { usePIM } from '../../contexts/PIMContext';
 import { useIsAdmin } from '../../hooks/useIsAdmin';
+import { useTenant } from '../../contexts/TenantContext';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 import type { Gamme, ProductDefinition } from '../../utils/productEnrichment';
 
 const LOCALES = ['fr', 'en'];
 
 export function DashboardAdminPIM() {
+  // v3 : l'acces admin PIM est ouvert a 2 categories d'utilisateurs :
+  //   - isAdmin : ancien flag user_preferences.is_admin (compat v1/v2)
+  //   - isSuperAdmin : membre owner/admin du tenant system 'magrit-root' (v3)
+  // L'un des deux suffit.
   const isAdmin = useIsAdmin();
+  const { isSuperAdmin } = useTenant();
+  const hasAccess = isAdmin || isSuperAdmin;
   const { gammes, definitions, upsertDefinition, deleteDefinition, refresh } = usePIM();
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -43,13 +50,14 @@ export function DashboardAdminPIM() {
     return map;
   }, [definitions]);
 
-  if (!isAdmin) {
+  if (!hasAccess) {
     return (
       <div className="max-w-lg text-center py-12">
         <AlertCircle className="w-12 h-12 mx-auto text-amber-500 mb-3" />
         <h2 className="text-xl font-bold text-gray-900 mb-2">Accès admin requis</h2>
         <p className="text-sm text-gray-600">
-          Cette page est réservée aux administrateurs Magrit. Active le flag <code className="bg-gray-100 px-1.5 py-0.5 rounded">is_admin</code> sur ton compte via SQL.
+          Cette page est réservée aux super-administrateurs Magrit. Il faut être
+          membre owner ou admin du tenant système <code className="bg-gray-100 px-1.5 py-0.5 rounded">magrit-root</code>.
         </p>
       </div>
     );
