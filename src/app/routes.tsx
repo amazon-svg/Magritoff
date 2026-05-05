@@ -17,14 +17,13 @@ import { DashboardHistory } from "./components/dashboard/DashboardHistory";
 import { DashboardQuotes } from "./components/dashboard/DashboardQuotes";
 import { DashboardQuoteTemplates } from "./components/dashboard/DashboardQuoteTemplates";
 import { DashboardOrders } from "./components/dashboard/DashboardOrders";
-import { DashboardClients } from "./components/dashboard/DashboardClients";
+import { DashboardUsers } from "./components/dashboard/DashboardUsers";
 import { DashboardPlan } from "./components/dashboard/DashboardPlan";
 import { DashboardLibraries } from "./components/dashboard/DashboardLibraries";
 import { DashboardLibraryDetail } from "./components/dashboard/DashboardLibraryDetail";
 import { DashboardShops } from "./components/dashboard/DashboardShops";
 import { DashboardShopEditor } from "./components/dashboard/DashboardShopEditor";
 import { DashboardAdminPIM } from "./components/dashboard/DashboardAdminPIM";
-import { DashboardTenantMembers } from "./components/dashboard/DashboardTenantMembers";
 import { DashboardTenantSpaces } from "./components/dashboard/DashboardTenantSpaces";
 import { DashboardTenantGammes } from "./components/dashboard/DashboardTenantGammes";
 import { PublicShop } from "./components/shop/PublicShop";
@@ -86,14 +85,14 @@ export const router = createBrowserRouter([
               { path: "quotes", element: <DashboardQuotes /> },
               { path: "quote-templates", element: <DashboardQuoteTemplates /> },
               { path: "orders", element: <DashboardOrders /> },
-              { path: "users", element: <DashboardClients /> },
+              { path: "users", element: <DashboardUsers /> },
               { path: "clients", element: <Navigate to="../users" replace /> },
+              { path: "members", element: <Navigate to="../users" replace /> },
               { path: "library", element: <DashboardLibraries /> },
               { path: "library/:id", element: <DashboardLibraryDetail /> },
               { path: "shops", element: <DashboardShops /> },
               { path: "shops/:id", element: <DashboardShopEditor /> },
               // Nouveautes v3
-              { path: "members", element: <DashboardTenantMembers /> },
               { path: "spaces", element: <DashboardTenantSpaces /> },
               { path: "gammes", element: <DashboardTenantGammes /> },
               { path: "admin/pim", element: <DashboardAdminPIM /> },

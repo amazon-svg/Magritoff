@@ -1,0 +1,645 @@
+/**
+ * DashboardUsers — Onglet "Utilisateurs" du dashboard tenant
+ * ===========================================================
+ * Cet ecran fusionne, dans un seul onglet, les deux populations
+ * presentes dans un espace Magrit :
+ *
+ *   1. UTILISATEURS MAGRIT   — membres du tenant (owner/admin/member/partner)
+ *      qui se connectent a l'app + invitations en attente.
+ *
+ *   2. CONTACTS CRM          — contacts client (entreprise + email + tel) qu'un
+ *      imprimeur garde dans son repertoire pour les associer a des devis.
+ *
+ * Implemente E9.2 (CRUD utilisateurs par admin d'espace) :
+ *   - Liste membres avec email (RPC get_tenant_members_with_email)
+ *   - Inviter un nouvel utilisateur (token + lien manuel a copier — l'envoi
+ *     email auto viendra avec E9.5)
+ *   - Changer un role inline (member <-> admin <-> partner)
+ *   - Retirer un membre (sauf owner)
+ *   - Audit trail tenant_member_events sur toutes les actions
+ */
+
+import { useEffect, useState } from 'react';
+import {
+  Mail, UserMinus, Shield, Plus, Pencil, Trash2, Users as UsersIcon,
+  X, Loader2,
+} from 'lucide-react';
+import { supabase } from '/utils/supabase/client';
+import { useTenant } from '../../contexts/TenantContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { useClients, Client } from '../../contexts/ClientsContext';
+
+// ────────────────────────────────────────────────────────────────────────────
+// SECTION 1 — Utilisateurs Magrit (membres tenant + invitations)
+// ────────────────────────────────────────────────────────────────────────────
+
+type Role = 'owner' | 'admin' | 'member' | 'partner';
+type InviteRole = Exclude<Role, 'owner'>;
+
+interface MemberRow {
+  user_id: string;
+  email: string | null;
+  role: Role;
+  joined_at: string;
+}
+
+interface InvitationRow {
+  id: string;
+  email: string;
+  role: InviteRole;
+  expires_at: string;
+  created_at: string;
+}
+
+function MagritUsersSection() {
+  const { user } = useAuth();
+  const { currentTenant, currentRole } = useTenant();
+
+  const [members, setMembers] = useState<MemberRow[]>([]);
+  const [invitations, setInvitations] = useState<InvitationRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState<InviteRole>('member');
+  const [sending, setSending] = useState(false);
+  const [updatingRoleFor, setUpdatingRoleFor] = useState<string | null>(null);
+
+  const canWrite = currentRole === 'owner' || currentRole === 'admin';
+
+  const logEvent = async (
+    eventType: 'created' | 'role_changed' | 'removed' | 'invited' | 'invitation_revoked',
+    targetUserId: string | null,
+    metadata: Record<string, unknown> = {}
+  ) => {
+    if (!currentTenant || !user) return;
+    await supabase.from('tenant_member_events').insert({
+      tenant_id: currentTenant.id,
+      target_user_id: targetUserId,
+      event_type: eventType,
+      performed_by: user.id,
+      metadata,
+    });
+  };
+
+  const load = async () => {
+    if (!currentTenant) return;
+    setLoading(true);
+
+    // RPC qui joint auth.users -> resout les emails (impossible cote client direct)
+    const { data: mem, error: memErr } = await supabase.rpc(
+      'get_tenant_members_with_email',
+      { p_tenant_id: currentTenant.id }
+    );
+    if (memErr) {
+      console.error('[DashboardUsers] members rpc failed', memErr);
+    }
+    setMembers((mem as MemberRow[]) || []);
+
+    const { data: inv } = await supabase
+      .from('tenant_invitations')
+      .select('id, email, role, expires_at, created_at')
+      .eq('tenant_id', currentTenant.id)
+      .is('accepted_at', null)
+      .order('created_at', { ascending: false });
+    setInvitations((inv as InvitationRow[]) || []);
+
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    load();
+  }, [currentTenant?.id]);
+
+  const sendInvite = async () => {
+    if (!currentTenant || !inviteEmail.trim() || !user) return;
+    setSending(true);
+    const cleanedEmail = inviteEmail.trim().toLowerCase();
+    const token = crypto.randomUUID().replace(/-/g, '') + Date.now().toString(36);
+    const expires = new Date(Date.now() + 14 * 86400_000).toISOString();
+    const { error } = await supabase.from('tenant_invitations').insert({
+      tenant_id: currentTenant.id,
+      email: cleanedEmail,
+      role: inviteRole,
+      token,
+      expires_at: expires,
+      invited_by: user.id,
+    });
+    if (error) {
+      alert("Echec de l'invitation : " + error.message);
+    } else {
+      await logEvent('invited', null, { email: cleanedEmail, role: inviteRole });
+      // E9.5 (Sprint 2) remplacera ce prompt par un envoi email automatique.
+      const link = `${window.location.origin}/invitations/${token}`;
+      prompt('Invitation creee. Envoyez ce lien au destinataire :', link);
+      setInviteEmail('');
+      await load();
+    }
+    setSending(false);
+  };
+
+  const revokeInvite = async (id: string, email: string) => {
+    if (!confirm(`Revoquer l'invitation envoyee a ${email} ?`)) return;
+    await supabase.from('tenant_invitations').delete().eq('id', id);
+    await logEvent('invitation_revoked', null, { invitation_id: id, email });
+    await load();
+  };
+
+  const changeRole = async (member: MemberRow, newRole: Role) => {
+    if (!currentTenant || member.role === newRole) return;
+    if (member.role === 'owner') {
+      alert("Impossible de modifier le role d'un owner.");
+      return;
+    }
+    setUpdatingRoleFor(member.user_id);
+    const { error } = await supabase
+      .from('tenant_members')
+      .update({ role: newRole })
+      .eq('tenant_id', currentTenant.id)
+      .eq('user_id', member.user_id);
+    if (error) {
+      alert('Echec de la mise a jour du role : ' + error.message);
+    } else {
+      await logEvent('role_changed', member.user_id, {
+        old_role: member.role,
+        new_role: newRole,
+      });
+      await load();
+    }
+    setUpdatingRoleFor(null);
+  };
+
+  const removeMember = async (member: MemberRow) => {
+    if (!currentTenant) return;
+    if (member.role === 'owner') {
+      alert("Impossible de retirer un owner.");
+      return;
+    }
+    if (!confirm(`Retirer ${member.email ?? member.user_id} de l'espace ?\n\n` +
+      "L'utilisateur conservera son compte Magrit, mais perdra l'acces a cet espace.")) return;
+    const { error } = await supabase
+      .from('tenant_members')
+      .delete()
+      .eq('tenant_id', currentTenant.id)
+      .eq('user_id', member.user_id);
+    if (error) {
+      alert('Echec du retrait : ' + error.message);
+    } else {
+      await logEvent('removed', member.user_id, {
+        email: member.email,
+        old_role: member.role,
+      });
+      await load();
+    }
+  };
+
+  if (!currentTenant) {
+    return (
+      <div className="text-ink-muted" style={{ fontSize: '13.5px' }}>
+        Aucun tenant actif.
+      </div>
+    );
+  }
+
+  return (
+    <section>
+      <header className="mb-3">
+        <h2
+          className="text-ink m-0"
+          style={{ fontWeight: 400, fontSize: '20px', letterSpacing: '-0.015em' }}
+        >
+          Utilisateurs Magrit
+          <span className="ml-2 text-ink-mute-2 font-mono" style={{ fontSize: '12px' }}>
+            · {members.length}
+          </span>
+        </h2>
+        <p className="mt-1 text-ink-muted" style={{ fontSize: '13px', fontWeight: 300 }}>
+          Personnes qui se connectent a <span className="text-ink">{currentTenant.name}</span>.
+        </p>
+      </header>
+
+      {canWrite && (
+        <div className="mb-4 p-4 rounded-md border border-line bg-paper flex flex-wrap items-end gap-3">
+          <label className="flex-1 min-w-[240px]">
+            <span
+              className="block text-ink-muted mb-1"
+              style={{ fontSize: '11.5px', fontWeight: 500 }}
+            >
+              Email du collaborateur
+            </span>
+            <input
+              type="email"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              placeholder="jean@imprimerie-dupont.fr"
+              className="w-full px-3 py-1.5 border border-line rounded-md bg-paper text-ink focus:outline-none focus:border-line-2"
+              style={{ fontSize: '13px' }}
+            />
+          </label>
+          <label>
+            <span
+              className="block text-ink-muted mb-1"
+              style={{ fontSize: '11.5px', fontWeight: 500 }}
+            >
+              Role
+            </span>
+            <select
+              value={inviteRole}
+              onChange={(e) => setInviteRole(e.target.value as InviteRole)}
+              className="px-3 py-1.5 border border-line rounded-md bg-paper text-ink"
+              style={{ fontSize: '13px' }}
+            >
+              <option value="admin">Admin</option>
+              <option value="member">Member</option>
+              <option value="partner">Partner (externe)</option>
+            </select>
+          </label>
+          <button
+            onClick={sendInvite}
+            disabled={sending || !inviteEmail.trim()}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-ink text-paper hover:bg-black disabled:opacity-40"
+            style={{ fontSize: '13px', fontWeight: 500 }}
+          >
+            <Mail className="w-3.5 h-3.5" strokeWidth={1.8} />
+            {sending ? 'Envoi…' : 'Inviter'}
+          </button>
+        </div>
+      )}
+
+      <div className="border border-line rounded-md overflow-hidden bg-paper mb-6">
+        {loading ? (
+          <div className="px-4 py-6 text-center text-ink-muted" style={{ fontSize: '13px' }}>
+            Chargement…
+          </div>
+        ) : members.length === 0 ? (
+          <div className="px-4 py-6 text-center text-ink-mute-2" style={{ fontSize: '13px' }}>
+            Aucun membre.
+          </div>
+        ) : (
+          <table className="w-full" style={{ borderCollapse: 'collapse' }}>
+            <tbody>
+              {members.map((m) => {
+                const isMe = m.user_id === user?.id;
+                const isOwner = m.role === 'owner';
+                return (
+                  <tr key={m.user_id} className="border-b border-line last:border-b-0">
+                    <td className="px-4 py-2.5 text-ink" style={{ fontSize: '13px' }}>
+                      {m.email ?? <span className="font-mono text-ink-mute-2">{m.user_id.slice(0, 8)}…</span>}
+                      {isMe && (
+                        <span
+                          className="ml-2 px-1.5 py-0.5 rounded bg-brand text-brand-ink font-mono"
+                          style={{ fontSize: '9.5px', letterSpacing: '0.04em', fontWeight: 600 }}
+                        >
+                          VOUS
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      {canWrite && !isOwner && !isMe ? (
+                        <select
+                          value={m.role}
+                          disabled={updatingRoleFor === m.user_id}
+                          onChange={(e) => changeRole(m, e.target.value as Role)}
+                          className="px-2 py-1 border border-line rounded font-mono text-ink bg-paper"
+                          style={{ fontSize: '11px', letterSpacing: '0.04em', fontWeight: 600 }}
+                        >
+                          <option value="admin">ADMIN</option>
+                          <option value="member">MEMBER</option>
+                          <option value="partner">PARTNER</option>
+                        </select>
+                      ) : (
+                        <span
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded font-mono ${
+                            isOwner
+                              ? 'bg-brand text-brand-ink'
+                              : m.role === 'admin'
+                              ? 'bg-info-bg text-info-fg'
+                              : 'bg-bg text-ink-muted'
+                          }`}
+                          style={{ fontSize: '10.5px', letterSpacing: '0.04em', fontWeight: 600 }}
+                        >
+                          <Shield className="w-3 h-3" strokeWidth={1.5} />
+                          {m.role.toUpperCase()}
+                        </span>
+                      )}
+                    </td>
+                    <td
+                      className="px-4 py-2.5 text-ink-muted text-right"
+                      style={{ fontSize: '12px' }}
+                    >
+                      {new Date(m.joined_at).toLocaleDateString('fr-FR', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric',
+                      })}
+                    </td>
+                    <td className="px-4 py-2.5 text-right">
+                      {canWrite && !isOwner && !isMe && (
+                        <button
+                          onClick={() => removeMember(m)}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded text-err-fg hover:bg-err-bg"
+                          style={{ fontSize: '11.5px', fontWeight: 500 }}
+                        >
+                          <UserMinus className="w-3 h-3" strokeWidth={1.5} />
+                          Retirer
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {invitations.length > 0 && (
+        <div className="mb-2">
+          <h3
+            className="mb-2 text-ink"
+            style={{ fontWeight: 400, fontSize: '15px', letterSpacing: '-0.005em' }}
+          >
+            Invitations en attente
+            <span className="ml-2 text-ink-mute-2 font-mono" style={{ fontSize: '11px' }}>
+              · {invitations.length}
+            </span>
+          </h3>
+          <div className="border border-line rounded-md overflow-hidden bg-paper">
+            <table className="w-full" style={{ borderCollapse: 'collapse' }}>
+              <tbody>
+                {invitations.map((inv) => (
+                  <tr key={inv.id} className="border-b border-line last:border-b-0">
+                    <td className="px-4 py-2 text-ink" style={{ fontSize: '13px' }}>
+                      {inv.email}
+                    </td>
+                    <td
+                      className="px-4 py-2 font-mono text-ink-muted"
+                      style={{ fontSize: '11px', letterSpacing: '0.04em' }}
+                    >
+                      {inv.role.toUpperCase()}
+                    </td>
+                    <td
+                      className="px-4 py-2 text-ink-muted text-right"
+                      style={{ fontSize: '11.5px' }}
+                    >
+                      Expire le{' '}
+                      {new Date(inv.expires_at).toLocaleDateString('fr-FR', {
+                        day: '2-digit',
+                        month: 'short',
+                      })}
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      {canWrite && (
+                        <button
+                          onClick={() => revokeInvite(inv.id, inv.email)}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded text-err-fg hover:bg-err-bg"
+                          style={{ fontSize: '11.5px', fontWeight: 500 }}
+                        >
+                          Revoquer
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// SECTION 2 — Contacts CRM (carnet d'adresses imprimeur)
+// ────────────────────────────────────────────────────────────────────────────
+
+type EmptyClient = Omit<Client, 'id' | 'user_id' | 'created_at'>;
+
+const EMPTY_CONTACT: EmptyClient = {
+  company: '',
+  contact_name: '',
+  email: '',
+  phone: '',
+  address: '',
+  notes: '',
+};
+
+function CrmContactsSection() {
+  const { clients, loading, addClient, updateClient, deleteClient } = useClients();
+  const [editing, setEditing] = useState<Client | null>(null);
+  const [draft, setDraft] = useState<EmptyClient>(EMPTY_CONTACT);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const openNew = () => {
+    setEditing(null);
+    setDraft(EMPTY_CONTACT);
+    setModalOpen(true);
+  };
+
+  const openEdit = (c: Client) => {
+    setEditing(c);
+    setDraft({
+      company: c.company,
+      contact_name: c.contact_name,
+      email: c.email,
+      phone: c.phone,
+      address: c.address,
+      notes: c.notes,
+    });
+    setModalOpen(true);
+  };
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    if (editing) {
+      await updateClient(editing.id, draft);
+    } else {
+      await addClient(draft);
+    }
+    setSaving(false);
+    setModalOpen(false);
+  };
+
+  return (
+    <section>
+      <header className="flex items-center justify-between mb-3">
+        <div>
+          <h2
+            className="text-ink m-0"
+            style={{ fontWeight: 400, fontSize: '20px', letterSpacing: '-0.015em' }}
+          >
+            Contacts CRM
+            <span className="ml-2 text-ink-mute-2 font-mono" style={{ fontSize: '12px' }}>
+              · {clients.length}
+            </span>
+          </h2>
+          <p
+            className="mt-1 text-ink-muted"
+            style={{ fontSize: '13px', fontWeight: 300 }}
+          >
+            Carnet d'adresses pour associer un client a un devis ou une commande.
+          </p>
+        </div>
+        <button
+          onClick={openNew}
+          className="flex items-center gap-2 px-3 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 text-sm font-medium"
+        >
+          <Plus className="w-4 h-4" />
+          Ajouter un contact
+        </button>
+      </header>
+
+      {loading ? (
+        <p className="text-sm text-gray-500">Chargement...</p>
+      ) : clients.length === 0 ? (
+        <div className="text-center py-12 text-gray-400">
+          <UsersIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
+          <p className="text-sm">Aucun contact. Commencez par en ajouter un.</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto border border-line rounded-md bg-paper">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 text-gray-600 text-left">
+              <tr>
+                <th className="px-3 py-2">Societe</th>
+                <th className="px-3 py-2">Contact</th>
+                <th className="px-3 py-2">Email</th>
+                <th className="px-3 py-2">Telephone</th>
+                <th className="px-3 py-2 w-20"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {clients.map((c) => (
+                <tr key={c.id} className="hover:bg-gray-50">
+                  <td className="px-3 py-2 font-medium">{c.company}</td>
+                  <td className="px-3 py-2">{c.contact_name}</td>
+                  <td className="px-3 py-2 text-gray-600">{c.email}</td>
+                  <td className="px-3 py-2 text-gray-600">{c.phone}</td>
+                  <td className="px-3 py-2">
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => openEdit(c)}
+                        className="p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (confirm(`Supprimer ${c.company} ?`)) deleteClient(c.id);
+                        }}
+                        className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {modalOpen && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50"
+          onClick={() => setModalOpen(false)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-gray-900">
+                {editing ? 'Modifier le contact' : 'Nouveau contact'}
+              </h3>
+              <button onClick={() => setModalOpen(false)} className="p-1 hover:bg-gray-100 rounded">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={submit} className="space-y-3">
+              {[
+                { key: 'company', label: 'Societe', type: 'text', required: true },
+                { key: 'contact_name', label: 'Nom du contact', type: 'text' },
+                { key: 'email', label: 'Email', type: 'email' },
+                { key: 'phone', label: 'Telephone', type: 'tel' },
+                { key: 'address', label: 'Adresse', type: 'text' },
+              ].map((f) => (
+                <div key={f.key}>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{f.label}</label>
+                  <input
+                    type={f.type}
+                    required={f.required}
+                    value={(draft as any)[f.key]}
+                    onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              ))}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                <textarea
+                  value={draft.notes}
+                  onChange={(e) => setDraft({ ...draft, notes: e.target.value })}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setModalOpen(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="flex-1 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 font-medium flex items-center justify-center gap-2"
+                >
+                  {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {editing ? 'Enregistrer' : 'Creer'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// MAIN — DashboardUsers compose les 2 sections
+// ────────────────────────────────────────────────────────────────────────────
+
+export function DashboardUsers() {
+  return (
+    <div className="max-w-[1200px] space-y-10" style={{ fontFamily: 'var(--font-ui)' }}>
+      <div>
+        <h1
+          className="text-ink m-0"
+          style={{ fontWeight: 300, fontSize: '34px', letterSpacing: '-0.025em' }}
+        >
+          Utilisateurs
+        </h1>
+        <p
+          className="mt-1.5 text-ink-muted"
+          style={{ fontSize: '13.5px', fontWeight: 300 }}
+        >
+          Gerez les acces a votre espace et votre carnet de contacts clients.
+        </p>
+      </div>
+
+      <MagritUsersSection />
+
+      <hr className="border-line" />
+
+      <CrmContactsSection />
+    </div>
+  );
+}

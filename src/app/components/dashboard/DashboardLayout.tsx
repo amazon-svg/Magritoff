@@ -1,7 +1,7 @@
 import { Navigate, NavLink, Outlet, useLocation } from 'react-router';
 import {
   User, Settings, MessageSquare, FileText, ShoppingBag, Users,
-  CreditCard, Package, Store, Shield, LayoutTemplate, UserCog, Building, Layers,
+  CreditCard, Package, Store, Shield, LayoutTemplate, Building, Layers,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlan } from '../../hooks/usePlan';
@@ -79,7 +79,6 @@ export function DashboardLayout() {
     {
       title: 'Équipe',
       items: [
-        { to: `${basePath}/members`, label: 'Membres', icon: UserCog, show: true },
         { to: `${basePath}/spaces`, label: 'Sous-espaces', icon: Building, show: canManageSpaces ?? false },
       ],
     },
