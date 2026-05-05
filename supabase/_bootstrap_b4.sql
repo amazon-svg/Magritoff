@@ -1246,9 +1246,10 @@ create policy "shops_select_tenant" on public.shops for select using (
   is_super_admin()
   or (tenant_id in (select public.current_user_tenant_ids()))
 );
--- (b) lecture publique : tout le monde peut lire les boutiques "published"
+-- (b) lecture publique : tout le monde peut lire les boutiques actives
+--     (colonne `active boolean` definie dans 20260418_shop_module.sql)
 create policy "shops_public_read" on public.shops for select using (
-  status = 'published' or status = 'active'
+  active = true
 );
 create policy "shops_write" on public.shops for all using (
   is_super_admin()
@@ -1271,12 +1272,12 @@ create policy "shop_products_select_tenant" on public.shop_products for select u
   is_super_admin()
   or (tenant_id in (select public.current_user_tenant_ids()))
 );
--- Lecture publique des produits des shops publies
+-- Lecture publique des produits des shops actifs
 create policy "shop_products_public_read" on public.shop_products for select using (
   exists (
     select 1 from public.shops s
     where s.id = shop_products.shop_id
-      and (s.status = 'published' or s.status = 'active')
+      and s.active = true
   )
 );
 create policy "shop_products_write" on public.shop_products for all using (
