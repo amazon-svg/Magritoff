@@ -19,9 +19,11 @@ create table if not exists public.tenant_slug_history (
   expires_at  timestamptz not null default (now() + interval '90 days')
 );
 
-create unique index if not exists tenant_slug_history_old_slug_idx
-  on public.tenant_slug_history(old_slug)
-  where expires_at > now();
+-- Index sur old_slug pour resolve_tenant_slug. Pas d'unicite : on permet
+-- l'historisation de plusieurs renames successifs (ordering par changed_at
+-- desc dans la RPC pour prendre le plus recent non-expire).
+create index if not exists tenant_slug_history_old_slug_idx
+  on public.tenant_slug_history(old_slug);
 
 create index if not exists tenant_slug_history_tenant_idx
   on public.tenant_slug_history(tenant_id);
