@@ -5,29 +5,34 @@
  * presentes dans un espace Magrit :
  *
  *   1. UTILISATEURS MAGRIT   — membres du tenant (owner/admin/member/partner)
- *      qui se connectent a l'app + invitations en attente.
+ *      qui se connectent a l'app + invitations en attente. Couvert E9.2 et E9.3.
  *
  *   2. CONTACTS CRM          — contacts client (entreprise + email + tel) qu'un
  *      imprimeur garde dans son repertoire pour les associer a des devis.
  *
- * Implemente E9.2 (CRUD utilisateurs par admin d'espace) :
- *   - Liste membres avec email (RPC get_tenant_members_with_email)
- *   - Inviter un nouvel utilisateur (token + lien manuel a copier — l'envoi
- *     email auto viendra avec E9.5)
- *   - Changer un role inline (member <-> admin <-> partner)
- *   - Retirer un membre (sauf owner)
- *   - Audit trail tenant_member_events sur toutes les actions
+ * E9.2 : CRUD complet (invite, change role, remove) + audit trail.
+ * E9.3 : droits granulaires par membership :
+ *          - access_scope : 'magrit_full' (tout le dashboard) | 'shop_only'
+ *            (acces uniquement a une ou plusieurs boutiques)
+ *          - allowed_shop_ids : liste de boutiques accessibles (si shop_only)
+ *          - permissions : {can_quote, can_order, can_invite}
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Mail, UserMinus, Shield, Plus, Pencil, Trash2, Users as UsersIcon,
-  X, Loader2,
+  X, Loader2, Settings,
 } from 'lucide-react';
 import { supabase } from '/utils/supabase/client';
-import { useTenant } from '../../contexts/TenantContext';
+import {
+  useTenant,
+  AccessScope,
+  MemberPermissions,
+  DEFAULT_PERMISSIONS,
+} from '../../contexts/TenantContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useClients, Client } from '../../contexts/ClientsContext';
+import { useShops } from '../../contexts/ShopsContext';
 
 // ────────────────────────────────────────────────────────────────────────────
 // SECTION 1 — Utilisateurs Magrit (membres tenant + invitations)
@@ -41,6 +46,9 @@ interface MemberRow {
   email: string | null;
   role: Role;
   joined_at: string;
+  access_scope: AccessScope;
+  allowed_shop_ids: string[];
+  permissions: MemberPermissions;
 }
 
 interface InvitationRow {
@@ -49,19 +57,32 @@ interface InvitationRow {
   role: InviteRole;
   expires_at: string;
   created_at: string;
+  access_scope: AccessScope;
+  allowed_shop_ids: string[];
+  permissions: MemberPermissions;
 }
 
 function MagritUsersSection() {
   const { user } = useAuth();
   const { currentTenant, currentRole } = useTenant();
+  const { shops } = useShops();
 
   const [members, setMembers] = useState<MemberRow[]>([]);
   const [invitations, setInvitations] = useState<InvitationRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [updatingRoleFor, setUpdatingRoleFor] = useState<string | null>(null);
+
+  // Form invite
+  const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<InviteRole>('member');
+  const [inviteScope, setInviteScope] = useState<AccessScope>('magrit_full');
+  const [inviteShopIds, setInviteShopIds] = useState<string[]>([]);
+  const [invitePerms, setInvitePerms] = useState<MemberPermissions>(DEFAULT_PERMISSIONS);
   const [sending, setSending] = useState(false);
-  const [updatingRoleFor, setUpdatingRoleFor] = useState<string | null>(null);
+
+  // Modale "Modifier les droits"
+  const [editingPerms, setEditingPerms] = useState<MemberRow | null>(null);
 
   const canWrite = currentRole === 'owner' || currentRole === 'admin';
 
@@ -84,23 +105,38 @@ function MagritUsersSection() {
     if (!currentTenant) return;
     setLoading(true);
 
-    // RPC qui joint auth.users -> resout les emails (impossible cote client direct)
     const { data: mem, error: memErr } = await supabase.rpc(
       'get_tenant_members_with_email',
       { p_tenant_id: currentTenant.id }
     );
-    if (memErr) {
-      console.error('[DashboardUsers] members rpc failed', memErr);
-    }
-    setMembers((mem as MemberRow[]) || []);
+    if (memErr) console.error('[DashboardUsers] members rpc failed', memErr);
+
+    setMembers(
+      ((mem as any[]) || []).map((m) => ({
+        user_id: m.user_id,
+        email: m.email,
+        role: m.role,
+        joined_at: m.joined_at,
+        access_scope: m.access_scope ?? 'magrit_full',
+        allowed_shop_ids: m.allowed_shop_ids ?? [],
+        permissions: { ...DEFAULT_PERMISSIONS, ...(m.permissions ?? {}) },
+      }))
+    );
 
     const { data: inv } = await supabase
       .from('tenant_invitations')
-      .select('id, email, role, expires_at, created_at')
+      .select('id, email, role, expires_at, created_at, access_scope, allowed_shop_ids, permissions')
       .eq('tenant_id', currentTenant.id)
       .is('accepted_at', null)
       .order('created_at', { ascending: false });
-    setInvitations((inv as InvitationRow[]) || []);
+    setInvitations(
+      ((inv as any[]) || []).map((i) => ({
+        ...i,
+        access_scope: i.access_scope ?? 'magrit_full',
+        allowed_shop_ids: i.allowed_shop_ids ?? [],
+        permissions: { ...DEFAULT_PERMISSIONS, ...(i.permissions ?? {}) },
+      }))
+    );
 
     setLoading(false);
   };
@@ -109,8 +145,20 @@ function MagritUsersSection() {
     load();
   }, [currentTenant?.id]);
 
+  const resetInviteForm = () => {
+    setInviteEmail('');
+    setInviteRole('member');
+    setInviteScope('magrit_full');
+    setInviteShopIds([]);
+    setInvitePerms(DEFAULT_PERMISSIONS);
+  };
+
   const sendInvite = async () => {
     if (!currentTenant || !inviteEmail.trim() || !user) return;
+    if (inviteScope === 'shop_only' && inviteShopIds.length === 0) {
+      alert('Selectionnez au moins une boutique pour un acces shop_only.');
+      return;
+    }
     setSending(true);
     const cleanedEmail = inviteEmail.trim().toLowerCase();
     const token = crypto.randomUUID().replace(/-/g, '') + Date.now().toString(36);
@@ -122,15 +170,23 @@ function MagritUsersSection() {
       token,
       expires_at: expires,
       invited_by: user.id,
+      access_scope: inviteScope,
+      allowed_shop_ids: inviteScope === 'shop_only' ? inviteShopIds : [],
+      permissions: invitePerms,
     });
     if (error) {
       alert("Echec de l'invitation : " + error.message);
     } else {
-      await logEvent('invited', null, { email: cleanedEmail, role: inviteRole });
+      await logEvent('invited', null, {
+        email: cleanedEmail,
+        role: inviteRole,
+        access_scope: inviteScope,
+      });
       // E9.5 (Sprint 2) remplacera ce prompt par un envoi email automatique.
       const link = `${window.location.origin}/invitations/${token}`;
       prompt('Invitation creee. Envoyez ce lien au destinataire :', link);
-      setInviteEmail('');
+      resetInviteForm();
+      setInviteOpen(false);
       await load();
     }
     setSending(false);
@@ -167,14 +223,48 @@ function MagritUsersSection() {
     setUpdatingRoleFor(null);
   };
 
+  const savePermissions = async (
+    member: MemberRow,
+    nextScope: AccessScope,
+    nextShopIds: string[],
+    nextPerms: MemberPermissions
+  ) => {
+    if (!currentTenant) return;
+    if (nextScope === 'shop_only' && nextShopIds.length === 0) {
+      alert('Selectionnez au moins une boutique pour un acces shop_only.');
+      return;
+    }
+    const { error } = await supabase
+      .from('tenant_members')
+      .update({
+        access_scope: nextScope,
+        allowed_shop_ids: nextScope === 'shop_only' ? nextShopIds : [],
+        permissions: nextPerms,
+      })
+      .eq('tenant_id', currentTenant.id)
+      .eq('user_id', member.user_id);
+    if (error) {
+      alert('Echec de la sauvegarde : ' + error.message);
+    } else {
+      await logEvent('role_changed', member.user_id, {
+        access_scope_changed: { from: member.access_scope, to: nextScope },
+        permissions: nextPerms,
+      });
+      setEditingPerms(null);
+      await load();
+    }
+  };
+
   const removeMember = async (member: MemberRow) => {
     if (!currentTenant) return;
     if (member.role === 'owner') {
-      alert("Impossible de retirer un owner.");
+      alert('Impossible de retirer un owner.');
       return;
     }
-    if (!confirm(`Retirer ${member.email ?? member.user_id} de l'espace ?\n\n` +
-      "L'utilisateur conservera son compte Magrit, mais perdra l'acces a cet espace.")) return;
+    if (!confirm(
+      `Retirer ${member.email ?? member.user_id} de l'espace ?\n\n` +
+      "L'utilisateur conservera son compte Magrit, mais perdra l'acces a cet espace."
+    )) return;
     const { error } = await supabase
       .from('tenant_members')
       .delete()
@@ -201,70 +291,60 @@ function MagritUsersSection() {
 
   return (
     <section>
-      <header className="mb-3">
-        <h2
-          className="text-ink m-0"
-          style={{ fontWeight: 400, fontSize: '20px', letterSpacing: '-0.015em' }}
-        >
-          Utilisateurs Magrit
-          <span className="ml-2 text-ink-mute-2 font-mono" style={{ fontSize: '12px' }}>
-            · {members.length}
-          </span>
-        </h2>
-        <p className="mt-1 text-ink-muted" style={{ fontSize: '13px', fontWeight: 300 }}>
-          Personnes qui se connectent a <span className="text-ink">{currentTenant.name}</span>.
-        </p>
-      </header>
-
-      {canWrite && (
-        <div className="mb-4 p-4 rounded-md border border-line bg-paper flex flex-wrap items-end gap-3">
-          <label className="flex-1 min-w-[240px]">
-            <span
-              className="block text-ink-muted mb-1"
-              style={{ fontSize: '11.5px', fontWeight: 500 }}
-            >
-              Email du collaborateur
+      <header className="flex items-center justify-between mb-3">
+        <div>
+          <h2
+            className="text-ink m-0"
+            style={{ fontWeight: 400, fontSize: '20px', letterSpacing: '-0.015em' }}
+          >
+            Utilisateurs Magrit
+            <span className="ml-2 text-ink-mute-2 font-mono" style={{ fontSize: '12px' }}>
+              · {members.length}
             </span>
-            <input
-              type="email"
-              value={inviteEmail}
-              onChange={(e) => setInviteEmail(e.target.value)}
-              placeholder="jean@imprimerie-dupont.fr"
-              className="w-full px-3 py-1.5 border border-line rounded-md bg-paper text-ink focus:outline-none focus:border-line-2"
-              style={{ fontSize: '13px' }}
-            />
-          </label>
-          <label>
-            <span
-              className="block text-ink-muted mb-1"
-              style={{ fontSize: '11.5px', fontWeight: 500 }}
-            >
-              Role
-            </span>
-            <select
-              value={inviteRole}
-              onChange={(e) => setInviteRole(e.target.value as InviteRole)}
-              className="px-3 py-1.5 border border-line rounded-md bg-paper text-ink"
-              style={{ fontSize: '13px' }}
-            >
-              <option value="admin">Admin</option>
-              <option value="member">Member</option>
-              <option value="partner">Partner (externe)</option>
-            </select>
-          </label>
+          </h2>
+          <p className="mt-1 text-ink-muted" style={{ fontSize: '13px', fontWeight: 300 }}>
+            Personnes qui se connectent a <span className="text-ink">{currentTenant.name}</span>.
+          </p>
+        </div>
+        {canWrite && !inviteOpen && (
           <button
-            onClick={sendInvite}
-            disabled={sending || !inviteEmail.trim()}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-ink text-paper hover:bg-black disabled:opacity-40"
+            onClick={() => setInviteOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-ink text-paper hover:bg-black"
             style={{ fontSize: '13px', fontWeight: 500 }}
           >
-            <Mail className="w-3.5 h-3.5" strokeWidth={1.8} />
-            {sending ? 'Envoi…' : 'Inviter'}
+            <Plus className="w-3.5 h-3.5" strokeWidth={1.8} />
+            Inviter
           </button>
-        </div>
+        )}
+      </header>
+
+      {canWrite && inviteOpen && (
+        <InviteForm
+          email={inviteEmail}
+          role={inviteRole}
+          scope={inviteScope}
+          shopIds={inviteShopIds}
+          permissions={invitePerms}
+          shops={shops}
+          sending={sending}
+          onChangeEmail={setInviteEmail}
+          onChangeRole={setInviteRole}
+          onChangeScope={setInviteScope}
+          onToggleShop={(id) =>
+            setInviteShopIds((prev) =>
+              prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
+            )
+          }
+          onChangePermission={(k, v) => setInvitePerms((p) => ({ ...p, [k]: v }))}
+          onSubmit={sendInvite}
+          onCancel={() => {
+            setInviteOpen(false);
+            resetInviteForm();
+          }}
+        />
       )}
 
-      <div className="border border-line rounded-md overflow-hidden bg-paper mb-6">
+      <div className="border border-line rounded-md overflow-hidden bg-paper mb-6 mt-4">
         {loading ? (
           <div className="px-4 py-6 text-center text-ink-muted" style={{ fontSize: '13px' }}>
             Chargement…
@@ -275,6 +355,27 @@ function MagritUsersSection() {
           </div>
         ) : (
           <table className="w-full" style={{ borderCollapse: 'collapse' }}>
+            <thead>
+              <tr className="border-b border-line bg-bg/50">
+                <th className="px-4 py-2 text-left font-mono text-ink-mute-2"
+                    style={{ fontSize: '10.5px', letterSpacing: '0.06em', fontWeight: 500 }}>
+                  Email
+                </th>
+                <th className="px-4 py-2 text-left font-mono text-ink-mute-2"
+                    style={{ fontSize: '10.5px', letterSpacing: '0.06em', fontWeight: 500 }}>
+                  Role
+                </th>
+                <th className="px-4 py-2 text-left font-mono text-ink-mute-2"
+                    style={{ fontSize: '10.5px', letterSpacing: '0.06em', fontWeight: 500 }}>
+                  Acces
+                </th>
+                <th className="px-4 py-2 text-right font-mono text-ink-mute-2"
+                    style={{ fontSize: '10.5px', letterSpacing: '0.06em', fontWeight: 500 }}>
+                  Rejoint
+                </th>
+                <th className="px-4 py-2"></th>
+              </tr>
+            </thead>
             <tbody>
               {members.map((m) => {
                 const isMe = m.user_id === user?.id;
@@ -306,20 +407,11 @@ function MagritUsersSection() {
                           <option value="partner">PARTNER</option>
                         </select>
                       ) : (
-                        <span
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded font-mono ${
-                            isOwner
-                              ? 'bg-brand text-brand-ink'
-                              : m.role === 'admin'
-                              ? 'bg-info-bg text-info-fg'
-                              : 'bg-bg text-ink-muted'
-                          }`}
-                          style={{ fontSize: '10.5px', letterSpacing: '0.04em', fontWeight: 600 }}
-                        >
-                          <Shield className="w-3 h-3" strokeWidth={1.5} />
-                          {m.role.toUpperCase()}
-                        </span>
+                        <RoleBadge role={m.role} />
                       )}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <ScopeBadge member={m} shops={shops} />
                     </td>
                     <td
                       className="px-4 py-2.5 text-ink-muted text-right"
@@ -332,16 +424,29 @@ function MagritUsersSection() {
                       })}
                     </td>
                     <td className="px-4 py-2.5 text-right">
-                      {canWrite && !isOwner && !isMe && (
-                        <button
-                          onClick={() => removeMember(m)}
-                          className="inline-flex items-center gap-1 px-2 py-1 rounded text-err-fg hover:bg-err-bg"
-                          style={{ fontSize: '11.5px', fontWeight: 500 }}
-                        >
-                          <UserMinus className="w-3 h-3" strokeWidth={1.5} />
-                          Retirer
-                        </button>
-                      )}
+                      <div className="inline-flex items-center gap-1">
+                        {canWrite && !isOwner && (
+                          <button
+                            onClick={() => setEditingPerms(m)}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded text-ink-muted hover:bg-line/60 hover:text-ink"
+                            style={{ fontSize: '11.5px', fontWeight: 500 }}
+                            title="Modifier les droits"
+                          >
+                            <Settings className="w-3 h-3" strokeWidth={1.5} />
+                            Droits
+                          </button>
+                        )}
+                        {canWrite && !isOwner && !isMe && (
+                          <button
+                            onClick={() => removeMember(m)}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded text-err-fg hover:bg-err-bg"
+                            style={{ fontSize: '11.5px', fontWeight: 500 }}
+                          >
+                            <UserMinus className="w-3 h-3" strokeWidth={1.5} />
+                            Retirer
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -376,6 +481,9 @@ function MagritUsersSection() {
                     >
                       {inv.role.toUpperCase()}
                     </td>
+                    <td className="px-4 py-2">
+                      <ScopeBadge member={inv as any} shops={shops} />
+                    </td>
                     <td
                       className="px-4 py-2 text-ink-muted text-right"
                       style={{ fontSize: '11.5px' }}
@@ -404,7 +512,376 @@ function MagritUsersSection() {
           </div>
         </div>
       )}
+
+      {editingPerms && (
+        <EditPermissionsModal
+          member={editingPerms}
+          shops={shops}
+          onClose={() => setEditingPerms(null)}
+          onSave={(scope, shopIds, perms) =>
+            savePermissions(editingPerms, scope, shopIds, perms)
+          }
+        />
+      )}
     </section>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Sub-components Magrit Users
+// ────────────────────────────────────────────────────────────────────────────
+
+function RoleBadge({ role }: { role: Role }) {
+  return (
+    <span
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded font-mono ${
+        role === 'owner'
+          ? 'bg-brand text-brand-ink'
+          : role === 'admin'
+          ? 'bg-info-bg text-info-fg'
+          : 'bg-bg text-ink-muted'
+      }`}
+      style={{ fontSize: '10.5px', letterSpacing: '0.04em', fontWeight: 600 }}
+    >
+      <Shield className="w-3 h-3" strokeWidth={1.5} />
+      {role.toUpperCase()}
+    </span>
+  );
+}
+
+function ScopeBadge({
+  member,
+  shops,
+}: {
+  member: { access_scope: AccessScope; allowed_shop_ids: string[] };
+  shops: { id: string; name: string }[];
+}) {
+  if (member.access_scope === 'magrit_full') {
+    return (
+      <span
+        className="inline-block px-2 py-0.5 rounded bg-bg text-ink-muted font-mono"
+        style={{ fontSize: '10.5px', letterSpacing: '0.04em', fontWeight: 600 }}
+      >
+        MAGRIT COMPLET
+      </span>
+    );
+  }
+  const names = member.allowed_shop_ids
+    .map((id) => shops.find((s) => s.id === id)?.name)
+    .filter(Boolean) as string[];
+  return (
+    <span
+      className="inline-block px-2 py-0.5 rounded bg-warn-bg text-warn-fg font-mono"
+      style={{ fontSize: '10.5px', letterSpacing: '0.04em', fontWeight: 600 }}
+      title={names.join(', ')}
+    >
+      BOUTIQUE · {member.allowed_shop_ids.length}
+    </span>
+  );
+}
+
+function InviteForm(props: {
+  email: string;
+  role: InviteRole;
+  scope: AccessScope;
+  shopIds: string[];
+  permissions: MemberPermissions;
+  shops: { id: string; name: string }[];
+  sending: boolean;
+  onChangeEmail: (v: string) => void;
+  onChangeRole: (v: InviteRole) => void;
+  onChangeScope: (v: AccessScope) => void;
+  onToggleShop: (id: string) => void;
+  onChangePermission: (k: keyof MemberPermissions, v: boolean) => void;
+  onSubmit: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="mt-2 p-4 rounded-md border border-line bg-paper space-y-4">
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="flex-1 min-w-[240px]">
+          <span
+            className="block text-ink-muted mb-1"
+            style={{ fontSize: '11.5px', fontWeight: 500 }}
+          >
+            Email du collaborateur
+          </span>
+          <input
+            type="email"
+            value={props.email}
+            onChange={(e) => props.onChangeEmail(e.target.value)}
+            placeholder="jean@imprimerie-dupont.fr"
+            className="w-full px-3 py-1.5 border border-line rounded-md bg-paper text-ink focus:outline-none focus:border-line-2"
+            style={{ fontSize: '13px' }}
+          />
+        </label>
+        <label>
+          <span
+            className="block text-ink-muted mb-1"
+            style={{ fontSize: '11.5px', fontWeight: 500 }}
+          >
+            Role
+          </span>
+          <select
+            value={props.role}
+            onChange={(e) => props.onChangeRole(e.target.value as InviteRole)}
+            className="px-3 py-1.5 border border-line rounded-md bg-paper text-ink"
+            style={{ fontSize: '13px' }}
+          >
+            <option value="admin">Admin</option>
+            <option value="member">Member</option>
+            <option value="partner">Partner (externe)</option>
+          </select>
+        </label>
+      </div>
+
+      <ScopeAndPermissionsFieldset
+        scope={props.scope}
+        shopIds={props.shopIds}
+        permissions={props.permissions}
+        shops={props.shops}
+        onChangeScope={props.onChangeScope}
+        onToggleShop={props.onToggleShop}
+        onChangePermission={props.onChangePermission}
+      />
+
+      <div className="flex gap-2 pt-2">
+        <button
+          onClick={props.onCancel}
+          className="px-3 py-1.5 border border-line rounded-md text-ink-muted hover:text-ink"
+          style={{ fontSize: '13px', fontWeight: 500 }}
+        >
+          Annuler
+        </button>
+        <button
+          onClick={props.onSubmit}
+          disabled={props.sending || !props.email.trim()}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-ink text-paper hover:bg-black disabled:opacity-40"
+          style={{ fontSize: '13px', fontWeight: 500 }}
+        >
+          <Mail className="w-3.5 h-3.5" strokeWidth={1.8} />
+          {props.sending ? 'Envoi…' : 'Envoyer l\'invitation'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ScopeAndPermissionsFieldset(props: {
+  scope: AccessScope;
+  shopIds: string[];
+  permissions: MemberPermissions;
+  shops: { id: string; name: string }[];
+  onChangeScope: (v: AccessScope) => void;
+  onToggleShop: (id: string) => void;
+  onChangePermission: (k: keyof MemberPermissions, v: boolean) => void;
+}) {
+  return (
+    <div className="space-y-3">
+      <div>
+        <span
+          className="block text-ink-muted mb-1.5"
+          style={{ fontSize: '11.5px', fontWeight: 500 }}
+        >
+          Acces
+        </span>
+        <div className="flex gap-2">
+          <ScopeRadio
+            current={props.scope}
+            value="magrit_full"
+            label="Magrit complet"
+            description="Voit tout le dashboard"
+            onChange={props.onChangeScope}
+          />
+          <ScopeRadio
+            current={props.scope}
+            value="shop_only"
+            label="Boutique uniquement"
+            description="Acces limite a une ou plusieurs boutiques"
+            onChange={props.onChangeScope}
+          />
+        </div>
+      </div>
+
+      {props.scope === 'shop_only' && (
+        <div>
+          <span
+            className="block text-ink-muted mb-1.5"
+            style={{ fontSize: '11.5px', fontWeight: 500 }}
+          >
+            Boutiques accessibles
+          </span>
+          {props.shops.length === 0 ? (
+            <p className="text-ink-mute-2" style={{ fontSize: '12px' }}>
+              Aucune boutique creee. Creez-en une avant d'inviter un user shop_only.
+            </p>
+          ) : (
+            <div className="grid grid-cols-2 gap-1.5">
+              {props.shops.map((s) => (
+                <label
+                  key={s.id}
+                  className="flex items-center gap-2 px-2 py-1 border border-line rounded cursor-pointer hover:bg-line/60"
+                >
+                  <input
+                    type="checkbox"
+                    checked={props.shopIds.includes(s.id)}
+                    onChange={() => props.onToggleShop(s.id)}
+                  />
+                  <span style={{ fontSize: '12.5px' }}>{s.name}</span>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div>
+        <span
+          className="block text-ink-muted mb-1.5"
+          style={{ fontSize: '11.5px', fontWeight: 500 }}
+        >
+          Permissions
+        </span>
+        <div className="flex flex-wrap gap-3">
+          <PermCheckbox
+            label="Créer des devis"
+            checked={props.permissions.can_quote}
+            onChange={(v) => props.onChangePermission('can_quote', v)}
+          />
+          <PermCheckbox
+            label="Passer commande"
+            checked={props.permissions.can_order}
+            onChange={(v) => props.onChangePermission('can_order', v)}
+          />
+          <PermCheckbox
+            label="Inviter d'autres utilisateurs"
+            checked={props.permissions.can_invite}
+            onChange={(v) => props.onChangePermission('can_invite', v)}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ScopeRadio(props: {
+  current: AccessScope;
+  value: AccessScope;
+  label: string;
+  description: string;
+  onChange: (v: AccessScope) => void;
+}) {
+  const selected = props.current === props.value;
+  return (
+    <label
+      className={`flex-1 cursor-pointer p-2.5 rounded border ${
+        selected ? 'border-ink bg-bg' : 'border-line hover:bg-line/60'
+      }`}
+    >
+      <input
+        type="radio"
+        className="sr-only"
+        checked={selected}
+        onChange={() => props.onChange(props.value)}
+      />
+      <span className="block text-ink" style={{ fontSize: '13px', fontWeight: selected ? 500 : 400 }}>
+        {props.label}
+      </span>
+      <span className="block text-ink-muted mt-0.5" style={{ fontSize: '11.5px' }}>
+        {props.description}
+      </span>
+    </label>
+  );
+}
+
+function PermCheckbox(props: {
+  label: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <label className="inline-flex items-center gap-2 cursor-pointer">
+      <input
+        type="checkbox"
+        checked={props.checked}
+        onChange={(e) => props.onChange(e.target.checked)}
+      />
+      <span className="text-ink" style={{ fontSize: '12.5px' }}>
+        {props.label}
+      </span>
+    </label>
+  );
+}
+
+function EditPermissionsModal(props: {
+  member: MemberRow;
+  shops: { id: string; name: string }[];
+  onClose: () => void;
+  onSave: (scope: AccessScope, shopIds: string[], perms: MemberPermissions) => void;
+}) {
+  const [scope, setScope] = useState<AccessScope>(props.member.access_scope);
+  const [shopIds, setShopIds] = useState<string[]>(props.member.allowed_shop_ids);
+  const [perms, setPerms] = useState<MemberPermissions>(props.member.permissions);
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50"
+      onClick={props.onClose}
+    >
+      <div
+        className="bg-paper rounded-xl shadow-2xl w-full max-w-lg p-5 max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+        style={{ fontFamily: 'var(--font-ui)' }}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-ink m-0" style={{ fontWeight: 400, fontSize: '17px' }}>
+              Modifier les droits
+            </h3>
+            <p className="mt-1 text-ink-muted" style={{ fontSize: '12px' }}>
+              {props.member.email ?? props.member.user_id}
+            </p>
+          </div>
+          <button
+            onClick={props.onClose}
+            className="p-1 rounded hover:bg-line"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <ScopeAndPermissionsFieldset
+          scope={scope}
+          shopIds={shopIds}
+          permissions={perms}
+          shops={props.shops}
+          onChangeScope={setScope}
+          onToggleShop={(id) =>
+            setShopIds((prev) =>
+              prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
+            )
+          }
+          onChangePermission={(k, v) => setPerms((p) => ({ ...p, [k]: v }))}
+        />
+
+        <div className="flex gap-2 pt-4 mt-2 border-t border-line">
+          <button
+            onClick={props.onClose}
+            className="flex-1 px-3 py-2 border border-line rounded-md text-ink-muted hover:text-ink"
+            style={{ fontSize: '13px', fontWeight: 500 }}
+          >
+            Annuler
+          </button>
+          <button
+            onClick={() => props.onSave(scope, shopIds, perms)}
+            className="flex-1 px-3 py-2 rounded-md bg-ink text-paper hover:bg-black"
+            style={{ fontSize: '13px', fontWeight: 500 }}
+          >
+            Enregistrer
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

@@ -17,6 +17,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useTenant } from '../../contexts/TenantContext';
 import { Header } from '../Header';
 import { UnauthBanner } from '../UnauthBanner';
+import { ShopOnlyRedirect } from './ShopOnlyRedirect';
 
 export function TenantAwareLayout() {
   const { user, loading: authLoading } = useAuth();
@@ -50,6 +51,12 @@ export function TenantAwareLayout() {
   const match = tenants.find((t) => t.slug === tenantSlug);
   if (!match) {
     return <Navigate to="/tenants" replace />;
+  }
+
+  // E9.3 — Guard scope. Un user shop_only ne doit jamais voir le dashboard
+  // ni la chat home : on l'envoie directement sur sa boutique.
+  if (match.accessScope === 'shop_only') {
+    return <ShopOnlyRedirect allowedShopIds={match.allowedShopIds} />;
   }
 
   return (

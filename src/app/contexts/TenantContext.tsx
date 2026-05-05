@@ -36,6 +36,19 @@ import { useAuth } from './AuthContext';
 
 export type TenantRole = 'owner' | 'admin' | 'member' | 'partner';
 export type TenantPlan = 'freemium' | 'pro' | 'enterprise';
+export type AccessScope = 'magrit_full' | 'shop_only';
+
+export interface MemberPermissions {
+  can_quote: boolean;
+  can_order: boolean;
+  can_invite: boolean;
+}
+
+export const DEFAULT_PERMISSIONS: MemberPermissions = {
+  can_quote: true,
+  can_order: true,
+  can_invite: false,
+};
 
 export interface Tenant {
   id: string;
@@ -51,6 +64,12 @@ export interface Tenant {
 export interface TenantWithMembership extends Tenant {
   /** role du user courant dans ce tenant */
   myRole: TenantRole;
+  /** scope d'acces : magrit_full (dashboard complet) ou shop_only (boutique seule) */
+  accessScope: AccessScope;
+  /** liste de boutiques accessibles si scope=shop_only (vide si magrit_full) */
+  allowedShopIds: string[];
+  /** permissions fines */
+  permissions: MemberPermissions;
   /** acces "herite" (ex: je suis admin du parent donc je vois le child) */
   inheritedFromParent: boolean;
 }
@@ -115,7 +134,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     // 1. Tenants dont je suis membre direct
     const { data: memberships, error: memErr } = await supabase
       .from('tenant_members')
-      .select('role, tenant:tenants!inner(*)')
+      .select('role, access_scope, allowed_shop_ids, permissions, tenant:tenants!inner(*)')
       .eq('user_id', user.id);
 
     if (memErr) {
@@ -128,6 +147,9 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     const direct: TenantWithMembership[] = (memberships || []).map((m: any) => ({
       ...(m.tenant as Tenant),
       myRole: m.role as TenantRole,
+      accessScope: (m.access_scope as AccessScope) ?? 'magrit_full',
+      allowedShopIds: (m.allowed_shop_ids as string[]) ?? [],
+      permissions: { ...DEFAULT_PERMISSIONS, ...(m.permissions ?? {}) },
       inheritedFromParent: false,
     }));
 
@@ -147,11 +169,15 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       inherited = (children || [])
         .filter((c: any) => !directIds.has(c.id))
         .map((c: any) => {
-          // Le role effectif = role sur le parent
+          // Le role effectif = role sur le parent. Heritage = magrit_full
+          // par defaut (admin du parent doit pouvoir tout voir).
           const parent = direct.find((t) => t.id === c.parent_tenant_id);
           return {
             ...(c as Tenant),
             myRole: parent?.myRole ?? 'member',
+            accessScope: 'magrit_full' as AccessScope,
+            allowedShopIds: [],
+            permissions: { ...DEFAULT_PERMISSIONS, can_invite: true },
             inheritedFromParent: true,
           };
         });
