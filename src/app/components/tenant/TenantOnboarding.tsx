@@ -17,6 +17,7 @@ import { useTenant } from '../../contexts/TenantContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { validateProEmail } from '../../lib/emailValidator';
 import { validateSiren, SirenInfo } from '../../lib/sirenValidator';
+import { REQUIRE_PRO_EMAIL, REQUIRE_VERIFIED_SIREN } from '../../lib/featureFlags';
 
 export function TenantOnboarding() {
   const { createTenant } = useTenant();
@@ -33,8 +34,13 @@ export function TenantOnboarding() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // E6.1 — Feature flags : en beta, on n'oblige pas l'email pro ni la
+  // verification SIREN. Les fonctions de validation restent appelables et
+  // exposees dans l'UI (warning informatif), seul le BLOCAGE est leve.
   const emailCheck = user?.email ? validateProEmail(user.email) : { ok: false };
   const emailIsGeneric = !emailCheck.ok;
+  const blockOnGenericEmail = REQUIRE_PRO_EMAIL && emailIsGeneric;
+  const sirenRequired = REQUIRE_VERIFIED_SIREN;
 
   const autoSlug = (n: string) =>
     n
@@ -71,7 +77,7 @@ export function TenantOnboarding() {
     e.preventDefault();
     setError(null);
 
-    if (emailIsGeneric) {
+    if (blockOnGenericEmail) {
       setError(emailCheck.error ?? 'Email generique non autorise.');
       return;
     }
@@ -79,7 +85,7 @@ export function TenantOnboarding() {
       setError('Nom et identifiant requis.');
       return;
     }
-    if (!sirenInfo) {
+    if (sirenRequired && !sirenInfo) {
       setError('Verifiez votre SIREN avant de creer l\'espace.');
       return;
     }
@@ -88,8 +94,10 @@ export function TenantOnboarding() {
     const tenantId = await createTenant({
       slug: slug.trim(),
       name: name.trim(),
-      siren: sirenInfo.siren,
-      sirenData: sirenInfo,
+      // SIREN/data ne sont passes que si la verification a ete faite.
+      // En beta sans flag, on accepte de creer un tenant sans SIREN.
+      siren: sirenInfo?.siren,
+      sirenData: sirenInfo ?? undefined,
     });
     setSaving(false);
 
@@ -133,16 +141,32 @@ export function TenantOnboarding() {
 
         {emailIsGeneric && (
           <div
-            className="mb-4 p-3 rounded-md bg-warn-bg text-warn-fg flex items-start gap-2"
+            className={`mb-4 p-3 rounded-md flex items-start gap-2 ${
+              blockOnGenericEmail
+                ? 'bg-warn-bg text-warn-fg'
+                : 'bg-bg text-ink-muted border border-line'
+            }`}
             style={{ fontSize: '12.5px' }}
           >
             <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" strokeWidth={1.8} />
             <div>
-              <strong>Email professionnel requis.</strong>
+              <strong>
+                {blockOnGenericEmail ? 'Email professionnel requis.' : 'Email generique detecte.'}
+              </strong>
               <p className="mt-0.5">
-                Magrit cible un public B2B : votre email actuel{' '}
-                <span className="font-mono">{user?.email}</span> est sur un domaine
-                generique. Reconnectez-vous avec votre email professionnel.
+                {blockOnGenericEmail ? (
+                  <>
+                    Magrit cible un public B2B : votre email actuel{' '}
+                    <span className="font-mono">{user?.email}</span> est sur un domaine
+                    generique. Reconnectez-vous avec votre email professionnel.
+                  </>
+                ) : (
+                  <>
+                    Votre email <span className="font-mono">{user?.email}</span> est sur un
+                    domaine generique. En beta, c'est tolere ; en production il faudra un
+                    email pro.
+                  </>
+                )}
               </p>
             </div>
           </div>
@@ -155,7 +179,9 @@ export function TenantOnboarding() {
               className="block text-ink-muted mb-1"
               style={{ fontSize: '11.5px', fontWeight: 500 }}
             >
-              SIREN <span className="text-ink-mute-2">(9 chiffres)</span>
+              SIREN <span className="text-ink-mute-2">
+                {sirenRequired ? '(9 chiffres, verification requise)' : '(9 chiffres, optionnel en beta)'}
+              </span>
             </span>
             <div className="flex gap-2">
               <input
@@ -169,12 +195,12 @@ export function TenantOnboarding() {
                 placeholder="552 100 554"
                 className="flex-1 px-3 py-2 border border-line rounded-md bg-paper text-ink focus:outline-none focus:border-line-2 font-mono"
                 style={{ fontSize: '14px' }}
-                disabled={emailIsGeneric}
+                disabled={blockOnGenericEmail}
               />
               <button
                 type="button"
                 onClick={handleVerifySiren}
-                disabled={!siren.trim() || verifyingSiren || emailIsGeneric}
+                disabled={!siren.trim() || verifyingSiren || blockOnGenericEmail}
                 className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md border border-line bg-paper text-ink hover:bg-bg disabled:opacity-40"
                 style={{ fontSize: '13px', fontWeight: 500 }}
               >
@@ -229,7 +255,7 @@ export function TenantOnboarding() {
               placeholder="Imprimerie Dupont"
               className="w-full px-3 py-2 border border-line rounded-md bg-paper text-ink focus:outline-none focus:border-line-2"
               style={{ fontSize: '14px' }}
-              disabled={emailIsGeneric}
+              disabled={blockOnGenericEmail}
             />
           </label>
 
@@ -258,7 +284,7 @@ export function TenantOnboarding() {
                 placeholder="imprimerie-dupont"
                 className="flex-1 px-3 py-2 bg-transparent outline-none text-ink font-mono"
                 style={{ fontSize: '13px' }}
-                disabled={emailIsGeneric}
+                disabled={blockOnGenericEmail}
               />
             </div>
             <p
@@ -289,7 +315,7 @@ export function TenantOnboarding() {
             </button>
             <button
               type="submit"
-              disabled={saving || emailIsGeneric || !sirenInfo}
+              disabled={saving || blockOnGenericEmail || (sirenRequired && !sirenInfo)}
               className="px-3.5 py-1.5 rounded-md bg-ink text-paper hover:bg-black disabled:opacity-40"
               style={{ fontSize: '13px', fontWeight: 500 }}
             >
