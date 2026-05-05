@@ -85,6 +85,7 @@ export function DashboardLayout() {
     {
       title: 'Config',
       items: [
+        { to: `${basePath}/settings`, label: "Paramètres de l'espace", icon: Settings, show: canManageMembers ?? false },
         { to: `${basePath}/plan`, label: 'Plan & abonnement', icon: CreditCard, show: true },
         { to: `${basePath}/preferences`, label: 'Préférences', icon: Settings, show: true },
       ],

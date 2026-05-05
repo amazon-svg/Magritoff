@@ -17,6 +17,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useTenant } from '../../contexts/TenantContext';
 import { Header } from '../Header';
 import { UnauthBanner } from '../UnauthBanner';
+import { LegacySlugRedirect } from './LegacySlugRedirect';
 import { ShopOnlyRedirect } from './ShopOnlyRedirect';
 
 export function TenantAwareLayout() {
@@ -47,10 +48,12 @@ export function TenantAwareLayout() {
     return <Navigate to="/tenants/new" replace />;
   }
 
-  // Slug URL ne correspond a aucun tenant accessible → picker
+  // Slug URL ne correspond a aucun tenant accessible → tente d'abord la
+  // resolution d'un slug archive (E9.4 redirection 90 j apres rename),
+  // puis fallback /tenants si rien.
   const match = tenants.find((t) => t.slug === tenantSlug);
   if (!match) {
-    return <Navigate to="/tenants" replace />;
+    return <LegacySlugRedirect oldSlug={tenantSlug ?? ''} />;
   }
 
   // E9.3 — Guard scope. Un user shop_only ne doit jamais voir le dashboard
