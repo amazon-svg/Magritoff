@@ -65,7 +65,7 @@ export function DashboardLayout() {
           sub: true,
         },
         { to: `${basePath}/orders`, label: 'Commandes', icon: ShoppingBag, show: true },
-        { to: `${basePath}/clients`, label: 'Clients', icon: Users, show: true },
+        { to: `${basePath}/users`, label: 'Utilisateurs', icon: Users, show: true },
         { to: `${basePath}/shops`, label: 'Boutiques', icon: Store, show: canUse('shops') },
         {
           to: `${basePath}/library`,

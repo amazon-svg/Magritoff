@@ -55,8 +55,8 @@ export function DashboardClients() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-1">Clients</h2>
-          <p className="text-sm text-gray-600">{clients.length} client(s) enregistré(s).</p>
+          <h2 className="text-lg font-semibold text-gray-900 mb-1">Utilisateurs</h2>
+          <p className="text-sm text-gray-600">{clients.length} contact(s) enregistré(s).</p>
         </div>
         <button
           onClick={openNew}

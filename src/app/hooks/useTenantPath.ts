@@ -7,7 +7,7 @@
  *
  * Exemples :
  *   const tp = useTenantPath();
- *   <Link to={tp('/dashboard/clients')}>Clients</Link>
+ *   <Link to={tp('/dashboard/users')}>Utilisateurs</Link>
  *   <a href={tp('/dashboard/quote-templates')}>Gabarits</a>
  *
  * Si aucun tenant n'est actif, le path `/dashboard/*` est rewrite en

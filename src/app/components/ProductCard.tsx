@@ -1055,7 +1055,7 @@ export function ProductCard({
                     clients.length === 0 ? (
                       <p className="text-sm text-ink-muted bg-bg border border-line rounded-lg px-3 py-2">
                         Aucun client enregistré. Créez-en un depuis{" "}
-                        <a href={tp('/dashboard/clients')} className="text-brand hover:underline">
+                        <a href={tp('/dashboard/users')} className="text-brand hover:underline">
                           le tableau de bord
                         </a>
                         .

@@ -231,7 +231,7 @@ export function QuoteModal({ isOpen, onClose, product, onClientChange }: QuoteMo
             {clients.length === 0 ? (
               <p className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
                 Aucun client enregistré.{' '}
-                <a href={tp('/dashboard/clients')} className="text-blue-600 hover:underline">
+                <a href={tp('/dashboard/users')} className="text-blue-600 hover:underline">
                   Ajouter un client
                 </a>
               </p>

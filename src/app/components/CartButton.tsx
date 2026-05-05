@@ -290,7 +290,7 @@ export function CartButton({ variant = 'pill' }: CartButtonProps) {
                               <p className="text-ink-mute-2" style={{ fontSize: '12px' }}>
                                 Aucun client.{' '}
                                 <a
-                                  href={tp('/dashboard/clients')}
+                                  href={tp('/dashboard/users')}
                                   className="text-brand hover:underline"
                                 >
                                   Ajouter un client
