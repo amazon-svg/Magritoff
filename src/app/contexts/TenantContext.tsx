@@ -59,6 +59,13 @@ export interface Tenant {
   is_system_tenant: boolean;
   settings: Record<string, any>;
   created_at: string;
+  /** SIREN FR ou tax id international, optionnel (E6.1) */
+  siren?: string | null;
+  /** Reponse INSEE (raison sociale, code NAF, actif…) — bouchon pour l'instant */
+  siren_data?: Record<string, any>;
+  /** True si le SIREN a ete valide a la creation du tenant */
+  verified?: boolean;
+  verified_at?: string | null;
 }
 
 export interface TenantWithMembership extends Tenant {
@@ -88,8 +95,13 @@ interface TenantContextType {
   /** Changer de tenant programmatiquement (navigate vers /t/:slug) */
   switchTenant: (slug: string) => void;
 
-  /** Creer un nouveau tenant racine (signup) */
-  createTenant: (input: { slug: string; name: string }) => Promise<string | null>;
+  /** Creer un nouveau tenant racine (signup). E6.1 : siren + siren_data optionnels */
+  createTenant: (input: {
+    slug: string;
+    name: string;
+    siren?: string;
+    sirenData?: Record<string, any>;
+  }) => Promise<string | null>;
 
   /** Creer un sous-tenant (filiale OU espace client B2B) sous un tenant parent */
   createSubTenant: (input: {
@@ -253,7 +265,17 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   );
 
   const createTenant = useCallback(
-    async ({ slug, name }: { slug: string; name: string }): Promise<string | null> => {
+    async ({
+      slug,
+      name,
+      siren,
+      sirenData,
+    }: {
+      slug: string;
+      name: string;
+      siren?: string;
+      sirenData?: Record<string, any>;
+    }): Promise<string | null> => {
       const { data, error } = await supabase.rpc('create_tenant_with_owner', {
         p_slug: slug,
         p_name: name,
@@ -263,8 +285,23 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         console.error('[TenantContext] createTenant error:', error.message);
         return null;
       }
+      const tenantId = data as string;
+      // E6.1 — Si un SIREN a ete fourni et valide, on enregistre les infos
+      // INSEE et on marque le tenant comme verifie. Update post-creation pour
+      // ne pas modifier la signature de la RPC partagee.
+      if (siren && sirenData) {
+        await supabase
+          .from('tenants')
+          .update({
+            siren,
+            siren_data: sirenData,
+            verified: true,
+            verified_at: new Date().toISOString(),
+          })
+          .eq('id', tenantId);
+      }
       await reload();
-      return data as string;
+      return tenantId;
     },
     [reload]
   );

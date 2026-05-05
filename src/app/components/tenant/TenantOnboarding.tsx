@@ -1,32 +1,46 @@
 /**
- * TenantOnboarding
- * ────────────────
- * Page /tenants/new : wizard de creation d'un tenant racine (cas signup
- * initial ou user qui veut creer une 2e imprimerie).
+ * TenantOnboarding (E6.1 enrichi)
+ * ────────────────────────────────
+ * Page /tenants/new : wizard de creation d'un tenant racine.
  *
- * Forme minimaliste pour la phase 1 : juste slug + nom. Branding, logo,
- * souscriptions aux gammes PIM → viennent dans la phase 2 (wizard 4 etapes).
+ * E6.1 — Validation B2B :
+ *   - email pro obligatoire (pas de @gmail/@yahoo/@hotmail/...) → check
+ *     contre l'email du user connecte
+ *   - SIREN (FR) requis : verification format Luhn + lookup INSEE (bouchonne)
+ *   - badge "Entreprise verifiee" stocke en DB pour affichage UI
  */
 
 import { useNavigate } from 'react-router';
-import { useState } from 'react';
-import { Sparkles } from 'lucide-react';
+import { FormEvent, useState } from 'react';
+import { CheckCircle2, Loader2, Sparkles, AlertCircle } from 'lucide-react';
 import { useTenant } from '../../contexts/TenantContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { validateProEmail } from '../../lib/emailValidator';
+import { validateSiren, SirenInfo } from '../../lib/sirenValidator';
 
 export function TenantOnboarding() {
   const { createTenant } = useTenant();
+  const { user } = useAuth();
   const navigate = useNavigate();
+
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
+  const [siren, setSiren] = useState('');
+  const [sirenInfo, setSirenInfo] = useState<SirenInfo | null>(null);
+  const [sirenError, setSirenError] = useState<string | null>(null);
+  const [verifyingSiren, setVerifyingSiren] = useState(false);
+
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Auto-derive slug from name (URL-safe lowercase with hyphens)
+  const emailCheck = user?.email ? validateProEmail(user.email) : { ok: false };
+  const emailIsGeneric = !emailCheck.ok;
+
   const autoSlug = (n: string) =>
     n
       .toLowerCase()
       .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[̀-ͯ]/g, '')
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '');
 
@@ -35,18 +49,53 @@ export function TenantOnboarding() {
     setSlug(autoSlug(v));
   };
 
-  const submit = async () => {
+  const handleVerifySiren = async () => {
+    setSirenError(null);
+    setSirenInfo(null);
+    setVerifyingSiren(true);
+    const result = await validateSiren(siren);
+    setVerifyingSiren(false);
+    if (!result.ok || !result.info) {
+      setSirenError(result.error ?? 'SIREN invalide.');
+      return;
+    }
+    setSirenInfo(result.info);
+    // Si la raison sociale INSEE est plus complete que le nom saisi, proposer la
+    // basculer dans le champ nom (sans ecraser si l'user a deja saisi).
+    if (!name.trim()) {
+      handleNameChange(result.info.raisonSociale);
+    }
+  };
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
     setError(null);
+
+    if (emailIsGeneric) {
+      setError(emailCheck.error ?? 'Email generique non autorise.');
+      return;
+    }
     if (!name.trim() || !slug.trim()) {
       setError('Nom et identifiant requis.');
       return;
     }
+    if (!sirenInfo) {
+      setError('Verifiez votre SIREN avant de creer l\'espace.');
+      return;
+    }
+
     setSaving(true);
-    const tenantId = await createTenant({ slug: slug.trim(), name: name.trim() });
+    const tenantId = await createTenant({
+      slug: slug.trim(),
+      name: name.trim(),
+      siren: sirenInfo.siren,
+      sirenData: sirenInfo,
+    });
     setSaving(false);
+
     if (!tenantId) {
       setError(
-        'Creation impossible. Le slug est peut-etre deja utilise, ou vous n\'etes pas connecte.'
+        'Creation impossible. Le slug ou le SIREN est peut-etre deja utilise, ou vous n\'etes pas connecte.'
       );
       return;
     }
@@ -54,7 +103,8 @@ export function TenantOnboarding() {
   };
 
   return (
-    <div
+    <form
+      onSubmit={submit}
       className="min-h-[calc(100vh-56px)] bg-bg px-6 py-10"
       style={{ fontFamily: 'var(--font-ui)' }}
     >
@@ -81,7 +131,90 @@ export function TenantOnboarding() {
           </p>
         </div>
 
-        <div className="bg-paper border border-line rounded-md p-6 space-y-4">
+        {emailIsGeneric && (
+          <div
+            className="mb-4 p-3 rounded-md bg-warn-bg text-warn-fg flex items-start gap-2"
+            style={{ fontSize: '12.5px' }}
+          >
+            <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" strokeWidth={1.8} />
+            <div>
+              <strong>Email professionnel requis.</strong>
+              <p className="mt-0.5">
+                Magrit cible un public B2B : votre email actuel{' '}
+                <span className="font-mono">{user?.email}</span> est sur un domaine
+                generique. Reconnectez-vous avec votre email professionnel.
+              </p>
+            </div>
+          </div>
+        )}
+
+        <div className="bg-paper border border-line rounded-md p-6 space-y-5">
+          {/* ── SIREN ─────────────────────────────────────────────────── */}
+          <label className="block">
+            <span
+              className="block text-ink-muted mb-1"
+              style={{ fontSize: '11.5px', fontWeight: 500 }}
+            >
+              SIREN <span className="text-ink-mute-2">(9 chiffres)</span>
+            </span>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={siren}
+                onChange={(e) => {
+                  setSiren(e.target.value.replace(/[^\d\s-]/g, ''));
+                  setSirenInfo(null);
+                  setSirenError(null);
+                }}
+                placeholder="552 100 554"
+                className="flex-1 px-3 py-2 border border-line rounded-md bg-paper text-ink focus:outline-none focus:border-line-2 font-mono"
+                style={{ fontSize: '14px' }}
+                disabled={emailIsGeneric}
+              />
+              <button
+                type="button"
+                onClick={handleVerifySiren}
+                disabled={!siren.trim() || verifyingSiren || emailIsGeneric}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md border border-line bg-paper text-ink hover:bg-bg disabled:opacity-40"
+                style={{ fontSize: '13px', fontWeight: 500 }}
+              >
+                {verifyingSiren && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                {verifyingSiren ? 'Verification…' : 'Verifier'}
+              </button>
+            </div>
+            {sirenError && (
+              <p
+                className="mt-1.5 text-err-fg flex items-center gap-1"
+                style={{ fontSize: '12px' }}
+              >
+                <AlertCircle className="w-3.5 h-3.5" strokeWidth={1.8} />
+                {sirenError}
+              </p>
+            )}
+            {sirenInfo && (
+              <div
+                className="mt-2 p-2.5 rounded-md bg-ok-bg text-ok-fg flex items-start gap-2"
+                style={{ fontSize: '12.5px' }}
+              >
+                <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" strokeWidth={1.8} />
+                <div>
+                  <div>
+                    <strong>{sirenInfo.raisonSociale}</strong>
+                    <span className="ml-2 font-mono text-ok-fg/70" style={{ fontSize: '11px' }}>
+                      NAF {sirenInfo.codeNaf}
+                    </span>
+                  </div>
+                  {sirenInfo.mocked && (
+                    <p className="mt-0.5 text-ok-fg/70" style={{ fontSize: '11px' }}>
+                      Verification bouchonnee (compte INSEE non encore configure).
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+          </label>
+
+          {/* ── Nom ───────────────────────────────────────────────────── */}
           <label className="block">
             <span
               className="block text-ink-muted mb-1"
@@ -96,9 +229,11 @@ export function TenantOnboarding() {
               placeholder="Imprimerie Dupont"
               className="w-full px-3 py-2 border border-line rounded-md bg-paper text-ink focus:outline-none focus:border-line-2"
               style={{ fontSize: '14px' }}
+              disabled={emailIsGeneric}
             />
           </label>
 
+          {/* ── Slug ──────────────────────────────────────────────────── */}
           <label className="block">
             <span
               className="block text-ink-muted mb-1"
@@ -123,6 +258,7 @@ export function TenantOnboarding() {
                 placeholder="imprimerie-dupont"
                 className="flex-1 px-3 py-2 bg-transparent outline-none text-ink font-mono"
                 style={{ fontSize: '13px' }}
+                disabled={emailIsGeneric}
               />
             </div>
             <p
@@ -144,6 +280,7 @@ export function TenantOnboarding() {
 
           <div className="flex justify-end gap-2 pt-3 border-t border-line">
             <button
+              type="button"
               onClick={() => navigate('/tenants')}
               className="px-3 py-1.5 rounded-md border border-line bg-paper text-ink-2 hover:bg-bg"
               style={{ fontSize: '13px', fontWeight: 500 }}
@@ -151,8 +288,8 @@ export function TenantOnboarding() {
               Annuler
             </button>
             <button
-              onClick={submit}
-              disabled={saving}
+              type="submit"
+              disabled={saving || emailIsGeneric || !sirenInfo}
               className="px-3.5 py-1.5 rounded-md bg-ink text-paper hover:bg-black disabled:opacity-40"
               style={{ fontSize: '13px', fontWeight: 500 }}
             >
@@ -161,6 +298,6 @@ export function TenantOnboarding() {
           </div>
         </div>
       </div>
-    </div>
+    </form>
   );
 }
