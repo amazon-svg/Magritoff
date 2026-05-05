@@ -99,17 +99,6 @@ drop policy if exists "own orders all" on public.orders;
 create policy "own orders all" on public.orders for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 -- ============================================================================
--- FILE: 20260418_library_client.sql
--- ============================================================================
--- Ajoute la notion de client à la bibliothèque de produits.
--- À exécuter après 20260418_shop_module.sql.
-
-alter table public.product_library
-  add column if not exists client_id uuid references public.clients(id) on delete set null;
-
-create index if not exists product_library_client_id_idx on public.product_library(client_id);
-
--- ============================================================================
 -- FILE: 20260418_shop_module.sql
 -- ============================================================================
 -- Magrit : module boutique (plans, bibliothèque, shops, commandes)
@@ -260,6 +249,17 @@ create policy "shop_orders public insert" on public.shop_orders
   for insert with check (
     exists (select 1 from public.shops s where s.id = shop_id and s.active = true)
   );
+
+-- ============================================================================
+-- FILE: 20260418_library_client.sql
+-- ============================================================================
+-- Ajoute la notion de client à la bibliothèque de produits.
+-- À exécuter après 20260418_shop_module.sql.
+
+alter table public.product_library
+  add column if not exists client_id uuid references public.clients(id) on delete set null;
+
+create index if not exists product_library_client_id_idx on public.product_library(client_id);
 
 -- ============================================================================
 -- FILE: 20260420_libraries.sql
