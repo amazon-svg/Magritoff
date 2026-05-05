@@ -1,11 +1,11 @@
 {
-  "name": "magritoff-v3",
+  "name": "magritoff-v4",
   "private": true,
-  "version": "0.3.0-alpha.0",
+  "version": "0.4.0-alpha.0",
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "dev": "vite --port 5175 --strictPort"
+    "dev": "vite --port 5176 --strictPort"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",
