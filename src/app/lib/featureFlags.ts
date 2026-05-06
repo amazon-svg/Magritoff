@@ -31,3 +31,21 @@ export const REQUIRE_PRO_EMAIL = false;
  *          conditionne).
  */
 export const REQUIRE_VERIFIED_SIREN = false;
+
+/**
+ * E3.1 + E3.2 — Si true, le ChatInterface utilise la route streaming SSE
+ * (claude-proxy-stream) au lieu de l'appel JSON synchrone classique. La
+ * reponse de Claude est affichee progressivement (token par token) avec
+ * un indicateur "Marguerite redige... [N tokens]" pendant la generation.
+ *
+ * Beta 4 : false par defaut. Mettre a true pour tester en local : le chat
+ *          appelle alors `/claude-proxy-stream` et l'edge function pipe les
+ *          SSE chunks d'Anthropic. Le parse JSON / extraction Clariprint
+ *          reste fait cote edge a la fin du stream, dans un evenement
+ *          terminal `done` portant le resultat structure final.
+ *
+ * Bascule recommandee : flip a true puis validation manuelle dans le
+ * browser sur quelques scenarios (mode open + mode strict + question
+ * pedagogique). Si OK, garder a true en beta jusqu'a prod.
+ */
+export const ENABLE_STREAMING_CHAT = false;

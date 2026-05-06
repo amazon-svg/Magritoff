@@ -13,6 +13,55 @@ import { useAuth } from "../contexts/AuthContext";
 import { useLibrary } from "../contexts/LibraryContext";
 import { usePlan } from "../hooks/usePlan";
 import { useTenant } from "../contexts/TenantContext";
+import { ENABLE_STREAMING_CHAT } from "../lib/featureFlags";
+
+// E3.1 + E3.2 — Lecture d un flux SSE renvoye par claude-proxy-stream.
+// onDelta est appele a chaque chunk de texte recu (pour un indicateur live).
+// Retourne le payload JSON parse de l evenement final "done".
+async function readClaudeSseStream(
+  resp: Response,
+  onDelta: (chunk: string) => void
+): Promise<any> {
+  if (!resp.body) throw new Error("Pas de body sur la response streaming");
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let finalPayload: any = null;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    // Les evenements SSE sont separes par une ligne vide (\n\n).
+    let sep: number;
+    while ((sep = buffer.indexOf("\n\n")) !== -1) {
+      const block = buffer.slice(0, sep);
+      buffer = buffer.slice(sep + 2);
+      let event = "message";
+      let data = "";
+      for (const line of block.split("\n")) {
+        if (line.startsWith("event:")) event = line.slice(6).trim();
+        else if (line.startsWith("data:")) data += line.slice(5).trim();
+      }
+      if (!data) continue;
+      try {
+        const parsed = JSON.parse(data);
+        if (event === "delta" && typeof parsed.text === "string") {
+          onDelta(parsed.text);
+        } else if (event === "done") {
+          finalPayload = parsed;
+        }
+      } catch {
+        // ignore les payloads non JSON
+      }
+    }
+  }
+  if (!finalPayload) {
+    throw new Error("Stream termine sans event 'done'");
+  }
+  return finalPayload;
+}
 
 interface ChatInterfaceProps {
   onShowResults?: () => void;
@@ -40,6 +89,9 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isDemoMode, setIsDemoMode] = useState(false);
+  // E3.1 — nb de chunks de texte recus pendant un stream en cours.
+  // null quand pas de stream actif. Permet l indicateur "Marguerite redige...".
+  const [streamingChunks, setStreamingChunks] = useState<number | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkLibraryPickerOpen, setBulkLibraryPickerOpen] = useState(false);
@@ -143,33 +195,55 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
     let parsedProducts: any[] = [];
 
     try {
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-e3db71a4/claude-proxy`,
-        {
+      // E3.1 + E3.2 — Branchement streaming opt-in via feature flag.
+      // ENABLE_STREAMING_CHAT=true : appelle /claude-proxy-stream (SSE),
+      // affiche un indicateur live de chunks. Le payload final reste de
+      // meme forme que la reponse JSON synchrone, donc le code en aval
+      // (clarification / teachingNote / configs) est partage.
+      const requestBody = JSON.stringify({
+        messages: newMessages,
+        userId: user?.id ?? null,
+        tenantId: currentTenant?.id ?? null,
+        mode,
+      });
+      const baseUrl = `https://${projectId}.supabase.co/functions/v1/make-server-e3db71a4`;
+
+      let data: any;
+      if (ENABLE_STREAMING_CHAT) {
+        setStreamingChunks(0);
+        const response = await fetch(`${baseUrl}/claude-proxy-stream`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${publicAnonKey}`,
+            Accept: "text/event-stream",
+          },
+          body: requestBody,
+        });
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`❌ HTTP ${response.status}:`, errorText);
+          throw new Error(`HTTP error ${response.status}`);
+        }
+        data = await readClaudeSseStream(response, () => {
+          setStreamingChunks((n) => (n ?? 0) + 1);
+        });
+      } else {
+        const response = await fetch(`${baseUrl}/claude-proxy`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${publicAnonKey}`,
           },
-          // E7.1 — passe userId/tenantId pour que l'edge function puisse
-          // tracer la conso LLM (table llm_usage_events).
-          // E2 — passe le mode (open/strict) pour conditionner le system prompt.
-          body: JSON.stringify({
-            messages: newMessages,
-            userId: user?.id ?? null,
-            tenantId: currentTenant?.id ?? null,
-            mode,
-          }),
+          body: requestBody,
+        });
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`❌ HTTP ${response.status}:`, errorText);
+          throw new Error(`HTTP error ${response.status}`);
         }
-      );
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`❌ HTTP ${response.status}:`, errorText);
-        throw new Error(`HTTP error ${response.status}`);
+        data = await response.json();
       }
-
-      const data = await response.json();
 
       // v3 : le edge function peut retourner un teachingNote (reponse
       // pedagogique en markdown) pour les questions du type
@@ -267,6 +341,7 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
       onShowResults?.();
     } finally {
       setIsLoading(false);
+      setStreamingChunks(null);
       const finalMessages = [...newMessages, { role: "assistant", content: assistantMessage }];
       const allProducts = [...products, ...parsedProducts];
       saveCurrentConversation(finalMessages, allProducts);
@@ -471,6 +546,15 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
                   <div className="h-3 w-40 rounded bg-line animate-pulse mb-2" />
                   <div className="h-3 w-64 rounded bg-line animate-pulse mb-2" />
                   <div className="h-3 w-52 rounded bg-line animate-pulse" />
+                  {/* E3.1 — indicateur live pendant un stream SSE */}
+                  {streamingChunks !== null && streamingChunks > 0 && (
+                    <p
+                      className="mt-2 text-ink-mute-2 font-mono"
+                      style={{ fontSize: '11px', letterSpacing: '0.04em' }}
+                    >
+                      Marguerite redige · {streamingChunks} chunk{streamingChunks > 1 ? 's' : ''}
+                    </p>
+                  )}
                 </div>
               )}
             </div>
