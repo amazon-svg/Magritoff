@@ -11,6 +11,7 @@ import { PortalCatalog } from './portal/PortalCatalog';
 import { PortalProduct } from './portal/PortalProduct';
 import { PortalCart } from './portal/PortalCart';
 import type { PortalView, CartLine, BudgetInfo } from './portal/types';
+import { TEST_IDS } from '../../lib/testIds';
 
 /**
  * Portail B2B Magrit — version 2.
@@ -274,6 +275,7 @@ export function PublicShop() {
 
   return (
     <div
+      data-testid={TEST_IDS.shop.portal}
       className={`min-h-screen ${isDark ? 'bg-gray-900 text-gray-100' : 'bg-bg text-ink'}`}
       data-theme={isDark ? 'dark' : undefined}
       style={{

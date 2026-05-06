@@ -1,6 +1,7 @@
 import { ShoppingCart } from 'lucide-react';
 import type { Shop } from '../../../contexts/ShopsContext';
 import type { PortalView } from './types';
+import { TEST_IDS } from '../../../lib/testIds';
 
 interface Props {
   shop: Shop;
@@ -30,10 +31,11 @@ export function PortalChrome({ shop, view, onView, cartCount, budget }: Props) {
     <>
       {/* Top bar co-brandée */}
       <div
+        data-testid={TEST_IDS.shop.header}
         className="flex items-center gap-7 px-9 py-3.5 border-b border-line bg-paper"
         style={{ fontFamily: 'var(--font-ui)' }}
       >
-        <div className="flex items-center gap-2.5">
+        <div data-testid={TEST_IDS.shop.headerLogo} className="flex items-center gap-2.5">
           {shop.logo_url ? (
             <img src={shop.logo_url} alt={shop.name} className="h-6 w-6 object-contain rounded" />
           ) : (
@@ -72,6 +74,7 @@ export function PortalChrome({ shop, view, onView, cartCount, budget }: Props) {
         </nav>
 
         <button
+          data-testid={TEST_IDS.shop.cartIcon}
           onClick={() => onView('cart')}
           className="ml-auto relative flex items-center gap-2 px-3 py-1.5 rounded-lg border border-line bg-paper text-ink-2 hover:text-ink"
           style={{ fontSize: '13px', fontWeight: 400 }}
@@ -89,6 +92,7 @@ export function PortalChrome({ shop, view, onView, cartCount, budget }: Props) {
         </button>
 
         <div
+          data-testid={TEST_IDS.shop.headerUserMenu}
           className="w-7 h-7 rounded-full bg-line-2 grid place-items-center text-ink-muted"
           style={{ fontSize: '11px', fontWeight: 500 }}
           title="Compte utilisateur"

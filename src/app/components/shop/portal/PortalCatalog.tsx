@@ -6,6 +6,7 @@ import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment'
 import { ProductMockup } from '../../brand/ProductMockup';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 import { fetchClariprintQuote } from '../../../utils/clariprintQuote';
+import { TEST_IDS } from '../../../lib/testIds';
 
 interface Props {
   products: ShopProduct[];
@@ -303,7 +304,7 @@ export function PortalCatalog({
       </div>
 
       {/* Grille 4-col */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 px-12 py-8 bg-paper">
+      <div data-testid={TEST_IDS.shop.productGrid} className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 px-12 py-8 bg-paper">
         {filtered.length === 0 ? (
           <div
             className="col-span-full text-center py-16 text-ink-muted"
@@ -325,6 +326,8 @@ export function PortalCatalog({
             return (
               <article
                 key={p.id}
+                data-testid={TEST_IDS.shop.productCard}
+                data-product-id={p.id}
                 className="group bg-paper border border-transparent rounded-lg overflow-hidden cursor-pointer hover:border-line transition-colors"
                 onClick={() => onSelectProduct(p)}
               >
@@ -387,6 +390,7 @@ export function PortalCatalog({
                       </span>
                     </div>
                     <button
+                      data-testid={TEST_IDS.shop.productCardQuoteBtn}
                       onClick={(e) => {
                         e.stopPropagation();
                         onAddToCart(p, 1);
