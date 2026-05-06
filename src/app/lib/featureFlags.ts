@@ -48,4 +48,4 @@ export const REQUIRE_VERIFIED_SIREN = false;
  * browser sur quelques scenarios (mode open + mode strict + question
  * pedagogique). Si OK, garder a true en beta jusqu'a prod.
  */
-export const ENABLE_STREAMING_CHAT = false;
+export const ENABLE_STREAMING_CHAT = true;
