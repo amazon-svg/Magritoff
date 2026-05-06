@@ -22,7 +22,7 @@ import { ShopOnlyRedirect } from './ShopOnlyRedirect';
 
 export function TenantAwareLayout() {
   const { user, loading: authLoading } = useAuth();
-  const { tenants, currentTenant, loading: tenantLoading } = useTenant();
+  const { tenants, currentTenant, isSuperAdmin, loading: tenantLoading } = useTenant();
   const { tenantSlug } = useParams<{ tenantSlug: string }>();
 
   const loading = authLoading || tenantLoading;
@@ -58,7 +58,10 @@ export function TenantAwareLayout() {
 
   // E9.3 — Guard scope. Un user shop_only ne doit jamais voir le dashboard
   // ni la chat home : on l'envoie directement sur sa boutique.
-  if (match.accessScope === 'shop_only') {
+  // EXCEPTION : un superadmin Magrit (membre de magrit-root) doit pouvoir
+  // tout voir, peu importe le scope de son membership sur ce tenant. Sinon
+  // impossible d'auditer ou de debugger un tenant client en prod.
+  if (match.accessScope === 'shop_only' && !isSuperAdmin) {
     return <ShopOnlyRedirect allowedShopIds={match.allowedShopIds} />;
   }
 
