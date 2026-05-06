@@ -21,9 +21,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Mail, UserMinus, Shield, Plus, Pencil, Trash2, Users as UsersIcon,
-  X, Loader2, Settings,
+  X, Loader2, Settings, Send,
 } from 'lucide-react';
 import { supabase } from '/utils/supabase/client';
+import { projectId, publicAnonKey } from '/utils/supabase/info';
 import {
   useTenant,
   AccessScope,
@@ -33,6 +34,41 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { useClients, Client } from '../../contexts/ClientsContext';
 import { useShops } from '../../contexts/ShopsContext';
+
+// E9.5 — appelle l'edge function send-invitation-email. Best-effort :
+// renvoie toujours un objet { sent, link, reason? } pour que le caller
+// puisse soit confirmer "email envoye", soit afficher le lien manuel.
+async function callSendInvitationEmail(invitationId: string): Promise<{
+  sent: boolean;
+  link: string;
+  reason?: string;
+}> {
+  const url = `https://${projectId}.supabase.co/functions/v1/make-server-e3db71a4/send-invitation-email`;
+  try {
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${publicAnonKey}`,
+      },
+      body: JSON.stringify({
+        invitationId,
+        baseUrl: window.location.origin,
+      }),
+    });
+    const data = await resp.json();
+    if (!resp.ok || !data.ok) {
+      return {
+        sent: false,
+        link: '',
+        reason: data?.error || `HTTP ${resp.status}`,
+      };
+    }
+    return { sent: !!data.sent, link: data.link || '', reason: data.reason };
+  } catch (e) {
+    return { sent: false, link: '', reason: String(e) };
+  }
+}
 
 // ────────────────────────────────────────────────────────────────────────────
 // SECTION 1 — Utilisateurs Magrit (membres tenant + invitations)
@@ -163,33 +199,60 @@ function MagritUsersSection() {
     const cleanedEmail = inviteEmail.trim().toLowerCase();
     const token = crypto.randomUUID().replace(/-/g, '') + Date.now().toString(36);
     const expires = new Date(Date.now() + 14 * 86400_000).toISOString();
-    const { error } = await supabase.from('tenant_invitations').insert({
-      tenant_id: currentTenant.id,
-      email: cleanedEmail,
-      role: inviteRole,
-      token,
-      expires_at: expires,
-      invited_by: user.id,
-      access_scope: inviteScope,
-      allowed_shop_ids: inviteScope === 'shop_only' ? inviteShopIds : [],
-      permissions: invitePerms,
-    });
-    if (error) {
-      alert("Echec de l'invitation : " + error.message);
+    const { data: inserted, error } = await supabase
+      .from('tenant_invitations')
+      .insert({
+        tenant_id: currentTenant.id,
+        email: cleanedEmail,
+        role: inviteRole,
+        token,
+        expires_at: expires,
+        invited_by: user.id,
+        access_scope: inviteScope,
+        allowed_shop_ids: inviteScope === 'shop_only' ? inviteShopIds : [],
+        permissions: invitePerms,
+      })
+      .select('id')
+      .single();
+    if (error || !inserted) {
+      alert("Echec de l'invitation : " + (error?.message || 'inconnu'));
     } else {
       await logEvent('invited', null, {
         email: cleanedEmail,
         role: inviteRole,
         access_scope: inviteScope,
       });
-      // E9.5 (Sprint 2) remplacera ce prompt par un envoi email automatique.
-      const link = `${window.location.origin}/invitations/${token}`;
-      prompt('Invitation creee. Envoyez ce lien au destinataire :', link);
+      // E9.5 — envoi email via edge function. Fallback : afficher le lien
+      // manuel si Resend n'est pas configure ou l'envoi echoue.
+      const result = await callSendInvitationEmail(inserted.id);
+      if (result.sent) {
+        alert(`Invitation envoyee par email a ${cleanedEmail}.`);
+      } else {
+        const link =
+          result.link || `${window.location.origin}/invitations/${token}`;
+        prompt(
+          `Invitation creee. Email non envoye (${result.reason || 'config manquante'}). Transmettez ce lien au destinataire :`,
+          link,
+        );
+      }
       resetInviteForm();
       setInviteOpen(false);
       await load();
     }
     setSending(false);
+  };
+
+  const resendInvite = async (id: string, email: string) => {
+    const result = await callSendInvitationEmail(id);
+    if (result.sent) {
+      alert(`Email d'invitation renvoye a ${email}.`);
+    } else {
+      const link = result.link || `${window.location.origin}/invitations/`;
+      prompt(
+        `Email non envoye (${result.reason || 'config manquante'}). Lien d'invitation a transmettre :`,
+        link,
+      );
+    }
   };
 
   const revokeInvite = async (id: string, email: string) => {
@@ -496,13 +559,24 @@ function MagritUsersSection() {
                     </td>
                     <td className="px-4 py-2 text-right">
                       {canWrite && (
-                        <button
-                          onClick={() => revokeInvite(inv.id, inv.email)}
-                          className="inline-flex items-center gap-1 px-2 py-1 rounded text-err-fg hover:bg-err-bg"
-                          style={{ fontSize: '11.5px', fontWeight: 500 }}
-                        >
-                          Revoquer
-                        </button>
+                        <div className="inline-flex items-center gap-1">
+                          <button
+                            onClick={() => resendInvite(inv.id, inv.email)}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded text-ink-muted hover:bg-bg"
+                            style={{ fontSize: '11.5px', fontWeight: 500 }}
+                            title="Renvoyer l email d invitation"
+                          >
+                            <Send className="w-3 h-3" strokeWidth={1.5} />
+                            Renvoyer
+                          </button>
+                          <button
+                            onClick={() => revokeInvite(inv.id, inv.email)}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded text-err-fg hover:bg-err-bg"
+                            style={{ fontSize: '11.5px', fontWeight: 500 }}
+                          >
+                            Revoquer
+                          </button>
+                        </div>
                       )}
                     </td>
                   </tr>
