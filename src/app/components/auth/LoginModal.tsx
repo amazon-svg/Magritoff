@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { X, Loader2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { TEST_IDS } from '../../lib/testIds';
 
 interface Props {
   onClose: () => void;
@@ -42,6 +43,7 @@ export function LoginModal({ onClose, onSwitchToSignup, onSwitchToForgot }: Prop
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
             <input
+              data-testid={TEST_IDS.auth.loginEmailInput}
               type="email"
               required
               value={email}
@@ -52,6 +54,7 @@ export function LoginModal({ onClose, onSwitchToSignup, onSwitchToForgot }: Prop
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Mot de passe</label>
             <input
+              data-testid={TEST_IDS.auth.loginPasswordInput}
               type="password"
               required
               value={password}
@@ -63,6 +66,7 @@ export function LoginModal({ onClose, onSwitchToSignup, onSwitchToForgot }: Prop
           {error && <p className="text-sm text-red-600 bg-red-50 p-2 rounded">{error}</p>}
 
           <button
+            data-testid={TEST_IDS.auth.loginSubmitBtn}
             type="submit"
             disabled={loading}
             className="w-full px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 font-medium flex items-center justify-center gap-2"

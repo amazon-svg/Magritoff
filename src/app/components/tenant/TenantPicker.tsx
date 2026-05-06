@@ -16,6 +16,7 @@ import { Building2, Plus, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTenant } from '../../contexts/TenantContext';
 import { MagritLogo } from '../brand/MagritLogo';
+import { TEST_IDS } from '../../lib/testIds';
 
 export function TenantPicker() {
   const { user, loading: authLoading } = useAuth();
@@ -61,6 +62,7 @@ export function TenantPicker() {
 
   return (
     <div
+      data-testid={TEST_IDS.nav.tenantSwitcher}
       className="min-h-[calc(100vh-56px)] bg-bg px-6 py-10"
       style={{ fontFamily: 'var(--font-ui)' }}
     >
