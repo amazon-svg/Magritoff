@@ -1,7 +1,7 @@
 import { Navigate, NavLink, Outlet, useLocation } from 'react-router';
 import {
   User, Settings, MessageSquare, FileText, ShoppingBag, Users,
-  CreditCard, Package, Store, Shield,
+  CreditCard, Package, Store, Shield, LayoutTemplate,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlan } from '../../hooks/usePlan';
@@ -30,7 +30,15 @@ export function DashboardLayout() {
   if (!user) return <Navigate to="/" replace />;
 
   // Groupes de navigation Linear-like
-  type Item = { to: string; end?: boolean; label: string; icon: any; show: boolean };
+  // `sub: true` → item indente visuellement, signale un sous-menu (ex: gabarits sous devis).
+  type Item = {
+    to: string;
+    end?: boolean;
+    label: string;
+    icon: any;
+    show: boolean;
+    sub?: boolean;
+  };
   const GROUPS: Array<{ title: string; items: Item[] }> = [
     {
       title: 'Atelier',
@@ -38,6 +46,13 @@ export function DashboardLayout() {
         { to: '/dashboard', end: true, label: 'Profil', icon: User, show: true },
         { to: '/dashboard/history', label: 'Historique', icon: MessageSquare, show: true },
         { to: '/dashboard/quotes', label: 'Devis', icon: FileText, show: true },
+        {
+          to: '/dashboard/quote-templates',
+          label: 'Gabarits de devis',
+          icon: LayoutTemplate,
+          show: true,
+          sub: true,
+        },
         { to: '/dashboard/orders', label: 'Commandes', icon: ShoppingBag, show: true },
         { to: '/dashboard/clients', label: 'Clients', icon: Users, show: true },
         { to: '/dashboard/library', label: 'Bibliothèque', icon: Package, show: canUse('library') },
@@ -124,16 +139,18 @@ export function DashboardLayout() {
                   to={item.to}
                   end={item.end}
                   className={({ isActive }) =>
-                    `flex items-center gap-2.5 px-2.5 py-1.5 rounded-md transition-colors ${
+                    `flex items-center gap-2.5 py-1.5 rounded-md transition-colors ${
+                      item.sub ? 'pl-7 pr-2.5' : 'px-2.5'
+                    } ${
                       isActive
                         ? 'bg-line text-ink'
                         : 'text-ink-2 hover:bg-line/60 hover:text-ink'
                     }`
                   }
-                  style={{ fontSize: '13.5px', fontWeight: 400 }}
+                  style={{ fontSize: item.sub ? '13px' : '13.5px', fontWeight: 400 }}
                 >
                   <item.icon
-                    className="w-4 h-4 shrink-0"
+                    className={`shrink-0 ${item.sub ? 'w-3.5 h-3.5' : 'w-4 h-4'}`}
                     strokeWidth={1.5}
                   />
                   <span className="truncate">{item.label}</span>

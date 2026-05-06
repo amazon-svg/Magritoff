@@ -10,6 +10,7 @@ import { DashboardProfile } from "./components/dashboard/DashboardProfile";
 import { DashboardPreferences } from "./components/dashboard/DashboardPreferences";
 import { DashboardHistory } from "./components/dashboard/DashboardHistory";
 import { DashboardQuotes } from "./components/dashboard/DashboardQuotes";
+import { DashboardQuoteTemplates } from "./components/dashboard/DashboardQuoteTemplates";
 import { DashboardOrders } from "./components/dashboard/DashboardOrders";
 import { DashboardClients } from "./components/dashboard/DashboardClients";
 import { DashboardPlan } from "./components/dashboard/DashboardPlan";
@@ -42,6 +43,7 @@ export const router = createBrowserRouter([
           { path: "preferences", element: <DashboardPreferences /> },
           { path: "history", element: <DashboardHistory /> },
           { path: "quotes", element: <DashboardQuotes /> },
+          { path: "quote-templates", element: <DashboardQuoteTemplates /> },
           { path: "orders", element: <DashboardOrders /> },
           { path: "clients", element: <DashboardClients /> },
           { path: "library", element: <DashboardLibraries /> },

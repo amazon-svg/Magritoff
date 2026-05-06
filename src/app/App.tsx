@@ -8,6 +8,7 @@ import { ClientsProvider } from './contexts/ClientsContext';
 import { LibraryProvider } from './contexts/LibraryContext';
 import { ShopsProvider } from './contexts/ShopsContext';
 import { PIMProvider } from './contexts/PIMContext';
+import { QuoteTemplatesProvider } from './contexts/QuoteTemplatesContext';
 
 export default function App() {
   return (
@@ -18,9 +19,11 @@ export default function App() {
             <ClientsProvider>
               <LibraryProvider>
                 <ShopsProvider>
-                  <CartProvider>
-                    <RouterProvider router={router} />
-                  </CartProvider>
+                  <QuoteTemplatesProvider>
+                    <CartProvider>
+                      <RouterProvider router={router} />
+                    </CartProvider>
+                  </QuoteTemplatesProvider>
                 </ShopsProvider>
               </LibraryProvider>
             </ClientsProvider>
