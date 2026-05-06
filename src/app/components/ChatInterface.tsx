@@ -12,6 +12,7 @@ import { useConversation, ConversationHistory } from "../contexts/ConversationCo
 import { useAuth } from "../contexts/AuthContext";
 import { useLibrary } from "../contexts/LibraryContext";
 import { usePlan } from "../hooks/usePlan";
+import { useTenant } from "../contexts/TenantContext";
 
 interface ChatInterfaceProps {
   onShowResults?: () => void;
@@ -33,6 +34,7 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
   } = useConversation();
 
   const { user } = useAuth();
+  const { currentTenant } = useTenant();
   const { canUse } = usePlan();
   const { addProductsBulk } = useLibrary();
   const [input, setInput] = useState("");
@@ -123,7 +125,13 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
             "Content-Type": "application/json",
             Authorization: `Bearer ${publicAnonKey}`,
           },
-          body: JSON.stringify({ messages: newMessages }),
+          // E7.1 — passe userId/tenantId pour que l'edge function puisse
+          // tracer la conso LLM (table llm_usage_events).
+          body: JSON.stringify({
+            messages: newMessages,
+            userId: user?.id ?? null,
+            tenantId: currentTenant?.id ?? null,
+          }),
         }
       );
 

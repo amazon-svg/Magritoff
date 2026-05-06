@@ -2,6 +2,7 @@ import { Hono } from "npm:hono";
 import { cors } from "npm:hono/cors";
 import { logger } from "npm:hono/logger";
 import * as kv from "./kv_store.ts";
+import { logLlmUsage } from "../_shared/llm_usage.ts";
 
 const app = new Hono();
 
@@ -571,7 +572,9 @@ app.get("/make-server-e3db71a4/claude-test", async (c) => {
 // ============================================================================
 app.post("/make-server-e3db71a4/claude-proxy", async (c) => {
   try {
-    const { messages } = await c.req.json();
+    // E7.1 — userId / tenantId sont passes par le client pour pouvoir tracer
+    // la conso LLM (cf. lib/llm_usage). Optionnels (ex: shop public anonyme).
+    const { messages, userId, tenantId } = await c.req.json();
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return c.json({ error: "messages array is required" }, 400);
@@ -674,6 +677,16 @@ app.post("/make-server-e3db71a4/claude-proxy", async (c) => {
 
       // Générer le résumé lisible pour le chat (utilisé si pas de teachingNote)
       const readableSummary = generateReadableSummary(configs);
+
+      // E7.1 — log de la conso (best-effort, ne bloque pas la reponse)
+      logLlmUsage({
+        userId,
+        tenantId,
+        endpoint: "claude-proxy",
+        model: data.model,
+        usage: data.usage,
+        metadata: { messages_count: messages.length, configs_count: configs.length },
+      });
 
       return c.json({
         content: [{ type: "text", text: readableSummary }],
