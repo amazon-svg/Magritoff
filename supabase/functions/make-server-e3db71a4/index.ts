@@ -1,6 +1,8 @@
 import { Hono } from "npm:hono";
 import { cors } from "npm:hono/cors";
 import { logger } from "npm:hono/logger";
+import { streamSSE } from "npm:hono/streaming";
+import { createClient } from "npm:@supabase/supabase-js@2";
 import * as kv from "./kv_store.ts";
 import { logLlmUsage } from "../_shared/llm_usage.ts";
 
@@ -842,6 +844,257 @@ app.post("/make-server-e3db71a4/claude-proxy", async (c) => {
 });
 
 // ============================================================================
+// E3.1 + E3.2 — CLAUDE PROXY STREAM (SSE)
+// ============================================================================
+// Variante streaming de claude-proxy. Pipe les SSE chunks d Anthropic
+// directement vers le client (event=delta, data={text}) puis emet un event
+// final (event=done, data={content, configs, ...}) avec le resultat
+// structure et logge la conso LLM.
+//
+// Activation cote front : feature flag ENABLE_STREAMING_CHAT (off par defaut).
+// Si false, le client utilise toujours l ancienne route synchrone.
+
+interface ParsedClaudeJson {
+  configs: any[];
+  teachingNote: string | null;
+  assumptions: string[];
+  clarification: string | null;
+  clarificationOptions: string[];
+}
+
+function parseClaudeJson(rawText: string): ParsedClaudeJson {
+  const cleaned = rawText
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/\s*```\s*$/i, "")
+    .trim();
+  const result: ParsedClaudeJson = {
+    configs: [],
+    teachingNote: null,
+    assumptions: [],
+    clarification: null,
+    clarificationOptions: [],
+  };
+  try {
+    const parsed = JSON.parse(cleaned);
+    if (Array.isArray(parsed.products)) result.configs = parsed.products;
+    if (typeof parsed.teachingNote === "string" && parsed.teachingNote.trim()) {
+      result.teachingNote = parsed.teachingNote.trim();
+    }
+    if (Array.isArray(parsed.assumptions)) {
+      result.assumptions = parsed.assumptions
+        .filter((a: unknown) => typeof a === "string" && a.trim().length > 0)
+        .map((a: string) => a.trim());
+    }
+    if (typeof parsed.clarification === "string" && parsed.clarification.trim()) {
+      result.clarification = parsed.clarification.trim();
+    }
+    if (Array.isArray(parsed.clarificationOptions)) {
+      result.clarificationOptions = parsed.clarificationOptions
+        .filter((o: unknown) => typeof o === "string" && o.trim().length > 0)
+        .map((o: string) => o.trim())
+        .slice(0, 5);
+    }
+  } catch (e) {
+    console.error("[claude-proxy-stream] JSON parse failed:", e);
+  }
+  return result;
+}
+
+app.post("/make-server-e3db71a4/claude-proxy-stream", async (c) => {
+  const body = await c.req.json();
+  const { userId, tenantId } = body;
+  let { messages } = body;
+  const mode: "open" | "strict" = body.mode === "strict" ? "strict" : "open";
+
+  if (!messages || !Array.isArray(messages) || messages.length === 0) {
+    return c.json({ error: "messages array is required" }, 400);
+  }
+
+  const MAX_CONTEXT_MESSAGES = 25;
+  let truncatedCount = 0;
+  if (messages.length > MAX_CONTEXT_MESSAGES) {
+    truncatedCount = messages.length - MAX_CONTEXT_MESSAGES;
+    messages = messages.slice(-MAX_CONTEXT_MESSAGES);
+  }
+
+  const userMessage = messages[messages.length - 1].content;
+  const anthropicApiKey =
+    Deno.env.get("ANTHROPIC_API_KEY") ||
+    Deno.env.get("Magrit3") ||
+    Deno.env.get("MAGRIT");
+
+  return streamSSE(c, async (stream) => {
+    // Mode demo : pas de cle API → emet un seul event "done" avec demo configs
+    if (!anthropicApiKey) {
+      const demoConfigs = generateDemoConfigs(userMessage);
+      const readableSummary = generateReadableSummary(demoConfigs);
+      await stream.writeSSE({
+        event: "done",
+        data: JSON.stringify({
+          content: [{ type: "text", text: readableSummary }],
+          configs: demoConfigs,
+          teachingNote: null,
+          assumptions: [],
+          clarification: null,
+          clarificationOptions: [],
+          mode,
+          truncatedCount,
+          demoMode: true,
+          message: "Mode démo (clé API absente)",
+        }),
+      });
+      return;
+    }
+
+    let resp: Response;
+    try {
+      resp = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": anthropicApiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 4096,
+          system: buildSystemPrompt(mode),
+          messages,
+          stream: true,
+        }),
+      });
+    } catch (netErr) {
+      console.error("[claude-proxy-stream] network error:", netErr);
+      const demoConfigs = generateDemoConfigs(userMessage);
+      const readableSummary = generateReadableSummary(demoConfigs);
+      await stream.writeSSE({
+        event: "done",
+        data: JSON.stringify({
+          content: [{ type: "text", text: readableSummary }],
+          configs: demoConfigs,
+          teachingNote: null,
+          assumptions: [],
+          clarification: null,
+          clarificationOptions: [],
+          mode,
+          truncatedCount,
+          demoMode: true,
+          message: "Mode démo (erreur réseau)",
+        }),
+      });
+      return;
+    }
+
+    if (!resp.ok || !resp.body) {
+      const errText = await resp.text().catch(() => "");
+      console.error("[claude-proxy-stream] Anthropic error:", resp.status, errText);
+      const isCreditOrAuth =
+        errText.includes("credit") ||
+        errText.includes("billing") ||
+        errText.includes("authentication") ||
+        errText.includes("invalid");
+      const demoConfigs = isCreditOrAuth
+        ? generateDemoConfigs(userMessage)
+        : [];
+      const readableSummary = generateReadableSummary(demoConfigs);
+      await stream.writeSSE({
+        event: "done",
+        data: JSON.stringify({
+          content: [{ type: "text", text: readableSummary }],
+          configs: demoConfigs,
+          teachingNote: null,
+          assumptions: [],
+          clarification: null,
+          clarificationOptions: [],
+          mode,
+          truncatedCount,
+          demoMode: isCreditOrAuth,
+          error: !isCreditOrAuth ? `Anthropic ${resp.status}` : undefined,
+        }),
+      });
+      return;
+    }
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let fullText = "";
+    let model = "claude-sonnet-4-20250514";
+    let usage: any = null;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith("data:")) continue;
+        const payload = trimmed.slice(5).trim();
+        if (!payload || payload === "[DONE]") continue;
+        let evt: any;
+        try {
+          evt = JSON.parse(payload);
+        } catch {
+          continue;
+        }
+        if (evt.type === "message_start" && evt.message) {
+          if (evt.message.model) model = evt.message.model;
+          if (evt.message.usage) usage = { ...evt.message.usage };
+        } else if (evt.type === "content_block_delta" && evt.delta?.text) {
+          fullText += evt.delta.text;
+          await stream.writeSSE({
+            event: "delta",
+            data: JSON.stringify({ text: evt.delta.text }),
+          });
+        } else if (evt.type === "message_delta") {
+          if (evt.usage) usage = { ...(usage ?? {}), ...evt.usage };
+        }
+      }
+    }
+
+    const parsed = parseClaudeJson(fullText);
+    const configs = parsed.configs.length > 0 ? parsed.configs : [];
+    const readableSummary = generateReadableSummary(configs);
+
+    logLlmUsage({
+      userId,
+      tenantId,
+      endpoint: "claude-proxy-stream",
+      model,
+      usage,
+      metadata: {
+        mode,
+        messages_count: messages.length,
+        truncated_count: truncatedCount,
+        configs_count: configs.length,
+      },
+    });
+
+    await stream.writeSSE({
+      event: "done",
+      data: JSON.stringify({
+        content: [{ type: "text", text: readableSummary }],
+        configs,
+        teachingNote: parsed.teachingNote,
+        assumptions: parsed.assumptions,
+        clarification: parsed.clarification,
+        clarificationOptions: parsed.clarificationOptions,
+        mode,
+        truncatedCount,
+        model,
+        usage,
+        demoMode: false,
+      }),
+    });
+  });
+});
+
+// ============================================================================
 // CLARIPRINT QUOTE — Demande de prix via l'API Clariprint
 // ============================================================================
 app.post("/make-server-e3db71a4/clariprint-quote", async (c) => {
@@ -1075,6 +1328,197 @@ app.post("/make-server-e3db71a4/save-product", async (c) => {
   } catch (error) {
     console.error("❌ Erreur save-product:", error);
     return c.json({ error: "Failed to save product", message: String(error) }, 500);
+  }
+});
+
+// ============================================================================
+// E9.5 — SEND-INVITATION-EMAIL
+// ============================================================================
+// Envoie l'email d'invitation a rejoindre un espace via Resend.
+//
+// Contrat front: POST { invitationId, baseUrl } ou baseUrl = window.location.origin.
+// L'email + tenant + token + expires sont relus en service_role depuis la DB
+// pour eviter qu'un appelant puisse envoyer des mails arbitraires.
+//
+// Reponse:
+//   { ok: true,  sent: true,  link }              -> email envoye
+//   { ok: true,  sent: false, link, reason }      -> Resend non configure ou
+//                                                    echec, le client doit
+//                                                    afficher le lien manuel
+//   { ok: false, error }                          -> erreur cote server (400/500)
+
+const ROLE_LABELS_FR: Record<string, string> = {
+  owner: "Propriétaire",
+  admin: "Administrateur",
+  member: "Membre",
+  partner: "Partenaire",
+};
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function getServiceClient() {
+  const url = Deno.env.get("SUPABASE_URL");
+  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!url || !key) return null;
+  return createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
+app.post("/make-server-e3db71a4/send-invitation-email", async (c) => {
+  try {
+    const { invitationId, baseUrl } = await c.req.json();
+    if (!invitationId || !baseUrl) {
+      return c.json({ ok: false, error: "invitationId et baseUrl requis" }, 400);
+    }
+
+    const supa = getServiceClient();
+    if (!supa) {
+      return c.json(
+        { ok: false, error: "SUPABASE_SERVICE_ROLE_KEY non configuree" },
+        500,
+      );
+    }
+
+    const { data: inv, error: invErr } = await supa
+      .from("tenant_invitations")
+      .select("id, email, role, token, expires_at, tenant_id, invited_by")
+      .eq("id", invitationId)
+      .maybeSingle();
+
+    if (invErr || !inv) {
+      return c.json(
+        { ok: false, error: invErr?.message || "Invitation introuvable" },
+        404,
+      );
+    }
+
+    const { data: tenant } = await supa
+      .from("tenants")
+      .select("name, slug")
+      .eq("id", inv.tenant_id)
+      .maybeSingle();
+
+    let inviterEmail: string | null = null;
+    if (inv.invited_by) {
+      const { data: inviter } = await supa.auth.admin.getUserById(inv.invited_by);
+      inviterEmail = inviter?.user?.email ?? null;
+    }
+
+    const cleanBase = String(baseUrl).replace(/\/+$/, "");
+    const link = `${cleanBase}/invitations/${inv.token}`;
+
+    const tenantName = tenant?.name || "votre espace Magrit";
+    const roleLabel = ROLE_LABELS_FR[inv.role] || inv.role;
+    const expiresFr = new Date(inv.expires_at).toLocaleDateString("fr-FR", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    });
+
+    const apiKey = Deno.env.get("RESEND_API_KEY");
+    if (!apiKey) {
+      return c.json({
+        ok: true,
+        sent: false,
+        link,
+        reason: "RESEND_API_KEY non configuree — affichez le lien manuellement",
+      });
+    }
+
+    const fromAddr =
+      Deno.env.get("MAGRIT_FROM_EMAIL") || "Magrit <onboarding@resend.dev>";
+    const subject = inviterEmail
+      ? `${inviterEmail} vous invite a rejoindre ${tenantName} sur Magrit`
+      : `Invitation a rejoindre ${tenantName} sur Magrit`;
+
+    const intro = inviterEmail
+      ? `${escapeHtml(inviterEmail)} vous a invite(e) a rejoindre l'espace <strong>${escapeHtml(tenantName)}</strong> sur Magrit.`
+      : `Vous avez ete invite(e) a rejoindre l'espace <strong>${escapeHtml(tenantName)}</strong> sur Magrit.`;
+
+    const html = `<!DOCTYPE html>
+<html lang="fr">
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px;">
+  <p style="font-size: 15px; line-height: 1.5;">Bonjour,</p>
+  <p style="font-size: 15px; line-height: 1.5;">${intro}</p>
+  <p style="font-size: 14px; line-height: 1.5; color: #555;">
+    Role : <strong>${escapeHtml(roleLabel)}</strong><br/>
+    Cette invitation expire le ${escapeHtml(expiresFr)}.
+  </p>
+  <p style="margin: 28px 0;">
+    <a href="${escapeHtml(link)}" style="display: inline-block; background: #1a1a1a; color: #fff; text-decoration: none; padding: 12px 20px; border-radius: 6px; font-size: 14px; font-weight: 500;">
+      Accepter l'invitation
+    </a>
+  </p>
+  <p style="font-size: 12px; color: #888; line-height: 1.5;">
+    Ou copiez ce lien : <br/>
+    <a href="${escapeHtml(link)}" style="color: #555; word-break: break-all;">${escapeHtml(link)}</a>
+  </p>
+  <p style="font-size: 12px; color: #888; line-height: 1.5; margin-top: 32px;">
+    Si vous n'attendiez pas cette invitation, ignorez simplement ce message.
+  </p>
+  <p style="font-size: 11px; color: #aaa; margin-top: 32px;">Magrit — copilote IA web-to-print</p>
+</body>
+</html>`;
+
+    const text = [
+      "Bonjour,",
+      "",
+      inviterEmail
+        ? `${inviterEmail} vous a invite(e) a rejoindre l'espace "${tenantName}" sur Magrit.`
+        : `Vous avez ete invite(e) a rejoindre l'espace "${tenantName}" sur Magrit.`,
+      "",
+      `Role : ${roleLabel}`,
+      `Cette invitation expire le ${expiresFr}.`,
+      "",
+      "Pour l'accepter, ouvrez ce lien :",
+      link,
+      "",
+      "Si vous n'attendiez pas cette invitation, ignorez simplement ce message.",
+      "",
+      "— Magrit, copilote IA web-to-print",
+    ].join("\n");
+
+    const resp = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: fromAddr,
+        to: [inv.email],
+        subject,
+        html,
+        text,
+      }),
+    });
+
+    if (!resp.ok) {
+      const detail = await resp.text();
+      console.error("[send-invitation-email] Resend error:", resp.status, detail);
+      return c.json({
+        ok: true,
+        sent: false,
+        link,
+        reason: `Resend ${resp.status}: ${detail.slice(0, 200)}`,
+      });
+    }
+
+    return c.json({ ok: true, sent: true, link });
+  } catch (error) {
+    console.error("❌ Erreur send-invitation-email:", error);
+    return c.json(
+      { ok: false, error: "Erreur serveur", message: String(error) },
+      500,
+    );
   }
 });
 
