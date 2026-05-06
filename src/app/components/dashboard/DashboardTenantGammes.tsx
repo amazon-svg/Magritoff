@@ -26,9 +26,9 @@ import type { Gamme } from '../../utils/productEnrichment';
 
 export function DashboardTenantGammes() {
   const { gammes, loading: pimLoading } = usePIM();
-  const { currentTenant, currentRole } = useTenant();
+  const { currentTenant, currentRole, isSuperAdmin } = useTenant();
 
-  const canWrite = currentRole === 'owner' || currentRole === 'admin';
+  const canWrite = currentRole === 'owner' || currentRole === 'admin' || isSuperAdmin;
 
   const [activeSlugs, setActiveSlugs] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);

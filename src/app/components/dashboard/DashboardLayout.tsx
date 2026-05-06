@@ -38,7 +38,7 @@ export function DashboardLayout() {
   const tenantSlug = currentTenant?.slug ?? '';
   const basePath = `/t/${tenantSlug}/dashboard`;
 
-  const canManageMembers = currentRole === 'owner' || currentRole === 'admin';
+  const canManageMembers = currentRole === 'owner' || currentRole === 'admin' || isSuperAdmin;
   const canManageSpaces =
     canManageMembers && currentTenant && !currentTenant.parent_tenant_id;
 

@@ -28,7 +28,7 @@ interface SubTenantRow {
 }
 
 export function DashboardTenantSpaces() {
-  const { currentTenant, currentRole, createSubTenant } = useTenant();
+  const { currentTenant, currentRole, createSubTenant, isSuperAdmin } = useTenant();
 
   const [children, setChildren] = useState<SubTenantRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,7 +42,7 @@ export function DashboardTenantSpaces() {
   const canCreate =
     !!currentTenant &&
     !isSubTenant &&
-    (currentRole === 'owner' || currentRole === 'admin');
+    (currentRole === 'owner' || currentRole === 'admin' || isSuperAdmin);
 
   const load = async () => {
     if (!currentTenant) return;

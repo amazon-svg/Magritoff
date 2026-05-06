@@ -101,7 +101,7 @@ interface InvitationRow {
 
 function MagritUsersSection() {
   const { user } = useAuth();
-  const { currentTenant, currentRole } = useTenant();
+  const { currentTenant, currentRole, isSuperAdmin } = useTenant();
   const { shops } = useShops();
 
   const [members, setMembers] = useState<MemberRow[]>([]);
@@ -121,7 +121,7 @@ function MagritUsersSection() {
   // Modale "Modifier les droits"
   const [editingPerms, setEditingPerms] = useState<MemberRow | null>(null);
 
-  const canWrite = currentRole === 'owner' || currentRole === 'admin';
+  const canWrite = currentRole === 'owner' || currentRole === 'admin' || isSuperAdmin;
 
   const logEvent = async (
     eventType: 'created' | 'role_changed' | 'removed' | 'invited' | 'invitation_revoked',
