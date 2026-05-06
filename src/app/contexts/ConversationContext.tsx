@@ -41,6 +41,11 @@ interface ConversationContextType {
 const storageKey = (tenantId: string | null) =>
   tenantId ? `magrit_conversation_history__${tenantId}` : 'magrit_conversation_history';
 
+// Cle localStorage de la conversation active (pour restorer apres refresh /
+// re-mount du provider). Suffixee par tenant comme storageKey.
+const currentConvIdKey = (tenantId: string | null) =>
+  tenantId ? `magrit_current_conversation__${tenantId}` : 'magrit_current_conversation';
+
 const ConversationContext = createContext<ConversationContextType | undefined>(undefined);
 
 async function fetchRemote(tenantId: string): Promise<ConversationHistory[]> {
@@ -110,11 +115,31 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Reset le cache de migration quand on change de tenant
     migratedRef.current = false;
-    // Reset aussi les messages et produits en cours (ils appartiennent a
-    // un tenant, ne doivent pas bleedthrough vers un autre).
+
+    // E9.x — Capture la conv active AVANT de reset le state. Permet de la
+    // restaurer apres re-mount du provider (ex : Supabase auth refresh sur
+    // tab focus qui change la reference user et re-declenche cet effet).
+    // Sans ca, l utilisateur perdait ses produits genere quand il quittait
+    // l onglet et revenait, alors que la conv etait toujours en historique.
+    const tenantIdAtMount = currentTenant?.id ?? null;
+    const savedConvId = localStorage.getItem(currentConvIdKey(tenantIdAtMount));
+
     setMessages([]);
     setProducts([]);
     setCurrentConversationId(null);
+
+    const restoreCurrentFromHistory = (h: ConversationHistory[]) => {
+      if (!savedConvId) return;
+      const conv = h.find((c) => c.id === savedConvId);
+      if (!conv) {
+        // ID stale (conv supprimee) — nettoyage
+        localStorage.removeItem(currentConvIdKey(tenantIdAtMount));
+        return;
+      }
+      setCurrentConversationId(conv.id);
+      setMessages(Array.isArray(conv.messages) ? conv.messages.map((m) => ({ ...m })) : []);
+      setProducts(Array.isArray(conv.products) ? conv.products.map((p) => ({ ...p })) : []);
+    };
 
     if (user && currentTenant) {
       fetchRemote(currentTenant.id).then(async (remote) => {
@@ -132,6 +157,7 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
                 const refreshed = await fetchRemote(currentTenant.id);
                 setHistory(refreshed);
                 migratedRef.current = true;
+                restoreCurrentFromHistory(refreshed);
                 return;
               }
             } catch {}
@@ -139,17 +165,34 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
           migratedRef.current = true;
         }
         setHistory(remote);
+        restoreCurrentFromHistory(remote);
       });
     } else {
       const localKey = storageKey(currentTenant?.id ?? null);
       const saved = localStorage.getItem(localKey);
+      let parsed: ConversationHistory[] = [];
       if (saved) {
-        try { setHistory(JSON.parse(saved)); } catch {}
-      } else {
-        setHistory([]);
+        try { parsed = JSON.parse(saved); } catch {}
       }
+      setHistory(parsed);
+      restoreCurrentFromHistory(parsed);
     }
   }, [user, currentTenant?.id]);
+
+  // E9.x — Auto-persist de la conv active dans localStorage. Permet a
+  // restoreCurrentFromHistory de la retrouver au prochain mount. On NE
+  // supprime PAS la cle quand currentConversationId devient null : ce null
+  // peut etre transient (reset au re-mount du provider sur tab focus).
+  // Le nettoyage explicite est dans startNewConversation, deleteConversation,
+  // et restoreCurrentFromHistory (sur ID stale).
+  useEffect(() => {
+    if (currentConversationId) {
+      localStorage.setItem(
+        currentConvIdKey(currentTenant?.id ?? null),
+        currentConversationId,
+      );
+    }
+  }, [currentConversationId, currentTenant?.id]);
 
   useEffect(() => {
     // Le localStorage sert de cache hors-ligne et de source pour la migration
@@ -258,6 +301,8 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
         setCurrentConversationId(null);
         setMessages([]);
         setProducts([]);
+        // Clear explicite de la cle de restauration (cf. auto-persist effect)
+        localStorage.removeItem(currentConvIdKey(currentTenant?.id ?? null));
       }
     },
     [currentConversationId, user, currentTenant?.id]
@@ -268,7 +313,9 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
     setMessages([]);
     setProducts([]);
     setCurrentConversationId(null);
-  }, [messages, products, saveCurrent]);
+    // Clear explicite de la cle de restauration
+    localStorage.removeItem(currentConvIdKey(currentTenant?.id ?? null));
+  }, [messages, products, saveCurrent, currentTenant?.id]);
 
   return (
     <ConversationContext.Provider
