@@ -2,7 +2,7 @@
 
 > Document de reprise pour démarrer une nouvelle session de Claude code sur le projet sans recharger tout l'historique. À tenir à jour à chaque fin de sprint.
 >
-> **Dernière mise à jour : fin Sprint 1 (2026-05-06)**
+> **Dernière mise à jour : fin Sprint 2 (2026-05-06)**
 
 ---
 
@@ -14,7 +14,7 @@ Magrit = copilote IA web-to-print B2B français. Stack Vite 6 + React 18 + TS + 
 - B1 (`Magritoff/`, port 5173, branche `main`) — prod, ne pas toucher
 - B2 (`Magritoff-v2/`, port 5174, branche `design/v2`) — refonte design
 - B3 (`Magritoff-v3/`, port 5175, branche `beta/v3`) — multi-tenant, **projet Supabase mort** (`azbpnhnfnkdemfmwvyqc` n'existe plus)
-- **B4 (`Magritoff-v4/`, port 5176, branche `beta/v4`)** — incrément Sprint 1 livré, **environnement de dev actif**
+- **B4 (`Magritoff-v4/`, port 5176, branche `beta/v4`)** — incréments Sprint 1 + Sprint 2 livrés, **environnement de dev actif**
 
 ## 2. Infrastructure B4
 
@@ -44,28 +44,40 @@ Toutes pushées sur `beta/v4`, edge function déployée, SQL appliqué.
 | E7.1 | Tracking consommation tokens LLM (table `llm_usage_events` + RPC) | ✅ |
 | E2.1 + E2.2 + E2.4 | Modes Marguerite (ouvert / strict avec chips cliquables / limite 25 contexte) | ✅ |
 
-## 4. Stories reportées Sprint 2
+## 3 bis. Stories livrées Sprint 2 (Claude code, 2026-05-06)
+
+| ID | Story | État | Notes |
+|---|---|---|---|
+| E9.5 | Email invitations via Resend + bouton « Renvoyer » | ✅ | Nouvelle route edge `send-invitation-email`, fallback gracieux si `RESEND_API_KEY` absent (le `prompt()` lien manuel reste actif) |
+| E9.11 | Bouton « Réintégrer » sur exclusions boutique (one-way → two-way) | ✅ | Liste des exclusions cliquable dans l'éditeur boutique, `includeProduct()` déjà côté ShopsContext |
+| E9.12 | Migration `claude-3-haiku` → `claude-haiku-4-5` sur B1/B2 | ✅ | 4 occurrences (claude-proxy + server) sur Magritoff/ et Magritoff-v2/ — déploiement edge requis sur projet partagé `jynxrpzwgzrrfuooputw` |
+| E9.10 | Tests RLS automatisés vitest (6 cas) | ✅ | Harness `tests/rls/setup.ts` + `tenant_isolation.test.ts`. Skip auto si `.env.test` absent. Voir `tests/README.md` |
+| E3.1 + E3.2 | Streaming Claude SSE | ✅ | Route séparée `claude-proxy-stream`, opt-in via `ENABLE_STREAMING_CHAT` (off par défaut). Aucune régression sur le flow synchrone |
+
+## 4. Stories reportées Sprint 3
 
 | ID | Story | Pourquoi |
 |---|---|---|
-| E3.1 | Affichage progressif descriptif + prix (streaming UI) | Refacto significatif, pas bloquant V1 |
-| E3.2 | Infrastructure WebSocket / Supabase Realtime | Cf. E3.1 |
 | E3.4 | UX simplifiée saisie données imprimeur Freemium | Recoupe E6.2 et T-06.1, à faire en bloc |
+| E6.2 | Saisie simplifiée Pro | Couplée avec T-06.1 paramétrage parc |
+| E7.3 | Monitoring usage / quotas / coûts (dashboard ops) | Sprint dédié observabilité |
+| T-01..T-03 | Corporate Portal / Franchise / Sync eCommerce | Chantiers ≥ 1 sprint chacun |
 
 ## 5. Feature flags actifs en beta (à inverser pour la prod)
 
 Fichier : `src/app/lib/featureFlags.ts`
 
-| Flag | Beta | Prod |
-|---|---|---|
-| `REQUIRE_PRO_EMAIL` | `false` | `true` |
-| `REQUIRE_VERIFIED_SIREN` | `false` | `true` |
+| Flag | Beta | Prod | Notes |
+|---|---|---|---|
+| `REQUIRE_PRO_EMAIL` | `false` | `true` | E6.1 |
+| `REQUIRE_VERIFIED_SIREN` | `false` | `true` | E6.1 |
+| `ENABLE_STREAMING_CHAT` | `false` | `false` puis `true` après QA | E3.1+E3.2 — flip à `true` pour tester le streaming SSE en local |
 
 Le mock SIREN INSEE est dans `src/app/lib/sirenValidator.ts`. Le bloc `mockInseeLookup` à remplacer par un vrai `fetch` quand le compte INSEE Sirene V3 sera créé (commentaire en place dans le fichier).
 
 ## 6. Modèle de données B4 (multi-tenant)
 
-Tables clés ajoutées en Sprint 1 :
+Tables clés ajoutées en Sprint 1 (Sprint 2 = aucune migration DB) :
 - `tenant_member_events` — audit trail des actions sur memberships
 - `tenant_slug_history` — archivage des renames de slug (E9.4)
 - `llm_usage_events` — tracking des appels Claude (E7.1)
@@ -82,32 +94,25 @@ RPC publics ajoutés :
 
 Bootstrap complet d'un nouveau projet : exécuter `Magritoff-v4/supabase/_bootstrap_b4.sql` (regroupe toutes les migrations).
 
-## 7. Sprint 2 — Plan proposé
+## 7. Sprint 3 — Plan proposé
 
-D'après le backlog Notion (vue Sprint 2), priorités par ordre logique :
+Périmètre Sprint 2 livré (E9.5, E9.10, E9.11, E9.12, E3.1+E3.2). À arbitrer début Sprint 3 :
 
-### Multi-tenant & gouvernance (suite E9)
-- **E9.5** Email invitations (Resend ou SendGrid) — remplace le `prompt()` JS manuel actuel
+### Multi-tenant & gouvernance (résiduel E9)
 - **E9.6** Wizard souscription gammes à la création tenant
-- **E9.10** Tests RLS d'étanchéité automatisés (vitest)
-- **E9.11** Bouton "Réintégrer" sur exclusions de boutique (one-way → two-way)
-- **E9.12** Migration claude-3-haiku → claude-haiku-4-5 sur B1/B2
-
-### Stories E3 reportées
-- **E3.1 + E3.2** Streaming Claude (SSE)
-- **E3.4** UX saisie imprimeur Freemium
 
 ### Foundations Pro
-- **E6.2** Saisie simplifiée Pro (couplée avec T-06.1 paramétrage parc)
+- **E3.4** UX saisie imprimeur Freemium (recoupe E6.2 + T-06.1)
+- **E6.2** Saisie simplifiée Pro
 - **E7.3** Monitoring usage / quotas / coûts (dashboard ops)
 
-### eCommerce + Corporate (gros chantiers)
-- **T-01** Corporate Portal (T01.1 → T01.4 dans Sprint 2 selon backlog)
+### eCommerce + Corporate (gros chantiers, ≥ 1 sprint chacun)
+- **T-01** Corporate Portal
 - **T-02** Franchise Module
 - **T-03** Sync eCommerce Shopify/Woo
 - **T-06.1, T-06.2** Paramétrage parc machines + Prix marché Magrit
 
-→ Charge énorme. À arbitrer en début Sprint 2 quoi prendre en premier.
+→ Sprint 3 recommandé : E9.6 + E6.2 + E7.3 (cohérent Foundations Pro), reporter T-01..T-03 à des sprints dédiés.
 
 ## 8. Workflow git Magrit
 
@@ -122,6 +127,9 @@ D'après les préférences du user :
 - **Onglet Boutiques masqué** pour le plan `freemium` — c'est le comportement legacy B3, à reconsidérer avec E9.8 (Billing Stripe). Workaround : `update user_preferences set plan='pro' where user_id=...`
 - **Edge function** : nécessite redéploiement après chaque modif côté `supabase/functions/*`. Commande : `supabase functions deploy make-server-e3db71a4 --project-ref ightkxebexuzfjdbpsdg` (avec PAT temporaire)
 - **Pas d'override superadmin** sur certains guards futurs — penser à toujours ajouter le check `isSuperAdmin` quand on bloque un user sur un scope (cf. E9.3 où le bug a été corrigé après coup)
+- **E9.5 Resend** : pour activer l'envoi email, configurer `RESEND_API_KEY` (et optionnellement `MAGRIT_FROM_EMAIL`, ex `Magrit <noreply@magrit.fr>`) dans les secrets Supabase B4. Sans clé, le flux retombe automatiquement sur l'ancien `prompt()` avec lien manuel (no-op fonctionnel). Domaine `from` doit être vérifié sur Resend, sinon utiliser le `onboarding@resend.dev` par défaut (limite : envoi uniquement vers le compte Resend).
+- **E9.12 / B1+B2 partagés** : Magritoff/ et Magritoff-v2/ partagent le projet Supabase `jynxrpzwgzrrfuooputw` — il suffit de déployer la fonction depuis l'un des deux pour mettre à jour les deux betas (la dernière `supabase functions deploy` gagne).
+- **E3.1 Streaming** : la route `/claude-proxy-stream` parse le JSON Claude APRÈS le stream complet (pas de progressive parsing JSON pour l'instant). L'indicateur live se contente d'un compteur de chunks. Pour du progressive content rendering true (cards qui se construisent), il faudra un Sprint 3 dédié avec parsing JSON incrémental.
 
 ## 10. Identifiants & accès
 
