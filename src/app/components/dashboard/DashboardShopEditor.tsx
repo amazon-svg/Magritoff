@@ -29,7 +29,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router';
 import {
   ArrowLeft, Save, Loader2, Trash2, Check, ExternalLink, Library as LibraryIcon,
-  Download, AlertTriangle, EyeOff,
+  Download, AlertTriangle, EyeOff, Eye,
 } from 'lucide-react';
 import { useShops, Shop, ShopProduct } from '../../contexts/ShopsContext';
 import { useLibrary, LibraryProduct } from '../../contexts/LibraryContext';
@@ -67,6 +67,7 @@ export function DashboardShopEditor() {
     getShopProducts,
     removeShopProduct,
     excludeProduct,
+    includeProduct,
   } = useShops();
   const { products: library, libraries, productsByLibrary, deleteProduct } = useLibrary();
   const { clients } = useClients();
@@ -487,7 +488,7 @@ export function DashboardShopEditor() {
           </div>
         )}
 
-        {/* Exclusions actuelles (si presentes) : propose de les reintegrer */}
+        {/* E9.11 — Exclusions actuelles : reintegration one-click. */}
         {shop.excluded_product_ids && shop.excluded_product_ids.length > 0 && (
           <details className="mt-4 text-xs text-gray-600">
             <summary className="cursor-pointer hover:text-gray-900">
@@ -497,8 +498,51 @@ export function DashboardShopEditor() {
             </summary>
             <p className="mt-2 text-gray-500">
               Ces produits existent dans les bibliothèques liées mais ont été retirés manuellement
-              de cette boutique. Pour les réintégrer, re-générez ou re-cochez la bibliothèque.
+              de cette boutique. Cliquez sur « Réintégrer » pour les ré-afficher.
             </p>
+            <ul className="mt-3 space-y-1">
+              {shop.excluded_product_ids.map((libProductId) => {
+                const p = library.find((lp) => lp.id === libProductId);
+                const label = p?.name ?? `(produit supprimé · ${libProductId.slice(0, 8)})`;
+                const stillInLinkedLibrary =
+                  !!p &&
+                  !!p.library_id &&
+                  (shop.library_ids ?? []).includes(p.library_id);
+                return (
+                  <li
+                    key={libProductId}
+                    className="flex items-center justify-between gap-2 px-2 py-1.5 rounded bg-gray-50"
+                  >
+                    <span className="text-gray-700 truncate">
+                      {label}
+                      {p && !stillInLinkedLibrary && (
+                        <span className="ml-2 text-[10px] uppercase tracking-wide text-amber-700">
+                          bibliothèque non liée
+                        </span>
+                      )}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await includeProduct(shop.id, libProductId);
+                        const updated = shops.find((s) => s.id === shop.id);
+                        if (updated) setShop(updated);
+                      }}
+                      disabled={!stillInLinkedLibrary}
+                      title={
+                        stillInLinkedLibrary
+                          ? 'Ré-afficher ce produit dans la boutique'
+                          : "La bibliothèque source n est plus liée à cette boutique — re-cochez-la d abord"
+                      }
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded border border-gray-300 bg-white hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed text-[11px] font-medium text-gray-700"
+                    >
+                      <Eye className="w-3 h-3" />
+                      Réintégrer
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
           </details>
         )}
       </section>
