@@ -2,7 +2,7 @@
 
 > Document de reprise pour démarrer une nouvelle session de Claude code sur le projet sans recharger tout l'historique. À tenir à jour à chaque fin de sprint.
 >
-> **Dernière mise à jour : fin Sprint 2 (2026-05-06)**
+> **Dernière mise à jour : fin session post-Sprint 2 + E7.7 + E9.6 (2026-05-06)**
 
 ---
 
@@ -48,13 +48,24 @@ Toutes pushées sur `beta/v4`, edge function déployée, SQL appliqué.
 
 | ID | Story | État | Notes |
 |---|---|---|---|
-| E9.5 | Email invitations via Resend + bouton « Renvoyer » | ✅ | Nouvelle route edge `send-invitation-email`, fallback gracieux si `RESEND_API_KEY` absent (le `prompt()` lien manuel reste actif) |
+| E9.5 | Email invitations via Resend + bouton « Renvoyer » | ✅ | Route edge `send-invitation-email`. `RESEND_API_KEY` configuré côté Supabase B4. **Mode test** : envoi limité à `amazon@ageservices.fr` tant qu'un domaine n'est pas vérifié sur Resend. Domaine prod à choisir + DNS Gandi à venir |
 | E9.11 | Bouton « Réintégrer » sur exclusions boutique (one-way → two-way) | ✅ | Liste des exclusions cliquable dans l'éditeur boutique, `includeProduct()` déjà côté ShopsContext |
-| E9.12 | Migration `claude-3-haiku` → `claude-haiku-4-5` sur B1/B2 | ✅ | 4 occurrences (claude-proxy + server) sur Magritoff/ et Magritoff-v2/ — déploiement edge requis sur projet partagé `jynxrpzwgzrrfuooputw` |
+| E9.12 | Migration `claude-3-haiku` → `claude-haiku-4-5` sur B1/B2 | ✅ | Déployé sur projet partagé `jynxrpzwgzrrfuooputw` |
 | E9.10 | Tests RLS automatisés vitest (6 cas) | ✅ | Harness `tests/rls/setup.ts` + `tenant_isolation.test.ts`. Skip auto si `.env.test` absent. Voir `tests/README.md` |
-| E3.1 + E3.2 | Streaming Claude SSE | ✅ | Route séparée `claude-proxy-stream`, opt-in via `ENABLE_STREAMING_CHAT` (off par défaut). Aucune régression sur le flow synchrone |
+| E3.1 + E3.2 | Streaming Claude SSE | ✅ | Route séparée `claude-proxy-stream`. Flag `ENABLE_STREAMING_CHAT` **passé à `true`** (commit `fa44682`) après QA réussi |
+| E7.7 | Instrumentation `data-testid` P00→P09 | ✅ | Mergé via PR #1 (commit `c344ce0`). `src/app/lib/testIds.ts` central + smoke test `tests/data-testid.smoke.spec.ts` (21 tests). Référence Notion : [🧬 Hints DOM par parcours](https://www.notion.so/358d0131973c810e93c2c5285099b8a4) |
+| E9.6 | Wizard souscription gammes à création tenant | ✅ | TenantOnboarding refondu en 2 étapes (Identité + Gammes). createTenant accepte `gammeSlugs[]` qui déclenche un upsert bulk dans `tenant_gamme_subscriptions`. Bouton « Configurer plus tard » pour skip |
 
-## 4. Stories reportées Sprint 3
+### Fixes post-Sprint 2 (sur `beta/v4` direct)
+
+| Commit | Story | Notes |
+|---|---|---|
+| `7881bcb` | Superadmin Magrit bypasse les guards `canWrite`/`canManage` | Régression de E9.3 généralisée à 4 composants (DashboardUsers, DashboardLayout, DashboardTenantGammes, DashboardTenantSpaces). Détectée en testant E9.5 sur `a.mazon@me.com` membre simple sur `imprimerie-ipa` mais superadmin Magrit |
+| `acb7352` | Persistance conversation Marguerite à travers tab focus | `onAuthStateChange` Supabase fire à chaque tab focus → ref `user` change → reset `messages/products`. Fix : nouvelle clé localStorage `magrit_current_conversation__<tenant_id>` + capture avant reset + restauration depuis l'historique. Survit aussi au F5 et close/reopen tab |
+
+## 4. Stories reportées (dépendent de Clariprint)
+
+Décision Arnaud 2026-05-06 : ces stories nécessitent d'abord du travail Clariprint (paramétrage parc imprimeur, prix marché, observabilité Clariprint). On y revient après le bloc Clariprint.
 
 | ID | Story | Pourquoi |
 |---|---|---|
@@ -63,7 +74,7 @@ Toutes pushées sur `beta/v4`, edge function déployée, SQL appliqué.
 | E7.3 | Monitoring usage / quotas / coûts (dashboard ops) | Sprint dédié observabilité |
 | T-01..T-03 | Corporate Portal / Franchise / Sync eCommerce | Chantiers ≥ 1 sprint chacun |
 
-## 5. Feature flags actifs en beta (à inverser pour la prod)
+## 5. Feature flags actifs en beta
 
 Fichier : `src/app/lib/featureFlags.ts`
 
@@ -71,7 +82,7 @@ Fichier : `src/app/lib/featureFlags.ts`
 |---|---|---|---|
 | `REQUIRE_PRO_EMAIL` | `false` | `true` | E6.1 |
 | `REQUIRE_VERIFIED_SIREN` | `false` | `true` | E6.1 |
-| `ENABLE_STREAMING_CHAT` | `false` | `false` puis `true` après QA | E3.1+E3.2 — flip à `true` pour tester le streaming SSE en local |
+| `ENABLE_STREAMING_CHAT` | **`true`** | `true` | E3.1+E3.2 — passé à `true` 2026-05-06 après QA |
 
 Le mock SIREN INSEE est dans `src/app/lib/sirenValidator.ts`. Le bloc `mockInseeLookup` à remplacer par un vrai `fetch` quand le compte INSEE Sirene V3 sera créé (commentaire en place dans le fichier).
 
