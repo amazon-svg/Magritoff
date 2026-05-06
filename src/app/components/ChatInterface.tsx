@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   Send, History, X, CheckSquare, Square, BookmarkPlus,
-  MessageSquare, SquarePen, Paperclip, Mic,
+  MessageSquare, SquarePen, Paperclip, Mic, Sparkles,
 } from "lucide-react";
 import { projectId, publicAnonKey } from "/utils/supabase/info";
 import { MagritLogo } from "./brand/MagritLogo";
@@ -43,6 +43,8 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
   const [showHistory, setShowHistory] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkLibraryPickerOpen, setBulkLibraryPickerOpen] = useState(false);
+  // E2.2 — options cliquables associees a la derniere clarification mode strict
+  const [pendingOptions, setPendingOptions] = useState<string[]>([]);
   // E2 — Mode Marguerite (open=extrapolation libre / strict=interpretation litterale)
   // Persiste en localStorage pour reprendre le dernier mode utilise.
   const [mode, setMode] = useState<"open" | "strict">(() => {
@@ -119,10 +121,20 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
   // ─── handleSend ───────────────────────────────────────────────────────────
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
-
-    const userMessage = input.trim();
+    await sendMessage(input.trim());
     setInput("");
+  };
+
+  // E2.2 — clic sur un chip d'option propose en mode strict
+  const handleOptionClick = async (option: string) => {
+    if (isLoading) return;
+    await sendMessage(option);
+  };
+
+  const sendMessage = async (userMessage: string) => {
+    if (!userMessage || isLoading) return;
     setIsLoading(true);
+    setPendingOptions([]); // reset des options precedentes
 
     const newMessages = [...messages, { role: "user", content: userMessage }];
     setMessages(newMessages);
@@ -183,7 +195,15 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
         : "";
 
       if (clarification) {
-        assistantMessage = `❓ ${clarification}`;
+        // Le marqueur visuel (icone moderne + chips cliquables) est rendu par
+        // l'UI, pas par l'emoji texte. Le message lui-meme reste sobre.
+        assistantMessage = `**Précision demandée :** ${clarification}`;
+        const options: string[] = Array.isArray(data.clarificationOptions)
+          ? data.clarificationOptions.filter(
+              (s: unknown) => typeof s === "string" && s.trim()
+            )
+          : [];
+        setPendingOptions(options);
       } else if (typeof data.teachingNote === "string" && data.teachingNote.trim()) {
         assistantMessage = assumptionsBlock + data.teachingNote.trim();
       } else if (data.configs && Array.isArray(data.configs) && data.configs.length > 0) {
@@ -560,6 +580,37 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
         {/* Input sticky, pill shape */}
         <div className="absolute left-0 right-0 bottom-0 px-6 pb-6 pt-4 bg-gradient-to-t from-bg via-bg to-transparent pointer-events-none">
           <div className="mx-auto max-w-[760px] pointer-events-auto">
+            {/* E2.2 — Chips cliquables proposees par Marguerite en mode strict.
+                Au clic, la valeur est envoyee comme nouveau message user. */}
+            {pendingOptions.length > 0 && (
+              <div className="mb-2.5 px-1">
+                <div
+                  className="flex items-center gap-1.5 mb-2 text-ink-muted"
+                  style={{ fontSize: "11.5px", fontWeight: 500, letterSpacing: "0.02em" }}
+                >
+                  <Sparkles className="w-3.5 h-3.5" strokeWidth={1.5} />
+                  Marguerite propose
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {pendingOptions.map((opt, i) => (
+                    <button
+                      key={`${opt}-${i}`}
+                      type="button"
+                      onClick={() => handleOptionClick(opt)}
+                      disabled={isLoading}
+                      className="inline-flex items-center px-3 py-1.5 rounded-full bg-paper border border-line-2 text-ink hover:bg-bg hover:border-ink transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      style={{
+                        fontSize: "13px",
+                        fontWeight: 400,
+                        boxShadow: "var(--v2-shadow-sm)",
+                      }}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <div
               className="bg-paper border border-line-2 rounded-2xl px-4 py-3"
               style={{ boxShadow: "var(--v2-shadow-md)" }}

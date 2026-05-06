@@ -354,6 +354,7 @@ FORMAT DE RÉPONSE OBLIGATOIRE :
   "teachingNote": "OPTIONNEL — Commentaire pédagogique en markdown. Voir règles spéciales en bas du prompt. Laisse vide ou omet ce champ pour les demandes classiques.",
   "assumptions": ["OPTIONNEL — liste des hypothèses faites quand la demande est vague. Ex: 'Format A5 supposé', 'Quadrichromie recto-verso par défaut'. Vide [] ou omet si la demande est complète et explicite."],
   "clarification": "OPTIONNEL — utilisé en MODE STRICT uniquement, voir suffixe à la fin du prompt.",
+  "clarificationOptions": ["OPTIONNEL — liste de 2-5 reponses cliquables proposees a l'utilisateur en mode STRICT. Vide [] si question ouverte."],
   "products": [
     {
       "clariprint": {
@@ -515,11 +516,25 @@ visee, tu DOIS :
   1. Mettre "products": []
   2. Mettre "assumptions": []
   3. Remplir "clarification" avec UNE question ciblee sur le parametre LE PLUS
-     bloquant. Format de la question : courte, factuelle, sans liste a rallonge.
-     Ex bons : "Quel format pour les cartes de visite (85x55, 85x85, 100x70) ?"
-              "Quadrichromie recto seul ou recto-verso ?"
-     Ex mauvais : "Pouvez-vous preciser le format, le grammage, le papier, ..."
-  4. NE GENERE AUCUN produit, meme pas un "exemple" ou un "produit type".
+     bloquant. Format de la question : COURTE, factuelle. SANS lister les
+     options dans le texte (les options sont dans le champ separe ci-dessous).
+     Ex BON : "Quel format pour vos cartes de visite ?"
+              "Impression recto seul ou recto-verso ?"
+              "Quel grammage de papier ?"
+     Ex MAUVAIS : "Quel format pour les cartes (85x55, 85x85, 100x70) ?"
+                  (les options ne vont PAS dans la question — elles vont dans
+                  le champ "clarificationOptions")
+  4. Remplir "clarificationOptions" : liste de 2-5 chaines de caracteres COURTES
+     que l'utilisateur peut cliquer pour repondre directement. Chaque option
+     doit etre auto-suffisante (l'user clique = il repond).
+     Ex pour "Quel format pour vos cartes de visite ?" :
+        ["85 x 55 mm (standard)", "85 x 85 mm (carre)", "100 x 70 mm (large)"]
+     Ex pour "Impression recto seul ou recto-verso ?" :
+        ["Recto seul", "Recto-verso"]
+     Ex pour "Quel grammage ?" :
+        ["300 g/m²", "350 g/m²", "400 g/m²"]
+     Si la question est vraiment ouverte (ex: nom d'un evenement), met [].
+  5. NE GENERE AUCUN produit, meme pas un "exemple" ou un "produit type".
 
 Si plusieurs parametres manquent, pose la question UNIQUEMENT sur le plus
 bloquant. Les autres viendront aux echanges suivants.
@@ -737,6 +752,7 @@ app.post("/make-server-e3db71a4/claude-proxy", async (c) => {
       let teachingNote: string | null = null;
       let assumptions: string[] = [];
       let clarification: string | null = null;
+      let clarificationOptions: string[] = [];
       try {
         const parsed = JSON.parse(rawText);
         configs = Array.isArray(parsed.products) ? parsed.products : [];
@@ -753,11 +769,19 @@ app.post("/make-server-e3db71a4/claude-proxy", async (c) => {
         if (typeof parsed.clarification === "string" && parsed.clarification.trim()) {
           clarification = parsed.clarification.trim();
         }
+        // E2.2 — options cliquables associees a la clarification
+        if (Array.isArray(parsed.clarificationOptions)) {
+          clarificationOptions = parsed.clarificationOptions
+            .filter((o: unknown) => typeof o === "string" && o.trim().length > 0)
+            .map((o: string) => o.trim())
+            .slice(0, 5); // safety : max 5 options pour eviter UI surchargee
+        }
         console.log(
           `✅ JSON parsé : ${configs.length} produit(s)` +
             (teachingNote ? ` + teachingNote` : "") +
             (assumptions.length ? ` + ${assumptions.length} assumption(s)` : "") +
-            (clarification ? ` + clarification` : "")
+            (clarification ? ` + clarification` : "") +
+            (clarificationOptions.length ? ` + ${clarificationOptions.length} option(s)` : "")
         );
       } catch (parseError) {
         console.error("❌ Impossible de parser le JSON de Claude:", parseError);
@@ -790,6 +814,7 @@ app.post("/make-server-e3db71a4/claude-proxy", async (c) => {
         teachingNote, // string ou null — commentaire pédagogique pour questions comparatives
         assumptions,    // E2.1 — hypotheses Marguerite (peut etre [])
         clarification,  // E2.2 — question de clarification en mode strict (peut etre null)
+        clarificationOptions,  // E2.2 — options cliquables pour la clarif (peut etre [])
         mode,           // E2 — mode actif renvoye au client pour traçabilite UI
         truncatedCount, // E2.4 — nb de messages tronques (info debug)
         model: data.model,
