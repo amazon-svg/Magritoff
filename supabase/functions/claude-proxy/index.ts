@@ -494,7 +494,7 @@ IMPORTANT : si l'utilisateur demande 15 produits, le tableau "products" DOIT con
           "anthropic-version": "2023-06-01",
         },
         body: JSON.stringify({
-          model: "claude-3-haiku-20240307",
+          model: "claude-haiku-4-5-20251001",
           max_tokens: 8192,
           system: systemPrompt,
           messages: messages,
