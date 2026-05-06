@@ -14,6 +14,7 @@ import { useLibrary } from "../contexts/LibraryContext";
 import { usePlan } from "../hooks/usePlan";
 import { useTenant } from "../contexts/TenantContext";
 import { ENABLE_STREAMING_CHAT } from "../lib/featureFlags";
+import { TEST_IDS } from "../lib/testIds";
 
 // E3.1 + E3.2 — Lecture d un flux SSE renvoye par claude-proxy-stream.
 // onDelta est appele a chaque chunk de texte recu (pour un indicateur live).
@@ -369,6 +370,7 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <div
+      data-testid={TEST_IDS.marguerite.chat}
       className="chat-v2 h-[calc(100vh-56px)] bg-bg grid"
       style={{
         gridTemplateColumns: "56px 1fr",
@@ -516,7 +518,13 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
               {messages.map((message, index) => {
                 if (message.role === "user") {
                   return (
-                    <div key={index} className="flex justify-end mb-2">
+                    <div
+                      key={index}
+                      data-testid={TEST_IDS.marguerite.message}
+                      data-message-role="user"
+                      data-message-index={index}
+                      className="flex justify-end mb-2"
+                    >
                       <div
                         className="bg-[#F5F5F5] rounded-xl px-4 py-3 text-ink max-w-full"
                         style={{ fontSize: "15px", lineHeight: 1.5, fontWeight: 400 }}
@@ -527,13 +535,27 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
                   );
                 }
                 if (message.role === "assistant" && message.content.trim()) {
+                  // E7.7 — sous-testid selon le type de contenu :
+                  // - clarification mode strict commence par "**Précision demandée :**"
+                  // - hypotheses mode ouvert contiennent "> 🌿 **Hypothèses"
+                  let innerTestId: string | undefined;
+                  if (message.content.startsWith("**Précision demandée :**")) {
+                    innerTestId = TEST_IDS.marguerite.clarificationBubble;
+                  } else if (message.content.includes("> 🌿 **Hypothèses")) {
+                    innerTestId = TEST_IDS.marguerite.hypothesesBanner;
+                  }
                   return (
                     <div
                       key={index}
+                      data-testid={TEST_IDS.marguerite.message}
+                      data-message-role="assistant"
+                      data-message-index={index}
                       className="text-ink-2"
                       style={{ fontSize: "15.5px", lineHeight: 1.65, fontWeight: 300 }}
                     >
-                      {renderMarkdown(message.content)}
+                      <div data-testid={innerTestId}>
+                        {renderMarkdown(message.content)}
+                      </div>
                     </div>
                   );
                 }
@@ -613,10 +635,11 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
 
             {/* ProductCards en grille sous le dernier message AI */}
             {products.length > 0 && (
-              <div className={`${gridClass} mt-6`}>
+              <div data-testid={TEST_IDS.marguerite.quoteResult} className={`${gridClass} mt-6`}>
                 {products.map((product, index) => (
                   <ProductCard
                     key={product.id ?? `p-${index}`}
+                    data-line-index={index}
                     product={product}
                     onProductUpdate={(updated) => handleProductUpdate(index, updated)}
                     compact={products.length >= 12}
@@ -700,6 +723,7 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
               style={{ boxShadow: "var(--v2-shadow-md)" }}
             >
               <textarea
+                data-testid={TEST_IDS.marguerite.messageInput}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => {
@@ -724,6 +748,8 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
                 <ChipTool icon={Mic} label="Dicter" />
                 {/* E2 — Toggle mode Marguerite (open / strict) */}
                 <div
+                  data-testid={TEST_IDS.marguerite.modeToggle}
+                  data-mode={mode}
                   className="inline-flex items-center rounded-full border border-line bg-bg p-0.5"
                   role="group"
                   aria-label="Mode Marguerite"
@@ -760,6 +786,7 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
                 </div>
                 <div className="flex-1" />
                 <button
+                  data-testid={TEST_IDS.marguerite.sendBtn}
                   onClick={handleSend}
                   disabled={!input.trim() || isLoading}
                   className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-ink text-paper hover:bg-black disabled:opacity-40 disabled:cursor-not-allowed transition-colors"

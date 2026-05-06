@@ -9,6 +9,20 @@ import { useIsAdmin } from '../../hooks/useIsAdmin';
 import { useTenant } from '../../contexts/TenantContext';
 import { PLAN_LABEL } from '../../utils/plans';
 import { MagritLogo } from '../brand/MagritLogo';
+import { TEST_IDS } from '../../lib/testIds';
+
+// E7.7 — mapping label de NavLink -> data-testid pour les cas de test.
+// Couvre les liens cles des cahiers de tests P01 (sidebar nav).
+const NAV_LINK_TESTIDS: Record<string, string> = {
+  'Profil': TEST_IDS.nav.sidebarProfileLink,
+  'Utilisateurs': TEST_IDS.nav.sidebarUsersLink,
+};
+
+// E7.7 — mapping titre de groupe -> data-testid (groupes structurels Linear-like).
+const NAV_GROUP_TESTIDS: Record<string, string> = {
+  'Atelier': TEST_IDS.nav.sidebarAtelierLink,
+  'Config': TEST_IDS.nav.sidebarConfigLink,
+};
 
 // Design source : .design-handoff/designs/04 - Admin dashboard.html
 // Layout : Linear-dense — sidebar 220px + main, typo Helvetica Neue 300/400/500.
@@ -135,6 +149,7 @@ export function DashboardLayout() {
     >
       {/* ── SIDEBAR 220px ──────────────────────────────────────────────── */}
       <aside
+        data-testid={TEST_IDS.nav.sidebar}
         className="border-r border-line bg-bg flex flex-col min-h-[calc(100vh-56px)] px-2.5 py-3"
       >
         {/* Brand header */}
@@ -159,6 +174,7 @@ export function DashboardLayout() {
         {GROUPS.map((group, gi) => (
           <div key={group.title} className={gi > 0 ? 'mt-4' : ''}>
             <div
+              data-testid={NAV_GROUP_TESTIDS[group.title]}
               className="font-mono uppercase text-ink-mute-2 px-2.5 py-1.5"
               style={{
                 fontSize: '10.5px',
@@ -172,6 +188,7 @@ export function DashboardLayout() {
               {group.items.map((item) => (
                 <NavLink
                   key={item.to}
+                  data-testid={NAV_LINK_TESTIDS[item.label]}
                   to={item.to}
                   end={item.end}
                   className={({ isActive }) =>

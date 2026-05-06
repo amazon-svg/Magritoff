@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { supabase } from '/utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
+import { TEST_IDS } from '../../lib/testIds';
 
 export function DashboardProfile() {
   const { user } = useAuth();
@@ -18,7 +19,7 @@ export function DashboardProfile() {
   };
 
   return (
-    <div className="space-y-6 max-w-xl">
+    <div data-testid={TEST_IDS.dashboard.welcomeCard} className="space-y-6 max-w-xl">
       <div>
         <h2 className="text-lg font-semibold text-gray-900 mb-1">Profil</h2>
         <p className="text-sm text-gray-600">Gérez vos informations personnelles.</p>

@@ -15,6 +15,7 @@ import { LibraryPickerModal } from "./LibraryPickerModal";
 import { enrichProduct } from "../utils/productEnrichment";
 import { ProductMockup } from "./brand/ProductMockup";
 import { resolveProductImage } from "../utils/productImages";
+import { TEST_IDS } from "../lib/testIds";
 
 interface ClariprintQuoteResult {
   success: boolean;
@@ -38,6 +39,10 @@ interface ClariprintQuoteResult {
 }
 
 interface ProductCardProps {
+  // E7.7 — index de la ligne dans la grille marguerite-quote-result.
+  // Forwarde sur l element racine pour permettre un ciblage par
+  // [data-testid="marguerite-quote-line"][data-line-index="N"].
+  'data-line-index'?: number;
   product: {
     id?: string;
     name: string;
@@ -81,7 +86,9 @@ export function ProductCard({
   selectable,
   selected,
   onSelectedChange,
+  ...rest
 }: ProductCardProps) {
+  const dataLineIndex = rest['data-line-index'];
   const { user } = useAuth();
   const { clients } = useClients();
   const { addProduct: addToLibrary } = useLibrary();
@@ -219,7 +226,11 @@ export function ProductCard({
 
   // ─── Render ──────────────────────────────────────────────────────────────
   return (
-    <div className="w-full h-full flex flex-col">
+    <div
+      data-testid={TEST_IDS.marguerite.quoteLine}
+      data-line-index={dataLineIndex}
+      className="w-full h-full flex flex-col"
+    >
       {/* CAS : Produit incomplet */}
       {localProduct.incomplete ? (
         <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl shadow-sm p-6 h-full flex flex-col">
@@ -858,7 +869,10 @@ export function ProductCard({
 
                   {/* Loading */}
                   {clariprintLoading && (
-                    <div className="flex items-center gap-2 text-indigo-600 text-base py-3">
+                    <div
+                      data-testid={TEST_IDS.quote.priceLoading}
+                      className="flex items-center gap-2 text-indigo-600 text-base py-3"
+                    >
                       <Loader2 className="w-4 h-4 animate-spin" />
                       <span>Calcul en cours auprès des imprimeurs...</span>
                     </div>
@@ -888,7 +902,10 @@ export function ProductCard({
 
                   {/* Succès Clariprint */}
                   {!clariprintLoading && clariprintQuote?.success && (
-                    <div className="bg-green-50 border border-green-200 rounded-xl p-4 space-y-2 text-base">
+                    <div
+                      data-testid={TEST_IDS.quote.priceDisplay}
+                      className="bg-green-50 border border-green-200 rounded-xl p-4 space-y-2 text-base"
+                    >
                       <div className="flex items-center gap-1 mb-2">
                         <CheckCircle className="w-4 h-4 text-green-600" />
                         <span className="text-sm font-medium text-green-700">
@@ -957,6 +974,7 @@ export function ProductCard({
 
                       {/* Recalculer */}
                       <button
+                        data-testid={TEST_IDS.quote.refreshBtn}
                         onClick={fetchClariprintQuote}
                         className="w-full mt-1 flex items-center justify-center gap-1.5 text-sm text-green-700 hover:text-green-900 transition-colors"
                       >
@@ -971,7 +989,10 @@ export function ProductCard({
                     clariprintQuote &&
                     !clariprintQuote.success &&
                     !clariprintQuote.credentialsMissing && (
-                      <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-base">
+                      <div
+                        data-testid={TEST_IDS.quote.priceErrorBanner}
+                        className="bg-red-50 border border-red-200 rounded-xl p-3 text-base"
+                      >
                         <p className="text-red-700 font-medium mb-1">❌ Erreur Clariprint</p>
                         <p className="text-red-600 text-sm mb-1">
                           {clariprintQuote.message || clariprintQuote.error || "Erreur inconnue"}
@@ -1084,6 +1105,7 @@ export function ProductCard({
                 <div>
                   <label className="block text-base font-medium text-ink-2 mb-1">Quantité</label>
                   <input
+                    data-testid={TEST_IDS.marguerite.quoteLineQuantityInput}
                     type="number"
                     value={localProduct.quantity || 0}
                     onChange={(e) => updateProduct({ quantity: parseInt(e.target.value) })}

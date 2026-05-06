@@ -3,6 +3,7 @@ import type { CartLine, BudgetInfo } from './types';
 import { resolveProductImage } from '../../../utils/productImages';
 import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
 import { ProductMockup } from '../../brand/ProductMockup';
+import { TEST_IDS } from '../../../lib/testIds';
 
 interface Props {
   cart: CartLine[];
@@ -37,6 +38,7 @@ export function PortalCart({
 
   return (
     <div
+      data-testid={TEST_IDS.shop.cartDrawer}
       className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-7 p-9 bg-bg min-h-[calc(100vh-200px)]"
       style={{ fontFamily: 'var(--font-ui)' }}
     >
@@ -264,6 +266,7 @@ export function PortalCart({
         )}
 
         <button
+          data-testid={TEST_IDS.shop.checkoutBtn}
           disabled={cart.length === 0}
           onClick={onSubmit}
           className="w-full mt-4 py-3.5 rounded-lg bg-ink text-paper hover:bg-black disabled:opacity-40 disabled:cursor-not-allowed transition-colors"

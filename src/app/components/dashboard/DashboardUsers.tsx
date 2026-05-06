@@ -34,6 +34,7 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { useClients, Client } from '../../contexts/ClientsContext';
 import { useShops } from '../../contexts/ShopsContext';
+import { TEST_IDS } from '../../lib/testIds';
 
 // E9.5 — appelle l'edge function send-invitation-email. Best-effort :
 // renvoie toujours un objet { sent, link, reason? } pour que le caller
@@ -353,7 +354,7 @@ function MagritUsersSection() {
   }
 
   return (
-    <section>
+    <section data-testid={TEST_IDS.user.sectionMagrit}>
       <header className="flex items-center justify-between mb-3">
         <div>
           <h2
@@ -371,6 +372,7 @@ function MagritUsersSection() {
         </div>
         {canWrite && !inviteOpen && (
           <button
+            data-testid={TEST_IDS.user.inviteBtn}
             onClick={() => setInviteOpen(true)}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-ink text-paper hover:bg-black"
             style={{ fontSize: '13px', fontWeight: 500 }}
@@ -417,7 +419,7 @@ function MagritUsersSection() {
             Aucun membre.
           </div>
         ) : (
-          <table className="w-full" style={{ borderCollapse: 'collapse' }}>
+          <table data-testid={TEST_IDS.user.table} className="w-full" style={{ borderCollapse: 'collapse' }}>
             <thead>
               <tr className="border-b border-line bg-bg/50">
                 <th className="px-4 py-2 text-left font-mono text-ink-mute-2"
@@ -444,7 +446,12 @@ function MagritUsersSection() {
                 const isMe = m.user_id === user?.id;
                 const isOwner = m.role === 'owner';
                 return (
-                  <tr key={m.user_id} className="border-b border-line last:border-b-0">
+                  <tr
+                    key={m.user_id}
+                    data-testid={TEST_IDS.user.row}
+                    data-user-id={m.user_id}
+                    className="border-b border-line last:border-b-0"
+                  >
                     <td className="px-4 py-2.5 text-ink" style={{ fontSize: '13px' }}>
                       {m.email ?? <span className="font-mono text-ink-mute-2">{m.user_id.slice(0, 8)}…</span>}
                       {isMe && (
@@ -459,6 +466,7 @@ function MagritUsersSection() {
                     <td className="px-4 py-2.5">
                       {canWrite && !isOwner && !isMe ? (
                         <select
+                          data-testid={TEST_IDS.user.roleSelect}
                           value={m.role}
                           disabled={updatingRoleFor === m.user_id}
                           onChange={(e) => changeRole(m, e.target.value as Role)}
@@ -490,6 +498,7 @@ function MagritUsersSection() {
                       <div className="inline-flex items-center gap-1">
                         {canWrite && !isOwner && (
                           <button
+                            data-testid={TEST_IDS.user.editPermissionsBtn}
                             onClick={() => setEditingPerms(m)}
                             className="inline-flex items-center gap-1 px-2 py-1 rounded text-ink-muted hover:bg-line/60 hover:text-ink"
                             style={{ fontSize: '11.5px', fontWeight: 500 }}
@@ -501,6 +510,7 @@ function MagritUsersSection() {
                         )}
                         {canWrite && !isOwner && !isMe && (
                           <button
+                            data-testid={TEST_IDS.user.removeBtn}
                             onClick={() => removeMember(m)}
                             className="inline-flex items-center gap-1 px-2 py-1 rounded text-err-fg hover:bg-err-bg"
                             style={{ fontSize: '11.5px', fontWeight: 500 }}
@@ -534,7 +544,12 @@ function MagritUsersSection() {
             <table className="w-full" style={{ borderCollapse: 'collapse' }}>
               <tbody>
                 {invitations.map((inv) => (
-                  <tr key={inv.id} className="border-b border-line last:border-b-0">
+                  <tr
+                    key={inv.id}
+                    data-testid={TEST_IDS.user.invitationRow}
+                    data-invite-id={inv.id}
+                    className="border-b border-line last:border-b-0"
+                  >
                     <td className="px-4 py-2 text-ink" style={{ fontSize: '13px' }}>
                       {inv.email}
                     </td>
@@ -561,6 +576,7 @@ function MagritUsersSection() {
                       {canWrite && (
                         <div className="inline-flex items-center gap-1">
                           <button
+                            data-testid={TEST_IDS.user.invitationResendBtn}
                             onClick={() => resendInvite(inv.id, inv.email)}
                             className="inline-flex items-center gap-1 px-2 py-1 rounded text-ink-muted hover:bg-bg"
                             style={{ fontSize: '11.5px', fontWeight: 500 }}
@@ -570,6 +586,7 @@ function MagritUsersSection() {
                             Renvoyer
                           </button>
                           <button
+                            data-testid={TEST_IDS.user.invitationRevokeBtn}
                             onClick={() => revokeInvite(inv.id, inv.email)}
                             className="inline-flex items-center gap-1 px-2 py-1 rounded text-err-fg hover:bg-err-bg"
                             style={{ fontSize: '11.5px', fontWeight: 500 }}
@@ -671,7 +688,7 @@ function InviteForm(props: {
   onCancel: () => void;
 }) {
   return (
-    <div className="mt-2 p-4 rounded-md border border-line bg-paper space-y-4">
+    <div data-testid={TEST_IDS.user.inviteModal} className="mt-2 p-4 rounded-md border border-line bg-paper space-y-4">
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex-1 min-w-[240px]">
           <span
@@ -681,6 +698,7 @@ function InviteForm(props: {
             Email du collaborateur
           </span>
           <input
+            data-testid={TEST_IDS.user.inviteEmailInput}
             type="email"
             value={props.email}
             onChange={(e) => props.onChangeEmail(e.target.value)}
@@ -697,6 +715,7 @@ function InviteForm(props: {
             Role
           </span>
           <select
+            data-testid={TEST_IDS.user.inviteRoleSelect}
             value={props.role}
             onChange={(e) => props.onChangeRole(e.target.value as InviteRole)}
             className="px-3 py-1.5 border border-line rounded-md bg-paper text-ink"
@@ -728,6 +747,7 @@ function InviteForm(props: {
           Annuler
         </button>
         <button
+          data-testid={TEST_IDS.user.inviteSubmitBtn}
           onClick={props.onSubmit}
           disabled={props.sending || !props.email.trim()}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-ink text-paper hover:bg-black disabled:opacity-40"
@@ -766,6 +786,7 @@ function ScopeAndPermissionsFieldset(props: {
             label="Magrit complet"
             description="Voit tout le dashboard"
             onChange={props.onChangeScope}
+            testId={TEST_IDS.user.accessScopeRadio}
           />
           <ScopeRadio
             current={props.scope}
@@ -773,12 +794,13 @@ function ScopeAndPermissionsFieldset(props: {
             label="Boutique uniquement"
             description="Acces limite a une ou plusieurs boutiques"
             onChange={props.onChangeScope}
+            testId={TEST_IDS.user.accessScopeRadio}
           />
         </div>
       </div>
 
       {props.scope === 'shop_only' && (
-        <div>
+        <div data-testid={TEST_IDS.user.allowedShopsMultiselect}>
           <span
             className="block text-ink-muted mb-1.5"
             style={{ fontSize: '11.5px', fontWeight: 500 }}
@@ -794,6 +816,8 @@ function ScopeAndPermissionsFieldset(props: {
               {props.shops.map((s) => (
                 <label
                   key={s.id}
+                  data-testid={TEST_IDS.user.allowedShopOption}
+                  data-shop-id={s.id}
                   className="flex items-center gap-2 px-2 py-1 border border-line rounded cursor-pointer hover:bg-line/60"
                 >
                   <input
@@ -818,16 +842,19 @@ function ScopeAndPermissionsFieldset(props: {
         </span>
         <div className="flex flex-wrap gap-3">
           <PermCheckbox
+            data-testid={TEST_IDS.user.permissionCanQuoteCheckbox}
             label="Créer des devis"
             checked={props.permissions.can_quote}
             onChange={(v) => props.onChangePermission('can_quote', v)}
           />
           <PermCheckbox
+            data-testid={TEST_IDS.user.permissionCanOrderCheckbox}
             label="Passer commande"
             checked={props.permissions.can_order}
             onChange={(v) => props.onChangePermission('can_order', v)}
           />
           <PermCheckbox
+            data-testid={TEST_IDS.user.permissionCanInviteCheckbox}
             label="Inviter d'autres utilisateurs"
             checked={props.permissions.can_invite}
             onChange={(v) => props.onChangePermission('can_invite', v)}
@@ -844,10 +871,13 @@ function ScopeRadio(props: {
   label: string;
   description: string;
   onChange: (v: AccessScope) => void;
+  testId?: string;
 }) {
   const selected = props.current === props.value;
   return (
     <label
+      data-testid={props.testId}
+      data-scope={props.value}
       className={`flex-1 cursor-pointer p-2.5 rounded border ${
         selected ? 'border-ink bg-bg' : 'border-line hover:bg-line/60'
       }`}
@@ -872,10 +902,12 @@ function PermCheckbox(props: {
   label: string;
   checked: boolean;
   onChange: (v: boolean) => void;
+  'data-testid'?: string;
 }) {
   return (
     <label className="inline-flex items-center gap-2 cursor-pointer">
       <input
+        data-testid={props['data-testid']}
         type="checkbox"
         checked={props.checked}
         onChange={(e) => props.onChange(e.target.checked)}
@@ -899,6 +931,7 @@ function EditPermissionsModal(props: {
 
   return (
     <div
+      data-testid={TEST_IDS.user.permissionsModal}
       className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50"
       onClick={props.onClose}
     >
@@ -947,6 +980,7 @@ function EditPermissionsModal(props: {
             Annuler
           </button>
           <button
+            data-testid={TEST_IDS.user.permissionsSaveBtn}
             onClick={() => props.onSave(scope, shopIds, perms)}
             className="flex-1 px-3 py-2 rounded-md bg-ink text-paper hover:bg-black"
             style={{ fontSize: '13px', fontWeight: 500 }}
@@ -1013,7 +1047,7 @@ function CrmContactsSection() {
   };
 
   return (
-    <section>
+    <section data-testid={TEST_IDS.user.sectionCrm}>
       <header className="flex items-center justify-between mb-3">
         <div>
           <h2
@@ -1170,7 +1204,7 @@ function CrmContactsSection() {
 
 export function DashboardUsers() {
   return (
-    <div className="max-w-[1200px] space-y-10" style={{ fontFamily: 'var(--font-ui)' }}>
+    <div data-testid={TEST_IDS.user.page} className="max-w-[1200px] space-y-10" style={{ fontFamily: 'var(--font-ui)' }}>
       <div>
         <h1
           className="text-ink m-0"

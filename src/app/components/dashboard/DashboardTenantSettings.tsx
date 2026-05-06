@@ -15,6 +15,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { Loader2, AlertTriangle } from 'lucide-react';
 import { supabase } from '/utils/supabase/client';
 import { useTenant } from '../../contexts/TenantContext';
+import { TEST_IDS } from '../../lib/testIds';
 
 const SLUG_REGEX = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/;
 
@@ -97,7 +98,12 @@ export function DashboardTenantSettings() {
   }
 
   return (
-    <form onSubmit={submit} className="space-y-6 max-w-xl" style={{ fontFamily: 'var(--font-ui)' }}>
+    <form
+      data-testid={TEST_IDS.tenant.settingsSection}
+      onSubmit={submit}
+      className="space-y-6 max-w-xl"
+      style={{ fontFamily: 'var(--font-ui)' }}
+    >
       <div>
         <h2 className="text-ink m-0" style={{ fontWeight: 400, fontSize: '20px', letterSpacing: '-0.015em' }}>
           Parametres de l'espace
@@ -115,6 +121,7 @@ export function DashboardTenantSettings() {
           Nom de l'espace
         </label>
         <input
+          data-testid={TEST_IDS.tenant.nameEditInput}
           type="text"
           required
           value={name}
@@ -138,6 +145,7 @@ export function DashboardTenantSettings() {
             /t/
           </span>
           <input
+            data-testid={TEST_IDS.tenant.slugEditInput}
             type="text"
             required
             disabled={!canEditSlug}
@@ -148,7 +156,11 @@ export function DashboardTenantSettings() {
           />
         </div>
         {canEditSlug && slugChanged && (
-          <p className="mt-2 flex items-start gap-1.5 text-warn-fg" style={{ fontSize: '12px' }}>
+          <p
+            data-testid={TEST_IDS.tenant.renameWarningBanner}
+            className="mt-2 flex items-start gap-1.5 text-warn-fg"
+            style={{ fontSize: '12px' }}
+          >
             <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" strokeWidth={1.8} />
             Changer le slug invalide les anciens liens partages (boutiques publiques, devis).
             Ils redirigeront pendant 90 jours puis seront casses.
@@ -166,6 +178,7 @@ export function DashboardTenantSettings() {
       )}
 
       <button
+        data-testid={TEST_IDS.tenant.renameSaveBtn}
         type="submit"
         disabled={saving || (!slugChanged && name === currentTenant.name)}
         className="inline-flex items-center gap-2 px-4 py-2 bg-ink text-paper rounded-md hover:bg-black disabled:opacity-40"
