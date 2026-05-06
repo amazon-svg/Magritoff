@@ -341,13 +341,19 @@ function generateDemoConfigs(userMessage: string): any[] {
 // ============================================================================
 // SYSTEM PROMPT CLAUDE — JSON Clariprint-compatible
 // ============================================================================
-const CLAUDE_SYSTEM_PROMPT = `Tu es un expert en imprimerie professionnelle et web-to-print avec 20 ans d'expérience (imprimerie offset, numérique, grand format).
+// E2 — Modes Marguerite. Le system prompt commun definit le format JSON
+// strict + les regles metier. Selon le mode (open/strict), on append a la
+// fin un suffixe qui change le comportement d'extrapolation.
+
+const CLAUDE_SYSTEM_PROMPT_BASE = `Tu es un expert en imprimerie professionnelle et web-to-print avec 20 ans d'expérience (imprimerie offset, numérique, grand format).
 
 🚨 RÈGLE ABSOLUE : Réponds UNIQUEMENT avec du JSON valide. Zéro texte avant ou après. Zéro commentaire JavaScript. Pas de \`\`\`json ni de \`\`\`.
 
 FORMAT DE RÉPONSE OBLIGATOIRE :
 {
   "teachingNote": "OPTIONNEL — Commentaire pédagogique en markdown. Voir règles spéciales en bas du prompt. Laisse vide ou omet ce champ pour les demandes classiques.",
+  "assumptions": ["OPTIONNEL — liste des hypothèses faites quand la demande est vague. Ex: 'Format A5 supposé', 'Quadrichromie recto-verso par défaut'. Vide [] ou omet si la demande est complète et explicite."],
+  "clarification": "OPTIONNEL — utilisé en MODE STRICT uniquement, voir suffixe à la fin du prompt.",
   "products": [
     {
       "clariprint": {
@@ -477,6 +483,40 @@ Pour ces questions tu DOIS :
 
 Pour les demandes de CALCUL DE PRIX / CATALOGUE classiques, LAISSE teachingNote vide ou omet-le complètement.`;
 
+// ─── E2.1 — Mode "open" (extrapolation libre, defaut Freemium+) ──────────────
+const CLAUDE_MODE_OPEN_SUFFIX = `
+
+🌿 MODE EXTRAPOLATION OUVERTE (defaut) :
+- Si la demande est vague (ex: "kit PLV pour ouverture magasin", "campagne automne"),
+  PROPOSE 3-5 produits coherents qui composent l'ensemble probable.
+- Liste TES hypotheses dans le champ "assumptions" (1 phrase courte par hypothese).
+  Ex : ["Format A5 suppose pour les flyers", "500 unites de chaque (zone de chalandise moyenne)", "Quadri recto-verso par defaut"]
+- Reste fidele aux quelques specs explicites du user, n'invente pas a leur place.
+- Le champ "clarification" reste vide en mode ouvert.`;
+
+// ─── E2.2 — Mode "strict" (interpretation litterale, Pro+) ───────────────────
+const CLAUDE_MODE_STRICT_SUFFIX = `
+
+🎯 MODE INTERPRETATION STRICTE (Pro+) :
+- N'EXTRAPOLE PAS. Execute litteralement la commande de l'utilisateur.
+- Si la requete est precise (quantite + format + papier + finition + couleurs),
+  retourne EXACTEMENT 1 produit avec ces specs. Pas de variantes, pas de kit.
+- Si UN parametre critique manque (kind, quantite, format), NE GENERE PAS de produit.
+  A la place, remplis le champ "clarification" avec UNE question ciblee :
+  Ex : "Quel format de flyer souhaitez-vous (A4, A5, A6) ?"
+  Et retourne "products": [].
+- Le champ "assumptions" reste vide en mode strict (par definition, on n'en fait pas).
+- Si plusieurs questions seraient necessaires, pose la PLUS bloquante en premier.`;
+
+export function buildSystemPrompt(mode: "open" | "strict"): string {
+  return mode === "strict"
+    ? CLAUDE_SYSTEM_PROMPT_BASE + CLAUDE_MODE_STRICT_SUFFIX
+    : CLAUDE_SYSTEM_PROMPT_BASE + CLAUDE_MODE_OPEN_SUFFIX;
+}
+
+// Constante back-compat (anciens appels qui ne specifient pas le mode).
+const CLAUDE_SYSTEM_PROMPT = buildSystemPrompt("open");
+
 // ============================================================================
 // API ENDPOINTS
 // ============================================================================
@@ -574,10 +614,28 @@ app.post("/make-server-e3db71a4/claude-proxy", async (c) => {
   try {
     // E7.1 — userId / tenantId sont passes par le client pour pouvoir tracer
     // la conso LLM (cf. lib/llm_usage). Optionnels (ex: shop public anonyme).
-    const { messages, userId, tenantId } = await c.req.json();
+    // E2 — mode 'open' (extrapolation libre, defaut) ou 'strict' (interpretation
+    // litterale, Pro+). Le system prompt est compose en consequence.
+    const body = await c.req.json();
+    const { userId, tenantId } = body;
+    let { messages } = body;
+    const mode: "open" | "strict" = body.mode === "strict" ? "strict" : "open";
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return c.json({ error: "messages array is required" }, 400);
+    }
+
+    // E2.4 — Limite a 25 messages dans le contexte envoye a Claude. On garde
+    // les 25 plus recents (le dernier user message est toujours preserve).
+    // Au-dela, on logge ce qu'on a tronque pour audit.
+    const MAX_CONTEXT_MESSAGES = 25;
+    let truncatedCount = 0;
+    if (messages.length > MAX_CONTEXT_MESSAGES) {
+      truncatedCount = messages.length - MAX_CONTEXT_MESSAGES;
+      console.log(
+        `[claude-proxy] context truncated: ${truncatedCount} messages drop (kept last ${MAX_CONTEXT_MESSAGES})`
+      );
+      messages = messages.slice(-MAX_CONTEXT_MESSAGES);
     }
 
     const userMessage = messages[messages.length - 1].content;
@@ -600,7 +658,7 @@ app.post("/make-server-e3db71a4/claude-proxy", async (c) => {
     }
 
     // --- APPEL CLAUDE ---
-    console.log("🤖 Appel Claude avec prompt JSON Clariprint...");
+    console.log(`🤖 Appel Claude (mode=${mode}, ctx=${messages.length} msgs)...`);
     try {
       const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
@@ -612,7 +670,7 @@ app.post("/make-server-e3db71a4/claude-proxy", async (c) => {
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514",
           max_tokens: 4096,
-          system: CLAUDE_SYSTEM_PROMPT,
+          system: buildSystemPrompt(mode),
           messages: messages,
         }),
       });
@@ -658,15 +716,29 @@ app.post("/make-server-e3db71a4/claude-proxy", async (c) => {
 
       let configs: any[] = [];
       let teachingNote: string | null = null;
+      let assumptions: string[] = [];
+      let clarification: string | null = null;
       try {
         const parsed = JSON.parse(rawText);
         configs = Array.isArray(parsed.products) ? parsed.products : [];
         if (typeof parsed.teachingNote === "string" && parsed.teachingNote.trim()) {
           teachingNote = parsed.teachingNote.trim();
         }
+        // E2.1 — assumptions emises par Marguerite quand demande vague
+        if (Array.isArray(parsed.assumptions)) {
+          assumptions = parsed.assumptions
+            .filter((a: unknown) => typeof a === "string" && a.trim().length > 0)
+            .map((a: string) => a.trim());
+        }
+        // E2.2 — clarification demandee par Claude en mode strict
+        if (typeof parsed.clarification === "string" && parsed.clarification.trim()) {
+          clarification = parsed.clarification.trim();
+        }
         console.log(
           `✅ JSON parsé : ${configs.length} produit(s)` +
-            (teachingNote ? ` + teachingNote (${teachingNote.length} chars)` : "")
+            (teachingNote ? ` + teachingNote` : "") +
+            (assumptions.length ? ` + ${assumptions.length} assumption(s)` : "") +
+            (clarification ? ` + clarification` : "")
         );
       } catch (parseError) {
         console.error("❌ Impossible de parser le JSON de Claude:", parseError);
@@ -685,13 +757,22 @@ app.post("/make-server-e3db71a4/claude-proxy", async (c) => {
         endpoint: "claude-proxy",
         model: data.model,
         usage: data.usage,
-        metadata: { messages_count: messages.length, configs_count: configs.length },
+        metadata: {
+          mode,
+          messages_count: messages.length,
+          truncated_count: truncatedCount,
+          configs_count: configs.length,
+        },
       });
 
       return c.json({
         content: [{ type: "text", text: readableSummary }],
         configs: configs,
         teachingNote, // string ou null — commentaire pédagogique pour questions comparatives
+        assumptions,    // E2.1 — hypotheses Marguerite (peut etre [])
+        clarification,  // E2.2 — question de clarification en mode strict (peut etre null)
+        mode,           // E2 — mode actif renvoye au client pour traçabilite UI
+        truncatedCount, // E2.4 — nb de messages tronques (info debug)
         model: data.model,
         usage: data.usage,
         demoMode: false,

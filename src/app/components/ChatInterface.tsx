@@ -43,6 +43,20 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
   const [showHistory, setShowHistory] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkLibraryPickerOpen, setBulkLibraryPickerOpen] = useState(false);
+  // E2 — Mode Marguerite (open=extrapolation libre / strict=interpretation litterale)
+  // Persiste en localStorage pour reprendre le dernier mode utilise.
+  const [mode, setMode] = useState<"open" | "strict">(() => {
+    try {
+      return (localStorage.getItem("magrit.marguerite.mode") as "open" | "strict") || "open";
+    } catch {
+      return "open";
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem("magrit.marguerite.mode", mode);
+    } catch { /* noop */ }
+  }, [mode]);
 
   // ─── ⌘K : ouvrir l'historique rapidement ────────────────────────────────
   useEffect(() => {
@@ -127,10 +141,12 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
           },
           // E7.1 — passe userId/tenantId pour que l'edge function puisse
           // tracer la conso LLM (table llm_usage_events).
+          // E2 — passe le mode (open/strict) pour conditionner le system prompt.
           body: JSON.stringify({
             messages: newMessages,
             userId: user?.id ?? null,
             tenantId: currentTenant?.id ?? null,
+            mode,
           }),
         }
       );
@@ -149,11 +165,31 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
       // S'il est present, c'est ce qu'on affiche dans le message assistant,
       // sinon on fallback sur un texte generique (on n'affiche plus le
       // JSON brut de Claude qui etait illisible).
-      if (typeof data.teachingNote === "string" && data.teachingNote.trim()) {
-        assistantMessage = data.teachingNote.trim();
+
+      // E2.2 — Si mode strict + Claude a demande une clarification, on
+      // l'affiche comme un message assistant et on ne genere pas de produits.
+      const clarification: string | null =
+        typeof data.clarification === "string" && data.clarification.trim()
+          ? data.clarification.trim()
+          : null;
+
+      // E2.1 — Si Marguerite a fait des hypotheses, on les liste en bandeau
+      // markdown au-dessus du contenu.
+      const assumptions: string[] = Array.isArray(data.assumptions)
+        ? data.assumptions.filter((s: unknown) => typeof s === "string" && s.trim())
+        : [];
+      const assumptionsBlock = assumptions.length
+        ? `> 🌿 **Hypothèses de Marguerite** :\n${assumptions.map((a) => `> - ${a}`).join("\n")}\n\n`
+        : "";
+
+      if (clarification) {
+        assistantMessage = `❓ ${clarification}`;
+      } else if (typeof data.teachingNote === "string" && data.teachingNote.trim()) {
+        assistantMessage = assumptionsBlock + data.teachingNote.trim();
       } else if (data.configs && Array.isArray(data.configs) && data.configs.length > 0) {
         // Demande classique : on laisse les ProductCards parler d'elles-memes.
-        assistantMessage = "";
+        // Mais si on a des hypotheses, on les affiche tout de meme en haut.
+        assistantMessage = assumptionsBlock.trimEnd();
       } else {
         assistantMessage = "Désolé, je n'ai pas pu traiter votre demande.";
       }
@@ -551,6 +587,42 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
               <div className="flex items-center gap-2">
                 <ChipTool icon={Paperclip} label="Joindre" />
                 <ChipTool icon={Mic} label="Dicter" />
+                {/* E2 — Toggle mode Marguerite (open / strict) */}
+                <div
+                  className="inline-flex items-center rounded-full border border-line bg-bg p-0.5"
+                  role="group"
+                  aria-label="Mode Marguerite"
+                  title={
+                    mode === "open"
+                      ? "Marguerite extrapole quand la demande est vague"
+                      : "Marguerite execute litteralement et demande une precision si besoin"
+                  }
+                >
+                  <button
+                    type="button"
+                    onClick={() => setMode("open")}
+                    className={`px-2.5 py-0.5 rounded-full transition-colors ${
+                      mode === "open"
+                        ? "bg-ink text-paper"
+                        : "text-ink-muted hover:text-ink"
+                    }`}
+                    style={{ fontSize: "11px", fontWeight: 500 }}
+                  >
+                    🌿 Ouvert
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMode("strict")}
+                    className={`px-2.5 py-0.5 rounded-full transition-colors ${
+                      mode === "strict"
+                        ? "bg-ink text-paper"
+                        : "text-ink-muted hover:text-ink"
+                    }`}
+                    style={{ fontSize: "11px", fontWeight: 500 }}
+                  >
+                    🎯 Strict
+                  </button>
+                </div>
                 <div className="flex-1" />
                 <button
                   onClick={handleSend}
