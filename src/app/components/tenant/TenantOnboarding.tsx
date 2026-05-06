@@ -18,6 +18,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { validateProEmail } from '../../lib/emailValidator';
 import { validateSiren, SirenInfo } from '../../lib/sirenValidator';
 import { REQUIRE_PRO_EMAIL, REQUIRE_VERIFIED_SIREN } from '../../lib/featureFlags';
+import { TEST_IDS } from '../../lib/testIds';
 
 export function TenantOnboarding() {
   const { createTenant } = useTenant();
@@ -112,6 +113,7 @@ export function TenantOnboarding() {
 
   return (
     <form
+      data-testid={TEST_IDS.tenant.createForm}
       onSubmit={submit}
       className="min-h-[calc(100vh-56px)] bg-bg px-6 py-10"
       style={{ fontFamily: 'var(--font-ui)' }}
@@ -141,6 +143,7 @@ export function TenantOnboarding() {
 
         {emailIsGeneric && (
           <div
+            data-testid={TEST_IDS.auth.emailWarningBanner}
             className={`mb-4 p-3 rounded-md flex items-start gap-2 ${
               blockOnGenericEmail
                 ? 'bg-warn-bg text-warn-fg'
@@ -185,6 +188,7 @@ export function TenantOnboarding() {
             </span>
             <div className="flex gap-2">
               <input
+                data-testid={TEST_IDS.tenant.sirenInput}
                 type="text"
                 value={siren}
                 onChange={(e) => {
@@ -198,6 +202,7 @@ export function TenantOnboarding() {
                 disabled={blockOnGenericEmail}
               />
               <button
+                data-testid={TEST_IDS.tenant.sirenVerifyBtn}
                 type="button"
                 onClick={handleVerifySiren}
                 disabled={!siren.trim() || verifyingSiren || blockOnGenericEmail}
@@ -210,6 +215,8 @@ export function TenantOnboarding() {
             </div>
             {sirenError && (
               <p
+                data-testid={TEST_IDS.tenant.sirenStatusBadge}
+                data-status="invalid"
                 className="mt-1.5 text-err-fg flex items-center gap-1"
                 style={{ fontSize: '12px' }}
               >
@@ -219,11 +226,13 @@ export function TenantOnboarding() {
             )}
             {sirenInfo && (
               <div
+                data-testid={TEST_IDS.tenant.sirenStatusBadge}
+                data-status="verified"
                 className="mt-2 p-2.5 rounded-md bg-ok-bg text-ok-fg flex items-start gap-2"
                 style={{ fontSize: '12.5px' }}
               >
                 <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" strokeWidth={1.8} />
-                <div>
+                <div data-testid={TEST_IDS.tenant.sirenInfo}>
                   <div>
                     <strong>{sirenInfo.raisonSociale}</strong>
                     <span className="ml-2 font-mono text-ok-fg/70" style={{ fontSize: '11px' }}>
@@ -249,6 +258,7 @@ export function TenantOnboarding() {
               Nom de l'espace
             </span>
             <input
+              data-testid={TEST_IDS.tenant.nameInput}
               type="text"
               value={name}
               onChange={(e) => handleNameChange(e.target.value)}
@@ -278,6 +288,7 @@ export function TenantOnboarding() {
                 magrit.app/t/
               </span>
               <input
+                data-testid={TEST_IDS.tenant.slugInput}
                 type="text"
                 value={slug}
                 onChange={(e) => setSlug(autoSlug(e.target.value))}
@@ -314,6 +325,7 @@ export function TenantOnboarding() {
               Annuler
             </button>
             <button
+              data-testid={TEST_IDS.tenant.createSubmitBtn}
               type="submit"
               disabled={saving || blockOnGenericEmail || (sirenRequired && !sirenInfo)}
               className="px-3.5 py-1.5 rounded-md bg-ink text-paper hover:bg-black disabled:opacity-40"
