@@ -162,6 +162,20 @@ Suivant les principes Winston :
 
 ### 4.1 DB Schema — Order entity (FR18-24, NFR16)
 
+> **⚠️ Note naming SQL (décision 2026-05-09, post-migration sprint Epic 1) :** les tables SQL réelles portent le préfixe `tenant_*` pour éviter une collision avec les tables legacy `public.orders` (`20260418_user_data.sql`, user_id-based démo) et `public.shop_orders` (`20260418_shop_module.sql`, shop-owner-based B3). Les noms réels appliqués en prod sont :
+>
+> | Conceptuel (docs / code logique) | SQL réel |
+> |---|---|
+> | `orders` | `public.tenant_orders` |
+> | `order_items` | `public.tenant_order_items` |
+> | `order_status_events` | `public.tenant_order_status_events` |
+> | enum `order_status` | `tenant_order_status` |
+> | RPC `update_order_status()` | `update_tenant_order_status()` |
+>
+> Ce naming aligne avec la convention existante (`tenant_members`, `tenant_invitations`, `tenant_member_events`, `tenant_slug_history`, `tenant_gamme_subscriptions`). La couche front et les types TypeScript continuent d'utiliser `Order` / `OrderItem` comme noms logiques — le mapping vers le SQL se fait dans la couche d'accès Supabase (e.g. `supabase.from('tenant_orders')`).
+>
+> Migration appliquée : `supabase/migrations/20260509_01_e1_orders_v1_1.sql`.
+
 **Migration SQL à appliquer sur `beta/v5` (Supabase project `ightkxebexuzfjdbpsdg`) :**
 
 ```sql

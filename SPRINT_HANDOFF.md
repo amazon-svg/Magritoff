@@ -1,20 +1,21 @@
-# Magrit Beta 4 — Handoff entre sessions Claude code
+# Magrit Beta 4 / Beta 5 — Handoff entre sessions Claude code
 
 > Document de reprise pour démarrer une nouvelle session de Claude code sur le projet sans recharger tout l'historique. À tenir à jour à chaque fin de sprint.
 >
-> **Dernière mise à jour : fin session post-Sprint 2 + E7.7 + E9.6 (2026-05-06)**
+> **Dernière mise à jour : Sprint 3 / Epic 1 partiel — workflow BMAD complet livré (2026-05-09)**
 
 ---
 
 ## 1. Contexte projet en 30 secondes
 
-Magrit = copilote IA web-to-print B2B français. Stack Vite 6 + React 18 + TS + Tailwind v4 + Supabase. Modèle Claude `claude-sonnet-4-20250514` pour le chat / `claude-haiku-4-5-20251001` pour le PIM. Moteur de devis externe : Clariprint (Expert Solutions, partenariat AGE).
+Magrit = copilote IA web-to-print B2B français. Stack Vite 6 + React 18 + TS + Tailwind v4 + Supabase. Modèles Claude : `claude-sonnet-4-5-20250929` pour le raisonnement (upgrade depuis Sonnet 4 le 2026-05-09) / `claude-haiku-4-5-20251001` pour génération rapide (PIM, descriptifs). Moteur de devis externe : Clariprint (Expert Solutions, partenariat AGE).
 
-**4 Betas en parallèle** :
+**5 Betas en parallèle** :
 - B1 (`Magritoff/`, port 5173, branche `main`) — prod, ne pas toucher
 - B2 (`Magritoff-v2/`, port 5174, branche `design/v2`) — refonte design
 - B3 (`Magritoff-v3/`, port 5175, branche `beta/v3`) — multi-tenant, **projet Supabase mort** (`azbpnhnfnkdemfmwvyqc` n'existe plus)
-- **B4 (`Magritoff-v4/`, port 5176, branche `beta/v4`)** — incréments Sprint 1 + Sprint 2 livrés, **environnement de dev actif**
+- **B4 (`Magritoff-v4/`, port 5176, branche `beta/v4`)** — Sprint 1 + Sprint 2 livrés + hotfix S0.1 Fiche regression (2026-05-09). Cible démo client 2026-05-23.
+- **B5 (`/Users/arnaudmazon/Documents/Claude/BMAD/Magrit`, port 5177, branche `beta/v5`)** — itération **e-shop v1.1**, sprint Epic 1 partiel livré 2026-05-09
 
 ## 2. Infrastructure B4
 
@@ -62,6 +63,70 @@ Toutes pushées sur `beta/v4`, edge function déployée, SQL appliqué.
 |---|---|---|
 | `7881bcb` | Superadmin Magrit bypasse les guards `canWrite`/`canManage` | Régression de E9.3 généralisée à 4 composants (DashboardUsers, DashboardLayout, DashboardTenantGammes, DashboardTenantSpaces). Détectée en testant E9.5 sur `a.mazon@me.com` membre simple sur `imprimerie-ipa` mais superadmin Magrit |
 | `acb7352` | Persistance conversation Marguerite à travers tab focus | `onAuthStateChange` Supabase fire à chaque tab focus → ref `user` change → reset `messages/products`. Fix : nouvelle clé localStorage `magrit_current_conversation__<tenant_id>` + capture avant reset + restauration depuis l'historique. Survit aussi au F5 et close/reopen tab |
+
+## 3 ter. Sprint 3 — Itération e-shop v1.1 (BMAD workflow, 2026-05-09)
+
+**Workflow BMAD complet (3 500+ lignes) sur `beta/v5`** — PRD + Architecture + Epics & Stories + Implementation Readiness produits via les agents BMAD (John PM, Winston Architect). Voir [`_bmad-output/planning-artifacts/`](_bmad-output/planning-artifacts/).
+
+### Infrastructure B5
+
+| Item | Valeur |
+|---|---|
+| Repo Git | https://github.com/amazon-svg/Magritoff (même repo que B4) |
+| Branche active | `beta/v5` (forkée de `a32ac65` sur `beta/v4`) |
+| Dossier local | `/Users/arnaudmazon/Documents/Claude/BMAD/Magrit/` |
+| Port dev | `5177` (lancement : `pnpm exec vite --port 5177 --strictPort`) |
+| Projet Supabase | `ightkxebexuzfjdbpsdg` (Magrit 4) — partagé avec B4, RLS isole |
+| Edge functions déployées 2026-05-09 | `make-server-e3db71a4`, `pim-generate`, `pim-ingest` (Sonnet 4 → 4.5 + wrapper AnthropicClient) |
+| Modèle LLM | `claude-sonnet-4-5-20250929` (raisonnement) + `claude-haiku-4-5-20251001` (génération rapide) |
+
+### Stories pré-sprint Epic 0 livrées
+
+| Story | Commit | Description |
+|---|---|---|
+| **S0.1** Hotfix régression Fiche home Magrit | `f925eba` (sur `beta/v4`) | Fallback UI explicite + logging PIM context. Cible démo client 2026-05-23 |
+| **S0.2** Investigation provenance des prix (E-NEW-CLARIPRINT-01) | `c929371` (sur `beta/v5`) | Audit complet → `docs/PRICE_SOURCES.md`. Identifié `PricingPanel.tsx:26` comme outlier "2e prix mystère". Pas d'hallucination LLM. Fixes appliqués |
+| Fixes S0.2 (C1+C2+C3+E1) | `c929371` | (a) `validateClariprintResponse()` filtre prix négatifs/NaN/undefined. (b) endpoint `clariprint-quote` valide avant retour (-1,2 € bloqué côté serveur). (c) `PricingPanel` utilise `resolvePrice()` + badge « Estimation » sur fallback. (d) Helper unique `priceResolver.ts` |
+
+### Stories Epic 1 — Stack Foundations (partiel, 2026-05-09)
+
+| Story | Commit | Description |
+|---|---|---|
+| **S1.1** Wrapper `AnthropicClient` | `6f1aa84` | `supabase/functions/_shared/anthropicClient.ts` — `complete()` + `completeStructured(zodSchema)` + tracking auto `llm_usage_events` + limite 25 paramètres anti-hallucination + erreurs typées `AnthropicClientError` |
+| **S1.2** `ClariprintAdapter` pattern | `632db88` | `src/server/clariprint/ClariprintAdapter.ts` — interface + `ClariprintHttpAdapter` (prod) + `ClariprintMockAdapter` (tests) + `ClariprintError` discriminée par `kind` |
+| **S1.4** Order entity DB schema + RLS + tests vitest | `1a29481` + `9d70e58` (rename) | Migration `20260509_01_e1_orders_v1_1.sql` — 3 tables `tenant_orders` / `tenant_order_items` / `tenant_order_status_events` (préfixe `tenant_*` pour éviter collision avec legacy `public.orders`). RPC `update_tenant_order_status()` + trigger updated_at. RLS strict via helpers `current_user_can_access_shop` + `user_role_in_tenant`. 6 tests vitest dans `tests/rls/orders_isolation.test.ts` |
+| **S1.3** partiel — refactor endpoints | `555574a` (pim-generate) + `df47dc3` (pim-ingest + Sonnet 4 → 4.5) | 2/4 endpoints utilisent maintenant le wrapper. `claude-proxy/index.ts` + `make-server-e3db71a4/claude-proxy*` à refactorer dans un sprint ultérieur (logique demo fallback complexe) |
+
+### Migration appliquée 2026-05-09
+
+✅ `supabase/migrations/20260509_01_e1_orders_v1_1.sql` appliquée via Dashboard SQL Editor (Supabase CLI `db push` échouait sur historique migrations désynchronisé). Tables `tenant_orders`, `tenant_order_items`, `tenant_order_status_events` créées en prod avec RLS actif.
+
+### Edge functions redéployées 2026-05-09
+
+✅ `pim-generate`, `pim-ingest`, `make-server-e3db71a4` sur `ightkxebexuzfjdbpsdg`. Sonnet 4.5 actif, wrapper `_shared/anthropicClient.ts` actif sur les 2 endpoints PIM.
+
+### Reste à faire pour Epic 1 complet
+
+- [ ] **S1.3** — Refactor `claude-proxy/index.ts` + `make-server-e3db71a4/claude-proxy` + `claude-proxy-stream` pour utiliser le wrapper (effort M, complexité demo fallback). Sonnet 4.5 déjà actif.
+- [ ] **R1** (Implementation Readiness) — Ajouter event analytics `first_action_after_landing` à S2.1 (instrument NFR1+NFR3).
+- [ ] **R2** — Wireframes lo-fi des composants Epic 2.
+
+### Documents BMAD livrés (3 500+ lignes)
+
+| Document | Lignes | Rôle |
+|---|---|---|
+| [`_bmad-output/planning-artifacts/prd.md`](_bmad-output/planning-artifacts/prd.md) | 1 079 | PRD v1.1, 46 FR + 28 NFR |
+| [`_bmad-output/planning-artifacts/architecture.md`](_bmad-output/planning-artifacts/architecture.md) | ~835 | Architecture v1.1, 15 ADR (note rename `tenant_*` §4.1) |
+| [`_bmad-output/planning-artifacts/epics.md`](_bmad-output/planning-artifacts/epics.md) | ~1 075 | 7 epics, 32 stories sprint-ready |
+| [`_bmad-output/planning-artifacts/implementation-readiness-report-2026-05-09.md`](_bmad-output/planning-artifacts/implementation-readiness-report-2026-05-09.md) | 294 | Rapport readiness GO + 7 warnings |
+| [`docs/PRICE_SOURCES.md`](docs/PRICE_SOURCES.md) | ~200 | Livrable S0.2 audit prix |
+
+### Prochaines étapes recommandées
+
+1. **Tester en local** sur ports 5176 (B4 hotfix Fiche) et 5177 (B5 sanitization Clariprint + PricingPanel).
+2. **Démarrer Epic 4 — Mockup Engine** en priorité (R3 Implementation Readiness : S4.1a/b/c → S4.2 → S4.3 doivent précéder S2.3 ProductCard).
+3. **En parallèle Epic 4** : Epic 3 (Order entity user-facing) et Epic 6 (quotas/feature flags).
+4. **Epic 2 (Boutique B2B premium)** une fois Epic 4 ≥ S4.3 livré.
 
 ## 4. Stories reportées (dépendent de Clariprint)
 

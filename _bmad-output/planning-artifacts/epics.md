@@ -311,6 +311,9 @@ So that la qualité des prompts (validation JSON stricte) s'améliore, le coût 
 
 ### Story S1.4 — Order entity DB schema + RLS + tests vitest
 
+> **⚠️ Note 2026-05-09 (post-application migration) :** les tables SQL portent le préfixe `tenant_*` (ex `public.tenant_orders`, `public.tenant_order_items`, `public.tenant_order_status_events`, RPC `update_tenant_order_status()`) pour éviter la collision avec les tables legacy `public.orders` et `public.shop_orders`. Le naming logique côté code reste **Order** / **OrderItem**. Cf. Architecture §4.1 pour le détail du mapping. Migration appliquée : `supabase/migrations/20260509_01_e1_orders_v1_1.sql`.
+
+
 As a **dev Magrit**,
 I want le schéma Order entity (orders, order_items, order_status_events) appliqué en migration Supabase avec RLS strict et 6 tests d'isolation,
 So that toute story aval Epic 3 (user-facing commandes) puisse s'appuyer sur des fondations DB sécurisées et anti-fuite cross-tenant.
