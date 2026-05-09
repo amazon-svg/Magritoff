@@ -103,10 +103,20 @@ export function ProductCard({
   const [imgError, setImgError] = useState(false);
 
   // Enrichissement PIM (gamme + definition) à partir de la config courante
+  // Fix S0.1 (2026-05-09): logging ajouté pour diagnostiquer les cas où
+  // PIMContext est vide au moment du rendu (cause probable de la régression Fiche)
   const enriched = (() => {
+    if (!gammes || !definitions) {
+      console.warn('[ProductCard] PIMContext incomplet au rendu', {
+        gammesLoaded: !!gammes,
+        definitionsLoaded: !!definitions,
+      });
+      return null;
+    }
     try {
       return enrichProduct(product as any, gammes, definitions, 'fr');
-    } catch {
+    } catch (err) {
+      console.error('[ProductCard] enrichProduct a échoué', err);
       return null;
     }
   })();
@@ -667,7 +677,9 @@ export function ProductCard({
               </div>
 
               {/* Contenu enrichi PIM */}
-              {enriched?.definition && (
+              {/* Fix S0.1 (2026-05-09): fallback explicite si enriched.definition absent
+                  pour éviter l'onglet Fiche blanc (régression silencieuse post-Sprint 2). */}
+              {enriched?.definition ? (
                 <div className="mt-5 pt-4 border-t border-line space-y-3">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold uppercase tracking-wider text-brand">
@@ -727,6 +739,10 @@ export function ProductCard({
                       ))}
                     </div>
                   )}
+                </div>
+              ) : (
+                <div className="mt-5 pt-4 border-t border-line text-sm text-ink-muted italic">
+                  Fiche commerciale non disponible pour ce produit.
                 </div>
               )}
 
