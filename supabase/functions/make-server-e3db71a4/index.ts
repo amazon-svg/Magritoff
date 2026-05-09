@@ -1206,12 +1206,53 @@ app.post("/make-server-e3db71a4/clariprint-quote", async (c) => {
 
     console.log(`✅ Prix Clariprint obtenu : ${result.response} € — Délai : ${result.delais}j`);
 
+    // Sanitization défensive (S0.2 / Décision Arnaud 2026-05-09) :
+    // les anomalies Clariprint connues (-1,2 €, undefined, NaN) ne doivent
+    // jamais arriver au front. On retourne success=false avec un message
+    // explicite pour que le front puisse retomber sur estimatedPrice + badge.
+    const priceHT = result.response;
+    const isInvalidPrice =
+      priceHT == null ||
+      typeof priceHT !== "number" ||
+      !Number.isFinite(priceHT) ||
+      priceHT < 0;
+
+    if (isInvalidPrice) {
+      console.error(
+        `❌ Anomalie prix Clariprint détectée — priceHT=${JSON.stringify(priceHT)}. Bloqué côté serveur.`,
+      );
+      return c.json({
+        success: false,
+        error:
+          priceHT < 0
+            ? "Prix Clariprint invalide (négatif)"
+            : "Prix Clariprint invalide (absent, NaN ou non-numérique)",
+        details: `priceHT brut reçu: ${JSON.stringify(priceHT)}`,
+        rawResponse: result,
+      });
+    }
+
+    // costs.total : si présent et invalide, on le masque sans bloquer la réponse
+    let costs = result.costs;
+    if (costs && costs.total !== undefined) {
+      const totalInvalid =
+        typeof costs.total !== "number" ||
+        !Number.isFinite(costs.total) ||
+        costs.total < 0;
+      if (totalInvalid) {
+        console.warn(
+          `⚠️ costs.total Clariprint invalide (${JSON.stringify(costs.total)}), masqué.`,
+        );
+        costs = { ...costs, total: undefined };
+      }
+    }
+
     return c.json({
       success: true,
-      // Prix simplifié HT
-      priceHT: result.response,
-      // Détail des coûts (meilleure gamme)
-      costs: result.costs,
+      // Prix simplifié HT (validé)
+      priceHT,
+      // Détail des coûts (meilleure gamme, costs.total éventuellement masqué)
+      costs,
       // Délai en jours
       delais: result.delais,
       // Poids en kg

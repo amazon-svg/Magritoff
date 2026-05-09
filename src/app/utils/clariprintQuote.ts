@@ -52,13 +52,74 @@ export async function fetchClariprintQuote(
       body: JSON.stringify({ clariprint: clariprintData }),
     });
     const data = (await response.json()) as ClariprintQuoteResult;
-    return data;
+    // Sanitization défensive : 2e ligne de défense au cas où le backend
+    // n'aurait pas validé (cf. validateClariprintResponse pour la logique).
+    return validateClariprintResponse(data);
   } catch (err) {
     return {
       success: false,
       error: (err as Error).message || 'Erreur réseau lors de l\'appel à Clariprint',
     };
   }
+}
+
+/**
+ * Sanitization défensive d'une réponse Clariprint.
+ *
+ * Filtre les anomalies connues (CONTEXT_Magrit_IA.md §3.5) :
+ *  - Prix négatif (-1,2 € observé en prod)
+ *  - NaN / valeur non-numérique
+ *  - undefined sur priceHT alors que success=true
+ *  - costs.total invalide
+ *
+ * Quand une anomalie est détectée, on retourne success=false avec un message
+ * explicite. Le front peut alors retomber sur estimatedPrice (Décision Arnaud
+ * 2026-05-09 : option C) sans afficher de prix corrompu à l'utilisateur.
+ *
+ * Cette fonction est appelée à 2 endroits :
+ *  1. Dans l'edge function clariprint-quote (avant retour c.json) → évite la
+ *     propagation au front.
+ *  2. (Sécurité) Dans fetchClariprintQuote côté client (au cas où le backend
+ *     n'aurait pas validé pour une raison quelconque).
+ *
+ * @param result Résultat brut Clariprint
+ * @returns Résultat avec anomalie convertie en success=false
+ */
+export function validateClariprintResponse(
+  result: ClariprintQuoteResult,
+): ClariprintQuoteResult {
+  if (!result.success) return result; // déjà en erreur, rien à faire
+
+  // Prix HT principal
+  const price = result.priceHT;
+  if (price == null || typeof price !== 'number' || !Number.isFinite(price)) {
+    return {
+      success: false,
+      error: 'Prix Clariprint invalide (absent, NaN ou non-numérique)',
+      details: `priceHT reçu: ${JSON.stringify(price)}`,
+    };
+  }
+  if (price < 0) {
+    return {
+      success: false,
+      error: 'Prix Clariprint invalide (négatif)',
+      details: `priceHT reçu: ${price}€ — anomalie connue Clariprint à signaler`,
+    };
+  }
+
+  // costs.total : si présent, doit être valide ; sinon on le masque
+  if (result.costs?.total !== undefined) {
+    const total = result.costs.total;
+    if (typeof total !== 'number' || !Number.isFinite(total) || total < 0) {
+      // On ne fail pas la réponse entière, on masque juste le total invalide
+      result = {
+        ...result,
+        costs: { ...result.costs, total: undefined },
+      };
+    }
+  }
+
+  return result;
 }
 
 /**

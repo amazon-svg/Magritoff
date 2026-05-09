@@ -1,11 +1,20 @@
 import { ShoppingCart, Link as LinkIcon, Menu } from "lucide-react";
 import { Link } from "react-router";
+import { resolvePrice } from "../utils/priceResolver";
+import type { ClariprintQuoteResult } from "../utils/clariprintQuote";
 
 interface PricingPanelProps {
   product: any;
+  /** Optionnel : résultat Clariprint si disponible côté parent */
+  clariprintQuote?: ClariprintQuoteResult | null;
 }
 
-export function PricingPanel({ product }: PricingPanelProps) {
+export function PricingPanel({ product, clariprintQuote }: PricingPanelProps) {
+  // Fix S0.2 (2026-05-09) : utilisation du helper unique resolvePrice() au lieu
+  // d'un accès direct à product.price. Élimine le « 2e prix mystère » signalé
+  // par Arnaud et aligne ce composant avec ProductCard / QuoteModal / etc.
+  const priceResolution = resolvePrice(product, clariprintQuote);
+
   return (
     <div className="w-80 border-l border-gray-200 bg-white p-6">
       <div className="space-y-4">
@@ -23,8 +32,18 @@ export function PricingPanel({ product }: PricingPanelProps) {
         <div className="bg-yellow-50 border-2 border-yellow-400 rounded-lg p-6">
           <div className="flex items-center justify-between mb-4">
             <ShoppingCart className="w-6 h-6 text-gray-700" />
-            <span className="text-3xl font-bold text-gray-900">{product.price.toFixed(2)} €</span>
+            <span className="text-3xl font-bold text-gray-900">
+              {priceResolution.priceHT.toFixed(2)} €
+            </span>
           </div>
+          {priceResolution.isEstimation && (
+            <div className="mb-3 inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-orange-100 border border-orange-300 text-orange-800 text-xs font-medium">
+              ⚠️ Estimation
+              <span className="text-[10px] text-orange-600 italic">
+                (prix réel via Clariprint à venir)
+              </span>
+            </div>
+          )}
           
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
