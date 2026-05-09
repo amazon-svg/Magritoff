@@ -96,6 +96,12 @@ alter table public.orders enable row level security;
 alter table public.order_items enable row level security;
 alter table public.order_status_events enable row level security;
 
+-- Drop policies if any leftover from prior partial application (idempotence)
+drop policy if exists orders_select on public.orders;
+drop policy if exists orders_insert on public.orders;
+drop policy if exists orders_update on public.orders;
+drop policy if exists orders_delete on public.orders;
+
 -- SELECT orders : un user voit les commandes des shops auxquels il a acces
 create policy orders_select on public.orders
   for select using (
@@ -103,7 +109,7 @@ create policy orders_select on public.orders
     or public.is_super_admin()
   );
 
--- INSERT orders : un user peut creer si access shop ET (admin tenant ou created_by = self)
+-- INSERT orders : un user peut creer si access shop ET created_by = self
 -- Permission can_create_order verifiee via colonne tenant_members.permissions (E9.3)
 create policy orders_insert on public.orders
   for insert with check (
@@ -113,31 +119,29 @@ create policy orders_insert on public.orders
 
 -- UPDATE orders : auteur peut update seulement si status='draft' ET created_by=self
 -- Admin tenant peut update n'importe quelle commande de son tenant
+-- Utilise le helper public.user_role_in_tenant(tenant_id) deja existant (E9.x)
+-- pour eviter le probleme de resolution de reference orders.tenant_id dans les
+-- policies (Postgres ne resout pas toujours le qualifie de table dans le contexte RLS).
 create policy orders_update on public.orders
   for update using (
     (status = 'draft' and created_by = auth.uid())
-    or exists (
-      select 1 from public.tenant_members tm
-      where tm.user_id = auth.uid()
-        and tm.tenant_id = orders.tenant_id
-        and tm.role = 'admin'
-    )
+    or public.user_role_in_tenant(tenant_id) in ('owner', 'admin')
     or public.is_super_admin()
   );
 
--- DELETE orders : reserve aux admins tenant et superadmin Magrit
+-- DELETE orders : reserve aux admins/owners tenant et superadmin Magrit
 create policy orders_delete on public.orders
   for delete using (
-    exists (
-      select 1 from public.tenant_members tm
-      where tm.user_id = auth.uid()
-        and tm.tenant_id = orders.tenant_id
-        and tm.role = 'admin'
-    )
+    public.user_role_in_tenant(tenant_id) in ('owner', 'admin')
     or public.is_super_admin()
   );
 
 -- order_items : heritent du parent orders
+drop policy if exists order_items_select on public.order_items;
+drop policy if exists order_items_insert on public.order_items;
+drop policy if exists order_items_update on public.order_items;
+drop policy if exists order_items_delete on public.order_items;
+
 create policy order_items_select on public.order_items
   for select using (
     exists (
@@ -182,6 +186,9 @@ create policy order_items_delete on public.order_items
 
 -- order_status_events : lecture par tous ceux qui voient la commande,
 -- ecriture interdite directement (passe par RPC update_order_status)
+drop policy if exists order_status_events_select on public.order_status_events;
+drop policy if exists order_status_events_no_direct_insert on public.order_status_events;
+
 create policy order_status_events_select on public.order_status_events
   for select using (
     exists (
