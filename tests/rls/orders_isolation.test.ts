@@ -1,8 +1,13 @@
 /**
  * S1.4 — Tests RLS Order entity v1.1.
  *
- * Verifie que les nouvelles tables `orders`, `order_items`, `order_status_events`
- * sont strictement etanches multi-tenant (NFR6 du PRD v1.1, calque sur E9.10).
+ * Verifie que les nouvelles tables tenant_orders, tenant_order_items,
+ * tenant_order_status_events sont strictement etanches multi-tenant
+ * (NFR6 du PRD v1.1, calque sur E9.10).
+ *
+ * Note naming (2026-05-09) : prefixe tenant_* pour eviter la collision avec
+ * les tables legacy public.orders (user_id-based, demo) et public.shop_orders
+ * (shop-owner-based, B3). Coherent avec tenant_members, tenant_invitations, etc.
  *
  * 6 cas obligatoires (cf. PRD § Success Criteria + Architecture §4.2) :
  *   1. cross-tenant SELECT bloque (user A ne lit pas orders du tenant B)
@@ -10,7 +15,7 @@
  *   3. cross-shop SELECT bloque pour acheteur shop_only
  *   4. cancel sans permission bloque (auteur != caller, non-admin)
  *   5. superadmin Magrit bypass OK
- *   6. RPC update_order_status respecte la matrice (transitions illegales rejetees)
+ *   6. RPC update_tenant_order_status respecte la matrice (transitions illegales rejetees)
  *
  * Lancer : pnpm test (necessite .env.test avec SUPABASE_URL +
  * SUPABASE_ANON_KEY + SUPABASE_SERVICE_ROLE_KEY).
@@ -57,7 +62,7 @@ describeIfCreds('RLS Order entity isolation (S1.4 / Epic 1 v1.1)', () => {
 
   afterEach(async () => {
     if (ordersToCleanup.length > 0) {
-      await h.admin.from('orders').delete().in('id', ordersToCleanup);
+      await h.admin.from('tenant_orders').delete().in('id', ordersToCleanup);
       ordersToCleanup.length = 0;
     }
   });
@@ -78,7 +83,7 @@ describeIfCreds('RLS Order entity isolation (S1.4 / Epic 1 v1.1)', () => {
     total_ht?: number;
   }) {
     const { data, error } = await h.admin
-      .from('orders')
+      .from('tenant_orders')
       .insert({
         tenant_id: args.tenant_id,
         shop_id: args.shop_id,
@@ -103,7 +108,7 @@ describeIfCreds('RLS Order entity isolation (S1.4 / Epic 1 v1.1)', () => {
       created_by: h.userB.id,
     });
     const { data, error } = await h.anonA
-      .from('orders')
+      .from('tenant_orders')
       .select('id, tenant_id, total_ht')
       .eq('tenant_id', h.tenantB.id);
     expect(error).toBeNull();
@@ -114,7 +119,7 @@ describeIfCreds('RLS Order entity isolation (S1.4 / Epic 1 v1.1)', () => {
   // Cas 2 — cross-tenant INSERT bloque
   // ───────────────────────────────────────────────────────────────────────
   it("Cas 2 — user A ne peut pas creer une commande dans le tenant B", async () => {
-    const { data, error } = await h.anonA.from('orders').insert({
+    const { data, error } = await h.anonA.from('tenant_orders').insert({
       tenant_id: h.tenantB.id,
       shop_id: shopB.id,
       created_by: h.userA.id,
@@ -159,7 +164,7 @@ describeIfCreds('RLS Order entity isolation (S1.4 / Epic 1 v1.1)', () => {
     });
 
     const { data, error } = await h.anonA
-      .from('orders')
+      .from('tenant_orders')
       .select('id, shop_id')
       .eq('id', orderInA2);
 
@@ -186,7 +191,7 @@ describeIfCreds('RLS Order entity isolation (S1.4 / Epic 1 v1.1)', () => {
     });
 
     // user B (autre tenant) tente d'annuler
-    const { error } = await h.anonB.rpc('update_order_status', {
+    const { error } = await h.anonB.rpc('update_tenant_order_status', {
       p_order_id: orderA,
       p_new_status: 'cancelled',
     });
@@ -194,7 +199,7 @@ describeIfCreds('RLS Order entity isolation (S1.4 / Epic 1 v1.1)', () => {
 
     // Verifie que le statut est toujours 'draft'
     const { data } = await h.admin
-      .from('orders')
+      .from('tenant_orders')
       .select('status')
       .eq('id', orderA)
       .single();
@@ -233,7 +238,7 @@ describeIfCreds('RLS Order entity isolation (S1.4 / Epic 1 v1.1)', () => {
 
     // Re-fetch le client anonA pour rafraichir le JWT (claims peuvent contenir is_super_admin)
     const { data, error } = await h.anonA
-      .from('orders')
+      .from('tenant_orders')
       .select('id, tenant_id')
       .eq('id', orderInB);
 
@@ -265,14 +270,14 @@ describeIfCreds('RLS Order entity isolation (S1.4 / Epic 1 v1.1)', () => {
     });
 
     // Transition illegale en v1.1 : draft -> shipped (saute des etapes)
-    const { error: errIllegal } = await h.anonA.rpc('update_order_status', {
+    const { error: errIllegal } = await h.anonA.rpc('update_tenant_order_status', {
       p_order_id: order,
       p_new_status: 'shipped',
     });
     expect(errIllegal).not.toBeNull();
 
     // Transition legale : draft -> cancelled (par auteur)
-    const { error: errLegal } = await h.anonA.rpc('update_order_status', {
+    const { error: errLegal } = await h.anonA.rpc('update_tenant_order_status', {
       p_order_id: order,
       p_new_status: 'cancelled',
       p_reason: 'Test annulation v1.1',
@@ -280,7 +285,7 @@ describeIfCreds('RLS Order entity isolation (S1.4 / Epic 1 v1.1)', () => {
     expect(errLegal).toBeNull();
 
     const { data } = await h.admin
-      .from('orders')
+      .from('tenant_orders')
       .select('status, cancelled_at')
       .eq('id', order)
       .single();
@@ -289,7 +294,7 @@ describeIfCreds('RLS Order entity isolation (S1.4 / Epic 1 v1.1)', () => {
 
     // Verifie qu'un evenement audit a ete cree
     const { data: events } = await h.admin
-      .from('order_status_events')
+      .from('tenant_order_status_events')
       .select('from_status, to_status, reason, actor_id')
       .eq('order_id', order);
     expect(events ?? []).toHaveLength(1);
