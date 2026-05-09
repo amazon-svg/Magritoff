@@ -36,11 +36,11 @@ export function PricingPanel({ product, clariprintQuote }: PricingPanelProps) {
               {priceResolution.priceHT.toFixed(2)} €
             </span>
           </div>
-          {priceResolution.isEstimation && (
+          {priceResolution.isMarketPrice && (
             <div className="mb-3 inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-orange-100 border border-orange-300 text-orange-800 text-xs font-medium">
-              ⚠️ Estimation
+              ⚠️ Prix marché
               <span className="text-[10px] text-orange-600 italic">
-                (prix réel via Clariprint à venir)
+                (prix réel Clariprint à venir)
               </span>
             </div>
           )}

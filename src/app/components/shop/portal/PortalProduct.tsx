@@ -5,6 +5,7 @@ import { resolveProductImage } from '../../../utils/productImages';
 import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
 import { ProductMockup } from '../../brand/ProductMockup';
 import { fetchClariprintQuote, priceFingerprint, type ClariprintQuoteResult } from '../../../utils/clariprintQuote';
+import { estimateMarketPriceHT, resolvePrice } from '../../../utils/priceResolver';
 
 interface Props {
   product: ShopProduct;
@@ -71,9 +72,21 @@ export function PortalProduct({ product, onBack, onAddToCart, pimGammes, pimDefi
 
   const quantityPresets = [100, 250, 500, 1000, 2500];
 
-  // Prix affiche : priorite au calcul Clariprint, fallback sur le prix passe
-  const activePriceHT = hasCalcd ? (quote!.priceHT as number) : product.price_ht * (qty / 500);
+  // Prix affiche : priorite au calcul Clariprint, sinon prix marche (decision
+  // Arnaud 2026-05-09). Le prix marche est TOUJOURS disponible meme sans
+  // Clariprint, ce qui debride le bouton "Ajouter au panier" en contexte demo.
+  // Resolution unifiee via priceResolver pour rester aligne avec ProductCard,
+  // PricingPanel, etc. Sera remplace en V2+ par appel au panel Magrit.
+  const priceResolution = resolvePrice(product, quote);
+  // Si on a un Clariprint valide → priceHT direct, sinon scaling proportionnel
+  // sur le prix marche (qty / 500 = ratio par rapport au quantum de reference)
+  const activePriceHT = hasCalcd
+    ? (quote!.priceHT as number)
+    : (priceResolution.source === 'library_cached'
+        ? priceResolution.priceHT * (qty / 500)
+        : estimateMarketPriceHT({ ...product, quantity: qty }));
   const priceTTC = activePriceHT * 1.2;
+  const isMarketPrice = !hasCalcd; // True quand on n a pas Clariprint
 
   const imgSrc = resolveProductImage({
     name: product.name,
@@ -409,18 +422,31 @@ export function PortalProduct({ product, onBack, onAddToCart, pimGammes, pimDefi
 
           <button
             onClick={() => {
-              // On passe au panier le prix réel s'il a ete calcule via Clariprint
+              // On passe au panier le prix actif. Si Clariprint a calcule, c est
+              // ce prix. Sinon, on injecte le prix marche pour que le panier
+              // puisse calculer le total et permettre la commande (decision
+              // Arnaud 2026-05-09 fix prix marche). En V2+ ce fallback sera
+              // remplace par le panel Magrit (parcs imprimeurs anonymises).
               const productWithPrice = hasCalcd
                 ? { ...product, price_ht: activePriceHT, config: { ...(product.config ?? {}), clariprintQuote: quote } }
-                : product;
+                : { ...product, price_ht: activePriceHT, config: { ...(product.config ?? {}), priceSource: 'prix_marche' } };
               onAddToCart(productWithPrice, qty, selectedOpts);
             }}
-            disabled={!hasCalcd && !calcLoading}
+            disabled={calcLoading}
             className="py-3.5 px-5 rounded-lg bg-brand text-brand-ink hover:bg-black transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             style={{ fontSize: '14.5px', fontWeight: 500, fontFamily: 'var(--font-ui)' }}
           >
-            {hasCalcd ? `Ajouter au panier · ${qty} ex.` : 'Calculez le prix avant d\'ajouter au panier'}
+            {calcLoading
+              ? 'Calcul en cours…'
+              : hasCalcd
+                ? `Ajouter au panier · ${qty} ex.`
+                : `Ajouter au panier · ${qty} ex. · Prix marché`}
           </button>
+          {isMarketPrice && !calcLoading && (
+            <p className="mt-2 text-xs text-orange-700 italic">
+              ⚠️ Prix marché (estimation Magrit). Le prix réel Clariprint sera confirmé à la validation de la commande par l&apos;imprimeur.
+            </p>
+          )}
         </div>
       </div>
     </div>

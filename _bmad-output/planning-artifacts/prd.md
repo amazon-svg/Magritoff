@@ -947,6 +947,15 @@ Conformément à la règle BMAD step 8 : **aucune story explicitement validée p
 - **FR45** Tout cas de test fonctionnel est exécutable indifféremment par un humain ou par Claude in Chrome via plugin MCP, sur des `data-testid` stables.
 - **FR46** Tout `data-testid` utilisé est centralisé dans `src/app/lib/testIds.ts` (objet `TEST_IDS as const`) et conserve sa stabilité publiée (renommage = dual-tag pendant 1 sprint, suppression sprint suivant).
 
+### Domaine 10 — Concept « Prix marché » (ajout 2026-05-09)
+
+> _Concept structurant ajouté post-S0.2 suite au constat que sans tier de fallback toujours disponible, le bouton « Ajouter au panier » est bloqué quand Clariprint n'a pas calculé → impossibilité de tester le flow commande en démo. Évolutif : aujourd'hui heuristique, demain alimenté par le **panel Magrit** (parcs imprimeurs anonymisés)._
+
+- **FR47** Le système calcule et expose toujours un **prix marché** estimé pour chaque produit, indépendamment de la disponibilité Clariprint. Aujourd'hui : heuristique `estimateMarketPriceHT()` dans `src/app/utils/priceResolver.ts`. Demain (V2+) : **panel Magrit** alimenté par les parcs imprimeurs Pro anonymisés.
+- **FR48** Tout affichage de prix marché côté UI (boutique B2B, panier, atelier, fiche produit) est accompagné d'un **badge « ⚠️ Prix marché »** explicite avec sous-texte « prix réel Clariprint à venir ».
+- **FR49** Le bouton « Ajouter au panier » d'une boutique B2B reste **toujours actif** (sauf chargement Clariprint en cours), avec le prix marché comme fallback. La commande créée en statut `draft` peut être révisée par l'imprimeur avant validation `validated` (V2+).
+- **FR50** Le total panier est calculé via `resolvePrice()` qui applique la hiérarchie canonique : Clariprint validé → cache bibliothèque → prix marché → zéro. Si au moins une ligne du panier est en prix marché, le récap affiche un **badge global** explicitant que le total est indicatif.
+
 ---
 
 ## Non-Functional Requirements
