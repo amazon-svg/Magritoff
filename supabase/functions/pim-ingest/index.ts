@@ -38,6 +38,7 @@
  */
 
 import { corsHeaders } from "../_shared/cors.ts";
+import { anthropicComplete, AnthropicClientError } from "../_shared/anthropicClient.ts";
 
 // Supabase client est accessible via env auto-injectees (SUPABASE_URL,
 // SUPABASE_SERVICE_ROLE_KEY pour bypass RLS sur pim_candidates / product_*).
@@ -321,7 +322,7 @@ async function enrichWithClaude(
   gamme: Gamme,
   raw: Record<string, unknown>
 ): Promise<Record<string, unknown> | null> {
-  if (!ANTHROPIC_API_KEY) return null;
+  // Refactor S1.3 (2026-05-09) : utilise le wrapper AnthropicClient unifie.
 
   const userPrompt = `Genere une fiche PIM pour ce produit imprimerie :
 
@@ -332,36 +333,27 @@ ${JSON.stringify(raw, null, 2)}
 Retourne le JSON strict decrit dans le system prompt.`;
 
   try {
-    const resp = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: CLAUDE_MODEL,
-        max_tokens: 2000,
-        system: ENRICH_SYSTEM,
-        messages: [{ role: "user", content: userPrompt }],
-      }),
+    const result = await anthropicComplete({
+      model: CLAUDE_MODEL,
+      prompt: userPrompt,
+      system: ENRICH_SYSTEM,
+      maxTokens: 2000,
+      endpoint: "pim-ingest",
+      metadata: { gamme_slug: gamme.slug, raw_kind: (raw as any)?.kind },
     });
 
-    if (!resp.ok) {
-      console.error("[enrichWithClaude] HTTP", resp.status, await resp.text());
-      return null;
-    }
-
-    const data = await resp.json();
-    const content = data.content?.[0]?.text ?? "";
     // Extract JSON (Claude peut parfois wrapper)
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    const jsonMatch = result.text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      console.error("[enrichWithClaude] no JSON in response:", content.slice(0, 200));
+      console.error("[enrichWithClaude] no JSON in response:", result.text.slice(0, 200));
       return null;
     }
     return JSON.parse(jsonMatch[0]);
   } catch (err) {
+    if (err instanceof AnthropicClientError) {
+      console.error("[enrichWithClaude] AnthropicClient", err.kind, err.message);
+      return null;
+    }
     console.error("[enrichWithClaude] error:", (err as Error).message);
     return null;
   }
