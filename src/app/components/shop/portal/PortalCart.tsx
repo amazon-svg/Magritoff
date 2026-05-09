@@ -4,6 +4,7 @@ import { resolveProductImage } from '../../../utils/productImages';
 import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
 import { ProductMockup } from '../../brand/ProductMockup';
 import { TEST_IDS } from '../../../lib/testIds';
+import { resolvePrice } from '../../../utils/priceResolver';
 
 interface Props {
   cart: CartLine[];
@@ -28,9 +29,20 @@ export function PortalCart({
   pimGammes,
   pimDefinitions,
 }: Props) {
-  const subtotalHT = cart.reduce((s, l) => s + l.product.price_ht * l.qty, 0);
+  // Resolution unifiee du prix par ligne via priceResolver (decision Arnaud
+  // 2026-05-09 fix prix marche). Une ligne en "prix marche" devient
+  // hasMarketPriceLine=true → on affiche un badge global "Prix marche" en
+  // bas du panier pour informer l acheteur que le total est indicatif.
+  const cartLines = cart.map((l) => {
+    const clariprintQuote = (l.product.config as any)?.clariprintQuote ?? null;
+    const resolution = resolvePrice(l.product, clariprintQuote);
+    const lineTotal = resolution.priceHT * l.qty;
+    return { line: l, resolution, lineTotal };
+  });
+  const subtotalHT = cartLines.reduce((s, c) => s + c.lineTotal, 0);
   const tva = subtotalHT * 0.2;
   const totalFinal = subtotalHT + tva;
+  const hasMarketPriceLine = cartLines.some((c) => c.resolution.isMarketPrice);
 
   const budgetPctAfter = budget
     ? Math.min(100, Math.round(((budget.used + totalFinal) / budget.total) * 100))
@@ -229,6 +241,14 @@ export function PortalCart({
               {totalFinal.toFixed(2)}€
             </span>
           </div>
+          {hasMarketPriceLine && (
+            <div
+              className="mt-3 px-3 py-2 bg-orange-50 border border-orange-200 rounded text-orange-800"
+              style={{ fontSize: '12px', lineHeight: '1.4' }}
+            >
+              ⚠️ <strong>Prix marché</strong> — au moins une ligne utilise une estimation Magrit (Clariprint pas encore intégré). Le prix réel sera confirmé à la validation par l&apos;imprimeur.
+            </div>
+          )}
         </div>
 
         {/* Impact budget corporate */}
