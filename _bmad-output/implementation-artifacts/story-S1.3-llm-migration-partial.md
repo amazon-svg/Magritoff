@@ -73,10 +73,14 @@ commits: [555574a, df47dc3]
 
 ## Reste à faire (story S1.3-suite à créer)
 
-- [ ] Refactor `claude-proxy/index.ts` (logique demo fallback préservée)
-- [ ] Refactor `make-server-e3db71a4/claude-proxy` + `claude-proxy-stream` (streaming SSE préservé)
-- [ ] Suppression dépendance `openai` du `package.json` (si présente — à vérifier)
-- [ ] Mesure réelle NFR4 + NFR5 à J+30
+- [x] Refactor `claude-proxy/index.ts` (logique demo fallback préservée) — **livré dans S1.5** (cf. [story-S1.5-refactor-llm-finalisation.md](story-S1.5-refactor-llm-finalisation.md), 2026-05-10)
+- [x] Refactor `make-server-e3db71a4/claude-proxy` + `claude-proxy-stream` (streaming SSE préservé) — **livré dans S1.5**
+- [x] Suppression dépendance `openai` du `package.json` (si présente — à vérifier) — **vérifié dans S1.5** : aucune dépendance, aucune référence GPT, déjà clean de facto
+- [ ] Mesure réelle NFR4 + NFR5 à J+30 — toujours à mesurer après déploiement S1.5
+
+## Suite
+
+S1.5 finalise tout le périmètre code restant. Story partielle S1.3 close du point de vue scope code.
 
 ## Commits
 

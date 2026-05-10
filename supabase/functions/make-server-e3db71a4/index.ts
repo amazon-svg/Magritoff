@@ -4,7 +4,21 @@ import { logger } from "npm:hono/logger";
 import { streamSSE } from "npm:hono/streaming";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import * as kv from "./kv_store.ts";
-import { logLlmUsage } from "../_shared/llm_usage.ts";
+import {
+  anthropicComplete,
+  anthropicStream,
+  AnthropicClientError,
+} from "../_shared/anthropicClient.ts";
+
+// Detection des erreurs API qui justifient un fallback demo (cle absente,
+// credits epuises, auth invalide). Cf. comportement historique avant S1.5.
+function isClaudeBillingError(err: AnthropicClientError): boolean {
+  if (err.kind !== "api_error") return false;
+  const body = String(
+    (err.details as { body?: string } | undefined)?.body ?? "",
+  ).toLowerCase();
+  return /credit|billing|authentication|invalid/.test(body);
+}
 
 const app = new Hono();
 
@@ -675,165 +689,140 @@ app.post("/make-server-e3db71a4/claude-proxy", async (c) => {
     }
 
     const userMessage = messages[messages.length - 1].content;
-    const anthropicApiKey =
-      Deno.env.get("ANTHROPIC_API_KEY") ||
-      Deno.env.get("Magrit3") ||
-      Deno.env.get("MAGRIT");
 
-    // --- MODE DÉMO ---
-    if (!anthropicApiKey) {
-      console.log("⚠️ Mode démo activé - clé API absente");
+    // Helper : reponse mode demo (preserve API contract historique).
+    const respondDemo = (message: string) => {
       const demoConfigs = generateDemoConfigs(userMessage);
       const readableSummary = generateReadableSummary(demoConfigs);
       return c.json({
         content: [{ type: "text", text: readableSummary }],
         configs: demoConfigs,
         demoMode: true,
-        message: "Mode démo activé (clé API non configurée)",
+        message,
       });
-    }
+    };
 
-    // --- APPEL CLAUDE ---
-    console.log(`🤖 Appel Claude (mode=${mode}, ctx=${messages.length} msgs)...`);
+    // --- APPEL CLAUDE via wrapper AnthropicClient (S1.5) ---
+    // Le wrapper gere automatiquement : recherche cle API multi-secrets, limite 25 params (FR43),
+    // tracking llm_usage_events (NFR23). Pas de logLlmUsage manuel.
+    console.log(`🤖 Appel Claude via wrapper (mode=${mode}, ctx=${messages.length} msgs)...`);
+    const MODEL = "claude-sonnet-4-5-20250929";
+    let result;
     try {
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": anthropicApiKey,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-5-20250929",
-          max_tokens: 4096,
-          system: buildSystemPrompt(mode),
-          messages: messages,
-        }),
-      });
-
-      // Erreur API → mode démo
-      if (!response.ok) {
-        const errorData = await response.text();
-        console.error("❌ Erreur API Claude:", errorData);
-
-        if (
-          errorData.includes("credit") ||
-          errorData.includes("billing") ||
-          errorData.includes("authentication") ||
-          errorData.includes("invalid")
-        ) {
-          const demoConfigs = generateDemoConfigs(userMessage);
-          const readableSummary = generateReadableSummary(demoConfigs);
-          return c.json({
-            content: [{ type: "text", text: readableSummary }],
-            configs: demoConfigs,
-            demoMode: true,
-            message: "Mode démo activé (crédits API insuffisants ou clé invalide)",
-          });
-        }
-
-        return c.json(
-          { error: "Failed to get response from Claude API", details: errorData },
-          response.status as any,
-        );
-      }
-
-      const data = await response.json();
-      console.log("✅ Réponse Claude reçue");
-
-      // --- PARSE JSON de Claude ---
-      let rawText: string = data.content?.[0]?.text || "";
-      // Nettoyer les éventuels blocs ```json ... ```
-      rawText = rawText
-        .replace(/^```json\s*/i, "")
-        .replace(/^```\s*/i, "")
-        .replace(/\s*```\s*$/i, "")
-        .trim();
-
-      let configs: any[] = [];
-      let teachingNote: string | null = null;
-      let assumptions: string[] = [];
-      let clarification: string | null = null;
-      let clarificationOptions: string[] = [];
-      try {
-        const parsed = JSON.parse(rawText);
-        configs = Array.isArray(parsed.products) ? parsed.products : [];
-        if (typeof parsed.teachingNote === "string" && parsed.teachingNote.trim()) {
-          teachingNote = parsed.teachingNote.trim();
-        }
-        // E2.1 — assumptions emises par Marguerite quand demande vague
-        if (Array.isArray(parsed.assumptions)) {
-          assumptions = parsed.assumptions
-            .filter((a: unknown) => typeof a === "string" && a.trim().length > 0)
-            .map((a: string) => a.trim());
-        }
-        // E2.2 — clarification demandee par Claude en mode strict
-        if (typeof parsed.clarification === "string" && parsed.clarification.trim()) {
-          clarification = parsed.clarification.trim();
-        }
-        // E2.2 — options cliquables associees a la clarification
-        if (Array.isArray(parsed.clarificationOptions)) {
-          clarificationOptions = parsed.clarificationOptions
-            .filter((o: unknown) => typeof o === "string" && o.trim().length > 0)
-            .map((o: string) => o.trim())
-            .slice(0, 5); // safety : max 5 options pour eviter UI surchargee
-        }
-        console.log(
-          `✅ JSON parsé : ${configs.length} produit(s)` +
-            (teachingNote ? ` + teachingNote` : "") +
-            (assumptions.length ? ` + ${assumptions.length} assumption(s)` : "") +
-            (clarification ? ` + clarification` : "") +
-            (clarificationOptions.length ? ` + ${clarificationOptions.length} option(s)` : "")
-        );
-      } catch (parseError) {
-        console.error("❌ Impossible de parser le JSON de Claude:", parseError);
-        console.error("Texte brut:", rawText.substring(0, 500));
-        // Fallback démo si JSON invalide
-        configs = generateDemoConfigs(userMessage);
-      }
-
-      // Générer le résumé lisible pour le chat (utilisé si pas de teachingNote)
-      const readableSummary = generateReadableSummary(configs);
-
-      // E7.1 — log de la conso (best-effort, ne bloque pas la reponse)
-      logLlmUsage({
+      result = await anthropicComplete({
+        model: MODEL,
+        messages,
+        system: buildSystemPrompt(mode),
+        maxTokens: 4096,
+        endpoint: "claude-proxy",
         userId,
         tenantId,
-        endpoint: "claude-proxy",
-        model: data.model,
-        usage: data.usage,
         metadata: {
           mode,
           messages_count: messages.length,
           truncated_count: truncatedCount,
-          configs_count: configs.length,
         },
       });
-
-      return c.json({
-        content: [{ type: "text", text: readableSummary }],
-        configs: configs,
-        teachingNote, // string ou null — commentaire pédagogique pour questions comparatives
-        assumptions,    // E2.1 — hypotheses Marguerite (peut etre [])
-        clarification,  // E2.2 — question de clarification en mode strict (peut etre null)
-        clarificationOptions,  // E2.2 — options cliquables pour la clarif (peut etre [])
-        mode,           // E2 — mode actif renvoye au client pour traçabilite UI
-        truncatedCount, // E2.4 — nb de messages tronques (info debug)
-        model: data.model,
-        usage: data.usage,
-        demoMode: false,
-      });
-    } catch (apiError) {
-      console.error("❌ Erreur réseau Claude, mode démo:", apiError);
-      const demoConfigs = generateDemoConfigs(userMessage);
-      const readableSummary = generateReadableSummary(demoConfigs);
-      return c.json({
-        content: [{ type: "text", text: readableSummary }],
-        configs: demoConfigs,
-        demoMode: true,
-        message: "Mode démo activé (erreur réseau)",
-      });
+    } catch (err) {
+      if (err instanceof AnthropicClientError) {
+        if (err.kind === "missing_api_key") {
+          console.log("⚠️ Mode démo activé - clé API absente");
+          return respondDemo("Mode démo activé (clé API non configurée)");
+        }
+        if (isClaudeBillingError(err)) {
+          console.error("❌ Erreur API Claude (billing/auth):", err.details);
+          return respondDemo("Mode démo activé (crédits API insuffisants ou clé invalide)");
+        }
+        if (err.kind === "param_limit_exceeded") {
+          return c.json(
+            { error: err.message, kind: err.kind, details: err.details },
+            400,
+          );
+        }
+        if (err.kind === "api_error") {
+          const details = err.details as { status?: number; body?: string } | undefined;
+          console.error("❌ Erreur API Claude:", details);
+          return c.json(
+            { error: "Failed to get response from Claude API", details: details?.body ?? err.message },
+            (details?.status ?? 502) as any,
+          );
+        }
+      }
+      console.error("❌ Erreur réseau Claude, mode démo:", err);
+      return respondDemo("Mode démo activé (erreur réseau)");
     }
+
+    console.log("✅ Réponse Claude reçue");
+
+    // --- PARSE JSON de Claude ---
+    // Nettoyer les eventuels blocs ```json ... ```
+    const rawText: string = result.text
+      .replace(/^```json\s*/i, "")
+      .replace(/^```\s*/i, "")
+      .replace(/\s*```\s*$/i, "")
+      .trim();
+
+    let configs: any[] = [];
+    let teachingNote: string | null = null;
+    let assumptions: string[] = [];
+    let clarification: string | null = null;
+    let clarificationOptions: string[] = [];
+    try {
+      const parsed = JSON.parse(rawText);
+      configs = Array.isArray(parsed.products) ? parsed.products : [];
+      if (typeof parsed.teachingNote === "string" && parsed.teachingNote.trim()) {
+        teachingNote = parsed.teachingNote.trim();
+      }
+      // E2.1 — assumptions emises par Magrit quand demande vague
+      if (Array.isArray(parsed.assumptions)) {
+        assumptions = parsed.assumptions
+          .filter((a: unknown) => typeof a === "string" && a.trim().length > 0)
+          .map((a: string) => a.trim());
+      }
+      // E2.2 — clarification demandee par Claude en mode strict
+      if (typeof parsed.clarification === "string" && parsed.clarification.trim()) {
+        clarification = parsed.clarification.trim();
+      }
+      // E2.2 — options cliquables associees a la clarification
+      if (Array.isArray(parsed.clarificationOptions)) {
+        clarificationOptions = parsed.clarificationOptions
+          .filter((o: unknown) => typeof o === "string" && o.trim().length > 0)
+          .map((o: string) => o.trim())
+          .slice(0, 5); // safety : max 5 options pour eviter UI surchargee
+      }
+      console.log(
+        `✅ JSON parsé : ${configs.length} produit(s)` +
+          (teachingNote ? ` + teachingNote` : "") +
+          (assumptions.length ? ` + ${assumptions.length} assumption(s)` : "") +
+          (clarification ? ` + clarification` : "") +
+          (clarificationOptions.length ? ` + ${clarificationOptions.length} option(s)` : "")
+      );
+    } catch (parseError) {
+      console.error("❌ Impossible de parser le JSON de Claude:", parseError);
+      console.error("Texte brut:", rawText.substring(0, 500));
+      // Fallback démo si JSON invalide
+      configs = generateDemoConfigs(userMessage);
+    }
+
+    // Générer le résumé lisible pour le chat (utilisé si pas de teachingNote)
+    const readableSummary = generateReadableSummary(configs);
+
+    return c.json({
+      content: [{ type: "text", text: readableSummary }],
+      configs: configs,
+      teachingNote,
+      assumptions,
+      clarification,
+      clarificationOptions,
+      mode,
+      truncatedCount,
+      model: MODEL,
+      usage: {
+        input_tokens: result.usage.input_tokens,
+        output_tokens: result.usage.output_tokens,
+      },
+      demoMode: false,
+    });
   } catch (error) {
     console.error("Error in claude-proxy:", error);
     return c.json(
@@ -919,15 +908,11 @@ app.post("/make-server-e3db71a4/claude-proxy-stream", async (c) => {
   }
 
   const userMessage = messages[messages.length - 1].content;
-  const anthropicApiKey =
-    Deno.env.get("ANTHROPIC_API_KEY") ||
-    Deno.env.get("Magrit3") ||
-    Deno.env.get("MAGRIT");
 
   return streamSSE(c, async (stream) => {
-    // Mode demo : pas de cle API → emet un seul event "done" avec demo configs
-    if (!anthropicApiKey) {
-      const demoConfigs = generateDemoConfigs(userMessage);
+    // Helper : emet un event "done" en mode demo (preserve le contrat client SSE).
+    const writeDemoDone = async (message: string, demoMode = true) => {
+      const demoConfigs = demoMode ? generateDemoConfigs(userMessage) : [];
       const readableSummary = generateReadableSummary(demoConfigs);
       await stream.writeSSE({
         event: "done",
@@ -940,140 +925,83 @@ app.post("/make-server-e3db71a4/claude-proxy-stream", async (c) => {
           clarificationOptions: [],
           mode,
           truncatedCount,
-          demoMode: true,
-          message: "Mode démo (clé API absente)",
+          demoMode,
+          message,
         }),
       });
-      return;
-    }
+    };
 
-    let resp: Response;
+    // --- APPEL CLAUDE STREAM via wrapper (S1.5) ---
+    let textChunks: AsyncIterable<string>;
+    let finalPromise: Promise<{ fullText: string; usage: { input_tokens: number; output_tokens: number }; model: string }>;
     try {
-      resp = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": anthropicApiKey,
-          "anthropic-version": "2023-06-01",
+      const result = await anthropicStream({
+        model: "claude-sonnet-4-5-20250929",
+        messages,
+        system: buildSystemPrompt(mode),
+        maxTokens: 4096,
+        endpoint: "claude-proxy-stream",
+        userId,
+        tenantId,
+        metadata: {
+          mode,
+          messages_count: messages.length,
+          truncated_count: truncatedCount,
         },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-5-20250929",
-          max_tokens: 4096,
-          system: buildSystemPrompt(mode),
-          messages,
-          stream: true,
-        }),
       });
-    } catch (netErr) {
-      console.error("[claude-proxy-stream] network error:", netErr);
-      const demoConfigs = generateDemoConfigs(userMessage);
-      const readableSummary = generateReadableSummary(demoConfigs);
-      await stream.writeSSE({
-        event: "done",
-        data: JSON.stringify({
-          content: [{ type: "text", text: readableSummary }],
-          configs: demoConfigs,
-          teachingNote: null,
-          assumptions: [],
-          clarification: null,
-          clarificationOptions: [],
-          mode,
-          truncatedCount,
-          demoMode: true,
-          message: "Mode démo (erreur réseau)",
-        }),
-      });
-      return;
-    }
-
-    if (!resp.ok || !resp.body) {
-      const errText = await resp.text().catch(() => "");
-      console.error("[claude-proxy-stream] Anthropic error:", resp.status, errText);
-      const isCreditOrAuth =
-        errText.includes("credit") ||
-        errText.includes("billing") ||
-        errText.includes("authentication") ||
-        errText.includes("invalid");
-      const demoConfigs = isCreditOrAuth
-        ? generateDemoConfigs(userMessage)
-        : [];
-      const readableSummary = generateReadableSummary(demoConfigs);
-      await stream.writeSSE({
-        event: "done",
-        data: JSON.stringify({
-          content: [{ type: "text", text: readableSummary }],
-          configs: demoConfigs,
-          teachingNote: null,
-          assumptions: [],
-          clarification: null,
-          clarificationOptions: [],
-          mode,
-          truncatedCount,
-          demoMode: isCreditOrAuth,
-          error: !isCreditOrAuth ? `Anthropic ${resp.status}` : undefined,
-        }),
-      });
-      return;
-    }
-
-    const reader = resp.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-    let fullText = "";
-    let model = "claude-sonnet-4-20250514";
-    let usage: any = null;
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-
-      const lines = buffer.split("\n");
-      buffer = lines.pop() ?? "";
-
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed.startsWith("data:")) continue;
-        const payload = trimmed.slice(5).trim();
-        if (!payload || payload === "[DONE]") continue;
-        let evt: any;
-        try {
-          evt = JSON.parse(payload);
-        } catch {
-          continue;
+      textChunks = result.textChunks;
+      finalPromise = result.finalPromise;
+    } catch (err) {
+      if (err instanceof AnthropicClientError) {
+        if (err.kind === "missing_api_key") {
+          await writeDemoDone("Mode démo (clé API absente)");
+          return;
         }
-        if (evt.type === "message_start" && evt.message) {
-          if (evt.message.model) model = evt.message.model;
-          if (evt.message.usage) usage = { ...evt.message.usage };
-        } else if (evt.type === "content_block_delta" && evt.delta?.text) {
-          fullText += evt.delta.text;
-          await stream.writeSSE({
-            event: "delta",
-            data: JSON.stringify({ text: evt.delta.text }),
-          });
-        } else if (evt.type === "message_delta") {
-          if (evt.usage) usage = { ...(usage ?? {}), ...evt.usage };
+        if (isClaudeBillingError(err)) {
+          await writeDemoDone("Mode démo (crédits API insuffisants ou clé invalide)");
+          return;
+        }
+        if (err.kind === "param_limit_exceeded") {
+          await writeDemoDone(`Erreur : ${err.message}`, false);
+          return;
+        }
+        if (err.kind === "api_error") {
+          const details = err.details as { status?: number } | undefined;
+          console.error("[claude-proxy-stream] Anthropic error:", details?.status, err.message);
+          await writeDemoDone(`Anthropic ${details?.status ?? "error"}`, false);
+          return;
         }
       }
+      console.error("[claude-proxy-stream] network error:", err);
+      await writeDemoDone("Mode démo (erreur réseau)");
+      return;
     }
 
-    const parsed = parseClaudeJson(fullText);
+    // Streaming : relai les deltas vers le client en SSE Hono.
+    let fullText = "";
+    try {
+      for await (const text of textChunks) {
+        fullText += text;
+        await stream.writeSSE({
+          event: "delta",
+          data: JSON.stringify({ text }),
+        });
+      }
+    } catch (streamErr) {
+      console.error("[claude-proxy-stream] iteration error:", streamErr);
+      await writeDemoDone("Erreur pendant le streaming Claude", false);
+      return;
+    }
+
+    // Final : recupere usage + model du wrapper (logLlmUsage deja fait).
+    const final = await finalPromise.catch((e) => {
+      console.error("[claude-proxy-stream] finalPromise rejected:", e);
+      return { fullText, usage: { input_tokens: 0, output_tokens: 0 }, model: "claude-sonnet-4-5-20250929" };
+    });
+
+    const parsed = parseClaudeJson(final.fullText || fullText);
     const configs = parsed.configs.length > 0 ? parsed.configs : [];
     const readableSummary = generateReadableSummary(configs);
-
-    logLlmUsage({
-      userId,
-      tenantId,
-      endpoint: "claude-proxy-stream",
-      model,
-      usage,
-      metadata: {
-        mode,
-        messages_count: messages.length,
-        truncated_count: truncatedCount,
-        configs_count: configs.length,
-      },
-    });
 
     await stream.writeSSE({
       event: "done",
@@ -1086,8 +1014,8 @@ app.post("/make-server-e3db71a4/claude-proxy-stream", async (c) => {
         clarificationOptions: parsed.clarificationOptions,
         mode,
         truncatedCount,
-        model,
-        usage,
+        model: final.model,
+        usage: final.usage,
         demoMode: false,
       }),
     });

@@ -22,7 +22,7 @@ export interface LlmUsageEvent {
   tenantId?: string | null;
   /** Nom de l'endpoint (ex: 'claude-proxy', 'pim-generate'). */
   endpoint: string;
-  /** Modele Claude utilise (ex: 'claude-sonnet-4-20250514'). */
+  /** Modele Claude utilise (ex: 'claude-sonnet-4-5-20250929'). */
   model: string;
   /** Reponse `usage` brute de l'API Anthropic. */
   usage?: {

@@ -77,7 +77,7 @@ Toutes pushées sur `beta/v4`, edge function déployée, SQL appliqué.
 | Dossier local | `/Users/arnaudmazon/Documents/Claude/BMAD/Magrit/` |
 | Port dev | `5177` (lancement : `pnpm exec vite --port 5177 --strictPort`) |
 | Projet Supabase | `ightkxebexuzfjdbpsdg` (Magrit 4) — partagé avec B4, RLS isole |
-| Edge functions déployées 2026-05-09 | `make-server-e3db71a4`, `pim-generate`, `pim-ingest` (Sonnet 4 → 4.5 + wrapper AnthropicClient) |
+| Edge functions déployées | 2026-05-09 : `make-server-e3db71a4` v?, `pim-generate`, `pim-ingest` (S1.3 partial). 2026-05-10 : redeploy `claude-proxy` v8 + `make-server-e3db71a4` v12 (S1.5 + fix `Magrit3` case-sensitive) |
 | Modèle LLM | `claude-sonnet-4-5-20250929` (raisonnement) + `claude-haiku-4-5-20251001` (génération rapide) |
 
 ### Stories pré-sprint Epic 0 livrées
@@ -95,7 +95,8 @@ Toutes pushées sur `beta/v4`, edge function déployée, SQL appliqué.
 | **S1.1** Wrapper `AnthropicClient` | `6f1aa84` | `supabase/functions/_shared/anthropicClient.ts` — `complete()` + `completeStructured(zodSchema)` + tracking auto `llm_usage_events` + limite 25 paramètres anti-hallucination + erreurs typées `AnthropicClientError` |
 | **S1.2** `ClariprintAdapter` pattern | `632db88` | `src/server/clariprint/ClariprintAdapter.ts` — interface + `ClariprintHttpAdapter` (prod) + `ClariprintMockAdapter` (tests) + `ClariprintError` discriminée par `kind` |
 | **S1.4** Order entity DB schema + RLS + tests vitest | `1a29481` + `9d70e58` (rename) | Migration `20260509_01_e1_orders_v1_1.sql` — 3 tables `tenant_orders` / `tenant_order_items` / `tenant_order_status_events` (préfixe `tenant_*` pour éviter collision avec legacy `public.orders`). RPC `update_tenant_order_status()` + trigger updated_at. RLS strict via helpers `current_user_can_access_shop` + `user_role_in_tenant`. 6 tests vitest dans `tests/rls/orders_isolation.test.ts` |
-| **S1.3** partiel — refactor endpoints | `555574a` (pim-generate) + `df47dc3` (pim-ingest + Sonnet 4 → 4.5) | 2/4 endpoints utilisent maintenant le wrapper. `claude-proxy/index.ts` + `make-server-e3db71a4/claude-proxy*` à refactorer dans un sprint ultérieur (logique demo fallback complexe) |
+| **S1.3** partiel — refactor endpoints | `555574a` (pim-generate) + `df47dc3` (pim-ingest + Sonnet 4 → 4.5) | 2/4 endpoints utilisent maintenant le wrapper. `claude-proxy/index.ts` + `make-server-e3db71a4/claude-proxy*` finalisés en S1.5 |
+| **S1.5** suite S1.3 — finalisation refactor LLM (2026-05-10, déployé) | (à committer) | (a) Schema Zod `_shared/productsSchema.ts`. (b) `claude-proxy/index.ts` standalone refactoré sur `anthropicCompleteStructured`. (c) Wrapper étendu : `anthropicStream()` avec parser SSE + tracking auto. (d) `make-server-e3db71a4/claude-proxy` + `claude-proxy-stream` refactorés sur wrapper, `logLlmUsage` manuel supprimé. (e) Tests Deno `_shared/anthropicClient.test.ts` (7 cas). (f) **Bug pré-existant S1.1 corrigé** : `Magrit3` case-sensitive (était `MAGRIT3` upper, secret réel mixed case → wrapper tombait silencieusement en `missing_api_key`). Bénéficie aussi à pim-generate/pim-ingest. (g) **Déviation spec assumée** : `anthropicStream` retourne `{textChunks: AsyncIterable<string>, finalPromise}` au lieu de `{stream: ReadableStream}` brut pour préserver contrat client SSE Hono. Déploiement validé : claude-proxy v8 + make-server-e3db71a4 v12 ACTIVE, smoke cURL OK, tracking `llm_usage_events` confirmé via SQL |
 
 ### Migration appliquée 2026-05-09
 
@@ -107,9 +108,10 @@ Toutes pushées sur `beta/v4`, edge function déployée, SQL appliqué.
 
 ### Reste à faire pour Epic 1 complet
 
-- [ ] **S1.3** — Refactor `claude-proxy/index.ts` + `make-server-e3db71a4/claude-proxy` + `claude-proxy-stream` pour utiliser le wrapper (effort M, complexité demo fallback). Sonnet 4.5 déjà actif.
+- [x] **S1.3 / S1.5** — Refactor `claude-proxy/index.ts` + `make-server-e3db71a4/claude-proxy` + `claude-proxy-stream` sur wrapper (S1.5 livré + déployé 2026-05-10).
 - [ ] **R1** (Implementation Readiness) — Ajouter event analytics `first_action_after_landing` à S2.1 (instrument NFR1+NFR3).
 - [ ] **R2** — Wireframes lo-fi des composants Epic 2.
+- [ ] **S1.5 T9.1 (Notion TF)** — Ajouter cas TF "Refactor wrapper LLM — non-régression chat strict streaming" dans la DB Notion 🧪 Cahiers de tests (draft fourni dans story-S1.5 Completion Notes).
 
 ### Documents BMAD livrés (3 500+ lignes)
 

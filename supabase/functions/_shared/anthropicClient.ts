@@ -46,7 +46,7 @@ export interface AnthropicMessage {
 }
 
 export interface AnthropicCompleteOptions {
-  /** Modele Claude (ex: "claude-haiku-4-5-20251001", "claude-sonnet-4-20250514"). */
+  /** Modele Claude (ex: "claude-haiku-4-5-20251001", "claude-sonnet-4-5-20250929"). */
   model: string;
   /** Soit `prompt` (raccourci user-only), soit `messages` (multi-tour). */
   prompt?: string;
@@ -140,7 +140,10 @@ export async function anthropicComplete(
   opts: AnthropicCompleteOptions,
 ): Promise<AnthropicCompleteResult> {
   const apiKey =
-    Deno.env.get("ANTHROPIC_API_KEY") ?? Deno.env.get("MAGRIT3") ?? Deno.env.get("MAGRIT");
+    Deno.env.get("ANTHROPIC_API_KEY") ??
+    Deno.env.get("Magrit3") ??
+    Deno.env.get("MAGRIT3") ??
+    Deno.env.get("MAGRIT");
   if (!apiKey) {
     throw new AnthropicClientError(
       "missing_api_key",
@@ -277,4 +280,208 @@ export async function anthropicCompleteStructured<T>(
     ...result,
     data: validation.data,
   };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Streaming variant (Story S1.5)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface AnthropicStreamFinal {
+  /** Texte concatene de tous les content_block_delta. */
+  fullText: string;
+  /** Tokens consommes (deja loggue dans llm_usage_events). */
+  usage: { input_tokens: number; output_tokens: number };
+  /** Modele Claude effectivement utilise (rapporte par message_start). */
+  model: string;
+}
+
+export interface AnthropicStreamResult {
+  /** Iterable async des deltas de texte. Le consommateur DOIT iterer pour
+   *  drainer le stream et permettre a finalPromise de se resoudre. */
+  textChunks: AsyncIterable<string>;
+  /** Resout apres la fin du stream, apres logLlmUsage(). */
+  finalPromise: Promise<AnthropicStreamFinal>;
+}
+
+/**
+ * Variante streaming de anthropicComplete pour les endpoints SSE chat.
+ *
+ * Pattern d'usage typique (depuis make-server-e3db71a4/claude-proxy-stream) :
+ *
+ *   const { textChunks, finalPromise } = await anthropicStream({
+ *     model: "claude-sonnet-4-5-20250929",
+ *     messages, system, endpoint: "claude-proxy-stream", userId, tenantId,
+ *   });
+ *   for await (const text of textChunks) {
+ *     await sse.writeSSE({ event: "delta", data: JSON.stringify({ text }) });
+ *   }
+ *   const { fullText, usage, model } = await finalPromise;
+ *   // ... emettre l'event done ...
+ *
+ * Pre-flight :
+ *  - Verifie ANTHROPIC_API_KEY / MAGRIT3 / MAGRIT (throw missing_api_key sinon)
+ *  - Applique la limite 25 parametres (FR43, throw param_limit_exceeded sinon)
+ *  - Throw api_error si la reponse HTTP n'est pas 2xx
+ *
+ * Side effects :
+ *  - logLlmUsage() automatique apres le dernier event SSE (NFR23)
+ *
+ * Limitation connue : si le consommateur n'itere pas textChunks, finalPromise
+ * reste en attente et le stream n'est pas drained. Le consommateur DOIT iterer.
+ */
+export async function anthropicStream(
+  opts: AnthropicCompleteOptions,
+): Promise<AnthropicStreamResult> {
+  const apiKey =
+    Deno.env.get("ANTHROPIC_API_KEY") ??
+    Deno.env.get("Magrit3") ??
+    Deno.env.get("MAGRIT3") ??
+    Deno.env.get("MAGRIT");
+  if (!apiKey) {
+    throw new AnthropicClientError(
+      "missing_api_key",
+      "Aucune cle API Anthropic configuree (variables ANTHROPIC_API_KEY / MAGRIT3 / MAGRIT absentes)",
+    );
+  }
+
+  const messages: AnthropicMessage[] = opts.messages ?? [];
+  if (opts.prompt) {
+    messages.push({ role: "user", content: opts.prompt });
+  }
+  if (messages.length === 0) {
+    throw new AnthropicClientError(
+      "invalid_response",
+      "Au moins prompt ou messages doit etre fourni",
+    );
+  }
+
+  // Anti-hallucination : limite 25 parametres (FR43, story 2.4 P0).
+  for (const m of messages) {
+    const params = countPromptParameters(m.content);
+    if (params > MAX_PROMPT_PARAMETERS) {
+      throw new AnthropicClientError(
+        "param_limit_exceeded",
+        `Prompt depasse la limite de ${MAX_PROMPT_PARAMETERS} parametres (detecte ${params}). Refuse pour eviter les hallucinations Claude.`,
+        { paramCount: params, model: opts.model, endpoint: opts.endpoint },
+      );
+    }
+  }
+
+  const body: Record<string, unknown> = {
+    model: opts.model,
+    max_tokens: opts.maxTokens ?? DEFAULT_MAX_TOKENS,
+    messages,
+    stream: true,
+  };
+  if (opts.system) body.system = opts.system;
+  if (opts.temperature !== undefined) body.temperature = opts.temperature;
+
+  const start = Date.now();
+  const response = await fetch(ANTHROPIC_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": ANTHROPIC_VERSION,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => "");
+    throw new AnthropicClientError(
+      "api_error",
+      `Anthropic API HTTP ${response.status}`,
+      { status: response.status, body: errorText.slice(0, 500), endpoint: opts.endpoint },
+    );
+  }
+
+  if (!response.body) {
+    throw new AnthropicClientError(
+      "invalid_response",
+      "Anthropic streaming response has no body",
+      { endpoint: opts.endpoint },
+    );
+  }
+
+  let resolveFinal!: (v: AnthropicStreamFinal) => void;
+  let rejectFinal!: (e: unknown) => void;
+  const finalPromise = new Promise<AnthropicStreamFinal>((res, rej) => {
+    resolveFinal = res;
+    rejectFinal = rej;
+  });
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+
+  let fullText = "";
+  let model = opts.model;
+  let inputTokens = 0;
+  let outputTokens = 0;
+
+  async function* iterate(): AsyncIterable<string> {
+    let buffer = "";
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith("data:")) continue;
+          const payload = trimmed.slice(5).trim();
+          if (!payload || payload === "[DONE]") continue;
+          let evt: { type?: string; message?: { model?: string; usage?: { input_tokens?: number } }; delta?: { text?: string }; usage?: { output_tokens?: number } };
+          try {
+            evt = JSON.parse(payload);
+          } catch {
+            continue;
+          }
+          if (evt.type === "message_start" && evt.message) {
+            if (evt.message.model) model = evt.message.model;
+            if (evt.message.usage?.input_tokens !== undefined) {
+              inputTokens = evt.message.usage.input_tokens;
+            }
+          } else if (evt.type === "content_block_delta" && evt.delta?.text) {
+            fullText += evt.delta.text;
+            yield evt.delta.text;
+          } else if (evt.type === "message_delta") {
+            if (evt.usage?.output_tokens !== undefined) {
+              outputTokens = evt.usage.output_tokens;
+            }
+          }
+        }
+      }
+
+      const usage = { input_tokens: inputTokens, output_tokens: outputTokens };
+      const latency_ms = Date.now() - start;
+      await logLlmUsage({
+        userId: opts.userId,
+        tenantId: opts.tenantId,
+        endpoint: opts.endpoint,
+        model,
+        usage,
+        metadata: {
+          latency_ms,
+          message_count: messages.length,
+          streaming: true,
+          ...(opts.metadata ?? {}),
+        },
+      });
+      resolveFinal({ fullText, usage, model });
+    } catch (err) {
+      rejectFinal(err);
+      throw err;
+    } finally {
+      try {
+        reader.releaseLock();
+      } catch {
+        // reader may already be released
+      }
+    }
+  }
+
+  return { textChunks: iterate(), finalPromise };
 }
