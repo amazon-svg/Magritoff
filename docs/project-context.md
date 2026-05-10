@@ -47,7 +47,8 @@
 | Edge functions | Supabase Edge Functions (Deno), déploiement via `supabase functions deploy <name> --project-ref ightkxebexuzfjdbpsdg` |
 | **LLM raisonnement** | **`claude-sonnet-4-5-20250929`** (upgrade depuis Sonnet 4 le 2026-05-09) |
 | **LLM génération rapide** | **`claude-haiku-4-5-20251001`** |
-| Wrapper LLM unifié (post S1.1) | `supabase/functions/_shared/anthropicClient.ts` — `anthropicComplete()` + `anthropicCompleteStructured(zodSchema)` |
+| Wrapper LLM unifié (post S1.1 + S1.5) | `supabase/functions/_shared/anthropicClient.ts` — `anthropicComplete()` + `anthropicCompleteStructured(zodSchema)` + `anthropicStream()` (SSE avec parser tee + tracking auto). Lookup secret multi-casing `ANTHROPIC_API_KEY` / `Magrit3` / `MAGRIT3` / `MAGRIT` |
+| Mockup engine SVG→PNG (post S4.1b) | `npm:@resvg/resvg-wasm@2.6.2` (pure WASM, compat Deno Deploy). Fonts Inter/Bitter/JetBrains Mono incluses. Init lazy via fetch unpkg. **Pivot vs Architecture §4.3** qui spec sharp+svgdom (incompat Deno Deploy) |
 | Tests unit/integration | Vitest |
 | E2E automatisé | **Claude in Chrome** via plugin MCP, sur `data-testid` stables |
 | CI/CD | GitHub Actions |

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF6B35" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#FF6B35" stop-opacity="0.28"/>
+    </linearGradient>
+    <pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse">
+      <circle cx="12" cy="12" r="1.5" fill="#FF6B35" opacity="0.35"/>
+    </pattern>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#FF6B35" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <rect width="1024" height="1024" fill="url(#dots)"/>
+  <rect x="265.3333333333333" y="122" width="493.33333333333337" height="700" fill="white" stroke="#FF6B35" stroke-width="3" rx="8" ry="8" filter="url(#shadow)"/>
+  <text x="512" y="902" text-anchor="middle" font-family="Inter" font-size="48" font-weight="600" fill="#FF6B35">Flyer A5 Test</text>
+</svg>
