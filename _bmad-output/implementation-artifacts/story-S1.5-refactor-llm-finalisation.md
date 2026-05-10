@@ -443,7 +443,8 @@ curl -sX POST "https://ightkxebexuzfjdbpsdg.supabase.co/functions/v1/make-server
 | 2026-05-10 | Story Engine (BMAD) | Création initiale, status `ready-for-dev` |
 | 2026-05-10 | Dev (Opus 4.7) | T1-T7 + T9.2/T9.3 livrés sur `beta/v5` (non commit). T8 déploiement HALT en attente PAT Arnaud. T9.1 cas TF Notion : draft fourni en Completion Notes. Status → `in-progress` |
 | 2026-05-10 | Dev (Opus 4.7) | PAT reçu, T8 exécuté : claude-proxy v8 + make-server-e3db71a4 v12 ACTIVE. Bug pré-existant case-sensitive `Magrit3` détecté + corrigé + redéployé. Smoke OK (T8.3 + T8.4 + T8.5). Status → `review`. Reste T9.1 Notion (admin task Arnaud) |
+| 2026-05-10 | Dev (Opus 4.7) | Code review Blind Hunter (1/3 layers — Edge Case Hunter + Acceptance Auditor rejetés par user). Triage : 9 patch + 2 decision-needed résolus comme patches + 4 defer + 12 dismissed. 11 patches appliqués, redéployés (claude-proxy v9 + make-server-e3db71a4 v13), smoke OK avec champ `error: null` confirmé. Commit `d2174df`. Status → `done` (avec caveat : review 1/3 layers, recommandation re-passe orthogonale avec autre LLM avant clôture définitive Epic 1) |
 
 ## Status
 
-`review` (code livré + déployé + tracking validé. T9.1 Notion = admin task non-bloquante)
+`done` (code review patches appliqués + déployés. ⚠️ Review 1/3 layers — re-passe orthogonale avec un autre LLM recommandée. T9.1 Notion = admin task non-bloquante)

@@ -113,6 +113,16 @@ Toutes pushées sur `beta/v4`, edge function déployée, SQL appliqué.
 - [ ] **R2** — Wireframes lo-fi des composants Epic 2.
 - [ ] **S1.5 T9.1 (Notion TF)** — Ajouter cas TF "Refactor wrapper LLM — non-régression chat strict streaming" dans la DB Notion 🧪 Cahiers de tests (draft fourni dans story-S1.5 Completion Notes).
 
+### Stories Epic 4 — Mockup Engine (chemin critique R3, démarré 2026-05-10)
+
+| Story | Commit | Description |
+|---|---|---|
+| **S4.1a** Bucket Storage `product_mockups` + RLS + tests | (à committer) | Migration `20260510_01_e4_storage_product_mockups.sql` — bucket public-read avec MIME `image/png` strict + 5 MB max + policy RLS `product_mockups_public_read`. Tests vitest `tests/storage/product_mockups_isolation.test.ts` (4 cas : upload service_role, GET public round-trip, upload anon BLOCKED, cleanup). Migration appliquée via `supabase db query --linked --file` (fallback du `db push` à cause de l'historique désynchronisé, même problème S1.4). 37/37 vitest passed. **Bonus** : fix bug pré-existant S1.4 `owner_user_id` manquant dans `tests/rls/orders_isolation.test.ts` (les 6 cas RLS Order entity tournent désormais réellement avec `.env.test`). |
+| **S4.1b** Pipeline rendu SVG → PNG (sharp + svgdom) + 1er template flyer | (à venir) | Bloque S4.1c |
+| **S4.1c** Edge Function `mockup-generator` + cache write-through + invalidation | (à venir) | Bloque Epic 2 (S2.3 ProductCard) |
+| **S4.2** 5 templates SVG MVP (flyer, carte de visite, brochure, étiquette, kakémono) | (à venir) | |
+| **S4.3** Composant React `MockupImage` avec fallback graceful | (à venir) | Débloque S2.3 ProductCard |
+
 ### Documents BMAD livrés (3 500+ lignes)
 
 | Document | Lignes | Rôle |

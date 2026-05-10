@@ -39,6 +39,7 @@ describeIfCreds('RLS Order entity isolation (S1.4 / Epic 1 v1.1)', () => {
       .from('shops')
       .insert({
         tenant_id: h.tenantA.id,
+        owner_user_id: h.userA.id,
         slug: `rls-shop-a-${Date.now()}`,
         name: 'Shop RLS A',
       })
@@ -51,6 +52,7 @@ describeIfCreds('RLS Order entity isolation (S1.4 / Epic 1 v1.1)', () => {
       .from('shops')
       .insert({
         tenant_id: h.tenantB.id,
+        owner_user_id: h.userB.id,
         slug: `rls-shop-b-${Date.now()}`,
         name: 'Shop RLS B',
       })
@@ -140,6 +142,7 @@ describeIfCreds('RLS Order entity isolation (S1.4 / Epic 1 v1.1)', () => {
       .from('shops')
       .insert({
         tenant_id: h.tenantA.id,
+        owner_user_id: h.userA.id,
         slug: `rls-shop-a2-${Date.now()}`,
         name: 'Shop RLS A2 (hors scope user A)',
       })
