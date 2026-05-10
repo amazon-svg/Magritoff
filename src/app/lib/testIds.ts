@@ -144,6 +144,11 @@ export const TEST_IDS = {
     // S2.3 — ShopProductCard avec MockupImage parametrique (Epic 2)
     productCardConfigureBtn: 'product-card-configure-btn',
     productCardSelectCheckbox: 'product-card-select-checkbox',
+    // S2.2 — Sidebar gammes depliables persistantes (Epic 2)
+    gammesList: 'shop-gammes-list',
+    gammeRow: 'shop-gamme-row',
+    gammeToggleBtn: 'shop-gamme-toggle-btn',
+    gammesFilterBadge: 'shop-gammes-filter-badge',
   },
 
   // ─── Mockup engine parametrique (S4.3, Epic 4) ─────────────────────────

@@ -14,7 +14,14 @@ import { PortalCart } from './portal/PortalCart';
 import type { PortalView, CartLine, BudgetInfo } from './portal/types';
 import { ShopLayout } from './ShopLayout';
 import { ShopForbidden403 } from './ShopForbidden403';
+import { ShopGammesSidebar } from './ShopGammesSidebar';
 import { resolveShopAccessFromMemberships } from './ShopAccessGuard.helpers';
+import {
+  filterProductsByExpandedGammes,
+  groupProductsByGamme,
+  loadExpandedGammes,
+  saveExpandedGammes,
+} from './ShopGammesSidebar.helpers';
 
 /**
  * Portail B2B Magrit — version 2.
@@ -48,6 +55,16 @@ export function PublicShop() {
   // PIM (gammes + definitions) — utilise pour resoudre les images produit
   const [pimGammes, setPimGammes] = useState<Gamme[]>([]);
   const [pimDefinitions, setPimDefinitions] = useState<ProductDefinition[]>([]);
+
+  // S2.2 — Gammes souscrites du tenant qui possede la shop
+  // (lecture publique de tenant_gamme_subscriptions filtree active=true).
+  // Set vide -> fallback sur les gammes effectivement matchees par le catalogue
+  // produit (cf. visibleGammes ci-dessous).
+  const [subscribedSlugs, setSubscribedSlugs] = useState<Set<string> | null>(null);
+
+  // S2.2 — Etat des gammes deplices (filtre additif). Hydrate depuis
+  // localStorage au mount, persiste a chaque toggle.
+  const [expandedGammes, setExpandedGammes] = useState<Set<string>>(new Set());
 
   // Fonction refetch produits (peut être appelee pour rafraichir a chaud).
   // v3 : on filtre les excluded_product_ids (produits retires de la
@@ -133,6 +150,25 @@ export function PublicShop() {
       ]);
       if (gr.data) setPimGammes(gr.data as Gamme[]);
       if (dr.data) setPimDefinitions(dr.data as ProductDefinition[]);
+
+      // S2.2 — Charger les gammes souscrites du tenant proprietaire de la shop.
+      // Lecture publique : si la RLS bloque ou si tenant_id absent, on tombe
+      // sur subscribedSlugs=null -> fallback "gammes inferees" cote sidebar.
+      const tenantId = (shopData as Shop & { tenant_id?: string }).tenant_id;
+      if (tenantId) {
+        const { data: subs, error: subsError } = await supabase
+          .from('tenant_gamme_subscriptions')
+          .select('gamme_slug, active')
+          .eq('tenant_id', tenantId)
+          .eq('active', true);
+        if (!subsError && subs) {
+          setSubscribedSlugs(new Set(subs.map((s: any) => s.gamme_slug)));
+        } else {
+          setSubscribedSlugs(null);
+        }
+      } else {
+        setSubscribedSlugs(null);
+      }
 
       setLoading(false);
 
@@ -240,6 +276,50 @@ export function PublicShop() {
     setView('home');
   };
 
+  // ─── S2.2 Hydratation localStorage des gammes deplices ───────────────────
+  useEffect(() => {
+    if (!slug) return;
+    setExpandedGammes(loadExpandedGammes(slug));
+  }, [slug]);
+
+  // ─── S2.2 Persistance auto-save a chaque toggle ──────────────────────────
+  useEffect(() => {
+    if (!slug) return;
+    saveExpandedGammes(slug, expandedGammes);
+  }, [slug, expandedGammes]);
+
+  const toggleGamme = (gammeSlug: string) => {
+    setExpandedGammes((prev) => {
+      const next = new Set(prev);
+      if (next.has(gammeSlug)) next.delete(gammeSlug);
+      else next.add(gammeSlug);
+      return next;
+    });
+  };
+
+  // ─── S2.2 Memoisation grouping + filteredProducts ────────────────────────
+  const gammeMap = useMemo(
+    () => groupProductsByGamme(products, pimGammes),
+    [products, pimGammes],
+  );
+  const filteredProducts = useMemo(
+    () => filterProductsByExpandedGammes(products, gammeMap, expandedGammes),
+    [products, gammeMap, expandedGammes],
+  );
+
+  // S2.2 Liste des gammes a afficher dans la sidebar :
+  //  - Si subscribedSlugs non-null et non-vide -> filtrer pimGammes par souscription
+  //  - Sinon (null = pas de tenant_id, ou Set vide) -> fallback gammes inferees
+  //    depuis les produits effectivement matches
+  const visibleGammes = useMemo(() => {
+    if (subscribedSlugs && subscribedSlugs.size > 0) {
+      return pimGammes.filter((g) => subscribedSlugs.has(g.slug));
+    }
+    // Fallback : gammes effectivement presentes dans le catalogue produit
+    const inferred = new Set(Array.from(gammeMap.keys()));
+    return pimGammes.filter((g) => inferred.has(g.slug));
+  }, [pimGammes, subscribedSlugs, gammeMap]);
+
   // ─── Access guard shop_only (S2.1 AC3) ───────────────────────────────────
   // Calcul du access *avant* tout rendu de contenu boutique pour eviter la
   // fuite de produits/branding tenant a un user shop_only non-autorise.
@@ -296,6 +376,7 @@ export function PublicShop() {
   }
 
   const cartCount = cart.reduce((s, l) => s + l.qty, 0);
+  const isDark = shop.theme?.mode !== 'light';
 
   return (
     <ShopLayout
@@ -307,11 +388,20 @@ export function PublicShop() {
       }}
       cartCount={cartCount}
       budget={budget}
+      leftSidebar={
+        <ShopGammesSidebar
+          gammes={visibleGammes}
+          products={products}
+          expandedSlugs={expandedGammes}
+          onToggleGamme={toggleGamme}
+          isDark={isDark}
+        />
+      }
     >
       {view === 'home' && (
         <PortalHome
           shop={shop}
-          products={products}
+          products={filteredProducts}
           onView={setView}
           onSelectProduct={(p) => {
             setSelectedProduct(p);
@@ -326,7 +416,7 @@ export function PublicShop() {
       {view === 'catalog' && (
         <PortalCatalog
           shop={shop}
-          products={products}
+          products={filteredProducts}
           onSelectProduct={(p) => {
             setSelectedProduct(p);
             setView('product');
