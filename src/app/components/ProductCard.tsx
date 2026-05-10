@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
   ChevronUp, Loader2, RefreshCw, Printer, CheckCircle, AlertTriangle, Lock,
-  BookmarkPlus, Check, FileText, Tag, Box, Pencil, Bug, Plus, Heart, Megaphone,
+  BookmarkPlus, Check, FileText, Tag, Box, Pencil, Bug, Plus, Heart,
 } from "lucide-react";
 import { QuoteModal } from "./QuoteModal";
 import { projectId, publicAnonKey } from "/utils/supabase/info";
@@ -17,7 +17,7 @@ import { ProductMockup } from "./brand/ProductMockup";
 import { resolveProductImage } from "../utils/productImages";
 import { TEST_IDS } from "../lib/testIds";
 import { ProductOverlay } from "./shop/ProductOverlay";
-import { ProductPimMarketingTab } from "./ProductPimMarketingTab";
+import { ProductPimSeoSection } from "./ProductPimSeoSection";
 import type { ShopProduct } from "../contexts/ShopsContext";
 
 interface ClariprintQuoteResult {
@@ -80,7 +80,7 @@ interface ProductCardProps {
   onSelectedChange?: (selected: boolean) => void;
 }
 
-type TabType = "sheet" | "pricing" | "mockup" | "form" | "debug" | "marketing" | null;
+type TabType = "sheet" | "pricing" | "mockup" | "form" | "debug" | null;
 
 export function ProductCard({
   product,
@@ -544,18 +544,11 @@ export function ProductCard({
                 { key: "pricing" as TabType, label: "Prix", icon: Tag },
                 { key: "mockup" as TabType, label: "3D", icon: Box },
                 { key: "form" as TabType, label: "Éditer", icon: Pencil },
-                { key: "marketing" as TabType, label: "Marketing", icon: Megaphone },
                 { key: "debug" as TabType, label: "Debug", icon: Bug },
               ].map(({ key, label, icon: Icon }, idx, arr) => (
                 <button
                   key={key}
-                  data-testid={
-                    key === "form"
-                      ? TEST_IDS.shop.productCardEditBtn
-                      : key === "marketing"
-                        ? TEST_IDS.shop.marketingTabBtn
-                        : undefined
-                  }
+                  data-testid={key === "form" ? TEST_IDS.shop.productCardEditBtn : undefined}
                   onClick={() => {
                     // S2.4b — l'onglet "Editer" (key=form) ouvre desormais l'overlay
                     // configuration Clariprint riche (S2.4) au lieu d'afficher l'ancien
@@ -741,20 +734,11 @@ export function ProductCard({
                       </div>
                     </details>
                   )}
-                  {enriched.resolved.keywords.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {enriched.resolved.keywords.slice(0, 8).map((k, i) => (
-                        <span
-                          key={i}
-                          className="text-[10px] bg-line text-ink-2 px-1.5 py-0.5 rounded"
-                        >
-                          {k}
-                        </span>
-                      ))}
-                    </div>
-                  )}
                 </div>
               )}
+
+              {/* S-FIX-1 — Section SEO/GEO complementaire (h1, meta, keywords, schema_org, quality_score, copier JSON) */}
+              <ProductPimSeoSection enriched={enriched} />
 
               {/* Config Clariprint brute */}
               {localProduct.clariprintData && (
@@ -1167,15 +1151,6 @@ export function ProductCard({
                 </button>
               </div>
             </div>
-          )}
-
-          {/* ── S-FIX-1 — Onglet Marketing PIM (commercial + SEO + GEO pour pure players) ── */}
-          {activeTab === "marketing" && (
-            <ProductPimMarketingTab
-              enriched={enriched}
-              productName={localProduct.name ?? "Produit"}
-              onClose={() => setActiveTab(null)}
-            />
           )}
 
           {/* ── Onglet Debug Clariprint ── */}

@@ -167,11 +167,10 @@ export const TEST_IDS = {
     overlayOptionDorure: 'shop-overlay-option-dorure',
     // S2.4b — Bouton Editer atelier qui ouvre l'overlay (correctif scope persona primaire)
     productCardEditBtn: 'product-card-edit-btn',
-    // S-FIX-1 — Onglet Marketing PIM ProductCard atelier (signale 2x par Arnaud)
-    marketingTabBtn: 'product-card-marketing-tab-btn',
-    marketingPanel: 'product-card-marketing-panel',
-    marketingCopyJsonBtn: 'product-card-marketing-copy-json-btn',
-    marketingSection: 'product-card-marketing-section',
+    // S-FIX-1 — Section SEO/GEO PIM dans l'onglet Fiche existant (correctif scope
+    // 2026-05-10 : pas de nouvel onglet, enrichissement de Fiche uniquement).
+    ficheSeoSection: 'product-card-fiche-seo-section',
+    ficheCopyJsonBtn: 'product-card-fiche-copy-json-btn',
   },
 
   // ─── Mockup engine parametrique (S4.3, Epic 4) ─────────────────────────
