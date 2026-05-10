@@ -2,7 +2,7 @@
 story_id: S4.3
 epic: 4 — Mockup Engine paramétrique
 title: Composant React MockupImage avec fallback graceful
-status: ready-for-dev
+status: review
 created_at: 2026-05-10
 target_branch: beta/v5
 agent: Dev (Amelia)

@@ -2,7 +2,7 @@
 story_id: S4.1b
 epic: 4 — Mockup Engine paramétrique
 title: Pipeline SVG → PNG (resvg-wasm) + 1er template flyer paramétrique
-status: ready-for-dev
+status: review
 created_at: 2026-05-10
 target_branch: beta/v5
 agent: Dev (Amelia)

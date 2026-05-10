@@ -2,7 +2,7 @@
 story_id: S4.1c
 epic: 4 — Mockup Engine paramétrique
 title: Edge Function mockup-generator + cache write-through + endpoint invalidation
-status: ready-for-dev
+status: review
 created_at: 2026-05-10
 target_branch: beta/v5
 agent: Dev (Amelia)

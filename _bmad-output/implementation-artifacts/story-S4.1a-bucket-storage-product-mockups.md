@@ -2,7 +2,7 @@
 story_id: S4.1a
 epic: 4 — Mockup Engine paramétrique
 title: Bucket Supabase Storage product_mockups + RLS + tests
-status: ready-for-dev
+status: review
 created_at: 2026-05-10
 target_branch: beta/v5
 agent: Dev (Amelia)

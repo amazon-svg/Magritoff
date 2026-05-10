@@ -2,7 +2,7 @@
 story_id: S1.5 (suite de S1.3 partial — E-NEW-LLM-01)
 epic: 1 — Stack Foundations
 title: Refactor LLM finalisation — claude-proxy + claude-proxy-stream wrapper migration
-status: in-progress
+status: done
 created_at: 2026-05-10
 last_updated: 2026-05-10
 target_branch: beta/v5
