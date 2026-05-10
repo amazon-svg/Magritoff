@@ -137,6 +137,10 @@ export const TEST_IDS = {
     cartIcon: 'shop-cart-icon',
     cartDrawer: 'shop-cart-drawer',
     checkoutBtn: 'shop-checkout-btn',
+    // S2.1 — ShopLayout 3 colonnes (Epic 2)
+    navGammes: 'shop-nav-gammes',
+    cartSticky: 'shop-cart-sticky',
+    forbidden403: 'shop-forbidden-403',
   },
 
   // ─── Mockup engine parametrique (S4.3, Epic 4) ─────────────────────────

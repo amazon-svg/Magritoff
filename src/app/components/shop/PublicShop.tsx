@@ -1,17 +1,20 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router';
 import { Loader2 } from 'lucide-react';
 import { supabase } from '/utils/supabase/client';
 import type { Shop, ShopProduct } from '../../contexts/ShopsContext';
 import type { Gamme, ProductDefinition } from '../../utils/productEnrichment';
+import { useAuth } from '../../contexts/AuthContext';
+import { useTenant } from '../../contexts/TenantContext';
 
-import { PortalChrome } from './portal/PortalChrome';
 import { PortalHome } from './portal/PortalHome';
 import { PortalCatalog } from './portal/PortalCatalog';
 import { PortalProduct } from './portal/PortalProduct';
 import { PortalCart } from './portal/PortalCart';
 import type { PortalView, CartLine, BudgetInfo } from './portal/types';
-import { TEST_IDS } from '../../lib/testIds';
+import { ShopLayout } from './ShopLayout';
+import { ShopForbidden403 } from './ShopForbidden403';
+import { resolveShopAccessFromMemberships } from './ShopAccessGuard.helpers';
 
 /**
  * Portail B2B Magrit — version 2.
@@ -31,6 +34,8 @@ import { TEST_IDS } from '../../lib/testIds';
  */
 export function PublicShop() {
   const { slug } = useParams<{ slug: string }>();
+  const { user, loading: authLoading } = useAuth();
+  const { tenants, isSuperAdmin } = useTenant();
   const [shop, setShop] = useState<Shop | null>(null);
   const [products, setProducts] = useState<ShopProduct[]>([]);
   const [loading, setLoading] = useState(true);
@@ -235,8 +240,24 @@ export function PublicShop() {
     setView('home');
   };
 
+  // ─── Access guard shop_only (S2.1 AC3) ───────────────────────────────────
+  // Calcul du access *avant* tout rendu de contenu boutique pour eviter la
+  // fuite de produits/branding tenant a un user shop_only non-autorise.
+  const access = useMemo(() => {
+    if (!shop) return 'pending'; // shop pas encore charge — wait
+    return resolveShopAccessFromMemberships({
+      isAuthenticated: Boolean(user),
+      isSuperAdmin,
+      memberships: tenants.map((t) => ({
+        accessScope: t.accessScope,
+        allowedShopIds: t.allowedShopIds,
+      })),
+      shopId: shop.id,
+    });
+  }, [shop, user, isSuperAdmin, tenants]);
+
   // ─── Rendering ───────────────────────────────────────────────────────────
-  if (loading) {
+  if (loading || authLoading) {
     return (
       <div
         className="min-h-screen grid place-items-center bg-bg"
@@ -270,31 +291,23 @@ export function PublicShop() {
     );
   }
 
-  const isDark = shop.theme.mode === 'dark';
+  if (access === 'forbidden') {
+    return <ShopForbidden403 />;
+  }
+
   const cartCount = cart.reduce((s, l) => s + l.qty, 0);
 
   return (
-    <div
-      data-testid={TEST_IDS.shop.portal}
-      className={`min-h-screen ${isDark ? 'bg-gray-900 text-gray-100' : 'bg-bg text-ink'}`}
-      data-theme={isDark ? 'dark' : undefined}
-      style={{
-        // @ts-expect-error — CSS custom props
-        ['--shop-primary']: shop.theme.primaryColor,
-        ['--shop-accent']: shop.theme.accentColor,
+    <ShopLayout
+      shop={shop}
+      view={view}
+      onView={(v) => {
+        setView(v);
+        if (v !== 'product') setSelectedProduct(null);
       }}
+      cartCount={cartCount}
+      budget={budget}
     >
-      <PortalChrome
-        shop={shop}
-        view={view}
-        onView={(v) => {
-          setView(v);
-          if (v !== 'product') setSelectedProduct(null);
-        }}
-        cartCount={cartCount}
-        budget={budget}
-      />
-
       {view === 'home' && (
         <PortalHome
           shop={shop}
@@ -376,6 +389,6 @@ export function PublicShop() {
           </p>
         </div>
       )}
-    </div>
+    </ShopLayout>
   );
 }
