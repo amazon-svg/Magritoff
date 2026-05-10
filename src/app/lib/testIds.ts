@@ -149,6 +149,22 @@ export const TEST_IDS = {
     gammeRow: 'shop-gamme-row',
     gammeToggleBtn: 'shop-gamme-toggle-btn',
     gammesFilterBadge: 'shop-gammes-filter-badge',
+    // S2.4 — ProductOverlay configuration Clariprint (Epic 2)
+    productOverlay: 'shop-product-overlay',
+    overlayCloseBtn: 'shop-overlay-close-btn',
+    overlayPriceDisplay: 'shop-overlay-price-display',
+    overlayPriceLoading: 'shop-overlay-price-loading',
+    overlayErrorBanner: 'shop-overlay-error-banner',
+    overlayRetryBtn: 'shop-overlay-retry-btn',
+    overlayAddBtn: 'shop-overlay-add-btn',
+    overlayCancelBtn: 'shop-overlay-cancel-btn',
+    overlayOptionQuantity: 'shop-overlay-option-quantity',
+    overlayOptionFormat: 'shop-overlay-option-format',
+    overlayOptionPaper: 'shop-overlay-option-paper',
+    overlayOptionFinishingFront: 'shop-overlay-option-finishing-front',
+    overlayOptionFinishingVerso: 'shop-overlay-option-finishing-verso',
+    overlayOptionPrinting: 'shop-overlay-option-printing',
+    overlayOptionDorure: 'shop-overlay-option-dorure',
   },
 
   // ─── Mockup engine parametrique (S4.3, Epic 4) ─────────────────────────

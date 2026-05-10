@@ -49,3 +49,16 @@ export const REQUIRE_VERIFIED_SIREN = false;
  * pedagogique). Si OK, garder a true en beta jusqu'a prod.
  */
 export const ENABLE_STREAMING_CHAT = true;
+
+/**
+ * S2.4 — Si true, le ProductOverlay (configuration produit boutique B2B)
+ * recalcule le prix Clariprint en temps reel a chaque changement d option
+ * (debounce 300ms, timeout 10s, fallback Prix marche si erreur).
+ *
+ * Beta 5 : true par defaut (validation perf API Clariprint en demo client
+ *          2026-05-23).
+ * Prod   : a basculer a true uniquement apres validation NFR latence p50
+ *          <= 2s. Sinon UX "Recalcul a la validation" (calcul au clic
+ *          Ajouter au panier uniquement).
+ */
+export const ENABLE_OVERLAY_LIVE_RECALC = true;

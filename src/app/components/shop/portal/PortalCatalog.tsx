@@ -7,6 +7,7 @@ import { projectId, publicAnonKey } from '/utils/supabase/info';
 import { fetchClariprintQuote } from '../../../utils/clariprintQuote';
 import { TEST_IDS } from '../../../lib/testIds';
 import { ShopProductCard } from '../ShopProductCard';
+import { ProductOverlay } from '../ProductOverlay';
 
 interface Props {
   shop: Shop;
@@ -67,6 +68,9 @@ export function PortalCatalog({
 }: Props) {
   const [query, setQuery] = useState('');
   const [chips, setChips] = useState<string[]>([]);
+
+  // S2.4 — Etat ProductOverlay (configuration produit Clariprint)
+  const [overlayProduct, setOverlayProduct] = useState<ShopProduct | null>(null);
 
   // Resultats generes par Magrit (claude-proxy). Produits ephemeres qu'on peut
   // ajouter au panier meme s'ils n'existent pas dans le catalogue shop.
@@ -322,12 +326,7 @@ export function PortalCatalog({
               shop={shop}
               onCardClick={onSelectProduct}
               onAddToCart={onAddToCart}
-              onConfigure={() => {
-                // S2.3 placeholder : ouvrira l overlay Clariprint en S2.4.
-                // MVP : ajout direct au panier pour debloquer le flux.
-                console.info('[S2.3] Overlay configuration (S2.4 future) — fallback ajout direct');
-                onAddToCart(p, 1);
-              }}
+              onConfigure={(prod) => setOverlayProduct(prod)}
             />
           ))
         )}
@@ -475,6 +474,17 @@ export function PortalCatalog({
           )}
         </div>
       )}
+
+      {/* S2.4 — Overlay configuration produit Clariprint */}
+      <ProductOverlay
+        product={overlayProduct}
+        shop={shop}
+        onClose={() => setOverlayProduct(null)}
+        onAddToCart={(productConfigured, qty) => {
+          onAddToCart(productConfigured, qty);
+          setOverlayProduct(null);
+        }}
+      />
     </div>
   );
 }
