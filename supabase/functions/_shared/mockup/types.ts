@@ -26,8 +26,13 @@ export interface ShopTheming {
   primaryColor: string;
 }
 
-/** Identifiant des templates supportes. Etendu en S4.2 (5 templates MVP). */
-export type MockupTemplate = "flyer";
+/** Identifiant des templates supportes. 5 templates MVP livres en S4.2. */
+export type MockupTemplate =
+  | "flyer"
+  | "carteVisite"
+  | "brochure"
+  | "etiquette"
+  | "kakemono";
 
 /** Erreur typee du module renderer, discriminee par `kind`. */
 export class MockupRendererError extends Error {

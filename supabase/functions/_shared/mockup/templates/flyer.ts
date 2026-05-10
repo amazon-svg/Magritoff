@@ -15,23 +15,11 @@
  */
 
 import type { ProductSpecs, ShopTheming } from "../types.ts";
+import { escapeXml, truncate } from "./_shared.ts";
 
 const VIEWBOX = 1024;
 const RECT_AREA_MAX = 700; // taille max du rectangle produit dans le viewBox
 const TEXT_MAX_LEN = 30;
-
-/**
- * Echappe les caracteres XML/SVG dangereux dans une string.
- * Defense en profondeur contre une injection SVG via productName.
- */
-function escapeXml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
-}
 
 /**
  * Genere le SVG du template flyer en string.
@@ -49,11 +37,7 @@ export function flyerSvg(specs: ProductSpecs, theming: ShopTheming): string {
   const textY = cy + rectH + 80;
 
   // Tronquer le productName si trop long (preserve la lisibilite + securite layout).
-  const truncated =
-    specs.productName.length > TEXT_MAX_LEN
-      ? specs.productName.slice(0, TEXT_MAX_LEN - 3) + "..."
-      : specs.productName;
-  const safeName = escapeXml(truncated);
+  const safeName = escapeXml(truncate(specs.productName, TEXT_MAX_LEN));
   const safeColor = escapeXml(theming.primaryColor);
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${VIEWBOX} ${VIEWBOX}" width="${VIEWBOX}" height="${VIEWBOX}">

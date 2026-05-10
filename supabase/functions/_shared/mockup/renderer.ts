@@ -33,12 +33,34 @@
 
 import { initWasm, Resvg } from "npm:@resvg/resvg-wasm@2.6.2";
 import { flyerSvg } from "./templates/flyer.ts";
+import { carteVisiteSvg } from "./templates/carteVisite.ts";
+import { brochureSvg } from "./templates/brochure.ts";
+import { etiquetteSvg } from "./templates/etiquette.ts";
+import { kakemonoSvg } from "./templates/kakemono.ts";
 import {
   MockupRendererError,
   type MockupTemplate,
   type ProductSpecs,
   type ShopTheming,
 } from "./types.ts";
+
+/**
+ * Liste des templates MVP livres en S4.2. Source de verite pour la validation
+ * cote callers (edge function mockup-generator) et pour les tests sentinelle
+ * anti-regression.
+ */
+export const SUPPORTED_TEMPLATES: readonly MockupTemplate[] = [
+  "flyer",
+  "carteVisite",
+  "brochure",
+  "etiquette",
+  "kakemono",
+] as const;
+
+/** Type guard runtime pour valider qu une string est un MockupTemplate. */
+export function isMockupTemplate(value: string): value is MockupTemplate {
+  return (SUPPORTED_TEMPLATES as readonly string[]).includes(value);
+}
 
 const RESVG_WASM_URL =
   "https://unpkg.com/@resvg/resvg-wasm@2.6.2/index_bg.wasm";
@@ -96,16 +118,28 @@ export async function renderSvgToPng(
     );
   }
 
-  // Dispatch sur le template demande. Etendu en S4.2 (4 templates supplementaires MVP).
+  // Dispatch sur le template demande. 5 templates MVP livres en S4.2.
   let svgString: string;
   switch (template) {
     case "flyer":
       svgString = flyerSvg(specs, theming);
       break;
+    case "carteVisite":
+      svgString = carteVisiteSvg(specs, theming);
+      break;
+    case "brochure":
+      svgString = brochureSvg(specs, theming);
+      break;
+    case "etiquette":
+      svgString = etiquetteSvg(specs, theming);
+      break;
+    case "kakemono":
+      svgString = kakemonoSvg(specs, theming);
+      break;
     default:
       throw new MockupRendererError(
         "unsupported_template",
-        `Template "${template}" non supporte. Supportes : flyer.`,
+        `Template "${template}" non supporte. Supportes : ${SUPPORTED_TEMPLATES.join(", ")}.`,
       );
   }
 

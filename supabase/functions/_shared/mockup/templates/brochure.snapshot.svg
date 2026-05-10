@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF6B35" stop-opacity="0.06"/>
+      <stop offset="100%" stop-color="#FF6B35" stop-opacity="0.22"/>
+    </linearGradient>
+    <pattern id="dotsCover" width="20" height="20" patternUnits="userSpaceOnUse">
+      <circle cx="10" cy="10" r="1.6" fill="#FF6B35" opacity="0.45"/>
+    </pattern>
+    <linearGradient id="backFade" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="white" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#FF6B35" stop-opacity="0.18"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#FF6B35" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <rect x="-31.373737373737413" y="132" width="537.3737373737374" height="760" fill="white" stroke="#FF6B35" stroke-width="2" rx="6" filter="url(#shadow)"/>
+  <rect x="-31.373737373737413" y="132" width="537.3737373737374" height="760" fill="url(#dotsCover)" rx="6"/>
+  <rect x="518" y="132" width="537.3737373737374" height="760" fill="url(#backFade)" stroke="#FF6B35" stroke-width="2" rx="6" filter="url(#shadow)"/>
+  
+    <rect x="538" y="232" width="336.16161616161617" height="6" fill="#FF6B35" opacity="0.35" rx="3"/>
+    <rect x="538" y="288" width="416.7676767676768" height="6" fill="#FF6B35" opacity="0.35" rx="3"/>
+    <rect x="538" y="344" width="336.16161616161617" height="6" fill="#FF6B35" opacity="0.35" rx="3"/>
+    <rect x="538" y="400" width="416.7676767676768" height="6" fill="#FF6B35" opacity="0.35" rx="3"/>
+    <rect x="538" y="456" width="336.16161616161617" height="6" fill="#FF6B35" opacity="0.35" rx="3"/>
+    <rect x="538" y="512" width="416.7676767676768" height="6" fill="#FF6B35" opacity="0.35" rx="3"/>
+    <rect x="538" y="568" width="336.16161616161617" height="6" fill="#FF6B35" opacity="0.35" rx="3"/>
+    <rect x="538" y="624" width="416.7676767676768" height="6" fill="#FF6B35" opacity="0.35" rx="3"/>
+  <text x="237.3131313131313" y="512" text-anchor="middle" font-family="Inter" font-size="48" font-weight="700" fill="#FF6B35">Brochure A4</text>
+</svg>

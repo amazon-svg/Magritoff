@@ -18,13 +18,21 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
-import { renderSvgToPng } from "../_shared/mockup/renderer.ts";
-import { MockupRendererError } from "../_shared/mockup/types.ts";
+import {
+  renderSvgToPng,
+  SUPPORTED_TEMPLATES,
+  isMockupTemplate,
+} from "../_shared/mockup/renderer.ts";
+import {
+  MockupRendererError,
+  type MockupTemplate,
+} from "../_shared/mockup/types.ts";
 import { logLlmUsage } from "../_shared/llm_usage.ts";
 
 const BUCKET = "product_mockups";
 const PRIMARY_COLOR_REGEX = /^#[0-9A-Fa-f]{6}$/;
 const PRODUCT_NAME_MAX = 200;
+const DEFAULT_TEMPLATE: MockupTemplate = "flyer";
 
 const corsHeadersFull = {
   ...corsHeaders,
@@ -39,6 +47,7 @@ interface ParsedSpecs {
   height: number;
   productName: string;
   primaryColor: string;
+  template: MockupTemplate;
 }
 
 type ParseResult =
@@ -79,9 +88,34 @@ function parseSpecs(url: URL): ParseResult {
     };
   }
 
+  // S4.2 : template optionnel, default "flyer" pour retro-compat S4.3 MockupImage
+  // qui ne le passe pas encore. Validation contre SUPPORTED_TEMPLATES si fourni.
+  const templateRaw = url.searchParams.get("template");
+  let template: MockupTemplate = DEFAULT_TEMPLATE;
+  if (templateRaw !== null && templateRaw.trim() !== "") {
+    const trimmed = templateRaw.trim();
+    if (!isMockupTemplate(trimmed)) {
+      return {
+        ok: false,
+        error: `template must be one of [${SUPPORTED_TEMPLATES.join(", ")}], got "${trimmed}"`,
+        param: "template",
+      };
+    }
+    template = trimmed;
+  }
+
   return {
     ok: true,
-    specs: { tenant, shop, product, width, height, productName, primaryColor },
+    specs: {
+      tenant,
+      shop,
+      product,
+      width,
+      height,
+      productName,
+      primaryColor,
+      template,
+    },
   };
 }
 
@@ -150,7 +184,7 @@ async function handleGenerate(url: URL): Promise<Response> {
   let pngBytes: Uint8Array;
   try {
     pngBytes = await renderSvgToPng(
-      "flyer",
+      specs.template,
       {
         width: specs.width,
         height: specs.height,

@@ -241,3 +241,105 @@ Deno.test("mockup-generator route inconnue -> 404", async () => {
     restoreEnv();
   }
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// S4.2 — query param `template` (default flyer si absent, validation contre
+// SUPPORTED_TEMPLATES, dispatch vers le bon template Svg).
+// ─────────────────────────────────────────────────────────────────────────────
+
+Deno.test("mockup-generator GET template=carteVisite valide -> 200 PNG (cache MISS)", async () => {
+  setupEnv();
+  installMockFetch(404); // CDN HEAD 404 -> cache MISS, render avec carteVisite
+  try {
+    const qs = new URLSearchParams({
+      tenant: "t-cv",
+      shop: "s-cv",
+      product: "p-cv",
+      width: "85",
+      height: "55",
+      productName: "Carte Pro",
+      primaryColor: "#FF6B35",
+      template: "carteVisite",
+    }).toString();
+    const res = await handleRequest(
+      new Request(`https://test-project.supabase.co/mockup-generator?${qs}`),
+    );
+    assertEquals(res.status, 200);
+    assertEquals(res.headers.get("Content-Type"), "image/png");
+    const buf = new Uint8Array(await res.arrayBuffer());
+    assert(buf.length > 100, `bytes trop courts : ${buf.length}`);
+    assertEquals(buf[0], 0x89);
+    assertEquals(buf[1], 0x50);
+  } finally {
+    restoreEnv();
+  }
+});
+
+Deno.test("mockup-generator GET sans template -> fallback flyer (retro-compat S4.3)", async () => {
+  setupEnv();
+  installMockFetch(404);
+  try {
+    // VALID_QS ne contient pas template -> doit utiliser flyer par defaut
+    const res = await handleRequest(
+      new Request(`https://test-project.supabase.co/mockup-generator?${VALID_QS}`),
+    );
+    assertEquals(res.status, 200);
+    assertEquals(res.headers.get("Content-Type"), "image/png");
+    const buf = new Uint8Array(await res.arrayBuffer());
+    // Magic PNG present : la generation a bien tourne avec flyer (template valide)
+    assertEquals(buf[0], 0x89);
+  } finally {
+    restoreEnv();
+  }
+});
+
+Deno.test("mockup-generator GET template=tshirt invalide -> 400 + message liste templates", async () => {
+  setupEnv();
+  try {
+    const qs = new URLSearchParams({
+      tenant: "t",
+      shop: "s",
+      product: "p",
+      width: "148",
+      height: "210",
+      productName: "Flyer",
+      primaryColor: "#FF6B35",
+      template: "tshirt",
+    }).toString();
+    const res = await handleRequest(
+      new Request(`https://test-project.supabase.co/mockup-generator?${qs}`),
+    );
+    assertEquals(res.status, 400);
+    const body = await res.json();
+    assertEquals(body.param, "template");
+    assertStringIncludes(body.error, "flyer");
+    assertStringIncludes(body.error, "carteVisite");
+    assertStringIncludes(body.error, "kakemono");
+  } finally {
+    restoreEnv();
+  }
+});
+
+Deno.test("mockup-generator GET template vide -> fallback flyer", async () => {
+  setupEnv();
+  installMockFetch(404);
+  try {
+    const qs = new URLSearchParams({
+      tenant: "t-empty",
+      shop: "s-empty",
+      product: "p-empty",
+      width: "148",
+      height: "210",
+      productName: "Flyer",
+      primaryColor: "#FF6B35",
+      template: "", // string vide doit etre traite comme absent
+    }).toString();
+    const res = await handleRequest(
+      new Request(`https://test-project.supabase.co/mockup-generator?${qs}`),
+    );
+    // Pas 400 (template vide = absent = fallback flyer)
+    assertEquals(res.status, 200);
+  } finally {
+    restoreEnv();
+  }
+});
