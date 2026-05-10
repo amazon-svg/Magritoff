@@ -16,6 +16,8 @@ import { enrichProduct } from "../utils/productEnrichment";
 import { ProductMockup } from "./brand/ProductMockup";
 import { resolveProductImage } from "../utils/productImages";
 import { TEST_IDS } from "../lib/testIds";
+import { ProductOverlay } from "./shop/ProductOverlay";
+import type { ShopProduct } from "../contexts/ShopsContext";
 
 interface ClariprintQuoteResult {
   success: boolean;
@@ -101,6 +103,11 @@ export function ProductCard({
   const [libraryState, setLibraryState] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [libraryPickerOpen, setLibraryPickerOpen] = useState(false);
   const [imgError, setImgError] = useState(false);
+
+  // S2.4b — Overlay configuration produit (atelier deviseur).
+  // Le bouton "Editer" (onglet form) bascule de l'ancien form inline vers
+  // l'overlay riche avec recalcul prix Clariprint en temps reel (S2.4).
+  const [overlayOpen, setOverlayOpen] = useState(false);
 
   // Enrichissement PIM (gamme + definition) à partir de la config courante
   const enriched = (() => {
@@ -540,7 +547,18 @@ export function ProductCard({
               ].map(({ key, label, icon: Icon }, idx, arr) => (
                 <button
                   key={key}
-                  onClick={() => toggleTab(key)}
+                  data-testid={key === "form" ? TEST_IDS.shop.productCardEditBtn : undefined}
+                  onClick={() => {
+                    // S2.4b — l'onglet "Editer" (key=form) ouvre desormais l'overlay
+                    // configuration Clariprint riche (S2.4) au lieu d'afficher l'ancien
+                    // form inline. L'ancien form est conserve dans le code mais ne
+                    // peut plus etre toggle visuellement (sera supprime sprint refacto).
+                    if (key === "form") {
+                      setOverlayOpen(true);
+                    } else {
+                      toggleTab(key);
+                    }
+                  }}
                   className={`flex-1 flex flex-col items-center gap-1 py-2.5 px-1 transition-colors ${
                     idx < arr.length - 1 ? "border-r border-line" : ""
                   } ${
@@ -548,7 +566,7 @@ export function ProductCard({
                       ? "bg-ink text-paper"
                       : "bg-paper text-ink-2 hover:bg-bg hover:text-ink"
                   }`}
-                  aria-label={label}
+                  aria-label={key === "form" ? "Configurer le produit (overlay)" : label}
                 >
                   <Icon className="w-4 h-4" strokeWidth={1.5} />
                   <span
@@ -1226,6 +1244,47 @@ export function ProductCard({
           />
         </div>
       )}
+
+      {/* S2.4b — Overlay configuration produit (atelier deviseur).
+          Bouton "Editer" ouvre cet overlay au lieu de l'ancien form inline.
+          shop=null -> fallback brand Magrit + tenant_id 'atelier' (cf. ProductOverlay). */}
+      <ProductOverlay
+        product={
+          overlayOpen
+            ? ({
+                id: localProduct.id ?? `atelier-${Date.now()}`,
+                shop_id: 'atelier',
+                product_id: null,
+                name: localProduct.name ?? 'Produit',
+                category: localProduct.clariprintData?.kind ?? 'Atelier',
+                description: localProduct.description ?? '',
+                price_ht: displayPriceHT,
+                image_url: '',
+                config: {
+                  ...(localProduct as any),
+                  clariprintData: localProduct.clariprintData ?? localProduct,
+                },
+                display_order: 0,
+              } as ShopProduct)
+            : null
+        }
+        shop={null}
+        confirmLabel="Mettre à jour"
+        onClose={() => setOverlayOpen(false)}
+        onConfirm={(productConfigured) => {
+          // Reinjecte la config Clariprint mise a jour dans le localProduct atelier
+          const updatedClariprint = (productConfigured.config as any)?.clariprintData ?? {};
+          const merged = {
+            ...localProduct,
+            ...updatedClariprint,
+            price: productConfigured.price_ht,
+            clariprintData: updatedClariprint,
+          };
+          setLocalProduct(merged);
+          if (onProductUpdate) onProductUpdate(merged);
+          setOverlayOpen(false);
+        }}
+      />
     </div>
   );
 }

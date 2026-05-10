@@ -165,6 +165,8 @@ export const TEST_IDS = {
     overlayOptionFinishingVerso: 'shop-overlay-option-finishing-verso',
     overlayOptionPrinting: 'shop-overlay-option-printing',
     overlayOptionDorure: 'shop-overlay-option-dorure',
+    // S2.4b — Bouton Editer atelier qui ouvre l'overlay (correctif scope persona primaire)
+    productCardEditBtn: 'product-card-edit-btn',
   },
 
   // ─── Mockup engine parametrique (S4.3, Epic 4) ─────────────────────────

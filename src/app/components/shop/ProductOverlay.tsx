@@ -67,16 +67,25 @@ type Phase =
 
 export interface ProductOverlayProps {
   product: ShopProduct | null;
-  shop: Shop;
+  /** Boutique consommatrice (theming + tenant scoping mockup). Optionnel : fallback brand Magrit + tenant_id 'atelier' si absent (cas atelier deviseur S2.4b). */
+  shop?: Shop | null;
   onClose: () => void;
-  onAddToCart: (productConfigured: ShopProduct, qty: number) => void;
+  /** Callback de validation : "Ajouter au panier" boutique OU "Mettre a jour" atelier. */
+  onConfirm: (productConfigured: ShopProduct, qty: number) => void;
+  /** Libelle du bouton primary. Default "Ajouter au panier" (boutique). Atelier passe "Mettre a jour". */
+  confirmLabel?: string;
 }
+
+const DEFAULT_BRAND_PRIMARY = "#1e3a8a"; // brand Magrit fallback hors contexte boutique
+const ATELIER_TENANT_FALLBACK = "atelier";
+const ATELIER_SHOP_FALLBACK = "atelier";
 
 export function ProductOverlay({
   product,
   shop,
   onClose,
-  onAddToCart,
+  onConfirm,
+  confirmLabel = "Ajouter au panier",
 }: ProductOverlayProps) {
   const open = product !== null;
 
@@ -202,7 +211,7 @@ export function ProductOverlay({
         clariprintData: buildClariprintPayload(options, product.config),
       },
     };
-    onAddToCart(productConfigured, options.quantity);
+    onConfirm(productConfigured, options.quantity);
     onClose();
   };
 
@@ -210,21 +219,28 @@ export function ProductOverlay({
   const addDisabled =
     phase.kind === "error" && phase.errorKind === "missing_required_product";
 
-  // Mini mockup props (memoise pour eviter recreation a chaque render)
+  // Mini mockup props (memoise pour eviter recreation a chaque render).
+  // S2.4b : shop optionnel -> fallbacks atelier (tenant_id='atelier', shop_id='atelier',
+  // primaryColor=brand Magrit). Le mockup engine accepte ces sentinelles ;
+  // le cache CDN se construira sous {atelier}/{atelier}/{productId}.png.
   const mockupProps = useMemo(() => {
     if (!product) return null;
     const dims = resolveProductDimensions(product);
     const template = resolveMockupTemplate(product);
     const tenantNamespace =
-      (shop as Shop & { tenant_id?: string }).tenant_id ?? shop.id;
+      (shop as (Shop & { tenant_id?: string }) | null | undefined)?.tenant_id ??
+      shop?.id ??
+      ATELIER_TENANT_FALLBACK;
+    const shopId = shop?.id ?? ATELIER_SHOP_FALLBACK;
+    const primaryColor = shop?.theme?.primaryColor ?? DEFAULT_BRAND_PRIMARY;
     return {
       tenantId: tenantNamespace,
-      shopId: shop.id,
+      shopId,
       productId: product.id,
       width: dims.width,
       height: dims.height,
       productName: product.name,
-      primaryColor: shop.theme?.primaryColor ?? "#1e3a8a",
+      primaryColor,
       template,
       alt: `Mockup ${product.name}`,
     };
@@ -560,7 +576,7 @@ export function ProductOverlay({
                   className="flex-[2] px-3 py-2 rounded-md bg-ink text-paper hover:bg-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ fontSize: "13px", fontWeight: 500 }}
                 >
-                  Ajouter au panier
+                  {confirmLabel}
                 </button>
               </div>
             </div>

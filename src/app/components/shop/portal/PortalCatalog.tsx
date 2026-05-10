@@ -480,7 +480,7 @@ export function PortalCatalog({
         product={overlayProduct}
         shop={shop}
         onClose={() => setOverlayProduct(null)}
-        onAddToCart={(productConfigured, qty) => {
+        onConfirm={(productConfigured, qty) => {
           onAddToCart(productConfigured, qty);
           setOverlayProduct(null);
         }}
