@@ -167,6 +167,11 @@ export const TEST_IDS = {
     overlayOptionDorure: 'shop-overlay-option-dorure',
     // S2.4b — Bouton Editer atelier qui ouvre l'overlay (correctif scope persona primaire)
     productCardEditBtn: 'product-card-edit-btn',
+    // S-FIX-1 — Onglet Marketing PIM ProductCard atelier (signale 2x par Arnaud)
+    marketingTabBtn: 'product-card-marketing-tab-btn',
+    marketingPanel: 'product-card-marketing-panel',
+    marketingCopyJsonBtn: 'product-card-marketing-copy-json-btn',
+    marketingSection: 'product-card-marketing-section',
   },
 
   // ─── Mockup engine parametrique (S4.3, Epic 4) ─────────────────────────
