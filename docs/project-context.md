@@ -107,7 +107,7 @@ Toute interaction avec Clariprint passe par le pattern `ClariprintAdapter` (S1.2
 data-testid="<scope>-<element>[-<modifier>]"
 ```
 
-- `scope` ∈ {`tenant`, `user`, `shop`, `magrit`, `auth`, `quote`, `usage`, `nav`, `order` (S1.4), `mockup` (Epic 4 à venir)}
+- `scope` ∈ {`tenant`, `user`, `shop`, `magrit`, `auth`, `quote`, `usage`, `nav`, `order` (S1.4), `mockup` (S4.3 livré : `mockup-product-image`, `mockup-product-image-skeleton`, `mockup-product-image-img`, `mockup-product-image-fallback`)}
 - `element` ∈ {`btn`, `input`, `select`, `modal`, `banner`, `row`, `card`, `link`, `tab`, `table`, `toggle`, `radio`, `checkbox`}
 - `modifier` : nom métier ou état, optionnel
 

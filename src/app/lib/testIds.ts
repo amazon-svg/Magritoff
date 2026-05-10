@@ -138,6 +138,17 @@ export const TEST_IDS = {
     cartDrawer: 'shop-cart-drawer',
     checkoutBtn: 'shop-checkout-btn',
   },
+
+  // ─── Mockup engine parametrique (S4.3, Epic 4) ─────────────────────────
+  // Composant <MockupImage> consomme l edge function mockup-generator (S4.1c)
+  // avec fallback graceful (URL CDN public direct, edge function fetch sur
+  // onError, ProductMockup SVG en fallback ultime).
+  mockup: {
+    productImage: 'mockup-product-image',
+    productImageSkeleton: 'mockup-product-image-skeleton',
+    productImageImg: 'mockup-product-image-img',
+    productImageFallback: 'mockup-product-image-fallback',
+  },
 } as const;
 
 /**
