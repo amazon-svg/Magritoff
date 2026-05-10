@@ -208,6 +208,36 @@ adr_covered: [ADR-5]
   - [x] T9.2 [SPRINT_HANDOFF.md](../../SPRINT_HANDOFF.md) mis à jour (entrée S1.5 + Reste à faire Epic 1 + checkbox `[x]` S1.3/S1.5)
   - [x] T9.3 [story-S1.3-llm-migration-partial.md](story-S1.3-llm-migration-partial.md) mis à jour avec cross-reference vers S1.5 + checkboxes cochées
 
+### Review Findings
+
+> Code review du commit `15db4bb` (2026-05-10). Layers exécutées : **Blind Hunter ✅** (27 findings). **Edge Case Hunter ❌** + **Acceptance Auditor ❌** (subagents rejetés par l'utilisateur). Triage par l'agent dev (biais de confirmation possible — re-passer en review adversariale orthogonale avec un autre LLM est recommandé).
+
+**Decision needed** (résolution requise avant patch) :
+
+- [ ] [Review][Decision] **`finalPromise` rejection unhandled** — Si le consommateur await uniquement `textChunks` (et pas `finalPromise`), une exception interne (parser, logLlmUsage) déclenche `rejectFinal` sans handler → UnhandledPromiseRejection au runtime Deno. Question : auto-`.catch(noop)` à la construction (best-effort) OU rester strict et exiger que tout consommateur await `finalPromise` ?
+- [ ] [Review][Decision] **SSE error event contract** (#4 + #5 + #23 mergés) — Aujourd'hui les erreurs streaming émettent `event: "done"` avec `configs: []` et `demoMode: false/true`. Le client ne peut distinguer "Claude a renvoyé 0 produits légitimement" vs "erreur silencieuse". Question : ajouter un `event: "error"` distinct (changement contrat front-end) OU garder le pattern actuel pour préserver compatibilité ?
+
+**Patch** (fix unambigu, à appliquer) :
+
+- [ ] [Review][Patch] **Mutation de l'array `messages` du caller** [`supabase/functions/_shared/anthropicClient.ts:155`, `:347`] — `const messages = opts.messages ?? []` puis `messages.push(...)` mute l'array du caller. Fix : `const messages = [...(opts.messages ?? [])]`.
+- [ ] [Review][Patch] **Reader leak sur early-throw dans iterator** [`supabase/functions/_shared/anthropicClient.ts:409`] — Si le consommateur arrête d'itérer prématurément, le reader n'est pas cancel(). Fix : `await reader.cancel().catch(() => {})` dans le `finally`.
+- [ ] [Review][Patch] **Lookup env var Magrit3/MAGRIT3/MAGRIT dupliqué** [`anthropicClient.ts:142`, `:335`] — Extraire `function getAnthropicApiKey(): string | undefined`.
+- [ ] [Review][Patch] **Fallback model string hardcodé** [`make-server-e3db71a4/index.ts:1401`] — `"claude-sonnet-4-5-20250929"` littéral en finalPromise.catch fallback. Fix : extraire en const partagée avec le call site.
+- [ ] [Review][Patch] **`logLlmUsage` failure rejette `finalPromise`** [`anthropicClient.ts:454`] — `await logLlmUsage(...)` est dans le try du iterator. Si l'await throw (peu probable, mais), finalPromise reject. Fix : wrap en `try/catch (e) { console.error(e) }` autour du logLlmUsage seul (best-effort).
+- [ ] [Review][Patch] **CRLF SSE handling** [`anthropicClient.ts:423`] — `buffer.split("\n")` ne gère pas `\r\n` (certains proxies). Fix : `split(/\r?\n/)`.
+- [ ] [Review][Patch] **Test SSE chunk boundary manquant** [`anthropicClient.test.ts`] — Aucun test ne split un `data:` line entre 2 chunks ; le code prod gère via `buffer` partial mais c'est uncovered.
+- [ ] [Review][Patch] **Test `[DONE]` payload + JSON malformé manquant** [`anthropicClient.test.ts`] — Branches `[DONE]` et `JSON.parse` failure de `iterate()` non couvertes par les tests Deno.
+- [ ] [Review][Patch] **Test non-text `content_block_delta` manquant** [`anthropicClient.test.ts`] — Tool-use deltas (sans `text`) sont silently dropped en prod, pas de couverture régression.
+
+**Defer** (pré-existants, hors scope S1.5) :
+
+- [x] [Review][Defer] **`isBillingError` / `isClaudeBillingError` regex permissive** — `/credit|billing|authentication/` (et `|invalid` côté make-server) match du texte arbitraire. Pré-existant depuis le code original (logique `errorData.includes("invalid")` dans la version pre-S1.5). Defer : harmonisation regex à faire dans une story dédiée.
+- [x] [Review][Defer] **Drift regex billing entre les 2 fichiers** — `claude-proxy` n'a pas `|invalid`, `make-server` l'a. Pré-existant : reflète le comportement original de chaque endpoint. Defer.
+- [x] [Review][Defer] **`claude-proxy` standalone ne propage pas userId/tenantId** [`claude-proxy/index.ts:807` comment] — Pas de auth context dans cet endpoint. Pré-existant (PIM endpoints n'ont pas non plus). Defer : à traiter dans une story d'instrumentation NFR23.
+- [x] [Review][Defer] **Aucun AbortSignal/timeout sur `fetch` Anthropic** — Pas de timeout, hang potentiel jusqu'à platform kill. Pré-existant dans tout le codebase (S1.1 n'en a pas mis). Defer : à traiter dans une story de robustness wrapper.
+
+**Dismissed** (12 faux positifs / cosmétiques après vérification) : `result.raw` cast (cosmétique), `AnthropicCompleteOptions` réutilisé pour stream (over-engineering), test pollutes Deno.env (vérifié : `restoreEnv()` restaure dans `finally`), `ORIGINAL_FETCH` capture (test edge case CI), `tenantId/userId` type unspecified (FAUX : interface déclare `string | null`), `countPromptParameters` string only (typed contract), `response.body` null check (justifiée par usage différent complete vs stream), `truncatedCount` reference (vérifié en scope ligne 904 du closure streamSSE), `logger`/`createClient` imports retained (toujours utilisés), `Date.now()` start placement (cosmétique, latence ~correcte), `generateDemoConfigs` triggered before stream (#23, dupliqué de #5), `writeDemoDone` mislabels (#5, traité dans Decision SSE error event).
+
 ## Dev Notes
 
 ### Architecture & contraintes

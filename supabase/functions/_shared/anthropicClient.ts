@@ -40,6 +40,23 @@ const DEFAULT_MAX_TOKENS = 4096;
 /** Limite anti-hallucination (story 2.4 P0, FR43). */
 const MAX_PROMPT_PARAMETERS = 25;
 
+/**
+ * Lookup de la cle API Anthropic dans l'env Deno.
+ * Ordre de priorite : ANTHROPIC_API_KEY (standard) > Magrit3 (mixed case, secret historique)
+ * > MAGRIT3 (upper, robustesse) > MAGRIT (legacy).
+ *
+ * Note (S1.5 review fix P3) : factorise pour eviter la divergence entre
+ * anthropicComplete et anthropicStream.
+ */
+function getAnthropicApiKey(): string | undefined {
+  return (
+    Deno.env.get("ANTHROPIC_API_KEY") ??
+    Deno.env.get("Magrit3") ??
+    Deno.env.get("MAGRIT3") ??
+    Deno.env.get("MAGRIT")
+  );
+}
+
 export interface AnthropicMessage {
   role: "user" | "assistant" | "system";
   content: string;
@@ -139,20 +156,16 @@ function countPromptParameters(text: string): number {
 export async function anthropicComplete(
   opts: AnthropicCompleteOptions,
 ): Promise<AnthropicCompleteResult> {
-  const apiKey =
-    Deno.env.get("ANTHROPIC_API_KEY") ??
-    Deno.env.get("Magrit3") ??
-    Deno.env.get("MAGRIT3") ??
-    Deno.env.get("MAGRIT");
+  const apiKey = getAnthropicApiKey();
   if (!apiKey) {
     throw new AnthropicClientError(
       "missing_api_key",
-      "Aucune cle API Anthropic configuree (variables ANTHROPIC_API_KEY / MAGRIT3 / MAGRIT absentes)",
+      "Aucune cle API Anthropic configuree (variables ANTHROPIC_API_KEY / Magrit3 / MAGRIT3 / MAGRIT absentes)",
     );
   }
 
-  // Build messages
-  const messages: AnthropicMessage[] = opts.messages ?? [];
+  // Build messages — copie defensive pour ne pas muter l'array du caller (S1.5 review fix P1).
+  const messages: AnthropicMessage[] = [...(opts.messages ?? [])];
   if (opts.prompt) {
     messages.push({ role: "user", content: opts.prompt });
   }
@@ -332,19 +345,16 @@ export interface AnthropicStreamResult {
 export async function anthropicStream(
   opts: AnthropicCompleteOptions,
 ): Promise<AnthropicStreamResult> {
-  const apiKey =
-    Deno.env.get("ANTHROPIC_API_KEY") ??
-    Deno.env.get("Magrit3") ??
-    Deno.env.get("MAGRIT3") ??
-    Deno.env.get("MAGRIT");
+  const apiKey = getAnthropicApiKey();
   if (!apiKey) {
     throw new AnthropicClientError(
       "missing_api_key",
-      "Aucune cle API Anthropic configuree (variables ANTHROPIC_API_KEY / MAGRIT3 / MAGRIT absentes)",
+      "Aucune cle API Anthropic configuree (variables ANTHROPIC_API_KEY / Magrit3 / MAGRIT3 / MAGRIT absentes)",
     );
   }
 
-  const messages: AnthropicMessage[] = opts.messages ?? [];
+  // Copie defensive pour ne pas muter l'array du caller (S1.5 review fix P1).
+  const messages: AnthropicMessage[] = [...(opts.messages ?? [])];
   if (opts.prompt) {
     messages.push({ role: "user", content: opts.prompt });
   }
@@ -410,6 +420,14 @@ export async function anthropicStream(
     resolveFinal = res;
     rejectFinal = rej;
   });
+  // S1.5 review fix P10 : best-effort default handler pour eviter
+  // UnhandledPromiseRejection si le caller n'await pas finalPromise.
+  // Erreurs reelles : on les logge ici. Le caller qui veut les capter
+  // peut quand meme attacher son propre .catch ; le default handler
+  // est silent fallback uniquement.
+  finalPromise.catch((err) => {
+    console.error("[anthropicStream] finalPromise rejected (caller may not have awaited):", err);
+  });
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
@@ -426,7 +444,8 @@ export async function anthropicStream(
         const { done, value } = await reader.read();
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
+        // S1.5 review fix P9 : CRLF support (certains proxies SSE).
+        const lines = buffer.split(/\r?\n/);
         buffer = lines.pop() ?? "";
         for (const line of lines) {
           const trimmed = line.trim();
@@ -457,24 +476,39 @@ export async function anthropicStream(
 
       const usage = { input_tokens: inputTokens, output_tokens: outputTokens };
       const latency_ms = Date.now() - start;
-      await logLlmUsage({
-        userId: opts.userId,
-        tenantId: opts.tenantId,
-        endpoint: opts.endpoint,
-        model,
-        usage,
-        metadata: {
-          latency_ms,
-          message_count: messages.length,
-          streaming: true,
-          ...(opts.metadata ?? {}),
-        },
-      });
+      // S1.5 review fix P8 : logLlmUsage en best-effort isole.
+      // Sa signature interne est deja best-effort (catche ses erreurs DB),
+      // mais si une exception inattendue survient (createClient, OOM),
+      // on l'absorbe ici pour ne pas faire rejeter finalPromise.
+      try {
+        await logLlmUsage({
+          userId: opts.userId,
+          tenantId: opts.tenantId,
+          endpoint: opts.endpoint,
+          model,
+          usage,
+          metadata: {
+            latency_ms,
+            message_count: messages.length,
+            streaming: true,
+            ...(opts.metadata ?? {}),
+          },
+        });
+      } catch (logErr) {
+        console.error("[anthropicStream] logLlmUsage threw unexpectedly:", logErr);
+      }
       resolveFinal({ fullText, usage, model });
     } catch (err) {
       rejectFinal(err);
       throw err;
     } finally {
+      // S1.5 review fix P2 : cancel() le reader si le consommateur arrete
+      // l'iteration prematurement (release lock + signale upstream).
+      try {
+        await reader.cancel().catch(() => {});
+      } catch {
+        // reader may already be released or stream closed
+      }
       try {
         reader.releaseLock();
       } catch {

@@ -909,9 +909,20 @@ app.post("/make-server-e3db71a4/claude-proxy-stream", async (c) => {
 
   const userMessage = messages[messages.length - 1].content;
 
+  // S1.5 review fix P4 : modele partage entre call site et fallback finalPromise.catch.
+  const STREAM_MODEL = "claude-sonnet-4-5-20250929";
+
   return streamSSE(c, async (stream) => {
     // Helper : emet un event "done" en mode demo (preserve le contrat client SSE).
-    const writeDemoDone = async (message: string, demoMode = true) => {
+    // S1.5 review fix P11 : ajout du champ `error: string | null` (compromis D2)
+    // pour distinguer les paths d'erreur des completions normales tout en
+    // preservant l'event "done" (backwards-compat client). Le client peut
+    // tester `error !== null` pour afficher un toast/banner.
+    const writeDemoDone = async (
+      message: string,
+      demoMode = true,
+      error: string | null = null,
+    ) => {
       const demoConfigs = demoMode ? generateDemoConfigs(userMessage) : [];
       const readableSummary = generateReadableSummary(demoConfigs);
       await stream.writeSSE({
@@ -927,6 +938,7 @@ app.post("/make-server-e3db71a4/claude-proxy-stream", async (c) => {
           truncatedCount,
           demoMode,
           message,
+          error,
         }),
       });
     };
@@ -936,7 +948,7 @@ app.post("/make-server-e3db71a4/claude-proxy-stream", async (c) => {
     let finalPromise: Promise<{ fullText: string; usage: { input_tokens: number; output_tokens: number }; model: string }>;
     try {
       const result = await anthropicStream({
-        model: "claude-sonnet-4-5-20250929",
+        model: STREAM_MODEL,
         messages,
         system: buildSystemPrompt(mode),
         maxTokens: 4096,
@@ -954,26 +966,34 @@ app.post("/make-server-e3db71a4/claude-proxy-stream", async (c) => {
     } catch (err) {
       if (err instanceof AnthropicClientError) {
         if (err.kind === "missing_api_key") {
-          await writeDemoDone("Mode démo (clé API absente)");
+          await writeDemoDone("Mode démo (clé API absente)", true, null);
           return;
         }
         if (isClaudeBillingError(err)) {
-          await writeDemoDone("Mode démo (crédits API insuffisants ou clé invalide)");
+          await writeDemoDone(
+            "Mode démo (crédits API insuffisants ou clé invalide)",
+            true,
+            "billing_or_auth",
+          );
           return;
         }
         if (err.kind === "param_limit_exceeded") {
-          await writeDemoDone(`Erreur : ${err.message}`, false);
+          await writeDemoDone(`Erreur : ${err.message}`, false, "param_limit_exceeded");
           return;
         }
         if (err.kind === "api_error") {
           const details = err.details as { status?: number } | undefined;
           console.error("[claude-proxy-stream] Anthropic error:", details?.status, err.message);
-          await writeDemoDone(`Anthropic ${details?.status ?? "error"}`, false);
+          await writeDemoDone(
+            `Anthropic ${details?.status ?? "error"}`,
+            false,
+            `api_error_${details?.status ?? "unknown"}`,
+          );
           return;
         }
       }
       console.error("[claude-proxy-stream] network error:", err);
-      await writeDemoDone("Mode démo (erreur réseau)");
+      await writeDemoDone("Mode démo (erreur réseau)", true, "network_error");
       return;
     }
 
@@ -989,14 +1009,15 @@ app.post("/make-server-e3db71a4/claude-proxy-stream", async (c) => {
       }
     } catch (streamErr) {
       console.error("[claude-proxy-stream] iteration error:", streamErr);
-      await writeDemoDone("Erreur pendant le streaming Claude", false);
+      await writeDemoDone("Erreur pendant le streaming Claude", false, "stream_iteration_error");
       return;
     }
 
     // Final : recupere usage + model du wrapper (logLlmUsage deja fait).
     const final = await finalPromise.catch((e) => {
       console.error("[claude-proxy-stream] finalPromise rejected:", e);
-      return { fullText, usage: { input_tokens: 0, output_tokens: 0 }, model: "claude-sonnet-4-5-20250929" };
+      // S1.5 review fix P4 : utilise STREAM_MODEL au lieu d'une string hardcodee.
+      return { fullText, usage: { input_tokens: 0, output_tokens: 0 }, model: STREAM_MODEL };
     });
 
     const parsed = parseClaudeJson(final.fullText || fullText);
@@ -1017,6 +1038,7 @@ app.post("/make-server-e3db71a4/claude-proxy-stream", async (c) => {
         model: final.model,
         usage: final.usage,
         demoMode: false,
+        error: null,
       }),
     });
   });
