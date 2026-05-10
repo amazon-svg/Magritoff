@@ -81,6 +81,50 @@ describe("buildEdgeFunctionUrl", () => {
     // L'encoding URLSearchParams gere correctement ces chars
     expect(url).toContain("productName=Carte+%C3%A9t%C3%A9+%22premium%22");
   });
+
+  it("ajoute template au query si fourni (S4.2)", () => {
+    const specs: MockupSpecs = {
+      tenantId: "t",
+      shopId: "s",
+      productId: "p",
+      width: 85,
+      height: 55,
+      productName: "Carte Pro",
+      primaryColor: "#FF6B35",
+      template: "carteVisite",
+    };
+    const url = buildEdgeFunctionUrl(TEST_PROJECT_ID, specs);
+    expect(url).toContain("template=carteVisite");
+  });
+
+  it("omet template si absent (retro-compat S4.3)", () => {
+    const specs: MockupSpecs = {
+      tenantId: "t",
+      shopId: "s",
+      productId: "p",
+      width: 148,
+      height: 210,
+      productName: "Flyer",
+      primaryColor: "#000000",
+    };
+    const url = buildEdgeFunctionUrl(TEST_PROJECT_ID, specs);
+    expect(url).not.toContain("template=");
+  });
+
+  it("omet template si string vide (defensif)", () => {
+    const specs: MockupSpecs = {
+      tenantId: "t",
+      shopId: "s",
+      productId: "p",
+      width: 148,
+      height: 210,
+      productName: "Flyer",
+      primaryColor: "#000000",
+      template: "   ",
+    };
+    const url = buildEdgeFunctionUrl(TEST_PROJECT_ID, specs);
+    expect(url).not.toContain("template=");
+  });
 });
 
 describe("buildCacheBuster", () => {

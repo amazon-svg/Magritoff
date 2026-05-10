@@ -1,14 +1,15 @@
 import { useState, useMemo } from 'react';
 import { Search, Sparkles, Plus, X, Loader2, AlertTriangle } from 'lucide-react';
-import type { ShopProduct } from '../../../contexts/ShopsContext';
-import { resolveProductImage } from '../../../utils/productImages';
+import type { Shop, ShopProduct } from '../../../contexts/ShopsContext';
 import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
 import { ProductMockup } from '../../brand/ProductMockup';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 import { fetchClariprintQuote } from '../../../utils/clariprintQuote';
 import { TEST_IDS } from '../../../lib/testIds';
+import { ShopProductCard } from '../ShopProductCard';
 
 interface Props {
+  shop: Shop;
   products: ShopProduct[];
   onSelectProduct: (p: ShopProduct) => void;
   onAddToCart: (p: ShopProduct, qty?: number) => void;
@@ -57,6 +58,7 @@ function configToEphemeralShopProduct(config: any, index: number): ShopProduct {
 // F2 — Catalogue recherche conversationnelle
 // Design source : .design-handoff/designs/05 - Portail B2B.html (section .f2b)
 export function PortalCatalog({
+  shop,
   products,
   onSelectProduct,
   onAddToCart,
@@ -303,7 +305,7 @@ export function PortalCatalog({
         </div>
       </div>
 
-      {/* Grille 4-col */}
+      {/* Grille 4-col — S2.3 ShopProductCard avec MockupImage parametrique */}
       <div data-testid={TEST_IDS.shop.productGrid} className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 px-12 py-8 bg-paper">
         {filtered.length === 0 ? (
           <div
@@ -313,113 +315,21 @@ export function PortalCatalog({
             Aucun produit ne correspond à cette recherche.
           </div>
         ) : (
-          filtered.map((p) => {
-            const imgSrc = resolveProductImage({
-              name: p.name,
-              id: p.id,
-              image_url: p.image_url,
-              kind: (p.config as any)?.kind,
-              clariprintData: p.config,
-              gammes: pimGammes,
-              definitions: pimDefinitions,
-            });
-            return (
-              <article
-                key={p.id}
-                data-testid={TEST_IDS.shop.productCard}
-                data-product-id={p.id}
-                className="group bg-paper border border-transparent rounded-lg overflow-hidden cursor-pointer hover:border-line transition-colors"
-                onClick={() => onSelectProduct(p)}
-              >
-                <div
-                  className="aspect-[4/3] overflow-hidden rounded-lg relative"
-                  style={{ background: '#F5F5F5' }}
-                >
-                  {imgSrc ? (
-                    <img
-                      src={imgSrc}
-                      alt={p.name}
-                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <ProductMockup
-                      name={p.name}
-                      kind={(p.config as any)?.kind}
-                      category={p.category}
-                      className="w-full h-full"
-                    />
-                  )}
-                  <span
-                    className="absolute top-2.5 left-2.5 font-mono uppercase px-2 py-1 rounded bg-ink text-paper"
-                    style={{ fontSize: '10px', letterSpacing: '0.08em', fontWeight: 500 }}
-                  >
-                    {p.category || 'Template'}
-                  </span>
-                </div>
-
-                <div className="p-3 flex flex-col gap-2">
-                  <h4
-                    className="text-ink m-0"
-                    style={{ fontSize: '14.5px', fontWeight: 500, letterSpacing: '-0.005em', lineHeight: 1.35 }}
-                  >
-                    {p.name}
-                  </h4>
-                  {p.description && (
-                    <p
-                      className="text-ink-muted m-0 line-clamp-2"
-                      style={{ fontSize: '12.5px', fontWeight: 400, lineHeight: 1.5 }}
-                    >
-                      {p.description}
-                    </p>
-                  )}
-                  <div className="flex items-center justify-between mt-1.5">
-                    <div
-                      className="font-mono text-ink"
-                      style={{ fontSize: '16px', fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}
-                    >
-                      {p.price_ht.toFixed(0)}
-                      <span className="text-ink-muted ml-1" style={{ fontSize: '12px' }}>
-                        €
-                      </span>
-                      <span
-                        className="text-ink-muted ml-1.5"
-                        style={{ fontSize: '11.5px', fontWeight: 400 }}
-                      >
-                        / 500 ex.
-                      </span>
-                    </div>
-                    <button
-                      data-testid={TEST_IDS.shop.productCardQuoteBtn}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onAddToCart(p, 1);
-                      }}
-                      className="opacity-0 group-hover:opacity-100 translate-y-0.5 group-hover:translate-y-0 px-3 py-1.5 bg-paper border border-line-2 text-ink rounded-md hover:bg-ink hover:text-paper hover:border-ink transition-all"
-                      style={{ fontSize: '12.5px', fontWeight: 500 }}
-                    >
-                      Personnaliser
-                    </button>
-                  </div>
-                  {/* Badges trust */}
-                  <div className="flex flex-wrap gap-1 mt-0.5">
-                    <span
-                      className="font-mono uppercase px-1.5 py-0.5 border border-line rounded text-ink-muted bg-paper"
-                      style={{ fontSize: '9.5px', letterSpacing: '0.04em', fontWeight: 500 }}
-                    >
-                      FSC
-                    </span>
-                    <span
-                      className="font-mono uppercase px-1.5 py-0.5 border border-line rounded text-ink-muted bg-paper"
-                      style={{ fontSize: '9.5px', letterSpacing: '0.04em', fontWeight: 500 }}
-                    >
-                      Fabriqué&nbsp;en&nbsp;France
-                    </span>
-                  </div>
-                </div>
-              </article>
-            );
-          })
+          filtered.map((p) => (
+            <ShopProductCard
+              key={p.id}
+              product={p}
+              shop={shop}
+              onCardClick={onSelectProduct}
+              onAddToCart={onAddToCart}
+              onConfigure={() => {
+                // S2.3 placeholder : ouvrira l overlay Clariprint en S2.4.
+                // MVP : ajout direct au panier pour debloquer le flux.
+                console.info('[S2.3] Overlay configuration (S2.4 future) — fallback ajout direct');
+                onAddToCart(p, 1);
+              }}
+            />
+          ))
         )}
       </div>
 

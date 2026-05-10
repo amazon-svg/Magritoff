@@ -141,6 +141,9 @@ export const TEST_IDS = {
     navGammes: 'shop-nav-gammes',
     cartSticky: 'shop-cart-sticky',
     forbidden403: 'shop-forbidden-403',
+    // S2.3 — ShopProductCard avec MockupImage parametrique (Epic 2)
+    productCardConfigureBtn: 'product-card-configure-btn',
+    productCardSelectCheckbox: 'product-card-select-checkbox',
   },
 
   // ─── Mockup engine parametrique (S4.3, Epic 4) ─────────────────────────

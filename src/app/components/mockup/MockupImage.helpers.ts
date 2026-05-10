@@ -29,6 +29,11 @@ export interface MockupSpecs extends MockupParams {
   height: number;
   productName: string;
   primaryColor: string;
+  /**
+   * Template SVG mockup-generator (S4.2). Optionnel : si absent ou vide,
+   * l'edge function fallback sur "flyer" (retro-compat S4.3).
+   */
+  template?: string;
 }
 
 /**
@@ -42,9 +47,12 @@ export function buildPublicMockupUrl(projectId: string, params: MockupParams): s
 /**
  * URL edge function mockup-generator avec query params encodes.
  * Utilisee en fetch JS avec Authorization header (S4.1c).
+ *
+ * S4.2 : si specs.template est fourni et non-vide, ajoute au query params.
+ * Sinon l'edge function fallback sur "flyer" (retro-compat S4.3).
  */
 export function buildEdgeFunctionUrl(projectId: string, specs: MockupSpecs): string {
-  const qs = new URLSearchParams({
+  const params: Record<string, string> = {
     tenant: specs.tenantId,
     shop: specs.shopId,
     product: specs.productId,
@@ -52,7 +60,11 @@ export function buildEdgeFunctionUrl(projectId: string, specs: MockupSpecs): str
     height: String(specs.height),
     productName: specs.productName,
     primaryColor: specs.primaryColor,
-  }).toString();
+  };
+  if (specs.template && specs.template.trim() !== "") {
+    params.template = specs.template.trim();
+  }
+  const qs = new URLSearchParams(params).toString();
   return `https://${projectId}.supabase.co/functions/v1/mockup-generator?${qs}`;
 }
 

@@ -41,6 +41,13 @@ export interface MockupImageProps {
   alt: string;
   /** Classes CSS du wrapper. */
   className?: string;
+  /**
+   * Template SVG mockup-generator (S4.2 : flyer / carteVisite / brochure /
+   * etiquette / kakemono). Optionnel : si absent, l'edge function fallback
+   * sur flyer. Le caller (S2.3 ShopProductCard) le derive via
+   * resolveMockupTemplate(product.config.kind).
+   */
+  template?: string;
 }
 
 type ImageState = "loading" | "loaded" | "fetching-edge" | "error";
@@ -86,6 +93,7 @@ export function MockupImage(props: MockupImageProps): JSX.Element {
       height: props.height,
       productName: props.productName,
       primaryColor: props.primaryColor,
+      template: props.template,
     };
     const edgeUrl = buildEdgeFunctionUrl(projectId, specs);
 

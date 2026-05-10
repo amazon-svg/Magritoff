@@ -325,6 +325,7 @@ export function PublicShop() {
 
       {view === 'catalog' && (
         <PortalCatalog
+          shop={shop}
           products={products}
           onSelectProduct={(p) => {
             setSelectedProduct(p);
