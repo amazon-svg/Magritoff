@@ -12,7 +12,7 @@ inputs:
   - _bmad-output/refacto-artifacts/review-adversarial-2026-05-11.md §1.3 E1 + §2.2
   - _bmad-output/refacto-artifacts/audit-2026-05-11.md §3.1 + §8.1 A
   - mémoires : feedback_persona_primaire_imprimeur.md + feedback_pim_marketing_card.md + feedback_no_invent_hors_backlog.md
-status: partial-review
+status: review
 ---
 
 # R1 — ProductCard décomposition 5 onglets + PIM Fiche enrichissement (priorité G satellite)
@@ -159,3 +159,10 @@ deja chacun isolables.
 ### Change Log
 
 - 2026-05-11 : Story R1 livree en partiel (Phase A complete + Phase B partielle 2/5 onglets), status `pending` → `partial-review`. R1-bis a creer pour finaliser Prix/Editer/Fiche post-demo client.
+- 2026-05-11 (suite) : **R1-bis livre dans la meme session apres validation Arnaud "oublie la demo, enchaine"**. Extraction des 3 onglets restants :
+  - `ProductCardFiche.tsx` (148 L) : synthese tabulaire + bloc PIM `definition` (description, FAQ, usage_examples) + `ProductPimSeoSection` integree + config Clariprint brute.
+  - `ProductCardPrix.tsx` (356 L) : prix HT/TVA/TTC + bloc Clariprint complet (loading/success/error/credentialsMissing) + panneau debug + recalculer. `showDebug` deplace en useState local du sous-composant (1 useState retire du shell).
+  - `ProductCardEditer.tsx` (116 L) : form inline historique (client / quantite / papier / grammage / save).
+  - **Shell ProductCard.tsx : 1270 → 740 L (-530 L, -42%)**. Imports lucide-react / tax helpers / ProductPimSeoSection nettoyes (devenus inutilises).
+  - vitest 232/232 verts, Vite build OK (1808 modules).
+  - R1 status `partial-review` → `review` (story integralement livree, 5/5 onglets extraits).
