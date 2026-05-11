@@ -24,7 +24,6 @@ import {
   X, Loader2, Settings, Send,
 } from 'lucide-react';
 import { supabase } from '/utils/supabase/client';
-import { projectId, publicAnonKey } from '/utils/supabase/info';
 import {
   useTenant,
   AccessScope,
@@ -39,30 +38,34 @@ import { TEST_IDS } from '../../lib/testIds';
 // E9.5 — appelle l'edge function send-invitation-email. Best-effort :
 // renvoie toujours un objet { sent, link, reason? } pour que le caller
 // puisse soit confirmer "email envoye", soit afficher le lien manuel.
+//
+// R5 (refacto 2026-05-11) : migre vers `supabase.functions.invoke()`
+// (ADR-R3 pattern Supabase unique). L auth header est gere automatiquement
+// par le SDK. Le fix race condition B4 (transaction edge atomique) est
+// trackee dans R5-bis (creation d'une edge `invite-member` consolidee).
 async function callSendInvitationEmail(invitationId: string): Promise<{
   sent: boolean;
   link: string;
   reason?: string;
 }> {
-  const url = `https://${projectId}.supabase.co/functions/v1/make-server-e3db71a4/send-invitation-email`;
   try {
-    const resp = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${publicAnonKey}`,
-      },
-      body: JSON.stringify({
+    const { data, error } = await supabase.functions.invoke<{
+      ok: boolean;
+      sent?: boolean;
+      link?: string;
+      reason?: string;
+      error?: string;
+    }>('make-server-e3db71a4/send-invitation-email', {
+      body: {
         invitationId,
         baseUrl: window.location.origin,
-      }),
+      },
     });
-    const data = await resp.json();
-    if (!resp.ok || !data.ok) {
+    if (error || !data?.ok) {
       return {
         sent: false,
         link: '',
-        reason: data?.error || `HTTP ${resp.status}`,
+        reason: data?.error || error?.message || 'invocation echouee',
       };
     }
     return { sent: !!data.sent, link: data.link || '', reason: data.reason };

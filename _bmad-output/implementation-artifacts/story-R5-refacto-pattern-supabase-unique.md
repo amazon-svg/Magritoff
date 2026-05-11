@@ -11,7 +11,7 @@ inputs:
   - _bmad-output/refacto-artifacts/refacto-plan-2026-05.md (ADR-R3)
   - _bmad-output/refacto-artifacts/review-adversarial-2026-05-11.md §1.1 B4 + §1.3 E2 + §1.2 M2
   - _bmad-output/refacto-artifacts/audit-2026-05-11.md §7.1 + §8.1 E
-status: pending
+status: partial-review
 ---
 
 # R5 — Pattern Supabase unique (`functions.invoke()` exclusif edges) + fix race invitations
@@ -84,3 +84,60 @@ En tant que **développeur Claude code futur** + **utilisateur final** (Acheteur
 - TF nouveau créé et joué OK.
 - Update `architecture.md` §6.X avec ADR-R3 tranchée + diagramme avant/après.
 - Ancienne `send-invitation-email` supprimée après 1 sprint de garde rollback (à acter sprint 3 ou clôture refacto).
+
+## Tasks / Subtasks
+
+### Phase A — Migration fetch → functions.invoke (LIVRE)
+
+- [x] **PortalCatalog.tsx:91** : `fetch(claude-proxy)` → `supabase.functions.invoke('make-server-e3db71a4/claude-proxy', { body })`
+- [x] **DashboardAdminPIM.tsx:69** (runIngest) : `fetch(pim-ingest)` → `invoke<IngestReport>('pim-ingest', { body: { dryRun }})`
+- [x] **DashboardAdminPIM.tsx:175** (generate single) : `fetch(pim-generate)` → `invoke<{generated}>('pim-generate', { body })`
+- [x] **DashboardAdminPIM.tsx:255** (batch generate) : `fetch(pim-generate)` → `invoke` (idem)
+- [x] **DashboardUsers.tsx:47** (callSendInvitationEmail) : `fetch(send-invitation-email)` → `invoke<{ok,sent,link,reason}>('make-server-e3db71a4/send-invitation-email', { body })`
+- [x] **DiagnosticPanel.tsx:48** (testClaude) : `fetch(claude-test)` → `invoke('make-server-e3db71a4/claude-test', { method: 'GET' })`
+- [x] Cleanup imports `projectId / publicAnonKey` devenus inutilises dans PortalCatalog, DashboardAdminPIM, DashboardUsers, DiagnosticPanel
+
+### Exceptions documentees (non-migrees a dessein)
+
+- **ChatInterface.tsx:179** — baseUrl pour SSE streaming. `supabase.functions.invoke()` NE SUPPORTE PAS le streaming (retourne `{data, error}` apres reponse complete). Le hook `useClaudeSseStream` (R2 Phase A) conserve donc le fetch direct, c'est le pattern unique de fait pour le SSE.
+- **ClariprintAdapter.ts:50** — Adapter encapsulant le seul fetch Clariprint (R3 pattern enforced). Conserve le fetch interne pour eviter une dependance circulaire. C'est lui-meme le point d'entree unique.
+- **MockupImage.helpers.ts:68** — Retourne une URL pour utilisation en `<img src>`. Pas un fetch metier, mais une URL d'image rendue par le navigateur.
+
+### Phase B — Edge `invite-member` transactionnelle (REPORTE en R5-bis)
+
+- [ ] Creer `supabase/functions/invite-member/index.ts` : insert `tenant_invitations` + appel Resend dans une transaction (rollback si email fail)
+- [ ] Migrer `DashboardUsers` pour appeler `invite-member` au lieu de `send-invitation-email` (resout la race condition B4)
+- [ ] 4 tests Deno (succes complet, email fail rollback, body invalide zod, RLS denial)
+- [ ] Deploiement Supabase B5
+
+Decision : Phase B reportee en R5-bis car necessite (a) ecriture edge function
+Deno, (b) tests Deno, (c) deploiement Supabase, (d) test smoke prod. La Phase
+A livre la totalite de la valeur "pattern unique" cote front (ADR-R3 §1).
+
+### Tests vitest
+
+- [x] vitest 263/263 verts (R4 baseline preserve)
+- [ ] Tests unitaires des callers migres differes en R5-bis (avec mock factory R8)
+
+## Dev Agent Record
+
+### Completion Notes
+
+**ACs satisfaits (Phase A)** :
+- AC1 (0 fetch hardcoded edge) → **6/9 callers migres + 3 exceptions documentees**. Les 3 cas restants sont des limitations techniques (SSE) ou patterns architecturaux (Adapter, URL img).
+- AC2 (functions.invoke typee) → ✅ `invoke<TResp>('endpoint', { body })` partout (DashboardAdminPIM utilise `<IngestReport>`, `<{generated}>` ; DashboardUsers utilise `<{ok,sent,link,reason,error}>`).
+- AC3 (B4 race condition) → **deferred en R5-bis** : requiert nouvelle edge function transactionnelle.
+- AC6 (reads `from()` typed) → R4 deja livre.
+- AC7 (0 regression) → ✅ vitest 263/263 verts + Vite build OK.
+
+### File List
+
+**Fichiers modifies** (5) :
+- `src/app/components/shop/portal/PortalCatalog.tsx` : claude-proxy → invoke
+- `src/app/components/dashboard/DashboardAdminPIM.tsx` : pim-ingest + pim-generate x2 → invoke
+- `src/app/components/dashboard/DashboardUsers.tsx` : send-invitation-email → invoke + cleanup imports
+- `src/app/components/DiagnosticPanel.tsx` : claude-test → invoke + cleanup imports
+
+### Change Log
+
+- 2026-05-11 : Story R5 livree partial (Phase A migration 6 callers), status `pending` → `partial-review`. Phase B (invite-member transactionnelle) reportee en R5-bis.

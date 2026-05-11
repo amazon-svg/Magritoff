@@ -3,7 +3,6 @@ import { ChevronDown, ChevronRight, Sparkles, Pencil, Trash2, Plus, Loader2, Che
 import { usePIM } from '../../contexts/PIMContext';
 import { useIsAdmin } from '../../hooks/useIsAdmin';
 import { useTenant } from '../../contexts/TenantContext';
-import { projectId, publicAnonKey } from '/utils/supabase/info';
 import { supabase } from '/utils/supabase/client';
 import type { Gamme, ProductDefinition } from '../../utils/productEnrichment';
 
@@ -65,20 +64,14 @@ export function DashboardAdminPIM() {
     setIngestError(null);
     setIngestReport(null);
     try {
-      const resp = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/pim-ingest`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${publicAnonKey}`,
-          },
-          body: JSON.stringify({ dryRun }),
-        }
+      // R5 (refacto 2026-05-11) : passe par functions.invoke() (ADR-R3).
+      const { data, error } = await supabase.functions.invoke<IngestReport>(
+        'pim-ingest',
+        { body: { dryRun } },
       );
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${await resp.text()}`);
-      const report = (await resp.json()) as IngestReport;
-      setIngestReport(report);
+      if (error) throw new Error(error.message);
+      if (!data) throw new Error('pim-ingest : reponse vide');
+      setIngestReport(data);
       if (!dryRun) {
         await refreshPendingCount();
         await refresh(); // Refresh PIM context pour voir les nouvelles definitions
@@ -171,30 +164,22 @@ export function DashboardAdminPIM() {
     setGenerating(true);
     setGenError(null);
     try {
-      const res = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/pim-generate`,
+      // R5 (refacto 2026-05-11) : functions.invoke() (ADR-R3).
+      const { data: body, error: invokeErr } = await supabase.functions.invoke<{ generated?: Record<string, unknown> }>(
+        'pim-generate',
         {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${publicAnonKey}`,
-          },
-          body: JSON.stringify({
+          body: {
             gamme_slug: gamme.slug,
             gamme_name: gamme.name,
             gamme_matching_rules: gamme.matching_rules,
             locale: editing.locale,
             variation_filter: editing.variation_filter ?? {},
             mode: 'generate',
-          }),
-        }
+          },
+        },
       );
-      if (!res.ok) {
-        const txt = await res.text();
-        throw new Error(`HTTP ${res.status}: ${txt}`);
-      }
-      const body = await res.json();
-      if (!body.generated) throw new Error('Réponse LLM vide');
+      if (invokeErr) throw new Error(invokeErr.message);
+      if (!body?.generated) throw new Error('Réponse LLM vide');
       // Fusion dans l'édition courante
       setEditing((prev) => ({
         ...prev,
@@ -251,26 +236,21 @@ export function DashboardAdminPIM() {
       setBatch((s) => ({ ...s, done: i, current: `${gamme.name} · ${locale.toUpperCase()}` }));
 
       try {
-        const res = await fetch(
-          `https://${projectId}.supabase.co/functions/v1/pim-generate`,
+        // R5 (refacto 2026-05-11) : functions.invoke() (ADR-R3).
+        const { data: body, error: invokeErr } = await supabase.functions.invoke<{ generated?: Record<string, unknown> }>(
+          'pim-generate',
           {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${publicAnonKey}`,
-            },
-            body: JSON.stringify({
+            body: {
               gamme_slug: gamme.slug,
               gamme_name: gamme.name,
               gamme_matching_rules: gamme.matching_rules,
               locale,
               variation_filter: {},
               mode: 'generate',
-            }),
-          }
+            },
+          },
         );
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const body = await res.json();
+        if (invokeErr) throw new Error(invokeErr.message);
         if (!body?.generated) throw new Error('réponse LLM vide');
 
         await upsertDefinition({

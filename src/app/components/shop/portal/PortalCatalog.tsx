@@ -3,7 +3,7 @@ import { Search, Sparkles, Plus, X, Loader2, AlertTriangle } from 'lucide-react'
 import type { Shop, ShopProduct } from '../../../contexts/ShopsContext';
 import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
 import { ProductMockup } from '../../brand/ProductMockup';
-import { projectId, publicAnonKey } from '/utils/supabase/info';
+import { supabase } from '/utils/supabase/client';
 import { computeClariprintQuoteSafe } from '../../../../server/clariprint/ClariprintAdapter';
 import { TEST_IDS } from '../../../lib/testIds';
 import { ShopProductCard } from '../ShopProductCard';
@@ -87,19 +87,13 @@ export function PortalCatalog({
     setAiResults([]);
     setAiQuery(prompt);
     try {
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-e3db71a4/claude-proxy`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${publicAnonKey}`,
-          },
-          body: JSON.stringify({ messages: [{ role: 'user', content: prompt }] }),
-        }
+      // R5 (refacto 2026-05-11) : functions.invoke() gere l'auth header
+      // automatiquement + retourne data/error typees (ADR-R3).
+      const { data, error } = await supabase.functions.invoke(
+        'make-server-e3db71a4/claude-proxy',
+        { body: { messages: [{ role: 'user', content: prompt }] } },
       );
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const data = await response.json();
+      if (error) throw new Error(error.message || 'Erreur Claude proxy');
       const configs = Array.isArray(data?.configs) ? data.configs : [];
       if (configs.length === 0) {
         setAiError(
