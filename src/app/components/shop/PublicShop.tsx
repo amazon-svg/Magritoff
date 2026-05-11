@@ -255,10 +255,24 @@ export function PublicShop() {
     if (!shop || cart.length === 0) return;
     const total_ht = cart.reduce((s, l) => s + l.product.price_ht * l.qty, 0);
     const total_ttc = total_ht * 1.2;
-    await supabase.from('shop_orders').insert({
+
+    // S-FIX-6 — submitCart fiabilise :
+    //  - recupere {error} pour ne plus echouer silencieusement (bug detecte
+    //    par Arnaud : alert "Commande envoyee" affiche meme en cas d echec)
+    //  - customer_email = user.email si authentifie (au lieu de hardcoded
+    //    portal@magrit.app), permet a l acheteur de retrouver SES commandes
+    //    via le filtre customer_email dans PortalOrders
+    //  - customer_name = user metadata full_name si dispo, fallback user.email
+    const customerEmail = user?.email ?? 'anonymous@magrit.app';
+    const customerName =
+      (user?.user_metadata?.full_name as string | undefined) ||
+      user?.email ||
+      'Acheteur portail B2B';
+
+    const { error } = await supabase.from('shop_orders').insert({
       shop_id: shop.id,
-      customer_name: 'Portail B2B',
-      customer_email: 'portal@magrit.app',
+      customer_name: customerName,
+      customer_email: customerEmail,
       customer_phone: '',
       items: cart.map((l) => ({
         product_id: l.product.id,
@@ -271,9 +285,18 @@ export function PublicShop() {
       notes: '',
       status: 'pending',
     });
-    alert('Commande envoyée. Vous recevrez un email de confirmation.');
+
+    if (error) {
+      console.error('[submitCart] insert shop_orders failed:', error.message);
+      alert(
+        `Erreur lors de l envoi de la commande : ${error.message}.\n\nMerci de reessayer ou contacter l administrateur.`,
+      );
+      return;
+    }
+
+    alert('Commande envoyee. Vous recevrez un email de confirmation.');
     setCart([]);
-    setView('home');
+    setView('orders'); // bascule sur la vue Mes commandes pour voir la nouvelle
   };
 
   // ─── S2.2 Hydratation localStorage des gammes deplices ───────────────────
@@ -415,6 +438,7 @@ export function PublicShop() {
           onContinue={() => {/* drawer reste ouvert, l'acheteur peut continuer */}}
           pimGammes={pimGammes}
           pimDefinitions={pimDefinitions}
+          compact
         />
       }
     >

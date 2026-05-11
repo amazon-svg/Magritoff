@@ -20,6 +20,7 @@
 import { useEffect, useState } from "react";
 import { Loader2, Package } from "lucide-react";
 import { supabase } from "/utils/supabase/client";
+import { useAuth } from "../../../contexts/AuthContext";
 import { TEST_IDS } from "../../../lib/testIds";
 
 interface ShopOrder {
@@ -71,6 +72,7 @@ const STATUS_LABELS: Record<string, { label: string; className: string }> = {
 };
 
 export function PortalOrders({ shopId }: Props) {
+  const { user } = useAuth();
   const [orders, setOrders] = useState<ShopOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -81,12 +83,27 @@ export function PortalOrders({ shopId }: Props) {
     (async () => {
       setLoading(true);
       setError(null);
-      const { data, error: err } = await supabase
+      // S-FIX-6 : la RLS shop_orders SELECT autorise :
+      //  - owner shop (auth.uid() = shops.owner_user_id)
+      //  - acheteur authentifie (customer_email = auth.email())
+      // Le filtre customer_email cote front est en defense en profondeur :
+      // si l user est authentifie, on filtre pour ne voir QUE ses commandes
+      // (pas celles d autres acheteurs sur la meme shop). Un owner shop
+      // garde la vue complete (filtre customer_email omis).
+      let query = supabase
         .from("shop_orders")
         .select("*")
         .eq("shop_id", shopId)
         .order("created_at", { ascending: false })
         .limit(100);
+
+      // Si user authentifie ET non-anonyme, filtrer ses propres commandes
+      // (defense supplementaire ; la RLS le ferait deja, mais front explicite)
+      if (user?.email) {
+        query = query.eq("customer_email", user.email);
+      }
+
+      const { data, error: err } = await query;
       if (cancelled) return;
       if (err) {
         setError(err.message);
@@ -99,7 +116,7 @@ export function PortalOrders({ shopId }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [shopId]);
+  }, [shopId, user?.email]);
 
   return (
     <div

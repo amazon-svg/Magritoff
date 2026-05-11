@@ -15,10 +15,20 @@ interface Props {
   onContinue: () => void;
   pimGammes?: Gamme[];
   pimDefinitions?: ProductDefinition[];
+  /**
+   * Mode compact pour drawer (Sheet 420px). S-FIX-6 :
+   *  - 1 colonne (vs 2-col page entiere)
+   *  - padding reduit (p-4 vs p-9)
+   *  - header reduit
+   *  - panneau workflow N+1 droite masque
+   *  - pas de min-h plein ecran
+   */
+  compact?: boolean;
 }
 
 // F4 — Panier + workflow validation N+1
 // Design source : .design-handoff/designs/05 - Portail B2B.html (section .f4)
+// S-FIX-6 : mode compact pour drawer slide-right (S-REWORK-1).
 export function PortalCart({
   cart,
   budget,
@@ -28,6 +38,7 @@ export function PortalCart({
   onContinue,
   pimGammes,
   pimDefinitions,
+  compact = false,
 }: Props) {
   // Resolution unifiee du prix par ligne via priceResolver (decision Arnaud
   // 2026-05-09 fix prix marche). Une ligne en "prix marche" devient
@@ -51,23 +62,29 @@ export function PortalCart({
   return (
     <div
       data-testid={TEST_IDS.shop.cartDrawer}
-      className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-7 p-9 bg-bg min-h-[calc(100vh-200px)]"
+      className={
+        compact
+          ? "flex flex-col gap-4 p-4 bg-bg"
+          : "grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-7 p-9 bg-bg min-h-[calc(100vh-200px)]"
+      }
       style={{ fontFamily: 'var(--font-ui)' }}
     >
       {/* Panier + workflow */}
       <div>
-        <h3
-          className="text-ink m-0 mb-4"
-          style={{ fontSize: '26px', fontWeight: 400, letterSpacing: '-0.02em' }}
-        >
-          Panier
-          <span
-            className="ml-3 text-ink-muted"
-            style={{ fontSize: '14px', fontWeight: 400 }}
+        {!compact && (
+          <h3
+            className="text-ink m-0 mb-4"
+            style={{ fontSize: '26px', fontWeight: 400, letterSpacing: '-0.02em' }}
           >
-            {cart.length} ligne{cart.length > 1 ? 's' : ''}
-          </span>
-        </h3>
+            Panier
+            <span
+              className="ml-3 text-ink-muted"
+              style={{ fontSize: '14px', fontWeight: 400 }}
+            >
+              {cart.length} ligne{cart.length > 1 ? 's' : ''}
+            </span>
+          </h3>
+        )}
 
         {/* Lignes panier */}
         <section className="bg-paper border border-line rounded-xl overflow-hidden">
@@ -194,9 +211,13 @@ export function PortalCart({
             câblera le circuit Panier → N+1 → Achats → Magrit. */}
       </div>
 
-      {/* Summary sticky */}
+      {/* Summary : sticky en page entiere, inline en mode drawer compact */}
       <aside
-        className="bg-paper border border-line rounded-xl p-5.5 self-start sticky top-5"
+        className={
+          compact
+            ? "bg-paper border border-line rounded-xl p-4"
+            : "bg-paper border border-line rounded-xl p-5.5 self-start sticky top-5"
+        }
       >
         <h5
           className="text-ink m-0 mb-3.5"
