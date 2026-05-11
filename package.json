@@ -11,6 +11,7 @@
     "dev:b5:stop": "./scripts/dev-b5.sh --stop",
     "dev:b5:status": "./scripts/dev-b5.sh --status",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "db:types": "./scripts/gen-db-types.sh",
     "build:analyze": "ANALYZE=1 vite build && echo '✅ Bundle visualizer : dist/stats.html'"
   },
@@ -75,6 +76,7 @@
   "devDependencies": {
     "@tailwindcss/vite": "4.1.12",
     "@vitejs/plugin-react": "4.7.0",
+    "@vitest/coverage-v8": "^4.1.6",
     "dotenv": "^17.4.2",
     "rollup-plugin-visualizer": "^7.0.1",
     "tailwindcss": "4.1.12",
