@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { lazy, Suspense, useState, useMemo } from 'react';
 import { Search, Sparkles, Plus, X, Loader2, AlertTriangle } from 'lucide-react';
 import type { Shop, ShopProduct } from '../../../contexts/ShopsContext';
 import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
@@ -7,7 +7,12 @@ import { supabase } from '/utils/supabase/client';
 import { computeClariprintQuoteSafe } from '../../../../server/clariprint/ClariprintAdapter';
 import { TEST_IDS } from '../../../lib/testIds';
 import { ShopProductCard } from '../ShopProductCard';
-import { ProductOverlay } from '../ProductOverlay';
+
+// R7 (refacto 2026-05-11) : lazy-load le ProductOverlay (configurateur lourd
+// charge seulement quand l'acheteur clique "Configurer").
+const ProductOverlay = lazy(() =>
+  import('../ProductOverlay').then((m) => ({ default: m.ProductOverlay })),
+);
 
 interface Props {
   shop: Shop;
@@ -470,24 +475,28 @@ export function PortalCatalog({
         </div>
       )}
 
-      {/* S2.4 — Overlay configuration produit Clariprint */}
-      <ProductOverlay
-        product={overlayProduct}
-        shop={shop}
-        onClose={() => setOverlayProduct(null)}
-        onConfirm={(productConfigured, qty) => {
-          // S-FIX-PANIER-11/05 (bug #5) : `qty` retourne par l'overlay est la
-          // quantite d'exemplaires. On la stocke dans config.quantity et on
-          // passe `1 pack` au panier pour que `price_ht * cart.qty` reste
-          // egal au prix forfaitaire du pack (pas multiplie par les ex).
-          const withQty = {
-            ...productConfigured,
-            config: { ...(productConfigured.config ?? {}), quantity: qty },
-          };
-          onAddToCart(withQty, 1);
-          setOverlayProduct(null);
-        }}
-      />
+      {/* S2.4 — Overlay configuration produit Clariprint (R7 lazy) */}
+      {overlayProduct && (
+        <Suspense fallback={null}>
+          <ProductOverlay
+            product={overlayProduct}
+            shop={shop}
+            onClose={() => setOverlayProduct(null)}
+            onConfirm={(productConfigured, qty) => {
+              // S-FIX-PANIER-11/05 (bug #5) : `qty` retourne par l'overlay est la
+              // quantite d'exemplaires. On la stocke dans config.quantity et on
+              // passe `1 pack` au panier pour que `price_ht * cart.qty` reste
+              // egal au prix forfaitaire du pack (pas multiplie par les ex).
+              const withQty = {
+                ...productConfigured,
+                config: { ...(productConfigured.config ?? {}), quantity: qty },
+              };
+              onAddToCart(withQty, 1);
+              setOverlayProduct(null);
+            }}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

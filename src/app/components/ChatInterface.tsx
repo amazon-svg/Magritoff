@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import {
   Send, History, X, CheckSquare, Square, BookmarkPlus,
   MessageSquare, SquarePen, Paperclip, Mic, Sparkles,
@@ -7,7 +7,11 @@ import { projectId, publicAnonKey } from "/utils/supabase/info";
 import { MagritLogo } from "./brand/MagritLogo";
 import { ProductCard } from "./ProductCard";
 import { CartButton } from "./CartButton";
-import { LibraryPickerModal } from "./LibraryPickerModal";
+// R7 (refacto 2026-05-11) : lazy-load la modale library picker (modale lourde,
+// pas necessaire au shell initial du chat).
+const LibraryPickerModal = lazy(() =>
+  import("./LibraryPickerModal").then((m) => ({ default: m.LibraryPickerModal })),
+);
 import { useConversation, ConversationHistory } from "../contexts/ConversationContext";
 import { useAuth } from "../contexts/AuthContext";
 import { useLibrary } from "../contexts/LibraryContext";
@@ -650,6 +654,7 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
             )}
 
             {bulkLibraryPickerOpen && (
+              <Suspense fallback={null}>
               <LibraryPickerModal
                 productCount={selectedIds.size}
                 onPick={async (libraryId) => {
@@ -671,6 +676,7 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
                 }}
                 onClose={() => setBulkLibraryPickerOpen(false)}
               />
+              </Suspense>
             )}
           </div>
         </div>

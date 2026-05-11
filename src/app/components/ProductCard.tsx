@@ -1,21 +1,30 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import {
   Loader2, Lock,
   BookmarkPlus, Check, FileText, Tag, Box, Pencil, Bug, Plus, Heart,
 } from "lucide-react";
-import { QuoteModal } from "./QuoteModal";
 import { useAuth } from "../contexts/AuthContext";
 import { useClients } from "../contexts/ClientsContext";
 import { useLibrary } from "../contexts/LibraryContext";
 import { usePIM } from "../contexts/PIMContext";
 import { usePlan } from "../hooks/usePlan";
 import { useTenantPath } from "../hooks/useTenantPath";
-import { LibraryPickerModal } from "./LibraryPickerModal";
 import { enrichProduct } from "../utils/productEnrichment";
 import { ProductMockup } from "./brand/ProductMockup";
 import { resolveProductImage } from "../utils/productImages";
 import { TEST_IDS } from "../lib/testIds";
-import { ProductOverlay } from "./shop/ProductOverlay";
+
+// R7 (refacto 2026-05-11) : lazy-load des 3 modales lourdes pour reduire le
+// bundle initial de ProductCard. Suspense fallback = null (les modales sont
+// rendues conditionnellement par activeTab/overlayOpen, le delay est masque
+// par la transition d'ouverture).
+const QuoteModal = lazy(() => import("./QuoteModal").then((m) => ({ default: m.QuoteModal })));
+const LibraryPickerModal = lazy(() =>
+  import("./LibraryPickerModal").then((m) => ({ default: m.LibraryPickerModal })),
+);
+const ProductOverlay = lazy(() =>
+  import("./shop/ProductOverlay").then((m) => ({ default: m.ProductOverlay })),
+);
 import { useTenant } from "../contexts/TenantContext";
 import { getTaxRate } from "../utils/tax";
 import { useClariprintProduct } from "../hooks/useClariprintProduct";
@@ -620,13 +629,15 @@ export function ProductCard({
           </article>
 
           {libraryPickerOpen && (
-            <LibraryPickerModal
-              preferredClientId={(localProduct as any).client_id ?? null}
-              onPick={async (libraryId) => {
-                await handleAddToLibrary(libraryId);
-              }}
-              onClose={() => setLibraryPickerOpen(false)}
-            />
+            <Suspense fallback={null}>
+              <LibraryPickerModal
+                preferredClientId={(localProduct as any).client_id ?? null}
+                onPick={async (libraryId) => {
+                  await handleAddToLibrary(libraryId);
+                }}
+                onClose={() => setLibraryPickerOpen(false)}
+              />
+            </Suspense>
           )}
 
           {/* ── Fiche produit ── (R1-bis : extrait dans ProductCardFiche.tsx) */}
@@ -681,23 +692,29 @@ export function ProductCard({
             />
           )}
 
-          {/* Modal devis */}
-          <QuoteModal
-            isOpen={isQuoteModalOpen}
-            onClose={() => setIsQuoteModalOpen(false)}
-            product={{
-              ...localProduct,
-              price: displayPriceHT,
-              clariprintQuote: clariprintQuote?.success ? clariprintQuote : undefined,
-            }}
-            onClientChange={(clientId) => updateProduct({ client_id: clientId })}
-          />
+          {/* Modal devis (R7 : lazy-loaded) */}
+          {isQuoteModalOpen && (
+            <Suspense fallback={null}>
+              <QuoteModal
+                isOpen={isQuoteModalOpen}
+                onClose={() => setIsQuoteModalOpen(false)}
+                product={{
+                  ...localProduct,
+                  price: displayPriceHT,
+                  clariprintQuote: clariprintQuote?.success ? clariprintQuote : undefined,
+                }}
+                onClientChange={(clientId) => updateProduct({ client_id: clientId })}
+              />
+            </Suspense>
+          )}
         </div>
       )}
 
       {/* S2.4b — Overlay configuration produit (atelier deviseur).
           Bouton "Editer" ouvre cet overlay au lieu de l'ancien form inline.
-          shop=null -> fallback brand Magrit + tenant_id 'atelier' (cf. ProductOverlay). */}
+          shop=null -> fallback brand Magrit + tenant_id 'atelier' (cf. ProductOverlay).
+          R7 : lazy-loaded. */}
+      <Suspense fallback={null}>
       <ProductOverlay
         product={
           overlayOpen
@@ -735,6 +752,7 @@ export function ProductCard({
           setOverlayOpen(false);
         }}
       />
+      </Suspense>
     </div>
   );
 }

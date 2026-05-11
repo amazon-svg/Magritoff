@@ -1,0 +1,29 @@
+{
+  "_comment": "R7 (refacto 2026-05-11 ADR-R8) - Lighthouse CI baseline pour la branche beta/v5. Seuils relevables progressivement en V1.x. Workflow GitHub Actions a activer manuellement (.github/workflows/lighthouse.yml a creer par Arnaud).",
+  "ci": {
+    "collect": {
+      "startServerCommand": "pnpm exec vite preview --port 4173 --strictPort",
+      "startServerReadyPattern": "Local:\\s+http://localhost:4173",
+      "url": [
+        "http://localhost:4173/",
+        "http://localhost:4173/login"
+      ],
+      "numberOfRuns": 1,
+      "settings": {
+        "preset": "desktop"
+      }
+    },
+    "assert": {
+      "preset": "lighthouse:no-pwa",
+      "assertions": {
+        "categories:performance": ["warn", { "minScore": 0.7 }],
+        "categories:accessibility": ["warn", { "minScore": 0.85 }],
+        "categories:best-practices": ["warn", { "minScore": 0.85 }],
+        "categories:seo": ["warn", { "minScore": 0.75 }]
+      }
+    },
+    "upload": {
+      "target": "temporary-public-storage"
+    }
+  }
+}
