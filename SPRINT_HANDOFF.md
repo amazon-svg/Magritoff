@@ -2,7 +2,72 @@
 
 > Document de reprise pour démarrer une nouvelle session de Claude code sur le projet sans recharger tout l'historique. À tenir à jour à chaque fin de sprint.
 >
-> **Dernière mise à jour : 2026-05-11 — v0.5.3-beta.5, HEAD `5a2e848` — Epic 0/1/4 done + Epic 2 4/10 (S2.1+S2.2+S2.3+S2.4) + 6 correctifs scope (S2.4b/S-FIX-1b à S-FIX-6) + 3 specs pending (S-ORDER-ROLES, S-PIM-VISUELS, S-SUBTENANT-SCOPE). Récap complet : mémoire BMAD `project_session_2026-05-11.md`**
+> **Dernière mise à jour : 2026-05-11 soir — v0.5.3-beta.5, HEAD `ee82fa7` (poussé sur origin/beta/v5) — Sprint Refacto EPIC-REFACTO-1 COMPLET : 9 stories (R0→R9) + 5 fixes panier S-FIX-PANIER livrés en 1 session. 278 tests vitest verts (+116 vs baseline). 2 migrations SQL prod appliquées (tax_regime + trigger UUID défensif). Récap complet : mémoire BMAD `project_session_2026-05-11.md` + section "10. Sprint Refacto 2026-05-11" ci-dessous.**
+
+## 10. Sprint Refacto EPIC-REFACTO-1 — Bilan 2026-05-11 (session unique)
+
+**Contexte** : Arnaud demande un sprint refacto suite à l'audit ✦ Étape A/B/C (audit + review adversariale + plan Winston) du 11/05 matin. 9 stories spec rédigées par Winston (R0→R9). Validation Arnaud "oublie la démo, enchaîne tout" → exécution séquentielle complète en 1 session.
+
+### Stories livrées
+
+| Story | Spec | Statut | HEAD | Tests Δ |
+|---|---|---|---|---|
+| **R0** TVA centralisée + 3 garde-fous vitest | M 2j | ✅ review | `0f8d2d4` | +65 |
+| **R3** ClariprintAdapter enforcement (0 fetch direct) | S 1j | ✅ review | `d8157b0` | +3 |
+| **R1** ProductCard décomposition (5/5 onglets extraits) | L 4j | ✅ review | `52f35ce` | +2 |
+| **S-FIX-PANIER** 5 bugs critiques boutique (LEAFLET, prix×qty, UUID, catégories, boutons) | — | ✅ | `b2fbbc5` | — |
+| **R2** ChatInterface hook useClaudeSseStream + fixes E4 (billing) + E5 (troncage) | L 4j | ⚠️ partial-review | `43c324e` | +14 |
+| **R4** Types DB (`database.types.ts` 1604L) + zod sélectif (4 schemas) | M 2j | ✅ review | `b1b666e` | +17 |
+| **R5** Pattern Supabase unique (6 callers fetch → `functions.invoke()`) | M 3j | ⚠️ partial-review | `270ba52` | — |
+| **R7** Lazy modales + bundle visualizer + Lighthouse config | S 1j | ⚠️ partial-review | `e5016a2` | — |
+| **R8** Factory `createSupabaseMock` + coverage v8 + seuils baseline | M 3j | ⚠️ partial-review | `3c26864` | +15 |
+| **R9** axe-core CLI + scan local + workflow CI a11y | XS 0.5j | ✅ review | `ee82fa7` | — |
+
+### Migrations SQL prod appliquées (Supabase B5)
+
+- `20260511_02_R0_tenant_tax_regime.sql` — Enum `tax_regime_enum` + colonne `tenants.tax_regime` default `'metropole_fr'`. 9 tenants existants migrés.
+- `20260511_03_shop_order_trigger_uuid_defensive.sql` — Trigger `enqueue_pim_candidates_on_shop_order` re-écrit avec regex UUID v4 défensive. Fix bug #4d S-FIX-PANIER.
+
+### Tooling nouveau
+
+| Commande | Description |
+|---|---|
+| `pnpm test:coverage` | vitest + rapport coverage v8 HTML dans `coverage/` |
+| `pnpm build:analyze` | Vite build avec rollup-plugin-visualizer → `dist/stats.html` |
+| `pnpm db:types` | Régénère `src/types/database.types.ts` via Supabase Management API |
+| `pnpm a11y:scan` | Scan axe-core local des 3 routes critiques |
+| `pnpm dev:b5` / `:bg` / `:stop` / `:status` | Lancement Vite port 5177 (déjà existant pré-refacto) |
+
+### Fichiers de config livrés
+
+- `.lighthouserc.json` (config Lighthouse CI, workflow yml à créer par Arnaud)
+- `.github/workflows/a11y.yml` (CI axe-core, s'active au prochain push)
+- `.axe-config.json` (rules WCAG 2.1 A + AA)
+- `vitest.config.ts` (section `coverage` v8 + seuils baseline 7-3%)
+- `vite.config.ts` (plugin visualizer conditionnel `ANALYZE=1`, `chunkSizeWarningLimit: 600`)
+
+### Métriques
+
+- **Bundle main** : 250 kB gz → **245 kB gz** + 3 chunks lazy (8.15 kB gz cumulés)
+- **vitest** : 162 baseline → **278 cas verts** (+116 cas R0+R2+R4+R8)
+- **0 occurrence `fetch.*clariprint`** dans `src/` (R3)
+- **0 occurrence `import \* as` lucide-react** (R7 AC5)
+
+### À faire opérationnel par Arnaud (cf. agenda 2026-05-12)
+
+1. **CI GitHub** (1h matin) : ajouter secrets repo (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `SUPABASE_PAT`), créer `.github/workflows/lighthouse.yml`, observer 1er run a11y.yml
+2. **Smoke tests visuels** (1h) : valider les 5 fixes S-FIX-PANIER (LEAFLET, prix×qty, UUID, catégories, boutons persistants) + R0/R1/R2/R3/R7 sur localhost:5177
+3. **Arbitrages produit** (30min) : trancher S-ORDER-ROLES, S-PIM-VISUELS, S-SUBTENANT-SCOPE + prioriser R5-bis vs R2-bis
+
+### Stories follow-up tracées (post-refacto)
+
+- **R2-bis** (S 2j) — Extraction 4 sous-composants UI ChatInterface (ChatMessageList / ChatInput / ChatHistoryPanel / ChatModeToggle). Découpage UI pur, 0 fix fonctionnel.
+- **R5-bis** (S 1j) — Edge function `invite-member` transactionnelle qui résout la race condition B4 (insert `tenant_invitations` + email Resend dans la même transaction edge avec rollback).
+- **R8-bis** (M 2j) — Tests AuthContext / ShopsContext / hooks React via la factory `createSupabaseMock`. Cible coverage 50% globale.
+
+---
+
+
 
 ---
 
