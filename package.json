@@ -13,7 +13,8 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "db:types": "./scripts/gen-db-types.sh",
-    "build:analyze": "ANALYZE=1 vite build && echo '✅ Bundle visualizer : dist/stats.html'"
+    "build:analyze": "ANALYZE=1 vite build && echo '✅ Bundle visualizer : dist/stats.html'",
+    "a11y:scan": "./scripts/a11y-scan.sh"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",
@@ -74,6 +75,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@axe-core/cli": "^4.11.3",
     "@tailwindcss/vite": "4.1.12",
     "@vitejs/plugin-react": "4.7.0",
     "@vitest/coverage-v8": "^4.1.6",

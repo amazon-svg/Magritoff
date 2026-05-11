@@ -1,0 +1,9 @@
+{
+  "_comment": "R9 (refacto 2026-05-11 ADR-R7) - Configuration axe-core pour le scan a11y light V1.2. Engagement WCAG AA reporte V2. Seul le niveau Critical bloque la CI ; Moderate/Minor sont listes pour visibilite. La liste des routes est gere via la CLI npx @axe-core/cli (cf. scripts/a11y-scan.sh).",
+  "rules": {},
+  "runOnly": {
+    "type": "tag",
+    "values": ["wcag2a", "wcag2aa"]
+  },
+  "resultTypes": ["violations"]
+}
