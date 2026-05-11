@@ -324,6 +324,7 @@ export function PortalCatalog({
               key={p.id}
               product={p}
               shop={shop}
+              pimGammes={pimGammes}
               onCardClick={onSelectProduct}
               onAddToCart={onAddToCart}
               onConfigure={(prod) => setOverlayProduct(prod)}

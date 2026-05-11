@@ -20,6 +20,8 @@
 
 import { useMemo } from "react";
 import type { Shop, ShopProduct } from "../../contexts/ShopsContext";
+import type { Gamme, ProductDefinition } from "../../utils/productEnrichment";
+import { resolveGamme } from "../../utils/productEnrichment";
 import { TEST_IDS } from "../../lib/testIds";
 import { MockupImage } from "../mockup/MockupImage";
 import {
@@ -49,6 +51,8 @@ export interface ShopProductCardProps {
   onSelectedChange?: (selected: boolean) => void;
   /** Classes CSS additionnelles. */
   className?: string;
+  /** Gammes PIM disponibles pour resoudre la gamme du produit (S-FIX-2 : badge gamme.name au lieu de category brute LEAFLET). */
+  pimGammes?: Gamme[];
 }
 
 export function ShopProductCard({
@@ -61,9 +65,22 @@ export function ShopProductCard({
   selected = false,
   onSelectedChange,
   className,
+  pimGammes,
 }: ShopProductCardProps) {
   const template = useMemo(() => resolveMockupTemplate(product), [product]);
   const dimensions = useMemo(() => resolveProductDimensions(product), [product]);
+
+  // S-FIX-2 — Badge gamme PIM resolue au lieu de product.category brute.
+  // Toutes les gammes Clariprint ont matching_rules.kind="leaflet" en PIM,
+  // donc category="leaflet" partout. Resolution via PIM rend le badge utile
+  // ("Cartes de visite standard", "Carterie", "Flyer A4"...).
+  // Fallback : product.category brute si pas de match PIM, puis "Template".
+  const gammeName = useMemo(() => {
+    if (!pimGammes || pimGammes.length === 0) return null;
+    const gamme = resolveGamme(product.config, pimGammes);
+    return gamme?.name ?? null;
+  }, [product.config, pimGammes]);
+  const categoryLabel = gammeName || product.category || "Template";
 
   // tenant_id n est pas expose sur Shop public (RLS), on retombe sur shop.id
   // comme namespace de cache. La fonction edge mockup-generator accepte les
@@ -112,7 +129,7 @@ export function ShopProductCard({
           className="absolute top-2.5 right-2.5 font-mono uppercase px-2 py-1 rounded bg-ink text-paper"
           style={{ fontSize: "10px", letterSpacing: "0.08em", fontWeight: 500 }}
         >
-          {product.category || "Template"}
+          {categoryLabel}
         </span>
       </div>
 
@@ -179,6 +196,23 @@ export function ShopProductCard({
               style={{ fontSize: "12.5px", fontWeight: 500 }}
             >
               Configurer
+            </button>
+
+            {/* S-FIX-4 — Bouton Personnaliser placeholder (Canva future S5.x) */}
+            <button
+              type="button"
+              data-testid={TEST_IDS.shop.productCardPersonalizeBtn}
+              aria-label={`Personnaliser ${product.name} (Canva, à venir)`}
+              title="Personnaliser via Canva — fonctionnalité à venir"
+              onClick={(e) => {
+                e.stopPropagation();
+                // Canva integration arrive en S5.x (cf. epics.md Epic 5)
+                console.info("[S-FIX-4] Bouton Personnaliser — connexion Canva à venir en S5.x");
+              }}
+              className="opacity-0 group-hover:opacity-100 px-3 py-1.5 bg-paper border border-line-2 text-ink-2 rounded-md hover:bg-bg hover:text-ink transition-all"
+              style={{ fontSize: "12.5px", fontWeight: 500 }}
+            >
+              Personnaliser
             </button>
 
             {/* CTA secondary hover-reveal (retro-compat) */}

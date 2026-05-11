@@ -1,43 +1,47 @@
 /**
- * ShopLayout — Story S2.1 (Epic 2 Boutique B2B Premium).
+ * ShopLayout — S-REWORK-1 (refonte scope post-S2.1, validee Arnaud 2026-05-10).
  *
- * Chassis 3 colonnes pour /shop/:slug :
- *   - Header sticky en haut : logo brande + nom boutique + nav locale +
- *     cart icon + user menu (+ menu mobile pour drawer gauche).
- *   - Budget strip optionnel sous header (corporate, mock pour l'instant).
- *   - Grid 3 colonnes desktop (lg+) : sidebar gauche (gammes, S2.2 future) /
- *     main (children, grille produits S2.3 future) / sidebar droite (panier
- *     sticky, S2.6+ future).
- *   - Mobile (< lg) : main pleine largeur, sidebars gauche/droite via Sheet
- *     drawers shadcn ([src/app/components/ui/sheet.tsx]).
+ * Chassis 1 colonne pour /shop/:slug (style design-handoff "01 Boutique
+ * publique") :
+ *   - Header sticky brande : logo + nom boutique + nav locale (Accueil /
+ *     Catalogue / Mes commandes) + cart icon + user menu
+ *   - Budget strip optionnel sous header (corporate, mock pour l'instant)
+ *   - Pilules horizontales scrollables pour filtrer par gamme (remplace
+ *     sidebar gauche S2.2). Style Moo : radius full, border 1px, active
+ *     = bg-ink text-paper. Pattern explicite design-handoff §4.1.
+ *   - Grille produits pleine largeur (1 col, plus de 3-col)
+ *   - Drawer panier slide-right via Sheet shadcn (remplace sidebar droite
+ *     + view='cart' pleine page). Width 420px desktop / full mobile.
  *
- * Theming :
- *   - data-theme="dark" par defaut (tokens.css L106-118), override si
- *     shop.theme.mode === 'light' (cf. resolveShopTheme).
- *   - CSS custom props --shop-primary / --shop-accent exposees au shop
- *     root pour theming dynamique tenant.
+ * Anciennes regressions S2.1 :
+ *   - 3 colonnes desktop (sidebar gammes / main / panier sticky) -> remplace
+ *   - Drawer mobile pour sidebar gauche -> remplace par pilules (visible
+ *     directement, pas de drawer secondaire)
  *
- * Replace : PortalChrome + viewSwitcher 1-col actuels dans PublicShop.tsx.
- * Les vues PortalHome/Catalog/Product/Cart sont conservees comme `children`
- * placeholders MVP — elles seront refondues par S2.2 / S2.3 / S2.7.
+ * Theming inchange :
+ *   - data-theme="dark" par defaut (tokens.css), override si shop.theme.mode
+ *     === 'light'
+ *   - CSS custom props --shop-primary / --shop-accent
  */
 
 import { useState, type ReactNode } from "react";
-import { Menu, ShoppingCart } from "lucide-react";
+import { ShoppingCart, X } from "lucide-react";
 import type { Shop } from "../../contexts/ShopsContext";
+import type { Gamme } from "../../utils/productEnrichment";
 import type { PortalView, BudgetInfo } from "./portal/types";
 import { TEST_IDS } from "../../lib/testIds";
-import {
-  Sheet,
-  SheetContent,
-  SheetTitle,
-  SheetTrigger,
-} from "../ui/sheet";
+import { Sheet, SheetContent, SheetTitle } from "../ui/sheet";
 import {
   resolveShopTheme,
   resolveShopBrandStyle,
   shouldShowCartBadge,
 } from "./ShopLayout.helpers";
+
+interface GammePill {
+  slug: string;
+  name: string;
+  count?: number;
+}
 
 interface Props {
   shop: Shop;
@@ -45,11 +49,15 @@ interface Props {
   onView: (v: PortalView) => void;
   cartCount: number;
   budget?: BudgetInfo;
-  /** Contenu sidebar gauche (gammes navigation — S2.2 future). MVP = placeholder. */
-  leftSidebar?: ReactNode;
-  /** Contenu sidebar droite (panier sticky — S2.6+ future). MVP = mini-recap panier. */
-  rightSidebar?: ReactNode;
-  /** Contenu colonne centrale (vue active : home/catalog/product/cart/orders). */
+  /** Pilules de gammes filtrables sous le header (S-REWORK-1). Optionnel. */
+  gammes?: GammePill[];
+  /** Set des slugs de gammes filtres actifs (multi). */
+  activeGammeSlugs?: Set<string>;
+  /** Toggle d'une gamme. */
+  onToggleGamme?: (slug: string) => void;
+  /** Contenu drawer panier (slide-right via Sheet). */
+  cartDrawer?: ReactNode;
+  /** Contenu principal (vue active : home/catalog/product/orders). */
   children: ReactNode;
 }
 
@@ -65,30 +73,37 @@ export function ShopLayout({
   onView,
   cartCount,
   budget,
-  leftSidebar,
-  rightSidebar,
+  gammes,
+  activeGammeSlugs,
+  onToggleGamme,
+  cartDrawer,
   children,
 }: Props) {
   const { dataTheme, isDark } = resolveShopTheme(shop);
   const brandStyle = resolveShopBrandStyle(shop);
   const showCartBadge = shouldShowCartBadge(cartCount);
 
-  const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const [mobileCartOpen, setMobileCartOpen] = useState(false);
+  // S-REWORK-1 — Drawer panier slide-right via Sheet shadcn (remplace
+  // view='cart' page entiere). Ouvert par le cart icon du header.
+  const [cartOpen, setCartOpen] = useState(false);
 
   const budgetPct = budget
     ? Math.min(100, Math.round((budget.used / budget.total) * 100))
     : 0;
+
+  const hasGammes = gammes && gammes.length > 0;
+  const activeFilters = activeGammeSlugs?.size ?? 0;
+
+  // Affiche les pilules uniquement quand on est sur la vue catalog/home
+  // (pas product/orders pour eviter le bruit visuel).
+  const showGammePills = hasGammes && (view === "catalog" || view === "home");
 
   return (
     <div
       data-testid={TEST_IDS.shop.portal}
       data-theme={dataTheme}
       className={`min-h-screen ${isDark ? "bg-gray-950 text-gray-100" : "bg-bg text-ink"}`}
-      style={{
-        ...brandStyle,
-        fontFamily: "var(--font-ui)",
-      }}
+      style={{ ...brandStyle, fontFamily: "var(--font-ui)" }}
     >
       {/* ─── Header sticky brande ────────────────────────────────────── */}
       <header
@@ -97,26 +112,6 @@ export function ShopLayout({
           isDark ? "border-gray-800 bg-gray-950/95 backdrop-blur" : "border-line bg-paper"
         }`}
       >
-        {/* Bouton menu mobile (ouvre sidebar gauche) */}
-        <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
-          <SheetTrigger asChild>
-            <button
-              type="button"
-              aria-label="Ouvrir la navigation des gammes"
-              className="lg:hidden p-2 -ml-2 rounded-md hover:bg-line/40"
-            >
-              <Menu className="w-4 h-4" strokeWidth={1.5} />
-            </button>
-          </SheetTrigger>
-          <SheetContent
-            side="left"
-            className={`w-[280px] sm:w-[320px] ${isDark ? "bg-gray-950 text-gray-100 border-gray-800" : ""}`}
-          >
-            <SheetTitle className="px-4 pt-4 text-sm font-medium">Gammes</SheetTitle>
-            <div className="p-4">{leftSidebar}</div>
-          </SheetContent>
-        </Sheet>
-
         {/* Logo + nom + Magrit */}
         <div data-testid={TEST_IDS.shop.headerLogo} className="flex items-center gap-2.5">
           {shop.logo_url ? (
@@ -150,7 +145,7 @@ export function ShopLayout({
         </div>
 
         {/* Nav desktop */}
-        <nav className="hidden md:flex gap-0.5 ml-2">
+        <nav className="hidden md:flex gap-0.5 ml-4">
           {NAV_ITEMS.map((item) => {
             const active = view === item.key;
             return (
@@ -174,18 +169,12 @@ export function ShopLayout({
           })}
         </nav>
 
-        {/* Cart icon — desktop ouvre vue cart, mobile ouvre drawer panier */}
+        {/* Cart icon — ouvre drawer slide-right */}
         <button
           type="button"
           data-testid={TEST_IDS.shop.cartIcon}
           aria-label={`Panier (${cartCount} article${cartCount > 1 ? "s" : ""})`}
-          onClick={() => {
-            if (window.matchMedia("(min-width: 1024px)").matches) {
-              onView("cart");
-            } else {
-              setMobileCartOpen(true);
-            }
-          }}
+          onClick={() => setCartOpen(true)}
           className={`ml-auto relative flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[13px] ${
             isDark
               ? "border-gray-800 bg-gray-900 text-gray-300 hover:text-gray-100"
@@ -204,17 +193,6 @@ export function ShopLayout({
             </span>
           )}
         </button>
-
-        {/* Drawer panier mobile */}
-        <Sheet open={mobileCartOpen} onOpenChange={setMobileCartOpen}>
-          <SheetContent
-            side="right"
-            className={`w-[320px] sm:w-[380px] ${isDark ? "bg-gray-950 text-gray-100 border-gray-800" : ""}`}
-          >
-            <SheetTitle className="px-4 pt-4 text-sm font-medium">Panier</SheetTitle>
-            <div className="p-4">{rightSidebar}</div>
-          </SheetContent>
-        </Sheet>
 
         {/* User menu */}
         <div
@@ -269,116 +247,127 @@ export function ShopLayout({
         </div>
       )}
 
-      {/* ─── 3 colonnes grid ─────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr_360px]">
-        {/* Sidebar gauche desktop (gammes) — drawer mobile gere dans le header */}
-        <aside
-          data-testid={TEST_IDS.shop.navGammes}
-          aria-label="Navigation des gammes"
-          className={`hidden lg:block border-r ${
-            isDark ? "border-gray-800 bg-gray-950" : "border-line bg-paper"
+      {/* ─── Pilules gammes (S-REWORK-1, style Moo) ──────────────────── */}
+      {showGammePills && (
+        <div
+          data-testid={TEST_IDS.shop.gammesPills}
+          className={`flex items-center gap-2 px-5 lg:px-9 py-3 border-b overflow-x-auto whitespace-nowrap scrollbar-thin ${
+            isDark ? "bg-gray-950 border-gray-800" : "bg-paper border-line"
           }`}
+          style={{ scrollbarWidth: "thin" }}
         >
-          {leftSidebar ?? (
-            <DefaultGammesPlaceholder isDark={isDark} />
-          )}
-        </aside>
-
-        {/* Main (children) */}
-        <main className="min-h-[calc(100vh-64px)]">{children}</main>
-
-        {/* Sidebar droite desktop (panier sticky) */}
-        <aside
-          data-testid={TEST_IDS.shop.cartSticky}
-          aria-label="Panier"
-          className={`hidden lg:block border-l ${
-            isDark ? "border-gray-800 bg-gray-950" : "border-line bg-paper"
-          }`}
-        >
-          <div className="sticky top-[64px] max-h-[calc(100vh-64px)] overflow-y-auto">
-            {rightSidebar ?? (
-              <DefaultCartPlaceholder isDark={isDark} cartCount={cartCount} onView={onView} />
-            )}
-          </div>
-        </aside>
-      </div>
-    </div>
-  );
-}
-
-/* ───────────────────────────────────────────────────────────────────────── */
-/* Placeholders MVP — remplaces par contenus reels via props leftSidebar /  */
-/* rightSidebar dans PublicShop, ou par stories suivantes (S2.2, S2.6+).    */
-/* ───────────────────────────────────────────────────────────────────────── */
-
-function DefaultGammesPlaceholder({ isDark }: { isDark: boolean }) {
-  return (
-    <div className="p-5">
-      <div
-        className={`font-mono uppercase text-[10.5px] mb-3 ${
-          isDark ? "text-gray-500" : "text-ink-mute-2"
-        }`}
-        style={{ letterSpacing: "0.08em", fontWeight: 500 }}
-      >
-        Gammes
-      </div>
-      <p
-        className={`text-[13px] m-0 ${isDark ? "text-gray-500" : "text-ink-muted"}`}
-        style={{ lineHeight: 1.55 }}
-      >
-        Navigation par gammes bientôt disponible.
-      </p>
-    </div>
-  );
-}
-
-function DefaultCartPlaceholder({
-  isDark,
-  cartCount,
-  onView,
-}: {
-  isDark: boolean;
-  cartCount: number;
-  onView: (v: PortalView) => void;
-}) {
-  return (
-    <div className="p-5">
-      <div
-        className={`font-mono uppercase text-[10.5px] mb-3 ${
-          isDark ? "text-gray-500" : "text-ink-mute-2"
-        }`}
-        style={{ letterSpacing: "0.08em", fontWeight: 500 }}
-      >
-        Panier
-      </div>
-      {cartCount === 0 ? (
-        <p
-          className={`text-[13px] m-0 ${isDark ? "text-gray-500" : "text-ink-muted"}`}
-          style={{ lineHeight: 1.55 }}
-        >
-          Votre panier est vide. Ajoutez des produits depuis le catalogue.
-        </p>
-      ) : (
-        <>
-          <p
-            className={`text-[13px] m-0 mb-3 ${isDark ? "text-gray-300" : "text-ink"}`}
-          >
-            {cartCount} article{cartCount > 1 ? "s" : ""}
-          </p>
+          {/* "Tout" pill : aucune gamme active = tous les produits visibles */}
           <button
             type="button"
-            onClick={() => onView("cart")}
-            className={`w-full text-[13px] px-3 py-2 rounded-md font-medium ${
-              isDark
-                ? "bg-gray-100 text-gray-950 hover:bg-white"
-                : "bg-ink text-paper hover:bg-ink-2"
+            data-testid={TEST_IDS.shop.gammePillAll}
+            onClick={() => {
+              // Click "Tout" : clear toutes les gammes actives
+              if (activeGammeSlugs && onToggleGamme) {
+                activeGammeSlugs.forEach((slug) => onToggleGamme(slug));
+              }
+            }}
+            className={`shrink-0 px-3 py-1.5 rounded-full border text-[12.5px] transition-colors ${
+              activeFilters === 0
+                ? isDark
+                  ? "bg-gray-100 text-gray-950 border-gray-100"
+                  : "bg-ink text-paper border-ink"
+                : isDark
+                  ? "bg-gray-900 text-gray-400 border-gray-800 hover:text-gray-100"
+                  : "bg-paper text-ink-2 border-line hover:text-ink"
             }`}
           >
-            Voir le panier
+            Tout
           </button>
-        </>
+
+          {gammes!.map((g) => {
+            const active = activeGammeSlugs?.has(g.slug) ?? false;
+            return (
+              <button
+                key={g.slug}
+                type="button"
+                data-testid={TEST_IDS.shop.gammePill}
+                data-gamme-slug={g.slug}
+                aria-pressed={active}
+                onClick={() => onToggleGamme?.(g.slug)}
+                className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[12.5px] transition-colors ${
+                  active
+                    ? isDark
+                      ? "bg-gray-100 text-gray-950 border-gray-100"
+                      : "bg-ink text-paper border-ink"
+                    : isDark
+                      ? "bg-gray-900 text-gray-400 border-gray-800 hover:text-gray-100"
+                      : "bg-paper text-ink-2 border-line hover:text-ink"
+                }`}
+              >
+                {g.name}
+                {typeof g.count === "number" && g.count > 0 && (
+                  <span
+                    className={`font-mono ${active ? (isDark ? "text-gray-700" : "text-paper/70") : isDark ? "text-gray-500" : "text-ink-mute-2"}`}
+                    style={{ fontSize: "10.5px", fontVariantNumeric: "tabular-nums" }}
+                  >
+                    {g.count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
       )}
+
+      {/* ─── Contenu principal pleine largeur ────────────────────────── */}
+      <main
+        data-testid={TEST_IDS.shop.productGrid}
+        className="min-h-[calc(100vh-64px)]"
+      >
+        {children}
+      </main>
+
+      {/* ─── Drawer panier slide-right ───────────────────────────────── */}
+      <Sheet open={cartOpen} onOpenChange={setCartOpen}>
+        <SheetContent
+          side="right"
+          data-testid={TEST_IDS.shop.cartDrawer}
+          className={`w-full sm:w-[420px] sm:max-w-[420px] p-0 ${
+            isDark ? "bg-gray-950 text-gray-100 border-gray-800" : ""
+          }`}
+        >
+          <div className="flex items-center justify-between px-5 py-4 border-b border-line">
+            <SheetTitle className="text-[15px] font-medium m-0 p-0">
+              Panier
+              {cartCount > 0 && (
+                <span
+                  className={`ml-2 font-mono ${isDark ? "text-gray-500" : "text-ink-mute-2"}`}
+                  style={{ fontSize: "12px", fontVariantNumeric: "tabular-nums" }}
+                >
+                  · {cartCount}
+                </span>
+              )}
+            </SheetTitle>
+            <button
+              type="button"
+              onClick={() => setCartOpen(false)}
+              aria-label="Fermer le panier"
+              className={`p-1.5 rounded-md ${
+                isDark ? "text-gray-400 hover:text-gray-100" : "text-ink-2 hover:text-ink"
+              }`}
+            >
+              <X className="w-4 h-4" strokeWidth={1.5} />
+            </button>
+          </div>
+          <div className="overflow-y-auto max-h-[calc(100vh-65px)]">
+            {cartDrawer ?? (
+              <div className="p-5">
+                <p
+                  className={`text-[13px] m-0 ${isDark ? "text-gray-500" : "text-ink-muted"}`}
+                  style={{ lineHeight: 1.55 }}
+                >
+                  Votre panier est vide. Ajoutez des produits depuis le catalogue.
+                </p>
+              </div>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
-

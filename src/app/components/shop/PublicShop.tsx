@@ -11,10 +11,10 @@ import { PortalHome } from './portal/PortalHome';
 import { PortalCatalog } from './portal/PortalCatalog';
 import { PortalProduct } from './portal/PortalProduct';
 import { PortalCart } from './portal/PortalCart';
+import { PortalOrders } from './portal/PortalOrders';
 import type { PortalView, CartLine, BudgetInfo } from './portal/types';
 import { ShopLayout } from './ShopLayout';
 import { ShopForbidden403 } from './ShopForbidden403';
-import { ShopGammesSidebar } from './ShopGammesSidebar';
 import { resolveShopAccessFromMemberships } from './ShopAccessGuard.helpers';
 import {
   filterProductsByExpandedGammes,
@@ -376,7 +376,16 @@ export function PublicShop() {
   }
 
   const cartCount = cart.reduce((s, l) => s + l.qty, 0);
-  const isDark = shop.theme?.mode !== 'light';
+
+  // S-REWORK-1 — Pilules gammes horizontales (remplace sidebar S2.2).
+  // Format compatible avec ShopLayout : { slug, name, count? }.
+  const gammePills = useMemo(() => {
+    return visibleGammes.map((g) => ({
+      slug: g.slug,
+      name: g.name,
+      count: gammeMap.get(g.slug)?.length ?? 0,
+    })).filter((p) => p.count > 0); // n'affiche que les gammes avec produits
+  }, [visibleGammes, gammeMap]);
 
   return (
     <ShopLayout
@@ -388,13 +397,19 @@ export function PublicShop() {
       }}
       cartCount={cartCount}
       budget={budget}
-      leftSidebar={
-        <ShopGammesSidebar
-          gammes={visibleGammes}
-          products={products}
-          expandedSlugs={expandedGammes}
-          onToggleGamme={toggleGamme}
-          isDark={isDark}
+      gammes={gammePills}
+      activeGammeSlugs={expandedGammes}
+      onToggleGamme={toggleGamme}
+      cartDrawer={
+        <PortalCart
+          cart={cart}
+          budget={budget}
+          onUpdateQty={updateQty}
+          onRemove={removeFromCart}
+          onSubmit={submitCart}
+          onContinue={() => {/* drawer reste ouvert, l'acheteur peut continuer */}}
+          pimGammes={pimGammes}
+          pimDefinitions={pimDefinitions}
         />
       }
     >
@@ -433,53 +448,17 @@ export function PublicShop() {
           onBack={() => setView('catalog')}
           onAddToCart={(p, qty) => {
             addToCart(p, qty);
-            setView('cart');
+            // S-REWORK-1 : panier est en drawer accessible via cart icon header,
+            // pas en page entiere. On retourne sur catalog (l acheteur peut ouvrir
+            // le drawer pour verifier puis valider).
+            setView('catalog');
           }}
           pimGammes={pimGammes}
           pimDefinitions={pimDefinitions}
         />
       )}
 
-      {view === 'cart' && (
-        <PortalCart
-          cart={cart}
-          budget={budget}
-          onUpdateQty={updateQty}
-          onRemove={removeFromCart}
-          onSubmit={submitCart}
-          onContinue={() => setView('catalog')}
-          pimGammes={pimGammes}
-          pimDefinitions={pimDefinitions}
-        />
-      )}
-
-      {view === 'orders' && (
-        <div
-          className="max-w-3xl mx-auto px-9 py-24 text-center"
-          style={{ fontFamily: 'var(--font-ui)' }}
-        >
-          <h2
-            className="text-ink m-0 mb-3"
-            style={{ fontSize: '28px', fontWeight: 300, letterSpacing: '-0.025em' }}
-          >
-            Mes commandes
-          </h2>
-          <p
-            className="text-ink-muted m-0"
-            style={{ fontSize: '14.5px', fontWeight: 400, lineHeight: 1.55 }}
-          >
-            L'historique de vos commandes sera disponible dans une prochaine itération. En attendant,{' '}
-            <button
-              onClick={() => setView('catalog')}
-              className="text-ink underline decoration-line-2 underline-offset-2 hover:decoration-ink"
-              style={{ fontWeight: 500 }}
-            >
-              explorez le catalogue
-            </button>
-            .
-          </p>
-        </div>
-      )}
+      {view === 'orders' && <PortalOrders shopId={shop.id} />}
     </ShopLayout>
   );
 }

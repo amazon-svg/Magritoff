@@ -171,6 +171,15 @@ export const TEST_IDS = {
     // 2026-05-10 : pas de nouvel onglet, enrichissement de Fiche uniquement).
     ficheSeoSection: 'product-card-fiche-seo-section',
     ficheCopyJsonBtn: 'product-card-fiche-copy-json-btn',
+    // S-FIX-3 — Mes commandes connectees shop_orders (correctif vue Orders vide)
+    ordersList: 'shop-orders-list',
+    ordersRow: 'shop-orders-row',
+    // S-FIX-4 — Bouton Personnaliser placeholder (Canva future S5.x)
+    productCardPersonalizeBtn: 'product-card-personalize-btn',
+    // S-REWORK-1 — Pilules gammes horizontales sous header (remplace sidebar S2.2)
+    gammesPills: 'shop-gammes-pills',
+    gammePill: 'shop-gamme-pill',
+    gammePillAll: 'shop-gamme-pill-all',
   },
 
   // ─── Mockup engine parametrique (S4.3, Epic 4) ─────────────────────────
