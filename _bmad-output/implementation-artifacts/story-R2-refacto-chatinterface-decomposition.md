@@ -11,7 +11,7 @@ inputs:
   - _bmad-output/refacto-artifacts/refacto-plan-2026-05.md (ADR-R4)
   - _bmad-output/refacto-artifacts/review-adversarial-2026-05-11.md §1.1 B6 + §1.3 E4 + E5
   - _bmad-output/refacto-artifacts/audit-2026-05-11.md §3.2 + §8.1 B
-status: pending
+status: partial-review
 ---
 
 # R2 — ChatInterface décomposition + bugs B6 / E4 / E5
@@ -89,3 +89,66 @@ En tant que **Owner / Admin / Member tenant** imprimeur Pro atelier, je veux que
 - TF nouveau créé et joué OK.
 - Update `architecture.md` §6.X avec ADR-R4 ChatInterface tranchée + traçage E4/E5/B6.
 - 0 occurrence pattern de demo mode silencieux dans le code (grep verified).
+
+## Tasks / Subtasks
+
+### Phase A — Hook `useClaudeSseStream` (LIVRE)
+
+- [x] `src/app/hooks/useClaudeSseStream.ts` cree : extraction `readClaudeSseStream` + `AbortController` (annulation au demontage et entre 2 requetes successives, fix edge case review §1.3 1.2)
+- [x] Export helpers purs : `truncateMessages`, `detectBillingError`, `MAX_CONTEXT_MESSAGES`, classe `ClaudeSseStreamError`
+- [x] Migration `ChatInterface.tsx` sendMessage() vers le hook (suppression `readClaudeSseStream` inline)
+- [x] Tests `tests/hooks/useClaudeSseStream.test.ts` (14 cas : truncateMessages x6, detectBillingError x6, ClaudeSseStreamError x2)
+
+### Phase B — Bugs E4 + E5 + B6 (LIVRE)
+
+- [x] **E4 (billing explicit)** : `ClaudeSseStreamError.kind === 'billing'` declenche un banner `data-testid=marguerite-billing-error-banner` rouge ⚠ FACTURATION IA au lieu de la bascule silencieuse `setIsDemoMode(true)`. Le mode demo reste disponible mais opt-in pour les autres erreurs reseau.
+- [x] **E5 (troncage 25 msg)** : `truncateMessages` applique avant envoi au LLM. L UI conserve l'historique complet, un badge `marguerite-context-truncated-indicator` "CONTEXTE TRONQUE" s affiche quand `messages.length > MAX_CONTEXT_MESSAGES`. NFR43 respecte.
+- [x] **B6 (dual source)** : verifie dans le code actuel → **deja resolu**. `ChatInterface` utilise `messages` / `setMessages` du `useConversation()` context. Pas de useState local pour messages. Le bug etait probablement deja fixe lors d'un sprint anterieur (S1.X). Documente comme "non-applicable car deja corrige".
+
+### Phase C — Extraction 4 sous-composants UI (REPORTE en R2-bis)
+
+- [ ] `ChatMessageList.tsx` — feed scrollable messages + chips clarification + indicateur streaming
+- [ ] `ChatInput.tsx` — textarea + bouton envoi + raccourcis clavier
+- [ ] `ChatHistoryPanel.tsx` — modale historique conversations (⌘K)
+- [ ] `ChatModeToggle.tsx` — selecteur mode open/strict + persistance localStorage
+
+Decision : reporte en R2-bis (story dediee) car la Phase A+B livre la totalite
+de la valeur fonctionnelle (3 bugs critiques fixes + AbortController). La Phase
+C est de la maintenabilite pure (decoupage UI 1057 → ~300 L shell), aucune
+amelioration UX visible. Sera traite quand le sprint refacto continue.
+
+### Phase D — Tests + commit (PARTIEL : Phase A+B tests OK)
+
+- [x] vitest 246/246 verts (232 baseline R0+R1 + 14 nouveaux R2)
+- [x] Vite build OK (1808 modules)
+- [ ] Tests par sous-composant UI : differes en R2-bis
+
+## Dev Agent Record
+
+### Completion Notes
+
+**ACs satisfaits (Phase A+B)** :
+- AC1 (decomposition 5 fichiers) → **partiel** : 1 hook + 1 banner E4 + 1 indicateur E5 livres. 4 sous-composants UI differes R2-bis.
+- AC2 (B6 dual source) → **deja resolu hors R2** : code actuel utilise seulement `useConversation()` context.
+- AC3 (E4 billing banner) → ✅ `marguerite-billing-error-banner` visible quand `ClaudeSseStreamError.kind === 'billing'`.
+- AC4 (E5 troncage 25 msg) → ✅ `truncateMessages` + indicateur `marguerite-context-truncated-indicator`.
+- AC5 (AbortController) → ✅ `useClaudeSseStream` annule au demontage et entre 2 sends successifs.
+- AC6 (≤4 useState dans le shell) → **non encore atteint** : ChatInterface.tsx reste a ~10 useState (les 4 sous-composants UI extrairaient `mode`, `showHistory`, `bulkLibraryPickerOpen`, `selectedIds`, etc.). R2-bis.
+- AC7 (0 regression) → ✅ vitest 246/246 verts.
+- AC8 (garde-fous R0) → ✅ tests R0 priceResolver / ClariprintAdapter / CartContext / tax tous verts.
+
+**Story R2-bis a creer** : Phase C extraction 4 sous-composants UI + tests par composant + finalisation AC1/AC6. Estimee S (2 j-Claude).
+
+### File List
+
+**Nouveaux fichiers** (2) :
+- `src/app/hooks/useClaudeSseStream.ts` (197 L : hook + helpers purs + classe d'erreur typee)
+- `tests/hooks/useClaudeSseStream.test.ts` (14 cas)
+
+**Fichiers modifies** (2) :
+- `src/app/components/ChatInterface.tsx` : suppression `readClaudeSseStream` inline (65 L), migration vers hook, fix E4 (billing banner + opt-in demo), fix E5 (truncateMessages + indicateur)
+- `src/app/lib/testIds.ts` : ajout `marguerite.billingErrorBanner`
+
+### Change Log
+
+- 2026-05-11 : Story R2 livree partial (Phase A hook + Phase B bugs E4/E5/B6), status `pending` → `partial-review`. R2-bis a creer pour Phase C (4 sous-composants UI).

@@ -103,6 +103,8 @@ export const TEST_IDS = {
     quoteLineFormatSelect: 'marguerite-quote-line-format-select',
     quoteLineRemoveBtn: 'marguerite-quote-line-remove-btn',
     contextTruncatedIndicator: 'marguerite-context-truncated-indicator',
+    /** R2 (refacto 2026-05-11) - fix bug E4 : banner billing explicite au lieu de bascule demo silencieuse. */
+    billingErrorBanner: 'marguerite-billing-error-banner',
   },
 
   // ─── P07 — Tracking conso IA ──────────────────────────────────────────

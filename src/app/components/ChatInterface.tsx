@@ -15,54 +15,15 @@ import { usePlan } from "../hooks/usePlan";
 import { useTenant } from "../contexts/TenantContext";
 import { ENABLE_STREAMING_CHAT } from "../lib/featureFlags";
 import { TEST_IDS } from "../lib/testIds";
+import {
+  ClaudeSseStreamError,
+  MAX_CONTEXT_MESSAGES,
+  truncateMessages,
+  useClaudeSseStream,
+} from "../hooks/useClaudeSseStream";
 
-// E3.1 + E3.2 — Lecture d un flux SSE renvoye par claude-proxy-stream.
-// onDelta est appele a chaque chunk de texte recu (pour un indicateur live).
-// Retourne le payload JSON parse de l evenement final "done".
-async function readClaudeSseStream(
-  resp: Response,
-  onDelta: (chunk: string) => void
-): Promise<any> {
-  if (!resp.body) throw new Error("Pas de body sur la response streaming");
-  const reader = resp.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-  let finalPayload: any = null;
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-
-    // Les evenements SSE sont separes par une ligne vide (\n\n).
-    let sep: number;
-    while ((sep = buffer.indexOf("\n\n")) !== -1) {
-      const block = buffer.slice(0, sep);
-      buffer = buffer.slice(sep + 2);
-      let event = "message";
-      let data = "";
-      for (const line of block.split("\n")) {
-        if (line.startsWith("event:")) event = line.slice(6).trim();
-        else if (line.startsWith("data:")) data += line.slice(5).trim();
-      }
-      if (!data) continue;
-      try {
-        const parsed = JSON.parse(data);
-        if (event === "delta" && typeof parsed.text === "string") {
-          onDelta(parsed.text);
-        } else if (event === "done") {
-          finalPayload = parsed;
-        }
-      } catch {
-        // ignore les payloads non JSON
-      }
-    }
-  }
-  if (!finalPayload) {
-    throw new Error("Stream termine sans event 'done'");
-  }
-  return finalPayload;
-}
+// R2 Phase A : readClaudeSseStream extrait dans useClaudeSseStream.ts
+// (avec AbortController + detection billing error + troncage 25 msg).
 
 interface ChatInterfaceProps {
   onShowResults?: () => void;
@@ -90,6 +51,10 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isDemoMode, setIsDemoMode] = useState(false);
+  // R2 Phase B (bug E4) : banner billing explicite au lieu de bascule
+  // demo silencieuse quand Anthropic renvoie un 402 / billing error.
+  const [billingError, setBillingError] = useState(false);
+  const { send: sendSseStream } = useClaudeSseStream();
   // E3.1 — nb de chunks de texte recus pendant un stream en cours.
   // null quand pas de stream actif. Permet l indicateur "Marguerite redige...".
   const [streamingChunks, setStreamingChunks] = useState<number | null>(null);
@@ -188,63 +153,50 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
     if (!userMessage || isLoading) return;
     setIsLoading(true);
     setPendingOptions([]); // reset des options precedentes
+    setBillingError(false);
 
-    const newMessages = [...messages, { role: "user", content: userMessage }];
-    setMessages(newMessages);
+    // R2 Phase B (bug E5) : on tronque l'historique a 25 messages max
+    // (NFR43, project-context §3.4) AVANT d'ajouter le nouveau user message,
+    // pour garantir que le payload envoye au LLM ne depasse jamais la limite.
+    const fullMessages = [...messages, { role: "user", content: userMessage }];
+    const { truncated: contextMessages, droppedCount } = truncateMessages(
+      fullMessages,
+      MAX_CONTEXT_MESSAGES,
+    );
+    setMessages(fullMessages); // l'UI conserve tout l'historique (l'indicateur signale le troncage)
+    if (droppedCount > 0) {
+      console.info(
+        `[R2 E5] Conversation tronquee : ${droppedCount} messages les plus anciens omis du contexte LLM (limite ${MAX_CONTEXT_MESSAGES}).`,
+      );
+    }
 
     let assistantMessage = "";
     let parsedProducts: any[] = [];
 
     try {
-      // E3.1 + E3.2 — Branchement streaming opt-in via feature flag.
-      // ENABLE_STREAMING_CHAT=true : appelle /claude-proxy-stream (SSE),
-      // affiche un indicateur live de chunks. Le payload final reste de
-      // meme forme que la reponse JSON synchrone, donc le code en aval
-      // (clarification / teachingNote / configs) est partage.
-      const requestBody = JSON.stringify({
-        messages: newMessages,
+      // R2 Phase A : passe par useClaudeSseStream (extraction + AbortController
+      // + detection billing). Le payload final reste de meme forme.
+      const baseUrl = `https://${projectId}.supabase.co/functions/v1/make-server-e3db71a4`;
+      const requestBody = {
+        messages: contextMessages,
         userId: user?.id ?? null,
         tenantId: currentTenant?.id ?? null,
         mode,
-      });
-      const baseUrl = `https://${projectId}.supabase.co/functions/v1/make-server-e3db71a4`;
+      };
 
-      let data: any;
-      if (ENABLE_STREAMING_CHAT) {
-        setStreamingChunks(0);
-        const response = await fetch(`${baseUrl}/claude-proxy-stream`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${publicAnonKey}`,
-            Accept: "text/event-stream",
-          },
+      const data = await sendSseStream(
+        {
+          endpoint: `${baseUrl}/${ENABLE_STREAMING_CHAT ? 'claude-proxy-stream' : 'claude-proxy'}`,
+          authToken: publicAnonKey,
           body: requestBody,
-        });
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error(`❌ HTTP ${response.status}:`, errorText);
-          throw new Error(`HTTP error ${response.status}`);
-        }
-        data = await readClaudeSseStream(response, () => {
-          setStreamingChunks((n) => (n ?? 0) + 1);
-        });
-      } else {
-        const response = await fetch(`${baseUrl}/claude-proxy`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${publicAnonKey}`,
-          },
-          body: requestBody,
-        });
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error(`❌ HTTP ${response.status}:`, errorText);
-          throw new Error(`HTTP error ${response.status}`);
-        }
-        data = await response.json();
-      }
+          onDelta: ENABLE_STREAMING_CHAT
+            ? () => setStreamingChunks((n) => (n ?? 0) + 1)
+            : undefined,
+        },
+        ENABLE_STREAMING_CHAT,
+      );
+
+      if (ENABLE_STREAMING_CHAT) setStreamingChunks(0);
 
       // v3 : le edge function peut retourner un teachingNote (reponse
       // pedagogique en markdown) pour les questions du type
@@ -305,8 +257,25 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
       }
     } catch (error) {
       console.error("❌ Chat error:", error);
-      setIsDemoMode(true);
 
+      // R2 Phase B (bug E4) : si l'erreur est de type billing, on affiche
+      // un banner explicite au lieu de basculer silencieusement en demo.
+      // Le user choisit s'il veut malgre tout voir un exemple demo (opt-in).
+      const isBilling =
+        error instanceof ClaudeSseStreamError && error.kind === 'billing';
+      if (isBilling) {
+        setBillingError(true);
+        assistantMessage =
+          "IA temporairement indisponible — facturation Anthropic suspendue. " +
+          "Contactez votre administrateur Magrit pour reactivation. " +
+          "Vous pouvez continuer en mode demo via le bouton ci-dessous.";
+        setMessages((prev) => [...prev, { role: "assistant", content: assistantMessage }]);
+        return;
+      }
+
+      // Autres erreurs reseau / serveur : fallback demo (comportement
+      // historique conserve, mais documente comme fallback uniquement).
+      setIsDemoMode(true);
       const demoConfigs = [
         {
           clariprint: {
@@ -432,6 +401,28 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
             </span>
           </div>
           <div className="ml-auto flex items-center gap-2">
+            {/* R2 Phase B (bug E4) : banner billing explicite, distinct du mode demo */}
+            {billingError && (
+              <span
+                data-testid={TEST_IDS.marguerite.billingErrorBanner}
+                className="px-2.5 py-1 rounded-full font-mono border border-red-300 bg-red-50 text-red-700"
+                style={{ fontSize: "11px", letterSpacing: "0.04em", fontWeight: 500 }}
+                title="IA indisponible : facturation Anthropic suspendue. Contactez votre administrateur."
+              >
+                ⚠ FACTURATION IA
+              </span>
+            )}
+            {/* R2 Phase B (bug E5) : indicateur quand l'historique depasse la limite contexte LLM */}
+            {messages.length > MAX_CONTEXT_MESSAGES && (
+              <span
+                data-testid={TEST_IDS.marguerite.contextTruncatedIndicator}
+                className="px-2.5 py-1 rounded-full font-mono border border-blue-200 bg-blue-50 text-blue-700"
+                style={{ fontSize: "11px", letterSpacing: "0.04em", fontWeight: 500 }}
+                title={`Les ${messages.length - MAX_CONTEXT_MESSAGES} message(s) les plus anciens ne sont plus inclus dans le contexte envoye au LLM (limite ${MAX_CONTEXT_MESSAGES}).`}
+              >
+                CONTEXTE TRONQUE
+              </span>
+            )}
             {isDemoMode && (
               <span
                 className="px-2.5 py-1 rounded-full font-mono border border-warn-bg bg-warn-bg text-warn-fg"
