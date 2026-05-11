@@ -41,8 +41,10 @@ import { TEST_IDS } from '../../lib/testIds';
 //
 // R5 (refacto 2026-05-11) : migre vers `supabase.functions.invoke()`
 // (ADR-R3 pattern Supabase unique). L auth header est gere automatiquement
-// par le SDK. Le fix race condition B4 (transaction edge atomique) est
-// trackee dans R5-bis (creation d'une edge `invite-member` consolidee).
+// par le SDK.
+//
+// Conserve UNIQUEMENT pour le bouton "Renvoyer" (resendInvite) — pour les
+// nouvelles invitations, R5-bis utilise `invite-member` (transactionnel).
 async function callSendInvitationEmail(invitationId: string): Promise<{
   sent: boolean;
   link: string;
@@ -71,6 +73,71 @@ async function callSendInvitationEmail(invitationId: string): Promise<{
     return { sent: !!data.sent, link: data.link || '', reason: data.reason };
   } catch (e) {
     return { sent: false, link: '', reason: String(e) };
+  }
+}
+
+/**
+ * R5-bis (refacto 2026-05-11) — Appelle l'edge `invite-member` transactionnelle
+ * qui consolide l'insert tenant_invitations + envoi email Resend dans la
+ * meme operation avec rollback si l'email echoue. Resout la race condition
+ * B4 (review adversariale §1.1) ou une invitation pouvait exister en DB
+ * sans email envoye.
+ *
+ * Retour :
+ *   succes (email envoye) : { sent: true, invitationId, link }
+ *   succes degrade (RESEND_API_KEY absente → lien manuel) : { sent: false, invitationId, link, reason }
+ *   echec : { sent: false, invitationId: null, link: null, error }
+ */
+async function callInviteMember(input: {
+  email: string;
+  role: 'owner' | 'admin' | 'member' | 'partner';
+  tenant_id: string;
+  invited_by: string;
+  access_scope: 'magrit_full' | 'shop_only';
+  allowed_shop_ids: string[];
+  permissions: { can_quote: boolean; can_order: boolean; can_invite: boolean };
+}): Promise<{
+  sent: boolean;
+  invitationId: string | null;
+  link: string | null;
+  reason?: string;
+  error?: string;
+}> {
+  try {
+    const { data, error } = await supabase.functions.invoke<{
+      ok: boolean;
+      invitationId?: string;
+      sent?: boolean;
+      link?: string;
+      reason?: string;
+      error?: string;
+    }>('invite-member', {
+      body: {
+        ...input,
+        baseUrl: window.location.origin,
+      },
+    });
+    if (error || !data?.ok) {
+      return {
+        sent: false,
+        invitationId: null,
+        link: null,
+        error: data?.error || error?.message || 'invocation echouee',
+      };
+    }
+    return {
+      sent: !!data.sent,
+      invitationId: data.invitationId ?? null,
+      link: data.link ?? null,
+      reason: data.reason,
+    };
+  } catch (e) {
+    return {
+      sent: false,
+      invitationId: null,
+      link: null,
+      error: String(e),
+    };
   }
 }
 
@@ -201,48 +268,47 @@ function MagritUsersSection() {
     }
     setSending(true);
     const cleanedEmail = inviteEmail.trim().toLowerCase();
-    const token = crypto.randomUUID().replace(/-/g, '') + Date.now().toString(36);
-    const expires = new Date(Date.now() + 14 * 86400_000).toISOString();
-    const { data: inserted, error } = await supabase
-      .from('tenant_invitations')
-      .insert({
-        tenant_id: currentTenant.id,
-        email: cleanedEmail,
-        role: inviteRole,
-        token,
-        expires_at: expires,
-        invited_by: user.id,
-        access_scope: inviteScope,
-        allowed_shop_ids: inviteScope === 'shop_only' ? inviteShopIds : [],
-        permissions: invitePerms,
-      })
-      .select('id')
-      .single();
-    if (error || !inserted) {
-      alert("Echec de l'invitation : " + (error?.message || 'inconnu'));
-    } else {
-      await logEvent('invited', null, {
-        email: cleanedEmail,
-        role: inviteRole,
-        access_scope: inviteScope,
-      });
-      // E9.5 — envoi email via edge function. Fallback : afficher le lien
-      // manuel si Resend n'est pas configure ou l'envoi echoue.
-      const result = await callSendInvitationEmail(inserted.id);
-      if (result.sent) {
-        alert(`Invitation envoyee par email a ${cleanedEmail}.`);
-      } else {
-        const link =
-          result.link || `${window.location.origin}/invitations/${token}`;
-        prompt(
-          `Invitation creee. Email non envoye (${result.reason || 'config manquante'}). Transmettez ce lien au destinataire :`,
-          link,
-        );
-      }
-      resetInviteForm();
-      setInviteOpen(false);
-      await load();
+
+    // R5-bis (refacto 2026-05-11) : passe par l'edge `invite-member`
+    // transactionnelle qui consolide insert + email Resend avec rollback
+    // automatique. Resout la race condition B4 (audit refacto §1.1) ou
+    // une invitation pouvait exister en DB sans email envoye.
+    const result = await callInviteMember({
+      email: cleanedEmail,
+      role: inviteRole,
+      tenant_id: currentTenant.id,
+      invited_by: user.id,
+      access_scope: inviteScope,
+      allowed_shop_ids: inviteScope === 'shop_only' ? inviteShopIds : [],
+      permissions: invitePerms,
+    });
+
+    if (!result.invitationId) {
+      alert("Echec de l'invitation : " + (result.error || 'inconnu'));
+      setSending(false);
+      return;
     }
+
+    await logEvent('invited', null, {
+      email: cleanedEmail,
+      role: inviteRole,
+      access_scope: inviteScope,
+    });
+
+    if (result.sent) {
+      alert(`Invitation envoyee par email a ${cleanedEmail}.`);
+    } else {
+      // Cas degrade : invitation creee mais email non envoye (config Resend
+      // absente). L'edge a renvoye ok=true + sent=false + link. On affiche
+      // le lien manuel pour transmission.
+      prompt(
+        `Invitation creee. Email non envoye (${result.reason || 'config manquante'}). Transmettez ce lien au destinataire :`,
+        result.link || `${window.location.origin}/invitations/`,
+      );
+    }
+    resetInviteForm();
+    setInviteOpen(false);
+    await load();
     setSending(false);
   };
 
