@@ -320,6 +320,21 @@ export function PublicShop() {
     return pimGammes.filter((g) => inferred.has(g.slug));
   }, [pimGammes, subscribedSlugs, gammeMap]);
 
+  // ─── S-REWORK-1 Pilules gammes horizontales (remplace sidebar S2.2) ──────
+  // CRITICAL : ce useMemo DOIT etre declare AVANT les early returns ci-dessous
+  // pour respecter la regle React des hooks (sinon "Rendered more hooks than
+  // during the previous render"). Bug initialement introduit ligne 382 fixe
+  // 2026-05-11.
+  const gammePills = useMemo(() => {
+    return visibleGammes
+      .map((g) => ({
+        slug: g.slug,
+        name: g.name,
+        count: gammeMap.get(g.slug)?.length ?? 0,
+      }))
+      .filter((p) => p.count > 0); // n'affiche que les gammes avec produits
+  }, [visibleGammes, gammeMap]);
+
   // ─── Access guard shop_only (S2.1 AC3) ───────────────────────────────────
   // Calcul du access *avant* tout rendu de contenu boutique pour eviter la
   // fuite de produits/branding tenant a un user shop_only non-autorise.
@@ -376,16 +391,6 @@ export function PublicShop() {
   }
 
   const cartCount = cart.reduce((s, l) => s + l.qty, 0);
-
-  // S-REWORK-1 — Pilules gammes horizontales (remplace sidebar S2.2).
-  // Format compatible avec ShopLayout : { slug, name, count? }.
-  const gammePills = useMemo(() => {
-    return visibleGammes.map((g) => ({
-      slug: g.slug,
-      name: g.name,
-      count: gammeMap.get(g.slug)?.length ?? 0,
-    })).filter((p) => p.count > 0); // n'affiche que les gammes avec produits
-  }, [visibleGammes, gammeMap]);
 
   return (
     <ShopLayout
