@@ -32,7 +32,8 @@ export interface LibraryProduct {
   description: string;
   price_ht: number;
   image_url: string;
-  config: any;
+  /** R4 : Record<string, unknown> au lieu de `any`. */
+  config: Record<string, unknown>;
   active: boolean;
   created_at?: string;
 }

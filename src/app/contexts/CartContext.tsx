@@ -7,15 +7,36 @@ import {
 import { getTaxRate } from '../utils/tax';
 import { useTenant } from './TenantContext';
 
+/**
+ * R4 (refacto 2026-05-11) : type minimal pour un produit en panier. On evite
+ * `any` mais on garde la souplesse pour les divers shapes (produit atelier
+ * Magrit, ShopProduct boutique, produit library), tous compatibles avec ce
+ * minimum (id + name + price_ht ou price + config optionnel).
+ */
+export interface CartProduct {
+  id: string;
+  name: string;
+  /** Prix HT forfaitaire pour la quantite encodee dans config.quantity. */
+  price_ht?: number;
+  /** Champ legacy : meme semantique que price_ht (S-FIX-PANIER-11/05). */
+  price?: number;
+  /** Configuration produit (Clariprint, library, etc.). */
+  config?: Record<string, unknown>;
+  /** Association client (atelier) si applicable. */
+  client_id?: string | null;
+  /** Autres champs autorises (kind, format, etc.) — soft-typed pour retro-compat. */
+  [key: string]: unknown;
+}
+
 interface CartItem {
   id: string;
-  product: any;
+  product: CartProduct;
   addedAt: string;
 }
 
 interface CartContextType {
   items: CartItem[];
-  addToCart: (product: any) => void;
+  addToCart: (product: CartProduct) => void;
   removeFromCart: (id: string) => void;
   updateItemClient: (itemId: string, clientId: string | null) => void;
   clearCart: () => void;
@@ -35,7 +56,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const { currentTenant } = useTenant();
 
-  const addToCart = (product: any) => {
+  const addToCart = (product: CartProduct) => {
     const newItem: CartItem = {
       id: `cart_${Date.now()}_${Math.random().toString(36).substring(7)}`,
       product: product,

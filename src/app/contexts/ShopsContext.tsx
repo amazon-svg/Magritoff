@@ -42,9 +42,12 @@ export interface ShopProduct {
   description: string;
   price_ht: number;
   image_url: string;
-  config: any;
+  /** R4 : Record<string, unknown> au lieu de `any` pour beneficier du TS narrowing. */
+  config: Record<string, unknown>;
   display_order: number;
   created_at?: string;
+  /** R4 : tenant_id ajoute par migration 20260424_02. */
+  tenant_id?: string | null;
 }
 
 const DEFAULT_THEME: ShopTheme = {
