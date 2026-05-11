@@ -6,6 +6,10 @@
   "scripts": {
     "build": "vite build",
     "dev": "vite --port 5176 --strictPort",
+    "dev:b5": "./scripts/dev-b5.sh",
+    "dev:b5:bg": "./scripts/dev-b5.sh --bg",
+    "dev:b5:stop": "./scripts/dev-b5.sh --stop",
+    "dev:b5:status": "./scripts/dev-b5.sh --status",
     "test": "vitest run"
   },
   "dependencies": {
