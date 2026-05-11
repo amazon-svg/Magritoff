@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ChevronUp, Loader2, RefreshCw, Printer, CheckCircle, AlertTriangle, Lock,
   BookmarkPlus, Check, FileText, Tag, Box, Pencil, Bug, Plus, Heart,
@@ -19,7 +19,9 @@ import { ProductOverlay } from "./shop/ProductOverlay";
 import { ProductPimSeoSection } from "./ProductPimSeoSection";
 import { useTenant } from "../contexts/TenantContext";
 import { applyTax, extractTaxAmount, formatTaxLabel, getTaxRate } from "../utils/tax";
-import { computeClariprintQuoteSafe } from "../../server/clariprint/ClariprintAdapter";
+import { useClariprintProduct } from "../hooks/useClariprintProduct";
+import { ProductCard3D } from "./product-card/ProductCard3D";
+import { ProductCardDebug } from "./product-card/ProductCardDebug";
 import type { ShopProduct } from "../contexts/ShopsContext";
 
 interface ClariprintQuoteResult {
@@ -113,6 +115,14 @@ export function ProductCard({
   // Le bouton "Editer" (onglet form) bascule de l'ancien form inline vers
   // l'overlay riche avec recalcul prix Clariprint en temps reel (S2.4).
   const [overlayOpen, setOverlayOpen] = useState(false);
+  const [showDebug, setShowDebug] = useState(false);
+
+  // R1 Phase A (fix bug E1 audit refacto §3.1) : synchroniser localProduct
+  // avec la prop `product` quand le parent re-render avec un produit different.
+  // Avant : `useState(product)` clonait la prop initiale sans jamais resync.
+  useEffect(() => {
+    setLocalProduct(product);
+  }, [product]);
 
   // Enrichissement PIM (gamme + definition) à partir de la config courante
   const enriched = (() => {
@@ -123,46 +133,22 @@ export function ProductCard({
     }
   })();
 
-  // ─── États Clariprint ───────────────────────────────────────────────────
-  const [clariprintLoading, setClariprintLoading] = useState(false);
-  const [clariprintQuote, setClariprintQuote] = useState<ClariprintQuoteResult | null>(null);
-  const [lastRequestSent, setLastRequestSent] = useState<any>(null);
-  const [lastRawResponse, setLastRawResponse] = useState<string | null>(null);
-  const [showDebug, setShowDebug] = useState(false);
+  // ─── Clariprint (hook extrait R1 Phase A) ───────────────────────────────
+  // Le hook gere : fetch via httpAdapter (R3), AbortController flag (fix B5),
+  // states quote / loading / lastRequest / lastRawResponse. Cf.
+  // useClariprintProduct.ts.
+  const {
+    quote: clariprintQuote,
+    loading: clariprintLoading,
+    lastRequest: lastRequestSent,
+    lastRawResponse,
+    compute: triggerClariprint,
+    reset: resetClariprintQuote,
+  } = useClariprintProduct();
 
-  // ─── Appel API Clariprint ───────────────────────────────────────────────
-  // R3 (refacto 2026-05-11) : passe par `ClariprintHttpAdapter` (via le
-  // wrapper `computeClariprintQuoteSafe`) au lieu d'un fetch direct. Garantit
-  // que `validateClariprintResponse()` est applique systematiquement, conforme
-  // a l'ADR architecture.md §4.4 (pattern Adapter enforce).
   const computeClariprintQuote = async () => {
     if (!localProduct.clariprintData) return;
-    setClariprintLoading(true);
-    setClariprintQuote(null);
-    setLastRawResponse(null);
-
-    // Capturer la requête exacte envoyée
-    const requestPayload = { clariprint: localProduct.clariprintData };
-    setLastRequestSent(requestPayload);
-    console.log("📤 Requête envoyée à Clariprint:", JSON.stringify(requestPayload, null, 2));
-
-    try {
-      const data = await computeClariprintQuoteSafe(localProduct.clariprintData);
-      console.log("🖨️ Résultat Clariprint:", data);
-      // Stocker la réponse brute pour le debug
-      setLastRawResponse(JSON.stringify(data, null, 2));
-      setClariprintQuote(data);
-    } catch (error) {
-      // computeClariprintQuoteSafe ne throw jamais (wrapper), mais on garde
-      // le filet de securite pour les exceptions inattendues.
-      console.error("❌ Erreur appel Clariprint:", error);
-      setClariprintQuote({
-        success: false,
-        error: "Erreur réseau lors de la connexion à Clariprint",
-      });
-    } finally {
-      setClariprintLoading(false);
-    }
+    await triggerClariprint(localProduct.clariprintData);
   };
 
   const updateProduct = (updates: any) => {
@@ -1038,24 +1024,8 @@ export function ProductCard({
             </div>
           )}
 
-          {/* ── Mockup & 3D ── */}
-          {activeTab === "mockup" && (
-            <div className="bg-paper border-2 border-line rounded-xl p-6 mb-3 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-base font-semibold text-ink">Aperçu 3D & Mockup</h3>
-                <button onClick={() => setActiveTab(null)} className="text-ink-muted hover:text-ink">
-                  <ChevronUp className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="text-base text-ink-muted">
-                <p className="mb-3">Visualisez votre produit en 3D avant impression.</p>
-                <div className="bg-line rounded-lg p-12 text-center">
-                  <div className="text-ink-mute-2 text-6xl mb-3">🎨</div>
-                  <p className="text-ink-muted">Aperçu 3D disponible après upload de votre design</p>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* ── Mockup & 3D ── (R1 Phase B : extrait dans ProductCard3D.tsx) */}
+          {activeTab === "mockup" && <ProductCard3D onClose={() => setActiveTab(null)} />}
 
           {/* ── Formulaire d'édition ── */}
           {activeTab === "form" && (
@@ -1131,7 +1101,7 @@ export function ProductCard({
                 </div>
                 <button
                   onClick={() => {
-                    setClariprintQuote(null); // Reset le prix Clariprint si on modifie
+                    resetClariprintQuote(); // Reset le prix Clariprint si on modifie
                     setActiveTab(null);
                   }}
                   className="w-full px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
@@ -1144,72 +1114,12 @@ export function ProductCard({
 
           {/* ── Onglet Debug Clariprint ── */}
           {activeTab === "debug" && (
-            <div className="bg-slate-900 border-2 border-slate-700 rounded-2xl p-4 mb-3 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <span className="text-slate-300 font-mono font-bold text-base">🔍 Debug Clariprint</span>
-                </div>
-                <button onClick={() => setActiveTab(null)} className="text-slate-400 hover:text-white">
-                  <ChevronUp className="w-5 h-5" />
-                </button>
-              </div>
-
-              {/* Requête envoyée */}
-              <div className="mb-3">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-mono font-bold text-slate-300">
-                    📤 Requête envoyée à Clariprint (POST /optimproject/json.wcl)
-                  </span>
-                  <button
-                    onClick={() =>
-                      navigator.clipboard.writeText(
-                        JSON.stringify({ clariprint_product: localProduct.clariprintData }, null, 2)
-                      )
-                    }
-                    className="text-sm text-slate-400 hover:text-white border border-slate-600 px-2 py-0.5 rounded transition-colors"
-                  >
-                    Copier
-                  </button>
-                </div>
-                {localProduct.clariprintData ? (
-                  <pre className="text-sm text-green-300 overflow-auto max-h-72 leading-relaxed bg-slate-950 rounded-lg p-3">
-                    {JSON.stringify({ clariprint_product: localProduct.clariprintData }, null, 2)}
-                  </pre>
-                ) : (
-                  <p className="text-sm text-slate-500 italic p-3 bg-slate-950 rounded-lg">
-                    Aucune donnée Clariprint disponible sur ce produit.
-                  </p>
-                )}
-              </div>
-
-              {/* Réponse brute reçue */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-mono font-bold text-slate-300">
-                    📩 Réponse brute Clariprint
-                  </span>
-                  {lastRawResponse && (
-                    <button
-                      onClick={() => navigator.clipboard.writeText(lastRawResponse)}
-                      className="text-sm text-slate-400 hover:text-white border border-slate-600 px-2 py-0.5 rounded transition-colors"
-                    >
-                      Copier
-                    </button>
-                  )}
-                </div>
-                {lastRawResponse ? (
-                  <pre className="text-sm text-yellow-200 overflow-auto max-h-72 leading-relaxed bg-slate-950 rounded-lg p-3">
-                    {lastRawResponse}
-                  </pre>
-                ) : (
-                  <p className="text-sm text-slate-500 italic p-3 bg-slate-950 rounded-lg">
-                    {clariprintLoading
-                      ? "⏳ Appel en cours..."
-                      : "Aucune réponse encore — cliquez \"Obtenir le prix réel Clariprint\" dans l'onglet Prix & Devis."}
-                  </p>
-                )}
-              </div>
-            </div>
+            <ProductCardDebug
+              clariprintData={localProduct.clariprintData}
+              lastRawResponse={lastRawResponse}
+              clariprintLoading={clariprintLoading}
+              onClose={() => setActiveTab(null)}
+            />
           )}
 
           {/* Modal devis */}

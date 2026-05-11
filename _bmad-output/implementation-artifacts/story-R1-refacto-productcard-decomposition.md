@@ -12,7 +12,7 @@ inputs:
   - _bmad-output/refacto-artifacts/review-adversarial-2026-05-11.md §1.3 E1 + §2.2
   - _bmad-output/refacto-artifacts/audit-2026-05-11.md §3.1 + §8.1 A
   - mémoires : feedback_persona_primaire_imprimeur.md + feedback_pim_marketing_card.md + feedback_no_invent_hors_backlog.md
-status: pending
+status: partial-review
 ---
 
 # R1 — ProductCard décomposition 5 onglets + PIM Fiche enrichissement (priorité G satellite)
@@ -85,3 +85,77 @@ En tant que **Owner tenant / Admin tenant** imprimeur Pro atelier, je veux que l
 - Smoke visuel Arnaud validé sur atelier.
 - Update `architecture.md` §6.3 avec ADR-R4 décomposition tranchée.
 - 0 occurrence onglet « Marketing » ou autre onglet non-spec dans le DOM (règle dure `feedback_no_invent_hors_backlog.md`).
+
+## Tasks / Subtasks
+
+### Phase A — Hook Clariprint + fix bug E1 (LIVRE)
+
+- [x] Hook `src/app/hooks/useClariprintProduct.ts` cree : compute / reset / quote / loading / lastRequest / lastRawResponse + flag `cancelledRef` (fix B5 race condition au demontage)
+- [x] Migration `ProductCard.tsx` : remplace 5 `useState` Clariprint + fonction `computeClariprintQuote` par `useClariprintProduct()` hook
+- [x] Fix bug E1 (audit refacto §3.1) : `useEffect(() => setLocalProduct(product), [product])` ajoute pour synchroniser le state local quand la prop change
+- [x] Tests `tests/hooks/useClariprintProduct.test.ts` (2 cas — contrat exporte. Tests fonctionnels limites par vitest `environment: node` sans @testing-library/react)
+
+### Phase B — Extraction onglets (PARTIELLE — 2/5 livres)
+
+- [x] **Onglet 3D livre** : `src/app/components/product-card/ProductCard3D.tsx` extrait (18L → composant dedie, placeholder visuel)
+- [x] **Onglet Debug livre** : `src/app/components/product-card/ProductCardDebug.tsx` extrait (124L → composant dedie)
+- [ ] **Onglet Prix REPORTE en R1-bis** : 295L, hot-path demo (affichage prix Clariprint / TTC / boutons Calculer / fallback Prix marche). Risque regression demo eleve → garde-fou prudent.
+- [ ] **Onglet Editer REPORTE en R1-bis** : 84L, contient overlay deviseur (S2.4b). Touche au flow Pro atelier critique demo.
+- [ ] **Onglet Fiche REPORTE en R1-bis** : 115L + ProductPimSeoSection deja extrait S-FIX-1b. PIM marketing 9 champs (AC3) deja partiellement couverts via ProductPimSeoSection — a finaliser dans R1-bis.
+
+### Phase C — Tests vitest par onglet (PARTIELLE)
+
+- [x] Tests garde-fous R0 inchanges (priceResolver / ClariprintAdapter / CartContext / tax) — 230 cas verts (AC9 ok)
+- [ ] Tests par sous-composant onglet : 2/5 livres (3D + Debug n'ont pas de logique testable, juste du rendu). Tests Prix / Fiche / Editer reportes en R1-bis.
+
+## Dev Agent Record
+
+### Implementation Plan (executed)
+
+R1 = decomposition ProductCard 1270L. Estimee **L 4 j-Claude**, donc tres
+risquee a livrer d'un coup pendant une session unique. Plan execute :
+
+- **Phase A** (max gain / min risque) : hook Clariprint extrait + fix bug E1
+  via useEffect. Pas de changement visuel possible (logique stricte preservee).
+  ✅ Livre.
+- **Phase B partielle** : extraction des 2 onglets les plus isoles (3D
+  placeholder + Debug). Aucun composant n'inclut de logique business critique
+  pour la demo. ✅ Livre.
+- **Phase B reportee** (3 onglets sur 5) : Prix / Editer / Fiche touchent au
+  hot-path demo (2026-05-23, 12 jours). Extraction = risque regression visuelle
+  ou comportementale. Decision pragmatique : tracker en **R1-bis** post-demo.
+
+### Completion Notes
+
+**ACs satisfaits (Phase A + B partielle)** :
+- AC1 (5 sous-composants) → **2/5 livres** (3D + Debug). Prix / Editer / Fiche reportes.
+- AC2 (useState <= 5 dans shell) → **non encore atteint** : ProductCard.tsx reste a 1180L avec ~9 useState (la baisse a 5 useState exige l'extraction des 3 onglets restants).
+- AC3 (9 champs PIM dans Fiche) → **deja partiellement OK via ProductPimSeoSection** (S-FIX-1b). Finalisation R1-bis.
+- AC6 (fix E1 sync localProduct) → ✅ **useEffect ajoute** ligne ~113 de ProductCard.tsx.
+- AC7 (5 onglets stricts inchanges) → ✅ TabType reste `sheet | pricing | mockup | form | debug`. Aucun nouvel onglet.
+- AC8 (0 regression) → ✅ vitest 232/232 verts, Vite build OK.
+- AC9 (garde-fous R0 verts) → ✅ priceResolver / ClariprintAdapter / CartContext / tax tous verts.
+
+**Deviations vs plan** :
+- Phase B partielle : 2/5 onglets seulement. Decision conjointe risque demo (hot-path Prix + Fiche + Editer) → report R1-bis.
+- Hook `useClariprintProduct` ajoute `cancelledRef` (au-dela du scope strict R1) pour resoudre simultanement le bug B5 review adversariale.
+- Tests Phase A : 2 cas de contrat seulement (vitest `environment: node` ne permet pas tester un hook React sans `@testing-library/react`).
+
+**Story R1-bis a creer** : extraction Prix + Editer + Fiche + tests vitest par
+onglet + smoke visuel Arnaud. Estimee S (2 j-Claude) car les hot-paths sont
+deja chacun isolables.
+
+### File List
+
+**Nouveaux fichiers** (3) :
+- `src/app/hooks/useClariprintProduct.ts`
+- `src/app/components/product-card/ProductCard3D.tsx`
+- `src/app/components/product-card/ProductCardDebug.tsx`
+- `tests/hooks/useClariprintProduct.test.ts`
+
+**Fichiers modifies** (1) :
+- `src/app/components/ProductCard.tsx` (hook integration + fix E1 + extraction 2 onglets, **1270L → 1180L**)
+
+### Change Log
+
+- 2026-05-11 : Story R1 livree en partiel (Phase A complete + Phase B partielle 2/5 onglets), status `pending` → `partial-review`. R1-bis a creer pour finaliser Prix/Editer/Fiche post-demo client.
