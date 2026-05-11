@@ -71,16 +71,19 @@ export function ShopProductCard({
   const dimensions = useMemo(() => resolveProductDimensions(product), [product]);
 
   // S-FIX-2 — Badge gamme PIM resolue au lieu de product.category brute.
-  // Toutes les gammes Clariprint ont matching_rules.kind="leaflet" en PIM,
-  // donc category="leaflet" partout. Resolution via PIM rend le badge utile
-  // ("Cartes de visite standard", "Carterie", "Flyer A4"...).
-  // Fallback : product.category brute si pas de match PIM, puis "Template".
+  // S-FIX-BADGES-11/05 — Si la category fallback est un kind Clariprint brut
+  // ("leaflet", "folded", "book"…), on retombe sur "Template" (label generique).
+  // Evite la regression "LEAFLET partout" remontee par Arnaud le 11/05.
   const gammeName = useMemo(() => {
     if (!pimGammes || pimGammes.length === 0) return null;
-    const gamme = resolveGamme(product.config, pimGammes);
+    // S-FIX-BADGES-11/05 (bug #4) : passer product.name pour disambiguer
+    const gamme = resolveGamme(product.config, pimGammes, product.name);
     return gamme?.name ?? null;
-  }, [product.config, pimGammes]);
-  const categoryLabel = gammeName || product.category || "Template";
+  }, [product.config, product.name, pimGammes]);
+  const isRawClariprintKind = product.category &&
+    /^(leaflet|folded|book|cover|section)$/i.test(product.category);
+  const categoryLabel = gammeName
+    ?? (isRawClariprintKind ? "Template" : (product.category || "Template"));
 
   // tenant_id n est pas expose sur Shop public (RLS), on retombe sur shop.id
   // comme namespace de cache. La fonction edge mockup-generator accepte les
@@ -156,8 +159,10 @@ export function ShopProductCard({
           </p>
         )}
 
-        {/* ─── Ligne prix + actions ───────────────────────────────── */}
-        <div className="flex items-center justify-between mt-1.5">
+        {/* S-FIX-BTNS-11/05 (bug #2b Arnaud) : prix sur sa propre ligne pour
+            laisser de l espace aux 3 boutons (Configurer / Personnaliser /
+            + Panier) qui s entassaient quand layout `justify-between`. */}
+        <div className="flex flex-col gap-2 mt-1.5">
           <div
             className="font-mono text-ink"
             style={{
@@ -174,11 +179,11 @@ export function ShopProductCard({
               className="text-ink-muted ml-1.5"
               style={{ fontSize: "11.5px", fontWeight: 400 }}
             >
-              / 500 ex.
+              / {(product.config as any)?.quantity ?? 500} ex.
             </span>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             {/* CTA primary (S2.3 placeholder pour S2.4 overlay) */}
             <button
               type="button"
@@ -198,7 +203,11 @@ export function ShopProductCard({
               Configurer
             </button>
 
-            {/* S-FIX-4 — Bouton Personnaliser placeholder (Canva future S5.x) */}
+            {/* S-FIX-4 — Bouton Personnaliser placeholder (Canva future S5.x)
+                S-FIX-BTNS-11/05 (bug #2a Arnaud) : retire `opacity-0
+                group-hover:opacity-100` → bouton toujours visible. Le hover-
+                reveal pretait a confusion (l'acheteur ne savait pas que ces
+                boutons existaient sans survoler). */}
             <button
               type="button"
               data-testid={TEST_IDS.shop.productCardPersonalizeBtn}
@@ -206,16 +215,15 @@ export function ShopProductCard({
               title="Personnaliser via Canva — fonctionnalité à venir"
               onClick={(e) => {
                 e.stopPropagation();
-                // Canva integration arrive en S5.x (cf. epics.md Epic 5)
                 console.info("[S-FIX-4] Bouton Personnaliser — connexion Canva à venir en S5.x");
               }}
-              className="opacity-0 group-hover:opacity-100 px-3 py-1.5 bg-paper border border-line-2 text-ink-2 rounded-md hover:bg-bg hover:text-ink transition-all"
+              className="px-3 py-1.5 bg-paper border border-line-2 text-ink-2 rounded-md hover:bg-bg hover:text-ink transition-all"
               style={{ fontSize: "12.5px", fontWeight: 500 }}
             >
               Personnaliser
             </button>
 
-            {/* CTA secondary hover-reveal (retro-compat) */}
+            {/* S-FIX-BTNS-11/05 (bug #2a) : bouton + Panier persistant */}
             <button
               type="button"
               data-testid={TEST_IDS.shop.productCardQuoteBtn}
@@ -224,7 +232,7 @@ export function ShopProductCard({
                 e.stopPropagation();
                 onAddToCart(product, 1);
               }}
-              className="opacity-0 group-hover:opacity-100 px-3 py-1.5 bg-paper border border-line-2 text-ink rounded-md hover:bg-bg transition-all"
+              className="px-3 py-1.5 bg-paper border border-line-2 text-ink rounded-md hover:bg-bg transition-all"
               style={{ fontSize: "12.5px", fontWeight: 500 }}
             >
               + Panier

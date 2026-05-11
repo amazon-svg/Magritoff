@@ -45,7 +45,7 @@ export function resolveProductImage(input: ResolveImageInput): string | null {
       kind: input.clariprintData?.kind ?? input.kind,
       name: input.name,
     };
-    const gamme = resolveGamme(config, input.gammes);
+    const gamme = resolveGamme(config, input.gammes, input.name);
     if (gamme) {
       const def = resolveDefinition(
         gamme.slug,

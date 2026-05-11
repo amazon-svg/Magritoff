@@ -427,15 +427,18 @@ export function PortalProduct({ product, onBack, onAddToCart, pimGammes, pimDefi
 
           <button
             onClick={() => {
-              // On passe au panier le prix actif. Si Clariprint a calcule, c est
-              // ce prix. Sinon, on injecte le prix marche pour que le panier
-              // puisse calculer le total et permettre la commande (decision
-              // Arnaud 2026-05-09 fix prix marche). En V2+ ce fallback sera
-              // remplace par le panel Magrit (parcs imprimeurs anonymises).
+              // S-FIX-PANIER-11/05 (bug #5 Arnaud) : `qty` est la quantite
+              // d'exemplaires (500 cartes, 1000 flyers…), pas le nombre de
+              // packs. Le `price_ht` est forfaitaire pour cette quantite.
+              // → on passe `qty=1` (= 1 pack) au panier, en stockant la qty
+              // d'ex dans `product.config.quantity` pour affichage / commande.
+              // Cela evite la multiplication `price * qtyEx` qui faisait
+              // exploser le total (35 € × 500 ex = 17 500 € au lieu de 35 €).
+              const baseConfig = { ...(product.config ?? {}), quantity: qty };
               const productWithPrice = hasCalcd
-                ? { ...product, price_ht: activePriceHT, config: { ...(product.config ?? {}), clariprintQuote: quote } }
-                : { ...product, price_ht: activePriceHT, config: { ...(product.config ?? {}), priceSource: 'prix_marche' } };
-              onAddToCart(productWithPrice, qty, selectedOpts);
+                ? { ...product, price_ht: activePriceHT, config: { ...baseConfig, clariprintQuote: quote } }
+                : { ...product, price_ht: activePriceHT, config: { ...baseConfig, priceSource: 'prix_marche' } };
+              onAddToCart(productWithPrice, 1, selectedOpts);
             }}
             disabled={calcLoading}
             className="py-3.5 px-5 rounded-lg bg-brand text-brand-ink hover:bg-black transition-colors disabled:opacity-40 disabled:cursor-not-allowed"

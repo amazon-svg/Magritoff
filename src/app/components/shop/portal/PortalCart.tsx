@@ -154,9 +154,20 @@ export function PortalCart({
                       className="text-ink-muted font-mono"
                       style={{ fontSize: '12px', fontWeight: 400, lineHeight: 1.5 }}
                     >
-                      {(line.product.config as any)?.format
-                        ?? `${(line.product.config as any)?.width ?? '?'}×${(line.product.config as any)?.height ?? '?'} mm`}
-                      {line.product.category && <> · {line.product.category}</>}
+                      {(() => {
+                        // S-FIX-PANIER-11/05 : la quantite d'exemplaires
+                        // commandes est dans config.quantity (pas dans
+                        // line.qty qui represente le nombre de packs).
+                        const exQty = (line.product.config as any)?.quantity;
+                        const format = (line.product.config as any)?.format
+                          ?? `${(line.product.config as any)?.width ?? '?'}×${(line.product.config as any)?.height ?? '?'} mm`;
+                        return (
+                          <>
+                            {exQty ? `${exQty} ex · ` : ''}{format}
+                            {line.product.category && <> · {line.product.category}</>}
+                          </>
+                        );
+                      })()}
                     </div>
                     <div
                       className="flex items-center gap-1.5 text-ink-muted mt-1.5"

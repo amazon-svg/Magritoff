@@ -482,7 +482,15 @@ export function PortalCatalog({
         shop={shop}
         onClose={() => setOverlayProduct(null)}
         onConfirm={(productConfigured, qty) => {
-          onAddToCart(productConfigured, qty);
+          // S-FIX-PANIER-11/05 (bug #5) : `qty` retourne par l'overlay est la
+          // quantite d'exemplaires. On la stocke dans config.quantity et on
+          // passe `1 pack` au panier pour que `price_ht * cart.qty` reste
+          // egal au prix forfaitaire du pack (pas multiplie par les ex).
+          const withQty = {
+            ...productConfigured,
+            config: { ...(productConfigured.config ?? {}), quantity: qty },
+          };
+          onAddToCart(withQty, 1);
           setOverlayProduct(null);
         }}
       />

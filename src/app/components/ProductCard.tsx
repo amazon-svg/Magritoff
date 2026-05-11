@@ -316,22 +316,37 @@ export function ProductCard({
                     />
                     {/* Overlay sombre tres leger pour la lisibilite des badges */}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent pointer-events-none" />
-                    {/* Pill kind en corner (cohérent avec le design handoff) */}
-                    {!selectable && localProduct.clariprintData?.kind && (
-                      <div className="absolute top-2 left-2 pointer-events-none">
-                        <span
-                          className="inline-block font-mono uppercase tracking-wider px-2 py-0.5 rounded text-white"
-                          style={{
-                            fontSize: "11px",
-                            letterSpacing: "0.08em",
-                            fontWeight: 500,
-                            background: "rgba(10,10,10,0.75)",
-                          }}
-                        >
-                          {localProduct.clariprintData.kind}
-                        </span>
-                      </div>
-                    )}
+                    {/* Pill gamme PIM (S-FIX-BADGES-11/05 bug #1 regression Arnaud) :
+                        Avant : `clariprintData.kind` brut → "LEAFLET" partout
+                        (toutes les gammes Clariprint ont kind="leaflet").
+                        Maintenant : `enriched.gamme.name` (gamme PIM resolue
+                        type "Carterie", "Flyer A4", "Brochure"...) ;
+                        fallback `localProduct.category` si pas de match PIM ;
+                        masque si valeur generique "leaflet" / vide. */}
+                    {!selectable && (() => {
+                      const gammeBadge = enriched?.gamme?.name;
+                      const fallbackBadge = localProduct.category;
+                      const label = gammeBadge || fallbackBadge;
+                      // Ne jamais afficher les kinds Clariprint bruts
+                      if (!label || /^(leaflet|folded|book|cover|section)$/i.test(label)) {
+                        return null;
+                      }
+                      return (
+                        <div className="absolute top-2 left-2 pointer-events-none">
+                          <span
+                            className="inline-block font-mono uppercase tracking-wider px-2 py-0.5 rounded text-white"
+                            style={{
+                              fontSize: "11px",
+                              letterSpacing: "0.08em",
+                              fontWeight: 500,
+                              background: "rgba(10,10,10,0.75)",
+                            }}
+                          >
+                            {label}
+                          </span>
+                        </div>
+                      );
+                    })()}
                   </>
                 );
               })()}

@@ -272,17 +272,28 @@ export function PublicShop() {
       user?.email ||
       'Acheteur portail B2B';
 
+    // S-FIX-PANIER-11/05 (bug #4d) : le trigger
+    // `enqueue_pim_candidates_on_shop_order` cast `items.product_id` en UUID
+    // strict (cf. migration 20260424_08). Les produits issus de la library
+    // ont un id prefixe `lib-...` qui n est pas un UUID PostgreSQL valide
+    // → l insert echoue avec "invalid input syntax for type uuid".
+    // Defense front : on n envoie `product_id` que si c est un UUID valide.
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const { error } = await supabase.from('shop_orders').insert({
       shop_id: shop.id,
       customer_name: customerName,
       customer_email: customerEmail,
       customer_phone: '',
-      items: cart.map((l) => ({
-        product_id: l.product.id,
-        name: l.product.name,
-        qty: l.qty,
-        price_ht: l.product.price_ht,
-      })),
+      items: cart.map((l) => {
+        const isUuid = typeof l.product.id === 'string' && UUID_RE.test(l.product.id);
+        return {
+          ...(isUuid ? { product_id: l.product.id } : { source_id: l.product.id }),
+          name: l.product.name,
+          qty: l.qty,
+          quantity_ex: (l.product.config as any)?.quantity ?? null,
+          price_ht: l.product.price_ht,
+        };
+      }),
       total_ht,
       total_ttc,
       notes: '',
