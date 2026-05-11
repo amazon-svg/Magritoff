@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { X, RefreshCw, CheckCircle, XCircle, AlertTriangle, Loader2 } from "lucide-react";
 import { projectId, publicAnonKey } from "/utils/supabase/info";
+import { httpAdapter } from "../../server/clariprint/ClariprintAdapter";
 
 interface DiagnosticPanelProps {
   onClose: () => void;
@@ -33,8 +34,8 @@ export function DiagnosticPanel({ onClose }: DiagnosticPanelProps) {
   const testClariprint = async () => {
     setClariprintTest({ loading: true, data: null, error: null });
     try {
-      const res = await fetch(`${baseUrl}/clariprint-test`, { headers });
-      const data = await res.json();
+      // R3 : passe par l'adapter (pas de fetch direct hors ClariprintAdapter).
+      const data = await httpAdapter.testConnection();
       setClariprintTest({ loading: false, data, error: null });
     } catch (e) {
       setClariprintTest({ loading: false, data: null, error: String(e) });

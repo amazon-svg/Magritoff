@@ -13,6 +13,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import {
   ClariprintError,
   ClariprintMockAdapter,
+  computeClariprintQuoteSafe,
 } from '../../../src/server/clariprint/ClariprintAdapter';
 
 describe('ClariprintMockAdapter - chemin nominal', () => {
@@ -142,6 +143,28 @@ describe('ClariprintMockAdapter - garde-fous tests', () => {
     } catch (e) {
       expect(e).toBeInstanceOf(ClariprintError);
     }
+  });
+});
+
+describe('computeClariprintQuoteSafe - wrapper compat R3 pour callers historiques', () => {
+  it('14. clariprintData null → success=false sans appel reseau', async () => {
+    const result = await computeClariprintQuoteSafe(null);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('Configuration produit absente');
+  });
+
+  it('15. clariprintData undefined → success=false sans appel reseau', async () => {
+    const result = await computeClariprintQuoteSafe(undefined);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('Configuration produit absente');
+  });
+});
+
+describe('ClariprintMockAdapter.testConnection - healthcheck R3', () => {
+  it('16. testConnection retourne objet healthcheck mockee', async () => {
+    const mock = new ClariprintMockAdapter();
+    const result = await mock.testConnection();
+    expect(result).toEqual({ ok: true, mock: true });
   });
 });
 

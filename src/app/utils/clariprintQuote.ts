@@ -1,12 +1,22 @@
 /**
- * Helper réutilisable pour appeler l'edge function clariprint-quote.
+ * Utilitaires purs autour des reponses Clariprint.
  *
- * Utilisé partout où on veut afficher un prix réel calculé par Clariprint
- * (et non une estimation locale). Prise en charge des erreurs réseau,
- * credentials manquants, et mode démo.
+ * R3 (refacto 2026-05-11) : ce module ne fait plus de fetch direct vers
+ * l'edge function `clariprint-quote`. Tout appel reseau passe maintenant
+ * par `ClariprintHttpAdapter` (cf. `src/server/clariprint/ClariprintAdapter.ts`)
+ * conformement a l'ADR architecture.md §4.4.
+ *
+ * Ne sont conserves ici que les utilitaires purs (sans I/O) :
+ *  - `ClariprintQuoteResult` : type du payload Clariprint.
+ *  - `validateClariprintResponse` : sanitization defensive (prix negatifs / NaN
+ *    / undefined → success=false). Appele par l'edge function ET par
+ *    `ClariprintHttpAdapter` (ceinture+bretelles).
+ *  - `priceFingerprint` : detection de staleness sur la config.
+ *
+ * Le wrapper de compatibilite `computeClariprintQuoteSafe()` qui retourne le
+ * format historique `ClariprintQuoteResult` (au lieu de throw) est expose
+ * depuis `ClariprintAdapter.ts` pour eviter une dependance circulaire.
  */
-
-import { projectId, publicAnonKey } from '/utils/supabase/info';
 
 export interface ClariprintQuoteResult {
   success: boolean;
@@ -29,40 +39,6 @@ export interface ClariprintQuoteResult {
   details?: string;
 }
 
-const CLARIPRINT_ENDPOINT = `https://${projectId}.supabase.co/functions/v1/make-server-e3db71a4/clariprint-quote`;
-
-/**
- * Appelle Clariprint avec une config produit (format Clariprint JSON API).
- * Retourne systématiquement un ClariprintQuoteResult, même en cas d'erreur
- * réseau (success: false, error renseigné).
- */
-export async function fetchClariprintQuote(
-  clariprintData: Record<string, unknown> | null | undefined
-): Promise<ClariprintQuoteResult> {
-  if (!clariprintData) {
-    return { success: false, error: 'Configuration produit absente' };
-  }
-  try {
-    const response = await fetch(CLARIPRINT_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${publicAnonKey}`,
-      },
-      body: JSON.stringify({ clariprint: clariprintData }),
-    });
-    const data = (await response.json()) as ClariprintQuoteResult;
-    // Sanitization défensive : 2e ligne de défense au cas où le backend
-    // n'aurait pas validé (cf. validateClariprintResponse pour la logique).
-    return validateClariprintResponse(data);
-  } catch (err) {
-    return {
-      success: false,
-      error: (err as Error).message || 'Erreur réseau lors de l\'appel à Clariprint',
-    };
-  }
-}
-
 /**
  * Sanitization défensive d'une réponse Clariprint.
  *
@@ -79,8 +55,8 @@ export async function fetchClariprintQuote(
  * Cette fonction est appelée à 2 endroits :
  *  1. Dans l'edge function clariprint-quote (avant retour c.json) → évite la
  *     propagation au front.
- *  2. (Sécurité) Dans fetchClariprintQuote côté client (au cas où le backend
- *     n'aurait pas validé pour une raison quelconque).
+ *  2. (Sécurité) Dans `ClariprintHttpAdapter.computePrice` côté client (au cas
+ *     où le backend n'aurait pas validé pour une raison quelconque).
  *
  * @param result Résultat brut Clariprint
  * @returns Résultat avec anomalie convertie en success=false

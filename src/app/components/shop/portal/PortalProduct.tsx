@@ -4,7 +4,8 @@ import type { ShopProduct } from '../../../contexts/ShopsContext';
 import { resolveProductImage } from '../../../utils/productImages';
 import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
 import { ProductMockup } from '../../brand/ProductMockup';
-import { fetchClariprintQuote, priceFingerprint, type ClariprintQuoteResult } from '../../../utils/clariprintQuote';
+import { priceFingerprint, type ClariprintQuoteResult } from '../../../utils/clariprintQuote';
+import { computeClariprintQuoteSafe } from '../../../../server/clariprint/ClariprintAdapter';
 import { estimateMarketPriceHT, resolvePrice } from '../../../utils/priceResolver';
 import { useTenant } from '../../../contexts/TenantContext';
 import { applyTax, getTaxRate } from '../../../utils/tax';
@@ -58,7 +59,7 @@ export function PortalProduct({ product, onBack, onAddToCart, pimGammes, pimDefi
     setCalcLoading(true);
     const clariprintData = (product.config as any)?.clariprintData ?? product.config ?? {};
     const payload = { ...clariprintData, quantity: qty };
-    const result = await fetchClariprintQuote(payload);
+    const result = await computeClariprintQuoteSafe(payload);
     setQuote(result);
     setQuoteFingerprint(currentFingerprint);
     setCalcLoading(false);

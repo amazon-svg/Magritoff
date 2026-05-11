@@ -37,10 +37,19 @@
  */
 
 import {
-  fetchClariprintQuote as legacyFetch,
   validateClariprintResponse,
   type ClariprintQuoteResult,
 } from "../../app/utils/clariprintQuote";
+import { projectId, publicAnonKey } from "/utils/supabase/info";
+
+/**
+ * Endpoint Clariprint cote serveur (edge function Supabase). Centralise ici
+ * apres R3 (enforcement Adapter) — auparavant duplique dans
+ * src/app/utils/clariprintQuote.ts.
+ */
+const CLARIPRINT_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-e3db71a4`;
+const CLARIPRINT_ENDPOINT = `${CLARIPRINT_BASE}/clariprint-quote`;
+const CLARIPRINT_TEST_ENDPOINT = `${CLARIPRINT_BASE}/clariprint-test`;
 
 /**
  * Erreur Clariprint typee, discriminee par `kind`.
@@ -82,6 +91,13 @@ export interface ClariprintAdapter {
    * (validateClariprintResponse appliquee) ou throw ClariprintError typee.
    */
   computePrice(input: ClariprintQuoteInput): Promise<ClariprintQuoteResult>;
+
+  /**
+   * Verifie la connectivite avec Clariprint (endpoint /clariprint-test).
+   * Utilise par les panneaux d'admin / diagnostics (DiagnosticPanel).
+   * Retourne la reponse brute du healthcheck (pas de sanitization specifique).
+   */
+  testConnection(): Promise<unknown>;
 }
 
 /**
@@ -90,9 +106,24 @@ export interface ClariprintAdapter {
  */
 export class ClariprintHttpAdapter implements ClariprintAdapter {
   async computePrice(input: ClariprintQuoteInput): Promise<ClariprintQuoteResult> {
+    if (!input.clariprint) {
+      throw new ClariprintError(
+        "missing_required_product",
+        "Configuration produit absente",
+      );
+    }
+
     let result: ClariprintQuoteResult;
     try {
-      result = await legacyFetch(input.clariprint);
+      const response = await fetch(CLARIPRINT_ENDPOINT, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${publicAnonKey}`,
+        },
+        body: JSON.stringify({ clariprint: input.clariprint }),
+      });
+      result = (await response.json()) as ClariprintQuoteResult;
     } catch (err) {
       throw new ClariprintError(
         "network",
@@ -101,8 +132,10 @@ export class ClariprintHttpAdapter implements ClariprintAdapter {
       );
     }
 
-    // Re-validation defensive (legacyFetch valide deja, ceinture+bretelles)
+    // Sanitization defensive : 2e ligne de defense au cas ou l'edge function
+    // n'aurait pas valide (la validation primaire est cote serveur).
     result = validateClariprintResponse(result);
+    // (suite ci-dessous : mapping erreur backend → ClariprintError typee)
 
     if (!result.success) {
       // Mapper le message d'erreur backend vers un kind typee
@@ -125,6 +158,17 @@ export class ClariprintHttpAdapter implements ClariprintAdapter {
     }
 
     return result;
+  }
+
+  async testConnection(): Promise<unknown> {
+    const response = await fetch(CLARIPRINT_TEST_ENDPOINT, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${publicAnonKey}`,
+      },
+    });
+    return await response.json();
   }
 }
 
@@ -170,6 +214,10 @@ export class ClariprintMockAdapter implements ClariprintAdapter {
     }
     return validated;
   }
+
+  async testConnection(): Promise<unknown> {
+    return { ok: true, mock: true };
+  }
 }
 
 /**
@@ -177,3 +225,38 @@ export class ClariprintMockAdapter implements ClariprintAdapter {
  * et endpoints qui doivent appeler Clariprint en prod.
  */
 export const httpAdapter: ClariprintAdapter = new ClariprintHttpAdapter();
+
+/**
+ * Wrapper compatibilite (R3) : appelle `httpAdapter.computePrice` et retourne
+ * le format historique `ClariprintQuoteResult` au lieu de throw.
+ *
+ * Conserve pour les call-sites qui consomment `.success` / `.priceHT`
+ * (PortalCatalog, PortalProduct, ProductCard onClick fetchClariprint) et qui
+ * n'ont pas besoin de la granularite `ClariprintError.kind`.
+ *
+ * Pour les nouveaux call-sites, prefere `httpAdapter.computePrice()` direct
+ * + gestion `ClariprintError` typee (cf. ProductOverlay pour le pattern
+ * reference).
+ */
+export async function computeClariprintQuoteSafe(
+  clariprintData: Record<string, unknown> | null | undefined,
+): Promise<ClariprintQuoteResult> {
+  if (!clariprintData) {
+    return { success: false, error: 'Configuration produit absente' };
+  }
+  try {
+    return await httpAdapter.computePrice({ clariprint: clariprintData });
+  } catch (err) {
+    if (err instanceof ClariprintError) {
+      return {
+        success: false,
+        error: err.message,
+        details: typeof err.details === 'string' ? err.details : undefined,
+      };
+    }
+    return {
+      success: false,
+      error: (err as Error).message || "Erreur reseau lors de l'appel a Clariprint",
+    };
+  }
+}

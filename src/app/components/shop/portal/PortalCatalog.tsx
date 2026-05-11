@@ -4,7 +4,7 @@ import type { Shop, ShopProduct } from '../../../contexts/ShopsContext';
 import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
 import { ProductMockup } from '../../brand/ProductMockup';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
-import { fetchClariprintQuote } from '../../../utils/clariprintQuote';
+import { computeClariprintQuoteSafe } from '../../../../server/clariprint/ClariprintAdapter';
 import { TEST_IDS } from '../../../lib/testIds';
 import { ShopProductCard } from '../ShopProductCard';
 import { ProductOverlay } from '../ProductOverlay';
@@ -116,7 +116,7 @@ export function PortalCatalog({
       // (chaque card affiche un skeleton prix tant qu'on attend).
       const withPrices = await Promise.all(
         initialProducts.map(async (p) => {
-          const quote = await fetchClariprintQuote(p.config?.clariprintData ?? p.config);
+          const quote = await computeClariprintQuoteSafe(p.config?.clariprintData ?? p.config);
           if (!quote.success || quote.priceHT == null) return p;
           return {
             ...p,

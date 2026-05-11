@@ -4,7 +4,6 @@ import {
   BookmarkPlus, Check, FileText, Tag, Box, Pencil, Bug, Plus, Heart,
 } from "lucide-react";
 import { QuoteModal } from "./QuoteModal";
-import { projectId, publicAnonKey } from "/utils/supabase/info";
 import { useAuth } from "../contexts/AuthContext";
 import { useClients } from "../contexts/ClientsContext";
 import { useLibrary } from "../contexts/LibraryContext";
@@ -20,6 +19,7 @@ import { ProductOverlay } from "./shop/ProductOverlay";
 import { ProductPimSeoSection } from "./ProductPimSeoSection";
 import { useTenant } from "../contexts/TenantContext";
 import { applyTax, extractTaxAmount, formatTaxLabel, getTaxRate } from "../utils/tax";
+import { computeClariprintQuoteSafe } from "../../server/clariprint/ClariprintAdapter";
 import type { ShopProduct } from "../contexts/ShopsContext";
 
 interface ClariprintQuoteResult {
@@ -131,7 +131,11 @@ export function ProductCard({
   const [showDebug, setShowDebug] = useState(false);
 
   // ─── Appel API Clariprint ───────────────────────────────────────────────
-  const fetchClariprintQuote = async () => {
+  // R3 (refacto 2026-05-11) : passe par `ClariprintHttpAdapter` (via le
+  // wrapper `computeClariprintQuoteSafe`) au lieu d'un fetch direct. Garantit
+  // que `validateClariprintResponse()` est applique systematiquement, conforme
+  // a l'ADR architecture.md §4.4 (pattern Adapter enforce).
+  const computeClariprintQuote = async () => {
     if (!localProduct.clariprintData) return;
     setClariprintLoading(true);
     setClariprintQuote(null);
@@ -143,24 +147,14 @@ export function ProductCard({
     console.log("📤 Requête envoyée à Clariprint:", JSON.stringify(requestPayload, null, 2));
 
     try {
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-e3db71a4/clariprint-quote`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${publicAnonKey}`,
-          },
-          body: JSON.stringify(requestPayload),
-        }
-      );
-
-      const data = await response.json();
+      const data = await computeClariprintQuoteSafe(localProduct.clariprintData);
       console.log("🖨️ Résultat Clariprint:", data);
       // Stocker la réponse brute pour le debug
       setLastRawResponse(JSON.stringify(data, null, 2));
       setClariprintQuote(data);
     } catch (error) {
+      // computeClariprintQuoteSafe ne throw jamais (wrapper), mais on garde
+      // le filet de securite pour les exceptions inattendues.
       console.error("❌ Erreur appel Clariprint:", error);
       setClariprintQuote({
         success: false,
@@ -896,7 +890,7 @@ export function ProductCard({
                         </div>
                       </div>
                       <button
-                        onClick={fetchClariprintQuote}
+                        onClick={computeClariprintQuote}
                         className="mt-3 text-sm text-amber-700 underline hover:no-underline"
                       >
                         Réessayer
@@ -980,7 +974,7 @@ export function ProductCard({
                       {/* Recalculer */}
                       <button
                         data-testid={TEST_IDS.quote.refreshBtn}
-                        onClick={fetchClariprintQuote}
+                        onClick={computeClariprintQuote}
                         className="w-full mt-1 flex items-center justify-center gap-1.5 text-sm text-green-700 hover:text-green-900 transition-colors"
                       >
                         <RefreshCw className="w-3 h-3" />
@@ -1013,7 +1007,7 @@ export function ProductCard({
                           </details>
                         )}
                         <button
-                          onClick={fetchClariprintQuote}
+                          onClick={computeClariprintQuote}
                           className="mt-2 text-sm text-red-600 underline hover:no-underline"
                         >
                           Réessayer
@@ -1024,7 +1018,7 @@ export function ProductCard({
                   {/* Bouton initial */}
                   {!clariprintLoading && !clariprintQuote && (
                     <button
-                      onClick={fetchClariprintQuote}
+                      onClick={computeClariprintQuote}
                       className="w-full px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl transition-colors flex items-center justify-center gap-2 text-base"
                     >
                       <Printer className="w-4 h-4" />
