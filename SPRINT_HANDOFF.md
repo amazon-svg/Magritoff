@@ -2,7 +2,7 @@
 
 > Document de reprise pour démarrer une nouvelle session de Claude code sur le projet sans recharger tout l'historique. À tenir à jour à chaque fin de sprint.
 >
-> **Dernière mise à jour : Sprint 3 / Epic 1 partiel — workflow BMAD complet livré (2026-05-09)**
+> **Dernière mise à jour : 2026-05-11 — v0.5.3-beta.5, HEAD `5a2e848` — Epic 0/1/4 done + Epic 2 4/10 (S2.1+S2.2+S2.3+S2.4) + 6 correctifs scope (S2.4b/S-FIX-1b à S-FIX-6) + 3 specs pending (S-ORDER-ROLES, S-PIM-VISUELS, S-SUBTENANT-SCOPE). Récap complet : mémoire BMAD `project_session_2026-05-11.md`**
 
 ---
 
