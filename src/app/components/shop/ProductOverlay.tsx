@@ -48,6 +48,8 @@ import {
   PRINTINGS,
   QUANTITIES,
 } from "./ProductOverlay.helpers";
+import { useTenant } from "../../contexts/TenantContext";
+import { applyTax, getTaxRate } from "../../utils/tax";
 
 const httpAdapter = new ClariprintHttpAdapter();
 const COMPUTE_PRICE_TIMEOUT_MS = 10_000;
@@ -88,6 +90,8 @@ export function ProductOverlay({
   confirmLabel = "Ajouter au panier",
 }: ProductOverlayProps) {
   const open = product !== null;
+  const { currentTenant } = useTenant();
+  const taxRate = getTaxRate(currentTenant);
 
   // Reset state quand product change (ouverture/fermeture/changement)
   const [options, setOptions] = useState<ConfigOptions>(() =>
@@ -133,7 +137,7 @@ export function ProductOverlay({
             setPhase({
               kind: "ready",
               priceHT: quote.priceHT,
-              priceTTC: quote.priceHT * 1.2,
+              priceTTC: applyTax(quote.priceHT, taxRate),
             });
           } else {
             // success=false suite a sanitization (cf. validateClariprintResponse)
@@ -143,7 +147,7 @@ export function ProductOverlay({
               errorKind: "undefined_field",
               message: "Prix indisponible — utilisation du Prix marché",
               fallbackPriceHT: fallback,
-              fallbackPriceTTC: fallback * 1.2,
+              fallbackPriceTTC: applyTax(fallback, taxRate),
             });
           }
         })
@@ -163,7 +167,7 @@ export function ProductOverlay({
               errorKind,
               message: "Prix indisponible — utilisation du Prix marché",
               fallbackPriceHT: fallback,
-              fallbackPriceTTC: fallback * 1.2,
+              fallbackPriceTTC: applyTax(fallback, taxRate),
             });
           } else if (errorKind === "missing_required_product") {
             setPhase({
@@ -553,7 +557,7 @@ export function ProductOverlay({
                         ? `${formatEuro(phase.fallbackPriceTTC)} TTC`
                         : phase.kind === "loading"
                           ? "—"
-                          : `${formatEuro(product.price_ht * 1.2)} TTC`}
+                          : `${formatEuro(applyTax(product.price_ht, taxRate))} TTC`}
                   </div>
                 </div>
               </div>

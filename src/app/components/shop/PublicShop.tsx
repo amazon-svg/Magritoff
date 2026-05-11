@@ -22,6 +22,7 @@ import {
   loadExpandedGammes,
   saveExpandedGammes,
 } from './ShopGammesSidebar.helpers';
+import { applyTax, getTaxRate } from '../../utils/tax';
 
 /**
  * Portail B2B Magrit — version 2.
@@ -42,7 +43,7 @@ import {
 export function PublicShop() {
   const { slug } = useParams<{ slug: string }>();
   const { user, loading: authLoading } = useAuth();
-  const { tenants, isSuperAdmin } = useTenant();
+  const { tenants, isSuperAdmin, currentTenant } = useTenant();
   const [shop, setShop] = useState<Shop | null>(null);
   const [products, setProducts] = useState<ShopProduct[]>([]);
   const [loading, setLoading] = useState(true);
@@ -254,7 +255,9 @@ export function PublicShop() {
   const submitCart = async () => {
     if (!shop || cart.length === 0) return;
     const total_ht = cart.reduce((s, l) => s + l.product.price_ht * l.qty, 0);
-    const total_ttc = total_ht * 1.2;
+    // R0 : taxRate du tenant courant (acheteur authentifie). Pour boutique
+    // anonyme sans tenant, fallback DEFAULT_TAX_RATE (metropole_fr 20 %).
+    const total_ttc = applyTax(total_ht, getTaxRate(currentTenant));
 
     // S-FIX-6 — submitCart fiabilise :
     //  - recupere {error} pour ne plus echouer silencieusement (bug detecte

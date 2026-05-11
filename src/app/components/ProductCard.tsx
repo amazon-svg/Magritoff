@@ -18,6 +18,8 @@ import { resolveProductImage } from "../utils/productImages";
 import { TEST_IDS } from "../lib/testIds";
 import { ProductOverlay } from "./shop/ProductOverlay";
 import { ProductPimSeoSection } from "./ProductPimSeoSection";
+import { useTenant } from "../contexts/TenantContext";
+import { applyTax, extractTaxAmount, formatTaxLabel, getTaxRate } from "../utils/tax";
 import type { ShopProduct } from "../contexts/ShopsContext";
 
 interface ClariprintQuoteResult {
@@ -98,6 +100,8 @@ export function ProductCard({
   const { gammes, definitions } = usePIM();
   const { canUse } = usePlan();
   const tp = useTenantPath();
+  const { currentTenant } = useTenant();
+  const taxRate = getTaxRate(currentTenant);
   const [localProduct, setLocalProduct] = useState(product);
   const [activeTab, setActiveTab] = useState<TabType>(null);
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
@@ -628,16 +632,6 @@ export function ProductCard({
             />
           )}
 
-          {libraryPickerOpen && (
-            <LibraryPickerModal
-              preferredClientId={(localProduct as any).client_id ?? null}
-              onPick={async (libraryId) => {
-                await handleAddToLibrary(libraryId);
-              }}
-              onClose={() => setLibraryPickerOpen(false)}
-            />
-          )}
-
           {/* ── Fiche produit ── */}
           {activeTab === "sheet" && (
             <div className="bg-paper border-2 border-line rounded-xl p-6 mb-3 shadow-sm">
@@ -781,9 +775,9 @@ export function ProductCard({
                   </span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-line">
-                  <span className="text-ink-muted">TVA (20%)</span>
+                  <span className="text-ink-muted">TVA ({formatTaxLabel(taxRate)})</span>
                   <span className={`font-semibold ${!user ? "blur-sm select-none" : ""}`}>
-                    {(displayPriceHT * 0.2).toFixed(2)} €
+                    {extractTaxAmount(displayPriceHT, taxRate).toFixed(2)} €
                   </span>
                 </div>
                 <div
@@ -793,7 +787,7 @@ export function ProductCard({
                 >
                   <span className="font-semibold text-base">Total TTC</span>
                   <span className={`text-xl font-bold ${!user ? "blur-sm select-none" : ""}`}>
-                    {(displayPriceHT * 1.2).toFixed(2)} €
+                    {applyTax(displayPriceHT, taxRate).toFixed(2)} €
                   </span>
                 </div>
               </div>
@@ -951,8 +945,9 @@ export function ProductCard({
                       <div className="flex justify-between bg-green-700 text-white px-3 py-2 rounded-lg font-bold text-base">
                         <span>Total TTC</span>
                         <span className={!user ? "blur-sm select-none" : ""}>
-                          {(
-                            (clariprintQuote.costs?.total || clariprintQuote.priceHT || 0) * 1.2
+                          {applyTax(
+                            clariprintQuote.costs?.total || clariprintQuote.priceHT || 0,
+                            taxRate,
                           ).toFixed(2)}{" "}
                           €
                         </span>

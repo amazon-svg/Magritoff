@@ -12,6 +12,7 @@ import {
 import { useQuoteTemplates } from '../contexts/QuoteTemplatesContext';
 import { useTenant } from '../contexts/TenantContext';
 import { useTenantPath } from '../hooks/useTenantPath';
+import { applyTax, extractTaxAmount, formatTaxLabel, getTaxRate } from '../utils/tax';
 
 interface CartButtonProps {
   /** `rail` : icon-only, pour le rail lateral du chat v2.
@@ -27,6 +28,7 @@ export function CartButton({ variant = 'pill' }: CartButtonProps) {
   const { clients } = useClients();
   const tp = useTenantPath();
   const { currentTenant } = useTenant();
+  const taxRate = getTaxRate(currentTenant);
   const { templates, defaultTemplateId } = useQuoteTemplates();
 
   // Selection du gabarit a appliquer aux devis imprimes depuis le panier.
@@ -42,7 +44,7 @@ export function CartButton({ variant = 'pill' }: CartButtonProps) {
     templates.find((t) => t.id === selectedTemplateId) ?? getDefaultTemplate();
 
   const totalPrice = getTotalPrice();
-  const totalTTC = totalPrice * 1.2;
+  const totalTTC = applyTax(totalPrice, taxRate);
 
   // Groupe les items du panier par client_id (null = "sans client")
   const groupByClient = () => {
@@ -80,6 +82,7 @@ export function CartButton({ variant = 'pill' }: CartButtonProps) {
           template: effectiveTemplate,
           reference,
           client,
+          taxRate,
           items: groupItems.map((it) => {
             const p = it.product;
             const cp = p.clariprintQuote;
@@ -109,7 +112,7 @@ export function CartButton({ variant = 'pill' }: CartButtonProps) {
               product_name: p.name,
               product_config: p,
               total_ht: totalHT,
-              total_ttc: totalHT * 1.2,
+              total_ttc: applyTax(totalHT, taxRate),
             });
           })
         )
@@ -420,8 +423,8 @@ export function CartButton({ variant = 'pill' }: CartButtonProps) {
                     className="flex justify-between text-ink-muted"
                     style={{ fontSize: '13px', fontWeight: 400 }}
                   >
-                    <span>TVA (20%)</span>
-                    <span className="font-mono">{(totalPrice * 0.2).toFixed(2)} €</span>
+                    <span>TVA ({formatTaxLabel(taxRate)})</span>
+                    <span className="font-mono">{extractTaxAmount(totalPrice, taxRate).toFixed(2)} €</span>
                   </div>
                   <div
                     className="flex justify-between text-ink pt-2 border-t border-line"

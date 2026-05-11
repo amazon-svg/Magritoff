@@ -6,6 +6,8 @@ import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment'
 import { ProductMockup } from '../../brand/ProductMockup';
 import { fetchClariprintQuote, priceFingerprint, type ClariprintQuoteResult } from '../../../utils/clariprintQuote';
 import { estimateMarketPriceHT, resolvePrice } from '../../../utils/priceResolver';
+import { useTenant } from '../../../contexts/TenantContext';
+import { applyTax, getTaxRate } from '../../../utils/tax';
 
 interface Props {
   product: ShopProduct;
@@ -18,6 +20,8 @@ interface Props {
 // F3 — Fiche produit + configurateur
 // Design source : .design-handoff/designs/05 - Portail B2B.html (section .f3)
 export function PortalProduct({ product, onBack, onAddToCart, pimGammes, pimDefinitions }: Props) {
+  const { currentTenant } = useTenant();
+  const taxRate = getTaxRate(currentTenant);
   const initialQty = Number((product.config as any)?.quantity) || 500;
   const [qty, setQty] = useState(initialQty);
   const [selectedOpts, setSelectedOpts] = useState<Record<string, string>>({
@@ -85,7 +89,7 @@ export function PortalProduct({ product, onBack, onAddToCart, pimGammes, pimDefi
     : (priceResolution.source === 'library_cached'
         ? priceResolution.priceHT * (qty / 500)
         : estimateMarketPriceHT({ ...product, quantity: qty }));
-  const priceTTC = activePriceHT * 1.2;
+  const priceTTC = applyTax(activePriceHT, taxRate);
   const isMarketPrice = !hasCalcd; // True quand on n a pas Clariprint
 
   const imgSrc = resolveProductImage({

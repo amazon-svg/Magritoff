@@ -1,5 +1,6 @@
 import { supabase } from '/utils/supabase/client';
 import type { Client } from '../contexts/ClientsContext';
+import { applyTax, DEFAULT_TAX_RATE, extractTaxAmount, formatTaxLabel } from './tax';
 
 export function makeQuoteReference(): string {
   const year = new Date().getFullYear();
@@ -7,10 +8,13 @@ export function makeQuoteReference(): string {
   return `DEV-${year}-${seq}`;
 }
 
-export function computeProductTotals(product: any): { totalHT: number; totalTTC: number } {
+export function computeProductTotals(
+  product: any,
+  taxRate: number = DEFAULT_TAX_RATE
+): { totalHT: number; totalTTC: number } {
   const cp = product.clariprintQuote;
   const totalHT = cp?.costs?.total ?? cp?.priceHT ?? product.price ?? 0;
-  return { totalHT, totalTTC: totalHT * 1.2 };
+  return { totalHT, totalTTC: applyTax(totalHT, taxRate) };
 }
 
 export interface QuoteRowInput {
@@ -183,14 +187,16 @@ export function renderQuoteHtml(input: {
   reference: string;
   client: Client | null | undefined;
   items: QuoteItem[];
+  /** Taux TVA. R0 : passe par le caller via getTaxRate(currentTenant). */
+  taxRate?: number;
 }): string {
-  const { template, reference, client, items } = input;
+  const { template, reference, client, items, taxRate = DEFAULT_TAX_RATE } = input;
   const brand = template.brand_color || '#111';
   const accent = template.accent_color || '#f59e0b';
 
   const totalHT = items.reduce((s, it) => s + (it.priceHT || 0), 0);
-  const tva = totalHT * 0.2;
-  const totalTTC = totalHT * 1.2;
+  const tva = extractTaxAmount(totalHT, taxRate);
+  const totalTTC = applyTax(totalHT, taxRate);
 
   const logoBlock = template.logo_url
     ? `<div class="tpl-logo"><img src="${escapeHtml(template.logo_url)}" alt="Logo"/></div>`
@@ -245,7 +251,7 @@ export function renderQuoteHtml(input: {
 
       <div class="totals">
         <div>Total HT : <strong>${totalHT.toFixed(2)} €</strong></div>
-        <div>TVA (20 %) : <strong>${tva.toFixed(2)} €</strong></div>
+        <div>TVA (${formatTaxLabel(taxRate)}) : <strong>${tva.toFixed(2)} €</strong></div>
         <div class="final">Total TTC : ${totalTTC.toFixed(2)} €</div>
       </div>
 

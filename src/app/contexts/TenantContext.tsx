@@ -66,6 +66,8 @@ export interface Tenant {
   /** True si le SIREN a ete valide a la creation du tenant */
   verified?: boolean;
   verified_at?: string | null;
+  /** Regime fiscal TVA (R0 Spike H, migration 20260511_02). Defaut DB : 'metropole_fr'. */
+  tax_regime?: import('../utils/tax').TaxRegime | null;
 }
 
 export interface TenantWithMembership extends Tenant {

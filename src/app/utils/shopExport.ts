@@ -1,6 +1,7 @@
 import type { Shop, ShopProduct } from '../contexts/ShopsContext';
 import type { Gamme, ProductDefinition } from './productEnrichment';
 import { enrichProduct } from './productEnrichment';
+import { applyTax, DEFAULT_TAX_RATE } from './tax';
 
 // ─── CSV utils ───────────────────────────────────────────────────────────────
 
@@ -58,7 +59,8 @@ export function exportShopToShopifyCsv(
   shop: Shop,
   products: ShopProduct[],
   gammes: Gamme[],
-  definitions: ProductDefinition[]
+  definitions: ProductDefinition[],
+  taxRate: number = DEFAULT_TAX_RATE
 ) {
   const rows = products.map((p) => {
     const enriched = enrichProduct(p.config || {}, gammes, definitions, 'fr');
@@ -85,7 +87,7 @@ export function exportShopToShopifyCsv(
       'Option1 Name': 'Quantité',
       'Option1 Value': String(p.config?.quantity ?? '1'),
       'Variant SKU': p.id,
-      'Variant Price': (p.price_ht * 1.2).toFixed(2),
+      'Variant Price': applyTax(p.price_ht, taxRate).toFixed(2),
       'Variant Inventory Policy': 'continue',
       'Variant Fulfillment Service': 'manual',
       'Image Src': p.image_url || '',
@@ -104,7 +106,8 @@ export function exportShopToJson(
   shop: Shop,
   products: ShopProduct[],
   gammes: Gamme[],
-  definitions: ProductDefinition[]
+  definitions: ProductDefinition[],
+  taxRate: number = DEFAULT_TAX_RATE
 ) {
   const out = {
     shop: {
@@ -134,7 +137,7 @@ export function exportShopToJson(
         faq: enriched.resolved.faq,
         usage_examples: enriched.resolved.usage_examples,
         price_ht: p.price_ht,
-        price_ttc: Math.round(p.price_ht * 1.2 * 100) / 100,
+        price_ttc: Math.round(applyTax(p.price_ht, taxRate) * 100) / 100,
         currency: 'EUR',
         tech: p.config?.clariprintData ?? null,
       };

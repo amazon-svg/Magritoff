@@ -5,6 +5,8 @@ import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment'
 import { ProductMockup } from '../../brand/ProductMockup';
 import { TEST_IDS } from '../../../lib/testIds';
 import { resolvePrice } from '../../../utils/priceResolver';
+import { useTenant } from '../../../contexts/TenantContext';
+import { applyTax, extractTaxAmount, formatTaxLabel, getTaxRate } from '../../../utils/tax';
 
 interface Props {
   cart: CartLine[];
@@ -40,6 +42,8 @@ export function PortalCart({
   pimDefinitions,
   compact = false,
 }: Props) {
+  const { currentTenant } = useTenant();
+  const taxRate = getTaxRate(currentTenant);
   // Resolution unifiee du prix par ligne via priceResolver (decision Arnaud
   // 2026-05-09 fix prix marche). Une ligne en "prix marche" devient
   // hasMarketPriceLine=true → on affiche un badge global "Prix marche" en
@@ -51,8 +55,8 @@ export function PortalCart({
     return { line: l, resolution, lineTotal };
   });
   const subtotalHT = cartLines.reduce((s, c) => s + c.lineTotal, 0);
-  const tva = subtotalHT * 0.2;
-  const totalFinal = subtotalHT + tva;
+  const tva = extractTaxAmount(subtotalHT, taxRate);
+  const totalFinal = applyTax(subtotalHT, taxRate);
   const hasMarketPriceLine = cartLines.some((c) => c.resolution.isMarketPrice);
 
   const budgetPctAfter = budget
@@ -191,7 +195,7 @@ export function PortalCart({
                     className="font-mono text-ink text-right tabular-nums"
                     style={{ fontSize: '14px', fontWeight: 500, fontVariantNumeric: 'tabular-nums', minWidth: '80px' }}
                   >
-                    {(line.product.price_ht * line.qty * 1.2).toFixed(2)}€
+                    {applyTax(line.product.price_ht * line.qty, taxRate).toFixed(2)}€
                   </div>
                   <button
                     onClick={() => onRemove(line.product.id)}
@@ -228,7 +232,7 @@ export function PortalCart({
         <div className="flex flex-col">
           {[
             { label: 'Sous-total HT', value: `${subtotalHT.toFixed(2)}€` },
-            { label: 'TVA (20%)', value: `${tva.toFixed(2)}€` },
+            { label: `TVA (${formatTaxLabel(taxRate)})`, value: `${tva.toFixed(2)}€` },
             { label: 'Livraison', value: 'Offerte' },
           ].map((row) => (
             <div

@@ -1,4 +1,11 @@
 import { createContext, useContext, useState, ReactNode } from 'react';
+import {
+  computeCartTaxAmount,
+  computeCartTotalHT,
+  computeCartTotalTTC,
+} from '../utils/cartMath';
+import { getTaxRate } from '../utils/tax';
+import { useTenant } from './TenantContext';
 
 interface CartItem {
   id: string;
@@ -12,6 +19,13 @@ interface CartContextType {
   removeFromCart: (id: string) => void;
   updateItemClient: (itemId: string, clientId: string | null) => void;
   clearCart: () => void;
+  /** Total HT (somme prix_ht * qty). Anciennement `getTotalPrice`. */
+  getTotalHT: () => number;
+  /** Total TTC selon le tax_regime du tenant courant (R0 - Spike H). */
+  getTotalTTC: () => number;
+  /** Montant de la TVA seule selon le tenant courant. */
+  getTaxAmount: () => number;
+  /** @deprecated Utiliser getTotalHT(). Conserve pour compat call-sites existants. */
   getTotalPrice: () => number;
 }
 
@@ -19,6 +33,7 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
+  const { currentTenant } = useTenant();
 
   const addToCart = (product: any) => {
     const newItem: CartItem = {
@@ -48,13 +63,23 @@ export function CartProvider({ children }: { children: ReactNode }) {
     console.log('🧹 Panier vidé');
   };
 
-  const getTotalPrice = () => {
-    return items.reduce((total, item) => total + (item.product.price || 0), 0);
-  };
+  const getTotalHT = () => computeCartTotalHT(items);
+  const getTotalTTC = () => computeCartTotalTTC(items, getTaxRate(currentTenant));
+  const getTaxAmount = () => computeCartTaxAmount(items, getTaxRate(currentTenant));
 
   return (
     <CartContext.Provider
-      value={{ items, addToCart, removeFromCart, updateItemClient, clearCart, getTotalPrice }}
+      value={{
+        items,
+        addToCart,
+        removeFromCart,
+        updateItemClient,
+        clearCart,
+        getTotalHT,
+        getTotalTTC,
+        getTaxAmount,
+        getTotalPrice: getTotalHT, // alias deprecated
+      }}
     >
       {children}
     </CartContext.Provider>

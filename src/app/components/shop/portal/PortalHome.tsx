@@ -4,6 +4,8 @@ import type { PortalView } from './types';
 import { resolveProductImage } from '../../../utils/productImages';
 import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
 import { ProductMockup } from '../../brand/ProductMockup';
+import { useTenant } from '../../../contexts/TenantContext';
+import { applyTax, getTaxRate } from '../../../utils/tax';
 
 interface Props {
   shop: Shop;
@@ -26,6 +28,8 @@ export function PortalHome({
   pimGammes,
   pimDefinitions,
 }: Props) {
+  const { currentTenant } = useTenant();
+  const taxRate = getTaxRate(currentTenant);
   // Raccourcis B2B — on n'affiche que des actions implémentées (pas de
   // "Templates brandés" tant que la section n'est pas câblée).
   const shortcuts = [
@@ -204,7 +208,7 @@ export function PortalHome({
                       className="font-mono text-ink"
                       style={{ fontSize: '13px', fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}
                     >
-                      {(p.price_ht * 1.2).toFixed(2)}€
+                      {applyTax(p.price_ht, taxRate).toFixed(2)}€
                     </div>
                     <button
                       onClick={() => onReorder(p)}
