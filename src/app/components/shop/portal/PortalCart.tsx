@@ -2,6 +2,7 @@ import { X, Plus, Minus, MapPin } from 'lucide-react';
 import type { CartLine, BudgetInfo } from './types';
 import { resolveProductImage } from '../../../utils/productImages';
 import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
+import { resolveGamme } from '../../../utils/productEnrichment';
 import { ProductMockup } from '../../brand/ProductMockup';
 import { TEST_IDS } from '../../../lib/testIds';
 import { resolvePrice } from '../../../utils/priceResolver';
@@ -161,10 +162,24 @@ export function PortalCart({
                         const exQty = (line.product.config as any)?.quantity;
                         const format = (line.product.config as any)?.format
                           ?? `${(line.product.config as any)?.width ?? '?'}×${(line.product.config as any)?.height ?? '?'} mm`;
+                        // CR §2 (13/05) : utiliser la gamme PIM resolue
+                        // plutot que `category` brut (qui vaut "leaflet"
+                        // pour ~90% des products library).
+                        const gammeLabel = (() => {
+                          if (pimGammes && pimGammes.length > 0) {
+                            const g = resolveGamme(line.product.config, pimGammes, line.product.name);
+                            if (g?.name) return g.name;
+                          }
+                          const cat = line.product.category;
+                          if (cat && !/^(leaflet|folded|book|cover|section)$/i.test(cat)) {
+                            return cat;
+                          }
+                          return null;
+                        })();
                         return (
                           <>
                             {exQty ? `${exQty} ex · ` : ''}{format}
-                            {line.product.category && <> · {line.product.category}</>}
+                            {gammeLabel && <> · {gammeLabel}</>}
                           </>
                         );
                       })()}

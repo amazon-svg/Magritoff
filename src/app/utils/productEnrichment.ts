@@ -150,8 +150,24 @@ function matchesRules(config: any, rules: MatchingRules): boolean {
     if (!actual || !kinds.includes(actual)) return false;
   }
 
-  const w = parseFloat(field(config, 'width') ?? config.dimensions?.width);
-  const h = parseFloat(field(config, 'height') ?? config.dimensions?.height);
+  const rawW = parseFloat(field(config, 'width') ?? config.dimensions?.width);
+  const rawH = parseFloat(field(config, 'height') ?? config.dimensions?.height);
+
+  // S-FIX-UNITS-13/05 (CR Arnaud §1) : `clariprintData.width/height` est stocké
+  // en CENTIMÈTRES (héritage Clariprint), alors que les `matching_rules` PIM
+  // sont en MILLIMÈTRES (carterie max_dim≤150, affiche min_dim≥297).
+  // Sans normalisation, une affiche A2 (42×59.4 cm = 420×594 mm) est lue
+  // comme 42×59.4 → matche faussement Carterie au lieu d'Affiche.
+  //
+  // Heuristique : toute valeur > 0 et < 50 est interprétée comme cm
+  //   (les vraies dimensions print en mm sont ≥ 50 : carte de visite = 85×55).
+  // Le multiplicateur ×10 convertit en mm.
+  const toMm = (v: number): number => {
+    if (isNaN(v) || v <= 0) return v;
+    return v < 50 ? v * 10 : v;
+  };
+  const w = toMm(rawW);
+  const h = toMm(rawH);
 
   if (rules.size_near && !isNaN(w) && !isNaN(h)) {
     const { width: nw, height: nh, tol = 3 } = rules.size_near;

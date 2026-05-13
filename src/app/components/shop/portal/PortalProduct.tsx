@@ -3,6 +3,7 @@ import { ChevronRight, Minus, Plus, Calculator, Loader2, CheckCircle, AlertTrian
 import type { ShopProduct } from '../../../contexts/ShopsContext';
 import { resolveProductImage } from '../../../utils/productImages';
 import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
+import { resolveGamme } from '../../../utils/productEnrichment';
 import { ProductMockup } from '../../brand/ProductMockup';
 import { priceFingerprint, type ClariprintQuoteResult } from '../../../utils/clariprintQuote';
 import { computeClariprintQuoteSafe } from '../../../../server/clariprint/ClariprintAdapter';
@@ -23,6 +24,21 @@ interface Props {
 export function PortalProduct({ product, onBack, onAddToCart, pimGammes, pimDefinitions }: Props) {
   const { currentTenant } = useTenant();
   const taxRate = getTaxRate(currentTenant);
+  // CR §2 (13/05) : afficher la gamme PIM résolue dans le breadcrumb plutôt
+  // que `product.category` brut (qui vaut "leaflet" pour ~90% des products
+  // library, hérité du kind Clariprint). Fallback : kind Clariprint masqué,
+  // category sinon, ou "Produit" si ni l'un ni l'autre.
+  const breadcrumbGammeLabel = useMemo(() => {
+    if (pimGammes && pimGammes.length > 0) {
+      const gamme = resolveGamme(product.config, pimGammes, product.name);
+      if (gamme?.name) return gamme.name;
+    }
+    const cat = product.category;
+    if (cat && !/^(leaflet|folded|book|cover|section)$/i.test(cat)) {
+      return cat;
+    }
+    return 'Produit';
+  }, [pimGammes, product.config, product.name, product.category]);
   const initialQty = Number((product.config as any)?.quantity) || 500;
   const [qty, setQty] = useState(initialQty);
   const [selectedOpts, setSelectedOpts] = useState<Record<string, string>>({
@@ -122,7 +138,7 @@ export function PortalProduct({ product, onBack, onAddToCart, pimGammes, pimDefi
       >
         <button onClick={onBack} className="hover:text-ink">Catalogue</button>
         <ChevronRight className="inline w-3 h-3 mx-1.5" strokeWidth={1.5} />
-        <span className="text-ink-muted">{product.category}</span>
+        <span className="text-ink-muted">{breadcrumbGammeLabel}</span>
         <ChevronRight className="inline w-3 h-3 mx-1.5" strokeWidth={1.5} />
         <span className="text-ink" style={{ fontWeight: 500 }}>{product.name}</span>
       </div>
