@@ -79,6 +79,7 @@
     "@tailwindcss/vite": "4.1.12",
     "@vitejs/plugin-react": "4.7.0",
     "@vitest/coverage-v8": "^4.1.6",
+    "chromedriver": "^147.0.4",
     "dotenv": "^17.4.2",
     "rollup-plugin-visualizer": "^7.0.1",
     "tailwindcss": "4.1.12",
@@ -99,7 +100,13 @@
   },
   "pnpm": {
     "overrides": {
-      "vite": "6.3.5"
-    }
+      "vite": "6.3.5",
+      "chromedriver": "^147.0.4"
+    },
+    "onlyBuiltDependencies": [
+      "chromedriver",
+      "@tailwindcss/oxide",
+      "esbuild"
+    ]
   }
 }
