@@ -306,12 +306,23 @@ export function ProductCard({
                   definitions,
                 });
                 if (imgError || !src) {
+                  // CR §2 (13/05) - bug LEAFLET reste visible cote atelier
+                  // home : ProductMockup affichait `corner=kind` brut (=
+                  // "leaflet" partout). On bascule sur la gamme PIM resolue
+                  // avec la meme garde que le badge ProductCard
+                  // (masque les kinds Clariprint bruts).
+                  const cornerGamme = enriched?.gamme?.name || localProduct.category;
+                  const cornerLabel =
+                    !selectable && cornerGamme &&
+                    !/^(leaflet|folded|book|cover|section)$/i.test(cornerGamme)
+                      ? cornerGamme
+                      : undefined;
                   return (
                     <ProductMockup
                       name={localProduct.name}
                       kind={localProduct.clariprintData?.kind}
                       category={enriched?.gamme?.name}
-                      corner={!selectable ? localProduct.clariprintData?.kind : undefined}
+                      corner={cornerLabel}
                       className="w-full h-full"
                     />
                   );
