@@ -168,67 +168,178 @@ function isRichEnough(raw: Record<string, unknown>): { ok: boolean; reason?: str
 }
 
 /**
- * Trouve la gamme qui matche une config Clariprint brute, en appliquant
- * les `matching_rules` de chaque gamme dans l'ordre d'affichage.
- * Logique calquee sur utils/productEnrichment.ts cote frontend.
+ * P0.9 (2026-05-17) — Convention robuste cm/mm partagee front/back (remplace
+ * la version P0.7 a seuil <50 qui cassait sur les grands formats cm comme
+ * kakemono 80x200 ou banderole 120x30 — observe en P0.8 v3 smoke test).
+ *
+ * Convention :
+ *  - typeof string  -> LLM Clariprint en CENTIMETRES -> conversion x10 vers mm
+ *  - typeof number  -> admin/code direct en MILLIMETRES -> garde tel quel
+ *
+ * Validation par audit prod (2026-05-17) :
+ *   select count(*) from product_definitions
+ *   where (variation_filter->>'width') ~ '^[0-9]+(\.[0-9]+)?$'
+ *     and (variation_filter->>'width')::numeric between 50 and 250;
+ *   -- resultat : 2 records (les 2 candidates test P0.4 v3 echouees,
+ *      aucun produit historique). Convention safe en prod.
+ *
+ * Les matching_rules PIM sont en mm (carterie max_dim<=150, kakemono
+ * min_dim>=1500). Bit-identique au frontend productEnrichment.ts.
  */
+function toMm(v: unknown): number {
+  if (typeof v === 'number') {
+    return isNaN(v) || v <= 0 ? 0 : v;
+  }
+  if (typeof v === 'string') {
+    const parsed = parseFloat(v);
+    if (isNaN(parsed) || parsed <= 0) return 0;
+    return Math.round(parsed * 10);
+  }
+  return 0;
+}
+
+/**
+ * P0.8 (2026-05-17) — Score de specificite des matching_rules. Port
+ * bit-identique de productEnrichment.ts:123-133 cote frontend. Plus une
+ * gamme a de regles precises, plus elle prime. Permet a `carte_visite_standard`
+ * (size_near, score 7) de gagner contre `etiquette` (size_range, score 4)
+ * quand une carte de visite 85x55 mm matche les deux rules.
+ */
+function ruleSpecificity(rules: Record<string, unknown> | null | undefined): number {
+  if (!rules) return 0;
+  let score = 0;
+  if (rules.kind) score += Array.isArray(rules.kind) ? 1 : 2;
+  if (rules.size_near) score += 5;
+  if (rules.size_range) score += 2;
+  if (rules.binding_in) score += 4;
+  if (rules.folds) score += 3;
+  if (rules.pages_range) score += 2;
+  return score;
+}
+
+/**
+ * P0.8 (2026-05-17) — Disambiguation par mot-cle dans le nom du produit.
+ * Port bit-identique de productEnrichment.ts:91-121 cote frontend. Si
+ * plusieurs gammes matchent les regles dimensionnelles, on filtre par
+ * keyword present dans le nom du produit (8 discriminateurs : carte, flyer,
+ * affiche, depliant, brochure, kakemono, banderole, etiquette).
+ *
+ * Exemple : "Kakemono 80x200 test" -> ne garde que les gammes `kakemono*`,
+ * compensant le bug latent toMm sur les grands formats cm > 50.
+ */
+function filterMatchesByProductName(matches: Gamme[], productName: string): Gamme[] {
+  const n = productName.toLowerCase().trim();
+  if (!n) return matches;
+  const discriminators: Array<{ keyword: RegExp; gammePattern: RegExp }> = [
+    { keyword: /\b(carte|carterie)\b/, gammePattern: /^(carterie|carte_)/ },
+    { keyword: /\bflyer\b/, gammePattern: /^flyer/ },
+    { keyword: /\baffiche|poster\b/, gammePattern: /^affiche/ },
+    { keyword: /\bd[ée]pliant\b/, gammePattern: /^depliant/ },
+    { keyword: /\bbrochure\b/, gammePattern: /^brochure/ },
+    { keyword: /\b(kakemono|roll-?up)\b/, gammePattern: /^(kakemono|roll)/ },
+    { keyword: /\b(banderole|banner)\b/, gammePattern: /^(banderole|banner)/ },
+    { keyword: /\b[ée]tiquette|sticker\b/, gammePattern: /^(etiquette|sticker)/ },
+  ];
+  for (const d of discriminators) {
+    if (d.keyword.test(n)) {
+      const filtered = matches.filter(
+        (g) =>
+          d.gammePattern.test(g.slug) || d.gammePattern.test(g.name.toLowerCase()),
+      );
+      return filtered;
+    }
+  }
+  return matches;
+}
+
+/**
+ * P0.8 (2026-05-17) — Verifie si une gamme matche toutes les rules d une
+ * config normalisee. Extrait de l ancien `for` de resolveGamme pour
+ * permettre la phase de filtrage avant le tri par specificite.
+ */
+function gammeMatches(
+  rules: Record<string, unknown>,
+  kind: string | undefined,
+  w: number,
+  h: number,
+  maxDim: number,
+  n: Record<string, unknown>,
+): boolean {
+  // kind : string ou array
+  const rk = rules.kind;
+  if (rk != null) {
+    const match = Array.isArray(rk) ? rk.includes(kind) : rk === kind;
+    if (!match) return false;
+  }
+  // size_near : { width, height, tol }
+  const sn = rules.size_near as { width?: number; height?: number; tol?: number } | undefined;
+  if (sn && !isNaN(w) && !isNaN(h)) {
+    const tol = sn.tol ?? 5;
+    const matchDirect =
+      Math.abs(w - (sn.width ?? 0)) <= tol && Math.abs(h - (sn.height ?? 0)) <= tol;
+    const matchSwap =
+      Math.abs(h - (sn.width ?? 0)) <= tol && Math.abs(w - (sn.height ?? 0)) <= tol;
+    if (!matchDirect && !matchSwap) return false;
+  }
+  // size_range : { min_dim, max_dim } sur max(w,h)
+  const sr = rules.size_range as { min_dim?: number; max_dim?: number } | undefined;
+  if (sr && maxDim > 0) {
+    if (sr.min_dim != null && maxDim < sr.min_dim) return false;
+    if (sr.max_dim != null && maxDim > sr.max_dim) return false;
+  }
+  // binding_in : pour kind=book
+  const bi = rules.binding_in;
+  if (bi && Array.isArray(bi)) {
+    const binding = n.binding as string | undefined;
+    if (!binding || !bi.includes(binding)) return false;
+  }
+  // folds : pour kind=folded
+  const folds = rules.folds;
+  if (folds != null) {
+    const rf = n.folds as string | undefined;
+    if (rf !== folds) return false;
+  }
+  return true;
+}
+
 function resolveGamme(raw: Record<string, unknown>, gammes: Gamme[]): Gamme | null {
   const n = normalizeRaw(raw);
   const kind = (n.kind as string | undefined)?.trim().toLowerCase();
-  const w = Number(n.width);
-  const h = Number(n.height);
+  // P0.9 — toMm accepte unknown (string/number) et applique la convention typage.
+  // NE PAS faire Number(n.width) ici : ca convertirait string "8.5" en number 8.5
+  // perdant l info "source LLM string -> cm". Passer raw a toMm preserve le typeof.
+  const w = toMm(n.width);
+  const h = toMm(n.height);
   const maxDim = Math.max(w || 0, h || 0);
 
-  // On sort par display_order desc pour preferer les gammes les plus specifiques
-  // (les sous-gammes comme "carte_visite_standard" passent avant "carterie").
-  const sorted = [...gammes].sort(
-    (a, b) => (b.display_order ?? 0) - (a.display_order ?? 0)
+  // Phase 1 : collecte de toutes les gammes qui matchent les rules.
+  let matches = gammes.filter((g) =>
+    gammeMatches(g.matching_rules ?? {}, kind, w, h, maxDim, n),
   );
+  if (matches.length === 0) return null;
 
-  for (const g of sorted) {
-    const rules = g.matching_rules ?? {};
-
-    // kind : string ou array
-    const rk = (rules as any).kind;
-    if (rk != null) {
-      const match = Array.isArray(rk) ? rk.includes(kind) : rk === kind;
-      if (!match) continue;
-    }
-
-    // size_near : { width, height, tol }
-    const sn = (rules as any).size_near;
-    if (sn && !isNaN(w) && !isNaN(h)) {
-      const tol = sn.tol ?? 5;
-      const matchDirect = Math.abs(w - sn.width) <= tol && Math.abs(h - sn.height) <= tol;
-      const matchSwap = Math.abs(h - sn.width) <= tol && Math.abs(w - sn.height) <= tol;
-      if (!matchDirect && !matchSwap) continue;
-    }
-
-    // size_range : { min_dim, max_dim } sur max(w,h)
-    const sr = (rules as any).size_range;
-    if (sr && maxDim > 0) {
-      if (sr.min_dim != null && maxDim < sr.min_dim) continue;
-      if (sr.max_dim != null && maxDim > sr.max_dim) continue;
-    }
-
-    // binding_in : pour kind=book
-    const bi = (rules as any).binding_in;
-    if (bi && Array.isArray(bi)) {
-      const binding = (n.binding as string | undefined);
-      if (!binding || !bi.includes(binding)) continue;
-    }
-
-    // folds : pour kind=folded
-    const folds = (rules as any).folds;
-    if (folds != null) {
-      const rf = (n.folds as string | undefined);
-      if (rf !== folds) continue;
-    }
-
-    return g;
+  // Phase 2 : disambiguation par mot-cle du nom du produit (port front).
+  // productName lu depuis raw_config.reference (convention pim_candidates).
+  const productName =
+    (n.reference as string | undefined) ??
+    (n.name as string | undefined) ??
+    (n.title as string | undefined) ??
+    '';
+  if (matches.length > 1 && productName) {
+    const refined = filterMatchesByProductName(matches, productName);
+    if (refined.length > 0) matches = refined;
   }
 
-  return null;
+  // Phase 3 : tri par specificite des matching_rules DESC, display_order ASC
+  // en tiebreaker (parite avec productEnrichment.ts:69-73 cote frontend).
+  matches.sort((a, b) => {
+    const diff =
+      ruleSpecificity(b.matching_rules) - ruleSpecificity(a.matching_rules);
+    if (diff !== 0) return diff;
+    return (a.display_order ?? 0) - (b.display_order ?? 0);
+  });
+
+  return matches[0] ?? null;
 }
 
 /**

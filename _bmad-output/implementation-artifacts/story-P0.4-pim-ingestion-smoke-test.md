@@ -2,12 +2,14 @@
 story_id: P0.4
 epic: Sprint 4 — PIM-Boutique-Commandes (Phase 0 Préalables)
 title: Smoke test ingestion PIM end-to-end (commande → candidate → produit en boutique)
-status: draft
+status: livrée
+delivered_at: 2026-05-17
 target_branch: beta/v5
 agent: Dev (Claude Code) + Arnaud (exécution manuelle Dashboard SQL + UI)
-size: XS (~0.5j)
-depends_on: P0.2 (gammes étendues), P0.3 (wizard adapt — pas bloquant strict mais coherent)
-unblocks: Phase 1 (bascule orders fait confiance que le pipeline PIM tourne)
+size: XS prévu → XL effectif (a déclenché 4 stories de fix collatérales P0.6/P0.7/P0.8/P0.9)
+depends_on: P0.2 (gammes étendues), P0.3 (wizard adapt), P0.6 (redeploy pim-ingest), P0.7 (toMm partial), P0.8 (parité resolveGamme), P0.9 (convention cm/mm robuste)
+unblocks: Phase 1 (bascule orders peut s'appuyer sur pipeline PIM 100% validé)
+final_result: "5/5 mappings corrects (v4 du 17/05 16:05) — kakemono→roll_up_80x200, etiquette→etiquette, banderole→banderole, depliant→depliant_plie_dl, carte_visite→carte_visite_standard"
 ---
 
 # Story P0.4 — Smoke test ingestion PIM E2E

@@ -150,24 +150,27 @@ function matchesRules(config: any, rules: MatchingRules): boolean {
     if (!actual || !kinds.includes(actual)) return false;
   }
 
-  const rawW = parseFloat(field(config, 'width') ?? config.dimensions?.width);
-  const rawH = parseFloat(field(config, 'height') ?? config.dimensions?.height);
-
-  // S-FIX-UNITS-13/05 (CR Arnaud §1) : `clariprintData.width/height` est stocké
-  // en CENTIMÈTRES (héritage Clariprint), alors que les `matching_rules` PIM
-  // sont en MILLIMÈTRES (carterie max_dim≤150, affiche min_dim≥297).
-  // Sans normalisation, une affiche A2 (42×59.4 cm = 420×594 mm) est lue
-  // comme 42×59.4 → matche faussement Carterie au lieu d'Affiche.
-  //
-  // Heuristique : toute valeur > 0 et < 50 est interprétée comme cm
-  //   (les vraies dimensions print en mm sont ≥ 50 : carte de visite = 85×55).
-  // Le multiplicateur ×10 convertit en mm.
-  const toMm = (v: number): number => {
-    if (isNaN(v) || v <= 0) return v;
-    return v < 50 ? v * 10 : v;
+  // P0.9 (2026-05-17) — Refacto convention robuste cm/mm (remplace S-FIX-UNITS-13/05
+  // qui utilisait un seuil <50 cassant sur les grands formats cm).
+  // Convention :
+  //  - typeof string  → LLM Clariprint en CENTIMÈTRES → conversion ×10 vers mm
+  //  - typeof number  → admin/code direct en MILLIMÈTRES → garde tel quel
+  // Validation par audit prod (2026-05-17) : 0 produit historique n'a width
+  // string ≥ 50 hors les 2 candidates test P0.4 v3 → convention safe.
+  // `matching_rules` PIM sont en mm (carterie max_dim≤150, kakemono min_dim≥1500).
+  const toMm = (v: unknown): number => {
+    if (typeof v === 'number') {
+      return isNaN(v) || v <= 0 ? 0 : v;
+    }
+    if (typeof v === 'string') {
+      const parsed = parseFloat(v);
+      if (isNaN(parsed) || parsed <= 0) return 0;
+      return Math.round(parsed * 10);
+    }
+    return 0;
   };
-  const w = toMm(rawW);
-  const h = toMm(rawH);
+  const w = toMm(field(config, 'width') ?? config.dimensions?.width);
+  const h = toMm(field(config, 'height') ?? config.dimensions?.height);
 
   if (rules.size_near && !isNaN(w) && !isNaN(h)) {
     const { width: nw, height: nh, tol = 3 } = rules.size_near;
