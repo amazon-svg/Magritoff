@@ -2,7 +2,9 @@
 story_id: S-CONSO-2
 epic: Sprint 4 — PIM-Boutique-Commandes (Phase 2 Boutique consolidation)
 title: Audit a11y axe-core boutique + corrections WCAG 2.1 AA
-status: draft
+status: livrée (0 violation, aucun fix code requis)
+delivered_at: 2026-05-18
+final_result: "pnpm a11y:scan exécuté sur les 3 routes critiques (login + /t/imprimerie-ipa/atelier + /shop/boutique-1). 0 violations détectées par axe-core 4.11.4 chrome-headless. Hygiène a11y de la boutique déjà bonne (aria-labels cart icon + Sheet drawer + boutons icon-only). Story livrée sans modification code. Reports JSON disponibles : a11y-report-login.json / a11y-report-atelier.json / a11y-report-boutique-1.json."
 target_branch: beta/v5
 agent: Dev (Claude Code) + Arnaud (validation visuelle)
 size: S (~1h)

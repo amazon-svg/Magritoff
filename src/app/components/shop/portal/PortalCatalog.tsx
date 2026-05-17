@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, useMemo } from 'react';
+import { lazy, Suspense, useEffect, useState, useMemo } from 'react';
 import { Search, Sparkles, Plus, X, Loader2, AlertTriangle } from 'lucide-react';
 import type { Shop, ShopProduct } from '../../../contexts/ShopsContext';
 import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
@@ -7,6 +7,22 @@ import { supabase } from '/utils/supabase/client';
 import { computeClariprintQuoteSafe } from '../../../../server/clariprint/ClariprintAdapter';
 import { TEST_IDS } from '../../../lib/testIds';
 import { ShopProductCard } from '../ShopProductCard';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../../ui/select';
+import {
+  DEFAULT_SORT_KEY,
+  filterProductsByTextQuery,
+  loadSortKey,
+  saveSortKey,
+  SORT_OPTIONS,
+  sortProductsBy,
+  type SortKey,
+} from './PortalCatalog.helpers';
 
 // R7 (refacto 2026-05-11) : lazy-load le ProductOverlay (configurateur lourd
 // charge seulement quand l'acheteur clique "Configurer").
@@ -84,6 +100,18 @@ export function PortalCatalog({
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiQuery, setAiQuery] = useState(''); // query reellement envoyee
 
+  // S-CONSO-4 (Sprint 4 Phase 2, Sally) : mode recherche pour resilience IA.
+  // 'ia' = claude-proxy a repondu < 3s. 'text' = fallback automatique sur
+  // filter local (claude-proxy timeout / billing / down).
+  const [searchMode, setSearchMode] = useState<'ia' | 'text'>('ia');
+
+  // S-CONSO-5 (Sprint 4 Phase 2, Sally) : tri grille catalogue avec
+  // persistance localStorage par slug. Sort key chargee au mount.
+  const [sortKey, setSortKey] = useState<SortKey>(() => loadSortKey(shop.slug));
+  useEffect(() => {
+    saveSortKey(shop.slug, sortKey);
+  }, [shop.slug, sortKey]);
+
   const askMagrit = async () => {
     const prompt = query.trim();
     if (!prompt || aiLoading) return;
@@ -92,12 +120,19 @@ export function PortalCatalog({
     setAiResults([]);
     setAiQuery(prompt);
     try {
-      // R5 (refacto 2026-05-11) : functions.invoke() gere l'auth header
-      // automatiquement + retourne data/error typees (ADR-R3).
-      const { data, error } = await supabase.functions.invoke(
+      // S-CONSO-4 (Sprint 4 Phase 2, Sally) : timeout 3s sur claude-proxy.
+      // Au-dela, fallback automatique sur filter local (mode 'text').
+      // Race entre invoke + timeout pour permettre le bascule rapide.
+      const invokePromise = supabase.functions.invoke(
         'make-server-e3db71a4/claude-proxy',
         { body: { messages: [{ role: 'user', content: prompt }] } },
       );
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('claude_proxy_timeout_3s')), 3000);
+      });
+      const { data, error } = (await Promise.race([invokePromise, timeoutPromise])) as Awaited<
+        typeof invokePromise
+      >;
       if (error) throw new Error(error.message || 'Erreur Claude proxy');
       const configs = Array.isArray(data?.configs) ? data.configs : [];
       if (configs.length === 0) {
@@ -125,8 +160,18 @@ export function PortalCatalog({
         })
       );
       setAiResults(withPrices);
+      setSearchMode('ia'); // S-CONSO-4 : reussite -> mode IA
     } catch (err: any) {
-      setAiError(err?.message || 'Erreur lors de l\'appel à Magrit.');
+      // S-CONSO-4 : fallback automatique sur filter local (mode 'text').
+      // Le filtered useMemo en aval matche query sur name/description/gamme.
+      const isTimeout = err?.message === 'claude_proxy_timeout_3s';
+      console.info(
+        `[claude_proxy_fallback] ${new Date().toISOString()} ${isTimeout ? 'timeout 3s' : 'error'} — query="${prompt}"`,
+      );
+      setSearchMode('text');
+      // Pas d aiError affiche : le filter local prend le relais. On efface
+      // les aiResults pour ne pas afficher de section AI vide.
+      setAiError(null);
     } finally {
       setAiLoading(false);
     }
@@ -139,21 +184,21 @@ export function PortalCatalog({
     return Array.from(set);
   }, [products]);
 
-  // Filtre simple par query + chips
+  // Filtre simple par query + chips, puis tri (S-CONSO-4 + S-CONSO-5).
+  // L ordre est : filterByText -> chips -> sort. Sally : composabilité.
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return products.filter((p) => {
-      if (chips.length > 0 && p.category && !chips.includes(p.category)) {
-        // chips agissent comme filtres additifs : le produit doit matcher au moins
-        // une des chips actives (sinon il est exclu quand il y a des chips).
-        const matchAny = chips.some((c) => p.category?.toLowerCase().includes(c.toLowerCase()));
-        if (!matchAny) return false;
-      }
-      if (!q) return true;
-      const hay = `${p.name} ${p.description ?? ''} ${p.category ?? ''}`.toLowerCase();
-      return hay.includes(q);
-    });
-  }, [products, query, chips]);
+    // S-CONSO-4 : utilise le helper partage filterProductsByTextQuery
+    // (match sur name + description + gamme.name, pas kind technique).
+    let result = filterProductsByTextQuery(products, query, pimGammes ?? []);
+    if (chips.length > 0) {
+      result = result.filter((p) => {
+        if (!p.category) return false;
+        return chips.some((c) => p.category?.toLowerCase().includes(c.toLowerCase()));
+      });
+    }
+    // S-CONSO-5 : tri grille selon sortKey persiste localStorage.
+    return sortProductsBy(result, sortKey);
+  }, [products, query, chips, pimGammes, sortKey]);
 
   const suggestions = [
     'flyers événement 500 ex.',
@@ -297,14 +342,60 @@ export function PortalCatalog({
             />
           </div>
         )}
+        {/* S-CONSO-4 (Sally) : badge mode discret IA / texte (resilience claude-proxy down) */}
+        {(aiQuery || query) && (
+          <span
+            aria-live="polite"
+            className={`font-mono uppercase px-2 py-0.5 rounded ${
+              searchMode === 'ia'
+                ? 'bg-ok-bg text-ok-fg'
+                : 'bg-bg text-ink-mute-2 border border-line'
+            }`}
+            style={{ fontSize: '10px', letterSpacing: '0.06em', fontWeight: 500 }}
+            title={
+              searchMode === 'ia'
+                ? "Recherche enrichie par l'IA Magrit"
+                : 'Recherche simplifiée (IA indisponible) — fallback texte automatique'
+            }
+          >
+            Mode {searchMode === 'ia' ? 'IA' : 'texte'}
+          </span>
+        )}
+
         <div
-          className="ml-auto text-ink-muted"
+          className="ml-auto text-ink-muted flex items-center gap-3"
           style={{ fontSize: '12.5px', fontWeight: 400 }}
         >
-          {filtered.length} résultat{filtered.length > 1 ? 's' : ''} ·{' '}
-          <span className="text-ink" style={{ fontWeight: 500 }}>
-            Recommandés
+          <span aria-live="polite">
+            {filtered.length} résultat{filtered.length > 1 ? 's' : ''}
           </span>
+
+          {/* S-CONSO-5 (Sally) : Select tri grille catalogue + reset si non-default */}
+          <Select value={sortKey} onValueChange={(v) => setSortKey(v as SortKey)}>
+            <SelectTrigger
+              className="w-44 h-8 text-xs"
+              aria-label="Trier les produits"
+              data-testid={TEST_IDS.shop.catalogSortSelect}
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SORT_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {sortKey !== DEFAULT_SORT_KEY && (
+            <button
+              onClick={() => setSortKey(DEFAULT_SORT_KEY)}
+              className="text-ink-muted hover:text-ink underline"
+              style={{ fontSize: '11px' }}
+            >
+              Réinitialiser
+            </button>
+          )}
         </div>
       </div>
 

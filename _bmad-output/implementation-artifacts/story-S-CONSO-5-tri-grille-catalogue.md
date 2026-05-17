@@ -2,7 +2,9 @@
 story_id: S-CONSO-5
 epic: Sprint 4 — PIM-Boutique-Commandes (Phase 2 Boutique consolidation)
 title: Tri grille catalogue (Select déroulant prix/date)
-status: draft
+status: livrée
+delivered_at: 2026-05-18
+final_result: "Select shadcn (4 options Pertinence/Prix asc/Prix desc/Nouveautés) à droite du compteur résultats. Bouton Réinitialiser visible si sortKey ≠ default. Persistance localStorage par slug (magrit.shop.{slug}.sort). Helper sortProductsBy + loadSortKey/saveSortKey extraits + testés (12 cas vitest)."
 target_branch: beta/v5
 agent: Dev (Claude Code) + UX consultation Sally validée
 size: M (~1j)

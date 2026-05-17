@@ -2,7 +2,9 @@
 story_id: S-CONSO-4
 epic: Sprint 4 — PIM-Boutique-Commandes (Phase 2 Boutique consolidation)
 title: Recherche texte fallback automatique si claude-proxy down (PortalCatalog)
-status: draft
+status: livrée
+delivered_at: 2026-05-18
+final_result: "Timeout 3s sur claude-proxy via Promise.race. Fallback automatique sur filterProductsByTextQuery (name + description + gamme.name). Badge 'Mode IA' / 'Mode texte' discret + aria-live. Log console [claude_proxy_fallback] timestamp + query. Helper extrait testé (6 cas vitest)."
 target_branch: beta/v5
 agent: Dev (Claude Code) + UX consultation Sally validée
 size: M (~1j)

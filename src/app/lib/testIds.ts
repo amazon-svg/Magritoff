@@ -185,6 +185,9 @@ export const TEST_IDS = {
     thankYouPage: 'shop-thank-you-page',
     thankYouCtaCatalog: 'shop-thank-you-cta-catalog',
     thankYouCtaOrders: 'shop-thank-you-cta-orders',
+    // S-CONSO-5 (Sprint 4 Phase 2, 2026-05-18) : Select shadcn tri grille
+    // catalogue (Sally design — Pertinence / Prix asc / Prix desc / Nouveautes).
+    catalogSortSelect: 'shop-catalog-sort-select',
     // S-FIX-4 — Bouton Personnaliser placeholder (Canva future S5.x)
     productCardPersonalizeBtn: 'product-card-personalize-btn',
     // S-REWORK-1 — Pilules gammes horizontales sous header (remplace sidebar S2.2)
