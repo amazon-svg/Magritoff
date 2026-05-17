@@ -2,7 +2,9 @@
 story_id: S-MIGRATION-ORDERS
 epic: Sprint 4 — PIM-Boutique-Commandes (Phase 1 Bascule orders)
 title: Bascule submitCart → tenant_orders + tenant_order_items (ADR-ORDERS-1)
-status: draft
+status: livrée (test manuel pending sur Arnaud)
+delivered_at: 2026-05-18
+final_result: "submitCart() refactoré : auth check (AC9), validation Zod tenant_orders + items, insert 2 phases avec rollback compensatoire. 12 tests vitest verts sur tenantOrder.schema.ts. Test E2E manuel à faire sur localhost:5177."
 target_branch: beta/v5
 agent: Dev (Claude Code)
 size: M (~1.5-2j)

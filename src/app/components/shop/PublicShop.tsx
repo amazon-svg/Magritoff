@@ -23,6 +23,10 @@ import {
   saveExpandedGammes,
 } from './ShopGammesSidebar.helpers';
 import { applyTax, getTaxRate } from '../../utils/tax';
+import {
+  tenantOrderInsertSchema,
+  tenantOrderItemInsertSchema,
+} from '/schemas/tenantOrder.schema';
 
 /**
  * Portail B2B Magrit — version 2.
@@ -254,56 +258,93 @@ export function PublicShop() {
 
   const submitCart = async () => {
     if (!shop || cart.length === 0) return;
+
+    // S-MIGRATION-ORDERS (2026-05-18, ADR-ORDERS-1 architecture.md §4.10) :
+    // bascule shop_orders -> tenant_orders + tenant_order_items.
+    //
+    // AC9 (decision Arnaud B2, pre-flight 17/05) : la RLS tenant_orders_insert
+    // exige created_by = auth.uid(). L acheteur DOIT etre authentifie.
+    // Coherent avec persona acheteur B2B v1.1 (compte cree par admin tenant).
+    if (!user?.id) {
+      alert(
+        'Vous devez etre connecte pour valider votre panier.\n\nCliquez sur "Se connecter" en haut a droite pour acceder a votre compte B2B.',
+      );
+      return;
+    }
+
+    if (!shop.tenant_id) {
+      console.error('[submitCart] shop.tenant_id absent, cannot insert tenant_orders');
+      alert(
+        'Erreur de configuration boutique (tenant_id manquant). Contactez l administrateur.',
+      );
+      return;
+    }
+
     const total_ht = cart.reduce((s, l) => s + l.product.price_ht * l.qty, 0);
-    // R0 : taxRate du tenant courant (acheteur authentifie). Pour boutique
-    // anonyme sans tenant, fallback DEFAULT_TAX_RATE (metropole_fr 20 %).
-    const total_ttc = applyTax(total_ht, getTaxRate(currentTenant));
+    // R0 : taxRate du tenant courant. Si shop.tax_regime est defini cote shop,
+    // ce serait plus propre, mais pour MVP on garde getTaxRate(currentTenant).
 
-    // S-FIX-6 — submitCart fiabilise :
-    //  - recupere {error} pour ne plus echouer silencieusement (bug detecte
-    //    par Arnaud : alert "Commande envoyee" affiche meme en cas d echec)
-    //  - customer_email = user.email si authentifie (au lieu de hardcoded
-    //    portal@magrit.app), permet a l acheteur de retrouver SES commandes
-    //    via le filtre customer_email dans PortalOrders
-    //  - customer_name = user metadata full_name si dispo, fallback user.email
-    const customerEmail = user?.email ?? 'anonymous@magrit.app';
-    const customerName =
-      (user?.user_metadata?.full_name as string | undefined) ||
-      user?.email ||
-      'Acheteur portail B2B';
-
-    // S-FIX-PANIER-11/05 (bug #4d) : le trigger
-    // `enqueue_pim_candidates_on_shop_order` cast `items.product_id` en UUID
-    // strict (cf. migration 20260424_08). Les produits issus de la library
-    // ont un id prefixe `lib-...` qui n est pas un UUID PostgreSQL valide
-    // → l insert echoue avec "invalid input syntax for type uuid".
-    // Defense front : on n envoie `product_id` que si c est un UUID valide.
-    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    const { error } = await supabase.from('shop_orders').insert({
+    // ── Phase 1 : INSERT tenant_orders (1 ligne) ─────────────────────────
+    const orderInsert = tenantOrderInsertSchema.safeParse({
+      tenant_id: shop.tenant_id,
       shop_id: shop.id,
-      customer_name: customerName,
-      customer_email: customerEmail,
-      customer_phone: '',
-      items: cart.map((l) => {
-        const isUuid = typeof l.product.id === 'string' && UUID_RE.test(l.product.id);
-        return {
-          ...(isUuid ? { product_id: l.product.id } : { source_id: l.product.id }),
-          name: l.product.name,
-          qty: l.qty,
-          quantity_ex: (l.product.config as any)?.quantity ?? null,
-          price_ht: l.product.price_ht,
-        };
-      }),
+      created_by: user.id,
+      status: 'draft',
       total_ht,
-      total_ttc,
+      currency: 'EUR',
       notes: '',
-      status: 'pending',
+    });
+    if (!orderInsert.success) {
+      console.error('[submitCart] tenant_orders validation Zod failed:', orderInsert.error);
+      alert(`Erreur validation panier : ${orderInsert.error.issues[0]?.message ?? 'inconnue'}.`);
+      return;
+    }
+
+    const { data: orderRow, error: orderErr } = await supabase
+      .from('tenant_orders')
+      .insert(orderInsert.data)
+      .select('id')
+      .single();
+
+    if (orderErr || !orderRow) {
+      console.error('[submitCart] insert tenant_orders failed:', orderErr?.message);
+      alert(
+        `Erreur lors de la validation du panier : ${orderErr?.message ?? 'reseau'}.\n\nMerci de reessayer.`,
+      );
+      return;
+    }
+
+    // ── Phase 2 : INSERT tenant_order_items (N lignes, 1 par cart line) ───
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const itemsToInsert = cart.map((l) => {
+      const isUuid = typeof l.product.id === 'string' && UUID_RE.test(l.product.id);
+      return tenantOrderItemInsertSchema.parse({
+        order_id: orderRow.id,
+        product_id: isUuid ? l.product.id : null,
+        product_label: l.product.name,
+        clariprint_options: (l.product.config as Record<string, unknown> | null) ?? null,
+        quantity: l.qty,
+        unit_price_ht: l.product.price_ht,
+        line_total_ht: l.product.price_ht * l.qty,
+      });
     });
 
-    if (error) {
-      console.error('[submitCart] insert shop_orders failed:', error.message);
+    const { error: itemsErr } = await supabase.from('tenant_order_items').insert(itemsToInsert);
+
+    if (itemsErr) {
+      console.error('[submitCart] insert tenant_order_items failed:', itemsErr.message);
+      // Rollback compensatoire : delete l order cree pour eviter une commande
+      // orpheline sans items. Si le delete echoue aussi, on log et on
+      // demande a l admin de cleanup manuellement (cas extreme).
+      const { error: rbErr } = await supabase
+        .from('tenant_orders')
+        .delete()
+        .eq('id', orderRow.id);
+      if (rbErr) {
+        console.error('[submitCart] rollback delete tenant_orders failed:', rbErr.message);
+      }
       alert(
-        `Erreur lors de l envoi de la commande : ${error.message}.\n\nMerci de reessayer ou contacter l administrateur.`,
+        `Erreur lors de la sauvegarde des produits du panier : ${itemsErr.message}.\n\nMerci de reessayer.`,
       );
       return;
     }

@@ -1,40 +1,37 @@
 /**
- * PortalOrders — Vue "Mes commandes" boutique B2B (S-FIX-3).
+ * PortalOrders — Vue "Mes commandes" boutique B2B.
  *
- * Connecte le rendu de la vue 'orders' du PublicShop a la table shop_orders
- * existante (legacy v3, RLS public read par shop_id). Avant ce fix, la vue
- * affichait un placeholder statique "L historique sera disponible dans une
- * prochaine iteration" alors que submitCart() inserait deja les commandes.
+ * S-DUAL-READ (Sprint 4 Phase 1, 2026-05-18, ADR-ORDERS-1 §4.10) :
+ * Dual-read UNION shop_orders (legacy) + tenant_orders (v1.1 post-bascule
+ * S-MIGRATION-ORDERS). Marker visuel discret sur les commandes legacy
+ * (design Sally H1-bis : point gris + sr-only + title fallback desktop).
  *
  * Surface :
- *  - Query shop_orders filtre par shop_id, tri par created_at desc
- *  - Tableau simple avec : date, client, items (badge count), total HT,
- *    total TTC, statut
- *  - Empty state explicite si pas de commandes
+ *  - 2 queries Supabase parallelles (Promise.all)
+ *  - Normalisation vers OrderUI commun (PortalOrders.helpers.ts)
+ *  - Mapping 11 statuts (shop_orders + tenant_orders) vers labels UI
+ *  - Empty state + loading + error + resilience 1 query fail
  *
- * Hors scope (Epic 3 v1.1) : statut workflow (validated/cancelled), audit
- * trail, renouveler 1-clic, filtres avances. Ces stories Epic 3 sont en
- * backlog.
+ * Hors scope (S3.1+ a venir) : filtres avances, pagination, modale audit
+ * trail (tenant_order_status_events).
  */
 
 import { useEffect, useState } from "react";
 import { Loader2, Package } from "lucide-react";
 import { supabase } from "/utils/supabase/client";
 import { useAuth } from "../../../contexts/AuthContext";
+import { useTenant } from "../../../contexts/TenantContext";
+import { applyTax, getTaxRate } from "../../../utils/tax";
 import { TEST_IDS } from "../../../lib/testIds";
-
-interface ShopOrder {
-  id: string;
-  shop_id: string;
-  customer_name: string;
-  customer_email: string;
-  items: Array<{ product_id?: string; name?: string; qty?: number; price_ht?: number }>;
-  total_ht: number;
-  total_ttc: number;
-  status: string;
-  notes?: string;
-  created_at: string;
-}
+import {
+  type OrderUI,
+  type ShopOrderRow,
+  type TenantOrderRow,
+  STATUS_LABELS,
+  mergeAndSortOrders,
+  normalizeShopOrder,
+  normalizeTenantOrder,
+} from "./PortalOrders.helpers";
 
 interface Props {
   shopId: string;
@@ -64,59 +61,94 @@ function formatDate(iso: string): string {
   }
 }
 
-const STATUS_LABELS: Record<string, { label: string; className: string }> = {
-  pending: { label: "En attente", className: "bg-warn-bg text-warn-fg border-warn-fg/20" },
-  validated: { label: "Validée", className: "bg-ok-bg text-ok-fg border-ok-line" },
-  cancelled: { label: "Annulée", className: "bg-err-bg text-err-fg border-err-fg/20" },
-  shipped: { label: "Expédiée", className: "bg-info-bg text-info-fg border-info-fg/20" },
-};
-
 export function PortalOrders({ shopId }: Props) {
   const { user } = useAuth();
-  const [orders, setOrders] = useState<ShopOrder[]>([]);
+  const { currentTenant } = useTenant();
+  const [orders, setOrders] = useState<OrderUI[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!shopId) return;
     let cancelled = false;
+
     (async () => {
       setLoading(true);
       setError(null);
-      // S-FIX-6 : la RLS shop_orders SELECT autorise :
-      //  - owner shop (auth.uid() = shops.owner_user_id)
-      //  - acheteur authentifie (customer_email = auth.email())
-      // Le filtre customer_email cote front est en defense en profondeur :
-      // si l user est authentifie, on filtre pour ne voir QUE ses commandes
-      // (pas celles d autres acheteurs sur la meme shop). Un owner shop
-      // garde la vue complete (filtre customer_email omis).
-      let query = supabase
+
+      // R0 : taxRate du tenant courant pour calculer total_ttc des
+      // tenant_orders v1.1 qui ne stockent que total_ht + currency.
+      const taxRate = getTaxRate(currentTenant);
+      const taxedTotal = (ht: number) => applyTax(ht, taxRate);
+
+      // ── Query A : shop_orders legacy (cohort figee) ──────────────────────
+      // RLS : owner_user_id (admin tenant) OU customer_email = auth.email().
+      // Filtre customer_email en defense en profondeur.
+      let queryA = supabase
         .from("shop_orders")
         .select("*")
         .eq("shop_id", shopId)
         .order("created_at", { ascending: false })
         .limit(100);
-
-      // Si user authentifie ET non-anonyme, filtrer ses propres commandes
-      // (defense supplementaire ; la RLS le ferait deja, mais front explicite)
       if (user?.email) {
-        query = query.eq("customer_email", user.email);
+        queryA = queryA.eq("customer_email", user.email);
       }
 
-      const { data, error: err } = await query;
+      // ── Query B : tenant_orders v1.1 (cohort post-bascule) ───────────────
+      // RLS tenant_orders_select : current_user_can_access_shop(shop_id)
+      // OU is_super_admin(). Join inner tenant_order_items pour items.
+      let queryB = supabase
+        .from("tenant_orders")
+        .select(
+          "id, shop_id, tenant_id, created_by, status, total_ht, currency, notes, created_at, tenant_order_items(product_label, quantity, unit_price_ht, line_total_ht)",
+        )
+        .eq("shop_id", shopId)
+        .order("created_at", { ascending: false })
+        .limit(100);
+      if (user?.id) {
+        queryB = queryB.eq("created_by", user.id);
+      }
+
+      // Promise.all : 2 queries en parallele. Resilience : si une query
+      // echoue, l autre continue (cf. AC5 S-DUAL-READ).
+      const [resA, resB] = await Promise.all([queryA, queryB]);
+
       if (cancelled) return;
-      if (err) {
-        setError(err.message);
+
+      const legacyOrders: OrderUI[] = [];
+      const v11Orders: OrderUI[] = [];
+
+      if (resA.error) {
+        console.warn("[PortalOrders] query shop_orders failed:", resA.error.message);
+      } else if (Array.isArray(resA.data)) {
+        for (const row of resA.data as ShopOrderRow[]) {
+          legacyOrders.push(normalizeShopOrder(row));
+        }
+      }
+
+      if (resB.error) {
+        console.warn("[PortalOrders] query tenant_orders failed:", resB.error.message);
+      } else if (Array.isArray(resB.data)) {
+        for (const row of resB.data as TenantOrderRow[]) {
+          v11Orders.push(normalizeTenantOrder(row, taxedTotal));
+        }
+      }
+
+      // Si les 2 queries echouent ensemble, on affiche une erreur explicite.
+      if (resA.error && resB.error) {
+        setError(`${resA.error.message} / ${resB.error.message}`);
         setLoading(false);
         return;
       }
-      setOrders((data ?? []) as ShopOrder[]);
+
+      setOrders(mergeAndSortOrders(legacyOrders, v11Orders));
       setLoading(false);
     })();
+
     return () => {
       cancelled = true;
     };
-  }, [shopId, user?.email]);
+  }, [shopId, user?.email, user?.id, currentTenant]);
 
   return (
     <div
@@ -201,10 +233,8 @@ export function PortalOrders({ shopId }: Props) {
             </thead>
             <tbody>
               {orders.map((o) => {
-                const itemsCount = Array.isArray(o.items)
-                  ? o.items.reduce((s, it) => s + (it.qty ?? 1), 0)
-                  : 0;
-                const linesCount = Array.isArray(o.items) ? o.items.length : 0;
+                const itemsCount = o.items.reduce((s, it) => s + (it.qty ?? 1), 0);
+                const linesCount = o.items.length;
                 const statusInfo = STATUS_LABELS[o.status] ?? {
                   label: o.status,
                   className: "bg-line text-ink-2 border-line",
@@ -214,11 +244,12 @@ export function PortalOrders({ shopId }: Props) {
                     key={o.id}
                     data-testid={TEST_IDS.shop.ordersRow}
                     data-order-id={o.id}
+                    data-order-source={o.source}
                     className="border-b border-line hover:bg-bg transition-colors"
                   >
                     <td className="py-3 pr-4 text-ink-2 font-mono"
                         style={{ fontVariantNumeric: "tabular-nums" }}>
-                      {formatDate(o.created_at)}
+                      {formatDate(o.date)}
                     </td>
                     <td className="py-3 pr-4 text-ink">{o.customer_name || "—"}</td>
                     <td className="py-3 pr-4 text-ink-muted">
@@ -238,12 +269,26 @@ export function PortalOrders({ shopId }: Props) {
                       {formatEuro(o.total_ttc)}
                     </td>
                     <td className="py-3">
-                      <span
-                        className={`inline-block px-2 py-0.5 rounded border font-mono uppercase ${statusInfo.className}`}
-                        style={{ fontSize: "10px", letterSpacing: "0.06em", fontWeight: 500 }}
-                      >
-                        {statusInfo.label}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        {/* S-DUAL-READ Sally H1-bis : marker discret cohort legacy */}
+                        {o.source === 'legacy' && (
+                          <>
+                            <span
+                              className="bg-ink-mute-2 w-1.5 h-1.5 rounded-full shrink-0"
+                              aria-hidden="true"
+                              title="Commande antérieure au 17/05/2026 (modèle legacy)"
+                              data-testid={TEST_IDS.shop.ordersRowLegacyMarker}
+                            />
+                            <span className="sr-only">Commande au format antérieur. </span>
+                          </>
+                        )}
+                        <span
+                          className={`inline-block px-2 py-0.5 rounded border font-mono uppercase ${statusInfo.className}`}
+                          style={{ fontSize: "10px", letterSpacing: "0.06em", fontWeight: 500 }}
+                        >
+                          {statusInfo.label}
+                        </span>
+                      </div>
                     </td>
                   </tr>
                 );

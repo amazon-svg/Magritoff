@@ -176,6 +176,10 @@ export const TEST_IDS = {
     // S-FIX-3 — Mes commandes connectees shop_orders (correctif vue Orders vide)
     ordersList: 'shop-orders-list',
     ordersRow: 'shop-orders-row',
+    // S-DUAL-READ (Sprint 4 Phase 1, 2026-05-18) : marker point gris sur les
+    // commandes cohort legacy shop_orders (vs v1.1 tenant_orders) — design
+    // Sally H1-bis (point gris + sr-only + title fallback desktop).
+    ordersRowLegacyMarker: 'shop-orders-row-legacy-marker',
     // S-FIX-4 — Bouton Personnaliser placeholder (Canva future S5.x)
     productCardPersonalizeBtn: 'product-card-personalize-btn',
     // S-REWORK-1 — Pilules gammes horizontales sous header (remplace sidebar S2.2)

@@ -2,7 +2,10 @@
 story_id: S-DUAL-READ
 epic: Sprint 4 — PIM-Boutique-Commandes (Phase 1 Bascule orders)
 title: PortalOrders dual-read shop_orders (legacy) UNION tenant_orders (v1.1)
-status: draft
+status: livrée (test manuel pending sur Arnaud)
+delivered_at: 2026-05-18
+sally_ux_consult: "H1-bis validée (point gris + sr-only + title fallback desktop). Snippet JSX intégré PortalOrders.tsx ligne ~240."
+final_result: "PortalOrders dual-read shop_orders + tenant_orders via Promise.all. Helpers purs PortalOrders.helpers.ts extraits (normalizeShopOrder/normalizeTenantOrder/mergeAndSortOrders/STATUS_LABELS). Marker legacy point gris (Sally H1-bis). 15 tests vitest verts. Resilience : 1 query fail, l'autre continue."
 target_branch: beta/v5
 agent: Dev (Claude Code) + UX consultation (Sally pour design badge "Legacy" + tri)
 size: S (~1j)
