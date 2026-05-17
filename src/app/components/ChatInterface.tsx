@@ -316,7 +316,12 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
     } finally {
       setIsLoading(false);
       setStreamingChunks(null);
-      const finalMessages = [...newMessages, { role: "assistant", content: assistantMessage }];
+      // 2026-05-17 — Bug R2 Phase B incomplete : `newMessages` etait l'ancien
+      // nom (avant troncage), renomme `fullMessages` ligne 165 mais ce finally
+      // n'avait pas ete migre -> ReferenceError a chaque envoi -> saveCurrent
+      // jamais appele -> currentConversationId reste null -> pas de cle
+      // localStorage de restauration -> home perd la conv au tab focus.
+      const finalMessages = [...fullMessages, { role: "assistant", content: assistantMessage }];
       const allProducts = [...products, ...parsedProducts];
       saveCurrentConversation(finalMessages, allProducts);
     }

@@ -111,10 +111,19 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
   const [history, setHistory] = useState<ConversationHistory[]>([]);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const migratedRef = useRef(false);
+  // 2026-05-17 — Bloque la synchronisation history -> localStorage tant que
+  // l hydratation initiale (lecture cache + fetchRemote) n est pas terminee.
+  // Sans ce flag, l effet ligne ~227 ecrasait le cache avec history=[]
+  // (state initial useState) DES le premier render, AVANT que l effet de
+  // restauration n ait fini sa lecture cote tab focus / re-mount. Resultat :
+  // au remontage suivant le cache valait toujours "[]" et la restauration
+  // synchrone ne trouvait jamais la conv -> reset = home par defaut.
+  const hydratedRef = useRef(false);
 
   useEffect(() => {
     // Reset le cache de migration quand on change de tenant
     migratedRef.current = false;
+    hydratedRef.current = false;
 
     // E9.x — Capture la conv active AVANT de reset le state. Permet de la
     // restaurer apres re-mount du provider (ex : Supabase auth refresh sur
@@ -124,9 +133,39 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
     const tenantIdAtMount = currentTenant?.id ?? null;
     const savedConvId = localStorage.getItem(currentConvIdKey(tenantIdAtMount));
 
-    setMessages([]);
-    setProducts([]);
-    setCurrentConversationId(null);
+    // 2026-05-15 — Restauration SYNCHRONE depuis le cache localStorage de
+    // l historique (tenu a jour par l effet ligne ~197). Evite le flash
+    // visuel "home standard" entre le reset state et la restauration apres
+    // fetchRemote (async) qui re-declenchait sur chaque tab focus.
+    let restoredSync = false;
+    if (savedConvId) {
+      try {
+        const cachedRaw = localStorage.getItem(storageKey(tenantIdAtMount));
+        if (cachedRaw) {
+          const cached: ConversationHistory[] = JSON.parse(cachedRaw);
+          const conv = cached.find((c) => c.id === savedConvId);
+          if (conv) {
+            setCurrentConversationId(conv.id);
+            setMessages(Array.isArray(conv.messages) ? conv.messages.map((m) => ({ ...m })) : []);
+            setProducts(Array.isArray(conv.products) ? conv.products.map((p) => ({ ...p })) : []);
+            setHistory((prev) => (prev.length ? prev : cached));
+            restoredSync = true;
+            // Hydratation effective : on a deja restaure le state depuis le
+            // cache. Les saveCurrent ulterieurs (avant que fetchRemote ne
+            // resolve) doivent pouvoir persister dans localStorage.
+            hydratedRef.current = true;
+          }
+        }
+      } catch {
+        // Cache corrompu : on retombe sur le reset + fetchRemote
+      }
+    }
+
+    if (!restoredSync) {
+      setMessages([]);
+      setProducts([]);
+      setCurrentConversationId(null);
+    }
 
     const restoreCurrentFromHistory = (h: ConversationHistory[]) => {
       if (!savedConvId) return;
@@ -158,6 +197,7 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
                 setHistory(refreshed);
                 migratedRef.current = true;
                 restoreCurrentFromHistory(refreshed);
+                hydratedRef.current = true;
                 return;
               }
             } catch {}
@@ -166,6 +206,7 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
         }
         setHistory(remote);
         restoreCurrentFromHistory(remote);
+        hydratedRef.current = true;
       });
     } else {
       const localKey = storageKey(currentTenant?.id ?? null);
@@ -176,6 +217,7 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
       }
       setHistory(parsed);
       restoreCurrentFromHistory(parsed);
+      hydratedRef.current = true;
     }
   }, [user, currentTenant?.id]);
 
@@ -198,6 +240,13 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
     // Le localStorage sert de cache hors-ligne et de source pour la migration
     // au login. On le garde synchronise en permanence avec l'etat courant.
     // Cle suffixee par tenant : un espace = un cache.
+    // 2026-05-17 — Gate `hydratedRef` : on n ecrit PAS le cache avant que
+    // l hydratation initiale (lecture + restoration sync OU fetchRemote)
+    // soit finie. Sinon le `useState([])` initial du nouveau mount ecrasait
+    // le cache avec "[]" AVANT que le useEffect de restauration ait pu lire
+    // l ancien contenu -> au remontage suivant (tab focus) la conv etait
+    // perdue parce que le cache valait "[]".
+    if (!hydratedRef.current) return;
     localStorage.setItem(storageKey(currentTenant?.id ?? null), JSON.stringify(history));
   }, [history, currentTenant?.id]);
 
