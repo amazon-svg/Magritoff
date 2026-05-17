@@ -33,6 +33,7 @@ import { ProductCardDebug } from "./product-card/ProductCardDebug";
 import { ProductCardEditer } from "./product-card/ProductCardEditer";
 import { ProductCardFiche } from "./product-card/ProductCardFiche";
 import { ProductCardPrix } from "./product-card/ProductCardPrix";
+import { extractClariprintConfigFromAtelierProduct } from "./shop/ProductOverlay.helpers";
 import type { ShopProduct } from "../contexts/ShopsContext";
 
 interface ClariprintQuoteResult {
@@ -738,9 +739,16 @@ export function ProductCard({
                 description: localProduct.description ?? '',
                 price_ht: displayPriceHT,
                 image_url: '',
+                // 2026-05-15 — Bug fix volet d'edition : on construit un
+                // clariprintData normalise (format Clariprint attendu par
+                // extractInitialOptions) a partir des champs UI/LLM
+                // (material, weight, dimensions, finishRecto/Verso,
+                // printing.recto/verso). Avant ce fix, l'overlay tombait
+                // sur DEFAULT_OPTIONS pour 5 champs sur 7 (A5/135g/recto/
+                // aucun) au lieu d'afficher les valeurs du produit.
                 config: {
                   ...(localProduct as any),
-                  clariprintData: localProduct.clariprintData ?? localProduct,
+                  clariprintData: extractClariprintConfigFromAtelierProduct(localProduct),
                 },
                 display_order: 0,
               } as ShopProduct)

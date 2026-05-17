@@ -5,6 +5,7 @@
 import { describe, it, expect } from "vitest";
 import {
   extractInitialOptions,
+  extractClariprintConfigFromAtelierProduct,
   buildClariprintPayload,
   parseFormatToWidthHeight,
   formatEuro,
@@ -207,6 +208,205 @@ describe("buildClariprintPayload", () => {
       { kind: "flyer" },
     );
     expect(payload.finishing_back).toBeUndefined();
+  });
+});
+
+describe("extractClariprintConfigFromAtelierProduct (bug fix volet edition 2026-05-15)", () => {
+  it("input null/undefined -> objet vide", () => {
+    expect(extractClariprintConfigFromAtelierProduct(null)).toEqual({});
+    expect(extractClariprintConfigFromAtelierProduct(undefined)).toEqual({});
+  });
+
+  it("produit atelier UI/LLM typique -> overlay lit les vraies valeurs (plus de DEFAULT_OPTIONS)", () => {
+    // Cas reel : produit retourne par parseConfigsToProducts depuis le chat LLM
+    const localProduct = {
+      id: "p-1",
+      name: "Cartes de visite",
+      quantity: 500,
+      format: "85x55",
+      material: "Papier couche brillant",
+      weight: 350,
+      dimensions: { width: 85, height: 55 },
+      printing: { recto: "Quadrichromie (CMJN)", verso: "Quadrichromie (CMJN)" },
+      finishRecto: "Pelliculage mat",
+      finishVerso: "Pelliculage mat",
+      clariprintData: {
+        kind: "leaflet",
+        reference: "Cartes de visite",
+        front_colors: ["4-color"],
+      },
+    };
+    const cfg = extractClariprintConfigFromAtelierProduct(localProduct);
+    // Verifie que ce qu'on extrait fait que l'overlay ne tombe PAS sur les defauts
+    const opts = extractInitialOptions({ config: { clariprintData: cfg } } as unknown as ShopProduct);
+    expect(opts.quantity).toBe(500);
+    expect(opts.format).toBe("85x55");
+    expect(opts.paper).toBe("350g");
+    expect(opts.printing).toBe("recto-verso");
+    expect(opts.finishingFront).toBe("mat");
+    expect(opts.finishingVerso).toBe("mat");
+  });
+
+  it("printing.verso 'Sans impression' -> recto", () => {
+    const cfg = extractClariprintConfigFromAtelierProduct({
+      quantity: 100,
+      format: "A5",
+      printing: { recto: "Quadrichromie", verso: "Sans impression" },
+    });
+    expect(cfg.printing).toBe("recto");
+    expect(cfg.back_colors).toBe(0);
+  });
+
+  it("clariprintData LLM brut (papers objet, width/height string CM) -> conversion mm", () => {
+    // Format LLM brut tel que retourne par demoConfigs / Claude :
+    // width/height sont des STRINGS en CENTIMETRES (convention LLM Clariprint).
+    // "8.5" / "5.5" cm = 85 / 55 mm (carte de visite).
+    const cfg = extractClariprintConfigFromAtelierProduct({
+      quantity: 500,
+      clariprintData: {
+        kind: "leaflet",
+        width: "8.5",
+        height: "5.5",
+        papers: { custom: { quality: "Couche brillant", weight: "350" } },
+        finishing_front: "PELLIC_ACETATE_MAT",
+        finishing_back: "PELLIC_ACETATE_MAT",
+        back_colors: ["4-color"],
+      },
+    });
+    expect(cfg.width).toBe(85);
+    expect(cfg.height).toBe(55);
+    expect(cfg.papers).toEqual(["350g"]);
+    expect(cfg.finishing_front).toBe("mat");
+    expect(cfg.finishing_back).toBe("mat");
+    expect(cfg.printing).toBe("recto-verso");
+    expect(cfg.kind).toBe("leaflet");
+  });
+
+  it("scenario reel user 2026-05-17 : Affiches A2 sans dimensions, clariprintData en cm", () => {
+    // Reproduit EXACTEMENT le log console d'Arnaud : pas de field `dimensions`,
+    // format verbose label, clariprintData.width/height en CM strings.
+    const cfg = extractClariprintConfigFromAtelierProduct({
+      name: "Affiches A2 brillantes recto",
+      quantity: 250,
+      format: "A2 (420 × 594 mm)",
+      // dimensions: undefined  <- absent
+      material: "Papier couché brillant",
+      weight: 170,
+      finishRecto: "Pelliculage brillant",
+      printing: { recto: "Quadrichromie (CMJN)", verso: "Sans impression" },
+      clariprintData: {
+        kind: "poster",
+        width: "42",
+        height: "59.4",
+        papers: { custom: { quality: "Couche brillant", weight: "170" } },
+        finishing_front: "PELLIC_BRILL",
+      },
+    });
+    // Apres fix v3 : le label "A2 (420 × 594 mm)" extrait -> "A2" -> FORMAT_DIMENSIONS.a2 = 420x594
+    expect(cfg.format).toBe("A2");
+    expect(cfg.width).toBe(420);
+    expect(cfg.height).toBe(594);
+    expect(cfg.papers).toEqual(["170g"]);
+    expect(cfg.finishing_front).toBe("brillant");
+    expect(cfg.printing).toBe("recto");
+  });
+
+  it("post-edit : raw Clariprint prime sur UI obsolete (papers array remplace material UI)", () => {
+    // Apres edition via overlay, localProduct est merge avec updatedClariprint
+    // (cf. ProductCard onConfirm). raw.papers ["170g"] doit primer sur weight UI (350).
+    const cfg = extractClariprintConfigFromAtelierProduct({
+      quantity: 1000,
+      weight: 350, // ancien
+      material: "Papier couche brillant",
+      clariprintData: {
+        kind: "flyer",
+        papers: ["170g"], // post-edit, format array normalise
+        finishing_front: "brillant",
+        printing: "recto",
+      },
+    });
+    expect(cfg.papers).toEqual(["170g"]);
+    expect(cfg.finishing_front).toBe("brillant");
+    expect(cfg.printing).toBe("recto");
+    expect(cfg.back_colors).toBe(0);
+  });
+
+  it("regex grammage depuis material si weight absent", () => {
+    const cfg = extractClariprintConfigFromAtelierProduct({
+      material: "Papier couche brillant 250g",
+    });
+    expect(cfg.papers).toEqual(["250g"]);
+  });
+
+  it("finitions soft-touch / brillant reconnues", () => {
+    expect(
+      extractClariprintConfigFromAtelierProduct({ finishRecto: "Soft-touch" }).finishing_front,
+    ).toBe("soft-touch");
+    expect(
+      extractClariprintConfigFromAtelierProduct({ finishRecto: "Pelliculage brillant" })
+        .finishing_front,
+    ).toBe("brillant");
+    expect(
+      extractClariprintConfigFromAtelierProduct({ finishRecto: "Sans finition" }).finishing_front,
+    ).toBe("aucun");
+    expect(
+      extractClariprintConfigFromAtelierProduct({ finishRecto: "" }).finishing_front,
+    ).toBe("aucun");
+  });
+
+  it("preserve kind / folds / pages / front_colors depuis raw clariprintData", () => {
+    const cfg = extractClariprintConfigFromAtelierProduct({
+      clariprintData: { kind: "brochure", folds: 2, pages: 16, front_colors: 4 },
+    });
+    expect(cfg.kind).toBe("brochure");
+    expect(cfg.folds).toBe(2);
+    expect(cfg.pages).toBe(16);
+    expect(cfg.front_colors).toBe(4);
+  });
+
+  it("format UI inconnu + dimensions presentes -> matchStandardFormat depuis dims", () => {
+    const cfg = extractClariprintConfigFromAtelierProduct({
+      format: "85 × 55 mm (format standard)",
+      dimensions: { width: 85, height: 55 },
+    });
+    // Format UI ne match pas parseFormatToWidthHeight (label verbose),
+    // mais matchStandardFormat reconnait depuis dims -> "85x55"
+    expect(cfg.width).toBe(85);
+    expect(cfg.height).toBe(55);
+    expect(cfg.format).toBe("85x55");
+  });
+
+  it("Affiches A2 (420x594) -> format 'A2' resolu depuis dimensions (bug user 2026-05-17)", () => {
+    // Cas reel signale par Arnaud : "Affiches A2 brillantes" -> le format
+    // s'affichait sur A6 (premier option du select) parce qu'A2 n'etait pas
+    // dans FORMATS et que le helper synthestisait "420x594" non present
+    // dans le select non plus.
+    const cfg = extractClariprintConfigFromAtelierProduct({
+      name: "Affiches A2 brillantes",
+      quantity: 250,
+      format: "A2 (420 × 594 mm)",
+      dimensions: { width: 420, height: 594 },
+      weight: 170,
+      finishRecto: "Pelliculage brillant",
+    });
+    expect(cfg.format).toBe("A2");
+    expect(cfg.width).toBe(420);
+    expect(cfg.height).toBe(594);
+    expect(cfg.papers).toEqual(["170g"]);
+    expect(cfg.finishing_front).toBe("brillant");
+  });
+
+  it("matchStandardFormat tolere tolerance +-2mm + orientation paysage", () => {
+    // A4 paysage : 297x210 doit etre reconnu comme "A4"
+    const cfg1 = extractClariprintConfigFromAtelierProduct({
+      dimensions: { width: 297, height: 210 },
+    });
+    expect(cfg1.format).toBe("A4");
+    // Tolerance : 421x593 doit etre reconnu comme "A2"
+    const cfg2 = extractClariprintConfigFromAtelierProduct({
+      dimensions: { width: 421, height: 593 },
+    });
+    expect(cfg2.format).toBe("A2");
   });
 });
 
