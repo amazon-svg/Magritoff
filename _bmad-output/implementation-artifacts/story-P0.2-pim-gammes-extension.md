@@ -2,13 +2,19 @@
 story_id: P0.2
 epic: Sprint 4 — PIM-Boutique-Commandes (Phase 0 Préalables)
 title: Migration SQL — extension du catalogue de gammes PIM (+5 gammes)
-status: draft
+status: livrée
+applied_at: 2026-05-17
 target_branch: beta/v5
 agent: Dev (Claude Code)
-size: S (~0.5j)
+size: S (~0.5j, livrée en ~0.2j)
 migration_file: supabase/migrations/20260517_01_pim_gammes_extension.sql
+commit: P0.2 migration (cf. git log)
 depends_on: P0.1 (ADR PIM RLS documentée — pas bloquant)
-unblocks: P0.3 (wizard adapt 11 parents), P0.4 (smoke test ingestion)
+unblocks: P0.3 (livrée, H1 confirmé aucun code), P0.4 (smoke test ingestion)
+prod_smoke_check:
+  - "count(product_gammes) = 27 ✅"
+  - "5 nouveaux slugs présents avec display_order 35/36/37/38/41 ✅"
+  - "parent_slugs corrects (kakemono/etiquette/banderole root, roll_up_80x200 sous kakemono, depliant_plie_dl sous depliant) ✅"
 ---
 
 # Story P0.2 — Extension catalogue gammes PIM (+5)

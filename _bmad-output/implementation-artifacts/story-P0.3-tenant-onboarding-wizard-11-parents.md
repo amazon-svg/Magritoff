@@ -1,16 +1,16 @@
 ---
 story_id: P0.3
 epic: Sprint 4 — PIM-Boutique-Commandes (Phase 0 Préalables)
-title: TenantOnboarding wizard — absorber 11 gammes parents (vs 6 actuels)
-status: draft
+title: TenantOnboarding wizard — vérification 8 gammes parents racine (vs 5 actuels)
+status: livrée (validation visuelle seule — aucun changement code)
 target_branch: beta/v5
-agent: Dev (Claude Code) + UX consultation (Sally à invoquer si décision design lourde)
-size: S (~0.5j)
-depends_on: P0.2 (les 5 nouvelles gammes doivent exister en DB pour que le wizard les fetch)
-ux_consultation: requise (story touche UI wizard E9.6 livré)
+agent: Dev (Claude Code) + UX consultation (Sally non requise, H1 confirmé)
+size: XS (validation visuelle, 0j dev)
+depends_on: P0.2 (livrée, migration appliquée 2026-05-17 — 27 gammes en DB)
+ux_consultation: NON requise (H1 confirmé après lecture composant)
 ---
 
-# Story P0.3 — Wizard onboarding 11 parents
+# Story P0.3 — Wizard onboarding 8 parents racine
 
 ## Story (As / I want / So that)
 
@@ -31,16 +31,20 @@ Après la story P0.2, le catalogue passe à **11 parents** (les 6 actuels + kake
 
 → wizard étendu de 6 à **9 parents racine**. Vérifier la compatibilité UI.
 
-## Pre-flight UX (à valider avant dev)
+## Pre-flight UX — Conclusion H1 confirmé (2026-05-17)
 
-**Question Sally (à confirmer avec Arnaud)** : 9 parents tient-il dans la viewport actuelle du wizard step 2, ou faut-il une refonte ?
+Lecture composant `TenantOnboarding.tsx` ligne 163-477 :
+- Le wizard **n'est PAS dans une modale** : c'est une **vraie page** (`min-h-[calc(100vh-56px)]` avec scroll de page natif via `body`).
+- Le container des gammes (ligne 433) est `grid grid-cols-1 sm:grid-cols-2 gap-2` (responsive) :
+  - Desktop ≥ 640px : 2 colonnes → 8 parents racine = 4 lignes ≈ 250-300px
+  - Mobile < 640px : 1 colonne → 8 parents racine = 8 lignes ≈ 500-550px (scroll page natif OK)
+- `rootGammes` (ligne 89) filtre via `gammes.filter((g) => !g.parent_slug)` → après P0.2, les 3 nouvelles gammes racine (`kakemono`, `etiquette`, `banderole`) apparaissent automatiquement. `roll_up_80x200` reste sous `kakemono`, `depliant_plie_dl` reste sous `depliant`.
 
-Hypothèses :
-- **H1 (probable, simple)** : la liste est déjà scrollable verticalement → 9 parents ≈ 9 lignes de ~48px = 432px. Tient dans la viewport modale standard (>500px). Pas de refonte.
-- **H2 (si liste flex/grid non scrollable)** : ajouter `overflow-y-auto max-h-[60vh]` au container — fix one-liner.
-- **H3 (si UX exige grouping)** : grouper par "Univers" (Petits formats / Grands formats / Reliés) — refonte UX, +1j et nécessite Sally.
+→ **H1 confirmé** : aucune adaptation code nécessaire. La page absorbe nativement l'extension à 8 parents racine.
 
-→ **Décision pré-dev** : commencer par lire `TenantOnboarding.tsx` pour identifier l'hypothèse réelle. Si H1 ou H2, dev direct. Si H3, escalade Sally + Arnaud.
+→ **Sally non invoquée** (pas de décision design lourde, pas de refonte de groupage par "Univers").
+
+**Correction du compte initial** : j'avais sur-compté à "11 parents" puis "9 parents" — la réalité est **8 parents racine** : carterie, flyer, affiche, depliant, brochure (5 existants) + kakemono, etiquette, banderole (3 nouveaux). Sous-gammes : roll_up_80x200 sous kakemono, depliant_plie_dl sous depliant.
 
 ## Acceptance Criteria
 
