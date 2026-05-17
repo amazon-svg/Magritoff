@@ -432,6 +432,64 @@ export const featureFlags = {
 
 `getEnvOrTier(min)` = helper qui combine flag global + tier du tenant courant. Pattern unique pour gating par tier.
 
+### 4.9 PIM `product_definitions` — Shared Catalog (RLS publique intentionnelle)
+
+> **ADR-PIM-RLS-1** — Décision Arnaud 2026-05-17 lors du sprint Sprint 4 PIM-Boutique-Commandes (Story P0.1).
+
+**Décision** : la table `public.product_definitions` reste en **lecture publique** (`select` sans filtre RLS tenant-spécifique). Le PIM Magrit est un **catalogue vitrine partagé** — les fiches sont des templates SEO/marketing génériques (titre, description, FAQ, usage_examples) générés par Claude Haiku via `pim-ingest` à partir des commandes mutualisées (cf. §4.5 LLM Migration).
+
+**Pourquoi** :
+- **Aucune donnée tenant sensible** n'est stockée dans `product_definitions`. La confidentialité du parc imprimeur Pro (paramètres machines, marges, fournisseurs) est confinée à **Clariprint**, pas au PIM (cf. §4.4 ClariprintAdapter Pattern).
+- Les fiches sont **mutualisées par nature** : un acheteur B2B d'un imprimeur A bénéficie des enrichissements LLM générés par les commandes des clients de l'imprimeur B (le PIM grandit avec l'usage agrégé, à l'avantage de tous les tenants).
+- Le **filtrage par boutique** passe par 2 couches déjà en place :
+  1. `tenant_gamme_subscriptions` (chaque tenant choisit les gammes qu'il expose à ses acheteurs)
+  2. `shops.library_ids` / `shops.excluded_product_ids` (granularité produit par boutique)
+
+**Conséquence NFR6 (cross-tenant isolation)** : NFR6 reste respecté car aucune donnée sensible tenant ne fuite via le PIM partagé. Les overrides tenant-privés (ex: produit signature avec naming propriétaire) doivent passer par une **table séparée** (`tenant_pim_overrides`, hors scope v1.1) plutôt qu'une refonte de la RLS publique.
+
+**Pattern à respecter** :
+- ✅ `public.product_definitions` : `select` policy publique.
+- ✅ `public.tenant_gamme_subscriptions` : RLS par tenant (déjà en place via `user_role_in_tenant`).
+- ❌ Ne JAMAIS proposer de scoper `product_definitions` par tenant sans ouvrir une nouvelle ADR (changement structurel majeur).
+
+**Mémoire BMAD** : `~/.claude/projects/-Users-arnaudmazon-Documents-Claude-BMAD-Magrit/memory/project_pim_rls_shared_catalog.md`.
+
+### 4.10 Order Entity — Bascule `shop_orders` → `tenant_orders` + Dual-Read
+
+> **ADR-ORDERS-1** — Décision Arnaud 2026-05-17 lors du sprint Sprint 4 PIM-Boutique-Commandes (Story P0.5), sur la base de la recommandation Winston (option B / 3) issue de l'audit du 17/05.
+
+**Contexte** : depuis B3 (prototype v3), le code applicatif insère et lit les commandes acheteur dans `public.shop_orders` (schema legacy, `items` JSONB inline, RLS scoped shop uniquement). La Story S1.4 (Sprint 3, commit `9d70e58`, migration `20260509_01_e1_orders_v1_1.sql`) a livré le **nouveau modèle Order entity** `tenant_orders` + `tenant_order_items` + `tenant_order_status_events` (cf. §4.1 et §4.2) mais aucune story du sprint n'avait fait la bascule applicative. **Deux modèles co-existent** sans plus de consommateur applicatif sur le nouveau.
+
+**Décision** : on bascule `submitCart()` côté `PublicShop.tsx` pour insérer dans `tenant_orders` + `tenant_order_items` (le modèle propre v1.1). En parallèle, `PortalOrders.tsx` lit en **UNION** les deux tables pour préserver l'historique des commandes anciennes (cohort `shop_orders` figée + cohort `tenant_orders` qui s'enrichit). Cette bascule est traitée par 2 stories dédiées (Phase 1 du Sprint 4) :
+- **S-MIGRATION-ORDERS** : adapter `submitCart()` pour écrire dans `tenant_orders` + items, avec validation Zod adaptée.
+- **S-DUAL-READ** : adapter `PortalOrders.tsx` pour query UNION ordonnée chronologiquement, badge "Legacy" sur les commandes ex-`shop_orders`.
+
+**Pourquoi cette option (B sur A et C)** :
+1. **Alignement Architecture v1.1** : §4.1 et §4.2 spécifient `tenant_orders` comme source de vérité Order entity. Garder `shop_orders` créerait une dette permanente.
+2. **NFR6 isolation cross-tenant** : `tenant_orders` a une RLS stricte cross-tenant via `tenant_id` (cf. §4.2). `shop_orders` n'a aucune protection cross-tenant (scoped `shop_id` uniquement) — risque NFR6 si on garde shop_orders pour S3.x.
+3. **Hooks pré-câblés** : `tenant_orders` expose les colonnes hooks pour NFR16 e-invoicing (`invoice_number`, `invoice_status`, `pa_id`, `ppf_message_id`), E4.3 Stripe (`stripe_payment_intent_id`), S5.2 Canva (`canva_asset_url` sur items). `shop_orders` devrait être étendu si on ajoutait ces features post-v1.1.
+4. **Audit trail garanti** : `tenant_order_status_events` + RPC `update_tenant_order_status` garantissent l'audit (NFR FR19). `shop_orders` n'a aucun mécanisme natif d'historique de statuts.
+5. **Évite refacto double** : sans bascule, les stories S3.1-S3.5 (Epic 3 Commandes) devraient soit re-spec sur shop_orders (perte des avantages ci-dessus), soit refactoriser leur propre code en cours de sprint suivant.
+
+**Alternatives écartées** :
+- **Option A — Garder shop_orders + déprécier tenant_orders** : crée une dette permanente, casse NFR6 cross-tenant, force la migration ultérieure de toutes les colonnes hooks NFR16/E4.3/S5.2 dans shop_orders. Effort court terme bas, dette long terme haute. **Rejetée** (cf. recommandation Winston 17/05).
+- **Option C — Bascule post-démo 23/05** : risque que les stories S3.x avancent en parallèle et écrivent dans shop_orders en attendant, créant une double migration. **Rejetée** (cf. discussion 17/05 — la fenêtre démo permet la bascule).
+
+**Trade-off accepté — Bifurcation temporaire** :
+- En prod après cette bascule, **deux cohorts de commandes co-existent** :
+  - Cohort **legacy** : `shop_orders` figée (toutes les commandes antérieures à la bascule)
+  - Cohort **v1.1** : `tenant_orders` (toutes les nouvelles commandes)
+- `PortalOrders.tsx` gère cette bifurcation via dual-read UNION (S-DUAL-READ) avec badge UI explicite sur les commandes legacy.
+- **Cleanup optionnel V2+** : un script de migration `shop_orders` → `tenant_orders` peut être écrit ultérieurement (≈ 2h dev, asynchrone, sans impact prod). Non bloquant pour v1.1.
+
+**Pattern à respecter** :
+- ✅ **Nouveaux écritures** : `submitCart()` + toute nouvelle story d'écriture (S3.2 Création depuis panier, S3.3 Renouveler, etc.) → `tenant_orders` + `tenant_order_items`.
+- ✅ **Lectures historique** : dual-read UNION `shop_orders` legacy + `tenant_orders` jusqu'au cleanup éventuel V2+.
+- ✅ **Transitions statut** : exclusivement via la RPC `update_tenant_order_status` (matrice valide cf. §4.1).
+- ❌ Ne JAMAIS écrire dans `shop_orders` après bascule (sauf migration de cleanup explicite V2+).
+
+**Mémoire BMAD** : décision tracée dans `_bmad-output/implementation-artifacts/sprint-status-2026-05-17.md`.
+
 ---
 
 ## Step 5 — Implementation Patterns & Consistency Rules
