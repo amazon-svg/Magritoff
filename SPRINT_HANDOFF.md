@@ -2,7 +2,56 @@
 
 > Document de reprise pour démarrer une nouvelle session de Claude code sur le projet sans recharger tout l'historique. À tenir à jour à chaque fin de sprint.
 >
-> **Dernière mise à jour : 2026-05-11 soir — v0.5.3-beta.5, HEAD `ee82fa7` (poussé sur origin/beta/v5) — Sprint Refacto EPIC-REFACTO-1 COMPLET : 9 stories (R0→R9) + 5 fixes panier S-FIX-PANIER livrés en 1 session. 278 tests vitest verts (+116 vs baseline). 2 migrations SQL prod appliquées (tax_regime + trigger UUID défensif). Récap complet : mémoire BMAD `project_session_2026-05-11.md` + section "10. Sprint Refacto 2026-05-11" ci-dessous.**
+> **Dernière mise à jour : 2026-05-17 — HEAD `5325c6c` (poussé sur origin/beta/v5) — Hotfix session 2 bugs critiques B5 home Magrit : (1) persistance conv au tab focus + (2) volet édition ProductCard atelier valeurs réelles. 290 tests vitest verts (+12 vs baseline 278). Détails : section 11 ci-dessous.**
+
+## 11. Hotfix B5 — 2026-05-17 (session unique, 2 bugs critiques home Magrit)
+
+**Contexte** : Arnaud signale 2 régressions en utilisation réelle sur `/t/imprimerie-ipa` :
+1. Recherche home Magrit perdue au tab focus (déjà fixé en B4 commit `acb7352` — apparemment regressé sur B5)
+2. Volet d'édition ProductCard affiche les valeurs par défaut au lieu des valeurs du produit
+
+### Diagnostic & fix bug 1 — Persistance conv home au tab focus
+
+**Racine** : bug pré-existant **`ReferenceError: Can't find variable: newMessages`** dans [ChatInterface.tsx:319](src/app/components/ChatInterface.tsx#L319). Le refacto **R2 Phase B** (11/05) avait renommé `newMessages → fullMessages` ligne 165 mais oublié le `finally` ligne 319. Crash à chaque envoi → `saveCurrentConversation` jamais appelé → `currentConversationId` reste null → clé `magrit_current_conversation__<tenantId>` jamais écrite → la home n'avait rien à restaurer au tab focus.
+
+**Fix** (commit `86e2220`) :
+- `newMessages` → `fullMessages` ligne 319
+- `ConversationContext` : restauration synchrone depuis le cache localStorage AVANT le reset state (évite le flash visuel entre reset et fetchRemote async)
+- `ConversationContext` : nouveau `hydratedRef` qui bloque l'effet sync `history → localStorage` tant que l'hydratation initiale n'est pas finie. Sans ça, le `useState([])` initial écrasait le cache avec `"[]"` AVANT que la restauration n'ait pu lire l'ancien contenu
+
+### Diagnostic & fix bug 2 — Volet édition ProductCard atelier
+
+**Racine** : depuis le refacto **R1** (11/05), le bouton "Éditer" ouvre `ProductOverlay` (S2.4b), mais `localProduct` côté atelier a un format **UI/LLM** (`material`, `finishRecto/Verso` camelCase, `dimensions.{w,h}` nested, `printing` objet, `format` verbose "A2 (420 × 594 mm)") incompatible avec le contrat **Clariprint** qu'attend `extractInitialOptions` (`papers[]`, `finishing_front` snake_case, `width/height` top-level mm, `printing` string, `back_colors` number). Conséquence : 5 selects sur 7 retombaient sur `DEFAULT_OPTIONS` (A5/135g/recto/aucun).
+
+Découvertes additionnelles via logs DevTools :
+- LLM Clariprint renvoie `clariprintData.width/height` en **string CM** (ex: "42" / "59.4" pour A2 = 420 × 594 mm)
+- LLM renvoie codes finition Clariprint (`PELLIC_BRILL`, `PELLIC_ACETATE_MAT`)
+- A2/A1/A0 manquaient dans `FORMATS` (limité à A6 → A3)
+
+**Fix** (commit `5325c6c`) — nouveau helper pur `extractClariprintConfigFromAtelierProduct(localProduct)` dans [ProductOverlay.helpers.ts](src/app/components/shop/ProductOverlay.helpers.ts) :
+- `extractStandardFormatLabel` : reconnaît `"A2 (420 × 594 mm)"` verbose, `"A4 paysage"`, `"85x55"` → label propre matchant FORMATS du select
+- `matchStandardFormat` : retro-recherche format ISO depuis width/height (tolérance ±2mm + orientation portrait/paysage)
+- `isLikelyCm` : conversion cm → mm sur les strings raw uniquement (heuristique < 100), pas sur les number ou dimensions UI (déjà mm)
+- `normalizeFinishingLabel` : reconnaît codes LLM `PELLIC_BRILL` / `PELLIC_ACETATE_MAT` / `SOFT_TOUCH` en plus des libellés humains
+- Ajout `A2`/`A1`/`A0` à `FORMATS` + `FORMAT_DIMENSIONS`
+
+### Tests vitest
+
+- Baseline avant session : 278 verts
+- Après session : **290 verts** (+12 cas nouveaux dont scénario réel user 2026-05-17 reproduit exactement depuis logs DevTools)
+
+### Cahiers de tests Notion (DoD)
+
+2 TF ajoutés dans la DB Notion 🧪 Cahiers de tests fonctionnels Magrit (à jouer en local sur B5) :
+- TF "Persistance conversation home Magrit au tab focus" — P05, P0 critique
+- TF "Volet édition ProductCard atelier affiche les valeurs du produit (cas A2)" — P08, P1 importante
+
+### À surveiller pour les sprints futurs
+
+- **Audit refacto R1/R2** : les 2 bugs viennent de migrations textuelles incomplètes lors de R1 (ProductCard) et R2 (ChatInterface). Penser à un grep exhaustif sur les renommages variables/imports au prochain refacto important.
+- **Logs sentinelles temporaires** retirés avant commit (`[Conversation FIX-v2]`, `[Overlay FIX-v2]`).
+
+---
 
 ## 10. Sprint Refacto EPIC-REFACTO-1 — Bilan 2026-05-11 (session unique)
 
