@@ -2,7 +2,73 @@
 
 > Document de reprise pour démarrer une nouvelle session de Claude code sur le projet sans recharger tout l'historique. À tenir à jour à chaque fin de sprint.
 >
-> **Dernière mise à jour : 2026-05-17 — HEAD `5325c6c` (poussé sur origin/beta/v5) — Hotfix session 2 bugs critiques B5 home Magrit : (1) persistance conv au tab focus + (2) volet édition ProductCard atelier valeurs réelles. 290 tests vitest verts (+12 vs baseline 278). Détails : section 11 ci-dessous.**
+> **Dernière mise à jour : 2026-05-18 — HEAD `becf6cd` (poussé sur origin/beta/v5) — Sprint 4 "PIM-Boutique-Commandes" Phase 0 + 1 + 2 COMPLET : 20 stories livrées en 1 session selon méthode BMAD stricte (story doc → AC → conception → ADR → dev → tests → TF). 353 tests vitest verts (+63 vs baseline 290). 6 bugs prod silencieux détectés et fixés grâce smoke test P0.4 formel. 2 ADR formalisées (§4.9 PIM RLS + §4.10 Orders model). Détails complet : section 12 ci-dessous.**
+
+## 12. Sprint 4 "PIM-Boutique-Commandes" — Bilan 2026-05-18 (session unique)
+
+**Contexte** : sprint planifié post-hotfix 17/05 (HEAD `c95b547`). Démo client cible 2026-05-23 (5 jours). Méthode BMAD stricte respectée à la lettre (story doc → AC → ADR → conception UX Sally si applicable → dev → tests vitest → TF Notion). Sprint élargi à 20 stories effectives (vs 12 planifiées initialement) suite à découverte de 6 bugs prod silencieux par les pre-flight checks et smoke tests formels.
+
+### Stories livrées (20 sur 1 session)
+
+| Phase | Stories | HEAD commit | Stories docs |
+|---|---|---|---|
+| **0** Préalables PIM/Gammes | P0.1 → P0.11 (11 stories) | `5fb9e55` → `45ad435` | story-P0.1 à P0.11 |
+| **1** Bascule orders model | S-MIGRATION-ORDERS, S-DUAL-READ, S-DASHBOARD-ORDERS-DUAL | `931f7e9` → `31a021c` | story-S-MIGRATION + story-S-DUAL-READ + story-S-DASHBOARD-ORDERS-DUAL |
+| **2** Boutique consolidation | S-CONSO-1 à 6 (6 stories) | `6926b40` → `becf6cd` | story-S-CONSO-1 à 6 |
+
+### ADR formalisées dans architecture.md
+
+- **§4.9 ADR-PIM-RLS-1** : `product_definitions` lecture publique intentionnelle (shared catalog SEO vitrine). Aucune donnée tenant sensible. Filtrage par boutique via `tenant_gamme_subscriptions`.
+- **§4.10 ADR-ORDERS-1** : Bascule `submitCart` shop_orders → tenant_orders + dual-read PortalOrders (Option B Winston). Alignement v1.1, NFR6 cross-tenant strict, hooks NFR16 e-invoicing/E4.3 Stripe/S5.2 Canva pré-câblés.
+
+### 6 bugs prod silencieux détectés et fixés (méthode BMAD stricte)
+
+| # | Bug | Découverte | Fix |
+|---|---|---|---|
+| 1 | `pim-ingest` v6 du 09/05 PRE-fix S1.5 Magrit3 case-sensitive | Smoke test P0.4 (enrichissement Claude échoue) | P0.6 redeploy v7 |
+| 2 | `pim-ingest` toMm seuil `<50` insuffisant pour grands formats cm | P0.4 v2 (kakemono → flyer) | P0.7 port toMm |
+| 3 | Parité `resolveGamme` front/back manquante (ruleSpecificity + filterMatchesByProductName) | P0.4 v3 (3/5 OK) | P0.8 port complet |
+| 4 | Convention cm/mm fragile (seuil numérique) — kakemono 80cm faux | P0.8 v3 (kakemono/banderole faux) | P0.9 convention typage `string=cm, number=mm` |
+| 5 | Trigger PIM absent sur tenant_order_items (rupture pipeline après bascule) | Pre-flight check 2 S-MIGRATION-ORDERS | P0.10 trigger SQL |
+| 6 | `tenant_order_items.product_id NOT NULL` bloque items library legacy | Test E2E S-MIGRATION-ORDERS Arnaud | P0.11 ALTER COLUMN DROP NOT NULL |
+
+### Métriques quantitatives
+
+- **20 stories livrées** (11 Phase 0 + 3 Phase 1 + 6 Phase 2)
+- **353 tests vitest verts** (+63 vs baseline 290, 0 régression)
+- **15 commits push** sur `beta/v5` (`c95b547` → `becf6cd`)
+- **3 migrations SQL prod** appliquées (gammes +5, trigger PIM tenant_order_items, product_id nullable)
+- **4 redeploys** pim-ingest (v6 → v10)
+- **15 TF Notion** créés dans la DB Cahiers de tests (1 par story livrée applicable)
+- **Sally UX consult** invoquée 2x (S-DUAL-READ icône legacy + S-CONSO-3/4/5/6 groupé)
+
+### Décisions Arnaud clés
+
+- **B2** Authentification requise pour valider panier (pré-flight S-MIGRATION-ORDERS) — cohérent persona B2B acheteur compte tenant
+- **Option A Sally** sur workflow N+1 (S-CONSO-6) — retrait propre + microcopy transparente, pas de mock front
+- **H1-bis Sally** sur dual-read marker (S-DUAL-READ) — point gris discret + sr-only + title fallback
+
+### Cible démo 23/05 — état COVERAGE
+
+- ✅ Pipeline ingestion PIM E2E validé (5/5 mappings corrects après P0.9)
+- ✅ Bascule orders v1.1 (auth required) + dual-read PortalOrders + DashboardOrders
+- ✅ PortalThankYou page de confirmation (parcours acheteur complet visible)
+- ✅ Microcopy transparence workflow N+1
+- ✅ Cleanup thumbs placeholder
+- ✅ 0 violation a11y axe-core (3 routes critiques)
+- ✅ Recherche IA résiliente (fallback timeout 3s) + tri grille catalogue (Select shadcn + persist localStorage)
+
+### Hors scope Sprint 4 (post-démo, Phase 3 à venir)
+
+- **Epic 3 Commandes lifecycle** (S3.1-S3.5) : OrderHistoryTable avec filtres avancés, Renouveler 1-clic, Annulation draft, Audit trail UI (RPC `update_tenant_order_status` déjà livré S1.4)
+- **Stories futures tracées** : S-N1-APPROVAL (workflow validation hiérarchique backend), S-PRODUCT-VIEWS-MULTI (vraies vues recto/verso/3D), S-FIX-LIBRARY-UUID (normalisation product_library UUID), S-FIX-LARGE-CM-FORMATS (heuristique cm/mm grands formats > 3m)
+
+### Tooling actualisé
+
+- `pnpm a11y:scan` : 3 routes critiques (login + atelier + boutique-1), reports JSON commités
+- 4 helpers purs partagés : `productEnrichment.resolveGamme` (front+back parité), `PortalOrders.helpers`, `PortalCatalog.helpers`, `tenantOrder.schema` Zod
+
+---
 
 ## 11. Hotfix B5 — 2026-05-17 (session unique, 2 bugs critiques home Magrit)
 
