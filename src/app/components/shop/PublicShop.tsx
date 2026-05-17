@@ -26,7 +26,7 @@ import { applyTax, getTaxRate } from '../../utils/tax';
 import {
   tenantOrderInsertSchema,
   tenantOrderItemInsertSchema,
-} from '/schemas/tenantOrder.schema';
+} from '../../../schemas/tenantOrder.schema';
 
 /**
  * Portail B2B Magrit — version 2.
