@@ -12,6 +12,7 @@ import { PortalCatalog } from './portal/PortalCatalog';
 import { PortalProduct } from './portal/PortalProduct';
 import { PortalCart } from './portal/PortalCart';
 import { PortalOrders } from './portal/PortalOrders';
+import { PortalThankYou } from './portal/PortalThankYou';
 import type { PortalView, CartLine, BudgetInfo } from './portal/types';
 import { ShopLayout } from './ShopLayout';
 import { ShopForbidden403 } from './ShopForbidden403';
@@ -54,6 +55,8 @@ export function PublicShop() {
   const [notFound, setNotFound] = useState(false);
 
   const [view, setView] = useState<PortalView>('home');
+  // S-CONSO-3 : order_id du dernier submitCart reussi, lu par PortalThankYou.
+  const [lastOrderId, setLastOrderId] = useState<string | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<ShopProduct | null>(null);
   const [cart, setCart] = useState<CartLine[]>([]);
 
@@ -349,9 +352,12 @@ export function PublicShop() {
       return;
     }
 
-    alert('Commande envoyee. Vous recevrez un email de confirmation.');
+    // S-CONSO-3 (Sprint 4 Phase 2) : bascule vers PortalThankYou au lieu
+    // d alert + setView('orders'). Artefact visuel persistant pour acheteur
+    // B2B (screenshot, transfert compta, archivage).
+    setLastOrderId(orderRow.id);
     setCart([]);
-    setView('orders'); // bascule sur la vue Mes commandes pour voir la nouvelle
+    setView('thankYou');
   };
 
   // ─── S2.2 Hydratation localStorage des gammes deplices ───────────────────
@@ -543,6 +549,21 @@ export function PublicShop() {
       )}
 
       {view === 'orders' && <PortalOrders shopId={shop.id} />}
+
+      {/* S-CONSO-3 : page de confirmation post-submitCart. Si lastOrderId est
+          absent (cas edge bug ou refresh), redirect catalog via fallback.  */}
+      {view === 'thankYou' && lastOrderId && (
+        <PortalThankYou
+          orderId={lastOrderId}
+          userEmail={user?.email ?? ''}
+          onBackToCatalog={() => setView('catalog')}
+          onSeeOrders={() => setView('orders')}
+        />
+      )}
+      {view === 'thankYou' && !lastOrderId && (
+        // Fallback : pas d order_id => redirect catalog (refresh post-thankYou)
+        <>{(() => { setView('catalog'); return null; })()}</>
+      )}
     </ShopLayout>
   );
 }

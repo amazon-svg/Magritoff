@@ -4,7 +4,7 @@
 
 import type { ShopProduct } from '../../../contexts/ShopsContext';
 
-export type PortalView = 'home' | 'catalog' | 'product' | 'cart' | 'orders';
+export type PortalView = 'home' | 'catalog' | 'product' | 'cart' | 'orders' | 'thankYou';
 
 export interface CartLine {
   product: ShopProduct;

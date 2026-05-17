@@ -180,6 +180,11 @@ export const TEST_IDS = {
     // commandes cohort legacy shop_orders (vs v1.1 tenant_orders) — design
     // Sally H1-bis (point gris + sr-only + title fallback desktop).
     ordersRowLegacyMarker: 'shop-orders-row-legacy-marker',
+    // S-CONSO-3 (Sprint 4 Phase 2, 2026-05-18) : page de confirmation
+    // commande PortalThankYou (UX Sally validee, parcours acheteur demo).
+    thankYouPage: 'shop-thank-you-page',
+    thankYouCtaCatalog: 'shop-thank-you-cta-catalog',
+    thankYouCtaOrders: 'shop-thank-you-cta-orders',
     // S-FIX-4 — Bouton Personnaliser placeholder (Canva future S5.x)
     productCardPersonalizeBtn: 'product-card-personalize-btn',
     // S-REWORK-1 — Pilules gammes horizontales sous header (remplace sidebar S2.2)

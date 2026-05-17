@@ -159,20 +159,9 @@ export function PortalProduct({ product, onBack, onAddToCart, pimGammes, pimDefi
             )}
           </div>
 
-          {/* Thumbs placeholder — futures vues multiples */}
-          <div className="flex gap-2 mt-3">
-            {[true, false, false].map((active, i) => (
-              <button
-                key={i}
-                className={`w-14 h-11 rounded border ${
-                  active
-                    ? 'border-brand ring-2 ring-brand/30'
-                    : 'border-line'
-                } bg-bg`}
-                aria-label={`Vue ${i + 1}`}
-              />
-            ))}
-          </div>
+          {/* S-CONSO-1 (Sprint 4 Phase 2) : thumbs placeholder retires —
+              ils suggeraient des vues multiples non implementees. Story
+              future S-PRODUCT-VIEWS-MULTI hors scope v1.1. */}
         </div>
 
         {/* Info + configurateur */}

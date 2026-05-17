@@ -236,9 +236,6 @@ export function PortalCart({
           )}
         </section>
 
-        {/* Workflow de validation N+1 : retiré tant que le backend B2B
-            correspondant n'est pas implémenté. Sera réintégré quand on
-            câblera le circuit Panier → N+1 → Achats → Magrit. */}
       </div>
 
       {/* Summary : sticky en page entiere, inline en mode drawer compact */}
@@ -350,6 +347,16 @@ export function PortalCart({
           style={{ fontSize: '12px', fontWeight: 400, lineHeight: 1.5 }}
         >
           Vous recevrez un email de confirmation.
+        </p>
+        {/* S-CONSO-6 (Sprint 4 Phase 2, UX Sally Option A) : microcopy
+            transparente sur l absence de workflow d approbation N+1 en v1.1.
+            Story future S-N1-APPROVAL pour le backend workflow. */}
+        <p
+          className="m-0 mt-1 text-ink-mute-2 text-center"
+          style={{ fontSize: '11px', fontWeight: 400, lineHeight: 1.5 }}
+          title="Le workflow d'approbation hierarchique N+1 sera disponible dans une prochaine version. Pour l'instant, votre commande est envoyee directement a l'imprimeur."
+        >
+          Envoi direct atelier · Validation hiérarchique à venir.
         </p>
       </aside>
     </div>
