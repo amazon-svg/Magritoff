@@ -120,15 +120,18 @@ export function PortalCatalog({
     setAiResults([]);
     setAiQuery(prompt);
     try {
-      // S-CONSO-4 (Sprint 4 Phase 2, Sally) : timeout 3s sur claude-proxy.
+      // S-CONSO-4 (Sprint 4 Phase 2, Sally) : timeout sur claude-proxy.
       // Au-dela, fallback automatique sur filter local (mode 'text').
       // Race entre invoke + timeout pour permettre le bascule rapide.
+      // Note 2026-05-20 : 3s -> 15s. Claude Sonnet 4.5 repond en 5-15s en
+      // nominal (mesure curl direct 9.7s). 3s tombait en timeout systematique.
+      const CLAUDE_PROXY_TIMEOUT_MS = 15_000;
       const invokePromise = supabase.functions.invoke(
         'make-server-e3db71a4/claude-proxy',
         { body: { messages: [{ role: 'user', content: prompt }] } },
       );
       const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('claude_proxy_timeout_3s')), 3000);
+        setTimeout(() => reject(new Error('claude_proxy_timeout')), CLAUDE_PROXY_TIMEOUT_MS);
       });
       const { data, error } = (await Promise.race([invokePromise, timeoutPromise])) as Awaited<
         typeof invokePromise
