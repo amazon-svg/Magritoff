@@ -310,6 +310,22 @@ export function PublicShop() {
       .single();
 
     if (orderErr || !orderRow) {
+      // S3.2-residual AC3 : detection RLS bloquant pour permission can_order revoked
+      // pendant la session (race condition cote front qui n'a pas refresh le ctx tenant).
+      // PostgREST renvoie code 42501 (insufficient privilege) ou message "row violates
+      // row-level security policy" quand la policy with_check fail.
+      const msg = orderErr?.message ?? '';
+      const isRlsPermissionDenied =
+        orderErr?.code === '42501' ||
+        msg.includes('row-level security') ||
+        msg.includes('violates row-level security policy');
+      if (isRlsPermissionDenied) {
+        console.warn('[submitCart] RLS INSERT bloque (permission can_order revoquee ?):', msg);
+        alert(
+          "Permission insuffisante pour créer une commande.\n\nVotre administrateur tenant a peut-être désactivé la création de commandes pour votre compte. Contactez-le pour rétablir l'accès.",
+        );
+        return;
+      }
       console.error('[submitCart] insert tenant_orders failed:', orderErr?.message);
       alert(
         `Erreur lors de la validation du panier : ${orderErr?.message ?? 'reseau'}.\n\nMerci de reessayer.`,
@@ -350,6 +366,28 @@ export function PublicShop() {
         `Erreur lors de la sauvegarde des produits du panier : ${itemsErr.message}.\n\nMerci de reessayer.`,
       );
       return;
+    }
+
+    // S3.2-residual AC1 : notification email admin tenant (best-effort).
+    // Invocation fire-and-forget — n'attend pas la fin pour ne pas retarder
+    // l'UX PortalThankYou. Si Resend down ou pas d'admin trouve, l'edge
+    // function logge dans llm_usage_events (endpoint=*-fallback) sans bloquer.
+    if (shop.tenant_id) {
+      supabase.functions
+        .invoke('send-order-notification', {
+          body: {
+            order_id: orderRow.id,
+            tenant_id: shop.tenant_id,
+            shop_id: shop.id,
+            total_ht,
+            currency: 'EUR',
+            base_url: window.location.origin,
+          },
+        })
+        .catch((notifErr) => {
+          // Best-effort : log seulement, ne remonte rien a l'acheteur.
+          console.warn('[submitCart] send-order-notification invoke failed:', notifErr);
+        });
     }
 
     // S-CONSO-3 (Sprint 4 Phase 2) : bascule vers PortalThankYou au lieu
@@ -500,6 +538,9 @@ export function PublicShop() {
           pimGammes={pimGammes}
           pimDefinitions={pimDefinitions}
           compact
+          // S3.2-residual AC3 : back-compat true si pas de tenant resolu ;
+          // la RLS DB bloquera de toute facon si la permission est revoked.
+          canCreateOrder={currentTenant?.permissions?.can_order ?? true}
         />
       }
     >

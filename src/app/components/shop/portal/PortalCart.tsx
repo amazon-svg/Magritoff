@@ -27,6 +27,14 @@ interface Props {
    *  - pas de min-h plein ecran
    */
   compact?: boolean;
+  /**
+   * S3.2-residual AC3 (Sprint 5) : permissions.can_order du tenant courant.
+   * Si false, le bouton "Passer commande" est desactive avec tooltip
+   * explicite. Si undefined (cas non-authentifie ou pas encore charge),
+   * fallback true (back-compat — la RLS DB bloquera de toute facon si
+   * l'utilisateur tente de submit sans permission).
+   */
+  canCreateOrder?: boolean;
 }
 
 // F4 — Panier + workflow validation N+1
@@ -42,6 +50,7 @@ export function PortalCart({
   pimGammes,
   pimDefinitions,
   compact = false,
+  canCreateOrder = true,
 }: Props) {
   const { currentTenant } = useTenant();
   const taxRate = getTaxRate(currentTenant);
@@ -335,19 +344,36 @@ export function PortalCart({
 
         <button
           data-testid={TEST_IDS.shop.checkoutBtn}
-          disabled={cart.length === 0}
+          disabled={cart.length === 0 || !canCreateOrder}
           onClick={onSubmit}
+          title={
+            !canCreateOrder
+              ? "Votre administrateur tenant n'a pas activé la création de commandes pour votre compte."
+              : undefined
+          }
+          aria-disabled={cart.length === 0 || !canCreateOrder}
           className="w-full mt-4 py-3.5 rounded-lg bg-ink text-paper hover:bg-black disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           style={{ fontSize: '14.5px', fontWeight: 500, fontFamily: 'var(--font-ui)' }}
         >
           Passer commande
         </button>
-        <p
-          className="m-0 mt-2.5 text-ink-muted text-center"
-          style={{ fontSize: '12px', fontWeight: 400, lineHeight: 1.5 }}
-        >
-          Vous recevrez un email de confirmation.
-        </p>
+        {!canCreateOrder && (
+          <p
+            data-testid={TEST_IDS.shop.cartNoCreateOrderHint}
+            className="m-0 mt-2.5 text-err-fg text-center"
+            style={{ fontSize: '11.5px', fontWeight: 400, lineHeight: 1.45 }}
+          >
+            Permission insuffisante pour créer une commande. Contactez votre administrateur.
+          </p>
+        )}
+        {canCreateOrder && (
+          <p
+            className="m-0 mt-2.5 text-ink-muted text-center"
+            style={{ fontSize: '12px', fontWeight: 400, lineHeight: 1.5 }}
+          >
+            Vous recevrez un email de confirmation.
+          </p>
+        )}
         {/* S-CONSO-6 (Sprint 4 Phase 2, UX Sally Option A) : microcopy
             transparente sur l absence de workflow d approbation N+1 en v1.1.
             Story future S-N1-APPROVAL pour le backend workflow. */}
