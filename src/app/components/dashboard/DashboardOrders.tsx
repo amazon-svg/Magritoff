@@ -9,7 +9,7 @@
  * afficher le slug par ligne.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '/utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTenant } from '../../contexts/TenantContext';
@@ -24,6 +24,8 @@ import {
   normalizeTenantOrder,
 } from '../shop/portal/PortalOrders.helpers';
 import { OrderHistoryTable } from '../shop/portal/OrderHistoryTable';
+import { CancelOrderConfirmDialog } from '../shop/portal/CancelOrderConfirmDialog';
+import { formatCancelErrorMessage } from '../shop/portal/orderCancellation.helpers';
 
 interface DashboardOrderUI extends OrderUI {
   shop_id: string;
@@ -46,81 +48,99 @@ export function DashboardOrders() {
     return map;
   }, [shops]);
 
-  useEffect(() => {
+  // S3.4 : modal annulation. orderToCancel = null → modal fermé.
+  const [orderToCancel, setOrderToCancel] = useState<DashboardOrderUI | null>(null);
+
+  const loadOrders = useCallback(async (cancelled: { current: boolean }) => {
     if (!user || !currentTenant) return;
     if (shops.length === 0) {
-      // Pas de boutique = pas de commandes possible. On evite la query.
       setOrders([]);
       setLoading(false);
       return;
     }
 
-    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
     const taxRate = getTaxRate(currentTenant);
     const taxedTotal = (ht: number) => applyTax(ht, taxRate);
     const shopIds = shops.map((s) => s.id);
 
-    (async () => {
-      setLoading(true);
-      setError(null);
+    const queryA = supabase
+      .from('shop_orders')
+      .select('*')
+      .in('shop_id', shopIds)
+      .order('created_at', { ascending: false })
+      .limit(100);
 
-      // Query A : shop_orders legacy pour toutes les boutiques du tenant.
-      // RLS owner_user_id = auth.uid() autorise le owner a voir TOUTES.
-      const queryA = supabase
-        .from('shop_orders')
-        .select('*')
-        .in('shop_id', shopIds)
-        .order('created_at', { ascending: false })
-        .limit(100);
+    const queryB = supabase
+      .from('tenant_orders')
+      .select(
+        'id, shop_id, tenant_id, created_by, status, total_ht, currency, notes, created_at, tenant_order_items(product_label, quantity, unit_price_ht, line_total_ht)',
+      )
+      .eq('tenant_id', currentTenant.id)
+      .order('created_at', { ascending: false })
+      .limit(100);
 
-      // Query B : tenant_orders v1.1, scope direct par tenant_id.
-      // Join inner tenant_order_items pour items.
-      const queryB = supabase
-        .from('tenant_orders')
-        .select(
-          'id, shop_id, tenant_id, created_by, status, total_ht, currency, notes, created_at, tenant_order_items(product_label, quantity, unit_price_ht, line_total_ht)',
-        )
-        .eq('tenant_id', currentTenant.id)
-        .order('created_at', { ascending: false })
-        .limit(100);
+    const [resA, resB] = await Promise.all([queryA, queryB]);
+    if (cancelled.current) return;
 
-      const [resA, resB] = await Promise.all([queryA, queryB]);
-      if (cancelled) return;
+    const legacy: DashboardOrderUI[] = [];
+    const v11: DashboardOrderUI[] = [];
 
-      const legacy: DashboardOrderUI[] = [];
-      const v11: DashboardOrderUI[] = [];
-
-      if (resA.error) {
-        console.warn('[DashboardOrders] query shop_orders failed:', resA.error.message);
-      } else if (Array.isArray(resA.data)) {
-        for (const row of resA.data as ShopOrderRow[]) {
-          legacy.push({ ...normalizeShopOrder(row), shop_id: row.shop_id });
-        }
+    if (resA.error) {
+      console.warn('[DashboardOrders] query shop_orders failed:', resA.error.message);
+    } else if (Array.isArray(resA.data)) {
+      for (const row of resA.data as ShopOrderRow[]) {
+        legacy.push({ ...normalizeShopOrder(row), shop_id: row.shop_id });
       }
+    }
 
-      if (resB.error) {
-        console.warn('[DashboardOrders] query tenant_orders failed:', resB.error.message);
-      } else if (Array.isArray(resB.data)) {
-        for (const row of resB.data as TenantOrderRow[]) {
-          v11.push({ ...normalizeTenantOrder(row, taxedTotal), shop_id: row.shop_id });
-        }
+    if (resB.error) {
+      console.warn('[DashboardOrders] query tenant_orders failed:', resB.error.message);
+    } else if (Array.isArray(resB.data)) {
+      for (const row of resB.data as TenantOrderRow[]) {
+        v11.push({ ...normalizeTenantOrder(row, taxedTotal), shop_id: row.shop_id });
       }
+    }
 
-      if (resA.error && resB.error) {
-        setError(`${resA.error.message} / ${resB.error.message}`);
-        setLoading(false);
-        return;
-      }
-
-      const merged = mergeAndSortOrders(legacy, v11) as DashboardOrderUI[];
-      setOrders(merged);
+    if (resA.error && resB.error) {
+      setError(`${resA.error.message} / ${resB.error.message}`);
       setLoading(false);
-    })();
+      return;
+    }
 
-    return () => {
-      cancelled = true;
-    };
+    const merged = mergeAndSortOrders(legacy, v11) as DashboardOrderUI[];
+    setOrders(merged);
+    setLoading(false);
   }, [user, currentTenant, shops]);
+
+  useEffect(() => {
+    const cancelled = { current: false };
+    void loadOrders(cancelled);
+    return () => {
+      cancelled.current = true;
+    };
+  }, [loadOrders]);
+
+  // S3.4 : handlers cancel (admin tenant peut annuler n'importe quelle draft).
+  const handleCancelOrderRequest = (order: OrderUI) => {
+    setOrderToCancel(order as DashboardOrderUI);
+  };
+
+  const handleCancelConfirm = async (orderId: string): Promise<string | null> => {
+    const { error: rpcErr } = await supabase.rpc('update_tenant_order_status', {
+      p_order_id: orderId,
+      p_new_status: 'cancelled',
+      p_reason: null,
+    });
+    if (rpcErr) {
+      console.warn('[DashboardOrders] cancel RPC failed:', rpcErr.message);
+      return formatCancelErrorMessage(rpcErr);
+    }
+    await loadOrders({ current: false });
+    return null;
+  };
 
   return (
     <div className="space-y-4">
@@ -136,6 +156,7 @@ export function DashboardOrders() {
         loading={loading}
         error={error}
         persistKey={currentTenant ? `orderHistory:dashboard:${currentTenant.id}` : undefined}
+        onCancelOrder={handleCancelOrderRequest}
         extraColumn={{
           header: 'Boutique',
           position: 'after-date',
@@ -147,6 +168,15 @@ export function DashboardOrders() {
           // S3.1 ext (2026-05-23) : tri par slug boutique pour imprimeurs multi-boutiques.
           sortValue: (o) => shopSlugById.get((o as DashboardOrderUI).shop_id) ?? '',
         }}
+      />
+
+      <CancelOrderConfirmDialog
+        orderId={orderToCancel?.id ?? null}
+        orderShortId={
+          orderToCancel?.id ? orderToCancel.id.replace(/-/g, '').slice(0, 8).toUpperCase() : undefined
+        }
+        onConfirm={handleCancelConfirm}
+        onClose={() => setOrderToCancel(null)}
       />
     </div>
   );

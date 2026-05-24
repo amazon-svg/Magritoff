@@ -199,6 +199,12 @@ export const TEST_IDS = {
     orderRenewBtn: 'shop-order-renew-btn',
     cartRenewalWarningsBanner: 'shop-cart-renewal-warnings-banner',
     cartRenewalWarningsDismissBtn: 'shop-cart-renewal-warnings-dismiss-btn',
+    // S3.4 (Sprint 5, 2026-05-23) : annulation commande draft + modal AlertDialog.
+    orderCancelBtn: 'shop-order-cancel-btn',
+    cancelOrderDialog: 'shop-cancel-order-dialog',
+    cancelOrderDialogKeep: 'shop-cancel-order-dialog-keep',
+    cancelOrderDialogConfirm: 'shop-cancel-order-dialog-confirm',
+    cancelOrderDialogError: 'shop-cancel-order-dialog-error',
     // S-CONSO-3 (Sprint 4 Phase 2, 2026-05-18) : page de confirmation
     // commande PortalThankYou (UX Sally validee, parcours acheteur demo).
     thankYouPage: 'shop-thank-you-page',
