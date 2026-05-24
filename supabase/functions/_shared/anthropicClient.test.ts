@@ -16,6 +16,7 @@ import {
   anthropicComplete,
   anthropicStream,
   AnthropicClientError,
+  isAnthropicBillingError,
 } from "./anthropicClient.ts";
 
 const ORIGINAL_FETCH = globalThis.fetch;
@@ -394,6 +395,322 @@ Deno.test("anthropicComplete enforces 25 parameter limit (FR43)", async () => {
     ) as AnthropicClientError;
     assertEquals(err.kind, "param_limit_exceeded");
     assert((err.details as { paramCount?: number } | undefined)?.paramCount! > 25);
+  } finally {
+    restoreEnv();
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Story S-LLM-WRAPPER-ROBUSTNESS — AC1/AC6 matrice billing + AC3 timeout
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Helper : forge une AnthropicClientError api_error avec status + body donnes. */
+function makeApiError(status: number, body: string): AnthropicClientError {
+  return new AnthropicClientError("api_error", `Anthropic API HTTP ${status}`, {
+    status,
+    body,
+    endpoint: "test",
+  });
+}
+
+// ── Couche 1 : status HTTP deterministe ──────────────────────────────────────
+
+Deno.test("isAnthropicBillingError: 401 authentication_error → true (Couche 1 status)", () => {
+  assertEquals(isAnthropicBillingError(makeApiError(401, "")), true);
+});
+
+Deno.test("isAnthropicBillingError: 402 billing_error → true (Couche 1 status)", () => {
+  assertEquals(isAnthropicBillingError(makeApiError(402, "")), true);
+});
+
+Deno.test("isAnthropicBillingError: 403 permission_error → true (Couche 1 status)", () => {
+  assertEquals(isAnthropicBillingError(makeApiError(403, "")), true);
+});
+
+Deno.test("isAnthropicBillingError: 429 rate_limit_error → false (transient, pas billing)", () => {
+  assertEquals(
+    isAnthropicBillingError(
+      makeApiError(429, JSON.stringify({ error: { type: "rate_limit_error", message: "..." } })),
+    ),
+    false,
+  );
+});
+
+Deno.test("isAnthropicBillingError: 500 api_error → false (transient Anthropic)", () => {
+  assertEquals(
+    isAnthropicBillingError(
+      makeApiError(500, JSON.stringify({ error: { type: "api_error", message: "..." } })),
+    ),
+    false,
+  );
+});
+
+Deno.test("isAnthropicBillingError: 529 overloaded_error → false (transient)", () => {
+  assertEquals(
+    isAnthropicBillingError(
+      makeApiError(529, JSON.stringify({ error: { type: "overloaded_error", message: "..." } })),
+    ),
+    false,
+  );
+});
+
+Deno.test("isAnthropicBillingError: 400 invalid_request_error → false (input client invalide)", () => {
+  assertEquals(
+    isAnthropicBillingError(
+      makeApiError(
+        400,
+        JSON.stringify({ error: { type: "invalid_request_error", message: "input is invalid" } }),
+      ),
+    ),
+    false,
+  );
+});
+
+Deno.test("isAnthropicBillingError: 504 timeout_error → false (transient timeout cote Anthropic)", () => {
+  assertEquals(
+    isAnthropicBillingError(
+      makeApiError(504, JSON.stringify({ error: { type: "timeout_error", message: "..." } })),
+    ),
+    false,
+  );
+});
+
+// ── Couche 1b : error.type parse depuis body JSON (cas sans status canonique) ─
+
+Deno.test("isAnthropicBillingError: status hors range mais error.type=billing_error → true (Couche 1b parse JSON)", () => {
+  // Cas defensif : status non standard (ex 0 sur erreur reseau parse-able,
+  // ou code custom proxy) mais body Anthropic-shaped avec error.type canonique billing.
+  // Couche 1b parse le JSON et match error.type=billing_error contre la set.
+  assertEquals(
+    isAnthropicBillingError(
+      makeApiError(0, JSON.stringify({ error: { type: "billing_error", message: "..." } })),
+    ),
+    true,
+  );
+  // Idem avec authentication_error
+  assertEquals(
+    isAnthropicBillingError(
+      makeApiError(0, JSON.stringify({ error: { type: "authentication_error", message: "..." } })),
+    ),
+    true,
+  );
+  // Mais NOT pour rate_limit_error meme si JSON parse-able
+  assertEquals(
+    isAnthropicBillingError(
+      makeApiError(0, JSON.stringify({ error: { type: "rate_limit_error", message: "..." } })),
+    ),
+    false,
+  );
+});
+
+// ── Couche 2 : regex stricte tokens canoniques ───────────────────────────────
+
+Deno.test("isAnthropicBillingError: body avec credit_balance_too_low → true (Couche 2 regex)", () => {
+  assertEquals(
+    isAnthropicBillingError(makeApiError(0, "Error: credit_balance_too_low encountered")),
+    true,
+  );
+});
+
+Deno.test("isAnthropicBillingError: body avec invalid_api_key → true (Couche 2 regex)", () => {
+  assertEquals(
+    isAnthropicBillingError(makeApiError(0, "Error: invalid_api_key provided")),
+    true,
+  );
+});
+
+// ── Anti-faux-positifs : strings ambigues qui ne doivent PAS matcher ─────────
+
+Deno.test("isAnthropicBillingError: 'input is invalid' → false (drift |invalid banni)", () => {
+  // Ancien regex make-server matchait /invalid/ et classait ca billing.
+  // Le nouveau helper rejette correctement.
+  assertEquals(
+    isAnthropicBillingError(
+      makeApiError(400, JSON.stringify({ error: { type: "invalid_request_error", message: "input is invalid" } })),
+    ),
+    false,
+  );
+});
+
+Deno.test("isAnthropicBillingError: 'credit card refused' Stripe-style → false (substring libre banni)", () => {
+  // Ancien regex permissive /credit/ matchait ce texte non-Anthropic.
+  assertEquals(
+    isAnthropicBillingError(makeApiError(500, "credit card refused at Stripe gateway")),
+    false,
+  );
+});
+
+Deno.test("isAnthropicBillingError: 'authentication via OAuth' libre → false", () => {
+  assertEquals(
+    isAnthropicBillingError(makeApiError(500, "authentication via OAuth completed but session expired")),
+    false,
+  );
+});
+
+Deno.test("isAnthropicBillingError: 'billing department contact' libre → false", () => {
+  assertEquals(
+    isAnthropicBillingError(makeApiError(500, "please contact our billing department for details")),
+    false,
+  );
+});
+
+Deno.test("isAnthropicBillingError: erreur non-api_error (timeout, json_parse) → false", () => {
+  assertEquals(
+    isAnthropicBillingError(
+      new AnthropicClientError("timeout", "Anthropic hang", { durationMs: 60001 }),
+    ),
+    false,
+  );
+  assertEquals(
+    isAnthropicBillingError(
+      new AnthropicClientError("json_parse", "bad json", { rawText: "..." }),
+    ),
+    false,
+  );
+  assertEquals(
+    isAnthropicBillingError(
+      new AnthropicClientError("missing_api_key", "no key"),
+    ),
+    false,
+  );
+});
+
+Deno.test("isAnthropicBillingError: non-AnthropicClientError (Error standard) → false", () => {
+  assertEquals(isAnthropicBillingError(new Error("random error")), false);
+  assertEquals(isAnthropicBillingError(null), false);
+  assertEquals(isAnthropicBillingError(undefined), false);
+  assertEquals(isAnthropicBillingError("string error"), false);
+});
+
+// ── AC3 : timeout AbortSignal.timeout(60s) ───────────────────────────────────
+
+Deno.test("anthropicComplete: throws kind=timeout when fetch is aborted", async () => {
+  setApiKey("test-key");
+  // Mock fetch qui throw immediatement une DOMException("TimeoutError")
+  // simulant l'AbortSignal.timeout qui fire.
+  globalThis.fetch = (() => {
+    return Promise.reject(new DOMException("Request timed out", "TimeoutError"));
+  }) as typeof fetch;
+  try {
+    const err = await assertRejects(
+      () =>
+        anthropicComplete({
+          model: "claude-haiku-4-5-20251001",
+          prompt: "ping",
+          endpoint: "test-timeout",
+        }),
+      AnthropicClientError,
+    ) as AnthropicClientError;
+    assertEquals(err.kind, "timeout");
+    const details = err.details as { endpoint?: string; timeoutMs?: number; model?: string };
+    assertEquals(details.endpoint, "test-timeout");
+    assertEquals(details.timeoutMs, 60_000);
+    assertEquals(details.model, "claude-haiku-4-5-20251001");
+  } finally {
+    restoreEnv();
+  }
+});
+
+Deno.test("anthropicStream: throws kind=timeout when fetch is aborted", async () => {
+  setApiKey("test-key");
+  globalThis.fetch = (() => {
+    return Promise.reject(new DOMException("Request timed out", "TimeoutError"));
+  }) as typeof fetch;
+  try {
+    const err = await assertRejects(
+      () =>
+        anthropicStream({
+          model: "claude-sonnet-4-5-20250929",
+          prompt: "ping",
+          endpoint: "test-stream-timeout",
+        }),
+      AnthropicClientError,
+    ) as AnthropicClientError;
+    assertEquals(err.kind, "timeout");
+    assertEquals(
+      (err.details as { endpoint?: string } | undefined)?.endpoint,
+      "test-stream-timeout",
+    );
+  } finally {
+    restoreEnv();
+  }
+});
+
+// ── Regression : strings d'erreur reelles observees en prod ──────────────────
+
+Deno.test("anthropicComplete: 402 + body Anthropic billing_error JSON → kind=api_error classified billing", async () => {
+  setApiKey("test-key");
+  globalThis.fetch = (() =>
+    Promise.resolve(
+      new Response(
+        JSON.stringify({ type: "error", error: { type: "billing_error", message: "Your credit balance is too low." } }),
+        { status: 402 },
+      ),
+    )) as typeof fetch;
+  try {
+    const err = await assertRejects(
+      () =>
+        anthropicComplete({
+          model: "claude-haiku-4-5-20251001",
+          prompt: "ping",
+          endpoint: "test",
+        }),
+      AnthropicClientError,
+    ) as AnthropicClientError;
+    assertEquals(err.kind, "api_error");
+    assertEquals(isAnthropicBillingError(err), true);
+  } finally {
+    restoreEnv();
+  }
+});
+
+Deno.test("anthropicComplete: 429 rate_limit → kind=api_error but NOT classified billing", async () => {
+  setApiKey("test-key");
+  globalThis.fetch = (() =>
+    Promise.resolve(
+      new Response(
+        JSON.stringify({ type: "error", error: { type: "rate_limit_error", message: "Number of request tokens has exceeded your per-minute rate limit." } }),
+        { status: 429 },
+      ),
+    )) as typeof fetch;
+  try {
+    const err = await assertRejects(
+      () =>
+        anthropicComplete({
+          model: "claude-haiku-4-5-20251001",
+          prompt: "ping",
+          endpoint: "test",
+        }),
+      AnthropicClientError,
+    ) as AnthropicClientError;
+    assertEquals(err.kind, "api_error");
+    assertEquals(isAnthropicBillingError(err), false);
+  } finally {
+    restoreEnv();
+  }
+});
+
+Deno.test("anthropicComplete: 529 overloaded → kind=api_error but NOT classified billing", async () => {
+  setApiKey("test-key");
+  globalThis.fetch = (() =>
+    Promise.resolve(
+      new Response(
+        JSON.stringify({ type: "error", error: { type: "overloaded_error", message: "Overloaded" } }),
+        { status: 529 },
+      ),
+    )) as typeof fetch;
+  try {
+    const err = await assertRejects(
+      () =>
+        anthropicComplete({
+          model: "claude-haiku-4-5-20251001",
+          prompt: "ping",
+          endpoint: "test",
+        }),
+      AnthropicClientError,
+    ) as AnthropicClientError;
+    assertEquals(err.kind, "api_error");
+    assertEquals(isAnthropicBillingError(err), false);
   } finally {
     restoreEnv();
   }

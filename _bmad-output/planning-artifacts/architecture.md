@@ -490,6 +490,48 @@ export const featureFlags = {
 
 **Mémoire BMAD** : décision tracée dans `_bmad-output/implementation-artifacts/sprint-status-2026-05-17.md`.
 
+### 4.11 LLM Wrapper Robustness — Matrice billing stricte + AbortSignal timeout + harmonisation endpoints
+
+> **ADR-LLM-WRAPPER-1** — Décision Arnaud 2026-05-23 lors du Sprint 5 Orderbook & filet LLM (Story S-LLM-WRAPPER-ROBUSTNESS), sur la base du cadrage Phase 0.3 (2026-05-22) et de l'audit prod `llm_usage_events` du 23/05.
+
+**Contexte** : depuis S1.1/S1.5 (Sprint 1-2), le wrapper `supabase/functions/_shared/anthropicClient.ts` centralise les appels Anthropic des edge functions Magrit. Le code review S1.5 + les 2 fixes post-Sprint 4 (`c95a7a9` CORS proxy, `fe59be2` timeout askMagrit) ont mis en évidence 4 faiblesses :
+1. **Regex billing permissive** `/credit|billing|authentication/` (claude-proxy:23) qui matche du texte arbitraire dans les bodies d'erreur Anthropic légitimes → déclenchait des fallbacks démo silencieux à tort.
+2. **Drift inter-endpoint** : `make-server-e3db71a4:20` matchait `/credit|billing|authentication|invalid/` — le `|invalid` historique matchait `"invalid input parameter"` (faux positif billing flagrant).
+3. **Pas de timeout** sur les `fetch(ANTHROPIC_URL, ...)` : si Anthropic hang, l'edge function bloquait jusqu'au kill platform Supabase (~150s).
+4. **Tracking llm_usage_events** perdait l'attribution user/tenant dans `claude-proxy` standalone (commentaire explicite `// userId / tenantId : non-disponibles ici sans auth context, restent undefined`) — cassait NFR23 (dashboard usage par tenant).
+
+**Audit prod baseline 23/05** : 174 events `llm_usage_events` sur 5 endpoints (rls-test, claude-proxy-stream, claude-proxy, pim-generate, pim-ingest). **Constat clé** : aucun champ `metadata.error` ni `billing_fallback_triggered` n'existe — les fallback démo déclenchés par `isBillingError` ne sont pas tracés (cohérent : si fallback démo, pas d'appel Anthropic → pas de `logLlmUsage`). **Conséquence** : ratio fallback billing baseline post-hoc non mesurable depuis cette source ; recommandation future = ajouter le tracking fallback dans les call sites pour mesurer post-fix.
+
+**Décision** :
+1. **Helper canonique `isAnthropicBillingError`** exporté depuis `_shared/anthropicClient.ts`, consommé par tous les endpoints. Matrice double couche :
+   - **Couche 1 (déterministe)** : HTTP status + `error.type` Anthropic (`401/authentication_error`, `402/billing_error`, `403/permission_error` → billing. `429/rate_limit_error`, `5xx/api_error|overloaded_error`, `400/invalid_request_error` → NON billing).
+   - **Couche 2 (fallback message body)** : regex stricte `\b(credit_balance_too_low|insufficient_quota|payment_required|invalid_api_key|authentication_error|billing_error|permission_error)\b` sur tokens canoniques uniquement, jamais substring libre.
+2. **`AbortSignal.timeout(60_000)`** sur les 2 sites fetch Anthropic + nouveau `kind: "timeout"` typé dans `AnthropicClientError`. Libère les ressources avant kill platform Supabase. Pour `anthropicStream`, ne tue pas un stream actif qui produit des chunks (cas LLM 5-15s nominal).
+3. **Migration endpoints** : suppression de `isBillingError` (claude-proxy) et `isClaudeBillingError` (make-server) locaux ; le drift `|invalid` est explicitement banni. 0 occurrence active de l'ancienne regex après commit (commentaires de documentation préservés).
+4. **Propagation JWT user/tenant dans `claude-proxy`** : helper isolé `claude-proxy/_auth.ts` décode le payload base64url du JWT Supabase (déjà vérifié crypto par Gateway), extrait `payload.sub` → userId, et `payload.app_metadata.tenant_id` → tenantId (avec fallback query `tenant_members LIMIT 1` si claim absent). Back-compat : JWT absent → userId/tenantId = null.
+
+**Sources de vérité matrice billing** :
+- Doc officielle https://docs.anthropic.com/en/api/errors (matrice HTTP × error.type validée 23/05)
+- Tests Deno `_shared/anthropicClient.test.ts` (33 cas, dont 23 nouveaux AC1/AC3/AC6)
+- Tests Deno `claude-proxy/extractAuthContext.test.ts` (8 cas AC4)
+
+**Alternative écartée — Regex permissive `/credit|billing|authentication/`** : matchait du texte arbitraire (ex : "credit card refused at Stripe", "authentication via OAuth", "please contact our billing department") → faux positifs billing → fallback démo silencieux trompeur. **Banni définitivement.**
+
+**Pattern à respecter** :
+- ✅ Tout nouveau call site qui consomme `anthropicComplete*` doit consommer `isAnthropicBillingError` du wrapper, jamais redéfinir une regex locale.
+- ✅ Tout nouveau call site doit passer `userId` + `tenantId` extraits du contexte d'auth disponible (JWT side proxy, RPC side service).
+- ✅ Toute extension du kind union `AnthropicClientError` doit être documentée dans le wrapper et propagée aux call sites qui font du `switch (err.kind)`.
+- ❌ Ne JAMAIS bypasser le helper en faisant du parsing regex billing custom.
+- ❌ Ne JAMAIS supprimer `AbortSignal.timeout` des fetch Anthropic (le timeout 60s est un filet défensif obligatoire post-S-LLM-WRAPPER).
+
+**Conséquence sprint et long terme** :
+- **Court terme** : 4 edge functions redéployées (claude-proxy, make-server-e3db71a4, pim-generate, pim-ingest) en prod 23/05. Smoke 200 OK avec llm_usage_events enrichi vérifié sur claude-proxy.
+- **Long terme** : helper canonique réutilisable pour les futures stories LLM (S5.x Canva, NFR16 e-invoicing si LLM intervient). Le code review S1.5 (4 items deferred) est intégralement soldé. Le wrapper est blindé pour ouverture bêta 2 dirigeants.
+
+**Recommandation future hors scope S-LLM-WRAPPER** : ajouter dans `logLlmUsage` un mode "log fallback non-success" pour tracer les fallback billing déclenchés (actuellement invisibles dans `llm_usage_events`). Permettrait de mesurer le ratio fallback billing dans le dashboard NFR23. À cadrer en Sprint 9 (Bilan Qualité v1.1) ou plus tôt si pertinent.
+
+**Mémoire BMAD** : story doc `_bmad-output/implementation-artifacts/story-S-LLM-WRAPPER-ROBUSTNESS.md` (mise à jour 23/05 avec Implementation Notes).
+
 ---
 
 ## Step 5 — Implementation Patterns & Consistency Rules

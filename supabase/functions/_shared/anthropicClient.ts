@@ -41,6 +41,44 @@ const DEFAULT_MAX_TOKENS = 4096;
 const MAX_PROMPT_PARAMETERS = 25;
 
 /**
+ * Timeout defensif sur les fetch Anthropic (Story S-LLM-WRAPPER-ROBUSTNESS, AC3).
+ * 60s = avant le kill platform Supabase a ~150s. Libere les ressources si Anthropic hang.
+ *
+ * Pour anthropicStream : couvre l'etablissement de la connexion + premier chunk
+ * uniquement. AbortSignal.timeout ne tue pas un stream actif qui produit des chunks
+ * regulierement (cas LLM 5-15s nominal cf. fix fe59be2). Il ne fire QUE si la
+ * lecture du body bloque pendant 60s sans nouveau chunk.
+ */
+const ANTHROPIC_FETCH_TIMEOUT_MS = 60_000;
+
+/**
+ * Tokens canoniques d'error.type Anthropic classes "billing/auth" (Couche 1 AC1).
+ * Source : https://docs.anthropic.com/en/api/errors (matrice officielle).
+ *
+ * Note : rate_limit_error (429) et invalid_request_error (400) sont EXCLUS
+ * intentionnellement — un rate limit ou une input invalide n'est PAS un probleme
+ * billing/cle, c'est un probleme metier (retry / fix payload caller).
+ */
+const ANTHROPIC_BILLING_ERROR_TYPES = new Set([
+  "authentication_error", // 401 — API key invalide / revoquee
+  "billing_error",        // 402 — credit_balance_too_low, payment required
+  "permission_error",     // 403 — API key sans acces au modele
+]);
+
+/**
+ * Regex Couche 2 (fallback message) : tokens stricts identifies dans la doc
+ * Anthropic ou observes en prod. Ne match QUE des tokens complets entre word
+ * boundaries, JAMAIS un substring libre dans une phrase.
+ *
+ * Patterns historiquement permissifs explicitement BANNIS :
+ *   - /credit|billing|authentication/  (claude-proxy:23, match texte arbitraire)
+ *   - /credit|billing|authentication|invalid/  (make-server:20, drift |invalid
+ *     qui matchait "invalid input parameter" => faux positif billing)
+ */
+const BILLING_MESSAGE_REGEX =
+  /\b(credit_balance_too_low|insufficient_quota|payment_required|invalid_api_key|authentication_error|billing_error|permission_error)\b/i;
+
+/**
  * Lookup de la cle API Anthropic dans l'env Deno.
  * Ordre de priorite : ANTHROPIC_API_KEY (standard) > Magrit3 (mixed case, secret historique)
  * > MAGRIT3 (upper, robustesse) > MAGRIT (legacy).
@@ -112,6 +150,9 @@ export interface AnthropicCompleteStructuredResult<T> extends AnthropicCompleteR
 
 /**
  * Erreur levee par le wrapper. Conserve le contexte pour debug.
+ *
+ * kind "timeout" (Story S-LLM-WRAPPER-ROBUSTNESS AC3) : fire quand AbortSignal.timeout
+ * declenche apres ANTHROPIC_FETCH_TIMEOUT_MS sans reponse / sans nouveau chunk SSE.
  */
 export class AnthropicClientError extends Error {
   constructor(
@@ -121,12 +162,116 @@ export class AnthropicClientError extends Error {
       | "json_parse"
       | "schema_validation"
       | "param_limit_exceeded"
-      | "missing_api_key",
+      | "missing_api_key"
+      | "timeout",
     message: string,
     public readonly details?: unknown,
   ) {
     super(message);
     this.name = "AnthropicClientError";
+  }
+}
+
+/**
+ * Classifie une AnthropicClientError comme erreur billing/auth (Story
+ * S-LLM-WRAPPER-ROBUSTNESS, AC1). Helper canonique partage par claude-proxy
+ * et make-server-e3db71a4 pour decider du fallback demo.
+ *
+ * Strategie en 2 couches :
+ *   Couche 1 (prioritaire, deterministe) : status HTTP + body.error.type Anthropic
+ *     - 401 OU error.type=authentication_error  => billing (API key invalide)
+ *     - 402 OU error.type=billing_error         => billing (paiement / credits)
+ *     - 403 OU error.type=permission_error      => billing (API key sans acces)
+ *     - 429 (rate_limit_error)                  => NON billing (transient)
+ *     - 5xx (api_error/overloaded_error)        => NON billing (transient Anthropic)
+ *     - 400 (invalid_request_error)             => NON billing (input client)
+ *
+ *   Couche 2 (fallback message body) : regex stricte sur tokens Anthropic
+ *     canoniques uniquement (cf. BILLING_MESSAGE_REGEX). Pas de match libre
+ *     sur "credit" / "billing" / "authentication" en substring.
+ *
+ * Retourne false pour tout kind != "api_error" (timeout, json_parse,
+ * schema_validation, etc. ne sont pas des erreurs billing).
+ */
+export function isAnthropicBillingError(err: unknown): boolean {
+  if (!(err instanceof AnthropicClientError)) return false;
+  if (err.kind !== "api_error") return false;
+
+  const details = err.details as
+    | { status?: number; body?: string }
+    | undefined;
+  const status = details?.status;
+  const body = String(details?.body ?? "");
+
+  // Couche 1a — status HTTP deterministe
+  if (status === 401 || status === 402 || status === 403) return true;
+  if (status === 429) return false;
+  if (status !== undefined && status >= 500 && status <= 599) return false;
+  if (status === 400) {
+    // 400 invalid_request_error = jamais billing.
+    // Cas limite : 400 avec error.type ambigu dans le body => exclu par defaut.
+    return false;
+  }
+
+  // Couche 1b — error.type canonique parse depuis le body JSON Anthropic
+  // Format attendu : { type: "error", error: { type: "...", message: "..." } }
+  try {
+    const parsed = JSON.parse(body) as
+      | { error?: { type?: string } }
+      | null;
+    const errorType = parsed?.error?.type;
+    if (typeof errorType === "string" && ANTHROPIC_BILLING_ERROR_TYPES.has(errorType)) {
+      return true;
+    }
+  } catch {
+    // body n'est pas du JSON valide — on tombe sur la Couche 2 ci-dessous
+  }
+
+  // Couche 2 — regex stricte sur le message body (tokens canoniques uniquement)
+  return BILLING_MESSAGE_REGEX.test(body);
+}
+
+/**
+ * Wrapper interne pour fetch Anthropic avec AbortSignal.timeout (AC3).
+ * Convertit AbortError en AnthropicClientError("timeout") typee.
+ */
+async function fetchAnthropicWithTimeout(
+  body: unknown,
+  apiKey: string,
+  endpoint: string,
+  model: string,
+): Promise<Response> {
+  const start = Date.now();
+  try {
+    return await fetch(ANTHROPIC_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": ANTHROPIC_VERSION,
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(ANTHROPIC_FETCH_TIMEOUT_MS),
+    });
+  } catch (err) {
+    // AbortSignal.timeout fire => DOMException("TimeoutError") sur Deno
+    const isTimeout =
+      (err instanceof DOMException && err.name === "TimeoutError") ||
+      (err as Error)?.name === "TimeoutError" ||
+      (err as Error)?.name === "AbortError";
+    if (isTimeout) {
+      throw new AnthropicClientError(
+        "timeout",
+        `Anthropic hang detecte apres ${ANTHROPIC_FETCH_TIMEOUT_MS}ms, abandon defensif`,
+        {
+          model,
+          endpoint,
+          durationMs: Date.now() - start,
+          timeoutMs: ANTHROPIC_FETCH_TIMEOUT_MS,
+        },
+      );
+    }
+    throw err;
   }
 }
 
@@ -197,15 +342,7 @@ export async function anthropicComplete(
   if (opts.temperature !== undefined) body.temperature = opts.temperature;
 
   const start = Date.now();
-  const response = await fetch(ANTHROPIC_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": ANTHROPIC_VERSION,
-    },
-    body: JSON.stringify(body),
-  });
+  const response = await fetchAnthropicWithTimeout(body, apiKey, opts.endpoint, opts.model);
   const latency_ms = Date.now() - start;
 
   if (!response.ok) {
@@ -387,15 +524,7 @@ export async function anthropicStream(
   if (opts.temperature !== undefined) body.temperature = opts.temperature;
 
   const start = Date.now();
-  const response = await fetch(ANTHROPIC_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": ANTHROPIC_VERSION,
-    },
-    body: JSON.stringify(body),
-  });
+  const response = await fetchAnthropicWithTimeout(body, apiKey, opts.endpoint, opts.model);
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => "");

@@ -8,17 +8,14 @@ import {
   anthropicComplete,
   anthropicStream,
   AnthropicClientError,
+  isAnthropicBillingError,
 } from "../_shared/anthropicClient.ts";
 
-// Detection des erreurs API qui justifient un fallback demo (cle absente,
-// credits epuises, auth invalide). Cf. comportement historique avant S1.5.
-function isClaudeBillingError(err: AnthropicClientError): boolean {
-  if (err.kind !== "api_error") return false;
-  const body = String(
-    (err.details as { body?: string } | undefined)?.body ?? "",
-  ).toLowerCase();
-  return /credit|billing|authentication|invalid/.test(body);
-}
+// Story S-LLM-WRAPPER-ROBUSTNESS (AC2) : detection billing centralisee via
+// isAnthropicBillingError(). La regex locale /credit|billing|authentication|invalid/
+// a ete supprimee — le drift `|invalid` historique matchait "invalid input parameter"
+// (faux positif billing). Le helper canonique utilise une matrice double couche
+// (HTTP status + error.type Anthropic, fallback regex stricte sur tokens).
 
 const app = new Hono();
 
@@ -729,7 +726,7 @@ app.post("/make-server-e3db71a4/claude-proxy", async (c) => {
           console.log("⚠️ Mode démo activé - clé API absente");
           return respondDemo("Mode démo activé (clé API non configurée)");
         }
-        if (isClaudeBillingError(err)) {
+        if (isAnthropicBillingError(err)) {
           console.error("❌ Erreur API Claude (billing/auth):", err.details);
           return respondDemo("Mode démo activé (crédits API insuffisants ou clé invalide)");
         }
@@ -969,7 +966,7 @@ app.post("/make-server-e3db71a4/claude-proxy-stream", async (c) => {
           await writeDemoDone("Mode démo (clé API absente)", true, null);
           return;
         }
-        if (isClaudeBillingError(err)) {
+        if (isAnthropicBillingError(err)) {
           await writeDemoDone(
             "Mode démo (crédits API insuffisants ou clé invalide)",
             true,

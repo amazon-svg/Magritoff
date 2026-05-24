@@ -8,20 +8,19 @@ import { corsHeaders } from "../_shared/cors.ts";
 import {
   anthropicCompleteStructured,
   AnthropicClientError,
+  isAnthropicBillingError,
 } from "../_shared/anthropicClient.ts";
 import { ProductsResponseSchema } from "../_shared/productsSchema.ts";
+import { extractAuthContext } from "./_auth.ts";
 
 const MODEL = "claude-haiku-4-5-20251001";
 
-// Detection des erreurs API qui justifient un fallback demo (cle absente,
-// credits epuises, auth invalide). Cf. comportement historique avant S1.5.
-function isBillingError(err: AnthropicClientError): boolean {
-  if (err.kind !== "api_error") return false;
-  const body = String(
-    (err.details as { body?: string } | undefined)?.body ?? "",
-  ).toLowerCase();
-  return /credit|billing|authentication/.test(body);
-}
+// Story S-LLM-WRAPPER-ROBUSTNESS (AC2) : la detection billing est centralisee
+// dans _shared/anthropicClient.ts via isAnthropicBillingError(). La regex locale
+// /credit|billing|authentication/ a ete supprimee (trop permissive, matchait du
+// texte arbitraire).
+// Story S-LLM-WRAPPER-ROBUSTNESS (AC4) : extraction user/tenant JWT isolee
+// dans ./_auth.ts pour testabilite (cf. _auth.test.ts).
 
 // Fonction pour formater la réponse au format "Vous avez demandé"
 function formatProductResponse(config: any): string {
@@ -493,6 +492,10 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Story S-LLM-WRAPPER-ROBUSTNESS (AC4) : extraction user/tenant pour
+    // tracking llm_usage_events (NFR23). Best-effort : null/null si JWT absent.
+    const { userId, tenantId } = await extractAuthContext(req);
+
     const { messages } = await req.json();
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
@@ -534,7 +537,10 @@ Deno.serve(async (req) => {
         maxTokens: 8192,
         schema: ProductsResponseSchema,
         endpoint: "claude-proxy",
-        // userId / tenantId : non-disponibles ici sans auth context, restent undefined.
+        // S-LLM-WRAPPER-ROBUSTNESS AC4 : attribution user/tenant extraite du JWT.
+        // null/null si JWT absent (back-compat appels anonymes legacy).
+        userId,
+        tenantId,
         metadata: { message_count: messages.length },
       });
     } catch (err) {
@@ -543,8 +549,8 @@ Deno.serve(async (req) => {
         if (err.kind === "missing_api_key") {
           return respondDemo("aucune cle API configuree");
         }
-        // Cas 2 : credits / billing / auth invalide → mode demo.
-        if (isBillingError(err)) {
+        // Cas 2 : credits / billing / auth invalide → mode demo (helper canonique).
+        if (isAnthropicBillingError(err)) {
           return respondDemo("credits insuffisants ou auth invalide");
         }
         // Cas 3 : reponse Claude non-conforme JSON ou hors schema → mode demo.
