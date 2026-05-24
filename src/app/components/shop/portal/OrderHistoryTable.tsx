@@ -31,7 +31,11 @@ import { TEST_IDS } from '../../../lib/testIds';
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
-export type SortableColumn = 'date' | 'total_ht' | 'total_ttc';
+/**
+ * Colonnes triables natives (toujours presentes dans OrderUI).
+ * 'extra' est un cas dynamique : le tri delegue a ExtraColumn.sortValue.
+ */
+export type SortableColumn = 'date' | 'customer_name' | 'total_ht' | 'total_ttc' | 'extra';
 export type SortDirection = 'asc' | 'desc';
 
 export type PeriodPreset = 'all' | '7d' | '30d' | '90d' | 'year' | 'custom';
@@ -43,6 +47,12 @@ export interface ExtraColumn {
   render: (order: OrderUI) => ReactNode;
   /** Position : 'before-status' (defaut) ou 'after-date'. */
   position?: 'before-status' | 'after-date';
+  /**
+   * Si fournie, rend la colonne triable. Le composant trie via cette fn
+   * (cas DashboardOrders : sortValue = shopSlugById.get(o.shop_id) pour trier
+   * par boutique alors que `shop_id` n'est pas dans OrderUI natif).
+   */
+  sortValue?: (order: OrderUI) => string | number;
 }
 
 export interface OrderHistoryTableProps {
@@ -184,17 +194,33 @@ export function applyFilters(orders: OrderUI[], state: TableState): OrderUI[] {
   return result;
 }
 
-export function applySort(orders: OrderUI[], state: TableState): OrderUI[] {
+export function applySort(
+  orders: OrderUI[],
+  state: TableState,
+  extraSortValue?: (o: OrderUI) => string | number,
+): OrderUI[] {
   const sorted = [...orders];
   const dir = state.sortDir === 'asc' ? 1 : -1;
+  // Collator fr pour comparer strings (Client, Boutique) en respectant les
+  // accents et la casse insensible (Etienne ~ etienne ~ Étienne).
+  const collator = new Intl.Collator('fr', { sensitivity: 'base', numeric: true });
   sorted.sort((a, b) => {
     switch (state.sortBy) {
       case 'date':
         return (new Date(a.date).getTime() - new Date(b.date).getTime()) * dir;
+      case 'customer_name':
+        return collator.compare(a.customer_name ?? '', b.customer_name ?? '') * dir;
       case 'total_ht':
         return (a.total_ht - b.total_ht) * dir;
       case 'total_ttc':
         return (a.total_ttc - b.total_ttc) * dir;
+      case 'extra': {
+        if (!extraSortValue) return 0;
+        const va = extraSortValue(a);
+        const vb = extraSortValue(b);
+        if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * dir;
+        return collator.compare(String(va), String(vb)) * dir;
+      }
       default:
         return 0;
     }
@@ -226,7 +252,10 @@ export function OrderHistoryTable({
   }, [orders]);
 
   const filtered = useMemo(() => applyFilters(orders, state), [orders, state]);
-  const sorted = useMemo(() => applySort(filtered, state), [filtered, state]);
+  const sorted = useMemo(
+    () => applySort(filtered, state, extraColumn?.sortValue),
+    [filtered, state, extraColumn?.sortValue],
+  );
 
   const isFiltered =
     state.selectedStatuses.length > 0 ||
@@ -511,18 +540,40 @@ export function OrderHistoryTable({
                 {extraColumn?.position === 'after-date' && (
                   <th
                     scope="col"
+                    aria-sort={extraColumn.sortValue ? ariaSortFor('extra') : undefined}
                     className="py-2.5 pr-4 font-mono uppercase text-ink-mute-2"
                     style={{ fontSize: '10.5px', letterSpacing: '0.08em', fontWeight: 500 }}
                   >
-                    {extraColumn.header}
+                    {extraColumn.sortValue ? (
+                      <button
+                        type="button"
+                        onClick={() => handleSortClick('extra')}
+                        data-testid={TEST_IDS.shop.orderSortHeaderExtra}
+                        className="inline-flex items-center hover:text-ink transition-colors"
+                      >
+                        {extraColumn.header}
+                        <SortIndicator col="extra" />
+                      </button>
+                    ) : (
+                      extraColumn.header
+                    )}
                   </th>
                 )}
                 <th
                   scope="col"
+                  aria-sort={ariaSortFor('customer_name')}
                   className="py-2.5 pr-4 font-mono uppercase text-ink-mute-2"
                   style={{ fontSize: '10.5px', letterSpacing: '0.08em', fontWeight: 500 }}
                 >
-                  Client
+                  <button
+                    type="button"
+                    onClick={() => handleSortClick('customer_name')}
+                    data-testid={TEST_IDS.shop.orderSortHeaderClient}
+                    className="inline-flex items-center hover:text-ink transition-colors"
+                  >
+                    Client
+                    <SortIndicator col="customer_name" />
+                  </button>
                 </th>
                 <th
                   scope="col"
@@ -566,10 +617,23 @@ export function OrderHistoryTable({
                 {(extraColumn?.position === 'before-status' || (extraColumn && !extraColumn.position)) && (
                   <th
                     scope="col"
+                    aria-sort={extraColumn.sortValue ? ariaSortFor('extra') : undefined}
                     className="py-2.5 pr-4 font-mono uppercase text-ink-mute-2"
                     style={{ fontSize: '10.5px', letterSpacing: '0.08em', fontWeight: 500 }}
                   >
-                    {extraColumn.header}
+                    {extraColumn.sortValue ? (
+                      <button
+                        type="button"
+                        onClick={() => handleSortClick('extra')}
+                        data-testid={TEST_IDS.shop.orderSortHeaderExtra}
+                        className="inline-flex items-center hover:text-ink transition-colors"
+                      >
+                        {extraColumn.header}
+                        <SortIndicator col="extra" />
+                      </button>
+                    ) : (
+                      extraColumn.header
+                    )}
                   </th>
                 )}
                 <th

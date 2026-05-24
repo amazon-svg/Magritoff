@@ -187,8 +187,11 @@ export const TEST_IDS = {
     orderFilterReset: 'order-filter-reset',
     orderFilteredEmpty: 'order-filtered-empty',
     orderSortHeaderDate: 'order-sort-header-date',
+    orderSortHeaderClient: 'order-sort-header-client',
     orderSortHeaderTotalHt: 'order-sort-header-total-ht',
     orderSortHeaderTotalTtc: 'order-sort-header-total-ttc',
+    // extra column triable (ex: Boutique sur DashboardOrders multi-boutiques)
+    orderSortHeaderExtra: 'order-sort-header-extra',
     // S-CONSO-3 (Sprint 4 Phase 2, 2026-05-18) : page de confirmation
     // commande PortalThankYou (UX Sally validee, parcours acheteur demo).
     thankYouPage: 'shop-thank-you-page',

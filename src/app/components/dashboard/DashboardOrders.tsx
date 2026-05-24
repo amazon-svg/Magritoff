@@ -144,6 +144,8 @@ export function DashboardOrders() {
               {shopSlugById.get((o as DashboardOrderUI).shop_id) ?? '—'}
             </span>
           ),
+          // S3.1 ext (2026-05-23) : tri par slug boutique pour imprimeurs multi-boutiques.
+          sortValue: (o) => shopSlugById.get((o as DashboardOrderUI).shop_id) ?? '',
         }}
       />
     </div>

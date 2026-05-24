@@ -161,3 +161,87 @@ describe('OrderHistoryTable.applySort', () => {
     expect(input).toEqual(inputCopy);
   });
 });
+
+describe('OrderHistoryTable.applySort / extension client + extra (S3.1+)', () => {
+  it('tri customer_name asc (ordre fr, insensible accents/casse)', () => {
+    const orders = [
+      makeOrder({ id: 'oZ', customer_name: 'Zoe Petit' }),
+      makeOrder({ id: 'oA', customer_name: 'Alice Mazon' }),
+      makeOrder({ id: 'oE', customer_name: 'Etienne Aubin' }),
+      makeOrder({ id: 'oAcc', customer_name: 'Émilie' }), // accent
+    ];
+    const sorted = applySort(orders, {
+      ...DEFAULT_STATE,
+      sortBy: 'customer_name',
+      sortDir: 'asc',
+    });
+    expect(sorted.map((o) => o.id)).toEqual(['oA', 'oAcc', 'oE', 'oZ']);
+  });
+
+  it('tri customer_name desc (inverse)', () => {
+    const orders = [
+      makeOrder({ id: 'oZ', customer_name: 'Zoe' }),
+      makeOrder({ id: 'oA', customer_name: 'Alice' }),
+    ];
+    const sorted = applySort(orders, {
+      ...DEFAULT_STATE,
+      sortBy: 'customer_name',
+      sortDir: 'desc',
+    });
+    expect(sorted.map((o) => o.id)).toEqual(['oZ', 'oA']);
+  });
+
+  it('tri customer_name tolere null/empty (string vide en premier asc)', () => {
+    const orders = [
+      makeOrder({ id: 'oReal', customer_name: 'Alice' }),
+      makeOrder({ id: 'oNull', customer_name: '' }),
+    ];
+    const sorted = applySort(orders, {
+      ...DEFAULT_STATE,
+      sortBy: 'customer_name',
+      sortDir: 'asc',
+    });
+    expect(sorted[0].id).toBe('oNull');
+  });
+
+  it('tri extra delegue a extraSortValue callback (cas DashboardOrders Boutique)', () => {
+    const orders = [
+      makeOrder({ id: 'o1' }), // shop "zeta"
+      makeOrder({ id: 'o2' }), // shop "alpha"
+      makeOrder({ id: 'o3' }), // shop "beta"
+    ];
+    const shopSlugById = new Map([
+      ['o1', 'zeta'],
+      ['o2', 'alpha'],
+      ['o3', 'beta'],
+    ]);
+    const extraSortValue = (o: OrderUI) => shopSlugById.get(o.id) ?? '';
+    const sorted = applySort(
+      orders,
+      { ...DEFAULT_STATE, sortBy: 'extra', sortDir: 'asc' },
+      extraSortValue,
+    );
+    expect(sorted.map((o) => o.id)).toEqual(['o2', 'o3', 'o1']);
+  });
+
+  it('tri extra avec extraSortValue numerique (compare correctement)', () => {
+    const orders = [makeOrder({ id: 'a' }), makeOrder({ id: 'b' }), makeOrder({ id: 'c' })];
+    const counts = new Map([
+      ['a', 30],
+      ['b', 5],
+      ['c', 100],
+    ]);
+    const sorted = applySort(
+      orders,
+      { ...DEFAULT_STATE, sortBy: 'extra', sortDir: 'asc' },
+      (o) => counts.get(o.id) ?? 0,
+    );
+    expect(sorted.map((o) => o.id)).toEqual(['b', 'a', 'c']);
+  });
+
+  it('tri extra sans callback → ordre inchange (no-op safe)', () => {
+    const orders = [makeOrder({ id: 'o1' }), makeOrder({ id: 'o2' })];
+    const sorted = applySort(orders, { ...DEFAULT_STATE, sortBy: 'extra', sortDir: 'asc' });
+    expect(sorted.map((o) => o.id)).toEqual(['o1', 'o2']);
+  });
+});
