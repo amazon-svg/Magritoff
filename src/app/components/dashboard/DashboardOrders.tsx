@@ -2,21 +2,14 @@
  * DashboardOrders — Vue agregee toutes commandes du tenant (persona owner).
  *
  * S-DASHBOARD-ORDERS-DUAL (Sprint 4 Phase 1 complement, 2026-05-18) :
- * remplace l ancien placeholder (qui queryait une table `orders` inexistante).
+ * remplace l ancien placeholder. Dual-read shop_orders + tenant_orders.
  *
- * Dual-read shop_orders (legacy) + tenant_orders (v1.1) scope par tenant.
- * Reutilise les helpers PortalOrders.helpers.ts pour la normalisation et le
- * mapping des statuts (parite UI cote acheteur /shop/:slug et owner dashboard).
- *
- * Hors scope (S3.1 Phase 3 a venir) :
- *  - Filtres avances (statut, date, montant)
- *  - Tri colonne cliquable
- *  - Pagination > 100 commandes
- *  - Modale audit trail (tenant_order_status_events)
+ * S3.1 (Sprint 5, 2026-05-23) : refactor pour deleguer rendu/filtres/tri
+ * au composant <OrderHistoryTable>, avec extraColumn 'Boutique' pour
+ * afficher le slug par ligne.
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { Loader2, ShoppingBag } from 'lucide-react';
 import { supabase } from '/utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTenant } from '../../contexts/TenantContext';
@@ -26,38 +19,14 @@ import {
   type OrderUI,
   type ShopOrderRow,
   type TenantOrderRow,
-  STATUS_LABELS,
   mergeAndSortOrders,
   normalizeShopOrder,
   normalizeTenantOrder,
 } from '../shop/portal/PortalOrders.helpers';
+import { OrderHistoryTable } from '../shop/portal/OrderHistoryTable';
 
 interface DashboardOrderUI extends OrderUI {
   shop_id: string;
-}
-
-function formatEuro(n: number | null | undefined): string {
-  if (n == null || !Number.isFinite(n)) return '—';
-  return new Intl.NumberFormat('fr-FR', {
-    style: 'currency',
-    currency: 'EUR',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(n);
-}
-
-function formatDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleDateString('fr-FR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  } catch {
-    return iso;
-  }
 }
 
 export function DashboardOrders() {
@@ -162,93 +131,21 @@ export function DashboardOrders() {
         </p>
       </div>
 
-      {loading && (
-        <div className="flex items-center gap-2 text-gray-500">
-          <Loader2 className="w-4 h-4 animate-spin" />
-          <span className="text-sm">Chargement…</span>
-        </div>
-      )}
-
-      {error && !loading && (
-        <div className="px-3 py-2 rounded bg-red-50 border border-red-200 text-red-700 text-sm">
-          Erreur : {error}
-        </div>
-      )}
-
-      {!loading && !error && orders.length === 0 && (
-        <div className="text-center py-12 text-gray-400">
-          <ShoppingBag className="w-12 h-12 mx-auto mb-2 opacity-50" />
-          <p className="text-sm">Aucune commande pour l instant.</p>
-        </div>
-      )}
-
-      {!loading && !error && orders.length > 0 && (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-gray-600 text-left">
-              <tr>
-                <th className="px-3 py-2">Date</th>
-                <th className="px-3 py-2">Boutique</th>
-                <th className="px-3 py-2">Client</th>
-                <th className="px-3 py-2">Articles</th>
-                <th className="px-3 py-2 text-right">Total HT</th>
-                <th className="px-3 py-2 text-right">Total TTC</th>
-                <th className="px-3 py-2">Statut</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {orders.map((o) => {
-                const itemsCount = o.items.reduce((s, it) => s + (it.qty ?? 1), 0);
-                const linesCount = o.items.length;
-                const statusInfo = STATUS_LABELS[o.status] ?? {
-                  label: o.status,
-                  className: 'bg-gray-100 text-gray-700',
-                };
-                const shopSlug = shopSlugById.get(o.shop_id) ?? '—';
-                const clientLabel =
-                  o.source === 'legacy' ? o.customer_name || '—' : 'Acheteur tenant';
-
-                return (
-                  <tr key={o.id} className="hover:bg-gray-50" data-order-source={o.source}>
-                    <td className="px-3 py-2 text-gray-600 text-xs font-mono">
-                      {formatDate(o.date)}
-                    </td>
-                    <td className="px-3 py-2 font-mono text-xs">{shopSlug}</td>
-                    <td className="px-3 py-2">{clientLabel}</td>
-                    <td className="px-3 py-2 text-gray-600 text-xs">
-                      {linesCount} ligne{linesCount > 1 ? 's' : ''} · {itemsCount} ex.
-                    </td>
-                    <td className="px-3 py-2 text-right font-mono">{formatEuro(o.total_ht)}</td>
-                    <td className="px-3 py-2 text-right font-mono font-semibold">
-                      {formatEuro(o.total_ttc)}
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="flex items-center gap-2">
-                        {/* S-DUAL-READ Sally H1-bis : marker discret cohort legacy */}
-                        {o.source === 'legacy' && (
-                          <>
-                            <span
-                              className="bg-gray-400 w-1.5 h-1.5 rounded-full shrink-0"
-                              aria-hidden="true"
-                              title="Commande antérieure au 17/05/2026 (modèle legacy)"
-                            />
-                            <span className="sr-only">Commande au format antérieur. </span>
-                          </>
-                        )}
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-xs ${statusInfo.className}`}
-                        >
-                          {statusInfo.label}
-                        </span>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <OrderHistoryTable
+        orders={orders}
+        loading={loading}
+        error={error}
+        persistKey={currentTenant ? `orderHistory:dashboard:${currentTenant.id}` : undefined}
+        extraColumn={{
+          header: 'Boutique',
+          position: 'after-date',
+          render: (o) => (
+            <span className="font-mono text-xs">
+              {shopSlugById.get((o as DashboardOrderUI).shop_id) ?? '—'}
+            </span>
+          ),
+        }}
+      />
     </div>
   );
 }

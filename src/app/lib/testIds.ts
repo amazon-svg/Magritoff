@@ -180,6 +180,15 @@ export const TEST_IDS = {
     // commandes cohort legacy shop_orders (vs v1.1 tenant_orders) — design
     // Sally H1-bis (point gris + sr-only + title fallback desktop).
     ordersRowLegacyMarker: 'shop-orders-row-legacy-marker',
+    // S3.1 (Sprint 5, 2026-05-23) : OrderHistoryTable filtres + tri colonne.
+    orderFilterStatus: 'order-filter-status',
+    orderFilterPeriod: 'order-filter-period',
+    orderFilterAmountMin: 'order-filter-amount-min',
+    orderFilterReset: 'order-filter-reset',
+    orderFilteredEmpty: 'order-filtered-empty',
+    orderSortHeaderDate: 'order-sort-header-date',
+    orderSortHeaderTotalHt: 'order-sort-header-total-ht',
+    orderSortHeaderTotalTtc: 'order-sort-header-total-ttc',
     // S-CONSO-3 (Sprint 4 Phase 2, 2026-05-18) : page de confirmation
     // commande PortalThankYou (UX Sally validee, parcours acheteur demo).
     thankYouPage: 'shop-thank-you-page',
