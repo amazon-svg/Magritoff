@@ -30,8 +30,10 @@ describe('S3.2-residual AC2 — submitCart() insere status=draft explicite', () 
   });
 
   it("la migration source 20260509 declare bien default 'draft' pour tenant_orders.status (assurance back-compat)", () => {
+    // Chemin post S-RECONCILE-SUPABASE-MIGRATIONS rename (2026-05-23) :
+    // 20260509_01_e1_orders_v1_1.sql → 20260509000100_e1_orders_v1_1.sql
     const sql = readFileSync(
-      resolve(__dirname, '../../../supabase/migrations/20260509_01_e1_orders_v1_1.sql'),
+      resolve(__dirname, '../../../supabase/migrations/20260509000100_e1_orders_v1_1.sql'),
       'utf-8',
     );
     expect(sql).toMatch(/status\s+tenant_order_status\s+not null\s+default\s+'draft'/);

@@ -24,7 +24,7 @@
  */
 
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, Loader2, Package, RotateCcw } from 'lucide-react';
+import { ArrowDown, ArrowUp, Loader2, Package, RotateCcw, RotateCw } from 'lucide-react';
 import type { OrderUI } from './PortalOrders.helpers';
 import { getStatusInfo, type OrderStatus } from '../../../lib/orderStatus';
 import { TEST_IDS } from '../../../lib/testIds';
@@ -66,6 +66,15 @@ export interface OrderHistoryTableProps {
   extraColumn?: ExtraColumn;
   /** Cle localStorage pour persistance filtres + tri (optionnel). */
   persistKey?: string;
+  /**
+   * S3.3 (Sprint 5) : callback Renouveler 1-clic. Si fourni, une colonne
+   * Actions affiche un bouton 'Renouveler' sur chaque ligne eligible
+   * (cohort v1.1 + status != draft/cancelled). Le parent (PortalOrders →
+   * PublicShop) implemente la logique : query items + rebuild cart +
+   * view='cart'. Si omis (cas DashboardOrders admin), pas de colonne
+   * Actions affichee.
+   */
+  onRenewOrder?: (order: OrderUI) => void | Promise<void>;
 }
 
 interface TableState {
@@ -236,7 +245,21 @@ export function OrderHistoryTable({
   error = null,
   extraColumn,
   persistKey,
+  onRenewOrder,
 }: OrderHistoryTableProps) {
+  // S3.3 : une commande est renouvelable si v1.1 + status workflow/terminal
+  // (pas draft = rien à renouveler depuis un brouillon, pas cancelled =
+  // pas de re-commande depuis une commande abandonnée). Legacy non éligible
+  // (items inline JSONB sans product_id stable).
+  const RENEWABLE_STATUSES = new Set([
+    'validated',
+    'in_production',
+    'shipped',
+    'delivered',
+    'invoiced',
+  ]);
+  const canRenew = (o: OrderUI) =>
+    !!onRenewOrder && o.source === 'v1_1' && RENEWABLE_STATUSES.has(o.status);
   const [state, setState] = useState<TableState>(() => loadState(persistKey));
 
   useEffect(() => {
@@ -643,6 +666,15 @@ export function OrderHistoryTable({
                 >
                   Statut
                 </th>
+                {onRenewOrder && (
+                  <th
+                    scope="col"
+                    className="py-2.5 font-mono uppercase text-ink-mute-2 text-right"
+                    style={{ fontSize: '10.5px', letterSpacing: '0.08em', fontWeight: 500 }}
+                  >
+                    <span className="sr-only">Actions</span>
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -713,6 +745,25 @@ export function OrderHistoryTable({
                         </span>
                       </div>
                     </td>
+                    {onRenewOrder && (
+                      <td className="py-3 text-right">
+                        {canRenew(o) && (
+                          <button
+                            type="button"
+                            onClick={() => onRenewOrder(o)}
+                            data-testid={TEST_IDS.shop.orderRenewBtn}
+                            data-order-id={o.id}
+                            aria-label={`Renouveler la commande ${o.id}`}
+                            title="Renouveler cette commande (pré-remplit le panier)"
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded border border-line bg-paper text-ink-muted hover:text-ink hover:border-ink-mute-2 transition-colors"
+                            style={{ fontSize: '11.5px' }}
+                          >
+                            <RotateCw className="w-3 h-3" strokeWidth={2} aria-hidden="true" />
+                            Renouveler
+                          </button>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 );
               })}

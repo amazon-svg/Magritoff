@@ -28,9 +28,15 @@ import { OrderHistoryTable } from "./OrderHistoryTable";
 
 interface Props {
   shopId: string;
+  /**
+   * S3.3 (Sprint 5) : callback Renouveler 1-clic remonté depuis PublicShop.
+   * Si fourni, OrderHistoryTable affiche le bouton "Renouveler" sur les
+   * lignes éligibles (v1.1 + status workflow/terminal).
+   */
+  onRenewOrder?: (order: OrderUI) => void | Promise<void>;
 }
 
-export function PortalOrders({ shopId }: Props) {
+export function PortalOrders({ shopId, onRenewOrder }: Props) {
   const { user } = useAuth();
   const { currentTenant } = useTenant();
   const [orders, setOrders] = useState<OrderUI[]>([]);
@@ -143,6 +149,7 @@ export function PortalOrders({ shopId }: Props) {
         loading={loading}
         error={error}
         persistKey={`orderHistory:shop:${shopId}`}
+        onRenewOrder={onRenewOrder}
       />
     </div>
   );

@@ -195,6 +195,10 @@ export const TEST_IDS = {
     // S3.2-residual (Sprint 5, 2026-05-23) : hint quand can_order=false
     // empeche la creation de commande depuis le panier.
     cartNoCreateOrderHint: 'shop-cart-no-create-order-hint',
+    // S3.3 (Sprint 5, 2026-05-23) : bouton Renouveler 1-clic + banner warnings.
+    orderRenewBtn: 'shop-order-renew-btn',
+    cartRenewalWarningsBanner: 'shop-cart-renewal-warnings-banner',
+    cartRenewalWarningsDismissBtn: 'shop-cart-renewal-warnings-dismiss-btn',
     // S-CONSO-3 (Sprint 4 Phase 2, 2026-05-18) : page de confirmation
     // commande PortalThankYou (UX Sally validee, parcours acheteur demo).
     thankYouPage: 'shop-thank-you-page',

@@ -14,6 +14,10 @@ import { PortalCart } from './portal/PortalCart';
 import { PortalOrders } from './portal/PortalOrders';
 import { PortalThankYou } from './portal/PortalThankYou';
 import type { PortalView, CartLine, BudgetInfo } from './portal/types';
+import {
+  rebuildCartFromOrderItems,
+  type OrderItemRow,
+} from './portal/orderRenewal.helpers';
 import { ShopLayout } from './ShopLayout';
 import { ShopForbidden403 } from './ShopForbidden403';
 import { resolveShopAccessFromMemberships } from './ShopAccessGuard.helpers';
@@ -259,6 +263,60 @@ export function PublicShop() {
     setCart((prev) => prev.filter((l) => l.product.id !== productId));
   };
 
+  // S3.3 (Sprint 5) : warnings du dernier renouvellement de commande, affichés
+  // en banner dismissable dans PortalCart (cf. setRenewalWarnings([]) pour reset).
+  const [renewalWarnings, setRenewalWarnings] = useState<string[]>([]);
+
+  /**
+   * S3.3 AC2/AC3 : Renouveler 1-clic depuis OrderHistoryTable.
+   * Query items + rebuild cart (via helper pur) + setCart + view='cart' +
+   * warnings remontés au banner PortalCart.
+   *
+   * Best-effort : si query items échoue, alert simple sans bascule.
+   */
+  const handleRenewOrder = async (order: { id: string; source: string }) => {
+    if (order.source !== 'v1_1') {
+      alert('Le renouvellement n\'est disponible que pour les commandes récentes (post 17/05/2026).');
+      return;
+    }
+
+    // Si le cart actuel n'est pas vide, on confirme avant de l'écraser.
+    if (cart.length > 0) {
+      const ok = window.confirm(
+        'Votre panier contient déjà des articles. Le renouvellement va le remplacer. Continuer ?',
+      );
+      if (!ok) return;
+    }
+
+    const { data: items, error: itemsErr } = await supabase
+      .from('tenant_order_items')
+      .select('product_id, product_label, clariprint_options, quantity, unit_price_ht')
+      .eq('order_id', order.id);
+
+    if (itemsErr || !items) {
+      console.error('[handleRenewOrder] query items failed:', itemsErr?.message);
+      alert(`Impossible de charger les articles de cette commande : ${itemsErr?.message ?? 'erreur réseau'}.`);
+      return;
+    }
+
+    const { lines, warnings, stats } = rebuildCartFromOrderItems(
+      items as OrderItemRow[],
+      products,
+    );
+
+    if (stats.matched === 0) {
+      // Aucun produit récupérable : on ne bascule pas le panier mais on affiche les warnings
+      alert(
+        `Aucun produit de cette commande n'est plus disponible dans le catalogue actuel.\n\n${warnings.join('\n')}`,
+      );
+      return;
+    }
+
+    setCart(lines);
+    setRenewalWarnings(warnings);
+    setView('cart');
+  };
+
   const submitCart = async () => {
     if (!shop || cart.length === 0) return;
 
@@ -395,6 +453,7 @@ export function PublicShop() {
     // B2B (screenshot, transfert compta, archivage).
     setLastOrderId(orderRow.id);
     setCart([]);
+    setRenewalWarnings([]); // S3.3 : clear warnings après submit réussi
     setView('thankYou');
   };
 
@@ -541,6 +600,9 @@ export function PublicShop() {
           // S3.2-residual AC3 : back-compat true si pas de tenant resolu ;
           // la RLS DB bloquera de toute facon si la permission est revoked.
           canCreateOrder={currentTenant?.permissions?.can_order ?? true}
+          // S3.3 : banner warnings affiché si dernier renew a skip des items.
+          renewalWarnings={renewalWarnings}
+          onDismissRenewalWarnings={() => setRenewalWarnings([])}
         />
       }
     >
@@ -589,7 +651,9 @@ export function PublicShop() {
         />
       )}
 
-      {view === 'orders' && <PortalOrders shopId={shop.id} />}
+      {view === 'orders' && (
+        <PortalOrders shopId={shop.id} onRenewOrder={handleRenewOrder} />
+      )}
 
       {/* S-CONSO-3 : page de confirmation post-submitCart. Si lastOrderId est
           absent (cas edge bug ou refresh), redirect catalog via fallback.  */}

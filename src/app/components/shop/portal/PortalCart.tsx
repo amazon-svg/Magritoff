@@ -1,4 +1,4 @@
-import { X, Plus, Minus, MapPin } from 'lucide-react';
+import { X, Plus, Minus, MapPin, AlertTriangle } from 'lucide-react';
 import type { CartLine, BudgetInfo } from './types';
 import { resolveProductImage } from '../../../utils/productImages';
 import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
@@ -35,6 +35,15 @@ interface Props {
    * l'utilisateur tente de submit sans permission).
    */
   canCreateOrder?: boolean;
+  /**
+   * S3.3 (Sprint 5) : warnings du dernier renouvellement de commande.
+   * Si non vide, affiche un banner dismissable en haut du panier listant
+   * les produits qui n'ont pas pu etre re-ajoutes (indisponibles dans le
+   * catalogue actuel). Reset par le parent via onDismissRenewalWarnings
+   * ou automatiquement apres un submit reussi.
+   */
+  renewalWarnings?: string[];
+  onDismissRenewalWarnings?: () => void;
 }
 
 // F4 — Panier + workflow validation N+1
@@ -51,6 +60,8 @@ export function PortalCart({
   pimDefinitions,
   compact = false,
   canCreateOrder = true,
+  renewalWarnings = [],
+  onDismissRenewalWarnings,
 }: Props) {
   const { currentTenant } = useTenant();
   const taxRate = getTaxRate(currentTenant);
@@ -98,6 +109,39 @@ export function PortalCart({
               {cart.length} ligne{cart.length > 1 ? 's' : ''}
             </span>
           </h3>
+        )}
+
+        {/* S3.3 : banner warnings du dernier renouvellement (dismissable) */}
+        {renewalWarnings.length > 0 && (
+          <div
+            data-testid={TEST_IDS.shop.cartRenewalWarningsBanner}
+            role="status"
+            className="mb-4 px-3.5 py-2.5 rounded-lg bg-warn-bg border border-warn-fg/30 text-warn-fg flex items-start gap-2.5"
+            style={{ fontSize: '12.5px', lineHeight: 1.45 }}
+          >
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" strokeWidth={1.8} aria-hidden="true" />
+            <div className="flex-1">
+              <p className="m-0 font-medium mb-1">
+                {renewalWarnings.length} produit{renewalWarnings.length > 1 ? 's' : ''} indisponible{renewalWarnings.length > 1 ? 's' : ''} (non ajouté{renewalWarnings.length > 1 ? 's' : ''} au panier)
+              </p>
+              <ul className="m-0 pl-4 list-disc" style={{ fontSize: '11.5px' }}>
+                {renewalWarnings.map((w, i) => (
+                  <li key={i}>{w}</li>
+                ))}
+              </ul>
+            </div>
+            {onDismissRenewalWarnings && (
+              <button
+                type="button"
+                onClick={onDismissRenewalWarnings}
+                data-testid={TEST_IDS.shop.cartRenewalWarningsDismissBtn}
+                aria-label="Fermer les avertissements"
+                className="shrink-0 text-warn-fg hover:opacity-70 transition-opacity"
+              >
+                <X className="w-4 h-4" strokeWidth={1.8} />
+              </button>
+            )}
+          </div>
         )}
 
         {/* Lignes panier */}
