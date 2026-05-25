@@ -28,6 +28,7 @@ import { CancelOrderConfirmDialog } from '../shop/portal/CancelOrderConfirmDialo
 import { ValidateOrderConfirmDialog } from '../shop/portal/ValidateOrderConfirmDialog';
 import { formatCancelErrorMessage } from '../shop/portal/orderCancellation.helpers';
 import { formatValidateErrorMessage } from '../shop/portal/orderValidation.helpers';
+import { useUserCapability } from '../../hooks/useUserCapability';
 
 interface DashboardOrderUI extends OrderUI {
   shop_id: string;
@@ -63,6 +64,13 @@ export function DashboardOrders() {
   const [orderToCancel, setOrderToCancel] = useState<DashboardOrderUI | null>(null);
   // Fix 2026-05-25 : modal validation. orderToValidate = null → modal fermé.
   const [orderToValidate, setOrderToValidate] = useState<DashboardOrderUI | null>(null);
+
+  // S-USERS-REFONTE Phase A (2026-05-25) : le bouton "Valider" est role-driven.
+  // Visible uniquement si l'utilisateur courant a la capability can_validate
+  // via au moins un rôle actif dans le tenant (preset Owner / Admin /
+  // Validateur par défaut). Évite que les Acheteurs voient un bouton qui
+  // serait refusé par le RPC (UX confusion).
+  const { hasIt: canValidate } = useUserCapability('can_validate');
 
   const loadOrders = useCallback(async (cancelled: { current: boolean }) => {
     if (!user || !currentTenant) return;
@@ -190,7 +198,10 @@ export function DashboardOrders() {
         error={error}
         persistKey={currentTenant ? `orderHistory:dashboard:${currentTenant.id}` : undefined}
         onCancelOrder={handleCancelOrderRequest}
-        onValidateOrder={handleValidateOrderRequest}
+        // S-USERS-REFONTE Phase A : bouton Valider visible uniquement si
+        // l'utilisateur courant a la capability can_validate (via rôle actif).
+        // Sinon, undefined => OrderHistoryTable masque le bouton.
+        onValidateOrder={canValidate ? handleValidateOrderRequest : undefined}
         extraColumn={{
           header: 'Boutique',
           position: 'after-date',

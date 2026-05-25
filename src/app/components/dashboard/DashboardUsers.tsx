@@ -34,6 +34,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useClients, Client } from '../../contexts/ClientsContext';
 import { useShops } from '../../contexts/ShopsContext';
 import { TEST_IDS } from '../../lib/testIds';
+import { DashboardRolesSection } from './DashboardRolesSection';
 
 // E9.5 — appelle l'edge function send-invitation-email. Best-effort :
 // renvoie toujours un objet { sent, link, reason? } pour que le caller
@@ -1279,13 +1280,13 @@ export function DashboardUsers() {
           className="text-ink m-0"
           style={{ fontWeight: 300, fontSize: '34px', letterSpacing: '-0.025em' }}
         >
-          Utilisateurs
+          Utilisateurs et rôles
         </h1>
         <p
           className="mt-1.5 text-ink-muted"
           style={{ fontSize: '13.5px', fontWeight: 300 }}
         >
-          Gerez les acces a votre espace et votre carnet de contacts clients.
+          Gérez les utilisateurs de votre tenant et les rôles que vous leur attribuez.
         </p>
       </div>
 
@@ -1293,7 +1294,12 @@ export function DashboardUsers() {
 
       <hr className="border-line" />
 
-      <CrmContactsSection />
+      {/* S-USERS-REFONTE Phase A (2026-05-25) : nouvel onglet Rôles
+          (catalog rôles + assignation users via capabilities modulaires).
+          La section CrmContactsSection legacy a été retirée (table clients
+          reste en DB pour back-compat des 15 fichiers qui import useClients
+          — refactor en Phase B). */}
+      <DashboardRolesSection />
     </div>
   );
 }

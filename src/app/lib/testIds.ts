@@ -86,6 +86,12 @@ export const TEST_IDS = {
     permissionCanOrderCheckbox: 'user-permission-can-order-checkbox',
     permissionCanInviteCheckbox: 'user-permission-can-invite-checkbox',
     permissionsSaveBtn: 'user-permissions-save-btn',
+    // S-USERS-REFONTE Phase A (2026-05-25) : nouvelle section Rôles
+    // (catalog + assignations matrix users × rôles).
+    sectionRoles: 'users-section-roles',
+    roleRow: 'user-role-row',
+    assignmentRow: 'user-assignment-row',
+    assignmentToggle: 'user-assignment-toggle',
   },
 
   // ─── P05 / P06 — Marguerite (chat) ────────────────────────────────────
