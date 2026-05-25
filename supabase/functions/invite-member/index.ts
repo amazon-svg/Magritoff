@@ -39,12 +39,20 @@ const ROLE_LABELS_FR: Record<string, string> = {
   partner: 'Partenaire',
 };
 
+// S-USERS-REFONTE Phase A (2026-05-25) : ajout role_definition_ids pour
+// propager les rôles à l'acceptation (cf. migration 20260525000200 +
+// accept_tenant_invitation étendue). Les anciens champs role/access_scope/
+// permissions restent OPTIONNELS pour back-compat (legacy invite flows).
 const inviteBodySchema = z.object({
   email: z.string().email(),
-  role: z.enum(['owner', 'admin', 'member', 'partner']),
+  // Legacy : reste optionnel et utilisé pour back-compat. Le modal refait
+  // envoie 'member' par défaut + access_scope='magrit_full' + permissions
+  // legacy minimales, mais c'est role_definition_ids qui détermine vraiment
+  // les capabilités à l'acceptation.
+  role: z.enum(['owner', 'admin', 'member', 'partner']).default('member'),
   tenant_id: z.string().uuid(),
   invited_by: z.string().uuid(),
-  access_scope: z.enum(['magrit_full', 'shop_only']),
+  access_scope: z.enum(['magrit_full', 'shop_only']).default('magrit_full'),
   allowed_shop_ids: z.array(z.string().uuid()).default([]),
   permissions: z
     .object({
@@ -53,6 +61,13 @@ const inviteBodySchema = z.object({
       can_invite: z.boolean().default(false),
     })
     .default({ can_quote: true, can_order: true, can_invite: false }),
+  /**
+   * S-USERS-REFONTE Phase A : ids des tenant_role_definitions à assigner
+   * à l'acceptation. Vide = pas de rôles propagés (back-compat legacy).
+   * Le RPC accept_tenant_invitation crée les tenant_role_assignments
+   * automatiquement après création du tenant_member.
+   */
+  role_definition_ids: z.array(z.string().uuid()).default([]),
   baseUrl: z.string().url(),
 });
 
@@ -159,6 +174,10 @@ serve(async (req) => {
         allowed_shop_ids:
           body.access_scope === 'shop_only' ? body.allowed_shop_ids : [],
         permissions: body.permissions,
+        // S-USERS-REFONTE Phase A : ids des rôles à propager à l'acceptation
+        // (cf. accept_tenant_invitation RPC qui les insère en
+        // tenant_role_assignments automatiquement).
+        pending_role_ids: body.role_definition_ids,
       })
       .select('id, token')
       .single();

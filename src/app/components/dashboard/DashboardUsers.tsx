@@ -35,6 +35,8 @@ import { useClients, Client } from '../../contexts/ClientsContext';
 import { useShops } from '../../contexts/ShopsContext';
 import { TEST_IDS } from '../../lib/testIds';
 import { DashboardRolesSection } from './DashboardRolesSection';
+import { InviteUserModalV2 } from './InviteUserModalV2';
+import { EditUserRolesModal } from './EditUserRolesModal';
 
 // E9.5 — appelle l'edge function send-invitation-email. Best-effort :
 // renvoie toujours un objet { sent, link, reason? } pour que le caller
@@ -91,12 +93,14 @@ async function callSendInvitationEmail(invitationId: string): Promise<{
  */
 async function callInviteMember(input: {
   email: string;
-  role: 'owner' | 'admin' | 'member' | 'partner';
+  role?: 'owner' | 'admin' | 'member' | 'partner';
   tenant_id: string;
   invited_by: string;
-  access_scope: 'magrit_full' | 'shop_only';
-  allowed_shop_ids: string[];
-  permissions: { can_quote: boolean; can_order: boolean; can_invite: boolean };
+  access_scope?: 'magrit_full' | 'shop_only';
+  allowed_shop_ids?: string[];
+  permissions?: { can_quote: boolean; can_order: boolean; can_invite: boolean };
+  // S-USERS-REFONTE Phase A : ids des rôles à propager à l'acceptation.
+  role_definition_ids?: string[];
 }): Promise<{
   sent: boolean;
   invitationId: string | null;
@@ -453,29 +457,18 @@ function MagritUsersSection() {
         )}
       </header>
 
-      {canWrite && inviteOpen && (
-        <InviteForm
-          email={inviteEmail}
-          role={inviteRole}
-          scope={inviteScope}
-          shopIds={inviteShopIds}
-          permissions={invitePerms}
-          shops={shops}
-          sending={sending}
-          onChangeEmail={setInviteEmail}
-          onChangeRole={setInviteRole}
-          onChangeScope={setInviteScope}
-          onToggleShop={(id) =>
-            setInviteShopIds((prev) =>
-              prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
-            )
-          }
-          onChangePermission={(k, v) => setInvitePerms((p) => ({ ...p, [k]: v }))}
-          onSubmit={sendInvite}
-          onCancel={() => {
-            setInviteOpen(false);
-            resetInviteForm();
+      {/* S-USERS-REFONTE Phase A : modal Inviter refait (multi-select rôles).
+          L'ancien InviteForm legacy est conservé en code mort (cleanup Phase B). */}
+      {canWrite && currentTenant && user && (
+        <InviteUserModalV2
+          open={inviteOpen}
+          tenantId={currentTenant.id}
+          invitedBy={user.id}
+          baseUrl={window.location.origin}
+          onInvited={async () => {
+            await load();
           }}
+          onClose={() => setInviteOpen(false)}
         />
       )}
 
@@ -674,14 +667,19 @@ function MagritUsersSection() {
         </div>
       )}
 
-      {editingPerms && (
-        <EditPermissionsModal
-          member={editingPerms}
-          shops={shops}
+      {/* S-USERS-REFONTE Phase A : modal Permissions refait (matrix rôles).
+          L'ancien EditPermissionsModal legacy est conservé en code mort. */}
+      {editingPerms && currentTenant && user && (
+        <EditUserRolesModal
+          open={true}
+          targetUserId={editingPerms.user_id}
+          targetUserEmail={editingPerms.email}
+          tenantId={currentTenant.id}
+          currentUserId={user.id}
+          onChanged={async () => {
+            await load();
+          }}
           onClose={() => setEditingPerms(null)}
-          onSave={(scope, shopIds, perms) =>
-            savePermissions(editingPerms, scope, shopIds, perms)
-          }
         />
       )}
     </section>

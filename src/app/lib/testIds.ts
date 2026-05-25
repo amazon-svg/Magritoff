@@ -92,6 +92,8 @@ export const TEST_IDS = {
     roleRow: 'user-role-row',
     assignmentRow: 'user-assignment-row',
     assignmentToggle: 'user-assignment-toggle',
+    // S-USERS-REFONTE Phase A complement : modals Inviter/Permissions refaits.
+    inviteRoleOption: 'user-invite-role-option',
   },
 
   // ─── P05 / P06 — Marguerite (chat) ────────────────────────────────────
