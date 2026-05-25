@@ -24,10 +24,19 @@
  */
 
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, Ban, Check, Loader2, Package, RotateCcw, RotateCw } from 'lucide-react';
+import { ArrowDown, ArrowUp, Ban, Check, ChevronDown, Loader2, Package, RotateCcw, RotateCw } from 'lucide-react';
 import type { OrderUI } from './PortalOrders.helpers';
 import { getStatusInfo, type OrderStatus } from '../../../lib/orderStatus';
 import { TEST_IDS } from '../../../lib/testIds';
+import { Popover, PopoverContent, PopoverTrigger } from '../../ui/popover';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '../../ui/command';
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -573,39 +582,74 @@ export function OrderHistoryTable({
           </div>
         )}
 
-        {/* Filtre catégoriel extra (ex: Boutique sur DashboardOrders) */}
+        {/* Filtre catégoriel extra (dropdown multi-select avec search) :
+            fix 2026-05-25 — anciennement chips, désormais Popover+Command
+            pour supporter une cardinalité élevée (30+ boutiques) sans
+            saturer la barre de filtres. */}
         {extraFilter && extraFilterOptions.length > 0 && (
           <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="order-filter-extra"
+            <span
               className="font-mono uppercase text-ink-mute-2"
               style={{ fontSize: '10px', letterSpacing: '0.08em', fontWeight: 500 }}
             >
               {extraFilter.label}
-            </label>
-            <div className="flex flex-wrap gap-1.5" id="order-filter-extra">
-              {extraFilterOptions.map((opt) => {
-                const active = state.selectedExtraKeys.includes(opt.key);
-                return (
-                  <button
-                    key={opt.key}
-                    type="button"
-                    onClick={() => toggleExtraKey(opt.key)}
-                    data-testid={TEST_IDS.shop.orderFilterExtra}
-                    data-extra-key={opt.key}
-                    aria-pressed={active}
-                    className={`inline-flex items-center px-2 py-1 rounded border transition-colors ${
-                      active
-                        ? 'bg-info-bg text-info-fg border-info-fg/30'
-                        : 'bg-paper text-ink-muted border-line hover:border-ink-mute-2'
-                    }`}
-                    style={{ fontSize: '11px', fontWeight: 500 }}
-                  >
-                    {opt.label}
-                  </button>
-                );
-              })}
-            </div>
+            </span>
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  data-testid={TEST_IDS.shop.orderFilterExtra}
+                  className="inline-flex items-center justify-between gap-2 px-2.5 py-1 rounded border border-line bg-paper text-ink hover:border-ink-mute-2 transition-colors min-w-[160px]"
+                  style={{ fontSize: '12.5px' }}
+                >
+                  <span className="truncate text-left">
+                    {state.selectedExtraKeys.length === 0
+                      ? `Toutes (${extraFilterOptions.length})`
+                      : state.selectedExtraKeys.length === 1
+                        ? extraFilterOptions.find((o) => o.key === state.selectedExtraKeys[0])?.label ?? '1 sélection'
+                        : `${state.selectedExtraKeys.length} sélectionnées`}
+                  </span>
+                  <ChevronDown className="w-3.5 h-3.5 shrink-0 opacity-60" strokeWidth={1.8} aria-hidden="true" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                className="w-[260px] p-0"
+                align="start"
+                data-testid={TEST_IDS.shop.orderFilterExtraPopover}
+              >
+                <Command>
+                  <CommandInput
+                    placeholder={`Rechercher ${extraFilter.label.toLowerCase()}…`}
+                    className="h-9"
+                  />
+                  <CommandList>
+                    <CommandEmpty>Aucun résultat.</CommandEmpty>
+                    <CommandGroup>
+                      {extraFilterOptions.map((opt) => {
+                        const active = state.selectedExtraKeys.includes(opt.key);
+                        return (
+                          <CommandItem
+                            key={opt.key}
+                            value={opt.label}
+                            onSelect={() => toggleExtraKey(opt.key)}
+                            data-testid={TEST_IDS.shop.orderFilterExtraItem}
+                            data-extra-key={opt.key}
+                            aria-selected={active}
+                          >
+                            <Check
+                              className={`mr-2 h-4 w-4 ${active ? 'opacity-100' : 'opacity-0'}`}
+                              strokeWidth={2.2}
+                              aria-hidden="true"
+                            />
+                            {opt.label}
+                          </CommandItem>
+                        );
+                      })}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
         )}
 

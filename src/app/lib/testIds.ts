@@ -188,6 +188,9 @@ export const TEST_IDS = {
     orderFilteredEmpty: 'order-filtered-empty',
     // Fix 2026-05-25 : filtre catégoriel (ex: Boutique sur DashboardOrders).
     orderFilterExtra: 'order-filter-extra',
+    // Fix 2026-05-25 v2 : dropdown Combobox (cardinalité 30+ boutiques).
+    orderFilterExtraPopover: 'order-filter-extra-popover',
+    orderFilterExtraItem: 'order-filter-extra-item',
     orderSortHeaderDate: 'order-sort-header-date',
     orderSortHeaderClient: 'order-sort-header-client',
     orderSortHeaderTotalHt: 'order-sort-header-total-ht',
