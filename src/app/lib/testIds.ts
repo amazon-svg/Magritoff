@@ -186,6 +186,8 @@ export const TEST_IDS = {
     orderFilterAmountMin: 'order-filter-amount-min',
     orderFilterReset: 'order-filter-reset',
     orderFilteredEmpty: 'order-filtered-empty',
+    // Fix 2026-05-25 : filtre catégoriel (ex: Boutique sur DashboardOrders).
+    orderFilterExtra: 'order-filter-extra',
     orderSortHeaderDate: 'order-sort-header-date',
     orderSortHeaderClient: 'order-sort-header-client',
     orderSortHeaderTotalHt: 'order-sort-header-total-ht',
@@ -205,6 +207,13 @@ export const TEST_IDS = {
     cancelOrderDialogKeep: 'shop-cancel-order-dialog-keep',
     cancelOrderDialogConfirm: 'shop-cancel-order-dialog-confirm',
     cancelOrderDialogError: 'shop-cancel-order-dialog-error',
+    // Fix 2026-05-25 : validation commande draft → validated (admin tenant only,
+    // débloque S3.3 Renouveler en permettant aux drafts d'arriver en validated).
+    orderValidateBtn: 'shop-order-validate-btn',
+    validateOrderDialog: 'shop-validate-order-dialog',
+    validateOrderDialogKeep: 'shop-validate-order-dialog-keep',
+    validateOrderDialogConfirm: 'shop-validate-order-dialog-confirm',
+    validateOrderDialogError: 'shop-validate-order-dialog-error',
     // S-CONSO-3 (Sprint 4 Phase 2, 2026-05-18) : page de confirmation
     // commande PortalThankYou (UX Sally validee, parcours acheteur demo).
     thankYouPage: 'shop-thank-you-page',

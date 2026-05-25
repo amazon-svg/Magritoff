@@ -24,7 +24,7 @@
  */
 
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, Ban, Loader2, Package, RotateCcw, RotateCw } from 'lucide-react';
+import { ArrowDown, ArrowUp, Ban, Check, Loader2, Package, RotateCcw, RotateCw } from 'lucide-react';
 import type { OrderUI } from './PortalOrders.helpers';
 import { getStatusInfo, type OrderStatus } from '../../../lib/orderStatus';
 import { TEST_IDS } from '../../../lib/testIds';
@@ -55,6 +55,24 @@ export interface ExtraColumn {
   sortValue?: (order: OrderUI) => string | number;
 }
 
+/**
+ * Filtre catégoriel optionnel sur une dimension externe à OrderUI (ex:
+ * Boutique sur DashboardOrders multi-boutiques). Affiché dans la barre
+ * de filtres comme un multi-select chips, similaire au filtre Statut.
+ *
+ * Lesson 2026-05-25 : sur les colonnes catégorielles (boutique, client,
+ * fournisseur, marque), l'usage primaire est le FILTRE (isoler 1-2 valeurs)
+ * pas le TRI alpha. C'est pourquoi cette prop expose un filtre, pas un sort.
+ */
+export interface ExtraFilter {
+  /** Label header filtre (ex: 'Boutique'). */
+  label: string;
+  /** Identifiant stable de la dimension (ex: shop_id), pour clef React. */
+  getOptionKey: (order: OrderUI) => string;
+  /** Label humain affiché dans le chip filtre + cell render (ex: shop.name). */
+  getOptionLabel: (order: OrderUI) => string;
+}
+
 export interface OrderHistoryTableProps {
   /** Orders deja fetches + normalises par le parent. */
   orders: OrderUI[];
@@ -64,6 +82,12 @@ export interface OrderHistoryTableProps {
   error?: string | null;
   /** Colonne supplementaire (cas DashboardOrders avec Boutique). */
   extraColumn?: ExtraColumn;
+  /**
+   * Filtre catégoriel optionnel (multi-select chips) sur une dimension
+   * externe à OrderUI (ex: Boutique sur DashboardOrders multi-boutiques).
+   * Généralement couplé avec extraColumn pour cacher la même information.
+   */
+  extraFilter?: ExtraFilter;
   /** Cle localStorage pour persistance filtres + tri (optionnel). */
   persistKey?: string;
   /**
@@ -82,6 +106,14 @@ export interface OrderHistoryTableProps {
    * legacy). Le parent ouvre le CancelOrderConfirmDialog avec orderId.
    */
   onCancelOrder?: (order: OrderUI) => void | Promise<void>;
+  /**
+   * Fix 2026-05-25 (anticipation S-N1-APPROVAL Sprint 6) : callback Valider
+   * pour transitionner draft → validated. Réservé admin tenant (RPC
+   * matrice). Si fourni, un bouton 'Valider' apparait sur les drafts v1.1.
+   * DashboardOrders fournit ce callback, PortalOrders non (les acheteurs
+   * ne valident pas leurs propres commandes en B2B classique).
+   */
+  onValidateOrder?: (order: OrderUI) => void | Promise<void>;
 }
 
 interface TableState {
@@ -90,6 +122,8 @@ interface TableState {
   customDateFrom: string; // ISO date (YYYY-MM-DD), vide si pas custom
   customDateTo: string;
   amountMinHt: string; // input controle (string pour gerer vide)
+  /** Fix 2026-05-25 : filtre catégoriel (clés stables via extraFilter.getOptionKey). */
+  selectedExtraKeys: string[];
   sortBy: SortableColumn;
   sortDir: SortDirection;
 }
@@ -100,6 +134,7 @@ const DEFAULT_STATE: TableState = {
   customDateFrom: '',
   customDateTo: '',
   amountMinHt: '',
+  selectedExtraKeys: [],
   sortBy: 'date',
   sortDir: 'desc',
 };
@@ -171,13 +206,23 @@ function saveState(key: string | undefined, state: TableState): void {
 
 // ─── Filtrage + tri (extraits purs, testables) ───────────────────────────
 
-export function applyFilters(orders: OrderUI[], state: TableState): OrderUI[] {
+export function applyFilters(
+  orders: OrderUI[],
+  state: TableState,
+  extraFilter?: ExtraFilter,
+): OrderUI[] {
   let result = orders;
 
   // Filtre statut (si selection non vide)
   if (state.selectedStatuses.length > 0) {
     const set = new Set(state.selectedStatuses);
     result = result.filter((o) => set.has(o.status as OrderStatus));
+  }
+
+  // Filtre catégoriel extra (ex: Boutique sur DashboardOrders)
+  if (extraFilter && state.selectedExtraKeys.length > 0) {
+    const set = new Set(state.selectedExtraKeys);
+    result = result.filter((o) => set.has(extraFilter.getOptionKey(o)));
   }
 
   // Filtre periode preset
@@ -251,9 +296,11 @@ export function OrderHistoryTable({
   loading = false,
   error = null,
   extraColumn,
+  extraFilter,
   persistKey,
   onRenewOrder,
   onCancelOrder,
+  onValidateOrder,
 }: OrderHistoryTableProps) {
   // S3.3 : une commande est renouvelable si v1.1 + status workflow/terminal
   // (pas draft = rien à renouveler depuis un brouillon, pas cancelled =
@@ -274,8 +321,13 @@ export function OrderHistoryTable({
   const canCancel = (o: OrderUI) =>
     !!onCancelOrder && o.source === 'v1_1' && o.status === 'draft';
 
+  // Fix 2026-05-25 : validable si v1.1 + status draft + callback fourni
+  // (DashboardOrders fournit, PortalOrders non — RPC reserve admin tenant).
+  const canValidate = (o: OrderUI) =>
+    !!onValidateOrder && o.source === 'v1_1' && o.status === 'draft';
+
   // Affiche la colonne Actions si au moins un callback est fourni.
-  const showActionsColumn = !!onRenewOrder || !!onCancelOrder;
+  const showActionsColumn = !!onRenewOrder || !!onCancelOrder || !!onValidateOrder;
   const [state, setState] = useState<TableState>(() => loadState(persistKey));
 
   useEffect(() => {
@@ -290,16 +342,46 @@ export function OrderHistoryTable({
     return Array.from(set) as OrderStatus[];
   }, [orders]);
 
-  const filtered = useMemo(() => applyFilters(orders, state), [orders, state]);
+  const filtered = useMemo(
+    () => applyFilters(orders, state, extraFilter),
+    [orders, state, extraFilter],
+  );
   const sorted = useMemo(
     () => applySort(filtered, state, extraColumn?.sortValue),
     [filtered, state, extraColumn?.sortValue],
   );
 
+  // Options du filtre catégoriel extra : déduplication par clé stable, label
+  // humain depuis la 1re occurrence. Trié alpha par label pour UX prévisible.
+  const extraFilterOptions = useMemo<Array<{ key: string; label: string }>>(() => {
+    if (!extraFilter) return [];
+    const map = new Map<string, string>();
+    for (const o of orders) {
+      const k = extraFilter.getOptionKey(o);
+      if (!map.has(k)) map.set(k, extraFilter.getOptionLabel(o));
+    }
+    return Array.from(map.entries())
+      .map(([key, label]) => ({ key, label }))
+      .sort((a, b) => a.label.localeCompare(b.label, 'fr', { sensitivity: 'base' }));
+  }, [orders, extraFilter]);
+
   const isFiltered =
     state.selectedStatuses.length > 0 ||
     state.period !== 'all' ||
-    state.amountMinHt.trim() !== '';
+    state.amountMinHt.trim() !== '' ||
+    state.selectedExtraKeys.length > 0;
+
+  function toggleExtraKey(key: string) {
+    setState((s) => {
+      const has = s.selectedExtraKeys.includes(key);
+      return {
+        ...s,
+        selectedExtraKeys: has
+          ? s.selectedExtraKeys.filter((x) => x !== key)
+          : [...s.selectedExtraKeys, key],
+      };
+    });
+  }
 
   function resetFilters() {
     setState((s) => ({
@@ -322,11 +404,14 @@ export function OrderHistoryTable({
   }
 
   function handleSortClick(col: SortableColumn) {
+    // Fix S3.1 (2026-05-25) : toggle simple 2 etats asc <-> desc.
+    // Pattern correct datatables matures (DataTables, MUI DataGrid, AG Grid).
+    // L'ancien cycle 3-clics (asc/desc/reset-defaut) creait un bug dormant
+    // sur la colonne ayant un tri par defaut : le 1er clic retombait sur
+    // le 3e cas "retour defaut" et ne changeait rien visuellement.
     setState((s) => {
       if (s.sortBy !== col) return { ...s, sortBy: col, sortDir: 'asc' };
-      if (s.sortDir === 'asc') return { ...s, sortDir: 'desc' };
-      // 3e click meme colonne : retour defaults
-      return { ...s, sortBy: 'date', sortDir: 'desc' };
+      return { ...s, sortDir: s.sortDir === 'asc' ? 'desc' : 'asc' };
     });
   }
 
@@ -484,6 +569,42 @@ export function OrderHistoryTable({
                 className="px-2 py-1 border border-line rounded bg-paper text-ink"
                 style={{ fontSize: '12.5px' }}
               />
+            </div>
+          </div>
+        )}
+
+        {/* Filtre catégoriel extra (ex: Boutique sur DashboardOrders) */}
+        {extraFilter && extraFilterOptions.length > 0 && (
+          <div className="flex flex-col gap-1.5">
+            <label
+              htmlFor="order-filter-extra"
+              className="font-mono uppercase text-ink-mute-2"
+              style={{ fontSize: '10px', letterSpacing: '0.08em', fontWeight: 500 }}
+            >
+              {extraFilter.label}
+            </label>
+            <div className="flex flex-wrap gap-1.5" id="order-filter-extra">
+              {extraFilterOptions.map((opt) => {
+                const active = state.selectedExtraKeys.includes(opt.key);
+                return (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    onClick={() => toggleExtraKey(opt.key)}
+                    data-testid={TEST_IDS.shop.orderFilterExtra}
+                    data-extra-key={opt.key}
+                    aria-pressed={active}
+                    className={`inline-flex items-center px-2 py-1 rounded border transition-colors ${
+                      active
+                        ? 'bg-info-bg text-info-fg border-info-fg/30'
+                        : 'bg-paper text-ink-muted border-line hover:border-ink-mute-2'
+                    }`}
+                    style={{ fontSize: '11px', fontWeight: 500 }}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
@@ -764,6 +885,21 @@ export function OrderHistoryTable({
                     {showActionsColumn && (
                       <td className="py-3 text-right">
                         <div className="inline-flex items-center gap-1.5">
+                          {canValidate(o) && (
+                            <button
+                              type="button"
+                              onClick={() => onValidateOrder?.(o)}
+                              data-testid={TEST_IDS.shop.orderValidateBtn}
+                              data-order-id={o.id}
+                              aria-label={`Valider la commande draft ${o.id}`}
+                              title="Valider cette commande (draft → validated, admin tenant uniquement)"
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded border border-ok-line bg-paper text-ok-fg hover:bg-ok-bg transition-colors"
+                              style={{ fontSize: '11.5px' }}
+                            >
+                              <Check className="w-3 h-3" strokeWidth={2} aria-hidden="true" />
+                              Valider
+                            </button>
+                          )}
                           {canRenew(o) && (
                             <button
                               type="button"

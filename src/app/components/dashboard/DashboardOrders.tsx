@@ -25,7 +25,9 @@ import {
 } from '../shop/portal/PortalOrders.helpers';
 import { OrderHistoryTable } from '../shop/portal/OrderHistoryTable';
 import { CancelOrderConfirmDialog } from '../shop/portal/CancelOrderConfirmDialog';
+import { ValidateOrderConfirmDialog } from '../shop/portal/ValidateOrderConfirmDialog';
 import { formatCancelErrorMessage } from '../shop/portal/orderCancellation.helpers';
+import { formatValidateErrorMessage } from '../shop/portal/orderValidation.helpers';
 
 interface DashboardOrderUI extends OrderUI {
   shop_id: string;
@@ -39,17 +41,28 @@ export function DashboardOrders() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Map shop_id -> shop slug pour la colonne Boutique
-  const shopSlugById = useMemo(() => {
-    const map = new Map<string, string>();
+  // Fix 2026-05-25 : Map shop_id -> { name, slug } pour afficher le NOM
+  // humain dans la colonne Boutique (et plus le slug technique qui ressemble
+  // à wuqezh-8ggfvk pour les boutiques créées sans slug humain explicite).
+  const shopInfoById = useMemo(() => {
+    const map = new Map<string, { name: string; slug: string }>();
     for (const s of shops) {
-      map.set(s.id, s.slug);
+      map.set(s.id, { name: s.name, slug: s.slug });
     }
     return map;
   }, [shops]);
 
+  // Helper : retourne le label humain à afficher (name préféré, fallback slug puis '—').
+  const shopDisplayLabel = (shopId: string): string => {
+    const info = shopInfoById.get(shopId);
+    if (!info) return '—';
+    return info.name?.trim() || info.slug || '—';
+  };
+
   // S3.4 : modal annulation. orderToCancel = null → modal fermé.
   const [orderToCancel, setOrderToCancel] = useState<DashboardOrderUI | null>(null);
+  // Fix 2026-05-25 : modal validation. orderToValidate = null → modal fermé.
+  const [orderToValidate, setOrderToValidate] = useState<DashboardOrderUI | null>(null);
 
   const loadOrders = useCallback(async (cancelled: { current: boolean }) => {
     if (!user || !currentTenant) return;
@@ -142,6 +155,26 @@ export function DashboardOrders() {
     return null;
   };
 
+  // Fix 2026-05-25 : handlers validation (admin tenant uniquement —
+  // RPC matrice draft→validated réservée role owner/admin).
+  const handleValidateOrderRequest = (order: OrderUI) => {
+    setOrderToValidate(order as DashboardOrderUI);
+  };
+
+  const handleValidateConfirm = async (orderId: string): Promise<string | null> => {
+    const { error: rpcErr } = await supabase.rpc('update_tenant_order_status', {
+      p_order_id: orderId,
+      p_new_status: 'validated',
+      p_reason: null,
+    });
+    if (rpcErr) {
+      console.warn('[DashboardOrders] validate RPC failed:', rpcErr.message);
+      return formatValidateErrorMessage(rpcErr);
+    }
+    await loadOrders({ current: false });
+    return null;
+  };
+
   return (
     <div className="space-y-4">
       <div>
@@ -157,16 +190,22 @@ export function DashboardOrders() {
         error={error}
         persistKey={currentTenant ? `orderHistory:dashboard:${currentTenant.id}` : undefined}
         onCancelOrder={handleCancelOrderRequest}
+        onValidateOrder={handleValidateOrderRequest}
         extraColumn={{
           header: 'Boutique',
           position: 'after-date',
           render: (o) => (
-            <span className="font-mono text-xs">
-              {shopSlugById.get((o as DashboardOrderUI).shop_id) ?? '—'}
+            <span className="text-xs">
+              {shopDisplayLabel((o as DashboardOrderUI).shop_id)}
             </span>
           ),
-          // S3.1 ext (2026-05-23) : tri par slug boutique pour imprimeurs multi-boutiques.
-          sortValue: (o) => shopSlugById.get((o as DashboardOrderUI).shop_id) ?? '',
+          // Fix 2026-05-25 : retrait du sortValue (lesson : sur colonne
+          // catégorielle, l'usage primaire est le filtre, pas le tri).
+        }}
+        extraFilter={{
+          label: 'Boutique',
+          getOptionKey: (o) => (o as DashboardOrderUI).shop_id,
+          getOptionLabel: (o) => shopDisplayLabel((o as DashboardOrderUI).shop_id),
         }}
       />
 
@@ -177,6 +216,15 @@ export function DashboardOrders() {
         }
         onConfirm={handleCancelConfirm}
         onClose={() => setOrderToCancel(null)}
+      />
+
+      <ValidateOrderConfirmDialog
+        orderId={orderToValidate?.id ?? null}
+        orderShortId={
+          orderToValidate?.id ? orderToValidate.id.replace(/-/g, '').slice(0, 8).toUpperCase() : undefined
+        }
+        onConfirm={handleValidateConfirm}
+        onClose={() => setOrderToValidate(null)}
       />
     </div>
   );

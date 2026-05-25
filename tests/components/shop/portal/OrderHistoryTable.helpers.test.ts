@@ -33,6 +33,7 @@ const DEFAULT_STATE = {
   customDateFrom: '',
   customDateTo: '',
   amountMinHt: '',
+  selectedExtraKeys: [],
   sortBy: 'date' as const,
   sortDir: 'desc' as const,
 };
@@ -243,5 +244,48 @@ describe('OrderHistoryTable.applySort / extension client + extra (S3.1+)', () =>
     const orders = [makeOrder({ id: 'o1' }), makeOrder({ id: 'o2' })];
     const sorted = applySort(orders, { ...DEFAULT_STATE, sortBy: 'extra', sortDir: 'asc' });
     expect(sorted.map((o) => o.id)).toEqual(['o1', 'o2']);
+  });
+});
+
+describe('OrderHistoryTable.applyFilters / extraFilter (fix 2026-05-25)', () => {
+  const orders = [
+    makeOrder({ id: 'o1' }), // shop A
+    makeOrder({ id: 'o2' }), // shop B
+    makeOrder({ id: 'o3' }), // shop A
+  ];
+  const shopKeyById: Record<string, string> = { o1: 'shopA', o2: 'shopB', o3: 'shopA' };
+  const shopLabelById: Record<string, string> = { o1: 'Boutique A', o2: 'Boutique B', o3: 'Boutique A' };
+  const extraFilter = {
+    label: 'Boutique',
+    getOptionKey: (o: OrderUI) => shopKeyById[o.id],
+    getOptionLabel: (o: OrderUI) => shopLabelById[o.id],
+  };
+
+  it('selectedExtraKeys vide → aucun filtre applique', () => {
+    const r = applyFilters(orders, DEFAULT_STATE, extraFilter);
+    expect(r).toHaveLength(3);
+  });
+
+  it("selectedExtraKeys=['shopA'] → seules les commandes de shopA restent", () => {
+    const r = applyFilters(
+      orders,
+      { ...DEFAULT_STATE, selectedExtraKeys: ['shopA'] },
+      extraFilter,
+    );
+    expect(r.map((o) => o.id).sort()).toEqual(['o1', 'o3']);
+  });
+
+  it("selectedExtraKeys=['shopA','shopB'] → toutes les commandes (union)", () => {
+    const r = applyFilters(
+      orders,
+      { ...DEFAULT_STATE, selectedExtraKeys: ['shopA', 'shopB'] },
+      extraFilter,
+    );
+    expect(r).toHaveLength(3);
+  });
+
+  it("sans extraFilter fourni → selectedExtraKeys ignoree (no-op safe)", () => {
+    const r = applyFilters(orders, { ...DEFAULT_STATE, selectedExtraKeys: ['shopA'] });
+    expect(r).toHaveLength(3);
   });
 });
