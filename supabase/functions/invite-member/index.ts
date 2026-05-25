@@ -274,27 +274,37 @@ serve(async (req) => {
       text,
     });
 
-    // Etape 4 : si email fail → rollback (delete l'invitation)
+    // Etape 4 : si email fail → rollback ou degrade selon nature
     if (!emailResult.ok) {
-      const isConfigMissing =
-        emailResult.reason?.includes('RESEND_API_KEY non configuree');
-      if (isConfigMissing) {
-        // Config manquante n est pas un rollback : on garde l'invitation
-        // et on retourne le lien pour transmission manuelle (parite avec
-        // l'ancien comportement send-invitation-email).
+      // S-USERS-REFONTE Phase A complement (2026-05-25) : distinguer
+      // erreurs de CONFIG Resend (API key absente, domaine non verifie,
+      // sender invalide → 4xx Resend) vs vraies PANNES (5xx, timeout
+      // reseau). Pour les erreurs config, on garde l'invitation et on
+      // retourne le lien manuel — l'admin peut transmettre puis fixer
+      // la config Resend en parallele. Evite que l'utilisateur soit
+      // bloque par un probleme infra sans impact sur le flow metier.
+      const reason = emailResult.reason ?? '';
+      const isConfigMissing = reason.includes('RESEND_API_KEY non configuree');
+      const isResend4xx = /Resend 4\d\d:/.test(reason);
+      const isConfigError = isConfigMissing || isResend4xx;
+
+      if (isConfigError) {
+        // Garde l'invitation, retourne le lien pour transmission manuelle.
+        // Le caller (front) decide d'afficher un prompt avec le lien ou un
+        // toast informatif "email non envoye, lien copie".
         return new Response(
           JSON.stringify({
             ok: true,
             invitationId: inserted.id,
             sent: false,
             link,
-            reason: emailResult.reason,
+            reason,
           }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
         );
       }
 
-      // Erreur Resend reelle → rollback transactionnel
+      // Erreur Resend reelle (5xx ou reseau) → rollback transactionnel
       const { error: rollbackErr } = await supa
         .from('tenant_invitations')
         .delete()
