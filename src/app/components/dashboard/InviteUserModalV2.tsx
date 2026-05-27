@@ -30,6 +30,13 @@ interface RoleOption {
   description: string;
 }
 
+interface ShopOption {
+  id: string;
+  name: string;
+}
+
+type AccessScope = 'magrit_full' | 'shop_only';
+
 export interface InviteUserModalV2Props {
   open: boolean;
   tenantId: string;
@@ -51,22 +58,35 @@ export function InviteUserModalV2({
   const [email, setEmail] = useState('');
   const [roles, setRoles] = useState<RoleOption[]>([]);
   const [selectedRoleIds, setSelectedRoleIds] = useState<Set<string>>(new Set());
+  const [shops, setShops] = useState<ShopOption[]>([]);
+  // Scope d'accès : magrit_full = dashboard complet, shop_only = boutiques précises.
+  const [scope, setScope] = useState<AccessScope>('shop_only');
+  const [selectedShopIds, setSelectedShopIds] = useState<Set<string>>(new Set());
   const [loadingRoles, setLoadingRoles] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const loadRoles = useCallback(async () => {
     setLoadingRoles(true);
-    const { data, error: e } = await supabase
+    const rolesQ = supabase
       .from('tenant_role_definitions')
       .select('id, name, description, ordering_index')
       .eq('tenant_id', tenantId)
       .is('archived_at', null)
       .order('ordering_index', { ascending: true });
-    if (e) {
-      setError(`Chargement rôles : ${e.message}`);
+    const shopsQ = supabase
+      .from('shops')
+      .select('id, name')
+      .eq('tenant_id', tenantId)
+      .order('name', { ascending: true });
+    const [rolesR, shopsR] = await Promise.all([rolesQ, shopsQ]);
+    if (rolesR.error) {
+      setError(`Chargement rôles : ${rolesR.error.message}`);
     } else {
-      setRoles((data ?? []) as RoleOption[]);
+      setRoles((rolesR.data ?? []) as RoleOption[]);
+    }
+    if (!shopsR.error) {
+      setShops((shopsR.data ?? []) as ShopOption[]);
     }
     setLoadingRoles(false);
   }, [tenantId]);
@@ -75,6 +95,8 @@ export function InviteUserModalV2({
     if (open) {
       setEmail('');
       setSelectedRoleIds(new Set());
+      setScope('shop_only');
+      setSelectedShopIds(new Set());
       setError(null);
       void loadRoles();
     }
@@ -89,8 +111,23 @@ export function InviteUserModalV2({
     });
   };
 
+  const toggleShop = (shopId: string) => {
+    setSelectedShopIds((s) => {
+      const next = new Set(s);
+      if (next.has(shopId)) next.delete(shopId);
+      else next.add(shopId);
+      return next;
+    });
+  };
+
+  // shop_only exige au moins une boutique sélectionnée.
+  const shopScopeValid = scope === 'magrit_full' || selectedShopIds.size > 0;
   const canSubmit =
-    email.trim().length > 0 && /\S+@\S+\.\S+/.test(email) && !sending && !loadingRoles;
+    email.trim().length > 0 &&
+    /\S+@\S+\.\S+/.test(email) &&
+    shopScopeValid &&
+    !sending &&
+    !loadingRoles;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -114,12 +151,13 @@ export function InviteUserModalV2({
           tenant_id: tenantId,
           invited_by: invitedBy,
           baseUrl,
-          // S-USERS-REFONTE Phase A : nouveaux champs
+          // S-USERS-REFONTE Phase A : rôles (capabilities)
           role_definition_ids: roleIds,
-          // Legacy back-compat (l'edge fn accepte les valeurs par défaut)
+          // Scope d'accès + boutiques (fix 2026-05-27 : c'est ce qui route
+          // l'utilisateur vers SA boutique au login via ShopOnlyRedirect).
           role: 'member',
-          access_scope: 'magrit_full',
-          allowed_shop_ids: [],
+          access_scope: scope,
+          allowed_shop_ids: scope === 'shop_only' ? Array.from(selectedShopIds) : [],
           permissions: { can_quote: true, can_order: true, can_invite: false },
         },
       });
@@ -204,6 +242,109 @@ export function InviteUserModalV2({
               style={{ fontSize: '13.5px' }}
             />
           </label>
+
+          {/* Scope d'accès : dashboard complet vs boutiques précises */}
+          <div>
+            <span
+              className="block text-ink-muted mb-1.5"
+              style={{ fontSize: '11.5px', fontWeight: 500 }}
+            >
+              Type d'accès
+            </span>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setScope('shop_only')}
+                disabled={sending}
+                data-testid={TEST_IDS.user.inviteScopeShopOnly}
+                aria-pressed={scope === 'shop_only'}
+                className={`px-3 py-2 rounded border text-left transition-colors disabled:opacity-50 ${
+                  scope === 'shop_only'
+                    ? 'bg-ok-bg border-ok-fg/40'
+                    : 'bg-paper border-line hover:border-ink-mute-2'
+                }`}
+              >
+                <div className="text-ink" style={{ fontSize: '12.5px', fontWeight: 600 }}>
+                  Boutique(s)
+                </div>
+                <div className="text-ink-muted mt-0.5" style={{ fontSize: '11px' }}>
+                  Accès limité aux boutiques choisies (acheteur)
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setScope('magrit_full')}
+                disabled={sending}
+                data-testid={TEST_IDS.user.inviteScopeFull}
+                aria-pressed={scope === 'magrit_full'}
+                className={`px-3 py-2 rounded border text-left transition-colors disabled:opacity-50 ${
+                  scope === 'magrit_full'
+                    ? 'bg-ok-bg border-ok-fg/40'
+                    : 'bg-paper border-line hover:border-ink-mute-2'
+                }`}
+              >
+                <div className="text-ink" style={{ fontSize: '12.5px', fontWeight: 600 }}>
+                  Dashboard complet
+                </div>
+                <div className="text-ink-muted mt-0.5" style={{ fontSize: '11px' }}>
+                  Accès admin (tout le tenant)
+                </div>
+              </button>
+            </div>
+          </div>
+
+          {/* Boutiques accessibles (si scope shop_only) */}
+          {scope === 'shop_only' && (
+            <div>
+              <span
+                className="block text-ink-muted mb-1.5"
+                style={{ fontSize: '11.5px', fontWeight: 500 }}
+              >
+                Boutiques accessibles ({selectedShopIds.size} sélectionnée{selectedShopIds.size > 1 ? 's' : ''})
+              </span>
+              {shops.length === 0 ? (
+                <p className="text-ink-muted" style={{ fontSize: '12px' }}>
+                  Aucune boutique dans ce tenant.
+                </p>
+              ) : (
+                <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                  {shops.map((s) => {
+                    const active = selectedShopIds.has(s.id);
+                    return (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => toggleShop(s.id)}
+                        disabled={sending}
+                        data-testid={TEST_IDS.user.inviteShopOption}
+                        data-shop-id={s.id}
+                        aria-pressed={active}
+                        className={`w-full flex items-center gap-2.5 px-3 py-1.5 rounded border text-left transition-colors disabled:opacity-50 ${
+                          active ? 'bg-ok-bg border-ok-fg/40' : 'bg-paper border-line hover:border-ink-mute-2'
+                        }`}
+                      >
+                        <span
+                          className={`inline-flex items-center justify-center w-4 h-4 rounded border shrink-0 ${
+                            active ? 'bg-ok-fg border-ok-fg text-paper' : 'bg-paper border-line'
+                          }`}
+                        >
+                          {active && <Check className="w-3 h-3" strokeWidth={3} />}
+                        </span>
+                        <span className="text-ink" style={{ fontSize: '12.5px', fontWeight: 500 }}>
+                          {s.name}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              {selectedShopIds.size === 0 && shops.length > 0 && (
+                <p className="mt-1.5 text-warn-fg" style={{ fontSize: '11px' }}>
+                  Sélectionnez au moins une boutique pour un accès boutique.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Rôles à appliquer à l'acceptation */}
           <div>

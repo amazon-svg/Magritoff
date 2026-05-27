@@ -94,6 +94,15 @@ export const TEST_IDS = {
     assignmentToggle: 'user-assignment-toggle',
     // S-USERS-REFONTE Phase A complement : modals Inviter/Permissions refaits.
     inviteRoleOption: 'user-invite-role-option',
+    // Fix 2026-05-27 : scope d'accès + boutiques dans modal Inviter.
+    inviteScopeShopOnly: 'user-invite-scope-shop-only',
+    inviteScopeFull: 'user-invite-scope-full',
+    inviteShopOption: 'user-invite-shop-option',
+    // Fix 2026-05-27 : scope + boutiques dans modal Éditer rôles.
+    editScopeShopOnly: 'user-edit-scope-shop-only',
+    editScopeFull: 'user-edit-scope-full',
+    editShopOption: 'user-edit-shop-option',
+    editAccessSaveBtn: 'user-edit-access-save-btn',
   },
 
   // ─── P05 / P06 — Marguerite (chat) ────────────────────────────────────
