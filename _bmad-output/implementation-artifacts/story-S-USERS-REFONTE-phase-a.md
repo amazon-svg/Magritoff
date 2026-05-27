@@ -106,3 +106,31 @@ Diagnostic 2026-05-25 : 3 notions séparées dans la DB (`clients` legacy CRM v3
 - `tenant_order_role_events` (audit transitions rôles par commande)
 - `tenant_order_status_definitions` (statuts custom par tenant)
 - Workflow N+1 complet (notifications par étape via `notify_policy`)
+
+---
+
+## Fixes post-livraison flux invitation (2026-05-27)
+
+Après la livraison Phase A (catalog rôles + matrice), les tests d'invitation d'un acheteur réel ont révélé **6 bugs en chaîne** sur le flux invitation → connexion → routing boutique. Tous corrigés et poussés sur beta/v5 :
+
+| # | Commit | Bug | Fix |
+|---|---|---|---|
+| 1 | (redeploy) | `invite-member` HTTP 503 BOOT_ERROR | Redéploiement edge fn = fresh cold start (deps CDN périmées) |
+| 2 | `e91df1f` | Modals Inviter/Permissions encore en legacy role+permissions jsonb | Nouveaux composants InviteUserModalV2 + EditUserRolesModal role-driven |
+| 3 | `d9c5671` | Resend 403 domaine → rollback bloquant | Graceful degradation : Resend 4xx = garde invitation + lien manuel (rollback réservé 5xx/réseau) |
+| 4 | `4f0cb8f` | Modals ne définissaient pas scope+boutiques → acheteur magrit_full sans boutique | Ajout sélecteur Type d'accès (shop_only/magrit_full) + multi-select boutiques dans les 2 modals |
+| 5 | `f658b29` | accept_tenant_invitation acceptait pour le user connecté (pas l'email cible) | Migration 20260527000100 : guard `auth.email() == invitation.email` + UX message + redirect boutique |
+| 6 | `60bb45c` | TenantPicker ne routait pas un shop_only vers sa boutique | Redirect auto `/t/<slug>` si tous accès shop_only |
+| 7 | `8173b4e` | Race condition : `loading` false transitoire → redirect /tenants/new prématuré | `effectiveLoading` qui track `loadedUserId` |
+| 8 | `7a04046` | **CAUSE RACINE** : acheteur shop_only héritait des sous-tenants en magrit_full | Héritage descendant réservé owner/admin magrit_full (allow-list, pas exclusion) |
+
+**Config Resend résolue** : sender `MAGRIT_FROM_EMAIL` = `Magrit <support@ageservices.fr>` (domaine vérifié) au lieu de `onboarding@resend.dev` (mode test limité). Clé Resend régénérée (ancienne compromise dans le chat).
+
+**Parcours acheteur validé end-to-end 2026-05-27** : login `amazon@ageservices.fr` (shop_only Imprimerie IPA) → redirect auto → boutique Manitou. ✅
+
+### Reste à faire (prochaine session)
+
+- **Valider le flux invitation complet bout-en-bout** : le compte acheteur de test a été créé manuellement en DB (membership shop_only + rôle Acheteur). Le flux invitation lui-même (email → lien → acceptation → membership auto) doit être re-validé proprement maintenant que l'email guard + scope sont en place.
+- **Mot de passe temporaire** `MagritTest2026!` posé sur amazon@ageservices.fr pour les tests → à changer/nettoyer.
+- **Faille colmatée** : avant le fix #8, un acheteur shop_only avait des accès magrit_full fantômes sur les sous-tenants du parent. À vérifier qu'aucun autre compte en prod n'a hérité de tels accès (audit RLS Sprint 9).
+- **Phase B** : refactor des 15 fichiers `useClients` + cleanup code mort (InviteForm, EditPermissionsModal legacy) + migration data tenant_members.permissions → tenant_role_assignments.

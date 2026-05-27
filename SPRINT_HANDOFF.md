@@ -2,7 +2,43 @@
 
 > Document de reprise pour démarrer une nouvelle session de Claude code sur le projet sans recharger tout l'historique. À tenir à jour à chaque fin de sprint.
 >
-> **Dernière mise à jour : 2026-05-18 — HEAD `becf6cd` (poussé sur origin/beta/v5) — Sprint 4 "PIM-Boutique-Commandes" Phase 0 + 1 + 2 COMPLET : 20 stories livrées en 1 session selon méthode BMAD stricte (story doc → AC → conception → ADR → dev → tests → TF). 353 tests vitest verts (+63 vs baseline 290). 6 bugs prod silencieux détectés et fixés grâce smoke test P0.4 formel. 2 ADR formalisées (§4.9 PIM RLS + §4.10 Orders model). Détails complet : section 12 ci-dessous.**
+> **Dernière mise à jour : 2026-05-27 — HEAD `7a04046` (origin/beta/v5) — Sprint 5 "Orderbook & filet LLM" en cours. Voir section 13 ci-dessous pour l'état détaillé.**
+
+## 13. Sprint 5 "Orderbook & filet LLM" — État au 2026-05-27
+
+**HEAD `7a04046`** sur origin/beta/v5. Tests : **409 vitest verts** + 13 Deno verts.
+
+### Stories LIVRÉES (commitées + poussées)
+
+| Story | Commit | Résumé |
+|---|---|---|
+| **S-LLM-WRAPPER-ROBUSTNESS** | `5255b78` | Helper billing canonique + AbortSignal.timeout(60s) + propagation JWT user/tenant + harmonisation 2 endpoints. ADR §4.11. 4 edge functions redéployées. |
+| **S3.1 OrderHistoryTable** (+ext) | `c6d93b7` `6e20aaf` `12d02c3` | Filtres (statut/période/montant) + tri colonnes 2-états + nom boutique + filtre Boutique dropdown Combobox |
+| **S3.2-residual** | `5a0c7f7` | Email notif admin tenant (edge `send-order-notification`) + status draft + permission can_order RLS |
+| **S-RECONCILE-SUPABASE-MIGRATIONS** (anticipé Sprint 8) | `b330df9` | 29 migrations renommées format Supabase standard + tracking réconcilié. `db push` natif restauré. Doc `docs/SUPABASE_MIGRATIONS_WORKFLOW.md`. |
+| **S3.3 Renouveler 1-clic** | `2752e7a` | Bouton Renouveler (orders v1.1 non-draft) → rebuild cart + warnings produits indispo |
+| **S3.4 Annulation draft** | `03b94d7` | Bouton Annuler + AlertDialog + RPC update_tenant_order_status |
+| **Validation MVP** (anticipe S-N1-APPROVAL) | `0ddd4e6` | Bouton Valider admin tenant (draft→validated) role-driven |
+| **S-USERS-REFONTE Phase A** (anticipe S-ORDER-ROLES Sprint 6) | `01939ba` + 7 fixes | Catalog rôles configurables (`tenant_role_definitions` + `tenant_role_assignments`) + 5 presets B2B + matrice users×rôles + modals Inviter/Éditer role-driven. **8 bugs flux invitation corrigés** (voir story-S-USERS-REFONTE-phase-a.md §Fixes post-livraison). Parcours acheteur shop_only → boutique validé E2E. |
+
+### RESTE Sprint 5 (prochaine session)
+
+- **R5-bis invite-member transactional** (1j) — la edge function invite-member a été beaucoup retouchée (email guard, scope, graceful degradation Resend), à valider/consolider
+- **Smoke E2E acheteur AI obligatoire** (DoD #3) avant clôture sprint : login boutique → askMagrit → panier → commande
+- **Valider le flux invitation bout-en-bout** : compte acheteur test créé MANUELLEMENT en DB ; le flux invitation auto (email→lien→accept→membership+rôle) doit être re-testé proprement
+- **BUG ouvert — ERAM "disparue" UI** : la boutique ERAM existe en DB (tenant Imprimerie IPA, slug `xyfjjo-q6kekm`) mais n'apparaît pas dans l'UI d'Arnaud. Bug d'affichage/filtre boutiques à investiguer.
+- **Nettoyage** : mot de passe temp `MagritTest2026!` sur amazon@ageservices.fr à changer
+
+### Points d'attention sécurité/dette
+
+- **Faille colmatée** (commit `7a04046`) : un acheteur shop_only héritait d'accès magrit_full fantômes sur les sous-tenants du parent. Audit Sprint 9 : vérifier qu'aucun compte prod n'a de tels accès résiduels.
+- **Clé Resend régénérée** 27/05 (ancienne compromise). Sender `MAGRIT_FROM_EMAIL` = `Magrit <support@ageservices.fr>`.
+- **Phase B users** (post-Sprint 5) : refacto 15 fichiers `useClients` + cleanup code mort (InviteForm/EditPermissionsModal legacy) + migration data permissions→rôles + DROP table clients.
+- **PAT Supabase** : Keychain macOS (`security find-generic-password -a "$USER" -s "supabase-pat-magrit" -w`).
+
+---
+
+## 12. Sprint 4 "PIM-Boutique-Commandes" — Bilan 2026-05-18 (session unique) — HEAD `becf6cd`
 
 ## 12. Sprint 4 "PIM-Boutique-Commandes" — Bilan 2026-05-18 (session unique)
 
