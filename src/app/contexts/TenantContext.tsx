@@ -116,7 +116,9 @@ interface TenantContextType {
   }) => Promise<string | null>;
 
   /** Accepter une invitation via token recu par email */
-  acceptInvitation: (token: string) => Promise<string | null>;
+  acceptInvitation: (
+    token: string
+  ) => Promise<{ tenantId: string | null; errorCode?: string; errorMessage?: string }>;
 
   /** Merge tenant_id dans un objet d'insert Supabase. Raccourci courant. */
   withTenant: <T extends Record<string, any>>(payload: T) => T & { tenant_id: string };
@@ -359,16 +361,23 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   );
 
   const acceptInvitation = useCallback(
-    async (token: string): Promise<string | null> => {
+    async (
+      token: string
+    ): Promise<{ tenantId: string | null; errorCode?: string; errorMessage?: string }> => {
       const { data, error } = await supabase.rpc('accept_tenant_invitation', {
         p_token: token,
       });
       if (error) {
         console.error('[TenantContext] acceptInvitation error:', error.message);
-        return null;
+        // Fix 2026-05-27 : propage le code d'erreur pour distinguer
+        // EMAIL_MISMATCH (mauvais compte connecte) d'une invitation
+        // reellement invalide/expiree. Le RPC prefixe 'EMAIL_MISMATCH:'.
+        const msg = error.message ?? '';
+        const errorCode = msg.includes('EMAIL_MISMATCH') ? 'EMAIL_MISMATCH' : 'INVALID';
+        return { tenantId: null, errorCode, errorMessage: msg };
       }
       await reload();
-      return data as string;
+      return { tenantId: data as string };
     },
     [reload]
   );

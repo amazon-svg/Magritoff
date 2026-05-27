@@ -30,6 +30,7 @@ export function AcceptInvitation() {
   );
   const [targetSlug, setTargetSlug] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [isEmailMismatch, setIsEmailMismatch] = useState(false);
 
   // Si l'user n'est pas connecte, on stocke le token pour le reprendre apres login
   useEffect(() => {
@@ -49,18 +50,45 @@ export function AcceptInvitation() {
 
     (async () => {
       setStatus('accepting');
-      const tenantId = await acceptInvitation(token);
+      const { tenantId, errorCode, errorMessage } = await acceptInvitation(token);
       if (!tenantId) {
         setStatus('error');
-        setMessage('Invitation invalide ou expiree.');
+        // Fix 2026-05-27 : message specifique si le compte connecte ne
+        // correspond pas a l'email cible de l'invitation (EMAIL_MISMATCH).
+        if (errorCode === 'EMAIL_MISMATCH') {
+          setIsEmailMismatch(true);
+          // Le message RPC contient 'EMAIL_MISMATCH: Cette invitation est
+          // destinee a X. Vous etes connecte en tant que Y...'. On retire
+          // le prefixe technique pour l'affichage.
+          const clean = (errorMessage ?? '').replace(/^.*EMAIL_MISMATCH:\s*/, '');
+          setMessage(
+            clean ||
+              "Cette invitation est destinee a un autre compte. Deconnectez-vous puis reconnectez-vous avec le compte invite.",
+          );
+        } else {
+          setMessage('Invitation invalide ou expiree.');
+        }
         return;
       }
-      // Recupere le slug pour rediriger
+      // Recupere le slug du tenant + la 1re boutique accessible (si l'invite
+      // est un acheteur shop_only, on l'amene directement sur SA boutique
+      // au lieu de la home du tenant — fix 2026-05-27).
       const { data: tenant } = await supabase
         .from('tenants')
         .select('slug')
         .eq('id', tenantId)
         .maybeSingle();
+
+      // Tente de resoudre une boutique accessible (RLS filtre deja sur les
+      // shops que l'user peut voir). Si l'user est shop_only, il ne verra
+      // que sa/ses boutique(s) → on prend la premiere.
+      const { data: shopRows } = await supabase
+        .from('shops')
+        .select('slug')
+        .eq('tenant_id', tenantId)
+        .limit(1);
+      const firstShopSlug = (shopRows && shopRows[0]?.slug) || null;
+
       setStatus('success');
       setTargetSlug(tenant?.slug ?? null);
       try {
@@ -69,8 +97,14 @@ export function AcceptInvitation() {
         /* ignore */
       }
       setTimeout(() => {
-        if (tenant?.slug) navigate(`/t/${tenant.slug}`);
-        else navigate('/tenants');
+        if (tenant?.slug && firstShopSlug) {
+          // Acheteur / membre avec une boutique accessible → direct boutique
+          navigate(`/t/${tenant.slug}/s/${firstShopSlug}`);
+        } else if (tenant?.slug) {
+          navigate(`/t/${tenant.slug}`);
+        } else {
+          navigate('/tenants');
+        }
       }, 1500);
     })();
   }, [token, user, status, acceptInvitation, navigate]);
@@ -125,14 +159,34 @@ export function AcceptInvitation() {
               strokeWidth={1.5}
             />
             <p className="text-ink" style={{ fontSize: '15px', fontWeight: 500 }}>
-              Invitation invalide
+              {isEmailMismatch ? 'Mauvais compte connecté' : 'Invitation invalide'}
             </p>
             <p
               className="mt-2 text-ink-muted"
-              style={{ fontSize: '13px', fontWeight: 300 }}
+              style={{ fontSize: '13px', fontWeight: 300, lineHeight: 1.5 }}
             >
               {message}
             </p>
+            {isEmailMismatch && (
+              <button
+                onClick={async () => {
+                  // Le token reste en localStorage (set au mount si !user).
+                  // On le re-set par securite avant signOut pour reprendre
+                  // l'invitation apres reconnexion avec le bon compte.
+                  try {
+                    if (token) window.localStorage.setItem(PENDING_INVITATION_KEY, token);
+                  } catch {
+                    /* ignore */
+                  }
+                  await supabase.auth.signOut();
+                  navigate('/');
+                }}
+                className="mt-4 inline-flex items-center justify-center px-4 py-2 rounded-md bg-ink text-paper hover:bg-black"
+                style={{ fontSize: '13px', fontWeight: 500 }}
+              >
+                Se déconnecter et changer de compte
+              </button>
+            )}
           </>
         )}
       </div>
