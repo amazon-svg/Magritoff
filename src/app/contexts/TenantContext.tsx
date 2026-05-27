@@ -139,12 +139,18 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   const [tenants, setTenants] = useState<TenantWithMembership[]>([]);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  // Fix race condition 2026-05-27 : track le user pour lequel `tenants` a
+  // ete charge. Tant que loadedUserId != user.id courant, on considere
+  // qu'on est en chargement (evite que TenantPicker redirige vers
+  // /tenants/new pendant la fenetre transitoire user-change/reload-pending).
+  const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
 
   // ─── Chargement de la liste des tenants de l'user ──────────────────────
   const reload = useCallback(async () => {
     if (!user) {
       setTenants([]);
       setIsSuperAdmin(false);
+      setLoadedUserId(null);
       setLoading(false);
       return;
     }
@@ -212,12 +218,18 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       )
     );
 
+    setLoadedUserId(user.id);
     setLoading(false);
   }, [user]);
 
   useEffect(() => {
     if (!authLoading) reload();
   }, [authLoading, reload]);
+
+  // Loading effectif : true tant que le chargement n'est pas termine POUR
+  // le user courant. Empeche les consommateurs (TenantPicker) de decider
+  // sur un etat transitoire (user change mais reload pas encore relance).
+  const effectiveLoading = loading || (!!user && loadedUserId !== user.id);
 
   // ─── Tenant courant (depuis l'URL, fallback last_tenant, fallback premier) ──
   const [fallbackSlug, setFallbackSlug] = useState<string | null>(null);
@@ -400,7 +412,10 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     currentTenant,
     currentRole,
     isSuperAdmin,
-    loading: loading || authLoading,
+    // Fix race 2026-05-27 : effectiveLoading reste true tant que les tenants
+    // du user courant ne sont pas charges (vs loading brut qui retombe a
+    // false entre user-change et reload).
+    loading: effectiveLoading || authLoading,
     switchTenant,
     createTenant,
     createSubTenant,
