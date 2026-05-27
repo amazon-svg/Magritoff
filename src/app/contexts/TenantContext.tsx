@@ -178,10 +178,19 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       inheritedFromParent: false,
     }));
 
-    // 2. Sous-tenants visibles par heritage (parent dont je suis owner/admin/member)
-    //    Exclut les tenants ou je suis 'partner' (pas d'heritage descendant).
+    // 2. Sous-tenants visibles par heritage descendant.
+    //    Fix 2026-05-27 : l'heritage est reserve aux owner/admin du parent
+    //    AVEC un acces magrit_full. Un simple 'member' ou un acheteur
+    //    'shop_only' ne doit PAS heriter des sous-tenants (sinon un acheteur
+    //    shop_only se retrouve avec des acces magrit_full fantomes sur les
+    //    sous-tenants -> casse le routing ShopOnlyRedirect + faille d'acces).
+    //    Avant : `t.myRole !== 'partner'` incluait member + shop_only a tort.
     const inheritableParentIds = direct
-      .filter((t) => t.myRole !== 'partner')
+      .filter(
+        (t) =>
+          (t.myRole === 'owner' || t.myRole === 'admin') &&
+          t.accessScope === 'magrit_full'
+      )
       .map((t) => t.id);
 
     let inherited: TenantWithMembership[] = [];
