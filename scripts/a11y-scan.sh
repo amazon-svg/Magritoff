@@ -16,10 +16,32 @@
 set -uo pipefail
 
 BASE_URL="${A11Y_BASE_URL:-http://localhost:5177}"
+
+# S9 audit a11y etendu (Sprint 9, 2026-06-01) :
+# Routes etendues a 8 (vs 3 initiales R9). Couvre les routes
+# user-facing post Sprint 6/7/8 :
+#   - login : entree authentification
+#   - atelier : interface principale imprimeur Pro
+#   - shop home : entree boutique B2B (anonyme)
+#   - shop orders : Mes commandes acheteur (auth requis)
+#   - shop portal : recherche IA Magrit
+#   - dashboard orders : agrege admin tenant
+#   - dashboard users : matrice users x roles (Phase A)
+#   - dashboard spaces : sous-tenants + KPIs HQ (S-SUBTENANT-SCOPE)
+#
+# NOTE : les routes auth-requise affichent la page login si pas de
+# session. Pour scan complet, il faut soit (a) cookies persistes via
+# Playwright pre-launch, soit (b) routes publiques inspectees. MVP =
+# tenir la liste a jour, run manuel quand dev server + session active.
 ROUTES=(
   "$BASE_URL/login"
   "$BASE_URL/t/imprimerie-ipa/atelier"
+  "$BASE_URL/t/imprimerie-ipa/dashboard/orders"
+  "$BASE_URL/t/imprimerie-ipa/dashboard/users"
+  "$BASE_URL/t/imprimerie-ipa/spaces"
   "$BASE_URL/shop/boutique-1"
+  "$BASE_URL/shop/boutique-1/orders"
+  "$BASE_URL/shop/boutique-1/portal"
 )
 
 OUTPUT="${1:-a11y-report.json}"
