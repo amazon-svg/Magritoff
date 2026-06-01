@@ -56,6 +56,11 @@ export interface MockupImageProps {
    * rendu actuel inchangé (rétro-compat).
    */
   backgroundUrl?: string | null;
+  /**
+   * S-PRODUCT-VIEWS-MULTI (Sprint 7) : 'front' (défaut, retro-compat) ou
+   * 'back'. Sert à choisir le PNG cible côté CDN (path suffixé __back).
+   */
+  view?: 'front' | 'back';
 }
 
 type ImageState = "loading" | "loaded" | "fetching-edge" | "error";
@@ -71,9 +76,10 @@ export function MockupImage(props: MockupImageProps): JSX.Element {
     }),
     [props.tenantId, props.shopId, props.productId],
   );
+  const view = props.view ?? 'front';
   const initialSrc = useMemo(
-    () => buildPublicMockupUrl(projectId, params),
-    [params],
+    () => buildPublicMockupUrl(projectId, { ...params, view }),
+    [params, view],
   );
 
   const [state, setState] = useState<ImageState>("loading");
@@ -102,6 +108,7 @@ export function MockupImage(props: MockupImageProps): JSX.Element {
       productName: props.productName,
       primaryColor: props.primaryColor,
       template: props.template,
+      view,
     };
     const edgeUrl = buildEdgeFunctionUrl(projectId, specs);
 

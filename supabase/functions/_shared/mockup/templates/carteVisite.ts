@@ -41,6 +41,10 @@ export function carteVisiteSvg(specs: ProductSpecs, theming: ShopTheming): strin
   const safeName = escapeXml(truncate(specs.productName, TEXT_MAX_LEN));
   const safeColor = escapeXml(theming.primaryColor);
 
+  const isBack = theming.view === 'back';
+  // Vue 'back' carte de visite : pas de liseret central, juste 3 lignes de
+  // texte mock (effet "coordonnées personnelles au dos"). Identique en
+  // taille/position de carte.
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${VIEWBOX} ${VIEWBOX}" width="${VIEWBOX}" height="${VIEWBOX}">
   <defs>
     <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -51,7 +55,12 @@ export function carteVisiteSvg(specs: ProductSpecs, theming: ShopTheming): strin
   </defs>
   <rect width="${VIEWBOX}" height="${VIEWBOX}" fill="url(#bg)"/>
   ${photoRealisticProductRect(cx, cy, rectW, rectH, 16, safeColor)}
-  <rect x="${liseretX}" y="${liseretY}" width="${liseretW}" height="4" fill="${safeColor}" rx="2"/>
-  <text x="${VIEWBOX / 2}" y="${textY}" text-anchor="middle" font-family="Inter" font-size="56" font-weight="700" fill="${safeColor}">${safeName}</text>
+  ${isBack
+    ? `<rect x="${cx + rectW * 0.15}" y="${cy + rectH * 0.30}" width="${rectW * 0.7}" height="8" fill="${safeColor}" opacity="0.40" rx="3"/>
+       <rect x="${cx + rectW * 0.15}" y="${cy + rectH * 0.45}" width="${rectW * 0.55}" height="6" fill="${safeColor}" opacity="0.30" rx="3"/>
+       <rect x="${cx + rectW * 0.15}" y="${cy + rectH * 0.58}" width="${rectW * 0.65}" height="6" fill="${safeColor}" opacity="0.30" rx="3"/>
+       <text x="${VIEWBOX / 2}" y="${cy + rectH - 24}" text-anchor="middle" font-family="Inter" font-size="22" font-weight="400" fill="${safeColor}" opacity="0.5">Verso</text>`
+    : `<rect x="${liseretX}" y="${liseretY}" width="${liseretW}" height="4" fill="${safeColor}" rx="2"/>
+       <text x="${VIEWBOX / 2}" y="${textY}" text-anchor="middle" font-family="Inter" font-size="56" font-weight="700" fill="${safeColor}">${safeName}</text>`}
 </svg>`;
 }

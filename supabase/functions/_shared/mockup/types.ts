@@ -24,6 +24,16 @@ export interface ProductSpecs {
 export interface ShopTheming {
   /** Couleur primaire au format hex `#RRGGBB`. */
   primaryColor: string;
+  /**
+   * S-PRODUCT-VIEWS-MULTI (Sprint 7, 2026-06-01) : vue du produit à rendre.
+   * 'front' (défaut, layout actuel des templates) ou 'back' (verso, layout
+   * différencié : zone d'impression vide ou pattern minimal — l'acheteur
+   * comprend "voici la 2ème face du produit").
+   *
+   * Templates qui supportent les 2 vues (flyer, carteVisite). Les autres
+   * (brochure, etiquette, kakemono) ignorent et rendent 'front'.
+   */
+  view?: 'front' | 'back';
 }
 
 /** Identifiant des templates supportes. 5 templates MVP livres en S4.2. */

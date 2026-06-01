@@ -48,6 +48,8 @@ interface ParsedSpecs {
   productName: string;
   primaryColor: string;
   template: MockupTemplate;
+  /** S-PRODUCT-VIEWS-MULTI : 'front' (default, retro-compat) ou 'back'. */
+  view: 'front' | 'back';
 }
 
 type ParseResult =
@@ -104,6 +106,21 @@ function parseSpecs(url: URL): ParseResult {
     template = trimmed;
   }
 
+  // S-PRODUCT-VIEWS-MULTI : view optionnel, default 'front' pour retro-compat.
+  const viewRaw = url.searchParams.get("view");
+  let view: 'front' | 'back' = 'front';
+  if (viewRaw !== null && viewRaw.trim() !== "") {
+    const trimmed = viewRaw.trim().toLowerCase();
+    if (trimmed !== 'front' && trimmed !== 'back') {
+      return {
+        ok: false,
+        error: `view must be 'front' or 'back', got "${trimmed}"`,
+        param: "view",
+      };
+    }
+    view = trimmed;
+  }
+
   return {
     ok: true,
     specs: {
@@ -115,6 +132,7 @@ function parseSpecs(url: URL): ParseResult {
       productName,
       primaryColor,
       template,
+      view,
     },
   };
 }
@@ -130,13 +148,24 @@ function jsonResponse(body: unknown, status: number) {
  * Construit l'URL publique CDN du bucket product_mockups.
  * Format : {SUPABASE_URL}/storage/v1/object/public/product_mockups/{path}
  */
-function publicMockupUrl(tenant: string, shop: string, product: string): string {
+function publicMockupUrl(
+  tenant: string,
+  shop: string,
+  product: string,
+  view: 'front' | 'back' = 'front',
+): string {
   const baseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-  return `${baseUrl}/storage/v1/object/public/${BUCKET}/${tenant}/${shop}/${product}.png`;
+  // Retro-compat : front = path sans suffixe (le cache existant continue de
+  // matcher). back = path suffixé pour cohabitation.
+  const suffix = view === 'back' ? '__back' : '';
+  return `${baseUrl}/storage/v1/object/public/${BUCKET}/${tenant}/${shop}/${product}${suffix}.png`;
 }
 
-function cacheKey(specs: { tenant: string; shop: string; product: string }): string {
-  return `${specs.tenant}/${specs.shop}/${specs.product}.png`;
+function cacheKey(
+  specs: { tenant: string; shop: string; product: string; view?: 'front' | 'back' },
+): string {
+  const suffix = specs.view === 'back' ? '__back' : '';
+  return `${specs.tenant}/${specs.shop}/${specs.product}${suffix}.png`;
 }
 
 function getServiceRoleClient() {
@@ -160,7 +189,7 @@ async function handleGenerate(url: URL): Promise<Response> {
     return jsonResponse({ error: parsed.error, param: parsed.param }, 400);
   }
   const { specs } = parsed;
-  const url302 = publicMockupUrl(specs.tenant, specs.shop, specs.product);
+  const url302 = publicMockupUrl(specs.tenant, specs.shop, specs.product, specs.view);
 
   // ─── Cache HIT check : HEAD sur l'URL CDN publique ──────────────────────
   // Si HEAD retourne 200, le PNG existe → 302 redirect vers le CDN.
@@ -190,7 +219,7 @@ async function handleGenerate(url: URL): Promise<Response> {
         height: specs.height,
         productName: specs.productName,
       },
-      { primaryColor: specs.primaryColor },
+      { primaryColor: specs.primaryColor, view: specs.view },
     );
   } catch (err) {
     // Fallback : log + tentative re-render avec specs minimales

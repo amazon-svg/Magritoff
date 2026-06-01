@@ -34,14 +34,24 @@ export interface MockupSpecs extends MockupParams {
    * l'edge function fallback sur "flyer" (retro-compat S4.3).
    */
   template?: string;
+  /**
+   * S-PRODUCT-VIEWS-MULTI (Sprint 7, 2026-06-01) : 'front' (défaut,
+   * retro-compat path sans suffixe) ou 'back' (path suffixé __back).
+   */
+  view?: 'front' | 'back';
 }
 
 /**
  * URL publique CDN du bucket product_mockups (pour <img src>).
- * Format : https://{projectId}.supabase.co/storage/v1/object/public/product_mockups/{tenant}/{shop}/{product}.png
+ * Format front : https://{projectId}.supabase.co/storage/v1/object/public/product_mockups/{tenant}/{shop}/{product}.png
+ * Format back  : ...{product}__back.png (retro-compat front via path sans suffixe).
  */
-export function buildPublicMockupUrl(projectId: string, params: MockupParams): string {
-  return `https://${projectId}.supabase.co/storage/v1/object/public/${BUCKET}/${params.tenantId}/${params.shopId}/${params.productId}.png`;
+export function buildPublicMockupUrl(
+  projectId: string,
+  params: MockupParams & { view?: 'front' | 'back' },
+): string {
+  const suffix = params.view === 'back' ? '__back' : '';
+  return `https://${projectId}.supabase.co/storage/v1/object/public/${BUCKET}/${params.tenantId}/${params.shopId}/${params.productId}${suffix}.png`;
 }
 
 /**
@@ -49,7 +59,7 @@ export function buildPublicMockupUrl(projectId: string, params: MockupParams): s
  * Utilisee en fetch JS avec Authorization header (S4.1c).
  *
  * S4.2 : si specs.template est fourni et non-vide, ajoute au query params.
- * Sinon l'edge function fallback sur "flyer" (retro-compat S4.3).
+ * S-PRODUCT-VIEWS-MULTI : si specs.view='back', ajoute view=back.
  */
 export function buildEdgeFunctionUrl(projectId: string, specs: MockupSpecs): string {
   const params: Record<string, string> = {
@@ -63,6 +73,9 @@ export function buildEdgeFunctionUrl(projectId: string, specs: MockupSpecs): str
   };
   if (specs.template && specs.template.trim() !== "") {
     params.template = specs.template.trim();
+  }
+  if (specs.view === 'back') {
+    params.view = 'back';
   }
   const qs = new URLSearchParams(params).toString();
   return `https://${projectId}.supabase.co/functions/v1/mockup-generator?${qs}`;

@@ -25,5 +25,5 @@
   <rect x="112" y="253.1764705882353" width="800" height="517.6470588235294" fill="url(#paperTexture)" stroke="#FF6B35" stroke-width="2" rx="16" ry="16" filter="url(#shadowDouble)"/>
   <rect x="112" y="253.1764705882353" width="800" height="517.6470588235294" fill="url(#paperHighlight)" rx="16" ry="16" pointer-events="none"/>
   <rect x="352" y="734.8235294117646" width="320" height="4" fill="#FF6B35" rx="2"/>
-  <text x="512" y="524" text-anchor="middle" font-family="Inter" font-size="56" font-weight="700" fill="#FF6B35">Carte Pro</text>
+       <text x="512" y="524" text-anchor="middle" font-family="Inter" font-size="56" font-weight="700" fill="#FF6B35">Carte Pro</text>
 </svg>

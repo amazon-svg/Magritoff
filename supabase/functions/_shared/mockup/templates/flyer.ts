@@ -45,6 +45,11 @@ export function flyerSvg(specs: ProductSpecs, theming: ShopTheming): string {
   const safeName = escapeXml(truncate(specs.productName, TEXT_MAX_LEN));
   const safeColor = escapeXml(theming.primaryColor);
 
+  const isBack = theming.view === 'back';
+  // Pour la vue 'back' : on enlève le pattern dots du fond + on remplace le
+  // grand productName par un libellé "Verso" + on ajoute un petit indicateur
+  // "(Recto)" coin haut-gauche. Le rectangle produit reste identique en
+  // dimensions/position pour cohérence layout entre les 2 vues.
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${VIEWBOX} ${VIEWBOX}" width="${VIEWBOX}" height="${VIEWBOX}">
   <defs>
     <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -57,8 +62,10 @@ export function flyerSvg(specs: ProductSpecs, theming: ShopTheming): string {
     ${photoRealisticDefs(safeColor)}
   </defs>
   <rect width="${VIEWBOX}" height="${VIEWBOX}" fill="url(#bg)"/>
-  <rect width="${VIEWBOX}" height="${VIEWBOX}" fill="url(#dots)"/>
+  ${isBack ? '' : `<rect width="${VIEWBOX}" height="${VIEWBOX}" fill="url(#dots)"/>`}
   ${photoRealisticProductRect(cx, cy, rectW, rectH, 8, safeColor)}
-  <text x="${VIEWBOX / 2}" y="${textY}" text-anchor="middle" font-family="Inter" font-size="48" font-weight="600" fill="${safeColor}">${safeName}</text>
+  ${isBack
+    ? `<text x="${VIEWBOX / 2}" y="${cy + rectH / 2 + 14}" text-anchor="middle" font-family="Inter" font-size="36" font-weight="500" fill="${safeColor}" opacity="0.55">Verso</text>`
+    : `<text x="${VIEWBOX / 2}" y="${textY}" text-anchor="middle" font-family="Inter" font-size="48" font-weight="600" fill="${safeColor}">${safeName}</text>`}
 </svg>`;
 }
