@@ -39,6 +39,7 @@ import { usePlan } from '../../hooks/usePlan';
 import { useTenantPath } from '../../hooks/useTenantPath';
 import { UpgradeCTA } from './UpgradeCTA';
 import { exportShopToShopifyCsv, exportShopToJson } from '../../utils/shopExport';
+import { ShopVisualSettings } from './ShopVisualSettings';
 
 /**
  * Produit affiche dans la liste agregee. On normalise deux sources :
@@ -546,6 +547,14 @@ export function DashboardShopEditor() {
           </details>
         )}
       </section>
+
+      {/* ── S-PIM-VISUELS-4 : Visuels boutique (fond + couleur primaire) ── */}
+      {shop && (
+        <ShopVisualSettings
+          shopId={shop.id}
+          availableGammes={gammes.map((g) => ({ slug: g.slug, name: g.name }))}
+        />
+      )}
 
       {/* ── Exporter le catalogue (deplace sous la liste des produits) ── */}
       <section className="border border-gray-200 rounded-xl p-4 bg-white">
