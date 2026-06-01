@@ -27,6 +27,7 @@ import {
 import { OrderHistoryTable } from "./OrderHistoryTable";
 import { CancelOrderConfirmDialog } from "./CancelOrderConfirmDialog";
 import { formatCancelErrorMessage } from "./orderCancellation.helpers";
+import { triggerOrderWorkflowStep } from "./orderWorkflowStep.helpers";
 
 interface Props {
   shopId: string;
@@ -128,6 +129,11 @@ export function PortalOrders({ shopId, onRenewOrder }: Props) {
   };
 
   const handleCancelConfirm = async (orderId: string): Promise<string | null> => {
+    // Capture le from_status AVANT la RPC (sera 'draft' nominal pour
+    // l'acheteur self-service mais on lit la valeur courante par défense).
+    const currentOrder = orders.find((o) => o.id === orderId);
+    const fromStatus = currentOrder?.status ?? 'draft';
+
     const { error: rpcErr } = await supabase.rpc('update_tenant_order_status', {
       p_order_id: orderId,
       p_new_status: 'cancelled',
@@ -136,6 +142,16 @@ export function PortalOrders({ shopId, onRenewOrder }: Props) {
     if (rpcErr) {
       console.warn('[PortalOrders] cancel RPC failed:', rpcErr.message);
       return formatCancelErrorMessage(rpcErr);
+    }
+    // S-N1-APPROVAL : déclenche les notifications par notify_policy en
+    // fire-and-forget (ne bloque pas l'UI sur la latence Resend).
+    if (user?.id) {
+      triggerOrderWorkflowStep({
+        orderId,
+        fromStatus,
+        toStatus: 'cancelled',
+        actorUserId: user.id,
+      });
     }
     // Succès : refresh la liste pour refléter le nouveau statut.
     await loadOrders({ current: false });

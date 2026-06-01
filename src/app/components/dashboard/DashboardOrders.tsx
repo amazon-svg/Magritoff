@@ -28,6 +28,7 @@ import { CancelOrderConfirmDialog } from '../shop/portal/CancelOrderConfirmDialo
 import { ValidateOrderConfirmDialog } from '../shop/portal/ValidateOrderConfirmDialog';
 import { formatCancelErrorMessage } from '../shop/portal/orderCancellation.helpers';
 import { formatValidateErrorMessage } from '../shop/portal/orderValidation.helpers';
+import { triggerOrderWorkflowStep } from '../shop/portal/orderWorkflowStep.helpers';
 import { useUserCapability } from '../../hooks/useUserCapability';
 
 interface DashboardOrderUI extends OrderUI {
@@ -150,6 +151,8 @@ export function DashboardOrders() {
   };
 
   const handleCancelConfirm = async (orderId: string): Promise<string | null> => {
+    const currentOrder = orders.find((o) => o.id === orderId);
+    const fromStatus = currentOrder?.status ?? 'draft';
     const { error: rpcErr } = await supabase.rpc('update_tenant_order_status', {
       p_order_id: orderId,
       p_new_status: 'cancelled',
@@ -158,6 +161,14 @@ export function DashboardOrders() {
     if (rpcErr) {
       console.warn('[DashboardOrders] cancel RPC failed:', rpcErr.message);
       return formatCancelErrorMessage(rpcErr);
+    }
+    if (user?.id) {
+      triggerOrderWorkflowStep({
+        orderId,
+        fromStatus,
+        toStatus: 'cancelled',
+        actorUserId: user.id,
+      });
     }
     await loadOrders({ current: false });
     return null;
@@ -170,6 +181,8 @@ export function DashboardOrders() {
   };
 
   const handleValidateConfirm = async (orderId: string): Promise<string | null> => {
+    const currentOrder = orders.find((o) => o.id === orderId);
+    const fromStatus = currentOrder?.status ?? 'draft';
     const { error: rpcErr } = await supabase.rpc('update_tenant_order_status', {
       p_order_id: orderId,
       p_new_status: 'validated',
@@ -178,6 +191,14 @@ export function DashboardOrders() {
     if (rpcErr) {
       console.warn('[DashboardOrders] validate RPC failed:', rpcErr.message);
       return formatValidateErrorMessage(rpcErr);
+    }
+    if (user?.id) {
+      triggerOrderWorkflowStep({
+        orderId,
+        fromStatus,
+        toStatus: 'validated',
+        actorUserId: user.id,
+      });
     }
     await loadOrders({ current: false });
     return null;
