@@ -13,7 +13,12 @@
  */
 
 import type { ProductSpecs, ShopTheming } from "../types.ts";
-import { escapeXml, truncate } from "./_shared.ts";
+import {
+  escapeXml,
+  photoRealisticDefs,
+  photoRealisticProductRect,
+  truncate,
+} from "./_shared.ts";
 
 const VIEWBOX = 1024;
 const RECT_AREA_MAX = 800; // carte plus large que flyer (800 vs 700)
@@ -42,12 +47,10 @@ export function carteVisiteSvg(specs: ProductSpecs, theming: ShopTheming): strin
       <stop offset="0%" stop-color="${safeColor}" stop-opacity="0.10"/>
       <stop offset="100%" stop-color="${safeColor}" stop-opacity="0.32"/>
     </linearGradient>
-    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
-      <feDropShadow dx="0" dy="8" stdDeviation="14" flood-color="${safeColor}" flood-opacity="0.30"/>
-    </filter>
+    ${photoRealisticDefs(safeColor)}
   </defs>
   <rect width="${VIEWBOX}" height="${VIEWBOX}" fill="url(#bg)"/>
-  <rect x="${cx}" y="${cy}" width="${rectW}" height="${rectH}" fill="white" stroke="${safeColor}" stroke-width="2" rx="16" ry="16" filter="url(#shadow)"/>
+  ${photoRealisticProductRect(cx, cy, rectW, rectH, 16, safeColor)}
   <rect x="${liseretX}" y="${liseretY}" width="${liseretW}" height="4" fill="${safeColor}" rx="2"/>
   <text x="${VIEWBOX / 2}" y="${textY}" text-anchor="middle" font-family="Inter" font-size="56" font-weight="700" fill="${safeColor}">${safeName}</text>
 </svg>`;

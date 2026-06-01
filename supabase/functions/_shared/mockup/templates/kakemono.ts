@@ -14,7 +14,7 @@
  */
 
 import type { ProductSpecs, ShopTheming } from "../types.ts";
-import { escapeXml, truncate } from "./_shared.ts";
+import { escapeXml, photoRealisticDefs, truncate } from "./_shared.ts";
 
 const VIEWBOX = 1024;
 const SHAPE_HEIGHT_MAX = 880; // kakemono est tres haut
@@ -61,12 +61,11 @@ export function kakemonoSvg(specs: ProductSpecs, theming: ShopTheming): string {
       <stop offset="0%" stop-color="${safeColor}" stop-opacity="1"/>
       <stop offset="100%" stop-color="${safeColor}" stop-opacity="0.6"/>
     </linearGradient>
-    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
-      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="${safeColor}" flood-opacity="0.28"/>
-    </filter>
+    ${photoRealisticDefs(safeColor)}
   </defs>
   <rect width="${VIEWBOX}" height="${VIEWBOX}" fill="url(#bg)"/>
-  <rect x="${cx}" y="${cy}" width="${rectW}" height="${rectH}" fill="white" stroke="${safeColor}" stroke-width="2" rx="4" filter="url(#shadow)"/>
+  <rect x="${cx}" y="${cy}" width="${rectW}" height="${rectH}" fill="url(#paperTexture)" stroke="${safeColor}" stroke-width="2" rx="4" filter="url(#shadowDouble)"/>
+  <rect x="${cx}" y="${cy}" width="${rectW}" height="${rectH}" fill="url(#paperHighlight)" rx="4" pointer-events="none"/>
   <rect x="${logoX}" y="${logoY}" width="${logoSize}" height="${logoSize}" fill="url(#logoGrad)" rx="6"/>
   <text x="${cx + rectW / 2}" y="${textY}" text-anchor="middle" font-family="Inter" font-size="44" font-weight="800" fill="${safeColor}">${safeName}</text>
   <rect x="${bandX}" y="${band1Y}" width="${bandW}" height="14" fill="${safeColor}" opacity="0.55" rx="3"/>

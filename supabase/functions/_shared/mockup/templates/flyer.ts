@@ -15,7 +15,12 @@
  */
 
 import type { ProductSpecs, ShopTheming } from "../types.ts";
-import { escapeXml, truncate } from "./_shared.ts";
+import {
+  escapeXml,
+  photoRealisticDefs,
+  photoRealisticProductRect,
+  truncate,
+} from "./_shared.ts";
 
 const VIEWBOX = 1024;
 const RECT_AREA_MAX = 700; // taille max du rectangle produit dans le viewBox
@@ -49,13 +54,11 @@ export function flyerSvg(specs: ProductSpecs, theming: ShopTheming): string {
     <pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse">
       <circle cx="12" cy="12" r="1.5" fill="${safeColor}" opacity="0.35"/>
     </pattern>
-    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
-      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="${safeColor}" flood-opacity="0.25"/>
-    </filter>
+    ${photoRealisticDefs(safeColor)}
   </defs>
   <rect width="${VIEWBOX}" height="${VIEWBOX}" fill="url(#bg)"/>
   <rect width="${VIEWBOX}" height="${VIEWBOX}" fill="url(#dots)"/>
-  <rect x="${cx}" y="${cy}" width="${rectW}" height="${rectH}" fill="white" stroke="${safeColor}" stroke-width="3" rx="8" ry="8" filter="url(#shadow)"/>
+  ${photoRealisticProductRect(cx, cy, rectW, rectH, 8, safeColor)}
   <text x="${VIEWBOX / 2}" y="${textY}" text-anchor="middle" font-family="Inter" font-size="48" font-weight="600" fill="${safeColor}">${safeName}</text>
 </svg>`;
 }

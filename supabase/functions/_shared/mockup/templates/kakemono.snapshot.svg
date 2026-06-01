@@ -8,12 +8,25 @@
       <stop offset="0%" stop-color="#FF6B35" stop-opacity="1"/>
       <stop offset="100%" stop-color="#FF6B35" stop-opacity="0.6"/>
     </linearGradient>
-    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
-      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#FF6B35" flood-opacity="0.28"/>
+    
+    <filter id="shadowDouble" x="-15%" y="-15%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.18"/>
+      <feDropShadow dx="0" dy="18" stdDeviation="24" flood-color="#FF6B35" flood-opacity="0.22"/>
     </filter>
+    <linearGradient id="paperHighlight" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.35"/>
+      <stop offset="35%" stop-color="#ffffff" stop-opacity="0.05"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <pattern id="paperTexture" width="6" height="6" patternUnits="userSpaceOnUse">
+      <rect width="6" height="6" fill="white"/>
+      <circle cx="1" cy="1" r="0.3" fill="#e5e5e5" opacity="0.6"/>
+      <circle cx="4" cy="3" r="0.25" fill="#e5e5e5" opacity="0.5"/>
+    </pattern>
   </defs>
   <rect width="1024" height="1024" fill="url(#bg)"/>
-  <rect x="325" y="72" width="374" height="880" fill="white" stroke="#FF6B35" stroke-width="2" rx="4" filter="url(#shadow)"/>
+  <rect x="325" y="72" width="374" height="880" fill="url(#paperTexture)" stroke="#FF6B35" stroke-width="2" rx="4" filter="url(#shadowDouble)"/>
+  <rect x="325" y="72" width="374" height="880" fill="url(#paperHighlight)" rx="4" pointer-events="none"/>
   <rect x="353" y="100" width="56" height="56" fill="url(#logoGrad)" rx="6"/>
   <text x="512" y="212" text-anchor="middle" font-family="Inter" font-size="44" font-weight="800" fill="#FF6B35">Roll-up Magrit</text>
   <rect x="353" y="312" width="318" height="14" fill="#FF6B35" opacity="0.55" rx="3"/>

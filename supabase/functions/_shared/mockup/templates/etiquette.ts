@@ -12,7 +12,7 @@
  */
 
 import type { ProductSpecs, ShopTheming } from "../types.ts";
-import { escapeXml, truncate } from "./_shared.ts";
+import { escapeXml, photoRealisticDefs, truncate } from "./_shared.ts";
 
 const VIEWBOX = 1024;
 const SHAPE_AREA_MAX = 720;
@@ -46,12 +46,11 @@ export function etiquetteSvg(specs: ProductSpecs, theming: ShopTheming): string 
       <stop offset="0%" stop-color="${safeColor}" stop-opacity="0.05"/>
       <stop offset="100%" stop-color="${safeColor}" stop-opacity="0.18"/>
     </linearGradient>
-    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
-      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="${safeColor}" flood-opacity="0.22"/>
-    </filter>
+    ${photoRealisticDefs(safeColor)}
   </defs>
   <rect width="${VIEWBOX}" height="${VIEWBOX}" fill="url(#bg)"/>
-  <rect x="${cx}" y="${cy}" width="${rectW}" height="${rectH}" fill="#FAFAFA" stroke="${safeColor}" stroke-width="2" stroke-dasharray="6 4" rx="24" ry="24" filter="url(#shadow)"/>
+  <rect x="${cx}" y="${cy}" width="${rectW}" height="${rectH}" fill="url(#paperTexture)" stroke="${safeColor}" stroke-width="2" stroke-dasharray="6 4" rx="24" ry="24" filter="url(#shadowDouble)"/>
+  <rect x="${cx}" y="${cy}" width="${rectW}" height="${rectH}" fill="url(#paperHighlight)" rx="24" ry="24" pointer-events="none"/>
   <circle cx="${pictoCx}" cy="${pictoCy}" r="${pictoR}" fill="none" stroke="${safeColor}" stroke-width="3"/>
   <rect x="${barX}" y="${barY}" width="${barW}" height="6" fill="${safeColor}" opacity="0.7" rx="3"/>
   <text x="${VIEWBOX / 2}" y="${textY}" text-anchor="middle" font-family="Inter" font-size="42" font-weight="600" fill="${safeColor}">${safeName}</text>

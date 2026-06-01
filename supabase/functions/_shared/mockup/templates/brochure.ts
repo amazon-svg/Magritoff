@@ -15,7 +15,7 @@
  */
 
 import type { ProductSpecs, ShopTheming } from "../types.ts";
-import { escapeXml, truncate } from "./_shared.ts";
+import { escapeXml, photoRealisticDefs, truncate } from "./_shared.ts";
 
 const VIEWBOX = 1024;
 const PANEL_AREA_MAX = 760; // hauteur max d un panneau (chacun pleine hauteur)
@@ -59,14 +59,14 @@ export function brochureSvg(specs: ProductSpecs, theming: ShopTheming): string {
       <stop offset="0%" stop-color="white" stop-opacity="1"/>
       <stop offset="100%" stop-color="${safeColor}" stop-opacity="0.18"/>
     </linearGradient>
-    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
-      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="${safeColor}" flood-opacity="0.28"/>
-    </filter>
+    ${photoRealisticDefs(safeColor)}
   </defs>
   <rect width="${VIEWBOX}" height="${VIEWBOX}" fill="url(#bg)"/>
-  <rect x="${leftX}" y="${cy}" width="${panelW}" height="${panelH}" fill="white" stroke="${safeColor}" stroke-width="2" rx="6" filter="url(#shadow)"/>
+  <rect x="${leftX}" y="${cy}" width="${panelW}" height="${panelH}" fill="url(#paperTexture)" stroke="${safeColor}" stroke-width="2" rx="6" filter="url(#shadowDouble)"/>
   <rect x="${leftX}" y="${cy}" width="${panelW}" height="${panelH}" fill="url(#dotsCover)" rx="6"/>
-  <rect x="${rightX}" y="${cy}" width="${panelW}" height="${panelH}" fill="url(#backFade)" stroke="${safeColor}" stroke-width="2" rx="6" filter="url(#shadow)"/>
+  <rect x="${leftX}" y="${cy}" width="${panelW}" height="${panelH}" fill="url(#paperHighlight)" rx="6" pointer-events="none"/>
+  <rect x="${rightX}" y="${cy}" width="${panelW}" height="${panelH}" fill="url(#backFade)" stroke="${safeColor}" stroke-width="2" rx="6" filter="url(#shadowDouble)"/>
+  <rect x="${rightX}" y="${cy}" width="${panelW}" height="${panelH}" fill="url(#paperHighlight)" rx="6" pointer-events="none"/>
   ${mockLines}
   <text x="${leftX + panelW / 2}" y="${textY}" text-anchor="middle" font-family="Inter" font-size="48" font-weight="700" fill="${safeColor}">${safeName}</text>
 </svg>`;
