@@ -34,6 +34,7 @@ import { ProductCardEditer } from "./product-card/ProductCardEditer";
 import { ProductCardFiche } from "./product-card/ProductCardFiche";
 import { ProductCardPrix } from "./product-card/ProductCardPrix";
 import { extractClariprintConfigFromAtelierProduct } from "./shop/ProductOverlay.helpers";
+import { resolvePrice } from "../utils/priceResolver";
 import type { ShopProduct } from "../contexts/ShopsContext";
 
 interface ClariprintQuoteResult {
@@ -175,11 +176,14 @@ export function ProductCard({
 
   const handleAddToLibrary = async (libraryId: string) => {
     setLibraryState('saving');
-    const priceHT =
-      clariprintQuote?.costs?.total ??
-      clariprintQuote?.priceHT ??
-      localProduct.price ??
-      estimatePrice();
+    // S8 ProductCard DRY priceResolver (Sprint 8, 2026-06-01) : remplace
+    // l'ancienne hierarchie locale (clariprintQuote.costs.total ?? quote.priceHT
+    // ?? localProduct.price ?? estimatePrice()) par le helper canonique
+    // resolvePrice qui applique la cascade clariprint > library_cached >
+    // prix_marche > zero (cf. PRICE_SOURCES.md). costs.total inclut delivery
+    // donc resolvePrice avec quote.priceHT donne un prix "ex-delivery" plus
+    // cohérent pour la libpiece de prix unitaire en bibliothèque.
+    const priceHT = resolvePrice(localProduct, clariprintQuote).priceHT;
     const added = await addToLibrary({
       library_id: libraryId,
       client_id: (localProduct as any).client_id ?? null,
@@ -198,35 +202,13 @@ export function ProductCard({
   // (BoldValue retiré : l'édition inline prompt() n'est plus utilisée dans la v2.
   //  Toute modif passe par l'onglet "Éditer" — meilleure UX, cohérent avec la typo.)
 
-  // ─── Prix estimé (fallback si pas Clariprint) ────────────────────────────
-  const estimatePrice = (): number => {
-    const qty = localProduct.quantity || 500;
-    const name = (localProduct.name || "").toLowerCase();
-    let base = 0.15;
-    if (name.includes("carte") && name.includes("visite")) base = 0.08;
-    else if (name.includes("flyer") || name.includes("tract")) base = 0.12;
-    else if (name.includes("brochure") || name.includes("catalogue")) base = 1.5;
-    else if (name.includes("affiche") || name.includes("poster")) base = 5.0;
-    else if (name.includes("dépliant")) base = 0.25;
-
-    let price = base * qty;
-    if ((localProduct.weight || 0) > 300) price *= 1.3;
-    else if ((localProduct.weight || 0) > 200) price *= 1.15;
-    if (localProduct.printing?.verso && localProduct.printing.verso !== "Sans impression") price *= 1.4;
-    if (localProduct.finishRecto?.toLowerCase().includes("pelliculage")) price += qty * 0.05;
-    if (qty >= 5000) price *= 0.7;
-    else if (qty >= 2000) price *= 0.8;
-    else if (qty >= 1000) price *= 0.9;
-    return Math.round(price * 100) / 100;
-  };
-
-  const estimatedPrice = localProduct.price || estimatePrice();
-
-  // Prix final à afficher (Clariprint si dispo, sinon estimé)
-  const displayPriceHT =
-    clariprintQuote?.success && clariprintQuote.priceHT != null
-      ? clariprintQuote.priceHT
-      : estimatedPrice;
+  // ─── Prix à afficher : helper canonique resolvePrice (S8 DRY 2026-06-01)
+  // Avant : 21 lignes estimatePrice() inline qui dupliquaient à 100% la
+  // logique estimateMarketPriceHT du module priceResolver (avec des seuils
+  // légèrement divergents — ex: pas de kakemono/etiquette/packaging). Cf.
+  // PRICE_SOURCES.md S0.2 audit. Délégué au helper unique.
+  const priceResolution = resolvePrice(localProduct, clariprintQuote);
+  const displayPriceHT = priceResolution.priceHT;
 
   // ─── Render ──────────────────────────────────────────────────────────────
   return (
