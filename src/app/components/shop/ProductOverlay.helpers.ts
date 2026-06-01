@@ -131,16 +131,48 @@ function extractStandardFormatLabel(format: string): string | null {
 }
 
 /**
- * Detecte si une valeur de dimension semble etre en CENTIMETRES (LLM
- * Clariprint renvoie souvent width/height en cm, ex: "42" / "59.4" pour A2
- * = 42 x 59.4 cm = 420 x 594 mm). Heuristique : valeur < 30 sur un format
- * imprimable typique -> probablement cm (un papier imprimable mesure
- * rarement moins de 3 cm).
+ * S-FIX-LARGE-CM-FORMATS (Sprint 8, 2026-06-01) — Convention canonique
+ * P0.9 (2026-05-18) `string = cm, number = mm` appliquée systématiquement.
+ *
+ * AVANT : helper `isLikelyCm(w, h): boolean` avec seuil numérique <100.
+ *   - kakémono 400×100cm (string) → parsed 400/100 → isLikelyCm(400,100)
+ *     = false → gardé 400×100mm = 40×10cm. FAUX par facteur ×10.
+ *   - Inversement, un produit 50×50 number mm (carte de visite ?) →
+ *     isLikelyCm=true → ×10 = 500×500mm. FAUX par facteur ×10.
+ *
+ * APRÈS : convention par TYPE strict de la raw value (cohérent toMm
+ * back-side dans pim-ingest P0.9). Pas de seuil numérique fragile.
+ *
+ * @returns width_mm + height_mm + source pour observability
+ * @throws si types incohérents (string + number mixte)
  */
-function isLikelyCm(width: number, height: number): boolean {
-  // Seuils : le plus petit format imprimable raisonnable en mm fait ~50mm
-  // (timbre ~30mm). Si width ET height sont sous 100, considere comme cm.
-  return width > 0 && height > 0 && width < 100 && height < 100;
+export function normalizeDimensions(
+  rawWidth: string | number,
+  rawHeight: string | number,
+): { width_mm: number; height_mm: number; source: 'string_cm' | 'number_mm' | 'suspect_low' } {
+  // Cas 1 : string + string → cm → ×10 systématique
+  if (typeof rawWidth === 'string' && typeof rawHeight === 'string') {
+    const wCm = parseFloat(rawWidth);
+    const hCm = parseFloat(rawHeight);
+    if (!Number.isFinite(wCm) || !Number.isFinite(hCm)) {
+      throw new Error(`normalizeDimensions: string non parsable (${rawWidth} / ${rawHeight})`);
+    }
+    return { width_mm: Math.round(wCm * 10), height_mm: Math.round(hCm * 10), source: 'string_cm' };
+  }
+
+  // Cas 2 : number + number → mm direct
+  if (typeof rawWidth === 'number' && typeof rawHeight === 'number') {
+    // Sentinel : <30mm = 3cm = plus petit format imprimable réaliste
+    // (timbre ~30mm). En deçà = bug data, log mais ne corrige pas auto.
+    if (rawWidth < 30 || rawHeight < 30) {
+      console.warn('[normalizeDimensions] valeurs suspectes < 30mm', { rawWidth, rawHeight });
+      return { width_mm: rawWidth, height_mm: rawHeight, source: 'suspect_low' };
+    }
+    return { width_mm: rawWidth, height_mm: rawHeight, source: 'number_mm' };
+  }
+
+  // Cas 3 : mixte → invalide (incohérence type indique bug amont)
+  throw new Error(`normalizeDimensions: types incohérents (${typeof rawWidth} / ${typeof rawHeight})`);
 }
 
 /**
@@ -355,11 +387,10 @@ export function extractClariprintConfigFromAtelierProduct(
   // Resolution format + dimensions (mm) en cascade :
   //  1. Label UI format reconnu (A2, A4, 85x55, ...) -> source de verite mm
   //     via FORMAT_DIMENSIONS. Gere "A2 (420 × 594 mm)" verbose LLM.
-  //  2. raw Clariprint string (LLM brut en CM) -> conversion cm->mm si
-  //     valeur < 100 (heuristique cf. isLikelyCm).
-  //  3. raw Clariprint number (deja mm).
-  //  4. dimensions: { width, height } nested cote UI (deja mm).
-  //  5. Synthese WxH brute en dernier recours.
+  //  2. raw Clariprint (string=cm, number=mm) -> normalizeDimensions
+  //     (S-FIX-LARGE-CM-FORMATS, convention P0.9 systématique).
+  //  3. dimensions: { width, height } nested cote UI (deja mm).
+  //  4. Synthese WxH brute en dernier recours.
   let width: number | undefined;
   let height: number | undefined;
   let format: string | undefined;
@@ -377,21 +408,21 @@ export function extractClariprintConfigFromAtelierProduct(
     }
   }
 
-  // (2-3) raw Clariprint (LLM) si dims pas encore resolues.
+  // (2) raw Clariprint si dims pas encore resolues, via normalizeDimensions
+  // qui applique systématiquement string=cm/number=mm (cohérent toMm back).
   if (width == null || height == null) {
-    if (typeof raw.width === "number" && typeof raw.height === "number") {
-      width = raw.width;
-      height = raw.height;
-    } else if (typeof raw.width === "string" && typeof raw.height === "string") {
-      let w = parseFloat(raw.width);
-      let h = parseFloat(raw.height);
-      if (Number.isFinite(w) && Number.isFinite(h)) {
-        if (isLikelyCm(w, h)) {
-          w = Math.round(w * 10);
-          h = Math.round(h * 10);
-        }
-        width = w;
-        height = h;
+    if (
+      (typeof raw.width === "string" || typeof raw.width === "number") &&
+      (typeof raw.height === "string" || typeof raw.height === "number")
+    ) {
+      try {
+        const norm = normalizeDimensions(raw.width, raw.height);
+        width = norm.width_mm;
+        height = norm.height_mm;
+      } catch (err) {
+        // Types incohérents (mixte string/number) ou string non parsable.
+        // On log et on tombe sur le fallback (4) dimensions UI nested.
+        console.warn('[extractClariprintConfigFromAtelierProduct] normalizeDimensions échec:', err);
       }
     }
   }

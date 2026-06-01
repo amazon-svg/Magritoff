@@ -2,13 +2,14 @@
  * Tests vitest pour les helpers ProductOverlay (Story S2.4, Epic 2).
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   extractInitialOptions,
   extractClariprintConfigFromAtelierProduct,
   buildClariprintPayload,
   parseFormatToWidthHeight,
   formatEuro,
+  normalizeDimensions,
 } from "../../../src/app/components/shop/ProductOverlay.helpers";
 import type { ShopProduct } from "../../../src/app/contexts/ShopsContext";
 
@@ -439,5 +440,83 @@ describe("formatEuro", () => {
     const formatted = formatEuro(1234.56, "en-US");
     // En-US format : "€1,234.56"
     expect(formatted).toContain("1,234.56");
+  });
+});
+
+// ─── S-FIX-LARGE-CM-FORMATS — normalizeDimensions (Sprint 8, 2026-06-01) ──
+
+describe('normalizeDimensions (S-FIX-LARGE-CM-FORMATS)', () => {
+  // String = cm → ×10 systématique
+
+  it('kakémono 400×100 cm (string) → 4000×1000 mm', () => {
+    const r = normalizeDimensions('400', '100');
+    expect(r.width_mm).toBe(4000);
+    expect(r.height_mm).toBe(1000);
+    expect(r.source).toBe('string_cm');
+  });
+
+  it('banderole 800×60 cm (string) → 8000×600 mm', () => {
+    const r = normalizeDimensions('800', '60');
+    expect(r.width_mm).toBe(8000);
+    expect(r.height_mm).toBe(600);
+    expect(r.source).toBe('string_cm');
+  });
+
+  it('panneau 1000×500 cm (string) → 10000×5000 mm', () => {
+    const r = normalizeDimensions('1000', '500');
+    expect(r.width_mm).toBe(10000);
+    expect(r.height_mm).toBe(5000);
+    expect(r.source).toBe('string_cm');
+  });
+
+  it('A2 42×59.4 cm (string décimal) → 420×594 mm', () => {
+    const r = normalizeDimensions('42', '59.4');
+    expect(r.width_mm).toBe(420);
+    expect(r.height_mm).toBe(594);
+    expect(r.source).toBe('string_cm');
+  });
+
+  // Number = mm → direct
+
+  it('kakémono 4000×1000 mm (number) → 4000×1000 mm direct', () => {
+    const r = normalizeDimensions(4000, 1000);
+    expect(r.width_mm).toBe(4000);
+    expect(r.height_mm).toBe(1000);
+    expect(r.source).toBe('number_mm');
+  });
+
+  it('carte visite 85×55 mm (number) → 85×55 mm direct', () => {
+    const r = normalizeDimensions(85, 55);
+    expect(r.width_mm).toBe(85);
+    expect(r.height_mm).toBe(55);
+    expect(r.source).toBe('number_mm');
+  });
+
+  it('flyer A4 210×297 mm (number) → 210×297 mm direct', () => {
+    const r = normalizeDimensions(210, 297);
+    expect(r.width_mm).toBe(210);
+    expect(r.height_mm).toBe(297);
+    expect(r.source).toBe('number_mm');
+  });
+
+  // Cas suspects
+
+  it('5×5 mm (number, < 30mm sentinel) → source suspect_low + warn', () => {
+    const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const r = normalizeDimensions(5, 5);
+    expect(r.source).toBe('suspect_low');
+    expect(consoleSpy).toHaveBeenCalled();
+    consoleSpy.mockRestore();
+  });
+
+  // Cas d'erreur
+
+  it('types mixtes (string + number) → throw error explicite', () => {
+    expect(() => normalizeDimensions('400', 100)).toThrow(/incohérents/);
+    expect(() => normalizeDimensions(400, '100')).toThrow(/incohérents/);
+  });
+
+  it('string non parsable → throw error explicite', () => {
+    expect(() => normalizeDimensions('abc', 'def')).toThrow(/non parsable/);
   });
 });
