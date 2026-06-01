@@ -27,10 +27,25 @@ interface SubTenantRow {
   created_at: string;
 }
 
+/**
+ * S-SUBTENANT-SCOPE (Sprint 8, 2026-06-01) : KPIs consolidés HQ.
+ * Retourné par RPC get_subtenant_kpis(parent_tenant_id).
+ */
+interface SubTenantKpiRow {
+  tenant_id: string;
+  tenant_name: string;
+  tenant_slug: string;
+  created_at: string;
+  member_count: number;
+  month_order_count: number;
+  month_ca_ht: number;
+}
+
 export function DashboardTenantSpaces() {
   const { currentTenant, currentRole, createSubTenant, isSuperAdmin } = useTenant();
 
   const [children, setChildren] = useState<SubTenantRow[]>([]);
+  const [kpis, setKpis] = useState<SubTenantKpiRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [name, setName] = useState('');
@@ -47,12 +62,25 @@ export function DashboardTenantSpaces() {
   const load = async () => {
     if (!currentTenant) return;
     setLoading(true);
+    // Liste des children (back-compat affichage tableau existant)
     const { data } = await supabase
       .from('tenants')
       .select('id, slug, name, created_at')
       .eq('parent_tenant_id', currentTenant.id)
       .order('created_at', { ascending: false });
     setChildren((data as SubTenantRow[]) || []);
+
+    // S-SUBTENANT-SCOPE : KPIs consolidés HQ via RPC get_subtenant_kpis.
+    // Visible uniquement si admin/owner du racine (UI auto-conditionnelle
+    // car la RPC retourne [] sinon, cohérent avec is_subtenant_member_*).
+    const { data: kpiData, error: kpiErr } = await supabase.rpc('get_subtenant_kpis', {
+      p_parent_tenant_id: currentTenant.id,
+    });
+    if (kpiErr) {
+      console.warn('[DashboardTenantSpaces] get_subtenant_kpis échec:', kpiErr.message);
+    } else {
+      setKpis((kpiData as SubTenantKpiRow[]) ?? []);
+    }
     setLoading(false);
   };
 
@@ -240,50 +268,73 @@ export function DashboardTenantSpaces() {
             )}
           </div>
         ) : (
-          children.map((c) => (
-            <div
-              key={c.id}
-              className="border border-line rounded-md bg-paper p-4 flex items-start gap-3"
-            >
-              <div className="w-8 h-8 rounded-md bg-bg border border-line grid place-items-center shrink-0">
-                <Building className="w-4 h-4 text-ink-muted" strokeWidth={1.5} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p
-                  className="text-ink truncate mb-0.5"
-                  style={{ fontSize: '14px', fontWeight: 500 }}
-                >
-                  {c.name}
-                </p>
-                <p
-                  className="font-mono text-ink-mute-2"
-                  style={{ fontSize: '11px', letterSpacing: '0.02em' }}
-                >
-                  /t/{c.slug}
-                </p>
-                <div className="mt-2 flex items-center gap-2">
-                  <Link
-                    to={`/t/${c.slug}`}
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded border border-line text-ink-2 hover:bg-bg"
-                    style={{ fontSize: '11.5px', fontWeight: 500 }}
+          children.map((c) => {
+            // S-SUBTENANT-SCOPE : match KPI row par tenant_id (peut être
+            // absent si la RPC n'a pas retourné le sous-tenant — fallback 0).
+            const kpi = kpis.find((k) => k.tenant_id === c.id);
+            const monthOrders = kpi ? Number(kpi.month_order_count) : 0;
+            const monthCa = kpi ? Number(kpi.month_ca_ht) : 0;
+            const formattedCa = monthCa.toLocaleString('fr-FR', {
+              style: 'currency',
+              currency: 'EUR',
+              maximumFractionDigits: 0,
+            });
+            return (
+              <div
+                key={c.id}
+                className="border border-line rounded-md bg-paper p-4 flex items-start gap-3"
+                data-testid="subtenant-card"
+                data-subtenant-id={c.id}
+              >
+                <div className="w-8 h-8 rounded-md bg-bg border border-line grid place-items-center shrink-0">
+                  <Building className="w-4 h-4 text-ink-muted" strokeWidth={1.5} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p
+                    className="text-ink truncate mb-0.5"
+                    style={{ fontSize: '14px', fontWeight: 500 }}
                   >
-                    <ExternalLink className="w-3 h-3" strokeWidth={1.5} />
-                    Ouvrir
-                  </Link>
-                  {canCreate && (
-                    <button
-                      onClick={() => remove(c.id, c.name)}
-                      className="inline-flex items-center gap-1 px-2 py-1 rounded text-err-fg hover:bg-err-bg"
+                    {c.name}
+                  </p>
+                  <p
+                    className="font-mono text-ink-mute-2"
+                    style={{ fontSize: '11px', letterSpacing: '0.02em' }}
+                  >
+                    /t/{c.slug}
+                  </p>
+                  {/* S-SUBTENANT-SCOPE Q4 MVP : KPIs consolidés du mois */}
+                  <div className="mt-2 flex items-center gap-3 text-ink-muted" style={{ fontSize: '11.5px' }}>
+                    <span title="Commandes du mois en cours">
+                      <strong className="text-ink">{monthOrders}</strong> cmd.
+                    </span>
+                    <span title="CA HT du mois en cours">
+                      <strong className="text-ink">{formattedCa}</strong>
+                    </span>
+                  </div>
+                  <div className="mt-2 flex items-center gap-2">
+                    <Link
+                      to={`/t/${c.slug}`}
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded border border-line text-ink-2 hover:bg-bg"
                       style={{ fontSize: '11.5px', fontWeight: 500 }}
                     >
-                      <Trash2 className="w-3 h-3" strokeWidth={1.5} />
-                      Supprimer
-                    </button>
-                  )}
+                      <ExternalLink className="w-3 h-3" strokeWidth={1.5} />
+                      Ouvrir
+                    </Link>
+                    {canCreate && (
+                      <button
+                        onClick={() => remove(c.id, c.name)}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded text-err-fg hover:bg-err-bg"
+                        style={{ fontSize: '11.5px', fontWeight: 500 }}
+                      >
+                        <Trash2 className="w-3 h-3" strokeWidth={1.5} />
+                        Supprimer
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>
