@@ -48,6 +48,14 @@ export interface MockupImageProps {
    * resolveMockupTemplate(product.config.kind).
    */
   template?: string;
+  /**
+   * S-PIM-VISUELS-5 : URL du fond shop résolu via resolveShopBackground(shopId, gammeSlug).
+   * Si fourni, le composant wrap le PNG produit (transparent) dans un div avec
+   * backgroundImage CSS — composition LAYERED (vs bake-in PNG, cf.
+   * shopBackground.helpers commentaire détaillé). Optionnel : si absent ou null,
+   * rendu actuel inchangé (rétro-compat).
+   */
+  backgroundUrl?: string | null;
 }
 
 type ImageState = "loading" | "loaded" | "fetching-edge" | "error";
@@ -141,11 +149,26 @@ export function MockupImage(props: MockupImageProps): JSX.Element {
   // ─── Render skeleton OU image ────────────────────────────────────────────
   const showSkeleton = state === "loading" || state === "fetching-edge";
 
+  // S-PIM-VISUELS-5 : composition LAYERED via CSS si backgroundUrl fourni.
+  // Le PNG produit (transparent) s'affiche par-dessus le fond shop résolu.
+  const wrapperStyle: React.CSSProperties = {
+    position: "relative",
+    ...(props.backgroundUrl
+      ? {
+          backgroundImage: `url("${props.backgroundUrl}")`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+        }
+      : {}),
+  };
+
   return (
     <div
       data-testid={TEST_IDS.mockup.productImage}
+      data-has-bg={props.backgroundUrl ? "true" : "false"}
       className={props.className}
-      style={{ position: "relative" }}
+      style={wrapperStyle}
     >
       {showSkeleton && (
         <div
