@@ -146,7 +146,8 @@ serve(async (req) => {
 
     const supaUrl = Deno.env.get('SUPABASE_URL');
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    if (!supaUrl || !serviceKey) {
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
+    if (!supaUrl || !serviceKey || !anonKey) {
       return new Response(
         JSON.stringify({ ok: false, error: 'Credentials Supabase manquants' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
@@ -155,6 +156,118 @@ serve(async (req) => {
     const supa = createClient(supaUrl, serviceKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
+
+    // ─── S9 audit sécurité (Sprint 9, 2026-06-01) : durcissements R5-bis P1 ───
+    // Avant : edge faisait confiance au caller pour invited_by + tenant_id.
+    // Un user authentifié forgeant invited_by/tenant_id pouvait inviter sur
+    // n'importe quel tenant. Durcissements en place :
+    //   1. Auth check : extraire JWT caller, vérifier que body.invited_by ==
+    //      caller.id. Empêche forgery du champ invited_by.
+    //   2. Capability check : vérifier que caller a 'can_invite' sur le tenant
+    //      cible (via user_has_capability Phase A).
+    //   3. Validation role_definition_ids ⊂ tenant : éviter pollution avec
+    //      des rôles d'un autre tenant.
+    //   4. Idempotence : refuser si invitation pending non-acceptée non-
+    //      expirée existe déjà pour (email, tenant_id).
+    const authHeader = req.headers.get('Authorization') ?? '';
+    if (!authHeader.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ ok: false, error: 'Authorization Bearer required', stage: 'auth' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+    const supaUser = createClient(supaUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: callerData, error: callerErr } = await supaUser.auth.getUser();
+    if (callerErr || !callerData?.user) {
+      return new Response(
+        JSON.stringify({ ok: false, error: 'Invalid or expired JWT', stage: 'auth' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+    const callerId = callerData.user.id;
+
+    if (callerId !== body.invited_by) {
+      return new Response(
+        JSON.stringify({
+          ok: false,
+          error: 'invited_by_mismatch: caller JWT id does not match body.invited_by',
+          stage: 'auth',
+        }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
+    // Check capability can_invite sur le tenant cible (via Phase A)
+    const { data: hasInvite, error: capErr } = await supaUser.rpc('user_has_capability', {
+      p_tenant_id: body.tenant_id,
+      p_capability: 'can_invite',
+    });
+    if (capErr) {
+      return new Response(
+        JSON.stringify({ ok: false, error: `Capability check failed: ${capErr.message}`, stage: 'auth' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+    if (hasInvite !== true) {
+      return new Response(
+        JSON.stringify({
+          ok: false,
+          error: 'permission_denied: caller lacks can_invite capability on tenant',
+          stage: 'auth',
+        }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
+    // Validation role_definition_ids ⊂ tenant cible (anti-pollution)
+    if (body.role_definition_ids.length > 0) {
+      const { data: validRoles, error: rolesErr } = await supa
+        .from('tenant_role_definitions')
+        .select('id')
+        .eq('tenant_id', body.tenant_id)
+        .in('id', body.role_definition_ids);
+      if (rolesErr) {
+        return new Response(
+          JSON.stringify({ ok: false, error: `Roles check failed: ${rolesErr.message}`, stage: 'auth' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+      if ((validRoles?.length ?? 0) !== body.role_definition_ids.length) {
+        return new Response(
+          JSON.stringify({
+            ok: false,
+            error: 'role_mismatch_tenant: some role_definition_ids do not belong to target tenant',
+            stage: 'auth',
+          }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+    }
+
+    // Idempotence : pas de doublon pending non-expiré pour (email, tenant_id)
+    const emailLower = body.email.toLowerCase().trim();
+    const { data: existingPending } = await supa
+      .from('tenant_invitations')
+      .select('id, token, expires_at')
+      .eq('tenant_id', body.tenant_id)
+      .eq('email', emailLower)
+      .is('accepted_at', null)
+      .gt('expires_at', new Date().toISOString())
+      .maybeSingle();
+    if (existingPending) {
+      return new Response(
+        JSON.stringify({
+          ok: false,
+          error: 'duplicate_pending: une invitation pending existe deja pour ce email/tenant',
+          existing_invitation_id: existingPending.id,
+          stage: 'idempotency',
+        }),
+        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
 
     // Etape 1 : insert tenant_invitations (avec token genere)
     const token =
