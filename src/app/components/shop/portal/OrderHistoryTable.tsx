@@ -24,7 +24,8 @@
  */
 
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, Ban, Check, ChevronDown, Loader2, Package, RotateCcw, RotateCw } from 'lucide-react';
+import { ArrowDown, ArrowUp, Ban, Check, ChevronDown, History, Loader2, Package, RotateCcw, RotateCw } from 'lucide-react';
+import { OrderAuditTrailModal } from './OrderAuditTrailModal';
 import type { OrderUI } from './PortalOrders.helpers';
 import { getStatusInfo, type OrderStatus } from '../../../lib/orderStatus';
 import { TEST_IDS } from '../../../lib/testIds';
@@ -335,8 +336,16 @@ export function OrderHistoryTable({
   const canValidate = (o: OrderUI) =>
     !!onValidateOrder && o.source === 'v1_1' && o.status === 'draft';
 
-  // Affiche la colonne Actions si au moins un callback est fourni.
-  const showActionsColumn = !!onRenewOrder || !!onCancelOrder || !!onValidateOrder;
+  // S3.5 wire-up (2026-06-01) : bouton Historique disponible sur toutes
+  // les commandes v1.1 (cohort post-bascule ADR-ORDERS-1). Ouvre la modale
+  // OrderAuditTrailModal qui UNION les events status + roles.
+  const canShowHistory = (o: OrderUI) => o.source === 'v1_1';
+  const [orderForHistory, setOrderForHistory] = useState<OrderUI | null>(null);
+
+  // Affiche la colonne Actions si au moins un callback est fourni OU si
+  // au moins une commande v1.1 (pour le bouton Historique).
+  const hasAnyV11 = orders.some((o) => o.source === 'v1_1');
+  const showActionsColumn = !!onRenewOrder || !!onCancelOrder || !!onValidateOrder || hasAnyV11;
   const [state, setState] = useState<TableState>(() => loadState(persistKey));
 
   useEffect(() => {
@@ -974,6 +983,21 @@ export function OrderHistoryTable({
                               Annuler
                             </button>
                           )}
+                          {canShowHistory(o) && (
+                            <button
+                              type="button"
+                              onClick={() => setOrderForHistory(o)}
+                              data-testid="order-history-btn"
+                              data-order-id={o.id}
+                              aria-label={`Voir l'historique de la commande ${o.id}`}
+                              title="Voir l'historique des transitions et assignations de rôles"
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded border border-line bg-paper text-ink-muted hover:text-ink hover:border-ink-mute-2 transition-colors"
+                              style={{ fontSize: '11.5px' }}
+                            >
+                              <History className="w-3 h-3" strokeWidth={2} aria-hidden="true" />
+                              Historique
+                            </button>
+                          )}
                         </div>
                       </td>
                     )}
@@ -984,6 +1008,15 @@ export function OrderHistoryTable({
           </table>
         </div>
       )}
+
+      {/* S3.5 wire-up : modale historique audit trail (UNION status + role events) */}
+      <OrderAuditTrailModal
+        orderId={orderForHistory?.id ?? null}
+        orderShortId={
+          orderForHistory?.id ? orderForHistory.id.replace(/-/g, '').slice(0, 8).toUpperCase() : undefined
+        }
+        onClose={() => setOrderForHistory(null)}
+      />
     </div>
   );
 }

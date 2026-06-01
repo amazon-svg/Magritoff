@@ -26,7 +26,7 @@ import type { Shop, ShopProduct } from "../../contexts/ShopsContext";
 import { TEST_IDS } from "../../lib/testIds";
 import { ENABLE_OVERLAY_LIVE_RECALC } from "../../lib/featureFlags";
 import { Sheet, SheetContent, SheetTitle } from "../ui/sheet";
-import { MockupImage } from "../mockup/MockupImage";
+import { ProductMultiView } from "../mockup/ProductMultiView";
 import {
   ClariprintError,
   ClariprintHttpAdapter,
@@ -279,12 +279,15 @@ export function ProductOverlay({
 
             {/* Body scrollable */}
             <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-4">
-              {/* Mini mockup */}
+              {/* Mini mockup avec toggle Recto/Verso (S-PRODUCT-VIEWS-MULTI V7).
+                  Sur la vue detail produit, on expose ProductMultiView qui
+                  wrap MockupImage avec un toggle. Sur la grille catalogue
+                  (ShopProductCard), on garde MockupImage simple pour la perf. */}
               <div
                 className="aspect-[4/3] overflow-hidden rounded-lg"
                 style={{ background: "#F5F5F5" }}
               >
-                <MockupImage {...mockupProps} className="w-full h-full" />
+                <ProductMultiView {...mockupProps} className="w-full h-full" />
               </div>
 
               {/* Bloc options */}
