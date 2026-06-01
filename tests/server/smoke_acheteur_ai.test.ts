@@ -146,29 +146,15 @@ describe.skipIf(SKIP_REASON !== null)('Smoke E2E acheteur AI (DoD #3)', () => {
       .single();
     if (spErr || !shopProduct) throw new Error(`shop_products insert: ${spErr?.message}`);
 
-    // Role Acheteur preset (seede manuellement, comme dans invitation_flow)
+    // Récupère le rôle Acheteur auto-seedé par le trigger
+    // tenants_seed_catalogs (migration 20260601000200).
     const { data: roleAcheteur, error: rErr } = await admin
       .from('tenant_role_definitions')
-      .insert({
-        tenant_id: tenant.id,
-        name: 'Acheteur',
-        description: 'Passe devis et commandes sur boutiques autorisees',
-        capabilities: {
-          can_quote: true,
-          can_order: true,
-          can_invite: false,
-          can_validate: false,
-          can_cancel: false,
-          can_modify: false,
-          can_export: false,
-          can_manage_catalog: false,
-          can_manage_roles: false,
-        },
-        ordering_index: 30,
-      })
       .select('id')
+      .eq('tenant_id', tenant.id)
+      .eq('name', 'Acheteur')
       .single();
-    if (rErr || !roleAcheteur) throw new Error(`role acheteur insert: ${rErr?.message}`);
+    if (rErr || !roleAcheteur) throw new Error(`role Acheteur introuvable: ${rErr?.message}`);
 
     // Membership acheteur shop_only + role assignment
     await admin.from('tenant_members').insert({

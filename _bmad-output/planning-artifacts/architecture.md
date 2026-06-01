@@ -532,6 +532,105 @@ export const featureFlags = {
 
 **Mémoire BMAD** : story doc `_bmad-output/implementation-artifacts/story-S-LLM-WRAPPER-ROBUSTNESS.md` (mise à jour 23/05 avec Implementation Notes).
 
+### 4.12 Rôles workflow par commande — Couche séparée de `tenant_members.permissions`
+
+> **ADR-ORDER-ROLES-1** — Décision Arnaud 2026-05-21 lors du cadrage Phase 0.4 (Q4 + Q6), implémentée Sprint 5 Phase A (couche globale tenant) et Sprint 6 S-ORDER-ROLES-1 (couche par-commande, 2026-06-01).
+
+**Contexte** : v1.0 ne modélisait pas les rôles "dans la commande" — l'acheteur, le validateur N+1, le producteur étaient des concepts implicites portés par `tenant_members.role` (`owner | admin | member | partner`) + `tenant_members.permissions` (`can_quote`, `can_order`, `can_invite`). L'extension B2B v1.1 (S-N1-APPROVAL, S3.5 audit) requiert :
+- Validateurs N modulaires créés à la demande par tenant (Q1).
+- Cumul de rôles sur la même commande (Q2).
+- Rôles paramétrables au niveau **boutique OU tenant** (Q3 multi-niveau).
+- Audit transitions de rôles assignés/révoqués (Q8).
+- `notify_policy` par rôle (`chain_next | all_roles | none`, Q9) pour edge `order-workflow-step` (S-N1-APPROVAL).
+- 4 tabs UI filtrés par capability sur la commande (Q10).
+
+**Décision** : la couche rôles workflow est **complètement séparée** de `tenant_members.permissions`. **5 nouvelles tables** posées sans toucher au cœur authz tenant existant :
+
+```
+tenant_members  (existant, ne pas étendre)
+                         ↓ couche structurelle (appartenance)
+
+tenant_role_definitions    [Phase A 25/05 + ALTER §4.12 01/06]
+   catalog des rôles paramétrés par tenant
+   id, tenant_id, name, capabilities jsonb {can_validate, can_cancel, can_modify,
+     can_export, can_quote, can_order, can_invite, can_manage_catalog,
+     can_manage_roles},
+   notify_policy ('chain_next' | 'all_roles' | 'none'),
+   scope ('tenant' | 'shop'), scope_shop_id uuid nullable,
+   ordering_index int, archived_at
+
+tenant_role_assignments    [Phase A 25/05]
+   qui occupe quel rôle (global tenant, indépendant commande)
+   id, role_definition_id, user_id, assigned_at, assigned_by, revoked_at
+
+tenant_order_roles         [S-ORDER-ROLES-1 01/06]
+   qui occupe quel rôle SUR UNE COMMANDE
+   id, order_id, role_definition_id, user_id, assigned_at, assigned_by, revoked_at
+   UNIQUE (order_id, role_definition_id, user_id)
+   index partiel sur user_id WHERE revoked_at IS NULL
+
+tenant_order_role_events   [S-ORDER-ROLES-1 01/06]
+   audit trail transitions de rôles
+   id, order_id, role_definition_id, user_id, event_type
+     ('assigned' | 'revoked' | 'capability_updated'),
+   actor_user_id, payload jsonb, occurred_at
+
+tenant_order_status_definitions  [S-ORDER-ROLES-1 01/06]
+   enum statuts extensible par tenant (miroir éditable + labels custom UI)
+   id, tenant_id, code, label, color, ordering_index, is_terminal, archived_at
+   UNIQUE (tenant_id, code)
+```
+
+**Trigger `tenants_seed_catalogs`** (migration `20260601000200`) : AFTER INSERT ON tenants, seed automatique des 5 role_definitions presets B2B (Owner/Admin/Acheteur/Validateur/Producteur) + 7 status_definitions canoniques (draft/validated/in_production/shipped/delivered/invoiced/cancelled). Garantit qu'aucun tenant ne démarre avec un catalog vide.
+
+**Helpers SQL canoniques** (à consommer dans S-ORDER-ROLES-2 RPC + S-ORDER-ROLES-3 UI) :
+- `public.user_has_order_role(p_order_id uuid, p_capability text) RETURNS boolean` — STABLE SECURITY INVOKER. True ssi l'user authentifié a un assignment non-révoqué sur la commande avec `capabilities ->> capability = 'true'`.
+- `public.user_can_validate_order(p_order_id uuid) RETURNS boolean` — alias de `user_has_order_role(p_order_id, 'can_validate')`.
+
+**RLS** :
+- `tenant_role_definitions` + `tenant_role_assignments` (Phase A) : SELECT membres tenant. Write via `can_manage_roles`.
+- `tenant_order_status_definitions` : SELECT membres tenant. Write via `can_manage_roles`.
+- `tenant_order_roles` : SELECT si user_id = auth.uid() OR tenant_id ∈ current_user_tenant_ids(). **Write directe BLOQUÉE pour tous sauf super_admin** — toute écriture passe par RPC SECURITY DEFINER (S-ORDER-ROLES-2) pour garantir l'audit dans `tenant_order_role_events`.
+- `tenant_order_role_events` : SELECT membres tenant. Write bloquée hors super_admin (les RPC SECURITY DEFINER écrivent l'audit).
+
+**4 raisons décisives — pourquoi couche séparée et pas extension `tenant_members.permissions`** :
+1. **Évolution séparée** — extensibilité workflow sans toucher au cœur authz tenant existant.
+2. **Cardinalité** — `tenant_members.permissions` = 1 ligne par user. La couche rôles = N rôles catalog par tenant (Validateur 1, Validateur DAF, etc.). C'est un catalog, pas un attribut user.
+3. **Audit** — les transitions doivent laisser une trace (`tenant_order_role_events`). En JSONB sur `tenant_members`, l'audit devient illisible.
+4. **RLS lisibilité** — `tenant_orders_select` est déjà longue. La complexifier avec parsing JSONB = anti-pattern (cf. §4.10 SQL imbuvable).
+
+**4 raisons décisives — pourquoi table dédiée `tenant_order_roles` et pas JSONB sur `tenant_orders`** :
+1. **Audit et traçabilité** (Q8 = oui) — soft delete via `revoked_at`, audit natif via `tenant_order_role_events`. JSONB perd la temporalité.
+2. **Scalabilité requêtes** — "toutes les commandes que je dois valider" = `SELECT order_id FROM tenant_order_roles WHERE user_id = auth.uid() AND revoked_at IS NULL` — index simple. JSONB = GIN possible mais fragile au refactoring.
+3. **RLS** — extension policy SELECT triviale en table dédiée. JSONB = parsing JSON dans la policy = SQL imbuvable + perf dégradée.
+4. **Cumul de rôles** (Q2 = oui) — JSONB `{ "passer": "uid_a", "validator_1": "uid_a" }` est limite (même UID, 2 rôles). Table dédiée = 2 rows, naturel en relationnel.
+
+**Alternative écartée — JSONB sur `tenant_members.permissions` ou `tenant_orders.workflow_state`** : la dette est garantie ("on commence en JSONB pour aller vite, on migrera plus tard" = anti-pattern formellement banni). Le schéma initial doit être correct.
+
+**Audit prod baseline 01/06** : 11 commandes en prod, statuts utilisés `{draft, cancelled, validated}`. Pas d'inconnu. Seed canonique des 7 codes enum existant sans risque (DoD #4 audit prod avant heuristique).
+
+**Pattern à respecter** :
+- ✅ Tout nouveau use case "rôle sur une commande" passe par les 5 tables ci-dessus (jamais extension `tenant_members`).
+- ✅ Toute écriture sur `tenant_order_roles` ou `tenant_order_role_events` passe par RPC SECURITY DEFINER (Sprint 6 S-ORDER-ROLES-2) — la policy bloque l'écriture directe.
+- ✅ Tout consommateur côté UI/RPC utilise `user_has_order_role(order_id, cap)` ou `user_can_validate_order(order_id)` (jamais réimplémentation locale).
+- ✅ Tout nouveau tenant créé reçoit automatiquement son catalog (5 rôles + 7 statuts) via le trigger `tenants_seed_catalogs`.
+- ❌ Ne JAMAIS étendre `tenant_members.permissions` avec des capabilities workflow (banni définitivement).
+- ❌ Ne JAMAIS écrire directement dans `tenant_order_roles` côté client (la policy bloque). Toujours via RPC SECURITY DEFINER pour garantir l'audit.
+
+**Bénéfice secondaire** : cette couche métier devient **réutilisable** pour d'autres workflows futurs (validation devis, validation chargement Canva, validation publication boutique, etc.) sans toucher au cœur authz. Le pattern `role_definitions → assignments → order_roles → role_events` est généralisable à n'importe quelle entité workflow paramétrable.
+
+**Conséquence sprint et long terme** :
+- **Sprint 5 (Phase A 25/05)** : posé `tenant_role_definitions` + `tenant_role_assignments` + 5 presets B2B + `user_has_capability` + propagation à l'acceptation invitation (modal Inviter role-driven).
+- **Sprint 6 S-ORDER-ROLES-1 (01/06)** : posé les 3 tables par-commande + helpers `user_has_order_role` + `user_can_validate_order` + RLS + trigger seed nouveau tenant.
+- **Sprint 6 S-ORDER-ROLES-2** : RPC `assign_tenant_order_role` / `revoke_tenant_order_role` / `update_tenant_order_role_capabilities` + triggers audit + matrice transitions exhaustive basée sur `tenant_order_status_definitions`.
+- **Sprint 6 S-ORDER-ROLES-3** : UI tabs PortalOrders + hook `useOrderRoles` + UI admin catalog rôles.
+- **Sprint 6 S-N1-APPROVAL** : edge function `order-workflow-step` qui mappe transition statut → `notify_policy` du rôle actif → notifications Resend.
+- **Long terme** : la migration `tenant_orders.status` enum→text (pour vrais statuts custom par tenant) est tracée pour Sprint 8+ (audit dette).
+
+**Tests** : `tests/rls/order_roles_isolation.test.ts` (13 cas, RLS cross-tenant strict + helpers + bloquages écriture directe). 0 régression sur les 416 cas baseline.
+
+**Mémoire BMAD** : story doc `_bmad-output/implementation-artifacts/story-S-ORDER-ROLES-1-schema-db-rls.md` (overview Q1-Q10 dans `story-S-ORDER-ROLES-roles-commande.md`).
+
 ---
 
 ## Step 5 — Implementation Patterns & Consistency Rules

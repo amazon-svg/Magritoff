@@ -101,30 +101,15 @@ describe.skipIf(SKIP_REASON !== null)('Flux invitation E2E (DB layer)', () => {
     });
     if (memErr) throw new Error(`tenant_member owner: ${memErr.message}`);
 
-    // Seed le role Acheteur sur le tenant test (la migration seed sur les
-    // tenants existants au moment de son apply, pas sur new tenants).
+    // Récupère le rôle Acheteur auto-seedé par le trigger
+    // tenants_seed_catalogs (migration 20260601000200).
     const { data: roleAcheteur, error: rErr } = await admin
       .from('tenant_role_definitions')
-      .insert({
-        tenant_id: tenant.id,
-        name: 'Acheteur',
-        description: 'Passe des devis et commandes sur les boutiques autorisees',
-        capabilities: {
-          can_quote: true,
-          can_order: true,
-          can_invite: false,
-          can_validate: false,
-          can_cancel: false,
-          can_modify: false,
-          can_export: false,
-          can_manage_catalog: false,
-          can_manage_roles: false,
-        },
-        ordering_index: 30,
-      })
       .select('id')
+      .eq('tenant_id', tenant.id)
+      .eq('name', 'Acheteur')
       .single();
-    if (rErr || !roleAcheteur) throw new Error(`role insert: ${rErr?.message}`);
+    if (rErr || !roleAcheteur) throw new Error(`role Acheteur introuvable: ${rErr?.message}`);
 
     const anonOwner = createClient(url, anonKey, {
       auth: { persistSession: false, autoRefreshToken: false },
