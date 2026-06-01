@@ -2,7 +2,89 @@
 
 > Document de reprise pour démarrer une nouvelle session de Claude code sur le projet sans recharger tout l'historique. À tenir à jour à chaque fin de sprint.
 >
-> **Dernière mise à jour : 2026-06-01 — Sprint 5 "Orderbook & filet LLM" CLÔTURÉ. Voir section 13 ci-dessous. Prochain pas = Sprint 6 (Rôles & validation, allégé par les anticipations Sprint 5).**
+> **Dernière mise à jour : 2026-06-01 (autonomous run) — Sprint 5 CLÔTURÉ + Sprint 6 LIVRÉ (backend complet) + Sprint 7 LIVRÉ (visuels boutique complet). 9 commits locaux en attente de push beta/v5. Voir section 14 ci-dessous.**
+
+## 14. Session autonome 2026-06-01 — Sprint 6 + Sprint 7 livrés en local
+
+Arnaud absent quelques temps. Auto-validation totale + commits locaux uniquement. Le push final reste à valider à son retour.
+
+### Tests globaux
+
+- **511 vitest verts** (+95 vs baseline Sprint 5 clôture 416 : 13 RLS order_roles + 14 RPC + 25 hook + 13 audit trail + 6 workflow + 9 visuals + 4 upload + 4 resolver + 7 V7 helpers)
+- **16 Deno verts** (mockup-generator + renderer + claude-proxy + send-order-notification + anthropicClient)
+- **0 régression**
+
+### Sprint 6 — Rôles workflow + validation (5 stories livrées)
+
+| Commit | Story | Livré |
+|---|---|---|
+| `1f85e04` | **S-ORDER-ROLES-1** schéma DB | 3 tables par-commande (`tenant_order_roles`, `tenant_order_role_events`, `tenant_order_status_definitions`) + ALTER `tenant_role_definitions` (notify_policy/scope/scope_shop_id) + helpers SQL `user_has_order_role` / `user_can_validate_order` + trigger `tenants_seed_catalogs` AFTER INSERT + ADR §4.12 |
+| `59308d4` | **S-ORDER-ROLES-2** RPC + audit auto | Table `tenant_order_status_transitions` (matrice extensible) + 4 RPC SECURITY DEFINER : `assign_tenant_order_role`, `revoke_tenant_order_role`, `update_tenant_order_role_capabilities` (audit rétroactif), `transition_tenant_order_status` (matrice). Triggers défensifs AC6 reportés Sprint 9. |
+| `a8114ee` | **S-ORDER-ROLES-3** hook front | `useOrderRoles(orderId, userId)` + helpers purs `mergeCapabilities`, `canDoAction`, `isTerminalStatus`. **Refonte UI PortalOrders tabs filtrés + page admin catalog tracée comme story de suivi S-ORDER-ROLES-3-UI** (nécessite Sally UX wireframes DoD #5). |
+| `0dc910b` | **S-N1-APPROVAL** workflow N+1 | Edge function `order-workflow-step` (déployée prod B5) qui notifie Resend selon `notify_policy` (chain_next / all_roles / none). Helper fire-and-forget wire dans PortalOrders cancel + DashboardOrders cancel/validate. |
+| `6b886ad` | **S3.5 audit trail UI** | RPC `get_order_audit_trail` (UNION status_events + role_events DESC) + helpers React `formatAuditEventTitle/Description/Timestamp` + composant `<OrderAuditTrailModal>` Dialog Radix prêt à wirer. |
+
+### Sprint 7 — Visuels boutique (7 stories livrées, ordre 22/05)
+
+| Commit | Story | Livré |
+|---|---|---|
+| `5e13440` | **V1 + V2 + V3 + V5** foundation + composition layered | Catalog `magrit_background_library` (10 fonds Unsplash B2B print curatés) + tables `shop_visual_preferences` + `shop_gamme_visual_preferences` + helper SQL `resolve_shop_background` (cascade gamme→shop→default) + bucket Storage `shop_backgrounds` (5MB, MIME image/jpeg|png|webp) + helper `user_can_manage_shop_assets` pour storage policy + helper React `resolveShopBackground` + MockupImage extension `backgroundUrl` (composition LAYERED CSS, **PAS de bake-in PNG** — décision MVP plus performante et plus simple). |
+| `9976b6c` | **V4** UI admin ShopVisualSettings | Composant React standalone : fond global (preview + library grid + upload custom + color picker) + overrides par gamme (collapsible, par row). Wire dans `DashboardShopEditor` juste avant Export catalogue. testIds : `shop-visual-settings`, `shop-bg-preview`, `shop-bg-library-{id}`, `gamme-bg-select-{slug}`. |
+| `d20e6f5` | **V6** upgrade 5 templates photo-réalistes | Helpers SVG partagés `photoRealisticDefs` (double shadow + highlight gradient + paper texture pattern) + `photoRealisticProductRect`. Application uniforme sur flyer, carteVisite, brochure, etiquette, kakemono. Décision Q5 upgrade in-place (pas de S4.2bis). Snapshots SVG régénérés. Edge mockup-generator redéployé prod. |
+| `ac5f210` | **V7** S-PRODUCT-VIEWS-MULTI 2D recto/verso | `ShopTheming.view?: 'front' \| 'back'` + edge param `view` (default front retro-compat) + cache key suffixe `__back` cohabitation + templates flyer + carteVisite avec layout back différencié (les 3 autres rendent identique, cas dégradé acceptable MVP) + composant `<ProductMultiView>` toggle Recto/Verso. Story future `S-PRODUCT-VIEWS-3D-PACKAGING` tracée V2+. |
+
+### Migrations Supabase appliquées prod B5
+
+| Migration | Contenu |
+|---|---|
+| `20260601000100` | S-ORDER-ROLES-1 schéma (3 tables + helpers + RLS) |
+| `20260601000200` | Trigger `tenants_seed_catalogs` (5 rôles presets + 7 statuts canoniques auto pour new tenants) |
+| `20260601000300` | S-ORDER-ROLES-2 RPC + matrice transitions (8 transitions canoniques v1.1) |
+| `20260601000400` | S3.5 RPC `get_order_audit_trail` (initial) |
+| `20260601000500` | S3.5 fix cast `varchar → text` (erreur 42804) |
+| `20260601000600` | S7 V1 + V3 foundation visuels (library 10 fonds + shop/gamme prefs + resolver) |
+| `20260601000700` | S7 V2 bucket `shop_backgrounds` + policies storage |
+| `20260601000800` | S7 V2 helper `user_can_manage_shop_assets` SECURITY DEFINER (fix policy storage) |
+
+### Edge functions déployées prod B5
+
+- `order-workflow-step` (nouvelle, S-N1-APPROVAL)
+- `mockup-generator` redéployé 2x (templates V6 + param view V7)
+
+### Décisions importantes prises pendant l'autonomie
+
+1. **Triggers défensifs AC6** (S-ORDER-ROLES-2) → reportés Sprint 9 audit sécurité (RLS write_admin super_admin only déjà bloque l'écriture directe, double couche = belt-and-suspenders, hors MVP).
+2. **Refonte UI PortalOrders tabs filtrés** (AC3-AC5 spec S-ORDER-ROLES-3) → tracée comme story de suivi `S-ORDER-ROLES-3-UI` séparable. Couche métier + hook front complets. Refonte UI nécessite Sally UX wireframes (DoD #5) → décision Arnaud à formaliser.
+3. **Composition layered CSS vs bake-in PNG** (S-PIM-VISUELS-5) → décision MVP layered. PNG produit reste transparent shape, le background est appliqué via `backgroundImage` CSS dans le wrapper React. Avantages : PNG plus petit (~30 KB vs 200 KB), pas de fetch+base64 dans l'edge, changement fond instantané, cache PNG inchangé.
+4. **Décision Q6 zone d'impression transparente** (S-PIM-VISUELS-6) → **NON appliquée MVP**. Maintien `fill="url(#paperTexture)"` (~ blanc avec grain subtil) pour usage standalone PNG (sans bg shop) dans certains contextes (DashboardOrders, exports CSV). Cohabitation layered V5 reste valide.
+5. **Snapshot test pattern** (Deno mockup) → suppression manuelle des `.snapshot.svg` puis re-run test qui re-crée. Pattern documenté pour futurs upgrades templates.
+6. **Anti-pattern Supabase JS batch insert** (lesson tirée Sprint 6) → ne JAMAIS mélanger rows avec/sans une colonne dans le même batch insert si la colonne a un DEFAULT SQL ; le SDK aligne et passe null explicite qui viole NOT NULL. Documenté en commentaire test `order_roles_rpc.test.ts`.
+
+### Stories de suivi tracées (post-push, hors MVP)
+
+- **S-ORDER-ROLES-3-UI** : refonte PortalOrders 4 tabs filtrés (Mes commandes / À valider / À approuver / À produire) + page admin catalog rôles `/t/:slug/admin/order-roles` + bouton Historique sur OrderHistoryTable wire vers `<OrderAuditTrailModal>`. Sally UX wireframes préalable obligatoire.
+- **S-PRODUCT-VIEWS-INTEGRATION** : remplacer `MockupImage` par `<ProductMultiView>` dans ProductCard / ProductOverlay user-facing. Décision Arnaud sur la place dans l'UI requise.
+- **S-PRODUCT-VIEWS-3D-PACKAGING** (V2+) : tracée pour quand le premier produit packaging entrera dans le catalogue.
+- **Phase B users** : refacto 15 fichiers `useClients` + cleanup legacy InviteForm/EditPermissionsModal + migration data permissions→rôles + DROP table `clients`. ~2j, Sprint 8 ou 9.
+
+### Statut push
+
+**9 commits locaux** sur `beta/v5` en attente du go d'Arnaud :
+```
+ac5f210 feat(v5): S7 V7 S-PRODUCT-VIEWS-MULTI 2D recto/verso
+d20e6f5 feat(v5): S7 V6 upgrade 5 templates SVG photo-realistes
+9976b6c feat(v5): S7 V4 UI admin ShopVisualSettings
+5e13440 feat(v5): S7 V1 + V2 + V3 + V5 visuels boutique - foundation layered composition
+6b886ad feat(v5): S3.5 audit trail UI
+0dc910b feat(v5): S-N1-APPROVAL edge order-workflow-step
+a8114ee feat(v5): S-ORDER-ROLES-3 hook useOrderRoles
+59308d4 feat(v5): S-ORDER-ROLES-2 RPC transitions + matrice extensible
+1f85e04 feat(v5): S-ORDER-ROLES-1 schema DB par-commande + helpers + ADR 4.12
+```
+
+Migrations DB et edge functions déjà appliquées prod B5. Le push GitHub est la dernière étape pour synchroniser le repo distant avec ce qui tourne en prod.
+
+---
 
 ## 13. Sprint 5 "Orderbook & filet LLM" — CLÔTURÉ 2026-06-01
 
