@@ -2,11 +2,11 @@
 
 > Document de reprise pour démarrer une nouvelle session de Claude code sur le projet sans recharger tout l'historique. À tenir à jour à chaque fin de sprint.
 >
-> **Dernière mise à jour : 2026-05-27 — HEAD `7a04046` (origin/beta/v5) — Sprint 5 "Orderbook & filet LLM" en cours. Voir section 13 ci-dessous pour l'état détaillé.**
+> **Dernière mise à jour : 2026-06-01 — Sprint 5 "Orderbook & filet LLM" CLÔTURÉ. Voir section 13 ci-dessous. Prochain pas = Sprint 6 (Rôles & validation, allégé par les anticipations Sprint 5).**
 
-## 13. Sprint 5 "Orderbook & filet LLM" — État au 2026-05-27
+## 13. Sprint 5 "Orderbook & filet LLM" — CLÔTURÉ 2026-06-01
 
-**HEAD `7a04046`** sur origin/beta/v5. Tests : **409 vitest verts** + 13 Deno verts.
+**Tests : 416 vitest verts** (+7 vs baseline 409 : 4 invitation_flow + 3 smoke_acheteur_ai) + 13 Deno verts. 0 régression.
 
 ### Stories LIVRÉES (commitées + poussées)
 
@@ -20,21 +20,31 @@
 | **S3.4 Annulation draft** | `03b94d7` | Bouton Annuler + AlertDialog + RPC update_tenant_order_status |
 | **Validation MVP** (anticipe S-N1-APPROVAL) | `0ddd4e6` | Bouton Valider admin tenant (draft→validated) role-driven |
 | **S-USERS-REFONTE Phase A** (anticipe S-ORDER-ROLES Sprint 6) | `01939ba` + 7 fixes | Catalog rôles configurables (`tenant_role_definitions` + `tenant_role_assignments`) + 5 presets B2B + matrice users×rôles + modals Inviter/Éditer role-driven. **8 bugs flux invitation corrigés** (voir story-S-USERS-REFONTE-phase-a.md §Fixes post-livraison). Parcours acheteur shop_only → boutique validé E2E. |
-
-### RESTE Sprint 5 (prochaine session)
-
-- **R5-bis invite-member transactional** (1j) — la edge function invite-member a été beaucoup retouchée (email guard, scope, graceful degradation Resend), à valider/consolider
-- **Smoke E2E acheteur AI obligatoire** (DoD #3) avant clôture sprint : login boutique → askMagrit → panier → commande
-- **Valider le flux invitation bout-en-bout** : compte acheteur test créé MANUELLEMENT en DB ; le flux invitation auto (email→lien→accept→membership+rôle) doit être re-testé proprement
-- **BUG ouvert — ERAM "disparue" UI** : la boutique ERAM existe en DB (tenant Imprimerie IPA, slug `xyfjjo-q6kekm`) mais n'apparaît pas dans l'UI d'Arnaud. Bug d'affichage/filtre boutiques à investiguer.
-- **Nettoyage** : mot de passe temp `MagritTest2026!` sur amazon@ageservices.fr à changer
+| **R5-bis invite-member** (consolidation 2026-06-01) | livré R5 + fixes 27/05 (`e91df1f` `d9c5671` `f658b29` `4f0cb8f`) | Edge function transactionnelle (insert + Resend + rollback). Distinction config Resend (4xx/key absent → garde invitation + lien manuel) vs panne (5xx → rollback DELETE). Stabilisé via fixes session 27/05. Audit OK 2026-06-01 ; 5 durcissements P1 (auth check serveur, validation `role_definition_ids ⊂ tenant`, idempotence, audit `tenant_member_events`, tests Deno) tracés → Sprint 9 audit sécurité RLS. |
+| **Smoke E2E acheteur AI** (DoD #3 obligatoire) | `tests/server/smoke_acheteur_ai.test.ts` | Test vitest 3 cas : login boutique (RLS shops_select_tenant) + askMagrit ACTIVE (CORS preflight `make-server-e3db71a4/claude-proxy-stream`) + panier→commande draft (tenant_orders + items via SDK acheteur shop_only). |
+| **Re-test flux invitation E2E** | `tests/server/invitation_flow.test.ts` | Test vitest 4 cas DB layer : insert tenant_invitations avec `pending_role_ids` + EMAIL_MISMATCH (faille 27/05 colmatée) + accept→tenant_members + tenant_role_assignments + idempotence replay. |
+| **Bug ERAM "disparue" UI** | résolu effet de bord `8173b4e` | Fix race condition TenantContext (loading reste true tant que tenants pas chargés) → ShopsContext attend le bon `currentTenant.id` avant query. ERAM réapparaît. |
+| **Nettoyage MdP temp** | rotated 2026-06-01 | Mot de passe `amazon@ageservices.fr` rotated MagritTest2026! → admin123 via service_role (compte test cobaye uniquement). |
 
 ### Points d'attention sécurité/dette
 
 - **Faille colmatée** (commit `7a04046`) : un acheteur shop_only héritait d'accès magrit_full fantômes sur les sous-tenants du parent. Audit Sprint 9 : vérifier qu'aucun compte prod n'a de tels accès résiduels.
+- **Faille colmatée** (commit `f658b29` + migration `20260527000100`) : RPC accept_tenant_invitation acceptait sans vérifier que `auth.email() = invitation.email`. EMAIL_MISMATCH guard en place + test régression 2026-06-01.
 - **Clé Resend régénérée** 27/05 (ancienne compromise). Sender `MAGRIT_FROM_EMAIL` = `Magrit <support@ageservices.fr>`.
 - **Phase B users** (post-Sprint 5) : refacto 15 fichiers `useClients` + cleanup code mort (InviteForm/EditPermissionsModal legacy) + migration data permissions→rôles + DROP table clients.
 - **PAT Supabase** : Keychain macOS (`security find-generic-password -a "$USER" -s "supabase-pat-magrit" -w`).
+- **Compte test acheteur** `amazon@ageservices.fr` / `admin123` (cobaye uniquement, à renforcer si usage au-delà smoke).
+- **Durcissements R5-bis P1 → Sprint 9** : (1) auth check serveur côté edge invite-member (vérif JWT caller = invited_by + capability can_invite), (2) validation `role_definition_ids ⊂ tenant_role_definitions(tenant_id)`, (3) idempotence (réjet doublons invitation pending même email/tenant), (4) audit dans `tenant_member_events`, (5) tests Deno edge function.
+
+### Cap Sprint 6 (allégé par anticipations Sprint 5)
+
+Restent pour Sprint 6 selon roadmap qualité-first :
+- **S-ORDER-ROLES-1** schéma DB couche par-commande (`tenant_order_roles` + `tenant_order_role_events`) — la couche globale (`tenant_role_definitions` + `tenant_role_assignments`) est déjà livrée Phase A.
+- **S-ORDER-ROLES-2** RPC transitions + audit events couche par-commande.
+- **S-ORDER-ROLES-3** UI PortalOrders tabs filtrés (`useOrderRoles`).
+- **S-N1-APPROVAL** workflow backend N+1 + notifications Resend par étape (Validation MVP livrée Sprint 5 = base, manque chaînage multi-étapes).
+- **S3.5 Audit trail UI** modale historique statuts.
+- **Phase B users** : refacto 15 fichiers `useClients` + DROP `clients`.
 
 ---
 
