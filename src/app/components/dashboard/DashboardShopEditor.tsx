@@ -39,7 +39,14 @@ import { usePlan } from '../../hooks/usePlan';
 import { useTenantPath } from '../../hooks/useTenantPath';
 import { UpgradeCTA } from './UpgradeCTA';
 import { exportShopToShopifyCsv, exportShopToJson } from '../../utils/shopExport';
-import { ShopVisualSettings } from './ShopVisualSettings';
+import { lazy, Suspense as ReactSuspense } from 'react';
+
+// S9 audit perf bundle (Sprint 9, 2026-06-01) : lazy-load ShopVisualSettings
+// (V4 Sprint 7). Composant ~340 lignes + Storage SDK seulement utilise dans
+// DashboardShopEditor. Suspense fallback = null (section visible apres scroll).
+const ShopVisualSettings = lazy(() =>
+  import('./ShopVisualSettings').then((m) => ({ default: m.ShopVisualSettings })),
+);
 
 /**
  * Produit affiche dans la liste agregee. On normalise deux sources :
@@ -549,11 +556,14 @@ export function DashboardShopEditor() {
       </section>
 
       {/* ── S-PIM-VISUELS-4 : Visuels boutique (fond + couleur primaire) ── */}
+      {/* Lazy-load S9 audit perf : composant ~340 lignes + Storage SDK */}
       {shop && (
-        <ShopVisualSettings
-          shopId={shop.id}
-          availableGammes={gammes.map((g) => ({ slug: g.slug, name: g.name }))}
-        />
+        <ReactSuspense fallback={null}>
+          <ShopVisualSettings
+            shopId={shop.id}
+            availableGammes={gammes.map((g) => ({ slug: g.slug, name: g.name }))}
+          />
+        </ReactSuspense>
       )}
 
       {/* ── Exporter le catalogue (deplace sous la liste des produits) ── */}
