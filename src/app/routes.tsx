@@ -1,33 +1,112 @@
+import { Suspense, lazy } from "react";
 import { createBrowserRouter, Navigate } from "react-router";
 import { AppShell } from "./AppShell";
 import { MainLayout } from "./components/MainLayout";
 import { TenantAwareLayout } from "./components/tenant/TenantAwareLayout";
 import { TenantPicker } from "./components/tenant/TenantPicker";
-import { TenantOnboarding } from "./components/tenant/TenantOnboarding";
-import { AcceptInvitation } from "./components/tenant/AcceptInvitation";
 import { ConfiguratorPage } from "./components/ConfiguratorPage";
-import { ProductSheet } from "./components/ProductSheet";
-import { PersonalizationPage } from "./components/PersonalizationPage";
 import { NotFound } from "./components/NotFound";
-import { ResetPasswordPage } from "./components/auth/ResetPasswordPage";
 import { DashboardLayout } from "./components/dashboard/DashboardLayout";
-import { DashboardProfile } from "./components/dashboard/DashboardProfile";
-import { DashboardPreferences } from "./components/dashboard/DashboardPreferences";
-import { DashboardHistory } from "./components/dashboard/DashboardHistory";
-import { DashboardQuotes } from "./components/dashboard/DashboardQuotes";
-import { DashboardQuoteTemplates } from "./components/dashboard/DashboardQuoteTemplates";
-import { DashboardOrders } from "./components/dashboard/DashboardOrders";
-import { DashboardUsers } from "./components/dashboard/DashboardUsers";
-import { DashboardPlan } from "./components/dashboard/DashboardPlan";
-import { DashboardLibraries } from "./components/dashboard/DashboardLibraries";
-import { DashboardLibraryDetail } from "./components/dashboard/DashboardLibraryDetail";
-import { DashboardShops } from "./components/dashboard/DashboardShops";
-import { DashboardShopEditor } from "./components/dashboard/DashboardShopEditor";
-import { DashboardAdminPIM } from "./components/dashboard/DashboardAdminPIM";
-import { DashboardTenantSettings } from "./components/dashboard/DashboardTenantSettings";
-import { DashboardTenantSpaces } from "./components/dashboard/DashboardTenantSpaces";
-import { DashboardTenantGammes } from "./components/dashboard/DashboardTenantGammes";
-import { PublicShop } from "./components/shop/PublicShop";
+
+const TenantOnboarding = lazy(() =>
+  import("./components/tenant/TenantOnboarding").then((m) => ({ default: m.TenantOnboarding })),
+);
+const AcceptInvitation = lazy(() =>
+  import("./components/tenant/AcceptInvitation").then((m) => ({ default: m.AcceptInvitation })),
+);
+const ResetPasswordPage = lazy(() =>
+  import("./components/auth/ResetPasswordPage").then((m) => ({ default: m.ResetPasswordPage })),
+);
+const ProductSheet = lazy(() =>
+  import("./components/ProductSheet").then((m) => ({ default: m.ProductSheet })),
+);
+const PersonalizationPage = lazy(() =>
+  import("./components/PersonalizationPage").then((m) => ({ default: m.PersonalizationPage })),
+);
+const PublicShop = lazy(() =>
+  import("./components/shop/PublicShop").then((m) => ({ default: m.PublicShop })),
+);
+
+const DashboardProfile = lazy(() =>
+  import("./components/dashboard/DashboardProfile").then((m) => ({ default: m.DashboardProfile })),
+);
+const DashboardPreferences = lazy(() =>
+  import("./components/dashboard/DashboardPreferences").then((m) => ({
+    default: m.DashboardPreferences,
+  })),
+);
+const DashboardHistory = lazy(() =>
+  import("./components/dashboard/DashboardHistory").then((m) => ({ default: m.DashboardHistory })),
+);
+const DashboardQuotes = lazy(() =>
+  import("./components/dashboard/DashboardQuotes").then((m) => ({ default: m.DashboardQuotes })),
+);
+const DashboardQuoteTemplates = lazy(() =>
+  import("./components/dashboard/DashboardQuoteTemplates").then((m) => ({
+    default: m.DashboardQuoteTemplates,
+  })),
+);
+const DashboardOrders = lazy(() =>
+  import("./components/dashboard/DashboardOrders").then((m) => ({ default: m.DashboardOrders })),
+);
+const DashboardUsers = lazy(() =>
+  import("./components/dashboard/DashboardUsers").then((m) => ({ default: m.DashboardUsers })),
+);
+const DashboardPlan = lazy(() =>
+  import("./components/dashboard/DashboardPlan").then((m) => ({ default: m.DashboardPlan })),
+);
+const DashboardLibraries = lazy(() =>
+  import("./components/dashboard/DashboardLibraries").then((m) => ({
+    default: m.DashboardLibraries,
+  })),
+);
+const DashboardLibraryDetail = lazy(() =>
+  import("./components/dashboard/DashboardLibraryDetail").then((m) => ({
+    default: m.DashboardLibraryDetail,
+  })),
+);
+const DashboardShops = lazy(() =>
+  import("./components/dashboard/DashboardShops").then((m) => ({ default: m.DashboardShops })),
+);
+const DashboardShopEditor = lazy(() =>
+  import("./components/dashboard/DashboardShopEditor").then((m) => ({
+    default: m.DashboardShopEditor,
+  })),
+);
+const DashboardAdminPIM = lazy(() =>
+  import("./components/dashboard/DashboardAdminPIM").then((m) => ({
+    default: m.DashboardAdminPIM,
+  })),
+);
+const DashboardTenantSettings = lazy(() =>
+  import("./components/dashboard/DashboardTenantSettings").then((m) => ({
+    default: m.DashboardTenantSettings,
+  })),
+);
+const DashboardTenantSpaces = lazy(() =>
+  import("./components/dashboard/DashboardTenantSpaces").then((m) => ({
+    default: m.DashboardTenantSpaces,
+  })),
+);
+const DashboardTenantGammes = lazy(() =>
+  import("./components/dashboard/DashboardTenantGammes").then((m) => ({
+    default: m.DashboardTenantGammes,
+  })),
+);
+
+function RouteFallback() {
+  return (
+    <div className="flex h-full min-h-[200px] items-center justify-center p-8">
+      <div className="text-sm text-gray-500" aria-live="polite">
+        Chargement…
+      </div>
+    </div>
+  );
+}
+
+function lazyRoute(element: React.ReactNode) {
+  return <Suspense fallback={<RouteFallback />}>{element}</Suspense>;
+}
 
 /**
  * Routage v3 multi-tenant
@@ -46,13 +125,18 @@ import { PublicShop } from "./components/shop/PublicShop";
  *
  * AppShell est le root element qui monte les providers router-aware
  * (TenantProvider notamment).
+ *
+ * Code-splitting Sprint 10 (S9-PERF-ROUTE-SPLIT) : Dashboard* + pages secondaires
+ * sont lazy via React.lazy + Suspense fallback Chargement. AppShell, MainLayout,
+ * TenantAwareLayout, DashboardLayout, TenantPicker et ConfiguratorPage restent
+ * eager car hot-path post-login.
  */
 export const router = createBrowserRouter([
   {
     element: <AppShell />,
     children: [
       // Boutique publique — anonyme, pas de tenant
-      { path: "/shop/:slug", element: <PublicShop /> },
+      { path: "/shop/:slug", element: lazyRoute(<PublicShop />) },
 
       // Flux hors-tenant (auth, onboarding, picker, invitation)
       {
@@ -60,10 +144,10 @@ export const router = createBrowserRouter([
         element: <MainLayout />,
         children: [
           { index: true, element: <Navigate to="/tenants" replace /> },
-          { path: "reset-password", element: <ResetPasswordPage /> },
+          { path: "reset-password", element: lazyRoute(<ResetPasswordPage />) },
           { path: "tenants", element: <TenantPicker /> },
-          { path: "tenants/new", element: <TenantOnboarding /> },
-          { path: "invitations/:token", element: <AcceptInvitation /> },
+          { path: "tenants/new", element: lazyRoute(<TenantOnboarding />) },
+          { path: "invitations/:token", element: lazyRoute(<AcceptInvitation />) },
         ],
       },
 
@@ -73,31 +157,31 @@ export const router = createBrowserRouter([
         element: <TenantAwareLayout />,
         children: [
           { index: true, element: <ConfiguratorPage /> },
-          { path: "product/:id", element: <ProductSheet /> },
-          { path: "personalization/:id", element: <PersonalizationPage /> },
+          { path: "product/:id", element: lazyRoute(<ProductSheet />) },
+          { path: "personalization/:id", element: lazyRoute(<PersonalizationPage />) },
           {
             path: "dashboard",
             element: <DashboardLayout />,
             children: [
-              { index: true, element: <DashboardProfile /> },
-              { path: "plan", element: <DashboardPlan /> },
-              { path: "preferences", element: <DashboardPreferences /> },
-              { path: "history", element: <DashboardHistory /> },
-              { path: "quotes", element: <DashboardQuotes /> },
-              { path: "quote-templates", element: <DashboardQuoteTemplates /> },
-              { path: "orders", element: <DashboardOrders /> },
-              { path: "users", element: <DashboardUsers /> },
+              { index: true, element: lazyRoute(<DashboardProfile />) },
+              { path: "plan", element: lazyRoute(<DashboardPlan />) },
+              { path: "preferences", element: lazyRoute(<DashboardPreferences />) },
+              { path: "history", element: lazyRoute(<DashboardHistory />) },
+              { path: "quotes", element: lazyRoute(<DashboardQuotes />) },
+              { path: "quote-templates", element: lazyRoute(<DashboardQuoteTemplates />) },
+              { path: "orders", element: lazyRoute(<DashboardOrders />) },
+              { path: "users", element: lazyRoute(<DashboardUsers />) },
               { path: "clients", element: <Navigate to="../users" replace /> },
               { path: "members", element: <Navigate to="../users" replace /> },
-              { path: "library", element: <DashboardLibraries /> },
-              { path: "library/:id", element: <DashboardLibraryDetail /> },
-              { path: "shops", element: <DashboardShops /> },
-              { path: "shops/:id", element: <DashboardShopEditor /> },
+              { path: "library", element: lazyRoute(<DashboardLibraries />) },
+              { path: "library/:id", element: lazyRoute(<DashboardLibraryDetail />) },
+              { path: "shops", element: lazyRoute(<DashboardShops />) },
+              { path: "shops/:id", element: lazyRoute(<DashboardShopEditor />) },
               // Nouveautes v3
-              { path: "settings", element: <DashboardTenantSettings /> },
-              { path: "spaces", element: <DashboardTenantSpaces /> },
-              { path: "gammes", element: <DashboardTenantGammes /> },
-              { path: "admin/pim", element: <DashboardAdminPIM /> },
+              { path: "settings", element: lazyRoute(<DashboardTenantSettings />) },
+              { path: "spaces", element: lazyRoute(<DashboardTenantSpaces />) },
+              { path: "gammes", element: lazyRoute(<DashboardTenantGammes />) },
+              { path: "admin/pim", element: lazyRoute(<DashboardAdminPIM />) },
             ],
           },
         ],
