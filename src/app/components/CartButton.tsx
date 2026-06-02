@@ -373,7 +373,7 @@ export function CartButton({ variant = 'pill' }: CartButtonProps) {
                     style={{ fontSize: '13.5px', fontWeight: 500 }}
                   >
                     <FileText className="w-4 h-4" strokeWidth={1.5} />
-                    Imprimer {uniqueClientCount > 1 ? `${uniqueClientCount} devis groupes` : 'le devis'}
+                    Imprimer le devis
                   </button>
                 </div>
               </div>

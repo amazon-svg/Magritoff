@@ -4,6 +4,7 @@ import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useQuoteTemplates } from '../contexts/QuoteTemplatesContext';
 import { useTenant } from '../contexts/TenantContext';
+import { useTenantPath } from '../hooks/useTenantPath';
 import {
   makeQuoteReference,
   persistQuote,
@@ -23,6 +24,7 @@ export function QuoteModal({ isOpen, onClose, product }: QuoteModalProps) {
   const { user } = useAuth();
   const { templates, defaultTemplateId } = useQuoteTemplates();
   const { currentTenant } = useTenant();
+  const tp = useTenantPath();
   const taxRate = getTaxRate(currentTenant);
 
   // Gabarit a appliquer a l'impression. Initialise sur le defaut utilisateur
