@@ -2,17 +2,21 @@
 
 > Document de reprise pour démarrer une nouvelle session de Claude code sur le projet sans recharger tout l'historique. À tenir à jour à chaque fin de sprint.
 >
-> **Dernière mise à jour : 2026-06-01 (autonomous run) — Sprint 5 CLÔTURÉ + Sprint 6 LIVRÉ (backend complet) + Sprint 7 LIVRÉ (visuels boutique complet). 9 commits locaux en attente de push beta/v5. Voir section 14 ci-dessous.**
+> **Dernière mise à jour : 2026-06-02 (reprise matin) — Sprint 5 → Sprint 9 LIVRÉS + poussés sur `origin/beta/v5`. Roadmap qualité-first quasi terminée (reste Phase B users + S-ORDER-ROLES-3-UI). Voir section 14 ci-dessous.**
 
-## 14. Session autonome 2026-06-01 — Sprint 6 + Sprint 7 livrés en local
+## 14. Sessions autonomes 2026-06-01 → 02 — Sprint 6 + 7 + 8 + 9 livrés et poussés
 
-Arnaud absent quelques temps. Auto-validation totale + commits locaux uniquement. Le push final reste à valider à son retour.
+Arnaud absent. Auto-validation totale. **Tous les commits sont sur `origin/beta/v5`** (push effectué en fin de session autonome). État au reprise du 02/06 matin : `git rev-list --count origin/beta/v5..beta/v5 = 0`.
 
-### Tests globaux
+### Tests globaux (cumul Sprint 6 + 7 + 8 + 9 + wire-ups)
 
-- **511 vitest verts** (+95 vs baseline Sprint 5 clôture 416 : 13 RLS order_roles + 14 RPC + 25 hook + 13 audit trail + 6 workflow + 9 visuals + 4 upload + 4 resolver + 7 V7 helpers)
+- **539 vitest verts** (+123 vs baseline Sprint 5 clôture 416)
+  - +95 Sprint 6+7 (13 RLS order_roles + 14 RPC + 25 hook + 13 audit trail + 6 workflow + 9 visuals + 4 upload + 4 resolver + 7 V7 helpers)
+  - +10 Sprint 8 (S-FIX-LARGE-CM-FORMATS `normalizeDimensions`)
+  - +12 Sprint 8 (S-SUBTENANT-SCOPE helpers + RPC + KPIs)
+  - +6 Sprint 9 (invite-member hardened E2E)
 - **16 Deno verts** (mockup-generator + renderer + claude-proxy + send-order-notification + anthropicClient)
-- **0 régression**
+- **0 régression** sur toute la trajectoire Sprint 5 → 9
 
 ### Sprint 6 — Rôles workflow + validation (5 stories livrées)
 
@@ -33,6 +37,29 @@ Arnaud absent quelques temps. Auto-validation totale + commits locaux uniquement
 | `d20e6f5` | **V6** upgrade 5 templates photo-réalistes | Helpers SVG partagés `photoRealisticDefs` (double shadow + highlight gradient + paper texture pattern) + `photoRealisticProductRect`. Application uniforme sur flyer, carteVisite, brochure, etiquette, kakemono. Décision Q5 upgrade in-place (pas de S4.2bis). Snapshots SVG régénérés. Edge mockup-generator redéployé prod. |
 | `ac5f210` | **V7** S-PRODUCT-VIEWS-MULTI 2D recto/verso | `ShopTheming.view?: 'front' \| 'back'` + edge param `view` (default front retro-compat) + cache key suffixe `__back` cohabitation + templates flyer + carteVisite avec layout back différencié (les 3 autres rendent identique, cas dégradé acceptable MVP) + composant `<ProductMultiView>` toggle Recto/Verso. Story future `S-PRODUCT-VIEWS-3D-PACKAGING` tracée V2+. |
 
+### Sprint 8 — Dette technique + filiales (3 stories livrées)
+
+| Commit | Story | Livré |
+|---|---|---|
+| `29e771f` | **S-FIX-LIBRARY-UUID + S-FIX-LARGE-CM-FORMATS** dette technique batch | Audit prod : `product_library` 100% UUID v4 (déjà strict). Story réduite à FK manquante `tenant_order_items.product_id → product_library(id) ON DELETE SET NULL`. Refonte `isLikelyCm` fragile → `normalizeDimensions` convention canonique P0.9 strict (`string=cm` ↔ `number=mm`, mixte = throw). Fix kakémono 400×100cm (était mal converti). +10 vitest. |
+| `73a64e4` | **Refacto DRY ProductCard priceResolver** | Suppression duplication 21 lignes : `ProductCard.estimatePrice()` réimplémentait la logique `priceResolver` avec seuils divergents (manquait kakemono, etiquette, packaging). Bascule sur cascade canonique `clariprint > library_cached > prix_marche > zero`. 521 vitest verts. |
+| `ce27ffa` | **S-SUBTENANT-SCOPE Usage A filiale** | Helpers SQL `is_subtenant_member_direct`, `is_subtenant_member_inherited`, `get_user_subtenants`, RPC `move_user_between_subtenants` (SECURITY DEFINER atomique), `get_subtenant_kpis` (nb commandes mois + CA HT mois par filiale). UI `DashboardTenantSpaces` étendu avec KPIs cards. +12 vitest E2E (member_direct + inherited + move + KPIs aggregations). |
+
+### Sprint 9 — Audits qualité + docs utilisateur (4 stories livrées)
+
+| Commit | Story | Livré |
+|---|---|---|
+| `8bdad11` | **Audit perf bundle** | Lazy-load `ShopVisualSettings` (8.21 kB raw / 2.80 kB gz, chunk séparé). Verdict : main 306.84 kB gz **dépasse seuil 280 kB roadmap S9 de +26.84 kB**. Gap principal = `Dashboard*` eager + lucide-react + Radix dialogs + Storage SDK. Story future `S9-PERF-ROUTE-SPLIT` tracée (~30-50 kB récupérables, lazy par route). |
+| `e3d1f91` | **Audit sécurité RLS — durcissements R5-bis P1 invite-member** | Edge function `invite-member` étendue : (1) auth check JWT caller (Bearer required + `callerId === invited_by`), (2) capability check `user_has_capability(can_invite)`, (3) validation `role_definition_ids ⊂ tenant_role_definitions(tenant_id)`, (4) idempotence (409 sur doublon pending). Redéployée prod B5. +6 vitest E2E (401/403 × 3 / 409 / happy path). #5 audit `tenant_member_events` reporté V2 (cost/value). |
+| `f3917e6` | **Audit a11y — extension routes scan** | `scripts/a11y-scan.sh` étendu 3 → 8 routes (DashboardOrders + DashboardUsers + DashboardTenantSpaces + PortalOrders + Portal shop). Audit statique composants S6/7 confirme patterns Radix (Dialog, AlertDialog, toggle aria-pressed). Run dynamique route auth-required tracé pour suivi (login bypass Playwright). |
+| `37c3e9d` | **Documentation utilisateur bêta v1.1** | 3 guides + README dans `docs/beta-guides/` : `admin-tenant.md` (114 lignes : onboarding, invitations, rôles, sous-tenants, visuels, workflow validation), `acheteur-b2b.md` (73 lignes : shop_only redirect, askMagrit, panier, historique), `validateur-producteur.md` (77 lignes : capabilities, audit trail, transitions matrice). Cible ouverture bêta 2 dirigeants (accord principe Groupe ICI 18/05). |
+
+### Wire-ups UI post-S9 (clôture limites tracées)
+
+| Commit | Livré |
+|---|---|
+| `f49926b` | **`<ProductMultiView>` branché dans `ProductOverlay`** (toggle Recto/Verso visible avec `aria-pressed`, MockupImage gardé sur ShopProductCard pour perf grille) + **bouton « Historique »** sur `OrderHistoryTable` qui ouvre `<OrderAuditTrailModal>` (icône `History` lucide, testId `order-history-btn`, dispo acheteur via RLS ET admin tenant). `showActionsColumn` déclenché si au moins 1 commande v1.1 dans la liste. Résout les 2 stories de suivi tracées Sprint 6/7 : **S-PRODUCT-VIEWS-INTEGRATION** + **OrderAuditTrailModal wire**. |
+
 ### Migrations Supabase appliquées prod B5
 
 | Migration | Contenu |
@@ -45,13 +72,17 @@ Arnaud absent quelques temps. Auto-validation totale + commits locaux uniquement
 | `20260601000600` | S7 V1 + V3 foundation visuels (library 10 fonds + shop/gamme prefs + resolver) |
 | `20260601000700` | S7 V2 bucket `shop_backgrounds` + policies storage |
 | `20260601000800` | S7 V2 helper `user_can_manage_shop_assets` SECURITY DEFINER (fix policy storage) |
+| `20260601000900` | S8 S-FIX-LIBRARY-UUID — FK `tenant_order_items.product_id → product_library(id) ON DELETE SET NULL` |
+| `20260601001000` | S8 S-SUBTENANT-SCOPE — helpers `is_subtenant_member_*` + `get_user_subtenants` + RPC `move_user_between_subtenants` |
+| `20260601001100` | S8 S-SUBTENANT-SCOPE — `get_subtenant_kpis` bascule SECURITY DEFINER (garde upstream `get_user_subtenants` INVOKER) |
 
 ### Edge functions déployées prod B5
 
 - `order-workflow-step` (nouvelle, S-N1-APPROVAL)
 - `mockup-generator` redéployé 2x (templates V6 + param view V7)
+- `invite-member` redéployé Sprint 9 (4 durcissements R5-bis P1)
 
-### Décisions importantes prises pendant l'autonomie
+### Décisions importantes prises pendant l'autonomie (Sprint 6 → 9)
 
 1. **Triggers défensifs AC6** (S-ORDER-ROLES-2) → reportés Sprint 9 audit sécurité (RLS write_admin super_admin only déjà bloque l'écriture directe, double couche = belt-and-suspenders, hors MVP).
 2. **Refonte UI PortalOrders tabs filtrés** (AC3-AC5 spec S-ORDER-ROLES-3) → tracée comme story de suivi `S-ORDER-ROLES-3-UI` séparable. Couche métier + hook front complets. Refonte UI nécessite Sally UX wireframes (DoD #5) → décision Arnaud à formaliser.
@@ -59,18 +90,36 @@ Arnaud absent quelques temps. Auto-validation totale + commits locaux uniquement
 4. **Décision Q6 zone d'impression transparente** (S-PIM-VISUELS-6) → **NON appliquée MVP**. Maintien `fill="url(#paperTexture)"` (~ blanc avec grain subtil) pour usage standalone PNG (sans bg shop) dans certains contextes (DashboardOrders, exports CSV). Cohabitation layered V5 reste valide.
 5. **Snapshot test pattern** (Deno mockup) → suppression manuelle des `.snapshot.svg` puis re-run test qui re-crée. Pattern documenté pour futurs upgrades templates.
 6. **Anti-pattern Supabase JS batch insert** (lesson tirée Sprint 6) → ne JAMAIS mélanger rows avec/sans une colonne dans le même batch insert si la colonne a un DEFAULT SQL ; le SDK aligne et passe null explicite qui viole NOT NULL. Documenté en commentaire test `order_roles_rpc.test.ts`.
+7. **Audit perf bundle dépasse seuil S9** (+26.84 kB gz vs cible 280 kB) → MVP acceptable, gap principal = `Dashboard*` eager. Story `S9-PERF-ROUTE-SPLIT` tracée (~30-50 kB récupérables, lazy par route). Pas de hot-fix bloquant : le seuil est interne qualité, pas user-impact démo bêta.
+8. **Audit a11y dynamique route auth-required** → run Playwright avec login bypass tracé pour suivi. Pour MVP, audit statique (composants nouveaux Radix conformes) suffit. À reprendre quand workflow E2E Playwright sera en place (Phase B users dépend du même outillage).
+9. **`get_subtenant_kpis` bascule SECURITY INVOKER → DEFINER** : la version INVOKER était bloquée par RLS `tenant_orders_select` (admin racine pas membre direct des sous-tenants). Le garde upstream `get_user_subtenants` (INVOKER) filtre via member check, donc pas de fuite cross-tenant possible. Migration `20260601001100` séparée pour traçabilité ADR.
+10. **R5-bis P1 #5 audit `tenant_member_events`** → reporté V2 (event toutes 2 transitions × N invitations = volume notable). Coût dev vs valeur audit relative jugée insuffisante MVP. À reprendre si audit utilisateur final demande l'historique des invitations.
 
 ### Stories de suivi tracées (post-push, hors MVP)
 
-- **S-ORDER-ROLES-3-UI** : refonte PortalOrders 4 tabs filtrés (Mes commandes / À valider / À approuver / À produire) + page admin catalog rôles `/t/:slug/admin/order-roles` + bouton Historique sur OrderHistoryTable wire vers `<OrderAuditTrailModal>`. Sally UX wireframes préalable obligatoire.
-- **S-PRODUCT-VIEWS-INTEGRATION** : remplacer `MockupImage` par `<ProductMultiView>` dans ProductCard / ProductOverlay user-facing. Décision Arnaud sur la place dans l'UI requise.
+- **S-ORDER-ROLES-3-UI** : refonte PortalOrders 4 tabs filtrés (Mes commandes / À valider / À approuver / À produire) + page admin catalog rôles `/t/:slug/admin/order-roles`. **Sally UX wireframes préalable obligatoire**.
+- ~~**S-PRODUCT-VIEWS-INTEGRATION**~~ → **LIVRÉE** dans wire-ups `f49926b` (ProductMultiView dans ProductOverlay).
+- ~~**OrderAuditTrailModal wire**~~ → **LIVRÉE** dans wire-ups `f49926b` (bouton Historique sur OrderHistoryTable).
 - **S-PRODUCT-VIEWS-3D-PACKAGING** (V2+) : tracée pour quand le premier produit packaging entrera dans le catalogue.
-- **Phase B users** : refacto 15 fichiers `useClients` + cleanup legacy InviteForm/EditPermissionsModal + migration data permissions→rôles + DROP table `clients`. ~2j, Sprint 8 ou 9.
+- **Phase B users** : refacto 15 fichiers `useClients` + cleanup legacy InviteForm/EditPermissionsModal + migration data permissions→rôles + DROP table `clients`. ~2j.
+- **S9-PERF-ROUTE-SPLIT** : code-splitting routes (lazy par `Dashboard*`), ~30-50 kB gz récupérables. Nécessite revision du routeur principal + acceptable dégradation initial nav.
+- **R5-bis P1 #5 audit `tenant_member_events`** : event invitation/acceptation dans audit trail si demande utilisateur final.
+- **Run a11y dynamique routes auth-required** : Playwright avec login bypass.
 
 ### Statut push
 
-**9 commits locaux** sur `beta/v5` en attente du go d'Arnaud :
+**Tout est sur `origin/beta/v5`** (push effectué en fin de session autonome 01/06). `git rev-list --count origin/beta/v5..beta/v5 = 0`.
+
+14 commits Sprint 6 → 9 + wire-ups (chronologique) :
 ```
+f49926b feat(v5): wire-ups UI - ProductMultiView dans ProductOverlay + bouton Historique audit trail
+37c3e9d docs(v5): S9 documentation utilisateur beta v1.1 (3 guides)
+f3917e6 chore(v5): S9 audit a11y - extension routes a11y-scan.sh post S6/7/8
+e3d1f91 feat(v5): S9 audit securite RLS - durcissements R5-bis P1 invite-member
+8bdad11 perf(v5): S9 audit perf bundle - lazy-load ShopVisualSettings + finding
+ce27ffa feat(v5): S8 S-SUBTENANT-SCOPE Usage A filiale (helpers + RPC + KPIs HQ)
+73a64e4 refactor(v5): S8 ProductCard DRY priceResolver (suppression duplication 21 lignes)
+29e771f fix(v5): S8 S-FIX-LIBRARY-UUID + S-FIX-LARGE-CM-FORMATS (dette technique batch)
 ac5f210 feat(v5): S7 V7 S-PRODUCT-VIEWS-MULTI 2D recto/verso
 d20e6f5 feat(v5): S7 V6 upgrade 5 templates SVG photo-realistes
 9976b6c feat(v5): S7 V4 UI admin ShopVisualSettings
@@ -82,7 +131,7 @@ a8114ee feat(v5): S-ORDER-ROLES-3 hook useOrderRoles
 1f85e04 feat(v5): S-ORDER-ROLES-1 schema DB par-commande + helpers + ADR 4.12
 ```
 
-Migrations DB et edge functions déjà appliquées prod B5. Le push GitHub est la dernière étape pour synchroniser le repo distant avec ce qui tourne en prod.
+Migrations DB (11), edge functions (3), tests (539 vitest + 16 Deno) tout est en prod B5 + repo distant. La rétrospective Sprint 9 (clôture roadmap qualité-first) est dans [`_bmad-output/implementation-artifacts/retrospective-sprint9-2026-06-02.md`](_bmad-output/implementation-artifacts/retrospective-sprint9-2026-06-02.md).
 
 ---
 

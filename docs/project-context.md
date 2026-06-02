@@ -133,13 +133,32 @@ Une fois publié, un `data-testid` ne change plus à la légère (contrat avec l
 
 Les `data-testid` sont **conservés en production** (overhead négligeable, indispensables pour les E2E IA via Claude in Chrome).
 
-## 5. Cahiers de tests (DoD globale projet)
+## 5. Définition de Done globale projet (DoD)
+
+### 5.1 Cahiers de tests Notion (règle 2026-05-08)
 
 **Règle projet (validée par Arnaud 2026-05-08) :** toute story livrée Magrit ajoute **au moins 1 cas de test** à la DB Notion 🧪 Cahiers de tests fonctionnels Magrit (https://www.notion.so/7e576e695d504cc9a32ead92f4dde01c), au format TF-XX standard.
 
 Format obligatoire : Titre, Parcours (P00-P11), Persona, Précondition, Étapes numérotées, Résultat attendu, Hints DOM (testid ou structure), URL de départ, Type d'exécution (`Manuel humain` / `IA Chrome` / `SQL DB`), Données de test, Statut.
 
 **Jouabilité dual** : tout cas TF doit être exécutable indifféremment par un humain ou par Claude in Chrome via plugin MCP. Invariant non-négociable.
+
+### 5.2 DoD étendue — 10 principes qualité-first (validés Arnaud 2026-05-21)
+
+Roadmap qualité-first post Sprint 4 ([roadmap-v1.1-qualite-first-2026-05-21.md](../_bmad-output/planning-artifacts/roadmap-v1.1-qualite-first-2026-05-21.md)) pose 10 principes non-négociables applicables à tout sprint à partir du Sprint 5. Toute story ou tout sprint qui viole l'un de ces principes doit être réorganisé, pas validé.
+
+1. **Plafond 3-5 stories par sprint**, jamais plus (lesson Arnaud 2026-05-17 — vault `_CONTEXT_FOR_AI/lessons.md`).
+2. **Checkpoint récap toutes les 3 stories** avec mini-doc visuel "ce qui a changé concrètement + ce que tu peux tester en 30 secondes" (lesson 2026-05-17). Pas de batch de stories silencieux.
+3. **Smoke E2E parcours acheteur AI** obligatoire avant clôture sprint qui touche shop / orders / Magrit / claude-proxy / pim-*. Login `/shop/<slug>` → askMagrit → ajout panier → submitCart → vérif insert `tenant_orders` + redirect `PortalThankYou`. Joué par Claude Code ou Arnaud. Référence : `feedback_dod_smoke_e2e_acheteur.md` (mémoire projet).
+4. **Audit prod systématique avant toute heuristique numérique** (seuils cm/mm, confidence thresholds, magic numbers). 5 minutes Supabase SQL Editor avant écrire le code. Référence : `feedback_audit_prod_avant_heuristique.md` (mémoire projet).
+5. **Sally UX consult systématique** sur tout composant user-facing nouveau ou modifié (wireframes / mockup / microcopy). Pas de UI livrée sans passage Sally.
+6. **ADR formalisée pour toute décision architecturale** (nouveau pattern, choix de modèle DB, contrat d'interface entre modules). Section dédiée dans `_bmad-output/planning-artifacts/architecture.md` numérotée §4.X.
+7. **Story scindée si effort estimé > 3 jours**. Granularité atomique. Pas de "story XL" qui mélange schéma DB + RPC + UI dans le même livrable.
+8. **TF Notion créé en parallèle de chaque story livrée**, pas en fin de sprint. Le TF est dans la DoD de la story, pas un nice-to-have à rétrofitter.
+9. **Story doc BMAD au démarrage de la story**, pas rétrofit en fin de sprint. Skill `bmad-create-story` invoquée avant d'écrire la première ligne de code.
+10. **Audit a11y axe-core sur toute nouvelle route exposée acheteur**. Pas seulement les 3 routes critiques actuelles (login + atelier + boutique-1). Toute route `/shop/:slug/*` nouvelle ajoutée à `pnpm a11y:scan`.
+
+**Application** : ces 10 principes sont opposables pendant la phase de design des sprints (Plan / Architect hat) et pendant la phase d'implémentation (Dev hat). Si un sprint planifié viole un principe (ex : 7 stories au lieu de 5), Claude doit refuser le sprint tel quel et proposer une réorganisation.
 
 ## 6. Parcours utilisateur P00 → P11
 
