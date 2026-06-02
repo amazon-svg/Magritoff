@@ -2962,6 +2962,7 @@
         "npm:@emotion/styled@11.14.1",
         "npm:@mui/icons-material@7.3.5",
         "npm:@mui/material@7.3.5",
+        "npm:@playwright/test@^1.60.0",
         "npm:@popperjs/core@2.11.8",
         "npm:@radix-ui/react-accordion@1.2.3",
         "npm:@radix-ui/react-alert-dialog@1.1.6",
