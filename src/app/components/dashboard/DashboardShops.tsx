@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Plus, Store, Trash2, Copy, ExternalLink, X, Loader2 } from 'lucide-react';
 import { useShops, NewShopInput } from '../../contexts/ShopsContext';
-import { useClients } from '../../contexts/ClientsContext';
 import { usePlan } from '../../hooks/usePlan';
 import { useTenantPath } from '../../hooks/useTenantPath';
 import { UpgradeCTA } from './UpgradeCTA';
@@ -12,9 +11,8 @@ export function DashboardShops() {
   const { canUse } = usePlan();
   const tp = useTenantPath();
   const { shops, loading, createShop, deleteShop } = useShops();
-  const { clients } = useClients();
   const [modalOpen, setModalOpen] = useState(false);
-  const [draft, setDraft] = useState<NewShopInput>({ name: '', description: '', client_id: null });
+  const [draft, setDraft] = useState<NewShopInput>({ name: '', description: '' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,7 +31,7 @@ export function DashboardShops() {
       setSaving(false);
       if (shop) {
         setModalOpen(false);
-        setDraft({ name: '', description: '', client_id: null });
+        setDraft({ name: '', description: '' });
         navigate(tp(`/dashboard/shops/${shop.id}`));
       }
     } catch (err: any) {
@@ -68,7 +66,6 @@ export function DashboardShops() {
       ) : (
         <div className="space-y-3">
           {shops.map((shop) => {
-            const client = clients.find((c) => c.id === shop.client_id);
             const url = publicUrl(shop.slug);
             return (
               <div key={shop.id} className="border border-gray-200 rounded-xl bg-white p-4">
@@ -87,9 +84,6 @@ export function DashboardShops() {
                         </span>
                       )}
                     </div>
-                    {client && (
-                      <p className="text-xs text-blue-700 mb-1">Pour : {client.company}</p>
-                    )}
                     {shop.description && (
                       <p className="text-sm text-gray-600 mb-2">{shop.description}</p>
                     )}
@@ -170,22 +164,6 @@ export function DashboardShops() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Client associé</label>
-                <select
-                  value={draft.client_id ?? ''}
-                  onChange={(e) => setDraft({ ...draft, client_id: e.target.value || null })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white"
-                >
-                  <option value="">— Aucun —</option>
-                  {clients.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.company}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
               {error && (
                 <p className="text-sm text-red-600 bg-red-50 p-2 rounded">{error}</p>
               )}

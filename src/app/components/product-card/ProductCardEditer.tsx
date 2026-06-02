@@ -10,14 +10,10 @@
  */
 
 import { ChevronUp } from 'lucide-react';
-import type { Client } from '../../contexts/ClientsContext';
 import { TEST_IDS } from '../../lib/testIds';
 
 interface ProductCardEditerProps {
   localProduct: any;
-  clients: Client[];
-  user: { id: string } | null;
-  tp: (path: string) => string;
   updateProduct: (updates: Record<string, any>) => void;
   resetClariprintQuote: () => void;
   onClose: () => void;
@@ -25,9 +21,6 @@ interface ProductCardEditerProps {
 
 export function ProductCardEditer({
   localProduct,
-  clients,
-  user,
-  tp,
   updateProduct,
   resetClariprintQuote,
   onClose,
@@ -41,38 +34,6 @@ export function ProductCardEditer({
         </button>
       </div>
       <div className="space-y-4">
-        <div>
-          <label className="block text-base font-medium text-ink-2 mb-1">Client associé</label>
-          {user ? (
-            clients.length === 0 ? (
-              <p className="text-sm text-ink-muted bg-bg border border-line rounded-lg px-3 py-2">
-                Aucun client enregistré. Créez-en un depuis{' '}
-                <a href={tp('/dashboard/users')} className="text-brand hover:underline">
-                  le tableau de bord
-                </a>
-                .
-              </p>
-            ) : (
-              <select
-                value={(localProduct as any).client_id || ''}
-                onChange={(e) => updateProduct({ client_id: e.target.value || null })}
-                className="w-full px-3 py-2 border border-line-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">— Aucun —</option>
-                {clients.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.company}
-                    {c.contact_name ? ` — ${c.contact_name}` : ''}
-                  </option>
-                ))}
-              </select>
-            )
-          ) : (
-            <p className="text-sm text-ink-muted bg-bg border border-line rounded-lg px-3 py-2">
-              Connectez-vous pour associer ce produit à un client.
-            </p>
-          )}
-        </div>
         <div>
           <label className="block text-base font-medium text-ink-2 mb-1">Quantité</label>
           <input

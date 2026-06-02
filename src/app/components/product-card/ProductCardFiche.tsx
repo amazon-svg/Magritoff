@@ -14,19 +14,16 @@
 import { ChevronUp } from 'lucide-react';
 import { ProductPimSeoSection } from '../ProductPimSeoSection';
 import type { EnrichedProduct } from '../../utils/productEnrichment';
-import type { Client } from '../../contexts/ClientsContext';
 
 interface ProductCardFicheProps {
   localProduct: any;
   enriched: EnrichedProduct | null;
-  clients: Client[];
   onClose: () => void;
 }
 
 export function ProductCardFiche({
   localProduct,
   enriched,
-  clients,
   onClose,
 }: ProductCardFicheProps) {
   return (
@@ -57,14 +54,6 @@ export function ProductCardFiche({
           ...(localProduct.pages ? [['Pages', localProduct.pages]] : []),
           ...(localProduct.clariprintData?.kind
             ? [['Type Clariprint', localProduct.clariprintData.kind]]
-            : []),
-          ...(localProduct.client_id
-            ? [
-                [
-                  'Client',
-                  clients.find((c) => c.id === localProduct.client_id)?.company || '—',
-                ],
-              ]
             : []),
         ] as Array<[string, string | number]>).map(([label, value], i, arr) => (
           <div

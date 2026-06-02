@@ -4,7 +4,6 @@ import {
   BookmarkPlus, Check, FileText, Tag, Box, Pencil, Bug, Plus, Heart,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
-import { useClients } from "../contexts/ClientsContext";
 import { useLibrary } from "../contexts/LibraryContext";
 import { usePIM } from "../contexts/PIMContext";
 import { usePlan } from "../hooks/usePlan";
@@ -110,7 +109,6 @@ export function ProductCard({
 }: ProductCardProps) {
   const dataLineIndex = rest['data-line-index'];
   const { user } = useAuth();
-  const { clients } = useClients();
   const { addProduct: addToLibrary } = useLibrary();
   const { gammes, definitions } = usePIM();
   const { canUse } = usePlan();
@@ -639,7 +637,6 @@ export function ProductCard({
             <ProductCardFiche
               localProduct={localProduct}
               enriched={enriched}
-              clients={clients}
               onClose={() => setActiveTab(null)}
             />
           )}
@@ -667,9 +664,6 @@ export function ProductCard({
           {activeTab === "form" && (
             <ProductCardEditer
               localProduct={localProduct}
-              clients={clients}
-              user={user}
-              tp={tp}
               updateProduct={updateProduct}
               resetClariprintQuote={resetClariprintQuote}
               onClose={() => setActiveTab(null)}
@@ -697,7 +691,6 @@ export function ProductCard({
                   price: displayPriceHT,
                   clariprintQuote: clariprintQuote?.success ? clariprintQuote : undefined,
                 }}
-                onClientChange={(clientId) => updateProduct({ client_id: clientId })}
               />
             </Suspense>
           )}

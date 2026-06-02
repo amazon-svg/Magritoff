@@ -33,7 +33,6 @@ import {
 } from 'lucide-react';
 import { useShops, Shop, ShopProduct } from '../../contexts/ShopsContext';
 import { useLibrary, LibraryProduct } from '../../contexts/LibraryContext';
-import { useClients } from '../../contexts/ClientsContext';
 import { usePIM } from '../../contexts/PIMContext';
 import { usePlan } from '../../hooks/usePlan';
 import { useTenantPath } from '../../hooks/useTenantPath';
@@ -78,7 +77,6 @@ export function DashboardShopEditor() {
     includeProduct,
   } = useShops();
   const { products: library, libraries, productsByLibrary, deleteProduct } = useLibrary();
-  const { clients } = useClients();
   const { gammes, definitions } = usePIM();
 
   const [shop, setShop] = useState<Shop | null>(null);
@@ -177,7 +175,6 @@ export function DashboardShopEditor() {
       await updateShop(shop.id, {
         name: shop.name,
         description: shop.description,
-        client_id: shop.client_id,
         logo_url: shop.logo_url,
         address: shop.address,
         contact_email: shop.contact_email,
@@ -270,21 +267,6 @@ export function DashboardShopEditor() {
               onChange={(e) => setShop({ ...shop, name: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg"
             />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Client associé</label>
-            <select
-              value={shop.client_id ?? ''}
-              onChange={(e) => setShop({ ...shop, client_id: e.target.value || null })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white"
-            >
-              <option value="">— Aucun —</option>
-              {clients.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.company}
-                </option>
-              ))}
-            </select>
           </div>
           <div className="md:col-span-2">
             <label className="block text-xs font-medium text-gray-700 mb-1">Description</label>

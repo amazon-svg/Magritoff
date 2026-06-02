@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { ArrowLeft, Package, Pencil, Trash2, X, Loader2 } from 'lucide-react';
 import { useLibrary, LibraryProduct } from '../../contexts/LibraryContext';
-import { useClients } from '../../contexts/ClientsContext';
 import { usePlan } from '../../hooks/usePlan';
 import { useTenantPath } from '../../hooks/useTenantPath';
 import { UpgradeCTA } from './UpgradeCTA';
@@ -12,7 +11,6 @@ export function DashboardLibraryDetail() {
   const { canUse } = usePlan();
   const tp = useTenantPath();
   const { libraries, productsByLibrary, updateProduct, deleteProduct } = useLibrary();
-  const { clients } = useClients();
 
   const [editing, setEditing] = useState<LibraryProduct | null>(null);
   const [saving, setSaving] = useState(false);
@@ -33,8 +31,6 @@ export function DashboardLibraryDetail() {
       </div>
     );
   }
-
-  const client = clients.find((c) => c.id === library.client_id);
 
   const grouped = products.reduce((map, p) => {
     const cat = p.category || 'Autres';
@@ -68,7 +64,6 @@ export function DashboardLibraryDetail() {
 
       <div>
         <h2 className="text-xl font-bold text-gray-900">{library.name}</h2>
-        {client && <p className="text-sm text-blue-700 mt-0.5">Client : {client.company}</p>}
         {library.description && <p className="text-sm text-gray-600 mt-1">{library.description}</p>}
         <p className="text-xs text-gray-500 mt-2">{products.length} produit(s)</p>
       </div>

@@ -19,7 +19,6 @@ export interface ShopTheme {
 export interface Shop {
   id: string;
   owner_user_id?: string;
-  client_id: string | null;
   slug: string;
   name: string;
   description: string;
@@ -59,7 +58,6 @@ const DEFAULT_THEME: ShopTheme = {
 export type NewShopInput = {
   name: string;
   description?: string;
-  client_id?: string | null;
   logo_url?: string;
   address?: string;
   contact_email?: string;
@@ -125,7 +123,6 @@ export function ShopsProvider({ children }: { children: ReactNode }) {
       .insert({
         owner_user_id: user.id,
         tenant_id: currentTenant.id,
-        client_id: input.client_id ?? null,
         slug: randomSlug(),
         name: input.name,
         description: input.description ?? '',

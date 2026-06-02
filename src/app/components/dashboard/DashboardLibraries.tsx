@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { Plus, Library as LibraryIcon, Pencil, Trash2, X, Loader2, Sparkles } from 'lucide-react';
 import { useLibrary, Library } from '../../contexts/LibraryContext';
-import { useClients } from '../../contexts/ClientsContext';
 import { usePlan } from '../../hooks/usePlan';
 import { useTenantPath } from '../../hooks/useTenantPath';
 import { UpgradeCTA } from './UpgradeCTA';
@@ -18,14 +17,12 @@ export function DashboardLibraries() {
     deleteLibrary,
     productsByLibrary,
   } = useLibrary();
-  const { clients } = useClients();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Library | null>(null);
-  const [draft, setDraft] = useState<{ name: string; description: string; client_id: string | null }>({
+  const [draft, setDraft] = useState<{ name: string; description: string }>({
     name: '',
     description: '',
-    client_id: null,
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,14 +31,14 @@ export function DashboardLibraries() {
 
   const openNew = () => {
     setEditing(null);
-    setDraft({ name: '', description: '', client_id: null });
+    setDraft({ name: '', description: '' });
     setError(null);
     setModalOpen(true);
   };
 
   const openEdit = (lib: Library) => {
     setEditing(lib);
-    setDraft({ name: lib.name, description: lib.description, client_id: lib.client_id });
+    setDraft({ name: lib.name, description: lib.description });
     setError(null);
     setModalOpen(true);
   };
@@ -106,7 +103,6 @@ export function DashboardLibraries() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {libraries.map((lib) => {
             const items = productsByLibrary(lib.id);
-            const client = clients.find((c) => c.id === lib.client_id);
             return (
               <div
                 key={lib.id}
@@ -117,7 +113,6 @@ export function DashboardLibraries() {
                     <LibraryIcon className="w-5 h-5 text-gray-500 shrink-0 mt-0.5" />
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold text-gray-900 truncate">{lib.name}</p>
-                      {client && <p className="text-xs text-blue-700 truncate">→ {client.company}</p>}
                     </div>
                   </div>
                   {lib.description && (
@@ -190,22 +185,6 @@ export function DashboardLibraries() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Client associé</label>
-                <select
-                  value={draft.client_id ?? ''}
-                  onChange={(e) => setDraft({ ...draft, client_id: e.target.value || null })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white"
-                >
-                  <option value="">— Aucun —</option>
-                  {clients.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.company}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
               {error && <p className="text-sm text-red-600 bg-red-50 p-2 rounded">{error}</p>}
 
               <div className="flex gap-2 pt-2">

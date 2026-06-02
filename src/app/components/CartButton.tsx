@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { ShoppingCart, X, Trash2, FileText } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
-import { useClients, Client } from '../contexts/ClientsContext';
 import {
   makeQuoteReference,
   persistQuote,
@@ -23,9 +22,8 @@ interface CartButtonProps {
 
 export function CartButton({ variant = 'pill' }: CartButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const { items, removeFromCart, clearCart, getTotalPrice, updateItemClient } = useCart();
+  const { items, removeFromCart, clearCart, getTotalPrice } = useCart();
   const { user } = useAuth();
-  const { clients } = useClients();
   const tp = useTenantPath();
   const { currentTenant } = useTenant();
   const taxRate = getTaxRate(currentTenant);
@@ -46,22 +44,8 @@ export function CartButton({ variant = 'pill' }: CartButtonProps) {
   const totalPrice = getTotalPrice();
   const totalTTC = applyTax(totalPrice, taxRate);
 
-  // Groupe les items du panier par client_id (null = "sans client")
-  const groupByClient = () => {
-    const map = new Map<string | null, typeof items>();
-    for (const item of items) {
-      const key = (item.product?.client_id as string) || null;
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(item);
-    }
-    return Array.from(map.entries());
-  };
-
-  const uniqueClientCount = new Set(items.map((i) => i.product?.client_id || null)).size;
-
   const handlePrintQuotes = () => {
     if (items.length === 0) return;
-    const groups = groupByClient();
 
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
@@ -69,53 +53,43 @@ export function CartButton({ variant = 'pill' }: CartButtonProps) {
       return;
     }
 
-    const devisBlocks: string[] = [];
-    const toPersist: Array<{ ref: string; clientId: string | null; items: typeof items }> = [];
-
-    for (const [clientId, groupItems] of groups) {
-      const client: Client | null = clients.find((c) => c.id === clientId) || null;
-      const reference = makeQuoteReference();
-      toPersist.push({ ref: reference, clientId, items: groupItems });
-
-      devisBlocks.push(
-        renderQuoteHtml({
-          template: effectiveTemplate,
-          reference,
-          client,
-          taxRate,
-          items: groupItems.map((it) => {
-            const p = it.product;
-            const cp = p.clariprintQuote;
-            const ht = cp?.costs?.total ?? cp?.priceHT ?? p.price ?? 0;
-            return {
-              name: p.name,
-              quantity: p.quantity,
-              format: p.format ?? `${p.dimensions?.width ?? ''}x${p.dimensions?.height ?? ''}mm`,
-              material: `${p.material ?? ''} ${p.weight ? `${p.weight}g` : ''}`.trim(),
-              priceHT: ht,
-            };
-          }),
-        })
-      );
-    }
+    // Sprint 10 Phase B users : devis unique groupant tous les items du panier.
+    // Le destinataire client (saisie libre) est ajoute manuellement sur le PDF
+    // imprime si necessaire (le mini-CRM clients est supprime).
+    const reference = makeQuoteReference();
+    const devisBlock = renderQuoteHtml({
+      template: effectiveTemplate,
+      reference,
+      client: null,
+      taxRate,
+      items: items.map((it) => {
+        const p = it.product;
+        const cp = p.clariprintQuote;
+        const ht = cp?.costs?.total ?? cp?.priceHT ?? p.price ?? 0;
+        return {
+          name: p.name,
+          quantity: p.quantity,
+          format: p.format ?? `${p.dimensions?.width ?? ''}x${p.dimensions?.height ?? ''}mm`,
+          material: `${p.material ?? ''} ${p.weight ? `${p.weight}g` : ''}`.trim(),
+          priceHT: ht,
+        };
+      }),
+    });
 
     if (user && currentTenant) {
       void Promise.all(
-        toPersist.flatMap(({ ref, clientId, items }) =>
-          items.map((item) => {
-            const p = item.product;
-            const cp = p.clariprintQuote;
-            const totalHT = cp?.costs?.total ?? cp?.priceHT ?? p.price ?? 0;
-            return persistQuote(user.id, currentTenant.id, {
-              reference: ref,
-              client_id: clientId,
-              product_name: p.name,
-              product_config: p,
-              total_ht: totalHT,
-              total_ttc: applyTax(totalHT, taxRate),
-            });
-          })
-        )
+        items.map((item) => {
+          const p = item.product;
+          const cp = p.clariprintQuote;
+          const totalHT = cp?.costs?.total ?? cp?.priceHT ?? p.price ?? 0;
+          return persistQuote(user.id, currentTenant.id, {
+            reference,
+            product_name: p.name,
+            product_config: p,
+            total_ht: totalHT,
+            total_ttc: applyTax(totalHT, taxRate),
+          });
+        })
       );
     }
 
@@ -143,7 +117,7 @@ export function CartButton({ variant = 'pill' }: CartButtonProps) {
         .tpl-emitter{font-size:12px;color:#444;line-height:1.5}
         .tpl-logo img{max-width:160px;max-height:72px;object-fit:contain}
       </style></head><body>
-        ${devisBlocks.join('')}
+        ${devisBlock}
       </body></html>
     `);
     printWindow.document.close();
@@ -214,14 +188,6 @@ export function CartButton({ variant = 'pill' }: CartButtonProps) {
                 >
                   · {items.length} article{items.length > 1 ? 's' : ''}
                 </span>
-                {uniqueClientCount > 1 && (
-                  <span
-                    className="ml-2 px-2 py-0.5 rounded-full bg-warn-bg text-warn-fg font-mono"
-                    style={{ fontSize: '11px', fontWeight: 500 }}
-                  >
-                    {uniqueClientCount} clients
-                  </span>
-                )}
               </div>
               <button
                 onClick={() => setIsOpen(false)}
@@ -275,48 +241,6 @@ export function CartButton({ variant = 'pill' }: CartButtonProps) {
                             >
                               {p.name}
                             </h3>
-                          </div>
-
-                          {/* Selecteur de client par item */}
-                          <div className="mb-3">
-                            <label
-                              className="block text-ink-muted mb-1"
-                              style={{ fontSize: '11.5px', fontWeight: 500 }}
-                            >
-                              Client associe a ce devis
-                            </label>
-                            {!user ? (
-                              <p className="text-ink-mute-2" style={{ fontSize: '12px' }}>
-                                Connectez-vous pour associer un client.
-                              </p>
-                            ) : clients.length === 0 ? (
-                              <p className="text-ink-mute-2" style={{ fontSize: '12px' }}>
-                                Aucun client.{' '}
-                                <a
-                                  href={tp('/dashboard/users')}
-                                  className="text-brand hover:underline"
-                                >
-                                  Ajouter un client
-                                </a>
-                              </p>
-                            ) : (
-                              <select
-                                value={p.client_id || ''}
-                                onChange={(e) =>
-                                  updateItemClient(item.id, e.target.value || null)
-                                }
-                                className="w-full px-2.5 py-1.5 border border-line rounded-lg bg-paper text-ink focus:outline-none focus:border-line-2"
-                                style={{ fontSize: '13px' }}
-                              >
-                                <option value="">— Aucun client —</option>
-                                {clients.map((c) => (
-                                  <option key={c.id} value={c.id}>
-                                    {c.company}
-                                    {c.contact_name ? ` — ${c.contact_name}` : ''}
-                                  </option>
-                                ))}
-                              </select>
-                            )}
                           </div>
 
                           <div

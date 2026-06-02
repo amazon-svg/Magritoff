@@ -22,8 +22,6 @@ export interface CartProduct {
   price?: number;
   /** Configuration produit (Clariprint, library, etc.). */
   config?: Record<string, unknown>;
-  /** Association client (atelier) si applicable. */
-  client_id?: string | null;
   /** Autres champs autorises (kind, format, etc.) — soft-typed pour retro-compat. */
   [key: string]: unknown;
 }
@@ -38,7 +36,6 @@ interface CartContextType {
   items: CartItem[];
   addToCart: (product: CartProduct) => void;
   removeFromCart: (id: string) => void;
-  updateItemClient: (itemId: string, clientId: string | null) => void;
   clearCart: () => void;
   /** Total HT (somme prix_ht * qty). Anciennement `getTotalPrice`. */
   getTotalHT: () => number;
@@ -71,14 +68,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
     console.log('🗑️ Produit retiré du panier');
   };
 
-  const updateItemClient = (itemId: string, clientId: string | null) => {
-    setItems((prev) =>
-      prev.map((item) =>
-        item.id === itemId ? { ...item, product: { ...item.product, client_id: clientId } } : item
-      )
-    );
-  };
-
   const clearCart = () => {
     setItems([]);
     console.log('🧹 Panier vidé');
@@ -94,7 +83,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
         items,
         addToCart,
         removeFromCart,
-        updateItemClient,
         clearCart,
         getTotalHT,
         getTotalTTC,

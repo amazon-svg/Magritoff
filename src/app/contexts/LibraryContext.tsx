@@ -15,7 +15,6 @@ export interface Library {
   id: string;
   tenant_id?: string;
   user_id?: string;
-  client_id: string | null;
   name: string;
   description: string;
   created_at?: string;
@@ -25,7 +24,6 @@ export interface LibraryProduct {
   id: string;
   tenant_id?: string;
   user_id?: string;
-  client_id: string | null;
   library_id: string | null;
   name: string;
   category: string;
@@ -44,7 +42,7 @@ interface LibraryContextType {
   libraries: Library[];
   librariesLoading: boolean;
   refreshLibraries: () => Promise<void>;
-  createLibrary: (input: { name: string; description?: string; client_id?: string | null }) => Promise<Library | null>;
+  createLibrary: (input: { name: string; description?: string }) => Promise<Library | null>;
   updateLibrary: (id: string, patch: Partial<Library>) => Promise<void>;
   deleteLibrary: (id: string) => Promise<void>;
 
@@ -86,7 +84,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   }, [user, currentTenant?.id]);
 
   const createLibrary = useCallback(
-    async (input: { name: string; description?: string; client_id?: string | null }) => {
+    async (input: { name: string; description?: string }) => {
       if (!user || !currentTenant) return null;
       const { data, error } = await supabase
         .from('libraries')
@@ -95,7 +93,6 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
           tenant_id: currentTenant.id,
           name: input.name,
           description: input.description ?? '',
-          client_id: input.client_id ?? null,
         })
         .select()
         .single();

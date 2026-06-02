@@ -2,35 +2,26 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { Pencil, Trash2, Package, X, Loader2, Sparkles } from 'lucide-react';
 import { useLibrary, LibraryProduct } from '../../contexts/LibraryContext';
-import { useClients } from '../../contexts/ClientsContext';
 import { usePlan } from '../../hooks/usePlan';
 import { UpgradeCTA } from './UpgradeCTA';
 
 export function DashboardLibrary() {
   const { canUse } = usePlan();
   const { products, loading, updateProduct, deleteProduct } = useLibrary();
-  const { clients } = useClients();
-  const [clientFilter, setClientFilter] = useState<string>('all');
   const [editing, setEditing] = useState<LibraryProduct | null>(null);
   const [saving, setSaving] = useState(false);
 
   if (!canUse('library')) return <UpgradeCTA feature="Bibliothèque de produits" />;
 
-  const filtered = useMemo(() => {
-    if (clientFilter === 'all') return products;
-    if (clientFilter === 'none') return products.filter((p) => !p.client_id);
-    return products.filter((p) => p.client_id === clientFilter);
-  }, [products, clientFilter]);
-
   const grouped = useMemo(() => {
     const map = new Map<string, LibraryProduct[]>();
-    for (const p of filtered) {
+    for (const p of products) {
       const cat = p.category || 'Autres';
       if (!map.has(cat)) map.set(cat, []);
       map.get(cat)!.push(p);
     }
     return Array.from(map.entries());
-  }, [filtered]);
+  }, [products]);
 
   const saveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,7 +33,6 @@ export function DashboardLibrary() {
       description: editing.description,
       price_ht: editing.price_ht,
       image_url: editing.image_url,
-      client_id: editing.client_id,
       active: editing.active,
     });
     setSaving(false);
@@ -68,38 +58,15 @@ export function DashboardLibrary() {
       </div>
 
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-900">
-        💡 Pour ajouter un produit : calculez-le depuis le chat principal, puis cliquez <strong>"Ajouter à la bibliothèque"</strong> sur la carte produit. Si le produit est associé à un client, il sera rangé automatiquement dans la bibliothèque de ce client.
-      </div>
-
-      {/* Filtre client */}
-      <div className="flex items-center gap-2">
-        <label className="text-sm font-medium text-gray-700">Filtrer :</label>
-        <select
-          value={clientFilter}
-          onChange={(e) => setClientFilter(e.target.value)}
-          className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white"
-        >
-          <option value="all">Tous les produits ({products.length})</option>
-          <option value="none">Sans client</option>
-          {clients.map((c) => {
-            const count = products.filter((p) => p.client_id === c.id).length;
-            return (
-              <option key={c.id} value={c.id}>
-                {c.company} ({count})
-              </option>
-            );
-          })}
-        </select>
+        💡 Pour ajouter un produit : calculez-le depuis le chat principal, puis cliquez <strong>"Ajouter à la bibliothèque"</strong> sur la carte produit.
       </div>
 
       {loading ? (
         <p className="text-sm text-gray-500">Chargement...</p>
-      ) : filtered.length === 0 ? (
+      ) : products.length === 0 ? (
         <div className="text-center py-12 text-gray-400">
           <Package className="w-12 h-12 mx-auto mb-2 opacity-50" />
-          <p className="text-sm">
-            {clientFilter === 'all' ? 'Bibliothèque vide.' : 'Aucun produit pour ce filtre.'}
-          </p>
+          <p className="text-sm">Bibliothèque vide.</p>
         </div>
       ) : (
         <div className="space-y-6">
@@ -110,7 +77,6 @@ export function DashboardLibrary() {
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {items.map((p) => {
-                  const client = clients.find((c) => c.id === p.client_id);
                   return (
                     <div key={p.id} className="border border-gray-200 rounded-xl bg-white overflow-hidden">
                       {p.image_url ? (
@@ -124,7 +90,6 @@ export function DashboardLibrary() {
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
                             <p className="font-semibold text-gray-900 truncate">{p.name}</p>
-                            {client && <p className="text-xs text-blue-700 truncate">→ {client.company}</p>}
                           </div>
                           <div className="flex gap-1">
                             <button
@@ -227,21 +192,6 @@ export function DashboardLibrary() {
                   placeholder="https://..."
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Client associé</label>
-                <select
-                  value={editing.client_id ?? ''}
-                  onChange={(e) => setEditing({ ...editing, client_id: e.target.value || null })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white"
-                >
-                  <option value="">— Aucun —</option>
-                  {clients.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.company}
-                    </option>
-                  ))}
-                </select>
               </div>
               <label className="flex items-center gap-2">
                 <input

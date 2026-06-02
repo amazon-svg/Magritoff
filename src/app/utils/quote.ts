@@ -1,6 +1,19 @@
 import { supabase } from '/utils/supabase/client';
-import type { Client } from '../contexts/ClientsContext';
 import { applyTax, DEFAULT_TAX_RATE, extractTaxAmount, formatTaxLabel } from './tax';
+
+/**
+ * Sprint 10 Phase B users : decouplage du type Client legacy. Le bloc Client
+ * du devis PDF accepte desormais une saisie libre (utilisateur tape les
+ * infos du destinataire au moment du devis). Type local QuoteClientInfo
+ * conserve les champs historiques pour back-compat des composants existants.
+ */
+export interface QuoteClientInfo {
+  company?: string | null;
+  contact_name?: string | null;
+  address?: string | null;
+  email?: string | null;
+  phone?: string | null;
+}
 
 export function makeQuoteReference(): string {
   const year = new Date().getFullYear();
@@ -19,7 +32,6 @@ export function computeProductTotals(
 
 export interface QuoteRowInput {
   reference: string;
-  client_id: string | null;
   product_name: string;
   product_config: any;
   total_ht: number;
@@ -30,6 +42,9 @@ export interface QuoteRowInput {
  * Insere une ligne dans `quotes`. En v3, tenant_id est REQUIS par la RLS —
  * il est donc passe explicitement par l'appelant (qui dispose du tenant
  * courant via useTenant()).
+ *
+ * Sprint 10 Phase B users : colonne quotes.client_id supprimee (DROP TABLE
+ * clients CASCADE). Le devis est lie au tenant + user emetteur uniquement.
  */
 export async function persistQuote(
   userId: string,
@@ -39,7 +54,6 @@ export async function persistQuote(
   const { error } = await supabase.from('quotes').insert({
     user_id: userId,
     tenant_id: tenantId,
-    client_id: input.client_id,
     reference: input.reference,
     product_name: input.product_name,
     product_config: input.product_config,
@@ -139,7 +153,7 @@ export function getDefaultTemplate(): QuoteTemplate {
 
 // ─── Rendu HTML imprimable ────────────────────────────────────────────────
 
-export function renderClientBlockHtml(client: Client | null | undefined): string {
+export function renderClientBlockHtml(client: QuoteClientInfo | null | undefined): string {
   if (!client) {
     return `
       <div class="partie-field">Societe / Nom :</div>
@@ -149,7 +163,7 @@ export function renderClientBlockHtml(client: Client | null | undefined): string
     `;
   }
   return `
-    <div class="partie-field">Societe : ${escapeHtml(client.company)}</div>
+    <div class="partie-field">Societe : ${escapeHtml(client.company || '')}</div>
     <div class="partie-field">Contact : ${escapeHtml(client.contact_name || '')}</div>
     <div class="partie-field">Adresse : ${escapeHtml(client.address || '')}</div>
     <div class="partie-field">Email : ${escapeHtml(client.email || '')}</div>
@@ -185,7 +199,7 @@ export interface QuoteItem {
 export function renderQuoteHtml(input: {
   template: QuoteTemplate;
   reference: string;
-  client: Client | null | undefined;
+  client: QuoteClientInfo | null | undefined;
   items: QuoteItem[];
   /** Taux TVA. R0 : passe par le caller via getTaxRate(currentTenant). */
   taxRate?: number;
