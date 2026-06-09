@@ -72,6 +72,11 @@ export function DashboardOrders() {
   // Validateur par défaut). Évite que les Acheteurs voient un bouton qui
   // serait refusé par le RPC (UX confusion).
   const { hasIt: canValidate } = useUserCapability('can_validate');
+  // S-ORDER-ROLES-3-UI (2026-06-09) : Démarrer la production + Marquer
+  // expédiée gardes par can_modify (preset Owner / Admin / Validateur /
+  // Producteur). Cohérence avec PortalOrders tab "À produire" mais
+  // accessible à l'admin tenant sur l'ensemble des boutiques.
+  const { hasIt: canModifyProduction } = useUserCapability('can_modify');
 
   const loadOrders = useCallback(async (cancelled: { current: boolean }) => {
     if (!user || !currentTenant) return;
@@ -204,6 +209,36 @@ export function DashboardOrders() {
     return null;
   };
 
+  // S-ORDER-ROLES-3-UI : transitions production (admin tenant via can_modify).
+  // Sans modal de confirmation — actions tactiques rapides côté pilotage atelier.
+  const transitionProductionStatus = async (
+    order: OrderUI,
+    toStatus: 'in_production' | 'shipped',
+  ): Promise<void> => {
+    const fromStatus = order.status;
+    const { error: rpcErr } = await supabase.rpc('update_tenant_order_status', {
+      p_order_id: order.id,
+      p_new_status: toStatus,
+      p_reason: null,
+    });
+    if (rpcErr) {
+      console.warn(`[DashboardOrders] transition ${fromStatus}→${toStatus} failed:`, rpcErr.message);
+      return;
+    }
+    if (user?.id) {
+      triggerOrderWorkflowStep({
+        orderId: order.id,
+        fromStatus,
+        toStatus,
+        actorUserId: user.id,
+      });
+    }
+    await loadOrders({ current: false });
+  };
+
+  const handleStartProduction = (order: OrderUI) => transitionProductionStatus(order, 'in_production');
+  const handleMarkShipped = (order: OrderUI) => transitionProductionStatus(order, 'shipped');
+
   return (
     <div className="space-y-4">
       <div>
@@ -223,6 +258,11 @@ export function DashboardOrders() {
         // l'utilisateur courant a la capability can_validate (via rôle actif).
         // Sinon, undefined => OrderHistoryTable masque le bouton.
         onValidateOrder={canValidate ? handleValidateOrderRequest : undefined}
+        // S-ORDER-ROLES-3-UI : boutons Démarrer prod + Marquer expédiée
+        // role-driven via can_modify (preset Owner / Admin / Validateur /
+        // Producteur). Sans modal de confirmation côté admin tenant.
+        onStartProductionOrder={canModifyProduction ? handleStartProduction : undefined}
+        onMarkShippedOrder={canModifyProduction ? handleMarkShipped : undefined}
         extraColumn={{
           header: 'Boutique',
           position: 'after-date',
