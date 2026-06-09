@@ -3,19 +3,40 @@ story_id: S-ORDER-ROLES-3
 parent_story: S-ORDER-ROLES (overview)
 epic: 3 — Module Commandes (extension scope rôles)
 title: UI PortalOrders tabs filtrés par rôle + admin catalog rôles tenant
-status: spec-ready (post Phase 0.4 cadrage qualité, 2026-05-22)
+status: ux-ready (Sally UX wireframes livrés 2026-06-08 — attente arbitrage Arnaud Q1/Q2/Q3 avant dev)
 created_at: 2026-05-22
+ux_session: 2026-06-08 (Sally)
 target_branch: beta/v5
-agent: TBD (Dev hat, Sprint 6, avec Sally UX consult préalable)
-size: M (2-3j)
+agent: TBD (Dev hat, Sprint 6+, post arbitrage Arnaud Q1/Q2/Q3)
+size: M (2-3j) — hook livré Sprint 6 commit a8114ee, reste UI + page admin + modale + tests
 prd_ref: _bmad-output/planning-artifacts/prd.md (FR18-24)
-predecessors: [S-ORDER-ROLES-1 livré, S-ORDER-ROLES-2 livré]
-successors: [S3.5 Audit trail UI]
-sprint_cible: Sprint 6 (roadmap qualité-first)
-ux_consult_required: Sally avant dev (DoD principe #5)
+predecessors: [S-ORDER-ROLES-1 livré, S-ORDER-ROLES-2 livré, useOrderRoles hook livré commit a8114ee]
+successors: [S3.5 Audit trail UI livrée wire-ups f49926b]
+sprint_cible: Sprint 6+ (roadmap qualité-first — reprend après tranchage Q1/Q2/Q3)
+ux_consult_required: Sally avant dev (DoD principe #5) — ✅ livré 2026-06-08
+wireframes:
+  - .design-handoff/wireframes/S-ORDER-ROLES-3-portal-orders.md
+  - .design-handoff/wireframes/S-ORDER-ROLES-3-admin-roles.md
+  - .design-handoff/wireframes/S-ORDER-ROLES-3-create-modal.md
 ---
 
 # Story S-ORDER-ROLES-3 — UI PortalOrders tabs filtrés + admin catalog rôles
+
+## Résumé exécutif (Sally — 2026-06-08)
+
+**Objectif** : rendre user-facing la couche workflow paramétrable (`tenant_role_definitions` + `tenant_order_roles`) déjà livrée Sprint 6. Trois écrans à construire — (1) refonte **PortalOrders** côté boutique avec 4 tabs filtrés ("Mes commandes" / "À valider" / "À approuver" / "À produire") + boutons actions contextuels résolus par `useOrderRoles + canDoAction` ; (2) nouvelle page admin tenant **`/t/:slug/admin/order-roles`** qui matérialise le catalog rôles + un rail visuel du circuit + une matrice users×rôles (lecture seule renvoyant vers page Users existante) ; (3) **modale unique** `<RoleEditorDialog>` qui gère création et édition d'un rôle (nom auto "Validateur X" éditable, 4 toggles capabilities, 3 options notify_policy, segmented control scope tenant/boutique avec Combobox boutique). Pattern UI : shadcn Tabs/Dialog/ToggleGroup/Combobox, lucide-react icons, Tailwind v4. Microcopy FR direct sans jargon ("Suivant" plutôt que `chain_next`, "Tout l'espace" plutôt que `scope=tenant`).
+
+**Trois décisions ouvertes à trancher par Arnaud (recommandations Sally argumentées dans les wireframes)** :
+- **Q1 — Permission d'accès page admin catalog rôles** → recommandation `can_manage_roles` (nouvelle permission, sémantique propre, déjà préparée dans `OrderCapability` enum du hook).
+- **Q2 — Ordre des 4 tabs PortalOrders** → recommandation `Mes commandes → À valider → À approuver → À produire` (ordre chronologique du workflow, "Mes commandes" en premier par convention SaaS).
+- **Q3 — Scope conflict (1 rôle = 1 boutique ou multi-boutiques)** → recommandation `1 définition = 1 scope unique`, duplication assistée pour les workflows répétés sur plusieurs boutiques.
+
+**Actions concrètes immédiates** (post-validation Arnaud) :
+1. Trancher Q1/Q2/Q3 (15 min de lecture des 3 wireframes + 1 réponse Arnaud).
+2. Démarrer story Dev sur la base des wireframes (3 composants à construire : `<PortalOrdersTabbed>`, `<OrderRoleAdminPage>`, `<RoleEditorDialog>`).
+3. Migration SQL accompagnante : ajout permission `can_manage_roles` aux 5 presets seedés + RPC `get_portal_orders_counters` pour les badges.
+
+---
 
 ## Contexte
 
@@ -33,7 +54,7 @@ Voir [story-S-ORDER-ROLES-roles-commande.md](story-S-ORDER-ROLES-roles-commande.
 
 ## Acceptance Criteria
 
-### AC1 — Sally UX wireframes avant dev (DoD principe #5)
+### AC1 — Sally UX wireframes avant dev (DoD principe #5) — ✅ LIVRÉ 2026-06-08
 
 **Given** la story commence par une session Sally UX
 **When** Sally produit les wireframes
@@ -44,7 +65,20 @@ Voir [story-S-ORDER-ROLES-roles-commande.md](story-S-ORDER-ROLES-roles-commande.
 - UI admin catalog rôles (nouvelle page `/t/:slug/admin/order-roles`) : liste rôles existants + bouton "Ajouter validateur" + modale création (nom auto-rempli "Validateur X", 4 toggles capabilities, dropdown notify_policy, scope tenant/shop)
 - Microcopy en français cohérent avec brand voice Magrit (direct, concret)
 
-**And** les wireframes sont sauvegardés dans `.design-handoff/wireframes/S-ORDER-ROLES-3-*.png` (ou Figma export)
+**And** les wireframes sont sauvegardés dans `.design-handoff/wireframes/S-ORDER-ROLES-3-*.md` (ASCII lo-fi dev-ready, pas de hi-fi Figma MVP).
+
+**Livrés 2026-06-08 (Sally)** :
+- [`S-ORDER-ROLES-3-portal-orders.md`](../../.design-handoff/wireframes/S-ORDER-ROLES-3-portal-orders.md) — écran acheteur 4 tabs + actions par ligne + microcopy + RPC compteurs
+- [`S-ORDER-ROLES-3-admin-roles.md`](../../.design-handoff/wireframes/S-ORDER-ROLES-3-admin-roles.md) — page admin catalog + rail visuel + matrice users×rôles + recommandation Q1
+- [`S-ORDER-ROLES-3-create-modal.md`](../../.design-handoff/wireframes/S-ORDER-ROLES-3-create-modal.md) — modale unique création/édition + recommandation Q3
+
+**Trois questions ouvertes (recommandations Sally argumentées dans les wireframes)** :
+
+| # | Question | Recommandation Sally | Argument résumé |
+|---|---|---|---|
+| **Q1** | Permission accès page admin catalog rôles : `can_invite` (existant) ou `can_manage_roles` (nouveau) ? | **`can_manage_roles`** | (a) déjà dans `OrderCapability` enum hook, (b) separation of concerns lesson 2026-05-25 §users, (c) sécurité — un office manager peut inviter sans toucher au workflow. |
+| **Q2** | Ordre des 4 tabs PortalOrders ? | `Mes commandes → À valider → À approuver → À produire` | Ordre chronologique du workflow, "Mes commandes" en premier par convention SaaS Linear/Notion/Jira, compteurs badges rendent le scan rapide. |
+| **Q3** | Scope conflict : 1 rôle multi-boutiques ou 1 rôle par boutique ? | **1 définition = 1 scope unique** + duplication assistée | Schéma actuel (`scope_shop_id` singleton) l'impose, clarté UX (rail visuel séparé par card), V2+ si volume justifie array `scope_shop_ids`. |
 
 ### AC2 — Hook `useOrderRoles(orderId)` exposé front
 
@@ -142,15 +176,17 @@ Voir [story-S-ORDER-ROLES-roles-commande.md](story-S-ORDER-ROLES-roles-commande.
 
 ## Tasks
 
-- [ ] Task 1 — Sally UX session : wireframes 4 tabs + modale création + microcopy
-- [ ] Task 2 — Implémenter `useOrderRoles` hook + TanStack Query setup
-- [ ] Task 3 — Refonte `PortalOrders.tsx` avec 4 tabs + boutons actions contextuels
-- [ ] Task 4 — Nouvelle page `OrderRoleAdminPage.tsx` (route `/t/:slug/admin/order-roles`)
-- [ ] Task 5 — Composant `<OrderRoleCreateModal>` + validation Zod
-- [ ] Task 6 — Tests vitest + RTL (10+ cas)
-- [ ] Task 7 — Étendre `pnpm a11y:scan` aux 2 nouvelles routes + corriger violations si présentes
-- [ ] Task 8 — Ajouter testIds dans `src/app/lib/testIds.ts` (scope `order_role`)
-- [ ] Task 9 — 4 TF Notion AC8
+- [x] Task 1 — Sally UX session : wireframes 4 tabs + modale création + microcopy (livré 2026-06-08)
+- [x] Task 2 — Implémenter `useOrderRoles` hook (livré Sprint 6 commit `a8114ee`)
+- [ ] Task 2-bis — Arnaud tranche Q1/Q2/Q3 (15 min lecture wireframes)
+- [ ] Task 2-ter — Migration SQL `can_manage_roles` permission + RPC `get_portal_orders_counters` (~0,5 j)
+- [ ] Task 3 — Refonte `PortalOrders.tsx` avec 4 tabs (`<PortalOrdersTabbed>`) + boutons actions contextuels
+- [ ] Task 4 — Nouvelle page `<OrderRoleAdminPage>` (route `/t/:slug/admin/order-roles`)
+- [ ] Task 5 — Composant `<RoleEditorDialog>` (création + édition partagé) + validation Zod
+- [ ] Task 6 — Tests vitest + RTL (10+ cas — voir wireframes pour la liste détaillée)
+- [ ] Task 7 — Étendre `pnpm a11y:scan` aux nouvelles routes : `/shop/<slug>/orders?tab=*` (4 variants) + `/t/<slug>/admin/order-roles`
+- [ ] Task 8 — Ajouter testIds dans `src/app/lib/testIds.ts` — nouveau scope `orderRole` + extensions `shop.ordersTab*` (listes exhaustives dans les wireframes)
+- [ ] Task 9 — 4 TF Notion AC8 + cas additionnels recommandés par Sally (cohérence inter-écrans DashboardOrders vs PortalOrders)
 
 ## DoD spécifique
 
@@ -168,7 +204,12 @@ Voir [story-S-ORDER-ROLES-roles-commande.md](story-S-ORDER-ROLES-roles-commande.
 - [Overview S-ORDER-ROLES](story-S-ORDER-ROLES-roles-commande.md)
 - [S-ORDER-ROLES-1 schéma DB](story-S-ORDER-ROLES-1-schema-db-rls.md) — prérequis
 - [S-ORDER-ROLES-2 RPC + audit](story-S-ORDER-ROLES-2-rpc-transitions-audit.md) — prérequis
-- [PortalOrders existant] — `src/app/components/shop/portal/PortalOrders.tsx` (livré S-DUAL-READ)
-- [DashboardOrders] — `src/app/components/dashboard/DashboardOrders.tsx` (livré S-DASHBOARD-ORDERS-DUAL)
-- [.design-handoff/designs/05 - Portail B2B.html] — workflow N+1 design hi-fi de référence
+- [Wireframes Sally 2026-06-08 — PortalOrders 4 tabs](../../.design-handoff/wireframes/S-ORDER-ROLES-3-portal-orders.md)
+- [Wireframes Sally 2026-06-08 — Page admin catalog rôles](../../.design-handoff/wireframes/S-ORDER-ROLES-3-admin-roles.md)
+- [Wireframes Sally 2026-06-08 — Modale création/édition](../../.design-handoff/wireframes/S-ORDER-ROLES-3-create-modal.md)
+- [Hook useOrderRoles livré Sprint 6 commit a8114ee](../../src/app/hooks/useOrderRoles.ts) — voir enum `OrderCapability` ligne 32 (déjà inclut `can_manage_roles`)
+- [PortalOrders existant à refondre](../../src/app/components/shop/portal/PortalOrders.tsx) — livré S-DUAL-READ
+- [DashboardOrders côté admin tenant](../../src/app/components/dashboard/DashboardOrders.tsx) — livré S-DASHBOARD-ORDERS-DUAL (à harmoniser, cf. wireframe portal §Cohérence inter-écrans)
+- [Design hi-fi 05 Portail B2B](../../.design-handoff/designs/05%20-%20Portail%20B2B.html) — référence visuelle workflow N+1 (stepper figé adapté en stepper dynamique dans les wireframes)
 - [Pattern shadcn Tabs] — déjà utilisé dans plusieurs Dashboard*.tsx
+- [Pattern Combobox shadcn] — déjà utilisé dans OrderHistoryTable filtre Boutique (S3.1)
