@@ -24,7 +24,7 @@
  */
 
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, Ban, Check, ChevronDown, History, Loader2, Package, RotateCcw, RotateCw } from 'lucide-react';
+import { ArrowDown, ArrowUp, Ban, Check, ChevronDown, History, Loader2, Package, Play, RotateCcw, RotateCw, Truck, X } from 'lucide-react';
 import { OrderAuditTrailModal } from './OrderAuditTrailModal';
 import type { OrderUI } from './PortalOrders.helpers';
 import { getStatusInfo, type OrderStatus } from '../../../lib/orderStatus';
@@ -120,10 +120,29 @@ export interface OrderHistoryTableProps {
    * Fix 2026-05-25 (anticipation S-N1-APPROVAL Sprint 6) : callback Valider
    * pour transitionner draft → validated. Réservé admin tenant (RPC
    * matrice). Si fourni, un bouton 'Valider' apparait sur les drafts v1.1.
-   * DashboardOrders fournit ce callback, PortalOrders non (les acheteurs
-   * ne valident pas leurs propres commandes en B2B classique).
+   * DashboardOrders fournit ce callback. PortalOrders le fournit aussi
+   * depuis S-ORDER-ROLES-3-UI (Sprint 6+) pour les tabs to_validate /
+   * to_approve où l'user a la capability via assignment de rôle workflow.
    */
   onValidateOrder?: (order: OrderUI) => void | Promise<void>;
+  /**
+   * S-ORDER-ROLES-3-UI (Sprint 6+) : callback Refuser. Ouvre le dialog
+   * RejectOrderConfirmDialog côté parent (capture reason obligatoire).
+   * Visible sur drafts v1.1 uniquement. Sémantique : un validateur
+   * workflow refuse une commande remontée vers lui (vs onCancelOrder
+   * réservé self-service de l'auteur).
+   */
+  onRejectOrder?: (order: OrderUI) => void | Promise<void>;
+  /**
+   * S-ORDER-ROLES-3-UI : callback Démarrer la production. Visible sur
+   * commandes status='validated' v1.1 uniquement. Réservé rôle Producteur.
+   */
+  onStartProductionOrder?: (order: OrderUI) => void | Promise<void>;
+  /**
+   * S-ORDER-ROLES-3-UI : callback Marquer expédiée. Visible sur commandes
+   * status='in_production' v1.1 uniquement. Réservé rôle Producteur.
+   */
+  onMarkShippedOrder?: (order: OrderUI) => void | Promise<void>;
 }
 
 interface TableState {
@@ -311,6 +330,9 @@ export function OrderHistoryTable({
   onRenewOrder,
   onCancelOrder,
   onValidateOrder,
+  onRejectOrder,
+  onStartProductionOrder,
+  onMarkShippedOrder,
 }: OrderHistoryTableProps) {
   // S3.3 : une commande est renouvelable si v1.1 + status workflow/terminal
   // (pas draft = rien à renouveler depuis un brouillon, pas cancelled =
@@ -332,9 +354,22 @@ export function OrderHistoryTable({
     !!onCancelOrder && o.source === 'v1_1' && o.status === 'draft';
 
   // Fix 2026-05-25 : validable si v1.1 + status draft + callback fourni
-  // (DashboardOrders fournit, PortalOrders non — RPC reserve admin tenant).
+  // (DashboardOrders fournit, PortalOrders fournit aussi depuis
+  // S-ORDER-ROLES-3-UI Sprint 6+ — tabs to_validate/to_approve).
   const canValidate = (o: OrderUI) =>
     !!onValidateOrder && o.source === 'v1_1' && o.status === 'draft';
+
+  // S-ORDER-ROLES-3-UI : refus workflow (validateur) — drafts v1.1 seulement.
+  const canReject = (o: OrderUI) =>
+    !!onRejectOrder && o.source === 'v1_1' && o.status === 'draft';
+
+  // S-ORDER-ROLES-3-UI : démarrage production — validated v1.1 seulement.
+  const canStartProduction = (o: OrderUI) =>
+    !!onStartProductionOrder && o.source === 'v1_1' && o.status === 'validated';
+
+  // S-ORDER-ROLES-3-UI : expédition — in_production v1.1 seulement.
+  const canMarkShipped = (o: OrderUI) =>
+    !!onMarkShippedOrder && o.source === 'v1_1' && o.status === 'in_production';
 
   // S3.5 wire-up (2026-06-01) : bouton Historique disponible sur toutes
   // les commandes v1.1 (cohort post-bascule ADR-ORDERS-1). Ouvre la modale
@@ -345,7 +380,9 @@ export function OrderHistoryTable({
   // Affiche la colonne Actions si au moins un callback est fourni OU si
   // au moins une commande v1.1 (pour le bouton Historique).
   const hasAnyV11 = orders.some((o) => o.source === 'v1_1');
-  const showActionsColumn = !!onRenewOrder || !!onCancelOrder || !!onValidateOrder || hasAnyV11;
+  const showActionsColumn = !!onRenewOrder || !!onCancelOrder || !!onValidateOrder
+    || !!onRejectOrder || !!onStartProductionOrder || !!onMarkShippedOrder
+    || hasAnyV11;
   const [state, setState] = useState<TableState>(() => loadState(persistKey));
 
   useEffect(() => {
@@ -945,12 +982,57 @@ export function OrderHistoryTable({
                               data-testid={TEST_IDS.shop.orderValidateBtn}
                               data-order-id={o.id}
                               aria-label={`Valider la commande draft ${o.id}`}
-                              title="Valider cette commande (draft → validated, admin tenant uniquement)"
+                              title="Valider cette commande (draft → validated)"
                               className="inline-flex items-center gap-1 px-2 py-1 rounded border border-ok-line bg-paper text-ok-fg hover:bg-ok-bg transition-colors"
                               style={{ fontSize: '11.5px' }}
                             >
                               <Check className="w-3 h-3" strokeWidth={2} aria-hidden="true" />
                               Valider
+                            </button>
+                          )}
+                          {canReject(o) && (
+                            <button
+                              type="button"
+                              onClick={() => onRejectOrder?.(o)}
+                              data-testid={TEST_IDS.shop.orderRejectBtn}
+                              data-order-id={o.id}
+                              aria-label={`Refuser la commande draft ${o.id}`}
+                              title="Refuser cette commande (l'auteur sera prévenu avec la raison)"
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded border border-err-fg/30 bg-paper text-err-fg hover:bg-err-bg transition-colors"
+                              style={{ fontSize: '11.5px' }}
+                            >
+                              <X className="w-3 h-3" strokeWidth={2} aria-hidden="true" />
+                              Refuser
+                            </button>
+                          )}
+                          {canStartProduction(o) && (
+                            <button
+                              type="button"
+                              onClick={() => onStartProductionOrder?.(o)}
+                              data-testid={TEST_IDS.shop.orderProductionStartBtn}
+                              data-order-id={o.id}
+                              aria-label={`Démarrer la production de la commande ${o.id}`}
+                              title="Marque cette commande comme en cours de production"
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded border border-info-fg/30 bg-paper text-info-fg hover:bg-info-bg transition-colors"
+                              style={{ fontSize: '11.5px' }}
+                            >
+                              <Play className="w-3 h-3" strokeWidth={2} aria-hidden="true" />
+                              Démarrer la production
+                            </button>
+                          )}
+                          {canMarkShipped(o) && (
+                            <button
+                              type="button"
+                              onClick={() => onMarkShippedOrder?.(o)}
+                              data-testid={TEST_IDS.shop.orderShippedBtn}
+                              data-order-id={o.id}
+                              aria-label={`Marquer expédiée la commande ${o.id}`}
+                              title="Indique que la commande a quitté l'atelier"
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded border border-info-fg/30 bg-paper text-info-fg hover:bg-info-bg transition-colors"
+                              style={{ fontSize: '11.5px' }}
+                            >
+                              <Truck className="w-3 h-3" strokeWidth={2} aria-hidden="true" />
+                              Marquer expédiée
                             </button>
                           )}
                           {canRenew(o) && (

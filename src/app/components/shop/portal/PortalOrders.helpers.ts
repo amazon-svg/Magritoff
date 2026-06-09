@@ -139,3 +139,105 @@ export function mergeAndSortOrders(legacy: OrderUI[], v1_1: OrderUI[]): OrderUI[
     (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
   );
 }
+
+// ─── S-ORDER-ROLES-3-UI (Sprint 6+, wireframes Sally 2026-06-08) ─────────
+// PortalOrders refondu en 4 tabs filtrés par rôle workflow. Chaque tab
+// déclenche sa query SQL spécifique (mine / to_validate / to_approve /
+// to_produce) qui filtre tenant_orders selon assignment role + statut.
+// Compteurs des badges via RPC get_portal_orders_counters (migration
+// 20260609000200) — 1 round-trip pour les 4 chiffres.
+
+export type PortalOrdersTab = 'mine' | 'to_validate' | 'to_approve' | 'to_produce';
+
+export interface PortalOrdersCounters {
+  mine: number;
+  to_validate: number;
+  to_approve: number;
+  to_produce: number;
+}
+
+export interface PortalOrdersTabVisibility {
+  /** Tab "Mes commandes" toujours visible. */
+  mine: true;
+  /** Tab "À valider" visible si user a au moins 1 rôle can_validate intermédiaire. */
+  to_validate: boolean;
+  /** Tab "À approuver" visible si user a au moins 1 rôle can_validate final (ordering_index = MAX). */
+  to_approve: boolean;
+  /** Tab "À produire" visible si user a au moins 1 rôle 'Producteur' assigné. */
+  to_produce: boolean;
+}
+
+/**
+ * Détermine la visibilité des tabs depuis les compteurs RPC.
+ *
+ * Règle pragmatique MVP : un tab est visible s'il a au moins 1 commande
+ * dans son périmètre OU si l'utilisateur a un rôle qui le qualifie (peu
+ * importe le compteur). Pour MVP on se contente du compteur > 0 — un
+ * validateur sans commande à valider ne voit pas le tab vide, on évite le
+ * bruit visuel. La page reste accessible via deep-link (?tab=to-validate)
+ * si l'utilisateur veut forcer.
+ *
+ * Cas particulier : "Mes commandes" toujours visible (acheteur primaire),
+ * même à 0 — on affiche alors l'empty state CTA "Voir le catalogue".
+ */
+export function computeTabVisibility(
+  counters: PortalOrdersCounters,
+): PortalOrdersTabVisibility {
+  return {
+    mine: true,
+    to_validate: counters.to_validate > 0,
+    to_approve: counters.to_approve > 0,
+    to_produce: counters.to_produce > 0,
+  };
+}
+
+/**
+ * Mapping tab UI → query string pour deep-linking (?tab=...).
+ */
+export const TAB_QUERY_PARAM: Record<PortalOrdersTab, string> = {
+  mine: 'mine',
+  to_validate: 'to-validate',
+  to_approve: 'to-approve',
+  to_produce: 'to-produce',
+};
+
+export const TAB_FROM_QUERY: Record<string, PortalOrdersTab> = {
+  'mine': 'mine',
+  'to-validate': 'to_validate',
+  'to-approve': 'to_approve',
+  'to-produce': 'to_produce',
+};
+
+/**
+ * Libellé FR pour chaque tab (brand voice Magrit : direct, concret).
+ * Lesson 2026-05-22 : bannir anglicismes.
+ */
+export const TAB_LABELS: Record<PortalOrdersTab, string> = {
+  mine: 'Mes commandes',
+  to_validate: 'À valider',
+  to_approve: 'À approuver',
+  to_produce: 'À produire',
+};
+
+/**
+ * Empty state microcopy par tab (FR brand voice Magrit).
+ */
+export const TAB_EMPTY_STATES: Record<PortalOrdersTab, { title: string; body: string; ctaLabel?: string }> = {
+  mine: {
+    title: 'Aucune commande pour l\'instant',
+    body: 'Vous n\'avez encore rien commandé dans cette boutique. Parcourez le catalogue pour ajouter vos premiers articles.',
+    ctaLabel: 'Voir le catalogue',
+  },
+  to_validate: {
+    title: 'Aucune commande à valider',
+    body: 'Tout est à jour. Les nouvelles commandes s\'afficheront ici dès qu\'elles remonteront vers vous.',
+  },
+  to_approve: {
+    title: 'Aucune approbation en attente',
+    body: 'Les commandes vous remonteront ici une fois validées par les étapes précédentes.',
+  },
+  to_produce: {
+    title: 'Atelier au repos',
+    body: 'Aucune commande validée à produire pour l\'instant. Les commandes apparaîtront ici dès leur approbation finale.',
+  },
+};

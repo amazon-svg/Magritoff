@@ -248,6 +248,78 @@ export const TEST_IDS = {
     gammesPills: 'shop-gammes-pills',
     gammePill: 'shop-gamme-pill',
     gammePillAll: 'shop-gamme-pill-all',
+    // S-ORDER-ROLES-3-UI (Sprint 6+, wireframes Sally 2026-06-08) :
+    // PortalOrders refondu en 4 tabs filtres par role workflow + actions
+    // role-driven par ligne. Le suffixe -role distingue les boutons valider/
+    // rejet workflow des boutons admin tenant historiques (orderValidateBtn).
+    ordersTabs: 'shop-orders-tabs',
+    ordersTabMine: 'shop-orders-tab-mine',
+    ordersTabToValidate: 'shop-orders-tab-to-validate',
+    ordersTabToApprove: 'shop-orders-tab-to-approve',
+    ordersTabToProduce: 'shop-orders-tab-to-produce',
+    ordersTabBadgeCount: 'shop-orders-tab-badge-count',
+    ordersEmptyState: 'shop-orders-empty-state',
+    orderValidateBtnRole: 'shop-order-validate-btn-role',
+    orderRejectBtn: 'shop-order-reject-btn',
+    orderRejectReasonInput: 'shop-order-reject-reason-input',
+    orderRejectDialog: 'shop-order-reject-dialog',
+    orderRejectDialogConfirm: 'shop-order-reject-dialog-confirm',
+    orderRejectDialogCancel: 'shop-order-reject-dialog-cancel',
+    orderProductionStartBtn: 'shop-order-production-start-btn',
+    orderShippedBtn: 'shop-order-shipped-btn',
+    orderExportMenu: 'shop-order-export-menu',
+    orderExportPdfQuoteBtn: 'shop-order-export-pdf-quote-btn',
+    orderExportPdfInvoiceBtn: 'shop-order-export-pdf-invoice-btn',
+    orderExportCsvBtn: 'shop-order-export-csv-btn',
+    orderNextStepIndicator: 'shop-order-next-step-indicator',
+  },
+
+  // ─── Workflow & rôles de commande (S-ORDER-ROLES-3-UI) ────────────────
+  // Nouveau scope dédié à la page admin tenant /t/:slug/admin/order-roles
+  // (catalog rôles + rail visuel + matrice assignations) et à la modale
+  // partagée RoleEditorDialog (création + édition). Wireframes Sally
+  // 2026-06-08 dans .design-handoff/wireframes/S-ORDER-ROLES-3-*.md.
+  orderRole: {
+    page: 'order-role-page',
+    // Rail visuel haut de page
+    workflowRail: 'order-role-workflow-rail',
+    workflowRailCard: 'order-role-workflow-rail-card',
+    // Catalog table
+    catalogTable: 'order-role-catalog-table',
+    catalogRow: 'order-role-catalog-row',
+    catalogAddBtn: 'order-role-catalog-add-btn',
+    catalogMenuBtn: 'order-role-catalog-menu-btn',
+    catalogMenuEdit: 'order-role-catalog-menu-edit',
+    catalogMenuDuplicate: 'order-role-catalog-menu-duplicate',
+    catalogMenuMoveUp: 'order-role-catalog-menu-move-up',
+    catalogMenuMoveDown: 'order-role-catalog-menu-move-down',
+    catalogMenuArchive: 'order-role-catalog-menu-archive',
+    catalogArchiveConfirmDialog: 'order-role-catalog-archive-confirm-dialog',
+    catalogArchiveConfirmBtn: 'order-role-catalog-archive-confirm-btn',
+    catalogShowArchivedBtn: 'order-role-catalog-show-archived-btn',
+    // Bloc assignations (Option A : lecture seule + lien vers page Users)
+    assignmentsSummary: 'order-role-assignments-summary',
+    assignmentsManageLink: 'order-role-assignments-manage-link',
+    // Statuts (placeholder V2)
+    statusesSection: 'order-role-statuses-section',
+    // Modale création / édition (RoleEditorDialog)
+    editorDialog: 'order-role-editor-dialog',
+    editorNameInput: 'order-role-editor-name-input',
+    editorCapValidate: 'order-role-editor-cap-validate',
+    editorCapCancel: 'order-role-editor-cap-cancel',
+    editorCapModify: 'order-role-editor-cap-modify',
+    editorCapExport: 'order-role-editor-cap-export',
+    editorNotifyChainNext: 'order-role-editor-notify-chain-next',
+    editorNotifyAllRoles: 'order-role-editor-notify-all-roles',
+    editorNotifyNone: 'order-role-editor-notify-none',
+    editorScopeTenant: 'order-role-editor-scope-tenant',
+    editorScopeShop: 'order-role-editor-scope-shop',
+    editorScopeShopCombobox: 'order-role-editor-scope-shop-combobox',
+    editorScopeShopOption: 'order-role-editor-scope-shop-option',
+    editorPositionSelect: 'order-role-editor-position-select',
+    editorSubmitBtn: 'order-role-editor-submit-btn',
+    editorCancelBtn: 'order-role-editor-cancel-btn',
+    editorErrorBanner: 'order-role-editor-error-banner',
   },
 
   // ─── Mockup engine parametrique (S4.3, Epic 4) ─────────────────────────
