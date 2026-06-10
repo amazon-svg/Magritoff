@@ -44,12 +44,12 @@ ROUTES=(
   "$BASE_URL/t/imprimerie-ipa/dashboard/order-roles"
   "$BASE_URL/t/imprimerie-ipa/spaces"
   "$BASE_URL/shop/boutique-1"
-  "$BASE_URL/shop/boutique-1/orders?tab=mine"
-  "$BASE_URL/shop/boutique-1/orders?tab=to-validate"
-  "$BASE_URL/shop/boutique-1/orders?tab=to-approve"
-  "$BASE_URL/shop/boutique-1/orders?tab=to-produce"
   "$BASE_URL/shop/boutique-1/portal"
 )
+# Note : PortalOrders n'est pas une route distincte mais une vue interne
+# de PublicShop (state view='orders'). Le scan a11y ne couvre pas la vue
+# 'orders' en URL directe — un test Playwright + click sur la nav portail
+# serait nécessaire (tracé pour S-ORDER-ROLES-3-UI test E2E ultérieur).
 
 OUTPUT="${1:-a11y-report.json}"
 EXIT_CODE=0

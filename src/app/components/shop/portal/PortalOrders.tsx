@@ -138,7 +138,20 @@ export function PortalOrders({ shopId, onRenewOrder, onNavigateToCatalog }: Prop
   //   4× RPC workflow IDs + fetch tenant_orders détails par tab
   //   (mine inclut aussi la cohorte legacy shop_orders dual-read)
   const loadAll = useCallback(async () => {
-    if (!shopId || !user?.id) return;
+    if (!shopId) {
+      setLoading(false);
+      return;
+    }
+    // Anonyme (pas de session) : pas de query workflow possible (auth.uid()
+    // null côté RPC SECURITY INVOKER). On clear le loading + on laisse les
+    // datasets vides — le render affichera un empty state "Mes commandes"
+    // avec CTA login implicite (cohérent avec UX existante pré-bascule).
+    if (!user?.id) {
+      setLoading(false);
+      setDatasets(EMPTY_DATASETS);
+      setCounters(ZERO_COUNTERS);
+      return;
+    }
     setLoading(true);
     setError(null);
 
