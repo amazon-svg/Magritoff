@@ -156,6 +156,31 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     }
     setLoading(true);
 
+    // BUG-INVITATION-AUTO-ACCEPT (2026-06-10) : accepte automatiquement
+    // les invitations pending matchant l'email du user connecté. Permet
+    // à un user qui signup sans cliquer le lien /invitations/<token>
+    // reçu par mail de rejoindre quand même les tenants où il a été
+    // invité. La RPC sous-jacente check EMAIL_MISMATCH par invitation
+    // (lower comparison), donc safe : un user ne peut accepter que ses
+    // propres invitations. Voir migration 20260610000100.
+    try {
+      const { data: acceptedCount, error: autoAcceptErr } = await supabase.rpc(
+        'auto_accept_pending_invitations',
+      );
+      if (autoAcceptErr) {
+        console.warn(
+          '[TenantContext] auto_accept_pending_invitations failed:',
+          autoAcceptErr.message,
+        );
+      } else if (typeof acceptedCount === 'number' && acceptedCount > 0) {
+        console.info(
+          `[TenantContext] auto-accepted ${acceptedCount} pending invitation(s)`,
+        );
+      }
+    } catch (e) {
+      console.warn('[TenantContext] auto_accept exception:', e);
+    }
+
     // 1. Tenants dont je suis membre direct
     const { data: memberships, error: memErr } = await supabase
       .from('tenant_members')
