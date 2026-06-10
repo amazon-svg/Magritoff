@@ -186,3 +186,112 @@ describe('STATUS_LABELS — couverture statuts shop_orders + tenant_orders', () 
     expect(STATUS_LABELS[key].className).toBeTruthy();
   });
 });
+
+// ─── S-ORDER-ROLES-3-UI helpers (Sprint 6+, 2026-06-09) ──────────────────
+
+import {
+  computeTabVisibility,
+  TAB_LABELS,
+  TAB_QUERY_PARAM,
+  TAB_FROM_QUERY,
+  TAB_EMPTY_STATES,
+  type PortalOrdersTab,
+} from '../../../../src/app/components/shop/portal/PortalOrders.helpers';
+
+describe('S-ORDER-ROLES-3-UI — computeTabVisibility', () => {
+  it('mine est toujours visible meme a zero', () => {
+    const vis = computeTabVisibility({ mine: 0, to_validate: 0, to_approve: 0, to_produce: 0 });
+    expect(vis.mine).toBe(true);
+  });
+
+  it('to_validate visible si compteur > 0', () => {
+    const vis = computeTabVisibility({ mine: 5, to_validate: 3, to_approve: 0, to_produce: 0 });
+    expect(vis.to_validate).toBe(true);
+    expect(vis.to_approve).toBe(false);
+    expect(vis.to_produce).toBe(false);
+  });
+
+  it('to_approve visible uniquement si compteur > 0', () => {
+    const vis = computeTabVisibility({ mine: 0, to_validate: 0, to_approve: 1, to_produce: 0 });
+    expect(vis.to_approve).toBe(true);
+    expect(vis.to_validate).toBe(false);
+  });
+
+  it('to_produce visible uniquement si compteur > 0', () => {
+    const vis = computeTabVisibility({ mine: 0, to_validate: 0, to_approve: 0, to_produce: 2 });
+    expect(vis.to_produce).toBe(true);
+  });
+
+  it('aucun tab workflow visible si tous compteurs zero', () => {
+    const vis = computeTabVisibility({ mine: 0, to_validate: 0, to_approve: 0, to_produce: 0 });
+    expect(vis.to_validate).toBe(false);
+    expect(vis.to_approve).toBe(false);
+    expect(vis.to_produce).toBe(false);
+  });
+});
+
+describe('S-ORDER-ROLES-3-UI — TAB_LABELS (FR brand voice)', () => {
+  it.each([
+    ['mine', 'Mes commandes'],
+    ['to_validate', 'À valider'],
+    ['to_approve', 'À approuver'],
+    ['to_produce', 'À produire'],
+  ] as Array<[PortalOrdersTab, string]>)('tab %s a le label "%s"', (tab, label) => {
+    expect(TAB_LABELS[tab]).toBe(label);
+  });
+
+  it('aucun label ne contient d anglicisme jargon (lesson 2026-05-22)', () => {
+    const blacklist = ['validate', 'approve', 'produce', 'pending', 'queue', 'inbox'];
+    for (const label of Object.values(TAB_LABELS)) {
+      const lower = label.toLowerCase();
+      for (const word of blacklist) {
+        expect(lower).not.toContain(word);
+      }
+    }
+  });
+});
+
+describe('S-ORDER-ROLES-3-UI — TAB_QUERY_PARAM / TAB_FROM_QUERY round-trip', () => {
+  it.each([
+    'mine',
+    'to_validate',
+    'to_approve',
+    'to_produce',
+  ] as PortalOrdersTab[])('round-trip pour tab %s', (tab) => {
+    const queryParam = TAB_QUERY_PARAM[tab];
+    expect(queryParam).toBeTruthy();
+    expect(TAB_FROM_QUERY[queryParam]).toBe(tab);
+  });
+
+  it('query params utilisent dashes pour URL clarity', () => {
+    expect(TAB_QUERY_PARAM.mine).toBe('mine');
+    expect(TAB_QUERY_PARAM.to_validate).toBe('to-validate');
+    expect(TAB_QUERY_PARAM.to_approve).toBe('to-approve');
+    expect(TAB_QUERY_PARAM.to_produce).toBe('to-produce');
+  });
+
+  it('TAB_FROM_QUERY retourne undefined pour query string inconnue', () => {
+    expect(TAB_FROM_QUERY['unknown']).toBeUndefined();
+    expect(TAB_FROM_QUERY['']).toBeUndefined();
+  });
+});
+
+describe('S-ORDER-ROLES-3-UI — TAB_EMPTY_STATES presents pour chaque tab', () => {
+  it.each([
+    'mine',
+    'to_validate',
+    'to_approve',
+    'to_produce',
+  ] as PortalOrdersTab[])('tab %s a un empty state avec title + body', (tab) => {
+    const state = TAB_EMPTY_STATES[tab];
+    expect(state.title).toBeTruthy();
+    expect(state.body).toBeTruthy();
+  });
+
+  it('seul mine a un ctaLabel (CTA Voir le catalogue)', () => {
+    expect(TAB_EMPTY_STATES.mine.ctaLabel).toBeTruthy();
+    expect(TAB_EMPTY_STATES.to_validate.ctaLabel).toBeUndefined();
+    expect(TAB_EMPTY_STATES.to_approve.ctaLabel).toBeUndefined();
+    expect(TAB_EMPTY_STATES.to_produce.ctaLabel).toBeUndefined();
+  });
+});
