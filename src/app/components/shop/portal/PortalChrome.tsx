@@ -2,6 +2,7 @@ import { ShoppingCart } from 'lucide-react';
 import type { Shop } from '../../../contexts/ShopsContext';
 import type { PortalView } from './types';
 import { TEST_IDS } from '../../../lib/testIds';
+import { AuthMenu } from '../../auth/AuthMenu';
 
 interface Props {
   shop: Shop;
@@ -91,13 +92,14 @@ export function PortalChrome({ shop, view, onView, cartCount, budget }: Props) {
           )}
         </button>
 
-        <div
-          data-testid={TEST_IDS.shop.headerUserMenu}
-          className="w-7 h-7 rounded-full bg-line-2 grid place-items-center text-ink-muted"
-          style={{ fontSize: '11px', fontWeight: 500 }}
-          title="Compte utilisateur"
-        >
-          U
+        {/* Menu utilisateur (Bug 2026-06-10 Arnaud : "je ne peux pas me
+            déconnecter en tant que user, il faut ajouter les options de
+            l'utilisateur dans le bouton prévu à cet effet"). Réutilise
+            AuthMenu existant qui expose : email connecté, espace actif,
+            tableau de bord, changer d'espace, déconnexion. data-testid
+            shop-header-user-menu conservé via le wrapper. */}
+        <div data-testid={TEST_IDS.shop.headerUserMenu}>
+          <AuthMenu />
         </div>
       </div>
 

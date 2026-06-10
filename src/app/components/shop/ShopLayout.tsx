@@ -28,6 +28,7 @@ import { useState, type ReactNode } from "react";
 import { ShoppingCart, X } from "lucide-react";
 import type { Shop } from "../../contexts/ShopsContext";
 import type { Gamme } from "../../utils/productEnrichment";
+import { AuthMenu } from "../auth/AuthMenu";
 import type { PortalView, BudgetInfo } from "./portal/types";
 import { TEST_IDS } from "../../lib/testIds";
 import { Sheet, SheetContent, SheetTitle } from "../ui/sheet";
@@ -194,16 +195,13 @@ export function ShopLayout({
           )}
         </button>
 
-        {/* User menu */}
-        <div
-          data-testid={TEST_IDS.shop.headerUserMenu}
-          className={`w-7 h-7 rounded-full grid place-items-center text-[11px] font-medium ${
-            isDark ? "bg-gray-800 text-gray-300" : "bg-line-2 text-ink-muted"
-          }`}
-          title="Compte utilisateur"
-          aria-label="Compte utilisateur"
-        >
-          U
+        {/* User menu — Bug 2026-06-10 Arnaud : "je ne peux pas me déconnecter
+            en tant que user". L'avatar inerte "U" est remplacé par AuthMenu
+            (email connecté, espace actif, dashboard, changer d'espace,
+            déconnexion). data-testid shop-header-user-menu conservé via le
+            wrapper pour les cahiers de tests Notion. */}
+        <div data-testid={TEST_IDS.shop.headerUserMenu}>
+          <AuthMenu />
         </div>
       </header>
 
