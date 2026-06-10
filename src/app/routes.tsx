@@ -93,6 +93,11 @@ const DashboardTenantGammes = lazy(() =>
     default: m.DashboardTenantGammes,
   })),
 );
+const OrderRoleAdminPage = lazy(() =>
+  import("./components/dashboard/OrderRoleAdminPage").then((m) => ({
+    default: m.OrderRoleAdminPage,
+  })),
+);
 
 function RouteFallback() {
   return (
@@ -182,6 +187,10 @@ export const router = createBrowserRouter([
               { path: "spaces", element: lazyRoute(<DashboardTenantSpaces />) },
               { path: "gammes", element: lazyRoute(<DashboardTenantGammes />) },
               { path: "admin/pim", element: lazyRoute(<DashboardAdminPIM />) },
+              // S-ORDER-ROLES-3-UI T4 — page admin catalog rôles workflow.
+              // Garde d'accès via capability `can_manage_roles` côté composant
+              // (preset Owner / Admin depuis migration 2026-06-09).
+              { path: "order-roles", element: lazyRoute(<OrderRoleAdminPage />) },
             ],
           },
         ],

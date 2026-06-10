@@ -1,7 +1,7 @@
 import { Navigate, NavLink, Outlet, useLocation } from 'react-router';
 import {
   User, Settings, MessageSquare, FileText, ShoppingBag, Users,
-  CreditCard, Package, Store, Shield, LayoutTemplate, Building, Layers,
+  CreditCard, Package, Store, Shield, LayoutTemplate, Building, Layers, Workflow,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlan } from '../../hooks/usePlan';
@@ -100,6 +100,13 @@ export function DashboardLayout() {
       title: 'Config',
       items: [
         { to: `${basePath}/settings`, label: "Paramètres de l'espace", icon: Settings, show: canManageMembers ?? false },
+        // S-ORDER-ROLES-3-UI T4 — page admin workflow et rôles de commande.
+        // Garde côté composant via useUserCapability('can_manage_roles').
+        // Visible si l'user est admin/owner ou superadmin (le composant
+        // redirige si capability absente, ce qui couvre le cas member sans
+        // capability — mais on filtre déjà côté nav pour ne pas exposer
+        // un lien menant à une redirection).
+        { to: `${basePath}/order-roles`, label: 'Workflow & rôles', icon: Workflow, show: canManageMembers ?? false },
         { to: `${basePath}/plan`, label: 'Plan & abonnement', icon: CreditCard, show: true },
         { to: `${basePath}/preferences`, label: 'Préférences', icon: Settings, show: true },
       ],
