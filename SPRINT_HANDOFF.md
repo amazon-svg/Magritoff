@@ -2,7 +2,65 @@
 
 > Document de reprise pour démarrer une nouvelle session de Claude code sur le projet sans recharger tout l'historique. À tenir à jour à chaque fin de sprint.
 >
-> **Dernière mise à jour : 2026-06-02 (reprise matin) — Sprint 5 → Sprint 9 LIVRÉS + poussés sur `origin/beta/v5`. Roadmap qualité-first quasi terminée (reste Phase B users + S-ORDER-ROLES-3-UI). Voir section 14 ci-dessous.**
+> **Dernière mise à jour : 2026-06-10 — S-ORDER-ROLES-3-UI livrée et poussée sur `origin/beta/v5` (Amelia BMAD). Roadmap qualité-first COMPLÈTE. Voir section 15 ci-dessous.**
+
+## 15. Session 2026-06-08 → 10 — S-ORDER-ROLES-3-UI livrée + BUG-INVITATION-AUTO-ACCEPT
+
+Workflow BMAD complet : Sally UX (3 wireframes lo-fi 2026-06-08) → arbitrage Q1/Q2/Q3 Arnaud → Amelia Dev (T2-ter à T9). Tous les commits poussés sur `origin/beta/v5` 2026-06-10 (`bc28a31`).
+
+### Décisions Arnaud (post-wireframes Sally)
+
+- **Q1** : permission accès page admin catalog rôles = `can_manage_roles` (NOUVELLE permission, par défaut Owner + Admin via migration 2026-06-09)
+- **Q2** : ordre 4 tabs PortalOrders = `Mes commandes → À valider → À approuver → À produire` (chronologique workflow)
+- **Q3** : 1 définition de rôle = 1 scope unique (tenant OU une seule boutique), pas d'array `scope_shop_ids[]`. Bouton "Dupliquer" pour répliquer entre boutiques.
+
+### 9 commits livrés (chronologique, `da2575a..bc28a31`)
+
+| Commit | Sujet |
+|---|---|
+| `b245e99` | docs Sally wireframes (3 fichiers `.design-handoff/wireframes/`) + story doc ux-ready |
+| `e7cab2a` | T2-ter migration `can_manage_roles` Admin preset + RPC `get_portal_orders_counters` |
+| `92fd406` | fix régression seed_tenant_catalogs (perform seed_status_transitions restauré) |
+| `9c1c460` | T3 PortalOrders refondu 4 tabs role-driven + RPC `get_portal_orders_workflow` + `RejectOrderConfirmDialog` |
+| `db51177` | T3-bis DashboardOrders harmonisé (Démarrer prod + Marquer expédiée) |
+| `5a32f18` | BUG routing acheteur — RPC `auto_accept_pending_invitations` + branchement TenantContext + one-shot DB `emgaar@me.com` |
+| `706cf34` | T4+T5 page admin `/dashboard/order-roles` + composant `RoleEditorDialog` + route + lien sidebar (icône Workflow) |
+| `c4fb997` | T6+T7 21 tests vitest + a11y-scan étendu |
+| `bc28a31` | T9 5 TF Notion copy-paste + smoke E2E live chrome + fix loading infini PortalOrders anonyme |
+
+### Migrations Supabase appliquées prod B5
+
+| Migration | Contenu |
+|---|---|
+| `20260609000100` | UPDATE rétroactif preset Admin can_manage_roles=true + back-fill tenant orphelin smoke + refonte seed_tenant_catalogs |
+| `20260609000200` | RPC `get_portal_orders_counters(p_shop_id, p_user_id)` returns 4 compteurs (mine/to_validate/to_approve/to_produce) |
+| `20260609000300` | Fix régression seed_tenant_catalogs (perform seed_tenant_status_transitions restauré) |
+| `20260609000400` | RPC `get_portal_orders_workflow(p_shop_id, p_tab, p_user_id)` returns table(order_id uuid) — IDs par tab workflow |
+| `20260610000100` | RPC `auto_accept_pending_invitations()` SECURITY DEFINER — corrige users qui signup direct sans cliquer lien invitation |
+
+### Tests cumul
+
+- **560 vitest verts** (+21 vs baseline 539), 0 régression
+- **+21 cas** : computeTabVisibility, TAB_LABELS, TAB_QUERY_PARAM/TAB_FROM_QUERY round-trip, TAB_EMPTY_STATES (helpers PortalOrders)
+- **Smoke E2E live** chrome devtools MCP : `/shop/<slug>` charge sans erreur, click "Mes commandes" mount PortalOrders refondu, empty state Sally-validated visible, 0 console error
+- **Build Vite OK** 4.04s
+
+### Bug bonus traité hors story (BUG-INVITATION-AUTO-ACCEPT)
+
+**Cause racine** : `emgaar@me.com` signup direct au lieu de cliquer le lien `/invitations/<token>` → RPC `accept_tenant_invitation` jamais déclenchée → invitation `accepted_at=null` indéfiniment → 0 `tenant_member` créé → user bloqué sur home Magrit "créer un tenant".
+
+**Fix systémique** : nouvelle RPC `auto_accept_pending_invitations()` SECURITY DEFINER qui boucle les invitations pending matchant `auth.email()` et appelle `accept_tenant_invitation(token)` (EMAIL_MISMATCH guard inclus). Branchée dans `TenantContext.reload()` avant la query memberships. Logs info console si >0 invitations acceptées.
+
+**One-shot DB** : invitation `emgaar` acceptée manuellement en SQL admin pour qu'Arnaud teste immédiatement sans attendre refresh côté emgaar.
+
+### Stories de suivi tracées (hors MVP S-ORDER-ROLES-3-UI)
+
+- **Roadmap qualité-first COMPLÈTE** — toutes les stories livrées, plus rien à faire selon le plan 2026-05-21.
+- **TF Notion à coller dans la DB** : 5 cas dans `_bmad-output/implementation-artifacts/TF-NOTION-S-ORDER-ROLES-3-UI.md` (action manuelle Arnaud).
+- **Test E2E `/shop/<slug>` avec login validateur réel** : prérequis = créer fixtures `tenant_order_roles` Validateur sur commandes draft, puis valider visuellement les 4 tabs avec compteurs > 0.
+- **Refonte URL `/shop/<slug>/orders` en route distincte** (au lieu de state interne PublicShop) : permettrait deep-linking depuis emails de notification Resend. V2+.
+
+---
 
 ## 14. Sessions autonomes 2026-06-01 → 02 — Sprint 6 + 7 + 8 + 9 livrés et poussés
 
