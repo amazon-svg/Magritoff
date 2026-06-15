@@ -2,6 +2,7 @@ import { Navigate, NavLink, Outlet, useLocation } from 'react-router';
 import {
   User, Settings, MessageSquare, FileText, ShoppingBag, Users,
   CreditCard, Package, Store, Shield, LayoutTemplate, Building, Layers, Workflow,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlan } from '../../hooks/usePlan';
@@ -118,6 +119,13 @@ export function DashboardLayout() {
           to: `${basePath}/admin/pim`,
           label: 'PIM global',
           icon: Shield,
+          show: isAdmin || isSuperAdmin,
+        },
+        // P5-VISUELS (2026-06-15) — Référence visuelle 5 templates Magrit-brandés
+        {
+          to: `${basePath}/admin/mockups`,
+          label: 'Mockups Magrit',
+          icon: ImageIcon,
           show: isAdmin || isSuperAdmin,
         },
         {

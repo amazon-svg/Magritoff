@@ -78,6 +78,11 @@ const DashboardAdminPIM = lazy(() =>
     default: m.DashboardAdminPIM,
   })),
 );
+const DashboardAdminMockups = lazy(() =>
+  import("./components/dashboard/DashboardAdminMockups").then((m) => ({
+    default: m.DashboardAdminMockups,
+  })),
+);
 const DashboardTenantSettings = lazy(() =>
   import("./components/dashboard/DashboardTenantSettings").then((m) => ({
     default: m.DashboardTenantSettings,
@@ -187,6 +192,9 @@ export const router = createBrowserRouter([
               { path: "spaces", element: lazyRoute(<DashboardTenantSpaces />) },
               { path: "gammes", element: lazyRoute(<DashboardTenantGammes />) },
               { path: "admin/pim", element: lazyRoute(<DashboardAdminPIM />) },
+              // P5-VISUELS (2026-06-15) — Référence visuelle 5 templates Magrit-brandés
+              // Garde superadmin (isAdmin || isSuperAdmin) côté composant.
+              { path: "admin/mockups", element: lazyRoute(<DashboardAdminMockups />) },
               // S-ORDER-ROLES-3-UI T4 — page admin catalog rôles workflow.
               // Garde d'accès via capability `can_manage_roles` côté composant
               // (preset Owner / Admin depuis migration 2026-06-09).
