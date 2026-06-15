@@ -106,7 +106,7 @@ export function ShopLayout({
       data-testid={TEST_IDS.shop.portal}
       data-theme={dataTheme}
       className={`min-h-screen ${isDark ? "bg-gray-950 text-gray-100" : "bg-bg text-ink"}`}
-      style={{ ...brandStyle, fontFamily: "var(--font-ui)" }}
+      style={{ ...brandStyle, fontFamily: "var(--shop-font-body, var(--font-ui))" }}
     >
       {/* ─── A4.1 — Bannière hero + tagline (avant header sticky) ────── */}
       {shouldRenderHeroBanner(shop) && (
@@ -122,6 +122,7 @@ export function ShopLayout({
               <p
                 data-testid={TEST_IDS.shop.heroTagline}
                 className="text-white text-base md:text-lg font-medium max-w-3xl drop-shadow-md m-0"
+                style={{ fontFamily: "var(--shop-font-heading, var(--shop-font-body, inherit))" }}
               >
                 {resolveHeroTagline(shop)}
               </p>

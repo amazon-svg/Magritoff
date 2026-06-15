@@ -14,6 +14,14 @@ export interface ShopTheme {
   primaryColor: string;
   accentColor: string;
   mode: 'light' | 'dark';
+  /** A4.2 — Couleur secondaire (highlights, badges). Optionnel pour back-compat. */
+  secondaryColor?: string;
+  /** A4.2 — Override couleur texte principale. */
+  textColor?: string;
+  /** A4.2 — Override couleur fond principal. */
+  bgColor?: string;
+  /** A4.2 — Clé d'un pairing de fonts curated (cf. fontPairings.ts). */
+  fontPairing?: string;
 }
 
 export interface Shop {
@@ -57,6 +65,10 @@ const DEFAULT_THEME: ShopTheme = {
   primaryColor: '#1e3a8a',
   accentColor: '#f59e0b',
   mode: 'light',
+  secondaryColor: '#6b7280',
+  textColor: '#0f172a',
+  bgColor: '#ffffff',
+  fontPairing: 'system',
 };
 
 export type NewShopInput = {

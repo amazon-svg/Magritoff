@@ -75,6 +75,65 @@ describe("resolveShopBrandStyle — AC1 S2.1 theming dynamique", () => {
     expect(style["--shop-primary"]).toBeUndefined();
     expect(style["--shop-accent"]).toBe("#000");
   });
+
+  // ─── A4.2 — Palette élargie (secondaire / texte / fond) ───────────────
+  it("A4.2 expose --shop-secondary / --shop-text / --shop-bg quand définis", () => {
+    const style = resolveShopBrandStyle({
+      theme: {
+        primaryColor: "#000",
+        accentColor: "#fff",
+        mode: "dark",
+        secondaryColor: "#6b7280",
+        textColor: "#0f172a",
+        bgColor: "#fafafa",
+      } as any,
+    });
+    expect(style["--shop-secondary"]).toBe("#6b7280");
+    expect(style["--shop-text"]).toBe("#0f172a");
+    expect(style["--shop-bg"]).toBe("#fafafa");
+  });
+
+  it("A4.2 omet les nouvelles vars si champs absents (back-compat JSONB)", () => {
+    const style = resolveShopBrandStyle({
+      theme: { primaryColor: "#000", accentColor: "#fff", mode: "dark" } as any,
+    });
+    expect(style["--shop-secondary"]).toBeUndefined();
+    expect(style["--shop-text"]).toBeUndefined();
+    expect(style["--shop-bg"]).toBeUndefined();
+  });
+
+  it("A4.2 expose --shop-font-heading et --shop-font-body même sans fontPairing (fallback system)", () => {
+    const style = resolveShopBrandStyle({
+      theme: { primaryColor: "#000", accentColor: "#fff", mode: "dark" } as any,
+    });
+    expect(style["--shop-font-heading"]).toContain("system-ui");
+    expect(style["--shop-font-body"]).toContain("system-ui");
+  });
+
+  it("A4.2 utilise le pairing demandé quand fontPairing reconnu", () => {
+    const style = resolveShopBrandStyle({
+      theme: {
+        primaryColor: "#000",
+        accentColor: "#fff",
+        mode: "dark",
+        fontPairing: "luxury",
+      } as any,
+    });
+    expect(style["--shop-font-heading"]).toContain("Playfair Display");
+    expect(style["--shop-font-body"]).toContain("Lato");
+  });
+
+  it("A4.2 fallback system si pairing inconnu", () => {
+    const style = resolveShopBrandStyle({
+      theme: {
+        primaryColor: "#000",
+        accentColor: "#fff",
+        mode: "dark",
+        fontPairing: "ghost-pairing-deprecated",
+      } as any,
+    });
+    expect(style["--shop-font-heading"]).toContain("system-ui");
+  });
 });
 
 describe("shouldShowCartBadge — AC1 S2.1 badge cart", () => {

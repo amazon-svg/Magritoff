@@ -32,6 +32,7 @@ import {
   Download, AlertTriangle, EyeOff, Eye,
 } from 'lucide-react';
 import { useShops, Shop, ShopProduct } from '../../contexts/ShopsContext';
+import { FONT_PAIRINGS } from '../shop/fontPairings';
 import { useLibrary, LibraryProduct } from '../../contexts/LibraryContext';
 import { usePIM } from '../../contexts/PIMContext';
 import { usePlan } from '../../hooks/usePlan';
@@ -418,6 +419,78 @@ export function DashboardShopEditor() {
               <option value="dark">Sombre</option>
             </select>
           </div>
+        </div>
+
+        {/* ── A4.2 — Palette élargie : secondaire / texte / fond ── */}
+        <div className="pt-3 mt-2 border-t border-gray-100 grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Couleur secondaire</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                value={shop.theme.secondaryColor ?? '#6b7280'}
+                onChange={(e) => setShop({ ...shop, theme: { ...shop.theme, secondaryColor: e.target.value } })}
+                className="h-10 w-12 border border-gray-300 rounded"
+              />
+              <input
+                type="text"
+                value={shop.theme.secondaryColor ?? '#6b7280'}
+                onChange={(e) => setShop({ ...shop, theme: { ...shop.theme, secondaryColor: e.target.value } })}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Couleur du texte</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                value={shop.theme.textColor ?? '#0f172a'}
+                onChange={(e) => setShop({ ...shop, theme: { ...shop.theme, textColor: e.target.value } })}
+                className="h-10 w-12 border border-gray-300 rounded"
+              />
+              <input
+                type="text"
+                value={shop.theme.textColor ?? '#0f172a'}
+                onChange={(e) => setShop({ ...shop, theme: { ...shop.theme, textColor: e.target.value } })}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Couleur de fond</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                value={shop.theme.bgColor ?? '#ffffff'}
+                onChange={(e) => setShop({ ...shop, theme: { ...shop.theme, bgColor: e.target.value } })}
+                className="h-10 w-12 border border-gray-300 rounded"
+              />
+              <input
+                type="text"
+                value={shop.theme.bgColor ?? '#ffffff'}
+                onChange={(e) => setShop({ ...shop, theme: { ...shop.theme, bgColor: e.target.value } })}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* ── A4.2 — Pairing de fonts curated ── */}
+        <div className="pt-3 mt-2 border-t border-gray-100">
+          <label className="block text-xs font-medium text-gray-700 mb-1">Pairing de fonts</label>
+          <select
+            value={shop.theme.fontPairing ?? 'system'}
+            onChange={(e) => setShop({ ...shop, theme: { ...shop.theme, fontPairing: e.target.value } })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white"
+          >
+            {FONT_PAIRINGS.map((p) => (
+              <option key={p.key} value={p.key}>{p.label}</option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-500 mt-1">
+            Appliqué automatiquement à la boutique publique (titres + texte).
+          </p>
         </div>
       </section>
 

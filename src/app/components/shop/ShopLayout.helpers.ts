@@ -21,6 +21,7 @@
  */
 
 import type { Shop } from "../../contexts/ShopsContext";
+import { resolveFontPairing } from "./fontPairings";
 
 export interface ShopThemeResolution {
   /** Valeur a poser sur l'attribut data-theme. undefined = pas d'attribut (light). */
@@ -54,8 +55,15 @@ export function resolveShopTheme(
 }
 
 /**
- * Inline style pour CSS custom props brand (AC1 S2.1).
+ * Inline style pour CSS custom props brand (AC1 S2.1 + A4.2 extension).
  * @ts-expect-error attendu cote consommateur React (CSS custom props).
+ *
+ * A4.2 — Expose 5 nouvelles vars optionnelles quand définies en DB :
+ *   --shop-secondary / --shop-text / --shop-bg (couleurs palette élargie)
+ *   --shop-font-heading / --shop-font-body (pairing curated, fallback system).
+ *
+ * Les vars manquantes sont omises (pas de fallback inline) : le consommateur
+ * CSS doit prévoir ses propres valeurs par défaut via `var(--shop-x, fallback)`.
  */
 export function resolveShopBrandStyle(
   shop: Pick<Shop, "theme"> | null | undefined,
@@ -68,6 +76,21 @@ export function resolveShopBrandStyle(
   if (shop.theme.accentColor) {
     out["--shop-accent"] = shop.theme.accentColor;
   }
+  if (shop.theme.secondaryColor) {
+    out["--shop-secondary"] = shop.theme.secondaryColor;
+  }
+  if (shop.theme.textColor) {
+    out["--shop-text"] = shop.theme.textColor;
+  }
+  if (shop.theme.bgColor) {
+    out["--shop-bg"] = shop.theme.bgColor;
+  }
+  // Pairing fonts : on injecte les stacks heading/body même si la clé est
+  // absente ou inconnue (resolveFontPairing fallback sur `system`). Permet
+  // aux composants de consommer var(--shop-font-heading) sans condition.
+  const pairing = resolveFontPairing(shop.theme.fontPairing);
+  out["--shop-font-heading"] = pairing.heading;
+  out["--shop-font-body"] = pairing.body;
   return out;
 }
 
