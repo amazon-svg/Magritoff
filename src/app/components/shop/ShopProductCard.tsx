@@ -18,12 +18,13 @@
  * Le composant remplace le rendering inline de PortalCatalog (S2.3 Task 6).
  */
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Shop, ShopProduct } from "../../contexts/ShopsContext";
 import type { Gamme, ProductDefinition } from "../../utils/productEnrichment";
 import { resolveGamme } from "../../utils/productEnrichment";
 import { TEST_IDS } from "../../lib/testIds";
 import { MockupImage } from "../mockup/MockupImage";
+import { resolveShopBackground } from "../mockup/shopBackground.helpers";
 import {
   resolveMockupTemplate,
   resolveProductDimensions,
@@ -69,6 +70,28 @@ export function ShopProductCard({
 }: ShopProductCardProps) {
   const template = useMemo(() => resolveMockupTemplate(product), [product]);
   const dimensions = useMemo(() => resolveProductDimensions(product), [product]);
+
+  // S-PIM-VISUELS-5 (fix 2026-06-15) — Le pont entre `shop_visual_preferences`
+  // côté DB et le rendu du mockup côté portail manquait : la card instanciait
+  // MockupImage sans `backgroundUrl`, donc les fonds choisis par l'admin tenant
+  // dans ShopVisualSettings n'apparaissaient jamais. On résout maintenant la
+  // cascade (gamme > shop > default) au montage de chaque card. Cache HTTP côté
+  // Supabase (Cf RPC SECURITY DEFINER) limite l'impact perf.
+  const gammeSlug = (product.config as { gamme?: string } | undefined)?.gamme ?? "";
+  const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    resolveShopBackground(shop.id, gammeSlug)
+      .then((resolved) => {
+        if (!cancelled) setBackgroundUrl(resolved.backgroundUrl);
+      })
+      .catch(() => {
+        if (!cancelled) setBackgroundUrl(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [shop.id, gammeSlug]);
 
   // S-FIX-2 — Badge gamme PIM resolue au lieu de product.category brute.
   // S-FIX-BADGES-11/05 — Si la category fallback est un kind Clariprint brut
@@ -124,6 +147,7 @@ export function ShopProductCard({
           productName={product.name}
           primaryColor={shop.theme?.primaryColor ?? "#1e3a8a"}
           template={template}
+          backgroundUrl={backgroundUrl}
           alt={`Mockup ${product.name}`}
           className="w-full h-full"
         />
