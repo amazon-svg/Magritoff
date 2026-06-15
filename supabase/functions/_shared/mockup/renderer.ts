@@ -83,6 +83,48 @@ function ensureWasmInitialized(): Promise<void> {
 }
 
 /**
+ * P7-FONT-EMBED (2026-06-15) — Charge la font Inter pour resvg.
+ *
+ * Sans font, resvg-wasm rend tous les <text> SVG comme zones vides (le glyph
+ * fallback du WASM ne contient aucun caractere ASCII). Pour rendre les
+ * libelles Magrit-brandes ("Magrit", tagline, productName en reference) on
+ * fetch Inter Variable depuis fontsource via jsDelivr et on passe les
+ * buffers a Resvg via { font: { fontBuffers, defaultFontFamily: "Inter" } }.
+ *
+ * 2 fichiers WOFF2 couvrent tous les weights/styles necessaires :
+ *   - Inter-Variable Latin Normal (~48 Ko) : Regular, Medium, Semibold, Bold
+ *   - Inter-Variable Latin Italic (~52 Ko) : Italic + variants
+ *
+ * Lazy-loades au 1er render et caches en module-level (pas de re-fetch
+ * sur les renders suivants apres cold start).
+ *
+ * License : Inter est OFL (SIL Open Font License), usage commercial OK.
+ * Source : https://github.com/rsms/inter
+ */
+const INTER_FONT_URLS = [
+  "https://cdn.jsdelivr.net/npm/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2",
+  "https://cdn.jsdelivr.net/npm/@fontsource-variable/inter/files/inter-latin-wght-italic.woff2",
+];
+
+let fontBuffersCache: Uint8Array[] | null = null;
+async function ensureInterFontsLoaded(): Promise<Uint8Array[]> {
+  if (fontBuffersCache) return fontBuffersCache;
+  const buffers = await Promise.all(
+    INTER_FONT_URLS.map(async (url) => {
+      const resp = await fetch(url);
+      if (!resp.ok) {
+        throw new Error(
+          `Telechargement font Inter a echoue : ${url} HTTP ${resp.status}`,
+        );
+      }
+      return new Uint8Array(await resp.arrayBuffer());
+    }),
+  );
+  fontBuffersCache = buffers;
+  return buffers;
+}
+
+/**
  * Genere les bytes PNG d'un mockup pour un produit donne.
  *
  * @param template Identifiant du template (ex: "flyer"). Etendu en S4.2.
@@ -144,10 +186,20 @@ export async function renderSvgToPng(
   }
 
   // Conversion SVG -> PNG via @resvg/resvg-wasm.
+  // P7-FONT-EMBED : on injecte Inter (Regular + Bold + Italic) via fontBuffers
+  // pour que resvg-wasm puisse rasteriser les balises <text> SVG. Sans cela,
+  // tous les libelles (Magrit, tagline, productName ref) seraient vides.
   let pngBytes: Uint8Array;
   try {
     await ensureWasmInitialized();
-    const resvg = new Resvg(svgString);
+    const fontBuffers = await ensureInterFontsLoaded();
+    const resvg = new Resvg(svgString, {
+      font: {
+        fontBuffers,
+        loadSystemFonts: false,
+        defaultFontFamily: "Inter",
+      },
+    });
     const rendered = resvg.render();
     pngBytes = rendered.asPng();
   } catch (err) {
