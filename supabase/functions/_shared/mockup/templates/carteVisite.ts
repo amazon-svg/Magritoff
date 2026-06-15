@@ -129,7 +129,7 @@ export function carteVisiteSvg(specs: ProductSpecs, theming: ShopTheming): strin
   <rect x="${cx}" y="${cy}" width="${rectW}" height="${rectH}" fill="url(#mgTileBack)" rx="16" ry="16" filter="url(#shadowDouble)"/>
   <rect x="${cx}" y="${cy}" width="${rectW}" height="${rectH}" fill="url(#paperHighlight)" rx="16" ry="16" opacity="0.6" pointer-events="none"/>
   ${daisyMagrit(backFlowerCX, backFlowerCY, backFlowerScale, "mgCoreBack")}
-  <text x="${backFlowerCX}" y="${cy + rectH * 0.88}" text-anchor="middle" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="32" font-weight="500" font-style="italic" fill="${MAGRIT_INK}" letter-spacing="-0.02em">Magrit</text>
+  <text x="${backFlowerCX}" y="${cy + rectH * 0.88}" text-anchor="middle" font-family="Inter" font-size="32" font-weight="500" font-style="italic" fill="${MAGRIT_INK}" letter-spacing="-0.02em">Magrit</text>
 </svg>`;
   }
 
@@ -161,11 +161,11 @@ export function carteVisiteSvg(specs: ProductSpecs, theming: ShopTheming): strin
     ${daisyMagrit(bandFlowerCX, bandFlowerCY, bandFlowerScale, "mgCoreBand")}
     <rect x="${cx}" y="${liseretY}" width="${rectW}" height="${liseretH}" fill="${MAGRIT_POLLEN_MID}"/>
   </g>
-  <text x="${tx}" y="${titleY}" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="56" font-weight="500" font-style="italic" fill="${MAGRIT_INK}" letter-spacing="-0.025em">Magrit</text>
-  <text x="${tx}" y="${taglineY}" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="14" font-weight="400" fill="${MAGRIT_INK}" fill-opacity="0.55" letter-spacing="0.06em">imprimerie augmentée par l'IA</text>
+  <text x="${tx}" y="${titleY}" font-family="Inter" font-size="56" font-weight="500" font-style="italic" fill="${MAGRIT_INK}" letter-spacing="-0.025em">Magrit</text>
+  <text x="${tx}" y="${taglineY}" font-family="Inter" font-size="14" font-weight="400" fill="${MAGRIT_INK}" fill-opacity="0.55" letter-spacing="0.06em">imprimerie augmentée par l'IA</text>
   <rect x="${tx}" y="${coord1Y - 12}" width="${surfaceW * 0.62}" height="6" fill="${MAGRIT_INK}" opacity="0.35" rx="2"/>
   <rect x="${tx}" y="${coord2Y - 12}" width="${surfaceW * 0.50}" height="5" fill="${MAGRIT_INK}" opacity="0.25" rx="2"/>
   <rect x="${tx}" y="${coord3Y - 12}" width="${surfaceW * 0.40}" height="5" fill="${MAGRIT_INK}" opacity="0.25" rx="2"/>
-  <text x="${cx + rectW - 16}" y="${cy + rectH - 22}" text-anchor="end" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" font-weight="500" fill="${MAGRIT_INK}" fill-opacity="0.45" letter-spacing="0.04em">${safeName}</text>
+  <text x="${cx + rectW - 16}" y="${cy + rectH - 22}" text-anchor="end" font-family="Inter" font-size="11" font-weight="500" fill="${MAGRIT_INK}" fill-opacity="0.45" letter-spacing="0.04em">${safeName}</text>
 </svg>`;
 }

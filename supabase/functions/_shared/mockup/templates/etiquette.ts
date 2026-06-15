@@ -85,8 +85,8 @@ export function etiquetteSvg(specs: ProductSpecs, theming: ShopTheming): string 
     <rect x="${cx}" y="${liseretY}" width="${rectW}" height="${liseretH}" fill="${MAGRIT_POLLEN_MID}"/>
   </g>
   <rect x="${cx}" y="${cy}" width="${rectW}" height="${rectH}" fill="url(#paperHighlight)" rx="24" ry="24" opacity="0.5" pointer-events="none"/>
-  <text x="${flowerCX}" y="${titleY}" text-anchor="middle" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="48" font-weight="500" font-style="italic" fill="${MAGRIT_INK}" letter-spacing="-0.025em">Magrit</text>
-  <text x="${flowerCX}" y="${taglineY}" text-anchor="middle" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="${MAGRIT_INK}" fill-opacity="0.55" letter-spacing="0.10em">IMPRIMERIE · IA</text>
-  <text x="${flowerCX}" y="${refY}" text-anchor="middle" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="${MAGRIT_INK}" fill-opacity="0.45" letter-spacing="0.04em">${safeName}</text>
+  <text x="${flowerCX}" y="${titleY}" text-anchor="middle" font-family="Inter" font-size="48" font-weight="500" font-style="italic" fill="${MAGRIT_INK}" letter-spacing="-0.025em">Magrit</text>
+  <text x="${flowerCX}" y="${taglineY}" text-anchor="middle" font-family="Inter" font-size="12" font-weight="400" fill="${MAGRIT_INK}" fill-opacity="0.55" letter-spacing="0.10em">IMPRIMERIE · IA</text>
+  <text x="${flowerCX}" y="${refY}" text-anchor="middle" font-family="Inter" font-size="11" font-weight="400" fill="${MAGRIT_INK}" fill-opacity="0.45" letter-spacing="0.04em">${safeName}</text>
 </svg>`;
 }

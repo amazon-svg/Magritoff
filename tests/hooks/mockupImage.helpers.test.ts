@@ -29,23 +29,25 @@ const baseSpecs: MockupSpecs = {
   template: 'flyer',
 };
 
-describe('buildPublicMockupUrl (S-PRODUCT-VIEWS-MULTI)', () => {
-  it('front (default) : path sans suffixe (retro-compat)', () => {
+describe('buildPublicMockupUrl (S-PRODUCT-VIEWS-MULTI + P3-VISUELS cache _v2)', () => {
+  it('front (default) : path avec suffixe cache version _v2', () => {
     const url = buildPublicMockupUrl('myproject', baseParams);
+    // P3-VISUELS (2026-06-15) : suffix _v2 ajouté pour invalider le cache PNG
+    // post-refonte des templates SVG Magrit-brandés.
     expect(url).toBe(
-      'https://myproject.supabase.co/storage/v1/object/public/product_mockups/tenant-uuid/shop-uuid/product-uuid.png',
+      'https://myproject.supabase.co/storage/v1/object/public/product_mockups/tenant-uuid/shop-uuid/product-uuid_v2.png',
     );
   });
 
-  it('view=front explicite : identique au default', () => {
+  it('view=front explicite : identique au default avec _v2', () => {
     const url = buildPublicMockupUrl('myproject', { ...baseParams, view: 'front' });
-    expect(url).toContain('product-uuid.png');
+    expect(url).toContain('product-uuid_v2.png');
     expect(url).not.toContain('__back');
   });
 
-  it('view=back : path suffixé __back.png', () => {
+  it('view=back : path suffixé __back_v2.png (back avant version)', () => {
     const url = buildPublicMockupUrl('myproject', { ...baseParams, view: 'back' });
-    expect(url).toContain('product-uuid__back.png');
+    expect(url).toContain('product-uuid__back_v2.png');
   });
 });
 

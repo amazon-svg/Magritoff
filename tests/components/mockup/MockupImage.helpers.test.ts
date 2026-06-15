@@ -17,14 +17,16 @@ import {
 const TEST_PROJECT_ID = "test-project-abc";
 
 describe("buildPublicMockupUrl", () => {
-  it("construit l'URL publique CDN avec le path correct", () => {
+  it("construit l'URL publique CDN avec le path correct (cache version _v2)", () => {
     const url = buildPublicMockupUrl(TEST_PROJECT_ID, {
       tenantId: "tenant-1",
       shopId: "shop-1",
       productId: "product-1",
     });
+    // P3-VISUELS (2026-06-15) : suffixe _v2 bump pour invalider le cache PNG
+    // post-refonte des templates SVG Magrit-brandés.
     expect(url).toBe(
-      `https://${TEST_PROJECT_ID}.supabase.co/storage/v1/object/public/product_mockups/tenant-1/shop-1/product-1.png`,
+      `https://${TEST_PROJECT_ID}.supabase.co/storage/v1/object/public/product_mockups/tenant-1/shop-1/product-1_v2.png`,
     );
   });
 
@@ -37,7 +39,7 @@ describe("buildPublicMockupUrl", () => {
       shopId: "xyz-456",
       productId: "p-789",
     });
-    expect(url).toContain("/abc-123/xyz-456/p-789.png");
+    expect(url).toContain("/abc-123/xyz-456/p-789_v2.png");
   });
 });
 

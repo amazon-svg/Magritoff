@@ -18,6 +18,22 @@
 
 const BUCKET = "product_mockups";
 
+/**
+ * P3-VISUELS (2026-06-15) — Suffix de version du cache PNG.
+ *
+ * Quand on refond les templates SVG (mockup-generator côté Deno), il faut
+ * invalider le cache PNG existant côté CDN. Plutôt que de purger le bucket
+ * (lourd + risque de perdre des PNG legacy), on bump la cache key avec un
+ * suffixe version. Les PNG nouvelle génération iront sous `<product>_v2.png`,
+ * les anciens restent en place sans interférence.
+ *
+ * IMPORTANT : doit rester synchrone avec `CACHE_VERSION_SUFFIX` dans
+ * `supabase/functions/mockup-generator/index.ts`. Modifier les 2 ensemble.
+ *
+ * Bump l'incrément à chaque refonte significative des templates SVG.
+ */
+const CACHE_VERSION_SUFFIX = "_v2";
+
 export interface MockupParams {
   tenantId: string;
   shopId: string;
@@ -50,8 +66,8 @@ export function buildPublicMockupUrl(
   projectId: string,
   params: MockupParams & { view?: 'front' | 'back' },
 ): string {
-  const suffix = params.view === 'back' ? '__back' : '';
-  return `https://${projectId}.supabase.co/storage/v1/object/public/${BUCKET}/${params.tenantId}/${params.shopId}/${params.productId}${suffix}.png`;
+  const viewSuffix = params.view === 'back' ? '__back' : '';
+  return `https://${projectId}.supabase.co/storage/v1/object/public/${BUCKET}/${params.tenantId}/${params.shopId}/${params.productId}${viewSuffix}${CACHE_VERSION_SUFFIX}.png`;
 }
 
 /**

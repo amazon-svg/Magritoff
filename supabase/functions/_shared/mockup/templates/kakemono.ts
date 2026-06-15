@@ -105,13 +105,13 @@ export function kakemonoSvg(specs: ProductSpecs, theming: ShopTheming): string {
     ${daisyMagrit(flowerCX, flowerCY, flowerScale, "mgCoreKakemono")}
     <rect x="${cx}" y="${liseretY}" width="${rectW}" height="${liseretH}" fill="${MAGRIT_POLLEN_MID}"/>
   </g>
-  <text x="${flowerCX}" y="${titleY}" text-anchor="middle" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="72" font-weight="500" font-style="italic" fill="${MAGRIT_INK}" letter-spacing="-0.025em">Magrit</text>
-  <text x="${flowerCX}" y="${taglineY}" text-anchor="middle" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="16" font-weight="400" fill="${MAGRIT_INK}" fill-opacity="0.55" letter-spacing="0.08em">IMPRIMERIE AUGMENTÉE PAR L'IA</text>
+  <text x="${flowerCX}" y="${titleY}" text-anchor="middle" font-family="Inter" font-size="72" font-weight="500" font-style="italic" fill="${MAGRIT_INK}" letter-spacing="-0.025em">Magrit</text>
+  <text x="${flowerCX}" y="${taglineY}" text-anchor="middle" font-family="Inter" font-size="16" font-weight="400" fill="${MAGRIT_INK}" fill-opacity="0.55" letter-spacing="0.08em">IMPRIMERIE AUGMENTÉE PAR L'IA</text>
   <rect x="${cx + 60}" y="${corps1Y - 14}" width="${rectW - 120}" height="6" fill="${MAGRIT_INK}" opacity="0.32" rx="2"/>
   <rect x="${cx + 60}" y="${corps2Y - 14}" width="${(rectW - 120) * 0.82}" height="5" fill="${MAGRIT_INK}" opacity="0.22" rx="2"/>
   <rect x="${cx + 60}" y="${corps3Y - 14}" width="${(rectW - 120) * 0.72}" height="5" fill="${MAGRIT_INK}" opacity="0.22" rx="2"/>
-  <text x="${flowerCX}" y="${contactY}" text-anchor="middle" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="14" font-weight="500" fill="${MAGRIT_INK}" fill-opacity="0.65" letter-spacing="0.06em">magrit.io · contact@magrit.io</text>
-  <text x="${flowerCX}" y="${refY}" text-anchor="middle" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="${MAGRIT_INK}" fill-opacity="0.45" letter-spacing="0.04em">${safeName}</text>
+  <text x="${flowerCX}" y="${contactY}" text-anchor="middle" font-family="Inter" font-size="14" font-weight="500" fill="${MAGRIT_INK}" fill-opacity="0.65" letter-spacing="0.06em">magrit.io · contact@magrit.io</text>
+  <text x="${flowerCX}" y="${refY}" text-anchor="middle" font-family="Inter" font-size="11" font-weight="400" fill="${MAGRIT_INK}" fill-opacity="0.45" letter-spacing="0.04em">${safeName}</text>
   <rect x="${footX}" y="${footY}" width="${footW}" height="${FOOT_HEIGHT}" fill="#2A2A2D" rx="6"/>
 </svg>`;
 }

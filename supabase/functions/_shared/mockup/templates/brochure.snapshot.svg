@@ -42,12 +42,12 @@
     <rect x="-31.373737373737413" y="884" width="537.3737373737374" height="8" fill="#F5B529"/>
   </g>
   <rect x="-31.373737373737413" y="132" width="537.3737373737374" height="760" fill="url(#paperHighlight)" rx="6" ry="6" opacity="0.5" pointer-events="none"/>
-  <text x="237.3131313131313" y="603.2" text-anchor="middle" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="56" font-weight="500" font-style="italic" fill="#0F172A" letter-spacing="-0.025em">Magrit</text>
-  <text x="237.3131313131313" y="633.2" text-anchor="middle" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="14" font-weight="400" fill="#0F172A" fill-opacity="0.55" letter-spacing="0.08em">IMPRIMERIE · IA</text>
-  <text x="237.3131313131313" y="785.6" text-anchor="middle" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#0F172A" fill-opacity="0.50" letter-spacing="0.04em">Brochure A4</text>
+  <text x="237.3131313131313" y="603.2" text-anchor="middle" font-family="Inter" font-size="56" font-weight="500" font-style="italic" fill="#0F172A" letter-spacing="-0.025em">Magrit</text>
+  <text x="237.3131313131313" y="633.2" text-anchor="middle" font-family="Inter" font-size="14" font-weight="400" fill="#0F172A" fill-opacity="0.55" letter-spacing="0.08em">IMPRIMERIE · IA</text>
+  <text x="237.3131313131313" y="785.6" text-anchor="middle" font-family="Inter" font-size="13" font-weight="400" fill="#0F172A" fill-opacity="0.50" letter-spacing="0.04em">Brochure A4</text>
   
   <rect x="518" y="132" width="537.3737373737374" height="760" fill="url(#paperTexture)" stroke="#FF6B35" stroke-width="2" rx="6" ry="6" filter="url(#shadowDouble)"/>
   <rect x="518" y="132" width="537.3737373737374" height="760" fill="url(#paperHighlight)" rx="6" ry="6" pointer-events="none"/>
   <rect x="550" y="212" width="363.03030303030306" height="6" fill="#0F172A" opacity="0.45" rx="2"/><rect x="550" y="268" width="432.8888888888889" height="6" fill="#0F172A" opacity="0.25" rx="2"/><rect x="550" y="324" width="363.03030303030306" height="6" fill="#0F172A" opacity="0.25" rx="2"/><rect x="550" y="380" width="432.8888888888889" height="6" fill="#0F172A" opacity="0.25" rx="2"/><rect x="550" y="436" width="363.03030303030306" height="6" fill="#0F172A" opacity="0.25" rx="2"/><rect x="550" y="492" width="432.8888888888889" height="6" fill="#0F172A" opacity="0.25" rx="2"/>
-  <text x="786.6868686868687" y="852" text-anchor="middle" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" font-weight="500" fill="#0F172A" fill-opacity="0.65" letter-spacing="0.06em">magrit.io · contact@magrit.io</text>
+  <text x="786.6868686868687" y="852" text-anchor="middle" font-family="Inter" font-size="13" font-weight="500" fill="#0F172A" fill-opacity="0.65" letter-spacing="0.06em">magrit.io · contact@magrit.io</text>
 </svg>

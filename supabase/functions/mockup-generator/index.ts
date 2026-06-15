@@ -145,6 +145,18 @@ function jsonResponse(body: unknown, status: number) {
 }
 
 /**
+ * P3-VISUELS (2026-06-15) — Suffix de version du cache PNG.
+ *
+ * Quand on refond les templates SVG, il faut invalider le cache CDN existant.
+ * Plutôt que de purger le bucket, on bump la cache key avec un suffixe
+ * version. Les anciens PNG legacy restent en place sans interférence.
+ *
+ * IMPORTANT : doit rester synchrone avec `CACHE_VERSION_SUFFIX` dans
+ * `src/app/components/mockup/MockupImage.helpers.ts`. Modifier les 2 ensemble.
+ */
+const CACHE_VERSION_SUFFIX = "_v2";
+
+/**
  * Construit l'URL publique CDN du bucket product_mockups.
  * Format : {SUPABASE_URL}/storage/v1/object/public/product_mockups/{path}
  */
@@ -155,17 +167,16 @@ function publicMockupUrl(
   view: 'front' | 'back' = 'front',
 ): string {
   const baseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-  // Retro-compat : front = path sans suffixe (le cache existant continue de
-  // matcher). back = path suffixé pour cohabitation.
-  const suffix = view === 'back' ? '__back' : '';
-  return `${baseUrl}/storage/v1/object/public/${BUCKET}/${tenant}/${shop}/${product}${suffix}.png`;
+  // back = suffix __back avant version pour cohabitation front/back.
+  const viewSuffix = view === 'back' ? '__back' : '';
+  return `${baseUrl}/storage/v1/object/public/${BUCKET}/${tenant}/${shop}/${product}${viewSuffix}${CACHE_VERSION_SUFFIX}.png`;
 }
 
 function cacheKey(
   specs: { tenant: string; shop: string; product: string; view?: 'front' | 'back' },
 ): string {
-  const suffix = specs.view === 'back' ? '__back' : '';
-  return `${specs.tenant}/${specs.shop}/${specs.product}${suffix}.png`;
+  const viewSuffix = specs.view === 'back' ? '__back' : '';
+  return `${specs.tenant}/${specs.shop}/${specs.product}${viewSuffix}${CACHE_VERSION_SUFFIX}.png`;
 }
 
 function getServiceRoleClient() {
