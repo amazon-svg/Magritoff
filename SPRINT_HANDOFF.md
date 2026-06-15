@@ -2,9 +2,84 @@
 
 > Document de reprise pour démarrer une nouvelle session de Claude code sur le projet sans recharger tout l'historique. À tenir à jour à chaque fin de sprint.
 >
-> **Dernière mise à jour : 2026-06-10 — S-ORDER-ROLES-3-UI livrée et poussée sur `origin/beta/v5` (Amelia BMAD). Roadmap qualité-first COMPLÈTE. Voir section 15 ci-dessous.**
+> **Dernière mise à jour : 2026-06-15 — A4 mini-sprint personnalisation boutiques livré (3 stories : hero+tagline, palette+fonts, tarif négocié per-shop). Brief A3 démo Magrit Core préparé en parallèle (Mary BMAD). Voir section 16 ci-dessous.**
 
-## 15. Session 2026-06-08 → 10 — S-ORDER-ROLES-3-UI livrée + BUG-INVITATION-AUTO-ACCEPT
+## 16. Session 2026-06-15 — A4 mini-sprint personnalisation boutiques (CR WM#090626 action A4)
+
+Workflow BMAD : cartographie 2 volets (perso boutique + bibliothèques) → menu 8 axes proposés à Arnaud → arbitrage périmètre A4.1+A4.2+A4.5 → Amelia Dev exécution. Commits locaux `beta/v5` (pas encore poussés origin au moment de cette mise à jour).
+
+### Décisions Arnaud (2026-06-15)
+
+- **Périmètre A4** : A4.1 (hero+tagline) + A4.2 (palette élargie+fonts curated) + A4.5 (tarif négocié per-shop). Autres axes du menu (A4.3/A4.4/A4.6+) restent backlog 🟡.
+- **A4.5 architecture** : table dédiée `shop_product_pricing` (pas colonne sur `shop_products` legacy) — extensible pour validity temporelle V2.
+- **Mode build, pas démo client immédiate** : on enrichit le backlog, pas de démo Groupe ICI sur A4.
+
+### 3 commits livrés
+
+| Commit | Sujet | Tests |
+|---|---|---|
+| `7a39ddc` | A4.1 bannière hero + tagline (migration + UI editor + render ShopLayout + helpers) | 572 verts |
+| `00b133d` | A4.2 palette élargie + fonts curated par pairing (5 pairings Google Fonts) | 588 verts |
+| `bb6f2f1` | A4.5 tarif négocié per-shop (table + helper + branchement PublicShop + UI inline editor) | 597 verts |
+
+### Migrations Supabase appliquées prod B5
+
+| Migration | Contenu |
+|---|---|
+| `20260615000100` | `shops.hero_image_url` + `shops.tagline` (idempotent ALTER ADD COLUMN) |
+| `20260615000200` | `shop_product_pricing` table + RLS 3 policies (tenant select/write + public read shops actifs) + unique index couple (shop_id, library_product_id) + index secondaires |
+
+Aucune migration SQL pour A4.2 : extension du JSONB `shops.theme` pure code (back-compat boutiques existantes via fallback dans les helpers).
+
+### Surface fonctionnelle livrée
+
+**A4.1 — Bannière hero + tagline**
+- Section « Bannière hero » dans `DashboardShopEditor` : URL image + textarea tagline 120 char + aperçu live
+- Rendu conditionnel dans `ShopLayout` (avant header sticky) : 200px desktop / 140px mobile, gradient overlay tagline
+- Helpers `shouldRenderHeroBanner` + `resolveHeroTagline` (testables purs)
+- TestIds `shop.heroBanner` + `shop.heroTagline`
+
+**A4.2 — Palette + fonts**
+- `ShopTheme` étendu (optionnel back-compat) : secondaryColor / textColor / bgColor / fontPairing
+- Module `fontPairings.ts` : 5 pairings curated (system / modern Inter / editorial Lora+Inter / luxury Playfair+Lato / technical Roboto Slab+Roboto)
+- `index.html` prefetch Google Fonts (Inter, Lora, Playfair Display, Lato, Roboto, Roboto Slab) `display=swap`
+- `resolveShopBrandStyle` expose 5 nouvelles CSS vars : `--shop-secondary`, `--shop-text`, `--shop-bg`, `--shop-font-heading`, `--shop-font-body`
+- `DashboardShopEditor` section Apparence étendue : 3 inputs color + 1 select pairing
+- ShopLayout : `fontFamily` wrapper utilise `var(--shop-font-body, var(--font-ui))` ; hero tagline utilise `var(--shop-font-heading)`
+
+**A4.5 — Tarif négocié per-shop**
+- Table `shop_product_pricing` : id / shop_id (FK cascade) / library_product_id (FK cascade) / price_ht_override / tenant_id / timestamps
+- RLS : tenant_select + tenant_write (membres) + public_read (anonyme via shops.active=true)
+- Helper `applyPricingOverrides(products, overrides)` pur : remplace `price_ht` + ajoute `price_ht_override`
+- `PublicShop.refetchProducts` : fetch overrides + application avant `setProducts`
+- `DashboardShopEditor` : input number inline « Prix négocié » par produit library, upsert/delete sur blur, badge « négocié » + label adaptive desktop
+- Hiérarchie de prix portail acheteur étendue : `shop_pricing > library_cached > zero`
+
+### Tests cumul
+
+- **597 vitest verts** (+25 vs baseline post-S-ORDER-ROLES-3-UI 572), 0 régression
+- **+6 cas ShopLayout.helpers** : `shouldRenderHeroBanner` + `resolveHeroTagline` (null / undefined / empty / whitespace / trim cap)
+- **+11 cas fontPairings** : catalog complet (5 pairings, clés uniques, labels FR, fallback system)
+- **+8 cas ShopLayout.helpers** : `resolveShopBrandStyle` étendu (5 CSS vars + back-compat JSONB + pairing fallback)
+- **+9 cas applyPricingOverrides** : match, no-match, multi, immutabilité, défensif overrides malformés
+
+### Lessons appliquées sur la session
+
+- **2026-05-25 §refonte non-cassante** : aucune régression sur les boutiques existantes (champs optionnels JSONB + fallback dans les helpers).
+- **2026-05-22 microcopy FR** : « Bannière hero », « Aperçu », « Pairing de fonts », « Prix négocié » — aucun anglicisme dans l'UI.
+- **2026-06-09 régression seed** : aucune fonction SQL `CREATE OR REPLACE` partagée dans ces migrations → 0 risque.
+- **2026-05-17 mini-récap factuel** + résumé exécutif → produit en fin de session.
+
+### Brief A3 démo Magrit Core (Mary BMAD, livré en parallèle)
+
+3 livrables dans `_bmad-output/planning-artifacts/` :
+- `brief-A3-demo-magrit-core-2026-06-15.md` — séquence démo 4 étapes ~6 min, audit maturité stories (3🟢/3🟡/6🔴), 8 questions Xavier, 3 actions Arnaud
+- `demo-fichier-brut-magrit-core.csv` — 12 lignes brutes représentatives (mélange unités, doublons silencieux, 5 OUT_OF_SCOPE)
+- `demo-prompt-claude-cleaning.md` v2 — calibré sur la doc API Clariprint réelle (CSV `;`, vocabulaire FR `type;ref;qt;hauteur;largeur;Qualité;grammage;recto;verso;binding;pages`)
+
+Prompt **testé en conditions réelles 2026-06-15** via sous-agent Claude : 12/12 items extraits, 7 chiffrables / 5 OOS attendus, doublon COM-001/COM-007 détecté, mapping types/encres/reliures correct, CSV final propre. **Validé pour la démo mer/jeu 15/06.**
+
+
 
 Workflow BMAD complet : Sally UX (3 wireframes lo-fi 2026-06-08) → arbitrage Q1/Q2/Q3 Arnaud → Amelia Dev (T2-ter à T9). Tous les commits poussés sur `origin/beta/v5` 2026-06-10 (`bc28a31`).
 
