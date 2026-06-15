@@ -35,19 +35,19 @@ describe('buildPublicMockupUrl (S-PRODUCT-VIEWS-MULTI + P3-VISUELS cache _v2)', 
     // P3-VISUELS (2026-06-15) : suffix _v2 ajouté pour invalider le cache PNG
     // post-refonte des templates SVG Magrit-brandés.
     expect(url).toBe(
-      'https://myproject.supabase.co/storage/v1/object/public/product_mockups/tenant-uuid/shop-uuid/product-uuid_v3.png',
+      'https://myproject.supabase.co/storage/v1/object/public/product_mockups/tenant-uuid/shop-uuid/product-uuid_v4.png',
     );
   });
 
   it('view=front explicite : identique au default avec _v2', () => {
     const url = buildPublicMockupUrl('myproject', { ...baseParams, view: 'front' });
-    expect(url).toContain('product-uuid_v3.png');
+    expect(url).toContain('product-uuid_v4.png');
     expect(url).not.toContain('__back');
   });
 
-  it('view=back : path suffixé __back_v3.png (back avant version)', () => {
+  it('view=back : path suffixé __back_v4.png (back avant version)', () => {
     const url = buildPublicMockupUrl('myproject', { ...baseParams, view: 'back' });
-    expect(url).toContain('product-uuid__back_v3.png');
+    expect(url).toContain('product-uuid__back_v4.png');
   });
 });
 

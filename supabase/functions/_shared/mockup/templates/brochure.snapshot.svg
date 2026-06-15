@@ -42,8 +42,8 @@
     <rect x="-31.373737373737413" y="884" width="537.3737373737374" height="8" fill="#F5B529"/>
   </g>
   <rect x="-31.373737373737413" y="132" width="537.3737373737374" height="760" fill="url(#paperHighlight)" rx="6" ry="6" opacity="0.5" pointer-events="none"/>
-  <text x="237.3131313131313" y="603.2" text-anchor="middle" font-family="Inter" font-size="38" font-weight="700" fill="#0F172A" letter-spacing="-0.025em">Brochure A4</text>
-  <text x="237.3131313131313" y="633.2" text-anchor="middle" font-family="Inter" font-size="14" font-weight="500" font-style="italic" fill="#0F172A" fill-opacity="0.60" letter-spacing="-0.01em">by Magrit · imprimerie augmentée par l'IA</text>
+  <text x="237.3131313131313" y="603.2" text-anchor="middle" font-family="Inter" font-size="56" font-weight="500" font-style="italic" fill="#0F172A" letter-spacing="-0.025em">Magrit</text>
+  <text x="237.3131313131313" y="633.2" text-anchor="middle" font-family="Inter" font-size="14" font-weight="400" fill="#0F172A" fill-opacity="0.55" letter-spacing="0.08em">IMPRIMERIE · IA</text>
   
   <rect x="518" y="132" width="537.3737373737374" height="760" fill="url(#paperTexture)" stroke="#FF6B35" stroke-width="2" rx="6" ry="6" filter="url(#shadowDouble)"/>
   <rect x="518" y="132" width="537.3737373737374" height="760" fill="url(#paperHighlight)" rx="6" ry="6" pointer-events="none"/>

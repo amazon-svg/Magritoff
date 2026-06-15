@@ -35,18 +35,33 @@ export type MockupTemplate =
  * Clefs en lowercase apres trim (cf. resolveMockupTemplate).
  */
 const KIND_TO_TEMPLATE: Record<string, MockupTemplate> = {
+  // Flyers / tracts (feuilles plates)
   flyer: "flyer",
+  leaflet: "flyer",
   affiche: "flyer",
   tract: "flyer",
+  // Cartes de visite
   carte_visite: "carteVisite",
   card: "carteVisite",
   visite: "carteVisite",
+  // Brochures / livrets / dépliants
   brochure: "brochure",
   depliant: "brochure",
   plaquette: "brochure",
+  // P11 (2026-06-15) — Kinds Clariprint manquants qui mappent à brochure :
+  // folded (plié 2/3 volets), book (livret cousu/agrafé), cover (couverture
+  // brochure), section (feuilles d'une brochure). Sans ce mapping, ces
+  // produits ERAM/Manitou recevaient un mockup `flyer` par défaut (bug
+  // remonté Arnaud 2026-06-15).
+  folded: "brochure",
+  book: "brochure",
+  cover: "brochure",
+  section: "brochure",
+  // Étiquettes / stickers
   etiquette: "etiquette",
   sticker: "etiquette",
   label: "etiquette",
+  // Kakémonos / roll-ups / banderoles
   kakemono: "kakemono",
   rollup: "kakemono",
   "roll-up": "kakemono",

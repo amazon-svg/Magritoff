@@ -161,8 +161,8 @@ export function carteVisiteSvg(specs: ProductSpecs, theming: ShopTheming): strin
     ${daisyMagrit(bandFlowerCX, bandFlowerCY, bandFlowerScale, "mgCoreBand")}
     <rect x="${cx}" y="${liseretY}" width="${rectW}" height="${liseretH}" fill="${MAGRIT_POLLEN_MID}"/>
   </g>
-  <text x="${tx}" y="${titleY}" font-family="Inter" font-size="38" font-weight="700" fill="${MAGRIT_INK}" letter-spacing="-0.025em">${safeName}</text>
-  <text x="${tx}" y="${taglineY}" font-family="Inter" font-size="14" font-weight="500" font-style="italic" fill="${MAGRIT_INK}" fill-opacity="0.60" letter-spacing="-0.01em">by Magrit · imprimerie augmentée par l'IA</text>
+  <text x="${tx}" y="${titleY}" font-family="Inter" font-size="56" font-weight="500" font-style="italic" fill="${MAGRIT_INK}" letter-spacing="-0.025em">Magrit</text>
+  <text x="${tx}" y="${taglineY}" font-family="Inter" font-size="14" font-weight="400" fill="${MAGRIT_INK}" fill-opacity="0.55" letter-spacing="0.06em">imprimerie augmentée par l'IA</text>
   <rect x="${tx}" y="${coord1Y - 12}" width="${surfaceW * 0.62}" height="6" fill="${MAGRIT_INK}" opacity="0.30" rx="2"/>
   <rect x="${tx}" y="${coord2Y - 12}" width="${surfaceW * 0.50}" height="5" fill="${MAGRIT_INK}" opacity="0.22" rx="2"/>
   <rect x="${tx}" y="${coord3Y - 12}" width="${surfaceW * 0.40}" height="5" fill="${MAGRIT_INK}" opacity="0.22" rx="2"/>

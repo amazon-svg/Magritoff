@@ -44,8 +44,8 @@
   </g>
     <rect x="265.3333333333333" y="854" width="493.33333333333337" height="8" fill="#F5B529"/>
   </g>
-  <text x="512" y="477" text-anchor="middle" font-family="Inter" font-size="44" font-weight="700" fill="#0F172A" letter-spacing="-0.025em">Flyer A5 Test</text>
-  <text x="512" y="501" text-anchor="middle" font-family="Inter" font-size="14" font-weight="500" font-style="italic" fill="#0F172A" fill-opacity="0.60" letter-spacing="-0.01em">by Magrit · imprimerie augmentée par l'IA</text>
+  <text x="512" y="477" text-anchor="middle" font-family="Inter" font-size="64" font-weight="500" font-style="italic" fill="#0F172A" letter-spacing="-0.025em">Magrit</text>
+  <text x="512" y="501" text-anchor="middle" font-family="Inter" font-size="15" font-weight="400" fill="#0F172A" fill-opacity="0.55" letter-spacing="0.08em">IMPRIMERIE AUGMENTÉE PAR L'IA</text>
   <rect x="325.3333333333333" y="541" width="373.33333333333337" height="6" fill="#0F172A" opacity="0.30" rx="2"/>
   <rect x="325.3333333333333" y="569" width="317.33333333333337" height="6" fill="#0F172A" opacity="0.22" rx="2"/>
   <rect x="325.3333333333333" y="597" width="336.00000000000006" height="6" fill="#0F172A" opacity="0.22" rx="2"/>

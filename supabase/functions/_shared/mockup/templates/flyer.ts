@@ -131,8 +131,8 @@ export function flyerSvg(specs: ProductSpecs, theming: ShopTheming): string {
     ${daisyMagrit(flowerCX, flowerCY, flowerScale, "mgCoreBand")}
     <rect x="${cx}" y="${liseretY}" width="${rectW}" height="${liseretH}" fill="${MAGRIT_POLLEN_MID}"/>
   </g>
-  <text x="${flowerCX}" y="${titleY}" text-anchor="middle" font-family="Inter" font-size="44" font-weight="700" fill="${MAGRIT_INK}" letter-spacing="-0.025em">${safeName}</text>
-  <text x="${flowerCX}" y="${taglineY}" text-anchor="middle" font-family="Inter" font-size="14" font-weight="500" font-style="italic" fill="${MAGRIT_INK}" fill-opacity="0.60" letter-spacing="-0.01em">by Magrit · imprimerie augmentée par l'IA</text>
+  <text x="${flowerCX}" y="${titleY}" text-anchor="middle" font-family="Inter" font-size="64" font-weight="500" font-style="italic" fill="${MAGRIT_INK}" letter-spacing="-0.025em">Magrit</text>
+  <text x="${flowerCX}" y="${taglineY}" text-anchor="middle" font-family="Inter" font-size="15" font-weight="400" fill="${MAGRIT_INK}" fill-opacity="0.55" letter-spacing="0.08em">IMPRIMERIE AUGMENTÉE PAR L'IA</text>
   <rect x="${cx + 60}" y="${corps1Y - 16}" width="${rectW - 120}" height="6" fill="${MAGRIT_INK}" opacity="0.30" rx="2"/>
   <rect x="${cx + 60}" y="${corps1Y - 16 + lineGap}" width="${(rectW - 120) * 0.85}" height="6" fill="${MAGRIT_INK}" opacity="0.22" rx="2"/>
   <rect x="${cx + 60}" y="${corps1Y - 16 + lineGap * 2}" width="${(rectW - 120) * 0.9}" height="6" fill="${MAGRIT_INK}" opacity="0.22" rx="2"/>
