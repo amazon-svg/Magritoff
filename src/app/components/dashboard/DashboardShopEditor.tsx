@@ -181,6 +181,8 @@ export function DashboardShopEditor() {
         theme: shop.theme,
         active: shop.active,
         library_ids: shop.library_ids ?? [],
+        hero_image_url: shop.hero_image_url ?? null,
+        tagline: shop.tagline ?? null,
       });
       setSaveOk(true);
       setTimeout(() => setSaveOk(false), 2500);
@@ -306,6 +308,65 @@ export function DashboardShopEditor() {
             />
           </div>
         </div>
+      </section>
+
+      {/* ── A4.1 — Bannière hero + tagline ── */}
+      <section className="border border-gray-200 rounded-xl p-4 bg-white space-y-3">
+        <h3 className="font-semibold text-gray-900">Bannière hero</h3>
+        <p className="text-xs text-gray-500">
+          Image visuelle affichée en tête de votre boutique publique. Laissez l'URL vide pour ne rien afficher.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Image hero (URL)</label>
+            <input
+              type="url"
+              value={shop.hero_image_url ?? ''}
+              onChange={(e) =>
+                setShop({ ...shop, hero_image_url: e.target.value ? e.target.value : null })
+              }
+              placeholder="https://..."
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              Phrase d'accroche{' '}
+              <span className="text-gray-400 font-normal">
+                ({(shop.tagline ?? '').length}/120)
+              </span>
+            </label>
+            <textarea
+              value={shop.tagline ?? ''}
+              onChange={(e) => {
+                const next = e.target.value.slice(0, 120);
+                setShop({ ...shop, tagline: next ? next : null });
+              }}
+              rows={2}
+              maxLength={120}
+              placeholder="Ex: Vos imprimés professionnels en 48h."
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            />
+          </div>
+        </div>
+        {/* Aperçu live : montré dès qu'une URL est saisie */}
+        {shop.hero_image_url && (
+          <div className="mt-2">
+            <p className="text-xs text-gray-500 mb-1">Aperçu</p>
+            <div
+              className="relative w-full h-[120px] rounded-lg bg-cover bg-center overflow-hidden border border-gray-200"
+              style={{ backgroundImage: `url(${shop.hero_image_url})` }}
+            >
+              {shop.tagline && (
+                <div className="absolute inset-x-0 bottom-0 px-4 pb-3 pt-8 bg-gradient-to-t from-black/60 via-black/30 to-transparent">
+                  <p className="text-white text-sm font-medium m-0 drop-shadow-md">
+                    {shop.tagline}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </section>
 
       {/* ── Thème ── */}

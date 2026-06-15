@@ -75,3 +75,26 @@ export function resolveShopBrandStyle(
 export function shouldShowCartBadge(count: number | null | undefined): boolean {
   return typeof count === "number" && count > 0;
 }
+
+/**
+ * A4.1 — True si la bannière hero doit être rendue avant le header sticky.
+ * On exige une URL non vide (trim) ; tagline seul ne suffit pas (sans image
+ * la bannière n'a pas d'identité visuelle).
+ */
+export function shouldRenderHeroBanner(
+  shop: Pick<Shop, "hero_image_url"> | { hero_image_url?: string | null } | null | undefined,
+): boolean {
+  const url = shop?.hero_image_url;
+  return typeof url === "string" && url.trim().length > 0;
+}
+
+/** A4.1 — Tagline normalisé pour overlay hero (trim + cap 120 char côté display). */
+export function resolveHeroTagline(
+  shop: Pick<Shop, "tagline"> | { tagline?: string | null } | null | undefined,
+): string | null {
+  const t = shop?.tagline;
+  if (typeof t !== "string") return null;
+  const trimmed = t.trim();
+  if (trimmed.length === 0) return null;
+  return trimmed.length > 120 ? trimmed.slice(0, 120) : trimmed;
+}

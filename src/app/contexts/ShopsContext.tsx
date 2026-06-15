@@ -29,6 +29,10 @@ export interface Shop {
   active: boolean;
   library_ids: string[];
   excluded_product_ids: string[];
+  /** A4.1 — URL image affichée en tête de boutique publique (null = pas de bannière). */
+  hero_image_url: string | null;
+  /** A4.1 — Phrase courte en overlay du hero (max 120 char côté UI). */
+  tagline: string | null;
   created_at?: string;
 }
 
@@ -62,6 +66,8 @@ export type NewShopInput = {
   address?: string;
   contact_email?: string;
   theme?: Partial<ShopTheme>;
+  hero_image_url?: string | null;
+  tagline?: string | null;
 };
 
 interface ShopsContextType {
@@ -133,6 +139,8 @@ export function ShopsProvider({ children }: { children: ReactNode }) {
         active: true,
         library_ids: [],
         excluded_product_ids: [],
+        hero_image_url: input.hero_image_url ?? null,
+        tagline: input.tagline ?? null,
       })
       .select()
       .single();

@@ -272,6 +272,9 @@ export const TEST_IDS = {
     orderExportPdfInvoiceBtn: 'shop-order-export-pdf-invoice-btn',
     orderExportCsvBtn: 'shop-order-export-csv-btn',
     orderNextStepIndicator: 'shop-order-next-step-indicator',
+    // A4.1 (2026-06-15) — Bannière hero + tagline en tête de boutique publique.
+    heroBanner: 'shop-hero-banner',
+    heroTagline: 'shop-hero-tagline',
   },
 
   // ─── Workflow & rôles de commande (S-ORDER-ROLES-3-UI) ────────────────

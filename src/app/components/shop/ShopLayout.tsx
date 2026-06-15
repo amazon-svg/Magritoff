@@ -36,6 +36,8 @@ import {
   resolveShopTheme,
   resolveShopBrandStyle,
   shouldShowCartBadge,
+  shouldRenderHeroBanner,
+  resolveHeroTagline,
 } from "./ShopLayout.helpers";
 
 interface GammePill {
@@ -106,6 +108,28 @@ export function ShopLayout({
       className={`min-h-screen ${isDark ? "bg-gray-950 text-gray-100" : "bg-bg text-ink"}`}
       style={{ ...brandStyle, fontFamily: "var(--font-ui)" }}
     >
+      {/* ─── A4.1 — Bannière hero + tagline (avant header sticky) ────── */}
+      {shouldRenderHeroBanner(shop) && (
+        <div
+          data-testid={TEST_IDS.shop.heroBanner}
+          role="banner"
+          aria-label={resolveHeroTagline(shop) ? `Bannière : ${resolveHeroTagline(shop)}` : "Bannière boutique"}
+          className="relative w-full h-[140px] md:h-[200px] bg-cover bg-center"
+          style={{ backgroundImage: `url(${shop.hero_image_url})` }}
+        >
+          {resolveHeroTagline(shop) && (
+            <div className="absolute inset-x-0 bottom-0 px-5 lg:px-9 pb-6 pt-12 bg-gradient-to-t from-black/60 via-black/30 to-transparent">
+              <p
+                data-testid={TEST_IDS.shop.heroTagline}
+                className="text-white text-base md:text-lg font-medium max-w-3xl drop-shadow-md m-0"
+              >
+                {resolveHeroTagline(shop)}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ─── Header sticky brande ────────────────────────────────────── */}
       <header
         data-testid={TEST_IDS.shop.header}

@@ -9,6 +9,8 @@ import {
   resolveShopTheme,
   resolveShopBrandStyle,
   shouldShowCartBadge,
+  shouldRenderHeroBanner,
+  resolveHeroTagline,
 } from "../../../src/app/components/shop/ShopLayout.helpers";
 
 describe("resolveShopTheme — AC2 S2.1 dark par defaut", () => {
@@ -92,5 +94,63 @@ describe("shouldShowCartBadge — AC1 S2.1 badge cart", () => {
 
   it("masque badge si count negatif (defensif)", () => {
     expect(shouldShowCartBadge(-1)).toBe(false);
+  });
+});
+
+describe("shouldRenderHeroBanner — A4.1 bannière hero", () => {
+  it("true quand hero_image_url est une URL non vide", () => {
+    expect(shouldRenderHeroBanner({ hero_image_url: "https://cdn.example.com/hero.jpg" })).toBe(true);
+  });
+
+  it("false quand hero_image_url est null", () => {
+    expect(shouldRenderHeroBanner({ hero_image_url: null })).toBe(false);
+  });
+
+  it("false quand hero_image_url est undefined", () => {
+    expect(shouldRenderHeroBanner({ hero_image_url: undefined })).toBe(false);
+  });
+
+  it("false quand hero_image_url est chaîne vide", () => {
+    expect(shouldRenderHeroBanner({ hero_image_url: "" })).toBe(false);
+  });
+
+  it("false quand hero_image_url est uniquement des espaces (trim)", () => {
+    expect(shouldRenderHeroBanner({ hero_image_url: "   " })).toBe(false);
+  });
+
+  it("false quand shop est null ou undefined (loading state)", () => {
+    expect(shouldRenderHeroBanner(null)).toBe(false);
+    expect(shouldRenderHeroBanner(undefined)).toBe(false);
+  });
+});
+
+describe("resolveHeroTagline — A4.1 tagline overlay", () => {
+  it("retourne le tagline trim quand présent", () => {
+    expect(resolveHeroTagline({ tagline: "  Vos imprimés en 48h  " })).toBe("Vos imprimés en 48h");
+  });
+
+  it("retourne null quand tagline est null", () => {
+    expect(resolveHeroTagline({ tagline: null })).toBe(null);
+  });
+
+  it("retourne null quand tagline est undefined", () => {
+    expect(resolveHeroTagline({ tagline: undefined })).toBe(null);
+  });
+
+  it("retourne null quand tagline est chaîne vide ou whitespace", () => {
+    expect(resolveHeroTagline({ tagline: "" })).toBe(null);
+    expect(resolveHeroTagline({ tagline: "   " })).toBe(null);
+  });
+
+  it("tronque à 120 caractères défensivement (cap UI déjà appliqué normalement)", () => {
+    const long = "a".repeat(150);
+    const out = resolveHeroTagline({ tagline: long });
+    expect(out).not.toBeNull();
+    expect(out!.length).toBe(120);
+  });
+
+  it("retourne null quand shop est null ou undefined", () => {
+    expect(resolveHeroTagline(null)).toBe(null);
+    expect(resolveHeroTagline(undefined)).toBe(null);
   });
 });
