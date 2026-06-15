@@ -28,6 +28,7 @@ import {
   saveExpandedGammes,
 } from './ShopGammesSidebar.helpers';
 import { applyTax, getTaxRate } from '../../utils/tax';
+import { applyPricingOverrides, type PricingOverride } from '../../utils/applyPricingOverrides';
 import {
   tenantOrderInsertSchema,
   tenantOrderItemInsertSchema,
@@ -124,7 +125,22 @@ export function PublicShop() {
     }
     const manualIds = new Set(manual.map((p) => p.product_id).filter(Boolean));
     const deduped = linked.filter((p) => !p.product_id || !manualIds.has(p.product_id));
-    setProducts([...manual, ...deduped]);
+
+    // A4.5 — Charger les prix négociés per-shop puis appliquer override.
+    // RLS lecture publique autorisée si shop.active=true.
+    const { data: overridesRaw } = await supabase
+      .from('shop_product_pricing')
+      .select('library_product_id, price_ht_override')
+      .eq('shop_id', shopId);
+    const overrides = ((overridesRaw ?? []) as Array<{
+      library_product_id: string;
+      price_ht_override: number;
+    }>).map<PricingOverride>((o) => ({
+      library_product_id: o.library_product_id,
+      price_ht_override: Number(o.price_ht_override),
+    }));
+    const merged = applyPricingOverrides([...manual, ...deduped], overrides);
+    setProducts(merged as ShopProduct[]);
   };
 
   // ─── Chargement shop + produits + realtime subscription ──────────────────

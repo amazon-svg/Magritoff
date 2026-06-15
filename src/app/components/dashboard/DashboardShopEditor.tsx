@@ -33,6 +33,8 @@ import {
 } from 'lucide-react';
 import { useShops, Shop, ShopProduct } from '../../contexts/ShopsContext';
 import { FONT_PAIRINGS } from '../shop/fontPairings';
+import { supabase } from '/utils/supabase/client';
+import { useTenant } from '../../contexts/TenantContext';
 import { useLibrary, LibraryProduct } from '../../contexts/LibraryContext';
 import { usePIM } from '../../contexts/PIMContext';
 import { usePlan } from '../../hooks/usePlan';
@@ -86,6 +88,10 @@ export function DashboardShopEditor() {
   const [loading, setLoading] = useState(true);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveOk, setSaveOk] = useState(false);
+  // A4.5 — Prix négociés per-shop. Map clé = library_product_id, valeur = override
+  // en number. Source de vérité locale, synchronisée à la DB sur blur.
+  const [pricingOverrides, setPricingOverrides] = useState<Record<string, number>>({});
+  const { currentTenant } = useTenant();
 
   // Dialog de confirmation suppression
   const [deleteDialog, setDeleteDialog] = useState<DisplayProduct | null>(null);
@@ -94,14 +100,69 @@ export function DashboardShopEditor() {
     const s = shops.find((s) => s.id === id) ?? null;
     setShop(s);
     if (s) {
-      getShopProducts(s.id).then((list) => {
-        setShopProducts(list);
+      Promise.all([
+        getShopProducts(s.id),
+        // A4.5 — Charger les overrides de prix de cette boutique
+        supabase
+          .from('shop_product_pricing')
+          .select('library_product_id, price_ht_override')
+          .eq('shop_id', s.id)
+          .then((res) => res.data ?? []),
+      ]).then(([products, overrides]) => {
+        setShopProducts(products);
+        const map: Record<string, number> = {};
+        for (const o of overrides as Array<{ library_product_id: string; price_ht_override: number }>) {
+          map[o.library_product_id] = Number(o.price_ht_override);
+        }
+        setPricingOverrides(map);
         setLoading(false);
       });
     } else if (shops.length > 0) {
       setLoading(false);
     }
   }, [id, shops]);
+
+  // A4.5 — Upsert ou delete d'un override de prix sur blur d'un input
+  // « Prix négocié ». Si nextValue est un nombre > 0 : upsert. Sinon : delete.
+  const savePricingOverride = async (libraryProductId: string, nextValue: number | null) => {
+    if (!shop || !currentTenant) return;
+    if (nextValue === null || !Number.isFinite(nextValue) || nextValue <= 0) {
+      // Suppression : on retire l'override (retour au prix biblio).
+      const { error } = await supabase
+        .from('shop_product_pricing')
+        .delete()
+        .eq('shop_id', shop.id)
+        .eq('library_product_id', libraryProductId);
+      if (error) {
+        console.error('[A4.5] delete override failed', error.message);
+        return;
+      }
+      setPricingOverrides((prev) => {
+        const next = { ...prev };
+        delete next[libraryProductId];
+        return next;
+      });
+      return;
+    }
+    // Upsert : on insère ou remplace l'override existant.
+    const { error } = await supabase
+      .from('shop_product_pricing')
+      .upsert(
+        {
+          shop_id: shop.id,
+          library_product_id: libraryProductId,
+          price_ht_override: nextValue,
+          tenant_id: currentTenant.id,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'shop_id,library_product_id' },
+      );
+    if (error) {
+      console.error('[A4.5] upsert override failed', error.message);
+      return;
+    }
+    setPricingOverrides((prev) => ({ ...prev, [libraryProductId]: nextValue }));
+  };
 
   // ─── Liste agregee des produits affichable dans la boutique ─────────────
   // IMPORTANT : le useMemo doit etre declare AVANT les early returns (regle
@@ -600,6 +661,50 @@ export function DashboardShopEditor() {
                     )}
                   </p>
                 </div>
+                {/* A4.5 — Prix négocié inline (uniquement pour sources library) */}
+                {p.source === 'library' && p.libraryProductId && (
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <label className="text-[11px] text-gray-500 hidden md:block">
+                      Prix négocié
+                    </label>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      step="0.01"
+                      placeholder="—"
+                      defaultValue={
+                        pricingOverrides[p.libraryProductId] !== undefined
+                          ? pricingOverrides[p.libraryProductId].toFixed(2)
+                          : ''
+                      }
+                      onBlur={(e) => {
+                        const raw = e.target.value.trim();
+                        const next = raw === '' ? null : Number(raw.replace(',', '.'));
+                        const current = pricingOverrides[p.libraryProductId!];
+                        // Pas de save inutile si valeur inchangée
+                        if (
+                          (next === null && current === undefined) ||
+                          (next !== null && next === current)
+                        ) {
+                          return;
+                        }
+                        void savePricingOverride(p.libraryProductId!, next);
+                      }}
+                      className="w-20 px-2 py-1 text-xs font-mono border border-gray-300 rounded text-right"
+                      style={{ fontVariantNumeric: 'tabular-nums' }}
+                    />
+                    <span className="text-[11px] text-gray-500">€</span>
+                    {pricingOverrides[p.libraryProductId] !== undefined && (
+                      <span
+                        className="text-[10px] font-medium text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded"
+                        title="Tarif négocié actif"
+                      >
+                        négocié
+                      </span>
+                    )}
+                  </div>
+                )}
                 <button
                   onClick={() => handleRequestDelete(p)}
                   className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
