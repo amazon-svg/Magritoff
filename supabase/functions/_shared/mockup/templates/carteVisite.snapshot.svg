@@ -44,10 +44,9 @@
   </g>
     <rect x="112" y="762.8235294117646" width="800" height="8" fill="#F5B529"/>
   </g>
-  <text x="424" y="470.5882352941177" font-family="Inter" font-size="56" font-weight="500" font-style="italic" fill="#0F172A" letter-spacing="-0.025em">Magrit</text>
-  <text x="424" y="500.5882352941177" font-family="Inter" font-size="14" font-weight="400" fill="#0F172A" fill-opacity="0.55" letter-spacing="0.06em">imprimerie augmentée par l'IA</text>
-  <rect x="424" y="582.8235294117646" width="322.4" height="6" fill="#0F172A" opacity="0.35" rx="2"/>
-  <rect x="424" y="604.8235294117646" width="260" height="5" fill="#0F172A" opacity="0.25" rx="2"/>
-  <rect x="424" y="626.8235294117646" width="208" height="5" fill="#0F172A" opacity="0.25" rx="2"/>
-  <text x="896" y="748.8235294117646" text-anchor="end" font-family="Inter" font-size="11" font-weight="500" fill="#0F172A" fill-opacity="0.45" letter-spacing="0.04em">Carte Pro</text>
+  <text x="424" y="470.5882352941177" font-family="Inter" font-size="38" font-weight="700" fill="#0F172A" letter-spacing="-0.025em">Carte Pro</text>
+  <text x="424" y="500.5882352941177" font-family="Inter" font-size="14" font-weight="500" font-style="italic" fill="#0F172A" fill-opacity="0.60" letter-spacing="-0.01em">by Magrit · imprimerie augmentée par l'IA</text>
+  <rect x="424" y="582.8235294117646" width="322.4" height="6" fill="#0F172A" opacity="0.30" rx="2"/>
+  <rect x="424" y="604.8235294117646" width="260" height="5" fill="#0F172A" opacity="0.22" rx="2"/>
+  <rect x="424" y="626.8235294117646" width="208" height="5" fill="#0F172A" opacity="0.22" rx="2"/>
 </svg>

@@ -100,9 +100,8 @@ export function brochureSvg(specs: ProductSpecs, theming: ShopTheming): string {
     <rect x="${leftX}" y="${coverLiseretY}" width="${panelW}" height="${liseretH}" fill="${MAGRIT_POLLEN_MID}"/>
   </g>
   <rect x="${leftX}" y="${cy}" width="${panelW}" height="${panelH}" fill="url(#paperHighlight)" rx="6" ry="6" opacity="0.5" pointer-events="none"/>
-  <text x="${flowerCX}" y="${coverTitleY}" text-anchor="middle" font-family="Inter" font-size="56" font-weight="500" font-style="italic" fill="${MAGRIT_INK}" letter-spacing="-0.025em">Magrit</text>
-  <text x="${flowerCX}" y="${coverTaglineY}" text-anchor="middle" font-family="Inter" font-size="14" font-weight="400" fill="${MAGRIT_INK}" fill-opacity="0.55" letter-spacing="0.08em">IMPRIMERIE · IA</text>
-  <text x="${flowerCX}" y="${coverRefY}" text-anchor="middle" font-family="Inter" font-size="13" font-weight="400" fill="${MAGRIT_INK}" fill-opacity="0.50" letter-spacing="0.04em">${safeName}</text>
+  <text x="${flowerCX}" y="${coverTitleY}" text-anchor="middle" font-family="Inter" font-size="38" font-weight="700" fill="${MAGRIT_INK}" letter-spacing="-0.025em">${safeName}</text>
+  <text x="${flowerCX}" y="${coverTaglineY}" text-anchor="middle" font-family="Inter" font-size="14" font-weight="500" font-style="italic" fill="${MAGRIT_INK}" fill-opacity="0.60" letter-spacing="-0.01em">by Magrit · imprimerie augmentée par l'IA</text>
   ${photoRealisticProductRect(rightX, cy, panelW, panelH, 6, safeColor)}
   ${mockLines}
   <text x="${rightX + panelW / 2}" y="${cy + panelH - 40}" text-anchor="middle" font-family="Inter" font-size="13" font-weight="500" fill="${MAGRIT_INK}" fill-opacity="0.65" letter-spacing="0.06em">magrit.io · contact@magrit.io</text>
