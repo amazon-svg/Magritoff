@@ -61,6 +61,14 @@ export interface MockupImageProps {
    * 'back'. Sert à choisir le PNG cible côté CDN (path suffixé __back).
    */
   view?: 'front' | 'back';
+  /**
+   * P4-VISUELS (2026-06-15) : URL d'un mockup custom uploadé par l'admin
+   * tenant via ShopVisualSettings. Si fourni, **bypass complètement** le
+   * mécanisme edge function : on affiche directement l'image custom (le
+   * client a personnalisé ce template pour SA boutique). Conserve le
+   * backgroundUrl pour cohérence layered (fond + mockup custom).
+   */
+  customMockupUrl?: string | null;
 }
 
 type ImageState = "loading" | "loaded" | "fetching-edge" | "error";
@@ -68,6 +76,41 @@ type ImageState = "loading" | "loaded" | "fetching-edge" | "error";
 const FETCH_TIMEOUT_MS = 10_000;
 
 export function MockupImage(props: MockupImageProps): JSX.Element {
+  // P4-VISUELS — Si un mockup custom est fourni par le caller, on l'affiche
+  // direct sans passer par l'edge function (bypass complet du mécanisme
+  // retry/CDN). Le fond shop reste appliqué via wrapper backgroundUrl pour
+  // cohérence visuelle layered (fond + custom mockup transparent ou pas).
+  if (props.customMockupUrl && props.customMockupUrl.trim().length > 0) {
+    const wrapperStyleCustom: React.CSSProperties = {
+      position: 'relative',
+      ...(props.backgroundUrl
+        ? {
+            backgroundImage: `url("${props.backgroundUrl}")`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+          }
+        : {}),
+    };
+    return (
+      <div
+        data-testid={TEST_IDS.mockup.productImage}
+        data-has-bg={props.backgroundUrl ? 'true' : 'false'}
+        data-custom-mockup="true"
+        className={props.className}
+        style={wrapperStyleCustom}
+      >
+        <img
+          data-testid={TEST_IDS.mockup.productImageImg}
+          src={props.customMockupUrl}
+          alt={props.alt}
+          loading="lazy"
+          className="w-full h-full object-cover"
+        />
+      </div>
+    );
+  }
+
   const params = useMemo(
     () => ({
       tenantId: props.tenantId,

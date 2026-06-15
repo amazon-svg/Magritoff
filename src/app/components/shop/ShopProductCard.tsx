@@ -26,6 +26,10 @@ import { TEST_IDS } from "../../lib/testIds";
 import { MockupImage } from "../mockup/MockupImage";
 import { resolveShopBackground } from "../mockup/shopBackground.helpers";
 import {
+  resolveCustomMockup,
+  type MockupTemplateType,
+} from "../mockup/customMockup.helpers";
+import {
   resolveMockupTemplate,
   resolveProductDimensions,
 } from "./ShopProductCard.helpers";
@@ -93,6 +97,24 @@ export function ShopProductCard({
     };
   }, [shop.id, gammeSlug]);
 
+  // P4-VISUELS (2026-06-15) — Fetch custom mockup override per-shop x template.
+  // Si l'admin tenant a uploadé un mockup custom dans ShopVisualSettings, il
+  // remplace le SVG Magrit-brandé généré par l'edge function.
+  const [customMockupUrl, setCustomMockupUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    resolveCustomMockup(shop.id, template as MockupTemplateType, 'front')
+      .then((url) => {
+        if (!cancelled) setCustomMockupUrl(url);
+      })
+      .catch(() => {
+        if (!cancelled) setCustomMockupUrl(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [shop.id, template]);
+
   // S-FIX-2 — Badge gamme PIM resolue au lieu de product.category brute.
   // S-FIX-BADGES-11/05 — Si la category fallback est un kind Clariprint brut
   // ("leaflet", "folded", "book"…), on retombe sur "Template" (label generique).
@@ -148,6 +170,7 @@ export function ShopProductCard({
           primaryColor={shop.theme?.primaryColor ?? "#1e3a8a"}
           template={template}
           backgroundUrl={backgroundUrl}
+          customMockupUrl={customMockupUrl}
           alt={`Mockup ${product.name}`}
           className="w-full h-full"
         />

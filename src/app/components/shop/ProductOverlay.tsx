@@ -29,6 +29,10 @@ import { Sheet, SheetContent, SheetTitle } from "../ui/sheet";
 import { ProductMultiView } from "../mockup/ProductMultiView";
 import { resolveShopBackground } from "../mockup/shopBackground.helpers";
 import {
+  resolveCustomMockup,
+  type MockupTemplateType,
+} from "../mockup/customMockup.helpers";
+import {
   ClariprintError,
   ClariprintHttpAdapter,
 } from "../../../server/clariprint/ClariprintAdapter";
@@ -248,6 +252,32 @@ export function ProductOverlay({
     };
   }, [shop?.id, overlayGammeSlug]);
 
+  // P4-VISUELS — Custom mockup override per-shop x template (vue detail produit).
+  // Le template est déjà résolu plus bas dans mockupProps via resolveMockupTemplate(product).
+  // On le re-calcule ici pour le useEffect (pas de cyclic dep).
+  const overlayTemplate = useMemo(
+    () => (product ? resolveMockupTemplate(product) : null),
+    [product],
+  );
+  const [customMockupUrl, setCustomMockupUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!shop?.id || !overlayTemplate) {
+      setCustomMockupUrl(null);
+      return;
+    }
+    let cancelled = false;
+    resolveCustomMockup(shop.id, overlayTemplate as MockupTemplateType, 'front')
+      .then((url) => {
+        if (!cancelled) setCustomMockupUrl(url);
+      })
+      .catch(() => {
+        if (!cancelled) setCustomMockupUrl(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [shop?.id, overlayTemplate]);
+
   // Mini mockup props (memoise pour eviter recreation a chaque render).
   // S2.4b : shop optionnel -> fallbacks atelier (tenant_id='atelier', shop_id='atelier',
   // primaryColor=brand Magrit). Le mockup engine accepte ces sentinelles ;
@@ -272,9 +302,10 @@ export function ProductOverlay({
       primaryColor,
       template,
       backgroundUrl,
+      customMockupUrl,
       alt: `Mockup ${product.name}`,
     };
-  }, [product, shop, backgroundUrl]);
+  }, [product, shop, backgroundUrl, customMockupUrl]);
 
   return (
     <Sheet

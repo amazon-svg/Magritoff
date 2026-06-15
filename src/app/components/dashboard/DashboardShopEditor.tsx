@@ -49,6 +49,10 @@ import { lazy, Suspense as ReactSuspense } from 'react';
 const ShopVisualSettings = lazy(() =>
   import('./ShopVisualSettings').then((m) => ({ default: m.ShopVisualSettings })),
 );
+// P4-VISUELS (2026-06-15) : lazy-load ShopCustomMockups (upload custom).
+const ShopCustomMockups = lazy(() =>
+  import('./ShopCustomMockups').then((m) => ({ default: m.ShopCustomMockups })),
+);
 
 /**
  * Produit affiche dans la liste agregee. On normalise deux sources :
@@ -784,6 +788,13 @@ export function DashboardShopEditor() {
             shopId={shop.id}
             availableGammes={gammes.map((g) => ({ slug: g.slug, name: g.name }))}
           />
+        </ReactSuspense>
+      )}
+
+      {/* ── P4-VISUELS : Mockups custom per-shop (override Magrit-brandé) ── */}
+      {shop && currentTenant && (
+        <ReactSuspense fallback={null}>
+          <ShopCustomMockups shopId={shop.id} tenantId={currentTenant.id} />
         </ReactSuspense>
       )}
 
