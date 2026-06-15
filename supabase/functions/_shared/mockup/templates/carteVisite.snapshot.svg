@@ -1,9 +1,21 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
   <defs>
     <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#FF6B35" stop-opacity="0.10"/>
-      <stop offset="100%" stop-color="#FF6B35" stop-opacity="0.32"/>
+      <stop offset="0%" stop-color="#FF6B35" stop-opacity="0.06"/>
+      <stop offset="100%" stop-color="#FF6B35" stop-opacity="0.16"/>
     </linearGradient>
+    <linearGradient id="mgTileBand" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E5F0FC"/>
+      <stop offset="100%" stop-color="#B7D3F2"/>
+    </linearGradient>
+    <radialGradient id="mgCoreBand" cx="45%" cy="40%" r="55%">
+      <stop offset="0%" stop-color="#FFE066"/>
+      <stop offset="70%" stop-color="#F5B529"/>
+      <stop offset="100%" stop-color="#C68708"/>
+    </radialGradient>
+    <clipPath id="cardClip">
+      <rect x="112" y="253.1764705882353" width="800" height="517.6470588235294" rx="16" ry="16"/>
+    </clipPath>
     
     <filter id="shadowDouble" x="-15%" y="-15%" width="130%" height="130%">
       <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.18"/>
@@ -24,6 +36,18 @@
   
   <rect x="112" y="253.1764705882353" width="800" height="517.6470588235294" fill="url(#paperTexture)" stroke="#FF6B35" stroke-width="2" rx="16" ry="16" filter="url(#shadowDouble)"/>
   <rect x="112" y="253.1764705882353" width="800" height="517.6470588235294" fill="url(#paperHighlight)" rx="16" ry="16" pointer-events="none"/>
-  <rect x="352" y="734.8235294117646" width="320" height="4" fill="#FF6B35" rx="2"/>
-       <text x="512" y="524" text-anchor="middle" font-family="Inter" font-size="56" font-weight="700" fill="#FF6B35">Carte Pro</text>
+  <g clip-path="url(#cardClip)">
+    <rect x="112" y="253.1764705882353" width="280" height="517.6470588235294" fill="url(#mgTileBand)"/>
+    <g transform="translate(252 512)">
+    <g fill="#FFFFFF"><ellipse cx="0" cy="-80.88888888888889" rx="10.88888888888889" ry="49.77777777777778" transform="rotate(0)"/><ellipse cx="0" cy="-80.88888888888889" rx="10.88888888888889" ry="49.77777777777778" transform="rotate(20)"/><ellipse cx="0" cy="-80.88888888888889" rx="10.88888888888889" ry="49.77777777777778" transform="rotate(40)"/><ellipse cx="0" cy="-80.88888888888889" rx="10.88888888888889" ry="49.77777777777778" transform="rotate(60)"/><ellipse cx="0" cy="-80.88888888888889" rx="10.88888888888889" ry="49.77777777777778" transform="rotate(80)"/><ellipse cx="0" cy="-80.88888888888889" rx="10.88888888888889" ry="49.77777777777778" transform="rotate(100)"/><ellipse cx="0" cy="-80.88888888888889" rx="10.88888888888889" ry="49.77777777777778" transform="rotate(120)"/><ellipse cx="0" cy="-80.88888888888889" rx="10.88888888888889" ry="49.77777777777778" transform="rotate(140)"/><ellipse cx="0" cy="-80.88888888888889" rx="10.88888888888889" ry="49.77777777777778" transform="rotate(160)"/><ellipse cx="0" cy="-80.88888888888889" rx="10.88888888888889" ry="49.77777777777778" transform="rotate(180)"/><ellipse cx="0" cy="-80.88888888888889" rx="10.88888888888889" ry="49.77777777777778" transform="rotate(200)"/><ellipse cx="0" cy="-80.88888888888889" rx="10.88888888888889" ry="49.77777777777778" transform="rotate(220)"/><ellipse cx="0" cy="-80.88888888888889" rx="10.88888888888889" ry="49.77777777777778" transform="rotate(240)"/><ellipse cx="0" cy="-80.88888888888889" rx="10.88888888888889" ry="49.77777777777778" transform="rotate(260)"/><ellipse cx="0" cy="-80.88888888888889" rx="10.88888888888889" ry="49.77777777777778" transform="rotate(280)"/><ellipse cx="0" cy="-80.88888888888889" rx="10.88888888888889" ry="49.77777777777778" transform="rotate(300)"/><ellipse cx="0" cy="-80.88888888888889" rx="10.88888888888889" ry="49.77777777777778" transform="rotate(320)"/><ellipse cx="0" cy="-80.88888888888889" rx="10.88888888888889" ry="49.77777777777778" transform="rotate(340)"/></g>
+    <circle r="34.22222222222222" fill="url(#mgCoreBand)"/>
+  </g>
+    <rect x="112" y="762.8235294117646" width="800" height="8" fill="#F5B529"/>
+  </g>
+  <text x="424" y="470.5882352941177" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="56" font-weight="500" font-style="italic" fill="#0F172A" letter-spacing="-0.025em">Magrit</text>
+  <text x="424" y="500.5882352941177" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="14" font-weight="400" fill="#0F172A" fill-opacity="0.55" letter-spacing="0.06em">imprimerie augmentée par l'IA</text>
+  <rect x="424" y="582.8235294117646" width="322.4" height="6" fill="#0F172A" opacity="0.35" rx="2"/>
+  <rect x="424" y="604.8235294117646" width="260" height="5" fill="#0F172A" opacity="0.25" rx="2"/>
+  <rect x="424" y="626.8235294117646" width="208" height="5" fill="#0F172A" opacity="0.25" rx="2"/>
+  <text x="896" y="748.8235294117646" text-anchor="end" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" font-weight="500" fill="#0F172A" fill-opacity="0.45" letter-spacing="0.04em">Carte Pro</text>
 </svg>

@@ -1,14 +1,14 @@
 /**
- * Template SVG paramatrique pour produit type `etiquette` (Story S4.2, Epic 4).
+ * Template SVG paramètrique pour produit type `etiquette`.
  *
- * Layout : forme rectangulaire avec coins fortement arrondis (rx=24) -> rendu
- * "etiquette adhesive". Bordure pointillee 2px en `theming.primaryColor`
- * (stroke-dasharray) pour suggerer la decoupe. productName centre en font
- * Inter 600. Pictogramme geometrique (cercle + barre horizontale) en haut
- * pour suggerer un logo / code-barres mock.
+ * Refonte 2026-06-15 (P3-VISUELS) : design Magrit-brandé compact.
+ * Layout (étiquette est petite — design ramassé) :
+ *   - Fond tile bleu pastel sur toute l'étiquette
+ *   - Marguerite Magrit centrée + "Magrit" italic dessous + petit tagline
+ *   - Bordure dashed conservée (suggère la découpe adhésive)
+ *   - Liseré pollen tout en bas
  *
- * Cas d usage Clariprint typique : 60x40 mm rectangulaire OU 50x50 mm carre.
- * Pas de svgdom, string templating direct.
+ * Cas d usage Clariprint typique : 60x40 mm rectangulaire OU 50x50 mm carré.
  */
 
 import type { ProductSpecs, ShopTheming } from "../types.ts";
@@ -18,6 +18,24 @@ const VIEWBOX = 1024;
 const SHAPE_AREA_MAX = 720;
 const TEXT_MAX_LEN = 22;
 
+const MAGRIT_TILE_FROM = "#E5F0FC";
+const MAGRIT_TILE_TO = "#B7D3F2";
+const MAGRIT_POLLEN_LIGHT = "#FFE066";
+const MAGRIT_POLLEN_MID = "#F5B529";
+const MAGRIT_POLLEN_DARK = "#C68708";
+const MAGRIT_INK = "#0F172A";
+
+function daisyMagrit(cx: number, cy: number, scale: number, coreGradientId: string): string {
+  const petals = Array.from({ length: 18 }, (_, i) => {
+    const angle = i * 20;
+    return `<ellipse cx="0" cy="${-26 * scale}" rx="${3.5 * scale}" ry="${16 * scale}" transform="rotate(${angle})"/>`;
+  }).join("");
+  return `<g transform="translate(${cx} ${cy})">
+    <g fill="#FFFFFF">${petals}</g>
+    <circle r="${11 * scale}" fill="url(#${coreGradientId})"/>
+  </g>`;
+}
+
 export function etiquetteSvg(specs: ProductSpecs, theming: ShopTheming): string {
   const aspect = specs.width / specs.height;
   const isPortrait = aspect < 1;
@@ -26,33 +44,49 @@ export function etiquetteSvg(specs: ProductSpecs, theming: ShopTheming): string 
   const cx = (VIEWBOX - rectW) / 2;
   const cy = (VIEWBOX - rectH) / 2;
 
-  // Pictogramme haut (cercle + barre horizontale)
-  const pictoCx = cx + rectW / 2;
-  const pictoCy = cy + rectH * 0.28;
-  const pictoR = Math.min(rectW, rectH) * 0.08;
-  const barW = rectW * 0.35;
-  const barX = pictoCx - barW / 2;
-  const barY = pictoCy + pictoR + 16;
-
-  // productName en bas-centre
-  const textY = cy + rectH * 0.7;
-
   const safeName = escapeXml(truncate(specs.productName, TEXT_MAX_LEN));
   const safeColor = escapeXml(theming.primaryColor);
+
+  // Marguerite centrée (zone supérieure de l'étiquette)
+  const flowerCX = cx + rectW / 2;
+  const flowerCY = cy + rectH * 0.38;
+  const flowerScale = Math.min(rectW, rectH) / 150;
+
+  const titleY = cy + rectH * 0.70;
+  const taglineY = titleY + 24;
+  const refY = cy + rectH * 0.88;
+  const liseretY = cy + rectH - 8;
+  const liseretH = 8;
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${VIEWBOX} ${VIEWBOX}" width="${VIEWBOX}" height="${VIEWBOX}">
   <defs>
     <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="${safeColor}" stop-opacity="0.05"/>
-      <stop offset="100%" stop-color="${safeColor}" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="${safeColor}" stop-opacity="0.16"/>
     </linearGradient>
+    <linearGradient id="mgTileEtiq" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="${MAGRIT_TILE_FROM}"/>
+      <stop offset="100%" stop-color="${MAGRIT_TILE_TO}"/>
+    </linearGradient>
+    <radialGradient id="mgCoreEtiq" cx="45%" cy="40%" r="55%">
+      <stop offset="0%" stop-color="${MAGRIT_POLLEN_LIGHT}"/>
+      <stop offset="70%" stop-color="${MAGRIT_POLLEN_MID}"/>
+      <stop offset="100%" stop-color="${MAGRIT_POLLEN_DARK}"/>
+    </radialGradient>
+    <clipPath id="etiqClip">
+      <rect x="${cx}" y="${cy}" width="${rectW}" height="${rectH}" rx="24" ry="24"/>
+    </clipPath>
     ${photoRealisticDefs(safeColor)}
   </defs>
   <rect width="${VIEWBOX}" height="${VIEWBOX}" fill="url(#bg)"/>
-  <rect x="${cx}" y="${cy}" width="${rectW}" height="${rectH}" fill="url(#paperTexture)" stroke="${safeColor}" stroke-width="2" stroke-dasharray="6 4" rx="24" ry="24" filter="url(#shadowDouble)"/>
-  <rect x="${cx}" y="${cy}" width="${rectW}" height="${rectH}" fill="url(#paperHighlight)" rx="24" ry="24" pointer-events="none"/>
-  <circle cx="${pictoCx}" cy="${pictoCy}" r="${pictoR}" fill="none" stroke="${safeColor}" stroke-width="3"/>
-  <rect x="${barX}" y="${barY}" width="${barW}" height="6" fill="${safeColor}" opacity="0.7" rx="3"/>
-  <text x="${VIEWBOX / 2}" y="${textY}" text-anchor="middle" font-family="Inter" font-size="42" font-weight="600" fill="${safeColor}">${safeName}</text>
+  <rect x="${cx}" y="${cy}" width="${rectW}" height="${rectH}" fill="url(#mgTileEtiq)" stroke="${safeColor}" stroke-width="2" stroke-dasharray="6 4" rx="24" ry="24" filter="url(#shadowDouble)"/>
+  <g clip-path="url(#etiqClip)">
+    ${daisyMagrit(flowerCX, flowerCY, flowerScale, "mgCoreEtiq")}
+    <rect x="${cx}" y="${liseretY}" width="${rectW}" height="${liseretH}" fill="${MAGRIT_POLLEN_MID}"/>
+  </g>
+  <rect x="${cx}" y="${cy}" width="${rectW}" height="${rectH}" fill="url(#paperHighlight)" rx="24" ry="24" opacity="0.5" pointer-events="none"/>
+  <text x="${flowerCX}" y="${titleY}" text-anchor="middle" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="48" font-weight="500" font-style="italic" fill="${MAGRIT_INK}" letter-spacing="-0.025em">Magrit</text>
+  <text x="${flowerCX}" y="${taglineY}" text-anchor="middle" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="${MAGRIT_INK}" fill-opacity="0.55" letter-spacing="0.10em">IMPRIMERIE · IA</text>
+  <text x="${flowerCX}" y="${refY}" text-anchor="middle" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="${MAGRIT_INK}" fill-opacity="0.45" letter-spacing="0.04em">${safeName}</text>
 </svg>`;
 }
