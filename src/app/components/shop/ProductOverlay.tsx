@@ -27,7 +27,6 @@ import { TEST_IDS } from "../../lib/testIds";
 import { ENABLE_OVERLAY_LIVE_RECALC } from "../../lib/featureFlags";
 import { Sheet, SheetContent, SheetTitle } from "../ui/sheet";
 import { ProductMultiView } from "../mockup/ProductMultiView";
-import { resolveShopBackground } from "../mockup/shopBackground.helpers";
 import {
   resolveCustomMockup,
   type MockupTemplateType,
@@ -228,30 +227,6 @@ export function ProductOverlay({
   const addDisabled =
     phase.kind === "error" && phase.errorKind === "missing_required_product";
 
-  // S-PIM-VISUELS-5 (fix 2026-06-15) — Cascade fond visuel résolue ici aussi
-  // (la vue détail produit doit afficher le même fond que la card grille pour
-  // cohérence visuelle quand l'admin tenant a sélectionné un fond gamme/shop).
-  const overlayGammeSlug =
-    (product?.config as { gamme?: string } | undefined)?.gamme ?? "";
-  const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null);
-  useEffect(() => {
-    if (!shop?.id) {
-      setBackgroundUrl(null);
-      return;
-    }
-    let cancelled = false;
-    resolveShopBackground(shop.id, overlayGammeSlug)
-      .then((resolved) => {
-        if (!cancelled) setBackgroundUrl(resolved.backgroundUrl);
-      })
-      .catch(() => {
-        if (!cancelled) setBackgroundUrl(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [shop?.id, overlayGammeSlug]);
-
   // P4-VISUELS — Custom mockup override per-shop x template (vue detail produit).
   // Le template est déjà résolu plus bas dans mockupProps via resolveMockupTemplate(product).
   // On le re-calcule ici pour le useEffect (pas de cyclic dep).
@@ -301,11 +276,10 @@ export function ProductOverlay({
       productName: product.name,
       primaryColor,
       template,
-      backgroundUrl,
       customMockupUrl,
       alt: `Mockup ${product.name}`,
     };
-  }, [product, shop, backgroundUrl, customMockupUrl]);
+  }, [product, shop, customMockupUrl]);
 
   return (
     <Sheet

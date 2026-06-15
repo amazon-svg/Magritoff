@@ -43,13 +43,9 @@ import { UpgradeCTA } from './UpgradeCTA';
 import { exportShopToShopifyCsv, exportShopToJson } from '../../utils/shopExport';
 import { lazy, Suspense as ReactSuspense } from 'react';
 
-// S9 audit perf bundle (Sprint 9, 2026-06-01) : lazy-load ShopVisualSettings
-// (V4 Sprint 7). Composant ~340 lignes + Storage SDK seulement utilise dans
-// DashboardShopEditor. Suspense fallback = null (section visible apres scroll).
-const ShopVisualSettings = lazy(() =>
-  import('./ShopVisualSettings').then((m) => ({ default: m.ShopVisualSettings })),
-);
 // P4-VISUELS (2026-06-15) : lazy-load ShopCustomMockups (upload custom).
+// P9-CLEANUP (2026-06-15) : ShopVisualSettings supprimé (remplacé par
+// ShopCustomMockups qui couvre 100% du besoin per-shop).
 const ShopCustomMockups = lazy(() =>
   import('./ShopCustomMockups').then((m) => ({ default: m.ShopCustomMockups })),
 );
@@ -779,17 +775,6 @@ export function DashboardShopEditor() {
           </details>
         )}
       </section>
-
-      {/* ── S-PIM-VISUELS-4 : Visuels boutique (fond + couleur primaire) ── */}
-      {/* Lazy-load S9 audit perf : composant ~340 lignes + Storage SDK */}
-      {shop && (
-        <ReactSuspense fallback={null}>
-          <ShopVisualSettings
-            shopId={shop.id}
-            availableGammes={gammes.map((g) => ({ slug: g.slug, name: g.name }))}
-          />
-        </ReactSuspense>
-      )}
 
       {/* ── P4-VISUELS : Mockups custom per-shop (override Magrit-brandé) ── */}
       {shop && currentTenant && (

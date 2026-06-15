@@ -24,7 +24,6 @@ import type { Gamme, ProductDefinition } from "../../utils/productEnrichment";
 import { resolveGamme } from "../../utils/productEnrichment";
 import { TEST_IDS } from "../../lib/testIds";
 import { MockupImage } from "../mockup/MockupImage";
-import { resolveShopBackground } from "../mockup/shopBackground.helpers";
 import {
   resolveCustomMockup,
   type MockupTemplateType,
@@ -74,28 +73,6 @@ export function ShopProductCard({
 }: ShopProductCardProps) {
   const template = useMemo(() => resolveMockupTemplate(product), [product]);
   const dimensions = useMemo(() => resolveProductDimensions(product), [product]);
-
-  // S-PIM-VISUELS-5 (fix 2026-06-15) — Le pont entre `shop_visual_preferences`
-  // côté DB et le rendu du mockup côté portail manquait : la card instanciait
-  // MockupImage sans `backgroundUrl`, donc les fonds choisis par l'admin tenant
-  // dans ShopVisualSettings n'apparaissaient jamais. On résout maintenant la
-  // cascade (gamme > shop > default) au montage de chaque card. Cache HTTP côté
-  // Supabase (Cf RPC SECURITY DEFINER) limite l'impact perf.
-  const gammeSlug = (product.config as { gamme?: string } | undefined)?.gamme ?? "";
-  const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    resolveShopBackground(shop.id, gammeSlug)
-      .then((resolved) => {
-        if (!cancelled) setBackgroundUrl(resolved.backgroundUrl);
-      })
-      .catch(() => {
-        if (!cancelled) setBackgroundUrl(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [shop.id, gammeSlug]);
 
   // P4-VISUELS (2026-06-15) — Fetch custom mockup override per-shop x template.
   // Si l'admin tenant a uploadé un mockup custom dans ShopVisualSettings, il
@@ -169,7 +146,6 @@ export function ShopProductCard({
           productName={product.name}
           primaryColor={shop.theme?.primaryColor ?? "#1e3a8a"}
           template={template}
-          backgroundUrl={backgroundUrl}
           customMockupUrl={customMockupUrl}
           alt={`Mockup ${product.name}`}
           className="w-full h-full"

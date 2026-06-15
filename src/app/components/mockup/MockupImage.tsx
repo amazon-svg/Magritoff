@@ -49,14 +49,6 @@ export interface MockupImageProps {
    */
   template?: string;
   /**
-   * S-PIM-VISUELS-5 : URL du fond shop résolu via resolveShopBackground(shopId, gammeSlug).
-   * Si fourni, le composant wrap le PNG produit (transparent) dans un div avec
-   * backgroundImage CSS — composition LAYERED (vs bake-in PNG, cf.
-   * shopBackground.helpers commentaire détaillé). Optionnel : si absent ou null,
-   * rendu actuel inchangé (rétro-compat).
-   */
-  backgroundUrl?: string | null;
-  /**
    * S-PRODUCT-VIEWS-MULTI (Sprint 7) : 'front' (défaut, retro-compat) ou
    * 'back'. Sert à choisir le PNG cible côté CDN (path suffixé __back).
    */
@@ -78,27 +70,14 @@ const FETCH_TIMEOUT_MS = 10_000;
 export function MockupImage(props: MockupImageProps): JSX.Element {
   // P4-VISUELS — Si un mockup custom est fourni par le caller, on l'affiche
   // direct sans passer par l'edge function (bypass complet du mécanisme
-  // retry/CDN). Le fond shop reste appliqué via wrapper backgroundUrl pour
-  // cohérence visuelle layered (fond + custom mockup transparent ou pas).
+  // retry/CDN).
   if (props.customMockupUrl && props.customMockupUrl.trim().length > 0) {
-    const wrapperStyleCustom: React.CSSProperties = {
-      position: 'relative',
-      ...(props.backgroundUrl
-        ? {
-            backgroundImage: `url("${props.backgroundUrl}")`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            backgroundRepeat: 'no-repeat',
-          }
-        : {}),
-    };
     return (
       <div
         data-testid={TEST_IDS.mockup.productImage}
-        data-has-bg={props.backgroundUrl ? 'true' : 'false'}
         data-custom-mockup="true"
         className={props.className}
-        style={wrapperStyleCustom}
+        style={{ position: 'relative' }}
       >
         <img
           data-testid={TEST_IDS.mockup.productImageImg}
@@ -199,26 +178,11 @@ export function MockupImage(props: MockupImageProps): JSX.Element {
   // ─── Render skeleton OU image ────────────────────────────────────────────
   const showSkeleton = state === "loading" || state === "fetching-edge";
 
-  // S-PIM-VISUELS-5 : composition LAYERED via CSS si backgroundUrl fourni.
-  // Le PNG produit (transparent) s'affiche par-dessus le fond shop résolu.
-  const wrapperStyle: React.CSSProperties = {
-    position: "relative",
-    ...(props.backgroundUrl
-      ? {
-          backgroundImage: `url("${props.backgroundUrl}")`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          backgroundRepeat: "no-repeat",
-        }
-      : {}),
-  };
-
   return (
     <div
       data-testid={TEST_IDS.mockup.productImage}
-      data-has-bg={props.backgroundUrl ? "true" : "false"}
       className={props.className}
-      style={wrapperStyle}
+      style={{ position: "relative" }}
     >
       {showSkeleton && (
         <div
