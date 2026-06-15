@@ -10,6 +10,11 @@ import { usePlan } from "../hooks/usePlan";
 import { useTenantPath } from "../hooks/useTenantPath";
 import { enrichProduct } from "../utils/productEnrichment";
 import { ProductMockup } from "./brand/ProductMockup";
+import { MockupImage } from "./mockup/MockupImage";
+import {
+  resolveMockupTemplate,
+  resolveProductDimensions,
+} from "./shop/ShopProductCard.helpers";
 import { resolveProductImage } from "../utils/productImages";
 import { TEST_IDS } from "../lib/testIds";
 
@@ -287,24 +292,31 @@ export function ProductCard({
                   definitions,
                 });
                 if (imgError || !src) {
-                  // CR §2 (13/05) - bug LEAFLET reste visible cote atelier
-                  // home : ProductMockup affichait `corner=kind` brut (=
-                  // "leaflet" partout). On bascule sur la gamme PIM resolue
-                  // avec la meme garde que le badge ProductCard
-                  // (masque les kinds Clariprint bruts).
-                  const cornerGamme = enriched?.gamme?.name || localProduct.category;
-                  const cornerLabel =
-                    !selectable && cornerGamme &&
-                    !/^(leaflet|folded|book|cover|section)$/i.test(cornerGamme)
-                      ? cornerGamme
-                      : undefined;
+                  // P8-ATELIER (2026-06-15) : on remplace le fallback statique
+                  // `ProductMockup` (SVG schematic local) par `MockupImage`
+                  // qui consomme l'edge function mockup-generator. Resultat :
+                  // les produits crees depuis Magrit Home (atelier deviseur)
+                  // affichent les MEMES mockups Magrit-brandes que les cards
+                  // boutique (carte de visite avec bandeau bleu + marguerite
+                  // + Magrit italic + tagline + ref productName).
+                  //
+                  // Sentinels 'atelier' pour tenantId/shopId : cache CDN se
+                  // construit sous atelier/atelier/{productId}.png (pattern
+                  // deja en place dans ProductOverlay vue detail atelier).
+                  const dims = resolveProductDimensions(localProduct as any);
+                  const template = resolveMockupTemplate(localProduct as any);
                   return (
-                    <ProductMockup
-                      name={localProduct.name}
-                      kind={localProduct.clariprintData?.kind}
-                      category={enriched?.gamme?.name}
-                      corner={cornerLabel}
-                      className="w-full h-full"
+                    <MockupImage
+                      tenantId="atelier"
+                      shopId="atelier"
+                      productId={localProduct.id}
+                      width={dims.width}
+                      height={dims.height}
+                      productName={localProduct.name}
+                      primaryColor="#1e3a8a"
+                      template={template}
+                      alt={`Mockup ${localProduct.name}`}
+                      className="absolute inset-0 w-full h-full"
                     />
                   );
                 }
