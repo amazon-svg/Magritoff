@@ -19,7 +19,9 @@ export type MockupTemplateType =
   | 'flyer'
   | 'brochure'
   | 'etiquette'
-  | 'kakemono';
+  | 'kakemono'
+  | 'packaging'
+  | 'depliant';
 
 export type MockupView = 'front' | 'back';
 

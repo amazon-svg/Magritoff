@@ -46,7 +46,9 @@ interface TemplateDef {
 const TEMPLATES: TemplateDef[] = [
   { key: 'carteVisite', label: 'Carte de visite', width: 85, height: 55, productName: 'Carte commerciale' },
   { key: 'flyer', label: 'Flyer / Tract', width: 148, height: 210, productName: 'Flyer A5' },
-  { key: 'brochure', label: 'Brochure', width: 210, height: 297, productName: 'Brochure A4' },
+  { key: 'depliant', label: 'Dépliant 3 volets', width: 210, height: 297, productName: 'Dépliant A4' },
+  { key: 'brochure', label: 'Brochure (livret)', width: 210, height: 297, productName: 'Brochure A4' },
+  { key: 'packaging', label: 'Packaging / Boîte', width: 200, height: 150, productName: 'Boîte 200×150' },
   { key: 'etiquette', label: 'Étiquette adhésive', width: 60, height: 40, productName: 'Étiquette' },
   { key: 'kakemono', label: 'Roll-up / Kakémono', width: 850, height: 2000, productName: 'Roll-up' },
 ];

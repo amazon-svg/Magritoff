@@ -13,9 +13,9 @@
       <stop offset="70%" stop-color="#F5B529"/>
       <stop offset="100%" stop-color="#C68708"/>
     </radialGradient>
-    <clipPath id="coverClip">
-      <rect x="-31.373737373737413" y="132" width="537.3737373737374" height="760" rx="6" ry="6"/>
-    </clipPath>
+    <filter id="brochureShadow" x="-15%" y="-15%" width="135%" height="135%">
+      <feDropShadow dx="6" dy="14" stdDeviation="16" flood-color="#000" flood-opacity="0.18"/>
+    </filter>
     
     <filter id="shadowDouble" x="-15%" y="-15%" width="130%" height="130%">
       <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.18"/>
@@ -32,21 +32,38 @@
       <circle cx="4" cy="3" r="0.25" fill="#e5e5e5" opacity="0.5"/>
     </pattern>
   </defs>
+
   <rect width="1024" height="1024" fill="url(#bg)"/>
-  <rect x="-31.373737373737413" y="132" width="537.3737373737374" height="760" fill="url(#mgTileCover)" stroke="#FF6B35" stroke-width="2" rx="6" ry="6" filter="url(#shadowDouble)"/>
-  <g clip-path="url(#coverClip)">
-    <g transform="translate(237.3131313131313 360)">
-    <g fill="#FFFFFF"><ellipse cx="0" cy="-99.7979797979798" rx="13.434343434343436" ry="61.41414141414142" transform="rotate(0)"/><ellipse cx="0" cy="-99.7979797979798" rx="13.434343434343436" ry="61.41414141414142" transform="rotate(20)"/><ellipse cx="0" cy="-99.7979797979798" rx="13.434343434343436" ry="61.41414141414142" transform="rotate(40)"/><ellipse cx="0" cy="-99.7979797979798" rx="13.434343434343436" ry="61.41414141414142" transform="rotate(60)"/><ellipse cx="0" cy="-99.7979797979798" rx="13.434343434343436" ry="61.41414141414142" transform="rotate(80)"/><ellipse cx="0" cy="-99.7979797979798" rx="13.434343434343436" ry="61.41414141414142" transform="rotate(100)"/><ellipse cx="0" cy="-99.7979797979798" rx="13.434343434343436" ry="61.41414141414142" transform="rotate(120)"/><ellipse cx="0" cy="-99.7979797979798" rx="13.434343434343436" ry="61.41414141414142" transform="rotate(140)"/><ellipse cx="0" cy="-99.7979797979798" rx="13.434343434343436" ry="61.41414141414142" transform="rotate(160)"/><ellipse cx="0" cy="-99.7979797979798" rx="13.434343434343436" ry="61.41414141414142" transform="rotate(180)"/><ellipse cx="0" cy="-99.7979797979798" rx="13.434343434343436" ry="61.41414141414142" transform="rotate(200)"/><ellipse cx="0" cy="-99.7979797979798" rx="13.434343434343436" ry="61.41414141414142" transform="rotate(220)"/><ellipse cx="0" cy="-99.7979797979798" rx="13.434343434343436" ry="61.41414141414142" transform="rotate(240)"/><ellipse cx="0" cy="-99.7979797979798" rx="13.434343434343436" ry="61.41414141414142" transform="rotate(260)"/><ellipse cx="0" cy="-99.7979797979798" rx="13.434343434343436" ry="61.41414141414142" transform="rotate(280)"/><ellipse cx="0" cy="-99.7979797979798" rx="13.434343434343436" ry="61.41414141414142" transform="rotate(300)"/><ellipse cx="0" cy="-99.7979797979798" rx="13.434343434343436" ry="61.41414141414142" transform="rotate(320)"/><ellipse cx="0" cy="-99.7979797979798" rx="13.434343434343436" ry="61.41414141414142" transform="rotate(340)"/></g>
-    <circle r="42.22222222222223" fill="url(#mgCoreCover)"/>
+
+  <!-- Tranche latérale (pages internes empilées) -->
+  <polygon points="310,256 324,252 324,788 310,784" fill="#E8E5DD" stroke="#FF6B35" stroke-width="0.5" opacity="0.95"/><polygon points="307,257.5 321,253.5 321,786.5 307,782.5" fill="#E8E5DD" stroke="#FF6B35" stroke-width="0.5" opacity="0.85"/><polygon points="304,259 318,255 318,785 304,781" fill="#E8E5DD" stroke="#FF6B35" stroke-width="0.5" opacity="0.75"/><polygon points="301,260.5 315,256.5 315,783.5 301,779.5" fill="#E8E5DD" stroke="#FF6B35" stroke-width="0.5" opacity="0.6499999999999999"/>
+
+  <!-- Couverture (trapèze perspective 3/4) -->
+  <polygon
+    points="324,250 722,242 722,782 324,790"
+    fill="url(#mgTileCover)"
+    stroke="#FF6B35"
+    stroke-width="1.5"
+    filter="url(#brochureShadow)"
+  />
+  <polygon
+    points="324,250 722,242 722,782 324,790"
+    fill="url(#paperHighlight)"
+    opacity="0.45"
+    pointer-events="none"
+  />
+
+  <!-- Marguerite Magrit centrée couverture -->
+  <g transform="translate(527 414.8)">
+    <g fill="#FFFFFF"><ellipse cx="0" cy="-33.800000000000004" rx="4.55" ry="20.8" transform="rotate(0)"/><ellipse cx="0" cy="-33.800000000000004" rx="4.55" ry="20.8" transform="rotate(20)"/><ellipse cx="0" cy="-33.800000000000004" rx="4.55" ry="20.8" transform="rotate(40)"/><ellipse cx="0" cy="-33.800000000000004" rx="4.55" ry="20.8" transform="rotate(60)"/><ellipse cx="0" cy="-33.800000000000004" rx="4.55" ry="20.8" transform="rotate(80)"/><ellipse cx="0" cy="-33.800000000000004" rx="4.55" ry="20.8" transform="rotate(100)"/><ellipse cx="0" cy="-33.800000000000004" rx="4.55" ry="20.8" transform="rotate(120)"/><ellipse cx="0" cy="-33.800000000000004" rx="4.55" ry="20.8" transform="rotate(140)"/><ellipse cx="0" cy="-33.800000000000004" rx="4.55" ry="20.8" transform="rotate(160)"/><ellipse cx="0" cy="-33.800000000000004" rx="4.55" ry="20.8" transform="rotate(180)"/><ellipse cx="0" cy="-33.800000000000004" rx="4.55" ry="20.8" transform="rotate(200)"/><ellipse cx="0" cy="-33.800000000000004" rx="4.55" ry="20.8" transform="rotate(220)"/><ellipse cx="0" cy="-33.800000000000004" rx="4.55" ry="20.8" transform="rotate(240)"/><ellipse cx="0" cy="-33.800000000000004" rx="4.55" ry="20.8" transform="rotate(260)"/><ellipse cx="0" cy="-33.800000000000004" rx="4.55" ry="20.8" transform="rotate(280)"/><ellipse cx="0" cy="-33.800000000000004" rx="4.55" ry="20.8" transform="rotate(300)"/><ellipse cx="0" cy="-33.800000000000004" rx="4.55" ry="20.8" transform="rotate(320)"/><ellipse cx="0" cy="-33.800000000000004" rx="4.55" ry="20.8" transform="rotate(340)"/></g>
+    <circle r="14.3" fill="url(#mgCoreCover)"/>
   </g>
-    <rect x="-31.373737373737413" y="884" width="537.3737373737374" height="8" fill="#F5B529"/>
-  </g>
-  <rect x="-31.373737373737413" y="132" width="537.3737373737374" height="760" fill="url(#paperHighlight)" rx="6" ry="6" opacity="0.5" pointer-events="none"/>
-  <text x="237.3131313131313" y="603.2" text-anchor="middle" font-family="Inter" font-size="56" font-weight="500" font-style="italic" fill="#0F172A" letter-spacing="-0.025em">Magrit</text>
-  <text x="237.3131313131313" y="633.2" text-anchor="middle" font-family="Inter" font-size="14" font-weight="400" fill="#0F172A" fill-opacity="0.55" letter-spacing="0.08em">IMPRIMERIE · IA</text>
-  
-  <rect x="518" y="132" width="537.3737373737374" height="760" fill="url(#paperTexture)" stroke="#FF6B35" stroke-width="2" rx="6" ry="6" filter="url(#shadowDouble)"/>
-  <rect x="518" y="132" width="537.3737373737374" height="760" fill="url(#paperHighlight)" rx="6" ry="6" pointer-events="none"/>
-  <rect x="550" y="212" width="363.03030303030306" height="6" fill="#0F172A" opacity="0.45" rx="2"/><rect x="550" y="268" width="432.8888888888889" height="6" fill="#0F172A" opacity="0.25" rx="2"/><rect x="550" y="324" width="363.03030303030306" height="6" fill="#0F172A" opacity="0.25" rx="2"/><rect x="550" y="380" width="432.8888888888889" height="6" fill="#0F172A" opacity="0.25" rx="2"/><rect x="550" y="436" width="363.03030303030306" height="6" fill="#0F172A" opacity="0.25" rx="2"/><rect x="550" y="492" width="432.8888888888889" height="6" fill="#0F172A" opacity="0.25" rx="2"/>
-  <text x="786.6868686868687" y="852" text-anchor="middle" font-family="Inter" font-size="13" font-weight="500" fill="#0F172A" fill-opacity="0.65" letter-spacing="0.06em">magrit.io · contact@magrit.io</text>
+
+  <!-- "Magrit" italic + tagline + référence sur couverture -->
+  <text x="527" y="474.8" text-anchor="middle" font-family="Inter" font-size="40" font-weight="500" font-style="italic" fill="#0F172A" letter-spacing="-0.025em">Magrit</text>
+  <text x="527" y="498.8" text-anchor="middle" font-family="Inter" font-size="11" font-weight="400" fill="#0F172A" fill-opacity="0.60" letter-spacing="0.08em">IMPRIMERIE · IA</text>
+  <text x="527" y="754" text-anchor="middle" font-family="Inter" font-size="11" font-weight="500" fill="#0F172A" fill-opacity="0.50" letter-spacing="0.04em">Brochure A4</text>
+
+  <!-- Liseré pollen jaune en bas de couverture -->
+  <rect x="332" y="772" width="364" height="6" fill="#F5B529" opacity="0.85"/>
 </svg>

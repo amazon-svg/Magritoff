@@ -49,8 +49,24 @@ describe("resolveMockupTemplate — mapping product.kind → template", () => {
     expect(resolveMockupTemplate(makeProduct({ kind: "brochure" }))).toBe("brochure");
   });
 
-  it("kind='depliant' (alias) → brochure", () => {
-    expect(resolveMockupTemplate(makeProduct({ kind: "depliant" }))).toBe("brochure");
+  it("kind='depliant' → depliant (P15 template distinct)", () => {
+    expect(resolveMockupTemplate(makeProduct({ kind: "depliant" }))).toBe("depliant");
+  });
+
+  it("kind='folded' → depliant (P15 redirection)", () => {
+    expect(resolveMockupTemplate(makeProduct({ kind: "folded" }))).toBe("depliant");
+  });
+
+  it("kind='packaging' → packaging (P15 template nouveau)", () => {
+    expect(resolveMockupTemplate(makeProduct({ kind: "packaging" }))).toBe("packaging");
+  });
+
+  it("kind='boite' (alias packaging) → packaging", () => {
+    expect(resolveMockupTemplate(makeProduct({ kind: "boite" }))).toBe("packaging");
+  });
+
+  it("kind='pochette' (alias packaging) → packaging", () => {
+    expect(resolveMockupTemplate(makeProduct({ kind: "pochette" }))).toBe("packaging");
   });
 
   it("kind='etiquette' → etiquette", () => {
@@ -149,10 +165,20 @@ describe("resolveMockupTemplate — mapping product.kind → template", () => {
       expect(resolveMockupTemplate({ name: "Catalogue produit" } as any)).toBe("brochure");
     });
 
-    it("name='Packaging ultra-premium' (cas Manitou) → brochure", () => {
+    it("name='Packaging ultra-premium' (cas Manitou) → packaging (P15 nouveau template)", () => {
       expect(
         resolveMockupTemplate({ name: "Packaging ultra-premium - Finitions combinées" } as any),
-      ).toBe("brochure");
+      ).toBe("packaging");
+    });
+
+    it("name='Dépliant 3 volets' (cas Manitou) → depliant (P15 distinct de brochure)", () => {
+      expect(resolveMockupTemplate({ name: "Dépliant 3 volets A4" } as any)).toBe("depliant");
+    });
+
+    it("name='Pochette commerciale' → packaging", () => {
+      expect(resolveMockupTemplate({ name: "Pochette commerciale kraft" } as any)).toBe(
+        "packaging",
+      );
     });
 
     it("name='Étiquettes adhésives' → etiquette", () => {

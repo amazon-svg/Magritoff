@@ -32,7 +32,7 @@ const BUCKET = "product_mockups";
  *
  * Bump l'incrément à chaque refonte significative des templates SVG.
  */
-const CACHE_VERSION_SUFFIX = "_v4";
+const CACHE_VERSION_SUFFIX = "_v5";
 
 export interface MockupParams {
   tenantId: string;

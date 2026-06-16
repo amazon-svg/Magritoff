@@ -37,6 +37,8 @@ import { carteVisiteSvg } from "./templates/carteVisite.ts";
 import { brochureSvg } from "./templates/brochure.ts";
 import { etiquetteSvg } from "./templates/etiquette.ts";
 import { kakemonoSvg } from "./templates/kakemono.ts";
+import { packagingSvg } from "./templates/packaging.ts";
+import { depliantSvg } from "./templates/depliant.ts";
 import {
   MockupRendererError,
   type MockupTemplate,
@@ -55,6 +57,8 @@ export const SUPPORTED_TEMPLATES: readonly MockupTemplate[] = [
   "brochure",
   "etiquette",
   "kakemono",
+  "packaging", // P15 (2026-06-16) — boite kraft 3D
+  "depliant",  // P15 (2026-06-16) — 3 volets perspective
 ] as const;
 
 /** Type guard runtime pour valider qu une string est un MockupTemplate. */
@@ -177,6 +181,12 @@ export async function renderSvgToPng(
       break;
     case "kakemono":
       svgString = kakemonoSvg(specs, theming);
+      break;
+    case "packaging":
+      svgString = packagingSvg(specs, theming);
+      break;
+    case "depliant":
+      svgString = depliantSvg(specs, theming);
       break;
     default:
       throw new MockupRendererError(

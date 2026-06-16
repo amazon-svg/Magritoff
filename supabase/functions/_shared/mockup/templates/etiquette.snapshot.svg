@@ -33,7 +33,8 @@
     </pattern>
   </defs>
   <rect width="1024" height="1024" fill="url(#bg)"/>
-  <rect x="152" y="272" width="720" height="480" fill="url(#mgTileEtiq)" stroke="#FF6B35" stroke-width="2" stroke-dasharray="6 4" rx="24" ry="24" filter="url(#shadowDouble)"/>
+  <!-- P15 etiquette refonte : bordure dashed plus epaisse + ombre portee marquee (effet sticker decolle) -->
+  <rect x="152" y="272" width="720" height="480" fill="url(#mgTileEtiq)" stroke="#FF6B35" stroke-width="3" stroke-dasharray="10 6" rx="32" ry="32" filter="url(#shadowDouble)"/>
   <g clip-path="url(#etiqClip)">
     <g transform="translate(512 454.4)">
     <g fill="#FFFFFF"><ellipse cx="0" cy="-83.2" rx="11.200000000000001" ry="51.2" transform="rotate(0)"/><ellipse cx="0" cy="-83.2" rx="11.200000000000001" ry="51.2" transform="rotate(20)"/><ellipse cx="0" cy="-83.2" rx="11.200000000000001" ry="51.2" transform="rotate(40)"/><ellipse cx="0" cy="-83.2" rx="11.200000000000001" ry="51.2" transform="rotate(60)"/><ellipse cx="0" cy="-83.2" rx="11.200000000000001" ry="51.2" transform="rotate(80)"/><ellipse cx="0" cy="-83.2" rx="11.200000000000001" ry="51.2" transform="rotate(100)"/><ellipse cx="0" cy="-83.2" rx="11.200000000000001" ry="51.2" transform="rotate(120)"/><ellipse cx="0" cy="-83.2" rx="11.200000000000001" ry="51.2" transform="rotate(140)"/><ellipse cx="0" cy="-83.2" rx="11.200000000000001" ry="51.2" transform="rotate(160)"/><ellipse cx="0" cy="-83.2" rx="11.200000000000001" ry="51.2" transform="rotate(180)"/><ellipse cx="0" cy="-83.2" rx="11.200000000000001" ry="51.2" transform="rotate(200)"/><ellipse cx="0" cy="-83.2" rx="11.200000000000001" ry="51.2" transform="rotate(220)"/><ellipse cx="0" cy="-83.2" rx="11.200000000000001" ry="51.2" transform="rotate(240)"/><ellipse cx="0" cy="-83.2" rx="11.200000000000001" ry="51.2" transform="rotate(260)"/><ellipse cx="0" cy="-83.2" rx="11.200000000000001" ry="51.2" transform="rotate(280)"/><ellipse cx="0" cy="-83.2" rx="11.200000000000001" ry="51.2" transform="rotate(300)"/><ellipse cx="0" cy="-83.2" rx="11.200000000000001" ry="51.2" transform="rotate(320)"/><ellipse cx="0" cy="-83.2" rx="11.200000000000001" ry="51.2" transform="rotate(340)"/></g>
@@ -41,7 +42,7 @@
   </g>
     <rect x="152" y="744" width="720" height="8" fill="#F5B529"/>
   </g>
-  <rect x="152" y="272" width="720" height="480" fill="url(#paperHighlight)" rx="24" ry="24" opacity="0.5" pointer-events="none"/>
+  <rect x="152" y="272" width="720" height="480" fill="url(#paperHighlight)" rx="32" ry="32" opacity="0.5" pointer-events="none"/>
   <text x="512" y="608" text-anchor="middle" font-family="Inter" font-size="48" font-weight="500" font-style="italic" fill="#0F172A" letter-spacing="-0.025em">Magrit</text>
   <text x="512" y="632" text-anchor="middle" font-family="Inter" font-size="12" font-weight="400" fill="#0F172A" fill-opacity="0.55" letter-spacing="0.10em">IMPRIMERIE · IA</text>
 </svg>

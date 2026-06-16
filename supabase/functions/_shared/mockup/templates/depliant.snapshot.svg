@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF6B35" stop-opacity="0.06"/>
+      <stop offset="100%" stop-color="#FF6B35" stop-opacity="0.14"/>
+    </linearGradient>
+    <linearGradient id="mgTileCenter" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E5F0FC"/>
+      <stop offset="100%" stop-color="#B7D3F2"/>
+    </linearGradient>
+    <radialGradient id="mgCoreDepliant" cx="45%" cy="40%" r="55%">
+      <stop offset="0%" stop-color="#FFE066"/>
+      <stop offset="70%" stop-color="#F5B529"/>
+      <stop offset="100%" stop-color="#C68708"/>
+    </radialGradient>
+    
+    <filter id="shadowDouble" x="-15%" y="-15%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.18"/>
+      <feDropShadow dx="0" dy="18" stdDeviation="24" flood-color="#FF6B35" flood-opacity="0.22"/>
+    </filter>
+    <linearGradient id="paperHighlight" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.35"/>
+      <stop offset="35%" stop-color="#ffffff" stop-opacity="0.05"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <pattern id="paperTexture" width="6" height="6" patternUnits="userSpaceOnUse">
+      <rect width="6" height="6" fill="white"/>
+      <circle cx="1" cy="1" r="0.3" fill="#e5e5e5" opacity="0.6"/>
+      <circle cx="4" cy="3" r="0.25" fill="#e5e5e5" opacity="0.5"/>
+    </pattern>
+  </defs>
+
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+
+  <!-- Volet gauche (slight shadow) -->
+  <rect x="103" y="242" width="270" height="540" fill="url(#paperTexture)" stroke="#FF6B35" stroke-width="1.5" rx="4" filter="url(#shadowDouble)"/>
+  <rect x="103" y="242" width="270" height="540" fill="url(#paperHighlight)" rx="4" opacity="0.5" pointer-events="none"/>
+  <rect x="123" y="302" width="230" height="60" fill="#F5B529" opacity="0.18" rx="3"/><rect x="123" y="392" width="195.5" height="6" fill="#0F172A" opacity="0.42" rx="2"/><rect x="123" y="430" width="149.5" height="6" fill="#0F172A" opacity="0.25" rx="2"/><rect x="123" y="468" width="195.5" height="6" fill="#0F172A" opacity="0.25" rx="2"/><rect x="123" y="506" width="149.5" height="6" fill="#0F172A" opacity="0.25" rx="2"/><rect x="123" y="544" width="195.5" height="6" fill="#0F172A" opacity="0.25" rx="2"/>
+
+  <!-- Volet droit (slight shadow) -->
+  <rect x="651" y="242" width="270" height="540" fill="url(#paperTexture)" stroke="#FF6B35" stroke-width="1.5" rx="4" filter="url(#shadowDouble)"/>
+  <rect x="651" y="242" width="270" height="540" fill="url(#paperHighlight)" rx="4" opacity="0.5" pointer-events="none"/>
+  <rect x="671" y="302" width="230" height="60" fill="#B7D3F2" opacity="0.18" rx="3"/><rect x="671" y="392" width="195.5" height="6" fill="#0F172A" opacity="0.42" rx="2"/><rect x="671" y="430" width="149.5" height="6" fill="#0F172A" opacity="0.25" rx="2"/><rect x="671" y="468" width="195.5" height="6" fill="#0F172A" opacity="0.25" rx="2"/><rect x="671" y="506" width="149.5" height="6" fill="#0F172A" opacity="0.25" rx="2"/><rect x="671" y="544" width="195.5" height="6" fill="#0F172A" opacity="0.25" rx="2"/>
+
+  <!-- Volet central (tile Magrit + marguerite) -->
+  <rect x="377" y="242" width="270" height="540" fill="url(#mgTileCenter)" stroke="#FF6B35" stroke-width="1.5" rx="4" filter="url(#shadowDouble)"/>
+  <rect x="377" y="242" width="270" height="540" fill="url(#paperHighlight)" rx="4" opacity="0.5" pointer-events="none"/>
+  <g transform="translate(512 447.2)">
+    <g fill="#FFFFFF"><ellipse cx="0" cy="-36.4" rx="4.8999999999999995" ry="22.4" transform="rotate(0)"/><ellipse cx="0" cy="-36.4" rx="4.8999999999999995" ry="22.4" transform="rotate(20)"/><ellipse cx="0" cy="-36.4" rx="4.8999999999999995" ry="22.4" transform="rotate(40)"/><ellipse cx="0" cy="-36.4" rx="4.8999999999999995" ry="22.4" transform="rotate(60)"/><ellipse cx="0" cy="-36.4" rx="4.8999999999999995" ry="22.4" transform="rotate(80)"/><ellipse cx="0" cy="-36.4" rx="4.8999999999999995" ry="22.4" transform="rotate(100)"/><ellipse cx="0" cy="-36.4" rx="4.8999999999999995" ry="22.4" transform="rotate(120)"/><ellipse cx="0" cy="-36.4" rx="4.8999999999999995" ry="22.4" transform="rotate(140)"/><ellipse cx="0" cy="-36.4" rx="4.8999999999999995" ry="22.4" transform="rotate(160)"/><ellipse cx="0" cy="-36.4" rx="4.8999999999999995" ry="22.4" transform="rotate(180)"/><ellipse cx="0" cy="-36.4" rx="4.8999999999999995" ry="22.4" transform="rotate(200)"/><ellipse cx="0" cy="-36.4" rx="4.8999999999999995" ry="22.4" transform="rotate(220)"/><ellipse cx="0" cy="-36.4" rx="4.8999999999999995" ry="22.4" transform="rotate(240)"/><ellipse cx="0" cy="-36.4" rx="4.8999999999999995" ry="22.4" transform="rotate(260)"/><ellipse cx="0" cy="-36.4" rx="4.8999999999999995" ry="22.4" transform="rotate(280)"/><ellipse cx="0" cy="-36.4" rx="4.8999999999999995" ry="22.4" transform="rotate(300)"/><ellipse cx="0" cy="-36.4" rx="4.8999999999999995" ry="22.4" transform="rotate(320)"/><ellipse cx="0" cy="-36.4" rx="4.8999999999999995" ry="22.4" transform="rotate(340)"/></g>
+    <circle r="15.399999999999999" fill="url(#mgCoreDepliant)"/>
+  </g>
+  <text x="512" y="517.2" text-anchor="middle" font-family="Inter" font-size="40" font-weight="500" font-style="italic" fill="#0F172A" letter-spacing="-0.025em">Magrit</text>
+  <text x="512" y="541.2" text-anchor="middle" font-family="Inter" font-size="11" font-weight="400" fill="#0F172A" fill-opacity="0.60" letter-spacing="0.08em">IMPRIMERIE · IA</text>
+  <text x="512" y="754" text-anchor="middle" font-family="Inter" font-size="11" font-weight="500" fill="#0F172A" fill-opacity="0.50" letter-spacing="0.04em">Depliant 3 volets</text>
+
+  <!-- Liseré pollen jaune bottom (signature couleur sur les 3 volets unifies) -->
+  <rect x="103" y="776" width="818" height="6" fill="#F5B529" opacity="0.85"/>
+</svg>

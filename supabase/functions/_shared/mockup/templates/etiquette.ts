@@ -79,12 +79,13 @@ export function etiquetteSvg(specs: ProductSpecs, theming: ShopTheming): string 
     ${photoRealisticDefs(safeColor)}
   </defs>
   <rect width="${VIEWBOX}" height="${VIEWBOX}" fill="url(#bg)"/>
-  <rect x="${cx}" y="${cy}" width="${rectW}" height="${rectH}" fill="url(#mgTileEtiq)" stroke="${safeColor}" stroke-width="2" stroke-dasharray="6 4" rx="24" ry="24" filter="url(#shadowDouble)"/>
+  <!-- P15 etiquette refonte : bordure dashed plus epaisse + ombre portee marquee (effet sticker decolle) -->
+  <rect x="${cx}" y="${cy}" width="${rectW}" height="${rectH}" fill="url(#mgTileEtiq)" stroke="${safeColor}" stroke-width="3" stroke-dasharray="10 6" rx="32" ry="32" filter="url(#shadowDouble)"/>
   <g clip-path="url(#etiqClip)">
     ${daisyMagrit(flowerCX, flowerCY, flowerScale, "mgCoreEtiq")}
     <rect x="${cx}" y="${liseretY}" width="${rectW}" height="${liseretH}" fill="${MAGRIT_POLLEN_MID}"/>
   </g>
-  <rect x="${cx}" y="${cy}" width="${rectW}" height="${rectH}" fill="url(#paperHighlight)" rx="24" ry="24" opacity="0.5" pointer-events="none"/>
+  <rect x="${cx}" y="${cy}" width="${rectW}" height="${rectH}" fill="url(#paperHighlight)" rx="32" ry="32" opacity="0.5" pointer-events="none"/>
   <text x="${flowerCX}" y="${titleY}" text-anchor="middle" font-family="Inter" font-size="48" font-weight="500" font-style="italic" fill="${MAGRIT_INK}" letter-spacing="-0.025em">Magrit</text>
   <text x="${flowerCX}" y="${taglineY}" text-anchor="middle" font-family="Inter" font-size="12" font-weight="400" fill="${MAGRIT_INK}" fill-opacity="0.55" letter-spacing="0.10em">IMPRIMERIE · IA</text>
 </svg>`;

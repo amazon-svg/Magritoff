@@ -24,7 +24,9 @@ create table if not exists public.shop_template_mockups (
   id uuid primary key default gen_random_uuid(),
   shop_id uuid not null references public.shops(id) on delete cascade,
   template_type text not null check (template_type in (
-    'carteVisite', 'flyer', 'brochure', 'etiquette', 'kakemono'
+    'carteVisite', 'flyer', 'brochure', 'etiquette', 'kakemono',
+    -- P15 (2026-06-16) : nouveaux templates ajoutes
+    'packaging', 'depliant'
   )),
   view text not null default 'front' check (view in ('front', 'back')),
   mockup_image_url text not null,

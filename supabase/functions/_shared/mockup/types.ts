@@ -36,13 +36,17 @@ export interface ShopTheming {
   view?: 'front' | 'back';
 }
 
-/** Identifiant des templates supportes. 5 templates MVP livres en S4.2. */
+/** Identifiant des templates supportes.
+ *  5 templates MVP livres en S4.2.
+ *  P15 (2026-06-16) : ajout packaging (boite kraft 3D) + depliant (3 volets perspective). */
 export type MockupTemplate =
   | "flyer"
   | "carteVisite"
   | "brochure"
   | "etiquette"
-  | "kakemono";
+  | "kakemono"
+  | "packaging"
+  | "depliant";
 
 /** Erreur typee du module renderer, discriminee par `kind`. */
 export class MockupRendererError extends Error {

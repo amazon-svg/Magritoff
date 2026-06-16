@@ -44,16 +44,23 @@ const KIND_TO_TEMPLATE: Record<string, MockupTemplate> = {
   carte_visite: "carteVisite",
   card: "carteVisite",
   visite: "carteVisite",
-  // Brochures / livrets / dépliants
+  // Brochures (livrets multi-pages relies)
   brochure: "brochure",
-  depliant: "brochure",
   plaquette: "brochure",
-  // P11 (2026-06-15) — Kinds Clariprint manquants qui mappent à brochure :
-  // folded (plié 2/3 volets), book (livret cousu/agrafé), cover (couverture
-  // brochure), section (feuilles d'une brochure). Sans ce mapping, ces
-  // produits ERAM/Manitou recevaient un mockup `flyer` par défaut (bug
-  // remonté Arnaud 2026-06-15).
-  folded: "brochure",
+  // P15 — Depliants (3 volets plies, distinct de brochure depuis 2026-06-16)
+  depliant: "depliant",
+  "depliant-3-volets": "depliant",
+  "depliant-2-volets": "depliant",
+  leaflet_folded: "depliant",
+  // P15 — Packaging (boites, pochettes, boites pliees)
+  packaging: "packaging",
+  boite: "packaging",
+  pochette: "packaging",
+  emballage: "packaging",
+  // P11 (2026-06-15) — Kinds Clariprint qui mappent à brochure pour les livrets
+  // relies. P15 (2026-06-16) : folded redirige vers depliant (template dédié
+  // 3 volets perspective) plutot que brochure.
+  folded: "depliant",
   book: "brochure",
   cover: "brochure",
   section: "brochure",
@@ -87,8 +94,16 @@ function inferTemplateFromText(name?: string, category?: string): MockupTemplate
   if (/cart[eé]s?(\s+(de\s+)?(visite|commerciale|correspondance|pro))?|bvcard|business\s+card/.test(hay)) {
     return "carteVisite";
   }
-  // Brochures / dépliants / catalogues / livrets / magazines / packagings
-  if (/brochure|catalogue|livret|magazine|d[eé]pliant|plaquette|packaging|po?chette|bo[iî]te/.test(hay)) {
+  // P15 — Packaging (boites, pochettes, emballages) — template distinct
+  if (/packaging|emballage|po?chette|bo[iî]te|carton/.test(hay)) {
+    return "packaging";
+  }
+  // P15 — Depliants (3 volets / 2 volets) — template distinct
+  if (/d[eé]pliant|tri.?fold|bi.?fold|leaflet.?fold|3.?volets|2.?volets/.test(hay)) {
+    return "depliant";
+  }
+  // Brochures (livrets relies multi-pages) / catalogues / magazines / plaquettes
+  if (/brochure|catalogue|livret|magazine|plaquette/.test(hay)) {
     return "brochure";
   }
   // Étiquettes / stickers / adhésifs

@@ -26,7 +26,14 @@ import { projectId } from '/utils/supabase/info';
 import { buildEdgeFunctionUrl } from '../mockup/MockupImage.helpers';
 
 interface TemplateRef {
-  key: 'carteVisite' | 'flyer' | 'brochure' | 'etiquette' | 'kakemono';
+  key:
+    | 'carteVisite'
+    | 'flyer'
+    | 'brochure'
+    | 'etiquette'
+    | 'kakemono'
+    | 'packaging'
+    | 'depliant';
   label: string;
   width: number;
   height: number;
@@ -54,13 +61,31 @@ const TEMPLATES: TemplateRef[] = [
       "3 zones verticales : bandeau tile + grande marguerite en haut / Magrit + tagline + 4 lignes corps / contact + référence.",
   },
   {
+    key: 'depliant',
+    label: 'Dépliant 3 volets',
+    width: 210,
+    height: 297,
+    productName: 'Dépliant 3 volets A4',
+    description:
+      "3 volets côte à côte, volet central tile Magrit + marguerite, volets latéraux mock content avec lignes de texte simulées (P15).",
+  },
+  {
     key: 'brochure',
-    label: 'Brochure',
+    label: 'Brochure (livret)',
     width: 210,
     height: 297,
     productName: 'Brochure 16 pages',
     description:
-      "2 panneaux : couverture tile + marguerite à gauche / 4e couverture papier avec lignes mock + contact à droite.",
+      "Couverture 3D perspective 3/4 avec tranche de pages internes empilées visible côté gauche (P15 refonte).",
+  },
+  {
+    key: 'packaging',
+    label: 'Packaging / Boîte',
+    width: 200,
+    height: 150,
+    productName: 'Boîte expédition',
+    description:
+      "Boîte kraft 3D vue 3/4 ouverte avec rabats relevés. Marquage Magrit centré sur la face avant + liseré pollen (P15).",
   },
   {
     key: 'etiquette',
@@ -68,7 +93,7 @@ const TEMPLATES: TemplateRef[] = [
     width: 60,
     height: 40,
     productName: 'Étiquette produit',
-    description: "Tile complète + marguerite + Magrit lockup + bordure dashed (suggère la découpe).",
+    description: "Tile complète + marguerite + Magrit lockup + bordure dashed marquée (effet sticker découpé, P15 boost).",
   },
   {
     key: 'kakemono',

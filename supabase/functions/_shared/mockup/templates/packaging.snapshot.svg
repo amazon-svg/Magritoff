@@ -1,0 +1,132 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF6B35" stop-opacity="0.06"/>
+      <stop offset="100%" stop-color="#FF6B35" stop-opacity="0.14"/>
+    </linearGradient>
+    <linearGradient id="kraftFace" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#D4B791"/>
+      <stop offset="100%" stop-color="#C8A87D"/>
+    </linearGradient>
+    <linearGradient id="kraftSide" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#C8A87D"/>
+      <stop offset="100%" stop-color="#7A5A35"/>
+    </linearGradient>
+    <linearGradient id="kraftFlapBack" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#7A5A35"/>
+      <stop offset="100%" stop-color="#A87F4E"/>
+    </linearGradient>
+    <linearGradient id="kraftFlapFront" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#C8A87D"/>
+      <stop offset="100%" stop-color="#D4B791"/>
+    </linearGradient>
+    <radialGradient id="mgCorePackaging" cx="45%" cy="40%" r="55%">
+      <stop offset="0%" stop-color="#FFE066"/>
+      <stop offset="70%" stop-color="#F5B529"/>
+      <stop offset="100%" stop-color="#C68708"/>
+    </radialGradient>
+    <filter id="boxShadow" x="-15%" y="-15%" width="130%" height="135%">
+      <feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#000" flood-opacity="0.18"/>
+    </filter>
+    
+    <filter id="shadowDouble" x="-15%" y="-15%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.18"/>
+      <feDropShadow dx="0" dy="18" stdDeviation="24" flood-color="#FF6B35" flood-opacity="0.22"/>
+    </filter>
+    <linearGradient id="paperHighlight" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.35"/>
+      <stop offset="35%" stop-color="#ffffff" stop-opacity="0.05"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <pattern id="paperTexture" width="6" height="6" patternUnits="userSpaceOnUse">
+      <rect width="6" height="6" fill="white"/>
+      <circle cx="1" cy="1" r="0.3" fill="#e5e5e5" opacity="0.6"/>
+      <circle cx="4" cy="3" r="0.25" fill="#e5e5e5" opacity="0.5"/>
+    </pattern>
+  </defs>
+
+  <!-- Fond -->
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+
+  <!-- Rabat arrière (visible derrière, plus sombre) -->
+  <polygon
+    points="200,380 860,320 880,260 220,230"
+    fill="url(#kraftFlapBack)"
+    stroke="#7A5A35"
+    stroke-width="1.5"
+    opacity="0.92"
+    filter="url(#boxShadow)"
+  />
+
+  <!-- Côté droit (parallélogramme penché) -->
+  <polygon
+    points="720,380 880,320 880,720 720,780"
+    fill="url(#kraftSide)"
+    stroke="#7A5A35"
+    stroke-width="1.5"
+  />
+
+  <!-- Face avant principale (trapèze légèrement perspective) -->
+  <polygon
+    points="180,380 720,380 720,780 180,780"
+    fill="url(#kraftFace)"
+    stroke="#7A5A35"
+    stroke-width="1.5"
+    filter="url(#boxShadow)"
+  />
+
+  <!-- Lignes de pliage (sillons) face avant -->
+  <line x1="180" y1="380" x2="720" y2="380" stroke="#7A5A35" stroke-width="1" opacity="0.35"/>
+  <line x1="720" y1="380" x2="720" y2="780" stroke="#7A5A35" stroke-width="1" opacity="0.35"/>
+
+  <!-- Rabat avant (visible devant la face, légèrement releve) -->
+  <polygon
+    points="180,380 720,380 660,250 220,270"
+    fill="url(#kraftFlapFront)"
+    stroke="#7A5A35"
+    stroke-width="1.5"
+  />
+
+  <!-- Marquage Magrit sur la face avant : marguerite blanche centrée -->
+  <g transform="translate(450 524)">
+    <g fill="#FFFFFF"><ellipse cx="0" cy="-36.4" rx="4.8999999999999995" ry="22.4" transform="rotate(0)"/><ellipse cx="0" cy="-36.4" rx="4.8999999999999995" ry="22.4" transform="rotate(20)"/><ellipse cx="0" cy="-36.4" rx="4.8999999999999995" ry="22.4" transform="rotate(40)"/><ellipse cx="0" cy="-36.4" rx="4.8999999999999995" ry="22.4" transform="rotate(60)"/><ellipse cx="0" cy="-36.4" rx="4.8999999999999995" ry="22.4" transform="rotate(80)"/><ellipse cx="0" cy="-36.4" rx="4.8999999999999995" ry="22.4" transform="rotate(100)"/><ellipse cx="0" cy="-36.4" rx="4.8999999999999995" ry="22.4" transform="rotate(120)"/><ellipse cx="0" cy="-36.4" rx="4.8999999999999995" ry="22.4" transform="rotate(140)"/><ellipse cx="0" cy="-36.4" rx="4.8999999999999995" ry="22.4" transform="rotate(160)"/><ellipse cx="0" cy="-36.4" rx="4.8999999999999995" ry="22.4" transform="rotate(180)"/><ellipse cx="0" cy="-36.4" rx="4.8999999999999995" ry="22.4" transform="rotate(200)"/><ellipse cx="0" cy="-36.4" rx="4.8999999999999995" ry="22.4" transform="rotate(220)"/><ellipse cx="0" cy="-36.4" rx="4.8999999999999995" ry="22.4" transform="rotate(240)"/><ellipse cx="0" cy="-36.4" rx="4.8999999999999995" ry="22.4" transform="rotate(260)"/><ellipse cx="0" cy="-36.4" rx="4.8999999999999995" ry="22.4" transform="rotate(280)"/><ellipse cx="0" cy="-36.4" rx="4.8999999999999995" ry="22.4" transform="rotate(300)"/><ellipse cx="0" cy="-36.4" rx="4.8999999999999995" ry="22.4" transform="rotate(320)"/><ellipse cx="0" cy="-36.4" rx="4.8999999999999995" ry="22.4" transform="rotate(340)"/></g>
+    <circle r="15.399999999999999" fill="url(#mgCorePackaging)"/>
+  </g>
+
+  <!-- "Magrit" en lockup italic sous la marguerite -->
+  <text
+    x="450"
+    y="619"
+    text-anchor="middle"
+    font-family="Inter"
+    font-size="42"
+    font-weight="500"
+    font-style="italic"
+    fill="#FFFFFF"
+    letter-spacing="-0.025em"
+    opacity="0.95"
+  >Magrit</text>
+
+  <!-- Référence produit en petit -->
+  <text
+    x="450"
+    y="645"
+    text-anchor="middle"
+    font-family="Inter"
+    font-size="13"
+    font-weight="500"
+    fill="#FFFFFF"
+    opacity="0.75"
+    letter-spacing="0.08em"
+  >Packaging Premium</text>
+
+  <!-- Liseré pollen jaune en bas de la face (signature couleur Magrit) -->
+  <rect
+    x="180"
+    y="768"
+    width="540"
+    height="6"
+    fill="#F5B529"
+    opacity="0.85"
+  />
+</svg>
