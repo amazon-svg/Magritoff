@@ -69,6 +69,41 @@ const KIND_TO_TEMPLATE: Record<string, MockupTemplate> = {
 };
 
 /**
+ * P14 (2026-06-16) — Inférence du template depuis le nom et la catégorie.
+ *
+ * Quand `kind` Clariprint est absent (cas Manitou : tous les products library
+ * ont `config.kind = NULL` en DB par ex. parce que l'ingestion PIM ne l'a pas
+ * rempli), on infère le template depuis le nom commercial du produit et sa
+ * catégorie. Évite que tous les produits sans kind tombent sur le même
+ * fallback "flyer" → bug visuel "tous les mockups identiques".
+ *
+ * Pattern emprunté à ProductMockup.tsx (avec extension aux 5 templates SVG).
+ */
+function inferTemplateFromText(name?: string, category?: string): MockupTemplate {
+  const hay = `${category ?? ""} ${name ?? ""}`.toLowerCase();
+  if (!hay.trim()) return "flyer";
+  // Cartes de visite / commerciales / correspondance / "Cartes" générique.
+  // P14 fix : gérer pluriel (cart[eé]s?) + category "Cartes" seul.
+  if (/cart[eé]s?(\s+(de\s+)?(visite|commerciale|correspondance|pro))?|bvcard|business\s+card/.test(hay)) {
+    return "carteVisite";
+  }
+  // Brochures / dépliants / catalogues / livrets / magazines / packagings
+  if (/brochure|catalogue|livret|magazine|d[eé]pliant|plaquette|packaging|po?chette|bo[iî]te/.test(hay)) {
+    return "brochure";
+  }
+  // Étiquettes / stickers / adhésifs
+  if (/[eé]tiquette|sticker|adh[eé]sif|label/.test(hay)) {
+    return "etiquette";
+  }
+  // Kakémonos / roll-ups / banderoles / bâches
+  if (/kak[eé]mono|roll[\s-]?up|banderole|b[aâ]che|oriflamme/.test(hay)) {
+    return "kakemono";
+  }
+  // Flyers / tracts / affiches / posters (fallback flyer)
+  return "flyer";
+}
+
+/**
  * Resout le template SVG approprie pour un produit donne.
  *
  * Lit le `kind` Clariprint depuis 2 sources possibles :
@@ -76,16 +111,33 @@ const KIND_TO_TEMPLATE: Record<string, MockupTemplate> = {
  *   - `product.clariprintData.kind` : structure atelier (Product enriched
  *     par le chat IA Marguerite, fix 2026-06-16 bug #1 mauvaise association)
  *
- * Fallback `flyer` si aucune des 2 sources ne fournit un kind reconnu.
+ * Si aucune source ne fournit un kind reconnu, infère depuis name + category
+ * (P14 fix 2026-06-16 bug #2 Manitou : tous les products avaient kind=null
+ * en DB → tous tombaient sur fallback flyer → tous le même mockup).
  */
-export function resolveMockupTemplate(product: ShopProduct | { config?: unknown; clariprintData?: unknown }): MockupTemplate {
+export function resolveMockupTemplate(
+  product:
+    | ShopProduct
+    | {
+        config?: unknown;
+        clariprintData?: unknown;
+        name?: string;
+        category?: string;
+      },
+): MockupTemplate {
   const config = (product as { config?: Record<string, unknown> }).config;
   const clariprintData = (product as { clariprintData?: Record<string, unknown> }).clariprintData;
   // Priorité config.kind (path boutique) puis clariprintData.kind (path atelier).
   const rawKind = config?.kind ?? clariprintData?.kind;
-  if (typeof rawKind !== "string") return "flyer";
-  const normalized = rawKind.toLowerCase().trim();
-  return KIND_TO_TEMPLATE[normalized] ?? "flyer";
+  if (typeof rawKind === "string") {
+    const normalized = rawKind.toLowerCase().trim();
+    const mapped = KIND_TO_TEMPLATE[normalized];
+    if (mapped) return mapped;
+  }
+  // Inférence depuis name + category (P14)
+  const name = (product as { name?: string }).name;
+  const category = (product as { category?: string }).category;
+  return inferTemplateFromText(name, category);
 }
 
 /**

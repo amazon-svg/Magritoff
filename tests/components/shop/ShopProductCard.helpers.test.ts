@@ -123,6 +123,70 @@ describe("resolveMockupTemplate — mapping product.kind → template", () => {
     expect(resolveMockupTemplate({ clariprintData: {} } as any)).toBe("flyer");
     expect(resolveMockupTemplate({} as any)).toBe("flyer");
   });
+
+  // P14 (2026-06-16) — Inférence depuis name + category quand kind=null
+  // (cas Manitou : tous les products library ont config.kind=null en DB)
+  describe("inférence name/category quand kind absent (P14)", () => {
+    it("name='Cartes de visite' (kind null) → carteVisite", () => {
+      expect(
+        resolveMockupTemplate({ config: { kind: null }, name: "Cartes de visite" } as any),
+      ).toBe("carteVisite");
+    });
+
+    it("name='Carte commerciale Premium' → carteVisite", () => {
+      expect(
+        resolveMockupTemplate({ config: {}, name: "Carte commerciale Premium 350g" } as any),
+      ).toBe("carteVisite");
+    });
+
+    it("name='Brochure 16 pages' → brochure", () => {
+      expect(
+        resolveMockupTemplate({ name: "Brochure 16 pages" } as any),
+      ).toBe("brochure");
+    });
+
+    it("name='Catalogue produit' → brochure", () => {
+      expect(resolveMockupTemplate({ name: "Catalogue produit" } as any)).toBe("brochure");
+    });
+
+    it("name='Packaging ultra-premium' (cas Manitou) → brochure", () => {
+      expect(
+        resolveMockupTemplate({ name: "Packaging ultra-premium - Finitions combinées" } as any),
+      ).toBe("brochure");
+    });
+
+    it("name='Étiquettes adhésives' → etiquette", () => {
+      expect(resolveMockupTemplate({ name: "Étiquettes adhésives produit" } as any)).toBe(
+        "etiquette",
+      );
+    });
+
+    it("name='Roll-up standard 80×200' → kakemono", () => {
+      expect(resolveMockupTemplate({ name: "Roll-up standard 80×200" } as any)).toBe(
+        "kakemono",
+      );
+    });
+
+    it("name='Banderole extérieure' → kakemono", () => {
+      expect(resolveMockupTemplate({ name: "Banderole extérieure 400×100" } as any)).toBe(
+        "kakemono",
+      );
+    });
+
+    it("name='Flyer A5 promo' → flyer", () => {
+      expect(resolveMockupTemplate({ name: "Flyer A5 promo" } as any)).toBe("flyer");
+    });
+
+    it("name vide et category vide → flyer (safe default)", () => {
+      expect(resolveMockupTemplate({ name: "", category: "" } as any)).toBe("flyer");
+    });
+
+    it("category 'Cartes' suffit même si name générique", () => {
+      expect(
+        resolveMockupTemplate({ name: "Produit 001", category: "Cartes de visite" } as any),
+      ).toBe("carteVisite");
+    });
+  });
 });
 
 describe("parseFormatToDimensions", () => {
