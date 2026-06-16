@@ -33,6 +33,8 @@ import { carteVisiteSvg } from "./templates/carteVisite.ts";
 import { brochureSvg } from "./templates/brochure.ts";
 import { etiquetteSvg } from "./templates/etiquette.ts";
 import { kakemonoSvg } from "./templates/kakemono.ts";
+import { packagingSvg } from "./templates/packaging.ts";
+import { depliantSvg } from "./templates/depliant.ts";
 import { MockupRendererError, type MockupTemplate } from "./types.ts";
 
 const SNAPSHOT_PATH = new URL("./templates/flyer.snapshot.svg", import.meta.url);
@@ -129,7 +131,8 @@ Deno.test("flyerSvg snapshot string SVG (verrouille le rendu de reference)", asy
   );
   assert(svg.startsWith("<svg"), "doit commencer par <svg");
   assert(svg.endsWith("</svg>"), "doit finir par </svg>");
-  assert(svg.includes("Flyer A5 Test"), "doit contenir le productName");
+  // P11 (2026-06-15) : productName retire du visuel hero — plus emis dans le SVG
+  // pour flyer/carteVisite/kakemono. On valide juste la primaryColor.
   assert(svg.includes("#FF6B35"), "doit contenir la primaryColor");
 
   // Snapshot file-based : si absent, le creer ; si present, comparer.
@@ -183,6 +186,8 @@ const BUSINESS_CARD_SPECS = { width: 85, height: 55, productName: "Carte Pro" };
 const BROCHURE_SPECS = { width: 210, height: 297, productName: "Brochure A4" };
 const ETIQUETTE_SPECS = { width: 60, height: 40, productName: "Etiquette" };
 const KAKEMONO_SPECS = { width: 850, height: 2000, productName: "Roll-up Magrit" };
+const PACKAGING_SPECS = { width: 200, height: 150, productName: "Boite Pack" };
+const DEPLIANT_SPECS = { width: 210, height: 297, productName: "Depliant A4" };
 
 // ─── carteVisite ─────────────────────────────────────────────────────────────
 
@@ -201,7 +206,7 @@ Deno.test("carteVisiteSvg snapshot string SVG", async () => {
   const svg = carteVisiteSvg(BUSINESS_CARD_SPECS, { primaryColor: "#FF6B35" });
   assert(svg.startsWith("<svg"), "doit commencer par <svg");
   assert(svg.endsWith("</svg>"), "doit finir par </svg>");
-  assert(svg.includes("Carte Pro"), "doit contenir le productName");
+  // P11 (2026-06-15) : productName retire du visuel hero. On valide primaryColor.
   assert(svg.includes("#FF6B35"), "doit contenir la primaryColor");
   await checkSnapshot("carteVisite.snapshot.svg", svg);
 });
@@ -239,12 +244,19 @@ Deno.test("renderSvgToPng etiquette happy path -> bytes PNG 1024x1024", async ()
   assertEquals(view.getUint32(20, false), 1024);
 });
 
-Deno.test("etiquetteSvg snapshot string SVG", async () => {
+Deno.test("etiquetteSvg snapshot string SVG (P16 Gemini ronde)", async () => {
   const svg = etiquetteSvg(ETIQUETTE_SPECS, { primaryColor: "#FF6B35" });
   assert(svg.startsWith("<svg"));
   assert(svg.endsWith("</svg>"));
   assert(svg.includes("Etiquette"));
   assert(svg.includes("#FF6B35"));
+  // Etiquette ronde (P16) : doit contenir circle + contour pointille
+  assert(svg.includes("<circle"), "doit contenir au moins un <circle> (sticker rond)");
+  assert(svg.includes("stroke-dasharray"), "doit contenir un trait pointille (decoupe sticker)");
+  // Signature Magrit preservee
+  assert(svg.includes("Magrit"));
+  assert(svg.includes("IMPRIMERIE · IA"));
+  assert(svg.includes("#F5B529"), "doit contenir le liseré pollen");
   await checkSnapshot("etiquette.snapshot.svg", svg);
 });
 
@@ -264,21 +276,69 @@ Deno.test("kakemonoSvg snapshot string SVG", async () => {
   const svg = kakemonoSvg(KAKEMONO_SPECS, { primaryColor: "#FF6B35" });
   assert(svg.startsWith("<svg"));
   assert(svg.endsWith("</svg>"));
-  assert(svg.includes("Roll-up Magrit"));
+  // P11 (2026-06-15) : productName retire du visuel hero.
   assert(svg.includes("#FF6B35"));
   await checkSnapshot("kakemono.snapshot.svg", svg);
 });
 
+// ─── packaging (P15) ─────────────────────────────────────────────────────────
+
+Deno.test("renderSvgToPng packaging happy path -> bytes PNG 1024x1024", async () => {
+  const png = await renderSvgToPng("packaging", PACKAGING_SPECS, SAMPLE_THEMING);
+  assert(png instanceof Uint8Array);
+  assert(png.length > 100);
+  assertEquals(png[0], 0x89);
+  const view = new DataView(png.buffer, png.byteOffset, png.byteLength);
+  assertEquals(view.getUint32(16, false), 1024);
+  assertEquals(view.getUint32(20, false), 1024);
+});
+
+Deno.test("packagingSvg snapshot string SVG", async () => {
+  const svg = packagingSvg(PACKAGING_SPECS, { primaryColor: "#FF6B35" });
+  assert(svg.startsWith("<svg"));
+  assert(svg.endsWith("</svg>"));
+  assert(svg.includes("Boite Pack"));
+  assert(svg.includes("#FF6B35"));
+  await checkSnapshot("packaging.snapshot.svg", svg);
+});
+
+// ─── depliant (P16 Gemini) ───────────────────────────────────────────────────
+
+Deno.test("renderSvgToPng depliant happy path -> bytes PNG 1024x1024", async () => {
+  const png = await renderSvgToPng("depliant", DEPLIANT_SPECS, SAMPLE_THEMING);
+  assert(png instanceof Uint8Array);
+  assert(png.length > 100);
+  assertEquals(png[0], 0x89);
+  const view = new DataView(png.buffer, png.byteOffset, png.byteLength);
+  assertEquals(view.getUint32(16, false), 1024);
+  assertEquals(view.getUint32(20, false), 1024);
+});
+
+Deno.test("depliantSvg snapshot string SVG (P16 Gemini)", async () => {
+  const svg = depliantSvg(DEPLIANT_SPECS, { primaryColor: "#FF6B35" });
+  assert(svg.startsWith("<svg"));
+  assert(svg.endsWith("</svg>"));
+  assert(svg.includes("Depliant A4"));
+  assert(svg.includes("#FF6B35"));
+  // Signature Magrit preservee
+  assert(svg.includes("Magrit"), "doit contenir Magrit (signature)");
+  assert(svg.includes("IMPRIMERIE · IA"), "doit contenir la tagline");
+  assert(svg.includes("#F5B529"), "doit contenir le liseré pollen");
+  await checkSnapshot("depliant.snapshot.svg", svg);
+});
+
 // ─── Sentinelle SUPPORTED_TEMPLATES ──────────────────────────────────────────
 
-Deno.test("SUPPORTED_TEMPLATES expose exactement les 5 templates MVP S4.2", () => {
-  assertEquals(SUPPORTED_TEMPLATES.length, 5);
+Deno.test("SUPPORTED_TEMPLATES expose exactement les 7 templates MVP S4.2 + P15", () => {
+  assertEquals(SUPPORTED_TEMPLATES.length, 7);
   const expected: MockupTemplate[] = [
     "flyer",
     "carteVisite",
     "brochure",
     "etiquette",
     "kakemono",
+    "packaging",
+    "depliant",
   ];
   for (const t of expected) {
     assert(

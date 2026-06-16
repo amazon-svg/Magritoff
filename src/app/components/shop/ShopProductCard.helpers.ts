@@ -26,7 +26,9 @@ export type MockupTemplate =
   | "carteVisite"
   | "brochure"
   | "etiquette"
-  | "kakemono";
+  | "kakemono"
+  | "packaging"
+  | "depliant";
 
 /**
  * Mapping product.kind Clariprint -> template SVG. Aliases et synonymes courants
@@ -106,8 +108,8 @@ function inferTemplateFromText(name?: string, category?: string): MockupTemplate
   if (/brochure|catalogue|livret|magazine|plaquette/.test(hay)) {
     return "brochure";
   }
-  // Étiquettes / stickers / adhésifs
-  if (/[eé]tiquette|sticker|adh[eé]sif|label/.test(hay)) {
+  // Étiquettes / stickers / adhésifs / autocollants
+  if (/[eé]tiquette|sticker|adh[eé]sif|autocollant|label/.test(hay)) {
     return "etiquette";
   }
   // Kakémonos / roll-ups / banderoles / bâches

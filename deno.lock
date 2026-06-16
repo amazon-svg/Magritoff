@@ -2958,6 +2958,7 @@
     "packageJson": {
       "dependencies": [
         "npm:@axe-core/cli@^4.11.3",
+        "npm:@axe-core/playwright@^4.11.3",
         "npm:@emotion/react@11.14.0",
         "npm:@emotion/styled@11.14.1",
         "npm:@mui/icons-material@7.3.5",

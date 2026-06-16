@@ -154,7 +154,7 @@ function jsonResponse(body: unknown, status: number) {
  * IMPORTANT : doit rester synchrone avec `CACHE_VERSION_SUFFIX` dans
  * `src/app/components/mockup/MockupImage.helpers.ts`. Modifier les 2 ensemble.
  */
-const CACHE_VERSION_SUFFIX = "_v5";
+const CACHE_VERSION_SUFFIX = "_v6";
 
 /**
  * Construit l'URL publique CDN du bucket product_mockups.

@@ -67,7 +67,7 @@ const TEMPLATES: TemplateRef[] = [
     height: 297,
     productName: 'Dépliant 3 volets A4',
     description:
-      "3 volets côte à côte, volet central tile Magrit + marguerite, volets latéraux mock content avec lignes de texte simulées (P15).",
+      "3 volets ouvert à plat, liserés pointillés gris entre volets, volet central tile bleu pastel + marguerite + Magrit italic, volet droit Magrit + tagline + mock content + liseré pollen (P16 refonte Gemini).",
   },
   {
     key: 'brochure',
@@ -93,7 +93,7 @@ const TEMPLATES: TemplateRef[] = [
     width: 60,
     height: 40,
     productName: 'Étiquette produit',
-    description: "Tile complète + marguerite + Magrit lockup + bordure dashed marquée (effet sticker découpé, P15 boost).",
+    description: "Étiquette ronde effet sticker découpé : contour pointillé extérieur (trait de découpe), marguerite centrale + Magrit italic + tagline IMPRIMERIE · IA + liseré pollen (P16 refonte Gemini).",
   },
   {
     key: 'kakemono',

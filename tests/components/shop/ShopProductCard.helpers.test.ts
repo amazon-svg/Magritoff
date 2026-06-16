@@ -79,6 +79,14 @@ describe("resolveMockupTemplate — mapping product.kind → template", () => {
     expect(resolveMockupTemplate(makeProduct({ kind: "sticker" }))).toBe("etiquette");
   });
 
+  it("kind='label' (alias) → etiquette", () => {
+    expect(resolveMockupTemplate(makeProduct({ kind: "label" }))).toBe("etiquette");
+  });
+
+  it("kind='leaflet_folded' (alias) → depliant", () => {
+    expect(resolveMockupTemplate(makeProduct({ kind: "leaflet_folded" }))).toBe("depliant");
+  });
+
   it("kind='kakemono' → kakemono", () => {
     expect(resolveMockupTemplate(makeProduct({ kind: "kakemono" }))).toBe("kakemono");
   });
@@ -183,6 +191,12 @@ describe("resolveMockupTemplate — mapping product.kind → template", () => {
 
     it("name='Étiquettes adhésives' → etiquette", () => {
       expect(resolveMockupTemplate({ name: "Étiquettes adhésives produit" } as any)).toBe(
+        "etiquette",
+      );
+    });
+
+    it("name='Autocollant produit' (P16 nouveau regex) → etiquette", () => {
+      expect(resolveMockupTemplate({ name: "Autocollant produit DL" } as any)).toBe(
         "etiquette",
       );
     });

@@ -26,7 +26,7 @@ describe("buildPublicMockupUrl", () => {
     // P3-VISUELS (2026-06-15) : suffixe _v2 bump pour invalider le cache PNG
     // post-refonte des templates SVG Magrit-brandés.
     expect(url).toBe(
-      `https://${TEST_PROJECT_ID}.supabase.co/storage/v1/object/public/product_mockups/tenant-1/shop-1/product-1_v5.png`,
+      `https://${TEST_PROJECT_ID}.supabase.co/storage/v1/object/public/product_mockups/tenant-1/shop-1/product-1_v6.png`,
     );
   });
 
@@ -39,7 +39,7 @@ describe("buildPublicMockupUrl", () => {
       shopId: "xyz-456",
       productId: "p-789",
     });
-    expect(url).toContain("/abc-123/xyz-456/p-789_v5.png");
+    expect(url).toContain("/abc-123/xyz-456/p-789_v6.png");
   });
 });
 

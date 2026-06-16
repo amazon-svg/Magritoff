@@ -1,14 +1,13 @@
 /**
  * Helpers partages entre les templates SVG mockup (Story S4.2, Epic 4).
  *
- * Extraits de flyer.ts (S4.1b) pour eviter la duplication entre les 5
- * templates MVP : flyer, carteVisite, brochure, etiquette, kakemono.
+ * P16 (2026-06-16) : ajout de daisyMagrit + extension photoRealisticDefs
+ * avec magritPollen + magritTileGrad pour les templates depliant + etiquette
+ * (refonte visuelle Gemini). Les autres templates restent intacts.
  */
 
 /**
  * Echappe les caracteres XML/SVG dangereux dans une string.
- * Defense en profondeur contre une injection SVG via productName ou tout
- * autre champ user-controlled inject dans un template.
  */
 export function escapeXml(s: string): string {
   return s
@@ -20,8 +19,7 @@ export function escapeXml(s: string): string {
 }
 
 /**
- * Tronque une string a maxLen caracteres avec ellipsis (3 dots) si trop longue.
- * Utile pour assurer que productName tient dans le layout fixe d un mockup.
+ * Tronque une string a maxLen caracteres avec ellipsis si trop longue.
  */
 export function truncate(s: string, maxLen: number): string {
   if (s.length <= maxLen) return s;
@@ -29,18 +27,16 @@ export function truncate(s: string, maxLen: number): string {
 }
 
 /**
- * S-PIM-VISUELS-6 (Sprint 7, 2026-06-01) : defs SVG photo-realistic communes.
+ * Defs SVG photo-realistic communes (S-PIM-VISUELS-6 Sprint 7 + extension P16).
  *
- * Defs reusables par les 5 templates pour donner un rendu plus realiste :
- *   - double drop-shadow (close-tight + far-soft) = profondeur naturelle
- *   - paperHighlight = gradient blanc top->transparent qui simule la lumiere
- *     sur le haut du papier (effet pellicule brillante subtile)
- *   - paperTexture = pattern micro-points blancs ultra-subtils (grain papier)
+ * Contient :
+ *   - shadowDouble  : double drop-shadow profondeur naturelle
+ *   - paperHighlight: gradient blanc top->transparent (lumiere papier)
+ *   - paperTexture  : pattern micro-points (grain papier)
+ *   - magritPollen  : radial gradient coeur pollen marguerite Magrit (P16)
+ *   - magritTileGrad: linear gradient tile bleu pastel Magrit (P16)
  *
- * Usage : injecter `${photoRealisticDefs(safeColor)}` dans le <defs> du
- * template, puis appliquer filter="url(#shadowDouble)" sur le rect produit
- * + ajouter <rect ... fill="url(#paperHighlight)"/> au-dessus du rect blanc
- * pour le highlight, et <rect ... fill="url(#paperTexture)"/> pour le grain.
+ * Usage : injecter `${photoRealisticDefs(safeColor)}` dans le <defs> du template.
  */
 export function photoRealisticDefs(safeColor: string): string {
   return `
@@ -61,15 +57,28 @@ export function photoRealisticDefs(safeColor: string): string {
 }
 
 /**
- * Rectangle "produit" photo-realistic standard : fill texture papier subtile
- * + highlight gradient overlay + stroke en primaryColor + filter double-shadow.
+ * Defs gradients Magrit identitaires (P16) — coeur pollen + tile bleu pastel.
  *
- * @param cx coin x du rectangle
- * @param cy coin y du rectangle
- * @param w largeur
- * @param h hauteur
- * @param rx radius coins (8 flyer, 16 carteVisite, etc.)
- * @param safeColor primaryColor escape
+ * Isole des photoRealisticDefs pour ne pas modifier le SVG des templates qui
+ * n en ont pas besoin (flyer, carteVisite, brochure, kakemono, packaging).
+ * Utilise par depliant + etiquette (P16 Gemini) qui referencent
+ * `url(#magritPollen)` via daisyMagrit + `url(#magritTileGrad)` pour le tile.
+ */
+export function magritGradientsDefs(): string {
+  return `
+    <radialGradient id="magritPollen" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FFE066"/>
+      <stop offset="60%" stop-color="#F5B529"/>
+      <stop offset="100%" stop-color="#C68708"/>
+    </radialGradient>
+    <linearGradient id="magritTileGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E5F0FC"/>
+      <stop offset="100%" stop-color="#B7D3F2"/>
+    </linearGradient>`;
+}
+
+/**
+ * Rectangle "produit" photo-realistic standard.
  */
 export function photoRealisticProductRect(
   cx: number,
@@ -82,4 +91,23 @@ export function photoRealisticProductRect(
   return `
   <rect x="${cx}" y="${cy}" width="${w}" height="${h}" fill="url(#paperTexture)" stroke="${safeColor}" stroke-width="2" rx="${rx}" ry="${rx}" filter="url(#shadowDouble)"/>
   <rect x="${cx}" y="${cy}" width="${w}" height="${h}" fill="url(#paperHighlight)" rx="${rx}" ry="${rx}" pointer-events="none"/>`;
+}
+
+/**
+ * Marguerite Magrit standard (P16) — 18 petales blancs + coeur pollen.
+ *
+ * Reference l ID radial gradient `magritPollen` defini par photoRealisticDefs.
+ * Utilise par depliant.ts + etiquette.ts (refonte P16 Gemini).
+ *
+ * @param cx coordonnee X du centre
+ * @param cy coordonnee Y du centre
+ * @param scale facteur d echelle (1.0 = taille de reference 26+11px)
+ */
+export function daisyMagrit(cx: number, cy: number, scale: number): string {
+  const petals = Array.from(
+    { length: 18 },
+    (_, i) =>
+      `<ellipse cx="0" cy="${-26 * scale}" rx="${3.5 * scale}" ry="${16 * scale}" transform="rotate(${i * 20})"/>`,
+  ).join("");
+  return `<g transform="translate(${cx} ${cy})"><g fill="#FFFFFF">${petals}</g><circle r="${11 * scale}" fill="url(#magritPollen)"/></g>`;
 }
