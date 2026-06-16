@@ -94,6 +94,35 @@ describe("resolveMockupTemplate — mapping product.kind → template", () => {
   it("kind non-string (defensif) → fallback flyer", () => {
     expect(resolveMockupTemplate(makeProduct({ kind: 42 as any }))).toBe("flyer");
   });
+
+  // P13 (2026-06-16) — Path atelier : kind dans clariprintData (chat IA enriched)
+  it("atelier path : clariprintData.kind → template (carte_visite)", () => {
+    const atelierProduct = { clariprintData: { kind: "carte_visite" } };
+    expect(resolveMockupTemplate(atelierProduct as any)).toBe("carteVisite");
+  });
+
+  it("atelier path : clariprintData.kind='brochure' → brochure", () => {
+    expect(resolveMockupTemplate({ clariprintData: { kind: "brochure" } } as any)).toBe(
+      "brochure",
+    );
+  });
+
+  it("atelier path : clariprintData.kind='kakemono' → kakemono", () => {
+    expect(resolveMockupTemplate({ clariprintData: { kind: "kakemono" } } as any)).toBe(
+      "kakemono",
+    );
+  });
+
+  it("priorité config.kind sur clariprintData.kind quand les 2 présents", () => {
+    // config.kind doit primer (path boutique B2B explicite)
+    const p = { config: { kind: "flyer" }, clariprintData: { kind: "brochure" } };
+    expect(resolveMockupTemplate(p as any)).toBe("flyer");
+  });
+
+  it("atelier path : aucun kind nulle part → fallback flyer", () => {
+    expect(resolveMockupTemplate({ clariprintData: {} } as any)).toBe("flyer");
+    expect(resolveMockupTemplate({} as any)).toBe("flyer");
+  });
 });
 
 describe("parseFormatToDimensions", () => {

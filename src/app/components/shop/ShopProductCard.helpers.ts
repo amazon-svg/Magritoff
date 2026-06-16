@@ -70,12 +70,21 @@ const KIND_TO_TEMPLATE: Record<string, MockupTemplate> = {
 
 /**
  * Resout le template SVG approprie pour un produit donne.
- * Fallback `flyer` si product.config.kind absent ou inconnu.
+ *
+ * Lit le `kind` Clariprint depuis 2 sources possibles :
+ *   - `product.config.kind` : structure ShopProduct (boutique B2B, library)
+ *   - `product.clariprintData.kind` : structure atelier (Product enriched
+ *     par le chat IA Marguerite, fix 2026-06-16 bug #1 mauvaise association)
+ *
+ * Fallback `flyer` si aucune des 2 sources ne fournit un kind reconnu.
  */
-export function resolveMockupTemplate(product: ShopProduct): MockupTemplate {
-  const kind = (product.config as Record<string, unknown> | undefined)?.kind;
-  if (typeof kind !== "string") return "flyer";
-  const normalized = kind.toLowerCase().trim();
+export function resolveMockupTemplate(product: ShopProduct | { config?: unknown; clariprintData?: unknown }): MockupTemplate {
+  const config = (product as { config?: Record<string, unknown> }).config;
+  const clariprintData = (product as { clariprintData?: Record<string, unknown> }).clariprintData;
+  // Priorité config.kind (path boutique) puis clariprintData.kind (path atelier).
+  const rawKind = config?.kind ?? clariprintData?.kind;
+  if (typeof rawKind !== "string") return "flyer";
+  const normalized = rawKind.toLowerCase().trim();
   return KIND_TO_TEMPLATE[normalized] ?? "flyer";
 }
 
