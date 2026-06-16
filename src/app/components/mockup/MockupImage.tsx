@@ -117,6 +117,10 @@ export function MockupImage(props: MockupImageProps): JSX.Element {
     // Si on a deja tente le fallback edge function et que l'image echoue
     // toujours -> bascule en mode error final (pas de boucle).
     if (hasRetriedRef.current) {
+      console.warn(
+        "[MockupImage] state=error apres 2 tentatives, fallback ProductMockup actif",
+        { productId: props.productId, template: props.template, src },
+      );
       setState("error");
       return;
     }
@@ -144,6 +148,10 @@ export function MockupImage(props: MockupImageProps): JSX.Element {
       });
       clearTimeout(timeoutId);
       if (!resp.ok) {
+        console.warn(
+          "[MockupImage] edge function non-ok",
+          { status: resp.status, edgeUrl, productId: props.productId },
+        );
         setState("error");
         return;
       }
@@ -155,11 +163,22 @@ export function MockupImage(props: MockupImageProps): JSX.Element {
       // ProductMockup (= ANCIEN visuel SVG schematic). Solution : utiliser
       // directement le blob du PNG inline retourne par l'edge function.
       const blob = await resp.blob();
+      if (!blob.type.startsWith("image/")) {
+        console.warn(
+          "[MockupImage] blob retourne sans content-type image",
+          { blobType: blob.type, blobSize: blob.size, productId: props.productId },
+        );
+        setState("error");
+        return;
+      }
       const blobUrl = URL.createObjectURL(blob);
       setSrc(blobUrl);
       setState("loading");
-    } catch (_err) {
-      // Network err, timeout, ou abort
+    } catch (err) {
+      console.warn(
+        "[MockupImage] fetch edge function exception",
+        { err: (err as Error)?.message, productId: props.productId },
+      );
       setState("error");
     }
   };
