@@ -84,7 +84,7 @@ export function MockupImage(props: MockupImageProps): JSX.Element {
           src={props.customMockupUrl}
           alt={props.alt}
           loading="lazy"
-          className="w-full h-full object-cover"
+          className="w-full h-full object-contain"
         />
       </div>
     );
@@ -147,10 +147,16 @@ export function MockupImage(props: MockupImageProps): JSX.Element {
         setState("error");
         return;
       }
-      // L'edge function a render + upload. On retry l'URL publique avec
-      // cache buster pour forcer le browser a re-fetch (sinon il garde
-      // le 404 cache).
-      setSrc(`${initialSrc}?v=${buildCacheBuster()}`);
+      // Fix 2026-06-16 — L'edge function retourne le PNG inline en cache MISS.
+      // Avant on retentait l'URL CDN avec cache buster, mais la propagation
+      // Supabase Storage CDN apres upload peut prendre quelques secondes :
+      // si le second img.src se charge avant la propagation, on tombe en 404
+      // -> handleError 2eme fois -> hasRetried=true -> state=error -> fallback
+      // ProductMockup (= ANCIEN visuel SVG schematic). Solution : utiliser
+      // directement le blob du PNG inline retourne par l'edge function.
+      const blob = await resp.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      setSrc(blobUrl);
       setState("loading");
     } catch (_err) {
       // Network err, timeout, ou abort
@@ -200,7 +206,7 @@ export function MockupImage(props: MockupImageProps): JSX.Element {
         loading="lazy"
         onLoad={handleLoad}
         onError={handleError}
-        className={`w-full h-full object-cover ${showSkeleton ? "opacity-0" : "opacity-100"}`}
+        className={`w-full h-full object-contain ${showSkeleton ? "opacity-0" : "opacity-100"}`}
         style={{ transition: "opacity 200ms" }}
       />
     </div>
