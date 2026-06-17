@@ -1,142 +1,65 @@
 /**
- * Template SVG paramètrique pour produit type `flyer`.
+ * Template SVG flyer A5 148x210 (P17, 2026-06-17) — refonte alignee style Gemini.
  *
- * Refonte 2026-06-15 (P3-VISUELS) : design Magrit-brandé réaliste.
- * Layout portrait composé en 3 zones verticales :
- *   - Haut (35%) : bandeau tile bleu pastel + grande marguerite Magrit
- *   - Milieu (45%) : surface papier avec "Magrit" italic + tagline + 4 lignes de
- *     texte simulé (corps article promo)
- *   - Bas (20%) : ligne contact + référence + liseré pollen
- *
- * Verso : tile complet + marguerite centrée + signature "Magrit".
- *
- * Constantes brand Magrit (cf. carteVisite.ts pour la cohérence).
+ * Composition 2D portrait :
+ *   - bloc flyer 600x850 centre viewBox 1024 (x=212, y=87), shadowDouble
+ *   - 3 zones verticales :
+ *     * zone haute 30% (255px) tile bleu pastel : marguerite scale 1.4 + Magrit 64 + tagline
+ *     * zone centre 50% (425px) surface blanche : bloc visuel 200x120 + 4 lignes mock
+ *     * zone basse 20% (170px) surface blanche : 2 lignes mock + lisere pollen 8px
+ *   - reference modele bas-droite opacity 0.45
  */
-
-import type { ProductSpecs, ShopTheming } from "../types.ts";
 import {
+  daisyMagrit,
   escapeXml,
+  magritGradientsDefs,
   photoRealisticDefs,
-  photoRealisticProductRect,
   truncate,
 } from "./_shared.ts";
 
-const VIEWBOX = 1024;
-const RECT_AREA_MAX = 700;
-const TEXT_MAX_LEN = 40;
-
-const MAGRIT_TILE_FROM = "#E5F0FC";
-const MAGRIT_TILE_TO = "#B7D3F2";
-const MAGRIT_POLLEN_LIGHT = "#FFE066";
-const MAGRIT_POLLEN_MID = "#F5B529";
-const MAGRIT_POLLEN_DARK = "#C68708";
-const MAGRIT_INK = "#0F172A";
-
-function daisyMagrit(cx: number, cy: number, scale: number, coreGradientId: string): string {
-  const petals = Array.from({ length: 18 }, (_, i) => {
-    const angle = i * 20;
-    return `<ellipse cx="0" cy="${-26 * scale}" rx="${3.5 * scale}" ry="${16 * scale}" transform="rotate(${angle})"/>`;
-  }).join("");
-  return `<g transform="translate(${cx} ${cy})">
-    <g fill="#FFFFFF">${petals}</g>
-    <circle r="${11 * scale}" fill="url(#${coreGradientId})"/>
-  </g>`;
-}
-
-export function flyerSvg(specs: ProductSpecs, theming: ShopTheming): string {
-  const aspect = specs.width / specs.height;
-  const isPortrait = aspect < 1;
-  const rectW = isPortrait ? RECT_AREA_MAX * aspect : RECT_AREA_MAX;
-  const rectH = isPortrait ? RECT_AREA_MAX : RECT_AREA_MAX / aspect;
-  const cx = (VIEWBOX - rectW) / 2;
-  const cy = (VIEWBOX - rectH) / 2;
-
-  const safeName = escapeXml(truncate(specs.productName, TEXT_MAX_LEN));
-  const safeColor = escapeXml(theming.primaryColor);
-
-  const isBack = theming.view === "back";
-
-  // VERSO : tile complète + marguerite + signature
-  if (isBack) {
-    const backFlowerCX = cx + rectW / 2;
-    const backFlowerCY = cy + rectH * 0.45;
-    const backFlowerScale = Math.min(rectW, rectH) / 120;
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${VIEWBOX} ${VIEWBOX}" width="${VIEWBOX}" height="${VIEWBOX}">
-  <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="${safeColor}" stop-opacity="0.06"/>
-      <stop offset="100%" stop-color="${safeColor}" stop-opacity="0.16"/>
-    </linearGradient>
-    <linearGradient id="mgTileBack" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="${MAGRIT_TILE_FROM}"/>
-      <stop offset="100%" stop-color="${MAGRIT_TILE_TO}"/>
-    </linearGradient>
-    <radialGradient id="mgCoreBack" cx="45%" cy="40%" r="55%">
-      <stop offset="0%" stop-color="${MAGRIT_POLLEN_LIGHT}"/>
-      <stop offset="70%" stop-color="${MAGRIT_POLLEN_MID}"/>
-      <stop offset="100%" stop-color="${MAGRIT_POLLEN_DARK}"/>
-    </radialGradient>
-    ${photoRealisticDefs(safeColor)}
-  </defs>
-  <rect width="${VIEWBOX}" height="${VIEWBOX}" fill="url(#bg)"/>
-  <rect x="${cx}" y="${cy}" width="${rectW}" height="${rectH}" fill="url(#mgTileBack)" rx="8" ry="8" filter="url(#shadowDouble)"/>
-  <rect x="${cx}" y="${cy}" width="${rectW}" height="${rectH}" fill="url(#paperHighlight)" rx="8" ry="8" opacity="0.6" pointer-events="none"/>
-  ${daisyMagrit(backFlowerCX, backFlowerCY, backFlowerScale, "mgCoreBack")}
-  <text x="${backFlowerCX}" y="${cy + rectH * 0.78}" text-anchor="middle" font-family="Inter" font-size="44" font-weight="500" font-style="italic" fill="${MAGRIT_INK}" letter-spacing="-0.02em">Magrit</text>
-  <text x="${backFlowerCX}" y="${cy + rectH * 0.85}" text-anchor="middle" font-family="Inter" font-size="14" font-weight="400" fill="${MAGRIT_INK}" fill-opacity="0.55" letter-spacing="0.08em">IMPRIMERIE · IA</text>
-</svg>`;
-  }
-
-  // RECTO : 3 zones verticales
-  const zone1H = rectH * 0.35; // bandeau tile + marguerite
-  const flowerCX = cx + rectW / 2;
-  const flowerCY = cy + zone1H / 2;
-  const flowerScale = Math.min(rectW, zone1H) / 120;
-
-  // Zone 2 : textes
-  const titleY = cy + zone1H + 70;
-  const taglineY = titleY + 24;
-  const corps1Y = titleY + 80;
-  const lineGap = 28;
-
-  // Zone 3 : contact + liseré
-  const contactY = cy + rectH - 70;
-  const liseretY = cy + rectH - 8;
-  const liseretH = 8;
-
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${VIEWBOX} ${VIEWBOX}" width="${VIEWBOX}" height="${VIEWBOX}">
-  <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="${safeColor}" stop-opacity="0.06"/>
-      <stop offset="100%" stop-color="${safeColor}" stop-opacity="0.16"/>
-    </linearGradient>
-    <linearGradient id="mgTileBand" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="${MAGRIT_TILE_FROM}"/>
-      <stop offset="100%" stop-color="${MAGRIT_TILE_TO}"/>
-    </linearGradient>
-    <radialGradient id="mgCoreBand" cx="45%" cy="40%" r="55%">
-      <stop offset="0%" stop-color="${MAGRIT_POLLEN_LIGHT}"/>
-      <stop offset="70%" stop-color="${MAGRIT_POLLEN_MID}"/>
-      <stop offset="100%" stop-color="${MAGRIT_POLLEN_DARK}"/>
-    </radialGradient>
-    <clipPath id="flyerClip">
-      <rect x="${cx}" y="${cy}" width="${rectW}" height="${rectH}" rx="8" ry="8"/>
-    </clipPath>
-    ${photoRealisticDefs(safeColor)}
-  </defs>
-  <rect width="${VIEWBOX}" height="${VIEWBOX}" fill="url(#bg)"/>
-  ${photoRealisticProductRect(cx, cy, rectW, rectH, 8, safeColor)}
-  <g clip-path="url(#flyerClip)">
-    <rect x="${cx}" y="${cy}" width="${rectW}" height="${zone1H}" fill="url(#mgTileBand)"/>
-    ${daisyMagrit(flowerCX, flowerCY, flowerScale, "mgCoreBand")}
-    <rect x="${cx}" y="${liseretY}" width="${rectW}" height="${liseretH}" fill="${MAGRIT_POLLEN_MID}"/>
-  </g>
-  <text x="${flowerCX}" y="${titleY}" text-anchor="middle" font-family="Inter" font-size="64" font-weight="500" font-style="italic" fill="${MAGRIT_INK}" letter-spacing="-0.025em">Magrit</text>
-  <text x="${flowerCX}" y="${taglineY}" text-anchor="middle" font-family="Inter" font-size="15" font-weight="400" fill="${MAGRIT_INK}" fill-opacity="0.55" letter-spacing="0.08em">IMPRIMERIE AUGMENTÉE PAR L'IA</text>
-  <rect x="${cx + 60}" y="${corps1Y - 16}" width="${rectW - 120}" height="6" fill="${MAGRIT_INK}" opacity="0.30" rx="2"/>
-  <rect x="${cx + 60}" y="${corps1Y - 16 + lineGap}" width="${(rectW - 120) * 0.85}" height="6" fill="${MAGRIT_INK}" opacity="0.22" rx="2"/>
-  <rect x="${cx + 60}" y="${corps1Y - 16 + lineGap * 2}" width="${(rectW - 120) * 0.9}" height="6" fill="${MAGRIT_INK}" opacity="0.22" rx="2"/>
-  <rect x="${cx + 60}" y="${corps1Y - 16 + lineGap * 3}" width="${(rectW - 120) * 0.55}" height="6" fill="${MAGRIT_INK}" opacity="0.22" rx="2"/>
-  <text x="${cx + rectW / 2}" y="${contactY}" text-anchor="middle" font-family="Inter" font-size="13" font-weight="500" fill="${MAGRIT_INK}" fill-opacity="0.65" letter-spacing="0.06em">magrit.io · contact@magrit.io</text>
-</svg>`;
+export function flyerSvg(
+  specs: { width: number; height: number; productName: string },
+  theming: { primaryColor: string },
+): string {
+  const safeName = escapeXml(truncate(specs.productName, 32));
+  const safeColor = theming.primaryColor || "#B7D3F2";
+  const blocX = 212;
+  const blocY = 87;
+  const blocW = 600;
+  const blocH = 850;
+  const zoneHauteH = 255;
+  const zoneCentreY = blocY + zoneHauteH;
+  const zoneCentreH = 425;
+  const zoneBasseY = zoneCentreY + zoneCentreH;
+  const cxBloc = blocX + blocW / 2;
+  const margCy = blocY + 110;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="100%" height="100%">
+    <defs>
+      <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="${safeColor}" stop-opacity="0.06" />
+        <stop offset="100%" stop-color="${safeColor}" stop-opacity="0.15" />
+      </linearGradient>
+      ${photoRealisticDefs(safeColor)}
+      ${magritGradientsDefs()}
+    </defs>
+    <rect width="1024" height="1024" fill="url(#bgGrad)" />
+    <g filter="url(#shadowDouble)">
+      <rect x="${blocX}" y="${blocY}" width="${blocW}" height="${blocH}" fill="#FFFFFF" rx="6" />
+      <rect x="${blocX}" y="${blocY}" width="${blocW}" height="${blocH}" fill="url(#paperHighlight)" rx="6" />
+      <rect x="${blocX}" y="${blocY}" width="${blocW}" height="${zoneHauteH}" fill="url(#magritTileGrad)" rx="6" />
+      <rect x="${blocX}" y="${blocY + zoneHauteH - 6}" width="${blocW}" height="6" fill="url(#magritTileGrad)" />
+      ${daisyMagrit(cxBloc, margCy, 1.4)}
+      <text x="${cxBloc}" y="${margCy + 95}" text-anchor="middle" font-family="Inter" font-style="italic" font-weight="500" font-size="64" fill="#0F172A" letter-spacing="-0.025em">Magrit</text>
+      <text x="${cxBloc}" y="${margCy + 125}" text-anchor="middle" font-family="Inter" font-weight="400" font-size="12" fill="#0F172A" letter-spacing="0.08em" opacity="0.55">IMPRIMERIE · IA</text>
+      <rect x="${cxBloc - 100}" y="${zoneCentreY + 50}" width="200" height="120" fill="#F1F5F9" rx="4" />
+      <rect x="${blocX + 60}" y="${zoneCentreY + 220}" width="480" height="8" fill="#E2E8F0" rx="2" />
+      <rect x="${blocX + 60}" y="${zoneCentreY + 250}" width="420" height="8" fill="#E2E8F0" rx="2" />
+      <rect x="${blocX + 60}" y="${zoneCentreY + 280}" width="450" height="8" fill="#E2E8F0" rx="2" />
+      <rect x="${blocX + 60}" y="${zoneCentreY + 310}" width="380" height="8" fill="#E2E8F0" rx="2" />
+      <rect x="${blocX + 60}" y="${zoneBasseY + 40}" width="400" height="8" fill="#E2E8F0" rx="2" />
+      <rect x="${blocX + 60}" y="${zoneBasseY + 70}" width="320" height="8" fill="#E2E8F0" rx="2" />
+      <rect x="${blocX}" y="${blocY + blocH - 8}" width="${blocW}" height="8" fill="#F5B529" />
+    </g>
+    <text x="${blocX + blocW}" y="${blocY + blocH + 32}" text-anchor="end" font-family="Inter" font-weight="500" font-size="11" fill="#0F172A" opacity="0.45">${safeName}</text>
+  </svg>`;
 }

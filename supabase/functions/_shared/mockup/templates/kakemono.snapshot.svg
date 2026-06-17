@@ -1,22 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
-  <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#FF6B35" stop-opacity="0.06"/>
-      <stop offset="100%" stop-color="#FF6B35" stop-opacity="0.16"/>
-    </linearGradient>
-    <linearGradient id="mgTileKakemono" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#E5F0FC"/>
-      <stop offset="100%" stop-color="#B7D3F2"/>
-    </linearGradient>
-    <radialGradient id="mgCoreKakemono" cx="45%" cy="40%" r="55%">
-      <stop offset="0%" stop-color="#FFE066"/>
-      <stop offset="70%" stop-color="#F5B529"/>
-      <stop offset="100%" stop-color="#C68708"/>
-    </radialGradient>
-    <clipPath id="kakemonoClip">
-      <rect x="325" y="72" width="374" height="880" rx="4" ry="4"/>
-    </clipPath>
-    
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="100%" height="100%">
+    <defs>
+      <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#FF6B35" stop-opacity="0.06" />
+        <stop offset="100%" stop-color="#FF6B35" stop-opacity="0.15" />
+      </linearGradient>
+      <linearGradient id="socleReflet" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.18" />
+        <stop offset="40%" stop-color="#FFFFFF" stop-opacity="0.04" />
+        <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
+      </linearGradient>
+      
     <filter id="shadowDouble" x="-15%" y="-15%" width="130%" height="130%">
       <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.18"/>
       <feDropShadow dx="0" dy="18" stdDeviation="24" flood-color="#FF6B35" flood-opacity="0.22"/>
@@ -31,24 +24,38 @@
       <circle cx="1" cy="1" r="0.3" fill="#e5e5e5" opacity="0.6"/>
       <circle cx="4" cy="3" r="0.25" fill="#e5e5e5" opacity="0.5"/>
     </pattern>
-  </defs>
-  <rect width="1024" height="1024" fill="url(#bg)"/>
-  
-  <rect x="325" y="72" width="374" height="880" fill="url(#paperTexture)" stroke="#FF6B35" stroke-width="2" rx="4" ry="4" filter="url(#shadowDouble)"/>
-  <rect x="325" y="72" width="374" height="880" fill="url(#paperHighlight)" rx="4" ry="4" pointer-events="none"/>
-  <g clip-path="url(#kakemonoClip)">
-    <rect x="325" y="72" width="374" height="246.40000000000003" fill="url(#mgTileKakemono)"/>
-    <g transform="translate(512 195.20000000000002)">
-    <g fill="#FFFFFF"><ellipse cx="0" cy="-58.24000000000001" rx="7.840000000000001" ry="35.84" transform="rotate(0)"/><ellipse cx="0" cy="-58.24000000000001" rx="7.840000000000001" ry="35.84" transform="rotate(20)"/><ellipse cx="0" cy="-58.24000000000001" rx="7.840000000000001" ry="35.84" transform="rotate(40)"/><ellipse cx="0" cy="-58.24000000000001" rx="7.840000000000001" ry="35.84" transform="rotate(60)"/><ellipse cx="0" cy="-58.24000000000001" rx="7.840000000000001" ry="35.84" transform="rotate(80)"/><ellipse cx="0" cy="-58.24000000000001" rx="7.840000000000001" ry="35.84" transform="rotate(100)"/><ellipse cx="0" cy="-58.24000000000001" rx="7.840000000000001" ry="35.84" transform="rotate(120)"/><ellipse cx="0" cy="-58.24000000000001" rx="7.840000000000001" ry="35.84" transform="rotate(140)"/><ellipse cx="0" cy="-58.24000000000001" rx="7.840000000000001" ry="35.84" transform="rotate(160)"/><ellipse cx="0" cy="-58.24000000000001" rx="7.840000000000001" ry="35.84" transform="rotate(180)"/><ellipse cx="0" cy="-58.24000000000001" rx="7.840000000000001" ry="35.84" transform="rotate(200)"/><ellipse cx="0" cy="-58.24000000000001" rx="7.840000000000001" ry="35.84" transform="rotate(220)"/><ellipse cx="0" cy="-58.24000000000001" rx="7.840000000000001" ry="35.84" transform="rotate(240)"/><ellipse cx="0" cy="-58.24000000000001" rx="7.840000000000001" ry="35.84" transform="rotate(260)"/><ellipse cx="0" cy="-58.24000000000001" rx="7.840000000000001" ry="35.84" transform="rotate(280)"/><ellipse cx="0" cy="-58.24000000000001" rx="7.840000000000001" ry="35.84" transform="rotate(300)"/><ellipse cx="0" cy="-58.24000000000001" rx="7.840000000000001" ry="35.84" transform="rotate(320)"/><ellipse cx="0" cy="-58.24000000000001" rx="7.840000000000001" ry="35.84" transform="rotate(340)"/></g>
-    <circle r="24.64" fill="url(#mgCoreKakemono)"/>
-  </g>
-    <rect x="325" y="944" width="374" height="8" fill="#F5B529"/>
-  </g>
-  <text x="512" y="398.40000000000003" text-anchor="middle" font-family="Inter" font-size="72" font-weight="500" font-style="italic" fill="#0F172A" letter-spacing="-0.025em">Magrit</text>
-  <text x="512" y="426.40000000000003" text-anchor="middle" font-family="Inter" font-size="16" font-weight="400" fill="#0F172A" fill-opacity="0.55" letter-spacing="0.08em">IMPRIMERIE AUGMENTÉE PAR L'IA</text>
-  <rect x="385" y="484.40000000000003" width="254" height="6" fill="#0F172A" opacity="0.32" rx="2"/>
-  <rect x="385" y="514.4000000000001" width="208.28" height="5" fill="#0F172A" opacity="0.22" rx="2"/>
-  <rect x="385" y="544.4000000000001" width="182.88" height="5" fill="#0F172A" opacity="0.22" rx="2"/>
-  <text x="512" y="862" text-anchor="middle" font-family="Inter" font-size="14" font-weight="500" fill="#0F172A" fill-opacity="0.65" letter-spacing="0.06em">magrit.io · contact@magrit.io</text>
-  <rect x="268.9" y="938" width="486.2" height="28" fill="#2A2A2D" rx="6"/>
-</svg>
+      
+    <radialGradient id="magritPollen" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FFE066"/>
+      <stop offset="60%" stop-color="#F5B529"/>
+      <stop offset="100%" stop-color="#C68708"/>
+    </radialGradient>
+    <linearGradient id="magritTileGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E5F0FC"/>
+      <stop offset="100%" stop-color="#B7D3F2"/>
+    </linearGradient>
+    </defs>
+    <rect width="1024" height="1024" fill="url(#bgGrad)" />
+    <g filter="url(#shadowDouble)">
+      <rect x="322" y="62" width="380" height="720" fill="#FFFFFF" rx="4" />
+      <rect x="322" y="62" width="380" height="720" fill="url(#paperHighlight)" rx="4" />
+      <rect x="322" y="62" width="380" height="225" fill="url(#magritTileGrad)" rx="4" />
+      <rect x="322" y="281" width="380" height="6" fill="url(#magritTileGrad)" />
+      <g transform="translate(512 157)"><g fill="#FFFFFF"><ellipse cx="0" cy="-41.6" rx="5.6000000000000005" ry="25.6" transform="rotate(0)"/><ellipse cx="0" cy="-41.6" rx="5.6000000000000005" ry="25.6" transform="rotate(20)"/><ellipse cx="0" cy="-41.6" rx="5.6000000000000005" ry="25.6" transform="rotate(40)"/><ellipse cx="0" cy="-41.6" rx="5.6000000000000005" ry="25.6" transform="rotate(60)"/><ellipse cx="0" cy="-41.6" rx="5.6000000000000005" ry="25.6" transform="rotate(80)"/><ellipse cx="0" cy="-41.6" rx="5.6000000000000005" ry="25.6" transform="rotate(100)"/><ellipse cx="0" cy="-41.6" rx="5.6000000000000005" ry="25.6" transform="rotate(120)"/><ellipse cx="0" cy="-41.6" rx="5.6000000000000005" ry="25.6" transform="rotate(140)"/><ellipse cx="0" cy="-41.6" rx="5.6000000000000005" ry="25.6" transform="rotate(160)"/><ellipse cx="0" cy="-41.6" rx="5.6000000000000005" ry="25.6" transform="rotate(180)"/><ellipse cx="0" cy="-41.6" rx="5.6000000000000005" ry="25.6" transform="rotate(200)"/><ellipse cx="0" cy="-41.6" rx="5.6000000000000005" ry="25.6" transform="rotate(220)"/><ellipse cx="0" cy="-41.6" rx="5.6000000000000005" ry="25.6" transform="rotate(240)"/><ellipse cx="0" cy="-41.6" rx="5.6000000000000005" ry="25.6" transform="rotate(260)"/><ellipse cx="0" cy="-41.6" rx="5.6000000000000005" ry="25.6" transform="rotate(280)"/><ellipse cx="0" cy="-41.6" rx="5.6000000000000005" ry="25.6" transform="rotate(300)"/><ellipse cx="0" cy="-41.6" rx="5.6000000000000005" ry="25.6" transform="rotate(320)"/><ellipse cx="0" cy="-41.6" rx="5.6000000000000005" ry="25.6" transform="rotate(340)"/></g><circle r="17.6" fill="url(#magritPollen)"/></g>
+      <text x="512" y="249" text-anchor="middle" font-family="Inter" font-style="italic" font-weight="500" font-size="60" fill="#0F172A" letter-spacing="-0.025em">Magrit</text>
+      <text x="512" y="277" text-anchor="middle" font-family="Inter" font-weight="400" font-size="12" fill="#0F172A" letter-spacing="0.08em" opacity="0.55">IMPRIMERIE · IA</text>
+      <rect x="362" y="342" width="300" height="8" fill="#E2E8F0" rx="2" />
+      <rect x="362" y="372" width="260" height="8" fill="#E2E8F0" rx="2" />
+      <rect x="362" y="402" width="280" height="8" fill="#E2E8F0" rx="2" />
+      <rect x="362" y="432" width="240" height="8" fill="#E2E8F0" rx="2" />
+      <rect x="362" y="462" width="290" height="8" fill="#E2E8F0" rx="2" />
+      <rect x="362" y="507" width="140" height="120" fill="#F1F5F9" rx="4" />
+      <rect x="522" y="507" width="140" height="120" fill="#F1F5F9" rx="4" />
+      <rect x="362" y="667" width="280" height="8" fill="#E2E8F0" rx="2" />
+      <rect x="362" y="697" width="220" height="8" fill="#E2E8F0" rx="2" />
+      <rect x="322" y="782" width="380" height="8" fill="#F5B529" />
+    </g>
+    <rect x="302" y="790" width="420" height="172" fill="#475569" rx="6" />
+    <rect x="302" y="790" width="420" height="172" fill="url(#socleReflet)" rx="6" />
+    <text x="722" y="990" text-anchor="end" font-family="Inter" font-weight="500" font-size="11" fill="#0F172A" opacity="0.45">Roll-up Magrit</text>
+  </svg>

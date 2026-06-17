@@ -1,22 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
-  <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#FF6B35" stop-opacity="0.06"/>
-      <stop offset="100%" stop-color="#FF6B35" stop-opacity="0.16"/>
-    </linearGradient>
-    <linearGradient id="mgTileBand" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#E5F0FC"/>
-      <stop offset="100%" stop-color="#B7D3F2"/>
-    </linearGradient>
-    <radialGradient id="mgCoreBand" cx="45%" cy="40%" r="55%">
-      <stop offset="0%" stop-color="#FFE066"/>
-      <stop offset="70%" stop-color="#F5B529"/>
-      <stop offset="100%" stop-color="#C68708"/>
-    </radialGradient>
-    <clipPath id="cardClip">
-      <rect x="112" y="253.1764705882353" width="800" height="517.6470588235294" rx="16" ry="16"/>
-    </clipPath>
-    
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="100%" height="100%">
+    <defs>
+      <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#FF6B35" stop-opacity="0.05" />
+        <stop offset="100%" stop-color="#FF6B35" stop-opacity="0.14" />
+      </linearGradient>
+      
     <filter id="shadowDouble" x="-15%" y="-15%" width="130%" height="130%">
       <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.18"/>
       <feDropShadow dx="0" dy="18" stdDeviation="24" flood-color="#FF6B35" flood-opacity="0.22"/>
@@ -31,22 +19,32 @@
       <circle cx="1" cy="1" r="0.3" fill="#e5e5e5" opacity="0.6"/>
       <circle cx="4" cy="3" r="0.25" fill="#e5e5e5" opacity="0.5"/>
     </pattern>
-  </defs>
-  <rect width="1024" height="1024" fill="url(#bg)"/>
-  
-  <rect x="112" y="253.1764705882353" width="800" height="517.6470588235294" fill="url(#paperTexture)" stroke="#FF6B35" stroke-width="2" rx="16" ry="16" filter="url(#shadowDouble)"/>
-  <rect x="112" y="253.1764705882353" width="800" height="517.6470588235294" fill="url(#paperHighlight)" rx="16" ry="16" pointer-events="none"/>
-  <g clip-path="url(#cardClip)">
-    <rect x="112" y="253.1764705882353" width="280" height="517.6470588235294" fill="url(#mgTileBand)"/>
-    <g transform="translate(252 512)">
-    <g fill="#FFFFFF"><ellipse cx="0" cy="-80.88888888888889" rx="10.88888888888889" ry="49.77777777777778" transform="rotate(0)"/><ellipse cx="0" cy="-80.88888888888889" rx="10.88888888888889" ry="49.77777777777778" transform="rotate(20)"/><ellipse cx="0" cy="-80.88888888888889" rx="10.88888888888889" ry="49.77777777777778" transform="rotate(40)"/><ellipse cx="0" cy="-80.88888888888889" rx="10.88888888888889" ry="49.77777777777778" transform="rotate(60)"/><ellipse cx="0" cy="-80.88888888888889" rx="10.88888888888889" ry="49.77777777777778" transform="rotate(80)"/><ellipse cx="0" cy="-80.88888888888889" rx="10.88888888888889" ry="49.77777777777778" transform="rotate(100)"/><ellipse cx="0" cy="-80.88888888888889" rx="10.88888888888889" ry="49.77777777777778" transform="rotate(120)"/><ellipse cx="0" cy="-80.88888888888889" rx="10.88888888888889" ry="49.77777777777778" transform="rotate(140)"/><ellipse cx="0" cy="-80.88888888888889" rx="10.88888888888889" ry="49.77777777777778" transform="rotate(160)"/><ellipse cx="0" cy="-80.88888888888889" rx="10.88888888888889" ry="49.77777777777778" transform="rotate(180)"/><ellipse cx="0" cy="-80.88888888888889" rx="10.88888888888889" ry="49.77777777777778" transform="rotate(200)"/><ellipse cx="0" cy="-80.88888888888889" rx="10.88888888888889" ry="49.77777777777778" transform="rotate(220)"/><ellipse cx="0" cy="-80.88888888888889" rx="10.88888888888889" ry="49.77777777777778" transform="rotate(240)"/><ellipse cx="0" cy="-80.88888888888889" rx="10.88888888888889" ry="49.77777777777778" transform="rotate(260)"/><ellipse cx="0" cy="-80.88888888888889" rx="10.88888888888889" ry="49.77777777777778" transform="rotate(280)"/><ellipse cx="0" cy="-80.88888888888889" rx="10.88888888888889" ry="49.77777777777778" transform="rotate(300)"/><ellipse cx="0" cy="-80.88888888888889" rx="10.88888888888889" ry="49.77777777777778" transform="rotate(320)"/><ellipse cx="0" cy="-80.88888888888889" rx="10.88888888888889" ry="49.77777777777778" transform="rotate(340)"/></g>
-    <circle r="34.22222222222222" fill="url(#mgCoreBand)"/>
-  </g>
-    <rect x="112" y="762.8235294117646" width="800" height="8" fill="#F5B529"/>
-  </g>
-  <text x="424" y="470.5882352941177" font-family="Inter" font-size="56" font-weight="500" font-style="italic" fill="#0F172A" letter-spacing="-0.025em">Magrit</text>
-  <text x="424" y="500.5882352941177" font-family="Inter" font-size="14" font-weight="400" fill="#0F172A" fill-opacity="0.55" letter-spacing="0.06em">imprimerie augmentée par l'IA</text>
-  <rect x="424" y="582.8235294117646" width="322.4" height="6" fill="#0F172A" opacity="0.30" rx="2"/>
-  <rect x="424" y="604.8235294117646" width="260" height="5" fill="#0F172A" opacity="0.22" rx="2"/>
-  <rect x="424" y="626.8235294117646" width="208" height="5" fill="#0F172A" opacity="0.22" rx="2"/>
-</svg>
+      
+    <radialGradient id="magritPollen" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FFE066"/>
+      <stop offset="60%" stop-color="#F5B529"/>
+      <stop offset="100%" stop-color="#C68708"/>
+    </radialGradient>
+    <linearGradient id="magritTileGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E5F0FC"/>
+      <stop offset="100%" stop-color="#B7D3F2"/>
+    </linearGradient>
+    </defs>
+    <rect width="1024" height="1024" fill="url(#bgGrad)" />
+    <g filter="url(#shadowDouble)">
+      <rect x="112" y="255" width="800" height="515" fill="#FFFFFF" rx="6" />
+      <rect x="112" y="255" width="800" height="515" fill="url(#paperHighlight)" rx="6" />
+      <rect x="112" y="255" width="280" height="515" fill="url(#magritTileGrad)" rx="6" />
+      <rect x="386" y="255" width="6" height="515" fill="url(#magritTileGrad)" />
+      <g transform="translate(252 475)"><g fill="#FFFFFF"><ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(0)"/><ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(20)"/><ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(40)"/><ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(60)"/><ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(80)"/><ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(100)"/><ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(120)"/><ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(140)"/><ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(160)"/><ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(180)"/><ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(200)"/><ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(220)"/><ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(240)"/><ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(260)"/><ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(280)"/><ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(300)"/><ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(320)"/><ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(340)"/></g><circle r="11" fill="url(#magritPollen)"/></g>
+      <text x="252" y="565" text-anchor="middle" font-family="Inter" font-style="italic" font-weight="500" font-size="36" fill="#0F172A" letter-spacing="-0.025em">Magrit</text>
+      <text x="252" y="590" text-anchor="middle" font-family="Inter" font-weight="400" font-size="11" fill="#0F172A" letter-spacing="0.08em" opacity="0.6">IMPRIMERIE · IA</text>
+      <rect x="422" y="295" width="80" height="80" fill="#F1F5F9" rx="4" />
+      <rect x="422" y="425" width="440" height="8" fill="#E2E8F0" rx="2" />
+      <rect x="422" y="455" width="380" height="8" fill="#E2E8F0" rx="2" />
+      <rect x="422" y="505" width="400" height="8" fill="#E2E8F0" rx="2" />
+      <rect x="422" y="535" width="340" height="8" fill="#E2E8F0" rx="2" />
+      <rect x="112" y="762" width="800" height="8" fill="#F5B529" />
+    </g>
+    <text x="912" y="802" text-anchor="end" font-family="Inter" font-weight="500" font-size="11" fill="#0F172A" opacity="0.45">Carte Pro</text>
+  </svg>

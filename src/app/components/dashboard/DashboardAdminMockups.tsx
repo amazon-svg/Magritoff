@@ -49,7 +49,7 @@ const TEMPLATES: TemplateRef[] = [
     height: 55,
     productName: 'Carte commerciale',
     description:
-      "Split 35/65 : bandeau bleu pastel + marguerite à gauche / Magrit italic + tagline + coordonnées simulées + référence à droite.",
+      "Split 35/65 : tile bleu pastel à gauche avec marguerite + Magrit italic + tagline / surface blanche à droite avec carré logo client + 4 lignes mock content / liseré pollen 8px en bas (P17 alignement Gemini).",
   },
   {
     key: 'flyer',
@@ -58,7 +58,7 @@ const TEMPLATES: TemplateRef[] = [
     height: 210,
     productName: 'Flyer A5 promo',
     description:
-      "3 zones verticales : bandeau tile + grande marguerite en haut / Magrit + tagline + 4 lignes corps / contact + référence.",
+      "3 zones verticales : tile bleu pastel haut 30% avec grande marguerite + Magrit italic 64 + tagline / surface blanche centrale avec bloc visuel + 4 lignes mock / 2 lignes mock + liseré pollen 8px en bas (P17 alignement Gemini).",
   },
   {
     key: 'depliant',
@@ -76,7 +76,7 @@ const TEMPLATES: TemplateRef[] = [
     height: 297,
     productName: 'Brochure 16 pages',
     description:
-      "Couverture 3D perspective 3/4 avec tranche de pages internes empilées visible côté gauche (P15 refonte).",
+      "Couverture A4 3D perspective skewY -2.5° : tranche de 5 pages internes visible côté gauche, bandeau tile bleu pastel + marguerite + Magrit, bloc visuel + 3 lignes mock, liseré pollen incliné suivant la perspective (P17 alignement Gemini).",
   },
   {
     key: 'packaging',
@@ -85,7 +85,7 @@ const TEMPLATES: TemplateRef[] = [
     height: 150,
     productName: 'Boîte expédition',
     description:
-      "Boîte kraft 3D vue 3/4 ouverte avec rabats relevés. Marquage Magrit centré sur la face avant + liseré pollen (P15).",
+      "Boîte kraft 3D vue 3/4 : 3 faces (avant, dessus, latérale) avec gradient kraft 4 stops + 2 rabats trapézoïdaux relevés. Médaillon circulaire bleu pastel sur la face avant (marguerite parfaitement visible sur le kraft) + Magrit italic 32 + tagline + liseré pollen (P17 alignement Gemini).",
   },
   {
     key: 'etiquette',
@@ -102,7 +102,7 @@ const TEMPLATES: TemplateRef[] = [
     height: 2000,
     productName: 'Roll-up salon',
     description:
-      "Format très portrait : bandeau tile + marguerite en haut / Magrit énorme + tagline / contact + référence + pied gris du roll-up.",
+      "Format très portrait : bandeau tile bleu pastel haut 25% avec marguerite + Magrit italic 60 + tagline / corps blanc 55% avec 5 lignes mock + 2 blocs visuels grisés / liseré pollen entre corps et socle / socle métallique gris foncé #475569 18% avec reflet cylindrique blanc (P17 alignement Gemini).",
   },
 ];
 
