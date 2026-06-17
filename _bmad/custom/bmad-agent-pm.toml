@@ -1,0 +1,10 @@
+# Magrit — Persistent facts pour l agent PM (John).
+# Chargé automatiquement à chaque activation de l agent BMAD PM.
+# Committed (versionné) — partagé avec toute personne travaillant sur ce repo.
+
+[agent]
+persistent_facts = [
+  "file:{project-root}/docs/project-context.md",
+  "file:{project-root}/SPRINT_HANDOFF.md",
+  "file:{project-root}/_bmad-output/planning-artifacts/prd.md",
+]

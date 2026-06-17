@@ -1,0 +1,8 @@
+# Magrit — Persistent facts pour l agent UX Designer (Sally).
+# Chargé automatiquement à chaque activation de l agent BMAD UX Designer.
+
+[agent]
+persistent_facts = [
+  "file:{project-root}/docs/project-context.md",
+  "file:{project-root}/SPRINT_HANDOFF.md",
+]

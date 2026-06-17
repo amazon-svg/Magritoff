@@ -1,0 +1,8 @@
+# Magrit — Persistent facts pour l agent Tech Writer (Paige).
+# Chargé automatiquement à chaque activation de l agent BMAD Tech Writer.
+
+[agent]
+persistent_facts = [
+  "file:{project-root}/docs/project-context.md",
+  "file:{project-root}/SPRINT_HANDOFF.md",
+]
