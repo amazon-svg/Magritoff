@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useState, useMemo } from 'react';
 import { Search, Sparkles, Plus, X, Loader2, AlertTriangle } from 'lucide-react';
 import type { Shop, ShopProduct } from '../../../contexts/ShopsContext';
 import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
-import { ProductMockup } from '../../brand/ProductMockup';
+import { resolveProductImage } from '../../../utils/productImages';
 import { supabase } from '/utils/supabase/client';
 import { computeClariprintQuoteSafe } from '../../../../server/clariprint/ClariprintAdapter';
 import { TEST_IDS } from '../../../lib/testIds';
@@ -485,12 +485,29 @@ export function PortalCatalog({
                   className="group bg-paper border border-line rounded-lg overflow-hidden cursor-pointer hover:border-line-2 transition-colors"
                   onClick={() => onSelectProduct(p)}
                 >
-                  <div className="aspect-[4/3] overflow-hidden rounded-t-lg">
-                    <ProductMockup
-                      name={p.name}
-                      kind={(p.config as any)?.kind}
-                      category={p.category}
-                      className="w-full h-full"
+                  {/* P18 v2 (2026-06-24) — Visuel produit pré-brandé Magrit
+                      (image curée produit/PIM si definie, sinon visuel Gemini de
+                      la famille). Aligne les suggestions IA sur le catalogue. */}
+                  <div
+                    className="aspect-[4/3] overflow-hidden rounded-t-lg"
+                    style={{ background: '#F5F5F5' }}
+                  >
+                    <img
+                      src={resolveProductImage({
+                        name: p.name,
+                        id: p.id,
+                        image_url: p.image_url,
+                        kind: (p.config as Record<string, unknown> | undefined)?.kind as
+                          | string
+                          | undefined,
+                        clariprintData: p.config,
+                        category: p.category,
+                        gammes: pimGammes,
+                        definitions: pimDefinitions,
+                      })}
+                      alt={`Visuel ${p.name}`}
+                      loading="lazy"
+                      className="w-full h-full object-contain"
                     />
                   </div>
                   <div className="p-3 flex flex-col gap-2">

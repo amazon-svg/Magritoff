@@ -2,173 +2,29 @@
  * Helpers purs pour ShopProductCard (Story S2.3, Epic 2).
  *
  * Surface :
- *  - resolveMockupTemplate(product) -> MockupTemplate (mapping product.config.kind
- *    Clariprint vers les 5 templates SVG MVP livres en S4.2). Fallback `flyer`.
+ *  - resolveMockupTemplate / resolveProductImage : RE-EXPORTES depuis
+ *    utils/productMockupAssets (source unique des visuels Gemini, partagee avec
+ *    utils/productImages pour home + fiche produit). Conserves ici pour
+ *    retro-compat (imports existants + tests).
  *  - resolveProductDimensions(product) -> { width, height } en mm. Lecture depuis
  *    config.width/height, fallback parsing config.format (A4/A5/...), default 148/210.
  *  - parseFormatToDimensions(format) -> { width, height } | null. Helper expose pour
  *    tests + reuse.
- *
- * Type MockupTemplate dupliqu cot front (le type Deno _shared/mockup/types.ts
- * n'est pas importable depuis Vite/React sans alias build cross-environnement).
- * A harmoniser dans le sprint refacto en attente (cf. memoire
- * project_refacto_sprint_pending).
  */
 
 import type { ShopProduct } from "../../contexts/ShopsContext";
 
-// P18 v2 (2026-06-23) — Visuels produits PRÉ-BRANDÉS Magrit (Gemini), branding
-// intégré dans l'image avec perspective + lighting cohérents. Servis comme
-// assets statiques front (object-fit: contain), un par famille de produit.
-// Remplace le compositing edge function (resvg-wasm) pour la boutique vitrine :
-// même 7 visuels pour tous les tenants (cf. brief-gemini-v2-mockups-prebrandes).
-import imgCarteVisite from "@/assets/products/magrit-carte-visite.jpg";
-import imgFlyer from "@/assets/products/magrit-flyer.jpg";
-import imgBrochure from "@/assets/products/magrit-brochure.jpg";
-import imgDepliant from "@/assets/products/magrit-depliant.jpg";
-import imgEtiquette from "@/assets/products/magrit-etiquette.jpg";
-import imgKakemono from "@/assets/products/magrit-kakemono.jpg";
-import imgPackaging from "@/assets/products/magrit-packaging.jpg";
-
-/**
- * Templates SVG mockup supportes (5 MVP livres en S4.2 + deployes v2 sur prod).
- * Source de verite cote Deno : supabase/functions/_shared/mockup/types.ts
- */
-export type MockupTemplate =
-  | "flyer"
-  | "carteVisite"
-  | "brochure"
-  | "etiquette"
-  | "kakemono"
-  | "packaging"
-  | "depliant";
-
-/**
- * Mapping product.kind Clariprint -> template SVG. Aliases et synonymes courants
- * pour absorber les variations de nommage entre Clariprint et Magrit PIM.
- *
- * Clefs en lowercase apres trim (cf. resolveMockupTemplate).
- */
-const KIND_TO_TEMPLATE: Record<string, MockupTemplate> = {
-  // Flyers / tracts (feuilles plates)
-  flyer: "flyer",
-  leaflet: "flyer",
-  affiche: "flyer",
-  tract: "flyer",
-  // Cartes de visite
-  carte_visite: "carteVisite",
-  card: "carteVisite",
-  visite: "carteVisite",
-  // Brochures (livrets multi-pages relies)
-  brochure: "brochure",
-  plaquette: "brochure",
-  // P15 — Depliants (3 volets plies, distinct de brochure depuis 2026-06-16)
-  depliant: "depliant",
-  "depliant-3-volets": "depliant",
-  "depliant-2-volets": "depliant",
-  leaflet_folded: "depliant",
-  // P15 — Packaging (boites, pochettes, boites pliees)
-  packaging: "packaging",
-  boite: "packaging",
-  pochette: "packaging",
-  emballage: "packaging",
-  // P11 (2026-06-15) — Kinds Clariprint qui mappent à brochure pour les livrets
-  // relies. P15 (2026-06-16) : folded redirige vers depliant (template dédié
-  // 3 volets perspective) plutot que brochure.
-  folded: "depliant",
-  book: "brochure",
-  cover: "brochure",
-  section: "brochure",
-  // Étiquettes / stickers
-  etiquette: "etiquette",
-  sticker: "etiquette",
-  label: "etiquette",
-  // Kakémonos / roll-ups / banderoles
-  kakemono: "kakemono",
-  rollup: "kakemono",
-  "roll-up": "kakemono",
-  banner: "kakemono",
-};
-
-/**
- * P14 (2026-06-16) — Inférence du template depuis le nom et la catégorie.
- *
- * Quand `kind` Clariprint est absent (cas Manitou : tous les products library
- * ont `config.kind = NULL` en DB par ex. parce que l'ingestion PIM ne l'a pas
- * rempli), on infère le template depuis le nom commercial du produit et sa
- * catégorie. Évite que tous les produits sans kind tombent sur le même
- * fallback "flyer" → bug visuel "tous les mockups identiques".
- *
- * Pattern emprunté à ProductMockup.tsx (avec extension aux 5 templates SVG).
- */
-function inferTemplateFromText(name?: string, category?: string): MockupTemplate {
-  const hay = `${category ?? ""} ${name ?? ""}`.toLowerCase();
-  if (!hay.trim()) return "flyer";
-  // Cartes de visite / commerciales / correspondance / "Cartes" générique.
-  // P14 fix : gérer pluriel (cart[eé]s?) + category "Cartes" seul.
-  if (/cart[eé]s?(\s+(de\s+)?(visite|commerciale|correspondance|pro))?|bvcard|business\s+card/.test(hay)) {
-    return "carteVisite";
-  }
-  // P15 — Packaging (boites, pochettes, emballages) — template distinct
-  if (/packaging|emballage|po?chette|bo[iî]te|carton/.test(hay)) {
-    return "packaging";
-  }
-  // P15 — Depliants (3 volets / 2 volets) — template distinct
-  if (/d[eé]pliant|tri.?fold|bi.?fold|leaflet.?fold|3.?volets|2.?volets/.test(hay)) {
-    return "depliant";
-  }
-  // Brochures (livrets relies multi-pages) / catalogues / magazines / plaquettes
-  if (/brochure|catalogue|livret|magazine|plaquette/.test(hay)) {
-    return "brochure";
-  }
-  // Étiquettes / stickers / adhésifs / autocollants
-  if (/[eé]tiquette|sticker|adh[eé]sif|autocollant|label/.test(hay)) {
-    return "etiquette";
-  }
-  // Kakémonos / roll-ups / banderoles / bâches
-  if (/kak[eé]mono|roll[\s-]?up|banderole|b[aâ]che|oriflamme/.test(hay)) {
-    return "kakemono";
-  }
-  // Flyers / tracts / affiches / posters (fallback flyer)
-  return "flyer";
-}
-
-/**
- * Resout le template SVG approprie pour un produit donne.
- *
- * Lit le `kind` Clariprint depuis 2 sources possibles :
- *   - `product.config.kind` : structure ShopProduct (boutique B2B, library)
- *   - `product.clariprintData.kind` : structure atelier (Product enriched
- *     par le chat IA Marguerite, fix 2026-06-16 bug #1 mauvaise association)
- *
- * Si aucune source ne fournit un kind reconnu, infère depuis name + category
- * (P14 fix 2026-06-16 bug #2 Manitou : tous les products avaient kind=null
- * en DB → tous tombaient sur fallback flyer → tous le même mockup).
- */
-export function resolveMockupTemplate(
-  product:
-    | ShopProduct
-    | {
-        config?: unknown;
-        clariprintData?: unknown;
-        name?: string;
-        category?: string;
-      },
-): MockupTemplate {
-  const config = (product as { config?: Record<string, unknown> }).config;
-  const clariprintData = (product as { clariprintData?: Record<string, unknown> }).clariprintData;
-  // Priorité config.kind (path boutique) puis clariprintData.kind (path atelier).
-  const rawKind = config?.kind ?? clariprintData?.kind;
-  if (typeof rawKind === "string") {
-    const normalized = rawKind.toLowerCase().trim();
-    const mapped = KIND_TO_TEMPLATE[normalized];
-    if (mapped) return mapped;
-  }
-  // Inférence depuis name + category (P14)
-  const name = (product as { name?: string }).name;
-  const category = (product as { category?: string }).category;
-  return inferTemplateFromText(name, category);
-}
+// P18 v2 (2026-06-24) — La resolution de famille (kind Clariprint + inference)
+// et le mapping vers les 7 visuels Gemini ont ete extraits dans
+// utils/productMockupAssets : source de verite unique, partagee entre la
+// boutique (catalogue) et utils/productImages (home + fiche produit). On
+// re-exporte ici pour ne pas casser les imports existants (ShopProductCard.tsx,
+// tests ShopProductCard.helpers).
+export {
+  resolveMockupTemplate,
+  resolveProductMockupAsset as resolveProductImage,
+  type MockupTemplate,
+} from "../../utils/productMockupAssets";
 
 /**
  * Format papier standard FR -> dimensions en mm (portrait par defaut).
@@ -208,42 +64,6 @@ export function parseFormatToDimensions(
     }
   }
   return null;
-}
-
-/**
- * P18 v2 (2026-06-23) — Mapping MockupTemplate -> visuel produit pré-brandé.
- *
- * Les 7 `id` du manifest Gemini correspondent exactement au type MockupTemplate,
- * on réutilise donc la résolution kind->template existante (plus fine que les
- * `kinds` plats du manifest) puis on mappe template -> PNG. Vite résout chaque
- * import en URL d'asset au build.
- */
-const TEMPLATE_TO_PRODUCT_IMAGE: Record<MockupTemplate, string> = {
-  carteVisite: imgCarteVisite,
-  flyer: imgFlyer,
-  brochure: imgBrochure,
-  depliant: imgDepliant,
-  etiquette: imgEtiquette,
-  kakemono: imgKakemono,
-  packaging: imgPackaging,
-};
-
-/**
- * P18 v2 — Résout le visuel produit pré-brandé Magrit pour un produit donné.
- * Combine resolveMockupTemplate() (kind Clariprint / inférence nom+catégorie)
- * et le mapping statique. Fallback `flyer` garanti par resolveMockupTemplate.
- */
-export function resolveProductImage(
-  product:
-    | ShopProduct
-    | {
-        config?: unknown;
-        clariprintData?: unknown;
-        name?: string;
-        category?: string;
-      },
-): string {
-  return TEMPLATE_TO_PRODUCT_IMAGE[resolveMockupTemplate(product)];
 }
 
 const DEFAULT_DIMENSIONS = { width: 148, height: 210 } as const; // A5 portrait

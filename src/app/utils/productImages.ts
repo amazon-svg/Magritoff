@@ -5,16 +5,19 @@
  *  1. `product.image_url` (image définie explicitement sur le produit)
  *  2. `ProductDefinition.image_url` (image PIM spécifique à la variation)
  *  3. `Gamme.image_url` (image PIM par défaut de la gamme)
- *  4. → null : le composant affiche le ProductMockup SVG (picto cohérent
- *     avec la charte graphique, couleurs pastel hash-based).
+ *  4. → visuel produit pré-brandé Magrit (Gemini) de la famille, via
+ *     resolveProductMockupAsset (P18 v2, 2026-06-24). Fallback universel : la
+ *     home, le catalogue et la fiche produit affichent le meme visuel vitrine
+ *     quand aucune image curée n'est définie, au lieu du picto SVG.
  *
  * On ne pioche plus dans un pool Unsplash par défaut : soit on a une image
- * validée (par le produit ou le PIM), soit on affiche un picto aesthétique.
+ * validée (par le produit ou le PIM), soit le visuel Magrit de la famille.
  * L'admin curera les images depuis l'admin PIM (/dashboard/admin/pim).
  */
 
 import type { Gamme, ProductDefinition } from './productEnrichment';
 import { resolveGamme, resolveDefinition } from './productEnrichment';
+import { resolveProductMockupAsset } from './productMockupAssets';
 
 export interface ResolveImageInput {
   name: string;
@@ -23,6 +26,8 @@ export interface ResolveImageInput {
   /** Config Clariprint brute (kind, width, height, etc.) */
   clariprintData?: any;
   kind?: string;
+  /** Categorie produit (sert a l'inference de famille du visuel Gemini). */
+  category?: string;
   /** Données PIM chargées côté appelant */
   gammes?: Gamme[];
   definitions?: ProductDefinition[];
@@ -30,9 +35,11 @@ export interface ResolveImageInput {
 }
 
 /**
- * Retourne l'URL d'image à utiliser, ou null si on doit retomber sur le picto.
+ * Retourne l'URL d'image à utiliser. Toujours non-null depuis P18 v2 : à défaut
+ * d'image curée (produit / PIM), on sert le visuel produit pré-brandé Magrit de
+ * la famille (fallback universel boutique).
  */
-export function resolveProductImage(input: ResolveImageInput): string | null {
+export function resolveProductImage(input: ResolveImageInput): string {
   // 1. Image custom sur le produit
   if (input.image_url && input.image_url.trim()) {
     return input.image_url;
@@ -58,6 +65,12 @@ export function resolveProductImage(input: ResolveImageInput): string | null {
     }
   }
 
-  // 4. Pas d'image valide — le composant affichera le ProductMockup SVG
-  return null;
+  // 4. Pas d'image curée — visuel produit pré-brandé Magrit de la famille
+  //    (resolu via kind Clariprint puis inference nom + categorie).
+  return resolveProductMockupAsset({
+    name: input.name,
+    kind: input.kind,
+    clariprintData: input.clariprintData,
+    category: input.category,
+  });
 }

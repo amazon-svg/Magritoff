@@ -27,10 +27,11 @@ import {
   resolveCustomMockup,
   type MockupTemplateType,
 } from "../mockup/customMockup.helpers";
-import {
-  resolveMockupTemplate,
-  resolveProductImage,
-} from "./ShopProductCard.helpers";
+import { resolveMockupTemplate } from "./ShopProductCard.helpers";
+// P18 v2 (2026-06-24) — Resolver unifie : image curée (produit / PIM) si
+// definie, sinon visuel produit pré-brandé Magrit de la famille. Meme logique
+// que la home + la fiche produit.
+import { resolveProductImage } from "../../utils/productImages";
 
 export interface ShopProductCardProps {
   product: ShopProduct;
@@ -71,8 +72,23 @@ export function ShopProductCard({
   pimGammes,
 }: ShopProductCardProps) {
   const template = useMemo(() => resolveMockupTemplate(product), [product]);
-  // P18 v2 (2026-06-23) — Visuel produit pré-brandé Magrit (asset statique).
-  const productImage = useMemo(() => resolveProductImage(product), [product]);
+  // P18 v2 (2026-06-24) — Image curée (produit / PIM) si definie, sinon visuel
+  // produit pré-brandé Magrit de la famille (fallback universel boutique).
+  const productImage = useMemo(
+    () =>
+      resolveProductImage({
+        name: product.name,
+        id: product.id,
+        image_url: product.image_url,
+        kind: (product.config as Record<string, unknown> | undefined)?.kind as
+          | string
+          | undefined,
+        clariprintData: product.config,
+        category: product.category,
+        gammes: pimGammes,
+      }),
+    [product, pimGammes],
+  );
 
   // P4-VISUELS (2026-06-15) — Fetch custom mockup override per-shop x template.
   // Si l'admin tenant a uploadé un mockup custom dans ShopVisualSettings, il
