@@ -22,13 +22,13 @@ import type { ShopProduct } from "../../contexts/ShopsContext";
 // assets statiques front (object-fit: contain), un par famille de produit.
 // Remplace le compositing edge function (resvg-wasm) pour la boutique vitrine :
 // même 7 visuels pour tous les tenants (cf. brief-gemini-v2-mockups-prebrandes).
-import imgCarteVisite from "@/assets/products/magrit-carte-visite.png";
-import imgFlyer from "@/assets/products/magrit-flyer.png";
-import imgBrochure from "@/assets/products/magrit-brochure.png";
-import imgDepliant from "@/assets/products/magrit-depliant.png";
-import imgEtiquette from "@/assets/products/magrit-etiquette.png";
-import imgKakemono from "@/assets/products/magrit-kakemono.png";
-import imgPackaging from "@/assets/products/magrit-packaging.png";
+import imgCarteVisite from "@/assets/products/magrit-carte-visite.jpg";
+import imgFlyer from "@/assets/products/magrit-flyer.jpg";
+import imgBrochure from "@/assets/products/magrit-brochure.jpg";
+import imgDepliant from "@/assets/products/magrit-depliant.jpg";
+import imgEtiquette from "@/assets/products/magrit-etiquette.jpg";
+import imgKakemono from "@/assets/products/magrit-kakemono.jpg";
+import imgPackaging from "@/assets/products/magrit-packaging.jpg";
 
 /**
  * Templates SVG mockup supportes (5 MVP livres en S4.2 + deployes v2 sur prod).

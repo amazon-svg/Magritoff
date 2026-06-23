@@ -14,13 +14,13 @@ adjacent. **Le produit lui-même n'est pas retouché** — chaque visuel est seu
 
 | Produit | Fichier | Dim. (px) |
 |---|---|---|
-| Carte de visite | `magrit-carte-visite.png` | 452×368 |
-| Flyer | `magrit-flyer.png` | 455×368 |
-| Brochure | `magrit-brochure.png` | 454×368 |
-| Dépliant | `magrit-depliant.png` | 452×368 |
-| Étiquette | `magrit-etiquette.png` | 246×368 |
-| Kakémono | `magrit-kakemono.png` | 199×368 |
-| Packaging | `magrit-packaging.png` | 454×368 |
+| Carte de visite | `magrit-carte-visite.jpg` | 452×368 |
+| Flyer | `magrit-flyer.jpg` | 455×368 |
+| Brochure | `magrit-brochure.jpg` | 454×368 |
+| Dépliant | `magrit-depliant.jpg` | 452×368 |
+| Étiquette | `magrit-etiquette.jpg` | 246×368 |
+| Kakémono | `magrit-kakemono.jpg` | 199×368 |
+| Packaging | `magrit-packaging.jpg` | 454×368 |
 
 Le mapping **kind Clariprint → asset** est dans `manifest.json` (clé `kinds` par produit, plus `fallback`).
 
@@ -31,7 +31,7 @@ Le mapping **kind Clariprint → asset** est dans `manifest.json` (clé `kinds` 
    (réutiliser la logique `KIND_TO_TEMPLATE` / `inferTemplateFromText` : même clés, valeur = chemin du PNG).
 3. `ShopProductCard.tsx` : afficher l'image en `object-fit: contain` sur fond clair. Les cellules incluent
    déjà leur fond gris doux et leur ombre — un fond de card neutre (#F5F5F2 → #FFFFFF) s'accorde bien.
-4. `fallback` (`magrit-flyer.png`) pour tout `kind` non mappé.
+4. `fallback` (`magrit-flyer.jpg`) pour tout `kind` non mappé.
 
 ```ts
 // exemple de résolution
