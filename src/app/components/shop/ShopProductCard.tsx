@@ -23,14 +23,13 @@ import type { Shop, ShopProduct } from "../../contexts/ShopsContext";
 import type { Gamme, ProductDefinition } from "../../utils/productEnrichment";
 import { resolveGamme } from "../../utils/productEnrichment";
 import { TEST_IDS } from "../../lib/testIds";
-import { MockupImage } from "../mockup/MockupImage";
 import {
   resolveCustomMockup,
   type MockupTemplateType,
 } from "../mockup/customMockup.helpers";
 import {
   resolveMockupTemplate,
-  resolveProductDimensions,
+  resolveProductImage,
 } from "./ShopProductCard.helpers";
 
 export interface ShopProductCardProps {
@@ -72,7 +71,8 @@ export function ShopProductCard({
   pimGammes,
 }: ShopProductCardProps) {
   const template = useMemo(() => resolveMockupTemplate(product), [product]);
-  const dimensions = useMemo(() => resolveProductDimensions(product), [product]);
+  // P18 v2 (2026-06-23) — Visuel produit pré-brandé Magrit (asset statique).
+  const productImage = useMemo(() => resolveProductImage(product), [product]);
 
   // P4-VISUELS (2026-06-15) — Fetch custom mockup override per-shop x template.
   // Si l'admin tenant a uploadé un mockup custom dans ShopVisualSettings, il
@@ -107,12 +107,6 @@ export function ShopProductCard({
   const categoryLabel = gammeName
     ?? (isRawClariprintKind ? "Template" : (product.category || "Template"));
 
-  // tenant_id n est pas expose sur Shop public (RLS), on retombe sur shop.id
-  // comme namespace de cache. La fonction edge mockup-generator accepte les
-  // 2 strategies de namespacing (cache key = {tenant}/{shop}/{product}.png).
-  const tenantNamespace =
-    (shop as Shop & { tenant_id?: string }).tenant_id ?? shop.id;
-
   return (
     <article
       data-testid={TEST_IDS.shop.productCard}
@@ -137,19 +131,23 @@ export function ShopProductCard({
           />
         )}
 
-        <MockupImage
-          tenantId={tenantNamespace}
-          shopId={shop.id}
-          productId={product.id}
-          width={dimensions.width}
-          height={dimensions.height}
-          productName={product.name}
-          primaryColor={shop.theme?.primaryColor ?? "#1e3a8a"}
-          template={template}
-          customMockupUrl={customMockupUrl}
-          alt={`Mockup ${product.name}`}
+        {/* P18 v2 (2026-06-23) — Visuel produit pré-brandé Magrit servi en
+            asset statique (object-fit: contain). Si l'admin tenant a uploadé
+            un mockup custom via ShopVisualSettings, il prime (override). */}
+        <div
+          data-testid={TEST_IDS.mockup.productImage}
+          data-custom-mockup={customMockupUrl ? "true" : undefined}
           className="w-full h-full"
-        />
+          style={{ position: "relative" }}
+        >
+          <img
+            data-testid={TEST_IDS.mockup.productImageImg}
+            src={customMockupUrl || productImage}
+            alt={`Mockup ${product.name}`}
+            loading="lazy"
+            className="w-full h-full object-contain"
+          />
+        </div>
 
         <span
           className="absolute top-2.5 right-2.5 font-mono uppercase px-2 py-1 rounded bg-ink text-paper"

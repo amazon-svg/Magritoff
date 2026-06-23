@@ -17,6 +17,19 @@
 
 import type { ShopProduct } from "../../contexts/ShopsContext";
 
+// P18 v2 (2026-06-23) — Visuels produits PRÉ-BRANDÉS Magrit (Gemini), branding
+// intégré dans l'image avec perspective + lighting cohérents. Servis comme
+// assets statiques front (object-fit: contain), un par famille de produit.
+// Remplace le compositing edge function (resvg-wasm) pour la boutique vitrine :
+// même 7 visuels pour tous les tenants (cf. brief-gemini-v2-mockups-prebrandes).
+import imgCarteVisite from "@/assets/products/magrit-carte-visite.png";
+import imgFlyer from "@/assets/products/magrit-flyer.png";
+import imgBrochure from "@/assets/products/magrit-brochure.png";
+import imgDepliant from "@/assets/products/magrit-depliant.png";
+import imgEtiquette from "@/assets/products/magrit-etiquette.png";
+import imgKakemono from "@/assets/products/magrit-kakemono.png";
+import imgPackaging from "@/assets/products/magrit-packaging.png";
+
 /**
  * Templates SVG mockup supportes (5 MVP livres en S4.2 + deployes v2 sur prod).
  * Source de verite cote Deno : supabase/functions/_shared/mockup/types.ts
@@ -195,6 +208,42 @@ export function parseFormatToDimensions(
     }
   }
   return null;
+}
+
+/**
+ * P18 v2 (2026-06-23) — Mapping MockupTemplate -> visuel produit pré-brandé.
+ *
+ * Les 7 `id` du manifest Gemini correspondent exactement au type MockupTemplate,
+ * on réutilise donc la résolution kind->template existante (plus fine que les
+ * `kinds` plats du manifest) puis on mappe template -> PNG. Vite résout chaque
+ * import en URL d'asset au build.
+ */
+const TEMPLATE_TO_PRODUCT_IMAGE: Record<MockupTemplate, string> = {
+  carteVisite: imgCarteVisite,
+  flyer: imgFlyer,
+  brochure: imgBrochure,
+  depliant: imgDepliant,
+  etiquette: imgEtiquette,
+  kakemono: imgKakemono,
+  packaging: imgPackaging,
+};
+
+/**
+ * P18 v2 — Résout le visuel produit pré-brandé Magrit pour un produit donné.
+ * Combine resolveMockupTemplate() (kind Clariprint / inférence nom+catégorie)
+ * et le mapping statique. Fallback `flyer` garanti par resolveMockupTemplate.
+ */
+export function resolveProductImage(
+  product:
+    | ShopProduct
+    | {
+        config?: unknown;
+        clariprintData?: unknown;
+        name?: string;
+        category?: string;
+      },
+): string {
+  return TEMPLATE_TO_PRODUCT_IMAGE[resolveMockupTemplate(product)];
 }
 
 const DEFAULT_DIMENSIONS = { width: 148, height: 210 } as const; // A5 portrait

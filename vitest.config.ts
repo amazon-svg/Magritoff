@@ -1,6 +1,19 @@
 import { defineConfig } from 'vitest/config';
+import path from 'path';
 
 export default defineConfig({
+  resolve: {
+    alias: [
+      // Stub des imports d'images (env node ne transforme pas les binaires).
+      // Doit précéder l'alias `@` pour matcher avant la résolution de chemin.
+      {
+        find: /^.*\.(png|jpe?g|gif|webp|avif)$/,
+        replacement: path.resolve(__dirname, './tests/_assetStub.ts'),
+      },
+      // Alias @ -> src (miroir de vite.config.ts, non hérité par vitest).
+      { find: '@', replacement: path.resolve(__dirname, './src') },
+    ],
+  },
   test: {
     include: ['tests/**/*.test.ts', 'tests/**/*.spec.ts'],
     exclude: ['tests/e2e/**', '**/node_modules/**', '**/dist/**'],

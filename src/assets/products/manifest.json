@@ -1,0 +1,58 @@
+{
+  "$comment": "Magrit — visuels produits ProductCard. Découpés depuis la planche de référence Gemini. Seuls les titres et références ont été effacés (fond reconstruit) ; le produit n'est pas retouché. Visuel seul sur son fond. À câbler dans ShopProductCard (kind Clariprint -> asset).",
+  "source": "uploads/Gemini_Generated_Image_.png",
+  "format": "png",
+  "colorspace": "sRGB",
+  "products": [
+    {
+      "id": "carteVisite",
+      "title": "Carte de visite",
+      "asset": "magrit-carte-visite.png",
+      "width": 452, "height": 368,
+      "kinds": ["business_card", "carte_visite", "carte_de_visite", "carte", "bristol"]
+    },
+    {
+      "id": "flyer",
+      "title": "Flyer",
+      "asset": "magrit-flyer.png",
+      "width": 455, "height": 368,
+      "kinds": ["flyer", "tract", "feuille", "prospectus", "affichette"]
+    },
+    {
+      "id": "brochure",
+      "title": "Brochure",
+      "asset": "magrit-brochure.png",
+      "width": 454, "height": 368,
+      "kinds": ["brochure", "livret", "booklet", "catalogue", "magazine"]
+    },
+    {
+      "id": "depliant",
+      "title": "Dépliant",
+      "asset": "magrit-depliant.png",
+      "width": 452, "height": 368,
+      "kinds": ["depliant", "folded", "trifold", "card_folded", "voeux", "plaquette"]
+    },
+    {
+      "id": "etiquette",
+      "title": "Étiquette",
+      "asset": "magrit-etiquette.png",
+      "width": 246, "height": 368,
+      "kinds": ["etiquette", "sticker", "label", "magnet", "vinyl_sticker", "autocollant"]
+    },
+    {
+      "id": "kakemono",
+      "title": "Kakémono",
+      "asset": "magrit-kakemono.png",
+      "width": 199, "height": 368,
+      "kinds": ["kakemono", "rollup", "roll_up", "banderole", "bache", "oriflamme"]
+    },
+    {
+      "id": "packaging",
+      "title": "Packaging",
+      "asset": "magrit-packaging.png",
+      "width": 454, "height": 368,
+      "kinds": ["packaging", "box", "boite", "carton", "bag", "sac", "emballage"]
+    }
+  ],
+  "fallback": "magrit-flyer.png"
+}
