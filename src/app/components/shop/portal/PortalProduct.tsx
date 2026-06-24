@@ -146,9 +146,9 @@ export function PortalProduct({ product, onBack, onAddToCart, pimGammes, pimDefi
       <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_1fr] gap-10">
         {/* Visuel */}
         <div>
-          <div className="aspect-[4/3] rounded-xl overflow-hidden border border-line relative">
+          <div className="aspect-[4/3] rounded-xl overflow-hidden border border-line relative bg-bg">
             {imgSrc ? (
-              <img src={imgSrc} alt={product.name} className="w-full h-full object-cover" />
+              <img src={imgSrc} alt={product.name} className="w-full h-full object-contain" />
             ) : (
               <ProductMockup
                 name={product.name}

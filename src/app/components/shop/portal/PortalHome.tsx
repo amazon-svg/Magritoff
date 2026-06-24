@@ -170,12 +170,12 @@ export function PortalHome({
                       i < recentOrders.length - 1 ? 'border-b border-line' : ''
                     }`}
                   >
-                    <div className="w-[46px] h-[46px] rounded-lg overflow-hidden">
+                    <div className="w-[46px] h-[46px] rounded-lg overflow-hidden bg-bg">
                       {imgSrc ? (
                         <img
                           src={imgSrc}
                           alt=""
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-contain"
                           loading="lazy"
                         />
                       ) : (

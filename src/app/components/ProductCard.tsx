@@ -326,7 +326,7 @@ export function ProductCard({
                       src={src}
                       alt={localProduct.name}
                       onError={() => setImgError(true)}
-                      className="absolute inset-0 w-full h-full object-cover"
+                      className="absolute inset-0 w-full h-full object-contain"
                       loading="lazy"
                     />
                     {/* Overlay sombre tres leger pour la lisibilite des badges */}
