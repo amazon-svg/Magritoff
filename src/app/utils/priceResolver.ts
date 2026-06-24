@@ -69,13 +69,19 @@ export interface PriceResolution {
  * En attendant, elle fournit toujours une valeur > 0 (sauf cas degeneres
  * sans nom ni quantite, retour par defaut tres bas).
  */
-export function estimateMarketPriceHT(product: any): number {
+export function estimateMarketPriceHT(product: any, quantityOverride?: number): number {
   if (!product) return 0;
 
   // Resolution config Clariprint imbriquee si presente
   const cfg = product.clariprintData ?? product.config?.clariprintData ?? product.config ?? product;
 
-  const qty = Number(cfg.quantity ?? product.quantity ?? 500);
+  // P18 v2 (2026-06-24) : quantityOverride prioritaire (quantite choisie dans
+  // l'overlay) sur la quantite figee du produit. Corrige le "prix pour 1" quand
+  // l'utilisateur change la quantite et que le devis Clariprint live echoue.
+  const qty =
+    Number.isFinite(quantityOverride) && (quantityOverride as number) > 0
+      ? (quantityOverride as number)
+      : Number(cfg.quantity ?? product.quantity ?? 500);
   const name = String(product.name ?? cfg.name ?? '').toLowerCase();
 
   let base = 0.15; // Defaut universel (EUR / unite)

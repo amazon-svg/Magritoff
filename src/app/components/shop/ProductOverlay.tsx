@@ -26,20 +26,17 @@ import type { Shop, ShopProduct } from "../../contexts/ShopsContext";
 import { TEST_IDS } from "../../lib/testIds";
 import { ENABLE_OVERLAY_LIVE_RECALC } from "../../lib/featureFlags";
 import { Sheet, SheetContent, SheetTitle } from "../ui/sheet";
-import { ProductMultiView } from "../mockup/ProductMultiView";
 import {
   resolveCustomMockup,
   type MockupTemplateType,
 } from "../mockup/customMockup.helpers";
+import { resolveProductImage } from "../../utils/productImages";
 import {
   ClariprintError,
   ClariprintHttpAdapter,
 } from "../../../server/clariprint/ClariprintAdapter";
 import { estimateMarketPriceHT } from "../../utils/priceResolver";
-import {
-  resolveMockupTemplate,
-  resolveProductDimensions,
-} from "./ShopProductCard.helpers";
+import { resolveMockupTemplate } from "./ShopProductCard.helpers";
 import {
   buildClariprintPayload,
   extractInitialOptions,
@@ -82,9 +79,6 @@ export interface ProductOverlayProps {
   confirmLabel?: string;
 }
 
-const DEFAULT_BRAND_PRIMARY = "#1e3a8a"; // brand Magrit fallback hors contexte boutique
-const ATELIER_TENANT_FALLBACK = "atelier";
-const ATELIER_SHOP_FALLBACK = "atelier";
 
 export function ProductOverlay({
   product,
@@ -145,7 +139,7 @@ export function ProductOverlay({
             });
           } else {
             // success=false suite a sanitization (cf. validateClariprintResponse)
-            const fallback = estimateMarketPriceHT(product);
+            const fallback = estimateMarketPriceHT(product, options.quantity);
             setPhase({
               kind: "error",
               errorKind: "undefined_field",
@@ -165,7 +159,7 @@ export function ProductOverlay({
             errorKind === "nan_price" ||
             errorKind === "undefined_field"
           ) {
-            const fallback = estimateMarketPriceHT(product);
+            const fallback = estimateMarketPriceHT(product, options.quantity);
             setPhase({
               kind: "error",
               errorKind,
@@ -180,10 +174,16 @@ export function ProductOverlay({
               message: "Configuration non disponible chez cet imprimeur",
             });
           } else {
+            // Erreur reseau / timeout : on affiche quand meme une estimation
+            // Prix marché tenant compte de la quantite choisie (sinon le prix
+            // retombait sur product.price_ht fige a la quantite par defaut = 1).
+            const fallback = estimateMarketPriceHT(product, options.quantity);
             setPhase({
               kind: "error",
               errorKind,
-              message: "Erreur réseau — réessayez",
+              message: "Erreur réseau — Prix marché estimé (réessayez)",
+              fallbackPriceHT: fallback,
+              fallbackPriceTTC: applyTax(fallback, taxRate),
             });
           }
         })
@@ -253,34 +253,6 @@ export function ProductOverlay({
     };
   }, [shop?.id, overlayTemplate]);
 
-  // Mini mockup props (memoise pour eviter recreation a chaque render).
-  // S2.4b : shop optionnel -> fallbacks atelier (tenant_id='atelier', shop_id='atelier',
-  // primaryColor=brand Magrit). Le mockup engine accepte ces sentinelles ;
-  // le cache CDN se construira sous {atelier}/{atelier}/{productId}.png.
-  const mockupProps = useMemo(() => {
-    if (!product) return null;
-    const dims = resolveProductDimensions(product);
-    const template = resolveMockupTemplate(product);
-    const tenantNamespace =
-      (shop as (Shop & { tenant_id?: string }) | null | undefined)?.tenant_id ??
-      shop?.id ??
-      ATELIER_TENANT_FALLBACK;
-    const shopId = shop?.id ?? ATELIER_SHOP_FALLBACK;
-    const primaryColor = shop?.theme?.primaryColor ?? DEFAULT_BRAND_PRIMARY;
-    return {
-      tenantId: tenantNamespace,
-      shopId,
-      productId: product.id,
-      width: dims.width,
-      height: dims.height,
-      productName: product.name,
-      primaryColor,
-      template,
-      customMockupUrl,
-      alt: `Mockup ${product.name}`,
-    };
-  }, [product, shop, customMockupUrl]);
-
   return (
     <Sheet
       open={open}
@@ -293,7 +265,7 @@ export function ProductOverlay({
         data-testid={TEST_IDS.shop.productOverlay}
         className="w-full sm:w-[420px] sm:max-w-[420px] flex flex-col p-0"
       >
-        {product && mockupProps && (
+        {product && (
           <>
             {/* Header sticky */}
             <div className="px-5 pt-5 pb-3 border-b border-line">
@@ -310,15 +282,30 @@ export function ProductOverlay({
 
             {/* Body scrollable */}
             <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-4">
-              {/* Mini mockup avec toggle Recto/Verso (S-PRODUCT-VIEWS-MULTI V7).
-                  Sur la vue detail produit, on expose ProductMultiView qui
-                  wrap MockupImage avec un toggle. Sur la grille catalogue
-                  (ShopProductCard), on garde MockupImage simple pour la perf. */}
+              {/* P18 v2 (2026-06-24) — Visuel produit pré-brandé Magrit servi en
+                  asset statique (object-contain), aligne sur le catalogue + la
+                  fiche produit. Override custom-mockup tenant prioritaire. */}
               <div
                 className="aspect-[4/3] overflow-hidden rounded-lg"
                 style={{ background: "#F5F5F5" }}
               >
-                <ProductMultiView {...mockupProps} className="w-full h-full" />
+                <img
+                  src={
+                    customMockupUrl ||
+                    resolveProductImage({
+                      name: product.name,
+                      id: product.id,
+                      image_url: (product as { image_url?: string }).image_url,
+                      kind: (product.config as Record<string, unknown> | undefined)
+                        ?.kind as string | undefined,
+                      clariprintData: product.config,
+                      category: product.category,
+                    })
+                  }
+                  alt={`Mockup ${product.name}`}
+                  loading="lazy"
+                  className="w-full h-full object-contain"
+                />
               </div>
 
               {/* Bloc options */}
