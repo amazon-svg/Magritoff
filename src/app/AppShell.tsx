@@ -20,6 +20,7 @@ import { LibraryProvider } from './contexts/LibraryContext';
 import { ShopsProvider } from './contexts/ShopsContext';
 import { QuoteTemplatesProvider } from './contexts/QuoteTemplatesContext';
 import { CartProvider } from './contexts/CartContext';
+import { QuotesProvider } from './contexts/QuotesContext';
 
 export function AppShell() {
   return (
@@ -29,7 +30,9 @@ export function AppShell() {
           <ShopsProvider>
             <QuoteTemplatesProvider>
               <CartProvider>
-                <Outlet />
+                <QuotesProvider>
+                  <Outlet />
+                </QuotesProvider>
               </CartProvider>
             </QuoteTemplatesProvider>
           </ShopsProvider>
