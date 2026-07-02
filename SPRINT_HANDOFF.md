@@ -2,7 +2,37 @@
 
 > Document de reprise pour démarrer une nouvelle session de Claude code sur le projet sans recharger tout l'historique. À tenir à jour à chaque fin de sprint.
 >
-> **Dernière mise à jour : 2026-06-15 — A4 mini-sprint personnalisation boutiques livré (3 stories : hero+tagline, palette+fonts, tarif négocié per-shop). Brief A3 démo Magrit Core préparé en parallèle (Mary BMAD). Voir section 16 ci-dessous.**
+> **Dernière mise à jour : 2026-07-02 — Sprint S-QUOTES (bibliothèque de devis éditables) livré en code (6 stories). Voir section 17 ci-dessous. ⚠️ Migration `20260702000100` NON encore appliquée en prod (PAT requis).**
+
+## 17. Session 2026-07-02 — S-QUOTES : bibliothèque de devis éditables
+
+Demande Arnaud : éditer les devis après génération (quantités, prix, marges), modifier le nom du client, réordonner les lignes, bibliothèque avec statuts (en cours/validé/rejeté) au tableau de bord, devis associés à l'utilisateur (admin voit tout). Plan validé (ExitPlanMode) puis exécution 6 stories.
+
+### Décisions produit
+- **Devis multi-lignes** : nouvelle table `quote_lines` (le modèle `quotes` était à plat, 1 produit).
+- **Prix ET marge % synchronisés** par ligne (markup sur coût par défaut — **à confirmer** vs taux de marque).
+- **Création depuis le panier** (bouton « Créer un devis ») puis éditeur dédié.
+- Statuts : `text` + CHECK rétro-compatible, mapping 3 groupes UI (en cours = draft/sent/pending · validé = validated/won · rejeté = rejected/lost).
+- RLS override admin calqué sur `tenant_orders` (auteur édite ses devis quel que soit le statut ; admin/owner tenant voit et édite tout).
+
+### 6 stories livrées (code, non commité — confirmation push requise)
+| Story | Contenu |
+|---|---|
+| S-QUOTES-1 | Migration `20260702000100` (ALTER quotes + `quote_lines` + RLS + trigger + compat data) + tests RLS `quotes_lines_isolation.test.ts` (6 cas) + types |
+| S-QUOTES-2 | `quoteMath.ts` (synchro prix/marge, 13 tests) + `QuotesContext` (scope mine/all) + montage AppShell |
+| S-QUOTES-3 | `DashboardQuoteEditor` (page `dashboard/quotes/:id/edit`) + `openQuotePrint`/`buildQuoteDocumentHtml` (quote.ts) + `quoteStatus.ts` + testIds `quoteLib` |
+| S-QUOTES-4 | Bouton « Créer un devis » dans `CartButton` (+ « Imprimer directement » secondaire) |
+| S-QUOTES-5 | Refonte `DashboardQuotes` : 3 statuts, bascule scope Mes/Tous (owner/admin), colonne Émetteur, actions ligne (éditer/dupliquer/supprimer) |
+| S-QUOTES-6 | Statut = simple UPDATE (pas de RPC audit) + procédure smoke E2E acheteur |
+
+Build Vite vert · 47 tests unitaires/smoke verts (RLS skip sans creds).
+
+### ⚠️ Reste à faire avant clôture
+1. **Appliquer la migration** `20260702000100_s_quotes_editable_library.sql` en prod B5 (PAT Supabase → Arnaud) puis `npm run db:types` (régénérer proprement `database.types.ts`, actuellement patché à la main).
+2. **Confirmer la sémantique de marge** (markup sur coût vs taux de marque sur prix de vente).
+3. Lancer les tests RLS avec `.env.test` + smoke E2E Chrome MCP (section testIds `quoteLib`).
+4. Résolution email/nom émetteur (colonne Émetteur montre id court pour l'instant).
+5. Commit + push (convention `feat(v5):`, confirmation).
 
 ## 16. Session 2026-06-15 — A4 mini-sprint personnalisation boutiques (CR WM#090626 action A4)
 
