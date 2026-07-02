@@ -519,6 +519,56 @@ export type Database = {
           },
         ]
       }
+      quote_lines: {
+        Row: {
+          created_at: string
+          id: string
+          line_total_ht: number
+          margin_pct: number
+          position: number
+          product_config: Json | null
+          product_name: string
+          quantity: number
+          quote_id: string
+          unit_cost_ht: number
+          unit_price_ht: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          line_total_ht?: number
+          margin_pct?: number
+          position?: number
+          product_config?: Json | null
+          product_name: string
+          quantity?: number
+          quote_id: string
+          unit_cost_ht?: number
+          unit_price_ht?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          line_total_ht?: number
+          margin_pct?: number
+          position?: number
+          product_config?: Json | null
+          product_name?: string
+          quantity?: number
+          quote_id?: string
+          unit_cost_ht?: number
+          unit_price_ht?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quote_lines_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quote_templates: {
         Row: {
           accent_color: string | null
@@ -608,6 +658,7 @@ export type Database = {
       quotes: {
         Row: {
           client_id: string | null
+          client_name: string | null
           created_at: string
           id: string
           product_config: Json | null
@@ -617,10 +668,12 @@ export type Database = {
           tenant_id: string | null
           total_ht: number | null
           total_ttc: number | null
+          updated_at: string
           user_id: string
         }
         Insert: {
           client_id?: string | null
+          client_name?: string | null
           created_at?: string
           id?: string
           product_config?: Json | null
@@ -630,10 +683,12 @@ export type Database = {
           tenant_id?: string | null
           total_ht?: number | null
           total_ttc?: number | null
+          updated_at?: string
           user_id: string
         }
         Update: {
           client_id?: string | null
+          client_name?: string | null
           created_at?: string
           id?: string
           product_config?: Json | null
@@ -643,6 +698,7 @@ export type Database = {
           tenant_id?: string | null
           total_ht?: number | null
           total_ttc?: number | null
+          updated_at?: string
           user_id?: string
         }
         Relationships: [
@@ -756,6 +812,51 @@ export type Database = {
           },
         ]
       }
+      shop_product_pricing: {
+        Row: {
+          created_at: string
+          id: string
+          library_product_id: string
+          price_ht_override: number
+          shop_id: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          library_product_id: string
+          price_ht_override: number
+          shop_id: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          library_product_id?: string
+          price_ht_override?: number
+          shop_id?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shop_product_pricing_library_product_id_fkey"
+            columns: ["library_product_id"]
+            isOneToOne: false
+            referencedRelation: "product_library"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_product_pricing_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shop_products: {
         Row: {
           category: string
@@ -823,6 +924,47 @@ export type Database = {
           },
         ]
       }
+      shop_template_mockups: {
+        Row: {
+          created_at: string
+          id: string
+          mockup_image_url: string
+          shop_id: string
+          template_type: string
+          tenant_id: string
+          updated_at: string
+          view: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          mockup_image_url: string
+          shop_id: string
+          template_type: string
+          tenant_id: string
+          updated_at?: string
+          view?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          mockup_image_url?: string
+          shop_id?: string
+          template_type?: string
+          tenant_id?: string
+          updated_at?: string
+          view?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shop_template_mockups_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shop_visual_preferences: {
         Row: {
           background_library_id: string | null
@@ -879,12 +1021,14 @@ export type Database = {
           created_at: string
           description: string | null
           excluded_product_ids: string[]
+          hero_image_url: string | null
           id: string
           library_ids: string[]
           logo_url: string | null
           name: string
           owner_user_id: string
           slug: string
+          tagline: string | null
           tenant_id: string | null
           theme: Json
         }
@@ -895,12 +1039,14 @@ export type Database = {
           created_at?: string
           description?: string | null
           excluded_product_ids?: string[]
+          hero_image_url?: string | null
           id?: string
           library_ids?: string[]
           logo_url?: string | null
           name: string
           owner_user_id: string
           slug: string
+          tagline?: string | null
           tenant_id?: string | null
           theme?: Json
         }
@@ -911,12 +1057,14 @@ export type Database = {
           created_at?: string
           description?: string | null
           excluded_product_ids?: string[]
+          hero_image_url?: string | null
           id?: string
           library_ids?: string[]
           logo_url?: string | null
           name?: string
           owner_user_id?: string
           slug?: string
+          tagline?: string | null
           tenant_id?: string | null
           theme?: Json
         }
@@ -1715,6 +1863,7 @@ export type Database = {
         }
         Returns: string
       }
+      auto_accept_pending_invitations: { Args: never; Returns: number }
       bootstrap_magrit_admin: {
         Args: { p_user_id: string }
         Returns: undefined
@@ -1740,6 +1889,21 @@ export type Database = {
           order_id: string
           payload: Json
           role_name: string
+        }[]
+      }
+      get_portal_orders_counters: {
+        Args: { p_shop_id: string; p_user_id?: string }
+        Returns: {
+          mine: number
+          to_approve: number
+          to_produce: number
+          to_validate: number
+        }[]
+      }
+      get_portal_orders_workflow: {
+        Args: { p_shop_id: string; p_tab: string; p_user_id?: string }
+        Returns: {
+          order_id: string
         }[]
       }
       get_subtenant_kpis: {
