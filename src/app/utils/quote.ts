@@ -286,3 +286,62 @@ function escapeHtml(v: string): string {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 }
+
+// ─── Document imprimable complet (wrapper HTML + styles) ───────────────────
+// Factorise le wrapper <!DOCTYPE html> + <style> partage par CartButton et
+// l'editeur de devis (S-QUOTES-3). Le corps `bodyHtml` est typiquement produit
+// par renderQuoteHtml().
+
+/** Construit le document HTML imprimable complet a partir d'un gabarit + corps. */
+export function buildQuoteDocumentHtml(
+  template: QuoteTemplate,
+  bodyHtml: string,
+  title = 'Devis'
+): string {
+  const brand = template.brand_color || '#111';
+  const accent = template.accent_color || '#f59e0b';
+  return `
+    <!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
+    <style>
+      body{font-family:${template.font_family || 'Arial, sans-serif'};padding:40px;color:#111;background:#fff}
+      h1{color:${brand};margin:0 0 8px 0;font-size:28px}
+      .meta{color:#666;font-size:13px;margin-bottom:24px}
+      .parties{display:flex;gap:24px;margin-bottom:24px}
+      .partie{flex:1;padding:16px;border:2px solid #e5e7eb;border-radius:8px}
+      .partie-title{font-weight:bold;color:${brand};font-size:13px;text-transform:uppercase;margin-bottom:10px}
+      .partie-field{font-size:13px;color:#444;margin-bottom:6px}
+      table{width:100%;border-collapse:collapse;margin:16px 0}
+      th,td{border-bottom:1px solid #e5e7eb;padding:8px;font-size:13px;text-align:left}
+      th{background:#f3f4f6;color:${brand}}
+      .totals{margin-top:16px;display:flex;flex-direction:column;align-items:flex-end;gap:4px;font-size:14px}
+      .totals .final{font-size:18px;font-weight:bold;color:${brand};border-top:2px solid ${brand};padding-top:8px;margin-top:8px}
+      .devis{margin-bottom:40px;border-top:4px solid ${accent};padding-top:24px}
+      .devis + .devis{page-break-before:always}
+      .tpl-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;gap:24px}
+      .tpl-emitter{font-size:12px;color:#444;line-height:1.5}
+      .tpl-logo img{max-width:160px;max-height:72px;object-fit:contain}
+    </style></head><body>
+      ${bodyHtml}
+    </body></html>
+  `;
+}
+
+/**
+ * Ouvre une fenetre d'impression avec le document devis complet.
+ * Retourne false si le navigateur a bloque la popup.
+ */
+export function openQuotePrint(
+  template: QuoteTemplate,
+  bodyHtml: string,
+  title = 'Devis'
+): boolean {
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) {
+    alert("Le navigateur a bloque la fenetre d'impression. Autorisez les popups pour ce site.");
+    return false;
+  }
+  printWindow.document.write(buildQuoteDocumentHtml(template, bodyHtml, title));
+  printWindow.document.close();
+  setTimeout(() => printWindow.print(), 250);
+  return true;
+}

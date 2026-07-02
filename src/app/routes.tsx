@@ -46,6 +46,11 @@ const DashboardQuoteTemplates = lazy(() =>
     default: m.DashboardQuoteTemplates,
   })),
 );
+const DashboardQuoteEditor = lazy(() =>
+  import("./components/dashboard/DashboardQuoteEditor").then((m) => ({
+    default: m.DashboardQuoteEditor,
+  })),
+);
 const DashboardOrders = lazy(() =>
   import("./components/dashboard/DashboardOrders").then((m) => ({ default: m.DashboardOrders })),
 );
@@ -178,6 +183,7 @@ export const router = createBrowserRouter([
               { path: "preferences", element: lazyRoute(<DashboardPreferences />) },
               { path: "history", element: lazyRoute(<DashboardHistory />) },
               { path: "quotes", element: lazyRoute(<DashboardQuotes />) },
+              { path: "quotes/:id/edit", element: lazyRoute(<DashboardQuoteEditor />) },
               { path: "quote-templates", element: lazyRoute(<DashboardQuoteTemplates />) },
               { path: "orders", element: lazyRoute(<DashboardOrders />) },
               { path: "users", element: lazyRoute(<DashboardUsers />) },

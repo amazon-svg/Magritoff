@@ -143,6 +143,37 @@ export const TEST_IDS = {
     refreshBtn: 'quote-refresh-btn',
   },
 
+  // ─── S-QUOTES — Bibliotheque de devis editables ───────────────────────
+  quoteLib: {
+    page: 'quote-lib-page',
+    scopeToggleMine: 'quote-lib-scope-mine',
+    scopeToggleAll: 'quote-lib-scope-all',
+    row: 'quote-lib-row',
+    rowMenuBtn: 'quote-lib-row-menu-btn',
+    rowMenuEdit: 'quote-lib-row-menu-edit',
+    rowMenuDuplicate: 'quote-lib-row-menu-duplicate',
+    rowMenuDelete: 'quote-lib-row-menu-delete',
+    deleteDialog: 'quote-lib-delete-dialog',
+    deleteConfirmBtn: 'quote-lib-delete-confirm-btn',
+    // Editeur de devis (page dediee)
+    editorPage: 'quote-editor-page',
+    editorClientNameInput: 'quote-editor-client-name-input',
+    editorLineRow: 'quote-editor-line-row',
+    editorLineQuantityInput: 'quote-editor-line-quantity-input',
+    editorLinePriceInput: 'quote-editor-line-price-input',
+    editorLineMarginInput: 'quote-editor-line-margin-input',
+    editorLineMoveUp: 'quote-editor-line-move-up',
+    editorLineMoveDown: 'quote-editor-line-move-down',
+    editorLineDeleteBtn: 'quote-editor-line-delete-btn',
+    editorTemplateSelect: 'quote-editor-template-select',
+    editorStatusSelect: 'quote-editor-status-select',
+    editorTotalTtc: 'quote-editor-total-ttc',
+    editorPrintBtn: 'quote-editor-print-btn',
+    editorSaveBtn: 'quote-editor-save-btn',
+    // Entree "Creer un devis" depuis le panier
+    cartCreateQuoteBtn: 'shop-cart-create-quote-btn',
+  },
+
   // ─── P09 — Boutique portail B2B ───────────────────────────────────────
   shop: {
     portal: 'shop-portal',
