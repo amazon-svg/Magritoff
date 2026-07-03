@@ -1,14 +1,31 @@
-import { useMemo, useState } from 'react';
-import { ChevronDown, ChevronRight, Sparkles, Pencil, Trash2, Plus, Loader2, Check, X, AlertCircle, Zap } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { ChevronDown, ChevronRight, Sparkles, Pencil, Trash2, Plus, Loader2, Check, X, AlertCircle, Zap, Download, Inbox, Play } from 'lucide-react';
 import { usePIM } from '../../contexts/PIMContext';
 import { useIsAdmin } from '../../hooks/useIsAdmin';
-import { projectId, publicAnonKey } from '/utils/supabase/info';
+import { useTenant } from '../../contexts/TenantContext';
+import { supabase } from '/utils/supabase/client';
 import type { Gamme, ProductDefinition } from '../../utils/productEnrichment';
+
+// Type du rapport renvoye par l'edge function pim-ingest
+interface IngestReport {
+  dryRun: boolean;
+  totalCandidates: number;
+  matched: Array<{ candidateId: string; matchedTo: string; gamme: string }>;
+  rejected: Array<{ candidateId: string; reason: string }>;
+  enriched: Array<{ candidateId: string; definitionId: string; gamme: string }>;
+  errors: Array<{ candidateId: string; error: string }>;
+}
 
 const LOCALES = ['fr', 'en'];
 
 export function DashboardAdminPIM() {
+  // v3 : l'acces admin PIM est ouvert a 2 categories d'utilisateurs :
+  //   - isAdmin : ancien flag user_preferences.is_admin (compat v1/v2)
+  //   - isSuperAdmin : membre owner/admin du tenant system 'magrit-root' (v3)
+  // L'un des deux suffit.
   const isAdmin = useIsAdmin();
+  const { isSuperAdmin } = useTenant();
+  const hasAccess = isAdmin || isSuperAdmin;
   const { gammes, definitions, upsertDefinition, deleteDefinition, refresh } = usePIM();
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -23,6 +40,48 @@ export function DashboardAdminPIM() {
     current: string;
     errors: string[];
   }>({ running: false, done: 0, total: 0, current: '', errors: [] });
+
+  // ─── Ingestion queue ───────────────────────────────────────────────────
+  const [pendingCount, setPendingCount] = useState<number | null>(null);
+  const [ingestRunning, setIngestRunning] = useState<false | 'dry' | 'live'>(false);
+  const [ingestReport, setIngestReport] = useState<IngestReport | null>(null);
+  const [ingestError, setIngestError] = useState<string | null>(null);
+
+  const refreshPendingCount = async () => {
+    const { count, error } = await supabase
+      .from('pim_candidates')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'pending');
+    if (!error) setPendingCount(count ?? 0);
+  };
+
+  useEffect(() => {
+    if (hasAccess) refreshPendingCount();
+  }, [hasAccess]);
+
+  const runIngest = async (dryRun: boolean) => {
+    setIngestRunning(dryRun ? 'dry' : 'live');
+    setIngestError(null);
+    setIngestReport(null);
+    try {
+      // R5 (refacto 2026-05-11) : passe par functions.invoke() (ADR-R3).
+      const { data, error } = await supabase.functions.invoke<IngestReport>(
+        'pim-ingest',
+        { body: { dryRun } },
+      );
+      if (error) throw new Error(error.message);
+      if (!data) throw new Error('pim-ingest : reponse vide');
+      setIngestReport(data);
+      if (!dryRun) {
+        await refreshPendingCount();
+        await refresh(); // Refresh PIM context pour voir les nouvelles definitions
+      }
+    } catch (err) {
+      setIngestError((err as Error).message);
+    } finally {
+      setIngestRunning(false);
+    }
+  };
 
   const gammesByParent = useMemo(() => {
     const map = new Map<string | null, Gamme[]>();
@@ -43,13 +102,14 @@ export function DashboardAdminPIM() {
     return map;
   }, [definitions]);
 
-  if (!isAdmin) {
+  if (!hasAccess) {
     return (
       <div className="max-w-lg text-center py-12">
         <AlertCircle className="w-12 h-12 mx-auto text-amber-500 mb-3" />
         <h2 className="text-xl font-bold text-gray-900 mb-2">Accès admin requis</h2>
         <p className="text-sm text-gray-600">
-          Cette page est réservée aux administrateurs Magrit. Active le flag <code className="bg-gray-100 px-1.5 py-0.5 rounded">is_admin</code> sur ton compte via SQL.
+          Cette page est réservée aux super-administrateurs Magrit. Il faut être
+          membre owner ou admin du tenant système <code className="bg-gray-100 px-1.5 py-0.5 rounded">magrit-root</code>.
         </p>
       </div>
     );
@@ -104,30 +164,22 @@ export function DashboardAdminPIM() {
     setGenerating(true);
     setGenError(null);
     try {
-      const res = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/pim-generate`,
+      // R5 (refacto 2026-05-11) : functions.invoke() (ADR-R3).
+      const { data: body, error: invokeErr } = await supabase.functions.invoke<{ generated?: Record<string, unknown> }>(
+        'pim-generate',
         {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${publicAnonKey}`,
-          },
-          body: JSON.stringify({
+          body: {
             gamme_slug: gamme.slug,
             gamme_name: gamme.name,
             gamme_matching_rules: gamme.matching_rules,
             locale: editing.locale,
             variation_filter: editing.variation_filter ?? {},
             mode: 'generate',
-          }),
-        }
+          },
+        },
       );
-      if (!res.ok) {
-        const txt = await res.text();
-        throw new Error(`HTTP ${res.status}: ${txt}`);
-      }
-      const body = await res.json();
-      if (!body.generated) throw new Error('Réponse LLM vide');
+      if (invokeErr) throw new Error(invokeErr.message);
+      if (!body?.generated) throw new Error('Réponse LLM vide');
       // Fusion dans l'édition courante
       setEditing((prev) => ({
         ...prev,
@@ -184,26 +236,21 @@ export function DashboardAdminPIM() {
       setBatch((s) => ({ ...s, done: i, current: `${gamme.name} · ${locale.toUpperCase()}` }));
 
       try {
-        const res = await fetch(
-          `https://${projectId}.supabase.co/functions/v1/pim-generate`,
+        // R5 (refacto 2026-05-11) : functions.invoke() (ADR-R3).
+        const { data: body, error: invokeErr } = await supabase.functions.invoke<{ generated?: Record<string, unknown> }>(
+          'pim-generate',
           {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${publicAnonKey}`,
-            },
-            body: JSON.stringify({
+            body: {
               gamme_slug: gamme.slug,
               gamme_name: gamme.name,
               gamme_matching_rules: gamme.matching_rules,
               locale,
               variation_filter: {},
               mode: 'generate',
-            }),
-          }
+            },
+          },
         );
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const body = await res.json();
+        if (invokeErr) throw new Error(invokeErr.message);
         if (!body?.generated) throw new Error('réponse LLM vide');
 
         await upsertDefinition({
@@ -255,6 +302,10 @@ export function DashboardAdminPIM() {
 
         {isExpanded && (
           <div className="pb-2" style={{ paddingLeft: `${depth * 16 + 28}px` }}>
+            {/* Image par défaut de la gamme (utilisee si une definition n'a
+                pas d'image_url propre). Input inline avec save onBlur. */}
+            <GammeImageInput gamme={g} onSave={(url) => upsertGamme({ ...g, image_url: url })} />
+
             {/* Definitions de cette gamme */}
             {defs.length > 0 && (
               <div className="space-y-1 my-2">
@@ -358,6 +409,119 @@ export function DashboardAdminPIM() {
           <span>Définitions : {definitions.length}</span>
           <span>Validées humain : {definitions.filter((d) => d.validated_by === 'human').length}</span>
         </div>
+      </div>
+
+      {/* ─── Pipeline d'ingestion automatique ─── */}
+      <div className="border border-gray-200 rounded-xl bg-white p-4 space-y-3">
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+              <Inbox className="w-4 h-4 text-indigo-600" />
+              File d'ingestion PIM
+              {pendingCount != null && pendingCount > 0 && (
+                <span className="ml-1 px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 text-xs font-semibold">
+                  {pendingCount} en attente
+                </span>
+              )}
+            </h3>
+            <p className="text-sm text-gray-600 max-w-2xl">
+              Les produits commandés sur les boutiques sont poussés ici par trigger DB.
+              L'ingestion auto vérifie la richesse du candidat, matche contre les définitions
+              existantes (dédup), et enrichit via Claude (SEO, commercial, FAQ) avant merge
+              dans le PIM global.
+            </p>
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            <button
+              onClick={() => runIngest(true)}
+              disabled={!!ingestRunning || (pendingCount ?? 0) === 0}
+              className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 text-sm font-medium flex items-center gap-2"
+              title="Simulation — aucun écrit en DB"
+            >
+              {ingestRunning === 'dry' ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Play className="w-4 h-4" />
+              )}
+              Simulation
+            </button>
+            <button
+              onClick={() => runIngest(false)}
+              disabled={!!ingestRunning || (pendingCount ?? 0) === 0}
+              className="px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-40 text-sm font-medium flex items-center gap-2"
+            >
+              {ingestRunning === 'live' ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
+              Lancer l'ingestion
+            </button>
+          </div>
+        </div>
+
+        {ingestError && (
+          <div className="px-3 py-2 rounded-lg bg-red-50 text-red-800 text-sm">
+            <strong>Erreur :</strong> {ingestError}
+          </div>
+        )}
+
+        {ingestReport && (
+          <div className="border-t border-gray-200 pt-3 space-y-2">
+            <div className="text-sm text-gray-700">
+              <strong>Rapport {ingestReport.dryRun ? '(simulation)' : 'd\'ingestion'}</strong>
+              {' · '}
+              {ingestReport.totalCandidates} candidat
+              {ingestReport.totalCandidates > 1 ? 's' : ''} traité
+              {ingestReport.totalCandidates > 1 ? 's' : ''}
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+              <ReportBadge
+                color="emerald"
+                label="Enrichis"
+                value={ingestReport.enriched.length}
+                hint="Nouveaux produits créés dans le PIM via Claude"
+              />
+              <ReportBadge
+                color="blue"
+                label="Matchés"
+                value={ingestReport.matched.length}
+                hint="Déjà dans le PIM, order_count incrémenté"
+              />
+              <ReportBadge
+                color="amber"
+                label="Rejetés"
+                value={ingestReport.rejected.length}
+                hint="Trop pauvres ou aucune gamme matchée"
+              />
+              <ReportBadge
+                color="red"
+                label="Erreurs"
+                value={ingestReport.errors.length}
+                hint="Candidats en échec, restés en pending"
+              />
+            </div>
+            {(ingestReport.rejected.length > 0 || ingestReport.errors.length > 0) && (
+              <details className="text-xs text-gray-600">
+                <summary className="cursor-pointer hover:text-gray-900">
+                  Détails rejets et erreurs
+                </summary>
+                <div className="mt-2 space-y-1 max-h-48 overflow-y-auto">
+                  {ingestReport.rejected.map((r) => (
+                    <div key={r.candidateId} className="font-mono">
+                      ⚠️ {r.candidateId.slice(0, 8)}… : {r.reason}
+                    </div>
+                  ))}
+                  {ingestReport.errors.map((e) => (
+                    <div key={e.candidateId} className="font-mono text-red-700">
+                      ❌ {e.candidateId.slice(0, 8)}… : {e.error}
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Actions batch */}
@@ -582,6 +746,26 @@ function DefinitionEditorModal(props: {
             />
           </Field>
 
+          <Field label="Image URL" hint="image produit affichée sur la boutique (override variation-spécifique de l'image par défaut de la gamme)">
+            <input
+              type="url"
+              value={editing.image_url ?? ''}
+              onChange={(e) => set({ image_url: e.target.value } as any)}
+              placeholder="https://…"
+              className="input"
+            />
+            {editing.image_url && (
+              <img
+                src={editing.image_url}
+                alt=""
+                className="mt-2 h-24 w-auto rounded border border-gray-200 object-cover"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = 'none';
+                }}
+              />
+            )}
+          </Field>
+
           <Field label="Usage examples (JSON)">
             <textarea
               rows={4}
@@ -637,6 +821,78 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
         {label} {hint && <span className="font-normal text-gray-400">— {hint}</span>}
       </label>
       {children}
+    </div>
+  );
+}
+
+// Input inline pour editer l'image par defaut d'une gamme.
+// Save onBlur pour ne pas trigger un upsert a chaque caractère.
+function GammeImageInput({
+  gamme,
+  onSave,
+}: {
+  gamme: Gamme;
+  onSave: (url: string) => void | Promise<any>;
+}) {
+  const [val, setVal] = useState(gamme.image_url ?? '');
+  const initial = gamme.image_url ?? '';
+  return (
+    <div className="flex items-center gap-2 my-2 bg-white border border-blue-100 rounded px-2 py-1.5">
+      <label
+        className="text-[10px] font-mono uppercase tracking-wider text-gray-500 shrink-0"
+        style={{ letterSpacing: '0.08em' }}
+      >
+        IMAGE GAMME
+      </label>
+      <input
+        type="url"
+        value={val}
+        onChange={(e) => setVal(e.target.value)}
+        onBlur={() => {
+          if (val !== initial) onSave(val);
+        }}
+        placeholder="URL d'image par défaut pour cette gamme…"
+        className="flex-1 min-w-0 bg-transparent border-0 focus:outline-none text-xs text-gray-900"
+      />
+      {val && (
+        <img
+          src={val}
+          alt=""
+          className="h-8 w-8 object-cover rounded border border-gray-200"
+          onError={(e) => {
+            (e.target as HTMLImageElement).style.display = 'none';
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Badge du rapport d'ingestion ────────────────────────────────────────
+function ReportBadge({
+  color,
+  label,
+  value,
+  hint,
+}: {
+  color: 'emerald' | 'blue' | 'amber' | 'red';
+  label: string;
+  value: number;
+  hint: string;
+}) {
+  const bg = {
+    emerald: 'bg-emerald-50 border-emerald-200 text-emerald-800',
+    blue: 'bg-blue-50 border-blue-200 text-blue-800',
+    amber: 'bg-amber-50 border-amber-200 text-amber-800',
+    red: 'bg-red-50 border-red-200 text-red-800',
+  }[color];
+  return (
+    <div
+      className={`px-3 py-2 rounded-lg border ${bg}`}
+      title={hint}
+    >
+      <div className="text-xs font-medium opacity-80">{label}</div>
+      <div className="text-xl font-bold">{value}</div>
     </div>
   );
 }

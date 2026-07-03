@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="100%" height="100%">
+    <defs>
+      <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#FF6B35" stop-opacity="0.06" />
+        <stop offset="100%" stop-color="#FF6B35" stop-opacity="0.16" />
+      </linearGradient>
+      
+    <filter id="shadowDouble" x="-15%" y="-15%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.18"/>
+      <feDropShadow dx="0" dy="18" stdDeviation="24" flood-color="#FF6B35" flood-opacity="0.22"/>
+    </filter>
+    <linearGradient id="paperHighlight" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.35"/>
+      <stop offset="35%" stop-color="#ffffff" stop-opacity="0.05"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <pattern id="paperTexture" width="6" height="6" patternUnits="userSpaceOnUse">
+      <rect width="6" height="6" fill="white"/>
+      <circle cx="1" cy="1" r="0.3" fill="#e5e5e5" opacity="0.6"/>
+      <circle cx="4" cy="3" r="0.25" fill="#e5e5e5" opacity="0.5"/>
+    </pattern>
+      
+    <radialGradient id="magritPollen" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FFE066"/>
+      <stop offset="60%" stop-color="#F5B529"/>
+      <stop offset="100%" stop-color="#C68708"/>
+    </radialGradient>
+    <linearGradient id="magritTileGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E5F0FC"/>
+      <stop offset="100%" stop-color="#B7D3F2"/>
+    </linearGradient>
+    </defs>
+    <rect width="1024" height="1024" fill="url(#bgGrad)" />
+    <g transform="skewY(-2.5)">
+      <rect x="234" y="136" width="544" height="6" fill="#E8E5DD" />
+      <rect x="232" y="144" width="546" height="6" fill="#E8E5DD" />
+      <rect x="230" y="152" width="548" height="6" fill="#E8E5DD" />
+      <rect x="232" y="160" width="546" height="6" fill="#E8E5DD" />
+      <rect x="234" y="168" width="544" height="6" fill="#E8E5DD" />
+      <g filter="url(#shadowDouble)">
+        <rect x="242" y="130" width="540" height="765" fill="#FFFFFF" rx="4" />
+        <rect x="242" y="130" width="540" height="765" fill="url(#paperHighlight)" rx="4" />
+        <rect x="242" y="130" width="540" height="268" fill="url(#magritTileGrad)" rx="4" />
+        <rect x="242" y="392" width="540" height="6" fill="url(#magritTileGrad)" />
+        <g transform="translate(512 240)"><g fill="#FFFFFF"><ellipse cx="0" cy="-41.6" rx="5.6000000000000005" ry="25.6" transform="rotate(0)"/><ellipse cx="0" cy="-41.6" rx="5.6000000000000005" ry="25.6" transform="rotate(20)"/><ellipse cx="0" cy="-41.6" rx="5.6000000000000005" ry="25.6" transform="rotate(40)"/><ellipse cx="0" cy="-41.6" rx="5.6000000000000005" ry="25.6" transform="rotate(60)"/><ellipse cx="0" cy="-41.6" rx="5.6000000000000005" ry="25.6" transform="rotate(80)"/><ellipse cx="0" cy="-41.6" rx="5.6000000000000005" ry="25.6" transform="rotate(100)"/><ellipse cx="0" cy="-41.6" rx="5.6000000000000005" ry="25.6" transform="rotate(120)"/><ellipse cx="0" cy="-41.6" rx="5.6000000000000005" ry="25.6" transform="rotate(140)"/><ellipse cx="0" cy="-41.6" rx="5.6000000000000005" ry="25.6" transform="rotate(160)"/><ellipse cx="0" cy="-41.6" rx="5.6000000000000005" ry="25.6" transform="rotate(180)"/><ellipse cx="0" cy="-41.6" rx="5.6000000000000005" ry="25.6" transform="rotate(200)"/><ellipse cx="0" cy="-41.6" rx="5.6000000000000005" ry="25.6" transform="rotate(220)"/><ellipse cx="0" cy="-41.6" rx="5.6000000000000005" ry="25.6" transform="rotate(240)"/><ellipse cx="0" cy="-41.6" rx="5.6000000000000005" ry="25.6" transform="rotate(260)"/><ellipse cx="0" cy="-41.6" rx="5.6000000000000005" ry="25.6" transform="rotate(280)"/><ellipse cx="0" cy="-41.6" rx="5.6000000000000005" ry="25.6" transform="rotate(300)"/><ellipse cx="0" cy="-41.6" rx="5.6000000000000005" ry="25.6" transform="rotate(320)"/><ellipse cx="0" cy="-41.6" rx="5.6000000000000005" ry="25.6" transform="rotate(340)"/></g><circle r="17.6" fill="url(#magritPollen)"/></g>
+        <text x="512" y="355" text-anchor="middle" font-family="Inter" font-style="italic" font-weight="500" font-size="42" fill="#0F172A" letter-spacing="-0.025em">Magrit</text>
+        <text x="512" y="380" text-anchor="middle" font-family="Inter" font-weight="400" font-size="12" fill="#0F172A" letter-spacing="0.08em" opacity="0.55">IMPRIMERIE · IA</text>
+        <rect x="352" y="458" width="320" height="200" fill="#F1F5F9" rx="4" />
+        <rect x="292" y="708" width="440" height="8" fill="#E2E8F0" rx="2" />
+        <rect x="292" y="738" width="380" height="8" fill="#E2E8F0" rx="2" />
+        <rect x="292" y="768" width="420" height="8" fill="#E2E8F0" rx="2" />
+        <rect x="242" y="887" width="540" height="8" fill="#F5B529" />
+      </g>
+    </g>
+    <text x="782" y="931" text-anchor="end" font-family="Inter" font-weight="500" font-size="11" fill="#0F172A" opacity="0.45">Brochure A4</text>
+  </svg>

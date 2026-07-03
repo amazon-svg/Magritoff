@@ -1,0 +1,126 @@
+/* ============================================================
+   Magrit v2 — Design tokens
+   Adaptation du handoff (.design-handoff/tokens/tokens.css)
+   avec renommage des vars conflictuelles (--accent, --muted)
+   pour cohabiter avec les tokens shadcn déjà présents dans theme.css.
+   ============================================================ */
+
+:root {
+  /* ---------- Typographie ---------- */
+  --font-ui: 'Helvetica Neue', 'Helvetica', 'Arial', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  --font-serif: 'Recoleta', 'GT Sectra', Georgia, serif;
+
+  /* ---------- Palette neutre v2 (light) ---------- */
+  --ink:         #0A0A0A;   /* texte principal */
+  --ink-2:       #2A2A2D;   /* texte secondaire */
+  --ink-muted:   #52525B;   /* texte tertiaire / meta  (ex --muted) */
+  --ink-mute-2:  #8A8A93;   /* labels, compteurs       (ex --mute-2) */
+  --line:        #ECECEC;   /* border très fine */
+  --line-2:      #D4D4D8;   /* border appuyée */
+  --bg:          #FAFAFA;   /* background app */
+  --paper:       #FFFFFF;   /* surface cards / modals */
+
+  /* ---------- Brand (ex --accent — renommé pour ne pas casser shadcn) ---------- */
+  --brand:       #0F172A;   /* slate-900 — accent sobre unique */
+  --brand-soft:  #EEF4FF;   /* fond pour active state discret */
+  --brand-ink:   #FFFFFF;   /* texte sur brand */
+
+  /* ---------- Status ---------- */
+  --ok-bg:    #ECFDF3;
+  --ok-fg:    #0E8F5A;
+  --ok-line:  #BBF7D0;
+  --warn-bg:  #FEF3C7;
+  --warn-fg:  #B45309;
+  --err-bg:   #FEE2E2;
+  --err-fg:   #B91C1C;
+  --info-bg:  #EEF4FF;
+  --info-fg:  #1D4ED8;
+
+  /* ---------- Boutique thémable (overridé par le slug) ---------- */
+  --shop-primary: var(--brand);
+  --shop-accent:  var(--ok-fg);
+  --shop-radius:  10px;
+
+  /* ---------- Radius v2 (préfixés pour ne pas écraser --radius shadcn) ---------- */
+  --v2-radius-sm:  4px;
+  --v2-radius:     6px;
+  --v2-radius-md:  8px;
+  --v2-radius-lg:  10px;
+  --v2-radius-xl:  12px;
+  --v2-radius-2xl: 16px;
+
+  /* ---------- Shadows v2 ---------- */
+  --v2-shadow-xs:    0 1px 2px rgba(0,0,0,0.04);
+  --v2-shadow-sm:    0 1px 2px rgba(0,0,0,0.04), 0 1px 3px rgba(0,0,0,0.04);
+  --v2-shadow-md:    0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06);
+  --v2-shadow-lg:    0 1px 2px rgba(0,0,0,0.04), 0 24px 60px rgba(9,9,11,0.12);
+  --v2-shadow-focus: 0 0 0 2px var(--paper), 0 0 0 4px var(--brand);
+
+  /* ---------- Typographie scale (v2 bumped +1px pour lisibilité) ---------- */
+  --fs-xs:   12px;
+  --fs-sm:   13.5px;
+  --fs-base: 14.5px;
+  --fs-md:   15.5px;
+  --fs-lg:   17px;
+  --fs-xl:   21px;
+  --fs-2xl:  25px;
+  --fs-3xl:  29px;
+  --fs-4xl:  35px;
+  --fs-5xl:  49px;
+
+  --tracking-tight: -0.025em;
+  --tracking-snug:  -0.015em;
+  --tracking-base:  -0.005em;
+  --tracking-wide:   0.08em;
+
+  --lh-tight: 1.05;
+  --lh-snug:  1.3;
+  --lh-base:  1.5;
+  --lh-relax: 1.6;
+
+  /* ---------- Motion ---------- */
+  --ease-out:    cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --dur-fast:   120ms;
+  --dur-base:   180ms;
+  --dur-slow:   320ms;
+}
+
+/* Dark mode boutique (classe ajoutée dynamiquement sur le root du shop) */
+[data-theme="dark"] {
+  --ink:         #F5F5F7;
+  --ink-2:       #D4D4D8;
+  --ink-muted:   #A1A1AA;
+  --ink-mute-2:  #71717A;
+  --line:        #27272A;
+  --line-2:      #3F3F46;
+  --bg:          #0A0A0A;
+  --paper:       #111113;
+  --brand:       #F5F5F7;
+  --brand-ink:   #0A0A0A;
+  --brand-soft:  #1E293B;
+}
+
+/* Focus visible global (WCAG AA) — complément du focus shadcn */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: var(--v2-radius);
+}
+
+/* Scrollbar fine */
+* { scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-thumb {
+  background: var(--line-2);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-mute-2);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+}
+*::-webkit-scrollbar-track { background: transparent; }

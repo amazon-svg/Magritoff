@@ -1,23 +1,19 @@
 import { useState } from 'react';
 import { X, Loader2, Plus, Library as LibraryIcon } from 'lucide-react';
 import { useLibrary } from '../contexts/LibraryContext';
-import { useClients } from '../contexts/ClientsContext';
 
 interface Props {
-  preferredClientId?: string | null;
   productCount?: number;
   onPick: (libraryId: string) => Promise<void> | void;
   onClose: () => void;
 }
 
-export function LibraryPickerModal({ preferredClientId, productCount = 1, onPick, onClose }: Props) {
+export function LibraryPickerModal({ productCount = 1, onPick, onClose }: Props) {
   const { libraries, createLibrary } = useLibrary();
-  const { clients } = useClients();
   const [selected, setSelected] = useState<string>('');
   const [saving, setSaving] = useState(false);
   const [showCreate, setShowCreate] = useState(libraries.length === 0);
   const [newName, setNewName] = useState('');
-  const [newClientId, setNewClientId] = useState<string | null>(preferredClientId ?? null);
   const [error, setError] = useState<string | null>(null);
 
   const submit = async () => {
@@ -30,7 +26,7 @@ export function LibraryPickerModal({ preferredClientId, productCount = 1, onPick
         setSaving(false);
         return;
       }
-      const lib = await createLibrary({ name: newName.trim(), client_id: newClientId });
+      const lib = await createLibrary({ name: newName.trim() });
       if (!lib) {
         setError('Création impossible. Migration SQL appliquée ?');
         setSaving(false);
@@ -64,31 +60,27 @@ export function LibraryPickerModal({ preferredClientId, productCount = 1, onPick
 
         {!showCreate && libraries.length > 0 && (
           <div className="space-y-2 mb-3 max-h-80 overflow-y-auto">
-            {libraries.map((lib) => {
-              const client = clients.find((c) => c.id === lib.client_id);
-              return (
-                <label
-                  key={lib.id}
-                  className={`flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50 ${
-                    selected === lib.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    checked={selected === lib.id}
-                    onChange={() => setSelected(lib.id)}
-                    className="mt-1"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{lib.name}</p>
-                    {client && <p className="text-xs text-blue-700 truncate">→ {client.company}</p>}
-                    {lib.description && (
-                      <p className="text-xs text-gray-500 line-clamp-1">{lib.description}</p>
-                    )}
-                  </div>
-                </label>
-              );
-            })}
+            {libraries.map((lib) => (
+              <label
+                key={lib.id}
+                className={`flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50 ${
+                  selected === lib.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
+                }`}
+              >
+                <input
+                  type="radio"
+                  checked={selected === lib.id}
+                  onChange={() => setSelected(lib.id)}
+                  className="mt-1"
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">{lib.name}</p>
+                  {lib.description && (
+                    <p className="text-xs text-gray-500 line-clamp-1">{lib.description}</p>
+                  )}
+                </div>
+              </label>
+            ))}
           </div>
         )}
 
@@ -118,21 +110,6 @@ export function LibraryPickerModal({ preferredClientId, productCount = 1, onPick
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                 autoFocus
               />
-            </div>
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">Client associé (optionnel)</label>
-              <select
-                value={newClientId ?? ''}
-                onChange={(e) => setNewClientId(e.target.value || null)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
-              >
-                <option value="">— Aucun —</option>
-                {clients.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.company}
-                  </option>
-                ))}
-              </select>
             </div>
             {libraries.length > 0 && (
               <button

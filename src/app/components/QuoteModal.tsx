@@ -1,26 +1,46 @@
-import { X, FileText, ShoppingCart } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { X, FileText, ShoppingCart, LayoutTemplate, Star } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
-import { useClients } from '../contexts/ClientsContext';
-import { makeQuoteReference, persistQuote, renderClientBlockHtml } from '../utils/quote';
-import devisTemplate from 'figma:asset/227369c3072447219837cadaaa943294de19bf62.png';
+import { useQuoteTemplates } from '../contexts/QuoteTemplatesContext';
+import { useTenant } from '../contexts/TenantContext';
+import { useTenantPath } from '../hooks/useTenantPath';
+import {
+  makeQuoteReference,
+  persistQuote,
+  renderQuoteHtml,
+  getDefaultTemplate,
+} from '../utils/quote';
+import { applyTax, extractTaxAmount, formatTaxLabel, getTaxRate } from '../utils/tax';
 
 interface QuoteModalProps {
   isOpen: boolean;
   onClose: () => void;
   product: any;
-  onClientChange?: (clientId: string | null) => void;
 }
 
-export function QuoteModal({ isOpen, onClose, product, onClientChange }: QuoteModalProps) {
+export function QuoteModal({ isOpen, onClose, product }: QuoteModalProps) {
   const { addToCart } = useCart();
   const { user } = useAuth();
-  const { clients } = useClients();
+  const { templates, defaultTemplateId } = useQuoteTemplates();
+  const { currentTenant } = useTenant();
+  const tp = useTenantPath();
+  const taxRate = getTaxRate(currentTenant);
+
+  // Gabarit a appliquer a l'impression. Initialise sur le defaut utilisateur
+  // (ou builtin-classique si aucun defaut), mais l'user peut en choisir un
+  // autre via le selecteur avant d'imprimer.
+  const effectiveDefaultId = defaultTemplateId ?? 'builtin-classique';
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>(effectiveDefaultId);
+  useEffect(() => {
+    // Si le defaut user change pendant que la modale est ouverte, on resync.
+    setSelectedTemplateId(effectiveDefaultId);
+  }, [effectiveDefaultId]);
 
   if (!isOpen) return null;
 
-  const currentClientId: string = product.client_id || '';
-  const selectedClient = clients.find((c) => c.id === currentClientId) || null;
+  const template =
+    templates.find((t) => t.id === selectedTemplateId) ?? getDefaultTemplate();
 
   const handleAddToCart = () => {
     addToCart({ ...product });
@@ -31,18 +51,15 @@ export function QuoteModal({ isOpen, onClose, product, onClientChange }: QuoteMo
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
-    // Utiliser le prix Clariprint si disponible, sinon le prix estimé
+    // Utiliser le prix Clariprint si disponible, sinon le prix estime
     const clariprintQuote = product.clariprintQuote;
     const totalHT = clariprintQuote?.costs?.total || clariprintQuote?.priceHT || product.price || 0;
-    const tva = totalHT * 0.2;
-    const totalTTC = totalHT * 1.2;
-    const isClariprintPrice = !!(clariprintQuote?.success);
+    const totalTTC = applyTax(totalHT, taxRate);
     const reference = makeQuoteReference();
 
-    if (user) {
-      await persistQuote(user.id, {
+    if (user && currentTenant) {
+      await persistQuote(user.id, currentTenant.id, {
         reference,
-        client_id: currentClientId || null,
         product_name: product.name,
         product_config: product,
         total_ht: totalHT,
@@ -50,7 +67,28 @@ export function QuoteModal({ isOpen, onClose, product, onClientChange }: QuoteMo
       });
     }
 
-    // Générer le HTML du devis
+    // Rendu HTML via le gabarit par defaut de l'utilisateur (ou builtin classique).
+    const section = renderQuoteHtml({
+      template,
+      reference,
+      client: null,
+      taxRate,
+      items: [
+        {
+          name: product.name,
+          quantity: product.quantity,
+          format:
+            product.format ||
+            `${product.dimensions?.width ?? ''}x${product.dimensions?.height ?? ''}mm`,
+          material: `${product.material ?? ''} ${product.weight ? `${product.weight}g` : ''}`.trim(),
+          priceHT: totalHT,
+        },
+      ],
+    });
+    const brand = template.brand_color || '#111';
+    const accent = template.accent_color || '#f59e0b';
+
+    // Rendu via gabarit selectionne
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
@@ -58,333 +96,39 @@ export function QuoteModal({ isOpen, onClose, product, onClientChange }: QuoteMo
           <meta charset="utf-8">
           <title>Devis - ${product.name}</title>
           <style>
-            * {
-              margin: 0;
-              padding: 0;
-              box-sizing: border-box;
-            }
-            body {
-              font-family: 'Arial', sans-serif;
-              padding: 40px;
-              background: white;
-            }
-            .header {
-              display: flex;
-              justify-content: space-between;
-              align-items: flex-start;
-              margin-bottom: 30px;
-              padding-bottom: 20px;
-              border-bottom: 4px solid #f59e0b;
-            }
-            .logo-section {
-              flex: 1;
-            }
-            .logo-box {
-              background: #1e3a8a;
-              color: white;
-              padding: 20px;
-              border-radius: 8px;
-              max-width: 200px;
-            }
-            .logo-title {
-              font-size: 24px;
-              font-weight: bold;
-              margin-bottom: 5px;
-            }
-            .logo-subtitle {
-              font-size: 11px;
-              opacity: 0.9;
-            }
-            .devis-title {
-              flex: 2;
-              text-align: center;
-            }
-            .devis-title h1 {
-              font-size: 48px;
-              font-weight: bold;
-              color: #1e3a8a;
-              margin-bottom: 5px;
-            }
-            .devis-subtitle {
-              font-size: 14px;
-              color: #666;
-            }
-            .devis-info {
-              flex: 1;
-              text-align: right;
-            }
-            .devis-number {
-              font-size: 14px;
-              color: #666;
-              margin-bottom: 5px;
-            }
-            .devis-date {
-              font-size: 12px;
-              color: #666;
-            }
-            .parties {
-              display: flex;
-              gap: 30px;
-              margin-bottom: 30px;
-            }
-            .partie {
-              flex: 1;
-              padding: 20px;
-              border: 2px solid #e5e7eb;
-              border-radius: 8px;
-            }
-            .partie-title {
-              font-weight: bold;
-              color: #1e3a8a;
-              margin-bottom: 15px;
-              font-size: 14px;
-              text-transform: uppercase;
-            }
-            .partie-field {
-              margin-bottom: 10px;
-              font-size: 13px;
-              color: #666;
-            }
-            .section {
-              margin-bottom: 25px;
-            }
-            .section-title {
-              background: #1e3a8a;
-              color: white;
-              padding: 10px 15px;
-              font-weight: bold;
-              margin-bottom: 15px;
-              font-size: 14px;
-            }
-            .section-content {
-              padding: 0 15px;
-            }
-            .field-row {
-              display: flex;
-              gap: 20px;
-              margin-bottom: 12px;
-            }
-            .field {
-              flex: 1;
-            }
-            .field-label {
-              font-size: 12px;
-              color: #666;
-              margin-bottom: 5px;
-            }
-            .field-value {
-              font-size: 14px;
-              font-weight: 600;
-              color: #1e3a8a;
-              padding: 8px 12px;
-              background: #f3f4f6;
-              border-radius: 4px;
-            }
-            .total-section {
-              margin-top: 40px;
-              padding: 25px;
-              background: #f9fafb;
-              border: 2px solid #e5e7eb;
-              border-radius: 8px;
-            }
-            .total-row {
-              display: flex;
-              justify-content: space-between;
-              margin-bottom: 10px;
-              font-size: 16px;
-            }
-            .total-row.final {
-              margin-top: 15px;
-              padding-top: 15px;
-              border-top: 2px solid #1e3a8a;
-              font-size: 20px;
-              font-weight: bold;
-              color: #1e3a8a;
-            }
-            .footer {
-              margin-top: 50px;
-              padding-top: 20px;
-              border-top: 4px solid #f59e0b;
-              text-align: center;
-              font-size: 11px;
-              color: #666;
-            }
-            @media print {
-              body {
-                padding: 20px;
-              }
-            }
+            body{font-family:${template.font_family || 'Arial, sans-serif'};padding:40px;color:#111;background:#fff}
+            h1{color:${brand};margin:0 0 8px 0;font-size:28px}
+            .meta{color:#666;font-size:13px;margin-bottom:24px}
+            .parties{display:flex;gap:24px;margin-bottom:24px}
+            .partie{flex:1;padding:16px;border:2px solid #e5e7eb;border-radius:8px}
+            .partie-title{font-weight:bold;color:${brand};font-size:13px;text-transform:uppercase;margin-bottom:10px}
+            .partie-field{font-size:13px;color:#444;margin-bottom:6px}
+            table{width:100%;border-collapse:collapse;margin:16px 0}
+            th,td{border-bottom:1px solid #e5e7eb;padding:8px;font-size:13px;text-align:left}
+            th{background:#f3f4f6;color:${brand}}
+            .totals{margin-top:16px;display:flex;flex-direction:column;align-items:flex-end;gap:4px;font-size:14px}
+            .totals .final{font-size:18px;font-weight:bold;color:${brand};border-top:2px solid ${brand};padding-top:8px;margin-top:8px}
+            .devis{border-top:4px solid ${accent};padding-top:24px}
+            .tpl-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;gap:24px}
+            .tpl-logo img{max-width:160px;max-height:72px;object-fit:contain}
           </style>
         </head>
         <body>
-          <!-- Header -->
-          <div class="header">
-            <div class="logo-section">
-              <div class="logo-box">
-                <div class="logo-title">VOTRE LOGO</div>
-                <div class="logo-subtitle">Imprimerie & Communication</div>
-              </div>
-            </div>
-            <div class="devis-title">
-              <h1>DEVIS</h1>
-              <div class="devis-subtitle">Offre de prix — Impression & Façonnage</div>
-            </div>
-            <div class="devis-info">
-              <div class="devis-number">N° DEVIS<br><strong>${reference}</strong></div>
-              <div class="devis-date">Date : ${new Date().toLocaleDateString('fr-FR')}</div>
-              <div class="devis-date">Validité : 30 jours</div>
-            </div>
-          </div>
-
-          <!-- Parties -->
-          <div class="parties">
-            <div class="partie">
-              <div class="partie-title">ÉMETTEUR — IMPRIMERIE</div>
-              <div class="partie-field">Société : Magrit Print</div>
-              <div class="partie-field">Adresse : </div>
-              <div class="partie-field">CP / Ville : </div>
-              <div class="partie-field">Tél. : </div>
-            </div>
-            <div class="partie">
-              <div class="partie-title">CLIENT / DONNEUR D'ORDRE</div>
-              ${renderClientBlockHtml(selectedClient)}
-            </div>
-          </div>
-
-          <!-- Section 1 : Identification du travail -->
-          <div class="section">
-            <div class="section-title">1 — IDENTIFICATION DU TRAVAIL</div>
-            <div class="section-content">
-              <div class="field-row">
-                <div class="field">
-                  <div class="field-label">Nom du projet / Titre du document</div>
-                  <div class="field-value">${product.name}</div>
-                </div>
-              </div>
-              <div class="field-row">
-                <div class="field">
-                  <div class="field-label">Type de produit</div>
-                  <div class="field-value">${product.name}</div>
-                </div>
-                <div class="field">
-                  <div class="field-label">Quantité</div>
-                  <div class="field-value">${product.quantity} exemplaires</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Section 2 : Format & Support -->
-          <div class="section">
-            <div class="section-title">2 — FORMAT & SUPPORT</div>
-            <div class="section-content">
-              <div class="field-row">
-                <div class="field">
-                  <div class="field-label">Format fini (L × H en mm)</div>
-                  <div class="field-value">${product.format || `${product.dimensions?.width} × ${product.dimensions?.height} mm`}</div>
-                </div>
-                <div class="field">
-                  <div class="field-label">Grammage (g/m²)</div>
-                  <div class="field-value">${product.weight} g/m²</div>
-                </div>
-              </div>
-              <div class="field-row">
-                <div class="field">
-                  <div class="field-label">Type de papier (couché, offset, bouffant...)</div>
-                  <div class="field-value">${product.material}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Section 3 : Impression -->
-          <div class="section">
-            <div class="section-title">3 — IMPRESSION</div>
-            <div class="section-content">
-              <div class="field-row">
-                <div class="field">
-                  <div class="field-label">Couleurs recto</div>
-                  <div class="field-value">${product.printing?.recto || 'Quadrichromie (CMJN)'}</div>
-                </div>
-                <div class="field">
-                  <div class="field-label">Couleurs verso</div>
-                  <div class="field-value">${product.printing?.verso || 'Sans impression'}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Section 4 : Façonnage & Finitions -->
-          <div class="section">
-            <div class="section-title">4 — FAÇONNAGE & FINITIONS</div>
-            <div class="section-content">
-              <div class="field-row">
-                <div class="field">
-                  <div class="field-label">Pelliculage / Vernis</div>
-                  <div class="field-value">${product.finish || product.finishRecto}</div>
-                </div>
-              </div>
-              ${product.suggestions && product.suggestions.length > 0 ? `
-              <div class="field-row">
-                <div class="field">
-                  <div class="field-label">Options suggérées</div>
-                  <div class="field-value">${product.suggestions.join(' • ')}</div>
-                </div>
-              </div>
-              ` : ''}
-            </div>
-          </div>
-
-          <!-- Section 5 : Conditionnement & Livraison -->
-          <div class="section">
-            <div class="section-title">5 — CONDITIONNEMENT & LIVRAISON</div>
-            <div class="section-content">
-              <div class="field-row">
-                <div class="field">
-                  <div class="field-label">Conditionnement</div>
-                  <div class="field-value">${product.packaging || 'Standard'}</div>
-                </div>
-                <div class="field">
-                  <div class="field-label">Adresse de livraison</div>
-                  <div class="field-value">${product.deliveryLocation || 'France'}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Total -->
-          <div class="total-section">
-            ${isClariprintPrice && clariprintQuote?.costs ? `
-            <div style="font-size:12px;color:#666;margin-bottom:12px;padding:8px;background:#f0f9ff;border-radius:4px;">
-              <strong>Détail des coûts (source : Clariprint)</strong><br>
-              ${clariprintQuote.costs.paper ? `Papier : ${clariprintQuote.costs.paper.toFixed(2)} €<br>` : ''}
-              ${clariprintQuote.costs.print ? `Impression : ${clariprintQuote.costs.print.toFixed(2)} €<br>` : ''}
-              ${clariprintQuote.costs.makeready ? `Calage : ${clariprintQuote.costs.makeready.toFixed(2)} €<br>` : ''}
-              ${clariprintQuote.costs.packaging ? `Conditionnement : ${clariprintQuote.costs.packaging.toFixed(2)} €<br>` : ''}
-              ${clariprintQuote.costs.delivery ? `Livraison : ${clariprintQuote.costs.delivery.toFixed(2)} €<br>` : ''}
-              ${clariprintQuote.delais ? `Délai estimé : ${clariprintQuote.delais} jour(s)<br>` : ''}
-              ${clariprintQuote.fournisseur ? `Imprimeur : ${clariprintQuote.fournisseur}` : ''}
-            </div>
-            ` : '<div style="font-size:11px;color:#999;margin-bottom:12px;">Prix estimé — Connectez Clariprint pour un prix réel</div>'}
-            <div class="total-row">
-              <span>Total HT</span>
-              <span>${totalHT.toFixed(2)} €</span>
-            </div>
-            <div class="total-row">
-              <span>TVA (20%)</span>
-              <span>${tva.toFixed(2)} €</span>
-            </div>
-            <div class="total-row final">
-              <span>TOTAL TTC</span>
-              <span>${totalTTC.toFixed(2)} €</span>
-            </div>
-          </div>
-
-          <!-- Footer -->
-          <div class="footer">
-            Raison sociale — Adresse — SIRET : __________ — APE : __________ — N° TVA intracommunautaire : __________<br>
-            Tél. : __________ — Email : __________ — Site web : __________
-          </div>
+          ${section}
+          ${
+            clariprintQuote?.costs
+              ? `<div style="margin-top:24px;font-size:12px;color:#666;padding:12px;background:#f0f9ff;border-radius:4px;">
+                   <strong>Detail des couts (source : Clariprint)</strong><br>
+                   ${clariprintQuote.costs.paper ? `Papier : ${clariprintQuote.costs.paper.toFixed(2)} €<br>` : ''}
+                   ${clariprintQuote.costs.print ? `Impression : ${clariprintQuote.costs.print.toFixed(2)} €<br>` : ''}
+                   ${clariprintQuote.costs.makeready ? `Calage : ${clariprintQuote.costs.makeready.toFixed(2)} €<br>` : ''}
+                   ${clariprintQuote.costs.packaging ? `Conditionnement : ${clariprintQuote.costs.packaging.toFixed(2)} €<br>` : ''}
+                   ${clariprintQuote.costs.delivery ? `Livraison : ${clariprintQuote.costs.delivery.toFixed(2)} €<br>` : ''}
+                   ${clariprintQuote.delais ? `Delai estime : ${clariprintQuote.delais} jour(s)<br>` : ''}
+                   ${clariprintQuote.fournisseur ? `Imprimeur : ${clariprintQuote.fournisseur}` : ''}
+                 </div>`
+              : ''
+          }
         </body>
       </html>
     `);
@@ -423,11 +167,17 @@ export function QuoteModal({ isOpen, onClose, product, onClientChange }: QuoteMo
             )}
             <div className="text-sm text-gray-600 mb-2">Total TTC</div>
             <div className="text-4xl font-bold text-blue-600 mb-1">
-              {((product.clariprintQuote?.costs?.total || product.clariprintQuote?.priceHT || product.price || 0) * 1.2).toFixed(2)} €
+              {applyTax(
+                product.clariprintQuote?.costs?.total || product.clariprintQuote?.priceHT || product.price || 0,
+                taxRate,
+              ).toFixed(2)} €
             </div>
             <div className="text-xs text-gray-500">
               ({(product.clariprintQuote?.costs?.total || product.clariprintQuote?.priceHT || product.price || 0).toFixed(2)} € HT
-              + {((product.clariprintQuote?.costs?.total || product.clariprintQuote?.priceHT || product.price || 0) * 0.2).toFixed(2)} € TVA)
+              + {extractTaxAmount(
+                product.clariprintQuote?.costs?.total || product.clariprintQuote?.priceHT || product.price || 0,
+                taxRate,
+              ).toFixed(2)} € TVA ({formatTaxLabel(taxRate)}))
             </div>
             {product.clariprintQuote?.delais && (
               <div className="text-xs text-green-600 mt-1">⏱ Délai : {product.clariprintQuote.delais} jour(s)</div>
@@ -438,34 +188,44 @@ export function QuoteModal({ isOpen, onClose, product, onClientChange }: QuoteMo
           </div>
         </div>
 
-        {/* Sélecteur de client */}
-        {user && (
-          <div className="px-6 pt-6">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Client associé</label>
-            {clients.length === 0 ? (
-              <p className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-                Aucun client enregistré.{' '}
-                <a href="/dashboard/clients" className="text-blue-600 hover:underline">
-                  Ajouter un client
+        {/* Sélecteur de gabarit de devis — toujours visible, user ou pas */}
+        <div className="px-6 pt-6">
+          <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1.5">
+            <LayoutTemplate className="w-3.5 h-3.5 text-gray-500" strokeWidth={1.5} />
+            Gabarit de devis
+          </label>
+          <select
+            value={selectedTemplateId}
+            onChange={(e) => setSelectedTemplateId(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            {templates.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.builtin ? '★ ' : ''}
+                {t.name}
+                {t.id === defaultTemplateId ? ' — par défaut' : ''}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+            {selectedTemplateId === defaultTemplateId ? (
+              <>
+                <Star className="w-3 h-3" strokeWidth={1.5} />
+                Gabarit appliqué par défaut — modifiable dans{' '}
+                <a href={tp('/dashboard/quote-templates')} className="text-blue-600 hover:underline">
+                  Devis › Gabarits
                 </a>
-              </p>
+              </>
             ) : (
-              <select
-                value={currentClientId}
-                onChange={(e) => onClientChange?.(e.target.value || null)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">— Aucun client —</option>
-                {clients.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.company}
-                    {c.contact_name ? ` — ${c.contact_name}` : ''}
-                  </option>
-                ))}
-              </select>
+              <>
+                Gabarit temporaire pour cette impression.{' '}
+                <a href={tp('/dashboard/quote-templates')} className="text-blue-600 hover:underline">
+                  Changer mon gabarit par défaut
+                </a>
+              </>
             )}
-          </div>
-        )}
+          </p>
+        </div>
 
         {/* Actions */}
         <div className="p-6 space-y-3">

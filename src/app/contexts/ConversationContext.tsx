@@ -1,6 +1,14 @@
+/**
+ * ConversationContext — v3 tenant-scoped
+ * ──────────────────────────────────────
+ * L'historique chat est desormais scope par tenant_id. Changer de tenant
+ * = changer d'historique. Local storage garde un cache par tenant
+ * (cle suffixee du tenant.id) pour eviter de fuiter entre espaces.
+ */
 import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { supabase } from '/utils/supabase/client';
 import { useAuth } from './AuthContext';
+import { useTenant } from './TenantContext';
 
 export interface ConversationMessage {
   role: string;
@@ -28,15 +36,23 @@ interface ConversationContextType {
   startNewConversation: () => void;
 }
 
-const STORAGE_KEY = 'magrit_conversation_history';
+// Cle localStorage suffixee par tenant_id : chaque espace a son cache
+// d'historique. Empeche le bleed entre tenants si un user a plusieurs.
+const storageKey = (tenantId: string | null) =>
+  tenantId ? `magrit_conversation_history__${tenantId}` : 'magrit_conversation_history';
+
+// Cle localStorage de la conversation active (pour restorer apres refresh /
+// re-mount du provider). Suffixee par tenant comme storageKey.
+const currentConvIdKey = (tenantId: string | null) =>
+  tenantId ? `magrit_current_conversation__${tenantId}` : 'magrit_current_conversation';
 
 const ConversationContext = createContext<ConversationContextType | undefined>(undefined);
 
-async function fetchRemote(userId: string): Promise<ConversationHistory[]> {
+async function fetchRemote(tenantId: string): Promise<ConversationHistory[]> {
   const { data, error } = await supabase
     .from('conversations')
     .select('*')
-    .eq('user_id', userId)
+    .eq('tenant_id', tenantId)
     .order('timestamp', { ascending: false });
   if (error) console.error('[Conversation] fetch failed', error.message);
   if (!data) return [];
@@ -49,11 +65,16 @@ async function fetchRemote(userId: string): Promise<ConversationHistory[]> {
   }));
 }
 
-async function upsertRemote(userId: string, conv: ConversationHistory): Promise<{ ok: boolean; rlsBlocked: boolean }> {
+async function upsertRemote(
+  userId: string,
+  tenantId: string,
+  conv: ConversationHistory
+): Promise<{ ok: boolean; rlsBlocked: boolean }> {
   const { error } = await supabase.from('conversations').upsert(
     {
       id: conv.id,
       user_id: userId,
+      tenant_id: tenantId,
       title: conv.title,
       messages: conv.messages,
       products: conv.products,
@@ -73,35 +94,110 @@ async function upsertRemote(userId: string, conv: ConversationHistory): Promise<
   return { ok: true, rlsBlocked: false };
 }
 
-async function deleteRemote(userId: string, id: string) {
-  const { error } = await supabase.from('conversations').delete().eq('id', id).eq('user_id', userId);
+async function deleteRemote(tenantId: string, id: string) {
+  const { error } = await supabase
+    .from('conversations')
+    .delete()
+    .eq('id', id)
+    .eq('tenant_id', tenantId);
   if (error) console.error('[Conversation] delete failed', { convId: id, message: error.message });
 }
 
 export function ConversationProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
+  const { currentTenant } = useTenant();
   const [messages, setMessages] = useState<ConversationMessage[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [history, setHistory] = useState<ConversationHistory[]>([]);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const migratedRef = useRef(false);
+  // 2026-05-17 — Bloque la synchronisation history -> localStorage tant que
+  // l hydratation initiale (lecture cache + fetchRemote) n est pas terminee.
+  // Sans ce flag, l effet ligne ~227 ecrasait le cache avec history=[]
+  // (state initial useState) DES le premier render, AVANT que l effet de
+  // restauration n ait fini sa lecture cote tab focus / re-mount. Resultat :
+  // au remontage suivant le cache valait toujours "[]" et la restauration
+  // synchrone ne trouvait jamais la conv -> reset = home par defaut.
+  const hydratedRef = useRef(false);
 
   useEffect(() => {
-    if (user) {
-      fetchRemote(user.id).then(async (remote) => {
+    // Reset le cache de migration quand on change de tenant
+    migratedRef.current = false;
+    hydratedRef.current = false;
+
+    // E9.x — Capture la conv active AVANT de reset le state. Permet de la
+    // restaurer apres re-mount du provider (ex : Supabase auth refresh sur
+    // tab focus qui change la reference user et re-declenche cet effet).
+    // Sans ca, l utilisateur perdait ses produits genere quand il quittait
+    // l onglet et revenait, alors que la conv etait toujours en historique.
+    const tenantIdAtMount = currentTenant?.id ?? null;
+    const savedConvId = localStorage.getItem(currentConvIdKey(tenantIdAtMount));
+
+    // 2026-05-15 — Restauration SYNCHRONE depuis le cache localStorage de
+    // l historique (tenu a jour par l effet ligne ~197). Evite le flash
+    // visuel "home standard" entre le reset state et la restauration apres
+    // fetchRemote (async) qui re-declenchait sur chaque tab focus.
+    let restoredSync = false;
+    if (savedConvId) {
+      try {
+        const cachedRaw = localStorage.getItem(storageKey(tenantIdAtMount));
+        if (cachedRaw) {
+          const cached: ConversationHistory[] = JSON.parse(cachedRaw);
+          const conv = cached.find((c) => c.id === savedConvId);
+          if (conv) {
+            setCurrentConversationId(conv.id);
+            setMessages(Array.isArray(conv.messages) ? conv.messages.map((m) => ({ ...m })) : []);
+            setProducts(Array.isArray(conv.products) ? conv.products.map((p) => ({ ...p })) : []);
+            setHistory((prev) => (prev.length ? prev : cached));
+            restoredSync = true;
+            // Hydratation effective : on a deja restaure le state depuis le
+            // cache. Les saveCurrent ulterieurs (avant que fetchRemote ne
+            // resolve) doivent pouvoir persister dans localStorage.
+            hydratedRef.current = true;
+          }
+        }
+      } catch {
+        // Cache corrompu : on retombe sur le reset + fetchRemote
+      }
+    }
+
+    if (!restoredSync) {
+      setMessages([]);
+      setProducts([]);
+      setCurrentConversationId(null);
+    }
+
+    const restoreCurrentFromHistory = (h: ConversationHistory[]) => {
+      if (!savedConvId) return;
+      const conv = h.find((c) => c.id === savedConvId);
+      if (!conv) {
+        // ID stale (conv supprimee) — nettoyage
+        localStorage.removeItem(currentConvIdKey(tenantIdAtMount));
+        return;
+      }
+      setCurrentConversationId(conv.id);
+      setMessages(Array.isArray(conv.messages) ? conv.messages.map((m) => ({ ...m })) : []);
+      setProducts(Array.isArray(conv.products) ? conv.products.map((p) => ({ ...p })) : []);
+    };
+
+    if (user && currentTenant) {
+      fetchRemote(currentTenant.id).then(async (remote) => {
         if (!migratedRef.current) {
-          const local = localStorage.getItem(STORAGE_KEY);
+          const localKey = storageKey(currentTenant.id);
+          const local = localStorage.getItem(localKey);
           if (local) {
             try {
               const parsed: ConversationHistory[] = JSON.parse(local);
               const missing = parsed.filter((p) => !remote.some((r) => r.id === p.id));
               for (const conv of missing) {
-                await upsertRemote(user.id, conv);
+                await upsertRemote(user.id, currentTenant.id, conv);
               }
               if (missing.length > 0) {
-                const refreshed = await fetchRemote(user.id);
+                const refreshed = await fetchRemote(currentTenant.id);
                 setHistory(refreshed);
                 migratedRef.current = true;
+                restoreCurrentFromHistory(refreshed);
+                hydratedRef.current = true;
                 return;
               }
             } catch {}
@@ -109,23 +205,50 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
           migratedRef.current = true;
         }
         setHistory(remote);
+        restoreCurrentFromHistory(remote);
+        hydratedRef.current = true;
       });
     } else {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      const localKey = storageKey(currentTenant?.id ?? null);
+      const saved = localStorage.getItem(localKey);
+      let parsed: ConversationHistory[] = [];
       if (saved) {
-        try { setHistory(JSON.parse(saved)); } catch {}
-      } else {
-        setHistory([]);
+        try { parsed = JSON.parse(saved); } catch {}
       }
-      migratedRef.current = false;
+      setHistory(parsed);
+      restoreCurrentFromHistory(parsed);
+      hydratedRef.current = true;
     }
-  }, [user]);
+  }, [user, currentTenant?.id]);
+
+  // E9.x — Auto-persist de la conv active dans localStorage. Permet a
+  // restoreCurrentFromHistory de la retrouver au prochain mount. On NE
+  // supprime PAS la cle quand currentConversationId devient null : ce null
+  // peut etre transient (reset au re-mount du provider sur tab focus).
+  // Le nettoyage explicite est dans startNewConversation, deleteConversation,
+  // et restoreCurrentFromHistory (sur ID stale).
+  useEffect(() => {
+    if (currentConversationId) {
+      localStorage.setItem(
+        currentConvIdKey(currentTenant?.id ?? null),
+        currentConversationId,
+      );
+    }
+  }, [currentConversationId, currentTenant?.id]);
 
   useEffect(() => {
     // Le localStorage sert de cache hors-ligne et de source pour la migration
-    // au login. On le garde synchronisé en permanence avec l'état courant.
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
-  }, [history]);
+    // au login. On le garde synchronise en permanence avec l'etat courant.
+    // Cle suffixee par tenant : un espace = un cache.
+    // 2026-05-17 — Gate `hydratedRef` : on n ecrit PAS le cache avant que
+    // l hydratation initiale (lecture + restoration sync OU fetchRemote)
+    // soit finie. Sinon le `useState([])` initial du nouveau mount ecrasait
+    // le cache avec "[]" AVANT que le useEffect de restauration ait pu lire
+    // l ancien contenu -> au remontage suivant (tab focus) la conv etait
+    // perdue parce que le cache valait "[]".
+    if (!hydratedRef.current) return;
+    localStorage.setItem(storageKey(currentTenant?.id ?? null), JSON.stringify(history));
+  }, [history, currentTenant?.id]);
 
   const saveCurrent = useCallback(
     (nextMessages: ConversationMessage[], nextProducts: any[]) => {
@@ -170,11 +293,11 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
           products: conv.products.length,
           action: currentConversationId ? 'update' : 'create',
         });
-        if (user) {
-          void upsertRemote(user.id, conv).then((res) => {
+        if (user && currentTenant) {
+          void upsertRemote(user.id, currentTenant.id, conv).then((res) => {
             if (!res.ok && res.rlsBlocked) {
-              // Conv appartient à un autre user → on la retire localement et
-              // on reset currentConversationId pour éviter de spammer.
+              // Conv appartient a un autre tenant/user -> on la retire localement
+              // pour eviter de spammer en rejeu.
               setHistory((prev2) => prev2.filter((c) => c.id !== conv.id));
               setCurrentConversationId((cur) => (cur === conv.id ? null : cur));
             }
@@ -183,35 +306,55 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
         return next;
       });
     },
-    [currentConversationId, user]
+    [currentConversationId, user, currentTenant?.id]
   );
 
   const loadConversation = useCallback((conv: ConversationHistory) => {
-    console.log('[Conversation] load', {
+    console.log('[Conversation] load (append)', {
       id: conv.id,
       title: conv.title,
       messages: conv.messages?.length ?? 0,
       products: conv.products?.length ?? 0,
     });
-    // Deep-clone pour découpler la conv en historique de l'état courant :
-    // éviter qu'une modif ultérieure (ex: ajout de produits, édition client)
-    // ne pollue la version stockée en historique.
-    setMessages(Array.isArray(conv.messages) ? conv.messages.map((m) => ({ ...m })) : []);
-    setProducts(Array.isArray(conv.products) ? conv.products.map((p) => ({ ...p })) : []);
-    setCurrentConversationId(conv.id);
+    // APPEND : cliquer sur une conv de l'historique ajoute ses messages
+    // et ses produits à l'état courant, sans tout écraser. Permet de
+    // construire une session en piochant dans les conversations passées.
+    // Déduplication par product.id pour éviter les doublons.
+    const clonedMsgs = Array.isArray(conv.messages)
+      ? conv.messages.map((m) => ({ ...m }))
+      : [];
+    const clonedProducts = Array.isArray(conv.products)
+      ? conv.products.map((p) => ({ ...p }))
+      : [];
+
+    setMessages((prev) => [...prev, ...clonedMsgs]);
+    setProducts((prev) => {
+      const existingIds = new Set(
+        prev.map((p: any) => p?.id).filter(Boolean) as string[]
+      );
+      const additions = clonedProducts.filter(
+        (p: any) => !p?.id || !existingIds.has(p.id as string)
+      );
+      return [...prev, ...additions];
+    });
+    // On conserve currentConversationId inchangé : les nouveaux messages
+    // qu'envoie ensuite l'utilisateur continuent à s'ajouter à la conv en
+    // cours (ou en créent une nouvelle si pas encore de conv active).
   }, []);
 
   const deleteConversation = useCallback(
     (id: string) => {
       setHistory((prev) => prev.filter((c) => c.id !== id));
-      if (user) void deleteRemote(user.id, id);
+      if (user && currentTenant) void deleteRemote(currentTenant.id, id);
       if (currentConversationId === id) {
         setCurrentConversationId(null);
         setMessages([]);
         setProducts([]);
+        // Clear explicite de la cle de restauration (cf. auto-persist effect)
+        localStorage.removeItem(currentConvIdKey(currentTenant?.id ?? null));
       }
     },
-    [currentConversationId, user]
+    [currentConversationId, user, currentTenant?.id]
   );
 
   const startNewConversation = useCallback(() => {
@@ -219,7 +362,9 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
     setMessages([]);
     setProducts([]);
     setCurrentConversationId(null);
-  }, [messages, products, saveCurrent]);
+    // Clear explicite de la cle de restauration
+    localStorage.removeItem(currentConvIdKey(currentTenant?.id ?? null));
+  }, [messages, products, saveCurrent, currentTenant?.id]);
 
   return (
     <ConversationContext.Provider

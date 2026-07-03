@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<title>B · Boutique — Portail corporate B2B</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@200;300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --mg-font-sans: "Helvetica Neue", "HelveticaNeue", "Inter Tight", Helvetica, Arial, sans-serif;
+    --mg-font-mono: 'JetBrains Mono', ui-monospace, monospace;
+    --mg-ink: #0A0A0A;
+    --mg-ink-2: #2A2A2D;
+    --mg-ink-3: #52525B;
+    --mg-ink-4: #8A8A93;
+    --mg-line: #ECECEC;
+    --mg-line-2: #E4E4E7;
+    --mg-bg: #FAFAFA;
+    --mg-bg-2: #F5F5F5;
+    --brand: #0F3D91;
+    --brand-ink: #FFF;
+    --accent-ok: #166534;
+    --accent-warn: #B45309;
+    --accent-err: #B42318;
+  }
+
+  body { margin: 0; background: var(--mg-bg); color: var(--mg-ink); padding: 48px 40px 140px; font-family: var(--mg-font-sans); -webkit-font-smoothing: antialiased; font-weight: 300; }
+  .wrap { max-width: 1480px; margin: 0 auto; }
+  .crumb { font-family: var(--mg-font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mg-ink-3); margin-bottom: 8px; font-weight: 500; }
+  .crumb a { color: var(--mg-ink-3); text-decoration: none; }
+  h1.page { font-weight: 200; font-size: 56px; letter-spacing: -0.035em; margin: 8px 0 16px; line-height: 1; }
+  .lede { color: var(--mg-ink-2); max-width: 820px; margin: 0 0 40px; line-height: 1.6; font-size: 15.5px; font-weight: 400; }
+  .lede b { font-weight: 500; color: var(--mg-ink); }
+  .lede code { font-family: var(--mg-font-mono); font-size: 13px; background: var(--mg-bg-2); padding: 2px 6px; border-radius: 4px; }
+
+  .card { background: #FFF; border: 1px solid var(--mg-line); border-radius: 16px; overflow: hidden; margin-bottom: 28px; }
+  .card-head { display: flex; align-items: baseline; gap: 16px; padding: 22px 32px 18px; border-bottom: 1px solid var(--mg-line); background: var(--mg-bg); }
+  .card-head .num { font-family: var(--mg-font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mg-ink-3); font-weight: 500; }
+  .card-head h2 { font-weight: 400; font-size: 22px; letter-spacing: -0.015em; margin: 0; }
+  .card-head .tag { margin-left: auto; font-family: var(--mg-font-mono); font-size: 11px; color: var(--mg-ink-3); }
+
+  .frame { padding: 24px; background: var(--mg-bg-2); }
+  .frame-inner { background: #FFF; border: 1px solid var(--mg-line); border-radius: 10px; overflow: hidden; }
+
+  .spec { padding: 18px 32px 22px; font-family: var(--mg-font-mono); font-size: 12px; color: var(--mg-ink-2); background: var(--mg-bg); border-top: 1px solid var(--mg-line); display: flex; flex-wrap: wrap; gap: 24px; font-weight: 400; }
+  .spec b { color: var(--mg-ink); font-weight: 500; }
+
+  .note { margin-top: 40px; background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 12px; padding: 20px 24px; color: #78350F; font-size: 14px; line-height: 1.6; font-weight: 400; }
+  .note strong { color: #451A03; font-weight: 500; }
+
+  /* ======================================================
+     ERP-like portal — aéré
+     ====================================================== */
+  .v1 { font-family: var(--mg-font-sans); color: var(--mg-ink); font-size: 13.5px; font-weight: 300; background: var(--mg-bg); }
+
+  /* ---------- Topbar ---------- */
+  .v1 .topbar { display: flex; align-items: center; gap: 20px; padding: 14px 28px; background: #FFF; border-bottom: 1px solid var(--mg-line); }
+  .v1 .brand { display: flex; align-items: center; gap: 12px; }
+  .v1 .brand .logo { width: 26px; height: 26px; border-radius: 6px; background: var(--brand); color: var(--brand-ink); display: grid; place-items: center; font-size: 12px; font-weight: 600; letter-spacing: 0.02em; }
+  .v1 .brand b { font-weight: 500; font-size: 14px; letter-spacing: -0.005em; }
+  .v1 .brand .sub { color: var(--mg-ink-3); font-size: 12.5px; font-weight: 400; margin-left: 6px; }
+  .v1 .breadcrumb { display: flex; gap: 10px; color: var(--mg-ink-3); font-family: var(--mg-font-mono); font-size: 11px; letter-spacing: 0.04em; margin-left: 16px; font-weight: 400; }
+  .v1 .breadcrumb b { color: var(--mg-ink); font-weight: 500; }
+  .v1 .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 18px; font-size: 12.5px; color: var(--mg-ink-2); font-weight: 400; }
+  .v1 .kbd { font-family: var(--mg-font-mono); font-size: 10.5px; padding: 2px 6px; border: 1px solid var(--mg-line); border-radius: 4px; background: var(--mg-bg); color: var(--mg-ink-2); font-weight: 500; }
+  .v1 .chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-family: var(--mg-font-mono); font-size: 11px; letter-spacing: 0.02em; }
+  .v1 .chip-user { background: var(--mg-bg); border: 1px solid var(--mg-line); color: var(--mg-ink); font-weight: 500; }
+
+  /* ---------- Shell ---------- */
+  .v1 .shell { display: grid; grid-template-columns: 220px 1fr; min-height: 860px; }
+  .v1 .side { border-right: 1px solid var(--mg-line); background: #FFF; padding: 20px 0; font-size: 13px; }
+  .v1 .side-h { padding: 14px 20px 6px; font-family: var(--mg-font-mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--mg-ink-4); font-weight: 500; }
+  .v1 .side-item { padding: 8px 20px; color: var(--mg-ink-2); display: flex; align-items: center; gap: 10px; cursor: default; font-weight: 400; }
+  .v1 .side-item .dot { width: 4px; height: 4px; border-radius: 50%; background: var(--mg-ink-4); flex: none; }
+  .v1 .side-item.active { background: var(--mg-bg); color: var(--mg-ink); font-weight: 500; border-left: 2px solid var(--mg-ink); padding-left: 18px; }
+  .v1 .side-item .count { margin-left: auto; color: var(--mg-ink-3); font-family: var(--mg-font-mono); font-size: 11px; font-weight: 500; }
+
+  /* ---------- Main column ---------- */
+  .v1 .main { display: flex; flex-direction: column; background: var(--mg-bg); }
+
+  /* Title bar : généreux */
+  .v1 .bar { display: flex; align-items: baseline; gap: 20px; padding: 32px 32px 24px; background: #FFF; border-bottom: 1px solid var(--mg-line); }
+  .v1 .bar h1 { margin: 0; font-weight: 300; font-size: 28px; letter-spacing: -0.02em; }
+  .v1 .bar .period { font-family: var(--mg-font-mono); font-size: 11.5px; color: var(--mg-ink-3); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 500; }
+  .v1 .bar-right { margin-left: auto; display: flex; gap: 10px; }
+  .v1 .btn { font-family: var(--mg-font-sans); font-size: 13px; font-weight: 500; padding: 8px 14px; border: 1px solid var(--mg-line); background: #FFF; color: var(--mg-ink); border-radius: 6px; cursor: default; display: inline-flex; align-items: center; gap: 8px; letter-spacing: -0.005em; }
+  .v1 .btn-primary { background: var(--mg-ink); color: #FFF; border-color: var(--mg-ink); }
+  .v1 .btn .kbd { border-color: transparent; background: var(--mg-bg-2); color: var(--mg-ink-3); font-weight: 500; }
+  .v1 .btn-primary .kbd { background: rgba(255,255,255,0.12); color: #FFF; border-color: transparent; }
+
+  /* ---------- KPI ribbon : aéré ---------- */
+  .v1 .section { padding: 28px 32px; }
+  .v1 .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .v1 .kpi { padding: 22px 24px; background: #FFF; border: 1px solid var(--mg-line); border-radius: 10px; }
+  .v1 .kpi-lab { font-family: var(--mg-font-mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--mg-ink-3); margin-bottom: 12px; font-weight: 500; }
+  .v1 .kpi-val { font-size: 30px; font-weight: 300; letter-spacing: -0.025em; line-height: 1; color: var(--mg-ink); }
+  .v1 .kpi-val sub { font-size: 14px; color: var(--mg-ink-3); font-weight: 400; letter-spacing: 0; margin-left: 6px; }
+  .v1 .kpi-meter { margin-top: 16px; height: 5px; background: var(--mg-bg-2); border-radius: 3px; overflow: hidden; }
+  .v1 .kpi-meter > i { display: block; height: 100%; background: var(--mg-ink); }
+  .v1 .kpi-meter.warn > i { background: var(--accent-warn); }
+  .v1 .kpi-foot { margin-top: 10px; font-size: 12px; color: var(--mg-ink-2); font-family: var(--mg-font-mono); letter-spacing: 0.02em; font-weight: 400; }
+  .v1 .kpi-foot.warn { color: var(--accent-warn); font-weight: 500; }
+
+  /* ---------- Generic block panel ---------- */
+  .v1 .panel { background: #FFF; border: 1px solid var(--mg-line); border-radius: 10px; overflow: hidden; }
+  .v1 .panel-h { display: flex; align-items: baseline; padding: 18px 22px 14px; border-bottom: 1px solid var(--mg-line); gap: 12px; }
+  .v1 .panel-h h3 { font-size: 14px; font-weight: 500; margin: 0; letter-spacing: -0.005em; }
+  .v1 .panel-h .sub { font-family: var(--mg-font-mono); font-size: 11px; color: var(--mg-ink-3); font-weight: 400; }
+  .v1 .panel-h .right { margin-left: auto; font-family: var(--mg-font-mono); font-size: 11px; color: var(--mg-ink-3); font-weight: 400; }
+
+  /* ---------- Filter bar ---------- */
+  .v1 .filters { display: flex; align-items: center; gap: 8px; padding: 12px 22px; background: var(--mg-bg); border-bottom: 1px solid var(--mg-line); font-size: 12px; flex-wrap: wrap; }
+  .v1 .filter { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border: 1px solid var(--mg-line); background: #FFF; border-radius: 6px; color: var(--mg-ink-2); font-weight: 400; }
+  .v1 .filter b { font-weight: 500; color: var(--mg-ink); }
+  .v1 .filter .x { color: var(--mg-ink-4); margin-left: 2px; }
+  .v1 .filter.add { color: var(--mg-ink-3); border-style: dashed; background: transparent; }
+  .v1 .filters-right { margin-left: auto; display: flex; gap: 16px; font-family: var(--mg-font-mono); font-size: 11px; color: var(--mg-ink-3); font-weight: 400; }
+
+  /* ---------- Tables ---------- */
+  .v1 table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .v1 thead th { text-align: left; padding: 12px 22px; font-family: var(--mg-font-mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--mg-ink-3); font-weight: 500; border-bottom: 1px solid var(--mg-line); background: var(--mg-bg); }
+  .v1 thead th .sort { margin-left: 4px; color: var(--mg-ink-4); }
+  .v1 tbody td { padding: 14px 22px; border-bottom: 1px solid var(--mg-line); font-weight: 400; vertical-align: middle; color: var(--mg-ink-2); }
+  .v1 tbody tr:last-child td { border-bottom: none; }
+  .v1 tbody tr:hover td { background: var(--mg-bg); }
+  .v1 .thumb { width: 36px; height: 36px; border-radius: 4px; background: linear-gradient(135deg, #F5F5F5, #E4E4E7); display: inline-block; vertical-align: middle; margin-right: 12px; }
+  .v1 .tpl-name b { font-weight: 500; color: var(--mg-ink); display: block; font-size: 13px; letter-spacing: -0.005em; }
+  .v1 .tpl-name span { color: var(--mg-ink-3); font-size: 11.5px; font-family: var(--mg-font-mono); font-weight: 400; }
+  .v1 .price { font-weight: 500; color: var(--mg-ink); }
+  .v1 .muted { color: var(--mg-ink-3); font-weight: 400; }
+  .v1 .ref { font-family: var(--mg-font-mono); color: var(--mg-ink); font-size: 12px; font-weight: 500; }
+  .v1 .badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-family: var(--mg-font-mono); font-size: 10.5px; letter-spacing: 0.02em; font-weight: 500; }
+  .v1 .badge-lock { background: #F1F5F9; color: #334155; }
+  .v1 .badge-open { background: #FEF3C7; color: #92400E; }
+
+  /* Status pills */
+  .v1 .status { font-family: var(--mg-font-mono); font-size: 11px; letter-spacing: 0.02em; display: inline-flex; align-items: center; gap: 6px; font-weight: 500; color: var(--mg-ink-2); }
+  .v1 .status::before { content: ''; width: 6px; height: 6px; border-radius: 50%; }
+  .v1 .status.pending::before { background: var(--accent-warn); }
+  .v1 .status.approved::before { background: var(--accent-ok); }
+  .v1 .status.rejected::before { background: var(--accent-err); }
+  .v1 .status.draft::before { background: var(--mg-ink-4); }
+
+  /* ---------- Two-column lower section ---------- */
+  .v1 .row { display: grid; grid-template-columns: 1.6fr 1fr; gap: 20px; }
+
+  /* ---------- Audit feed ---------- */
+  .v1 .audit { padding: 6px 0; }
+  .v1 .audit-row { padding: 12px 22px; display: grid; grid-template-columns: 80px 1fr; gap: 12px; border-bottom: 1px solid var(--mg-line); }
+  .v1 .audit-row:last-child { border-bottom: none; }
+  .v1 .audit-time { font-family: var(--mg-font-mono); font-size: 11px; color: var(--mg-ink-3); font-weight: 500; }
+  .v1 .audit-msg { font-size: 12.5px; line-height: 1.5; color: var(--mg-ink-2); font-weight: 400; }
+  .v1 .audit-msg b { color: var(--mg-ink); font-weight: 500; }
+  .v1 .audit-msg .who { color: var(--mg-ink-3); font-weight: 400; }
+  .v1 .audit-tag { display: inline-block; padding: 2px 7px; border-radius: 3px; font-family: var(--mg-font-mono); font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase; margin-right: 6px; font-weight: 600; }
+  .v1 .audit-tag.ok { background: #DCFCE7; color: #166534; }
+  .v1 .audit-tag.warn { background: #FEF3C7; color: #92400E; }
+  .v1 .audit-tag.new { background: #E0E7FF; color: #3730A3; }
+  .v1 .audit-tag.rej { background: #FEE2E2; color: #991B1B; }
+
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="crumb"><a href="À valider demain.html">← retour à l'index</a></div>
+    <h1 class="page">B · Boutique — portail B2B corporate</h1>
+    <p class="lede">
+      Version retenue : <b>ERP-like aéré</b>. On garde la densité d'information (table catalogue, commandes, audit trail) mais on respire : chaque zone est un <b>panneau séparé</b> posé sur un fond gris, avec des marges généreuses entre blocs plutôt que des cloisons collées bord à bord. KPI en cards, sections espacées de 28px. Cible : valideurs quotidiens (directeur marketing, DAF, Achats) — conforme au brief <b>T-01 Corporate Portal</b>.
+    </p>
+
+    <div class="card">
+      <div class="card-head">
+        <span class="num">B1</span>
+        <h2>ERP-like — aéré</h2>
+        <span class="tag">panneaux séparés · marges 28px · KPI en cards</span>
+      </div>
+      <div class="frame">
+        <div class="frame-inner">
+          <div class="v1">
+
+            <!-- ============ TOPBAR ============ -->
+            <div class="topbar">
+              <div class="brand">
+                <span class="logo">A</span>
+                <b>Altavia</b><span class="sub">/ portail impression Magrit</span>
+              </div>
+              <div class="breadcrumb">
+                <span>Accueil</span><span>›</span><b>Marketing France · Q2 2026</b>
+              </div>
+              <div class="topbar-right">
+                <span><span class="kbd">⌘</span><span class="kbd">K</span>&nbsp;&nbsp;Rechercher</span>
+                <span>Sabine Moreau · Valideur N+1</span>
+                <span class="chip chip-user">MARKETING · FR</span>
+              </div>
+            </div>
+
+            <!-- ============ SHELL ============ -->
+            <div class="shell">
+
+              <!-- SIDE -->
+              <aside class="side">
+                <div class="side-h">Département</div>
+                <div class="side-item active"><span class="dot"></span>Tableau de bord</div>
+                <div class="side-item"><span class="dot"></span>Catalogue templates<span class="count">124</span></div>
+                <div class="side-item"><span class="dot"></span>Commandes<span class="count">37</span></div>
+                <div class="side-item"><span class="dot"></span>À valider<span class="count">8</span></div>
+                <div class="side-item"><span class="dot"></span>Historique</div>
+
+                <div class="side-h">Corporate</div>
+                <div class="side-item"><span class="dot"></span>Budgets &amp; allocations</div>
+                <div class="side-item"><span class="dot"></span>Départements<span class="count">12</span></div>
+                <div class="side-item"><span class="dot"></span>Utilisateurs<span class="count">248</span></div>
+                <div class="side-item"><span class="dot"></span>Règles de validation</div>
+                <div class="side-item"><span class="dot"></span>Audit trail</div>
+
+                <div class="side-h">Reporting</div>
+                <div class="side-item"><span class="dot"></span>Consommation</div>
+                <div class="side-item"><span class="dot"></span>Export comptable</div>
+              </aside>
+
+              <!-- MAIN -->
+              <section class="main">
+
+                <!-- Title bar -->
+                <div class="bar">
+                  <h1>Marketing France</h1>
+                  <span class="period">Q2 2026 · 41 jours restants</span>
+                  <div class="bar-right">
+                    <button class="btn">Exporter CSV<span class="kbd">E</span></button>
+                    <button class="btn">Nouvelle commande<span class="kbd">N</span></button>
+                    <button class="btn btn-primary">Valider en lot<span class="kbd">V</span></button>
+                  </div>
+                </div>
+
+                <!-- KPI section -->
+                <div class="section">
+                  <div class="kpis">
+                    <div class="kpi">
+                      <div class="kpi-lab">Budget alloué Q2</div>
+                      <div class="kpi-val">120 000<sub>€</sub></div>
+                      <div class="kpi-meter"><i style="width:100%;background:var(--mg-ink-4);"></i></div>
+                      <div class="kpi-foot">Paramétré par DAF · report Q1 désactivé</div>
+                    </div>
+                    <div class="kpi">
+                      <div class="kpi-lab">Consommé</div>
+                      <div class="kpi-val">78 420<sub>€</sub></div>
+                      <div class="kpi-meter"><i style="width:65%;"></i></div>
+                      <div class="kpi-foot">65.3 % · 29 commandes produites</div>
+                    </div>
+                    <div class="kpi">
+                      <div class="kpi-lab">Engagé en validation</div>
+                      <div class="kpi-val">14 380<sub>€</sub></div>
+                      <div class="kpi-meter warn"><i style="width:77%;"></i></div>
+                      <div class="kpi-foot warn">Seuil 75 % atteint · 8 en attente</div>
+                    </div>
+                    <div class="kpi">
+                      <div class="kpi-lab">Reste à engager</div>
+                      <div class="kpi-val">27 200<sub>€</sub></div>
+                      <div class="kpi-meter"><i style="width:23%;"></i></div>
+                      <div class="kpi-foot">22.7 % · à consommer</div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Catalogue section -->
+                <div class="section" style="padding-top: 0;">
+                  <div class="panel">
+                    <div class="panel-h">
+                      <h3>Catalogue templates brandés</h3>
+                      <span class="sub">48 / 124 accessibles à ce département</span>
+                      <span class="right">Voir tout →</span>
+                    </div>
+                    <div class="filters">
+                      <span class="filter"><b>Catégorie :</b> Toutes<span class="x">×</span></span>
+                      <span class="filter"><b>Personnalisation :</b> Verrouillé<span class="x">×</span></span>
+                      <span class="filter add">+ Ajouter un filtre</span>
+                      <div class="filters-right">
+                        <span>Tri : nom ascendant</span>
+                        <span>6 résultats</span>
+                      </div>
+                    </div>
+                    <table>
+                      <thead>
+                        <tr>
+                          <th style="width:34%;">Template<span class="sort">↕</span></th>
+                          <th>Catégorie</th>
+                          <th>Personnalisation</th>
+                          <th style="text-align:right;">Prix unité<span class="sort">↕</span></th>
+                          <th>Min. qté</th>
+                          <th>Dernière commande</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td><span class="thumb"></span><span class="tpl-name"><b>Carte de visite — Direction</b><span>TPL-ALT-CV-DIR-07</span></span></td>
+                          <td>Papeterie</td>
+                          <td><span class="badge badge-lock">VERROUILLÉ</span></td>
+                          <td style="text-align:right;"><span class="price">19,00 €</span></td>
+                          <td>100</td>
+                          <td class="muted">Il y a 3j · M. Dubois</td>
+                        </tr>
+                        <tr>
+                          <td><span class="thumb"></span><span class="tpl-name"><b>Flyer A5 — Offres magasins</b><span>TPL-ALT-FLY-MAG-12</span></span></td>
+                          <td>Marketing retail</td>
+                          <td><span class="badge badge-open">ÉDITABLE</span></td>
+                          <td style="text-align:right;"><span class="price">32,40 €</span></td>
+                          <td>250</td>
+                          <td class="muted">Hier · J. Lemaire</td>
+                        </tr>
+                        <tr>
+                          <td><span class="thumb"></span><span class="tpl-name"><b>Affiche A2 — Campagne saisonnière</b><span>TPL-ALT-AFF-SAI-03</span></span></td>
+                          <td>Affichage</td>
+                          <td><span class="badge badge-lock">VERROUILLÉ</span></td>
+                          <td style="text-align:right;"><span class="price">14,20 €</span></td>
+                          <td>10</td>
+                          <td class="muted">Il y a 6j · A. Fournier</td>
+                        </tr>
+                        <tr>
+                          <td><span class="thumb"></span><span class="tpl-name"><b>Papier en-tête — Siège social</b><span>TPL-ALT-PET-SIE-01</span></span></td>
+                          <td>Papeterie</td>
+                          <td><span class="badge badge-lock">VERROUILLÉ</span></td>
+                          <td style="text-align:right;"><span class="price">0,28 €</span></td>
+                          <td>500</td>
+                          <td class="muted">Il y a 14j · RH</td>
+                        </tr>
+                        <tr>
+                          <td><span class="thumb"></span><span class="tpl-name"><b>Kakemono roll-up 85×200</b><span>TPL-ALT-KAK-EVT-04</span></span></td>
+                          <td>Événementiel</td>
+                          <td><span class="badge badge-open">ÉDITABLE</span></td>
+                          <td style="text-align:right;"><span class="price">89,00 €</span></td>
+                          <td>1</td>
+                          <td class="muted">Il y a 2j · Comm.</td>
+                        </tr>
+                        <tr>
+                          <td><span class="thumb"></span><span class="tpl-name"><b>Étiquettes produit — Gamme Éco</b><span>TPL-ALT-ETI-ECO-09</span></span></td>
+                          <td>Packaging</td>
+                          <td><span class="badge badge-lock">VERROUILLÉ</span></td>
+                          <td style="text-align:right;"><span class="price">0,04 €</span></td>
+                          <td>5 000</td>
+                          <td class="muted">Il y a 1j · Ops</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <!-- Row: orders + audit -->
+                <div class="section" style="padding-top: 0;">
+                  <div class="row">
+
+                    <div class="panel">
+                      <div class="panel-h">
+                        <h3>Commandes à valider</h3>
+                        <span class="sub">Sabine Moreau · N+1 · 8 en attente</span>
+                        <span class="right">Seuil 500 – 5 000 €</span>
+                      </div>
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Référence</th><th>Demandeur</th><th>Template</th><th style="text-align:right;">Montant</th><th>Statut</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr><td><span class="ref">BC-2026-04812</span></td><td>M. Dubois</td><td>Flyer A5 magasins</td><td style="text-align:right;"><span class="price">2 430,00 €</span></td><td><span class="status pending">En attente N+1</span></td></tr>
+                          <tr><td><span class="ref">BC-2026-04810</span></td><td>J. Lemaire</td><td>Affiche A2 saisonnière</td><td style="text-align:right;"><span class="price">1 140,00 €</span></td><td><span class="status pending">En attente N+1</span></td></tr>
+                          <tr><td><span class="ref">BC-2026-04807</span></td><td>A. Fournier</td><td>Kakemono roll-up</td><td style="text-align:right;"><span class="price">712,00 €</span></td><td><span class="status pending">En attente N+1</span></td></tr>
+                          <tr><td><span class="ref">BC-2026-04805</span></td><td>C. Nguyen (RH)</td><td>Papier en-tête siège</td><td style="text-align:right;"><span class="price">420,00 €</span></td><td><span class="status approved">Auto-validé</span></td></tr>
+                          <tr><td><span class="ref">BC-2026-04801</span></td><td>P. Roy (Ops)</td><td>Étiquettes Éco</td><td style="text-align:right;"><span class="price">6 840,00 €</span></td><td><span class="status pending">En attente Achats</span></td></tr>
+                          <tr><td><span class="ref">BC-2026-04791</span></td><td>T. Roussel</td><td>Flyer A5 magasins</td><td style="text-align:right;"><span class="price">970,00 €</span></td><td><span class="status rejected">Rejeté · budget Q2</span></td></tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div class="panel">
+                      <div class="panel-h">
+                        <h3>Audit trail</h3>
+                        <span class="sub">Marketing France · temps réel</span>
+                        <span class="right">Log complet →</span>
+                      </div>
+                      <div class="audit">
+                        <div class="audit-row"><span class="audit-time">14:22</span><div class="audit-msg"><span class="audit-tag new">SOUMIS</span><b>BC-2026-04812</b> · <span class="who">M. Dubois</span> soumet pour validation N+1 · 2 430 €</div></div>
+                        <div class="audit-row"><span class="audit-time">14:08</span><div class="audit-msg"><span class="audit-tag ok">VALIDÉ</span><b>BC-2026-04805</b> · auto-validation budget &lt; 500 € · 420 €</div></div>
+                        <div class="audit-row"><span class="audit-time">11:47</span><div class="audit-msg"><span class="audit-tag warn">SEUIL</span>Budget engagé franchit 75 % · alerte envoyée à <b>DAF</b></div></div>
+                        <div class="audit-row"><span class="audit-time">10:31</span><div class="audit-msg"><span class="audit-tag rej">REJET</span><b>BC-2026-04791</b> · rejeté par <span class="who">S. Moreau</span> · budget Q2 dépassé</div></div>
+                        <div class="audit-row"><span class="audit-time">09:58</span><div class="audit-msg"><span class="audit-tag ok">VALIDÉ</span><b>BC-2026-04785</b> · <span class="who">S. Moreau</span> valide 3 commandes en lot · 1 820 €</div></div>
+                        <div class="audit-row"><span class="audit-time">09:12</span><div class="audit-msg"><span class="audit-tag new">TEMPLATE</span><b>FLY-MAG-12</b> v3.2 publiée par Brand Manager</div></div>
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+
+              </section>
+            </div>
+
+          </div>
+        </div>
+      </div>
+      <div class="spec">
+        <span><b>Densité</b> haute sans cloisonnement · 13.5px base · 220px side</span>
+        <span><b>Aération</b> 28px entre sections · 16–20px entre panneaux · cards avec marges</span>
+        <span><b>Hiérarchie</b> KPI → catalogue → commandes + audit en colonne droite</span>
+        <span><b>Raccourcis</b> ⌘K, N, V, E visibles sur les CTA</span>
+      </div>
+    </div>
+
+    <div class="note">
+      <strong>Version retenue.</strong> Cette maquette respecte la densité ERP (table catalogue, raccourcis clavier, status pills, audit trail visible) tout en respirant : chaque zone est un panneau clos sur fond gris, avec des marges explicites. Le sous-domaine brandé (<code>altavia.magrit.com</code>), le workflow N+1 / Achats, les budgets par département et l'audit trail temps réel sont en place — conformes au brief <b>T-01 Corporate Portal</b>.
+    </div>
+
+  </div>
+</body>
+</html>

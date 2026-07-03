@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="100%" height="100%">
+    <defs>
+      <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#FF6B35" stop-opacity="0.05" />
+        <stop offset="100%" stop-color="#FF6B35" stop-opacity="0.14" />
+      </linearGradient>
+      <linearGradient id="kraftFace" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stop-color="#D4B791" />
+        <stop offset="35%" stop-color="#C8A87D" />
+        <stop offset="75%" stop-color="#A87F4E" />
+        <stop offset="100%" stop-color="#7A5A35" />
+      </linearGradient>
+      <linearGradient id="kraftTop" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stop-color="#E0C7A5" />
+        <stop offset="100%" stop-color="#C8A87D" />
+      </linearGradient>
+      <linearGradient id="kraftSide" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#A87F4E" />
+        <stop offset="100%" stop-color="#6B4F2E" />
+      </linearGradient>
+      <linearGradient id="rabatGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stop-color="#B89766" />
+        <stop offset="100%" stop-color="#8F6B40" />
+      </linearGradient>
+      
+    <filter id="shadowDouble" x="-15%" y="-15%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.18"/>
+      <feDropShadow dx="0" dy="18" stdDeviation="24" flood-color="#FF6B35" flood-opacity="0.22"/>
+    </filter>
+    <linearGradient id="paperHighlight" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.35"/>
+      <stop offset="35%" stop-color="#ffffff" stop-opacity="0.05"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <pattern id="paperTexture" width="6" height="6" patternUnits="userSpaceOnUse">
+      <rect width="6" height="6" fill="white"/>
+      <circle cx="1" cy="1" r="0.3" fill="#e5e5e5" opacity="0.6"/>
+      <circle cx="4" cy="3" r="0.25" fill="#e5e5e5" opacity="0.5"/>
+    </pattern>
+      
+    <radialGradient id="magritPollen" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FFE066"/>
+      <stop offset="60%" stop-color="#F5B529"/>
+      <stop offset="100%" stop-color="#C68708"/>
+    </radialGradient>
+    <linearGradient id="magritTileGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E5F0FC"/>
+      <stop offset="100%" stop-color="#B7D3F2"/>
+    </linearGradient>
+    </defs>
+    <rect width="1024" height="1024" fill="url(#bgGrad)" />
+    <polygon points="245,270 315,210 320,260 250,320" fill="url(#rabatGrad)" opacity="0.85" />
+    <polygon points="685,210 755,270 870,310 800,250" fill="url(#rabatGrad)" opacity="0.85" />
+    <g filter="url(#shadowDouble)">
+      <polygon points="340,290 790,290 725,350 275,350" fill="url(#kraftTop)" />
+      <polygon points="725,350 790,290 790,690 725,750" fill="url(#kraftSide)" />
+      <polygon points="275,350 725,350 725,750 275,750" fill="url(#kraftFace)" />
+      <polygon points="275,350 725,350 725,750 275,750" fill="url(#paperHighlight)" opacity="0.4" />
+      <circle cx="500" cy="525" r="70" fill="url(#magritTileGrad)" />
+      <circle cx="500" cy="525" r="70" fill="none" stroke="#FFFFFF" stroke-width="2" opacity="0.6" />
+      <g transform="translate(500 525)"><g fill="#FFFFFF"><ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(0)"/><ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(20)"/><ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(40)"/><ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(60)"/><ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(80)"/><ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(100)"/><ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(120)"/><ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(140)"/><ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(160)"/><ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(180)"/><ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(200)"/><ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(220)"/><ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(240)"/><ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(260)"/><ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(280)"/><ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(300)"/><ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(320)"/><ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(340)"/></g><circle r="11" fill="url(#magritPollen)"/></g>
+      <text x="500" y="630" text-anchor="middle" font-family="Inter" font-style="italic" font-weight="500" font-size="32" fill="#0F172A" letter-spacing="-0.025em">Magrit</text>
+      <text x="500" y="655" text-anchor="middle" font-family="Inter" font-weight="400" font-size="10" fill="#0F172A" letter-spacing="0.08em" opacity="0.6">IMPRIMERIE · IA</text>
+      <rect x="275" y="742" width="450" height="8" fill="#F5B529" />
+    </g>
+    <text x="870" y="790" text-anchor="end" font-family="Inter" font-weight="500" font-size="11" fill="#0F172A" opacity="0.45">Boite Pack</text>
+  </svg>

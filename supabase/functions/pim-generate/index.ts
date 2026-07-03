@@ -1,8 +1,14 @@
 // Edge function Supabase : génère une product_definition riche via Claude.
 // Appelée depuis l'admin PIM, reçoit un gamme_slug + locale + variation_filter
 // optionnels, renvoie la définition JSON (title, description, SEO, FAQ…)
+//
+// Story S1.3 (Epic 1, 2026-05-09) : refactor pour utiliser le wrapper unique
+// _shared/anthropicClient (S1.1). Suppression de la duplication fetch/parse,
+// activation automatique de la limite 25 paramètres anti-hallucination,
+// tracking llm_usage_events systématique.
 
 import { corsHeaders } from "../_shared/cors.ts";
+import { anthropicComplete, AnthropicClientError } from "../_shared/anthropicClient.ts";
 
 interface RequestBody {
   gamme_slug: string;
@@ -94,46 +100,36 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const anthropicApiKey =
-      Deno.env.get("ANTHROPIC_API_KEY") || Deno.env.get("MAGRIT") || Deno.env.get("Magrit3");
-    if (!anthropicApiKey) {
-      return new Response(
-        JSON.stringify({ error: "Anthropic API key not configured (ANTHROPIC_API_KEY / MAGRIT)" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     const mode = body.mode ?? "generate";
     const prompt = mode === "validate" ? buildValidatePrompt(body) : buildGeneratePrompt(body);
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": anthropicApiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
+    let result;
+    try {
+      result = await anthropicComplete({
         model: MODELS,
-        max_tokens: 4096,
-        messages: [{ role: "user", content: prompt }],
-      }),
-    });
-
-    if (!response.ok) {
-      const text = await response.text();
-      console.error("Claude error", response.status, text);
-      return new Response(
-        JSON.stringify({ error: `Claude ${response.status}`, details: text }),
-        { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+        prompt,
+        endpoint: "pim-generate",
+        // userId / tenantId : non-disponibles ici sans auth context, restent undefined
+        metadata: { mode, gamme_slug: body.gamme_slug, locale: body.locale },
+      });
+    } catch (err) {
+      if (err instanceof AnthropicClientError) {
+        const status = err.kind === "missing_api_key" ? 500 :
+                       err.kind === "param_limit_exceeded" ? 400 :
+                       err.kind === "api_error" ? 502 : 500;
+        console.error("[pim-generate] AnthropicClient", err.kind, err.message);
+        return new Response(
+          JSON.stringify({ error: err.message, kind: err.kind, details: err.details }),
+          { status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      throw err;
     }
 
-    const data = await response.json();
-    const text: string = data?.content?.[0]?.text ?? "";
-
-    // Nettoyer fences markdown éventuels
-    const cleaned = text.replace(/^```json\s*/i, "").replace(/^```\s*/, "").replace(/\s*```$/, "").trim();
+    // Nettoyer fences markdown éventuels (le wrapper le fait deja dans
+    // completeStructured, mais ici on n'a pas de schema Zod, parse manuel)
+    const cleaned = result.text
+      .replace(/^```json\s*/i, "").replace(/^```\s*/, "").replace(/\s*```$/, "").trim();
 
     let parsed: unknown;
     try {

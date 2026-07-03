@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { User, LogIn, LogOut, LayoutDashboard } from 'lucide-react';
+import { User, LogIn, LogOut, LayoutDashboard, Building2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTenant } from '../../contexts/TenantContext';
 import { LoginModal } from './LoginModal';
 import { SignupModal } from './SignupModal';
 import { ForgotPasswordModal } from './ForgotPasswordModal';
@@ -10,10 +11,17 @@ type ModalType = 'login' | 'signup' | 'forgot' | null;
 
 export function AuthMenu() {
   const { user, signOut } = useAuth();
+  const { currentTenant } = useTenant();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [modal, setModal] = useState<ModalType>(null);
   const ref = useRef<HTMLDivElement>(null);
+
+  // En v3, "/dashboard" n'existe pas en absolu. Il faut le prefixer par le
+  // tenant courant. Si aucun tenant, on redirige vers le picker.
+  const dashboardPath = currentTenant
+    ? `/t/${currentTenant.slug}/dashboard`
+    : '/tenants';
 
   useEffect(() => {
     const onClickOutside = (e: MouseEvent) => {
@@ -47,12 +55,27 @@ export function AuthMenu() {
                   <p className="text-xs text-gray-500">Connecté en tant que</p>
                   <p className="text-sm font-medium text-gray-900 truncate">{user.email}</p>
                 </div>
+                {currentTenant && (
+                  <div className="px-4 py-2 border-b border-gray-100">
+                    <p className="text-xs text-gray-500">Espace actif</p>
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {currentTenant.name}
+                    </p>
+                  </div>
+                )}
                 <button
-                  onClick={() => { setOpen(false); navigate('/dashboard'); }}
+                  onClick={() => { setOpen(false); navigate(dashboardPath); }}
                   className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                 >
                   <LayoutDashboard className="w-4 h-4" />
                   Tableau de bord
+                </button>
+                <button
+                  onClick={() => { setOpen(false); navigate('/tenants'); }}
+                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  <Building2 className="w-4 h-4" />
+                  Changer d'espace
                 </button>
                 <button
                   onClick={async () => { setOpen(false); await signOut(); }}

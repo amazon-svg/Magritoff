@@ -1,4 +1,26 @@
+// Edge function Supabase : proxy Claude pour la home Magrit (parsing produit JSON).
+// Story S1.5 (Epic 1, suite S1.3 partial, 2026-05-10) : refactor pour utiliser le
+// wrapper unique _shared/anthropicClient (S1.1) au lieu de fetch direct.
+// Mode démo (generateMultipleConfigs / generateDemoConfig) préservé : fallback
+// quand pas de clé API, erreur billing/auth, ou réponse Claude non-conforme.
+
 import { corsHeaders } from "../_shared/cors.ts";
+import {
+  anthropicCompleteStructured,
+  AnthropicClientError,
+  isAnthropicBillingError,
+} from "../_shared/anthropicClient.ts";
+import { ProductsResponseSchema } from "../_shared/productsSchema.ts";
+import { extractAuthContext } from "./_auth.ts";
+
+const MODEL = "claude-haiku-4-5-20251001";
+
+// Story S-LLM-WRAPPER-ROBUSTNESS (AC2) : la detection billing est centralisee
+// dans _shared/anthropicClient.ts via isAnthropicBillingError(). La regex locale
+// /credit|billing|authentication/ a ete supprimee (trop permissive, matchait du
+// texte arbitraire).
+// Story S-LLM-WRAPPER-ROBUSTNESS (AC4) : extraction user/tenant JWT isolee
+// dans ./_auth.ts pour testabilite (cf. _auth.test.ts).
 
 // Fonction pour formater la réponse au format "Vous avez demandé"
 function formatProductResponse(config: any): string {
@@ -382,54 +404,14 @@ function generateMultipleConfigs(userMessage: string): any[] {
   return configs;
 }
 
-Deno.serve(async (req) => {
-  // Handle CORS
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+// System prompt pour structurer les réponses de Claude.
+const SYSTEM_PROMPT = `Tu es un assistant spécialisé dans le web-to-print et l'imprimerie française (comme Vistaprint, Mixam, Exaprint).
 
-  try {
-    const { messages } = await req.json();
-    
-    if (!messages || !Array.isArray(messages) || messages.length === 0) {
-      return new Response(
-        JSON.stringify({ error: "messages array is required" }),
-        { 
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
-    }
-
-    const userMessage = messages[messages.length - 1].content;
-    
-    // Vérifier les clés API disponibles
-    const anthropicApiKey = Deno.env.get("ANTHROPIC_API_KEY") || Deno.env.get("Magrit3") || Deno.env.get("MAGRIT");
-    
-    if (!anthropicApiKey) {
-      console.log("⚠️ Aucune clé API Claude trouvée - Mode démo activé");
-      const demoConfigs = generateMultipleConfigs(userMessage);
-      console.log(`✅ Mode démo : ${demoConfigs.length} produit(s) généré(s) :`, demoConfigs.map(c => c.productName));
-      
-      return new Response(
-        JSON.stringify({
-          success: true,
-          configs: demoConfigs, // Retourner un TABLEAU de configs
-          demoMode: true,
-        }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
-    }
-
-    // System prompt pour structurer les réponses de Claude
-    const systemPrompt = `Tu es un assistant spécialisé dans le web-to-print et l'imprimerie française (comme Vistaprint, Mixam, Exaprint).
-
-IMPORTANT : Tu dois répondre UNIQUEMENT avec un objet JSON valide contenant un tableau "products". Pas de texte avant ou après.
+IMPORTANT : Tu dois répondre UNIQUEMENT avec un objet JSON valide. Pas de texte avant ou après.
 
 Format de réponse OBLIGATOIRE :
 {
+  "teachingNote": "Commentaire pédagogique en markdown (OPTIONNEL — vide ou absent pour les demandes classiques). À remplir UNIQUEMENT pour les questions de COMPARAISON, PÉDAGOGIE ou CONSEIL. Voir règles plus bas.",
   "products": [
     {
       "productName": "Nom du produit (inclure la variation, ex: 'Carte de visite coins ronds recto/verso')",
@@ -468,6 +450,27 @@ RÈGLES GÉNÉRALES :
 - Formats : A4 (210×297mm), A5 (148×210mm), A6 (105×148mm), A2 (420×594mm), A3 (297×420mm).
 - Cartes de visite standard : 85×55mm.
 
+RÈGLES POUR LES QUESTIONS PÉDAGOGIQUES / COMPARATIVES :
+Détecte les questions du type :
+- "C'est quoi la différence entre X et Y ?"
+- "Quel est le meilleur papier pour... ?"
+- "Comment choisir entre... ?"
+- "Quelle différence entre pelliculage mat et brillant ?"
+- "Couché ou non couché ?"
+- "Explique-moi X"
+- "Conseille-moi entre..."
+
+Pour ces questions tu DOIS :
+1. Remplir \`teachingNote\` avec une explication pédagogique en markdown :
+   - Un paragraphe d'explication générale (2-4 phrases)
+   - Une section "**En pratique**" avec 2-3 bullets ("- Couché : ..." / "- Non couché : ...")
+   - Une section "**À retenir**" avec les points clés techniques
+   - Ton professionnel mais accessible, tutoyer.
+   - Pas de quantité ni prix dans le teachingNote, uniquement du contenu métier.
+2. Générer 2 ou 3 produits comparatifs dans \`products\` pour illustrer la différence. Prends un produit typique (ex: carte de visite, flyer A5) et décline-le en 2-3 variantes qui illustrent la question posée. Chaque produit a une quantité raisonnable (500 ou 1000) pour montrer un prix comparable.
+
+Pour les demandes de CALCUL DE PRIX classiques (ex: "500 flyers A5 130g"), LAISSE teachingNote vide ou absent.
+
 RÈGLES POUR LES DEMANDES EN NOMBRE / CATALOGUE (CMS e-commerce) :
 Si l'utilisateur demande plusieurs produits DIFFÉRENTS d'une même gamme ou famille (ex: "15 produits de la gamme carterie", "10 variantes de flyers", "8 modèles de cartes"), tu dois générer AUTANT D'ENTRÉES DISTINCTES dans le tableau "products" que demandé, chacune étant une VARIATION UNIQUE basée sur :
 - La forme et découpe (coins carrés, coins ronds, forme spéciale, découpe créative)
@@ -483,132 +486,137 @@ NOMMAGE : chaque \`productName\` inclut la variation pour distinguer les produit
 
 IMPORTANT : si l'utilisateur demande 15 produits, le tableau "products" DOIT contenir exactement 15 entrées distinctes. Tu peux en générer jusqu'à 30 sur une seule demande.`;
 
-    // Appel à l'API Claude
-    console.log("🤖 Appel à l'API Claude via proxy...");
-    try {
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": anthropicApiKey,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model: "claude-haiku-4-5-20251001",
-          max_tokens: 8192,
-          system: systemPrompt,
-          messages: messages,
-        }),
-      });
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
 
-      if (!response.ok) {
-        const errorData = await response.text();
-        
-        // Si erreur de crédits ou de clé, basculer en mode démo
-        if (errorData.includes("credit") || errorData.includes("billing") || errorData.includes("authentication")) {
-          console.log("💳 Crédits insuffisants - Mode démo activé");
-          const demoConfigs = generateMultipleConfigs(userMessage);
-          return new Response(
-            JSON.stringify({
-              success: true,
-              configs: demoConfigs,
-              demoMode: true,
-            }),
-            { 
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            }
-          );
-        }
-        
-        console.error("❌ Erreur API Claude:", errorData);
-        return new Response(
-          JSON.stringify({ error: "Failed to get response from Claude API", details: errorData }),
-          { 
-            status: response.status,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
-        );
-      }
+  try {
+    // Story S-LLM-WRAPPER-ROBUSTNESS (AC4) : extraction user/tenant pour
+    // tracking llm_usage_events (NFR23). Best-effort : null/null si JWT absent.
+    const { userId, tenantId } = await extractAuthContext(req);
 
-      const data = await response.json();
-      console.log("✅ Réponse Claude reçue avec succès via proxy");
-      
-      // Parser la réponse JSON de Claude pour extraire les produits
-      const responseText = data.content[0].text;
-      console.log("📝 Réponse brute de Claude:", responseText);
-      
-      let parsedConfigs = [];
-      try {
-        // D'abord essayer de parser directement comme JSON
-        try {
-          const directJson = JSON.parse(responseText);
-          if (directJson.products && Array.isArray(directJson.products)) {
-            parsedConfigs = directJson.products;
-            console.log(`✅ JSON parsé directement : ${parsedConfigs.length} produit(s)`);
-          }
-        } catch (directParseError) {
-          console.log("⚠️ Parsing JSON direct échoué, tentative d'extraction via regex...");
-          
-          // Sinon, extraire le JSON de la réponse (au cas où Claude ajoute du texte avant/après)
-          // Rechercher le pattern { ... "products": [...] ... }
-          const jsonMatch = responseText.match(/\{[\s\S]*?"products"[\s\S]*?\[[^\]]*\][\s\S]*?\}/);
-          if (jsonMatch) {
-            console.log("📄 JSON extrait via regex:", jsonMatch[0].substring(0, 200));
-            const jsonResponse = JSON.parse(jsonMatch[0]);
-            parsedConfigs = jsonResponse.products || [];
-            console.log(`✅ ${parsedConfigs.length} produit(s) parsé(s) depuis la réponse Claude via regex`);
-          } else {
-            console.log("⚠️ Pas de JSON trouvé dans la réponse, fallback au mode démo");
-            parsedConfigs = generateMultipleConfigs(userMessage);
-          }
-        }
-      } catch (parseError) {
-        console.error("❌ Erreur de parsing JSON:", parseError);
-        console.log("🔄 Fallback au parsing intelligent local");
-        parsedConfigs = generateMultipleConfigs(userMessage);
-      }
+    const { messages } = await req.json();
 
-      console.log("🎯 Configs finales à envoyer:", parsedConfigs.map(c => `${c.productName} (${c.quantity})`));
-
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return new Response(
-        JSON.stringify({
-          success: true,
-          configs: parsedConfigs, // Retourner le tableau de configs
-          content: data.content,
-          rawResponse: responseText,
-          demoMode: false,
-        }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
+        JSON.stringify({ error: "messages array is required" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
       );
-      
-    } catch (apiError) {
-      console.error("❌ Erreur lors de l'appel API, basculement en mode démo:", apiError);
+    }
+
+    const userMessage = messages[messages.length - 1].content;
+
+    // Helper : reponse mode demo (preserve API contract historique).
+    const respondDemo = (reason: string) => {
       const demoConfigs = generateMultipleConfigs(userMessage);
+      console.log(
+        `✅ Mode démo (${reason}) : ${demoConfigs.length} produit(s) :`,
+        demoConfigs.map((c: any) => c.productName),
+      );
       return new Response(
         JSON.stringify({
           success: true,
           configs: demoConfigs,
           demoMode: true,
         }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
+    };
+
+    console.log("🤖 Appel à Claude via wrapper AnthropicClient...");
+    let result;
+    try {
+      result = await anthropicCompleteStructured({
+        model: MODEL,
+        messages,
+        system: SYSTEM_PROMPT,
+        maxTokens: 8192,
+        schema: ProductsResponseSchema,
+        endpoint: "claude-proxy",
+        // S-LLM-WRAPPER-ROBUSTNESS AC4 : attribution user/tenant extraite du JWT.
+        // null/null si JWT absent (back-compat appels anonymes legacy).
+        userId,
+        tenantId,
+        metadata: { message_count: messages.length },
+      });
+    } catch (err) {
+      if (err instanceof AnthropicClientError) {
+        // Cas 1 : aucune cle API → mode demo (preservation comportement S0).
+        if (err.kind === "missing_api_key") {
+          return respondDemo("aucune cle API configuree");
+        }
+        // Cas 2 : credits / billing / auth invalide → mode demo (helper canonique).
+        if (isAnthropicBillingError(err)) {
+          return respondDemo("credits insuffisants ou auth invalide");
+        }
+        // Cas 3 : reponse Claude non-conforme JSON ou hors schema → mode demo.
+        // Preserve le comportement historique `parsedConfigs = generateMultipleConfigs(...)`.
+        if (err.kind === "json_parse" || err.kind === "schema_validation") {
+          console.error(`🔄 Reponse Claude non-conforme (${err.kind})`, err.details);
+          return respondDemo(`reponse Claude non-conforme (${err.kind})`);
+        }
+        // Cas 4 : limite 25 parametres → 400 explicite (FR43).
+        if (err.kind === "param_limit_exceeded") {
+          return new Response(
+            JSON.stringify({ error: err.message, kind: err.kind, details: err.details }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+          );
+        }
+        // Cas 5 : autre erreur API (5xx, timeout, etc.) → status d'origine + details.
+        if (err.kind === "api_error") {
+          const details = err.details as { status?: number; body?: string } | undefined;
+          console.error("❌ Erreur API Claude:", details);
+          return new Response(
+            JSON.stringify({
+              error: "Failed to get response from Claude API",
+              details: details?.body ?? err.message,
+            }),
+            {
+              status: details?.status ?? 502,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            },
+          );
+        }
+        // Filet de securite : kind inconnu → demo plutot que 500.
+        console.error("❌ AnthropicClientError non geree:", err.kind, err.message);
+        return respondDemo(`erreur ${err.kind}`);
+      }
+      // Erreur reseau / hors AnthropicClientError → demo (preservation comportement).
+      console.error("❌ Erreur lors de l'appel wrapper, basculement en mode démo:", err);
+      return respondDemo("exception inattendue");
     }
 
+    console.log(
+      `✅ Réponse Claude validée : ${result.data.products.length} produit(s)` +
+        (result.data.teachingNote ? ` + teachingNote (${result.data.teachingNote.length} chars)` : ''),
+    );
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        configs: result.data.products,
+        teachingNote: result.data.teachingNote ?? null,
+        content: (result.raw as { content?: unknown })?.content,
+        rawResponse: result.text,
+        demoMode: false,
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+    );
   } catch (error) {
     console.error("Error in claude-proxy endpoint:", error);
     return new Response(
-      JSON.stringify({ 
-        error: "Internal server error", 
-        message: error instanceof Error ? error.message : String(error) 
+      JSON.stringify({
+        error: "Internal server error",
+        message: error instanceof Error ? error.message : String(error),
       }),
-      { 
+      {
         status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      },
     );
   }
 });

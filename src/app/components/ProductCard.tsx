@@ -1,14 +1,45 @@
-import { useState } from "react";
-import { ChevronUp, Loader2, RefreshCw, Printer, CheckCircle, AlertTriangle, Lock, BookmarkPlus, Check } from "lucide-react";
-import { QuoteModal } from "./QuoteModal";
-import { projectId, publicAnonKey } from "/utils/supabase/info";
+import { lazy, Suspense, useEffect, useState } from "react";
+import {
+  Loader2, Lock,
+  BookmarkPlus, Check, FileText, Tag, Box, Pencil, Bug, Plus, Heart,
+} from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
-import { useClients } from "../contexts/ClientsContext";
 import { useLibrary } from "../contexts/LibraryContext";
 import { usePIM } from "../contexts/PIMContext";
 import { usePlan } from "../hooks/usePlan";
-import { LibraryPickerModal } from "./LibraryPickerModal";
+import { useTenantPath } from "../hooks/useTenantPath";
 import { enrichProduct } from "../utils/productEnrichment";
+import { ProductMockup } from "./brand/ProductMockup";
+import { MockupImage } from "./mockup/MockupImage";
+import {
+  resolveMockupTemplate,
+  resolveProductDimensions,
+} from "./shop/ShopProductCard.helpers";
+import { resolveProductImage } from "../utils/productImages";
+import { TEST_IDS } from "../lib/testIds";
+
+// R7 (refacto 2026-05-11) : lazy-load des 3 modales lourdes pour reduire le
+// bundle initial de ProductCard. Suspense fallback = null (les modales sont
+// rendues conditionnellement par activeTab/overlayOpen, le delay est masque
+// par la transition d'ouverture).
+const QuoteModal = lazy(() => import("./QuoteModal").then((m) => ({ default: m.QuoteModal })));
+const LibraryPickerModal = lazy(() =>
+  import("./LibraryPickerModal").then((m) => ({ default: m.LibraryPickerModal })),
+);
+const ProductOverlay = lazy(() =>
+  import("./shop/ProductOverlay").then((m) => ({ default: m.ProductOverlay })),
+);
+import { useTenant } from "../contexts/TenantContext";
+import { getTaxRate } from "../utils/tax";
+import { useClariprintProduct } from "../hooks/useClariprintProduct";
+import { ProductCard3D } from "./product-card/ProductCard3D";
+import { ProductCardDebug } from "./product-card/ProductCardDebug";
+import { ProductCardEditer } from "./product-card/ProductCardEditer";
+import { ProductCardFiche } from "./product-card/ProductCardFiche";
+import { ProductCardPrix } from "./product-card/ProductCardPrix";
+import { extractClariprintConfigFromAtelierProduct } from "./shop/ProductOverlay.helpers";
+import { resolvePrice } from "../utils/priceResolver";
+import type { ShopProduct } from "../contexts/ShopsContext";
 
 interface ClariprintQuoteResult {
   success: boolean;
@@ -32,6 +63,10 @@ interface ClariprintQuoteResult {
 }
 
 interface ProductCardProps {
+  // E7.7 — index de la ligne dans la grille marguerite-quote-result.
+  // Forwarde sur l element racine pour permettre un ciblage par
+  // [data-testid="marguerite-quote-line"][data-line-index="N"].
+  'data-line-index'?: number;
   product: {
     id?: string;
     name: string;
@@ -75,17 +110,35 @@ export function ProductCard({
   selectable,
   selected,
   onSelectedChange,
+  ...rest
 }: ProductCardProps) {
+  const dataLineIndex = rest['data-line-index'];
   const { user } = useAuth();
-  const { clients } = useClients();
   const { addProduct: addToLibrary } = useLibrary();
   const { gammes, definitions } = usePIM();
   const { canUse } = usePlan();
+  const tp = useTenantPath();
+  const { currentTenant } = useTenant();
+  const taxRate = getTaxRate(currentTenant);
   const [localProduct, setLocalProduct] = useState(product);
   const [activeTab, setActiveTab] = useState<TabType>(null);
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
   const [libraryState, setLibraryState] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [libraryPickerOpen, setLibraryPickerOpen] = useState(false);
+  const [imgError, setImgError] = useState(false);
+
+  // S2.4b — Overlay configuration produit (atelier deviseur).
+  // Le bouton "Editer" (onglet form) bascule de l'ancien form inline vers
+  // l'overlay riche avec recalcul prix Clariprint en temps reel (S2.4).
+  const [overlayOpen, setOverlayOpen] = useState(false);
+  const [showDebug, setShowDebug] = useState(false);
+
+  // R1 Phase A (fix bug E1 audit refacto §3.1) : synchroniser localProduct
+  // avec la prop `product` quand le parent re-render avec un produit different.
+  // Avant : `useState(product)` clonait la prop initiale sans jamais resync.
+  useEffect(() => {
+    setLocalProduct(product);
+  }, [product]);
 
   // Enrichissement PIM (gamme + definition) à partir de la config courante
   const enriched = (() => {
@@ -96,52 +149,22 @@ export function ProductCard({
     }
   })();
 
-  // ─── États Clariprint ───────────────────────────────────────────────────
-  const [clariprintLoading, setClariprintLoading] = useState(false);
-  const [clariprintQuote, setClariprintQuote] = useState<ClariprintQuoteResult | null>(null);
-  const [lastRequestSent, setLastRequestSent] = useState<any>(null);
-  const [lastRawResponse, setLastRawResponse] = useState<string | null>(null);
-  const [showDebug, setShowDebug] = useState(false);
+  // ─── Clariprint (hook extrait R1 Phase A) ───────────────────────────────
+  // Le hook gere : fetch via httpAdapter (R3), AbortController flag (fix B5),
+  // states quote / loading / lastRequest / lastRawResponse. Cf.
+  // useClariprintProduct.ts.
+  const {
+    quote: clariprintQuote,
+    loading: clariprintLoading,
+    lastRequest: lastRequestSent,
+    lastRawResponse,
+    compute: triggerClariprint,
+    reset: resetClariprintQuote,
+  } = useClariprintProduct();
 
-  // ─── Appel API Clariprint ───────────────────────────────────────────────
-  const fetchClariprintQuote = async () => {
+  const computeClariprintQuote = async () => {
     if (!localProduct.clariprintData) return;
-    setClariprintLoading(true);
-    setClariprintQuote(null);
-    setLastRawResponse(null);
-
-    // Capturer la requête exacte envoyée
-    const requestPayload = { clariprint: localProduct.clariprintData };
-    setLastRequestSent(requestPayload);
-    console.log("📤 Requête envoyée à Clariprint:", JSON.stringify(requestPayload, null, 2));
-
-    try {
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-e3db71a4/clariprint-quote`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${publicAnonKey}`,
-          },
-          body: JSON.stringify(requestPayload),
-        }
-      );
-
-      const data = await response.json();
-      console.log("🖨️ Résultat Clariprint:", data);
-      // Stocker la réponse brute pour le debug
-      setLastRawResponse(JSON.stringify(data, null, 2));
-      setClariprintQuote(data);
-    } catch (error) {
-      console.error("❌ Erreur appel Clariprint:", error);
-      setClariprintQuote({
-        success: false,
-        error: "Erreur réseau lors de la connexion à Clariprint",
-      });
-    } finally {
-      setClariprintLoading(false);
-    }
+    await triggerClariprint(localProduct.clariprintData);
   };
 
   const updateProduct = (updates: any) => {
@@ -156,11 +179,14 @@ export function ProductCard({
 
   const handleAddToLibrary = async (libraryId: string) => {
     setLibraryState('saving');
-    const priceHT =
-      clariprintQuote?.costs?.total ??
-      clariprintQuote?.priceHT ??
-      localProduct.price ??
-      estimatePrice();
+    // S8 ProductCard DRY priceResolver (Sprint 8, 2026-06-01) : remplace
+    // l'ancienne hierarchie locale (clariprintQuote.costs.total ?? quote.priceHT
+    // ?? localProduct.price ?? estimatePrice()) par le helper canonique
+    // resolvePrice qui applique la cascade clariprint > library_cached >
+    // prix_marche > zero (cf. PRICE_SOURCES.md). costs.total inclut delivery
+    // donc resolvePrice avec quote.priceHT donne un prix "ex-delivery" plus
+    // cohérent pour la libpiece de prix unitaire en bibliothèque.
+    const priceHT = resolvePrice(localProduct, clariprintQuote).priceHT;
     const added = await addToLibrary({
       library_id: libraryId,
       client_id: (localProduct as any).client_id ?? null,
@@ -176,55 +202,24 @@ export function ProductCard({
     if (added) setTimeout(() => setLibraryState('idle'), 2000);
   };
 
-  // ─── Composant valeur cliquable ─────────────────────────────────────────
-  const BoldValue = ({
-    value,
-    onClick,
-  }: {
-    value: string | number;
-    onClick?: () => void;
-  }) => (
-    <strong
-      className={onClick ? "cursor-pointer hover:text-blue-600 transition-colors" : ""}
-      onClick={onClick}
-    >
-      {value}
-    </strong>
-  );
+  // (BoldValue retiré : l'édition inline prompt() n'est plus utilisée dans la v2.
+  //  Toute modif passe par l'onglet "Éditer" — meilleure UX, cohérent avec la typo.)
 
-  // ─── Prix estimé (fallback si pas Clariprint) ────────────────────────────
-  const estimatePrice = (): number => {
-    const qty = localProduct.quantity || 500;
-    const name = (localProduct.name || "").toLowerCase();
-    let base = 0.15;
-    if (name.includes("carte") && name.includes("visite")) base = 0.08;
-    else if (name.includes("flyer") || name.includes("tract")) base = 0.12;
-    else if (name.includes("brochure") || name.includes("catalogue")) base = 1.5;
-    else if (name.includes("affiche") || name.includes("poster")) base = 5.0;
-    else if (name.includes("dépliant")) base = 0.25;
-
-    let price = base * qty;
-    if ((localProduct.weight || 0) > 300) price *= 1.3;
-    else if ((localProduct.weight || 0) > 200) price *= 1.15;
-    if (localProduct.printing?.verso && localProduct.printing.verso !== "Sans impression") price *= 1.4;
-    if (localProduct.finishRecto?.toLowerCase().includes("pelliculage")) price += qty * 0.05;
-    if (qty >= 5000) price *= 0.7;
-    else if (qty >= 2000) price *= 0.8;
-    else if (qty >= 1000) price *= 0.9;
-    return Math.round(price * 100) / 100;
-  };
-
-  const estimatedPrice = localProduct.price || estimatePrice();
-
-  // Prix final à afficher (Clariprint si dispo, sinon estimé)
-  const displayPriceHT =
-    clariprintQuote?.success && clariprintQuote.priceHT != null
-      ? clariprintQuote.priceHT
-      : estimatedPrice;
+  // ─── Prix à afficher : helper canonique resolvePrice (S8 DRY 2026-06-01)
+  // Avant : 21 lignes estimatePrice() inline qui dupliquaient à 100% la
+  // logique estimateMarketPriceHT du module priceResolver (avec des seuils
+  // légèrement divergents — ex: pas de kakemono/etiquette/packaging). Cf.
+  // PRICE_SOURCES.md S0.2 audit. Délégué au helper unique.
+  const priceResolution = resolvePrice(localProduct, clariprintQuote);
+  const displayPriceHT = priceResolution.priceHT;
 
   // ─── Render ──────────────────────────────────────────────────────────────
   return (
-    <div className="w-full h-full flex flex-col">
+    <div
+      data-testid={TEST_IDS.marguerite.quoteLine}
+      data-line-index={dataLineIndex}
+      className="w-full h-full flex flex-col"
+    >
       {/* CAS : Produit incomplet */}
       {localProduct.incomplete ? (
         <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl shadow-sm p-6 h-full flex flex-col">
@@ -232,30 +227,30 @@ export function ProductCard({
             <div className="text-2xl">⚠️</div>
             <div>
               <h3 className="text-lg font-bold text-amber-900 mb-1">Précisions nécessaires</h3>
-              <p className="text-sm text-amber-700">
+              <p className="text-base text-amber-700">
                 J'ai besoin de plus d'informations pour configurer votre produit.
               </p>
             </div>
           </div>
-          <div className="bg-white rounded-xl p-4 mb-4">
-            <h4 className="font-semibold text-gray-900 mb-3">📋 Informations disponibles</h4>
-            <div className="grid grid-cols-2 gap-3 text-sm">
+          <div className="bg-paper rounded-lg p-4 mb-4">
+            <h4 className="font-semibold text-ink mb-3">📋 Informations disponibles</h4>
+            <div className="grid grid-cols-2 gap-3 text-base">
               <div>
-                <span className="text-gray-600">Produit :</span>
-                <span className="font-semibold text-gray-900 ml-2">{localProduct.name}</span>
+                <span className="text-ink-muted">Produit :</span>
+                <span className="font-semibold text-ink ml-2">{localProduct.name}</span>
               </div>
               <div>
-                <span className="text-gray-600">Quantité :</span>
-                <span className="font-semibold text-gray-900 ml-2">{localProduct.quantity}</span>
+                <span className="text-ink-muted">Quantité :</span>
+                <span className="font-semibold text-ink ml-2">{localProduct.quantity}</span>
               </div>
             </div>
           </div>
           {localProduct.suggestions && localProduct.suggestions.length > 0 && (
-            <div className="bg-white rounded-xl p-4 flex-1">
-              <h4 className="font-semibold text-gray-900 mb-3">❓ Questions à préciser</h4>
+            <div className="bg-paper rounded-lg p-4 flex-1">
+              <h4 className="font-semibold text-ink mb-3">❓ Questions à préciser</h4>
               <ul className="space-y-2">
                 {localProduct.suggestions.map((q, i) => (
-                  <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
+                  <li key={i} className="flex items-start gap-2 text-base text-ink-2">
                     <span className="text-amber-600 font-bold">{i + 1}.</span>
                     <span>{q}</span>
                   </li>
@@ -266,768 +261,504 @@ export function ProductCard({
         </div>
       ) : (
         <div className="h-full flex flex-col">
-          {/* ── Bloc principal ── */}
-          <div
-            className={`relative bg-white border-2 border-gray-300 rounded-2xl shadow-sm mb-3 flex-1 ${
-              compact ? "p-4" : "p-6"
-            } ${selectable && selected ? "ring-2 ring-blue-500 border-blue-500" : ""}`}
+          {/* ══════════════════════════════════════════════════════════
+              v2 — carte catalogue stacked : visuel 16/9, meta, title,
+              desc, chips, spec-bar 4 champs, tools bar 6 cases.
+              Source : .design-handoff/designs/02 - ProductCard.html
+              ══════════════════════════════════════════════════════════ */}
+          <article
+            className={`pc-v2 relative bg-paper border-2 border-line rounded-xl overflow-hidden mb-3 flex-1 flex flex-col shadow-xs ${
+              selectable && selected ? "outline outline-2 outline-brand" : ""
+            }`}
+            style={{ fontFamily: "var(--font-ui)" }}
           >
-            {selectable && (
-              <label className="absolute top-2 left-2 flex items-center justify-center cursor-pointer z-10">
-                <input
-                  type="checkbox"
-                  checked={!!selected}
-                  onChange={(e) => onSelectedChange?.(e.target.checked)}
-                  className="w-5 h-5 cursor-pointer accent-blue-600"
-                />
-              </label>
-            )}
-            <div className={`leading-relaxed text-gray-900 ${compact ? "text-xs" : "text-sm"}`}>
-              <p className="mb-2">Vous avez demandé :</p>
-
-              <p>
-                <BoldValue
-                  value={localProduct.quantity || 0}
-                  onClick={() => {
-                    const v = prompt("Nouvelle quantité :", String(localProduct.quantity || 0));
-                    if (v) updateProduct({ quantity: parseInt(v) });
-                  }}
-                />{" "}
-                {localProduct.name},<br />
-                Format :{" "}
-                <BoldValue
-                  value={
-                    localProduct.format ||
-                    `${localProduct.dimensions?.width || 0} mm×${localProduct.dimensions?.height || 0} mm`
-                  }
-                  onClick={() => {
-                    const w = prompt("Largeur (mm) :", String(localProduct.dimensions?.width || 0));
-                    const h = prompt("Hauteur (mm) :", String(localProduct.dimensions?.height || 0));
-                    if (w && h)
-                      updateProduct({ dimensions: { width: parseInt(w), height: parseInt(h) } });
-                  }}
-                />
-                <br />
-                impression{" "}
-                <BoldValue
-                  value={localProduct.printing?.recto || "Quadrichromie (CMJN)"}
-                  onClick={() => {
-                    const v = prompt("Impression recto :", localProduct.printing?.recto);
-                    if (v) updateProduct({ printing: { ...localProduct.printing, recto: v } });
-                  }}
-                />{" "}
-                /{" "}
-                <BoldValue
-                  value={localProduct.printing?.verso || "Sans impression"}
-                  onClick={() => {
-                    const v = prompt("Impression verso :", localProduct.printing?.verso);
-                    if (v) updateProduct({ printing: { ...localProduct.printing, verso: v } });
-                  }}
-                />{" "}
-                sur papier{" "}
-                <BoldValue
-                  value={`${localProduct.material || ""} ${localProduct.weight || 0} g`}
-                  onClick={() => {
-                    const m = prompt("Type de papier :", localProduct.material || "");
-                    const w = prompt("Grammage (g) :", String(localProduct.weight || 0));
-                    if (m || w)
-                      updateProduct({
-                        material: m || localProduct.material,
-                        weight: w ? parseInt(w) : localProduct.weight,
-                      });
-                  }}
-                />
-                ,<br />
-                finition{" "}
-                <BoldValue
-                  value={localProduct.finishRecto || localProduct.finish || "Sans finition"}
-                  onClick={() => {
-                    const v = prompt("Finition recto :", localProduct.finishRecto || localProduct.finish || "");
-                    if (v) updateProduct({ finishRecto: v, finish: v });
-                  }}
-                />{" "}
-                /{" "}
-                <BoldValue
-                  value={localProduct.finishVerso || "Sans finition"}
-                  onClick={() => {
-                    const v = prompt("Finition verso :", localProduct.finishVerso || "");
-                    if (v) updateProduct({ finishVerso: v });
-                  }}
-                />
-                .
-              </p>
-
-              {!compact && localProduct.suggestions && localProduct.suggestions.length > 0 && (
-                <>
-                  <p className="mt-3 mb-1">Pour plus d'impact je vous propose :</p>
-                  {localProduct.suggestions.map((s, i) => (
-                    <p key={i} className="text-gray-700">
-                      {s}
-                    </p>
-                  ))}
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* ── Boutons d'actions ── */}
-          <div className={`grid grid-cols-5 mb-2 ${compact ? "gap-1" : "gap-2"}`}>
-            {(["sheet", "pricing", "mockup", "form", "debug"] as TabType[]).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => toggleTab(tab)}
-                className={`font-medium rounded-xl border-2 transition-colors ${
-                  compact ? "px-1 py-1.5 text-xs" : "px-2 py-2.5 text-xs"
-                } ${
-                  activeTab === tab
-                    ? tab === "debug"
-                      ? "bg-slate-800 text-white border-slate-800"
-                      : "bg-gray-900 text-white border-gray-900"
-                    : tab === "debug"
-                    ? "bg-slate-50 text-slate-500 border-slate-300 hover:bg-slate-100 hover:text-slate-700"
-                    : "bg-white text-gray-900 border-gray-300 hover:bg-gray-50"
-                }`}
-              >
-                {tab === "sheet" && (compact ? "Fiche" : "Fiche")}
-                {tab === "pricing" && (compact ? "Prix" : "Prix & Devis")}
-                {tab === "mockup" && (compact ? "3D" : "Mockup 3D")}
-                {tab === "form" && (compact ? "Éditer" : "Éditer")}
-                {tab === "debug" && "🔍 Debug"}
-              </button>
-            ))}
-          </div>
-
-          {user && canUse('library') && (
-            <button
-              onClick={() => setLibraryPickerOpen(true)}
-              disabled={libraryState !== 'idle'}
-              className={`w-full mb-3 flex items-center justify-center gap-2 rounded-xl border-2 transition-colors text-xs font-medium py-2 ${
-                libraryState === 'saved'
-                  ? 'bg-green-50 text-green-700 border-green-300'
-                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+            {/* Visuel : photo produit via Picsum (seed stable = meme image
+                pour le meme produit) ; fallback sur le mockup SVG schematique
+                en cas d'echec de chargement ou si product.image_url n'est
+                pas defini (futures images custom via bibliotheque). */}
+            <div
+              className={`relative w-full shrink-0 overflow-hidden border-b border-line bg-bg ${
+                compact ? "h-[120px]" : "h-[208px]"
               }`}
             >
-              {libraryState === 'saving' ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : libraryState === 'saved' ? (
-                <Check className="w-4 h-4" />
-              ) : (
-                <BookmarkPlus className="w-4 h-4" />
+              {(() => {
+                const src = resolveProductImage({
+                  name: localProduct.name,
+                  id: localProduct.id,
+                  image_url: (localProduct as any).image_url,
+                  kind: localProduct.clariprintData?.kind,
+                  clariprintData: localProduct.clariprintData,
+                  gammes,
+                  definitions,
+                });
+                if (imgError || !src) {
+                  // P8-ATELIER (2026-06-15) : on remplace le fallback statique
+                  // `ProductMockup` (SVG schematic local) par `MockupImage`
+                  // qui consomme l'edge function mockup-generator. Resultat :
+                  // les produits crees depuis Magrit Home (atelier deviseur)
+                  // affichent les MEMES mockups Magrit-brandes que les cards
+                  // boutique (carte de visite avec bandeau bleu + marguerite
+                  // + Magrit italic + tagline + ref productName).
+                  //
+                  // Sentinels 'atelier' pour tenantId/shopId : cache CDN se
+                  // construit sous atelier/atelier/{productId}.png (pattern
+                  // deja en place dans ProductOverlay vue detail atelier).
+                  const dims = resolveProductDimensions(localProduct as any);
+                  const template = resolveMockupTemplate(localProduct as any);
+                  return (
+                    <MockupImage
+                      tenantId="atelier"
+                      shopId="atelier"
+                      productId={localProduct.id}
+                      width={dims.width}
+                      height={dims.height}
+                      productName={localProduct.name}
+                      primaryColor="#1e3a8a"
+                      template={template}
+                      alt={`Mockup ${localProduct.name}`}
+                      className="absolute inset-0 w-full h-full"
+                    />
+                  );
+                }
+                return (
+                  <>
+                    <img
+                      src={src}
+                      alt={localProduct.name}
+                      onError={() => setImgError(true)}
+                      className="absolute inset-0 w-full h-full object-contain"
+                      loading="lazy"
+                    />
+                    {/* Overlay sombre tres leger pour la lisibilite des badges */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent pointer-events-none" />
+                    {/* Pill gamme PIM (S-FIX-BADGES-11/05 bug #1 regression Arnaud) :
+                        Avant : `clariprintData.kind` brut → "LEAFLET" partout
+                        (toutes les gammes Clariprint ont kind="leaflet").
+                        Maintenant : `enriched.gamme.name` (gamme PIM resolue
+                        type "Carterie", "Flyer A4", "Brochure"...) ;
+                        fallback `localProduct.category` si pas de match PIM ;
+                        masque si valeur generique "leaflet" / vide. */}
+                    {!selectable && (() => {
+                      const gammeBadge = enriched?.gamme?.name;
+                      const fallbackBadge = localProduct.category;
+                      const label = gammeBadge || fallbackBadge;
+                      // Ne jamais afficher les kinds Clariprint bruts
+                      if (!label || /^(leaflet|folded|book|cover|section)$/i.test(label)) {
+                        return null;
+                      }
+                      return (
+                        <div className="absolute top-2 left-2 pointer-events-none">
+                          <span
+                            className="inline-block font-mono uppercase tracking-wider px-2 py-0.5 rounded text-white"
+                            style={{
+                              fontSize: "11px",
+                              letterSpacing: "0.08em",
+                              fontWeight: 500,
+                              background: "rgba(10,10,10,0.75)",
+                            }}
+                          >
+                            {label}
+                          </span>
+                        </div>
+                      );
+                    })()}
+                  </>
+                );
+              })()}
+
+              {/* Checkbox sélection */}
+              {selectable && (
+                <label className="absolute top-2 left-2 z-10 bg-paper/90 backdrop-blur-sm rounded p-1 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={!!selected}
+                    onChange={(e) => onSelectedChange?.(e.target.checked)}
+                    className="w-4 h-4 cursor-pointer accent-black"
+                    aria-label="Sélectionner ce produit"
+                  />
+                </label>
               )}
-              {libraryState === 'saved'
-                ? 'Ajouté à la bibliothèque'
-                : libraryState === 'saving'
-                ? 'Ajout…'
-                : 'Ajouter à la bibliothèque'}
-            </button>
-          )}
 
-          {libraryPickerOpen && (
-            <LibraryPickerModal
-              preferredClientId={(localProduct as any).client_id ?? null}
-              onPick={async (libraryId) => {
-                await handleAddToLibrary(libraryId);
-              }}
-              onClose={() => setLibraryPickerOpen(false)}
-            />
-          )}
+              {/* Fav icon top-right (placeholder pour favoris futurs) */}
+              <button
+                type="button"
+                aria-label="Ajouter aux favoris"
+                className="absolute top-2 right-2 w-7 h-7 rounded-full bg-paper/85 backdrop-blur-sm grid place-items-center text-ink-muted hover:text-ink transition-colors"
+                onClick={(e) => e.preventDefault()}
+              >
+                <Heart className="w-3.5 h-3.5" strokeWidth={1.5} />
+              </button>
+            </div>
 
-          {/* ── Fiche produit ── */}
-          {activeTab === "sheet" && (
-            <div className="bg-white border-2 border-gray-300 rounded-2xl p-6 mb-3 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-base font-semibold text-gray-900">Fiche produit détaillée</h3>
-                <button onClick={() => setActiveTab(null)} className="text-gray-500 hover:text-gray-900">
-                  <ChevronUp className="w-5 h-5" />
-                </button>
+            {/* Corps : meta, title-row, desc, chips */}
+            <div className={`${compact ? "p-3" : "px-5 py-4"} flex-1 flex flex-col`}>
+              <div
+                className="font-mono uppercase tracking-wider text-ink-muted mb-2"
+                style={{ fontSize: "11.5px", letterSpacing: "0.08em", fontWeight: 500 }}
+              >
+                {enriched?.gamme?.name || localProduct.clariprintData?.kind || "Produit"}
               </div>
-              <div className="space-y-2 text-sm">
-                {[
-                  ["Produit", localProduct.name],
-                  ["Quantité", localProduct.quantity || 0],
-                  [
-                    "Format",
-                    localProduct.format ||
-                      `${localProduct.dimensions?.width || 0} × ${localProduct.dimensions?.height || 0} mm`,
-                  ],
-                  ["Papier", localProduct.material || "—"],
-                  ["Grammage", `${localProduct.weight || 0} g/m²`],
-                  [
-                    "Impression",
-                    `${localProduct.printing?.recto || "Quadrichromie"} / ${localProduct.printing?.verso || "Sans impression"}`,
-                  ],
-                  ["Finition recto", localProduct.finishRecto || localProduct.finish || "Sans finition"],
-                  ["Finition verso", localProduct.finishVerso || "Sans finition"],
-                  ...(localProduct.pages ? [["Pages", localProduct.pages]] : []),
-                  ...(localProduct.clariprintData?.kind
-                    ? [["Type Clariprint", localProduct.clariprintData.kind]]
-                    : []),
-                  ...(localProduct.client_id
-                    ? [[
-                        "Client",
-                        clients.find((c) => c.id === localProduct.client_id)?.company || "—",
-                      ]]
-                    : []),
-                ].map(([label, value], i, arr) => (
-                  <div
-                    key={String(label)}
-                    className={`flex justify-between py-2 ${i < arr.length - 1 ? "border-b border-gray-100" : ""}`}
+
+              <div className="flex items-baseline justify-between gap-4 mb-1.5">
+                <h3
+                  className="text-ink m-0 leading-tight line-clamp-2"
+                  style={{
+                    fontWeight: 400,
+                    fontSize: compact ? "16px" : "21px",
+                    letterSpacing: "-0.01em",
+                  }}
+                  title={enriched?.resolved.title || localProduct.name}
+                >
+                  {/* On prefere le nom court brut ; le title PIM resolu peut
+                      etre verbeux et casser la mise en page. */}
+                  {localProduct.name || enriched?.resolved.title || "Produit"}
+                </h3>
+                <div
+                  className="text-ink whitespace-nowrap"
+                  style={{
+                    fontWeight: 500,
+                    fontSize: compact ? "17px" : "21px",
+                    letterSpacing: "-0.015em",
+                    fontVariantNumeric: "tabular-nums",
+                  }}
+                >
+                  <span
+                    className="font-mono uppercase text-ink-muted mr-1.5"
+                    style={{ fontSize: "11.5px", letterSpacing: "0.06em", fontWeight: 500 }}
                   >
-                    <span className="text-gray-600">{label}</span>
-                    <span className="font-semibold">{String(value)}</span>
+                    dès
+                  </span>
+                  {displayPriceHT.toFixed(0)}
+                  <small className="text-ink-muted ml-1" style={{ fontSize: "13px", fontWeight: 400 }}>
+                    € /{localProduct.quantity ?? 100} ex.
+                  </small>
+                </div>
+              </div>
+
+              {/* Description courte — clampee a 2 lignes pour ne pas deborder */}
+              {!compact && (
+                <p
+                  className="text-ink-2 m-0 mb-3 max-w-[420px] line-clamp-2"
+                  style={{ fontSize: "14.5px", lineHeight: 1.55, fontWeight: 400 }}
+                >
+                  {enriched?.resolved.short_description ||
+                    `${localProduct.material ?? "Papier standard"}${
+                      localProduct.finishRecto && localProduct.finishRecto !== "Sans finition"
+                        ? ` · ${localProduct.finishRecto.toLowerCase()}`
+                        : ""
+                    }${
+                      localProduct.printing?.verso && localProduct.printing.verso !== "Sans impression"
+                        ? " · impression recto/verso"
+                        : " · impression recto"
+                    }.`}
+                </p>
+              )}
+
+              {/* Chips variantes */}
+              {!compact && (
+                <div className="flex gap-1.5 flex-wrap mb-3">
+                  <span
+                    className="font-mono px-2 py-1 rounded bg-ink text-paper"
+                    style={{
+                      fontSize: "11.5px",
+                      letterSpacing: "0.04em",
+                      fontWeight: 500,
+                    }}
+                  >
+                    {localProduct.weight ?? 0}g {localProduct.material?.toLowerCase().split(" ").pop() ?? ""}
+                  </span>
+                  {localProduct.finishRecto && localProduct.finishRecto !== "Sans finition" && (
+                    <span
+                      className="font-mono px-2 py-1 rounded"
+                      style={{
+                        fontSize: "11.5px",
+                        letterSpacing: "0.04em",
+                        fontWeight: 500,
+                        background: "#F5F5F5",
+                        color: "var(--ink-2)",
+                      }}
+                    >
+                      {localProduct.finishRecto}
+                    </span>
+                  )}
+                  {localProduct.pages && (
+                    <span
+                      className="font-mono px-2 py-1 rounded"
+                      style={{
+                        fontSize: "11.5px",
+                        letterSpacing: "0.04em",
+                        fontWeight: 500,
+                        background: "#F5F5F5",
+                        color: "var(--ink-2)",
+                      }}
+                    >
+                      {localProduct.pages} pages
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Spec-bar 4 champs, border-top + border-bottom */}
+            {!compact && (
+              <div
+                className="grid grid-cols-4 border-t border-b border-line"
+                style={{ fontFamily: "var(--font-ui)" }}
+              >
+                {[
+                  {
+                    k: "Format",
+                    v:
+                      localProduct.format ||
+                      (localProduct.dimensions
+                        ? `${localProduct.dimensions.width}×${localProduct.dimensions.height} mm`
+                        : "—"),
+                  },
+                  {
+                    k: "Grammage",
+                    v: localProduct.weight ? `${localProduct.weight} g/m²` : "—",
+                  },
+                  {
+                    k: "Délai",
+                    v:
+                      clariprintQuote?.delais != null
+                        ? `${clariprintQuote.delais}j`
+                        : "72h",
+                  },
+                  {
+                    k: "Min.",
+                    v: `${localProduct.quantity ?? 100} ex.`,
+                  },
+                ].map((cell, i, arr) => (
+                  <div
+                    key={cell.k}
+                    className={`px-4 py-3 ${i < arr.length - 1 ? "border-r border-line" : ""}`}
+                  >
+                    <div
+                      className="font-mono uppercase text-ink-muted mb-1"
+                      style={{ fontSize: "11px", letterSpacing: "0.06em", fontWeight: 500 }}
+                    >
+                      {cell.k}
+                    </div>
+                    <div
+                      className="text-ink"
+                      style={{ fontSize: "14px", fontWeight: 500, letterSpacing: "-0.005em" }}
+                    >
+                      {cell.v}
+                    </div>
                   </div>
                 ))}
               </div>
+            )}
 
-              {/* Contenu enrichi PIM */}
-              {enriched?.definition && (
-                <div className="mt-5 pt-4 border-t border-gray-200 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-blue-700">
-                      Fiche commerciale
-                    </span>
-                    {enriched.gamme && (
-                      <span className="text-[10px] bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.5 rounded">
-                        {enriched.gamme.name}
-                      </span>
-                    )}
-                  </div>
-                  {enriched.resolved.short_description && (
-                    <p className="text-sm text-gray-700 italic">{enriched.resolved.short_description}</p>
-                  )}
-                  {enriched.resolved.description && (
-                    <div className="text-sm text-gray-700 whitespace-pre-line">
-                      {enriched.resolved.description}
-                    </div>
-                  )}
-                  {enriched.resolved.usage_examples.length > 0 && (
-                    <div>
-                      <p className="text-xs font-semibold text-gray-700 mb-1">Cas d'usage</p>
-                      <ul className="space-y-1 text-xs text-gray-600">
-                        {enriched.resolved.usage_examples.map((ex, i) => (
-                          <li key={i}>
-                            <span className="font-medium text-gray-800">{ex.title}</span>
-                            {ex.description ? <span> — {ex.description}</span> : null}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  {enriched.resolved.faq.length > 0 && (
-                    <details>
-                      <summary className="text-xs font-semibold text-gray-700 cursor-pointer hover:text-gray-900">
-                        FAQ ({enriched.resolved.faq.length})
-                      </summary>
-                      <div className="mt-2 space-y-2">
-                        {enriched.resolved.faq.map((qa, i) => (
-                          <div key={i} className="text-xs">
-                            <p className="font-medium text-gray-800">{qa.question}</p>
-                            <p className="text-gray-600 mt-0.5">{qa.answer}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </details>
-                  )}
-                  {enriched.resolved.keywords.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {enriched.resolved.keywords.slice(0, 8).map((k, i) => (
-                        <span
-                          key={i}
-                          className="text-[10px] bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded"
-                        >
-                          {k}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Config Clariprint brute */}
-              {localProduct.clariprintData && (
-                <details className="mt-4">
-                  <summary className="text-xs text-gray-500 cursor-pointer hover:text-gray-900">
-                    🔧 Voir la config Clariprint (JSON API)
-                  </summary>
-                  <pre className="mt-2 p-3 bg-gray-50 rounded-lg text-xs text-gray-600 overflow-auto max-h-48">
-                    {JSON.stringify(localProduct.clariprintData, null, 2)}
-                  </pre>
-                </details>
-              )}
-            </div>
-          )}
-
-          {/* ── Prix & Devis ── */}
-          {activeTab === "pricing" && (
-            <div className="bg-white border-2 border-gray-300 rounded-2xl p-6 mb-3 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-base font-semibold text-gray-900">Tarification</h3>
-                <button onClick={() => setActiveTab(null)} className="text-gray-500 hover:text-gray-900">
-                  <ChevronUp className="w-5 h-5" />
-                </button>
-              </div>
-
-              {/* ─ Prix estimé (floutés si non-authentifié) ─ */}
-              {!user && (
-                <div className="mb-3 bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center gap-2 text-sm text-amber-800">
-                  <Lock className="w-4 h-4 shrink-0" />
-                  <span>Connectez-vous pour voir les prix.</span>
-                </div>
-              )}
-              <div className="space-y-2 text-sm mb-4">
-                <div className="flex justify-between py-2 border-b border-gray-100">
-                  <span className="text-gray-500 text-xs">
-                    {clariprintQuote?.success ? "Prix Clariprint HT" : "Prix estimé HT"}
-                  </span>
-                  <span className={`font-semibold ${!user ? "blur-sm select-none" : ""}`}>
-                    {displayPriceHT.toFixed(2)} €
-                  </span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-gray-100">
-                  <span className="text-gray-600">TVA (20%)</span>
-                  <span className={`font-semibold ${!user ? "blur-sm select-none" : ""}`}>
-                    {(displayPriceHT * 0.2).toFixed(2)} €
-                  </span>
-                </div>
-                <div
-                  className="flex justify-between items-center py-3 bg-gray-900 text-white px-4 rounded-lg mt-1 cursor-pointer hover:bg-gray-800 transition-colors"
-                  onClick={() => setIsQuoteModalOpen(true)}
-                  title="Cliquer pour le devis"
-                >
-                  <span className="font-semibold text-sm">Total TTC</span>
-                  <span className={`text-xl font-bold ${!user ? "blur-sm select-none" : ""}`}>
-                    {(displayPriceHT * 1.2).toFixed(2)} €
-                  </span>
-                </div>
-              </div>
-
-              {/* ─ Section Clariprint ─ */}
-              {localProduct.clariprintData && (
-                <div className="border-t border-gray-100 pt-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <Printer className="w-4 h-4 text-indigo-600" />
-                      <h4 className="text-sm font-semibold text-gray-800">Prix réel Clariprint</h4>
-                    </div>
-                    {/* Bouton debug */}
-                    <button
-                      onClick={() => setShowDebug((v) => !v)}
-                      className={`text-xs px-2 py-1 rounded border transition-colors ${
-                        showDebug
-                          ? "bg-gray-800 text-white border-gray-800"
-                          : "text-gray-400 border-gray-200 hover:border-gray-400 hover:text-gray-600"
-                      }`}
-                      title="Afficher / masquer la requête envoyée à Clariprint"
-                    >
-                      {showDebug ? "Masquer debug" : "🔍 Debug"}
-                    </button>
-                  </div>
-
-                  {/* ─ Panneau debug : requête + réponse brute ─ */}
-                  {showDebug && (
-                    <div className="mb-4 space-y-3">
-                      {/* Requête envoyée */}
-                      <div className="bg-slate-900 rounded-xl p-3">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs font-mono font-bold text-slate-300">
-                            📤 POST /optimproject/json.wcl
-                          </span>
-                          <button
-                            onClick={() => {
-                              navigator.clipboard.writeText(
-                                JSON.stringify(
-                                  { clariprint_product: localProduct.clariprintData },
-                                  null,
-                                  2
-                                )
-                              );
-                            }}
-                            className="text-xs text-slate-400 hover:text-white transition-colors"
-                          >
-                            Copier
-                          </button>
-                        </div>
-                        <pre className="text-xs text-green-300 overflow-auto max-h-64 leading-relaxed">
-                          {JSON.stringify({ clariprint_product: localProduct.clariprintData }, null, 2)}
-                        </pre>
-                      </div>
-
-                      {/* Réponse brute reçue */}
-                      {lastRawResponse && (
-                        <div className="bg-slate-800 rounded-xl p-3">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs font-mono font-bold text-slate-300">
-                              📩 Réponse Clariprint (brute)
-                            </span>
-                            <button
-                              onClick={() => navigator.clipboard.writeText(lastRawResponse)}
-                              className="text-xs text-slate-400 hover:text-white transition-colors"
-                            >
-                              Copier
-                            </button>
-                          </div>
-                          <pre className="text-xs text-yellow-200 overflow-auto max-h-64 leading-relaxed">
-                            {lastRawResponse}
-                          </pre>
-                        </div>
-                      )}
-
-                      {!lastRawResponse && !clariprintLoading && (
-                        <p className="text-xs text-slate-400 italic">
-                          La réponse brute s'affichera ici après l'appel.
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Loading */}
-                  {clariprintLoading && (
-                    <div className="flex items-center gap-2 text-indigo-600 text-sm py-3">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Calcul en cours auprès des imprimeurs...</span>
-                    </div>
-                  )}
-
-                  {/* Credentials manquants */}
-                  {!clariprintLoading && clariprintQuote?.credentialsMissing && (
-                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm">
-                      <div className="flex items-start gap-2">
-                        <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
-                        <div>
-                          <p className="font-medium text-amber-800 mb-1">Credentials non configurés</p>
-                          <p className="text-amber-700 text-xs">
-                            Ajoutez <code className="bg-amber-100 px-1 rounded">CLARIPRINT_LOGIN</code> et{" "}
-                            <code className="bg-amber-100 px-1 rounded">CLARIPRINT_PASSWORD</code> dans vos secrets Supabase.
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={fetchClariprintQuote}
-                        className="mt-3 text-xs text-amber-700 underline hover:no-underline"
-                      >
-                        Réessayer
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Succès Clariprint */}
-                  {!clariprintLoading && clariprintQuote?.success && (
-                    <div className="bg-green-50 border border-green-200 rounded-xl p-4 space-y-2 text-sm">
-                      <div className="flex items-center gap-1 mb-2">
-                        <CheckCircle className="w-4 h-4 text-green-600" />
-                        <span className="text-xs font-medium text-green-700">
-                          Prix obtenu depuis le réseau Clariprint
-                        </span>
-                      </div>
-
-                      {/* Détail des coûts */}
-                      {clariprintQuote.costs && (
-                        <div className="space-y-1 text-xs">
-                          {[
-                            ["Papier", clariprintQuote.costs.paper],
-                            ["Impression", clariprintQuote.costs.print],
-                            ["Calage / Make-ready", clariprintQuote.costs.makeready],
-                            ["Conditionnement", clariprintQuote.costs.packaging],
-                            ["Livraison", clariprintQuote.costs.delivery],
-                          ]
-                            .filter(([, v]) => v != null && (v as number) > 0)
-                            .map(([label, val]) => (
-                              <div key={String(label)} className="flex justify-between text-gray-600">
-                                <span>{label}</span>
-                                <span className={!user ? "blur-sm select-none" : ""}>{(val as number).toFixed(2)} €</span>
-                              </div>
-                            ))}
-                          <div className="flex justify-between font-semibold text-green-800 border-t border-green-200 pt-1 mt-1">
-                            <span>Total HT</span>
-                            <span className={!user ? "blur-sm select-none" : ""}>{(clariprintQuote.costs.total || clariprintQuote.priceHT || 0).toFixed(2)} €</span>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Total TTC */}
-                      <div className="flex justify-between bg-green-700 text-white px-3 py-2 rounded-lg font-bold text-sm">
-                        <span>Total TTC</span>
-                        <span className={!user ? "blur-sm select-none" : ""}>
-                          {(
-                            (clariprintQuote.costs?.total || clariprintQuote.priceHT || 0) * 1.2
-                          ).toFixed(2)}{" "}
-                          €
-                        </span>
-                      </div>
-
-                      {/* Infos complémentaires */}
-                      <div className="grid grid-cols-2 gap-2 pt-1 text-xs text-green-700">
-                        {clariprintQuote.delais != null && (
-                          <div className="bg-white rounded-lg p-2 border border-green-100">
-                            <div className="text-gray-500 mb-0.5">Délai estimé</div>
-                            <div className="font-semibold">
-                              {clariprintQuote.delais} jour{clariprintQuote.delais > 1 ? "s" : ""}
-                            </div>
-                          </div>
-                        )}
-                        {clariprintQuote.weight != null && (
-                          <div className="bg-white rounded-lg p-2 border border-green-100">
-                            <div className="text-gray-500 mb-0.5">Poids</div>
-                            <div className="font-semibold">{clariprintQuote.weight.toFixed(2)} kg</div>
-                          </div>
-                        )}
-                        {clariprintQuote.fournisseur && (
-                          <div className="bg-white rounded-lg p-2 border border-green-100 col-span-2">
-                            <div className="text-gray-500 mb-0.5">Imprimeur sélectionné</div>
-                            <div className="font-semibold">{clariprintQuote.fournisseur}</div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Recalculer */}
-                      <button
-                        onClick={fetchClariprintQuote}
-                        className="w-full mt-1 flex items-center justify-center gap-1.5 text-xs text-green-700 hover:text-green-900 transition-colors"
-                      >
-                        <RefreshCw className="w-3 h-3" />
-                        Recalculer
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Erreur Clariprint */}
-                  {!clariprintLoading &&
-                    clariprintQuote &&
-                    !clariprintQuote.success &&
-                    !clariprintQuote.credentialsMissing && (
-                      <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm">
-                        <p className="text-red-700 font-medium mb-1">❌ Erreur Clariprint</p>
-                        <p className="text-red-600 text-xs mb-1">
-                          {clariprintQuote.message || clariprintQuote.error || "Erreur inconnue"}
-                        </p>
-                        {clariprintQuote.details && (
-                          <details className="mt-1">
-                            <summary className="text-xs text-red-500 cursor-pointer hover:text-red-700">
-                              Voir les détails techniques
-                            </summary>
-                            <pre className="mt-1 p-2 bg-red-100 rounded text-xs text-red-700 overflow-auto max-h-32 whitespace-pre-wrap">
-                              {clariprintQuote.details}
-                            </pre>
-                          </details>
-                        )}
-                        <button
-                          onClick={fetchClariprintQuote}
-                          className="mt-2 text-xs text-red-600 underline hover:no-underline"
-                        >
-                          Réessayer
-                        </button>
-                      </div>
-                    )}
-
-                  {/* Bouton initial */}
-                  {!clariprintLoading && !clariprintQuote && (
-                    <button
-                      onClick={fetchClariprintQuote}
-                      className="w-full px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl transition-colors flex items-center justify-center gap-2 text-sm"
-                    >
-                      <Printer className="w-4 h-4" />
-                      Obtenir le prix réel Clariprint
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {/* ─ Bouton devis/panier ─ */}
-              <button
-                onClick={() => setIsQuoteModalOpen(true)}
-                className="w-full mt-4 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-colors"
-              >
-                Imprimer le devis / Ajouter au panier
-              </button>
-            </div>
-          )}
-
-          {/* ── Mockup & 3D ── */}
-          {activeTab === "mockup" && (
-            <div className="bg-white border-2 border-gray-300 rounded-2xl p-6 mb-3 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-base font-semibold text-gray-900">Aperçu 3D & Mockup</h3>
-                <button onClick={() => setActiveTab(null)} className="text-gray-500 hover:text-gray-900">
-                  <ChevronUp className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="text-sm text-gray-600">
-                <p className="mb-3">Visualisez votre produit en 3D avant impression.</p>
-                <div className="bg-gray-100 rounded-lg p-12 text-center">
-                  <div className="text-gray-400 text-6xl mb-3">🎨</div>
-                  <p className="text-gray-500">Aperçu 3D disponible après upload de votre design</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ── Formulaire d'édition ── */}
-          {activeTab === "form" && (
-            <div className="bg-white border-2 border-gray-300 rounded-2xl p-6 mb-3 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-base font-semibold text-gray-900">Éditer la configuration</h3>
-                <button onClick={() => setActiveTab(null)} className="text-gray-500 hover:text-gray-900">
-                  <ChevronUp className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Client associé
-                  </label>
-                  {user ? (
-                    clients.length === 0 ? (
-                      <p className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-                        Aucun client enregistré. Créez-en un depuis{" "}
-                        <a href="/dashboard/clients" className="text-blue-600 hover:underline">
-                          le tableau de bord
-                        </a>
-                        .
-                      </p>
-                    ) : (
-                      <select
-                        value={(localProduct as any).client_id || ""}
-                        onChange={(e) => updateProduct({ client_id: e.target.value || null })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="">— Aucun —</option>
-                        {clients.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.company}
-                            {c.contact_name ? ` — ${c.contact_name}` : ""}
-                          </option>
-                        ))}
-                      </select>
-                    )
-                  ) : (
-                    <p className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-                      Connectez-vous pour associer ce produit à un client.
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Quantité</label>
-                  <input
-                    type="number"
-                    value={localProduct.quantity || 0}
-                    onChange={(e) => updateProduct({ quantity: parseInt(e.target.value) })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Type de papier</label>
-                  <input
-                    type="text"
-                    value={localProduct.material || ""}
-                    onChange={(e) => updateProduct({ material: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Grammage (g/m²)</label>
-                  <input
-                    type="number"
-                    value={localProduct.weight || 0}
-                    onChange={(e) => updateProduct({ weight: parseInt(e.target.value) })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
+            {/* Tools bar : 6 cases (5 tools + 1 primary Ajouter) */}
+            <div className="flex border-t border-line">
+              {[
+                { key: "sheet" as TabType, label: "Fiche", icon: FileText },
+                { key: "pricing" as TabType, label: "Prix", icon: Tag },
+                { key: "mockup" as TabType, label: "3D", icon: Box },
+                { key: "form" as TabType, label: "Éditer", icon: Pencil },
+                { key: "debug" as TabType, label: "Debug", icon: Bug },
+              ].map(({ key, label, icon: Icon }, idx, arr) => (
                 <button
+                  key={key}
+                  data-testid={key === "form" ? TEST_IDS.shop.productCardEditBtn : undefined}
                   onClick={() => {
-                    setClariprintQuote(null); // Reset le prix Clariprint si on modifie
-                    setActiveTab(null);
+                    // S2.4b — l'onglet "Editer" (key=form) ouvre desormais l'overlay
+                    // configuration Clariprint riche (S2.4) au lieu d'afficher l'ancien
+                    // form inline. L'ancien form est conserve dans le code mais ne
+                    // peut plus etre toggle visuellement (sera supprime sprint refacto).
+                    if (key === "form") {
+                      setOverlayOpen(true);
+                    } else {
+                      toggleTab(key);
+                    }
                   }}
-                  className="w-full px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
+                  className={`flex-1 flex flex-col items-center gap-1 py-2.5 px-1 transition-colors ${
+                    idx < arr.length - 1 ? "border-r border-line" : ""
+                  } ${
+                    activeTab === key
+                      ? "bg-ink text-paper"
+                      : "bg-paper text-ink-2 hover:bg-bg hover:text-ink"
+                  }`}
+                  aria-label={key === "form" ? "Configurer le produit (overlay)" : label}
                 >
-                  Sauvegarder et fermer
+                  <Icon className="w-4 h-4" strokeWidth={1.5} />
+                  <span
+                    className="leading-none"
+                    style={{ fontSize: "12px", fontWeight: 500, letterSpacing: "-0.005em" }}
+                  >
+                    {label}
+                  </span>
                 </button>
-              </div>
+              ))}
+              {/* CTA primary : Ajouter à la bibliothèque */}
+              {user && canUse("library") ? (
+                <button
+                  onClick={() => setLibraryPickerOpen(true)}
+                  disabled={libraryState !== "idle"}
+                  className={`flex-1 flex flex-col items-center gap-1 py-2.5 px-1 border-l border-line transition-colors ${
+                    libraryState === "saved"
+                      ? "bg-ok-fg text-paper"
+                      : "bg-ink text-paper hover:bg-black"
+                  }`}
+                  aria-label="Ajouter à la bibliothèque"
+                >
+                  {libraryState === "saving" ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : libraryState === "saved" ? (
+                    <Check className="w-4 h-4" strokeWidth={1.5} />
+                  ) : (
+                    <Plus className="w-4 h-4" strokeWidth={1.8} />
+                  )}
+                  <span
+                    className="leading-none"
+                    style={{ fontSize: "12px", fontWeight: 600, letterSpacing: "-0.005em" }}
+                  >
+                    {libraryState === "saved" ? "Ajouté" : "Ajouter"}
+                  </span>
+                </button>
+              ) : (
+                <div
+                  className="flex-1 flex flex-col items-center gap-1 py-2.5 px-1 border-l border-line bg-bg text-ink-mute-2"
+                  aria-hidden="true"
+                >
+                  <Lock className="w-4 h-4" strokeWidth={1.5} />
+                  <span className="leading-none" style={{ fontSize: "12px", fontWeight: 500 }}>
+                    Bibli
+                  </span>
+                </div>
+              )}
             </div>
+          </article>
+
+          {libraryPickerOpen && (
+            <Suspense fallback={null}>
+              <LibraryPickerModal
+                preferredClientId={(localProduct as any).client_id ?? null}
+                onPick={async (libraryId) => {
+                  await handleAddToLibrary(libraryId);
+                }}
+                onClose={() => setLibraryPickerOpen(false)}
+              />
+            </Suspense>
+          )}
+
+          {/* ── Fiche produit ── (R1-bis : extrait dans ProductCardFiche.tsx) */}
+          {activeTab === "sheet" && (
+            <ProductCardFiche
+              localProduct={localProduct}
+              enriched={enriched}
+              onClose={() => setActiveTab(null)}
+            />
+          )}
+
+          {/* ── Prix & Devis ── (R1-bis : extrait dans ProductCardPrix.tsx) */}
+          {activeTab === "pricing" && (
+            <ProductCardPrix
+              localProduct={localProduct}
+              displayPriceHT={displayPriceHT}
+              taxRate={taxRate}
+              user={user}
+              clariprintQuote={clariprintQuote}
+              clariprintLoading={clariprintLoading}
+              lastRawResponse={lastRawResponse}
+              onCompute={computeClariprintQuote}
+              onOpenQuoteModal={() => setIsQuoteModalOpen(true)}
+              onClose={() => setActiveTab(null)}
+            />
+          )}
+
+          {/* ── Mockup & 3D ── (R1 Phase B : extrait dans ProductCard3D.tsx) */}
+          {activeTab === "mockup" && <ProductCard3D onClose={() => setActiveTab(null)} />}
+
+          {/* ── Formulaire d'édition ── (R1-bis : extrait dans ProductCardEditer.tsx) */}
+          {activeTab === "form" && (
+            <ProductCardEditer
+              localProduct={localProduct}
+              updateProduct={updateProduct}
+              resetClariprintQuote={resetClariprintQuote}
+              onClose={() => setActiveTab(null)}
+            />
           )}
 
           {/* ── Onglet Debug Clariprint ── */}
           {activeTab === "debug" && (
-            <div className="bg-slate-900 border-2 border-slate-700 rounded-2xl p-4 mb-3 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <span className="text-slate-300 font-mono font-bold text-sm">🔍 Debug Clariprint</span>
-                </div>
-                <button onClick={() => setActiveTab(null)} className="text-slate-400 hover:text-white">
-                  <ChevronUp className="w-5 h-5" />
-                </button>
-              </div>
-
-              {/* Requête envoyée */}
-              <div className="mb-3">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-mono font-bold text-slate-300">
-                    📤 Requête envoyée à Clariprint (POST /optimproject/json.wcl)
-                  </span>
-                  <button
-                    onClick={() =>
-                      navigator.clipboard.writeText(
-                        JSON.stringify({ clariprint_product: localProduct.clariprintData }, null, 2)
-                      )
-                    }
-                    className="text-xs text-slate-400 hover:text-white border border-slate-600 px-2 py-0.5 rounded transition-colors"
-                  >
-                    Copier
-                  </button>
-                </div>
-                {localProduct.clariprintData ? (
-                  <pre className="text-xs text-green-300 overflow-auto max-h-72 leading-relaxed bg-slate-950 rounded-lg p-3">
-                    {JSON.stringify({ clariprint_product: localProduct.clariprintData }, null, 2)}
-                  </pre>
-                ) : (
-                  <p className="text-xs text-slate-500 italic p-3 bg-slate-950 rounded-lg">
-                    Aucune donnée Clariprint disponible sur ce produit.
-                  </p>
-                )}
-              </div>
-
-              {/* Réponse brute reçue */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-mono font-bold text-slate-300">
-                    📩 Réponse brute Clariprint
-                  </span>
-                  {lastRawResponse && (
-                    <button
-                      onClick={() => navigator.clipboard.writeText(lastRawResponse)}
-                      className="text-xs text-slate-400 hover:text-white border border-slate-600 px-2 py-0.5 rounded transition-colors"
-                    >
-                      Copier
-                    </button>
-                  )}
-                </div>
-                {lastRawResponse ? (
-                  <pre className="text-xs text-yellow-200 overflow-auto max-h-72 leading-relaxed bg-slate-950 rounded-lg p-3">
-                    {lastRawResponse}
-                  </pre>
-                ) : (
-                  <p className="text-xs text-slate-500 italic p-3 bg-slate-950 rounded-lg">
-                    {clariprintLoading
-                      ? "⏳ Appel en cours..."
-                      : "Aucune réponse encore — cliquez \"Obtenir le prix réel Clariprint\" dans l'onglet Prix & Devis."}
-                  </p>
-                )}
-              </div>
-            </div>
+            <ProductCardDebug
+              clariprintData={localProduct.clariprintData}
+              lastRawResponse={lastRawResponse}
+              clariprintLoading={clariprintLoading}
+              onClose={() => setActiveTab(null)}
+            />
           )}
 
-          {/* Modal devis */}
-          <QuoteModal
-            isOpen={isQuoteModalOpen}
-            onClose={() => setIsQuoteModalOpen(false)}
-            product={{
-              ...localProduct,
-              price: displayPriceHT,
-              clariprintQuote: clariprintQuote?.success ? clariprintQuote : undefined,
-            }}
-            onClientChange={(clientId) => updateProduct({ client_id: clientId })}
-          />
+          {/* Modal devis (R7 : lazy-loaded) */}
+          {isQuoteModalOpen && (
+            <Suspense fallback={null}>
+              <QuoteModal
+                isOpen={isQuoteModalOpen}
+                onClose={() => setIsQuoteModalOpen(false)}
+                product={{
+                  ...localProduct,
+                  price: displayPriceHT,
+                  clariprintQuote: clariprintQuote?.success ? clariprintQuote : undefined,
+                }}
+              />
+            </Suspense>
+          )}
         </div>
       )}
+
+      {/* S2.4b — Overlay configuration produit (atelier deviseur).
+          Bouton "Editer" ouvre cet overlay au lieu de l'ancien form inline.
+          shop=null -> fallback brand Magrit + tenant_id 'atelier' (cf. ProductOverlay).
+          R7 : lazy-loaded. */}
+      <Suspense fallback={null}>
+      <ProductOverlay
+        product={
+          overlayOpen
+            ? ({
+                id: localProduct.id ?? `atelier-${Date.now()}`,
+                shop_id: 'atelier',
+                product_id: null,
+                name: localProduct.name ?? 'Produit',
+                category: localProduct.clariprintData?.kind ?? 'Atelier',
+                description: localProduct.description ?? '',
+                price_ht: displayPriceHT,
+                image_url: '',
+                // 2026-05-15 — Bug fix volet d'edition : on construit un
+                // clariprintData normalise (format Clariprint attendu par
+                // extractInitialOptions) a partir des champs UI/LLM
+                // (material, weight, dimensions, finishRecto/Verso,
+                // printing.recto/verso). Avant ce fix, l'overlay tombait
+                // sur DEFAULT_OPTIONS pour 5 champs sur 7 (A5/135g/recto/
+                // aucun) au lieu d'afficher les valeurs du produit.
+                config: {
+                  ...(localProduct as any),
+                  clariprintData: extractClariprintConfigFromAtelierProduct(localProduct),
+                },
+                display_order: 0,
+              } as ShopProduct)
+            : null
+        }
+        shop={null}
+        confirmLabel="Mettre à jour"
+        onClose={() => setOverlayOpen(false)}
+        onConfirm={(productConfigured) => {
+          // Reinjecte la config Clariprint mise a jour dans le localProduct atelier
+          const updatedClariprint = (productConfigured.config as any)?.clariprintData ?? {};
+          const merged = {
+            ...localProduct,
+            ...updatedClariprint,
+            price: productConfigured.price_ht,
+            clariprintData: updatedClariprint,
+          };
+          setLocalProduct(merged);
+          if (onProductUpdate) onProductUpdate(merged);
+          setOverlayOpen(false);
+        }}
+      />
+      </Suspense>
     </div>
   );
 }

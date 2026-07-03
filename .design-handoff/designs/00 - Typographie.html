@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<title>A · Typographie — Helvetica Neue, graisses fines</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<!-- Inter Tight en fallback web (100/200/300/400/500) : métriques très proches d'Helvetica Neue, supporte les graisses fines. -->
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@100;200;300;400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    /* Stack display & body : Helvetica Neue d'abord, puis Inter Tight (web), puis système. */
+    --mg-font-sans: "Helvetica Neue", "HelveticaNeue", "Inter Tight", Helvetica, Arial, sans-serif;
+    --mg-font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  }
+
+  body { margin: 0; background: #FAFAFA; color: #0A0A0A; padding: 64px 48px 140px; font-family: var(--mg-font-sans); -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1280px; margin: 0 auto; }
+  .crumb { font-family: var(--mg-font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #8A8A93; margin-bottom: 8px; }
+  .crumb a { color: #52525B; text-decoration: none; }
+  .crumb a:hover { text-decoration: underline; }
+
+  h1.page { font-family: var(--mg-font-sans); font-weight: 200; font-size: 64px; letter-spacing: -0.035em; margin: 10px 0 16px; line-height: 1; }
+  .lede { color: #52525B; max-width: 720px; margin: 0 0 48px; line-height: 1.6; font-size: 16px; font-weight: 300; }
+  .lede code { font-family: var(--mg-font-mono); font-size: 13px; background: #F5F5F5; padding: 2px 6px; border-radius: 4px; }
+
+  /* ===== Grille ===== */
+  .stack { display: flex; flex-direction: column; gap: 28px; }
+  .card { background: #FFF; border: 1px solid #ECECEC; border-radius: 16px; overflow: hidden; }
+  .card-head { display: flex; align-items: baseline; gap: 16px; padding: 22px 32px 18px; border-bottom: 1px solid #ECECEC; background: #FAFAFA; }
+  .card-head .num { font-family: var(--mg-font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #8A8A93; }
+  .card-head h2 { font-family: var(--mg-font-sans); font-weight: 400; font-size: 22px; letter-spacing: -0.015em; margin: 0; }
+  .card-head .tag { margin-left: auto; font-family: var(--mg-font-mono); font-size: 11px; color: #52525B; }
+  .body-pad { padding: 36px 40px; }
+
+  /* ===== Échelle de graisses ===== */
+  .weights { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0; border: 1px solid #ECECEC; border-radius: 12px; overflow: hidden; }
+  .weights > div { padding: 28px 20px; border-right: 1px solid #ECECEC; }
+  .weights > div:last-child { border-right: none; }
+  .weights .tick { font-family: var(--mg-font-mono); font-size: 11px; letter-spacing: 0.06em; color: #52525B; text-transform: uppercase; margin-bottom: 18px; font-weight: 500; }
+  .weights .sample { font-size: 44px; line-height: 1; letter-spacing: -0.025em; color: #0A0A0A; }
+  .weights .label { font-size: 12px; color: #52525B; margin-top: 10px; font-weight: 400; }
+
+  .wt-100 { font-weight: 100; }
+  .wt-200 { font-weight: 200; }
+  .wt-300 { font-weight: 300; }
+  .wt-400 { font-weight: 400; }
+  .wt-500 { font-weight: 500; }
+  .wt-700 { font-weight: 700; }
+
+  /* ===== Échelle typographique ===== */
+  .scale { display: flex; flex-direction: column; gap: 20px; }
+  .scale-row { display: grid; grid-template-columns: 180px 1fr; gap: 32px; align-items: baseline; padding: 16px 0; border-bottom: 1px dashed #ECECEC; }
+  .scale-row:last-child { border-bottom: none; }
+  .scale-meta { font-family: var(--mg-font-mono); font-size: 11px; color: #52525B; letter-spacing: 0.04em; line-height: 1.7; font-weight: 400; }
+  .scale-meta b { color: #0A0A0A; font-weight: 500; }
+
+  .s-display { font-size: 88px; line-height: 0.98; letter-spacing: -0.04em; font-weight: 100; }
+  .s-h1 { font-size: 56px; line-height: 1.02; letter-spacing: -0.035em; font-weight: 200; }
+  .s-h2 { font-size: 36px; line-height: 1.1; letter-spacing: -0.025em; font-weight: 300; }
+  .s-h3 { font-size: 22px; line-height: 1.25; letter-spacing: -0.015em; font-weight: 400; }
+  .s-body { font-size: 16px; line-height: 1.6; font-weight: 300; color: #2A2A2D; max-width: 620px; }
+  .s-meta { font-size: 13.5px; line-height: 1.5; font-weight: 400; color: #2A2A2D; letter-spacing: 0.005em; }
+  .s-caption { font-family: var(--mg-font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #8A8A93; }
+
+  /* ===== Mise en situation / page composée ===== */
+  .mock { padding: 56px 64px; background: #FFF; }
+  .mock .eyebrow { font-family: var(--mg-font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #8A8A93; margin-bottom: 24px; }
+  .mock .hero { font-size: 96px; line-height: 0.96; letter-spacing: -0.045em; font-weight: 100; margin: 0 0 24px; max-width: 980px; }
+  .mock .hero em { font-style: normal; font-weight: 300; color: #52525B; }
+  .mock .lead { font-size: 18px; line-height: 1.55; font-weight: 300; color: #2A2A2D; max-width: 620px; margin: 0 0 32px; }
+  .mock-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 32px; padding-top: 32px; border-top: 1px solid #ECECEC; }
+  .mock-grid h4 { font-size: 18px; font-weight: 500; letter-spacing: -0.01em; margin: 0 0 10px; }
+  .mock-grid p { font-size: 14px; line-height: 1.6; font-weight: 400; color: #52525B; margin: 0; }
+
+  /* ===== Usage rules ===== */
+  .rules { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border: 1px solid #ECECEC; border-radius: 12px; overflow: hidden; }
+  .rule-col { padding: 28px 32px; }
+  .rule-col + .rule-col { border-left: 1px solid #ECECEC; }
+  .rule-col h5 { font-size: 12px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #0A0A0A; margin: 0 0 18px; }
+  .rule-col ul { list-style: none; padding: 0; margin: 0; }
+  .rule-col li { font-size: 14px; line-height: 1.6; font-weight: 400; color: #2A2A2D; padding: 8px 0 8px 20px; position: relative; border-bottom: 1px dashed #ECECEC; }
+  .rule-col li:last-child { border-bottom: none; }
+  .rule-col li::before { content: ''; position: absolute; left: 0; top: 14px; width: 10px; height: 1px; background: #0A0A0A; }
+  .rule-col.dont li::before { width: 10px; height: 10px; top: 11px; border-radius: 50%; background: transparent; border: 1px solid #D4D4D8; }
+
+  .spec { padding: 18px 32px 22px; font-family: var(--mg-font-mono); font-size: 12px; color: #2A2A2D; background: #FAFAFA; border-top: 1px solid #ECECEC; display: flex; flex-wrap: wrap; gap: 24px; font-weight: 400; }
+  .spec b { color: #0A0A0A; font-weight: 500; }
+
+  .note { margin-top: 48px; background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 12px; padding: 20px 24px; color: #78350F; font-size: 14px; line-height: 1.6; font-weight: 400; }
+  .note strong { color: #451A03; font-weight: 500; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="crumb"><a href="À valider demain.html">← retour à l'index</a></div>
+    <h1 class="page">A · Typographie</h1>
+    <p class="lede">
+      Une seule famille : <b style="font-weight:500;">Helvetica Neue</b>, avec fallback web <b style="font-weight:500;">Inter Tight</b> (métriques quasi-identiques, supporte les graisses 100 à 600). Direction affirmée : <b style="font-weight:500;">graisses fines</b> (100 / 200 / 300) pour tout ce qui est display, body en 300, réservation du 400/500 aux UI states et accents.
+    </p>
+
+    <div class="stack">
+
+      <!-- ============ Échelle des graisses ============ -->
+      <div class="card">
+        <div class="card-head">
+          <span class="num">01</span>
+          <h2>Échelle des graisses</h2>
+          <span class="tag">Helvetica Neue · 100 → 700</span>
+        </div>
+        <div class="body-pad">
+          <div class="weights">
+            <div>
+              <div class="tick">100 · Thin</div>
+              <div class="sample wt-100">Aa</div>
+              <div class="label">Display XL uniquement</div>
+            </div>
+            <div>
+              <div class="tick">200 · Ultralight</div>
+              <div class="sample wt-200">Aa</div>
+              <div class="label">Titres de page</div>
+            </div>
+            <div>
+              <div class="tick">300 · Light</div>
+              <div class="sample wt-300">Aa</div>
+              <div class="label">Sous-titres + body long</div>
+            </div>
+            <div>
+              <div class="tick">400 · Regular</div>
+              <div class="sample wt-400">Aa</div>
+              <div class="label">Body court · UI labels</div>
+            </div>
+            <div>
+              <div class="tick">500 · Medium</div>
+              <div class="sample wt-500">Aa</div>
+              <div class="label">Accents · prix · boutons</div>
+            </div>
+            <div>
+              <div class="tick">700 · Bold</div>
+              <div class="sample wt-700">Aa</div>
+              <div class="label">Rare · alertes budget</div>
+            </div>
+          </div>
+        </div>
+        <div class="spec">
+          <span><b>Principe</b> plus c'est grand, plus c'est fin</span>
+          <span><b>Seuil body</b> ≥ 14px en 300, &lt; 14px en 400</span>
+          <span><b>Réservé</b> 500/700 = signal fort (prix, statut, total)</span>
+        </div>
+      </div>
+
+      <!-- ============ Échelle typographique ============ -->
+      <div class="card">
+        <div class="card-head">
+          <span class="num">02</span>
+          <h2>Échelle typographique</h2>
+          <span class="tag">Du display au caption</span>
+        </div>
+        <div class="body-pad">
+          <div class="scale">
+
+            <div class="scale-row">
+              <div class="scale-meta"><b>Display</b><br/>88 / 100 w<br/>ls -0.04em</div>
+              <div class="s-display">Le papier pense.</div>
+            </div>
+
+            <div class="scale-row">
+              <div class="scale-meta"><b>H1</b><br/>56 / 200 w<br/>ls -0.035em</div>
+              <div class="s-h1">Des cartes de visite imprimées comme il faut.</div>
+            </div>
+
+            <div class="scale-row">
+              <div class="scale-meta"><b>H2</b><br/>36 / 300 w<br/>ls -0.025em</div>
+              <div class="s-h2">Papier 350g, vernis sélectif, livraison 72h.</div>
+            </div>
+
+            <div class="scale-row">
+              <div class="scale-meta"><b>H3</b><br/>22 / 400 w<br/>ls -0.015em</div>
+              <div class="s-h3">Pourquoi Magrit</div>
+            </div>
+
+            <div class="scale-row">
+              <div class="scale-meta"><b>Body</b><br/>16 / 300 w<br/>lh 1.6</div>
+              <div class="s-body">Chaque commande passe par un imprimeur qui relit vos fichiers avant l'envoi en presse. Livraison sous 72h ouvrées partout en France. Un prix transparent, sans surprise au checkout.</div>
+            </div>
+
+            <div class="scale-row">
+              <div class="scale-meta"><b>Meta</b><br/>13 / 400 w<br/>ls +0.005em</div>
+              <div class="s-meta">À partir de 19€ · Livraison offerte dès 60€ · Made in France</div>
+            </div>
+
+            <div class="scale-row">
+              <div class="scale-meta"><b>Caption</b><br/>mono · 11px<br/>tracking 0.08em</div>
+              <div class="s-caption">Imprimerie Magrit · Tirages professionnels</div>
+            </div>
+
+          </div>
+        </div>
+        <div class="spec">
+          <span><b>Display → H3</b> Helvetica Neue</span>
+          <span><b>Body + Meta</b> Helvetica Neue 300/400</span>
+          <span><b>Caption</b> JetBrains Mono 400 (seule exception mono, pour éléments techniques)</span>
+        </div>
+      </div>
+
+      <!-- ============ Mise en situation ============ -->
+      <div class="card">
+        <div class="card-head">
+          <span class="num">03</span>
+          <h2>Mise en situation · page produit</h2>
+          <span class="tag">Le système appliqué</span>
+        </div>
+        <div class="mock">
+          <div class="eyebrow">Imprimerie Magrit · Série printemps 2026</div>
+          <h3 class="hero">Le papier <em>pense.</em><br/>Nous l'écoutons.</h3>
+          <p class="lead">Quinze ans de presse offset et numérique, un studio, une équipe qui relit vos fichiers avant d'imprimer. Pas de bouton magique, du soin.</p>
+          <div class="mock-grid">
+            <div>
+              <h4>Papiers français</h4>
+              <p>Sélection PEFC depuis Annonay et Pontarlier. Grammages 90g à 400g, nuances crème et blanc pur.</p>
+            </div>
+            <div>
+              <h4>72h en presse</h4>
+              <p>Offset quadri + numérique HD. Commande validée avant 11h, production lancée le jour même.</p>
+            </div>
+            <div>
+              <h4>Un imprimeur au bout du fil</h4>
+              <p>Pas de chatbot. Un numéro direct. Du lundi au vendredi, 9h–18h, réponse sous 4 minutes en moyenne.</p>
+            </div>
+          </div>
+        </div>
+        <div class="spec">
+          <span><b>Hero</b> 96px · weight 100 · italic = graisse 300 (pas vraie italique)</span>
+          <span><b>Lead</b> 18px · 300</span>
+          <span><b>Cards</b> 18px / 14px · 400/300</span>
+        </div>
+      </div>
+
+      <!-- ============ Règles d'usage ============ -->
+      <div class="card">
+        <div class="card-head">
+          <span class="num">04</span>
+          <h2>Règles d'usage</h2>
+          <span class="tag">Ce qu'on fait · ce qu'on ne fait pas</span>
+        </div>
+        <div class="body-pad">
+          <div class="rules">
+            <div class="rule-col do">
+              <h5>On fait</h5>
+              <ul>
+                <li>Display et titres en <b style="font-weight:500;">weight 100-300</b>, jamais au-dessus.</li>
+                <li>Body long en <b style="font-weight:500;">weight 300</b> avec line-height 1.6.</li>
+                <li>Letter-spacing négatif sur tout ce qui dépasse 24px (-0.02 à -0.04em).</li>
+                <li>Le <b style="font-weight:500;">500/700</b> réservé aux prix, totaux, statuts critiques.</li>
+                <li>JetBrains Mono pour les métadonnées techniques (IDs, specs, timestamps).</li>
+                <li>Antialiasing activé (<code style="font-family:var(--mg-font-mono);font-size:12px;background:#F5F5F5;padding:1px 5px;border-radius:3px;">-webkit-font-smoothing: antialiased</code>).</li>
+              </ul>
+            </div>
+            <div class="rule-col dont">
+              <h5>On évite</h5>
+              <ul>
+                <li>Display en 500 ou 700 — trop "press release".</li>
+                <li>Body en 400 si le texte dépasse 3 lignes — alourdit.</li>
+                <li>Italic véritable : on utilise la graisse 300 comme voix douce.</li>
+                <li>Tracking positif sur du body — Helvetica Neue est déjà ouverte.</li>
+                <li>Mélanger avec une autre famille display (Fraunces, Newsreader, etc.).</li>
+                <li>Graisses 600+ sur les interfaces denses (admin, table de devis).</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ Tokens ============ -->
+      <div class="card">
+        <div class="card-head">
+          <span class="num">05</span>
+          <h2>Tokens CSS</h2>
+          <span class="tag">Prêt à coller</span>
+        </div>
+        <div class="body-pad" style="padding: 28px 40px;">
+<pre style="margin:0; font-family: var(--mg-font-mono); font-size: 12.5px; line-height: 1.65; color: #0A0A0A; background: #FAFAFA; border: 1px solid #ECECEC; border-radius: 10px; padding: 20px 24px; white-space: pre; overflow-x: auto;">:root {
+  --mg-font-sans: "Helvetica Neue", "HelveticaNeue",
+                  "Inter Tight", Helvetica, Arial, sans-serif;
+  --mg-font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* Weights */
+  --mg-w-thin:       100;   /* display XL uniquement    */
+  --mg-w-ultralight: 200;   /* titres de page           */
+  --mg-w-light:      300;   /* body long · sous-titres  */
+  --mg-w-regular:    400;   /* body court · UI labels   */
+  --mg-w-medium:     500;   /* prix · CTA · accents     */
+  --mg-w-bold:       700;   /* alertes · rare           */
+
+  /* Scale */
+  --mg-fs-display: 88px;  --mg-lh-display: 0.98;
+  --mg-fs-h1:      56px;  --mg-lh-h1:      1.02;
+  --mg-fs-h2:      36px;  --mg-lh-h2:      1.10;
+  --mg-fs-h3:      22px;  --mg-lh-h3:      1.25;
+  --mg-fs-body:    16px;  --mg-lh-body:    1.60;
+  --mg-fs-meta:    13px;  --mg-lh-meta:    1.50;
+  --mg-fs-cap:     11px;  --mg-lh-cap:     1.40;
+
+  /* Letter-spacing */
+  --mg-ls-display: -0.04em;
+  --mg-ls-h1:      -0.035em;
+  --mg-ls-h2:      -0.025em;
+  --mg-ls-h3:      -0.015em;
+  --mg-ls-cap:      0.08em;
+}</pre>
+        </div>
+        <div class="spec">
+          <span><b>Fallback web</b> Inter Tight (Google Fonts, gratuite, supporte 100→600)</span>
+          <span><b>Rendu Mac/iOS</b> Helvetica Neue natif, parfait</span>
+          <span><b>Rendu Win/Android</b> Inter Tight, écart minime</span>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="note">
+      <strong>À valider.</strong> Le pari ici : graisses fines partout, et 500/700 uniquement pour le signal. Ça donne une voix calme, très "Swiss style", qui colle à l'imprimerie pro. Si le rendu te semble trop mince pour des body longs (&gt; 5 lignes), on peut basculer le body en 400 par défaut et garder le 300 pour les lead/intros uniquement — dis-moi.
+    </div>
+  </div>
+</body>
+</html>

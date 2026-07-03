@@ -1,0 +1,10 @@
+# Magrit — Persistent facts pour l agent Architect (Winston).
+# Chargé automatiquement à chaque activation de l agent BMAD Architect.
+
+[agent]
+persistent_facts = [
+  "file:{project-root}/docs/project-context.md",
+  "file:{project-root}/SPRINT_HANDOFF.md",
+  "file:{project-root}/_bmad-output/planning-artifacts/architecture.md",
+  "file:{project-root}/ARCHITECTURE.md",
+]

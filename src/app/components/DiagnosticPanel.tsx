@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { X, RefreshCw, CheckCircle, XCircle, AlertTriangle, Loader2 } from "lucide-react";
-import { projectId, publicAnonKey } from "/utils/supabase/info";
+import { supabase } from "/utils/supabase/client";
+import { httpAdapter } from "../../server/clariprint/ClariprintAdapter";
 
 interface DiagnosticPanelProps {
   onClose: () => void;
@@ -24,17 +25,11 @@ export function DiagnosticPanel({ onClose }: DiagnosticPanelProps) {
     error: null,
   });
 
-  const baseUrl = `https://${projectId}.supabase.co/functions/v1/make-server-e3db71a4`;
-  const headers = {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${publicAnonKey}`,
-  };
-
   const testClariprint = async () => {
     setClariprintTest({ loading: true, data: null, error: null });
     try {
-      const res = await fetch(`${baseUrl}/clariprint-test`, { headers });
-      const data = await res.json();
+      // R3 : passe par l'adapter (pas de fetch direct hors ClariprintAdapter).
+      const data = await httpAdapter.testConnection();
       setClariprintTest({ loading: false, data, error: null });
     } catch (e) {
       setClariprintTest({ loading: false, data: null, error: String(e) });
@@ -44,8 +39,12 @@ export function DiagnosticPanel({ onClose }: DiagnosticPanelProps) {
   const testClaude = async () => {
     setClaudeTest({ loading: true, data: null, error: null });
     try {
-      const res = await fetch(`${baseUrl}/claude-test`, { headers });
-      const data = await res.json();
+      // R5 (refacto 2026-05-11) : functions.invoke() (ADR-R3).
+      const { data, error } = await supabase.functions.invoke(
+        'make-server-e3db71a4/claude-test',
+        { method: 'GET' },
+      );
+      if (error) throw error;
       setClaudeTest({ loading: false, data, error: null });
     } catch (e) {
       setClaudeTest({ loading: false, data: null, error: String(e) });

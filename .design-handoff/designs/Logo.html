@@ -1,0 +1,515 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<title>Magrit — Logo v5 · vraie marguerite</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Fraunces:opsz,wght@9..144,500&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet" />
+<style>
+  body { margin: 0; font-family: 'Inter', sans-serif; background: #FAFAFA; color: #0A0A0A; padding: 64px 48px; }
+  .wrap { max-width: 1200px; margin: 0 auto; }
+  .eyebrow { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #8A8A93; }
+  h1 { font-family: 'Fraunces', serif; font-weight: 500; font-size: 40px; letter-spacing: -0.02em; margin: 10px 0 14px; line-height: 1.1; }
+  .lede { color: #52525B; max-width: 640px; margin: 0 0 40px; line-height: 1.55; font-size: 15.5px; }
+
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+
+  .card {
+    background: #FFFFFF;
+    border: 1px solid #ECECEC;
+    border-radius: 16px;
+    padding: 28px 26px 22px;
+    display: flex; flex-direction: column;
+  }
+  .slot {
+    aspect-ratio: 1;
+    border-radius: 12px;
+    display: grid; place-items: center;
+    margin-bottom: 18px;
+    overflow: hidden;
+  }
+  .slot-sky { background: linear-gradient(180deg, #F8FAFD 0%, #EDF2F9 100%); }
+  .slot-dark { background: #0A0A0A; }
+  .slot-cream { background: #FFF8E8; }
+  .card h3 {
+    font-family: 'Fraunces', serif; font-weight: 500; font-size: 20px;
+    letter-spacing: -0.01em; margin: 6px 0 4px;
+  }
+  .num {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    letter-spacing: 0.08em; text-transform: uppercase; color: #8A8A93;
+    display: block; margin-bottom: 6px;
+  }
+  .desc { color: #52525B; font-size: 13px; line-height: 1.5; margin: 0; }
+
+  h2.group {
+    font-size: 13px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase;
+    color: #52525B; margin: 56px 0 20px; padding-bottom: 10px; border-bottom: 1px solid #ECECEC;
+  }
+
+  .note {
+    margin-top: 48px; background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 12px; padding: 18px 22px; color: #78350F;
+    font-size: 13.5px; line-height: 1.55;
+  }
+  .note strong { color: #451A03; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <span class="eyebrow">Logo Magrit · v5 · inspiré d'une vraie marguerite</span>
+    <h1>Pétales nombreux, longs, denses</h1>
+    <p class="lede">
+      Cette fois on part d'une vraie marguerite : <strong>16 à 22 pétales</strong> longs et fins, qui se chevauchent naturellement, cœur jaune texturé comme un pollen. 6 directions, certaines classiques, d'autres franchement inattendues.
+    </p>
+
+    <div class="grid">
+
+      <!-- ============ 01 · REALISTIC 18 PETALS ============ -->
+      <div class="card">
+        <div class="slot slot-sky">
+          <svg width="240" height="240" viewBox="0 0 100 100" fill="none">
+            <defs>
+              <linearGradient id="t01" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#E5F0FC"/>
+                <stop offset="100%" stop-color="#B7D3F2"/>
+              </linearGradient>
+              <radialGradient id="c01" cx="45%" cy="40%" r="55%">
+                <stop offset="0%" stop-color="#FFE066"/>
+                <stop offset="70%" stop-color="#F5B529"/>
+                <stop offset="100%" stop-color="#C68708"/>
+              </radialGradient>
+              <pattern id="pollen01" x="0" y="0" width="2.5" height="2.5" patternUnits="userSpaceOnUse">
+                <circle cx="1.25" cy="1.25" r="0.5" fill="#C68708" fill-opacity="0.5"/>
+              </pattern>
+            </defs>
+            <rect width="100" height="100" rx="23" fill="url(#t01)"/>
+            <g transform="translate(50 50)">
+              <g fill="#FFFFFF">
+                <!-- 18 petals, long & narrow, 20° apart -->
+                <!-- petal shape: narrow at tip (top) and at base, widest in upper-middle -->
+                <!-- use ellipse cy=-26 rx=3.5 ry=16 → goes from -42 to -10 -->
+                <g>
+                  <ellipse cx="0" cy="-26" rx="3.5" ry="16"/>
+                  <ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(20)"/>
+                  <ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(40)"/>
+                  <ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(60)"/>
+                  <ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(80)"/>
+                  <ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(100)"/>
+                  <ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(120)"/>
+                  <ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(140)"/>
+                  <ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(160)"/>
+                  <ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(180)"/>
+                  <ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(200)"/>
+                  <ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(220)"/>
+                  <ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(240)"/>
+                  <ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(260)"/>
+                  <ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(280)"/>
+                  <ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(300)"/>
+                  <ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(320)"/>
+                  <ellipse cx="0" cy="-26" rx="3.5" ry="16" transform="rotate(340)"/>
+                </g>
+              </g>
+              <circle r="11" fill="url(#c01)"/>
+              <circle r="11" fill="url(#pollen01)"/>
+            </g>
+          </svg>
+        </div>
+        <span class="num">01 · Réaliste · 18 pétales</span>
+        <h3>La vraie marguerite</h3>
+        <p class="desc">18 pétales longs et fins (20° d'écart), se chevauchant au cœur. Cœur texturé pollen. Le plus fidèle à la photo.</p>
+      </div>
+
+      <!-- ============ 02 · 20 PETALS WITH VARIATION ============ -->
+      <div class="card">
+        <div class="slot slot-sky">
+          <svg width="240" height="240" viewBox="0 0 100 100" fill="none">
+            <defs>
+              <linearGradient id="t02" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#E5F0FC"/>
+                <stop offset="100%" stop-color="#B7D3F2"/>
+              </linearGradient>
+              <radialGradient id="c02" cx="45%" cy="40%" r="55%">
+                <stop offset="0%" stop-color="#FFE066"/>
+                <stop offset="70%" stop-color="#F5B529"/>
+                <stop offset="100%" stop-color="#C68708"/>
+              </radialGradient>
+            </defs>
+            <rect width="100" height="100" rx="23" fill="url(#t02)"/>
+            <g transform="translate(50 50) rotate(9)">
+              <!-- 20 petals, slight length variation for organic feel -->
+              <g fill="#FFFFFF" stroke="rgba(15,43,82,0.04)" stroke-width="0.2">
+                <ellipse cx="0" cy="-25" rx="3" ry="16" transform="rotate(0)"/>
+                <ellipse cx="0" cy="-25.5" rx="3" ry="16.5" transform="rotate(18)"/>
+                <ellipse cx="0" cy="-25" rx="3" ry="16" transform="rotate(36)"/>
+                <ellipse cx="0" cy="-26" rx="3" ry="17" transform="rotate(54)"/>
+                <ellipse cx="0" cy="-25" rx="3" ry="16" transform="rotate(72)"/>
+                <ellipse cx="0" cy="-25.5" rx="3" ry="16.5" transform="rotate(90)"/>
+                <ellipse cx="0" cy="-25" rx="3" ry="16" transform="rotate(108)"/>
+                <ellipse cx="0" cy="-26" rx="3" ry="17" transform="rotate(126)"/>
+                <ellipse cx="0" cy="-25" rx="3" ry="16" transform="rotate(144)"/>
+                <ellipse cx="0" cy="-25.5" rx="3" ry="16.5" transform="rotate(162)"/>
+                <ellipse cx="0" cy="-25" rx="3" ry="16" transform="rotate(180)"/>
+                <ellipse cx="0" cy="-25.5" rx="3" ry="16.5" transform="rotate(198)"/>
+                <ellipse cx="0" cy="-25" rx="3" ry="16" transform="rotate(216)"/>
+                <ellipse cx="0" cy="-26" rx="3" ry="17" transform="rotate(234)"/>
+                <ellipse cx="0" cy="-25" rx="3" ry="16" transform="rotate(252)"/>
+                <ellipse cx="0" cy="-25.5" rx="3" ry="16.5" transform="rotate(270)"/>
+                <ellipse cx="0" cy="-25" rx="3" ry="16" transform="rotate(288)"/>
+                <ellipse cx="0" cy="-26" rx="3" ry="17" transform="rotate(306)"/>
+                <ellipse cx="0" cy="-25" rx="3" ry="16" transform="rotate(324)"/>
+                <ellipse cx="0" cy="-25.5" rx="3" ry="16.5" transform="rotate(342)"/>
+              </g>
+              <circle r="12" fill="url(#c02)"/>
+            </g>
+          </svg>
+        </div>
+        <span class="num">02 · Organique · 20 pétales</span>
+        <h3>Variation naturelle</h3>
+        <p class="desc">20 pétales avec légère variation de longueur (±1px). Casse la symétrie parfaite. Plus vivant, moins logo-d'agence.</p>
+      </div>
+
+      <!-- ============ 03 · TWO LAYERS (back + front) ============ -->
+      <div class="card">
+        <div class="slot slot-sky">
+          <svg width="240" height="240" viewBox="0 0 100 100" fill="none">
+            <defs>
+              <linearGradient id="t03" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#E5F0FC"/>
+                <stop offset="100%" stop-color="#B7D3F2"/>
+              </linearGradient>
+              <radialGradient id="c03" cx="45%" cy="40%" r="55%">
+                <stop offset="0%" stop-color="#FFE066"/>
+                <stop offset="70%" stop-color="#F5B529"/>
+                <stop offset="100%" stop-color="#C68708"/>
+              </radialGradient>
+            </defs>
+            <rect width="100" height="100" rx="23" fill="url(#t03)"/>
+            <g transform="translate(50 50)">
+              <!-- back layer: 14 long petals, ivory, offset -->
+              <g fill="#F5EBD0" transform="rotate(12.85)">
+                <ellipse cx="0" cy="-28" rx="4" ry="18" transform="rotate(0)"/>
+                <ellipse cx="0" cy="-28" rx="4" ry="18" transform="rotate(25.7)"/>
+                <ellipse cx="0" cy="-28" rx="4" ry="18" transform="rotate(51.4)"/>
+                <ellipse cx="0" cy="-28" rx="4" ry="18" transform="rotate(77.1)"/>
+                <ellipse cx="0" cy="-28" rx="4" ry="18" transform="rotate(102.8)"/>
+                <ellipse cx="0" cy="-28" rx="4" ry="18" transform="rotate(128.5)"/>
+                <ellipse cx="0" cy="-28" rx="4" ry="18" transform="rotate(154.2)"/>
+                <ellipse cx="0" cy="-28" rx="4" ry="18" transform="rotate(180)"/>
+                <ellipse cx="0" cy="-28" rx="4" ry="18" transform="rotate(205.7)"/>
+                <ellipse cx="0" cy="-28" rx="4" ry="18" transform="rotate(231.4)"/>
+                <ellipse cx="0" cy="-28" rx="4" ry="18" transform="rotate(257.1)"/>
+                <ellipse cx="0" cy="-28" rx="4" ry="18" transform="rotate(282.8)"/>
+                <ellipse cx="0" cy="-28" rx="4" ry="18" transform="rotate(308.5)"/>
+                <ellipse cx="0" cy="-28" rx="4" ry="18" transform="rotate(334.2)"/>
+              </g>
+              <!-- front layer: 14 shorter white petals, on top -->
+              <g fill="#FFFFFF">
+                <ellipse cx="0" cy="-24" rx="3.5" ry="14" transform="rotate(0)"/>
+                <ellipse cx="0" cy="-24" rx="3.5" ry="14" transform="rotate(25.7)"/>
+                <ellipse cx="0" cy="-24" rx="3.5" ry="14" transform="rotate(51.4)"/>
+                <ellipse cx="0" cy="-24" rx="3.5" ry="14" transform="rotate(77.1)"/>
+                <ellipse cx="0" cy="-24" rx="3.5" ry="14" transform="rotate(102.8)"/>
+                <ellipse cx="0" cy="-24" rx="3.5" ry="14" transform="rotate(128.5)"/>
+                <ellipse cx="0" cy="-24" rx="3.5" ry="14" transform="rotate(154.2)"/>
+                <ellipse cx="0" cy="-24" rx="3.5" ry="14" transform="rotate(180)"/>
+                <ellipse cx="0" cy="-24" rx="3.5" ry="14" transform="rotate(205.7)"/>
+                <ellipse cx="0" cy="-24" rx="3.5" ry="14" transform="rotate(231.4)"/>
+                <ellipse cx="0" cy="-24" rx="3.5" ry="14" transform="rotate(257.1)"/>
+                <ellipse cx="0" cy="-24" rx="3.5" ry="14" transform="rotate(282.8)"/>
+                <ellipse cx="0" cy="-24" rx="3.5" ry="14" transform="rotate(308.5)"/>
+                <ellipse cx="0" cy="-24" rx="3.5" ry="14" transform="rotate(334.2)"/>
+              </g>
+              <circle r="11" fill="url(#c03)"/>
+            </g>
+          </svg>
+        </div>
+        <span class="num">03 · Deux couches</span>
+        <h3>Profondeur</h3>
+        <p class="desc">Une couche de 14 pétales ivoire derrière, 14 pétales blancs devant offset. Donne de la matière et 3D sans shadow.</p>
+      </div>
+
+      <!-- ============ 04 · NEGATIVE SPACE / NAVY TILE ============ -->
+      <div class="card">
+        <div class="slot slot-dark">
+          <svg width="240" height="240" viewBox="0 0 100 100" fill="none">
+            <rect width="100" height="100" rx="23" fill="#0F2B52"/>
+            <g transform="translate(50 50) rotate(6)">
+              <g fill="#F5EBD0">
+                <ellipse cx="0" cy="-25" rx="3" ry="15" transform="rotate(0)"/>
+                <ellipse cx="0" cy="-25" rx="3" ry="15" transform="rotate(22.5)"/>
+                <ellipse cx="0" cy="-25" rx="3" ry="15" transform="rotate(45)"/>
+                <ellipse cx="0" cy="-25" rx="3" ry="15" transform="rotate(67.5)"/>
+                <ellipse cx="0" cy="-25" rx="3" ry="15" transform="rotate(90)"/>
+                <ellipse cx="0" cy="-25" rx="3" ry="15" transform="rotate(112.5)"/>
+                <ellipse cx="0" cy="-25" rx="3" ry="15" transform="rotate(135)"/>
+                <ellipse cx="0" cy="-25" rx="3" ry="15" transform="rotate(157.5)"/>
+                <ellipse cx="0" cy="-25" rx="3" ry="15" transform="rotate(180)"/>
+                <ellipse cx="0" cy="-25" rx="3" ry="15" transform="rotate(202.5)"/>
+                <ellipse cx="0" cy="-25" rx="3" ry="15" transform="rotate(225)"/>
+                <ellipse cx="0" cy="-25" rx="3" ry="15" transform="rotate(247.5)"/>
+                <ellipse cx="0" cy="-25" rx="3" ry="15" transform="rotate(270)"/>
+                <ellipse cx="0" cy="-25" rx="3" ry="15" transform="rotate(292.5)"/>
+                <ellipse cx="0" cy="-25" rx="3" ry="15" transform="rotate(315)"/>
+                <ellipse cx="0" cy="-25" rx="3" ry="15" transform="rotate(337.5)"/>
+              </g>
+              <circle r="12" fill="#F5B529"/>
+            </g>
+          </svg>
+        </div>
+        <span class="num">04 · Nuit · 16 pétales crème</span>
+        <h3>Marguerite étoile</h3>
+        <p class="desc">Tile navy profond, pétales crème (pas blanc pur — plus doux sur le sombre), cœur jaune plein. Une marguerite qui brille la nuit.</p>
+      </div>
+
+      <!-- ============ 05 · RISOGRAPH / DUOTONE OFFSET ============ -->
+      <div class="card">
+        <div class="slot slot-cream">
+          <svg width="240" height="240" viewBox="0 0 100 100" fill="none">
+            <rect width="100" height="100" rx="23" fill="#FFF8E8"/>
+            <!-- Back layer: sky blue petals offset -->
+            <g transform="translate(50.5 50.5)" style="mix-blend-mode: multiply;">
+              <g fill="#9BC0E8" fill-opacity="0.85">
+                <ellipse cx="0" cy="-25" rx="3.2" ry="16" transform="rotate(0)"/>
+                <ellipse cx="0" cy="-25" rx="3.2" ry="16" transform="rotate(20)"/>
+                <ellipse cx="0" cy="-25" rx="3.2" ry="16" transform="rotate(40)"/>
+                <ellipse cx="0" cy="-25" rx="3.2" ry="16" transform="rotate(60)"/>
+                <ellipse cx="0" cy="-25" rx="3.2" ry="16" transform="rotate(80)"/>
+                <ellipse cx="0" cy="-25" rx="3.2" ry="16" transform="rotate(100)"/>
+                <ellipse cx="0" cy="-25" rx="3.2" ry="16" transform="rotate(120)"/>
+                <ellipse cx="0" cy="-25" rx="3.2" ry="16" transform="rotate(140)"/>
+                <ellipse cx="0" cy="-25" rx="3.2" ry="16" transform="rotate(160)"/>
+                <ellipse cx="0" cy="-25" rx="3.2" ry="16" transform="rotate(180)"/>
+                <ellipse cx="0" cy="-25" rx="3.2" ry="16" transform="rotate(200)"/>
+                <ellipse cx="0" cy="-25" rx="3.2" ry="16" transform="rotate(220)"/>
+                <ellipse cx="0" cy="-25" rx="3.2" ry="16" transform="rotate(240)"/>
+                <ellipse cx="0" cy="-25" rx="3.2" ry="16" transform="rotate(260)"/>
+                <ellipse cx="0" cy="-25" rx="3.2" ry="16" transform="rotate(280)"/>
+                <ellipse cx="0" cy="-25" rx="3.2" ry="16" transform="rotate(300)"/>
+                <ellipse cx="0" cy="-25" rx="3.2" ry="16" transform="rotate(320)"/>
+                <ellipse cx="0" cy="-25" rx="3.2" ry="16" transform="rotate(340)"/>
+              </g>
+            </g>
+            <!-- Front layer: outlines in navy -->
+            <g transform="translate(49 49)">
+              <g fill="none" stroke="#0F2B52" stroke-width="0.6">
+                <ellipse cx="0" cy="-25" rx="3.2" ry="16" transform="rotate(0)"/>
+                <ellipse cx="0" cy="-25" rx="3.2" ry="16" transform="rotate(20)"/>
+                <ellipse cx="0" cy="-25" rx="3.2" ry="16" transform="rotate(40)"/>
+                <ellipse cx="0" cy="-25" rx="3.2" ry="16" transform="rotate(60)"/>
+                <ellipse cx="0" cy="-25" rx="3.2" ry="16" transform="rotate(80)"/>
+                <ellipse cx="0" cy="-25" rx="3.2" ry="16" transform="rotate(100)"/>
+                <ellipse cx="0" cy="-25" rx="3.2" ry="16" transform="rotate(120)"/>
+                <ellipse cx="0" cy="-25" rx="3.2" ry="16" transform="rotate(140)"/>
+                <ellipse cx="0" cy="-25" rx="3.2" ry="16" transform="rotate(160)"/>
+                <ellipse cx="0" cy="-25" rx="3.2" ry="16" transform="rotate(180)"/>
+                <ellipse cx="0" cy="-25" rx="3.2" ry="16" transform="rotate(200)"/>
+                <ellipse cx="0" cy="-25" rx="3.2" ry="16" transform="rotate(220)"/>
+                <ellipse cx="0" cy="-25" rx="3.2" ry="16" transform="rotate(240)"/>
+                <ellipse cx="0" cy="-25" rx="3.2" ry="16" transform="rotate(260)"/>
+                <ellipse cx="0" cy="-25" rx="3.2" ry="16" transform="rotate(280)"/>
+                <ellipse cx="0" cy="-25" rx="3.2" ry="16" transform="rotate(300)"/>
+                <ellipse cx="0" cy="-25" rx="3.2" ry="16" transform="rotate(320)"/>
+                <ellipse cx="0" cy="-25" rx="3.2" ry="16" transform="rotate(340)"/>
+              </g>
+              <circle r="11" fill="#F5B529" stroke="#0F2B52" stroke-width="0.6"/>
+            </g>
+          </svg>
+        </div>
+        <span class="num">05 · Riso / offset printing</span>
+        <h3>Imprimée de travers</h3>
+        <p class="desc">Hommage au métier : les pétales sont imprimés en 2 passes (bleu + navy outline) légèrement décalées, comme sur une Riso. Ivoire en fond.</p>
+      </div>
+
+      <!-- ============ 06 · SPIRAL / FIBONACCI ============ -->
+      <div class="card">
+        <div class="slot slot-sky">
+          <svg width="240" height="240" viewBox="0 0 100 100" fill="none">
+            <defs>
+              <linearGradient id="t06" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#E5F0FC"/>
+                <stop offset="100%" stop-color="#B7D3F2"/>
+              </linearGradient>
+              <radialGradient id="c06" cx="45%" cy="40%" r="55%">
+                <stop offset="0%" stop-color="#FFE066"/>
+                <stop offset="70%" stop-color="#F5B529"/>
+                <stop offset="100%" stop-color="#C68708"/>
+              </radialGradient>
+            </defs>
+            <rect width="100" height="100" rx="23" fill="url(#t06)"/>
+            <g transform="translate(50 50)">
+              <!-- Petals in spiral: angle increases by golden 137.5°, ry grows slightly -->
+              <g fill="#FFFFFF">
+                <ellipse cx="0" cy="-23" rx="3" ry="14" transform="rotate(0)"/>
+                <ellipse cx="0" cy="-23.5" rx="3" ry="14.5" transform="rotate(17.14)"/>
+                <ellipse cx="0" cy="-24" rx="3" ry="15" transform="rotate(34.28)"/>
+                <ellipse cx="0" cy="-24" rx="3" ry="15" transform="rotate(51.42)"/>
+                <ellipse cx="0" cy="-24.5" rx="3" ry="15.5" transform="rotate(68.57)"/>
+                <ellipse cx="0" cy="-25" rx="3" ry="16" transform="rotate(85.71)"/>
+                <ellipse cx="0" cy="-25" rx="3" ry="16" transform="rotate(102.85)"/>
+                <ellipse cx="0" cy="-25.5" rx="3" ry="16.5" transform="rotate(120)"/>
+                <ellipse cx="0" cy="-26" rx="3" ry="17" transform="rotate(137.14)"/>
+                <ellipse cx="0" cy="-26" rx="3" ry="17" transform="rotate(154.28)"/>
+                <ellipse cx="0" cy="-26" rx="3" ry="17" transform="rotate(171.42)"/>
+                <ellipse cx="0" cy="-26" rx="3" ry="17" transform="rotate(188.57)"/>
+                <ellipse cx="0" cy="-26" rx="3" ry="17" transform="rotate(205.71)"/>
+                <ellipse cx="0" cy="-25.5" rx="3" ry="16.5" transform="rotate(222.85)"/>
+                <ellipse cx="0" cy="-25" rx="3" ry="16" transform="rotate(240)"/>
+                <ellipse cx="0" cy="-25" rx="3" ry="16" transform="rotate(257.14)"/>
+                <ellipse cx="0" cy="-24.5" rx="3" ry="15.5" transform="rotate(274.28)"/>
+                <ellipse cx="0" cy="-24" rx="3" ry="15" transform="rotate(291.42)"/>
+                <ellipse cx="0" cy="-24" rx="3" ry="15" transform="rotate(308.57)"/>
+                <ellipse cx="0" cy="-23.5" rx="3" ry="14.5" transform="rotate(325.71)"/>
+                <ellipse cx="0" cy="-23" rx="3" ry="14" transform="rotate(342.85)"/>
+              </g>
+              <!-- Core with fibonacci dots as pollen suggestion -->
+              <circle r="12" fill="url(#c06)"/>
+              <g fill="#8B5A00" fill-opacity="0.45">
+                <circle cx="0" cy="-5" r="0.9"/>
+                <circle cx="3" cy="-2.5" r="0.9"/>
+                <circle cx="4" cy="1.5" r="0.9"/>
+                <circle cx="2" cy="5" r="0.9"/>
+                <circle cx="-2.5" cy="4.5" r="0.9"/>
+                <circle cx="-4" cy="0.5" r="0.9"/>
+                <circle cx="-3" cy="-3.5" r="0.9"/>
+                <circle cx="0" cy="0" r="0.9"/>
+                <circle cx="6" cy="-4" r="0.7"/>
+                <circle cx="-5.5" cy="-5" r="0.7"/>
+                <circle cx="7" cy="3" r="0.7"/>
+                <circle cx="-6" cy="4" r="0.7"/>
+              </g>
+            </g>
+          </svg>
+        </div>
+        <span class="num">06 · Phyllotaxie · 21 pétales Fibonacci</span>
+        <h3>Mathématique vivante</h3>
+        <p class="desc">21 pétales disposés en spirale selon l'angle d'or (137.5°), longueur qui respire. Cœur avec motif fibonacci. Le plus subtil et savant.</p>
+      </div>
+
+    </div>
+
+
+    <!-- SURPRISING / UNEXPECTED -->
+    <h2 class="group">Plus inattendus</h2>
+
+    <div class="grid">
+
+      <!-- ============ 07 · ABSTRACT MARK — 3 ARCS ============ -->
+      <div class="card">
+        <div class="slot slot-sky">
+          <svg width="240" height="240" viewBox="0 0 100 100" fill="none">
+            <defs>
+              <linearGradient id="t07" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#E5F0FC"/>
+                <stop offset="100%" stop-color="#B7D3F2"/>
+              </linearGradient>
+            </defs>
+            <rect width="100" height="100" rx="23" fill="url(#t07)"/>
+            <g transform="translate(50 50)">
+              <!-- Three thick arcs suggesting petals + movement, ending at core -->
+              <path d="M 0 -30 A 18 18 0 0 1 26 -15" stroke="#FFFFFF" stroke-width="9" stroke-linecap="round" fill="none"/>
+              <path d="M 0 -30 A 18 18 0 0 0 -26 -15" stroke="#FFFFFF" stroke-width="9" stroke-linecap="round" fill="none"/>
+              <path d="M -26 15 A 30 30 0 0 0 26 15" stroke="#FFFFFF" stroke-width="9" stroke-linecap="round" fill="none"/>
+              <circle r="12" fill="#F5B529"/>
+            </g>
+          </svg>
+        </div>
+        <span class="num">07 · Abstraction · 3 arcs</span>
+        <h3>Mark moderniste</h3>
+        <p class="desc">Abandonne la littéralité. 3 arcs épais évoquent les pétales. Le cœur reste. Lecture Apple-esque, dégage beaucoup de respiration.</p>
+      </div>
+
+      <!-- ============ 08 · MAGRIT MONOGRAM M ============ -->
+      <div class="card">
+        <div class="slot slot-sky">
+          <svg width="240" height="240" viewBox="0 0 100 100" fill="none">
+            <defs>
+              <linearGradient id="t08" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#E5F0FC"/>
+                <stop offset="100%" stop-color="#B7D3F2"/>
+              </linearGradient>
+            </defs>
+            <rect width="100" height="100" rx="23" fill="url(#t08)"/>
+            <!-- M-shape daisy: 5 petals where 2 outer + 2 inner arms form an M, cross-pollinated with flower center -->
+            <g transform="translate(50 50)">
+              <g fill="#FFFFFF">
+                <!-- 5 petals forming M silhouette -->
+                <ellipse cx="-22" cy="-4" rx="6" ry="22" transform="rotate(-20)"/>
+                <ellipse cx="-10" cy="-12" rx="5" ry="20" transform="rotate(-8)"/>
+                <ellipse cx="0" cy="-20" rx="5" ry="20"/>
+                <ellipse cx="10" cy="-12" rx="5" ry="20" transform="rotate(8)"/>
+                <ellipse cx="22" cy="-4" rx="6" ry="22" transform="rotate(20)"/>
+                <!-- bottom petals -->
+                <ellipse cx="-12" cy="18" rx="5" ry="12" transform="rotate(-25)"/>
+                <ellipse cx="12" cy="18" rx="5" ry="12" transform="rotate(25)"/>
+              </g>
+              <circle cx="0" cy="-2" r="11" fill="#F5B529"/>
+            </g>
+          </svg>
+        </div>
+        <span class="num">08 · Monogramme M + fleur</span>
+        <h3>M de Magrit</h3>
+        <p class="desc">Les 5 pétales du haut forment la silhouette d'un <strong>M</strong>. Littéraire : la lettre devient la fleur. Risqué — peut passer pour une main. À tester.</p>
+      </div>
+
+      <!-- ============ 09 · DAISY + PRINT MARK (QUADRANT) ============ -->
+      <div class="card">
+        <div class="slot slot-sky">
+          <svg width="240" height="240" viewBox="0 0 100 100" fill="none">
+            <defs>
+              <linearGradient id="t09" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#E5F0FC"/>
+                <stop offset="100%" stop-color="#B7D3F2"/>
+              </linearGradient>
+              <radialGradient id="c09" cx="45%" cy="40%" r="55%">
+                <stop offset="0%" stop-color="#FFE066"/>
+                <stop offset="70%" stop-color="#F5B529"/>
+                <stop offset="100%" stop-color="#C68708"/>
+              </radialGradient>
+            </defs>
+            <rect width="100" height="100" rx="23" fill="url(#t09)"/>
+            <g transform="translate(50 50)">
+              <!-- Daisy split into 4 CMYK-ish quadrants suggested by tiny color ticks at tips -->
+              <g fill="#FFFFFF">
+                <ellipse cx="0" cy="-25" rx="3" ry="15" transform="rotate(0)"/>
+                <ellipse cx="0" cy="-25" rx="3" ry="15" transform="rotate(22.5)"/>
+                <ellipse cx="0" cy="-25" rx="3" ry="15" transform="rotate(45)"/>
+                <ellipse cx="0" cy="-25" rx="3" ry="15" transform="rotate(67.5)"/>
+                <ellipse cx="0" cy="-25" rx="3" ry="15" transform="rotate(90)"/>
+                <ellipse cx="0" cy="-25" rx="3" ry="15" transform="rotate(112.5)"/>
+                <ellipse cx="0" cy="-25" rx="3" ry="15" transform="rotate(135)"/>
+                <ellipse cx="0" cy="-25" rx="3" ry="15" transform="rotate(157.5)"/>
+                <ellipse cx="0" cy="-25" rx="3" ry="15" transform="rotate(180)"/>
+                <ellipse cx="0" cy="-25" rx="3" ry="15" transform="rotate(202.5)"/>
+                <ellipse cx="0" cy="-25" rx="3" ry="15" transform="rotate(225)"/>
+                <ellipse cx="0" cy="-25" rx="3" ry="15" transform="rotate(247.5)"/>
+                <ellipse cx="0" cy="-25" rx="3" ry="15" transform="rotate(270)"/>
+                <ellipse cx="0" cy="-25" rx="3" ry="15" transform="rotate(292.5)"/>
+                <ellipse cx="0" cy="-25" rx="3" ry="15" transform="rotate(315)"/>
+                <ellipse cx="0" cy="-25" rx="3" ry="15" transform="rotate(337.5)"/>
+              </g>
+              <!-- CMYK registration marks at 4 tips -->
+              <circle cx="0" cy="-38" r="2" fill="#00A7E1" transform="rotate(0)"/>
+              <circle cx="26.87" cy="-26.87" r="2" fill="#EC008C"/>
+              <circle cx="38" cy="0" r="2" fill="#FFF200"/>
+              <circle cx="26.87" cy="26.87" r="2" fill="#0A0A0A"/>
+              <circle r="12" fill="url(#c09)"/>
+              <!-- tiny crosshair in core -->
+              <path d="M-3 0 L3 0 M0 -3 L0 3" stroke="#8B5A00" stroke-width="0.6" stroke-linecap="round"/>
+            </g>
+          </svg>
+        </div>
+        <span class="num">09 · CMYK registration</span>
+        <h3>Fleur d'imprimeur</h3>
+        <p class="desc">Marguerite classique avec <strong>4 points CMYK</strong> aux pointes + crosshair de repérage au cœur. Détail invisible de loin, clin d'œil métier à la loupe.</p>
+      </div>
+
+    </div>
+
+    <div class="note">
+      <strong>À trancher.</strong> Dites-moi le numéro (01 – 09). Je câble dans <code>&lt;MagritLogo/&gt;</code> et je mets à jour toute l'app.
+    </div>
+
+  </div>
+</body>
+</html>

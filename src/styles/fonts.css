@@ -1,0 +1,21 @@
+/* ============================================================
+   Magrit v2 — Typographie
+   Stack : Helvetica Neue d'abord (présente sur macOS/iOS),
+   fallback web Inter Tight (métriques quasi-identiques, supporte
+   les graisses 100 à 600), puis système.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter+Tight:wght@100;200;300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+/* Body default : graisse 300, HN/Inter Tight, lissage optimisé */
+html, body {
+  font-family: var(--font-ui);
+  font-weight: 300;
+  font-feature-settings: "ss01", "cv11";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Chiffres : tabular-nums par défaut dans les composants spécifiques
+   (KPI, tableaux, prix). On ne force PAS globalement pour garder les
+   chiffres proportionnels dans le body courant. */

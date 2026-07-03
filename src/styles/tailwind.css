@@ -2,3 +2,40 @@
 @source '../**/*.{js,ts,jsx,tsx}';
 
 @import 'tw-animate-css';
+
+/* ============================================================
+   Magrit v2 — expose les tokens comme utilitaires Tailwind.
+   Les vars sont définies dans tokens.css (chargé via index.css).
+   Les noms évitent les collisions avec les tokens shadcn.
+   ============================================================ */
+@theme inline {
+  /* Couleurs v2 */
+  --color-ink:        var(--ink);
+  --color-ink-2:      var(--ink-2);
+  --color-ink-muted:  var(--ink-muted);
+  --color-ink-mute-2: var(--ink-mute-2);
+  --color-line:       var(--line);
+  --color-line-2:     var(--line-2);
+  --color-bg:         var(--bg);
+  --color-paper:      var(--paper);
+  --color-brand:      var(--brand);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-ink:  var(--brand-ink);
+  --color-ok-bg:      var(--ok-bg);
+  --color-ok-fg:      var(--ok-fg);
+  --color-ok-line:    var(--ok-line);
+  --color-warn-bg:    var(--warn-bg);
+  --color-warn-fg:    var(--warn-fg);
+  --color-err-bg:     var(--err-bg);
+  --color-err-fg:     var(--err-fg);
+  --color-info-bg:    var(--info-bg);
+  --color-info-fg:    var(--info-fg);
+
+  /* Typographie */
+  --font-sans:  var(--font-ui);
+  --font-mono:  var(--font-mono);
+  --font-serif: var(--font-serif);
+
+  /* Transitions */
+  --ease-out-soft: cubic-bezier(0.2, 0.8, 0.2, 1);
+}

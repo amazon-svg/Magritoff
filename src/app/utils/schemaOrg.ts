@@ -1,14 +1,18 @@
 import type { Shop, ShopProduct } from '../contexts/ShopsContext';
 import type { EnrichedProduct } from './productEnrichment';
+import { applyTax, DEFAULT_TAX_RATE } from './tax';
 
 // Génère un objet Product schema.org pour un produit de boutique.
+// Note R0 : taxRate optionnel — fallback metropole_fr 20 %. Le call-site qui a
+// le tenant en scope (composant React) doit passer getTaxRate(currentTenant).
 export function productSchema(
   shop: Shop,
   product: ShopProduct,
   enriched: EnrichedProduct | null,
-  shopUrl: string
+  shopUrl: string,
+  taxRate: number = DEFAULT_TAX_RATE
 ) {
-  const priceTTC = product.price_ht * 1.2;
+  const priceTTC = applyTax(product.price_ht, taxRate);
   const description =
     enriched?.resolved.description ||
     enriched?.resolved.short_description ||

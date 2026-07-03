@@ -7,6 +7,8 @@ export interface Gamme {
   parent_slug: string | null;
   matching_rules: MatchingRules;
   display_order: number;
+  /** Image par défaut pour toutes les variations de cette gamme (PIM). */
+  image_url?: string | null;
 }
 
 export interface ProductDefinition {
@@ -28,6 +30,8 @@ export interface ProductDefinition {
   quality_score: number | null;
   generated_by: 'llm' | 'human' | 'hybrid' | null;
   validated_by: 'llm' | 'human' | 'pending' | null;
+  /** Image spécifique à cette variation (override du niveau gamme). */
+  image_url?: string | null;
 }
 
 export interface MatchingRules {
@@ -41,10 +45,25 @@ export interface MatchingRules {
 
 // ─── Matching gamme depuis une config Clariprint ─────────────────────────────
 
-export function resolveGamme(config: any, gammes: Gamme[]): Gamme | null {
+export function resolveGamme(
+  config: any,
+  gammes: Gamme[],
+  productName?: string,
+): Gamme | null {
   if (!config) return null;
-  const matches = gammes.filter((g) => matchesRules(config, g.matching_rules));
+  let matches = gammes.filter((g) => matchesRules(config, g.matching_rules));
   if (matches.length === 0) return null;
+
+  // S-FIX-BADGES-11/05 (bug #4 Arnaud) : disambiguation par `name` quand
+  // plusieurs gammes matchent les regles dimensionnelles. Les products
+  // peuvent etre stockes avec des unites mixtes (mm pour cartes, cm pour
+  // grands formats), ce qui fait fuiter des kakemonos dans "Flyers" ou
+  // des affiches dans "Carterie". On filtre par mot-cle nom si possible.
+  if (matches.length > 1 && productName) {
+    const refined = filterMatchesByProductName(matches, productName);
+    if (refined.length > 0) matches = refined;
+  }
+
   // Tri par spécificité décroissante (plus de règles = plus précis),
   // puis par display_order.
   matches.sort((a, b) => {
@@ -53,6 +72,52 @@ export function resolveGamme(config: any, gammes: Gamme[]): Gamme | null {
     return a.display_order - b.display_order;
   });
   return matches[0];
+}
+
+/**
+ * Heuristique simple : pour chaque gamme matchee, on regarde si le nom du
+ * produit contient un mot-cle revelateur. Si oui, on garde seulement les
+ * gammes qui matchent ce mot-cle.
+ *
+ * Exemples :
+ *  - "Kakemono 150×50 cm" → ne garder QUE les gammes "kakemono" / "roll-up"
+ *  - "Affiche vitrine A2" → ne garder que les gammes "affiche*"
+ *  - "Carte de visite premium" → ne garder que les gammes "carte*"
+ *  - "Banderole d'ouverture" → ne garder que les gammes contenant "banderole"
+ *
+ * Si aucun mot-cle ne matche, on retourne `matches` inchange (resolution
+ * standard par specificity prend le relais).
+ */
+function filterMatchesByProductName(matches: Gamme[], productName: string): Gamme[] {
+  const n = productName.toLowerCase().trim();
+  if (!n) return matches;
+
+  // Liste de discriminateurs : si le nom contient `keyword`, on ne garde
+  // que les gammes dont le slug ou name matche `gammePattern` (regex).
+  const discriminators: Array<{ keyword: RegExp; gammePattern: RegExp }> = [
+    { keyword: /\b(carte|carterie)\b/, gammePattern: /^(carterie|carte_)/ },
+    { keyword: /\bflyer\b/, gammePattern: /^flyer/ },
+    { keyword: /\baffiche|poster\b/, gammePattern: /^affiche/ },
+    { keyword: /\bd[ée]pliant\b/, gammePattern: /^depliant/ },
+    { keyword: /\bbrochure\b/, gammePattern: /^brochure/ },
+    { keyword: /\b(kakemono|roll-?up)\b/, gammePattern: /^(kakemono|roll)/ },
+    { keyword: /\b(banderole|banner)\b/, gammePattern: /^(banderole|banner)/ },
+    { keyword: /\b[ée]tiquette|sticker\b/, gammePattern: /^(etiquette|sticker)/ },
+  ];
+
+  for (const d of discriminators) {
+    if (d.keyword.test(n)) {
+      const filtered = matches.filter(
+        (g) => d.gammePattern.test(g.slug) || d.gammePattern.test(g.name.toLowerCase()),
+      );
+      // Si le mot-cle matche le nom mais aucune gamme correspondante n est
+      // dans les `matches`, on prefere retourner [] (= aucun match approprie,
+      // le caller decidera : ici resolveGamme retombera sur NO_GAMME_KEY).
+      return filtered;
+    }
+  }
+
+  return matches;
 }
 
 function ruleSpecificity(rules: MatchingRules): number {
@@ -85,8 +150,27 @@ function matchesRules(config: any, rules: MatchingRules): boolean {
     if (!actual || !kinds.includes(actual)) return false;
   }
 
-  const w = parseFloat(field(config, 'width') ?? config.dimensions?.width);
-  const h = parseFloat(field(config, 'height') ?? config.dimensions?.height);
+  // P0.9 (2026-05-17) — Refacto convention robuste cm/mm (remplace S-FIX-UNITS-13/05
+  // qui utilisait un seuil <50 cassant sur les grands formats cm).
+  // Convention :
+  //  - typeof string  → LLM Clariprint en CENTIMÈTRES → conversion ×10 vers mm
+  //  - typeof number  → admin/code direct en MILLIMÈTRES → garde tel quel
+  // Validation par audit prod (2026-05-17) : 0 produit historique n'a width
+  // string ≥ 50 hors les 2 candidates test P0.4 v3 → convention safe.
+  // `matching_rules` PIM sont en mm (carterie max_dim≤150, kakemono min_dim≥1500).
+  const toMm = (v: unknown): number => {
+    if (typeof v === 'number') {
+      return isNaN(v) || v <= 0 ? 0 : v;
+    }
+    if (typeof v === 'string') {
+      const parsed = parseFloat(v);
+      if (isNaN(parsed) || parsed <= 0) return 0;
+      return Math.round(parsed * 10);
+    }
+    return 0;
+  };
+  const w = toMm(field(config, 'width') ?? config.dimensions?.width);
+  const h = toMm(field(config, 'height') ?? config.dimensions?.height);
 
   if (rules.size_near && !isNaN(w) && !isNaN(h)) {
     const { width: nw, height: nh, tol = 3 } = rules.size_near;
@@ -225,7 +309,10 @@ export function enrichProduct(
   definitions: ProductDefinition[],
   locale = 'fr'
 ): EnrichedProduct {
-  const gamme = resolveGamme(config, gammes);
+  // S-FIX-BADGES-11/05 (bug #4) : on tente d extraire un nom depuis le config
+  // pour beneficier de la disambiguation par nom dans resolveGamme.
+  const inferredName = typeof config?.name === 'string' ? config.name : undefined;
+  const gamme = resolveGamme(config, gammes, inferredName);
   const definition = gamme ? resolveDefinition(gamme.slug, config, locale, definitions) : null;
 
   const r = (tpl: string | null | undefined) => resolveTemplate(tpl, config);

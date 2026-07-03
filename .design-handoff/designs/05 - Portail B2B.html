@@ -1,0 +1,992 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<title>F · Front portail B2B — 4 écrans</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --ui: 'Helvetica Neue', 'Helvetica', 'Arial', sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, monospace;
+    --ink: #0A0A0A;
+    --ink-2: #2A2A2D;
+    --muted: #52525B;
+    --mute-2: #8A8A93;
+    --line: #ECECEC;
+    --line-2: #D4D4D8;
+    --bg: #FAFAFA;
+    --paper: #FFF;
+    --accent: #0F172A;
+    --brand-soft: linear-gradient(135deg, #E5F0FC, #B7D3F2);
+  }
+  * { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); padding: 64px 48px 140px; font-family: var(--ui); font-weight: 300; }
+  .wrap { max-width: 1400px; margin: 0 auto; }
+  .crumb { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mute-2); margin-bottom: 8px; }
+  .crumb a { color: var(--muted); text-decoration: none; }
+  .crumb a:hover { text-decoration: underline; }
+  h1.page { font-family: var(--ui); font-weight: 400; font-size: 48px; letter-spacing: -0.03em; margin: 10px 0 16px; line-height: 1.05; }
+  .lede { color: var(--muted); max-width: 760px; margin: 0 0 48px; line-height: 1.6; font-size: 15.5px; font-weight: 300; }
+  .lede b { color: var(--ink); font-weight: 500; }
+
+  .card-ref { background: var(--paper); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; margin-bottom: 32px; }
+  .card-head { display: flex; align-items: baseline; gap: 16px; padding: 24px 32px 20px; border-bottom: 1px solid var(--line); }
+  .card-head .num { font-family: var(--mono); font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mute-2); }
+  .card-head h2 { font-family: var(--ui); font-weight: 400; font-size: 24px; letter-spacing: -0.02em; margin: 0; }
+  .card-head .tag { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--muted); }
+
+  .frame { padding: 28px; background: #F5F5F5; }
+  .frame-inner { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; overflow-x: auto; overflow-y: hidden; min-height: 720px; }
+  .scene { min-width: 1100px; }
+
+  .spec { padding: 20px 32px 24px; font-family: var(--mono); font-size: 12px; color: var(--muted); background: var(--bg); border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 24px; }
+  .spec b { color: var(--ink); font-weight: 500; }
+
+  /* ============ Shared chrome (topbar corporate) ============ */
+  .top { display: flex; align-items: center; gap: 28px; padding: 14px 36px; border-bottom: 1px solid var(--line); background: var(--paper); }
+  .top .brand { display: flex; align-items: center; gap: 10px; font-weight: 500; font-size: 15px; }
+  .top .brand .logo { width: 26px; height: 26px; border-radius: 7px; background: var(--brand-soft); }
+  .top .brand .sep { width: 1px; height: 18px; background: var(--line); margin: 0 2px; }
+  .top .brand .co { font-weight: 400; color: var(--muted); font-size: 13.5px; }
+  .top .nav { display: flex; gap: 2px; margin-left: 8px; }
+  .top .nav a { padding: 6px 12px; font-size: 13px; font-weight: 400; color: var(--ink-2); border-radius: 6px; text-decoration: none; }
+  .top .nav a.active { background: #F5F5F5; font-weight: 500; color: var(--ink); }
+  .top .search { margin-left: auto; display: flex; align-items: center; gap: 8px; padding: 7px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); min-width: 280px; font-size: 13px; color: var(--mute-2); }
+  .top .search .kbd { margin-left: auto; font-family: var(--mono); font-size: 10.5px; padding: 1px 5px; background: var(--paper); border: 1px solid var(--line); border-radius: 3px; color: var(--mute-2); }
+  .top .cart { padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; font-weight: 400; color: var(--ink-2); display: flex; align-items: center; gap: 8px; }
+  .top .cart .n { font-family: var(--mono); font-size: 11px; font-weight: 500; padding: 2px 6px; border-radius: 999px; background: var(--accent); color: var(--paper); }
+  .top .avatar { width: 30px; height: 30px; border-radius: 999px; background: var(--line-2); }
+
+  /* ============ Shared budget strip ============ */
+  .budget { padding: 14px 36px; background: var(--bg); border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 32px; font-size: 13px; color: var(--muted); }
+  .budget b { color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; }
+  .budget .bar { flex: 1; max-width: 240px; height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; position: relative; }
+  .budget .bar::after { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 62%; background: var(--accent); border-radius: 3px; }
+  .budget .chip { font-family: var(--mono); font-size: 11px; font-weight: 500; padding: 3px 8px; border-radius: 999px; background: #ECFDF3; color: #0E8F5A; }
+
+  /* ============================================================
+     F1 — Home portail
+     ============================================================ */
+  .f1 .hero { padding: 36px 36px 28px; background: linear-gradient(180deg, #FFF 0%, var(--bg) 100%); border-bottom: 1px solid var(--line); }
+  .f1 .hero .eye { font-family: var(--mono); font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mute-2); margin-bottom: 10px; }
+  .f1 .hero h3 { font-family: var(--ui); font-weight: 400; font-size: 32px; letter-spacing: -0.025em; margin: 0 0 8px; max-width: 640px; }
+  .f1 .hero p { margin: 0; color: var(--muted); font-size: 14.5px; max-width: 560px; line-height: 1.55; }
+
+  .f1 .shortcuts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--line); }
+  .f1 .sc { background: var(--paper); padding: 20px 22px; display: flex; flex-direction: column; gap: 6px; cursor: pointer; }
+  .f1 .sc:hover { background: var(--bg); }
+  .f1 .sc .ico { width: 32px; height: 32px; border-radius: 8px; background: #F5F5F5; margin-bottom: 4px; display: grid; place-items: center; color: var(--muted); font-size: 14px; }
+  .f1 .sc h4 { font-family: var(--ui); font-weight: 500; font-size: 14.5px; letter-spacing: -0.005em; margin: 0; color: var(--ink); }
+  .f1 .sc p { font-size: 12.5px; color: var(--muted); margin: 0; line-height: 1.4; }
+
+  .f1 .panels { padding: 28px 36px; display: grid; grid-template-columns: 1fr 340px; gap: 28px; background: var(--bg); }
+  .f1 .panel { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .f1 .panel-head { display: flex; align-items: baseline; padding: 16px 20px; border-bottom: 1px solid var(--line); }
+  .f1 .panel-head h5 { font-family: var(--ui); font-weight: 500; font-size: 14.5px; letter-spacing: -0.005em; margin: 0; color: var(--ink); }
+  .f1 .panel-head .all { margin-left: auto; font-size: 12.5px; color: var(--muted); }
+  .f1 .reorder { display: flex; flex-direction: column; }
+  .f1 .row { display: grid; grid-template-columns: 46px 1fr auto auto; gap: 16px; align-items: center; padding: 14px 20px; border-bottom: 1px solid #F5F5F5; }
+  .f1 .row:last-child { border-bottom: none; }
+  .f1 .row .thumb { width: 46px; height: 46px; border-radius: 8px; background: linear-gradient(135deg, #F5F5F5, var(--line)); }
+  .f1 .row .name { font-size: 13.5px; font-weight: 400; color: var(--ink); margin: 0 0 2px; }
+  .f1 .row .meta { font-size: 12px; color: var(--muted); font-family: var(--mono); }
+  .f1 .row .price { font-family: var(--mono); font-size: 13px; font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .f1 .row .redo { padding: 6px 12px; border: 1px solid var(--line); border-radius: 6px; font-size: 12.5px; font-weight: 500; color: var(--ink-2); background: var(--paper); font-family: var(--ui); cursor: pointer; }
+
+  .f1 .validations { padding: 0; }
+  .f1 .val { padding: 14px 20px; border-bottom: 1px solid #F5F5F5; }
+  .f1 .val:last-child { border-bottom: none; }
+  .f1 .val .label { font-size: 12px; color: var(--muted); font-family: var(--mono); margin-bottom: 4px; }
+  .f1 .val .title { font-size: 13.5px; font-weight: 500; color: var(--ink); margin: 0 0 6px; }
+  .f1 .val .stepper { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--muted); }
+  .f1 .val .step { padding: 2px 7px; border-radius: 4px; font-family: var(--mono); font-size: 10.5px; font-weight: 500; }
+  .f1 .val .step.done { background: #ECFDF3; color: #0E8F5A; }
+  .f1 .val .step.active { background: #EEF4FF; color: #1D4ED8; }
+  .f1 .val .step.wait { background: #F5F5F5; color: var(--mute-2); }
+  .f1 .val .arrow { color: var(--line-2); font-size: 10px; }
+
+  /* ============================================================
+     F2 — Catalogue
+     ============================================================ */
+  .f2 .body { display: grid; grid-template-columns: 220px 1fr; min-height: 640px; background: var(--bg); }
+  .f2 .filters { padding: 24px 20px; border-right: 1px solid var(--line); background: var(--paper); }
+  .f2 .filters h6 { font-family: var(--mono); font-size: 10.5px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mute-2); margin: 0 0 10px; }
+  .f2 .filters .grp { margin-bottom: 22px; }
+  .f2 .filters .opt { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); padding: 4px 0; font-weight: 400; }
+  .f2 .filters .opt input { accent-color: var(--accent); }
+  .f2 .filters .opt .n { margin-left: auto; font-family: var(--mono); font-size: 11px; font-weight: 500; color: var(--mute-2); }
+
+  .f2 .grid-wrap { padding: 24px 28px; }
+  .f2 .cat-head { display: flex; align-items: baseline; margin-bottom: 20px; }
+  .f2 .cat-head h3 { font-family: var(--ui); font-weight: 400; font-size: 26px; letter-spacing: -0.02em; margin: 0; }
+  .f2 .cat-head .count { font-size: 13px; color: var(--muted); margin-left: 14px; }
+  .f2 .cat-head .sort { margin-left: auto; font-size: 12.5px; color: var(--muted); display: flex; align-items: center; gap: 14px; }
+  .f2 .cat-head .sort b { color: var(--ink); font-weight: 500; }
+
+  .f2 .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .f2 .p { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; }
+  .f2 .p .img { aspect-ratio: 4/3; background: linear-gradient(135deg, #F5F5F5, #E4E4E7); position: relative; }
+  .f2 .p .badge { position: absolute; top: 10px; left: 10px; font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; background: var(--paper); color: var(--ink-2); border: 1px solid var(--line); }
+  .f2 .p .badge.brand { background: var(--accent); color: var(--paper); border-color: var(--accent); }
+  .f2 .p .body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+  .f2 .p h4 { font-family: var(--ui); font-weight: 500; font-size: 14.5px; letter-spacing: -0.005em; margin: 0; color: var(--ink); }
+  .f2 .p .desc { font-size: 12.5px; color: var(--muted); line-height: 1.45; margin: 0; font-weight: 400; }
+  .f2 .p .specs { display: flex; gap: 10px; font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  .f2 .p .specs span::before { content: '· '; color: var(--line-2); }
+  .f2 .p .specs span:first-child::before { content: ''; }
+  .f2 .p .foot { margin-top: auto; display: flex; align-items: baseline; justify-content: space-between; padding-top: 8px; border-top: 1px solid #F5F5F5; }
+  .f2 .p .price { font-family: var(--mono); font-size: 14.5px; font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .f2 .p .price small { font-family: var(--ui); font-size: 11px; font-weight: 400; color: var(--muted); margin-left: 4px; }
+  .f2 .p .price.neg { color: #0E8F5A; }
+  .f2 .p .addcta { padding: 6px 12px; border-radius: 6px; background: var(--accent); color: var(--paper); font-size: 12px; font-weight: 500; border: none; cursor: pointer; font-family: var(--ui); }
+
+  /* ============================================================
+     F2b — Catalogue AI-native (remplace F2)
+     ============================================================ */
+  .f2b { background: var(--paper); }
+
+  .f2b-hero { padding: 44px 48px 28px; background: var(--paper); border-bottom: 1px solid var(--line); }
+  .f2b-eye { font-family: var(--mono); font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mute-2); margin-bottom: 14px; }
+  .f2b-title { font-family: var(--ui); font-weight: 400; font-size: 34px; letter-spacing: -0.025em; margin: 0 0 22px; color: var(--ink); }
+  .f2b-searchbar { display: flex; align-items: center; gap: 12px; padding: 16px 18px; background: var(--paper); border: 1px solid var(--line-2); border-radius: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06); max-width: 920px; }
+  .f2b-searchbar > svg { color: var(--mute-2); flex: none; }
+  .f2b-query { flex: 1; font-family: var(--ui); font-size: 15px; font-weight: 400; color: var(--ink); letter-spacing: -0.005em; line-height: 1.3; }
+  .f2b-cursor { display: inline-block; width: 1.5px; height: 16px; background: var(--accent); margin-left: 2px; animation: f2b-blink 1s step-end infinite; vertical-align: middle; }
+  @keyframes f2b-blink { 50% { opacity: 0; } }
+  .f2b-ask { padding: 8px 14px; background: var(--accent); color: var(--paper); border: none; border-radius: 8px; font-family: var(--ui); font-size: 13px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 8px; flex: none; }
+  .f2b-kbd { font-family: var(--mono); font-size: 10.5px; font-weight: 500; padding: 1px 5px; background: rgba(255,255,255,0.15); border-radius: 3px; }
+
+  .f2b-suggest { display: flex; align-items: center; gap: 8px; margin-top: 16px; flex-wrap: wrap; max-width: 920px; }
+  .f2b-suggest-lbl { font-family: var(--mono); font-size: 11px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--mute-2); margin-right: 6px; }
+  .f2b-sug { padding: 6px 11px; background: var(--paper); border: 1px solid var(--line); border-radius: 999px; font-family: var(--ui); font-size: 12.5px; font-weight: 400; color: var(--ink-2); cursor: pointer; }
+  .f2b-sug:hover { background: var(--bg); border-color: var(--line-2); }
+
+  .f2b-chips { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 18px 48px; background: var(--bg); border-bottom: 1px solid var(--line); }
+  .f2b-chips-lbl { display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 10.5px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin-right: 6px; }
+  .f2b-chips-lbl svg { color: var(--accent); }
+  .f2b-chip { display: inline-flex; align-items: center; gap: 8px; padding: 5px 10px 5px 12px; background: var(--paper); border: 1px solid var(--line-2); border-radius: 999px; font-family: var(--ui); font-size: 12.5px; font-weight: 400; color: var(--ink); cursor: pointer; }
+  .f2b-chip .x { color: var(--mute-2); font-size: 14px; line-height: 1; padding-left: 4px; border-left: 1px solid var(--line); }
+  .f2b-chip:hover .x { color: var(--ink); }
+  .f2b-chip-add { padding: 5px 11px; background: transparent; border: 1px dashed var(--line-2); border-radius: 999px; font-family: var(--ui); font-size: 12.5px; font-weight: 400; color: var(--muted); cursor: pointer; }
+  .f2b-sort { margin-left: auto; font-size: 12.5px; color: var(--muted); }
+  .f2b-sort b { color: var(--ink); font-weight: 500; }
+
+  .f2b-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; padding: 32px 48px; background: var(--paper); }
+  .f2b-p { background: var(--paper); border: 1px solid transparent; border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; transition: border-color 0.15s, transform 0.15s; cursor: pointer; }
+  .f2b-p:hover { border-color: var(--line); }
+  .f2b-img { aspect-ratio: 4/3; position: relative; overflow: hidden; border-radius: 10px; background: #F5F5F5; }
+  .f2b-visual { width: 100%; height: 100%; display: block; transition: transform 0.4s ease; }
+  .f2b-p:hover .f2b-visual { transform: scale(1.03); }
+  .f2b-badge { position: absolute; top: 10px; left: 10px; font-family: var(--mono); font-size: 9.5px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; padding: 4px 8px; border-radius: 4px; background: var(--paper); color: var(--ink-2); border: 1px solid var(--line); white-space: nowrap; }
+  .f2b-badge.brand { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .f2b-body { padding: 14px 2px 4px; display: flex; flex-direction: column; gap: 8px; flex: 1; position: relative; }
+  .f2b-body h4 { font-family: var(--ui); font-weight: 500; font-size: 14px; letter-spacing: -0.005em; margin: 0; color: var(--ink); line-height: 1.35; }
+  .f2b-body h4 .f2b-dim { color: var(--muted); font-weight: 400; }
+  .f2b-meta { font-size: 12px; color: var(--muted); line-height: 1.5; font-weight: 400; }
+  .f2b-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 4px; min-height: 30px; }
+  .f2b-price { font-family: var(--mono); font-size: 16px; font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; display: flex; align-items: baseline; gap: 2px; }
+  .f2b-price .c { font-size: 12px; color: var(--muted); margin-left: 1px; }
+  .f2b-price small { font-family: var(--ui); font-size: 11.5px; font-weight: 400; color: var(--muted); margin-left: 6px; }
+  .f2b-price.neg { color: #0E8F5A; }
+  .f2b-price.neg small { color: #0E8F5A; }
+  .f2b-cta { padding: 7px 13px; background: var(--paper); color: var(--ink); border: 1px solid var(--line-2); border-radius: 7px; font-family: var(--ui); font-size: 12.5px; font-weight: 500; cursor: pointer; opacity: 0; transform: translateY(2px); transition: opacity 0.15s, transform 0.15s, background 0.15s; }
+  .f2b-p:hover .f2b-cta { opacity: 1; transform: translateY(0); }
+  .f2b-cta:hover { background: var(--accent); color: var(--paper); border-color: var(--accent); }
+  .f2b-trust { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 2px; }
+  .f2b-trust-b { font-family: var(--mono); font-size: 9.5px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 6px; border: 1px solid var(--line); border-radius: 3px; color: var(--muted); background: var(--paper); }
+
+  .f2b-more { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 8px 48px 40px; background: var(--paper); }
+  .f2b-more-btn { padding: 11px 22px; background: var(--paper); border: 1px solid var(--line-2); border-radius: 8px; font-family: var(--ui); font-size: 13.5px; font-weight: 500; color: var(--ink); cursor: pointer; }
+  .f2b-more-btn:hover { background: var(--bg); }
+  .f2b-more-count { font-family: var(--mono); font-size: 11px; color: var(--mute-2); letter-spacing: 0.04em; }
+
+  /* ============================================================
+     F3 — Fiche produit + configurateur
+     ============================================================ */
+  .f3 .body { padding: 28px 36px 36px; background: var(--paper); }
+  .f3 .crumbs { font-family: var(--mono); font-size: 12px; color: var(--mute-2); margin-bottom: 16px; }
+  .f3 .crumbs a { color: var(--muted); text-decoration: none; }
+  .f3 .crumbs b { color: var(--ink); font-weight: 500; }
+  .f3 .product { display: grid; grid-template-columns: 1.1fr 1fr; gap: 36px; }
+  .f3 .visual { background: #F5F5F5; border: 1px solid var(--line); border-radius: 12px; aspect-ratio: 4/3; position: relative; overflow: hidden; }
+  .f3 .visual::before { content: ''; position: absolute; inset: 18%; background: var(--paper); border-radius: 8px; box-shadow: 0 24px 60px rgba(9,9,11,0.12); }
+  .f3 .visual .brand-mark { position: absolute; top: 22%; left: 22%; font-family: var(--ui); font-weight: 500; font-size: 22px; color: var(--ink); letter-spacing: -0.015em; }
+  .f3 .visual .brand-sub { position: absolute; top: 30%; left: 22%; font-family: var(--ui); font-weight: 400; font-size: 11px; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; }
+  .f3 .thumbs { display: flex; gap: 8px; margin-top: 12px; }
+  .f3 .thumbs .t { width: 56px; height: 44px; border-radius: 6px; background: #F5F5F5; border: 1px solid var(--line); }
+  .f3 .thumbs .t.active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+
+  .f3 .info { display: flex; flex-direction: column; gap: 18px; }
+  .f3 .info .title-row { display: flex; align-items: baseline; gap: 12px; }
+  .f3 .info h3 { font-family: var(--ui); font-weight: 400; font-size: 28px; letter-spacing: -0.025em; margin: 0; }
+  .f3 .info .brand-chip { font-family: var(--mono); font-size: 10.5px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; background: var(--accent); color: var(--paper); }
+  .f3 .info .lede { font-size: 14px; color: var(--muted); line-height: 1.55; margin: 0; font-weight: 400; }
+  .f3 .info .contract { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: #ECFDF3; border: 1px solid #BBF7D0; border-radius: 8px; font-size: 13px; color: #166534; }
+  .f3 .info .contract b { color: #14532D; font-weight: 500; font-family: var(--mono); }
+
+  .f3 .cfg { display: flex; flex-direction: column; gap: 14px; padding: 18px; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; }
+  .f3 .cfg .row { display: flex; align-items: center; gap: 16px; }
+  .f3 .cfg .lbl { width: 140px; flex: none; font-size: 12.5px; font-weight: 500; color: var(--ink-2); font-family: var(--mono); letter-spacing: 0.02em; }
+  .f3 .cfg .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .f3 .cfg .chip { padding: 5px 11px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); font-size: 12.5px; font-weight: 400; color: var(--ink-2); cursor: pointer; }
+  .f3 .cfg .chip.on { background: var(--accent); color: var(--paper); border-color: var(--accent); font-weight: 500; }
+  .f3 .cfg .qty { display: flex; align-items: center; gap: 0; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .f3 .cfg .qty button { padding: 6px 12px; background: var(--paper); border: none; font-family: var(--ui); font-size: 14px; color: var(--ink-2); cursor: pointer; }
+  .f3 .cfg .qty input { border: none; width: 70px; text-align: center; font-family: var(--mono); font-size: 13px; font-weight: 500; background: var(--paper); color: var(--ink); }
+  .f3 .cfg .preset { padding: 4px 9px; border: 1px solid var(--line); border-radius: 4px; background: var(--paper); font-family: var(--mono); font-size: 11px; font-weight: 500; color: var(--muted); cursor: pointer; }
+
+  .f3 .total { display: flex; align-items: baseline; padding: 16px 18px; background: var(--ink); color: var(--paper); border-radius: 10px; gap: 14px; }
+  .f3 .total .val { font-size: 26px; font-weight: 500; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .f3 .total .unit { font-size: 12.5px; color: #B5B5BC; }
+  .f3 .total .delivery { margin-left: auto; font-size: 12.5px; color: #B5B5BC; font-family: var(--mono); }
+  .f3 .add { margin-top: 12px; padding: 14px 20px; background: var(--accent); color: var(--paper); border: none; border-radius: 10px; font-family: var(--ui); font-size: 14.5px; font-weight: 500; cursor: pointer; }
+
+  /* ============================================================
+     F4 — Panier + workflow validation N+1
+     ============================================================ */
+  .f4 .body { padding: 28px 36px 36px; background: var(--bg); display: grid; grid-template-columns: 1fr 360px; gap: 28px; }
+  .f4 h3.section { font-family: var(--ui); font-weight: 400; font-size: 26px; letter-spacing: -0.02em; margin: 0 0 16px; }
+  .f4 .cart { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .f4 .line { display: grid; grid-template-columns: 72px 1fr auto auto auto; gap: 18px; align-items: center; padding: 18px 22px; border-bottom: 1px solid #F5F5F5; }
+  .f4 .line:last-child { border-bottom: none; }
+  .f4 .line .thumb { width: 72px; height: 60px; border-radius: 8px; background: linear-gradient(135deg, #F5F5F5, var(--line)); }
+  .f4 .line h5 { font-family: var(--ui); font-weight: 500; font-size: 14px; margin: 0 0 4px; color: var(--ink); }
+  .f4 .line .specs { font-size: 12px; color: var(--muted); font-family: var(--mono); line-height: 1.5; }
+  .f4 .line .addr { font-size: 12px; color: var(--muted); margin-top: 6px; display: flex; align-items: center; gap: 6px; }
+  .f4 .line .addr b { color: var(--ink-2); font-weight: 500; }
+  .f4 .line .qty { font-family: var(--mono); font-size: 13px; font-weight: 500; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .f4 .line .price { font-family: var(--mono); font-size: 14px; font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; min-width: 80px; text-align: right; }
+  .f4 .line .x { width: 28px; height: 28px; border-radius: 6px; color: var(--mute-2); background: transparent; border: none; cursor: pointer; font-size: 14px; }
+  .f4 .line .x:hover { background: #F5F5F5; color: var(--ink); }
+
+  .f4 .workflow { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; margin-top: 22px; }
+  .f4 .workflow-head { padding: 16px 22px; border-bottom: 1px solid var(--line); display: flex; align-items: baseline; }
+  .f4 .workflow-head h5 { font-family: var(--ui); font-weight: 500; font-size: 14.5px; margin: 0; }
+  .f4 .workflow-head .meta { margin-left: auto; font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+  .f4 .steps { display: grid; grid-template-columns: repeat(4, 1fr); padding: 20px 22px; gap: 14px; position: relative; }
+  .f4 .steps::before { content: ''; position: absolute; left: 44px; right: 44px; top: 40px; height: 2px; background: var(--line); z-index: 0; }
+  .f4 .step { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+  .f4 .step .dot { width: 36px; height: 36px; border-radius: 999px; border: 2px solid var(--line); background: var(--paper); display: grid; place-items: center; font-family: var(--mono); font-size: 13px; font-weight: 500; color: var(--mute-2); }
+  .f4 .step.done .dot { background: #0E8F5A; border-color: #0E8F5A; color: var(--paper); }
+  .f4 .step.active .dot { background: var(--paper); border-color: var(--accent); color: var(--accent); box-shadow: 0 0 0 4px rgba(15,23,42,0.08); }
+  .f4 .step .lbl { font-family: var(--mono); font-size: 10.5px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--mute-2); margin-top: 4px; }
+  .f4 .step .name { font-size: 13px; font-weight: 500; color: var(--ink-2); }
+  .f4 .step.done .name, .f4 .step.active .name { color: var(--ink); }
+  .f4 .step .time { font-size: 11.5px; color: var(--muted); font-family: var(--mono); }
+  .f4 .step.active .lbl { color: var(--accent); }
+
+  .f4 .summary { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 22px; position: sticky; top: 20px; align-self: start; }
+  .f4 .summary h5 { font-family: var(--ui); font-weight: 500; font-size: 14.5px; margin: 0 0 14px; }
+  .f4 .sum-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 13px; font-weight: 400; color: var(--muted); }
+  .f4 .sum-row b { color: var(--ink); font-weight: 500; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .f4 .sum-row.neg b { color: #0E8F5A; }
+  .f4 .sum-tot { display: flex; justify-content: space-between; padding: 14px 0 6px; margin-top: 8px; border-top: 1px solid var(--line); font-size: 14px; font-weight: 500; color: var(--ink); }
+  .f4 .sum-tot b { font-family: var(--mono); font-size: 20px; font-weight: 500; font-variant-numeric: tabular-nums; letter-spacing: -0.015em; }
+  .f4 .budget-box { margin: 14px 0; padding: 12px 14px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; font-size: 12.5px; color: var(--muted); }
+  .f4 .budget-box b { color: var(--ink); font-weight: 500; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .f4 .budget-box .bar { height: 5px; background: var(--line); border-radius: 3px; margin-top: 8px; position: relative; overflow: hidden; }
+  .f4 .budget-box .bar::after { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 78%; background: var(--accent); }
+  .f4 .submit { width: 100%; padding: 14px; background: var(--accent); color: var(--paper); border: none; border-radius: 10px; font-family: var(--ui); font-size: 14.5px; font-weight: 500; cursor: pointer; margin-top: 6px; }
+  .f4 .submit + .note { font-size: 12px; color: var(--muted); margin-top: 10px; text-align: center; line-height: 1.5; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="crumb"><a href="À valider demain.html">← retour à l'index</a></div>
+    <h1 class="page">F · Front portail B2B</h1>
+    <p class="lede">
+      Le parcours côté acheteur corporate (assistant·e, office manager) sur son portail dédié <b>LVMH Services × Magrit</b> : catalogue restreint aux produits négociés, templates brandés pré-validés, budget par centre de coût visible en permanence, workflow <b>N+1 → Achats → Magrit</b> explicite. Même vocabulaire visuel que l'admin (Helvetica Neue, sobre, dense).
+    </p>
+
+    <!-- ============ F1 — Home portail ============ -->
+    <div class="card-ref">
+      <div class="card-head">
+        <span class="num">F1</span>
+        <h2>Home portail — arrivée connectée</h2>
+        <span class="tag">hero contextualisé · 4 raccourcis · commandes récentes · validations en cours</span>
+      </div>
+      <div class="frame">
+        <div class="frame-inner">
+          <div class="scene f1">
+            <div class="top">
+              <div class="brand"><div class="logo"></div>LVMH Services<span class="sep"></span><span class="co">× Magrit</span></div>
+              <nav class="nav">
+                <a href="#" class="active">Accueil</a>
+                <a href="#">Catalogue</a>
+                <a href="#">Mes commandes</a>
+                <a href="#">Templates</a>
+                <a href="#">Équipe</a>
+              </nav>
+              <div class="search">⌕ Rechercher cartes, flyers, réf…<span class="kbd">⌘ K</span></div>
+              <div class="cart">Panier <span class="n">3</span></div>
+              <div class="avatar"></div>
+            </div>
+            <div class="budget">
+              <span>Centre de coût · <b>Communication Groupe</b></span>
+              <span>Budget T4 · <b>8 420€ / 13 500€</b></span>
+              <div class="bar"></div>
+              <span class="chip">N+1 : Claire D.</span>
+            </div>
+            <div class="hero">
+              <div class="eye">Bonjour Léa · LVMH Services</div>
+              <h3>Vous avez <b style="color:var(--ink); font-weight:500;">3 templates brandés</b> pré-validés par votre service Achats. Commandez en un clic.</h3>
+              <p>Prix négociés contractuellement, circuit de validation automatique, livraison moyenne 72h ouvrées sur les sites du Groupe.</p>
+            </div>
+            <div class="shortcuts">
+              <div class="sc">
+                <div class="ico">⎙</div>
+                <h4>Réimprimer une commande</h4>
+                <p>Cartes Camille M. · 500 ex. · validé en 14 min</p>
+              </div>
+              <div class="sc">
+                <div class="ico">◩</div>
+                <h4>Templates brandés</h4>
+                <p>3 modèles validés · cartes, papier en-tête, enveloppes</p>
+              </div>
+              <div class="sc">
+                <div class="ico">⇄</div>
+                <h4>Commande multi-sites</h4>
+                <p>Livrer sur 12 adresses simultanément</p>
+              </div>
+              <div class="sc">
+                <div class="ico">⎔</div>
+                <h4>Devis sur mesure</h4>
+                <p>Chat direct avec un chef de projet Magrit</p>
+              </div>
+            </div>
+            <div class="panels">
+              <div class="panel">
+                <div class="panel-head">
+                  <h5>Commandes récentes</h5>
+                  <span class="all">Tout voir →</span>
+                </div>
+                <div class="reorder">
+                  <div class="row">
+                    <div class="thumb"></div>
+                    <div>
+                      <p class="name">Cartes de visite Camille Moreau — 500 ex.</p>
+                      <div class="meta">#CMD-2481 · livré il y a 3 jours</div>
+                    </div>
+                    <div class="price">78,00€</div>
+                    <button class="redo">Réimprimer</button>
+                  </div>
+                  <div class="row">
+                    <div class="thumb"></div>
+                    <div>
+                      <p class="name">Papier à en-tête — ramette A4 recyclé</p>
+                      <div class="meta">#CMD-2476 · livré la semaine dernière</div>
+                    </div>
+                    <div class="price">42,00€</div>
+                    <button class="redo">Réimprimer</button>
+                  </div>
+                  <div class="row">
+                    <div class="thumb"></div>
+                    <div>
+                      <p class="name">Enveloppes brandées DL — 1 000 ex.</p>
+                      <div class="meta">#CMD-2468 · livré il y a 2 semaines</div>
+                    </div>
+                    <div class="price">96,00€</div>
+                    <button class="redo">Réimprimer</button>
+                  </div>
+                </div>
+              </div>
+              <div class="panel">
+                <div class="panel-head">
+                  <h5>En attente de validation</h5>
+                </div>
+                <div class="validations">
+                  <div class="val">
+                    <div class="label">CMD-2489 · 268€</div>
+                    <p class="title">Packaging kraft × 250 ex.</p>
+                    <div class="stepper">
+                      <span class="step done">Panier</span>
+                      <span class="arrow">▸</span>
+                      <span class="step active">N+1</span>
+                      <span class="arrow">▸</span>
+                      <span class="step wait">Achats</span>
+                      <span class="arrow">▸</span>
+                      <span class="step wait">Magrit</span>
+                    </div>
+                  </div>
+                  <div class="val">
+                    <div class="label">CMD-2488 · 412€</div>
+                    <p class="title">Flyers salon Viva Tech</p>
+                    <div class="stepper">
+                      <span class="step done">Panier</span>
+                      <span class="arrow">▸</span>
+                      <span class="step done">N+1</span>
+                      <span class="arrow">▸</span>
+                      <span class="step active">Achats</span>
+                      <span class="arrow">▸</span>
+                      <span class="step wait">Magrit</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="spec">
+        <span><b>Top chrome</b> brand co-brandé · nav 5 entrées · ⌘K</span>
+        <span><b>Budget strip</b> centre de coût + progression T4</span>
+        <span><b>Raccourcis</b> 4 actions B2B typiques (réimprimer · templates · multi-sites · devis)</span>
+        <span><b>Panels</b> commandes récentes (réimpression 1-clic) + validations en cours (stepper)</span>
+      </div>
+    </div>
+
+    <!-- ============ F2 — Catalogue (AI-native search) ============ -->
+    <div class="card-ref">
+      <div class="card-head">
+        <span class="num">F2</span>
+        <h2>Catalogue — recherche conversationnelle</h2>
+        <span class="tag">search-first · chips IA parsés · grille 4-col · hover reveal</span>
+      </div>
+      <div class="frame">
+        <div class="frame-inner">
+          <div class="scene f2b">
+            <div class="top">
+              <div class="brand"><div class="logo"></div>LVMH Services<span class="sep"></span><span class="co">× Magrit</span></div>
+              <nav class="nav">
+                <a href="#">Accueil</a>
+                <a href="#" class="active">Catalogue</a>
+                <a href="#">Mes commandes</a>
+                <a href="#">Templates</a>
+                <a href="#">Équipe</a>
+              </nav>
+              <div class="search">⌕ Rechercher cartes, flyers, réf…<span class="kbd">⌘ K</span></div>
+              <div class="cart">Panier <span class="n">3</span></div>
+              <div class="avatar"></div>
+            </div>
+            <div class="budget">
+              <span>Centre de coût · <b>Communication Groupe</b></span>
+              <span>Budget T4 · <b>8 420€ / 13 500€</b></span>
+              <div class="bar"></div>
+              <span class="chip">N+1 : Claire D.</span>
+            </div>
+
+            <!-- Hero recherche IA -->
+            <div class="f2b-hero">
+              <div class="f2b-eye">Catalogue négocié · 66 produits · 3 templates brandés</div>
+              <h3 class="f2b-title">Qu'est-ce que vous cherchez&nbsp;?</h3>
+              <div class="f2b-searchbar">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                <span class="f2b-query">cartes de visite pour l'équipe direction, papier premium, livrées avant fin de mois</span>
+                <span class="f2b-cursor"></span>
+                <button class="f2b-ask">Demander à Magrit <span class="f2b-kbd">↵</span></button>
+              </div>
+              <div class="f2b-suggest">
+                <span class="f2b-suggest-lbl">Suggestions</span>
+                <button class="f2b-sug">flyers événement 500 ex.</button>
+                <button class="f2b-sug">refaire ma dernière commande</button>
+                <button class="f2b-sug">packaging RSE</button>
+                <button class="f2b-sug">signalétique bureau Paris</button>
+              </div>
+            </div>
+
+            <!-- Chips filtres IA -->
+            <div class="f2b-chips">
+              <span class="f2b-chips-lbl">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+                Compris par Magrit
+              </span>
+              <button class="f2b-chip">Cartes de visite <span class="x">×</span></button>
+              <button class="f2b-chip">Papier premium <span class="x">×</span></button>
+              <button class="f2b-chip">Livraison &lt; 30 nov. <span class="x">×</span></button>
+              <button class="f2b-chip">Équipe direction <span class="x">×</span></button>
+              <button class="f2b-chip-add">+ Ajouter un critère</button>
+              <div class="f2b-sort">18 résultats · <b>Recommandés</b> ▾</div>
+            </div>
+
+            <!-- Grille 4-col -->
+            <div class="f2b-grid">
+              <!-- Card 1 : template brandé -->
+              <div class="f2b-p">
+                <div class="f2b-img">
+                  <svg class="f2b-visual" viewBox="0 0 200 150" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="200" height="150" fill="#F5F5F5"/>
+                    <rect x="40" y="35" width="120" height="72" rx="4" fill="#FFF" stroke="#E4E4E7"/>
+                    <rect x="52" y="50" width="44" height="4" rx="1" fill="#0A0A0A"/>
+                    <rect x="52" y="60" width="60" height="2" rx="1" fill="#8A8A93"/>
+                    <rect x="52" y="82" width="28" height="2" rx="1" fill="#8A8A93"/>
+                    <rect x="52" y="88" width="36" height="2" rx="1" fill="#8A8A93"/>
+                    <rect x="30" y="45" width="120" height="72" rx="4" fill="none" stroke="#D4D4D8" stroke-dasharray="2 3"/>
+                  </svg>
+                  <span class="f2b-badge brand">Template brandé</span>
+                </div>
+                <div class="f2b-body">
+                  <h4>Cartes LVMH <span class="f2b-dim">— 350g velours</span></h4>
+                  <div class="f2b-meta">Template direction · soft touch · 72h</div>
+                  <div class="f2b-foot">
+                    <div class="f2b-price">78<span class="c">€</span><small>/ 500 ex.</small></div>
+                    <button class="f2b-cta">Personnaliser</button>
+                  </div>
+                  <div class="f2b-trust">
+                    <span class="f2b-trust-b">FSC</span>
+                    <span class="f2b-trust-b">Fabriqué&nbsp;en&nbsp;France</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Card 2 : template brandé premium -->
+              <div class="f2b-p">
+                <div class="f2b-img">
+                  <svg class="f2b-visual" viewBox="0 0 200 150" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="200" height="150" fill="#F5F5F5"/>
+                    <rect x="40" y="35" width="120" height="72" rx="4" fill="#FFF" stroke="#E4E4E7"/>
+                    <rect x="40" y="35" width="120" height="72" rx="4" fill="none" stroke="#C9A86B" stroke-width="1.5"/>
+                    <rect x="52" y="52" width="40" height="4" rx="1" fill="#0A0A0A"/>
+                    <rect x="52" y="62" width="56" height="2" rx="1" fill="#8A8A93"/>
+                    <rect x="52" y="82" width="60" height="2" rx="1" fill="#C9A86B"/>
+                    <rect x="52" y="88" width="40" height="2" rx="1" fill="#C9A86B"/>
+                    <circle cx="140" cy="62" r="6" fill="none" stroke="#C9A86B"/>
+                  </svg>
+                  <span class="f2b-badge brand">Template brandé</span>
+                </div>
+                <div class="f2b-body">
+                  <h4>Cartes LVMH premium <span class="f2b-dim">— tranche dorée</span></h4>
+                  <div class="f2b-meta">450g coton · prestige · 5 jours</div>
+                  <div class="f2b-foot">
+                    <div class="f2b-price">148<span class="c">€</span><small>/ 300 ex.</small></div>
+                    <button class="f2b-cta">Personnaliser</button>
+                  </div>
+                  <div class="f2b-trust">
+                    <span class="f2b-trust-b">FSC</span>
+                    <span class="f2b-trust-b">Fabriqué&nbsp;en&nbsp;France</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Card 3 : éco -->
+              <div class="f2b-p">
+                <div class="f2b-img">
+                  <svg class="f2b-visual" viewBox="0 0 200 150" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="200" height="150" fill="#F0EDE6"/>
+                    <rect x="40" y="35" width="120" height="72" rx="4" fill="#E8E2D3" stroke="#D9D1BC"/>
+                    <rect x="52" y="52" width="40" height="3" rx="1" fill="#3D3D3D"/>
+                    <rect x="52" y="60" width="56" height="2" rx="1" fill="#7A7A7A"/>
+                    <rect x="52" y="82" width="32" height="2" rx="1" fill="#7A7A7A"/>
+                    <rect x="52" y="88" width="40" height="2" rx="1" fill="#7A7A7A"/>
+                    <path d="M140 90 q-8 -4 0 -10 q8 4 0 10" fill="#7B9E6B" opacity="0.8"/>
+                  </svg>
+                  <span class="f2b-badge brand">Template brandé</span>
+                </div>
+                <div class="f2b-body">
+                  <h4>Cartes LVMH éco <span class="f2b-dim">— 350g recyclé</span></h4>
+                  <div class="f2b-meta">100% recyclé · encres végétales · 72h</div>
+                  <div class="f2b-foot">
+                    <div class="f2b-price">62<span class="c">€</span><small>/ 500 ex.</small></div>
+                    <button class="f2b-cta">Personnaliser</button>
+                  </div>
+                  <div class="f2b-trust">
+                    <span class="f2b-trust-b">FSC</span>
+                    <span class="f2b-trust-b">PEFC</span>
+                    <span class="f2b-trust-b">RSE</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Card 4 : négocié -->
+              <div class="f2b-p">
+                <div class="f2b-img">
+                  <svg class="f2b-visual" viewBox="0 0 200 150" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="200" height="150" fill="#F5F5F5"/>
+                    <g transform="translate(30 40)">
+                      <rect width="80" height="50" rx="3" fill="#FFF" stroke="#E4E4E7"/>
+                      <rect x="10" width="80" height="50" rx="3" fill="#FFF" stroke="#E4E4E7" transform="translate(40 12)"/>
+                      <rect x="90" y="25" width="80" height="50" rx="3" fill="#FFF" stroke="#D4D4D8" transform="translate(-10 0)"/>
+                    </g>
+                  </svg>
+                  <span class="f2b-badge">Négocié contrat</span>
+                </div>
+                <div class="f2b-body">
+                  <h4>Cartes standard <span class="f2b-dim">— 350g mat</span></h4>
+                  <div class="f2b-meta">Personnalisation libre · R/V quadri · 72h</div>
+                  <div class="f2b-foot">
+                    <div class="f2b-price neg">54<span class="c">€</span><small>/ 500 ex. · −18%</small></div>
+                    <button class="f2b-cta">Personnaliser</button>
+                  </div>
+                  <div class="f2b-trust">
+                    <span class="f2b-trust-b">FSC</span>
+                    <span class="f2b-trust-b">Fabriqué&nbsp;en&nbsp;France</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Card 5 : négocié coins arrondis -->
+              <div class="f2b-p">
+                <div class="f2b-img">
+                  <svg class="f2b-visual" viewBox="0 0 200 150" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="200" height="150" fill="#F5F5F5"/>
+                    <rect x="40" y="40" width="120" height="72" rx="12" fill="#FFF" stroke="#E4E4E7"/>
+                    <rect x="52" y="56" width="44" height="4" rx="1" fill="#0A0A0A"/>
+                    <rect x="52" y="66" width="60" height="2" rx="1" fill="#8A8A93"/>
+                    <rect x="52" y="88" width="36" height="2" rx="1" fill="#8A8A93"/>
+                    <rect x="52" y="94" width="28" height="2" rx="1" fill="#8A8A93"/>
+                  </svg>
+                  <span class="f2b-badge">Négocié contrat</span>
+                </div>
+                <div class="f2b-body">
+                  <h4>Cartes coins arrondis <span class="f2b-dim">— 300g</span></h4>
+                  <div class="f2b-meta">Angle 3mm · R/V quadri · mat ou brillant</div>
+                  <div class="f2b-foot">
+                    <div class="f2b-price neg">58<span class="c">€</span><small>/ 500 ex. · −12%</small></div>
+                    <button class="f2b-cta">Personnaliser</button>
+                  </div>
+                  <div class="f2b-trust">
+                    <span class="f2b-trust-b">FSC</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Card 6 : négocié carré -->
+              <div class="f2b-p">
+                <div class="f2b-img">
+                  <svg class="f2b-visual" viewBox="0 0 200 150" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="200" height="150" fill="#F5F5F5"/>
+                    <rect x="68" y="36" width="64" height="64" rx="3" fill="#FFF" stroke="#E4E4E7"/>
+                    <rect x="78" y="52" width="36" height="3" rx="1" fill="#0A0A0A"/>
+                    <rect x="78" y="60" width="44" height="2" rx="1" fill="#8A8A93"/>
+                    <rect x="78" y="80" width="24" height="2" rx="1" fill="#8A8A93"/>
+                    <rect x="78" y="86" width="30" height="2" rx="1" fill="#8A8A93"/>
+                  </svg>
+                  <span class="f2b-badge">Négocié contrat</span>
+                </div>
+                <div class="f2b-body">
+                  <h4>Cartes format carré <span class="f2b-dim">— 55×55mm</span></h4>
+                  <div class="f2b-meta">Format créatif · 350g mat · R/V quadri</div>
+                  <div class="f2b-foot">
+                    <div class="f2b-price neg">66<span class="c">€</span><small>/ 500 ex. · −10%</small></div>
+                    <button class="f2b-cta">Personnaliser</button>
+                  </div>
+                  <div class="f2b-trust">
+                    <span class="f2b-trust-b">FSC</span>
+                    <span class="f2b-trust-b">Fabriqué&nbsp;en&nbsp;France</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Card 7 : négocié velours -->
+              <div class="f2b-p">
+                <div class="f2b-img">
+                  <svg class="f2b-visual" viewBox="0 0 200 150" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                      <pattern id="f2b-dots" width="6" height="6" patternUnits="userSpaceOnUse">
+                        <circle cx="3" cy="3" r="0.6" fill="#D4D4D8"/>
+                      </pattern>
+                    </defs>
+                    <rect width="200" height="150" fill="url(#f2b-dots)"/>
+                    <rect x="40" y="38" width="120" height="72" rx="4" fill="#FFF" stroke="#E4E4E7"/>
+                    <rect x="52" y="54" width="40" height="4" rx="1" fill="#0A0A0A"/>
+                    <rect x="52" y="64" width="56" height="2" rx="1" fill="#8A8A93"/>
+                    <rect x="52" y="86" width="32" height="2" rx="1" fill="#8A8A93"/>
+                    <rect x="52" y="92" width="44" height="2" rx="1" fill="#8A8A93"/>
+                  </svg>
+                  <span class="f2b-badge">Négocié contrat</span>
+                </div>
+                <div class="f2b-body">
+                  <h4>Cartes velours premium <span class="f2b-dim">— 400g</span></h4>
+                  <div class="f2b-meta">Touché soft · dorure possible · 5 jours</div>
+                  <div class="f2b-foot">
+                    <div class="f2b-price neg">94<span class="c">€</span><small>/ 500 ex. · −14%</small></div>
+                    <button class="f2b-cta">Personnaliser</button>
+                  </div>
+                  <div class="f2b-trust">
+                    <span class="f2b-trust-b">FSC</span>
+                    <span class="f2b-trust-b">Fabriqué&nbsp;en&nbsp;France</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Card 8 : négocié double épaisseur -->
+              <div class="f2b-p">
+                <div class="f2b-img">
+                  <svg class="f2b-visual" viewBox="0 0 200 150" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="200" height="150" fill="#F5F5F5"/>
+                    <rect x="44" y="42" width="120" height="72" rx="3" fill="#E4E4E7"/>
+                    <rect x="40" y="38" width="120" height="72" rx="3" fill="#FFF" stroke="#D4D4D8"/>
+                    <rect x="52" y="56" width="44" height="4" rx="1" fill="#0A0A0A"/>
+                    <rect x="52" y="66" width="60" height="2" rx="1" fill="#8A8A93"/>
+                    <line x1="40" y1="74" x2="160" y2="74" stroke="#C9A86B" stroke-width="0.5"/>
+                  </svg>
+                  <span class="f2b-badge">Négocié contrat</span>
+                </div>
+                <div class="f2b-body">
+                  <h4>Cartes double épaisseur <span class="f2b-dim">— 700g</span></h4>
+                  <div class="f2b-meta">Tranche colorée · finition luxe · 5 jours</div>
+                  <div class="f2b-foot">
+                    <div class="f2b-price neg">128<span class="c">€</span><small>/ 300 ex. · −8%</small></div>
+                    <button class="f2b-cta">Personnaliser</button>
+                  </div>
+                  <div class="f2b-trust">
+                    <span class="f2b-trust-b">FSC</span>
+                    <span class="f2b-trust-b">Fabriqué&nbsp;en&nbsp;France</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Pagination -->
+            <div class="f2b-more">
+              <button class="f2b-more-btn">Voir 10 produits de plus</button>
+              <span class="f2b-more-count">8 sur 18 résultats</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="spec">
+        <span><b>Recherche</b> conversationnelle · barre unique · suggestions contextuelles</span>
+        <span><b>Filtres</b> chips parsés par l'IA depuis la requête · retrait inline</span>
+        <span><b>Grille</b> 4 colonnes · visuels SVG print-themed · hover reveal du CTA</span>
+        <span><b>Trust</b> FSC / PEFC / Fabriqué en France en badges outlined</span>
+        <span><b>Pagination</b> Voir X produits de plus · pas de numéros</span>
+      </div>
+    </div>
+
+    <!-- ============ F3 — Fiche produit + configurateur ============ -->
+    <div class="card-ref">
+      <div class="card-head">
+        <span class="num">F3</span>
+        <h2>Fiche produit — template brandé configurable</h2>
+        <span class="tag">preview · configurateur (papier, finition, quantité) · prix contractuel visible</span>
+      </div>
+      <div class="frame">
+        <div class="frame-inner">
+          <div class="scene f3">
+            <div class="top">
+              <div class="brand"><div class="logo"></div>LVMH Services<span class="sep"></span><span class="co">× Magrit</span></div>
+              <nav class="nav">
+                <a href="#">Accueil</a>
+                <a href="#" class="active">Catalogue</a>
+                <a href="#">Mes commandes</a>
+                <a href="#">Templates</a>
+                <a href="#">Équipe</a>
+              </nav>
+              <div class="search">⌕ Rechercher cartes, flyers, réf…<span class="kbd">⌘ K</span></div>
+              <div class="cart">Panier <span class="n">3</span></div>
+              <div class="avatar"></div>
+            </div>
+            <div class="body">
+              <div class="crumbs"><a href="#">Catalogue</a> / <a href="#">Cartes de visite</a> / <b>Cartes LVMH standard — 350g velours</b></div>
+              <div class="product">
+                <div>
+                  <div class="visual">
+                    <div class="brand-mark">Camille Moreau</div>
+                    <div class="brand-sub">Directrice communication</div>
+                  </div>
+                  <div class="thumbs">
+                    <div class="t active"></div>
+                    <div class="t"></div>
+                    <div class="t"></div>
+                    <div class="t"></div>
+                  </div>
+                </div>
+                <div class="info">
+                  <div class="title-row">
+                    <h3>Cartes LVMH standard</h3>
+                    <span class="brand-chip">Template brandé</span>
+                  </div>
+                  <p class="lede">Template validé par la Direction Communication Groupe. Vous renseignez uniquement nom, fonction, contacts — le visuel reste verrouillé.</p>
+                  <div class="contract">
+                    ✓ Prix contractuel groupe · <b>-18%</b> sur tarif public · livraison offerte dès 200€
+                  </div>
+                  <div class="cfg">
+                    <div class="row">
+                      <div class="lbl">Papier</div>
+                      <div class="chips">
+                        <span class="chip on">350g velours</span>
+                        <span class="chip">450g coton</span>
+                        <span class="chip">350g recyclé</span>
+                      </div>
+                    </div>
+                    <div class="row">
+                      <div class="lbl">Finition</div>
+                      <div class="chips">
+                        <span class="chip on">Soft touch R/V</span>
+                        <span class="chip">Pelliculage mat</span>
+                        <span class="chip">Brut</span>
+                      </div>
+                    </div>
+                    <div class="row">
+                      <div class="lbl">Coins</div>
+                      <div class="chips">
+                        <span class="chip on">Droits</span>
+                        <span class="chip">Arrondis <small style="color:var(--mute-2);">+4€</small></span>
+                      </div>
+                    </div>
+                    <div class="row">
+                      <div class="lbl">Quantité</div>
+                      <div class="qty">
+                        <button>−</button>
+                        <input value="500"/>
+                        <button>+</button>
+                      </div>
+                      <div class="chips">
+                        <span class="preset">250</span>
+                        <span class="preset">500</span>
+                        <span class="preset">1 000</span>
+                        <span class="preset">2 500</span>
+                      </div>
+                    </div>
+                    <div class="row">
+                      <div class="lbl">Livrer à</div>
+                      <div class="chips">
+                        <span class="chip on">Siège Paris 8e</span>
+                        <span class="chip">+ autre adresse</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="total">
+                    <div>
+                      <div class="val">78,00€</div>
+                      <div class="unit">HT · soit 0,156€ par carte</div>
+                    </div>
+                    <div class="delivery">Livraison 72h ouvrées · offerte</div>
+                  </div>
+                  <button class="add">Ajouter au panier →</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="spec">
+        <span><b>Visuel</b> preview mock-up carte · 4 vues alternatives</span>
+        <span><b>Configurateur</b> 5 lignes (papier · finition · coins · qté · adresse) · chips + presets mono</span>
+        <span><b>Contrat</b> bandeau remise groupe affiché · prix unitaire recalculé</span>
+        <span><b>CTA</b> total sombre + Ajouter au panier plein pleine largeur</span>
+      </div>
+    </div>
+
+    <!-- ============ F4 — Panier + workflow N+1 ============ -->
+    <div class="card-ref">
+      <div class="card-head">
+        <span class="num">F4</span>
+        <h2>Panier — avec circuit de validation N+1</h2>
+        <span class="tag">lignes · multi-adresses · stepper validation · budget impact</span>
+      </div>
+      <div class="frame">
+        <div class="frame-inner">
+          <div class="scene f4">
+            <div class="top">
+              <div class="brand"><div class="logo"></div>LVMH Services<span class="sep"></span><span class="co">× Magrit</span></div>
+              <nav class="nav">
+                <a href="#">Accueil</a>
+                <a href="#">Catalogue</a>
+                <a href="#">Mes commandes</a>
+                <a href="#">Templates</a>
+                <a href="#">Équipe</a>
+              </nav>
+              <div class="search">⌕ Rechercher cartes, flyers, réf…<span class="kbd">⌘ K</span></div>
+              <div class="cart" style="background:var(--accent); color:var(--paper); border-color:var(--accent);">Panier <span class="n" style="background:var(--paper); color:var(--accent);">3</span></div>
+              <div class="avatar"></div>
+            </div>
+            <div class="budget">
+              <span>Centre de coût · <b>Communication Groupe</b></span>
+              <span>Budget T4 · <b>8 420€ / 13 500€</b></span>
+              <div class="bar"></div>
+              <span class="chip">N+1 : Claire D.</span>
+            </div>
+            <div class="body">
+              <div>
+                <h3 class="section">Votre panier · 3 articles</h3>
+                <div class="cart">
+                  <div class="line">
+                    <div class="thumb"></div>
+                    <div>
+                      <h5>Cartes LVMH standard — template brandé</h5>
+                      <div class="specs">350g velours · Soft touch R/V · coins droits</div>
+                      <div class="addr">▸ <b>Siège Paris 8e</b> · 22 av. Montaigne</div>
+                    </div>
+                    <div class="qty">500 ex.</div>
+                    <div class="price">78,00€</div>
+                    <button class="x">×</button>
+                  </div>
+                  <div class="line">
+                    <div class="thumb"></div>
+                    <div>
+                      <h5>Flyers salon Viva Tech — quadri A5</h5>
+                      <div class="specs">135g couché · R/V quadri · format A5</div>
+                      <div class="addr">▸ <b>Stand Viva Tech</b> · Paris Expo Porte de Versailles</div>
+                    </div>
+                    <div class="qty">2 000 ex.</div>
+                    <div class="price">268,00€</div>
+                    <button class="x">×</button>
+                  </div>
+                  <div class="line">
+                    <div class="thumb"></div>
+                    <div>
+                      <h5>Packaging kraft — box custom</h5>
+                      <div class="specs">carton kraft 350g · impression 1 couleur · pliage auto</div>
+                      <div class="addr">▸ <b>Entrepôt Roissy</b> · livraison répartie 3 sites</div>
+                    </div>
+                    <div class="qty">250 ex.</div>
+                    <div class="price">412,00€</div>
+                    <button class="x">×</button>
+                  </div>
+                </div>
+                <div class="workflow">
+                  <div class="workflow-head">
+                    <h5>Circuit de validation</h5>
+                    <span class="meta">Estimation totale · 2 jours ouvrés</span>
+                  </div>
+                  <div class="steps">
+                    <div class="step done">
+                      <div class="dot">✓</div>
+                      <div class="lbl">Étape 1</div>
+                      <div class="name">Vous (Léa G.)</div>
+                      <div class="time">Soumission maintenant</div>
+                    </div>
+                    <div class="step active">
+                      <div class="dot">2</div>
+                      <div class="lbl">Étape 2 · en cours</div>
+                      <div class="name">N+1 — Claire D.</div>
+                      <div class="time">Estimé ~ 4h</div>
+                    </div>
+                    <div class="step">
+                      <div class="dot">3</div>
+                      <div class="lbl">Étape 3</div>
+                      <div class="name">Achats Groupe</div>
+                      <div class="time">Estimé 24h</div>
+                    </div>
+                    <div class="step">
+                      <div class="dot">4</div>
+                      <div class="lbl">Étape 4</div>
+                      <div class="name">Magrit · production</div>
+                      <div class="time">72h ouvrées</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <aside class="summary">
+                <h5>Récapitulatif</h5>
+                <div class="sum-row"><span>Sous-total HT</span><b>758,00€</b></div>
+                <div class="sum-row neg"><span>Remise contrat groupe (-18%)</span><b>−136,44€</b></div>
+                <div class="sum-row"><span>Livraison</span><b>Offerte</b></div>
+                <div class="sum-row"><span>TVA 20%</span><b>124,31€</b></div>
+                <div class="sum-tot"><span>Total TTC</span><b>745,87€</b></div>
+                <div class="budget-box">
+                  Impact budget T4 · <b>-621€ HT</b><br/>
+                  <span style="font-size:11.5px;">Budget restant après validation : <b>4 459€ / 13 500€</b></span>
+                  <div class="bar"></div>
+                </div>
+                <button class="submit">Soumettre à Claire D. (N+1) →</button>
+                <div class="note">Vous serez notifiée par email à chaque étape du circuit. Annulation possible tant qu'Achats n'a pas validé.</div>
+              </aside>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="spec">
+        <span><b>Panier</b> 3 lignes · multi-adresses par ligne · spec mono</span>
+        <span><b>Workflow</b> 4 étapes (Vous → N+1 → Achats → Magrit) · rail visuel + timing estimé</span>
+        <span><b>Récap</b> remise contractuelle explicite · impact budget après validation</span>
+        <span><b>CTA</b> "Soumettre à [N+1 nommée]" — pas "Payer" : clarifie que c'est une demande</span>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

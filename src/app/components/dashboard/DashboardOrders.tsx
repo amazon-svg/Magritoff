@@ -1,79 +1,303 @@
-import { useEffect, useState } from 'react';
-import { ShoppingBag } from 'lucide-react';
+/**
+ * DashboardOrders — Vue agregee toutes commandes du tenant (persona owner).
+ *
+ * S-DASHBOARD-ORDERS-DUAL (Sprint 4 Phase 1 complement, 2026-05-18) :
+ * remplace l ancien placeholder. Dual-read shop_orders + tenant_orders.
+ *
+ * S3.1 (Sprint 5, 2026-05-23) : refactor pour deleguer rendu/filtres/tri
+ * au composant <OrderHistoryTable>, avec extraColumn 'Boutique' pour
+ * afficher le slug par ligne.
+ */
+
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '/utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTenant } from '../../contexts/TenantContext';
+import { useShops } from '../../contexts/ShopsContext';
+import { applyTax, getTaxRate } from '../../utils/tax';
+import {
+  type OrderUI,
+  type ShopOrderRow,
+  type TenantOrderRow,
+  mergeAndSortOrders,
+  normalizeShopOrder,
+  normalizeTenantOrder,
+} from '../shop/portal/PortalOrders.helpers';
+import { OrderHistoryTable } from '../shop/portal/OrderHistoryTable';
+import { CancelOrderConfirmDialog } from '../shop/portal/CancelOrderConfirmDialog';
+import { ValidateOrderConfirmDialog } from '../shop/portal/ValidateOrderConfirmDialog';
+import { formatCancelErrorMessage } from '../shop/portal/orderCancellation.helpers';
+import { formatValidateErrorMessage } from '../shop/portal/orderValidation.helpers';
+import { triggerOrderWorkflowStep } from '../shop/portal/orderWorkflowStep.helpers';
+import { useUserCapability } from '../../hooks/useUserCapability';
 
-interface Order {
-  id: string;
-  reference: string;
-  product_name: string;
-  total_ttc: number;
-  status: string;
-  created_at: string;
+interface DashboardOrderUI extends OrderUI {
+  shop_id: string;
 }
 
 export function DashboardOrders() {
   const { user } = useAuth();
-  const [orders, setOrders] = useState<Order[]>([]);
+  const { currentTenant } = useTenant();
+  const { shops } = useShops();
+  const [orders, setOrders] = useState<DashboardOrderUI[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fix 2026-05-25 : Map shop_id -> { name, slug } pour afficher le NOM
+  // humain dans la colonne Boutique (et plus le slug technique qui ressemble
+  // à wuqezh-8ggfvk pour les boutiques créées sans slug humain explicite).
+  const shopInfoById = useMemo(() => {
+    const map = new Map<string, { name: string; slug: string }>();
+    for (const s of shops) {
+      map.set(s.id, { name: s.name, slug: s.slug });
+    }
+    return map;
+  }, [shops]);
+
+  // Helper : retourne le label humain à afficher (name préféré, fallback slug puis '—').
+  const shopDisplayLabel = (shopId: string): string => {
+    const info = shopInfoById.get(shopId);
+    if (!info) return '—';
+    return info.name?.trim() || info.slug || '—';
+  };
+
+  // S3.4 : modal annulation. orderToCancel = null → modal fermé.
+  const [orderToCancel, setOrderToCancel] = useState<DashboardOrderUI | null>(null);
+  // Fix 2026-05-25 : modal validation. orderToValidate = null → modal fermé.
+  const [orderToValidate, setOrderToValidate] = useState<DashboardOrderUI | null>(null);
+
+  // S-USERS-REFONTE Phase A (2026-05-25) : le bouton "Valider" est role-driven.
+  // Visible uniquement si l'utilisateur courant a la capability can_validate
+  // via au moins un rôle actif dans le tenant (preset Owner / Admin /
+  // Validateur par défaut). Évite que les Acheteurs voient un bouton qui
+  // serait refusé par le RPC (UX confusion).
+  const { hasIt: canValidate } = useUserCapability('can_validate');
+  // S-ORDER-ROLES-3-UI (2026-06-09) : Démarrer la production + Marquer
+  // expédiée gardes par can_modify (preset Owner / Admin / Validateur /
+  // Producteur). Cohérence avec PortalOrders tab "À produire" mais
+  // accessible à l'admin tenant sur l'ensemble des boutiques.
+  const { hasIt: canModifyProduction } = useUserCapability('can_modify');
+
+  const loadOrders = useCallback(async (cancelled: { current: boolean }) => {
+    if (!user || !currentTenant) return;
+    if (shops.length === 0) {
+      setOrders([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    const taxRate = getTaxRate(currentTenant);
+    const taxedTotal = (ht: number) => applyTax(ht, taxRate);
+    const shopIds = shops.map((s) => s.id);
+
+    const queryA = supabase
+      .from('shop_orders')
+      .select('*')
+      .in('shop_id', shopIds)
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    const queryB = supabase
+      .from('tenant_orders')
+      .select(
+        'id, shop_id, tenant_id, created_by, status, total_ht, currency, notes, created_at, tenant_order_items(product_label, quantity, unit_price_ht, line_total_ht)',
+      )
+      .eq('tenant_id', currentTenant.id)
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    const [resA, resB] = await Promise.all([queryA, queryB]);
+    if (cancelled.current) return;
+
+    const legacy: DashboardOrderUI[] = [];
+    const v11: DashboardOrderUI[] = [];
+
+    if (resA.error) {
+      console.warn('[DashboardOrders] query shop_orders failed:', resA.error.message);
+    } else if (Array.isArray(resA.data)) {
+      for (const row of resA.data as ShopOrderRow[]) {
+        legacy.push({ ...normalizeShopOrder(row), shop_id: row.shop_id });
+      }
+    }
+
+    if (resB.error) {
+      console.warn('[DashboardOrders] query tenant_orders failed:', resB.error.message);
+    } else if (Array.isArray(resB.data)) {
+      for (const row of resB.data as TenantOrderRow[]) {
+        v11.push({ ...normalizeTenantOrder(row, taxedTotal), shop_id: row.shop_id });
+      }
+    }
+
+    if (resA.error && resB.error) {
+      setError(`${resA.error.message} / ${resB.error.message}`);
+      setLoading(false);
+      return;
+    }
+
+    const merged = mergeAndSortOrders(legacy, v11) as DashboardOrderUI[];
+    setOrders(merged);
+    setLoading(false);
+  }, [user, currentTenant, shops]);
 
   useEffect(() => {
-    if (!user) return;
-    supabase
-      .from('orders')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .then(({ data }) => {
-        if (data) setOrders(data as Order[]);
-        setLoading(false);
+    const cancelled = { current: false };
+    void loadOrders(cancelled);
+    return () => {
+      cancelled.current = true;
+    };
+  }, [loadOrders]);
+
+  // S3.4 : handlers cancel (admin tenant peut annuler n'importe quelle draft).
+  const handleCancelOrderRequest = (order: OrderUI) => {
+    setOrderToCancel(order as DashboardOrderUI);
+  };
+
+  const handleCancelConfirm = async (orderId: string): Promise<string | null> => {
+    const currentOrder = orders.find((o) => o.id === orderId);
+    const fromStatus = currentOrder?.status ?? 'draft';
+    const { error: rpcErr } = await supabase.rpc('update_tenant_order_status', {
+      p_order_id: orderId,
+      p_new_status: 'cancelled',
+      p_reason: null,
+    });
+    if (rpcErr) {
+      console.warn('[DashboardOrders] cancel RPC failed:', rpcErr.message);
+      return formatCancelErrorMessage(rpcErr);
+    }
+    if (user?.id) {
+      triggerOrderWorkflowStep({
+        orderId,
+        fromStatus,
+        toStatus: 'cancelled',
+        actorUserId: user.id,
       });
-  }, [user]);
+    }
+    await loadOrders({ current: false });
+    return null;
+  };
+
+  // Fix 2026-05-25 : handlers validation (admin tenant uniquement —
+  // RPC matrice draft→validated réservée role owner/admin).
+  const handleValidateOrderRequest = (order: OrderUI) => {
+    setOrderToValidate(order as DashboardOrderUI);
+  };
+
+  const handleValidateConfirm = async (orderId: string): Promise<string | null> => {
+    const currentOrder = orders.find((o) => o.id === orderId);
+    const fromStatus = currentOrder?.status ?? 'draft';
+    const { error: rpcErr } = await supabase.rpc('update_tenant_order_status', {
+      p_order_id: orderId,
+      p_new_status: 'validated',
+      p_reason: null,
+    });
+    if (rpcErr) {
+      console.warn('[DashboardOrders] validate RPC failed:', rpcErr.message);
+      return formatValidateErrorMessage(rpcErr);
+    }
+    if (user?.id) {
+      triggerOrderWorkflowStep({
+        orderId,
+        fromStatus,
+        toStatus: 'validated',
+        actorUserId: user.id,
+      });
+    }
+    await loadOrders({ current: false });
+    return null;
+  };
+
+  // S-ORDER-ROLES-3-UI : transitions production (admin tenant via can_modify).
+  // Sans modal de confirmation — actions tactiques rapides côté pilotage atelier.
+  const transitionProductionStatus = async (
+    order: OrderUI,
+    toStatus: 'in_production' | 'shipped',
+  ): Promise<void> => {
+    const fromStatus = order.status;
+    const { error: rpcErr } = await supabase.rpc('update_tenant_order_status', {
+      p_order_id: order.id,
+      p_new_status: toStatus,
+      p_reason: null,
+    });
+    if (rpcErr) {
+      console.warn(`[DashboardOrders] transition ${fromStatus}→${toStatus} failed:`, rpcErr.message);
+      return;
+    }
+    if (user?.id) {
+      triggerOrderWorkflowStep({
+        orderId: order.id,
+        fromStatus,
+        toStatus,
+        actorUserId: user.id,
+      });
+    }
+    await loadOrders({ current: false });
+  };
+
+  const handleStartProduction = (order: OrderUI) => transitionProductionStatus(order, 'in_production');
+  const handleMarkShipped = (order: OrderUI) => transitionProductionStatus(order, 'shipped');
 
   return (
     <div className="space-y-4">
       <div>
         <h2 className="text-lg font-semibold text-gray-900 mb-1">Commandes</h2>
-        <p className="text-sm text-gray-600">{orders.length} commande(s) enregistrée(s).</p>
+        <p className="text-sm text-gray-600">
+          {orders.length} commande(s) enregistrée(s) sur l ensemble de vos boutiques.
+        </p>
       </div>
 
-      {loading ? (
-        <p className="text-sm text-gray-500">Chargement...</p>
-      ) : orders.length === 0 ? (
-        <div className="text-center py-12 text-gray-400">
-          <ShoppingBag className="w-12 h-12 mx-auto mb-2 opacity-50" />
-          <p className="text-sm">Aucune commande pour l'instant.</p>
-        </div>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-gray-600 text-left">
-              <tr>
-                <th className="px-3 py-2">Référence</th>
-                <th className="px-3 py-2">Produit</th>
-                <th className="px-3 py-2">Total TTC</th>
-                <th className="px-3 py-2">Statut</th>
-                <th className="px-3 py-2">Date</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {orders.map((o) => (
-                <tr key={o.id} className="hover:bg-gray-50">
-                  <td className="px-3 py-2 font-mono text-xs">{o.reference}</td>
-                  <td className="px-3 py-2">{o.product_name}</td>
-                  <td className="px-3 py-2 font-semibold">{o.total_ttc?.toFixed(2)} €</td>
-                  <td className="px-3 py-2">
-                    <span className="px-2 py-0.5 rounded-full text-xs bg-gray-100">{o.status}</span>
-                  </td>
-                  <td className="px-3 py-2 text-gray-500 text-xs">
-                    {new Date(o.created_at).toLocaleDateString('fr-FR')}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <OrderHistoryTable
+        orders={orders}
+        loading={loading}
+        error={error}
+        persistKey={currentTenant ? `orderHistory:dashboard:${currentTenant.id}` : undefined}
+        onCancelOrder={handleCancelOrderRequest}
+        // S-USERS-REFONTE Phase A : bouton Valider visible uniquement si
+        // l'utilisateur courant a la capability can_validate (via rôle actif).
+        // Sinon, undefined => OrderHistoryTable masque le bouton.
+        onValidateOrder={canValidate ? handleValidateOrderRequest : undefined}
+        // S-ORDER-ROLES-3-UI : boutons Démarrer prod + Marquer expédiée
+        // role-driven via can_modify (preset Owner / Admin / Validateur /
+        // Producteur). Sans modal de confirmation côté admin tenant.
+        onStartProductionOrder={canModifyProduction ? handleStartProduction : undefined}
+        onMarkShippedOrder={canModifyProduction ? handleMarkShipped : undefined}
+        extraColumn={{
+          header: 'Boutique',
+          position: 'after-date',
+          render: (o) => (
+            <span className="text-xs">
+              {shopDisplayLabel((o as DashboardOrderUI).shop_id)}
+            </span>
+          ),
+          // Fix 2026-05-25 : retrait du sortValue (lesson : sur colonne
+          // catégorielle, l'usage primaire est le filtre, pas le tri).
+        }}
+        extraFilter={{
+          label: 'Boutique',
+          getOptionKey: (o) => (o as DashboardOrderUI).shop_id,
+          getOptionLabel: (o) => shopDisplayLabel((o as DashboardOrderUI).shop_id),
+        }}
+      />
+
+      <CancelOrderConfirmDialog
+        orderId={orderToCancel?.id ?? null}
+        orderShortId={
+          orderToCancel?.id ? orderToCancel.id.replace(/-/g, '').slice(0, 8).toUpperCase() : undefined
+        }
+        onConfirm={handleCancelConfirm}
+        onClose={() => setOrderToCancel(null)}
+      />
+
+      <ValidateOrderConfirmDialog
+        orderId={orderToValidate?.id ?? null}
+        orderShortId={
+          orderToValidate?.id ? orderToValidate.id.replace(/-/g, '').slice(0, 8).toUpperCase() : undefined
+        }
+        onConfirm={handleValidateConfirm}
+        onClose={() => setOrderToValidate(null)}
+      />
     </div>
   );
 }

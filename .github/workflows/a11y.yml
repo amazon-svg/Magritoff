@@ -1,0 +1,91 @@
+# R9 (refacto 2026-05-11 ADR-R7) — axe-core CI a11y light.
+#
+# Scan automatiquement 3 routes critiques (login / atelier / boutique) avec
+# axe-core. Bloque la CI sur niveau Critical uniquement (Moderate/Minor
+# remontes en visibilite mais ne font pas echouer le job — engagement WCAG
+# AA reporte V2).
+#
+# Pour activer cette CI, Arnaud doit (action ponctuelle) :
+#   - confirmer que `beta/v5` deploie sans secrets supplementaires
+#   - eventuellement ajouter un secret `VITE_SUPABASE_*` si le build local
+#     en CI necessite l'authentification
+#
+# La CI tourne sur PR vers `beta/v5` + push sur la branche.
+
+name: a11y
+
+on:
+  pull_request:
+    branches: [beta/v5]
+  push:
+    branches: [beta/v5]
+  workflow_dispatch:
+
+jobs:
+  axe-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node + pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build (production)
+        run: pnpm build
+
+      - name: Start preview server (background)
+        run: pnpm exec vite preview --port 5177 --strictPort &
+        env:
+          # Variables minimales necessaires pour boot l'app. Ajustez selon
+          # SPRINT_HANDOFF.md (les secrets Supabase doivent rester en secrets
+          # GitHub repo-level, pas hardcodes ici).
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+
+      - name: Wait for server
+        run: |
+          for i in {1..20}; do
+            if curl -sf http://localhost:5177/ > /dev/null; then
+              echo "✅ Server up"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "❌ Server n'a pas demarre en 20s"
+          exit 1
+
+      - name: Axe scan login
+        run: |
+          pnpm exec axe http://localhost:5177/login --tags wcag2a,wcag2aa --save axe-login.json --exit || true
+          cat axe-login.json | python3 -c "import sys,json; d=json.load(sys.stdin); criticals=[v for v in d.get('violations',[]) if v['impact']=='critical']; print(f'Critical: {len(criticals)}'); sys.exit(1 if criticals else 0)"
+
+      - name: Axe scan atelier
+        run: |
+          pnpm exec axe "http://localhost:5177/t/imprimerie-ipa/atelier" --tags wcag2a,wcag2aa --save axe-atelier.json --exit || true
+          cat axe-atelier.json | python3 -c "import sys,json; d=json.load(sys.stdin); criticals=[v for v in d.get('violations',[]) if v['impact']=='critical']; print(f'Critical: {len(criticals)}'); sys.exit(1 if criticals else 0)"
+
+      - name: Axe scan boutique
+        run: |
+          pnpm exec axe "http://localhost:5177/shop/boutique-1" --tags wcag2a,wcag2aa --save axe-boutique.json --exit || true
+          cat axe-boutique.json | python3 -c "import sys,json; d=json.load(sys.stdin); criticals=[v for v in d.get('violations',[]) if v['impact']=='critical']; print(f'Critical: {len(criticals)}'); sys.exit(1 if criticals else 0)"
+
+      - name: Upload axe reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: axe-reports
+          path: axe-*.json
+          retention-days: 30

@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<title>D · Chat — Claude.ai-like</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --ui: 'Helvetica Neue', 'Helvetica', 'Arial', sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, monospace;
+    --ink: #0A0A0A;
+    --ink-2: #2A2A2D;
+    --muted: #52525B;
+    --mute-2: #8A8A93;
+    --line: #ECECEC;
+    --line-2: #D4D4D8;
+    --bg: #FAFAFA;
+    --paper: #FFF;
+    --accent: #0F172A;
+  }
+  * { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+  body { margin: 0; background: var(--bg); color: var(--ink); padding: 64px 48px 140px; font-family: var(--ui); font-weight: 300; }
+  .wrap { max-width: 1400px; margin: 0 auto; }
+  .crumb { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mute-2); margin-bottom: 8px; }
+  .crumb a { color: var(--muted); text-decoration: none; }
+  .crumb a:hover { text-decoration: underline; }
+  h1.page { font-family: var(--ui); font-weight: 400; font-size: 48px; letter-spacing: -0.03em; margin: 10px 0 16px; line-height: 1.05; }
+  .lede { color: var(--muted); max-width: 700px; margin: 0 0 48px; line-height: 1.6; font-size: 15.5px; font-weight: 300; }
+  .lede b { color: var(--ink); font-weight: 500; }
+
+  .card-ref { background: var(--paper); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; margin-bottom: 32px; }
+  .card-head { display: flex; align-items: baseline; gap: 16px; padding: 24px 32px 20px; border-bottom: 1px solid var(--line); }
+  .card-head .num { font-family: var(--mono); font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mute-2); }
+  .card-head h2 { font-family: var(--ui); font-weight: 400; font-size: 24px; letter-spacing: -0.02em; margin: 0; }
+  .card-head .tag { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  .card-head .pill { margin-left: auto; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; background: #ECFDF3; color: #0E8F5A; font-weight: 500; }
+
+  .frame { padding: 28px; background: #F5F5F5; }
+  .frame-inner { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; height: 680px; }
+
+  .spec { padding: 20px 32px 24px; font-family: var(--mono); font-size: 12px; color: var(--muted); background: var(--bg); border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 24px; }
+  .spec b { color: var(--ink); font-weight: 500; }
+
+  /* === Message tokens === */
+  .msg { max-width: 620px; }
+  .msg-user { background: #F5F5F5; padding: 12px 16px; border-radius: 14px; font-size: 14.5px; font-weight: 400; line-height: 1.5; color: var(--ink); margin-left: auto; display: block; width: fit-content; }
+  .msg-ai { font-size: 14.5px; font-weight: 300; line-height: 1.65; color: var(--ink-2); }
+  .msg-ai h4 { font-family: var(--ui); font-weight: 500; margin: 0 0 8px; font-size: 15px; color: var(--ink); letter-spacing: -0.005em; }
+  .msg-ai p { margin: 8px 0; }
+  .msg-ai strong { color: var(--ink); font-weight: 500; }
+
+  /* generative card */
+  .gen-card { margin-top: 14px; border: 1px solid var(--line); border-radius: 10px; padding: 16px; background: var(--paper); max-width: 540px; box-shadow: 0 1px 2px rgba(9,9,11,0.04); }
+  .gen-card-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; }
+  .gen-card h5 { margin: 0; font-family: var(--ui); font-weight: 500; font-size: 14.5px; letter-spacing: -0.005em; color: var(--ink); }
+  .gen-card .price { font-size: 20px; font-weight: 500; letter-spacing: -0.015em; color: var(--ink); }
+  .gen-card .specs { display: flex; gap: 14px; font-size: 12.5px; font-weight: 400; color: var(--muted); margin-bottom: 12px; font-family: var(--mono); }
+  .gen-card .specs span::before { content: '· '; color: var(--line-2); }
+  .gen-card .specs span:first-child::before { content: ''; }
+  .gen-card-actions { display: flex; gap: 8px; }
+  .gen-btn { padding: 7px 12px; border-radius: 6px; font-size: 13px; font-weight: 400; border: 1px solid var(--line); background: var(--paper); color: var(--ink-2); font-family: var(--ui); cursor: pointer; }
+  .gen-btn-primary { background: var(--accent); color: var(--paper); border-color: var(--accent); font-weight: 500; }
+
+  /* === D2 — Claude.ai-like (retenu) === */
+  .d { display: grid; grid-template-columns: 56px 1fr; height: 100%; font-family: var(--ui); background: var(--bg); }
+  .d .side { background: var(--bg); border-right: 1px solid var(--line); padding: 14px 8px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .d .side .logo { width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg, #E5F0FC, #B7D3F2); margin-bottom: 12px; }
+  .d .side .ico { width: 36px; height: 36px; border-radius: 8px; display: grid; place-items: center; color: var(--muted); font-size: 15px; font-weight: 400; }
+  .d .side .ico:hover { background: var(--line); }
+  .d .side .ico.active { background: var(--accent); color: var(--paper); }
+  .d .side .avatar { margin-top: auto; width: 28px; height: 28px; border-radius: 999px; background: var(--line-2); }
+  .d .main { display: flex; flex-direction: column; position: relative; background: var(--bg); }
+  .d .topbar { padding: 14px 36px; display: flex; align-items: center; gap: 12px; }
+  .d .topbar .project { font-size: 12px; color: var(--mute-2); font-family: var(--mono); font-weight: 400; }
+  .d .topbar .project b { color: var(--ink); font-weight: 500; }
+  .d .topbar .right { margin-left: auto; display: flex; gap: 8px; }
+  .d .topbar .right .pill { padding: 5px 11px; border: 1px solid var(--line); border-radius: 999px; font-size: 12px; font-weight: 400; color: var(--muted); background: var(--paper); }
+  .d .feed { flex: 1; overflow: auto; padding: 32px 0 140px; display: flex; flex-direction: column; gap: 28px; max-width: 760px; width: 100%; margin: 0 auto; padding-left: 20px; padding-right: 20px; box-sizing: border-box; }
+  .d .inputwrap { position: absolute; left: 0; right: 0; bottom: 24px; display: grid; place-items: center; padding: 0 20px; }
+  .d .inputbar { width: 100%; max-width: 760px; background: var(--paper); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px 10px; box-shadow: 0 8px 24px rgba(9,9,11,0.06); }
+  .d .inputbar input { width: 100%; border: none; outline: none; font-size: 15px; font-family: var(--ui); font-weight: 400; background: transparent; padding: 4px 0 10px; color: var(--ink); }
+  .d .inputbar input::placeholder { color: var(--mute-2); font-weight: 300; }
+  .d .inputbar .tools { display: flex; align-items: center; gap: 8px; }
+  .d .inputbar .tool { padding: 5px 10px; background: #F5F5F5; border-radius: 999px; font-size: 12px; font-weight: 400; color: var(--muted); display: flex; align-items: center; gap: 5px; }
+  .d .inputbar .tools .grow { flex: 1; }
+  .d .inputbar .send { padding: 7px 14px; border-radius: 999px; background: var(--accent); color: var(--paper); font-size: 13px; font-weight: 500; border: none; cursor: pointer; font-family: var(--ui); }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="crumb"><a href="À valider demain.html">← retour à l'index</a></div>
+    <h1 class="page">D · Chat Copilot</h1>
+    <p class="lede">Version retenue : rail latéral 56px + canvas centré max 760px. Historique accessible via ⌘K, focus sur la conversation. Typo <b>A</b> appliquée : Helvetica Neue, corps en 300, titres en 400, chiffres et actions en 500.</p>
+
+    <div class="card-ref">
+      <div class="card-head">
+        <span class="num">D · Choix retenu</span>
+        <h2>Claude.ai-like — rail icônes + canvas centré</h2>
+        <span class="pill">Validé ✓</span>
+      </div>
+      <div class="frame">
+        <div class="frame-inner">
+          <div class="d">
+            <aside class="side">
+              <div class="logo"></div>
+              <div class="ico active">◆</div>
+              <div class="ico">☰</div>
+              <div class="ico">◳</div>
+              <div class="ico">⌕</div>
+              <div class="avatar"></div>
+            </aside>
+            <main class="main">
+              <div class="topbar">
+                <div class="project">Projet · <b>Boutique Desbois</b></div>
+                <div class="right">
+                  <span class="pill">Devis 500 cartes velours</span>
+                  <span class="pill">Partager</span>
+                </div>
+              </div>
+              <div class="feed">
+                <div class="msg msg-user">Je veux 500 cartes de visite en 350g velours, pelliculage soft touch, recto-verso quadri.</div>
+                <div class="msg msg-ai">
+                  <h4>Votre estimation</h4>
+                  <p>Voilà pour 500 cartes en 350g velours avec soft touch R/V :</p>
+                  <div class="gen-card">
+                    <div class="gen-card-head">
+                      <h5>Cartes Royal velours · 500 ex.</h5>
+                      <div class="price">78€</div>
+                    </div>
+                    <div class="specs">
+                      <span>350g velours</span><span>Soft touch R/V</span><span>85×55mm</span><span>72h presse</span>
+                    </div>
+                    <div class="gen-card-actions">
+                      <button class="gen-btn gen-btn-primary">Ajouter au panier</button>
+                      <button class="gen-btn">Voir le détail</button>
+                    </div>
+                  </div>
+                  <p style="margin-top:14px;">Options courantes : coins arrondis <strong>+4€</strong>, dorure à chaud <strong>+28€</strong>, tranche dorée <strong>+18€</strong>.</p>
+                </div>
+                <div class="msg msg-user">Ajoute les coins arrondis.</div>
+                <div class="msg msg-ai"><p>Ajusté. <strong>82€</strong> total, livraison <strong>72h</strong> ouvrées. Je calcule le BAT papier ?</p></div>
+              </div>
+              <div class="inputwrap">
+                <div class="inputbar">
+                  <input placeholder="Répondre à Magrit…"/>
+                  <div class="tools">
+                    <span class="tool">Joindre</span>
+                    <span class="tool">Dicter</span>
+                    <span class="grow"></span>
+                    <button class="send">↑ Envoyer</button>
+                  </div>
+                </div>
+              </div>
+            </main>
+          </div>
+        </div>
+      </div>
+      <div class="spec">
+        <span><b>Chrome</b> rail 56px + titre projet</span>
+        <span><b>Max-width msg</b> 760px</span>
+        <span><b>Typo</b> Helvetica Neue 300/400/500</span>
+        <span><b>Historique</b> ⌘K uniquement (discoverable via rail)</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

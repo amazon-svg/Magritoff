@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { Settings } from "lucide-react";
-import logoImage from "figma:asset/48de195d09839b5e2071e781c31fa390056b1db8.png";
+import { MagritLogo } from "./brand/MagritLogo";
 import { DiagnosticPanel } from "./DiagnosticPanel";
+import { CartButton } from "./CartButton";
 import { useConversation } from "../contexts/ConversationContext";
 import { AuthMenu } from "./auth/AuthMenu";
 
@@ -26,8 +27,8 @@ export function Header() {
             className="flex items-center gap-2 cursor-pointer"
             aria-label="Retour à l'accueil et sauvegarde de la conversation en cours"
           >
-            <img src={logoImage} alt="Magrit" className="w-8 h-8 rounded-lg" />
-            <span className="font-semibold text-gray-900">Magrit</span>
+            <MagritLogo size={30} />
+            <span className="text-ink" style={{ fontWeight: 500, letterSpacing: '-0.01em' }}>Magrit</span>
           </button>
 
           <div className="flex items-center gap-2">
@@ -38,9 +39,7 @@ export function Header() {
             >
               <Settings className="w-4 h-4" />
             </button>
-            <button className="px-6 py-2 bg-yellow-400 hover:bg-yellow-500 text-gray-900 rounded text-sm font-medium">
-              Calculer le prix
-            </button>
+            <CartButton variant="pill" />
             <AuthMenu />
           </div>
         </div>
