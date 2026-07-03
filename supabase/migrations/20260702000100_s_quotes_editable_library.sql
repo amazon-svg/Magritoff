@@ -62,9 +62,12 @@ select
   q.product_config,
   greatest(coalesce((q.product_config->>'quantity')::int, 1), 1),
   0,                              -- cout inconnu retroactivement
-  coalesce(q.total_ht, 0),        -- prix vente = total_ht historique
+  -- prix vente UNITAIRE = forfait historique / quantite (modele lineaire
+  -- editable : quantite * prix = total). Sans la division, editer la quantite
+  -- ferait exploser le total (qte * forfait).
+  round(coalesce(q.total_ht, 0) / greatest(coalesce((q.product_config->>'quantity')::int, 1), 1), 2),
   0,                              -- marge inconnue (cout 0)
-  coalesce(q.total_ht, 0),
+  coalesce(q.total_ht, 0),        -- line_total = forfait historique (exact)
   0,
   q.created_at
 from public.quotes q
