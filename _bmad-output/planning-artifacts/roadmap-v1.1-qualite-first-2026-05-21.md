@@ -247,6 +247,25 @@ CREATE INDEX ON tenant_order_roles (order_id);
 
 ---
 
+## Épic post-roadmap — S-QUOTES : Bibliothèque de devis éditables (livré 2026-07-02)
+
+**Hors roadmap qualité-first initiale** (roadmap Sprints 5-9 close). Demande directe Arnaud 2026-07-02 : rendre les devis éditables après génération. Livré en 6 stories sur `beta/v5`, migration appliquée prod B5, 624 tests verts. Voir story docs `_bmad-output/implementation-artifacts/story-S-QUOTES-*.md` + `SPRINT_HANDOFF.md` §17.
+
+| Story | Périmètre | État | Effort |
+|---|---|---|---|
+| **S-QUOTES-1** | Schema `quote_lines` + ALTER `quotes` (client_name, updated_at, CHECK statut) + RLS override admin + tests RLS (6 cas) | 🟢 livré (migration appliquée prod) | S |
+| **S-QUOTES-2** | `quoteMath` (synchro prix/marge, markup sur coût) + `QuotesContext` (scope mine/all) + AppShell | 🟢 livré | M |
+| **S-QUOTES-3** | Éditeur `DashboardQuoteEditor` (lignes éditables, réordonnancement, statut, impression) + route + testIds | 🟢 livré | L |
+| **S-QUOTES-4** | Bouton « Créer un devis » depuis le panier (CartButton) | 🟢 livré | S |
+| **S-QUOTES-5** | Bibliothèque `DashboardQuotes` : 3 statuts, scope Mes/Tous, actions ligne | 🟢 livré | M |
+| **S-QUOTES-6** | Statut = UPDATE simple + procédure smoke E2E acheteur | 🟢 livré (doc) | S |
+
+**Décisions clés** : devis multi-lignes (nouvelle table) · **marge sur coût (markup)** confirmée Arnaud 2026-07-02 · création depuis panier · statut `text` + CHECK rétro-compatible (mapping 3 groupes UI) · RLS calquée sur `tenant_orders`.
+
+**Reste (non bloquant)** : cahiers de tests Notion TF-QUOTES (en cours), smoke E2E Chrome MCP, résolution nom émetteur (id court actuellement), sémantique marge validée.
+
+---
+
 ## Liens
 
 - Rétrospective Sprint 4 : [retrospective-sprint4-2026-05-20.md](../implementation-artifacts/retrospective-sprint4-2026-05-20.md)
