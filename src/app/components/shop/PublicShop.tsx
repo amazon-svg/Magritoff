@@ -634,6 +634,7 @@ export function PublicShop() {
           onReorder={(p) => addToCart(p, 1)}
           pimGammes={pimGammes}
           pimDefinitions={pimDefinitions}
+          cart={cart}
         />
       )}
 

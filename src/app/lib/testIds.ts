@@ -52,6 +52,10 @@ export const TEST_IDS = {
   },
   dashboard: {
     welcomeCard: 'dashboard-welcome-card',
+    // S2.16 — Page "Devis en attente" (sous-menu de Devis, option C)
+    pendingQuotes: 'dashboard-pending-quotes',
+    pendingQuoteRow: 'dashboard-pending-quote-row',
+    pendingQuoteResumeBtn: 'dashboard-pending-quote-resume-btn',
   },
 
   // ─── P02 — Gestion utilisateurs ───────────────────────────────────────
@@ -202,6 +206,9 @@ export const TEST_IDS = {
     productCardAttrChip: 'product-card-attr-chip',
     // S2.15 — Bloc Nouveautes sur la home boutique (derniers produits integres)
     homeNewProducts: 'shop-home-new-products',
+    // S2.16 — Bloc "Votre panier en cours" sur la home boutique (reprise, option C)
+    homeCartResume: 'shop-home-cart-resume',
+    homeCartResumeBtn: 'shop-home-cart-resume-btn',
     // S2.2 — Sidebar gammes depliables persistantes (Epic 2)
     gammesList: 'shop-gammes-list',
     gammeRow: 'shop-gamme-row',

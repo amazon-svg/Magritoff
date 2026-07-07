@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { resolveNewProducts } from '../../src/app/utils/shopHomeSections';
+import { resolveNewProducts, summarizeCartResume } from '../../src/app/utils/shopHomeSections';
 
 const p = (id: string, created_at?: string) =>
   ({ id, created_at }) as { id: string; created_at?: string };
@@ -35,5 +35,31 @@ describe('shopHomeSections — resolveNewProducts', () => {
   it('place les produits sans date en fin (jamais en tête de Nouveautés)', () => {
     const list = [p('nodate'), p('recent', '2026-05-01T00:00:00Z')];
     expect(resolveNewProducts(list as never, 4).map((x) => x.id)).toEqual(['recent', 'nodate']);
+  });
+});
+
+// ─── S2.16 — Panier en cours / reprise (home boutique) ──────────────────────
+
+const line = (price_ht: number | null | undefined, qty: number) =>
+  ({ product: { price_ht }, qty }) as { product: { price_ht?: number | null }; qty: number };
+
+describe('shopHomeSections — summarizeCartResume (S2.16)', () => {
+  it('retourne null si le panier est vide (repli AC3, section masquée)', () => {
+    expect(summarizeCartResume([])).toBeNull();
+  });
+
+  it('compte les lignes, la somme des quantités et le total HT', () => {
+    const cart = [line(10, 2), line(5, 3)]; // 20 + 15
+    expect(summarizeCartResume(cart)).toEqual({ lineCount: 2, itemCount: 5, totalHT: 35 });
+  });
+
+  it('ignore les prix manquants/invalides sans casser le total', () => {
+    const cart = [line(undefined, 2), line(null, 1), line(8, 2)]; // seul 8*2 compte
+    expect(summarizeCartResume(cart)).toEqual({ lineCount: 3, itemCount: 5, totalHT: 16 });
+  });
+
+  it('ignore les quantités non positives dans itemCount et le total', () => {
+    const cart = [line(10, 0), line(10, -3), line(10, 2)];
+    expect(summarizeCartResume(cart)).toEqual({ lineCount: 3, itemCount: 2, totalHT: 20 });
   });
 });
