@@ -131,8 +131,28 @@ Découpage du PRD (46 FR + 28 NFR) et de l'Architecture v1.1 (15 décisions stru
 | FR44 | DoD globale (toute story ajoute cas TF Notion) |
 | FR45 | DoD globale (testid stables) |
 | FR46 | DoD globale (centralisation `testIds.ts`) |
+| FR-ECOM-01 | S2.11 (bandeau catégorie couleur-codé) |
+| FR-ECOM-02 | S2.12 (badges d état commercial) |
+| FR-ECOM-03 | S2.13 (puces attributs PIM) |
+| FR-ECOM-04 | S2.14 (mockup-signature de famille) |
+| FR-ECOM-05 | S2.15 (bloc Nouveautés home) |
+| FR-ECOM-06 | S2.16 (devis en cours + reprise home) |
+| FR-ECOM-07 | S2.17 (best-sellers secteur) + ADR §4.14 |
+| FR-ECOM-08 | S2.18 (méga-menu 2 niveaux) |
+| FR-ECOM-09 | S2.19 (fil d Ariane + facettes légères) |
+| FR-ECOM-10 | S2.20 (landing catégorie éditorialisée) |
+| FR-ECOM-11 | S2.21 (recherche + fallback Magrit) + ADR §4.15 |
+| FR-ECOM-12 | S2.22 (nav intention IA) |
+| FR-ECOM-13 | S2.23 (cross-sell home Magrit) |
+| FR-ECOM-14 | S2.24 (product finder guidé) |
+| FR-ECOM-15 | S2.25 (auto-génération descriptions/SEO) |
+| FR-ECOM-16 | S2.26 (fiche rassurance B2B) |
+| FR-ECOM-17 | S2.27 (paliers de prix dégressifs) |
+| FR-ECOM-18 | S2.28 (Magrit vendeur sur fiche) |
+| FR-ECOM-19 | S2.29 (favoris/listes récurrentes) + ADR §4.13 |
+| FR-ECOM-20 | S2.31 (consolidation admin boutique) |
 
-**Couverture vérifiée : 46/46 FR ont au moins une story v1.1 OU sont déjà livrées en sprints précédents.**
+**Couverture vérifiée : 46/46 FR v1.1 + 20/20 FR-ECOM ont au moins une story OU sont déjà livrées en sprints précédents.**
 
 ---
 
@@ -347,7 +367,7 @@ So that toute story aval Epic 3 (user-facing commandes) puisse s'appuyer sur des
 
 ## Epic 2 — Boutique B2B Premium Experience
 
-**Goal :** Refondre la boutique `/shop/:slug` du proto v1 (Beta 3) vers un portail B2B premium digne des standards d'achat pros 2026 — layout 3 colonnes dark mode, header brandé tenant, catalogue par gammes persistantes, ProductCard avec overlay configuration Clariprint, home enrichie, multi-sélection, comparateur, actions groupées. C'est l'epic le plus volumineux (10 stories) parce que tout converge sur les mêmes fichiers `src/components/shop/*` (consolidation justifiée).
+**Goal :** Refondre la boutique `/shop/:slug` du proto v1 (Beta 3) vers un portail B2B premium digne des standards d'achat pros 2026 — layout 3 colonnes dark mode, header brandé tenant, catalogue par gammes persistantes, ProductCard avec overlay configuration Clariprint, home enrichie, multi-sélection, comparateur, actions groupées. C'est l'epic le plus volumineux (10 stories socle S2.1-S2.10 **+ 20 stories extension e-commerce standard S2.11-S2.31**, cf. section « Extension Epic 2 » ci-après) parce que tout converge sur les mêmes fichiers `src/components/shop/*` (consolidation justifiée).
 
 ### Story S2.1 — ShopLayout 3 colonnes + dark mode + header brandé
 
@@ -582,6 +602,455 @@ So que je gagne du temps sur les commandes multi-produits.
 
 **Effort :** M.
 **FR couverts :** FR35.
+
+---
+
+## Extension Epic 2 — Boutique standard e-commerce (brainstorming 2026-07-06)
+
+> **Origine :** session brainstorming `_bmad-output/brainstorming/brainstorming-session-2026-07-03-1105.md` (facilitée Mary, cross-pollination Mixam/Onlineprinters/Exaprint + role playing). Objectif Arnaud : rapprocher la boutique des codes e-commerce standard sans casser l ADN Magrit (IA native, deviseur, multi-tenant).
+>
+> **Décisions d architecture actées** (opposables à toutes les stories ci-dessous) :
+> 1. Card = 1 produit configurable (options dans la fiche/overlay S2.4) → filtres LÉGERS uniquement.
+> 2. Nav identique acheteur et deviseur/atelier.
+> 3. Home unique loggé/non-loggé (affichage adaptatif).
+> 4. Boutique neuve = pré-remplie par l opérateur (pas de state vide à gérer).
+> 5. PAS de paramétrage manuel opérateur → intelligence DANS LA DONNÉE (PIM + bibliothèques + historique commandes).
+> 6. Un seul template général de boutique.
+> 7. Rôles = réutilise l existant (S-ORDER-ROLES), pas d extension.
+> 8. Écran admin boutique existant → à consolider (S2.31).
+>
+> **Réutilisation existant (NE PAS refaire) :** re-commande 1-clic = **S3.3 livré** · Mes commandes = **S3.1 livré** (enrichi ici via note S3.1+) · affectation PIM→boutique = **livré** (shop_products + A4 + bibliothèques) · mockups = **Epic 4 + pivot P18 livrés** · comparateur = **S2.9 déjà spécifié** (à coder, non dupliqué) · home dernières commandes + paniers = **S2.7 déjà spécifié** (étendu ici via S2.16).
+>
+> **FR couverts :** ces stories sont net-neuf au-delà du PRD v1.1 (FR1-46). Marquées `FR-ECOM-*` (à intégrer au PRD lors du prochain `bmad-edit-prd`).
+>
+> **Séquencement en 5 sprints** (respect DoD : 3-5 stories/sprint, split si > 3j) :
+> - **Sprint E1 Lisibilité produit** : S2.11 · S2.12 · S2.13 · S2.14
+> - **Sprint E2 Home utile** : S2.15 · S2.16 · S2.17 (+ note S3.1+)
+> - **Sprint E3 Navigation** : S2.18 · S2.19 · S2.20 · S2.21
+> - **Sprint E4 Différenciateurs IA** : S2.22 · S2.23 · S2.24 · S2.25
+> - **Sprint E5 Fiche & confort B2B** : S2.26 · S2.27 · S2.28 · S2.29 (+ activation S2.9)
+> - **Transverse** : S2.31 (consolidation admin, à démarrer par un audit)
+
+### Story S2.11 — Bandeau catégorie couleur-codé + pictogramme signature
+
+As an **acheteur B2B**,
+I want que chaque produit affiche un repère visuel de sa famille (couleur + pictogramme) cohérent partout,
+So that j identifie la catégorie d un produit en une seconde sans lire le titre.
+
+**Acceptance Criteria :**
+
+**Given** un référentiel de familles (Cartes, Flyers, Grand format, PLV, Packaging...) avec une couleur + un pictogramme par famille, dérivé du PIM (pas de saisie manuelle par boutique)
+**When** une ProductCard rend dans la grille
+**Then** un liseré coloré + le pictogramme de la famille sont affichés sur la carte
+**And** le même repère apparaît sur la fiche produit, dans le panier et dans l historique commande (cohérence de bout en bout)
+
+**Given** une famille sans couleur/pictogramme défini au PIM
+**When** la carte rend
+**Then** un repère neutre par défaut est appliqué (pas de carte cassée)
+
+**Effort :** S.
+**FR couverts :** FR-ECOM-01.
+**Dépendances :** consomme le référentiel familles PIM ; testIds `shop-card-category-badge` (à déclarer dans `testIds.ts`).
+
+### Story S2.12 — Badges d état commercial sur ProductCard
+
+As an **acheteur B2B**,
+I want repérer d un coup d œil les produits nouveaux, best-sellers, éco ou en délai express,
+So that je priorise ma sélection sans ouvrir chaque fiche.
+
+**Acceptance Criteria :**
+
+**Given** un produit avec des attributs commerciaux DÉRIVÉS des données (date d ajout récente, volume de commandes, délai Clariprint, tag éco PIM)
+**When** la ProductCard rend
+**Then** les badges applicables (`Nouveau` / `Meilleure vente` / `Éco` / `Express 24h`) s affichent avec un vocabulaire visuel partagé par catégorie
+**And** aucun badge n est saisi manuellement — tous sont calculés (règle « intelligence dans la donnée »)
+
+**Given** un produit sans attribut commercial notable
+**When** la carte rend
+**Then** aucun badge n est affiché (pas de bruit visuel)
+
+**Effort :** S.
+**FR couverts :** FR-ECOM-02.
+**Dépendances :** seuils (récence, volume best-seller) → **audit prod avant heuristique** (DoD principe 4) ; réutilisé par S2.15 (nouveautés) et S2.17 (best-sellers).
+
+### Story S2.13 — Puces attributs PIM scan sur ProductCard
+
+As an **acheteur B2B**,
+I want voir les 3 attributs clés d un produit directement sur sa carte,
+So que je compare rapidement les produits d une même famille sans ouvrir chaque fiche.
+
+**Acceptance Criteria :**
+
+**Given** un produit dont le PIM porte des attributs normalisés par catégorie (ex Flyer : format / grammage / finition)
+**When** la ProductCard rend
+**Then** jusqu à 3 puces d attributs clés (définies par famille) s affichent sous le titre
+**And** les puces sont comparables d un produit à l autre de la même famille
+
+**Given** des attributs PIM manquants
+**When** la carte rend
+**Then** seules les puces disponibles s affichent (pas de puce vide)
+
+**Effort :** S.
+**FR couverts :** FR-ECOM-03.
+**Dépendances :** réutilise les 9 champs PIM (mémoire `feedback_pim_marketing_card`) ; NE PAS créer d onglet — enrichit la card + l onglet Fiche existant.
+
+### Story S2.14 — Mockup-signature de famille comme identité catégorie
+
+As an **acheteur B2B**,
+I want que le visuel d un produit reflète le type d objet imprimé de sa famille de façon normalisée,
+So que je reconnaisse l objet (carte, flyer, kakémono, boîte...) avant même de lire.
+
+**Acceptance Criteria :**
+
+**Given** les mockups pré-brandés P18 v2 (7 gabarits livrés) et l objectif d extension à toutes les gammes
+**When** une famille ne dispose pas encore de son mockup-signature
+**Then** un fallback générique par famille est utilisé (pas de card sans visuel)
+**And** le backlog d extension mockups (affiches, banderoles, enveloppes, sacs, goodies, packaging...) est tracé comme dépendance visuelle
+
+**Given** un mockup-signature disponible pour la famille
+**When** la ProductCard et le méga-menu (S2.18) rendent
+**Then** le mockup-signature est utilisé comme identifiant visuel de catégorie
+
+**Effort :** S (code) — dépend de la production visuelle (hors code).
+**FR couverts :** FR-ECOM-04.
+**Dépendances :** consomme Epic 4 (`MockupImage` S4.3) + pipeline P18 v2 ; ne recode PAS le moteur mockup.
+
+### Story S2.15 — Bloc « Nouveautés catalogue » sur la home
+
+As an **acheteur B2B**,
+I want voir les derniers produits ajoutés à ma boutique dès la home,
+So que j aie une raison de revenir et que je découvre ce qui bouge.
+
+**Acceptance Criteria :**
+
+**Given** une boutique dont le catalogue reçoit de nouveaux produits (affectation PIM/bibliothèque)
+**When** l acheteur arrive sur la home `/shop/:slug`
+**Then** un carrousel « Nouveautés » affiche les N derniers produits intégrés, triés par date d ajout desc, avec badge `Nouveau` (S2.12)
+**And** le tri est DÉRIVÉ de la donnée (date d ajout), sans réglage opérateur
+
+**Given** une boutique sans ajout récent
+**When** la home rend
+**Then** le bloc se replie proprement (pas de section vide béante)
+
+**Effort :** S.
+**FR couverts :** FR-ECOM-05.
+**Dépendances :** cohérent avec S2.7 (home) ; badge S2.12.
+
+### Story S2.16 — Home : devis en cours + reprise (extension S2.7)
+
+As an **acheteur B2B**,
+I want retrouver sur la home mes devis en attente et mon panier non finalisé,
+So que je reprenne mes affaires en cours en un clic.
+
+**Acceptance Criteria :**
+
+**Given** l acheteur a des devis (bibliothèque S-QUOTES livrée) au statut « en cours »
+**When** la home rend
+**Then** une section « Vos devis en attente » liste les devis avec nom client, montant, date, et bouton « Reprendre » (ouvre l éditeur devis)
+**And** la section panier non finalisé de S2.7 reste présente
+
+**Given** aucun devis ni panier en cours
+**When** la home rend
+**Then** la section ne s affiche pas
+
+**Effort :** S.
+**FR couverts :** FR-ECOM-06.
+**Dépendances :** étend S2.7 ; réutilise S-QUOTES (`QuotesContext`, `DashboardQuoteEditor`).
+
+### Story S2.17 — Bloc « Best-sellers de votre secteur »
+
+As an **acheteur B2B**,
+I want voir les produits les plus commandés par des boutiques de mon secteur,
+So que je m inspire des choix éprouvés sans configuration.
+
+**Acceptance Criteria :**
+
+**Given** l historique de commandes multi-tenant et le secteur du tenant courant (ex industrie/retail)
+**When** la home rend
+**Then** un bloc « Best-sellers de votre secteur » affiche les produits les plus commandés par des profils similaires, calculé automatiquement
+**And** aucune curation manuelle n est requise (inféré des données)
+
+**Given** volume de données insuffisant pour inférer un secteur
+**When** la home rend
+**Then** un fallback « Produits populaires » (best-sellers globaux boutique) est affiché
+
+**Effort :** M.
+**FR couverts :** FR-ECOM-07.
+**Dépendances :** **audit prod** (volume commandes, définition secteur) avant heuristique (DoD principe 4) ; anti-fuite cross-tenant (agrégat anonymisé, RLS).
+
+### Story S2.18 — Méga-menu 2 niveaux illustré
+
+As an **acheteur B2B**,
+I want un menu de navigation qui montre familles + sous-catégories avec un visuel,
+So que je vois toute l arborescence sans multiplier les clics.
+
+**Acceptance Criteria :**
+
+**Given** un catalogue structuré en familles + sous-catégories (dérivé PIM)
+**When** l acheteur survole/ouvre une famille dans le menu
+**Then** un panneau affiche les sous-catégories en colonnes + une vignette vedette (mockup-signature S2.14)
+**And** le méga-menu s auto-illustre depuis les données (pas de configuration boutique)
+
+**Given** navigation clavier + lecteur d écran
+**When** l acheteur parcourt le méga-menu
+**Then** l accessibilité AA est respectée (focus visible, aria) — DoD principe 10 (route acheteur)
+
+**Effort :** M.
+**FR couverts :** FR-ECOM-08.
+**Dépendances :** coexiste/relaie la sidebar gammes S2.2 ; consomme S2.14.
+
+### Story S2.19 — Fil d Ariane + filtres à facettes légers
+
+As an **acheteur B2B**,
+I want un fil d Ariane et quelques filtres simples pour affiner la liste,
+So que je me repère et réduis le catalogue sans repartir de zéro.
+
+**Acceptance Criteria :**
+
+**Given** une page catégorie/grille produits
+**When** elle rend
+**Then** un fil d Ariane `Accueil > Famille > Sous-catégorie` est affiché et cliquable
+**And** un panneau de filtres LÉGERS (famille, usage/intention, délai, gamme de prix) généré depuis le PIM est disponible
+**And** les filtres n incluent PAS les variantes techniques fines (car card = produit configurable, décision archi 1)
+
+**Given** une combinaison de filtres sans résultat
+**When** l acheteur applique les filtres
+**Then** un état vide clair propose de réinitialiser ou « Demander à Magrit » (pont vers S2.21)
+
+**Effort :** M.
+**FR couverts :** FR-ECOM-09.
+**Dépendances :** facettes dérivées PIM ; pont Magrit S2.21.
+
+### Story S2.20 — Landing catégorie éditorialisée
+
+As an **acheteur B2B**,
+I want qu ouvrir une famille m amène sur une page structurée, pas une grille brute,
+So que je comprenne l offre et trouve vite la bonne sous-catégorie.
+
+**Acceptance Criteria :**
+
+**Given** l acheteur clique une famille depuis le méga-menu ou la home
+**When** la landing catégorie rend
+**Then** elle affiche un titre + intro courte + sous-catégories en tuiles + best-sellers + la grille produits
+**And** les contenus éditoriaux (intro, SEO/GEO) proviennent du PIM ou sont auto-générés (S2.25) — jamais de page vide
+
+**Given** une famille sans contenu éditorial saisi
+**When** la landing rend
+**Then** le fallback auto-généré (S2.25) est utilisé
+
+**Effort :** M.
+**FR couverts :** FR-ECOM-10.
+**Dépendances :** contenu auto S2.25 ; champs PIM marketing/SEO/GEO.
+
+### Story S2.21 — Recherche produits + autocomplétion + fallback Magrit
+
+As an **acheteur B2B**,
+I want une barre de recherche qui suggère produits et catégories, et bascule sur Magrit si rien ne matche,
+So que je ne tombe jamais dans un cul-de-sac.
+
+**Acceptance Criteria :**
+
+**Given** l acheteur saisit une requête dans la barre de recherche
+**When** il tape ≥ 2 caractères
+**Then** des suggestions instantanées (produits, familles) s affichent
+**And** un clic mène au produit/à la catégorie
+
+**Given** aucune correspondance
+**When** la recherche ne retourne rien
+**Then** un fallback « Demander à Magrit » ouvre le chat pré-rempli avec la requête (réutilise l IA conversationnelle existante)
+
+**Effort :** M.
+**FR couverts :** FR-ECOM-11.
+**Dépendances :** réutilise Magrit chat + wrapper `anthropicClient` ; index de recherche dérivé PIM.
+
+### Story S2.22 — Navigation par intention/usage pilotée IA
+
+As an **acheteur B2B**,
+I want des entrées de navigation par usage (« Pour un salon », « Ouvrir un commerce »...),
+So que je trouve des produits par besoin, pas seulement par famille technique.
+
+**Acceptance Criteria :**
+
+**Given** le catalogue et les données PIM
+**When** Magrit classe les produits par usage/intention (automatiquement, pas de rangement manuel)
+**Then** des regroupements transverses par intention sont proposés dans la navigation
+**And** ces regroupements se maintiennent seuls quand le catalogue grandit (re-classement IA)
+
+**Given** un produit multi-usages
+**When** le classement s exécute
+**Then** il peut apparaître dans plusieurs regroupements d intention
+
+**Effort :** L → **à scinder** (S2.22a classement IA batch + S2.22b UI navigation) si estimé > 3j (DoD principe 7).
+**FR couverts :** FR-ECOM-12.
+**Dépendances :** IA (Sonnet raisonnement) ; différenciateur vs benchmarks.
+
+### Story S2.23 — Cross-sell home « Magrit vous suggère »
+
+As an **acheteur B2B**,
+I want des suggestions produits contextuelles basées sur mon historique,
+So que je découvre des compléments pertinents sans chercher.
+
+**Acceptance Criteria :**
+
+**Given** l historique de commandes réel du tenant/acheteur
+**When** la home rend pour un acheteur avec historique
+**Then** un bloc « Magrit vous suggère » propose du cross-sell contextuel (ex : flyers salon → kakémonos assortis), déduit des séquences de commande réelles
+**And** aucune règle de cross-sell n est saisie manuellement (inférence IA/données)
+
+**Given** un acheteur sans historique
+**When** la home rend
+**Then** le bloc bascule sur une suggestion générique (best-sellers S2.17) ou se masque
+
+**Effort :** M.
+**FR couverts :** FR-ECOM-13.
+**Dépendances :** historique commandes ; anti-fuite cross-tenant ; phare home (avec S3.3).
+
+### Story S2.24 — Product finder guidé (wizard)
+
+As an **acheteur B2B qui ne sait pas quoi choisir**,
+I want répondre à 2-3 questions pour obtenir une recommandation produit,
+So que je décide vite sans connaître le vocabulaire imprimeur.
+
+**Acceptance Criteria :**
+
+**Given** l acheteur ouvre « Je ne sais pas quoi choisir »
+**When** il répond aux questions (usage / quantité / délai)
+**Then** Magrit recommande 1 à 3 produits pertinents avec justification courte
+**And** un CTA mène directement à la configuration (overlay S2.4)
+
+**Given** des réponses incompatibles (ex délai express + très grande quantité)
+**When** la reco s exécute
+**Then** Magrit explique l arbitrage et propose la meilleure option disponible
+
+**Effort :** M.
+**FR couverts :** FR-ECOM-14.
+**Dépendances :** IA structurée (`anthropicCompleteStructured`) ; Magrit en mode wizard.
+
+### Story S2.25 — Auto-génération descriptions catégorie/SEO par Magrit
+
+As an **imprimeur-opérateur**,
+I want que les descriptions de catégorie et champs SEO/GEO manquants soient rédigés automatiquement,
+So que mes pages ne soient jamais vides sans que j aie à écrire du contenu.
+
+**Acceptance Criteria :**
+
+**Given** une famille/landing (S2.20) sans intro ni champs SEO/GEO saisis
+**When** la page est demandée
+**Then** Magrit génère un contenu éditorial + méta SEO/GEO à partir du PIM, mis en cache
+**And** l opérateur peut override (le généré est un défaut, pas un verrou)
+
+**Given** un contenu déjà saisi manuellement au PIM
+**When** la page rend
+**Then** le contenu saisi prime (pas d écrasement)
+
+**Effort :** M.
+**FR couverts :** FR-ECOM-15.
+**Dépendances :** IA génération (Haiku rapide) ; alimente S2.20.
+
+### Story S2.26 — Fiche produit « rassurance B2B »
+
+As an **acheteur B2B**,
+I want voir délais, BAT/échantillon, garanties et contacts sur la fiche,
+So que j achète en confiance sur un produit imprimé.
+
+**Acceptance Criteria :**
+
+**Given** une fiche produit
+**When** elle rend
+**Then** un bloc rassurance affiche délais chiffrés (Clariprint), option BAT/échantillon, garanties, et moyens de contact
+**And** les données proviennent du PIM/Clariprint (pas de texte codé en dur)
+
+**Given** une donnée de rassurance indisponible
+**When** la fiche rend
+**Then** l élément concerné est masqué proprement (pas de « N/A »)
+
+**Effort :** M.
+**FR couverts :** FR-ECOM-16.
+**Dépendances :** `ClariprintAdapter` pour délais ; champs PIM.
+
+### Story S2.27 — Paliers de prix dégressifs affichés
+
+As an **acheteur B2B**,
+I want voir l effet volume sur le prix unitaire sans ouvrir le configurateur,
+So que je saisisse la valeur d une commande plus grande d un coup d œil.
+
+**Acceptance Criteria :**
+
+**Given** un produit avec paliers de quantité
+**When** la card/fiche rend
+**Then** un mini-tableau quantité → prix unitaire est affiché, calculé via `resolvePrice` (hiérarchie clariprint > library_cached > prix_marche > zero)
+**And** la source de prix est signalée (badge « Prix marché » le cas échéant, cf. concept prix marché)
+
+**Given** aucun prix disponible (zero)
+**When** la card/fiche rend
+**Then** le tableau est masqué et un CTA « Demander un devis » est proposé
+
+**Effort :** S.
+**FR couverts :** FR-ECOM-17.
+**Dépendances :** `priceResolver.ts` existant ; anomalies Clariprint filtrées (`validateClariprintResponse`).
+
+### Story S2.28 — Magrit vendeur sur la fiche produit
+
+As an **acheteur B2B**,
+I want poser une question sur un produit directement depuis sa fiche,
+So que j obtienne une réponse contextualisée sans quitter la page.
+
+**Acceptance Criteria :**
+
+**Given** une fiche produit
+**When** l acheteur clique « Poser une question sur ce produit »
+**Then** le chat Magrit s ouvre pré-chargé du contexte produit (délais, options, prix, PIM)
+**And** les réponses restent dans le périmètre du produit consulté
+
+**Effort :** S.
+**FR couverts :** FR-ECOM-18.
+**Dépendances :** réutilise Magrit chat + contexte produit ; fil rouge IA de la boutique.
+
+### Story S2.29 — Favoris / listes d achat récurrentes
+
+As an **acheteur B2B**,
+I want créer des listes nommées de produits ré-commandables,
+So que je gère mes ré-appros récurrents en lot.
+
+**Acceptance Criteria :**
+
+**Given** un acheteur connecté
+**When** il ajoute des produits à une liste nommée (ex « Papeterie agence », « Salon 2026 »)
+**Then** la liste est persistée par utilisateur/tenant (RLS)
+**And** il peut ré-commander toute la liste en lot (crée un panier/devis multi-produits)
+
+**Given** un produit d une liste retiré du catalogue
+**When** l acheteur ouvre la liste
+**Then** l item est signalé indisponible sans casser la liste
+
+**Effort :** M.
+**FR couverts :** FR-ECOM-19.
+**Dépendances :** capitalise sur re-commande S3.3 ; nouvelle table `shop_wishlists` (à valider par Winston).
+
+### Story S2.31 — Consolidation de l écran d admin boutique
+
+As an **imprimeur-opérateur**,
+I want un écran d admin boutique clair et fiable pour monter/gérer la boutique d un client,
+So que je publie une boutique par simple affectation de produits, sans paramétrage complexe.
+
+**Acceptance Criteria :**
+
+**Given** l écran d admin boutique existant (tableau de bord) — livré partiellement (A4 hero/tagline/palette, tarif per-shop, bibliothèques)
+**When** on démarre la story
+**Then** un **audit préalable** cartographie l existant (surfaces, dettes, incohérences) AVANT toute refonte (DoD principe 4 étendu)
+**And** la consolidation privilégie l affectation de produits PIM→boutique (décision archi 5) et retire/évite tout paramétrage manuel superflu (pas de merchandising manuel, pas de drag & drop, pas de templates par secteur — idées #21/#22/#24 écartées en séance)
+
+**Given** l opérateur monte une boutique client
+**When** il affecte des produits depuis le PIM/bibliothèques
+**Then** la boutique se peuple et les blocs home (nouveautés/best-sellers) se remplissent automatiquement (dérivés données)
+
+**Effort :** M → **à scinder** après audit (le périmètre exact sort de l audit).
+**FR couverts :** FR-ECOM-20.
+**Dépendances :** audit d abord ; s appuie sur shop_products + A4 + bibliothèques existants.
+
+> **Note S3.1+ (enrichissement, pas nouvelle story Epic 2) :** enrichir `OrderHistoryTable` (S3.1 livré) avec statuts visuels (En prod / Expédié / Livré) + tracking + bouton recommander déjà présent (S3.3). À traiter comme ajustement contextuel de S3.1 lors du Sprint E2, pas comme story XL.
+>
+> **Note comparateur :** l idée #18 (comparateur côte-à-côte) = **story S2.9 déjà spécifiée** ci-dessus. À coder au Sprint E5 (activation), pas de nouvelle story.
 
 ---
 

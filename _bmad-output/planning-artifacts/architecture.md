@@ -633,6 +633,141 @@ tenant_order_status_definitions  [S-ORDER-ROLES-1 01/06]
 
 ---
 
+### 4.13 Favoris / listes d achat récurrentes (S2.29, FR-ECOM-19)
+
+> **ADR-WISHLIST-1** — Décision Winston 2026-07-06, extension Epic 2 boutique e-commerce standard (brainstorming 2026-07-03).
+
+**Contexte** : l acheteur B2B fait majoritairement du ré-appro. Il doit pouvoir grouper des produits en listes nommées (« Papeterie agence », « Salon 2026 ») et re-commander toute la liste en lot (crée un panier/devis multi-produits, réutilise re-commande S3.3).
+
+**Décision — 2 tables relationnelles, PAS de JSONB** :
+
+```sql
+create table public.shop_wishlists (
+  id           uuid primary key default gen_random_uuid(),
+  tenant_id    uuid not null references public.tenants(id) on delete cascade,
+  shop_id      uuid not null references public.shops(id)   on delete cascade,
+  user_id      uuid not null references auth.users(id)     on delete cascade,
+  name         text not null check (char_length(name) between 1 and 80),
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now()
+);
+
+create table public.shop_wishlist_items (
+  id                  uuid primary key default gen_random_uuid(),
+  wishlist_id         uuid not null references public.shop_wishlists(id) on delete cascade,
+  library_product_id  uuid not null,   -- même référentiel que shop_product_pricing (A4.5)
+  position            int  not null default 0,
+  created_at          timestamptz not null default now(),
+  unique (wishlist_id, library_product_id)
+);
+create index on public.shop_wishlist_items (wishlist_id, position);
+```
+
+**RLS — liste strictement personnelle (l admin ne voit PAS les listes des autres)** :
+
+```sql
+alter table public.shop_wishlists enable row level security;
+alter table public.shop_wishlist_items enable row level security;
+
+-- Le propriétaire gère ses listes, dans une boutique à laquelle il a accès
+create policy shop_wishlists_own on public.shop_wishlists for all
+  using  (user_id = auth.uid() and public.current_user_can_access_shop(shop_id))
+  with check (user_id = auth.uid() and public.current_user_can_access_shop(shop_id));
+
+-- Items héritent du parent
+create policy shop_wishlist_items_own on public.shop_wishlist_items for all
+  using (exists (select 1 from public.shop_wishlists w
+                 where w.id = wishlist_id and w.user_id = auth.uid()));
+```
+
+**Trade-offs (honnêtes)** :
+- **JSONB `items[]` sur une seule table** aurait suffi pour un MVP. Écarté car (a) le ré-appro en lot + le contrôle de disponibilité par item (produit retiré du catalogue) se font naturellement en relationnel ; (b) cohérence avec la posture anti-JSONB déjà actée §4.12. Le surcoût de la 2e table est marginal.
+- **Scope personnel vs partagé** : décidé **personnel** (Rule of Three — pas de besoin exprimé de listes d équipe). Si un besoin « liste partagée tenant » émerge (3e occurrence), on ajoutera une colonne `visibility` sans casser le schéma.
+- **`library_product_id` non contraint par FK** : aligné sur `shop_product_pricing` (A4.5) qui référence déjà ce même identifiant sans FK dure (le référentiel bibliothèque n est pas une table `public` unique). À réconcilier si le référentiel se stabilise.
+
+**Pattern à respecter** : re-commande en lot = réutilise le chemin S3.3 (`renew-order`) itéré sur les items, PAS une nouvelle logique de création de commande.
+
+**Tests** : `tests/rls/shop_wishlists_isolation.test.ts` — min 5 cas (cross-user SELECT bloqué, cross-shop bloqué, owner CRUD ok, items héritent, superadmin ne bypasse PAS le caractère personnel — à trancher : `is_super_admin()` volontairement absent de la policy).
+
+### 4.14 Best-sellers par secteur — agrégat cross-tenant anonymisé (S2.17, FR-ECOM-07)
+
+> **ADR-BESTSELLER-SECTOR-1** — Décision Winston 2026-07-06. **La plus sensible des trois : agrégation cross-tenant → risque de fuite NFR6.**
+
+**Contexte** : la home doit afficher « best-sellers de votre secteur » inféré de l historique multi-tenant. Deux exigences en tension : valeur du signal (comparaison inter-tenant) vs isolation stricte (un tenant ne doit RIEN pouvoir déduire des commandes d un autre).
+
+**Décision — 3 briques** :
+
+1. **Définition « secteur » = déterministe, pas manuelle.** Ajout `tenants.sector_code text` (division NAF/APE, granularité **coarse** ex « 18 Imprimerie », « 47 Commerce détail »), **dérivé du SIREN** déjà validé au wizard `/tenants/new` (INSEE). Aucun réglage opérateur (principe « intelligence dans la donnée »). Nullable → fallback si absent.
+
+2. **Agrégat pré-calculé + k-anonymité.** Vue matérialisée (ou table rafraîchie par job) `sector_bestsellers` :
+```sql
+-- (sketch) rank des produits par secteur, avec garde k-anonymité
+create materialized view public.sector_bestsellers as
+select t.sector_code,
+       i.library_product_id,
+       count(*)                              as order_count,
+       count(distinct o.tenant_id)           as tenant_cardinality,
+       rank() over (partition by t.sector_code order by count(*) desc) as rnk
+from public.tenant_order_items i
+join public.tenant_orders o on o.id = i.order_id
+join public.tenants t       on t.id = o.tenant_id
+where t.sector_code is not null
+group by t.sector_code, i.library_product_id;
+```
+**Garde anti-fuite non-négociable** : n exposer une ligne QUE si `tenant_cardinality >= K` (min K tenants distincts) **et** `order_count >= M`. Sinon le « best-seller secteur » révélerait le comportement d un tenant quasi-unique. K et M **à fixer après audit prod** (DoD #4) — aujourd hui la prod est petite (~11 commandes 01/06), donc **fort risque que le secteur soit sous le seuil → fallback quasi-systématique au démarrage**, c est acceptable et attendu.
+
+3. **Exposition via RPC SECURITY DEFINER uniquement.** La MV n est PAS sélectionnable par le client (pas de policy SELECT publique). Seule `get_sector_bestsellers(p_shop_id uuid)` (SECURITY DEFINER) résout le `sector_code` du tenant appelant, applique le filtre k-anonymité, et intersecte avec le catalogue de la boutique (produits réellement présents). Retourne des `library_product_id` + rang, **jamais** de `tenant_id` ni de compteur brut par tenant.
+
+**Fallback** (S2.17 AC) : si secteur sous seuil ou `sector_code` null → « Produits populaires » = best-sellers **de la boutique elle-même** (agrégat intra-shop, zéro cross-tenant, aucun risque).
+
+**Rafraîchissement** : `refresh materialized view concurrently` en job nocturne (pg_cron ou edge function schedulée). Les best-sellers n ont aucun besoin de temps réel — on évite la charge.
+
+**Trade-offs** :
+- **NAF/APE vs secteur manuel vs inférence produit** : NAF gagne (déterministe, déjà collecté au SIREN, zéro friction). Inconvénient : granularité INSEE parfois grossière — acceptable pour un signal « inspiration », pas une reco critique.
+- **MV pré-calculée vs requête à la volée** : MV gagne (isole la logique d anonymisation en un seul point auditable, perf home garantie). Coût : léger décalage de fraîcheur (nuit) — non-problème métier.
+
+**Tests** : `tests/rls/sector_bestsellers_isolation.test.ts` — la MV n est jamais lisible en direct ; la RPC ne fuite aucun `tenant_id` ; un secteur sous seuil K/M retourne le fallback ; deux tenants de secteurs différents ne voient pas les mêmes données.
+
+### 4.15 Recherche produits + fallback Magrit (S2.21, FR-ECOM-11)
+
+> **ADR-SEARCH-1** — Décision Winston 2026-07-06. **Boring technology : Postgres, pas de moteur de recherche externe.**
+
+**Contexte** : barre de recherche avec autocomplétion sur le catalogue boutique, fallback « Demander à Magrit » si zéro résultat. Le catalogue = PIM `product_definitions` (public, §4.9) restreint aux produits affectés à la boutique.
+
+**Décision — full-text Postgres natif** :
+
+```sql
+-- Colonne de recherche générée sur le PIM public (§4.9)
+alter table public.product_definitions
+  add column search_vector tsvector
+  generated always as (
+    to_tsvector('french',
+      coalesce(title,'') || ' ' || coalesce(description,'') || ' ' ||
+      coalesce(array_to_string(usage_examples,' '),''))
+  ) stored;
+create index on public.product_definitions using gin (search_vector);
+-- Autocomplétion floue (fautes de frappe, préfixes)
+create extension if not exists pg_trgm;
+create index on public.product_definitions using gin (title gin_trgm_ops);
+```
+
+Exposition via RPC `search_shop_products(p_shop_id uuid, p_query text)` : matche `search_vector @@ websearch_to_tsquery('french', p_query)`, **intersecte avec le catalogue de la boutique** (jointure `shop_products`/bibliothèque affectée au `shop_id`), classe par `ts_rank` + similarité trigram, limite N. La recherche hérite de la RLS boutique (on ne retourne que des produits que l appelant peut voir dans cette boutique).
+
+**Fallback Magrit** : purement contrat front. Quand la RPC retourne 0 ligne, le front ouvre le chat Magrit pré-rempli de `p_query` (réutilise l IA conversationnelle + `anthropicClient`). **Aucune brique backend nouvelle** pour le fallback.
+
+**Trade-offs** :
+- **Postgres FTS + pg_trgm vs Typesense/Algolia** : Postgres gagne largement à cette échelle (centaines de produits/boutique, milliers au PIM). Un moteur externe = nouvelle infra, nouveau secret, nouvelle sync — violation « boring technology » sans bénéfice avant un ordre de grandeur supérieur. Rule of Three : on migrera si/quand le volume l exige.
+- **Colonne générée `stored` vs trigger** : `generated ... stored` gagne (pas de trigger à maintenir, cohérence garantie par le moteur). Coût : léger surcoût d écriture sur `product_definitions` — négligeable (catalogue peu volatil).
+- **`french` config** : suppose un catalogue FR (cas Magrit). Multi-langue = évolution future (colonne par langue) si un tenant l exige.
+
+**Tests** : `tests/rls/search_shop_products.test.ts` — la recherche ne retourne que des produits de la boutique ciblée (pas de fuite du PIM complet), respecte l accès `current_user_can_access_shop`, et 0 résultat déclenche bien le contrat fallback (assert côté hook front).
+
+### 4.16 Note d harmonisation des helpers RLS
+
+Les ADR §4.13-§4.15 utilisent les helpers **canoniques** de `project-context.md §3.3` : `public.is_super_admin()`, `public.current_user_can_access_shop(shop_id)`, `public.current_user_tenant_ids()`, `public.user_role_in_tenant(tenant_id)`. Les exemples plus anciens (§4.2 : `is_superadmin_magrit()`, `current_user_has_permission()`) reflètent une nomenclature antérieure — **toute nouvelle policy utilise les noms canoniques**. Réconciliation des anciens noms tracée comme dette (non bloquante).
+
+---
+
 ## Step 5 — Implementation Patterns & Consistency Rules
 
 > _Ces patterns ciblent **la cohérence inter-agent** : si Claude code, GitHub Copilot ou un dev humain implémentent en parallèle, ils doivent produire du code interchangeable._
