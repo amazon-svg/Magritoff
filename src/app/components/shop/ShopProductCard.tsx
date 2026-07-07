@@ -28,6 +28,29 @@ import {
   type MockupTemplateType,
 } from "../mockup/customMockup.helpers";
 import { resolveMockupTemplate } from "./ShopProductCard.helpers";
+// S2.11 (FR-ECOM-01) — Identite de famille : liseré + picto + libellé, tonalité
+// semantique CONSTANTE inter-tenant (pas thémée par la boutique).
+import {
+  resolveFamilyIdentity,
+  FAMILY_ICON,
+} from "../../utils/productFamilyIdentity";
+// S2.12 (FR-ECOM-02) — Badges commerciaux calcules (data-driven, cap 2, priorite).
+import {
+  resolveCommercialBadges,
+  isRecentlyAdded,
+  BADGE_META,
+  type BadgeTone,
+} from "../../utils/productCommercialBadges";
+// S2.13 (FR-ECOM-03) — Puces attributs PIM (reutilise les resolvers existants).
+import { resolveProductChips } from "../../utils/productAttributeChips";
+
+/** S2.12 — Tonalite semantique -> couleurs (tokens design, neutre inter-tenant). */
+const BADGE_TONE_STYLE: Record<BadgeTone, { background: string; color: string }> = {
+  ok: { background: "var(--ok-bg)", color: "var(--ok-fg)" },
+  warn: { background: "var(--warn-bg)", color: "var(--warn-fg)" },
+  info: { background: "var(--info-bg)", color: "var(--info-fg)" },
+  accent: { background: "var(--accent)", color: "var(--accent-ink)" },
+};
 // P18 v2 (2026-06-24) — Resolver unifie : image curée (produit / PIM) si
 // definie, sinon visuel produit pré-brandé Magrit de la famille. Meme logique
 // que la home + la fiche produit.
@@ -72,6 +95,19 @@ export function ShopProductCard({
   pimGammes,
 }: ShopProductCardProps) {
   const template = useMemo(() => resolveMockupTemplate(product), [product]);
+  // S2.11 — Identite de famille (template + libellé + tonalité) pour le repère.
+  const family = useMemo(() => resolveFamilyIdentity(product), [product]);
+  const FamilyIcon = FAMILY_ICON[family.template];
+  // S2.12 — Badges commerciaux. Seul "Nouveau" a une data source aujourd'hui
+  // (created_at). Eco/Express/Meilleure vente : flags false tant que le schema
+  // ne porte pas la donnee (badges inactifs = conforme "aucun badge si rien").
+  // NB fenetre "Nouveau" = NEW_PRODUCT_WINDOW_DAYS (AUDIT-PENDING, DoD #4).
+  const commercialBadges = useMemo(
+    () => resolveCommercialBadges({ isNew: isRecentlyAdded(product.created_at) }),
+    [product.created_at],
+  );
+  // S2.13 — Puces attributs PIM (max 3, data-driven) via les resolvers existants.
+  const attrChips = useMemo(() => resolveProductChips(product), [product]);
   // P18 v2 (2026-06-24) — Image curée (produit / PIM) si definie, sinon visuel
   // produit pré-brandé Magrit de la famille (fallback universel boutique).
   const productImage = useMemo(
@@ -128,8 +164,27 @@ export function ShopProductCard({
       data-testid={TEST_IDS.shop.productCard}
       data-product-id={product.id}
       className={`group bg-paper border border-transparent rounded-lg overflow-hidden cursor-pointer hover:border-line transition-colors ${className ?? ""}`}
+      style={{ borderLeft: `3px solid ${family.tone}` }}
       onClick={() => onCardClick?.(product)}
     >
+      {/* ─── S2.11 Bandeau famille : liseré (border-left) + picto + libellé.
+          Repère sémantique NEUTRE (tonalité constante inter-tenant). Jamais la
+          couleur seule → picto + libellé + aria-label (a11y DoD #10). ──────── */}
+      <div
+        data-testid={TEST_IDS.shop.productCardCategoryBadge}
+        data-family={family.template}
+        aria-label={`Famille ${family.label}`}
+        className="flex items-center gap-1.5 px-2.5 pt-2 pb-1"
+      >
+        <FamilyIcon size={13} strokeWidth={2} style={{ color: family.tone }} aria-hidden="true" />
+        <span
+          className="font-mono uppercase text-ink-muted"
+          style={{ fontSize: "9.5px", letterSpacing: "0.08em", fontWeight: 600 }}
+        >
+          {family.label}
+        </span>
+      </div>
+
       {/* ─── Visuel mockup paramatique ───────────────────────────── */}
       <div
         className="aspect-[4/3] overflow-hidden rounded-lg relative"
@@ -165,8 +220,33 @@ export function ShopProductCard({
           />
         </div>
 
+        {/* S2.12 — Badges commerciaux calcules, coin haut-droit (zone d'attention
+            e-commerce). Cap 2, priorite geree par resolveCommercialBadges. */}
+        {commercialBadges.length > 0 && (
+          <div className="absolute top-2.5 right-2.5 flex flex-col items-end gap-1">
+            {commercialBadges.map((kind) => (
+              <span
+                key={kind}
+                data-testid={TEST_IDS.shop.productCardCommercialBadge}
+                data-badge-kind={kind}
+                className="font-mono uppercase px-2 py-1 rounded"
+                style={{
+                  fontSize: "9.5px",
+                  letterSpacing: "0.06em",
+                  fontWeight: 600,
+                  ...BADGE_TONE_STYLE[BADGE_META[kind].tone],
+                }}
+              >
+                {BADGE_META[kind].label}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Label gamme PIM relocalise en bas-gauche (le repere famille S2.11 occupe
+            desormais le haut de card ; on libere le coin haut-droit pour les badges). */}
         <span
-          className="absolute top-2.5 right-2.5 font-mono uppercase px-2 py-1 rounded bg-ink text-paper"
+          className="absolute bottom-2.5 left-2.5 font-mono uppercase px-2 py-1 rounded bg-ink text-paper"
           style={{ fontSize: "10px", letterSpacing: "0.08em", fontWeight: 500 }}
         >
           {categoryLabel}
@@ -194,6 +274,24 @@ export function ShopProductCard({
           >
             {product.description}
           </p>
+        )}
+
+        {/* S2.13 — Puces attributs PIM (max 3, scan rapide, comparables). */}
+        {attrChips.length > 0 && (
+          <ul className="flex flex-wrap gap-1 m-0 p-0 list-none">
+            {attrChips.map((chip) => (
+              <li
+                key={chip.label}
+                data-testid={TEST_IDS.shop.productCardAttrChip}
+                data-attr={chip.label}
+                title={chip.label}
+                className="font-mono px-1.5 py-0.5 rounded-sm border border-line text-ink-2 bg-bg"
+                style={{ fontSize: "10px", letterSpacing: "0.01em", fontWeight: 500 }}
+              >
+                {chip.value}
+              </li>
+            ))}
+          </ul>
         )}
 
         {/* S-FIX-BTNS-11/05 (bug #2b Arnaud) : prix sur sa propre ligne pour

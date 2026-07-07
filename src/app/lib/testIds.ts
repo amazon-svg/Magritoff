@@ -194,6 +194,12 @@ export const TEST_IDS = {
     // S2.3 — ShopProductCard avec MockupImage parametrique (Epic 2)
     productCardConfigureBtn: 'product-card-configure-btn',
     productCardSelectCheckbox: 'product-card-select-checkbox',
+    // S2.11 — Bandeau categorie couleur-code + picto famille (Epic 2 ext e-commerce)
+    productCardCategoryBadge: 'product-card-category-badge',
+    // S2.12 — Badges d'etat commercial calcules (Nouveau/Meilleure vente/Eco/Express)
+    productCardCommercialBadge: 'product-card-commercial-badge',
+    // S2.13 — Puces attributs PIM scan sur la card (format/grammage/finition...)
+    productCardAttrChip: 'product-card-attr-chip',
     // S2.2 — Sidebar gammes depliables persistantes (Epic 2)
     gammesList: 'shop-gammes-list',
     gammeRow: 'shop-gamme-row',
