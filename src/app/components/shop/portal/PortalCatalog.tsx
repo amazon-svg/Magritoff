@@ -74,6 +74,9 @@ function configToEphemeralShopProduct(config: any, index: number): ShopProduct {
     } as any,
     display_order: index,
     created_at: new Date().toISOString(),
+    // ADR-4.17 : gamme explicite renvoyee par le LLM (display.gamme) -> le badge,
+    // le repere famille et le filtrage restent coherents pour les resultats IA.
+    gamme_slug: (d.gamme as string | undefined) ?? null,
   } as ShopProduct;
 }
 

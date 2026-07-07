@@ -106,6 +106,7 @@ function generateDemoConfigs(userMessage: string): any[] {
         },
         display: {
           productName: "Cartes de visite",
+          gamme: "carterie",
           quantity: qty,
           format: "85 × 55 mm (format standard)",
           support: "Papier couché brillant",
@@ -153,6 +154,7 @@ function generateDemoConfigs(userMessage: string): any[] {
         },
         display: {
           productName: `Flyers ${isA4 ? "A4" : "A5"}${isVerso ? " recto-verso" : ""}`,
+          gamme: "flyer",
           quantity: qty,
           format: isA4 ? "A4 (210 × 297 mm)" : "A5 (148 × 210 mm)",
           support: "Papier couché brillant",
@@ -202,6 +204,7 @@ function generateDemoConfigs(userMessage: string): any[] {
         },
         display: {
           productName: `Brochure A4 ${pages} pages`,
+          gamme: "brochure",
           quantity: qty,
           format: `A4 (210 × 297 mm) — ${pages} pages`,
           support: "Couverture couché brillant 250g | Intérieur offset 135g",
@@ -247,6 +250,7 @@ function generateDemoConfigs(userMessage: string): any[] {
         },
         display: {
           productName: `Affiches ${isA0 ? "A0" : isA1 ? "A1" : isA3 ? "A3" : "A2"}`,
+          gamme: "affiche",
           quantity: qty,
           format: isA0 ? "A0 (841 × 1189 mm)" : isA1 ? "A1 (594 × 841 mm)" : isA3 ? "A3 (297 × 420 mm)" : "A2 (420 × 594 mm)",
           support: "Papier couché brillant",
@@ -292,6 +296,7 @@ function generateDemoConfigs(userMessage: string): any[] {
         },
         display: {
           productName: "Dépliant 3 volets A4",
+          gamme: "depliant",
           quantity: qty,
           format: "A4 plié en 3 (210 × 297 mm → 99 × 210 mm fermé)",
           support: "Papier couché brillant",
@@ -334,6 +339,7 @@ function generateDemoConfigs(userMessage: string): any[] {
       },
       display: {
         productName: "Impression A4",
+        gamme: "flyer",
         quantity: qty,
         format: "A4 (210 × 297 mm)",
         support: "Papier offset blanc",
@@ -397,6 +403,7 @@ FORMAT DE RÉPONSE OBLIGATOIRE :
       },
       "display": {
         "productName": "Flyers A5 recto-verso",
+        "gamme": "flyer",
         "quantity": 1000,
         "format": "A5 (148 × 210 mm)",
         "support": "Papier couché brillant",
@@ -416,6 +423,20 @@ FORMAT DE RÉPONSE OBLIGATOIRE :
     }
   ]
 }
+
+GAMME / FAMILLE (champ display.gamme — OBLIGATOIRE, décision Arnaud 2026-07-07, ADR-4.17) :
+Pour CHAQUE produit, renseigne "display.gamme" avec le slug EXACT de sa famille.
+C'est la CATÉGORIE (nature du produit) qui détermine la gamme — JAMAIS le format
+(une affiche A2 et une affiche A1 sont toutes deux "affiche"). Valeurs autorisées :
+- "carterie" — cartes de visite, cartes de correspondance, cartes de vœux
+- "flyer" — flyers, tracts, prospectus (feuilles plates non pliées)
+- "affiche" — affiches, posters (tous formats A3→A0)
+- "depliant" — dépliants, plaquettes pliées (2/3 volets)
+- "brochure" — brochures, catalogues, livrets, magazines (multi-pages reliés)
+- "etiquette" — étiquettes, stickers, autocollants, adhésifs (tous formats)
+- "kakemono" — kakémonos, roll-ups
+- "banderole" — banderoles, bâches, oriflammes
+- "packaging" — packaging, emballage, boîtes, étuis, coffrets, pochettes (carton et matériaux d'emballage)
 
 VALEURS "kind" :
 - "leaflet" → tout imprimé plat non plié : flyer, carte de visite, affiche, tract, bulletin de vote
