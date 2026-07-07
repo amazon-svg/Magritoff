@@ -20,7 +20,7 @@
 
 import type { ShopProduct } from "../../contexts/ShopsContext";
 import type { Gamme } from "../../utils/productEnrichment";
-import { resolveGamme } from "../../utils/productEnrichment";
+import { resolveProductGamme } from "../../utils/productEnrichment";
 
 export const NO_GAMME_KEY = "__no_gamme__";
 export const EXPANDED_GAMMES_KEY_PREFIX = "magrit_shop_expanded_gammes__";
@@ -37,9 +37,9 @@ export function groupProductsByGamme(
 ): Map<string, ShopProduct[]> {
   const map = new Map<string, ShopProduct[]>();
   for (const product of products) {
-    // S-FIX-BADGES-11/05 (bug #4) : on passe `product.name` pour disambiguer
-    // les chevauchements de matching_rules (kakemono pris pour flyer, etc.).
-    const gamme = resolveGamme(product.config, gammes, product.name);
+    // ADR-4.17 : la catégorie explicite (gamme_slug) prime ; sinon disambiguation
+    // par nom/règles (resolveProductGamme délègue à resolveGamme en repli).
+    const gamme = resolveProductGamme(product, gammes);
     const key = gamme?.slug ?? NO_GAMME_KEY;
     const list = map.get(key);
     if (list) {

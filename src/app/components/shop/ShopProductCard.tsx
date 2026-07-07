@@ -21,7 +21,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Shop, ShopProduct } from "../../contexts/ShopsContext";
 import type { Gamme, ProductDefinition } from "../../utils/productEnrichment";
-import { resolveGamme } from "../../utils/productEnrichment";
+import { resolveProductGamme } from "../../utils/productEnrichment";
 import { TEST_IDS } from "../../lib/testIds";
 import {
   resolveCustomMockup,
@@ -119,6 +119,7 @@ export function ShopProductCard({
           | undefined,
         clariprintData: product.config,
         category: product.category,
+        gamme_slug: product.gamme_slug,
         gammes: pimGammes,
       }),
     [product, pimGammes],
@@ -149,9 +150,9 @@ export function ShopProductCard({
   const gammeName = useMemo(() => {
     if (!pimGammes || pimGammes.length === 0) return null;
     // S-FIX-BADGES-11/05 (bug #4) : passer product.name pour disambiguer
-    const gamme = resolveGamme(product.config, pimGammes, product.name);
+    const gamme = resolveProductGamme(product, pimGammes);
     return gamme?.name ?? null;
-  }, [product.config, product.name, pimGammes]);
+  }, [product.config, product.name, product.gamme_slug, pimGammes]);
   const isRawClariprintKind = product.category &&
     /^(leaflet|folded|book|cover|section)$/i.test(product.category);
   const categoryLabel = gammeName

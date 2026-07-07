@@ -24,7 +24,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { Gamme } from './productEnrichment';
-import { resolveGamme } from './productEnrichment';
+import { resolveProductGamme } from './productEnrichment';
 import { resolveFamilyIdentity, FAMILY_ICON } from './productFamilyIdentity';
 
 export interface ShopFamily {
@@ -85,11 +85,11 @@ export function rootGammeOf(gamme: Gamme, bySlug: Map<string, Gamme>): Gamme {
  * ne matche aucune gamme — cas où le méga-menu ne le référence pas non plus.
  */
 export function resolveShopFamily(
-  product: { config?: unknown; name?: string; category?: string; kind?: string },
+  product: { config?: unknown; name?: string; category?: string; kind?: string; gamme_slug?: string | null },
   gammes: Gamme[] = [],
 ): ShopFamily {
   if (gammes.length > 0) {
-    const gamme = resolveGamme((product as { config?: unknown }).config, gammes, product.name);
+    const gamme = resolveProductGamme(product, gammes);
     if (gamme) {
       const bySlug = new Map(gammes.map((g) => [g.slug, g]));
       const root = rootGammeOf(gamme, bySlug);

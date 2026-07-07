@@ -1172,6 +1172,23 @@ Architecture v1.1 finalisée :
 
 ---
 
+### §4.17 ADR-CATEGORY-1 — Catégorie produit explicite autoritaire (gamme_slug)
+
+> **Décision Arnaud 2026-07-07.** « Le format ne doit pas interférer dans la catégorie d'un produit — c'est sa catégorie qui détermine ce qu'il est », cohérente **partout** (PIM, fiche produit, badge carte, méga-menu, pilules, filtres).
+
+**Problème** : la classification historique (`resolveGamme`) dérive la famille de la **taille** (leaflet découpé par `size_range`). Un autocollant A5 tombait donc en « Flyers ». De plus, le badge carte (S2.11) tirait des 7 familles « mockup » (pas de famille « Affiches ») → contradiction badge ≠ menu ≠ gamme.
+
+**Décision** :
+1. **Champ autoritaire** : `product_library.gamme_slug` + `shop_products.gamme_slug` (FK `product_gammes.slug`, nullable, `ON DELETE SET NULL`). C'est LA catégorie du produit. La **famille = gamme racine** de ce slug.
+2. **Résolveur unique** `resolveProductGamme(product, gammes)` (`productEnrichment.ts`) : `gamme_slug` explicite **prime** (le format n'intervient jamais) ; repli sur `resolveGamme` (règles/taille) uniquement si `gamme_slug` est NULL.
+3. **Cohérence partout** : tous les consommateurs passent par `resolveProductGamme` (grouping pilules/méga-menu, `resolveShopFamily` badge carte, filtre catalogue, fiche produit, images).
+4. **Repère visuel** unifié via `shopFamilyIdentity` (couleur/picto par gamme racine, 9 familles PIM dont Affiches/Banderoles). Les 7 familles « mockup » ne servent plus qu'au VISUEL (image produit), pas à la catégorie.
+5. **Peuplement** : seed initial one-shot `gamme_slug` par inférence NOM (famille) + format (sous-gamme), revu avant application. Packaging laissé NULL (pas de gamme dédiée). Édition ultérieure dans le PIM (`S-CAT-EDIT`, suivi).
+
+**Migrations** : `20260707000100` (colonnes + FK + index), `20260707000200` (seed revu). **PAT requis.**
+
+---
+
 🏗️ **Architecture Magrit / e-shop v1.1 — terminée.**
 
 > _Le code suit l'architecture, pas l'inverse. Toute déviation des décisions ci-dessus doit être documentée et justifiée. Mettre à jour ce document si la planification évolue._

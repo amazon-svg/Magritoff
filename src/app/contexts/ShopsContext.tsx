@@ -59,6 +59,12 @@ export interface ShopProduct {
   created_at?: string;
   /** R4 : tenant_id ajoute par migration 20260424_02. */
   tenant_id?: string | null;
+  /**
+   * ADR-4.17 (2026-07-07) : categorie explicite AUTORITAIRE (FK product_gammes.slug).
+   * Quand renseignee, elle prime sur la resolution par format/taille partout
+   * (badge, mega-menu, pilules, filtres). Null = repli resolution par regles.
+   */
+  gamme_slug?: string | null;
 }
 
 const DEFAULT_THEME: ShopTheme = {

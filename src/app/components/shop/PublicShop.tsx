@@ -121,6 +121,7 @@ export function PublicShop() {
             config: p.config || {},
             display_order: 0,
             created_at: p.created_at,
+            gamme_slug: p.gamme_slug ?? null,
           })) as ShopProduct[];
       }
     }

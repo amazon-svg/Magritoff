@@ -2,7 +2,7 @@ import { X, Plus, Minus, MapPin, AlertTriangle } from 'lucide-react';
 import type { CartLine, BudgetInfo } from './types';
 import { resolveProductImage } from '../../../utils/productImages';
 import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
-import { resolveGamme } from '../../../utils/productEnrichment';
+import { resolveProductGamme } from '../../../utils/productEnrichment';
 import { ProductMockup } from '../../brand/ProductMockup';
 import { TEST_IDS } from '../../../lib/testIds';
 import { resolvePrice } from '../../../utils/priceResolver';
@@ -220,7 +220,7 @@ export function PortalCart({
                         // pour ~90% des products library).
                         const gammeLabel = (() => {
                           if (pimGammes && pimGammes.length > 0) {
-                            const g = resolveGamme(line.product.config, pimGammes, line.product.name);
+                            const g = resolveProductGamme(line.product, pimGammes);
                             if (g?.name) return g.name;
                           }
                           const cat = line.product.category;
