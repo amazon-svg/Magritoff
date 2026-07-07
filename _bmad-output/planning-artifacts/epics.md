@@ -738,6 +738,8 @@ So que j aie une raison de revenir et que je découvre ce qui bouge.
 
 ### Story S2.16 — Home : devis en cours + reprise (extension S2.7)
 
+> **⚠️ Rescope requis (audit 2026-07-07)** : `QuotesProvider` est monté dans `AppShell` (dashboard/atelier), **pas dans `PublicShop`** (portail boutique = Auth + Tenant seulement). Les devis S-QUOTES sont un concept **atelier**, pas acheteur → « devis en cours » ne peut pas s afficher sur la home boutique sans changement d archi. Décision à prendre : (a) cibler la **home dashboard/atelier** pour le bloc devis ; (b) monter `QuotesProvider` dans le portail ; (c) scinder — « panier/reprise » sur la home boutique, « devis en cours » sur le dashboard. **En attente d arbitrage avant dev.**
+
 As an **acheteur B2B**,
 I want retrouver sur la home mes devis en attente et mon panier non finalisé,
 So que je reprenne mes affaires en cours en un clic.
@@ -758,6 +760,8 @@ So que je reprenne mes affaires en cours en un clic.
 **Dépendances :** étend S2.7 ; réutilise S-QUOTES (`QuotesContext`, `DashboardQuoteEditor`).
 
 ### Story S2.17 — Bloc « Best-sellers de votre secteur »
+
+> **⏸️ REPORTÉE (audit 2026-07-07, décision Arnaud)** : `tenants.siren_data` est **vide** sur les 33 tenants → aucun signal secteur (NAF). La dimension « secteur » de l ADR §4.14 n a pas de source de données. De plus `tenant_order_items.product_id` est NULL (produit = `product_label` texte). Report jusqu à ce qu un signal secteur existe (enrichissement INSEE du `siren_data`). Le fallback « Populaires intra-boutique » (top `product_label` par volume) reste buildable si besoin ultérieur. Cf. addendum ADR §4.14.
 
 As an **acheteur B2B**,
 I want voir les produits les plus commandés par des boutiques de mon secteur,

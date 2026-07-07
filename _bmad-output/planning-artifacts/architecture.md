@@ -728,6 +728,15 @@ group by t.sector_code, i.library_product_id;
 
 **Tests** : `tests/rls/sector_bestsellers_isolation.test.ts` — la MV n est jamais lisible en direct ; la RPC ne fuite aucun `tenant_id` ; un secteur sous seuil K/M retourne le fallback ; deux tenants de secteurs différents ne voient pas les mêmes données.
 
+> **⚠️ Addendum audit prod 2026-07-07 (S2.12/S2.17, DoD #4) — invalide une partie des hypothèses ci-dessus :**
+> 1. **Pas de signal secteur** : `tenants.siren_data` est renseigné sur les 33 tenants mais **vide** (aucune clé JSON, pas de code NAF/APE exploitable). La brique « `sector_code` dérivé du SIREN » **n a pas de source de données**. → La dimension « secteur » de S2.17 est **reportée** jusqu à ce qu un signal existe (enrichissement INSEE du `siren_data`, ou autre).
+> 2. **Référence produit = `tenant_order_items.product_label` (texte)** : `product_id` est **NULL sur les 17 lignes** de commande. L identité produit vit dans `product_label` + `clariprint_options` (JSONB). L agrégat doit grouper par `product_label`, pas par `product_id`/`library_product_id`.
+> 3. **Volume négligeable** (17 items, ~8 labels distincts, top = « Affiches A2 brillantes » ×7) : toute k-anonymité par secteur suppr­imerait tout → fallback systématique.
+>
+> **Décision (pivot, à valider Arnaud) :** livrer S2.17 en **« Populaires » intra-boutique** = top `product_label` par volume de commandes de la boutique (zéro cross-tenant, zéro secteur, zéro fuite). Simple RPC/agrégat sur `tenant_orders` + `tenant_order_items`, **pas de MV `sector_bestsellers` ni de colonne `sector_code`** tant que le signal secteur n existe pas. La cible §4.14 (secteur k-anonymisé) reste tracée pour quand la donnée secteur sera disponible.
+>
+> **Impact S2.12 badge « Meilleure vente » :** même source (`product_label`), même report de branchement au mécanisme « Populaires » ci-dessus. **Badge « Nouveau »** : `shop_products` ne contient qu **1 produit** en prod → impossible de calibrer une fenêtre de récence ; `NEW_PRODUCT_WINDOW_DAYS = 30` conservé comme défaut prudent documenté (audit fait, données insuffisantes). **Éco / Express** : `shop_products.config` ne porte que `paper` + `format` → aucune source, badges inactifs confirmés.
+
 ### 4.15 Recherche produits + fallback Magrit (S2.21, FR-ECOM-11)
 
 > **ADR-SEARCH-1** — Décision Winston 2026-07-06. **Boring technology : Postgres, pas de moteur de recherche externe.**

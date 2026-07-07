@@ -31,8 +31,14 @@ group by 1 order by 2 desc limit 30;
 2. [x] testId `productCardCommercialBadge` dans `testIds.ts`.
 3. [x] Câblage `ShopProductCard.tsx` : overlay badges top-right image ; `Nouveau` branché sur `created_at`+fenêtre ; autres badges rendus si flag (inactifs faute de data).
 4. [x] build + test verts.
-5. [ ] **Audit prod (1)/(2)/(3)** — requiert PAT Supabase → Arnaud. Puis figer la fenêtre + brancher best-seller.
-6. [ ] TF Notion TF-S2.12.
+5. [x] **Audit prod fait 2026-07-07** (résultats ci-dessous). TF-S2.12 créé.
+
+## Résultats audit prod 2026-07-07 (DoD #4)
+- **(1) Récence** : `shop_products` ne contient qu **1 produit** (créé il y a 30-60 j). **Données insuffisantes pour calibrer** une fenêtre → `NEW_PRODUCT_WINDOW_DAYS = 30` conservé comme défaut prudent documenté (audit fait, à revisiter quand le catalogue grandit). Le badge Nouveau reste correct fonctionnellement.
+- **(2) Best-seller** : `tenant_order_items.product_id` est **NULL** partout ; l identité produit = `product_label` (texte). Best-seller calculable par `product_label` (top = « Affiches A2 brillantes » ×7). **Branchement reporté** au mécanisme « Populaires » de S2.17 (même source), cf. addendum ADR §4.14.
+- **(3) Éco / Express** : `shop_products.config` = `paper` + `format` seulement → **aucune source** → badges inactifs confirmés (conforme « aucun badge si rien »).
+
+**Conclusion** : le framework S2.12 est correct et non modifié. Seuls « Meilleure vente » (source `product_label`) reste à brancher via S2.17 ; Nouveau/Éco/Express sont dans leur état attendu.
 
 ## Fichiers touchés
 - `src/app/utils/productCommercialBadges.ts` (nouveau)
