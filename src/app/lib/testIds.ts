@@ -200,6 +200,8 @@ export const TEST_IDS = {
     productCardCommercialBadge: 'product-card-commercial-badge',
     // S2.13 — Puces attributs PIM scan sur la card (format/grammage/finition...)
     productCardAttrChip: 'product-card-attr-chip',
+    // S2.15 — Bloc Nouveautes sur la home boutique (derniers produits integres)
+    homeNewProducts: 'shop-home-new-products',
     // S2.2 — Sidebar gammes depliables persistantes (Epic 2)
     gammesList: 'shop-gammes-list',
     gammeRow: 'shop-gamme-row',

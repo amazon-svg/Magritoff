@@ -6,6 +6,11 @@ import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment'
 import { ProductMockup } from '../../brand/ProductMockup';
 import { useTenant } from '../../../contexts/TenantContext';
 import { applyTax, getTaxRate } from '../../../utils/tax';
+// S2.15 (FR-ECOM-05) — Bloc Nouveautes : derniers produits integres, reutilise
+// la ShopProductCard enrichie (badges/puces S2.11-13).
+import { resolveNewProducts } from '../../../utils/shopHomeSections';
+import { ShopProductCard } from '../ShopProductCard';
+import { TEST_IDS } from '../../../lib/testIds';
 
 interface Props {
   shop: Shop;
@@ -56,6 +61,9 @@ export function PortalHome({
   // 3 produits « recents » affiches comme re-order (mock : les 3 premiers
   // du catalogue pour l'instant, sera remplace par shop_orders reels)
   const recentOrders = products.slice(0, 3);
+
+  // S2.15 — Nouveautés : 4 derniers produits intégrés (created_at desc).
+  const newProducts = resolveNewProducts(products, 4);
 
   const userName = 'Léa'; // mock : sera tiré du compte utilisateur connecté au portail
 
@@ -127,6 +135,42 @@ export function PortalHome({
           </button>
         ))}
       </div>
+
+      {/* S2.15 — Nouveautés : derniers produits intégrés. Se replie si aucun
+          produit (data-driven, pas de section vide béante). Réutilise la
+          ShopProductCard enrichie (repère famille + badge Nouveau + puces). */}
+      {newProducts.length > 0 && (
+        <div className="px-9 pt-9 bg-bg" data-testid={TEST_IDS.shop.homeNewProducts}>
+          <div className="flex items-baseline mb-4 max-w-[900px]">
+            <h5
+              className="text-ink m-0"
+              style={{ fontSize: '14.5px', fontWeight: 500, letterSpacing: '-0.005em' }}
+            >
+              Nouveautés
+            </h5>
+            <button
+              onClick={() => onView('catalog')}
+              className="ml-auto text-ink-muted hover:text-ink inline-flex items-center gap-1"
+              style={{ fontSize: '12.5px', fontWeight: 400 }}
+            >
+              Voir le catalogue <ArrowRight className="w-3 h-3" strokeWidth={1.5} />
+            </button>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-[900px]">
+            {newProducts.map((p) => (
+              <ShopProductCard
+                key={p.id}
+                product={p}
+                shop={shop}
+                onConfigure={onSelectProduct}
+                onAddToCart={onReorder}
+                onCardClick={onSelectProduct}
+                pimGammes={pimGammes}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Panel Commandes recentes — le panel "validations en cours" a ete
           retire tant que le workflow N+1 n'est pas branche au backend. */}
