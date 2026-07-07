@@ -416,6 +416,7 @@ Format de réponse OBLIGATOIRE :
     {
       "productName": "Nom du produit (inclure la variation, ex: 'Carte de visite coins ronds recto/verso')",
       "name": "Nom du produit (identique à productName)",
+      "gamme": "slug de la famille produit (OBLIGATOIRE) — une valeur EXACTE parmi la liste GAMMES ci-dessous",
       "quantity": 500,
       "dimensions": { "width": 85, "height": 55, "unit": "mm" },
       "material": "Type de papier",
@@ -440,6 +441,21 @@ Format de réponse OBLIGATOIRE :
     }
   ]
 }
+
+GAMMES (familles produit — décision Arnaud 2026-07-07, ADR-4.17) :
+Pour CHAQUE produit, tu DOIS renseigner le champ "gamme" avec le slug EXACT de sa
+famille. C'est la CATÉGORIE qui détermine ce qu'est le produit — JAMAIS le format
+(une affiche A2 et une affiche A1 sont toutes deux "affiche"). Valeurs autorisées :
+- "carterie" — cartes de visite, cartes de correspondance, cartes de vœux
+- "flyer" — flyers, tracts, prospectus (feuilles plates non pliées)
+- "affiche" — affiches, posters (tous formats A3→A0)
+- "depliant" — dépliants, plaquettes pliées (2/3 volets)
+- "brochure" — brochures, catalogues, livrets, magazines (multi-pages reliés)
+- "etiquette" — étiquettes, stickers, autocollants, adhésifs (tous formats)
+- "kakemono" — kakémonos, roll-ups
+- "banderole" — banderoles, bâches, oriflammes
+- "packaging" — packaging, emballage, boîtes, étuis, coffrets, pochettes (carton et matériaux d'emballage)
+Choisis la gamme d'après la NATURE du produit (nom/usage), pas d'après ses dimensions.
 
 RÈGLES GÉNÉRALES :
 - Si l'utilisateur demande plusieurs produits hétérogènes (ex: "500 cartes ET 1000 flyers"), crée PLUSIEURS objets dans le tableau "products".

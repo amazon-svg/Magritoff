@@ -34,6 +34,10 @@ export const ProductSchema = z
   .object({
     productName: z.string(),
     name: z.string().optional(),
+    // ADR-4.17 (2026-07-07) : gamme/famille explicite du produit (slug racine).
+    // Autoritaire cote app (product.gamme_slug). Optionnel au schema (passthrough)
+    // pour ne pas rejeter, mais explicitement demande dans le system prompt.
+    gamme: z.string().optional(),
     quantity: z.number(),
     dimensions: DimensionsSchema,
     material: z.string(),

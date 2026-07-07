@@ -466,6 +466,7 @@ export type Database = {
           config: Json
           created_at: string
           description: string | null
+          gamme_slug: string | null
           id: string
           image_url: string | null
           library_id: string | null
@@ -480,6 +481,7 @@ export type Database = {
           config?: Json
           created_at?: string
           description?: string | null
+          gamme_slug?: string | null
           id?: string
           image_url?: string | null
           library_id?: string | null
@@ -494,6 +496,7 @@ export type Database = {
           config?: Json
           created_at?: string
           description?: string | null
+          gamme_slug?: string | null
           id?: string
           image_url?: string | null
           library_id?: string | null
@@ -503,6 +506,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "product_library_gamme_slug_fkey"
+            columns: ["gamme_slug"]
+            isOneToOne: false
+            referencedRelation: "product_gammes"
+            referencedColumns: ["slug"]
+          },
           {
             foreignKeyName: "product_library_library_id_fkey"
             columns: ["library_id"]
@@ -864,6 +874,7 @@ export type Database = {
           created_at: string
           description: string | null
           display_order: number
+          gamme_slug: string | null
           id: string
           image_url: string | null
           name: string
@@ -878,6 +889,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           display_order?: number
+          gamme_slug?: string | null
           id?: string
           image_url?: string | null
           name: string
@@ -892,6 +904,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           display_order?: number
+          gamme_slug?: string | null
           id?: string
           image_url?: string | null
           name?: string
@@ -901,6 +914,13 @@ export type Database = {
           tenant_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "shop_products_gamme_slug_fkey"
+            columns: ["gamme_slug"]
+            isOneToOne: false
+            referencedRelation: "product_gammes"
+            referencedColumns: ["slug"]
+          },
           {
             foreignKeyName: "shop_products_product_id_fkey"
             columns: ["product_id"]
