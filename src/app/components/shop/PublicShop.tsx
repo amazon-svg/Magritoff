@@ -27,6 +27,7 @@ import {
   loadExpandedGammes,
   saveExpandedGammes,
 } from './ShopGammesSidebar.helpers';
+import { buildShopTaxonomy } from '../../utils/shopTaxonomy';
 import { applyTax, getTaxRate } from '../../utils/tax';
 import { applyPricingOverrides, type PricingOverride } from '../../utils/applyPricingOverrides';
 import {
@@ -494,6 +495,13 @@ export function PublicShop() {
     });
   };
 
+  // S2.18 — Sélection depuis le méga-menu (famille ou sous-catégorie) : remplace
+  // les filtres actifs par les gammes ciblées et bascule sur le catalogue.
+  const selectGammes = (gammeSlugs: string[]) => {
+    setExpandedGammes(new Set(gammeSlugs));
+    setView('catalog');
+  };
+
   // ─── S2.2 Memoisation grouping + filteredProducts ────────────────────────
   const gammeMap = useMemo(
     () => groupProductsByGamme(products, pimGammes),
@@ -531,6 +539,15 @@ export function PublicShop() {
       }))
       .filter((p) => p.count > 0); // n'affiche que les gammes avec produits
   }, [visibleGammes, gammeMap]);
+
+  // S2.18 — Taxonomie familles → sous-catégories pour le méga-menu, bâtie sur
+  // l'arbre COMPLET des gammes PIM (pimGammes) et le catalogue complet. Le
+  // squelette démo-friendly (familles racines, compteurs 0) est géré dans
+  // buildShopTaxonomy quand aucun produit ne matche.
+  const taxonomy = useMemo(
+    () => buildShopTaxonomy(products, pimGammes),
+    [products, pimGammes],
+  );
 
   // ─── Access guard shop_only (S2.1 AC3) ───────────────────────────────────
   // Calcul du access *avant* tout rendu de contenu boutique pour eviter la
@@ -602,6 +619,9 @@ export function PublicShop() {
       gammes={gammePills}
       activeGammeSlugs={expandedGammes}
       onToggleGamme={toggleGamme}
+      taxonomy={taxonomy}
+      onSelectFamily={selectGammes}
+      onSelectSubcategory={selectGammes}
       cartDrawer={
         <PortalCart
           cart={cart}

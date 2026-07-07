@@ -30,6 +30,8 @@ import type { Shop } from "../../contexts/ShopsContext";
 import type { Gamme } from "../../utils/productEnrichment";
 import { AuthMenu } from "../auth/AuthMenu";
 import type { PortalView, BudgetInfo } from "./portal/types";
+import { ShopMegaMenu } from "./ShopMegaMenu";
+import type { TaxonomyFamily } from "../../utils/shopTaxonomy";
 import { TEST_IDS } from "../../lib/testIds";
 import { Sheet, SheetContent, SheetTitle } from "../ui/sheet";
 import {
@@ -58,6 +60,12 @@ interface Props {
   activeGammeSlugs?: Set<string>;
   /** Toggle d'une gamme. */
   onToggleGamme?: (slug: string) => void;
+  /** S2.18 — Taxonomie familles/sous-catégories pour le méga-menu. */
+  taxonomy?: TaxonomyFamily[];
+  /** S2.18 — Clic famille (racine) dans le méga-menu → gammes à filtrer. */
+  onSelectFamily?: (gammeSlugs: string[]) => void;
+  /** S2.18 — Clic sous-catégorie (gamme) dans le méga-menu → gammes à filtrer. */
+  onSelectSubcategory?: (gammeSlugs: string[]) => void;
   /** Contenu drawer panier (slide-right via Sheet). */
   cartDrawer?: ReactNode;
   /** Contenu principal (vue active : home/catalog/product/orders). */
@@ -79,6 +87,9 @@ export function ShopLayout({
   gammes,
   activeGammeSlugs,
   onToggleGamme,
+  taxonomy,
+  onSelectFamily,
+  onSelectSubcategory,
   cartDrawer,
   children,
 }: Props) {
@@ -100,6 +111,11 @@ export function ShopLayout({
   // Affiche les pilules uniquement quand on est sur la vue catalog/home
   // (pas product/orders pour eviter le bruit visuel).
   const showGammePills = hasGammes && (view === "catalog" || view === "home");
+
+  // S2.18 — Méga-menu illustré : visible sur home/catalog quand une taxonomie
+  // est fournie (data-driven, jamais vide grâce à buildShopTaxonomy).
+  const showMegaMenu =
+    !!taxonomy && taxonomy.length > 0 && (view === "catalog" || view === "home");
 
   return (
     <div
@@ -268,6 +284,16 @@ export function ShopLayout({
             />
           </div>
         </div>
+      )}
+
+      {/* ─── S2.18 Méga-menu 2 niveaux illustré ──────────────────────── */}
+      {showMegaMenu && (
+        <ShopMegaMenu
+          families={taxonomy!}
+          isDark={isDark}
+          onSelectFamily={(slugs) => onSelectFamily?.(slugs)}
+          onSelectSubcategory={(slugs) => onSelectSubcategory?.(slugs)}
+        />
       )}
 
       {/* ─── Pilules gammes (S-REWORK-1, style Moo) ──────────────────── */}

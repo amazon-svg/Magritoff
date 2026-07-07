@@ -209,6 +209,11 @@ export const TEST_IDS = {
     // S2.16 — Bloc "Votre panier en cours" sur la home boutique (reprise, option C)
     homeCartResume: 'shop-home-cart-resume',
     homeCartResumeBtn: 'shop-home-cart-resume-btn',
+    // S2.18 — Mega-menu 2 niveaux illustre (Sprint E3 Navigation)
+    megaMenu: 'shop-mega-menu',
+    megaMenuFamily: 'shop-mega-menu-family',
+    megaMenuPanel: 'shop-mega-menu-panel',
+    megaMenuSubcat: 'shop-mega-menu-subcat',
     // S2.2 — Sidebar gammes depliables persistantes (Epic 2)
     gammesList: 'shop-gammes-list',
     gammeRow: 'shop-gamme-row',
