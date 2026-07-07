@@ -214,6 +214,13 @@ export const TEST_IDS = {
     megaMenuFamily: 'shop-mega-menu-family',
     megaMenuPanel: 'shop-mega-menu-panel',
     megaMenuSubcat: 'shop-mega-menu-subcat',
+    // S2.19 — Fil d Ariane + facettes legeres (format devient filtre)
+    catalogBreadcrumb: 'shop-catalog-breadcrumb',
+    catalogFacetFormat: 'shop-catalog-facet-format',
+    catalogFacetPrice: 'shop-catalog-facet-price',
+    catalogEmpty: 'shop-catalog-empty',
+    catalogEmptyAskMagrit: 'shop-catalog-empty-ask-magrit',
+    catalogResetFacets: 'shop-catalog-reset-facets',
     // S2.2 — Sidebar gammes depliables persistantes (Epic 2)
     gammesList: 'shop-gammes-list',
     gammeRow: 'shop-gamme-row',

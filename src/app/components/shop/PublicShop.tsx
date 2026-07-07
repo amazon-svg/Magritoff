@@ -668,6 +668,7 @@ export function PublicShop() {
             setView('product');
           }}
           onAddToCart={(p, qty) => addToCart(p, qty ?? 1)}
+          onGoHome={() => setView('home')}
           pimGammes={pimGammes}
           pimDefinitions={pimDefinitions}
         />
