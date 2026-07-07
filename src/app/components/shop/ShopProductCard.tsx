@@ -28,12 +28,10 @@ import {
   type MockupTemplateType,
 } from "../mockup/customMockup.helpers";
 import { resolveMockupTemplate } from "./ShopProductCard.helpers";
-// S2.11 (FR-ECOM-01) — Identite de famille : liseré + picto + libellé, tonalité
-// semantique CONSTANTE inter-tenant (pas thémée par la boutique).
-import {
-  resolveFamilyIdentity,
-  FAMILY_ICON,
-} from "../../utils/productFamilyIdentity";
+// S2.11 + cohérence nav (2026-07-07) : le repère famille (liseré + picto +
+// libellé) est UNIFIÉ sur la gamme PIM résolue (resolveShopFamily), cohérent
+// avec le méga-menu et les pilules. Repli mockup si le produit est hors gamme.
+import { resolveShopFamily } from "../../utils/shopFamilyIdentity";
 // S2.12 (FR-ECOM-02) — Badges commerciaux calcules (data-driven, cap 2, priorite).
 import {
   resolveCommercialBadges,
@@ -95,9 +93,9 @@ export function ShopProductCard({
   pimGammes,
 }: ShopProductCardProps) {
   const template = useMemo(() => resolveMockupTemplate(product), [product]);
-  // S2.11 — Identite de famille (template + libellé + tonalité) pour le repère.
-  const family = useMemo(() => resolveFamilyIdentity(product), [product]);
-  const FamilyIcon = FAMILY_ICON[family.template];
+  // Repère famille UNIFIÉ sur la gamme PIM (cohérent méga-menu / pilules).
+  const family = useMemo(() => resolveShopFamily(product, pimGammes ?? []), [product, pimGammes]);
+  const FamilyIcon = family.icon;
   // S2.12 — Badges commerciaux. Seul "Nouveau" a une data source aujourd'hui
   // (created_at). Eco/Express/Meilleure vente : flags false tant que le schema
   // ne porte pas la donnee (badges inactifs = conforme "aucun badge si rien").
@@ -172,7 +170,7 @@ export function ShopProductCard({
           couleur seule → picto + libellé + aria-label (a11y DoD #10). ──────── */}
       <div
         data-testid={TEST_IDS.shop.productCardCategoryBadge}
-        data-family={family.template}
+        data-family={family.key}
         aria-label={`Famille ${family.label}`}
         className="flex items-center gap-1.5 px-2.5 pt-2 pb-1"
       >

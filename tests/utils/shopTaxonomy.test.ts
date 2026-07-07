@@ -80,7 +80,8 @@ describe('shopTaxonomy — buildShopTaxonomy (S2.18)', () => {
 
   it('expose une identité famille (repère couleur) non vide', () => {
     const tax = buildShopTaxonomy([prod('p1', 'Flyer A5', 'flyera5')], GAMMES);
-    expect(tax[0].identity.tone).toMatch(/^#/);
+    expect(tax[0].tone).toMatch(/^#/);
+    expect(tax[0].icon).toBeTruthy(); // composant lucide
   });
 
   it('repli démo-friendly : squelette des familles racines si aucun produit ne matche', () => {

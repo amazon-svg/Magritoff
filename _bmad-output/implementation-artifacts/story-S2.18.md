@@ -86,5 +86,18 @@ Testé en pilotant Chrome (compte acheteur test, Boutique Manitou avec produits 
 
 **Observation hors périmètre** : un produit « Autocollants vitrine » (badge famille ÉTIQUETTES via S2.11) résout en gamme `flyer_a5` (matching_rules). C'est une divergence pré-existante `resolveGamme` vs `resolveFamilyIdentity`, **cohérente avec les pilules**, non introduite par S2.18. À traiter séparément si besoin (qualité données PIM / règles de matching).
 
+## Cohérence nav — unification repère famille (décision Arnaud « les deux », 2026-07-07)
+
+Les captures d'Arnaud montraient badge carte ≠ menu ≠ gamme (ex. « Affiches A2 brillantes » badgée FLYERS car `kind=flyer` en base + pas de famille mockup « Affiches »).
+
+**Partie 1 (livrée)** — source de repère famille UNIFIÉE sur la gamme PIM :
+- Nouveau `src/app/utils/shopFamilyIdentity.ts` : `resolveRootFamilyIdentity(slug,name)` (palette curatée 9 familles PIM, dont Affiches/Banderoles) + `resolveShopFamily(product, gammes)` (gamme racine résolue, repli mockup si hors gamme) + `rootGammeOf`.
+- `shopTaxonomy.ts` (méga-menu) : identité famille = `resolveRootFamilyIdentity(root.slug, root.name)` (plus `resolveFamilyIdentity` du produit vedette). `TaxonomyFamily` porte désormais `tone` + `icon`.
+- `ShopProductCard.tsx` (badge S2.11) : `resolveShopFamily(product, pimGammes)` au lieu de `resolveFamilyIdentity`. Le mockup IMAGE reste sur `resolveMockupTemplate` (7 familles).
+- **Vérifié Chrome** (Boutique Manitou, 23 produits) : « Affiche A2 brillantes » → badge AFFICHES ; tous les badges cohérents avec menu + pilules.
+- +6 tests (`shopFamilyIdentity.test.ts`), 674 vitest verts.
+
+**Partie 2 (à faire, needs PAT Supabase)** — correctif DONNÉE PIM : `kind` faux / manquant fausse encore la CLASSIFICATION (ex. « Autocollants vitrine » → gamme flyer_a5 au lieu d'étiquette ; kakémonos/banderoles retombent en repli mockup). Migration/one-shot de correction `product_library.config.kind` à cadrer sur audit prod (kinds observés : affiches en `flyer`, autocollants en `null`).
+
 ## Note
 Le méga-menu coexiste avec les pilules gammes (S-REWORK-1). Consolidation visuelle éventuelle = ressort S2.31 (admin/UX) ou passage Sally.

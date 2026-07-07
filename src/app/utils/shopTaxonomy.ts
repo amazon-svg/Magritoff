@@ -18,10 +18,10 @@
  * structure de navigation visible.
  */
 
+import type { LucideIcon } from 'lucide-react';
 import type { ShopProduct } from '../contexts/ShopsContext';
 import type { Gamme } from './productEnrichment';
-import { resolveFamilyIdentity, type FamilyIdentity } from './productFamilyIdentity';
-import type { MockupTemplate } from './productMockupAssets';
+import { resolveRootFamilyIdentity } from './shopFamilyIdentity';
 import {
   buildGammeTree,
   groupProductsByGamme,
@@ -43,9 +43,10 @@ export interface TaxonomyNode {
 }
 
 export interface TaxonomyFamily extends TaxonomyNode {
-  /** Famille « mockup » pour le repère visuel (couleur + picto S2.11). */
-  template: MockupTemplate;
-  identity: FamilyIdentity;
+  /** Tonalité (repère couleur, unifié sur la gamme racine). */
+  tone: string;
+  /** Pictogramme lucide de la famille. */
+  icon: LucideIcon;
   /** Sous-catégories (gammes enfants) triées par compteur décroissant. */
   subcategories: TaxonomyNode[];
 }
@@ -104,15 +105,13 @@ export function buildShopTaxonomy(
       ...children.flatMap((c) => gammeMap.get(c.slug) ?? []),
     ];
     const featured = pickFeatured(allProducts);
-    // Repère visuel : depuis le produit vedette si dispo, sinon inféré du nom.
-    const identity = featured
-      ? resolveFamilyIdentity(featured)
-      : resolveFamilyIdentity({ name: root.name });
+    // Repère visuel UNIFIÉ sur la gamme racine (cohérent avec le badge carte).
+    const identity = resolveRootFamilyIdentity(root.slug, root.name);
 
     return {
       key: root.slug,
-      template: identity.template,
-      identity,
+      tone: identity.tone,
+      icon: identity.icon,
       label: root.name,
       count: allProducts.length,
       featured,

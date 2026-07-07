@@ -13,7 +13,6 @@
 import { useId, useRef, useState } from 'react';
 import { ChevronDown, ArrowRight } from 'lucide-react';
 import type { TaxonomyFamily } from '../../utils/shopTaxonomy';
-import { FAMILY_ICON } from '../../utils/productFamilyIdentity';
 import { TEST_IDS } from '../../lib/testIds';
 
 interface Props {
@@ -53,7 +52,7 @@ export function ShopMegaMenu({ families, isDark, onSelectFamily, onSelectSubcate
       }}
     >
       {families.map((fam) => {
-        const Icon = FAMILY_ICON[fam.template];
+        const Icon = fam.icon;
         const isOpen = openKey === fam.key;
         const panelId = `${baseId}-${fam.key}`;
         return (
@@ -66,7 +65,7 @@ export function ShopMegaMenu({ families, isDark, onSelectFamily, onSelectSubcate
             <button
               type="button"
               data-testid={TEST_IDS.shop.megaMenuFamily}
-              data-family={fam.template}
+              data-family={fam.key}
               aria-haspopup="true"
               aria-expanded={isOpen}
               aria-controls={panelId}
@@ -84,7 +83,7 @@ export function ShopMegaMenu({ families, isDark, onSelectFamily, onSelectSubcate
             >
               <span
                 className="w-2 h-2 rounded-full shrink-0"
-                style={{ background: fam.identity.tone }}
+                style={{ background: fam.tone }}
                 aria-hidden="true"
               />
               <Icon className="w-3.5 h-3.5 shrink-0" strokeWidth={1.5} aria-hidden="true" />
@@ -158,7 +157,7 @@ export function ShopMegaMenu({ families, isDark, onSelectFamily, onSelectSubcate
                 <div className="w-[140px] shrink-0">
                   <div
                     className="w-full h-[100px] rounded-lg overflow-hidden grid place-items-center"
-                    style={{ background: `${fam.identity.tone}1a` }}
+                    style={{ background: `${fam.tone}1a` }}
                   >
                     {fam.featured?.image_url ? (
                       <img
@@ -171,7 +170,7 @@ export function ShopMegaMenu({ families, isDark, onSelectFamily, onSelectSubcate
                       <Icon
                         className="w-8 h-8"
                         strokeWidth={1.25}
-                        style={{ color: fam.identity.tone }}
+                        style={{ color: fam.tone }}
                         aria-hidden="true"
                       />
                     )}
