@@ -34,6 +34,8 @@ export interface LibraryProduct {
   config: Record<string, unknown>;
   active: boolean;
   created_at?: string;
+  /** ADR-4.17 : categorie explicite autoritaire (FK product_gammes.slug). */
+  gamme_slug?: string | null;
 }
 
 export type LibraryProductInput = Omit<LibraryProduct, 'id' | 'user_id' | 'tenant_id' | 'created_at'>;
