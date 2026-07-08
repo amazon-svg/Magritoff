@@ -871,6 +871,7 @@ export type Database = {
         Row: {
           category: string
           config: Json
+          config_hash: string | null
           created_at: string
           description: string | null
           display_order: number
@@ -878,6 +879,7 @@ export type Database = {
           id: string
           image_url: string | null
           name: string
+          origin: string
           price_ht: number
           product_id: string | null
           shop_id: string
@@ -886,6 +888,7 @@ export type Database = {
         Insert: {
           category?: string
           config?: Json
+          config_hash?: string | null
           created_at?: string
           description?: string | null
           display_order?: number
@@ -893,6 +896,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           name: string
+          origin?: string
           price_ht?: number
           product_id?: string | null
           shop_id: string
@@ -901,6 +905,7 @@ export type Database = {
         Update: {
           category?: string
           config?: Json
+          config_hash?: string | null
           created_at?: string
           description?: string | null
           display_order?: number
@@ -908,6 +913,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           name?: string
+          origin?: string
           price_ht?: number
           product_id?: string | null
           shop_id?: string
@@ -2016,6 +2022,20 @@ export type Database = {
           p_user_id: string
         }
         Returns: undefined
+      }
+      persist_shop_ai_product: {
+        Args: {
+          p_category: string
+          p_config: Json
+          p_config_hash: string
+          p_description: string
+          p_gamme_slug: string
+          p_image_url: string
+          p_name: string
+          p_price_ht: number
+          p_shop_id: string
+        }
+        Returns: string
       }
       resolve_shop_background: {
         Args: { p_gamme_slug: string; p_shop_id: string }

@@ -12,7 +12,7 @@ Local, non poussé au moment de la rédaction (HEAD `9d45459`). 723 vitest verts
 |---|---|---|---|
 | #1+#3 | **Bandeau de marque co-brandé + header épuré + upload logo/fond** | `bee6c19` | ✅ vérifié live (ERAM + Manitou) |
 | #4 | **Édition commande brouillon** (acheteur, onglet Mes commandes) | `024f40f` | ✅ vérifié live (Manitou : qté 1→3, total persiste) |
-| #2 | **Persistance produits calculés par Magrit** | `9d45459` | ⚠️ **NON déployé — PAT Supabase requis** |
+| #2 | **Persistance produits calculés par Magrit** | `9d45459` | ✅ **déployé + vérifié live** (2026-07-08) |
 
 ### #1+#3 Bandeau de marque (`bee6c19`)
 - `ShopLayout` : bandeau co-brandé. Fond = couleur primaire de marque (dégradé) OU image de fond (cover + scrim). Logo client dans une plaque blanche nette (jamais étiré) ; repli = nom boutique en lockup. Helpers `shouldRenderBrandBanner` / `resolveBrandBannerBackground` (testés).
@@ -25,8 +25,10 @@ Local, non poussé au moment de la rédaction (HEAD `9d45459`). 723 vitest verts
 
 ### #2 Persistance produits Magrit (`9d45459`) — À DÉPLOYER
 - Migration `20260708000100_s_shop_ai_persist.sql` : `shop_products.origin` ('manual'|'ai') + `config_hash` (dédup, index unique partiel) + RPC `persist_shop_ai_product` (SECURITY DEFINER, borné `current_user_can_access_shop`, `authenticated` only).
-- `PortalCatalog.askMagrit` : après devis Clariprint, persiste chaque produit (fire-and-forget, dédup `aiConfigSignature`). Realtime `shop_products` rafraîchit la grille → cherchable en texte.
-- **Reste** : (1) déployer la migration via PAT ; (2) `npm run db:types` post-déploiement (rpc typée `any` en attendant) ; (3) vérif live (calculer un produit → re-chercher → doit apparaître).
+- `PortalCatalog.askMagrit` : après devis Clariprint, persiste chaque produit (fire-and-forget, dédup `aiConfigSignature`).
+- **DÉPLOYÉ 2026-07-08** via API Management (migration + RPC `SECURITY DEFINER` confirmé). `db:types` régénéré (RPC désormais typé). **Vérifié live** (Manitou) : requête « marque-page pelliculé brillant » → absent → Magrit calcule → persiste (`origin='ai'`, `gamme_slug='flyer'`) → après reload, catalogue passe 23→24, produit présent (badge NOUVEAU) et cherchable.
+- **Limite connue** : pas de refresh *live* en session (le realtime `shop_products` n'a pas rafraîchi la grille du même onglet — recharger/naviguer suffit). Amélioration possible.
+- **Hygiène** : révoquer le PAT Supabase utilisé pour ce déploiement.
 
 ## 18. Sprints E1 → E3 — Extension boutique e-commerce standard (Epic 2) — E3 CLÔTURÉ 2026-07-08
 
