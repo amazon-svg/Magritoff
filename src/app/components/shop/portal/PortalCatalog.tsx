@@ -116,6 +116,32 @@ function configToEphemeralShopProduct(config: any, index: number): ShopProduct {
   } as ShopProduct;
 }
 
+/**
+ * S-SHOP-AI-PERSIST (2026-07-08) — signature déterministe d'un produit calculé,
+ * pour dédupliquer sa persistance en boutique (même config = 1 seul produit).
+ * On se base sur l'essence de la config (gamme + format + dimensions + quantité
+ * + matière/finitions), pas sur le libellé qui peut varier.
+ */
+function aiConfigSignature(p: ShopProduct): string {
+  const c = (p.config ?? {}) as Record<string, any>;
+  const cp = (c.clariprintData ?? {}) as Record<string, any>;
+  return [
+    p.gamme_slug ?? '',
+    String(c.kind ?? cp.kind ?? ''),
+    String(c.format ?? ''),
+    String(c.width ?? cp.width ?? ''),
+    String(c.height ?? cp.height ?? ''),
+    String(c.quantity ?? cp.quantity ?? ''),
+    String(c.material ?? c.support ?? ''),
+    String(c.weight ?? c.grammage ?? ''),
+    String(c.printing ?? c.impression ?? ''),
+    String(c.finishRecto ?? ''),
+    String(c.finishVerso ?? ''),
+  ]
+    .join('|')
+    .toLowerCase();
+}
+
 // F2 — Catalogue recherche conversationnelle
 // Design source : .design-handoff/designs/05 - Portail B2B.html (section .f2b)
 export function PortalCatalog({
@@ -229,6 +255,36 @@ export function PortalCatalog({
       );
       setAiResults(withPrices);
       setSearchMode('ia'); // S-CONSO-4 : reussite -> mode IA
+
+      // S-SHOP-AI-PERSIST (2026-07-08, décision Arnaud) : dès qu'un produit est
+      // calculé par Magrit, il devient PERSISTANT dans cette boutique (catalogue
+      // + recherche future), dédupliqué par config. Best-effort et
+      // fire-and-forget : ne bloque pas l'affichage et n'échoue jamais la
+      // recherche (RPC SECURITY DEFINER borné à l'accès boutique ; anon ignoré).
+      // Le realtime shop_products de PublicShop rafraîchit ensuite la grille.
+      void Promise.all(
+        withPrices.map((p) =>
+          // rpc typé en `as any` : fonction hors types générés (migration
+          // S-SHOP-AI-PERSIST) — régénérer db:types après déploiement.
+          (supabase.rpc as any)('persist_shop_ai_product', {
+            p_shop_id: shop.id,
+            p_config_hash: aiConfigSignature(p),
+            p_name: p.name,
+            p_category: p.category ?? 'Autres',
+            p_description: p.description ?? '',
+            p_price_ht: p.price_ht ?? 0,
+            p_image_url: p.image_url ?? '',
+            p_config: p.config ?? {},
+            p_gamme_slug: p.gamme_slug ?? null,
+          }).then(({ error: rpcErr }: { error: { message: string } | null }) => {
+            if (rpcErr) {
+              console.info(`[shop_ai_persist] skip "${p.name}" — ${rpcErr.message}`);
+            }
+          }),
+        ),
+      ).catch(() => {
+        /* best-effort : la persistance ne doit jamais casser la recherche */
+      });
     } catch (err: any) {
       // Annulation (demontage / nouvelle requete) : on ne touche a rien.
       if (err instanceof ClaudeSseStreamError && err.kind === 'aborted') {
