@@ -44,7 +44,11 @@ export function ShopMegaMenu({ families, isDark, onSelectFamily, onSelectSubcate
   return (
     <div
       data-testid={TEST_IDS.shop.megaMenu}
-      className={`hidden md:flex items-stretch gap-1 px-5 lg:px-9 border-b ${
+      // Responsive (2026-07-08) : visible sur toutes largeurs. En etroit/mobile,
+      // barre de familles scrollable horizontalement (tap = naviguer vers la
+      // famille) ; le panneau sous-categories reste un enrichissement desktop
+      // (survol). Avant : `hidden md:flex` masquait tout le menu sous 768px.
+      className={`flex items-stretch gap-1 px-5 lg:px-9 border-b overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
         isDark ? 'bg-gray-950 border-gray-800' : 'bg-paper border-line'
       }`}
       onKeyDown={(e) => {
@@ -58,7 +62,7 @@ export function ShopMegaMenu({ families, isDark, onSelectFamily, onSelectSubcate
         return (
           <div
             key={fam.key}
-            className="relative"
+            className="relative shrink-0"
             onMouseEnter={() => open(fam.key)}
             onMouseLeave={scheduleClose}
           >
@@ -111,7 +115,7 @@ export function ShopMegaMenu({ families, isDark, onSelectFamily, onSelectSubcate
                 data-testid={TEST_IDS.shop.megaMenuPanel}
                 role="region"
                 aria-label={`Sous-catégories ${fam.label}`}
-                className={`absolute left-0 top-full z-30 mt-px flex gap-5 p-4 rounded-b-xl border shadow-lg min-w-[420px] ${
+                className={`absolute left-0 top-full z-30 mt-px flex gap-5 p-4 rounded-b-xl border shadow-lg min-w-[280px] sm:min-w-[420px] max-w-[calc(100vw-2rem)] ${
                   isDark ? 'bg-gray-950 border-gray-800' : 'bg-paper border-line'
                 }`}
                 onMouseEnter={() => open(fam.key)}
@@ -153,8 +157,8 @@ export function ShopMegaMenu({ families, isDark, onSelectFamily, onSelectSubcate
                   </li>
                 </ul>
 
-                {/* Vignette vedette */}
-                <div className="w-[140px] shrink-0">
+                {/* Vignette vedette (masquée en étroit pour éviter le débordement) */}
+                <div className="hidden sm:block w-[140px] shrink-0">
                   <div
                     className="w-full h-[100px] rounded-lg overflow-hidden grid place-items-center"
                     style={{ background: `${fam.tone}1a` }}
