@@ -11,6 +11,8 @@ import {
   shouldShowCartBadge,
   shouldRenderHeroBanner,
   resolveHeroTagline,
+  shouldRenderBrandBanner,
+  resolveBrandBannerBackground,
 } from "../../../src/app/components/shop/ShopLayout.helpers";
 
 describe("resolveShopTheme — AC2 S2.1 dark par defaut", () => {
@@ -211,5 +213,55 @@ describe("resolveHeroTagline — A4.1 tagline overlay", () => {
   it("retourne null quand shop est null ou undefined", () => {
     expect(resolveHeroTagline(null)).toBe(null);
     expect(resolveHeroTagline(undefined)).toBe(null);
+  });
+});
+
+// ─── Bandeau de marque (refonte 2026-07-08) ──────────────────────────────────
+describe("shouldRenderBrandBanner — affichage dès qu'une identité existe", () => {
+  it("true avec un logo seul (sans image ni tagline)", () => {
+    expect(
+      shouldRenderBrandBanner({ logo_url: "https://cdn/logo.png", hero_image_url: null, tagline: null }),
+    ).toBe(true);
+  });
+
+  it("true avec une image de fond seule", () => {
+    expect(
+      shouldRenderBrandBanner({ logo_url: "", hero_image_url: "https://cdn/hero.jpg", tagline: null }),
+    ).toBe(true);
+  });
+
+  it("true avec une accroche seule (le nom fait office d'identité)", () => {
+    expect(shouldRenderBrandBanner({ logo_url: "", hero_image_url: null, tagline: "En 48h" })).toBe(true);
+  });
+
+  it("false quand tout est vide / whitespace", () => {
+    expect(shouldRenderBrandBanner({ logo_url: "   ", hero_image_url: "", tagline: "  " })).toBe(false);
+  });
+
+  it("false quand shop null/undefined", () => {
+    expect(shouldRenderBrandBanner(null)).toBe(false);
+    expect(shouldRenderBrandBanner(undefined)).toBe(false);
+  });
+});
+
+describe("resolveBrandBannerBackground — image vs dégradé de marque", () => {
+  it("utilise l'image de fond en cover/center quand fournie", () => {
+    const bg = resolveBrandBannerBackground({ hero_image_url: "https://cdn/hero.jpg" });
+    expect(bg.hasImage).toBe(true);
+    expect(bg.style.backgroundImage).toBe("url(https://cdn/hero.jpg)");
+    expect(bg.style.backgroundSize).toBe("cover");
+    expect(bg.style.backgroundPosition).toBe("center");
+  });
+
+  it("repli sur le dégradé --shop-primary quand pas d'image", () => {
+    const bg = resolveBrandBannerBackground({ hero_image_url: null });
+    expect(bg.hasImage).toBe(false);
+    expect(bg.style.backgroundImage).toContain("var(--shop-primary");
+    expect(bg.style.backgroundImage).toContain("linear-gradient");
+  });
+
+  it("dégradé de marque quand URL vide / whitespace (pas d'image cassée)", () => {
+    expect(resolveBrandBannerBackground({ hero_image_url: "   " }).hasImage).toBe(false);
+    expect(resolveBrandBannerBackground(null).hasImage).toBe(false);
   });
 });

@@ -121,3 +121,73 @@ export function resolveHeroTagline(
   if (trimmed.length === 0) return null;
   return trimmed.length > 120 ? trimmed.slice(0, 120) : trimmed;
 }
+
+/** Trim défensif d'une URL éventuelle (string non vide → valeur, sinon null). */
+function cleanUrl(url: string | null | undefined): string | null {
+  return typeof url === "string" && url.trim().length > 0 ? url.trim() : null;
+}
+
+/**
+ * Bandeau de marque (2026-07-08, refonte hero — retour Arnaud).
+ *
+ * Remplace l'ancien hero « image étirée en fond ». Le bandeau est un espace
+ * CO-BRANDÉ : couleur(s) de marque du client + logo client présenté proprement
+ * (jamais étiré). On l'affiche dès qu'il y a une identité à montrer : un logo,
+ * une image de fond OU une accroche (le nom de la boutique fait toujours office
+ * de repli d'identité, donc le bandeau reste pertinent même sans logo).
+ */
+export function shouldRenderBrandBanner(
+  shop:
+    | Pick<Shop, "hero_image_url" | "logo_url" | "tagline">
+    | { hero_image_url?: string | null; logo_url?: string | null; tagline?: string | null }
+    | null
+    | undefined,
+): boolean {
+  if (!shop) return false;
+  return Boolean(
+    cleanUrl(shop.hero_image_url) ||
+      cleanUrl(shop.logo_url) ||
+      resolveHeroTagline(shop as { tagline?: string | null }),
+  );
+}
+
+export interface BrandBannerBackground {
+  /** Style inline à poser sur le bandeau (image cover OU dégradé de marque). */
+  style: Record<string, string>;
+  /** True si une image de fond est utilisée → le consommateur ajoute un scrim. */
+  hasImage: boolean;
+}
+
+/**
+ * Fond du bandeau de marque :
+ *  - image de fond fournie (`hero_image_url`) → cover/center (+ scrim côté UI) ;
+ *  - sinon → dégradé bâti sur la couleur primaire de marque (`--shop-primary`),
+ *    fondu vers un fond sombre pour la profondeur et la lisibilité du texte.
+ * Toujours cohérent, jamais d'image logo étirée.
+ */
+export function resolveBrandBannerBackground(
+  shop:
+    | Pick<Shop, "hero_image_url">
+    | { hero_image_url?: string | null }
+    | null
+    | undefined,
+): BrandBannerBackground {
+  const img = cleanUrl(shop?.hero_image_url);
+  if (img) {
+    return {
+      style: {
+        backgroundImage: `url(${img})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      },
+      hasImage: true,
+    };
+  }
+  return {
+    style: {
+      backgroundImage:
+        "linear-gradient(120deg, var(--shop-primary, #1e3a8a) 0%, rgba(2, 6, 23, 0.72) 100%)",
+    },
+    hasImage: false,
+  };
+}

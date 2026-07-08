@@ -29,7 +29,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router';
 import {
   ArrowLeft, Save, Loader2, Trash2, Check, ExternalLink, Library as LibraryIcon,
-  Download, AlertTriangle, EyeOff, Eye,
+  Download, AlertTriangle, EyeOff, Eye, Upload,
 } from 'lucide-react';
 import { useShops, Shop, ShopProduct } from '../../contexts/ShopsContext';
 import { FONT_PAIRINGS } from '../shop/fontPairings';
@@ -95,6 +95,45 @@ export function DashboardShopEditor() {
 
   // Dialog de confirmation suppression
   const [deleteDialog, setDeleteDialog] = useState<DisplayProduct | null>(null);
+
+  // ─── Upload branding (logo / fond du bandeau) — bucket public shop_backgrounds
+  // (2026-07-08, refonte bandeau de marque). Réutilise le bucket + RLS
+  // can_manage_catalog déjà en place (S-PIM-VISUELS-2). Path <shop_id>/<kind>-<uuid>.
+  const [uploadingAsset, setUploadingAsset] = useState<null | 'logo' | 'hero'>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const uploadBrandAsset = async (kind: 'logo' | 'hero', file: File) => {
+    if (!shop) return;
+    setUploadError(null);
+    const ALLOWED = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!ALLOWED.includes(file.type)) {
+      setUploadError('Format non supporté — PNG, JPG ou WebP attendu.');
+      return;
+    }
+    if (file.size > 5_242_880) {
+      setUploadError('Fichier trop lourd — 5 Mo maximum.');
+      return;
+    }
+    setUploadingAsset(kind);
+    try {
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'png';
+      const path = `${shop.id}/${kind}-${crypto.randomUUID()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from('shop_backgrounds')
+        .upload(path, file, { upsert: true, contentType: file.type, cacheControl: '3600' });
+      if (upErr) throw new Error(upErr.message);
+      const { data: pub } = supabase.storage.from('shop_backgrounds').getPublicUrl(path);
+      setShop((prev) =>
+        prev
+          ? { ...prev, [kind === 'logo' ? 'logo_url' : 'hero_image_url']: pub.publicUrl }
+          : prev,
+      );
+    } catch (e: any) {
+      setUploadError(`Upload échoué : ${e?.message ?? 'erreur réseau'}.`);
+    } finally {
+      setUploadingAsset(null);
+    }
+  };
 
   useEffect(() => {
     const s = shops.find((s) => s.id === id) ?? null;
@@ -342,14 +381,47 @@ export function DashboardShopEditor() {
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Logo (URL)</label>
-            <input
-              type="url"
-              value={shop.logo_url}
-              onChange={(e) => setShop({ ...shop, logo_url: e.target.value })}
-              placeholder="https://..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-            />
+            <label className="block text-xs font-medium text-gray-700 mb-1">Logo du client</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="url"
+                value={shop.logo_url}
+                onChange={(e) => setShop({ ...shop, logo_url: e.target.value })}
+                placeholder="https://... ou importer un fichier"
+                className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg"
+              />
+              <label className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 cursor-pointer text-sm text-gray-700">
+                {uploadingAsset === 'logo' ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Upload className="w-4 h-4" />
+                )}
+                Importer
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  disabled={uploadingAsset !== null}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) uploadBrandAsset('logo', f);
+                    e.target.value = '';
+                  }}
+                />
+              </label>
+            </div>
+            {shop.logo_url && (
+              <div className="mt-2 inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5">
+                <img src={shop.logo_url} alt="Logo" className="max-h-8 w-auto object-contain" />
+                <button
+                  type="button"
+                  onClick={() => setShop({ ...shop, logo_url: '' })}
+                  className="text-xs text-gray-500 hover:text-gray-800 underline"
+                >
+                  Retirer
+                </button>
+              </div>
+            )}
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">Email de contact</label>
@@ -372,24 +444,50 @@ export function DashboardShopEditor() {
         </div>
       </section>
 
-      {/* ── A4.1 — Bannière hero + tagline ── */}
+      {/* ── Bandeau de marque (refonte 2026-07-08) ── */}
       <section className="border border-gray-200 rounded-xl p-4 bg-white space-y-3">
-        <h3 className="font-semibold text-gray-900">Bannière hero</h3>
+        <h3 className="font-semibold text-gray-900">Bandeau de marque</h3>
         <p className="text-xs text-gray-500">
-          Image visuelle affichée en tête de votre boutique publique. Laissez l'URL vide pour ne rien afficher.
+          En-tête co-brandé de la boutique. Le <strong>logo du client</strong> (section Identité
+          ci-dessus) est affiché proprement dans une plaque nette. Le fond utilise la
+          <strong> couleur primaire de marque</strong> par défaut ; ajoutez une image de fond
+          seulement si vous en avez une belle (photo panoramique) — le logo n'est jamais étiré.
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Image hero (URL)</label>
-            <input
-              type="url"
-              value={shop.hero_image_url ?? ''}
-              onChange={(e) =>
-                setShop({ ...shop, hero_image_url: e.target.value ? e.target.value : null })
-              }
-              placeholder="https://..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-            />
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              Image de fond <span className="text-gray-400 font-normal">(optionnelle)</span>
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="url"
+                value={shop.hero_image_url ?? ''}
+                onChange={(e) =>
+                  setShop({ ...shop, hero_image_url: e.target.value ? e.target.value : null })
+                }
+                placeholder="Vide = dégradé couleur de marque"
+                className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg"
+              />
+              <label className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 cursor-pointer text-sm text-gray-700">
+                {uploadingAsset === 'hero' ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Upload className="w-4 h-4" />
+                )}
+                Importer
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  disabled={uploadingAsset !== null}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) uploadBrandAsset('hero', f);
+                    e.target.value = '';
+                  }}
+                />
+              </label>
+            </div>
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -411,24 +509,49 @@ export function DashboardShopEditor() {
             />
           </div>
         </div>
-        {/* Aperçu live : montré dès qu'une URL est saisie */}
-        {shop.hero_image_url && (
-          <div className="mt-2">
-            <p className="text-xs text-gray-500 mb-1">Aperçu</p>
-            <div
-              className="relative w-full h-[120px] rounded-lg bg-cover bg-center overflow-hidden border border-gray-200"
-              style={{ backgroundImage: `url(${shop.hero_image_url})` }}
-            >
-              {shop.tagline && (
-                <div className="absolute inset-x-0 bottom-0 px-4 pb-3 pt-8 bg-gradient-to-t from-black/60 via-black/30 to-transparent">
-                  <p className="text-white text-sm font-medium m-0 drop-shadow-md">
-                    {shop.tagline}
-                  </p>
+        {uploadError && (
+          <p className="text-xs text-red-600 flex items-center gap-1.5">
+            <AlertTriangle className="w-3.5 h-3.5" /> {uploadError}
+          </p>
+        )}
+        {/* Aperçu live du bandeau de marque (logo plaque + fond) */}
+        <div className="mt-2">
+          <p className="text-xs text-gray-500 mb-1">Aperçu</p>
+          <div
+            className="relative w-full h-[120px] rounded-lg overflow-hidden border border-gray-200 bg-cover bg-center"
+            style={
+              shop.hero_image_url
+                ? { backgroundImage: `url(${shop.hero_image_url})` }
+                : {
+                    backgroundImage: `linear-gradient(120deg, ${shop.theme.primaryColor} 0%, rgba(2,6,23,0.72) 100%)`,
+                  }
+            }
+          >
+            {shop.hero_image_url && (
+              <div
+                className="absolute inset-0"
+                style={{
+                  background:
+                    'linear-gradient(90deg, rgba(2,6,23,0.62) 0%, rgba(2,6,23,0.30) 55%, rgba(2,6,23,0.10) 100%)',
+                }}
+              />
+            )}
+            <div className="relative h-full flex items-center gap-4 px-4">
+              {shop.logo_url ? (
+                <div className="shrink-0 bg-white rounded-lg shadow-sm px-3 py-2 grid place-items-center max-w-[150px]">
+                  <img src={shop.logo_url} alt="Logo" className="max-h-10 w-auto object-contain" />
                 </div>
+              ) : (
+                <p className="text-white m-0 shrink-0 font-medium drop-shadow" style={{ fontSize: '20px' }}>
+                  {shop.name || 'Nom boutique'}
+                </p>
+              )}
+              {shop.tagline && (
+                <p className="text-white/90 text-sm m-0 drop-shadow-md max-w-xs">{shop.tagline}</p>
               )}
             </div>
           </div>
-        )}
+        </div>
       </section>
 
       {/* ── Thème ── */}

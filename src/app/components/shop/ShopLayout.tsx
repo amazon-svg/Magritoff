@@ -38,7 +38,8 @@ import {
   resolveShopTheme,
   resolveShopBrandStyle,
   shouldShowCartBadge,
-  shouldRenderHeroBanner,
+  shouldRenderBrandBanner,
+  resolveBrandBannerBackground,
   resolveHeroTagline,
 } from "./ShopLayout.helpers";
 
@@ -124,28 +125,74 @@ export function ShopLayout({
       className={`min-h-screen ${isDark ? "bg-gray-950 text-gray-100" : "bg-bg text-ink"}`}
       style={{ ...brandStyle, fontFamily: "var(--shop-font-body, var(--font-ui))" }}
     >
-      {/* ─── A4.1 — Bannière hero + tagline (avant header sticky) ────── */}
-      {shouldRenderHeroBanner(shop) && (
-        <div
-          data-testid={TEST_IDS.shop.heroBanner}
-          role="banner"
-          aria-label={resolveHeroTagline(shop) ? `Bannière : ${resolveHeroTagline(shop)}` : "Bannière boutique"}
-          className="relative w-full h-[140px] md:h-[200px] bg-cover bg-center"
-          style={{ backgroundImage: `url(${shop.hero_image_url})` }}
-        >
-          {resolveHeroTagline(shop) && (
-            <div className="absolute inset-x-0 bottom-0 px-5 lg:px-9 pb-6 pt-12 bg-gradient-to-t from-black/60 via-black/30 to-transparent">
-              <p
-                data-testid={TEST_IDS.shop.heroTagline}
-                className="text-white text-base md:text-lg font-medium max-w-3xl drop-shadow-md m-0"
-                style={{ fontFamily: "var(--shop-font-heading, var(--shop-font-body, inherit))" }}
-              >
-                {resolveHeroTagline(shop)}
-              </p>
+      {/* ─── Bandeau de marque co-brandé (refonte 2026-07-08) ─────────
+          Espace client : couleur(s) de marque OU image de fond + logo client
+          présenté dans une plaque nette (jamais étiré). Repli identité = nom
+          de la boutique. Remplace l'ancien hero « image étirée en fond ». */}
+      {shouldRenderBrandBanner(shop) && (() => {
+        const bg = resolveBrandBannerBackground(shop);
+        const tagline = resolveHeroTagline(shop);
+        return (
+          <div
+            data-testid={TEST_IDS.shop.heroBanner}
+            role="banner"
+            aria-label={tagline ? `Bannière ${shop.name} : ${tagline}` : `Bannière ${shop.name}`}
+            className="relative w-full h-[132px] md:h-[168px] overflow-hidden"
+            style={bg.style}
+          >
+            {/* Scrim de lisibilité uniquement quand une image de fond est posée
+                (le dégradé de marque est déjà lisible par construction). */}
+            {bg.hasImage && (
+              <div
+                className="absolute inset-0"
+                style={{
+                  background:
+                    "linear-gradient(90deg, rgba(2,6,23,0.62) 0%, rgba(2,6,23,0.30) 55%, rgba(2,6,23,0.10) 100%)",
+                }}
+                aria-hidden="true"
+              />
+            )}
+            <div className="relative h-full flex items-center gap-4 md:gap-5 px-5 lg:px-9">
+              {shop.logo_url ? (
+                // Plaque blanche = « lockup » : le logo reste net sur tout fond.
+                <div className="shrink-0 bg-white rounded-xl shadow-sm px-3.5 py-2.5 md:px-4 md:py-3 grid place-items-center max-w-[180px] md:max-w-[220px]">
+                  <img
+                    src={shop.logo_url}
+                    alt={shop.name}
+                    className="max-h-11 md:max-h-14 w-auto object-contain"
+                  />
+                </div>
+              ) : (
+                // Sans logo : le nom de la boutique fait office de lockup texte.
+                <p
+                  className="text-white m-0 shrink-0 drop-shadow"
+                  style={{
+                    fontFamily: "var(--shop-font-heading, var(--shop-font-body, inherit))",
+                    fontSize: "clamp(22px, 3vw, 30px)",
+                    fontWeight: 500,
+                    letterSpacing: "-0.02em",
+                  }}
+                >
+                  {shop.name}
+                </p>
+              )}
+              {tagline && (
+                <p
+                  data-testid={TEST_IDS.shop.heroTagline}
+                  className="text-white/90 m-0 max-w-xl drop-shadow-md"
+                  style={{
+                    fontFamily: "var(--shop-font-body, inherit)",
+                    fontSize: "clamp(13px, 1.4vw, 16px)",
+                    lineHeight: 1.4,
+                  }}
+                >
+                  {tagline}
+                </p>
+              )}
             </div>
-          )}
-        </div>
-      )}
+          </div>
+        );
+      })()}
 
       {/* ─── Header sticky brande ────────────────────────────────────── */}
       <header
@@ -154,36 +201,17 @@ export function ShopLayout({
           isDark ? "border-gray-800 bg-gray-950/95 backdrop-blur" : "border-line bg-paper"
         }`}
       >
-        {/* Logo + nom + Magrit */}
+        {/* Logo + nom boutique (nettoyage 2026-07-08 : suppression du pavé de
+            couleur placeholder et de la mention « × Magrit », retour Arnaud). */}
         <div data-testid={TEST_IDS.shop.headerLogo} className="flex items-center gap-2.5">
-          {shop.logo_url ? (
+          {shop.logo_url && (
             <img
               src={shop.logo_url}
               alt={shop.name}
               className="h-6 w-6 object-contain rounded"
             />
-          ) : (
-            <div
-              className="h-6 w-6 rounded"
-              style={{
-                background:
-                  "linear-gradient(135deg, var(--shop-primary, #1e3a8a) 0%, var(--shop-accent, #f59e0b) 100%)",
-              }}
-            />
           )}
           <span className="text-[15px] font-medium">{shop.name}</span>
-          <span
-            className={`hidden sm:inline-block w-px h-[18px] mx-1 ${
-              isDark ? "bg-gray-700" : "bg-line"
-            }`}
-          />
-          <span
-            className={`hidden sm:inline-block text-[13.5px] ${
-              isDark ? "text-gray-400" : "text-ink-muted"
-            }`}
-          >
-            × Magrit
-          </span>
         </div>
 
         {/* Nav desktop */}
