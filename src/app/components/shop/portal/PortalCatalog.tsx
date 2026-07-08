@@ -160,7 +160,13 @@ export function PortalCatalog({
       // Race entre invoke + timeout pour permettre le bascule rapide.
       // Note 2026-05-20 : 3s -> 15s. Claude Sonnet 4.5 repond en 5-15s en
       // nominal (mesure curl direct 9.7s). 3s tombait en timeout systematique.
-      const CLAUDE_PROXY_TIMEOUT_MS = 15_000;
+      // Note 2026-07-08 : 15s -> 45s. Les requetes larges/multi-produits (ex.
+      // "produits pour organiser un evenement sportif 15 equipes") prennent
+      // 30s+ (mesure curl reelle 30.9s -> 5 configs valides). A 15s on coupait
+      // AVANT la reponse, bascule mode texte, filtre local muet sur une phrase
+      // en langage naturel = ecran sans reponse cote boutique alors que la home
+      // Magrit (streamee, sans coupure) repondait. Le spinner reste affiche.
+      const CLAUDE_PROXY_TIMEOUT_MS = 45_000;
       const invokePromise = supabase.functions.invoke(
         'make-server-e3db71a4/claude-proxy',
         { body: { messages: [{ role: 'user', content: prompt }] } },
