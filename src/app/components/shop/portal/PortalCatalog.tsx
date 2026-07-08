@@ -20,6 +20,13 @@ import {
   type SearchSuggestion,
 } from '../../../utils/catalogSearch';
 import {
+  buildCategoryLandingModel,
+  mergeEditorial,
+  categoryEditorialCacheKey,
+  type CategoryEditorial,
+} from '../../../utils/catalogLanding';
+import { PortalCategoryLanding } from './PortalCategoryLanding';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -216,13 +223,78 @@ export function PortalCatalog({
     [selectedFormats, priceKey],
   );
 
-  // S2.19 — Famille active pour le fil d'Ariane : si les produits (déjà filtrés
-  // en amont par gamme) appartiennent tous à une seule famille, on l'affiche.
-  const breadcrumbFamily = useMemo(() => {
+  // S2.19/S2.20 — Famille active : si les produits (déjà filtrés en amont par
+  // gamme) appartiennent tous à une seule famille, on tient l'objet complet
+  // (fil d'Ariane + landing éditorialisée).
+  const activeFamily = useMemo(() => {
     const tax = buildShopTaxonomy(products, pimGammes ?? []);
     const withProducts = tax.filter((f) => f.count > 0);
-    return withProducts.length === 1 ? withProducts[0].label : null;
+    return withProducts.length === 1 ? withProducts[0] : null;
   }, [products, pimGammes]);
+  const breadcrumbFamily = activeFamily?.label ?? null;
+
+  // S2.20 — Contenu éditorial LLM (endpoint category-editorial), avec cache
+  // session par famille + socle déterministe si l'IA est indisponible.
+  const [editorial, setEditorial] = useState<CategoryEditorial | null>(null);
+  useEffect(() => {
+    if (!activeFamily) {
+      setEditorial(null);
+      return;
+    }
+    let cancelled = false;
+    const cacheKey = categoryEditorialCacheKey(activeFamily.key);
+    try {
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) {
+        setEditorial(JSON.parse(cached));
+        return;
+      }
+    } catch {
+      /* sessionStorage indispo : on tente l'appel réseau */
+    }
+    setEditorial(null);
+    (async () => {
+      try {
+        const CATEGORY_EDITORIAL_TIMEOUT_MS = 12_000;
+        const invokePromise = supabase.functions.invoke(
+          'make-server-e3db71a4/category-editorial',
+          {
+            body: {
+              familyName: activeFamily.label,
+              subcategories: activeFamily.subcategories.filter((s) => s.count > 0).map((s) => s.label),
+              sampleProducts: products.slice(0, 8).map((p) => p.name),
+            },
+          },
+        );
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('category_editorial_timeout')), CATEGORY_EDITORIAL_TIMEOUT_MS);
+        });
+        const { data } = (await Promise.race([invokePromise, timeoutPromise])) as Awaited<
+          typeof invokePromise
+        >;
+        const ed = (data?.editorial ?? {}) as CategoryEditorial;
+        if (cancelled) return;
+        setEditorial(ed);
+        try {
+          sessionStorage.setItem(cacheKey, JSON.stringify(ed));
+        } catch {
+          /* noop */
+        }
+      } catch {
+        // Timeout / réseau : on garde le socle déterministe (jamais de page vide).
+        if (!cancelled) setEditorial(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeFamily, products]);
+
+  // S2.20 — Modèle final de la landing : socle déterministe + overlay éditorial.
+  const landingModel = useMemo(
+    () => (activeFamily ? mergeEditorial(buildCategoryLandingModel(activeFamily, products), editorial) : null),
+    [activeFamily, products, editorial],
+  );
 
   // Filtre : texte -> facettes (format/prix) -> tri (S-CONSO-4 + S-CONSO-5 + S2.19).
   const filtered = useMemo(() => {
@@ -441,6 +513,20 @@ export function PortalCatalog({
           ))}
         </div>
       </div>
+
+      {/* S2.20 — Landing éditorialisée quand une seule famille est active */}
+      {landingModel && activeFamily && (
+        <PortalCategoryLanding
+          model={landingModel}
+          tone={activeFamily.tone}
+          onSelectSubcategory={(slugs) => {
+            if (onSelectFamily) onSelectFamily(slugs);
+          }}
+          onSelectProduct={onSelectProduct}
+          pimGammes={pimGammes}
+          pimDefinitions={pimDefinitions}
+        />
+      )}
 
       {/* S2.19 — Fil d'Ariane : Accueil > Catalogue [> Famille] */}
       <nav

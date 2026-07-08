@@ -225,6 +225,10 @@ export const TEST_IDS = {
     catalogSearchMenu: 'shop-catalog-search-menu',
     catalogSearchOption: 'shop-catalog-search-option',
     catalogSearchAskMagrit: 'shop-catalog-search-ask-magrit',
+    // S2.20 — Landing categorie editorialisee (titre + intro + sous-cats + best-sellers)
+    catalogLanding: 'shop-catalog-landing',
+    catalogLandingSubcat: 'shop-catalog-landing-subcat',
+    catalogLandingBestseller: 'shop-catalog-landing-bestseller',
     // S2.2 — Sidebar gammes depliables persistantes (Epic 2)
     gammesList: 'shop-gammes-list',
     gammeRow: 'shop-gamme-row',

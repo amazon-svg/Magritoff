@@ -1531,4 +1531,104 @@ app.post("/make-server-e3db71a4/send-invitation-email", async (c) => {
   }
 });
 
+// ─── S2.20 — Contenu éditorial de landing catégorie (auto-généré) ────────────
+// Génère un titre marketing + intro courte + meta SEO pour une famille de
+// produits. Modèle rapide (Haiku). Le client garde un socle déterministe si
+// l'IA est indisponible (ADR §4.15 — jamais de page vide), donc en mode démo /
+// erreur on renvoie 200 avec editorial vide (le client ne casse pas).
+app.post("/make-server-e3db71a4/category-editorial", async (c) => {
+  try {
+    const body = await c.req.json();
+    const { userId, tenantId } = body;
+    const familyName = typeof body.familyName === "string" ? body.familyName.trim() : "";
+    const subcategories: string[] = Array.isArray(body.subcategories)
+      ? body.subcategories.filter((s: unknown) => typeof s === "string").slice(0, 12)
+      : [];
+    const sampleProducts: string[] = Array.isArray(body.sampleProducts)
+      ? body.sampleProducts.filter((s: unknown) => typeof s === "string").slice(0, 8)
+      : [];
+
+    if (!familyName) {
+      return c.json({ error: "familyName is required" }, 400);
+    }
+
+    // Repli gracieux : éditorial vide → le client utilise son socle déterministe.
+    const respondEmpty = (reason: string) =>
+      c.json({ editorial: {}, demoMode: true, reason });
+
+    const MODEL = "claude-haiku-4-5-20251001";
+    const system =
+      "Tu es Magrit, l'assistant d'une boutique d'impression B2B. " +
+      "Tu écris le contenu éditorial d'une page de catégorie (landing) pour des acheteurs professionnels. " +
+      "Ton : direct, concret, orienté usage et ROI, sans jargon ni anglicisme, en français. " +
+      "Réponds UNIQUEMENT par un objet JSON valide, sans texte autour, avec exactement ces clés : " +
+      '{"title": string, "intro": string, "seo": string}. ' +
+      "title : un titre de page court (max 60 caractères). " +
+      "intro : 1 à 2 phrases (max 240 caractères) qui présentent l'offre de la catégorie. " +
+      "seo : une meta description SEO (max 155 caractères).";
+
+    const userPrompt =
+      `Catégorie : ${familyName}.\n` +
+      (subcategories.length ? `Sous-catégories : ${subcategories.join(", ")}.\n` : "") +
+      (sampleProducts.length ? `Exemples de produits : ${sampleProducts.join(", ")}.\n` : "") +
+      "Génère le contenu éditorial JSON de cette page de catégorie.";
+
+    let result;
+    try {
+      result = await anthropicComplete({
+        model: MODEL,
+        messages: [{ role: "user", content: userPrompt }],
+        system,
+        maxTokens: 600,
+        endpoint: "category-editorial",
+        userId,
+        tenantId,
+        metadata: { familyName, subcats: subcategories.length },
+      });
+    } catch (err) {
+      if (err instanceof AnthropicClientError) {
+        if (err.kind === "missing_api_key") return respondEmpty("missing_api_key");
+        if (isAnthropicBillingError(err)) return respondEmpty("billing");
+      }
+      console.error("❌ category-editorial erreur:", err);
+      return respondEmpty("error");
+    }
+
+    const rawText: string = result.text
+      .replace(/^```json\s*/i, "")
+      .replace(/^```\s*/i, "")
+      .replace(/\s*```\s*$/i, "")
+      .trim();
+
+    let editorial: { title?: string; intro?: string; seo?: string } = {};
+    try {
+      const parsed = JSON.parse(rawText);
+      const pick = (v: unknown) =>
+        typeof v === "string" && v.trim().length > 0 ? v.trim() : undefined;
+      editorial = {
+        title: pick(parsed.title),
+        intro: pick(parsed.intro),
+        seo: pick(parsed.seo),
+      };
+    } catch (parseError) {
+      console.error("❌ category-editorial JSON invalide:", parseError, rawText.slice(0, 300));
+      return respondEmpty("parse_error");
+    }
+
+    return c.json({
+      editorial,
+      model: MODEL,
+      usage: {
+        input_tokens: result.usage.input_tokens,
+        output_tokens: result.usage.output_tokens,
+      },
+    });
+  } catch (error) {
+    console.error("❌ Erreur category-editorial:", error);
+    // Même en cas d'erreur serveur : éditorial vide plutôt que 500 (le client
+    // doit toujours pouvoir afficher son socle déterministe).
+    return c.json({ editorial: {}, demoMode: true, reason: "server_error" });
+  }
+});
+
 Deno.serve(app.fetch);
