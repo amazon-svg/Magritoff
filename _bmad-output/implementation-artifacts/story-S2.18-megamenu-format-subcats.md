@@ -47,9 +47,13 @@ raffiner** en sous-catégorie (jamais déterminant de famille).
   niveau famille, alignement PIM, exclusion « Autre », chemin gamme réelle non écrasé).
 - Suite complète : **714 vitest verts** (709 → 714). Build Vite vert.
 
-## Reste / à vérifier
-- **Vérif live** en attente (boutique authentifiée `product_library` — nécessite session
-  navigateur Arnaud). Data prod confirmée : arbre `product_gammes` = 9 racines + 19 enfants
-  format-based ; produits `product_library` rattachés aux racines.
+## Vérif live — OK (2026-07-08, boutique ERAM, session Arnaud, 30 produits)
+- Méga-menu « Affiches 6 » → panneau **Affiche A2 · 4 / A1 · 1 / A3 · 1** (compteurs réels,
+  libellés alignés PIM).
+- Clic « Affiche A2 » → bascule catalogue, famille **Affiches** filtrée (fil d'Ariane), facette
+  **Format A2 présélectionnée** (`aria-pressed`), **4 résultats** (les 4 affiches A2).
+- Landing éditorialisée « Affiches A1, A2, A3 » cohérente.
+
+## Reste / notes
 - Sous-catégorie dérivée = format issu de `config.format`. Si un format est absent sur des
   produits, ils ne comptent dans aucune sous-cat (mais restent dans la famille).

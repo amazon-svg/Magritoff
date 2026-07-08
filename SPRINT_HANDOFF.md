@@ -2,7 +2,7 @@
 
 > Document de reprise pour démarrer une nouvelle session de Claude code sur le projet sans recharger tout l'historique. À tenir à jour à chaque fin de sprint.
 >
-> **Dernière mise à jour : 2026-07-08 — Sprint E3 Navigation (Epic 2 e-commerce) CLÔTURÉ : méga-menu, cohérence catégorie (ADR-4.17), fil d'Ariane + facettes, recherche + autocomplétion, landing éditorialisée LLM. Voir section 18 ci-dessous. Tout poussé `origin/beta/v5` (HEAD `d731243`), edge `category-editorial` déployée. 709 tests verts.**
+> **Dernière mise à jour : 2026-07-08 — Sprint E3 Navigation (Epic 2 e-commerce) CLÔTURÉ + correctif méga-menu (sous-catégories par format S2.18-fix, vérifié live). Voir section 18. Tout poussé `origin/beta/v5` (HEAD `5e7260a`), edge `category-editorial` déployée. 714 tests verts.**
 
 ## 18. Sprints E1 → E3 — Extension boutique e-commerce standard (Epic 2) — E3 CLÔTURÉ 2026-07-08
 
@@ -17,8 +17,9 @@ Extension de la boutique B2B vers un standard e-commerce (Epic 2, `_bmad-output/
 | `e6439c1` | fix timeout claude-proxy 15s→45s | Correctif intermédiaire, **superseded** par le streaming ci-dessous. |
 | `922dc6f` | **feat streaming boutique (S-SHOP-STREAM)** | Le `askMagrit` du catalogue (`PortalCatalog`) passe sur `claude-proxy-stream` via le hook partagé `useClaudeSseStream` (même que la home). Motif : requêtes larges/multi-produits (ex. « produits pour événement sportif 15 équipes rugby ») prennent **30s+** (mesuré 30,9s → 5 configs) ; l'ancien invoke non-streamé coupait à 15/45s → filtre texte local muet sur une phrase = **écran sans réponse**. Le `done` SSE porte les mêmes `configs`. Indicateur « Magrit rédige sa réponse… ». Erreurs typées `ClaudeSseStreamError` (aborted/billing/réseau). |
 | `8191a9c` | **fix méga-menu responsive** | `ShopMegaMenu` n'est plus `hidden md:flex` (invisible < 768px). Barre de familles visible sur toutes largeurs, scrollable horizontalement, familles tappables → navigation. Panneau sous-catégories reste un enrichissement desktop (survol), non-débordant en étroit. Répond au « je ne vois plus de bigmenu » d'Arnaud (fenêtre < 768px). |
+| `5e7260a` | **feat méga-menu sous-catégories par format (S2.18-fix)** | **Poussé.** Le panneau déroulant ne se déployait jamais sur un catalogue à produits : conditionné à `subcategories.length > 0`, or le seed S-CAT-3 rattache les produits à la gamme RACINE → aucune gamme enfant peuplée. Correctif conforme ADR-4.17 (décision Arnaud « peupler sans re-seeder ») : `buildShopTaxonomy` dérive les sous-catégories depuis les **formats** des produits (`resolveFormatLabel`, source facette S2.19) quand aucun enfant PIM n'est peuplé. `formatKey` threadé ShopMegaMenu→ShopLayout→PublicShop→PortalCatalog : clic sous-cat = filtre **famille** + présélection **facette Format**. Libellés/slugs alignés PIM (« A3 »→« Affiche A3 »), bucket « Autre » jamais exposé. **Vérifié live** (ERAM, 30 produits : Affiches → A2·4/A1·1/A3·1, clic A2 → 4 résultats filtrés). Story `story-S2.18-megamenu-format-subcats.md`. |
 
-**Tests** : 526 tests purs verts (build vert). Les tests RLS/DB échouaient sur `ConnectTimeoutError` Supabase pendant la coupure réseau (environnement, pas le code).
+**Tests** : 714 vitest verts (build vert) après le correctif `5e7260a` (+5 cas taxonomy). Réseau rétabli : les 4 commits E3 en attente + le correctif méga-menu sont poussés sur `origin/beta/v5` (HEAD `5e7260a`).
 
 **Diagnostic #2 méga-menu** : ce n'était pas un bug applicatif — le `hidden md:flex` datait de S2.18 (desktop-only par design). Le correctif le rend accessible en étroit/mobile.
 
