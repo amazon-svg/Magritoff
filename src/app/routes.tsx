@@ -46,6 +46,11 @@ const DashboardQuoteTemplates = lazy(() =>
     default: m.DashboardQuoteTemplates,
   })),
 );
+const DashboardQuotesPending = lazy(() =>
+  import("./components/dashboard/DashboardQuotesPending").then((m) => ({
+    default: m.DashboardQuotesPending,
+  })),
+);
 const DashboardQuoteEditor = lazy(() =>
   import("./components/dashboard/DashboardQuoteEditor").then((m) => ({
     default: m.DashboardQuoteEditor,
@@ -183,6 +188,7 @@ export const router = createBrowserRouter([
               { path: "preferences", element: lazyRoute(<DashboardPreferences />) },
               { path: "history", element: lazyRoute(<DashboardHistory />) },
               { path: "quotes", element: lazyRoute(<DashboardQuotes />) },
+              { path: "quotes/pending", element: lazyRoute(<DashboardQuotesPending />) },
               { path: "quotes/:id/edit", element: lazyRoute(<DashboardQuoteEditor />) },
               { path: "quote-templates", element: lazyRoute(<DashboardQuoteTemplates />) },
               { path: "orders", element: lazyRoute(<DashboardOrders />) },

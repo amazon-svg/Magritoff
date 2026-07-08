@@ -52,6 +52,10 @@ export const TEST_IDS = {
   },
   dashboard: {
     welcomeCard: 'dashboard-welcome-card',
+    // S2.16 — Page "Devis en attente" (sous-menu de Devis, option C)
+    pendingQuotes: 'dashboard-pending-quotes',
+    pendingQuoteRow: 'dashboard-pending-quote-row',
+    pendingQuoteResumeBtn: 'dashboard-pending-quote-resume-btn',
   },
 
   // ─── P02 — Gestion utilisateurs ───────────────────────────────────────
@@ -194,6 +198,37 @@ export const TEST_IDS = {
     // S2.3 — ShopProductCard avec MockupImage parametrique (Epic 2)
     productCardConfigureBtn: 'product-card-configure-btn',
     productCardSelectCheckbox: 'product-card-select-checkbox',
+    // S2.11 — Bandeau categorie couleur-code + picto famille (Epic 2 ext e-commerce)
+    productCardCategoryBadge: 'product-card-category-badge',
+    // S2.12 — Badges d'etat commercial calcules (Nouveau/Meilleure vente/Eco/Express)
+    productCardCommercialBadge: 'product-card-commercial-badge',
+    // S2.13 — Puces attributs PIM scan sur la card (format/grammage/finition...)
+    productCardAttrChip: 'product-card-attr-chip',
+    // S2.15 — Bloc Nouveautes sur la home boutique (derniers produits integres)
+    homeNewProducts: 'shop-home-new-products',
+    // S2.16 — Bloc "Votre panier en cours" sur la home boutique (reprise, option C)
+    homeCartResume: 'shop-home-cart-resume',
+    homeCartResumeBtn: 'shop-home-cart-resume-btn',
+    // S2.18 — Mega-menu 2 niveaux illustre (Sprint E3 Navigation)
+    megaMenu: 'shop-mega-menu',
+    megaMenuFamily: 'shop-mega-menu-family',
+    megaMenuPanel: 'shop-mega-menu-panel',
+    megaMenuSubcat: 'shop-mega-menu-subcat',
+    // S2.19 — Fil d Ariane + facettes legeres (format devient filtre)
+    catalogBreadcrumb: 'shop-catalog-breadcrumb',
+    catalogFacetFormat: 'shop-catalog-facet-format',
+    catalogFacetPrice: 'shop-catalog-facet-price',
+    catalogEmpty: 'shop-catalog-empty',
+    catalogEmptyAskMagrit: 'shop-catalog-empty-ask-magrit',
+    catalogResetFacets: 'shop-catalog-reset-facets',
+    // S2.21 — Autocompletion recherche catalogue (produits + familles + fallback Magrit)
+    catalogSearchMenu: 'shop-catalog-search-menu',
+    catalogSearchOption: 'shop-catalog-search-option',
+    catalogSearchAskMagrit: 'shop-catalog-search-ask-magrit',
+    // S2.20 — Landing categorie editorialisee (titre + intro + sous-cats + best-sellers)
+    catalogLanding: 'shop-catalog-landing',
+    catalogLandingSubcat: 'shop-catalog-landing-subcat',
+    catalogLandingBestseller: 'shop-catalog-landing-bestseller',
     // S2.2 — Sidebar gammes depliables persistantes (Epic 2)
     gammesList: 'shop-gammes-list',
     gammeRow: 'shop-gamme-row',

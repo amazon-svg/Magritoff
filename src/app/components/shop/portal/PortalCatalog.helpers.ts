@@ -13,7 +13,7 @@
 
 import type { ShopProduct } from '../../../contexts/ShopsContext';
 import type { Gamme } from '../../../utils/productEnrichment';
-import { resolveGamme } from '../../../utils/productEnrichment';
+import { resolveProductGamme } from '../../../utils/productEnrichment';
 
 // ─── S-CONSO-4 : filter texte (fallback IA down) ─────────────────────────────
 
@@ -31,7 +31,7 @@ export function filterProductsByTextQuery(
   if (!q) return products;
 
   return products.filter((p) => {
-    const gamme = gammes.length > 0 ? resolveGamme(p.config, gammes, p.name) : null;
+    const gamme = gammes.length > 0 ? resolveProductGamme(p, gammes) : null;
     const haystack = [
       p.name,
       p.description ?? '',

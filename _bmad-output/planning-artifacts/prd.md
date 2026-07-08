@@ -184,7 +184,7 @@ _Document **finalisé** via la skill `bmad-create-prd` (steps 1 → 12 ✅). Sta
 8. **Innovation & Novel Patterns** — 4 areas + Market Context recalibré (Cimpress = client cible) + WebSearch sources
 9. **SaaS B2B Specific Requirements** — Tenant Model, RBAC, Subscription Tiers + quotas, Integrations, Compliance
 10. **Project Scoping & Phased Development** — MVP philosophy, Resources, Risk Mitigation
-11. **Functional Requirements** — 46 FR sur 9 domaines (capability contract)
+11. **Functional Requirements** — 50 FR + 20 FR-ECOM sur 11 domaines (capability contract ; Domaine 11 = extension boutique e-commerce 2026-07-06)
 12. **Non-Functional Requirements** — 28 NFR (Performance, Security, Scalability, Accessibility, Integration, Reliability)
 13. **Document Status & Next Steps** (en bas)
 
@@ -955,6 +955,42 @@ Conformément à la règle BMAD step 8 : **aucune story explicitement validée p
 - **FR48** Tout affichage de prix marché côté UI (boutique B2B, panier, atelier, fiche produit) est accompagné d'un **badge « ⚠️ Prix marché »** explicite avec sous-texte « prix réel Clariprint à venir ».
 - **FR49** Le bouton « Ajouter au panier » d'une boutique B2B reste **toujours actif** (sauf chargement Clariprint en cours), avec le prix marché comme fallback. La commande créée en statut `draft` peut être révisée par l'imprimeur avant validation `validated` (V2+).
 - **FR50** Le total panier est calculé via `resolvePrice()` qui applique la hiérarchie canonique : Clariprint validé → cache bibliothèque → prix marché → zéro. Si au moins une ligne du panier est en prix marché, le récap affiche un **badge global** explicitant que le total est indicatif.
+
+### Domaine 11 — Boutique standard e-commerce (ajout 2026-07-06)
+
+> _Extension issue du brainstorming boutique (`_bmad-output/brainstorming/brainstorming-session-2026-07-03-1105.md`, cross-pollination Mixam/Onlineprinters/Exaprint). Objectif : rapprocher la boutique des codes e-commerce standard sans casser l ADN Magrit. **Principe directeur non-négociable : l intelligence est dans la donnée (PIM + bibliothèques + historique commandes), pas dans du paramétrage manuel opérateur.** Couvert par l extension Epic 2 (stories S2.11-S2.31). Décisions d architecture actées en séance : card = produit configurable (filtres légers) · nav identique acheteur/deviseur · home unique loggé/non-loggé · un seul template général · rôles = S-ORDER-ROLES existant._
+
+**Identité et lisibilité produit (S2.11-S2.14)**
+- **FR-ECOM-01** Chaque produit expose un repère visuel de famille (couleur + pictogramme) dérivé du PIM, cohérent sur card, fiche, panier et historique. (S2.11)
+- **FR-ECOM-02** Le système affiche des badges d état commercial (`Nouveau` / `Meilleure vente` / `Éco` / `Express 24h`) **calculés** depuis les données (récence, volume, délai Clariprint, tag éco), jamais saisis à la main. (S2.12)
+- **FR-ECOM-03** La ProductCard expose jusqu à 3 puces d attributs clés normalisés par famille, issues du PIM, comparables entre produits d une même famille. (S2.13)
+- **FR-ECOM-04** Le visuel produit utilise un mockup-signature normalisé par famille (extension P18 v2), avec fallback générique par famille tant que le mockup n existe pas. (S2.14)
+
+**Home utile (S2.15-S2.17)**
+- **FR-ECOM-05** La home affiche un bloc « Nouveautés » listant les derniers produits intégrés à la boutique, tri dérivé de la date d ajout. (S2.15)
+- **FR-ECOM-06** La home affiche les devis en cours (S-QUOTES) et le panier non finalisé avec reprise en un clic. (S2.16, étend FR31)
+- **FR-ECOM-07** La home affiche des « best-sellers de votre secteur » inférés de l historique de commandes multi-tenant anonymisé, avec fallback best-sellers globaux boutique. (S2.17)
+
+**Navigation et découverte (S2.18-S2.21)**
+- **FR-ECOM-08** La navigation propose un méga-menu 2 niveaux (familles + sous-catégories) auto-illustré par les mockups-signature, dérivé des données. (S2.18)
+- **FR-ECOM-09** Les pages catalogue exposent un fil d Ariane et des filtres à facettes **légers** (famille, usage, délai, gamme de prix) générés depuis le PIM, sans variantes techniques fines. (S2.19)
+- **FR-ECOM-10** Cliquer une famille ouvre une landing catégorie éditorialisée (intro, sous-catégories en tuiles, best-sellers, grille), jamais une grille brute ni une page vide. (S2.20)
+- **FR-ECOM-11** La boutique fournit une recherche produits avec autocomplétion, et un fallback « Demander à Magrit » (chat pré-rempli) quand aucun résultat. (S2.21)
+
+**Différenciateurs IA (S2.22-S2.25)**
+- **FR-ECOM-12** Magrit classe automatiquement les produits par usage/intention pour alimenter une navigation transverse qui se maintient seule quand le catalogue grandit. (S2.22)
+- **FR-ECOM-13** La home propose un cross-sell contextuel « Magrit vous suggère » déduit des séquences de commande réelles du tenant, avec fallback si pas d historique. (S2.23)
+- **FR-ECOM-14** Un product finder guidé (2-3 questions : usage/quantité/délai) retourne 1-3 recommandations produit via IA structurée, avec CTA vers la configuration. (S2.24)
+- **FR-ECOM-15** Magrit auto-génère les descriptions catégorie et champs SEO/GEO manquants à partir du PIM (défaut overridable, jamais d écrasement d un contenu saisi). (S2.25)
+
+**Fiche produit et confort B2B (S2.26-S2.29, activation S2.9)**
+- **FR-ECOM-16** La fiche produit expose un bloc rassurance B2B (délais chiffrés, BAT/échantillon, garanties, contacts) alimenté par PIM/Clariprint. (S2.26)
+- **FR-ECOM-17** La card/fiche affiche les paliers de prix dégressifs (quantité → prix unitaire) via `resolvePrice()`, avec signalement de la source de prix. (S2.27)
+- **FR-ECOM-18** Depuis une fiche, l acheteur peut interroger Magrit sur le produit avec contexte pré-chargé (délais, options, prix, PIM). (S2.28)
+- **FR-ECOM-19** Un acheteur peut créer des listes d achat nommées ré-commandables en lot (favoris récurrents), persistées par utilisateur/tenant. (S2.29)
+
+**Back-office opérateur (S2.31)**
+- **FR-ECOM-20** L écran d admin boutique est consolidé après audit, en privilégiant l affectation de produits PIM→boutique et en excluant tout paramétrage manuel superflu (pas de merchandising manuel, drag & drop, ni templates par secteur). (S2.31)
 
 ---
 

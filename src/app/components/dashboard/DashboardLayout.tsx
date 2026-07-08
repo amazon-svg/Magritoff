@@ -2,7 +2,7 @@ import { Navigate, NavLink, Outlet, useLocation } from 'react-router';
 import {
   User, Settings, MessageSquare, FileText, ShoppingBag, Users,
   CreditCard, Package, Store, Shield, LayoutTemplate, Building, Layers, Workflow,
-  Image as ImageIcon,
+  Image as ImageIcon, FileClock,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlan } from '../../hooks/usePlan';
@@ -72,6 +72,13 @@ export function DashboardLayout() {
         { to: `${basePath}`, end: true, label: 'Profil', icon: User, show: true },
         { to: `${basePath}/history`, label: 'Historique', icon: MessageSquare, show: true },
         { to: `${basePath}/quotes`, label: 'Devis', icon: FileText, show: true },
+        {
+          to: `${basePath}/quotes/pending`,
+          label: 'Devis en attente',
+          icon: FileClock,
+          show: true,
+          sub: true,
+        },
         {
           to: `${basePath}/quote-templates`,
           label: 'Gabarits de devis',

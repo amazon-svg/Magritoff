@@ -16,7 +16,7 @@
  */
 
 import type { Gamme, ProductDefinition } from './productEnrichment';
-import { resolveGamme, resolveDefinition } from './productEnrichment';
+import { resolveProductGamme, resolveDefinition } from './productEnrichment';
 import { resolveProductMockupAsset } from './productMockupAssets';
 
 export interface ResolveImageInput {
@@ -28,6 +28,8 @@ export interface ResolveImageInput {
   kind?: string;
   /** Categorie produit (sert a l'inference de famille du visuel Gemini). */
   category?: string;
+  /** ADR-4.17 : categorie explicite autoritaire (FK gamme). Prime sur les regles. */
+  gamme_slug?: string | null;
   /** Données PIM chargées côté appelant */
   gammes?: Gamme[];
   definitions?: ProductDefinition[];
@@ -52,7 +54,10 @@ export function resolveProductImage(input: ResolveImageInput): string {
       kind: input.clariprintData?.kind ?? input.kind,
       name: input.name,
     };
-    const gamme = resolveGamme(config, input.gammes, input.name);
+    const gamme = resolveProductGamme(
+      { config, name: input.name, gamme_slug: input.gamme_slug },
+      input.gammes,
+    );
     if (gamme) {
       const def = resolveDefinition(
         gamme.slug,

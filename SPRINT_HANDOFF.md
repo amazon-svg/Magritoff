@@ -2,7 +2,42 @@
 
 > Document de reprise pour démarrer une nouvelle session de Claude code sur le projet sans recharger tout l'historique. À tenir à jour à chaque fin de sprint.
 >
-> **Dernière mise à jour : 2026-07-02 — Sprint S-QUOTES (bibliothèque de devis éditables) livré en code (6 stories). Voir section 17 ci-dessous. ⚠️ Migration `20260702000100` NON encore appliquée en prod (PAT requis).**
+> **Dernière mise à jour : 2026-07-08 — Sprint E3 Navigation (Epic 2 e-commerce) CLÔTURÉ : méga-menu, cohérence catégorie (ADR-4.17), fil d'Ariane + facettes, recherche + autocomplétion, landing éditorialisée LLM. Voir section 18 ci-dessous. Tout poussé `origin/beta/v5` (HEAD `d731243`), edge `category-editorial` déployée. 709 tests verts.**
+
+## 18. Sprints E1 → E3 — Extension boutique e-commerce standard (Epic 2) — E3 CLÔTURÉ 2026-07-08
+
+Extension de la boutique B2B vers un standard e-commerce (Epic 2, `_bmad-output/planning-artifacts/epics.md` L629+, FR-ECOM). Mémoire projet : `project_ecom_boutique_extension.md`. Découpage en sprints E1 (ProductCard lisibilité) · E2 (paniers/devis) · **E3 (navigation)**.
+
+### E1 — Lisibilité ProductCard boutique (livré + poussé, HEAD `c0ec853`)
+- S2.11-S2.14 lisibilité ProductCard + S2.15 bloc « Nouveautés » sur la home boutique. 650 tests. Audit prod : **S2.17 abandonnée** (POC, bloc vide).
+
+### E2 — Paniers / devis (livré + poussé)
+- **S2.16 (option C, décision Arnaud 2026-07-07)** : panier/reprise sur la home boutique + « Devis en attente » en **sous-menu du menu Devis** au tableau de bord (page `dashboard/quotes/pending`, comme « Gabarits de devis »). Helpers `resolvePendingQuotes` / `summarizeCartResume`.
+
+### E3 — Navigation (CLÔTURÉ 2026-07-08, 4 stories + 1 chantier cohérence)
+
+| Story | Commit | Livré |
+|---|---|---|
+| **S2.18** méga-menu | (E3) | `ShopMegaMenu` : familles (repère couleur + picto + compteur) → panel sous-catégories + vignette featured. Taxonomie `buildShopTaxonomy` sur l'arbre gammes PIM. A11y aria-haspopup/expanded/controls + Escape. |
+| **Cohérence catégorie (ADR-4.17)** | (E3) | Chantier hors-plan : la **gamme = catégorie explicite** (FK `gamme_slug` sur `product_library` + `shop_products`), prime sur la résolution par format. Le format ne détermine JAMAIS la famille. Migrations `20260707000100/150/200` appliquées prod (packaging ajouté, 31/31 produits seedés racine). Le LLM produit renvoie désormais `gamme`. Badge carte = méga-menu = pilule = `resolveProductGamme`. |
+| **S2.19** fil d'Ariane + facettes | `9a42c4e` | `catalogFacets.ts` : fil d'Ariane « Accueil › Catalogue › Famille » + facettes **Format** (filtre, pas catégorie) + **Prix** (tranches <100/100-500/>500). État vide → réinitialiser + « Demander à Magrit ». |
+| **S2.21** recherche + autocomplétion | `8398003` | `catalogSearch.ts` : autocomplétion dès 2 car. (familles puis produits), clic produit → fiche / clic famille → filtre (`selectGammes`). Aucun match → « Demander à Magrit » pré-rempli (ADR §4.15). Index = catalogue complet. Accent-insensible. |
+| **S2.20** landing éditorialisée LLM | `d731243` | `catalogLanding.ts` + `PortalCategoryLanding` : landing famille (titre + intro + sous-catégories + best-sellers + grille). **Socle déterministe** (jamais vide) + **enrichissement LLM** endpoint edge `category-editorial` (Haiku, cache session, timeout 12s → repli socle). |
+
+### Endpoint edge déployé prod B5
+- **`make-server-e3db71a4/category-editorial`** (S2.20) : génère `{title, intro, seo}` d'une famille via Haiku. Fallback gracieux (clé absente / billing / erreur → editorial vide, le client garde le socle). **Déployé + vérifié live 2026-07-08** (réponse réelle sur « Affiches »).
+
+### Tests
+- **709 vitest verts** (baseline E3 début 650 → 709). Nouveaux fichiers : `catalogFacets.test.ts`, `shopTaxonomy.test.ts`, `shopFamilyIdentity.test.ts`, `resolveProductGamme.test.ts`, `catalogSearch.test.ts` (11), `catalogLanding.test.ts` (9). 0 régression.
+
+### ADR
+- **§4.17** (architecture.md) : `gamme_slug` = catégorie explicite autoritaire. Le format est un attribut/filtre, jamais un déterminant de famille. Réf. gammes Exaprint/Vistaprint. Packaging = tout carton/emballage.
+
+### Reste / suivi
+- **Révoquer le PAT Supabase** utilisé pour le déploiement (hygiène).
+- **Epic 2 restant** : S2.22 (navigation par intention/usage IA) → S2.31. Sprint E4+ à cadrer.
+- **S-CAT-EDIT** (suivi) : éditer la catégorie d'un produit dans l'UI PIM (aujourd'hui seed + LLM).
+- Sous-catégories méga-menu/landing masquées tant que le catalogue est seedé au niveau racine (attendu, dégradé gracieux).
 
 ## 17. Session 2026-07-02 — S-QUOTES : bibliothèque de devis éditables
 

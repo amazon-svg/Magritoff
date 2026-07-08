@@ -3,7 +3,7 @@ import { ChevronRight, Minus, Plus, Calculator, Loader2, CheckCircle, AlertTrian
 import type { ShopProduct } from '../../../contexts/ShopsContext';
 import { resolveProductImage } from '../../../utils/productImages';
 import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
-import { resolveGamme } from '../../../utils/productEnrichment';
+import { resolveProductGamme } from '../../../utils/productEnrichment';
 import { ProductMockup } from '../../brand/ProductMockup';
 import { priceFingerprint, type ClariprintQuoteResult } from '../../../utils/clariprintQuote';
 import { computeClariprintQuoteSafe } from '../../../../server/clariprint/ClariprintAdapter';
@@ -30,7 +30,7 @@ export function PortalProduct({ product, onBack, onAddToCart, pimGammes, pimDefi
   // category sinon, ou "Produit" si ni l'un ni l'autre.
   const breadcrumbGammeLabel = useMemo(() => {
     if (pimGammes && pimGammes.length > 0) {
-      const gamme = resolveGamme(product.config, pimGammes, product.name);
+      const gamme = resolveProductGamme(product, pimGammes);
       if (gamme?.name) return gamme.name;
     }
     const cat = product.category;

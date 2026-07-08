@@ -122,6 +122,8 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
       return {
         id: `product-${Date.now()}-${index}`,
         name: d.productName || c.reference || "Produit",
+        // ADR-4.17 : gamme/famille explicite renvoyee par le LLM (display.gamme).
+        gamme: d.gamme || null,
         quantity: d.quantity || c.quantity || 0,
         format: d.format || `${c.width} × ${c.height} cm`,
         material: d.support || "",
@@ -670,6 +672,7 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
                       client_id: p.client_id ?? null,
                       name: p.name,
                       category: p.clariprintData?.kind || 'Autres',
+                      gamme_slug: p.gamme ?? null,
                       description: `${p.quantity ?? ''} · ${p.format ?? ''} · ${p.material ?? ''}`.trim(),
                       price_ht: p.price ?? 0,
                       image_url: '',

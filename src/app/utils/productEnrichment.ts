@@ -75,6 +75,29 @@ export function resolveGamme(
 }
 
 /**
+ * Résolution de gamme AUTORITAIRE (décision Arnaud 2026-07-07 §ADR-4.17).
+ *
+ * La CATÉGORIE explicite du produit prime — le format n'intervient jamais quand
+ * elle est renseignée : si `product.gamme_slug` pointe une gamme connue, on la
+ * retourne directement. Sinon (produit non catégorisé), repli sur la résolution
+ * historique par règles (`resolveGamme`, taille/kind) pour rétro-compatibilité.
+ *
+ * Source unique pour TOUS les consommateurs (badge carte, méga-menu, pilules,
+ * filtres, fiche produit) afin de garantir la cohérence partout.
+ */
+export function resolveProductGamme(
+  product: { config?: any; name?: string; gamme_slug?: string | null } | null | undefined,
+  gammes: Gamme[],
+): Gamme | null {
+  if (!product) return null;
+  if (product.gamme_slug) {
+    const explicit = gammes.find((g) => g.slug === product.gamme_slug);
+    if (explicit) return explicit;
+  }
+  return resolveGamme(product.config, gammes, product.name);
+}
+
+/**
  * Heuristique simple : pour chaque gamme matchee, on regarde si le nom du
  * produit contient un mot-cle revelateur. Si oui, on garde seulement les
  * gammes qui matchent ce mot-cle.

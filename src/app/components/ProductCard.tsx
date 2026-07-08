@@ -8,7 +8,7 @@ import { useLibrary } from "../contexts/LibraryContext";
 import { usePIM } from "../contexts/PIMContext";
 import { usePlan } from "../hooks/usePlan";
 import { useTenantPath } from "../hooks/useTenantPath";
-import { enrichProduct } from "../utils/productEnrichment";
+import { enrichProduct, resolveProductGamme } from "../utils/productEnrichment";
 import { ProductMockup } from "./brand/ProductMockup";
 import { MockupImage } from "./mockup/MockupImage";
 import {
@@ -192,6 +192,9 @@ export function ProductCard({
       client_id: (localProduct as any).client_id ?? null,
       name: localProduct.name,
       category: localProduct.clariprintData?.kind || 'Autres',
+      // ADR-4.17 : gamme explicite (LLM) sinon gamme resolue par les regles PIM.
+      gamme_slug:
+        (localProduct as any).gamme ?? resolveProductGamme(localProduct as any, gammes)?.slug ?? null,
       description: `${localProduct.quantity ?? ''} · ${localProduct.format ?? ''} · ${localProduct.material ?? ''}`.trim(),
       price_ht: priceHT,
       image_url: '',
