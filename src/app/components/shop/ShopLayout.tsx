@@ -64,8 +64,8 @@ interface Props {
   taxonomy?: TaxonomyFamily[];
   /** S2.18 — Clic famille (racine) dans le méga-menu → gammes à filtrer. */
   onSelectFamily?: (gammeSlugs: string[]) => void;
-  /** S2.18 — Clic sous-catégorie (gamme) dans le méga-menu → gammes à filtrer. */
-  onSelectSubcategory?: (gammeSlugs: string[]) => void;
+  /** S2.18 — Clic sous-catégorie dans le méga-menu → gammes à filtrer (+ format). */
+  onSelectSubcategory?: (gammeSlugs: string[], formatKey?: string) => void;
   /** Contenu drawer panier (slide-right via Sheet). */
   cartDrawer?: ReactNode;
   /** Contenu principal (vue active : home/catalog/product/orders). */
@@ -292,7 +292,7 @@ export function ShopLayout({
           families={taxonomy!}
           isDark={isDark}
           onSelectFamily={(slugs) => onSelectFamily?.(slugs)}
-          onSelectSubcategory={(slugs) => onSelectSubcategory?.(slugs)}
+          onSelectSubcategory={(slugs, formatKey) => onSelectSubcategory?.(slugs, formatKey)}
         />
       )}
 

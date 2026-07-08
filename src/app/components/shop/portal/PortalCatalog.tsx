@@ -65,6 +65,14 @@ interface Props {
   searchIndex?: ShopProduct[];
   /** S2.21 — clic sur une suggestion famille → filtre le catalogue (réutilise selectGammes). */
   onSelectFamily?: (gammeSlugs: string[]) => void;
+  /** 2026-07-08 — clic sous-catégorie (landing) → filtre famille + présélection format. */
+  onSelectSubcategory?: (gammeSlugs: string[], formatKey?: string) => void;
+  /**
+   * 2026-07-08 — format à présélectionner dans la facette Format à l'ouverture
+   * (sous-catégorie dérivée du méga-menu/landing, ADR-4.17). `null` = aucune
+   * présélection (sélection famille) → réinitialise le filtre format.
+   */
+  initialFormat?: string | null;
 }
 
 // Convertit une config LLM (format claude-proxy : { clariprint, display }) en
@@ -120,13 +128,26 @@ export function PortalCatalog({
   pimDefinitions,
   searchIndex,
   onSelectFamily,
+  onSelectSubcategory,
+  initialFormat,
 }: Props) {
   const [query, setQuery] = useState('');
   // S2.21 — autocomplétion : menu ouvert au focus + saisie ≥ 2 car.
   const [searchOpen, setSearchOpen] = useState(false);
   // S2.19 — facettes légères : format (multi) + tranche de prix (single).
-  const [selectedFormats, setSelectedFormats] = useState<Set<string>>(new Set());
+  const [selectedFormats, setSelectedFormats] = useState<Set<string>>(
+    initialFormat ? new Set([initialFormat]) : new Set(),
+  );
   const [priceKey, setPriceKey] = useState<string | null>(null);
+
+  // 2026-07-08 — Présélection de la facette Format pilotée par le méga-menu /
+  // la landing (sous-catégorie dérivée par format). À chaque changement de
+  // `initialFormat` : un format → filtre sur ce format ; `null` (sélection
+  // famille) → réinitialise. N'écrase pas un choix manuel tant que la valeur
+  // ne change pas (dépendance sur initialFormat uniquement).
+  useEffect(() => {
+    setSelectedFormats(initialFormat ? new Set([initialFormat]) : new Set());
+  }, [initialFormat]);
 
   // S2.4 — Etat ProductOverlay (configuration produit Clariprint)
   const [overlayProduct, setOverlayProduct] = useState<ShopProduct | null>(null);
@@ -537,8 +558,9 @@ export function PortalCatalog({
         <PortalCategoryLanding
           model={landingModel}
           tone={activeFamily.tone}
-          onSelectSubcategory={(slugs) => {
-            if (onSelectFamily) onSelectFamily(slugs);
+          onSelectSubcategory={(slugs, formatKey) => {
+            if (onSelectSubcategory) onSelectSubcategory(slugs, formatKey);
+            else if (onSelectFamily) onSelectFamily(slugs);
           }}
           onSelectProduct={onSelectProduct}
           pimGammes={pimGammes}

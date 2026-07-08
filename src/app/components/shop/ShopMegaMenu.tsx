@@ -20,8 +20,11 @@ interface Props {
   isDark?: boolean;
   /** Clic sur une famille (racine) → catalogue filtré sur ses gammes (racine + enfants). */
   onSelectFamily: (gammeSlugs: string[]) => void;
-  /** Clic sur une sous-catégorie (gamme) → catalogue filtré sur cette gamme. */
-  onSelectSubcategory: (gammeSlugs: string[]) => void;
+  /**
+   * Clic sur une sous-catégorie → catalogue filtré. `formatKey` (présent pour les
+   * sous-catégories dérivées par format, ADR-4.17) présélectionne la facette Format.
+   */
+  onSelectSubcategory: (gammeSlugs: string[], formatKey?: string) => void;
 }
 
 export function ShopMegaMenu({ families, isDark, onSelectFamily, onSelectSubcategory }: Props) {
@@ -129,7 +132,7 @@ export function ShopMegaMenu({ families, isDark, onSelectFamily, onSelectSubcate
                         type="button"
                         data-testid={TEST_IDS.shop.megaMenuSubcat}
                         data-gamme-slug={sub.key}
-                        onClick={() => onSelectSubcategory(sub.gammeSlugs)}
+                        onClick={() => onSelectSubcategory(sub.gammeSlugs, sub.formatKey)}
                         className={`w-full text-left flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[13px] transition-colors ${
                           isDark ? 'text-gray-300 hover:bg-gray-900' : 'text-ink-2 hover:bg-bg hover:text-ink'
                         }`}

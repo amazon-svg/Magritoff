@@ -8,8 +8,8 @@ interface Props {
   model: CategoryLandingModel;
   /** Repère couleur de la famille (badge / accent). */
   tone: string;
-  /** Clic tuile sous-catégorie → filtre le catalogue (réutilise selectGammes). */
-  onSelectSubcategory: (gammeSlugs: string[]) => void;
+  /** Clic tuile sous-catégorie → filtre le catalogue (+ format si dérivée). */
+  onSelectSubcategory: (gammeSlugs: string[], formatKey?: string) => void;
   onSelectProduct: (p: ShopProduct) => void;
   pimGammes?: Gamme[];
   pimDefinitions?: ProductDefinition[];
@@ -75,7 +75,7 @@ export function PortalCategoryLanding({
             <button
               key={s.key}
               data-testid={TEST_IDS.shop.catalogLandingSubcat}
-              onClick={() => onSelectSubcategory(s.gammeSlugs)}
+              onClick={() => onSelectSubcategory(s.gammeSlugs, s.formatKey)}
               className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-bg border border-line hover:border-line-2 hover:bg-paper"
               style={{ fontSize: '13px', fontWeight: 400 }}
             >

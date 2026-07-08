@@ -498,8 +498,22 @@ export function PublicShop() {
 
   // S2.18 — Sélection depuis le méga-menu (famille ou sous-catégorie) : remplace
   // les filtres actifs par les gammes ciblées et bascule sur le catalogue.
+  // Sélectionner une FAMILLE (ou une gamme) réinitialise la présélection format.
   const selectGammes = (gammeSlugs: string[]) => {
     setExpandedGammes(new Set(gammeSlugs));
+    setPendingFormat(null);
+    setView('catalog');
+  };
+
+  // Sélection méga-menu (2026-07-08) : présélection de la facette Format du
+  // catalogue pour les sous-catégories DÉRIVÉES par format (ADR-4.17). Le filtre
+  // reste au niveau FAMILLE (gammeSlugs = racine) ; `formatKey` raffine ensuite
+  // via la facette Format existante (S2.19). Sans formatKey (sous-cat de gamme
+  // classique) → comportement identique à selectGammes.
+  const [pendingFormat, setPendingFormat] = useState<string | null>(null);
+  const selectSubcategory = (gammeSlugs: string[], formatKey?: string) => {
+    setExpandedGammes(new Set(gammeSlugs));
+    setPendingFormat(formatKey ?? null);
     setView('catalog');
   };
 
@@ -622,7 +636,7 @@ export function PublicShop() {
       onToggleGamme={toggleGamme}
       taxonomy={taxonomy}
       onSelectFamily={selectGammes}
-      onSelectSubcategory={selectGammes}
+      onSelectSubcategory={selectSubcategory}
       cartDrawer={
         <PortalCart
           cart={cart}
@@ -673,6 +687,8 @@ export function PublicShop() {
           pimDefinitions={pimDefinitions}
           searchIndex={products}
           onSelectFamily={selectGammes}
+          onSelectSubcategory={selectSubcategory}
+          initialFormat={pendingFormat}
         />
       )}
 
