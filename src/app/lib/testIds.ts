@@ -289,6 +289,12 @@ export const TEST_IDS = {
     cartRenewalWarningsDismissBtn: 'shop-cart-renewal-warnings-dismiss-btn',
     // S3.4 (Sprint 5, 2026-05-23) : annulation commande draft + modal AlertDialog.
     orderCancelBtn: 'shop-order-cancel-btn',
+    // 2026-07-08 : édition commande draft (acheteur) — miroir éditeur de devis.
+    orderEditBtn: 'shop-order-edit-btn',
+    orderEditor: 'shop-order-editor',
+    orderEditorSaveBtn: 'shop-order-editor-save-btn',
+    orderEditorLineQty: 'shop-order-editor-line-qty',
+    orderEditorLinePrice: 'shop-order-editor-line-price',
     cancelOrderDialog: 'shop-cancel-order-dialog',
     cancelOrderDialogKeep: 'shop-cancel-order-dialog-keep',
     cancelOrderDialogConfirm: 'shop-cancel-order-dialog-confirm',

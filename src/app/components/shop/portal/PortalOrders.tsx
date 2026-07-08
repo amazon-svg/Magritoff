@@ -53,6 +53,7 @@ import {
   TAB_QUERY_PARAM,
 } from "./PortalOrders.helpers";
 import { OrderHistoryTable } from "./OrderHistoryTable";
+import { PortalOrderEditor } from "./PortalOrderEditor";
 import { CancelOrderConfirmDialog } from "./CancelOrderConfirmDialog";
 import { RejectOrderConfirmDialog } from "./RejectOrderConfirmDialog";
 import { formatCancelErrorMessage } from "./orderCancellation.helpers";
@@ -127,6 +128,8 @@ export function PortalOrders({ shopId, onRenewOrder, onNavigateToCatalog }: Prop
   // S3.4 + S-ORDER-ROLES-3-UI : 2 modals de transition workflow
   const [orderToCancel, setOrderToCancel] = useState<OrderUI | null>(null);
   const [orderToReject, setOrderToReject] = useState<OrderUI | null>(null);
+  // 2026-07-08 : commande draft en cours d'édition (auteur).
+  const [orderToEdit, setOrderToEdit] = useState<OrderUI | null>(null);
 
   const setActiveTab = useCallback((tab: PortalOrdersTab) => {
     setActiveTabState(tab);
@@ -420,6 +423,7 @@ export function PortalOrders({ shopId, onRenewOrder, onNavigateToCatalog }: Prop
   // Callbacks par tab (cohérence inter-écrans, lesson 2026-05-25)
   const handlersByTab: Record<PortalOrdersTab, Partial<{
     onCancelOrder: (o: OrderUI) => void;
+    onEditOrder: (o: OrderUI) => void;
     onRenewOrder: (o: OrderUI) => void | Promise<void>;
     onValidateOrder: (o: OrderUI) => void | Promise<void>;
     onRejectOrder: (o: OrderUI) => void;
@@ -428,6 +432,7 @@ export function PortalOrders({ shopId, onRenewOrder, onNavigateToCatalog }: Prop
   }>> = {
     mine: {
       onCancelOrder: (o) => setOrderToCancel(o),
+      onEditOrder: (o) => setOrderToEdit(o),
       onRenewOrder,
     },
     to_validate: {
@@ -547,6 +552,12 @@ export function PortalOrders({ shopId, onRenewOrder, onNavigateToCatalog }: Prop
         }
         onConfirm={handleRejectConfirm}
         onClose={() => setOrderToReject(null)}
+      />
+
+      <PortalOrderEditor
+        order={orderToEdit}
+        onClose={() => setOrderToEdit(null)}
+        onSaved={loadAll}
       />
     </div>
   );
