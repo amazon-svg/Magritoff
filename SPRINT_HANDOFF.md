@@ -8,6 +8,22 @@
 
 Extension de la boutique B2B vers un standard e-commerce (Epic 2, `_bmad-output/planning-artifacts/epics.md` L629+, FR-ECOM). Mémoire projet : `project_ecom_boutique_extension.md`. Découpage en sprints E1 (ProductCard lisibilité) · E2 (paniers/devis) · **E3 (navigation)**.
 
+### Correctifs post-clôture E3 (2026-07-08, suite feedback Arnaud sur boutique manitou)
+
+⚠️ **3 commits en attente de push** au moment de la rédaction (coupure réseau GitHub/egress ; la boucle de retry pousse dès réouverture). Vérifier `git rev-list --left-right --count origin/beta/v5...beta/v5` en début de session.
+
+| Commit | Sujet | Détail |
+|---|---|---|
+| `e6439c1` | fix timeout claude-proxy 15s→45s | Correctif intermédiaire, **superseded** par le streaming ci-dessous. |
+| `922dc6f` | **feat streaming boutique (S-SHOP-STREAM)** | Le `askMagrit` du catalogue (`PortalCatalog`) passe sur `claude-proxy-stream` via le hook partagé `useClaudeSseStream` (même que la home). Motif : requêtes larges/multi-produits (ex. « produits pour événement sportif 15 équipes rugby ») prennent **30s+** (mesuré 30,9s → 5 configs) ; l'ancien invoke non-streamé coupait à 15/45s → filtre texte local muet sur une phrase = **écran sans réponse**. Le `done` SSE porte les mêmes `configs`. Indicateur « Magrit rédige sa réponse… ». Erreurs typées `ClaudeSseStreamError` (aborted/billing/réseau). |
+| `8191a9c` | **fix méga-menu responsive** | `ShopMegaMenu` n'est plus `hidden md:flex` (invisible < 768px). Barre de familles visible sur toutes largeurs, scrollable horizontalement, familles tappables → navigation. Panneau sous-catégories reste un enrichissement desktop (survol), non-débordant en étroit. Répond au « je ne vois plus de bigmenu » d'Arnaud (fenêtre < 768px). |
+
+**Tests** : 526 tests purs verts (build vert). Les tests RLS/DB échouaient sur `ConnectTimeoutError` Supabase pendant la coupure réseau (environnement, pas le code).
+
+**Diagnostic #2 méga-menu** : ce n'était pas un bug applicatif — le `hidden md:flex` datait de S2.18 (desktop-only par design). Le correctif le rend accessible en étroit/mobile.
+
+**Non fait (bloqué réseau)** : vérif Chrome live du streaming + méga-menu (le fetch données boutique passe par le sous-domaine projet Supabase, injoignable pendant la coupure).
+
 ### E1 — Lisibilité ProductCard boutique (livré + poussé, HEAD `c0ec853`)
 - S2.11-S2.14 lisibilité ProductCard + S2.15 bloc « Nouveautés » sur la home boutique. 650 tests. Audit prod : **S2.17 abandonnée** (POC, bloc vide).
 
