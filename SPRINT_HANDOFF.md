@@ -2,7 +2,31 @@
 
 > Document de reprise pour démarrer une nouvelle session de Claude code sur le projet sans recharger tout l'historique. À tenir à jour à chaque fin de sprint.
 >
-> **Dernière mise à jour : 2026-07-08 — Sprint E3 Navigation (Epic 2 e-commerce) CLÔTURÉ + correctif méga-menu (sous-catégories par format S2.18-fix, vérifié live). Voir section 18. Tout poussé `origin/beta/v5` (HEAD `5e7260a`), edge `category-editorial` déployée. 714 tests verts.**
+> **Dernière mise à jour : 2026-07-08 (2) — Session boutique 4 retours Arnaud : bandeau de marque + header épuré + upload logo (#1/#3), édition commande brouillon (#4), persistance produits Magrit (#2, NON déployé — PAT requis). Voir section 19. + correctif méga-menu S2.18-fix (section 18). HEAD local `9d45459` (à pousser). 723 tests verts.**
+
+## 19. Session 2026-07-08 (2) — Boutique : 4 retours Arnaud
+
+Local, non poussé au moment de la rédaction (HEAD `9d45459`). 723 vitest verts, build vert.
+
+| # | Sujet | Commit | Statut |
+|---|---|---|---|
+| #1+#3 | **Bandeau de marque co-brandé + header épuré + upload logo/fond** | `bee6c19` | ✅ vérifié live (ERAM + Manitou) |
+| #4 | **Édition commande brouillon** (acheteur, onglet Mes commandes) | `024f40f` | ✅ vérifié live (Manitou : qté 1→3, total persiste) |
+| #2 | **Persistance produits calculés par Magrit** | `9d45459` | ⚠️ **NON déployé — PAT Supabase requis** |
+
+### #1+#3 Bandeau de marque (`bee6c19`)
+- `ShopLayout` : bandeau co-brandé. Fond = couleur primaire de marque (dégradé) OU image de fond (cover + scrim). Logo client dans une plaque blanche nette (jamais étiré) ; repli = nom boutique en lockup. Helpers `shouldRenderBrandBanner` / `resolveBrandBannerBackground` (testés).
+- Header épuré : suppression du pavé dégradé placeholder + « × Magrit ».
+- `DashboardShopEditor` : upload logo ET image de fond → bucket `shop_backgrounds` (RLS `can_manage_catalog` existante, 5 Mo, PNG/JPG/WebP), + champ URL. Aperçu live. Section renommée « Bandeau de marque ».
+
+### #4 Édition commande (`024f40f`)
+- `PortalOrderEditor` (modal) : édite qté + prix unitaire HT + libellé + retrait de ligne, total HT live (`quoteMath`). UPDATE en place + DELETE lignes retirées (préserve `product_id`/`clariprint_options`, pas de `pim_candidates` parasites). Recalcul `total_ht` app-side.
+- Bouton « Éditer » dans `OrderHistoryTable`, condition = Annuler (v1_1 + draft + auteur). **RLS verrouille au-delà de draft** (validée/en prod = non éditable, décision Arnaud).
+
+### #2 Persistance produits Magrit (`9d45459`) — À DÉPLOYER
+- Migration `20260708000100_s_shop_ai_persist.sql` : `shop_products.origin` ('manual'|'ai') + `config_hash` (dédup, index unique partiel) + RPC `persist_shop_ai_product` (SECURITY DEFINER, borné `current_user_can_access_shop`, `authenticated` only).
+- `PortalCatalog.askMagrit` : après devis Clariprint, persiste chaque produit (fire-and-forget, dédup `aiConfigSignature`). Realtime `shop_products` rafraîchit la grille → cherchable en texte.
+- **Reste** : (1) déployer la migration via PAT ; (2) `npm run db:types` post-déploiement (rpc typée `any` en attendant) ; (3) vérif live (calculer un produit → re-chercher → doit apparaître).
 
 ## 18. Sprints E1 → E3 — Extension boutique e-commerce standard (Epic 2) — E3 CLÔTURÉ 2026-07-08
 
