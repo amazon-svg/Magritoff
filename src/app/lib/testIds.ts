@@ -221,6 +221,10 @@ export const TEST_IDS = {
     catalogEmpty: 'shop-catalog-empty',
     catalogEmptyAskMagrit: 'shop-catalog-empty-ask-magrit',
     catalogResetFacets: 'shop-catalog-reset-facets',
+    // S2.21 — Autocompletion recherche catalogue (produits + familles + fallback Magrit)
+    catalogSearchMenu: 'shop-catalog-search-menu',
+    catalogSearchOption: 'shop-catalog-search-option',
+    catalogSearchAskMagrit: 'shop-catalog-search-ask-magrit',
     // S2.2 — Sidebar gammes depliables persistantes (Epic 2)
     gammesList: 'shop-gammes-list',
     gammeRow: 'shop-gamme-row',

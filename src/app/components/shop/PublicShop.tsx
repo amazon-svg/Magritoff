@@ -671,6 +671,8 @@ export function PublicShop() {
           onGoHome={() => setView('home')}
           pimGammes={pimGammes}
           pimDefinitions={pimDefinitions}
+          searchIndex={products}
+          onSelectFamily={selectGammes}
         />
       )}
 
