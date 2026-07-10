@@ -1,0 +1,482 @@
+{
+  "gammes_completes": [
+    {
+      "slug": "etiquette",
+      "name": "Étiquettes / Stickers",
+      "definition": {
+        "name": "Étiquettes et stickers adhésifs personnalisés",
+        "keywords": ["étiquette personnalisée", "sticker adhésif", "autocollant sur mesure", "étiquette produit", "étiquette en rouleau", "planche d'étiquettes", "sticker vinyle", "étiquette bouteille", "adhésif imprimé", "étiquette résistante à l'eau", "kiss-cut", "découpe à la forme"],
+        "title_template": "Étiquettes et stickers {{matiere}} {{format}} — impression {{finition}}",
+        "short_description_template": "Étiquettes et stickers adhésifs imprimés sur mesure : en planche, en rouleau ou découpés à la forme, sur {{matiere}}, dès {{quantite}} exemplaires.",
+        "description_template": "## Une famille complète pour tout votre étiquetage\n\nDe la planche A4 économique à la bobine prête pour votre étiqueteuse, en passant par le sticker découpé à la forme, cette famille couvre l'ensemble de vos besoins d'identification produit et de communication adhésive. Chaque déclinaison se configure en {{format}}, sur le support {{matiere}} adapté à votre usage, avec la finition {{finition}} de votre choix.\n\n## Caractéristiques techniques\n\nSupports papier (couché, non couché, texturé, doré, noir) ou synthétiques (polypropylène blanc ou transparent, vinyle, holographique), en grammages de 73 à 222 g ou films de 50 à 150 µ. Découpe rectangulaire, ronde, ovale ou entièrement libre, à pleine chair ou mi-chair (kiss-cut). Finitions au choix : vernis anti-rayure, pelliculage mat, brillant ou soft-touch, vernis sélectif, dorure or ou argent. Des supports barrière résistants à l'humidité et des adhésifs aptes au contact indirect avec les denrées sont disponibles.\n\n## Vos avantages\n\nVous étiquetez vos produits avec un rendu professionnel, quelle que soit la série : petites quantités pour tester un lancement, bobines multivisuels pour industrialiser toute une gamme. Un seul interlocuteur, un contrôle systématique de vos fichiers, et des délais de fabrication courts pour suivre le rythme de vos mises en marché.",
+        "h1_template": "Étiquettes et stickers personnalisés {{format}}",
+        "seo_title": "Étiquettes et stickers personnalisés — impression pro",
+        "seo_description": "Impression d'étiquettes et stickers sur mesure : planche, rouleau, découpe à la forme. Papier ou synthétique, dorure, vernis. Petites et grandes séries.",
+        "seo_keywords": ["étiquette personnalisée", "sticker sur mesure", "autocollant imprimé", "étiquette rouleau", "étiquette produit", "sticker vinyle", "impression étiquettes", "adhésif personnalisé"],
+        "commercial_pitch": "Vos produits méritent une identité qui se remarque en rayon comme au déballage. Choisissez le format, la matière et la finition : nous imprimons des étiquettes qui tiennent, du frigo du caviste au fond du panier e-commerce.",
+        "benefits": [
+          "Trois modes au choix : planche, rouleau ou découpe à la forme",
+          "Large éventail de supports papier et synthétiques",
+          "Finitions premium : dorure, vernis sélectif, soft-touch",
+          "Supports résistants à l'eau et à l'humidité disponibles",
+          "Petites séries acceptées pour tester avant d'industrialiser",
+          "Fichiers vérifiés avant impression, zéro mauvaise surprise"
+        ],
+        "use_cases": [
+          "Étiquetage de gamme cosmétique",
+          "Identification de bocaux et conserves",
+          "Habillage de bouteilles artisanales",
+          "Stickers promotionnels de marque",
+          "Scellés et fermetures de sachets"
+        ],
+        "usage_examples": [
+          {"title": "Lancement d'une gamme cosmétique", "description": "Une marque de soins fait imprimer ses étiquettes en rouleau sur film blanc avec vernis sélectif pour habiller flacons et pots avec un rendu haut de gamme."},
+          {"title": "Conserverie artisanale", "description": "Un producteur étiquette ses bocaux avec un papier barrière résistant à l'humidité, qui supporte la chaîne du froid sans gondoler."},
+          {"title": "Boutique e-commerce", "description": "Un e-commerçant scelle ses colis avec des stickers logo découpés à la forme, transformant chaque ouverture de paquet en moment de marque."},
+          {"title": "Événement ou salon", "description": "Une entreprise distribue des planches de stickers mixant plusieurs visuels pour animer son stand et fidéliser ses visiteurs."}
+        ],
+        "faq": [
+          {"question": "Quelle différence entre planche, rouleau et découpe à la forme ?", "answer": "La planche convient aux petites quantités et aux visuels multiples ; le rouleau est fait pour l'étiquetage en série, manuel ou à l'étiqueteuse ; la découpe à la forme donne un sticker unitaire au contour exact de votre visuel."},
+          {"question": "Mes étiquettes résisteront-elles à l'eau ?", "answer": "Oui, à condition de choisir un support adapté : polypropylène, vinyle ou papier barrière traité contre l'humidité, complété d'un vernis ou d'un pelliculage protecteur."},
+          {"question": "Comment préparer un fichier avec découpe personnalisée ?", "answer": "Fournissez votre visuel avec un tracé de coupe vectoriel sur un calque dédié, plus un fond perdu de 2 à 3 mm au-delà du tracé. Nos équipes contrôlent le fichier avant fabrication."},
+          {"question": "Puis-je commander une petite quantité pour tester ?", "answer": "Oui, les planches et stickers démarrent à quelques dizaines d'exemplaires, ce qui permet de valider un packaging avant de passer en bobine grande série."},
+          {"question": "Les adhésifs conviennent-ils aux produits alimentaires ?", "answer": "Des supports adaptés au contact indirect avec les denrées sont proposés, ainsi que des papiers anti-tache pour les produits gras. Précisez l'usage alimentaire lors de votre demande."}
+        ],
+        "technical_spec": {
+          "formats": ["Planche A4 210×297 mm", "Rouleau : étiquettes de 10×10 à 300×300 mm", "Découpe forme : 40×40 à 500×500 mm", "Formes : rectangle, carré, cercle, ovale, coins ronds, libre"],
+          "supports": ["Papier couché brillant 80 g", "Papier non couché 73 g", "Papier doré 74 g / noir 95 g", "Papier coton texturé 222 g", "PP transparent 50 µ / PP blanc 60 µ", "Film holographique 150 µ", "Papier barrière résistant à l'humidité"],
+          "finitions": ["Vernis brillant anti-rayure", "Pelliculage mat / brillant / soft-touch", "Vernis sélectif", "Dorure or ou argent", "Découpe pleine chair ou mi-chair (kiss-cut)"],
+          "impression": "Quadrichromie recto, blanc de soutien possible sur supports transparents",
+          "quantites": "Dès 50 exemplaires (stickers) ou 100 étiquettes (rouleau pose manuelle), paliers dégressifs jusqu'à 10 000 et plus",
+          "delais": "Fabrication express possible sur les gammes standard, délais affichés à la configuration",
+          "options": ["Mandrin 40 ou 76 mm (rouleau)", "Sens de déroulement au choix", "Multivisuels sur une même commande", "Supports aptes au contact alimentaire indirect", "Adhésif repositionnable sans colle"]
+        }
+      }
+    },
+    {
+      "slug": "etiquette_planche",
+      "name": "Étiquettes en planche A4",
+      "definition": {
+        "name": "Étiquettes adhésives en planche A4",
+        "keywords": ["étiquettes en planche", "planche A4 autocollante", "planche de stickers", "étiquettes à détacher", "feuille d'étiquettes", "étiquettes multi-formats", "kiss-cut planche", "étiquettes adhésives A4", "kit d'étiquetage", "petites séries étiquettes"],
+        "title_template": "Planche d'étiquettes A4 {{matiere}} — jusqu'à 40 visuels {{finition}}",
+        "short_description_template": "Planche A4 d'étiquettes adhésives prédécoupées : combinez jusqu'à 40 formes et visuels différents sur une même feuille, dès {{quantite}} planches.",
+        "description_template": "## La solution maligne pour les petites séries\n\nLa planche d'étiquettes A4 regroupe sur une seule feuille de 210×297 mm tous les adhésifs dont vous avez besoin : jusqu'à une quarantaine d'étiquettes, de formes et de tailles différentes, prédécoupées en mi-chair pour se détacher d'un geste. C'est le format idéal quand votre gamme compte plusieurs références ou que vos volumes ne justifient pas encore la bobine.\n\n## Caractéristiques techniques\n\nImpression quadrichromie sur papier couché satin adhésif permanent 80 g. La découpe laser autorise toutes les formes — rondes, ovales, contours libres — mixées librement sur la même planche, sans outillage ni frais de forme. Un vernis brillant optionnel protège les visuels des frottements. Chaque planche optimise la surface imprimable et limite la chute de papier.\n\n## Vos avantages\n\nUne commande, une planche, toute votre gamme étiquetée : parfums différents, tailles de pots variées, mentions promotionnelles ponctuelles. Vous détachez ce dont vous avez besoin au fil de la production, sans immobiliser des bobines entières par référence. Les créateurs, artisans et TPE y trouvent une porte d'entrée économique vers un étiquetage vraiment professionnel, avec la même qualité d'impression que les grandes séries.",
+        "h1_template": "Planches d'étiquettes A4 personnalisées {{finition}}",
+        "seo_title": "Planche d'étiquettes A4 personnalisées — multi-formes",
+        "seo_description": "Planches A4 d'étiquettes adhésives : jusqu'à 40 formes et visuels par feuille, découpe laser, papier 80 g, vernis en option. Idéal petites séries.",
+        "seo_keywords": ["planche étiquettes A4", "étiquettes en planche", "planche stickers personnalisés", "feuille autocollants", "étiquettes prédécoupées", "étiquettes petites séries"],
+        "commercial_pitch": "Toute votre gamme sur une seule feuille : mixez formats et visuels sur la même planche A4 et étiquetez au fil de l'eau. La souplesse d'un kit, la qualité d'une impression professionnelle.",
+        "benefits": [
+          "Jusqu'à 40 étiquettes par planche, formes et tailles mixables",
+          "Découpe laser sans frais d'outillage",
+          "Détachement facile grâce à la prédécoupe mi-chair",
+          "Économique pour les gammes multi-références",
+          "Vernis de protection en option",
+          "Faible chute de papier, surface optimisée"
+        ],
+        "use_cases": [
+          "Étiquetage de gammes artisanales",
+          "Kits d'étiquettes multi-parfums",
+          "Mentions promo saisonnières",
+          "Étiquetage cadeaux et coffrets",
+          "Tests avant passage en bobine"
+        ],
+        "usage_examples": [
+          {"title": "Savonnerie artisanale", "description": "Une créatrice regroupe les étiquettes de ses huit parfums de savons sur une planche unique, et détache selon sa production du jour."},
+          {"title": "Torréfacteur multi-origines", "description": "Un torréfacteur combine étiquettes de face, pastilles d'origine et mentions de date sur la même planche pour ses sachets de café."},
+          {"title": "Opération de Noël", "description": "Une boutique commande des planches mêlant stickers cadeaux ronds et bandeaux promotionnels pour habiller ses paquets de fin d'année."},
+          {"title": "Prototypage packaging", "description": "Une jeune marque valide plusieurs pistes graphiques en réel sur ses emballages avant d'engager une production en rouleau."}
+        ],
+        "faq": [
+          {"question": "Combien d'étiquettes puis-je placer sur une planche ?", "answer": "Jusqu'à une quarantaine selon leurs dimensions. Formes et tailles peuvent être différentes sur la même feuille A4."},
+          {"question": "Comment fournir mon fichier ?", "answer": "Un fichier à l'échelle de la planche avec chaque tracé de coupe en vectoriel sur un calque séparé, et 2 mm de fond perdu autour de chaque étiquette. Nous vérifions le fichier avant impression."},
+          {"question": "Qu'est-ce que la découpe mi-chair (kiss-cut) ?", "answer": "La lame entaille uniquement l'étiquette, pas le support siliconé : chaque adhésif se décolle facilement tandis que la planche reste entière et facile à stocker."},
+          {"question": "Ces étiquettes résistent-elles à l'eau ?", "answer": "Le papier couché 80 g convient aux usages intérieurs et secs ; le vernis améliore la tenue aux frottements. Pour une exposition à l'humidité, orientez-vous vers nos étiquettes en rouleau sur support synthétique."},
+          {"question": "Quelle quantité minimale ?", "answer": "Quelques planches suffisent pour lancer une commande, ce qui en fait la solution la plus accessible pour démarrer un étiquetage professionnel."}
+        ],
+        "technical_spec": {
+          "formats": ["Planche A4 210×297 mm", "Jusqu'à ~40 étiquettes par planche", "Formes libres, rondes, ovales, rectangulaires mixables"],
+          "supports": ["Papier couché satin adhésif permanent 80 g"],
+          "finitions": ["Vernis brillant en option", "Découpe laser mi-chair (kiss-cut)"],
+          "impression": "Quadrichromie recto",
+          "quantites": "Petites séries dès quelques planches, paliers dégressifs",
+          "delais": "Fabrication rapide, délai précis affiché à la commande",
+          "options": ["Multi-visuels et multi-formes sur une même planche", "Gabarit de placement fourni sur demande"]
+        }
+      }
+    },
+    {
+      "slug": "etiquette_rouleau",
+      "name": "Étiquettes en rouleau",
+      "definition": {
+        "name": "Étiquettes adhésives en rouleau (bobine)",
+        "keywords": ["étiquette en rouleau", "étiquette bobine", "étiquette pose automatique", "étiquette étiqueteuse", "étiquette bouteille vin", "étiquette cosmétique", "étiquette résistante humidité", "dorure étiquette", "étiquette polypropylène", "bande de garantie", "étiquette pot", "mandrin 76"],
+        "title_template": "Étiquettes en rouleau {{format}} {{matiere}} — {{finition}}, dès {{quantite}} ex.",
+        "short_description_template": "Étiquettes en bobine pour pose manuelle ou automatique : {{format}}, support {{matiere}}, finition {{finition}}, mandrin 40 ou 76 mm.",
+        "description_template": "## L'étiquetage professionnel en série\n\nConditionnées en bobine, ces étiquettes accompagnent votre production, que vous posiez à la main ou sur ligne automatisée. Formes carrées, rondes, ovales, festonnées ou bandes de garantie, dimensions libres de 1 à 30 cm : chaque étiquette est configurée pour votre contenant, du pot de confiture au fût de bière.\n\n## Caractéristiques techniques\n\nPlus de dix supports au choix : papiers couchés et non couchés, papiers texturés pour le vin, papiers dorés ou noirs pour la cosmétique, films polypropylène blancs ou transparents (50 à 60 µ), et papiers barrière résistants à l'humidité qui supportent le seau à glace. Finitions vernis anti-rayure, pelliculage mat, brillant ou soft-touch, vernis sélectif et dorure or ou argent. Pour la pose automatique : mandrin de 40 ou 76 mm, sens de déroulement et orientation du visuel paramétrables, espacement inter-étiquettes ajusté à votre machine.\n\n## Vos avantages\n\nVous gagnez un temps précieux au conditionnement et une régularité de pose irréprochable. Le multivisuel permet d'imprimer jusqu'à 20 déclinaisons dans une même commande — toute une gamme de parfums ou de millésimes en une seule fabrication, avec des tarifs dégressifs.",
+        "h1_template": "Étiquettes en rouleau {{matiere}} pour pose manuelle ou automatique",
+        "seo_title": "Étiquettes en rouleau personnalisées — bobine pro",
+        "seo_description": "Impression d'étiquettes en bobine : pose manuelle ou étiqueteuse, mandrin 40/76 mm, supports résistants à l'eau, dorure, vernis. Multivisuels jusqu'à 20.",
+        "seo_keywords": ["étiquette en rouleau", "étiquette bobine", "étiquette pose automatique", "étiquette bouteille", "étiquette étiqueteuse", "étiquette vin", "étiquette cosmétique", "impression bobine"],
+        "commercial_pitch": "De la pose à la main aux lignes automatisées, vos étiquettes arrivent en bobine, prêtes à défiler. Jusqu'à 20 visuels par commande : toute votre gamme étiquetée en une seule fabrication.",
+        "benefits": [
+          "Compatible étiqueteuses : mandrin, sens et espacement configurables",
+          "Plus de 10 supports, du papier texturé vin au film transparent",
+          "Résistance à l'humidité certifiée pour les boissons fraîches",
+          "Dorure or/argent et vernis sélectif pour un rendu premium",
+          "Jusqu'à 20 visuels dans une même commande",
+          "Formes libres, y compris bandes de garantie inviolables"
+        ],
+        "use_cases": [
+          "Habillage bouteilles vin et bière",
+          "Étiquetage flacons cosmétiques",
+          "Conditionnement agroalimentaire en série",
+          "Scellés d'inviolabilité sur packaging",
+          "Identification de pots et bocaux"
+        ],
+        "usage_examples": [
+          {"title": "Domaine viticole", "description": "Un vigneron habille son blanc de garde avec un papier texturé résistant au seau à glace, rehaussé d'une dorure or sur le millésime."},
+          {"title": "Brasserie artisanale", "description": "Une brasserie imprime les étiquettes de ses six recettes en une commande multivisuel, livrées en bobines prêtes pour son étiqueteuse semi-automatique."},
+          {"title": "Marque de cosmétiques", "description": "Un laboratoire choisit un film transparent avec blanc de soutien pour un effet sans étiquette sur ses flacons de sérum."},
+          {"title": "Conserverie", "description": "Un producteur utilise un papier anti-tache adapté aux produits gras pour étiqueter ses rillettes et terrines sans auréoles."}
+        ],
+        "faq": [
+          {"question": "Pose manuelle ou pose automatique : comment choisir ?", "answer": "Sans étiqueteuse, la pose manuelle suffit et démarre à une centaine d'étiquettes. Avec une machine, optez pour la version pose automatique : mandrin, sens de déroulement et espacement sont alors calibrés pour votre équipement."},
+          {"question": "Comment connaître le bon sens de déroulement ?", "answer": "Il dépend de votre étiqueteuse : notez comment la bande se présente en sortie de mandrin (visuel vers l'extérieur ou l'intérieur, tête en premier ou non). Un schéma des orientations vous est proposé à la configuration."},
+          {"question": "Mes étiquettes tiendront-elles dans un seau à glace ?", "answer": "Oui avec un support barrière résistant à l'humidité, conçu pour les bouteilles servies au frais : le papier ne se délite pas et l'adhésif ne se décolle pas."},
+          {"question": "Puis-je mélanger plusieurs visuels dans une commande ?", "answer": "Oui, jusqu'à 20 visuels différents à dimensions identiques, avec un tarif dégressif sur le volume global. Idéal pour une gamme complète."},
+          {"question": "Quel fichier fournir pour une forme personnalisée ?", "answer": "Un visuel avec tracé de coupe vectoriel sur calque dédié et fond perdu de 2 mm. Sur film transparent, indiquez les zones de blanc de soutien pour garder des couleurs denses."}
+        ],
+        "technical_spec": {
+          "formats": ["De 10×10 à 300×300 mm", "Carré, rectangle, cercle, ovale, coins ronds, festonné", "Bande de garantie (scellé)"],
+          "supports": ["Papier couché brillant 80 g", "Papier non couché 73 g", "Papier doré 74 g / noir 95 g", "PP transparent 50 µ / PP blanc brillant 60 µ / film argent 60 µ", "Papier barrière résistant à l'humidité", "Papier sulfurisé anti-tache", "Papier à fibres végétales (éco)"],
+          "finitions": ["Vernis brillant anti-rayure", "Pelliculage brillant / mat / soft-touch", "Vernis sélectif", "Dorure or ou argent"],
+          "impression": "Quadrichromie, blanc de soutien sur supports transparents et métallisés",
+          "quantites": "Dès 100 étiquettes (pose manuelle), 500 (pose automatique), dégressif au-delà de 10 000",
+          "delais": "Fabrication courte en standard, quelques jours pour la pose automatique",
+          "options": ["Mandrin Ø 40 ou 76 mm", "Sens de déroulement intérieur/extérieur, orientation 0/90/180/-90°", "Espacement inter-étiquettes 4 à 100 mm", "Jusqu'à 20 visuels par commande", "Boîte distributrice pour laizes jusqu'à 68 mm"]
+        }
+      }
+    },
+    {
+      "slug": "sticker_forme",
+      "name": "Sticker découpe forme",
+      "definition": {
+        "name": "Stickers découpés à la forme",
+        "keywords": ["sticker découpé à la forme", "autocollant forme personnalisée", "sticker vinyle", "sticker extérieur", "autocollant résistant UV", "sticker holographique", "kiss-cut", "sticker logo", "autocollant sur mesure", "sticker publicitaire"],
+        "title_template": "Stickers découpe forme {{format}} {{matiere}} — {{finition}}",
+        "short_description_template": "Stickers découpés au contour exact de votre visuel, de 4 à 50 cm, sur {{matiere}}, résistants aux UV et à l'eau selon support, dès {{quantite}} exemplaires.",
+        "description_template": "## Votre logo, au millimètre près\n\nLe sticker à la forme épouse exactement le contour de votre visuel : plus de fond carré ni de marge blanche, votre marque s'affiche telle quelle sur un ordinateur, une vitrine, un packaging ou un véhicule. Du petit format de 4 cm au grand adhésif de 50 cm, chaque pièce est découpée numériquement, à pleine chair ou en mi-chair sur son support.\n\n## Caractéristiques techniques\n\nSupports synthétiques pour l'extérieur — polypropylène blanc 50 µ, transparent, holographique métallisé 150 µ, vinyle — ou papiers pour l'intérieur, du couché 80 g au papier coton texturé 222 g. Un adhésif repositionnable sans colle est disponible pour les poses temporaires. Finitions pelliculage brillant, mat ou soft-touch, vernis anti-rayure protégeant des UV, vernis sélectif, dorure or ou argent, effets métallisés ou pailletés. Retrait propre, sans résidu.\n\n## Vos avantages\n\nUn support de communication au coût unitaire imbattable et à la durée d'exposition longue : distribué en caisse, glissé dans un colis ou collé en vitrine, le sticker travaille pour votre marque pendant des mois. Les séries démarrent bas pour tester, et montent à plusieurs milliers pour vos campagnes.",
+        "h1_template": "Stickers personnalisés découpés à la forme {{format}}",
+        "seo_title": "Stickers découpés à la forme — vinyle résistant UV",
+        "seo_description": "Stickers au contour exact de votre logo, 4 à 50 cm : vinyle, PP, holographique, dorure. Résistants eau et UV, retrait sans résidu. Dès 50 exemplaires.",
+        "seo_keywords": ["sticker découpe forme", "autocollant personnalisé", "sticker vinyle extérieur", "sticker logo", "autocollant UV", "sticker holographique", "kiss-cut"],
+        "commercial_pitch": "Un sticker à la forme de votre logo, c'est votre marque qui voyage sur les ordinateurs, les vitrines et les colis de vos clients. Résistant, précis, mémorable — dès 50 exemplaires.",
+        "benefits": [
+          "Découpe numérique au contour exact du visuel",
+          "Formats de 4 à 50 cm, du goodie au marquage vitrine",
+          "Supports extérieurs résistants eau et UV",
+          "Effets holographique, métallisé, pailleté, dorure",
+          "Retrait sans résidu, option repositionnable sans colle",
+          "Petites séries dès 50 exemplaires, fabrication rapide"
+        ],
+        "use_cases": [
+          "Goodies de marque à distribuer",
+          "Personnalisation de colis e-commerce",
+          "Marquage vitrine et mobilier",
+          "Street-marketing événementiel",
+          "Décoration de matériel et flottes"
+        ],
+        "usage_examples": [
+          {"title": "Campagne de notoriété", "description": "Une startup glisse un sticker logo dans chaque commande ; ses clients les collent sur leurs ordinateurs et diffusent la marque au quotidien."},
+          {"title": "Réseau de franchises", "description": "Une enseigne équipe ses points de vente de stickers vitrine découpés à la forme, résistants aux UV derrière les vitrages exposés."},
+          {"title": "Festival", "description": "Un organisateur distribue des stickers holographiques en édition limitée, devenus objets de collection pour les festivaliers."},
+          {"title": "Atelier / flotte technique", "description": "Un artisan marque caisses, machines et véhicules utilitaires avec des adhésifs vinyle qui supportent lavages et intempéries."}
+        ],
+        "faq": [
+          {"question": "Quelle différence entre pleine chair et kiss-cut ?", "answer": "En pleine chair, le sticker et son dorsal sont découpés ensemble : chaque pièce est indépendante. En kiss-cut, seule l'étiquette est entaillée et se décolle d'un support plus grand, plus simple à distribuer."},
+          {"question": "Ces stickers tiennent-ils en extérieur ?", "answer": "Oui sur supports synthétiques (PP, vinyle) avec vernis anti-rayure ou pelliculage : ils résistent aux UV, à la pluie et aux écarts de température pendant plusieurs années."},
+          {"question": "Le retrait laisse-t-il des traces ?", "answer": "Non, les adhésifs se retirent proprement des surfaces lisses. Pour des poses temporaires répétées, choisissez l'adhésif repositionnable sans colle."},
+          {"question": "Comment préparer le tracé de découpe ?", "answer": "Ajoutez un tracé vectoriel fermé sur un calque dédié, à 2-3 mm minimum du visuel, en évitant les angles trop fins. Nous contrôlons et ajustons le tracé si nécessaire."},
+          {"question": "Quelle est la quantité minimale ?", "answer": "Les séries démarrent à 50 exemplaires et montent jusqu'à 9 000, avec un prix unitaire dégressif — pratique pour tester un visuel avant une grande campagne."}
+        ],
+        "technical_spec": {
+          "formats": ["De 40×40 à 500×500 mm", "Contour libre, rectangle, cercle, ovale, étoile", "Découpe pleine chair ou kiss-cut"],
+          "supports": ["PP blanc 50 µ", "PP transparent", "Film holographique métallisé 150 µ", "Vinyle adhésif", "Papier couché 80 g / non couché 73 g", "Papier coton texturé 222 g", "Adhésif repositionnable sans colle"],
+          "finitions": ["Pelliculage brillant / mat / soft-touch", "Vernis anti-rayure tenue UV", "Vernis sélectif", "Dorure or ou argent", "Effets métallisé et pailleté"],
+          "impression": "Quadrichromie, blanc de soutien sur transparent et holographique",
+          "quantites": "50 à 9 000 exemplaires, dégressif par paliers",
+          "delais": "Fabrication en quelques jours ouvrés",
+          "options": ["Tenue extérieure eau/UV selon support", "Retrait sans résidu", "Livraison à l'unité ou en planches selon format"]
+        }
+      }
+    },
+    {
+      "slug": "packaging",
+      "name": "Packaging / Emballage",
+      "definition": {
+        "name": "Packaging et emballages personnalisés",
+        "keywords": ["packaging personnalisé", "emballage sur mesure", "boîte carton imprimée", "emballage e-commerce", "packaging produit", "boîte personnalisée", "coffret cadeau entreprise", "sac papier logo", "emballage alimentaire", "packaging petite série", "étui carton", "emballage marque"],
+        "title_template": "Packaging {{format}} {{matiere}} personnalisé — dès {{quantite}} exemplaire",
+        "short_description_template": "Emballages imprimés à vos couleurs : boîtes pliantes, expédition, coffrets premium et sacs papier, en {{matiere}}, dès {{quantite}} exemplaire selon modèle.",
+        "description_template": "## L'emballage, premier contact avec votre marque\n\nAvant même le produit, c'est le packaging que votre client touche. Cette famille rassemble tous vos emballages imprimés : boîtes pliantes pour vos produits, boîtes d'expédition pour vos colis, coffrets rigides pour vos cadeaux d'affaires, sacs papier pour vos boutiques. Chaque modèle se configure en {{format}} avec la matière {{matiere}} et la finition adaptées à votre image.\n\n## Caractéristiques techniques\n\nCartons graphiques, micro-cannelure E de 1,8 mm et contrecollés rigides jusqu'à 380 g habillés ; kraft brun naturel ou blanc couché. Impression quadrichromie extérieure et intérieure, blanc sélectif sur kraft, fermetures adaptées à chaque usage : rabats, fond automatique, bande de scellage, aimants. Les modèles pliants sont livrés à plat, rainés et découpés, prêts à monter sans outil. Des versions aptes au contact alimentaire complètent la gamme.\n\n## Vos avantages\n\nLa plupart des modèles pliants démarrent à l'exemplaire : prototypez, testez en conditions réelles, puis lancez la série sans risque de stock dormant. Fichiers contrôlés systématiquement, délais courts, et une expérience de déballage qui fait la différence entre livrer un produit et livrer une marque.",
+        "h1_template": "Packaging personnalisé {{format}} : boîtes, coffrets et sacs",
+        "seo_title": "Packaging personnalisé — boîtes, coffrets, sacs imprimés",
+        "seo_description": "Emballages imprimés à vos couleurs : boîtes pliantes dès 1 exemplaire, boîtes e-commerce, coffrets aimantés, sacs kraft. Impression int/ext, montage facile.",
+        "seo_keywords": ["packaging personnalisé", "emballage sur mesure", "boîte carton personnalisée", "packaging e-commerce", "coffret entreprise", "sac papier personnalisé", "emballage imprimé", "packaging marque"],
+        "commercial_pitch": "Votre packaging est le premier vendeur silencieux de votre marque. Boîtes, coffrets et sacs imprimés à vos couleurs, dès l'exemplaire unique : testez, validez, déployez.",
+        "benefits": [
+          "Gamme complète : produit, expédition, premium, boutique",
+          "Petites séries dès 1 exemplaire selon modèle",
+          "Impression intérieure et extérieure pour l'effet unboxing",
+          "Kraft recyclable ou carton blanc premium",
+          "Livrés à plat, montage sans outil",
+          "Contrôle des fichiers avant fabrication"
+        ],
+        "use_cases": [
+          "Colis e-commerce à l'image de la marque",
+          "Coffrets cadeaux clients et salariés",
+          "Emballage produit en linéaire",
+          "Sacs boutique et événementiel",
+          "Prototypes packaging avant série"
+        ],
+        "usage_examples": [
+          {"title": "Marque DNVB", "description": "Une marque en ligne harmonise boîte d'expédition imprimée à l'intérieur, sticker de scellage et carte de remerciement pour une expérience de déballage signature."},
+          {"title": "Cadeaux d'affaires", "description": "Une PME offre ses coffrets de fin d'année dans des boîtes aimantées habillées à ses couleurs, sans passer par un packaging générique."},
+          {"title": "Épicerie fine", "description": "Un producteur conditionne ses bocaux dans des boîtes pliantes kraft imprimées en blanc sélectif, cohérentes avec son positionnement naturel."},
+          {"title": "Ouverture de boutique", "description": "Un commerce lance son identité avec sacs papier logotés et boîtes à rabat assortis, dès de petites quantités."}
+        ],
+        "faq": [
+          {"question": "Puis-je vraiment commander un seul exemplaire ?", "answer": "Oui sur la plupart des modèles pliants et d'expédition : parfait pour valider un prototype en conditions réelles avant de lancer la série."},
+          {"question": "Comment choisir entre kraft brun et carton blanc ?", "answer": "Le kraft brun affirme un positionnement naturel et recyclé, avec une impression sobre valorisée par le blanc sélectif ; le carton blanc couché restitue fidèlement les couleurs vives et les photos."},
+          {"question": "Les boîtes arrivent-elles montées ?", "answer": "Non, elles sont livrées à plat, rainées et prédécoupées : le montage se fait à la main en quelques secondes, sans colle ni outil, et le stockage est compact."},
+          {"question": "Peut-on imprimer l'intérieur de la boîte ?", "answer": "Oui, extérieur, intérieur ou les deux : l'impression intérieure transforme l'ouverture du colis en véritable moment de marque."},
+          {"question": "Existe-t-il des emballages pour l'alimentaire ?", "answer": "Oui, une gamme dédiée au contact alimentaire couvre snacking, plats préparés et produits chauds : étuis, barquettes, boîtes à rabat et sachets kraft."}
+        ],
+        "technical_spec": {
+          "formats": ["Boîtes produit et expédition multi-formats", "Coffrets rigides 4 formats standard", "Sacs papier 3 tailles", "Formes : rabat, fond automatique, fourreau, aimantée"],
+          "supports": ["Carton graphique blanc", "Micro-cannelure E 1,8 mm kraft ou blanc", "Carton contrecollé rigide 380 g habillé", "Kraft recyclable 27 à 60 g (sacs)"],
+          "finitions": ["Impression intérieure/extérieure", "Blanc sélectif sur kraft", "Habillage Pantone, sérigraphie", "Fermeture aimantée, rabats, bande de scellage"],
+          "impression": "Quadrichromie recto/verso, sérigraphie 1-2 couleurs sur coffrets",
+          "quantites": "Dès 1 exemplaire (pliant), 5 à 25 minimum sur le premium, paliers dégressifs",
+          "delais": "Express sur les pliants standard, plus long sur le contrecollé premium",
+          "options": ["Contact alimentaire sur gamme dédiée", "Fenêtre selon modèles", "Ruban adhésif personnalisé assorti", "Livraison à plat"]
+        }
+      }
+    },
+    {
+      "slug": "boite_pliante",
+      "name": "Boîte pliante carton",
+      "definition": {
+        "name": "Boîtes pliantes carton personnalisées",
+        "keywords": ["boîte pliante", "boîte carton personnalisée", "étui carton", "boîte fond automatique", "boîte à rabat", "boîte fourreau", "packaging produit", "boîte à suspendre", "boîte petite série", "emballage produit carton"],
+        "title_template": "Boîte pliante {{format}} {{matiere}} — impression {{finition}}",
+        "short_description_template": "Boîtes pliantes en carton imprimées à vos couleurs : fond automatique, rabat, fourreau ou berlingot, livrées à plat, dès {{quantite}} exemplaire.",
+        "description_template": "## La boîte qui habille votre produit\n\nLa boîte pliante est l'emballage produit par excellence : légère, compacte à stocker, montée en quelques secondes au moment du conditionnement. Déclinée en une dizaine de modèles — standard, fond automatique, rabat, fourreau coulissant, berlingot bombé, version renforcée ou à suspendre en linéaire — elle s'adapte à chaque produit et à chaque circuit de vente.\n\n## Caractéristiques techniques\n\nCarton graphique ou micro-cannelure, en blanc couché pour des couleurs éclatantes ou en kraft brun pour un rendu naturel, avec impression quadrichromie extérieure et intérieure et blanc sélectif sur kraft. Les découpes spécifiques (fenêtre, perforation de suspension, encoches) se configurent selon le modèle. Toutes les boîtes sont livrées à plat, rainées et prédécoupées : montage manuel sans colle ni outil, le fond automatique se verrouillant d'un simple geste.\n\n## Vos avantages\n\nVous démarrez à l'exemplaire pour valider un prototype, puis produisez la série au même endroit. Le stockage à plat divise l'encombrement, le montage rapide fluidifie vos conditionnements, et l'impression intérieure ajoute la touche qui transforme un simple emballage en expérience de marque.",
+        "h1_template": "Boîtes pliantes carton personnalisées {{format}}",
+        "seo_title": "Boîte pliante carton personnalisée — dès 1 exemplaire",
+        "seo_description": "Boîtes pliantes imprimées : fond automatique, rabat, fourreau, à suspendre. Kraft ou blanc, impression int/ext, livrées à plat. Dès 1 exemplaire.",
+        "seo_keywords": ["boîte pliante carton", "boîte personnalisée", "étui carton imprimé", "boîte fond automatique", "packaging produit", "boîte à rabat", "boîte kraft"],
+        "commercial_pitch": "Une boîte montée en trois secondes, stockée à plat, imprimée à vos couleurs dedans comme dehors. Du prototype unitaire à la série, votre produit mérite mieux qu'un emballage anonyme.",
+        "benefits": [
+          "Dix modèles : fond automatique, rabat, fourreau, berlingot, à suspendre…",
+          "Dès 1 exemplaire pour prototyper sans risque",
+          "Livrée à plat : stockage compact, montage sans outil",
+          "Impression intérieure et extérieure",
+          "Kraft naturel ou blanc couché haute fidélité couleur",
+          "Version renforcée pour les produits fragiles"
+        ],
+        "use_cases": [
+          "Emballage primaire produit retail",
+          "Coffret cadeau léger",
+          "PLV et boîte à suspendre en rayon",
+          "Conditionnement cosmétique ou épicerie",
+          "Prototype avant industrialisation"
+        ],
+        "usage_examples": [
+          {"title": "Marque de thé", "description": "Un créateur conditionne ses sachets dans des étuis à fond automatique imprimés, montés à la volée pendant les pics de commande."},
+          {"title": "Cosmétique solide", "description": "Une savonnerie choisit une boîte kraft avec fenêtre de découpe pour montrer le produit tout en affichant un positionnement zéro plastique."},
+          {"title": "Accessoires en linéaire", "description": "Un fabricant présente ses accessoires en boîtes à suspendre avec perforation européenne, prêtes pour les broches de rayon."},
+          {"title": "Édition limitée", "description": "Une marque teste trois designs de boîte fourreau en exemplaires uniques avant de retenir la version définitive pour sa série."}
+        ],
+        "faq": [
+          {"question": "Quelle différence entre fond automatique et fond à rabats ?", "answer": "Le fond automatique se verrouille seul au dépliage de la boîte : idéal pour les cadences de conditionnement élevées. Les rabats classiques demandent un pliage manuel mais restent plus économiques."},
+          {"question": "Puis-je ajouter une fenêtre pour voir le produit ?", "answer": "Oui sur les modèles compatibles : une découpe laisse apparaître le produit, avec ou sans film selon la configuration."},
+          {"question": "Comment préparer mon fichier d'impression ?", "answer": "Travaillez sur le gabarit à plat du modèle choisi, fourni au format vectoriel : chaque face, rabat et zone de collage y est repérée. Nos équipes vérifient le fichier avant lancement."},
+          {"question": "Quelle boîte pour un produit lourd ou fragile ?", "answer": "La version renforcée en micro-cannelure absorbe les chocs et supporte davantage de poids que le carton graphique simple. Précisez le poids du produit pour valider le choix."},
+          {"question": "Quel est le minimum de commande ?", "answer": "Un seul exemplaire sur la plupart des modèles : commandez un prototype, validez le montage et le rendu, puis lancez la quantité définitive."}
+        ],
+        "technical_spec": {
+          "formats": ["Multi-formats configurables par modèle", "Standard, cube, rectangulaire fond automatique, rabat, fourreau, berlingot, renforcée, à suspendre"],
+          "supports": ["Carton graphique blanc couché", "Micro-cannelure kraft brun ou blanc", "Cartons recyclables"],
+          "finitions": ["Impression intérieure et/ou extérieure", "Blanc sélectif sur kraft", "Fenêtre de découpe selon modèle", "Perforation de suspension"],
+          "impression": "Quadrichromie recto/verso",
+          "quantites": "Dès 1 exemplaire, paliers dégressifs en série",
+          "delais": "Fabrication courte, prototype expédié rapidement",
+          "options": ["Livrée à plat rainée et découpée", "Montage sans colle", "Version contact alimentaire sur gamme dédiée"]
+        }
+      }
+    },
+    {
+      "slug": "boite_expedition",
+      "name": "Boîte d'expédition e-commerce",
+      "definition": {
+        "name": "Boîtes d'expédition e-commerce personnalisées",
+        "keywords": ["boîte expédition personnalisée", "boîte e-commerce", "packaging colis", "boîte envoi postal", "carton expédition imprimé", "boîte unboxing", "boîte à rabat expédition", "boîte livre", "emballage colis marque", "micro-cannelure"],
+        "title_template": "Boîte d'expédition {{format}} {{matiere}} — impression {{finition}}",
+        "short_description_template": "Boîtes d'expédition en micro-cannelure imprimées à vos couleurs, intérieur et extérieur, 5 formats de 15×12×5 à 50×50×15 cm, dès {{quantite}} exemplaire.",
+        "description_template": "## Le colis qui fait bonne impression\n\nDans la vente en ligne, la boîte d'expédition est souvent le seul contact physique entre votre marque et votre client. Cette gamme transforme un carton anonyme en support de marque : impression extérieure pour voyager à vos couleurs, impression intérieure pour soigner l'ouverture, ou les deux pour une expérience de déballage complète.\n\n## Caractéristiques techniques\n\nMicro-cannelure E de 1,8 mm, légère et résistante, dont la structure absorbe les chocs du transport. Deux faces au choix : kraft brun naturel ou blanc couché. Cinq formats couvrent l'essentiel des besoins, de 15×12×5 cm à 50×50×15 cm, complétés par des modèles spécialisés : boîte à rabat, fond semi-automatique pour accélérer la préparation, boîte plate pour documents, boîte à livres et pochettes carton. Fermeture par rabats ou bande de scellage double — la seconde bande facilitant les retours. Livrées à plat, rainées et découpées.\n\n## Vos avantages\n\nDès l'exemplaire unique et avec une fabrication très courte, vous alignez vos emballages sur vos campagnes sans surstock. Un colis brandé se remarque, se photographie et se partage : c'est du marketing qui voyage avec chaque commande.",
+        "h1_template": "Boîtes d'expédition personnalisées {{format}} pour l'e-commerce",
+        "seo_title": "Boîte d'expédition personnalisée — colis e-commerce",
+        "seo_description": "Boîtes d'expédition micro-cannelure imprimées int/ext : 5 formats, kraft ou blanc, bande de scellage retour. Dès 1 exemplaire, fabrication rapide.",
+        "seo_keywords": ["boîte expédition personnalisée", "packaging e-commerce", "carton colis imprimé", "boîte envoi", "unboxing", "boîte postale personnalisée", "emballage colis"],
+        "commercial_pitch": "Chaque colis expédié est une publicité qui circule : imprimez vos boîtes dedans et dehors et faites de chaque livraison un moment de marque. Dès 1 exemplaire, fabriqué en un temps record.",
+        "benefits": [
+          "Impression intérieure + extérieure pour l'effet unboxing",
+          "Micro-cannelure E 1,8 mm : légère et protectrice",
+          "5 formats standard + modèles spécialisés (livres, documents)",
+          "Bande de double scellage pour faciliter les retours",
+          "Dès 1 exemplaire, fabrication très rapide",
+          "Livrées à plat, montage instantané"
+        ],
+        "use_cases": [
+          "Colis e-commerce quotidiens",
+          "Box d'abonnement mensuelle",
+          "Expédition de livres et documents",
+          "Envois presse et influenceurs",
+          "Coffrets expédiés en direct"
+        ],
+        "usage_examples": [
+          {"title": "Box par abonnement", "description": "Un service mensuel imprime l'intérieur de ses boîtes avec un visuel différent chaque saison, entretenant l'effet de surprise des abonnés."},
+          {"title": "Librairie en ligne", "description": "Un libraire expédie dans des boîtes à livres ajustées qui caleront les ouvrages sans matériau de rembourrage superflu."},
+          {"title": "Marque textile", "description": "Une marque de prêt-à-porter utilise la bande de double scellage : le client renvoie son échange dans la même boîte, sans ruban adhésif."},
+          {"title": "Kit presse", "description": "Une agence envoie ses dossiers de lancement dans des boîtes plates imprimées, qui arrivent impeccables chez les journalistes."}
+        ],
+        "faq": [
+          {"question": "Quelle taille de boîte choisir ?", "answer": "Prenez le format le plus proche des dimensions de vos produits pour limiter le calage et le vide : cinq tailles s'échelonnent de 15×12×5 à 50×50×15 cm."},
+          {"question": "À quoi sert la bande de double scellage ?", "answer": "Une première bande ferme le colis à l'expédition ; la seconde permet à votre client de refermer la boîte pour un retour, sans adhésif. Un vrai plus pour l'e-commerce."},
+          {"question": "Kraft brun ou blanc : quel impact sur l'impression ?", "answer": "Le blanc couché restitue fidèlement photos et couleurs vives ; le kraft brun teinte légèrement les encres et valorise les créations sobres, avec un positionnement recyclé assumé."},
+          {"question": "La boîte protège-t-elle suffisamment sans calage ?", "answer": "La micro-cannelure absorbe les chocs courants du transport. Pour les produits fragiles ou lourds, ajoutez un calage interne ou choisissez un format ajusté qui immobilise le contenu."},
+          {"question": "Puis-je commander un échantillon avant la série ?", "answer": "Oui, dès un exemplaire : testez le montage, le format et le rendu d'impression en conditions réelles avant de lancer votre volume."}
+        ],
+        "technical_spec": {
+          "formats": ["150×120×50 mm", "200×140×80 mm", "230×230×80 mm", "350×250×100 mm", "500×500×150 mm", "Variantes : rabat, fond semi-automatique, plate, spéciale livres, pochette courrier"],
+          "supports": ["Micro-cannelure E 1,8 mm kraft brun", "Micro-cannelure E 1,8 mm blanc couché", "Pochettes en carton graphique ou kraft"],
+          "finitions": ["Impression extérieure, intérieure ou les deux", "Fermeture rabats ou bande de double scellage"],
+          "impression": "Quadrichromie recto/verso",
+          "quantites": "Dès 1 exemplaire, dégressif par paliers",
+          "delais": "Fabrication express sur les formats standard",
+          "options": ["Bande retour intégrée", "Ruban adhésif personnalisé assorti", "Livraison à plat"]
+        }
+      }
+    },
+    {
+      "slug": "coffret_premium",
+      "name": "Coffret premium / Boîte aimantée",
+      "definition": {
+        "name": "Coffrets premium et boîtes aimantées",
+        "keywords": ["boîte aimantée personnalisée", "coffret rigide", "coffret cadeau entreprise", "boîte luxe", "coffret premium", "boîte contrecollée", "boîte fermeture aimantée", "coffret présentation", "packaging haut de gamme", "boîte cadeau logo"],
+        "title_template": "Coffret premium {{format}} — habillage {{matiere}}, marquage {{finition}}",
+        "short_description_template": "Coffrets rigides et boîtes à fermeture aimantée en carton contrecollé habillé, marquage sérigraphie ou quadri, dès {{quantite}} exemplaires.",
+        "description_template": "## L'écrin qui dit la valeur de ce qu'il contient\n\nPour un cadeau d'affaires, un produit d'exception ou une box événementielle, le coffret rigide impose d'emblée un niveau de gamme. La boîte aimantée, avec son rabat qui se referme dans un claquement net, offre ce geste d'ouverture que l'on associe aux plus belles marques ; le coffret de présentation en cannelure habillée en propose une version plus accessible.\n\n## Caractéristiques techniques\n\nLa boîte aimantée repose sur un carton blanc contrecollé de 380 g, habillé d'un papier couché contrecollé pour une épaisseur totale d'environ 3 mm, en quatre formats de 18×18×7 à 42×30×8 cm. Marquage en sérigraphie une ou deux couleurs, ou en quadrichromie numérique, sur couvercle et rabat, avec une palette d'habillages unis dont or, argent, bordeaux et noir. Le coffret de présentation utilise une micro-cannelure kraft 336 g ou blanche 391 g. Tous sont livrés à plat, rainés et prédécoupés, montage sans collage.\n\n## Vos avantages\n\nVous offrez une expérience d'ouverture mémorable, réutilisable par son destinataire — votre marque reste sur le bureau ou l'étagère bien après le cadeau. Séries dès 5 à 25 exemplaires selon le modèle : le luxe devient accessible aux opérations ciblées.",
+        "h1_template": "Coffrets premium et boîtes aimantées personnalisés {{format}}",
+        "seo_title": "Boîte aimantée personnalisée — coffret premium rigide",
+        "seo_description": "Coffrets rigides et boîtes aimantées : contrecollé 380 g habillé, 4 formats, sérigraphie ou quadri, habillages or, noir, bordeaux. Dès 5 à 25 exemplaires.",
+        "seo_keywords": ["boîte aimantée", "coffret premium personnalisé", "coffret rigide logo", "boîte cadeau entreprise", "packaging luxe", "coffret présentation", "boîte contrecollée"],
+        "commercial_pitch": "Le claquement d'une fermeture aimantée vaut tous les discours sur la qualité. Offrez vos produits et cadeaux d'affaires dans un écrin rigide à vos couleurs, dès 25 exemplaires.",
+        "benefits": [
+          "Fermeture aimantée au geste d'ouverture premium",
+          "Contrecollé 380 g habillé, ~3 mm de rigidité totale",
+          "4 formats couvrant du coffret bijou au format cadeau",
+          "Sérigraphie ou quadri, habillages or, argent, noir, bordeaux…",
+          "Réutilisable : votre marque reste chez le client",
+          "Livré à plat, montage sans collage"
+        ],
+        "use_cases": [
+          "Cadeaux d'affaires de fin d'année",
+          "Coffrets produits haut de gamme",
+          "Box événementielles et lancements",
+          "Écrins bijouterie et maroquinerie",
+          "Kits VIP presse et influence"
+        ],
+        "usage_examples": [
+          {"title": "Fin d'année corporate", "description": "Une entreprise compose ses coffrets gourmands dans des boîtes aimantées noires marquées à l'or, offertes à ses cent meilleurs clients."},
+          {"title": "Lancement produit", "description": "Une marque tech envoie son nouveau produit à la presse dans un coffret rigide habillé, dont les photos de déballage circulent sur les réseaux."},
+          {"title": "Maison de spiritueux", "description": "Un producteur présente sa cuvée limitée dans un coffret de présentation kraft imprimé en blanc sélectif, aligné avec son image artisanale."},
+          {"title": "Créateur de bijoux", "description": "Un joaillier adopte le petit format aimanté comme écrin permanent, que ses clientes conservent et réutilisent."}
+        ],
+        "faq": [
+          {"question": "Boîte aimantée ou coffret cannelure : comment choisir ?", "answer": "La boîte aimantée en contrecollé habillé vise le très haut de gamme, avec un budget et un délai supérieurs. Le coffret en micro-cannelure offre un rendu soigné plus accessible, dès 5 exemplaires et fabriqué rapidement."},
+          {"question": "Quelles techniques de marquage sont possibles ?", "answer": "Sérigraphie une ou deux couleurs pour les logos et aplats nets, quadrichromie numérique pour les visuels complexes, sur le couvercle, le rabat ou les deux."},
+          {"question": "La boîte arrive-t-elle montée ?", "answer": "Non, elle est livrée à plat, rainée et prédécoupée : le montage se fait à la main en quelques instants, sans collage, et le stockage avant usage reste compact."},
+          {"question": "Quel est le minimum de commande ?", "answer": "25 exemplaires pour la boîte aimantée, 5 pour le coffret de présentation en cannelure : des seuils pensés pour les opérations ciblées."},
+          {"question": "Quel délai prévoir pour une opération de fin d'année ?", "answer": "Le contrecollé habillé demande un délai de fabrication plus long que le pliant standard : anticipez votre commande de plusieurs semaines pour les échéances de décembre."}
+        ],
+        "technical_spec": {
+          "formats": ["180×180×70 mm", "250×180×100 mm", "350×250×120 mm", "420×300×80 mm (aimantée)", "Coffret présentation : 105×395×300 et 115×450×350 mm"],
+          "supports": ["Carton blanc contrecollé 380 g habillé papier couché (~3 mm)", "Micro-cannelure kraft brun 336 g", "Micro-cannelure blanche 391 g"],
+          "finitions": ["Fermeture aimantée", "Habillages unis : or, argent, noir, bordeaux, bleus, verts…", "Blanc sélectif sur kraft"],
+          "impression": "Sérigraphie 1-2 couleurs ou quadrichromie numérique, couvercle et/ou rabat",
+          "quantites": "Aimantée dès 25 ex. (jusqu'à 10 000) ; coffret cannelure dès 5 ex.",
+          "delais": "Coffret cannelure : rapide ; boîte aimantée : fabrication longue, à anticiper",
+          "options": ["Livré à plat prédécoupé", "Montage sans collage", "Calage intérieur sur demande"]
+        }
+      }
+    },
+    {
+      "slug": "sac_papier",
+      "name": "Sac papier kraft",
+      "definition": {
+        "name": "Sacs papier kraft personnalisés",
+        "keywords": ["sac papier personnalisé", "sac kraft logo", "sac boutique", "sac poignées torsadées", "sac papier commerce", "sac papier recyclable", "sac kraft imprimé", "sac magasin personnalisé", "sac papier événementiel", "sac emballage boutique"],
+        "title_template": "Sac papier kraft {{format}} — poignées torsadées, impression {{finition}}",
+        "short_description_template": "Sacs papier kraft recyclables à poignées torsadées, 3 tailles imprimées grande surface à vos couleurs, dès {{quantite}} exemplaires.",
+        "description_template": "## Le sac qui prolonge votre boutique dans la rue\n\nChaque client qui repart avec votre sac devient un ambassadeur : le sac papier kraft affiche votre marque en ville, en salon comme au bureau. Recyclable et solide, il coche à la fois la case image et la case responsabilité, un argument que vos clients regardent de plus en plus.\n\n## Caractéristiques techniques\n\nTrois tailles couvrent l'essentiel des usages du commerce : 225×190×80 mm en kraft 27 g pour les petits articles, 300×220×100 mm en 41 g pour le prêt-à-porter et les coffrets, 340×260×140 mm en 60 g pour les achats volumineux. Les poignées torsadées sont renforcées par une bande de collage interne, pour une charge portée jusqu'à environ 6 kg. L'impression couvre une large surface des faces, pour un logo bien visible ou un visuel pleine face.\n\n## Vos avantages\n\nVous remplacez un sac générique par un support publicitaire ambulant, au coût maîtrisé et cohérent avec une démarche zéro plastique. La personnalisation grande surface valorise autant une identité minimaliste kraft naturel qu'une création graphique affirmée, en boutique comme en événementiel.",
+        "h1_template": "Sacs papier kraft personnalisés {{format}} à poignées torsadées",
+        "seo_title": "Sac papier kraft personnalisé — poignées torsadées",
+        "seo_description": "Sacs papier kraft recyclables imprimés à vos couleurs : 3 tailles, poignées torsadées renforcées, charge jusqu'à 6 kg. Idéal boutique et salon.",
+        "seo_keywords": ["sac papier personnalisé", "sac kraft logo", "sac boutique imprimé", "sac poignées torsadées", "sac papier recyclable", "sac commerce"],
+        "commercial_pitch": "Votre logo dans les rues, porté par vos propres clients : le sac kraft personnalisé est la publicité la plus naturelle qui soit. Recyclable, solide, à vos couleurs.",
+        "benefits": [
+          "Kraft recyclable, alternative crédible au plastique",
+          "3 tailles pour couvrir tous les achats en boutique",
+          "Poignées torsadées renforcées, charge jusqu'à ~6 kg",
+          "Grande surface d'impression sur les faces",
+          "Image responsable valorisée auprès des clients",
+          "Compatible usage boutique, salon et événementiel"
+        ],
+        "use_cases": [
+          "Sacs de caisse en boutique",
+          "Remise de cadeaux clients",
+          "Salons et événements professionnels",
+          "Vente à emporter épicerie fine",
+          "Packaging de commande click-and-collect"
+        ],
+        "usage_examples": [
+          {"title": "Boutique de prêt-à-porter", "description": "Un commerce remet chaque achat dans un sac moyen format à ses couleurs, transformant ses clients en vitrines mobiles dans le centre-ville."},
+          {"title": "Salon professionnel", "description": "Un exposant distribue documentation et goodies dans des sacs kraft logotés, repérables dans toutes les allées du salon."},
+          {"title": "Cave et épicerie fine", "description": "Un caviste utilise le grand format 60 g pour les achats de plusieurs bouteilles, avec des poignées qui tiennent la charge."},
+          {"title": "Concept store", "description": "Une enseigne joue le kraft naturel avec un logo une couleur, cohérent avec son positionnement durable, sans surcoût de mise en avant."}
+        ],
+        "faq": [
+          {"question": "Quel poids ces sacs peuvent-ils porter ?", "answer": "Jusqu'à environ 6 kg selon la taille, grâce aux poignées torsadées renforcées par une bande de collage interne. Choisissez le grammage supérieur pour les charges régulières."},
+          {"question": "Quelle taille pour quel usage ?", "answer": "Le petit format (225×190×80 mm) pour bijoux et petits articles, le moyen (300×220×100 mm) pour textile et coffrets, le grand (340×260×140 mm) pour les achats volumineux ou multiples."},
+          {"question": "Le sac est-il vraiment recyclable ?", "answer": "Oui, le kraft se recycle dans la filière papier classique, un argument concret pour votre communication responsable en boutique."},
+          {"question": "Quelle surface puis-je imprimer ?", "answer": "L'impression couvre une large zone des faces principales : logo centré discret ou visuel généreux, selon votre identité."},
+          {"question": "Quelle quantité commander pour démarrer ?", "answer": "Les séries s'adaptent aux besoins d'une boutique indépendante comme d'un réseau ; les prix affichés à la configuration deviennent vite dégressifs avec le volume."}
+        ],
+        "technical_spec": {
+          "formats": ["225×190×80 mm (petit)", "300×220×100 mm (moyen)", "340×260×140 mm (grand)"],
+          "supports": ["Kraft recyclable 27 g (petit)", "Kraft recyclable 41 g (moyen)", "Kraft recyclable 60 g (grand)"],
+          "finitions": ["Poignées torsadées renforcées par bande de collage interne", "Impression grande surface sur les faces"],
+          "impression": "Quadrichromie sur les faces principales",
+          "quantites": "Paliers dégressifs affichés à la configuration",
+          "delais": "Délais affichés en temps réel selon quantité",
+          "options": ["Charge supportée jusqu'à ~6 kg", "Kraft blanc ou brun selon disponibilité"]
+        }
+      }
+    }
+  ],
+  "enrichissements": []
+}

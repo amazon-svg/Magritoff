@@ -1,0 +1,800 @@
+{
+  "gammes_completes": [
+    {
+      "slug": "papeterie",
+      "name": "Papeterie commerciale",
+      "definition": {
+        "name": "Papeterie commerciale et administrative",
+        "keywords": ["papeterie entreprise", "papeterie commerciale", "papier en-tête", "enveloppe personnalisée", "chemise à rabats", "bloc-notes", "carnet autocopiant", "fournitures imprimées", "identité visuelle", "documents administratifs"],
+        "title_template": "Papeterie commerciale personnalisée — {{quantite}} exemplaires",
+        "short_description_template": "Toute la papeterie de votre entreprise à vos couleurs : têtes de lettre, enveloppes, chemises, blocs et carnets, imprimés sur {{papier}} {{grammage}}.",
+        "description_template": "## Une papeterie à l'image de votre entreprise\n\nLa papeterie commerciale regroupe tous les imprimés du quotidien administratif : papier à en-tête, enveloppes, chemises à rabats, blocs-notes, carnets autocopiants et sous-mains. Chaque document qui sort de vos bureaux porte votre identité visuelle et travaille pour votre image.\n\n## Caractéristiques techniques\n\nChaque famille dispose de ses standards : offset 80 à 100 g pour les documents à écrire ou imprimer, couché 250 à 350 g pour les chemises et cartes, papier autocopiant 60 g pour les liasses. Formats normalisés A4, A5, DL, C4/C5/C6 selon l'usage. Impression quadri recto ou recto/verso, options recyclées disponibles sur l'ensemble de la gamme.\n\n## Les avantages d'une gamme coordonnée\n\nCommander l'ensemble de sa papeterie au même endroit garantit une cohérence parfaite : mêmes teintes, mêmes papiers, même niveau de finition. Vous gagnez du temps sur les réassorts et présentez une image professionnelle homogène, du courrier au dossier commercial remis en main propre.",
+        "h1_template": "Papeterie commerciale personnalisée pour votre entreprise",
+        "seo_title": "Papeterie commerciale personnalisée | Imprimerie pro",
+        "seo_description": "Papier en-tête, enveloppes, chemises, blocs-notes et carnets à vos couleurs. Papeterie d'entreprise imprimée en qualité professionnelle, petites et grandes séries.",
+        "seo_keywords": ["papeterie entreprise", "papeterie commerciale personnalisée", "imprimés administratifs", "papier en-tête", "enveloppe logo", "chemise commerciale", "identité visuelle papier"],
+        "commercial_pitch": "Chaque courrier, chaque dossier, chaque note manuscrite devient un support de votre marque. Une papeterie coordonnée crédibilise votre entreprise à moindre coût, document après document.",
+        "benefits": [
+          "Image professionnelle cohérente sur tous vos documents",
+          "Formats et papiers normalisés, compatibles avec vos usages bureau",
+          "Petites séries possibles pour les TPE et artisans",
+          "Options papiers recyclés sur toute la gamme",
+          "Réassort simple : mêmes références, même rendu",
+          "Un seul interlocuteur pour toute votre papeterie"
+        ],
+        "use_cases": [
+          "Kit papeterie de création d'entreprise",
+          "Réassort annuel des services administratifs",
+          "Harmonisation après changement de logo",
+          "Dotation papeterie multi-agences",
+          "Dossiers commerciaux et courriers officiels"
+        ],
+        "usage_examples": [
+          {"title": "Lancement d'activité", "description": "Un artisan qui s'installe commande en-têtes, enveloppes et carnets de devis assortis pour démarrer avec une image pro dès le premier client."},
+          {"title": "Refonte d'identité", "description": "Une PME qui change de logo renouvelle toute sa papeterie en une commande pour éviter la cohabitation d'anciens et nouveaux visuels."},
+          {"title": "Réseau multi-sites", "description": "Un groupe décline la même papeterie pour chaque agence, avec les coordonnées locales adaptées sur chaque référence."},
+          {"title": "Cabinet de conseil", "description": "Un cabinet équipe ses consultants de chemises, blocs et cartes coordonnés pour les rendez-vous clients et les soutenances."}
+        ],
+        "faq": [
+          {"question": "Puis-je commander plusieurs produits avec le même visuel ?", "answer": "Oui, c'est même recommandé : nous déclinons votre charte graphique sur chaque format en conservant couleurs et typographies pour un rendu homogène."},
+          {"question": "Quels fichiers fournir ?", "answer": "Un PDF haute définition (300 dpi) en CMJN avec 2 à 3 mm de fonds perdus par produit. Nous contrôlons chaque fichier avant impression."},
+          {"question": "Existe-t-il des versions écologiques ?", "answer": "Oui, chaque famille propose une variante en papier 100 % recyclé ou certifié issu de forêts gérées durablement."},
+          {"question": "Quel est le minimum de commande ?", "answer": "Les minimums varient selon le produit : dès quelques dizaines d'exemplaires pour les chemises ou blocs, quelques centaines pour les enveloppes et en-têtes."},
+          {"question": "Quels sont les délais de fabrication ?", "answer": "Comptez en standard 48 à 72 h pour les imprimés simples et jusqu'à une à deux semaines pour les produits façonnés (carnets, calendriers rigides). Des options express existent."}
+        ],
+        "technical_spec": {
+          "formats": ["A4 210 × 297 mm", "A5 148 × 210 mm", "DL 110 × 220 mm", "C4 229 × 324 mm", "C5 162 × 229 mm", "C6 114 × 162 mm"],
+          "supports": ["offset blanc 80-100 g", "offset recyclé 80-90 g", "couché demi-mat ou brillant 250-350 g", "autocopiant 60 g"],
+          "finitions": ["pelliculage mat, brillant ou soft touch", "rainage", "encollage", "numérotation", "perforation"],
+          "impression": "quadri recto ou recto/verso, Pantone possible selon produit",
+          "quantites": "de 10 à 50 000 exemplaires selon la famille de produit",
+          "delais": "standard 48-72 h pour les imprimés à plat, 5 à 10 jours ouvrés pour les produits façonnés, express possible",
+          "options": ["papiers recyclés", "gabarits fournis", "contrôle de fichiers inclus", "déclinaisons multi-sites"]
+        }
+      }
+    },
+    {
+      "slug": "tete_lettre",
+      "name": "Tête de lettre / Papier en-tête",
+      "definition": {
+        "name": "Tête de lettre - papier à en-tête personnalisé",
+        "keywords": ["tête de lettre", "papier à en-tête", "papier en-tête entreprise", "papier à lettre personnalisé", "courrier commercial", "en-tête A4", "papier filigrané", "letterhead", "papier offset 90g", "papier courrier professionnel"],
+        "title_template": "Tête de lettre A4 {{papier}} {{grammage}} — {{quantite}} exemplaires",
+        "short_description_template": "Papier à en-tête A4 imprimé sur {{papier}} {{grammage}}, compatible avec vos imprimantes laser et jet d'encre. La base de toute correspondance professionnelle.",
+        "description_template": "## Votre identité sur chaque courrier\n\nLa tête de lettre est le premier support d'identité d'une entreprise : devis, factures, courriers officiels et attestations partent tous sur ce papier. Logo, coordonnées, mentions légales et éléments graphiques y sont imprimés une fois pour toutes — il ne reste qu'à imprimer ou écrire le contenu.\n\n## Caractéristiques techniques\n\nFormat A4 (210 × 297 mm), imprimé en quadri recto ou recto/verso sur offset 90 g garanti compatible imprimantes laser et jet d'encre. Variantes disponibles : offset 100 % recyclé 80 g pour une démarche responsable, ou papier filigrané 100 g pour les documents à forte valeur (actes, attestations, cabinets réglementés). Impression en tons directs possible pour un respect strict de votre charte.\n\n## Les avantages au quotidien\n\nUn en-tête pré-imprimé offre un rendu bien supérieur à une impression bureautique du logo : couleurs fidèles, aplats nets, papier de meilleure tenue. Vous standardisez vos documents sortants, gagnez du temps à chaque courrier et donnez du poids à vos devis et factures.",
+        "h1_template": "Papier à en-tête A4 personnalisé {{papier}} {{grammage}}",
+        "seo_title": "Papier à en-tête personnalisé A4 | Impression pro",
+        "seo_description": "Tête de lettre A4 imprimée à vos couleurs sur offset 80-100 g compatible laser. Devis, factures et courriers avec une vraie image professionnelle.",
+        "seo_keywords": ["papier à en-tête", "tête de lettre personnalisée", "papier en-tête A4", "en-tête entreprise", "papier courrier professionnel", "impression en-tête", "papier filigrané entreprise"],
+        "commercial_pitch": "Un devis envoyé sur un vrai papier à en-tête inspire immédiatement confiance. Pour quelques centimes par feuille, chacun de vos courriers travaille votre crédibilité.",
+        "benefits": [
+          "Compatible imprimantes laser et jet d'encre du bureau",
+          "Couleurs fidèles à votre charte, bien au-delà d'une impression bureautique",
+          "Version filigranée pour les documents officiels",
+          "Option 100 % recyclé sans surcoût prohibitif",
+          "Tarif unitaire dégressif dès quelques centaines de feuilles",
+          "Uniformise devis, factures et courriers de toute l'équipe"
+        ],
+        "use_cases": [
+          "Devis et factures d'artisans",
+          "Courriers officiels de collectivités",
+          "Attestations de cabinets réglementés",
+          "Correspondance commerciale de PME",
+          "Ordonnances et documents de praticiens"
+        ],
+        "usage_examples": [
+          {"title": "Artisan du bâtiment", "description": "Ses devis partent sur en-tête imprimé avec logo, assurance décennale et SIRET : plus rien à ressaisir, une image nette face aux concurrents."},
+          {"title": "Cabinet comptable", "description": "Lettres de mission et attestations sur papier filigrané 100 g : la texture et le filigrane signalent un document authentique."},
+          {"title": "Mairie", "description": "Courriers administratifs sur en-tête aux armoiries de la commune, imprimés en grande série pour tous les services."},
+          {"title": "Start-up B2B", "description": "Propositions commerciales imprimées sur en-tête recyclé, aligné avec le discours RSE porté auprès des clients."}
+        ],
+        "faq": [
+          {"question": "Le papier passe-t-il dans mon imprimante laser ?", "answer": "Oui, l'offset 90 g est conçu pour supporter la chaleur des fours laser sans transfert d'encre. C'est le grammage recommandé pour un usage bureautique quotidien."},
+          {"question": "Quel grammage choisir ?", "answer": "90 g pour l'usage courant, 80 g recyclé pour les gros volumes économiques, 100 g filigrané pour les documents à valeur officielle ou l'image haut de gamme."},
+          {"question": "Puis-je imprimer le verso ?", "answer": "Oui : conditions générales de vente, mentions légales ou informations pratiques au verso évitent une seconde feuille dans vos envois."},
+          {"question": "Quel fichier fournir ?", "answer": "Un PDF 300 dpi en CMJN au format A4 avec 3 mm de fonds perdus si votre visuel touche les bords. Pensez à laisser la zone centrale libre pour le contenu."},
+          {"question": "Peut-on respecter un Pantone précis ?", "answer": "Oui, l'impression en tons directs est possible pour reproduire exactement la couleur de votre charte, notamment sur l'offset 90 g."}
+        ],
+        "technical_spec": {
+          "formats": ["A4 210 × 297 mm", "sur-mesure possible"],
+          "supports": ["offset blanc 90 g compatible laser", "offset 100 % recyclé 80 g", "papier filigrané blanc 100 g", "filigrané recyclé 100 g"],
+          "finitions": ["pré-découpe optionnelle", "impression tons directs"],
+          "impression": "quadri recto, quadri recto/verso, quadri + noir verso, 1 à 2 tons directs",
+          "quantites": "de 250 à 500 000 exemplaires, paliers dégressifs",
+          "delais": "standard 48-72 h, express possible",
+          "options": ["verso CGV", "version recyclée", "version filigranée", "déclinaisons multi-entités"]
+        }
+      }
+    },
+    {
+      "slug": "enveloppe",
+      "name": "Enveloppe personnalisée",
+      "definition": {
+        "name": "Enveloppe personnalisée entreprise",
+        "keywords": ["enveloppe personnalisée", "enveloppe DL", "enveloppe C4", "enveloppe C5", "enveloppe C6", "enveloppe à fenêtre", "enveloppe logo", "enveloppe mécanisable", "enveloppe entreprise", "enveloppe imprimée", "enveloppe patte pointue"],
+        "title_template": "Enveloppe {{papier}} {{grammage}} personnalisée — {{quantite}} exemplaires",
+        "short_description_template": "Enveloppes DL, C6, C5 ou C4 imprimées à vos couleurs, avec ou sans fenêtre, sur {{papier}} {{grammage}}. Votre marque visible avant même l'ouverture du courrier.",
+        "description_template": "## L'enveloppe qui annonce l'expéditeur\n\nUne enveloppe imprimée à votre logo identifie immédiatement votre courrier dans la pile du destinataire et augmente ses chances d'être ouvert en premier. C'est aussi la garantie de ne jamais être à court d'enveloppes correctes au bureau.\n\n## Caractéristiques techniques\n\nCinq formats couvrent tous les usages : 90 × 140 mm (cartes), DL 110 × 220 mm (courrier plié en trois), C6 114 × 162 mm (A6), C5 162 × 229 mm (A5 ou A4 plié en deux) et C4 229 × 324 mm (A4 à plat). Fenêtre cristal d'origine végétale disponible en 35 × 100, 45 × 100 ou 50 × 100 mm selon le format. Fermeture par bande autocollante avec protection, ou patte gommée pointue sur le petit format. Papiers offset vélin 90 g, 100 % recyclé 90 g ou offset renforcé 100 g.\n\n## Les avantages\n\nAvec la fenêtre, l'adresse imprimée sur le document apparaît directement : plus d'étiquettes ni de double saisie. Les versions mécanisables passent en machine de mise sous pli pour vos campagnes volumineuses.",
+        "h1_template": "Enveloppes personnalisées {{papier}} {{grammage}} avec ou sans fenêtre",
+        "seo_title": "Enveloppe personnalisée DL, C4, C5, C6 | Impression",
+        "seo_description": "Enveloppes imprimées à votre logo : DL, C6, C5, C4, avec ou sans fenêtre, papier blanc ou recyclé. Identifiez votre courrier dès la boîte aux lettres.",
+        "seo_keywords": ["enveloppe personnalisée", "enveloppe DL fenêtre", "enveloppe C4 imprimée", "enveloppe entreprise logo", "enveloppe recyclée", "impression enveloppe", "enveloppe mécanisable"],
+        "commercial_pitch": "Votre courrier ne finit plus au fond de la pile : une enveloppe à votre logo est identifiée et ouverte en priorité. Un support publicitaire que le destinataire tient forcément entre les mains.",
+        "benefits": [
+          "Courrier identifié dès la boîte aux lettres",
+          "Fenêtre cristal : adresse imprimée sur le document, zéro étiquette",
+          "Cinq formats normalisés pour tous les contenus",
+          "Version 100 % recyclée avec fenêtre d'origine végétale",
+          "Compatible machines de mise sous pli (mécanisable)",
+          "Panachage avec/sans fenêtre possible sur une même commande"
+        ],
+        "use_cases": [
+          "Facturation mensuelle en DL fenêtre",
+          "Envoi de dossiers A4 en C4",
+          "Courriers officiels de collectivités",
+          "Mailings commerciaux identifiés",
+          "Cartes de vœux en petit format"
+        ],
+        "usage_examples": [
+          {"title": "Service facturation", "description": "Les factures partent en DL à fenêtre : l'adresse imprimée sur la facture apparaît dans la fenêtre, la mise sous pli prend quelques secondes."},
+          {"title": "Cabinet immobilier", "description": "Les dossiers de vente et diagnostics partent à plat en C4 personnalisé, sans pliure, avec une image soignée."},
+          {"title": "Collectivité", "description": "La mairie panache C5 avec et sans fenêtre dans la même commande pour couvrir convocations et courriers libres."},
+          {"title": "Campagne fidélité", "description": "Un commerce envoie ses offres dans une enveloppe colorée à son logo : le taux d'ouverture grimpe par rapport à une enveloppe blanche anonyme."}
+        ],
+        "faq": [
+          {"question": "Quel format pour un courrier A4 ?", "answer": "DL pour un A4 plié en trois, C5 pour un A4 plié en deux, C4 pour un A4 non plié. Le C6 convient aux cartes et petits formats."},
+          {"question": "Où se situe la fenêtre ?", "answer": "La fenêtre est positionnée à droite, aux dimensions normalisées (35, 45 ou 50 × 100 mm selon le format), compatible avec les zones d'adressage standard des documents."},
+          {"question": "Les enveloppes passent-elles en machine à affranchir et mise sous pli ?", "answer": "Oui, les versions mécanisables sont conçues pour les machines de mise sous pli et respectent les normes postales d'affranchissement."},
+          {"question": "La fenêtre est-elle recyclable ?", "answer": "Oui, la fenêtre cristal est fabriquée à partir d'amidon végétal et l'ensemble se recycle avec le papier."},
+          {"question": "Peut-on commander sans impression ?", "answer": "Oui, les enveloppes sont aussi disponibles vierges, utile pour compléter un stock ou tester un format avant personnalisation."}
+        ],
+        "technical_spec": {
+          "formats": ["90 × 140 mm", "DL 110 × 220 mm", "C6 114 × 162 mm", "C5 162 × 229 mm", "C4 229 × 324 mm"],
+          "supports": ["offset vélin blanc 90 g", "offset 100 % recyclé 90 g", "offset blanc renforcé 100 g"],
+          "finitions": ["fenêtre cristal végétale 35/45/50 × 100 mm", "bande autocollante avec protection", "patte gommée pointue (90 × 140)"],
+          "impression": "quadri recto, noir, 1-2 tons directs, recto/verso ou sans impression",
+          "quantites": "de 100 à 50 000 exemplaires, nombreux paliers dégressifs",
+          "delais": "standard 48-72 h, express possible",
+          "options": ["avec ou sans fenêtre", "panachage fenêtre/sans fenêtre", "version mécanisable", "enveloppes couleur"]
+        }
+      }
+    },
+    {
+      "slug": "chemise_rabats",
+      "name": "Chemise à rabats",
+      "definition": {
+        "name": "Chemise à rabats personnalisée",
+        "keywords": ["chemise à rabats", "pochette à rabats", "porte-documents", "chemise commerciale A4", "pochette entreprise", "chemise cartonnée", "chemise encoche carte de visite", "dossier commercial", "pochette dossier", "chemise 350g"],
+        "title_template": "Chemise à rabats A4 {{papier}} {{grammage}} {{finition}} — {{quantite}} exemplaires",
+        "short_description_template": "Chemise à rabats A4 en carte {{grammage}} avec rainage renforcé et encoche carte de visite. Le dossier commercial qui reste sur le bureau de vos prospects.",
+        "description_template": "## Le porte-documents de vos rendez-vous\n\nLa chemise à rabats habille tout ce que vous remettez en main propre : devis, contrats, plaquettes, dossiers de presse. Deux rabats intérieurs maintiennent les documents, une encoche accueille votre carte de visite — le prospect repart avec un dossier complet à votre image.\n\n## Caractéristiques techniques\n\nFormat A4 fermé (existe en A5, 3 volets, version à fenêtre ou à l'italienne), imprimé en quadri sur carte couchée 350 g demi-mat, brillant ou recyclé satin. Rainage simple pour les dossiers fins, double rainage 5 mm pour les dossiers épais. Encoche carte de visite verticale ou horizontale. Livrée rainée à plat pour un stockage compact, montage en quelques secondes.\n\n## Les avantages\n\nLe pelliculage mat, brillant ou soft touch protège la chemise des manipulations et renforce la perception haut de gamme. Pour les grandes occasions, vernis sélectif et dorure à chaud transforment la pochette en objet premium. Disponible dès quelques dizaines d'exemplaires : chaque commercial peut avoir son stock.",
+        "h1_template": "Chemise à rabats personnalisée {{grammage}} {{finition}}",
+        "seo_title": "Chemise à rabats A4 personnalisée 350 g | Imprimerie",
+        "seo_description": "Chemises à rabats A4 en carte 350 g, encoche carte de visite, dos 5 mm, pelliculage mat ou soft touch. Vos dossiers commerciaux à votre image dès 25 ex.",
+        "seo_keywords": ["chemise à rabats personnalisée", "pochette à rabats A4", "porte-documents entreprise", "chemise commerciale", "pochette dossier 350g", "chemise carte de visite", "dossier commercial imprimé"],
+        "commercial_pitch": "Un devis remis dans une chemise à vos couleurs ne se perd pas dans une pile : il reste visible sur le bureau du décideur. C'est l'outil de closing le moins cher de votre panoplie commerciale.",
+        "benefits": [
+          "Dossiers remis en main propre immédiatement identifiés",
+          "Encoche intégrée : votre carte de visite toujours jointe",
+          "Double rainage 5 mm pour les dossiers épais",
+          "Carte 350 g rigide, tenue irréprochable en rendez-vous",
+          "Livrée à plat : stockage compact, montage instantané",
+          "Petites séries dès quelques dizaines d'exemplaires"
+        ],
+        "use_cases": [
+          "Remise de devis et contrats",
+          "Kits d'accueil salon professionnel",
+          "Dossiers de presse et de candidature",
+          "Pochettes d'accueil nouveaux clients",
+          "Dossiers de location immobilière"
+        ],
+        "usage_examples": [
+          {"title": "Concession automobile", "description": "Chaque acheteur repart avec carte grise provisoire, contrat et garanties dans une chemise pelliculée soft touch aux couleurs de la marque."},
+          {"title": "Agence web", "description": "Les propositions commerciales sont remises dans une chemise à vernis sélectif : le logo brille en relief, le dossier marque les esprits."},
+          {"title": "Salon professionnel", "description": "L'exposant prépare des chemises 3 volets avec plaquette, tarifs et carte de visite en encoche, distribuées aux visiteurs qualifiés."},
+          {"title": "Expert-comptable", "description": "Bilans et liasses fiscales remis en chemise double rainage 5 mm : le dossier épais tient parfaitement, l'image est soignée."}
+        ],
+        "faq": [
+          {"question": "Simple ou double rainage : comment choisir ?", "answer": "Le rainage simple convient jusqu'à une dizaine de feuilles. Au-delà, le double rainage crée un dos de 5 mm qui absorbe les dossiers épais sans déformer la chemise."},
+          {"question": "L'encoche carte de visite est-elle compatible avec tous les formats de carte ?", "answer": "Oui, l'encoche verticale ou horizontale est dimensionnée pour la carte de visite standard 85 × 54 mm."},
+          {"question": "La chemise arrive-t-elle montée ?", "answer": "Non, elle est livrée rainée à plat pour un transport et un stockage compacts. Le pliage se fait en quelques secondes, sans collage."},
+          {"question": "Quel fichier fournir ?", "answer": "Un PDF au gabarit de découpe fourni (tracé de découpe et rainage sur un calque dédié), 300 dpi CMJN, fonds perdus 3 mm. Nous vérifions le fichier avant impression."},
+          {"question": "Quelle finition pour un rendu haut de gamme ?", "answer": "Le pelliculage soft touch donne un toucher peau de pêche très premium ; ajoutez un vernis sélectif ou une dorure à chaud sur le logo pour un effet maximal."}
+        ],
+        "technical_spec": {
+          "formats": ["A4 fermé 210 × 297 mm (2 ou 3 volets)", "A5 fermé 148 × 210 mm", "format à l'italienne (paysage)", "version avec fenêtre"],
+          "supports": ["couché demi-mat 350 g", "couché brillant 350 g", "couché recyclé satin blanc 350 g"],
+          "finitions": ["pelliculage mat, brillant ou soft touch (R ou R/V)", "vernis sélectif 2D/3D", "dorure à chaud", "encoche carte de visite verticale/horizontale"],
+          "impression": "quadri recto ou recto/verso",
+          "quantites": "de 25 à 2 000 exemplaires, tarifs fortement dégressifs",
+          "delais": "standard 48-72 h, finitions spéciales sous quelques jours",
+          "options": ["rainage simple ou double 5 mm", "2 ou 3 volets", "fenêtre de couverture", "livraison rainée à plat"]
+        }
+      }
+    },
+    {
+      "slug": "bloc_note",
+      "name": "Bloc-notes",
+      "definition": {
+        "name": "Bloc-notes personnalisé",
+        "keywords": ["bloc-notes personnalisé", "bloc papier logo", "bloc-notes entreprise", "notepad publicitaire", "bloc A5", "bloc A4", "bloc-notes détachable", "cadeau d'affaires papeterie", "bloc de bureau", "bloc feuillets encollés"],
+        "title_template": "Bloc-notes {{papier}} {{grammage}} — 50 feuillets — {{quantite}} exemplaires",
+        "short_description_template": "Bloc-notes de 50 feuillets détachables sur {{papier}} {{grammage}}, dos cartonné, imprimé à vos couleurs. Votre marque sur chaque note manuscrite.",
+        "description_template": "## Votre logo sur chaque prise de note\n\nLe bloc-notes personnalisé est l'un des supports publicitaires les plus utilisés au bureau : posé près du téléphone ou en salle de réunion, il expose votre marque des dizaines de fois par jour, chez vous comme chez vos clients.\n\n## Caractéristiques techniques\n\nQuatre formats du bloc de comptoir au bloc de bureau : 65 × 150 mm, A6 105 × 148 mm, A5 148 × 210 mm et A4 210 × 297 mm, en portrait ou paysage. 50 feuillets imprimés en quadri recto sur offset lisse 90 g ou offset recyclé 80 g, encollés en tête pour un détachement net, avec dos cartonné rigide pour écrire partout.\n\n## Les avantages\n\nC'est le cadeau d'affaires utile par excellence : contrairement au goodie gadget, un bloc s'utilise jusqu'à la dernière feuille. Prévoyez une trame discrète — logo, coordonnées, lignes ou cases — qui laisse la place à l'écriture tout en gardant votre marque visible sur chaque note transmise.",
+        "h1_template": "Bloc-notes personnalisé {{papier}} — 50 feuillets détachables",
+        "seo_title": "Bloc-notes personnalisé entreprise | Impression logo",
+        "seo_description": "Blocs-notes 50 feuillets encollés en tête, dos cartonné, du A6 au A4. Imprimés à vos couleurs, le support publicitaire utile qui reste sur les bureaux.",
+        "seo_keywords": ["bloc-notes personnalisé", "bloc papier publicitaire", "bloc-notes logo entreprise", "notepad personnalisé", "bloc A5 imprimé", "cadeau d'affaires utile"],
+        "commercial_pitch": "Un bloc-notes vit des semaines sur le bureau de votre client et chaque feuille arrachée circule avec votre logo. Peu de supports publicitaires offrent autant d'expositions pour si peu.",
+        "benefits": [
+          "Exposition quotidienne de la marque sur les bureaux",
+          "Feuillets détachables proprement grâce à l'encollage en tête",
+          "Dos cartonné : on écrit debout, en réunion, sur le terrain",
+          "Quatre formats du comptoir au bureau",
+          "Version recyclée pour une communication responsable",
+          "Cadeau d'affaires réellement utilisé, jamais jeté"
+        ],
+        "use_cases": [
+          "Goodies de salon et d'événement",
+          "Dotation interne salles de réunion",
+          "Cadeau client de fin d'année",
+          "Bloc de comptoir pour messages",
+          "Support de prise de commande simple"
+        ],
+        "usage_examples": [
+          {"title": "Banque locale", "description": "Des blocs A5 offerts aux clients professionnels lors des rendez-vous annuels : le logo reste sur leur bureau toute l'année."},
+          {"title": "Salle de réunion", "description": "L'entreprise équipe ses salles de blocs A4 avec trame ligne et pied de page charté : les notes internes portent l'identité maison."},
+          {"title": "Pharmacie", "description": "Un petit bloc 65 × 150 mm au comptoir pour noter posologies et rappels, avec coordonnées et horaires imprimés en pied."},
+          {"title": "Agence immobilière", "description": "Blocs A6 distribués en boîte aux lettres lors des campagnes de prospection : plus durable qu'un simple flyer."}
+        ],
+        "faq": [
+          {"question": "Combien de feuillets par bloc ?", "answer": "50 feuillets par bloc, encollés en tête sur un dos cartonné. C'est le standard qui offre le meilleur rapport épaisseur/durée d'utilisation."},
+          {"question": "Peut-on imprimer une trame lignée ou des cases ?", "answer": "Oui, la trame fait partie de votre fichier : lignes, carreaux, cases à cocher ou zones datées, tout est imprimé en quadri sur chaque feuillet."},
+          {"question": "Les feuilles se détachent-elles proprement ?", "answer": "Oui, l'encollage en tête est dosé pour maintenir le bloc tout en permettant un arrachage net d'une seule main."},
+          {"question": "Quel format choisir ?", "answer": "A5 est le plus polyvalent (bureau et réunion), A4 pour la prise de notes intensive, A6 et 65 × 150 mm pour le comptoir et les goodies économiques."},
+          {"question": "Quel fichier fournir ?", "answer": "Un PDF du feuillet à son format final, 300 dpi CMJN, fonds perdus 3 mm. Gardez les éléments importants à 5 mm des bords et de la zone d'encollage."}
+        ],
+        "technical_spec": {
+          "formats": ["65 × 150 mm", "A6 105 × 148 mm", "A5 148 × 210 mm", "A4 210 × 297 mm", "portrait ou paysage"],
+          "supports": ["offset lisse blanc 90 g", "offset 100 % recyclé 80 g"],
+          "finitions": ["encollage en tête", "dos cartonné rigide"],
+          "impression": "quadri recto sur chaque feuillet",
+          "quantites": "de 50 à 5 000 blocs",
+          "delais": "5 à 8 jours ouvrés (produit façonné)",
+          "options": ["trame lignée ou personnalisée", "orientation paysage", "version repositionnable type notes adhésives"]
+        }
+      }
+    },
+    {
+      "slug": "carnet_autocopiant",
+      "name": "Carnet autocopiant",
+      "definition": {
+        "name": "Carnet autocopiant duplicata / triplicata",
+        "keywords": ["carnet autocopiant", "liasse autocopiante", "duplicata", "triplicata", "carnet de factures", "bon de livraison", "bon de commande", "carnet de devis", "papier autocopiant NCR", "carnet numéroté", "bloc autocopiant"],
+        "title_template": "Carnet autocopiant {{finition}} — 50 liasses — {{quantite}} carnets",
+        "short_description_template": "Carnet de 50 liasses autocopiantes duplicata ou triplicata, avec numérotation en option. Devis, factures et bons de livraison écrits une fois, copiés instantanément.",
+        "description_template": "## Le document terrain à double exemplaire\n\nLe carnet autocopiant reste l'outil le plus fiable pour établir devis, bons de livraison, factures ou rapports d'intervention sur le terrain, sans électricité ni imprimante : vous écrivez une fois, la copie se forme instantanément sur le feuillet suivant. L'original part chez le client, la copie reste au carnet.\n\n## Caractéristiques techniques\n\nQuatre formats : A6 100 × 150 mm, DL 100 × 210 mm, A5 150 × 210 mm et A4 210 × 297 mm, portrait ou paysage. 50 liasses par carnet en papier autocopiant 60 g, en duplicata (2 feuillets) ou triplicata (3 feuillets), premier feuillet blanc, copies blanches ou jaunes pour les distinguer d'un coup d'œil. Reliure dos carré collé ou dos agrafé toilé, encollage en tête ou à gauche, couverture carte 250 g.\n\n## Les avantages\n\nLa numérotation séquentielle en option sécurise le suivi comptable et évite toute contestation. Disponible dès 10 carnets : chaque véhicule, chaque technicien peut avoir le sien.",
+        "h1_template": "Carnet autocopiant personnalisé duplicata ou triplicata",
+        "seo_title": "Carnet autocopiant personnalisé | Duplicata triplicata",
+        "seo_description": "Carnets autocopiants 50 liasses, duplicata ou triplicata, numérotation en option. Devis, factures et bons de livraison personnalisés, dès 10 carnets.",
+        "seo_keywords": ["carnet autocopiant personnalisé", "carnet de factures", "bon de livraison autocopiant", "duplicata triplicata", "carnet numéroté", "carnet de devis artisan", "liasse autocopiante"],
+        "commercial_pitch": "Un devis signé sur place vaut tous les e-mails : le client repart avec l'original, vous gardez la copie, l'affaire est actée. Le carnet autocopiant reste l'outil de vente terrain le plus efficace des artisans.",
+        "benefits": [
+          "Copie instantanée sans carbone ni imprimante",
+          "Original client + copie archivée dans le même geste",
+          "Numérotation séquentielle pour un suivi comptable irréprochable",
+          "Copies jaunes pour distinguer l'exemplaire archivé",
+          "Formats du carnet de poche au A4 complet",
+          "Petites séries dès 10 carnets, un par technicien"
+        ],
+        "use_cases": [
+          "Devis signés sur chantier",
+          "Bons de livraison tournées transporteur",
+          "Rapports d'intervention SAV",
+          "Reçus et bons de dépôt en boutique",
+          "Bons de commande marchés et foires"
+        ],
+        "usage_examples": [
+          {"title": "Plombier chauffagiste", "description": "Carnets A5 triplicata numérotés : un feuillet pour le client, un pour la comptabilité, un qui reste au carnet comme preuve d'intervention."},
+          {"title": "Transporteur", "description": "Bons de livraison DL duplicata dans chaque camion : signature du destinataire sur l'original, la copie jaune revient au dépôt."},
+          {"title": "Pressing", "description": "Bons de dépôt numérotés en duplicata : le ticket client correspond exactement à la souche, fin des litiges de restitution."},
+          {"title": "Marché forain", "description": "Le producteur établit factures et reçus au format A6 de poche, sans terminal ni électricité, avec ses mentions légales pré-imprimées."}
+        ],
+        "faq": [
+          {"question": "Duplicata ou triplicata : comment choisir ?", "answer": "Duplicata (2 feuillets) si un seul exemplaire doit circuler ; triplicata (3 feuillets) quand client, comptabilité et archives ont chacun besoin d'une copie."},
+          {"question": "Comment fonctionne la numérotation ?", "answer": "Chaque liasse reçoit un numéro séquentiel imprimé, reporté sur toutes les copies. Vous pouvez définir le numéro de départ pour poursuivre vos séries existantes."},
+          {"question": "L'écriture se reporte-t-elle bien sur toutes les copies ?", "answer": "Oui, le papier autocopiant 60 g est conçu pour transmettre l'écriture au stylo à bille jusqu'au troisième feuillet. Écrivez sur support rigide pour un report optimal."},
+          {"question": "Peut-on empêcher le report sur les liasses suivantes ?", "answer": "Oui, glissez le rabat cartonné de la couverture sous la liasse en cours : il isole les liasses suivantes pendant l'écriture."},
+          {"question": "Quelles mentions pré-imprimer ?", "answer": "Raison sociale, SIRET, TVA, colonnes et zones de signature : tout votre modèle de devis ou de bon est imprimé, il ne reste que le contenu à écrire."}
+        ],
+        "technical_spec": {
+          "formats": ["A6 100 × 150 mm", "DL 100 × 210 mm", "A5 150 × 210 mm", "A4 210 × 297 mm", "portrait ou paysage"],
+          "supports": ["papier autocopiant 60 g", "couverture carte 250 g"],
+          "finitions": ["dos carré collé ou dos agrafé toilé", "encollage en tête ou à gauche", "numérotation séquentielle en option"],
+          "impression": "noir, 1 ton direct ou quadri selon besoin ; copies blanches ou jaunes",
+          "quantites": "de 10 à 100 carnets ; liasses libres de 50 à 20 000 exemplaires",
+          "delais": "6 à 8 jours ouvrés (produit façonné)",
+          "options": ["duplicata ou triplicata", "numérotation avec numéro de départ personnalisé", "rabat isolant", "existe en bloc et en liasses libres"]
+        }
+      }
+    },
+    {
+      "slug": "marque_page",
+      "name": "Marque-page",
+      "definition": {
+        "name": "Marque-page personnalisé",
+        "keywords": ["marque-page personnalisé", "marque-page publicitaire", "signet", "marque-page librairie", "marque-page ensemencé", "papier à graines", "marque-page indéchirable", "goodies culture", "marque-page 50x210", "signet imprimé"],
+        "title_template": "Marque-page 50 × 210 mm {{papier}} {{finition}} — {{quantite}} exemplaires",
+        "short_description_template": "Marque-page 50 × 210 mm imprimé recto/verso sur {{papier}}, du support indéchirable au papier ensemencé à planter. Le goodie qui accompagne chaque lecture.",
+        "description_template": "## Un support qui reste entre les pages\n\nLe marque-page est un goodie discret et durable : glissé dans un livre, un agenda ou un dossier, il ressort à chaque lecture avec votre message. Librairies, éditeurs, musées, offices de tourisme et entreprises en font un support de fidélisation à faible coût.\n\n## Caractéristiques techniques\n\nFormat classique 50 × 210 mm, imprimé en quadri recto/verso. Trois familles de supports : carte rigide pelliculée mat ou brillant pour l'usage courant, support synthétique indéchirable 450 g lavable pour une durée de vie maximale, ou papier ensemencé 250 g (basilic ou fleurs sauvages) qui se plante après usage et germe en quelques jours.\n\n## Les avantages\n\nLe papier ensemencé transforme un simple signet en geste mémorable : votre client plante votre message et le regarde pousser. Vernis sélectif, dorure or ou argent et découpes de forme personnalisées sont disponibles pour les éditions haut de gamme et les événements.",
+        "h1_template": "Marque-page personnalisé {{papier}} {{finition}}",
+        "seo_title": "Marque-page personnalisé | Papier ensemencé, dorure",
+        "seo_description": "Marque-pages 50 × 210 mm quadri recto/verso : carte pelliculée, indéchirable lavable ou papier ensemencé à planter. Dès 50 exemplaires.",
+        "seo_keywords": ["marque-page personnalisé", "signet publicitaire", "marque-page ensemencé", "marque-page papier graines", "marque-page indéchirable", "goodies librairie", "marque-page dorure"],
+        "commercial_pitch": "Un marque-page revient sous les yeux de son détenteur à chaque lecture, pendant des mois. En version ensemencée, il se plante et fait littéralement pousser votre marque.",
+        "benefits": [
+          "Exposition répétée à chaque lecture, sur la durée",
+          "Papier ensemencé : un goodie RSE qui germe réellement",
+          "Version indéchirable et lavable quasi inusable",
+          "Finitions dorure et vernis sélectif pour l'édition premium",
+          "Coût unitaire très faible dès 50 exemplaires",
+          "Recto/verso : message, agenda culturel ou offre au dos"
+        ],
+        "use_cases": [
+          "Goodies librairie et maison d'édition",
+          "Souvenir de musée ou d'exposition",
+          "Cadeau événementiel mariage ou salon",
+          "Support de campagne RSE ensemencé",
+          "Carte de fidélité détournée en signet"
+        ],
+        "usage_examples": [
+          {"title": "Librairie indépendante", "description": "Un marque-page glissé dans chaque achat, avec le programme des rencontres du trimestre au verso : le client le garde et revient."},
+          {"title": "Campagne RSE", "description": "Une mutuelle distribue des marque-pages ensemencés aux fleurs sauvages lors d'un salon : le stand le plus commenté, un message qui germe."},
+          {"title": "Musée", "description": "Signet indéchirable à dorure or vendu en boutique, reprenant l'œuvre phare de la collection permanente."},
+          {"title": "Auteur auto-édité", "description": "Marque-pages au visuel de la couverture offerts en dédicace, avec QR code vers la boutique en ligne au verso."}
+        ],
+        "faq": [
+          {"question": "Le papier ensemencé germe-t-il vraiment ?", "answer": "Oui : plantez-le sous quelques millimètres de terre, arrosez régulièrement, et le basilic ou les fleurs sauvages lèvent en une à trois semaines selon la saison."},
+          {"question": "Peut-on imprimer recto et verso ?", "answer": "Oui, l'impression quadri recto/verso est standard : visuel d'un côté, message, agenda ou QR code de l'autre."},
+          {"question": "Quelle est la différence entre les supports ?", "answer": "La carte pelliculée est le choix économique courant ; l'indéchirable 450 g résiste à l'eau et aux années ; l'ensemencé 250 g privilégie l'impact écologique et émotionnel."},
+          {"question": "Des formes personnalisées sont-elles possibles ?", "answer": "Oui, une découpe de forme (arrondi, silhouette, angle biseauté) est réalisable en option, ainsi que perforation et ruban."},
+          {"question": "Quel fichier fournir ?", "answer": "PDF 300 dpi CMJN au format 50 × 210 mm avec 3 mm de fonds perdus, textes à 5 mm des bords. Prévoir un fichier de forme si découpe personnalisée."}
+        ],
+        "technical_spec": {
+          "formats": ["50 × 210 mm", "découpe de forme sur demande"],
+          "supports": ["carte couchée pelliculée", "synthétique indéchirable 450 g lavable", "papier ensemencé 250 g basilic", "papier ensemencé 250 g fleurs sauvages"],
+          "finitions": ["pelliculage mat ou brillant R/V", "vernis sélectif", "dorure or ou argent", "découpe personnalisée", "perforation"],
+          "impression": "quadri recto/verso",
+          "quantites": "de 50 à 5 000 exemplaires",
+          "delais": "standard 48-72 h, express possible",
+          "options": ["papier à graines", "QR code verso", "coins arrondis", "ruban"]
+        }
+      }
+    },
+    {
+      "slug": "sous_main",
+      "name": "Sous-main",
+      "definition": {
+        "name": "Sous-main personnalisé",
+        "keywords": ["sous-main personnalisé", "sous-main publicitaire", "sous-main papier", "sous-main bureau", "sous-main calendrier", "bloc sous-main", "protège bureau", "sous-main entreprise", "sous-main 25 feuillets", "sous-main A2"],
+        "title_template": "Sous-main {{papier}} — 25 feuillets — {{quantite}} exemplaires",
+        "short_description_template": "Sous-main papier de 25 feuillets détachables sur dos cartonné, en 420 × 300 mm ou 600 × 400 mm. La plus grande surface publicitaire d'un bureau.",
+        "description_template": "## La plus grande surface d'un bureau à vos couleurs\n\nLe sous-main papier occupe le centre du poste de travail : impossible de ne pas le voir. Il protège le bureau, sert de zone de prise de notes géante et expose en continu votre marque, un plan, une grille calendrier ou des informations pratiques.\n\n## Caractéristiques techniques\n\nDeux formats : 420 × 300 mm (standard) et 600 × 400 mm (grand format A2). Bloc de 25 feuillets imprimés en quadri recto sur offset lisse 90 g ou offset recyclé 80 g, encollés en tête ou en pied, montés sur un dos cartonné rigide qui stabilise l'ensemble. Quand une feuille est remplie, on l'arrache : le sous-main redevient neuf.\n\n## Les avantages\n\nC'est un support publicitaire à durée de vie exceptionnelle : 25 feuillets représentent des mois de présence sur le bureau du destinataire. Intégrez calendrier annuel, plan d'atelier, tableau de conversion ou numéros utiles : plus le contenu sert, plus le sous-main reste.",
+        "h1_template": "Sous-main personnalisé {{papier}} — 25 feuillets détachables",
+        "seo_title": "Sous-main personnalisé publicitaire | 25 feuillets",
+        "seo_description": "Sous-main papier 420 × 300 ou 600 × 400 mm, 25 feuillets détachables sur dos cartonné. La surface publicitaire la plus visible d'un bureau.",
+        "seo_keywords": ["sous-main personnalisé", "sous-main publicitaire papier", "sous-main entreprise", "sous-main calendrier", "protège bureau personnalisé", "sous-main bloc-notes"],
+        "commercial_pitch": "Aucun autre support n'occupe autant de place sur le bureau de votre client, aussi longtemps. Un sous-main utile — calendrier, notes, infos pratiques — reste en place toute l'année.",
+        "benefits": [
+          "Visibilité permanente au centre du poste de travail",
+          "25 feuillets : des mois d'utilisation avant épuisement",
+          "Grande surface pour calendrier, plans et infos utiles",
+          "Protège réellement le bureau, cadeau perçu comme utile",
+          "Dos cartonné rigide, tenue parfaite",
+          "Version recyclée disponible"
+        ],
+        "use_cases": [
+          "Cadeau de fin d'année fournisseurs",
+          "Équipement des postes en atelier",
+          "Sous-main calendrier annuel client",
+          "Support planning pour accueil et standard",
+          "Zone de croquis pour bureaux d'études"
+        ],
+        "usage_examples": [
+          {"title": "Négoce de matériaux", "description": "Sous-main calendrier offert aux artisans clients en janvier : la grille annuelle et les coordonnées du commercial restent sous leurs yeux toute l'année."},
+          {"title": "Atelier mécanique", "description": "Chaque poste reçoit un sous-main avec tableaux de couples de serrage et numéros internes : l'outil de travail devient support d'information."},
+          {"title": "Standard téléphonique", "description": "L'accueil note les messages directement sur le sous-main à zones pré-imprimées (appelant, heure, motif), arrache et transmet."},
+          {"title": "Agence d'architecture", "description": "Grand format 600 × 400 mm quadrillé pour croquis et annotations en réunion projet, logo de l'agence en pied."}
+        ],
+        "faq": [
+          {"question": "Combien de feuillets contient un sous-main ?", "answer": "25 feuillets encollés sur dos cartonné. Chaque feuille arrachée laisse place à une neuve, identique."},
+          {"question": "Encollage en tête ou en pied : quelle différence ?", "answer": "L'encollage en tête (bord supérieur) est le plus courant ; en pied, il facilite l'arrachage pour les compositions dont le contenu principal est en haut."},
+          {"question": "Peut-on intégrer un calendrier ?", "answer": "Oui, c'est l'usage le plus efficace : une grille annuelle imprimée sur chaque feuillet garde le sous-main en place douze mois."},
+          {"question": "Quel format choisir ?", "answer": "Le 420 × 300 mm convient à la plupart des bureaux ; le 600 × 400 mm couvre un poste complet et maximise la surface d'expression."},
+          {"question": "Quel fichier fournir ?", "answer": "PDF 300 dpi CMJN au format choisi, fonds perdus 3 mm, éléments importants éloignés de 10 mm de la zone d'encollage."}
+        ],
+        "technical_spec": {
+          "formats": ["420 × 300 mm", "600 × 400 mm (A2)"],
+          "supports": ["offset lisse blanc 90 g", "offset 100 % recyclé 80 g", "dos cartonné rigide"],
+          "finitions": ["encollage en tête ou en pied"],
+          "impression": "quadri recto",
+          "quantites": "de 20 à 1 000 exemplaires",
+          "delais": "5 à 8 jours ouvrés (produit façonné)",
+          "options": ["grille calendrier intégrée", "zones de prise de message pré-imprimées", "version recyclée"]
+        }
+      }
+    },
+    {
+      "slug": "calendrier",
+      "name": "Calendriers",
+      "definition": {
+        "name": "Calendriers publicitaires",
+        "keywords": ["calendrier publicitaire", "calendrier entreprise", "calendrier personnalisé", "calendrier mural", "calendrier bancaire", "calendrier chevalet", "calendrier spirale", "calendrier 2027", "calendrier photo entreprise", "objet média annuel"],
+        "title_template": "Calendrier publicitaire {{finition}} — {{quantite}} exemplaires",
+        "short_description_template": "Calendriers muraux, chevalets, souples ou contrecollés rigides, imprimés à vos couleurs. Votre marque affichée 365 jours par an chez vos clients.",
+        "description_template": "## Le support publicitaire qui dure un an\n\nLe calendrier est l'objet média par excellence : offert en fin d'année, il s'affiche douze mois durant dans les bureaux, ateliers, cuisines et commerces de vos clients. Chaque consultation de date est une exposition de votre marque.\n\n## Caractéristiques techniques\n\nLa gamme couvre tous les usages : calendrier souple économique (A5 à A2, couché 300-350 g), calendrier mural à spirale 13 pages avec un visuel par mois, calendrier chevalet de bureau, et calendrier bancaire contrecollé sur carton rigide 1,8 mm pour un affichage annuel d'un seul tenant. Impression quadri, grilles calendaires prêtes à l'emploi disponibles pour composer votre fichier sans risque d'erreur de dates.\n\n## Les avantages\n\nUn calendrier utile n'est jamais jeté : c'est un des rares supports publicitaires que le destinataire accroche lui-même au mur. Choisissez le format selon la cible — spirale photo pour l'image, bancaire rigide pour l'atelier et le suivi de planning, souple pour les grandes diffusions.",
+        "h1_template": "Calendriers publicitaires personnalisés pour entreprise",
+        "seo_title": "Calendrier publicitaire personnalisé | Mural, chevalet",
+        "seo_description": "Calendriers d'entreprise : souples, muraux à spirale, chevalets ou bancaires contrecollés. Votre marque visible chez vos clients 365 jours par an.",
+        "seo_keywords": ["calendrier publicitaire personnalisé", "calendrier entreprise", "calendrier mural spirale", "calendrier bancaire", "calendrier chevalet bureau", "impression calendrier", "cadeau client fin d'année"],
+        "commercial_pitch": "Offert en décembre, consulté jusqu'au 31 décembre suivant : aucun autre support n'offre douze mois d'exposition garantie pour un coût unitaire aussi faible. Le calendrier est le cadeau client que personne ne jette.",
+        "benefits": [
+          "Douze mois d'exposition continue de votre marque",
+          "Quatre familles : souple, spirale, chevalet, contrecollé rigide",
+          "Grilles calendaires fournies, zéro risque d'erreur de dates",
+          "Formats du chevalet de bureau au grand mural A2",
+          "Petites séries possibles pour cibler les meilleurs clients",
+          "Cadeau de fin d'année attendu et réellement utilisé"
+        ],
+        "use_cases": [
+          "Cadeau client de fin d'année",
+          "Calendrier photo des réalisations",
+          "Planning mural d'atelier",
+          "Dotation réseau et partenaires",
+          "Calendrier associatif ou communal"
+        ],
+        "usage_examples": [
+          {"title": "Entreprise du bâtiment", "description": "Un calendrier bancaire rigide offert aux clients pros : accroché dans l'atelier, il sert au suivi de chantier avec le logo bien en vue."},
+          {"title": "Photographe / collectivité", "description": "Un mural à spirale met en scène douze photos de la commune ou du portfolio, une par mois, en couché 200 g brillant."},
+          {"title": "Garage automobile", "description": "Des calendriers souples A4 distribués au comptoir en décembre, avec les échéances d'entretien rappelées mois par mois."},
+          {"title": "Expert-comptable", "description": "Un chevalet de bureau avec les échéances fiscales de l'année : l'outil dont aucun client ne se sépare."}
+        ],
+        "faq": [
+          {"question": "Quel type de calendrier choisir ?", "answer": "Souple pour les grandes diffusions économiques, spirale pour valoriser des visuels mensuels, chevalet pour le bureau, contrecollé rigide pour un affichage annuel durable en atelier."},
+          {"question": "Fournissez-vous les grilles de dates ?", "answer": "Oui, des grilles calendaires prêtes à l'emploi (mensuelle ou annuelle, avec vacances scolaires) sont disponibles pour composer votre fichier sans erreur."},
+          {"question": "Quand commander pour la fin d'année ?", "answer": "Idéalement entre septembre et novembre : vous livrez vos clients début décembre, avant que les calendriers concurrents n'occupent les murs."},
+          {"question": "Peut-on mettre une photo différente chaque mois ?", "answer": "Oui, avec le calendrier à spirale 13 pages : une couverture plus douze visuels mensuels entièrement personnalisables."},
+          {"question": "Quels fichiers fournir ?", "answer": "PDF 300 dpi CMJN par page, fonds perdus 3 mm, en respectant les zones réservées à la spirale ou aux perforations selon le modèle."}
+        ],
+        "technical_spec": {
+          "formats": ["A5 à A2 selon modèle", "chevalet 160 × 150 mm", "mural spirale jusqu'à 300 × 420 mm", "bancaire jusqu'à 530 × 400 mm"],
+          "supports": ["couché brillant 150-300 g", "couché demi-mat 350 g", "recyclé satin 350 g", "carton contrecollé 1,8 mm"],
+          "finitions": ["spirale métallique", "pelliculage mat/brillant/soft touch", "perforation avec ou sans œillet", "contrecollage rigide"],
+          "impression": "quadri recto ou recto/verso selon modèle",
+          "quantites": "de 5 à 10 000 exemplaires selon le modèle",
+          "delais": "de 48-72 h (souple) à 2 semaines (contrecollé), anticiper pour la fin d'année",
+          "options": ["grilles calendaires fournies", "vacances scolaires", "année à cheval", "format sur-mesure"]
+        }
+      }
+    },
+    {
+      "slug": "calendrier_souple",
+      "name": "Calendrier souple",
+      "definition": {
+        "name": "Calendrier souple personnalisé",
+        "keywords": ["calendrier souple", "calendrier mural papier", "calendrier annuel", "calendrier A4 personnalisé", "calendrier A3", "calendrier économique", "calendrier feuille", "calendrier entreprise pas cher", "calendrier mural simple", "calendrier perforé"],
+        "title_template": "Calendrier souple {{papier}} {{grammage}} {{finition}} — {{quantite}} exemplaires",
+        "short_description_template": "Calendrier annuel une feuille en carte {{grammage}}, du A5 au A2, avec perforation d'accrochage en option. La solution la plus économique pour être présent toute l'année.",
+        "description_template": "## L'essentiel du calendrier, au meilleur coût\n\nLe calendrier souple est un calendrier annuel d'une seule feuille en carte épaisse : la grille des douze mois et votre communication sur un même support, à accrocher au mur ou à poser. C'est la formule idéale pour les diffusions larges — comptoir, mailing, boîtes aux lettres.\n\n## Caractéristiques techniques\n\nQuatre formats standard : A5 148 × 210 mm, A4 210 × 297 mm, A3 297 × 420 mm et A2 420 × 594 mm, plus le sur-mesure. Impression quadri recto ou recto/verso (par exemple grille annuelle au recto, calendrier scolaire ou informations pratiques au verso) sur couché brillant 300 g, demi-mat 350 g ou recyclé satin 350 g. Perforation Ø 4 mm en option pour l'accrochage mural.\n\n## Les avantages\n\nPelliculage mat, brillant ou soft touch pour renforcer tenue et perception. Son faible poids le glisse dans une enveloppe DL ou C4 : c'est le seul calendrier qui s'envoie par courrier au tarif lettre, parfait en accompagnement des vœux.",
+        "h1_template": "Calendrier souple personnalisé {{papier}} {{grammage}}",
+        "seo_title": "Calendrier souple personnalisé A5 à A2 | Impression",
+        "seo_description": "Calendrier annuel une feuille en carte 300-350 g, perforation d'accrochage, du A5 au A2. La présence publicitaire à l'année la plus économique.",
+        "seo_keywords": ["calendrier souple personnalisé", "calendrier mural papier", "calendrier annuel entreprise", "calendrier A4 imprimé", "calendrier économique", "calendrier une feuille"],
+        "commercial_pitch": "Assez léger pour partir avec vos vœux dans une simple enveloppe, assez rigide pour tenir un an au mur. Le calendrier souple est la présence publicitaire annuelle la moins chère du marché.",
+        "benefits": [
+          "Coût unitaire minimal pour une visibilité de douze mois",
+          "S'expédie par courrier avec vos vœux de fin d'année",
+          "Carte 300-350 g : tenue murale toute l'année",
+          "Recto/verso : grille annuelle + infos pratiques",
+          "Perforation d'accrochage prête à l'emploi",
+          "Du A5 comptoir au A2 grand affichage"
+        ],
+        "use_cases": [
+          "Encart calendrier dans les vœux",
+          "Distribution comptoir en décembre",
+          "Calendrier scolaire pour associations",
+          "Affichage planning en atelier",
+          "Mailing boîtes aux lettres de proximité"
+        ],
+        "usage_examples": [
+          {"title": "Boulangerie", "description": "Un calendrier A5 avec les dates de fermeture annuelle offert à chaque client en décembre : il finit sur le frigo, la boutique reste en tête."},
+          {"title": "Club sportif", "description": "Le calendrier A3 de la saison avec les dates de matchs, financé par les encarts des sponsors locaux."},
+          {"title": "Vœux d'entreprise", "description": "La carte de vœux est accompagnée d'un calendrier A4 350 g glissé dans la même enveloppe : le message dure douze mois de plus."},
+          {"title": "Atelier de production", "description": "Un A2 recto/verso affiché au mur : grille annuelle côté planning, consignes et numéros utiles au verso pour l'année suivante."}
+        ],
+        "faq": [
+          {"question": "Quel grammage choisir ?", "answer": "300 g brillant pour les diffusions économiques, 350 g demi-mat pour une écriture facile sur la grille, 350 g recyclé pour l'axe responsable. Les trois tiennent au mur toute l'année."},
+          {"question": "La perforation est-elle incluse ?", "answer": "Elle est en option : un trou Ø 4 mm centré en haut pour l'accrochage. Sans perforation, le calendrier se pose ou s'aimante."},
+          {"question": "Peut-on imprimer le verso ?", "answer": "Oui : second semestre, calendrier scolaire, tableau de conversion ou informations pratiques — le verso double la valeur d'usage."},
+          {"question": "Disposez-vous de grilles de dates prêtes ?", "answer": "Oui, des grilles annuelles vérifiées (jours fériés, vacances scolaires) sont disponibles à intégrer directement dans votre maquette."},
+          {"question": "Quel délai prévoir pour une livraison avant les fêtes ?", "answer": "La fabrication est rapide (quelques jours), mais commandez avant fin novembre pour absorber le pic de fin d'année et livrer vos clients début décembre."}
+        ],
+        "technical_spec": {
+          "formats": ["A5 148 × 210 mm", "A4 210 × 297 mm", "A3 297 × 420 mm", "A2 420 × 594 mm", "sur-mesure"],
+          "supports": ["couché brillant 300 g", "couché demi-mat 350 g", "couché recyclé satin blanc 350 g"],
+          "finitions": ["pelliculage brillant, mat ou soft touch recto", "perforation Ø 4 mm en option"],
+          "impression": "quadri recto ou recto/verso",
+          "quantites": "de 250 à 10 000 exemplaires",
+          "delais": "fabrication rapide, standard 48-72 h, anticiper le pic de fin d'année",
+          "options": ["grille annuelle fournie", "verso informatif", "version recyclée"]
+        }
+      }
+    },
+    {
+      "slug": "calendrier_spirale",
+      "name": "Calendrier mural spirale",
+      "definition": {
+        "name": "Calendrier mural à spirale",
+        "keywords": ["calendrier mural spirale", "calendrier 12 mois photo", "calendrier wire-o", "calendrier mensuel mural", "calendrier photo entreprise", "calendrier spirale personnalisé", "calendrier 13 pages", "calendrier mural A4", "calendrier paysage", "calendrier reliure métallique"],
+        "title_template": "Calendrier mural à spirale {{papier}} {{grammage}} — 13 pages — {{quantite}} exemplaires",
+        "short_description_template": "Calendrier mural 13 pages relié par spirale métallique : une couverture et un visuel par mois, imprimés sur couché {{grammage}}. Douze occasions de mettre en scène votre univers.",
+        "description_template": "## Un visuel différent chaque mois\n\nLe calendrier mural à spirale raconte votre entreprise en douze images : réalisations, produits, équipes, paysages. Chaque mois tourné relance l'attention — c'est le format le plus valorisant pour les marques qui ont de belles images à montrer.\n\n## Caractéristiques techniques\n\n13 pages (couverture + 12 mois) imprimées en quadri sur couché brillant 200 g, reliées par spirale métallique noire positionnée sur le petit côté (portrait) ou le grand côté (paysage). Cinq formats : 210 × 300 mm, 300 × 300 mm carré, 300 × 420 mm grand mural, 160 × 150 mm compact et 300 × 100 mm panoramique. Impression recto ou recto/verso pour doubler le contenu.\n\n## Les avantages\n\nDisponible dès 5 exemplaires : il devient un produit photo à part entière — cadeau personnalisé, série limitée pour les meilleurs clients, calendrier interne d'équipe. Le couché 200 g garantit des pages qui tournent bien et un rendu photo éclatant.",
+        "h1_template": "Calendrier mural à spirale 13 pages {{papier}}",
+        "seo_title": "Calendrier mural spirale 13 pages | Photo par mois",
+        "seo_description": "Calendrier mural à spirale métallique : couverture + 12 visuels mensuels sur couché 200 g, 5 formats dont carré et panoramique. Dès 5 exemplaires.",
+        "seo_keywords": ["calendrier mural à spirale", "calendrier photo 12 mois", "calendrier wire-o personnalisé", "calendrier mensuel entreprise", "calendrier mural photo", "calendrier spirale petite quantité"],
+        "commercial_pitch": "Douze pages tournées, douze fois votre univers remis sous les yeux de vos clients. Dès 5 exemplaires, offrez à vos meilleurs comptes un calendrier photo digne d'une édition d'art.",
+        "benefits": [
+          "Un visuel dédié par mois : le format le plus valorisant",
+          "Spirale métallique : pages qui tournent sans s'abîmer",
+          "Cinq formats dont carré et panoramique originaux",
+          "Couché 200 g au rendu photo éclatant",
+          "Dès 5 exemplaires : séries limitées possibles",
+          "Portrait ou paysage selon vos visuels"
+        ],
+        "use_cases": [
+          "Calendrier photo des réalisations annuelles",
+          "Cadeau premium meilleurs clients",
+          "Calendrier d'équipe ou d'association",
+          "Vitrine produits mois par mois",
+          "Série limitée artiste ou photographe"
+        ],
+        "usage_examples": [
+          {"title": "Paysagiste", "description": "Douze jardins réalisés, un par mois, au format 300 × 420 mm : le book de l'entreprise affiché chez les clients et prescripteurs."},
+          {"title": "Association communale", "description": "Le calendrier photo du village vendu au profit de l'association, en format carré 300 × 300 mm qui se démarque."},
+          {"title": "Marque alimentaire", "description": "Une recette de saison par mois avec le produit mis en scène : le calendrier devient un livre de cuisine mural."},
+          {"title": "Cabinet d'architectes", "description": "Édition limitée de 20 exemplaires panoramiques 300 × 100 mm pour les partenaires, avec les maquettes de l'année."}
+        ],
+        "faq": [
+          {"question": "Combien de pages comporte le calendrier ?", "answer": "13 pages : une couverture personnalisable et une page par mois, chacune avec son visuel et sa grille."},
+          {"question": "Où se place la spirale ?", "answer": "Sur le petit côté en portrait ou le grand côté en paysage — choisissez selon l'orientation de vos photos."},
+          {"question": "Peut-on commander une très petite quantité ?", "answer": "Oui, dès 5 exemplaires : idéal pour les cadeaux ciblés, les tests ou les éditions personnelles."},
+          {"question": "Le verso des pages est-il imprimable ?", "answer": "Oui, l'impression recto/verso permet d'ajouter au dos de chaque mois des contenus complémentaires : agenda, notes, photos supplémentaires."},
+          {"question": "Comment préparer le fichier ?", "answer": "Un PDF de 13 pages dans l'ordre (couverture puis janvier à décembre), 300 dpi CMJN, fonds perdus 3 mm, en réservant environ 15 mm côté spirale."}
+        ],
+        "technical_spec": {
+          "formats": ["210 × 300 mm", "300 × 300 mm carré", "300 × 420 mm", "160 × 150 mm compact", "300 × 100 mm panoramique"],
+          "supports": ["couché brillant 200 g (couverture et intérieur)"],
+          "finitions": ["spirale métallique noire", "spirale petit ou grand côté"],
+          "impression": "quadri recto ou recto/verso, 13 pages",
+          "quantites": "de 5 à 2 000 exemplaires",
+          "delais": "fabrication rapide, quelques jours ouvrés, anticiper la fin d'année",
+          "options": ["orientation portrait ou paysage", "grilles mensuelles fournies", "version chevalet de bureau"]
+        }
+      }
+    },
+    {
+      "slug": "calendrier_bancaire",
+      "name": "Calendrier bancaire contrecollé",
+      "definition": {
+        "name": "Calendrier bancaire rigide contrecollé",
+        "keywords": ["calendrier bancaire", "calendrier contrecollé", "calendrier rigide", "calendrier carton", "calendrier mural rigide", "calendrier annuel entreprise", "calendrier atelier", "calendrier banque personnalisé", "calendrier publicitaire rigide", "calendrier œillet"],
+        "title_template": "Calendrier bancaire contrecollé carton 1,8 mm — {{quantite}} exemplaires",
+        "short_description_template": "Calendrier annuel rigide : couché 150 g contrecollé sur carton compact 1,8 mm, perforation et œillet en option. L'année entière d'un seul regard, au mur pendant douze mois.",
+        "description_template": "## Le calendrier rigide qui traverse l'année\n\nLe calendrier bancaire présente les douze mois sur une seule face rigide : accroché au mur du bureau, de l'atelier ou de la cuisine, il donne l'année entière d'un seul regard. Sa rigidité en fait un objet durable qui ne gondole pas et reste impeccable jusqu'au 31 décembre.\n\n## Caractéristiques techniques\n\nQuatre formats paysage : 210 × 155 mm compact, A4 210 × 297 mm, 530 × 400 mm grand format et A2 420 × 594 mm haute visibilité. Impression quadri recto/verso sur couché brillant 150 g, contrecollé sur un carton compact de 1,8 mm d'épaisseur. Perforation Ø 4 mm en haut, avec ou sans œillet métallique, pour un accrochage immédiat.\n\n## Les avantages\n\nPosé à plat, il sert aussi de sous-main d'appoint. C'est le format historique des banques, transporteurs et entreprises du bâtiment : planning de chantier, congés, échéances s'y suivent d'un trait de crayon. Sa durée de vie exceptionnelle en fait l'un des supports publicitaires au meilleur coût par jour d'exposition.",
+        "h1_template": "Calendrier bancaire contrecollé rigide personnalisé",
+        "seo_title": "Calendrier bancaire contrecollé rigide | Carton 1,8 mm",
+        "seo_description": "Calendrier annuel rigide contrecollé sur carton 1,8 mm, 4 formats, perforation et œillet. L'année entière au mur, votre marque avec, pendant 12 mois.",
+        "seo_keywords": ["calendrier bancaire personnalisé", "calendrier contrecollé rigide", "calendrier carton entreprise", "calendrier mural annuel", "calendrier rigide publicitaire", "calendrier atelier chantier"],
+        "commercial_pitch": "Rigide, accroché en janvier, toujours impeccable en décembre : le calendrier bancaire est le doyen des supports publicitaires parce qu'il fonctionne. L'année de vos clients s'organise sous votre logo.",
+        "benefits": [
+          "Vue annuelle complète sur une seule face",
+          "Carton 1,8 mm : aucune déformation en douze mois",
+          "Œillet métallique : accrochage immédiat et durable",
+          "Recto/verso : année en cours et suivante possibles",
+          "Sert aussi de sous-main rigide d'appoint",
+          "Format historique apprécié des pros (BTP, transport, banque)"
+        ],
+        "use_cases": [
+          "Cadeau client BTP et transport",
+          "Planning mural d'atelier",
+          "Suivi congés et présences d'équipe",
+          "Dotation agences bancaires et assurances",
+          "Calendrier d'échéances comptables"
+        ],
+        "usage_examples": [
+          {"title": "Entreprise de transport", "description": "Chaque client reçoit le grand format 530 × 400 mm : les tournées et fermetures s'y planifient au feutre, le logo trône dans les bureaux d'exploitation."},
+          {"title": "Chef de chantier", "description": "Le calendrier A2 accroché dans la base vie sert au pointage des équipes et au suivi des phases, offert par le négoce de matériaux."},
+          {"title": "Cabinet comptable", "description": "Un A4 rigide avec les échéances fiscales surlignées, remis à chaque client en janvier avec la carte de vœux."},
+          {"title": "Boulangerie-pâtisserie", "description": "Le compact 210 × 155 mm posé près de la caisse rappelle les fermetures annuelles et les dates de commandes de fêtes."}
+        ],
+        "faq": [
+          {"question": "Quelle est l'épaisseur du support ?", "answer": "Le visuel couché 150 g est contrecollé sur un carton compact de 1,8 mm : l'ensemble est rigide, stable et ne gondole pas dans le temps."},
+          {"question": "Faut-il choisir l'œillet ?", "answer": "L'œillet métallique renforce la perforation et garantit un accrochage qui dure toute l'année ; sans œillet, la perforation Ø 4 mm suffit pour un clou ou une punaise."},
+          {"question": "Peut-on imprimer le verso ?", "answer": "Oui, l'impression est recto/verso : beaucoup y placent l'année suivante, un plan d'accès ou les coordonnées détaillées de l'entreprise."},
+          {"question": "Peut-on écrire dessus ?", "answer": "Oui, le couché accepte stylo et feutre fin : congés, chantiers et échéances s'annotent directement sur la grille."},
+          {"question": "Quel délai prévoir ?", "answer": "Le contrecollage demande environ deux semaines de fabrication : commandez en octobre-novembre pour distribuer début décembre."}
+        ],
+        "technical_spec": {
+          "formats": ["210 × 155 mm", "A4 210 × 297 mm", "530 × 400 mm", "A2 420 × 594 mm", "orientation paysage"],
+          "supports": ["couché brillant 150 g contrecollé sur carton compact 1,8 mm"],
+          "finitions": ["sans perforation", "perforation Ø 4 mm", "perforation Ø 4 mm + œillet métallique"],
+          "impression": "quadri recto/verso",
+          "quantites": "de 50 à 10 000 exemplaires",
+          "delais": "environ 2 semaines de fabrication, commander avant fin novembre pour les fêtes",
+          "options": ["verso année suivante", "grille annuelle fournie", "annotation au feutre possible"]
+        }
+      }
+    },
+    {
+      "slug": "restauration",
+      "name": "Menus / Restauration",
+      "definition": {
+        "name": "Imprimés restauration et hôtellerie",
+        "keywords": ["imprimés restaurant", "menu restaurant", "set de table", "carte des vins", "supports restauration", "impression CHR", "papeterie restaurant", "carte menu personnalisée", "imprimerie hôtellerie", "supports de table"],
+        "title_template": "Imprimés restauration personnalisés — {{quantite}} exemplaires",
+        "short_description_template": "Menus, cartes des vins, sets de table et supports de salle imprimés sur des papiers adaptés au service : classiques, lavables, kraft ou encapsulés.",
+        "description_template": "## L'expérience de table commence sur le papier\n\nDans un restaurant, les imprimés font partie du décor et du service : menu en main, set sous l'assiette, carte des vins, chevalets et signalétique. Des supports soignés et coordonnés prolongent votre positionnement — bistrot, gastronomique ou food truck — jusqu'au moindre détail.\n\n## Caractéristiques techniques\n\nLa gamme couvre le menu simple ou à volets (A5, A4, formats allongés pour cartes des vins), le set de table A3 ou rond, et les accessoires de salle. Les supports répondent aux contraintes du service : couché 350 g rigide, kraft brut, recyclé, synthétique indéchirable et lavable 230-450 g, ou encapsulation sous film pour une étanchéité totale. Finitions dorure, gaufrage, vernis 3D et pelliculage mat antimicrobien.\n\n## Les avantages\n\nCoordonnez menu, set et accessoires pour une identité de table cohérente. Les supports lavables et encapsulés survivent aux services intensifs, tandis que le set papier consommable renouvelle votre communication à chaque couvert.",
+        "h1_template": "Imprimés pour restaurants, hôtels et traiteurs",
+        "seo_title": "Imprimés restaurant : menus, sets, cartes | CHR",
+        "seo_description": "Menus, cartes des vins, sets de table et supports de salle personnalisés. Papiers classiques, kraft, lavables ou encapsulés, adaptés au service intensif.",
+        "seo_keywords": ["imprimés restaurant", "menu personnalisé restaurant", "set de table imprimé", "carte des vins", "impression CHR", "supports de table restaurant"],
+        "commercial_pitch": "Vos clients lisent le menu avant de goûter le premier plat : chaque support de table travaille votre image et vos ventes. Une gamme coordonnée menu-set-accessoires installe votre univers dès l'assise.",
+        "benefits": [
+          "Identité de table cohérente du menu au set",
+          "Supports lavables et encapsulés pour service intensif",
+          "Kraft, recyclé, ensemencé : des matières qui racontent votre cuisine",
+          "Finitions premium (dorure, gaufrage) pour la gastronomie",
+          "Renouvellement facile à chaque carte saisonnière",
+          "Petites séries adaptées aux changements de menu fréquents"
+        ],
+        "use_cases": [
+          "Nouvelle carte de saison",
+          "Ouverture de restaurant",
+          "Carte des vins reliée",
+          "Sets événementiels et menus de fêtes",
+          "Supports terrasse et vente à emporter"
+        ],
+        "usage_examples": [
+          {"title": "Bistrot de quartier", "description": "Menus A4 kraft assortis aux sets de table : l'esprit cuisine maison se lit avant même la commande."},
+          {"title": "Restaurant gastronomique", "description": "Carte à volets sur papier texturé avec dorure à chaud, changée à chaque saison, coordonnée à la carte des vins allongée."},
+          {"title": "Brasserie à fort débit", "description": "Menus encapsulés lavables qui résistent aux projections et se nettoient entre chaque service, sans réimpression mensuelle."},
+          {"title": "Traiteur événementiel", "description": "Menus de table individuels et sets personnalisés au nom des mariés pour chaque réception."}
+        ],
+        "faq": [
+          {"question": "Quel support pour un usage quotidien intensif ?", "answer": "Le synthétique indéchirable lavable ou l'encapsulation sous film : les deux se nettoient d'un coup d'éponge et supportent des mois de service."},
+          {"question": "Peut-on changer de carte souvent sans exploser le budget ?", "answer": "Oui, les petites séries sur couché 350 g permettent de réimprimer à chaque saison ; réservez les finitions premium aux supports permanents."},
+          {"question": "Le rainage est-il nécessaire pour les menus pliés ?", "answer": "Oui, au-delà de 170 g, le rainage évite que le pli casse le papier et blanchisse l'image. Il est réalisé systématiquement sur les cartes à volets."},
+          {"question": "Existe-t-il des finitions hygiéniques ?", "answer": "Oui, le pelliculage mat antimicrobien limite le développement bactérien sur les menus manipulés par de nombreux clients."},
+          {"question": "Quels fichiers fournir ?", "answer": "PDF 300 dpi CMJN avec 2-3 mm de fonds perdus par support ; pour les volets, respectez le gabarit de pliage fourni."}
+        ],
+        "technical_spec": {
+          "formats": ["menus A5/A4/A3 et carrés", "cartes des vins format allongé", "sets A3 et ronds", "volets 2-3 plis"],
+          "supports": ["couché demi-mat 350 g", "kraft", "recyclé", "synthétique indéchirable lavable 230-450 g", "encapsulé sous film", "ensemencé"],
+          "finitions": ["dorure or/argent/cuivre", "vernis sélectif 3D", "pelliculage mat antimicrobien", "soft touch", "gaufrage", "rainage"],
+          "impression": "quadri recto ou recto/verso",
+          "quantites": "petites séries dès quelques dizaines, jusqu'à plusieurs milliers",
+          "delais": "standard 48-72 h à quelques jours selon finitions",
+          "options": ["kits coordonnés menu + set + accessoires", "chevalets de table", "signalétique de salle"]
+        }
+      }
+    },
+    {
+      "slug": "menu",
+      "name": "Menu restaurant",
+      "definition": {
+        "name": "Menu restaurant personnalisé",
+        "keywords": ["menu restaurant personnalisé", "carte restaurant", "menu plié", "carte des vins", "menu plastifié lavable", "menu encapsulé", "menu A4", "impression menu", "menu kraft", "carte menu volets", "menu indéchirable"],
+        "title_template": "Menu restaurant {{papier}} {{finition}} — {{quantite}} exemplaires",
+        "short_description_template": "Menus simples ou à volets, du couché 350 g au support lavable indéchirable et à l'encapsulé étanche. La carte qui met en appétit et résiste au service.",
+        "description_template": "## La carte qui vend vos plats\n\nLe menu est votre premier vendeur : c'est lui que le client lit, touche et juge avant le premier plat. Une carte propre, lisible et cohérente avec votre cuisine augmente le ticket moyen — les plats signatures mis en valeur se commandent davantage.\n\n## Caractéristiques techniques\n\nFormats A5, A4, carrés et formats allongés pour cartes des vins ; menus simples ou dépliants 2-3 volets en pli roulé ou accordéon, rainés systématiquement au-delà de 170 g. Supports au choix : couché demi-mat 350 g pour la rigidité, kraft pour l'esprit bistrot, recyclé, synthétique indéchirable lavable 230-450 g pour l'usage intensif, ou encapsulation sous film pour une étanchéité totale aux projections.\n\n## Les avantages\n\nFinitions au service de votre positionnement : dorure or, argent ou cuivre, gaufrage, vernis 3D en relief, pelliculage mat antimicrobien ou soft touch. Les petites séries permettent de réimprimer à chaque changement de carte sans immobiliser de budget.",
+        "h1_template": "Menu restaurant personnalisé {{papier}} {{finition}}",
+        "seo_title": "Menu restaurant personnalisé | Lavable ou encapsulé",
+        "seo_description": "Menus et cartes des vins imprimés : couché 350 g, kraft, lavable indéchirable ou encapsulé. Simples ou à volets, finitions dorure et vernis 3D.",
+        "seo_keywords": ["menu restaurant personnalisé", "impression carte restaurant", "menu plastifié lavable", "menu encapsulé", "carte des vins imprimée", "menu à volets", "menu kraft bistrot"],
+        "commercial_pitch": "Un menu se change en quelques jours, pas votre réputation : offrez à chaque carte de saison un support à la hauteur de votre cuisine. Du kraft bistrot à la dorure gastronomique, le bon papier vend le bon plat.",
+        "benefits": [
+          "Supports lavables et encapsulés : des mois de service sans usure",
+          "Rainage systématique : plis nets qui ne cassent pas",
+          "Kraft, recyclé, texturé : la matière raconte votre cuisine",
+          "Dorure et vernis 3D pour le positionnement gastronomique",
+          "Pelliculage antimicrobien pour les cartes très manipulées",
+          "Réimpression économique à chaque carte de saison"
+        ],
+        "use_cases": [
+          "Carte de saison A4 rigide",
+          "Carte des vins format allongé",
+          "Menu du jour renouvelé chaque semaine",
+          "Menu enfant plastifié",
+          "Menus de fêtes et réveillons"
+        ],
+        "usage_examples": [
+          {"title": "Brasserie", "description": "Menus A4 encapsulés : les projections s'essuient d'un geste, la carte reste impeccable des mois durant malgré 200 couverts par jour."},
+          {"title": "Table gastronomique", "description": "Carte 3 volets sur papier texturé, nom du restaurant en dorure cuivre : le support annonce le niveau de l'assiette."},
+          {"title": "Crêperie", "description": "Menu kraft 2 volets à l'esprit artisanal, réimprimé chaque saison en petite série pour suivre les produits du moment."},
+          {"title": "Bar à vins", "description": "Carte des vins au format allongé avec vernis sélectif sur les cuvées du mois, coordonnée aux sets de table."}
+        ],
+        "faq": [
+          {"question": "Quel support pour un nettoyage quotidien ?", "answer": "L'encapsulé (feuille scellée sous film étanche) ou le synthétique indéchirable lavable : les deux s'éponger sans dommage et résistent aux services intensifs."},
+          {"question": "Menu simple ou à volets ?", "answer": "Simple pour une carte courte lisible d'un regard ; 2-3 volets pour structurer entrées/plats/desserts ou intégrer la carte des boissons. Le pli roulé ou accordéon est rainé proprement."},
+          {"question": "Peut-on faire de petites quantités à chaque saison ?", "answer": "Oui, les petites séries sont prévues pour : beaucoup de restaurants réimpriment 30 à 100 menus par carte, quatre fois par an."},
+          {"question": "Le menu est-il assez rigide en main ?", "answer": "Le couché 350 g offre la bonne tenue en main. En dessous, préférez l'encapsulation qui rigidifie et protège à la fois."},
+          {"question": "Quel fichier fournir ?", "answer": "PDF 300 dpi CMJN, fonds perdus 2-3 mm, gabarit de pliage respecté pour les volets. Vérifiez la lisibilité des corps de texte à taille réelle (10 pt minimum conseillé)."}
+        ],
+        "technical_spec": {
+          "formats": ["A5 148 × 210 mm", "A4 210 × 297 mm", "A3 297 × 420 mm", "formats carrés", "carte des vins allongée", "2-3 volets pli roulé ou accordéon"],
+          "supports": ["couché demi-mat 350 g", "kraft", "recyclé", "synthétique indéchirable lavable 230-450 g", "encapsulé sous film"],
+          "finitions": ["dorure à chaud or/argent/cuivre/rose", "vernis sélectif 3D", "pelliculage mat antimicrobien", "soft touch", "gaufrage", "rainage systématique > 170 g"],
+          "impression": "quadri recto ou recto/verso",
+          "quantites": "petites séries dès quelques dizaines, jusqu'à plusieurs milliers",
+          "delais": "standard 48-72 h, quelques jours avec finitions spéciales",
+          "options": ["livraison rainée à plat", "coordination avec sets et cartes des vins", "protège-menus"]
+        }
+      }
+    },
+    {
+      "slug": "set_de_table",
+      "name": "Set de table",
+      "definition": {
+        "name": "Set de table personnalisé",
+        "keywords": ["set de table personnalisé", "set de table papier", "set de table restaurant", "set de table publicitaire", "set de table A3", "set de table kraft", "set de table lavable", "set de table rond", "napperon imprimé", "set de table jetable"],
+        "title_template": "Set de table {{papier}} — format A3 — {{quantite}} exemplaires",
+        "short_description_template": "Sets de table A3 ou ronds, en papier consommable, kraft, recyclé ou version lavable réutilisable. La surface publicitaire posée sous chaque assiette.",
+        "description_template": "## Sous chaque assiette, votre message\n\nLe set de table occupe le regard du client pendant tout le repas : menu du jour, histoire de la maison, jeux pour enfants, offres à venir — c'est un espace d'expression unique qui protège la table et anime l'attente.\n\n## Caractéristiques techniques\n\nFormat A3 297 × 420 mm, le standard qui cadre une assiette et ses couverts, ou format rond pour se démarquer. Deux logiques de support : le papier consommable (classique, recyclé ou kraft) changé à chaque couvert pour une hygiène irréprochable et un message renouvelé, ou le support lavable/PVC réutilisable et l'encapsulé pour les établissements qui veulent un set permanent.\n\n## Les avantages\n\nLe set papier est l'un des supports publicitaires au coût par contact le plus bas de la restauration : chaque service expose votre message à une table captive. En version kraft, il installe une ambiance bistrot ; coordonné au menu et aux ronds de serviette, il compose une table signature.",
+        "h1_template": "Set de table personnalisé {{papier}} pour restaurant",
+        "seo_title": "Set de table personnalisé A3 | Papier, kraft, lavable",
+        "seo_description": "Sets de table A3 ou ronds imprimés à vos couleurs : papier consommable, kraft, recyclé ou lavable réutilisable. Votre message sous chaque assiette.",
+        "seo_keywords": ["set de table personnalisé", "set de table papier restaurant", "set de table A3 imprimé", "set de table kraft", "set de table publicitaire", "set de table lavable"],
+        "commercial_pitch": "Pendant vingt minutes d'attente, votre client n'a que le set de table sous les yeux : faites-en votre meilleure page de publicité. Renouvelé à chaque couvert, il annonce vos événements avant même le serveur.",
+        "benefits": [
+          "Audience captive pendant toute la durée du repas",
+          "Hygiène parfaite : un set neuf par couvert",
+          "Coût par contact imbattable en restauration",
+          "Kraft ou recyclé pour l'ambiance et l'axe responsable",
+          "Version lavable réutilisable pour set permanent",
+          "Support d'animation : jeux, anecdotes, promotions"
+        ],
+        "use_cases": [
+          "Set quotidien de brasserie",
+          "Set jeux pour espace enfants",
+          "Set événementiel fêtes et menus spéciaux",
+          "Support publicitaire partenaires locaux",
+          "Table signature kraft coordonnée"
+        ],
+        "usage_examples": [
+          {"title": "Pizzeria familiale", "description": "Set A3 avec jeux et coloriages côté enfants, carte des desserts côté parents : les tablées patientent, les desserts partent mieux."},
+          {"title": "Restaurant ouvrier", "description": "Set papier économique changé à chaque service, avec le menu de la semaine et les annonces du village imprimés en quadri."},
+          {"title": "Bistrot de marché", "description": "Set kraft assorti au menu, avec l'histoire des producteurs partenaires : la démarche locale se lit sur la table."},
+          {"title": "Réception traiteur", "description": "Sets ronds personnalisés au monogramme des mariés, coordonnés aux menus individuels et ronds de serviette."}
+        ],
+        "faq": [
+          {"question": "Quel format choisir ?", "answer": "L'A3 (297 × 420 mm) est le standard : il cadre l'assiette et les couverts. Le format rond apporte une touche différenciante pour les tables rondes et les événements."},
+          {"question": "Papier consommable ou lavable ?", "answer": "Le papier se change à chaque couvert : hygiène maximale et message renouvelable. Le lavable/PVC ou l'encapsulé se réutilise des mois : plus économique si votre visuel est permanent."},
+          {"question": "Peut-on imprimer le menu directement sur le set ?", "answer": "Oui, c'est un usage très efficace : le menu du jour ou la carte courte imprimée sur le set libère les mains du client et supprime des manipulations de cartes."},
+          {"question": "Quelle quantité prévoir ?", "answer": "Comptez votre nombre de couverts quotidiens multiplié par la période à couvrir ; les tarifs deviennent vite dégressifs sur les volumes de plusieurs milliers."},
+          {"question": "Quel fichier fournir ?", "answer": "PDF 300 dpi CMJN au format A3 avec 3 mm de fonds perdus, en gardant les informations importantes hors de la zone d'assiette centrale."}
+        ],
+        "technical_spec": {
+          "formats": ["A3 297 × 420 mm", "format rond", "sur-mesure possible"],
+          "supports": ["papier classique", "papier recyclé", "kraft", "synthétique lavable indéchirable", "PVC réutilisable", "encapsulé"],
+          "finitions": ["impression quadri", "encapsulation pour version permanente"],
+          "impression": "quadri recto (verso possible selon support)",
+          "quantites": "de quelques centaines à plusieurs dizaines de milliers (consommable)",
+          "delais": "standard 48-72 h à quelques jours",
+          "options": ["kit coordonné set + menu + rond de serviette", "zone jeux enfants", "encarts partenaires"]
+        }
+      }
+    }
+  ],
+  "enrichissements": []
+}

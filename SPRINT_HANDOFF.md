@@ -2,7 +2,17 @@
 
 > Document de reprise pour démarrer une nouvelle session de Claude code sur le projet sans recharger tout l'historique. À tenir à jour à chaque fin de sprint.
 >
-> **Dernière mise à jour : 2026-07-08 (2) — Session boutique 4 retours Arnaud : bandeau de marque + header épuré + upload logo (#1/#3), édition commande brouillon (#4), persistance produits Magrit (#2, NON déployé — PAT requis). Voir section 19. + correctif méga-menu S2.18-fix (section 18). HEAD local `9d45459` (à pousser). 723 tests verts.**
+> **Dernière mise à jour : 2026-07-10 — S-PIM-EXAPRINT : PIM complet aligné catalogue Exaprint (cœur imprimeur). 28→81 gammes (16 familles), 24→82 définitions complètes (~30 champs dont marketing/SEO/technique enfin remplis). Déployé prod B5 + vérifié. Voir section 20 + story `story-S-PIM-EXAPRINT.md`. Sessions précédentes : sections 18-19.**
+
+## 20. Session 2026-07-10 — S-PIM-EXAPRINT : PIM complet (réf. Exaprint)
+
+Demande Arnaud : nourrir le PIM des gammes/produits d'exaprint.fr avec toutes les informations nécessaires. Cadrage validé : **cœur imprimeur** (pas de textile/objets pub), **1 définition complète par gamme**.
+
+- **Méthode** : 4 agents de recherche parallèles sur exaprint.fr → rédaction JSON structurée par les mêmes agents (contenu original FR, zéro copie/mention Exaprint, zéro prix) → compilation centralisée en 2 migrations SQL (`compile_pim.py`, sources archivées `_bmad-output/planning-artifacts/pim-exaprint/`).
+- **Livré (déployé prod + vérifié)** : 81 gammes / 16 familles racines (7 nouvelles : drapeau, panneau, adhesif, plv, papeterie, calendrier, restauration) ; 82 définitions complètes — templates + SEO + `commercial_pitch`/`benefits`/`use_cases`/`faq`/`technical_spec` remplis (81/82, exception = doublon EN préexistant) ; enrichissement `coalesce` des 24 définitions historiques.
+- **ADR-4.17** : nouvelles gammes ambiguës → `matching_rules={}` (résolution par `gamme_slug` explicite uniquement, zéro faux positif). `display_order` renuméroté en centaines. `banderole` renommée « Banderoles / Bâches ».
+- **Migrations** : `20260710000100_exaprint_gammes.sql` + `20260710000200_exaprint_definitions.sql`.
+- **Suivi** : curation des 58 nouvelles définitions (`validated_by='pending'`, admin PIM) · visuels/`image_url` des nouvelles gammes (backlog mockups) · souscriptions `tenant_gamme_subscriptions` à étendre au besoin · **révoquer/régénérer le PAT Supabase** utilisé.
 
 ## 19. Session 2026-07-08 (2) — Boutique : 4 retours Arnaud
 

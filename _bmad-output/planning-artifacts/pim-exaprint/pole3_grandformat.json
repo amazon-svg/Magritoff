@@ -1,0 +1,2772 @@
+{
+  "gammes_completes": [
+    {
+      "slug": "kakemono",
+      "name": "Kakémonos / Roll-ups",
+      "definition": {
+        "name": "Kakémonos et roll-ups publicitaires",
+        "keywords": [
+          "kakémono",
+          "roll-up",
+          "enrouleur",
+          "banner stand",
+          "kakémono déroulant",
+          "stand enrouleur",
+          "support publicitaire portable",
+          "affichage salon",
+          "signalétique nomade",
+          "totem enrouleur"
+        ],
+        "title_template": "Kakémono roll-up {{format}} — {{quantite}}",
+        "short_description_template": "Kakémono enrouleur {{format}} avec structure aluminium et sac de transport : votre message déployé en moins d'une minute, partout.",
+        "description_template": "## Votre affichage mobile, prêt en 60 secondes\n\nLe kakémono enrouleur — ou roll-up — est le support de communication nomade par excellence. La toile imprimée s'enroule dans une base en aluminium équipée d'une barre de lestage : vous la déployez d'un geste, vous la rangez aussi vite. Idéal pour les commerces, les salons professionnels, les halls d'accueil et toutes les opérations événementielles.\n\n## Caractéristiques techniques\n\nNous proposons plusieurs largeurs standard, de 84 cm à 150 cm pour environ 200 cm de hauteur, ainsi que des versions XXL jusqu'à 200×300 cm pour les fonds de stand. Côté toiles : bâche PVC 450 g dos occultant classée M1, polyester 260 à 295 g dont des versions sans PVC plus responsables. Impression quadri haute définition, rendu net et couleurs fidèles.\n\n## Les avantages de la gamme\n\nChaque roll-up est livré avec sa structure et son sac de transport : rien à acheter en plus. La toile enroulée reste protégée entre deux événements, ce qui garantit une durée de vie sur plusieurs saisons. Selon les modèles, le visuel peut être remplacé pour réutiliser la base — un vrai calcul économique pour vos campagnes récurrentes.",
+        "h1_template": "Kakémono roll-up {{format}} personnalisé",
+        "seo_title": "Kakémono roll-up personnalisé — impression pro",
+        "seo_description": "Impression de kakémonos et roll-ups publicitaires : structure alu, toile M1, sac de transport inclus. Formats 84 à 200 cm. Montage en 1 minute.",
+        "seo_keywords": [
+          "kakémono personnalisé",
+          "roll-up publicitaire",
+          "impression roll-up",
+          "enrouleur publicitaire",
+          "kakémono salon",
+          "banner stand",
+          "roll-up pas cher",
+          "support enrouleur"
+        ],
+        "commercial_pitch": "Un stand qui tient dans une main : votre roll-up se monte en moins d'une minute, sans outil, et se réutilise événement après événement. Structure, impression et sac de transport compris — vous n'avez plus qu'à capter les regards.",
+        "benefits": [
+          "Montage et démontage en moins d'une minute, sans outil",
+          "Structure aluminium stable avec barre de lestage",
+          "Sac de transport inclus pour protéger la toile",
+          "Toiles classées M1, conformes aux exigences des salons",
+          "Réutilisable sur plusieurs saisons d'événements",
+          "Large choix de formats, du comptoir au fond de stand XXL"
+        ],
+        "use_cases": [
+          "Stand de salon professionnel",
+          "Accueil de boutique ou d'agence",
+          "Lancement de produit en magasin",
+          "Conférence et séminaire d'entreprise",
+          "Animation commerciale itinérante"
+        ],
+        "usage_examples": [
+          {
+            "title": "Salon professionnel",
+            "description": "Deux roll-ups encadrent votre comptoir d'accueil et présentent votre offre en un coup d'œil, même stand vu de loin."
+          },
+          {
+            "title": "Agence immobilière",
+            "description": "Un kakémono en vitrine met en avant les biens du mois et se remplace en quelques secondes à chaque nouvelle campagne."
+          },
+          {
+            "title": "Événement itinérant",
+            "description": "L'équipe commerciale transporte le roll-up dans son sac d'une ville à l'autre et monte le stand en arrivant, sans logistique."
+          },
+          {
+            "title": "Hall d'entreprise",
+            "description": "Un roll-up signale un événement interne ou oriente les visiteurs vers la salle de réunion, sans percer les murs."
+          }
+        ],
+        "faq": [
+          {
+            "question": "Quel fichier fournir pour un kakémono ?",
+            "answer": "Un PDF à l'échelle 1 (ou à l'échelle 1/10 en 300 dpi), en CMJN, avec les textes vectorisés. Prévoyez une zone tranquille en bas de visuel : les derniers centimètres restent dans l'enrouleur."
+          },
+          {
+            "question": "Un roll-up peut-il être utilisé en extérieur ?",
+            "answer": "Les modèles standard sont conçus pour l'intérieur : leur voile prend le vent. Pour une terrasse ou un parvis, orientez-vous vers un modèle extérieur lesté ou vers un drapeau publicitaire."
+          },
+          {
+            "question": "Combien de temps dure la toile ?",
+            "answer": "Rangée dans son sac entre deux utilisations, une toile de roll-up se réutilise plusieurs années. C'est l'enroulement dans la base qui la protège de la poussière et des plis."
+          },
+          {
+            "question": "Peut-on changer le visuel sans racheter la structure ?",
+            "answer": "Oui sur plusieurs modèles de la gamme : la toile se remplace, la base se conserve. Une solution économique si vous renouvelez souvent vos campagnes."
+          },
+          {
+            "question": "Le classement feu M1 est-il obligatoire ?",
+            "answer": "La plupart des parcs d'exposition et ERP l'exigent. Nos toiles M1 vous évitent tout refus d'installation le jour J — vérifiez le règlement de votre salon avant de commander."
+          }
+        ],
+        "technical_spec": {
+          "formats": [
+            "84×204 cm",
+            "100×207 cm",
+            "120×207 cm",
+            "150×207 cm",
+            "XXL : 198×207, 200×250 et 200×300 cm"
+          ],
+          "supports": [
+            "Bâche PVC 450 g dos occultant M1",
+            "Polyester 270 g M1",
+            "Polyester 260 g sans PVC M1",
+            "Polyester 295 g dos gris M1 (XXL)"
+          ],
+          "finitions": [
+            "Toile enroulable dans la base",
+            "Visuel remplaçable selon modèle",
+            "Vernis sélectif en option"
+          ],
+          "impression": "Quadri recto haute définition",
+          "quantites": "1 à 50 exemplaires, tarif dégressif",
+          "delais": "Standard 3 à 5 jours ouvrés, express possible",
+          "options": [
+            "Structure aluminium incluse",
+            "Sac de transport inclus",
+            "Barre de lestage",
+            "Classement feu M1",
+            "Mâts télescopiques sur formats XXL"
+          ]
+        }
+      }
+    },
+    {
+      "slug": "roll_up_100x200",
+      "name": "Roll-up 100×200 cm",
+      "definition": {
+        "name": "Roll-up 100×200 cm",
+        "keywords": [
+          "roll-up 100x200",
+          "kakémono 100 cm",
+          "roll-up large",
+          "enrouleur 100x200",
+          "grand roll-up",
+          "kakémono enrouleur",
+          "roll-up salon",
+          "support publicitaire 100 cm",
+          "banner stand 100"
+        ],
+        "title_template": "Roll-up 100×200 cm {{finition}} — {{quantite}}",
+        "short_description_template": "Le roll-up 100×200 cm offre 20 % de surface visuelle en plus que le format classique : idéal quand votre message mérite de la place.",
+        "description_template": "## Le format généreux qui reste transportable\n\nAvec son mètre de large, le roll-up 100×200 cm donne de l'air à votre visuel : un grand logo, une accroche lisible à distance et une photo pleine hauteur. Il reste pourtant aussi simple à transporter et à monter qu'un modèle standard — un seul geste et votre affichage est en place.\n\n## Caractéristiques techniques\n\nToile imprimée en quadri haute définition sur bâche PVC 450 g dos occultant ou polyester 260-270 g, y compris en version sans PVC. Tous nos supports sont classés M1 pour un usage en salon et en établissement recevant du public. La structure aluminium à barre de lestage assure une excellente stabilité, et le sac de transport est fourni.\n\n## Les avantages du 100×200\n\nCe format élargi capte mieux le regard dans les allées de salon très fréquentées, sans exiger plus de temps d'installation ni de logistique. La toile enroulée dans sa base reste protégée entre deux événements : vous amortissez votre support sur de nombreuses utilisations.",
+        "h1_template": "Roll-up 100×200 cm personnalisé",
+        "seo_title": "Roll-up 100x200 cm personnalisé — impression HD",
+        "seo_description": "Roll-up 100×200 cm : toile M1 imprimée en quadri HD, structure alu et sac inclus. Plus de surface pour votre message, montage en 1 minute.",
+        "seo_keywords": [
+          "roll-up 100x200",
+          "kakémono 100x200",
+          "impression roll-up large",
+          "roll-up grand format",
+          "enrouleur publicitaire 100 cm",
+          "roll-up salon professionnel"
+        ],
+        "commercial_pitch": "Un mètre de large pour un message impossible à manquer : le 100×200 s'impose dans les allées de salon sans compliquer votre logistique. Structure et sac inclus, monté en une minute.",
+        "benefits": [
+          "20 % de surface visuelle en plus qu'un roll-up standard",
+          "Lisibilité renforcée à distance dans les espaces fréquentés",
+          "Structure aluminium stable avec barre de lestage",
+          "Sac de transport inclus",
+          "Toiles classées M1 pour salons et ERP",
+          "Toile protégée dans la base entre deux événements"
+        ],
+        "use_cases": [
+          "Stand principal de salon",
+          "Showroom et espace de démonstration",
+          "Accueil d'événement d'entreprise",
+          "Vitrine de concession ou d'agence",
+          "Fond de scène de conférence"
+        ],
+        "usage_examples": [
+          {
+            "title": "Allée centrale de salon",
+            "description": "Placé en angle de stand, le 100×200 rend votre marque visible depuis les deux allées adjacentes."
+          },
+          {
+            "title": "Showroom automobile",
+            "description": "Un visuel pleine hauteur présente le nouveau modèle à côté du véhicule exposé, avec un vrai impact photo."
+          },
+          {
+            "title": "Forum de recrutement",
+            "description": "Votre marque employeur s'affiche en grand : promesse, chiffres clés et QR code de candidature lisibles debout comme assis."
+          },
+          {
+            "title": "Espace conférence",
+            "description": "Deux roll-ups 100×200 encadrent l'écran de projection et habillent la scène sans installation technique."
+          }
+        ],
+        "faq": [
+          {
+            "question": "Quelle résolution pour un visuel 100×200 cm ?",
+            "answer": "Travaillez à l'échelle 1 en 150 dpi minimum, ou à l'échelle 1/2 en 300 dpi. En dessous, les photos risquent de pixelliser vues de près."
+          },
+          {
+            "question": "Le 100×200 est-il plus difficile à transporter ?",
+            "answer": "Non : replié dans son sac, il ne mesure qu'une dizaine de centimètres de plus qu'un modèle classique et reste portable à une main."
+          },
+          {
+            "question": "Bâche PVC ou toile polyester : que choisir ?",
+            "answer": "La bâche PVC 450 g dos occultant offre une opacité totale, même à contre-jour. Le polyester est plus léger et existe en version sans PVC, plus responsable."
+          },
+          {
+            "question": "Puis-je l'utiliser dehors ponctuellement ?",
+            "answer": "Quelques heures à l'abri du vent, oui. Mais la voile de 2 m² prend le vent : pour un usage extérieur régulier, préférez un modèle dédié ou un drapeau."
+          },
+          {
+            "question": "La toile peut-elle être remplacée ?",
+            "answer": "Selon le modèle choisi, oui : vous conservez la base aluminium et ne réimprimez que la toile lors de votre prochaine campagne."
+          }
+        ],
+        "technical_spec": {
+          "formats": [
+            "100×207 cm (toile visible ~100×200 cm)"
+          ],
+          "supports": [
+            "Bâche PVC 450 g dos occultant M1",
+            "Polyester 270 g M1",
+            "Polyester 260 g sans PVC M1"
+          ],
+          "finitions": [
+            "Toile enroulable dans la base",
+            "Visuel remplaçable selon modèle"
+          ],
+          "impression": "Quadri recto haute définition",
+          "quantites": "1 à 50 exemplaires, tarif dégressif",
+          "delais": "Standard 3 à 5 jours ouvrés, express possible",
+          "options": [
+            "Structure aluminium incluse",
+            "Barre de lestage",
+            "Sac de transport inclus",
+            "Classement feu M1"
+          ]
+        }
+      }
+    },
+    {
+      "slug": "roll_up_120x200",
+      "name": "Roll-up 120×200 cm",
+      "definition": {
+        "name": "Roll-up 120×200 cm",
+        "keywords": [
+          "roll-up 120x200",
+          "kakémono 120 cm",
+          "roll-up extra large",
+          "enrouleur 120x200",
+          "roll-up XXL",
+          "grand kakémono",
+          "mur d'image compact",
+          "roll-up fond de stand",
+          "banner stand 120"
+        ],
+        "title_template": "Roll-up 120×200 cm {{finition}} — {{quantite}}",
+        "short_description_template": "Avec 120 cm de large, ce roll-up joue le rôle de mini mur d'image : un impact maximal pour un encombrement de transport minimal.",
+        "description_template": "## Presque un fond de stand, toujours un roll-up\n\nLe roll-up 120×200 cm est le plus large des formats courants avant le XXL. Il offre une surface d'expression proche d'un petit mur d'image tout en conservant la simplicité de l'enrouleur : un seul élément à transporter, un montage en une minute, aucune fixation nécessaire.\n\n## Caractéristiques techniques\n\nImpression quadri haute définition sur bâche PVC 450 g dos occultant classée M1, ou sur polyester 260-270 g M1 avec option sans PVC. La base aluminium, dotée d'une barre de lestage, assure la stabilité malgré la largeur de la voile. Sac de transport fourni. Pour aller encore plus loin, la gamme existe en 150×207 cm et en versions XXL jusqu'à 200×300 cm.\n\n## Les avantages du 120×200\n\nÀ deux ou trois exemplaires alignés, ce format compose un fond de stand continu à une fraction du prix d'une structure textile. Seul, il impose votre visuel dans un hall ou une vitrine. Et comme toute la gamme, il se réutilise saison après saison.",
+        "h1_template": "Roll-up 120×200 cm personnalisé",
+        "seo_title": "Roll-up 120x200 cm — grand format publicitaire",
+        "seo_description": "Roll-up extra-large 120×200 cm : effet mur d'image, toile M1, structure alu et sac inclus. L'impact d'un fond de stand, la simplicité d'un enrouleur.",
+        "seo_keywords": [
+          "roll-up 120x200",
+          "kakémono 120x200",
+          "roll-up extra large",
+          "roll-up grand format",
+          "fond de stand économique",
+          "enrouleur 120 cm"
+        ],
+        "commercial_pitch": "L'impact d'un mur d'image, le prix et la simplicité d'un roll-up : le 120×200 habille un stand entier à lui seul. Alignez-en deux ou trois et votre fond de stand est prêt en cinq minutes.",
+        "benefits": [
+          "La plus grande largeur avant le format XXL",
+          "Effet mur d'image en alignant plusieurs unités",
+          "Montage en une minute, sans outil ni fixation",
+          "Structure aluminium lestée, stable malgré la largeur",
+          "Sac de transport inclus",
+          "Toiles classées M1 pour salons et ERP"
+        ],
+        "use_cases": [
+          "Fond de stand modulaire",
+          "Habillage de vitrine évènementielle",
+          "Décor de conférence de presse",
+          "Signalétique de hall d'exposition",
+          "Point photo en magasin"
+        ],
+        "usage_examples": [
+          {
+            "title": "Fond de stand 3 panneaux",
+            "description": "Trois roll-ups 120×200 juxtaposés forment un décor continu de 3,60 m, transporté dans trois sacs à main."
+          },
+          {
+            "title": "Conférence de presse",
+            "description": "Le visuel répété de vos logos sert d'arrière-plan aux interviews et photos officielles."
+          },
+          {
+            "title": "Vitrine de lancement",
+            "description": "Le roll-up occupe toute la hauteur de la vitrine et annonce la nouveauté aux passants, sans pose d'adhésif."
+          },
+          {
+            "title": "Entrée de séminaire",
+            "description": "Un seul support suffit à marquer l'entrée de la plénière et orienter les participants."
+          }
+        ],
+        "faq": [
+          {
+            "question": "Comment aligner plusieurs roll-ups pour un fond continu ?",
+            "answer": "Concevez un visuel unique découpé en lés de 120 cm en prévoyant quelques centimètres de tolérance aux jonctions : les bases se juxtaposent presque bord à bord."
+          },
+          {
+            "question": "Quelle résolution de fichier fournir ?",
+            "answer": "Échelle 1 en 150 dpi ou échelle 1/2 en 300 dpi, en CMJN, textes vectorisés. Gardez les éléments importants loin des bords."
+          },
+          {
+            "question": "Est-il stable avec cette largeur ?",
+            "answer": "Oui : la base aluminium intègre une barre de lestage dimensionnée pour la voile. Évitez simplement les courants d'air directs et l'extérieur."
+          },
+          {
+            "question": "Quel poids à transporter ?",
+            "answer": "Environ 3 kg avec le sac : il se porte à une main et passe en soute ou dans un coffre de voiture sans difficulté."
+          },
+          {
+            "question": "Existe-t-il encore plus grand ?",
+            "answer": "Oui : 150×207 cm, puis les XXL 198×207, 200×250 et 200×300 cm avec mâts télescopiques pour les fonds de scène."
+          }
+        ],
+        "technical_spec": {
+          "formats": [
+            "120×207 cm (toile visible ~120×200 cm)"
+          ],
+          "supports": [
+            "Bâche PVC 450 g dos occultant M1",
+            "Polyester 270 g M1",
+            "Polyester 260 g sans PVC M1"
+          ],
+          "finitions": [
+            "Toile enroulable dans la base",
+            "Visuel remplaçable selon modèle"
+          ],
+          "impression": "Quadri recto haute définition",
+          "quantites": "1 à 50 exemplaires, tarif dégressif",
+          "delais": "Standard 3 à 5 jours ouvrés, express possible",
+          "options": [
+            "Structure aluminium incluse",
+            "Barre de lestage",
+            "Sac de transport inclus",
+            "Classement feu M1"
+          ]
+        }
+      }
+    },
+    {
+      "slug": "x_banner",
+      "name": "X-banner",
+      "definition": {
+        "name": "X-banner publicitaire",
+        "keywords": [
+          "x-banner",
+          "x banner",
+          "kakémono X",
+          "trépied publicitaire",
+          "bannière en X",
+          "support X",
+          "banner araignée",
+          "kakémono trépied",
+          "affichage léger salon"
+        ],
+        "title_template": "X-banner {{format}} — {{quantite}}",
+        "short_description_template": "Le X-banner tend votre toile sur une structure en X ultralégère : l'affichage vertical le plus économique et le plus simple à transporter.",
+        "description_template": "## L'affichage vertical le plus léger du marché\n\nLe X-banner tend une toile imprimée entre les quatre branches d'une structure en croix. Résultat : un support vertical très stable visuellement, qui pèse une fraction du poids d'un roll-up et se glisse dans n'importe quel coffre. C'est la solution idéale pour multiplier les points d'affichage à petit budget.\n\n## Caractéristiques techniques\n\nTrois formats au choix : 60×160, 70×180 et 80×200 cm. La toile — polyester épais classé feu ou bâche PVC 330 g à dos gris occultant — reçoit quatre œillets d'angle renforcés qui s'accrochent en quelques secondes sur la structure. Les coins sont consolidés pour résister à la tension et aux montages répétés. Impression quadri haute définition. Une déclinaison extérieure existe pour les usages en terrasse ou devanture abritée.\n\n## Les avantages du X-banner\n\nMontage immédiat, poids plume, prix serré : le X-banner permet d'équiper plusieurs points de vente ou plusieurs salles d'un coup. La toile se démonte à plat pour un stockage minimal, et se remplace seule quand votre offre change.",
+        "h1_template": "X-banner {{format}} personnalisé",
+        "seo_title": "X-banner personnalisé 60x160 à 80x200 cm",
+        "seo_description": "Impression X-banner : toile à œillets renforcés sur structure en X ultralégère. 3 formats, montage en 30 secondes, le support vertical le plus économique.",
+        "seo_keywords": [
+          "x-banner personnalisé",
+          "impression x banner",
+          "kakémono X",
+          "trépied publicitaire",
+          "bannière X 60x160",
+          "support publicitaire léger"
+        ],
+        "commercial_pitch": "Trente secondes de montage, un poids plume et un prix mini : le X-banner est le moyen le plus rapide de multiplier vos points d'affichage. La toile se remplace seule quand votre offre change — la structure, elle, dure des années.",
+        "benefits": [
+          "Le support vertical le plus économique de la gamme",
+          "Ultraléger : se transporte à une main, se range à plat",
+          "Montage en 30 secondes par simple accrochage des œillets",
+          "Coins renforcés pour des montages répétés",
+          "Toile remplaçable indépendamment de la structure",
+          "Version extérieure disponible"
+        ],
+        "use_cases": [
+          "Promotion en point de vente",
+          "Signalétique de salle de réunion",
+          "Animation réseau multi-boutiques",
+          "Affichage éphémère en pharmacie",
+          "Menu ou offre du jour en CHR"
+        ],
+        "usage_examples": [
+          {
+            "title": "Réseau de magasins",
+            "description": "Dix X-banners identiques déployés simultanément dans dix boutiques pour une opération nationale, à budget maîtrisé."
+          },
+          {
+            "title": "Pharmacie",
+            "description": "Un X-banner près du comptoir met en avant la campagne de prévention du mois et se remplace à chaque saison."
+          },
+          {
+            "title": "Hôtel et restauration",
+            "description": "À l'entrée du restaurant, la formule du midi s'affiche sur un support discret déplacé matin et soir."
+          },
+          {
+            "title": "Séminaire multi-salles",
+            "description": "Un X-banner devant chaque salle indique l'atelier en cours ; le tout tient dans un seul carton de transport."
+          }
+        ],
+        "faq": [
+          {
+            "question": "Quelle différence entre X-banner et roll-up ?",
+            "answer": "Le roll-up enroule la toile dans une base lestée ; le X-banner la tend sur un trépied en croix. Le X-banner est plus léger et moins cher, le roll-up plus premium et plus protecteur pour la toile."
+          },
+          {
+            "question": "La toile s'abîme-t-elle au montage ?",
+            "answer": "Non : les quatre œillets d'angle sont renforcés précisément pour encaisser la tension à chaque installation. La toile supporte de nombreux cycles de montage."
+          },
+          {
+            "question": "Peut-on l'utiliser en extérieur ?",
+            "answer": "Le modèle standard est prévu pour l'intérieur. Une déclinaison extérieure, avec toile plus résistante aux intempéries, couvre les usages en devanture abritée."
+          },
+          {
+            "question": "Quel fichier fournir ?",
+            "answer": "Un PDF à l'échelle 1 en 150 dpi (CMJN, textes vectorisés), en gardant logos et accroches éloignés des angles où se placent les œillets."
+          },
+          {
+            "question": "Comment le stocker entre deux campagnes ?",
+            "answer": "La structure se replie, la toile se roule visuel vers l'extérieur : l'ensemble tient dans un tube ou un carton plat, à l'abri de la chaleur."
+          }
+        ],
+        "technical_spec": {
+          "formats": [
+            "60×160 cm",
+            "70×180 cm",
+            "80×200 cm"
+          ],
+          "supports": [
+            "Toile polyester ~500 g classée feu",
+            "Bâche PVC 330 g dos gris occultant"
+          ],
+          "finitions": [
+            "4 œillets d'angle renforcés",
+            "Coins consolidés anti-déchirure"
+          ],
+          "impression": "Quadri recto haute définition",
+          "quantites": "1 à 50 exemplaires, tarif dégressif",
+          "delais": "Standard 3 à 5 jours ouvrés, express possible",
+          "options": [
+            "Structure en X incluse",
+            "Toile remplaçable seule",
+            "Version extérieure",
+            "Classement feu"
+          ]
+        }
+      }
+    },
+    {
+      "slug": "drapeau",
+      "name": "Drapeaux / Beach flags",
+      "definition": {
+        "name": "Drapeaux publicitaires et beach flags",
+        "keywords": [
+          "drapeau publicitaire",
+          "beach flag",
+          "oriflamme",
+          "drapeau personnalisé",
+          "wind flag",
+          "drapeau voile",
+          "drapeau entreprise",
+          "pavillon publicitaire",
+          "drapeau extérieur",
+          "drapeau événementiel"
+        ],
+        "title_template": "Drapeau publicitaire {{format}} — {{quantite}}",
+        "short_description_template": "Beach flags, oriflammes, drapeaux pour mât ou de table : toute la signalétique textile qui flotte et attire l'œil, en intérieur comme en extérieur.",
+        "description_template": "## Le mouvement qui attire le regard\n\nUn drapeau bouge avec le vent — et l'œil humain est irrésistiblement attiré par le mouvement. C'est ce qui fait du drapeau publicitaire l'un des supports extérieurs les plus efficaces au mètre carré : devant un commerce, le long d'une route, à l'entrée d'un événement, il signale votre présence bien avant que le client n'arrive.\n\n## Caractéristiques techniques\n\nLa gamme couvre tous les usages : beach flags en forme voile, goutte ou rectangle de 2 à 5 m de haut, drapeaux pour mât à potence ou à drisse, versions double face, arches, guirlandes de fanions, jusqu'aux mini-drapeaux de table et à ventouse. Impression par sublimation sur maille polyester 110 g classée M1 : le visuel traverse le tissu et reste lisible au verso par transparence. Structures aluminium ou fibre de verre selon modèles.\n\n## Les avantages de la gamme\n\nMât, pied, fixations et housse de transport sont fournis avec les modèles autoportants. Le textile se lave et se réutilise plusieurs saisons ; le visuel se remplace seul quand votre communication évolue.",
+        "h1_template": "Drapeaux publicitaires personnalisés",
+        "seo_title": "Drapeau publicitaire personnalisé — beach flag",
+        "seo_description": "Drapeaux publicitaires imprimés : beach flags 2 à 5 m, drapeaux pour mât, double face, fanions. Polyester M1, mât et pied inclus, lisible recto verso.",
+        "seo_keywords": [
+          "drapeau publicitaire",
+          "beach flag personnalisé",
+          "oriflamme publicitaire",
+          "drapeau pour mât",
+          "wind flag",
+          "drapeau double face",
+          "fanions personnalisés"
+        ],
+        "commercial_pitch": "Un drapeau travaille pour vous à chaque coup de vent : il signale votre commerce ou votre événement à des dizaines de mètres. Mât, pied et housse compris — plantez-le, il fait le reste.",
+        "benefits": [
+          "Visibilité en mouvement, repérable de très loin",
+          "Impression traversante : lisible des deux côtés",
+          "Textile M1 lavable et réutilisable plusieurs saisons",
+          "Mât, pied et housse fournis sur les modèles autoportants",
+          "Formes et hauteurs pour chaque emplacement (2 à 5 m)",
+          "Visuel remplaçable sans changer la structure"
+        ],
+        "use_cases": [
+          "Devanture de commerce",
+          "Entrée d'événement sportif",
+          "Signalétique de parking ou d'accès",
+          "Stand extérieur de foire",
+          "Balisage de parcours"
+        ],
+        "usage_examples": [
+          {
+            "title": "Concession en bord de route",
+            "description": "Une rangée de beach flags signale les portes ouvertes aux automobilistes plusieurs centaines de mètres en amont."
+          },
+          {
+            "title": "Course à pied",
+            "description": "Des oriflammes balisent le départ, l'arrivée et les ravitaillements, visibles au-dessus de la foule."
+          },
+          {
+            "title": "Terrasse de restaurant",
+            "description": "Un drapeau goutte marque l'entrée de la terrasse et affiche la carte estivale, lesté sur platine."
+          },
+          {
+            "title": "Siège d'entreprise",
+            "description": "Les drapeaux pour mât pavoisent l'entrée du site aux couleurs de la marque, hissés à la drisse."
+          }
+        ],
+        "faq": [
+          {
+            "question": "Le visuel est-il lisible des deux côtés ?",
+            "answer": "En impression standard, le motif traverse la maille polyester et se lit au verso en miroir par transparence. Pour une lecture correcte des deux côtés, choisissez l'option double face."
+          },
+          {
+            "question": "Quel pied choisir pour mon beach flag ?",
+            "answer": "Piquet à visser pour la terre, le sable ou la pelouse ; platine ou réservoir lestable (eau ou sable) pour le bitume, les dalles et les terrasses."
+          },
+          {
+            "question": "Un drapeau résiste-t-il au vent fort ?",
+            "answer": "Le mât pivote avec le vent, ce qui limite les contraintes. Par rafales importantes, il reste recommandé de rentrer le drapeau, comme toute signalétique textile."
+          },
+          {
+            "question": "Comment entretenir le textile ?",
+            "answer": "Lavage à l'eau tiède avec un détergent doux, séchage à l'air libre. Bien entretenu, un drapeau se réutilise plusieurs saisons."
+          },
+          {
+            "question": "Quel fichier fournir ?",
+            "answer": "Un PDF vectoriel ou à l'échelle 1 en 150 dpi, en CMJN. Anticipez la forme (voile, goutte) : nous fournissons les gabarits de chaque taille."
+          }
+        ],
+        "technical_spec": {
+          "formats": [
+            "Beach flags : hauteurs 200, 300, 400 et 500 cm",
+            "Drapeaux pour mât : sur-mesure selon hauteur de mât",
+            "Mini-drapeaux de table et à ventouse"
+          ],
+          "supports": [
+            "Maille polyester 110 g classée M1, impression traversante"
+          ],
+          "finitions": [
+            "Liseré noir ou blanc",
+            "Fourreau de mât",
+            "Double face en option",
+            "Orientation gauche ou droite"
+          ],
+          "impression": "Sublimation quadri traversante",
+          "quantites": "1 à 50 exemplaires, tarif dégressif",
+          "delais": "Standard 4 à 6 jours ouvrés, express possible",
+          "options": [
+            "Mât aluminium rotatif inclus",
+            "Pied platine lestable ou piquet",
+            "Housse de transport incluse",
+            "Classement feu M1"
+          ]
+        }
+      }
+    },
+    {
+      "slug": "beach_flag",
+      "name": "Beach flag / Oriflamme",
+      "definition": {
+        "name": "Beach flag / Oriflamme personnalisée",
+        "keywords": [
+          "beach flag",
+          "oriflamme",
+          "drapeau voile",
+          "drapeau plume",
+          "drapeau goutte",
+          "wind flag",
+          "beach flag personnalisé",
+          "voile publicitaire",
+          "drapeau publicitaire extérieur",
+          "oriflamme événement"
+        ],
+        "title_template": "Beach flag {{format}} {{finition}} — {{quantite}}",
+        "short_description_template": "Oriflamme voile, goutte ou rectangle de 2 à 5 m : le mât rotatif suit le vent et votre visuel reste toujours déployé, dedans comme dehors.",
+        "description_template": "## Votre enseigne qui flotte au vent\n\nLe beach flag — ou oriflamme — est la signalétique extérieure la plus repérable qui soit : sa voile textile montée sur un mât courbe reste déployée même sans vent, et son mouvement attire l'œil à grande distance. Devant une boutique, sur un salon en plein air ou le long d'un parcours sportif, il fait office d'enseigne mobile.\n\n## Caractéristiques techniques\n\nQuatre hauteurs de structure : 200, 300, 400 et 500 cm, pour des visuels d'environ 170 à 448 cm de haut sur 70 cm de large. Trois formes au choix : voile (plume), goutte d'eau ou rectangle. La maille polyester 110 g classée M1 est imprimée par sublimation en quadri : le visuel traverse le tissu et se lit au verso par transparence. Le mât aluminium pivote sur rotule pour suivre le vent sans forcer.\n\n## Les avantages du beach flag\n\nChaque kit comprend le mât, la housse de transport et le pied de votre choix : piquet pour sols meubles ou platine lestable pour surfaces dures. Montage en deux minutes, textile lavable, visuel remplaçable — un investissement qui ressert à chaque saison.",
+        "h1_template": "Beach flag {{format}} personnalisé",
+        "seo_title": "Beach flag personnalisé 2 à 5 m — oriflamme",
+        "seo_description": "Impression beach flag : voile, goutte ou rectangle de 2 à 5 m, polyester M1 sublimé, mât rotatif, pied et housse inclus. Visible de très loin.",
+        "seo_keywords": [
+          "beach flag personnalisé",
+          "oriflamme publicitaire",
+          "drapeau voile",
+          "drapeau goutte d'eau",
+          "wind flag entreprise",
+          "beach flag 4m",
+          "voile publicitaire extérieure"
+        ],
+        "commercial_pitch": "Plantez-le devant votre porte et laissez le vent travailler : le beach flag signale votre activité à des centaines de mètres, jour après jour. Kit complet mât, pied et housse — opérationnel en deux minutes.",
+        "benefits": [
+          "Repérable à très grande distance grâce au mouvement",
+          "Voile toujours déployée, même sans vent",
+          "Mât rotatif qui suit les rafales sans se déformer",
+          "Kit complet : mât, pied au choix et housse inclus",
+          "Textile M1 lavable, réutilisable plusieurs saisons",
+          "4 hauteurs et 3 formes pour chaque emplacement"
+        ],
+        "use_cases": [
+          "Entrée de magasin ou d'agence",
+          "Village départ d'événement sportif",
+          "Stand extérieur de foire",
+          "Signalétique de drive ou parking",
+          "Ouverture ou portes ouvertes"
+        ],
+        "usage_examples": [
+          {
+            "title": "Boulangerie de centre-ville",
+            "description": "Une oriflamme goutte de 2,5 m sur platine lestée signale la boutique aux piétons des deux côtés de la rue."
+          },
+          {
+            "title": "Triathlon",
+            "description": "Des beach flags de 4 m aux couleurs des sponsors balisent la zone de transition, plantés au piquet dans la pelouse."
+          },
+          {
+            "title": "Agence immobilière en salon",
+            "description": "Deux voiles encadrent le stand extérieur et se lisent par transparence quel que soit le sens du vent."
+          },
+          {
+            "title": "Station de lavage",
+            "description": "Un drapeau de 5 m capte les automobilistes depuis l'axe routier, à hauteur des enseignes voisines."
+          }
+        ],
+        "faq": [
+          {
+            "question": "Quelle hauteur choisir ?",
+            "answer": "2-3 m pour une visibilité piétonne en centre-ville, 4-5 m pour capter des automobilistes ou émerger au-dessus d'une foule ou d'autres stands."
+          },
+          {
+            "question": "Piquet ou platine : comment trancher ?",
+            "answer": "Piquet à visser pour la terre, le sable et l'herbe ; platine ou réservoir remplissable (eau/sable, environ 17 L) pour le bitume et les terrasses."
+          },
+          {
+            "question": "Le visuel se lit-il des deux côtés ?",
+            "answer": "L'impression traversante rend le verso lisible en miroir par transparence — largement suffisant pour un logo. Un vrai double face existe pour les textes longs."
+          },
+          {
+            "question": "Que faire en cas de vent fort ?",
+            "answer": "La rotule laisse le drapeau pivoter avec le vent en usage normal. Par tempête annoncée, démontez la voile : deux minutes suffisent et votre matériel dure plus longtemps."
+          },
+          {
+            "question": "Quel fichier fournir ?",
+            "answer": "Utilisez le gabarit de la forme et de la taille choisies, en CMJN, échelle 1 à 150 dpi. Pensez à indiquer l'orientation gauche ou droite du visuel."
+          }
+        ],
+        "technical_spec": {
+          "formats": [
+            "Structure 70×200 cm (visuel ~70×170)",
+            "70×300 cm (visuel ~70×228)",
+            "70×400 cm (visuel ~70×338)",
+            "70×500 cm (visuel ~70×448)"
+          ],
+          "supports": [
+            "Maille polyester 110 g ignifugée M1"
+          ],
+          "finitions": [
+            "Formes voile, goutte ou rectangle",
+            "Liseré noir ou blanc",
+            "Orientation gauche/droite",
+            "Double face en option"
+          ],
+          "impression": "Sublimation quadri traversante, lecture verso par transparence",
+          "quantites": "1 à 50 exemplaires, tarif dégressif",
+          "delais": "Standard 4 à 6 jours ouvrés, express possible",
+          "options": [
+            "Mât aluminium rotatif inclus",
+            "Pied platine lestable 17 L ou piquet de sol",
+            "Housse de transport incluse",
+            "Classement feu M1"
+          ]
+        }
+      }
+    },
+    {
+      "slug": "drapeau_mat",
+      "name": "Drapeau pour mât",
+      "definition": {
+        "name": "Drapeau pour mât (potence ou drisse)",
+        "keywords": [
+          "drapeau pour mât",
+          "drapeau à potence",
+          "drapeau à drisse",
+          "pavillon d'entreprise",
+          "drapeau de façade",
+          "pavoisement",
+          "drapeau siège social",
+          "drapeau institutionnel",
+          "drapeau vertical"
+        ],
+        "title_template": "Drapeau pour mât {{format}} — {{quantite}}",
+        "short_description_template": "Drapeau à hisser sur mât à potence ou à drisse : le pavoisement permanent qui affiche vos couleurs à l'entrée de votre site, par tous les temps.",
+        "description_template": "## Vos couleurs en haut du mât\n\nLe drapeau pour mât est la signalétique institutionnelle par excellence : hissé devant un siège social, un hôtel, une mairie ou un site industriel, il affiche durablement votre identité. Sur mât à potence, le tissu reste déployé même sans vent ; sur mât à drisse classique, il flotte librement.\n\n## Caractéristiques techniques\n\nFabrication sur mesure selon la hauteur de votre mât et le mode de fixation : fourreau pour potence, sangle et mousquetons pour drisse. La maille polyester 110 g classée M1 est imprimée par sublimation traversante — votre logo se lit des deux côtés par transparence, et une version double face cousue existe pour les visuels comportant du texte. Les finitions (ourlets renforcés, liseré) sont dimensionnées pour un usage extérieur permanent.\n\n## Les avantages du drapeau pour mât\n\nC'est un support qui travaille en continu, 365 jours par an, sans emprise au sol ni autorisation d'affichage dans la plupart des cas. Le textile se remplace seul lors des rotations saisonnières : vous conservez mât et accastillage.",
+        "h1_template": "Drapeau pour mât personnalisé",
+        "seo_title": "Drapeau pour mât personnalisé — potence, drisse",
+        "seo_description": "Drapeaux d'entreprise pour mât à potence ou à drisse : polyester M1 sublimé, finitions renforcées extérieur, sur-mesure selon votre mât.",
+        "seo_keywords": [
+          "drapeau pour mât",
+          "drapeau à potence",
+          "pavillon entreprise",
+          "drapeau de façade",
+          "pavoisement société",
+          "drapeau siège social"
+        ],
+        "commercial_pitch": "Un mât pavoisé se voit avant votre enseigne : affichez vos couleurs en continu devant votre site, sans emprise au sol. Le tissu se remplace en cinq minutes — le mât, lui, dure des décennies.",
+        "benefits": [
+          "Visibilité permanente en hauteur, de jour comme de nuit",
+          "Compatible mâts à potence (tissu toujours déployé) et à drisse",
+          "Sur-mesure adapté à la hauteur de votre mât",
+          "Finitions renforcées pour l'exposition extérieure continue",
+          "Impression traversante lisible des deux côtés",
+          "Remplacement du seul textile lors des rotations"
+        ],
+        "use_cases": [
+          "Pavoisement de siège social",
+          "Entrée d'hôtel ou de camping",
+          "Site industriel ou logistique",
+          "Concession et retail park",
+          "Collectivité et équipement public"
+        ],
+        "usage_examples": [
+          {
+            "title": "Siège d'entreprise",
+            "description": "Trois mâts pavoisés à l'entrée du parking affichent la marque, la certification et le drapeau européen."
+          },
+          {
+            "title": "Hôtellerie de plein air",
+            "description": "Les drapeaux à potence de l'accueil restent lisibles même par temps calme, ce qui garantit l'effet d'entrée toute la saison."
+          },
+          {
+            "title": "Retail park",
+            "description": "Chaque enseigne du parc dispose de son pavillon le long de l'allée d'accès, visible depuis la rocade."
+          },
+          {
+            "title": "Événement institutionnel",
+            "description": "Le parvis est pavoisé aux couleurs de la manifestation pendant un mois, puis les drapeaux d'origine sont rehissés."
+          }
+        ],
+        "faq": [
+          {
+            "question": "Potence ou drisse : quelle différence ?",
+            "answer": "La potence est un bras horizontal qui maintient le drapeau déployé même sans vent — idéal pour la lisibilité permanente. La drisse est le cordage classique : le drapeau flotte librement."
+          },
+          {
+            "question": "Quelle taille de drapeau pour mon mât ?",
+            "answer": "On recommande un drapeau d'environ un quart à un tiers de la hauteur du mât. Communiquez-nous la hauteur et le type de fixation : nous fabriquons sur mesure."
+          },
+          {
+            "question": "Combien de temps dure un drapeau hissé en permanence ?",
+            "answer": "Exposé au vent et aux UV en continu, un drapeau se remplace généralement chaque année, davantage en site abrité. Prévoir un jeu de rechange permet une rotation sans interruption."
+          },
+          {
+            "question": "Le logo est-il lisible des deux côtés ?",
+            "answer": "Oui, par transparence (en miroir au verso). Si votre visuel comporte du texte important, optez pour la confection double face."
+          },
+          {
+            "question": "Peut-on laver le drapeau ?",
+            "answer": "Oui, à l'eau tiède avec un détergent doux, séchage à l'air libre. Un lavage régulier prolonge nettement la tenue des couleurs."
+          }
+        ],
+        "technical_spec": {
+          "formats": [
+            "Sur-mesure selon la hauteur du mât et le mode de fixation"
+          ],
+          "supports": [
+            "Maille polyester 110 g classée M1"
+          ],
+          "finitions": [
+            "Fourreau pour potence",
+            "Sangle et anneaux pour drisse",
+            "Ourlets renforcés",
+            "Confection double face en option"
+          ],
+          "impression": "Sublimation quadri traversante",
+          "quantites": "1 à 50 exemplaires, tarif dégressif",
+          "delais": "Standard 4 à 6 jours ouvrés, express possible",
+          "options": [
+            "Classement feu M1",
+            "Jeu de rechange pour rotation",
+            "Liseré de finition"
+          ]
+        }
+      }
+    },
+    {
+      "slug": "banderole",
+      "name": "Banderoles / Bâches",
+      "definition": {
+        "name": "Banderoles et bâches publicitaires",
+        "keywords": [
+          "banderole",
+          "bâche publicitaire",
+          "banderole personnalisée",
+          "bâche imprimée",
+          "banderole avec œillets",
+          "bâche PVC",
+          "calicot",
+          "banderole extérieure",
+          "bâche de chantier",
+          "banderole événement"
+        ],
+        "title_template": "Banderole {{format}} {{finition}} — {{quantite}}",
+        "short_description_template": "Bâches PVC, mesh micro-perforé ou textile : la banderole sur mesure au centimètre, avec œillets et fourreaux positionnés selon votre pose.",
+        "description_template": "## Le grand format qui s'accroche partout\n\nBarrière de chantier, façade, grille d'école, podium ou fond de scène : la banderole imprimée transforme n'importe quel support de fixation en espace publicitaire. Fabriquée au centimètre près, elle s'adapte exactement à votre emplacement — c'est vous qui donnez les dimensions.\n\n## Caractéristiques techniques\n\nLa gamme couvre tous les besoins : bâche PVC de 340 à 510 g et plus pour l'extérieur durable, mesh micro-perforé pour les zones ventées, textile polyester classé M1 pour l'intérieur événementiel, polypropylène léger pour les opérations courtes, et options sans PVC plus responsables. Finitions au choix : ourlet, fourreaux, soudures renforcées et œillets métalliques dont vous définissez le nombre et l'espacement. Impression quadri haute définition résistante aux UV.\n\n## Les avantages de la gamme\n\nUne banderole se pose en quelques minutes avec des colliers ou des tendeurs, se démonte aussi vite et se stocke roulée pour resservir. Le rapport surface de communication / prix est imbattable parmi les supports grand format.",
+        "h1_template": "Banderole publicitaire {{format}} sur mesure",
+        "seo_title": "Banderole publicitaire sur mesure — bâche imprimée",
+        "seo_description": "Impression de banderoles et bâches au cm : PVC 340-510 g, mesh anti-vent, textile M1. Œillets et fourreaux sur mesure, quadri résistante aux UV.",
+        "seo_keywords": [
+          "banderole personnalisée",
+          "bâche publicitaire",
+          "impression banderole",
+          "banderole avec œillets",
+          "bâche sur mesure",
+          "banderole extérieure",
+          "calicot publicitaire"
+        ],
+        "commercial_pitch": "Donnez-nous vos dimensions et votre message : votre banderole arrive prête à poser, œillets placés exactement où il faut. Le mètre carré de visibilité le plus économique du grand format.",
+        "benefits": [
+          "Fabrication sur mesure au centimètre",
+          "Œillets : nombre et espacement définis par vos soins",
+          "Matières adaptées à chaque durée et exposition",
+          "Impression quadri résistante aux UV et aux intempéries",
+          "Pose et dépose en quelques minutes",
+          "Se stocke roulée et se réutilise"
+        ],
+        "use_cases": [
+          "Palissade et barrière de chantier",
+          "Façade de magasin en promotion",
+          "Grille d'école ou de club sportif",
+          "Fond de podium événementiel",
+          "Annonce de foire ou brocante"
+        ],
+        "usage_examples": [
+          {
+            "title": "Chantier immobilier",
+            "description": "Une bâche au nom du programme couvre la palissade pendant toute la construction et affiche le contact commercial."
+          },
+          {
+            "title": "Soldes en façade",
+            "description": "La banderole promotionnelle se fixe au-dessus de la vitrine en dix minutes et se retire à la fin de l'opération."
+          },
+          {
+            "title": "Club de sport",
+            "description": "Les banderoles des sponsors habillent la main courante du terrain, œillets tous les 50 cm pour une pose tendue."
+          },
+          {
+            "title": "Événement municipal",
+            "description": "Des calicots annoncent la fête locale aux entrées de ville trois semaines avant la date."
+          }
+        ],
+        "faq": [
+          {
+            "question": "Quel grammage de bâche choisir ?",
+            "answer": "340 g pour l'intérieur et les opérations courtes, 450 g laminée pour un usage polyvalent, 510 g enduite pour l'extérieur longue durée. En zone ventée, préférez le mesh micro-perforé."
+          },
+          {
+            "question": "Combien d'œillets prévoir ?",
+            "answer": "Comptez un œillet tous les 30 à 50 cm sur le périmètre pour une pose tendue et durable. Vous définissez le nombre et l'espacement à la commande."
+          },
+          {
+            "question": "Quel fichier pour une grande bâche ?",
+            "answer": "Un PDF à l'échelle 1/10 en 300 dpi (soit 30 dpi à taille réelle, largement suffisant vu la distance de lecture), en CMJN, avec textes vectorisés."
+          },
+          {
+            "question": "Combien de temps tient une banderole dehors ?",
+            "answer": "Une bâche 510 g correctement tendue tient plusieurs années en extérieur. Les grammages plus légers sont dimensionnés pour quelques semaines à quelques mois."
+          },
+          {
+            "question": "Que faire si l'emplacement est très exposé au vent ?",
+            "answer": "Choisissez la version micro-perforée : ses micro-trous laissent passer l'air et réduisent fortement la prise au vent, notamment sur grilles et échafaudages."
+          }
+        ],
+        "technical_spec": {
+          "formats": [
+            "Sur mesure au centimètre, du petit calicot aux très grands formats de façade"
+          ],
+          "supports": [
+            "Bâche PVC laminée 340 g",
+            "Bâche PVC frontlit laminée 450 g M1",
+            "Bâche PVC enduite 510 g",
+            "Mesh micro-perforé",
+            "Textile polyester M1",
+            "Polypropylène léger 135 g",
+            "Option sans PVC"
+          ],
+          "finitions": [
+            "Œillets métalliques (nombre et espacement au choix)",
+            "Ourlet",
+            "Fourreaux",
+            "Soudures renforcées",
+            "Traitement anti-tuilage"
+          ],
+          "impression": "Quadri haute définition résistante aux UV",
+          "quantites": "1 à 100 exemplaires, tarif dégressif",
+          "delais": "Standard 3 à 5 jours ouvrés, express possible",
+          "options": [
+            "Classement feu M1/B1 selon support",
+            "Recto-verso à dos occultant",
+            "Version écologique sans PVC"
+          ]
+        }
+      }
+    },
+    {
+      "slug": "bache_pvc",
+      "name": "Bâche PVC",
+      "definition": {
+        "name": "Bâche PVC avec œillets",
+        "keywords": [
+          "bâche PVC",
+          "bâche 510g",
+          "bâche extérieure",
+          "bâche avec œillets",
+          "bâche imprimée",
+          "bâche publicitaire PVC",
+          "bâche de façade",
+          "bâche chantier",
+          "banderole PVC"
+        ],
+        "title_template": "Bâche PVC {{format}} {{finition}} — {{quantite}}",
+        "short_description_template": "Bâche PVC 450 à 510 g imprimée en quadri anti-UV, œillets et ourlets sur mesure : le support extérieur robuste qui tient plusieurs saisons.",
+        "description_template": "## La référence de l'affichage extérieur durable\n\nLa bâche PVC est le support grand format le plus robuste de la gamme banderoles. Sa toile enduite ou laminée encaisse la pluie, le vent modéré et les UV sans se déformer ni pâlir : c'est le choix naturel pour les chantiers, les façades et toutes les communications extérieures qui doivent durer.\n\n## Caractéristiques techniques\n\nDeux qualités principales : la 450 g laminée, classée feu M1, polyvalente intérieur/extérieur, et la 510 g enduite pour les expositions prolongées. Fabrication sur mesure au centimètre, impression quadri haute définition traitée anti-UV et anti-tuilage. Finitions au choix : ourlets soudés, fourreaux pour passage de barre ou de tendeur, œillets métalliques dont vous définissez le nombre, la position et l'espacement.\n\n## Les avantages de la bâche PVC\n\nUne pose simple aux colliers ou sandows, une résistance mécanique qui autorise une tension franche, et une durée de vie de plusieurs saisons en extérieur. Roulée entre deux campagnes, elle ressert autant de fois que nécessaire.",
+        "h1_template": "Bâche PVC {{format}} avec œillets",
+        "seo_title": "Bâche PVC imprimée 450-510 g avec œillets",
+        "seo_description": "Bâche PVC sur mesure : 450 g laminée M1 ou 510 g enduite longue durée. Œillets, ourlets, fourreaux au choix. Quadri anti-UV, tient des saisons.",
+        "seo_keywords": [
+          "bâche PVC imprimée",
+          "bâche 510g",
+          "bâche extérieure personnalisée",
+          "bâche avec œillets",
+          "bâche de chantier",
+          "bâche façade sur mesure"
+        ],
+        "commercial_pitch": "Une bâche 510 g bien tendue affiche votre message des saisons entières, sous la pluie comme en plein soleil. Sur mesure au centimètre, œillets où vous les voulez : elle arrive prête à poser.",
+        "benefits": [
+          "Résistance mécanique élevée : tension franche sans déchirure",
+          "Encres anti-UV : couleurs stables dans la durée",
+          "Sur mesure au centimètre, adaptée à votre emplacement",
+          "Œillets, ourlets et fourreaux configurables",
+          "Classement feu M1 disponible (version laminée 450 g)",
+          "Réutilisable : se roule et se stocke entre deux campagnes"
+        ],
+        "use_cases": [
+          "Bâche de chantier longue durée",
+          "Habillage de façade commerciale",
+          "Clôture de terrain de sport",
+          "Signalétique d'entrepôt",
+          "Communication saisonnière récurrente"
+        ],
+        "usage_examples": [
+          {
+            "title": "Palissade de chantier",
+            "description": "Une bâche 510 g de 6 m annonce le futur programme immobilier et reste impeccable jusqu'à la livraison."
+          },
+          {
+            "title": "Façade de zone commerciale",
+            "description": "La bâche promotionnelle fixée sur la structure du bâtiment se voit depuis le parking et l'axe routier."
+          },
+          {
+            "title": "Stade municipal",
+            "description": "Les bâches des partenaires tendues sur la main courante résistent aux ballons comme aux intempéries."
+          },
+          {
+            "title": "Marché de Noël",
+            "description": "La même bâche d'enseigne ressort chaque année : roulée et stockée au sec, elle est comme neuve."
+          }
+        ],
+        "faq": [
+          {
+            "question": "450 g ou 510 g : comment choisir ?",
+            "answer": "La 450 g laminée M1 convient à la majorité des usages, y compris en intérieur réglementé. La 510 g enduite est plus dense et plus résistante : privilégiez-la pour l'extérieur longue durée et les grandes dimensions."
+          },
+          {
+            "question": "Combien de temps tient-elle en extérieur ?",
+            "answer": "Correctement tendue et fixée, une bâche PVC 510 g reste en place plusieurs années. Le point critique n'est pas la toile mais la qualité de la pose et des fixations."
+          },
+          {
+            "question": "Comment bien la poser ?",
+            "answer": "Tendez progressivement en croix, en partant des angles, avec colliers ou sandows sur chaque œillet. Une bâche flottante s'use prématurément aux points de fixation."
+          },
+          {
+            "question": "Quel fichier fournir ?",
+            "answer": "PDF à l'échelle 1/10 en 300 dpi, CMJN, textes vectorisés. Gardez 5 cm de marge de sécurité le long des bords où passent ourlets et œillets."
+          },
+          {
+            "question": "Et si mon emplacement est très venté ?",
+            "answer": "Au-delà d'une exposition modérée, basculez sur la bâche micro-perforée : elle laisse passer l'air et soulage fixations et structure."
+          }
+        ],
+        "technical_spec": {
+          "formats": [
+            "Sur mesure au centimètre, jusqu'aux très grands formats de façade"
+          ],
+          "supports": [
+            "Bâche PVC frontlit laminée 450 g M1",
+            "Bâche PVC enduite 510 g"
+          ],
+          "finitions": [
+            "Œillets métalliques (nombre, position, espacement au choix)",
+            "Ourlets soudés",
+            "Fourreaux",
+            "Soudures renforcées"
+          ],
+          "impression": "Quadri haute définition anti-UV, traitement anti-tuilage",
+          "quantites": "1 à 100 exemplaires, tarif dégressif",
+          "delais": "Standard 3 à 5 jours ouvrés, express possible",
+          "options": [
+            "Classement feu M1 (450 g laminée)",
+            "Version recto-verso à dos occultant"
+          ]
+        }
+      }
+    },
+    {
+      "slug": "banderole_microperforee",
+      "name": "Bâche micro-perforée",
+      "definition": {
+        "name": "Bâche micro-perforée (mesh anti-vent)",
+        "keywords": [
+          "bâche micro-perforée",
+          "mesh publicitaire",
+          "bâche anti-vent",
+          "banderole ajourée",
+          "bâche échafaudage",
+          "bâche grille",
+          "toile mesh",
+          "bâche clôture",
+          "banderole zone ventée"
+        ],
+        "title_template": "Bâche micro-perforée {{format}} — {{quantite}}",
+        "short_description_template": "Le mesh micro-perforé laisse passer le vent : la bâche qui reste en place sur grilles, clôtures et échafaudages, même en site exposé.",
+        "description_template": "## La bâche qui laisse passer le vent\n\nSur une grille de chantier, un échafaudage ou une clôture de stade, une bâche pleine se transforme en voile : elle tire sur ses fixations et finit par céder. La bâche micro-perforée résout le problème à la source : ses milliers de micro-trous laissent l'air circuler et réduisent drastiquement la prise au vent, tout en conservant un visuel parfaitement lisible à distance de lecture.\n\n## Caractéristiques techniques\n\nToile PVC ajourée fabriquée sur mesure au centimètre, imprimée en quadri haute définition anti-UV. Finitions identiques aux bâches pleines : ourlets, fourreaux et œillets métalliques positionnés selon votre plan de pose. La structure ajourée allège aussi la toile, ce qui facilite la manutention des très grands formats.\n\n## Les avantages du mesh\n\nC'est la seule solution sérieuse pour les emplacements exposés : bord de mer, hauteur, grandes surfaces suspendues. Elle préserve vos fixations et votre support d'accroche, laisse filtrer la lumière derrière elle et se réutilise comme n'importe quelle bâche.",
+        "h1_template": "Bâche micro-perforée {{format}} anti-vent",
+        "seo_title": "Bâche micro-perforée sur mesure — mesh anti-vent",
+        "seo_description": "Bâche mesh micro-perforée : la toile ajourée qui laisse passer le vent. Idéale grilles, clôtures, échafaudages. Sur mesure, œillets au choix.",
+        "seo_keywords": [
+          "bâche micro-perforée",
+          "mesh publicitaire",
+          "bâche anti-vent",
+          "bâche échafaudage",
+          "toile ajourée imprimée",
+          "banderole grille de chantier"
+        ],
+        "commercial_pitch": "En site venté, la question n'est pas si une bâche pleine va céder, mais quand : le mesh micro-perforé laisse passer l'air et reste en place. Grande surface, grand vent, zéro souci.",
+        "benefits": [
+          "Prise au vent réduite de façon drastique",
+          "Préserve fixations et supports d'accroche",
+          "Lisibilité intacte à distance de lecture",
+          "Plus légère qu'une bâche pleine à surface égale",
+          "Laisse filtrer lumière et visibilité résiduelle derrière la toile",
+          "Sur mesure au centimètre avec œillets configurables"
+        ],
+        "use_cases": [
+          "Habillage d'échafaudage",
+          "Grille de chantier exposée",
+          "Clôture de stade ou de festival",
+          "Signalétique en bord de mer",
+          "Très grands formats suspendus"
+        ],
+        "usage_examples": [
+          {
+            "title": "Échafaudage de ravalement",
+            "description": "Le mesh couvre 100 m² de façade en travaux avec le visuel du maître d'ouvrage, sans transformer la structure en voile."
+          },
+          {
+            "title": "Festival en plein air",
+            "description": "Les clôtures du site sont habillées de mesh aux couleurs de l'événement : l'air circule, les barrières restent stables."
+          },
+          {
+            "title": "Port de plaisance",
+            "description": "Face aux vents marins, la banderole du chantier naval reste tendue là où une toile pleine ne tenait pas une saison."
+          },
+          {
+            "title": "Chantier en hauteur",
+            "description": "La bâche du programme immobilier posée au 5e niveau supporte les rafales sans arracher ses œillets."
+          }
+        ],
+        "faq": [
+          {
+            "question": "Le visuel est-il moins lisible avec les perforations ?",
+            "answer": "À distance normale de lecture (quelques mètres et au-delà), l'œil reconstitue le visuel : les micro-trous sont invisibles. Seule la lecture à moins d'un mètre révèle la trame."
+          },
+          {
+            "question": "Quelle réduction de prise au vent ?",
+            "answer": "La structure ajourée laisse passer une part importante du flux d'air, ce qui réduit très fortement l'effort sur les fixations par rapport à une toile pleine de même surface."
+          },
+          {
+            "question": "Peut-on l'utiliser en intérieur ?",
+            "answer": "Oui, notamment suspendue dans les grands volumes : sa légèreté simplifie l'accroche. Mais son terrain de jeu naturel reste l'extérieur exposé."
+          },
+          {
+            "question": "Quelles finitions sont possibles ?",
+            "answer": "Les mêmes que sur bâche pleine : ourlets, fourreaux, œillets dont vous choisissez le nombre et l'espacement selon votre plan de fixation."
+          },
+          {
+            "question": "Quel fichier fournir ?",
+            "answer": "PDF échelle 1/10 en 300 dpi, CMJN. Privilégiez les visuels contrastés à gros éléments : ils traversent mieux la trame ajourée."
+          }
+        ],
+        "technical_spec": {
+          "formats": [
+            "Sur mesure au centimètre, adaptée aux très grandes surfaces"
+          ],
+          "supports": [
+            "Toile PVC mesh micro-perforée"
+          ],
+          "finitions": [
+            "Œillets métalliques (nombre et espacement au choix)",
+            "Ourlets",
+            "Fourreaux",
+            "Soudures renforcées"
+          ],
+          "impression": "Quadri haute définition anti-UV",
+          "quantites": "1 à 100 exemplaires, tarif dégressif",
+          "delais": "Standard 3 à 5 jours ouvrés, express possible",
+          "options": [
+            "Adaptée grilles, clôtures et échafaudages",
+            "Grands formats en plusieurs lés soudés"
+          ]
+        }
+      }
+    },
+    {
+      "slug": "banderole_textile",
+      "name": "Banderole textile",
+      "definition": {
+        "name": "Banderole textile polyester M1",
+        "keywords": [
+          "banderole textile",
+          "banderole tissu",
+          "toile polyester imprimée",
+          "banderole M1",
+          "banderole intérieure",
+          "toile événementielle",
+          "banderole sans PVC",
+          "tissu publicitaire",
+          "banderole salon"
+        ],
+        "title_template": "Banderole textile {{format}} — {{quantite}}",
+        "short_description_template": "La banderole en polyester M1 : rendu mat sans reflet, toucher tissu et classement feu — le choix élégant pour l'intérieur événementiel.",
+        "description_template": "## L'élégance du tissu pour vos événements\n\nLà où la bâche PVC brille et claque, la banderole textile tombe avec souplesse et offre un rendu mat, sans reflet sous les éclairages de salon ou de scène. C'est le support privilégié des événements en intérieur : congrès, remises de prix, retail haut de gamme, habillage de scène.\n\n## Caractéristiques techniques\n\nToile polyester classée feu M1 — un prérequis dans la plupart des parcs d'exposition et établissements recevant du public. Impression par sublimation : les encres pénètrent la fibre pour des couleurs profondes qui ne craquellent pas au pliage. Fabrication sur mesure au centimètre, finitions ourlets, fourreaux et œillets selon votre mode d'accroche. Nettement plus légère qu'une bâche équivalente, elle se plie dans un carton au lieu de se rouler.\n\n## Les avantages du textile\n\nTransport compact, pose facile, repassage possible à basse température : la banderole tissu se réutilise d'événement en événement sans marque de pli durable. Une alternative sans PVC, appréciée aussi pour les démarches RSE.",
+        "h1_template": "Banderole textile {{format}} classée M1",
+        "seo_title": "Banderole textile M1 — toile polyester sublimée",
+        "seo_description": "Banderole tissu polyester M1 : rendu mat sans reflet, sublimation haute qualité, pliable et réutilisable. La référence de l'intérieur événementiel.",
+        "seo_keywords": [
+          "banderole textile",
+          "banderole tissu personnalisée",
+          "toile polyester M1",
+          "banderole intérieure salon",
+          "banderole sans PVC",
+          "toile sublimée événement"
+        ],
+        "commercial_pitch": "Sous les projecteurs d'un salon, une bâche brille — un textile, non. La banderole tissu M1 combine rendu premium, conformité feu et transport plié dans un simple carton.",
+        "benefits": [
+          "Rendu mat premium, aucun reflet sous éclairage",
+          "Classement feu M1 exigé en salon et ERP",
+          "Sublimation : couleurs profondes, résistantes au pliage",
+          "Légère : transport plié, volume minimal",
+          "Alternative sans PVC pour vos engagements RSE",
+          "Réutilisable de nombreux événements"
+        ],
+        "use_cases": [
+          "Habillage de stand de salon",
+          "Fond de scène de conférence",
+          "Remise de prix et gala",
+          "Décor de boutique premium",
+          "Signalétique suspendue en hall"
+        ],
+        "usage_examples": [
+          {
+            "title": "Plénière de congrès",
+            "description": "La toile textile de 6 m tendue derrière la scène reste parfaitement mate face aux projecteurs et aux photos."
+          },
+          {
+            "title": "Stand haut de gamme",
+            "description": "Les banderoles tissu de l'enseigne remplacent la bâche PVC et alignent le stand sur les codes premium de la marque."
+          },
+          {
+            "title": "Boutique éphémère",
+            "description": "Suspendue au plafond, la banderole légère annonce le pop-up store sans structure lourde."
+          },
+          {
+            "title": "Tournée événementielle",
+            "description": "Le kit de banderoles voyage plié dans une valise et ressort impeccable à chaque étape après un passage à la vapeur."
+          }
+        ],
+        "faq": [
+          {
+            "question": "Le textile se froisse-t-il au transport ?",
+            "answer": "Les plis légers disparaissent d'eux-mêmes une fois la toile tendue. Pour un rendu parfait immédiat, un repassage à basse température ou un défroisseur vapeur suffit."
+          },
+          {
+            "question": "Le M1 est-il vraiment nécessaire ?",
+            "answer": "Dans la quasi-totalité des parcs d'exposition et des ERP, oui : la commission de sécurité peut exiger le procès-verbal de classement. Nos toiles M1 vous couvrent."
+          },
+          {
+            "question": "Textile ou bâche PVC pour l'intérieur ?",
+            "answer": "Textile pour le rendu (mat, tombé souple, pas de reflet) et la légèreté ; bâche pour l'opacité totale et les usages mixtes intérieur/extérieur."
+          },
+          {
+            "question": "Peut-on la laver ?",
+            "answer": "Oui, lavage doux à basse température : la sublimation teint la fibre dans la masse, les couleurs ne partent pas au lavage."
+          },
+          {
+            "question": "Quelles finitions choisir ?",
+            "answer": "Œillets pour une pose tendue sur structure, fourreau pour un passage de barre ou une suspension, ourlet simple pour un tombé libre."
+          }
+        ],
+        "technical_spec": {
+          "formats": [
+            "Sur mesure au centimètre"
+          ],
+          "supports": [
+            "Toile polyester classée feu M1, option sans PVC"
+          ],
+          "finitions": [
+            "Ourlets",
+            "Fourreaux",
+            "Œillets (nombre et espacement au choix)"
+          ],
+          "impression": "Sublimation quadri haute définition",
+          "quantites": "1 à 100 exemplaires, tarif dégressif",
+          "delais": "Standard 3 à 5 jours ouvrés, express possible",
+          "options": [
+            "Classement feu M1",
+            "Transport plié",
+            "Lavable à basse température"
+          ]
+        }
+      }
+    },
+    {
+      "slug": "panneau",
+      "name": "Panneaux rigides",
+      "definition": {
+        "name": "Panneaux rigides imprimés",
+        "keywords": [
+          "panneau rigide",
+          "panneau publicitaire",
+          "panneau imprimé",
+          "panneau personnalisé",
+          "impression sur panneau",
+          "panneau signalétique",
+          "panneau extérieur",
+          "enseigne rigide",
+          "panneau événement",
+          "support rigide"
+        ],
+        "title_template": "Panneau rigide {{format}} {{finition}} — {{quantite}}",
+        "short_description_template": "Akylux, Dibond, Forex, plexiglass, carton plume : le bon support rigide pour chaque usage, imprimé en direct et découpé à vos dimensions ou à la forme.",
+        "description_template": "## Un support rigide pour chaque usage\n\nDu panneau immobilier posé une saison à l'enseigne qui doit durer dix ans, la famille des panneaux rigides couvre toute la signalétique plane : plaques professionnelles, panneaux de chantier, PLV, décoration murale, signalétique directionnelle. Le secret d'un bon panneau, c'est le bon matériau — et nous les proposons tous.\n\n## Caractéristiques techniques\n\nAu catalogue : Akylux (polypropylène alvéolaire léger et économique, 3 à 5 mm), Forex (PVC expansé polyvalent, 3 à 5 mm), Dibond (composite aluminium premium 3 mm), plexiglass 4 mm pour les plaques haut de gamme, carton plume et supports cartonnés recyclables pour l'intérieur. Formats standard de 20×30 à 80×120 cm et sur-mesure jusqu'à 150×200 cm selon matière. Impression quadri directe haute définition, recto ou recto-verso selon support.\n\n## Les avantages de la gamme\n\nDécoupe droite ou à la forme, perçage, œillets, pelliculages mat, brillant ou texturés : chaque panneau sort de production prêt à poser. Dès l'exemplaire unique, avec tarif dégressif en série.",
+        "h1_template": "Panneaux rigides imprimés sur mesure",
+        "seo_title": "Panneau rigide imprimé — Akylux, Dibond, Forex",
+        "seo_description": "Impression sur panneaux rigides : Akylux, Forex, Dibond, plexiglass, carton plume. Sur mesure jusqu'à 150×200 cm, découpe à la forme, dès 1 exemplaire.",
+        "seo_keywords": [
+          "panneau rigide imprimé",
+          "impression panneau",
+          "panneau publicitaire personnalisé",
+          "panneau akilux",
+          "panneau dibond",
+          "panneau forex",
+          "enseigne rigide"
+        ],
+        "commercial_pitch": "Un panneau pour chaque besoin : l'Akylux léger pour une saison, le Dibond premium pour dix ans. Dites-nous l'usage, nous vous orientons vers la bonne matière — imprimée, découpée, prête à poser.",
+        "benefits": [
+          "Cinq familles de matériaux pour couvrir tous les usages",
+          "Sur-mesure au centimètre jusqu'à 150×200 cm",
+          "Découpe à la forme, perçage et œillets en option",
+          "Impression directe quadri, recto ou recto-verso",
+          "Dès 1 exemplaire, tarif dégressif en série",
+          "Pelliculages de protection et de finition"
+        ],
+        "use_cases": [
+          "Panneau immobilier ou de chantier",
+          "Enseigne et plaque professionnelle",
+          "Signalétique directionnelle de site",
+          "PLV rigide en point de vente",
+          "Décoration murale d'entreprise"
+        ],
+        "usage_examples": [
+          {
+            "title": "Agence immobilière",
+            "description": "Des panneaux Akylux « à vendre » en série, légers à poser sur piquet et assez durables pour toute la commercialisation."
+          },
+          {
+            "title": "Cabinet médical",
+            "description": "Une plaque plexiglass sur entretoises affiche les praticiens à l'entrée avec un rendu haut de gamme."
+          },
+          {
+            "title": "Site industriel",
+            "description": "La signalétique directionnelle en Dibond guide visiteurs et livreurs, insensible aux intempéries pendant des années."
+          },
+          {
+            "title": "Salon professionnel",
+            "description": "Des panneaux Forex découpés à la forme du logo animent le stand et se réutilisent à chaque édition."
+          }
+        ],
+        "faq": [
+          {
+            "question": "Quel matériau pour quel usage ?",
+            "answer": "Akylux pour le temporaire extérieur économique, Forex pour le polyvalent intérieur/extérieur, Dibond pour le durable premium, plexiglass pour les plaques élégantes, carton plume pour l'intérieur léger et l'événementiel."
+          },
+          {
+            "question": "Quelle est la taille maximale d'un panneau ?",
+            "answer": "Jusqu'à 150×200 cm en Akylux, 145×200 cm en Forex 4 mm, 115×200 cm en plexiglass — en une seule pièce. Au-delà, on assemble plusieurs panneaux."
+          },
+          {
+            "question": "Peut-on découper le panneau à la forme de mon logo ?",
+            "answer": "Oui, la découpe de forme libre est disponible sur la plupart des matières : fournissez le tracé vectoriel de découpe dans votre fichier."
+          },
+          {
+            "question": "Comment fixer un panneau rigide ?",
+            "answer": "Perçage et œillets pour colliers ou vis, adhésif structural pour pose murale, entretoises pour les plaques, systèmes de fixation invisibles selon matière."
+          },
+          {
+            "question": "Quel fichier fournir ?",
+            "answer": "PDF à l'échelle 1 en 150 dpi minimum (300 dpi pour les plaques lues de près), CMJN, avec 3 mm de fond perdu et le tracé de découpe en ton direct si forme spéciale."
+          }
+        ],
+        "technical_spec": {
+          "formats": [
+            "Standards de 20×30 à 80×120 cm",
+            "Sur-mesure jusqu'à 150×200 cm selon matière"
+          ],
+          "supports": [
+            "Akylux polypropylène alvéolaire 3 à 5 mm",
+            "Forex PVC expansé 3 à 5 mm",
+            "Dibond composite aluminium 3 mm",
+            "Plexiglass 4 mm",
+            "Carton plume et carton recyclable"
+          ],
+          "finitions": [
+            "Découpe droite ou à la forme",
+            "Perçage et œillets",
+            "Pelliculage mat, brillant ou texturé",
+            "Vernis sélectif",
+            "Rainage"
+          ],
+          "impression": "Quadri directe haute définition, recto ou recto-verso",
+          "quantites": "1 à 100+ exemplaires, tarif dégressif",
+          "delais": "Standard 3 à 5 jours ouvrés, express possible",
+          "options": [
+            "Usage intérieur et extérieur selon matière",
+            "Systèmes de fixation",
+            "Versions écologiques recyclables"
+          ]
+        }
+      }
+    },
+    {
+      "slug": "panneau_akylux",
+      "name": "Panneau Akylux",
+      "definition": {
+        "name": "Panneau Akylux (polypropylène alvéolaire)",
+        "keywords": [
+          "panneau akilux",
+          "panneau akylux",
+          "polypropylène alvéolaire",
+          "panneau immobilier",
+          "panneau à vendre",
+          "panneau de chantier",
+          "panneau alvéolaire",
+          "panneau léger extérieur",
+          "panneau élection",
+          "panneau temporaire"
+        ],
+        "title_template": "Panneau Akylux {{format}} {{finition}} — {{quantite}}",
+        "short_description_template": "Le panneau Akylux en polypropylène alvéolaire : ultraléger, insensible à la pluie et économique — la référence de l'immobilier et du chantier.",
+        "description_template": "## Le champion du panneau temporaire extérieur\n\nL'Akylux est un polypropylène à structure alvéolaire : une âme en cannelures qui lui donne de la rigidité pour un poids plume. Insensible à l'eau, il ne gondole pas sous la pluie comme le ferait un carton — c'est ce qui en a fait le standard absolu du panneau immobilier, du panneau de chantier et de la signalétique événementielle extérieure.\n\n## Caractéristiques techniques\n\nÉpaisseurs de 3, 3,5 et 5 mm selon la durée d'exposition, plus une version 3 mm intégrant 50 % de matière recyclée, elle-même 100 % recyclable. Formats standard de 20×30 à 80×120 cm et sur-mesure jusqu'à 150×200 cm en une pièce. Impression quadri directe haute définition, recto ou recto-verso, avec œillets en option aux quatre coins ou en tête.\n\n## Les avantages de l'Akylux\n\nSon poids réduit simplifie la pose sur piquet, grille ou collier et divise les frais de transport en série. Sa tenue extérieure va de quelques mois à plus d'un an selon l'épaisseur — exactement la durée de vie d'une commercialisation ou d'un chantier.",
+        "h1_template": "Panneau Akylux {{format}} imprimé",
+        "seo_title": "Panneau Akylux imprimé — immobilier, chantier",
+        "seo_description": "Panneau Akylux polypropylène alvéolaire 3 à 5 mm : ultraléger, résiste à la pluie, recto-verso, œillets. Le standard immobilier et chantier.",
+        "seo_keywords": [
+          "panneau akilux personnalisé",
+          "panneau immobilier akilux",
+          "panneau à vendre à louer",
+          "panneau de chantier léger",
+          "polypropylène alvéolaire imprimé",
+          "panneau akilux recto verso"
+        ],
+        "commercial_pitch": "Le panneau qui a fait ses preuves sur des millions de façades : léger à poser, insensible à la pluie, imbattable en prix dès la petite série. Vos « à vendre » et panneaux de chantier, prêts à visser.",
+        "benefits": [
+          "Ultraléger : pose rapide sur piquet, grille ou collier",
+          "Insensible à l'eau, ne gondole pas",
+          "Recto-verso pour lecture des deux côtés",
+          "Œillets en option, prêt à fixer",
+          "Version 50 % recyclée, 100 % recyclable",
+          "Le meilleur rapport visibilité/prix en extérieur temporaire"
+        ],
+        "use_cases": [
+          "Panneau immobilier à vendre / à louer",
+          "Signalétique de chantier",
+          "Fléchage d'événement extérieur",
+          "Panneau électoral ou associatif",
+          "Promotion saisonnière en devanture"
+        ],
+        "usage_examples": [
+          {
+            "title": "Réseau d'agences immobilières",
+            "description": "Une série de panneaux 60×80 recto-verso à la charte de l'enseigne, posés en quelques minutes sur les biens en mandat."
+          },
+          {
+            "title": "Entreprise du BTP",
+            "description": "Les panneaux de chantier 80×120 affichent permis et coordonnées sur toute la durée des travaux, sans broncher sous la pluie."
+          },
+          {
+            "title": "Course nature",
+            "description": "Le fléchage du parcours en panneaux 3 mm se fixe aux barrières le matin et se recycle après l'événement."
+          },
+          {
+            "title": "Promoteur",
+            "description": "Le panneau 150×200 grand format annonce le programme neuf en bordure de terrain pendant toute la commercialisation."
+          }
+        ],
+        "faq": [
+          {
+            "question": "Quelle épaisseur choisir ?",
+            "answer": "3 mm pour quelques semaines à quelques mois (fléchage, opérations courtes), 3,5 mm pour la saison immobilière classique, 5 mm pour une exposition prolongée au-delà d'un an ou les grands formats."
+          },
+          {
+            "question": "Combien de temps tient un Akylux dehors ?",
+            "answer": "De plusieurs mois à plus d'un an selon l'épaisseur et l'exposition. Le matériau ne craint pas l'eau ; ce sont les UV et le vent qui fixent la limite."
+          },
+          {
+            "question": "Comment le fixer ?",
+            "answer": "Vis ou clous sur piquet bois, colliers sur grille via les œillets, rilsans sur barrière. Sa légèreté autorise des fixations simples."
+          },
+          {
+            "question": "Recto-verso : dans quels cas ?",
+            "answer": "Dès que le panneau est lu des deux côtés : perpendiculaire à une façade, sur piquet en bord de route, suspendu. Le surcoût est faible par rapport à deux panneaux."
+          },
+          {
+            "question": "Quel fichier fournir ?",
+            "answer": "PDF échelle 1 en 150 dpi, CMJN, 3 mm de fond perdu. Sur les petites épaisseurs, orientez les textes dans le sens des cannelures pour une rigidité optimale à la pose."
+          }
+        ],
+        "technical_spec": {
+          "formats": [
+            "Standards de 20×30 à 80×120 cm",
+            "Sur-mesure jusqu'à 150×200 cm en une pièce"
+          ],
+          "supports": [
+            "Polypropylène alvéolaire 3, 3,5 et 5 mm",
+            "Version 3 mm 50 % recyclée, 100 % recyclable",
+            "Variante alvéolaire blanche fine ~3 mm"
+          ],
+          "finitions": [
+            "Découpe rectangulaire",
+            "Œillets aux 4 coins ou en tête"
+          ],
+          "impression": "Quadri directe haute définition, recto ou recto-verso",
+          "quantites": "1 à 200+ exemplaires, tarif fortement dégressif en série",
+          "delais": "Standard 3 à 5 jours ouvrés, express possible",
+          "options": [
+            "Usage extérieur temporaire à moyenne durée",
+            "Ultraléger pour pose et transport",
+            "Recyclable"
+          ]
+        }
+      }
+    },
+    {
+      "slug": "panneau_dibond",
+      "name": "Panneau Dibond",
+      "definition": {
+        "name": "Panneau Dibond (aluminium composite)",
+        "keywords": [
+          "panneau dibond",
+          "aluminium composite",
+          "panneau alu",
+          "enseigne dibond",
+          "plaque aluminium imprimée",
+          "panneau extérieur durable",
+          "signalétique alu",
+          "panneau premium",
+          "dibond imprimé"
+        ],
+        "title_template": "Panneau Dibond {{format}} {{finition}} — {{quantite}}",
+        "short_description_template": "Le Dibond associe deux faces aluminium à une âme polyéthylène : rigidité parfaite, planéité totale et tenue extérieure de longue durée.",
+        "description_template": "## Le panneau premium qui dure des années\n\nLe Dibond est un sandwich composite : deux fines plaques d'aluminium laqué enserrant une âme en polyéthylène. Cette construction lui donne une planéité parfaite, une grande rigidité pour seulement 3 mm d'épaisseur et une résistance aux intempéries qui en fait le support de référence des enseignes, plaques et signalétiques permanentes.\n\n## Caractéristiques techniques\n\nÉpaisseur 3 mm, formats standard de 20×30 à 80×120 cm et sur-mesure au-delà (jusqu'à environ 94×136 cm avec pelliculage). Trois faces au choix : blanc laqué, aluminium brossé ou effet miroir. Impression quadri directe sans reflet, avec protection UV. Finitions : découpe personnalisée, perçage, pelliculages mat, brillant, ultra-brillant ou texturés (bois, cuir), vernis sélectif pour les effets de relief.\n\n## Les avantages du Dibond\n\nIl ne rouille pas, ne gondole pas, ne se déforme ni au soleil ni au gel : posé une fois, il communique pendant des années. Sa surface rigide accepte les systèmes de fixation murale invisibles pour un rendu d'enseigne professionnel.",
+        "h1_template": "Panneau Dibond {{format}} aluminium",
+        "seo_title": "Panneau Dibond imprimé — alu composite 3 mm",
+        "seo_description": "Panneau Dibond aluminium composite 3 mm : planéité parfaite, tenue extérieure longue durée, finitions blanc, brossé ou miroir. L'enseigne rigide premium.",
+        "seo_keywords": [
+          "panneau dibond personnalisé",
+          "impression dibond",
+          "panneau aluminium composite",
+          "enseigne dibond extérieur",
+          "plaque alu imprimée",
+          "signalétique durable"
+        ],
+        "commercial_pitch": "Posez-le et oubliez-le : le Dibond affiche votre marque pendant des années sans rouiller ni se déformer. La qualité d'enseigne professionnelle, accessible dès l'exemplaire unique.",
+        "benefits": [
+          "Tenue extérieure de longue durée, insensible aux intempéries",
+          "Planéité parfaite, rendu d'enseigne professionnel",
+          "Rigide et pourtant léger : 3 mm suffisent",
+          "Faces blanc laqué, alu brossé ou miroir",
+          "Pelliculages et vernis sélectif pour finitions premium",
+          "Compatible fixations murales invisibles"
+        ],
+        "use_cases": [
+          "Enseigne de façade",
+          "Plaque professionnelle extérieure",
+          "Signalétique permanente de site",
+          "Décoration murale premium",
+          "Panneau directionnel durable"
+        ],
+        "usage_examples": [
+          {
+            "title": "Devanture de cabinet",
+            "description": "L'enseigne Dibond blanc laqué remplace l'ancienne plaque défraîchie et reste impeccable saison après saison."
+          },
+          {
+            "title": "Parc d'activités",
+            "description": "Le totem d'entrée liste les entreprises du site sur panneaux Dibond interchangeables, résistants au climat."
+          },
+          {
+            "title": "Hôtel",
+            "description": "Des tirages photo sur alu brossé habillent le lobby avec un rendu galerie, fixés sur entretoises."
+          },
+          {
+            "title": "Réseau de franchise",
+            "description": "La même enseigne Dibond est déployée sur trente points de vente : rendu identique, durabilité garantie partout."
+          }
+        ],
+        "faq": [
+          {
+            "question": "Dibond ou Forex pour l'extérieur ?",
+            "answer": "Les deux tiennent dehors, mais le Dibond reste parfaitement plan et stable sur de longues années : pour une enseigne ou une plaque permanente, c'est lui. Le Forex est l'option polyvalente plus économique."
+          },
+          {
+            "question": "Combien de temps dure un panneau Dibond ?",
+            "answer": "Plusieurs années en extérieur sans altération notable : l'aluminium ne rouille pas et l'impression bénéficie d'une protection UV."
+          },
+          {
+            "question": "Comment le fixer au mur ?",
+            "answer": "Perçage et vis, entretoises décoratives, adhésif structural ou systèmes de fixation invisibles : la rigidité du composite autorise toutes les méthodes."
+          },
+          {
+            "question": "Peut-on le découper à une forme spéciale ?",
+            "answer": "Oui, la découpe personnalisée est disponible : fournissez le tracé vectoriel. Logos, flèches, silhouettes — le composite se prête très bien aux formes."
+          },
+          {
+            "question": "Quel fichier fournir ?",
+            "answer": "PDF échelle 1 en 150 dpi (300 dpi si lecture de près), CMJN, 3 mm de fond perdu. Pour l'effet brossé ou miroir, indiquez les zones sans blanc de soutien qui laisseront apparaître l'aluminium."
+          }
+        ],
+        "technical_spec": {
+          "formats": [
+            "Standards de 20×30 à 80×120 cm",
+            "Sur-mesure, jusqu'à ~94×136 cm avec pelliculage"
+          ],
+          "supports": [
+            "Composite aluminium/polyéthylène/aluminium 3 mm, faces blanc laqué, brossé ou miroir"
+          ],
+          "finitions": [
+            "Découpe personnalisée",
+            "Perçage",
+            "Pelliculage mat, brillant, ultra-brillant ou texturé",
+            "Vernis sélectif"
+          ],
+          "impression": "Quadri directe haute définition anti-UV, sans reflet",
+          "quantites": "1 à 100 exemplaires, tarif dégressif",
+          "delais": "Standard 3 à 5 jours ouvrés, express possible",
+          "options": [
+            "Usage intérieur et extérieur longue durée",
+            "Fixations murales invisibles compatibles",
+            "Protection UV"
+          ]
+        }
+      }
+    },
+    {
+      "slug": "panneau_forex",
+      "name": "Panneau Forex",
+      "definition": {
+        "name": "Panneau Forex (PVC expansé)",
+        "keywords": [
+          "panneau forex",
+          "PVC expansé",
+          "panneau PVC",
+          "forex imprimé",
+          "panneau intérieur extérieur",
+          "PLV rigide",
+          "panneau découpe forme",
+          "support PVC léger",
+          "panneau forex 5mm"
+        ],
+        "title_template": "Panneau Forex {{format}} {{finition}} — {{quantite}}",
+        "short_description_template": "Le Forex en PVC expansé, léger et robuste : le panneau polyvalent par excellence, en 3 à 5 mm, avec découpe à la forme et pelliculages.",
+        "description_template": "## Le polyvalent de la signalétique rigide\n\nLe Forex est un PVC expansé : une mousse rigide à surface parfaitement lisse qui offre un rendu d'impression haute définition remarquable. Léger, facile à découper et à fixer, résistant aux intempéries et aux UV, il couvre à lui seul la majorité des besoins en signalétique intérieure et extérieure de moyenne durée.\n\n## Caractéristiques techniques\n\nTrois épaisseurs : 3, 4 et 5 mm. Formats standard de 20×30 à 80×120 cm, sur-mesure dès 20×20 cm et jusqu'à 120×200 cm en une pièce (145×200 cm en 4 mm). Disponible en blanc ou teinté dans la masse (noir, bleu, gris, vert, rouge, jaune). Finitions : découpe droite ou de forme libre, perçage, œillets, pelliculages mat, brillant, ultra-brillant ou texturés.\n\n## Les avantages du Forex\n\nSa surface lisse sublime photos et aplats de couleur ; sa légèreté simplifie l'accroche murale ; sa découpe à la forme ouvre le champ aux silhouettes, logos XXL et PLV créatives. Le compromis idéal entre coût, rendu et durabilité.",
+        "h1_template": "Panneau Forex {{format}} PVC expansé",
+        "seo_title": "Panneau Forex imprimé — PVC expansé 3 à 5 mm",
+        "seo_description": "Panneau Forex PVC expansé 3/4/5 mm : surface lisse haute définition, découpe à la forme, intérieur et extérieur. Sur-mesure jusqu'à 145×200 cm.",
+        "seo_keywords": [
+          "panneau forex personnalisé",
+          "impression forex",
+          "PVC expansé imprimé",
+          "panneau PVC léger",
+          "découpe forex à la forme",
+          "signalétique PVC"
+        ],
+        "commercial_pitch": "Un rendu photo impeccable, une découpe à la forme de votre logo et une tenue en extérieur : le Forex fait tout, à un prix qui permet d'en mettre partout. Le couteau suisse de votre signalétique.",
+        "benefits": [
+          "Surface lisse : rendu d'impression haute définition",
+          "Léger et rigide, facile à poser",
+          "Découpe de forme libre pour silhouettes et logos",
+          "Intérieur et extérieur, bonne tenue UV",
+          "Blanc ou teinté masse en 6 coloris",
+          "Excellent rapport rendu/prix"
+        ],
+        "use_cases": [
+          "PLV rigide en point de vente",
+          "Signalétique intérieure d'entreprise",
+          "Silhouette découpée pour vitrine",
+          "Panneau publicitaire moyenne durée",
+          "Décor événementiel réutilisable"
+        ],
+        "usage_examples": [
+          {
+            "title": "Vitrine de parfumerie",
+            "description": "Le flacon vedette découpé à la forme en Forex 5 mm trône en vitrine pendant le lancement."
+          },
+          {
+            "title": "Signalétique de bureaux",
+            "description": "Panneaux d'étage et plaques de porte en Forex 3 mm, homogènes sur tout le siège et remplaçables à moindre coût."
+          },
+          {
+            "title": "Franchise de restauration",
+            "description": "Les visuels menus en Forex pelliculé mat s'accrochent au mur et se remplacent à chaque nouvelle carte."
+          },
+          {
+            "title": "Stand photo",
+            "description": "Un décor découpé grandeur nature en Forex fait office de photobooth aux couleurs de la marque."
+          }
+        ],
+        "faq": [
+          {
+            "question": "Quelle épaisseur de Forex choisir ?",
+            "answer": "3 mm pour l'affichage mural intérieur, 4-5 mm dès qu'il y a manipulation, grand format ou usage extérieur : la rigidité augmente sensiblement avec l'épaisseur."
+          },
+          {
+            "question": "Le Forex tient-il en extérieur ?",
+            "answer": "Oui, il résiste aux intempéries et aux UV pour un usage de moyenne durée. Pour une enseigne permanente de plusieurs années, le Dibond reste préférable."
+          },
+          {
+            "question": "Comment préparer une découpe à la forme ?",
+            "answer": "Ajoutez dans votre PDF un tracé vectoriel de découpe en ton direct, avec des courbes simples et sans angles trop fins qui fragiliseraient la pièce."
+          },
+          {
+            "question": "Comment le fixer ?",
+            "answer": "Adhésif double face haute performance, vis avec perçage, œillets ou profilés : sa légèreté tolère les fixations simples, même sur cloison légère."
+          },
+          {
+            "question": "Quel fichier fournir ?",
+            "answer": "PDF échelle 1 en 150 dpi (300 dpi pour une lecture rapprochée), CMJN, 3 mm de fond perdu, tracé de découpe séparé si forme spéciale."
+          }
+        ],
+        "technical_spec": {
+          "formats": [
+            "Standards de 20×30 à 80×120 cm",
+            "Sur-mesure dès 20×20 cm",
+            "Maximum une pièce : 120×200 cm (3 et 5 mm), 145×200 cm (4 mm)"
+          ],
+          "supports": [
+            "PVC expansé 3, 4 et 5 mm, blanc ou teinté masse (noir, bleu, gris, vert, rouge, jaune)"
+          ],
+          "finitions": [
+            "Découpe droite ou de forme libre",
+            "Perçage et œillets",
+            "Pelliculage mat, brillant, ultra-brillant, texturé",
+            "Vernis sélectif"
+          ],
+          "impression": "Quadri directe haute définition",
+          "quantites": "1 à 100 exemplaires, tarif dégressif",
+          "delais": "Standard 3 à 5 jours ouvrés, express possible",
+          "options": [
+            "Usage intérieur et extérieur moyenne durée",
+            "Compatible systèmes de fixation murale",
+            "Bonne tenue UV"
+          ]
+        }
+      }
+    },
+    {
+      "slug": "panneau_plexi",
+      "name": "Plaque plexiglass",
+      "definition": {
+        "name": "Plaque plexiglass imprimée",
+        "keywords": [
+          "plaque plexiglass",
+          "plexi imprimé",
+          "plaque professionnelle plexiglas",
+          "plaque transparente",
+          "plexiglass personnalisé",
+          "plaque entretoises",
+          "signalétique plexi",
+          "plaque cabinet",
+          "méthacrylate imprimé"
+        ],
+        "title_template": "Plaque plexiglass {{format}} {{finition}} — {{quantite}}",
+        "short_description_template": "Plaque plexiglass 4 mm imprimée avec blanc de soutien : la transparence et l'élégance du verre, sans sa fragilité — montée sur entretoises.",
+        "description_template": "## L'élégance du verre, la sécurité en plus\n\nLa plaque plexiglass est le support signalétique haut de gamme par excellence : sa transparence et sa profondeur évoquent le verre, avec une résistance aux chocs incomparable et sans risque d'éclats. C'est le choix naturel des plaques professionnelles, des enseignes de standing et de la décoration murale premium.\n\n## Caractéristiques techniques\n\nMéthacrylate transparent extrudé de 4 mm, imprimé en quadri directe avec blanc de soutien intégral pour un contraste parfait des couleurs sur fond transparent. Formats de 20×30 à 100×140 cm et sur-mesure jusqu'à 115×200 cm en une pièce. Options de façonnage : découpe laser, perçage, coins arrondis et pose sur entretoises métalliques qui décollent la plaque du mur pour un effet de profondeur très valorisant.\n\n## Les avantages du plexiglass\n\nRésistant aux UV et aux chocs, il convient en intérieur comme en extérieur abrité. Disponible dès l'exemplaire unique, il permet à un cabinet, une étude ou un commerce de s'offrir une entrée à l'image de ses prestations.",
+        "h1_template": "Plaque plexiglass {{format}} imprimée",
+        "seo_title": "Plaque plexiglass imprimée 4 mm — sur mesure",
+        "seo_description": "Plaque plexiglass 4 mm avec blanc de soutien : rendu verre premium, découpe laser, coins arrondis, entretoises. Dès 1 exemplaire, jusqu'à 115×200 cm.",
+        "seo_keywords": [
+          "plaque plexiglass personnalisée",
+          "plaque professionnelle plexi",
+          "impression sur plexiglas",
+          "plaque transparente imprimée",
+          "plaque entretoises",
+          "enseigne plexiglass"
+        ],
+        "commercial_pitch": "Votre plaque professionnelle mérite mieux qu'un rectangle de PVC : le plexiglass sur entretoises donne à votre entrée l'allure d'une maison établie. Dès un exemplaire, façonné à vos dimensions.",
+        "benefits": [
+          "Rendu verre premium avec effet de profondeur",
+          "Blanc de soutien : couleurs éclatantes sur fond transparent",
+          "Résistant aux chocs, sans risque d'éclats coupants",
+          "Tenue UV pour l'extérieur abrité",
+          "Découpe laser, coins arrondis, perçage de précision",
+          "Disponible dès 1 exemplaire"
+        ],
+        "use_cases": [
+          "Plaque professionnelle de cabinet",
+          "Enseigne intérieure de standing",
+          "Signalétique d'accueil d'entreprise",
+          "Décoration murale photo premium",
+          "Plaque commémorative ou de mécénat"
+        ],
+        "usage_examples": [
+          {
+            "title": "Étude notariale",
+            "description": "La plaque plexiglass sur entretoises laiton affiche l'étude à l'entrée de l'immeuble avec la sobriété attendue de la profession."
+          },
+          {
+            "title": "Cabinet paramédical",
+            "description": "Chaque praticien dispose de sa plaque normalisée ; l'ensemble reste homogène et se complète à chaque arrivée."
+          },
+          {
+            "title": "Agence de communication",
+            "description": "Le logo imprimé en réserve, sans blanc de soutien par endroits, joue avec la transparence sur le mur de brique de l'accueil."
+          },
+          {
+            "title": "Hall d'hôtel",
+            "description": "Des tirages photo grand format sous plexi habillent le lobby avec un rendu galerie d'art."
+          }
+        ],
+        "faq": [
+          {
+            "question": "Le plexiglass jaunit-il avec le temps ?",
+            "answer": "Le méthacrylate que nous utilisons offre une bonne tenue aux UV et conserve sa transparence durablement, y compris en extérieur abrité."
+          },
+          {
+            "question": "Comment fixer la plaque au mur ?",
+            "answer": "La pose sur entretoises métalliques est la plus valorisante : quatre perçages en angles, la plaque flotte à quelques centimètres du mur. Fixation adhésive possible sur petites dimensions."
+          },
+          {
+            "question": "Peut-on jouer avec la transparence ?",
+            "answer": "Oui : les zones imprimées sans blanc de soutien restent translucides. Précisez dans votre fichier les zones en réserve pour cet effet vitrail très élégant."
+          },
+          {
+            "question": "Quelle taille maximum en une pièce ?",
+            "answer": "Jusqu'à 115×200 cm en une seule plaque de 4 mm. Au-delà, on compose un ensemble de plusieurs plaques alignées."
+          },
+          {
+            "question": "Quel fichier fournir ?",
+            "answer": "PDF échelle 1 en 300 dpi (lecture de près), CMJN, avec un calque dédié aux zones de blanc de soutien et l'emplacement des perçages si pose sur entretoises."
+          }
+        ],
+        "technical_spec": {
+          "formats": [
+            "Standards de 20×30 à 100×140 cm",
+            "Sur-mesure jusqu'à 115×200 cm en une pièce"
+          ],
+          "supports": [
+            "Méthacrylate transparent extrudé 4 mm"
+          ],
+          "finitions": [
+            "Découpe laser",
+            "Perçage",
+            "Coins arrondis",
+            "Pose sur entretoises"
+          ],
+          "impression": "Quadri directe avec blanc de soutien intégral ou en réserve",
+          "quantites": "1 à 50 exemplaires, tarif dégressif",
+          "delais": "Standard 3 à 5 jours ouvrés, express possible",
+          "options": [
+            "Entretoises métalliques",
+            "Usage intérieur et extérieur abrité",
+            "Tenue UV",
+            "Zones transparentes en réserve"
+          ]
+        }
+      }
+    },
+    {
+      "slug": "adhesif",
+      "name": "Adhésifs / Vitrophanie",
+      "definition": {
+        "name": "Adhésifs et vinyles imprimés",
+        "keywords": [
+          "vinyle adhésif",
+          "adhésif personnalisé",
+          "sticker grand format",
+          "vitrophanie",
+          "adhésif vitrine",
+          "vinyle découpé",
+          "covering",
+          "adhésif mural",
+          "film adhésif imprimé",
+          "lettrage adhésif"
+        ],
+        "title_template": "Adhésif {{format}} {{finition}} — {{quantite}}",
+        "short_description_template": "Vitrines, murs, sols, véhicules : le vinyle adhésif imprimé transforme chaque surface en support de communication, en découpe droite ou à la forme.",
+        "description_template": "## Chaque surface devient un média\n\nLe vinyle adhésif est l'outil le plus souple de la signalétique : il épouse une vitrine, un mur, un sol, une carrosserie ou un mobilier et y installe votre message sans travaux. Pose rapide, dépose propre avec les colles adaptées : c'est la communication qui s'adapte à vos murs, pas l'inverse.\n\n## Caractéristiques techniques\n\nLa gamme couvre tous les usages : vinyle monomère pour les surfaces planes et les campagnes courtes, polymère pour l'extérieur durable, coulé pour les surfaces courbes et les véhicules. S'y ajoutent les spécialités : transparent, dépoli, micro-perforé pour vitrines, repositionnable sans colle, magnétique, antidérapant pour le sol et versions sans PVC. Impression quadri haute définition, découpe droite ou au contour du visuel, laminations mate, brillante ou texturée.\n\n## Les avantages de la gamme\n\nColles au choix — renforcée, pose facile, enlevable sans résidu — pour maîtriser la dépose autant que la pose. Du sticker de 4 cm au covering de vitrine complet, chaque projet trouve son film.",
+        "h1_template": "Adhésifs et vinyles imprimés sur mesure",
+        "seo_title": "Vinyle adhésif imprimé — vitrine, mur, sol",
+        "seo_description": "Impression de vinyles adhésifs : monomère, polymère, coulé, dépoli, micro-perforé, sol antidérapant. Découpe à la forme, colles adaptées à chaque surface.",
+        "seo_keywords": [
+          "vinyle adhésif personnalisé",
+          "impression adhésif grand format",
+          "sticker vitrine",
+          "adhésif mural imprimé",
+          "vinyle découpé à la forme",
+          "film adhésif publicitaire"
+        ],
+        "commercial_pitch": "Vitrine, mur, sol ou véhicule : collez votre message là où passent vos clients, sans travaux ni perceuse. Et quand la campagne change, l'adhésif s'enlève proprement — la surface, elle, reste intacte.",
+        "benefits": [
+          "S'applique sur vitrine, mur, sol, véhicule, mobilier",
+          "Trois familles de films selon durée et surface",
+          "Découpe droite ou au contour exact du visuel",
+          "Colles au choix : renforcée, pose facile, enlevable",
+          "Laminations de protection mate, brillante ou texturée",
+          "Du sticker unitaire au covering complet"
+        ],
+        "use_cases": [
+          "Habillage de vitrine commerciale",
+          "Décor mural de bureaux",
+          "Marquage promotionnel au sol",
+          "Signalétique de véhicule utilitaire",
+          "Personnalisation de mobilier et PLV"
+        ],
+        "usage_examples": [
+          {
+            "title": "Réseau de boutiques",
+            "description": "La campagne saisonnière est déclinée en kits adhésifs identiques posés en vitrine dans tout le réseau, puis déposés sans trace."
+          },
+          {
+            "title": "Open space",
+            "description": "Un décor mural adhésif installe l'univers de la marque dans les bureaux sans peinture ni chantier."
+          },
+          {
+            "title": "Flotte d'utilitaires",
+            "description": "Logos et coordonnées en vinyle coulé habillent les véhicules : chaque trajet devient de la publicité."
+          },
+          {
+            "title": "Supermarché",
+            "description": "Des stickers de sol antidérapants guident les clients vers l'opération promotionnelle du mois."
+          }
+        ],
+        "faq": [
+          {
+            "question": "Monomère, polymère ou coulé : comment choisir ?",
+            "answer": "Monomère pour les surfaces planes et les durées courtes à moyennes, polymère pour l'extérieur de plusieurs années, coulé pour les surfaces courbes et le covering véhicule."
+          },
+          {
+            "question": "L'adhésif s'enlève-t-il proprement ?",
+            "answer": "Avec une colle enlevable, oui : la dépose ne laisse pas de résidu sur la période prévue. Sur les colles standard, un décollage à chaud reste possible mais plus long."
+          },
+          {
+            "question": "Puis-je poser moi-même ?",
+            "answer": "Sur surface plane et propre, oui : films à pose facile, raclette et patience suffisent. Pour les grandes vitrines, les surfaces courbes et les véhicules, un poseur professionnel est recommandé."
+          },
+          {
+            "question": "Quelle durée de vie en extérieur ?",
+            "answer": "De un à deux ans pour un monomère à plusieurs années pour un polymère ou un coulé laminé, selon exposition. La lamination prolonge nettement la tenue."
+          },
+          {
+            "question": "Quel fichier pour une découpe à la forme ?",
+            "answer": "PDF vectoriel avec un tracé de découpe en ton direct, à l'échelle 1. Évitez les détails inférieurs à quelques millimètres, fragiles à l'écheniillage et à la pose."
+          }
+        ],
+        "technical_spec": {
+          "formats": [
+            "Sur mesure, du sticker 4×4 cm aux lés grand format pour vitrines et murs"
+          ],
+          "supports": [
+            "Vinyle monomère",
+            "Vinyle polymère",
+            "Vinyle coulé",
+            "Transparent, dépoli, micro-perforé",
+            "Repositionnable sans colle",
+            "Magnétique",
+            "Textile antidérapant sol",
+            "Option sans PVC"
+          ],
+          "finitions": [
+            "Découpe droite ou au contour (mi-chair)",
+            "Lamination mate, brillante, texturée",
+            "Effets spéciaux (effaçable à sec, textures)"
+          ],
+          "impression": "Quadri haute définition, encres extérieures",
+          "quantites": "1 à 500+ exemplaires, tarif dégressif",
+          "delais": "Standard 3 à 5 jours ouvrés, express possible",
+          "options": [
+            "Colle renforcée, pose facile ou enlevable",
+            "Usage intérieur et extérieur selon film",
+            "Pose par professionnel possible"
+          ]
+        }
+      }
+    },
+    {
+      "slug": "vitrophanie",
+      "name": "Vitrophanie",
+      "definition": {
+        "name": "Vitrophanie (adhésif vitrine)",
+        "keywords": [
+          "vitrophanie",
+          "adhésif vitrine",
+          "sticker vitrine",
+          "film dépoli",
+          "micro-perforé vitrine",
+          "one way vision",
+          "habillage vitrine",
+          "vitrine magasin personnalisée",
+          "film vitrage",
+          "lettrage vitrine"
+        ],
+        "title_template": "Vitrophanie {{format}} {{finition}} — {{quantite}}",
+        "short_description_template": "Transformez votre vitrine en affiche : vitrophanie transparente, dépolie ou micro-perforée one-way, posée côté intérieur et protégée des intempéries.",
+        "description_template": "## Votre vitrine travaille pour vous\n\nLa vitrophanie transforme la plus belle surface de votre commerce — sa vitrine — en support de communication permanent ou saisonnier. Posée côté intérieur du vitrage, elle reste lisible depuis la rue tout en étant protégée de la pluie, des UV directs et des dégradations.\n\n## Caractéristiques techniques\n\nPlusieurs films selon l'effet recherché : vinyle transparent pour un visuel flottant sur le verre (y compris en version ultra-transparente sans voile laiteux), dépoli effet sablé pour l'intimité des bureaux et cabinets, micro-perforé « one-way » qui affiche un visuel plein côté rue tout en préservant la vue et la lumière depuis l'intérieur. Fabrication sur mesure dès 4×4 cm, découpe droite ou au contour exact du visuel, colles repositionnables ou enlevables.\n\n## Les avantages de la vitrophanie\n\nPas de travaux, pas de store ni de panneau : le message est dans le verre. La dépose se fait proprement en fin de campagne, et le vitrage retrouve son état d'origine.",
+        "h1_template": "Vitrophanie {{format}} pour vitrine",
+        "seo_title": "Vitrophanie sur mesure — adhésif vitrine",
+        "seo_description": "Vitrophanie personnalisée : transparent, dépoli sablé ou micro-perforé one-way. Pose intérieure protégée, découpe au contour, dépose propre. Dès 4×4 cm.",
+        "seo_keywords": [
+          "vitrophanie personnalisée",
+          "adhésif vitrine magasin",
+          "film dépoli sur mesure",
+          "micro-perforé one way",
+          "habillage vitrine commerce",
+          "sticker vitrine sur mesure"
+        ],
+        "commercial_pitch": "Votre vitrine est votre meilleur emplacement publicitaire — et vous l'avez déjà. La vitrophanie y installe horaires, offres ou décor complet, posée de l'intérieur, à l'abri des intempéries et des rayures.",
+        "benefits": [
+          "Pose côté intérieur : visuel protégé des intempéries et du vandalisme",
+          "Trois effets : transparent, dépoli intimité, micro-perforé one-way",
+          "Le one-way préserve lumière et vue depuis l'intérieur",
+          "Découpe au contour pour lettrages et logos",
+          "Dépose propre en fin de campagne",
+          "Sur mesure dès 4×4 cm jusqu'à la vitrine complète"
+        ],
+        "use_cases": [
+          "Habillage de vitrine commerciale",
+          "Horaires et informations en porte",
+          "Confidentialité de bureaux vitrés",
+          "Campagne saisonnière en réseau",
+          "Vitrine de local en travaux"
+        ],
+        "usage_examples": [
+          {
+            "title": "Opticien",
+            "description": "Le visuel de la collection couvre la vitrine en micro-perforé : plein écran côté rue, luminosité intacte côté boutique."
+          },
+          {
+            "title": "Cabinet comptable",
+            "description": "Des bandes dépolies à hauteur de regard préservent la confidentialité des bureaux tout en habillant la façade vitrée."
+          },
+          {
+            "title": "Agence bancaire",
+            "description": "Horaires, services et logo en lettrage découpé, posés côté intérieur et donc impossibles à arracher."
+          },
+          {
+            "title": "Local en cours d'aménagement",
+            "description": "Une vitrophanie pleine annonce l'ouverture prochaine et masque le chantier pendant les travaux."
+          }
+        ],
+        "faq": [
+          {
+            "question": "Comment le visuel reste-t-il lisible s'il est posé à l'intérieur ?",
+            "answer": "L'impression est réalisée en miroir sur la face adhésive : collé côté intérieur du vitrage, le visuel se lit à l'endroit depuis la rue, protégé par le verre."
+          },
+          {
+            "question": "Le micro-perforé bloque-t-il la lumière ?",
+            "answer": "Non : ses perforations laissent passer une bonne part de la lumière et préservent la vue de l'intérieur vers l'extérieur, tout en affichant un visuel plein côté rue."
+          },
+          {
+            "question": "La dépose abîme-t-elle le vitrage ?",
+            "answer": "Avec les colles enlevables, l'adhésif se retire sans résidu sur la durée prévue. Le verre retrouve son état d'origine, prêt pour la campagne suivante."
+          },
+          {
+            "question": "Puis-je poser la vitrophanie moi-même ?",
+            "answer": "Sur des surfaces modestes, oui, avec un vitrage propre, de l'eau savonneuse et une raclette. Pour une vitrine complète, un poseur garantit un résultat sans bulles."
+          },
+          {
+            "question": "Quel fichier fournir ?",
+            "answer": "PDF échelle 1 en 150 dpi, CMJN, tracé de découpe vectoriel si contour spécial. Indiquez le sens de pose (intérieur ou extérieur) : nous adaptons le miroir d'impression."
+          }
+        ],
+        "technical_spec": {
+          "formats": [
+            "Sur mesure de 4×4 cm à la vitrine complète en plusieurs lés"
+          ],
+          "supports": [
+            "Vinyle transparent (option ultra-transparent)",
+            "Vinyle dépoli effet sablé",
+            "Micro-perforé one-way vision"
+          ],
+          "finitions": [
+            "Découpe droite ou au contour du visuel",
+            "Pose intérieure ou extérieure",
+            "Colles repositionnables ou enlevables"
+          ],
+          "impression": "Quadri haute définition, impression miroir pour pose intérieure",
+          "quantites": "1 à 100 exemplaires, tarif dégressif",
+          "delais": "Standard 3 à 5 jours ouvrés, express possible",
+          "options": [
+            "Protection intempéries par pose intérieure",
+            "Dépose sans résidu",
+            "Kits multi-vitrines pour réseaux"
+          ]
+        }
+      }
+    },
+    {
+      "slug": "adhesif_sol",
+      "name": "Adhésif de sol",
+      "definition": {
+        "name": "Adhésif de sol antidérapant",
+        "keywords": [
+          "adhésif sol",
+          "sticker sol",
+          "marquage au sol",
+          "vinyle sol antidérapant",
+          "signalétique sol",
+          "adhésif sol magasin",
+          "stickers directionnels",
+          "marquage sol événement",
+          "adhésif sol normé"
+        ],
+        "title_template": "Adhésif de sol {{format}} — {{quantite}}",
+        "short_description_template": "Le sol est le seul média que 100 % de vos clients regardent : nos adhésifs antidérapants normés y installent guidage, promotions et sécurité.",
+        "description_template": "## Le média que tout le monde regarde\n\nEn marchant, chacun regarde où il met les pieds : le marquage au sol bénéficie d'un taux d'exposition unique. Guidage vers un rayon, promotion devant un linéaire, distanciation, sécurité ou simple créativité : l'adhésif de sol installe votre message exactement sur le parcours client.\n\n## Caractéristiques techniques\n\nDeux constructions au choix : vinyle imprimé protégé par une lamination antidérapante spéciale sol, résistante à l'abrasion et aux rayures, ou support textile antidérapant intrinsèque conforme aux normes françaises, y compris au feu. Les deux répondent aux exigences de glissance applicables aux établissements recevant du public. Découpe droite ou à la forme (flèches, pas, ronds, logos), sur mesure au centimètre.\n\n## Les avantages de l'adhésif de sol\n\nPose en quelques minutes sur sol lisse, propre et sec ; dépose sans résidu en fin d'opération. Une solution éphémère ou semi-permanente qui ne nécessite ni peinture ni traçage, et se renouvelle au rythme de vos campagnes.",
+        "h1_template": "Adhésif de sol {{format}} antidérapant",
+        "seo_title": "Adhésif de sol antidérapant — marquage normé",
+        "seo_description": "Stickers de sol antidérapants conformes aux normes : guidage, promotion, sécurité. Lamination anti-abrasion, découpe à la forme, dépose propre.",
+        "seo_keywords": [
+          "adhésif de sol personnalisé",
+          "sticker sol antidérapant",
+          "marquage au sol magasin",
+          "signalétique sol normée",
+          "vinyle sol imprimé",
+          "flèches adhésives sol"
+        ],
+        "commercial_pitch": "Chaque client regarde le sol plusieurs fois par visite : mettez-y votre message. Antidérapant certifié, posé en cinq minutes, retiré sans trace — le média le plus direct du point de vente.",
+        "benefits": [
+          "Exposition maximale : sur le parcours exact du client",
+          "Antidérapant conforme aux normes de glissance ERP",
+          "Lamination anti-abrasion : résiste au passage intensif",
+          "Découpe à la forme : flèches, pas, ronds, logos",
+          "Pose rapide, dépose sans résidu",
+          "Version textile classée feu disponible"
+        ],
+        "use_cases": [
+          "Guidage vers un rayon ou une caisse",
+          "Promotion devant un linéaire",
+          "Parcours événementiel ou salon",
+          "Consignes de sécurité en entrepôt",
+          "Animation de galerie commerciale"
+        ],
+        "usage_examples": [
+          {
+            "title": "Grande surface",
+            "description": "Des pas adhésifs mènent de l'entrée au corner promotionnel : le trafic sur l'opération augmente sensiblement."
+          },
+          {
+            "title": "Salon professionnel",
+            "description": "La signalétique au sol guide les visiteurs vers les halls et sponsors, sans encombrer les allées."
+          },
+          {
+            "title": "Entrepôt logistique",
+            "description": "Zones de circulation piétonne et consignes matérialisées par adhésifs normés, renouvelés lors des audits sécurité."
+          },
+          {
+            "title": "Boutique de centre-ville",
+            "description": "Un sticker de sol en terrasse de la boutique attire les passants vers l'entrée avec une accroche décalée."
+          }
+        ],
+        "faq": [
+          {
+            "question": "L'adhésif de sol est-il vraiment antidérapant ?",
+            "answer": "Oui : la lamination spéciale sol ou le support textile répondent aux normes de glissance en vigueur pour les ERP. C'est indispensable — n'utilisez jamais un adhésif standard au sol."
+          },
+          {
+            "question": "Sur quels sols peut-on le poser ?",
+            "answer": "Sols lisses, propres et secs : carrelage, béton lissé, résine, parquet vitrifié. Les moquettes et sols poreux relèvent du support textile spécifique."
+          },
+          {
+            "question": "Combien de temps tient-il ?",
+            "answer": "Plusieurs semaines à plusieurs mois selon l'intensité du passage. La lamination anti-abrasion encaisse le trafic piéton intensif d'un point de vente."
+          },
+          {
+            "question": "La dépose laisse-t-elle des traces ?",
+            "answer": "Non sur la durée d'usage prévue : l'adhésif se retire d'un tenant. Au-delà, un décollage à chaud et un nettoyant doux suffisent."
+          },
+          {
+            "question": "Quel fichier fournir ?",
+            "answer": "PDF échelle 1 en 150 dpi, CMJN, tracé de découpe vectoriel pour les formes. Prévoyez des visuels contrastés : au sol, la lisibilité prime sur la finesse."
+          }
+        ],
+        "technical_spec": {
+          "formats": [
+            "Sur mesure au centimètre, formes libres (flèches, pas, ronds, logos)"
+          ],
+          "supports": [
+            "Vinyle imprimé + lamination antidérapante spéciale sol",
+            "Textile adhésif antidérapant classé feu"
+          ],
+          "finitions": [
+            "Lamination anti-abrasion et anti-rayures",
+            "Découpe droite ou à la forme"
+          ],
+          "impression": "Quadri haute définition",
+          "quantites": "1 à 500 exemplaires, tarif dégressif",
+          "delais": "Standard 3 à 5 jours ouvrés, express possible",
+          "options": [
+            "Conformité normes de glissance ERP",
+            "Dépose sans résidu",
+            "Kits multi-magasins"
+          ]
+        }
+      }
+    },
+    {
+      "slug": "plv",
+      "name": "PLV / Displays",
+      "definition": {
+        "name": "PLV et displays publicitaires",
+        "keywords": [
+          "PLV",
+          "display publicitaire",
+          "présentoir",
+          "PLV carton",
+          "PLV comptoir",
+          "PLV de sol",
+          "totem publicitaire",
+          "stop-rayon",
+          "display point de vente",
+          "présentoir personnalisé"
+        ],
+        "title_template": "PLV {{format}} {{finition}} — {{quantite}}",
+        "short_description_template": "Présentoirs comptoir, totems, PLV de sol, chevalets : toute la publicité sur le lieu de vente, en carton recyclable ou supports rigides, montée sans outil.",
+        "description_template": "## Vendre plus, là où tout se décide\n\nLa majorité des décisions d'achat se prennent en magasin : la PLV — publicité sur le lieu de vente — est l'outil qui transforme cette réalité en chiffre d'affaires. Présentoirs de comptoir, totems, displays de sol, chevalets et cubes : chaque implantation trouve son support.\n\n## Caractéristiques techniques\n\nLe cœur de gamme est le carton — compact, micro-cannelure ou alvéolaire — imprimé en quadri directe ou contrecollé offset pour un rendu premium. Léger, recyclable, il se livre à plat et se monte sans outil en quelques gestes. Pour les usages durables ou humides, les mêmes formes existent en PVC, Forex ou bois. Du chevalet de table de 20 cm au totem de 180 cm, la gamme couvre le comptoir, le linéaire et le sol.\n\n## Les avantages de la gamme\n\nDes petites séries accessibles pour tester un concept, des séries plus larges à tarif dégressif pour équiper un réseau, et des délais courts qui collent au rythme des opérations commerciales. La PLV carton se recycle après l'opération : le message change, pas les déchets.",
+        "h1_template": "PLV et displays personnalisés",
+        "seo_title": "PLV personnalisée — présentoirs, totems, displays",
+        "seo_description": "PLV sur mesure : présentoirs comptoir, totems carton 180 cm, displays de sol, chevalets. Livrés à plat, montés sans outil, recyclables. Petites séries OK.",
+        "seo_keywords": [
+          "PLV personnalisée",
+          "présentoir carton",
+          "display publicitaire",
+          "PLV comptoir",
+          "totem carton",
+          "PLV point de vente",
+          "présentoir sur mesure"
+        ],
+        "commercial_pitch": "L'achat se décide en rayon : soyez-y. Nos PLV carton se livrent à plat, se montent sans outil et mettent votre produit sous les yeux du client au moment exact où il choisit.",
+        "benefits": [
+          "Couvre comptoir, linéaire et sol",
+          "Carton léger, livré à plat, monté sans outil",
+          "Impression directe ou contrecollé offset premium",
+          "Recyclable après l'opération",
+          "Petites séries possibles pour tester",
+          "Variantes durables en PVC, Forex ou bois"
+        ],
+        "use_cases": [
+          "Lancement produit en pharmacie",
+          "Mise en avant promotionnelle en GMS",
+          "Présentoir de caisse en boutique",
+          "Théâtralisation saisonnière de vitrine",
+          "Animation de salon ou showroom"
+        ],
+        "usage_examples": [
+          {
+            "title": "Laboratoire pharmaceutique",
+            "description": "Un présentoir de comptoir garni de leaflets équipe 200 pharmacies pour le lancement de la gamme hiver."
+          },
+          {
+            "title": "Marque de cosmétiques",
+            "description": "Le display de sol théâtralise la nouveauté en tête de gondole pendant le temps fort promotionnel."
+          },
+          {
+            "title": "Cave à vins",
+            "description": "Un totem carton présente la sélection du mois à l'entrée, remplacé à chaque nouvel arrivage."
+          },
+          {
+            "title": "Éditeur",
+            "description": "Les présentoirs à étagères mettent la nouveauté en avant chez les libraires partenaires."
+          }
+        ],
+        "faq": [
+          {
+            "question": "Le carton est-il assez solide pour le point de vente ?",
+            "answer": "Oui : les cannelures et structures alvéolaires sont dimensionnées pour supporter produits et manipulations pendant toute une opération commerciale. Les charges lourdes relèvent des versions renforcées ou rigides."
+          },
+          {
+            "question": "Le montage nécessite-t-il des outils ?",
+            "answer": "Non : les PLV se livrent à plat, prédécoupées et rainées, et se montent par pliage et emboîtage en quelques minutes, notice fournie."
+          },
+          {
+            "question": "Quelle quantité minimum ?",
+            "answer": "Les petites séries sont possibles dès quelques exemplaires — idéal pour tester un concept avant un déploiement réseau à tarif dégressif."
+          },
+          {
+            "question": "Impression directe ou contrecollage : quelle différence ?",
+            "answer": "L'impression directe sur carton est économique et rapide ; le contrecollage d'une feuille offset apporte un rendu premium (couleurs denses, pelliculage) pour les marques exigeantes."
+          },
+          {
+            "question": "Quel fichier fournir ?",
+            "answer": "Nous fournissons le gabarit à plat de chaque modèle : placez-y votre création en CMJN, 300 dpi, en respectant zones de pli et fonds perdus."
+          }
+        ],
+        "technical_spec": {
+          "formats": [
+            "Du chevalet de table (~20 cm) au totem de sol (~180 cm)"
+          ],
+          "supports": [
+            "Carton compact",
+            "Carton micro-cannelure",
+            "Carton alvéolaire kraft",
+            "Contrecollé offset",
+            "Variantes PVC, Forex, bois"
+          ],
+          "finitions": [
+            "Prédécoupe et rainage",
+            "Pliage et emboîtage sans outil",
+            "Pelliculage sur contrecollé",
+            "Découpe à la forme"
+          ],
+          "impression": "Quadri directe ou offset contrecollé",
+          "quantites": "1 à 500 exemplaires, tarif dégressif",
+          "delais": "Standard 3 à 5 jours ouvrés, express possible",
+          "options": [
+            "Livraison à plat",
+            "Recyclable",
+            "Gabarits fournis",
+            "Usage intérieur"
+          ]
+        }
+      }
+    },
+    {
+      "slug": "presentoir_comptoir",
+      "name": "Présentoir comptoir",
+      "definition": {
+        "name": "Présentoir de comptoir porte-flyers",
+        "keywords": [
+          "présentoir comptoir",
+          "porte-flyers",
+          "présentoir carton",
+          "porte-brochures",
+          "présentoir cartes de visite",
+          "PLV comptoir",
+          "présentoir dépliants",
+          "chevalet de comptoir",
+          "display comptoir"
+        ],
+        "title_template": "Présentoir comptoir {{format}} — {{quantite}}",
+        "short_description_template": "Le présentoir de comptoir en carton contrecollé met vos flyers et cartes à portée de main de chaque client encaissé : le rebond commercial le plus simple.",
+        "description_template": "## Le dernier mot avant la sortie\n\nLe comptoir est le point de passage obligé de tous vos clients : un présentoir bien conçu y distribue vos flyers, cartes et dépliants au moment où l'attention est acquise. C'est l'outil de rebond commercial le plus économique qui soit — chaque document emporté prolonge la visite.\n\n## Caractéristiques techniques\n\nStructure en carton rigide, imprimée en direct ou contrecollée d'une feuille offset pour un rendu premium, avec fronton personnalisable pour porter votre message au-dessus des documents. Cases dimensionnées pour les formats courants de dépliants et cartes commerciales ; versions à grand fronton pour maximiser la visibilité, et déclinaisons transparentes ou en Forex pour les usages durables. Livré à plat, monté par pliage en quelques secondes.\n\n## Les avantages du présentoir comptoir\n\nUn coût unitaire minime, une personnalisation totale à vos couleurs, et un déploiement facile en réseau : chaque point de vente, salon ou partenaire reçoit son présentoir plié dans une enveloppe. Recyclable en fin de campagne.",
+        "h1_template": "Présentoir de comptoir {{format}} personnalisé",
+        "seo_title": "Présentoir comptoir personnalisé — porte-flyers",
+        "seo_description": "Présentoir de comptoir carton avec fronton personnalisé : flyers, dépliants et cartes au point d'encaissement. Livré à plat, monté en 10 s.",
+        "seo_keywords": [
+          "présentoir comptoir carton",
+          "porte-flyers personnalisé",
+          "présentoir dépliants",
+          "porte-brochures comptoir",
+          "PLV comptoir personnalisée",
+          "présentoir cartes commerciales"
+        ],
+        "commercial_pitch": "Chaque client qui paie passe devant votre comptoir : posez-y un présentoir qui prolonge la conversation. Pour le prix de quelques cafés, vos flyers trouvent preneur toute l'année.",
+        "benefits": [
+          "Positionné au point de contact universel : l'encaissement",
+          "Fronton personnalisé pour porter votre accroche",
+          "Cases adaptées aux formats dépliants et cartes",
+          "Livré à plat, monté par pliage en secondes",
+          "Coût unitaire minime, idéal en déploiement réseau",
+          "Carton recyclable, versions durables disponibles"
+        ],
+        "use_cases": [
+          "Comptoir de commerce de proximité",
+          "Accueil d'hôtel ou d'office de tourisme",
+          "Caisse de pharmacie ou parapharmacie",
+          "Stand de salon professionnel",
+          "Banque d'accueil d'entreprise"
+        ],
+        "usage_examples": [
+          {
+            "title": "Office de tourisme",
+            "description": "Les présentoirs répartis chez les commerçants partenaires diffusent le programme des animations estivales."
+          },
+          {
+            "title": "Garage automobile",
+            "description": "Au comptoir, le présentoir propose la carte fidélité entretien à chaque restitution de véhicule."
+          },
+          {
+            "title": "Institut de beauté",
+            "description": "Le porte-cartes contrecollé pelliculé assorti à la charte diffuse les cartes de rendez-vous et les offres parrainage."
+          },
+          {
+            "title": "Salon B2B",
+            "description": "Chaque hôtesse dispose d'un présentoir plié dans sa valise, monté en dix secondes à l'ouverture du stand."
+          }
+        ],
+        "faq": [
+          {
+            "question": "Quels formats de documents peut-il recevoir ?",
+            "answer": "Les cases standard accueillent les formats courants de dépliants (tiers de page, A5) et de cartes commerciales. Indiquez votre format : nous orientons vers le bon modèle."
+          },
+          {
+            "question": "Le carton tient-il dans la durée ?",
+            "answer": "Plusieurs mois d'usage en comptoir sans problème. Pour un usage permanent ou en environnement humide, les versions Forex ou transparentes prennent le relais."
+          },
+          {
+            "question": "Comment se monte-t-il ?",
+            "answer": "Livré à plat, prédécoupé et rainé : quelques plis et emboîtages suffisent, sans colle ni outil. Une notice illustrée accompagne chaque modèle."
+          },
+          {
+            "question": "Quelle quantité commander pour un réseau ?",
+            "answer": "Dès quelques exemplaires pour un test, avec un tarif dégressif rapide dès quelques dizaines : équiper 50 ou 100 points de vente reste très accessible."
+          },
+          {
+            "question": "Quel fichier fournir ?",
+            "answer": "Votre création aux couleurs de la marque sur le gabarit à plat fourni, en CMJN 300 dpi, avec fonds perdus. Le fronton est la zone la plus visible : soignez l'accroche."
+          }
+        ],
+        "technical_spec": {
+          "formats": [
+            "Modèles comptoir pour dépliants tiers de page, A5 et cartes commerciales",
+            "Versions à grand fronton"
+          ],
+          "supports": [
+            "Carton rigide impression directe",
+            "Carton contrecollé offset",
+            "Variantes Forex et transparentes"
+          ],
+          "finitions": [
+            "Prédécoupe et rainage",
+            "Montage par pliage sans colle",
+            "Pelliculage sur contrecollé",
+            "Fronton personnalisé"
+          ],
+          "impression": "Quadri directe ou offset contrecollé",
+          "quantites": "1 à 500 exemplaires, tarif dégressif",
+          "delais": "Standard 3 à 5 jours ouvrés, express possible",
+          "options": [
+            "Livraison à plat",
+            "Recyclable",
+            "Usage intérieur comptoir"
+          ]
+        }
+      }
+    },
+    {
+      "slug": "totem_carton",
+      "name": "Totem carton",
+      "definition": {
+        "name": "Totem publicitaire en carton",
+        "keywords": [
+          "totem carton",
+          "totem publicitaire",
+          "totem PLV",
+          "colonne publicitaire carton",
+          "totem 180 cm",
+          "totem alvéolaire",
+          "totem 3 faces",
+          "display vertical carton",
+          "totem événementiel"
+        ],
+        "title_template": "Totem carton {{format}} — {{quantite}}",
+        "short_description_template": "Un totem carton de 1,60 à 1,80 m qui se monte sans outil : la présence verticale d'une colonne publicitaire, le poids et le prix du carton en moins.",
+        "description_template": "## La stature d'une colonne, la légèreté du carton\n\nÀ hauteur d'homme, le totem carton impose votre message dans un hall, une allée de magasin ou un salon. C'est l'alternative maligne aux totems rigides : quelques kilos, un montage par pliage sans le moindre outil, et un coût qui autorise le déploiement en réseau ou le renouvellement à chaque campagne.\n\n## Caractéristiques techniques\n\nTrois architectures au choix : le totem compact (environ 50×180 cm) pour une silhouette fine, le totem alvéolaire (environ 60×176 cm avec base de 26 cm) dont l'âme kraft en nid d'abeille apporte rigidité et stabilité — découpe à la forme possible —, et le totem 3 faces (environ 36×158 cm) lisible sous tous les angles. Impression quadri sur carton blanc ou contrecollage offset brillant pour un rendu premium.\n\n## Les avantages du totem carton\n\nLivré à plat, il voyage dans un colis standard et se stocke sans encombre entre deux événements. En fin d'opération, il se recycle intégralement : votre communication verticale sans bilan matière.",
+        "h1_template": "Totem carton {{format}} personnalisé",
+        "seo_title": "Totem carton personnalisé 180 cm — PLV verticale",
+        "seo_description": "Totem publicitaire carton : compact, alvéolaire ou 3 faces, ~160-180 cm de haut. Monté sans outil, livré à plat, 100 % recyclable. Impact vertical maxi.",
+        "seo_keywords": [
+          "totem carton personnalisé",
+          "totem publicitaire 180 cm",
+          "totem alvéolaire",
+          "totem 3 faces carton",
+          "colonne publicitaire carton",
+          "PLV verticale salon"
+        ],
+        "commercial_pitch": "Un totem à hauteur d'homme qui arrive à plat dans un colis et se dresse en deux minutes : l'impact d'une colonne publicitaire sans la logistique. Et après l'opération, direction le bac de tri.",
+        "benefits": [
+          "Hauteur d'homme : visible par-dessus les rayonnages",
+          "Montage par pliage, sans outil ni notice complexe",
+          "Livré à plat : transport et stockage minimaux",
+          "Version 3 faces lisible sous tous les angles",
+          "Alvéolaire rigide avec découpe à la forme possible",
+          "100 % recyclable après l'opération"
+        ],
+        "use_cases": [
+          "Entrée de magasin ou de galerie",
+          "Allée de salon professionnel",
+          "Lancement produit en réseau",
+          "Signalétique de hall d'accueil",
+          "Animation de cinéma ou de spectacle"
+        ],
+        "usage_examples": [
+          {
+            "title": "Réseau bancaire",
+            "description": "Un totem 3 faces dans chaque agence annonce la nouvelle offre, expédié à plat par simple colis."
+          },
+          {
+            "title": "Sortie cinéma",
+            "description": "Le totem alvéolaire découpé à la silhouette du héros anime le hall pendant l'exploitation du film."
+          },
+          {
+            "title": "Salon RH",
+            "description": "Deux totems compacts encadrent l'entrée du stand et guident les candidats vers l'espace entretien."
+          },
+          {
+            "title": "Galerie commerciale",
+            "description": "Les totems du programme d'animations jalonnent le mail et se remplacent à chaque saison."
+          }
+        ],
+        "faq": [
+          {
+            "question": "Un totem carton est-il stable ?",
+            "answer": "Oui, en intérieur : la base large et, sur la version alvéolaire, l'âme en nid d'abeille assurent l'aplomb. Évitez simplement les courants d'air et l'extérieur."
+          },
+          {
+            "question": "Combien de temps dure-t-il ?",
+            "answer": "Toute la durée d'une opération commerciale, soit plusieurs semaines à plusieurs mois en intérieur. Manipulé avec soin et stocké à plat au sec, il ressert."
+          },
+          {
+            "question": "Quelle version choisir ?",
+            "answer": "Compact pour le budget et la finesse, alvéolaire pour la rigidité et la découpe à la forme, 3 faces pour les emplacements traversants vus sous plusieurs angles."
+          },
+          {
+            "question": "Comment se passe le montage ?",
+            "answer": "Le totem arrive à plat, prédécoupé et rainé : dépliage, emboîtage de la base, et il tient debout en une à deux minutes, sans outil."
+          },
+          {
+            "question": "Quel fichier fournir ?",
+            "answer": "Votre création sur le gabarit à plat du modèle choisi, CMJN 300 dpi, fonds perdus inclus. Sur le 3 faces, pensez chaque face comme un message autonome."
+          }
+        ],
+        "technical_spec": {
+          "formats": [
+            "Totem compact ~50×180 cm",
+            "Totem alvéolaire ~60×176 cm (base ~26 cm)",
+            "Totem 3 faces ~36×158 cm (base ~32 cm)"
+          ],
+          "supports": [
+            "Carton compact",
+            "Carton alvéolaire à âme kraft nid d'abeille",
+            "Carton blanc contrecollé sur cannelure kraft",
+            "Contrecollage offset brillant"
+          ],
+          "finitions": [
+            "Prédécoupe et rainage",
+            "Montage par pliage sans outil",
+            "Découpe à la forme (version alvéolaire)"
+          ],
+          "impression": "Quadri directe ou offset contrecollé",
+          "quantites": "1 à 200 exemplaires, tarif dégressif",
+          "delais": "Standard 3 à 5 jours ouvrés, express possible",
+          "options": [
+            "Livraison à plat",
+            "100 % recyclable",
+            "Usage intérieur"
+          ]
+        }
+      }
+    },
+    {
+      "slug": "stop_trottoir",
+      "name": "Stop-trottoir / Chevalet",
+      "definition": {
+        "name": "Stop-trottoir et chevalet publicitaire",
+        "keywords": [
+          "stop-trottoir",
+          "chevalet publicitaire",
+          "chevalet de trottoir",
+          "porte-affiche A1",
+          "cadre clic-clac",
+          "panneau trottoir",
+          "chevalet extérieur",
+          "stop trottoir lesté",
+          "chevalet double face"
+        ],
+        "title_template": "Stop-trottoir {{format}} — {{quantite}}",
+        "short_description_template": "Le stop-trottoir à cadre clic-clac arrête les passants devant votre porte : affiche A1 changée en 30 secondes, double face, stable dehors.",
+        "description_template": "## Arrêtez les passants devant votre porte\n\nPosé sur le trottoir, le chevalet publicitaire intercepte le flux piéton au moment décisif : à deux mètres de votre entrée. Menu du jour, promotion, nouvelle collection — son double affichage travaille dans les deux sens de circulation, toute la journée.\n\n## Caractéristiques techniques\n\nLe modèle à cadres clic-clac reçoit une affiche standard (format A1 courant) sous film de protection : on relève les quatre profils du cadre, on positionne l'affiche, on referme — trente secondes sans outil, des deux côtés. Le chevalet pliant classique (environ 65×117 cm) se range à plat chaque soir. Pour les emplacements exposés, la version étanche à réservoir lestable (environ 25 L d'eau ou de sable) et joints d'étanchéité affronte pluie et rafales.\n\n## Les avantages du stop-trottoir\n\nUn seul investissement, des centaines de messages : seule l'affiche change, au rythme de vos offres. Nous imprimons vos affiches en série pour planifier toute la saison de communication.",
+        "h1_template": "Stop-trottoir {{format}} double face",
+        "seo_title": "Stop-trottoir personnalisé — chevalet A1 clic-clac",
+        "seo_description": "Stop-trottoir et chevalet publicitaire : cadre clic-clac A1 double face, affiche changée en 30 s, version étanche lestée pour l'extérieur exposé.",
+        "seo_keywords": [
+          "stop-trottoir A1",
+          "chevalet publicitaire extérieur",
+          "porte-affiche trottoir",
+          "cadre clic-clac",
+          "chevalet double face commerce",
+          "stop trottoir lesté"
+        ],
+        "commercial_pitch": "Votre meilleur vendeur reste dehors par tous les temps : le stop-trottoir capte les passants dans les deux sens et change d'argumentaire en trente secondes. Achetez la structure une fois, renouvelez l'affiche à volonté.",
+        "benefits": [
+          "Intercepte le flux piéton devant votre porte",
+          "Double face : lisible dans les deux sens de circulation",
+          "Changement d'affiche en 30 secondes, sans outil",
+          "Film de protection anti-pluie et anti-UV sur l'affiche",
+          "Version lestée à réservoir pour sites exposés",
+          "Structure réutilisable des années, affiches en série"
+        ],
+        "use_cases": [
+          "Menu du jour de restaurant",
+          "Promotion de commerce de proximité",
+          "Signalement d'entrée en retrait",
+          "Animation de pharmacie",
+          "Fléchage ponctuel d'événement"
+        ],
+        "usage_examples": [
+          {
+            "title": "Restaurant",
+            "description": "Le menu du midi s'affiche à 11 h 30 en trente secondes ; le soir, l'affiche carte des vins prend le relais."
+          },
+          {
+            "title": "Boutique en retrait de rue",
+            "description": "Posé à l'angle passant, le chevalet redirige le flux piéton vers l'entrée située dans la cour."
+          },
+          {
+            "title": "Pharmacie",
+            "description": "Les campagnes santé saisonnières se succèdent sur le même stop-trottoir, affiches imprimées en lot en début d'année."
+          },
+          {
+            "title": "Agence événementielle",
+            "description": "Le modèle lesté résiste au vent du parvis et signale l'accueil du séminaire toute la journée."
+          }
+        ],
+        "faq": [
+          {
+            "question": "Quel format d'affiche utiliser ?",
+            "answer": "Le format A1 (59,4×84,1 cm) est le standard des cadres clic-clac. Nous imprimons vos affiches à l'unité ou en série pour planifier vos campagnes."
+          },
+          {
+            "question": "L'affiche craint-elle la pluie ?",
+            "answer": "Le film de protection du cadre couvre l'affiche ; sur la version étanche, joints et plaques renforcées protègent durablement. Pour l'extérieur permanent, une affiche sur papier résistant ou synthétique est recommandée."
+          },
+          {
+            "question": "Tient-il debout par grand vent ?",
+            "answer": "Le modèle standard convient aux emplacements abrités ; en site exposé, choisissez la version à réservoir lestable rempli d'eau ou de sable."
+          },
+          {
+            "question": "Le changement d'affiche est-il vraiment rapide ?",
+            "answer": "Oui : les quatre profils du cadre se relèvent à la main, l'affiche se positionne, les profils se rabattent. Trente secondes par face, sans outil."
+          },
+          {
+            "question": "Faut-il une autorisation pour le trottoir ?",
+            "answer": "Dans la plupart des communes, l'occupation du domaine public est soumise à autorisation ou redevance : renseignez-vous en mairie avant l'installation."
+          }
+        ],
+        "technical_spec": {
+          "formats": [
+            "Cadre clic-clac pour affiche A1",
+            "Chevalet pliant ~65×117 cm",
+            "Version étanche à réservoir ~25 L"
+          ],
+          "supports": [
+            "Structure cadre aluminium ou PVC renforcé",
+            "Affiches papier ou synthétiques imprimées en série"
+          ],
+          "finitions": [
+            "Cadres clic-clac double face",
+            "Film de protection d'affiche",
+            "Joints d'étanchéité (version étanche)"
+          ],
+          "impression": "Affiches quadri, renouvelables à volonté",
+          "quantites": "Structures à l'unité, affiches de 1 à 100+",
+          "delais": "Standard 3 à 5 jours ouvrés, express possible",
+          "options": [
+            "Réservoir lestable eau/sable",
+            "Pliable pour rangement quotidien",
+            "Usage intérieur et extérieur"
+          ]
+        }
+      }
+    },
+    {
+      "slug": "stand_parapluie",
+      "name": "Stand parapluie",
+      "definition": {
+        "name": "Stand parapluie textile (mur d'image)",
+        "keywords": [
+          "stand parapluie",
+          "mur d'image",
+          "fond de stand",
+          "stand pop-up",
+          "photocall",
+          "stand salon pliable",
+          "mur textile",
+          "stand parapluie 3x3",
+          "fond de scène",
+          "stand exposition"
+        ],
+        "title_template": "Stand parapluie {{format}} {{finition}} — {{quantite}}",
+        "short_description_template": "Le mur d'image qui tient dans un sac : structure parapluie alu dépliée en 5 minutes, toile textile sublimée infroissable qui reste fixée en permanence.",
+        "description_template": "## Un fond de stand professionnel en cinq minutes\n\nLe stand parapluie déploie un mur d'image complet aussi simplement qu'on ouvre un parapluie : la structure en croisillons d'aluminium s'étire, la toile imprimée — qui reste fixée en permanence — se tend d'elle-même. En cinq à dix minutes, sans outil, votre stand affiche un visuel continu du sol au plafond.\n\n## Caractéristiques techniques\n\nLe format de référence 3×3 couvre environ 227×227 cm, et la gamme s'étend du 2×3 aux très grandes largeurs pour les fonds de scène. Versions droites (pose murale) ou courbes (angles, retour formant réserve de rangement). La toile en polyester stretch 240 g classée M1 est imprimée par sublimation : infroissable, elle se replie avec la structure sans marquer. L'ensemble pèse une dizaine de kilos en 3×3, housse de transport comprise.\n\n## Les avantages du stand parapluie\n\nUn seul bagage, aucune compétence de montage, un rendu mur d'image continu sans raccords visibles : c'est l'équipement salon le plus rentable pour les exposants réguliers. La toile se remplace seule quand la communication évolue.",
+        "h1_template": "Stand parapluie {{format}} personnalisé",
+        "seo_title": "Stand parapluie personnalisé — mur d'image 3x3",
+        "seo_description": "Stand parapluie textile : mur d'image 227×227 cm monté en 5 min, toile 240 g M1 sublimée infroissable fixée à demeure, housse incluse. Droit ou courbe.",
+        "seo_keywords": [
+          "stand parapluie personnalisé",
+          "mur d'image salon",
+          "stand pop-up textile",
+          "fond de stand 3x3",
+          "photocall entreprise",
+          "stand pliable exposition"
+        ],
+        "commercial_pitch": "Arrivez sur le salon avec un sac, exposez cinq minutes plus tard devant un mur d'image professionnel. La toile reste fixée à la structure : au prochain salon, vous ne faites que déplier.",
+        "benefits": [
+          "Mur d'image continu, sans raccords visibles",
+          "Montage en 5 à 10 minutes, sans outil",
+          "Toile infroissable fixée à demeure sur la structure",
+          "Polyester 240 g M1 conforme aux exigences des salons",
+          "Une dizaine de kilos en 3×3, housse incluse",
+          "Toile remplaçable indépendamment de la structure"
+        ],
+        "use_cases": [
+          "Fond de stand de salon",
+          "Photocall d'événement d'entreprise",
+          "Fond de scène de conférence",
+          "Mur presse et partenaires",
+          "Décor de showroom itinérant"
+        ],
+        "usage_examples": [
+          {
+            "title": "Exposant multi-salons",
+            "description": "Le même stand parapluie fait cinq salons par an : déplié, replié, toujours impeccable grâce à la toile infroissable."
+          },
+          {
+            "title": "Soirée d'entreprise",
+            "description": "Le mur logotypé sert de photocall : chaque photo partagée diffuse la marque sur les réseaux."
+          },
+          {
+            "title": "Conférence de presse",
+            "description": "Le fond aux logos répétés cadre les interviews vidéo avec un rendu net, sans reflet de flash."
+          },
+          {
+            "title": "Stand en angle",
+            "description": "La version courbe habille l'angle du stand et ménage derrière elle une réserve pour les cartons et manteaux."
+          }
+        ],
+        "faq": [
+          {
+            "question": "Faut-il démonter la toile pour replier le stand ?",
+            "answer": "Non : c'est tout l'intérêt du système. La toile stretch reste fixée à la structure, se replie avec elle sans se froisser et ressort tendue au déploiement suivant."
+          },
+          {
+            "question": "Combien de temps pour le montage ?",
+            "answer": "Cinq à dix minutes seul ou à deux : on déplie la structure en croisillons, on verrouille, on lisse la toile. Aucun outil, aucune compétence particulière."
+          },
+          {
+            "question": "Droit ou courbe : que choisir ?",
+            "answer": "Droit pour un mur d'image plaqué au fond du stand ; courbe pour habiller un angle ou créer une réserve de rangement derrière la toile."
+          },
+          {
+            "question": "Le transport est-il vraiment facile ?",
+            "answer": "Le 3×3 pèse environ 10 kg, housse comprise : il voyage en coffre de voiture, en train ou en soute, porté par une seule personne."
+          },
+          {
+            "question": "Quel fichier fournir ?",
+            "answer": "Votre visuel sur le gabarit du format choisi, échelle 1 en 150 dpi, CMJN. Anticipez le retour des côtés et gardez textes et logos dans la zone frontale."
+          }
+        ],
+        "technical_spec": {
+          "formats": [
+            "3×3 : ~227×227 cm",
+            "Gamme de 2×3 aux grandes largeurs (structures ~150 à ~740 cm)",
+            "Versions droites ou courbes"
+          ],
+          "supports": [
+            "Polyester stretch 240 g classé M1, impression sublimation"
+          ],
+          "finitions": [
+            "Toile fixée à demeure, infroissable",
+            "Retours latéraux imprimés",
+            "Visuel remplaçable"
+          ],
+          "impression": "Sublimation quadri haute définition",
+          "quantites": "1 à 20 exemplaires, tarif dégressif",
+          "delais": "Standard 5 à 7 jours ouvrés, express possible",
+          "options": [
+            "Structure aluminium et fibre de verre incluse",
+            "Housse de transport incluse",
+            "Classement feu M1",
+            "Poids ~10 kg en 3×3"
+          ]
+        }
+      }
+    }
+  ],
+  "enrichissements": [
+    {
+      "slug": "roll_up_80x200",
+      "commercial_pitch": "Le format le plus vendu du marché, et pour cause : assez large pour votre message, assez compact pour voyager partout. Structure, toile M1 et sac inclus — déployé en moins d'une minute.",
+      "benefits": [
+        "Le standard universel : compatible avec tous les espaces",
+        "Montage en moins d'une minute, sans outil",
+        "Structure aluminium lestée, stable et légère (~3 kg)",
+        "Sac de transport inclus, portable à une main",
+        "Toile classée M1 acceptée dans tous les salons et ERP",
+        "Le meilleur prix d'entrée de la gamme kakémono"
+      ],
+      "use_cases": [
+        "Stand de salon professionnel",
+        "Accueil de boutique ou d'agence",
+        "Animation en galerie commerciale",
+        "Signalétique de séminaire",
+        "Vitrine promotionnelle temporaire"
+      ],
+      "seo_keywords": [
+        "roll-up 80x200",
+        "roll-up 85x200",
+        "kakémono 80x200",
+        "impression roll-up",
+        "roll-up pas cher",
+        "enrouleur publicitaire standard",
+        "roll-up salon"
+      ],
+      "technical_spec": {
+        "formats": [
+          "~84×204 cm (standard marché 80/85×200 cm)"
+        ],
+        "supports": [
+          "Bâche PVC 450 g dos occultant M1",
+          "Polyester 270 g M1",
+          "Polyester 260 g sans PVC M1"
+        ],
+        "finitions": [
+          "Toile enroulable dans la base",
+          "Visuel remplaçable selon modèle"
+        ],
+        "impression": "Quadri recto haute définition",
+        "quantites": "1 à 50 exemplaires, tarif dégressif",
+        "delais": "Standard 3 à 5 jours ouvrés, express possible",
+        "options": [
+          "Structure aluminium incluse",
+          "Barre de lestage",
+          "Sac de transport inclus",
+          "Classement feu M1"
+        ]
+      }
+    }
+  ]
+}
