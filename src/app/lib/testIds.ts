@@ -397,6 +397,17 @@ export const TEST_IDS = {
     editorErrorBanner: 'order-role-editor-error-banner',
   },
 
+  // ─── S2.32 — BO editeur boutique : mode PIM catalogue complet ──────────
+  // Entree "PIM — Catalogue complet" dans DashboardShopEditor : radio maitre
+  // (verse tout le catalogue product_library du tenant) + depliage des
+  // gammes recensees avec selection/deselection par gamme.
+  shopEditor: {
+    pimToggle: 'shop-editor-pim-toggle',
+    pimExpandBtn: 'shop-editor-pim-expand-btn',
+    // Prefixe : le slug de gamme est concatene inline (`${pimGamme}-${slug}`).
+    pimGamme: 'shop-editor-pim-gamme',
+  },
+
   // ─── Mockup engine parametrique (S4.3, Epic 4) ─────────────────────────
   // Composant <MockupImage> consomme l edge function mockup-generator (S4.1c)
   // avec fallback graceful (URL CDN public direct, edge function fetch sur

@@ -30,6 +30,7 @@ import {
 import { buildShopTaxonomy } from '../../utils/shopTaxonomy';
 import { applyTax, getTaxRate } from '../../utils/tax';
 import { applyPricingOverrides, type PricingOverride } from '../../utils/applyPricingOverrides';
+import { resolveShopProductScope } from '../../utils/resolveShopProductScope';
 import {
   tenantOrderInsertSchema,
   tenantOrderItemInsertSchema,
@@ -86,10 +87,19 @@ export function PublicShop() {
   // cette boutique" dans DashboardShopEditor).
   const refetchProducts = async (
     shopId: string,
-    libraryIds: string[],
-    excludedIds: string[] = []
+    opts: {
+      libraryIds: string[];
+      excludedIds?: string[];
+      pimCatalogMode?: boolean;
+      pimGammeSlugs?: string[];
+      tenantId?: string | null;
+    }
   ) => {
-    const excludedSet = new Set(excludedIds);
+    const libraryIds = opts.libraryIds ?? [];
+    const excludedIds = opts.excludedIds ?? [];
+    const pimCatalogMode = opts.pimCatalogMode ?? false;
+    const pimGammeSlugs = opts.pimGammeSlugs ?? [];
+    const tenantId = opts.tenantId ?? null;
 
     const { data: prodData } = await supabase
       .from('shop_products')
@@ -98,33 +108,54 @@ export function PublicShop() {
       .order('display_order', { ascending: true });
     const manual = (prodData ?? []) as ShopProduct[];
 
-    let linked: ShopProduct[] = [];
+    // S2.32 — Deux voies d'exposition product_library, cumulables :
+    //   (a) bibliotheques liees (library_ids)
+    //   (b) mode PIM : catalogue du tenant filtre par gamme recensee
+    // On concatene les lignes brutes des deux requetes puis on delegue le
+    // perimetre (match library/gamme), la dedup par id et l'exclusion au
+    // helper pur resolveShopProductScope.
+    const rawLib: any[] = [];
     if (libraryIds.length > 0) {
-      const { data: libData } = await supabase
+      const { data } = await supabase
         .from('product_library')
         .select('*')
         .in('library_id', libraryIds)
         .eq('active', true)
         .order('created_at', { ascending: false });
-      if (libData) {
-        linked = (libData as any[])
-          .filter((p) => !excludedSet.has(p.id))
-          .map((p) => ({
-            id: `lib-${p.id}`,
-            shop_id: shopId,
-            product_id: p.id,
-            name: p.name,
-            category: p.category || 'Autres',
-            description: p.description || '',
-            price_ht: Number(p.price_ht) || 0,
-            image_url: p.image_url || '',
-            config: p.config || {},
-            display_order: 0,
-            created_at: p.created_at,
-            gamme_slug: p.gamme_slug ?? null,
-          })) as ShopProduct[];
-      }
+      if (data) rawLib.push(...data);
     }
+    if (pimCatalogMode && pimGammeSlugs.length > 0 && tenantId) {
+      const { data } = await supabase
+        .from('product_library')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .in('gamme_slug', pimGammeSlugs)
+        .eq('active', true)
+        .order('created_at', { ascending: false });
+      if (data) rawLib.push(...data);
+    }
+
+    const scoped = resolveShopProductScope(rawLib, {
+      libraryIds,
+      pimCatalogMode,
+      pimGammeSlugs,
+      excludedIds,
+    });
+    const linked: ShopProduct[] = scoped.map((p) => ({
+      id: `lib-${p.id}`,
+      shop_id: shopId,
+      product_id: p.id,
+      name: p.name,
+      category: p.category || 'Autres',
+      description: p.description || '',
+      price_ht: Number(p.price_ht) || 0,
+      image_url: p.image_url || '',
+      config: p.config || {},
+      display_order: 0,
+      created_at: p.created_at,
+      gamme_slug: p.gamme_slug ?? null,
+    })) as ShopProduct[];
+
     const manualIds = new Set(manual.map((p) => p.product_id).filter(Boolean));
     const deduped = linked.filter((p) => !p.product_id || !manualIds.has(p.product_id));
 
@@ -170,8 +201,19 @@ export function PublicShop() {
       const excludedIds = Array.isArray((shopData as Shop).excluded_product_ids)
         ? (shopData as Shop).excluded_product_ids
         : [];
+      // S2.32 — options de perimetre produit (bibliotheques + mode PIM)
+      const shopTenantId = (shopData as Shop).tenant_id ?? null;
+      const scopeOpts = {
+        libraryIds,
+        excludedIds,
+        pimCatalogMode: (shopData as Shop).pim_catalog_mode === true,
+        pimGammeSlugs: Array.isArray((shopData as Shop).pim_gamme_slugs)
+          ? (shopData as Shop).pim_gamme_slugs
+          : [],
+        tenantId: shopTenantId,
+      };
 
-      await refetchProducts((shopData as Shop).id, libraryIds, excludedIds);
+      await refetchProducts((shopData as Shop).id, scopeOpts);
 
       // PIM lecture publique
       const [gr, dr] = await Promise.all([
@@ -184,7 +226,7 @@ export function PublicShop() {
       // S2.2 — Charger les gammes souscrites du tenant proprietaire de la shop.
       // Lecture publique : si la RLS bloque ou si tenant_id absent, on tombe
       // sur subscribedSlugs=null -> fallback "gammes inferees" cote sidebar.
-      const tenantId = (shopData as Shop & { tenant_id?: string }).tenant_id;
+      const tenantId = shopTenantId;
       if (tenantId) {
         const { data: subs, error: subsError } = await supabase
           .from('tenant_gamme_subscriptions')
@@ -210,12 +252,12 @@ export function PublicShop() {
         .on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'shop_products' },
-          () => refetchProducts((shopData as Shop).id, libraryIds, excludedIds)
+          () => refetchProducts((shopData as Shop).id, scopeOpts)
         )
         .on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'product_library' },
-          () => refetchProducts((shopData as Shop).id, libraryIds, excludedIds)
+          () => refetchProducts((shopData as Shop).id, scopeOpts)
         )
         .subscribe();
     })();
@@ -223,11 +265,13 @@ export function PublicShop() {
     // Refetch quand l'onglet redevient actif (cas pas de realtime)
     const onFocus = () => {
       if (shop) {
-        const libraryIds = Array.isArray(shop.library_ids) ? shop.library_ids : [];
-        const excludedIds = Array.isArray(shop.excluded_product_ids)
-          ? shop.excluded_product_ids
-          : [];
-        refetchProducts(shop.id, libraryIds, excludedIds);
+        refetchProducts(shop.id, {
+          libraryIds: Array.isArray(shop.library_ids) ? shop.library_ids : [],
+          excludedIds: Array.isArray(shop.excluded_product_ids) ? shop.excluded_product_ids : [],
+          pimCatalogMode: shop.pim_catalog_mode === true,
+          pimGammeSlugs: Array.isArray(shop.pim_gamme_slugs) ? shop.pim_gamme_slugs : [],
+          tenantId: shop.tenant_id ?? null,
+        });
       }
     };
     window.addEventListener('focus', onFocus);

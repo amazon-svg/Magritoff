@@ -41,6 +41,15 @@ export interface Shop {
   hero_image_url: string | null;
   /** A4.1 — Phrase courte en overlay du hero (max 120 char côté UI). */
   tagline: string | null;
+  /** S2.32 — Mode "Catalogue PIM complet" : ON = la boutique expose le
+   *  catalogue product_library du tenant, filtré par pim_gamme_slugs. */
+  pim_catalog_mode: boolean;
+  /** S2.32 — Gammes recensées explicitement incluses en mode PIM (slugs
+   *  product_gammes). Vide + mode ON = rien exposé. */
+  pim_gamme_slugs: string[];
+  /** Dénormalisé (RLS v3). Nécessaire côté front PublicShop pour la requête
+   *  mode PIM (filtre par tenant du shop). */
+  tenant_id?: string | null;
   created_at?: string;
 }
 

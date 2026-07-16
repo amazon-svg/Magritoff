@@ -41,6 +41,8 @@ import { usePlan } from '../../hooks/usePlan';
 import { useTenantPath } from '../../hooks/useTenantPath';
 import { UpgradeCTA } from './UpgradeCTA';
 import { exportShopToShopifyCsv, exportShopToJson } from '../../utils/shopExport';
+import { resolveShopProductScope } from '../../utils/resolveShopProductScope';
+import { TEST_IDS } from '../../lib/testIds';
 import { lazy, Suspense as ReactSuspense } from 'react';
 
 // P4-VISUELS (2026-06-15) : lazy-load ShopCustomMockups (upload custom).
@@ -95,6 +97,12 @@ export function DashboardShopEditor() {
 
   // Dialog de confirmation suppression
   const [deleteDialog, setDeleteDialog] = useState<DisplayProduct | null>(null);
+
+  // S2.32 — Gammes recensees du tenant (tenant_gamme_subscriptions), source
+  // du depliage du mode PIM. On stocke les slugs ; le libelle vient de PIM
+  // (`gammes`). pimExpanded = etat d'ouverture du bloc PIM.
+  const [subscribedSlugs, setSubscribedSlugs] = useState<string[]>([]);
+  const [pimExpanded, setPimExpanded] = useState(false);
 
   // ─── Upload branding (logo / fond du bandeau) — bucket public shop_backgrounds
   // (2026-07-08, refonte bandeau de marque). Réutilise le bucket + RLS
@@ -161,6 +169,32 @@ export function DashboardShopEditor() {
     }
   }, [id, shops]);
 
+  // S2.32 — Charge les gammes recensees du tenant (pour le depliage mode PIM).
+  useEffect(() => {
+    if (!currentTenant) {
+      setSubscribedSlugs([]);
+      return;
+    }
+    let cancelled = false;
+    supabase
+      .from('tenant_gamme_subscriptions')
+      .select('gamme_slug')
+      .eq('tenant_id', currentTenant.id)
+      .eq('active', true)
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) {
+          console.error('[S2.32] gammes recensees fetch failed', error.message);
+          setSubscribedSlugs([]);
+          return;
+        }
+        setSubscribedSlugs((data ?? []).map((r: any) => r.gamme_slug));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentTenant?.id]);
+
   // A4.5 — Upsert ou delete d'un override de prix sur blur d'un input
   // « Prix négocié ». Si nextValue est un nombre > 0 : upsert. Sinon : delete.
   const savePricingOverride = async (libraryProductId: string, nextValue: number | null) => {
@@ -208,33 +242,33 @@ export function DashboardShopEditor() {
   // des hooks React). On gere le cas shop=null a l'interieur du callback.
   const displayProducts: DisplayProduct[] = useMemo(() => {
     if (!shop) return [];
-    const excluded = new Set(shop.excluded_product_ids ?? []);
-    const libIds = new Set(shop.library_ids ?? []);
 
-    // 1. Produits des bibliotheques liees
-    const fromLibraries: DisplayProduct[] = library
-      .filter((p) => p.active !== false)
-      .filter((p) => p.library_id && libIds.has(p.library_id))
-      .filter((p) => !excluded.has(p.id))
-      .map((p) => ({
-        id: `lib-${p.id}`,
-        source: 'library' as const,
-        sourceId: p.id,
-        libraryProductId: p.id,
-        name: p.name,
-        category: p.category || 'Autres',
-        description: p.description || '',
-        price_ht: Number(p.price_ht) || 0,
-        image_url: p.image_url || '',
-      }));
+    // 1. Produits exposes via product_library : bibliotheques liees OU mode
+    //    PIM (catalogue tenant filtre par gamme). `library` (LibraryContext)
+    //    contient deja tout le catalogue du tenant -> on delegue le perimetre
+    //    au helper pur resolveShopProductScope (miroir exact du front public).
+    const scoped = resolveShopProductScope(library, {
+      libraryIds: shop.library_ids ?? [],
+      pimCatalogMode: shop.pim_catalog_mode === true,
+      pimGammeSlugs: shop.pim_gamme_slugs ?? [],
+      excludedIds: shop.excluded_product_ids ?? [],
+    });
+    const fromLibraries: DisplayProduct[] = scoped.map((p) => ({
+      id: `lib-${p.id}`,
+      source: 'library' as const,
+      sourceId: p.id,
+      libraryProductId: p.id,
+      name: p.name,
+      category: p.category || 'Autres',
+      description: p.description || '',
+      price_ht: Number(p.price_ht) || 0,
+      image_url: p.image_url || '',
+    }));
 
-    // 2. Produits legacy (shop_products sans lien library OU avec
-    //    product_id qui n'est pas dans les libraries liees)
-    const libProductIds = new Set(
-      library.filter((p) => p.library_id && libIds.has(p.library_id)).map((p) => p.id)
-    );
+    // 2. Produits legacy shop_products (hors produits deja exposes ci-dessus)
+    const scopedIds = new Set(scoped.map((p) => p.id));
     const fromShop: DisplayProduct[] = shopProducts
-      .filter((sp) => !sp.product_id || !libProductIds.has(sp.product_id))
+      .filter((sp) => !sp.product_id || !scopedIds.has(sp.product_id))
       .map((sp) => ({
         id: `shop-${sp.id}`,
         source: 'shop' as const,
@@ -247,9 +281,8 @@ export function DashboardShopEditor() {
       }));
 
     return [...fromLibraries, ...fromShop];
-    // On depend uniquement des champs primitifs du shop pour que la memo
-    // se recalcule quand library_ids ou excluded_product_ids changent.
-  }, [library, shopProducts, shop?.excluded_product_ids, shop?.library_ids]);
+    // Recalcul quand library_ids, excluded_product_ids OU la config PIM change.
+  }, [library, shopProducts, shop?.excluded_product_ids, shop?.library_ids, shop?.pim_catalog_mode, shop?.pim_gamme_slugs]);
 
   if (!canUse('shops')) return <UpgradeCTA feature="Boutiques en ligne" />;
   if (loading) return <p className="text-sm text-gray-500">Chargement...</p>;
@@ -284,6 +317,9 @@ export function DashboardShopEditor() {
         library_ids: shop.library_ids ?? [],
         hero_image_url: shop.hero_image_url ?? null,
         tagline: shop.tagline ?? null,
+        // S2.32 — mode PIM catalogue complet + gammes selectionnees
+        pim_catalog_mode: shop.pim_catalog_mode === true,
+        pim_gamme_slugs: shop.pim_gamme_slugs ?? [],
       });
       setSaveOk(true);
       setTimeout(() => setSaveOk(false), 2500);
@@ -298,6 +334,32 @@ export function DashboardShopEditor() {
     if (current.has(libraryId)) current.delete(libraryId);
     else current.add(libraryId);
     setShop({ ...shop, library_ids: Array.from(current) });
+  };
+
+  // ─── S2.32 — Mode PIM catalogue complet ─────────────────────────────────
+
+  // Radio maitre "PIM — Catalogue complet". A l'activation, pre-remplit
+  // pim_gamme_slugs avec toutes les gammes recensees (sauf si une selection
+  // existe deja -> on la restaure, decision #2 : decocher conserve la liste).
+  const togglePimMode = () => {
+    const turningOn = !(shop.pim_catalog_mode === true);
+    if (turningOn) {
+      const existing = shop.pim_gamme_slugs ?? [];
+      const slugs = existing.length > 0 ? existing : subscribedSlugs;
+      setShop({ ...shop, pim_catalog_mode: true, pim_gamme_slugs: slugs });
+      setPimExpanded(true);
+    } else {
+      // Decocher : on coupe le mode mais on conserve pim_gamme_slugs.
+      setShop({ ...shop, pim_catalog_mode: false });
+    }
+  };
+
+  // Coche/decoche une gamme recensee dans le perimetre PIM.
+  const togglePimGamme = (slug: string) => {
+    const current = new Set(shop.pim_gamme_slugs ?? []);
+    if (current.has(slug)) current.delete(slug);
+    else current.add(slug);
+    setShop({ ...shop, pim_gamme_slugs: Array.from(current) });
   };
 
   // ─── Gestion de la suppression produit (dialog) ─────────────────────────
@@ -714,6 +776,87 @@ export function DashboardShopEditor() {
           Cochez une ou plusieurs bibliothèques. <strong>Tous leurs produits</strong> apparaissent
           automatiquement dans la boutique — pas d'import, pas de copie, toujours synchro.
         </p>
+
+        {/* S2.32 — PIM comme bibliotheque : verse tout le catalogue du tenant,
+            filtrable par gamme recensee. Radio maitre + depliage des gammes. */}
+        {(() => {
+          const pimOn = shop.pim_catalog_mode === true;
+          const selected = new Set(shop.pim_gamme_slugs ?? []);
+          return (
+            <div
+              className={`mb-3 rounded-lg border-2 ${
+                pimOn ? 'border-indigo-400 bg-indigo-50' : 'border-indigo-200 bg-white'
+              }`}
+            >
+              <div className="flex items-center gap-2 p-2">
+                <input
+                  type="radio"
+                  data-testid={TEST_IDS.shopEditor.pimToggle}
+                  checked={pimOn}
+                  onClick={togglePimMode}
+                  readOnly
+                  className="w-4 h-4 cursor-pointer accent-indigo-600"
+                />
+                <span className="text-sm font-semibold text-gray-900 flex-1">
+                  PIM — Catalogue complet
+                  <span className="ml-2 text-xs font-normal text-gray-500">
+                    verse tout votre catalogue, filtrable par gamme
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  data-testid={TEST_IDS.shopEditor.pimExpandBtn}
+                  onClick={() => setPimExpanded((v) => !v)}
+                  className="text-xs text-indigo-700 hover:underline whitespace-nowrap"
+                >
+                  {pimExpanded ? 'Replier' : 'Déplier les gammes'}
+                </button>
+              </div>
+              {pimExpanded && (
+                <div className="border-t border-indigo-200 p-2 space-y-1">
+                  {subscribedSlugs.length === 0 ? (
+                    <p className="text-xs text-gray-500 italic">
+                      Aucune gamme recensée.{' '}
+                      <Link to={tp('/dashboard/gammes')} className="text-indigo-600 hover:underline">
+                        Recensez vos gammes
+                      </Link>
+                      .
+                    </p>
+                  ) : (
+                    subscribedSlugs.map((slug) => {
+                      const name = gammes.find((g) => g.slug === slug)?.name ?? slug;
+                      const checked = selected.has(slug);
+                      return (
+                        <label
+                          key={slug}
+                          data-testid={`${TEST_IDS.shopEditor.pimGamme}-${slug}`}
+                          className={`flex items-center gap-2 p-1.5 rounded ${
+                            pimOn ? 'cursor-pointer hover:bg-white' : 'opacity-50 cursor-not-allowed'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => togglePimGamme(slug)}
+                            disabled={!pimOn}
+                            className="w-4 h-4"
+                          />
+                          <span className="text-sm text-gray-800">{name}</span>
+                        </label>
+                      );
+                    })
+                  )}
+                  {pimOn && selected.size === 0 && subscribedSlugs.length > 0 && (
+                    <p className="text-xs text-amber-600 mt-1">
+                      Aucune gamme sélectionnée — la boutique n'exposera aucun produit du PIM.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         {libraries.length === 0 ? (
           <p className="text-sm text-gray-500 italic">
             Aucune bibliothèque.{' '}
@@ -726,17 +869,21 @@ export function DashboardShopEditor() {
             {libraries.map((lib) => {
               const linked = (shop.library_ids ?? []).includes(lib.id);
               const count = productsByLibrary(lib.id).length;
+              // S2.32 (decision #1) : en mode PIM, les cases biblio sont
+              // grisees/desactivees (le PIM est un superset redondant).
+              const pimOn = shop.pim_catalog_mode === true;
               return (
                 <label
                   key={lib.id}
-                  className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer ${
-                    linked ? 'bg-white border border-blue-300' : 'hover:bg-white/60'
-                  }`}
+                  className={`flex items-center gap-2 p-2 rounded-lg ${
+                    pimOn ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
+                  } ${linked && !pimOn ? 'bg-white border border-blue-300' : 'hover:bg-white/60'}`}
                 >
                   <input
                     type="checkbox"
                     checked={linked}
                     onChange={() => toggleLinkedLibrary(lib.id)}
+                    disabled={pimOn}
                     className="w-4 h-4"
                   />
                   <span className="text-sm font-medium text-gray-900 flex-1">{lib.name}</span>
