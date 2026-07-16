@@ -189,7 +189,6 @@ export function ProductCard({
     const priceHT = resolvePrice(localProduct, clariprintQuote).priceHT;
     const added = await addToLibrary({
       library_id: libraryId,
-      client_id: (localProduct as any).client_id ?? null,
       name: localProduct.name,
       category: localProduct.clariprintData?.kind || 'Autres',
       // ADR-4.17 : gamme explicite (LLM) sinon gamme resolue par les regles PIM.
