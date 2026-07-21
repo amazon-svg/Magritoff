@@ -98,10 +98,9 @@ export function DashboardShopEditor() {
   // Dialog de confirmation suppression
   const [deleteDialog, setDeleteDialog] = useState<DisplayProduct | null>(null);
 
-  // S2.32 — Gammes recensees du tenant (tenant_gamme_subscriptions), source
-  // du depliage du mode PIM. On stocke les slugs ; le libelle vient de PIM
-  // (`gammes`). pimExpanded = etat d'ouverture du bloc PIM.
-  const [subscribedSlugs, setSubscribedSlugs] = useState<string[]>([]);
+  // S2.32 — pimExpanded = etat d'ouverture du bloc PIM. Les gammes proposees
+  // au depliage sont derivees du catalogue reel du tenant (catalogGammeSlugs),
+  // pas des abonnements formels.
   const [pimExpanded, setPimExpanded] = useState(false);
 
   // ─── Upload branding (logo / fond du bandeau) — bucket public shop_backgrounds
@@ -169,31 +168,20 @@ export function DashboardShopEditor() {
     }
   }, [id, shops]);
 
-  // S2.32 — Charge les gammes recensees du tenant (pour le depliage mode PIM).
-  useEffect(() => {
-    if (!currentTenant) {
-      setSubscribedSlugs([]);
-      return;
-    }
-    let cancelled = false;
-    supabase
-      .from('tenant_gamme_subscriptions')
-      .select('gamme_slug')
-      .eq('tenant_id', currentTenant.id)
-      .eq('active', true)
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        if (error) {
-          console.error('[S2.32] gammes recensees fetch failed', error.message);
-          setSubscribedSlugs([]);
-          return;
-        }
-        setSubscribedSlugs((data ?? []).map((r: any) => r.gamme_slug));
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [currentTenant?.id]);
+  // S2.32 — Gammes reellement presentes dans le catalogue du tenant
+  // (product_library, via LibraryContext deja charge). Source du depliage +
+  // du pre-remplissage "tout le PIM". On se base sur le catalogue REEL (pas
+  // tenant_gamme_subscriptions) pour que "catalogue complet" expose bien tous
+  // les produits, meme si le tenant n'a pas formellement recense ses gammes.
+  const catalogGammeSlugs = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          library.filter((p) => p.active !== false && p.gamme_slug).map((p) => p.gamme_slug as string),
+        ),
+      ),
+    [library],
+  );
 
   // A4.5 — Upsert ou delete d'un override de prix sur blur d'un input
   // « Prix négocié ». Si nextValue est un nombre > 0 : upsert. Sinon : delete.
@@ -345,7 +333,7 @@ export function DashboardShopEditor() {
     const turningOn = !(shop.pim_catalog_mode === true);
     if (turningOn) {
       const existing = shop.pim_gamme_slugs ?? [];
-      const slugs = existing.length > 0 ? existing : subscribedSlugs;
+      const slugs = existing.length > 0 ? existing : catalogGammeSlugs;
       setShop({ ...shop, pim_catalog_mode: true, pim_gamme_slugs: slugs });
       setPimExpanded(true);
     } else {
@@ -814,16 +802,16 @@ export function DashboardShopEditor() {
               </div>
               {pimExpanded && (
                 <div className="border-t border-indigo-200 p-2 space-y-1">
-                  {subscribedSlugs.length === 0 ? (
+                  {catalogGammeSlugs.length === 0 ? (
                     <p className="text-xs text-gray-500 italic">
-                      Aucune gamme recensée.{' '}
-                      <Link to={tp('/dashboard/gammes')} className="text-indigo-600 hover:underline">
-                        Recensez vos gammes
+                      Aucun produit dans votre catalogue.{' '}
+                      <Link to={tp('/dashboard/library')} className="text-indigo-600 hover:underline">
+                        Ajoutez des produits
                       </Link>
                       .
                     </p>
                   ) : (
-                    subscribedSlugs.map((slug) => {
+                    catalogGammeSlugs.map((slug) => {
                       const name = gammes.find((g) => g.slug === slug)?.name ?? slug;
                       const checked = selected.has(slug);
                       return (
@@ -846,7 +834,7 @@ export function DashboardShopEditor() {
                       );
                     })
                   )}
-                  {pimOn && selected.size === 0 && subscribedSlugs.length > 0 && (
+                  {pimOn && selected.size === 0 && catalogGammeSlugs.length > 0 && (
                     <p className="text-xs text-amber-600 mt-1">
                       Aucune gamme sélectionnée — la boutique n'exposera aucun produit du PIM.
                     </p>

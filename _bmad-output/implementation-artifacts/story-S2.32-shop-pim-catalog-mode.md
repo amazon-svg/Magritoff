@@ -285,6 +285,14 @@ claude-opus-4-8[1m] (Claude Code) — implémentation 2026-07-16.
 
 ### Completion Notes List
 
+- **CORRECTION 2026-07-21 (test Arnaud boutique Infinite)** : « gammes
+  recensées » redéfini = **gammes réellement présentes dans le catalogue**
+  (`product_library` du tenant), et NON `tenant_gamme_subscriptions`. Un
+  tenant neuf a des produits (carterie/flyer) sans abonnement formel → le
+  pré-remplissage basé sur les subscriptions donnait une liste vide → 0
+  produit exposé. Le dépliage + pré-remplissage se basent désormais sur
+  `catalogGammeSlugs` (dérivé de `library`, déjà en mémoire — plus de requête
+  `tenant_gamme_subscriptions`). « Catalogue complet » expose bien tout.
 - Décisions #1/#2/#3 tranchées (recos Arnaud 2026-07-16) et implémentées.
 - **RLS** : la policy `product_library_public_read` du hotfix
   `20260715000100` est **remplacée** par la version étendue (voie library OU
