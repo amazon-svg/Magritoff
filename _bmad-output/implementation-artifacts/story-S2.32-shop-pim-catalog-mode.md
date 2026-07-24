@@ -285,6 +285,13 @@ claude-opus-4-8[1m] (Claude Code) — implémentation 2026-07-16.
 
 ### Completion Notes List
 
+- **ÉVOLUTION 2026-07-24 (retour test Arnaud)** : le dépliage liste désormais
+  **toute la taxonomie PIM** (`product_gammes`, 81 gammes) et non plus
+  seulement les gammes du catalogue — décision Arnaud. Chaque gamme affiche un
+  **badge « N produit(s) »** (compté sur `product_library` du tenant) pour
+  signaler celles qui exposent réellement. Liste scrollable (`max-h-64`).
+  Ajout d'un bouton **« Tout sélectionner / Tout désélectionner »**. Le
+  pré-remplissage « tout le PIM » et le select-all portent sur les 81 gammes.
 - **CORRECTION 2026-07-21 (test Arnaud boutique Infinite)** : « gammes
   recensées » redéfini = **gammes réellement présentes dans le catalogue**
   (`product_library` du tenant), et NON `tenant_gamme_subscriptions`. Un

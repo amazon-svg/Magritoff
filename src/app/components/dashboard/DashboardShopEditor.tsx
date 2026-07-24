@@ -168,20 +168,19 @@ export function DashboardShopEditor() {
     }
   }, [id, shops]);
 
-  // S2.32 — Gammes reellement presentes dans le catalogue du tenant
-  // (product_library, via LibraryContext deja charge). Source du depliage +
-  // du pre-remplissage "tout le PIM". On se base sur le catalogue REEL (pas
-  // tenant_gamme_subscriptions) pour que "catalogue complet" expose bien tous
-  // les produits, meme si le tenant n'a pas formellement recense ses gammes.
-  const catalogGammeSlugs = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          library.filter((p) => p.active !== false && p.gamme_slug).map((p) => p.gamme_slug as string),
-        ),
-      ),
-    [library],
-  );
+  // S2.32 — Le depliage liste TOUTE la taxonomie PIM (product_gammes via
+  // usePIM), decision Arnaud 2026-07-24. `gammes` est deja ordonne par
+  // display_order. On calcule aussi le nb de produits du catalogue par gamme
+  // (badge) pour signaler celles qui exposeront reellement des produits.
+  const allPimGammeSlugs = useMemo(() => gammes.map((g) => g.slug), [gammes]);
+  const productCountByGamme = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const p of library) {
+      if (p.active === false || !p.gamme_slug) continue;
+      m.set(p.gamme_slug, (m.get(p.gamme_slug) ?? 0) + 1);
+    }
+    return m;
+  }, [library]);
 
   // A4.5 — Upsert ou delete d'un override de prix sur blur d'un input
   // « Prix négocié ». Si nextValue est un nombre > 0 : upsert. Sinon : delete.
@@ -333,7 +332,7 @@ export function DashboardShopEditor() {
     const turningOn = !(shop.pim_catalog_mode === true);
     if (turningOn) {
       const existing = shop.pim_gamme_slugs ?? [];
-      const slugs = existing.length > 0 ? existing : catalogGammeSlugs;
+      const slugs = existing.length > 0 ? existing : allPimGammeSlugs;
       setShop({ ...shop, pim_catalog_mode: true, pim_gamme_slugs: slugs });
       setPimExpanded(true);
     } else {
@@ -354,8 +353,8 @@ export function DashboardShopEditor() {
   const toggleAllPimGammes = () => {
     const selected = shop.pim_gamme_slugs ?? [];
     const allSelected =
-      catalogGammeSlugs.length > 0 && catalogGammeSlugs.every((s) => selected.includes(s));
-    setShop({ ...shop, pim_gamme_slugs: allSelected ? [] : [...catalogGammeSlugs] });
+      allPimGammeSlugs.length > 0 && allPimGammeSlugs.every((s) => selected.includes(s));
+    setShop({ ...shop, pim_gamme_slugs: allSelected ? [] : [...allPimGammeSlugs] });
   };
 
   // ─── Gestion de la suppression produit (dialog) ─────────────────────────
@@ -809,61 +808,63 @@ export function DashboardShopEditor() {
                 </button>
               </div>
               {pimExpanded && (
-                <div className="border-t border-indigo-200 p-2 space-y-1">
-                  {catalogGammeSlugs.length > 0 && (
-                    <div className="flex items-center justify-between pb-1 mb-1 border-b border-indigo-100">
-                      <span className="text-xs font-medium text-gray-600">
-                        Gammes de votre catalogue ({catalogGammeSlugs.length})
-                      </span>
-                      <button
-                        type="button"
-                        data-testid={TEST_IDS.shopEditor.pimSelectAllBtn}
-                        onClick={toggleAllPimGammes}
-                        disabled={!pimOn}
-                        className="text-xs text-indigo-700 hover:underline disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed"
-                      >
-                        {catalogGammeSlugs.every((s) => selected.has(s))
-                          ? 'Tout désélectionner'
-                          : 'Tout sélectionner'}
-                      </button>
-                    </div>
-                  )}
-                  {catalogGammeSlugs.length === 0 ? (
-                    <p className="text-xs text-gray-500 italic">
-                      Aucun produit dans votre catalogue.{' '}
-                      <Link to={tp('/dashboard/library')} className="text-indigo-600 hover:underline">
-                        Ajoutez des produits
-                      </Link>
-                      .
-                    </p>
+                <div className="border-t border-indigo-200 p-2">
+                  {gammes.length === 0 ? (
+                    <p className="text-xs text-gray-500 italic">Chargement des gammes du PIM…</p>
                   ) : (
-                    catalogGammeSlugs.map((slug) => {
-                      const name = gammes.find((g) => g.slug === slug)?.name ?? slug;
-                      const checked = selected.has(slug);
-                      return (
-                        <label
-                          key={slug}
-                          data-testid={`${TEST_IDS.shopEditor.pimGamme}-${slug}`}
-                          className={`flex items-center gap-2 p-1.5 rounded ${
-                            pimOn ? 'cursor-pointer hover:bg-white' : 'opacity-50 cursor-not-allowed'
-                          }`}
+                    <>
+                      <div className="flex items-center justify-between pb-1 mb-1 border-b border-indigo-100">
+                        <span className="text-xs font-medium text-gray-600">
+                          Gammes du PIM ({allPimGammeSlugs.length})
+                        </span>
+                        <button
+                          type="button"
+                          data-testid={TEST_IDS.shopEditor.pimSelectAllBtn}
+                          onClick={toggleAllPimGammes}
+                          disabled={!pimOn}
+                          className="text-xs text-indigo-700 hover:underline disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed"
                         >
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => togglePimGamme(slug)}
-                            disabled={!pimOn}
-                            className="w-4 h-4"
-                          />
-                          <span className="text-sm text-gray-800">{name}</span>
-                        </label>
-                      );
-                    })
-                  )}
-                  {pimOn && selected.size === 0 && catalogGammeSlugs.length > 0 && (
-                    <p className="text-xs text-amber-600 mt-1">
-                      Aucune gamme sélectionnée — la boutique n'exposera aucun produit du PIM.
-                    </p>
+                          {allPimGammeSlugs.length > 0 && allPimGammeSlugs.every((s) => selected.has(s))
+                            ? 'Tout désélectionner'
+                            : 'Tout sélectionner'}
+                        </button>
+                      </div>
+                      <div className="max-h-64 overflow-y-auto space-y-0.5 pr-1">
+                        {gammes.map((g) => {
+                          const checked = selected.has(g.slug);
+                          const count = productCountByGamme.get(g.slug) ?? 0;
+                          return (
+                            <label
+                              key={g.slug}
+                              data-testid={`${TEST_IDS.shopEditor.pimGamme}-${g.slug}`}
+                              className={`flex items-center gap-2 p-1.5 rounded ${
+                                pimOn ? 'cursor-pointer hover:bg-white' : 'opacity-50 cursor-not-allowed'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => togglePimGamme(g.slug)}
+                                disabled={!pimOn}
+                                className="w-4 h-4"
+                              />
+                              <span className="text-sm text-gray-800 flex-1">{g.name}</span>
+                              <span
+                                className={`text-xs ${count > 0 ? 'text-gray-500' : 'text-gray-300'}`}
+                                title="Produits de votre catalogue dans cette gamme"
+                              >
+                                {count} produit{count > 1 ? 's' : ''}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                      {pimOn && selected.size === 0 && (
+                        <p className="text-xs text-amber-600 mt-1">
+                          Aucune gamme sélectionnée — la boutique n'exposera aucun produit du PIM.
+                        </p>
+                      )}
+                    </>
                   )}
                 </div>
               )}
