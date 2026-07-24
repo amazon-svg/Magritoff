@@ -1,7 +1,30 @@
 # Story S2.33 — Générer les produits vendables depuis le PIM (pont PIM → product_library)
 
 > **Epic** : Epic 2 — Boutique B2B Premium (extension catalogue)
-> **Statut** : draft (décision prix à trancher avant dev)
+> **Statut** : implémenté (front-only) — 2026-07-24
+
+## Implémentation livrée (2026-07-24)
+
+- **Helper pur** `src/app/utils/buildPimGeneratedProducts.ts` : `gamme →
+  product_library` (price_ht 0, marqueur `config.source='pim-generated'`,
+  `clariprintData.kind` + dims depuis `matching_rules`). 6 tests vitest.
+- **LibraryContext** : `generateFromPim(gammes)` (idempotent : delete des
+  `pim-generated` puis reinsert) + `clearPimGenerated()`.
+- **DashboardLibrary** : panneau « Catalogue depuis le PIM » → boutons
+  Générer/Régénérer + Nettoyer (confirmation), compteur de produits générés.
+- **ShopProductCard** : « Configurez pour le prix » pour les produits générés
+  (prix à la config via overlay Clariprint, A1).
+- Build OK, suite complète **737 tests verts**.
+
+### Smoke à jouer (Arnaud)
+
+1. Dashboard → Bibliothèque → « Générer le catalogue » → confirme (81 produits).
+2. Vérifier le compteur + les produits dans la liste.
+3. Boutique en mode PIM (S2.32) → « Tout sélectionner » les gammes → Enregistrer.
+4. `/shop/<slug>` : les produits apparaissent, carte « Configurez pour le prix »
+   → clic Configurer → overlay Clariprint calcule le prix live.
+
+
 > **Branche** : `beta/v5`
 > **Date création** : 2026-07-24
 > **Auteur** : John (PM) / investigation Claude Code

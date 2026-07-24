@@ -9,6 +9,11 @@ import { createContext, useContext, useEffect, useState, useCallback, ReactNode 
 import { supabase } from '/utils/supabase/client';
 import { useAuth } from './AuthContext';
 import { useTenant } from './TenantContext';
+import type { Gamme } from '../utils/productEnrichment';
+import {
+  buildPimGeneratedProducts,
+  PIM_GENERATED_SOURCE,
+} from '../utils/buildPimGeneratedProducts';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 export interface Library {
@@ -53,6 +58,11 @@ interface LibraryContextType {
   refresh: () => Promise<void>;
   addProduct: (data: LibraryProductInput) => Promise<LibraryProduct | null>;
   addProductsBulk: (items: LibraryProductInput[]) => Promise<LibraryProduct[]>;
+  /** S2.33 — Genere/regenere les produits vendables depuis les gammes du PIM
+   *  (idempotent : remplace les precedents generes, garde les manuels). */
+  generateFromPim: (gammes: Gamme[]) => Promise<{ created: number }>;
+  /** S2.33 — Supprime les produits generes depuis le PIM (garde les manuels). */
+  clearPimGenerated: () => Promise<{ removed: number }>;
   updateProduct: (id: string, patch: Partial<LibraryProduct>) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
   productsByLibrary: (libraryId: string) => LibraryProduct[];
@@ -203,6 +213,53 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     [user, currentTenant?.id]
   );
 
+  // S2.33 — Materialise des produits vendables depuis les gammes du PIM.
+  // Idempotent : on supprime d'abord les produits precedemment generes (marques
+  // config.source='pim-generated'), puis on reinsere. Les produits manuels
+  // (sans ce marqueur) ne sont jamais touches.
+  const generateFromPim = useCallback(
+    async (gammes: Gamme[]) => {
+      if (!user || !currentTenant || gammes.length === 0) return { created: 0 };
+      await supabase
+        .from('product_library')
+        .delete()
+        .eq('tenant_id', currentTenant.id)
+        .filter('config->>source', 'eq', PIM_GENERATED_SOURCE);
+      const rows = buildPimGeneratedProducts(gammes).map((data) => ({
+        ...data,
+        user_id: user.id,
+        tenant_id: currentTenant.id,
+      }));
+      const { data: inserted, error } = await supabase
+        .from('product_library')
+        .insert(rows)
+        .select();
+      if (error) {
+        console.error('[Library] generateFromPim failed', error.message);
+        return { created: 0 };
+      }
+      await refresh();
+      return { created: inserted?.length ?? 0 };
+    },
+    [user, currentTenant?.id, refresh]
+  );
+
+  const clearPimGenerated = useCallback(async () => {
+    if (!user || !currentTenant) return { removed: 0 };
+    const { data, error } = await supabase
+      .from('product_library')
+      .delete()
+      .eq('tenant_id', currentTenant.id)
+      .filter('config->>source', 'eq', PIM_GENERATED_SOURCE)
+      .select('id');
+    if (error) {
+      console.error('[Library] clearPimGenerated failed', error.message);
+      return { removed: 0 };
+    }
+    await refresh();
+    return { removed: data?.length ?? 0 };
+  }, [user, currentTenant?.id, refresh]);
+
   const updateProduct = useCallback(
     async (id: string, patch: Partial<LibraryProduct>) => {
       if (!user || !currentTenant) return;
@@ -252,6 +309,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         refresh,
         addProduct,
         addProductsBulk,
+        generateFromPim,
+        clearPimGenerated,
         updateProduct,
         deleteProduct,
         productsByLibrary,
