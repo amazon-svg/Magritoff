@@ -404,6 +404,7 @@ export const TEST_IDS = {
   shopEditor: {
     pimToggle: 'shop-editor-pim-toggle',
     pimExpandBtn: 'shop-editor-pim-expand-btn',
+    pimSelectAllBtn: 'shop-editor-pim-select-all-btn',
     // Prefixe : le slug de gamme est concatene inline (`${pimGamme}-${slug}`).
     pimGamme: 'shop-editor-pim-gamme',
   },

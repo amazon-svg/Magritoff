@@ -342,12 +342,20 @@ export function DashboardShopEditor() {
     }
   };
 
-  // Coche/decoche une gamme recensee dans le perimetre PIM.
+  // Coche/decoche une gamme dans le perimetre PIM.
   const togglePimGamme = (slug: string) => {
     const current = new Set(shop.pim_gamme_slugs ?? []);
     if (current.has(slug)) current.delete(slug);
     else current.add(slug);
     setShop({ ...shop, pim_gamme_slugs: Array.from(current) });
+  };
+
+  // Tout selectionner / tout deselectionner les gammes du catalogue en un clic.
+  const toggleAllPimGammes = () => {
+    const selected = shop.pim_gamme_slugs ?? [];
+    const allSelected =
+      catalogGammeSlugs.length > 0 && catalogGammeSlugs.every((s) => selected.includes(s));
+    setShop({ ...shop, pim_gamme_slugs: allSelected ? [] : [...catalogGammeSlugs] });
   };
 
   // ─── Gestion de la suppression produit (dialog) ─────────────────────────
@@ -802,6 +810,24 @@ export function DashboardShopEditor() {
               </div>
               {pimExpanded && (
                 <div className="border-t border-indigo-200 p-2 space-y-1">
+                  {catalogGammeSlugs.length > 0 && (
+                    <div className="flex items-center justify-between pb-1 mb-1 border-b border-indigo-100">
+                      <span className="text-xs font-medium text-gray-600">
+                        Gammes de votre catalogue ({catalogGammeSlugs.length})
+                      </span>
+                      <button
+                        type="button"
+                        data-testid={TEST_IDS.shopEditor.pimSelectAllBtn}
+                        onClick={toggleAllPimGammes}
+                        disabled={!pimOn}
+                        className="text-xs text-indigo-700 hover:underline disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed"
+                      >
+                        {catalogGammeSlugs.every((s) => selected.has(s))
+                          ? 'Tout désélectionner'
+                          : 'Tout sélectionner'}
+                      </button>
+                    </div>
+                  )}
                   {catalogGammeSlugs.length === 0 ? (
                     <p className="text-xs text-gray-500 italic">
                       Aucun produit dans votre catalogue.{' '}
