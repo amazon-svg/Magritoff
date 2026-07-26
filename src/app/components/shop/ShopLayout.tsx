@@ -127,7 +127,10 @@ export function ShopLayout({
   // S2.18 — Méga-menu illustré : visible sur home/catalog quand une taxonomie
   // est fournie (data-driven, jamais vide grâce à buildShopTaxonomy).
   const showMegaMenu =
-    !!taxonomy && taxonomy.length > 0 && (view === "catalog" || view === "home");
+    !!taxonomy &&
+    taxonomy.length > 0 &&
+    // S7.3 : méga-menu accessible aussi depuis une page gamme (nav partout).
+    (view === "catalog" || view === "home" || view === "gamme");
 
   return (
     <div

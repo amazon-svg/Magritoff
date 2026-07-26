@@ -74,10 +74,12 @@ export function parsePortalPath(splat: string | undefined): PortalRouteMatch {
       // Placeholder S7.10 : toutes les URLs compte pointent sur les commandes.
       return { view: 'orders', redirected: true };
     case 'g': {
-      // Réservé S7.3 (page gamme). En attendant : catalog, slug conservé pour
-      // que S7.3 n'ait qu'à brancher la vue sans retoucher le parseur.
+      // S7.3 — page gamme-configurateur. Sans slug (ou trop profond) : catalog.
       const gammeSlug = rest[0];
-      return { view: 'catalog', gammeSlug, redirected: true };
+      if (gammeSlug && rest.length === 1) {
+        return { view: 'gamme', gammeSlug, redirected: false };
+      }
+      return { view: 'catalog', redirected: true };
     }
     default:
       return { view: 'home', redirected: true };
@@ -86,9 +88,10 @@ export function parsePortalPath(splat: string | undefined): PortalRouteMatch {
 
 /**
  * Chemin canonique (relatif à `/shop/:slug`) d'une vue portail.
+ * `param` : productId (view='product') ou gammeSlug (view='gamme').
  * Round-trip garanti avec parsePortalPath (AC5).
  */
-export function portalPathForView(view: PortalView, productId?: string): string {
+export function portalPathForView(view: PortalView, param?: string): string {
   switch (view) {
     case 'home':
       return '';
@@ -96,7 +99,10 @@ export function portalPathForView(view: PortalView, productId?: string): string 
       return 'catalog';
     case 'product':
       // Sans productId on ne peut pas adresser une fiche → catalog.
-      return productId ? `p/${productId}` : 'catalog';
+      return param ? `p/${param}` : 'catalog';
+    case 'gamme':
+      // S7.3 — sans slug de gamme on retombe sur le catalogue.
+      return param ? `g/${param}` : 'catalog';
     case 'orders':
       return 'orders';
     case 'thankYou':
@@ -110,7 +116,7 @@ export function portalPathForView(view: PortalView, productId?: string): string 
 }
 
 /** URL absolue d'une vue portail pour une boutique donnée. */
-export function shopUrl(slug: string, view: PortalView, productId?: string): string {
-  const path = portalPathForView(view, productId);
+export function shopUrl(slug: string, view: PortalView, param?: string): string {
+  const path = portalPathForView(view, param);
   return path ? `/shop/${slug}/${path}` : `/shop/${slug}`;
 }

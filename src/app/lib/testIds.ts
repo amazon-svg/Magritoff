@@ -252,6 +252,19 @@ export const TEST_IDS = {
     overlayOptionDorure: 'shop-overlay-option-dorure',
     // S2.4b — Bouton Editer atelier qui ouvre l'overlay (correctif scope persona primaire)
     productCardEditBtn: 'product-card-edit-btn',
+    // S7.3 — Page gamme /shop/:slug/g/:gamme (Epic 7 gabarit boutique v2)
+    gammePage: 'shop-gamme-page',
+    gammePageTitle: 'shop-gamme-page-title',
+    gammeBreadcrumb: 'shop-gamme-breadcrumb',
+    gammeConfigurator: 'shop-gamme-configurator',
+    gammeTopFormatChip: 'shop-gamme-top-format-chip',
+    gammeQuantityTier: 'shop-gamme-quantity-tier',
+    gammeStickyBar: 'shop-gamme-sticky-bar',
+    gammeStickyPrice: 'shop-gamme-sticky-price',
+    gammeStickyAddBtn: 'shop-gamme-sticky-add-btn',
+    gammePriceSourceBadge: 'shop-gamme-price-source-badge',
+    gammeAskMagrit: 'shop-gamme-ask-magrit',
+    gammeEmptyState: 'shop-gamme-empty-state',
     // S-FIX-1 — Section SEO/GEO PIM dans l'onglet Fiche existant (correctif scope
     // 2026-05-10 : pas de nouvel onglet, enrichissement de Fiche uniquement).
     ficheSeoSection: 'product-card-fiche-seo-section',

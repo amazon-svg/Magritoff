@@ -47,12 +47,17 @@ describe('parsePortalPath (S7.1 AC1/AC3)', () => {
     expect(parsePortalPath('account/profile')).toEqual({ view: 'orders', redirected: true });
   });
 
-  it('g/:gamme → catalog avec gammeSlug conservé (réservé S7.3)', () => {
+  it('g/:gamme → vue gamme (S7.3, page gamme-configurateur)', () => {
     expect(parsePortalPath('g/flyer')).toEqual({
-      view: 'catalog',
+      view: 'gamme',
       gammeSlug: 'flyer',
-      redirected: true,
+      redirected: false,
     });
+  });
+
+  it('g sans slug ou trop profond → repli catalog (redirected)', () => {
+    expect(parsePortalPath('g')).toEqual({ view: 'catalog', redirected: true });
+    expect(parsePortalPath('g/flyer/x')).toEqual({ view: 'catalog', redirected: true });
   });
 
   it('chemin inconnu → home (jamais de 404 interne, AC3)', () => {
@@ -70,20 +75,26 @@ describe('portalPathForView round-trip (S7.1 AC5)', () => {
     ['home', undefined],
     ['catalog', undefined],
     ['product', 'prod-1'],
+    ['gamme', 'flyer'],
     ['orders', undefined],
     ['thankYou', undefined],
   ];
 
-  it.each(cases)('round-trip %s', (view, productId) => {
-    const path = portalPathForView(view, productId);
+  it.each(cases)('round-trip %s', (view, param) => {
+    const path = portalPathForView(view, param);
     const match = parsePortalPath(path);
     expect(match.view).toBe(view);
     expect(match.redirected).toBe(false);
-    if (productId) expect(match.productId).toBe(productId);
+    if (view === 'product') expect(match.productId).toBe(param);
+    if (view === 'gamme') expect(match.gammeSlug).toBe(param);
   });
 
   it('product sans id → catalog (pas d URL inadressable)', () => {
     expect(portalPathForView('product')).toBe('catalog');
+  });
+
+  it('gamme sans slug → catalog (S7.3)', () => {
+    expect(portalPathForView('gamme')).toBe('catalog');
   });
 
   it('cart (drawer, pas une page) → catalog', () => {

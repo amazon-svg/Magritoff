@@ -19,6 +19,7 @@ import {
   type OrderItemRow,
 } from './portal/orderRenewal.helpers';
 import { ShopLayout } from './ShopLayout';
+import { GammePage } from './gamme/GammePage';
 import { ShopForbidden403 } from './ShopForbidden403';
 import { resolveShopAccessFromMemberships } from './ShopAccessGuard.helpers';
 import {
@@ -757,6 +758,25 @@ export function PublicShop() {
           onSelectFamily={selectGammes}
           onSelectSubcategory={selectSubcategory}
           initialFormat={pendingFormat}
+        />
+      )}
+
+      {/* S7.3 — page gamme-configurateur (expérience déterminante v2) */}
+      {view === 'gamme' && (
+        <GammePage
+          gammeSlug={routeMatch.gammeSlug}
+          products={products}
+          pimGammes={pimGammes}
+          pimDefinitions={pimDefinitions}
+          onAddToCart={(p, qty) => {
+            addToCart(p, qty);
+            // Drawer panier ouvert, l'acheteur RESTE sur la page (spec UX :
+            // achat multi-gammes fréquent en B2B).
+            setCartOpenRequest((n) => n + 1);
+          }}
+          onGoHome={() => goView('home')}
+          onGoCatalog={() => goView('catalog')}
+          onAskMagrit={() => goView('catalog')}
         />
       )}
 
