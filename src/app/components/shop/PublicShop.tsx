@@ -332,6 +332,23 @@ export function PublicShop() {
     return () => { document.title = orig; };
   }, [shop]);
 
+  // S7.13 (ADR §4.19-4) — boutique PRIVÉE (invite_only, défaut) : noindex sur
+  // toutes les vues. Seules les boutiques self_signup sont indexables.
+  useEffect(() => {
+    if (!shop || shop.access_mode === 'self_signup') return;
+    let meta = document.head.querySelector<HTMLMetaElement>('meta[name="robots"]');
+    const created = !meta;
+    if (!meta) {
+      meta = document.createElement('meta');
+      meta.setAttribute('name', 'robots');
+      document.head.appendChild(meta);
+    }
+    meta.setAttribute('content', 'noindex, nofollow');
+    return () => {
+      if (created) meta?.remove();
+    };
+  }, [shop?.id, shop?.access_mode]);
+
   // ─── Budget mock (à remplacer par backend B2B) ────────────────────────────
   // Note : on n'affiche PAS de mention d'approbateur N+1 tant que le workflow
   // de validation n'est pas câblé. Budget = juste consommation / limite.
