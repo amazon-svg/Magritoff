@@ -2,7 +2,21 @@
 
 > Document de reprise pour démarrer une nouvelle session de Claude code sur le projet sans recharger tout l'historique. À tenir à jour à chaque fin de sprint.
 >
-> **Dernière mise à jour : 2026-07-26 (soir) — Sprints V2-A ET V2-B (Epic 7 gabarit boutique v2) livrés dans la même session : S7.1-S7.9. Voir sections 21-22. Reste V2-C (S7.10-S7.14). Sessions précédentes : sections 18-20.**
+> **Dernière mise à jour : 2026-07-26 (nuit) — EPIC 7 GABARIT BOUTIQUE V2 COMPLET : les 3 sprints V2-A/B/C (S7.1-S7.14) livrés dans la même session. Voir sections 21-23. Sessions précédentes : sections 18-20.**
+
+## 23. Session 2026-07-26 (fin) — Sprint V2-C : compte & checkout (S7.10-S7.14) — EPIC 7 CLÔTURÉ
+
+| Story | Commit | Livré |
+|---|---|---|
+| S7.10 AccountHub | `4d06c87` | `/account/orders|quotes|profile` (commandes 4 tabs role-driven, devis lecture QuotesContext, profil + déconnexion). Alias `/orders` → `/account/orders` **query préservée**. Nav header « Mon compte ». |
+| S7.11 self-signup schéma+RPC | `f8678a7` | **Migration prod B5 appliquée** (`20260726000100`, API Management + PAT) : `shops.access_mode` (invite_only défaut) + RPC `self_register_shop_buyer` SECURITY DEFINER allow-list shop_only + preset Acheteur, idempotente. Toggle BO « Accès des acheteurs ». 4 tests RPC verts contre la prod. |
+| S7.12 checkout ≤ 2 écrans | `b01a542` | Route `/checkout` : identification même page (self_signup : créer un compte + RPC ; invite_only : connexion + demande d'accès mailto) → récap HT/TVA/TTC → Commander → ThankYou. **E2E complet joué contre la prod** (compte éphémère, commande #B0B4986A, nettoyé). **FIX FK débusqué** : `tenant_order_items.product_id` = réf product_library (`product.product_id`), pas l'id de ligne shop_products — tout panier avec produit manuel échouait. |
+| S7.13 sitemap + noindex | `00001d1` | **Edge `shop-sitemap` déployée prod B5** : XML (home + gammes souscrites) réservé self_signup, 404 privé. Meta robots noindex,nofollow sur toutes les vues des boutiques invite_only. Vérifié live. |
+| S7.14 clôture | (ce commit) | Harmonisation réassurance constatée, a11y 0 violation sur les 6 routes v2, TF-S7.1→S7.13 dans la DB Notion via MCP, handoff + mémoire. |
+
+**Tests** : 837 vitest verts. **Limites tracées** : confirmation email exigée au signUp public (réglage GoTrue — arbitrage produit autoconfirm/magic-link à prendre pour un parcours 1 sans friction) · « Demander un accès » = mailto (Resend dédié si besoin confirmé) · clavier-only complet à rejouer en TF humain.
+
+**EPIC 7 TERMINÉ** : 14/14 stories, 3 ADR instanciées (§4.18 tuiles « dès X € », §4.19 routes+SEO+sitemap, §4.20 access_mode+RPC+checkout). Prochaine étape suggérée : rétrospective Epic 7 (`bmad-retrospective`) + arbitrage autoconfirm + bascule d'une vraie boutique pilote en self_signup.
 
 ## 22. Session 2026-07-26 (suite) — Sprint V2-B : vitrine & reprise (S7.6-S7.9)
 
