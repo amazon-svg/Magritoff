@@ -12,7 +12,7 @@
 
 import { useMemo } from 'react';
 import { Sparkles } from 'lucide-react';
-import type { ShopProduct } from '../../../contexts/ShopsContext';
+import type { Shop, ShopProduct } from '../../../contexts/ShopsContext';
 import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
 import { TEST_IDS } from '../../../lib/testIds';
 import { resolveProductImage } from '../../../utils/productImages';
@@ -25,8 +25,11 @@ import {
 } from './gammePage.helpers';
 import { GammeConfigurator } from './GammeConfigurator';
 import { StickyPriceBar } from './StickyPriceBar';
+import { PimEditorial } from './PimEditorial';
+import { ShopProductCard } from '../ShopProductCard';
 
 export interface GammePageProps {
+  shop: Shop;
   gammeSlug: string | undefined;
   products: ShopProduct[];
   pimGammes: Gamme[];
@@ -34,17 +37,25 @@ export interface GammePageProps {
   onAddToCart: (product: ShopProduct, qty: number) => void;
   onGoHome: () => void;
   onGoCatalog: () => void;
+  /** S7.4 — navigation vers une autre page gamme (breadcrumb famille). */
+  onGoGamme: (slug: string) => void;
+  /** S7.4 — clic carte produit lié → fiche /p/:id. */
+  onSelectProduct: (product: ShopProduct) => void;
   /** Filet Magrit : ouvre la zone de recherche Magrit (vue catalogue). */
   onAskMagrit: () => void;
 }
 
 export function GammePage({
+  shop,
   gammeSlug,
   products,
   pimGammes,
+  pimDefinitions,
   onAddToCart,
   onGoHome,
   onGoCatalog,
+  onGoGamme,
+  onSelectProduct,
   onAskMagrit,
 }: GammePageProps) {
   const { gamme, family } = useMemo(
@@ -111,7 +122,13 @@ export function GammePage({
         {family && family.slug !== gamme?.slug && (
           <>
             <span aria-hidden="true">›</span>
-            <span>{family.name}</span>
+            <button
+              type="button"
+              onClick={() => onGoGamme(family.slug)}
+              className="hover:text-ink hover:underline"
+            >
+              {family.name}
+            </button>
           </>
         )}
         <span aria-hidden="true">›</span>
@@ -223,6 +240,39 @@ export function GammePage({
             </button>
           </div>
         </div>
+      )}
+
+      {/* S7.4 — Éditorial PIM (product_definitions, placeholders résolus) */}
+      <PimEditorial
+        definitions={pimDefinitions}
+        gammeSlug={gamme?.slug ?? gammeSlug}
+        familySlug={family?.slug}
+        options={defaultProduct ? options : null}
+      />
+
+      {/* S7.4 — Produits liés de la gamme (ShopProductCard inchangé) */}
+      {gammeProducts.length > 1 && (
+        <section data-testid={TEST_IDS.shop.gammeRelated} aria-label="Produits de la gamme">
+          <h2
+            className="text-ink m-0 mb-3"
+            style={{ fontSize: '19px', fontWeight: 500, letterSpacing: '-0.01em' }}
+          >
+            Produits de la gamme
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            {gammeProducts.slice(0, 6).map((p) => (
+              <ShopProductCard
+                key={p.id}
+                product={p}
+                shop={shop}
+                pimGammes={pimGammes}
+                onCardClick={onSelectProduct}
+                onConfigure={onSelectProduct}
+                onAddToCart={(prod, qty) => onAddToCart(prod, qty ?? 1)}
+              />
+            ))}
+          </div>
+        </section>
       )}
 
       {/* Barre basse mobile */}

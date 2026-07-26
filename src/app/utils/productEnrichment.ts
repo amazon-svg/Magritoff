@@ -32,6 +32,12 @@ export interface ProductDefinition {
   validated_by: 'llm' | 'human' | 'pending' | null;
   /** Image spécifique à cette variation (override du niveau gamme). */
   image_url?: string | null;
+  // S-PIM-EXAPRINT (2026-07-10) — champs éditoriaux enrichis, optionnels
+  // (les anciennes définitions les ont à null). Rendus par PimEditorial (S7.4).
+  commercial_pitch?: string | null;
+  benefits?: string[] | null;
+  use_cases?: Array<{ title: string; description: string }> | string[] | null;
+  technical_spec?: Record<string, unknown> | null;
 }
 
 export interface MatchingRules {

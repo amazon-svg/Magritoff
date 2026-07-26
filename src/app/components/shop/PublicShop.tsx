@@ -764,6 +764,7 @@ export function PublicShop() {
       {/* S7.3 — page gamme-configurateur (expérience déterminante v2) */}
       {view === 'gamme' && (
         <GammePage
+          shop={shop}
           gammeSlug={routeMatch.gammeSlug}
           products={products}
           pimGammes={pimGammes}
@@ -776,6 +777,8 @@ export function PublicShop() {
           }}
           onGoHome={() => goView('home')}
           onGoCatalog={() => goView('catalog')}
+          onGoGamme={(gSlug) => goView('gamme', gSlug)}
+          onSelectProduct={(p) => goView('product', p.id)}
           onAskMagrit={() => goView('catalog')}
         />
       )}

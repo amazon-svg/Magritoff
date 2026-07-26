@@ -265,6 +265,10 @@ export const TEST_IDS = {
     gammePriceSourceBadge: 'shop-gamme-price-source-badge',
     gammeAskMagrit: 'shop-gamme-ask-magrit',
     gammeEmptyState: 'shop-gamme-empty-state',
+    // S7.4 — Éditorial PIM + produits liés sur la page gamme
+    gammeEditorial: 'shop-gamme-editorial',
+    gammeEditorialFaq: 'shop-gamme-editorial-faq',
+    gammeRelated: 'shop-gamme-related',
     // S-FIX-1 — Section SEO/GEO PIM dans l'onglet Fiche existant (correctif scope
     // 2026-05-10 : pas de nouvel onglet, enrichissement de Fiche uniquement).
     ficheSeoSection: 'product-card-fiche-seo-section',
