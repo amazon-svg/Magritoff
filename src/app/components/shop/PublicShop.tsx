@@ -13,6 +13,7 @@ import { PortalProduct } from './portal/PortalProduct';
 import { PortalCart } from './portal/PortalCart';
 import { PortalThankYou } from './portal/PortalThankYou';
 import { AccountHub } from './portal/AccountHub';
+import { CheckoutPage } from './portal/CheckoutPage';
 import type { PortalView, CartLine, BudgetInfo } from './portal/types';
 import {
   rebuildCartFromOrderItems,
@@ -532,12 +533,20 @@ export function PublicShop() {
     }
 
     // ── Phase 2 : INSERT tenant_order_items (N lignes, 1 par cart line) ───
+    // S7.12 (bug débusqué par le smoke self-signup) : la FK product_id
+    // référence product_library. Pour une ligne shop_products MANUELLE,
+    // l.product.id est l'id de la ligne shop_products (UUID valide mais
+    // absent de product_library → violation FK). La bonne réf bibliothèque
+    // est l.product.product_id (null si produit purement manuel).
     const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const itemsToInsert = cart.map((l) => {
-      const isUuid = typeof l.product.id === 'string' && UUID_RE.test(l.product.id);
+      const libraryRef =
+        typeof l.product.product_id === 'string' && UUID_RE.test(l.product.product_id)
+          ? l.product.product_id
+          : null;
       return tenantOrderItemInsertSchema.parse({
         order_id: orderRow.id,
-        product_id: isUuid ? l.product.id : null,
+        product_id: libraryRef,
         product_label: l.product.name,
         clariprint_options: (l.product.config as Record<string, unknown> | null) ?? null,
         quantity: l.qty,
@@ -784,7 +793,9 @@ export function PublicShop() {
           budget={budget}
           onUpdateQty={updateQty}
           onRemove={removeFromCart}
-          onSubmit={submitCart}
+          // S7.12 (ADR 4.20) — le drawer mène au récap /checkout : c'est là
+          // que se joue l'identification éventuelle puis le submitCart.
+          onSubmit={() => goView('checkout')}
           onContinue={() => {/* drawer reste ouvert, l'acheteur peut continuer */}}
           pimGammes={pimGammes}
           pimDefinitions={pimDefinitions}
@@ -876,6 +887,16 @@ export function PublicShop() {
       {/* S7.1 AC3 : /p/:id introuvable dans le catalogue chargé → catalog. */}
       {view === 'product' && !selectedProduct && slug && (
         <Navigate to={shopUrl(slug, 'catalog')} replace />
+      )}
+
+      {/* S7.12 — checkout ≤ 2 écrans (identification + récap, ADR §4.20) */}
+      {view === 'checkout' && (
+        <CheckoutPage
+          shop={shop}
+          cart={cart}
+          onSubmit={submitCart}
+          onGoCatalog={() => goView('catalog')}
+        />
       )}
 
       {/* S7.10 — hub Mon compte (commandes / devis / profil) */}

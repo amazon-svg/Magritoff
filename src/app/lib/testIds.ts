@@ -275,6 +275,14 @@ export const TEST_IDS = {
     gammeTileNoPrice: 'shop-gamme-tile-no-price',
     // S7.11 — Mode d'accès acheteurs (BO éditeur boutique)
     accessModeSelect: 'shop-access-mode-select',
+    // S7.12 — Checkout ≤ 2 écrans (identification + récap)
+    checkoutPage: 'shop-checkout-page',
+    checkoutIdentification: 'shop-checkout-identification',
+    checkoutEmailInput: 'shop-checkout-email-input',
+    checkoutPasswordInput: 'shop-checkout-password-input',
+    checkoutAuthBtn: 'shop-checkout-auth-btn',
+    checkoutRequestAccess: 'shop-checkout-request-access',
+    checkoutSubmitBtn: 'shop-checkout-submit-btn',
     // S7.10 — AccountHub « Mon compte » /account/*
     accountHub: 'shop-account-hub',
     accountTab: 'shop-account-tab',

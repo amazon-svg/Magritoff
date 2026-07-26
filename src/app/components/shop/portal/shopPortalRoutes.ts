@@ -74,6 +74,11 @@ export function parsePortalPath(splat: string | undefined): PortalRouteMatch {
       return rest.length === 0
         ? { view: 'thankYou', redirected: false }
         : { view: 'thankYou', redirected: true };
+    case 'checkout':
+      // S7.12 — récap + identification (ADR §4.20).
+      return rest.length === 0
+        ? { view: 'checkout', redirected: false }
+        : { view: 'checkout', redirected: true };
     case 'account': {
       // S7.10 — hub Mon compte : /account/orders|quotes|profile.
       const section = rest[0] as AccountSection | undefined;
@@ -121,6 +126,8 @@ export function portalPathForView(view: PortalView, param?: string): string {
       return `account/${param && ACCOUNT_SECTIONS.includes(param as AccountSection) ? param : 'orders'}`;
     case 'thankYou':
       return 'thank-you';
+    case 'checkout':
+      return 'checkout';
     case 'cart':
       // Le panier est un drawer, pas une page : on reste sur le catalogue.
       return 'catalog';

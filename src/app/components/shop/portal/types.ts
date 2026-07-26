@@ -14,7 +14,9 @@ export type PortalView =
   // S7.3 — page gamme-configurateur /shop/:slug/g/:gamme (Epic 7)
   | 'gamme'
   // S7.10 — hub « Mon compte » /shop/:slug/account/* (Epic 7)
-  | 'account';
+  | 'account'
+  // S7.12 — checkout ≤ 2 écrans /shop/:slug/checkout (Epic 7, ADR §4.20)
+  | 'checkout';
 
 /** S7.10 — sections du hub Mon compte. */
 export type AccountSection = 'orders' | 'quotes' | 'profile';
