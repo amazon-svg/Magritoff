@@ -2,7 +2,22 @@
 
 > Document de reprise pour démarrer une nouvelle session de Claude code sur le projet sans recharger tout l'historique. À tenir à jour à chaque fin de sprint.
 >
-> **Dernière mise à jour : 2026-07-26 — Sprint V2-A (Epic 7 gabarit boutique v2, phase 1 cœur transactionnel) : 5 stories S7.1-S7.5 livrées. ADR §4.18-4.20 + Epic 7 (14 stories, 3 sprints) posés en amont par Winston. Voir section 21. Sessions précédentes : sections 18-20.**
+> **Dernière mise à jour : 2026-07-26 (soir) — Sprints V2-A ET V2-B (Epic 7 gabarit boutique v2) livrés dans la même session : S7.1-S7.9. Voir sections 21-22. Reste V2-C (S7.10-S7.14). Sessions précédentes : sections 18-20.**
+
+## 22. Session 2026-07-26 (suite) — Sprint V2-B : vitrine & reprise (S7.6-S7.9)
+
+| Story | Commit | Livré |
+|---|---|---|
+| S7.6 prix plancher + GammeTile | `5f5e210` | `computeGammeFloorPrices` pur (min `resolvePrice` par gamme + agrégat famille racine, source héritée, jamais 0 €, ADR §4.18) + `GammeTile` 4 états (image PIM ou picto/tonalité famille). |
+| S7.7 ShopChrome | `3275989` | `ReassuranceStrip` (3 faits dérivés des claims produits), `ShopHeaderSearch` (logique S2.21 repositionnée : produit→/p/:id, famille→/g/:slug, repli Magrit), bouton panier avec MONTANT (`resolveCartLabel`), clic famille méga-menu → page gamme (familyKey rétro-compat). |
+| S7.8 home vitrine | `42bc073` | Refonte `PortalHome` pour TOUS : intro descriptive, grille GammeTile « dès X € », Nouveautés conservée, éditorial tenant (`shop.description`), footer. **Mocks supprimés** (Léa, faux CMD, promesse 72 h). |
+| S7.9 ResumeBanner | `4155878` | Bandeau Reprendre riche (home) + compact (pages gammes) : chips panier+montant / renouveler v1_1 (réutilise S3.3) / suivi statut FR, dérivés de la donnée (absent si vide). Fetch dernière `tenant_orders` best-effort. Bloc S2.16 retiré (doublon). **Chip devis reporté S7.10** (donnée non exposée portail). |
+
+**Tests** : 831 vitest verts (+17 vs fin V2-A). Build vert. **a11y** : 0 violation WCAG AA home vitrine + page gamme. **Smoke live ERAM** : 9 tuiles badgées → /g/carterie ; recherche « fly » → /g/flyer ; « Panier · 151,20 € » au header ; méga-menu Affiches → /g/affiche ; bandeau compact/riche + chip panier → drawer. Smoke acheteur AI (DoD #3) vert dans la suite.
+
+**Reste Sprint V2-C** : S7.10 AccountHub `/account/*` (+ chip devis) · S7.11 migration+RPC self-signup (ADR §4.20 — migration DB, PAT requis) · S7.12 checkout ≤ 2 écrans · S7.13 edge shop-sitemap + noindex (ADR §4.19-4) · S7.14 clôture/harmonisation. NB : S7.11/S7.13 nécessitent déploiement Supabase (PAT Keychain).
+
+**TF Notion** : TF-S7.1→S7.9 créés DIRECTEMENT dans la DB 🧪 (8 fiches, statut À jouer) via MCP Notion — plus de copy-paste manuel requis.
 
 ## 21. Session 2026-07-26 — Winston (ADR gabarit v2) + Sprint V2-A (S7.1-S7.5)
 
