@@ -12,7 +12,12 @@ export type PortalView =
   | 'orders'
   | 'thankYou'
   // S7.3 — page gamme-configurateur /shop/:slug/g/:gamme (Epic 7)
-  | 'gamme';
+  | 'gamme'
+  // S7.10 — hub « Mon compte » /shop/:slug/account/* (Epic 7)
+  | 'account';
+
+/** S7.10 — sections du hub Mon compte. */
+export type AccountSection = 'orders' | 'quotes' | 'profile';
 
 export interface CartLine {
   product: ShopProduct;

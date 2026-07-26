@@ -33,18 +33,47 @@ describe('parsePortalPath (S7.1 AC1/AC3)', () => {
     expect(parsePortalPath('p/x/y')).toEqual({ view: 'catalog', redirected: true });
   });
 
-  it('orders → orders (le ?tab= est hors splat, géré par PortalOrders)', () => {
-    expect(parsePortalPath('orders')).toEqual({ view: 'orders', redirected: false });
+  it('orders → alias legacy vers account/orders (S7.10, query préservée par PublicShop)', () => {
+    expect(parsePortalPath('orders')).toEqual({
+      view: 'account',
+      accountSection: 'orders',
+      redirected: true,
+    });
+  });
+
+  it('account/orders|quotes|profile → sections du hub (S7.10)', () => {
+    expect(parsePortalPath('account/orders')).toEqual({
+      view: 'account',
+      accountSection: 'orders',
+      redirected: false,
+    });
+    expect(parsePortalPath('account/quotes')).toEqual({
+      view: 'account',
+      accountSection: 'quotes',
+      redirected: false,
+    });
+    expect(parsePortalPath('account/profile')).toEqual({
+      view: 'account',
+      accountSection: 'profile',
+      redirected: false,
+    });
   });
 
   it('thank-you → thankYou', () => {
     expect(parsePortalPath('thank-you')).toEqual({ view: 'thankYou', redirected: false });
   });
 
-  it('account/* → orders en placeholder S7.10 (redirected)', () => {
-    expect(parsePortalPath('account')).toEqual({ view: 'orders', redirected: true });
-    expect(parsePortalPath('account/orders')).toEqual({ view: 'orders', redirected: true });
-    expect(parsePortalPath('account/profile')).toEqual({ view: 'orders', redirected: true });
+  it('account nu ou section inconnue → account/orders canonique (redirected)', () => {
+    expect(parsePortalPath('account')).toEqual({
+      view: 'account',
+      accountSection: 'orders',
+      redirected: true,
+    });
+    expect(parsePortalPath('account/nimporte')).toEqual({
+      view: 'account',
+      accountSection: 'orders',
+      redirected: true,
+    });
   });
 
   it('g/:gamme → vue gamme (S7.3, page gamme-configurateur)', () => {
@@ -76,7 +105,7 @@ describe('portalPathForView round-trip (S7.1 AC5)', () => {
     ['catalog', undefined],
     ['product', 'prod-1'],
     ['gamme', 'flyer'],
-    ['orders', undefined],
+    ['account', 'quotes'],
     ['thankYou', undefined],
   ];
 
@@ -87,6 +116,15 @@ describe('portalPathForView round-trip (S7.1 AC5)', () => {
     expect(match.redirected).toBe(false);
     if (view === 'product') expect(match.productId).toBe(param);
     if (view === 'gamme') expect(match.gammeSlug).toBe(param);
+    if (view === 'account') expect(match.accountSection).toBe(param);
+  });
+
+  it('orders (alias S7.10) → chemin canonique account/orders', () => {
+    expect(portalPathForView('orders')).toBe('account/orders');
+    const match = parsePortalPath(portalPathForView('orders'));
+    expect(match.view).toBe('account');
+    expect(match.accountSection).toBe('orders');
+    expect(match.redirected).toBe(false);
   });
 
   it('product sans id → catalog (pas d URL inadressable)', () => {
@@ -107,7 +145,8 @@ describe('shopUrl', () => {
     expect(shopUrl('boutique-1', 'home')).toBe('/shop/boutique-1');
   });
   it('vues profondes', () => {
-    expect(shopUrl('boutique-1', 'orders')).toBe('/shop/boutique-1/orders');
+    // S7.10 : les commandes vivent sous Mon compte.
+    expect(shopUrl('boutique-1', 'orders')).toBe('/shop/boutique-1/account/orders');
     expect(shopUrl('boutique-1', 'product', 'lib-1')).toBe('/shop/boutique-1/p/lib-1');
   });
 });

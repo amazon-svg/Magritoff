@@ -11,8 +11,8 @@ import { PortalHome } from './portal/PortalHome';
 import { PortalCatalog } from './portal/PortalCatalog';
 import { PortalProduct } from './portal/PortalProduct';
 import { PortalCart } from './portal/PortalCart';
-import { PortalOrders } from './portal/PortalOrders';
 import { PortalThankYou } from './portal/PortalThankYou';
+import { AccountHub } from './portal/AccountHub';
 import type { PortalView, CartLine, BudgetInfo } from './portal/types';
 import {
   rebuildCartFromOrderItems,
@@ -78,11 +78,16 @@ export function PublicShop() {
   const goView = (v: PortalView, productId?: string) => {
     if (slug) navigate(shopUrl(slug, v, productId));
   };
-  // URL non canonique (legacy, account placeholder, inconnue) → replace vers
-  // la vue résolue, l'historique ne garde pas l'URL morte (AC3).
+  // URL non canonique (legacy, inconnue) → replace vers la vue résolue,
+  // l'historique ne garde pas l'URL morte (AC3). S7.10 : la query string est
+  // PRÉSERVÉE (ex. /orders?tab=mine → /account/orders?tab=mine).
   useEffect(() => {
     if (!slug || !routeMatch.redirected) return;
-    navigate(shopUrl(slug, routeMatch.view), { replace: true });
+    const param =
+      routeMatch.accountSection ?? routeMatch.gammeSlug ?? routeMatch.productId;
+    navigate(`${shopUrl(slug, routeMatch.view, param)}${window.location.search}`, {
+      replace: true,
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, splat]);
 
@@ -873,8 +878,15 @@ export function PublicShop() {
         <Navigate to={shopUrl(slug, 'catalog')} replace />
       )}
 
-      {view === 'orders' && (
-        <PortalOrders shopId={shop.id} onRenewOrder={handleRenewOrder} />
+      {/* S7.10 — hub Mon compte (commandes / devis / profil) */}
+      {view === 'account' && (
+        <AccountHub
+          shop={shop}
+          section={routeMatch.accountSection ?? 'orders'}
+          onSection={(s) => goView('account', s)}
+          onRenewOrder={handleRenewOrder}
+          onGoHome={() => goView('home')}
+        />
       )}
 
       {/* S-CONSO-3 : page de confirmation post-submitCart. Si lastOrderId est

@@ -96,7 +96,8 @@ interface Props {
 const NAV_ITEMS: Array<{ key: PortalView; label: string }> = [
   { key: "home", label: "Accueil" },
   { key: "catalog", label: "Catalogue" },
-  { key: "orders", label: "Mes commandes" },
+  // S7.10 — les fonctions portail vivent sous « Mon compte » (/account/*).
+  { key: "account", label: "Mon compte" },
 ];
 
 export function ShopLayout({

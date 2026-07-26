@@ -273,6 +273,12 @@ export const TEST_IDS = {
     gammeTile: 'shop-gamme-tile',
     gammeTileFloorPrice: 'shop-gamme-tile-floor-price',
     gammeTileNoPrice: 'shop-gamme-tile-no-price',
+    // S7.10 — AccountHub « Mon compte » /account/*
+    accountHub: 'shop-account-hub',
+    accountTab: 'shop-account-tab',
+    accountQuotesList: 'shop-account-quotes-list',
+    accountProfile: 'shop-account-profile',
+    accountLogoutBtn: 'shop-account-logout-btn',
     // S7.9 — Bandeau Reprendre riche (home) + compact (pages gammes)
     resumeBanner: 'shop-resume-banner',
     resumeChipCart: 'shop-resume-chip-cart',

@@ -16,7 +16,7 @@
  *   inconnu       → home      (jamais de 404 interne, AC3)
  */
 
-import type { PortalView } from './types';
+import type { AccountSection, PortalView } from './types';
 
 export interface PortalRouteMatch {
   view: PortalView;
@@ -24,12 +24,16 @@ export interface PortalRouteMatch {
   productId?: string;
   /** Réservé S7.3 — slug de gamme si le chemin est `g/:gamme`. */
   gammeSlug?: string;
+  /** S7.10 — section du hub Mon compte (view='account'). */
+  accountSection?: AccountSection;
   /**
    * true si le chemin d'origine n'est pas canonique (legacy, inconnu,
    * placeholder) : le composant doit remplacer l'URL (navigate replace).
    */
   redirected: boolean;
 }
+
+const ACCOUNT_SECTIONS: readonly AccountSection[] = ['orders', 'quotes', 'profile'];
 
 /** Normalise un splat react-router : slashes de tête/queue, query exclue. */
 function normalizeSplat(splat: string | undefined): string[] {
@@ -63,16 +67,22 @@ export function parsePortalPath(splat: string | undefined): PortalRouteMatch {
       return { view: 'catalog', redirected: true };
     }
     case 'orders':
-      return rest.length === 0
-        ? { view: 'orders', redirected: false }
-        : { view: 'orders', redirected: true };
+      // S7.10 — alias legacy : les commandes vivent sous /account/orders
+      // (le redirect PublicShop préserve la query ?tab=).
+      return { view: 'account', accountSection: 'orders', redirected: true };
     case 'thank-you':
       return rest.length === 0
         ? { view: 'thankYou', redirected: false }
         : { view: 'thankYou', redirected: true };
-    case 'account':
-      // Placeholder S7.10 : toutes les URLs compte pointent sur les commandes.
-      return { view: 'orders', redirected: true };
+    case 'account': {
+      // S7.10 — hub Mon compte : /account/orders|quotes|profile.
+      const section = rest[0] as AccountSection | undefined;
+      if (section && rest.length === 1 && ACCOUNT_SECTIONS.includes(section)) {
+        return { view: 'account', accountSection: section, redirected: false };
+      }
+      // /account nu ou section inconnue → commandes (canonique).
+      return { view: 'account', accountSection: 'orders', redirected: true };
+    }
     case 'g': {
       // S7.3 — page gamme-configurateur. Sans slug (ou trop profond) : catalog.
       const gammeSlug = rest[0];
@@ -104,7 +114,11 @@ export function portalPathForView(view: PortalView, param?: string): string {
       // S7.3 — sans slug de gamme on retombe sur le catalogue.
       return param ? `g/${param}` : 'catalog';
     case 'orders':
-      return 'orders';
+      // S7.10 — les commandes vivent sous Mon compte.
+      return 'account/orders';
+    case 'account':
+      // param = section (orders par défaut).
+      return `account/${param && ACCOUNT_SECTIONS.includes(param as AccountSection) ? param : 'orders'}`;
     case 'thankYou':
       return 'thank-you';
     case 'cart':
