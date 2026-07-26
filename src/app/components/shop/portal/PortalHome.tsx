@@ -12,13 +12,11 @@
  */
 
 import { useMemo } from 'react';
-import { ArrowRight, ShoppingCart } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import type { Shop, ShopProduct } from '../../../contexts/ShopsContext';
-import type { PortalView, CartLine } from './types';
+import type { PortalView } from './types';
 import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
-import { useTenant } from '../../../contexts/TenantContext';
-import { applyTax, getTaxRate } from '../../../utils/tax';
-import { resolveNewProducts, summarizeCartResume } from '../../../utils/shopHomeSections';
+import { resolveNewProducts } from '../../../utils/shopHomeSections';
 import { buildShopTaxonomy } from '../../../utils/shopTaxonomy';
 import { computeGammeFloorPrices } from '../../../utils/gammeFloorPrices';
 import { ShopProductCard } from '../ShopProductCard';
@@ -35,8 +33,6 @@ interface Props {
   onOpenGamme: (slug: string) => void;
   pimGammes?: Gamme[];
   pimDefinitions?: ProductDefinition[];
-  /** S2.16 — panier en cours (état local PublicShop) pour le bloc reprise. */
-  cart?: CartLine[];
 }
 
 export function PortalHome({
@@ -47,14 +43,7 @@ export function PortalHome({
   onReorder,
   onOpenGamme,
   pimGammes,
-  cart,
 }: Props) {
-  const { currentTenant } = useTenant();
-  const taxRate = getTaxRate(currentTenant);
-
-  // S2.16 — Panier en cours : reprise en un clic. Se replie si panier vide.
-  const cartResume = summarizeCartResume(cart);
-
   // S7.8 — Top Produits : familles peuplées (taxonomie ADR-4.17) + planchers
   // « dès X € » (ADR §4.18, calcul à la volée sur les données déjà chargées).
   const families = useMemo(
@@ -93,40 +82,8 @@ export function PortalHome({
         </p>
       </div>
 
-      {/* S2.16 — Votre panier en cours (remplacé par ResumeBanner en S7.9). */}
-      {cartResume && (
-        <div className="px-5 lg:px-9 pt-7 bg-bg" data-testid={TEST_IDS.shop.homeCartResume}>
-          <section className="flex items-center gap-4 bg-paper border border-line rounded-xl px-5 py-4 max-w-[1100px]">
-            <div
-              className="w-9 h-9 rounded-lg bg-bg grid place-items-center text-ink-muted shrink-0"
-              aria-hidden="true"
-            >
-              <ShoppingCart className="w-4 h-4" strokeWidth={1.5} />
-            </div>
-            <div className="min-w-0">
-              <h5 className="text-ink m-0" style={{ fontSize: '14.5px', fontWeight: 500 }}>
-                Votre panier en cours
-              </h5>
-              <p className="text-ink-muted m-0" style={{ fontSize: '12.5px' }}>
-                {cartResume.itemCount} article{cartResume.itemCount > 1 ? 's' : ''} ·{' '}
-                <span className="font-mono text-ink" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                  {applyTax(cartResume.totalHT, taxRate).toFixed(2)}€
-                </span>{' '}
-                TTC
-              </p>
-            </div>
-            <button
-              data-testid={TEST_IDS.shop.homeCartResumeBtn}
-              onClick={() => onView('cart')}
-              className="ml-auto shrink-0 px-3.5 py-2 rounded-md bg-ink text-paper hover:bg-ink-2 inline-flex items-center gap-1.5"
-              style={{ fontSize: '12.5px', fontWeight: 500 }}
-            >
-              Reprendre mon panier
-              <ArrowRight className="w-3.5 h-3.5" strokeWidth={1.5} />
-            </button>
-          </section>
-        </div>
-      )}
+      {/* S2.16 retiré : la reprise panier vit dans le ResumeBanner (S7.9),
+          rendu par PublicShop au-dessus de cette home. */}
 
       {/* S7.8 — Top Produits : tuiles familles « dès X € » */}
       {families.length > 0 && (

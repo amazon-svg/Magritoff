@@ -20,6 +20,11 @@ import {
 } from './portal/orderRenewal.helpers';
 import { ShopLayout } from './ShopLayout';
 import { GammePage } from './gamme/GammePage';
+import {
+  ResumeBanner,
+  buildResumeChips,
+  type ResumeLastOrder,
+} from './portal/ResumeBanner';
 import { ShopForbidden403 } from './ShopForbidden403';
 import { resolveShopAccessFromMemberships } from './ShopAccessGuard.helpers';
 import {
@@ -358,6 +363,41 @@ export function PublicShop() {
   // S3.3 (Sprint 5) : warnings du dernier renouvellement de commande, affichés
   // en banner dismissable dans PortalCart (cf. setRenewalWarnings([]) pour reset).
   const [renewalWarnings, setRenewalWarnings] = useState<string[]>([]);
+
+  // S7.9 — Dernière commande de l'acheteur sur la boutique (bandeau Reprendre).
+  // Best-effort silencieux : anonyme ou erreur RLS → pas de bandeau.
+  const [lastOrder, setLastOrder] = useState<ResumeLastOrder | null>(null);
+  useEffect(() => {
+    if (!user?.id || !shop?.id) {
+      setLastOrder(null);
+      return;
+    }
+    let cancelled = false;
+    supabase
+      .from('tenant_orders')
+      .select('id, status, total_ht, created_at, source')
+      .eq('shop_id', shop.id)
+      .eq('created_by', user.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error || !data) setLastOrder(null);
+        else
+          setLastOrder({
+            id: data.id,
+            status: String(data.status ?? ''),
+            total_ht: Number(data.total_ht) || 0,
+            created_at: String(data.created_at ?? ''),
+            source: String((data as { source?: string }).source ?? ''),
+          });
+      });
+    return () => {
+      cancelled = true;
+    };
+    // Re-fetch après un submitCart réussi (lastOrderId change).
+  }, [user?.id, shop?.id, lastOrderId]);
 
   /**
    * S3.3 AC2/AC3 : Renouveler 1-clic depuis OrderHistoryTable.
@@ -700,6 +740,15 @@ export function PublicShop() {
   // S7.7 — montant HT du panier (affiché sur le bouton header, décision D3).
   const cartTotalHT = cart.reduce((s, l) => s + l.product.price_ht * l.qty, 0);
 
+  // S7.9 — Bandeau Reprendre (chips dérivés de la donnée, vide → absent).
+  const resumeChips = buildResumeChips({ cartCount, cartTotalHT, lastOrder });
+  const handleResumeChip = (key: 'cart' | 'renew' | 'track') => {
+    if (key === 'cart') setCartOpenRequest((n) => n + 1);
+    else if (key === 'renew' && lastOrder) {
+      void handleRenewOrder({ id: lastOrder.id, source: lastOrder.source });
+    } else if (key === 'track') goView('orders');
+  };
+
   return (
     <ShopLayout
       shop={shop}
@@ -744,6 +793,15 @@ export function PublicShop() {
         />
       }
     >
+      {/* S7.9 — Bandeau Reprendre : riche sur la home, compact sur les pages
+          gammes (le récurrent ne repasse pas par la home). */}
+      {view === 'home' && (
+        <ResumeBanner chips={resumeChips} onChip={handleResumeChip} variant="rich" />
+      )}
+      {view === 'gamme' && (
+        <ResumeBanner chips={resumeChips} onChip={handleResumeChip} variant="compact" />
+      )}
+
       {view === 'home' && (
         <PortalHome
           shop={shop}
@@ -754,7 +812,6 @@ export function PublicShop() {
           onOpenGamme={(gSlug) => goView('gamme', gSlug)}
           pimGammes={pimGammes}
           pimDefinitions={pimDefinitions}
-          cart={cart}
         />
       )}
 

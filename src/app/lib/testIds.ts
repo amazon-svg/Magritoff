@@ -273,6 +273,11 @@ export const TEST_IDS = {
     gammeTile: 'shop-gamme-tile',
     gammeTileFloorPrice: 'shop-gamme-tile-floor-price',
     gammeTileNoPrice: 'shop-gamme-tile-no-price',
+    // S7.9 — Bandeau Reprendre riche (home) + compact (pages gammes)
+    resumeBanner: 'shop-resume-banner',
+    resumeChipCart: 'shop-resume-chip-cart',
+    resumeChipRenew: 'shop-resume-chip-renew',
+    resumeChipTrack: 'shop-resume-chip-track',
     // S7.8 — Home vitrine (tuiles gammes + éditorial + footer)
     homeGammeGrid: 'shop-home-gamme-grid',
     homeEditorial: 'shop-home-editorial',
