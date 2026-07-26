@@ -307,6 +307,8 @@ export function DashboardShopEditor() {
         // S2.32 — mode PIM catalogue complet + gammes selectionnees
         pim_catalog_mode: shop.pim_catalog_mode === true,
         pim_gamme_slugs: shop.pim_gamme_slugs ?? [],
+        // S7.11 (ADR 4.20) — mode d acces acheteurs
+        access_mode: shop.access_mode ?? 'invite_only',
       });
       setSaveOk(true);
       setTimeout(() => setSaveOk(false), 2500);
@@ -748,6 +750,27 @@ export function DashboardShopEditor() {
             <p className="text-sm font-medium text-gray-900">Boutique active</p>
             <p className="text-xs text-gray-500">Accessible publiquement via l'URL. Désactivez pour masquer.</p>
           </div>
+        </label>
+
+        {/* S7.11 (ADR 4.20) — Mode d'accès acheteurs */}
+        <label className="block">
+          <p className="text-sm font-medium text-gray-900 mb-1">Accès des acheteurs</p>
+          <select
+            data-testid={TEST_IDS.shop.accessModeSelect}
+            value={shop.access_mode ?? 'invite_only'}
+            onChange={(e) =>
+              setShop({ ...shop, access_mode: e.target.value as 'invite_only' | 'self_signup' })
+            }
+            className="w-full max-w-sm border border-gray-300 rounded-md px-3 py-2 text-sm"
+          >
+            <option value="invite_only">Sur invitation uniquement (défaut)</option>
+            <option value="self_signup">Inscription libre au moment de commander</option>
+          </select>
+          <p className="text-xs text-gray-500 mt-1">
+            En inscription libre, un visiteur peut créer son compte acheteur au
+            checkout — accès limité à cette seule boutique. La boutique devient
+            aussi indexable par les moteurs de recherche.
+          </p>
         </label>
 
         {/* Raccourci vers la gestion des bibliotheques (remplace l'item

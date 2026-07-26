@@ -273,6 +273,8 @@ export const TEST_IDS = {
     gammeTile: 'shop-gamme-tile',
     gammeTileFloorPrice: 'shop-gamme-tile-floor-price',
     gammeTileNoPrice: 'shop-gamme-tile-no-price',
+    // S7.11 — Mode d'accès acheteurs (BO éditeur boutique)
+    accessModeSelect: 'shop-access-mode-select',
     // S7.10 — AccountHub « Mon compte » /account/*
     accountHub: 'shop-account-hub',
     accountTab: 'shop-account-tab',

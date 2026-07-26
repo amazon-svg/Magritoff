@@ -50,6 +50,9 @@ export interface Shop {
   /** Dénormalisé (RLS v3). Nécessaire côté front PublicShop pour la requête
    *  mode PIM (filtre par tenant du shop). */
   tenant_id?: string | null;
+  /** S7.11 (ADR 4.20) — invite_only (défaut) | self_signup (checkout ouvert,
+   *  boutique indexable). Optionnel pour rétro-compat des mocks/tests. */
+  access_mode?: 'invite_only' | 'self_signup';
   created_at?: string;
 }
 
