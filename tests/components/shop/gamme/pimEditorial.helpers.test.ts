@@ -60,10 +60,23 @@ describe('resolvePimTemplate — jamais de {{placeholder}} brut (AC1)', () => {
       resolvePimTemplate('Flyer {{format}} en {{grammage}}g, finition {{finition}}', options),
     ).toBe('Flyer A5 en 170g, finition mat');
   });
-  it('retire les tokens inconnus proprement', () => {
-    const out = resolvePimTemplate('Impression {{quadri}} sur {{papier}} {{inconnu}}', options);
+  it('retire les tokens inconnus proprement (papier inclus — pas de doublon grammage)', () => {
+    const out = resolvePimTemplate(
+      'Impression sur papier {{papier}} {{grammage}}g/m² {{inconnu}}',
+      options,
+    );
     expect(out).not.toContain('{{');
-    expect(out).toContain('170g');
+    expect(out).toBe('Impression sur papier 170g/m²');
+  });
+
+  it('résout quantite et finition_verso (vocabulaire prod)', () => {
+    const out = resolvePimTemplate('À partir de {{quantite}} ex., verso {{finition_verso}}', {
+      ...options,
+      quantity: 1000,
+      finishingVerso: 'brillant',
+    });
+    // toLocaleString fr-FR sépare les milliers par une espace fine insécable
+    expect(out).toBe('À partir de 1 000 ex., verso brillant');
   });
   it('null/undefined → chaîne vide', () => {
     expect(resolvePimTemplate(null, options)).toBe('');

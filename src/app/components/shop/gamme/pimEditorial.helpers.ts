@@ -28,14 +28,26 @@ export function pickDefinition(
   return forSlug(gammeSlug) ?? forSlug(familySlug);
 }
 
+/** Sous-ensemble de config utilisé pour résoudre les templates PIM. */
+export type PimTemplateOptions = Partial<
+  Pick<
+    ConfigOptions,
+    'format' | 'paper' | 'finishingFront' | 'finishingVerso' | 'quantity'
+  >
+>;
+
 /**
  * Résout les placeholders `{{token}}` d'un template PIM depuis la config
- * courante. Tokens inconnus RETIRÉS (jamais de `{{x}}` brut affiché — AC1),
+ * courante. Vocabulaire prod (audit 2026-07-26) : format, grammage, papier,
+ * finition, finition_recto, finition_verso, quantite (+ binding/matiere/pages/
+ * impression_* non mappables → RETIRÉS). Jamais de `{{x}}` brut affiché (AC1),
  * espaces doublés nettoyés.
+ * NB : `papier` (type de papier réel, ex. « couché mat ») n'est pas dans la
+ * config → retiré, pour éviter le doublon « 135g 135g/m² ».
  */
 export function resolvePimTemplate(
   template: string | null | undefined,
-  options?: Pick<ConfigOptions, 'format' | 'paper' | 'finishingFront'> | null,
+  options?: PimTemplateOptions | null,
 ): string {
   if (!template) return '';
   const vars: Record<string, string> = options
@@ -43,7 +55,10 @@ export function resolvePimTemplate(
         format: String(options.format ?? ''),
         grammage: String(options.paper ?? '').replace(/g$/i, ''),
         finition: String(options.finishingFront ?? ''),
-        papier: String(options.paper ?? ''),
+        finition_recto: String(options.finishingFront ?? ''),
+        finition_verso: String(options.finishingVerso ?? ''),
+        quantite:
+          options.quantity != null ? options.quantity.toLocaleString('fr-FR') : '',
       }
     : {};
   return template

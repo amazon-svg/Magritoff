@@ -23,6 +23,9 @@ import {
   resolveGammeInfo,
   selectGammeProducts,
 } from './gammePage.helpers';
+import { useSeoMeta } from '../../../hooks/useSeoMeta';
+import { pickDefinition } from './pimEditorial.helpers';
+import { buildGammeJsonLd, buildGammeSeo } from './gammeSeo.helpers';
 import { GammeConfigurator } from './GammeConfigurator';
 import { StickyPriceBar } from './StickyPriceBar';
 import { PimEditorial } from './PimEditorial';
@@ -90,6 +93,44 @@ export function GammePage({
         : priceHT != null
           ? applyTax(priceHT, taxRate)
           : null;
+
+  // S7.5 — SEO on-page (ADR §4.19-2/3). Canonical sur l'URL courante,
+  // JSON-LD Product (offers UNIQUEMENT sur prix Clariprint réel).
+  const seoDefinition = useMemo(
+    () => pickDefinition(pimDefinitions, gamme?.slug ?? gammeSlug, family?.slug),
+    [pimDefinitions, gamme?.slug, gammeSlug, family?.slug],
+  );
+  const seo = useMemo(
+    () =>
+      buildGammeSeo(
+        seoDefinition,
+        gamme,
+        gammeSlug,
+        shop.name,
+        defaultProduct ? options : null,
+      ),
+    [seoDefinition, gamme, gammeSlug, shop.name, defaultProduct, options],
+  );
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const shopBaseUrl = `${origin}/shop/${shop.slug}`;
+  const canonical = `${shopBaseUrl}/g/${gamme?.slug ?? gammeSlug ?? ''}`;
+  useSeoMeta({
+    title: seo.title,
+    description: seo.description,
+    canonical,
+    og: { type: 'product' },
+    jsonLd: buildGammeJsonLd({
+      seo,
+      gamme,
+      family,
+      shopName: shop.name,
+      canonical,
+      shopUrl: shopBaseUrl,
+      phase,
+      imageUrl: gamme?.image_url || defaultProduct?.image_url || null,
+    }),
+    jsonLdId: 'magrit-gamme-jsonld',
+  });
 
   const handleAdd = () => {
     const result = confirm();

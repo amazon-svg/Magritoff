@@ -9,7 +9,6 @@
 
 import { useMemo } from 'react';
 import type { ProductDefinition } from '../../../utils/productEnrichment';
-import type { ConfigOptions } from '../ProductOverlay.helpers';
 import { TEST_IDS } from '../../../lib/testIds';
 import {
   Accordion,
@@ -23,6 +22,7 @@ import {
   pickDefinition,
   resolvePimTemplate,
   specRows,
+  type PimTemplateOptions,
 } from './pimEditorial.helpers';
 
 export interface PimEditorialProps {
@@ -30,7 +30,7 @@ export interface PimEditorialProps {
   gammeSlug: string | undefined;
   familySlug?: string;
   /** Config courante — résout les placeholders des templates. */
-  options?: Pick<ConfigOptions, 'format' | 'paper' | 'finishingFront'> | null;
+  options?: PimTemplateOptions | null;
 }
 
 const H2_STYLE: React.CSSProperties = {
