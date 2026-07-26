@@ -697,6 +697,8 @@ export function PublicShop() {
   }
 
   const cartCount = cart.reduce((s, l) => s + l.qty, 0);
+  // S7.7 — montant HT du panier (affiché sur le bouton header, décision D3).
+  const cartTotalHT = cart.reduce((s, l) => s + l.product.price_ht * l.qty, 0);
 
   return (
     <ShopLayout
@@ -705,12 +707,22 @@ export function PublicShop() {
       onView={(v) => goView(v)}
       cartOpenRequest={cartOpenRequest}
       cartCount={cartCount}
+      cartTotalHT={cartTotalHT}
+      searchIndex={products}
+      pimGammes={pimGammes}
+      onSelectProduct={(p) => goView('product', p.id)}
+      onOpenGamme={(gSlug) => goView('gamme', gSlug)}
+      onAskMagrit={() => goView('catalog')}
       budget={budget}
       gammes={gammePills}
       activeGammeSlugs={expandedGammes}
       onToggleGamme={toggleGamme}
       taxonomy={taxonomy}
-      onSelectFamily={selectGammes}
+      // S7.7 — clic FAMILLE méga-menu → page gamme /g/:famille (SEO-able).
+      // Repli filtre catalogue si la clé famille manque (rétro-compat).
+      onSelectFamily={(slugs, familyKey) =>
+        familyKey ? goView('gamme', familyKey) : selectGammes(slugs)
+      }
       onSelectSubcategory={selectSubcategory}
       cartDrawer={
         <PortalCart

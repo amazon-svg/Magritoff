@@ -13,6 +13,7 @@ import {
   resolveHeroTagline,
   shouldRenderBrandBanner,
   resolveBrandBannerBackground,
+  resolveCartLabel,
 } from "../../../src/app/components/shop/ShopLayout.helpers";
 
 describe("resolveShopTheme — AC2 S2.1 dark par defaut", () => {
@@ -263,5 +264,24 @@ describe("resolveBrandBannerBackground — image vs dégradé de marque", () => 
   it("dégradé de marque quand URL vide / whitespace (pas d'image cassée)", () => {
     expect(resolveBrandBannerBackground({ hero_image_url: "   " }).hasImage).toBe(false);
     expect(resolveBrandBannerBackground(null).hasImage).toBe(false);
+  });
+});
+
+describe('resolveCartLabel (S7.7 — montant panier header, décision D3)', () => {
+  it('panier vide → « Panier »', () => {
+    expect(resolveCartLabel(0, 0)).toBe('Panier');
+    expect(resolveCartLabel(null, null)).toBe('Panier');
+  });
+  it('lignes avec montant → « Panier · X,XX € »', () => {
+    const label = resolveCartLabel(2, 84);
+    expect(label).toContain('Panier ·');
+    expect(label).toContain('84,00');
+    expect(label).toContain('€');
+  });
+  it('lignes sans montant (produits à 0) → « Panier » simple, jamais 0 €', () => {
+    expect(resolveCartLabel(3, 0)).toBe('Panier');
+  });
+  it('valeurs non finies défensives', () => {
+    expect(resolveCartLabel(Number.NaN, Number.POSITIVE_INFINITY)).toBe('Panier');
   });
 });

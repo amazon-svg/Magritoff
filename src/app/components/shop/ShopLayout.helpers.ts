@@ -191,3 +191,24 @@ export function resolveBrandBannerBackground(
     hasImage: false,
   };
 }
+
+/**
+ * S7.7 — Libellé du bouton panier header : le MONTANT prime sur le compteur
+ * (décision D3 spec UX gabarit v2). Panier vide → « Panier » simple.
+ */
+export function resolveCartLabel(
+  count: number | null | undefined,
+  totalHT: number | null | undefined,
+): string {
+  const n = typeof count === 'number' && Number.isFinite(count) ? count : 0;
+  const total = typeof totalHT === 'number' && Number.isFinite(totalHT) ? totalHT : 0;
+  if (n <= 0) return 'Panier';
+  if (total > 0) {
+    const formatted = new Intl.NumberFormat('fr-FR', {
+      style: 'currency',
+      currency: 'EUR',
+    }).format(total);
+    return `Panier · ${formatted}`;
+  }
+  return 'Panier';
+}

@@ -26,11 +26,13 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { ShoppingCart, X } from "lucide-react";
-import type { Shop } from "../../contexts/ShopsContext";
+import type { Shop, ShopProduct } from "../../contexts/ShopsContext";
 import type { Gamme } from "../../utils/productEnrichment";
 import { AuthMenu } from "../auth/AuthMenu";
 import type { PortalView, BudgetInfo } from "./portal/types";
 import { ShopMegaMenu } from "./ShopMegaMenu";
+import { ShopHeaderSearch } from "./ShopHeaderSearch";
+import { ReassuranceStrip } from "./ReassuranceStrip";
 import type { TaxonomyFamily } from "../../utils/shopTaxonomy";
 import { TEST_IDS } from "../../lib/testIds";
 import { Sheet, SheetContent, SheetTitle } from "../ui/sheet";
@@ -41,6 +43,7 @@ import {
   shouldRenderBrandBanner,
   resolveBrandBannerBackground,
   resolveHeroTagline,
+  resolveCartLabel,
 } from "./ShopLayout.helpers";
 
 interface GammePill {
@@ -63,8 +66,8 @@ interface Props {
   onToggleGamme?: (slug: string) => void;
   /** S2.18 — Taxonomie familles/sous-catégories pour le méga-menu. */
   taxonomy?: TaxonomyFamily[];
-  /** S2.18 — Clic famille (racine) dans le méga-menu → gammes à filtrer. */
-  onSelectFamily?: (gammeSlugs: string[]) => void;
+  /** S2.18/S7.7 — Clic famille méga-menu (familyKey → page gamme). */
+  onSelectFamily?: (gammeSlugs: string[], familyKey?: string) => void;
   /** S2.18 — Clic sous-catégorie dans le méga-menu → gammes à filtrer (+ format). */
   onSelectSubcategory?: (gammeSlugs: string[], formatKey?: string) => void;
   /** Contenu drawer panier (slide-right via Sheet). */
@@ -74,6 +77,18 @@ interface Props {
    * incrémenté par le parent (ex. après « Renouveler »). 0 = jamais demandé.
    */
   cartOpenRequest?: number;
+  /** S7.7 — montant HT du panier (affiché sur le bouton header, décision D3). */
+  cartTotalHT?: number;
+  /** S7.7 — index de recherche header (catalogue complet). */
+  searchIndex?: ShopProduct[];
+  /** S7.7 — gammes PIM (suggestions familles de la recherche). */
+  pimGammes?: Gamme[];
+  /** S7.7 — clic suggestion produit → fiche /p/:id. */
+  onSelectProduct?: (product: ShopProduct) => void;
+  /** S7.7 — navigation vers une page gamme /g/:slug (recherche + méga-menu). */
+  onOpenGamme?: (slug: string) => void;
+  /** S7.7 — repli Magrit de la recherche header. */
+  onAskMagrit?: () => void;
   /** Contenu principal (vue active : home/catalog/product/orders). */
   children: ReactNode;
 }
@@ -98,6 +113,12 @@ export function ShopLayout({
   onSelectSubcategory,
   cartDrawer,
   cartOpenRequest,
+  cartTotalHT,
+  searchIndex,
+  pimGammes,
+  onSelectProduct,
+  onOpenGamme,
+  onAskMagrit,
   children,
 }: Props) {
   const { dataTheme, isDark } = resolveShopTheme(shop);
@@ -132,6 +153,19 @@ export function ShopLayout({
     // S7.3 : méga-menu accessible aussi depuis une page gamme (nav partout).
     (view === "catalog" || view === "home" || view === "gamme");
 
+  // S7.7 — recherche header rendue si le parent fournit l'index + handlers.
+  const headerSearch =
+    searchIndex && onSelectProduct && onOpenGamme && onAskMagrit ? (
+      <ShopHeaderSearch
+        products={searchIndex}
+        pimGammes={pimGammes ?? []}
+        onSelectProduct={onSelectProduct}
+        onOpenGamme={onOpenGamme}
+        onAskMagrit={onAskMagrit}
+        isDark={isDark}
+      />
+    ) : null;
+
   return (
     <div
       data-testid={TEST_IDS.shop.portal}
@@ -139,6 +173,9 @@ export function ShopLayout({
       className={`min-h-screen ${isDark ? "bg-gray-950 text-gray-100" : "bg-bg text-ink"}`}
       style={{ ...brandStyle, fontFamily: "var(--shop-font-body, var(--font-ui))" }}
     >
+      {/* ─── S7.7 Bandeau réassurance (ShopChrome, constant) ─────────── */}
+      <ReassuranceStrip isDark={isDark} />
+
       {/* ─── Bandeau de marque co-brandé (refonte 2026-07-08) ─────────
           Espace client : couleur(s) de marque OU image de fond + logo client
           présenté dans une plaque nette (jamais étiré). Repli identité = nom
@@ -253,7 +290,12 @@ export function ShopLayout({
           })}
         </nav>
 
-        {/* Cart icon — ouvre drawer slide-right */}
+        {/* S7.7 — Recherche proéminente au centre (desktop) */}
+        {headerSearch && (
+          <div className="hidden md:block flex-1 max-w-xl mx-auto">{headerSearch}</div>
+        )}
+
+        {/* Cart icon — ouvre drawer slide-right. S7.7 : MONTANT affiché (D3). */}
         <button
           type="button"
           data-testid={TEST_IDS.shop.cartIcon}
@@ -266,7 +308,13 @@ export function ShopLayout({
           }`}
         >
           <ShoppingCart className="w-3.5 h-3.5" strokeWidth={1.5} />
-          <span className="hidden sm:inline">Panier</span>
+          <span
+            className="hidden sm:inline"
+            data-testid={TEST_IDS.shop.headerCartAmount}
+            style={{ fontVariantNumeric: "tabular-nums" }}
+          >
+            {resolveCartLabel(cartCount, cartTotalHT)}
+          </span>
           {showCartBadge && (
             <span
               className={`font-mono text-[10.5px] font-medium px-1.5 py-0.5 rounded-full min-w-[18px] text-center ${
@@ -287,6 +335,17 @@ export function ShopLayout({
           <AuthMenu />
         </div>
       </header>
+
+      {/* S7.7 — Recherche pleine largeur sous le header (mobile) */}
+      {headerSearch && (
+        <div
+          className={`md:hidden px-4 py-2 border-b ${
+            isDark ? "border-gray-800 bg-gray-950" : "border-line bg-paper"
+          }`}
+        >
+          {headerSearch}
+        </div>
+      )}
 
       {/* ─── Budget strip optionnel ──────────────────────────────────── */}
       {budget && (
@@ -333,7 +392,7 @@ export function ShopLayout({
         <ShopMegaMenu
           families={taxonomy!}
           isDark={isDark}
-          onSelectFamily={(slugs) => onSelectFamily?.(slugs)}
+          onSelectFamily={(slugs, familyKey) => onSelectFamily?.(slugs, familyKey)}
           onSelectSubcategory={(slugs, formatKey) => onSelectSubcategory?.(slugs, formatKey)}
         />
       )}

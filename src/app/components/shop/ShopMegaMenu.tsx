@@ -18,8 +18,12 @@ import { TEST_IDS } from '../../lib/testIds';
 interface Props {
   families: TaxonomyFamily[];
   isDark?: boolean;
-  /** Clic sur une famille (racine) → catalogue filtré sur ses gammes (racine + enfants). */
-  onSelectFamily: (gammeSlugs: string[]) => void;
+  /**
+   * Clic sur une famille (racine). S7.7 : `familyKey` (slug racine) permet au
+   * parent de router vers la page gamme /g/:famille (rétro-compat : les
+   * appelants historiques peuvent l'ignorer).
+   */
+  onSelectFamily: (gammeSlugs: string[], familyKey?: string) => void;
   /**
    * Clic sur une sous-catégorie → catalogue filtré. `formatKey` (présent pour les
    * sous-catégories dérivées par format, ADR-4.17) présélectionne la facette Format.
@@ -77,7 +81,7 @@ export function ShopMegaMenu({ families, isDark, onSelectFamily, onSelectSubcate
               aria-expanded={isOpen}
               aria-controls={panelId}
               onFocus={() => open(fam.key)}
-              onClick={() => onSelectFamily(fam.gammeSlugs)}
+              onClick={() => onSelectFamily(fam.gammeSlugs, fam.key)}
               className={`inline-flex items-center gap-1.5 py-2.5 px-2 text-[13px] border-b-2 transition-colors ${
                 isOpen
                   ? isDark
@@ -150,7 +154,7 @@ export function ShopMegaMenu({ families, isDark, onSelectFamily, onSelectSubcate
                   <li className="mt-1 pt-1 border-t border-line">
                     <button
                       type="button"
-                      onClick={() => onSelectFamily(fam.gammeSlugs)}
+                      onClick={() => onSelectFamily(fam.gammeSlugs, fam.key)}
                       className={`w-full text-left inline-flex items-center gap-1 px-2.5 py-1.5 text-[12.5px] ${
                         isDark ? 'text-gray-400 hover:text-gray-100' : 'text-ink-muted hover:text-ink'
                       }`}

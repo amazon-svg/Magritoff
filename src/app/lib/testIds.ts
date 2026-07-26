@@ -273,6 +273,14 @@ export const TEST_IDS = {
     gammeTile: 'shop-gamme-tile',
     gammeTileFloorPrice: 'shop-gamme-tile-floor-price',
     gammeTileNoPrice: 'shop-gamme-tile-no-price',
+    // S7.7 — ShopChrome (réassurance + recherche header + panier montant)
+    reassuranceStrip: 'shop-reassurance-strip',
+    headerSearch: 'shop-header-search',
+    headerSearchInput: 'shop-header-search-input',
+    headerSearchMenu: 'shop-header-search-menu',
+    headerSearchOption: 'shop-header-search-option',
+    headerSearchAskMagrit: 'shop-header-search-ask-magrit',
+    headerCartAmount: 'shop-header-cart-amount',
     // S-FIX-1 — Section SEO/GEO PIM dans l'onglet Fiche existant (correctif scope
     // 2026-05-10 : pas de nouvel onglet, enrichissement de Fiche uniquement).
     ficheSeoSection: 'product-card-fiche-seo-section',
