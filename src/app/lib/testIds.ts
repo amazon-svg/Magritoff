@@ -273,6 +273,10 @@ export const TEST_IDS = {
     gammeTile: 'shop-gamme-tile',
     gammeTileFloorPrice: 'shop-gamme-tile-floor-price',
     gammeTileNoPrice: 'shop-gamme-tile-no-price',
+    // S7.8 — Home vitrine (tuiles gammes + éditorial + footer)
+    homeGammeGrid: 'shop-home-gamme-grid',
+    homeEditorial: 'shop-home-editorial',
+    homeFooter: 'shop-home-footer',
     // S7.7 — ShopChrome (réassurance + recherche header + panier montant)
     reassuranceStrip: 'shop-reassurance-strip',
     headerSearch: 'shop-header-search',

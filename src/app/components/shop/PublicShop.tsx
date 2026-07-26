@@ -751,6 +751,7 @@ export function PublicShop() {
           onView={goView}
           onSelectProduct={(p) => goView('product', p.id)}
           onReorder={(p) => addToCart(p, 1)}
+          onOpenGamme={(gSlug) => goView('gamme', gSlug)}
           pimGammes={pimGammes}
           pimDefinitions={pimDefinitions}
           cart={cart}
