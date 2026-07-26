@@ -269,6 +269,10 @@ export const TEST_IDS = {
     gammeEditorial: 'shop-gamme-editorial',
     gammeEditorialFaq: 'shop-gamme-editorial-faq',
     gammeRelated: 'shop-gamme-related',
+    // S7.6 — Tuile gamme « dès X € » (home vitrine)
+    gammeTile: 'shop-gamme-tile',
+    gammeTileFloorPrice: 'shop-gamme-tile-floor-price',
+    gammeTileNoPrice: 'shop-gamme-tile-no-price',
     // S-FIX-1 — Section SEO/GEO PIM dans l'onglet Fiche existant (correctif scope
     // 2026-05-10 : pas de nouvel onglet, enrichissement de Fiche uniquement).
     ficheSeoSection: 'product-card-fiche-seo-section',
