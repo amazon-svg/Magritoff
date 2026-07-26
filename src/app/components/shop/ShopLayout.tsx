@@ -24,7 +24,7 @@
  *   - CSS custom props --shop-primary / --shop-accent
  */
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { ShoppingCart, X } from "lucide-react";
 import type { Shop } from "../../contexts/ShopsContext";
 import type { Gamme } from "../../utils/productEnrichment";
@@ -69,6 +69,11 @@ interface Props {
   onSelectSubcategory?: (gammeSlugs: string[], formatKey?: string) => void;
   /** Contenu drawer panier (slide-right via Sheet). */
   cartDrawer?: ReactNode;
+  /**
+   * S7.1 — signal d'ouverture programmatique du drawer panier : compteur
+   * incrémenté par le parent (ex. après « Renouveler »). 0 = jamais demandé.
+   */
+  cartOpenRequest?: number;
   /** Contenu principal (vue active : home/catalog/product/orders). */
   children: ReactNode;
 }
@@ -92,6 +97,7 @@ export function ShopLayout({
   onSelectFamily,
   onSelectSubcategory,
   cartDrawer,
+  cartOpenRequest,
   children,
 }: Props) {
   const { dataTheme, isDark } = resolveShopTheme(shop);
@@ -101,6 +107,11 @@ export function ShopLayout({
   // S-REWORK-1 — Drawer panier slide-right via Sheet shadcn (remplace
   // view='cart' page entiere). Ouvert par le cart icon du header.
   const [cartOpen, setCartOpen] = useState(false);
+
+  // S7.1 — ouverture programmatique demandée par le parent (compteur).
+  useEffect(() => {
+    if (cartOpenRequest && cartOpenRequest > 0) setCartOpen(true);
+  }, [cartOpenRequest]);
 
   const budgetPct = budget
     ? Math.min(100, Math.round((budget.used / budget.total) * 100))

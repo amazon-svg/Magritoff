@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router';
+import { Navigate, useNavigate, useParams } from 'react-router';
 import { Loader2 } from 'lucide-react';
 import { supabase } from '/utils/supabase/client';
 import type { Shop, ShopProduct } from '../../contexts/ShopsContext';
@@ -28,6 +28,7 @@ import {
   saveExpandedGammes,
 } from './ShopGammesSidebar.helpers';
 import { buildShopTaxonomy } from '../../utils/shopTaxonomy';
+import { parsePortalPath, shopUrl } from './portal/shopPortalRoutes';
 import { applyTax, getTaxRate } from '../../utils/tax';
 import { applyPricingOverrides, type PricingOverride } from '../../utils/applyPricingOverrides';
 import { resolveShopProductScope } from '../../utils/resolveShopProductScope';
@@ -53,7 +54,10 @@ import {
  * sur un futur backend B2B.
  */
 export function PublicShop() {
-  const { slug } = useParams<{ slug: string }>();
+  const params = useParams<{ slug: string; '*': string }>();
+  const slug = params.slug;
+  const splat = params['*'];
+  const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { tenants, isSuperAdmin, currentTenant } = useTenant();
   const [shop, setShop] = useState<Shop | null>(null);
@@ -61,11 +65,36 @@ export function PublicShop() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
-  const [view, setView] = useState<PortalView>('home');
+  // S7.1 (ADR §4.19-1) — la vue est DÉRIVÉE de l'URL, plus un state interne.
+  // Back/forward navigateur et reload sur URL profonde fonctionnent (AC1).
+  const routeMatch = useMemo(() => parsePortalPath(splat), [splat]);
+  const view = routeMatch.view;
+  const goView = (v: PortalView, productId?: string) => {
+    if (slug) navigate(shopUrl(slug, v, productId));
+  };
+  // URL non canonique (legacy, account placeholder, inconnue) → replace vers
+  // la vue résolue, l'historique ne garde pas l'URL morte (AC3).
+  useEffect(() => {
+    if (!slug || !routeMatch.redirected) return;
+    navigate(shopUrl(slug, routeMatch.view), { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug, splat]);
+
   // S-CONSO-3 : order_id du dernier submitCart reussi, lu par PortalThankYou.
   const [lastOrderId, setLastOrderId] = useState<string | null>(null);
-  const [selectedProduct, setSelectedProduct] = useState<ShopProduct | null>(null);
+  // S7.1 — fiche produit adressée par URL `/p/:productId` (lookup catalogue).
+  const selectedProduct = useMemo(
+    () =>
+      routeMatch.productId
+        ? products.find((p) => p.id === routeMatch.productId) ?? null
+        : null,
+    [routeMatch.productId, products],
+  );
   const [cart, setCart] = useState<CartLine[]>([]);
+  // S7.1 — signal d'ouverture du drawer panier (compteur incrémental) : le
+  // drawer est un state interne ShopLayout ; l'ancien setView('cart') post-
+  // renouvellement était une impasse (aucune branche de rendu 'cart').
+  const [cartOpenRequest, setCartOpenRequest] = useState(0);
 
   // PIM (gammes + definitions) — utilise pour resoudre les images produit
   const [pimGammes, setPimGammes] = useState<Gamme[]>([]);
@@ -376,7 +405,10 @@ export function PublicShop() {
 
     setCart(lines);
     setRenewalWarnings(warnings);
-    setView('cart');
+    // S7.1 : le panier est un drawer, pas une page — retour catalogue + drawer
+    // ouvert (corrige l'impasse setView('cart') sans branche de rendu).
+    goView('catalog');
+    setCartOpenRequest((n) => n + 1);
   };
 
   const submitCart = async () => {
@@ -516,7 +548,7 @@ export function PublicShop() {
     setLastOrderId(orderRow.id);
     setCart([]);
     setRenewalWarnings([]); // S3.3 : clear warnings après submit réussi
-    setView('thankYou');
+    goView('thankYou');
   };
 
   // ─── S2.2 Hydratation localStorage des gammes deplices ───────────────────
@@ -546,7 +578,7 @@ export function PublicShop() {
   const selectGammes = (gammeSlugs: string[]) => {
     setExpandedGammes(new Set(gammeSlugs));
     setPendingFormat(null);
-    setView('catalog');
+    goView('catalog');
   };
 
   // Sélection méga-menu (2026-07-08) : présélection de la facette Format du
@@ -558,7 +590,7 @@ export function PublicShop() {
   const selectSubcategory = (gammeSlugs: string[], formatKey?: string) => {
     setExpandedGammes(new Set(gammeSlugs));
     setPendingFormat(formatKey ?? null);
-    setView('catalog');
+    goView('catalog');
   };
 
   // ─── S2.2 Memoisation grouping + filteredProducts ────────────────────────
@@ -669,10 +701,8 @@ export function PublicShop() {
     <ShopLayout
       shop={shop}
       view={view}
-      onView={(v) => {
-        setView(v);
-        if (v !== 'product') setSelectedProduct(null);
-      }}
+      onView={(v) => goView(v)}
+      cartOpenRequest={cartOpenRequest}
       cartCount={cartCount}
       budget={budget}
       gammes={gammePills}
@@ -705,11 +735,8 @@ export function PublicShop() {
         <PortalHome
           shop={shop}
           products={filteredProducts}
-          onView={setView}
-          onSelectProduct={(p) => {
-            setSelectedProduct(p);
-            setView('product');
-          }}
+          onView={goView}
+          onSelectProduct={(p) => goView('product', p.id)}
           onReorder={(p) => addToCart(p, 1)}
           pimGammes={pimGammes}
           pimDefinitions={pimDefinitions}
@@ -721,12 +748,9 @@ export function PublicShop() {
         <PortalCatalog
           shop={shop}
           products={filteredProducts}
-          onSelectProduct={(p) => {
-            setSelectedProduct(p);
-            setView('product');
-          }}
+          onSelectProduct={(p) => goView('product', p.id)}
           onAddToCart={(p, qty) => addToCart(p, qty ?? 1)}
-          onGoHome={() => setView('home')}
+          onGoHome={() => goView('home')}
           pimGammes={pimGammes}
           pimDefinitions={pimDefinitions}
           searchIndex={products}
@@ -739,17 +763,21 @@ export function PublicShop() {
       {view === 'product' && selectedProduct && (
         <PortalProduct
           product={selectedProduct}
-          onBack={() => setView('catalog')}
+          onBack={() => goView('catalog')}
           onAddToCart={(p, qty) => {
             addToCart(p, qty);
             // S-REWORK-1 : panier est en drawer accessible via cart icon header,
             // pas en page entiere. On retourne sur catalog (l acheteur peut ouvrir
             // le drawer pour verifier puis valider).
-            setView('catalog');
+            goView('catalog');
           }}
           pimGammes={pimGammes}
           pimDefinitions={pimDefinitions}
         />
+      )}
+      {/* S7.1 AC3 : /p/:id introuvable dans le catalogue chargé → catalog. */}
+      {view === 'product' && !selectedProduct && slug && (
+        <Navigate to={shopUrl(slug, 'catalog')} replace />
       )}
 
       {view === 'orders' && (
@@ -757,18 +785,17 @@ export function PublicShop() {
       )}
 
       {/* S-CONSO-3 : page de confirmation post-submitCart. Si lastOrderId est
-          absent (cas edge bug ou refresh), redirect catalog via fallback.  */}
+          absent (reload direct sur /thank-you), redirect catalog (S7.1 AC4). */}
       {view === 'thankYou' && lastOrderId && (
         <PortalThankYou
           orderId={lastOrderId}
           userEmail={user?.email ?? ''}
-          onBackToCatalog={() => setView('catalog')}
-          onSeeOrders={() => setView('orders')}
+          onBackToCatalog={() => goView('catalog')}
+          onSeeOrders={() => goView('orders')}
         />
       )}
-      {view === 'thankYou' && !lastOrderId && (
-        // Fallback : pas d order_id => redirect catalog (refresh post-thankYou)
-        <>{(() => { setView('catalog'); return null; })()}</>
+      {view === 'thankYou' && !lastOrderId && slug && (
+        <Navigate to={shopUrl(slug, 'catalog')} replace />
       )}
     </ShopLayout>
   );
