@@ -2,7 +2,27 @@
 
 > Document de reprise pour démarrer une nouvelle session de Claude code sur le projet sans recharger tout l'historique. À tenir à jour à chaque fin de sprint.
 >
-> **Dernière mise à jour : 2026-07-10 — S-PIM-EXAPRINT : PIM complet aligné catalogue Exaprint (cœur imprimeur). 28→81 gammes (16 familles), 24→82 définitions complètes (~30 champs dont marketing/SEO/technique enfin remplis). Déployé prod B5 + vérifié. Voir section 20 + story `story-S-PIM-EXAPRINT.md`. Sessions précédentes : sections 18-19.**
+> **Dernière mise à jour : 2026-07-26 — Sprint V2-A (Epic 7 gabarit boutique v2, phase 1 cœur transactionnel) : 5 stories S7.1-S7.5 livrées. ADR §4.18-4.20 + Epic 7 (14 stories, 3 sprints) posés en amont par Winston. Voir section 21. Sessions précédentes : sections 18-20.**
+
+## 21. Session 2026-07-26 — Winston (ADR gabarit v2) + Sprint V2-A (S7.1-S7.5)
+
+**Amont (Winston)** : les 3 questions de la spec UX tranchées — ADR **§4.18** (« dès X € » calculé à la volée client-side via `computeGammeFloorPrices`, audit prod : 8/114 prix caché > 0, pas de cache DB, pas d'appel Clariprint pour les tuiles), **§4.19** (SEO SPA : routes réelles + `useSeoMeta` maison + JSON-LD + edge `shop-sitemap`/noindex à venir S7.13 — SSR/prérendu rejetés), **§4.20** (checkout : pas d'invité anonyme ; `shops.access_mode` invite_only/self_signup + RPC `self_register_shop_buyer` à livrer S7.11-S7.12 ; ≤ 2 écrans). **Epic 7** ajouté à epics.md : S7.1-S7.14 en 3 sprints V2-A/B/C. Commit `c0a3037` (poussé).
+
+**Sprint V2-A livré (5 commits locaux, 5 story docs, TF dans `TF-NOTION-SPRINT-V2A.md`)** :
+
+| Story | Commit | Livré |
+|---|---|---|
+| S7.1 routage route-driven | `66abb14` | `/shop/:slug/*` catch-all ; vues portail par URL (`/catalog`, `/p/:id`, `/orders?tab=`, `/thank-you`, `/account/*`→orders placeholder) via `parsePortalPath`/`shopUrl` purs. Back/forward + deep-links OK. Fix impasse `setView('cart')` post-renouvellement → `cartOpenRequest` (drawer contrôlé). |
+| S7.2 hook `useProductConfigurator` | `f2bc1f4` | Moteur unique configuration/prix extrait de ProductOverlay (machine Phase, debounce 300 ms, abort, repli prix marché) + 5 helpers purs. Overlay iso-fonctionnel (rendu seul). |
+| S7.3 page gamme `/g/:gamme` | `8204a84` | GammeConfigurator (chips top formats, paliers qté, selects overlay) + StickyPriceBar (colonne desktop / barre basse mobile, badge source systématique) ; prix défaut au mount ; gamme vide sans 404 ; normalisation panier pack forfaitaire (S-FIX-PANIER-11/05). |
+| S7.4 PimEditorial | `386a1f3` | Rendu product_definitions FR (pitch, description md léger, bénéfices, usages, fiche technique, FAQ accordion) ; placeholders résolus depuis la config courante ; produits liés ShopProductCard ; breadcrumb famille cliquable. Type `ProductDefinition` étendu champs S-PIM-EXAPRINT. |
+| S7.5 SEO on-page | `63b28c6` | `useSeoMeta` (title/description/canonical/robots/og/JSON-LD, cleanup unmount) + `buildGammeSeo`/`buildGammeJsonLd` (Offer JAMAIS sur prix marché, ADR §4.19-3). `resolvePimTemplate` aligné vocabulaire tokens prod. |
+
+**Tests** : 813 vitest verts (+60 vs baseline) sur le run de référence. Build Vite vert. **Smoke live ERAM** (`/shop/xyfjjo-q6kekm/g/flyer`) : prix < 3 s, recalcul paliers, ajout panier → drawer 1 pack 84 € HT/100,80 € TTC, éditorial FR sans `{{token}}`, 8 FAQ, JSON-LD sans offers sur prix marché, title restauré en sortie. **a11y** : 0 violation WCAG 2A/AA sur `/catalog` + `/g/flyer` (axe 4.11, chromedriver 151 via browser-driver-manager). NB : suites complètes enchaînées trop vite → rate-limit auth Supabase sur les tests RLS/RPC (verts isolément et sur les runs espacés) ; espacer les runs.
+
+**Reste Sprint V2-B (prochaine session)** : S7.6 « dès X € »/GammeTile · S7.7 ShopChrome · S7.8 home vitrine · S7.9 ResumeBanner. Puis V2-C (AccountHub, self-signup ADR §4.20, checkout ≤ 2 écrans, sitemap).
+
+**Suivi** : (1) coller les 5 TF de `TF-NOTION-SPRINT-V2A.md` dans la DB Notion ; (2) méga-menu → cibler les pages gammes (S7.7) au lieu du filtre catalogue ; (3) warning React pré-existant `sheet.tsx` (forwardRef SheetOverlay, dev-only) hors périmètre ; (4) chat Magrit pré-contextualisé depuis la page gamme = raffinement tracé (le filet route vers la recherche catalogue).
 
 ## 20. Session 2026-07-10 — S-PIM-EXAPRINT : PIM complet (réf. Exaprint)
 
