@@ -20,26 +20,18 @@
  * Configurer (testid product-card-configure-btn) sur une ShopProductCard.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Loader2, RefreshCw } from "lucide-react";
 import type { Shop, ShopProduct } from "../../contexts/ShopsContext";
 import { TEST_IDS } from "../../lib/testIds";
-import { ENABLE_OVERLAY_LIVE_RECALC } from "../../lib/featureFlags";
 import { Sheet, SheetContent, SheetTitle } from "../ui/sheet";
 import {
   resolveCustomMockup,
   type MockupTemplateType,
 } from "../mockup/customMockup.helpers";
 import { resolveProductImage } from "../../utils/productImages";
-import {
-  ClariprintError,
-  ClariprintHttpAdapter,
-} from "../../../server/clariprint/ClariprintAdapter";
-import { estimateMarketPriceHT } from "../../utils/priceResolver";
 import { resolveMockupTemplate } from "./ShopProductCard.helpers";
 import {
-  buildClariprintPayload,
-  extractInitialOptions,
   formatEuro,
   type ConfigOptions,
   DORURES,
@@ -47,26 +39,11 @@ import {
   FORMATS,
   PAPERS,
   PRINTINGS,
-  QUANTITIES,
 } from "./ProductOverlay.helpers";
-import { useTenant } from "../../contexts/TenantContext";
-import { applyTax, getTaxRate } from "../../utils/tax";
-
-const httpAdapter = new ClariprintHttpAdapter();
-const COMPUTE_PRICE_TIMEOUT_MS = 10_000;
-const RECALC_DEBOUNCE_MS = 300;
-
-type Phase =
-  | { kind: "idle" }
-  | { kind: "loading" }
-  | { kind: "ready"; priceHT: number; priceTTC: number; isMarketPrice?: boolean }
-  | {
-      kind: "error";
-      errorKind: ClariprintError["kind"] | "unknown";
-      message: string;
-      fallbackPriceHT?: number;
-      fallbackPriceTTC?: number;
-    };
+// S7.2 — le moteur configuration/prix vit dans le hook partagé (garde-fou
+// n°1 : aucune logique de prix dans ce composant, uniquement du rendu).
+import { useProductConfigurator } from "../../hooks/useProductConfigurator";
+import { applyTax } from "../../utils/tax";
 
 export interface ProductOverlayProps {
   product: ShopProduct | null;
@@ -88,144 +65,18 @@ export function ProductOverlay({
   confirmLabel = "Ajouter au panier",
 }: ProductOverlayProps) {
   const open = product !== null;
-  const { currentTenant } = useTenant();
-  const taxRate = getTaxRate(currentTenant);
 
-  // Reset state quand product change (ouverture/fermeture/changement)
-  const [options, setOptions] = useState<ConfigOptions>(() =>
-    product ? extractInitialOptions(product) : extractInitialOptions({ config: {} } as ShopProduct),
-  );
-  const [phase, setPhase] = useState<Phase>({ kind: "idle" });
-
-  // Reinitialise les options + phase quand le produit change
-  useEffect(() => {
-    if (product) {
-      setOptions(extractInitialOptions(product));
-      setPhase({ kind: "idle" });
-    }
-  }, [product?.id]);
-
-  // Recalcul prix : initial a l'ouverture + a chaque change d'option (debounce)
-  const lastComputeRef = useRef<AbortController | null>(null);
-  useEffect(() => {
-    if (!product) return;
-    if (!ENABLE_OVERLAY_LIVE_RECALC && phase.kind !== "idle") return;
-
-    const debounceId = setTimeout(() => {
-      // Annuler la requete precedente si encore en vol
-      if (lastComputeRef.current) {
-        lastComputeRef.current.abort();
-      }
-      const controller = new AbortController();
-      lastComputeRef.current = controller;
-      const timeoutId = setTimeout(
-        () => controller.abort(),
-        COMPUTE_PRICE_TIMEOUT_MS,
-      );
-
-      setPhase({ kind: "loading" });
-
-      const payload = buildClariprintPayload(options, product.config);
-
-      httpAdapter
-        .computePrice({ clariprint: payload })
-        .then((quote) => {
-          if (controller.signal.aborted) return;
-          if (quote.success && typeof quote.priceHT === "number") {
-            setPhase({
-              kind: "ready",
-              priceHT: quote.priceHT,
-              priceTTC: applyTax(quote.priceHT, taxRate),
-            });
-          } else {
-            // success=false suite a sanitization (cf. validateClariprintResponse)
-            const fallback = estimateMarketPriceHT(product, options.quantity);
-            setPhase({
-              kind: "error",
-              errorKind: "undefined_field",
-              message: "Prix indisponible — utilisation du Prix marché",
-              fallbackPriceHT: fallback,
-              fallbackPriceTTC: applyTax(fallback, taxRate),
-            });
-          }
-        })
-        .catch((err) => {
-          if (controller.signal.aborted) return;
-          const errorKind: ClariprintError["kind"] | "unknown" =
-            err instanceof ClariprintError ? err.kind : "unknown";
-
-          if (
-            errorKind === "negative_price" ||
-            errorKind === "nan_price" ||
-            errorKind === "undefined_field"
-          ) {
-            const fallback = estimateMarketPriceHT(product, options.quantity);
-            setPhase({
-              kind: "error",
-              errorKind,
-              message: "Prix indisponible — utilisation du Prix marché",
-              fallbackPriceHT: fallback,
-              fallbackPriceTTC: applyTax(fallback, taxRate),
-            });
-          } else if (errorKind === "missing_required_product") {
-            setPhase({
-              kind: "error",
-              errorKind,
-              message: "Configuration non disponible chez cet imprimeur",
-            });
-          } else {
-            // Erreur reseau / timeout : on affiche quand meme une estimation
-            // Prix marché tenant compte de la quantite choisie (sinon le prix
-            // retombait sur product.price_ht fige a la quantite par defaut = 1).
-            const fallback = estimateMarketPriceHT(product, options.quantity);
-            setPhase({
-              kind: "error",
-              errorKind,
-              message: "Erreur réseau — Prix marché estimé (réessayez)",
-              fallbackPriceHT: fallback,
-              fallbackPriceTTC: applyTax(fallback, taxRate),
-            });
-          }
-        })
-        .finally(() => {
-          clearTimeout(timeoutId);
-        });
-    }, RECALC_DEBOUNCE_MS);
-
-    return () => {
-      clearTimeout(debounceId);
-    };
-  }, [product?.id, options]);
-
-  const retry = () => {
-    // Force un re-trigger : on reset phase a idle puis l'effet recalcule
-    setPhase({ kind: "idle" });
-    setOptions((o) => ({ ...o })); // shallow copy pour declencher useEffect
-  };
+  // S7.2 — moteur unique de configuration/prix (machine Phase, debounce,
+  // abort, repli Prix marché). L'overlay ne fait plus que du rendu.
+  const { options, setOptions, phase, retry, confirm, addDisabled, taxRate } =
+    useProductConfigurator(product);
 
   const handleAdd = () => {
-    if (!product) return;
-    const finalPriceHT =
-      phase.kind === "ready"
-        ? phase.priceHT
-        : phase.kind === "error"
-          ? phase.fallbackPriceHT ?? product.price_ht
-          : product.price_ht;
-    const productConfigured: ShopProduct = {
-      ...product,
-      price_ht: finalPriceHT,
-      config: {
-        ...(product.config as Record<string, unknown>),
-        clariprintData: buildClariprintPayload(options, product.config),
-      },
-    };
-    onConfirm(productConfigured, options.quantity);
+    const result = confirm();
+    if (!result) return;
+    onConfirm(result.productConfigured, result.qty);
     onClose();
   };
-
-  // Determine si on bloque l'ajout au panier (cas missing_required_product)
-  const addDisabled =
-    phase.kind === "error" && phase.errorKind === "missing_required_product";
 
   // P4-VISUELS — Custom mockup override per-shop x template (vue detail produit).
   // Le template est déjà résolu plus bas dans mockupProps via resolveMockupTemplate(product).
