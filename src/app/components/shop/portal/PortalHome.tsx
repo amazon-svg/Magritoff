@@ -18,6 +18,7 @@ import type { PortalView } from './types';
 import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
 import { resolveNewProducts } from '../../../utils/shopHomeSections';
 import { buildShopTaxonomy } from '../../../utils/shopTaxonomy';
+import { resolveProductImage } from '../../../utils/productImages';
 import { computeGammeFloorPrices } from '../../../utils/gammeFloorPrices';
 import { ShopProductCard } from '../ShopProductCard';
 import { GammeTile } from '../gamme/GammeTile';
@@ -43,6 +44,7 @@ export function PortalHome({
   onReorder,
   onOpenGamme,
   pimGammes,
+  pimDefinitions,
 }: Props) {
   // S7.8 — Top Produits : familles peuplées (taxonomie ADR-4.17) + planchers
   // « dès X € » (ADR §4.18, calcul à la volée sur les données déjà chargées).
@@ -101,17 +103,40 @@ export function PortalHome({
             </button>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {families.map((f) => (
-              <GammeTile
-                key={f.key}
-                slug={f.key}
-                name={f.label}
-                imageUrl={f.imageUrl}
-                productCount={f.count}
-                floor={floors.get(f.key) ?? null}
-                onOpen={onOpenGamme}
-              />
-            ))}
+            {families.map((f) => {
+              // Correction 2026-07-27 (lesson) : SEULS les visuels produits
+              // VALIDÉS (mockups Magrit-brandés via resolveProductImage, même
+              // chemin que ShopProductCard) illustrent une gamme — le picto
+              // famille n'est qu'un ultime repli sans produit vedette.
+              // NB : f.imageUrl peut valoir '' (image_url vide en prod) — test
+              // de vacuité explicite, pas de ??.
+              const mockupUrl =
+                (f.imageUrl && f.imageUrl.trim() ? f.imageUrl : null) ??
+                (f.featured
+                  ? resolveProductImage({
+                      name: f.featured.name,
+                      id: f.featured.id,
+                      image_url: f.featured.image_url,
+                      kind: (f.featured.config as Record<string, unknown> | undefined)
+                        ?.kind as string | undefined,
+                      clariprintData: f.featured.config,
+                      category: f.featured.category,
+                      gammes: pimGammes,
+                      definitions: pimDefinitions,
+                    })
+                  : null);
+              return (
+                <GammeTile
+                  key={f.key}
+                  slug={f.key}
+                  name={f.label}
+                  imageUrl={mockupUrl}
+                  productCount={f.count}
+                  floor={floors.get(f.key) ?? null}
+                  onOpen={onOpenGamme}
+                />
+              );
+            })}
           </div>
         </div>
       )}
