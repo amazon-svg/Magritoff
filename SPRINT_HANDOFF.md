@@ -14,7 +14,16 @@
 
 **Rétrospective Epic 7** : `_bmad-output/implementation-artifacts/retrospective-epic-7-2026-07-27.md` — métriques (837 vitest, +114 ; 1 migration ; 1 edge ; a11y 0 violation), suivi des actions rétro E3, dette tracée (clavier-only TF humain, pari SEO client-side, chat pré-contextualisé, nettoyage PIM EN validé à planifier). **Point structurant** : l'indexation réelle attend un déploiement public de la SPA (B5 = localhost:5177) + rebasage des URLs sitemap sur le futur domaine.
 
-**Reste session** : remontée `beta/v5` → `main` (écart vérifié : 41 avance / 3 retard = merges antérieurs + chore B1) · déroulé des TF-S7.x « À jouer » via Claude in Chrome.
+**Remontée `beta/v5` → `main`** : faite et poussée (merge `177edb3`, écart post-merge 0 — main = Epic 7 + rétro).
+
+**Campagne TF-S7.x jouée via Claude in Chrome (27/07)** : 12/12 fiches déroulées contre le serveur B5 local + prod Supabase — **11 OK, 1 En cours** (TF-S7.11 : RPC/SQL 100 % vertes par API, reste le toggle BO « Accès des acheteurs » à jouer avec un compte admin — ~1 min Arnaud). Parcours 1 complet rejoué post-autoconfirm : compte au checkout → session immédiate → commande #11969F33 → nettoyé. Statuts + anomalies consignés dans la DB Notion 🧪.
+
+**Anomalies détectées (à trier — aucune bloquante pour la bêta)** :
+1. **Clariprint `no papers for "leaflet"`** : l'edge `clariprint-quote` reçoit `papers:["135g"]` (grammage brut, non mappé vers une référence papier Clariprint) → le prix des flyers tombe TOUJOURS en repli marché (gamme + overlay), et le bandeau affiche « Erreur réseau » alors que c'est une erreur de calcul. Cause racine côté payload configurateur.
+2. **Budget mock affiché partout** : « Centre de coût · Communication Groupe / Budget T4 · 8 420€/13 500€ » visible sous le header boutique et dans le drawer panier, y compris pour un visiteur ANONYME (S7.10 avait masqué la section budget du hub compte, mais pas le header/drawer). Contredit l'anti-mock S7.8.
+3. **« Demander un accès » clic mort** : balise `<a>` sans href quand `shop.contact_email` est vide (toutes les boutiques sauf ERAM désormais) → masquer le lien ou fallback.
+4. **Ligne panier ≠ format configuré** : configuré A4 sur la page gamme, la ligne panier affiche « A5 » (libellé du produit de base).
+5. Mineures : cartes produits liés « 0 € / 1000 ex. » (page gamme) ; vocabulaire brut `PELLIC_ACETATE_BRILLANT` dans l'éditorial PIM FR ; commande post-checkout en statut BROUILLON éditable (à confirmer produit) ; `/checkout` panier vide = état vide + CTA (pas de redirect auto).
 
 ## 23. Session 2026-07-26 (fin) — Sprint V2-C : compte & checkout (S7.10-S7.14) — EPIC 7 CLÔTURÉ
 
