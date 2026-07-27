@@ -2,7 +2,19 @@
 
 > Document de reprise pour démarrer une nouvelle session de Claude code sur le projet sans recharger tout l'historique. À tenir à jour à chaque fin de sprint.
 >
-> **Dernière mise à jour : 2026-07-26 (nuit) — EPIC 7 GABARIT BOUTIQUE V2 COMPLET : les 3 sprints V2-A/B/C (S7.1-S7.14) livrés dans la même session. Voir sections 21-23. Sessions précédentes : sections 18-20.**
+> **Dernière mise à jour : 2026-07-27 — Arbitrages Epic 7 tranchés et appliqués (autoconfirm ON, pilote ERAM self_signup, mailto conservé) + rétrospective Epic 7. Voir section 24. Epic 7 : sections 21-23.**
+
+## 24. Session 2026-07-27 — Arbitrages Epic 7 appliqués + rétrospective
+
+**Arbitrages Arnaud (tranchés et appliqués en séance)** :
+
+1. **Autoconfirm GoTrue = ON** : `mailer_autoconfirm: true` posé via Management API (PAT Keychain) sur le projet `ightkxebexuzfjdbpsdg`. ⚠️ Réglage projet-wide (B4+B5 partagés). **Smoke self-signup rejoué contre la prod** : signup public → session immédiate (email confirmé auto) → RPC `self_register_shop_buyer` → membership `member`/`shop_only` limité à ERAM → compte éphémère nettoyé. Parcours 1 sans friction ✅.
+2. **Boutique pilote = ERAM** : `access_mode = self_signup`, **slug renommé `xyfjjo-q6kekm` → `eram`** (URLs indexables propres ; anciens liens cassés, assumé), `contact_email = a.mazon@me.com`. Edge `shop-sitemap?slug=eram` vérifiée (XML home + gammes ; boutiques privées 404). Biocoop (créée 27/07) reste aussi en self_signup.
+3. **« Demander un accès » = mailto conservé** (calibrage POC) ; Resend dédié tracé si besoin confirmé en bêta.
+
+**Rétrospective Epic 7** : `_bmad-output/implementation-artifacts/retrospective-epic-7-2026-07-27.md` — métriques (837 vitest, +114 ; 1 migration ; 1 edge ; a11y 0 violation), suivi des actions rétro E3, dette tracée (clavier-only TF humain, pari SEO client-side, chat pré-contextualisé, nettoyage PIM EN validé à planifier). **Point structurant** : l'indexation réelle attend un déploiement public de la SPA (B5 = localhost:5177) + rebasage des URLs sitemap sur le futur domaine.
+
+**Reste session** : remontée `beta/v5` → `main` (écart vérifié : 41 avance / 3 retard = merges antérieurs + chore B1) · déroulé des TF-S7.x « À jouer » via Claude in Chrome.
 
 ## 23. Session 2026-07-26 (fin) — Sprint V2-C : compte & checkout (S7.10-S7.14) — EPIC 7 CLÔTURÉ
 
