@@ -1,15 +1,27 @@
-import { Printer, Truck, Sparkles, ArrowRight, ShoppingCart } from 'lucide-react';
+/**
+ * S7.8 — Home VITRINE (gabarit boutique v2, refonte de la F1 portail).
+ *
+ * Pour TOUS les visiteurs (anonyme/SEO inclus — décision Arnaud) :
+ * intro sobre → Top Produits (GammeTile « dès X € » par famille peuplée,
+ * ADR §4.18) → Nouveautés (S2.15, données réelles) → éditorial tenant
+ * (shop.description, masqué si vide) → footer léger.
+ *
+ * Les mocks de l'ancienne home (« Bonjour Léa », faux numéros de commande,
+ * promesse 72 h) sont SUPPRIMÉS. Le bloc reprise panier S2.16 est conservé
+ * (remplacé par le ResumeBanner riche en S7.9).
+ */
+
+import { useMemo } from 'react';
+import { ArrowRight } from 'lucide-react';
 import type { Shop, ShopProduct } from '../../../contexts/ShopsContext';
-import type { PortalView, CartLine } from './types';
-import { resolveProductImage } from '../../../utils/productImages';
+import type { PortalView } from './types';
 import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
-import { ProductMockup } from '../../brand/ProductMockup';
-import { useTenant } from '../../../contexts/TenantContext';
-import { applyTax, getTaxRate } from '../../../utils/tax';
-// S2.15 (FR-ECOM-05) — Bloc Nouveautes : derniers produits integres, reutilise
-// la ShopProductCard enrichie (badges/puces S2.11-13).
-import { resolveNewProducts, summarizeCartResume } from '../../../utils/shopHomeSections';
+import { resolveNewProducts } from '../../../utils/shopHomeSections';
+import { buildShopTaxonomy } from '../../../utils/shopTaxonomy';
+import { resolveProductImage } from '../../../utils/productImages';
+import { computeGammeFloorPrices } from '../../../utils/gammeFloorPrices';
 import { ShopProductCard } from '../ShopProductCard';
+import { GammeTile } from '../gamme/GammeTile';
 import { TEST_IDS } from '../../../lib/testIds';
 
 interface Props {
@@ -18,190 +30,126 @@ interface Props {
   onView: (v: PortalView) => void;
   onSelectProduct: (p: ShopProduct) => void;
   onReorder: (p: ShopProduct) => void;
+  /** S7.8 — clic tuile famille → page gamme /g/:slug. */
+  onOpenGamme: (slug: string) => void;
   pimGammes?: Gamme[];
   pimDefinitions?: ProductDefinition[];
-  /** S2.16 — panier en cours (état local PublicShop) pour le bloc reprise. */
-  cart?: CartLine[];
 }
 
-// F1 — Home portail B2B
-// Design source : .design-handoff/designs/05 - Portail B2B.html  (section .f1)
 export function PortalHome({
   shop,
   products,
   onView,
   onSelectProduct,
   onReorder,
+  onOpenGamme,
   pimGammes,
   pimDefinitions,
-  cart,
 }: Props) {
-  const { currentTenant } = useTenant();
-  const taxRate = getTaxRate(currentTenant);
-
-  // S2.16 — Panier en cours : reprise en un clic. Se replie si panier vide (AC3).
-  const cartResume = summarizeCartResume(cart);
-  // Raccourcis B2B — on n'affiche que des actions implémentées (pas de
-  // "Templates brandés" tant que la section n'est pas câblée).
-  const shortcuts = [
-    {
-      icon: Printer,
-      title: 'Réimprimer une commande',
-      desc: 'Reprenez vos derniers produits en un clic',
-      onClick: () => onView('orders'),
-    },
-    {
-      icon: Truck,
-      title: 'Commande multi-sites',
-      desc: 'Livrer sur plusieurs adresses simultanément',
-      onClick: () => onView('cart'),
-    },
-    {
-      icon: Sparkles,
-      title: 'Devis sur mesure',
-      desc: 'Chat direct avec un chef de projet Magrit',
-      onClick: () => onView('catalog'),
-    },
-  ];
-
-  // 3 produits « recents » affiches comme re-order (mock : les 3 premiers
-  // du catalogue pour l'instant, sera remplace par shop_orders reels)
-  const recentOrders = products.slice(0, 3);
+  // S7.8 — Top Produits : familles peuplées (taxonomie ADR-4.17) + planchers
+  // « dès X € » (ADR §4.18, calcul à la volée sur les données déjà chargées).
+  const families = useMemo(
+    () => buildShopTaxonomy(products, pimGammes ?? []).filter((f) => f.count > 0),
+    [products, pimGammes],
+  );
+  const floors = useMemo(
+    () => computeGammeFloorPrices(products, pimGammes ?? []),
+    [products, pimGammes],
+  );
 
   // S2.15 — Nouveautés : 4 derniers produits intégrés (created_at desc).
   const newProducts = resolveNewProducts(products, 4);
 
-  const userName = 'Léa'; // mock : sera tiré du compte utilisateur connecté au portail
+  const editorial = (shop.description ?? '').trim();
 
   return (
-    <div style={{ fontFamily: 'var(--font-ui)' }}>
-      {/* Hero contextualise */}
+    <div style={{ fontFamily: 'var(--font-ui)' }} className="flex flex-col">
+      {/* Intro vitrine — descriptive du comportement réel, pas de claim. */}
       <div
-        className="px-9 py-9 bg-paper border-b border-line"
-        style={{
-          background: 'linear-gradient(180deg, #FFF 0%, var(--bg) 100%)',
-        }}
+        className="px-5 lg:px-9 py-8 bg-paper border-b border-line"
+        style={{ background: 'linear-gradient(180deg, #FFF 0%, var(--bg) 100%)' }}
       >
-        <div
-          className="font-mono uppercase text-ink-mute-2 mb-2.5"
-          style={{ fontSize: '11px', letterSpacing: '0.08em', fontWeight: 500 }}
-        >
-          Bonjour {userName} · {shop.name}
-        </div>
         <h2
-          className="text-ink-2 m-0 mb-2 max-w-[720px]"
-          style={{
-            fontSize: '32px',
-            fontWeight: 300,
-            letterSpacing: '-0.025em',
-            lineHeight: 1.15,
-          }}
+          className="text-ink m-0 mb-2"
+          style={{ fontSize: '28px', fontWeight: 300, letterSpacing: '-0.02em', lineHeight: 1.2 }}
         >
-          Vous avez{' '}
-          <span className="text-ink" style={{ fontWeight: 500 }}>
-            {products.length} template{products.length > 1 ? 's' : ''} brandé{products.length > 1 ? 's' : ''}
-          </span>{' '}
-          pré-validés par votre service Achats. Commandez en un clic.
+          Le catalogue print de <span style={{ fontWeight: 500 }}>{shop.name}</span>
         </h2>
         <p
           className="text-ink-muted m-0 max-w-[620px]"
-          style={{ fontSize: '14.5px', fontWeight: 400, lineHeight: 1.55 }}
+          style={{ fontSize: '14.5px', lineHeight: 1.55 }}
         >
-          Prix négociés contractuellement, circuit de validation automatique, livraison
-          moyenne 72&nbsp;h ouvrées sur les sites du Groupe.
+          Choisissez une gamme, configurez format, papier et finition — le prix
+          s'affiche immédiatement. Une question&nbsp;? Magrit vous répond.
         </p>
       </div>
 
-      {/* Raccourcis — 3 actions implémentées */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-line border-b border-line">
-        {shortcuts.map((s) => (
-          <button
-            key={s.title}
-            onClick={s.onClick}
-            className="bg-paper hover:bg-bg transition-colors text-left p-5 flex flex-col gap-2"
-          >
-            <div
-              className="w-8 h-8 rounded-lg bg-bg grid place-items-center text-ink-muted"
-              aria-hidden="true"
-            >
-              <s.icon className="w-4 h-4" strokeWidth={1.5} />
-            </div>
-            <h4
-              className="text-ink m-0"
-              style={{ fontSize: '14.5px', fontWeight: 500, letterSpacing: '-0.005em' }}
-            >
-              {s.title}
-            </h4>
-            <p
-              className="text-ink-muted m-0"
-              style={{ fontSize: '12.5px', fontWeight: 400, lineHeight: 1.45 }}
-            >
-              {s.desc}
-            </p>
-          </button>
-        ))}
-      </div>
+      {/* S2.16 retiré : la reprise panier vit dans le ResumeBanner (S7.9),
+          rendu par PublicShop au-dessus de cette home. */}
 
-      {/* S2.16 — Votre panier en cours : reprise en un clic. Data-driven, se
-          replie si le panier est vide (AC3, symétrie avec Nouveautés). */}
-      {cartResume && (
-        <div className="px-9 pt-9 bg-bg" data-testid={TEST_IDS.shop.homeCartResume}>
-          <section className="flex items-center gap-4 bg-paper border border-line rounded-xl px-5 py-4 max-w-[900px]">
-            <div
-              className="w-9 h-9 rounded-lg bg-bg grid place-items-center text-ink-muted shrink-0"
-              aria-hidden="true"
-            >
-              <ShoppingCart className="w-4 h-4" strokeWidth={1.5} />
-            </div>
-            <div className="min-w-0">
-              <h5
-                className="text-ink m-0"
-                style={{ fontSize: '14.5px', fontWeight: 500, letterSpacing: '-0.005em' }}
-              >
-                Votre panier en cours
-              </h5>
-              <p className="text-ink-muted m-0" style={{ fontSize: '12.5px', fontWeight: 400 }}>
-                {cartResume.itemCount} article{cartResume.itemCount > 1 ? 's' : ''} ·{' '}
-                <span className="font-mono text-ink" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                  {applyTax(cartResume.totalHT, taxRate).toFixed(2)}€
-                </span>{' '}
-                TTC
-              </p>
-            </div>
-            <button
-              data-testid={TEST_IDS.shop.homeCartResumeBtn}
-              onClick={() => onView('cart')}
-              className="ml-auto shrink-0 px-3.5 py-2 rounded-md bg-ink text-paper hover:bg-ink-2 inline-flex items-center gap-1.5"
-              style={{ fontSize: '12.5px', fontWeight: 500 }}
-            >
-              Reprendre mon panier
-              <ArrowRight className="w-3.5 h-3.5" strokeWidth={1.5} />
-            </button>
-          </section>
-        </div>
-      )}
-
-      {/* S2.15 — Nouveautés : derniers produits intégrés. Se replie si aucun
-          produit (data-driven, pas de section vide béante). Réutilise la
-          ShopProductCard enrichie (repère famille + badge Nouveau + puces). */}
-      {newProducts.length > 0 && (
-        <div className="px-9 pt-9 bg-bg" data-testid={TEST_IDS.shop.homeNewProducts}>
-          <div className="flex items-baseline mb-4 max-w-[900px]">
-            <h5
-              className="text-ink m-0"
-              style={{ fontSize: '14.5px', fontWeight: 500, letterSpacing: '-0.005em' }}
-            >
-              Nouveautés
-            </h5>
+      {/* S7.8 — Top Produits : tuiles familles « dès X € » */}
+      {families.length > 0 && (
+        <div className="px-5 lg:px-9 py-8 bg-bg" data-testid={TEST_IDS.shop.homeGammeGrid}>
+          <div className="flex items-baseline mb-4">
+            <h3 className="text-ink m-0" style={{ fontSize: '17px', fontWeight: 500 }}>
+              Nos gammes
+            </h3>
             <button
               onClick={() => onView('catalog')}
               className="ml-auto text-ink-muted hover:text-ink inline-flex items-center gap-1"
-              style={{ fontSize: '12.5px', fontWeight: 400 }}
+              style={{ fontSize: '12.5px' }}
             >
-              Voir le catalogue <ArrowRight className="w-3 h-3" strokeWidth={1.5} />
+              Tout le catalogue <ArrowRight className="w-3 h-3" strokeWidth={1.5} />
             </button>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-[900px]">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {families.map((f) => {
+              // Correction 2026-07-27 (lesson) : SEULS les visuels produits
+              // VALIDÉS (mockups Magrit-brandés via resolveProductImage, même
+              // chemin que ShopProductCard) illustrent une gamme — le picto
+              // famille n'est qu'un ultime repli sans produit vedette.
+              // NB : f.imageUrl peut valoir '' (image_url vide en prod) — test
+              // de vacuité explicite, pas de ??.
+              const mockupUrl =
+                (f.imageUrl && f.imageUrl.trim() ? f.imageUrl : null) ??
+                (f.featured
+                  ? resolveProductImage({
+                      name: f.featured.name,
+                      id: f.featured.id,
+                      image_url: f.featured.image_url,
+                      kind: (f.featured.config as Record<string, unknown> | undefined)
+                        ?.kind as string | undefined,
+                      clariprintData: f.featured.config,
+                      category: f.featured.category,
+                      gammes: pimGammes,
+                      definitions: pimDefinitions,
+                    })
+                  : null);
+              return (
+                <GammeTile
+                  key={f.key}
+                  slug={f.key}
+                  name={f.label}
+                  imageUrl={mockupUrl}
+                  productCount={f.count}
+                  floor={floors.get(f.key) ?? null}
+                  onOpen={onOpenGamme}
+                />
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* S2.15 — Nouveautés (données réelles, repli si vide) */}
+      {newProducts.length > 0 && (
+        <div className="px-5 lg:px-9 pb-8 bg-bg" data-testid={TEST_IDS.shop.homeNewProducts}>
+          <div className="flex items-baseline mb-4">
+            <h3 className="text-ink m-0" style={{ fontSize: '17px', fontWeight: 500 }}>
+              Nouveautés
+            </h3>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {newProducts.map((p) => (
               <ShopProductCard
                 key={p.id}
@@ -217,102 +165,42 @@ export function PortalHome({
         </div>
       )}
 
-      {/* Panel Commandes recentes — le panel "validations en cours" a ete
-          retire tant que le workflow N+1 n'est pas branche au backend. */}
-      <div className="p-9 bg-bg">
-        <section className="bg-paper border border-line rounded-xl overflow-hidden max-w-[900px]">
-          <div className="flex items-baseline px-5 py-4 border-b border-line">
-            <h5
-              className="text-ink m-0"
-              style={{ fontSize: '14.5px', fontWeight: 500, letterSpacing: '-0.005em' }}
+      {/* S7.8 — Éditorial tenant (uniquement si renseigné dans le BO) */}
+      {editorial && (
+        <div className="px-5 lg:px-9 pb-8 bg-bg" data-testid={TEST_IDS.shop.homeEditorial}>
+          <section className="bg-paper border border-line rounded-xl px-6 py-5 max-w-[900px]">
+            <h3 className="text-ink m-0 mb-2" style={{ fontSize: '15px', fontWeight: 500 }}>
+              À propos de {shop.name}
+            </h3>
+            <p
+              className="text-ink-muted m-0"
+              style={{ fontSize: '13.5px', lineHeight: 1.6, whiteSpace: 'pre-line' }}
             >
-              Commandes récentes
-            </h5>
-            <button
-              onClick={() => onView('orders')}
-              className="ml-auto text-ink-muted hover:text-ink inline-flex items-center gap-1"
-              style={{ fontSize: '12.5px', fontWeight: 400 }}
-            >
-              Tout voir <ArrowRight className="w-3 h-3" strokeWidth={1.5} />
-            </button>
-          </div>
-          <div className="flex flex-col">
-            {recentOrders.length === 0 ? (
-              <div className="px-5 py-8 text-ink-mute-2 text-center" style={{ fontSize: '13px' }}>
-                Aucune commande pour l'instant.
-              </div>
-            ) : (
-              recentOrders.map((p, i) => {
-                const imgSrc = resolveProductImage({
-                  name: p.name,
-                  id: p.id,
-                  image_url: p.image_url,
-                  kind: (p.config as any)?.kind,
-                  clariprintData: p.config,
-                  gammes: pimGammes,
-                  definitions: pimDefinitions,
-                });
-                return (
-                  <div
-                    key={p.id}
-                    className={`grid grid-cols-[46px_1fr_auto_auto] gap-4 items-center px-5 py-3 ${
-                      i < recentOrders.length - 1 ? 'border-b border-line' : ''
-                    }`}
-                  >
-                    <div className="w-[46px] h-[46px] rounded-lg overflow-hidden bg-bg">
-                      {imgSrc ? (
-                        <img
-                          src={imgSrc}
-                          alt=""
-                          className="w-full h-full object-contain"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <ProductMockup
-                          name={p.name}
-                          kind={(p.config as any)?.kind}
-                          category={p.category}
-                          className="w-full h-full"
-                        />
-                      )}
-                    </div>
-                    <button
-                      onClick={() => onSelectProduct(p)}
-                      className="text-left min-w-0"
-                    >
-                      <p
-                        className="text-ink m-0 truncate"
-                        style={{ fontSize: '13.5px', fontWeight: 400 }}
-                      >
-                        {p.name}
-                      </p>
-                      <div
-                        className="text-ink-muted font-mono"
-                        style={{ fontSize: '11.5px', fontWeight: 400 }}
-                      >
-                        #CMD-{2480 + i} · livré il y a {i + 1} j
-                      </div>
-                    </button>
-                    <div
-                      className="font-mono text-ink"
-                      style={{ fontSize: '13px', fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}
-                    >
-                      {applyTax(p.price_ht, taxRate).toFixed(2)}€
-                    </div>
-                    <button
-                      onClick={() => onReorder(p)}
-                      className="px-3 py-1.5 rounded-md border border-line bg-paper text-ink-2 hover:bg-bg hover:text-ink"
-                      style={{ fontSize: '12.5px', fontWeight: 500 }}
-                    >
-                      Réimprimer
-                    </button>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </section>
-      </div>
+              {editorial}
+            </p>
+          </section>
+        </div>
+      )}
+
+      {/* S7.8 — Footer léger */}
+      <footer
+        data-testid={TEST_IDS.shop.homeFooter}
+        className="mt-auto px-5 lg:px-9 py-6 border-t border-line bg-paper flex flex-wrap items-center gap-x-6 gap-y-2"
+        style={{ fontSize: '12.5px' }}
+      >
+        <span className="text-ink" style={{ fontWeight: 500 }}>
+          {shop.name}
+        </span>
+        <button onClick={() => onView('catalog')} className="text-ink-muted hover:text-ink">
+          Catalogue
+        </button>
+        <button onClick={() => onView('orders')} className="text-ink-muted hover:text-ink">
+          Mes commandes
+        </button>
+        <span className="ml-auto text-ink-mute-2">
+          Boutique propulsée par Magrit
+        </span>
+      </footer>
     </div>
   );
 }

@@ -24,7 +24,7 @@
  */
 
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, Ban, Check, ChevronDown, History, Loader2, Package, Play, RotateCcw, RotateCw, Truck, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Ban, Check, ChevronDown, History, Loader2, Package, Pencil, Play, RotateCcw, RotateCw, Truck, X } from 'lucide-react';
 import { OrderAuditTrailModal } from './OrderAuditTrailModal';
 import type { OrderUI } from './PortalOrders.helpers';
 import { getStatusInfo, type OrderStatus } from '../../../lib/orderStatus';
@@ -116,6 +116,14 @@ export interface OrderHistoryTableProps {
    * legacy). Le parent ouvre le CancelOrderConfirmDialog avec orderId.
    */
   onCancelOrder?: (order: OrderUI) => void | Promise<void>;
+  /**
+   * 2026-07-08 : callback Éditer une commande. Si fourni, un bouton 'Éditer'
+   * apparaît sur les lignes draft v1.1 (l'auteur peut modifier lignes /
+   * quantités / prix tant que la commande n'est pas validée — RLS
+   * tenant_order_items limite l'édition à status='draft' AND created_by=auth).
+   * Le parent (PortalOrders) ouvre PortalOrderEditor.
+   */
+  onEditOrder?: (order: OrderUI) => void | Promise<void>;
   /**
    * Fix 2026-05-25 (anticipation S-N1-APPROVAL Sprint 6) : callback Valider
    * pour transitionner draft → validated. Réservé admin tenant (RPC
@@ -329,6 +337,7 @@ export function OrderHistoryTable({
   persistKey,
   onRenewOrder,
   onCancelOrder,
+  onEditOrder,
   onValidateOrder,
   onRejectOrder,
   onStartProductionOrder,
@@ -352,6 +361,11 @@ export function OrderHistoryTable({
   // les transitions, ne propose pas autre chose en v1.1).
   const canCancel = (o: OrderUI) =>
     !!onCancelOrder && o.source === 'v1_1' && o.status === 'draft';
+
+  // 2026-07-08 : éditable si v1.1 + status draft + callback (même contrainte que
+  // l'annulation ; la RLS tenant_order_items verrouille au-delà de draft).
+  const canEdit = (o: OrderUI) =>
+    !!onEditOrder && o.source === 'v1_1' && o.status === 'draft';
 
   // Fix 2026-05-25 : validable si v1.1 + status draft + callback fourni
   // (DashboardOrders fournit, PortalOrders fournit aussi depuis
@@ -380,9 +394,9 @@ export function OrderHistoryTable({
   // Affiche la colonne Actions si au moins un callback est fourni OU si
   // au moins une commande v1.1 (pour le bouton Historique).
   const hasAnyV11 = orders.some((o) => o.source === 'v1_1');
-  const showActionsColumn = !!onRenewOrder || !!onCancelOrder || !!onValidateOrder
-    || !!onRejectOrder || !!onStartProductionOrder || !!onMarkShippedOrder
-    || hasAnyV11;
+  const showActionsColumn = !!onRenewOrder || !!onCancelOrder || !!onEditOrder
+    || !!onValidateOrder || !!onRejectOrder || !!onStartProductionOrder
+    || !!onMarkShippedOrder || hasAnyV11;
   const [state, setState] = useState<TableState>(() => loadState(persistKey));
 
   useEffect(() => {
@@ -1048,6 +1062,21 @@ export function OrderHistoryTable({
                             >
                               <RotateCw className="w-3 h-3" strokeWidth={2} aria-hidden="true" />
                               Renouveler
+                            </button>
+                          )}
+                          {canEdit(o) && (
+                            <button
+                              type="button"
+                              onClick={() => onEditOrder?.(o)}
+                              data-testid={TEST_IDS.shop.orderEditBtn}
+                              data-order-id={o.id}
+                              aria-label={`Éditer la commande draft ${o.id}`}
+                              title="Modifier cette commande (statut brouillon uniquement)"
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded border border-line bg-paper text-ink-muted hover:text-ink hover:border-ink-mute-2 transition-colors"
+                              style={{ fontSize: '11.5px' }}
+                            >
+                              <Pencil className="w-3 h-3" strokeWidth={2} aria-hidden="true" />
+                              Éditer
                             </button>
                           )}
                           {canCancel(o) && (

@@ -18,10 +18,17 @@ import { TEST_IDS } from '../../lib/testIds';
 interface Props {
   families: TaxonomyFamily[];
   isDark?: boolean;
-  /** Clic sur une famille (racine) → catalogue filtré sur ses gammes (racine + enfants). */
-  onSelectFamily: (gammeSlugs: string[]) => void;
-  /** Clic sur une sous-catégorie (gamme) → catalogue filtré sur cette gamme. */
-  onSelectSubcategory: (gammeSlugs: string[]) => void;
+  /**
+   * Clic sur une famille (racine). S7.7 : `familyKey` (slug racine) permet au
+   * parent de router vers la page gamme /g/:famille (rétro-compat : les
+   * appelants historiques peuvent l'ignorer).
+   */
+  onSelectFamily: (gammeSlugs: string[], familyKey?: string) => void;
+  /**
+   * Clic sur une sous-catégorie → catalogue filtré. `formatKey` (présent pour les
+   * sous-catégories dérivées par format, ADR-4.17) présélectionne la facette Format.
+   */
+  onSelectSubcategory: (gammeSlugs: string[], formatKey?: string) => void;
 }
 
 export function ShopMegaMenu({ families, isDark, onSelectFamily, onSelectSubcategory }: Props) {
@@ -44,7 +51,11 @@ export function ShopMegaMenu({ families, isDark, onSelectFamily, onSelectSubcate
   return (
     <div
       data-testid={TEST_IDS.shop.megaMenu}
-      className={`hidden md:flex items-stretch gap-1 px-5 lg:px-9 border-b ${
+      // Responsive (2026-07-08) : visible sur toutes largeurs. En etroit/mobile,
+      // barre de familles scrollable horizontalement (tap = naviguer vers la
+      // famille) ; le panneau sous-categories reste un enrichissement desktop
+      // (survol). Avant : `hidden md:flex` masquait tout le menu sous 768px.
+      className={`flex items-stretch gap-1 px-5 lg:px-9 border-b overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
         isDark ? 'bg-gray-950 border-gray-800' : 'bg-paper border-line'
       }`}
       onKeyDown={(e) => {
@@ -58,7 +69,7 @@ export function ShopMegaMenu({ families, isDark, onSelectFamily, onSelectSubcate
         return (
           <div
             key={fam.key}
-            className="relative"
+            className="relative shrink-0"
             onMouseEnter={() => open(fam.key)}
             onMouseLeave={scheduleClose}
           >
@@ -70,7 +81,7 @@ export function ShopMegaMenu({ families, isDark, onSelectFamily, onSelectSubcate
               aria-expanded={isOpen}
               aria-controls={panelId}
               onFocus={() => open(fam.key)}
-              onClick={() => onSelectFamily(fam.gammeSlugs)}
+              onClick={() => onSelectFamily(fam.gammeSlugs, fam.key)}
               className={`inline-flex items-center gap-1.5 py-2.5 px-2 text-[13px] border-b-2 transition-colors ${
                 isOpen
                   ? isDark
@@ -111,7 +122,7 @@ export function ShopMegaMenu({ families, isDark, onSelectFamily, onSelectSubcate
                 data-testid={TEST_IDS.shop.megaMenuPanel}
                 role="region"
                 aria-label={`Sous-catégories ${fam.label}`}
-                className={`absolute left-0 top-full z-30 mt-px flex gap-5 p-4 rounded-b-xl border shadow-lg min-w-[420px] ${
+                className={`absolute left-0 top-full z-30 mt-px flex gap-5 p-4 rounded-b-xl border shadow-lg min-w-[280px] sm:min-w-[420px] max-w-[calc(100vw-2rem)] ${
                   isDark ? 'bg-gray-950 border-gray-800' : 'bg-paper border-line'
                 }`}
                 onMouseEnter={() => open(fam.key)}
@@ -125,7 +136,7 @@ export function ShopMegaMenu({ families, isDark, onSelectFamily, onSelectSubcate
                         type="button"
                         data-testid={TEST_IDS.shop.megaMenuSubcat}
                         data-gamme-slug={sub.key}
-                        onClick={() => onSelectSubcategory(sub.gammeSlugs)}
+                        onClick={() => onSelectSubcategory(sub.gammeSlugs, sub.formatKey)}
                         className={`w-full text-left flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[13px] transition-colors ${
                           isDark ? 'text-gray-300 hover:bg-gray-900' : 'text-ink-2 hover:bg-bg hover:text-ink'
                         }`}
@@ -143,7 +154,7 @@ export function ShopMegaMenu({ families, isDark, onSelectFamily, onSelectSubcate
                   <li className="mt-1 pt-1 border-t border-line">
                     <button
                       type="button"
-                      onClick={() => onSelectFamily(fam.gammeSlugs)}
+                      onClick={() => onSelectFamily(fam.gammeSlugs, fam.key)}
                       className={`w-full text-left inline-flex items-center gap-1 px-2.5 py-1.5 text-[12.5px] ${
                         isDark ? 'text-gray-400 hover:text-gray-100' : 'text-ink-muted hover:text-ink'
                       }`}
@@ -153,8 +164,8 @@ export function ShopMegaMenu({ families, isDark, onSelectFamily, onSelectSubcate
                   </li>
                 </ul>
 
-                {/* Vignette vedette */}
-                <div className="w-[140px] shrink-0">
+                {/* Vignette vedette (masquée en étroit pour éviter le débordement) */}
+                <div className="hidden sm:block w-[140px] shrink-0">
                   <div
                     className="w-full h-[100px] rounded-lg overflow-hidden grid place-items-center"
                     style={{ background: `${fam.tone}1a` }}

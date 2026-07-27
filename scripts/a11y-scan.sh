@@ -44,6 +44,9 @@ ROUTES=(
   "$BASE_URL/t/imprimerie-ipa/dashboard/order-roles"
   "$BASE_URL/t/imprimerie-ipa/spaces"
   "$BASE_URL/shop/boutique-1"
+  "$BASE_URL/shop/boutique-1/catalog"
+  "$BASE_URL/shop/boutique-1/g/flyer"
+  "$BASE_URL/shop/boutique-1/account/orders"
   "$BASE_URL/shop/boutique-1/portal"
 )
 # Note : PortalOrders n'est pas une route distincte mais une vue interne

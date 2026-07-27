@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router';
+import { Navigate, useNavigate, useParams } from 'react-router';
 import { Loader2 } from 'lucide-react';
 import { supabase } from '/utils/supabase/client';
 import type { Shop, ShopProduct } from '../../contexts/ShopsContext';
@@ -11,14 +11,21 @@ import { PortalHome } from './portal/PortalHome';
 import { PortalCatalog } from './portal/PortalCatalog';
 import { PortalProduct } from './portal/PortalProduct';
 import { PortalCart } from './portal/PortalCart';
-import { PortalOrders } from './portal/PortalOrders';
 import { PortalThankYou } from './portal/PortalThankYou';
+import { AccountHub } from './portal/AccountHub';
+import { CheckoutPage } from './portal/CheckoutPage';
 import type { PortalView, CartLine, BudgetInfo } from './portal/types';
 import {
   rebuildCartFromOrderItems,
   type OrderItemRow,
 } from './portal/orderRenewal.helpers';
 import { ShopLayout } from './ShopLayout';
+import { GammePage } from './gamme/GammePage';
+import {
+  ResumeBanner,
+  buildResumeChips,
+  type ResumeLastOrder,
+} from './portal/ResumeBanner';
 import { ShopForbidden403 } from './ShopForbidden403';
 import { resolveShopAccessFromMemberships } from './ShopAccessGuard.helpers';
 import {
@@ -28,8 +35,10 @@ import {
   saveExpandedGammes,
 } from './ShopGammesSidebar.helpers';
 import { buildShopTaxonomy } from '../../utils/shopTaxonomy';
+import { parsePortalPath, shopUrl } from './portal/shopPortalRoutes';
 import { applyTax, getTaxRate } from '../../utils/tax';
 import { applyPricingOverrides, type PricingOverride } from '../../utils/applyPricingOverrides';
+import { resolveShopProductScope } from '../../utils/resolveShopProductScope';
 import {
   tenantOrderInsertSchema,
   tenantOrderItemInsertSchema,
@@ -52,7 +61,10 @@ import {
  * sur un futur backend B2B.
  */
 export function PublicShop() {
-  const { slug } = useParams<{ slug: string }>();
+  const params = useParams<{ slug: string; '*': string }>();
+  const slug = params.slug;
+  const splat = params['*'];
+  const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { tenants, isSuperAdmin, currentTenant } = useTenant();
   const [shop, setShop] = useState<Shop | null>(null);
@@ -60,11 +72,41 @@ export function PublicShop() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
-  const [view, setView] = useState<PortalView>('home');
+  // S7.1 (ADR §4.19-1) — la vue est DÉRIVÉE de l'URL, plus un state interne.
+  // Back/forward navigateur et reload sur URL profonde fonctionnent (AC1).
+  const routeMatch = useMemo(() => parsePortalPath(splat), [splat]);
+  const view = routeMatch.view;
+  const goView = (v: PortalView, productId?: string) => {
+    if (slug) navigate(shopUrl(slug, v, productId));
+  };
+  // URL non canonique (legacy, inconnue) → replace vers la vue résolue,
+  // l'historique ne garde pas l'URL morte (AC3). S7.10 : la query string est
+  // PRÉSERVÉE (ex. /orders?tab=mine → /account/orders?tab=mine).
+  useEffect(() => {
+    if (!slug || !routeMatch.redirected) return;
+    const param =
+      routeMatch.accountSection ?? routeMatch.gammeSlug ?? routeMatch.productId;
+    navigate(`${shopUrl(slug, routeMatch.view, param)}${window.location.search}`, {
+      replace: true,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug, splat]);
+
   // S-CONSO-3 : order_id du dernier submitCart reussi, lu par PortalThankYou.
   const [lastOrderId, setLastOrderId] = useState<string | null>(null);
-  const [selectedProduct, setSelectedProduct] = useState<ShopProduct | null>(null);
+  // S7.1 — fiche produit adressée par URL `/p/:productId` (lookup catalogue).
+  const selectedProduct = useMemo(
+    () =>
+      routeMatch.productId
+        ? products.find((p) => p.id === routeMatch.productId) ?? null
+        : null,
+    [routeMatch.productId, products],
+  );
   const [cart, setCart] = useState<CartLine[]>([]);
+  // S7.1 — signal d'ouverture du drawer panier (compteur incrémental) : le
+  // drawer est un state interne ShopLayout ; l'ancien setView('cart') post-
+  // renouvellement était une impasse (aucune branche de rendu 'cart').
+  const [cartOpenRequest, setCartOpenRequest] = useState(0);
 
   // PIM (gammes + definitions) — utilise pour resoudre les images produit
   const [pimGammes, setPimGammes] = useState<Gamme[]>([]);
@@ -86,10 +128,19 @@ export function PublicShop() {
   // cette boutique" dans DashboardShopEditor).
   const refetchProducts = async (
     shopId: string,
-    libraryIds: string[],
-    excludedIds: string[] = []
+    opts: {
+      libraryIds: string[];
+      excludedIds?: string[];
+      pimCatalogMode?: boolean;
+      pimGammeSlugs?: string[];
+      tenantId?: string | null;
+    }
   ) => {
-    const excludedSet = new Set(excludedIds);
+    const libraryIds = opts.libraryIds ?? [];
+    const excludedIds = opts.excludedIds ?? [];
+    const pimCatalogMode = opts.pimCatalogMode ?? false;
+    const pimGammeSlugs = opts.pimGammeSlugs ?? [];
+    const tenantId = opts.tenantId ?? null;
 
     const { data: prodData } = await supabase
       .from('shop_products')
@@ -98,33 +149,54 @@ export function PublicShop() {
       .order('display_order', { ascending: true });
     const manual = (prodData ?? []) as ShopProduct[];
 
-    let linked: ShopProduct[] = [];
+    // S2.32 — Deux voies d'exposition product_library, cumulables :
+    //   (a) bibliotheques liees (library_ids)
+    //   (b) mode PIM : catalogue du tenant filtre par gamme recensee
+    // On concatene les lignes brutes des deux requetes puis on delegue le
+    // perimetre (match library/gamme), la dedup par id et l'exclusion au
+    // helper pur resolveShopProductScope.
+    const rawLib: any[] = [];
     if (libraryIds.length > 0) {
-      const { data: libData } = await supabase
+      const { data } = await supabase
         .from('product_library')
         .select('*')
         .in('library_id', libraryIds)
         .eq('active', true)
         .order('created_at', { ascending: false });
-      if (libData) {
-        linked = (libData as any[])
-          .filter((p) => !excludedSet.has(p.id))
-          .map((p) => ({
-            id: `lib-${p.id}`,
-            shop_id: shopId,
-            product_id: p.id,
-            name: p.name,
-            category: p.category || 'Autres',
-            description: p.description || '',
-            price_ht: Number(p.price_ht) || 0,
-            image_url: p.image_url || '',
-            config: p.config || {},
-            display_order: 0,
-            created_at: p.created_at,
-            gamme_slug: p.gamme_slug ?? null,
-          })) as ShopProduct[];
-      }
+      if (data) rawLib.push(...data);
     }
+    if (pimCatalogMode && pimGammeSlugs.length > 0 && tenantId) {
+      const { data } = await supabase
+        .from('product_library')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .in('gamme_slug', pimGammeSlugs)
+        .eq('active', true)
+        .order('created_at', { ascending: false });
+      if (data) rawLib.push(...data);
+    }
+
+    const scoped = resolveShopProductScope(rawLib, {
+      libraryIds,
+      pimCatalogMode,
+      pimGammeSlugs,
+      excludedIds,
+    });
+    const linked: ShopProduct[] = scoped.map((p) => ({
+      id: `lib-${p.id}`,
+      shop_id: shopId,
+      product_id: p.id,
+      name: p.name,
+      category: p.category || 'Autres',
+      description: p.description || '',
+      price_ht: Number(p.price_ht) || 0,
+      image_url: p.image_url || '',
+      config: p.config || {},
+      display_order: 0,
+      created_at: p.created_at,
+      gamme_slug: p.gamme_slug ?? null,
+    })) as ShopProduct[];
+
     const manualIds = new Set(manual.map((p) => p.product_id).filter(Boolean));
     const deduped = linked.filter((p) => !p.product_id || !manualIds.has(p.product_id));
 
@@ -170,8 +242,19 @@ export function PublicShop() {
       const excludedIds = Array.isArray((shopData as Shop).excluded_product_ids)
         ? (shopData as Shop).excluded_product_ids
         : [];
+      // S2.32 — options de perimetre produit (bibliotheques + mode PIM)
+      const shopTenantId = (shopData as Shop).tenant_id ?? null;
+      const scopeOpts = {
+        libraryIds,
+        excludedIds,
+        pimCatalogMode: (shopData as Shop).pim_catalog_mode === true,
+        pimGammeSlugs: Array.isArray((shopData as Shop).pim_gamme_slugs)
+          ? (shopData as Shop).pim_gamme_slugs
+          : [],
+        tenantId: shopTenantId,
+      };
 
-      await refetchProducts((shopData as Shop).id, libraryIds, excludedIds);
+      await refetchProducts((shopData as Shop).id, scopeOpts);
 
       // PIM lecture publique
       const [gr, dr] = await Promise.all([
@@ -184,7 +267,7 @@ export function PublicShop() {
       // S2.2 — Charger les gammes souscrites du tenant proprietaire de la shop.
       // Lecture publique : si la RLS bloque ou si tenant_id absent, on tombe
       // sur subscribedSlugs=null -> fallback "gammes inferees" cote sidebar.
-      const tenantId = (shopData as Shop & { tenant_id?: string }).tenant_id;
+      const tenantId = shopTenantId;
       if (tenantId) {
         const { data: subs, error: subsError } = await supabase
           .from('tenant_gamme_subscriptions')
@@ -210,12 +293,12 @@ export function PublicShop() {
         .on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'shop_products' },
-          () => refetchProducts((shopData as Shop).id, libraryIds, excludedIds)
+          () => refetchProducts((shopData as Shop).id, scopeOpts)
         )
         .on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'product_library' },
-          () => refetchProducts((shopData as Shop).id, libraryIds, excludedIds)
+          () => refetchProducts((shopData as Shop).id, scopeOpts)
         )
         .subscribe();
     })();
@@ -223,11 +306,13 @@ export function PublicShop() {
     // Refetch quand l'onglet redevient actif (cas pas de realtime)
     const onFocus = () => {
       if (shop) {
-        const libraryIds = Array.isArray(shop.library_ids) ? shop.library_ids : [];
-        const excludedIds = Array.isArray(shop.excluded_product_ids)
-          ? shop.excluded_product_ids
-          : [];
-        refetchProducts(shop.id, libraryIds, excludedIds);
+        refetchProducts(shop.id, {
+          libraryIds: Array.isArray(shop.library_ids) ? shop.library_ids : [],
+          excludedIds: Array.isArray(shop.excluded_product_ids) ? shop.excluded_product_ids : [],
+          pimCatalogMode: shop.pim_catalog_mode === true,
+          pimGammeSlugs: Array.isArray(shop.pim_gamme_slugs) ? shop.pim_gamme_slugs : [],
+          tenantId: shop.tenant_id ?? null,
+        });
       }
     };
     window.addEventListener('focus', onFocus);
@@ -246,6 +331,23 @@ export function PublicShop() {
     document.title = `${shop.name} · Portail impression`;
     return () => { document.title = orig; };
   }, [shop]);
+
+  // S7.13 (ADR §4.19-4) — boutique PRIVÉE (invite_only, défaut) : noindex sur
+  // toutes les vues. Seules les boutiques self_signup sont indexables.
+  useEffect(() => {
+    if (!shop || shop.access_mode === 'self_signup') return;
+    let meta = document.head.querySelector<HTMLMetaElement>('meta[name="robots"]');
+    const created = !meta;
+    if (!meta) {
+      meta = document.createElement('meta');
+      meta.setAttribute('name', 'robots');
+      document.head.appendChild(meta);
+    }
+    meta.setAttribute('content', 'noindex, nofollow');
+    return () => {
+      if (created) meta?.remove();
+    };
+  }, [shop?.id, shop?.access_mode]);
 
   // ─── Budget mock (à remplacer par backend B2B) ────────────────────────────
   // Note : on n'affiche PAS de mention d'approbateur N+1 tant que le workflow
@@ -284,6 +386,41 @@ export function PublicShop() {
   // S3.3 (Sprint 5) : warnings du dernier renouvellement de commande, affichés
   // en banner dismissable dans PortalCart (cf. setRenewalWarnings([]) pour reset).
   const [renewalWarnings, setRenewalWarnings] = useState<string[]>([]);
+
+  // S7.9 — Dernière commande de l'acheteur sur la boutique (bandeau Reprendre).
+  // Best-effort silencieux : anonyme ou erreur RLS → pas de bandeau.
+  const [lastOrder, setLastOrder] = useState<ResumeLastOrder | null>(null);
+  useEffect(() => {
+    if (!user?.id || !shop?.id) {
+      setLastOrder(null);
+      return;
+    }
+    let cancelled = false;
+    supabase
+      .from('tenant_orders')
+      .select('id, status, total_ht, created_at, source')
+      .eq('shop_id', shop.id)
+      .eq('created_by', user.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error || !data) setLastOrder(null);
+        else
+          setLastOrder({
+            id: data.id,
+            status: String(data.status ?? ''),
+            total_ht: Number(data.total_ht) || 0,
+            created_at: String(data.created_at ?? ''),
+            source: String((data as { source?: string }).source ?? ''),
+          });
+      });
+    return () => {
+      cancelled = true;
+    };
+    // Re-fetch après un submitCart réussi (lastOrderId change).
+  }, [user?.id, shop?.id, lastOrderId]);
 
   /**
    * S3.3 AC2/AC3 : Renouveler 1-clic depuis OrderHistoryTable.
@@ -332,7 +469,10 @@ export function PublicShop() {
 
     setCart(lines);
     setRenewalWarnings(warnings);
-    setView('cart');
+    // S7.1 : le panier est un drawer, pas une page — retour catalogue + drawer
+    // ouvert (corrige l'impasse setView('cart') sans branche de rendu).
+    goView('catalog');
+    setCartOpenRequest((n) => n + 1);
   };
 
   const submitCart = async () => {
@@ -410,12 +550,20 @@ export function PublicShop() {
     }
 
     // ── Phase 2 : INSERT tenant_order_items (N lignes, 1 par cart line) ───
+    // S7.12 (bug débusqué par le smoke self-signup) : la FK product_id
+    // référence product_library. Pour une ligne shop_products MANUELLE,
+    // l.product.id est l'id de la ligne shop_products (UUID valide mais
+    // absent de product_library → violation FK). La bonne réf bibliothèque
+    // est l.product.product_id (null si produit purement manuel).
     const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const itemsToInsert = cart.map((l) => {
-      const isUuid = typeof l.product.id === 'string' && UUID_RE.test(l.product.id);
+      const libraryRef =
+        typeof l.product.product_id === 'string' && UUID_RE.test(l.product.product_id)
+          ? l.product.product_id
+          : null;
       return tenantOrderItemInsertSchema.parse({
         order_id: orderRow.id,
-        product_id: isUuid ? l.product.id : null,
+        product_id: libraryRef,
         product_label: l.product.name,
         clariprint_options: (l.product.config as Record<string, unknown> | null) ?? null,
         quantity: l.qty,
@@ -472,7 +620,7 @@ export function PublicShop() {
     setLastOrderId(orderRow.id);
     setCart([]);
     setRenewalWarnings([]); // S3.3 : clear warnings après submit réussi
-    setView('thankYou');
+    goView('thankYou');
   };
 
   // ─── S2.2 Hydratation localStorage des gammes deplices ───────────────────
@@ -498,9 +646,23 @@ export function PublicShop() {
 
   // S2.18 — Sélection depuis le méga-menu (famille ou sous-catégorie) : remplace
   // les filtres actifs par les gammes ciblées et bascule sur le catalogue.
+  // Sélectionner une FAMILLE (ou une gamme) réinitialise la présélection format.
   const selectGammes = (gammeSlugs: string[]) => {
     setExpandedGammes(new Set(gammeSlugs));
-    setView('catalog');
+    setPendingFormat(null);
+    goView('catalog');
+  };
+
+  // Sélection méga-menu (2026-07-08) : présélection de la facette Format du
+  // catalogue pour les sous-catégories DÉRIVÉES par format (ADR-4.17). Le filtre
+  // reste au niveau FAMILLE (gammeSlugs = racine) ; `formatKey` raffine ensuite
+  // via la facette Format existante (S2.19). Sans formatKey (sous-cat de gamme
+  // classique) → comportement identique à selectGammes.
+  const [pendingFormat, setPendingFormat] = useState<string | null>(null);
+  const selectSubcategory = (gammeSlugs: string[], formatKey?: string) => {
+    setExpandedGammes(new Set(gammeSlugs));
+    setPendingFormat(formatKey ?? null);
+    goView('catalog');
   };
 
   // ─── S2.2 Memoisation grouping + filteredProducts ────────────────────────
@@ -606,30 +768,51 @@ export function PublicShop() {
   }
 
   const cartCount = cart.reduce((s, l) => s + l.qty, 0);
+  // S7.7 — montant HT du panier (affiché sur le bouton header, décision D3).
+  const cartTotalHT = cart.reduce((s, l) => s + l.product.price_ht * l.qty, 0);
+
+  // S7.9 — Bandeau Reprendre (chips dérivés de la donnée, vide → absent).
+  const resumeChips = buildResumeChips({ cartCount, cartTotalHT, lastOrder });
+  const handleResumeChip = (key: 'cart' | 'renew' | 'track') => {
+    if (key === 'cart') setCartOpenRequest((n) => n + 1);
+    else if (key === 'renew' && lastOrder) {
+      void handleRenewOrder({ id: lastOrder.id, source: lastOrder.source });
+    } else if (key === 'track') goView('orders');
+  };
 
   return (
     <ShopLayout
       shop={shop}
       view={view}
-      onView={(v) => {
-        setView(v);
-        if (v !== 'product') setSelectedProduct(null);
-      }}
+      onView={(v) => goView(v)}
+      cartOpenRequest={cartOpenRequest}
       cartCount={cartCount}
+      cartTotalHT={cartTotalHT}
+      searchIndex={products}
+      pimGammes={pimGammes}
+      onSelectProduct={(p) => goView('product', p.id)}
+      onOpenGamme={(gSlug) => goView('gamme', gSlug)}
+      onAskMagrit={() => goView('catalog')}
       budget={budget}
       gammes={gammePills}
       activeGammeSlugs={expandedGammes}
       onToggleGamme={toggleGamme}
       taxonomy={taxonomy}
-      onSelectFamily={selectGammes}
-      onSelectSubcategory={selectGammes}
+      // S7.7 — clic FAMILLE méga-menu → page gamme /g/:famille (SEO-able).
+      // Repli filtre catalogue si la clé famille manque (rétro-compat).
+      onSelectFamily={(slugs, familyKey) =>
+        familyKey ? goView('gamme', familyKey) : selectGammes(slugs)
+      }
+      onSelectSubcategory={selectSubcategory}
       cartDrawer={
         <PortalCart
           cart={cart}
           budget={budget}
           onUpdateQty={updateQty}
           onRemove={removeFromCart}
-          onSubmit={submitCart}
+          // S7.12 (ADR 4.20) — le drawer mène au récap /checkout : c'est là
+          // que se joue l'identification éventuelle puis le submitCart.
+          onSubmit={() => goView('checkout')}
           onContinue={() => {/* drawer reste ouvert, l'acheteur peut continuer */}}
           pimGammes={pimGammes}
           pimDefinitions={pimDefinitions}
@@ -643,19 +826,25 @@ export function PublicShop() {
         />
       }
     >
+      {/* S7.9 — Bandeau Reprendre : riche sur la home, compact sur les pages
+          gammes (le récurrent ne repasse pas par la home). */}
+      {view === 'home' && (
+        <ResumeBanner chips={resumeChips} onChip={handleResumeChip} variant="rich" />
+      )}
+      {view === 'gamme' && (
+        <ResumeBanner chips={resumeChips} onChip={handleResumeChip} variant="compact" />
+      )}
+
       {view === 'home' && (
         <PortalHome
           shop={shop}
           products={filteredProducts}
-          onView={setView}
-          onSelectProduct={(p) => {
-            setSelectedProduct(p);
-            setView('product');
-          }}
+          onView={goView}
+          onSelectProduct={(p) => goView('product', p.id)}
           onReorder={(p) => addToCart(p, 1)}
+          onOpenGamme={(gSlug) => goView('gamme', gSlug)}
           pimGammes={pimGammes}
           pimDefinitions={pimDefinitions}
-          cart={cart}
         />
       )}
 
@@ -663,52 +852,93 @@ export function PublicShop() {
         <PortalCatalog
           shop={shop}
           products={filteredProducts}
-          onSelectProduct={(p) => {
-            setSelectedProduct(p);
-            setView('product');
-          }}
+          onSelectProduct={(p) => goView('product', p.id)}
           onAddToCart={(p, qty) => addToCart(p, qty ?? 1)}
-          onGoHome={() => setView('home')}
+          onGoHome={() => goView('home')}
           pimGammes={pimGammes}
           pimDefinitions={pimDefinitions}
           searchIndex={products}
           onSelectFamily={selectGammes}
+          onSelectSubcategory={selectSubcategory}
+          initialFormat={pendingFormat}
+        />
+      )}
+
+      {/* S7.3 — page gamme-configurateur (expérience déterminante v2) */}
+      {view === 'gamme' && (
+        <GammePage
+          shop={shop}
+          gammeSlug={routeMatch.gammeSlug}
+          products={products}
+          pimGammes={pimGammes}
+          pimDefinitions={pimDefinitions}
+          onAddToCart={(p, qty) => {
+            addToCart(p, qty);
+            // Drawer panier ouvert, l'acheteur RESTE sur la page (spec UX :
+            // achat multi-gammes fréquent en B2B).
+            setCartOpenRequest((n) => n + 1);
+          }}
+          onGoHome={() => goView('home')}
+          onGoCatalog={() => goView('catalog')}
+          onGoGamme={(gSlug) => goView('gamme', gSlug)}
+          onSelectProduct={(p) => goView('product', p.id)}
+          onAskMagrit={() => goView('catalog')}
         />
       )}
 
       {view === 'product' && selectedProduct && (
         <PortalProduct
           product={selectedProduct}
-          onBack={() => setView('catalog')}
+          onBack={() => goView('catalog')}
           onAddToCart={(p, qty) => {
             addToCart(p, qty);
             // S-REWORK-1 : panier est en drawer accessible via cart icon header,
             // pas en page entiere. On retourne sur catalog (l acheteur peut ouvrir
             // le drawer pour verifier puis valider).
-            setView('catalog');
+            goView('catalog');
           }}
           pimGammes={pimGammes}
           pimDefinitions={pimDefinitions}
         />
       )}
+      {/* S7.1 AC3 : /p/:id introuvable dans le catalogue chargé → catalog. */}
+      {view === 'product' && !selectedProduct && slug && (
+        <Navigate to={shopUrl(slug, 'catalog')} replace />
+      )}
 
-      {view === 'orders' && (
-        <PortalOrders shopId={shop.id} onRenewOrder={handleRenewOrder} />
+      {/* S7.12 — checkout ≤ 2 écrans (identification + récap, ADR §4.20) */}
+      {view === 'checkout' && (
+        <CheckoutPage
+          shop={shop}
+          cart={cart}
+          onSubmit={submitCart}
+          onGoCatalog={() => goView('catalog')}
+        />
+      )}
+
+      {/* S7.10 — hub Mon compte (commandes / devis / profil) */}
+      {view === 'account' && (
+        <AccountHub
+          shop={shop}
+          section={routeMatch.accountSection ?? 'orders'}
+          onSection={(s) => goView('account', s)}
+          onRenewOrder={handleRenewOrder}
+          onGoHome={() => goView('home')}
+        />
       )}
 
       {/* S-CONSO-3 : page de confirmation post-submitCart. Si lastOrderId est
-          absent (cas edge bug ou refresh), redirect catalog via fallback.  */}
+          absent (reload direct sur /thank-you), redirect catalog (S7.1 AC4). */}
       {view === 'thankYou' && lastOrderId && (
         <PortalThankYou
           orderId={lastOrderId}
           userEmail={user?.email ?? ''}
-          onBackToCatalog={() => setView('catalog')}
-          onSeeOrders={() => setView('orders')}
+          onBackToCatalog={() => goView('catalog')}
+          onSeeOrders={() => goView('orders')}
         />
       )}
-      {view === 'thankYou' && !lastOrderId && (
-        // Fallback : pas d order_id => redirect catalog (refresh post-thankYou)
-        <>{(() => { setView('catalog'); return null; })()}</>
+      {view === 'thankYou' && !lastOrderId && slug && (
+        <Navigate to={shopUrl(slug, 'catalog')} replace />
       )}
     </ShopLayout>
   );

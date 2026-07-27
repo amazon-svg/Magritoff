@@ -669,7 +669,6 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
                   await addProductsBulk(
                     items.map((p) => ({
                       library_id: libraryId,
-                      client_id: p.client_id ?? null,
                       name: p.name,
                       category: p.clariprintData?.kind || 'Autres',
                       gamme_slug: p.gamme ?? null,

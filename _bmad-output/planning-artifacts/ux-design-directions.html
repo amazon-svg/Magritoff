@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Magrit — Directions de design gabarit boutique v2</title>
+<style>
+  :root{
+    /* Couche SÉMANTIQUE (constante gabarit) */
+    --ok:#16a34a; --ok-bg:#dcfce7; --warn:#ea580c; --warn-bg:#ffedd5;
+    --info:#2563eb; --info-bg:#dbeafe; --err:#dc2626;
+    --ink:#111827; --mute:#6b7280; --mute2:#9ca3af; --line:#e5e7eb; --paper:#fff; --bg:#f6f7f9;
+    /* Couche MARQUE (tenant, switchable) */
+    --brand:#1e3a8a; --brand-ink:#fff; --brand-soft:#eef2ff; --accent:#f59e0b;
+  }
+  [data-tenant="infinite"]{ --brand:#6d28d9; --brand-soft:#f3e8ff; --accent:#ec4899; }
+  [data-tenant="vertep"]{ --brand:#166534; --brand-soft:#ecfdf5; --accent:#d97706; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font:14px/1.5 -apple-system,'Segoe UE',Inter,sans-serif;color:var(--ink);background:#eceef1;padding-bottom:60px}
+  .toolbar{position:sticky;top:0;z-index:50;background:#111827;color:#fff;padding:10px 18px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+  .toolbar h1{font-size:14px;font-weight:600;margin-right:8px}
+  .toolbar .grp{display:flex;gap:6px;align-items:center}
+  .toolbar label{font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em}
+  .tbtn{background:#374151;color:#e5e7eb;border:0;border-radius:6px;padding:6px 12px;font-size:12.5px;cursor:pointer}
+  .tbtn.on{background:#fff;color:#111827;font-weight:600}
+  .note{max-width:1180px;margin:14px auto 0;padding:0 16px;font-size:12.5px;color:#4b5563}
+  .frame{max-width:1180px;margin:14px auto 40px;background:var(--paper);border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.08)}
+  .dir{display:none}.dir.on{display:block}
+  .dirhead{max-width:1180px;margin:22px auto 0;padding:0 16px}
+  .dirhead h2{font-size:17px}
+  .dirhead p{font-size:13px;color:var(--mute);margin-top:2px}
+  /* ——— chrome boutique ——— */
+  .reassure{background:var(--ink);color:#d1d5db;font-size:11.5px;display:flex;gap:26px;justify-content:center;padding:6px}
+  .reassure b{color:#fff;font-weight:600}
+  .hd{display:flex;align-items:center;gap:18px;padding:12px 20px;border-bottom:1px solid var(--line)}
+  .logo{background:var(--brand);color:var(--brand-ink);font-weight:700;padding:7px 13px;border-radius:8px;font-size:14px}
+  .search{flex:1;max-width:430px;border:1.5px solid var(--line);border-radius:22px;padding:8px 15px;color:var(--mute2);font-size:13px}
+  .hdlinks{margin-left:auto;display:flex;gap:18px;font-size:12.5px;color:var(--mute);align-items:center}
+  .cart{background:var(--brand);color:var(--brand-ink);border-radius:8px;padding:7px 12px;font-weight:600}
+  .nav{display:flex;gap:4px;padding:0 14px;border-bottom:2px solid var(--line);position:relative}
+  .nav a{padding:11px 13px;font-size:13.5px;font-weight:600;color:var(--ink);text-decoration:none}
+  .nav a.on{color:var(--brand);box-shadow:inset 0 -2px 0 var(--brand)}
+  .mega{position:absolute;top:100%;left:14px;background:#fff;border:1px solid var(--line);border-radius:0 0 10px 10px;box-shadow:0 14px 30px rgba(0,0,0,.12);display:flex;gap:26px;padding:18px 22px;z-index:10;font-size:12.5px}
+  .mega .col b{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--mute2);margin-bottom:7px}
+  .mega .col a{display:block;padding:2.5px 0;color:var(--ink);text-decoration:none;font-weight:400}
+  .mega .col a:hover{color:var(--brand)}
+  /* ——— home ——— */
+  .hero{background:linear-gradient(100deg,var(--brand),color-mix(in oklab,var(--brand),#000 25%));color:var(--brand-ink);padding:34px 26px}
+  .hero h2{font-size:24px}.hero p{opacity:.85;font-size:13.5px;margin-top:4px}
+  .resume{display:flex;gap:10px;align-items:center;background:var(--brand-soft);border-bottom:1px solid var(--line);padding:9px 20px;font-size:12.5px}
+  .resume b{font-weight:600}
+  .chip{background:#fff;border:1px solid var(--line);border-radius:16px;padding:4px 11px;font-size:12px;cursor:pointer}
+  .sect{padding:20px}
+  .sect h3{font-size:15px;margin-bottom:12px}
+  .tiles{display:grid;gap:12px}
+  .t4{grid-template-columns:repeat(4,1fr)}.t3{grid-template-columns:repeat(3,1fr)}
+  .tile{border:1px solid var(--line);border-radius:10px;overflow:hidden;cursor:pointer;background:#fff;transition:box-shadow .15s}
+  .tile:hover{box-shadow:0 6px 18px rgba(0,0,0,.1)}
+  .thumb{aspect-ratio:4/3;background:linear-gradient(135deg,#f3f4f6,#e5e7eb);display:flex;align-items:center;justify-content:center;color:var(--mute2);font-size:26px}
+  .thumb.big{aspect-ratio:16/10}
+  .tile .nm{padding:9px 11px 2px;font-weight:600;font-size:13px}
+  .tile .pr{padding:0 11px 10px;font-size:12px;color:var(--mute)}
+  .tile .pr b{color:var(--ink);font-family:ui-monospace,monospace}
+  .badge{font-size:10.5px;font-weight:600;border-radius:5px;padding:2px 7px;display:inline-block}
+  .b-ok{background:var(--ok-bg);color:var(--ok)} .b-warn{background:var(--warn-bg);color:var(--warn)} .b-info{background:var(--info-bg);color:var(--info)}
+  .edito{background:var(--bg);padding:20px;font-size:12.5px;color:var(--mute)}
+  .edito h4{color:var(--ink);font-size:13.5px;margin-bottom:5px}
+  /* ——— page gamme ——— */
+  .crumb{padding:11px 20px 0;font-size:12px;color:var(--mute2)}
+  .gtitle{padding:6px 20px 0;display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+  .gtitle h2{font-size:23px}
+  .gtitle .stars{font-size:12px;color:var(--warn)}
+  .glayout{display:grid;padding:16px 20px;gap:20px}
+  .gl-2{grid-template-columns:40% 1fr}
+  .gl-2v{grid-template-columns:55% 1fr}
+  .visual{border:1px solid var(--line);border-radius:12px;background:linear-gradient(135deg,#eef1f5,#dde3ea);aspect-ratio:4/3;display:flex;align-items:center;justify-content:center;color:var(--mute2);font-size:34px}
+  .conf{border:1px solid var(--line);border-radius:12px;padding:16px}
+  .topfmt{display:flex;gap:7px;margin-bottom:13px;flex-wrap:wrap}
+  .fmt{border:1.5px solid var(--line);border-radius:8px;padding:6px 13px;font-size:12.5px;cursor:pointer;font-weight:600}
+  .fmt.on{border-color:var(--brand);color:var(--brand);background:var(--brand-soft)}
+  .frow{display:flex;align-items:center;gap:10px;margin-bottom:9px}
+  .frow label{width:86px;font-size:12.5px;color:var(--mute);flex-shrink:0}
+  .sel{flex:1;border:1.5px solid var(--line);border-radius:8px;padding:7.5px 11px;font-size:13px;background:#fff;display:flex;justify-content:space-between;color:var(--ink)}
+  .sel span{color:var(--mute2)}
+  .qtyrow{display:flex;gap:6px;flex-wrap:wrap}
+  .qty{border:1.5px solid var(--line);border-radius:8px;padding:5px 10px;font-size:12px;cursor:pointer}
+  .qty.on{border-color:var(--brand);background:var(--brand-soft);font-weight:700}
+  .pricebox{border-top:2px solid var(--ink);margin-top:14px;padding-top:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .price{font-size:25px;font-weight:700;font-family:ui-monospace,monospace}
+  .price small{font-size:12px;color:var(--mute);font-weight:400}
+  .cta{margin-left:auto;background:var(--accent);border:0;color:#111;font-weight:700;font-size:14px;border-radius:9px;padding:11px 22px;cursor:pointer}
+  .magrit{margin-top:10px;font-size:12.5px;color:var(--brand);font-weight:600}
+  .sticky-demo{position:relative;background:var(--ink);color:#fff;display:flex;align-items:center;gap:12px;padding:9px 16px;font-size:12.5px;border-radius:0 0 10px 10px}
+  .sticky-demo b{font-family:ui-monospace,monospace;font-size:16px}
+  .sticky-demo .cta{padding:7px 15px;font-size:12.5px}
+  .fullconf{border:1px solid var(--line);border-radius:12px;padding:16px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px 16px}
+  .fullconf .frow{margin:0}
+  footer.shopft{background:var(--ink);color:#9ca3af;font-size:11.5px;padding:16px 20px;display:flex;gap:36px}
+  footer.shopft b{color:#fff;display:block;margin-bottom:4px}
+  @media(max-width:860px){.t4,.t3{grid-template-columns:repeat(2,1fr)}.gl-2,.gl-2v{grid-template-columns:1fr}.fullconf{grid-template-columns:1fr}}
+</style>
+</head>
+<body data-tenant="ipa">
+
+<div class="toolbar">
+  <h1>Magrit · Gabarit boutique v2 — directions de design</h1>
+  <div class="grp"><label>Direction</label>
+    <button class="tbtn on" data-dir="d1">1 · Printoclock fidèle</button>
+    <button class="tbtn" data-dir="d2">2 · Vitrine visuelle</button>
+    <button class="tbtn" data-dir="d3">3 · Transaction d'abord</button>
+  </div>
+  <div class="grp"><label>Thème tenant (BO)</label>
+    <button class="tbtn on" data-tn="ipa">Imprimerie IPA</button>
+    <button class="tbtn" data-tn="infinite">Infinite</button>
+    <button class="tbtn" data-tn="vertep">Vert & Papier</button>
+  </div>
+</div>
+<p class="note">Le <b>switch de thème</b> démontre la personnalisation BO (logo/couleurs = couche marque). Remarque : les badges (Nouveau/Express/Éco) et états gardent leurs couleurs sémantiques quel que soit le thème — c'est la règle des deux couches.</p>
+
+<!-- ═══════════ DIRECTION 1 — Printoclock fidèle ═══════════ -->
+<section class="dir on" id="d1">
+  <div class="dirhead"><h2>Direction 1 — « Printoclock fidèle »</h2>
+  <p>Hiérarchie identique à la référence : réassurance en tête, méga-menu permanent, home dense 4 colonnes « à partir de », page gamme visuel 40 / configurateur 60. Le choix le plus conservateur — familiarité maximale.</p></div>
+
+  <div class="frame">
+    <div class="reassure"><span>🚚 <b>Livraison offerte</b> dès 99 €</span><span>⭐ <b>4,6/5</b> avis clients</span><span>⚡ <b>Devis immédiat</b> en ligne</span></div>
+    <div class="hd"><span class="logo">IPA Print</span><span class="search">🔍 Rechercher un produit… (flyer, kakémono, 350g…)</span><div class="hdlinks"><span>Aide</span><span>Mon compte</span><span class="cart">🛒 2</span></div></div>
+    <nav class="nav"><a class="on">Imprimerie</a><a>Signalétique</a><a>PLV & Stands</a><a>Objets</a><a style="color:var(--warn)">Promos</a>
+      <div class="mega">
+        <div class="col"><b>Carterie</b><a>Cartes de visite</a><a>Cartes de vœux</a><a>Cartes postales</a><a>Cartes de fidélité</a></div>
+        <div class="col"><b>Imprimés</b><a>Flyers</a><a>Dépliants</a><a>Brochures</a><a>Affiches</a></div>
+        <div class="col"><b>Papeterie</b><a>Enveloppes</a><a>Têtes de lettre</a><a>Blocs-notes</a><a>Chemises</a></div>
+        <div class="col"><b>Packaging</b><a>Étiquettes</a><a>Sacs kraft</a><a>Boîtes</a><a>Doypacks</a></div>
+      </div>
+    </nav>
+    <div class="hero"><h2>Votre imprimeur en ligne, prix immédiat</h2><p>81 gammes au tarif atelier — configurez, le prix s'affiche.</p></div>
+    <div class="resume">▶ <b>Reprendre :</b><span class="chip">🛒 Panier en cours (2)</span><span class="chip">📄 Devis flyers A5</span><span class="chip">↻ Renouveler ma dernière commande</span></div>
+    <div class="sect"><h3>Top produits</h3>
+      <div class="tiles t4">
+        <div class="tile"><div class="thumb">🖼</div><div class="nm">Flyers <span class="badge b-info">Nouveau</span></div><div class="pr">dès <b>29 € HT</b> /500 ex.</div></div>
+        <div class="tile"><div class="thumb">🖼</div><div class="nm">Cartes de visite</div><div class="pr">dès <b>19 € HT</b> /250 ex.</div></div>
+        <div class="tile"><div class="thumb">🖼</div><div class="nm">Kakémonos <span class="badge b-warn">Express 24h</span></div><div class="pr">dès <b>54 € HT</b> /unité</div></div>
+        <div class="tile"><div class="thumb">🖼</div><div class="nm">Brochures</div><div class="pr">dès <b>87 € HT</b> /100 ex.</div></div>
+        <div class="tile"><div class="thumb">🖼</div><div class="nm">Affiches <span class="badge b-ok">Éco</span></div><div class="pr">dès <b>24 € HT</b> /50 ex.</div></div>
+        <div class="tile"><div class="thumb">🖼</div><div class="nm">Étiquettes rouleaux</div><div class="pr">dès <b>39 € HT</b></div></div>
+        <div class="tile"><div class="thumb">🖼</div><div class="nm">Bâches</div><div class="pr">dès <b>31 € HT</b> /m²</div></div>
+        <div class="tile"><div class="thumb">🖼</div><div class="nm">Dépliants</div><div class="pr">dès <b>44 € HT</b> /250 ex.</div></div>
+      </div>
+    </div>
+    <div class="edito"><h4>L'imprimerie en ligne IPA Print</h4>Prix calculés en direct sur notre parc machines. Livraison France entière. Fichiers vérifiés avant impression. <i>(éditorial tenant + SEO — repliable)</i></div>
+    <footer class="shopft"><div><b>IPA Print</b>Qui sommes-nous · Contact</div><div><b>Services</b>Livraison · BAT · Devis</div><div><b>Légal</b>CGV · Mentions</div></footer>
+  </div>
+
+  <div class="frame">
+    <div class="crumb">Accueil › Imprimerie › <b style="color:var(--ink)">Flyers</b></div>
+    <div class="gtitle"><h2>Impression Flyers</h2><span class="stars">⭐ 4,6/5 · 1 240 commandes</span><span class="badge b-ok">Papiers certifiés PEFC</span></div>
+    <div class="glayout gl-2">
+      <div><div class="visual">🖼</div><p style="font-size:11.5px;color:var(--mute2);margin-top:6px;text-align:center">Mockup gamme (moteur S4.3) — vues multiples V2</p></div>
+      <div class="conf">
+        <div class="topfmt"><span style="font-size:12px;color:var(--mute);align-self:center">Top formats :</span><span class="fmt">A6</span><span class="fmt on">A5</span><span class="fmt">A4</span><span class="fmt">Carré</span></div>
+        <div class="frow"><label>Format</label><div class="sel">A5 (148 × 210 mm)<span>▾</span></div></div>
+        <div class="frow"><label>Papier</label><div class="sel">Couché brillant 170 g <span title="aide">ℹ️</span></div></div>
+        <div class="frow"><label>Impression</label><div class="sel">Recto-verso<span>▾</span></div></div>
+        <div class="frow"><label>Finition</label><div class="sel">Pelliculage mat<span>▾</span></div></div>
+        <div class="frow"><label>Quantité</label><div class="qtyrow"><span class="qty">250</span><span class="qty">500</span><span class="qty on">1000</span><span class="qty">2500</span><span class="qty">5000</span></div></div>
+        <div class="pricebox"><span class="price">152,00 € <small>HT</small></span><span class="badge b-info">Prix Clariprint</span><button class="cta">Ajouter au panier</button></div>
+        <div class="magrit">✦ Une question sur ce produit ? Demandez à Magrit</div>
+      </div>
+    </div>
+    <div class="sticky-demo">↓ au scroll, le prix reste visible : <b>152,00 € HT</b><span class="badge b-info">Clariprint</span><button class="cta">Ajouter au panier</button></div>
+    <div class="edito"><h4>Le flyer, votre support de communication n°1</h4>Description longue, exemples d'usage, spécifications techniques et FAQ — <b>auto-alimentés par le PIM</b> (product_definitions). <i>(sections repliables, un seul H1)</i></div>
+  </div>
+</section>
+
+<!-- ═══════════ DIRECTION 2 — Vitrine visuelle ═══════════ -->
+<section class="dir" id="d2">
+  <div class="dirhead"><h2>Direction 2 — « Vitrine visuelle »</h2>
+  <p>Même structure, mais le <b>mockup produit domine</b> : home 3 colonnes à grandes vignettes, page gamme visuel 55 % (vues multiples), configurateur compact. Valorise le travail visuel P1-P15 — pour imprimeurs dont la boutique est un argument commercial.</p></div>
+
+  <div class="frame">
+    <div class="reassure"><span>🚚 <b>Livraison offerte</b> dès 99 €</span><span>⭐ <b>4,6/5</b></span><span>⚡ <b>Devis immédiat</b></span></div>
+    <div class="hd"><span class="logo">IPA Print</span><span class="search">🔍 Rechercher…</span><div class="hdlinks"><span>Mon compte</span><span class="cart">🛒 2</span></div></div>
+    <nav class="nav"><a class="on">Imprimerie</a><a>Signalétique</a><a>PLV</a><a>Objets</a></nav>
+    <div class="hero" style="padding:46px 26px"><h2 style="font-size:28px">L'atelier qui imprime vos idées</h2><p>Hero image tenant (BO) + tagline — pleine largeur.</p></div>
+    <div class="resume">▶ <b>Reprendre :</b><span class="chip">🛒 Panier (2)</span><span class="chip">↻ Dernière commande</span></div>
+    <div class="sect"><h3>Nos gammes phares</h3>
+      <div class="tiles t3">
+        <div class="tile"><div class="thumb big">🖼️✨</div><div class="nm">Flyers <span class="badge b-info">Nouveau</span></div><div class="pr">dès <b>29 € HT</b></div></div>
+        <div class="tile"><div class="thumb big">🖼️✨</div><div class="nm">Cartes de visite</div><div class="pr">dès <b>19 € HT</b></div></div>
+        <div class="tile"><div class="thumb big">🖼️✨</div><div class="nm">Kakémonos <span class="badge b-warn">Express</span></div><div class="pr">dès <b>54 € HT</b></div></div>
+        <div class="tile"><div class="thumb big">🖼️✨</div><div class="nm">Brochures</div><div class="pr">dès <b>87 € HT</b></div></div>
+        <div class="tile"><div class="thumb big">🖼️✨</div><div class="nm">Affiches <span class="badge b-ok">Éco</span></div><div class="pr">dès <b>24 € HT</b></div></div>
+        <div class="tile"><div class="thumb big">🖼️✨</div><div class="nm">Packaging</div><div class="pr">dès <b>92 € HT</b></div></div>
+      </div>
+    </div>
+    <footer class="shopft"><div><b>IPA Print</b>Contact</div><div><b>Services</b>Livraison · BAT</div></footer>
+  </div>
+
+  <div class="frame">
+    <div class="crumb">Accueil › Imprimerie › <b style="color:var(--ink)">Flyers</b></div>
+    <div class="gtitle"><h2>Impression Flyers</h2><span class="stars">⭐ 4,6/5</span></div>
+    <div class="glayout gl-2v">
+      <div><div class="visual" style="aspect-ratio:16/11">🖼️ ✨</div>
+        <div style="display:flex;gap:8px;margin-top:8px"><div class="visual" style="aspect-ratio:1;width:64px;font-size:18px">1</div><div class="visual" style="aspect-ratio:1;width:64px;font-size:18px">2</div><div class="visual" style="aspect-ratio:1;width:64px;font-size:18px">3</div></div>
+      </div>
+      <div class="conf">
+        <div class="topfmt"><span class="fmt">A6</span><span class="fmt on">A5</span><span class="fmt">A4</span></div>
+        <div class="frow"><label>Format</label><div class="sel">A5<span>▾</span></div></div>
+        <div class="frow"><label>Papier</label><div class="sel">170 g brillant<span>▾</span></div></div>
+        <div class="frow"><label>Finition</label><div class="sel">Pelliculage mat<span>▾</span></div></div>
+        <div class="frow"><label>Quantité</label><div class="qtyrow"><span class="qty">500</span><span class="qty on">1000</span><span class="qty">2500</span></div></div>
+        <div class="pricebox"><span class="price">152 € <small>HT</small></span><span class="badge b-info">Clariprint</span><button class="cta">+ Panier</button></div>
+        <div class="magrit">✦ Demandez à Magrit</div>
+      </div>
+    </div>
+    <div class="edito"><h4>Éditorial PIM</h4>description · usages · FAQ</div>
+  </div>
+</section>
+
+<!-- ═══════════ DIRECTION 3 — Transaction d'abord ═══════════ -->
+<section class="dir" id="d3">
+  <div class="dirhead"><h2>Direction 3 — « Transaction d'abord »</h2>
+  <p>Pour l'acheteur récurrent ultra-pressé : home resserrée sur recherche + reprise, page gamme avec <b>configurateur pleine largeur 3 colonnes</b> tout en haut (visuel réduit en vignette). Le plus rapide au devis — le moins « vitrine ».</p></div>
+
+  <div class="frame">
+    <div class="hd"><span class="logo">IPA Print</span><span class="search" style="max-width:560px">🔍 Que voulez-vous imprimer aujourd'hui ? (ex : 1000 flyers A5 pelliculés)</span><div class="hdlinks"><span>Mon compte</span><span class="cart">🛒 2</span></div></div>
+    <nav class="nav"><a class="on">Imprimerie</a><a>Signalétique</a><a>PLV</a><a>Objets</a></nav>
+    <div class="resume" style="padding:13px 20px">▶ <b>Reprendre :</b><span class="chip">🛒 Panier (2) — 214 € HT</span><span class="chip">📄 Devis flyers</span><span class="chip">↻ Renouveler commande #1042</span><span class="chip">📦 Suivi commande #1041</span></div>
+    <div class="sect"><h3>Accès direct aux gammes</h3>
+      <div class="tiles t4">
+        <div class="tile"><div class="nm" style="padding:13px">Flyers</div><div class="pr">dès <b>29 €</b></div></div>
+        <div class="tile"><div class="nm" style="padding:13px">Cartes de visite</div><div class="pr">dès <b>19 €</b></div></div>
+        <div class="tile"><div class="nm" style="padding:13px">Kakémonos</div><div class="pr">dès <b>54 €</b></div></div>
+        <div class="tile"><div class="nm" style="padding:13px">Brochures</div><div class="pr">dès <b>87 €</b></div></div>
+      </div>
+      <p style="font-size:12px;color:var(--mute2);margin-top:8px">(liste compacte sans vignettes — 81 gammes visibles sans scroll excessif)</p>
+    </div>
+  </div>
+
+  <div class="frame">
+    <div class="crumb">Accueil › Flyers</div>
+    <div class="gtitle"><h2>Impression Flyers</h2><div class="visual" style="aspect-ratio:auto;width:74px;height:54px;font-size:20px;margin-left:auto">🖼</div></div>
+    <div style="padding:12px 20px">
+      <div class="fullconf">
+        <div class="frow"><label>Format</label><div class="sel">A5<span>▾</span></div></div>
+        <div class="frow"><label>Papier</label><div class="sel">170 g<span>▾</span></div></div>
+        <div class="frow"><label>Impression</label><div class="sel">R°V°<span>▾</span></div></div>
+        <div class="frow"><label>Finition</label><div class="sel">Mat<span>▾</span></div></div>
+        <div class="frow"><label>Quantité</label><div class="sel">1000<span>▾</span></div></div>
+        <div class="frow"><label>&nbsp;</label><div style="display:flex;gap:10px;align-items:center;flex:1"><span class="price" style="font-size:21px">152 €</span><span class="badge b-info">Clariprint</span><button class="cta" style="margin-left:auto">+ Panier</button></div></div>
+      </div>
+    </div>
+    <div class="edito"><h4>Éditorial PIM (sous la ligne de flottaison)</h4>description · specs · FAQ</div>
+  </div>
+</section>
+
+<script>
+  document.querySelectorAll('[data-dir]').forEach(b=>b.onclick=()=>{
+    document.querySelectorAll('[data-dir]').forEach(x=>x.classList.toggle('on',x===b));
+    document.querySelectorAll('.dir').forEach(s=>s.classList.toggle('on',s.id===b.dataset.dir));
+  });
+  document.querySelectorAll('[data-tn]').forEach(b=>b.onclick=()=>{
+    document.querySelectorAll('[data-tn]').forEach(x=>x.classList.toggle('on',x===b));
+    document.body.dataset.tenant=b.dataset.tn;
+    document.querySelectorAll('.logo').forEach(l=>l.textContent={ipa:'IPA Print',infinite:'Infinite',vertep:'Vert & Papier'}[b.dataset.tn]);
+  });
+</script>
+</body>
+</html>

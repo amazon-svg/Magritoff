@@ -305,16 +305,29 @@ export function ShopProductCard({
               fontVariantNumeric: "tabular-nums",
             }}
           >
-            {product.price_ht.toFixed(0)}
-            <span className="text-ink-muted ml-1" style={{ fontSize: "12px" }}>
-              €
-            </span>
-            <span
-              className="text-ink-muted ml-1.5"
-              style={{ fontSize: "11.5px", fontWeight: 400 }}
-            >
-              / {(product.config as any)?.quantity ?? 500} ex.
-            </span>
+            {(product.config as any)?.source === "pim-generated" &&
+            (Number(product.price_ht) || 0) === 0 ? (
+              // S2.33 — produit genere depuis le PIM : prix a la configuration.
+              <span
+                className="text-ink-muted"
+                style={{ fontSize: "13px", fontWeight: 500 }}
+              >
+                Configurez pour le prix
+              </span>
+            ) : (
+              <>
+                {product.price_ht.toFixed(0)}
+                <span className="text-ink-muted ml-1" style={{ fontSize: "12px" }}>
+                  €
+                </span>
+                <span
+                  className="text-ink-muted ml-1.5"
+                  style={{ fontSize: "11.5px", fontWeight: 400 }}
+                >
+                  / {(product.config as any)?.quantity ?? 500} ex.
+                </span>
+              </>
+            )}
           </div>
 
           <div className="flex flex-wrap items-center gap-1.5">

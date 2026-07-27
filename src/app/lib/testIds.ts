@@ -252,6 +252,60 @@ export const TEST_IDS = {
     overlayOptionDorure: 'shop-overlay-option-dorure',
     // S2.4b — Bouton Editer atelier qui ouvre l'overlay (correctif scope persona primaire)
     productCardEditBtn: 'product-card-edit-btn',
+    // S7.3 — Page gamme /shop/:slug/g/:gamme (Epic 7 gabarit boutique v2)
+    gammePage: 'shop-gamme-page',
+    gammePageTitle: 'shop-gamme-page-title',
+    gammeBreadcrumb: 'shop-gamme-breadcrumb',
+    gammeConfigurator: 'shop-gamme-configurator',
+    gammeTopFormatChip: 'shop-gamme-top-format-chip',
+    gammeQuantityTier: 'shop-gamme-quantity-tier',
+    gammeStickyBar: 'shop-gamme-sticky-bar',
+    gammeStickyPrice: 'shop-gamme-sticky-price',
+    gammeStickyAddBtn: 'shop-gamme-sticky-add-btn',
+    gammePriceSourceBadge: 'shop-gamme-price-source-badge',
+    gammeAskMagrit: 'shop-gamme-ask-magrit',
+    gammeEmptyState: 'shop-gamme-empty-state',
+    // S7.4 — Éditorial PIM + produits liés sur la page gamme
+    gammeEditorial: 'shop-gamme-editorial',
+    gammeEditorialFaq: 'shop-gamme-editorial-faq',
+    gammeRelated: 'shop-gamme-related',
+    // S7.6 — Tuile gamme « dès X € » (home vitrine)
+    gammeTile: 'shop-gamme-tile',
+    gammeTileFloorPrice: 'shop-gamme-tile-floor-price',
+    gammeTileNoPrice: 'shop-gamme-tile-no-price',
+    // S7.11 — Mode d'accès acheteurs (BO éditeur boutique)
+    accessModeSelect: 'shop-access-mode-select',
+    // S7.12 — Checkout ≤ 2 écrans (identification + récap)
+    checkoutPage: 'shop-checkout-page',
+    checkoutIdentification: 'shop-checkout-identification',
+    checkoutEmailInput: 'shop-checkout-email-input',
+    checkoutPasswordInput: 'shop-checkout-password-input',
+    checkoutAuthBtn: 'shop-checkout-auth-btn',
+    checkoutRequestAccess: 'shop-checkout-request-access',
+    checkoutSubmitBtn: 'shop-checkout-submit-btn',
+    // S7.10 — AccountHub « Mon compte » /account/*
+    accountHub: 'shop-account-hub',
+    accountTab: 'shop-account-tab',
+    accountQuotesList: 'shop-account-quotes-list',
+    accountProfile: 'shop-account-profile',
+    accountLogoutBtn: 'shop-account-logout-btn',
+    // S7.9 — Bandeau Reprendre riche (home) + compact (pages gammes)
+    resumeBanner: 'shop-resume-banner',
+    resumeChipCart: 'shop-resume-chip-cart',
+    resumeChipRenew: 'shop-resume-chip-renew',
+    resumeChipTrack: 'shop-resume-chip-track',
+    // S7.8 — Home vitrine (tuiles gammes + éditorial + footer)
+    homeGammeGrid: 'shop-home-gamme-grid',
+    homeEditorial: 'shop-home-editorial',
+    homeFooter: 'shop-home-footer',
+    // S7.7 — ShopChrome (réassurance + recherche header + panier montant)
+    reassuranceStrip: 'shop-reassurance-strip',
+    headerSearch: 'shop-header-search',
+    headerSearchInput: 'shop-header-search-input',
+    headerSearchMenu: 'shop-header-search-menu',
+    headerSearchOption: 'shop-header-search-option',
+    headerSearchAskMagrit: 'shop-header-search-ask-magrit',
+    headerCartAmount: 'shop-header-cart-amount',
     // S-FIX-1 — Section SEO/GEO PIM dans l'onglet Fiche existant (correctif scope
     // 2026-05-10 : pas de nouvel onglet, enrichissement de Fiche uniquement).
     ficheSeoSection: 'product-card-fiche-seo-section',
@@ -289,6 +343,12 @@ export const TEST_IDS = {
     cartRenewalWarningsDismissBtn: 'shop-cart-renewal-warnings-dismiss-btn',
     // S3.4 (Sprint 5, 2026-05-23) : annulation commande draft + modal AlertDialog.
     orderCancelBtn: 'shop-order-cancel-btn',
+    // 2026-07-08 : édition commande draft (acheteur) — miroir éditeur de devis.
+    orderEditBtn: 'shop-order-edit-btn',
+    orderEditor: 'shop-order-editor',
+    orderEditorSaveBtn: 'shop-order-editor-save-btn',
+    orderEditorLineQty: 'shop-order-editor-line-qty',
+    orderEditorLinePrice: 'shop-order-editor-line-price',
     cancelOrderDialog: 'shop-cancel-order-dialog',
     cancelOrderDialogKeep: 'shop-cancel-order-dialog-keep',
     cancelOrderDialogConfirm: 'shop-cancel-order-dialog-confirm',
@@ -389,6 +449,18 @@ export const TEST_IDS = {
     editorSubmitBtn: 'order-role-editor-submit-btn',
     editorCancelBtn: 'order-role-editor-cancel-btn',
     editorErrorBanner: 'order-role-editor-error-banner',
+  },
+
+  // ─── S2.32 — BO editeur boutique : mode PIM catalogue complet ──────────
+  // Entree "PIM — Catalogue complet" dans DashboardShopEditor : radio maitre
+  // (verse tout le catalogue product_library du tenant) + depliage des
+  // gammes recensees avec selection/deselection par gamme.
+  shopEditor: {
+    pimToggle: 'shop-editor-pim-toggle',
+    pimExpandBtn: 'shop-editor-pim-expand-btn',
+    pimSelectAllBtn: 'shop-editor-pim-select-all-btn',
+    // Prefixe : le slug de gamme est concatene inline (`${pimGamme}-${slug}`).
+    pimGamme: 'shop-editor-pim-gamme',
   },
 
   // ─── Mockup engine parametrique (S4.3, Epic 4) ─────────────────────────

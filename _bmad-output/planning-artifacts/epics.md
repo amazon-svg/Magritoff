@@ -167,6 +167,7 @@ Découpage du PRD (46 FR + 28 NFR) et de l'Architecture v1.1 (15 décisions stru
 | **4** | Mockup Engine paramétrique | 100 % des produits ont un visuel cohérent dès J1 | 4 | MVP + Growth (`beta/v5`) |
 | **5** | Connecteurs design (Canva quick-win + Affinity conditionnel) | Design délégué aux outils des acheteurs sans studio interne | 4 | Growth (`beta/v5`) |
 | **6** | Quotas, feature flags & tier gating | Engagements commerciaux respectés par tier sans friction UX | 3 | MVP (`beta/v5`) |
+| **7** | Gabarit boutique v2 aligné Printoclock | Acheteur configure et paie une gamme comme sur un e-commerce print standard ; visiteur SEO devient client | 14 (3 sprints V2-A/B/C) | Post-Epic 2 ext. (`beta/v5`) — spec UX 2026-07-26, ADR §4.18-4.20 |
 
 **Logique d'enchaînement (révisé R3 Implementation Readiness 2026-05-09) :**
 
@@ -1502,6 +1503,76 @@ So que les composants v1.1 utilisent un seul `if` clair sans dupliquer la logiqu
 **Effort :** S.
 **FR couverts :** FR38.
 **ADR :** ADR-8.
+
+---
+
+## Epic 7 — Gabarit boutique v2 aligné Printoclock (spec UX 2026-07-26)
+
+> **Sources** : `ux-design-specification.md` (Sally, 2026-07-26, be76a66) + `analyse-printoclock-gabarit-boutique-2026-07-24.md` + showcase `ux-design-directions.html`. **ADR** : §4.18 (prix plancher gamme), §4.19 (SEO SPA), §4.20 (checkout self-signup). Décisions actées Arnaud : direction D1 Printoclock fidèle + indicateurs transactionnels D3, home vitrine pour tous, fonctions portail sous `/shop/:slug/account/*`, design system conservé (2 couches de tokens), configurateur inline = hook `useProductConfigurator` extrait de `ProductOverlay` (logique prix jamais dupliquée).
+>
+> **Découpage en 3 sprints = 3 phases de la roadmap UX.** Plafond 3-5 stories/sprint (DoD #1), chaque story ≤ 3 j (DoD #7), story doc au démarrage (DoD #9), TF Notion en parallèle (DoD #8), a11y scan sur toute nouvelle route (DoD #10), smoke E2E acheteur avant clôture de chaque sprint (DoD #3). Sally est déjà passée (spec complète) — pas de re-consult sauf écart d'implémentation.
+
+### Sprint V2-A — Phase 1 : cœur transactionnel (page gamme)
+
+**S7.1 — Routage boutique route-driven (préalable structurel, ADR §4.19-1)**
+`/shop/:slug` passe d'un state interne `PortalView` à un arbre de routes imbriquées React Router : `/shop/:slug` (home), `/shop/:slug/g/:gamme`, `/shop/:slug/account/*` (placeholder redirigeant vers les vues actuelles), `/shop/:slug/thank-you`. Les anciens states/`?tab=` sont redirigés. Ajout des routes à `pnpm a11y:scan`. Bonus résolu : deep-linking emails de notification (suivi S-ORDER-ROLES).
+**Effort : M (2-3 j).** ADR §4.19. Pré-requis de toutes les stories suivantes.
+
+**S7.2 — Hook `useProductConfigurator` (moteur unique)**
+Extraction de la logique de `ProductOverlay` (état options + `extractInitialOptions` + `buildClariprintPayload` + `computePrice` debounce/timeout + résolution source prix) en hook partagé. `ProductOverlay` re-branché dessus, iso-fonctionnel (tests de parité vitest). Aucune duplication de logique prix — garde-fou n°1 de l'itération.
+**Effort : M (2 j).**
+
+**S7.3 — Page gamme `/g/:gamme` : GammeConfigurator + StickyPriceBar**
+Rendu page du hook S7.2 : Top formats (chips), selects hiérarchisés avec aide jargon ℹ, paliers quantité cliquables, config par défaut (S2.33) pré-calculée au mount (< 3 s), prix sticky (colonne droite desktop / barre basse mobile) avec badge source, `aria-live=polite`, états calcul/prix marché/« Prix sur demande »+Magrit. CTA « Ajouter au panier » → drawer, on reste sur la page. Filet Magrit pré-contextualisé.
+**Effort : L (3 j).**
+
+**S7.4 — PimEditorial + produits liés + breadcrumb**
+Rendu `product_definitions` : description (H2), usages, specs (table), FAQ (accordion Radix), sections absentes masquées ; grille « Produits liés » (`product_library` du tenant, ShopProductCard inchangé) ; breadcrumb Accueil › Famille › Gamme. Gamme sans produit actif = page rendue quand même (jamais 404).
+**Effort : M (2 j).**
+
+**S7.5 — SEO on-page gamme (ADR §4.19-2/3)**
+Hook `useSeoMeta` (title/description/canonical/robots/og) alimenté par `product_definitions.seo_*` (placeholders résolus, repli « {Gamme} — {Boutique} ») + JSON-LD `Product`/`Offer` (lowPrice seulement si source ≠ prix_marche) + `BreadcrumbList`.
+**Effort : S (1-2 j).**
+
+### Sprint V2-B — Phase 2 : vitrine & reprise
+
+**S7.6 — Prix plancher par gamme « dès X € » (ADR §4.18)**
+Helper pur `computeGammeFloorPrices(products, gammes)` (min sur `resolvePrice`, source héritée) + composant `GammeTile` (mockup, nom, badge sémantique, « dès X € HT » badgé source ou « Prix à la configuration », états défaut/hover/sans-prix/skeleton).
+**Effort : M (2 j).**
+
+**S7.7 — ShopChrome (header e-commerce constant)**
+Bandeau réassurance (3 faits dérivés), logo tenant, recherche large centrale (« Que voulez-vous imprimer ? », logique S2.21 repositionnée), Mon compte, panier avec MONTANT, nav univers → méga-menu (S2.18 + niveau top). États loggé/non-loggé, drawer mobile, pattern menubar + skip-link.
+**Effort : L (3 j).**
+
+**S7.8 — Home vitrine pour tous**
+Hero tenant (A4.1) → grille Top Produits 4/3/2 col (GammeTile S7.6, gammes souscrites) → éditorial tenant → footer. Remplace la home portail actuelle pour tous les visiteurs ; sans historique, pas de bloc vide.
+**Effort : M (2 j).**
+
+**S7.9 — ResumeBanner riche + rappel compact**
+Bandeau Reprendre (D3) : chips panier+montant, devis en attente, « Renouveler #N » (S3.3), suivi dernière commande. Variante `compact` 1 ligne sous le header des pages gammes. Dérivé de la donnée, absent si vide, nav landmark.
+**Effort : M (2-3 j).**
+
+### Sprint V2-C — Phase 3 : Mon compte & checkout
+
+**S7.10 — AccountHub `/account/*`**
+Relocalisation des fonctions portail : commandes (PortalOrders 4 tabs), devis, validations workflow, profil. Sidebar desktop / tabs mobile. Redirections 301 internes depuis les anciennes vues. Routes ajoutées à l'a11y scan.
+**Effort : L (3 j).**
+
+**S7.11 — Schéma + RPC self-signup (ADR §4.20-2/3)**
+Migration `shops.access_mode` (`invite_only` défaut) + RPC `self_register_shop_buyer(p_shop_id)` SECURITY DEFINER (allow-list scope shop_only + preset Acheteur, idempotente) + toggle « Inscription libre » dans `DashboardShopEditor` + tests RLS/RPC vitest.
+**Effort : M (2 j).** Déployable indépendamment de S7.12 (rétro-compat totale).
+
+**S7.12 — Checkout ≤ 2 écrans (ADR §4.20-4/5)**
+Écran « Identification » (onglets Se connecter / Créer un compte selon `access_mode` ; boutique invite_only = login + « Demander un accès ») → écran récap + « Commander » → PortalThankYou. Loggé = 1 écran. Smoke E2E parcours 1 complet (SEO → commande).
+**Effort : L (3 j).**
+
+**S7.13 — Sitemap + indexabilité (ADR §4.19-4)**
+Edge function `shop-sitemap` (XML des gammes souscrites, boutiques self_signup uniquement) + `robots noindex` sur boutiques invite_only via `useSeoMeta`.
+**Effort : S (1-2 j).**
+
+**S7.14 — Clôture gabarit v2 : harmonisation + audits**
+Harmonisation `ReassuranceStrip` (header/fiche S2.26), passe responsive 3 largeurs sur les 3 écrans clés, parcours 1 clavier-only, a11y scan complet des routes v2, récap TF Notion.
+**Effort : S (1-2 j).**
 
 ---
 

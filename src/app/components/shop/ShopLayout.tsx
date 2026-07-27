@@ -24,13 +24,15 @@
  *   - CSS custom props --shop-primary / --shop-accent
  */
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { ShoppingCart, X } from "lucide-react";
-import type { Shop } from "../../contexts/ShopsContext";
+import type { Shop, ShopProduct } from "../../contexts/ShopsContext";
 import type { Gamme } from "../../utils/productEnrichment";
 import { AuthMenu } from "../auth/AuthMenu";
 import type { PortalView, BudgetInfo } from "./portal/types";
 import { ShopMegaMenu } from "./ShopMegaMenu";
+import { ShopHeaderSearch } from "./ShopHeaderSearch";
+import { ReassuranceStrip } from "./ReassuranceStrip";
 import type { TaxonomyFamily } from "../../utils/shopTaxonomy";
 import { TEST_IDS } from "../../lib/testIds";
 import { Sheet, SheetContent, SheetTitle } from "../ui/sheet";
@@ -38,8 +40,10 @@ import {
   resolveShopTheme,
   resolveShopBrandStyle,
   shouldShowCartBadge,
-  shouldRenderHeroBanner,
+  shouldRenderBrandBanner,
+  resolveBrandBannerBackground,
   resolveHeroTagline,
+  resolveCartLabel,
 } from "./ShopLayout.helpers";
 
 interface GammePill {
@@ -62,12 +66,29 @@ interface Props {
   onToggleGamme?: (slug: string) => void;
   /** S2.18 — Taxonomie familles/sous-catégories pour le méga-menu. */
   taxonomy?: TaxonomyFamily[];
-  /** S2.18 — Clic famille (racine) dans le méga-menu → gammes à filtrer. */
-  onSelectFamily?: (gammeSlugs: string[]) => void;
-  /** S2.18 — Clic sous-catégorie (gamme) dans le méga-menu → gammes à filtrer. */
-  onSelectSubcategory?: (gammeSlugs: string[]) => void;
+  /** S2.18/S7.7 — Clic famille méga-menu (familyKey → page gamme). */
+  onSelectFamily?: (gammeSlugs: string[], familyKey?: string) => void;
+  /** S2.18 — Clic sous-catégorie dans le méga-menu → gammes à filtrer (+ format). */
+  onSelectSubcategory?: (gammeSlugs: string[], formatKey?: string) => void;
   /** Contenu drawer panier (slide-right via Sheet). */
   cartDrawer?: ReactNode;
+  /**
+   * S7.1 — signal d'ouverture programmatique du drawer panier : compteur
+   * incrémenté par le parent (ex. après « Renouveler »). 0 = jamais demandé.
+   */
+  cartOpenRequest?: number;
+  /** S7.7 — montant HT du panier (affiché sur le bouton header, décision D3). */
+  cartTotalHT?: number;
+  /** S7.7 — index de recherche header (catalogue complet). */
+  searchIndex?: ShopProduct[];
+  /** S7.7 — gammes PIM (suggestions familles de la recherche). */
+  pimGammes?: Gamme[];
+  /** S7.7 — clic suggestion produit → fiche /p/:id. */
+  onSelectProduct?: (product: ShopProduct) => void;
+  /** S7.7 — navigation vers une page gamme /g/:slug (recherche + méga-menu). */
+  onOpenGamme?: (slug: string) => void;
+  /** S7.7 — repli Magrit de la recherche header. */
+  onAskMagrit?: () => void;
   /** Contenu principal (vue active : home/catalog/product/orders). */
   children: ReactNode;
 }
@@ -75,7 +96,8 @@ interface Props {
 const NAV_ITEMS: Array<{ key: PortalView; label: string }> = [
   { key: "home", label: "Accueil" },
   { key: "catalog", label: "Catalogue" },
-  { key: "orders", label: "Mes commandes" },
+  // S7.10 — les fonctions portail vivent sous « Mon compte » (/account/*).
+  { key: "account", label: "Mon compte" },
 ];
 
 export function ShopLayout({
@@ -91,6 +113,13 @@ export function ShopLayout({
   onSelectFamily,
   onSelectSubcategory,
   cartDrawer,
+  cartOpenRequest,
+  cartTotalHT,
+  searchIndex,
+  pimGammes,
+  onSelectProduct,
+  onOpenGamme,
+  onAskMagrit,
   children,
 }: Props) {
   const { dataTheme, isDark } = resolveShopTheme(shop);
@@ -100,6 +129,11 @@ export function ShopLayout({
   // S-REWORK-1 — Drawer panier slide-right via Sheet shadcn (remplace
   // view='cart' page entiere). Ouvert par le cart icon du header.
   const [cartOpen, setCartOpen] = useState(false);
+
+  // S7.1 — ouverture programmatique demandée par le parent (compteur).
+  useEffect(() => {
+    if (cartOpenRequest && cartOpenRequest > 0) setCartOpen(true);
+  }, [cartOpenRequest]);
 
   const budgetPct = budget
     ? Math.min(100, Math.round((budget.used / budget.total) * 100))
@@ -115,7 +149,23 @@ export function ShopLayout({
   // S2.18 — Méga-menu illustré : visible sur home/catalog quand une taxonomie
   // est fournie (data-driven, jamais vide grâce à buildShopTaxonomy).
   const showMegaMenu =
-    !!taxonomy && taxonomy.length > 0 && (view === "catalog" || view === "home");
+    !!taxonomy &&
+    taxonomy.length > 0 &&
+    // S7.3 : méga-menu accessible aussi depuis une page gamme (nav partout).
+    (view === "catalog" || view === "home" || view === "gamme");
+
+  // S7.7 — recherche header rendue si le parent fournit l'index + handlers.
+  const headerSearch =
+    searchIndex && onSelectProduct && onOpenGamme && onAskMagrit ? (
+      <ShopHeaderSearch
+        products={searchIndex}
+        pimGammes={pimGammes ?? []}
+        onSelectProduct={onSelectProduct}
+        onOpenGamme={onOpenGamme}
+        onAskMagrit={onAskMagrit}
+        isDark={isDark}
+      />
+    ) : null;
 
   return (
     <div
@@ -124,28 +174,77 @@ export function ShopLayout({
       className={`min-h-screen ${isDark ? "bg-gray-950 text-gray-100" : "bg-bg text-ink"}`}
       style={{ ...brandStyle, fontFamily: "var(--shop-font-body, var(--font-ui))" }}
     >
-      {/* ─── A4.1 — Bannière hero + tagline (avant header sticky) ────── */}
-      {shouldRenderHeroBanner(shop) && (
-        <div
-          data-testid={TEST_IDS.shop.heroBanner}
-          role="banner"
-          aria-label={resolveHeroTagline(shop) ? `Bannière : ${resolveHeroTagline(shop)}` : "Bannière boutique"}
-          className="relative w-full h-[140px] md:h-[200px] bg-cover bg-center"
-          style={{ backgroundImage: `url(${shop.hero_image_url})` }}
-        >
-          {resolveHeroTagline(shop) && (
-            <div className="absolute inset-x-0 bottom-0 px-5 lg:px-9 pb-6 pt-12 bg-gradient-to-t from-black/60 via-black/30 to-transparent">
-              <p
-                data-testid={TEST_IDS.shop.heroTagline}
-                className="text-white text-base md:text-lg font-medium max-w-3xl drop-shadow-md m-0"
-                style={{ fontFamily: "var(--shop-font-heading, var(--shop-font-body, inherit))" }}
-              >
-                {resolveHeroTagline(shop)}
-              </p>
+      {/* ─── S7.7 Bandeau réassurance (ShopChrome, constant) ─────────── */}
+      <ReassuranceStrip isDark={isDark} />
+
+      {/* ─── Bandeau de marque co-brandé (refonte 2026-07-08) ─────────
+          Espace client : couleur(s) de marque OU image de fond + logo client
+          présenté dans une plaque nette (jamais étiré). Repli identité = nom
+          de la boutique. Remplace l'ancien hero « image étirée en fond ». */}
+      {shouldRenderBrandBanner(shop) && (() => {
+        const bg = resolveBrandBannerBackground(shop);
+        const tagline = resolveHeroTagline(shop);
+        return (
+          <div
+            data-testid={TEST_IDS.shop.heroBanner}
+            role="banner"
+            aria-label={tagline ? `Bannière ${shop.name} : ${tagline}` : `Bannière ${shop.name}`}
+            className="relative w-full h-[132px] md:h-[168px] overflow-hidden"
+            style={bg.style}
+          >
+            {/* Scrim de lisibilité uniquement quand une image de fond est posée
+                (le dégradé de marque est déjà lisible par construction). */}
+            {bg.hasImage && (
+              <div
+                className="absolute inset-0"
+                style={{
+                  background:
+                    "linear-gradient(90deg, rgba(2,6,23,0.62) 0%, rgba(2,6,23,0.30) 55%, rgba(2,6,23,0.10) 100%)",
+                }}
+                aria-hidden="true"
+              />
+            )}
+            <div className="relative h-full flex items-center gap-4 md:gap-5 px-5 lg:px-9">
+              {shop.logo_url ? (
+                // Plaque blanche = « lockup » : le logo reste net sur tout fond.
+                <div className="shrink-0 bg-white rounded-xl shadow-sm px-3.5 py-2.5 md:px-4 md:py-3 grid place-items-center max-w-[180px] md:max-w-[220px]">
+                  <img
+                    src={shop.logo_url}
+                    alt={shop.name}
+                    className="max-h-11 md:max-h-14 w-auto object-contain"
+                  />
+                </div>
+              ) : (
+                // Sans logo : le nom de la boutique fait office de lockup texte.
+                <p
+                  className="text-white m-0 shrink-0 drop-shadow"
+                  style={{
+                    fontFamily: "var(--shop-font-heading, var(--shop-font-body, inherit))",
+                    fontSize: "clamp(22px, 3vw, 30px)",
+                    fontWeight: 500,
+                    letterSpacing: "-0.02em",
+                  }}
+                >
+                  {shop.name}
+                </p>
+              )}
+              {tagline && (
+                <p
+                  data-testid={TEST_IDS.shop.heroTagline}
+                  className="text-white/90 m-0 max-w-xl drop-shadow-md"
+                  style={{
+                    fontFamily: "var(--shop-font-body, inherit)",
+                    fontSize: "clamp(13px, 1.4vw, 16px)",
+                    lineHeight: 1.4,
+                  }}
+                >
+                  {tagline}
+                </p>
+              )}
             </div>
-          )}
-        </div>
-      )}
+          </div>
+        );
+      })()}
 
       {/* ─── Header sticky brande ────────────────────────────────────── */}
       <header
@@ -154,36 +253,17 @@ export function ShopLayout({
           isDark ? "border-gray-800 bg-gray-950/95 backdrop-blur" : "border-line bg-paper"
         }`}
       >
-        {/* Logo + nom + Magrit */}
+        {/* Logo + nom boutique (nettoyage 2026-07-08 : suppression du pavé de
+            couleur placeholder et de la mention « × Magrit », retour Arnaud). */}
         <div data-testid={TEST_IDS.shop.headerLogo} className="flex items-center gap-2.5">
-          {shop.logo_url ? (
+          {shop.logo_url && (
             <img
               src={shop.logo_url}
               alt={shop.name}
               className="h-6 w-6 object-contain rounded"
             />
-          ) : (
-            <div
-              className="h-6 w-6 rounded"
-              style={{
-                background:
-                  "linear-gradient(135deg, var(--shop-primary, #1e3a8a) 0%, var(--shop-accent, #f59e0b) 100%)",
-              }}
-            />
           )}
           <span className="text-[15px] font-medium">{shop.name}</span>
-          <span
-            className={`hidden sm:inline-block w-px h-[18px] mx-1 ${
-              isDark ? "bg-gray-700" : "bg-line"
-            }`}
-          />
-          <span
-            className={`hidden sm:inline-block text-[13.5px] ${
-              isDark ? "text-gray-400" : "text-ink-muted"
-            }`}
-          >
-            × Magrit
-          </span>
         </div>
 
         {/* Nav desktop */}
@@ -211,7 +291,12 @@ export function ShopLayout({
           })}
         </nav>
 
-        {/* Cart icon — ouvre drawer slide-right */}
+        {/* S7.7 — Recherche proéminente au centre (desktop) */}
+        {headerSearch && (
+          <div className="hidden md:block flex-1 max-w-xl mx-auto">{headerSearch}</div>
+        )}
+
+        {/* Cart icon — ouvre drawer slide-right. S7.7 : MONTANT affiché (D3). */}
         <button
           type="button"
           data-testid={TEST_IDS.shop.cartIcon}
@@ -224,7 +309,13 @@ export function ShopLayout({
           }`}
         >
           <ShoppingCart className="w-3.5 h-3.5" strokeWidth={1.5} />
-          <span className="hidden sm:inline">Panier</span>
+          <span
+            className="hidden sm:inline"
+            data-testid={TEST_IDS.shop.headerCartAmount}
+            style={{ fontVariantNumeric: "tabular-nums" }}
+          >
+            {resolveCartLabel(cartCount, cartTotalHT)}
+          </span>
           {showCartBadge && (
             <span
               className={`font-mono text-[10.5px] font-medium px-1.5 py-0.5 rounded-full min-w-[18px] text-center ${
@@ -245,6 +336,17 @@ export function ShopLayout({
           <AuthMenu />
         </div>
       </header>
+
+      {/* S7.7 — Recherche pleine largeur sous le header (mobile) */}
+      {headerSearch && (
+        <div
+          className={`md:hidden px-4 py-2 border-b ${
+            isDark ? "border-gray-800 bg-gray-950" : "border-line bg-paper"
+          }`}
+        >
+          {headerSearch}
+        </div>
+      )}
 
       {/* ─── Budget strip optionnel ──────────────────────────────────── */}
       {budget && (
@@ -291,8 +393,8 @@ export function ShopLayout({
         <ShopMegaMenu
           families={taxonomy!}
           isDark={isDark}
-          onSelectFamily={(slugs) => onSelectFamily?.(slugs)}
-          onSelectSubcategory={(slugs) => onSelectSubcategory?.(slugs)}
+          onSelectFamily={(slugs, familyKey) => onSelectFamily?.(slugs, familyKey)}
+          onSelectSubcategory={(slugs, formatKey) => onSelectSubcategory?.(slugs, formatKey)}
         />
       )}
 

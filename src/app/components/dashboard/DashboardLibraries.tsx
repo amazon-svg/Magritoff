@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
-import { Plus, Library as LibraryIcon, Pencil, Trash2, X, Loader2, Sparkles } from 'lucide-react';
+import { Plus, Library as LibraryIcon, Pencil, Trash2, X, Loader2, Sparkles, Boxes } from 'lucide-react';
 import { useLibrary, Library } from '../../contexts/LibraryContext';
+import { usePIM } from '../../contexts/PIMContext';
+import { isPimGenerated } from '../../utils/buildPimGeneratedProducts';
 import { usePlan } from '../../hooks/usePlan';
 import { useTenantPath } from '../../hooks/useTenantPath';
 import { UpgradeCTA } from './UpgradeCTA';
@@ -16,7 +18,11 @@ export function DashboardLibraries() {
     updateLibrary,
     deleteLibrary,
     productsByLibrary,
+    products,
+    generateFromPim,
+    clearPimGenerated,
   } = useLibrary();
+  const { gammes } = usePIM();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Library | null>(null);
@@ -26,6 +32,44 @@ export function DashboardLibraries() {
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // S2.33 — generation des produits vendables depuis le PIM
+  const [pimBusy, setPimBusy] = useState<null | 'gen' | 'clear'>(null);
+  const [pimMsg, setPimMsg] = useState<string | null>(null);
+  const pimGeneratedCount = useMemo(
+    () => products.filter((p) => isPimGenerated(p.config)).length,
+    [products],
+  );
+
+  const handleGenerateFromPim = async () => {
+    if (
+      !window.confirm(
+        `Générer un produit vendable pour chacune des ${gammes.length} gammes du PIM ?\n\n` +
+          `Les produits déjà générés seront remplacés. Vos produits ajoutés manuellement ne sont pas touchés.`,
+      )
+    )
+      return;
+    setPimBusy('gen');
+    setPimMsg(null);
+    const { created } = await generateFromPim(gammes);
+    setPimBusy(null);
+    setPimMsg(
+      `${created} produit(s) généré(s) depuis le PIM. Activez « PIM — Catalogue complet » dans une boutique pour les vendre.`,
+    );
+  };
+
+  const handleClearPim = async () => {
+    if (
+      !window.confirm(
+        'Supprimer tous les produits générés depuis le PIM ? Vos produits ajoutés manuellement sont conservés.',
+      )
+    )
+      return;
+    setPimBusy('clear');
+    setPimMsg(null);
+    const { removed } = await clearPimGenerated();
+    setPimBusy(null);
+    setPimMsg(`${removed} produit(s) généré(s) supprimé(s).`);
+  };
 
   if (!canUse('library')) return <UpgradeCTA feature="Bibliothèques" />;
 
@@ -90,6 +134,59 @@ export function DashboardLibraries() {
 
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-900">
         💡 Depuis le chat, calcule tes produits puis clique <strong>"Ajouter à la bibliothèque"</strong> sur une carte pour l'enregistrer. Sélectionne plusieurs produits pour un ajout groupé.
+      </div>
+
+      {/* S2.33 — Générer les produits vendables depuis le PIM */}
+      <div className="rounded-xl border-2 border-indigo-200 bg-indigo-50 p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+              <Boxes className="w-5 h-5 text-indigo-600" />
+              Catalogue depuis le PIM
+            </h3>
+            <p className="text-sm text-gray-700 mt-0.5 max-w-xl">
+              Génère un produit vendable pour chacune des <strong>{gammes.length} gammes</strong> de
+              votre PIM. Le prix se calcule à la configuration (Clariprint) côté acheteur.
+              {pimGeneratedCount > 0 && (
+                <>
+                  {' '}
+                  Actuellement <strong>{pimGeneratedCount}</strong> produit(s) généré(s).
+                </>
+              )}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleGenerateFromPim}
+              disabled={pimBusy !== null || gammes.length === 0}
+              className="inline-flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {pimBusy === 'gen' ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Boxes className="w-4 h-4" />
+              )}
+              {pimGeneratedCount > 0 ? 'Régénérer' : 'Générer le catalogue'}
+            </button>
+            {pimGeneratedCount > 0 && (
+              <button
+                type="button"
+                onClick={handleClearPim}
+                disabled={pimBusy !== null}
+                className="inline-flex items-center gap-2 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-white text-sm font-medium disabled:opacity-50"
+              >
+                {pimBusy === 'clear' ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Trash2 className="w-4 h-4" />
+                )}
+                Nettoyer
+              </button>
+            )}
+          </div>
+        </div>
+        {pimMsg && <p className="text-sm text-indigo-800 mt-2">{pimMsg}</p>}
       </div>
 
       {librariesLoading ? (

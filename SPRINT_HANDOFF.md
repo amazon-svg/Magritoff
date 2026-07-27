@@ -2,11 +2,125 @@
 
 > Document de reprise pour démarrer une nouvelle session de Claude code sur le projet sans recharger tout l'historique. À tenir à jour à chaque fin de sprint.
 >
-> **Dernière mise à jour : 2026-07-08 — Sprint E3 Navigation (Epic 2 e-commerce) CLÔTURÉ : méga-menu, cohérence catégorie (ADR-4.17), fil d'Ariane + facettes, recherche + autocomplétion, landing éditorialisée LLM. Voir section 18 ci-dessous. Tout poussé `origin/beta/v5` (HEAD `d731243`), edge `category-editorial` déployée. 709 tests verts.**
+> **Dernière mise à jour : 2026-07-27 — Arbitrages Epic 7 tranchés et appliqués (autoconfirm ON, pilote ERAM self_signup, mailto conservé) + rétrospective Epic 7. Voir section 24. Epic 7 : sections 21-23.**
+
+## 24. Session 2026-07-27 — Arbitrages Epic 7 appliqués + rétrospective
+
+**Arbitrages Arnaud (tranchés et appliqués en séance)** :
+
+1. **Autoconfirm GoTrue = ON** : `mailer_autoconfirm: true` posé via Management API (PAT Keychain) sur le projet `ightkxebexuzfjdbpsdg`. ⚠️ Réglage projet-wide (B4+B5 partagés). **Smoke self-signup rejoué contre la prod** : signup public → session immédiate (email confirmé auto) → RPC `self_register_shop_buyer` → membership `member`/`shop_only` limité à ERAM → compte éphémère nettoyé. Parcours 1 sans friction ✅.
+2. **Boutique pilote = ERAM** : `access_mode = self_signup`, **slug renommé `xyfjjo-q6kekm` → `eram`** (URLs indexables propres ; anciens liens cassés, assumé), `contact_email = a.mazon@me.com`. Edge `shop-sitemap?slug=eram` vérifiée (XML home + gammes ; boutiques privées 404). Biocoop (créée 27/07) reste aussi en self_signup.
+3. **« Demander un accès » = mailto conservé** (calibrage POC) ; Resend dédié tracé si besoin confirmé en bêta.
+
+**Rétrospective Epic 7** : `_bmad-output/implementation-artifacts/retrospective-epic-7-2026-07-27.md` — métriques (837 vitest, +114 ; 1 migration ; 1 edge ; a11y 0 violation), suivi des actions rétro E3, dette tracée (clavier-only TF humain, pari SEO client-side, chat pré-contextualisé, nettoyage PIM EN validé à planifier). **Point structurant** : l'indexation réelle attend un déploiement public de la SPA (B5 = localhost:5177) + rebasage des URLs sitemap sur le futur domaine.
+
+**Reste session** : remontée `beta/v5` → `main` (écart vérifié : 41 avance / 3 retard = merges antérieurs + chore B1) · déroulé des TF-S7.x « À jouer » via Claude in Chrome.
+
+## 23. Session 2026-07-26 (fin) — Sprint V2-C : compte & checkout (S7.10-S7.14) — EPIC 7 CLÔTURÉ
+
+| Story | Commit | Livré |
+|---|---|---|
+| S7.10 AccountHub | `4d06c87` | `/account/orders|quotes|profile` (commandes 4 tabs role-driven, devis lecture QuotesContext, profil + déconnexion). Alias `/orders` → `/account/orders` **query préservée**. Nav header « Mon compte ». |
+| S7.11 self-signup schéma+RPC | `f8678a7` | **Migration prod B5 appliquée** (`20260726000100`, API Management + PAT) : `shops.access_mode` (invite_only défaut) + RPC `self_register_shop_buyer` SECURITY DEFINER allow-list shop_only + preset Acheteur, idempotente. Toggle BO « Accès des acheteurs ». 4 tests RPC verts contre la prod. |
+| S7.12 checkout ≤ 2 écrans | `b01a542` | Route `/checkout` : identification même page (self_signup : créer un compte + RPC ; invite_only : connexion + demande d'accès mailto) → récap HT/TVA/TTC → Commander → ThankYou. **E2E complet joué contre la prod** (compte éphémère, commande #B0B4986A, nettoyé). **FIX FK débusqué** : `tenant_order_items.product_id` = réf product_library (`product.product_id`), pas l'id de ligne shop_products — tout panier avec produit manuel échouait. |
+| S7.13 sitemap + noindex | `00001d1` | **Edge `shop-sitemap` déployée prod B5** : XML (home + gammes souscrites) réservé self_signup, 404 privé. Meta robots noindex,nofollow sur toutes les vues des boutiques invite_only. Vérifié live. |
+| S7.14 clôture | (ce commit) | Harmonisation réassurance constatée, a11y 0 violation sur les 6 routes v2, TF-S7.1→S7.13 dans la DB Notion via MCP, handoff + mémoire. |
+
+**Tests** : 837 vitest verts. **Limites tracées** : confirmation email exigée au signUp public (réglage GoTrue — arbitrage produit autoconfirm/magic-link à prendre pour un parcours 1 sans friction) · « Demander un accès » = mailto (Resend dédié si besoin confirmé) · clavier-only complet à rejouer en TF humain.
+
+**EPIC 7 TERMINÉ** : 14/14 stories, 3 ADR instanciées (§4.18 tuiles « dès X € », §4.19 routes+SEO+sitemap, §4.20 access_mode+RPC+checkout). Prochaine étape suggérée : rétrospective Epic 7 (`bmad-retrospective`) + arbitrage autoconfirm + bascule d'une vraie boutique pilote en self_signup.
+
+## 22. Session 2026-07-26 (suite) — Sprint V2-B : vitrine & reprise (S7.6-S7.9)
+
+| Story | Commit | Livré |
+|---|---|---|
+| S7.6 prix plancher + GammeTile | `5f5e210` | `computeGammeFloorPrices` pur (min `resolvePrice` par gamme + agrégat famille racine, source héritée, jamais 0 €, ADR §4.18) + `GammeTile` 4 états (image PIM ou picto/tonalité famille). |
+| S7.7 ShopChrome | `3275989` | `ReassuranceStrip` (3 faits dérivés des claims produits), `ShopHeaderSearch` (logique S2.21 repositionnée : produit→/p/:id, famille→/g/:slug, repli Magrit), bouton panier avec MONTANT (`resolveCartLabel`), clic famille méga-menu → page gamme (familyKey rétro-compat). |
+| S7.8 home vitrine | `42bc073` | Refonte `PortalHome` pour TOUS : intro descriptive, grille GammeTile « dès X € », Nouveautés conservée, éditorial tenant (`shop.description`), footer. **Mocks supprimés** (Léa, faux CMD, promesse 72 h). |
+| S7.9 ResumeBanner | `4155878` | Bandeau Reprendre riche (home) + compact (pages gammes) : chips panier+montant / renouveler v1_1 (réutilise S3.3) / suivi statut FR, dérivés de la donnée (absent si vide). Fetch dernière `tenant_orders` best-effort. Bloc S2.16 retiré (doublon). **Chip devis reporté S7.10** (donnée non exposée portail). |
+
+**Tests** : 831 vitest verts (+17 vs fin V2-A). Build vert. **a11y** : 0 violation WCAG AA home vitrine + page gamme. **Smoke live ERAM** : 9 tuiles badgées → /g/carterie ; recherche « fly » → /g/flyer ; « Panier · 151,20 € » au header ; méga-menu Affiches → /g/affiche ; bandeau compact/riche + chip panier → drawer. Smoke acheteur AI (DoD #3) vert dans la suite.
+
+**Reste Sprint V2-C** : S7.10 AccountHub `/account/*` (+ chip devis) · S7.11 migration+RPC self-signup (ADR §4.20 — migration DB, PAT requis) · S7.12 checkout ≤ 2 écrans · S7.13 edge shop-sitemap + noindex (ADR §4.19-4) · S7.14 clôture/harmonisation. NB : S7.11/S7.13 nécessitent déploiement Supabase (PAT Keychain).
+
+**TF Notion** : TF-S7.1→S7.9 créés DIRECTEMENT dans la DB 🧪 (8 fiches, statut À jouer) via MCP Notion — plus de copy-paste manuel requis.
+
+## 21. Session 2026-07-26 — Winston (ADR gabarit v2) + Sprint V2-A (S7.1-S7.5)
+
+**Amont (Winston)** : les 3 questions de la spec UX tranchées — ADR **§4.18** (« dès X € » calculé à la volée client-side via `computeGammeFloorPrices`, audit prod : 8/114 prix caché > 0, pas de cache DB, pas d'appel Clariprint pour les tuiles), **§4.19** (SEO SPA : routes réelles + `useSeoMeta` maison + JSON-LD + edge `shop-sitemap`/noindex à venir S7.13 — SSR/prérendu rejetés), **§4.20** (checkout : pas d'invité anonyme ; `shops.access_mode` invite_only/self_signup + RPC `self_register_shop_buyer` à livrer S7.11-S7.12 ; ≤ 2 écrans). **Epic 7** ajouté à epics.md : S7.1-S7.14 en 3 sprints V2-A/B/C. Commit `c0a3037` (poussé).
+
+**Sprint V2-A livré (5 commits locaux, 5 story docs, TF dans `TF-NOTION-SPRINT-V2A.md`)** :
+
+| Story | Commit | Livré |
+|---|---|---|
+| S7.1 routage route-driven | `66abb14` | `/shop/:slug/*` catch-all ; vues portail par URL (`/catalog`, `/p/:id`, `/orders?tab=`, `/thank-you`, `/account/*`→orders placeholder) via `parsePortalPath`/`shopUrl` purs. Back/forward + deep-links OK. Fix impasse `setView('cart')` post-renouvellement → `cartOpenRequest` (drawer contrôlé). |
+| S7.2 hook `useProductConfigurator` | `f2bc1f4` | Moteur unique configuration/prix extrait de ProductOverlay (machine Phase, debounce 300 ms, abort, repli prix marché) + 5 helpers purs. Overlay iso-fonctionnel (rendu seul). |
+| S7.3 page gamme `/g/:gamme` | `8204a84` | GammeConfigurator (chips top formats, paliers qté, selects overlay) + StickyPriceBar (colonne desktop / barre basse mobile, badge source systématique) ; prix défaut au mount ; gamme vide sans 404 ; normalisation panier pack forfaitaire (S-FIX-PANIER-11/05). |
+| S7.4 PimEditorial | `386a1f3` | Rendu product_definitions FR (pitch, description md léger, bénéfices, usages, fiche technique, FAQ accordion) ; placeholders résolus depuis la config courante ; produits liés ShopProductCard ; breadcrumb famille cliquable. Type `ProductDefinition` étendu champs S-PIM-EXAPRINT. |
+| S7.5 SEO on-page | `63b28c6` | `useSeoMeta` (title/description/canonical/robots/og/JSON-LD, cleanup unmount) + `buildGammeSeo`/`buildGammeJsonLd` (Offer JAMAIS sur prix marché, ADR §4.19-3). `resolvePimTemplate` aligné vocabulaire tokens prod. |
+
+**Tests** : 813 vitest verts (+60 vs baseline) sur le run de référence. Build Vite vert. **Smoke live ERAM** (`/shop/xyfjjo-q6kekm/g/flyer`) : prix < 3 s, recalcul paliers, ajout panier → drawer 1 pack 84 € HT/100,80 € TTC, éditorial FR sans `{{token}}`, 8 FAQ, JSON-LD sans offers sur prix marché, title restauré en sortie. **a11y** : 0 violation WCAG 2A/AA sur `/catalog` + `/g/flyer` (axe 4.11, chromedriver 151 via browser-driver-manager). NB : suites complètes enchaînées trop vite → rate-limit auth Supabase sur les tests RLS/RPC (verts isolément et sur les runs espacés) ; espacer les runs.
+
+**Reste Sprint V2-B (prochaine session)** : S7.6 « dès X € »/GammeTile · S7.7 ShopChrome · S7.8 home vitrine · S7.9 ResumeBanner. Puis V2-C (AccountHub, self-signup ADR §4.20, checkout ≤ 2 écrans, sitemap).
+
+**Suivi** : (1) coller les 5 TF de `TF-NOTION-SPRINT-V2A.md` dans la DB Notion ; (2) méga-menu → cibler les pages gammes (S7.7) au lieu du filtre catalogue ; (3) warning React pré-existant `sheet.tsx` (forwardRef SheetOverlay, dev-only) hors périmètre ; (4) chat Magrit pré-contextualisé depuis la page gamme = raffinement tracé (le filet route vers la recherche catalogue).
+
+## 20. Session 2026-07-10 — S-PIM-EXAPRINT : PIM complet (réf. Exaprint)
+
+Demande Arnaud : nourrir le PIM des gammes/produits d'exaprint.fr avec toutes les informations nécessaires. Cadrage validé : **cœur imprimeur** (pas de textile/objets pub), **1 définition complète par gamme**.
+
+- **Méthode** : 4 agents de recherche parallèles sur exaprint.fr → rédaction JSON structurée par les mêmes agents (contenu original FR, zéro copie/mention Exaprint, zéro prix) → compilation centralisée en 2 migrations SQL (`compile_pim.py`, sources archivées `_bmad-output/planning-artifacts/pim-exaprint/`).
+- **Livré (déployé prod + vérifié)** : 81 gammes / 16 familles racines (7 nouvelles : drapeau, panneau, adhesif, plv, papeterie, calendrier, restauration) ; 82 définitions complètes — templates + SEO + `commercial_pitch`/`benefits`/`use_cases`/`faq`/`technical_spec` remplis (81/82, exception = doublon EN préexistant) ; enrichissement `coalesce` des 24 définitions historiques.
+- **ADR-4.17** : nouvelles gammes ambiguës → `matching_rules={}` (résolution par `gamme_slug` explicite uniquement, zéro faux positif). `display_order` renuméroté en centaines. `banderole` renommée « Banderoles / Bâches ».
+- **Migrations** : `20260710000100_exaprint_gammes.sql` + `20260710000200_exaprint_definitions.sql`.
+- **Suivi** : curation des 58 nouvelles définitions (`validated_by='pending'`, admin PIM) · visuels/`image_url` des nouvelles gammes (backlog mockups) · souscriptions `tenant_gamme_subscriptions` à étendre au besoin · **révoquer/régénérer le PAT Supabase** utilisé.
+
+## 19. Session 2026-07-08 (2) — Boutique : 4 retours Arnaud
+
+Local, non poussé au moment de la rédaction (HEAD `9d45459`). 723 vitest verts, build vert.
+
+| # | Sujet | Commit | Statut |
+|---|---|---|---|
+| #1+#3 | **Bandeau de marque co-brandé + header épuré + upload logo/fond** | `bee6c19` | ✅ vérifié live (ERAM + Manitou) |
+| #4 | **Édition commande brouillon** (acheteur, onglet Mes commandes) | `024f40f` | ✅ vérifié live (Manitou : qté 1→3, total persiste) |
+| #2 | **Persistance produits calculés par Magrit** | `9d45459` | ✅ **déployé + vérifié live** (2026-07-08) |
+
+### #1+#3 Bandeau de marque (`bee6c19`)
+- `ShopLayout` : bandeau co-brandé. Fond = couleur primaire de marque (dégradé) OU image de fond (cover + scrim). Logo client dans une plaque blanche nette (jamais étiré) ; repli = nom boutique en lockup. Helpers `shouldRenderBrandBanner` / `resolveBrandBannerBackground` (testés).
+- Header épuré : suppression du pavé dégradé placeholder + « × Magrit ».
+- `DashboardShopEditor` : upload logo ET image de fond → bucket `shop_backgrounds` (RLS `can_manage_catalog` existante, 5 Mo, PNG/JPG/WebP), + champ URL. Aperçu live. Section renommée « Bandeau de marque ».
+
+### #4 Édition commande (`024f40f`)
+- `PortalOrderEditor` (modal) : édite qté + prix unitaire HT + libellé + retrait de ligne, total HT live (`quoteMath`). UPDATE en place + DELETE lignes retirées (préserve `product_id`/`clariprint_options`, pas de `pim_candidates` parasites). Recalcul `total_ht` app-side.
+- Bouton « Éditer » dans `OrderHistoryTable`, condition = Annuler (v1_1 + draft + auteur). **RLS verrouille au-delà de draft** (validée/en prod = non éditable, décision Arnaud).
+
+### #2 Persistance produits Magrit (`9d45459`) — À DÉPLOYER
+- Migration `20260708000100_s_shop_ai_persist.sql` : `shop_products.origin` ('manual'|'ai') + `config_hash` (dédup, index unique partiel) + RPC `persist_shop_ai_product` (SECURITY DEFINER, borné `current_user_can_access_shop`, `authenticated` only).
+- `PortalCatalog.askMagrit` : après devis Clariprint, persiste chaque produit (fire-and-forget, dédup `aiConfigSignature`).
+- **DÉPLOYÉ 2026-07-08** via API Management (migration + RPC `SECURITY DEFINER` confirmé). `db:types` régénéré (RPC désormais typé). **Vérifié live** (Manitou) : requête « marque-page pelliculé brillant » → absent → Magrit calcule → persiste (`origin='ai'`, `gamme_slug='flyer'`) → après reload, catalogue passe 23→24, produit présent (badge NOUVEAU) et cherchable.
+- **Limite connue** : pas de refresh *live* en session (le realtime `shop_products` n'a pas rafraîchi la grille du même onglet — recharger/naviguer suffit). Amélioration possible.
+- **Hygiène** : révoquer le PAT Supabase utilisé pour ce déploiement.
 
 ## 18. Sprints E1 → E3 — Extension boutique e-commerce standard (Epic 2) — E3 CLÔTURÉ 2026-07-08
 
 Extension de la boutique B2B vers un standard e-commerce (Epic 2, `_bmad-output/planning-artifacts/epics.md` L629+, FR-ECOM). Mémoire projet : `project_ecom_boutique_extension.md`. Découpage en sprints E1 (ProductCard lisibilité) · E2 (paniers/devis) · **E3 (navigation)**.
+
+### Correctifs post-clôture E3 (2026-07-08, suite feedback Arnaud sur boutique manitou)
+
+⚠️ **3 commits en attente de push** au moment de la rédaction (coupure réseau GitHub/egress ; la boucle de retry pousse dès réouverture). Vérifier `git rev-list --left-right --count origin/beta/v5...beta/v5` en début de session.
+
+| Commit | Sujet | Détail |
+|---|---|---|
+| `e6439c1` | fix timeout claude-proxy 15s→45s | Correctif intermédiaire, **superseded** par le streaming ci-dessous. |
+| `922dc6f` | **feat streaming boutique (S-SHOP-STREAM)** | Le `askMagrit` du catalogue (`PortalCatalog`) passe sur `claude-proxy-stream` via le hook partagé `useClaudeSseStream` (même que la home). Motif : requêtes larges/multi-produits (ex. « produits pour événement sportif 15 équipes rugby ») prennent **30s+** (mesuré 30,9s → 5 configs) ; l'ancien invoke non-streamé coupait à 15/45s → filtre texte local muet sur une phrase = **écran sans réponse**. Le `done` SSE porte les mêmes `configs`. Indicateur « Magrit rédige sa réponse… ». Erreurs typées `ClaudeSseStreamError` (aborted/billing/réseau). |
+| `8191a9c` | **fix méga-menu responsive** | `ShopMegaMenu` n'est plus `hidden md:flex` (invisible < 768px). Barre de familles visible sur toutes largeurs, scrollable horizontalement, familles tappables → navigation. Panneau sous-catégories reste un enrichissement desktop (survol), non-débordant en étroit. Répond au « je ne vois plus de bigmenu » d'Arnaud (fenêtre < 768px). |
+| `5e7260a` | **feat méga-menu sous-catégories par format (S2.18-fix)** | **Poussé.** Le panneau déroulant ne se déployait jamais sur un catalogue à produits : conditionné à `subcategories.length > 0`, or le seed S-CAT-3 rattache les produits à la gamme RACINE → aucune gamme enfant peuplée. Correctif conforme ADR-4.17 (décision Arnaud « peupler sans re-seeder ») : `buildShopTaxonomy` dérive les sous-catégories depuis les **formats** des produits (`resolveFormatLabel`, source facette S2.19) quand aucun enfant PIM n'est peuplé. `formatKey` threadé ShopMegaMenu→ShopLayout→PublicShop→PortalCatalog : clic sous-cat = filtre **famille** + présélection **facette Format**. Libellés/slugs alignés PIM (« A3 »→« Affiche A3 »), bucket « Autre » jamais exposé. **Vérifié live** (ERAM, 30 produits : Affiches → A2·4/A1·1/A3·1, clic A2 → 4 résultats filtrés). Story `story-S2.18-megamenu-format-subcats.md`. |
+
+**Tests** : 714 vitest verts (build vert) après le correctif `5e7260a` (+5 cas taxonomy). Réseau rétabli : les 4 commits E3 en attente + le correctif méga-menu sont poussés sur `origin/beta/v5` (HEAD `5e7260a`).
+
+**Diagnostic #2 méga-menu** : ce n'était pas un bug applicatif — le `hidden md:flex` datait de S2.18 (desktop-only par design). Le correctif le rend accessible en étroit/mobile.
+
+**Non fait (bloqué réseau)** : vérif Chrome live du streaming + méga-menu (le fetch données boutique passe par le sous-domaine projet Supabase, injoignable pendant la coupure).
 
 ### E1 — Lisibilité ProductCard boutique (livré + poussé, HEAD `c0ec853`)
 - S2.11-S2.14 lisibilité ProductCard + S2.15 bloc « Nouveautés » sur la home boutique. 650 tests. Audit prod : **S2.17 abandonnée** (POC, bloc vide).

@@ -4,7 +4,10 @@ import type { Shop, ShopProduct } from '../../../contexts/ShopsContext';
 import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
 import { resolveProductImage } from '../../../utils/productImages';
 import { supabase } from '/utils/supabase/client';
+import { projectId, publicAnonKey } from '/utils/supabase/info';
 import { computeClariprintQuoteSafe } from '../../../../server/clariprint/ClariprintAdapter';
+import { useClaudeSseStream, ClaudeSseStreamError } from '../../../hooks/useClaudeSseStream';
+import { ENABLE_STREAMING_CHAT } from '../../../lib/featureFlags';
 import { TEST_IDS } from '../../../lib/testIds';
 import { ShopProductCard } from '../ShopProductCard';
 import { buildShopTaxonomy } from '../../../utils/shopTaxonomy';
@@ -62,6 +65,14 @@ interface Props {
   searchIndex?: ShopProduct[];
   /** S2.21 — clic sur une suggestion famille → filtre le catalogue (réutilise selectGammes). */
   onSelectFamily?: (gammeSlugs: string[]) => void;
+  /** 2026-07-08 — clic sous-catégorie (landing) → filtre famille + présélection format. */
+  onSelectSubcategory?: (gammeSlugs: string[], formatKey?: string) => void;
+  /**
+   * 2026-07-08 — format à présélectionner dans la facette Format à l'ouverture
+   * (sous-catégorie dérivée du méga-menu/landing, ADR-4.17). `null` = aucune
+   * présélection (sélection famille) → réinitialise le filtre format.
+   */
+  initialFormat?: string | null;
 }
 
 // Convertit une config LLM (format claude-proxy : { clariprint, display }) en
@@ -105,6 +116,32 @@ function configToEphemeralShopProduct(config: any, index: number): ShopProduct {
   } as ShopProduct;
 }
 
+/**
+ * S-SHOP-AI-PERSIST (2026-07-08) — signature déterministe d'un produit calculé,
+ * pour dédupliquer sa persistance en boutique (même config = 1 seul produit).
+ * On se base sur l'essence de la config (gamme + format + dimensions + quantité
+ * + matière/finitions), pas sur le libellé qui peut varier.
+ */
+function aiConfigSignature(p: ShopProduct): string {
+  const c = (p.config ?? {}) as Record<string, any>;
+  const cp = (c.clariprintData ?? {}) as Record<string, any>;
+  return [
+    p.gamme_slug ?? '',
+    String(c.kind ?? cp.kind ?? ''),
+    String(c.format ?? ''),
+    String(c.width ?? cp.width ?? ''),
+    String(c.height ?? cp.height ?? ''),
+    String(c.quantity ?? cp.quantity ?? ''),
+    String(c.material ?? c.support ?? ''),
+    String(c.weight ?? c.grammage ?? ''),
+    String(c.printing ?? c.impression ?? ''),
+    String(c.finishRecto ?? ''),
+    String(c.finishVerso ?? ''),
+  ]
+    .join('|')
+    .toLowerCase();
+}
+
 // F2 — Catalogue recherche conversationnelle
 // Design source : .design-handoff/designs/05 - Portail B2B.html (section .f2b)
 export function PortalCatalog({
@@ -117,13 +154,26 @@ export function PortalCatalog({
   pimDefinitions,
   searchIndex,
   onSelectFamily,
+  onSelectSubcategory,
+  initialFormat,
 }: Props) {
   const [query, setQuery] = useState('');
   // S2.21 — autocomplétion : menu ouvert au focus + saisie ≥ 2 car.
   const [searchOpen, setSearchOpen] = useState(false);
   // S2.19 — facettes légères : format (multi) + tranche de prix (single).
-  const [selectedFormats, setSelectedFormats] = useState<Set<string>>(new Set());
+  const [selectedFormats, setSelectedFormats] = useState<Set<string>>(
+    initialFormat ? new Set([initialFormat]) : new Set(),
+  );
   const [priceKey, setPriceKey] = useState<string | null>(null);
+
+  // 2026-07-08 — Présélection de la facette Format pilotée par le méga-menu /
+  // la landing (sous-catégorie dérivée par format). À chaque changement de
+  // `initialFormat` : un format → filtre sur ce format ; `null` (sélection
+  // famille) → réinitialise. N'écrase pas un choix manuel tant que la valeur
+  // ne change pas (dépendance sur initialFormat uniquement).
+  useEffect(() => {
+    setSelectedFormats(initialFormat ? new Set([initialFormat]) : new Set());
+  }, [initialFormat]);
 
   // S2.4 — Etat ProductOverlay (configuration produit Clariprint)
   const [overlayProduct, setOverlayProduct] = useState<ShopProduct | null>(null);
@@ -136,9 +186,13 @@ export function PortalCatalog({
   const [aiQuery, setAiQuery] = useState(''); // query reellement envoyee
 
   // S-CONSO-4 (Sprint 4 Phase 2, Sally) : mode recherche pour resilience IA.
-  // 'ia' = claude-proxy a repondu < 3s. 'text' = fallback automatique sur
-  // filter local (claude-proxy timeout / billing / down).
+  // 'ia' = claude a repondu. 'text' = fallback automatique sur filter local
+  // (billing / down / erreur reseau).
   const [searchMode, setSearchMode] = useState<'ia' | 'text'>('ia');
+  // S-SHOP-STREAM (2026-07-08) : compteur de chunks streames -> feedback vivant
+  // pendant que Magrit compose (evite l ecran fige sur les requetes 30s+).
+  const [aiStreaming, setAiStreaming] = useState(false);
+  const { send: sendSseStream } = useClaudeSseStream();
 
   // S-CONSO-5 (Sprint 4 Phase 2, Sally) : tri grille catalogue avec
   // persistance localStorage par slug. Sort key chargee au mount.
@@ -151,31 +205,33 @@ export function PortalCatalog({
     const prompt = query.trim();
     if (!prompt || aiLoading) return;
     setAiLoading(true);
+    setAiStreaming(false);
     setAiError(null);
     setAiResults([]);
     setAiQuery(prompt);
     try {
-      // S-CONSO-4 (Sprint 4 Phase 2, Sally) : timeout sur claude-proxy.
-      // Au-dela, fallback automatique sur filter local (mode 'text').
-      // Race entre invoke + timeout pour permettre le bascule rapide.
-      // Note 2026-05-20 : 3s -> 15s. Claude Sonnet 4.5 repond en 5-15s en
-      // nominal (mesure curl direct 9.7s). 3s tombait en timeout systematique.
-      const CLAUDE_PROXY_TIMEOUT_MS = 15_000;
-      const invokePromise = supabase.functions.invoke(
-        'make-server-e3db71a4/claude-proxy',
-        { body: { messages: [{ role: 'user', content: prompt }] } },
+      // S-SHOP-STREAM (2026-07-08) : la boutique STREAME desormais comme la home
+      // Magrit (claude-proxy-stream), au lieu d un invoke non-streame coupe a
+      // 15/45s. Motif : les requetes larges/multi-produits (ex. "produits pour
+      // organiser un evenement sportif 15 equipes de rugby") prennent 30s+
+      // (mesure reelle 30.9s -> 5 configs). L ancien timeout coupait AVANT la
+      // reponse et le filtre texte local restait muet sur une phrase en langage
+      // naturel = ecran sans reponse. Le streaming donne un retour vivant
+      // (aiStreaming via onDelta) et le payload `done` porte les memes configs.
+      const baseUrl = `https://${projectId}.supabase.co/functions/v1/make-server-e3db71a4`;
+      const data = await sendSseStream(
+        {
+          endpoint: `${baseUrl}/${ENABLE_STREAMING_CHAT ? 'claude-proxy-stream' : 'claude-proxy'}`,
+          authToken: publicAnonKey,
+          body: { messages: [{ role: 'user', content: prompt }] },
+          onDelta: ENABLE_STREAMING_CHAT ? () => setAiStreaming(true) : undefined,
+        },
+        ENABLE_STREAMING_CHAT,
       );
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('claude_proxy_timeout')), CLAUDE_PROXY_TIMEOUT_MS);
-      });
-      const { data, error } = (await Promise.race([invokePromise, timeoutPromise])) as Awaited<
-        typeof invokePromise
-      >;
-      if (error) throw new Error(error.message || 'Erreur Claude proxy');
-      const configs = Array.isArray(data?.configs) ? data.configs : [];
+      const configs = Array.isArray((data as any)?.configs) ? (data as any).configs : [];
       if (configs.length === 0) {
         setAiError(
-          data?.demoMode
+          (data as any)?.demoMode
             ? "Mode demo actif — l'API Claude n'est pas jointe depuis ce portail."
             : "Magrit n'a pas suggere de configuration. Essayez de reformuler."
         );
@@ -199,12 +255,50 @@ export function PortalCatalog({
       );
       setAiResults(withPrices);
       setSearchMode('ia'); // S-CONSO-4 : reussite -> mode IA
+
+      // S-SHOP-AI-PERSIST (2026-07-08, décision Arnaud) : dès qu'un produit est
+      // calculé par Magrit, il devient PERSISTANT dans cette boutique (catalogue
+      // + recherche future), dédupliqué par config. Best-effort et
+      // fire-and-forget : ne bloque pas l'affichage et n'échoue jamais la
+      // recherche (RPC SECURITY DEFINER borné à l'accès boutique ; anon ignoré).
+      // Le realtime shop_products de PublicShop rafraîchit ensuite la grille.
+      void Promise.all(
+        withPrices.map((p) =>
+          // rpc typé en `as any` : fonction hors types générés (migration
+          // S-SHOP-AI-PERSIST) — régénérer db:types après déploiement.
+          (supabase.rpc as any)('persist_shop_ai_product', {
+            p_shop_id: shop.id,
+            p_config_hash: aiConfigSignature(p),
+            p_name: p.name,
+            p_category: p.category ?? 'Autres',
+            p_description: p.description ?? '',
+            p_price_ht: p.price_ht ?? 0,
+            p_image_url: p.image_url ?? '',
+            p_config: p.config ?? {},
+            p_gamme_slug: p.gamme_slug ?? null,
+          }).then(({ error: rpcErr }: { error: { message: string } | null }) => {
+            if (rpcErr) {
+              console.info(`[shop_ai_persist] skip "${p.name}" — ${rpcErr.message}`);
+            }
+          }),
+        ),
+      ).catch(() => {
+        /* best-effort : la persistance ne doit jamais casser la recherche */
+      });
     } catch (err: any) {
+      // Annulation (demontage / nouvelle requete) : on ne touche a rien.
+      if (err instanceof ClaudeSseStreamError && err.kind === 'aborted') {
+        return;
+      }
+      // Billing/credits : message explicite (pas un simple silence).
+      if (err instanceof ClaudeSseStreamError && err.kind === 'billing') {
+        setAiError("L'assistant Magrit est momentanement indisponible. Reessayez plus tard.");
+        return;
+      }
       // S-CONSO-4 : fallback automatique sur filter local (mode 'text').
       // Le filtered useMemo en aval matche query sur name/description/gamme.
-      const isTimeout = err?.message === 'claude_proxy_timeout_3s';
       console.info(
-        `[claude_proxy_fallback] ${new Date().toISOString()} ${isTimeout ? 'timeout 3s' : 'error'} — query="${prompt}"`,
+        `[claude_stream_fallback] ${new Date().toISOString()} ${err?.kind ?? 'error'} — query="${prompt}"`,
       );
       setSearchMode('text');
       // Pas d aiError affiche : le filter local prend le relais. On efface
@@ -212,6 +306,7 @@ export function PortalCatalog({
       setAiError(null);
     } finally {
       setAiLoading(false);
+      setAiStreaming(false);
     }
   };
 
@@ -519,8 +614,9 @@ export function PortalCatalog({
         <PortalCategoryLanding
           model={landingModel}
           tone={activeFamily.tone}
-          onSelectSubcategory={(slugs) => {
-            if (onSelectFamily) onSelectFamily(slugs);
+          onSelectSubcategory={(slugs, formatKey) => {
+            if (onSelectSubcategory) onSelectSubcategory(slugs, formatKey);
+            else if (onSelectFamily) onSelectFamily(slugs);
           }}
           onSelectProduct={onSelectProduct}
           pimGammes={pimGammes}
@@ -740,7 +836,9 @@ export function PortalCatalog({
             <div className="flex items-center gap-3 text-ink-muted">
               <Loader2 className="w-4 h-4 animate-spin" strokeWidth={1.5} />
               <span style={{ fontSize: '13.5px', fontWeight: 400 }}>
-                Magrit compose les configurations les plus adaptées…
+                {aiStreaming
+                  ? 'Magrit rédige sa réponse…'
+                  : 'Magrit compose les configurations les plus adaptées…'}
               </span>
             </div>
           )}

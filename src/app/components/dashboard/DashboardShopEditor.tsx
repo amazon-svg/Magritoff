@@ -29,7 +29,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router';
 import {
   ArrowLeft, Save, Loader2, Trash2, Check, ExternalLink, Library as LibraryIcon,
-  Download, AlertTriangle, EyeOff, Eye,
+  Download, AlertTriangle, EyeOff, Eye, Upload,
 } from 'lucide-react';
 import { useShops, Shop, ShopProduct } from '../../contexts/ShopsContext';
 import { FONT_PAIRINGS } from '../shop/fontPairings';
@@ -41,6 +41,8 @@ import { usePlan } from '../../hooks/usePlan';
 import { useTenantPath } from '../../hooks/useTenantPath';
 import { UpgradeCTA } from './UpgradeCTA';
 import { exportShopToShopifyCsv, exportShopToJson } from '../../utils/shopExport';
+import { resolveShopProductScope } from '../../utils/resolveShopProductScope';
+import { TEST_IDS } from '../../lib/testIds';
 import { lazy, Suspense as ReactSuspense } from 'react';
 
 // P4-VISUELS (2026-06-15) : lazy-load ShopCustomMockups (upload custom).
@@ -96,6 +98,50 @@ export function DashboardShopEditor() {
   // Dialog de confirmation suppression
   const [deleteDialog, setDeleteDialog] = useState<DisplayProduct | null>(null);
 
+  // S2.32 — pimExpanded = etat d'ouverture du bloc PIM. Les gammes proposees
+  // au depliage sont derivees du catalogue reel du tenant (catalogGammeSlugs),
+  // pas des abonnements formels.
+  const [pimExpanded, setPimExpanded] = useState(false);
+
+  // ─── Upload branding (logo / fond du bandeau) — bucket public shop_backgrounds
+  // (2026-07-08, refonte bandeau de marque). Réutilise le bucket + RLS
+  // can_manage_catalog déjà en place (S-PIM-VISUELS-2). Path <shop_id>/<kind>-<uuid>.
+  const [uploadingAsset, setUploadingAsset] = useState<null | 'logo' | 'hero'>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const uploadBrandAsset = async (kind: 'logo' | 'hero', file: File) => {
+    if (!shop) return;
+    setUploadError(null);
+    const ALLOWED = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!ALLOWED.includes(file.type)) {
+      setUploadError('Format non supporté — PNG, JPG ou WebP attendu.');
+      return;
+    }
+    if (file.size > 5_242_880) {
+      setUploadError('Fichier trop lourd — 5 Mo maximum.');
+      return;
+    }
+    setUploadingAsset(kind);
+    try {
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'png';
+      const path = `${shop.id}/${kind}-${crypto.randomUUID()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from('shop_backgrounds')
+        .upload(path, file, { upsert: true, contentType: file.type, cacheControl: '3600' });
+      if (upErr) throw new Error(upErr.message);
+      const { data: pub } = supabase.storage.from('shop_backgrounds').getPublicUrl(path);
+      setShop((prev) =>
+        prev
+          ? { ...prev, [kind === 'logo' ? 'logo_url' : 'hero_image_url']: pub.publicUrl }
+          : prev,
+      );
+    } catch (e: any) {
+      setUploadError(`Upload échoué : ${e?.message ?? 'erreur réseau'}.`);
+    } finally {
+      setUploadingAsset(null);
+    }
+  };
+
   useEffect(() => {
     const s = shops.find((s) => s.id === id) ?? null;
     setShop(s);
@@ -121,6 +167,20 @@ export function DashboardShopEditor() {
       setLoading(false);
     }
   }, [id, shops]);
+
+  // S2.32 — Le depliage liste TOUTE la taxonomie PIM (product_gammes via
+  // usePIM), decision Arnaud 2026-07-24. `gammes` est deja ordonne par
+  // display_order. On calcule aussi le nb de produits du catalogue par gamme
+  // (badge) pour signaler celles qui exposeront reellement des produits.
+  const allPimGammeSlugs = useMemo(() => gammes.map((g) => g.slug), [gammes]);
+  const productCountByGamme = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const p of library) {
+      if (p.active === false || !p.gamme_slug) continue;
+      m.set(p.gamme_slug, (m.get(p.gamme_slug) ?? 0) + 1);
+    }
+    return m;
+  }, [library]);
 
   // A4.5 — Upsert ou delete d'un override de prix sur blur d'un input
   // « Prix négocié ». Si nextValue est un nombre > 0 : upsert. Sinon : delete.
@@ -169,33 +229,33 @@ export function DashboardShopEditor() {
   // des hooks React). On gere le cas shop=null a l'interieur du callback.
   const displayProducts: DisplayProduct[] = useMemo(() => {
     if (!shop) return [];
-    const excluded = new Set(shop.excluded_product_ids ?? []);
-    const libIds = new Set(shop.library_ids ?? []);
 
-    // 1. Produits des bibliotheques liees
-    const fromLibraries: DisplayProduct[] = library
-      .filter((p) => p.active !== false)
-      .filter((p) => p.library_id && libIds.has(p.library_id))
-      .filter((p) => !excluded.has(p.id))
-      .map((p) => ({
-        id: `lib-${p.id}`,
-        source: 'library' as const,
-        sourceId: p.id,
-        libraryProductId: p.id,
-        name: p.name,
-        category: p.category || 'Autres',
-        description: p.description || '',
-        price_ht: Number(p.price_ht) || 0,
-        image_url: p.image_url || '',
-      }));
+    // 1. Produits exposes via product_library : bibliotheques liees OU mode
+    //    PIM (catalogue tenant filtre par gamme). `library` (LibraryContext)
+    //    contient deja tout le catalogue du tenant -> on delegue le perimetre
+    //    au helper pur resolveShopProductScope (miroir exact du front public).
+    const scoped = resolveShopProductScope(library, {
+      libraryIds: shop.library_ids ?? [],
+      pimCatalogMode: shop.pim_catalog_mode === true,
+      pimGammeSlugs: shop.pim_gamme_slugs ?? [],
+      excludedIds: shop.excluded_product_ids ?? [],
+    });
+    const fromLibraries: DisplayProduct[] = scoped.map((p) => ({
+      id: `lib-${p.id}`,
+      source: 'library' as const,
+      sourceId: p.id,
+      libraryProductId: p.id,
+      name: p.name,
+      category: p.category || 'Autres',
+      description: p.description || '',
+      price_ht: Number(p.price_ht) || 0,
+      image_url: p.image_url || '',
+    }));
 
-    // 2. Produits legacy (shop_products sans lien library OU avec
-    //    product_id qui n'est pas dans les libraries liees)
-    const libProductIds = new Set(
-      library.filter((p) => p.library_id && libIds.has(p.library_id)).map((p) => p.id)
-    );
+    // 2. Produits legacy shop_products (hors produits deja exposes ci-dessus)
+    const scopedIds = new Set(scoped.map((p) => p.id));
     const fromShop: DisplayProduct[] = shopProducts
-      .filter((sp) => !sp.product_id || !libProductIds.has(sp.product_id))
+      .filter((sp) => !sp.product_id || !scopedIds.has(sp.product_id))
       .map((sp) => ({
         id: `shop-${sp.id}`,
         source: 'shop' as const,
@@ -208,9 +268,8 @@ export function DashboardShopEditor() {
       }));
 
     return [...fromLibraries, ...fromShop];
-    // On depend uniquement des champs primitifs du shop pour que la memo
-    // se recalcule quand library_ids ou excluded_product_ids changent.
-  }, [library, shopProducts, shop?.excluded_product_ids, shop?.library_ids]);
+    // Recalcul quand library_ids, excluded_product_ids OU la config PIM change.
+  }, [library, shopProducts, shop?.excluded_product_ids, shop?.library_ids, shop?.pim_catalog_mode, shop?.pim_gamme_slugs]);
 
   if (!canUse('shops')) return <UpgradeCTA feature="Boutiques en ligne" />;
   if (loading) return <p className="text-sm text-gray-500">Chargement...</p>;
@@ -245,6 +304,11 @@ export function DashboardShopEditor() {
         library_ids: shop.library_ids ?? [],
         hero_image_url: shop.hero_image_url ?? null,
         tagline: shop.tagline ?? null,
+        // S2.32 — mode PIM catalogue complet + gammes selectionnees
+        pim_catalog_mode: shop.pim_catalog_mode === true,
+        pim_gamme_slugs: shop.pim_gamme_slugs ?? [],
+        // S7.11 (ADR 4.20) — mode d acces acheteurs
+        access_mode: shop.access_mode ?? 'invite_only',
       });
       setSaveOk(true);
       setTimeout(() => setSaveOk(false), 2500);
@@ -259,6 +323,40 @@ export function DashboardShopEditor() {
     if (current.has(libraryId)) current.delete(libraryId);
     else current.add(libraryId);
     setShop({ ...shop, library_ids: Array.from(current) });
+  };
+
+  // ─── S2.32 — Mode PIM catalogue complet ─────────────────────────────────
+
+  // Radio maitre "PIM — Catalogue complet". A l'activation, pre-remplit
+  // pim_gamme_slugs avec toutes les gammes recensees (sauf si une selection
+  // existe deja -> on la restaure, decision #2 : decocher conserve la liste).
+  const togglePimMode = () => {
+    const turningOn = !(shop.pim_catalog_mode === true);
+    if (turningOn) {
+      const existing = shop.pim_gamme_slugs ?? [];
+      const slugs = existing.length > 0 ? existing : allPimGammeSlugs;
+      setShop({ ...shop, pim_catalog_mode: true, pim_gamme_slugs: slugs });
+      setPimExpanded(true);
+    } else {
+      // Decocher : on coupe le mode mais on conserve pim_gamme_slugs.
+      setShop({ ...shop, pim_catalog_mode: false });
+    }
+  };
+
+  // Coche/decoche une gamme dans le perimetre PIM.
+  const togglePimGamme = (slug: string) => {
+    const current = new Set(shop.pim_gamme_slugs ?? []);
+    if (current.has(slug)) current.delete(slug);
+    else current.add(slug);
+    setShop({ ...shop, pim_gamme_slugs: Array.from(current) });
+  };
+
+  // Tout selectionner / tout deselectionner les gammes du catalogue en un clic.
+  const toggleAllPimGammes = () => {
+    const selected = shop.pim_gamme_slugs ?? [];
+    const allSelected =
+      allPimGammeSlugs.length > 0 && allPimGammeSlugs.every((s) => selected.includes(s));
+    setShop({ ...shop, pim_gamme_slugs: allSelected ? [] : [...allPimGammeSlugs] });
   };
 
   // ─── Gestion de la suppression produit (dialog) ─────────────────────────
@@ -342,14 +440,47 @@ export function DashboardShopEditor() {
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Logo (URL)</label>
-            <input
-              type="url"
-              value={shop.logo_url}
-              onChange={(e) => setShop({ ...shop, logo_url: e.target.value })}
-              placeholder="https://..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-            />
+            <label className="block text-xs font-medium text-gray-700 mb-1">Logo du client</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="url"
+                value={shop.logo_url}
+                onChange={(e) => setShop({ ...shop, logo_url: e.target.value })}
+                placeholder="https://... ou importer un fichier"
+                className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg"
+              />
+              <label className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 cursor-pointer text-sm text-gray-700">
+                {uploadingAsset === 'logo' ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Upload className="w-4 h-4" />
+                )}
+                Importer
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  disabled={uploadingAsset !== null}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) uploadBrandAsset('logo', f);
+                    e.target.value = '';
+                  }}
+                />
+              </label>
+            </div>
+            {shop.logo_url && (
+              <div className="mt-2 inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5">
+                <img src={shop.logo_url} alt="Logo" className="max-h-8 w-auto object-contain" />
+                <button
+                  type="button"
+                  onClick={() => setShop({ ...shop, logo_url: '' })}
+                  className="text-xs text-gray-500 hover:text-gray-800 underline"
+                >
+                  Retirer
+                </button>
+              </div>
+            )}
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">Email de contact</label>
@@ -372,24 +503,50 @@ export function DashboardShopEditor() {
         </div>
       </section>
 
-      {/* ── A4.1 — Bannière hero + tagline ── */}
+      {/* ── Bandeau de marque (refonte 2026-07-08) ── */}
       <section className="border border-gray-200 rounded-xl p-4 bg-white space-y-3">
-        <h3 className="font-semibold text-gray-900">Bannière hero</h3>
+        <h3 className="font-semibold text-gray-900">Bandeau de marque</h3>
         <p className="text-xs text-gray-500">
-          Image visuelle affichée en tête de votre boutique publique. Laissez l'URL vide pour ne rien afficher.
+          En-tête co-brandé de la boutique. Le <strong>logo du client</strong> (section Identité
+          ci-dessus) est affiché proprement dans une plaque nette. Le fond utilise la
+          <strong> couleur primaire de marque</strong> par défaut ; ajoutez une image de fond
+          seulement si vous en avez une belle (photo panoramique) — le logo n'est jamais étiré.
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Image hero (URL)</label>
-            <input
-              type="url"
-              value={shop.hero_image_url ?? ''}
-              onChange={(e) =>
-                setShop({ ...shop, hero_image_url: e.target.value ? e.target.value : null })
-              }
-              placeholder="https://..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-            />
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              Image de fond <span className="text-gray-400 font-normal">(optionnelle)</span>
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="url"
+                value={shop.hero_image_url ?? ''}
+                onChange={(e) =>
+                  setShop({ ...shop, hero_image_url: e.target.value ? e.target.value : null })
+                }
+                placeholder="Vide = dégradé couleur de marque"
+                className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg"
+              />
+              <label className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 cursor-pointer text-sm text-gray-700">
+                {uploadingAsset === 'hero' ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Upload className="w-4 h-4" />
+                )}
+                Importer
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  disabled={uploadingAsset !== null}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) uploadBrandAsset('hero', f);
+                    e.target.value = '';
+                  }}
+                />
+              </label>
+            </div>
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -411,24 +568,49 @@ export function DashboardShopEditor() {
             />
           </div>
         </div>
-        {/* Aperçu live : montré dès qu'une URL est saisie */}
-        {shop.hero_image_url && (
-          <div className="mt-2">
-            <p className="text-xs text-gray-500 mb-1">Aperçu</p>
-            <div
-              className="relative w-full h-[120px] rounded-lg bg-cover bg-center overflow-hidden border border-gray-200"
-              style={{ backgroundImage: `url(${shop.hero_image_url})` }}
-            >
-              {shop.tagline && (
-                <div className="absolute inset-x-0 bottom-0 px-4 pb-3 pt-8 bg-gradient-to-t from-black/60 via-black/30 to-transparent">
-                  <p className="text-white text-sm font-medium m-0 drop-shadow-md">
-                    {shop.tagline}
-                  </p>
+        {uploadError && (
+          <p className="text-xs text-red-600 flex items-center gap-1.5">
+            <AlertTriangle className="w-3.5 h-3.5" /> {uploadError}
+          </p>
+        )}
+        {/* Aperçu live du bandeau de marque (logo plaque + fond) */}
+        <div className="mt-2">
+          <p className="text-xs text-gray-500 mb-1">Aperçu</p>
+          <div
+            className="relative w-full h-[120px] rounded-lg overflow-hidden border border-gray-200 bg-cover bg-center"
+            style={
+              shop.hero_image_url
+                ? { backgroundImage: `url(${shop.hero_image_url})` }
+                : {
+                    backgroundImage: `linear-gradient(120deg, ${shop.theme.primaryColor} 0%, rgba(2,6,23,0.72) 100%)`,
+                  }
+            }
+          >
+            {shop.hero_image_url && (
+              <div
+                className="absolute inset-0"
+                style={{
+                  background:
+                    'linear-gradient(90deg, rgba(2,6,23,0.62) 0%, rgba(2,6,23,0.30) 55%, rgba(2,6,23,0.10) 100%)',
+                }}
+              />
+            )}
+            <div className="relative h-full flex items-center gap-4 px-4">
+              {shop.logo_url ? (
+                <div className="shrink-0 bg-white rounded-lg shadow-sm px-3 py-2 grid place-items-center max-w-[150px]">
+                  <img src={shop.logo_url} alt="Logo" className="max-h-10 w-auto object-contain" />
                 </div>
+              ) : (
+                <p className="text-white m-0 shrink-0 font-medium drop-shadow" style={{ fontSize: '20px' }}>
+                  {shop.name || 'Nom boutique'}
+                </p>
+              )}
+              {shop.tagline && (
+                <p className="text-white/90 text-sm m-0 drop-shadow-md max-w-xs">{shop.tagline}</p>
               )}
             </div>
           </div>
-        )}
+        </div>
       </section>
 
       {/* ── Thème ── */}
@@ -570,6 +752,27 @@ export function DashboardShopEditor() {
           </div>
         </label>
 
+        {/* S7.11 (ADR 4.20) — Mode d'accès acheteurs */}
+        <label className="block">
+          <p className="text-sm font-medium text-gray-900 mb-1">Accès des acheteurs</p>
+          <select
+            data-testid={TEST_IDS.shop.accessModeSelect}
+            value={shop.access_mode ?? 'invite_only'}
+            onChange={(e) =>
+              setShop({ ...shop, access_mode: e.target.value as 'invite_only' | 'self_signup' })
+            }
+            className="w-full max-w-sm border border-gray-300 rounded-md px-3 py-2 text-sm"
+          >
+            <option value="invite_only">Sur invitation uniquement (défaut)</option>
+            <option value="self_signup">Inscription libre au moment de commander</option>
+          </select>
+          <p className="text-xs text-gray-500 mt-1">
+            En inscription libre, un visiteur peut créer son compte acheteur au
+            checkout — accès limité à cette seule boutique. La boutique devient
+            aussi indexable par les moteurs de recherche.
+          </p>
+        </label>
+
         {/* Raccourci vers la gestion des bibliotheques (remplace l'item
             sidebar "Bibliotheque" qui est maintenant sub-item de Boutiques) */}
         <Link
@@ -591,6 +794,107 @@ export function DashboardShopEditor() {
           Cochez une ou plusieurs bibliothèques. <strong>Tous leurs produits</strong> apparaissent
           automatiquement dans la boutique — pas d'import, pas de copie, toujours synchro.
         </p>
+
+        {/* S2.32 — PIM comme bibliotheque : verse tout le catalogue du tenant,
+            filtrable par gamme recensee. Radio maitre + depliage des gammes. */}
+        {(() => {
+          const pimOn = shop.pim_catalog_mode === true;
+          const selected = new Set(shop.pim_gamme_slugs ?? []);
+          return (
+            <div
+              className={`mb-3 rounded-lg border-2 ${
+                pimOn ? 'border-indigo-400 bg-indigo-50' : 'border-indigo-200 bg-white'
+              }`}
+            >
+              <div className="flex items-center gap-2 p-2">
+                <input
+                  type="radio"
+                  data-testid={TEST_IDS.shopEditor.pimToggle}
+                  checked={pimOn}
+                  onClick={togglePimMode}
+                  readOnly
+                  className="w-4 h-4 cursor-pointer accent-indigo-600"
+                />
+                <span className="text-sm font-semibold text-gray-900 flex-1">
+                  PIM — Catalogue complet
+                  <span className="ml-2 text-xs font-normal text-gray-500">
+                    verse tout votre catalogue, filtrable par gamme
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  data-testid={TEST_IDS.shopEditor.pimExpandBtn}
+                  onClick={() => setPimExpanded((v) => !v)}
+                  className="text-xs text-indigo-700 hover:underline whitespace-nowrap"
+                >
+                  {pimExpanded ? 'Replier' : 'Déplier les gammes'}
+                </button>
+              </div>
+              {pimExpanded && (
+                <div className="border-t border-indigo-200 p-2">
+                  {gammes.length === 0 ? (
+                    <p className="text-xs text-gray-500 italic">Chargement des gammes du PIM…</p>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between pb-1 mb-1 border-b border-indigo-100">
+                        <span className="text-xs font-medium text-gray-600">
+                          Gammes du PIM ({allPimGammeSlugs.length})
+                        </span>
+                        <button
+                          type="button"
+                          data-testid={TEST_IDS.shopEditor.pimSelectAllBtn}
+                          onClick={toggleAllPimGammes}
+                          disabled={!pimOn}
+                          className="text-xs text-indigo-700 hover:underline disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed"
+                        >
+                          {allPimGammeSlugs.length > 0 && allPimGammeSlugs.every((s) => selected.has(s))
+                            ? 'Tout désélectionner'
+                            : 'Tout sélectionner'}
+                        </button>
+                      </div>
+                      <div className="max-h-64 overflow-y-auto space-y-0.5 pr-1">
+                        {gammes.map((g) => {
+                          const checked = selected.has(g.slug);
+                          const count = productCountByGamme.get(g.slug) ?? 0;
+                          return (
+                            <label
+                              key={g.slug}
+                              data-testid={`${TEST_IDS.shopEditor.pimGamme}-${g.slug}`}
+                              className={`flex items-center gap-2 p-1.5 rounded ${
+                                pimOn ? 'cursor-pointer hover:bg-white' : 'opacity-50 cursor-not-allowed'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => togglePimGamme(g.slug)}
+                                disabled={!pimOn}
+                                className="w-4 h-4"
+                              />
+                              <span className="text-sm text-gray-800 flex-1">{g.name}</span>
+                              <span
+                                className={`text-xs ${count > 0 ? 'text-gray-500' : 'text-gray-300'}`}
+                                title="Produits de votre catalogue dans cette gamme"
+                              >
+                                {count} produit{count > 1 ? 's' : ''}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                      {pimOn && selected.size === 0 && (
+                        <p className="text-xs text-amber-600 mt-1">
+                          Aucune gamme sélectionnée — la boutique n'exposera aucun produit du PIM.
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         {libraries.length === 0 ? (
           <p className="text-sm text-gray-500 italic">
             Aucune bibliothèque.{' '}
@@ -603,17 +907,21 @@ export function DashboardShopEditor() {
             {libraries.map((lib) => {
               const linked = (shop.library_ids ?? []).includes(lib.id);
               const count = productsByLibrary(lib.id).length;
+              // S2.32 (decision #1) : en mode PIM, les cases biblio sont
+              // grisees/desactivees (le PIM est un superset redondant).
+              const pimOn = shop.pim_catalog_mode === true;
               return (
                 <label
                   key={lib.id}
-                  className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer ${
-                    linked ? 'bg-white border border-blue-300' : 'hover:bg-white/60'
-                  }`}
+                  className={`flex items-center gap-2 p-2 rounded-lg ${
+                    pimOn ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
+                  } ${linked && !pimOn ? 'bg-white border border-blue-300' : 'hover:bg-white/60'}`}
                 >
                   <input
                     type="checkbox"
                     checked={linked}
                     onChange={() => toggleLinkedLibrary(lib.id)}
+                    disabled={pimOn}
                     className="w-4 h-4"
                   />
                   <span className="text-sm font-medium text-gray-900 flex-1">{lib.name}</span>

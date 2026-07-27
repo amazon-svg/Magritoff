@@ -1,0 +1,1174 @@
+{
+  "gammes_completes": [
+    {
+      "slug": "carte_postale",
+      "name": "Carte postale",
+      "definition": {
+        "name": "Carte postale personnalisée",
+        "keywords": ["carte postale", "carte postale personnalisée", "carte de correspondance", "carte promotionnelle", "carte A6", "carte carrée", "carte de remerciement", "mailing postal", "carte commerciale", "impression carte postale"],
+        "title_template": "Carte postale {{papier}} {{grammage}} — {{finition}} — {{quantite}} ex.",
+        "short_description_template": "Carte postale imprimée en quadri sur {{papier}} {{grammage}}, finition {{finition}}. Un support compact et durable pour vos messages commerciaux ou personnels.",
+        "description_template": "## Présentation\n\nLa carte postale reste un des supports imprimés les plus conservés par ses destinataires. Format compact, carton rigide, message direct : elle sert aussi bien la correspondance client que la promotion d'un commerce, d'une exposition ou d'un lancement produit. Imprimée sur {{papier}} {{grammage}}, elle offre un toucher qualitatif dès la prise en main.\n\n## Caractéristiques techniques\n\nDeux formats au choix : A6 (105 × 148 mm), le standard postal, ou carré 100 × 100 mm pour sortir du lot. Impression quadrichromie recto seul ou recto/verso. Supports disponibles du couché demi-mat 350 g au bristol, avec variantes recyclées et papiers de création texturés. Finitions possibles : pelliculage mat, brillant ou soft touch, vernis sélectif, dorure à chaud, coins arrondis.\n\n## Avantages\n\nUn coût unitaire faible pour un support que l'on garde : affichée sur un frigo ou glissée dans un colis, la carte postale prolonge votre visibilité bien après l'envoi. Sa rigidité {{grammage}} garantit une tenue impeccable en boîte aux lettres comme en présentoir de comptoir.",
+        "h1_template": "Carte postale {{papier}} {{grammage}} personnalisée",
+        "seo_title": "Impression carte postale personnalisée A6 et carrée",
+        "seo_description": "Cartes postales personnalisées : A6 105×148 mm ou carré 100×100 mm, couché 350 g, finitions dorure et vernis. Impression pro, petites et grandes séries.",
+        "seo_keywords": ["carte postale personnalisée", "impression carte postale", "carte postale A6", "carte postale carrée", "carte de correspondance", "carte postale entreprise", "carte postale 350g", "mailing carte postale"],
+        "commercial_pitch": "La carte postale est le support imprimé que vos clients gardent : un message direct, un carton rigide, un coût unitaire minime. Glissez-la dans vos colis ou vos mailings et restez visible des semaines durant.",
+        "benefits": [
+          "Support conservé longtemps par le destinataire",
+          "Carton rigide 350 g : tenue et toucher premium",
+          "Format A6 compatible tarifs postaux courants",
+          "Recto/verso : visuel fort + message et coordonnées",
+          "Finitions dorure et vernis pour un rendu haut de gamme",
+          "Versions recyclées disponibles pour une communication responsable"
+        ],
+        "use_cases": [
+          "Carte glissée dans les colis e-commerce",
+          "Mailing postal de fidélisation",
+          "Promotion d'exposition ou de vernissage",
+          "Carte de remerciement client",
+          "Vente en boutique (illustrateurs, musées)"
+        ],
+        "usage_examples": [
+          {"title": "Colis e-commerce", "description": "Une carte remerciant l'achat avec un code de parrainage au verso transforme chaque livraison en outil de fidélisation."},
+          {"title": "Commerce de proximité", "description": "Un restaurant annonce sa nouvelle carte saisonnière avec une carte postale déposée chez les commerçants voisins."},
+          {"title": "Artistes et illustrateurs", "description": "Tirage de séries de cartes vendues en boutique ou sur les marchés de créateurs, avec un rendu fidèle des couleurs."},
+          {"title": "Événementiel", "description": "Save-the-date ou invitation informelle envoyée en amont d'un salon professionnel pour marquer les esprits."}
+        ],
+        "faq": [
+          {"question": "Quel format de fichier fournir ?", "answer": "Un PDF haute définition (300 dpi) en CMJN, polices vectorisées ou incorporées. Les formats ouverts (AI, INDD) sont acceptés après conversion en PDF."},
+          {"question": "Faut-il prévoir des fonds perdus ?", "answer": "Oui, ajoutez 3 mm de fond perdu sur chaque bord et gardez les textes à 5 mm minimum du bord de coupe."},
+          {"question": "Quel grammage choisir ?", "answer": "Le couché 350 g est le standard : rigide, agréable en main, il tient parfaitement en présentoir. En dessous de 300 g, la carte paraît souple."},
+          {"question": "Puis-je écrire au verso ?", "answer": "Oui : choisissez un verso non pelliculé ou un papier offset/création pour écrire au stylo sans bavure."},
+          {"question": "Existe-t-il une version écologique ?", "answer": "Oui, papiers recyclés et papiers issus de forêts gérées durablement (certification FSC) disponibles sans surcoût prohibitif."}
+        ],
+        "technical_spec": {
+          "formats": ["105 × 148 mm (A6)", "100 × 100 mm (carré)"],
+          "supports": ["couché demi-mat 350 g", "couché brillant 350 g", "bristol blanc 400 g", "recyclé satin 350 g", "papiers de création 300-350 g"],
+          "finitions": ["pelliculage mat", "pelliculage brillant", "pelliculage soft touch", "vernis sélectif 2D/3D", "dorure à chaud", "coins arrondis"],
+          "impression": "quadri recto ou recto/verso",
+          "quantites": "50 → 20 000 ex., paliers 50/100/250/500/1000",
+          "delais": "standard 48-72 h, express possible",
+          "options": ["multi-visuels dans une même commande", "verso inscriptible", "papier ensemencé"]
+        }
+      }
+    },
+    {
+      "slug": "carton_invitation",
+      "name": "Carton d'invitation / Faire-part",
+      "definition": {
+        "name": "Carton d'invitation et faire-part",
+        "keywords": ["carton d'invitation", "faire-part", "invitation mariage", "invitation entreprise", "carte d'invitation", "faire-part naissance", "invitation inauguration", "carton événement", "invitation personnalisée", "carte événementielle"],
+        "title_template": "Carton d'invitation {{papier}} {{grammage}} — {{finition}} — {{quantite}} ex.",
+        "short_description_template": "Carton d'invitation ou faire-part imprimé sur carte épaisse {{grammage}}, finition {{finition}}. L'annonce élégante de vos événements privés et professionnels.",
+        "description_template": "## Présentation\n\nMariage, inauguration, soirée d'entreprise, naissance : l'invitation imprimée donne le ton de l'événement avant même qu'il ne commence. Sur carte épaisse {{papier}} {{grammage}}, votre carton d'invitation conjugue tenue irréprochable et rendu soigné, avec des finitions qui font la différence dès l'ouverture de l'enveloppe.\n\n## Caractéristiques techniques\n\nFormats classiques : carré 140 × 140 mm, A6 (105 × 148 mm) ou DL (99 × 210 mm), en carte simple ou double volet rainé. Cartons épais à partir de 300 g : couché, papiers de création texturés (vergé, martelé, extra blanc), kraft ou recyclé. Finitions événementielles : dorure à chaud, letterpress, gaufrage, vernis sélectif 3D, thermorelief.\n\n## Avantages\n\nUne invitation papier annonce un événement qui compte : elle se conserve, se pose sur une cheminée, se montre. Les papiers texturés et la dorure créent une émotion tactile qu'aucun e-mail ne remplace, tandis que le double volet offre l'espace nécessaire au programme et au plan d'accès.",
+        "h1_template": "Carton d'invitation {{papier}} {{grammage}} sur mesure",
+        "seo_title": "Carton d'invitation & faire-part — impression premium",
+        "seo_description": "Faire-parts et cartons d'invitation sur carte épaisse 300 g+ : dorure, letterpress, papiers de création. Mariage, entreprise, inauguration.",
+        "seo_keywords": ["carton d'invitation", "faire-part mariage", "invitation entreprise", "faire-part dorure", "invitation inauguration", "carte invitation personnalisée", "faire-part letterpress", "papier création"],
+        "commercial_pitch": "Votre événement mérite mieux qu'un e-mail : un carton épais, un papier texturé, une dorure qui accroche la lumière. L'invitation imprimée crée l'attente et donne à votre événement le statut qu'il mérite.",
+        "benefits": [
+          "Carte épaisse 300 g+ : prestance immédiate en main",
+          "Finitions émotionnelles : dorure, letterpress, gaufrage",
+          "Papiers de création texturés pour se démarquer",
+          "Format double volet pour programme et informations pratiques",
+          "Petites séries possibles, adaptées aux événements privés",
+          "Options écologiques : recyclé, kraft, papier ensemencé"
+        ],
+        "use_cases": [
+          "Faire-part de mariage ou de naissance",
+          "Invitation à une inauguration",
+          "Soirée annuelle d'entreprise",
+          "Vernissage ou lancement produit",
+          "Gala ou remise de prix"
+        ],
+        "usage_examples": [
+          {"title": "Mariage", "description": "Faire-part carré sur papier martelé avec dorure or : le premier objet que les invités associent à votre journée."},
+          {"title": "Inauguration de locaux", "description": "Un carton DL au nom de chaque invité crédibilise l'événement et améliore sensiblement le taux de présence."},
+          {"title": "Soirée client", "description": "Invitation double volet : visuel fort en couverture, programme et plan à l'intérieur, RSVP au dos."},
+          {"title": "Lancement produit", "description": "Carton avec vernis sélectif 3D reprenant la texture du produit : l'invitation devient un teaser tactile."}
+        ],
+        "faq": [
+          {"question": "Quel format de fichier fournir ?", "answer": "PDF 300 dpi en CMJN avec 3 mm de fonds perdus. Pour la dorure ou le vernis sélectif, fournissez un calque vectoriel séparé en aplat 100 %."},
+          {"question": "Quel grammage pour un faire-part ?", "answer": "Minimum 300 g pour une tenue digne de l'événement ; 350 g ou papier de création épais pour un rendu vraiment premium."},
+          {"question": "Puis-je commander de petites quantités ?", "answer": "Oui, les séries démarrent à quelques dizaines d'exemplaires, ce qui convient aux événements privés."},
+          {"question": "Le double volet est-il livré plié ?", "answer": "Le carton double est livré rainé et plié, prêt à mettre sous enveloppe."},
+          {"question": "Proposez-vous des enveloppes assorties ?", "answer": "Oui, des enveloppes aux formats correspondants (carrées, C6, DL) peuvent compléter la commande."}
+        ],
+        "technical_spec": {
+          "formats": ["140 × 140 mm (carré)", "105 × 148 mm (A6)", "99 × 210 mm (DL)", "double volet 210 × 148 mm ouvert", "sur mesure"],
+          "supports": ["couché demi-mat 350 g", "papiers de création 300-350 g (vergé, martelé, extra blanc)", "kraft 300 g", "recyclé 300-350 g"],
+          "finitions": ["dorure à chaud", "letterpress", "gaufrage", "vernis sélectif 2D/3D", "thermorelief", "coins arrondis", "pelliculage soft touch"],
+          "impression": "quadri recto ou recto/verso",
+          "quantites": "25 → 5 000 ex., paliers 25/50/100/250/500",
+          "delais": "standard 3-5 jours ouvrés, express possible",
+          "options": ["rainage et pliage double volet", "enveloppes assorties", "papier ensemencé"]
+        }
+      }
+    },
+    {
+      "slug": "flyer_a7",
+      "name": "Flyer A7",
+      "definition": {
+        "name": "Flyer A7 (74 × 105 mm)",
+        "keywords": ["flyer A7", "mini flyer", "petit flyer", "flyer poche", "prospectus A7", "tract petit format", "flyer 74x105", "carte promotionnelle", "flyer distribution", "coupon publicitaire"],
+        "title_template": "Flyer A7 {{papier}} {{grammage}} — {{quantite}} ex.",
+        "short_description_template": "Mini flyer A7 (74 × 105 mm) imprimé en quadri sur {{papier}} {{grammage}}. Le format de poche idéal pour la distribution de masse et les offres flash.",
+        "description_template": "## Présentation\n\nLe flyer A7 est le plus compact des prospectus : 74 × 105 mm, la taille d'une carte à jouer. Il se glisse dans une poche, un portefeuille, un sac de caisse. C'est le format de la distribution intensive : offre flash, code promo, invitation à un événement — un message unique, immédiatement lisible.\n\n## Caractéristiques techniques\n\nFormat 74 × 105 mm (quart de A5), impression quadrichromie recto ou recto/verso. Papiers du couché 135 g souple, économique en distribution, jusqu'au couché 350 g rigide façon carte, en versions brillante, mate ou recyclée. Fonds perdus 3 mm requis, textes à 5 mm des bords.\n\n## Avantages\n\nÀ surface réduite, coût réduit : l'A7 permet des tirages massifs à budget maîtrisé, sans sacrifier la qualité d'impression. En 300-350 g, il devient carte-coupon : conservé dans le portefeuille, il ramène le client en boutique. Un excellent ratio impact/prix pour le street marketing.",
+        "h1_template": "Flyer A7 {{papier}} {{grammage}} — impression petit format",
+        "seo_title": "Flyer A7 74×105 mm — impression mini flyer pas cher",
+        "seo_description": "Flyers A7 format poche 74×105 mm : quadri recto/verso, 135 à 350 g, grandes séries économiques. Idéal offres flash, coupons et street marketing.",
+        "seo_keywords": ["flyer A7", "mini flyer", "flyer petit format", "prospectus A7", "flyer 74x105 mm", "coupon promotionnel", "flyer street marketing", "impression flyer"],
+        "commercial_pitch": "Le flyer A7 tient dans toutes les poches et dans tous les budgets : un seul message, une distribution massive, un coût unitaire imbattable. En carton épais, il devient un coupon que vos clients gardent sur eux.",
+        "benefits": [
+          "Format poche : se garde au lieu de se jeter",
+          "Coût unitaire minimal pour les grandes distributions",
+          "En 350 g, fait office de carte-coupon durable",
+          "Message unique, lecture en 3 secondes",
+          "Recto/verso : offre d'un côté, conditions de l'autre",
+          "Léger : distribution main-à-main sans fatigue"
+        ],
+        "use_cases": [
+          "Code promo distribué en caisse",
+          "Street marketing devant un point de vente",
+          "Coupon de réduction encarté en colis",
+          "Invitation à une soirée ou un concert",
+          "Carte de jeu-concours"
+        ],
+        "usage_examples": [
+          {"title": "Offre de lancement", "description": "Un food-truck distribue 5 000 flyers A7 avec un code de réduction : format poche, le coupon revient en caisse pendant des semaines."},
+          {"title": "Sac de caisse", "description": "Glissé dans chaque sac par un commerçant, l'A7 annonce les ventes privées sans alourdir le passage en caisse."},
+          {"title": "Vie nocturne", "description": "Bars et clubs impriment leurs programmes du mois en A7 350 g : le format carte résiste à une soirée en poche."},
+          {"title": "Jeu-concours", "description": "Un centre commercial imprime des A7 numérotés à gratter les coordonnées : petit format, forte mécanique de collecte."}
+        ],
+        "faq": [
+          {"question": "Quel fichier fournir ?", "answer": "PDF 300 dpi en CMJN, format final 74 × 105 mm + 3 mm de fonds perdus sur chaque bord, textes à 5 mm minimum de la coupe."},
+          {"question": "Quel grammage choisir ?", "answer": "135-170 g pour la distribution volumique et économique ; 300-350 g si le flyer doit servir de coupon conservé."},
+          {"question": "Recto seul ou recto/verso ?", "answer": "Le recto/verso coûte peu de plus et double l'espace : visuel accrocheur au recto, offre détaillée et coordonnées au verso."},
+          {"question": "Quelle est la quantité minimale ?", "answer": "Les séries démarrent à 50 exemplaires, mais l'A7 devient réellement économique à partir de 1 000 exemplaires."},
+          {"question": "Existe-t-il une option écologique ?", "answer": "Oui : papiers recyclés et certifiés FSC, adaptés aux distributions grand public soucieuses de leur image."}
+        ],
+        "technical_spec": {
+          "formats": ["74 × 105 mm (A7)"],
+          "supports": ["couché brillant 135 g", "couché demi-mat 135 g", "couché 170 g", "couché 250 g", "couché 300-350 g", "recyclé 135-350 g"],
+          "finitions": ["sans finition", "pelliculage mat ou brillant (grammages épais)", "coins arrondis"],
+          "impression": "quadri recto ou recto/verso",
+          "quantites": "50 → 100 000 ex., paliers 100/250/500/1000/2500/5000",
+          "delais": "standard 48-72 h, express possible",
+          "options": ["multi-visuels", "encre à gratter (jeux)", "papier ensemencé"]
+        }
+      }
+    },
+    {
+      "slug": "flyer_carre",
+      "name": "Flyer carré",
+      "definition": {
+        "name": "Flyer carré (148 × 148 mm)",
+        "keywords": ["flyer carré", "prospectus carré", "flyer 148x148", "flyer original", "flyer design", "tract carré", "flyer créatif", "support carré", "flyer instagram", "impression flyer carré"],
+        "title_template": "Flyer carré {{papier}} {{grammage}} — {{quantite}} ex.",
+        "short_description_template": "Flyer carré 148 × 148 mm imprimé en quadri sur {{papier}} {{grammage}}. Un format qui sort de la pile et met vos visuels au carré.",
+        "description_template": "## Présentation\n\nDans une pile de prospectus rectangulaires, le carré attire l'œil. Le flyer 148 × 148 mm reprend le langage visuel des réseaux sociaux — cadrage carré, visuel plein format — et le transpose dans la rue et en point de vente. Un choix graphique fort pour les marques qui soignent leur image.\n\n## Caractéristiques techniques\n\nFormat 148 × 148 mm (base A5), impression quadrichromie recto ou recto/verso. Gamme complète de papiers : couché brillant ou demi-mat de 135 à 350 g, versions recyclées, papiers de création pour un rendu galerie. Finitions disponibles sur grammages épais : pelliculage, vernis sélectif, coins arrondis.\n\n## Avantages\n\nLe carré valorise la photographie et l'illustration : produit centré, portrait, packshot. Il se démarque physiquement des formats A5/A6 omniprésents et signale une attention au design. En 350 g pelliculé, il devient une carte d'image que l'on conserve — parfait pour les marques lifestyle, la restauration et la culture.",
+        "h1_template": "Flyer carré 148 × 148 mm {{papier}} {{grammage}}",
+        "seo_title": "Flyer carré 148×148 mm — impression format design",
+        "seo_description": "Flyers carrés 148×148 mm : le format design qui se démarque. Quadri recto/verso, 135 à 350 g, finitions pelliculage et vernis. Séries de 50 à 100 000 ex.",
+        "seo_keywords": ["flyer carré", "flyer 148x148", "prospectus carré", "flyer design", "flyer original", "impression flyer carré", "support communication carré", "flyer créatif"],
+        "commercial_pitch": "Tous les flyers sont rectangulaires — le vôtre sera carré. Un format signature qui valorise vos visuels comme un post Instagram imprimé et distingue immédiatement votre marque dans la pile.",
+        "benefits": [
+          "Se démarque visuellement des formats A5/A6 classiques",
+          "Cadrage carré idéal pour photos produits et portraits",
+          "Cohérence avec vos visuels réseaux sociaux",
+          "Rendu premium en grammage épais pelliculé",
+          "Recto/verso pour visuel + message structuré",
+          "Gamme de papiers création pour un effet galerie"
+        ],
+        "use_cases": [
+          "Communication de marque lifestyle",
+          "Carte menu ou nouveauté restaurant",
+          "Programme d'exposition ou de festival",
+          "Lancement de collection boutique",
+          "Support salon au design soigné"
+        ],
+        "usage_examples": [
+          {"title": "Marque lifestyle", "description": "Une marque de cosmétiques décline ses visuels Instagram en flyers carrés 350 g soft touch remis à chaque achat."},
+          {"title": "Restauration", "description": "Un coffee shop annonce sa carte d'hiver sur flyer carré : le format évoque naturellement ses publications en ligne."},
+          {"title": "Culture", "description": "Une galerie imprime le programme de son exposition en carré sur papier de création : le flyer devient objet de collection."},
+          {"title": "Retail", "description": "Une boutique de mode encarte un flyer carré recto/verso dans chaque sac : nouveau drop d'un côté, réseaux et fidélité de l'autre."}
+        ],
+        "faq": [
+          {"question": "Quel fichier fournir ?", "answer": "PDF 300 dpi en CMJN au format 148 × 148 mm avec 3 mm de fonds perdus par bord ; textes et logos à 5 mm de la coupe."},
+          {"question": "Le format carré coûte-t-il plus cher ?", "answer": "Légèrement, car il optimise moins la feuille d'impression qu'un format standard, mais l'écart reste faible sur les séries courantes."},
+          {"question": "Quel grammage privilégier ?", "answer": "170 g pour la distribution, 300-350 g pelliculé pour un support d'image conservé par le client."},
+          {"question": "Peut-il être envoyé par courrier ?", "answer": "Oui, il entre dans une enveloppe carrée 155 × 155 mm ; vérifiez la tarification postale des plis carrés avant un mailing massif."},
+          {"question": "Recto/verso recommandé ?", "answer": "Oui : visuel plein format au recto, informations pratiques au verso — le carré rend cette répartition très lisible."}
+        ],
+        "technical_spec": {
+          "formats": ["148 × 148 mm"],
+          "supports": ["couché brillant 135-350 g", "couché demi-mat 135-350 g", "recyclé 135-350 g", "papiers de création 250-350 g"],
+          "finitions": ["pelliculage mat/brillant/soft touch", "vernis sélectif 2D/3D", "dorure à chaud", "coins arrondis"],
+          "impression": "quadri recto ou recto/verso",
+          "quantites": "50 → 100 000 ex., paliers 100/250/500/1000/2500",
+          "delais": "standard 48-72 h, express possible",
+          "options": ["multi-visuels", "papier ensemencé", "découpe spéciale sur devis"]
+        }
+      }
+    },
+    {
+      "slug": "depliant_2_volets",
+      "name": "Dépliant 2 volets",
+      "definition": {
+        "name": "Dépliant 2 volets (1 pli)",
+        "keywords": ["dépliant 2 volets", "dépliant 1 pli", "plaquette 2 volets", "dépliant pli central", "leaflet 2 volets", "plaquette commerciale", "dépliant A5", "dépliant 4 pages", "brochure 2 volets", "impression dépliant"],
+        "title_template": "Dépliant 2 volets {{papier}} {{grammage}} — {{quantite}} ex.",
+        "short_description_template": "Dépliant 2 volets (1 pli central) imprimé en quadri sur {{papier}} {{grammage}}, livré plié. 4 faces pour structurer votre message comme une mini-plaquette.",
+        "description_template": "## Présentation\n\nLe dépliant 2 volets est la plus simple des plaquettes : une feuille, un pli central, quatre faces. Couverture, développement intérieur en double page, dos pour les coordonnées. C'est le support d'une présentation d'entreprise, d'une offre de services ou d'un menu, avec la sobriété d'un document qui s'ouvre comme un livre.\n\n## Caractéristiques techniques\n\nFormats fermés courants : A5 (148 × 210 mm, soit A4 ouvert), A4 (210 × 297 mm, soit A3 ouvert), carré 210 × 210 mm et DL. Pli central ou pli décalé (une face dépasse pour créer un onglet). Papiers de 130 à 350 g : couché brillant ou demi-mat, offset, recyclé, création. Livré plié, impression quadri recto/verso.\n\n## Avantages\n\nQuatre faces au prix d'un pli : le 2 volets double l'espace d'un flyer tout en hiérarchisant la lecture — accroche, contenu, contact. En grammage épais avec pelliculage, il tient debout sur un comptoir et fait office de carte de présentation d'entreprise durable.",
+        "h1_template": "Dépliant 2 volets {{papier}} {{grammage}} — 4 faces",
+        "seo_title": "Dépliant 2 volets — impression plaquette pli central",
+        "seo_description": "Dépliants 2 volets pliés : A5, A4, carré ou DL fermé, 4 faces quadri, papiers 130 à 350 g. Plaquette commerciale livrée pliée, séries dès 50 ex.",
+        "seo_keywords": ["dépliant 2 volets", "plaquette 2 volets", "dépliant pli central", "dépliant 4 pages", "plaquette commerciale", "dépliant A5 fermé", "impression dépliant plié", "leaflet"],
+        "commercial_pitch": "Quatre faces, une hiérarchie de lecture naturelle : le dépliant 2 volets transforme votre flyer en plaquette. Couverture qui accroche, intérieur qui déroule votre offre, dos qui donne vos coordonnées.",
+        "benefits": [
+          "4 faces structurées : accroche, contenu, contact",
+          "Ouverture type livre : lecture guidée et professionnelle",
+          "Double page intérieure pour un visuel panoramique",
+          "Livré plié, prêt à distribuer ou à poser en présentoir",
+          "En 250-350 g : véritable plaquette d'entreprise",
+          "Pli décalé possible pour créer un onglet d'appel"
+        ],
+        "use_cases": [
+          "Plaquette de présentation d'entreprise",
+          "Menu de restaurant recto intérieur",
+          "Programme court d'événement",
+          "Fiche produit ou offre de services",
+          "Carte de vœux d'entreprise grand format"
+        ],
+        "usage_examples": [
+          {"title": "Artisan / PME", "description": "Plaquette A5 fermée : métier en couverture, prestations et photos de réalisations en double page, zone d'intervention et contact au dos."},
+          {"title": "Restaurant", "description": "Menu 2 volets carré 350 g pelliculé : entrées-plats-desserts en intérieur, informations pratiques au dos, résistant au service."},
+          {"title": "Immobilier", "description": "Fiche de bien en A4 fermé : photo pleine page en couverture, plan et prestations à l'intérieur, agence au dos."},
+          {"title": "Événement", "description": "Programme d'une journée portes ouvertes : horaires et plan en double page intérieure, partenaires au dos."}
+        ],
+        "faq": [
+          {"question": "Comment préparer le fichier ?", "answer": "Fournissez un PDF au format ouvert (ex. A4 pour un A5 fermé) avec 3 mm de fonds perdus, pages dans l'ordre de lecture ; le pli est indiqué dans le gabarit téléchargeable."},
+          {"question": "Quel grammage pour qu'il tienne debout ?", "answer": "À partir de 250 g le dépliant tient en présentoir ; en 300-350 g il se comporte comme une carte double rigide."},
+          {"question": "Le dépliant est-il livré plié ?", "answer": "Oui, tous les dépliants sont livrés rainés et pliés, prêts à l'usage. Les forts grammages sont rainés pour éviter la casse du pli."},
+          {"question": "Fonds perdus obligatoires ?", "answer": "Oui : 3 mm sur les quatre bords du format ouvert, textes à 5 mm des bords et du pli."},
+          {"question": "Quelle quantité minimale ?", "answer": "Les séries démarrent à 50 exemplaires ; le coût unitaire baisse fortement à partir de 500."}
+        ],
+        "technical_spec": {
+          "formats": ["A5 fermé 148 × 210 mm (A4 ouvert)", "A4 fermé 210 × 297 mm (A3 ouvert)", "carré fermé 210 × 210 mm", "DL fermé 99 × 210 mm", "sur mesure"],
+          "supports": ["couché demi-mat 130-350 g", "couché brillant 130-350 g", "offset 90-120 g", "recyclé", "papiers de création"],
+          "finitions": ["pelliculage mat/brillant/soft touch (grammages épais)", "vernis sélectif", "dorure à chaud", "rainage"],
+          "impression": "quadri recto/verso (4 faces)",
+          "quantites": "50 → 100 000 ex., paliers 100/250/500/1000/2500",
+          "delais": "standard 48-72 h, express possible",
+          "options": ["pli central ou pli décalé", "livré plié", "multi-visuels"]
+        }
+      }
+    },
+    {
+      "slug": "depliant_accordeon",
+      "name": "Dépliant accordéon",
+      "definition": {
+        "name": "Dépliant accordéon (pli zigzag)",
+        "keywords": ["dépliant accordéon", "pli accordéon", "dépliant zigzag", "leporello", "dépliant 3 volets accordéon", "dépliant 4 volets", "pli en Z", "dépliant panoramique", "guide plié", "impression dépliant accordéon"],
+        "title_template": "Dépliant accordéon {{papier}} {{grammage}} — {{quantite}} ex.",
+        "short_description_template": "Dépliant à pli accordéon (zigzag) imprimé en quadri sur {{papier}} {{grammage}}, livré plié. Des volets qui se déploient en panorama, parfaits pour guides et parcours.",
+        "description_template": "## Présentation\n\nLe pli accordéon — ou pli en Z — replie les volets alternativement dans un sens puis dans l'autre, comme un soufflet. Résultat : un document compact fermé, qui se déploie d'un geste en frise panoramique. C'est le pliage des guides, des plans, des chronologies et des pas-à-pas, où le contenu se lit dans l'ordre du dépliage.\n\n## Caractéristiques techniques\n\nDe 3 à 6 volets et plus (2 à 5 plis parallèles). Formats fermés courants : DL (100 × 210 mm), A5 ou carré ; formats ouverts jusqu'à 630 × 297 mm. Contrairement au pli roulé, tous les volets ont la même largeur. Papiers 130 à 350 g, couché brillant/demi-mat, offset ou recyclé. Livré plié, quadri recto/verso.\n\n## Avantages\n\nChaque volet devient un écran de lecture : étape 1, étape 2, étape 3... L'accordéon guide naturellement le lecteur, sans jamais masquer un volet derrière un autre. Il se referme à plat et tient debout en zigzag sur un comptoir — un vrai plus en présentoir.",
+        "h1_template": "Dépliant accordéon {{papier}} {{grammage}} — pli zigzag",
+        "seo_title": "Dépliant accordéon (pli Z) — impression en ligne",
+        "seo_description": "Dépliants accordéon 3 à 6 volets : pliage zigzag panoramique, formats DL à 630 mm ouverts, papiers 130-350 g. Guides, plans et parcours, livrés pliés.",
+        "seo_keywords": ["dépliant accordéon", "pli accordéon", "pli en Z", "dépliant zigzag", "leporello", "dépliant panoramique", "guide plié", "impression dépliant"],
+        "commercial_pitch": "L'accordéon déplie votre message comme une frise : chaque volet est une étape, chaque pli une respiration. Le pliage idéal pour raconter un parcours, un guide ou une gamme, volet après volet.",
+        "benefits": [
+          "Lecture séquencée : parfait pour étapes et parcours",
+          "Déploiement panoramique pour visuels continus",
+          "Volets de largeur égale : mise en page simple",
+          "Tient debout en zigzag sur un comptoir",
+          "Compact fermé, généreux ouvert (jusqu'à 6 volets et plus)",
+          "Se referme facilement, sans forcer le pli"
+        ],
+        "use_cases": [
+          "Guide touristique ou plan de visite",
+          "Mode d'emploi ou pas-à-pas produit",
+          "Chronologie ou frise d'entreprise",
+          "Présentation de gamme volet par volet",
+          "Carte de circuit ou d'itinéraire"
+        ],
+        "usage_examples": [
+          {"title": "Office de tourisme", "description": "Plan de ville en accordéon 6 volets : compact en poche, panoramique une fois ouvert, chaque volet couvrant un quartier."},
+          {"title": "Industrie", "description": "Un fabricant détaille l'installation de son produit en 5 étapes, un volet par étape, dans l'ordre exact du dépliage."},
+          {"title": "Vignoble", "description": "Frise du domaine dépliée en accordéon : histoire, terroir, cuvées, dégustation — un storytelling physique."},
+          {"title": "Musée", "description": "Livret d'exposition en leporello posé debout en boutique : l'objet lui-même attire la main."}
+        ],
+        "faq": [
+          {"question": "Accordéon ou pli roulé, comment choisir ?", "answer": "L'accordéon garde tous les volets à la même largeur et se lit en séquence ; le pli roulé enroule les volets vers l'intérieur et crée un effet de découverte. Pour un contenu par étapes, préférez l'accordéon."},
+          {"question": "Comment préparer le fichier ?", "answer": "PDF au format ouvert avec traits de plis selon le gabarit, 3 mm de fonds perdus, textes à 5 mm des plis et des coupes."},
+          {"question": "Quel grammage recommandé ?", "answer": "130-170 g pour un dépliage souple sur les grands formats ; 250 g maximum conseillé au-delà de 4 volets pour un pliage net."},
+          {"question": "Combien de volets possibles ?", "answer": "De 3 à 6 volets en standard ; au-delà, une étude sur mesure garantit la faisabilité du pliage."},
+          {"question": "Est-il livré plié ?", "answer": "Oui, rainé si nécessaire et livré plié, prêt à distribuer."}
+        ],
+        "technical_spec": {
+          "formats": ["fermé DL 100 × 210 mm", "fermé A5 148 × 210 mm", "fermé carré 148 × 148 mm", "ouvert jusqu'à 630 × 297 mm", "sur mesure"],
+          "supports": ["couché demi-mat 130-250 g", "couché brillant 130-250 g", "offset 90-120 g", "recyclé 115-170 g"],
+          "finitions": ["sans finition", "vernis sélectif", "rainage (grammages épais)"],
+          "impression": "quadri recto/verso",
+          "quantites": "50 → 100 000 ex., paliers 100/250/500/1000/2500",
+          "delais": "standard 48-72 h, express possible",
+          "options": ["2 à 5 plis parallèles", "pli décalé accordéon", "livré plié"]
+        }
+      }
+    },
+    {
+      "slug": "depliant_plie_dl",
+      "name": "Dépliant plié DL (3 volets)",
+      "definition": {
+        "name": "Dépliant 3 volets DL (A4 plié)",
+        "keywords": ["dépliant 3 volets", "dépliant DL", "A4 plié en 3", "dépliant roulé", "tri-fold", "plaquette 3 volets", "dépliant 10x21", "dépliant 6 pages", "brochure 3 volets", "impression dépliant DL"],
+        "title_template": "Dépliant 3 volets DL {{papier}} {{grammage}} — {{quantite}} ex.",
+        "short_description_template": "Le grand classique : A4 (210 × 297 mm) plié en 3 volets, format fermé DL 100 × 210 mm. Six faces en quadri sur {{papier}} {{grammage}}, livré plié.",
+        "description_template": "## Présentation\n\nC'est le dépliant le plus répandu de la communication d'entreprise : une feuille A4 pliée en trois volets, refermée au format DL (100 × 210 mm). Six faces pour dérouler une offre complète — couverture, argumentaire intérieur sur trois volets, dos avec coordonnées — dans un format qui entre dans une enveloppe DL standard et dans tous les présentoirs.\n\n## Caractéristiques techniques\n\nFormat ouvert 210 × 297 mm (A4), fermé 100 × 210 mm. Deux pliages au choix : roulé (le volet droit se replie à l'intérieur, effet de découverte) ou accordéon (zigzag). Attention pli roulé : le volet rentrant est légèrement plus étroit (97 mm). Papiers 130 à 350 g, couché brillant ou demi-mat, offset, recyclé. Quadri recto/verso, livré plié.\n\n## Avantages\n\nSix faces organisées pour un coût proche du flyer A4 : le 3 volets DL structure un argumentaire complet sans assommer le lecteur. Compatible enveloppes DL et présentoirs à documents, c'est le couteau suisse de la plaquette commerciale.",
+        "h1_template": "Dépliant 3 volets DL {{papier}} {{grammage}} — A4 plié",
+        "seo_title": "Dépliant 3 volets DL — A4 plié roulé ou accordéon",
+        "seo_description": "Dépliant 3 volets : A4 210×297 plié au format DL 100×210 mm, pli roulé ou accordéon, 6 faces quadri, 130-350 g. Livré plié, dès 50 exemplaires.",
+        "seo_keywords": ["dépliant 3 volets", "dépliant DL", "A4 plié en 3", "pli roulé", "tri-fold", "plaquette commerciale DL", "dépliant 6 faces", "impression dépliant"],
+        "commercial_pitch": "Le 3 volets DL est le standard absolu de la plaquette commerciale : six faces pour tout dire, un format qui entre dans une enveloppe DL et dans tous les présentoirs. Efficace, économique, universellement lisible.",
+        "benefits": [
+          "6 faces pour un argumentaire complet et hiérarchisé",
+          "Format fermé DL : compatible enveloppes et présentoirs",
+          "Pli roulé : effet de découverte volet après volet",
+          "Coût proche d'un simple flyer A4",
+          "Livré plié, prêt pour mailing ou distribution",
+          "Le format le plus attendu et le plus lisible en B2B"
+        ],
+        "use_cases": [
+          "Plaquette commerciale de PME",
+          "Présentation de services en salon",
+          "Documentation en présentoir d'accueil",
+          "Mailing postal sous enveloppe DL",
+          "Menu ou carte de prestations"
+        ],
+        "usage_examples": [
+          {"title": "Cabinet de services", "description": "Plaquette 3 volets : promesse en couverture, trois offres sur les trois volets intérieurs, équipe et contact au dos."},
+          {"title": "Salon professionnel", "description": "Distribué sur le stand, le DL se glisse dans les sacoches visiteurs et survit au tri de retour de salon."},
+          {"title": "Collectivité", "description": "Guide des démarches plié en 3 volets, disposé dans les présentoirs de la mairie et des maisons de services."},
+          {"title": "Mailing B2B", "description": "Envoi postal sous enveloppe DL à fenêtre : le dépliant sert de courrier ET de plaquette, un seul document, un seul coût."}
+        ],
+        "faq": [
+          {"question": "Pli roulé ou accordéon ?", "answer": "Roulé pour un effet de découverte progressive (attention : volet rentrant réduit à ~97 mm) ; accordéon pour trois volets égaux et une lecture en séquence."},
+          {"question": "Comment préparer le fichier ?", "answer": "PDF au format A4 ouvert recto/verso avec 3 mm de fonds perdus, monté selon le gabarit du pliage choisi — l'ordre des faces diffère entre roulé et accordéon."},
+          {"question": "Quel grammage choisir ?", "answer": "130-170 g pour la distribution et le mailing ; 250-350 g rainé pour une plaquette haut de gamme qui tient en présentoir."},
+          {"question": "Entre-t-il dans une enveloppe standard ?", "answer": "Oui, le format fermé 100 × 210 mm entre dans une enveloppe DL (110 × 220 mm), avec ou sans fenêtre."},
+          {"question": "Quantité minimale et paliers ?", "answer": "Dès 50 exemplaires ; les paliers 500, 1 000 et 2 500 offrent les meilleures économies d'échelle."}
+        ],
+        "technical_spec": {
+          "formats": ["ouvert 210 × 297 mm (A4)", "fermé 100 × 210 mm (DL)", "volet rentrant ~97 mm en pli roulé"],
+          "supports": ["couché demi-mat 130-350 g", "couché brillant 130-350 g", "offset 90-120 g", "recyclé 115-170 g"],
+          "finitions": ["sans finition", "pelliculage (grammages épais)", "vernis sélectif", "rainage dès 170 g"],
+          "impression": "quadri recto/verso (6 faces)",
+          "quantites": "50 → 100 000 ex., paliers 100/250/500/1000/2500/5000",
+          "delais": "standard 48-72 h, express possible",
+          "options": ["pli roulé ou pli accordéon", "livré plié", "multi-visuels"]
+        }
+      }
+    },
+    {
+      "slug": "affiche_40x60",
+      "name": "Affiche 40×60 cm",
+      "definition": {
+        "name": "Affiche 40 × 60 cm",
+        "keywords": ["affiche 40x60", "poster 40x60", "affiche vitrine", "affiche point de vente", "affiche commerce", "affiche événement", "poster commerce", "affiche 400x600", "impression affiche", "affiche promotionnelle"],
+        "title_template": "Affiche 40 × 60 cm {{papier}} {{grammage}} — {{quantite}} ex.",
+        "short_description_template": "Affiche 40 × 60 cm imprimée en quadri sur {{papier}} {{grammage}}. Le format vitrine par excellence : visible de loin, facile à poser partout.",
+        "description_template": "## Présentation\n\nLe 40 × 60 cm est le format d'affiche le plus polyvalent du point de vente : assez grand pour être lu à plusieurs mètres, assez compact pour trouver sa place en vitrine, sur une porte ou dans un cadre standard. C'est le format des promotions de commerce, des annonces d'événements locaux et de la décoration murale.\n\n## Caractéristiques techniques\n\nFormat 400 × 600 mm, impression quadrichromie recto (recto/verso possible pour affichage suspendu). Papiers : couché demi-mat ou brillant 130-170 g pour l'usage courant, offset 90-120 g pour l'économie, papier fluo pour les promotions choc, recyclé pour l'image responsable. Vernis 2D possible pour intensifier les couleurs.\n\n## Avantages\n\nCompatible avec les cadres, porte-affiches et stop-trottoirs 40 × 60 du commerce, il se remplace en quelques secondes au rythme de vos opérations. Impression dès l'unité : testez un visuel, puis rééditez en série pour un réseau de points de vente.",
+        "h1_template": "Affiche 40 × 60 cm {{papier}} {{grammage}}",
+        "seo_title": "Affiche 40x60 cm — impression poster vitrine",
+        "seo_description": "Affiches 40×60 cm pour vitrines, commerces et événements : couché 130-170 g, fluo ou recyclé, quadri HD. Impression dès 1 exemplaire, délais courts.",
+        "seo_keywords": ["affiche 40x60", "poster 40x60 cm", "affiche vitrine", "impression affiche", "affiche commerce", "affiche promotionnelle", "affiche événement", "porte-affiche 40x60"],
+        "commercial_pitch": "Le 40×60 est le format que tous les cadres, vitrines et stop-trottoirs attendent : changez d'affiche au rythme de vos promos, sans changer de support. Visible de loin, remplacé en dix secondes.",
+        "benefits": [
+          "Compatible cadres, porte-affiches et stop-trottoirs standards",
+          "Lisible à plusieurs mètres : idéal vitrine",
+          "Impression dès 1 exemplaire pour tester un visuel",
+          "Papier fluo disponible pour les promotions choc",
+          "Coût maîtrisé pour un renouvellement fréquent",
+          "Déclinable en série homogène pour un réseau de magasins"
+        ],
+        "use_cases": [
+          "Promotion en vitrine de commerce",
+          "Annonce de concert ou spectacle local",
+          "Affichage en salle d'attente",
+          "Décoration murale encadrée",
+          "Signalétique temporaire d'événement"
+        ],
+        "usage_examples": [
+          {"title": "Commerce de détail", "description": "Soldes, nouveautés, horaires exceptionnels : l'affiche 40×60 en vitrine se renouvelle à chaque opération commerciale."},
+          {"title": "Culture locale", "description": "Une salle de concert imprime 50 affiches par date, posées chez les commerçants partenaires de la ville."},
+          {"title": "Réseau de franchises", "description": "Campagne nationale déclinée en 40×60 : chaque point de vente reçoit son lot, l'image de marque reste homogène."},
+          {"title": "Décoration", "description": "Visuels photographiques imprimés en 40×60 sur papier mat, encadrés pour habiller un restaurant ou des bureaux."}
+        ],
+        "faq": [
+          {"question": "Quel fichier fournir ?", "answer": "PDF en CMJN à l'échelle 1 (400 × 600 mm) avec 3-5 mm de fonds perdus ; 150-300 dpi suffisent à cette taille de lecture."},
+          {"question": "Quel papier pour une vitrine ?", "answer": "Couché demi-mat 170 g : couleurs profondes sans reflets gênants derrière une vitre. Le brillant convient aux visuels photo très saturés."},
+          {"question": "L'affiche résiste-t-elle en extérieur ?", "answer": "Le papier standard convient à un affichage extérieur court et abrité ; pour l'extérieur durable, optez pour un support dédié (dos bleu, encapsulage)."},
+          {"question": "Puis-je commander une seule affiche ?", "answer": "Oui, l'impression démarre à l'unité — pratique pour valider un visuel avant la série."},
+          {"question": "Fonds perdus nécessaires ?", "answer": "Oui, 3 à 5 mm sur chaque bord, avec les textes à 10 mm minimum de la coupe."}
+        ],
+        "technical_spec": {
+          "formats": ["400 × 600 mm"],
+          "supports": ["couché demi-mat 130-170 g", "couché brillant 130-170 g", "offset 90-120 g", "recyclé satin 115 g", "papier fluo (jaune, orange, vert)"],
+          "finitions": ["sans finition", "vernis 2D recto", "encapsulage en option"],
+          "impression": "quadri recto (recto/verso possible)",
+          "quantites": "1 → 20 000 ex., paliers 1/5/10/25/50/100/250",
+          "delais": "standard 24-72 h, express possible",
+          "options": ["qualité standard ou haute définition", "pli central optionnel pour expédition", "livraison roulée"]
+        }
+      }
+    },
+    {
+      "slug": "affiche_abribus",
+      "name": "Affiche abribus 120×176 cm",
+      "definition": {
+        "name": "Affiche abribus 120 × 176 cm",
+        "keywords": ["affiche abribus", "affiche 120x176", "affichage urbain", "mobilier urbain", "affiche sucette", "affichage 2m2", "campagne d'affichage", "affiche grand format", "affiche réseau", "impression affiche abribus"],
+        "title_template": "Affiche abribus 120 × 176 cm {{papier}} — {{quantite}} ex.",
+        "short_description_template": "Affiche 120 × 176 cm au format normalisé des abribus et sucettes de mobilier urbain, imprimée en quadri HD sur {{papier}}. Prête pour vos campagnes d'affichage.",
+        "description_template": "## Présentation\n\nLe 120 × 176 cm est le format normalisé du mobilier urbain français : abribus, sucettes de centre-ville, caissons de galeries commerçantes et de stations de transport. C'est le format des campagnes locales qui veulent exister dans la rue, face aux grandes enseignes, avec une surface d'expression d'environ 2 m².\n\n## Caractéristiques techniques\n\nFormat 1200 × 1760 mm, orientation portrait, impression quadrichromie recto en qualité standard ou haute définition. Papiers dédiés à l'affichage : 120 g dos bleu (verso bleu opacifiant, indispensable en caisson rétroéclairé et en recouvrement d'affiches précédentes), couché demi-mat 135 g ou 150 g. Livraison roulée.\n\n## Avantages\n\nUn fichier, un réseau : la même création se décline sur toutes les faces d'une campagne locale. Le dos bleu garantit l'opacité exigée par les afficheurs, et la haute définition supporte la lecture rapprochée des piétons à l'arrêt de bus — là où l'affiche est réellement lue.",
+        "h1_template": "Affiche abribus 120 × 176 cm {{papier}}",
+        "seo_title": "Affiche abribus 120x176 cm — affichage urbain",
+        "seo_description": "Affiches abribus 120×176 cm au format normalisé du mobilier urbain : dos bleu 120 g ou couché 135-150 g, quadri HD. Campagnes locales, livrées roulées.",
+        "seo_keywords": ["affiche abribus", "affiche 120x176", "affichage urbain", "sucette publicitaire", "mobilier urbain", "campagne affichage", "affiche 2m2", "dos bleu"],
+        "commercial_pitch": "L'abribus est le média des marques qui comptent dans leur ville : 2 m² de visibilité aux arrêts où votre public attend, regarde et lit. Au format normalisé 120×176, votre affiche entre dans tous les réseaux de mobilier urbain.",
+        "benefits": [
+          "Format normalisé accepté par tous les réseaux d'affichage urbain",
+          "≈2 m² de surface : impact publicitaire majeur",
+          "Dos bleu opacifiant : conforme aux exigences des afficheurs",
+          "Qualité HD pour la lecture rapprochée des piétons",
+          "Audience captive aux arrêts de transport",
+          "Petites séries possibles pour campagnes locales ciblées"
+        ],
+        "use_cases": [
+          "Campagne d'affichage de centre-ville",
+          "Lancement d'enseigne locale",
+          "Promotion d'événement culturel ou sportif",
+          "Communication de collectivité",
+          "Caisson lumineux de galerie commerciale"
+        ],
+        "usage_examples": [
+          {"title": "Ouverture de magasin", "description": "Dix faces d'abribus autour de la zone de chalandise annoncent l'ouverture : notoriété locale immédiate pendant deux semaines."},
+          {"title": "Festival", "description": "La programmation s'affiche en 120×176 dans les sucettes de la ville, relayée par les mêmes visuels en 40×60 chez les commerçants."},
+          {"title": "Collectivité", "description": "Campagne de sensibilisation municipale déployée sur le réseau d'abribus : le format du service public par excellence."},
+          {"title": "Promoteur immobilier", "description": "Le programme neuf s'affiche en caisson rétroéclairé face à la gare : dos bleu obligatoire pour une diffusion homogène de la lumière."}
+        ],
+        "faq": [
+          {"question": "Quel fichier fournir ?", "answer": "PDF en CMJN à l'échelle 1 (1200 × 1760 mm) ou à l'échelle 1/2 en 300 dpi, avec 5 mm de fonds perdus ; suivez le gabarit de l'afficheur pour les zones masquées par le cadre."},
+          {"question": "Pourquoi choisir le dos bleu ?", "answer": "Son verso bleu bloque la transparence : l'affiche précédente ne transparaît pas et la lumière des caissons diffuse uniformément. C'est le standard exigé par la plupart des réseaux."},
+          {"question": "Quelle quantité commander ?", "answer": "Comptez le nombre de faces réservées + 10-15 % de réserve pour remplacement en cas de dégradation pendant la campagne."},
+          {"question": "L'affiche résiste-t-elle à la pluie ?", "answer": "Posée en caisson d'abribus, elle est protégée ; les papiers d'affichage tolèrent l'humidité de pose (colle) mais ne sont pas prévus pour une exposition nue prolongée."},
+          {"question": "Comment est-elle livrée ?", "answer": "Roulée dans un emballage renforcé, jamais pliée, pour une pose sans marque."}
+        ],
+        "technical_spec": {
+          "formats": ["1200 × 1760 mm (abribus normalisé)", "variantes mobilier urbain : 1200 × 1600 mm, 800 × 1200 mm"],
+          "supports": ["papier dos bleu 120 g", "couché demi-mat 135 g", "couché demi-mat 150 g"],
+          "finitions": ["sans finition (pose en caisson)"],
+          "impression": "quadri recto, qualité standard ou haute définition",
+          "quantites": "1 → 500 ex., paliers 1/5/10/25/50/100",
+          "delais": "standard 48-96 h, express possible",
+          "options": ["livraison roulée", "épreuve de validation sur demande"]
+        }
+      }
+    },
+    {
+      "slug": "affiche_dos_bleu",
+      "name": "Affiche dos bleu",
+      "definition": {
+        "name": "Affiche dos bleu (affichage urbain)",
+        "keywords": ["affiche dos bleu", "papier dos bleu", "affichage extérieur", "affiche colleur", "affichage sauvage", "affiche opaque", "blue back", "affiche 120g", "campagne affichage", "affiche panneau"],
+        "title_template": "Affiche dos bleu 120 g — {{quantite}} ex. — format {{papier}}",
+        "short_description_template": "Affiche sur papier dos bleu 120 g, le support professionnel de l'affichage extérieur : verso bleu opacifiant, encollage facile, aucune transparence sur les couches précédentes.",
+        "description_template": "## Présentation\n\nLe papier dos bleu est le standard historique de l'affichage urbain : son verso teinté bleu rend l'affiche totalement opaque, même collée par-dessus d'anciennes affiches ou posée en caisson lumineux. C'est le support des colleurs professionnels, des panneaux de réseau et des campagnes d'affichage extérieur.\n\n## Caractéristiques techniques\n\nPapier 120 g spécialement conçu pour l'encollage : il se tend à la pose, résiste à l'humidité de la colle et ne gondole pas. Impression quadrichromie recto, qualité standard ou haute définition. Tous formats d'affichage : du 60 × 80 cm au 120 × 176 cm abribus, jusqu'aux grands panneaux en lés multiples (4 × 3 m et au-delà). Livraison roulée.\n\n## Avantages\n\nOpacité garantie quel que soit le support de pose, comportement maîtrisé à la colle, rendu homogène en caisson rétroéclairé : le dos bleu évite les mauvaises surprises des papiers standards en extérieur. C'est le choix par défaut de tout affichage confié à un réseau ou à un colleur.",
+        "h1_template": "Affiche dos bleu 120 g — affichage extérieur professionnel",
+        "seo_title": "Affiche dos bleu 120 g — affichage extérieur pro",
+        "seo_description": "Affiches papier dos bleu 120 g : opacité totale, encollage facile, tous formats du 60×80 au panneau 4×3 m. Le standard de l'affichage urbain.",
+        "seo_keywords": ["affiche dos bleu", "papier dos bleu", "blue back", "affichage extérieur", "affiche colleur", "affiche panneau 4x3", "campagne affichage urbain", "affiche opaque"],
+        "commercial_pitch": "Une affiche collée sur une autre affiche ne doit rien laisser transparaître : c'est exactement ce que garantit le dos bleu. Le papier des professionnels de l'affichage, pour des campagnes extérieures nettes du premier au dernier jour.",
+        "benefits": [
+          "Opacité totale : aucune transparence des couches précédentes",
+          "Conçu pour l'encollage : se tend et ne gondole pas",
+          "Compatible caissons rétroéclairés (diffusion homogène)",
+          "Tous formats, du 60×80 aux panneaux en lés multiples",
+          "Standard accepté par les réseaux et colleurs professionnels",
+          "Bonne tenue en extérieur pendant la durée de campagne"
+        ],
+        "use_cases": [
+          "Campagne sur panneaux d'affichage réseau",
+          "Affichage culturel (concerts, spectacles)",
+          "Panneaux de chantier immobilier",
+          "Affichage en caisson lumineux",
+          "Affichage événementiel grande diffusion"
+        ],
+        "usage_examples": [
+          {"title": "Production de spectacles", "description": "Tournée annoncée ville par ville : les affiches dos bleu partent chez les colleurs locaux, la pose est propre même sur des panneaux saturés."},
+          {"title": "Réseau d'affichage", "description": "Campagne 4×3 en lés multiples : le dos bleu assure des raccords invisibles et une opacité constante sur toute la surface."},
+          {"title": "Promoteur", "description": "Palissade de chantier habillée d'affiches dos bleu grand format, remplacées à chaque phase de commercialisation."},
+          {"title": "Cinéma", "description": "Affiches de sortie posées en caissons lumineux de hall : la lumière diffuse sans zone claire ni ombre de l'affiche précédente."}
+        ],
+        "faq": [
+          {"question": "Pourquoi le verso est-il bleu ?", "answer": "La teinte bleue bloque la lumière et masque totalement ce qui se trouve derrière l'affiche : anciennes affiches, raccords de lés ou source lumineuse d'un caisson."},
+          {"question": "Quels formats sont disponibles ?", "answer": "Tous les formats d'affichage : 60×80, 80×120, 120×160, 120×176 cm, et les grands panneaux (320×240 cm, 4×3 m) livrés en plusieurs lés à raccorder."},
+          {"question": "Se pose-t-elle avec quelle colle ?", "answer": "Colle à papier peint ou colle d'affichage classique : le papier 120 g est étudié pour se tendre à l'encollage sans se déchirer."},
+          {"question": "Quelle durée de vie en extérieur ?", "answer": "La durée d'une campagne d'affichage classique (2 à 8 semaines selon exposition) ; ce n'est pas un support permanent."},
+          {"question": "Quel fichier fournir ?", "answer": "PDF CMJN à l'échelle 1 ou 1/2, 5 mm de fonds perdus ; pour les panneaux en lés, le découpage est réalisé en interne à partir de votre visuel complet."}
+        ],
+        "technical_spec": {
+          "formats": ["600 × 800 mm", "800 × 1200 mm", "1200 × 1600 mm", "1200 × 1760 mm", "3200 × 2400 mm et 4 × 3 m en lés multiples", "sur mesure"],
+          "supports": ["papier dos bleu (blue back) 120 g"],
+          "finitions": ["sans finition (support d'encollage)"],
+          "impression": "quadri recto, qualité standard ou haute définition",
+          "quantites": "1 → 2 000 ex., paliers 1/5/10/25/50/100/250",
+          "delais": "standard 48-96 h, express possible",
+          "options": ["découpe en lés pour grands panneaux", "livraison roulée", "réserve de remplacement conseillée"]
+        }
+      }
+    }
+  ],
+  "enrichissements": [
+    {
+      "slug": "carterie",
+      "commercial_pitch": "La carterie, c'est votre marque au format main : cartes de visite, de vœux, de correspondance et d'invitation, sur des cartons épais et des papiers qui se remarquent au toucher. Un petit format, une grande impression.",
+      "benefits": [
+        "Supports rigides 250-450 g au toucher premium",
+        "Finitions signature : dorure, letterpress, soft touch, vernis 3D",
+        "Papiers de création texturés pour se différencier",
+        "Petites séries accessibles, adaptées à chaque usage",
+        "Cohérence graphique sur toute la gamme relationnelle",
+        "Options recyclées et ensemencées disponibles"
+      ],
+      "use_cases": [
+        "Identité complète d'entreprise",
+        "Relations clients et remerciements",
+        "Vœux annuels professionnels",
+        "Invitations événementielles",
+        "Cartes de fidélité commerce"
+      ],
+      "seo_keywords": ["carterie professionnelle", "impression cartes", "carte personnalisée", "carte entreprise", "papier création", "dorure à chaud", "carte premium", "petite série"],
+      "technical_spec": {
+        "formats": ["85 × 55 mm à 148 × 210 mm selon produit", "carrés 65 × 65 à 140 × 140 mm", "doubles volets rainés"],
+        "supports": ["couché demi-mat 350-450 g", "bristol 250-400 g", "papiers de création 300-350 g", "kraft, recyclé, ensemencé"],
+        "finitions": ["pelliculage mat/brillant/soft touch", "vernis sélectif 2D/3D", "dorure à chaud", "letterpress", "gaufrage", "coins arrondis"],
+        "impression": "quadri recto ou recto/verso",
+        "quantites": "25 → 100 000 ex. selon produit",
+        "delais": "standard 48-72 h, express possible",
+        "options": ["multi-visuels", "perforation", "découpe laser"]
+      }
+    },
+    {
+      "slug": "carte_visite_standard",
+      "commercial_pitch": "La carte de visite 85×55 reste le premier réflexe du contact professionnel : en 350 g pelliculé, la vôtre survit au fond de la poche et ressort impeccable au moment décisif. Le détail qui dit le sérieux de votre entreprise.",
+      "benefits": [
+        "Format standard 85 × 55 mm : entre dans tous les porte-cartes",
+        "Couché 350 g rigide, toucher professionnel immédiat",
+        "Pelliculage soft touch pour la mémorisation tactile",
+        "Recto/verso : identité + services ou plan d'accès",
+        "Multi-noms possible dans une même commande",
+        "Réassort rapide en petites quantités"
+      ],
+      "use_cases": [
+        "Équipes commerciales et dirigeants",
+        "Artisans et professions libérales",
+        "Salons et rendez-vous B2B",
+        "Carte remise en caisse de commerce",
+        "Dotation nouveaux collaborateurs"
+      ],
+      "seo_keywords": ["carte de visite", "carte de visite 85x55", "carte de visite professionnelle", "carte de visite 350g", "carte de visite pelliculée", "impression carte de visite", "carte de visite soft touch", "carte de visite entreprise"],
+      "technical_spec": {
+        "formats": ["85 × 55 mm"],
+        "supports": ["couché demi-mat 350 g", "couché demi-mat 450 g", "bristol 250-400 g", "recyclé 350 g", "papiers de création 300-350 g"],
+        "finitions": ["pelliculage mat/brillant/soft touch", "vernis sélectif 2D/3D", "dorure à chaud", "coins arrondis", "sans finition"],
+        "impression": "quadri recto ou recto/verso",
+        "quantites": "50 → 100 000 ex., paliers 100/250/500/1000",
+        "delais": "standard 24-72 h, express possible",
+        "options": ["multi-noms/multi-visuels", "perforation Ø4 mm", "papier ensemencé"]
+      }
+    },
+    {
+      "slug": "carte_visite_horizontale",
+      "commercial_pitch": "L'orientation paysage est la lecture naturelle d'une carte tendue : logo à gauche, nom au centre, contact à droite, tout se lit d'un regard. Le format classique dans sa version la plus lisible.",
+      "benefits": [
+        "Lecture immédiate en un seul balayage horizontal",
+        "Mise en page équilibrée pour logos horizontaux",
+        "Standard 85 × 55 mm compatible tous porte-cartes",
+        "Grammages épais 350-450 g pour la tenue",
+        "Toutes finitions premium disponibles",
+        "Design sobre et corporate par excellence"
+      ],
+      "use_cases": [
+        "Directions et fonctions corporate",
+        "Cabinets conseil et finance",
+        "Cartes multilingues recto/verso",
+        "Réseaux et clubs d'affaires",
+        "Identités à logo horizontal"
+      ],
+      "seo_keywords": ["carte de visite horizontale", "carte de visite paysage", "carte de visite classique", "carte de visite corporate", "carte 85x55 paysage", "impression carte de visite", "carte de visite sobre", "carte professionnelle"],
+      "technical_spec": {
+        "formats": ["85 × 55 mm orientation paysage"],
+        "supports": ["couché demi-mat 350-450 g", "bristol 250-400 g", "papiers de création", "recyclé"],
+        "finitions": ["pelliculage mat/brillant/soft touch", "vernis sélectif", "dorure à chaud", "coins arrondis"],
+        "impression": "quadri recto ou recto/verso",
+        "quantites": "50 → 100 000 ex., paliers 100/250/500/1000",
+        "delais": "standard 24-72 h, express possible",
+        "options": ["multi-noms", "version bilingue recto/verso"]
+      }
+    },
+    {
+      "slug": "carte_visite_carree",
+      "commercial_pitch": "Dans un tas de cartes rectangulaires, la carrée est celle qu'on retrouve en premier. Un format signature pour les métiers créatifs et les marques qui veulent qu'on se souvienne d'elles dès l'échange de cartes.",
+      "benefits": [
+        "Différenciation immédiate face aux cartes standards",
+        "Cadrage carré valorisant logos et monogrammes",
+        "Format compact 65 × 65 mm, original sans être encombrant",
+        "Support idéal pour vernis sélectif et dorure",
+        "Évoque l'univers visuel des réseaux sociaux",
+        "Existe en coins arrondis pour adoucir le geste"
+      ],
+      "use_cases": [
+        "Créatifs, studios et agences",
+        "Architectes et décorateurs",
+        "Marques lifestyle et concept stores",
+        "Photographes et artisans d'art",
+        "Cartes de fidélité originales"
+      ],
+      "seo_keywords": ["carte de visite carrée", "carte carrée 65x65", "carte de visite originale", "carte de visite créative", "carte de visite design", "impression carte carrée", "carte visite atypique", "format carré"],
+      "technical_spec": {
+        "formats": ["65 × 65 mm"],
+        "supports": ["couché demi-mat 350-450 g", "bristol 400 g", "papiers de création 300-350 g", "kraft, recyclé"],
+        "finitions": ["pelliculage mat/brillant/soft touch", "vernis sélectif 2D/3D", "dorure à chaud", "coins arrondis", "letterpress"],
+        "impression": "quadri recto ou recto/verso",
+        "quantites": "50 → 50 000 ex., paliers 100/250/500/1000",
+        "delais": "standard 48-72 h, express possible",
+        "options": ["multi-visuels", "découpe laser sur devis"]
+      }
+    },
+    {
+      "slug": "carte_correspondance",
+      "commercial_pitch": "Un mot manuscrit sur une belle carte vaut dix e-mails : la carte de correspondance donne à vos remerciements, confirmations et messages personnels le poids du papier. L'élégance discrète de la relation client soignée.",
+      "benefits": [
+        "Format allongé propice au message manuscrit",
+        "Papiers non pelliculés adaptés à l'écriture stylo",
+        "En-tête personnalisé : identité présente, sobre",
+        "Carton rigide qui traverse le courrier sans plier",
+        "Compatible enveloppes DL et C6 standards",
+        "Papiers de création pour un registre haut de gamme"
+      ],
+      "use_cases": [
+        "Remerciements clients personnalisés",
+        "Mot d'accompagnement de colis ou devis",
+        "Correspondance de direction",
+        "Suivi après rendez-vous commercial",
+        "Notes internes signées"
+      ],
+      "seo_keywords": ["carte de correspondance", "carte de correspondance entreprise", "carte remerciement client", "carte manuscrite", "papeterie entreprise", "carte avec en-tête", "correspondance professionnelle", "carte DL"],
+      "technical_spec": {
+        "formats": ["210 × 99 mm (DL)", "148 × 105 mm (A6 paysage)", "sur mesure"],
+        "supports": ["bristol blanc 250-400 g", "couché demi-mat 350 g (verso brut)", "papiers de création (vergé, extra blanc)", "recyclé"],
+        "finitions": ["sans pelliculage (surface inscriptible)", "dorure à chaud sur logo", "letterpress", "coins arrondis"],
+        "impression": "quadri recto, verso vierge ou léger",
+        "quantites": "50 → 10 000 ex., paliers 100/250/500",
+        "delais": "standard 48-72 h, express possible",
+        "options": ["enveloppes assorties", "multi-noms pour équipes"]
+      }
+    },
+    {
+      "slug": "carte_voeux",
+      "commercial_pitch": "La carte de vœux est le seul courrier commercial que vos clients attendent : chaque fin d'année, elle rappelle votre entreprise avec chaleur, sans rien vendre. Sur un beau papier avec une dorure, elle finit épinglée au mur, pas à la corbeille.",
+      "benefits": [
+        "Rendez-vous relationnel annuel à forte valeur affective",
+        "Formats simple ou double volet avec intérieur inscriptible",
+        "Dorure et vernis 3D : l'effet précieux des fêtes",
+        "Papiers de création texturés à la hauteur du message",
+        "Personnalisation possible par client ou par équipe",
+        "Versions recyclées et ensemencées pour des vœux engagés"
+      ],
+      "use_cases": [
+        "Vœux de fin d'année aux clients",
+        "Vœux internes aux collaborateurs",
+        "Remerciements de fin de mission",
+        "Vœux de partenaires institutionnels",
+        "Cartes signées par la direction"
+      ],
+      "seo_keywords": ["carte de vœux entreprise", "carte de vœux personnalisée", "vœux professionnels", "carte de vœux dorure", "impression carte de vœux", "carte de vœux 2027", "carte double volet", "vœux clients"],
+      "technical_spec": {
+        "formats": ["105 × 148 mm (A6)", "double volet 148 × 210 mm ouvert", "carré 140 × 140 mm", "2-3 volets message"],
+        "supports": ["couché demi-mat 350 g", "papiers de création 300-350 g", "recyclé, ensemencé", "intérieur inscriptible non pelliculé"],
+        "finitions": ["dorure à chaud", "vernis sélectif 3D", "gaufrage", "letterpress", "pelliculage soft touch extérieur"],
+        "impression": "quadri recto/verso, intérieur imprimé ou vierge",
+        "quantites": "25 → 10 000 ex., paliers 50/100/250/500",
+        "delais": "standard 3-5 jours ouvrés, anticiper la haute saison (nov-déc)",
+        "options": ["enveloppes assorties", "personnalisation nominative", "papier ensemencé à planter"]
+      }
+    },
+    {
+      "slug": "flyer",
+      "commercial_pitch": "Le flyer reste l'arme la plus directe de la communication locale : un visuel, une offre, un contact — distribué là où sont vos clients. Du tract économique grande diffusion à la carte épaisse premium, chaque budget trouve son grammage.",
+      "benefits": [
+        "Le meilleur coût contact du print",
+        "Tous formats du A7 poche au A4 argumentaire",
+        "Grammages 90 à 400 g selon usage et image",
+        "Grandes séries à coût unitaire dégressif",
+        "Finitions premium possibles : vernis, dorure, découpe",
+        "Papiers recyclés et ensemencés disponibles"
+      ],
+      "use_cases": [
+        "Distribution boîtes aux lettres",
+        "Street marketing et main-à-main",
+        "PLV de comptoir",
+        "Encart colis e-commerce",
+        "Annonce promo ou événement"
+      ],
+      "seo_keywords": ["flyer", "prospectus", "tract publicitaire", "impression flyer", "flyer personnalisé", "flyer pas cher", "distribution flyers", "imprimé publicitaire"],
+      "technical_spec": {
+        "formats": ["A7 74 × 105 mm", "A6 105 × 148 mm", "DL 100 × 210 mm", "A5 148 × 210 mm", "A4 210 × 297 mm", "carré 148 × 148 mm", "rond Ø 140 mm", "sur mesure"],
+        "supports": ["offset 90 g", "couché brillant/demi-mat 130-170 g", "couché 250-350 g", "bristol 400 g", "recyclé, kraft, création, ensemencé"],
+        "finitions": ["pelliculage mat/brillant/soft touch", "vernis sélectif 2D/3D", "dorure à chaud", "coins arrondis", "découpe forme"],
+        "impression": "quadri recto ou recto/verso",
+        "quantites": "50 → 100 000 ex., paliers 100/250/500/1000/2500/5000",
+        "delais": "standard 48-72 h, express possible",
+        "options": ["multi-visuels", "coupon détachable", "encre à gratter", "accroche-porte"]
+      }
+    },
+    {
+      "slug": "flyer_a6",
+      "commercial_pitch": "L'A6 est le format d'or de la distribution : assez grand pour un visuel et une offre, assez petit pour être pris sans réfléchir et gardé sans encombrer. Le meilleur compromis impact/coût du prospectus.",
+      "benefits": [
+        "Format carte postale : familier et facile à prendre",
+        "Coût unitaire très bas en grande série",
+        "Se glisse en poche, sac ou portefeuille",
+        "Recto visuel + verso offre : structure efficace",
+        "En 350 g, devient carte promo durable",
+        "Compatible présentoirs à cartes standards"
+      ],
+      "use_cases": [
+        "Distribution boîtes aux lettres locale",
+        "Flyer de caisse en commerce",
+        "Promotion restaurant ou food-truck",
+        "Annonce d'ouverture de magasin",
+        "Carte promo avec code avantage"
+      ],
+      "seo_keywords": ["flyer A6", "flyer 105x148", "prospectus A6", "flyer petit format", "impression flyer A6", "tract A6", "flyer distribution", "flyer carte postale"],
+      "technical_spec": {
+        "formats": ["105 × 148 mm (A6)"],
+        "supports": ["couché brillant/demi-mat 135-170 g", "couché 250-350 g", "offset 90 g", "recyclé"],
+        "finitions": ["sans finition", "pelliculage (grammages épais)", "vernis sélectif", "coins arrondis"],
+        "impression": "quadri recto ou recto/verso",
+        "quantites": "50 → 100 000 ex., paliers 250/500/1000/2500/5000",
+        "delais": "standard 48-72 h, express possible",
+        "options": ["multi-visuels", "encre à gratter", "papier ensemencé"]
+      }
+    },
+    {
+      "slug": "flyer_a5",
+      "commercial_pitch": "L'A5 est le prospectus par excellence : la surface pour un vrai message — visuel, arguments, plan, contact — dans un format qui reste maniable en distribution. Le standard qui fonctionne partout, pour tout.",
+      "benefits": [
+        "Le format prospectus le plus utilisé : lisible et maniable",
+        "Espace suffisant pour argumentaire et plan d'accès",
+        "Excellent ratio surface/coût en grande diffusion",
+        "Entre dans une enveloppe C5 pour mailing",
+        "Grammages 135 à 350 g selon positionnement",
+        "Décliné recto/verso pour offre + conditions"
+      ],
+      "use_cases": [
+        "Campagne boîtes aux lettres",
+        "Programme d'événement local",
+        "Menu à emporter restauration",
+        "Offre promotionnelle de saison",
+        "Support d'information en accueil"
+      ],
+      "seo_keywords": ["flyer A5", "flyer 148x210", "prospectus A5", "impression flyer A5", "tract A5", "flyer publicitaire", "prospectus boîte aux lettres", "flyer promotionnel"],
+      "technical_spec": {
+        "formats": ["148 × 210 mm (A5)"],
+        "supports": ["couché brillant/demi-mat 135-170 g", "couché 250-350 g", "offset 90 g", "recyclé 115-170 g"],
+        "finitions": ["sans finition", "pelliculage (grammages épais)", "vernis sélectif", "dorure à chaud"],
+        "impression": "quadri recto ou recto/verso",
+        "quantites": "50 → 100 000 ex., paliers 250/500/1000/2500/5000/10000",
+        "delais": "standard 48-72 h, express possible",
+        "options": ["multi-visuels", "coupon détachable", "papier ensemencé"]
+      }
+    },
+    {
+      "slug": "flyer_a4",
+      "commercial_pitch": "Quand le message mérite de la place, l'A4 s'impose : un visuel pleine page, un argumentaire complet, une lecture confortable. C'est le flyer qui se comporte comme une fiche produit ou une affichette.",
+      "benefits": [
+        "Grande surface pour visuel fort et texte détaillé",
+        "Fait double emploi : flyer et affichette vitrine",
+        "Format universel : classeurs, présentoirs, enveloppes C4",
+        "Idéal fiches produits et argumentaires techniques",
+        "Pliable en 2 ou 3 pour la distribution",
+        "Grammages 90 à 350 g selon usage"
+      ],
+      "use_cases": [
+        "Fiche produit ou technique",
+        "Affichette de comptoir ou vitrine",
+        "Programme détaillé d'événement",
+        "Tarifs et carte de prestations",
+        "Insert de dossier commercial"
+      ],
+      "seo_keywords": ["flyer A4", "flyer 210x297", "prospectus A4", "fiche produit A4", "affichette A4", "impression flyer A4", "feuillet A4", "tract A4"],
+      "technical_spec": {
+        "formats": ["210 × 297 mm (A4)"],
+        "supports": ["offset 90-120 g", "couché brillant/demi-mat 135-170 g", "couché 250-350 g", "recyclé"],
+        "finitions": ["sans finition", "vernis sélectif", "pelliculage (grammages épais)", "pli optionnel (2 ou 3 volets)"],
+        "impression": "quadri recto ou recto/verso",
+        "quantites": "50 → 100 000 ex., paliers 100/250/500/1000/2500",
+        "delais": "standard 48-72 h, express possible",
+        "options": ["multi-visuels", "perforation classeur sur demande"]
+      }
+    },
+    {
+      "slug": "flyer_dl",
+      "commercial_pitch": "Le flyer DL a le chic des formats allongés : élégant en main, parfait en présentoir, il entre tel quel dans une enveloppe à fenêtre. Le format malin qui fait à la fois flyer, carte tarif et insert de mailing.",
+      "benefits": [
+        "Format allongé 100 × 210 mm, élégant et distinctif",
+        "Entre directement dans une enveloppe DL",
+        "Idéal présentoirs à documents verticaux",
+        "Mise en page en liste très naturelle (menus, tarifs)",
+        "Économique : trois DL dans une feuille A4",
+        "En 350 g : carte tarif ou marque-page premium"
+      ],
+      "use_cases": [
+        "Insert de mailing sous enveloppe DL",
+        "Carte tarifs ou prestations",
+        "Menu ou carte de bar",
+        "Marque-page publicitaire",
+        "Flyer de présentoir d'accueil"
+      ],
+      "seo_keywords": ["flyer DL", "flyer 10x21", "flyer 100x210", "format DL", "flyer allongé", "insert enveloppe DL", "impression flyer DL", "carte tarif"],
+      "technical_spec": {
+        "formats": ["100 × 210 mm (DL)"],
+        "supports": ["couché brillant/demi-mat 135-170 g", "couché 250-350 g", "offset 90 g", "recyclé"],
+        "finitions": ["sans finition", "pelliculage (grammages épais)", "vernis sélectif", "coins arrondis"],
+        "impression": "quadri recto ou recto/verso",
+        "quantites": "50 → 100 000 ex., paliers 250/500/1000/2500",
+        "delais": "standard 48-72 h, express possible",
+        "options": ["multi-visuels", "perforation marque-page", "coupon détachable"]
+      }
+    },
+    {
+      "slug": "depliant",
+      "commercial_pitch": "Le dépliant hiérarchise votre message : chaque pli est un chapitre, chaque volet une idée. Du 2 volets sobre au portefeuille sophistiqué, le pliage transforme une simple feuille en parcours de lecture guidé.",
+      "benefits": [
+        "Structure la lecture : accroche, contenu, contact",
+        "9 types de plis pour 9 façons de raconter",
+        "Compact fermé, généreux ouvert",
+        "Livré plié, prêt à distribuer",
+        "Compatible enveloppes standards (formats DL, C5)",
+        "Du 90 g économique au 350 g rainé premium"
+      ],
+      "use_cases": [
+        "Plaquette commerciale d'entreprise",
+        "Guide ou mode d'emploi",
+        "Carte et menu de restaurant",
+        "Programme d'événement",
+        "Documentation de salon"
+      ],
+      "seo_keywords": ["dépliant", "dépliant publicitaire", "plaquette commerciale", "dépliant plié", "impression dépliant", "dépliant 3 volets", "pli roulé", "pli accordéon"],
+      "technical_spec": {
+        "formats": ["ouverts A5 à A2 et jusqu'à 630 × 297 mm", "fermés DL, A5, A4, carré", "sur mesure"],
+        "supports": ["offset 90-120 g", "couché brillant/demi-mat 130-350 g", "recyclé, kraft, création"],
+        "finitions": ["vernis sélectif 2D/3D", "dorure à chaud", "pelliculage", "rainage dès 170 g"],
+        "impression": "quadri recto/verso",
+        "quantites": "50 → 100 000 ex., paliers 100/250/500/1000/2500",
+        "delais": "standard 48-72 h, express possible",
+        "options": ["plis roulé, central, décalé, accordéon, portefeuille, croisé, fenêtre", "livré plié", "multi-visuels"]
+      }
+    },
+    {
+      "slug": "brochure",
+      "commercial_pitch": "Quand un dépliant ne suffit plus, la brochure prend le relais : des dizaines de pages reliées pour un catalogue, un rapport ou un magazine qui installe durablement votre crédibilité. Le support qui reste sur le bureau de vos clients.",
+      "benefits": [
+        "De 8 à 512 pages selon la reliure choisie",
+        "4 reliures : agrafée, dos carré collé, cousue, wire-o",
+        "Couverture personnalisable : pelliculage, vernis, papier création",
+        "Dès 1 exemplaire : maquette, tirage de tête ou série",
+        "Mix grammages couverture/intérieur pour maîtriser le budget",
+        "Rendu éditorial professionnel type livre ou magazine"
+      ],
+      "use_cases": [
+        "Catalogue produits annuel",
+        "Rapport d'activité ou RSE",
+        "Magazine ou revue interne",
+        "Lookbook de collection",
+        "Manuel ou guide technique"
+      ],
+      "seo_keywords": ["brochure", "impression brochure", "catalogue", "livret", "brochure agrafée", "dos carré collé", "magazine entreprise", "brochure personnalisée"],
+      "technical_spec": {
+        "formats": ["A4, A5, A6, DL 99 × 210 mm", "carrés 148 × 148 et 210 × 210 mm", "portrait ou paysage", "sur mesure"],
+        "supports": ["couverture couché 250-300 g, offset, texturé, recyclé", "intérieur offset 80-120 g ou couché 90-170 g"],
+        "finitions": ["pelliculage mat/brillant/soft touch/sablé", "vernis sélectif 2D", "rabats de couverture"],
+        "impression": "quadri recto/verso",
+        "quantites": "1 → plusieurs milliers selon reliure",
+        "delais": "standard 3-7 jours ouvrés selon reliure, express possible",
+        "options": ["reliures agrafée, collée, cousue, spirale", "onglets sur mesure", "papier intérieur recyclé"]
+      }
+    },
+    {
+      "slug": "brochure_piquee",
+      "commercial_pitch": "Deux agrafes, un dos plat, un budget maîtrisé : la brochure piquée est la solution la plus rapide et la plus économique pour publier de 8 à 80 pages. Le standard des catalogues, programmes et livrets qui vont à l'essentiel.",
+      "benefits": [
+        "La reliure la plus économique du marché",
+        "Ouverture à plat facilitant la lecture",
+        "Pagination souple de 8 à 80 pages intérieures (multiples de 4)",
+        "Délais courts, dès 1 exemplaire",
+        "Légère : économique aussi à l'affranchissement",
+        "Couverture 250 g+ pelliculable pour un rendu soigné"
+      ],
+      "use_cases": [
+        "Catalogue ou tarif saisonnier",
+        "Programme de festival ou saison culturelle",
+        "Livret d'accueil entreprise",
+        "Notice ou guide utilisateur",
+        "Fanzine ou publication associative"
+      ],
+      "seo_keywords": ["brochure agrafée", "piqûre à cheval", "brochure piquée", "livret agrafé", "impression brochure agrafée", "catalogue agrafé", "brochure 2 agrafes", "programme imprimé"],
+      "technical_spec": {
+        "formats": ["A4, A5, A6, DL 99 × 210 mm", "carrés 148 et 210 mm", "portrait/paysage", "sur mesure"],
+        "supports": ["couverture couché 250-300 g ou offset, recyclé, texturé", "intérieur offset 80-120 g ou couché demi-mat 90-170 g"],
+        "finitions": ["pelliculage mat/brillant/soft touch/sablé", "vernis sélectif 2D", "sans couverture possible (autocouverture)"],
+        "impression": "quadri recto/verso",
+        "quantites": "1 → 10 000 ex., paliers 25/50/100/250/500",
+        "delais": "standard 48-96 h, express possible",
+        "options": ["8 à 80 pages intérieures par pas de 4", "2 agrafes à cheval", "version recyclée"]
+      }
+    },
+    {
+      "slug": "brochure_dos_carre",
+      "commercial_pitch": "Le dos carré collé donne à votre document le statut d'un vrai livre : un dos imprimable, une tenue en bibliothèque, une crédibilité immédiate. Le choix des catalogues volumineux, rapports annuels et éditions qui durent.",
+      "benefits": [
+        "Aspect livre professionnel avec dos imprimable",
+        "Grande capacité : de 36 à 500 pages et plus",
+        "Tient debout en rayonnage, tranche visible",
+        "Couverture épaisse pelliculée très résistante",
+        "Valorise le contenu : perçu comme une édition",
+        "Dès l'exemplaire unique pour maquettes et tirages de tête"
+      ],
+      "use_cases": [
+        "Catalogue général volumineux",
+        "Rapport annuel ou institutionnel",
+        "Livre d'entreprise ou beau livre",
+        "Mémoire, thèse, autoédition",
+        "Lookbook premium de marque"
+      ],
+      "seo_keywords": ["dos carré collé", "brochure dos carré", "impression livre", "catalogue dos carré", "reliure collée", "livre broché", "rapport annuel imprimé", "autoédition"],
+      "technical_spec": {
+        "formats": ["A4, A5, A6, carrés", "sur mesure de 145 à 297 mm", "portrait/paysage"],
+        "supports": ["couverture couché demi-mat/brillant 250-300 g, offset 300 g, texturé, recyclé", "intérieur 80-170 g offset ou couché"],
+        "finitions": ["pelliculage mat/brillant/soft touch", "vernis sélectif", "rabats possibles", "dos imprimé"],
+        "impression": "quadri recto/verso",
+        "quantites": "1 → 500 ex. en numérique, milliers en offset",
+        "delais": "standard 4-7 jours ouvrés, express possible",
+        "options": ["36 à 512 pages, dos minimum ~1,3 mm", "couverture à rabats", "version cousue pour durabilité maximale"]
+      }
+    },
+    {
+      "slug": "brochure_spirale",
+      "commercial_pitch": "La spirale métallique est la seule reliure qui s'ouvre parfaitement à plat et se replie sur elle-même : idéale pour tout document qu'on consulte en travaillant. Manuels, carnets techniques, supports de formation — la reliure des documents qui servent.",
+      "benefits": [
+        "Ouverture 100 % à plat, rotation complète à 360°",
+        "Consultation mains libres pendant le travail",
+        "Reliure métallique très résistante à l'usage intensif",
+        "Spirale blanche ou noire assortie à votre charte",
+        "Pages tournées des centaines de fois sans fatigue",
+        "Couverture rigide 300 g protégeant l'intérieur"
+      ],
+      "use_cases": [
+        "Support de formation ou séminaire",
+        "Manuel technique d'atelier",
+        "Carnet de suivi ou de chantier",
+        "Book de présentation commerciale",
+        "Recueil de recettes ou protocoles"
+      ],
+      "seo_keywords": ["reliure spirale", "wire-o", "brochure spirale", "reliure métallique", "document relié spirale", "support de formation imprimé", "manuel spirale", "impression wire-o"],
+      "technical_spec": {
+        "formats": ["A4 210 × 297 mm", "A5 148 × 210 mm", "sur mesure"],
+        "supports": ["couverture couché 300 g demi-mat ou brillant", "intérieur couché 130 g demi-mat ou brillant"],
+        "finitions": ["pelliculage de couverture", "spirale métal blanche ou noire", "couverture transparente en option"],
+        "impression": "quadri recto/verso",
+        "quantites": "5 → 2 000 ex., paliers 5/10/25/50/100",
+        "delais": "standard 5-8 jours ouvrés",
+        "options": ["12 à 64 pages totales", "trous calibrés wire-o", "ouverture à plat garantie"]
+      }
+    },
+    {
+      "slug": "brochure_cousue",
+      "commercial_pitch": "Le dos cousu est la reliure des éditions qui traversent le temps : les cahiers sont cousus au fil avant collage, le livre s'ouvre généreusement et ne perd jamais une page. Le haut de gamme de la brochure, pour les documents qui engagent votre image.",
+      "benefits": [
+        "Solidité maximale : pages cousues, jamais arrachées",
+        "Ouverture ample sans casser le dos",
+        "Fil apparent possible : signature artisanale visible",
+        "Longévité d'édition : le choix des beaux livres",
+        "Positionne le document comme un objet précieux",
+        "Compatible couvertures création et finitions premium"
+      ],
+      "use_cases": [
+        "Beau livre ou ouvrage d'art",
+        "Édition anniversaire d'entreprise",
+        "Portfolio d'architecte ou de studio",
+        "Catalogue d'exposition",
+        "Livre de marque (brand book)"
+      ],
+      "seo_keywords": ["dos cousu", "reliure cousue", "brochure cousue", "dos carré collé cousu", "beau livre", "reliure fil", "édition premium", "livre cousu collé"],
+      "technical_spec": {
+        "formats": ["A4, A5", "carrés", "sur mesure"],
+        "supports": ["couverture couché 250-300 g, papiers de création, texturés", "intérieur couché ou offset 90-170 g"],
+        "finitions": ["pelliculage mat/soft touch", "dorure à chaud sur couverture", "fil de couture apparent en option", "rabats"],
+        "impression": "quadri recto/verso",
+        "quantites": "10 → 2 000 ex. selon projet",
+        "delais": "standard 7-10 jours ouvrés",
+        "options": ["cahiers cousus puis collés", "pagination élevée possible", "tranchefile sur devis"]
+      }
+    },
+    {
+      "slug": "affiche",
+      "commercial_pitch": "L'affiche impose votre message dans l'espace : vitrine, mur, panneau, abribus — du A3 de comptoir au 4×3 urbain, c'est le média de la visibilité pure. Un visuel fort, un format adapté au lieu, et votre communication existe physiquement.",
+      "benefits": [
+        "Tous formats du A3 au panneau 4×3 m",
+        "Papiers dédiés à chaque usage : intérieur, vitrine, extérieur",
+        "Impression dès 1 exemplaire, HD disponible",
+        "Papier fluo pour les promotions à fort impact",
+        "Dos bleu et encapsulage pour l'extérieur",
+        "Renouvellement rapide au rythme de vos campagnes"
+      ],
+      "use_cases": [
+        "Vitrine et point de vente",
+        "Campagne d'affichage urbain",
+        "Signalétique d'événement",
+        "Décoration murale de locaux",
+        "Annonce culturelle (concert, expo)"
+      ],
+      "seo_keywords": ["affiche", "poster", "impression affiche", "affiche publicitaire", "affiche personnalisée", "affiche grand format", "affiche événement", "impression poster"],
+      "technical_spec": {
+        "formats": ["A3 297 × 420 mm à A0 841 × 1189 mm", "400 × 600, 600 × 800 mm", "1200 × 1760 mm abribus", "jusqu'à 4 × 3 m en lés", "sur mesure"],
+        "supports": ["couché demi-mat/brillant 130-170 g", "offset 90-120 g", "dos bleu 120 g", "recyclé 115-135 g", "fluo", "papier photo 200-230 g"],
+        "finitions": ["vernis 2D", "encapsulage", "bords vifs"],
+        "impression": "quadri recto (recto/verso possible), standard ou HD",
+        "quantites": "1 → 20 000 ex., paliers 1/5/10/25/50/100",
+        "delais": "standard 24-96 h selon format, express possible",
+        "options": ["pli optionnel pour expédition", "livraison roulée", "usage intérieur/extérieur"]
+      }
+    },
+    {
+      "slug": "affiche_a3",
+      "commercial_pitch": "L'A3 est l'affichette universelle : format des vitrines de proximité, des panneaux d'information et des supports de caisse. Imprimée à l'unité ou en série, elle se renouvelle aussi vite que vos actualités.",
+      "benefits": [
+        "Format compact adapté aux petits espaces d'affichage",
+        "Compatible cadres clic-clac et porte-affiches A3",
+        "Très économique, même en petite quantité",
+        "Impression dès 1 exemplaire",
+        "Parfaite en réseau : une affichette par point de vente",
+        "Déclinable depuis vos fichiers A4 agrandis"
+      ],
+      "use_cases": [
+        "Affichette vitrine de commerce",
+        "Information en point de vente",
+        "Menu ou promo du jour",
+        "Communication interne (locaux, ateliers)",
+        "Annonce associative locale"
+      ],
+      "seo_keywords": ["affiche A3", "affichette A3", "poster A3", "impression A3", "affiche 297x420", "affiche vitrine", "affiche petit format", "affichette commerce"],
+      "technical_spec": {
+        "formats": ["297 × 420 mm (A3)"],
+        "supports": ["couché demi-mat/brillant 130-170 g", "offset 90-120 g", "recyclé 115-135 g"],
+        "finitions": ["sans finition", "vernis 2D recto"],
+        "impression": "quadri recto ou recto/verso",
+        "quantites": "1 → 20 000 ex., paliers 1/10/25/50/100/250",
+        "delais": "standard 24-72 h, express possible",
+        "options": ["qualité standard ou HD", "livraison à plat"]
+      }
+    },
+    {
+      "slug": "affiche_a2",
+      "commercial_pitch": "L'A2 double la présence de l'A3 sans exiger un grand mur : le bon format pour être vu à cinq mètres dans une vitrine, un hall ou un couloir de passage. L'équilibre parfait entre impact et encombrement.",
+      "benefits": [
+        "Lisibilité confortable jusqu'à 5 mètres",
+        "S'insère dans vitrines et halls sans dominer l'espace",
+        "Compatible cadres et chevalets A2 standards",
+        "Impression unitaire pour tests de visuels",
+        "Coût contenu pour un renouvellement fréquent",
+        "Papier fluo disponible pour les urgences promo"
+      ],
+      "use_cases": [
+        "Vitrine de moyenne surface",
+        "Affichage hall d'accueil",
+        "Promotion en pharmacie ou commerce",
+        "Signalétique de salon",
+        "Affiche culturelle de proximité"
+      ],
+      "seo_keywords": ["affiche A2", "poster A2", "impression A2", "affiche 420x594", "affiche vitrine A2", "affiche moyenne format", "impression affiche", "affiche promotionnelle"],
+      "technical_spec": {
+        "formats": ["420 × 594 mm (A2)"],
+        "supports": ["couché demi-mat/brillant 130-170 g", "offset 90-120 g", "recyclé", "fluo"],
+        "finitions": ["sans finition", "vernis 2D recto"],
+        "impression": "quadri recto ou recto/verso",
+        "quantites": "1 → 10 000 ex., paliers 1/5/10/25/50/100",
+        "delais": "standard 24-72 h, express possible",
+        "options": ["qualité standard ou HD", "pli central optionnel pour expédition"]
+      }
+    },
+    {
+      "slug": "affiche_a1",
+      "commercial_pitch": "Avec près d'un demi-mètre carré, l'A1 entre dans la cour du vrai grand format : visible à dix mètres, elle habille chevalets de trottoir, vitrines profondes et murs d'événements. Le format qui se remarque sans exiger un panneau dédié.",
+      "benefits": [
+        "≈0,5 m² : impact visuel fort à distance",
+        "Standard des chevalets et stop-trottoirs grands modèles",
+        "Idéale murs d'accueil et fonds de vitrine",
+        "Impression HD pour visuels photographiques",
+        "Unité possible pour événements ponctuels",
+        "Livrée roulée, sans marque de pli"
+      ],
+      "use_cases": [
+        "Chevalet de trottoir grand format",
+        "Fond de vitrine ou mur d'accueil",
+        "Plan ou programme d'événement",
+        "Affiche de spectacle en réseau urbain",
+        "Signalétique directionnelle temporaire"
+      ],
+      "seo_keywords": ["affiche A1", "poster A1", "impression A1", "affiche 594x841", "affiche grand format", "affiche chevalet", "poster mural", "impression grand format"],
+      "technical_spec": {
+        "formats": ["594 × 841 mm (A1)"],
+        "supports": ["couché demi-mat/brillant 130-170 g", "offset 90-120 g", "recyclé satin 115 g", "dos bleu 120 g", "fluo"],
+        "finitions": ["sans finition", "vernis 2D", "encapsulage en option"],
+        "impression": "quadri recto ou recto/verso, standard ou HD",
+        "quantites": "1 → 5 000 ex., paliers 1/5/10/25/50/100",
+        "delais": "standard 24-72 h, express possible",
+        "options": ["livraison roulée", "bords vifs"]
+      }
+    },
+    {
+      "slug": "affiche_a0",
+      "commercial_pitch": "L'A0, c'est un mètre carré de communication : le format des murs d'exposition, des salons professionnels et des posters scientifiques. Quand le message doit dominer l'espace, aucun format standard ne va plus loin.",
+      "benefits": [
+        "1 m² de surface : présence maximale en format standard",
+        "Format officiel des posters scientifiques et congrès",
+        "Lisible à plus de dix mètres",
+        "Impression HD pour cartes, plans et photos détaillées",
+        "Unité possible : parfait pour un événement unique",
+        "Livrée roulée en emballage renforcé"
+      ],
+      "use_cases": [
+        "Poster scientifique de congrès",
+        "Mur d'exposition ou de salon",
+        "Plan de site grand format",
+        "Décor événementiel ponctuel",
+        "Affichage institutionnel de hall"
+      ],
+      "seo_keywords": ["affiche A0", "poster A0", "impression A0", "affiche 841x1189", "poster scientifique", "poster congrès", "impression grand format", "affiche 1m2"],
+      "technical_spec": {
+        "formats": ["841 × 1189 mm (A0)"],
+        "supports": ["couché demi-mat/brillant 130-170 g", "offset 120 g", "dos bleu 120 g", "papier photo 200-230 g"],
+        "finitions": ["sans finition", "vernis 2D", "encapsulage en option"],
+        "impression": "quadri recto, qualité standard ou HD",
+        "quantites": "1 → 1 000 ex., paliers 1/5/10/25/50",
+        "delais": "standard 24-72 h, express possible",
+        "options": ["livraison roulée", "tube renforcé", "bords vifs"]
+      }
+    }
+  ]
+}

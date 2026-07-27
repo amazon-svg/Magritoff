@@ -1189,6 +1189,80 @@ Architecture v1.1 finalisée :
 
 ---
 
+### §4.18 ADR-GAMME-FLOOR-1 — « dès X € » : prix minimum par gamme calculé à la volée (gabarit boutique v2)
+
+> **Question (a) de la spec UX gabarit v2 (2026-07-26).** Les tuiles `GammeTile` (home vitrine, landings familles) affichent « dès X € HT ». Calcul à la volée vs cache ?
+
+**Audit prod 2026-07-26 (DoD #4, projet `ightkxebexuzfjdbpsdg`)** :
+
+| Mesure | Valeur |
+|---|---|
+| Boutiques actives | 11 |
+| `product_library` total | 114 produits (tous avec `gamme_slug`) |
+| Prix caché `price_ht > 0` | **8 / 114** (106 produits à 0 €) |
+| `shop_products` | 5 (dont 3 à prix ≤ 0) |
+| Overrides négociés `shop_product_pricing` | 0 |
+| Gammes PIM | 81 (16 familles), 101 définitions |
+| Souscriptions gammes / tenant | 22-26 |
+| Commandes `tenant_orders` | 25 |
+
+Deux enseignements : **(1)** les catalogues sont minuscules (≤ ~30 produits/boutique) — l'intégralité du catalogue d'une boutique est déjà chargée par `PublicShop` au mount, un min par gamme en mémoire coûte 0 ; **(2)** le cache de prix library est quasi vide (7 % de prix > 0) — un « dès X € » fondé sur le seul cache serait vide sur presque toutes les gammes.
+
+**Décision** :
+
+1. **Calcul à la volée, client-side, sans nouvelle table.** Helper pur `computeGammeFloorPrices(products, gammes): Map<gammeSlug, PriceResolution>` — min sur `resolvePrice()` (cascade canonique §3.5 : `shop_pricing > clariprint > library_cached > prix_marche > zero`) des produits **actifs** de la gamme dans la boutique. Réutilise les données déjà fetchées, testable vitest.
+2. **La source suit le prix.** Le « dès X € » hérite de la `PriceSource` du produit minimal → badge cohérent avec le Price Display Pattern de la spec UX : cache/négocié = badge info, `prix_marche` = ⚠️ Prix marché. Vu l'audit, le prix marché (`estimateMarketPriceHT`) sera la source dominante au démarrage — assumé et badgé, jamais silencieux.
+3. **Gamme sans produit price-able** (résolution `zero`) → « Prix à la configuration » (jamais « 0 € », jamais de tuile masquée).
+4. **Aucun appel Clariprint pour les tuiles.** Une home affiche 8-12 tuiles ; un calcul Clariprint prend 1-30 s et présente des anomalies connues (§3.6). Le seul calcul Clariprint « live » reste celui de la page gamme elle-même (config par défaut au mount, spec UX < 3 s).
+
+**Options rejetées** :
+- **Cache DB par gamme** (table + invalidation + cron) : infra disproportionnée pour des catalogues de 30 produits et un POC (lesson 2026-07-07 calibrage POC/démo). À réévaluer quand les catalogues seront denses.
+- **Calcul Clariprint à l'affichage des tuiles** : latence rédhibitoire, consommation quota, anomalies §3.6 exposées en masse.
+
+**Story future tracée (V2+)** : `S-GAMME-FLOOR-CLARIPRINT` — batch (edge cron) du prix plancher réel par config par défaut S2.33 des gammes souscrites, stocké `product_gammes.floor_price_ht` + `floor_price_computed_at`, prioritaire sur l'estimation dans la cascade. Déclencheur : catalogues prod densifiés OU sortie du cadre POC.
+
+---
+
+### §4.19 ADR-SEO-SPA-1 — SEO des pages gammes dans la SPA Vite (gabarit boutique v2)
+
+> **Question (b) de la spec UX.** Le SEO des pages gammes est un objectif premier du gabarit (parcours 1 : Google → `/shop/:slug/g/:gamme`). Contrainte : **Vite 6 + React 18 verrouillés** (§ stack), pas de framework SSR.
+
+**État des lieux** : `/shop/:slug` est une route unique dont les vues (home/catalog/product/orders/thankYou) sont un **state interne** de `PublicShop` (`useState<PortalView>`) — aucune URL par gamme n'existe (lesson 2026-06-10 : states ≠ routes). Le contenu est par-tenant → pré-rendu build-time impossible. `product_definitions` porte déjà `seo_title`/`seo_description` templatisés (S-PIM-EXAPRINT).
+
+**Décision — 4 volets, sans changer de stack** :
+
+1. **Routes réelles d'abord (préalable structurel).** `/shop/:slug` devient un arbre de routes React Router imbriquées : `/shop/:slug` (home), `/shop/:slug/g/:gamme`, `/shop/:slug/account/*`. Les states internes migrent vers le routeur ; les anciennes entrées (`?tab=`, states) sont redirigées. Une URL stable et canonique par gamme est la condition n°1 de tout SEO — et résout au passage le deep-linking des emails de notification (story de suivi tracée depuis S-ORDER-ROLES).
+2. **Meta dynamiques client-side** : hook maison `useSeoMeta({title, description, canonical, robots, og})` (~50 lignes, pas de dépendance `react-helmet-async` — Rule of Three : un seul consommateur de meta dynamiques, une lib n'est pas justifiée). Source : `product_definitions.seo_title/seo_description` (placeholders résolus avec la config par défaut), repli « {Gamme} — {Boutique} ». Googlebot exécute le JS (rendering queue) : suffisant pour l'objectif POC/bêta.
+3. **Données structurées JSON-LD** injectées client-side sur la page gamme : `Product` + `Offer` (`lowPrice` = plancher §4.18 **uniquement si source ≠ prix_marche** — ne jamais engager un prix estimé dans le balisage), `BreadcrumbList`.
+4. **Sitemap + indexabilité par boutique** : edge function `shop-sitemap` (GET `?slug=`) générant le XML des pages gammes **souscrites** de la boutique ; les boutiques `access_mode='invite_only'` (§4.20) reçoivent `robots: noindex` via `useSeoMeta` et sont exclues du sitemap. Seules les boutiques en inscription libre sont indexables.
+
+**Limites assumées (documentées, pas corrigées en v1.1)** : les crawlers sociaux (og: pour LinkedIn/WhatsApp) ne rendent pas le JS → cards génériques. Acceptable POC.
+
+**Options rejetées** : migration Next/Remix ou vite-plugin-ssr (stack verrouillée, coût de refonte massif) ; SSG build-time (tenants dynamiques, slugs inconnus au build) ; pré-rendu dynamique par sniffing user-agent (prerender.io / proxy edge : complexité opérationnelle, fragilité, risque cloaking) — réévaluables **V2+ si** la Search Console d'une boutique pilote démontre un vrai canal SEO.
+
+---
+
+### §4.20 ADR-CHECKOUT-1 — Checkout : auto-inscription légère par boutique, pas d'achat invité (gabarit boutique v2)
+
+> **Question (c) de la spec UX.** Parcours 1 (visiteur SEO → première commande) : que fait-on au checkout d'un visiteur sans compte ? Exigence UX : **≤ 2 écrans entre panier et confirmation**.
+
+**État des lieux** : l'authentification est obligatoire pour valider un panier (décision B2, Sprint 4). Les acheteurs sont des `tenant_members` scope `shop_only`, créés **exclusivement par invitation** admin (+ `auto_accept_pending_invitations`). Ce modèle tue le parcours 1 : un visiteur SEO ne peut pas commander.
+
+**Décision — l'identité reste obligatoire, c'est son acquisition qui devient self-service** :
+
+1. **Pas de checkout invité anonyme.** Tout le modèle transactionnel v1.1 suppose une identité : `tenant_orders.user_id`, RLS, workflow de validation N+1 (§4.12), édition de commande draft, historique/renouvellement, notifications. Une commande orpheline casserait chacun de ces mécanismes — et le B2B réel (persona) commande avec un compte.
+2. **`shops.access_mode`** : colonne `text CHECK IN ('invite_only','self_signup') DEFAULT 'invite_only'`. Rétro-compat totale : toutes les boutiques existantes restent sur invitation (statu quo). L'imprimeur choisit par boutique (toggle « Inscription libre » dans `DashboardShopEditor`).
+3. **Boutique `self_signup`** : au checkout non-loggé, **écran unique « Identification »** (2 onglets : Se connecter / Créer un compte — email, mot de passe, nom, société). La création appelle la RPC `self_register_shop_buyer(p_shop_id)` SECURITY DEFINER : vérifie `shops.active AND access_mode='self_signup'`, crée le `tenant_member` **scope `shop_only` sur cette seule boutique** + assigne le preset rôle Acheteur (`tenant_role_assignments`), idempotente. Allow-list stricte (lesson 2026-05-27) : jamais d'accès `magrit_full`, jamais d'héritage sous-tenants.
+4. **Parcours** : drawer panier → \[écran 1 : Identification, sauté si loggé] → écran 2 : récap + « Commander » → `PortalThankYou`. Loggé = 1 écran. **≤ 2 écrans ✔.**
+5. **Boutique `invite_only`** : checkout non-loggé → écran login + lien « Demander un accès » (formulaire → notification admin tenant, réutilise Resend). Pas de création de compte.
+6. **Abus** : surface limitée POC — contrainte d'unicité email + la RPC ne donne accès qu'au catalogue déjà publiquement lisible. Rate-limiting/captcha tracés V2+ (aligné calibrage POC 2026-07-07).
+
+**Options rejetées** : guest checkout email-only (contradiction modèle commandes + workflow rôles, cf. 1) ; invitation-only strict (statu quo — bloque le parcours 1 et l'objectif SEO §4.19) ; auto-inscription globale non contrôlée par boutique (une boutique B2B privée type ERAM ne doit jamais accepter d'inconnus — le choix appartient au tenant).
+
+**Migrations** : `shops.access_mode` + RPC `self_register_shop_buyer` + policy éventuelle. **PAT requis au déploiement.**
+
+---
+
 🏗️ **Architecture Magrit / e-shop v1.1 — terminée.**
 
 > _Le code suit l'architecture, pas l'inverse. Toute déviation des décisions ci-dessus doit être documentée et justifiée. Mettre à jour ce document si la planification évolue._

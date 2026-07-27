@@ -155,8 +155,11 @@ export const router = createBrowserRouter([
   {
     element: <AppShell />,
     children: [
-      // Boutique publique — anonyme, pas de tenant
-      { path: "/shop/:slug", element: lazyRoute(<PublicShop />) },
+      // Boutique publique — anonyme, pas de tenant.
+      // S7.1 (ADR §4.19-1) : catch-all — les vues du portail sont des URLs
+      // (`/catalog`, `/p/:id`, `/orders`, `/thank-you`, `/g/:gamme` S7.3,
+      // `/account/*` S7.10) résolues par parsePortalPath dans PublicShop.
+      { path: "/shop/:slug/*", element: lazyRoute(<PublicShop />) },
 
       // Flux hors-tenant (auth, onboarding, picker, invitation)
       {
