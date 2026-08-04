@@ -2,7 +2,7 @@
 
 > PRD produit global — reprise brownfield
 >
-> Version : 0.1  
+> Version : 0.2  
 > Date : 2026-08-04  
 > Statut : draft de cadrage à valider par le Product Owner  
 > Périmètre observé : dépôt `Magritoff`, branche `main`, jusqu'au commit `177edb3`  
@@ -10,13 +10,13 @@
 
 ## Summary
 
-Magrit est un SaaS B2B multi-tenant destiné aux imprimeurs et à leurs clients. Il réunit dans un même produit un copilote de vente print, un catalogue PIM, la préparation de devis, des boutiques B2B personnalisées et un portail acheteur couvrant la découverte produit, la configuration, le panier, le checkout, le suivi et le renouvellement des commandes. Magrit s'appuie sur Clariprint pour les données techniques et le calcul print, sur un enrichissement assisté par LLM pour structurer l'offre, et sur un modèle de données Supabase isolé par tenant.
+Magrit est un SaaS B2B multi-tenant destiné aux imprimeurs et à leurs clients. Il réunit dans un même produit un copilote de vente print, un catalogue PIM, la préparation de devis, la réponse aux appels d'offres, des boutiques B2B personnalisées et un portail acheteur couvrant la découverte produit, la configuration, le panier, le checkout, le suivi et le renouvellement des commandes. Magrit s'appuie sur Clariprint pour les données techniques et le calcul print, sur un enrichissement assisté par LLM pour structurer l'offre, et sur un modèle de données Supabase isolé par tenant.
 
 Le projet est brownfield : une part importante de ces capacités existe déjà dans le dépôt, mais elle résulte d'itérations successives et n'est pas décrite par un document produit global à jour. Ce PRD établit la référence produit commune avant toute décision de refonte, de découpage en packages ou de réécriture.
 
 ## Business Goal
 
-Permettre à un imprimeur de transformer plus vite une demande print en offre vendable et ré-commandable, puis d'offrir à ses acheteurs une expérience B2B moderne sans devoir construire ni maintenir un site e-commerce print spécifique. Le produit doit réduire le travail manuel de qualification, de chiffrage, de mise en catalogue et de suivi, tout en préservant le contrôle commercial de l'imprimeur, la fiabilité des données techniques et l'isolation stricte entre organisations.
+Permettre à un imprimeur de transformer plus vite une demande print, y compris un appel d'offres volumineux, en offre vendable et ré-commandable, puis d'offrir à ses acheteurs une expérience B2B moderne sans devoir construire ni maintenir un site e-commerce print spécifique. Le produit doit réduire le travail manuel de qualification, de lecture des dossiers de consultation, de chiffrage, de mise en catalogue et de suivi, tout en préservant le contrôle commercial de l'imprimeur, la fiabilité des données techniques et l'isolation stricte entre organisations.
 
 ## Capabilities
 
@@ -26,6 +26,7 @@ Permettre à un imprimeur de transformer plus vite une demande print en offre ve
 - Intégration Clariprint isolée derrière un adaptateur pour les configurations et prix print
 - Bibliothèques tenant de produits et de devis réutilisables
 - Création, édition, validation et historisation des devis
+- Gestion des réponses aux appels d'offres : dossier de consultation, bordereaux volumineux, chiffrage, contrôles, pièces de réponse et export
 - Création et administration de boutiques B2B brandées, privées ou ouvertes à l'auto-inscription
 - Portail acheteur route-driven avec home, catalogue, pages gamme, recherche, fiche produit et compte
 - Configuration produit, résolution de prix avec provenance explicite, panier et checkout court
@@ -49,6 +50,7 @@ Permettre à un imprimeur de transformer plus vite une demande print en offre ve
 - journey-8 | Configurer les rôles et faire progresser une commande de façon auditée | medium
 - journey-9 | Administrer les sous-espaces et les gammes d'un tenant | medium
 - journey-10 | Générer et valider les visuels produit d'une boutique | medium
+- journey-11 | Importer un appel d'offres, chiffrer ses lignes et constituer une réponse contrôlée | high
 
 ## Package Candidates
 
@@ -59,6 +61,7 @@ Permettre à un imprimeur de transformer plus vite une demande print en offre ve
 - b2b-commerce | B2B Commerce | business-app | Création et administration de boutiques, catalogues publiés, expérience acheteur, panier, checkout et compte | platform-core,print-catalog,order-management
 - order-management | Order Management | business-app | Commandes tenant, rôles métier, transitions, audit, notifications et renouvellement | platform-core,print-catalog
 - clariprint-connector | Clariprint Connector | connector | Adaptation, validation et observabilité des échanges avec Clariprint | none
+- tender-response | Tender Response | business-app | Dossiers de consultation, ingestion de bordereaux, qualification, chiffrage en masse, conformité, pièces de réponse et exports | platform-core,sales-copilot,print-catalog,clariprint-connector
 
 ## Constraints
 
@@ -71,6 +74,7 @@ Permettre à un imprimeur de transformer plus vite une demande print en offre ve
 - Le PIM global est un patrimoine Magrit ; les tenants souscrivent ou affectent des gammes et produits sans dupliquer la vérité globale
 - Toute donnée de prix affichée doit exposer sa provenance et distinguer prix validé, prix de bibliothèque et estimation
 - Toute sortie LLM structurée doit être validée par schéma et ne peut être la seule autorité sur un prix, un droit ou une transition de commande
+- Tout contenu extrait d'un dossier de consultation conserve sa source, sa version et un niveau de confiance ; une extraction automatique ne vaut jamais validation de conformité
 - Clariprint doit rester derrière un adaptateur unique et testable ; aucun appel ad hoc depuis l'interface
 - Les actions sensibles doivent être autorisées côté serveur et auditables ; une garde React seule ne suffit pas
 - L'accessibilité cible est WCAG 2.1 AA sur les parcours critiques
@@ -93,7 +97,7 @@ Ce PRD ne constitue pas encore un engagement de livraison. Les objectifs chiffr�
 
 ## Product Vision
 
-Magrit doit devenir la couche métier qui relie la demande commerciale, la connaissance print, le chiffrage, la mise en catalogue et la récurrence d'achat.
+Magrit doit devenir la couche métier qui relie la demande commerciale ou l'appel d'offres, la connaissance print, le chiffrage, la mise en catalogue et la récurrence d'achat.
 
 Pour l'imprimeur, Magrit réduit le temps passé à reformuler des demandes, ressaisir des paramètres, produire des descriptifs, créer des vitrines client et retrouver les commandes passées. Pour l'acheteur, Magrit masque la complexité du print derrière un parcours lisible, tout en conservant les options techniques nécessaires. Pour Magrit, chaque produit correctement structuré enrichit un patrimoine PIM réutilisable dans les futures offres et boutiques.
 
@@ -101,7 +105,7 @@ Le cœur de valeur n'est pas un e-commerce généraliste : c'est la combinaison 
 
 ## Problem Statement
 
-Les demandes print B2B arrivent souvent sous forme de mails, briefs incomplets ou commandes récurrentes mal documentées. L'imprimeur doit qualifier le besoin, retrouver des données techniques, calculer un prix, produire une offre puis ressaisir tout ou partie de cette information dans un catalogue ou un outil de suivi. L'acheteur dépend alors de l'imprimeur pour chaque répétition d'achat et dispose rarement d'une expérience digitale adaptée à son historique.
+Les demandes print B2B arrivent souvent sous forme de mails, briefs incomplets, commandes récurrentes mal documentées ou dossiers de consultation composés de plusieurs pièces et de bordereaux volumineux. L'imprimeur doit qualifier le besoin, retrouver les exigences applicables, rapprocher chaque ligne de ses capacités et produits, calculer un prix, produire une offre puis ressaisir tout ou partie de cette information dans un catalogue ou un outil de suivi. Dans le cas d'un appel d'offres, cette fragmentation augmente le risque d'oubli, d'incohérence de prix ou de réponse hors délai. L'acheteur dépend alors de l'imprimeur pour chaque répétition d'achat et dispose rarement d'une expérience digitale adaptée à son historique.
 
 Les solutions e-commerce généralistes demandent un paramétrage lourd et connaissent mal les contraintes print. Les outils métier historiques gèrent la production mais exposent souvent une expérience commerciale peu accessible. Magrit cherche à combler cet espace sans retirer à l'imprimeur son contrôle sur la validation, le prix et le workflow.
 
@@ -114,6 +118,10 @@ Dirigeant ou responsable de l'organisation cliente Magrit. Il crée son tenant, 
 ### Commercial ou deviseur
 
 Il qualifie une demande, utilise le copilote, prépare et édite des devis, enrichit une bibliothèque, affecte une offre à une boutique et suit sa transformation en commande.
+
+### Responsable appels d'offres
+
+Il centralise le dossier de consultation, identifie les exigences et échéances, répartit le travail de chiffrage, contrôle la complétude des pièces, arbitre les anomalies et valide le dossier de réponse avant dépôt. Ce rôle peut être tenu par un commercial, un deviseur ou un responsable grands comptes selon l'organisation du tenant.
 
 ### Administrateur catalogue
 
@@ -154,6 +162,7 @@ Le tableau suivant décrit les capacités observées dans le dépôt. « Vérifi
 | PIM | Gammes, définitions localisées, enrichissement, candidats d'ingestion, administration PIM, catalogue Exaprint | À normaliser |
 | Clariprint | Adaptateur serveur, résolution gamme/configuration, ingestion et calcul de prix | À contracter et tester |
 | Devis | Création, édition, statuts, bibliothèque et entrée depuis le panier | À unifier |
+| Appels d'offres | Besoin historique identifié pour le traitement de fichiers Excel grands volumes, sans module vérifié dans la baseline actuelle | À construire |
 | Boutiques | Branding, accès privé ou auto-inscription, catalogues manuels ou PIM, produits et gammes | À conserver |
 | Portail acheteur | Routes dédiées, home, catalogue, gamme, produit, compte, reprise, recherche et checkout | À conserver |
 | Commandes | Modèles historiques et cible `tenant_orders`, items, rôles, transitions, audit, renouvellement et annulation | Migration à achever |
@@ -178,6 +187,7 @@ Le tableau suivant décrit les capacités observées dans le dépôt. « Vérifi
 - Acquisition et administration d'un tenant imprimeur.
 - Qualification conversationnelle d'une demande print.
 - Préparation, édition, sauvegarde et validation d'un devis.
+- Import, analyse, chiffrage, contrôle et préparation d'une réponse à un appel d'offres.
 - Gestion d'un catalogue print global enrichi et de bibliothèques tenant.
 - Création d'une boutique B2B et affectation d'une offre vendable.
 - Découverte, configuration, panier, checkout et commande côté acheteur.
@@ -217,6 +227,27 @@ Le tableau suivant décrit les capacités observées dans le dépôt. « Vérifi
 - **FR-SAL-005** Un utilisateur autorisé peut modifier, envoyer, valider, rejeter ou classer un devis selon les transitions définies.
 - **FR-SAL-006** Un devis ou une configuration récurrente peut être ajouté à une bibliothèque tenant.
 - **FR-SAL-007** Le système doit signaler clairement un échec ou une donnée incomplète de Clariprint au lieu de fabriquer silencieusement une valeur.
+
+### Tender response management
+
+- **FR-AO-001** Un utilisateur autorisé peut créer un dossier d'appel d'offres avec une référence, un objet, un donneur d'ordre, un ou plusieurs lots, une date limite, des responsables et un statut.
+- **FR-AO-002** Le système permet de déposer les pièces du dossier de consultation et d'identifier au minimum le règlement de consultation, le CCTP, le CCAP, l'acte d'engagement, le BPU, la DPGF et les annexes, sans imposer qu'elles soient toutes présentes.
+- **FR-AO-003** Chaque fichier source est conservé avec son nom, sa version, sa date d'ajout, son auteur et une empreinte d'intégrité ; son remplacement crée une nouvelle version sans effacer l'original.
+- **FR-AO-004** Un utilisateur peut importer un bordereau aux formats tabulaires retenus, prévisualiser le mapping des colonnes et corriger ce mapping avant toute création de lignes métier.
+- **FR-AO-005** L'import normalise au minimum la référence, la désignation, la quantité, l'unité, les contraintes techniques, le lot et les cellules de prix, tout en conservant la ligne source pour audit et ré-export.
+- **FR-AO-006** Le système détecte et regroupe les lignes incomplètes, dupliquées, incohérentes ou non interprétables ; aucune ligne en anomalie n'est supprimée silencieusement.
+- **FR-AO-007** Le système peut rapprocher une ligne d'un produit PIM, d'une configuration de bibliothèque ou d'une capacité Clariprint et affiche la source ainsi qu'un niveau de confiance pour chaque proposition.
+- **FR-AO-008** Un deviseur peut accepter, modifier ou rejeter un rapprochement proposé, traiter plusieurs lignes par action groupée et affecter les lignes non résolues à un collaborateur.
+- **FR-AO-009** Chaque ligne peut recevoir un coût, une marge, un prix de vente, une provenance de prix, une durée de validité et des notes internes ; les totaux sont recalculés de manière déterministe.
+- **FR-AO-010** Toute valeur saisie manuellement en remplacement d'un prix calculé conserve l'ancienne valeur, l'auteur, la date et un motif de dérogation.
+- **FR-AO-011** Le dossier présente une checklist de conformité administrative, technique et financière, les pièces attendues, les points bloquants, les questions en suspens et l'état d'avancement par lot.
+- **FR-AO-012** Une assistance LLM peut extraire des échéances, critères, exigences et réserves depuis les pièces du DCE, mais chaque élément extrait reste relié à sa source et doit pouvoir être confirmé, corrigé ou rejeté par un humain.
+- **FR-AO-013** Un utilisateur autorisé peut générer un paquet de réponse contenant les bordereaux complétés et les pièces retenues, avec un contrôle final bloquant sur les anomalies critiques et les pièces obligatoires non validées.
+- **FR-AO-014** Le système exporte les prix dans un format compatible avec le bordereau d'origine lorsque cela est techniquement possible ; sinon il produit un export normalisé et signale explicitement les écarts de structure ou de formule.
+- **FR-AO-015** Le dossier suit des statuts explicites au minimum `brouillon`, `à qualifier`, `chiffrage en cours`, `à valider`, `prêt à déposer`, `déposé`, `gagné`, `perdu` et `archivé`, avec historique des transitions.
+- **FR-AO-016** Un appel d'offres gagné peut être transformé en devis, commande, bibliothèque ou offre vendable sans ressaisie des lignes validées, tout en conservant le lien vers le dossier source.
+- **FR-AO-017** Le tableau de bord expose les échéances proches, dossiers bloqués, lignes restant à chiffrer, validations attendues et résultats gagnés ou perdus selon les droits de l'utilisateur.
+- **FR-AO-018** La première version prépare et exporte le dossier de réponse mais ne dépose pas automatiquement l'offre sur une plateforme externe tant que cette intégration et son niveau de responsabilité ne sont pas validés.
 
 ### PIM and catalog
 
@@ -276,6 +307,7 @@ Le tableau suivant décrit les capacités observées dans le dépôt. « Vérifi
 - **FR-ADM-002** Les appels LLM enregistrent modèle, usage, latence, résultat et contexte tenant sans stocker de secret.
 - **FR-ADM-003** Les intégrations externes exposent des erreurs corrélables entre interface, edge function et événement serveur.
 - **FR-ADM-004** Les données de démonstration, tests et production doivent être distinguables et nettoyables sans requête destructive large.
+- **FR-ADM-005** Les administrateurs disposent d'une vue dédiée aux appels d'offres, à leurs échéances, responsables, anomalies, résultats et volumes traités selon leurs droits.
 
 ## Business Rules
 
@@ -289,6 +321,12 @@ Le tableau suivant décrit les capacités observées dans le dépôt. « Vérifi
 - **BR-008** Le mode `self_signup` est un choix boutique explicite ; `invite_only` reste le défaut sûr.
 - **BR-009** Une boutique privée est `noindex` indépendamment de l'état d'authentification du visiteur.
 - **BR-010** Les contenus générés automatiquement ne remplacent pas silencieusement un contenu humain existant.
+- **BR-011** Un dossier d'appel d'offres, ses fichiers, ses lignes, ses commentaires et ses exports appartiennent à un tenant unique et ne sont jamais partagés implicitement avec un autre tenant.
+- **BR-012** Le fichier source et les versions déposées sont immuables ; les corrections s'appliquent au modèle de travail et restent traçables.
+- **BR-013** Une ligne n'est considérée comme prête que si ses données obligatoires, son prix et sa provenance ont été validés ou si son exclusion a été explicitement motivée.
+- **BR-014** Un score de confiance, une extraction LLM ou un rapprochement automatique constitue une aide à la décision et non une preuve de conformité au DCE.
+- **BR-015** Le total d'une réponse est dérivé des lignes incluses et de règles de calcul versionnées ; il n'est jamais maintenu comme une valeur indépendante non réconciliée.
+- **BR-016** Seul un utilisateur disposant de la capability de validation d'appel d'offres peut passer un dossier à `prêt à déposer`, `déposé`, `gagné` ou `perdu`.
 
 ## Non-Functional Requirements
 
@@ -302,11 +340,12 @@ Le tableau suivant décrit les capacités observées dans le dépôt. « Vérifi
 
 ### Reliability and data integrity
 
-- **NFR-REL-001** Postgres est la source de vérité des devis, commandes, droits et états de workflow ; aucun état critique ne dépend uniquement de la mémoire du navigateur.
+- **NFR-REL-001** Postgres est la source de vérité des devis, appels d'offres, commandes, droits et états de workflow ; aucun état critique ne dépend uniquement de la mémoire du navigateur.
 - **NFR-REL-002** Les écritures multi-étapes critiques sont transactionnelles ou compensables et idempotentes.
 - **NFR-REL-003** Les migrations de schéma disposent d'un dry-run, d'une validation de données et d'une stratégie de rollback ou roll-forward.
 - **NFR-REL-004** Aucune erreur d'intégration ne se traduit par page blanche, spinner infini ou succès trompeur.
 - **NFR-REL-005** Les duplications temporaires de modèle ont un propriétaire, une télémétrie et un critère de suppression.
+- **NFR-REL-006** L'import d'un bordereau est idempotent à fichier et version identiques, peut reprendre après interruption et fournit un bilan réconciliant lignes lues, importées, ignorées et en anomalie.
 
 ### Performance
 
@@ -314,6 +353,7 @@ Le tableau suivant décrit les capacités observées dans le dépôt. « Vérifi
 - **NFR-PERF-002** Après instrumentation de référence, le p75 de l'affichage catalogue et produit ne doit pas régresser de plus de 10 % pendant la reprise.
 - **NFR-PERF-003** Un calcul de prix obsolète ne doit jamais bloquer la saisie ou écraser une réponse plus récente.
 - **NFR-PERF-004** Les mockups et assets stables utilisent un cache avec invalidation explicite.
+- **NFR-PERF-005** L'import et la consultation d'un bordereau au volume cible validé ne bloquent pas l'interface ; la volumétrie de référence et les seuils p75 de traitement serveur et d'affichage seront fixés après mesure sur des fichiers représentatifs.
 
 ### Accessibility and usability
 
@@ -344,6 +384,10 @@ Les valeurs finales doivent être validées avec le Product Owner après mise en
 | Garantir l'isolation | Incidents ou tests cross-tenant en échec | 0 incident ; 100 % des gates verts |
 | Stabiliser la reprise | Régressions critiques par tranche de refactor | 0 avant passage à la tranche suivante |
 | Réduire la dette | Lectures/écritures sur modèles legacy | 0 avant suppression documentée |
+| Accélérer les appels d'offres | Temps entre réception du DCE et dossier prêt à déposer | Baseline puis objectif d'amélioration à valider |
+| Fiabiliser les réponses | Part des lignes exportées sans anomalie critique non traitée | 100 % |
+| Réutiliser la connaissance print | Part des lignes rapprochées d'un produit, d'une configuration ou d'un historique validé | Baseline puis progression continue |
+| Mesurer la performance commerciale AO | Taux de dossiers déposés, gagnés et perdus, par tenant et période | Baseline par cohorte tenant |
 
 ## Acceptance and Evidence Strategy
 
@@ -356,6 +400,7 @@ Chaque exigence planifiée doit être reliée à une preuve proportionnée :
 - accessibilité : axe automatisé complété par clavier et responsive ;
 - intégrations Clariprint, Anthropic et email : tests de contrat, timeouts et reprises ;
 - migration brownfield : comparaison avant/après, métrique de fallback et preuve de rollback.
+- import et export d'appels d'offres : jeux de fichiers représentatifs, conservation des formules et formats utiles, réconciliation ligne à ligne et test de non-régression sur les fichiers sources retenus.
 
 La Definition of Done d'une tranche inclut : exigences acceptées, décisions enregistrées, tests verts, absence de nouvelle dette silencieuse, observabilité suffisante et documentation du changement de contrat.
 
@@ -377,6 +422,10 @@ Le LLM assiste la qualification, la structuration et l'enrichissement. Ses répo
 
 Les emails et autres notifications sont des effets secondaires après persistance de l'événement métier. Ils doivent être idempotents, retentables et corrélés à l'objet source.
 
+### Dossiers de consultation et bordereaux
+
+Les pièces de DCE et les bordereaux sont des sources externes potentiellement hétérogènes, volumineuses et confidentielles. L'ingestion doit séparer le fichier original immuable, sa version, le mapping appliqué, les données normalisées et les corrections humaines. Les parseurs de documents et de tableurs sont des frontières non fiables : ils doivent imposer des limites de taille, neutraliser les contenus actifs, résister aux formules malveillantes et produire un bilan d'import explicite. L'export ne doit jamais altérer l'original et doit permettre de rattacher chaque cellule produite à une ligne métier validée.
+
 ## Migration and Rebuild Strategy
 
 1. **Baseline.** Exécuter les suites locales, inventorier les environnements et capturer les parcours critiques.
@@ -397,6 +446,10 @@ Les emails et autres notifications sont des effets secondaires après persistanc
 | Couplage React/Supabase direct | Refactor risqué et tests fragiles | Introduire repositories et contrats de domaine par tranche |
 | Données Clariprint incomplètes ou variables | Prix faux ou parcours bloqué | Adaptateur unique, provenance, fallback honnête et validation humaine |
 | Sorties LLM invalides | Données incohérentes | Schémas stricts, observabilité, versionnement et revue humaine |
+| DCE ou bordereaux hétérogènes | Import incomplet, lignes perdues ou export inutilisable | Prévisualisation du mapping, conservation de la source, bilan de réconciliation et corpus de fichiers de référence |
+| Formules, macros ou fichiers bureautiques malveillants | Exécution indésirable ou fuite de données | Analyse isolée, formats autorisés, limites de ressources, neutralisation des contenus actifs et antivirus |
+| Échéance ou exigence mal extraite | Réponse non conforme ou hors délai | Citation de la source, confirmation humaine et alertes déterministes basées sur les données validées |
+| Chiffrage en masse erroné | Marge dégradée ou engagement commercial incorrect | Provenance des prix, contrôles d'écart, validation par lot et audit des dérogations |
 | Extraction prématurée en packages | Complexité distribuée sans gain | Stabiliser les frontières dans le monolithe d'abord |
 | État réel des déploiements non documenté | Baseline trompeuse | Inventaire séparé des environnements et configurations |
 | Métriques business non instrumentées | Décisions sur intuition | Plan d'événements et baseline avant objectifs contractuels |
@@ -415,6 +468,13 @@ Ces points nécessitent une décision produit ou opérationnelle avant le plan d
 8. Quelles obligations RGPD, conservation, disponibilité et support sont promises contractuellement ?
 9. Les candidats de packages OWK doivent-ils rester dans un monorepo ou viser plusieurs dépôts à terme ?
 10. Quel niveau de compatibilité doit être maintenu avec les anciens objets `shop_orders` et les anciennes routes ?
+11. Le premier périmètre appels d'offres vise-t-il uniquement les BPU/DPGF tabulaires ou l'ensemble du DCE administratif et technique ?
+12. Quels formats doivent être garantis au lancement : XLSX, XLS, CSV, ODS, PDF natif et PDF scanné ?
+13. L'export doit-il préserver strictement la mise en forme, les formules, feuilles masquées et protections du classeur source ?
+14. Quels volumes réels définissent le cas « grands volumes » : nombre de fichiers, feuilles, lignes, lots et taille totale du DCE ?
+15. Quelles plateformes de dépôt et quels mécanismes de signature électronique pourraient être intégrés ultérieurement, et avec quelle responsabilité juridique ?
+16. Quelles capabilities distinguent préparation, chiffrage, validation finale, export et déclaration du résultat ?
+17. Les variantes, options, reconductions, tranches et critères de notation doivent-ils être modélisés dès la première version ?
 
 ## Source Traceability
 
