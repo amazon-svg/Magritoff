@@ -5,6 +5,8 @@
 **Statut :** document de travail vivant  
 **Objectif :** rendre l'application solide, maintenable et évolutive sans réécriture brutale.
 
+**Précision associée :** [Kernel, modules et services](./ARCHITECTURE_KERNEL_MODULES_SERVICES.md)
+
 ## 1. Résumé exécutif
 
 Magrit repose sur un socle Supabase cohérent et possède déjà des frontières métier identifiables : multi-tenant, boutiques, catalogue/PIM, commandes, devis, assistant IA, Clariprint et mockups.
