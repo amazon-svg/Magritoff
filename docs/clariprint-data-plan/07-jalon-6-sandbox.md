@@ -3,6 +3,8 @@
 **Statut initial :** à préparer  
 **Dépendance :** J5
 
+**Spécification applicable :** [sandboxes](../architecture/specifications/modules/clariprint-data/capabilities/sandboxes.md)
+
 ## Goal
 
 Permettre l'expérimentation sur une copie isolée d'une publication sans aucun effet sur les données ou calculs de production.
@@ -44,4 +46,3 @@ Créer un sandbox depuis V1, modifier une cadence et un coût, générer son JSO
 ## Condition de sortie
 
 Un test automatique démontre l'impossibilité d'envoyer un identifiant de sandbox vers la destination de production.
-

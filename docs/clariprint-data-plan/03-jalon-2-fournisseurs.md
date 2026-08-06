@@ -3,6 +3,8 @@
 **Statut initial :** à préparer  
 **Dépendance :** J1
 
+**Spécification applicable :** [capacité suppliers](../architecture/specifications/modules/clariprint-data/capabilities/suppliers.md)
+
 ## Goal
 
 Permettre de créer et maintenir un fournisseur multi-capacités sans dupliquer son identité.
@@ -46,4 +48,3 @@ Créer un fournisseur possédant un site, lui attribuer les capacités impressio
 ## Condition de sortie
 
 Le scénario de démonstration est exécuté par un utilisateur métier autorisé et tous les tests d'isolation passent.
-

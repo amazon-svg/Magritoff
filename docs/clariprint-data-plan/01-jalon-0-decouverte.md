@@ -2,6 +2,8 @@
 
 **Statut initial :** à préparer
 
+**Spécifications préparées :** [modèle de domaine](../architecture/specifications/modules/clariprint-data/domain-model.md), [export solveur](../architecture/specifications/modules/clariprint-data/capabilities/solver-exports.md)
+
 ## Goal
 
 Transformer les hypothèses du PRD en décisions métier suffisamment précises pour concevoir le modèle sans inventer de règles ou de données.
@@ -53,4 +55,3 @@ Transformer les hypothèses du PRD en décisions métier suffisamment précises 
 ## Condition de sortie
 
 J1 peut commencer lorsque `J0-VAL-01` à `J0-VAL-09` sont validés. Une question reportée doit avoir un propriétaire, une échéance et une solution temporaire explicitement non contractuelle.
-

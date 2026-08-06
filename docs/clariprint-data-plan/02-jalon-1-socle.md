@@ -3,6 +3,8 @@
 **Statut initial :** à préparer  
 **Dépendance :** J0
 
+**Spécifications applicables :** [kernel](../architecture/specifications/kernel/specification.md), [règles de dépendances](../architecture/specifications/kernel/dependency-rules.md), [modules plateforme](../architecture/specifications/README.md)
+
 ## Goal
 
 Créer un module Clariprint Data exécutable, isolé du frontend et de Supabase par des contrats, avec une première décision d'accès tenant-scoped.
@@ -53,4 +55,3 @@ Créer un module Clariprint Data exécutable, isolé du frontend et de Supabase 
 ## Condition de sortie
 
 Le module peut accueillir une première fonctionnalité métier sans ajouter d'accès Supabase direct dans l'UI ni étendre le kernel avec des règles de domaine.
-
