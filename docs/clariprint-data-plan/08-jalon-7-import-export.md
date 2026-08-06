@@ -3,6 +3,8 @@
 **Statut initial :** à préparer  
 **Dépendances :** J5 et J6
 
+**Spécifications applicables :** [imports](../architecture/specifications/modules/clariprint-data/capabilities/imports.md), [exports solveur](../architecture/specifications/modules/clariprint-data/capabilities/solver-exports.md)
+
 ## Goal
 
 Importer un parc pilote sans corruption silencieuse et livrer une publication complète au solveur avec un contrat versionné et observable.
@@ -58,4 +60,3 @@ Prévisualiser puis importer le fichier pilote, corriger ses anomalies, publier 
 ## Condition de sortie
 
 Le contrat partagé passe sur des fixtures valides et invalides, et le solveur de test accepte la publication issue du parc pilote.
-

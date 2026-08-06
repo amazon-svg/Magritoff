@@ -57,4 +57,6 @@ Statuts autorisés : `à préparer`, `prêt`, `en cours`, `en validation`, `vali
 
 - [Goals, principes et Definition of Done](./00-goals-principes-validation.md)
 - [Registre des décisions](./10-registre-decisions.md)
-
+- [Spécifications d'architecture modulaires](../architecture/specifications/README.md)
+- [Spécification du kernel](../architecture/specifications/kernel/specification.md)
+- [Spécification du module Clariprint Data](../architecture/specifications/modules/clariprint-data/specification.md)

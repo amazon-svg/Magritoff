@@ -3,6 +3,8 @@
 **Statut initial :** à préparer  
 **Dépendance :** J3
 
+**Spécifications applicables :** [aptitudes techniques](../architecture/specifications/modules/clariprint-data/capabilities/technical-capabilities.md), [économie](../architecture/specifications/modules/clariprint-data/capabilities/economics.md)
+
 ## Goal
 
 Décrire ce qui est techniquement réalisable et les paramètres nécessaires au coût du flux pilote, sans confondre aptitude, performance et économie.
@@ -47,4 +49,3 @@ Configurer la machine du flux pilote, sa matière, ses formats, sa cadence, son 
 ## Condition de sortie
 
 Toutes les données consommées par le solveur pour le flux pilote sont représentables, contrôlées et protégées selon leur sensibilité.
-

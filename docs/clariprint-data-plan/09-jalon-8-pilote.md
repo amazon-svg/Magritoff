@@ -3,6 +3,8 @@
 **Statut initial :** à préparer  
 **Dépendances :** J0 à J7
 
+**Spécifications applicables :** [module Clariprint Data](../architecture/specifications/modules/clariprint-data/specification.md), [autorisations](../architecture/specifications/modules/clariprint-data/authorization.md), [propriété des données](../architecture/specifications/modules/clariprint-data/data-ownership.md)
+
 ## Goal
 
 Démontrer que le MVP est sûr, exploitable et utilisable par un métier sur un parc réel sans intervention directe en base.
@@ -78,4 +80,3 @@ Le pilote exécute sans assistance technique directe :
 ## Condition de sortie MVP
 
 Le MVP est validé lorsque tous les critères bloquants sont verts, que les écarts non bloquants ont un propriétaire et une échéance, et qu'un représentant métier ainsi qu'un responsable technique signent la recette.
-
