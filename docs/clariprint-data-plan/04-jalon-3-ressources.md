@@ -3,6 +3,8 @@
 **Statut initial :** à préparer  
 **Dépendance :** J2
 
+**Spécifications applicables :** [ressources](../architecture/specifications/modules/clariprint-data/capabilities/resources.md), [sous-traitance](../architecture/specifications/modules/clariprint-data/capabilities/subcontracting.md)
+
 ## Goal
 
 Décrire les ressources propres et sous-traitées accessibles pour le flux pilote, sans exposer les ressources non contractualisées.
@@ -47,4 +49,3 @@ Créer deux fournisseurs, autoriser une machine du second comme ressource sous-t
 ## Condition de sortie
 
 Le parc accessible calculé correspond exactement aux ressources internes et aux autorisations contractuelles du scénario pilote.
-

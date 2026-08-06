@@ -3,6 +3,8 @@
 **Statut initial :** à préparer  
 **Dépendance :** J4
 
+**Spécification applicable :** [publications](../architecture/specifications/modules/clariprint-data/capabilities/publications.md)
+
 ## Goal
 
 Produire un instantané complet, cohérent, immuable et versionné du parc accessible d'une organisation.
@@ -56,4 +58,3 @@ Faire échouer un contrôle, corriger le brouillon, publier V1, modifier un coû
 ## Condition de sortie
 
 L'empreinte de V1 est identique avant et après la publication de V2, et toutes les transitions sont retrouvables dans l'audit.
-
