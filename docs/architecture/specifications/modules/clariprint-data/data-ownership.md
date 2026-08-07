@@ -1,7 +1,7 @@
 # Propriété des données Clariprint Data
 
 **Statut :** draft  
-**Version :** 0.1
+**Version :** 0.2
 
 ## Principe
 
@@ -14,16 +14,26 @@ Les autres modules consomment des contrats publics ou des snapshots publiés. Il
 | Ensemble | Propriétaire | Mutabilité |
 |---|---|---|
 | Fournisseurs et sites | Clariprint Data | Modifiable et archivable |
+| Environnements de production | Clariprint Data | Modifiable, activable et archivable |
 | Capacités fournisseur | Clariprint Data | Versionnable |
 | Machines et ressources | Clariprint Data | Modifiable avec historique |
 | Aptitudes et performances | Clariprint Data | Versionnable |
 | Paramètres économiques | Clariprint Data | Versionnable et protégé |
+| Barèmes et cas unitaires | Clariprint Data | Versionnables |
+| Profils clients | Clariprint Data | Versionnables et archivables |
+| Politiques tarifaires client | Clariprint Data | Datées et versionnables |
+| Contrats d'accès calcul | Clariprint Data | Versionnables, suspendables et archivables |
+| Métadonnées de credentials locaux | Clariprint Data | Rotatives et révocables ; secret jamais relisible |
+| Projections ajustées et preuves | Clariprint Data | Immuables ou régénérables selon ADR |
+| Référentiels matière/transport BU | Clariprint Data, sous réserve de l'ownership BU | Versionnables |
 | Contrats de sous-traitance | Clariprint Data | Daté et archivable |
 | Brouillons | Clariprint Data | Modifiable |
 | Publications | Clariprint Data | Immuable |
 | Sandboxes | Clariprint Data | Modifiable et isolé |
 | Imports et bilans | Clariprint Data | Append-only après confirmation |
 | Livraisons solveur | Clariprint Data | Historique append-only |
+| Délégations d'environnement | `access` ou Clariprint Data selon ADR | Datées, révocables et auditées |
+| Projets de test | À décider | Références ou données selon module propriétaire |
 
 ## Données consommées
 
@@ -45,6 +55,10 @@ Clariprint Data peut publier :
 - des événements versionnés.
 
 Les commandes ou devis conservent l'identifiant de publication utilisé. Ils ne recopient pas le modèle privé complet sauf snapshot nécessaire à leur propre audit contractuel.
+
+Un environnement qui consomme un catalogue BU doit conserver la version exacte du catalogue ou embarquer les entrées résolues dans sa publication. Une référence flottante vers « le catalogue courant » est interdite dans un snapshot.
+
+Le système d'accès externe éventuel reste propriétaire de ses identités et credentials. Clariprint Data publie les références de profils autorisées et conserve le binding ou la preuve d'autorisation nécessaire ; il ne copie pas les secrets externes.
 
 ## Stratégie SQL à décider
 

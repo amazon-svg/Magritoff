@@ -1,0 +1,1430 @@
+====== suite prompt 1
+je veux créer une webapp avec:
+page d'accueil type dashboard :
+
+liste d'environnement makers :
+activer/desactiver | nom | status (dernière version en prod, en modification, à valider) | dernière MAJ | éditer* | partager** (lien de partage vers la sous app d'édition avec autentification)
+
+filtrage par nom, status, 
+* : lien de partage vers la sous app d'édition de printer Env avec Id de l'env et partage d'autentification
+** : lien de partage limité dans le temps et restriction de droit vers la sous app d'édition de printer Env avec Id de l'env et protection par mot de passe
+
+Bouton de création d'un nouvel environnement
+
+sous app :
+1/ wizard de creation printer Env en mode séquentiel :
+a/ infos générales :
+- nom du site de production
+- adresse / code postal / ville
+- code ISO de zone géographique (multi-select pays/zone)
+- SIREN
+- Code Monnaie (select, EUR, DOL, etc)
+- Système d'unité (SI ou Imperial)
+
+b/ agréements : 
+série statique de checkbox : 
+- IMPRIM_VERT 
+- FSC	 
+- PEFC	 
+- ISO_9001
+- ISO_9002
+- ISO_12647
+- ISO_14001
+- ISO_EMAS
+- FSC_PEFC_DO	 
+- PRINT_ENVIRONNEMENT
+
+c/ machines et postes de travail :
+- split écran en 2 colonnes :
+	- colonne de gauche, liste de machines référencées en 4 colonnes (liste sur endpoint) :
+		type de machine/poste | marque | modèle | ajouter
+	- colonne de droite, liste de machines du site en 4 colonnes :
+		type de machine/poste | marque | modèle | supprimer
+
+d/ catalogues papiers et transporteur par défaut
+	- sélection d'un ou plusieurs acheteur(s) papier test (combo de multi-selection avec liste des acheteurs sur endpoint)
+	- sélection d'un ou plusieurs transporteur(s) pour test (combo de multi-selection avec liste des transporteur sur endpoint)
+
+e/ fin : appel api création de l'environnement puis retour au dashboard
+
+2/ edition de printer Env
+a/ Onglet Info Générales
+on retrouve les champs des écrans a/ et b/ du wizard de création
+
+b/ Onglet machines
+
+    * Col. A – Parc & arbo : 
+        * liste des Machines 
+            type 
+            nom
+            status
+
+            * États : Désactivé / Activé
+    * Col. B – Fiche machine : 
+        * Caractéristiques (techniques, formats, matières, vitesses, contraintes).
+        * Liste de barèmes liés (liens cliquables vers Col. C).
+    * Col. C – Éditeur de barème : 
+        * Conditions d’application (DSL) + form tarifaire (paliers, fonctions).
+        * Prévisualisation : échantillon d’entrées → prix attendus (tests unitaires).
+
+b/ Onglet Papier
+  2 colones
+    * listes des catalogues
+    * pour la catalogue choisi
+        * visualisation du catalogue importé
+        * export modèle XLSX
+        * fichier exemple xls import
+        * import catalogue
+
+c/ Onglet Livraison
+    liste des grilles de livraison
+        visualisation
+        export la matrice à saisir 
+        import /export xlsx
+
+c/ Onglet Testing
+    liste des projets fournis pas optimpriject et le compte client de l'imprimeur
+    3 colonnes
+    * listes projets
+    * édition du project selectionné import mjs Hopes-Studio productpage avec id projet pour endpoint backend
+    * liste de resultats du projet selectionnés avec filtres et tri :
+    	date|type (prod, test ou RSP)|prix|pdf
+
+    Bouton : nouveau projet => Hopes-Studio/productdeck
+
+d) liste des catalogue de prix (admin seulement)
+    * import / export des prix en XLSX
+    * outils de comparaison entre catalogue sur la base de comparaison XLSX. (diff de CSV)
+
+
+Option generales (barre des menus), admin seulement :
+    * Création d'un lien de partage
+    * Création d'un catalogue de production
+        suivant les droits utilisateur le catalogue n'est pas activé d'office
+        envois d'un mail de validation du catalogue a un administrateur liée à l'imprimeur
+
+
+
+
+====== suite prompt 2
+code l'onglet *machine* de EditEnvironnement :
+# volet 1 retractable : 
+liste des postes cliquables pour édition du poste
+
+# corps de page : 
+## entête type, marque et nom machine
+- 2 onglets
+### Onglet "Informations générales" :
+#### Informations principales
+	- type de poste : {
+		type : enum
+		OPTIONS : [
+			presse offset feuille, 
+			presse numérique feuille, 
+			grand format flat bed, 
+			grand format flat bed avec debobineur
+			presse rotative numérique,
+			traceur rotatif numérique, 
+			presse rotative offset, 
+			vernisseuse/pelliculeuse,
+			presse typographique,
+			découpe numérique grand format flat bed, 
+			découpe numérique roll to roll, 
+			massicot, 
+			plieuse à poche, 
+			poste de pliage manuel, 
+			assembleuse, 
+			assembleuse piqueuse, 
+			Relieuse Wire'O,
+			encarteuse piqueuse, 
+			brocheuse dos carré collé, 
+			brocheuse dos carré collé cousu, 
+			relieuse wire'O, 
+			conditionnement, 
+			poste de travail de table
+		]
+	},
+
+	- marque : {type: string}
+	- nom poste : {type: string, title: modèle + option ou nom du poste de travail}
+	- actif : {type: selecteur oui/non}
+	- types de support : {
+		type: multiselection,
+		OPTIONS : [
+			tout support souple,
+			papiers journal standard,
+			papiers journal amélioré,
+			papiers couchés et LWC,
+			papiers offset,
+			papiers satinés,
+			papier pour impression numérique grand format,
+			adhésifs pour impression UV,
+			autres supports polypro,
+			autres supports pour impression UV,
+			enveloppe,
+			bache,
+			tissus,
+
+			toute plaque rigide,
+			PVC rigide,
+			PMMA,
+			Composite carton/papier,
+			Composite PVC,
+			Composite polypropylène,
+			Composite aluminium,
+			Aluminium,
+			Métaux ferreux,
+			Bois résineux,
+			Bois tendre,
+			Bois dur,
+			Contre-plaqué,
+			OSB
+		]
+	}
+#### Caractéristiques spécifiques aux machines rotatives :
+	- nombre de débobineur(s)  : {type: integer}
+	- diamètre maxi bobine : {type: integer, unit: cm}
+	- diamètre mandrin : {type: integer, unit: mm}
+
+#### Caractéristiques dimensionnelles du support en entrée : 
+	- largeur/laize, min : {type: integer, unit: mm}, max : {type: integer, unit: mm}, 
+	- hauteur/coupe, min : {type: integer, unit: mm}, max : {type: integer, unit: mm}, 
+	- épaisseur, min : {type: integer, unit: micron}, max : {type: integer, unit: micron}, 
+	- grammage, min : {type: integer, unit: g/m2}, max : {type: integer, unit: g/m2}, 
+
+#### Dimensions des zones non transformables : 
+	- prise de pince : {type: integer, unit: mm},
+	- blanc de fin de pression : {type: integer, unit: mm} ,
+	- bord de feuille/laize : {type: integer, unit: mm},
+	- hauteur de la gamme Bruner (uniquement pour les presses) : {type: integer, unit: mm}
+
+#### Prestations réalisables sur le poste (à filtrer suivant le type de poste) : 
+	- METHODES D'IMPRESSION (seulement pour les presses) : {
+		type : multi-sélection,
+		enum : [
+			bascule 1/1,
+			bascule 2/1,
+			bascule 2/2,
+			bascule 3/1,
+			bascule 3/2,
+			bascule 3/3,
+			bascule 4/1,
+			bascule 4/2,
+			bascule 4/3,
+			bascule 4/4,
+			bascule 5/1,
+			bascule 5/2,
+			bascule 5/3,
+			bascule 5/4,
+			bascule 5/5,
+			bascule 6/1,
+			bascule 6/2,
+			bascule 6/3,
+			bascule 6/4,
+			bascule 6/5,
+			bascule 6/6,
+		
+			côté/côté 1,
+			côté/côté 2,
+			côté/côté 3,
+			côté/côté 4,
+			côté/côté 5,
+			côté/côté 6,
+
+			retiration 1/1,
+			retiration 2/1,
+			retiration 2/2,
+			retiration 3/1,
+			retiration 3/2,
+			retiration 3/3,
+			retiration 4/1,
+			retiration 4/2,
+			retiration 4/3,
+			retiration 4/4,
+			retiration 5/1,
+			retiration 5/2,
+			retiration 5/3,
+			retiraiton 5/4,
+			retiration 5/5,
+			retiration 6/1,
+			retiration 6/2,
+			retiration 6/3,
+			retiration 6/4
+		]
+	}
+
+	- COMBINAISONS DE TEINTES D'IMPRESSION (seulement pour les presses) : {
+		type : multi-selection,
+		enum : [
+			noir Recto seul,
+			noir + blanc R seul,
+			noir + 1 pms R seul,
+			noir + 2 pms R seul,
+			noir + 3 pms R seul,
+			blanc R seul,
+			blanc + 1 pms R seul,
+			blanc + 2 pms R seul,
+			blanc + 3 pms R seul,
+			1 pms R seul,
+			2 pms R seul,
+			3 pms R seul,
+			4 pms R seul,
+			quadri R seul,
+			quadri + blanc R seul,
+			quadri + blanc + 1 pms R seul,
+			quadri + 1 pms R seul,
+			quadri + 2 pms R seul,
+			quadri + 3 pms R seul,
+			vitrophanie Q+B+Ag+B+Q
+		]
+	}
+
+	- TECHNOLOGIE D'IMPRESSION (seulement pour les presses) : {
+		type : simple selection
+		enum : [
+			offset,
+			UV,
+			HUV,
+			HR UV,
+			led UV,
+			jet d'encre
+			laser,
+			héliographique,
+			sérigraphique,
+			flexographique
+		]
+	}
+
+	- VERNIS EN LIGNE (seulement pour les presses) : {
+		type : multi-selection,
+		enum : [
+			vernis offset sur groupe couleur,
+			vernis acrylique,
+			vernis acrylique partiel,
+			vernis acrylique softtouch,
+			vernis dripoff
+			vernis offset UV,
+		]
+	}
+
+	- FACONNAGE EN LIGNE SUR PRESSE FEUILLE : {
+		type : multi-selection,
+		enum : [
+			rainage,
+			perforation linéaire
+		]
+	}
+
+	- FACONNAGE SUR MACHINE SUR PRESSE TYPOGRAPHIQUE) : {
+		type : multi-selection,
+		enum : [
+			rainage,
+			micro perforation linaire,
+			découpe linéaire,
+			découpe avec outil de forme,
+			fabrication de l'outil de forme
+			dorure,
+			gauffrage
+		]
+	}
+
+	- PLIAGE (Plieuse à poche) : {
+		type : multi-selection,
+		enum : [
+			rainage,
+			micro-perforation,
+			coupe 4 faces,
+			collage au pli,
+			coupe 3 faces,
+			F4-1,
+			F6-1,
+			F6-2,
+			F6-3,
+			F6-4,
+			F6-5,
+			F6-6,
+			F8-1,
+			F8-2,
+			F8-3,
+			F8-4,
+			F8-5,
+			F8-6,
+			F8-7,
+			F10-1,
+			F10-2,
+			F10-3,
+			F12-1,
+			F12-2,
+			F12-3,
+			F12-4,
+			F12-5,
+			F12-6,
+			F12-7,
+			F12-8,
+			F12-9,
+			F12-10,
+			F12-11,
+			F12-12,
+			F12-13,
+			F12-14,
+			F14-1,
+			F16-1,
+			F16-2,
+			F16-3,
+			F16-4,
+			F16-5,
+			F16-6,
+			F16-7,
+			F16-8,
+			F16-9,
+			F16-10
+			F16-11,
+			F16-12,
+			F16-13,
+			F18-1,
+			F18-2,
+			F18-3,
+			F18-4,
+			F18-5,
+			F18-6,
+			F18-7,
+			F18-8,
+			F18-9,
+			F20-1,
+			F20-2,
+			F24-1,
+			F24-2,
+			F24-3,
+			F24-4,
+			F24-5,
+			F24-6,
+			F24-7,
+			F24-8,
+			F24-9,
+			F24-10,
+			F24-11,
+			F28-1,
+			F32-1,
+			F32-2,
+			F32-3,
+			F32-4,
+			F32-5,
+			F32-6,
+			F32-7,
+			F32-8,
+			F32-9,
+			F36-1,
+			F36-2,
+			F36-3,
+			F40-1,
+			F48-1,
+			F48-2,
+			F64-1,
+			F64-2
+		]
+	}
+
+	- FACONNAGE SUR PRESSE ROTATIVE : {
+		type : multi-selection,
+		enum : [
+			rainage longitudinal,
+			rainage transversal,
+			micro perforation longitudinale,
+			micro perforation transversale,
+			trou de classement,
+			sortie en pile,
+			sortie en bobine,
+			sortie en paravent
+		]
+	}
+
+	- FACONNAGE SUR DECOUPE NUMERIQUE : {
+		type : multi-selection,
+		enum : [
+			découpe mi-chaire,
+			découpe lame tranversante,
+
+			rainage transversal,
+			micro perforation longitudinale,
+			micro perforation transversale,
+			trou de classement
+		]
+	}
+
+	- ASSEMBLAGE SUR ASSEMBLEUSE : {
+		type : multi-selection,
+		enum : [
+			Assemblage feuillet
+			1 Piqure à cheval,
+			2 piqure cheval,
+			3 piqure cheval,
+			4 piqure cheval,
+			1 piqure bouclette,
+			2 piqure bouclette,
+			3 piqure bouclette,
+			4 piqure bouclette
+		]
+	}
+	- BROCHAGE : {
+		type : multi-selection,
+		enum : [
+			Brochage dos carré collé,
+			Brochage dos carré collé PUR,
+			Brochage dos carré cousu collé
+		]
+	}
+
+	- FACONNAGE SUR TABLE (Poste de travail sur table) : {
+		type : multi-selection,
+		enum : [
+			AGRAFFAGE,
+			COLLAGE_LIASSE,
+			COLLAGE_BLOC,
+			COLLAGE PATTE RABAT,
+			AGRAFFAGE_CARNET,
+			DECORTICAGE,
+			INSERTION-ENCART-FIXE,
+			INSERTION-ENCART-LIBRE,
+			INSERTION-ENCART-CADENCE,
+			ASSEMBLAGE KIT,
+			DECOUPE_4COINS_ARRONDIS,
+			DECOUPE_FORME_LIBRE
+		]
+	}
+
+### Onglet "Barème" :
+
+Chaque poste de travail va contenir une liste de X barèmes de tarification
+
+#### les fonctions
+- Filtre :
+	- par type de prestation
+	- par type de support
+
+- Tri :
+	1/ type de prestation
+	2/ type de support 1
+	3/ format produit fini
+	4/ nombre de pages min
+	5/ nombre de postes
+	6/ grammage support
+	7/ épaisseur support
+	8/ nombre de passe/tour
+	9/ nombre d'exemplaire
+
+- import/export XLSX
+- nouveau barème
+
+#### mode d'affichage 
+- Affichage de la liste des barèmes sous forme de grille avec en-tête fixe et 2 premières colonnes
+- Nouveau barème sous forme de fenetre modale
+
+#### Structure d'un barème
+{
+##### condition obligatoire
+	- type prestation : {
+		type: selection simple
+		enum : [
+			Toute prestation,
+			<liste des prestations pour le type de poste>
+		 ]
+	}
+
+##### condition du support
+	    - type de support 1 : {type: selection simple, enum : [vide, ... <types de support>]},
+	    - ou type de support 2 : {type: selection simple, enum : [vide, ... <types de support>]},
+	    - ou type de support 3 : {type: selection simple, enum : [vide, ... <types de support>]},
+	    - grammage support min : {type:integer, unit:g/m2}, max : {type:integer, unit:g/m2},
+	    - épaisseur support min : {type:integer, unit:micron}, max : {type:integer, unit:micron},
+	    - largeur/laize min : {type:integer, unit:mm}, max : {type:integer, unit:mm},
+	    - hauteur/coupe : {type:integer, unit:mm}, max : {type:integer, unit:mm},
+
+##### condition du produit fini
+	    - largeur produit fini min : {type:integer, unit:mm}, max : {type:integer, unit:mm},
+	    - hauteur produit fini min : {type:integer, unit:mm}, max : {type:integer, unit:mm},
+	    - epaisseur produit fini min : {type:integer, unit:mm}, max : {type:integer, unit:mm},
+	    - nombre de pages min : {type:integer} max : {type:integer},
+	    - nombre de postes à assembler min : {type:integer}, max : {type:integer},
+
+##### condition quantitative
+	    - nombre de passe/tour min : {type:integer} max : {type:integer},
+	    - nombre d'exemplaire min : {type:integer} max : {type:integer},
+
+##### coûts (UM = unité monétaire de l'imprimeur, exemples EUR)
+	    - cout fixe (calage) : {type:float, unit:UM},
+	    - cout au 1000ex : {type:float, unit:UM},
+	    - limitation cadence : {type:float, unit:m/min}, 
+	    - supp tx horaire : {type:float, unit:UM/h}, 
+	    - supplément au m2 : {type:float, unit:UM/m2}, 
+
+##### variation de coût en %
+	    - majoration du coût au 1000ex : {type: float}
+	    - variation de la cadence (>0 => augmentation, <0 => réduction) : {type: float}
+	    - majoration du Tx horaire : {type: float}
+	    - majoration du coût au m2 : {type: float}
+
+##### gache
+	    - gache fixe : {type: integer},
+	    - gache de roule en % : {type: float},
+}
+
+========== suite prompt
+pour les barèmes des postes, tu n'a encore pas coder le choix des prestations réalisables comme précisé dans le prompt précédent. Code ça.
+
+========== suite prompt
+Pour les barèmes :
+
+le type de prestation doit proposer toutes les prestations sélectionnées pour la machine en plus du choix "toute prestation"
+tu n'as pas codé les 3 sélections de support alternative "support 1", "support 2", "support 3" pour lesquels tu dois proposer les choix des types de support sélectionnés pour la machine
+pour la vue liste des barèmes, affiche dans une colonne d'entête conditions, un résumé des conditions d'application du barème, exemple max gram:150, max ep:300, min ex :1000, ...
+pour la vue liste des barèmes, affiche dans une seule colonne un résumé des couts utilisant des abréviations, exemple fixe:15€, 1000Ex:5€, sm2:3€, m2:-15%
+code ça.
+
+========== suite prompt
+pour les barèmes, pour les autres conditions ajouter :
+
+surface min en m2
+surface max en m2 en tenir compte pour le résumé des conditions dans la vue liste Code ça.
+
+========== suite prompt (testing unitaite machine)
+pour les postes / machine, on ajoute un onglet test unitaire
+Objectif de l'onglet :
+Permettre à l'utilisateur de tester la tarification du poste.
+
+Comment :
+L'utilisateur renseigne les caractéristiques du support en entrée, du produit final et des données quantitative comme, le nombre d'exemplaire, la surface unitaire, etc
+
+L'utilisateur sélectionne des prestations parmis les prestations possibles pour le poste.
+
+Le système liste les barèmes applicables.
+
+Le système réalise un devis tabulaire :
+- rubrique (fixe, nb ex, surface, temps)
+- valeur
+- tarif unitaire
+- variation
+
+
+
+Contenu de l'onglet :
+
+========== suite onglet papier imprimeur
+Pour l'onglet papier d'un imprimeur
+# bouton nouveau catalogue
+# liste de catalogues papier/support :
+- nom catalogue
+- période de validité (du XX/XX/XX au YY/YY/YY)
+- sélecteur d'activation
+- éditer
+- exporter
+- supprimer
+
+# édition de catalogue via modal
+## modal d'édition :
+### formulaire :
+- nom du catalogue
+- date de début de validité (control calendar)
+- date de fin de validité (control calendar)
+- choix d'un pilote d'import CSV
+- choisir un fichier
+- options d'import : 
+	- séparateur CSV (enum: "auto", ";", ",", "tab")
+	- Creation auto des marques distributeurs inconnues ? (basculeur)
+	- Mise à jour du référentiel ?	(basculeur)
+	- Remplacer les reférences existantes ? (basculeur)
+- bouton "import"
+
+### contenu du catalogue
+liste des références 
+#### colonnes :
+- Genre (P pour plaque, B pour bobine, F pour feuille)
+- type matière
+- référence fournisseur
+- marque
+- couleur
+- grammage
+- epaisseur
+- format
+- conditionnement
+- mini de commande
+- tarif
+
+#### filtre sur colonne :
+- Genre
+- type matière
+- marque
+- couleur
+- grammage
+- epaisseur
+
+========== suite onglet transport imprimeur
+Pour l'onglet transport d'un imprimeur
+# bouton nouvelle grille de transport
+# liste des grilles de transport :
+- Nom de la grille
+- Pays de destination
+- type de transport
+- délai
+- Tranche de poids
+- sélecteur d'activation
+- éditer
+- exporter
+- supprimer
+
+# édition de grille via modal
+## modal d'édition :
+### Onglet "Paramètres" :
+#### informations générales
+- nom de la grille : {type: string}
+- type de transport : {
+	type: select, 
+	enum: [
+		"messagerie",
+		"VL, fourgon ou camion sans hayon",
+ 		"VL, fourgon, camion, hayon en option",
+ 		"camion avec hayon inclu"
+	]
+},
+- délai garanti : {
+	type: select, 
+	enum: [
+		"demi-journée (12h/16h)",
+		"j+1 avant 10h",
+		"j+1 avant 13h",
+		"j+1 avant 18h",
+		"24/48h",
+		"72h",
+		">72h"
+	]
+}
+
+#### Contraintes
+- interval de poid transporté, min : {type: integer, unit: kg}, max : {type: integer, unit: kg},
+- Plus grande dimension Max : {type:integer, unit: cm},
+- Perimètre Max (h+l+L) : {type:integer, unit: cm},
+- Volume Max : {type:integer, unit: cm3},
+
+#### Tarifs globaux
+- frais d'enlèvement : {type: float, unit: unité monétaire}
+- minimum forfaitaire : {type: float, unit: unité monétaire}
+- frais fixe : {type: float, unit: unité monétaire}
+- taxe gasoil : {type: float, unit: %}
+- type de tarification : {type: select, enum: ["forfaitaire","tarif à la tonne"]}
+- supplément hayon si option : {type: float, unit: unité monétaire}
+- supplément fixe si dépassement des dimensions : {type: float, unit: unité monétaire}
+- majoration du prix si dépassement des dimensions : {type: float, unit: %}
+
+### Onglet 'Grille des tarifs'
+#### fonctions
+- import/export CSV (en JS)
+- enregistrement des modifications
+
+#### affichage sous forme de grille éditable
+- colonne 1 : code ISO de la zone géographique
+- ligne 1 : entête des colonnes de 2 à X, poids maxi en kg de la colonne
+- cellules X,Y : tarif pour la tranche de poids colonne X et la zone de ligne Y 
+
+========== suite onglet admin tests
+Ajouter un onglet "administrateur" après testing (visible uniquement pour profil admin)
+Contenu de l'onglet
+# Sélection des acheteurs papiers mis à disposition pour testing
+Une API serveur retourne une liste de profil acheteur papiers à sélectionner
+
+
+# Sélection des transporteurs mis à disposition pour testing 
+Une API serveur retourne une liste de profil acheteur transporteur à sélectionner
+
+
+========== nouvel onglet préférence
+Ajout d'un onglet "préférences" entre "infos générales" et "machines"
+# Formulaire :
+## Gestion du papier
+- Papier fournis par :	{
+	type:select, 
+	enum: [
+		"Au mieux",
+		"Imprimeur uniquement",
+		"Client uniquement",
+		"Imprimeur de préférence"
+	]
+}
+
+## Gestion des livraisons :
+- autoriser l'application de la règle du payant pour ? : {type: boolean/basculeur},
+
+## Gestion des fonds perdus :
+- fonds perdus entre 2 poses pour fiches, dépliants : {type: integer, unit: mm},
+- fonds perdus entre 2 poses pour les chemises à rabats ou autres produits avec forme de découpe externe : {type: integer, unit: mm},
+
+## Gestion des gaches papier :
+- compter les gaches de calage dans le nombre de passages machine ? : {type: boolean/basculeur},
+- compter les gaches de roulage dans le nombre de passages machine ? : {type: boolean/basculeur},
+- compter une gache de globalede façonnage pour les brochures ?  {type: boolean/basculeur},
+mention : si non, seront utilisées les valeurs définies au niveau de chaque machine d'assemblage
+- si oui, jusqu'à 1000 ex : {type: integer, unit: %},
+- si oui, jusqu'à 5000 ex :	{type: integer, unit: %},
+- si oui, jusqu'à 20000 ex : {type: integer, unit: %},
+- si oui, au delà de 20000 ex :	{type: integer, unit: %},
+
+## Gestion du rainage des poses basculées :
+- refendre systématiquement avant rainage ? : {type: boolean/basculeur},
+- refendre avant rainage en cas de vernis UV, sérigraphique ou de pelliculage ? : {type: boolean/basculeur},
+
+## Gestion du rainage :
+- rainage des dépliants (plis parallèles, portefeuilles) à partir de : {type: integer, unit: g/m2, defaut:170},
+- rainage des dépliants (plis croisés, combinés) à partir de : {type: integer, unit: g/m2, defaut:170},
+- rainage des cahiers de brochure (plis croisés, combinés) à partir de :{type: integer, unit: g/m2, defaut:170},
+- rainage tout produit en cas de vernis UV à partir de : {type: integer, unit: g/m2, defaut:170},
+- rainage tout produit en cas de pelliculage à partir de : {type: integer, unit: g/m2, defaut:170}
+
+
+
+========== suite onglet admin tests
+Modification de l'onglet "administrateur"
+A insérer au début de l'onglet
+# Versioning et publication
+## fonctions
+- création d'un nouveau catalogue sur modal
+sauvegarde du paramétrage de l'imprimeur dans un catalogue
+- import JSON d'un catalogue
+
+## Liste des catalogues
+- auteur
+- commentaire
+- date de création
+- date de début de validité (control calendar pour modification)
+- date de fin de validité (control calendar pour modification)
+- statut à valider/en production/archive
+- restauration (écrase les données de l'imprimeur et restaure celle du catalogue)
+- export (export JSON du catalogue)
+- pdf (export pdf du catalogue pour validation)
+- suppression
+
+## Modal de création d'un nouveau catalogue
+### Formulaire
+- commentaire
+- date de début de validité (control calandar, date d'aujourd'hui par défaut)
+- date de fin de validité (control calandar, date Y+1 par défaut)
+- bouton créer le catalogue
+### Action
+- sérialise en JSON du paramétrage complet de l'imprimeur avec les infos générales, les préférence, les postes, les barèmes, les papiers, les grilles de transport
+- enregistre en base dans une table le JSON avec la date de création, le user, date de début et fin de validité, statut à valider
+
+========== suite onglet admin tests
+Modification de l'onglet "administrateur"
+Pour la liste des versions, ajouter pour chaque version :
+- un bouton publier -> change le statut pour "en production"
+- un bouton archiver -> change le statut pour "archivé"
+
+========== suite onglet admin tests
+Modification de l'onglet "administrateur"
+séparer la gestion du versioning et la config du testing en 2 sous-onglets
+Coder l'export PDF d'une version
+
+
+========== suite onglet testing
+Modification de l'onglet testing d'un imprimeur
+# Objectifs
+permettre à l'imprimeur de configurer des tests produits, de calculer des devis et de visualiser le détail des résultats
+
+# Liste des devis tests
+- nom du produit
+- résumé des caractéristiques du produit (sur hover détail des caractéristiques)
+- cout impression
+- cout de faconnage
+- cout de conditionnement
+- cout de livraison
+- cout papier
+- éditer le produit (ouverture modal édition d'un produit)
+- détail du calcul (ouverture modal détail du calcul)
+- recalculer
+- supprimer
+
+# Actions
+- nouveau produit test (ouverture modal création d'un produit)
+- import JSON d'une liste de tests
+- export JSON des tests
+- tout recalculer
+
+
+
+========== suite partage d'un imprimeur
+Codage de la gestion du partage d'un imprimeur
+# Objectif du partage
+permettre au data admin d'une BU de print managment de délégué le paramétrage d'imprimeur à un user de l'imprimeur
+
+# Ajout d'une adresse email à l'imprimeur
+Pour communiquer un code d'accès au user de l'imprimeur, il est impératif de disposer d'une adresse email.
+Ajoute un champ email admin imprimeur dans l'onglet informations générales de l'imprimeur.
+
+# Sur click sur bouton partage de la card imprimeur
+## Ouverture de la modale de partage
+### Formulaire :
+- date de fin de validité du lien (control calendar)
+- bouton création du lien de partage
+
+### Action :
+- sur validation création du lien de partage
+- affichage du lien de partage dans la card de l'imprimeur avec un bouton copier
+
+# Gestion du lien de partage dans onglet "Administrateur" de l'imprimeur
+## Nouvelle rubrique partage
+Si partage en cours :
+- rappel du lien de partage avec le bouton copier
+- rappel de la date de fin de validiter
+- bouton supprimer le partage
+
+Si pas de partage en cours :
+- bouton de création du partage (ouverture de la modal de partage)
+
+# Utilisation du lien de partage
+Le lien peut être communiquer au user de l'imprimeur pas tout type de média (mail, whatsapp etc).
+Quand le user clic sur le lien :
+1/ une page de connexion demande l'email ou envoyer le code d'accès
+2/ sur validation, check que l'email correspond à un email d'admin imprimeur,
+3/ Si email OK, envoi d'un code de sécurité random à 6 chiffres à l'adresse email indiquée
+4/ affichage d'une page de demande du code de sécurité à 6 chiffres
+5/ sur saisie du code de sécurité et validation, affichage de la landing de l'imprimeur idem page d'édition de l'imprimeur mais sans le bouton "retour dashboard" et sans l'onglet "Administrateur"
+
+501569
+========== suite gestion des langues et traduction
+Objectif : Ajouter l’i18n à notre app React (TypeScript).
+
+Contraintes/stack :
+- Utiliser i18next + react-i18next + i18next-browser-languagedetector
+- Charger les traductions via i18next-http-backend depuis /public/locales/{{lng}}/{{ns}}.json
+- Langues supportées : fr, en ; fallbackLng: en
+- Auto-détection : querystring (?lang=), localStorage, navigator, htmlTag ; cache localStorage
+- Namespaces : common (par défaut) + auth (exemple)
+
+Livrables attendus :
+1) Fichier src/i18n.ts (init complet + détection + backend).
+2) Arborescence de traductions :
+   - public/locales/en/common.json, public/locales/fr/common.json
+   - public/locales/en/auth.json,   public/locales/fr/auth.json
+   (mets 5–10 clés d’exemple : hello, logout, login.title, errors.required, etc.)
+3) Composant <LanguageSwitcher/> (select) qui appelle i18n.changeLanguage() et persiste le choix.
+4) Wiring : import "./i18n" au bootstrap ; remplacer 3 chaînes hardcodées dans l’UI par t("…").
+5) Typage OK (TS), HMR compatible, pas de régression.
+6) Optionnel : support ICU (i18next-icu) si simple.
+
+Critères d’acceptation :
+- Au premier chargement, la langue suit le navigateur (ex. fr-FR → fr) ; si non supportée, fallback en.
+- URL ?lang=fr force la langue et l’écrit en localStorage ; le switch persiste après refresh.
+- Les JSON sont lazy-loadés depuis /locales/… ; pas de ressources inline dans le bundle.
+- Les clés inexistantes tombent sur fallback (pas de crash).
+
+Fais un PR avec : diff, instructions d’install (npm i …), et exemple d’usage useTranslation() dans un composant.
+
+========== suite gestion des langues et traduction sur impossibilité par base44 d'utiliser i18next
+Objectif : Ajouter un i18n minimaliste (sans packages externes) à l’app React (JS).
+
+Contraintes à respecter :
+- Uniquement des fichiers dans : pages/... , components/... , entities/... , Layout.js
+- JavaScript (.js/.jsx) uniquement
+- Swappable plus tard par i18next (mêmes clés, même API de hook)
+
+Fonctionnalités attendues :
+- Langues supportées : "fr", "en" ; fallback = "en"
+- Auto-détection au premier load (ordre) : querystring (?lang=) > localStorage > navigator.language > <html lang="">
+- Persistance de la langue choisie dans localStorage ("app.lang")
+- Switch de langue à chaud via un composant <LanguageSwitcher/>
+- Hook useT() pour traduire : t("namespace.key", { vars })
+
+Arborescence/fichiers à créer :
+1) entities/i18n/translations.js
+   - Export par défaut d’un objet :
+     {
+       en: { common: { hello: "Hello {{name}}", logout: "Log out" }, auth: { loginTitle: "Sign in" } },
+       fr: { common: { hello: "Bonjour {{name}}", logout: "Se déconnecter" }, auth: { loginTitle: "Connexion" } }
+     }
+   - Mets 8–10 clés d’exemple (common.*, auth.*), incluant au moins une interpolation {{name}} et une pluralisation simple via une fonction si besoin.
+
+2) entities/i18n/detect.js
+   - Export default function detectLanguage({ supported=["en","fr"], fallback="en" }):
+     - lit la query ?lang=xx (window.location.search), valide dans supported
+     - sinon lit localStorage.getItem("app.lang")
+     - sinon prend navigator.language (ex: "fr-FR" -> "fr") si supporté
+     - sinon document.documentElement.lang si supporté
+     - sinon fallback
+   - Ne pas écrire en localStorage ici.
+
+3) components/I18nProvider.jsx
+   - Crée un React Context avec state { lang, setLang }
+   - Charge translations depuis entities/i18n/translations.js
+   - Fournit un helper t(nsKey, vars) :
+       - nsKey au format "namespace.key.subkey"
+       - résolution profonde (split("."))
+       - interpolation {{var}} simple
+       - si clé absente : retourne nsKey entre crochets [namespace.key]
+   - Au mount :
+       - calcule la langue via detectLanguage()
+       - setLang(lang) puis localStorage.setItem("app.lang", lang)
+   - Exporte : I18nProvider, useI18n() (retourne { lang, setLang, t })
+
+4) components/LanguageSwitcher.jsx
+   - <select value={lang} onChange={...}> avec "en" / "fr"
+   - onChange : setLang(newLang) + localStorage.setItem("app.lang", newLang)
+   - Affichage minimal, compatible Tailwind si dispo
+
+5) Layout.js
+   - Import { I18nProvider } et wrappe toute l’app/children dedans
+   - Optionnel : définit <html lang={lang}> si possible (via effet dans I18nProvider : document.documentElement.lang = lang)
+
+6) Exemple d’usage (modifie un composant existant ou ajoute pages/example.jsx) :
+   - const { t } = useI18n();
+   - <h1>{t("common.hello", { name: "Laurent" })}</h1>
+   - <p>{t("auth.loginTitle")}</p>
+   - <LanguageSwitcher />
+
+Critères d’acceptation :
+- Aller sur /?lang=fr force la langue en français et la persiste après refresh
+- Sans query, la langue suit navigator.language si supportée, sinon fallback en
+- Le switcher change instantanément les libellés visibles
+- localStorage("app.lang") est respecté au reload
+- Si la clé n’existe pas, t(...) retourne "[namespace.key]" (pas de crash)
+- Code clair, commenté, 0 dépendance externe
+
+Livrer :
+- Les 4 fichiers + patch de Layout.js
+- Instructions d’utilisation en 3 lignes (import, hook, switcher)
+
+========== suite gestion des langues et traduction
+Objectif : Internationaliser toute l’app existante (JS) avec notre i18n “lite”.
+
+Contexte :
+- Stack et contraintes base44 inchangées (pas de packages externes, fichiers autorisés : pages/..., components/..., entities/..., Layout.js).
+- i18n déjà en place : entities/i18n/translations.js, entities/i18n/detect.js, components/I18nProvider.jsx, components/LanguageSwitcher.jsx.
+- API à utiliser : const { t } = useI18n(); → t("namespace.key", { vars }).
+
+Tâches à faire (exhaustif) :
+1) **Inventorier tous les libellés** hardcodés (texte visible UI) dans pages/** et components/** :
+   - Contenu de balises JSX (ex. <Button>Se connecter</Button>)
+   - Props textuelles : aria-label, title, alt, placeholder, label, helperText, emptyState, toast messages, erreurs/validations, etc.
+   - Menus, headers, footers, modales, formulaires, CTA, tooltips, tables (en-têtes, “No data”), pagination.
+   - Messages de bordereaux/états (loading, success, error).
+   - **Ne pas** extraire : données dynamiques venant d’API ou contenu saisi par l’utilisateur.
+
+2) **Remplacer** chaque texte par un appel `t(...)`, ex. :
+   - `<Button>{t("auth.login")}</Button>`
+   - `<Input placeholder={t("auth.emailPlaceholder")} />`
+   - `<img alt={t("common.logoAlt")} ... />`
+   - En cas d’interpolation : `t("common.helloUser", { name })`
+
+3) **Nommage des clés** (stable et prévisible) :
+   - Namespaces : `common`, `auth`, `nav`, `forms`, `table`, `errors`, `notifications`, `empty`, `dialogs`, `settings`.
+   - Clés kebab/camel au choix mais homogènes. Ex. `auth.login`, `auth.emailPlaceholder`, `nav.dashboard`, `table.noData`, `errors.required`, `notifications.saved`.
+
+4) **Compléter `entities/i18n/translations.js`** :
+   - Ajouter pour **en** et **fr** toutes les clés identifiées, avec traductions cohérentes.
+   - Couvrir au minimum 100% des labels remplacés.
+   - Garder les exemples existants ; ne rien casser.
+   - Interpolation simple `{{var}}` si nécessaire.
+   - Si une chaîne est réutilisée à plusieurs endroits, **factoriser** dans `common`.
+
+5) **Edge cases** :
+   - Pluralisation simple : si besoin, utiliser une petite fonction/choix interne (ex. `count === 1 ? t("...one") : t("...many")`) en attendant i18next V2.
+   - Valeurs par défaut : si clé manquante, t() renvoie "[namespace.key]" (déjà géré par le provider).
+
+Critères d’acceptation :
+- Aucun texte UI hardcodé restant dans pages/** et components/** (hors données API/saisie user).
+- L’app se rend entièrement en fr/en via <LanguageSwitcher/> et via ?lang=fr|en.
+- Aucune régression visuelle/ARIA ; `alt`, `aria-label`, `title`, `placeholder` traduits.
+- Zero warning/erreur runtime ; fallback propre sur clés manquantes.
+- Diff clair : pour chaque fichier modifié, remplacement net par `t(...)` + ajouts de clés dans translations.js.
+
+Livrables :
+- PR avec : fichiers modifiés, `entities/i18n/translations.js` enrichi (fr & en), résumé des namespaces/clé ajoutées.
+
+
+
+=================== prompt suite multi-BU
+
+================== prompt chatGPT - gestion des compte user
+OK donc voici ci-dssous la liste des profils envisagés : 
+# Un admin (tenantAdmin) de tenant peut : 
+- inviter un co-admin 
+- créer des BUs - pour chaque BU, inviter des buAdmin 
+- administrer toutes les BUs # Un buAdmin peut : 
+- inviter un co-buAdmin 
+- créer des PrinterEnvironnement 
+- inviter des buPrinterAdmin (si séparation des responsabilités gestion des achats papier/ gestion des imprimeries) 
+- pour chaque PrinterEnvironnement, inviter des printerAdmin (actuellement gérer avec simple partage pour délégation de gestion des datas chez l'imprimeur) 
+- créer des PaperEnvironnement 
+- inviter des buPaperAdmin (si séparation des responsabilités gestion des achats papier/ gestion des imprimeries) 
+- pour chaque PaperEnvironnement, inviter des paperAdmin (pour éventuellement déléguer la gestion des datas aux papetiers) 
+- créer des ProjetEnvironnement 
+- inviter des buProjectAdmin (si séparation des responsabilités achats / projets) 
+- pour chaque ProjetEnvironnement inviter des projectUser 
+# Un buPrinterAdmin peut : 
+- créer/éditer des PrinterEnvironnement 
+- pour chaque PrinterEnvironnement, inviter des printerAdmin (actuellement gérer avec simple partage pour délégation de gestion des datas chez l'imprimeur) 
+# Un buPaperAdmin peut : 
+- créer/éditer des PaperEnvironnement 
+- pour chaque PaperEnvironnement, inviter des paperAdmin (pour éventuellement déléguer la gestion des datas aux papetiers) 
+# Un buProjetAdmin peut : 
+- créer/éditer des ProjetEnvironnement 
+- pour chaque ProjetEnvironnement, inviter des projetUser 
+# Un printerAdmin peut : 
+- éditer un PrinterEnvironnement (hors onglet administrateur) 
+# Un paperAdmin peut : 
+- éditeur un PaperEnvironnement (hors onglet administrateur) 
+# Un projectUser peut : 
+- créer un nouveau projet dans un ProjetEnvironnement 
+- rechercher dans ses propres projets 
+- éditer ses propres projets
+
+
+==================== prompt chatGPT ajout référentiel dans BU
+Dans Clariprint on gére des référentiels matières, pour chaque référentiel on va :
+- créer et gérer des familles de support
+- qualifier des marques de support en complément de la qualification issue des imports de catalogue, notamment on va sélectionner les procédés d'impression compatible avec la marque de support et on va lui attribuer une famille de support. 
+
+Ces référentiels de matière sont utilisés notamment pour la régionalisation de l'offre de matière étant entendu qu'un référentiel va servir pour la sélection de la matière par le customer. 
+Dans HubMaster (aka Price Factory), on va gérer un référentiel au niveau de la BU avec la possibilité d'import/export du référentiel afin de faciliter le déploiement de nouvelles BUs par régionalisation d'un export avant import dans la nouvelle. 
+
+Voici la structure du référentiel de matières :
+
+# Familles de support :
+Nom: {type: string},
+type de matière: {
+	type:enum
+	options:[
+		[0,"indéfini"],
+		[1,"papiers couchés et LWC"],
+		[2,"papiers satinés"],
+		[3,"papiers offset"],
+		[4,"papiers journal standard"],
+		[5,"papiers journal amélioré"],
+		[6,"adhésifs pour impression UV"],
+		[7,"autres supports polypro"],
+		[8,"autres supports pour impression UV"],
+		[9,"enveloppe"],
+		[10,"papier pour impression numérique grand format"],
+		[11,"toute plaque rigide"],
+		[12,"bache"],
+		[13,"tissus"],
+		[14,"PVC rigide"],
+		[15,"PMMA"],
+		[16,"Composite carton/papier"],
+		[17,"Composite PVC"],
+		[18,"Composite polypropylène"],
+		[19,"Composite aluminium"],
+		[20,"Aluminium"],
+		[21,"Métaux ferreux"],
+		[22,"Bois résineux"],
+		[23,"Bois tendre"],
+		[24,"Bois dur"],
+		[25,"Contre-plaqué"],
+		[26,"OSB"]
+	]
+}
+
+# Marques de support :
+uid:{type: uid}
+Nom:{type: string}
+Fournisseur:{type: string}
+Famille:{type: uid famille}
+## qualification tenue au feu
+M1:{type: boolean}
+## Certification marque de presse numérique
+Canon:{type: boolean}
+HP:{type: boolean}
+Kodak:{type: boolean}
+Konica Minolta:{type: boolean}
+Ricoh:{type: boolean}
+Xeikon:{type: boolean}
+Xerox:{type: boolean}
+Autres:{type: list[string]}
+## Procédés d'impression compatibles
+Numérique:{type: boolean}
+Offset:{type: boolean}
+Offset UV:{type: boolean}
+Coldset:{type: boolean}
+Héliogravure:{type: boolean}
+Sérigraphie:{type: boolean}
+Flexographie:{type: boolean}
+## qualification environnementales
+PEFC 100%:{type: boolean}
+PEFC Recyclé:{type: boolean}
+PEFC 70%:{type: boolean}
+FSC 100%:{type: boolean}
+FSC Recyclé:{type: boolean}
+FSC mix:{type: boolean}
+recyclé:{type: boolean}
+Blue Angel:{type: boolean}
+Ecolabel:{type: boolean}
+Nordic Swan:{type: boolean}
+A.P.U.R.:{type: boolean}
+Paper by Nature:{type: boolean}
+
+Redige un prompt pour ajouter la gestion du référentiel de matière au niveau de la BU.
+
+==================== prompt correctif référentiel
+Finalement, je souhaite simplifier encore le référentiel en supprimant la gestion des familles.
+La marque va simplement renseigné une famille de manière textuelle et un type de matière.
+Donc :
+# suppression de la gestion des familles
+# modification des Marques de support par ajout des champs suivants
+type de matiere: {
+	type:enum
+	options:[
+		[0,"indéfini"],
+		[1,"papiers couchés et LWC"],
+		[2,"papiers satinés"],
+		[3,"papiers offset"],
+		[4,"papiers journal standard"],
+		[5,"papiers journal amélioré"],
+		[6,"adhésifs pour impression UV"],
+		[7,"autres supports polypro"],
+		[8,"autres supports pour impression UV"],
+		[9,"enveloppe"],
+		[10,"papier pour impression numérique grand format"],
+		[11,"toute plaque rigide"],
+		[12,"bache"],
+		[13,"tissus"],
+		[14,"PVC rigide"],
+		[15,"PMMA"],
+		[16,"Composite carton/papier"],
+		[17,"Composite PVC"],
+		[18,"Composite polypropylène"],
+		[19,"Composite aluminium"],
+		[20,"Aluminium"],
+		[21,"Métaux ferreux"],
+		[22,"Bois résineux"],
+		[23,"Bois tendre"],
+		[24,"Bois dur"],
+		[25,"Contre-plaqué"],
+		[26,"OSB"]
+	]
+}
+famille:{type:"select modifiable", enum:[liste des familles existantes dans les marques de la BU], comment:"l'utilisateur peut entrer une nouvelle valeur libre"}
+
+Redige un prompt pour que base44 modifie la gestion du référentiel de matière au niveau de la BU.
+
+
+==================== prompt fournisseurs matieres BU
+Pour chaque BU, on doit pouvoir gerer les fournisseurs de matière avec une vue liste et une modal de création/modification.
+# Structure datas des fournisseurs de matiere :
+Nom:{type:"string"}
+n° TVA:{type:"string"}
+adresse:{type:"string"}
+mail:{type:"string"}
+url site:{type:"string"}
+systeme d'unites:{type:"string",enum:[SI,imperial]}
+monnaie:{type:"string"}
+
+Pour chaque BU, on gere un catalogue global de references SKU.
+# Catalogue des SKU
+## Fonctions 
+### tri des SKU et recherche par fournisseur, type de matière, famille, marque, type de support, couleur, grammage
+### affichage de la liste des SKU
+- fournisseur avec code couleur (vert si full qualifié (TVA, mail, url, unités, monnaie), orange si partiellement qualifié, rouge si pas qualifié), cliquable pour modal de qualification
+- marque avec code couleur (vert si famille, type de matière et au moins 1 procédé d'impression coché, rouge sinon)
+- type de support (F: Feuille stock, B: Bobine stock, P: Plaque stock, FF: Feuille fabrication, BF: Bobine fabircation, PF: Plaque fabrication)
+- couleur
+- format (HxL ou Laize)
+- conditionnement
+- mini de commande
+- tarif base
+
+### import intégral pour création initial
+tous les champs du SKU sont pris en compte
+lors de l'import, si le SKU est connu, les champs sont modifiés, sinon il est créé
+### import tarif pour mises à jour
+### template Import création / update
+### export
+
+## Structure des SKU
+### Champs de référencement du SKU
+nom fournisseur:{type:string, enum:[noms des fournisseurs de matiere de la BU], extra:"possibilite de saisir un nouveau nom de fournisseur, avec normalisation du nom (trim, captital, pas d'accent)"}
+SKU:{type:string}
+#### clef unique sur nom fournisseur + SKU, 
+### Champs de qualification du SKU
+type de support:{type:select, enum:[["F","Feuillle"],["B","Bobine"],["P","Plaque"],["FF", "Feuille sur fabrication"],["BF","Bobine sur fabrication"],["PF","Plaque sur fabrication"]]}
+marque:{type:string, enum:[nom des marques du referenciel], si valeur inconnu dans le referenciel creation auto de la marque, required, si famille connu alors filtrage }
+label:{type:string}
+couleur:{type:string}
+grammage:{type:float}
+uniteGrammage:{type:string, enum:["g/m2",<autres unité>] }
+epaisseur:{type:float}
+uniteEpaisseur:{type:string, enum:["micron","mm","point"]}
+largeurOuLaizeBobine:{type:float}
+hauteurOuLongueurBobine:{type:float}
+uniteDimensions:{type:string, enum:["mm","cm","m"]}
+quantiteParConditionnement:{type:integer}
+
+### Champs de conditions tarifaires du SKU
+#### Required
+minimumDeCommande:{type:float}
+uniteDeMiniDeCommande:{type:"select", enum:["unite","1000 unites", "conditionnement", "ml", "m2", "kg", "T", "unite monetaire"]}
+tarifBase:{type:"float"}
+uniteDeTarification:{type:select, enum:["par unite","pour 1000 unites","par conditionnement","ml","m2","kg","T"]}
+#### Optionals
+remise:{type:"float", unit:"%"}
+Borne1:{type:"float"}
+typeBorne1:{type:"string", enum:["si moins de X UM","si plus de X UM","si moins de X T","si plus de X T"]}
+tarif1:{type:"float"}
+typeTarif1:{type:"float",enum["supplément ou remise fixe","variation %"]}
+Borne2:{type:"float"}
+typeBorne2:{type:"string", enum:["si moins de X UM","si plus de X UM","si moins de X T","si plus de X T"]}
+tarif2:{type:"float"}
+typeTarif2:{type:"float",enum["supplément ou remise fixe","variation %"]}
+Borne3:{type:"float"}
+typeBorne3:{type:"string", enum:["si moins de X UM","si plus de X UM","si moins de X T","si plus de X T"]}
+tarif3:{type:"float"}
+typeTarif3:{type:"float",enum["supplément ou remise fixe","variation %"]}
+
+## Structure d'import intégral des SKU
+### Reprise de tous les champs de la structure SKU
+Si le fournisseur n'est pas connu, création automatique.
+Si la marque n'est pas connue dans le référentiel, création automatique
+
+La marque du SKU est modifiée avec les champs de qualification de la marque
+### Ajout des champs de qualification de la marque du sku versus referenciel (facultatif peut etre fait a posteriori via l'UI du referenciel)
+#### Champs de qualification de la marque
+type matiere:{type:string, enum:[type de matiere des familles du referenciel], not required}
+famille:{type:string,enum:[nom des familles du referenciel], si valeur inconnu dans le referenciel creation de la famille, not required}
+#### Champs de Qualification tenue au feu
+M1:{type: boolean}
+#### Champs de Certification marque de presse numérique
+Canon:{type: boolean}
+HP:{type: boolean}
+Kodak:{type: boolean}
+Konica Minolta:{type: boolean}
+Ricoh:{type: boolean}
+Xeikon:{type: boolean}
+Xerox:{type: boolean}
+Autres:{type: list[string]}
+#### Champs de Procédés d'impression compatibles
+Numérique:{type: boolean}
+Offset:{type: boolean}
+Offset UV:{type: boolean}
+Coldset:{type: boolean}
+Héliogravure:{type: boolean}
+Sérigraphie:{type: boolean}
+Flexographie:{type: boolean}
+#### Champs de Qualification environnementales
+PEFC 100%:{type: boolean}
+PEFC Recyclé:{type: boolean}
+PEFC 70%:{type: boolean}
+FSC 100%:{type: boolean}
+FSC Recyclé:{type: boolean}
+FSC mix:{type: boolean}
+recyclé:{type: boolean}
+Blue Angel:{type: boolean}
+Ecolabel:{type: boolean}
+Nordic Swan:{type: boolean}
+A.P.U.R.:{type: boolean}
+Paper by Nature:{type: boolean}
+
+## Structure d'import tarif des SKU
+### Reprise des champs de référencement
+Nom fournisseur
+SKU
+### Reprise des champs de tarification
+#### Required
+#### Optionals
+
+## Structure d'export des SKU
+format identique à l'import intégral
+
+*Redige un prompt pour que base44 ajoute au niveau de la BU la gestion des fournisseurs de matière et la gestion des SKU.*
+
+
+==================== prompt transporteurs BU
+Pour chaque BU, on doit pouvoir gerer des transporteurs pour gérer des tarifs de transport indépendemment des prestations de transport paramétrer chez les imprimeurs. Il arrive souvant que le transport soit acheté en direct par le print manager (tout comme la métière). La gestion des transporteurs, des grilles et des tarifs de transport est assez similaire à celle des matières.
+# Structure datas des transporteurs :
+Nom:{type:"string"}
+n° TVA:{type:"string"}
+adresse:{type:"string"}
+mail:{type:"string"}
+url site:{type:"string"}
+systeme d'unites:{type:"string",enum:[SI,imperial]}
+monnaie:{type:"string"}
+
+# Bouton nouvelle grille de transport
+# Liste des grilles de transport :
+- Nom de la grille
+- Pays de destination
+- type de transport
+- délai
+- Tranche de poids
+- sélecteur d'activation
+- éditer
+- exporter
+- supprimer
+
+# édition de grille via modal
+## modal d'édition :
+### Onglet "Paramètres" :
+#### informations générales
+- nom de la grille : {type: string}
+- type de transport : {
+	type: select, 
+	enum: [
+		"messagerie",
+		"VL, fourgon ou camion sans hayon",
+ 		"VL, fourgon, camion, hayon en option",
+ 		"camion avec hayon inclu"
+	]
+},
+- délai garanti : {
+	type: select, 
+	enum: [
+		"demi-journée (12h/16h)",
+		"j+1 avant 10h",
+		"j+1 avant 13h",
+		"j+1 avant 18h",
+		"24/48h",
+		"72h",
+		">72h"
+	]
+}
+
+#### Contraintes
+- interval de poid transporté, min : {type: integer, unit: kg}, max : {type: integer, unit: kg},
+- Plus grande dimension Max : {type:integer, unit: cm},
+- Perimètre Max (h+l+L) : {type:integer, unit: cm},
+- Volume Max : {type:integer, unit: cm3},
+
+#### Tarifs globaux
+- frais d'enlèvement : {type: float, unit: unité monétaire}
+- minimum forfaitaire : {type: float, unit: unité monétaire}
+- frais fixe : {type: float, unit: unité monétaire}
+- taxe gasoil : {type: float, unit: %}
+- type de tarification : {type: select, enum: ["forfaitaire","tarif à la tonne"]}
+- supplément hayon si option : {type: float, unit: unité monétaire}
+- supplément fixe si dépassement des dimensions : {type: float, unit: unité monétaire}
+- majoration du prix si dépassement des dimensions : {type: float, unit: %}
+
+### Onglet 'Grille des tarifs'
+#### fonctions
+- import/export CSV (en JS)
+- enregistrement des modifications
+
+#### affichage sous forme de grille éditable
+- colonne 1 : code ISO de la zone géographique d'enlèvelement
+- colonne 2 : code ISO de la zone géographique de destination
+- colonne 3 : supplément d'enlèvement
+- ligne 1 : entête des colonnes de 4 à X, poids maxi en kg de la colonne
+- cellules X,Y : tarif pour la tranche de poids colonne X et la zone de ligne Y 
+
+*Redige un prompt pour que base44 ajoute au niveau de la BU la gestion des transporteurs et des grilles de transport.*
+
+==================== prompt modification de la liste des barèmes d'une machine
+Au niveau de la liste des barèmes d'une machine, la colonne coûts affiche la liste des postes de coûts renseigné au niveau du barème. A ce jour la liste n'est pas complète : ni le taux horaire, ni la cadence n'apparaissent, or on doit voir tous les postes de coûts non null. D'autre part il faut rendre modifiable ces postes de coûts dans la vue liste des barèmes afin que l'utilisateur puisse les modifier sans éditer le barème, voici ma proposition d'ergonomie :
+
+high-light des postes de coût modifié par l'utilisateur
+bouton sauvegarder les modifications en bas de la liste Attention pas d'update en live !
+
+
+
+==================== prompt dashboard tenant statistique
+# statitistique utilisation
+- nombre de BU
+- nombre de PrinterEnv
+- nombre de PaperEv
+- nombre de users
+- nombre de ProjetEnv
+- nombre de TransportEnv

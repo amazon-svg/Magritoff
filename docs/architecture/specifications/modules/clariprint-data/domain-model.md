@@ -1,11 +1,17 @@
 # Modèle de domaine Clariprint Data
 
 **Statut :** draft  
-**Version :** 0.1
+**Version :** 0.2
 
 ## Agrégats proposés
 
 ```text
+BusinessUnitRef
+  └── ProductionEnvironment
+        ├── SupplierRef / SiteRef
+        ├── Preferences
+        └── ActivePublicationRef
+
 Supplier
   ├── Sites
   └── SupplierCapabilities
@@ -14,6 +20,24 @@ ProductionResource
   ├── Machine
   ├── MaterialOffer
   └── TransportGrid
+
+PricingSchedule
+  └── Conditions + Performance + Economics + Waste
+
+BusinessUnitReferenceCatalog
+  ├── MaterialSuppliers / Brands / SKUs
+  └── Carriers / TransportGrids
+
+ClientProfile
+  └── PricingPolicy versions
+
+CalculationAccessContract
+  ├── Pool / PublicationSelector / ResourceFilter
+  ├── LocalApiCredentials
+  └── ExternalAccessBindings
+
+AdjustedDatasetProjection
+  └── SourcePublication + Profile + Policy + DatasetHash
 
 SubcontractingAgreement
   └── AuthorizedResourceRefs
@@ -29,6 +53,14 @@ Sandbox
 ```
 
 Les frontières définitives d'agrégat doivent être validées par les transactions du flux pilote. Ce document interdit de traduire automatiquement chaque agrégat par une seule table.
+
+## BU et environnement de production
+
+La BU est pour l'instant une référence fournie par la plateforme tenant. `ProductionEnvironment` est le candidat pour représenter le périmètre de configuration, d'édition et de publication observé dans PrintMaster.
+
+Il référence un fournisseur et éventuellement un site au lieu d'en recopier l'identité. Son type spécialise les écrans et données disponibles sans transformer imprimeur, papetier et transporteur en identités exclusives.
+
+La correspondance entre BU, tenant enfant et scope RLS doit être décidée avant le schéma.
 
 ## Fournisseur
 
@@ -93,6 +125,22 @@ Ces concepts sont distincts :
 
 Une valeur possède une sémantique d'absence explicite : `known`, `unknown`, `not_applicable` ou, si validé, `unbounded`. La valeur numérique zéro reste une valeur connue.
 
+## Barème
+
+`PricingSchedule` est rattaché à une machine ou un poste et possède quatre sous-structures : conditions d'applicabilité, performance, économie et gâche. Les cas de test référencent une révision déterminée du barème et l'implémentation officielle du solveur ou validateur.
+
+## Référentiels BU
+
+Les catalogues matière et transport mutualisés sont versionnés indépendamment des environnements. Une publication doit soit embarquer les entrées utilisées, soit conserver une référence vers une version immuable garantissant sa reproductibilité.
+
+## Profils clients et accès calcul
+
+Le pool publié contient les montants source de l'imprimeur, qualifiés comme coûts de production ou tarifs commerciaux. `ClientProfile` porte des versions de `PricingPolicy` effectives dans le temps. Une politique contient une règle globale et des exceptions par machine.
+
+`CalculationAccessContract` relie le profil à un pool, à un sélecteur de publication et à des filtres de ressources. Il peut être authentifié par plusieurs clés locales ou par un binding externe vers la référence publiée du profil.
+
+`AdjustedDatasetProjection` est construit par Clariprint Data. Il contient le JSON solveur complet après filtrage et ajustement, ainsi que toutes les références de versions nécessaires à sa reproduction. Le solveur ne reçoit pas la responsabilité d'appliquer la politique client.
+
 ## Dataset de travail
 
 Le dataset de travail est l'état modifiable utilisé pour préparer une publication. Il ne doit pas être confondu avec la somme implicite des dernières lignes de toutes les tables si cette approche empêche de reproduire un état antérieur.
@@ -135,4 +183,9 @@ Un sandbox dérive d'une publication et évolue dans un environnement isolé. Il
 5. Granularité des dates d'effet.
 6. Multi-sites et partage de ressources.
 7. Référencement des versions par les calculs historiques.
-
+8. Nature de `ProductionEnvironment` et correspondance BU/tenant.
+9. Schéma et priorité des barèmes.
+10. Copie ou référence des catalogues BU dans les publications.
+11. Granularité de la nature coût de production / tarif commercial.
+12. Formules et priorité des règles tarifaires client.
+13. Protocole de résolution externe des profils.
