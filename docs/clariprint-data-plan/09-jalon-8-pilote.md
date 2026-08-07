@@ -43,6 +43,15 @@ Démontrer que le MVP est sûr, exploitable et utilisable par un métier sur un 
 - [ ] `J8-VAL-08` Deux publications sont comparables.
 - [ ] `J8-VAL-09` Un sandbox ne modifie jamais la production.
 - [ ] `J8-VAL-10` Le fournisseur multi-capacités et le contrat de sous-traitance pilote fonctionnent sans exposition excessive.
+- [ ] `J8-VAL-11` L'environnement pilote conserve sa BU, son fournisseur, son site et ses référentiels versionnés.
+- [ ] `J8-VAL-12` Le barème du poste pilote produit un résultat de test explicable et rattaché au validateur officiel.
+- [ ] `J8-VAL-13` Une délégation limitée peut être accordée, expirer et être révoquée sans ouvrir l'administration BU.
+- [ ] `J8-VAL-14` L'imprimeur qualifie son pool comme coûts de production ou tarifs commerciaux.
+- [ ] `J8-VAL-15` Un profil client possède une politique globale et une exception machine dont les périodes de validité sont contrôlées.
+- [ ] `J8-VAL-16` Deux dates de calcul sélectionnent les versions de politique attendues et produisent des tarifs explicables.
+- [ ] `J8-VAL-17` Le JSON solveur complet contient les tarifs ajustés par Clariprint Data et la trace de leur contexte de génération.
+- [ ] `J8-VAL-18` Le solveur calcule à partir de la projection sans réappliquer les marges ou remises du profil.
+- [ ] `J8-VAL-19` La génération et la livraison d'une projection n'altèrent aucun montant du pool source.
 
 ## Critères de validation sécurité
 
@@ -52,6 +61,11 @@ Démontrer que le MVP est sûr, exploitable et utilisable par un métier sur un 
 - [ ] `J8-SEC-04` Une publication ne peut être modifiée par aucun endpoint applicatif.
 - [ ] `J8-SEC-05` Un sandbox ne peut viser la destination de production.
 - [ ] `J8-SEC-06` Recherche, audit, import et export respectent les mêmes frontières tenant.
+- [ ] `J8-SEC-07` Une URL de délégation expirée ou révoquée ne confère aucun accès.
+- [ ] `J8-SEC-08` Une clé API révoquée est refusée et aucune clé en clair n'apparaît dans le stockage, les logs ou l'audit.
+- [ ] `J8-SEC-09` Une référence de profil transmise sans authentification externe autorisée ne retourne aucune donnée.
+- [ ] `J8-SEC-10` Aucun cache ni artefact de projection n'est réutilisé entre deux contrats ou profils distincts.
+- [ ] `J8-SEC-11` Le filtre d'un contrat empêche l'apparition des machines et données non autorisées dans le JSON.
 
 ## Critères de validation exploitation
 
@@ -61,6 +75,8 @@ Démontrer que le MVP est sûr, exploitable et utilisable par un métier sur un 
 - [ ] `J8-OPS-04` La volumétrie pilote respecte les seuils définis au J0.
 - [ ] `J8-OPS-05` Les parcours critiques sont utilisables au clavier et sans dépendre uniquement de la couleur.
 - [ ] `J8-OPS-06` Build, migrations, tests unitaires, intégration, RLS et parcours critique sont verts.
+- [ ] `J8-OPS-07` Le support retrouve publication, contrat, profil, politique, date d'effet et empreinte d'une projection sans accéder aux secrets.
+- [ ] `J8-OPS-08` Les métriques distinguent échec d'authentification, contrat invalide, politique ambiguë, génération invalide et refus solveur.
 
 ## Recette pilote
 
@@ -74,8 +90,14 @@ Le pilote exécute sans assistance technique directe :
 6. validation et publication ;
 7. création et comparaison d'un sandbox ;
 8. import d'une mise à jour ;
-9. export et acceptation par le solveur ;
-10. recherche de la publication et de son audit.
+9. qualification du pool comme coûts de production ou tarifs commerciaux ;
+10. création d'un profil client, de ses politiques datées et d'une exception machine ;
+11. création d'un contrat filtré et de deux clés API ;
+12. génération et acceptation par le solveur du JSON aux tarifs ajustés ;
+13. révocation d'une clé et vérification de l'autre ;
+14. résolution du même profil par un mode externe authentifié ;
+15. recherche de la projection, de sa publication source et de son audit ;
+16. preuve que les montants du pool source sont inchangés.
 
 ## Condition de sortie MVP
 

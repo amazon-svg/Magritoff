@@ -66,6 +66,21 @@ L'adaptateur initial peut utiliser `tenant_role_definitions`, les assignments ac
 - la base applique encore la RLS ;
 - un refus cross-tenant ne révèle pas si la ressource existe.
 
+## Grants temporaires
+
+Le module peut évaluer des grants limités à une ressource et une période, notamment pour déléguer l'édition d'un environnement à un fournisseur externe.
+
+Un grant :
+
+- cible un bénéficiaire authentifié ;
+- liste les capabilities accordées ;
+- cible une ressource et un tenant/BU ;
+- possède une expiration et un statut de révocation ;
+- est évalué côté serveur à chaque action ;
+- est audité à la création, utilisation sensible et révocation.
+
+Une URL, un mot de passe partagé ou un code OTP ne constitue jamais le grant. Ils peuvent seulement participer au processus d'authentification géré par `identity`.
+
 ## Critères d'acceptation
 
 - [ ] `ACC-VAL-01` Chaque décision sensible est autorisée ou refusée avec une raison stable.
@@ -74,4 +89,5 @@ L'adaptateur initial peut utiliser `tenant_role_definitions`, les assignments ac
 - [ ] `ACC-VAL-04` Un tenant admin n'obtient pas automatiquement les entitlements absents.
 - [ ] `ACC-VAL-05` Un contrôle applicatif réussi ne contourne jamais la RLS.
 - [ ] `ACC-VAL-06` Les refus cross-tenant ne divulguent aucune donnée de ressource.
-
+- [ ] `ACC-VAL-07` Un grant expiré ou révoqué est refusé immédiatement.
+- [ ] `ACC-VAL-08` Un grant limité à une ressource ne s'applique à aucune autre.

@@ -21,6 +21,7 @@ Contrôler un dataset de travail et créer un snapshot de production complet, im
 interface PublicationService {
   validate(actor: ActorContext, command: ValidateDataset): Promise<Result<ValidationReport, PublicationError>>;
   publish(actor: ActorContext, command: PublishDataset): Promise<Result<Publication, PublicationError>>;
+  restoreAsDraft(actor: ActorContext, command: RestorePublicationAsDraft): Promise<Result<WorkingDataset, PublicationError>>;
   get(actor: ActorContext, id: PublicationId): Promise<Result<Publication | null, PublicationError>>;
   compare(actor: ActorContext, query: ComparePublications): Promise<Result<PublicationDiff, PublicationError>>;
 }
@@ -36,6 +37,7 @@ interface PublicationService {
 - une publication n'est jamais modifiable ;
 - une correction produit une nouvelle version ;
 - l'état de livraison au solveur ne modifie pas le snapshot.
+- restaurer une version crée un nouveau dataset de travail avec une nouvelle identité et conserve la publication source intacte.
 
 ## Transaction de publication
 
@@ -58,6 +60,7 @@ La transaction :
 - [ ] Aucun endpoint ne permet de modifier le snapshot.
 - [ ] V1 reste octet-logiquement stable après création de V2.
 - [ ] Un calcul peut stocker et retrouver l'identifiant exact de publication.
+- [ ] Restaurer V1 après V2 crée un nouveau brouillon et ne modifie ni V1 ni V2.
 - [ ] La comparaison distingue changements techniques et financiers selon les droits.
 
 ## Décisions ouvertes
@@ -66,4 +69,3 @@ La transaction :
 - activation immédiate ou séparée de la publication ;
 - convention de version ;
 - rétention et archivage.
-

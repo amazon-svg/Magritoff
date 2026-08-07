@@ -14,6 +14,8 @@ Maintenir les paramètres économiques consommés par le solveur, avec provenanc
 - devise et unité ;
 - provenance et justification.
 
+Inducteurs candidats issus du PRD initial : main-d'œuvre horaire, frais généraux surfaciques et énergie. Ils n'entrent dans le contrat qu'après confirmation de leur consommation par le solveur.
+
 ## Cas d'usage
 
 - consulter les paramètres autorisés ;
@@ -31,7 +33,8 @@ Maintenir les paramètres économiques consommés par le solveur, avec provenanc
 - périodes cohérentes et sans sélection ambiguë ;
 - ancienne valeur conservée ;
 - provenance obligatoire ;
-- marge commerciale exclue tant que sa propriété n'est pas décidée.
+- marge et remise client exclues des montants source et gérées dans les politiques de profil ;
+- prix de revient, marge et prix de vente restent trois notions séparées.
 
 ## Sécurité
 
@@ -52,6 +55,6 @@ Maintenir les paramètres économiques consommés par le solveur, avec provenanc
 ## Décisions ouvertes
 
 - paramètres exacts du pilote ;
-- propriété de la marge ;
 - multi-devise ;
-- double validation des changements financiers.
+- double validation des changements financiers ;
+- granularité de la nature coût de production ou tarif commercial.

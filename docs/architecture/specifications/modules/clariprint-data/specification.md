@@ -1,7 +1,7 @@
 # Module `clariprint-data`
 
 **Statut :** draft  
-**Version :** 0.1  
+**Version :** 0.2
 **PRD :** [`../../../../../prd/clariprint-data-prd.md`](../../../../../prd/clariprint-data-prd.md)  
 **Plan :** [`../../../../clariprint-data-plan/README.md`](../../../../clariprint-data-plan/README.md)
 
@@ -43,11 +43,15 @@ Il ne dépend pas :
 ```text
 src/modules/clariprint-data/
   domain/
+    environments/
     suppliers/
     resources/
     subcontracting/
     capabilities/
     economics/
+    pricing-schedules/
+    calculation-access/
+    reference-catalogs/
     datasets/
   application/
     services/
@@ -73,11 +77,18 @@ React appartient à `ui/`. Le domaine et l'application restent exécutables sans
 
 ```ts
 export interface ClariprintDataServices {
+  environments: ProductionEnvironmentService;
   suppliers: SupplierService;
   resources: ResourceService;
   subcontracting: SubcontractingService;
   technicalCapabilities: TechnicalCapabilityService;
   economics: EconomicsService;
+  pricingSchedules: PricingScheduleService;
+  clientProfiles: ClientProfileService;
+  calculationAccess: CalculationAccessService;
+  materialReferences: MaterialReferenceService;
+  transportCatalogs: TransportCatalogService;
+  validationProjects: ValidationProjectService;
   publications: PublicationService;
   sandboxes: SandboxService;
   imports: ImportService;
@@ -90,12 +101,20 @@ Les façades acceptent toujours un `ActorContext` et des commandes validées. El
 ## Ports sortants
 
 - `SupplierRepository` ;
+- `ProductionEnvironmentRepository` ;
 - `ResourceRepository` ;
 - `SubcontractingRepository` ;
 - `DraftDatasetRepository` ;
 - `PublicationRepository` ;
 - `SandboxRepository` ;
 - `ImportFileStore` ;
+- `ReferenceCatalogRepository` ;
+- `ClientProfileRepository` ;
+- `PricingPolicyRepository` ;
+- `CalculationAccessContractRepository` ;
+- `ApiCredentialRepository` ;
+- `ExternalAccessResolver` ;
+- `ValidationProjectGateway` ;
 - `SolverDatasetPublisher` ;
 - `TransactionManager` ou opérations repository transactionnelles explicites.
 
@@ -114,7 +133,15 @@ Tous invoquent les mêmes services applicatifs.
 ## Événements initiaux
 
 - `clariprint_data.supplier.created` ;
+- `clariprint_data.environment.created` ;
+- `clariprint_data.environment.delegation_changed` ;
 - `clariprint_data.resource.changed` ;
+- `clariprint_data.pricing_schedule.changed` ;
+- `clariprint_data.client_profile.changed` ;
+- `clariprint_data.pricing_policy.activated` ;
+- `clariprint_data.calculation_contract.changed` ;
+- `clariprint_data.api_credential.rotated` ;
+- `clariprint_data.adjusted_projection.generated` ;
 - `clariprint_data.economic_parameter.changed` ;
 - `clariprint_data.dataset.validated` ;
 - `clariprint_data.publication.created` ;
@@ -149,6 +176,11 @@ Doivent être atomiques côté serveur :
 - confirmation d'un import ;
 - modification datée remplaçant une valeur active ;
 - contractualisation d'un ensemble de ressources ;
+- restauration d'une publication vers un nouveau brouillon ;
+- sauvegarde groupée de modifications de barèmes ;
+- activation d'une politique tarifaire avec fermeture de la période précédente ;
+- création, rotation et révocation d'un credential ;
+- création ou révocation d'une délégation d'environnement ;
 - écriture métier accompagnée d'un audit obligatoire.
 
 ## Observabilité
@@ -161,6 +193,10 @@ Chaque commande importante transporte un `requestId`. Les métriques initiales c
 - livraisons solveur, latence et catégories d'erreurs ;
 - nombre de sandboxes actifs ;
 - modifications de données financières.
+- tests de barèmes et exécutions de validation solveur ;
+- génération de projections ajustées, latence, profil, contrat et catégories d'erreurs ;
+- utilisation, rotation et révocation des credentials sans journaliser leurs secrets ;
+- créations, expirations et révocations de délégations.
 
 ## Compatibilité avec le code existant
 
@@ -169,6 +205,8 @@ Chaque commande importante transporte un `requestId`. Les métriques initiales c
 - toute dépendance temporaire passe par un adaptateur `legacy` nommé ;
 - l'absence de données de production permet une bascule franche du nouveau schéma ;
 - aucun dual-write n'est introduit sans besoin prouvé.
+
+La source PrintMaster est utilisée comme corpus de découverte, pas comme contrat technique. Ses dispositions de page, noms de composants Base44 et listes non normalisées ne traversent pas les contrats du domaine.
 
 ## Critères d'acceptation architecture
 
@@ -184,4 +222,3 @@ Chaque commande importante transporte un `requestId`. Les métriques initiales c
 ## Décisions bloquantes
 
 Les décisions J0 du plan restent préalables au statut `accepted`, particulièrement le contrat solveur, le flux pilote, les unités, les paramètres économiques et la profondeur de sous-traitance.
-
