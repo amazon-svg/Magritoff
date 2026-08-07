@@ -3,7 +3,7 @@
 **Statut initial :** à préparer  
 **Dépendance :** J3
 
-**Spécifications applicables :** [aptitudes techniques](../architecture/specifications/modules/clariprint-data/capabilities/technical-capabilities.md), [économie](../architecture/specifications/modules/clariprint-data/capabilities/economics.md)
+**Spécifications applicables :** [aptitudes techniques](../architecture/specifications/modules/clariprint-data/capabilities/technical-capabilities.md), [économie](../architecture/specifications/modules/clariprint-data/capabilities/economics.md), [barèmes](../architecture/specifications/modules/clariprint-data/capabilities/pricing-schedules.md)
 
 ## Goal
 
@@ -28,6 +28,7 @@ Décrire ce qui est techniquement réalisable et les paramètres nécessaires au
 4. Vue de complétude d'une machine ou ressource.
 5. Tests sur zéro, absence, non-applicable, unités et arrondis.
 6. Tests d'accès aux données financières.
+7. Barèmes minimaux du poste pilote et cas de test explicables.
 
 ## Critères de validation
 
@@ -41,6 +42,8 @@ Décrire ce qui est techniquement réalisable et les paramètres nécessaires au
 - [ ] `J4-VAL-08` Un éditeur technique ne peut ni lire ni modifier les champs financiers protégés.
 - [ ] `J4-VAL-09` Un éditeur financier ne peut modifier les contraintes techniques sans capability correspondante.
 - [ ] `J4-VAL-10` Les contradictions du jeu de référence sont détectées selon le catalogue J0.
+- [ ] `J4-VAL-11` Les prestations et supports d'un barème sont limités à ceux du poste.
+- [ ] `J4-VAL-12` Le test officiel du barème référence le solveur ou validateur retenu.
 
 ## Scénario de démonstration
 

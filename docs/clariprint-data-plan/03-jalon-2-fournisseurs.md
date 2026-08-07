@@ -3,7 +3,7 @@
 **Statut initial :** à préparer  
 **Dépendance :** J1
 
-**Spécification applicable :** [capacité suppliers](../architecture/specifications/modules/clariprint-data/capabilities/suppliers.md)
+**Spécifications applicables :** [environnements](../architecture/specifications/modules/clariprint-data/capabilities/production-environments.md), [capacité suppliers](../architecture/specifications/modules/clariprint-data/capabilities/suppliers.md)
 
 ## Goal
 
@@ -19,6 +19,7 @@ Permettre de créer et maintenir un fournisseur multi-capacités sans dupliquer 
 - archivage logique ;
 - recherche et consultation ;
 - historique des changements.
+- environnement imprimeur brouillon rattaché à une BU, un fournisseur et un site.
 
 ## Livrables
 
@@ -40,6 +41,8 @@ Permettre de créer et maintenir un fournisseur multi-capacités sans dupliquer 
 - [ ] `J2-VAL-07` Les modifications concurrentes ne provoquent pas d'écrasement silencieux.
 - [ ] `J2-VAL-08` Les champs obligatoires et doublons sont contrôlés avant persistance.
 - [ ] `J2-VAL-09` L'auteur, la date et la provenance d'une modification sont retrouvables.
+- [ ] `J2-VAL-10` L'environnement ne duplique pas l'identité de son fournisseur.
+- [ ] `J2-VAL-11` Les scopes tenant et BU sont testés séparément.
 
 ## Scénario de démonstration
 

@@ -2,7 +2,7 @@
 
 **Statut initial :** à préparer
 
-**Spécifications préparées :** [modèle de domaine](../architecture/specifications/modules/clariprint-data/domain-model.md), [export solveur](../architecture/specifications/modules/clariprint-data/capabilities/solver-exports.md)
+**Spécifications préparées :** [modèle de domaine](../architecture/specifications/modules/clariprint-data/domain-model.md), [export solveur](../architecture/specifications/modules/clariprint-data/capabilities/solver-exports.md), [contrats d'accès calcul](../architecture/specifications/modules/clariprint-data/capabilities/calculation-access-contracts.md)
 
 ## Goal
 
@@ -17,11 +17,15 @@ Transformer les hypothèses du PRD en décisions métier suffisamment précises 
 - règles bloquantes et avertissements ;
 - format d'entrée et comportement du solveur ;
 - unités, arrondis, dates d'effet et versionnement ;
-- volumétrie de référence.
+- volumétrie de référence ;
+- nature et granularité des montants source ;
+- formules de marge, majoration et remise ;
+- priorité entre règle globale et règle par machine ;
+- modes d'accès locaux et protocole de confiance externe.
 
 ## Livrables
 
-1. Glossaire métier validé.
+1. [Glossaire candidat](./12-glossaire-candidat.md) complété et validé.
 2. Jeu de données représentatif et anonymisable.
 3. Description d'un flux complet, de la ressource au résultat solveur attendu.
 4. Matrice `capacité × ressources × paramètres requis`.
@@ -30,6 +34,13 @@ Transformer les hypothèses du PRD en décisions métier suffisamment précises 
 7. Contrat JSON versionné ou exemple exécutable équivalent.
 8. Jeu de résultats de référence du solveur.
 9. Liste des décisions prises et questions reportées.
+10. Correspondance validée entre tenant, BU, fournisseur, site et environnement PrintMaster.
+11. Référentiels normalisés du pilote issus des listes machines, supports, prestations et certifications PrintMaster.
+12. Schéma candidat des barèmes et corpus de tests unitaires.
+13. Revue des formules, paramètres et entités candidates du PRD initial PrintFlow Pro.
+14. Corpus chiffré de référence pour chaque type d'ajustement autorisé.
+15. Matrice de priorité des politiques globales et par machine, incluant dates limites et conflits.
+16. Contrat de résolution d'un profil par clé locale ou principal externe authentifié.
 
 ## Critères de validation
 
@@ -43,6 +54,17 @@ Transformer les hypothèses du PRD en décisions métier suffisamment précises 
 - [ ] `J0-VAL-08` Les règles nécessitant une seconde validation sont identifiées.
 - [ ] `J0-VAL-09` Un JSON de référence peut être construit manuellement et soumis au validateur ou solveur de test.
 - [ ] `J0-VAL-10` Les données de test ne contiennent aucun secret ni donnée confidentielle non autorisée.
+- [ ] `J0-VAL-11` Les concepts PrintMaster retenus, remplacés ou écartés sont explicitement tracés.
+- [ ] `J0-VAL-12` Les listes historiques ont été dédupliquées et validées avant de devenir des référentiels.
+- [ ] `J0-VAL-13` La frontière fournisseur/site/environnement et la portée BU sont décidées.
+- [ ] `J0-VAL-14` Le moteur officiel des tests de barèmes est identifié.
+- [ ] `J0-VAL-15` Les formules du PRD initial sont classées comme entrées solveur, cas de test, responsabilité d'un autre module ou élément écarté.
+- [ ] `J0-VAL-16` La nature des montants source et sa granularité sont décidées sans ambiguïté.
+- [ ] `J0-VAL-17` Marge sur coût, majoration et remise possèdent chacune une formule, une base, des bornes et une règle d'arrondi validées.
+- [ ] `J0-VAL-18` Le comportement d'une règle machine face à une règle globale est décidé pour tous les cas du pilote.
+- [ ] `J0-VAL-19` Les bornes temporelles, le fuseau et le comportement en cas de chevauchement ou d'absence de politique sont spécifiés.
+- [ ] `J0-VAL-20` Une référence de profil externe ne vaut pas autorisation et le protocole fournissant le principal de confiance est défini.
+- [ ] `J0-VAL-21` Un JSON de référence prouve que Clariprint Data ajuste les tarifs et que le solveur ne réapplique aucune politique client.
 
 ## Preuves attendues
 
@@ -54,4 +76,4 @@ Transformer les hypothèses du PRD en décisions métier suffisamment précises 
 
 ## Condition de sortie
 
-J1 peut commencer lorsque `J0-VAL-01` à `J0-VAL-09` sont validés. Une question reportée doit avoir un propriétaire, une échéance et une solution temporaire explicitement non contractuelle.
+J1 peut commencer lorsque `J0-VAL-01` à `J0-VAL-21` sont validés. Une question reportée doit avoir un propriétaire, une échéance et une solution temporaire explicitement non contractuelle.
