@@ -2,7 +2,7 @@ import { Navigate, NavLink, Outlet, useLocation } from 'react-router';
 import {
   User, Settings, MessageSquare, FileText, ShoppingBag, Users,
   CreditCard, Package, Store, Shield, LayoutTemplate, Building, Layers, Workflow,
-  FileClock, BadgePercent, Factory,
+  FileClock, BadgePercent, Factory, Image as ImageIcon,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlan } from '../../hooks/usePlan';
@@ -23,9 +23,10 @@ const NAV_LINK_TESTIDS: Record<string, string> = {
 
 // E7.7 — mapping titre de groupe -> data-testid (groupes structurels Linear-like).
 const NAV_GROUP_TESTIDS: Record<string, string> = {
-  'Atelier': TEST_IDS.nav.sidebarAtelierLink,
-  // REFONTE-UX (2026-08-08) — le groupe Config devient Parametres ;
-  // testid historique conserve pour les cahiers de tests.
+  // REFONTE-UX v2 (2026-08-08) — l Atelier a fusionne dans Gestion commerciale
+  // (point 6) et Config est devenu Parametres ; testids historiques conserves
+  // pour les cahiers de tests P01.
+  'Gestion commerciale': TEST_IDS.nav.sidebarAtelierLink,
   'Paramètres': TEST_IDS.nav.sidebarConfigLink,
 };
 
@@ -69,18 +70,17 @@ export function DashboardLayout() {
     show: boolean;
     sub?: boolean;
   };
-  // REFONTE-UX (2026-08-08) — navigation rationalisee (demande Arnaud, 8 points) :
-  //   Atelier      = production quotidienne (devis, commandes, historique)
-  //   Catalogue    = referentiel produits du tenant (gammes, bibliotheques)
-  //   Commercial   = relation client (gestion commerciale, boutiques, utilisateurs)
-  //   Production   = parc machine (RP#070826)
-  //   Parametres   = espace + sous-espaces + roles + plan + mon compte
-  //   Plateforme   = PIM global (superadmin seulement)
-  // Disparu : groupe "Equipe" a entree unique, entree "Mockups Magrit" (hors PRD),
-  // entrees Profil / Preferences esseulees (fusionnees dans Mon compte).
+  // REFONTE-UX v2 (2026-08-08, retours Arnaud) — navigation en 4 groupes :
+  //   Gestion commerciale = toute l activite client, de bout en bout (point 6 :
+  //     les entrees de l ancien Atelier — devis, commandes, historique —
+  //     rejoignent la gestion commerciale) + prix & marges + boutiques + users
+  //   Catalogue   = referentiel produits (point 3 : le PIM vit ici) + gammes
+  //     + bibliotheques + galerie des visuels Magrit (point 5 : conservee)
+  //   Production  = parcs machine (RP#070826)
+  //   Parametres  = espace + sous-espaces + roles + plan + mon compte
   const GROUPS: Array<{ title: string; items: Item[] }> = [
     {
-      title: 'Atelier',
+      title: 'Gestion commerciale',
       items: [
         { to: `${basePath}/quotes`, end: true, label: 'Devis', icon: FileText, show: true },
         {
@@ -99,26 +99,34 @@ export function DashboardLayout() {
         },
         { to: `${basePath}/orders`, label: 'Commandes', icon: ShoppingBag, show: true },
         { to: `${basePath}/history`, label: 'Historique', icon: MessageSquare, show: true },
-      ],
-    },
-    {
-      title: 'Catalogue',
-      items: [
-        { to: `${basePath}/gammes`, label: 'Gammes actives', icon: Layers, show: canManageMembers ?? false },
-        { to: `${basePath}/library`, label: 'Bibliothèques', icon: Package, show: canUse('library') },
-      ],
-    },
-    {
-      title: 'Commercial',
-      items: [
         {
           to: `${basePath}/commercial`,
-          label: 'Gestion commerciale',
+          label: 'Prix & marges',
           icon: BadgePercent,
           show: canManageMembers ?? false,
         },
         { to: `${basePath}/shops`, label: 'Boutiques', icon: Store, show: canUse('shops') },
         { to: `${basePath}/users`, label: 'Utilisateurs', icon: Users, show: true },
+      ],
+    },
+    {
+      title: 'Catalogue',
+      items: [
+        {
+          to: `${basePath}/admin/pim`,
+          label: 'PIM — Produits',
+          icon: Shield,
+          show: isAdmin || isSuperAdmin,
+        },
+        { to: `${basePath}/gammes`, label: 'Gammes actives', icon: Layers, show: canManageMembers ?? false },
+        { to: `${basePath}/library`, label: 'Bibliothèques', icon: Package, show: canUse('library') },
+        {
+          to: `${basePath}/admin/mockups`,
+          label: 'Visuels Magrit',
+          icon: ImageIcon,
+          show: isAdmin || isSuperAdmin,
+          sub: true,
+        },
       ],
     },
     {
@@ -143,17 +151,6 @@ export function DashboardLayout() {
         { to: `${basePath}/order-roles`, label: 'Workflow & rôles', icon: Workflow, show: canManageMembers ?? false },
         { to: `${basePath}/plan`, label: 'Plan & abonnement', icon: CreditCard, show: true },
         { to: `${basePath}/account`, label: 'Mon compte', icon: User, show: true },
-      ],
-    },
-    {
-      title: 'Plateforme',
-      items: [
-        {
-          to: `${basePath}/admin/pim`,
-          label: 'PIM global',
-          icon: Shield,
-          show: isAdmin || isSuperAdmin,
-        },
       ],
     },
   ].map((g) => ({ ...g, items: g.items.filter((i) => i.show) }))

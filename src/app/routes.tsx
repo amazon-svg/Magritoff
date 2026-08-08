@@ -84,6 +84,11 @@ const DashboardAdminPIM = lazy(() =>
     default: m.DashboardAdminPIM,
   })),
 );
+const DashboardAdminMockups = lazy(() =>
+  import("./components/dashboard/DashboardAdminMockups").then((m) => ({
+    default: m.DashboardAdminMockups,
+  })),
+);
 // REFONTE-UX (2026-08-08) — module Gestion commerciale (point 7).
 const DashboardCommercial = lazy(() =>
   import("./components/dashboard/commercial/DashboardCommercial").then((m) => ({
@@ -99,6 +104,11 @@ const DashboardMachines = lazy(() =>
 const MachineParkWizard = lazy(() =>
   import("./components/dashboard/machines/MachineParkWizard").then((m) => ({
     default: m.MachineParkWizard,
+  })),
+);
+const MachineParkDetail = lazy(() =>
+  import("./components/dashboard/machines/MachineParkDetail").then((m) => ({
+    default: m.MachineParkDetail,
   })),
 );
 const DashboardTenantSettings = lazy(() =>
@@ -169,6 +179,13 @@ export const router = createBrowserRouter([
       // `/account/*` S7.10) résolues par parsePortalPath dans PublicShop.
       { path: "/shop/:slug/*", element: lazyRoute(<PublicShop />) },
 
+      // REFONTE-UX (2026-08-08) — route DEV seulement : rendre le wizard parc
+      // machine hors auth pour les tests automatises et les demos d arbitrage
+      // BK-15 (maquettes A/B). Exclue des builds de production.
+      ...(import.meta.env.DEV
+        ? [{ path: "/dev/machines-wizard", element: lazyRoute(<MachineParkWizard />) }]
+        : []),
+
       // Flux hors-tenant (auth, onboarding, picker, invitation)
       {
         path: "/",
@@ -220,10 +237,10 @@ export const router = createBrowserRouter([
               { path: "spaces", element: lazyRoute(<DashboardTenantSpaces />) },
               { path: "gammes", element: lazyRoute(<DashboardTenantGammes />) },
               { path: "admin/pim", element: lazyRoute(<DashboardAdminPIM />) },
-              // REFONTE-UX (2026-08-08) — la galerie admin/mockups (P5-VISUELS,
-              // reference visuelle superadmin) est supprimee : hors PRD (E8.3 =
-              // mockup engine + upload custom par boutique, conserves). Point 5.
-              { path: "admin/mockups", element: <Navigate to="../admin/pim" replace /> },
+              // REFONTE-UX v2 (2026-08-08, retour Arnaud point 5) — la galerie
+              // des mockups Magrit-brandes est CONSERVEE (visuels generes +
+              // verification du moteur E8.3), rangee dans le groupe Catalogue.
+              { path: "admin/mockups", element: lazyRoute(<DashboardAdminMockups />) },
               // REFONTE-UX (2026-08-08) — Gestion commerciale (point 7) :
               // prix, marges et remises par gamme/produit x client/groupe.
               { path: "commercial", element: lazyRoute(<DashboardCommercial />) },
@@ -231,6 +248,8 @@ export const router = createBrowserRouter([
               // liste du parc + wizard guide de constitution.
               { path: "machines", element: lazyRoute(<DashboardMachines />) },
               { path: "machines/wizard", element: lazyRoute(<MachineParkWizard />) },
+              // Point 8 (retour Arnaud 2026-08-08) — detail d un parc.
+              { path: "machines/:parkId", element: lazyRoute(<MachineParkDetail />) },
               // S-ORDER-ROLES-3-UI T4 — page admin catalog rôles workflow.
               // Garde d'accès via capability `can_manage_roles` côté composant
               // (preset Owner / Admin depuis migration 2026-06-09).
