@@ -242,8 +242,8 @@ export function DashboardOrders() {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-lg font-semibold text-gray-900 mb-1">Commandes</h2>
-        <p className="text-sm text-gray-600">
+        <h2 className="text-lg font-semibold text-ink mb-1">Commandes</h2>
+        <p className="text-sm text-ink-muted">
           {orders.length} commande(s) enregistrée(s) sur l ensemble de vos boutiques.
         </p>
       </div>

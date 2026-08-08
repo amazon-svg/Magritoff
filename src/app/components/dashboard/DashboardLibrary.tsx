@@ -43,28 +43,28 @@ export function DashboardLibrary() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-1">Bibliothèque de produits</h2>
-          <p className="text-sm text-gray-600">
+          <h2 className="text-lg font-semibold text-ink mb-1">Bibliothèque de produits</h2>
+          <p className="text-sm text-ink-muted">
             Produits calculés ajoutés depuis le chat. Réutilisables dans vos boutiques.
           </p>
         </div>
         <Link
           to="/"
-          className="inline-flex items-center gap-2 px-3 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 text-sm font-medium"
+          className="inline-flex items-center gap-2 px-3 py-2 bg-brand text-white rounded-lg hover:bg-brand/90 text-sm font-medium"
         >
           <Sparkles className="w-4 h-4" />
           Calculer un nouveau produit
         </Link>
       </div>
 
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-900">
+      <div className="bg-brand-soft border border-line-2 rounded-lg p-3 text-sm text-blue-900">
         💡 Pour ajouter un produit : calculez-le depuis le chat principal, puis cliquez <strong>"Ajouter à la bibliothèque"</strong> sur la carte produit.
       </div>
 
       {loading ? (
-        <p className="text-sm text-gray-500">Chargement...</p>
+        <p className="text-sm text-ink-muted">Chargement...</p>
       ) : products.length === 0 ? (
-        <div className="text-center py-12 text-gray-400">
+        <div className="text-center py-12 text-ink-mute-2">
           <Package className="w-12 h-12 mx-auto mb-2 opacity-50" />
           <p className="text-sm">Bibliothèque vide.</p>
         </div>
@@ -72,29 +72,29 @@ export function DashboardLibrary() {
         <div className="space-y-6">
           {grouped.map(([cat, items]) => (
             <section key={cat}>
-              <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-2">
+              <h3 className="text-sm font-bold text-ink-2 uppercase tracking-wider mb-2">
                 {cat} ({items.length})
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {items.map((p) => {
                   return (
-                    <div key={p.id} className="border border-gray-200 rounded-xl bg-white overflow-hidden">
+                    <div key={p.id} className="border border-line rounded-xl bg-paper overflow-hidden">
                       {p.image_url ? (
                         <img src={p.image_url} alt={p.name} className="w-full h-28 object-cover" />
                       ) : (
-                        <div className="w-full h-28 bg-gray-100 flex items-center justify-center text-gray-300">
+                        <div className="w-full h-28 bg-bg flex items-center justify-center text-ink-mute-2">
                           <Package className="w-8 h-8" />
                         </div>
                       )}
                       <div className="p-3">
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
-                            <p className="font-semibold text-gray-900 truncate">{p.name}</p>
+                            <p className="font-semibold text-ink truncate">{p.name}</p>
                           </div>
                           <div className="flex gap-1">
                             <button
                               onClick={() => setEditing(p)}
-                              className="p-1 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded"
+                              className="p-1 text-ink-muted hover:text-ink hover:bg-bg rounded"
                             >
                               <Pencil className="w-4 h-4" />
                             </button>
@@ -102,18 +102,18 @@ export function DashboardLibrary() {
                               onClick={() => {
                                 if (confirm(`Supprimer ${p.name} ?`)) deleteProduct(p.id);
                               }}
-                              className="p-1 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"
+                              className="p-1 text-ink-muted hover:text-err-fg hover:bg-err-bg rounded"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
                         </div>
                         {p.description && (
-                          <p className="text-xs text-gray-500 mt-1 line-clamp-2">{p.description}</p>
+                          <p className="text-xs text-ink-muted mt-1 line-clamp-2">{p.description}</p>
                         )}
-                        <p className="text-sm font-bold text-gray-900 mt-2">{p.price_ht.toFixed(2)} € HT</p>
+                        <p className="text-sm font-bold text-ink mt-2">{p.price_ht.toFixed(2)} € HT</p>
                         {!p.active && (
-                          <span className="inline-block mt-1 text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
+                          <span className="inline-block mt-1 text-xs bg-bg text-ink-muted px-2 py-0.5 rounded-full">
                             Inactif
                           </span>
                         )}
@@ -134,63 +134,63 @@ export function DashboardLibrary() {
           onClick={() => setEditing(null)}
         >
           <div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto"
+            className="bg-paper rounded-2xl shadow-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold text-gray-900">Modifier le produit</h3>
-              <button onClick={() => setEditing(null)} className="p-1 hover:bg-gray-100 rounded">
+              <h3 className="text-xl font-bold text-ink">Modifier le produit</h3>
+              <button onClick={() => setEditing(null)} className="p-1 hover:bg-bg rounded">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={saveEdit} className="space-y-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nom</label>
+                <label className="block text-sm font-medium text-ink-2 mb-1">Nom</label>
                 <input
                   type="text"
                   required
                   value={editing.name}
                   onChange={(e) => setEditing({ ...editing, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-3 py-2 border border-line-2 rounded-lg"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Catégorie</label>
+                <label className="block text-sm font-medium text-ink-2 mb-1">Catégorie</label>
                 <input
                   type="text"
                   value={editing.category}
                   onChange={(e) => setEditing({ ...editing, category: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-3 py-2 border border-line-2 rounded-lg"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <label className="block text-sm font-medium text-ink-2 mb-1">Description</label>
                 <textarea
                   value={editing.description}
                   onChange={(e) => setEditing({ ...editing, description: e.target.value })}
                   rows={2}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-3 py-2 border border-line-2 rounded-lg"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Prix HT (€)</label>
+                <label className="block text-sm font-medium text-ink-2 mb-1">Prix HT (€)</label>
                 <input
                   type="number"
                   step="0.01"
                   value={editing.price_ht}
                   onChange={(e) => setEditing({ ...editing, price_ht: parseFloat(e.target.value) || 0 })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-3 py-2 border border-line-2 rounded-lg"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">URL de l'image</label>
+                <label className="block text-sm font-medium text-ink-2 mb-1">URL de l'image</label>
                 <input
                   type="url"
                   value={editing.image_url}
                   onChange={(e) => setEditing({ ...editing, image_url: e.target.value })}
                   placeholder="https://..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-3 py-2 border border-line-2 rounded-lg"
                 />
               </div>
               <label className="flex items-center gap-2">
@@ -199,21 +199,21 @@ export function DashboardLibrary() {
                   checked={editing.active}
                   onChange={(e) => setEditing({ ...editing, active: e.target.checked })}
                 />
-                <span className="text-sm text-gray-700">Produit actif</span>
+                <span className="text-sm text-ink-2">Produit actif</span>
               </label>
 
               <div className="flex gap-2 pt-2">
                 <button
                   type="button"
                   onClick={() => setEditing(null)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium"
+                  className="flex-1 px-4 py-2 border border-line-2 rounded-lg hover:bg-bg font-medium"
                 >
                   Annuler
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="flex-1 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 font-medium flex items-center justify-center gap-2"
+                  className="flex-1 px-4 py-2 bg-brand text-white rounded-lg hover:bg-brand/90 disabled:opacity-50 font-medium flex items-center justify-center gap-2"
                 >
                   {saving && <Loader2 className="w-4 h-4 animate-spin" />}
                   Enregistrer

@@ -2,7 +2,21 @@
 
 > Document de reprise pour démarrer une nouvelle session de Claude code sur le projet sans recharger tout l'historique. À tenir à jour à chaque fin de sprint.
 >
-> **Dernière mise à jour : 2026-07-27 — Arbitrages Epic 7 tranchés et appliqués (autoconfirm ON, pilote ERAM self_signup, mailto conservé) + rétrospective Epic 7. Voir section 24. Epic 7 : sections 21-23.**
+> **Dernière mise à jour : 2026-08-08 — Refonte UX dashboard (8 points Arnaud) sur branche `feature/dashboard-refonte-ux`, NON mergée, NON poussée. Voir section 25.**
+
+## 25. Session 2026-08-08 — Refonte UX du tableau de bord (branche `feature/dashboard-refonte-ux`)
+
+**6 commits sur une branche dédiée** (règle Git RP#070826 : une branche par évolution, base `origin/beta/v5`). Détail complet : `_bmad-output/implementation-artifacts/story-refonte-ux-dashboard-2026-08-08.md`.
+
+1. Navigation rationalisée en 6 groupes (Atelier / Catalogue / Commercial / Production / Paramètres / Plateforme) ; Profil + Préférences fusionnés dans **Paramètres → Mon compte** (`/account`, anciennes routes redirigées) ; index dashboard → Devis ; entrée « Mockups Magrit » supprimée (hors PRD — le mockup engine E8.3 et l'upload custom par boutique restent).
+2. Éditeur de boutique : **« Catalogue de la boutique » à 3 onglets** (Sources / Produits / Visuels) remplace les 3 sections empilées.
+3. **Module Gestion commerciale** (`/commercial`) : règles de prix par gamme/produit × client/groupe + moteur `applyCommercialRules()`. ⚠️ **Migration à jouer par Arnaud** : `supabase/migrations/20260808000100_gescom_price_rules.sql` (la page l'indique tant qu'elle manque). Branchement dans devis/boutique = story V2.
+4. **Module Parc machine** (`/machines` + `/machines/wizard`) : wizard RP#070826 avec les DEUX parcours de l'arbitrage BK-15 (A déroulé complet / B types déclarés) et compteur de clics. V1 maquette fonctionnelle (bibliothèque mock, persistance locale).
+5. Charte v2 appliquée aux 20 écrans dashboard (tokens ink/paper/line/brand, plus aucun `gray-*`).
+
+**État** : build ✅ · vitest 750/750 ✅ · surfaces publiques 0 erreur console · **recette visuelle du dashboard à faire par Arnaud (auth)** · branche à merger sur `beta/v5` après GO.
+
+**Itération 2 (même jour, retours Arnaud — 9 points)** : lignes cochables du wizard converties en boutons explicites (bug clics papier/transport/qualification B) + compteur de clics isolé + purge des facettes entre types (bug détecté en recette automatisée) · **parcs multiples** : cartes → détail → dialogue de paramétrage par machine · nav v2 : **Atelier fusionné dans Gestion commerciale**, PIM + Gammes + Visuels Magrit dans **Catalogue** (galerie mockups **restaurée**, point 5) · PIM : bouton **Nouveau produit** en tête de page · règles **R1-R8 (Annexe A RP#070826)** implantées dans `docs/REGLES_ARCHITECTURE.md` + CLAUDE.md + vault Obsidian · recette automatisée des DEUX parcours wizard via route dev `/dev/machines-wizard` (hors build prod) : A = 19 clics, B = 14 clics sur parc comparable.
 
 ## 24. Session 2026-07-27 — Arbitrages Epic 7 appliqués + rétrospective
 

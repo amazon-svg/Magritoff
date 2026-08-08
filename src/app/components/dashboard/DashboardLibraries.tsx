@@ -109,22 +109,22 @@ export function DashboardLibraries() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-1">Bibliothèques</h2>
-          <p className="text-sm text-gray-600">
+          <h2 className="text-lg font-semibold text-ink mb-1">Bibliothèques</h2>
+          <p className="text-sm text-ink-muted">
             {libraries.length} bibliothèque(s). Chaque produit est rangé dans une bibliothèque.
           </p>
         </div>
         <div className="flex gap-2">
           <Link
             to="/"
-            className="inline-flex items-center gap-2 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium"
+            className="inline-flex items-center gap-2 px-3 py-2 border border-line-2 text-ink-2 rounded-lg hover:bg-bg text-sm font-medium"
           >
             <Sparkles className="w-4 h-4" />
             Calculer des produits
           </Link>
           <button
             onClick={openNew}
-            className="inline-flex items-center gap-2 px-3 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 text-sm font-medium"
+            className="inline-flex items-center gap-2 px-3 py-2 bg-brand text-white rounded-lg hover:bg-brand/90 text-sm font-medium"
           >
             <Plus className="w-4 h-4" />
             Nouvelle bibliothèque
@@ -132,7 +132,7 @@ export function DashboardLibraries() {
         </div>
       </div>
 
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-900">
+      <div className="bg-brand-soft border border-line-2 rounded-lg p-3 text-sm text-blue-900">
         💡 Depuis le chat, calcule tes produits puis clique <strong>"Ajouter à la bibliothèque"</strong> sur une carte pour l'enregistrer. Sélectionne plusieurs produits pour un ajout groupé.
       </div>
 
@@ -140,11 +140,11 @@ export function DashboardLibraries() {
       <div className="rounded-xl border-2 border-indigo-200 bg-indigo-50 p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+            <h3 className="font-semibold text-ink flex items-center gap-2">
               <Boxes className="w-5 h-5 text-indigo-600" />
               Catalogue depuis le PIM
             </h3>
-            <p className="text-sm text-gray-700 mt-0.5 max-w-xl">
+            <p className="text-sm text-ink-2 mt-0.5 max-w-xl">
               Génère un produit vendable pour chacune des <strong>{gammes.length} gammes</strong> de
               votre PIM. Le prix se calcule à la configuration (Clariprint) côté acheteur.
               {pimGeneratedCount > 0 && (
@@ -174,7 +174,7 @@ export function DashboardLibraries() {
                 type="button"
                 onClick={handleClearPim}
                 disabled={pimBusy !== null}
-                className="inline-flex items-center gap-2 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-white text-sm font-medium disabled:opacity-50"
+                className="inline-flex items-center gap-2 px-3 py-2 border border-line-2 text-ink-2 rounded-lg hover:bg-paper text-sm font-medium disabled:opacity-50"
               >
                 {pimBusy === 'clear' ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -190,9 +190,9 @@ export function DashboardLibraries() {
       </div>
 
       {librariesLoading ? (
-        <p className="text-sm text-gray-500">Chargement...</p>
+        <p className="text-sm text-ink-muted">Chargement...</p>
       ) : libraries.length === 0 ? (
-        <div className="text-center py-12 text-gray-400">
+        <div className="text-center py-12 text-ink-mute-2">
           <LibraryIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
           <p className="text-sm">Aucune bibliothèque. Crée-en une pour commencer.</p>
         </div>
@@ -203,27 +203,27 @@ export function DashboardLibraries() {
             return (
               <div
                 key={lib.id}
-                className="border border-gray-200 rounded-xl bg-white overflow-hidden hover:border-gray-400 transition-colors"
+                className="border border-line rounded-xl bg-paper overflow-hidden hover:border-brand/50 transition-colors"
               >
                 <Link to={tp(`/dashboard/library/${lib.id}`)} className="block p-4">
                   <div className="flex items-start gap-2 mb-2">
-                    <LibraryIcon className="w-5 h-5 text-gray-500 shrink-0 mt-0.5" />
+                    <LibraryIcon className="w-5 h-5 text-ink-muted shrink-0 mt-0.5" />
                     <div className="min-w-0 flex-1">
-                      <p className="font-semibold text-gray-900 truncate">{lib.name}</p>
+                      <p className="font-semibold text-ink truncate">{lib.name}</p>
                     </div>
                   </div>
                   {lib.description && (
-                    <p className="text-xs text-gray-500 line-clamp-2 mb-2">{lib.description}</p>
+                    <p className="text-xs text-ink-muted line-clamp-2 mb-2">{lib.description}</p>
                   )}
-                  <div className="flex items-center justify-between text-xs text-gray-500 mt-3">
+                  <div className="flex items-center justify-between text-xs text-ink-muted mt-3">
                     <span>{items.length} produit{items.length > 1 ? 's' : ''}</span>
                     <span>{new Date(lib.created_at!).toLocaleDateString('fr-FR')}</span>
                   </div>
                 </Link>
-                <div className="px-4 pb-3 flex gap-1 justify-end border-t border-gray-100 pt-2">
+                <div className="px-4 pb-3 flex gap-1 justify-end border-t border-line pt-2">
                   <button
                     onClick={() => openEdit(lib)}
-                    className="p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded"
+                    className="p-1.5 text-ink-muted hover:text-ink hover:bg-bg rounded"
                   >
                     <Pencil className="w-4 h-4" />
                   </button>
@@ -231,7 +231,7 @@ export function DashboardLibraries() {
                     onClick={() => {
                       if (confirm(`Supprimer "${lib.name}" et tous ses produits ?`)) deleteLibrary(lib.id);
                     }}
-                    className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"
+                    className="p-1.5 text-ink-muted hover:text-err-fg hover:bg-err-bg rounded"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -248,54 +248,54 @@ export function DashboardLibraries() {
           onClick={() => setModalOpen(false)}
         >
           <div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6"
+            className="bg-paper rounded-2xl shadow-2xl w-full max-w-lg p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold text-gray-900">
+              <h3 className="text-xl font-bold text-ink">
                 {editing ? 'Modifier la bibliothèque' : 'Nouvelle bibliothèque'}
               </h3>
-              <button onClick={() => setModalOpen(false)} className="p-1 hover:bg-gray-100 rounded">
+              <button onClick={() => setModalOpen(false)} className="p-1 hover:bg-bg rounded">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={submit} className="space-y-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nom *</label>
+                <label className="block text-sm font-medium text-ink-2 mb-1">Nom *</label>
                 <input
                   type="text"
                   required
                   value={draft.name}
                   onChange={(e) => setDraft({ ...draft, name: e.target.value })}
                   placeholder="ex: Carterie, Goodies Acme, Vœux 2026..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-3 py-2 border border-line-2 rounded-lg"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <label className="block text-sm font-medium text-ink-2 mb-1">Description</label>
                 <textarea
                   value={draft.description}
                   onChange={(e) => setDraft({ ...draft, description: e.target.value })}
                   rows={2}
                   placeholder="Contexte de la bibliothèque (optionnel)"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-3 py-2 border border-line-2 rounded-lg"
                 />
               </div>
-              {error && <p className="text-sm text-red-600 bg-red-50 p-2 rounded">{error}</p>}
+              {error && <p className="text-sm text-err-fg bg-err-bg p-2 rounded">{error}</p>}
 
               <div className="flex gap-2 pt-2">
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium"
+                  className="flex-1 px-4 py-2 border border-line-2 rounded-lg hover:bg-bg font-medium"
                 >
                   Annuler
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="flex-1 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 font-medium flex items-center justify-center gap-2"
+                  className="flex-1 px-4 py-2 bg-brand text-white rounded-lg hover:bg-brand/90 disabled:opacity-50 font-medium flex items-center justify-center gap-2"
                 >
                   {saving && <Loader2 className="w-4 h-4 animate-spin" />}
                   {editing ? 'Enregistrer' : 'Créer'}

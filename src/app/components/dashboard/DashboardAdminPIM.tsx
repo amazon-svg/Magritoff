@@ -106,10 +106,10 @@ export function DashboardAdminPIM() {
     return (
       <div className="max-w-lg text-center py-12">
         <AlertCircle className="w-12 h-12 mx-auto text-amber-500 mb-3" />
-        <h2 className="text-xl font-bold text-gray-900 mb-2">Accès admin requis</h2>
-        <p className="text-sm text-gray-600">
+        <h2 className="text-xl font-bold text-ink mb-2">Accès admin requis</h2>
+        <p className="text-sm text-ink-muted">
           Cette page est réservée aux super-administrateurs Magrit. Il faut être
-          membre owner ou admin du tenant système <code className="bg-gray-100 px-1.5 py-0.5 rounded">magrit-root</code>.
+          membre owner ou admin du tenant système <code className="bg-bg px-1.5 py-0.5 rounded">magrit-root</code>.
         </p>
       </div>
     );
@@ -282,20 +282,20 @@ export function DashboardAdminPIM() {
     const isExpanded = expanded.has(g.slug);
 
     return (
-      <div key={g.slug} className="border-b border-gray-100 last:border-0">
+      <div key={g.slug} className="border-b border-line last:border-0">
         <div
-          className="flex items-center gap-2 py-2 hover:bg-gray-50 cursor-pointer"
+          className="flex items-center gap-2 py-2 hover:bg-bg cursor-pointer"
           style={{ paddingLeft: `${depth * 16 + 8}px` }}
           onClick={() => toggle(g.slug)}
         >
           {children.length > 0 || defs.length > 0 ? (
-            isExpanded ? <ChevronDown className="w-4 h-4 text-gray-500" /> : <ChevronRight className="w-4 h-4 text-gray-500" />
+            isExpanded ? <ChevronDown className="w-4 h-4 text-ink-muted" /> : <ChevronRight className="w-4 h-4 text-ink-muted" />
           ) : (
             <span className="w-4" />
           )}
-          <span className={`${depth === 0 ? 'font-semibold' : ''} text-sm text-gray-900`}>{g.name}</span>
-          <code className="text-xs text-gray-400">{g.slug}</code>
-          <span className="ml-auto text-xs text-gray-500 mr-3">
+          <span className={`${depth === 0 ? 'font-semibold' : ''} text-sm text-ink`}>{g.name}</span>
+          <code className="text-xs text-ink-mute-2">{g.slug}</code>
+          <span className="ml-auto text-xs text-ink-muted mr-3">
             {defs.length} définition{defs.length > 1 ? 's' : ''}
           </span>
         </div>
@@ -312,30 +312,30 @@ export function DashboardAdminPIM() {
                 {defs.map((d) => (
                   <div
                     key={d.id}
-                    className="flex items-center gap-2 px-2 py-1.5 bg-gray-50 border border-gray-200 rounded text-xs"
+                    className="flex items-center gap-2 px-2 py-1.5 bg-bg border border-line rounded text-xs"
                   >
-                    <span className="uppercase font-mono font-semibold text-gray-500">{d.locale}</span>
-                    <span className="text-gray-700 flex-1 truncate">
+                    <span className="uppercase font-mono font-semibold text-ink-muted">{d.locale}</span>
+                    <span className="text-ink-2 flex-1 truncate">
                       {d.name || d.title_template || '(sans titre)'}
                     </span>
                     {Object.keys(d.variation_filter || {}).length > 0 && (
-                      <span className="text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded text-[10px]">
+                      <span className="text-warn-fg bg-warn-bg border border-amber-200 px-1.5 py-0.5 rounded text-[10px]">
                         variation
                       </span>
                     )}
                     <span
                       className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
                         d.validated_by === 'human'
-                          ? 'bg-green-100 text-green-700'
+                          ? 'bg-green-100 text-ok-fg'
                           : d.validated_by === 'llm'
-                          ? 'bg-blue-100 text-blue-700'
-                          : 'bg-gray-100 text-gray-600'
+                          ? 'bg-blue-100 text-brand'
+                          : 'bg-bg text-ink-muted'
                       }`}
                     >
                       {d.validated_by ?? 'pending'}
                     </span>
                     {d.quality_score != null && (
-                      <span className="text-[10px] text-gray-500">{d.quality_score.toFixed(2)}</span>
+                      <span className="text-[10px] text-ink-muted">{d.quality_score.toFixed(2)}</span>
                     )}
                     {d.validated_by !== 'human' && (
                       <button
@@ -343,7 +343,7 @@ export function DashboardAdminPIM() {
                           e.stopPropagation();
                           markValidated(d);
                         }}
-                        className="p-1 text-green-600 hover:bg-green-50 rounded"
+                        className="p-1 text-green-600 hover:bg-ok-bg rounded"
                         title="Valider"
                       >
                         <Check className="w-3.5 h-3.5" />
@@ -354,7 +354,7 @@ export function DashboardAdminPIM() {
                         e.stopPropagation();
                         startEdit(d);
                       }}
-                      className="p-1 text-gray-500 hover:bg-gray-200 rounded"
+                      className="p-1 text-ink-muted hover:bg-line rounded"
                     >
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
@@ -363,7 +363,7 @@ export function DashboardAdminPIM() {
                         e.stopPropagation();
                         if (confirm(`Supprimer cette définition ?`)) deleteDefinition(d.id);
                       }}
-                      className="p-1 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"
+                      className="p-1 text-ink-muted hover:text-err-fg hover:bg-err-bg rounded"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -381,7 +381,7 @@ export function DashboardAdminPIM() {
                     e.stopPropagation();
                     startNew(g, loc);
                   }}
-                  className="px-2 py-1 border border-dashed border-gray-300 text-gray-600 rounded hover:border-gray-500 hover:bg-gray-50 flex items-center gap-1"
+                  className="px-2 py-1 border border-dashed border-line-2 text-ink-muted rounded hover:border-line-2 hover:bg-bg flex items-center gap-1"
                 >
                   <Plus className="w-3 h-3" />
                   {loc.toUpperCase()}
@@ -399,23 +399,30 @@ export function DashboardAdminPIM() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h2 className="text-lg font-semibold text-gray-900 mb-1">Admin · PIM</h2>
-        <p className="text-sm text-gray-600">
-          Base partagée de définitions produits (SEO / GEO / commercial). Lecture libre, écriture admin.
-        </p>
-        <div className="flex gap-4 mt-2 text-xs text-gray-500">
-          <span>Gammes : {gammes.length}</span>
-          <span>Définitions : {definitions.length}</span>
-          <span>Validées humain : {definitions.filter((d) => d.validated_by === 'human').length}</span>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h2 className="text-lg font-semibold text-ink mb-1">PIM — Produits</h2>
+          <p className="text-sm text-ink-muted">
+            Base partagée de définitions produits (SEO / GEO / commercial). Lecture libre, écriture admin.
+          </p>
+          <div className="flex gap-4 mt-2 text-xs text-ink-muted">
+            <span>Gammes : {gammes.length}</span>
+            <span>Définitions : {definitions.length}</span>
+            <span>Validées humain : {definitions.filter((d) => d.validated_by === 'human').length}</span>
+          </div>
         </div>
+        {/* REFONTE-UX v2 (2026-08-08, retour Arnaud point 2) — la creation d un
+            produit existait mais etait enterree dans chaque gamme depliee.
+            Bouton visible en tete de page : choix de la gamme puis meme
+            editeur que le "+" par gamme. */}
+        <NewProductButton gammes={gammes} onPick={(g, loc) => startNew(g, loc)} />
       </div>
 
       {/* ─── Pipeline d'ingestion automatique ─── */}
-      <div className="border border-gray-200 rounded-xl bg-white p-4 space-y-3">
+      <div className="border border-line rounded-xl bg-paper p-4 space-y-3">
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div>
-            <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+            <h3 className="font-semibold text-ink flex items-center gap-2">
               <Inbox className="w-4 h-4 text-indigo-600" />
               File d'ingestion PIM
               {pendingCount != null && pendingCount > 0 && (
@@ -424,7 +431,7 @@ export function DashboardAdminPIM() {
                 </span>
               )}
             </h3>
-            <p className="text-sm text-gray-600 max-w-2xl">
+            <p className="text-sm text-ink-muted max-w-2xl">
               Les produits commandés sur les boutiques sont poussés ici par trigger DB.
               L'ingestion auto vérifie la richesse du candidat, matche contre les définitions
               existantes (dédup), et enrichit via Claude (SEO, commercial, FAQ) avant merge
@@ -435,7 +442,7 @@ export function DashboardAdminPIM() {
             <button
               onClick={() => runIngest(true)}
               disabled={!!ingestRunning || (pendingCount ?? 0) === 0}
-              className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 text-sm font-medium flex items-center gap-2"
+              className="px-3 py-2 border border-line-2 rounded-lg hover:bg-bg disabled:opacity-40 text-sm font-medium flex items-center gap-2"
               title="Simulation — aucun écrit en DB"
             >
               {ingestRunning === 'dry' ? (
@@ -461,14 +468,14 @@ export function DashboardAdminPIM() {
         </div>
 
         {ingestError && (
-          <div className="px-3 py-2 rounded-lg bg-red-50 text-red-800 text-sm">
+          <div className="px-3 py-2 rounded-lg bg-err-bg text-red-800 text-sm">
             <strong>Erreur :</strong> {ingestError}
           </div>
         )}
 
         {ingestReport && (
-          <div className="border-t border-gray-200 pt-3 space-y-2">
-            <div className="text-sm text-gray-700">
+          <div className="border-t border-line pt-3 space-y-2">
+            <div className="text-sm text-ink-2">
               <strong>Rapport {ingestReport.dryRun ? '(simulation)' : 'd\'ingestion'}</strong>
               {' · '}
               {ingestReport.totalCandidates} candidat
@@ -502,8 +509,8 @@ export function DashboardAdminPIM() {
               />
             </div>
             {(ingestReport.rejected.length > 0 || ingestReport.errors.length > 0) && (
-              <details className="text-xs text-gray-600">
-                <summary className="cursor-pointer hover:text-gray-900">
+              <details className="text-xs text-ink-muted">
+                <summary className="cursor-pointer hover:text-ink">
                   Détails rejets et erreurs
                 </summary>
                 <div className="mt-2 space-y-1 max-h-48 overflow-y-auto">
@@ -513,7 +520,7 @@ export function DashboardAdminPIM() {
                     </div>
                   ))}
                   {ingestReport.errors.map((e) => (
-                    <div key={e.candidateId} className="font-mono text-red-700">
+                    <div key={e.candidateId} className="font-mono text-err-fg">
                       ❌ {e.candidateId.slice(0, 8)}… : {e.error}
                     </div>
                   ))}
@@ -525,14 +532,14 @@ export function DashboardAdminPIM() {
       </div>
 
       {/* Actions batch */}
-      <div className="border border-gray-200 rounded-xl bg-white p-4 space-y-3">
+      <div className="border border-line rounded-xl bg-paper p-4 space-y-3">
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div>
-            <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+            <h3 className="font-semibold text-ink flex items-center gap-2">
               <Zap className="w-4 h-4 text-amber-500" />
               Pré-générer en masse
             </h3>
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-ink-muted">
               Génère via LLM les définitions manquantes pour toutes les gammes × langues.
               Les résultats atterrissent en <strong>validated_by=pending</strong> pour relecture.
             </p>
@@ -541,7 +548,7 @@ export function DashboardAdminPIM() {
             <button
               onClick={() => runBatchGenerate(false)}
               disabled={batch.running}
-              className="px-3 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 text-sm font-medium flex items-center gap-2"
+              className="px-3 py-2 bg-brand text-white rounded-lg hover:bg-brand/90 disabled:opacity-50 text-sm font-medium flex items-center gap-2"
             >
               {batch.running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
               Pré-générer ce qui manque
@@ -549,7 +556,7 @@ export function DashboardAdminPIM() {
             <button
               onClick={() => runBatchGenerate(true)}
               disabled={batch.running}
-              className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 text-sm font-medium"
+              className="px-3 py-2 border border-line-2 rounded-lg hover:bg-bg disabled:opacity-50 text-sm font-medium"
             >
               Tout régénérer
             </button>
@@ -559,21 +566,21 @@ export function DashboardAdminPIM() {
         {(batch.running || batch.done > 0) && (
           <div className="space-y-2">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-700">
+              <span className="text-ink-2">
                 {batch.running ? `En cours : ${batch.current}` : 'Terminé'}
               </span>
-              <span className="font-medium text-gray-900">
+              <span className="font-medium text-ink">
                 {batch.done} / {batch.total}
               </span>
             </div>
-            <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div className="w-full h-2 bg-bg rounded-full overflow-hidden">
               <div
-                className="h-full bg-gray-900 transition-all"
+                className="h-full bg-brand transition-all"
                 style={{ width: `${batch.total ? (batch.done / batch.total) * 100 : 0}%` }}
               />
             </div>
             {batch.errors.length > 0 && (
-              <details className="text-xs text-red-600 bg-red-50 p-2 rounded">
+              <details className="text-xs text-err-fg bg-err-bg p-2 rounded">
                 <summary className="cursor-pointer font-medium">
                   {batch.errors.length} erreur(s)
                 </summary>
@@ -588,7 +595,7 @@ export function DashboardAdminPIM() {
         )}
       </div>
 
-      <div className="border border-gray-200 rounded-xl bg-white">
+      <div className="border border-line rounded-xl bg-paper">
         {(gammesByParent.get(null) || []).map((g) => renderGamme(g, 0))}
       </div>
 
@@ -626,15 +633,15 @@ function DefinitionEditorModal(props: {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[92vh] overflow-y-auto p-6"
+        className="bg-paper rounded-2xl shadow-2xl w-full max-w-3xl max-h-[92vh] overflow-y-auto p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xl font-bold text-gray-900">
-            Définition : <code className="text-sm bg-gray-100 px-2 py-0.5 rounded">{editing.gamme_slug}</code>{' '}
-            <span className="text-gray-400 text-sm">({editing.locale})</span>
+          <h3 className="text-xl font-bold text-ink">
+            Définition : <code className="text-sm bg-bg px-2 py-0.5 rounded">{editing.gamme_slug}</code>{' '}
+            <span className="text-ink-mute-2 text-sm">({editing.locale})</span>
           </h3>
-          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">
+          <button onClick={onClose} className="p-1 hover:bg-bg rounded">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -648,12 +655,12 @@ function DefinitionEditorModal(props: {
             {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
             Générer / régénérer via LLM
           </button>
-          <span className="text-xs text-gray-500 self-center">
+          <span className="text-xs text-ink-muted self-center">
             Le LLM remplira les champs ci-dessous. Tu peux ensuite ajuster puis enregistrer.
           </span>
         </div>
 
-        {error && <p className="mb-3 text-sm text-red-600 bg-red-50 p-2 rounded">{error}</p>}
+        {error && <p className="mb-3 text-sm text-err-fg bg-err-bg p-2 rounded">{error}</p>}
 
         <div className="space-y-3">
           <Field label="Nom interne">
@@ -758,7 +765,7 @@ function DefinitionEditorModal(props: {
               <img
                 src={editing.image_url}
                 alt=""
-                className="mt-2 h-24 w-auto rounded border border-gray-200 object-cover"
+                className="mt-2 h-24 w-auto rounded border border-line object-cover"
                 onError={(e) => {
                   (e.target as HTMLImageElement).style.display = 'none';
                 }}
@@ -788,20 +795,20 @@ function DefinitionEditorModal(props: {
             />
           </Field>
 
-          <div className="flex items-center gap-3 text-xs text-gray-600">
+          <div className="flex items-center gap-3 text-xs text-ink-muted">
             <span>generated_by: <strong>{editing.generated_by ?? '—'}</strong></span>
             <span>validated_by: <strong>{editing.validated_by ?? 'pending'}</strong></span>
           </div>
         </div>
 
-        <div className="flex gap-2 pt-5 mt-4 border-t border-gray-200">
-          <button onClick={onClose} className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium">
+        <div className="flex gap-2 pt-5 mt-4 border-t border-line">
+          <button onClick={onClose} className="flex-1 px-4 py-2 border border-line-2 rounded-lg hover:bg-bg font-medium">
             Annuler
           </button>
           <button
             onClick={onSave}
             disabled={saving}
-            className="flex-1 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 font-medium flex items-center justify-center gap-2"
+            className="flex-1 px-4 py-2 bg-brand text-white rounded-lg hover:bg-brand/90 disabled:opacity-50 font-medium flex items-center justify-center gap-2"
           >
             {saving && <Loader2 className="w-4 h-4 animate-spin" />}
             Enregistrer
@@ -817,8 +824,8 @@ function DefinitionEditorModal(props: {
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-xs font-semibold text-gray-700 mb-1">
-        {label} {hint && <span className="font-normal text-gray-400">— {hint}</span>}
+      <label className="block text-xs font-semibold text-ink-2 mb-1">
+        {label} {hint && <span className="font-normal text-ink-mute-2">— {hint}</span>}
       </label>
       {children}
     </div>
@@ -837,9 +844,9 @@ function GammeImageInput({
   const [val, setVal] = useState(gamme.image_url ?? '');
   const initial = gamme.image_url ?? '';
   return (
-    <div className="flex items-center gap-2 my-2 bg-white border border-blue-100 rounded px-2 py-1.5">
+    <div className="flex items-center gap-2 my-2 bg-paper border border-blue-100 rounded px-2 py-1.5">
       <label
-        className="text-[10px] font-mono uppercase tracking-wider text-gray-500 shrink-0"
+        className="text-[10px] font-mono uppercase tracking-wider text-ink-muted shrink-0"
         style={{ letterSpacing: '0.08em' }}
       >
         IMAGE GAMME
@@ -852,13 +859,13 @@ function GammeImageInput({
           if (val !== initial) onSave(val);
         }}
         placeholder="URL d'image par défaut pour cette gamme…"
-        className="flex-1 min-w-0 bg-transparent border-0 focus:outline-none text-xs text-gray-900"
+        className="flex-1 min-w-0 bg-transparent border-0 focus:outline-none text-xs text-ink"
       />
       {val && (
         <img
           src={val}
           alt=""
-          className="h-8 w-8 object-cover rounded border border-gray-200"
+          className="h-8 w-8 object-cover rounded border border-line"
           onError={(e) => {
             (e.target as HTMLImageElement).style.display = 'none';
           }}
@@ -882,9 +889,9 @@ function ReportBadge({
 }) {
   const bg = {
     emerald: 'bg-emerald-50 border-emerald-200 text-emerald-800',
-    blue: 'bg-blue-50 border-blue-200 text-blue-800',
-    amber: 'bg-amber-50 border-amber-200 text-amber-800',
-    red: 'bg-red-50 border-red-200 text-red-800',
+    blue: 'bg-brand-soft border-line-2 text-blue-800',
+    amber: 'bg-warn-bg border-amber-200 text-amber-800',
+    red: 'bg-err-bg border-err-fg/30 text-red-800',
   }[color];
   return (
     <div
@@ -893,6 +900,85 @@ function ReportBadge({
     >
       <div className="text-xs font-medium opacity-80">{label}</div>
       <div className="text-xl font-bold">{value}</div>
+    </div>
+  );
+}
+
+/**
+ * REFONTE-UX v2 (2026-08-08, point 2) — bouton global "Nouveau produit".
+ * Ouvre un mini-selecteur gamme + langue puis delegue a startNew (meme
+ * editeur que le "+" par gamme).
+ */
+function NewProductButton({
+  gammes,
+  onPick,
+}: {
+  gammes: Gamme[];
+  onPick: (gamme: Gamme, locale: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [gammeSlug, setGammeSlug] = useState('');
+  const [locale, setLocale] = useState('fr');
+
+  const confirm = () => {
+    const g = gammes.find((x) => x.slug === gammeSlug);
+    if (!g) return;
+    setOpen(false);
+    onPick(g, locale);
+  };
+
+  return (
+    <div className="relative shrink-0">
+      <button
+        onClick={() => setOpen(!open)}
+        className="px-4 py-2 bg-brand text-white rounded-lg hover:opacity-90 text-sm font-medium flex items-center gap-2"
+      >
+        <Plus className="w-4 h-4" />
+        Nouveau produit
+      </button>
+      {open && (
+        <div className="absolute right-0 z-20 mt-2 w-72 bg-paper border border-line rounded-xl shadow-lg p-4 space-y-3">
+          <div>
+            <label className="block text-sm font-medium text-ink-2 mb-1">Gamme</label>
+            <select
+              value={gammeSlug}
+              onChange={(e) => setGammeSlug(e.target.value)}
+              className="w-full px-3 py-2 border border-line-2 rounded-lg bg-paper text-ink text-sm"
+            >
+              <option value="">— choisir une gamme —</option>
+              {gammes.map((g) => (
+                <option key={g.slug} value={g.slug}>{g.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-ink-2 mb-1">Langue</label>
+            <select
+              value={locale}
+              onChange={(e) => setLocale(e.target.value)}
+              className="w-full px-3 py-2 border border-line-2 rounded-lg bg-paper text-ink text-sm"
+            >
+              <option value="fr">Français</option>
+              <option value="en">English</option>
+            </select>
+          </div>
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={() => setOpen(false)}
+              className="px-3 py-1.5 border border-line-2 rounded-lg text-sm text-ink-2 hover:bg-bg"
+            >
+              Annuler
+            </button>
+            <button
+              onClick={confirm}
+              disabled={!gammeSlug}
+              className="px-3 py-1.5 bg-brand text-white rounded-lg hover:opacity-90 disabled:opacity-50 text-sm font-medium"
+            >
+              Créer
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
