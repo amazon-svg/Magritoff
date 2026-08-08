@@ -27,13 +27,9 @@ const PublicShop = lazy(() =>
   import("./components/shop/PublicShop").then((m) => ({ default: m.PublicShop })),
 );
 
-const DashboardProfile = lazy(() =>
-  import("./components/dashboard/DashboardProfile").then((m) => ({ default: m.DashboardProfile })),
-);
-const DashboardPreferences = lazy(() =>
-  import("./components/dashboard/DashboardPreferences").then((m) => ({
-    default: m.DashboardPreferences,
-  })),
+// REFONTE-UX (2026-08-08) — Mon compte fusionne Profil + Preferences (points 3-4).
+const DashboardAccount = lazy(() =>
+  import("./components/dashboard/DashboardAccount").then((m) => ({ default: m.DashboardAccount })),
 );
 const DashboardHistory = lazy(() =>
   import("./components/dashboard/DashboardHistory").then((m) => ({ default: m.DashboardHistory })),
@@ -88,9 +84,21 @@ const DashboardAdminPIM = lazy(() =>
     default: m.DashboardAdminPIM,
   })),
 );
-const DashboardAdminMockups = lazy(() =>
-  import("./components/dashboard/DashboardAdminMockups").then((m) => ({
-    default: m.DashboardAdminMockups,
+// REFONTE-UX (2026-08-08) — module Gestion commerciale (point 7).
+const DashboardCommercial = lazy(() =>
+  import("./components/dashboard/commercial/DashboardCommercial").then((m) => ({
+    default: m.DashboardCommercial,
+  })),
+);
+// REFONTE-UX (2026-08-08) — module Parc machine, wizard RP#070826 (point 8).
+const DashboardMachines = lazy(() =>
+  import("./components/dashboard/machines/DashboardMachines").then((m) => ({
+    default: m.DashboardMachines,
+  })),
+);
+const MachineParkWizard = lazy(() =>
+  import("./components/dashboard/machines/MachineParkWizard").then((m) => ({
+    default: m.MachineParkWizard,
   })),
 );
 const DashboardTenantSettings = lazy(() =>
@@ -186,9 +194,14 @@ export const router = createBrowserRouter([
             path: "dashboard",
             element: <DashboardLayout />,
             children: [
-              { index: true, element: lazyRoute(<DashboardProfile />) },
+              // REFONTE-UX (2026-08-08) — l entree du dashboard est l Atelier
+              // (Devis), plus le profil. Profil + Preferences vivent dans
+              // Parametres > Mon compte (/account).
+              { index: true, element: <Navigate to="quotes" replace /> },
+              { path: "account", element: lazyRoute(<DashboardAccount />) },
+              { path: "profile", element: <Navigate to="../account" replace /> },
+              { path: "preferences", element: <Navigate to="../account" replace /> },
               { path: "plan", element: lazyRoute(<DashboardPlan />) },
-              { path: "preferences", element: lazyRoute(<DashboardPreferences />) },
               { path: "history", element: lazyRoute(<DashboardHistory />) },
               { path: "quotes", element: lazyRoute(<DashboardQuotes />) },
               { path: "quotes/pending", element: lazyRoute(<DashboardQuotesPending />) },
@@ -207,9 +220,17 @@ export const router = createBrowserRouter([
               { path: "spaces", element: lazyRoute(<DashboardTenantSpaces />) },
               { path: "gammes", element: lazyRoute(<DashboardTenantGammes />) },
               { path: "admin/pim", element: lazyRoute(<DashboardAdminPIM />) },
-              // P5-VISUELS (2026-06-15) — Référence visuelle 5 templates Magrit-brandés
-              // Garde superadmin (isAdmin || isSuperAdmin) côté composant.
-              { path: "admin/mockups", element: lazyRoute(<DashboardAdminMockups />) },
+              // REFONTE-UX (2026-08-08) — la galerie admin/mockups (P5-VISUELS,
+              // reference visuelle superadmin) est supprimee : hors PRD (E8.3 =
+              // mockup engine + upload custom par boutique, conserves). Point 5.
+              { path: "admin/mockups", element: <Navigate to="../admin/pim" replace /> },
+              // REFONTE-UX (2026-08-08) — Gestion commerciale (point 7) :
+              // prix, marges et remises par gamme/produit x client/groupe.
+              { path: "commercial", element: lazyRoute(<DashboardCommercial />) },
+              // REFONTE-UX (2026-08-08) — Parc machine (point 8, RP#070826) :
+              // liste du parc + wizard guide de constitution.
+              { path: "machines", element: lazyRoute(<DashboardMachines />) },
+              { path: "machines/wizard", element: lazyRoute(<MachineParkWizard />) },
               // S-ORDER-ROLES-3-UI T4 — page admin catalog rôles workflow.
               // Garde d'accès via capability `can_manage_roles` côté composant
               // (preset Owner / Admin depuis migration 2026-06-09).

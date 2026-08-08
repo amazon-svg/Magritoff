@@ -2,7 +2,7 @@ import { Navigate, NavLink, Outlet, useLocation } from 'react-router';
 import {
   User, Settings, MessageSquare, FileText, ShoppingBag, Users,
   CreditCard, Package, Store, Shield, LayoutTemplate, Building, Layers, Workflow,
-  Image as ImageIcon, FileClock,
+  FileClock, BadgePercent, Factory,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlan } from '../../hooks/usePlan';
@@ -15,14 +15,18 @@ import { TEST_IDS } from '../../lib/testIds';
 // E7.7 — mapping label de NavLink -> data-testid pour les cas de test.
 // Couvre les liens cles des cahiers de tests P01 (sidebar nav).
 const NAV_LINK_TESTIDS: Record<string, string> = {
-  'Profil': TEST_IDS.nav.sidebarProfileLink,
+  // REFONTE-UX (2026-08-08) — le lien Profil devient Mon compte (Parametres),
+  // le testid historique est conserve pour les cahiers de tests P01.
+  'Mon compte': TEST_IDS.nav.sidebarProfileLink,
   'Utilisateurs': TEST_IDS.nav.sidebarUsersLink,
 };
 
 // E7.7 — mapping titre de groupe -> data-testid (groupes structurels Linear-like).
 const NAV_GROUP_TESTIDS: Record<string, string> = {
   'Atelier': TEST_IDS.nav.sidebarAtelierLink,
-  'Config': TEST_IDS.nav.sidebarConfigLink,
+  // REFONTE-UX (2026-08-08) — le groupe Config devient Parametres ;
+  // testid historique conserve pour les cahiers de tests.
+  'Paramètres': TEST_IDS.nav.sidebarConfigLink,
 };
 
 // Design source : .design-handoff/designs/04 - Admin dashboard.html
@@ -65,13 +69,20 @@ export function DashboardLayout() {
     show: boolean;
     sub?: boolean;
   };
+  // REFONTE-UX (2026-08-08) — navigation rationalisee (demande Arnaud, 8 points) :
+  //   Atelier      = production quotidienne (devis, commandes, historique)
+  //   Catalogue    = referentiel produits du tenant (gammes, bibliotheques)
+  //   Commercial   = relation client (gestion commerciale, boutiques, utilisateurs)
+  //   Production   = parc machine (RP#070826)
+  //   Parametres   = espace + sous-espaces + roles + plan + mon compte
+  //   Plateforme   = PIM global (superadmin seulement)
+  // Disparu : groupe "Equipe" a entree unique, entree "Mockups Magrit" (hors PRD),
+  // entrees Profil / Preferences esseulees (fusionnees dans Mon compte).
   const GROUPS: Array<{ title: string; items: Item[] }> = [
     {
       title: 'Atelier',
       items: [
-        { to: `${basePath}`, end: true, label: 'Profil', icon: User, show: true },
-        { to: `${basePath}/history`, label: 'Historique', icon: MessageSquare, show: true },
-        { to: `${basePath}/quotes`, label: 'Devis', icon: FileText, show: true },
+        { to: `${basePath}/quotes`, end: true, label: 'Devis', icon: FileText, show: true },
         {
           to: `${basePath}/quotes/pending`,
           label: 'Devis en attente',
@@ -87,60 +98,61 @@ export function DashboardLayout() {
           sub: true,
         },
         { to: `${basePath}/orders`, label: 'Commandes', icon: ShoppingBag, show: true },
-        { to: `${basePath}/users`, label: 'Utilisateurs', icon: Users, show: true },
-        { to: `${basePath}/shops`, label: 'Boutiques', icon: Store, show: canUse('shops') },
-        {
-          to: `${basePath}/library`,
-          label: 'Bibliothèques',
-          icon: Package,
-          show: canUse('library'),
-          sub: true,
-        },
+        { to: `${basePath}/history`, label: 'Historique', icon: MessageSquare, show: true },
       ],
     },
     {
-      title: 'Équipe',
+      title: 'Catalogue',
       items: [
-        { to: `${basePath}/spaces`, label: 'Sous-espaces', icon: Building, show: canManageSpaces ?? false },
+        { to: `${basePath}/gammes`, label: 'Gammes actives', icon: Layers, show: canManageMembers ?? false },
+        { to: `${basePath}/library`, label: 'Bibliothèques', icon: Package, show: canUse('library') },
       ],
     },
     {
-      title: 'Config',
+      title: 'Commercial',
+      items: [
+        {
+          to: `${basePath}/commercial`,
+          label: 'Gestion commerciale',
+          icon: BadgePercent,
+          show: canManageMembers ?? false,
+        },
+        { to: `${basePath}/shops`, label: 'Boutiques', icon: Store, show: canUse('shops') },
+        { to: `${basePath}/users`, label: 'Utilisateurs', icon: Users, show: true },
+      ],
+    },
+    {
+      title: 'Production',
+      items: [
+        { to: `${basePath}/machines`, label: 'Parc machine', icon: Factory, show: canManageMembers ?? false },
+      ],
+    },
+    {
+      title: 'Paramètres',
       items: [
         { to: `${basePath}/settings`, label: "Paramètres de l'espace", icon: Settings, show: canManageMembers ?? false },
-        // S-ORDER-ROLES-3-UI T4 — page admin workflow et rôles de commande.
-        // Garde côté composant via useUserCapability('can_manage_roles').
-        // Visible si l'user est admin/owner ou superadmin (le composant
-        // redirige si capability absente, ce qui couvre le cas member sans
-        // capability — mais on filtre déjà côté nav pour ne pas exposer
-        // un lien menant à une redirection).
+        {
+          to: `${basePath}/spaces`,
+          label: 'Sous-espaces',
+          icon: Building,
+          show: canManageSpaces ?? false,
+          sub: true,
+        },
+        // S-ORDER-ROLES-3-UI T4 — garde via useUserCapability('can_manage_roles')
+        // cote composant ; on filtre aussi cote nav.
         { to: `${basePath}/order-roles`, label: 'Workflow & rôles', icon: Workflow, show: canManageMembers ?? false },
         { to: `${basePath}/plan`, label: 'Plan & abonnement', icon: CreditCard, show: true },
-        { to: `${basePath}/preferences`, label: 'Préférences', icon: Settings, show: true },
+        { to: `${basePath}/account`, label: 'Mon compte', icon: User, show: true },
       ],
     },
     {
-      title: 'Admin PIM',
+      title: 'Plateforme',
       items: [
         {
           to: `${basePath}/admin/pim`,
           label: 'PIM global',
           icon: Shield,
           show: isAdmin || isSuperAdmin,
-        },
-        // P5-VISUELS (2026-06-15) — Référence visuelle 5 templates Magrit-brandés
-        {
-          to: `${basePath}/admin/mockups`,
-          label: 'Mockups Magrit',
-          icon: ImageIcon,
-          show: isAdmin || isSuperAdmin,
-        },
-        {
-          to: `${basePath}/gammes`,
-          label: 'Gammes actives',
-          icon: Layers,
-          show: canManageMembers ?? false,
-          sub: true,
         },
       ],
     },
@@ -153,7 +165,7 @@ export function DashboardLayout() {
     .flatMap((g) => g.items)
     .find((i) => i.to === location.pathname)?.label
     ?? segs.slice(1).map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join(' / ')
-    ?? 'Profil';
+    ?? 'Atelier';
 
   const displayName =
     (user.user_metadata?.full_name as string | undefined)?.trim() ||
