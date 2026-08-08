@@ -98,9 +98,19 @@ export interface ParkMachine {
   subcontractor?: string;
   /** Cout de transport associe a l externalisation, zero admis (BK-13). */
   transportCost?: number;
+  /** Couts fixes d externalisation, distincts du transport (BK-13). */
+  fixedCost?: number;
+  /** Taux horaire propre a la machine — vide = taux du parc (BK-22). */
+  hourlyRate?: number;
+  /** false = exclue des calculs servis (esquisse draft BK-27). Defaut true. */
+  active?: boolean;
 }
 
 export interface MachinePark {
+  /** Point 8 (retour Arnaud 2026-08-08) : un client peut avoir PLUSIEURS
+   * parcs — chaque parc a une identite propre. */
+  id: string;
+  name: string;
   machines: ParkMachine[];
   paperSuppliers: string[];
   transportSuppliers: string[];
@@ -207,25 +217,49 @@ export const MACHINE_LIBRARY: LibraryMachine[] = [
   { id: 'fi-komfi-amiga', type: 'finition', brand: 'Komfi', model: 'Amiga 52 (pelliculage)', format: '52 cm' },
 ];
 
-// ─── Persistance locale (maquette V1) ────────────────────────────────────────
+// ─── Persistance locale (maquette V1) — PARCS MULTIPLES ──────────────────────
+// Point 8 (retour Arnaud 2026-08-08) : un tenant porte une LISTE de parcs.
+// L ancien format mono-parc est migre a la volee.
 
-const parkKey = (tenantId: string) => `magrit_machine_park__${tenantId}`;
+const parksKey = (tenantId: string) => `magrit_machine_parks__${tenantId}`;
+const legacyKey = (tenantId: string) => `magrit_machine_park__${tenantId}`;
 
-export function loadPark(tenantId: string): MachinePark | null {
+export function loadParks(tenantId: string): MachinePark[] {
   try {
-    const raw = localStorage.getItem(parkKey(tenantId));
-    return raw ? (JSON.parse(raw) as MachinePark) : null;
+    const raw = localStorage.getItem(parksKey(tenantId));
+    if (raw) return JSON.parse(raw) as MachinePark[];
+    // Migration : ancien format mono-parc → liste a un element.
+    const legacy = localStorage.getItem(legacyKey(tenantId));
+    if (legacy) {
+      const old = JSON.parse(legacy) as Omit<MachinePark, 'id' | 'name'>;
+      const migrated: MachinePark[] = [
+        { id: 'parc-principal', name: 'Parc principal', ...old },
+      ];
+      localStorage.setItem(parksKey(tenantId), JSON.stringify(migrated));
+      localStorage.removeItem(legacyKey(tenantId));
+      return migrated;
+    }
+    return [];
   } catch {
-    return null;
+    return [];
   }
 }
 
-export function savePark(tenantId: string, park: MachinePark): void {
-  localStorage.setItem(parkKey(tenantId), JSON.stringify(park));
+export function saveParks(tenantId: string, parks: MachinePark[]): void {
+  localStorage.setItem(parksKey(tenantId), JSON.stringify(parks));
 }
 
-export function clearPark(tenantId: string): void {
-  localStorage.removeItem(parkKey(tenantId));
+/** Ajoute ou remplace un parc (cle : id). */
+export function upsertPark(tenantId: string, park: MachinePark): void {
+  const parks = loadParks(tenantId);
+  const idx = parks.findIndex((p) => p.id === park.id);
+  if (idx >= 0) parks[idx] = park;
+  else parks.push(park);
+  saveParks(tenantId, parks);
+}
+
+export function deletePark(tenantId: string, parkId: string): void {
+  saveParks(tenantId, loadParks(tenantId).filter((p) => p.id !== parkId));
 }
 
 /** Le parc permet-il de sortir un prix ? (BK-17 : massicot obligatoire.) */
