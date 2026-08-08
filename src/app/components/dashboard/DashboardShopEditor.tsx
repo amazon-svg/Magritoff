@@ -102,6 +102,10 @@ export function DashboardShopEditor() {
   // au depliage sont derivees du catalogue reel du tenant (catalogGammeSlugs),
   // pas des abonnements formels.
   const [pimExpanded, setPimExpanded] = useState(false);
+  // REFONTE-UX (2026-08-08, point 6) — catalogue unifie : les trois sections
+  // du domaine produit (sources PIM/bibliotheques, vue agregee, visuels)
+  // deviennent les onglets d une section unique "Catalogue de la boutique".
+  const [catalogTab, setCatalogTab] = useState<'sources' | 'products' | 'visuals'>('sources');
 
   // ─── Upload branding (logo / fond du bandeau) — bucket public shop_backgrounds
   // (2026-07-08, refonte bandeau de marque). Réutilise le bucket + RLS
@@ -784,12 +788,45 @@ export function DashboardShopEditor() {
         </Link>
       </section>
 
-      {/* ── Bibliothèques associées (unique mecanisme de peuplement) ── */}
-      <section className="border-2 border-blue-200 rounded-xl p-4 bg-blue-50">
-        <h3 className="font-semibold text-gray-900 mb-1 flex items-center gap-2">
-          <LibraryIcon className="w-5 h-5 text-blue-600" />
-          Bibliothèques associées à cette boutique
-        </h3>
+      {/* ══ REFONTE-UX (2026-08-08, point 6) — CATALOGUE DE LA BOUTIQUE ══
+          Section unique du domaine produit, a onglets :
+            Sources  = d ou viennent les produits (PIM / bibliotheques)
+            Produits = ce que la boutique expose (vue agregee, prix negocies,
+                       exclusions, exports)
+            Visuels  = mockups custom par boutique (P4-VISUELS, PRD E8.3)
+          Remplace les 3 sections empilees redondantes. */}
+      <section className="border border-line rounded-xl bg-paper overflow-hidden">
+        <div className="px-4 pt-4">
+          <h3 className="font-medium text-ink flex items-center gap-2">
+            <LibraryIcon className="w-5 h-5" strokeWidth={1.5} />
+            Catalogue de la boutique
+          </h3>
+          <div className="flex gap-1 border-b border-line mt-3">
+            {(
+              [
+                ['sources', 'Sources'],
+                ['products', `Produits (${displayProducts.length})`],
+                ['visuals', 'Visuels'],
+              ] as const
+            ).map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setCatalogTab(key)}
+                className={`px-4 py-2 text-sm rounded-t-lg border-b-2 -mb-px transition-colors ${
+                  catalogTab === key
+                    ? 'border-brand text-ink font-medium'
+                    : 'border-transparent text-ink-muted hover:text-ink'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {catalogTab === 'sources' && (
+        <div className="p-4">
         <p className="text-sm text-gray-700 mb-3">
           Cochez une ou plusieurs bibliothèques. <strong>Tous leurs produits</strong> apparaissent
           automatiquement dans la boutique — pas d'import, pas de copie, toujours synchro.
@@ -936,16 +973,15 @@ export function DashboardShopEditor() {
         <p className="text-xs text-gray-500 mt-2">
           N'oubliez pas d'<strong>Enregistrer</strong> en bas de page après modification.
         </p>
-      </section>
+        </div>
+        )}
 
-      {/* ── Produits dans cette boutique (vue agregee) ── */}
-      <section className="border border-gray-200 rounded-xl p-4 bg-white">
-        <h3 className="font-semibold text-gray-900 mb-3">
-          Produits dans cette boutique ({displayProducts.length})
-        </h3>
+        {/* ── Onglet Produits : vue agregee + exclusions + export ── */}
+        {catalogTab === 'products' && (
+        <div className="p-4">
         {displayProducts.length === 0 ? (
           <p className="text-sm text-gray-500 italic">
-            Aucun produit. Associez une bibliothèque ci-dessus pour les voir apparaître.
+            Aucun produit. Associez une bibliothèque dans l'onglet Sources pour les voir apparaître.
           </p>
         ) : (
           <div className="space-y-2">
@@ -1082,57 +1118,63 @@ export function DashboardShopEditor() {
             </ul>
           </details>
         )}
-      </section>
 
-      {/* ── P4-VISUELS : Mockups custom per-shop (override Magrit-brandé) ── */}
-      {shop && currentTenant && (
-        <ReactSuspense fallback={null}>
-          <ShopCustomMockups shopId={shop.id} tenantId={currentTenant.id} />
-        </ReactSuspense>
-      )}
-
-      {/* ── Exporter le catalogue (deplace sous la liste des produits) ── */}
-      <section className="border border-gray-200 rounded-xl p-4 bg-white">
-        <h3 className="font-semibold text-gray-900 mb-1 flex items-center gap-2">
-          <Download className="w-5 h-5" />
-          Exporter le catalogue
-        </h3>
-        <p className="text-sm text-gray-600 mb-3">
-          Génère un fichier prêt à importer dans un CMS e-commerce.
-          Les contenus enrichis PIM (descriptions, SEO, FAQ, mots-clés) sont inclus.
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() =>
-              exportShopToShopifyCsv(
-                shop,
-                displayProducts.map(toExportProduct),
-                gammes,
-                definitions
-              )
-            }
-            disabled={displayProducts.length === 0}
-            className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 text-sm font-medium flex items-center gap-2"
-          >
-            <Download className="w-4 h-4" />
-            Export Shopify (CSV)
-          </button>
-          <button
-            onClick={() =>
-              exportShopToJson(
-                shop,
-                displayProducts.map(toExportProduct),
-                gammes,
-                definitions
-              )
-            }
-            disabled={displayProducts.length === 0}
-            className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 text-sm font-medium flex items-center gap-2"
-          >
-            <Download className="w-4 h-4" />
-            Export JSON (API-ready)
-          </button>
+        {/* Export du catalogue — reste dans l onglet Produits */}
+        <div className="mt-5 pt-4 border-t border-line">
+          <p className="text-sm font-medium text-ink mb-1 flex items-center gap-2">
+            <Download className="w-4 h-4" strokeWidth={1.5} />
+            Exporter le catalogue
+          </p>
+          <p className="text-sm text-gray-600 mb-3">
+            Génère un fichier prêt à importer dans un CMS e-commerce.
+            Les contenus enrichis PIM (descriptions, SEO, FAQ, mots-clés) sont inclus.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() =>
+                exportShopToShopifyCsv(
+                  shop,
+                  displayProducts.map(toExportProduct),
+                  gammes,
+                  definitions
+                )
+              }
+              disabled={displayProducts.length === 0}
+              className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 text-sm font-medium flex items-center gap-2"
+            >
+              <Download className="w-4 h-4" />
+              Export Shopify (CSV)
+            </button>
+            <button
+              onClick={() =>
+                exportShopToJson(
+                  shop,
+                  displayProducts.map(toExportProduct),
+                  gammes,
+                  definitions
+                )
+              }
+              disabled={displayProducts.length === 0}
+              className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 text-sm font-medium flex items-center gap-2"
+            >
+              <Download className="w-4 h-4" />
+              Export JSON (API-ready)
+            </button>
+          </div>
         </div>
+        </div>
+        )}
+
+        {/* ── Onglet Visuels : mockups custom per-shop (P4-VISUELS, PRD E8.3) ── */}
+        {catalogTab === 'visuals' && (
+        <div className="p-4">
+          {shop && currentTenant && (
+            <ReactSuspense fallback={null}>
+              <ShopCustomMockups shopId={shop.id} tenantId={currentTenant.id} />
+            </ReactSuspense>
+          )}
+        </div>
+        )}
       </section>
 
       {/* ── Bouton Enregistrer : sticky en bas a droite ── */}
