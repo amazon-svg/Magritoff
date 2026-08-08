@@ -181,7 +181,12 @@ export function DashboardLayout() {
       {/* ── SIDEBAR 220px ──────────────────────────────────────────────── */}
       <aside
         data-testid={TEST_IDS.nav.sidebar}
-        className="border-r border-line bg-bg flex flex-col min-h-[calc(100vh-56px)] px-2.5 py-3"
+        // CORRECTIF 2026-08-08 (retour Arnaud : « le menu parc machine a
+        // disparu ») — la fusion Atelier → Gestion commerciale a allonge le
+        // premier groupe et les groupes du bas (Production, Parametres)
+        // passaient sous le pli sans possibilite de defiler. La colonne est
+        // desormais epinglee et defile independamment du contenu.
+        className="border-r border-line bg-bg flex flex-col sticky top-[56px] h-[calc(100vh-56px)] overflow-y-auto px-2.5 py-3"
       >
         {/* Brand header */}
         <div className="flex items-center gap-2 px-2.5 py-2 mb-2">
