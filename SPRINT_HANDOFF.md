@@ -16,6 +16,8 @@
 
 **État** : build ✅ · vitest 750/750 ✅ · surfaces publiques 0 erreur console · **recette visuelle du dashboard à faire par Arnaud (auth)** · branche à merger sur `beta/v5` après GO.
 
+**Itération 2 (même jour, retours Arnaud — 9 points)** : lignes cochables du wizard converties en boutons explicites (bug clics papier/transport/qualification B) + compteur de clics isolé + purge des facettes entre types (bug détecté en recette automatisée) · **parcs multiples** : cartes → détail → dialogue de paramétrage par machine · nav v2 : **Atelier fusionné dans Gestion commerciale**, PIM + Gammes + Visuels Magrit dans **Catalogue** (galerie mockups **restaurée**, point 5) · PIM : bouton **Nouveau produit** en tête de page · règles **R1-R8 (Annexe A RP#070826)** implantées dans `docs/REGLES_ARCHITECTURE.md` + CLAUDE.md + vault Obsidian · recette automatisée des DEUX parcours wizard via route dev `/dev/machines-wizard` (hors build prod) : A = 19 clics, B = 14 clics sur parc comparable.
+
 ## 24. Session 2026-07-27 — Arbitrages Epic 7 appliqués + rétrospective
 
 **Arbitrages Arnaud (tranchés et appliqués en séance)** :
