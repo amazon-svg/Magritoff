@@ -25,18 +25,18 @@
  *     propose), kWh en valeur par defaut non saisie.
  *   BK-20 — ecran recapitulatif, retour par section, atterrissage sur le parc.
  */
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
-  Factory, ArrowRight, ArrowLeft, Check, ShoppingCart, X, AlertTriangle,
-  MousePointerClick, Wand2,
+  ArrowRight, ArrowLeft, Check, ShoppingCart, X, AlertTriangle,
+  MousePointerClick, Wand2, Square, CheckSquare,
 } from 'lucide-react';
 import { useTenant } from '../../../contexts/TenantContext';
 import { useTenantPath } from '../../../hooks/useTenantPath';
 import {
   DEFAULT_ENERGY_RATE, DEFAULT_INKS, DEFAULT_LABOR_RATE, KNOWN_SUBCONTRACTORS,
   MACHINE_LIBRARY, MACHINE_TYPES, PAPER_SUPPLIERS, TRANSPORT_SUPPLIERS,
-  parkIsCalculable, savePark,
+  parkIsCalculable, upsertPark,
   type LibraryMachine, type MachinePark, type MachineTypeDef, type MachineTypeKey, type ParkMachine,
 } from './machinePark.helpers';
 
@@ -85,7 +85,12 @@ export function MachineParkWizard() {
   const [showEnergyDefault, setShowEnergyDefault] = useState(false);
 
   // ── Compteur de clics — critere d arbitrage BK-15 ──────────────────────────
-  const [clicks, setClicks] = useState(0);
+  // CORRECTIF 2026-08-08 (retour Arnaud, points 1 et 7) : le compteur vivait
+  // dans un state du wizard avec onClickCapture sur la racine → re-rendu de
+  // TOUT le wizard a chaque clic, fragile selon les navigateurs (activation
+  // synthetique des labels). Le compte vit desormais dans une ref, le chip
+  // d affichage est un composant isole qui ecoute seul les clics.
+  const clicksRef = useRef(0);
   const rootRef = useRef<HTMLDivElement>(null);
 
   const typeSequence: MachineTypeDef[] = useMemo(() => {
@@ -140,9 +145,11 @@ export function MachineParkWizard() {
   const updateMachine = (id: string, patch: Partial<ParkMachine>) =>
     setSelected((s) => s.map((m) => (m.id === id ? { ...m, ...patch } : m)));
 
-  const finish = () => {
+  const finish = (parkName: string) => {
     if (!currentTenant) return;
     const park: MachinePark = {
+      id: `parc-${Date.now().toString(36)}`,
+      name: parkName.trim() || 'Parc principal',
       machines: selected,
       paperSuppliers,
       transportSuppliers,
@@ -150,20 +157,16 @@ export function MachineParkWizard() {
       laborRate: Number(laborRate) || DEFAULT_LABOR_RATE,
       energyRate: DEFAULT_ENERGY_RATE,
       wizardVariant: variant ?? undefined,
-      wizardClicks: clicks,
+      wizardClicks: clicksRef.current,
       completedAt: new Date().toISOString(),
     };
-    savePark(currentTenant.id, park);
+    upsertPark(currentTenant.id, park);
     navigate(tp('/dashboard/machines'));
   };
 
   // ── Rendu ──────────────────────────────────────────────────────────────────
   return (
-    <div
-      ref={rootRef}
-      onClickCapture={() => setClicks((c) => c + 1)}
-      className="max-w-3xl space-y-6"
-    >
+    <div ref={rootRef} className="max-w-3xl space-y-6">
       {/* Bandeau : titre + compteur de clics (arbitrage BK-15) */}
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -176,14 +179,7 @@ export function MachineParkWizard() {
             machine.
           </p>
         </div>
-        <span
-          className="font-mono text-[11px] text-ink-mute-2 border border-line rounded-md px-2 py-1 inline-flex items-center gap-1.5 shrink-0"
-          title="Nombre de clics depuis le debut du parcours — critere d arbitrage des deux maquettes (RP#070826)"
-        >
-          <MousePointerClick className="w-3.5 h-3.5" strokeWidth={1.5} />
-          {clicks} clic{clicks > 1 ? 's' : ''}
-          {variant && <span className="text-ink-muted">· parcours {variant}</span>}
-        </span>
+        <ClickCounter rootRef={rootRef} clicksRef={clicksRef} variant={variant} />
       </div>
 
       {/* ── Ecran d entree : choix du parcours (BK-15) ── */}
@@ -274,6 +270,10 @@ export function MachineParkWizard() {
             </div>
           ) : (
             <MachinePicker
+              // key = remontage par type : les facettes de filtrage ne doivent
+              // pas persister d un type de machine a l autre (bug detecte en
+              // recette automatisee du 2026-08-08).
+              key={currentType.key}
               type={currentType}
               selected={selected}
               onAdd={addMachine}
@@ -354,7 +354,7 @@ export function MachineParkWizard() {
           }}
           onFinish={finish}
           variant={variant}
-          clicks={clicks}
+          clicksRef={clicksRef}
         />
       )}
     </div>
@@ -362,6 +362,70 @@ export function MachineParkWizard() {
 }
 
 // ─── Sous-composants ─────────────────────────────────────────────────────────
+
+/** Chip compteur de clics isole : seul composant re-rendu a chaque clic. */
+function ClickCounter({
+  rootRef, clicksRef, variant,
+}: {
+  rootRef: React.RefObject<HTMLDivElement | null>;
+  clicksRef: React.MutableRefObject<number>;
+  variant: Variant | null;
+}) {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const onClick = () => {
+      clicksRef.current += 1;
+      setCount(clicksRef.current);
+    };
+    el.addEventListener('click', onClick, true);
+    return () => el.removeEventListener('click', onClick, true);
+  }, [rootRef, clicksRef]);
+  return (
+    <span
+      className="font-mono text-[11px] text-ink-mute-2 border border-line rounded-md px-2 py-1 inline-flex items-center gap-1.5 shrink-0"
+      title="Nombre de clics depuis le debut du parcours — critere d arbitrage des deux maquettes (RP#070826)"
+    >
+      <MousePointerClick className="w-3.5 h-3.5" strokeWidth={1.5} />
+      {count} clic{count > 1 ? 's' : ''}
+      {variant && <span className="text-ink-muted">· parcours {variant}</span>}
+    </span>
+  );
+}
+
+/** Ligne cochable robuste — bouton explicite, aucune dependance a
+ *  l activation synthetique des labels (correctif points 1 et 7). */
+function ToggleRow({
+  checked, onToggle, children, requiredTag,
+}: {
+  checked: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+  requiredTag?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      onClick={onToggle}
+      className={`flex items-center gap-2.5 border rounded-lg px-3 py-2.5 text-sm text-left w-full transition-colors ${
+        checked
+          ? 'border-brand bg-brand-soft text-ink'
+          : 'border-line text-ink-2 hover:border-line-2'
+      }`}
+    >
+      {checked ? (
+        <CheckSquare className="w-4 h-4 text-brand shrink-0" strokeWidth={1.5} />
+      ) : (
+        <Square className="w-4 h-4 text-ink-mute-2 shrink-0" strokeWidth={1.5} />
+      )}
+      <span className="flex-1">{children}</span>
+      {requiredTag && <span className="text-[11px] font-mono text-warn-fg">requis</span>}
+    </button>
+  );
+}
 
 function VariantCard({
   title, subtitle, body, onPick,
@@ -400,22 +464,14 @@ function BQualification({ onValidate }: { onValidate: (types: MachineTypeKey[]) 
       </p>
       <div className="grid sm:grid-cols-2 gap-2">
         {MACHINE_TYPES.map((t) => (
-          <label
+          <ToggleRow
             key={t.key}
-            className={`flex items-center gap-2.5 border rounded-lg px-3 py-2.5 text-sm cursor-pointer transition-colors ${
-              picked.includes(t.key)
-                ? 'border-brand bg-brand-soft text-ink'
-                : 'border-line text-ink-2 hover:border-line-2'
-            }`}
+            checked={picked.includes(t.key)}
+            onToggle={() => toggle(t.key)}
+            requiredTag={t.mandatory}
           >
-            <input
-              type="checkbox"
-              checked={picked.includes(t.key)}
-              onChange={() => toggle(t.key)}
-            />
             {t.label}
-            {t.mandatory && <span className="ml-auto text-[11px] font-mono text-warn-fg">requis</span>}
-          </label>
+          </ToggleRow>
         ))}
       </div>
       <div className="flex justify-end">
@@ -635,16 +691,19 @@ function FinalSteps(props: {
   showEnergyDefault: boolean;
   setShowEnergyDefault: (v: boolean) => void;
   onBackToTypes: () => void;
-  onFinish: () => void;
+  onFinish: (parkName: string) => void;
   variant: Variant | null;
-  clicks: number;
+  clicksRef: React.MutableRefObject<number>;
 }) {
   const {
     step, setStep, selected, paperSuppliers, setPaperSuppliers, transportSuppliers,
     setTransportSuppliers, inks, setInks, laborRate, setLaborRate, showEnergyDefault,
-    setShowEnergyDefault, onBackToTypes, onFinish, variant, clicks,
+    setShowEnergyDefault, onBackToTypes, onFinish, variant, clicksRef,
   } = props;
 
+  // Point 8 (retour Arnaud) : un client peut avoir PLUSIEURS parcs — chaque
+  // parc porte un nom, saisi au recapitulatif.
+  const [parkName, setParkName] = useState('Parc principal');
   const stepIdx = FINAL_STEPS.indexOf(step);
   const calculable = parkIsCalculable({ machines: selected });
 
@@ -733,6 +792,17 @@ function FinalSteps(props: {
 
       {step === 'recap' && (
         <div className="space-y-3">
+          {/* Nom du parc (point 8 — parcs multiples par client) */}
+          <div className="border border-line rounded-xl bg-paper p-4">
+            <label className="block text-sm font-medium text-ink-2 mb-1">Nom du parc</label>
+            <input
+              type="text"
+              value={parkName}
+              onChange={(e) => setParkName(e.target.value)}
+              placeholder="Ex. Atelier Bordeaux, Ligne numérique…"
+              className={`${inputCls} w-full max-w-sm`}
+            />
+          </div>
           {/* Blocage massicot (BK-17) — le message dit la consequence */}
           {!calculable && (
             <div className="border border-err-fg/30 bg-err-bg rounded-xl p-4 flex gap-3 text-sm">
@@ -768,7 +838,7 @@ function FinalSteps(props: {
             </p>
           </RecapSection>
           <p className="font-mono text-[11px] text-ink-mute-2">
-            Parcours {variant} · {clicks} clics — consigné pour l'arbitrage des deux maquettes.
+            Parcours {variant} · {clicksRef.current} clics — consigné pour l'arbitrage des deux maquettes.
           </p>
         </div>
       )}
@@ -788,7 +858,7 @@ function FinalSteps(props: {
             <ArrowRight className="w-4 h-4" strokeWidth={1.5} />
           </button>
         ) : (
-          <button className={btnPrimary} disabled={!calculable} onClick={onFinish}>
+          <button className={btnPrimary} disabled={!calculable} onClick={() => onFinish(parkName)}>
             <Check className="w-4 h-4" strokeWidth={1.5} />
             Valider le parc
           </button>
@@ -811,17 +881,9 @@ function CheckList({
       <p className="text-sm text-ink-muted">{intro}</p>
       <div className="grid sm:grid-cols-2 gap-2">
         {options.map((o) => (
-          <label
-            key={o}
-            className={`flex items-center gap-2.5 border rounded-lg px-3 py-2.5 text-sm cursor-pointer transition-colors ${
-              value.includes(o)
-                ? 'border-brand bg-brand-soft text-ink'
-                : 'border-line text-ink-2 hover:border-line-2'
-            }`}
-          >
-            <input type="checkbox" checked={value.includes(o)} onChange={() => onToggle(o)} />
+          <ToggleRow key={o} checked={value.includes(o)} onToggle={() => onToggle(o)}>
             {o}
-          </label>
+          </ToggleRow>
         ))}
       </div>
     </div>
