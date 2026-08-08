@@ -501,6 +501,8 @@ function MachinePicker({
   const [brandFacet, setBrandFacet] = useState<string | null>(null);
   const [colorFacet, setColorFacet] = useState<number | null>(null);
   const [varnishFacet, setVarnishFacet] = useState(false);
+  // Point 2 (retour Arnaud 2026-08-08) : recherche libre en plus des facettes.
+  const [search, setSearch] = useState('');
 
   const pool = useMemo(() => MACHINE_LIBRARY.filter((m) => m.type === type.key), [type.key]);
   const brands = useMemo(() => Array.from(new Set(pool.map((m) => m.brand))).sort(), [pool]);
@@ -513,15 +515,36 @@ function MachinePicker({
     (m) =>
       (!brandFacet || m.brand === brandFacet) &&
       (!colorFacet || m.colors === colorFacet) &&
-      (!varnishFacet || m.varnish),
+      (!varnishFacet || m.varnish) &&
+      (!search || `${m.brand} ${m.model} ${m.format}`.toLowerCase().includes(search.toLowerCase())),
   );
+
+  // Sections par sous-famille, best-sellers d abord (points 1-2). L ordre des
+  // familles suit la bibliotheque (du plus courant au plus specialise).
+  const families = useMemo(() => {
+    const order: string[] = [];
+    for (const m of pool) if (!order.includes(m.family)) order.push(m.family);
+    return order
+      .map((f) => ({
+        name: f,
+        machines: visible.filter((m) => m.family === f).sort((a, b) => a.rank - b.rank),
+      }))
+      .filter((f) => f.machines.length > 0);
+  }, [pool, visible]);
 
   const inCart = selected.filter((m) => m.type === type.key);
 
   return (
     <div className="space-y-4">
-      {/* Facettes — tags cliquables, pas d arborescence (BK-16) */}
+      {/* Recherche + facettes — tags cliquables, pas d arborescence (BK-16) */}
       <div className="flex flex-wrap items-center gap-1.5">
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Rechercher (marque, modèle, format)…"
+          className="px-3 py-1.5 border border-line-2 rounded-lg bg-paper text-ink text-sm w-64 focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand"
+        />
         {brands.map((b) => (
           <FacetChip key={b} label={b} active={brandFacet === b} onClick={() => setBrandFacet(brandFacet === b ? null : b)} />
         ))}
@@ -539,30 +562,44 @@ function MachinePicker({
         )}
       </div>
 
-      {/* Bibliotheque filtree */}
-      <div className="grid sm:grid-cols-2 gap-2">
-        {visible.map((m) => (
-          <button
-            key={m.id}
-            onClick={() => onAdd(m)}
-            className="text-left border border-line rounded-lg bg-paper px-3 py-2.5 hover:border-brand/60 transition-colors"
-          >
-            <p className="text-sm text-ink">
-              <span className="font-medium">{m.brand}</span> {m.model}
+      {/* Bibliotheque filtree, par sous-familles, best-sellers d abord */}
+      {families.map((f) => (
+        <div key={f.name} className="space-y-2">
+          {families.length > 1 && (
+            <p className="font-mono text-[11px] uppercase tracking-wider text-ink-mute-2 pt-1">
+              {f.name}
             </p>
-            <p className="font-mono text-[11px] text-ink-mute-2" style={{ fontVariantNumeric: 'tabular-nums' }}>
-              {m.format}
-              {m.colors ? ` · ${m.colors} gr.` : ''}
-              {m.varnish ? ' · vernis' : ''}
-            </p>
-          </button>
-        ))}
-        {visible.length === 0 && (
-          <p className="text-sm text-ink-muted col-span-2 py-4 text-center">
-            Aucune machine ne correspond aux filtres.
-          </p>
-        )}
-      </div>
+          )}
+          <div className="grid sm:grid-cols-2 gap-2">
+            {f.machines.map((m) => (
+              <button
+                key={m.id}
+                onClick={() => onAdd(m)}
+                className="text-left border border-line rounded-lg bg-paper px-3 py-2.5 hover:border-brand/60 transition-colors"
+              >
+                <p className="text-sm text-ink flex items-center gap-1.5">
+                  <span className="font-medium">{m.brand}</span> {m.model}
+                  {m.rank === 1 && (
+                    <span className="text-[10px] font-mono text-ok-fg bg-ok-bg px-1.5 py-0.5 rounded ml-auto shrink-0" title="Machine la plus répandue de sa famille">
+                      nº1
+                    </span>
+                  )}
+                </p>
+                <p className="font-mono text-[11px] text-ink-mute-2" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                  {m.format}
+                  {m.colors ? ` · ${m.colors} gr.` : ''}
+                  {m.varnish ? ' · vernis' : ''}
+                </p>
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+      {visible.length === 0 && (
+        <p className="text-sm text-ink-muted py-4 text-center">
+          Aucune machine ne correspond aux filtres ou à la recherche.
+        </p>
+      )}
 
       {/* Panier du type courant */}
       {inCart.length > 0 && (
