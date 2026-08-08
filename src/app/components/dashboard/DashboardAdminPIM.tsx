@@ -399,16 +399,23 @@ export function DashboardAdminPIM() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h2 className="text-lg font-semibold text-ink mb-1">Admin · PIM</h2>
-        <p className="text-sm text-ink-muted">
-          Base partagée de définitions produits (SEO / GEO / commercial). Lecture libre, écriture admin.
-        </p>
-        <div className="flex gap-4 mt-2 text-xs text-ink-muted">
-          <span>Gammes : {gammes.length}</span>
-          <span>Définitions : {definitions.length}</span>
-          <span>Validées humain : {definitions.filter((d) => d.validated_by === 'human').length}</span>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h2 className="text-lg font-semibold text-ink mb-1">PIM — Produits</h2>
+          <p className="text-sm text-ink-muted">
+            Base partagée de définitions produits (SEO / GEO / commercial). Lecture libre, écriture admin.
+          </p>
+          <div className="flex gap-4 mt-2 text-xs text-ink-muted">
+            <span>Gammes : {gammes.length}</span>
+            <span>Définitions : {definitions.length}</span>
+            <span>Validées humain : {definitions.filter((d) => d.validated_by === 'human').length}</span>
+          </div>
         </div>
+        {/* REFONTE-UX v2 (2026-08-08, retour Arnaud point 2) — la creation d un
+            produit existait mais etait enterree dans chaque gamme depliee.
+            Bouton visible en tete de page : choix de la gamme puis meme
+            editeur que le "+" par gamme. */}
+        <NewProductButton gammes={gammes} onPick={(g, loc) => startNew(g, loc)} />
       </div>
 
       {/* ─── Pipeline d'ingestion automatique ─── */}
@@ -893,6 +900,85 @@ function ReportBadge({
     >
       <div className="text-xs font-medium opacity-80">{label}</div>
       <div className="text-xl font-bold">{value}</div>
+    </div>
+  );
+}
+
+/**
+ * REFONTE-UX v2 (2026-08-08, point 2) — bouton global "Nouveau produit".
+ * Ouvre un mini-selecteur gamme + langue puis delegue a startNew (meme
+ * editeur que le "+" par gamme).
+ */
+function NewProductButton({
+  gammes,
+  onPick,
+}: {
+  gammes: Gamme[];
+  onPick: (gamme: Gamme, locale: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [gammeSlug, setGammeSlug] = useState('');
+  const [locale, setLocale] = useState('fr');
+
+  const confirm = () => {
+    const g = gammes.find((x) => x.slug === gammeSlug);
+    if (!g) return;
+    setOpen(false);
+    onPick(g, locale);
+  };
+
+  return (
+    <div className="relative shrink-0">
+      <button
+        onClick={() => setOpen(!open)}
+        className="px-4 py-2 bg-brand text-white rounded-lg hover:opacity-90 text-sm font-medium flex items-center gap-2"
+      >
+        <Plus className="w-4 h-4" />
+        Nouveau produit
+      </button>
+      {open && (
+        <div className="absolute right-0 z-20 mt-2 w-72 bg-paper border border-line rounded-xl shadow-lg p-4 space-y-3">
+          <div>
+            <label className="block text-sm font-medium text-ink-2 mb-1">Gamme</label>
+            <select
+              value={gammeSlug}
+              onChange={(e) => setGammeSlug(e.target.value)}
+              className="w-full px-3 py-2 border border-line-2 rounded-lg bg-paper text-ink text-sm"
+            >
+              <option value="">— choisir une gamme —</option>
+              {gammes.map((g) => (
+                <option key={g.slug} value={g.slug}>{g.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-ink-2 mb-1">Langue</label>
+            <select
+              value={locale}
+              onChange={(e) => setLocale(e.target.value)}
+              className="w-full px-3 py-2 border border-line-2 rounded-lg bg-paper text-ink text-sm"
+            >
+              <option value="fr">Français</option>
+              <option value="en">English</option>
+            </select>
+          </div>
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={() => setOpen(false)}
+              className="px-3 py-1.5 border border-line-2 rounded-lg text-sm text-ink-2 hover:bg-bg"
+            >
+              Annuler
+            </button>
+            <button
+              onClick={confirm}
+              disabled={!gammeSlug}
+              className="px-3 py-1.5 bg-brand text-white rounded-lg hover:opacity-90 disabled:opacity-50 text-sm font-medium"
+            >
+              Créer
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
