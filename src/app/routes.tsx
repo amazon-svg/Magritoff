@@ -125,7 +125,7 @@ const OrderRoleAdminPage = lazy(() =>
 function RouteFallback() {
   return (
     <div className="flex h-full min-h-[200px] items-center justify-center p-8">
-      <div className="text-sm text-gray-500" aria-live="polite">
+      <div className="text-sm text-ink-muted" aria-live="polite">
         Chargement…
       </div>
     </div>

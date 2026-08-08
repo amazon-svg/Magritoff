@@ -89,8 +89,8 @@ export function DashboardTenantSettings() {
   if (!canEditName) {
     return (
       <div className="max-w-xl space-y-3">
-        <h2 className="text-lg font-semibold text-gray-900">Parametres de l'espace</h2>
-        <p className="text-sm text-gray-600">
+        <h2 className="text-lg font-semibold text-ink">Parametres de l'espace</h2>
+        <p className="text-sm text-ink-muted">
           Vous devez etre owner ou admin de cet espace pour modifier ses parametres.
         </p>
       </div>
