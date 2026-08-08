@@ -10,7 +10,7 @@
 
 1. Navigation rationalisée en 6 groupes (Atelier / Catalogue / Commercial / Production / Paramètres / Plateforme) ; Profil + Préférences fusionnés dans **Paramètres → Mon compte** (`/account`, anciennes routes redirigées) ; index dashboard → Devis ; entrée « Mockups Magrit » supprimée (hors PRD — le mockup engine E8.3 et l'upload custom par boutique restent).
 2. Éditeur de boutique : **« Catalogue de la boutique » à 3 onglets** (Sources / Produits / Visuels) remplace les 3 sections empilées.
-3. **Module Gestion commerciale** (`/commercial`) : règles de prix par gamme/produit × client/groupe + moteur `applyCommercialRules()`. ⚠️ **Migration à jouer par Arnaud** : `supabase/migrations/20260808000100_gescom_price_rules.sql` (la page l'indique tant qu'elle manque). Branchement dans devis/boutique = story V2.
+3. **Module Gestion commerciale** (`/commercial`) : règles de prix par gamme/produit × client/groupe + moteur `applyCommercialRules()`. ✅ **Migration appliquée sur B4 le 2026-08-08** (Management API, PAT trousseau) — 3 tables (`client_groups`, `client_group_members`, `client_price_rules`), RLS active, 2 policies chacune, vérifié par requête. Branchement dans devis/boutique = story V2.
 4. **Module Parc machine** (`/machines` + `/machines/wizard`) : wizard RP#070826 avec les DEUX parcours de l'arbitrage BK-15 (A déroulé complet / B types déclarés) et compteur de clics. V1 maquette fonctionnelle (bibliothèque mock, persistance locale).
 5. Charte v2 appliquée aux 20 écrans dashboard (tokens ink/paper/line/brand, plus aucun `gray-*`).
 
