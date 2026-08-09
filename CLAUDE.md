@@ -26,9 +26,21 @@ Tous les agents reçoivent automatiquement `docs/project-context.md` + `SPRINT_H
 
 **Règle Dev** : produire un story document `_bmad-output/implementation-artifacts/story-{X}.md` à chaque story livrée.
 
+## ⚠️ Copie de travail de référence — à vérifier en début de session
+
+Le repo `amazon-svg/Magritoff` est cloné **deux fois** en local. Les deux clones portent les mêmes noms de branches et le même `package.json` : rien dans le repo ne permet de les distinguer. **Se tromper de dossier = travailler sur du code périmé sans le voir.**
+
+| Clone | Chemin | Rôle |
+|---|---|---|
+| **Référence** ✅ | `/Users/arnaudmazon/Documents/AGE/Projet formateur /Claude code/Magritoff-v4/` | **Copie de travail active.** C est ici que se fait le développement. `pnpm dev` → **http://localhost:5176** |
+| Secondaire ⚠️ | `/Users/arnaudmazon/Library/Mobile Documents/com~apple~CloudDocs/AGE/Claude/BMAD/Magrit/` (iCloud) | Clone utilisé pour la doc et la branche `migration_owk`. **Son `beta/v5` se désynchronise vite** — `git fetch` obligatoire avant toute comparaison de branches |
+
+**Réflexe obligatoire avant tout diagnostic de branche** : `git fetch origin --prune` **puis** comparer. Un `git log` sur un ref local non fetché a déjà produit un faux diagnostic (session 2026-08-09, cf. `SPRINT_HANDOFF.md` section 26).
+
 ## Conventions critiques (rappel rapide)
 
-- **Branche active session** : `beta/v5` (B5, port 5177).
+- **Branche active session** : `beta/v5`, dans le clone `Magritoff-v4` — `pnpm dev` → **port 5176**. (`pnpm dev:b5` sert le **même** code sur 5177 ; le port ne dit rien de la branche ni du clone.)
+- **Branche `migration_owk`** : travaux OWK Factory de Xavier Péchoultres (PRD global, specs Clariprint Data). **Documentation uniquement, aucun code applicatif.** Rebasée sur `beta/v5` le 2026-08-09.
 - **Langue de travail** : français (commits, code, livrables).
 - **Format commits** : `feat|fix|chore|test|docs(v5): description courte` — **PAS d apostrophes** (HEREDOC).
 - **Confirmation systématique avant push**.
