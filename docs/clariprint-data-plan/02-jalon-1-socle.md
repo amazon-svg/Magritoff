@@ -11,9 +11,9 @@ Créer un module Clariprint Data exécutable, isolé du frontend et de Supabase 
 
 ## Avancement technique
 
-Le premier incrément du kernel est implémenté dans [`src/kernel`](../../src/kernel/index.ts). Il fournit identifiants opaques, contextes utilisateur et système, résultats et erreurs, horloge injectable, monnaie, quantités, pagination et événements. Ses tests unitaires et son premier garde de dépendances sont opérationnels.
+Le premier incrément du kernel est implémenté dans [`src/kernel`](../../src/kernel/index.ts). Il fournit identifiants opaques, contextes utilisateur et système, résultats et erreurs, horloge injectable, monnaie, quantités, pagination et événements. Ses tests unitaires, son premier garde de dépendances et son typecheck strict sont opérationnels sous Node 22.14.0.
 
-Avant de considérer le socle terminé, il reste à ajouter un véritable type-check TypeScript, à définir les contrats publics des services plateforme et à brancher une première tranche verticale Clariprint Data.
+Avant de considérer le socle terminé, il reste à définir les contrats publics des services plateforme et à brancher une première tranche verticale Clariprint Data. Le typecheck global du brownfield reste disponible via `pnpm typecheck:all` et sera traité progressivement sans bloquer le gate strict des nouveaux modules.
 
 ## Périmètre
 

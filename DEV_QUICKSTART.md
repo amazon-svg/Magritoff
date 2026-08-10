@@ -2,6 +2,21 @@
 
 > Mini-procédure pour lancer/stopper le serveur Vite dev en local sur le port 5177 (branche `beta/v5`).
 
+## Prérequis runtime
+
+- Node.js `22.14.0` (`.nvmrc` et `.node-version`) ;
+- pnpm `11.15.1` (version figée dans `package.json`).
+
+```bash
+nvm use
+pnpm install
+pnpm typecheck
+pnpm test
+pnpm build
+```
+
+`pnpm typecheck` contrôle strictement le kernel et les nouveaux modules. `pnpm typecheck:all` audite aussi le code brownfield historique et peut signaler une dette encore non migrée.
+
 ## TL;DR
 
 ```bash

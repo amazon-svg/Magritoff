@@ -38,7 +38,7 @@ export function addMoney(
   right: Money,
 ): Result<Money, CurrencyMismatchError> {
   const currencyCheck = requireSameCurrency(left, right);
-  if (!currencyCheck.ok) return currencyCheck;
+  if (currencyCheck.ok === false) return err(currencyCheck.error);
 
   return ok(Object.freeze({
     minorUnits: left.minorUnits + right.minorUnits,
@@ -51,7 +51,7 @@ export function compareMoney(
   right: Money,
 ): Result<-1 | 0 | 1, CurrencyMismatchError> {
   const currencyCheck = requireSameCurrency(left, right);
-  if (!currencyCheck.ok) return currencyCheck;
+  if (currencyCheck.ok === false) return err(currencyCheck.error);
 
   return ok(left.minorUnits === right.minorUnits ? 0 : left.minorUnits < right.minorUnits ? -1 : 1);
 }

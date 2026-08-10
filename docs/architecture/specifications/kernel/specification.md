@@ -196,13 +196,13 @@ L'import public courant est `@/kernel`. Les sous-dossiers restent des détails d
 
 - [x] `KER-VAL-01` Le kernel est inclus dans un build Vite réussi sans React, Supabase ou module métier.
 - [x] `KER-VAL-02` Les imports React, Supabase et couches applicatives interdites sont contrôlés par un test automatique.
-- [ ] `KER-VAL-03` Deux identifiants de domaines différents ne sont pas interchangeables au compile-time.
+- [x] `KER-VAL-03` Deux identifiants de domaines différents ne sont pas interchangeables au compile-time.
 - [x] `KER-VAL-04` Les opérations monétaires refusent les devises incompatibles.
 - [x] `KER-VAL-05` L'horloge peut être figée dans un test.
 - [x] `KER-VAL-06` Les erreurs possèdent un code stable et un caractère retentable explicite.
 - [x] `KER-VAL-07` Aucun rôle, entitlement, table ou statut métier n'apparaît dans le kernel.
 
-`KER-VAL-03` reste ouvert car le dépôt ne possède actuellement ni dépendance TypeScript directe, ni commande de type-check. Vite transpile le TypeScript mais ne prouve pas les incompatibilités de types. L'ajout d'une commande `typecheck` est donc le prochain garde-fou du socle.
+`KER-VAL-03` est contrôlé par `tests/kernel/types.typecheck.ts` et le script `pnpm typecheck`, configuré en mode strict pour le kernel et les futurs modules. `pnpm typecheck:all` conserve séparément la visibilité sur la dette TypeScript du code brownfield historique.
 
 ## Décisions ouvertes
 
