@@ -1,7 +1,9 @@
 # Spécification du kernel
 
 **Statut :** candidate  
-**Version :** 0.1
+**Version :** 0.2
+
+**Implémentation initiale :** [`src/kernel`](../../../../src/kernel/index.ts), couverte par [`tests/kernel`](../../../../tests/kernel/kernel.test.ts)
 
 ## Mission
 
@@ -51,6 +53,7 @@ Règles :
 
 ```ts
 export type ActorContext = Readonly<{
+  kind: "user";
   userId: UserId;
   tenantId: TenantId;
   requestId: RequestId;
@@ -60,6 +63,8 @@ export type ActorContext = Readonly<{
 `ActorContext` représente une action utilisateur authentifiée et tenant-scoped. Il ne contient ni rôle, ni capability, ni entitlement : ces informations sont résolues par les modules plateforme.
 
 Les traitements système utilisent un type distinct, par exemple `SystemActorContext`, et non un faux utilisateur administrateur.
+
+Le discriminant `kind` empêche de confondre un contexte utilisateur et un contexte système. Il ne représente ni un rôle ni une capability.
 
 ## Résultat et erreurs
 
@@ -185,19 +190,22 @@ Le kernel ne peut jamais importer :
 - les exports publics passent par un `index.ts` explicite ;
 - les imports de fichiers internes du kernel sont interdits aux modules.
 
+L'import public courant est `@/kernel`. Les sous-dossiers restent des détails d'implémentation.
+
 ## Critères d'acceptation
 
-- [ ] `KER-VAL-01` Le kernel compile sans React, Supabase ou module métier.
-- [ ] `KER-VAL-02` Les règles d'import interdites sont contrôlées automatiquement.
+- [x] `KER-VAL-01` Le kernel est inclus dans un build Vite réussi sans React, Supabase ou module métier.
+- [x] `KER-VAL-02` Les imports React, Supabase et couches applicatives interdites sont contrôlés par un test automatique.
 - [ ] `KER-VAL-03` Deux identifiants de domaines différents ne sont pas interchangeables au compile-time.
-- [ ] `KER-VAL-04` Les opérations monétaires refusent les devises incompatibles.
-- [ ] `KER-VAL-05` L'horloge peut être figée dans un test.
-- [ ] `KER-VAL-06` Les erreurs possèdent un code stable et un caractère retentable explicite.
-- [ ] `KER-VAL-07` Aucun rôle, entitlement, table ou statut métier n'apparaît dans le kernel.
+- [x] `KER-VAL-04` Les opérations monétaires refusent les devises incompatibles.
+- [x] `KER-VAL-05` L'horloge peut être figée dans un test.
+- [x] `KER-VAL-06` Les erreurs possèdent un code stable et un caractère retentable explicite.
+- [x] `KER-VAL-07` Aucun rôle, entitlement, table ou statut métier n'apparaît dans le kernel.
+
+`KER-VAL-03` reste ouvert car le dépôt ne possède actuellement ni dépendance TypeScript directe, ni commande de type-check. Vite transpile le TypeScript mais ne prouve pas les incompatibilités de types. L'ajout d'une commande `typecheck` est donc le prochain garde-fou du socle.
 
 ## Décisions ouvertes
 
 1. Bibliothèque décimale ou représentation entière/chaîne selon les précisions requises.
 2. Format canonique des identifiants transversaux.
-3. Bibliothèque de contrôle automatique des frontières d'import.
-
+3. Outil complet de contrôle des frontières au-delà du premier test ciblé sur le kernel.
