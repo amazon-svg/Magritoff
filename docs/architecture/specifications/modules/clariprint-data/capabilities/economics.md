@@ -33,8 +33,8 @@ Inducteurs candidats issus du PRD initial : main-d'œuvre horaire, frais génér
 - périodes cohérentes et sans sélection ambiguë ;
 - ancienne valeur conservée ;
 - provenance obligatoire ;
-- marge et remise client exclues des montants source et gérées dans les politiques de profil ;
-- prix de revient, marge et prix de vente restent trois notions séparées.
+- marge, majoration, remise et prix de vente exclus du module ;
+- tout montant économique produit par le module est explicitement un coût de production ou un coût d'achat nécessaire à la production.
 
 ## Sécurité
 
@@ -57,4 +57,4 @@ Inducteurs candidats issus du PRD initial : main-d'œuvre horaire, frais génér
 - paramètres exacts du pilote ;
 - multi-devise ;
 - double validation des changements financiers ;
-- granularité de la nature coût de production ou tarif commercial.
+- granularité des catégories de coûts de production.

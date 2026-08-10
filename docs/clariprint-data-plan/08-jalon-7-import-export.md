@@ -1,4 +1,4 @@
-# J7 — Import, profils clients et accès solveur
+# J7 — Import et accès solveur
 
 **Statut initial :** à préparer  
 **Dépendances :** J5 et J6
@@ -7,7 +7,7 @@
 
 ## Goal
 
-Importer un parc pilote sans corruption silencieuse, administrer les profils clients et fournir au solveur un JSON complet dont Clariprint Data a déjà ajusté les tarifs.
+Importer un parc pilote sans corruption silencieuse et fournir au solveur un JSON complet de données techniques et de coûts de production.
 
 ## Périmètre import
 
@@ -19,20 +19,17 @@ Importer un parc pilote sans corruption silencieuse, administrer les profils cli
 - import vers un brouillon uniquement ;
 - bilan réconcilié.
 
-## Périmètre profils et accès calcul
+## Périmètre accès calcul
 
-- qualification explicite des montants source comme coûts de production ou tarifs commerciaux ;
-- profils clients versionnés ;
-- politiques de marge ou remise globales et par machine ;
-- intervalles de validité et résolution à une date d'effet ;
-- contrat liant profil, pool publié et filtres de ressources ;
+- qualification explicite des catégories de coûts de production ;
+- contrat liant consommateur technique, pool publié et filtres de ressources ;
 - plusieurs clés API locales par contrat, avec rotation et révocation ;
-- publication des profils exposables pour un mode d'accès externe authentifié.
+- publication des contrats exposables pour un mode d'accès externe authentifié.
 
 ## Périmètre projection solveur
 
-- résolution du contrat et du profil depuis une clé API ou une liaison externe autorisée ;
-- génération JSON complète avec tarifs ajustés par Clariprint Data ;
+- résolution du contrat depuis une clé API ou une liaison externe autorisée ;
+- génération JSON complète sans ajustement commercial ;
 - conservation des montants du pool source sans modification ;
 - validation par schéma ;
 - fichier et/ou endpoint décidé au J0 ;
@@ -52,10 +49,9 @@ Importer un parc pilote sans corruption silencieuse, administrer les profils cli
 5. Tableau des statuts de livraison.
 6. Procédure de reprise après échec.
 7. Imports complet et tarifaire distincts si les catalogues BU font partie du pilote.
-8. Administration des profils clients et politiques tarifaires datées.
-9. Administration des contrats d'accès, filtres et credentials locaux.
-10. Catalogue des profils publiés pour le résolveur d'accès externe.
-11. Générateur de projection ajustée et preuve des règles appliquées.
+8. Administration des contrats d'accès, filtres et credentials locaux.
+9. Catalogue des contrats publiés pour le résolveur d'accès externe.
+10. Générateur de projection solveur et preuve des filtres appliqués.
 
 ## Critères de validation
 
@@ -71,22 +67,22 @@ Importer un parc pilote sans corruption silencieuse, administrer les profils cli
 - [ ] `J7-VAL-10` Une livraison échouée ne dépublie ni ne modifie le snapshot.
 - [ ] `J7-VAL-11` Le jeu de référence est accepté par le validateur ou solveur de test.
 - [ ] `J7-VAL-12` Une mise à jour d'un catalogue BU n'altère aucune publication antérieure.
-- [ ] `J7-VAL-13` La nature des montants source est explicite et n'est jamais déduite d'un libellé.
-- [ ] `J7-VAL-14` Une politique globale peut être remplacée par une règle propre à une machine selon la priorité décidée au J0.
-- [ ] `J7-VAL-15` Deux demandes portant sur des dates différentes sélectionnent les politiques respectivement valides.
+- [ ] `J7-VAL-13` Les catégories de coûts de production sont explicites et ne sont jamais déduites d'un libellé.
+- [ ] `J7-VAL-14` Aucun champ commercial n'est accepté dans l'import ou la projection.
+- [ ] `J7-VAL-15` Deux demandes portant sur des dates différentes sélectionnent les coûts respectivement valides.
 - [ ] `J7-VAL-16` Plusieurs clés API indépendantes peuvent désigner le même contrat sans partager leur cycle de vie.
 - [ ] `J7-VAL-17` Une clé révoquée est refusée sans invalider les autres clés du contrat.
-- [ ] `J7-VAL-18` Une référence de profil seule ne donne aucun accès ; le mode externe exige un principal authentifié et autorisé.
-- [ ] `J7-VAL-19` Le JSON remis au solveur contient uniquement les ressources autorisées et leurs tarifs déjà ajustés.
-- [ ] `J7-VAL-20` Le solveur de test obtient le même résultat contractuel sans réappliquer la politique du profil.
+- [ ] `J7-VAL-18` Une référence de contrat seule ne donne aucun accès ; le mode externe exige un principal authentifié et autorisé.
+- [ ] `J7-VAL-19` Le JSON remis au solveur contient uniquement les ressources autorisées et leurs coûts de production.
+- [ ] `J7-VAL-20` Le solveur de test obtient un dataset ne contenant aucun ajustement commercial.
 - [ ] `J7-VAL-21` Générer une projection ne modifie ni le pool, ni sa publication, ni ses montants source.
-- [ ] `J7-VAL-22` Une même publication, un même contrat, une même politique et une même date produisent une projection déterministe.
-- [ ] `J7-VAL-23` La preuve de génération identifie publication, profil, politique, date, mode d'accès et empreinte sans exposer de secret.
+- [ ] `J7-VAL-22` Une même publication, un même contrat et une même date produisent une projection déterministe.
+- [ ] `J7-VAL-23` La preuve de génération identifie publication, contrat, date, mode d'accès et empreinte sans exposer de secret.
 
 ## Scénario de démonstration
 
-Prévisualiser puis importer le parc pilote, qualifier ses montants source et le publier. Créer un profil avec une politique globale et une exception machine datée, l'associer à un contrat, créer deux clés puis générer le JSON ajusté accepté par le solveur. Révoquer une clé sans interrompre l'autre, résoudre aussi le profil par le mode externe authentifié, et vérifier que le pool publié est resté inchangé.
+Prévisualiser puis importer le parc pilote, qualifier ses coûts de production et le publier. Créer un contrat filtré, créer deux clés puis générer le JSON accepté par le solveur. Révoquer une clé sans interrompre l'autre, résoudre aussi le contrat par le mode externe authentifié, et vérifier que le pool publié est resté inchangé.
 
 ## Condition de sortie
 
-Le contrat partagé passe sur des fixtures valides et invalides, et le solveur de test accepte la projection ajustée issue du parc pilote sans appliquer lui-même de marge ou remise.
+Le contrat partagé passe sur des fixtures valides et invalides, et le solveur de test accepte la projection issue du parc pilote, composée exclusivement de données techniques et de coûts de production.

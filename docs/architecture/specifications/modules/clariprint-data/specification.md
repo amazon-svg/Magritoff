@@ -137,11 +137,9 @@ Tous invoquent les mêmes services applicatifs.
 - `clariprint_data.environment.delegation_changed` ;
 - `clariprint_data.resource.changed` ;
 - `clariprint_data.pricing_schedule.changed` ;
-- `clariprint_data.client_profile.changed` ;
-- `clariprint_data.pricing_policy.activated` ;
 - `clariprint_data.calculation_contract.changed` ;
 - `clariprint_data.api_credential.rotated` ;
-- `clariprint_data.adjusted_projection.generated` ;
+- `clariprint_data.solver_projection.generated` ;
 - `clariprint_data.economic_parameter.changed` ;
 - `clariprint_data.dataset.validated` ;
 - `clariprint_data.publication.created` ;
@@ -178,7 +176,6 @@ Doivent être atomiques côté serveur :
 - contractualisation d'un ensemble de ressources ;
 - restauration d'une publication vers un nouveau brouillon ;
 - sauvegarde groupée de modifications de barèmes ;
-- activation d'une politique tarifaire avec fermeture de la période précédente ;
 - création, rotation et révocation d'un credential ;
 - création ou révocation d'une délégation d'environnement ;
 - écriture métier accompagnée d'un audit obligatoire.

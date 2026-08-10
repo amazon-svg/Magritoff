@@ -20,11 +20,9 @@ Les autres modules consomment des contrats publics ou des snapshots publiés. Il
 | Aptitudes et performances | Clariprint Data | Versionnable |
 | Paramètres économiques | Clariprint Data | Versionnable et protégé |
 | Barèmes et cas unitaires | Clariprint Data | Versionnables |
-| Profils clients | Clariprint Data | Versionnables et archivables |
-| Politiques tarifaires client | Clariprint Data | Datées et versionnables |
 | Contrats d'accès calcul | Clariprint Data | Versionnables, suspendables et archivables |
 | Métadonnées de credentials locaux | Clariprint Data | Rotatives et révocables ; secret jamais relisible |
-| Projections ajustées et preuves | Clariprint Data | Immuables ou régénérables selon ADR |
+| Projections solveur et preuves | Clariprint Data | Immuables ou régénérables selon ADR |
 | Référentiels matière/transport BU | Clariprint Data, sous réserve de l'ownership BU | Versionnables |
 | Contrats de sous-traitance | Clariprint Data | Daté et archivable |
 | Brouillons | Clariprint Data | Modifiable |
