@@ -52,21 +52,20 @@ L ancienne serie de juin est conservee hors du dossier publie, dans
 `public/`** : tout ce qui vit ici est copie verbatim dans `dist/` et donc
 deploye.
 
-### ⚠️ Une exception : `magrit-kakemono.jpg`
+### Note sur `magrit-kakemono.jpg`
 
-C est **le seul visuel encore au format detoure de juin** (346x631). Sa
-regeneration d aout a ete **ecartee** : elle montrait une banniere suspendue a
-une traverse sur un mat a socle rond — c est-a-dire une **oriflamme**, soit
-exactement l objet de la famille `drapeau`. Deux familles racines distinctes
-seraient devenues indiscernables sur la grille du catalogue.
+Une premiere regeneration a ete **ecartee** : elle montrait une banniere
+suspendue a une traverse sur un mat a socle rond — c est-a-dire une
+**oriflamme**, soit exactement l objet de la famille `drapeau`. Deux familles
+racines seraient devenues indiscernables au format vignette.
 
-Le fichier ecarte est conserve pour reference dans
-`_bmad-output/Visuels produits/a-revoir/`.
+La version en service montre un **vrai roll-up** : cassette enrouleur en
+aluminium a la base avec ses pieds, mat de soutien a l arriere. C est ce
+marqueur, et lui seul, qui distingue un roll-up d une oriflamme — a exiger de
+toute regeneration future de cette famille.
 
-**Ce qu il faut pour le remplacer** : un roll-up, et le marqueur qui le rend
-non confondable est la **cassette enrouleur en aluminium** a la base, avec ses
-pieds, et le mat de soutien a l arriere. Pas de socle rond, pas de traverse
-haute. C est ce que montre l ancien visuel, qui reste donc juste.
+Le fichier ecarte reste dans `_bmad-output/Visuels produits/a-revoir/`, il peut
+etre supprime.
 
 ## Sous-gammes
 
