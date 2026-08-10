@@ -149,7 +149,7 @@ export function DashboardAdminMockups() {
         </div>
         <Link
           to={tp('/dashboard')}
-          className="inline-flex items-center gap-1 text-sm text-blue-600 hover:underline"
+          className="inline-flex items-center gap-1 text-sm text-brand hover:underline"
         >
           <ArrowLeft className="w-4 h-4" />
           Retour au tableau de bord
@@ -163,13 +163,13 @@ export function DashboardAdminMockups() {
       <div className="flex items-center justify-between">
         <Link
           to={tp('/dashboard')}
-          className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900"
+          className="inline-flex items-center gap-1 text-sm text-ink-muted hover:text-ink"
         >
           <ArrowLeft className="w-4 h-4" />
           Retour
         </Link>
         <span
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-700 bg-blue-50 px-2.5 py-1 rounded-full"
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-700 bg-brand-soft px-2.5 py-1 rounded-full"
           title="Page admin réservée au tenant magrit-root"
         >
           <ShieldCheck className="w-3.5 h-3.5" />
@@ -178,11 +178,11 @@ export function DashboardAdminMockups() {
       </div>
 
       <header>
-        <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-          <ImageIcon className="w-6 h-6 text-blue-600" />
+        <h2 className="text-xl font-bold text-ink flex items-center gap-2">
+          <ImageIcon className="w-6 h-6 text-brand" />
           Mockups Magrit-brandés (référence)
         </h2>
-        <p className="text-sm text-gray-600 mt-1 max-w-3xl">
+        <p className="text-sm text-ink-muted mt-1 max-w-3xl">
           Vue d'ensemble des 5 templates SVG appliqués par défaut sur tous les
           produits affichés en boutique B2B. Chaque tenant peut overrider ces
           mockups dans son éditeur boutique (section « Mockups custom »).
@@ -194,9 +194,9 @@ export function DashboardAdminMockups() {
         {previewUrls.map((tpl) => (
           <article
             key={tpl.key}
-            className="border border-gray-200 rounded-xl overflow-hidden bg-white"
+            className="border border-line rounded-xl overflow-hidden bg-paper"
           >
-            <div className="aspect-[4/3] bg-gray-50">
+            <div className="aspect-[4/3] bg-bg">
               <img
                 src={tpl.url}
                 alt={`Preview ${tpl.label}`}
@@ -206,15 +206,15 @@ export function DashboardAdminMockups() {
             </div>
             <div className="p-4 space-y-2">
               <div className="flex items-center justify-between gap-2">
-                <h3 className="font-medium text-gray-900 text-sm">{tpl.label}</h3>
-                <code className="text-[10px] text-gray-500 font-mono">
+                <h3 className="font-medium text-ink text-sm">{tpl.label}</h3>
+                <code className="text-[10px] text-ink-muted font-mono">
                   {tpl.width}×{tpl.height} mm
                 </code>
               </div>
-              <p className="text-xs text-gray-600 leading-relaxed">
+              <p className="text-xs text-ink-muted leading-relaxed">
                 {tpl.description}
               </p>
-              <code className="block text-[10px] text-gray-400 font-mono pt-1">
+              <code className="block text-[10px] text-ink-mute-2 font-mono pt-1">
                 templates/{tpl.key}.ts
               </code>
             </div>
@@ -222,11 +222,11 @@ export function DashboardAdminMockups() {
         ))}
       </div>
 
-      <section className="border border-gray-200 rounded-xl p-4 bg-gray-50">
-        <h3 className="font-semibold text-gray-900 mb-2 text-sm">
+      <section className="border border-line rounded-xl p-4 bg-bg">
+        <h3 className="font-semibold text-ink mb-2 text-sm">
           Évolution prévue (placeholder V2)
         </h3>
-        <ul className="text-xs text-gray-600 space-y-1 list-disc list-inside">
+        <ul className="text-xs text-ink-muted space-y-1 list-disc list-inside">
           <li>Édition des templates SVG via UI (aujourd'hui : code Deno seulement)</li>
           <li>Galerie de variations alternatives par template</li>
           <li>Statistiques d'usage par template (boutiques avec override custom)</li>

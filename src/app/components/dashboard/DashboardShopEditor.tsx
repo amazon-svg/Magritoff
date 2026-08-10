@@ -102,6 +102,10 @@ export function DashboardShopEditor() {
   // au depliage sont derivees du catalogue reel du tenant (catalogGammeSlugs),
   // pas des abonnements formels.
   const [pimExpanded, setPimExpanded] = useState(false);
+  // REFONTE-UX (2026-08-08, point 6) — catalogue unifie : les trois sections
+  // du domaine produit (sources PIM/bibliotheques, vue agregee, visuels)
+  // deviennent les onglets d une section unique "Catalogue de la boutique".
+  const [catalogTab, setCatalogTab] = useState<'sources' | 'products' | 'visuals'>('sources');
 
   // ─── Upload branding (logo / fond du bandeau) — bucket public shop_backgrounds
   // (2026-07-08, refonte bandeau de marque). Réutilise le bucket + RLS
@@ -272,12 +276,12 @@ export function DashboardShopEditor() {
   }, [library, shopProducts, shop?.excluded_product_ids, shop?.library_ids, shop?.pim_catalog_mode, shop?.pim_gamme_slugs]);
 
   if (!canUse('shops')) return <UpgradeCTA feature="Boutiques en ligne" />;
-  if (loading) return <p className="text-sm text-gray-500">Chargement...</p>;
+  if (loading) return <p className="text-sm text-ink-muted">Chargement...</p>;
   if (!shop) {
     return (
       <div className="space-y-3">
-        <p className="text-sm text-gray-600">Boutique introuvable.</p>
-        <Link to={tp('/dashboard/shops')} className="text-sm text-blue-600 hover:underline">
+        <p className="text-sm text-ink-muted">Boutique introuvable.</p>
+        <Link to={tp('/dashboard/shops')} className="text-sm text-brand hover:underline">
           ← Retour aux boutiques
         </Link>
       </div>
@@ -399,7 +403,7 @@ export function DashboardShopEditor() {
       <div className="flex items-center justify-between">
         <Link
           to={tp('/dashboard/shops')}
-          className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900"
+          className="inline-flex items-center gap-1 text-sm text-ink-muted hover:text-ink"
         >
           <ArrowLeft className="w-4 h-4" />
           Retour
@@ -408,48 +412,48 @@ export function DashboardShopEditor() {
           href={publicUrl}
           target="_blank"
           rel="noreferrer"
-          className="inline-flex items-center gap-1 text-sm text-blue-600 hover:underline"
+          className="inline-flex items-center gap-1 text-sm text-brand hover:underline"
         >
           <ExternalLink className="w-4 h-4" />
           Voir la boutique publique
         </a>
       </div>
 
-      <h2 className="text-xl font-bold text-gray-900">Éditeur — {shop.name}</h2>
+      <h2 className="text-xl font-bold text-ink">Éditeur — {shop.name}</h2>
 
       {/* ── Infos de base ── */}
-      <section className="border border-gray-200 rounded-xl p-4 bg-white space-y-3">
-        <h3 className="font-semibold text-gray-900">Informations</h3>
+      <section className="border border-line rounded-xl p-4 bg-paper space-y-3">
+        <h3 className="font-semibold text-ink">Informations</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Nom</label>
+            <label className="block text-xs font-medium text-ink-2 mb-1">Nom</label>
             <input
               type="text"
               value={shop.name}
               onChange={(e) => setShop({ ...shop, name: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              className="w-full px-3 py-2 border border-line-2 rounded-lg"
             />
           </div>
           <div className="md:col-span-2">
-            <label className="block text-xs font-medium text-gray-700 mb-1">Description</label>
+            <label className="block text-xs font-medium text-ink-2 mb-1">Description</label>
             <textarea
               value={shop.description}
               onChange={(e) => setShop({ ...shop, description: e.target.value })}
               rows={2}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              className="w-full px-3 py-2 border border-line-2 rounded-lg"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Logo du client</label>
+            <label className="block text-xs font-medium text-ink-2 mb-1">Logo du client</label>
             <div className="flex items-center gap-2">
               <input
                 type="url"
                 value={shop.logo_url}
                 onChange={(e) => setShop({ ...shop, logo_url: e.target.value })}
                 placeholder="https://... ou importer un fichier"
-                className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg"
+                className="flex-1 min-w-0 px-3 py-2 border border-line-2 rounded-lg"
               />
-              <label className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 cursor-pointer text-sm text-gray-700">
+              <label className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line-2 bg-paper hover:bg-bg cursor-pointer text-sm text-ink-2">
                 {uploadingAsset === 'logo' ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
@@ -470,12 +474,12 @@ export function DashboardShopEditor() {
               </label>
             </div>
             {shop.logo_url && (
-              <div className="mt-2 inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5">
+              <div className="mt-2 inline-flex items-center gap-2 rounded-lg border border-line bg-bg px-2.5 py-1.5">
                 <img src={shop.logo_url} alt="Logo" className="max-h-8 w-auto object-contain" />
                 <button
                   type="button"
                   onClick={() => setShop({ ...shop, logo_url: '' })}
-                  className="text-xs text-gray-500 hover:text-gray-800 underline"
+                  className="text-xs text-ink-muted hover:text-ink underline"
                 >
                   Retirer
                 </button>
@@ -483,30 +487,30 @@ export function DashboardShopEditor() {
             )}
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Email de contact</label>
+            <label className="block text-xs font-medium text-ink-2 mb-1">Email de contact</label>
             <input
               type="email"
               value={shop.contact_email}
               onChange={(e) => setShop({ ...shop, contact_email: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              className="w-full px-3 py-2 border border-line-2 rounded-lg"
             />
           </div>
           <div className="md:col-span-2">
-            <label className="block text-xs font-medium text-gray-700 mb-1">Adresse (affichée sur la boutique)</label>
+            <label className="block text-xs font-medium text-ink-2 mb-1">Adresse (affichée sur la boutique)</label>
             <textarea
               value={shop.address}
               onChange={(e) => setShop({ ...shop, address: e.target.value })}
               rows={2}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              className="w-full px-3 py-2 border border-line-2 rounded-lg"
             />
           </div>
         </div>
       </section>
 
       {/* ── Bandeau de marque (refonte 2026-07-08) ── */}
-      <section className="border border-gray-200 rounded-xl p-4 bg-white space-y-3">
-        <h3 className="font-semibold text-gray-900">Bandeau de marque</h3>
-        <p className="text-xs text-gray-500">
+      <section className="border border-line rounded-xl p-4 bg-paper space-y-3">
+        <h3 className="font-semibold text-ink">Bandeau de marque</h3>
+        <p className="text-xs text-ink-muted">
           En-tête co-brandé de la boutique. Le <strong>logo du client</strong> (section Identité
           ci-dessus) est affiché proprement dans une plaque nette. Le fond utilise la
           <strong> couleur primaire de marque</strong> par défaut ; ajoutez une image de fond
@@ -514,8 +518,8 @@ export function DashboardShopEditor() {
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
-              Image de fond <span className="text-gray-400 font-normal">(optionnelle)</span>
+            <label className="block text-xs font-medium text-ink-2 mb-1">
+              Image de fond <span className="text-ink-mute-2 font-normal">(optionnelle)</span>
             </label>
             <div className="flex items-center gap-2">
               <input
@@ -525,9 +529,9 @@ export function DashboardShopEditor() {
                   setShop({ ...shop, hero_image_url: e.target.value ? e.target.value : null })
                 }
                 placeholder="Vide = dégradé couleur de marque"
-                className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg"
+                className="flex-1 min-w-0 px-3 py-2 border border-line-2 rounded-lg"
               />
-              <label className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 cursor-pointer text-sm text-gray-700">
+              <label className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line-2 bg-paper hover:bg-bg cursor-pointer text-sm text-ink-2">
                 {uploadingAsset === 'hero' ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
@@ -549,9 +553,9 @@ export function DashboardShopEditor() {
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-medium text-ink-2 mb-1">
               Phrase d'accroche{' '}
-              <span className="text-gray-400 font-normal">
+              <span className="text-ink-mute-2 font-normal">
                 ({(shop.tagline ?? '').length}/120)
               </span>
             </label>
@@ -564,20 +568,20 @@ export function DashboardShopEditor() {
               rows={2}
               maxLength={120}
               placeholder="Ex: Vos imprimés professionnels en 48h."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              className="w-full px-3 py-2 border border-line-2 rounded-lg"
             />
           </div>
         </div>
         {uploadError && (
-          <p className="text-xs text-red-600 flex items-center gap-1.5">
+          <p className="text-xs text-err-fg flex items-center gap-1.5">
             <AlertTriangle className="w-3.5 h-3.5" /> {uploadError}
           </p>
         )}
         {/* Aperçu live du bandeau de marque (logo plaque + fond) */}
         <div className="mt-2">
-          <p className="text-xs text-gray-500 mb-1">Aperçu</p>
+          <p className="text-xs text-ink-muted mb-1">Aperçu</p>
           <div
-            className="relative w-full h-[120px] rounded-lg overflow-hidden border border-gray-200 bg-cover bg-center"
+            className="relative w-full h-[120px] rounded-lg overflow-hidden border border-line bg-cover bg-center"
             style={
               shop.hero_image_url
                 ? { backgroundImage: `url(${shop.hero_image_url})` }
@@ -597,7 +601,7 @@ export function DashboardShopEditor() {
             )}
             <div className="relative h-full flex items-center gap-4 px-4">
               {shop.logo_url ? (
-                <div className="shrink-0 bg-white rounded-lg shadow-sm px-3 py-2 grid place-items-center max-w-[150px]">
+                <div className="shrink-0 bg-paper rounded-lg shadow-sm px-3 py-2 grid place-items-center max-w-[150px]">
                   <img src={shop.logo_url} alt="Logo" className="max-h-10 w-auto object-contain" />
                 </div>
               ) : (
@@ -614,49 +618,49 @@ export function DashboardShopEditor() {
       </section>
 
       {/* ── Thème ── */}
-      <section className="border border-gray-200 rounded-xl p-4 bg-white space-y-3">
-        <h3 className="font-semibold text-gray-900">Apparence</h3>
+      <section className="border border-line rounded-xl p-4 bg-paper space-y-3">
+        <h3 className="font-semibold text-ink">Apparence</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Couleur primaire</label>
+            <label className="block text-xs font-medium text-ink-2 mb-1">Couleur primaire</label>
             <div className="flex items-center gap-2">
               <input
                 type="color"
                 value={shop.theme.primaryColor}
                 onChange={(e) => setShop({ ...shop, theme: { ...shop.theme, primaryColor: e.target.value } })}
-                className="h-10 w-12 border border-gray-300 rounded"
+                className="h-10 w-12 border border-line-2 rounded"
               />
               <input
                 type="text"
                 value={shop.theme.primaryColor}
                 onChange={(e) => setShop({ ...shop, theme: { ...shop.theme, primaryColor: e.target.value } })}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm"
+                className="flex-1 px-3 py-2 border border-line-2 rounded-lg font-mono text-sm"
               />
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Couleur d'accent</label>
+            <label className="block text-xs font-medium text-ink-2 mb-1">Couleur d'accent</label>
             <div className="flex items-center gap-2">
               <input
                 type="color"
                 value={shop.theme.accentColor}
                 onChange={(e) => setShop({ ...shop, theme: { ...shop.theme, accentColor: e.target.value } })}
-                className="h-10 w-12 border border-gray-300 rounded"
+                className="h-10 w-12 border border-line-2 rounded"
               />
               <input
                 type="text"
                 value={shop.theme.accentColor}
                 onChange={(e) => setShop({ ...shop, theme: { ...shop.theme, accentColor: e.target.value } })}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm"
+                className="flex-1 px-3 py-2 border border-line-2 rounded-lg font-mono text-sm"
               />
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Mode</label>
+            <label className="block text-xs font-medium text-ink-2 mb-1">Mode</label>
             <select
               value={shop.theme.mode}
               onChange={(e) => setShop({ ...shop, theme: { ...shop.theme, mode: e.target.value as 'light' | 'dark' } })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white"
+              className="w-full px-3 py-2 border border-line-2 rounded-lg bg-paper"
             >
               <option value="light">Clair</option>
               <option value="dark">Sombre</option>
@@ -665,80 +669,80 @@ export function DashboardShopEditor() {
         </div>
 
         {/* ── A4.2 — Palette élargie : secondaire / texte / fond ── */}
-        <div className="pt-3 mt-2 border-t border-gray-100 grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="pt-3 mt-2 border-t border-line grid grid-cols-1 md:grid-cols-3 gap-3">
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Couleur secondaire</label>
+            <label className="block text-xs font-medium text-ink-2 mb-1">Couleur secondaire</label>
             <div className="flex items-center gap-2">
               <input
                 type="color"
                 value={shop.theme.secondaryColor ?? '#6b7280'}
                 onChange={(e) => setShop({ ...shop, theme: { ...shop.theme, secondaryColor: e.target.value } })}
-                className="h-10 w-12 border border-gray-300 rounded"
+                className="h-10 w-12 border border-line-2 rounded"
               />
               <input
                 type="text"
                 value={shop.theme.secondaryColor ?? '#6b7280'}
                 onChange={(e) => setShop({ ...shop, theme: { ...shop.theme, secondaryColor: e.target.value } })}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm"
+                className="flex-1 px-3 py-2 border border-line-2 rounded-lg font-mono text-sm"
               />
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Couleur du texte</label>
+            <label className="block text-xs font-medium text-ink-2 mb-1">Couleur du texte</label>
             <div className="flex items-center gap-2">
               <input
                 type="color"
                 value={shop.theme.textColor ?? '#0f172a'}
                 onChange={(e) => setShop({ ...shop, theme: { ...shop.theme, textColor: e.target.value } })}
-                className="h-10 w-12 border border-gray-300 rounded"
+                className="h-10 w-12 border border-line-2 rounded"
               />
               <input
                 type="text"
                 value={shop.theme.textColor ?? '#0f172a'}
                 onChange={(e) => setShop({ ...shop, theme: { ...shop.theme, textColor: e.target.value } })}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm"
+                className="flex-1 px-3 py-2 border border-line-2 rounded-lg font-mono text-sm"
               />
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Couleur de fond</label>
+            <label className="block text-xs font-medium text-ink-2 mb-1">Couleur de fond</label>
             <div className="flex items-center gap-2">
               <input
                 type="color"
                 value={shop.theme.bgColor ?? '#ffffff'}
                 onChange={(e) => setShop({ ...shop, theme: { ...shop.theme, bgColor: e.target.value } })}
-                className="h-10 w-12 border border-gray-300 rounded"
+                className="h-10 w-12 border border-line-2 rounded"
               />
               <input
                 type="text"
                 value={shop.theme.bgColor ?? '#ffffff'}
                 onChange={(e) => setShop({ ...shop, theme: { ...shop.theme, bgColor: e.target.value } })}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm"
+                className="flex-1 px-3 py-2 border border-line-2 rounded-lg font-mono text-sm"
               />
             </div>
           </div>
         </div>
 
         {/* ── A4.2 — Pairing de fonts curated ── */}
-        <div className="pt-3 mt-2 border-t border-gray-100">
-          <label className="block text-xs font-medium text-gray-700 mb-1">Pairing de fonts</label>
+        <div className="pt-3 mt-2 border-t border-line">
+          <label className="block text-xs font-medium text-ink-2 mb-1">Pairing de fonts</label>
           <select
             value={shop.theme.fontPairing ?? 'system'}
             onChange={(e) => setShop({ ...shop, theme: { ...shop.theme, fontPairing: e.target.value } })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white"
+            className="w-full px-3 py-2 border border-line-2 rounded-lg bg-paper"
           >
             {FONT_PAIRINGS.map((p) => (
               <option key={p.key} value={p.key}>{p.label}</option>
             ))}
           </select>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-ink-muted mt-1">
             Appliqué automatiquement à la boutique publique (titres + texte).
           </p>
         </div>
       </section>
 
       {/* ── Activation + bouton biblio sous le toggle ── */}
-      <section className="border border-gray-200 rounded-xl p-4 bg-white space-y-3">
+      <section className="border border-line rounded-xl p-4 bg-paper space-y-3">
         <label className="flex items-center gap-3">
           <input
             type="checkbox"
@@ -747,26 +751,26 @@ export function DashboardShopEditor() {
             className="w-4 h-4"
           />
           <div>
-            <p className="text-sm font-medium text-gray-900">Boutique active</p>
-            <p className="text-xs text-gray-500">Accessible publiquement via l'URL. Désactivez pour masquer.</p>
+            <p className="text-sm font-medium text-ink">Boutique active</p>
+            <p className="text-xs text-ink-muted">Accessible publiquement via l'URL. Désactivez pour masquer.</p>
           </div>
         </label>
 
         {/* S7.11 (ADR 4.20) — Mode d'accès acheteurs */}
         <label className="block">
-          <p className="text-sm font-medium text-gray-900 mb-1">Accès des acheteurs</p>
+          <p className="text-sm font-medium text-ink mb-1">Accès des acheteurs</p>
           <select
             data-testid={TEST_IDS.shop.accessModeSelect}
             value={shop.access_mode ?? 'invite_only'}
             onChange={(e) =>
               setShop({ ...shop, access_mode: e.target.value as 'invite_only' | 'self_signup' })
             }
-            className="w-full max-w-sm border border-gray-300 rounded-md px-3 py-2 text-sm"
+            className="w-full max-w-sm border border-line-2 rounded-md px-3 py-2 text-sm"
           >
             <option value="invite_only">Sur invitation uniquement (défaut)</option>
             <option value="self_signup">Inscription libre au moment de commander</option>
           </select>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-ink-muted mt-1">
             En inscription libre, un visiteur peut créer son compte acheteur au
             checkout — accès limité à cette seule boutique. La boutique devient
             aussi indexable par les moteurs de recherche.
@@ -777,20 +781,53 @@ export function DashboardShopEditor() {
             sidebar "Bibliotheque" qui est maintenant sub-item de Boutiques) */}
         <Link
           to={tp('/dashboard/library')}
-          className="inline-flex items-center gap-2 text-sm text-blue-700 hover:text-blue-900 hover:underline"
+          className="inline-flex items-center gap-2 text-sm text-brand hover:text-brand hover:underline"
         >
           <LibraryIcon className="w-4 h-4" />
           Gérer mes bibliothèques
         </Link>
       </section>
 
-      {/* ── Bibliothèques associées (unique mecanisme de peuplement) ── */}
-      <section className="border-2 border-blue-200 rounded-xl p-4 bg-blue-50">
-        <h3 className="font-semibold text-gray-900 mb-1 flex items-center gap-2">
-          <LibraryIcon className="w-5 h-5 text-blue-600" />
-          Bibliothèques associées à cette boutique
-        </h3>
-        <p className="text-sm text-gray-700 mb-3">
+      {/* ══ REFONTE-UX (2026-08-08, point 6) — CATALOGUE DE LA BOUTIQUE ══
+          Section unique du domaine produit, a onglets :
+            Sources  = d ou viennent les produits (PIM / bibliotheques)
+            Produits = ce que la boutique expose (vue agregee, prix negocies,
+                       exclusions, exports)
+            Visuels  = mockups custom par boutique (P4-VISUELS, PRD E8.3)
+          Remplace les 3 sections empilees redondantes. */}
+      <section className="border border-line rounded-xl bg-paper overflow-hidden">
+        <div className="px-4 pt-4">
+          <h3 className="font-medium text-ink flex items-center gap-2">
+            <LibraryIcon className="w-5 h-5" strokeWidth={1.5} />
+            Catalogue de la boutique
+          </h3>
+          <div className="flex gap-1 border-b border-line mt-3">
+            {(
+              [
+                ['sources', 'Sources'],
+                ['products', `Produits (${displayProducts.length})`],
+                ['visuals', 'Visuels'],
+              ] as const
+            ).map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setCatalogTab(key)}
+                className={`px-4 py-2 text-sm rounded-t-lg border-b-2 -mb-px transition-colors ${
+                  catalogTab === key
+                    ? 'border-brand text-ink font-medium'
+                    : 'border-transparent text-ink-muted hover:text-ink'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {catalogTab === 'sources' && (
+        <div className="p-4">
+        <p className="text-sm text-ink-2 mb-3">
           Cochez une ou plusieurs bibliothèques. <strong>Tous leurs produits</strong> apparaissent
           automatiquement dans la boutique — pas d'import, pas de copie, toujours synchro.
         </p>
@@ -803,7 +840,7 @@ export function DashboardShopEditor() {
           return (
             <div
               className={`mb-3 rounded-lg border-2 ${
-                pimOn ? 'border-indigo-400 bg-indigo-50' : 'border-indigo-200 bg-white'
+                pimOn ? 'border-indigo-400 bg-indigo-50' : 'border-indigo-200 bg-paper'
               }`}
             >
               <div className="flex items-center gap-2 p-2">
@@ -815,9 +852,9 @@ export function DashboardShopEditor() {
                   readOnly
                   className="w-4 h-4 cursor-pointer accent-indigo-600"
                 />
-                <span className="text-sm font-semibold text-gray-900 flex-1">
+                <span className="text-sm font-semibold text-ink flex-1">
                   PIM — Catalogue complet
-                  <span className="ml-2 text-xs font-normal text-gray-500">
+                  <span className="ml-2 text-xs font-normal text-ink-muted">
                     verse tout votre catalogue, filtrable par gamme
                   </span>
                 </span>
@@ -833,11 +870,11 @@ export function DashboardShopEditor() {
               {pimExpanded && (
                 <div className="border-t border-indigo-200 p-2">
                   {gammes.length === 0 ? (
-                    <p className="text-xs text-gray-500 italic">Chargement des gammes du PIM…</p>
+                    <p className="text-xs text-ink-muted italic">Chargement des gammes du PIM…</p>
                   ) : (
                     <>
                       <div className="flex items-center justify-between pb-1 mb-1 border-b border-indigo-100">
-                        <span className="text-xs font-medium text-gray-600">
+                        <span className="text-xs font-medium text-ink-muted">
                           Gammes du PIM ({allPimGammeSlugs.length})
                         </span>
                         <button
@@ -861,7 +898,7 @@ export function DashboardShopEditor() {
                               key={g.slug}
                               data-testid={`${TEST_IDS.shopEditor.pimGamme}-${g.slug}`}
                               className={`flex items-center gap-2 p-1.5 rounded ${
-                                pimOn ? 'cursor-pointer hover:bg-white' : 'opacity-50 cursor-not-allowed'
+                                pimOn ? 'cursor-pointer hover:bg-paper' : 'opacity-50 cursor-not-allowed'
                               }`}
                             >
                               <input
@@ -871,9 +908,9 @@ export function DashboardShopEditor() {
                                 disabled={!pimOn}
                                 className="w-4 h-4"
                               />
-                              <span className="text-sm text-gray-800 flex-1">{g.name}</span>
+                              <span className="text-sm text-ink flex-1">{g.name}</span>
                               <span
-                                className={`text-xs ${count > 0 ? 'text-gray-500' : 'text-gray-300'}`}
+                                className={`text-xs ${count > 0 ? 'text-ink-muted' : 'text-ink-mute-2'}`}
                                 title="Produits de votre catalogue dans cette gamme"
                               >
                                 {count} produit{count > 1 ? 's' : ''}
@@ -883,7 +920,7 @@ export function DashboardShopEditor() {
                         })}
                       </div>
                       {pimOn && selected.size === 0 && (
-                        <p className="text-xs text-amber-600 mt-1">
+                        <p className="text-xs text-warn-fg mt-1">
                           Aucune gamme sélectionnée — la boutique n'exposera aucun produit du PIM.
                         </p>
                       )}
@@ -896,9 +933,9 @@ export function DashboardShopEditor() {
         })()}
 
         {libraries.length === 0 ? (
-          <p className="text-sm text-gray-500 italic">
+          <p className="text-sm text-ink-muted italic">
             Aucune bibliothèque.{' '}
-            <Link to={tp('/dashboard/library')} className="text-blue-600 hover:underline">
+            <Link to={tp('/dashboard/library')} className="text-brand hover:underline">
               Créez-en une
             </Link>
           </p>
@@ -915,7 +952,7 @@ export function DashboardShopEditor() {
                   key={lib.id}
                   className={`flex items-center gap-2 p-2 rounded-lg ${
                     pimOn ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
-                  } ${linked && !pimOn ? 'bg-white border border-blue-300' : 'hover:bg-white/60'}`}
+                  } ${linked && !pimOn ? 'bg-paper border border-line-2' : 'hover:bg-paper/60'}`}
                 >
                   <input
                     type="checkbox"
@@ -924,8 +961,8 @@ export function DashboardShopEditor() {
                     disabled={pimOn}
                     className="w-4 h-4"
                   />
-                  <span className="text-sm font-medium text-gray-900 flex-1">{lib.name}</span>
-                  <span className="text-xs text-gray-500">
+                  <span className="text-sm font-medium text-ink flex-1">{lib.name}</span>
+                  <span className="text-xs text-ink-muted">
                     {count} produit{count > 1 ? 's' : ''}
                   </span>
                 </label>
@@ -933,35 +970,34 @@ export function DashboardShopEditor() {
             })}
           </div>
         )}
-        <p className="text-xs text-gray-500 mt-2">
+        <p className="text-xs text-ink-muted mt-2">
           N'oubliez pas d'<strong>Enregistrer</strong> en bas de page après modification.
         </p>
-      </section>
+        </div>
+        )}
 
-      {/* ── Produits dans cette boutique (vue agregee) ── */}
-      <section className="border border-gray-200 rounded-xl p-4 bg-white">
-        <h3 className="font-semibold text-gray-900 mb-3">
-          Produits dans cette boutique ({displayProducts.length})
-        </h3>
+        {/* ── Onglet Produits : vue agregee + exclusions + export ── */}
+        {catalogTab === 'products' && (
+        <div className="p-4">
         {displayProducts.length === 0 ? (
-          <p className="text-sm text-gray-500 italic">
-            Aucun produit. Associez une bibliothèque ci-dessus pour les voir apparaître.
+          <p className="text-sm text-ink-muted italic">
+            Aucun produit. Associez une bibliothèque dans l'onglet Sources pour les voir apparaître.
           </p>
         ) : (
           <div className="space-y-2">
             {displayProducts.map((p) => (
               <div
                 key={p.id}
-                className="flex items-center gap-3 p-2 border border-gray-100 rounded-lg"
+                className="flex items-center gap-3 p-2 border border-line rounded-lg"
               >
                 {p.image_url ? (
                   <img src={p.image_url} alt={p.name} className="w-12 h-12 object-cover rounded" />
                 ) : (
-                  <div className="w-12 h-12 bg-gray-100 rounded" />
+                  <div className="w-12 h-12 bg-bg rounded" />
                 )}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">{p.name}</p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-sm font-medium text-ink truncate">{p.name}</p>
+                  <p className="text-xs text-ink-muted">
                     {p.source === 'library' ? (
                       <>biblio · {p.category} · {p.price_ht.toFixed(2)} € HT</>
                     ) : (
@@ -972,7 +1008,7 @@ export function DashboardShopEditor() {
                 {/* A4.5 — Prix négocié inline (uniquement pour sources library) */}
                 {p.source === 'library' && p.libraryProductId && (
                   <div className="flex items-center gap-1.5 shrink-0">
-                    <label className="text-[11px] text-gray-500 hidden md:block">
+                    <label className="text-[11px] text-ink-muted hidden md:block">
                       Prix négocié
                     </label>
                     <input
@@ -999,13 +1035,13 @@ export function DashboardShopEditor() {
                         }
                         void savePricingOverride(p.libraryProductId!, next);
                       }}
-                      className="w-20 px-2 py-1 text-xs font-mono border border-gray-300 rounded text-right"
+                      className="w-20 px-2 py-1 text-xs font-mono border border-line-2 rounded text-right"
                       style={{ fontVariantNumeric: 'tabular-nums' }}
                     />
-                    <span className="text-[11px] text-gray-500">€</span>
+                    <span className="text-[11px] text-ink-muted">€</span>
                     {pricingOverrides[p.libraryProductId] !== undefined && (
                       <span
-                        className="text-[10px] font-medium text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded"
+                        className="text-[10px] font-medium text-warn-fg bg-warn-bg px-1.5 py-0.5 rounded"
                         title="Tarif négocié actif"
                       >
                         négocié
@@ -1015,7 +1051,7 @@ export function DashboardShopEditor() {
                 )}
                 <button
                   onClick={() => handleRequestDelete(p)}
-                  className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                  className="p-2 text-ink-mute-2 hover:text-err-fg hover:bg-err-bg rounded"
                   title="Retirer de la boutique"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -1027,13 +1063,13 @@ export function DashboardShopEditor() {
 
         {/* E9.11 — Exclusions actuelles : reintegration one-click. */}
         {shop.excluded_product_ids && shop.excluded_product_ids.length > 0 && (
-          <details className="mt-4 text-xs text-gray-600">
-            <summary className="cursor-pointer hover:text-gray-900">
+          <details className="mt-4 text-xs text-ink-muted">
+            <summary className="cursor-pointer hover:text-ink">
               {shop.excluded_product_ids.length} produit
               {shop.excluded_product_ids.length > 1 ? 's' : ''} masqué
               {shop.excluded_product_ids.length > 1 ? 's' : ''} dans cette boutique
             </summary>
-            <p className="mt-2 text-gray-500">
+            <p className="mt-2 text-ink-muted">
               Ces produits existent dans les bibliothèques liées mais ont été retirés manuellement
               de cette boutique. Cliquez sur « Réintégrer » pour les ré-afficher.
             </p>
@@ -1048,12 +1084,12 @@ export function DashboardShopEditor() {
                 return (
                   <li
                     key={libProductId}
-                    className="flex items-center justify-between gap-2 px-2 py-1.5 rounded bg-gray-50"
+                    className="flex items-center justify-between gap-2 px-2 py-1.5 rounded bg-bg"
                   >
-                    <span className="text-gray-700 truncate">
+                    <span className="text-ink-2 truncate">
                       {label}
                       {p && !stillInLinkedLibrary && (
-                        <span className="ml-2 text-[10px] uppercase tracking-wide text-amber-700">
+                        <span className="ml-2 text-[10px] uppercase tracking-wide text-warn-fg">
                           bibliothèque non liée
                         </span>
                       )}
@@ -1071,7 +1107,7 @@ export function DashboardShopEditor() {
                           ? 'Ré-afficher ce produit dans la boutique'
                           : "La bibliothèque source n est plus liée à cette boutique — re-cochez-la d abord"
                       }
-                      className="inline-flex items-center gap-1 px-2 py-1 rounded border border-gray-300 bg-white hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed text-[11px] font-medium text-gray-700"
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded border border-line-2 bg-paper hover:bg-bg disabled:opacity-50 disabled:cursor-not-allowed text-[11px] font-medium text-ink-2"
                     >
                       <Eye className="w-3 h-3" />
                       Réintégrer
@@ -1082,75 +1118,81 @@ export function DashboardShopEditor() {
             </ul>
           </details>
         )}
-      </section>
 
-      {/* ── P4-VISUELS : Mockups custom per-shop (override Magrit-brandé) ── */}
-      {shop && currentTenant && (
-        <ReactSuspense fallback={null}>
-          <ShopCustomMockups shopId={shop.id} tenantId={currentTenant.id} />
-        </ReactSuspense>
-      )}
-
-      {/* ── Exporter le catalogue (deplace sous la liste des produits) ── */}
-      <section className="border border-gray-200 rounded-xl p-4 bg-white">
-        <h3 className="font-semibold text-gray-900 mb-1 flex items-center gap-2">
-          <Download className="w-5 h-5" />
-          Exporter le catalogue
-        </h3>
-        <p className="text-sm text-gray-600 mb-3">
-          Génère un fichier prêt à importer dans un CMS e-commerce.
-          Les contenus enrichis PIM (descriptions, SEO, FAQ, mots-clés) sont inclus.
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() =>
-              exportShopToShopifyCsv(
-                shop,
-                displayProducts.map(toExportProduct),
-                gammes,
-                definitions
-              )
-            }
-            disabled={displayProducts.length === 0}
-            className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 text-sm font-medium flex items-center gap-2"
-          >
-            <Download className="w-4 h-4" />
-            Export Shopify (CSV)
-          </button>
-          <button
-            onClick={() =>
-              exportShopToJson(
-                shop,
-                displayProducts.map(toExportProduct),
-                gammes,
-                definitions
-              )
-            }
-            disabled={displayProducts.length === 0}
-            className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 text-sm font-medium flex items-center gap-2"
-          >
-            <Download className="w-4 h-4" />
-            Export JSON (API-ready)
-          </button>
+        {/* Export du catalogue — reste dans l onglet Produits */}
+        <div className="mt-5 pt-4 border-t border-line">
+          <p className="text-sm font-medium text-ink mb-1 flex items-center gap-2">
+            <Download className="w-4 h-4" strokeWidth={1.5} />
+            Exporter le catalogue
+          </p>
+          <p className="text-sm text-ink-muted mb-3">
+            Génère un fichier prêt à importer dans un CMS e-commerce.
+            Les contenus enrichis PIM (descriptions, SEO, FAQ, mots-clés) sont inclus.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() =>
+                exportShopToShopifyCsv(
+                  shop,
+                  displayProducts.map(toExportProduct),
+                  gammes,
+                  definitions
+                )
+              }
+              disabled={displayProducts.length === 0}
+              className="px-3 py-2 border border-line-2 rounded-lg hover:bg-bg disabled:opacity-50 text-sm font-medium flex items-center gap-2"
+            >
+              <Download className="w-4 h-4" />
+              Export Shopify (CSV)
+            </button>
+            <button
+              onClick={() =>
+                exportShopToJson(
+                  shop,
+                  displayProducts.map(toExportProduct),
+                  gammes,
+                  definitions
+                )
+              }
+              disabled={displayProducts.length === 0}
+              className="px-3 py-2 border border-line-2 rounded-lg hover:bg-bg disabled:opacity-50 text-sm font-medium flex items-center gap-2"
+            >
+              <Download className="w-4 h-4" />
+              Export JSON (API-ready)
+            </button>
+          </div>
         </div>
+        </div>
+        )}
+
+        {/* ── Onglet Visuels : mockups custom per-shop (P4-VISUELS, PRD E8.3) ── */}
+        {catalogTab === 'visuals' && (
+        <div className="p-4">
+          {shop && currentTenant && (
+            <ReactSuspense fallback={null}>
+              <ShopCustomMockups shopId={shop.id} tenantId={currentTenant.id} />
+            </ReactSuspense>
+          )}
+        </div>
+        )}
       </section>
 
       {/* ── Bouton Enregistrer : sticky en bas a droite ── */}
       <div className="fixed bottom-6 right-6 z-30 flex flex-col items-end gap-2">
         {saveError && (
-          <p className="text-sm text-red-700 bg-red-50 border border-red-200 px-3 py-2 rounded shadow-sm max-w-xs">
+          <p className="text-sm text-err-fg bg-err-bg border border-err-fg/30 px-3 py-2 rounded shadow-sm max-w-xs">
             {saveError}
           </p>
         )}
         {saveOk && (
-          <p className="text-sm text-green-700 bg-green-50 border border-green-200 px-3 py-1.5 rounded shadow-sm flex items-center gap-2">
+          <p className="text-sm text-ok-fg bg-ok-bg border border-ok-line px-3 py-1.5 rounded shadow-sm flex items-center gap-2">
             <Check className="w-4 h-4" /> Sauvegardé
           </p>
         )}
         <button
           onClick={handleSaveShop}
           disabled={saving}
-          className="px-5 py-3 bg-gray-900 text-white rounded-xl hover:bg-gray-800 disabled:opacity-50 font-medium flex items-center gap-2 shadow-lg"
+          className="px-5 py-3 bg-brand text-white rounded-xl hover:bg-brand/90 disabled:opacity-50 font-medium flex items-center gap-2 shadow-lg"
         >
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
           Enregistrer les modifications
@@ -1160,14 +1202,14 @@ export function DashboardShopEditor() {
       {/* ── Dialog : que faire quand on retire un produit lib ── */}
       {deleteDialog && (
         <div className="fixed inset-0 bg-black/50 z-50 grid place-items-center p-4">
-          <div className="bg-white rounded-xl max-w-md w-full p-5 space-y-4 shadow-xl">
+          <div className="bg-paper rounded-xl max-w-md w-full p-5 space-y-4 shadow-xl">
             <div className="flex items-start gap-3">
               <AlertTriangle className="w-6 h-6 text-amber-500 shrink-0" />
               <div>
-                <h4 className="font-semibold text-gray-900 mb-1">
+                <h4 className="font-semibold text-ink mb-1">
                   Retirer "{deleteDialog.name}"
                 </h4>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-ink-muted">
                   Ce produit appartient à une bibliothèque associée à la boutique.
                   Voulez-vous aussi le retirer de la bibliothèque, ou seulement de cette
                   boutique ?
@@ -1177,11 +1219,11 @@ export function DashboardShopEditor() {
             <div className="flex flex-col gap-2">
               <button
                 onClick={handleDeleteFromShopOnly}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium text-gray-800"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-line-2 rounded-lg hover:bg-bg text-sm font-medium text-ink"
               >
                 <EyeOff className="w-4 h-4" />
                 Juste de cette boutique
-                <span className="text-xs text-gray-500">(reste dans la biblio)</span>
+                <span className="text-xs text-ink-muted">(reste dans la biblio)</span>
               </button>
               <button
                 onClick={handleDeleteFromBoth}
@@ -1192,7 +1234,7 @@ export function DashboardShopEditor() {
               </button>
               <button
                 onClick={() => setDeleteDialog(null)}
-                className="w-full px-4 py-2 text-sm text-gray-600 hover:text-gray-900"
+                className="w-full px-4 py-2 text-sm text-ink-muted hover:text-ink"
               >
                 Annuler
               </button>

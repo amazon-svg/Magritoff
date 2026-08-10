@@ -228,13 +228,13 @@ export function DashboardRolesSection() {
       {/* Catalog rôles : descriptif des capabilities */}
       <div className="mb-6 border border-line rounded-md bg-paper overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 text-gray-600 text-left">
+          <thead className="bg-bg text-ink-muted text-left">
             <tr>
               <th className="px-3 py-2 w-44">Rôle</th>
               <th className="px-3 py-2">Capabilities accordées</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-line">
             {roles.map((r) => {
               const activeCaps = Object.entries(r.capabilities)
                 .filter(([, v]) => v === true)
@@ -273,9 +273,9 @@ export function DashboardRolesSection() {
       {/* Matrice users × rôles : assignments */}
       <div className="border border-line rounded-md bg-paper overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 text-gray-600 text-left">
+          <thead className="bg-bg text-ink-muted text-left">
             <tr>
-              <th className="px-3 py-2 sticky left-0 bg-gray-50">Utilisateur</th>
+              <th className="px-3 py-2 sticky left-0 bg-bg">Utilisateur</th>
               {roles.map((r) => (
                 <th key={r.id} className="px-3 py-2 text-center" style={{ minWidth: '88px' }}>
                   {r.name}
@@ -283,7 +283,7 @@ export function DashboardRolesSection() {
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-line">
             {members.length === 0 ? (
               <tr>
                 <td colSpan={roles.length + 1} className="px-3 py-6 text-center text-ink-muted">

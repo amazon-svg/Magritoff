@@ -161,27 +161,27 @@ export function ShopCustomMockups({ shopId, tenantId }: Props) {
   };
 
   return (
-    <section className="border border-gray-200 rounded-xl p-4 bg-white space-y-3">
+    <section className="border border-line rounded-xl p-4 bg-paper space-y-3">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-            <ImageIcon className="w-5 h-5 text-blue-600" />
+          <h3 className="font-semibold text-ink flex items-center gap-2">
+            <ImageIcon className="w-5 h-5 text-brand" />
             Mockups custom de cette boutique
           </h3>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-ink-muted mt-1">
             Remplace le mockup Magrit-brandé par défaut par votre propre visuel pour chaque type de produit. Format : PNG, JPG, WebP ou SVG (5 Mo max).
           </p>
         </div>
       </div>
 
       {error && (
-        <p className="text-sm text-red-700 bg-red-50 border border-red-200 px-3 py-2 rounded">
+        <p className="text-sm text-err-fg bg-err-bg border border-err-fg/30 px-3 py-2 rounded">
           {error}
         </p>
       )}
 
       {loading ? (
-        <p className="text-sm text-gray-500">Chargement…</p>
+        <p className="text-sm text-ink-muted">Chargement…</p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {TEMPLATES.map((tpl) => {
@@ -193,32 +193,32 @@ export function ShopCustomMockups({ shopId, tenantId }: Props) {
             return (
               <div
                 key={tpl.key}
-                className="border border-gray-200 rounded-lg overflow-hidden bg-gray-50"
+                className="border border-line rounded-lg overflow-hidden bg-bg"
               >
-                <div className="px-3 py-2 bg-white border-b border-gray-200 flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-900">{tpl.label}</span>
+                <div className="px-3 py-2 bg-paper border-b border-line flex items-center justify-between">
+                  <span className="text-sm font-medium text-ink">{tpl.label}</span>
                   {isCustom && (
                     <span
-                      className="text-[10px] font-medium text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded"
+                      className="text-[10px] font-medium text-warn-fg bg-warn-bg px-1.5 py-0.5 rounded"
                       title="Mockup custom actif"
                     >
                       personnalisé
                     </span>
                   )}
                 </div>
-                <div className="aspect-[4/3] bg-white relative">
+                <div className="aspect-[4/3] bg-paper relative">
                   <img
                     src={previewUrl}
                     alt={`Aperçu ${tpl.label}`}
                     className="w-full h-full object-cover"
                   />
                   {isUploading && (
-                    <div className="absolute inset-0 bg-white/80 grid place-items-center">
-                      <Loader2 className="w-6 h-6 animate-spin text-gray-600" />
+                    <div className="absolute inset-0 bg-paper/80 grid place-items-center">
+                      <Loader2 className="w-6 h-6 animate-spin text-ink-muted" />
                     </div>
                   )}
                 </div>
-                <div className="p-2 flex items-center gap-1.5 bg-white">
+                <div className="p-2 flex items-center gap-1.5 bg-paper">
                   <input
                     ref={(el) => (fileInputsRef.current[tpl.key] = el)}
                     type="file"
@@ -234,7 +234,7 @@ export function ShopCustomMockups({ shopId, tenantId }: Props) {
                     type="button"
                     onClick={() => fileInputsRef.current[tpl.key]?.click()}
                     disabled={isUploading}
-                    className="flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs font-medium border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs font-medium border border-line-2 rounded hover:bg-bg disabled:opacity-50"
                   >
                     <Upload className="w-3.5 h-3.5" />
                     {isCustom ? 'Remplacer' : 'Téléverser'}
@@ -245,7 +245,7 @@ export function ShopCustomMockups({ shopId, tenantId }: Props) {
                       onClick={() => void handleRestore(tpl.key)}
                       disabled={isUploading}
                       title="Restaurer le mockup Magrit par défaut"
-                      className="inline-flex items-center justify-center gap-1 px-2 py-1.5 text-xs font-medium border border-gray-300 rounded hover:bg-gray-50 text-gray-600 disabled:opacity-50"
+                      className="inline-flex items-center justify-center gap-1 px-2 py-1.5 text-xs font-medium border border-line-2 rounded hover:bg-bg text-ink-muted disabled:opacity-50"
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
                     </button>

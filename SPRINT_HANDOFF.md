@@ -2,7 +2,64 @@
 
 > Document de reprise pour démarrer une nouvelle session de Claude code sur le projet sans recharger tout l'historique. À tenir à jour à chaque fin de sprint.
 >
-> **Dernière mise à jour : 2026-07-27 — Arbitrages Epic 7 tranchés et appliqués (autoconfirm ON, pilote ERAM self_signup, mailto conservé) + rétrospective Epic 7. Voir section 24. Epic 7 : sections 21-23.**
+> **Dernière mise à jour : 2026-08-09 — `migration_owk` (travaux OWK de Xavier) rebasée sur `beta/v5` + clarification des deux clones locaux. Voir section 26.**
+
+## 26. Session 2026-08-09 — Rebase `migration_owk` + clarification des clones
+
+### Contexte : un faux diagnostic causé par deux clones
+
+Le repo `Magritoff` est cloné **deux fois** en local, avec les mêmes noms de branches :
+
+| Clone | `beta/v5` au 2026-08-09 |
+|---|---|
+| `~/Documents/AGE/Projet formateur /Claude code/Magritoff-v4/` (**référence**) | `b93d741` — à jour, 2 commits non poussés |
+| `~/Library/.../CloudDocs/AGE/Claude/BMAD/Magrit/` (iCloud) | `2d8725d` — **12 jours de retard** |
+
+Un diagnostic de branche mené dans le clone iCloud **sans `git fetch` préalable** a conclu à tort que `migration_owk` était en avance sur `beta/v5`. Après fetch : `migration_owk` était **15 commits en retard**, sans la refonte UX dashboard, le module Parc machine, la Gestion commerciale ni les règles R1-R8. Le serveur de dev pointé servait donc du code périmé.
+
+**Règle qui en découle** (inscrite dans `CLAUDE.md`) : `git fetch origin --prune` **avant** toute comparaison de branches, et vérifier dans quel clone on se trouve.
+
+### `migration_owk` rebasée
+
+La branche porte les travaux **OWK Factory** de Xavier Péchoultres — **documentation et spécifications uniquement, aucun code applicatif** (seule modif hors doc : une fin de ligne dans `package.json`).
+
+Rebase effectuée dans le clone iCloud : 10 commits de doc rejoués sur `origin/beta/v5` (`2699c55`), **sans conflit**. HEAD = `ffd864c`. La branche est désormais **10 commits devant `beta/v5`, 0 derrière**.
+
+Deux éléments écartés au passage :
+- `93c4384` (`chore(b1)` bascule `claude-3-haiku-20240307` → `claude-haiku-4-5-20251001`) — **obsolète** : la chaîne n existe plus sur `beta/v5` et le fichier visé (`supabase/functions/server/index.tsx`) y est supprimé.
+- 3 commits de merge `main` → `beta/v5` antérieurs, absorbés par le rebase.
+
+Contenu apporté par la branche :
+
+| Livrable | Emplacement |
+|---|---|
+| PRD produit global (v0.2, **draft à valider par le PO**, périmètre observé arrêté au commit `177edb3` de `main`) | `prd/global-prd.md` |
+| PRD module Clariprint Data (+ version initiale) | `prd/clariprint-data-prd.md`, `prd/clariprint_data_prd_inital.md` |
+| Évaluation architecture + roadmap ; cible kernel/modules/services | `docs/ARCHITECTURE_ASSESSMENT_AND_ROADMAP.md`, `docs/ARCHITECTURE_KERNEL_MODULES_SERVICES.md` |
+| Specs kernel, plateforme (access, audit, entitlements, identity, tenant), module `clariprint-data` (16 capabilities, domain model, autorisation) | `docs/architecture/specifications/` |
+| Plan par jalons J0 → J8 + registre de décisions + glossaire | `docs/clariprint-data-plan/` |
+| Maquettes base44 (admin, printer, papier, carrier, roles) | `docs/maquette_base44/` |
+
+### État et reste à faire
+
+- **`migration_owk` rebasée est locale au clone iCloud.** `origin/migration_owk` porte encore l ancien historique — la publier demande un `git push --force-with-lease`, **non fait, en attente d arbitrage**.
+- Ref de sécurité conservée : `migration_owk_avant_rebase` (ancien HEAD `81fdbe4`), dans le clone iCloud.
+- **Non fait** : validation PO du PRD global ; recalage de son périmètre sur `beta/v5` (il décrit `main` au `177edb3`, donc sans Epic 7, refonte UX v2, Parc machine, Gestion commerciale) ; aucune implémentation des jalons Clariprint Data.
+- `beta/v5` du clone `Magritoff-v4` a toujours **2 commits non poussés** (`b93d741` bibliothèque machines, `28afcaa` handoff GesCom).
+
+## 25. Session 2026-08-08 — Refonte UX du tableau de bord (branche `feature/dashboard-refonte-ux`)
+
+**6 commits sur une branche dédiée** (règle Git RP#070826 : une branche par évolution, base `origin/beta/v5`). Détail complet : `_bmad-output/implementation-artifacts/story-refonte-ux-dashboard-2026-08-08.md`.
+
+1. Navigation rationalisée en 6 groupes (Atelier / Catalogue / Commercial / Production / Paramètres / Plateforme) ; Profil + Préférences fusionnés dans **Paramètres → Mon compte** (`/account`, anciennes routes redirigées) ; index dashboard → Devis ; entrée « Mockups Magrit » supprimée (hors PRD — le mockup engine E8.3 et l'upload custom par boutique restent).
+2. Éditeur de boutique : **« Catalogue de la boutique » à 3 onglets** (Sources / Produits / Visuels) remplace les 3 sections empilées.
+3. **Module Gestion commerciale** (`/commercial`) : règles de prix par gamme/produit × client/groupe + moteur `applyCommercialRules()`. ✅ **Migration appliquée sur B4 le 2026-08-08** (Management API, PAT trousseau) — 3 tables (`client_groups`, `client_group_members`, `client_price_rules`), RLS active, 2 policies chacune, vérifié par requête. Branchement dans devis/boutique = story V2.
+4. **Module Parc machine** (`/machines` + `/machines/wizard`) : wizard RP#070826 avec les DEUX parcours de l'arbitrage BK-15 (A déroulé complet / B types déclarés) et compteur de clics. V1 maquette fonctionnelle (bibliothèque mock, persistance locale).
+5. Charte v2 appliquée aux 20 écrans dashboard (tokens ink/paper/line/brand, plus aucun `gray-*`).
+
+**État** : build ✅ · vitest 750/750 ✅ · surfaces publiques 0 erreur console · **recette visuelle du dashboard à faire par Arnaud (auth)** · branche à merger sur `beta/v5` après GO.
+
+**Itération 2 (même jour, retours Arnaud — 9 points)** : lignes cochables du wizard converties en boutons explicites (bug clics papier/transport/qualification B) + compteur de clics isolé + purge des facettes entre types (bug détecté en recette automatisée) · **parcs multiples** : cartes → détail → dialogue de paramétrage par machine · nav v2 : **Atelier fusionné dans Gestion commerciale**, PIM + Gammes + Visuels Magrit dans **Catalogue** (galerie mockups **restaurée**, point 5) · PIM : bouton **Nouveau produit** en tête de page · règles **R1-R8 (Annexe A RP#070826)** implantées dans `docs/REGLES_ARCHITECTURE.md` + CLAUDE.md + vault Obsidian · recette automatisée des DEUX parcours wizard via route dev `/dev/machines-wizard` (hors build prod) : A = 19 clics, B = 14 clics sur parc comparable.
 
 ## 24. Session 2026-07-27 — Arbitrages Epic 7 appliqués + rétrospective
 
@@ -14,7 +71,16 @@
 
 **Rétrospective Epic 7** : `_bmad-output/implementation-artifacts/retrospective-epic-7-2026-07-27.md` — métriques (837 vitest, +114 ; 1 migration ; 1 edge ; a11y 0 violation), suivi des actions rétro E3, dette tracée (clavier-only TF humain, pari SEO client-side, chat pré-contextualisé, nettoyage PIM EN validé à planifier). **Point structurant** : l'indexation réelle attend un déploiement public de la SPA (B5 = localhost:5177) + rebasage des URLs sitemap sur le futur domaine.
 
-**Reste session** : remontée `beta/v5` → `main` (écart vérifié : 41 avance / 3 retard = merges antérieurs + chore B1) · déroulé des TF-S7.x « À jouer » via Claude in Chrome.
+**Remontée `beta/v5` → `main`** : faite et poussée (merge `177edb3`, écart post-merge 0 — main = Epic 7 + rétro).
+
+**Campagne TF-S7.x jouée via Claude in Chrome (27/07)** : 12/12 fiches déroulées contre le serveur B5 local + prod Supabase — **11 OK, 1 En cours** (TF-S7.11 : RPC/SQL 100 % vertes par API, reste le toggle BO « Accès des acheteurs » à jouer avec un compte admin — ~1 min Arnaud). Parcours 1 complet rejoué post-autoconfirm : compte au checkout → session immédiate → commande #11969F33 → nettoyé. Statuts + anomalies consignés dans la DB Notion 🧪.
+
+**Anomalies détectées (à trier — aucune bloquante pour la bêta)** :
+1. **Clariprint `no papers for "leaflet"`** : l'edge `clariprint-quote` reçoit `papers:["135g"]` (grammage brut, non mappé vers une référence papier Clariprint) → le prix des flyers tombe TOUJOURS en repli marché (gamme + overlay), et le bandeau affiche « Erreur réseau » alors que c'est une erreur de calcul. Cause racine côté payload configurateur.
+2. **Budget mock affiché partout** : « Centre de coût · Communication Groupe / Budget T4 · 8 420€/13 500€ » visible sous le header boutique et dans le drawer panier, y compris pour un visiteur ANONYME (S7.10 avait masqué la section budget du hub compte, mais pas le header/drawer). Contredit l'anti-mock S7.8.
+3. **« Demander un accès » clic mort** : balise `<a>` sans href quand `shop.contact_email` est vide (toutes les boutiques sauf ERAM désormais) → masquer le lien ou fallback.
+4. **Ligne panier ≠ format configuré** : configuré A4 sur la page gamme, la ligne panier affiche « A5 » (libellé du produit de base).
+5. Mineures : cartes produits liés « 0 € / 1000 ex. » (page gamme) ; vocabulaire brut `PELLIC_ACETATE_BRILLANT` dans l'éditorial PIM FR ; commande post-checkout en statut BROUILLON éditable (à confirmer produit) ; `/checkout` panier vide = état vide + CTA (pas de redirect auto).
 
 ## 23. Session 2026-07-26 (fin) — Sprint V2-C : compte & checkout (S7.10-S7.14) — EPIC 7 CLÔTURÉ
 

@@ -44,12 +44,12 @@ export function DashboardShops() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-1">Mes boutiques</h2>
-          <p className="text-sm text-gray-600">{shops.length} boutique(s).</p>
+          <h2 className="text-lg font-semibold text-ink mb-1">Mes boutiques</h2>
+          <p className="text-sm text-ink-muted">{shops.length} boutique(s).</p>
         </div>
         <button
           onClick={() => setModalOpen(true)}
-          className="flex items-center gap-2 px-3 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 text-sm font-medium"
+          className="flex items-center gap-2 px-3 py-2 bg-brand text-white rounded-lg hover:bg-brand/90 text-sm font-medium"
         >
           <Plus className="w-4 h-4" />
           Créer une boutique
@@ -57,9 +57,9 @@ export function DashboardShops() {
       </div>
 
       {loading ? (
-        <p className="text-sm text-gray-500">Chargement...</p>
+        <p className="text-sm text-ink-muted">Chargement...</p>
       ) : shops.length === 0 ? (
-        <div className="text-center py-12 text-gray-400">
+        <div className="text-center py-12 text-ink-mute-2">
           <Store className="w-12 h-12 mx-auto mb-2 opacity-50" />
           <p className="text-sm">Aucune boutique. Créez-en une pour démarrer.</p>
         </div>
@@ -68,27 +68,27 @@ export function DashboardShops() {
           {shops.map((shop) => {
             const url = publicUrl(shop.slug);
             return (
-              <div key={shop.id} className="border border-gray-200 rounded-xl bg-white p-4">
+              <div key={shop.id} className="border border-line rounded-xl bg-paper p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <Link
                         to={tp(`/dashboard/shops/${shop.id}`)}
-                        className="font-semibold text-gray-900 hover:underline"
+                        className="font-semibold text-ink hover:underline"
                       >
                         {shop.name}
                       </Link>
                       {!shop.active && (
-                        <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
+                        <span className="text-xs bg-bg text-ink-muted px-2 py-0.5 rounded-full">
                           Désactivée
                         </span>
                       )}
                     </div>
                     {shop.description && (
-                      <p className="text-sm text-gray-600 mb-2">{shop.description}</p>
+                      <p className="text-sm text-ink-muted mb-2">{shop.description}</p>
                     )}
                     <div className="flex items-center gap-2 mt-2">
-                      <code className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded flex-1 truncate">
+                      <code className="text-xs bg-bg text-ink-2 px-2 py-1 rounded flex-1 truncate">
                         {url}
                       </code>
                       <button
@@ -96,7 +96,7 @@ export function DashboardShops() {
                           navigator.clipboard.writeText(url);
                           alert('URL copiée');
                         }}
-                        className="p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded"
+                        className="p-1.5 text-ink-muted hover:text-ink hover:bg-bg rounded"
                         title="Copier l'URL"
                       >
                         <Copy className="w-4 h-4" />
@@ -105,7 +105,7 @@ export function DashboardShops() {
                         href={url}
                         target="_blank"
                         rel="noreferrer"
-                        className="p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded"
+                        className="p-1.5 text-ink-muted hover:text-ink hover:bg-bg rounded"
                         title="Ouvrir"
                       >
                         <ExternalLink className="w-4 h-4" />
@@ -116,7 +116,7 @@ export function DashboardShops() {
                     onClick={() => {
                       if (confirm(`Supprimer la boutique "${shop.name}" ?`)) deleteShop(shop.id);
                     }}
-                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                    className="p-2 text-ink-mute-2 hover:text-err-fg hover:bg-err-bg rounded"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -133,53 +133,53 @@ export function DashboardShops() {
           onClick={() => setModalOpen(false)}
         >
           <div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6"
+            className="bg-paper rounded-2xl shadow-2xl w-full max-w-lg p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold text-gray-900">Nouvelle boutique</h3>
-              <button onClick={() => setModalOpen(false)} className="p-1 hover:bg-gray-100 rounded">
+              <h3 className="text-xl font-bold text-ink">Nouvelle boutique</h3>
+              <button onClick={() => setModalOpen(false)} className="p-1 hover:bg-bg rounded">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={submit} className="space-y-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nom *</label>
+                <label className="block text-sm font-medium text-ink-2 mb-1">Nom *</label>
                 <input
                   type="text"
                   required
                   value={draft.name}
                   onChange={(e) => setDraft({ ...draft, name: e.target.value })}
                   placeholder="ex: Boutique Imprimerie Dupont"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-3 py-2 border border-line-2 rounded-lg"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <label className="block text-sm font-medium text-ink-2 mb-1">Description</label>
                 <textarea
                   value={draft.description}
                   onChange={(e) => setDraft({ ...draft, description: e.target.value })}
                   rows={2}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-3 py-2 border border-line-2 rounded-lg"
                 />
               </div>
               {error && (
-                <p className="text-sm text-red-600 bg-red-50 p-2 rounded">{error}</p>
+                <p className="text-sm text-err-fg bg-err-bg p-2 rounded">{error}</p>
               )}
 
               <div className="flex gap-2 pt-2">
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium"
+                  className="flex-1 px-4 py-2 border border-line-2 rounded-lg hover:bg-bg font-medium"
                 >
                   Annuler
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="flex-1 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 font-medium flex items-center justify-center gap-2"
+                  className="flex-1 px-4 py-2 bg-brand text-white rounded-lg hover:bg-brand/90 disabled:opacity-50 font-medium flex items-center justify-center gap-2"
                 >
                   {saving && <Loader2 className="w-4 h-4 animate-spin" />}
                   Créer la boutique

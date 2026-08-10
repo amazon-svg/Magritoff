@@ -2,7 +2,7 @@ import { Navigate, NavLink, Outlet, useLocation } from 'react-router';
 import {
   User, Settings, MessageSquare, FileText, ShoppingBag, Users,
   CreditCard, Package, Store, Shield, LayoutTemplate, Building, Layers, Workflow,
-  Image as ImageIcon, FileClock,
+  FileClock, BadgePercent, Factory, Image as ImageIcon,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlan } from '../../hooks/usePlan';
@@ -15,14 +15,19 @@ import { TEST_IDS } from '../../lib/testIds';
 // E7.7 — mapping label de NavLink -> data-testid pour les cas de test.
 // Couvre les liens cles des cahiers de tests P01 (sidebar nav).
 const NAV_LINK_TESTIDS: Record<string, string> = {
-  'Profil': TEST_IDS.nav.sidebarProfileLink,
+  // REFONTE-UX (2026-08-08) — le lien Profil devient Mon compte (Parametres),
+  // le testid historique est conserve pour les cahiers de tests P01.
+  'Mon compte': TEST_IDS.nav.sidebarProfileLink,
   'Utilisateurs': TEST_IDS.nav.sidebarUsersLink,
 };
 
 // E7.7 — mapping titre de groupe -> data-testid (groupes structurels Linear-like).
 const NAV_GROUP_TESTIDS: Record<string, string> = {
-  'Atelier': TEST_IDS.nav.sidebarAtelierLink,
-  'Config': TEST_IDS.nav.sidebarConfigLink,
+  // REFONTE-UX v2 (2026-08-08) — l Atelier a fusionne dans Gestion commerciale
+  // (point 6) et Config est devenu Parametres ; testids historiques conserves
+  // pour les cahiers de tests P01.
+  'Gestion commerciale': TEST_IDS.nav.sidebarAtelierLink,
+  'Paramètres': TEST_IDS.nav.sidebarConfigLink,
 };
 
 // Design source : .design-handoff/designs/04 - Admin dashboard.html
@@ -65,13 +70,19 @@ export function DashboardLayout() {
     show: boolean;
     sub?: boolean;
   };
+  // REFONTE-UX v2 (2026-08-08, retours Arnaud) — navigation en 4 groupes :
+  //   Gestion commerciale = toute l activite client, de bout en bout (point 6 :
+  //     les entrees de l ancien Atelier — devis, commandes, historique —
+  //     rejoignent la gestion commerciale) + prix & marges + boutiques + users
+  //   Catalogue   = referentiel produits (point 3 : le PIM vit ici) + gammes
+  //     + bibliotheques + galerie des visuels Magrit (point 5 : conservee)
+  //   Production  = parcs machine (RP#070826)
+  //   Parametres  = espace + sous-espaces + roles + plan + mon compte
   const GROUPS: Array<{ title: string; items: Item[] }> = [
     {
-      title: 'Atelier',
+      title: 'Gestion commerciale',
       items: [
-        { to: `${basePath}`, end: true, label: 'Profil', icon: User, show: true },
-        { to: `${basePath}/history`, label: 'Historique', icon: MessageSquare, show: true },
-        { to: `${basePath}/quotes`, label: 'Devis', icon: FileText, show: true },
+        { to: `${basePath}/quotes`, end: true, label: 'Devis', icon: FileText, show: true },
         {
           to: `${basePath}/quotes/pending`,
           label: 'Devis en attente',
@@ -87,61 +98,59 @@ export function DashboardLayout() {
           sub: true,
         },
         { to: `${basePath}/orders`, label: 'Commandes', icon: ShoppingBag, show: true },
-        { to: `${basePath}/users`, label: 'Utilisateurs', icon: Users, show: true },
-        { to: `${basePath}/shops`, label: 'Boutiques', icon: Store, show: canUse('shops') },
+        { to: `${basePath}/history`, label: 'Historique', icon: MessageSquare, show: true },
         {
-          to: `${basePath}/library`,
-          label: 'Bibliothèques',
-          icon: Package,
-          show: canUse('library'),
-          sub: true,
+          to: `${basePath}/commercial`,
+          label: 'Prix & marges',
+          icon: BadgePercent,
+          show: canManageMembers ?? false,
         },
+        { to: `${basePath}/shops`, label: 'Boutiques', icon: Store, show: canUse('shops') },
+        { to: `${basePath}/users`, label: 'Utilisateurs', icon: Users, show: true },
       ],
     },
     {
-      title: 'Équipe',
-      items: [
-        { to: `${basePath}/spaces`, label: 'Sous-espaces', icon: Building, show: canManageSpaces ?? false },
-      ],
-    },
-    {
-      title: 'Config',
-      items: [
-        { to: `${basePath}/settings`, label: "Paramètres de l'espace", icon: Settings, show: canManageMembers ?? false },
-        // S-ORDER-ROLES-3-UI T4 — page admin workflow et rôles de commande.
-        // Garde côté composant via useUserCapability('can_manage_roles').
-        // Visible si l'user est admin/owner ou superadmin (le composant
-        // redirige si capability absente, ce qui couvre le cas member sans
-        // capability — mais on filtre déjà côté nav pour ne pas exposer
-        // un lien menant à une redirection).
-        { to: `${basePath}/order-roles`, label: 'Workflow & rôles', icon: Workflow, show: canManageMembers ?? false },
-        { to: `${basePath}/plan`, label: 'Plan & abonnement', icon: CreditCard, show: true },
-        { to: `${basePath}/preferences`, label: 'Préférences', icon: Settings, show: true },
-      ],
-    },
-    {
-      title: 'Admin PIM',
+      title: 'Catalogue',
       items: [
         {
           to: `${basePath}/admin/pim`,
-          label: 'PIM global',
+          label: 'PIM — Produits',
           icon: Shield,
           show: isAdmin || isSuperAdmin,
         },
-        // P5-VISUELS (2026-06-15) — Référence visuelle 5 templates Magrit-brandés
+        { to: `${basePath}/gammes`, label: 'Gammes actives', icon: Layers, show: canManageMembers ?? false },
+        { to: `${basePath}/library`, label: 'Bibliothèques', icon: Package, show: canUse('library') },
         {
           to: `${basePath}/admin/mockups`,
-          label: 'Mockups Magrit',
+          label: 'Visuels Magrit',
           icon: ImageIcon,
           show: isAdmin || isSuperAdmin,
-        },
-        {
-          to: `${basePath}/gammes`,
-          label: 'Gammes actives',
-          icon: Layers,
-          show: canManageMembers ?? false,
           sub: true,
         },
+      ],
+    },
+    {
+      title: 'Production',
+      items: [
+        { to: `${basePath}/machines`, label: 'Parc machine', icon: Factory, show: canManageMembers ?? false },
+      ],
+    },
+    {
+      title: 'Paramètres',
+      items: [
+        { to: `${basePath}/settings`, label: "Paramètres de l'espace", icon: Settings, show: canManageMembers ?? false },
+        {
+          to: `${basePath}/spaces`,
+          label: 'Sous-espaces',
+          icon: Building,
+          show: canManageSpaces ?? false,
+          sub: true,
+        },
+        // S-ORDER-ROLES-3-UI T4 — garde via useUserCapability('can_manage_roles')
+        // cote composant ; on filtre aussi cote nav.
+        { to: `${basePath}/order-roles`, label: 'Workflow & rôles', icon: Workflow, show: canManageMembers ?? false },
+        { to: `${basePath}/plan`, label: 'Plan & abonnement', icon: CreditCard, show: true },
+        { to: `${basePath}/account`, label: 'Mon compte', icon: User, show: true },
       ],
     },
   ].map((g) => ({ ...g, items: g.items.filter((i) => i.show) }))
@@ -153,7 +162,7 @@ export function DashboardLayout() {
     .flatMap((g) => g.items)
     .find((i) => i.to === location.pathname)?.label
     ?? segs.slice(1).map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join(' / ')
-    ?? 'Profil';
+    ?? 'Atelier';
 
   const displayName =
     (user.user_metadata?.full_name as string | undefined)?.trim() ||
@@ -172,7 +181,12 @@ export function DashboardLayout() {
       {/* ── SIDEBAR 220px ──────────────────────────────────────────────── */}
       <aside
         data-testid={TEST_IDS.nav.sidebar}
-        className="border-r border-line bg-bg flex flex-col min-h-[calc(100vh-56px)] px-2.5 py-3"
+        // CORRECTIF 2026-08-08 (retour Arnaud : « le menu parc machine a
+        // disparu ») — la fusion Atelier → Gestion commerciale a allonge le
+        // premier groupe et les groupes du bas (Production, Parametres)
+        // passaient sous le pli sans possibilite de defiler. La colonne est
+        // desormais epinglee et defile independamment du contenu.
+        className="border-r border-line bg-bg flex flex-col sticky top-[56px] h-[calc(100vh-56px)] overflow-y-auto px-2.5 py-3"
       >
         {/* Brand header */}
         <div className="flex items-center gap-2 px-2.5 py-2 mb-2">

@@ -27,13 +27,9 @@ const PublicShop = lazy(() =>
   import("./components/shop/PublicShop").then((m) => ({ default: m.PublicShop })),
 );
 
-const DashboardProfile = lazy(() =>
-  import("./components/dashboard/DashboardProfile").then((m) => ({ default: m.DashboardProfile })),
-);
-const DashboardPreferences = lazy(() =>
-  import("./components/dashboard/DashboardPreferences").then((m) => ({
-    default: m.DashboardPreferences,
-  })),
+// REFONTE-UX (2026-08-08) — Mon compte fusionne Profil + Preferences (points 3-4).
+const DashboardAccount = lazy(() =>
+  import("./components/dashboard/DashboardAccount").then((m) => ({ default: m.DashboardAccount })),
 );
 const DashboardHistory = lazy(() =>
   import("./components/dashboard/DashboardHistory").then((m) => ({ default: m.DashboardHistory })),
@@ -93,6 +89,28 @@ const DashboardAdminMockups = lazy(() =>
     default: m.DashboardAdminMockups,
   })),
 );
+// REFONTE-UX (2026-08-08) — module Gestion commerciale (point 7).
+const DashboardCommercial = lazy(() =>
+  import("./components/dashboard/commercial/DashboardCommercial").then((m) => ({
+    default: m.DashboardCommercial,
+  })),
+);
+// REFONTE-UX (2026-08-08) — module Parc machine, wizard RP#070826 (point 8).
+const DashboardMachines = lazy(() =>
+  import("./components/dashboard/machines/DashboardMachines").then((m) => ({
+    default: m.DashboardMachines,
+  })),
+);
+const MachineParkWizard = lazy(() =>
+  import("./components/dashboard/machines/MachineParkWizard").then((m) => ({
+    default: m.MachineParkWizard,
+  })),
+);
+const MachineParkDetail = lazy(() =>
+  import("./components/dashboard/machines/MachineParkDetail").then((m) => ({
+    default: m.MachineParkDetail,
+  })),
+);
 const DashboardTenantSettings = lazy(() =>
   import("./components/dashboard/DashboardTenantSettings").then((m) => ({
     default: m.DashboardTenantSettings,
@@ -117,7 +135,7 @@ const OrderRoleAdminPage = lazy(() =>
 function RouteFallback() {
   return (
     <div className="flex h-full min-h-[200px] items-center justify-center p-8">
-      <div className="text-sm text-gray-500" aria-live="polite">
+      <div className="text-sm text-ink-muted" aria-live="polite">
         Chargement…
       </div>
     </div>
@@ -161,6 +179,13 @@ export const router = createBrowserRouter([
       // `/account/*` S7.10) résolues par parsePortalPath dans PublicShop.
       { path: "/shop/:slug/*", element: lazyRoute(<PublicShop />) },
 
+      // REFONTE-UX (2026-08-08) — route DEV seulement : rendre le wizard parc
+      // machine hors auth pour les tests automatises et les demos d arbitrage
+      // BK-15 (maquettes A/B). Exclue des builds de production.
+      ...(import.meta.env.DEV
+        ? [{ path: "/dev/machines-wizard", element: lazyRoute(<MachineParkWizard />) }]
+        : []),
+
       // Flux hors-tenant (auth, onboarding, picker, invitation)
       {
         path: "/",
@@ -186,9 +211,14 @@ export const router = createBrowserRouter([
             path: "dashboard",
             element: <DashboardLayout />,
             children: [
-              { index: true, element: lazyRoute(<DashboardProfile />) },
+              // REFONTE-UX (2026-08-08) — l entree du dashboard est l Atelier
+              // (Devis), plus le profil. Profil + Preferences vivent dans
+              // Parametres > Mon compte (/account).
+              { index: true, element: <Navigate to="quotes" replace /> },
+              { path: "account", element: lazyRoute(<DashboardAccount />) },
+              { path: "profile", element: <Navigate to="../account" replace /> },
+              { path: "preferences", element: <Navigate to="../account" replace /> },
               { path: "plan", element: lazyRoute(<DashboardPlan />) },
-              { path: "preferences", element: lazyRoute(<DashboardPreferences />) },
               { path: "history", element: lazyRoute(<DashboardHistory />) },
               { path: "quotes", element: lazyRoute(<DashboardQuotes />) },
               { path: "quotes/pending", element: lazyRoute(<DashboardQuotesPending />) },
@@ -207,9 +237,19 @@ export const router = createBrowserRouter([
               { path: "spaces", element: lazyRoute(<DashboardTenantSpaces />) },
               { path: "gammes", element: lazyRoute(<DashboardTenantGammes />) },
               { path: "admin/pim", element: lazyRoute(<DashboardAdminPIM />) },
-              // P5-VISUELS (2026-06-15) — Référence visuelle 5 templates Magrit-brandés
-              // Garde superadmin (isAdmin || isSuperAdmin) côté composant.
+              // REFONTE-UX v2 (2026-08-08, retour Arnaud point 5) — la galerie
+              // des mockups Magrit-brandes est CONSERVEE (visuels generes +
+              // verification du moteur E8.3), rangee dans le groupe Catalogue.
               { path: "admin/mockups", element: lazyRoute(<DashboardAdminMockups />) },
+              // REFONTE-UX (2026-08-08) — Gestion commerciale (point 7) :
+              // prix, marges et remises par gamme/produit x client/groupe.
+              { path: "commercial", element: lazyRoute(<DashboardCommercial />) },
+              // REFONTE-UX (2026-08-08) — Parc machine (point 8, RP#070826) :
+              // liste du parc + wizard guide de constitution.
+              { path: "machines", element: lazyRoute(<DashboardMachines />) },
+              { path: "machines/wizard", element: lazyRoute(<MachineParkWizard />) },
+              // Point 8 (retour Arnaud 2026-08-08) — detail d un parc.
+              { path: "machines/:parkId", element: lazyRoute(<MachineParkDetail />) },
               // S-ORDER-ROLES-3-UI T4 — page admin catalog rôles workflow.
               // Garde d'accès via capability `can_manage_roles` côté composant
               // (preset Owner / Admin depuis migration 2026-06-09).
