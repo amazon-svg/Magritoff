@@ -9,13 +9,9 @@ import { usePIM } from "../contexts/PIMContext";
 import { usePlan } from "../hooks/usePlan";
 import { useTenantPath } from "../hooks/useTenantPath";
 import { enrichProduct, resolveProductGamme } from "../utils/productEnrichment";
-import { ProductMockup } from "./brand/ProductMockup";
-import { MockupImage } from "./mockup/MockupImage";
-import {
-  resolveMockupTemplate,
-  resolveProductDimensions,
-} from "./shop/ShopProductCard.helpers";
 import { resolveProductImage } from "../utils/productImages";
+import { resolveShopFamily } from "../utils/shopFamilyIdentity";
+import { ProductVisualPlaceholder } from "./shop/ProductVisualPlaceholder";
 import { TEST_IDS } from "../lib/testIds";
 
 // R7 (refacto 2026-05-11) : lazy-load des 3 modales lourdes pour reduire le
@@ -294,31 +290,23 @@ export function ProductCard({
                   definitions,
                 });
                 if (imgError || !src) {
-                  // P8-ATELIER (2026-06-15) : on remplace le fallback statique
-                  // `ProductMockup` (SVG schematic local) par `MockupImage`
-                  // qui consomme l'edge function mockup-generator. Resultat :
-                  // les produits crees depuis Magrit Home (atelier deviseur)
-                  // affichent les MEMES mockups Magrit-brandes que les cards
-                  // boutique (carte de visite avec bandeau bleu + marguerite
-                  // + Magrit italic + tagline + ref productName).
+                  // REFACTO-VISUELS (2026-08-09) — le visuel est une propriete
+                  // de la gamme PIM. Tant qu'aucun visuel n'est cure pour la
+                  // gamme du produit (ou si l'image ne charge pas), on affiche
+                  // le repere de famille, pas le visuel d'une autre famille.
                   //
-                  // Sentinels 'atelier' pour tenantId/shopId : cache CDN se
-                  // construit sous atelier/atelier/{productId}.png (pattern
-                  // deja en place dans ProductOverlay vue detail atelier).
-                  const dims = resolveProductDimensions(localProduct as any);
-                  const template = resolveMockupTemplate(localProduct as any);
+                  // Remplace l'appel a l ancien `MockupImage` (edge function
+                  // mockup-generator, P8-ATELIER) : cette branche etait de fait
+                  // morte depuis P18 v2 — `resolveProductImage` retournait
+                  // toujours une URL — et le moteur SVG ne sert plus les
+                  // visuels reellement affiches.
+                  const family = resolveShopFamily(localProduct as any, gammes ?? []);
                   return (
-                    <MockupImage
-                      tenantId="atelier"
-                      shopId="atelier"
-                      productId={localProduct.id}
-                      width={dims.width}
-                      height={dims.height}
-                      productName={localProduct.name}
-                      primaryColor="#1e3a8a"
-                      template={template}
-                      alt={`Mockup ${localProduct.name}`}
-                      className="absolute inset-0 w-full h-full"
+                    <ProductVisualPlaceholder
+                      icon={family.icon}
+                      tone={family.tone}
+                      label={family.label}
+                      className="absolute inset-0"
                     />
                   );
                 }
@@ -717,6 +705,8 @@ export function ProductCard({
           R7 : lazy-loaded. */}
       <Suspense fallback={null}>
       <ProductOverlay
+        pimGammes={gammes}
+        pimDefinitions={definitions}
         product={
           overlayOpen
             ? ({

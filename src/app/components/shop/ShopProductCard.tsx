@@ -7,7 +7,7 @@
  * Differences vs ProductCard atelier :
  *  - Pas d'onglets Fiche/Prix/Mockup/Editer/Debug (atelier a 5 onglets +
  *    1000+ lignes — refactor sprint cleanup en attente).
- *  - Mockup paramatique brande via MockupImage (S4.3) + template auto via
+ *  - Visuel cure de la gamme PIM (REFACTO-VISUELS 2026-08-09) + famille via
  *    resolveMockupTemplate(product.config.kind) (S4.2 livre 5 templates).
  *  - Bouton "Configurer & ajouter" primary CTA (placeholder pour S2.4
  *    overlay Clariprint future).
@@ -49,10 +49,11 @@ const BADGE_TONE_STYLE: Record<BadgeTone, { background: string; color: string }>
   info: { background: "var(--info-bg)", color: "var(--info-fg)" },
   accent: { background: "var(--accent)", color: "var(--accent-ink)" },
 };
-// P18 v2 (2026-06-24) — Resolver unifie : image curée (produit / PIM) si
-// definie, sinon visuel produit pré-brandé Magrit de la famille. Meme logique
-// que la home + la fiche produit.
+// REFACTO-VISUELS (2026-08-09) — Resolver unifie : image du produit, sinon de
+// la definition PIM, sinon de la gamme et de ses ancetres. Retourne `null`
+// quand rien n'est cure : on affiche alors le repere de famille.
 import { resolveProductImage } from "../../utils/productImages";
+import { ProductVisualPlaceholder } from "./ProductVisualPlaceholder";
 
 export interface ShopProductCardProps {
   product: ShopProduct;
@@ -78,6 +79,8 @@ export interface ShopProductCardProps {
   className?: string;
   /** Gammes PIM disponibles pour resoudre la gamme du produit (S-FIX-2 : badge gamme.name au lieu de category brute LEAFLET). */
   pimGammes?: Gamme[];
+  /** Definitions PIM — portent l'image de la VARIATION (override du niveau gamme). */
+  pimDefinitions?: ProductDefinition[];
 }
 
 export function ShopProductCard({
@@ -91,6 +94,7 @@ export function ShopProductCard({
   onSelectedChange,
   className,
   pimGammes,
+  pimDefinitions,
 }: ShopProductCardProps) {
   const template = useMemo(() => resolveMockupTemplate(product), [product]);
   // Repère famille UNIFIÉ sur la gamme PIM (cohérent méga-menu / pilules).
@@ -106,8 +110,9 @@ export function ShopProductCard({
   );
   // S2.13 — Puces attributs PIM (max 3, data-driven) via les resolvers existants.
   const attrChips = useMemo(() => resolveProductChips(product), [product]);
-  // P18 v2 (2026-06-24) — Image curée (produit / PIM) si definie, sinon visuel
-  // produit pré-brandé Magrit de la famille (fallback universel boutique).
+  // REFACTO-VISUELS (2026-08-09) — visuel curé du produit / de la définition
+  // PIM / de la gamme (avec héritage parent). `null` = rien de curé → repère
+  // de famille au rendu, jamais le visuel d'une autre famille.
   const productImage = useMemo(
     () =>
       resolveProductImage({
@@ -121,13 +126,14 @@ export function ShopProductCard({
         category: product.category,
         gamme_slug: product.gamme_slug,
         gammes: pimGammes,
+        definitions: pimDefinitions,
       }),
-    [product, pimGammes],
+    [product, pimGammes, pimDefinitions],
   );
 
   // P4-VISUELS (2026-06-15) — Fetch custom mockup override per-shop x template.
-  // Si l'admin tenant a uploadé un mockup custom dans ShopVisualSettings, il
-  // remplace le SVG Magrit-brandé généré par l'edge function.
+  // Si l'admin tenant a téléversé un visuel pour cette boutique, il prime sur
+  // le visuel résolu depuis la gamme PIM.
   const [customMockupUrl, setCustomMockupUrl] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
@@ -201,22 +207,35 @@ export function ShopProductCard({
           />
         )}
 
-        {/* P18 v2 (2026-06-23) — Visuel produit pré-brandé Magrit servi en
-            asset statique (object-fit: contain). Si l'admin tenant a uploadé
-            un mockup custom via ShopVisualSettings, il prime (override). */}
+        {/* REFACTO-VISUELS (2026-08-09) — visuel curé de la gamme PIM
+            (object-fit: contain). Un mockup custom uploadé par la boutique
+            prime. Si aucun visuel n'est curé pour cette gamme, on affiche le
+            repère de famille plutôt qu'un visuel d'une autre famille. */}
         <div
           data-testid={TEST_IDS.mockup.productImage}
           data-custom-mockup={customMockupUrl ? "true" : undefined}
+          data-visual-source={
+            customMockupUrl ? "shop" : productImage ? "pim" : "placeholder"
+          }
           className="w-full h-full"
           style={{ position: "relative" }}
         >
-          <img
-            data-testid={TEST_IDS.mockup.productImageImg}
-            src={customMockupUrl || productImage}
-            alt={`Mockup ${product.name}`}
-            loading="lazy"
-            className="w-full h-full object-contain"
-          />
+          {customMockupUrl || productImage ? (
+            <img
+              data-testid={TEST_IDS.mockup.productImageImg}
+              src={customMockupUrl || productImage || undefined}
+              alt={`Mockup ${product.name}`}
+              loading="lazy"
+              className="w-full h-full object-contain"
+            />
+          ) : (
+            <ProductVisualPlaceholder
+              icon={family.icon}
+              tone={family.tone}
+              label={family.label}
+              hideLabel
+            />
+          )}
         </div>
 
         {/* S2.12 — Badges commerciaux calcules, coin haut-droit (zone d'attention

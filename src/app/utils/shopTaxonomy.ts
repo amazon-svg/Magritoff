@@ -22,6 +22,9 @@ import type { LucideIcon } from 'lucide-react';
 import type { ShopProduct } from '../contexts/ShopsContext';
 import type { Gamme } from './productEnrichment';
 import { resolveRootFamilyIdentity } from './shopFamilyIdentity';
+// REFACTO-VISUELS (2026-08-09) — le visuel d'une gamme s'herite le long de
+// l'arbre PIM : une sous-gamme sans visuel prend celui de sa famille.
+import { resolveGammeImage } from './productImages';
 import { resolveFormatLabel } from './catalogFacets';
 import {
   buildGammeTree,
@@ -102,6 +105,7 @@ function deriveFormatSubcats(
   rootSlug: string,
   children: Gamme[],
   familyProducts: ShopProduct[],
+  gammes: Gamme[],
 ): TaxonomyNode[] {
   const buckets = new Map<string, ShopProduct[]>();
   for (const p of familyProducts) {
@@ -130,7 +134,7 @@ function deriveFormatSubcats(
       label: child ? child.name : label,
       count: ps.length,
       featured,
-      imageUrl: child?.image_url ?? featured?.image_url ?? null,
+      imageUrl: resolveGammeImage(child?.slug ?? rootSlug, gammes) ?? featured?.image_url ?? null,
       gammeSlugs: [rootSlug],
       formatKey: label,
     });
@@ -158,7 +162,7 @@ export function buildShopTaxonomy(
           label: c.name,
           count: ps.length,
           featured,
-          imageUrl: c.image_url ?? featured?.image_url ?? null,
+          imageUrl: resolveGammeImage(c.slug, gammes) ?? featured?.image_url ?? null,
           gammeSlugs: [c.slug],
         };
       })
@@ -180,7 +184,7 @@ export function buildShopTaxonomy(
     const subcategories =
       childNodes.length > 0
         ? childNodes
-        : deriveFormatSubcats(root.slug, children, allProducts);
+        : deriveFormatSubcats(root.slug, children, allProducts, gammes);
 
     return {
       key: root.slug,
@@ -189,7 +193,7 @@ export function buildShopTaxonomy(
       label: root.name,
       count: allProducts.length,
       featured,
-      imageUrl: root.image_url ?? featured?.image_url ?? null,
+      imageUrl: resolveGammeImage(root.slug, gammes) ?? featured?.image_url ?? null,
       gammeSlugs: [root.slug, ...children.map((c) => c.slug)],
       subcategories,
     };

@@ -1,30 +1,28 @@
 /**
- * Visuels produits PRÉ-BRANDÉS Magrit (Gemini) — source unique.
+ * Familles « mockup » — resolution de la famille TECHNIQUE d'un produit.
  *
- * P18 v2 (2026-06-23/24) : 7 visuels Magrit pre-brandes (branding integre dans
- * l'image, perspective + lighting coherents), servis en assets statiques front
- * (JPG q85, object-contain). Memes 7 visuels vitrine pour tous les tenants
- * (cf. brief-gemini-v2-mockups-prebrandes).
+ * REFACTO-VISUELS (2026-08-09, arbitrage Arnaud) — CE MODULE NE RESOUT PLUS
+ * D'IMAGE. Le visuel d'un produit est desormais une propriete de sa GAMME dans
+ * le PIM (`utils/productImages` + `resolveGammeImage`), avec heritage le long
+ * de l'arbre des gammes. Le mapping « famille -> un des 7 visuels Gemini » a
+ * ete retire : il ne couvrait que 6 des 16 familles racines du PIM et
+ * retombait silencieusement sur « flyer » pour toutes les autres (calendrier,
+ * affiche, panneau, drapeau, adhesif, PLV, papeterie, restauration,
+ * banderole), ce qui affichait un visuel FAUX.
  *
- * Ce module est la SOURCE DE VERITE partagee :
- *  - ShopProductCard (catalogue) l'utilise via resolveProductImage curee->Gemini
- *  - utils/productImages (home + fiche produit) l'utilise en fallback universel
+ * Ce qui reste ici, et qui est toujours utilise :
+ *  - `resolveMockupTemplate` : famille technique en 7 valeurs, qui sert (a) de
+ *    cle aux mockups custom uploades par boutique (`shop_template_mockups`),
+ *    (b) de repli au repere de famille quand un produit ne matche aucune gamme
+ *    PIM (`productFamilyIdentity`).
  *
- * La resolution template (kind Clariprint + inference nom/categorie) vit ici ;
- * ShopProductCard.helpers la re-exporte pour retro-compat.
+ * Dette tracee : `shop_template_mockups` est encore clé sur ces 7 familles
+ * alors que le PIM en compte 16. A migrer sur la gamme (story suivante).
  */
 
-import imgCarteVisite from "@/assets/products/magrit-carte-visite.jpg";
-import imgFlyer from "@/assets/products/magrit-flyer.jpg";
-import imgBrochure from "@/assets/products/magrit-brochure.jpg";
-import imgDepliant from "@/assets/products/magrit-depliant.jpg";
-import imgEtiquette from "@/assets/products/magrit-etiquette.jpg";
-import imgKakemono from "@/assets/products/magrit-kakemono.jpg";
-import imgPackaging from "@/assets/products/magrit-packaging.jpg";
-
 /**
- * Familles de visuels supportees. Les `id` du manifest Gemini correspondent
- * exactement a ce type. Source de verite cote Deno : _shared/mockup/types.ts.
+ * Familles de visuels supportees. Source de verite cote Deno :
+ * _shared/mockup/types.ts.
  */
 export type MockupTemplate =
   | "flyer"
@@ -147,21 +145,3 @@ export function resolveMockupTemplate(product: MockupTemplateInput): MockupTempl
   return nameTemplate;
 }
 
-/** Mapping famille -> URL d'asset Gemini (Vite resout l'import en URL au build). */
-const TEMPLATE_TO_PRODUCT_IMAGE: Record<MockupTemplate, string> = {
-  carteVisite: imgCarteVisite,
-  flyer: imgFlyer,
-  brochure: imgBrochure,
-  depliant: imgDepliant,
-  etiquette: imgEtiquette,
-  kakemono: imgKakemono,
-  packaging: imgPackaging,
-};
-
-/**
- * Resout le visuel produit pre-brande Magrit pour un produit donne (toujours
- * une URL non vide : fallback `flyer` garanti par resolveMockupTemplate).
- */
-export function resolveProductMockupAsset(product: MockupTemplateInput): string {
-  return TEMPLATE_TO_PRODUCT_IMAGE[resolveMockupTemplate(product)];
-}

@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronDown, ChevronRight, Sparkles, Pencil, Trash2, Plus, Loader2, Check, X, AlertCircle, Zap, Download, Inbox, Play } from 'lucide-react';
+import { ChevronDown, ChevronRight, Sparkles, Pencil, Trash2, Plus, Loader2, Check, X, AlertCircle, Zap, Download, Inbox, Play, Image as ImageIcon } from 'lucide-react';
+// REFACTO-VISUELS (2026-08-09) — meme resolveur que la boutique : ce que
+// l'admin voit ici est exactement ce que l'acheteur verra.
+import { resolveGammeImage } from '../../utils/productImages';
 import { usePIM } from '../../contexts/PIMContext';
 import { useIsAdmin } from '../../hooks/useIsAdmin';
 import { useTenant } from '../../contexts/TenantContext';
@@ -91,6 +94,21 @@ export function DashboardAdminPIM() {
       map.get(key)!.push(g);
     }
     return map;
+  }, [gammes]);
+
+  // REFACTO-VISUELS (2026-08-09) — couverture reelle des visuels, heritage
+  // compris. Mesure ce qu'un acheteur verra vraiment, pas le nombre de lignes
+  // renseignees en base.
+  const visualCoverage = useMemo(() => {
+    const roots = gammes.filter((g) => !g.parent_slug);
+    const covered = roots.filter((g) => resolveGammeImage(g.slug, gammes) !== null);
+    return {
+      rootsTotal: roots.length,
+      rootsCovered: covered.length,
+      missingRoots: roots.filter((g) => resolveGammeImage(g.slug, gammes) === null),
+      gammesEffective: gammes.filter((g) => resolveGammeImage(g.slug, gammes) !== null)
+        .length,
+    };
   }, [gammes]);
 
   const defsByGamme = useMemo(() => {
@@ -302,9 +320,16 @@ export function DashboardAdminPIM() {
 
         {isExpanded && (
           <div className="pb-2" style={{ paddingLeft: `${depth * 16 + 28}px` }}>
-            {/* Image par défaut de la gamme (utilisee si une definition n'a
-                pas d'image_url propre). Input inline avec save onBlur. */}
-            <GammeImageInput gamme={g} onSave={(url) => upsertGamme({ ...g, image_url: url })} />
+            {/* REFACTO-VISUELS (2026-08-09) — visuel de la gamme, avec son
+                état propre / hérité / manquant. C'est ici, et nulle part
+                ailleurs, que se décide ce qu'affiche la boutique. */}
+            <GammeImageInput
+              gamme={g}
+              inheritedUrl={
+                g.parent_slug ? resolveGammeImage(g.parent_slug, gammes) : null
+              }
+              onSave={(url) => upsertGamme({ ...g, image_url: url })}
+            />
 
             {/* Definitions de cette gamme */}
             {defs.length > 0 && (
@@ -417,6 +442,51 @@ export function DashboardAdminPIM() {
             editeur que le "+" par gamme. */}
         <NewProductButton gammes={gammes} onPick={(g, loc) => startNew(g, loc)} />
       </div>
+
+      {/* ─── REFACTO-VISUELS (2026-08-09) — couverture des visuels ───────────
+          Le visuel est une propriété de la gamme : ce bandeau rend le manque
+          VISIBLE et actionnable. Avant, une gamme sans visuel empruntait
+          silencieusement celui d'une autre famille (un calendrier affichait un
+          flyer) — le trou ne se voyait nulle part. */}
+      {visualCoverage.rootsTotal > 0 && (
+        <div
+          className={`border rounded-xl p-4 ${
+            visualCoverage.missingRoots.length === 0
+              ? 'border-line bg-paper'
+              : 'border-amber-200 bg-warn-bg'
+          }`}
+        >
+          <div className="flex items-start gap-3">
+            <ImageIcon
+              className={`w-5 h-5 shrink-0 mt-0.5 ${
+                visualCoverage.missingRoots.length === 0 ? 'text-brand' : 'text-warn-fg'
+              }`}
+            />
+            <div className="min-w-0">
+              <h3 className="font-semibold text-ink text-sm">
+                Visuels — {visualCoverage.rootsCovered}/{visualCoverage.rootsTotal}{' '}
+                famille{visualCoverage.rootsTotal > 1 ? 's' : ''} couverte
+                {visualCoverage.rootsCovered > 1 ? 's' : ''}
+              </h3>
+              <p className="text-xs text-ink-muted mt-1 max-w-3xl">
+                Une gamme sans visuel hérite de celui de sa famille. Une famille
+                sans visuel affiche en boutique le repère de famille
+                (pictogramme + tonalité) — jamais le visuel d'une autre famille.{' '}
+                <strong className="text-ink">
+                  {visualCoverage.gammesEffective}/{gammes.length}
+                </strong>{' '}
+                gammes disposent d'un visuel une fois l'héritage appliqué.
+              </p>
+              {visualCoverage.missingRoots.length > 0 && (
+                <p className="text-xs text-warn-fg mt-2">
+                  <strong>Familles sans visuel</strong> (à produire) :{' '}
+                  {visualCoverage.missingRoots.map((g) => g.name).join(' · ')}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ─── Pipeline d'ingestion automatique ─── */}
       <div className="border border-line rounded-xl bg-paper p-4 space-y-3">
@@ -834,23 +904,62 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 
 // Input inline pour editer l'image par defaut d'une gamme.
 // Save onBlur pour ne pas trigger un upsert a chaque caractère.
+/**
+ * REFACTO-VISUELS (2026-08-09) — le visuel est une propriete de la gamme.
+ *
+ * L'input expose les TROIS etats possibles, sans lesquels l'admin ne sait pas
+ * ce qu'il regarde :
+ *  - propre    : cette gamme porte sa propre `image_url` ;
+ *  - herite    : elle n'en a pas, mais un ancetre en a une — c'est ce visuel
+ *                qui s'affichera en boutique ;
+ *  - manquant  : ni elle ni ses ancetres — la boutique affichera le repere de
+ *                famille (pictogramme + tonalite), pas un visuel d'emprunt.
+ */
 function GammeImageInput({
   gamme,
+  inheritedUrl,
   onSave,
 }: {
   gamme: Gamme;
+  /** Visuel herite d'un ancetre (null si aucun). */
+  inheritedUrl: string | null;
   onSave: (url: string) => void | Promise<any>;
 }) {
   const [val, setVal] = useState(gamme.image_url ?? '');
   const initial = gamme.image_url ?? '';
+  const own = val.trim() !== '';
+  const effective = own ? val : inheritedUrl;
+  const state: 'own' | 'inherited' | 'missing' = own
+    ? 'own'
+    : inheritedUrl
+    ? 'inherited'
+    : 'missing';
+  const STATE_META = {
+    own: { label: 'PROPRE', className: 'bg-brand-soft text-blue-800 border-line-2' },
+    inherited: { label: 'HÉRITÉ', className: 'bg-bg text-ink-muted border-line' },
+    missing: { label: 'MANQUANT', className: 'bg-warn-bg text-warn-fg border-amber-200' },
+  }[state];
+
   return (
     <div className="flex items-center gap-2 my-2 bg-paper border border-blue-100 rounded px-2 py-1.5">
       <label
         className="text-[10px] font-mono uppercase tracking-wider text-ink-muted shrink-0"
         style={{ letterSpacing: '0.08em' }}
       >
-        IMAGE GAMME
+        VISUEL
       </label>
+      <span
+        className={`shrink-0 px-1.5 py-0.5 rounded border text-[10px] font-medium ${STATE_META.className}`}
+        title={
+          state === 'own'
+            ? 'Visuel propre à cette gamme.'
+            : state === 'inherited'
+            ? "Hérité d'une gamme parente. Saisir une URL ici pour s'en écarter."
+            : 'Aucun visuel sur cette gamme ni sur ses parents : la boutique affiche le repère de famille.'
+        }
+      >
+        {STATE_META.label}
+      </span>
       <input
         type="url"
         value={val}
@@ -858,14 +967,20 @@ function GammeImageInput({
         onBlur={() => {
           if (val !== initial) onSave(val);
         }}
-        placeholder="URL d'image par défaut pour cette gamme…"
+        placeholder={
+          inheritedUrl
+            ? `Hérité : ${inheritedUrl} — saisir une URL pour s'en écarter…`
+            : "URL du visuel de cette gamme (ex. /visuels-produits/magrit-flyer.jpg)…"
+        }
         className="flex-1 min-w-0 bg-transparent border-0 focus:outline-none text-xs text-ink"
       />
-      {val && (
+      {effective && (
         <img
-          src={val}
+          src={effective}
           alt=""
-          className="h-8 w-8 object-cover rounded border border-line"
+          className={`h-8 w-8 object-contain rounded border border-line bg-bg ${
+            own ? '' : 'opacity-60'
+          }`}
           onError={(e) => {
             (e.target as HTMLImageElement).style.display = 'none';
           }}

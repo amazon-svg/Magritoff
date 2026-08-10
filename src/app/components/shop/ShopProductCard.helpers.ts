@@ -14,15 +14,11 @@
 
 import type { ShopProduct } from "../../contexts/ShopsContext";
 
-// P18 v2 (2026-06-24) — La resolution de famille (kind Clariprint + inference)
-// et le mapping vers les 7 visuels Gemini ont ete extraits dans
-// utils/productMockupAssets : source de verite unique, partagee entre la
-// boutique (catalogue) et utils/productImages (home + fiche produit). On
-// re-exporte ici pour ne pas casser les imports existants (ShopProductCard.tsx,
-// tests ShopProductCard.helpers).
+// REFACTO-VISUELS (2026-08-09) — seule la resolution de FAMILLE est re-exportee.
+// L'alias `resolveProductImage` a disparu avec le mapping famille -> visuel :
+// l'image se resout desormais par la gamme PIM (utils/productImages).
 export {
   resolveMockupTemplate,
-  resolveProductMockupAsset as resolveProductImage,
   type MockupTemplate,
 } from "../../utils/productMockupAssets";
 

@@ -6,7 +6,8 @@
  *  - 6 <select> HTML natifs : format, papier, finition recto, finition verso,
  *    impression (recto / recto-verso), dorure
  *  - Quantite : <input type="number"> avec min/max (50/100000)
- *  - Mini mockup MockupImage parametrique (S4.3 + S4.2 templates)
+ *  - Visuel cure de la gamme PIM (REFACTO-VISUELS 2026-08-09), override
+ *    televerse par la boutique prioritaire, repere de famille a defaut
  *  - Prix HT + TTC tabular-nums mono, recalcul en temps reel via
  *    httpAdapter.computePrice() (debounce 300ms, timeout 10s)
  *  - Gestion ClariprintError typee (S1.2) avec UI graceful (banner +
@@ -31,6 +32,9 @@ import {
 } from "../mockup/customMockup.helpers";
 import { resolveProductImage } from "../../utils/productImages";
 import { resolveMockupTemplate } from "./ShopProductCard.helpers";
+import { resolveShopFamily } from "../../utils/shopFamilyIdentity";
+import { ProductVisualPlaceholder } from "./ProductVisualPlaceholder";
+import type { Gamme, ProductDefinition } from "../../utils/productEnrichment";
 import {
   formatEuro,
   type ConfigOptions,
@@ -54,6 +58,9 @@ export interface ProductOverlayProps {
   onConfirm: (productConfigured: ShopProduct, qty: number) => void;
   /** Libelle du bouton primary. Default "Ajouter au panier" (boutique). Atelier passe "Mettre a jour". */
   confirmLabel?: string;
+  /** REFACTO-VISUELS (2026-08-09) — PIM pour resoudre le visuel par la gamme. */
+  pimGammes?: Gamme[];
+  pimDefinitions?: ProductDefinition[];
 }
 
 
@@ -63,6 +70,8 @@ export function ProductOverlay({
   onClose,
   onConfirm,
   confirmLabel = "Ajouter au panier",
+  pimGammes,
+  pimDefinitions,
 }: ProductOverlayProps) {
   const open = product !== null;
 
@@ -78,9 +87,8 @@ export function ProductOverlay({
     onClose();
   };
 
-  // P4-VISUELS — Custom mockup override per-shop x template (vue detail produit).
-  // Le template est déjà résolu plus bas dans mockupProps via resolveMockupTemplate(product).
-  // On le re-calcule ici pour le useEffect (pas de cyclic dep).
+  // P4-VISUELS — Override téléversé par la boutique (vue detail produit),
+  // clé sur la famille technique du produit. Prime sur le visuel de gamme.
   const overlayTemplate = useMemo(
     () => (product ? resolveMockupTemplate(product) : null),
     [product],
@@ -133,15 +141,16 @@ export function ProductOverlay({
 
             {/* Body scrollable */}
             <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-4">
-              {/* P18 v2 (2026-06-24) — Visuel produit pré-brandé Magrit servi en
-                  asset statique (object-contain), aligne sur le catalogue + la
-                  fiche produit. Override custom-mockup tenant prioritaire. */}
+              {/* REFACTO-VISUELS (2026-08-09) — visuel curé de la gamme PIM
+                  (object-contain), aligné sur le catalogue et la fiche produit.
+                  Override custom-mockup boutique prioritaire ; repère de
+                  famille si aucun visuel n'est curé. */}
               <div
                 className="aspect-[4/3] overflow-hidden rounded-lg"
                 style={{ background: "#F5F5F5" }}
               >
-                <img
-                  src={
+                {(() => {
+                  const curated =
                     customMockupUrl ||
                     resolveProductImage({
                       name: product.name,
@@ -151,12 +160,29 @@ export function ProductOverlay({
                         ?.kind as string | undefined,
                       clariprintData: product.config,
                       category: product.category,
-                    })
+                      gamme_slug: (product as { gamme_slug?: string | null }).gamme_slug,
+                      gammes: pimGammes,
+                      definitions: pimDefinitions,
+                    });
+                  if (curated) {
+                    return (
+                      <img
+                        src={curated}
+                        alt={`Mockup ${product.name}`}
+                        loading="lazy"
+                        className="w-full h-full object-contain"
+                      />
+                    );
                   }
-                  alt={`Mockup ${product.name}`}
-                  loading="lazy"
-                  className="w-full h-full object-contain"
-                />
+                  const family = resolveShopFamily(product, pimGammes ?? []);
+                  return (
+                    <ProductVisualPlaceholder
+                      icon={family.icon}
+                      tone={family.tone}
+                      label={family.label}
+                    />
+                  );
+                })()}
               </div>
 
               {/* Bloc options */}

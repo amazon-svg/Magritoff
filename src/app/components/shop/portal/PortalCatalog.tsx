@@ -754,7 +754,7 @@ export function PortalCatalog({
         </div>
       </div>
 
-      {/* Grille 4-col — S2.3 ShopProductCard avec MockupImage parametrique */}
+      {/* Grille 4-col — S2.3 ShopProductCard, visuel resolu par la gamme PIM */}
       <div data-testid={TEST_IDS.shop.productGrid} className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 px-12 py-8 bg-paper">
         {filtered.length === 0 ? (
           <div
@@ -792,6 +792,7 @@ export function PortalCatalog({
               product={p}
               shop={shop}
               pimGammes={pimGammes}
+              pimDefinitions={pimDefinitions}
               onCardClick={onSelectProduct}
               onAddToCart={onAddToCart}
               onConfigure={(prod) => setOverlayProduct(prod)}
@@ -968,6 +969,8 @@ export function PortalCatalog({
           <ProductOverlay
             product={overlayProduct}
             shop={shop}
+            pimGammes={pimGammes}
+            pimDefinitions={pimDefinitions}
             onClose={() => setOverlayProduct(null)}
             onConfirm={(productConfigured, qty) => {
               // S-FIX-PANIER-11/05 (bug #5) : `qty` retourne par l'overlay est la

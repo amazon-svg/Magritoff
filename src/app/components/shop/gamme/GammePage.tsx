@@ -307,6 +307,7 @@ export function GammePage({
                 product={p}
                 shop={shop}
                 pimGammes={pimGammes}
+                pimDefinitions={pimDefinitions}
                 onCardClick={onSelectProduct}
                 onConfigure={onSelectProduct}
                 onAddToCart={(prod, qty) => onAddToCart(prod, qty ?? 1)}

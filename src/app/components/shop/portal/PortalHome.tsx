@@ -104,10 +104,11 @@ export function PortalHome({
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {families.map((f) => {
-              // Correction 2026-07-27 (lesson) : SEULS les visuels produits
-              // VALIDÉS (mockups Magrit-brandés via resolveProductImage, même
-              // chemin que ShopProductCard) illustrent une gamme — le picto
-              // famille n'est qu'un ultime repli sans produit vedette.
+              // REFACTO-VISUELS (2026-08-09) : la tuile porte le visuel de la
+              // GAMME (`f.imageUrl`, héritage compris via resolveGammeImage),
+              // et à défaut celui d'un produit vedette de cette gamme — même
+              // chemin que ShopProductCard. Si rien n'est curé, GammeTile rend
+              // le repère de famille : jamais le visuel d'une autre famille.
               // NB : f.imageUrl peut valoir '' (image_url vide en prod) — test
               // de vacuité explicite, pas de ??.
               const mockupUrl =
@@ -159,6 +160,7 @@ export function PortalHome({
                 onAddToCart={onReorder}
                 onCardClick={onSelectProduct}
                 pimGammes={pimGammes}
+                pimDefinitions={pimDefinitions}
               />
             ))}
           </div>
