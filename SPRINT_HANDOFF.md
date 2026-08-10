@@ -2,7 +2,28 @@
 
 > Document de reprise pour démarrer une nouvelle session de Claude code sur le projet sans recharger tout l'historique. À tenir à jour à chaque fin de sprint.
 >
-> **Dernière mise à jour : 2026-08-09 — `migration_owk` (travaux OWK de Xavier) rebasée sur `beta/v5` + clarification des deux clones locaux. Voir section 26.**
+> **Dernière mise à jour : 2026-08-10 — remontée `beta/v5` → `main` poussée (merge `796f9c9`), convention Git partagée avec Expert Solutions, décision multi-devise.**
+
+---
+
+## ▶️ PROCHAIN CHANTIER — Tranche 1 de la refacto multi-devise
+
+**Point de reprise pour la prochaine session (prévue dans VS Code).**
+
+**À lire d'abord** : [docs/REFACTO_MULTI_DEVISE.md](docs/REFACTO_MULTI_DEVISE.md) — décision Arnaud du 2026-08-10, état des lieux mesuré, invariants, plan en 4 tranches.
+
+**Périmètre de la tranche 1 — « la devise existe et s'affiche »** (livrable seule, sans geler la production) :
+
+1. Colonne `currency char(3) not null default 'EUR'` sur `tenants` (migration Supabase, workflow : [docs/SUPABASE_MIGRATIONS_WORKFLOW.md](docs/SUPABASE_MIGRATIONS_WORKFLOW.md)) ; exposition via `TenantContext`.
+2. Helper **unique** `formatMoney(amount, currency, locale)` ; suppression de `formatEuro()` (`src/app/components/shop/ProductOverlay.helpers.ts:535`) et migration de ses **8 appelants**.
+3. Purge des littéraux `€` / `'EUR'` des écrans — **116 occurrences** recensées dans `src/` : la devise vient du tenant, jamais du composant.
+4. Sélecteur de devise dans **Paramètres de l'espace**.
+
+**Hors périmètre de la tranche 1** : bascule des montants en `Money` (tranches 2-3), taux de change (hors V1).
+
+**Décision à obtenir en parallèle côté Expert Solutions** : la **règle d'arrondi** (par ligne ou sur le total) — conséquence commerciale directe ; elle conditionne la tranche 3, pas la tranche 1.
+
+**Piège à traiter dans cette tranche** : les *prix de marché par défaut* (WM#040826) sont calibrés en euros — à marquer comme indicatifs dès que la devise du tenant n'est pas `EUR`, sinon ils sont faux.
 
 ## 26. Session 2026-08-09 — Rebase `migration_owk` + clarification des clones
 
