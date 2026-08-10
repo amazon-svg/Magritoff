@@ -51,6 +51,96 @@ Le repo `amazon-svg/Magritoff` est cloné **deux fois** en local. Les deux clone
 - **Toute interaction Clariprint** passe par `ClariprintAdapter` ([src/server/clariprint/](src/server/clariprint/)) + `validateClariprintResponse()`.
 - **Hiérarchie de prix** : `clariprint > library_cached > prix_marche > zero` via `resolvePrice()` ([src/app/utils/priceResolver.ts](src/app/utils/priceResolver.ts)).
 
+## Architecture opposable — projet Magrit
+
+Ces règles s appliquent à tous les modules développés dans le dépôt Magrit.
+
+Magrit est actuellement organisé comme un monolithe modulaire. Chaque module doit conserver des frontières suffisamment explicites pour permettre, à terme, son extraction éventuelle dans un dépôt ou un service indépendant. Cette extraction future ne doit pas être anticipée par des microservices prématurés.
+
+### API-first — bloquant
+
+Le frontend React ne communique jamais directement avec Supabase, Postgres ou un stockage pour tout nouveau développement.
+
+Toute nouvelle interaction passe par :
+
+1. un contrat d API typé et documenté ;
+2. un service applicatif ;
+3. un port ou repository ;
+4. un adaptateur d infrastructure.
+
+L API est définie avant l écran qui la consomme. Les accès directs existants sont une dette à migrer progressivement ; ils ne doivent pas être reproduits dans du code nouveau.
+
+### Modularité — bloquant
+
+Toute nouvelle fonctionnalité appartient à un module fonctionnel autonome. Un module possède son domaine, ses services applicatifs, ses ports, ses adaptateurs, ses contrats d API et ses tests.
+
+Un module ne dépend jamais de l implémentation interne d un autre module. Les échanges passent par les contrats publics ou par le kernel.
+
+### Kernel minimal
+
+Le kernel contient uniquement les primitives techniques communes : identifiants, contexte d acteur, résultats et erreurs, monnaie et unités, horloge, pagination et événements.
+
+Le kernel ne contient aucune règle métier Clariprint, boutique, commande, tarification commerciale ou Supabase. L import public du kernel passe exclusivement par `@/kernel` ; ses fichiers internes ne constituent pas une API publique.
+
+### Migration progressive de l existant
+
+Ne pas casser le fonctionnement existant pour imposer immédiatement la nouvelle architecture.
+
+Toute intervention sur du code historique doit :
+
+- éviter d ajouter une nouvelle dette ;
+- améliorer progressivement la séparation si le périmètre le permet ;
+- documenter les dérogations restantes et leur chemin de mise en conformité.
+
+Aucune dérogation architecturale n est admise pour un module entièrement neuf.
+
+### MCP — différé
+
+Ne pas implémenter de serveur ou vocabulaire MCP tant que les contrats API et les frontières modulaires ne sont pas stabilisés. Les API doivent néanmoins utiliser un vocabulaire métier explicite et orienté ressources afin de permettre une exposition MCP ultérieure.
+
+### Règle spécifique — Clariprint Data
+
+Clariprint Data gère exclusivement :
+
+- les données techniques du parc ;
+- les fournisseurs, sites et ressources ;
+- les coûts d achat nécessaires à la production ;
+- les coûts de production ;
+- les publications et projections destinées au solveur.
+
+Clariprint Data ne stocke et n applique jamais de marge, de majoration commerciale, de remise client, de prix de vente ou de politique tarifaire client. Ces notions appartiennent au module de gestion commerciale.
+
+Les remises fournisseurs peuvent être représentées uniquement lorsqu elles participent au calcul d un coût d achat.
+
+### Workflow Git
+
+Avant toute modification :
+
+1. exécuter `git status --short` ;
+2. identifier la branche courante avec `git branch --show-current` ;
+3. vérifier que les modifications présentes appartiennent bien à la tâche ;
+4. ne jamais écraser ou supprimer des changements locaux non identifiés.
+
+Règles :
+
+- aucun développement direct sur `main` ;
+- une branche par fonctionnalité ou évolution cohérente ;
+- nommage : `feat/<domaine>-<sujet>`, `fix/<domaine>-<sujet>` ou `docs/<domaine>-<sujet>` ;
+- les versions publiées utilisent des tags, pas des branches ;
+- ne pas changer de branche avec des modifications non sécurisées ;
+- demander confirmation avant tout push.
+
+### Sortie de tâche
+
+Le rapport de fin de tâche indique :
+
+1. les modules et fichiers touchés ;
+2. les API créées ou modifiées ;
+3. les migrations éventuelles ;
+4. les dérogations architecturales et leur chemin de mise en conformité ;
+5. les tests, le typecheck et le build exécutés ;
+6. les éléments restant à traiter.
+
 ## Identifiants techniques essentiels
 
 - **Projet Supabase** : `ightkxebexuzfjdbpsdg` (B4 + B5 partagés, RLS isole).
