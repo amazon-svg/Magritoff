@@ -40,11 +40,33 @@ redéploiement — ces fichiers ne sont que le point de départ.
 Les 65 sous-gammes **heritent** de leur famille (`resolveGammeImage`). Le taux
 de couverture reel est mesure et affiche en tete de l admin PIM.
 
-**Ecart de style connu, non bloquant** : les 6 visuels de juin sont des
-produits detoures sur fond quasi blanc ; les 10 d aout sont des scenes avec
-decor (mur beton, vitrine, table). Sur la meme grille, la difference se voit.
-A harmoniser si Arnaud le juge necessaire — en regenerant les 6 anciens au
-format scene, pas l inverse.
+## Serie unique « scene » (2026-08-10)
+
+Les 6 visuels de juin etaient des produits **detoures sur fond blanc**, les 10
+d aout des **scenes avec decor**. L ecart se voyait sur la grille. Les 6 ont
+donc ete regeneres au format scene : la collection est desormais homogene, tous
+les visuels en 1024x1024 sur fond beton.
+
+L ancienne serie de juin est conservee hors du dossier publie, dans
+`_bmad-output/Visuels produits/serie-juin-2026/`. **Ne pas la remettre dans
+`public/`** : tout ce qui vit ici est copie verbatim dans `dist/` et donc
+deploye.
+
+### ⚠️ Une exception : `magrit-kakemono.jpg`
+
+C est **le seul visuel encore au format detoure de juin** (346x631). Sa
+regeneration d aout a ete **ecartee** : elle montrait une banniere suspendue a
+une traverse sur un mat a socle rond — c est-a-dire une **oriflamme**, soit
+exactement l objet de la famille `drapeau`. Deux familles racines distinctes
+seraient devenues indiscernables sur la grille du catalogue.
+
+Le fichier ecarte est conserve pour reference dans
+`_bmad-output/Visuels produits/a-revoir/`.
+
+**Ce qu il faut pour le remplacer** : un roll-up, et le marqueur qui le rend
+non confondable est la **cassette enrouleur en aluminium** a la base, avec ses
+pieds, et le mat de soutien a l arriere. Pas de socle rond, pas de traverse
+haute. C est ce que montre l ancien visuel, qui reste donc juste.
 
 ## Sous-gammes
 
