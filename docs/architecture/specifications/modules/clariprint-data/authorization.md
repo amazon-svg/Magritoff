@@ -28,12 +28,9 @@
 | `clariprint_data.reference_material.manage` | Gérer les référentiels matière BU |
 | `clariprint_data.reference_transport.manage` | Gérer les référentiels transport BU |
 | `clariprint_data.validation_project.run` | Exécuter un cas de validation solveur |
-| `clariprint_data.client_profile.read` | Consulter les profils clients autorisés |
-| `clariprint_data.client_profile.manage` | Gérer les profils clients |
-| `clariprint_data.pricing_policy.manage` | Gérer les marges et remises datées |
 | `clariprint_data.calculation_contract.manage` | Gérer les contrats d'accès calcul et filtres |
 | `clariprint_data.api_key.manage` | Créer, tourner et révoquer les clés locales |
-| `clariprint_data.adjusted_projection.audit` | Consulter les preuves de génération |
+| `clariprint_data.solver_projection.audit` | Consulter les preuves de génération |
 
 ## Presets MVP proposés
 
@@ -110,7 +107,7 @@ Une politique plateforme peut exiger une authentification renforcée pour public
 
 ## Accès machine-to-machine
 
-Les clés API des contrats de calcul ne sont pas des capabilities utilisateur. Elles authentifient un contrat et un profil pour la génération d'une projection ajustée. La création et la révocation des clés exigent les capabilities d'administration ci-dessus, tandis que leur utilisation suit le contrat machine-to-machine, ses filtres, sa période et son rate limit.
+Les clés API des contrats de calcul ne sont pas des capabilities utilisateur. Elles authentifient un contrat pour la génération d'une projection solveur. La création et la révocation des clés exigent les capabilities d'administration ci-dessus, tandis que leur utilisation suit le contrat machine-to-machine, ses filtres, sa période et son rate limit.
 
 ## Cas de test obligatoires
 
