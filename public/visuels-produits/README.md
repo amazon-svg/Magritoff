@@ -12,30 +12,39 @@ URL hachée au build, donc invalide en base au build suivant.
 Chaque valeur est **modifiable gamme par gamme depuis l'admin PIM** sans
 redéploiement — ces fichiers ne sont que le point de départ.
 
-## Couverture au 2026-08-09 : 6 familles racines sur 16
+## Couverture au 2026-08-10 : 16 familles racines sur 16 ✅
 
-| Famille racine | Visuel | État |
+| Famille racine | Visuel | Marqueur qui rend la famille non confondable |
 |---|---|---|
-| `carterie` | `magrit-carte-visite.jpg` | ✅ |
-| `flyer` | `magrit-flyer.jpg` | ✅ |
-| `depliant` | `magrit-depliant.jpg` | ✅ |
-| `etiquette` | `magrit-etiquette.jpg` | ✅ |
-| `kakemono` | `magrit-kakemono.jpg` | ✅ |
-| `packaging` | `magrit-packaging.jpg` | ✅ |
-| `brochure` | — | ❌ **à produire** — l'ancien `magrit-brochure.jpg` montrait un dépliant plié ouvert à plat, pas un livret relié à dos carré. Il a été retiré plutôt que reconduit : un visuel faux est pire qu'une absence de visuel. |
-| `affiche` | — | ❌ à produire |
-| `banderole` | — | ❌ à produire |
-| `drapeau` | — | ❌ à produire |
-| `panneau` | — | ❌ à produire |
-| `adhesif` | — | ❌ à produire |
-| `plv` | — | ❌ à produire |
-| `papeterie` | — | ❌ à produire |
-| `calendrier` | — | ❌ à produire |
-| `restauration` | — | ❌ à produire |
+| `carterie` | `magrit-carte-visite.jpg` | pile de cartes, tranche visible |
+| `flyer` | `magrit-flyer.jpg` | feuille A5 a plat |
+| `depliant` | `magrit-depliant.jpg` | 3 volets, plis visibles |
+| `etiquette` | `magrit-etiquette.jpg` | planche, sticker decolle |
+| `kakemono` | `magrit-kakemono.jpg` | enrouleur, base alu |
+| `packaging` | `magrit-packaging.jpg` | boite kraft, rabats releves |
+| `brochure` | `magrit-brochure.jpg` | **dos carre colle + bloc de pages** |
+| `affiche` | `magrit-affiche.jpg` | **grand format + indice d echelle** (tabourets, rouleau) |
+| `banderole` | `magrit-banderole.jpg` | **oeillets metalliques + ourlets** |
+| `drapeau` | `magrit-drapeau.jpg` | **voile goutte d eau + mat + pied leste** |
+| `panneau` | `magrit-panneau.jpg` | **tranche du Dibond** (ame visible) |
+| `adhesif` | `magrit-adhesif.jpg` | **pose sur verre + raclette** |
+| `plv` | `magrit-plv.jpg` | **presentoir carton, cannelures apparentes** |
+| `papeterie` | `magrit-papeterie.jpg` | **suite coordonnee** (en-tete, enveloppe, chemise, bloc) |
+| `calendrier` | `magrit-calendrier.jpg` | **spirale + grille de dates** |
+| `restauration` | `magrit-restauration.jpg` | **menu + set de table** sur table de bistrot |
 
-Les gammes sans visuel affichent le **repère de famille** (pictogramme +
-tonalité, `ProductVisualPlaceholder`). Le taux de couverture réel est mesuré et
-affiché en tête de l'admin PIM.
+> Le visuel `brochure` du 2026-06 a ete **remplace**, pas restaure : l ancien
+> montrait un depliant plie ouvert a plat. C est ce defaut qui a declenche
+> toute la refonte.
+
+Les 65 sous-gammes **heritent** de leur famille (`resolveGammeImage`). Le taux
+de couverture reel est mesure et affiche en tete de l admin PIM.
+
+**Ecart de style connu, non bloquant** : les 6 visuels de juin sont des
+produits detoures sur fond quasi blanc ; les 10 d aout sont des scenes avec
+decor (mur beton, vitrine, table). Sur la meme grille, la difference se voit.
+A harmoniser si Arnaud le juge necessaire — en regenerant les 6 anciens au
+format scene, pas l inverse.
 
 ## Sous-gammes
 
