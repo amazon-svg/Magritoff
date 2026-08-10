@@ -79,7 +79,7 @@ language:
 | Domaine FR | Décisions archi v1.1 requises |
 |---|---|
 | **D4 — Order entity** (FR18-24) | Nouvelles tables `orders`, `order_items`, `order_status_events` + RLS policies + tests vitest. Schéma extensible vers e-invoicing PA/PPF (NFR16) |
-| **D5 — Mockup engine** (FR25-27) | Module de génération SVG/Canvas server-side, bucket Supabase Storage `product_mockups/{tenant}/{shop_id}/{product_id}.png`, cache CDN. 5 templates MVP, 15 templates Growth |
+| **D5 — Visuels produits** (FR25-27) | **RÉVISÉ REFACTO-VISUELS (2026-08-09)** — le visuel est une **propriété de la gamme** (`product_gammes.image_url`), résolu par héritage le long de l'arbre PIM (`resolveGammeImage`), curé depuis l'admin PIM ; repère de famille à défaut. Le moteur SVG server-side (`mockup-generator` + bucket `product_mockups/`) **ne sert plus les visuels affichés** — orphelin, décision de suppression à prendre. Les mockups uploadés par boutique (`shop_template_mockups`) restent prioritaires. |
 | **D5 — Connecteurs design** (FR28-29) | Canva quick-win (OAuth + API design import/export). Affinity conditionnel (à investiguer côté Claude Cowork) |
 | **D6 — Boutique storefront** (FR30-35) | Refonte route `/shop/:slug` : layout 3 colonnes, dark mode, theming par boutique. Multi-sélection, comparateur, actions groupées |
 | **D7 — Quotas tier** (FR36-38) | Compteurs devis et boutiques + middleware d'application. Extension `featureFlags.ts` pour gating par tier |
@@ -297,7 +297,16 @@ CREATE POLICY order_status_events_select ON order_status_events FOR SELECT USING
 
 **Tests vitest associés (calqués sur E9.10) :** `tests/rls/orders_isolation.test.ts` — 6 cas minimum (cross-tenant SELECT, cross-tenant INSERT, cross-shop SELECT, cancel sans permission, superadmin bypass, RPC `update_order_status` respecte ACL).
 
-### 4.3 Mockup Engine Architecture
+### 4.3 Mockup Engine Architecture ⚠️ SUPERSÉDÉ — voir §4.3-bis
+
+> **REFACTO-VISUELS (2026-08-09, arbitrage Arnaud).** Cette section décrit le
+> moteur SVG paramétrique tel que conçu en Epic 4. **Il ne sert plus les
+> visuels affichés** : depuis P18 v2 (2026-06-24) la boutique servait des
+> visuels statiques, et depuis le 2026-08-09 elle sert le visuel de la gamme
+> PIM. Section conservée comme trace de décision — l'implémentation
+> (`supabase/functions/mockup-generator/`, 7 templates Deno, bucket
+> `product_mockups/`) est **orpheline** et sa suppression reste à arbitrer.
+> **L'architecture en vigueur est le §4.3-bis.**
 
 **Composants :**
 
@@ -326,6 +335,59 @@ CREATE POLICY order_status_events_select ON order_status_events FOR SELECT USING
 - **Invalidation explicite** : un endpoint admin `POST /api/mockup/invalidate?shop=Y` permet à l'admin tenant de forcer le re-render quand il change le branding (changement couleur primaire, logo). Pas de TTL automatique.
 - **Templates SVG paramétriques** : un template = un fichier `templates/mockup-{kind}.svg.tsx` qui prend `(product, shopTheming) → SVG string`. Pas de moteur templating lourd, juste du JSX/string templating.
 - **Fallback** : si Clariprint en panne / payload invalide, l'API mockup retourne un picto générique (404 ou 200 avec image par défaut) avec un header `X-Mockup-Fallback: true` pour observabilité.
+
+### 4.3-bis Visuels produits — le visuel est une propriété de la gamme (2026-08-09)
+
+**Décision (arbitrage Arnaud, REFACTO-VISUELS).** Le visuel n'est pas généré
+par produit : il est **curé au niveau de la gamme dans le PIM** et hérité le
+long de l'arbre des gammes.
+
+**Ce qui a motivé le renversement.** Le PIM Exaprint (2026-07-10) a porté le
+catalogue à **81 gammes / 16 familles racines** pendant que la taxonomie
+visuelle restait à **7 familles** (`productMockupAssets`). Le résolveur
+d'image, faute de visuel, devinait une famille par mots-clés dans le **nom** du
+produit puis retombait sur `"flyer"` — silencieusement. Résultat constaté en
+production : un calendrier affichait une feuille plate, une brochure un
+dépliant. **Deux taxonomies de visuels divergent mécaniquement** dès que le
+catalogue bouge : il ne doit y en avoir qu'une, celle des gammes.
+
+**Chaîne de résolution (source : `src/app/utils/productImages.ts`)**
+
+```
+product.image_url
+  → ProductDefinition.image_url        (variation PIM)
+  → Gamme.image_url                    (gamme résolue)
+  → Gamme.image_url des ANCÊTRES       (remontée parent_slug, garde anti-cycle)
+  → null                               → repère de famille au rendu
+```
+
+En boutique, un mockup uploadé pour la boutique (`shop_template_mockups`) prime
+sur toute la chaîne.
+
+**Invariants**
+
+- **Le nom d'un produit n'influence jamais son visuel.** L'inférence par
+  mots-clés est supprimée du chemin d'image. Test de non-régression :
+  `tests/utils/gammeVisual.test.ts`.
+- **Pas de visuel plutôt qu'un visuel faux.** À défaut de visuel curé, on rend
+  `ProductVisualPlaceholder` (pictogramme + tonalité de famille), jamais le
+  visuel d'une autre famille.
+- **Un seul résolveur pour tous les points d'affichage** — carte produit,
+  overlay, tuile de gamme, méga-menu, admin PIM. Ce que l'admin voit dans le
+  PIM est exactement ce que l'acheteur verra.
+- **La couverture est mesurée, pas supposée.** L'admin PIM affiche le nombre de
+  familles couvertes (héritage compris) et nomme celles qui manquent.
+
+**Ce qui reste de la famille « mockup » (7 valeurs).** `resolveMockupTemplate`
+subsiste pour deux usages sans rapport avec l'image PIM : la clé des mockups
+uploadés par boutique, et le repli du repère de famille pour un produit hors
+gamme. **Dette tracée** : `shop_template_mockups` est encore clé sur 7 familles
+alors que le PIM en compte 16 — à migrer sur la gamme.
+
+**Valeurs par défaut.** Migration `20260809000100_gamme_visuals.sql`, 6 familles
+racines sur 16, URLs publiques stables (`public/visuels-produits/`). Idempotente :
+n'écrase que les valeurs vides, donc ne perd jamais une curation admin. Les 10
+autres familles sont **volontairement sans visuel** en attendant production.
 
 ### 4.4 ClariprintAdapter Pattern (NFR22)
 
@@ -442,14 +504,14 @@ export const featureFlags = {
 - **Aucune donnée tenant sensible** n'est stockée dans `product_definitions`. La confidentialité du parc imprimeur Pro (paramètres machines, marges, fournisseurs) est confinée à **Clariprint**, pas au PIM (cf. §4.4 ClariprintAdapter Pattern).
 - Les fiches sont **mutualisées par nature** : un acheteur B2B d'un imprimeur A bénéficie des enrichissements LLM générés par les commandes des clients de l'imprimeur B (le PIM grandit avec l'usage agrégé, à l'avantage de tous les tenants).
 - Le **filtrage par boutique** passe par 2 couches déjà en place :
-  1. `tenant_gamme_subscriptions` (chaque tenant choisit les gammes qu'il expose à ses acheteurs)
-  2. `shops.library_ids` / `shops.excluded_product_ids` (granularité produit par boutique)
+  1. ~~`tenant_gamme_subscriptions`~~ — **retirée le 2026-08-09 (REFACTO-VISUELS)**. Cette couche faisait doublon avec `shops.pim_gamme_slugs` et ne filtrait en réalité que le MENU de la boutique, pas les produits vendus : un menu pouvait promettre une gamme vide, ou taire une gamme vendue. Le menu dérive désormais du catalogue réel de la boutique.
+  2. `shops.library_ids` / `shops.excluded_product_ids` / `shops.pim_gamme_slugs` (granularité produit par boutique) — **seule** couche de filtrage. Chaîne canonique : PIM → bibliothèque → boutique.
 
 **Conséquence NFR6 (cross-tenant isolation)** : NFR6 reste respecté car aucune donnée sensible tenant ne fuite via le PIM partagé. Les overrides tenant-privés (ex: produit signature avec naming propriétaire) doivent passer par une **table séparée** (`tenant_pim_overrides`, hors scope v1.1) plutôt qu'une refonte de la RLS publique.
 
 **Pattern à respecter** :
 - ✅ `public.product_definitions` : `select` policy publique.
-- ✅ `public.tenant_gamme_subscriptions` : RLS par tenant (déjà en place via `user_role_in_tenant`).
+- ⚠️ `public.tenant_gamme_subscriptions` : **table orpheline depuis le 2026-08-09** — plus aucune lecture ni écriture applicative. Conservée en base (aucun `drop` sans arbitrage) ; sa RLS reste en place tant qu'elle existe.
 - ❌ Ne JAMAIS proposer de scoper `product_definitions` par tenant sans ouvrir une nouvelle ADR (changement structurel majeur).
 
 **Mémoire BMAD** : `~/.claude/projects/-Users-arnaudmazon-Documents-Claude-BMAD-Magrit/memory/project_pim_rls_shared_catalog.md`.

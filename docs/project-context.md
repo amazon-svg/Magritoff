@@ -57,7 +57,9 @@
 ### 3.3 Multi-tenancy
 
 - Architecture multi-tenants stricte dès le départ (US-NEW-04 P0).
-- Chaque tenant = espace isolé. Tables tenant-scoped : `tenants`, `tenant_members`, `tenant_invitations`, `tenant_member_events`, `tenant_slug_history`, `tenant_gamme_subscriptions`, `tenant_orders` (S1.4), `tenant_order_items`, `tenant_order_status_events`, `shops`, `llm_usage_events`.
+- Chaque tenant = espace isolé. Tables tenant-scoped : `tenants`, `tenant_members`, `tenant_invitations`, `tenant_member_events`, `tenant_slug_history`, `tenant_orders` (S1.4), `tenant_order_items`, `tenant_order_status_events`, `shops`, `llm_usage_events`.
+- ⚠️ `tenant_gamme_subscriptions` est **orpheline depuis le 2026-08-09** (REFACTO-VISUELS) : plus aucune lecture ni écriture applicative. Elle existe encore en base — ne pas la recâbler. Le périmètre vendu se compose **PIM → bibliothèque → boutique**.
+- Création d'un espace : wizard **une seule étape** (identité + SIREN). L'étape « Quelles gammes utilisez-vous ? » (E9.6) a été retirée le 2026-08-09 avec la table qu'elle alimentait.
 - Routes tenant : `/t/:slug/dashboard`, `/t/:slug/atelier`, `/t/:slug/dashboard/users`.
 - Boutique publique tenant : `/shop/:slug` (a pivoté vers portail B2B corporate).
 - Création tenant : `/tenants/new` (wizard avec validation SIREN INSEE + email pro).
@@ -98,6 +100,33 @@ Constatées en prod, doivent être filtrées défensivement par `validateClaripr
 3. **Produits légalement requis manquants** dans les réponses catalogue.
 
 Toute interaction avec Clariprint passe par le pattern `ClariprintAdapter` (S1.2) — pas de `fetch` direct depuis les composants ou endpoints.
+
+### 3.7 Visuels produits — propriété de la gamme (décision 2026-08-09, structurant)
+
+**Le visuel d'un produit est une propriété de sa GAMME dans le PIM.** Jamais une
+inférence sur son nom, sa catégorie ou son `kind` Clariprint.
+
+- **Chaîne canonique** (`resolveProductImage`, `src/app/utils/productImages.ts`) :
+  `product.image_url > ProductDefinition.image_url > Gamme.image_url > image_url des ancêtres (parent_slug) > null`.
+  En boutique, un mockup uploadé pour la boutique (`shop_template_mockups`) prime sur tout.
+- **Héritage** : une sous-gamme sans visuel prend celui de sa famille (`resolveGammeImage`, garde anti-cycle).
+- **`null` est un résultat valide** : le composant affiche alors `ProductVisualPlaceholder`
+  (pictogramme + tonalité de famille), **jamais le visuel d'une autre famille**.
+- **Curation** : `/dashboard/admin/pim` — état propre / hérité / manquant par gamme,
+  et bandeau de couverture nommant les familles sans visuel.
+- **Valeurs par défaut** : migration `20260809000100_gamme_visuals.sql`, URLs publiques
+  stables sous `public/visuels-produits/`. 6 familles racines couvertes sur 16.
+
+**Pourquoi c'est structurant.** Avant cette décision, une taxonomie de 7 « familles
+de visuels » coexistait avec les 16 familles de gammes du PIM ; les familles non
+couvertes recevaient silencieusement le visuel « flyer ». Un calendrier affichait
+une feuille plate, une brochure un dépliant. **Deux taxonomies de visuels divergent
+mécaniquement dès que le catalogue bouge — il ne doit y en avoir qu'une, celle des
+gammes.** Ne jamais réintroduire de résolution d'image par mots-clés sur le nom du
+produit. Test de non-régression : `tests/utils/gammeVisual.test.ts`.
+
+**Orphelin à arbitrer** : le moteur SVG `supabase/functions/mockup-generator/`
+(7 templates Deno + bucket `product_mockups/`) ne sert plus aucun visuel affiché.
 
 ## 4. Convention `data-testid` (E7.7 livré)
 

@@ -29,7 +29,7 @@ classification:
     - E9.13   # Refonte PortalShop B2B premium
     - E4.1    # Panier depuis devis
     - E4.2-lite  # Order entity (sans workflow/paiement)
-    - E8.3    # Visualisation 2D / mockup engine
+    - E8.3    # Visualisation 2D / mockup engine — REVISE 2026-08-09 (REFACTO-VISUELS) : visuel = propriete de la gamme PIM, cf. FR25-FR27
     - new:GroupedActions
     - new:PIM-Canva-Affinity
     - hotfix:FicheRegression-B4
@@ -214,7 +214,7 @@ _Document **finalisé** via la skill `bmad-create-prd` (steps 1 → 12 ✅). Sta
 - Catalogue par gammes dépliables et persistantes (l'ajout n'écrase pas la sélection précédente).
 - Overlay ProductCard de configuration produit (style « édition en panneau ») avec options Clariprint en `<select>` (jamais de saisie libre).
 - **Module Commandes simplifié — Order entity** : matérialisation persistée de la commande + accès lecture + bouton « Renouveler ». Pas de workflow validation / paiement / expédition (reportés V2+).
-- Mockup engine paramétrique (E8.3) : ~15 templates SVG/Canvas alimentés par les specs Clariprint, artwork procédural cohérent par boutique, cache Supabase Storage.
+- ~~Mockup engine paramétrique (E8.3) : ~15 templates SVG/Canvas alimentés par les specs Clariprint, artwork procédural cohérent par boutique, cache Supabase Storage.~~ **Révisé REFACTO-VISUELS (2026-08-09)** : le visuel est une propriété de la gamme dans le PIM (FR25-FR27), pas une génération par produit. Le moteur SVG et son cache `product_mockups/` ne servent plus les visuels affichés.
 - Multi-sélection, comparateur produits côte-à-côte, actions groupées (téléchargement fiches, devis groupé).
 - **Quick-win Canva** : ajout connecteur Canva (envoi gabarits Clariprint → Canva, récupération design) — opportunité signalée par Arnaud, pas dans le backlog Notion initial mais alignée avec la stratégie « pas de design studio natif, intégration Canva dès le Pro » (CONTEXT §6.3).
 - **Connecteur Affinity — conditionnel** : à inclure si l'investigation Claude Cowork démontre une capacité de pilotage Affinity utilisable. Sinon reporté.
@@ -650,7 +650,7 @@ L'enjeu B2B distinctif : **isolation tenant stricte avec RLS testé** (E9.10 liv
 | `tenant_invitations` | Invitations email + tokens (Resend) | ✅ |
 | `tenant_member_events` | Audit trail des actions sur memberships | ✅ |
 | `tenant_slug_history` | Archivage rename slug (redirect 90j, E9.4) | ✅ |
-| `tenant_gamme_subscriptions` | Souscription gammes (E9.6) | ✅ |
+| `tenant_gamme_subscriptions` | ~~Souscription gammes (E9.6)~~ — **ORPHELINE depuis REFACTO-VISUELS (2026-08-09)** : plus aucune lecture ni écriture applicative. Le périmètre vendu se compose PIM → bibliothèque → boutique. Table conservée en base (aucun `drop` sans arbitrage), à supprimer par migration dédiée. | ⚠️ |
 | `llm_usage_events` | Tracking consommation LLM par tenant (E7.1) | ✅ |
 | `shops` (tenant-scoped) | Boutiques par tenant | ✅ |
 
@@ -823,7 +823,7 @@ L'enjeu B2B distinctif : **isolation tenant stricte avec RLS testé** (E9.10 liv
 - Catalogue par gammes dépliables et persistantes
 - Overlay ProductCard avec options Clariprint en `<select>` (fonction de base, tous tiers)
 - Order entity persistée + bouton Renouveler + statut `draft`
-- Mockup engine paramétrique MVP (5 templates : flyer, carte de visite, brochure, étiquette, kakémono) + bucket Supabase Storage `product_mockups/`
+- ~~Mockup engine paramétrique MVP (5 templates) + bucket Supabase Storage `product_mockups/`~~ — **remplacé le 2026-08-09** par : visuel curé au niveau de la gamme PIM, hérité le long de l'arbre des gammes, repère de famille à défaut (FR25-FR27).
 - E-NEW-LLM-01 P0 parallèle — migration GPT-4o → Haiku 4.5
 - Couverture cahiers de tests TF Notion + testid stables (DoD globale)
 
@@ -912,9 +912,22 @@ Conformément à la règle BMAD step 8 : **aucune story explicitement validée p
 
 ### Domaine 5 — Visuels et workflow design
 
-- **FR25** Le système génère un mockup paramétrique pour chaque produit, alimenté par les specs Clariprint et le theming de la boutique cliente.
-- **FR26** Le système met en cache le mockup dans Supabase Storage (`product_mockups/{tenant}/{shop_id}/{product_id}.png`) et le sert via CDN.
-- **FR27** Le mockup engine couvre 5 templates en MVP (flyer, carte de visite, brochure, étiquette, kakémono) et 15 templates en Growth (couverture 100 % Clariprint).
+> **REFACTO-VISUELS (2026-08-09, arbitrage Arnaud) — FR25 à FR27 remplacées.**
+> Le mockup engine paramétrique (E8.3) partait du principe qu'un visuel se
+> *génère* depuis les specs d'un produit. La mise en production a montré
+> l'inverse : c'est la **gamme** qui porte le visuel, et une taxonomie de
+> visuels distincte de l'arbre des gammes diverge mécaniquement. Le PIM Exaprint
+> (2026-07-10) a porté le catalogue à 16 familles racines alors que la
+> taxonomie visuelle en comptait 7 : les 10 familles non couvertes recevaient
+> silencieusement le visuel « flyer » (un calendrier affichait une feuille
+> plate, une brochure un dépliant). Le principe est renversé : **le visuel est
+> une propriété de la gamme dans le PIM**, et l'absence de visuel est assumée
+> et rendue visible plutôt que masquée par un emprunt.
+
+- **FR25** Le visuel d'un produit est une **propriété de sa gamme dans le PIM** (`product_gammes.image_url`), curable par un admin Magrit, jamais déduite du nom ou de la catégorie du produit.
+- **FR26** Le visuel se résout par ordre de spécificité décroissante : image du produit → image de la définition PIM (variation) → image de la gamme → image héritée des gammes ancêtres (`parent_slug`). Une sous-gamme sans visuel affiche celui de sa famille.
+- **FR27** Quand aucun visuel n'est curé pour un produit ni pour sa gamme, le système affiche le **repère de famille** (pictogramme + tonalité constante inter-tenant) et **jamais le visuel d'une autre famille**. Le taux de couverture réel, héritage compris, est mesuré et affiché en tête de l'admin PIM.
+- **FR27-bis** Une boutique peut surcharger le visuel par un mockup uploadé (`shop_template_mockups`), qui prime sur la résolution PIM.
 - **FR28** Un utilisateur peut envoyer un gabarit Clariprint vers Canva pour design et récupérer le résultat dans Magrit (connecteur Canva, dès Découverte).
 - **FR29** Un utilisateur peut envoyer un gabarit vers Affinity (connecteur conditionnel à l'investigation Claude Cowork, dès Découverte si livré).
 
@@ -964,7 +977,7 @@ Conformément à la règle BMAD step 8 : **aucune story explicitement validée p
 - **FR-ECOM-01** Chaque produit expose un repère visuel de famille (couleur + pictogramme) dérivé du PIM, cohérent sur card, fiche, panier et historique. (S2.11)
 - **FR-ECOM-02** Le système affiche des badges d état commercial (`Nouveau` / `Meilleure vente` / `Éco` / `Express 24h`) **calculés** depuis les données (récence, volume, délai Clariprint, tag éco), jamais saisis à la main. (S2.12)
 - **FR-ECOM-03** La ProductCard expose jusqu à 3 puces d attributs clés normalisés par famille, issues du PIM, comparables entre produits d une même famille. (S2.13)
-- **FR-ECOM-04** Le visuel produit utilise un mockup-signature normalisé par famille (extension P18 v2), avec fallback générique par famille tant que le mockup n existe pas. (S2.14)
+- **FR-ECOM-04** Le visuel produit est celui de sa **gamme PIM**, hérité le long de l arbre des gammes (cf. FR25-FR27). Tant qu aucun visuel n est curé pour la famille, le repère de famille (pictogramme + tonalité) tient lieu de visuel — **jamais** le visuel d une autre famille. (S2.14, révisé REFACTO-VISUELS 2026-08-09)
 
 **Home utile (S2.15-S2.17)**
 - **FR-ECOM-05** La home affiche un bloc « Nouveautés » listant les derniers produits intégrés à la boutique, tri dérivé de la date d ajout. (S2.15)
@@ -972,7 +985,7 @@ Conformément à la règle BMAD step 8 : **aucune story explicitement validée p
 - **FR-ECOM-07** La home affiche des « best-sellers de votre secteur » inférés de l historique de commandes multi-tenant anonymisé, avec fallback best-sellers globaux boutique. (S2.17)
 
 **Navigation et découverte (S2.18-S2.21)**
-- **FR-ECOM-08** La navigation propose un méga-menu 2 niveaux (familles + sous-catégories) auto-illustré par les mockups-signature, dérivé des données. (S2.18)
+- **FR-ECOM-08** La navigation propose un méga-menu 2 niveaux (familles + sous-catégories) auto-illustré par les **visuels de gamme du PIM** (héritage compris), dérivé des données. (S2.18, révisé REFACTO-VISUELS 2026-08-09)
 - **FR-ECOM-09** Les pages catalogue exposent un fil d Ariane et des filtres à facettes **légers** (famille, usage, délai, gamme de prix) générés depuis le PIM, sans variantes techniques fines. (S2.19)
 - **FR-ECOM-10** Cliquer une famille ouvre une landing catégorie éditorialisée (intro, sous-catégories en tuiles, best-sellers, grille), jamais une grille brute ni une page vide. (S2.20)
 - **FR-ECOM-11** La boutique fournit une recherche produits avec autocomplétion, et un fallback « Demander à Magrit » (chat pré-rempli) quand aucun résultat. (S2.21)

@@ -2,7 +2,61 @@
 
 > Document de reprise pour démarrer une nouvelle session de Claude code sur le projet sans recharger tout l'historique. À tenir à jour à chaque fin de sprint.
 >
-> **Dernière mise à jour : 2026-08-08 — Refonte UX dashboard (8 points Arnaud) sur branche `feature/dashboard-refonte-ux`, NON mergée, NON poussée. Voir section 25.**
+> **Dernière mise à jour : 2026-08-09 — REFACTO-VISUELS : suppression de « Visuels Magrit » et « Gammes actives », le visuel devient une propriété de la gamme dans le PIM. Voir section 26.**
+
+## 26. Session 2026-08-09 — REFACTO-VISUELS (arbitrage Arnaud, 3 chantiers)
+
+**Point de départ** : Arnaud constate que le visuel d'une brochure est un flyer et
+celui d'un calendrier une affiche, et demande la suppression de deux entrées de
+menu du Catalogue. Diagnostic : **9 familles racines sur 16 affichaient un visuel
+faux ou par défaut.**
+
+### Chantier 1 — « Visuels Magrit » supprimé
+Galerie en lecture seule (`DashboardAdminMockups`) qui prévisualisait le moteur
+SVG — moteur qui ne servait plus les visuels affichés depuis P18 v2 (24/06). Page,
+route et entrée de nav supprimées ; `/dashboard/admin/mockups` redirige vers le PIM.
+**L'upload de visuels par boutique (`ShopCustomMockups`, onglet Visuels de
+l'éditeur de boutique) est conservé** — c'est une autre fonction, et elle marche.
+
+### Chantier 2 — « Gammes actives » supprimé
+`tenant_gamme_subscriptions` ne décidait **pas** des produits vendus (ça, c'est
+`shops.library_ids` + `pim_catalog_mode` + `pim_gamme_slugs`) : elle ne filtrait
+que le MENU de la boutique, en doublon avec la sélection par boutique. Retirée du
+chemin applicatif — `PublicShop` (le menu dérive maintenant du catalogue réel),
+`shop-sitemap` (gammes racines), `TenantContext.createTenant`. **L'étape 2 du
+wizard de création d'espace** (« Quelles gammes utilisez-vous ? ») est supprimée :
+elle n'alimentait que cette table. Wizard à une seule étape.
+⚠️ **Table conservée en base** — aucun `drop` sans arbitrage. Migration de
+suppression à écrire quand Arnaud tranche.
+
+### Chantier 3 — le visuel est une propriété de la gamme
+- `productImages.ts` réécrit : `produit > définition PIM > gamme > ancêtres > null`,
+  avec `resolveGammeImage` (héritage `parent_slug`, garde anti-cycle).
+- **Inférence par mots-clés supprimée** du chemin d'image (`resolveProductMockupAsset`
+  et le mapping vers les 7 JPG). C'était elle qui envoyait un calendrier sur « flyer ».
+- `ProductVisualPlaceholder` : repère de famille (picto + tonalité) quand rien n'est
+  curé. Câblé sur carte boutique, carte atelier, overlay produit.
+- Migration `20260809000100_gamme_visuals.sql` : seed de 6 familles racines,
+  idempotente (n'écrase que le vide). Assets déplacés vers `public/visuels-produits/`
+  (URL stable exigée par un `image_url` en base).
+- Admin PIM : état **propre / hérité / manquant** par gamme + bandeau de couverture
+  nommant les familles à produire.
+- `tests/utils/gammeVisual.test.ts` (12 tests) remplace `productMockupSignatureFallback`
+  qui verrouillait la garantie inverse (« toujours une URL »).
+
+**⚠️ Migration à jouer par Arnaud** : `20260809000100_gamme_visuals.sql`.
+Sans elle, aucune gamme n'a de visuel → toutes les cartes affichent le repère de
+famille (dégradé visuel, pas de casse).
+
+**Visuels à produire (10 familles racines)** : brochure (l'ancien asset montrait un
+dépliant, il a été retiré), affiche, banderole, drapeau, panneau, adhésif, PLV,
+papeterie, calendrier, restauration.
+
+**Dettes tracées** : moteur SVG `mockup-generator` + bucket `product_mockups/`
+orphelins (suppression à arbitrer) · `shop_template_mockups` encore clé sur 7
+familles au lieu des 16 gammes racines.
+
+**Recette** : build ✅ · vitest **847/847** ✅.
 
 ## 25. Session 2026-08-08 — Refonte UX du tableau de bord (branche `feature/dashboard-refonte-ux`)
 
