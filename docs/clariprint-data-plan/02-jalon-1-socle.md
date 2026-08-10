@@ -9,6 +9,12 @@
 
 Créer un module Clariprint Data exécutable, isolé du frontend et de Supabase par des contrats, avec une première décision d'accès tenant-scoped.
 
+## Avancement technique
+
+Le premier incrément du kernel est implémenté dans [`src/kernel`](../../src/kernel/index.ts). Il fournit identifiants opaques, contextes utilisateur et système, résultats et erreurs, horloge injectable, monnaie, quantités, pagination et événements. Ses tests unitaires et son premier garde de dépendances sont opérationnels.
+
+Avant de considérer le socle terminé, il reste à ajouter un véritable type-check TypeScript, à définir les contrats publics des services plateforme et à brancher une première tranche verticale Clariprint Data.
+
 ## Périmètre
 
 - kernel technique minimal ;

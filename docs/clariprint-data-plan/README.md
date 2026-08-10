@@ -13,7 +13,7 @@ Clariprint Data est développé comme un module autonome. Il utilise un kernel t
 
 ## Résultat MVP attendu
 
-Un utilisateur pilote doit pouvoir décrire un parc industriel réel, qualifier ses montants source, publier un instantané immuable, définir des profils clients et produire pour le solveur un JSON complet dont Clariprint Data a déjà ajusté les tarifs.
+Un utilisateur pilote doit pouvoir décrire un parc industriel réel, qualifier ses coûts de production, publier un instantané immuable et produire pour le solveur un JSON complet sans marge, majoration, remise ni prix de vente.
 
 ## Jalons
 
@@ -26,7 +26,7 @@ Un utilisateur pilote doit pouvoir décrire un parc industriel réel, qualifier 
 | J4 | [Aptitudes et paramètres économiques](./05-jalon-4-aptitudes-economie.md) | Flux pilote descriptible et contrôlable | J3 |
 | J5 | [Validation et publication](./06-jalon-5-publication.md) | Publication immuable et versionnée | J4 |
 | J6 | [Bacs à sable et comparaison](./07-jalon-6-sandbox.md) | Expérimentation isolée de la production | J5 |
-| J7 | [Import, profils clients et accès solveur](./08-jalon-7-import-export.md) | Parc importé et projection ajustée acceptée par le solveur | J5, J6 |
+| J7 | [Import et accès solveur](./08-jalon-7-import-export.md) | Parc importé et projection de coûts acceptée par le solveur | J5, J6 |
 | J8 | [Sécurisation et pilote](./09-jalon-8-pilote.md) | MVP validé sur un cas réel | J0 à J7 |
 
 ## Règles de passage

@@ -6,7 +6,7 @@
 
 Sérialiser une publication ou un sandbox autorisé selon un contrat versionné, puis la livrer à la destination correspondante de manière observable et idempotente.
 
-Cette capacité couvre les exports bruts d'administration et de test. Pour une demande de calcul client, [`calculation-access-contracts`](./calculation-access-contracts.md) génère d'abord le dataset complet aux tarifs ajustés, puis utilise le transport solveur. Le solveur ne reçoit pas la politique à appliquer.
+Cette capacité couvre les exports bruts d'administration et de test. Pour une demande de calcul, [`calculation-access-contracts`](./calculation-access-contracts.md) génère d'abord le dataset complet de données techniques et de coûts de production, puis utilise le transport solveur. Aucun ajustement commercial n'est appliqué ou transmis.
 
 ## Port solveur
 

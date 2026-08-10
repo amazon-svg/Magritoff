@@ -133,13 +133,13 @@ Une valeur possède une sémantique d'absence explicite : `known`, `unknown`, `n
 
 Les catalogues matière et transport mutualisés sont versionnés indépendamment des environnements. Une publication doit soit embarquer les entrées utilisées, soit conserver une référence vers une version immuable garantissant sa reproductibilité.
 
-## Profils clients et accès calcul
+## Accès calcul
 
-Le pool publié contient les montants source de l'imprimeur, qualifiés comme coûts de production ou tarifs commerciaux. `ClientProfile` porte des versions de `PricingPolicy` effectives dans le temps. Une politique contient une règle globale et des exceptions par machine.
+Le pool publié contient exclusivement les données techniques et les coûts de production de l'imprimeur. Les profils clients commerciaux et leurs politiques tarifaires appartiennent au module de gestion commerciale.
 
-`CalculationAccessContract` relie le profil à un pool, à un sélecteur de publication et à des filtres de ressources. Il peut être authentifié par plusieurs clés locales ou par un binding externe vers la référence publiée du profil.
+`CalculationAccessContract` relie un consommateur technique à un pool, à un sélecteur de publication et à des filtres de ressources. Il peut être authentifié par plusieurs clés locales ou par un binding externe vers la référence publiée du contrat.
 
-`AdjustedDatasetProjection` est construit par Clariprint Data. Il contient le JSON solveur complet après filtrage et ajustement, ainsi que toutes les références de versions nécessaires à sa reproduction. Le solveur ne reçoit pas la responsabilité d'appliquer la politique client.
+`SolverDatasetProjection` est construit par Clariprint Data. Il contient le JSON solveur complet après filtrage, sans ajustement commercial, ainsi que toutes les références de versions nécessaires à sa reproduction.
 
 ## Dataset de travail
 
@@ -186,6 +186,5 @@ Un sandbox dérive d'une publication et évolue dans un environnement isolé. Il
 8. Nature de `ProductionEnvironment` et correspondance BU/tenant.
 9. Schéma et priorité des barèmes.
 10. Copie ou référence des catalogues BU dans les publications.
-11. Granularité de la nature coût de production / tarif commercial.
-12. Formules et priorité des règles tarifaires client.
+11. Granularité des catégories de coûts de production.
 13. Protocole de résolution externe des profils.

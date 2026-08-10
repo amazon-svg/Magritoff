@@ -80,18 +80,18 @@ Le modèle courant conserve l'immuabilité et sépare le statut de publication d
 Le PRD initial calcule lui-même prix de revient, gâches, overhead, énergie, marges et prix de vente. Le PRD courant fixe une autre frontière :
 
 - Clariprint Data structure, versionne et publie les paramètres et montants source ;
-- Clariprint Data possède les profils clients et applique leurs politiques datées pour produire un JSON complet aux tarifs ajustés ;
+- Clariprint Data produit un JSON complet de données techniques et de coûts de production, sans politique commerciale ;
 - le solveur officiel consomme ce JSON et calcule les solutions de production ;
 - Clariprint Data peut afficher un résultat solveur et préparer des cas de validation ;
 - aucune formule historique de résolution de production ne devient une seconde implémentation du solveur.
 
 Les formules du PRD initial deviennent des **cas de référence candidats** pour clarifier le contrat solveur, pas du code à copier.
 
-### Profils, marges et projets
+### Marges, remises, profils commerciaux et projets
 
-Les profils clients, politiques datées de marge ou remise, contrats d'accès et clés API appartiennent désormais au cœur de Clariprint Data. Ils servent à générer la projection ajustée avant l'appel du solveur.
+Les profils clients commerciaux, politiques datées de marge ou remise et prix de vente sont hors de Clariprint Data. Ils appartiennent au module de gestion commerciale. Clariprint Data conserve seulement les contrats techniques d'accès, leurs filtres de ressources et leurs clés API, afin de générer une projection de données de production sans ajustement commercial.
 
-`ProjectEnvironment` et la gestion générale des projets restent séparés. Clariprint Data ne devient pas pour autant le moteur d'optimisation : il prépare les tarifs applicables au profil, puis le solveur calcule le scénario.
+`ProjectEnvironment` et la gestion générale des projets restent séparés. Clariprint Data ne devient pas pour autant le moteur d'optimisation : il prépare les données techniques et les coûts de production autorisés, puis le solveur calcule le scénario.
 
 ### Modèle RBAC autonome
 
@@ -139,13 +139,13 @@ Chaque paramètre doit être relié à un champ du contrat solveur ou à une rè
 ## Décisions supplémentaires requises
 
 1. Les coûts de main-d'œuvre, frais généraux et énergie sont-ils des entrées officielles du solveur ?
-2. Quelles formules distinguent marge sur coût, majoration et remise, et sur quelle nature de montant sont-elles autorisées ?
+2. Quelles catégories de coûts de production le solveur attend-il, avec quelles unités et règles d'arrondi ?
 3. Comment ordonner les barèmes lorsqu'ils se chevauchent : priorité explicite, spécificité ou refus de publication ?
 4. Le 2FA est-il requis pour publication, données financières et grants externes ?
 5. BU et environnements possèdent-ils une devise/unité propre, avec quelle règle d'héritage ?
 6. Quels champs d'audit avant/après peuvent contenir des données financières ou personnelles ?
 7. Les associations BU-fournisseur avec priorité et défaut sont-elles requises au MVP ?
-8. Comment un système d'accès externe authentifié associe-t-il ses credentials aux profils publiés ?
+8. Comment un système d'accès externe authentifié associe-t-il ses credentials aux contrats publiés ?
 
 ## Conclusion
 

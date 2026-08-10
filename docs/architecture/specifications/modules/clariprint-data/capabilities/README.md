@@ -18,7 +18,7 @@ Chaque fiche spécifie une capacité interne au module Clariprint Data. Une capa
 12. [Imports](./imports.md)
 13. [Exports solveur](./solver-exports.md)
 14. [Projets de validation](./validation-projects.md)
-15. [Profils clients et contrats d'accès calcul](./calculation-access-contracts.md)
+15. [Contrats d'accès calcul](./calculation-access-contracts.md)
 
 ## Contrat commun
 

@@ -30,31 +30,23 @@
 
 | Terme | Définition candidate | Synonymes historiques | Point à confirmer |
 |---|---|---|---|
-| Paramètre économique | Valeur monétaire datée associée à un inducteur de coût | Coût, tarif | Frontière avec marge/prix |
+| Paramètre économique | Valeur monétaire datée associée à un inducteur de coût de production | Coût | Catégories et unités attendues par le solveur |
 | Barème | Règle versionnée associant conditions d'application, performance, coûts et gâche pour un poste | Catalogue de prix, tarif machine | Schéma et priorité officiels |
 | Condition d'application | Prédicat contrôlé déterminant si un barème est applicable | DSL, filtre | Cumul et recouvrements |
 | Cas unitaire de barème | Entrées de référence et résultat attendu permettant de vérifier le comportement du barème | Test unitaire machine | Solveur ou validateur officiel |
 | Gâche | Quantité fixe ou proportionnelle consommée sans devenir produit livré | Gâche de calage, de roule, globale | Règles de cumul |
 
-## Pool, profils clients et accès calcul
+## Pool et accès calcul
 
 | Terme | Définition candidate | Synonymes historiques | Point à confirmer |
 |---|---|---|---|
 | Pool de données source | Publication complète et immuable décrivant le parc, ses capacités, performances et montants de référence | Pool imprimeur, environnement publié, dataset | Relation exacte avec l'environnement de production |
-| Nature des montants source | Qualification explicite indiquant si les valeurs du pool sont des coûts de production ou des tarifs commerciaux | Type de coût, base tarifaire | Granularité pool, publication ou montant |
-| Coût de production | Montant représentant le coût supporté par l'imprimeur avant application d'une politique client | Prix de revient, coût industriel | Composantes incluses |
-| Tarif commercial source | Montant commercial de référence déjà défini par l'imprimeur, avant ajustement propre à un profil client | Prix catalogue, tarif de base | Ajustements autorisés |
-| Profil client | Identité tarifaire versionnée regroupant les règles commerciales applicables à une catégorie ou un client | Catégorie client, customer profile | Portée client unique ou segment |
-| Politique tarifaire | Ensemble daté et versionné d'ajustements applicables à un profil client | Politique de marge, grille de remise | Cycle de validation |
-| Ajustement global | Règle tarifaire par défaut applicable à toutes les machines autorisées par le contrat | Marge globale, remise globale | Exceptions possibles |
-| Exception machine | Règle applicable à une machine déterminée à la place ou en complément de la règle globale | Marge machine, remise machine | Remplacement ou cumul |
-| Marge cible | Taux calculé par rapport au prix de vente visé ; ce n'est pas un synonyme de majoration | Marge sur vente | Formule et bornes exactes |
-| Majoration | Taux ajouté à un montant source, généralement calculé sur un coût de production | Markup, marge sur coût | Terminologie métier retenue |
-| Remise | Réduction appliquée à un tarif commercial source selon une formule explicite | Discount, rabais | Base et bornes exactes |
-| Contrat d'accès calcul | Association versionnée entre un profil, un pool publié, des filtres de ressources, une période et des modes d'accès | Contrat de données, data contract | Sélecteur de publication |
+| Nature des montants source | Qualification explicite des différentes catégories de coûts de production du pool | Type de coût | Granularité pool, publication ou montant |
+| Coût de production | Montant représentant le coût supporté par l'imprimeur, sans marge, majoration, remise ni prix de vente | Prix de revient, coût industriel | Composantes incluses |
+| Contrat d'accès calcul | Association versionnée entre un consommateur technique, un pool publié, des filtres de ressources, une période et des modes d'accès | Contrat de données, data contract | Sélecteur de publication |
 | Clé API locale | Credential secret créé, rotatif et révocable indépendamment pour accéder à un contrat | Token, API key | Format et durée de vie |
-| Mode d'accès externe | Résolution d'un profil ou contrat depuis un principal authentifié par un système de confiance extérieur | SSO machine, binding externe | Protocole de confiance |
-| Projection ajustée | JSON complet généré par Clariprint Data à partir d'une publication source, filtré par contrat et contenant les tarifs déjà ajustés | Dataset solveur, JSON tarifé | Durée de conservation |
+| Mode d'accès externe | Résolution d'un contrat depuis un principal authentifié par un système de confiance extérieur | SSO machine, binding externe | Protocole de confiance |
+| Projection solveur | JSON complet généré par Clariprint Data à partir d'une publication source, filtré par contrat et contenant les coûts de production | Dataset solveur | Durée de conservation |
 
 ## Matières
 
@@ -83,7 +75,7 @@
 | Brouillon | État modifiable sans effet sur la production | En modification | Modèle de révision |
 | Validation | Décision humaine confirmant la complétude avant publication | À valider | Simple ou double validation |
 | Publication | Snapshot source complet, immuable, daté et versionné à partir duquel une projection peut être construite | Catalogue de production, version | Activation et période d'effet |
-| Livraison solveur | Tentative d'envoi d'une publication brute ou d'une projection ajustée et son résultat technique | Export, publication dans certains prompts | Protocole et retry |
+| Livraison solveur | Tentative d'envoi d'une publication brute ou d'une projection solveur et son résultat technique | Export, publication dans certains prompts | Protocole et retry |
 | Sandbox | Copie isolée utilisée pour expérimenter et tester | Environnement test | Stockage copie ou delta |
 | Restauration | Création d'un nouveau brouillon depuis une publication historique | Restaurer, rollback | Jamais un écrasement historique |
 | Projet de validation | Cas produit destiné à vérifier une publication avec le solveur | Testing, devis test | Module propriétaire |
@@ -94,8 +86,8 @@
 - `environnement` seul : préciser production, sandbox ou destination solveur ;
 - `capacité` seule : préciser fournisseur, aptitude technique ou quota ;
 - `prix` seul : préciser coût, tarif d'achat, résultat solveur ou prix commercial ;
-- `marge` seule : préciser marge cible, majoration sur coût ou politique tarifaire ;
-- `profil` seul : préciser profil utilisateur, profil client tarifaire ou principal externe ;
+- `marge`, `majoration`, `remise` ou `prix de vente` : termes hors périmètre Clariprint Data ;
+- `profil` seul : préciser profil utilisateur ou principal externe ;
 - `clé` seule : préciser identifiant métier, clé API locale ou secret ;
 - `partage` : préférer délégation, invitation ou grant ;
 - `restauration` : rappeler qu'elle crée un nouveau brouillon.
