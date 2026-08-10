@@ -6,6 +6,7 @@
 ## Lecture obligatoire avant toute action
 
 1. **[docs/REGLES_ARCHITECTURE.md](docs/REGLES_ARCHITECTURE.md)** — règles R1-R8 de la session RP#070826 (Annexe A), **opposables à tout développement** : API-first, modularité, MCP différé, noyau minimal, souplesse encadrée sur l existant, workflow Git, design charte v2, rapport de fin de tâche.
+   → **[docs/CONVENTION_GIT.md](docs/CONVENTION_GIT.md)** complète R6 : rôle des branches, cadence de remontée vers `main`, tags de version, séquence de synchronisation avec Expert Solutions.
 2. **[docs/project-context.md](docs/project-context.md)** — persistent facts BMAD (vision, stack, multi-tenancy, conventions, identifiants techniques).
 3. **[SPRINT_HANDOFF.md](SPRINT_HANDOFF.md)** — état dev courant (sprint en cours, stories livrées, edge functions déployées, bugs connus).
 
@@ -39,8 +40,9 @@ Le repo `amazon-svg/Magritoff` est cloné **deux fois** en local. Les deux clone
 
 ## Conventions critiques (rappel rapide)
 
-- **Branche active session** : `beta/v5`, dans le clone `Magritoff-v4` — `pnpm dev` → **port 5176**. (`pnpm dev:b5` sert le **même** code sur 5177 ; le port ne dit rien de la branche ni du clone.)
-- **Branche `migration_owk`** : travaux OWK Factory de Xavier Péchoultres (PRD global, specs Clariprint Data). **Documentation uniquement, aucun code applicatif.** Rebasée sur `beta/v5` le 2026-08-09.
+- **Branches** : voir [docs/CONVENTION_GIT.md](docs/CONVENTION_GIT.md) — **source de vérité unique**. `main` = référence partagée avec Expert Solutions ; `beta/v5` = ligne d'intégration interne (temporaire) ; `feat/<périmètre>` = branches fonctionnelles ; versions en **tags**, jamais en branches.
+  - ⚠️ Ne **jamais** désigner ici « la » branche de travail : elle change, ce fichier resterait périmé (remarque Xavier Péchoultres, 2026-08-10). Vérifier la branche courante avec `git branch --show-current`.
+  - Le port de `pnpm dev` (**5176**) ne dit rien de la branche ni du clone.
 - **Langue de travail** : français (commits, code, livrables).
 - **Format commits** : `feat|fix|chore|test|docs(v5): description courte` — **PAS d apostrophes** (HEREDOC).
 - **Confirmation systématique avant push**.
