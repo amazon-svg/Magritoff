@@ -112,12 +112,6 @@ export function PublicShop() {
   const [pimGammes, setPimGammes] = useState<Gamme[]>([]);
   const [pimDefinitions, setPimDefinitions] = useState<ProductDefinition[]>([]);
 
-  // S2.2 — Gammes souscrites du tenant qui possede la shop
-  // (lecture publique de tenant_gamme_subscriptions filtree active=true).
-  // Set vide -> fallback sur les gammes effectivement matchees par le catalogue
-  // produit (cf. visibleGammes ci-dessous).
-  const [subscribedSlugs, setSubscribedSlugs] = useState<Set<string> | null>(null);
-
   // S2.2 — Etat des gammes deplices (filtre additif). Hydrate depuis
   // localStorage au mount, persiste a chaque toggle.
   const [expandedGammes, setExpandedGammes] = useState<Set<string>>(new Set());
@@ -263,25 +257,6 @@ export function PublicShop() {
       ]);
       if (gr.data) setPimGammes(gr.data as Gamme[]);
       if (dr.data) setPimDefinitions(dr.data as ProductDefinition[]);
-
-      // S2.2 — Charger les gammes souscrites du tenant proprietaire de la shop.
-      // Lecture publique : si la RLS bloque ou si tenant_id absent, on tombe
-      // sur subscribedSlugs=null -> fallback "gammes inferees" cote sidebar.
-      const tenantId = shopTenantId;
-      if (tenantId) {
-        const { data: subs, error: subsError } = await supabase
-          .from('tenant_gamme_subscriptions')
-          .select('gamme_slug, active')
-          .eq('tenant_id', tenantId)
-          .eq('active', true);
-        if (!subsError && subs) {
-          setSubscribedSlugs(new Set(subs.map((s: any) => s.gamme_slug)));
-        } else {
-          setSubscribedSlugs(null);
-        }
-      } else {
-        setSubscribedSlugs(null);
-      }
 
       setLoading(false);
 
@@ -675,18 +650,20 @@ export function PublicShop() {
     [products, gammeMap, expandedGammes],
   );
 
-  // S2.2 Liste des gammes a afficher dans la sidebar :
-  //  - Si subscribedSlugs non-null et non-vide -> filtrer pimGammes par souscription
-  //  - Sinon (null = pas de tenant_id, ou Set vide) -> fallback gammes inferees
-  //    depuis les produits effectivement matches
+  // S2.2 / REFACTO-VISUELS (2026-08-09) — Liste des gammes affichees.
+  //
+  // La souscription de gammes au niveau tenant (`tenant_gamme_subscriptions`,
+  // ecran « Gammes actives ») a ete supprimee : elle faisait doublon avec la
+  // selection de gammes de la boutique (`shop.pim_gamme_slugs`) et avec les
+  // bibliotheques liees, et c est cette derniere qui decidait reellement des
+  // produits vendus. Le menu decoule maintenant de ce que la boutique expose
+  // vraiment : une gamme apparait si et seulement si elle a au moins un
+  // produit au catalogue. Une seule verite, plus de menu qui promet une gamme
+  // vide ni de gamme vendue mais absente du menu.
   const visibleGammes = useMemo(() => {
-    if (subscribedSlugs && subscribedSlugs.size > 0) {
-      return pimGammes.filter((g) => subscribedSlugs.has(g.slug));
-    }
-    // Fallback : gammes effectivement presentes dans le catalogue produit
-    const inferred = new Set(Array.from(gammeMap.keys()));
-    return pimGammes.filter((g) => inferred.has(g.slug));
-  }, [pimGammes, subscribedSlugs, gammeMap]);
+    const inCatalog = new Set(Array.from(gammeMap.keys()));
+    return pimGammes.filter((g) => inCatalog.has(g.slug));
+  }, [pimGammes, gammeMap]);
 
   // ─── S-REWORK-1 Pilules gammes horizontales (remplace sidebar S2.2) ──────
   // CRITICAL : ce useMemo DOIT etre declare AVANT les early returns ci-dessous

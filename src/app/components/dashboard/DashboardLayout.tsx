@@ -1,8 +1,8 @@
 import { Navigate, NavLink, Outlet, useLocation } from 'react-router';
 import {
   User, Settings, MessageSquare, FileText, ShoppingBag, Users,
-  CreditCard, Package, Store, Shield, LayoutTemplate, Building, Layers, Workflow,
-  FileClock, BadgePercent, Factory, Image as ImageIcon,
+  CreditCard, Package, Store, Shield, LayoutTemplate, Building, Workflow,
+  FileClock, BadgePercent, Factory,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlan } from '../../hooks/usePlan';
@@ -110,6 +110,13 @@ export function DashboardLayout() {
       ],
     },
     {
+      // REFACTO-VISUELS (2026-08-09, arbitrage Arnaud) — le Catalogue suit
+      // desormais la chaine unique : on alimente le PIM (produits, infos et
+      // visuels), on compose des bibliotheques, on associe une bibliotheque a
+      // une boutique. Les entrees « Gammes actives » et « Visuels Magrit » ont
+      // ete supprimees : la premiere faisait doublon avec la selection de
+      // gammes de la boutique, la seconde etait une galerie en lecture seule
+      // d un moteur qui ne sert plus les visuels affiches.
       title: 'Catalogue',
       items: [
         {
@@ -118,15 +125,7 @@ export function DashboardLayout() {
           icon: Shield,
           show: isAdmin || isSuperAdmin,
         },
-        { to: `${basePath}/gammes`, label: 'Gammes actives', icon: Layers, show: canManageMembers ?? false },
         { to: `${basePath}/library`, label: 'Bibliothèques', icon: Package, show: canUse('library') },
-        {
-          to: `${basePath}/admin/mockups`,
-          label: 'Visuels Magrit',
-          icon: ImageIcon,
-          show: isAdmin || isSuperAdmin,
-          sub: true,
-        },
       ],
     },
     {

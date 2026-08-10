@@ -84,11 +84,6 @@ const DashboardAdminPIM = lazy(() =>
     default: m.DashboardAdminPIM,
   })),
 );
-const DashboardAdminMockups = lazy(() =>
-  import("./components/dashboard/DashboardAdminMockups").then((m) => ({
-    default: m.DashboardAdminMockups,
-  })),
-);
 // REFONTE-UX (2026-08-08) — module Gestion commerciale (point 7).
 const DashboardCommercial = lazy(() =>
   import("./components/dashboard/commercial/DashboardCommercial").then((m) => ({
@@ -119,11 +114,6 @@ const DashboardTenantSettings = lazy(() =>
 const DashboardTenantSpaces = lazy(() =>
   import("./components/dashboard/DashboardTenantSpaces").then((m) => ({
     default: m.DashboardTenantSpaces,
-  })),
-);
-const DashboardTenantGammes = lazy(() =>
-  import("./components/dashboard/DashboardTenantGammes").then((m) => ({
-    default: m.DashboardTenantGammes,
   })),
 );
 const OrderRoleAdminPage = lazy(() =>
@@ -235,12 +225,20 @@ export const router = createBrowserRouter([
               // Nouveautes v3
               { path: "settings", element: lazyRoute(<DashboardTenantSettings />) },
               { path: "spaces", element: lazyRoute(<DashboardTenantSpaces />) },
-              { path: "gammes", element: lazyRoute(<DashboardTenantGammes />) },
               { path: "admin/pim", element: lazyRoute(<DashboardAdminPIM />) },
-              // REFONTE-UX v2 (2026-08-08, retour Arnaud point 5) — la galerie
-              // des mockups Magrit-brandes est CONSERVEE (visuels generes +
-              // verification du moteur E8.3), rangee dans le groupe Catalogue.
-              { path: "admin/mockups", element: lazyRoute(<DashboardAdminMockups />) },
+              // REFACTO-VISUELS (2026-08-09, arbitrage Arnaud) — deux ecrans
+              // supprimes, leurs URLs redirigent vers le PIM qui absorbe les
+              // deux responsabilites :
+              //  - "Gammes actives" (/gammes) : la selection de ce qui est
+              //    vendu passe par les bibliotheques puis la boutique
+              //    (PIM -> bibliotheque -> boutique). Le filtre tenant faisait
+              //    doublon avec shop.pim_gamme_slugs.
+              //  - "Visuels Magrit" (/admin/mockups) : galerie de reference en
+              //    lecture seule du moteur SVG, qui ne servait plus les visuels
+              //    reellement affiches. Le visuel est desormais une propriete
+              //    de la gamme, curable dans le PIM.
+              { path: "gammes", element: <Navigate to="../admin/pim" replace /> },
+              { path: "admin/mockups", element: <Navigate to="../admin/pim" replace /> },
               // REFONTE-UX (2026-08-08) — Gestion commerciale (point 7) :
               // prix, marges et remises par gamme/produit x client/groupe.
               { path: "commercial", element: lazyRoute(<DashboardCommercial />) },

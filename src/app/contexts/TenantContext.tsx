@@ -98,14 +98,14 @@ interface TenantContextType {
   switchTenant: (slug: string) => void;
 
   /** Creer un nouveau tenant racine (signup). E6.1 : siren + siren_data optionnels.
-   *  E9.6 : gammeSlugs = liste de gammes du PIM a activer immediatement (wizard
-   *  d onboarding). Insert bulk dans tenant_gamme_subscriptions apres creation. */
+   *  REFACTO-VISUELS (2026-08-09) : le parametre `gammeSlugs` (E9.6) est retire
+   *  avec l ecran « Gammes actives ». Le catalogue vendu se compose desormais
+   *  via les bibliotheques puis l association a une boutique. */
   createTenant: (input: {
     slug: string;
     name: string;
     siren?: string;
     sirenData?: Record<string, any>;
-    gammeSlugs?: string[];
   }) => Promise<string | null>;
 
   /** Creer un sous-tenant (filiale OU espace client B2B) sous un tenant parent */
@@ -323,13 +323,11 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       name,
       siren,
       sirenData,
-      gammeSlugs,
     }: {
       slug: string;
       name: string;
       siren?: string;
       sirenData?: Record<string, any>;
-      gammeSlugs?: string[];
     }): Promise<string | null> => {
       const { data, error } = await supabase.rpc('create_tenant_with_owner', {
         p_slug: slug,
@@ -354,26 +352,6 @@ export function TenantProvider({ children }: { children: ReactNode }) {
             verified_at: new Date().toISOString(),
           })
           .eq('id', tenantId);
-      }
-      // E9.6 — Si l user a selectionne des gammes au wizard, insert bulk
-      // dans tenant_gamme_subscriptions. Best-effort : un echec ici ne
-      // bloque pas la creation du tenant (l user peut toujours activer
-      // les gammes depuis /dashboard/gammes apres coup).
-      if (gammeSlugs && gammeSlugs.length > 0) {
-        const rows = gammeSlugs.map((gamme_slug) => ({
-          tenant_id: tenantId,
-          gamme_slug,
-          active: true,
-        }));
-        const { error: gammesErr } = await supabase
-          .from('tenant_gamme_subscriptions')
-          .upsert(rows, { onConflict: 'tenant_id,gamme_slug' });
-        if (gammesErr) {
-          console.error(
-            '[TenantContext] gammes subscriptions failed (tenant cree quand meme):',
-            gammesErr.message,
-          );
-        }
       }
       await reload();
       return tenantId;

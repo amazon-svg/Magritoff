@@ -62,25 +62,20 @@ serve(async (req) => {
     return new Response('not_found', { status: 404, headers: corsHeaders });
   }
 
-  // Gammes exposées : souscriptions actives du tenant ; repli = gammes
-  // racines du PIM (catalogue partagé) si aucune souscription.
-  let gammeSlugs: string[] = [];
-  if (shop.tenant_id) {
-    const { data: subs } = await admin
-      .from('tenant_gamme_subscriptions')
-      .select('gamme_slug')
-      .eq('tenant_id', shop.tenant_id)
-      .eq('active', true);
-    gammeSlugs = (subs ?? []).map((s) => s.gamme_slug);
-  }
-  if (gammeSlugs.length === 0) {
-    const { data: roots } = await admin
-      .from('product_gammes')
-      .select('slug')
-      .is('parent_slug', null)
-      .order('display_order');
-    gammeSlugs = (roots ?? []).map((g) => g.slug);
-  }
+  // Gammes exposées = gammes racines du PIM (catalogue partagé).
+  //
+  // REFACTO-VISUELS (2026-08-09) : la lecture de `tenant_gamme_subscriptions`
+  // est retirée — l'écran « Gammes actives » qui alimentait cette table a été
+  // supprimé (la sélection de ce qui est vendu passe par les bibliothèques
+  // puis la boutique). Le repli sur les gammes racines, qui était déjà le
+  // chemin réel pour tout tenant n'ayant jamais coché de gamme, devient le
+  // seul chemin.
+  const { data: roots } = await admin
+    .from('product_gammes')
+    .select('slug')
+    .is('parent_slug', null)
+    .order('display_order');
+  const gammeSlugs: string[] = (roots ?? []).map((g) => g.slug);
 
   const origin = base || url.origin;
   const shopBase = `${origin}/shop/${shop.slug}`;
