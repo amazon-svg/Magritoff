@@ -195,7 +195,7 @@ export const TEST_IDS = {
     navGammes: 'shop-nav-gammes',
     cartSticky: 'shop-cart-sticky',
     forbidden403: 'shop-forbidden-403',
-    // S2.3 — ShopProductCard avec MockupImage parametrique (Epic 2)
+    // S2.3 — ShopProductCard, visuel resolu par la gamme PIM (Epic 2)
     productCardConfigureBtn: 'product-card-configure-btn',
     productCardSelectCheckbox: 'product-card-select-checkbox',
     // S2.11 — Bandeau categorie couleur-code + picto famille (Epic 2 ext e-commerce)
@@ -463,15 +463,16 @@ export const TEST_IDS = {
     pimGamme: 'shop-editor-pim-gamme',
   },
 
-  // ─── Mockup engine parametrique (S4.3, Epic 4) ─────────────────────────
-  // Composant <MockupImage> consomme l edge function mockup-generator (S4.1c)
-  // avec fallback graceful (URL CDN public direct, edge function fetch sur
-  // onError, ProductMockup SVG en fallback ultime).
+  // ─── Visuel produit (S4.3, revise REFACTO-VISUELS 2026-08-09) ──────────
+  // Le moteur SVG parametrique (<MockupImage> + edge function mockup-generator)
+  // a ete supprime : le visuel est desormais une propriete de la GAMME dans le
+  // PIM. Le conteneur porte `data-visual-source` = shop | pim | placeholder.
+  // Les testids historiques sont CONSERVES (cahiers de tests P01 / TF Notion).
   mockup: {
+    /** Conteneur du visuel produit — toujours present. */
     productImage: 'mockup-product-image',
-    productImageSkeleton: 'mockup-product-image-skeleton',
+    /** <img> du visuel — absent quand aucun visuel n est cure. */
     productImageImg: 'mockup-product-image-img',
-    productImageFallback: 'mockup-product-image-fallback',
   },
 } as const;
 

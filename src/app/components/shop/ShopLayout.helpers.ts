@@ -2,7 +2,7 @@
  * Helpers purs pour ShopLayout (Story S2.1, Epic 2).
  *
  * Pattern repo : helpers logiques separes pour testabilite vitest sans
- * @testing-library/react (cf. MockupImage.helpers.ts).
+ * @testing-library/react (cf. customMockup.helpers.ts).
  *
  * Surface :
  *  - resolveShopTheme(shop) -> { dataTheme: 'dark' | undefined, isDark: boolean }

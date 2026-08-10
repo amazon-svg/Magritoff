@@ -21,13 +21,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Upload, RotateCcw, Loader2, Check, Image as ImageIcon } from 'lucide-react';
 import { supabase } from '/utils/supabase/client';
-import { projectId } from '/utils/supabase/info';
 import {
   listShopCustomMockups,
   type CustomMockupRecord,
   type MockupTemplateType,
 } from '../mockup/customMockup.helpers';
-import { buildEdgeFunctionUrl } from '../mockup/MockupImage.helpers';
 
 interface Props {
   shopId: string;
@@ -37,20 +35,19 @@ interface Props {
 interface TemplateDef {
   key: MockupTemplateType;
   label: string;
-  // Specs deterministes pour preview du Magrit-brandé default
-  width: number;
-  height: number;
-  productName: string;
 }
 
+// REFACTO-VISUELS (2026-08-09) — les dimensions et noms de produit servaient a
+// construire l apercu du moteur SVG, supprime. Ne restent que la cle et le
+// libelle : cet ecran ne fait plus qu heberger des televersements.
 const TEMPLATES: TemplateDef[] = [
-  { key: 'carteVisite', label: 'Carte de visite', width: 85, height: 55, productName: 'Carte commerciale' },
-  { key: 'flyer', label: 'Flyer / Tract', width: 148, height: 210, productName: 'Flyer A5' },
-  { key: 'depliant', label: 'Dépliant 3 volets', width: 210, height: 297, productName: 'Dépliant A4' },
-  { key: 'brochure', label: 'Brochure (livret)', width: 210, height: 297, productName: 'Brochure A4' },
-  { key: 'packaging', label: 'Packaging / Boîte', width: 200, height: 150, productName: 'Boîte 200×150' },
-  { key: 'etiquette', label: 'Étiquette adhésive', width: 60, height: 40, productName: 'Étiquette' },
-  { key: 'kakemono', label: 'Roll-up / Kakémono', width: 850, height: 2000, productName: 'Roll-up' },
+  { key: 'carteVisite', label: 'Carte de visite' },
+  { key: 'flyer', label: 'Flyer / Tract' },
+  { key: 'depliant', label: 'Dépliant 3 volets' },
+  { key: 'brochure', label: 'Brochure (livret)' },
+  { key: 'packaging', label: 'Packaging / Boîte' },
+  { key: 'etiquette', label: 'Étiquette adhésive' },
+  { key: 'kakemono', label: 'Roll-up / Kakémono' },
 ];
 
 const ACCEPTED_MIME = 'image/png,image/jpeg,image/webp,image/svg+xml';
@@ -77,21 +74,6 @@ export function ShopCustomMockups({ shopId, tenantId }: Props) {
   useEffect(() => {
     void load();
   }, [load]);
-
-  // Construit l'URL preview du Magrit-brandé par défaut (edge function)
-  const buildDefaultPreviewUrl = (tpl: TemplateDef): string => {
-    return buildEdgeFunctionUrl(projectId, {
-      tenantId,
-      shopId,
-      productId: `preview-${tpl.key}`,
-      width: tpl.width,
-      height: tpl.height,
-      productName: tpl.productName,
-      primaryColor: '#1e3a8a',
-      template: tpl.key,
-      view: 'front',
-    });
-  };
 
   const handleUpload = async (tplKey: MockupTemplateType, file: File) => {
     setError(null);
@@ -169,7 +151,7 @@ export function ShopCustomMockups({ shopId, tenantId }: Props) {
             Mockups custom de cette boutique
           </h3>
           <p className="text-xs text-ink-muted mt-1">
-            Remplace le mockup Magrit-brandé par défaut par votre propre visuel pour chaque type de produit. Format : PNG, JPG, WebP ou SVG (5 Mo max).
+            Remplace, pour cette boutique uniquement, le visuel de la gamme (PIM) par votre propre image. Format : PNG, JPG, WebP ou SVG (5 Mo max).
           </p>
         </div>
       </div>
@@ -187,7 +169,11 @@ export function ShopCustomMockups({ shopId, tenantId }: Props) {
           {TEMPLATES.map((tpl) => {
             const override = overrides[`${tpl.key}-front`];
             const isCustom = !!override;
-            const previewUrl = isCustom ? override.mockup_image_url : buildDefaultPreviewUrl(tpl);
+            // REFACTO-VISUELS (2026-08-09) — l'aperçu « par défaut » montrait le
+            // rendu du moteur SVG, supprimé. Sans override, on affiche un état
+            // vide explicite : le visuel servi vient alors de la GAMME (PIM),
+            // qui se cure dans le PIM, pas ici.
+            const previewUrl = isCustom ? override.mockup_image_url : null;
             const isUploading = uploadingKey === tpl.key;
 
             return (
@@ -207,11 +193,21 @@ export function ShopCustomMockups({ shopId, tenantId }: Props) {
                   )}
                 </div>
                 <div className="aspect-[4/3] bg-paper relative">
-                  <img
-                    src={previewUrl}
-                    alt={`Aperçu ${tpl.label}`}
-                    className="w-full h-full object-cover"
-                  />
+                  {previewUrl ? (
+                    <img
+                      src={previewUrl}
+                      alt={`Aperçu ${tpl.label}`}
+                      className="w-full h-full object-contain"
+                    />
+                  ) : (
+                    <div className="w-full h-full grid place-items-center px-3 text-center">
+                      <span className="text-[11px] text-ink-mute-2 leading-snug">
+                        Aucun visuel personnalisé.
+                        <br />
+                        Le visuel de la gamme (PIM) est servi.
+                      </span>
+                    </div>
+                  )}
                   {isUploading && (
                     <div className="absolute inset-0 bg-paper/80 grid place-items-center">
                       <Loader2 className="w-6 h-6 animate-spin text-ink-muted" />
@@ -244,7 +240,7 @@ export function ShopCustomMockups({ shopId, tenantId }: Props) {
                       type="button"
                       onClick={() => void handleRestore(tpl.key)}
                       disabled={isUploading}
-                      title="Restaurer le mockup Magrit par défaut"
+                      title="Retirer ce visuel personnalisé — le visuel de la gamme (PIM) reprendra"
                       className="inline-flex items-center justify-center gap-1 px-2 py-1.5 text-xs font-medium border border-line-2 rounded hover:bg-bg text-ink-muted disabled:opacity-50"
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
