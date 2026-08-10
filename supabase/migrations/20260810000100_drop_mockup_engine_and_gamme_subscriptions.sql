@@ -4,8 +4,7 @@
 -- Arbitrage Arnaud du 2026-08-10, faisant suite a la refonte du 2026-08-09
 -- (migration `20260809000100_gamme_visuals.sql`).
 --
--- ⚠️ MIGRATION DESTRUCTIVE ET IRREVERSIBLE. Elle supprime des donnees, pas
--- seulement des objets de schema. Lire les deux sections avant de la jouer.
+-- ⚠️ MIGRATION DESTRUCTIVE ET IRREVERSIBLE.
 --
 -- =============================================================================
 -- 1. Bucket `product_mockups` — cache du moteur SVG
@@ -15,20 +14,32 @@
 -- Plus aucun code ne les lit depuis P18 v2 (2026-06-24) : la boutique servait
 -- des visuels statiques, puis, depuis le 2026-08-09, le visuel de la gamme PIM.
 --
--- ⚠️ NE PAS CONFONDRE avec le bucket `shop_product_mockups` (souligne : nom
--- DIFFERENT), qui porte les visuels TELEVERSES par les boutiques via l'ecran
--- « Mockups custom ». Celui-la est une fonction vivante et prioritaire sur la
--- resolution PIM : il n'est pas touche ici.
+-- ⚠️ NE PAS CONFONDRE avec le bucket `shop_product_mockups` (nom DIFFERENT),
+-- qui porte les visuels TELEVERSES par les boutiques via l'ecran « Mockups
+-- custom ». Celui-la est une fonction vivante et prioritaire sur la resolution
+-- PIM : il n'est pas touche.
 --
--- Les objets doivent partir avant le bucket (contrainte de cle etrangere
--- storage.objects.bucket_id -> storage.buckets.id).
+-- ─── Pourquoi la suppression du bucket N'EST PAS dans cette migration ───────
+-- Premiere tentative (2026-08-10) : `delete from storage.objects ...` puis
+-- `delete from storage.buckets ...`. REJETE par Supabase :
+--
+--   ERROR 42501 — Direct deletion from storage tables is not allowed.
+--   Use the Storage API instead.   (trigger `storage.protect_delete()`)
+--
+-- Le garde-fou est legitime : supprimer la ligne d'un objet en SQL laisserait
+-- le fichier orphelin dans le stockage objet, qui n'est pas transactionnel avec
+-- Postgres. Le vidage et la suppression du bucket passent donc par l'API
+-- Storage, HORS migration :
+--
+--   supabase storage rm -r ss://product_mockups --linked      (286 objets)
+--   DELETE /storage/v1/bucket/product_mockups                 (le bucket)
+--
+-- Execute le 2026-08-10, cf. story-refacto-visuels. Cette migration ne garde
+-- que ce qui releve reellement du schema : la policy RLS de lecture publique,
+-- devenue sans objet.
 -- =============================================================================
 
-delete from storage.objects where bucket_id = 'product_mockups';
-
 drop policy if exists "product_mockups_public_read" on storage.objects;
-
-delete from storage.buckets where id = 'product_mockups';
 
 -- =============================================================================
 -- 2. Table `tenant_gamme_subscriptions` — souscriptions de gammes par tenant

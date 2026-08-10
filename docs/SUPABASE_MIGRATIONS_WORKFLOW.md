@@ -71,6 +71,35 @@ Respecter ces patterns Magrit (cf. fichiers existants pour modèles) :
 - `notify pgrst, 'reload schema';` à la fin si le schema change (force PostgREST refresh)
 - Header commentaire explicatif (contexte, story, rationale)
 
+#### ⛔ Jamais de suppression SQL dans `storage` (constaté 2026-08-10)
+
+Supprimer des objets ou un bucket **en SQL** est bloqué par Supabase :
+
+```
+ERROR 42501 — Direct deletion from storage tables is not allowed.
+Use the Storage API instead.        (trigger storage.protect_delete())
+```
+
+Le garde-fou est légitime : supprimer la ligne d'un objet en SQL laisserait le
+fichier orphelin dans le stockage objet, qui n'est **pas transactionnel** avec
+Postgres. Une migration qui tente `delete from storage.objects` ou
+`delete from storage.buckets` échoue **en entier** (transaction par fichier).
+
+Répartition correcte :
+
+| Objet | Où |
+|---|---|
+| Policy RLS sur `storage.objects` | migration SQL (`drop policy if exists …`) |
+| Objets d'un bucket, et le bucket | **API Storage**, hors migration |
+
+```bash
+# Vide le bucket ET le supprime (noter les TROIS slashes de ss:///)
+supabase storage rm -r ss:///<bucket> --linked --experimental --yes
+```
+
+Documenter la commande dans l'en-tête de la migration, pour que la lecture du
+seul fichier SQL ne laisse pas croire que le bucket est parti avec.
+
 ### 3. Dry-run + push
 
 ```bash

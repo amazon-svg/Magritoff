@@ -79,67 +79,11 @@ test.describe.serial('TF Chrome Suite — Sprint 6/7 wire-ups', () => {
     expect(btnVisible).toBe(true);
   });
 
-  test('T14 + T9 partie UI — ProductMultiView toggle Recto/Verso dans ProductOverlay', async ({
-    page,
-  }) => {
-    await loginAs(page, fx.acheteurEmail, fx.acheteurPassword);
-    await page.goto(`/shop/${fx.shopSlug}`);
-    await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {});
-
-    const catalogLink = page
-      .getByRole('button', { name: /catalogue|nos produits/i })
-      .first()
-      .or(page.getByRole('link', { name: /catalogue/i }).first());
-    const catalogVisible = await catalogLink.isVisible({ timeout: 8_000 }).catch(() => false);
-    if (!catalogVisible) {
-      test.info().annotations.push({
-        type: 'portal-catalog-nav-not-found',
-        description: `url=${page.url()}`,
-      });
-    }
-    expect(catalogVisible).toBe(true);
-
-    await catalogLink.click();
-    await page.waitForTimeout(1000);
-
-    const productCard = page
-      .locator('article, [data-testid^="product-card"]')
-      .filter({ hasText: new RegExp(fx.productName.slice(0, 10), 'i') })
-      .first();
-    const cardVisible = await productCard.isVisible({ timeout: 8_000 }).catch(() => false);
-    if (!cardVisible) {
-      test.info().annotations.push({
-        type: 'product-card-not-found',
-        description: `url=${page.url()}, product=${fx.productName}`,
-      });
-    }
-    expect(cardVisible).toBe(true);
-
-    await productCard.click();
-    await page.waitForTimeout(1500);
-
-    const toggleRecto = page.getByRole('button', { name: /^recto$/i }).first();
-    const toggleVerso = page.getByRole('button', { name: /^verso$/i }).first();
-    const rectoVisible = await toggleRecto.isVisible({ timeout: 8_000 }).catch(() => false);
-    const versoVisible = await toggleVerso.isVisible({ timeout: 8_000 }).catch(() => false);
-
-    if (!rectoVisible || !versoVisible) {
-      test.info().annotations.push({
-        type: 'product-multi-view-toggle-not-found',
-        description: `url=${page.url()}, recto=${rectoVisible}, verso=${versoVisible}`,
-      });
-    }
-    expect(rectoVisible).toBe(true);
-    expect(versoVisible).toBe(true);
-
-    const rectoPressed = await toggleRecto.getAttribute('aria-pressed');
-    const versoPressed = await toggleVerso.getAttribute('aria-pressed');
-    expect(rectoPressed === 'true' || rectoPressed === 'false').toBe(true);
-    expect(versoPressed === 'true' || versoPressed === 'false').toBe(true);
-
-    await toggleVerso.click();
-    await page.waitForTimeout(500);
-    const versoAfter = await toggleVerso.getAttribute('aria-pressed');
-    expect(versoAfter).toBe('true');
-  });
+  // REFACTO-VISUELS (2026-08-10) — cas de test T14+T9 « toggle Recto/Verso »
+  // SUPPRIME avec le composant qu il couvrait. ProductMultiView etait un
+  // habillage de MockupImage : il basculait entre deux PNG generes par le
+  // moteur SVG (suffixe de chemin __back). Le moteur, ses templates et son
+  // cache ont ete supprimes — le visuel est une propriete de la gamme dans le
+  // PIM, et une gamme ne porte qu un visuel. Si un besoin recto/verso revient,
+  // il se traitera au niveau du PIM, pas par regeneration.
 });

@@ -2,7 +2,7 @@
 
 > Document de reprise pour démarrer une nouvelle session de Claude code sur le projet sans recharger tout l'historique. À tenir à jour à chaque fin de sprint.
 >
-> **Dernière mise à jour : 2026-08-09 — REFACTO-VISUELS : suppression de « Visuels Magrit » et « Gammes actives », le visuel devient une propriété de la gamme dans le PIM. Voir section 26.**
+> **Dernière mise à jour : 2026-08-10 — REFACTO-VISUELS livré ET appliqué en prod : le visuel est une propriété de la gamme dans le PIM, moteur SVG supprimé. Voir section 26.**
 
 ## 26. Session 2026-08-09 — REFACTO-VISUELS (arbitrage Arnaud, 3 chantiers)
 
@@ -44,9 +44,26 @@ suppression à écrire quand Arnaud tranche.
 - `tests/utils/gammeVisual.test.ts` (12 tests) remplace `productMockupSignatureFallback`
   qui verrouillait la garantie inverse (« toujours une URL »).
 
-**⚠️ Migration à jouer par Arnaud** : `20260809000100_gamme_visuals.sql`.
-Sans elle, aucune gamme n'a de visuel → toutes les cartes affichent le repère de
-famille (dégradé visuel, pas de casse).
+### Chantier 4 (2026-08-10) — moteur SVG supprimé
+`mockup-generator`, `_shared/mockup/` (7 templates Deno), `MockupImage`,
+`ProductMultiView`, bucket `product_mockups` (286 objets). **Conservés** :
+`shop_template_mockups` + bucket `shop_product_mockups` (nom différent) = les
+visuels téléversés par boutique.
+
+### ✅ Appliqué en prod le 2026-08-10
+`20260808000100` (GesCom, en attente depuis le 08/08 — le module n'affiche plus
+son bandeau « migration manquante »), `20260809000100`, `20260810000100`.
+Vérifié : `tenant_gamme_subscriptions` 0 · bucket `product_mockups` 0 ·
+`shop_product_mockups` intact · 6 gammes avec visuel / 16 familles racines ·
+`db push --dry-run` = « Remote database is up to date ».
+
+**Deux enseignements à retenir** :
+1. **Le tracking des migrations avait redérivé** : 8 migrations appliquées via
+   l'API Management n'étaient pas tracées, ce qui bloquait `db push`. Vérifiées
+   une par une contre la base avant `migration repair --status applied`.
+2. **Supabase interdit désormais la suppression SQL dans `storage`**
+   (`storage.protect_delete()`, erreur 42501). Un bucket se vide et se supprime
+   par l'API Storage, jamais par migration.
 
 **Visuels à produire (10 familles racines)** : brochure (l'ancien asset montrait un
 dépliant, il a été retiré), affiche, banderole, drapeau, panneau, adhésif, PLV,

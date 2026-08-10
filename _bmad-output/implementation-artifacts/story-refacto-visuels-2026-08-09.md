@@ -123,25 +123,112 @@ pas un livret relié — il a été **retiré** plutôt que reconduit), `affiche
 | Contrôle | Résultat |
 |---|---|
 | `npm run build` | ✅ 1998 modules |
-| `npx vitest run` | ✅ **847/847** (835 conservés + 12 nouveaux ; 2 obsolètes supprimés) |
+| `npx vitest run` | ✅ **826/826** (3 suites du moteur SVG supprimées avec lui) |
 | Non-régression « un calendrier ne récupère jamais le visuel flyer » | ✅ couvert |
 | Héritage sous-gamme → famille | ✅ couvert |
 | Cycle `parent_slug` (donnée corrompue) | ✅ couvert |
 
+---
+
+## Chantier 4 — suppression du moteur SVG (2026-08-10)
+
+Arbitrage Arnaud : l'orphelin signalé la veille est supprimé.
+
+| Élément | Action |
+|---|---|
+| `supabase/functions/mockup-generator/` | supprimé (index + tests) |
+| `supabase/functions/_shared/mockup/` | supprimé (renderer, types, 7 templates Deno + snapshots) |
+| `src/app/components/mockup/MockupImage{,.helpers}` | supprimés |
+| `src/app/components/mockup/ProductMultiView.tsx` | supprimé (habillage recto/verso de MockupImage) |
+| Bucket `product_mockups` | vidé (286 objets) puis supprimé |
+| `ShopCustomMockups` | l'aperçu « par défaut » montrait le rendu du moteur → état vide explicite |
+| `tests/e2e/tf-chrome-suite.spec.ts` | cas T14+T9 « toggle Recto/Verso » retiré avec le composant |
+
+**Conservés, à ne pas confondre** : `customMockup.helpers.ts`, la table
+`shop_template_mockups` et le bucket `shop_product_mockups` (nom différent) —
+les visuels téléversés par boutique, fonction vivante et prioritaire.
+
+---
+
+## Mise en production — 2026-08-10
+
+### Le tracking des migrations avait redérivé
+
+`supabase db push` refusait de pousser : **8 migrations locales n'étaient pas
+tracées comme appliquées** alors qu'elles l'étaient réellement en prod (elles
+avaient été passées via l'API Management, qui n'alimente pas
+`supabase_migrations.schema_migrations`).
+
+Vérifié **une par une contre la base** avant tout réalignement — marquer comme
+appliquée une migration qui ne le serait pas aurait masqué un trou réel :
+
+| Migration | Marqueur vérifié en prod |
+|---|---|
+| `20260702000100` | table `quote_lines` + colonne `quotes.client_name` |
+| `20260707000100` | colonne `product_library.gamme_slug` |
+| `20260707000150` | gamme `packaging` présente |
+| `20260707000200` | 115 lignes `product_library` avec `gamme_slug` |
+| `20260708000100` | colonnes `shop_products.origin` / `config_hash` + fonction `persist_shop_ai_product` |
+| `20260710000100` | 81 gammes, `calendrier` présente |
+| `20260710200` → `20260710000200` | 101 définitions |
+| `20260726000100` | colonne `shops.access_mode` |
+
+→ `supabase migration repair --status applied` sur ces 8. **Opération de suivi
+uniquement, aucune donnée touchée.**
+
+### Migration corrigée en séance — `storage.protect_delete()`
+
+La première version de `20260810000100` supprimait le bucket en SQL. **Rejetée
+par Supabase** :
+
+```
+ERROR 42501 — Direct deletion from storage tables is not allowed.
+Use the Storage API instead.        (trigger storage.protect_delete())
+```
+
+Le garde-fou est légitime : supprimer la ligne d'un objet en SQL laisserait le
+fichier orphelin dans le stockage objet, qui n'est pas transactionnel avec
+Postgres. La migration ne garde donc que ce qui relève du schéma (policy RLS +
+`drop table`) ; le bucket part par l'API Storage :
+
+```bash
+supabase storage rm -r ss:///product_mockups --linked --experimental --yes
+```
+
+⚠️ **À retenir pour toute future migration touchant le stockage** : jamais de
+`delete from storage.objects` / `storage.buckets` en SQL.
+
+### État final vérifié en prod
+
+| Contrôle | Attendu | Constaté |
+|---|---|---|
+| `tenant_gamme_subscriptions` | supprimée | 0 ✅ |
+| Bucket `product_mockups` | supprimé | 0 ✅ |
+| Bucket `shop_product_mockups` | **intact** | 1 ✅ |
+| Table `shop_template_mockups` | **intacte** | 1 ✅ |
+| Gammes avec visuel | 6 | 6 ✅ |
+| Familles racines | 16 | 16 ✅ |
+| `client_price_rules` (GesCom) | créée | 1 ✅ |
+| `supabase db push --dry-run` | à jour | « Remote database is up to date » ✅ |
+
+**GesCom appliqué au passage** (arbitrage Arnaud en séance) : le CLI applique
+les migrations en attente dans l'ordre, sans sélection possible.
+`20260808000100_gescom_price_rules.sql` était en attente depuis le 08/08 (accès
+trousseau manquant). Le module Gestion commerciale livré sur `beta/v5`
+n'affiche plus son bandeau « migration manquante ».
+
 ## Reste à la main d'Arnaud
 
-1. **Jouer la migration** `20260809000100_gamme_visuals.sql` sur Supabase.
-   Sans elle : aucune gamme n'a de visuel → toutes les cartes affichent le repère
-   de famille. Dégradation visuelle, pas de casse.
-2. **Recette visuelle** du dashboard et d'une boutique sous auth.
-3. **Arbitrer la suppression** du moteur SVG (`mockup-generator`, 7 templates
-   Deno, bucket `product_mockups/`) — orphelin.
-4. **Arbitrer le `drop`** de `tenant_gamme_subscriptions`.
-5. **Faire produire les 10 visuels manquants** (brochure en priorité : c'est une
-   famille vendue, aujourd'hui sans visuel).
+1. **Recette visuelle** du dashboard et d'une boutique sous auth.
+2. **Faire produire les 10 visuels manquants** — brochure en priorité : famille
+   vendue, aujourd'hui sans visuel.
+3. **GO push** de la branche `feature/refacto-visuels-gamme-pim`.
 
 ## Dettes tracées
 
 - `shop_template_mockups` est encore clé sur les **7 familles mockup** alors que
   le PIM en compte **16** — à migrer sur la gamme.
-- Le moteur SVG et son cache CDN tournent sans servir aucun visuel affiché.
+- Le tracking des migrations redérive dès qu'on applique du SQL hors CLI (API
+  Management, SQL Editor). Le réflexe `migration repair` après coup est déjà
+  documenté dans `docs/SUPABASE_MIGRATIONS_WORKFLOW.md` §« Workflow alternatif » ;
+  il n'a pas été tenu entre juillet et août.
