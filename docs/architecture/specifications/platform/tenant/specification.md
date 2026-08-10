@@ -32,6 +32,15 @@ export interface TenantService {
 
 L'adaptateur encapsule les tenants, sous-tenants, memberships, invitations et scopes `magrit_full`/`shop_only` actuels. Ces noms historiques ne deviennent pas des primitives du kernel.
 
+L'incrément J1 résout uniquement les memberships **directs** présents dans
+`tenant_members`. L'héritage parent vers sous-tenant reste une décision métier
+ouverte et n'accorde donc aucun accès Clariprint Data implicite.
+
+Le modèle historique supprime un membership révoqué au lieu de conserver son
+statut. L'adaptateur refuse alors l'accès comme `tenant.not_a_member`, mais ne
+peut pas distinguer « jamais membre » de « membership révoqué ». Cette limite
+doit être levée si la traçabilité de révocation devient contractuelle.
+
 ## Invariants
 
 - un membership appartient à un utilisateur et un tenant ;
@@ -42,10 +51,9 @@ L'adaptateur encapsule les tenants, sous-tenants, memberships, invitations et sc
 
 ## Critères d'acceptation
 
-- [ ] `TEN-VAL-01` Le module ne dépend d'aucun module métier.
+- [x] `TEN-VAL-01` Le module ne dépend d'aucun module métier.
 - [ ] `TEN-VAL-02` Un utilisateur sans membership ne peut créer un `ActorContext` pour le tenant.
 - [ ] `TEN-VAL-03` Un membership révoqué est refusé immédiatement.
 - [ ] `TEN-VAL-04` Les invitations concurrentes ne créent pas de memberships incohérents.
-- [ ] `TEN-VAL-05` Les règles de hiérarchie sont testées.
-- [ ] `TEN-VAL-06` Les détails des tables historiques ne traversent pas le contrat.
-
+- [x] `TEN-VAL-05` Les règles de hiérarchie sont testées au niveau adaptateur.
+- [x] `TEN-VAL-06` Les détails des tables historiques ne traversent pas le contrat.

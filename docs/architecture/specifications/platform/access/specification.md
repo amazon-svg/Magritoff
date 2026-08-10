@@ -28,7 +28,7 @@ export type AccessDecision =
   | Readonly<{ allowed: true; reason: "role" | "ownership" | "tenant_admin" | "system_policy" }>
   | Readonly<{
       allowed: false;
-      reason: "not_authenticated" | "not_a_member" | "missing_capability" | "wrong_tenant" | "resource_scope";
+      reason: "not_authenticated" | "not_a_member" | "missing_capability" | "wrong_tenant" | "resource_scope" | "provider_unavailable";
     }>;
 
 export interface AccessService {

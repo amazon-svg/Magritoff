@@ -13,7 +13,13 @@ Créer un module Clariprint Data exécutable, isolé du frontend et de Supabase 
 
 Le premier incrément du kernel est implémenté dans [`src/kernel`](../../src/kernel/index.ts). Il fournit identifiants opaques, contextes utilisateur et système, résultats et erreurs, horloge injectable, monnaie, quantités, pagination et événements. Ses tests unitaires, son premier garde de dépendances et son typecheck strict sont opérationnels sous Node 22.14.0.
 
-Avant de considérer le socle terminé, il reste à définir les contrats publics des services plateforme et à brancher une première tranche verticale Clariprint Data. Le typecheck global du brownfield reste disponible via `pnpm typecheck:all` et sera traité progressivement sans bloquer le gate strict des nouveaux modules.
+Le second incrément implémente les contrats publics `identity`, `tenant`, `access`, `entitlements` et `audit`, ainsi que le premier cas d'usage Clariprint Data. Celui-ci compose explicitement la feature `clariprint_data.enabled` et la capability `clariprint_data.module.access`. Le typecheck strict couvre désormais le kernel, la plateforme et le nouveau module, tandis qu'un garde automatique interdit les dépendances React, Supabase et infrastructure dans les couches internes.
+
+Le troisième incrément branche `AccessService` sur le RPC existant `user_has_capability` et fournit un adaptateur pilote d'entitlements sur `tenants.settings`. Les deux adaptateurs échouent fermés, conservent des erreurs stables et ne laissent aucun détail Supabase traverser leurs contrats publics.
+
+Le quatrième incrément encapsule Supabase Auth côté serveur et les memberships directs existants. La validation d'identité reste séparée de l'appartenance tenant, les comptes bannis sont refusés et aucune identité authentifiée n'obtient implicitement un tenant.
+
+Avant de considérer le socle terminé, il reste à créer la composition serveur, choisir la propriété SQL, exposer une première route protégée et prouver l'isolation RLS sur deux tenants. Le typecheck global du brownfield reste disponible via `pnpm typecheck:all` et sera traité progressivement sans bloquer le gate strict des nouveaux modules.
 
 ## Périmètre
 
@@ -39,16 +45,16 @@ Avant de considérer le socle terminé, il reste à définir les contrats public
 
 ## Critères de validation
 
-- [ ] `J1-VAL-01` Le domaine Clariprint Data compile sans dépendance React ou Supabase.
-- [ ] `J1-VAL-02` Le kernel ne contient aucune table, règle Clariprint, rôle métier ou plan commercial.
-- [ ] `J1-VAL-03` Un utilisateur sans feature ou capability reçoit un refus explicable.
+- [x] `J1-VAL-01` Le domaine Clariprint Data compile sans dépendance React ou Supabase.
+- [x] `J1-VAL-02` Le kernel ne contient aucune table, règle Clariprint, rôle métier ou plan commercial.
+- [x] `J1-VAL-03` Un utilisateur sans feature ou capability reçoit un refus explicable au niveau applicatif.
 - [ ] `J1-VAL-04` Un utilisateur autorisé accède au module dans son organisation.
 - [ ] `J1-VAL-05` Un utilisateur du tenant A ne peut lire aucune donnée du tenant B.
 - [ ] `J1-VAL-06` Les contrôles applicatifs et la RLS sont tous deux actifs.
 - [ ] `J1-VAL-07` React appelle un service applicatif et non une table.
 - [ ] `J1-VAL-08` Les erreurs possèdent un code stable et un identifiant de corrélation.
 - [ ] `J1-VAL-09` Les migrations sont reproductibles sur une base vide.
-- [ ] `J1-VAL-10` Le build et les suites de tests existantes restent verts.
+- [x] `J1-VAL-10` Le build et les suites de tests existantes restent verts.
 
 ## Preuves attendues
 

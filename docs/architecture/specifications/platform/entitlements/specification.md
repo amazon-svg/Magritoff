@@ -40,6 +40,18 @@ Les quotas éventuels de fournisseurs, machines, sandboxes ou publications reste
 - override administrateur daté ;
 - fonctionnalité disponible par défaut.
 
+## Adaptateur pilote
+
+L'incrément J1 utilise temporairement `tenants.settings.features` et
+`tenants.settings.quotas` comme source, derrière
+`SupabaseTenantSettingsEntitlementService`. Une feature absente ou mal formée
+est refusée par défaut. Cet adaptateur ne consomme aucun quota, car une mise à
+jour atomique exige un contrat serveur dédié.
+
+**Condition de retrait :** remplacer cet adaptateur lorsque le modèle
+commercial des features et quotas est validé et qu'un service transactionnel
+d'entitlements est disponible.
+
 ## Critères d'acceptation
 
 - [ ] `ENT-VAL-01` Une feature et une capability sont deux décisions distinctes.
@@ -53,4 +65,3 @@ Les quotas éventuels de fournisseurs, machines, sandboxes ou publications reste
 1. Clariprint Data est-il activé pour tous les tenants pilotes ou par entitlement ?
 2. Quels quotas sont commercialisés ?
 3. Quelle politique appliquer en cas d'indisponibilité du service d'entitlements ?
-

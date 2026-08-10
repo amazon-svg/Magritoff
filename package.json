@@ -5,9 +5,10 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "typecheck": "pnpm run typecheck:kernel",
+    "typecheck": "pnpm run typecheck:modular",
     "typecheck:all": "tsc --noEmit -p tsconfig.json",
     "typecheck:kernel": "tsc --noEmit -p tsconfig.kernel.json",
+    "typecheck:modular": "tsc --noEmit -p tsconfig.modular.json",
     "dev": "vite --port 5176 --strictPort",
     "dev:b5": "./scripts/dev-b5.sh",
     "dev:b5:bg": "./scripts/dev-b5.sh --bg",

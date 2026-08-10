@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true
+  },
+  "include": [
+    "src/kernel",
+    "src/platform",
+    "src/modules/clariprint-data",
+    "tests/kernel/types.typecheck.ts"
+  ]
+}

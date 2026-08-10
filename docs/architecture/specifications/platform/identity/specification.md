@@ -36,6 +36,11 @@ export type UserIdentity = Readonly<{
 
 L'implémentation initiale encapsule Supabase Auth. Les types `Session` ou `User` Supabase ne traversent pas le contrat public.
 
+`SupabaseIdentityService` est un adaptateur **serveur uniquement** : la
+validation de token utilise `auth.getUser(token)` et la résolution d'une
+identité tierce utilise l'API admin avec un client configuré côté serveur. Il
+ne doit jamais être composé avec une clé de service dans le bundle navigateur.
+
 ## Erreurs
 
 - `identity.invalid_token` ;
@@ -53,9 +58,8 @@ L'implémentation initiale encapsule Supabase Auth. Les types `Session` ou `User
 
 ## Critères d'acceptation
 
-- [ ] `IDN-VAL-01` Aucun type Supabase Auth n'est exporté.
-- [ ] `IDN-VAL-02` Un token invalide ou expiré produit une erreur stable.
-- [ ] `IDN-VAL-03` Un utilisateur authentifié n'est pas automatiquement membre d'un tenant.
-- [ ] `IDN-VAL-04` Les logs ne contiennent ni token ni secret.
-- [ ] `IDN-VAL-05` L'adaptateur peut être remplacé par un double en test.
-
+- [x] `IDN-VAL-01` Aucun type Supabase Auth n'est exporté.
+- [x] `IDN-VAL-02` Un token invalide ou expiré produit une erreur stable.
+- [x] `IDN-VAL-03` Un utilisateur authentifié n'est pas automatiquement membre d'un tenant.
+- [x] `IDN-VAL-04` Les logs ne contiennent ni token ni secret.
+- [x] `IDN-VAL-05` L'adaptateur peut être remplacé par un double en test.
