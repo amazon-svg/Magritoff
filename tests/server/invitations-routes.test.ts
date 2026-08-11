@@ -28,10 +28,21 @@ function createHandler(repository: InvitationsRepository) {
   });
 }
 
+function repository(overrides: Partial<InvitationsRepository>): InvitationsRepository {
+  return {
+    async create() { throw new Error('not implemented'); },
+    async options() { return { roles: [], shops: [] }; },
+    async pending() { return []; },
+    async resend() { return { sent: false, link: 'http://localhost:5177/invitations/token' }; },
+    async revoke() {},
+    ...overrides,
+  };
+}
+
 describe('POST /api/v1/invitations', () => {
   it('dérive l’inviteur de l’acteur authentifié', async () => {
     let receivedActor = '';
-    const handler = createHandler({
+    const handler = createHandler(repository({
       async create(userId) {
         receivedActor = userId;
         return {
@@ -40,7 +51,7 @@ describe('POST /api/v1/invitations', () => {
           link: 'http://localhost:5177/invitations/token',
         };
       },
-    });
+    }));
 
     const response = await handler(new Request('http://localhost/api/v1/invitations', {
       method: 'POST',
@@ -53,11 +64,11 @@ describe('POST /api/v1/invitations', () => {
   });
 
   it('traduit un doublon en problem+json 409', async () => {
-    const handler = createHandler({
+    const handler = createHandler(repository({
       async create() {
         throw new InvitationRejectedError('duplicate_pending', 'duplicate_pending');
       },
-    });
+    }));
 
     const response = await handler(new Request('http://localhost/api/v1/invitations', {
       method: 'POST',
@@ -68,5 +79,28 @@ describe('POST /api/v1/invitations', () => {
 
     expect(response.status).toBe(409);
     expect(problem.code).toBe('invitations.duplicate_pending');
+  });
+});
+
+describe('administration des invitations', () => {
+  it('liste les invitations du tenant demandé', async () => {
+    let receivedTenant = '';
+    const handler = createHandler(repository({
+      async pending(_actor, tenantId) { receivedTenant = tenantId; return []; },
+    }));
+    const response = await handler(new Request(`http://localhost/api/v1/tenants/${body.tenantId}/invitations`));
+    expect(response.status).toBe(200);
+    expect(receivedTenant).toBe(body.tenantId);
+  });
+
+  it('révoque avec l’identité serveur et l’id du chemin', async () => {
+    let received = '';
+    const invitationId = '44444444-4444-4444-8444-444444444444';
+    const handler = createHandler(repository({
+      async revoke(userId, id) { expect(userId).toBe(actorId.value); received = id; },
+    }));
+    const response = await handler(new Request(`http://localhost/api/v1/invitations/${invitationId}`, { method: 'DELETE' }));
+    expect(response.status).toBe(200);
+    expect(received).toBe(invitationId);
   });
 });

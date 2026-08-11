@@ -23,6 +23,10 @@ Pour chaque membre à inviter :
 3. Si scope `shop_only` (acheteur dédié à 1 ou N boutiques) : sélectionne les boutiques autorisées
 4. Envoyer → email Resend partira automatiquement
 
+La liste des invitations en attente, les options de rôles/boutiques, le renvoi
+et la révocation passent par l’API Magrit. Une révocation est contrôlée par la
+RLS du tenant et journalisée côté serveur.
+
 **Garde-fous bêta** :
 - Pas de doublon : si une invitation pending existe déjà pour cet email/tenant, le système te bloque avec **« duplicate_pending »** + l'id de l'invitation existante (renvoie-la via le bouton Renvoyer plutôt qu'en créer une nouvelle).
 - Rôles strictement du tenant : tu ne peux pas assigner un rôle d'un autre tenant (impossible côté UI mais durci côté serveur depuis Sprint 9 = `role_mismatch_tenant`).

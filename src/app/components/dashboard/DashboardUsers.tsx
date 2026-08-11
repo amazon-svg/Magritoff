@@ -36,54 +36,14 @@ import { TEST_IDS } from '../../lib/testIds';
 import { DashboardRolesSection } from './DashboardRolesSection';
 import { InviteUserModalV2 } from './InviteUserModalV2';
 import { EditUserRolesModal } from './EditUserRolesModal';
-
-// E9.5 — appelle l'edge function send-invitation-email. Best-effort :
-// renvoie toujours un objet { sent, link, reason? } pour que le caller
-// puisse soit confirmer "email envoye", soit afficher le lien manuel.
-//
-// R5 (refacto 2026-05-11) : migre vers `supabase.functions.invoke()`
-// (ADR-R3 pattern Supabase unique). L auth header est gere automatiquement
-// par le SDK.
-//
-// Conserve UNIQUEMENT pour le bouton "Renvoyer" (resendInvite). La creation
-// d'une invitation passe desormais par le module API-first Invitations.
-async function callSendInvitationEmail(invitationId: string): Promise<{
-  sent: boolean;
-  link: string;
-  reason?: string;
-}> {
-  try {
-    const { data, error } = await supabase.functions.invoke<{
-      ok: boolean;
-      sent?: boolean;
-      link?: string;
-      reason?: string;
-      error?: string;
-    }>('make-server-e3db71a4/send-invitation-email', {
-      body: {
-        invitationId,
-        baseUrl: window.location.origin,
-      },
-    });
-    if (error || !data?.ok) {
-      return {
-        sent: false,
-        link: '',
-        reason: data?.error || error?.message || 'invocation echouee',
-      };
-    }
-    return { sent: !!data.sent, link: data.link || '', reason: data.reason };
-  } catch (e) {
-    return { sent: false, link: '', reason: String(e) };
-  }
-}
+import { InvitationsApiClient } from '../../../modules/invitations';
+import { ApiClientError, FetchApiClient } from '../../../platform/api';
 
 // ────────────────────────────────────────────────────────────────────────────
 // SECTION 1 — Utilisateurs Magrit (membres tenant + invitations)
 // ────────────────────────────────────────────────────────────────────────────
 
 type Role = 'owner' | 'admin' | 'member' | 'partner';
-type InviteRole = Exclude<Role, 'owner'>;
 
 interface MemberRow {
   user_id: string;
@@ -98,7 +58,7 @@ interface MemberRow {
 interface InvitationRow {
   id: string;
   email: string;
-  role: InviteRole;
+  role: Role;
   expires_at: string;
   created_at: string;
   access_scope: AccessScope;
@@ -107,7 +67,7 @@ interface InvitationRow {
 }
 
 function MagritUsersSection() {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const { currentTenant, currentRole, isSuperAdmin } = useTenant();
   const { shops } = useShops();
 
@@ -121,6 +81,9 @@ function MagritUsersSection() {
 
   // Modale "Modifier les droits"
   const [editingPerms, setEditingPerms] = useState<MemberRow | null>(null);
+  const invitationsApi = useMemo(() => new InvitationsApiClient(new FetchApiClient(
+    '', globalThis.fetch, () => session?.access_token ?? null,
+  )), [session?.access_token]);
 
   const canWrite = currentRole === 'owner' || currentRole === 'admin' || isSuperAdmin;
 
@@ -161,30 +124,38 @@ function MagritUsersSection() {
       }))
     );
 
-    const { data: inv } = await supabase
-      .from('tenant_invitations')
-      .select('id, email, role, expires_at, created_at, access_scope, allowed_shop_ids, permissions')
-      .eq('tenant_id', currentTenant.id)
-      .is('accepted_at', null)
-      .order('created_at', { ascending: false });
-    setInvitations(
-      ((inv as any[]) || []).map((i) => ({
-        ...i,
-        access_scope: i.access_scope ?? 'magrit_full',
-        allowed_shop_ids: i.allowed_shop_ids ?? [],
-        permissions: { ...DEFAULT_PERMISSIONS, ...(i.permissions ?? {}) },
-      }))
-    );
+    try {
+      const pending = await invitationsApi.pending(currentTenant.id);
+      setInvitations(pending.map((invitation) => ({
+        id: invitation.id, email: invitation.email, role: invitation.role,
+        expires_at: invitation.expiresAt, created_at: invitation.createdAt,
+        access_scope: invitation.accessScope, allowed_shop_ids: invitation.allowedShopIds,
+        permissions: {
+          can_quote: invitation.permissions.canQuote,
+          can_order: invitation.permissions.canOrder,
+          can_invite: invitation.permissions.canInvite,
+        },
+      })));
+    } catch (invitationError) {
+      console.error('[DashboardUsers] invitations API failed', invitationError);
+      setInvitations([]);
+    }
 
     setLoading(false);
   };
 
   useEffect(() => {
     load();
-  }, [currentTenant?.id]);
+  }, [currentTenant?.id, invitationsApi]);
 
   const resendInvite = async (id: string, email: string) => {
-    const result = await callSendInvitationEmail(id);
+    let result;
+    try {
+      result = await invitationsApi.resend(id, window.location.origin);
+    } catch (error) {
+      alert(error instanceof ApiClientError ? error.message : "Echec du renvoi de l'invitation.");
+      return;
+    }
     if (result.sent) {
       alert(`Email d'invitation renvoye a ${email}.`);
     } else {
@@ -198,9 +169,12 @@ function MagritUsersSection() {
 
   const revokeInvite = async (id: string, email: string) => {
     if (!confirm(`Revoquer l'invitation envoyee a ${email} ?`)) return;
-    await supabase.from('tenant_invitations').delete().eq('id', id);
-    await logEvent('invitation_revoked', null, { invitation_id: id, email });
-    await load();
+    try {
+      await invitationsApi.revoke(id);
+      await load();
+    } catch (error) {
+      alert(error instanceof ApiClientError ? error.message : "Echec de la révocation de l'invitation.");
+    }
   };
 
   const changeRole = async (member: MemberRow, newRole: Role) => {

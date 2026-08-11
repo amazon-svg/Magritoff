@@ -2,8 +2,16 @@ import { API_V1_BASE_PATH, FetchApiClient } from '../../../platform/api/index.ts
 import {
   createInvitationCommandSchema,
   createInvitationResultSchema,
+  invitationOptionsSchema,
+  pendingInvitationsSchema,
+  resendInvitationCommandSchema,
+  resendInvitationResultSchema,
+  revokeInvitationResultSchema,
   type CreateInvitationCommand,
   type CreateInvitationResult,
+  type InvitationOptions,
+  type PendingInvitation,
+  type ResendInvitationResult,
 } from './contracts.ts';
 
 export class InvitationsApiClient {
@@ -16,5 +24,27 @@ export class InvitationsApiClient {
       body: createInvitationCommandSchema.parse(command),
       responseSchema: createInvitationResultSchema,
     });
+  }
+
+  options(tenantId: string): Promise<InvitationOptions> {
+    return this.client.request({ path: `${API_V1_BASE_PATH}/tenants/${tenantId}/invitation-options`, responseSchema: invitationOptionsSchema });
+  }
+
+  pending(tenantId: string): Promise<PendingInvitation[]> {
+    return this.client.request({ path: `${API_V1_BASE_PATH}/tenants/${tenantId}/invitations`, responseSchema: pendingInvitationsSchema });
+  }
+
+  resend(invitationId: string, baseUrl: string): Promise<ResendInvitationResult> {
+    return this.client.request({
+      method: 'POST', path: `${API_V1_BASE_PATH}/invitations/${invitationId}/resend`,
+      body: resendInvitationCommandSchema.parse({ baseUrl }), responseSchema: resendInvitationResultSchema,
+    });
+  }
+
+  revoke(invitationId: string): Promise<void> {
+    return this.client.request({
+      method: 'DELETE', path: `${API_V1_BASE_PATH}/invitations/${invitationId}`,
+      responseSchema: revokeInvitationResultSchema,
+    }).then(() => undefined);
   }
 }

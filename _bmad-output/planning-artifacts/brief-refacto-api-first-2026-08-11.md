@@ -110,8 +110,10 @@ src/
 - AF7.2 : rafraîchissement explicite de session avant invitation — livré ;
 - AF8 : contrat et commande `POST /api/v1/invitations`, identité de l’invitant
   dérivée côté serveur — livré ;
-- suite : migrer les lectures rôles/boutiques, la révocation et le renvoi, puis
-  supprimer l’adaptateur transitoire vers l’ancienne Edge Function.
+- AF9 : options, liste des invitations en attente, révocation et renvoi via
+  l’API Magrit — livré ;
+- suite : supprimer les adaptateurs transitoires vers les anciennes Edge
+  Functions et migrer l’administration des membres.
 
 ## Critères de succès
 

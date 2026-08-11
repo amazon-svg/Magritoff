@@ -190,8 +190,11 @@ describe('frontières API-first et modulaires', () => {
     );
 
     expect(modal).toContain('new InvitationsApiClient');
+    expect(modal).toContain('invitationsApi.options');
     expect(modal).not.toContain('.functions.invoke');
     expect(usersDashboard).not.toMatch(/functions\.invoke[\s\S]{0,120}invite-member/);
+    expect(usersDashboard).not.toContain('send-invitation-email');
+    expect(usersDashboard).not.toContain(".from('tenant_invitations')");
   });
 
   it('empêche toute nouvelle dépendance Supabase dans le front brownfield', () => {

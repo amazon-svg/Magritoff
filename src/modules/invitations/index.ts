@@ -3,8 +3,17 @@ export {
   createInvitationCommandSchema,
   createInvitationResultSchema,
   invitationAccessScopeSchema,
+  invitationOptionsSchema,
+  pendingInvitationSchema,
+  pendingInvitationsSchema,
+  resendInvitationCommandSchema,
+  resendInvitationResultSchema,
+  revokeInvitationResultSchema,
   type CreateInvitationCommand,
   type CreateInvitationResult,
+  type InvitationOptions,
+  type PendingInvitation,
+  type ResendInvitationResult,
 } from './api/contracts';
 export { InvitationsService } from './application/invitations-service';
 export {

@@ -28,4 +28,31 @@ describe('InvitationsApiClient', () => {
     await expect(client.create(command)).resolves.toMatchObject({ sent: true });
     expect(fetchMock).toHaveBeenCalledWith('/api/v1/invitations', expect.any(Object));
   });
+
+  it('expose les opérations d’administration sans fournisseur', async () => {
+    const calls: string[] = [];
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(input);
+      calls.push(`${init?.method ?? 'GET'} ${path}`);
+      if (path.endsWith('/invitation-options')) return new Response(JSON.stringify({ roles: [], shops: [] }));
+      if (path.endsWith('/invitations') && init?.method === 'GET') return new Response('[]');
+      if (path.endsWith('/resend')) return new Response(JSON.stringify({ sent: false, link: 'http://localhost:5177/invitations/token' }));
+      return new Response(JSON.stringify({ revoked: true }));
+    });
+    const client = new InvitationsApiClient(new FetchApiClient('', fetchMock as typeof fetch, () => 'token'));
+    const tenantId = command.tenantId;
+    const invitationId = '44444444-4444-4444-8444-444444444444';
+
+    await client.options(tenantId);
+    await client.pending(tenantId);
+    await client.resend(invitationId, command.baseUrl);
+    await client.revoke(invitationId);
+
+    expect(calls).toEqual([
+      `GET /api/v1/tenants/${tenantId}/invitation-options`,
+      `GET /api/v1/tenants/${tenantId}/invitations`,
+      `POST /api/v1/invitations/${invitationId}/resend`,
+      `DELETE /api/v1/invitations/${invitationId}`,
+    ]);
+  });
 });

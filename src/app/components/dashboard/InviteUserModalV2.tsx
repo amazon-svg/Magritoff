@@ -24,6 +24,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Loader2, Mail, X, Check } from 'lucide-react';
 import { supabase } from '/utils/supabase/client';
 import { TEST_IDS } from '../../lib/testIds';
+import { useAuth } from '../../contexts/AuthContext';
 import { InvitationsApiClient } from '../../../modules/invitations';
 import { ApiClientError, FetchApiClient } from '../../../platform/api';
 import {
@@ -59,6 +60,7 @@ export function InviteUserModalV2({
   onInvited,
   onClose,
 }: InviteUserModalV2Props) {
+  const { session } = useAuth();
   const [email, setEmail] = useState('');
   const [roles, setRoles] = useState<RoleOption[]>([]);
   const [selectedRoleIds, setSelectedRoleIds] = useState<Set<string>>(new Set());
@@ -69,31 +71,23 @@ export function InviteUserModalV2({
   const [loadingRoles, setLoadingRoles] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const invitationsApi = useMemo(() => new InvitationsApiClient(new FetchApiClient(
+    '', globalThis.fetch, () => session?.access_token ?? null,
+  )), [session?.access_token]);
 
   const loadRoles = useCallback(async () => {
     setLoadingRoles(true);
-    const rolesQ = supabase
-      .from('tenant_role_definitions')
-      .select('id, name, description, ordering_index')
-      .eq('tenant_id', tenantId)
-      .is('archived_at', null)
-      .order('ordering_index', { ascending: true });
-    const shopsQ = supabase
-      .from('shops')
-      .select('id, name')
-      .eq('tenant_id', tenantId)
-      .order('name', { ascending: true });
-    const [rolesR, shopsR] = await Promise.all([rolesQ, shopsQ]);
-    if (rolesR.error) {
-      setError(`Chargement rôles : ${rolesR.error.message}`);
-    } else {
-      setRoles((rolesR.data ?? []) as RoleOption[]);
-    }
-    if (!shopsR.error) {
-      setShops((shopsR.data ?? []) as ShopOption[]);
+    try {
+      const options = await invitationsApi.options(tenantId);
+      setRoles(options.roles);
+      setShops(options.shops);
+    } catch (loadError) {
+      setError(loadError instanceof ApiClientError
+        ? invitationApiProblemMessage(loadError.problem.code, loadError.problem.detail)
+        : 'Chargement des rôles et boutiques impossible.');
     }
     setLoadingRoles(false);
-  }, [tenantId]);
+  }, [invitationsApi, tenantId]);
 
   useEffect(() => {
     if (open) {
@@ -152,12 +146,12 @@ export function InviteUserModalV2({
         return;
       }
 
-      const invitationsApi = new InvitationsApiClient(new FetchApiClient(
+      const freshInvitationsApi = new InvitationsApiClient(new FetchApiClient(
         '',
         globalThis.fetch,
         () => refreshed.session.access_token,
       ));
-      const data = await invitationsApi.create({
+      const data = await freshInvitationsApi.create({
         email: cleanedEmail,
         tenantId,
         baseUrl,
