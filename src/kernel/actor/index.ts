@@ -3,7 +3,7 @@ import type { RequestId, TenantId, UserId } from '../ids';
 export type UserActorContext = Readonly<{
   kind: 'user';
   userId: UserId;
-  tenantId: TenantId;
+  tenantId?: TenantId;
   requestId: RequestId;
 }>;
 

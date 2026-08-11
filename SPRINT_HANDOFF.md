@@ -2,21 +2,23 @@
 
 > Document de reprise pour démarrer une nouvelle session de Claude code sur le projet sans recharger tout l'historique. À tenir à jour à chaque fin de sprint.
 >
-> **Dernière mise à jour : 2026-08-10 — remontée `beta/v5` → `main` poussée (merge `796f9c9`), convention Git partagée avec Expert Solutions, décision multi-devise.**
+> **Dernière mise à jour : 2026-08-11 — fondation API-first AF0-AF2 sur branche dédiée, sans déploiement externe.**
 
 ---
 
-## ▶️ PROCHAIN CHANTIER — AF2 bootstrap session, tenant et préférences
+## ▶️ PROCHAIN CHANTIER — AF3 registre des surfaces et contributions UI
 
 La refactorisation API-first a démarré le 2026-08-11 sur la branche `refactor/api-first-foundation`, créée depuis `main@eea7f56`.
 
 **AF0 committée (`cb5c15e`)** : ADR §4.21, brief et Epic 8 BMAD, kernel minimal strict, baseline exacte de la dette Supabase UI, tests de frontières et workflow CI architecture.
 
-**AF1 en review** : contrats communs `/api/v1`, client fetch typé, Problem Details, routeur `Request -> Response`, résolution acteur injectée, composition serveur, healthcheck et OpenAPI. Validation : typecheck vert, architecture 4/4, API 11/11, vitest complet 769 verts et build vert.
+**AF1 committée (`94f197e`)** : contrats communs `/api/v1`, client fetch typé, Problem Details, routeur `Request -> Response`, résolution acteur injectée, composition serveur, healthcheck et OpenAPI.
 
-**Point de reprise** : story AF2 dans `_bmad-output/planning-artifacts/epics.md` — agréger session, tenant et préférences derrière un premier module vertical et migrer les contexts React sans casser Supabase Auth pendant la coexistence.
+**AF2 en review** : module session, bootstrap agrégé, préférences et dernier tenant via API, composition Edge RLS, provider partagé et contexts migrés. Baseline abaissée de 45 à 43 fichiers importeurs et de 83 à 70 références directes. Validation : architecture 6/6, vitest complet 780 verts et build vert. Déploiement Edge et reverse proxy non effectués, runbook backend-first dans `docs/architecture/api/deployment.md`.
 
-**Dérogation R5 restante** : 45 fichiers UI importent encore Supabase et 83 références `supabase.*` sont figées par `tests/architecture/supabase-ui-baseline.ts`. La baseline ne peut ni augmenter ni rester périmée après une baisse.
+**Point de reprise** : story AF3 dans `_bmad-output/planning-artifacts/epics.md` — introduire les composition roots storefront, customer-portal, workspace et backoffice, puis migrer un écran témoin sans modifier son UX.
+
+**Dérogation R5 restante** : 43 fichiers UI importent encore Supabase et 70 références `supabase.*` sont figées par `tests/architecture/supabase-ui-baseline.ts`. Supabase Auth et les commandes tenant brownfield isolées restent temporaires ; la baseline ne peut ni augmenter ni rester périmée après une baisse.
 
 ---
 

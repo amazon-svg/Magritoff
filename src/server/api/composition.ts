@@ -1,18 +1,19 @@
 import { systemClock, type Clock } from '../../kernel';
 import { createApiV1Handler, type ActorResolver } from './api-v1-handler';
-import { createHealthRoute } from './routes';
+import { createHealthRoute, type ApiRoute } from './routes';
 
 export type ApiV1ApplicationDependencies = Readonly<{
   actorResolver?: ActorResolver;
   clock?: Clock;
   requestIdFactory?: () => string;
   onUnexpectedError?: (error: unknown, requestId: string) => void;
+  routes?: readonly ApiRoute[];
 }>;
 
 export function createApiV1Application(dependencies: ApiV1ApplicationDependencies = {}) {
   const clock = dependencies.clock ?? systemClock;
   return createApiV1Handler({
-    routes: [createHealthRoute(clock)],
+    routes: [createHealthRoute(clock), ...(dependencies.routes ?? [])],
     ...(dependencies.actorResolver === undefined
       ? {}
       : { actorResolver: dependencies.actorResolver }),

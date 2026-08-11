@@ -22,7 +22,83 @@ paths:
                 $ref: '#/components/schemas/HealthResponse'
         '500':
           $ref: '#/components/responses/InternalError'
+  /session:
+    get:
+      operationId: getSessionBootstrap
+      summary: Charger le bootstrap utilisateur, tenants et préférences
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Session applicative agrégée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionBootstrap'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /session/preferences:
+    patch:
+      operationId: updateSessionPreferences
+      summary: Modifier les préférences utilisateur
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePreferences'
+      responses:
+        '200':
+          description: Préférences réconciliées
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPreferences'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+  /session/current-tenant:
+    put:
+      operationId: updateCurrentTenant
+      summary: Mémoriser le dernier tenant sélectionné
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [tenantId]
+              properties:
+                tenantId:
+                  type: string
+                  minLength: 1
+      responses:
+        '200':
+          description: Préférences réconciliées
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPreferences'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          description: Tenant hors du périmètre accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ApiProblem'
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
   schemas:
     HealthResponse:
       type: object
@@ -66,7 +142,107 @@ components:
                 type: string
               message:
                 type: string
+    MemberPermissions:
+      type: object
+      additionalProperties: false
+      required: [can_quote, can_order, can_invite]
+      properties:
+        can_quote: { type: boolean }
+        can_order: { type: boolean }
+        can_invite: { type: boolean }
+    SessionTenant:
+      type: object
+      required:
+        - id
+        - slug
+        - name
+        - parent_tenant_id
+        - plan
+        - is_system_tenant
+        - settings
+        - created_at
+        - myRole
+        - accessScope
+        - allowedShopIds
+        - permissions
+        - inheritedFromParent
+      properties:
+        id: { type: string }
+        slug: { type: string }
+        name: { type: string }
+        parent_tenant_id: { type: [string, 'null'] }
+        plan: { type: string, enum: [freemium, pro, enterprise] }
+        is_system_tenant: { type: boolean }
+        settings: { type: object }
+        created_at: { type: string, format: date-time }
+        siren: { type: [string, 'null'] }
+        siren_data: { type: [object, 'null'] }
+        verified: { type: boolean }
+        verified_at: { type: [string, 'null'], format: date-time }
+        tax_regime: { type: [string, 'null'] }
+        myRole: { type: string, enum: [owner, admin, member, partner] }
+        accessScope: { type: string, enum: [magrit_full, shop_only] }
+        allowedShopIds:
+          type: array
+          items: { type: string }
+        permissions:
+          $ref: '#/components/schemas/MemberPermissions'
+        inheritedFromParent: { type: boolean }
+    UserPreferences:
+      type: object
+      additionalProperties: false
+      required:
+        - theme
+        - language
+        - default_delivery_zone
+        - notifications_email
+        - plan
+        - is_admin
+        - last_tenant_id
+      properties:
+        theme: { type: string, enum: [light, dark] }
+        language: { type: string, enum: [fr, en] }
+        default_delivery_zone: { type: string }
+        notifications_email: { type: boolean }
+        plan: { type: string, enum: [freemium, pro, enterprise] }
+        is_admin: { type: boolean }
+        last_tenant_id: { type: [string, 'null'] }
+    UpdatePreferences:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        theme: { type: string, enum: [light, dark] }
+        language: { type: string, enum: [fr, en] }
+        default_delivery_zone: { type: string }
+        notifications_email: { type: boolean }
+        plan: { type: string, enum: [freemium, pro, enterprise] }
+        is_admin: { type: boolean }
+    SessionBootstrap:
+      type: object
+      additionalProperties: false
+      required: [user, tenants, isSuperAdmin, preferences]
+      properties:
+        user:
+          type: object
+          additionalProperties: false
+          required: [id]
+          properties:
+            id: { type: string }
+        tenants:
+          type: array
+          items:
+            $ref: '#/components/schemas/SessionTenant'
+        isSuperAdmin: { type: boolean }
+        preferences:
+          $ref: '#/components/schemas/UserPreferences'
   responses:
+    AuthenticationRequired:
+      description: Bearer token absent ou invalide
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ApiProblem'
     InternalError:
       description: Erreur interne corrélée sans détail technique exposé
       content:

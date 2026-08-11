@@ -4,7 +4,7 @@ import { ApiHttpError } from './errors';
 import type { ApiRequestContext, ApiRoute } from './routes';
 
 export type ResolvedActor =
-  | Readonly<{ kind: 'user'; userId: UserId; tenantId: TenantId }>
+  | Readonly<{ kind: 'user'; userId: UserId; tenantId?: TenantId }>
   | Readonly<{ kind: 'system'; systemId: string; tenantId?: TenantId }>;
 
 export interface ActorResolver {

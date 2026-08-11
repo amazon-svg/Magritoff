@@ -51,6 +51,15 @@ export default defineConfig({
   // File types to support raw imports. Never add .css, .tsx, or .ts files to this.
   assetsInclude: ['**/*.svg', '**/*.csv'],
 
+  server: {
+    proxy: {
+      '/api/v1': {
+        target: 'https://ightkxebexuzfjdbpsdg.supabase.co/functions/v1/magrit-api',
+        changeOrigin: true,
+      },
+    },
+  },
+
   // R7 : seuil bundle warning a 600 KB (au-dela = warning Vite explicite).
   // La baseline actuelle est ~890 KB → on documente comme dette technique
   // a reduire au fil du temps (story future de chunking manuel ou dynamic

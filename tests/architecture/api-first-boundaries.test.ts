@@ -87,6 +87,36 @@ describe('frontières API-first et modulaires', () => {
     expect(violations).toEqual([]);
   });
 
+  it('interdit les lectures de bootstrap fournisseur dans les contexts React', () => {
+    const protectedFiles = [
+      'src/app/contexts/SessionBootstrapContext.tsx',
+      'src/app/contexts/PreferencesContext.tsx',
+      'src/app/contexts/TenantContext.tsx',
+    ];
+    const forbiddenReads = [
+      /\.from\(['"](?:tenant_members|user_preferences)['"]\)/,
+      /\.from\(['"]tenants['"]\)[\s\S]{0,80}\.select\(/,
+    ];
+    const violations = protectedFiles.filter((file) =>
+      forbiddenReads.some((pattern) =>
+        pattern.test(readFileSync(resolve(process.cwd(), file), 'utf8')),
+      ),
+    );
+
+    expect(violations).toEqual([]);
+  });
+
+  it('conserve la RLS dans la composition Edge du bootstrap', () => {
+    const edgeEntry = readFileSync(
+      resolve(process.cwd(), 'supabase/functions/magrit-api/index.ts'),
+      'utf8',
+    );
+
+    expect(edgeEntry).toContain("Deno.env.get('SUPABASE_ANON_KEY')");
+    expect(edgeEntry).toContain('Authorization: authorization');
+    expect(edgeEntry).not.toContain('SUPABASE_SERVICE_ROLE_KEY');
+  });
+
   it('empêche toute nouvelle dépendance Supabase dans le front brownfield', () => {
     const appRoot = resolve(process.cwd(), 'src/app');
     const violations: string[] = [];

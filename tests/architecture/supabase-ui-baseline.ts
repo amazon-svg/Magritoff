@@ -5,6 +5,7 @@
  * seulement la dette historique d'augmenter pendant sa migration vers /api/v1.
  * Chaque story de migration doit supprimer les entrées devenues inutiles et
  * abaisser les compteurs ; la baseline ne doit jamais être augmentée.
+ * Après AF2 : 43 fichiers importeurs et 70 références directes restantes.
  */
 export const legacySupabaseUiImportFiles = new Set([
   'src/app/components/ChatInterface.tsx',
@@ -44,11 +45,9 @@ export const legacySupabaseUiImportFiles = new Set([
   'src/app/contexts/ConversationContext.tsx',
   'src/app/contexts/LibraryContext.tsx',
   'src/app/contexts/PIMContext.tsx',
-  'src/app/contexts/PreferencesContext.tsx',
   'src/app/contexts/QuoteTemplatesContext.tsx',
   'src/app/contexts/QuotesContext.tsx',
   'src/app/contexts/ShopsContext.tsx',
-  'src/app/contexts/TenantContext.tsx',
   'src/app/hooks/useOrderRoles.ts',
   'src/app/hooks/useUserCapability.ts',
   'src/app/utils/quote.ts',
@@ -91,11 +90,9 @@ export const legacySupabaseUiReferenceLimits = new Map<string, number>([
   ['src/app/contexts/ConversationContext.tsx', 3],
   ['src/app/contexts/LibraryContext.tsx', 12],
   ['src/app/contexts/PIMContext.tsx', 6],
-  ['src/app/contexts/PreferencesContext.tsx', 3],
   ['src/app/contexts/QuoteTemplatesContext.tsx', 6],
   ['src/app/contexts/QuotesContext.tsx', 13],
   ['src/app/contexts/ShopsContext.tsx', 8],
-  ['src/app/contexts/TenantContext.tsx', 10],
   ['src/app/hooks/useOrderRoles.ts', 2],
   ['src/app/hooks/useUserCapability.ts', 1],
   ['src/app/utils/quote.ts', 1],

@@ -16,15 +16,18 @@ import { router } from './routes';
 import { AuthProvider } from './contexts/AuthContext';
 import { PreferencesProvider } from './contexts/PreferencesContext';
 import { PIMProvider } from './contexts/PIMContext';
+import { SessionBootstrapProvider } from './contexts/SessionBootstrapContext';
 
 export default function App() {
   return (
     <AuthProvider>
-      <PreferencesProvider>
-        <PIMProvider>
-          <RouterProvider router={router} />
-        </PIMProvider>
-      </PreferencesProvider>
+      <SessionBootstrapProvider>
+        <PreferencesProvider>
+          <PIMProvider>
+            <RouterProvider router={router} />
+          </PIMProvider>
+        </PreferencesProvider>
+      </SessionBootstrapProvider>
     </AuthProvider>
   );
 }
