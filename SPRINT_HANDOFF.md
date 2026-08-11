@@ -6,7 +6,7 @@
 
 ---
 
-## ▶️ PROCHAIN CHANTIER — AF3 registre des surfaces et contributions UI
+## ▶️ PROCHAIN CHANTIER — AF4 API de lecture Orders
 
 La refactorisation API-first a démarré le 2026-08-11 sur la branche `refactor/api-first-foundation`, créée depuis `main@eea7f56`.
 
@@ -14,11 +14,13 @@ La refactorisation API-first a démarré le 2026-08-11 sur la branche `refactor/
 
 **AF1 committée (`94f197e`)** : contrats communs `/api/v1`, client fetch typé, Problem Details, routeur `Request -> Response`, résolution acteur injectée, composition serveur, healthcheck et OpenAPI.
 
-**AF2 en review** : module session, bootstrap agrégé, préférences et dernier tenant via API, composition Edge RLS, provider partagé et contexts migrés. Baseline abaissée de 45 à 43 fichiers importeurs et de 83 à 70 références directes. Validation : architecture 6/6, vitest complet 780 verts et build vert. Déploiement Edge et reverse proxy non effectués, runbook backend-first dans `docs/architecture/api/deployment.md`.
+**AF2 committée (`ce819ec`)** : module session, bootstrap agrégé, préférences et dernier tenant via API, composition Edge RLS, provider partagé et contexts migrés. Déploiement Edge et reverse proxy non effectués, runbook backend-first dans `docs/architecture/api/deployment.md`.
 
-**Point de reprise** : story AF3 dans `_bmad-output/planning-artifacts/epics.md` — introduire les composition roots storefront, customer-portal, workspace et backoffice, puis migrer un écran témoin sans modifier son UX.
+**AF3 en review** : registre validé, quatre composition roots, manifeste Account multi-surfaces, route et navigation workspace contribuées, écran témoin séparé en vue et adaptateur. Validation : registre 4/4, architecture 9/9, vitest complet 787 verts et build vert. Baseline : 42 fichiers importeurs et 70 références directes.
 
-**Dérogation R5 restante** : 43 fichiers UI importent encore Supabase et 70 références `supabase.*` sont figées par `tests/architecture/supabase-ui-baseline.ts`. Supabase Auth et les commandes tenant brownfield isolées restent temporaires ; la baseline ne peut ni augmenter ni rester périmée après une baisse.
+**Point de reprise** : story AF4 dans `_bmad-output/planning-artifacts/epics.md` — construire contrats, service applicatif et repository serveur de lecture Orders avant toute migration des écrans.
+
+**Dérogation R5 restante** : 42 fichiers UI importent encore Supabase et 70 références `supabase.*` sont figées par `tests/architecture/supabase-ui-baseline.ts`. Supabase Auth et les commandes tenant brownfield isolées restent temporaires ; la baseline ne peut ni augmenter ni rester périmée après une baisse.
 
 ---
 

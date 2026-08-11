@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import type { Session, User } from '@supabase/supabase-js';
+import type { Session, User, UserAttributes } from '@supabase/supabase-js';
 import { supabase } from '/utils/supabase/client';
 
 interface AuthContextType {
@@ -11,9 +11,12 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: Error | null }>;
   updatePassword: (newPassword: string) => Promise<{ error: Error | null }>;
+  updateProfile: (profile: { fullName: string }) => Promise<{ error: Error | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+const updateAuthUser = (attributes: UserAttributes) => supabase.auth.updateUser(attributes);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -61,12 +64,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const updatePassword = async (newPassword: string) => {
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    const { error } = await updateAuthUser({ password: newPassword });
+    return { error };
+  };
+
+  const updateProfile = async ({ fullName }: { fullName: string }) => {
+    const { error } = await updateAuthUser({ data: { full_name: fullName } });
     return { error };
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signIn, signUp, signOut, resetPassword, updatePassword }}>
+    <AuthContext.Provider value={{ user, session, loading, signIn, signUp, signOut, resetPassword, updatePassword, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );

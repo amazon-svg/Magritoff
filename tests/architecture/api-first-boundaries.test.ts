@@ -62,6 +62,53 @@ describe('frontières API-first et modulaires', () => {
     expect(violations).toEqual([]);
   });
 
+  it('garde les manifestes et contributions de surfaces indépendants de React', () => {
+    const protectedRoots = [
+      'src/surfaces/registry',
+      'src/surfaces/application-registry.ts',
+      'src/modules/account/manifest.ts',
+      'src/modules/account/surface-contributions.ts',
+    ];
+    const violations = protectedRoots.flatMap((root) => {
+      const path = resolve(process.cwd(), root);
+      const files = statSync(path).isDirectory() ? listTypeScriptFiles(path) : [path];
+      return files.flatMap((file) =>
+        importedModules(readFileSync(file, 'utf8'))
+          .filter((dependency) => /^react(?:-router)?(?:\/|$)/.test(dependency) || /^lucide-react$/.test(dependency))
+          .map((dependency) => `${relative(process.cwd(), file)} -> ${dependency}`),
+      );
+    });
+
+    expect(violations).toEqual([]);
+  });
+
+  it('conserve le chargement lazy de l écran workspace témoin', () => {
+    const routes = readFileSync(resolve(process.cwd(), 'src/app/routes.tsx'), 'utf8');
+    const runtime = readFileSync(
+      resolve(process.cwd(), 'src/app/surfaces/workspaceRuntimeRoutes.tsx'),
+      'utf8',
+    );
+
+    expect(routes).not.toContain('const DashboardAccount = lazy');
+    expect(routes).toContain('workspaceRuntimeRoutes.map');
+    expect(runtime).toContain("import('../components/dashboard/DashboardAccount')");
+    expect(runtime).toContain('Component: lazy(loader)');
+  });
+
+  it('sépare la vue Account des adaptateurs brownfield', () => {
+    const view = resolve(
+      process.cwd(),
+      'src/app/surfaces/account/AccountSettingsView.tsx',
+    );
+    const dependencies = importedModules(readFileSync(view, 'utf8'));
+
+    expect(
+      dependencies.filter(
+        (dependency) => /contexts|supabase|platform\/api/.test(dependency),
+      ),
+    ).toEqual([]);
+  });
+
   it('garde la plateforme API et la composition serveur indépendantes des fournisseurs', () => {
     const protectedRoots = ['src/platform/api', 'src/server/api'];
     const violations = protectedRoots.flatMap((root) =>

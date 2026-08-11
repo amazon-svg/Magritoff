@@ -7,6 +7,7 @@ import { TenantPicker } from "./components/tenant/TenantPicker";
 import { ConfiguratorPage } from "./components/ConfiguratorPage";
 import { NotFound } from "./components/NotFound";
 import { DashboardLayout } from "./components/dashboard/DashboardLayout";
+import { workspaceRuntimeRoutes } from "./surfaces/workspaceRuntimeRoutes";
 
 const TenantOnboarding = lazy(() =>
   import("./components/tenant/TenantOnboarding").then((m) => ({ default: m.TenantOnboarding })),
@@ -27,10 +28,6 @@ const PublicShop = lazy(() =>
   import("./components/shop/PublicShop").then((m) => ({ default: m.PublicShop })),
 );
 
-// REFONTE-UX (2026-08-08) — Mon compte fusionne Profil + Preferences (points 3-4).
-const DashboardAccount = lazy(() =>
-  import("./components/dashboard/DashboardAccount").then((m) => ({ default: m.DashboardAccount })),
-);
 const DashboardHistory = lazy(() =>
   import("./components/dashboard/DashboardHistory").then((m) => ({ default: m.DashboardHistory })),
 );
@@ -215,7 +212,11 @@ export const router = createBrowserRouter([
               // (Devis), plus le profil. Profil + Preferences vivent dans
               // Parametres > Mon compte (/account).
               { index: true, element: <Navigate to="quotes" replace /> },
-              { path: "account", element: lazyRoute(<DashboardAccount />) },
+              ...workspaceRuntimeRoutes.map(({ id, path, Component }) => ({
+                id,
+                path,
+                element: lazyRoute(<Component />),
+              })),
               { path: "profile", element: <Navigate to="../account" replace /> },
               { path: "preferences", element: <Navigate to="../account" replace /> },
               { path: "plan", element: lazyRoute(<DashboardPlan />) },
