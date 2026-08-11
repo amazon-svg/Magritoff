@@ -2,7 +2,106 @@
 
 > Document de reprise pour démarrer une nouvelle session de Claude code sur le projet sans recharger tout l'historique. À tenir à jour à chaque fin de sprint.
 >
-> **Dernière mise à jour : 2026-08-10 — REFACTO-VISUELS livré ET appliqué en prod : le visuel est une propriété de la gamme dans le PIM, moteur SVG supprimé. Voir section 26.**
+> **Dernière mise à jour : 2026-08-10 — MULTI-DEVISE tranche 1 livrée sur `feat/multi-devise-t1` (migration `20260810000200` **APPLIQUÉE en prod** le 2026-08-10, en même temps que les visuels de gamme). Voir sections 27 et 28.**
+
+## 28. Session 2026-08-10 (suite) — Les 16 familles racines ont leur visuel
+
+Les 10 visuels manquants ont été produits par Gemini depuis
+[`brief-gemini-visuels-gammes-manquantes-2026-08-10.md`](_bmad-output/planning-artifacts/brief-gemini-visuels-gammes-manquantes-2026-08-10.md),
+contrôlés un par un contre les critères du brief, convertis en JPG 1024 et
+posés en base. **Couverture : 6/16 → 16/16**, vérifié en prod. Les 65
+sous-gammes héritent par `parent_slug`.
+
+Le visuel `brochure` est **remplacé, pas restauré** : l'ancien montrait un
+dépliant plié ouvert à plat — le défaut qui avait déclenché toute la refonte.
+
+Migration `20260810000300_gamme_visuals_completion.sql`, idempotente,
+**appliquée**. Recette : build vert, vitest 849/849.
+
+**Série homogénéisée le même jour** : les 6 visuels de juin (produits détourés
+sur fond blanc) ont été regénérés au format scène. La collection est en
+1024×1024 sur fond béton, sauf **une exception assumée**.
+
+**Collection homogène, sans exception** : 16 familles racines, 16 visuels, tous
+en 1024×1024 sur fond béton.
+
+Le `kakemono` a demandé deux passes. La première regénération montrait une
+bannière sur mât à socle rond — soit une **oriflamme**, l'objet même de la
+famille `drapeau` : deux familles racines seraient devenues indiscernables au
+format vignette. Écartée. La seconde montre un vrai roll-up (cassette enrouleur
+aluminium, pieds, mât de soutien) et est en service. **Marqueur à exiger de
+toute regénération future de cette famille : la cassette enrouleur.**
+
+**Réserve acceptée par Arnaud** : la grille de septembre du calendrier comporte
+une erreur de suite (21 22 30 31), invisible à la taille catalogue — on laisse
+en l'état.
+
+⚠️ **Le tracking des migrations est désormais aligné** (`db push --dry-run` =
+« Remote database is up to date »). Il avait redérivé sur 8 migrations passées
+via l'API Management. Ne plus appliquer de SQL hors CLI sans
+`migration repair --status applied` derrière.
+
+## 27. Session 2026-08-10 — MULTI-DEVISE tranche 1 : « la devise existe et s'affiche »
+
+**Décision Arnaud du 2026-08-10** : chaque imprimeur doit pouvoir travailler dans SA
+devise, sinon Magrit ne peut pas voyager hors zone euro. Plan en 4 tranches verticales :
+[`docs/REFACTO_MULTI_DEVISE.md`](docs/REFACTO_MULTI_DEVISE.md). **Tranche 1 livrée.**
+
+**Branche** : `feat/multi-devise-t1` (part de `feature/refacto-visuels-gamme-pim`).
+**Story** : [`_bmad-output/implementation-artifacts/story-DEVISE-T1-la-devise-existe.md`](_bmad-output/implementation-artifacts/story-DEVISE-T1-la-devise-existe.md).
+**Vérif** : build vert, **866 tests verts** (826 avant, +23 sur `currency.ts`, +15 sur
+`marketPriceZones.ts`).
+
+Livré : `tenants.currency char(3) default 'EUR'` + contrainte ISO 4217 · helper **unique**
+`formatMoney(amount, currency)` dans `src/app/utils/currency.ts` · **4** implémentations de
+formatage supprimées ou paramétrées (le plan n'en recensait que 2 — deux copies locales de
+`formatEuro` dormaient dans `OrderHistoryTable` et `PortalThankYou`) · 103 littéraux `€`/`EUR`
+purgés sur ~40 fichiers · sélecteur **Devise de travail** dans Paramètres de l'espace ·
+`CurrencyContext`/`useCurrency()` comme point d'accès unique côté composant.
+
+**Boutique publique** : cas non prévu au plan. La RLS `tenants_select` interdit au visiteur
+anonyme de lire `tenants` — la vitrine d'un imprimeur en dollars aurait affiché des euros.
+Résolu par une fonction `SECURITY DEFINER` `shop_currency(slug)` (n'expose QUE le code ISO)
+injectée dans l'arbre boutique via `<CurrencyProvider>`.
+
+✅ **Migration `20260810000200_tenant_currency.sql` APPLIQUÉE** sur `ightkxebexuzfjdbpsdg` et
+vérifiée en base : colonne `character(3)` NOT NULL défaut `EUR` · contrainte
+`tenants_currency_iso4217` **active** (un `update` en `'eur'` est rejeté) · RPC
+`shop_currency` accordée à `anon` et `authenticated`, et **testée en anonyme** → renvoie
+`"EUR"` alors que la lecture directe de `tenants` reste bloquée par la RLS. 166 tenants, tous
+en `EUR`. ⚠️ **Correction du handoff** : `20260808000100_gescom_price_rules.sql` est elle
+aussi **déjà appliquée** (table `client_price_rules` présente) — la section 26 et les notes
+du 08/08 l'annonçaient à tort en attente.
+
+✅ **Point de vigilance n° 1 REFERMÉ — arbitrage Arnaud du 2026-08-10** : le prix marché passe
+**par zone monétaire**. « Il verra un prix marché relevant d'imprimeurs ayant la même monnaie
+que lui […] nous réserverons le droit de rendre un prix marché d'une monnaie X accessible
+dans une zone Y. » Implémenté dans `src/app/utils/marketPriceZones.ts` : zone **EUR**
+`heuristique` (valeurs historiques déplacées sans retouche) · zone **USD** déclarée mais
+`a_calibrer` (les prix d'imprimeurs en dollars restent à collecter — action de données, pas
+de code) · GBP/CHF/CAD/MAD/JPY sans zone. **Pas de zone = pas de prix marché** → « Prix sur
+demande » plutôt qu'un prix faux. L'ouverture inter-zones (`foreignZoneAccess`) est un
+**droit réservé inactif**, évalué en un seul endroit. Jamais de conversion.
+
+⚠️ **Effet visible à connaître** : un imprimeur hors zone EUR ne voit plus d'estimation quand
+Clariprint est muet. Le cache bibliothèque et Clariprint passent toujours avant la zone, donc
+un imprimeur en dollars avec des prix saisis les voit normalement.
+
+⚠️ **Réserves maintenues** : grilles papier/transport (la devise doit être portée par la
+grille) et coûts par défaut de la bibliothèque machines — à reprendre en tranche 2, qui porte
+précisément sur le modèle de coût.
+
+**Limites assumées** : les montants restent des `number` flottants (le `Money` du noyau
+arrive en tranches 2 et 3) · aucune conversion de change (changer de devise relibelle, ne
+convertit pas) · l'abonnement Magrit (`29 €/mois`) reste volontairement en euros, c'est le
+prix facturé par AGE à l'imprimeur, pas sa devise de travail.
+
+**Suite** : tranche 2 (coûts de production du Parc machine en `Money` — la moins risquée,
+pas de schéma DB à défaire), puis 3 (prix de vente), puis 4 (documents et export). Les
+points d'entrée sont déjà posés : `formatPrice`, `renderQuoteHtml`, `exportShopToJson`,
+`productSchema`, `buildGammeJsonLd` et `formatCurrencyPerUnit` acceptent tous la devise.
+**Bloquant tranche 3** : la règle d'arrondi (par ligne ou sur le total) reste à trancher
+avec Expert Solutions — deux règles = deux prix pour le même devis.
 
 ## 26. Session 2026-08-09 — REFACTO-VISUELS (arbitrage Arnaud, 3 chantiers)
 
