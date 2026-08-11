@@ -183,21 +183,21 @@ Pour chaque PNG, vérifier visuellement que :
 2. Tu télécharges les 7 PNG (peu importe la dimension cible, je rescale + compresse)
 3. Tu places les 7 fichiers dans `src/assets/templates/v2/` (à créer)
 4. Nomenclature : `bg-{template}.png` identique à v1 :
-   - `bg-carteVisite.png`
-   - `bg-flyer.png`
-   - `bg-brochure.png`
-   - `bg-depliant.png`
-   - `bg-etiquette.png`
-   - `bg-kakemono.png`
-   - `bg-packaging.png`
+  - `bg-carteVisite.png`
+  - `bg-flyer.png`
+  - `bg-brochure.png`
+  - `bg-depliant.png`
+  - `bg-etiquette.png`
+  - `bg-kakemono.png`
+  - `bg-packaging.png`
 5. Tu me notifies "P18 v2 source PNG prêts"
 6. Je :
-   - Compresse → 1024×1024 JPG quality 85 (cible ≤ 200 Ko/fichier)
-   - Upload bucket Supabase `mockup_templates_v2/`
-   - Refonds l'edge function en mode proxy + cache (retourne directement le PNG fixe selon `template`)
-   - Cache bump `_v8 → _v9`
-   - Adapte les UI catalog si nécessaire
-   - Smoke + deploy + commit
+  - Compresse → 1024×1024 JPG quality 85 (cible ≤ 200 Ko/fichier)
+  - Upload bucket Supabase `mockup_templates_v2/`
+  - Refonds l'edge function en mode proxy + cache (retourne directement le PNG fixe selon `template`)
+  - Cache bump `_v8 → _v9`
+  - Adapte les UI catalog si nécessaire
+  - Smoke + deploy + commit
 
 ---
 
@@ -210,13 +210,13 @@ Une fois les 7 PNG livrés, l'edge function devient un simple proxy :
 const TEMPLATE_BUCKET = "mockup_templates_v2";
 
 async function handleGenerate(url: URL): Promise<Response> {
-  const template = url.searchParams.get("template");
-  if (!template || !SUPPORTED_TEMPLATES.includes(template)) {
-    return jsonResponse({ error: "unsupported_template" }, 400);
-  }
-  // Redirect direct vers le bucket public (CDN Supabase fait le cache)
-  const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${TEMPLATE_BUCKET}/bg-${template}.jpg`;
-  return Response.redirect(publicUrl, 302);
+const template = url.searchParams.get("template");
+if (!template || !SUPPORTED_TEMPLATES.includes(template)) {
+  return jsonResponse({ error: "unsupported_template" }, 400);
+}
+// Redirect direct vers le bucket public (CDN Supabase fait le cache)
+const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${TEMPLATE_BUCKET}/bg-${template}.jpg`;
+return Response.redirect(publicUrl, 302);
 }
 ```
 
