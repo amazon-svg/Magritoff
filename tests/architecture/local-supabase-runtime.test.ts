@@ -49,4 +49,16 @@ describe('runtime Supabase local', () => {
 
     expect(tenantContext).toContain('!bootstrap.error && dataForUser === null');
   });
+
+  it('synchronise les memberships privilégiés avec les rôles fonctionnels Orders', () => {
+    const migration = read('supabase/migrations/20260811000300_sync_membership_order_roles.sql');
+    const dashboard = read('src/app/components/dashboard/DashboardOrders.tsx');
+
+    expect(migration).toContain('trg_sync_membership_functional_role');
+    expect(migration).toContain("definition.name in ('Owner', 'Admin')");
+    expect(migration).toContain("member.role in ('owner', 'admin')");
+    expect(dashboard).toContain("currentTenant?.myRole === 'owner'");
+    expect(dashboard).toContain('canValidate || isTenantAdmin');
+    expect(dashboard).toContain('canModifyProduction || isTenantAdmin');
+  });
 });

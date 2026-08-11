@@ -22,6 +22,8 @@ La refactorisation API-first a démarré le 2026-08-11 sur la branche `refactor/
 
 **AF5.1 committable** : transitions Orders désormais atomiques et idempotentes via API, audit dans la même transaction, notification workflow côté serveur. `DashboardOrders`, `PortalOrders` et l ancien helper de notification sont sortis de Supabase.
 
+**AF5.1a correctif UX** : synchronisation membership owner/admin → rôle fonctionnel, backfill local et fallback UI aligné sur l autorisation serveur. Smoke navigateur `validated → in_production` réussi.
+
 **Point de reprise** : AF5.2 — centraliser création checkout et édition de draft, puis poursuivre AF6-AF7 jusqu à supprimer Supabase du périmètre Orders.
 
 **Dérogation R5 restante** : 38 fichiers UI importent encore Supabase et 163 références `supabase.*` sont figées par `tests/architecture/supabase-ui-baseline.ts`. Le comptage historique 64 ne couvrait pas correctement les appels multi-lignes ; la somme des limites réellement vérifiées était 175. Supabase Auth et les commandes brownfield isolées restent temporaires ; la baseline ne peut ni augmenter ni rester périmée après une baisse.

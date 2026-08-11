@@ -75,6 +75,10 @@ export function DashboardOrders() {
   // Producteur). Cohérence avec PortalOrders tab "À produire" mais
   // accessible à l'admin tenant sur l'ensemble des boutiques.
   const { hasIt: canModifyProduction } = useUserCapability('can_modify');
+  // Les owner/admin sont aussi autorisés par la commande serveur. Ce fallback
+  // évite de masquer le workflow si un tenant brownfield n'a pas encore son
+  // assignation de rôle fonctionnel synchronisée avec tenant_members.
+  const isTenantAdmin = currentTenant?.myRole === 'owner' || currentTenant?.myRole === 'admin';
 
   const loadOrders = useCallback(async (cancelled: { current: boolean }) => {
     if (!user || !currentTenant) return;
@@ -196,12 +200,12 @@ export function DashboardOrders() {
         // S-USERS-REFONTE Phase A : bouton Valider visible uniquement si
         // l'utilisateur courant a la capability can_validate (via rôle actif).
         // Sinon, undefined => OrderHistoryTable masque le bouton.
-        onValidateOrder={canValidate ? handleValidateOrderRequest : undefined}
+        onValidateOrder={canValidate || isTenantAdmin ? handleValidateOrderRequest : undefined}
         // S-ORDER-ROLES-3-UI : boutons Démarrer prod + Marquer expédiée
         // role-driven via can_modify (preset Owner / Admin / Validateur /
         // Producteur). Sans modal de confirmation côté admin tenant.
-        onStartProductionOrder={canModifyProduction ? handleStartProduction : undefined}
-        onMarkShippedOrder={canModifyProduction ? handleMarkShipped : undefined}
+        onStartProductionOrder={canModifyProduction || isTenantAdmin ? handleStartProduction : undefined}
+        onMarkShippedOrder={canModifyProduction || isTenantAdmin ? handleMarkShipped : undefined}
         extraColumn={{
           header: 'Boutique',
           position: 'after-date',

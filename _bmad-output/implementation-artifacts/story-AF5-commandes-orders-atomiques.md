@@ -45,3 +45,9 @@ Déplacer les écritures Orders derrière `/api/v1`, avec transactions SQL, auto
 - transition draft → validated : 200 ;
 - replay avec la même clé : 200, `replayed=true` ;
 - typecheck modulaire, contrats et build : réussis.
+
+## Correctif AF5.1a — actions owner/admin visibles
+
+Les tenants créés après la migration initiale des rôles avaient leurs presets mais aucune assignation fonctionnelle Owner/Admin. Le serveur autorisait la transition via le membership, alors que l UI masquait les boutons. Une migration synchronise et backfill les assignations privilégiées, avec révocation lors d une dégradation de rôle. Le dashboard utilise également le membership owner/admin comme fallback cohérent avec l autorisation serveur.
+
+Smoke navigateur local : bouton « Démarrer la production » visible, transition `validated → in_production` réussie, bouton suivant « Marquer expédiée » affiché.
