@@ -241,6 +241,25 @@ paths:
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/ApiProblem' }
+  /orders/{orderId}/roles:
+    get:
+      operationId: getOrderRoles
+      summary: Charger les rôles et capacités de l acteur sur une commande
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: orderId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Rôles actifs, capacités cumulées et indicateur auteur
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OrderRolesResponse' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '404':
+          description: Commande hors périmètre
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ApiProblem' }
 components:
   securitySchemes:
     bearerAuth:
@@ -562,6 +581,41 @@ components:
         orderId: { type: string, format: uuid }
         totalHt: { type: number, minimum: 0 }
         replayed: { type: boolean }
+    OrderCapabilities:
+      type: object
+      additionalProperties: false
+      required: [can_quote, can_order, can_invite, can_validate, can_cancel, can_modify, can_export, can_manage_catalog, can_manage_roles]
+      properties:
+        can_quote: { type: boolean }
+        can_order: { type: boolean }
+        can_invite: { type: boolean }
+        can_validate: { type: boolean }
+        can_cancel: { type: boolean }
+        can_modify: { type: boolean }
+        can_export: { type: boolean }
+        can_manage_catalog: { type: boolean }
+        can_manage_roles: { type: boolean }
+    OrderRoleAssignment:
+      type: object
+      additionalProperties: false
+      required: [assignmentId, roleDefinitionId, name, capabilities, notifyPolicy, orderingIndex]
+      properties:
+        assignmentId: { type: string, format: uuid }
+        roleDefinitionId: { type: string, format: uuid }
+        name: { type: string }
+        capabilities: { type: object, additionalProperties: { type: boolean } }
+        notifyPolicy: { type: string, enum: [chain_next, all_roles, none] }
+        orderingIndex: { type: integer }
+    OrderRolesResponse:
+      type: object
+      additionalProperties: false
+      required: [roles, capabilities, isCreator]
+      properties:
+        roles:
+          type: array
+          items: { $ref: '#/components/schemas/OrderRoleAssignment' }
+        capabilities: { $ref: '#/components/schemas/OrderCapabilities' }
+        isCreator: { type: boolean }
   responses:
     AuthenticationRequired:
       description: Bearer token absent ou invalide

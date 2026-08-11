@@ -131,6 +131,28 @@ export const updateDraftOrderResultSchema = z.object({
   replayed: z.boolean(),
 });
 
+export const orderCapabilitySchema = z.enum([
+  'can_quote', 'can_order', 'can_invite', 'can_validate', 'can_cancel',
+  'can_modify', 'can_export', 'can_manage_catalog', 'can_manage_roles',
+]);
+
+export const orderCapabilitiesSchema = z.record(orderCapabilitySchema, z.boolean());
+
+export const orderRoleAssignmentSchema = z.object({
+  assignmentId: z.uuid(),
+  roleDefinitionId: z.uuid(),
+  name: z.string(),
+  capabilities: z.partialRecord(orderCapabilitySchema, z.boolean()),
+  notifyPolicy: z.enum(['chain_next', 'all_roles', 'none']),
+  orderingIndex: z.number().int(),
+});
+
+export const orderRolesResponseSchema = z.object({
+  roles: z.array(orderRoleAssignmentSchema),
+  capabilities: orderCapabilitiesSchema,
+  isCreator: z.boolean(),
+});
+
 export type OrderSummary = z.infer<typeof orderSummarySchema>;
 export type OrdersList = z.infer<typeof ordersListSchema>;
 export type PortalOrdersTab = z.infer<typeof portalOrdersTabSchema>;
@@ -146,3 +168,7 @@ export type DraftOrderItem = z.infer<typeof draftOrderItemSchema>;
 export type DraftOrder = z.infer<typeof draftOrderSchema>;
 export type UpdateDraftOrderCommand = z.infer<typeof updateDraftOrderCommandSchema>;
 export type UpdateDraftOrderResult = z.infer<typeof updateDraftOrderResultSchema>;
+export type OrderCapability = z.infer<typeof orderCapabilitySchema>;
+export type OrderCapabilities = z.infer<typeof orderCapabilitiesSchema>;
+export type OrderRoleAssignment = z.infer<typeof orderRoleAssignmentSchema>;
+export type OrderRolesResponse = z.infer<typeof orderRolesResponseSchema>;

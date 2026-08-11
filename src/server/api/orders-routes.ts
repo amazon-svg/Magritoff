@@ -10,6 +10,7 @@ import {
   draftOrderSchema,
   updateDraftOrderCommandSchema,
   updateDraftOrderResultSchema,
+  orderRolesResponseSchema,
 } from '../../modules/orders/api/contracts.ts';
 import type { OrdersService } from '../../modules/orders/application/orders-service.ts';
 import { OrderCommandRejectedError } from '../../modules/orders/application/orders-repository.ts';
@@ -67,6 +68,22 @@ export function createOrdersRoutes(service: OrdersService): readonly ApiRoute[] 
             status: 200,
             body: await service.updateDraft(context.params.orderId ?? '', command),
           };
+        } catch (error) {
+          if (error instanceof OrderCommandRejectedError) throw toHttpError(error);
+          throw error;
+        }
+      },
+    }),
+    defineJsonRoute({
+      method: 'GET',
+      path: `${API_V1_BASE_PATH}/orders/{orderId}/roles`,
+      authentication: 'required',
+      inputSchema: null,
+      outputSchema: orderRolesResponseSchema,
+      async handle(context) {
+        requireUserId(context);
+        try {
+          return { status: 200, body: await service.getRoles(context.params.orderId ?? '') };
         } catch (error) {
           if (error instanceof OrderCommandRejectedError) throw toHttpError(error);
           throw error;

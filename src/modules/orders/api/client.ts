@@ -10,6 +10,7 @@ import {
   draftOrderSchema,
   updateDraftOrderCommandSchema,
   updateDraftOrderResultSchema,
+  orderRolesResponseSchema,
   type OrderAuditTrail,
   type OrdersList,
   type PortalOrdersResponse,
@@ -20,6 +21,7 @@ import {
   type DraftOrder,
   type UpdateDraftOrderCommand,
   type UpdateDraftOrderResult,
+  type OrderRolesResponse,
 } from './contracts.ts';
 
 export class OrdersApiClient {
@@ -83,6 +85,14 @@ export class OrdersApiClient {
       path: `${API_V1_BASE_PATH}/orders/${encodeURIComponent(orderId)}/draft`,
       body: updateDraftOrderCommandSchema.parse(command),
       responseSchema: updateDraftOrderResultSchema,
+    });
+  }
+
+  getRoles(orderId: string, signal?: AbortSignal): Promise<OrderRolesResponse> {
+    return this.client.request({
+      path: `${API_V1_BASE_PATH}/orders/${encodeURIComponent(orderId)}/roles`,
+      responseSchema: orderRolesResponseSchema,
+      ...(signal === undefined ? {} : { signal }),
     });
   }
 }

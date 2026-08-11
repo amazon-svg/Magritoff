@@ -51,6 +51,9 @@ describe('routes Orders API v1', () => {
       }],
       idempotencyKey: 'update-af5-route',
     })).resolves.toMatchObject({ orderId: draftOrderId, totalHt: 180, replayed: false });
+    await expect(client.getRoles(draftOrderId)).resolves.toMatchObject({
+      isCreator: true, capabilities: { can_order: true },
+    });
   });
 
   it('refuse les lectures sans authentification', async () => {
@@ -161,6 +164,14 @@ function repositoryStub(): OrdersRepository {
       orderId,
       totalHt: command.items.reduce((sum, item) => sum + item.quantity * item.unitPriceHt, 0),
       replayed: false,
+    }),
+    getOrderRoles: async () => ({
+      roles: [], isCreator: true,
+      capabilities: {
+        can_quote: false, can_order: true, can_invite: false, can_validate: false,
+        can_cancel: false, can_modify: false, can_export: false,
+        can_manage_catalog: false, can_manage_roles: false,
+      },
     }),
   };
 }

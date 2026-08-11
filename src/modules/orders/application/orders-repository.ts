@@ -6,6 +6,7 @@ import type {
   DraftOrder,
   UpdateDraftOrderCommand,
   UpdateDraftOrderResult,
+  OrderRolesResponse,
   TransitionOrderCommand,
   TransitionOrderResult,
 } from '../api/contracts.ts';
@@ -88,4 +89,5 @@ export interface OrdersRepository {
   notifyOrderCreated(result: CreateOrderResult, baseUrl: string): Promise<void>;
   getDraftOrder(orderId: string): Promise<DraftOrder>;
   updateDraftOrder(orderId: string, command: UpdateDraftOrderCommand): Promise<UpdateDraftOrderResult>;
+  getOrderRoles(orderId: string): Promise<OrderRolesResponse>;
 }

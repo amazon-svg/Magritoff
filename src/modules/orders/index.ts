@@ -20,6 +20,10 @@ export {
   updateDraftOrderItemSchema,
   updateDraftOrderCommandSchema,
   updateDraftOrderResultSchema,
+  orderCapabilitySchema,
+  orderCapabilitiesSchema,
+  orderRoleAssignmentSchema,
+  orderRolesResponseSchema,
   type OrderAuditEvent,
   type OrderAuditTrail,
   type OrderSummary,
@@ -35,6 +39,10 @@ export {
   type DraftOrder,
   type UpdateDraftOrderCommand,
   type UpdateDraftOrderResult,
+  type OrderCapability,
+  type OrderCapabilities,
+  type OrderRoleAssignment,
+  type OrderRolesResponse,
 } from './api/contracts';
 export { OrdersService } from './application/orders-service';
 export { OrderCommandRejectedError } from './application/orders-repository';

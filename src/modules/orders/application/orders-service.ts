@@ -12,6 +12,7 @@ import type {
   DraftOrder,
   UpdateDraftOrderCommand,
   UpdateDraftOrderResult,
+  OrderRolesResponse,
 } from '../api/contracts.ts';
 import type {
   LegacyOrderRecord,
@@ -112,6 +113,10 @@ export class OrdersService {
 
   updateDraft(orderId: string, command: UpdateDraftOrderCommand): Promise<UpdateDraftOrderResult> {
     return this.repository.updateDraftOrder(orderId, command);
+  }
+
+  getRoles(orderId: string): Promise<OrderRolesResponse> {
+    return this.repository.getOrderRoles(orderId);
   }
 }
 

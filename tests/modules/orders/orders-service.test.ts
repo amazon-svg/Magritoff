@@ -84,6 +84,12 @@ describe('OrdersService', () => {
       idempotencyKey: 'update-af5-2b',
     })).resolves.toMatchObject({ totalHt: 180, replayed: false });
   });
+
+  it('expose les capacités Orders calculées par le serveur', async () => {
+    const service = new OrdersService(repositoryStub());
+    await expect(service.getRoles('22222222-2222-4222-8222-222222222222'))
+      .resolves.toMatchObject({ isCreator: true, capabilities: { can_order: true } });
+  });
 });
 
 function repositoryStub(): OrdersRepository & Record<'listLegacyOrders', ReturnType<typeof vi.fn>> {
@@ -135,6 +141,18 @@ function repositoryStub(): OrdersRepository & Record<'listLegacyOrders', ReturnT
       totalHt: command.items.reduce((sum, item) => sum + item.quantity * item.unitPriceHt, 0),
       replayed: false,
     })),
+    getOrderRoles: vi.fn(async () => orderRolesFixture()),
+  };
+}
+
+function orderRolesFixture() {
+  return {
+    roles: [], isCreator: true,
+    capabilities: {
+      can_quote: false, can_order: true, can_invite: false, can_validate: false,
+      can_cancel: false, can_modify: false, can_export: false,
+      can_manage_catalog: false, can_manage_roles: false,
+    },
   };
 }
 

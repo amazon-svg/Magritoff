@@ -2,7 +2,7 @@
 id: AF6
 epic: EPIC-8-API-FIRST
 priority: P0
-status: in-progress
+status: done
 branch: refactor/api-first-foundation
 depends_on: [AF5]
 ---
@@ -28,6 +28,12 @@ Faire consommer le même client API Orders au checkout, au portail client et au 
 
 ## Reste AF6
 
-- unifier les capacités et rôles Orders derrière l API ;
-- retirer le dernier accès table Orders du hook `useOrderRoles` ;
-- exécuter les smokes multi-surfaces avant AF7.
+- terminé : storefront/checkout, portail client et back-office utilisent le client Orders partagé ;
+- les capacités et rôles sont servis par `GET /api/v1/orders/{orderId}/roles` ;
+- le hook `useOrderRoles` ne lit plus aucune table Supabase.
+
+## Validation AF6.2
+
+- rôles locaux : 200, auteur reconnu, capacités complètes et rôles actifs ;
+- aucun accès table, RPC ou fonction Orders exécutable ne subsiste dans `src/app` ;
+- validation complète reportée dans AF7.

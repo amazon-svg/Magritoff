@@ -9,6 +9,9 @@ import type {
   TransitionOrderResult,
   UpdateDraftOrderCommand,
   UpdateDraftOrderResult,
+  OrderCapabilities,
+  OrderRoleAssignment,
+  OrderRolesResponse,
 } from '../../modules/orders/api/contracts.ts';
 import { OrderCommandRejectedError } from '../../modules/orders/application/orders-repository.ts';
 import type {
@@ -281,6 +284,38 @@ export class SupabaseOrdersRepository implements OrdersRepository {
       replayed: result.replayed === true,
     };
   }
+
+  async getOrderRoles(orderId: string): Promise<OrderRolesResponse> {
+    const { data, error } = await this.client.rpc('api_get_tenant_order_roles', {
+      p_order_id: orderId,
+    });
+    if (error) throw mapOrderCommandError(error.message, 'Lecture des rôles Orders impossible');
+    const result = toRecord(data);
+    const roles: OrderRoleAssignment[] = Array.isArray(result.roles) ? result.roles.map((value) => {
+      const role = toRecord(value);
+      if (
+        typeof role.assignment_id !== 'string' || typeof role.role_definition_id !== 'string'
+        || typeof role.name !== 'string' || typeof role.notify_policy !== 'string'
+        || typeof role.ordering_index !== 'number'
+      ) throw new Error('Les rôles Orders ont retourné une assignation invalide.');
+      return {
+        assignmentId: role.assignment_id,
+        roleDefinitionId: role.role_definition_id,
+        name: role.name,
+        capabilities: toRecord(role.capabilities) as OrderRoleAssignment['capabilities'],
+        notifyPolicy: role.notify_policy as OrderRoleAssignment['notifyPolicy'],
+        orderingIndex: role.ordering_index,
+      };
+    }) : [];
+    if (typeof result.is_creator !== 'boolean') {
+      throw new Error('Les rôles Orders ont retourné un résultat invalide.');
+    }
+    return {
+      roles,
+      capabilities: toRecord(result.capabilities) as OrderCapabilities,
+      isCreator: result.is_creator,
+    };
+  }
 }
 
 function toTenantOrder(row: TenantOrderRow): TenantOrderRecord {
@@ -316,7 +351,7 @@ function normalizeTaxRegime(value: string | null | undefined): TaxRegime | null 
     || value === 'export_eu' || value === 'export_world' ? value : null;
 }
 
-function toRecord(value: Json): Record<string, unknown> {
+function toRecord(value: unknown): Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
     ? value as Record<string, unknown>
     : {};
