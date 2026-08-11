@@ -27,9 +27,10 @@ Pour chaque membre à inviter :
 - Pas de doublon : si une invitation pending existe déjà pour cet email/tenant, le système te bloque avec **« duplicate_pending »** + l'id de l'invitation existante (renvoie-la via le bouton Renvoyer plutôt qu'en créer une nouvelle).
 - Rôles strictement du tenant : tu ne peux pas assigner un rôle d'un autre tenant (impossible côté UI mais durci côté serveur depuis Sprint 9 = `role_mismatch_tenant`).
 - Capability requise : ton compte doit avoir `can_invite` pour inviter (Owner et Admin presets l'ont par défaut).
-- La session est rafraîchie juste avant l’envoi à `invite-member`. Si elle ne
-  peut plus l’être, l’interface demande explicitement de se reconnecter au lieu
-  d’afficher l’erreur générique du SDK Edge.
+- La session est rafraîchie juste avant l’appel à `POST /api/v1/invitations`.
+  L’identité de l’invitant est dérivée côté serveur : elle n’est jamais fournie
+  ni approuvée depuis le formulaire. Si la session ne peut plus être rafraîchie,
+  l’interface demande explicitement de se reconnecter.
 
 ## 3. Gérer les rôles de ton catalogue
 
@@ -117,7 +118,8 @@ Quand un acheteur passe commande (status `draft`) :
 ## 7. Sécurité & limites
 
 - **Email guard** sur acceptation invitation (faille colmatée 2026-05-27) : seul le compte dont l'email correspond peut accepter.
-- **JWT auth check** sur invite-member (Sprint 9 hardening) : forgery du champ invited_by bloquée.
+- **JWT auth check** sur `POST /api/v1/invitations` : l’auteur est dérivé du JWT ;
+  un champ `invited_by` forgé par le navigateur est ignoré.
 - **Idempotence** invitations : doublon pending même email/tenant → 409.
 - **RLS strict** sur toutes les tables : un user ne voit que son tenant + sous-tenants accessibles via héritage.
 

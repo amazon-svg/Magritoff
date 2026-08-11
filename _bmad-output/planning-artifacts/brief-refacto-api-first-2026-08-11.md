@@ -103,6 +103,16 @@ src/
 
 `quotes` → `shops/catalog` → `commercial-pricing` → assets/événements → conversations/IA → BFF d'identité.
 
+### Extension AF-C — Identité et invitations
+
+- AF7.1 : verrouillage des boutiques `invite_only` et rattachement contrôlé en
+  `self_signup` — livré ;
+- AF7.2 : rafraîchissement explicite de session avant invitation — livré ;
+- AF8 : contrat et commande `POST /api/v1/invitations`, identité de l’invitant
+  dérivée côté serveur — livré ;
+- suite : migrer les lectures rôles/boutiques, la révocation et le renvoi, puis
+  supprimer l’adaptateur transitoire vers l’ancienne Edge Function.
+
 ## Critères de succès
 
 - `pnpm test:architecture` est requis en CI.

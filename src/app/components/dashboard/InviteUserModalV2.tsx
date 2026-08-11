@@ -9,10 +9,11 @@
  *     (parmi les 5 presets seedés : Owner, Admin, Acheteur, Validateur,
  *     Producteur, + tous les rôles custom créés par l'admin tenant)
  *
- * L'edge function invite-member est étendue (Phase A B2) pour accepter
- * role_definition_ids: string[]. Le RPC accept_tenant_invitation propage
- * ces rôles en tenant_role_assignments à l'acceptation (cf. migration
- * 20260525000200).
+ * La commande navigateur passe par POST /api/v1/invitations. L'adaptateur
+ * serveur délègue temporairement à invite-member, le temps d'internaliser
+ * complètement l'écriture dans le module Invitations. Le RPC
+ * accept_tenant_invitation propage les rôles en tenant_role_assignments à
+ * l'acceptation (cf. migration 20260525000200).
  *
  * Note : l'ancien role/access_scope/permissions est toujours envoyé en
  * back-compat (valeurs par défaut), mais c'est role_definition_ids qui
@@ -23,9 +24,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Loader2, Mail, X, Check } from 'lucide-react';
 import { supabase } from '/utils/supabase/client';
 import { TEST_IDS } from '../../lib/testIds';
+import { InvitationsApiClient } from '../../../modules/invitations';
+import { ApiClientError, FetchApiClient } from '../../../platform/api';
 import {
-  inviteMemberErrorMessage,
-  type InviteMemberErrorPayload,
+  invitationApiProblemMessage,
 } from './InviteUserModalV2.helpers';
 
 interface RoleOption {
@@ -140,9 +142,8 @@ export function InviteUserModalV2({
     const roleIds = Array.from(selectedRoleIds);
 
     try {
-      // La gateway Edge valide le JWT avant même d'exécuter invite-member.
-      // On rafraîchit donc explicitement la session et on utilise son user id
-      // comme source d'identité, plutôt qu'une prop potentiellement obsolète.
+      // La gateway API valide le JWT avant la commande Invitations. On
+      // rafraîchit explicitement la session avant de construire le client.
       const edgeClient = supabase;
       const { data: refreshed, error: refreshError } = await edgeClient.auth.refreshSession();
       if (refreshError || !refreshed.session) {
@@ -151,55 +152,19 @@ export function InviteUserModalV2({
         return;
       }
 
-      const { data, error: e } = await edgeClient.functions.invoke<{
-        ok: boolean;
-        invitationId?: string;
-        sent?: boolean;
-        link?: string;
-        reason?: string;
-        error?: string;
-        message?: string;
-        stage?: string;
-      }>('invite-member', {
-        headers: {
-          Authorization: `Bearer ${refreshed.session.access_token}`,
-        },
-        body: {
-          email: cleanedEmail,
-          tenant_id: tenantId,
-          invited_by: refreshed.session.user.id,
-          baseUrl,
-          // S-USERS-REFONTE Phase A : rôles (capabilities)
-          role_definition_ids: roleIds,
-          // Scope d'accès + boutiques (fix 2026-05-27 : c'est ce qui route
-          // l'utilisateur vers SA boutique au login via ShopOnlyRedirect).
-          role: 'member',
-          access_scope: scope,
-          allowed_shop_ids: scope === 'shop_only' ? Array.from(selectedShopIds) : [],
-          permissions: { can_quote: true, can_order: true, can_invite: false },
-        },
+      const invitationsApi = new InvitationsApiClient(new FetchApiClient(
+        '',
+        globalThis.fetch,
+        () => refreshed.session.access_token,
+      ));
+      const data = await invitationsApi.create({
+        email: cleanedEmail,
+        tenantId,
+        baseUrl,
+        accessScope: scope,
+        allowedShopIds: scope === 'shop_only' ? Array.from(selectedShopIds) : [],
+        roleDefinitionIds: roleIds,
       });
-
-      if (e || !data?.ok) {
-        let payload: InviteMemberErrorPayload | null = data ?? null;
-        let status: number | null = null;
-        const context = (e as { context?: unknown } | null)?.context;
-        if (context instanceof Response) {
-          status = context.status;
-          try {
-            payload = await context.clone().json() as InviteMemberErrorPayload;
-          } catch {
-            // Le fallback SDK reste disponible si la réponse n'est pas JSON.
-          }
-        }
-        setError(inviteMemberErrorMessage(
-          payload,
-          status,
-          e?.message || 'Invitation impossible.',
-        ));
-        setSending(false);
-        return;
-      }
 
       // Succès — afficher feedback selon que l'email a été envoyé ou non
       if (data.sent) {
@@ -214,8 +179,10 @@ export function InviteUserModalV2({
       await onInvited();
       setSending(false);
       onClose();
-    } catch (err: any) {
-      setError(`Erreur réseau : ${err?.message || 'inconnue'}`);
+    } catch (err: unknown) {
+      setError(err instanceof ApiClientError
+        ? invitationApiProblemMessage(err.problem.code, err.problem.detail)
+        : `Erreur réseau : ${err instanceof Error ? err.message : 'inconnue'}`);
       setSending(false);
     }
   };

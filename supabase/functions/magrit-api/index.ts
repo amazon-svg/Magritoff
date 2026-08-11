@@ -7,6 +7,9 @@ import { createSessionRoutes } from '../../../src/server/api/session-routes.ts';
 import { OrdersService } from '../../../src/modules/orders/application/orders-service.ts';
 import { SupabaseOrdersRepository } from '../../../src/adapters/supabase/orders-repository.ts';
 import { createOrdersRoutes } from '../../../src/server/api/orders-routes.ts';
+import { InvitationsService } from '../../../src/modules/invitations/application/invitations-service.ts';
+import { SupabaseInvitationsRepository } from '../../../src/adapters/supabase/invitations-repository.ts';
+import { createInvitationsRoutes } from '../../../src/server/api/invitations-routes.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -29,8 +32,13 @@ export async function handleRequest(request: Request): Promise<Response> {
   const repository = new SupabaseSessionRepository(client);
   const service = new SessionService(repository);
   const ordersService = new OrdersService(new SupabaseOrdersRepository(client));
+  const invitationsService = new InvitationsService(new SupabaseInvitationsRepository(client));
   const handler = createApiV1Application({
-    routes: [...createSessionRoutes(service), ...createOrdersRoutes(ordersService)],
+    routes: [
+      ...createSessionRoutes(service),
+      ...createOrdersRoutes(ordersService),
+      ...createInvitationsRoutes(invitationsService),
+    ],
     actorResolver: {
       async resolve() {
         const { data, error } = await client.auth.getUser();

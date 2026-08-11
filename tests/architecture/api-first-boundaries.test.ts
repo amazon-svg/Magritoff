@@ -174,7 +174,24 @@ describe('frontières API-first et modulaires', () => {
     expect(edgeEntry).toContain('Authorization: authorization');
     expect(edgeEntry).toContain('SupabaseOrdersRepository(client)');
     expect(edgeEntry).toContain('createOrdersRoutes(ordersService)');
+    expect(edgeEntry).toContain('SupabaseInvitationsRepository(client)');
+    expect(edgeEntry).toContain('createInvitationsRoutes(invitationsService)');
     expect(edgeEntry).not.toContain('SUPABASE_SERVICE_ROLE_KEY');
+  });
+
+  it('fait passer la création des invitations par le client API Magrit', () => {
+    const modal = readFileSync(
+      resolve(process.cwd(), 'src/app/components/dashboard/InviteUserModalV2.tsx'),
+      'utf8',
+    );
+    const usersDashboard = readFileSync(
+      resolve(process.cwd(), 'src/app/components/dashboard/DashboardUsers.tsx'),
+      'utf8',
+    );
+
+    expect(modal).toContain('new InvitationsApiClient');
+    expect(modal).not.toContain('.functions.invoke');
+    expect(usersDashboard).not.toMatch(/functions\.invoke[\s\S]{0,120}invite-member/);
   });
 
   it('empêche toute nouvelle dépendance Supabase dans le front brownfield', () => {
