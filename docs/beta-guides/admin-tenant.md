@@ -39,6 +39,8 @@ de sa session et un owner ne peut être ni modifié ni retiré par ces routes.
   L’identité de l’invitant est dérivée côté serveur : elle n’est jamais fournie
   ni approuvée depuis le formulaire. Si la session ne peut plus être rafraîchie,
   l’interface demande explicitement de se reconnecter.
+- Si Resend n’est pas configuré ou refuse l’expéditeur, la modale reste ouverte
+  et affiche un lien d’invitation sélectionnable avec un bouton **Copier**.
 
 ## 3. Gérer les rôles de ton catalogue
 

@@ -21,7 +21,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Loader2, Mail, X, Check } from 'lucide-react';
+import { Loader2, Mail, X, Check, Copy } from 'lucide-react';
 import { supabase } from '/utils/supabase/client';
 import { TEST_IDS } from '../../lib/testIds';
 import { useAuth } from '../../contexts/AuthContext';
@@ -71,6 +71,12 @@ export function InviteUserModalV2({
   const [loadingRoles, setLoadingRoles] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [manualInvitation, setManualInvitation] = useState<{
+    email: string;
+    link: string;
+    reason: string;
+  } | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
   const invitationsApi = useMemo(() => new InvitationsApiClient(new FetchApiClient(
     '', globalThis.fetch, () => session?.access_token ?? null,
   )), [session?.access_token]);
@@ -96,6 +102,8 @@ export function InviteUserModalV2({
       setScope('shop_only');
       setSelectedShopIds(new Set());
       setError(null);
+      setManualInvitation(null);
+      setLinkCopied(false);
       void loadRoles();
     }
   }, [open, loadRoles]);
@@ -164,10 +172,14 @@ export function InviteUserModalV2({
       if (data.sent) {
         alert(`Invitation envoyée par email à ${cleanedEmail}.`);
       } else {
-        prompt(
-          `Invitation créée. Email non envoyé (${data.reason || 'config manquante'}). Transmettez ce lien au destinataire :`,
-          data.link || `${baseUrl}/invitations/`,
-        );
+        setManualInvitation({
+          email: cleanedEmail,
+          link: data.link || `${baseUrl}/invitations/`,
+          reason: data.reason || 'service email non configuré',
+        });
+        await onInvited();
+        setSending(false);
+        return;
       }
 
       await onInvited();
@@ -178,6 +190,17 @@ export function InviteUserModalV2({
         ? invitationApiProblemMessage(err.problem.code, err.problem.detail)
         : `Erreur réseau : ${err instanceof Error ? err.message : 'inconnue'}`);
       setSending(false);
+    }
+  };
+
+  const copyManualLink = async () => {
+    if (!manualInvitation) return;
+    try {
+      await navigator.clipboard.writeText(manualInvitation.link);
+      setLinkCopied(true);
+    } catch {
+      setLinkCopied(false);
+      setError('Copie automatique impossible. Sélectionnez le lien puis copiez-le manuellement.');
     }
   };
 
@@ -419,6 +442,40 @@ export function InviteUserModalV2({
               {error}
             </div>
           )}
+
+          {manualInvitation && (
+            <div
+              data-testid="invitation-manual-link"
+              role="status"
+              className="px-3 py-3 rounded bg-warn-bg border border-warn-fg/20 text-ink"
+            >
+              <p className="m-0" style={{ fontSize: '13px', fontWeight: 600 }}>
+                Invitation créée, email non envoyé
+              </p>
+              <p className="mt-1 mb-2 text-ink-muted" style={{ fontSize: '12px' }}>
+                {manualInvitation.reason}. Transmettez ce lien à {manualInvitation.email} :
+              </p>
+              <div className="flex gap-2 items-center">
+                <input
+                  aria-label="Lien manuel d'invitation"
+                  readOnly
+                  value={manualInvitation.link}
+                  onFocus={(event) => event.currentTarget.select()}
+                  className="min-w-0 flex-1 px-2 py-1.5 border border-line rounded bg-paper font-mono text-ink"
+                  style={{ fontSize: '11px' }}
+                />
+                <button
+                  type="button"
+                  onClick={copyManualLink}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 border border-line rounded bg-paper hover:border-ink-mute-2"
+                  style={{ fontSize: '12px', fontWeight: 500 }}
+                >
+                  {linkCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  {linkCopied ? 'Copié' : 'Copier'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <footer className="flex justify-end gap-2 px-5 py-3 border-t border-line">
@@ -428,9 +485,9 @@ export function InviteUserModalV2({
             className="px-3 py-1.5 border border-line rounded-md text-ink-muted hover:text-ink disabled:opacity-40"
             style={{ fontSize: '13px', fontWeight: 500 }}
           >
-            Annuler
+            {manualInvitation ? 'Fermer' : 'Annuler'}
           </button>
-          <button
+          {!manualInvitation && <button
             data-testid={TEST_IDS.user.inviteSubmitBtn}
             onClick={handleSubmit}
             disabled={!canSubmit}
@@ -443,7 +500,7 @@ export function InviteUserModalV2({
               <Mail className="w-3.5 h-3.5" strokeWidth={1.8} />
             )}
             {sending ? 'Envoi…' : "Envoyer l'invitation"}
-          </button>
+          </button>}
         </footer>
       </div>
     </div>
