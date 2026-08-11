@@ -1,12 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { UserId } from '../../kernel';
+import type { UserId } from '../../kernel/ids/index.ts';
 import type {
-  DirectMembership,
-  SessionRepository,
   SessionUserPreferences,
   UpdatePreferences,
-} from '../../modules/session';
-import type { Database } from '../../types/database.types';
+} from '../../modules/session/api/contracts.ts';
+import type { DirectMembership, SessionRepository } from '../../modules/session/application/session-repository.ts';
+import type { Database } from '../../types/database.types.ts';
 
 type UserScopedClient = SupabaseClient<Database>;
 type TenantRow = Database['public']['Tables']['tenants']['Row'];

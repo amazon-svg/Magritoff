@@ -1,7 +1,8 @@
-import { parseId, type ActorContext, type RequestId, type TenantId, type UserId } from '../../kernel';
-import { API_V1_BASE_PATH, type ApiProblem } from '../../platform/api';
-import { ApiHttpError } from './errors';
-import type { ApiRequestContext, ApiRoute } from './routes';
+import type { ActorContext } from '../../kernel/actor/index.ts';
+import { parseId, type RequestId, type TenantId, type UserId } from '../../kernel/ids/index.ts';
+import { API_V1_BASE_PATH, type ApiProblem } from '../../platform/api/contracts.ts';
+import { ApiHttpError } from './errors.ts';
+import type { ApiRequestContext, ApiRoute } from './routes.ts';
 
 export type ResolvedActor =
   | Readonly<{ kind: 'user'; userId: UserId; tenantId?: TenantId }>

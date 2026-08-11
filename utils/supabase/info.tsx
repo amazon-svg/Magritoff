@@ -11,4 +11,10 @@
 
 export const projectId = "ightkxebexuzfjdbpsdg";
 
-export const publicAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlnaHRreGViZXh1emZqZGJwc2RnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5OTMzNzQsImV4cCI6MjA5MzU2OTM3NH0.Sp-P0WXfDk9E571Mio39uWjHEKxUxqU0m4Kn-7UiuO8";
+export const supabaseUrl = (
+  import.meta.env.VITE_SUPABASE_URL ?? `https://${projectId}.supabase.co`
+).replace(/\/$/, '');
+
+export const publicAnonKey =
+  import.meta.env.VITE_SUPABASE_ANON_KEY ??
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlnaHRreGViZXh1emZqZGJwc2RnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5OTMzNzQsImV4cCI6MjA5MzU2OTM3NH0.Sp-P0WXfDk9E571Mio39uWjHEKxUxqU0m4Kn-7UiuO8";

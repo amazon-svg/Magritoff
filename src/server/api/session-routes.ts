@@ -1,15 +1,17 @@
-import { parseId, type UserId } from '../../kernel';
+import { parseId, type UserId } from '../../kernel/ids/index.ts';
 import {
   sessionBootstrapSchema,
   updateCurrentTenantSchema,
   updatePreferencesSchema,
   userPreferencesSchema,
+} from '../../modules/session/api/contracts.ts';
+import {
   SessionTenantAccessDeniedError,
   type SessionService,
-} from '../../modules/session';
-import { API_V1_BASE_PATH } from '../../platform/api';
-import { ApiHttpError } from './errors';
-import { defineJsonRoute, type ApiRequestContext, type ApiRoute } from './routes';
+} from '../../modules/session/application/session-service.ts';
+import { API_V1_BASE_PATH } from '../../platform/api/contracts.ts';
+import { ApiHttpError } from './errors.ts';
+import { defineJsonRoute, type ApiRequestContext, type ApiRoute } from './routes.ts';
 
 export function createSessionRoutes(service: SessionService): readonly ApiRoute[] {
   return [

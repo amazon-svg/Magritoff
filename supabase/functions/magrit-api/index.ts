@@ -1,8 +1,9 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { parseId } from '../../../src/kernel/index.ts';
-import { SessionService } from '../../../src/modules/session/index.ts';
+import { parseId } from '../../../src/kernel/ids/index.ts';
+import { SessionService } from '../../../src/modules/session/application/session-service.ts';
 import { SupabaseSessionRepository } from '../../../src/adapters/supabase/session-repository.ts';
-import { createApiV1Application, createSessionRoutes } from '../../../src/server/api/index.ts';
+import { createApiV1Application } from '../../../src/server/api/composition.ts';
+import { createSessionRoutes } from '../../../src/server/api/session-routes.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',

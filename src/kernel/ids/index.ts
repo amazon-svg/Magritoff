@@ -1,5 +1,5 @@
-import { appError, type AppError } from '../errors';
-import { err, ok, type Result } from '../result';
+import { appError, type AppError } from '../errors/index.ts';
+import { err, ok, type Result } from '../result/index.ts';
 
 declare const idBrand: unique symbol;
 

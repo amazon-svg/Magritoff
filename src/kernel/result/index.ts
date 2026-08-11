@@ -1,4 +1,4 @@
-import type { AppError } from '../errors';
+import type { AppError } from '../errors/index.ts';
 
 export type Result<T, E extends AppError = AppError> =
   | Readonly<{ ok: true; value: T }>

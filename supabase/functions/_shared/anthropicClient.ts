@@ -16,8 +16,7 @@
  * Tracking automatique via logLlmUsage() apres chaque appel reussi.
  *
  * Usage type (depuis une edge function) :
- *   import { anthropicComplete, anthropicCompleteStructured } from "../_shared/anthropicClient.ts";
- *   import { z } from "npm:zod@3";
+ *   Charger les helpers Anthropic partagés et Zod (`npm:zod@3`).
  *
  *   const PimSchema = z.object({ name: z.string(), description: z.string() });
  *   const result = await anthropicCompleteStructured({

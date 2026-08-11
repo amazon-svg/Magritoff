@@ -1,4 +1,4 @@
-import type { TenantId } from '../ids';
+import type { TenantId } from '../ids/index.ts';
 
 export type DomainEvent<Name extends string, Payload> = Readonly<{
   id: string;

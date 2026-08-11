@@ -13,6 +13,37 @@ pnpm dev:b5:stop     # stoppe le serveur
 
 Une fois lancé : **http://localhost:5177**
 
+## Supabase local avec Docker
+
+Prérequis : Docker Desktop, OrbStack, Colima ou un autre runtime compatible Docker doit être démarré.
+
+```bash
+pnpm db:local:start   # démarre Postgres, Auth, Storage, Studio et Edge Runtime
+pnpm db:local:env     # génère .env.local avec les URL et clés locales
+pnpm dev:b5           # démarre ensuite le front sur le port 5177
+```
+
+La première exécution télécharge les images Docker. Les services principaux sont :
+
+- API Supabase : http://127.0.0.1:54321
+- Studio : http://127.0.0.1:54323
+- Mailpit : http://127.0.0.1:54324
+- front beta/v5 : http://127.0.0.1:5177
+
+Le fichier `.env.local` active aussi `VITE_API_RUNTIME=edge` et dirige `/api/v1` vers la fonction locale `magrit-api`. Il est ignoré par Git.
+
+Le wrapper local extrait temporairement de `_bootstrap_b4.sql` les deux prérequis historiques `user_data` et `shop_module`, puis applique les migrations normales. Ce préambule n est jamais laissé dans `supabase/migrations`, afin que `db push --linked` ne tente pas de le publier sur le projet distant.
+
+Commandes de maintenance :
+
+```bash
+pnpm db:local:status  # affiche les services et clés locales
+pnpm db:local:reset   # recrée la base depuis toutes les migrations + seed.sql
+pnpm db:local:stop    # arrête la stack en conservant les données
+```
+
+Pour une remise à zéro volontaire, `db:local:reset` détruit uniquement la base locale gérée par ce projet, puis rejoue les migrations.
+
 ## Détail
 
 Le script `scripts/dev-b5.sh` :

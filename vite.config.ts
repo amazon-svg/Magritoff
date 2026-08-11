@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import path from 'path'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
@@ -19,7 +19,13 @@ function figmaAssetResolver() {
 
 const enableBundleAnalysis = process.env.ANALYZE === '1'
 
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '')
+  const apiProxyTarget =
+    env.VITE_API_PROXY_TARGET ||
+    'https://ightkxebexuzfjdbpsdg.supabase.co/functions/v1/magrit-api'
+
+  return {
   plugins: [
     figmaAssetResolver(),
     // The React and Tailwind plugins are both required for Make, even if
@@ -54,7 +60,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api/v1': {
-        target: 'https://ightkxebexuzfjdbpsdg.supabase.co/functions/v1/magrit-api',
+        target: apiProxyTarget,
         changeOrigin: true,
       },
     },
@@ -67,4 +73,5 @@ export default defineConfig({
   build: {
     chunkSizeWarningLimit: 600,
   },
+  }
 })

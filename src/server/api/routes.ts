@@ -1,7 +1,9 @@
 import type { z } from 'zod';
-import type { ActorContext, Clock, RequestId } from '../../kernel';
-import { API_V1_BASE_PATH, healthResponseSchema } from '../../platform/api';
-import { ApiHttpError } from './errors';
+import type { ActorContext } from '../../kernel/actor/index.ts';
+import type { Clock } from '../../kernel/clock/index.ts';
+import type { RequestId } from '../../kernel/ids/index.ts';
+import { API_V1_BASE_PATH, healthResponseSchema } from '../../platform/api/contracts.ts';
+import { ApiHttpError } from './errors.ts';
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 

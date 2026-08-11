@@ -1,4 +1,4 @@
-import type { RequestId, TenantId, UserId } from '../ids';
+import type { RequestId, TenantId, UserId } from '../ids/index.ts';
 
 export type UserActorContext = Readonly<{
   kind: 'user';

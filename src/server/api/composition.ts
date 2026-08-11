@@ -1,6 +1,6 @@
-import { systemClock, type Clock } from '../../kernel';
-import { createApiV1Handler, type ActorResolver } from './api-v1-handler';
-import { createHealthRoute, type ApiRoute } from './routes';
+import { systemClock, type Clock } from '../../kernel/clock/index.ts';
+import { createApiV1Handler, type ActorResolver } from './api-v1-handler.ts';
+import { createHealthRoute, type ApiRoute } from './routes.ts';
 
 export type ApiV1ApplicationDependencies = Readonly<{
   actorResolver?: ActorResolver;

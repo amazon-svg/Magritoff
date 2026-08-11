@@ -1,11 +1,11 @@
-import type { UserId } from '../../../kernel';
+import type { UserId } from '../../../kernel/ids/index.ts';
 import type {
   SessionBootstrap,
   SessionTenant,
   SessionUserPreferences,
   UpdatePreferences,
-} from '../api/contracts';
-import type { DirectMembership, SessionRepository } from './session-repository';
+} from '../api/contracts.ts';
+import type { DirectMembership, SessionRepository } from './session-repository.ts';
 
 export const DEFAULT_SESSION_PREFERENCES: SessionUserPreferences = Object.freeze({
   theme: 'light',

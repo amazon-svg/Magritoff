@@ -1,0 +1,3 @@
+-- Données locales minimales uniquement.
+-- Les migrations portent le schéma ; les comptes de recette sont créés via
+-- l écran d inscription (confirmation email désactivée dans config.toml).

@@ -1,9 +1,9 @@
-import type { UserId } from '../../../kernel';
+import type { UserId } from '../../../kernel/ids/index.ts';
 import type {
   SessionTenant,
   SessionUserPreferences,
   UpdatePreferences,
-} from '../api/contracts';
+} from '../api/contracts.ts';
 
 export type DirectMembership = Readonly<{
   tenant: Omit<
