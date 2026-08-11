@@ -108,6 +108,7 @@ export const draftOrderItemSchema = z.object({
 export const draftOrderSchema = z.object({
   orderId: z.uuid(),
   status: z.string(),
+  createdAt: z.iso.datetime({ offset: true }),
   totalHt: z.number().nonnegative(),
   items: z.array(draftOrderItemSchema),
 });

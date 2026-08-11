@@ -150,7 +150,7 @@ function repositoryStub(): OrdersRepository {
     }),
     notifyOrderCreated: async () => undefined,
     getDraftOrder: async (orderId) => ({
-      orderId, status: 'draft', totalHt: 150,
+      orderId, status: 'draft', createdAt: '2026-08-11T12:00:00.000Z', totalHt: 150,
       items: [{
         id: '44444444-4444-4444-8444-444444444444', productId: null,
         productLabel: 'Flyers', clariprintOptions: null, quantity: 2,

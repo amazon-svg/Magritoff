@@ -244,11 +244,13 @@ export class SupabaseOrdersRepository implements OrdersRepository {
     }) : [];
     if (
       typeof result.order_id !== 'string' || typeof result.status !== 'string'
+      || typeof result.created_at !== 'string'
       || typeof result.total_ht !== 'number'
     ) throw new Error('Le brouillon a retourné un résultat invalide.');
     return {
       orderId: result.order_id,
       status: result.status,
+      createdAt: result.created_at,
       totalHt: result.total_ht,
       items,
     };

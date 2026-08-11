@@ -526,10 +526,11 @@ components:
     DraftOrder:
       type: object
       additionalProperties: false
-      required: [orderId, status, totalHt, items]
+      required: [orderId, status, createdAt, totalHt, items]
       properties:
         orderId: { type: string, format: uuid }
         status: { type: string }
+        createdAt: { type: string, format: date-time }
         totalHt: { type: number, minimum: 0 }
         items:
           type: array
