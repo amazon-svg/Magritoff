@@ -11,17 +11,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '/utils/supabase/client';
+import { OrdersApiClient } from '../../../modules/orders';
+import { FetchApiClient } from '../../../platform/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTenant } from '../../contexts/TenantContext';
 import { useShops } from '../../contexts/ShopsContext';
-import { applyTax, getTaxRate } from '../../utils/tax';
 import {
   type OrderUI,
-  type ShopOrderRow,
-  type TenantOrderRow,
-  mergeAndSortOrders,
-  normalizeShopOrder,
-  normalizeTenantOrder,
+  orderSummaryToUi,
 } from '../shop/portal/PortalOrders.helpers';
 import { OrderHistoryTable } from '../shop/portal/OrderHistoryTable';
 import { CancelOrderConfirmDialog } from '../shop/portal/CancelOrderConfirmDialog';
@@ -36,12 +33,15 @@ interface DashboardOrderUI extends OrderUI {
 }
 
 export function DashboardOrders() {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const { currentTenant } = useTenant();
   const { shops } = useShops();
   const [orders, setOrders] = useState<DashboardOrderUI[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const ordersApi = useMemo(() => new OrdersApiClient(
+    new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null),
+  ), [session?.access_token]);
 
   // Fix 2026-05-25 : Map shop_id -> { name, slug } pour afficher le NOM
   // humain dans la colonne Boutique (et plus le slug technique qui ressemble
@@ -89,58 +89,20 @@ export function DashboardOrders() {
     setLoading(true);
     setError(null);
 
-    const taxRate = getTaxRate(currentTenant);
-    const taxedTotal = (ht: number) => applyTax(ht, taxRate);
     const shopIds = shops.map((s) => s.id);
-
-    const queryA = supabase
-      .from('shop_orders')
-      .select('*')
-      .in('shop_id', shopIds)
-      .order('created_at', { ascending: false })
-      .limit(100);
-
-    const queryB = supabase
-      .from('tenant_orders')
-      .select(
-        'id, shop_id, tenant_id, created_by, status, total_ht, currency, notes, created_at, tenant_order_items(product_label, quantity, unit_price_ht, line_total_ht)',
-      )
-      .eq('tenant_id', currentTenant.id)
-      .order('created_at', { ascending: false })
-      .limit(100);
-
-    const [resA, resB] = await Promise.all([queryA, queryB]);
-    if (cancelled.current) return;
-
-    const legacy: DashboardOrderUI[] = [];
-    const v11: DashboardOrderUI[] = [];
-
-    if (resA.error) {
-      console.warn('[DashboardOrders] query shop_orders failed:', resA.error.message);
-    } else if (Array.isArray(resA.data)) {
-      for (const row of resA.data as ShopOrderRow[]) {
-        legacy.push({ ...normalizeShopOrder(row), shop_id: row.shop_id });
-      }
+    try {
+      const response = await ordersApi.listTenantOrders(currentTenant.id, shopIds);
+      if (cancelled.current) return;
+      setOrders(response.orders.map((order) => ({ ...orderSummaryToUi(order), shop_id: order.shopId })));
+    } catch (cause) {
+      if (cancelled.current) return;
+      const message = cause instanceof Error ? cause.message : 'Chargement des commandes impossible.';
+      console.warn('[DashboardOrders] API read failed:', message);
+      setError(message);
+    } finally {
+      if (!cancelled.current) setLoading(false);
     }
-
-    if (resB.error) {
-      console.warn('[DashboardOrders] query tenant_orders failed:', resB.error.message);
-    } else if (Array.isArray(resB.data)) {
-      for (const row of resB.data as TenantOrderRow[]) {
-        v11.push({ ...normalizeTenantOrder(row, taxedTotal), shop_id: row.shop_id });
-      }
-    }
-
-    if (resA.error && resB.error) {
-      setError(`${resA.error.message} / ${resB.error.message}`);
-      setLoading(false);
-      return;
-    }
-
-    const merged = mergeAndSortOrders(legacy, v11) as DashboardOrderUI[];
-    setOrders(merged);
-    setLoading(false);
-  }, [user, currentTenant, shops]);
+  }, [user, currentTenant, shops, ordersApi]);
 
   useEffect(() => {
     const cancelled = { current: false };

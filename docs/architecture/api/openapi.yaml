@@ -93,6 +93,51 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ApiProblem'
+  /tenants/{tenantId}/orders:
+    get:
+      operationId: listTenantOrders
+      summary: Lister les commandes agrégées d un tenant
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: tenantId, in: path, required: true, schema: { type: string } }
+        - name: shopId
+          in: query
+          schema: { type: array, items: { type: string } }
+      responses:
+        '200':
+          description: Commandes v1.1 et historiques normalisées
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OrdersList' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+  /shops/{shopId}/orders:
+    get:
+      operationId: listPortalOrders
+      summary: Charger les compteurs et vues workflow du portail
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: shopId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Datasets du portail agrégés
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PortalOrdersResponse' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+  /orders/{orderId}/audit:
+    get:
+      operationId: getOrderAuditTrail
+      summary: Charger l historique métier d une commande
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: orderId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Événements de statut et de rôles
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OrderAuditTrail' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
 components:
   securitySchemes:
     bearerAuth:
@@ -236,6 +281,80 @@ components:
         isSuperAdmin: { type: boolean }
         preferences:
           $ref: '#/components/schemas/UserPreferences'
+    OrderItem:
+      type: object
+      additionalProperties: false
+      required: [name, quantity, unitPriceHt]
+      properties:
+        name: { type: string }
+        quantity: { type: number }
+        unitPriceHt: { type: number }
+    OrderSummary:
+      type: object
+      additionalProperties: false
+      required: [id, shopId, source, createdAt, customerName, customerEmail, items, totalHt, totalTtc, status]
+      properties:
+        id: { type: string }
+        shopId: { type: string }
+        source: { type: string, enum: [legacy, v1_1] }
+        createdAt: { type: string, format: date-time }
+        customerName: { type: string }
+        customerEmail: { type: string }
+        items: { type: array, items: { $ref: '#/components/schemas/OrderItem' } }
+        totalHt: { type: number }
+        totalTtc: { type: number }
+        status: { type: string }
+    OrdersList:
+      type: object
+      additionalProperties: false
+      required: [orders]
+      properties:
+        orders: { type: array, items: { $ref: '#/components/schemas/OrderSummary' } }
+    PortalOrdersCounters:
+      type: object
+      additionalProperties: false
+      required: [mine, to_validate, to_approve, to_produce]
+      properties:
+        mine: { type: integer, minimum: 0 }
+        to_validate: { type: integer, minimum: 0 }
+        to_approve: { type: integer, minimum: 0 }
+        to_produce: { type: integer, minimum: 0 }
+    PortalOrdersDatasets:
+      type: object
+      additionalProperties: false
+      required: [mine, to_validate, to_approve, to_produce]
+      properties:
+        mine: { type: array, items: { $ref: '#/components/schemas/OrderSummary' } }
+        to_validate: { type: array, items: { $ref: '#/components/schemas/OrderSummary' } }
+        to_approve: { type: array, items: { $ref: '#/components/schemas/OrderSummary' } }
+        to_produce: { type: array, items: { $ref: '#/components/schemas/OrderSummary' } }
+    PortalOrdersResponse:
+      type: object
+      additionalProperties: false
+      required: [counters, datasets]
+      properties:
+        counters: { $ref: '#/components/schemas/PortalOrdersCounters' }
+        datasets: { $ref: '#/components/schemas/PortalOrdersDatasets' }
+    OrderAuditEvent:
+      type: object
+      additionalProperties: false
+      required: [eventId, orderId, kind, eventType, actorId, actorEmail, roleName, payload, occurredAt]
+      properties:
+        eventId: { type: string }
+        orderId: { type: string }
+        kind: { type: string, enum: [status, role] }
+        eventType: { type: string }
+        actorId: { type: [string, 'null'] }
+        actorEmail: { type: [string, 'null'] }
+        roleName: { type: [string, 'null'] }
+        payload: { type: object }
+        occurredAt: { type: string, format: date-time }
+    OrderAuditTrail:
+      type: object
+      additionalProperties: false
+      required: [events]
+      properties:
+        events: { type: array, items: { $ref: '#/components/schemas/OrderAuditEvent' } }
   responses:
     AuthenticationRequired:
       description: Bearer token absent ou invalide

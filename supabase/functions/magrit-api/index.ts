@@ -4,6 +4,9 @@ import { SessionService } from '../../../src/modules/session/application/session
 import { SupabaseSessionRepository } from '../../../src/adapters/supabase/session-repository.ts';
 import { createApiV1Application } from '../../../src/server/api/composition.ts';
 import { createSessionRoutes } from '../../../src/server/api/session-routes.ts';
+import { OrdersService } from '../../../src/modules/orders/application/orders-service.ts';
+import { SupabaseOrdersRepository } from '../../../src/adapters/supabase/orders-repository.ts';
+import { createOrdersRoutes } from '../../../src/server/api/orders-routes.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -25,8 +28,9 @@ export async function handleRequest(request: Request): Promise<Response> {
   });
   const repository = new SupabaseSessionRepository(client);
   const service = new SessionService(repository);
+  const ordersService = new OrdersService(new SupabaseOrdersRepository(client));
   const handler = createApiV1Application({
-    routes: createSessionRoutes(service),
+    routes: [...createSessionRoutes(service), ...createOrdersRoutes(ordersService)],
     actorResolver: {
       async resolve() {
         const { data, error } = await client.auth.getUser();

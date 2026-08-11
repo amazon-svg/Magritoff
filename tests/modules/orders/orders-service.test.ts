@@ -1,0 +1,76 @@
+import { describe, expect, it, vi } from 'vitest';
+import { parseId, type UserId } from '../../../src/kernel';
+import {
+  OrdersService,
+  type OrdersRepository,
+} from '../../../src/modules/orders';
+
+describe('OrdersService', () => {
+  it('agrège les cohortes tenant et legacy sans exposer leurs rows', async () => {
+    const repository = repositoryStub();
+    const service = new OrdersService(repository);
+
+    const result = await service.listTenantOrders('tenant-1', ['shop-1']);
+
+    expect(result.orders.map((order) => order.id)).toEqual(['v11-1', 'legacy-1']);
+    expect(result.orders[0]).toMatchObject({
+      source: 'v1_1', shopId: 'shop-1', totalHt: 100, totalTtc: 108.5,
+      items: [{ name: 'Affiche', quantity: 2, unitPriceHt: 50 }],
+    });
+    expect(repository.listLegacyOrders).toHaveBeenCalledWith(['shop-1']);
+  });
+
+  it('compose les quatre vues portail et réserve le legacy à mine', async () => {
+    const service = new OrdersService(repositoryStub());
+
+    const result = await service.listPortalOrders('shop-1', id('user-1'));
+
+    expect(result.counters).toEqual({ mine: 2, to_validate: 1, to_approve: 0, to_produce: 0 });
+    expect(result.datasets.mine.map((order) => order.id)).toEqual(['v11-1', 'legacy-1']);
+    expect(result.datasets.to_validate.map((order) => order.id)).toEqual(['v11-1']);
+    expect(result.datasets.to_approve).toEqual([]);
+  });
+
+  it('normalise le trail d audit au format HTTP camelCase', async () => {
+    const service = new OrdersService(repositoryStub());
+    await expect(service.getAuditTrail('v11-1')).resolves.toEqual({
+      events: [{
+        eventId: 'event-1', orderId: 'v11-1', kind: 'status', eventType: 'status_transition',
+        actorId: 'user-1', actorEmail: 'buyer@magrit.test', roleName: null,
+        payload: { from_status: 'draft', to_status: 'validated' }, occurredAt: '2026-08-11T12:01:00.000Z',
+      }],
+    });
+  });
+});
+
+function repositoryStub(): OrdersRepository & Record<'listLegacyOrders', ReturnType<typeof vi.fn>> {
+  const v11 = {
+    id: 'v11-1', shopId: 'shop-1', createdAt: '2026-08-11T12:00:00.000Z',
+    items: [{ name: 'Affiche', quantity: 2, unitPriceHt: 50 }], totalHt: 100, status: 'draft',
+  };
+  return {
+    getTenantTaxRegime: vi.fn(async () => 'dom_tom' as const),
+    getShopTaxRegime: vi.fn(async () => 'dom_tom' as const),
+    listTenantOrders: vi.fn(async () => [v11]),
+    listTenantOrdersByIds: vi.fn(async (ids) => ids.includes(v11.id) ? [v11] : []),
+    listLegacyOrders: vi.fn(async () => [{
+      id: 'legacy-1', shopId: 'shop-1', createdAt: '2026-08-11T11:00:00.000Z',
+      customerName: 'Client', customerEmail: 'buyer@magrit.test', items: [],
+      totalHt: 20, totalTtc: 24, status: 'pending',
+    }]),
+    getPortalCounters: vi.fn(async () => ({ mine: 2, to_validate: 1, to_approve: 0, to_produce: 0 })),
+    getPortalOrderIds: vi.fn(async (_shopId, _userId, tab) => tab === 'mine' || tab === 'to_validate' ? ['v11-1'] : []),
+    getAuthenticatedUserEmail: vi.fn(async () => 'buyer@magrit.test'),
+    listAuditEvents: vi.fn(async () => [{
+      eventId: 'event-1', orderId: 'v11-1', kind: 'status', eventType: 'status_transition',
+      actorId: 'user-1', actorEmail: 'buyer@magrit.test', roleName: null,
+      payload: { from_status: 'draft', to_status: 'validated' }, occurredAt: '2026-08-11T12:01:00.000Z',
+    }]),
+  };
+}
+
+function id(value: string): UserId {
+  const parsed = parseId<'UserId'>(value);
+  if (!parsed.ok) throw new Error('ID invalide');
+  return parsed.value;
+}

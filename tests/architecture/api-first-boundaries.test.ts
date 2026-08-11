@@ -164,7 +164,7 @@ describe('frontières API-first et modulaires', () => {
     expect(provider).toContain('return new SessionApiClient(');
   });
 
-  it('conserve la RLS dans la composition Edge du bootstrap', () => {
+  it('conserve la RLS dans la composition Edge des modules métier', () => {
     const edgeEntry = readFileSync(
       resolve(process.cwd(), 'supabase/functions/magrit-api/index.ts'),
       'utf8',
@@ -172,6 +172,8 @@ describe('frontières API-first et modulaires', () => {
 
     expect(edgeEntry).toContain("Deno.env.get('SUPABASE_ANON_KEY')");
     expect(edgeEntry).toContain('Authorization: authorization');
+    expect(edgeEntry).toContain('SupabaseOrdersRepository(client)');
+    expect(edgeEntry).toContain('createOrdersRoutes(ordersService)');
     expect(edgeEntry).not.toContain('SUPABASE_SERVICE_ROLE_KEY');
   });
 

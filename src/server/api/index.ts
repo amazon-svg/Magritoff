@@ -4,6 +4,7 @@ export { createApiV1Application } from './composition';
 export type { ApiV1ApplicationDependencies } from './composition';
 export { ApiHttpError } from './errors';
 export { createSessionRoutes } from './session-routes';
+export { createOrdersRoutes } from './orders-routes';
 export { createHealthRoute, defineJsonRoute } from './routes';
 export type {
   ApiRequestContext,

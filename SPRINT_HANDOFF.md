@@ -18,9 +18,11 @@ La refactorisation API-first a démarré le 2026-08-11 sur la branche `refactor/
 
 **AF3 en review** : registre validé, quatre composition roots, manifeste Account multi-surfaces, route et navigation workspace contribuées, écran témoin séparé en vue et adaptateur. Validation : registre 4/4, architecture 9/9, vitest complet 787 verts et build vert. Baseline : 42 fichiers importeurs et 70 références directes.
 
-**Point de reprise** : story AF4 dans `_bmad-output/planning-artifacts/epics.md` — construire contrats, service applicatif et repository serveur de lecture Orders avant toute migration des écrans.
+**AF4 en review** : module Orders, contrats et routes de lecture tenant/portail/audit, repository Supabase serveur et migration immédiate des lectures de `DashboardOrders`, `PortalOrders` et de l audit trail. Baseline exacte abaissée de 42 à 41 fichiers importeurs et de 175 à 168 références directes.
 
-**Dérogation R5 restante** : 42 fichiers UI importent encore Supabase et 70 références `supabase.*` sont figées par `tests/architecture/supabase-ui-baseline.ts`. Supabase Auth et les commandes tenant brownfield isolées restent temporaires ; la baseline ne peut ni augmenter ni rester périmée après une baisse.
+**Point de reprise** : story AF5 — centraliser les créations, éditions de draft et transitions Orders dans des commandes serveur atomiques et idempotentes, puis poursuivre AF6-AF7 jusqu à supprimer Supabase du périmètre Orders.
+
+**Dérogation R5 restante** : 41 fichiers UI importent encore Supabase et 168 références `supabase.*` sont figées par `tests/architecture/supabase-ui-baseline.ts`. Le comptage historique 64 ne couvrait pas correctement les appels multi-lignes ; la somme des limites réellement vérifiées était 175. Supabase Auth et les commandes brownfield isolées restent temporaires ; la baseline ne peut ni augmenter ni rester périmée après une baisse.
 
 ---
 

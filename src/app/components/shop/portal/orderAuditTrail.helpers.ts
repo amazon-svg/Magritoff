@@ -4,7 +4,8 @@
  * Côté front : appel RPC get_order_audit_trail + formatage timeline.
  */
 
-import { supabase } from '/utils/supabase/client';
+import { OrdersApiClient } from '../../../../modules/orders';
+import { FetchApiClient } from '../../../../platform/api';
 
 export interface OrderAuditEvent {
   event_id: string;
@@ -26,12 +27,32 @@ export interface FetchOrderAuditTrailResult {
   error: string | null;
 }
 
-export async function fetchOrderAuditTrail(orderId: string): Promise<FetchOrderAuditTrailResult> {
-  const { data, error } = await supabase.rpc('get_order_audit_trail', { p_order_id: orderId });
-  if (error) {
-    return { data: null, error: error.message };
+export async function fetchOrderAuditTrail(
+  orderId: string,
+  accessToken: string | null,
+): Promise<FetchOrderAuditTrailResult> {
+  try {
+    const api = new OrdersApiClient(
+      new FetchApiClient('', globalThis.fetch, () => accessToken),
+    );
+    const { events } = await api.getAuditTrail(orderId);
+    return {
+      data: events.map((event) => ({
+        event_id: event.eventId,
+        order_id: event.orderId,
+        kind: event.kind,
+        event_type: event.eventType,
+        actor_id: event.actorId,
+        actor_email: event.actorEmail,
+        role_name: event.roleName,
+        payload: event.payload,
+        occurred_at: event.occurredAt,
+      })),
+      error: null,
+    };
+  } catch (cause) {
+    return { data: null, error: cause instanceof Error ? cause.message : 'Lecture de l audit impossible.' };
   }
-  return { data: (data ?? []) as OrderAuditEvent[], error: null };
 }
 
 const STATUS_LABELS_FR: Record<string, string> = {

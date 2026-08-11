@@ -11,6 +11,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { useAuth } from '../../../contexts/AuthContext';
 import {
   Dialog,
   DialogContent,
@@ -35,6 +36,7 @@ interface Props {
 }
 
 export function OrderAuditTrailModal({ orderId, orderShortId, onClose }: Props) {
+  const { session } = useAuth();
   const [events, setEvents] = useState<OrderAuditEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,7 +49,7 @@ export function OrderAuditTrailModal({ orderId, orderShortId, onClose }: Props) 
     }
     setLoading(true);
     setError(null);
-    void fetchOrderAuditTrail(orderId).then((result) => {
+    void fetchOrderAuditTrail(orderId, session?.access_token ?? null).then((result) => {
       setLoading(false);
       if (result.error) {
         setError(result.error);
@@ -55,7 +57,7 @@ export function OrderAuditTrailModal({ orderId, orderShortId, onClose }: Props) 
       }
       setEvents(result.data ?? []);
     });
-  }, [orderId]);
+  }, [orderId, session?.access_token]);
 
   return (
     <Dialog
