@@ -27,13 +27,23 @@
 ### 3.1 Repos et branches
 
 - **Frontend / app principale** : `amazon-svg/Magritoff` sur GitHub (1 seul repo, multiples branches betas).
+
+**⚠️ Deux clones locaux du même repo** — vérifier dans lequel on travaille avant toute action :
+
+| Clone | Chemin | Rôle |
+|---|---|---|
+| **Référence** ✅ | `/Users/arnaudmazon/Documents/AGE/Projet formateur /Claude code/Magritoff-v4/` | Copie de travail active. `pnpm dev` → **http://localhost:5176** |
+| Secondaire ⚠️ | `/Users/arnaudmazon/Library/Mobile Documents/com~apple~CloudDocs/AGE/Claude/BMAD/Magrit/` | Doc + branche `migration_owk`. `beta/v5` s y désynchronise — **`git fetch origin --prune` avant toute comparaison de branches** |
+
 - **Branches actives** :
+  - `beta/v5` — **ligne de développement courante**, dans le clone `Magritoff-v4`. Itération e-shop v1.1 puis refonte UX dashboard v2 / parc machines / gestion commerciale (sprints 08/2026). Le port dépend du script lancé (`pnpm dev` → 5176, `pnpm dev:b5` → 5177), **pas** de la branche.
+  - `migration_owk` — travaux **OWK Factory** de Xavier Péchoultres : PRD produit global, PRD Clariprint Data, specs kernel/modules/services, plan par jalons. **Documentation uniquement, zéro code applicatif.** Rebasée sur `beta/v5` le 2026-08-09 (10 commits). Voir `prd/` et `docs/architecture/specifications/`.
   - `main` (B1, prod, port 5173) — **ne pas toucher**
   - `design/v2` (B2, refonte design)
   - `beta/v3` (B3, multi-tenant initial, Supabase mort)
-  - `beta/v4` (**B4, port 5176**, dossier local `/Users/arnaudmazon/Documents/AGE/Projet formateur /Claude code/Magritoff-v4/`) — démo client cible 2026-05-23
-  - `beta/v5` (**B5, port 5177**, dossier local `/Users/arnaudmazon/Documents/Claude/BMAD/Magrit/`) — itération **e-shop v1.1**, sprint Epic 1 partiel livré
+  - `beta/v4` (B4) — démo client 2026-05-23, dépassée par `beta/v5`
 - **Branche héritée notable** : `design/v2` (pivot `/shop/:slug` vers portail B2B corporate, design tokens dans `.design-handoff/`).
+- **OWK Factory** : pipeline d intake PRD maintenu par Xavier Péchoultres — contrat de format dans `~/dev/owk-factory/docs/prd-intake-contract.md` (côté Xavier). Les PRD de `prd/` doivent le respecter.
 
 ### 3.2 Stack technique verrouillée
 

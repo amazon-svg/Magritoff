@@ -15,7 +15,8 @@ import { useTenant } from '../../../contexts/TenantContext';
 import { useTenantPath } from '../../../hooks/useTenantPath';
 import { formatCurrencyPerUnit, getCurrency, getCurrencySymbol } from '../../../utils/currency';
 import {
-  KNOWN_SUBCONTRACTORS, MACHINE_TYPES, loadParks, parkIsCalculable, upsertPark,
+  KNOWN_SUBCONTRACTORS, MACHINE_TYPES, PRICE_PARAMS, loadParks, machinePriceValues,
+  parkIsCalculable, upsertPark,
   type MachinePark, type MachineTypeKey, type ParkMachine,
 } from './machinePark.helpers';
 
@@ -250,6 +251,14 @@ function MachineDialog({
   const [fixedCost, setFixedCost] = useState(String(machine.fixedCost ?? 0));
   const [hourlyRate, setHourlyRate] = useState(machine.hourlyRate != null ? String(machine.hourlyRate) : '');
   const [active, setActive] = useState(machine.active !== false);
+  // Point 3 (retour Arnaud 2026-08-08) : parametres qui pesent sur le prix,
+  // par type de machine — pre-remplis des defauts type/modele, ajustables.
+  const paramDefs = PRICE_PARAMS[machine.type] ?? [];
+  const [params, setParams] = useState<Record<string, string>>(() => {
+    const values = machinePriceValues(machine);
+    return Object.fromEntries(paramDefs.map((p) => [p.key, String(values[p.key])]));
+  });
+  const userSet = (key: string) => machine.params?.[key] != null;
 
   const suggestions = KNOWN_SUBCONTRACTORS.filter(
     (s) => subcontractor && s.toLowerCase().includes(subcontractor.toLowerCase()) && s !== subcontractor,
@@ -341,6 +350,36 @@ function MachineDialog({
           />
         </div>
 
+        {paramDefs.length > 0 && (
+          <div className="border-t border-line pt-3 space-y-3">
+            <p className="font-mono text-[11px] uppercase tracking-wider text-ink-mute-2">
+              Paramètres de prix
+              <span className="normal-case tracking-normal font-sans text-ink-mute-2">
+                {' '}— valeurs indicatives du modèle, ajustez les vôtres
+              </span>
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              {paramDefs.map((p) => (
+                <div key={p.key}>
+                  <label className={labelCls}>
+                    {p.label}{' '}
+                    <span className="font-normal text-ink-mute-2">({p.unit})</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step={p.step ?? 1}
+                    value={params[p.key] ?? ''}
+                    onChange={(e) => setParams((s) => ({ ...s, [p.key]: e.target.value }))}
+                    className={`${inputCls} w-full ${userSet(p.key) ? '' : 'text-ink-muted'}`}
+                    title={userSet(p.key) ? 'Valeur saisie' : 'Valeur par défaut du modèle'}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <button
           type="button"
           onClick={() => setActive(!active)}
@@ -374,6 +413,11 @@ function MachineDialog({
                 fixedCost: location === 'externe' ? Number(fixedCost) || 0 : undefined,
                 hourlyRate: hourlyRate === '' ? undefined : Number(hourlyRate),
                 active,
+                params: Object.fromEntries(
+                  paramDefs
+                    .filter((p) => params[p.key] !== '' && !Number.isNaN(Number(params[p.key])))
+                    .map((p) => [p.key, Number(params[p.key])]),
+                ),
               })
             }
           >

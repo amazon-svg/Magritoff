@@ -6,6 +6,7 @@
 ## Lecture obligatoire avant toute action
 
 1. **[docs/REGLES_ARCHITECTURE.md](docs/REGLES_ARCHITECTURE.md)** — règles R1-R8 de la session RP#070826 (Annexe A), **opposables à tout développement** : API-first, modularité, MCP différé, noyau minimal, souplesse encadrée sur l existant, workflow Git, design charte v2, rapport de fin de tâche.
+   → **[docs/CONVENTION_GIT.md](docs/CONVENTION_GIT.md)** complète R6 : rôle des branches, cadence de remontée vers `main`, tags de version, séquence de synchronisation avec Expert Solutions.
 2. **[docs/project-context.md](docs/project-context.md)** — persistent facts BMAD (vision, stack, multi-tenancy, conventions, identifiants techniques).
 3. **[SPRINT_HANDOFF.md](SPRINT_HANDOFF.md)** — état dev courant (sprint en cours, stories livrées, edge functions déployées, bugs connus).
 
@@ -26,9 +27,22 @@ Tous les agents reçoivent automatiquement `docs/project-context.md` + `SPRINT_H
 
 **Règle Dev** : produire un story document `_bmad-output/implementation-artifacts/story-{X}.md` à chaque story livrée.
 
+## ⚠️ Copie de travail de référence — à vérifier en début de session
+
+Le repo `amazon-svg/Magritoff` est cloné **deux fois** en local. Les deux clones portent les mêmes noms de branches et le même `package.json` : rien dans le repo ne permet de les distinguer. **Se tromper de dossier = travailler sur du code périmé sans le voir.**
+
+| Clone | Chemin | Rôle |
+|---|---|---|
+| **Référence** ✅ | `/Users/arnaudmazon/Documents/AGE/Projet formateur /Claude code/Magritoff-v4/` | **Copie de travail active.** C est ici que se fait le développement. `pnpm dev` → **http://localhost:5176** |
+| Secondaire ⚠️ | `/Users/arnaudmazon/Library/Mobile Documents/com~apple~CloudDocs/AGE/Claude/BMAD/Magrit/` (iCloud) | Clone utilisé pour la doc et la branche `migration_owk`. **Son `beta/v5` se désynchronise vite** — `git fetch` obligatoire avant toute comparaison de branches |
+
+**Réflexe obligatoire avant tout diagnostic de branche** : `git fetch origin --prune` **puis** comparer. Un `git log` sur un ref local non fetché a déjà produit un faux diagnostic (session 2026-08-09, cf. `SPRINT_HANDOFF.md` section 26).
+
 ## Conventions critiques (rappel rapide)
 
-- **Branche active session** : `beta/v5` (B5, port 5177).
+- **Branches** : voir [docs/CONVENTION_GIT.md](docs/CONVENTION_GIT.md) — **source de vérité unique**. `main` = référence partagée avec Expert Solutions ; `beta/v5` = ligne d'intégration interne (temporaire) ; `feat/<périmètre>` = branches fonctionnelles ; versions en **tags**, jamais en branches.
+  - ⚠️ Ne **jamais** désigner ici « la » branche de travail : elle change, ce fichier resterait périmé (remarque Xavier Péchoultres, 2026-08-10). Vérifier la branche courante avec `git branch --show-current`.
+  - Le port de `pnpm dev` (**5176**) ne dit rien de la branche ni du clone.
 - **Langue de travail** : français (commits, code, livrables).
 - **Format commits** : `feat|fix|chore|test|docs(v5): description courte` — **PAS d apostrophes** (HEREDOC).
 - **Confirmation systématique avant push**.

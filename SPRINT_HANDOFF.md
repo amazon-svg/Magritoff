@@ -174,13 +174,56 @@ familles au lieu des 16 gammes racines.
 
 **Recette** : build ✅ · vitest **847/847** ✅.
 
+## 26-bis. Session 2026-08-09 — Rebase `migration_owk` + clarification des clones
+
+### Contexte : un faux diagnostic causé par deux clones
+
+Le repo `Magritoff` est cloné **deux fois** en local, avec les mêmes noms de branches :
+
+| Clone | `beta/v5` au 2026-08-09 |
+|---|---|
+| `~/Documents/AGE/Projet formateur /Claude code/Magritoff-v4/` (**référence**) | `b93d741` — à jour, 2 commits non poussés |
+| `~/Library/.../CloudDocs/AGE/Claude/BMAD/Magrit/` (iCloud) | `2d8725d` — **12 jours de retard** |
+
+Un diagnostic de branche mené dans le clone iCloud **sans `git fetch` préalable** a conclu à tort que `migration_owk` était en avance sur `beta/v5`. Après fetch : `migration_owk` était **15 commits en retard**, sans la refonte UX dashboard, le module Parc machine, la Gestion commerciale ni les règles R1-R8. Le serveur de dev pointé servait donc du code périmé.
+
+**Règle qui en découle** (inscrite dans `CLAUDE.md`) : `git fetch origin --prune` **avant** toute comparaison de branches, et vérifier dans quel clone on se trouve.
+
+### `migration_owk` rebasée
+
+La branche porte les travaux **OWK Factory** de Xavier Péchoultres — **documentation et spécifications uniquement, aucun code applicatif** (seule modif hors doc : une fin de ligne dans `package.json`).
+
+Rebase effectuée dans le clone iCloud : 10 commits de doc rejoués sur `origin/beta/v5` (`2699c55`), **sans conflit**. HEAD = `ffd864c`. La branche est désormais **10 commits devant `beta/v5`, 0 derrière**.
+
+Deux éléments écartés au passage :
+- `93c4384` (`chore(b1)` bascule `claude-3-haiku-20240307` → `claude-haiku-4-5-20251001`) — **obsolète** : la chaîne n existe plus sur `beta/v5` et le fichier visé (`supabase/functions/server/index.tsx`) y est supprimé.
+- 3 commits de merge `main` → `beta/v5` antérieurs, absorbés par le rebase.
+
+Contenu apporté par la branche :
+
+| Livrable | Emplacement |
+|---|---|
+| PRD produit global (v0.2, **draft à valider par le PO**, périmètre observé arrêté au commit `177edb3` de `main`) | `prd/global-prd.md` |
+| PRD module Clariprint Data (+ version initiale) | `prd/clariprint-data-prd.md`, `prd/clariprint_data_prd_inital.md` |
+| Évaluation architecture + roadmap ; cible kernel/modules/services | `docs/ARCHITECTURE_ASSESSMENT_AND_ROADMAP.md`, `docs/ARCHITECTURE_KERNEL_MODULES_SERVICES.md` |
+| Specs kernel, plateforme (access, audit, entitlements, identity, tenant), module `clariprint-data` (16 capabilities, domain model, autorisation) | `docs/architecture/specifications/` |
+| Plan par jalons J0 → J8 + registre de décisions + glossaire | `docs/clariprint-data-plan/` |
+| Maquettes base44 (admin, printer, papier, carrier, roles) | `docs/maquette_base44/` |
+
+### État et reste à faire
+
+- **`migration_owk` rebasée est locale au clone iCloud.** `origin/migration_owk` porte encore l ancien historique — la publier demande un `git push --force-with-lease`, **non fait, en attente d arbitrage**.
+- Ref de sécurité conservée : `migration_owk_avant_rebase` (ancien HEAD `81fdbe4`), dans le clone iCloud.
+- **Non fait** : validation PO du PRD global ; recalage de son périmètre sur `beta/v5` (il décrit `main` au `177edb3`, donc sans Epic 7, refonte UX v2, Parc machine, Gestion commerciale) ; aucune implémentation des jalons Clariprint Data.
+- `beta/v5` du clone `Magritoff-v4` a toujours **2 commits non poussés** (`b93d741` bibliothèque machines, `28afcaa` handoff GesCom).
+
 ## 25. Session 2026-08-08 — Refonte UX du tableau de bord (branche `feature/dashboard-refonte-ux`)
 
 **6 commits sur une branche dédiée** (règle Git RP#070826 : une branche par évolution, base `origin/beta/v5`). Détail complet : `_bmad-output/implementation-artifacts/story-refonte-ux-dashboard-2026-08-08.md`.
 
 1. Navigation rationalisée en 6 groupes (Atelier / Catalogue / Commercial / Production / Paramètres / Plateforme) ; Profil + Préférences fusionnés dans **Paramètres → Mon compte** (`/account`, anciennes routes redirigées) ; index dashboard → Devis ; entrée « Mockups Magrit » supprimée (hors PRD — le mockup engine E8.3 et l'upload custom par boutique restent).
 2. Éditeur de boutique : **« Catalogue de la boutique » à 3 onglets** (Sources / Produits / Visuels) remplace les 3 sections empilées.
-3. **Module Gestion commerciale** (`/commercial`) : règles de prix par gamme/produit × client/groupe + moteur `applyCommercialRules()`. ⚠️ **Migration à jouer par Arnaud** : `supabase/migrations/20260808000100_gescom_price_rules.sql` (la page l'indique tant qu'elle manque). Branchement dans devis/boutique = story V2.
+3. **Module Gestion commerciale** (`/commercial`) : règles de prix par gamme/produit × client/groupe + moteur `applyCommercialRules()`. ✅ **Migration appliquée sur B4 le 2026-08-08** (Management API, PAT trousseau) — 3 tables (`client_groups`, `client_group_members`, `client_price_rules`), RLS active, 2 policies chacune, vérifié par requête. Branchement dans devis/boutique = story V2.
 4. **Module Parc machine** (`/machines` + `/machines/wizard`) : wizard RP#070826 avec les DEUX parcours de l'arbitrage BK-15 (A déroulé complet / B types déclarés) et compteur de clics. V1 maquette fonctionnelle (bibliothèque mock, persistance locale).
 5. Charte v2 appliquée aux 20 écrans dashboard (tokens ink/paper/line/brand, plus aucun `gray-*`).
 
