@@ -8,7 +8,6 @@ import {
   extractClariprintConfigFromAtelierProduct,
   buildClariprintPayload,
   parseFormatToWidthHeight,
-  formatEuro,
   normalizeDimensions,
 } from "../../../src/app/components/shop/ProductOverlay.helpers";
 import type { ShopProduct } from "../../../src/app/contexts/ShopsContext";
@@ -408,38 +407,6 @@ describe("extractClariprintConfigFromAtelierProduct (bug fix volet edition 2026-
       dimensions: { width: 421, height: 593 },
     });
     expect(cfg2.format).toBe("A2");
-  });
-});
-
-describe("formatEuro", () => {
-  it("entier -> '500,00 EUR' format FR", () => {
-    const formatted = formatEuro(500);
-    // Le caractere espace insecable peut varier selon la version Intl
-    expect(formatted).toMatch(/500,00\s*€/);
-  });
-
-  it("decimal -> 2 decimales", () => {
-    expect(formatEuro(123.456)).toMatch(/123,46\s*€/);
-  });
-
-  it("0 -> '0,00 EUR'", () => {
-    expect(formatEuro(0)).toMatch(/0,00\s*€/);
-  });
-
-  it("null / undefined -> '—'", () => {
-    expect(formatEuro(null)).toBe("—");
-    expect(formatEuro(undefined)).toBe("—");
-  });
-
-  it("NaN / Infinity -> '—'", () => {
-    expect(formatEuro(NaN)).toBe("—");
-    expect(formatEuro(Infinity)).toBe("—");
-  });
-
-  it("locale en-US -> format different", () => {
-    const formatted = formatEuro(1234.56, "en-US");
-    // En-US format : "€1,234.56"
-    expect(formatted).toContain("1,234.56");
   });
 });
 

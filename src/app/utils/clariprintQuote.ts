@@ -79,7 +79,7 @@ export function validateClariprintResponse(
     return {
       success: false,
       error: 'Prix Clariprint invalide (négatif)',
-      details: `priceHT reçu: ${price}€ — anomalie connue Clariprint à signaler`,
+      details: `priceHT reçu: ${price} — anomalie connue Clariprint à signaler`,
     };
   }
 

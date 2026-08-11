@@ -19,6 +19,8 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { useTenant } from '../../../contexts/TenantContext';
 import { useQuotes } from '../../../contexts/QuotesContext';
 import { TEST_IDS } from '../../../lib/testIds';
+import { formatMoney } from '../../../utils/currency';
+import { useCurrency } from '../../../contexts/CurrencyContext';
 
 const SECTIONS: Array<{ key: AccountSection; label: string; icon: typeof Package }> = [
   { key: 'orders', label: 'Mes commandes', icon: Package },
@@ -54,6 +56,7 @@ export function AccountHub({
 }: AccountHubProps) {
   const { user } = useAuth();
   const { currentTenant } = useTenant();
+  const currency = useCurrency();
 
   return (
     <div
@@ -148,7 +151,7 @@ function AccountQuotes() {
                 className="px-4 py-3 font-mono text-ink text-right"
                 style={{ fontVariantNumeric: 'tabular-nums' }}
               >
-                {q.total_ht != null ? `${q.total_ht.toFixed(2)} €` : '—'}
+                {formatMoney(q.total_ht, currency)}
               </td>
             </tr>
           ))}

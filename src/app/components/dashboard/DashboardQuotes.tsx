@@ -27,6 +27,8 @@ import {
   AlertDialogTitle,
 } from '../ui/alert-dialog';
 import { TEST_IDS } from '../../lib/testIds';
+import { formatMoney } from '../../utils/currency';
+import { useCurrency } from '../../contexts/CurrencyContext';
 
 // Design source : .design-handoff/designs/04 - Admin dashboard.html
 // Pattern : Linear-dense — KPIs inline + sparklines + filtres segmentes + table compacte.
@@ -41,6 +43,7 @@ export function DashboardQuotes() {
   const tp = useTenantPath();
   const navigate = useNavigate();
   const { quotes, loading, scope, canViewAll, setScope, duplicateQuote, deleteQuote } = useQuotes();
+  const currency = useCurrency();
   const [filter, setFilter] = useState<FilterKey>('all');
   const [search, setSearch] = useState('');
   const [toDelete, setToDelete] = useState<QuoteRecord | null>(null);
@@ -165,9 +168,9 @@ export function DashboardQuotes() {
 
       {/* ── KPIs inline + sparklines ────────────────────────────────────── */}
       <div className="grid grid-cols-4 gap-px bg-line border border-line rounded-md overflow-hidden mb-5">
-        <Kpi label="En cours" value={`${kpis.inProgress.toFixed(0)} €`} delta={`+${kpis.newLast7} · 7j`} deltaPositive spark={kpis.sparkDays} max={kpis.maxSpark} />
+        <Kpi label="En cours" value={formatMoney(kpis.inProgress, currency, { fractionDigits: 0 })} delta={`+${kpis.newLast7} · 7j`} deltaPositive spark={kpis.sparkDays} max={kpis.maxSpark} />
         <Kpi label="Taux conversion" value={`${kpis.convRate}%`} delta="30 j" deltaPositive={kpis.convRate >= 50} spark={kpis.sparkDays} max={kpis.maxSpark} />
-        <Kpi label="Panier moyen" value={`${kpis.avgBasket.toFixed(0)} €`} delta={`${quotes.length} devis`} deltaPositive spark={kpis.sparkDays} max={kpis.maxSpark} />
+        <Kpi label="Panier moyen" value={formatMoney(kpis.avgBasket, currency, { fractionDigits: 0 })} delta={`${quotes.length} devis`} deltaPositive spark={kpis.sparkDays} max={kpis.maxSpark} />
         <Kpi label="Devis récents" value={String(kpis.newLast7)} delta="7 j" deltaPositive spark={kpis.sparkDays} max={kpis.maxSpark} />
       </div>
 
@@ -250,10 +253,10 @@ export function DashboardQuotes() {
                       </td>
                     )}
                     <td className="px-4 py-2 font-mono text-ink tabular-nums" style={{ fontSize: '12.5px', fontWeight: 500 }}>
-                      {(q.total_ht ?? 0).toFixed(2)} €
+                      {formatMoney(q.total_ht ?? 0, currency)}
                     </td>
                     <td className="px-4 py-2 font-mono text-ink tabular-nums" style={{ fontSize: '12.5px', fontWeight: 500 }}>
-                      {(q.total_ttc ?? 0).toFixed(2)} €
+                      {formatMoney(q.total_ttc ?? 0, currency)}
                     </td>
                     <td className="px-4 py-2">
                       <span className={`inline-flex font-mono px-2 py-0.5 rounded ${st.cls}`} style={{ fontSize: '11px', fontWeight: 500, letterSpacing: '0.02em' }}>

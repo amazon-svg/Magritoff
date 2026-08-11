@@ -8,7 +8,8 @@
 
 import { Loader2, Sparkles } from 'lucide-react';
 import { TEST_IDS } from '../../../lib/testIds';
-import { formatEuro } from '../ProductOverlay.helpers';
+import { formatMoney } from '../../../utils/currency';
+import { useCurrency } from '../../../contexts/CurrencyContext';
 import type { ConfiguratorPhase } from '../../../hooks/useProductConfigurator';
 import { priceBadgeForPhase } from './gammePage.helpers';
 
@@ -35,6 +36,7 @@ export function StickyPriceBar({
   onAskMagrit,
   variant,
 }: StickyPriceBarProps) {
+  const currency = useCurrency();
   const badge = priceBadgeForPhase(phase);
   const loading = phase.kind === 'loading';
   const noPrice = badge.kind === 'demande' || (priceHT == null && !loading);
@@ -61,14 +63,14 @@ export function StickyPriceBar({
             className="font-mono text-ink"
             style={{ fontSize: '20px', fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}
           >
-            {formatEuro(priceHT ?? 0)} <span style={{ fontSize: '12px' }}>HT</span>
+            {formatMoney(priceHT ?? 0, currency)} <span style={{ fontSize: '12px' }}>HT</span>
           </span>
           {priceTTC != null && (
             <span
               className="font-mono text-ink-muted"
               style={{ fontSize: '11.5px', fontVariantNumeric: 'tabular-nums' }}
             >
-              {formatEuro(priceTTC)} TTC · {quantity.toLocaleString('fr-FR')} ex.
+              {formatMoney(priceTTC, currency)} TTC · {quantity.toLocaleString('fr-FR')} ex.
             </span>
           )}
         </>

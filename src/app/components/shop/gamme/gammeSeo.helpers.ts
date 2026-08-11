@@ -10,6 +10,7 @@
 import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
 import type { ConfiguratorPhase } from '../../../hooks/useProductConfigurator';
 import { resolvePimTemplate, type PimTemplateOptions } from './pimEditorial.helpers';
+import { DEFAULT_CURRENCY, type CurrencyCode } from '../../../utils/currency';
 
 export interface GammeSeo {
   title: string;
@@ -49,8 +50,21 @@ export function buildGammeJsonLd(args: {
   shopUrl: string;
   phase: ConfiguratorPhase;
   imageUrl?: string | null;
+  /** Devise de l imprimeur (multi-devise T1) — le rich snippet doit annoncer
+   *  le prix dans la monnaie reellement facturee. */
+  currency?: CurrencyCode;
 }): Record<string, unknown> {
-  const { seo, gamme, family, shopName, canonical, shopUrl, phase, imageUrl } = args;
+  const {
+    seo,
+    gamme,
+    family,
+    shopName,
+    canonical,
+    shopUrl,
+    phase,
+    imageUrl,
+    currency = DEFAULT_CURRENCY,
+  } = args;
 
   const product: Record<string, unknown> = {
     '@type': 'Product',
@@ -65,7 +79,7 @@ export function buildGammeJsonLd(args: {
   if (phase.kind === 'ready') {
     product.offers = {
       '@type': 'Offer',
-      priceCurrency: 'EUR',
+      priceCurrency: currency,
       price: phase.priceHT,
       availability: 'https://schema.org/InStock',
     };

@@ -13,7 +13,11 @@
  *    champs immuables (kind) du baseConfig.
  *  - parseFormatToWidthHeight(format) -> { width, height } | null : etend
  *    parseFormatToDimensions de S2.3 avec les formats overlay (Custom).
- *  - formatEuro(priceHT, locale?) -> string : formatage 1 234,56 EUR.
+ *
+ * Multi-devise tranche 1 (2026-08-10) : `formatEuro()` a ete SUPPRIME d ici.
+ * Il forcait `currency: "EUR"` et etait le second helper de formatage
+ * concurrent du projet. Utiliser `formatMoney(amount, currency)` de
+ * `src/app/utils/currency.ts`, la devise venant de `useCurrency()`.
  */
 
 import type { ShopProduct } from "../../contexts/ShopsContext";
@@ -528,25 +532,3 @@ export function extractClariprintConfigFromAtelierProduct(
   return out;
 }
 
-/**
- * Formate un montant HT en EUR locale FR par defaut : "1 234,56 EUR".
- * Defensif : NaN/Infinity/null retourne "—".
- */
-export function formatEuro(
-  priceHT: number | null | undefined,
-  locale = "fr-FR",
-): string {
-  if (
-    priceHT == null ||
-    typeof priceHT !== "number" ||
-    !Number.isFinite(priceHT)
-  ) {
-    return "—";
-  }
-  return new Intl.NumberFormat(locale, {
-    style: "currency",
-    currency: "EUR",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(priceHT);
-}

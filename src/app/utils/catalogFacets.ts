@@ -10,6 +10,7 @@
  */
 
 import type { ShopProduct } from '../contexts/ShopsContext';
+import { DEFAULT_CURRENCY, getCurrencySymbol, type CurrencyCode } from './currency';
 
 export interface Facet {
   key: string;
@@ -45,20 +46,28 @@ export function deriveFormatFacets(products: ShopProduct[]): Facet[] {
 
 interface PriceBucket {
   key: string;
-  label: string;
+  /** Libelle construit a partir de la devise du tenant (multi-devise T1). */
+  label: (symbol: string) => string;
   test: (price: number) => boolean;
 }
 
+// Bornes volontairement inchangees d une devise a l autre : ce sont des
+// reperes de navigation, pas des montants convertis. Convertir les bornes
+// supposerait un taux de change — hors perimetre (invariant #4 du plan).
 const PRICE_BUCKETS: PriceBucket[] = [
-  { key: 'lt100', label: '< 100 €', test: (p) => p < 100 },
-  { key: '100_500', label: '100 – 500 €', test: (p) => p >= 100 && p <= 500 },
-  { key: 'gt500', label: '> 500 €', test: (p) => p > 500 },
+  { key: 'lt100', label: (s) => `< 100 ${s}`, test: (p) => p < 100 },
+  { key: '100_500', label: (s) => `100 – 500 ${s}`, test: (p) => p >= 100 && p <= 500 },
+  { key: 'gt500', label: (s) => `> 500 ${s}`, test: (p) => p > 500 },
 ];
 
-export function derivePriceFacets(products: ShopProduct[]): Facet[] {
+export function derivePriceFacets(
+  products: ShopProduct[],
+  currency: CurrencyCode = DEFAULT_CURRENCY,
+): Facet[] {
+  const symbol = getCurrencySymbol(currency);
   return PRICE_BUCKETS.map((b) => ({
     key: b.key,
-    label: b.label,
+    label: b.label(symbol),
     count: products.filter((p) => b.test(p.price_ht ?? 0)).length,
   })).filter((f) => f.count > 0);
 }

@@ -19,11 +19,11 @@ const order = (over: Partial<ResumeLastOrder> = {}): ResumeLastOrder => ({
 
 describe('buildResumeChips (S7.9 AC1/AC2)', () => {
   it('tout vide → aucun chip (le bandeau ne se rend pas)', () => {
-    expect(buildResumeChips({ cartCount: 0, cartTotalHT: 0, lastOrder: null })).toEqual([]);
+    expect(buildResumeChips({ cartCount: 0, cartTotalHT: 0, lastOrder: null, currency: 'EUR' })).toEqual([]);
   });
 
   it('panier seul → chip cart avec montant HT', () => {
-    const chips = buildResumeChips({ cartCount: 2, cartTotalHT: 84, lastOrder: null });
+    const chips = buildResumeChips({ cartCount: 2, cartTotalHT: 84, lastOrder: null, currency: 'EUR' });
     expect(chips).toHaveLength(1);
     expect(chips[0].key).toBe('cart');
     expect(chips[0].label).toContain('84,00');
@@ -31,12 +31,12 @@ describe('buildResumeChips (S7.9 AC1/AC2)', () => {
   });
 
   it('panier à montant nul → chip cart sans « 0 € »', () => {
-    const chips = buildResumeChips({ cartCount: 1, cartTotalHT: 0, lastOrder: null });
+    const chips = buildResumeChips({ cartCount: 1, cartTotalHT: 0, lastOrder: null, currency: 'EUR' });
     expect(chips[0].label).toBe('Reprendre mon panier');
   });
 
   it('commande v1_1 → chips renouveler (date + montant) + suivi (statut FR)', () => {
-    const chips = buildResumeChips({ cartCount: 0, cartTotalHT: 0, lastOrder: order() });
+    const chips = buildResumeChips({ cartCount: 0, cartTotalHT: 0, lastOrder: order(), currency: 'EUR' });
     expect(chips.map((c) => c.key)).toEqual(['renew', 'track']);
     expect(chips[0].label).toContain('20/07');
     expect(chips[0].label).toContain('152,00');
@@ -48,12 +48,13 @@ describe('buildResumeChips (S7.9 AC1/AC2)', () => {
       cartCount: 0,
       cartTotalHT: 0,
       lastOrder: order({ source: 'legacy' }),
+      currency: 'EUR',
     });
     expect(chips.map((c) => c.key)).toEqual(['track']);
   });
 
   it('panier + commande → 3 chips dans l ordre cart, renew, track', () => {
-    const chips = buildResumeChips({ cartCount: 1, cartTotalHT: 50, lastOrder: order() });
+    const chips = buildResumeChips({ cartCount: 1, cartTotalHT: 50, lastOrder: order(), currency: 'EUR' });
     expect(chips.map((c) => c.key)).toEqual(['cart', 'renew', 'track']);
   });
 
@@ -62,6 +63,7 @@ describe('buildResumeChips (S7.9 AC1/AC2)', () => {
       cartCount: 0,
       cartTotalHT: 0,
       lastOrder: order({ status: 'exotique', created_at: 'nope' }),
+      currency: 'EUR',
     });
     expect(chips[0].label).toContain('—');
     expect(chips[1].label).toContain('exotique');

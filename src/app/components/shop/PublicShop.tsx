@@ -6,6 +6,8 @@ import type { Shop, ShopProduct } from '../../contexts/ShopsContext';
 import type { Gamme, ProductDefinition } from '../../utils/productEnrichment';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTenant } from '../../contexts/TenantContext';
+import { CurrencyProvider } from '../../contexts/CurrencyContext';
+import { DEFAULT_CURRENCY, getCurrency } from '../../utils/currency';
 
 import { PortalHome } from './portal/PortalHome';
 import { PortalCatalog } from './portal/PortalCatalog';
@@ -71,6 +73,13 @@ export function PublicShop() {
   const [products, setProducts] = useState<ShopProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  // Multi-devise tranche 1 — devise de l imprimeur proprietaire de la boutique.
+  // Un visiteur ANONYME ne peut pas lire `tenants` (RLS `tenants_select`), donc
+  // `currentTenant` est null pour lui : sans cette resolution dediee, la
+  // vitrine d un imprimeur en dollars afficherait des euros.
+  // `null` = pas encore resolu → `CurrencyProvider` laisse le tenant courant
+  // decider (cas de l imprimeur qui previsualise sa propre boutique).
+  const [shopCurrency, setShopCurrency] = useState<string | null>(null);
 
   // S7.1 (ADR §4.19-1) — la vue est DÉRIVÉE de l'URL, plus un state interne.
   // Back/forward navigateur et reload sur URL profonde fonctionnent (AC1).
@@ -229,6 +238,20 @@ export function PublicShop() {
         return;
       }
       setShop(shopData as Shop);
+
+      // Devise de la boutique via RPC SECURITY DEFINER (migration
+      // 20260810000200) : n expose que le code ISO 4217, rien du tenant.
+      // Best-effort — si la RPC echoue (migration pas encore appliquee), on
+      // retombe sur la devise du tenant courant puis sur EUR.
+      supabase
+        .rpc('shop_currency', { p_slug: slug })
+        .then(({ data: cur, error: curErr }) => {
+          if (curErr) {
+            console.warn('[PublicShop] shop_currency indisponible:', curErr.message);
+            return;
+          }
+          if (typeof cur === 'string' && cur) setShopCurrency(cur);
+        });
 
       const libraryIds = Array.isArray((shopData as Shop).library_ids)
         ? (shopData as Shop).library_ids
@@ -485,7 +508,7 @@ export function PublicShop() {
       created_by: user.id,
       status: 'draft',
       total_ht,
-      currency: 'EUR',
+      currency: shopCurrency ?? DEFAULT_CURRENCY,
       notes: '',
     });
     if (!orderInsert.success) {
@@ -579,7 +602,7 @@ export function PublicShop() {
             tenant_id: shop.tenant_id,
             shop_id: shop.id,
             total_ht,
-            currency: 'EUR',
+            currency: shopCurrency ?? DEFAULT_CURRENCY,
             base_url: window.location.origin,
           },
         })
@@ -748,8 +771,17 @@ export function PublicShop() {
   // S7.7 — montant HT du panier (affiché sur le bouton header, décision D3).
   const cartTotalHT = cart.reduce((s, l) => s + l.product.price_ht * l.qty, 0);
 
+  // Devise effective pour les helpers PURS de cet ecran (les composants
+  // enfants, eux, la lisent via useCurrency()).
+  const effectiveCurrency = shopCurrency ?? getCurrency(currentTenant);
+
   // S7.9 — Bandeau Reprendre (chips dérivés de la donnée, vide → absent).
-  const resumeChips = buildResumeChips({ cartCount, cartTotalHT, lastOrder });
+  const resumeChips = buildResumeChips({
+    cartCount,
+    cartTotalHT,
+    lastOrder,
+    currency: effectiveCurrency,
+  });
   const handleResumeChip = (key: 'cart' | 'renew' | 'track') => {
     if (key === 'cart') setCartOpenRequest((n) => n + 1);
     else if (key === 'renew' && lastOrder) {
@@ -758,7 +790,8 @@ export function PublicShop() {
   };
 
   return (
-    <ShopLayout
+    <CurrencyProvider currency={shopCurrency}>
+      <ShopLayout
       shop={shop}
       view={view}
       onView={(v) => goView(v)}
@@ -917,6 +950,7 @@ export function PublicShop() {
       {view === 'thankYou' && !lastOrderId && slug && (
         <Navigate to={shopUrl(slug, 'catalog')} replace />
       )}
-    </ShopLayout>
+      </ShopLayout>
+    </CurrencyProvider>
   );
 }

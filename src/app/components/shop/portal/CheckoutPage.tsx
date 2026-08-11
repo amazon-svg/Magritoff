@@ -18,7 +18,8 @@ import type { CartLine } from './types';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useTenant } from '../../../contexts/TenantContext';
 import { applyTax, getTaxRate } from '../../../utils/tax';
-import { formatEuro } from '../ProductOverlay.helpers';
+import { formatMoney } from '../../../utils/currency';
+import { useCurrency } from '../../../contexts/CurrencyContext';
 import { TEST_IDS } from '../../../lib/testIds';
 
 export interface CheckoutPageProps {
@@ -36,6 +37,7 @@ export function CheckoutPage({ shop, cart, onSubmit, onGoCatalog }: CheckoutPage
   const { user } = useAuth();
   const { currentTenant, reload } = useTenant();
   const taxRate = getTaxRate(currentTenant);
+  const currency = useCurrency();
   const [submitting, setSubmitting] = useState(false);
 
   const totalHT = cart.reduce((s, l) => s + l.product.price_ht * l.qty, 0);
@@ -100,7 +102,7 @@ export function CheckoutPage({ shop, cart, onSubmit, onGoCatalog }: CheckoutPage
                   className="font-mono text-ink shrink-0"
                   style={{ fontSize: '13.5px', fontVariantNumeric: 'tabular-nums' }}
                 >
-                  {formatEuro(l.product.price_ht * l.qty)} HT
+                  {formatMoney(l.product.price_ht * l.qty, currency)} HT
                 </span>
               </div>
             );
@@ -110,10 +112,10 @@ export function CheckoutPage({ shop, cart, onSubmit, onGoCatalog }: CheckoutPage
 
       {/* Totaux + CTA */}
       <div className="lg:col-span-2 lg:sticky lg:top-4 bg-paper border border-line rounded-xl p-4 flex flex-col gap-3">
-        <Row label="Sous-total HT" value={formatEuro(totalHT)} />
-        <Row label={`TVA (${Math.round(taxRate * 100)} %)`} value={formatEuro(totalTTC - totalHT)} />
+        <Row label="Sous-total HT" value={formatMoney(totalHT, currency)} />
+        <Row label={`TVA (${Math.round(taxRate * 100)} %)`} value={formatMoney(totalTTC - totalHT, currency)} />
         <div className="border-t border-line pt-2">
-          <Row label="Total TTC" value={formatEuro(totalTTC)} strong />
+          <Row label="Total TTC" value={formatMoney(totalTTC, currency)} strong />
         </div>
         <button
           type="button"

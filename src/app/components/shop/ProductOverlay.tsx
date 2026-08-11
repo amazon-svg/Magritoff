@@ -36,7 +36,6 @@ import { resolveShopFamily } from "../../utils/shopFamilyIdentity";
 import { ProductVisualPlaceholder } from "./ProductVisualPlaceholder";
 import type { Gamme, ProductDefinition } from "../../utils/productEnrichment";
 import {
-  formatEuro,
   type ConfigOptions,
   DORURES,
   FINISHINGS,
@@ -48,6 +47,8 @@ import {
 // n°1 : aucune logique de prix dans ce composant, uniquement du rendu).
 import { useProductConfigurator } from "../../hooks/useProductConfigurator";
 import { applyTax } from "../../utils/tax";
+import { formatMoney } from "../../utils/currency";
+import { useCurrency } from "../../contexts/CurrencyContext";
 
 export interface ProductOverlayProps {
   product: ShopProduct | null;
@@ -79,6 +80,10 @@ export function ProductOverlay({
   // abort, repli Prix marché). L'overlay ne fait plus que du rendu.
   const { options, setOptions, phase, retry, confirm, addDisabled, taxRate } =
     useProductConfigurator(product);
+
+  // Multi-devise tranche 1 : devise de l imprimeur (tenant courant, ou
+  // boutique visitee en anonyme via CurrencyProvider).
+  const currency = useCurrency();
 
   const handleAdd = () => {
     const result = confirm();
@@ -435,12 +440,12 @@ export function ProductOverlay({
                     }}
                   >
                     {phase.kind === "ready"
-                      ? formatEuro(phase.priceHT)
+                      ? formatMoney(phase.priceHT, currency)
                       : phase.kind === "error" && phase.fallbackPriceHT != null
-                        ? formatEuro(phase.fallbackPriceHT)
+                        ? formatMoney(phase.fallbackPriceHT, currency)
                         : phase.kind === "loading"
                           ? "—"
-                          : formatEuro(product.price_ht)}
+                          : formatMoney(product.price_ht, currency)}
                   </div>
                   <div
                     className="font-mono text-ink-muted"
@@ -450,12 +455,12 @@ export function ProductOverlay({
                     }}
                   >
                     {phase.kind === "ready"
-                      ? `${formatEuro(phase.priceTTC)} TTC`
+                      ? `${formatMoney(phase.priceTTC, currency)} TTC`
                       : phase.kind === "error" && phase.fallbackPriceTTC != null
-                        ? `${formatEuro(phase.fallbackPriceTTC)} TTC`
+                        ? `${formatMoney(phase.fallbackPriceTTC, currency)} TTC`
                         : phase.kind === "loading"
                           ? "—"
-                          : `${formatEuro(applyTax(product.price_ht, taxRate))} TTC`}
+                          : `${formatMoney(applyTax(product.price_ht, taxRate), currency)} TTC`}
                   </div>
                 </div>
               </div>

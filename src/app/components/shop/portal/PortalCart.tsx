@@ -5,6 +5,8 @@ import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment'
 import { resolveProductGamme } from '../../../utils/productEnrichment';
 import { ProductMockup } from '../../brand/ProductMockup';
 import { TEST_IDS } from '../../../lib/testIds';
+import { formatMoney } from '../../../utils/currency';
+import { useCurrency } from '../../../contexts/CurrencyContext';
 import { resolvePrice } from '../../../utils/priceResolver';
 import { useTenant } from '../../../contexts/TenantContext';
 import { applyTax, extractTaxAmount, formatTaxLabel, getTaxRate } from '../../../utils/tax';
@@ -65,13 +67,14 @@ export function PortalCart({
 }: Props) {
   const { currentTenant } = useTenant();
   const taxRate = getTaxRate(currentTenant);
+  const currency = useCurrency();
   // Resolution unifiee du prix par ligne via priceResolver (decision Arnaud
   // 2026-05-09 fix prix marche). Une ligne en "prix marche" devient
   // hasMarketPriceLine=true → on affiche un badge global "Prix marche" en
   // bas du panier pour informer l acheteur que le total est indicatif.
   const cartLines = cart.map((l) => {
     const clariprintQuote = (l.product.config as any)?.clariprintQuote ?? null;
-    const resolution = resolvePrice(l.product, clariprintQuote);
+    const resolution = resolvePrice(l.product, clariprintQuote, currency);
     const lineTotal = resolution.priceHT * l.qty;
     return { line: l, resolution, lineTotal };
   });
@@ -274,7 +277,7 @@ export function PortalCart({
                     className="font-mono text-ink text-right tabular-nums"
                     style={{ fontSize: '14px', fontWeight: 500, fontVariantNumeric: 'tabular-nums', minWidth: '80px' }}
                   >
-                    {applyTax(line.product.price_ht * line.qty, taxRate).toFixed(2)}€
+                    {formatMoney(applyTax(line.product.price_ht * line.qty, taxRate), currency)}
                   </div>
                   <button
                     onClick={() => onRemove(line.product.id)}
@@ -307,8 +310,8 @@ export function PortalCart({
         </h5>
         <div className="flex flex-col">
           {[
-            { label: 'Sous-total HT', value: `${subtotalHT.toFixed(2)}€` },
-            { label: `TVA (${formatTaxLabel(taxRate)})`, value: `${tva.toFixed(2)}€` },
+            { label: 'Sous-total HT', value: formatMoney(subtotalHT, currency) },
+            { label: `TVA (${formatTaxLabel(taxRate)})`, value: formatMoney(tva, currency) },
             { label: 'Livraison', value: 'Offerte' },
           ].map((row) => (
             <div
@@ -339,7 +342,7 @@ export function PortalCart({
                 letterSpacing: '-0.015em',
               }}
             >
-              {totalFinal.toFixed(2)}€
+              {formatMoney(totalFinal, currency)}
             </span>
           </div>
           {hasMarketPriceLine && (
@@ -365,8 +368,8 @@ export function PortalCart({
               className="text-ink font-mono mt-0.5"
               style={{ fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}
             >
-              {(budget.used + totalFinal).toLocaleString('fr-FR', { maximumFractionDigits: 0 })}€ /{' '}
-              {budget.total.toLocaleString('fr-FR')}€
+              {formatMoney(budget.used + totalFinal, currency, { fractionDigits: 0 })} /{' '}
+              {formatMoney(budget.total, currency, { fractionDigits: 0 })}
               <span
                 className="ml-2 text-ink-muted"
                 style={{ fontWeight: 400 }}

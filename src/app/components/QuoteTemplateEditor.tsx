@@ -21,6 +21,8 @@ import { useEffect, useRef, useState } from 'react';
 import { X, Upload, Palette, Save, Trash2, Star } from 'lucide-react';
 import type { QuoteTemplate } from '../utils/quote';
 import { useQuoteTemplates } from '../contexts/QuoteTemplatesContext';
+import { formatMoney } from '../utils/currency';
+import { useCurrency } from '../contexts/CurrencyContext';
 
 interface QuoteTemplateEditorProps {
   /** Si fourni : mode edition. Si null : mode creation a partir de zero. */
@@ -490,6 +492,9 @@ function ColorInput({
 }
 
 function TemplatePreview({ form }: { form: Partial<QuoteTemplate> }) {
+  // Multi-devise tranche 1 : l apercu montre la devise reelle de l imprimeur.
+  // Un imprimeur en dollars ne doit pas voir un modele de devis en euros.
+  const currency = useCurrency();
   const brand = form.brand_color || '#111';
   const accent = form.accent_color || '#f59e0b';
   const font = form.font_family || "'Helvetica Neue', Arial, sans-serif";
@@ -567,13 +572,13 @@ function TemplatePreview({ form }: { form: Partial<QuoteTemplate> }) {
             <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
               <td style={{ padding: '5px', fontSize: '9px' }}>Cartes de visite</td>
               <td style={{ padding: '5px', fontSize: '9px' }}>500</td>
-              <td style={{ padding: '5px', fontSize: '9px', textAlign: 'right' }}>49,00 €</td>
+              <td style={{ padding: '5px', fontSize: '9px', textAlign: 'right' }}>{formatMoney(49, currency)}</td>
             </tr>
           </tbody>
         </table>
 
         <div style={{ textAlign: 'right', fontSize: '10px' }}>
-          Total HT : <strong>49,00 €</strong>
+          Total HT : <strong>{formatMoney(49, currency)}</strong>
           <div
             style={{
               borderTop: `2px solid ${brand}`,
@@ -584,7 +589,7 @@ function TemplatePreview({ form }: { form: Partial<QuoteTemplate> }) {
               color: brand,
             }}
           >
-            TOTAL TTC : 58,80 €
+            TOTAL TTC : {formatMoney(58.8, currency)}
           </div>
         </div>
 

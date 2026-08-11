@@ -68,6 +68,12 @@ export interface Tenant {
   verified_at?: string | null;
   /** Regime fiscal TVA (R0 Spike H, migration 20260511_02). Defaut DB : 'metropole_fr'. */
   tax_regime?: import('../utils/tax').TaxRegime | null;
+  /**
+   * Devise de travail de l imprimeur, ISO 4217 alpha-3 (multi-devise tranche 1,
+   * migration 20260810000200). Defaut DB : 'EUR'. Lire via `getCurrency(tenant)`
+   * ou `useCurrency()` — jamais en direct, le fallback est defensif.
+   */
+  currency?: string | null;
 }
 
 export interface TenantWithMembership extends Tenant {

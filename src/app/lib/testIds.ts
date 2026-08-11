@@ -30,6 +30,8 @@ export const TEST_IDS = {
     renameSaveBtn: 'tenant-rename-save-btn',
     renameConfirmModal: 'tenant-rename-confirm-modal',
     renameConfirmBtn: 'tenant-rename-confirm-btn',
+    // Multi-devise tranche 1 — devise de travail de l imprimeur
+    currencySelect: 'tenant-currency-select',
   },
 
   // ─── P00, P01 — Auth ──────────────────────────────────────────────────

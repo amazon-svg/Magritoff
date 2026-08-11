@@ -13,6 +13,7 @@ import { Link, useParams } from 'react-router';
 import { ArrowLeft, AlertTriangle, Factory, Trash2, X, MapPin } from 'lucide-react';
 import { useTenant } from '../../../contexts/TenantContext';
 import { useTenantPath } from '../../../hooks/useTenantPath';
+import { formatCurrencyPerUnit, getCurrency, getCurrencySymbol } from '../../../utils/currency';
 import {
   KNOWN_SUBCONTRACTORS, MACHINE_TYPES, loadParks, parkIsCalculable, upsertPark,
   type MachinePark, type MachineTypeKey, type ParkMachine,
@@ -25,6 +26,8 @@ const labelCls = 'block text-sm font-medium text-ink-2 mb-1';
 export function MachineParkDetail() {
   const { parkId } = useParams<{ parkId: string }>();
   const { currentTenant } = useTenant();
+  // Multi-devise tranche 1 : affichage de l unite seulement (cf. tranche 2).
+  const currency = getCurrency(currentTenant);
   const tp = useTenantPath();
   const tenantId = currentTenant?.id ?? '';
   const [park, setPark] = useState<MachinePark | null>(
@@ -191,7 +194,7 @@ export function MachineParkDetail() {
         <span>Papier : {park.paperSuppliers.join(', ') || 'aucun fournisseur'}</span>
         <span>Transport : {park.transportSuppliers.join(', ') || 'aucun'}</span>
         <span className="font-mono" style={{ fontVariantNumeric: 'tabular-nums' }}>
-          Main-d'œuvre : {park.laborRate} €/h
+          Main-d'œuvre : {park.laborRate} {formatCurrencyPerUnit(currency, 'h')}
         </span>
       </div>
 
@@ -314,11 +317,11 @@ function MachineDialog({
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={labelCls}>Transport (€/job)</label>
+                <label className={labelCls}>Transport ({formatCurrencyPerUnit(currency, 'job')})</label>
                 <input type="number" min="0" step="1" value={transportCost} onChange={(e) => setTransportCost(e.target.value)} className={`${inputCls} w-full`} />
               </div>
               <div>
-                <label className={labelCls}>Coûts fixes (€)</label>
+                <label className={labelCls}>Coûts fixes ({getCurrencySymbol(currency)})</label>
                 <input type="number" min="0" step="1" value={fixedCost} onChange={(e) => setFixedCost(e.target.value)} className={`${inputCls} w-full`} />
               </div>
             </div>
@@ -326,7 +329,7 @@ function MachineDialog({
         )}
 
         <div>
-          <label className={labelCls}>Taux horaire spécifique (€/h)</label>
+          <label className={labelCls}>Taux horaire spécifique ({formatCurrencyPerUnit(currency, 'h')})</label>
           <input
             type="number"
             min="0"

@@ -32,6 +32,7 @@ import {
   formatTaxLabel,
   getTaxRate,
 } from '../../utils/tax';
+import { formatMoney, getCurrency } from '../../utils/currency';
 import {
   isMarginEditable,
   lineTotal,
@@ -58,6 +59,8 @@ export function DashboardQuoteEditor() {
   const { templates, defaultTemplateId } = useQuoteTemplates();
   const { currentTenant } = useTenant();
   const taxRate = getTaxRate(currentTenant);
+  // Multi-devise tranche 1 : le devis est libelle dans la devise de l imprimeur.
+  const currency = getCurrency(currentTenant);
 
   const [head, setHead] = useState<QuoteWithLines | null>(null);
   const [clientName, setClientName] = useState('');
@@ -212,6 +215,7 @@ export function DashboardQuoteEditor() {
       reference: head.reference,
       client: clientName.trim() ? { company: clientName.trim() } : null,
       taxRate,
+      currency,
       items: lines.map((l) => ({
         name: l.product_name,
         quantity: l.quantity,
@@ -397,7 +401,7 @@ export function DashboardQuoteEditor() {
                       />
                     </td>
                     <td className="px-3 py-1.5 font-mono text-ink-muted tabular-nums" style={{ fontSize: '12.5px' }}>
-                      {l.unit_cost_ht.toFixed(2)} €
+                      {formatMoney(l.unit_cost_ht, currency)}
                     </td>
                     <td className="px-3 py-1.5">
                       <input
@@ -425,7 +429,7 @@ export function DashboardQuoteEditor() {
                       />
                     </td>
                     <td className="px-3 py-1.5 font-mono text-ink tabular-nums" style={{ fontSize: '12.5px', fontWeight: 500 }}>
-                      {l.line_total_ht.toFixed(2)} €
+                      {formatMoney(l.line_total_ht, currency)}
                     </td>
                     <td className="px-2 py-1.5">
                       <div className="flex items-center gap-0.5 justify-end">
@@ -478,11 +482,11 @@ export function DashboardQuoteEditor() {
         <div className="w-[280px] space-y-1.5">
           <div className="flex justify-between text-ink-2" style={{ fontSize: '13px' }}>
             <span>Total HT</span>
-            <span className="font-mono tabular-nums">{totalHT.toFixed(2)} €</span>
+            <span className="font-mono tabular-nums">{formatMoney(totalHT, currency)}</span>
           </div>
           <div className="flex justify-between text-ink-muted" style={{ fontSize: '13px' }}>
             <span>TVA ({formatTaxLabel(taxRate)})</span>
-            <span className="font-mono tabular-nums">{tva.toFixed(2)} €</span>
+            <span className="font-mono tabular-nums">{formatMoney(tva, currency)}</span>
           </div>
           <div
             className="flex justify-between text-ink pt-2 border-t border-line"
@@ -490,7 +494,7 @@ export function DashboardQuoteEditor() {
           >
             <span>Total TTC</span>
             <span data-testid={T.editorTotalTtc} className="font-mono tabular-nums">
-              {totalTTC.toFixed(2)} €
+              {formatMoney(totalTTC, currency)}
             </span>
           </div>
         </div>

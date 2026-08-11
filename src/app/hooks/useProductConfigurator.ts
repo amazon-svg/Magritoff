@@ -33,6 +33,8 @@ import {
 } from "../components/shop/ProductOverlay.helpers";
 import { useTenant } from "../contexts/TenantContext";
 import { applyTax, getTaxRate } from "../utils/tax";
+import { DEFAULT_CURRENCY, type CurrencyCode } from "../utils/currency";
+import { useCurrency } from "../contexts/CurrencyContext";
 
 const httpAdapter = new ClariprintHttpAdapter();
 export const COMPUTE_PRICE_TIMEOUT_MS = 10_000;
@@ -62,6 +64,8 @@ export function computeSuccessPhase(
   product: ShopProduct,
   quantity: number,
   taxRate: number,
+  /** Devise de l imprimeur — zone monetaire du repli Prix marche. */
+  currency: CurrencyCode = DEFAULT_CURRENCY,
 ): ConfiguratorPhase {
   if (quote.success && typeof quote.priceHT === "number") {
     return {
@@ -71,7 +75,7 @@ export function computeSuccessPhase(
     };
   }
   // success=false suite a sanitization (cf. validateClariprintResponse)
-  const fallback = estimateMarketPriceHT(product, quantity);
+  const fallback = estimateMarketPriceHT(product, quantity, currency);
   return {
     kind: "error",
     errorKind: "undefined_field",
@@ -87,13 +91,15 @@ export function computeErrorPhase(
   product: ShopProduct,
   quantity: number,
   taxRate: number,
+  /** Devise de l imprimeur — zone monetaire du repli Prix marche. */
+  currency: CurrencyCode = DEFAULT_CURRENCY,
 ): ConfiguratorPhase {
   if (
     errorKind === "negative_price" ||
     errorKind === "nan_price" ||
     errorKind === "undefined_field"
   ) {
-    const fallback = estimateMarketPriceHT(product, quantity);
+    const fallback = estimateMarketPriceHT(product, quantity, currency);
     return {
       kind: "error",
       errorKind,
@@ -111,7 +117,7 @@ export function computeErrorPhase(
   }
   // Erreur reseau / timeout : estimation Prix marché à la quantité choisie
   // (sinon le prix retombait sur product.price_ht fige a la qte par defaut).
-  const fallback = estimateMarketPriceHT(product, quantity);
+  const fallback = estimateMarketPriceHT(product, quantity, currency);
   return {
     kind: "error",
     errorKind,
@@ -186,6 +192,10 @@ export function useProductConfigurator(
   const liveRecalc = opts.liveRecalc ?? ENABLE_OVERLAY_LIVE_RECALC;
   const { currentTenant } = useTenant();
   const taxRate = getTaxRate(currentTenant);
+  // Multi-devise tranche 1 : la devise selectionne la ZONE MONETAIRE du repli
+  // Prix marche (arbitrage Arnaud 2026-08-10). Sans zone calibree, le repli
+  // vaut 0 et l ecran affiche « Prix sur demande ».
+  const currency = useCurrency();
 
   const [options, setOptions] = useState<ConfigOptions>(() =>
     product
@@ -226,13 +236,17 @@ export function useProductConfigurator(
         .computePrice({ clariprint: payload })
         .then((quote) => {
           if (controller.signal.aborted) return;
-          setPhase(computeSuccessPhase(quote, product, options.quantity, taxRate));
+          setPhase(
+            computeSuccessPhase(quote, product, options.quantity, taxRate, currency),
+          );
         })
         .catch((err) => {
           if (controller.signal.aborted) return;
           const errorKind: ClariprintError["kind"] | "unknown" =
             err instanceof ClariprintError ? err.kind : "unknown";
-          setPhase(computeErrorPhase(errorKind, product, options.quantity, taxRate));
+          setPhase(
+            computeErrorPhase(errorKind, product, options.quantity, taxRate, currency),
+          );
         })
         .finally(() => {
           clearTimeout(timeoutId);

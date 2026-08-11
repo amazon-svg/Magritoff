@@ -2,6 +2,7 @@ import type { Shop, ShopProduct } from '../contexts/ShopsContext';
 import type { Gamme, ProductDefinition } from './productEnrichment';
 import { enrichProduct } from './productEnrichment';
 import { applyTax, DEFAULT_TAX_RATE } from './tax';
+import { DEFAULT_CURRENCY, type CurrencyCode } from './currency';
 
 // ─── CSV utils ───────────────────────────────────────────────────────────────
 
@@ -107,7 +108,13 @@ export function exportShopToJson(
   products: ShopProduct[],
   gammes: Gamme[],
   definitions: ProductDefinition[],
-  taxRate: number = DEFAULT_TAX_RATE
+  taxRate: number = DEFAULT_TAX_RATE,
+  /**
+   * Devise de l imprimeur (multi-devise tranche 1). L export etait libelle
+   * `EUR` en dur : un consommateur d API aurait lu des euros la ou l imprimeur
+   * facture en dollars.
+   */
+  currency: CurrencyCode = DEFAULT_CURRENCY
 ) {
   const out = {
     shop: {
@@ -138,7 +145,7 @@ export function exportShopToJson(
         usage_examples: enriched.resolved.usage_examples,
         price_ht: p.price_ht,
         price_ttc: Math.round(applyTax(p.price_ht, taxRate) * 100) / 100,
-        currency: 'EUR',
+        currency,
         tech: p.config?.clariprintData ?? null,
       };
     }),

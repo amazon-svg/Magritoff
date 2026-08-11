@@ -1772,6 +1772,7 @@ export type Database = {
       tenants: {
         Row: {
           created_at: string
+          currency: string
           id: string
           is_system_tenant: boolean
           name: string
@@ -1788,6 +1789,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          currency?: string
           id?: string
           is_system_tenant?: boolean
           name: string
@@ -1804,6 +1806,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          currency?: string
           id?: string
           is_system_tenant?: boolean
           name?: string
@@ -2054,6 +2057,7 @@ export type Database = {
         Args: { p_tenant_id: string }
         Returns: undefined
       }
+      shop_currency: { Args: { p_slug: string }; Returns: string }
       tenant_active_gammes: { Args: { p_tenant_id: string }; Returns: string[] }
       transition_tenant_order_status: {
         Args: {

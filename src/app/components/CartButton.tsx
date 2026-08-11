@@ -15,6 +15,7 @@ import { useTenant } from '../contexts/TenantContext';
 import { useTenantPath } from '../hooks/useTenantPath';
 import { applyTax, extractTaxAmount, formatTaxLabel, getTaxRate } from '../utils/tax';
 import { TEST_IDS } from '../lib/testIds';
+import { formatMoney, getCurrency } from '../utils/currency';
 
 interface CartButtonProps {
   /** `rail` : icon-only, pour le rail lateral du chat v2.
@@ -31,6 +32,7 @@ export function CartButton({ variant = 'pill' }: CartButtonProps) {
   const navigate = useNavigate();
   const { currentTenant } = useTenant();
   const taxRate = getTaxRate(currentTenant);
+  const currency = getCurrency(currentTenant);
   const { templates, defaultTemplateId } = useQuoteTemplates();
   const { createQuoteFromCart } = useQuotes();
   const [creating, setCreating] = useState(false);
@@ -306,7 +308,7 @@ export function CartButton({ variant = 'pill' }: CartButtonProps) {
                               className="text-ink font-mono"
                               style={{ fontSize: '15px', fontWeight: 500 }}
                             >
-                              {ht.toFixed(2)} €
+                              {formatMoney(ht, currency)}
                             </span>
                           </div>
                         </div>
@@ -366,21 +368,21 @@ export function CartButton({ variant = 'pill' }: CartButtonProps) {
                     style={{ fontSize: '13px', fontWeight: 400 }}
                   >
                     <span>Total HT</span>
-                    <span className="font-mono">{totalPrice.toFixed(2)} €</span>
+                    <span className="font-mono">{formatMoney(totalPrice, currency)}</span>
                   </div>
                   <div
                     className="flex justify-between text-ink-muted"
                     style={{ fontSize: '13px', fontWeight: 400 }}
                   >
                     <span>TVA ({formatTaxLabel(taxRate)})</span>
-                    <span className="font-mono">{extractTaxAmount(totalPrice, taxRate).toFixed(2)} €</span>
+                    <span className="font-mono">{formatMoney(extractTaxAmount(totalPrice, taxRate), currency)}</span>
                   </div>
                   <div
                     className="flex justify-between text-ink pt-2 border-t border-line"
                     style={{ fontSize: '17px', fontWeight: 500 }}
                   >
                     <span>Total TTC</span>
-                    <span className="font-mono">{totalTTC.toFixed(2)} €</span>
+                    <span className="font-mono">{formatMoney(totalTTC, currency)}</span>
                   </div>
                 </div>
 

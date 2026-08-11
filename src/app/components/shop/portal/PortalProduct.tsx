@@ -10,6 +10,8 @@ import { computeClariprintQuoteSafe } from '../../../../server/clariprint/Clarip
 import { estimateMarketPriceHT, resolvePrice } from '../../../utils/priceResolver';
 import { useTenant } from '../../../contexts/TenantContext';
 import { applyTax, getTaxRate } from '../../../utils/tax';
+import { formatMoney } from '../../../utils/currency';
+import { useCurrency } from '../../../contexts/CurrencyContext';
 
 interface Props {
   product: ShopProduct;
@@ -24,6 +26,7 @@ interface Props {
 export function PortalProduct({ product, onBack, onAddToCart, pimGammes, pimDefinitions }: Props) {
   const { currentTenant } = useTenant();
   const taxRate = getTaxRate(currentTenant);
+  const currency = useCurrency();
   // CR §2 (13/05) : afficher la gamme PIM résolue dans le breadcrumb plutôt
   // que `product.category` brut (qui vaut "leaflet" pour ~90% des products
   // library, hérité du kind Clariprint). Fallback : kind Clariprint masqué,
@@ -98,14 +101,14 @@ export function PortalProduct({ product, onBack, onAddToCart, pimGammes, pimDefi
   // Clariprint, ce qui debride le bouton "Ajouter au panier" en contexte demo.
   // Resolution unifiee via priceResolver pour rester aligne avec ProductCard,
   // PricingPanel, etc. Sera remplace en V2+ par appel au panel Magrit.
-  const priceResolution = resolvePrice(product, quote);
+  const priceResolution = resolvePrice(product, quote, currency);
   // Si on a un Clariprint valide → priceHT direct, sinon scaling proportionnel
   // sur le prix marche (qty / 500 = ratio par rapport au quantum de reference)
   const activePriceHT = hasCalcd
     ? (quote!.priceHT as number)
     : (priceResolution.source === 'library_cached'
         ? priceResolution.priceHT * (qty / 500)
-        : estimateMarketPriceHT({ ...product, quantity: qty }));
+        : estimateMarketPriceHT({ ...product, quantity: qty }, undefined, currency));
   const priceTTC = applyTax(activePriceHT, taxRate);
   const isMarketPrice = !hasCalcd; // True quand on n a pas Clariprint
 
@@ -340,10 +343,10 @@ export function PortalProduct({ product, onBack, onAddToCart, pimGammes, pimDefi
                   className="font-mono tabular-nums"
                   style={{ fontSize: '26px', fontWeight: 500, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}
                 >
-                  {priceTTC.toFixed(0)}€
+                  {formatMoney(priceTTC, currency, { fractionDigits: 0 })}
                 </div>
                 <div style={{ fontSize: '12.5px', color: '#B5B5BC', fontWeight: 400 }}>
-                  TTC · {qty} ex. · {activePriceHT.toFixed(2)}€ HT
+                  TTC · {qty} ex. · {formatMoney(activePriceHT, currency)} HT
                 </div>
                 <div
                   className="ml-auto font-mono"

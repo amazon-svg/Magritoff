@@ -23,6 +23,8 @@ import type { Shop, ShopProduct } from "../../contexts/ShopsContext";
 import type { Gamme, ProductDefinition } from "../../utils/productEnrichment";
 import { resolveProductGamme } from "../../utils/productEnrichment";
 import { TEST_IDS } from "../../lib/testIds";
+import { formatMoney } from "../../utils/currency";
+import { useCurrency } from "../../contexts/CurrencyContext";
 import {
   resolveCustomMockup,
   type MockupTemplateType,
@@ -96,6 +98,7 @@ export function ShopProductCard({
   pimGammes,
   pimDefinitions,
 }: ShopProductCardProps) {
+  const currency = useCurrency();
   const template = useMemo(() => resolveMockupTemplate(product), [product]);
   // Repère famille UNIFIÉ sur la gamme PIM (cohérent méga-menu / pilules).
   const family = useMemo(() => resolveShopFamily(product, pimGammes ?? []), [product, pimGammes]);
@@ -335,10 +338,7 @@ export function ShopProductCard({
               </span>
             ) : (
               <>
-                {product.price_ht.toFixed(0)}
-                <span className="text-ink-muted ml-1" style={{ fontSize: "12px" }}>
-                  €
-                </span>
+                {formatMoney(product.price_ht, currency, { fractionDigits: 0 })}
                 <span
                   className="text-ink-muted ml-1.5"
                   style={{ fontSize: "11.5px", fontWeight: 400 }}

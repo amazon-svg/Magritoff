@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { useTenant } from '../../../contexts/TenantContext';
 import { useTenantPath } from '../../../hooks/useTenantPath';
+import { formatCurrencyPerUnit, getCurrency, getCurrencySymbol } from '../../../utils/currency';
 import {
   DEFAULT_ENERGY_RATE, DEFAULT_INKS, DEFAULT_LABOR_RATE, KNOWN_SUBCONTRACTORS,
   MACHINE_LIBRARY, MACHINE_TYPES, PAPER_SUPPLIERS, TRANSPORT_SUPPLIERS,
@@ -62,6 +63,8 @@ const inputCls =
 
 export function MachineParkWizard() {
   const { currentTenant } = useTenant();
+  // Multi-devise tranche 1 : affichage de l unite seulement (cf. tranche 2).
+  const currency = getCurrency(currentTenant);
   const tp = useTenantPath();
   const navigate = useNavigate();
 
@@ -658,7 +661,7 @@ function CartRow({
             )}
           </div>
           <label className="text-xs text-ink-muted flex items-center gap-1.5">
-            Transport (€/job)
+            Transport ({formatCurrencyPerUnit(currency, 'job')})
             <input
               type="number"
               min="0"
@@ -752,7 +755,9 @@ function FinalSteps(props: {
                 }
                 className={`${inputCls} w-24`}
               />
-              <span className="font-mono text-[11px] text-ink-mute-2 w-10">€/kg</span>
+              <span className="font-mono text-[11px] text-ink-mute-2 w-10">
+                {formatCurrencyPerUnit(currency, 'kg')}
+              </span>
             </label>
           ))}
         </div>
@@ -762,7 +767,7 @@ function FinalSteps(props: {
         <div className="border border-line rounded-xl bg-paper p-5 space-y-4">
           <div>
             <label className="block text-sm font-medium text-ink-2 mb-1">
-              Taux horaire main-d'œuvre (€/h)
+              Taux horaire main-d'œuvre ({formatCurrencyPerUnit(currency, 'h')})
             </label>
             <input
               type="number"
@@ -773,7 +778,7 @@ function FinalSteps(props: {
               className={`${inputCls} w-32`}
             />
             <p className="text-xs text-ink-muted mt-1">
-              Valeur proposée : {DEFAULT_LABOR_RATE} €/h — à ajuster à votre réalité.
+              Valeur proposée : {DEFAULT_LABOR_RATE} {formatCurrencyPerUnit(currency, 'h')} — à ajuster à votre réalité.
             </p>
           </div>
           <button
@@ -784,7 +789,7 @@ function FinalSteps(props: {
           </button>
           {showEnergyDefault && (
             <p className="text-xs text-ink-muted font-mono">
-              Énergie : {DEFAULT_ENERGY_RATE} €/kWh (défaut, non saisi — affinable plus tard)
+              Énergie : {DEFAULT_ENERGY_RATE} {formatCurrencyPerUnit(currency, 'kWh')} (défaut, non saisi — affinable plus tard)
             </p>
           )}
         </div>
@@ -834,7 +839,8 @@ function FinalSteps(props: {
           </RecapSection>
           <RecapSection title="Modèle de coût" onEdit={() => setStep('costs')}>
             <p className="text-sm text-ink-2 font-mono" style={{ fontVariantNumeric: 'tabular-nums' }}>
-              Main-d'œuvre {laborRate || DEFAULT_LABOR_RATE} €/h · énergie {DEFAULT_ENERGY_RATE} €/kWh (défaut)
+              Main-d'œuvre {laborRate || DEFAULT_LABOR_RATE} {formatCurrencyPerUnit(currency, 'h')} · énergie{' '}
+              {DEFAULT_ENERGY_RATE} {formatCurrencyPerUnit(currency, 'kWh')} (défaut)
             </p>
           </RecapSection>
           <p className="font-mono text-[11px] text-ink-mute-2">

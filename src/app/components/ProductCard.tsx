@@ -27,6 +27,7 @@ const ProductOverlay = lazy(() =>
 );
 import { useTenant } from "../contexts/TenantContext";
 import { getTaxRate } from "../utils/tax";
+import { formatMoney, getCurrency } from "../utils/currency";
 import { useClariprintProduct } from "../hooks/useClariprintProduct";
 import { ProductCard3D } from "./product-card/ProductCard3D";
 import { ProductCardDebug } from "./product-card/ProductCardDebug";
@@ -116,6 +117,7 @@ export function ProductCard({
   const tp = useTenantPath();
   const { currentTenant } = useTenant();
   const taxRate = getTaxRate(currentTenant);
+  const currency = getCurrency(currentTenant);
   const [localProduct, setLocalProduct] = useState(product);
   const [activeTab, setActiveTab] = useState<TabType>(null);
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
@@ -182,7 +184,7 @@ export function ProductCard({
     // prix_marche > zero (cf. PRICE_SOURCES.md). costs.total inclut delivery
     // donc resolvePrice avec quote.priceHT donne un prix "ex-delivery" plus
     // cohérent pour la libpiece de prix unitaire en bibliothèque.
-    const priceHT = resolvePrice(localProduct, clariprintQuote).priceHT;
+    const priceHT = resolvePrice(localProduct, clariprintQuote, currency).priceHT;
     const added = await addToLibrary({
       library_id: libraryId,
       name: localProduct.name,
@@ -208,7 +210,7 @@ export function ProductCard({
   // logique estimateMarketPriceHT du module priceResolver (avec des seuils
   // légèrement divergents — ex: pas de kakemono/etiquette/packaging). Cf.
   // PRICE_SOURCES.md S0.2 audit. Délégué au helper unique.
-  const priceResolution = resolvePrice(localProduct, clariprintQuote);
+  const priceResolution = resolvePrice(localProduct, clariprintQuote, currency);
   const displayPriceHT = priceResolution.priceHT;
 
   // ─── Render ──────────────────────────────────────────────────────────────
@@ -418,9 +420,9 @@ export function ProductCard({
                   >
                     dès
                   </span>
-                  {displayPriceHT.toFixed(0)}
+                  {formatMoney(displayPriceHT, currency, { fractionDigits: 0 })}
                   <small className="text-ink-muted ml-1" style={{ fontSize: "13px", fontWeight: 400 }}>
-                    € /{localProduct.quantity ?? 100} ex.
+                    /{localProduct.quantity ?? 100} ex.
                   </small>
                 </div>
               </div>

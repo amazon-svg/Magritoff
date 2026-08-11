@@ -22,6 +22,11 @@
 
 import type { Shop } from "../../contexts/ShopsContext";
 import { resolveFontPairing } from "./fontPairings";
+import {
+  DEFAULT_CURRENCY,
+  formatMoney,
+  type CurrencyCode,
+} from "../../utils/currency";
 
 export interface ShopThemeResolution {
   /** Valeur a poser sur l'attribut data-theme. undefined = pas d'attribut (light). */
@@ -199,16 +204,13 @@ export function resolveBrandBannerBackground(
 export function resolveCartLabel(
   count: number | null | undefined,
   totalHT: number | null | undefined,
+  currency: CurrencyCode = DEFAULT_CURRENCY,
 ): string {
   const n = typeof count === 'number' && Number.isFinite(count) ? count : 0;
   const total = typeof totalHT === 'number' && Number.isFinite(totalHT) ? totalHT : 0;
   if (n <= 0) return 'Panier';
   if (total > 0) {
-    const formatted = new Intl.NumberFormat('fr-FR', {
-      style: 'currency',
-      currency: 'EUR',
-    }).format(total);
-    return `Panier · ${formatted}`;
+    return `Panier · ${formatMoney(total, currency)}`;
   }
   return 'Panier';
 }

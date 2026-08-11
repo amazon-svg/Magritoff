@@ -41,6 +41,8 @@ import { usePlan } from '../../hooks/usePlan';
 import { useTenantPath } from '../../hooks/useTenantPath';
 import { UpgradeCTA } from './UpgradeCTA';
 import { exportShopToShopifyCsv, exportShopToJson } from '../../utils/shopExport';
+import { formatMoney, getCurrencySymbol } from '../../utils/currency';
+import { useCurrency } from '../../contexts/CurrencyContext';
 import { resolveShopProductScope } from '../../utils/resolveShopProductScope';
 import { TEST_IDS } from '../../lib/testIds';
 import { lazy, Suspense as ReactSuspense } from 'react';
@@ -72,6 +74,7 @@ interface DisplayProduct {
 export function DashboardShopEditor() {
   const { id } = useParams<{ id: string }>();
   const { canUse } = usePlan();
+  const currency = useCurrency();
   const tp = useTenantPath();
   const {
     shops,
@@ -999,9 +1002,9 @@ export function DashboardShopEditor() {
                   <p className="text-sm font-medium text-ink truncate">{p.name}</p>
                   <p className="text-xs text-ink-muted">
                     {p.source === 'library' ? (
-                      <>biblio · {p.category} · {p.price_ht.toFixed(2)} € HT</>
+                      <>biblio · {p.category} · {formatMoney(p.price_ht, currency)} HT</>
                     ) : (
-                      <>legacy · {p.category} · {p.price_ht.toFixed(2)} € HT</>
+                      <>legacy · {p.category} · {formatMoney(p.price_ht, currency)} HT</>
                     )}
                   </p>
                 </div>
@@ -1038,7 +1041,7 @@ export function DashboardShopEditor() {
                       className="w-20 px-2 py-1 text-xs font-mono border border-line-2 rounded text-right"
                       style={{ fontVariantNumeric: 'tabular-nums' }}
                     />
-                    <span className="text-[11px] text-ink-muted">€</span>
+                    <span className="text-[11px] text-ink-muted">{getCurrencySymbol(currency)}</span>
                     {pricingOverrides[p.libraryProductId] !== undefined && (
                       <span
                         className="text-[10px] font-medium text-warn-fg bg-warn-bg px-1.5 py-0.5 rounded"
@@ -1151,7 +1154,9 @@ export function DashboardShopEditor() {
                   shop,
                   displayProducts.map(toExportProduct),
                   gammes,
-                  definitions
+                  definitions,
+                  undefined,
+                  currency
                 )
               }
               disabled={displayProducts.length === 0}

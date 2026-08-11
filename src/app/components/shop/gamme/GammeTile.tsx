@@ -10,7 +10,8 @@
 import { TEST_IDS } from '../../../lib/testIds';
 import { resolveRootFamilyIdentity } from '../../../utils/shopFamilyIdentity';
 import type { PriceResolution } from '../../../utils/priceResolver';
-import { formatEuro } from '../ProductOverlay.helpers';
+import { formatMoney } from '../../../utils/currency';
+import { useCurrency } from '../../../contexts/CurrencyContext';
 
 export interface GammeTileProps {
   slug: string;
@@ -48,6 +49,7 @@ export function GammeTile({
     );
   }
 
+  const currency = useCurrency();
   const identity = resolveRootFamilyIdentity(slug, name);
   const Icon = identity.icon;
   const isMarket = floor?.isMarketPrice === true;
@@ -61,7 +63,7 @@ export function GammeTile({
       className="group text-left rounded-lg border border-line bg-paper overflow-hidden transition-shadow hover:shadow-md focus:outline-none focus:ring-2 focus:ring-accent"
       style={{ minHeight: '44px' }}
       aria-label={`${name} — ${
-        floor ? `dès ${formatEuro(floor.priceHT)} HT` : 'prix à la configuration'
+        floor ? `dès ${formatMoney(floor.priceHT, currency)} HT` : 'prix à la configuration'
       }`}
     >
       <div
@@ -104,7 +106,7 @@ export function GammeTile({
               className="font-mono text-ink"
               style={{ fontSize: '13px', fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}
             >
-              dès {formatEuro(floor.priceHT)} HT
+              dès {formatMoney(floor.priceHT, currency)} HT
             </span>
             {isMarket && (
               <span

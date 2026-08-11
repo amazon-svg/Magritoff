@@ -1,6 +1,8 @@
 import { ShoppingCart, Link as LinkIcon, Menu } from "lucide-react";
 import { Link } from "react-router";
 import { resolvePrice } from "../utils/priceResolver";
+import { formatMoney } from "../utils/currency";
+import { useCurrency } from "../contexts/CurrencyContext";
 import type { ClariprintQuoteResult } from "../utils/clariprintQuote";
 
 interface PricingPanelProps {
@@ -13,7 +15,8 @@ export function PricingPanel({ product, clariprintQuote }: PricingPanelProps) {
   // Fix S0.2 (2026-05-09) : utilisation du helper unique resolvePrice() au lieu
   // d'un accès direct à product.price. Élimine le « 2e prix mystère » signalé
   // par Arnaud et aligne ce composant avec ProductCard / QuoteModal / etc.
-  const priceResolution = resolvePrice(product, clariprintQuote);
+  const currency = useCurrency();
+  const priceResolution = resolvePrice(product, clariprintQuote, currency);
 
   return (
     <div className="w-80 border-l border-gray-200 bg-white p-6">
@@ -33,7 +36,7 @@ export function PricingPanel({ product, clariprintQuote }: PricingPanelProps) {
           <div className="flex items-center justify-between mb-4">
             <ShoppingCart className="w-6 h-6 text-gray-700" />
             <span className="text-3xl font-bold text-gray-900">
-              {priceResolution.priceHT.toFixed(2)} €
+              {formatMoney(priceResolution.priceHT, currency)}
             </span>
           </div>
           {priceResolution.isMarketPrice && (

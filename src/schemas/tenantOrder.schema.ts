@@ -11,6 +11,7 @@
  */
 
 import { z } from 'zod';
+import { DEFAULT_CURRENCY } from '../app/utils/currency';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const uuidString = z.string().regex(UUID_RE, 'UUID v4 attendu');
@@ -42,7 +43,13 @@ export const tenantOrderInsertSchema = z.object({
   created_by: uuidString, // AC9 : auth requise (decision Arnaud B2)
   status: tenantOrderStatusEnum.default('draft'),
   total_ht: z.number().nonnegative(),
-  currency: z.string().length(3).default('EUR'),
+  /**
+   * Devise de la commande, ISO 4217 alpha-3 (multi-devise tranche 1).
+   * Le default aligne celui de la colonne DB ; les appelants passent la devise
+   * de l imprimeur (`shop_currency` / `getCurrency(tenant)`) et ne s appuient
+   * PAS dessus.
+   */
+  currency: z.string().length(3).default(DEFAULT_CURRENCY),
   notes: z.string().default(''),
 });
 

@@ -19,6 +19,7 @@ import { Link } from 'react-router';
 import { Building, Plus, ExternalLink, Trash2 } from 'lucide-react';
 import { supabase } from '/utils/supabase/client';
 import { useTenant } from '../../contexts/TenantContext';
+import { formatMoney, getCurrency } from '../../utils/currency';
 
 interface SubTenantRow {
   id: string;
@@ -43,6 +44,9 @@ interface SubTenantKpiRow {
 
 export function DashboardTenantSpaces() {
   const { currentTenant, currentRole, createSubTenant, isSuperAdmin } = useTenant();
+  // Multi-devise tranche 1 : le CA des sous-tenants est libelle dans la devise
+  // de l imprimeur parent — un sous-tenant herite de la devise de son parent.
+  const currency = getCurrency(currentTenant);
 
   const [children, setChildren] = useState<SubTenantRow[]>([]);
   const [kpis, setKpis] = useState<SubTenantKpiRow[]>([]);
@@ -274,10 +278,8 @@ export function DashboardTenantSpaces() {
             const kpi = kpis.find((k) => k.tenant_id === c.id);
             const monthOrders = kpi ? Number(kpi.month_order_count) : 0;
             const monthCa = kpi ? Number(kpi.month_ca_ht) : 0;
-            const formattedCa = monthCa.toLocaleString('fr-FR', {
-              style: 'currency',
-              currency: 'EUR',
-              maximumFractionDigits: 0,
+            const formattedCa = formatMoney(monthCa, currency, {
+              fractionDigits: 0,
             });
             return (
               <div

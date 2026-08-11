@@ -9,6 +9,9 @@
  *     Le trigger DB `enforce_slug_change_authorization` enforce cote serveur.
  *   - Tout changement de slug est archive 90 jours dans tenant_slug_history
  *     pour permettre la redirection 301 cote frontend.
+ *   - La devise de travail (multi-devise tranche 1) est editable par owner ou
+ *     admin. C'est ici, et nulle part ailleurs, que se decide dans quelle
+ *     monnaie l'imprimeur voit et vend.
  */
 
 import { FormEvent, useEffect, useState } from 'react';
@@ -16,6 +19,12 @@ import { Loader2, AlertTriangle } from 'lucide-react';
 import { supabase } from '/utils/supabase/client';
 import { useTenant } from '../../contexts/TenantContext';
 import { TEST_IDS } from '../../lib/testIds';
+import {
+  DEFAULT_CURRENCY,
+  SUPPORTED_CURRENCIES,
+  formatMoney,
+  getCurrency,
+} from '../../utils/currency';
 
 const SLUG_REGEX = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/;
 
@@ -25,6 +34,8 @@ export function DashboardTenantSettings() {
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [originalSlug, setOriginalSlug] = useState('');
+  const [currency, setCurrency] = useState<string>(DEFAULT_CURRENCY);
+  const [originalCurrency, setOriginalCurrency] = useState<string>(DEFAULT_CURRENCY);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
 
@@ -36,11 +47,15 @@ export function DashboardTenantSettings() {
       setName(currentTenant.name);
       setSlug(currentTenant.slug);
       setOriginalSlug(currentTenant.slug);
+      const resolved = getCurrency(currentTenant);
+      setCurrency(resolved);
+      setOriginalCurrency(resolved);
     }
   }, [currentTenant?.id]);
 
   const slugChanged = slug !== originalSlug;
   const slugValid = SLUG_REGEX.test(slug) && slug.length >= 3 && slug.length <= 60;
+  const currencyChanged = currency !== originalCurrency;
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -55,6 +70,7 @@ export function DashboardTenantSettings() {
 
     const updates: Record<string, string> = { name };
     if (slugChanged && canEditSlug) updates.slug = slug;
+    if (currencyChanged) updates.currency = currency;
 
     const { error } = await supabase
       .from('tenants')
@@ -68,13 +84,22 @@ export function DashboardTenantSettings() {
       return;
     }
 
+    const parts: string[] = [];
+    if (slugChanged) {
+      parts.push(
+        `L'ancien lien /t/${originalSlug} reste actif 90 jours via redirection.`,
+      );
+    }
+    if (currencyChanged) {
+      parts.push(`Les montants sont desormais affiches en ${currency}.`);
+    }
+
     setMessage({
       kind: 'ok',
-      text: slugChanged
-        ? `Espace renomme. L'ancien lien /t/${originalSlug} reste actif 90 jours via redirection.`
-        : 'Espace renomme.',
+      text: ['Parametres enregistres.', ...parts].join(' '),
     });
     setOriginalSlug(slug);
+    setOriginalCurrency(currency);
     await reload();
   };
 
@@ -109,7 +134,7 @@ export function DashboardTenantSettings() {
           Parametres de l'espace
         </h2>
         <p className="mt-1 text-ink-muted" style={{ fontSize: '13px', fontWeight: 300 }}>
-          Modifiez le nom de votre espace.{' '}
+          Modifiez le nom et la devise de votre espace.{' '}
           {canEditSlug
             ? "En tant que superadmin Magrit, vous pouvez aussi changer son slug d'URL."
             : "Le slug d'URL n'est modifiable que par un superadmin Magrit."}
@@ -168,6 +193,41 @@ export function DashboardTenantSettings() {
         )}
       </div>
 
+      <div>
+        <label
+          className="block text-ink-muted mb-1"
+          style={{ fontSize: '11.5px', fontWeight: 500 }}
+          htmlFor="tenant-currency"
+        >
+          Devise de travail
+        </label>
+        <select
+          data-testid={TEST_IDS.tenant.currencySelect}
+          id="tenant-currency"
+          value={currency}
+          onChange={(e) => setCurrency(e.target.value)}
+          className="w-full px-3 py-2 border border-line rounded-md bg-paper text-ink focus:outline-none focus:border-line-2"
+          style={{ fontSize: '13.5px' }}
+        >
+          {SUPPORTED_CURRENCIES.map((c) => (
+            <option key={c.code} value={c.code}>
+              {c.label}
+            </option>
+          ))}
+        </select>
+        <p className="mt-1.5 text-ink-mute-2" style={{ fontSize: '11.5px' }}>
+          Devise de tous les prix, devis et commandes de cet espace. Apercu :{' '}
+          <span className="font-mono">{formatMoney(1234.5, currency)}</span>.
+          {currencyChanged && (
+            <>
+              {' '}
+              Aucune conversion n'est appliquee : les montants deja saisis
+              gardent leur valeur numerique et changent de libelle.
+            </>
+          )}
+        </p>
+      </div>
+
       {message && (
         <p
           className={message.kind === 'ok' ? 'text-ok-fg' : 'text-err-fg'}
@@ -180,7 +240,9 @@ export function DashboardTenantSettings() {
       <button
         data-testid={TEST_IDS.tenant.renameSaveBtn}
         type="submit"
-        disabled={saving || (!slugChanged && name === currentTenant.name)}
+        disabled={
+          saving || (!slugChanged && !currencyChanged && name === currentTenant.name)
+        }
         className="inline-flex items-center gap-2 px-4 py-2 bg-ink text-paper rounded-md hover:bg-black disabled:opacity-40"
         style={{ fontSize: '13px', fontWeight: 500 }}
       >

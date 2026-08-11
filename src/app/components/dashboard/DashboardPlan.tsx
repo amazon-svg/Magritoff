@@ -23,6 +23,14 @@ const FEATURES: Record<Plan, string[]> = {
   ],
 };
 
+/**
+ * Prix de l abonnement Magrit — facture par AGE Dvt. a l imprimeur.
+ *
+ * Multi-devise tranche 1 : ces montants restent volontairement en EUROS. Ils
+ * ne suivent PAS `tenants.currency`, qui est la devise dans laquelle
+ * l imprimeur travaille avec SES clients. Ce sont deux choses distinctes :
+ * un imprimeur qui vend en dollars paye toujours son abonnement en euros.
+ */
 const PRICES: Record<Plan, string> = {
   freemium: 'Gratuit',
   pro: '29 €/mois',

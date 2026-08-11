@@ -21,7 +21,12 @@ import {
 import { supabase } from '/utils/supabase/client';
 import { useTenant } from '../../../contexts/TenantContext';
 import {
-  ADJUST_MODE_LABEL, SCOPE_LABEL, TARGET_LABEL, TABLE_MISSING_CODES,
+  formatMoney,
+  getCurrency,
+  getCurrencySymbol,
+} from '../../../utils/currency';
+import {
+  adjustModeLabels, SCOPE_LABEL, TARGET_LABEL, TABLE_MISSING_CODES,
   listClientGroups, listPriceRules,
   type AdjustMode, type ClientGroup, type ClientPriceRule, type ScopeType, type TargetType,
 } from './commercial.helpers';
@@ -46,6 +51,9 @@ const btnGhost =
 
 export function DashboardCommercial() {
   const { currentTenant } = useTenant();
+  // Multi-devise tranche 1 : prix imposes et libelles suivent la devise du tenant.
+  const currency = getCurrency(currentTenant);
+  const adjustModeLabel = adjustModeLabels(currency);
   const [tab, setTab] = useState<'rules' | 'groups'>('rules');
   const [rules, setRules] = useState<ClientPriceRule[]>([]);
   const [groups, setGroups] = useState<ClientGroup[]>([]);
@@ -144,7 +152,7 @@ export function DashboardCommercial() {
   const formatValue = (r: ClientPriceRule): string => {
     if (r.adjust_mode === 'margin_pct') return `+${r.value} %`;
     if (r.adjust_mode === 'discount_pct') return `−${r.value} %`;
-    return `${r.value.toFixed(2)} €`;
+    return formatMoney(r.value, currency);
   };
 
   // ── Etats speciaux ─────────────────────────────────────────────────────────
@@ -233,7 +241,7 @@ export function DashboardCommercial() {
                       </span>
                     </td>
                     <td className="px-4 py-2.5 text-ink-muted">{describeRule(r)}</td>
-                    <td className="px-4 py-2.5 text-ink-muted">{ADJUST_MODE_LABEL[r.adjust_mode]}</td>
+                    <td className="px-4 py-2.5 text-ink-muted">{adjustModeLabel[r.adjust_mode]}</td>
                     <td className="px-4 py-2.5 font-mono text-ink" style={{ fontVariantNumeric: 'tabular-nums' }}>
                       {formatValue(r)}
                     </td>
@@ -541,14 +549,16 @@ function RuleDialog({
           <div>
             <label className={labelCls}>Type d'ajustement</label>
             <select value={adjustMode} onChange={(e) => setAdjustMode(e.target.value as AdjustMode)} className={inputCls}>
-              {(Object.entries(ADJUST_MODE_LABEL) as [AdjustMode, string][]).map(([k, v]) => (
+              {(Object.entries(adjustModeLabel) as [AdjustMode, string][]).map(([k, v]) => (
                 <option key={k} value={k}>{v}</option>
               ))}
             </select>
           </div>
           <div>
             <label className={labelCls}>
-              {adjustMode === 'fixed_price' ? 'Prix unitaire (€)' : 'Valeur (%)'}
+              {adjustMode === 'fixed_price'
+                ? `Prix unitaire (${getCurrencySymbol(currency)})`
+                : 'Valeur (%)'}
             </label>
             <input
               type="number"

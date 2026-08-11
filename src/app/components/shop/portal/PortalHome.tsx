@@ -20,6 +20,7 @@ import { resolveNewProducts } from '../../../utils/shopHomeSections';
 import { buildShopTaxonomy } from '../../../utils/shopTaxonomy';
 import { resolveProductImage } from '../../../utils/productImages';
 import { computeGammeFloorPrices } from '../../../utils/gammeFloorPrices';
+import { useCurrency } from '../../../contexts/CurrencyContext';
 import { ShopProductCard } from '../ShopProductCard';
 import { GammeTile } from '../gamme/GammeTile';
 import { TEST_IDS } from '../../../lib/testIds';
@@ -46,6 +47,8 @@ export function PortalHome({
   pimGammes,
   pimDefinitions,
 }: Props) {
+  // Multi-devise tranche 1 : zone monetaire du prix marche pour les planchers.
+  const currency = useCurrency();
   // S7.8 — Top Produits : familles peuplées (taxonomie ADR-4.17) + planchers
   // « dès X € » (ADR §4.18, calcul à la volée sur les données déjà chargées).
   const families = useMemo(
@@ -53,8 +56,8 @@ export function PortalHome({
     [products, pimGammes],
   );
   const floors = useMemo(
-    () => computeGammeFloorPrices(products, pimGammes ?? []),
-    [products, pimGammes],
+    () => computeGammeFloorPrices(products, pimGammes ?? [], currency),
+    [products, pimGammes, currency],
   );
 
   // S2.15 — Nouveautés : 4 derniers produits intégrés (created_at desc).

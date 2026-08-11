@@ -5,12 +5,15 @@ import { useLibrary, LibraryProduct } from '../../contexts/LibraryContext';
 import { usePlan } from '../../hooks/usePlan';
 import { useTenantPath } from '../../hooks/useTenantPath';
 import { UpgradeCTA } from './UpgradeCTA';
+import { formatMoney, getCurrencySymbol } from '../../utils/currency';
+import { useCurrency } from '../../contexts/CurrencyContext';
 
 export function DashboardLibraryDetail() {
   const { id } = useParams<{ id: string }>();
   const { canUse } = usePlan();
   const tp = useTenantPath();
   const { libraries, productsByLibrary, updateProduct, deleteProduct } = useLibrary();
+  const currency = useCurrency();
 
   const [editing, setEditing] = useState<LibraryProduct | null>(null);
   const [saving, setSaving] = useState(false);
@@ -116,7 +119,7 @@ export function DashboardLibraryDetail() {
                       {p.description && (
                         <p className="text-xs text-ink-muted mt-1 line-clamp-2">{p.description}</p>
                       )}
-                      <p className="text-sm font-bold text-ink mt-2">{p.price_ht.toFixed(2)} € HT</p>
+                      <p className="text-sm font-bold text-ink mt-2">{formatMoney(p.price_ht, currency)} HT</p>
                       {!p.active && (
                         <span className="inline-block mt-1 text-xs bg-bg text-ink-muted px-2 py-0.5 rounded-full">
                           Inactif
@@ -177,7 +180,7 @@ export function DashboardLibraryDetail() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-ink-2 mb-1">Prix HT (€)</label>
+                <label className="block text-sm font-medium text-ink-2 mb-1">Prix HT ({getCurrencySymbol(currency)})</label>
                 <input
                   type="number"
                   step="0.01"

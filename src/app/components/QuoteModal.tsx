@@ -12,6 +12,7 @@ import {
   getDefaultTemplate,
 } from '../utils/quote';
 import { applyTax, extractTaxAmount, formatTaxLabel, getTaxRate } from '../utils/tax';
+import { formatMoney, getCurrency } from '../utils/currency';
 
 interface QuoteModalProps {
   isOpen: boolean;
@@ -26,6 +27,7 @@ export function QuoteModal({ isOpen, onClose, product }: QuoteModalProps) {
   const { currentTenant } = useTenant();
   const tp = useTenantPath();
   const taxRate = getTaxRate(currentTenant);
+  const currency = getCurrency(currentTenant);
 
   // Gabarit a appliquer a l'impression. Initialise sur le defaut utilisateur
   // (ou builtin-classique si aucun defaut), mais l'user peut en choisir un
@@ -119,11 +121,11 @@ export function QuoteModal({ isOpen, onClose, product }: QuoteModalProps) {
             clariprintQuote?.costs
               ? `<div style="margin-top:24px;font-size:12px;color:#666;padding:12px;background:#f0f9ff;border-radius:4px;">
                    <strong>Detail des couts (source : Clariprint)</strong><br>
-                   ${clariprintQuote.costs.paper ? `Papier : ${clariprintQuote.costs.paper.toFixed(2)} €<br>` : ''}
-                   ${clariprintQuote.costs.print ? `Impression : ${clariprintQuote.costs.print.toFixed(2)} €<br>` : ''}
-                   ${clariprintQuote.costs.makeready ? `Calage : ${clariprintQuote.costs.makeready.toFixed(2)} €<br>` : ''}
-                   ${clariprintQuote.costs.packaging ? `Conditionnement : ${clariprintQuote.costs.packaging.toFixed(2)} €<br>` : ''}
-                   ${clariprintQuote.costs.delivery ? `Livraison : ${clariprintQuote.costs.delivery.toFixed(2)} €<br>` : ''}
+                   ${clariprintQuote.costs.paper ? `Papier : ${formatMoney(clariprintQuote.costs.paper, currency)}<br>` : ''}
+                   ${clariprintQuote.costs.print ? `Impression : ${formatMoney(clariprintQuote.costs.print, currency)}<br>` : ''}
+                   ${clariprintQuote.costs.makeready ? `Calage : ${formatMoney(clariprintQuote.costs.makeready, currency)}<br>` : ''}
+                   ${clariprintQuote.costs.packaging ? `Conditionnement : ${formatMoney(clariprintQuote.costs.packaging, currency)}<br>` : ''}
+                   ${clariprintQuote.costs.delivery ? `Livraison : ${formatMoney(clariprintQuote.costs.delivery, currency)}<br>` : ''}
                    ${clariprintQuote.delais ? `Delai estime : ${clariprintQuote.delais} jour(s)<br>` : ''}
                    ${clariprintQuote.fournisseur ? `Imprimeur : ${clariprintQuote.fournisseur}` : ''}
                  </div>`
@@ -167,17 +169,26 @@ export function QuoteModal({ isOpen, onClose, product }: QuoteModalProps) {
             )}
             <div className="text-sm text-gray-600 mb-2">Total TTC</div>
             <div className="text-4xl font-bold text-blue-600 mb-1">
-              {applyTax(
-                product.clariprintQuote?.costs?.total || product.clariprintQuote?.priceHT || product.price || 0,
-                taxRate,
-              ).toFixed(2)} €
+              {formatMoney(
+                applyTax(
+                  product.clariprintQuote?.costs?.total || product.clariprintQuote?.priceHT || product.price || 0,
+                  taxRate,
+                ),
+                currency,
+              )}
             </div>
             <div className="text-xs text-gray-500">
-              ({(product.clariprintQuote?.costs?.total || product.clariprintQuote?.priceHT || product.price || 0).toFixed(2)} € HT
-              + {extractTaxAmount(
+              ({formatMoney(
                 product.clariprintQuote?.costs?.total || product.clariprintQuote?.priceHT || product.price || 0,
-                taxRate,
-              ).toFixed(2)} € TVA ({formatTaxLabel(taxRate)}))
+                currency,
+              )} HT
+              + {formatMoney(
+                extractTaxAmount(
+                  product.clariprintQuote?.costs?.total || product.clariprintQuote?.priceHT || product.price || 0,
+                  taxRate,
+                ),
+                currency,
+              )} TVA ({formatTaxLabel(taxRate)}))
             </div>
             {product.clariprintQuote?.delais && (
               <div className="text-xs text-green-600 mt-1">⏱ Délai : {product.clariprintQuote.delais} jour(s)</div>

@@ -9,7 +9,7 @@
 
 import { History, RotateCcw, ShoppingCart } from 'lucide-react';
 import { TEST_IDS } from '../../../lib/testIds';
-import { formatEuro } from '../ProductOverlay.helpers';
+import { formatMoney, type CurrencyCode } from '../../../utils/currency';
 
 /** Dernière commande de l'acheteur sur la boutique (fetch PublicShop). */
 export interface ResumeLastOrder {
@@ -30,6 +30,8 @@ export function buildResumeChips(args: {
   cartCount: number;
   cartTotalHT: number;
   lastOrder: ResumeLastOrder | null;
+  /** Devise de l imprimeur (multi-devise tranche 1) — plus de repli euro implicite. */
+  currency: CurrencyCode;
 }): ResumeChip[] {
   const chips: ResumeChip[] = [];
   if (args.cartCount > 0) {
@@ -37,7 +39,7 @@ export function buildResumeChips(args: {
       key: 'cart',
       label:
         args.cartTotalHT > 0
-          ? `Reprendre mon panier · ${formatEuro(args.cartTotalHT)} HT`
+          ? `Reprendre mon panier · ${formatMoney(args.cartTotalHT, args.currency)} HT`
           : 'Reprendre mon panier',
     });
   }
@@ -46,7 +48,7 @@ export function buildResumeChips(args: {
     if (args.lastOrder.source === 'v1_1') {
       chips.push({
         key: 'renew',
-        label: `Renouveler la commande du ${date} · ${formatEuro(args.lastOrder.total_ht)} HT`,
+        label: `Renouveler la commande du ${date} · ${formatMoney(args.lastOrder.total_ht, args.currency)} HT`,
       });
     }
     chips.push({

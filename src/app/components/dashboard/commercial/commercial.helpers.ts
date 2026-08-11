@@ -10,6 +10,11 @@
  * Schema : supabase/migrations/20260808000100_gescom_price_rules.sql
  */
 import { supabase } from '/utils/supabase/client';
+import {
+  DEFAULT_CURRENCY,
+  getCurrencySymbol,
+  type CurrencyCode,
+} from '../../../utils/currency';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -45,11 +50,23 @@ export interface ClientPriceRule {
   created_at: string;
 }
 
-export const ADJUST_MODE_LABEL: Record<AdjustMode, string> = {
-  margin_pct: 'Marge (+%)',
-  discount_pct: 'Remise (−%)',
-  fixed_price: 'Prix imposé (€)',
-};
+/**
+ * Libelles des modes d ajustement.
+ *
+ * Multi-devise tranche 1 : `fixed_price` porte le symbole de la devise de
+ * l imprimeur — c etait la derniere constante du module GesCom a supposer
+ * l euro. Les deux modes en pourcentage sont des RATIOS, donc sans devise
+ * (invariant #5 du plan : les pourcentages ne sont pas des montants).
+ */
+export function adjustModeLabels(
+  currency: CurrencyCode = DEFAULT_CURRENCY,
+): Record<AdjustMode, string> {
+  return {
+    margin_pct: 'Marge (+%)',
+    discount_pct: 'Remise (−%)',
+    fixed_price: `Prix imposé (${getCurrencySymbol(currency)})`,
+  };
+}
 
 export const SCOPE_LABEL: Record<ScopeType, string> = {
   tenant: 'Tous les clients',

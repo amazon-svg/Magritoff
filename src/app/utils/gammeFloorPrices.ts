@@ -18,10 +18,17 @@ import type { Gamme } from './productEnrichment';
 import { resolveProductGamme } from './productEnrichment';
 import { rootGammeOf } from './shopFamilyIdentity';
 import { resolvePrice, type PriceResolution } from './priceResolver';
+import { DEFAULT_CURRENCY, type CurrencyCode } from './currency';
 
 export function computeGammeFloorPrices(
   products: ShopProduct[],
   gammes: Gamme[],
+  /**
+   * Devise de l imprimeur — zone monetaire du prix marche (arbitrage Arnaud
+   * 2026-08-10). Sans zone calibree, les produits sans prix en cache sortent
+   * en source `zero` et la gamme bascule sur « Prix a la configuration ».
+   */
+  currency: CurrencyCode = DEFAULT_CURRENCY,
 ): Map<string, PriceResolution> {
   const bySlug = new Map(gammes.map((g) => [g.slug, g] as const));
   const floors = new Map<string, PriceResolution>();
@@ -37,7 +44,7 @@ export function computeGammeFloorPrices(
   for (const product of products) {
     const gamme = resolveProductGamme(product, gammes);
     if (!gamme) continue;
-    const resolution = resolvePrice(product);
+    const resolution = resolvePrice(product, null, currency);
     consider(gamme.slug, resolution);
     // Agrégat famille racine (tuiles home) — évite un double comptage si la
     // gamme est déjà racine.

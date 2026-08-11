@@ -4,10 +4,13 @@ import { Pencil, Trash2, Package, X, Loader2, Sparkles } from 'lucide-react';
 import { useLibrary, LibraryProduct } from '../../contexts/LibraryContext';
 import { usePlan } from '../../hooks/usePlan';
 import { UpgradeCTA } from './UpgradeCTA';
+import { formatMoney, getCurrencySymbol } from '../../utils/currency';
+import { useCurrency } from '../../contexts/CurrencyContext';
 
 export function DashboardLibrary() {
   const { canUse } = usePlan();
   const { products, loading, updateProduct, deleteProduct } = useLibrary();
+  const currency = useCurrency();
   const [editing, setEditing] = useState<LibraryProduct | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -111,7 +114,7 @@ export function DashboardLibrary() {
                         {p.description && (
                           <p className="text-xs text-ink-muted mt-1 line-clamp-2">{p.description}</p>
                         )}
-                        <p className="text-sm font-bold text-ink mt-2">{p.price_ht.toFixed(2)} € HT</p>
+                        <p className="text-sm font-bold text-ink mt-2">{formatMoney(p.price_ht, currency)} HT</p>
                         {!p.active && (
                           <span className="inline-block mt-1 text-xs bg-bg text-ink-muted px-2 py-0.5 rounded-full">
                             Inactif
@@ -174,7 +177,7 @@ export function DashboardLibrary() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-ink-2 mb-1">Prix HT (€)</label>
+                <label className="block text-sm font-medium text-ink-2 mb-1">Prix HT ({getCurrencySymbol(currency)})</label>
                 <input
                   type="number"
                   step="0.01"

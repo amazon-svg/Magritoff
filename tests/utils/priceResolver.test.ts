@@ -140,24 +140,30 @@ describe('estimateMarketPriceHT - heuristique par type produit', () => {
 
 describe('formatPrice - rendu human-readable', () => {
   it('Prix Clariprint → format EUR simple', () => {
-    const formatted = formatPrice({
-      priceHT: 12.50,
-      source: 'clariprint',
-      isMarketPrice: false,
-      isEstimation: false,
-    });
+    const formatted = formatPrice(
+      {
+        priceHT: 12.50,
+        source: 'clariprint',
+        isMarketPrice: false,
+        isEstimation: false,
+      },
+      'EUR',
+    );
     expect(formatted).toContain('12,50');
     expect(formatted).toContain('€');
     expect(formatted).not.toContain('Prix marché');
   });
 
   it('Prix marche → suffixe "(Prix marche)" pour transparence utilisateur', () => {
-    const formatted = formatPrice({
-      priceHT: 100,
-      source: 'prix_marche',
-      isMarketPrice: true,
-      isEstimation: true,
-    });
+    const formatted = formatPrice(
+      {
+        priceHT: 100,
+        source: 'prix_marche',
+        isMarketPrice: true,
+        isEstimation: true,
+      },
+      'EUR',
+    );
     expect(formatted).toContain('Prix marché');
   });
 });

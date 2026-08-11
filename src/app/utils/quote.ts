@@ -1,5 +1,6 @@
 import { supabase } from '/utils/supabase/client';
 import { applyTax, DEFAULT_TAX_RATE, extractTaxAmount, formatTaxLabel } from './tax';
+import { DEFAULT_CURRENCY, formatMoney, type CurrencyCode } from './currency';
 
 /**
  * Sprint 10 Phase B users : decouplage du type Client legacy. Le bloc Client
@@ -203,8 +204,21 @@ export function renderQuoteHtml(input: {
   items: QuoteItem[];
   /** Taux TVA. R0 : passe par le caller via getTaxRate(currentTenant). */
   taxRate?: number;
+  /**
+   * Devise du devis (multi-devise tranche 1). Passee par le caller via
+   * `getCurrency(currentTenant)`. Un devis est mono-devise : aucune
+   * conversion n'est appliquee ici (invariant #4 du plan).
+   */
+  currency?: CurrencyCode;
 }): string {
-  const { template, reference, client, items, taxRate = DEFAULT_TAX_RATE } = input;
+  const {
+    template,
+    reference,
+    client,
+    items,
+    taxRate = DEFAULT_TAX_RATE,
+    currency = DEFAULT_CURRENCY,
+  } = input;
   const brand = template.brand_color || '#111';
   const accent = template.accent_color || '#f59e0b';
 
@@ -226,7 +240,7 @@ export function renderQuoteHtml(input: {
           <td>${it.quantity ?? ''}</td>
           <td>${escapeHtml(it.format ?? '')}</td>
           <td>${escapeHtml(it.material ?? '')}</td>
-          <td style="text-align:right">${(it.priceHT || 0).toFixed(2)} €</td>
+          <td style="text-align:right">${escapeHtml(formatMoney(it.priceHT || 0, currency))}</td>
         </tr>
       `
     )
@@ -264,9 +278,9 @@ export function renderQuoteHtml(input: {
       </table>
 
       <div class="totals">
-        <div>Total HT : <strong>${totalHT.toFixed(2)} €</strong></div>
-        <div>TVA (${formatTaxLabel(taxRate)}) : <strong>${tva.toFixed(2)} €</strong></div>
-        <div class="final">Total TTC : ${totalTTC.toFixed(2)} €</div>
+        <div>Total HT : <strong>${escapeHtml(formatMoney(totalHT, currency))}</strong></div>
+        <div>TVA (${formatTaxLabel(taxRate)}) : <strong>${escapeHtml(formatMoney(tva, currency))}</strong></div>
+        <div class="final">Total TTC : ${escapeHtml(formatMoney(totalTTC, currency))}</div>
       </div>
 
       ${

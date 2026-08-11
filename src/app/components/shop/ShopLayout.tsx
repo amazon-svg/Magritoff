@@ -35,6 +35,8 @@ import { ShopHeaderSearch } from "./ShopHeaderSearch";
 import { ReassuranceStrip } from "./ReassuranceStrip";
 import type { TaxonomyFamily } from "../../utils/shopTaxonomy";
 import { TEST_IDS } from "../../lib/testIds";
+import { formatMoney } from "../../utils/currency";
+import { useCurrency } from "../../contexts/CurrencyContext";
 import { Sheet, SheetContent, SheetTitle } from "../ui/sheet";
 import {
   resolveShopTheme,
@@ -122,6 +124,7 @@ export function ShopLayout({
   onAskMagrit,
   children,
 }: Props) {
+  const currency = useCurrency();
   const { dataTheme, isDark } = resolveShopTheme(shop);
   const brandStyle = resolveShopBrandStyle(shop);
   const showCartBadge = shouldShowCartBadge(cartCount);
@@ -369,7 +372,8 @@ export function ShopLayout({
               className={`font-mono font-medium ${isDark ? "text-gray-100" : "text-ink"}`}
               style={{ fontVariantNumeric: "tabular-nums" }}
             >
-              {budget.used.toLocaleString("fr-FR")}€ / {budget.total.toLocaleString("fr-FR")}€
+              {formatMoney(budget.used, currency, { fractionDigits: 0 })} /{" "}
+              {formatMoney(budget.total, currency, { fractionDigits: 0 })}
             </span>
           </span>
           <div

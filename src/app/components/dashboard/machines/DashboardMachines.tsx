@@ -10,6 +10,7 @@ import { Link } from 'react-router';
 import { Factory, Wand2, AlertTriangle, Trash2, CheckCircle2 } from 'lucide-react';
 import { useTenant } from '../../../contexts/TenantContext';
 import { useTenantPath } from '../../../hooks/useTenantPath';
+import { formatCurrencyPerUnit, getCurrency, getCurrencySymbol } from '../../../utils/currency';
 import {
   MACHINE_TYPES, deletePark, loadParks, parkIsCalculable,
   type MachinePark,
@@ -17,6 +18,9 @@ import {
 
 export function DashboardMachines() {
   const { currentTenant } = useTenant();
+  // Multi-devise tranche 1 : seul l AFFICHAGE de l unite suit la devise ici.
+  // Le modele de cout du parc machine passe en `Money` en tranche 2.
+  const currency = getCurrency(currentTenant);
   const tp = useTenantPath();
   const tenantId = currentTenant?.id ?? '';
   const [parks, setParks] = useState<MachinePark[]>(() => (tenantId ? loadParks(tenantId) : []));
@@ -114,7 +118,7 @@ export function DashboardMachines() {
                   </p>
                   <p className="font-mono text-[11px] text-ink-mute-2" style={{ fontVariantNumeric: 'tabular-nums' }}>
                     {park.paperSuppliers.length} fourn. papier · {park.transportSuppliers.length} transport
-                    · {park.laborRate} €/h
+                    · {park.laborRate} {formatCurrencyPerUnit(currency, 'h')}
                     {park.wizardVariant && ` · parcours ${park.wizardVariant} (${park.wizardClicks ?? '?'} clics)`}
                   </p>
                 </Link>

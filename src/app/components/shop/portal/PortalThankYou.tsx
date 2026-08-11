@@ -17,6 +17,7 @@ import { CheckCircle2, Loader2 } from "lucide-react";
 import { supabase } from "/utils/supabase/client";
 import { useTenant } from "../../../contexts/TenantContext";
 import { applyTax, getTaxRate } from "../../../utils/tax";
+import { formatMoney, getCurrency } from "../../../utils/currency";
 import { TEST_IDS } from "../../../lib/testIds";
 
 interface OrderItemRow {
@@ -49,16 +50,6 @@ export function formatShortOrderId(orderId: string): string {
   return orderId.slice(0, 8).toUpperCase();
 }
 
-function formatEuro(n: number | null | undefined): string {
-  if (n == null || !Number.isFinite(n)) return "—";
-  return new Intl.NumberFormat("fr-FR", {
-    style: "currency",
-    currency: "EUR",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(n);
-}
-
 function formatDateLong(iso: string): string {
   try {
     return new Date(iso).toLocaleString("fr-FR", {
@@ -72,6 +63,9 @@ function formatDateLong(iso: string): string {
 
 export function PortalThankYou({ orderId, userEmail, onBackToCatalog, onSeeOrders }: Props) {
   const { currentTenant } = useTenant();
+  // Multi-devise tranche 1 : ce composant portait sa propre copie de
+  // formatEuro(), qui forcait EUR. Supprimee au profit du helper unique.
+  const currency = getCurrency(currentTenant);
   const [order, setOrder] = useState<OrderRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -195,7 +189,7 @@ export function PortalThankYou({ orderId, userEmail, onBackToCatalog, onSeeOrder
                     </span>
                   </span>
                   <span className="text-ink-2 font-mono" style={{ fontSize: "13px", fontVariantNumeric: "tabular-nums" }}>
-                    {formatEuro(item.line_total_ht)} HT
+                    {formatMoney(item.line_total_ht, currency)} HT
                   </span>
                 </div>
               ))}
@@ -206,7 +200,7 @@ export function PortalThankYou({ orderId, userEmail, onBackToCatalog, onSeeOrder
                 Total TTC
               </span>
               <span className="text-ink font-mono" style={{ fontSize: "18px", fontWeight: 500, fontVariantNumeric: "tabular-nums" }}>
-                {formatEuro(totalTtc)}
+                {formatMoney(totalTtc, currency)}
               </span>
             </div>
           </div>

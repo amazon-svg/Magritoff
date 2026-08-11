@@ -1,16 +1,21 @@
 import type { Shop, ShopProduct } from '../contexts/ShopsContext';
 import type { EnrichedProduct } from './productEnrichment';
 import { applyTax, DEFAULT_TAX_RATE } from './tax';
+import { DEFAULT_CURRENCY, type CurrencyCode } from './currency';
 
 // Génère un objet Product schema.org pour un produit de boutique.
 // Note R0 : taxRate optionnel — fallback metropole_fr 20 %. Le call-site qui a
 // le tenant en scope (composant React) doit passer getTaxRate(currentTenant).
+// Multi-devise tranche 1 : idem pour `currency`, via getCurrency(currentTenant).
+// Le prix publie a Google doit etre libelle dans la devise de l imprimeur,
+// sans quoi le rich snippet annonce un montant faux.
 export function productSchema(
   shop: Shop,
   product: ShopProduct,
   enriched: EnrichedProduct | null,
   shopUrl: string,
-  taxRate: number = DEFAULT_TAX_RATE
+  taxRate: number = DEFAULT_TAX_RATE,
+  currency: CurrencyCode = DEFAULT_CURRENCY
 ) {
   const priceTTC = applyTax(product.price_ht, taxRate);
   const description =
@@ -33,7 +38,7 @@ export function productSchema(
       '@type': 'Offer',
       url: shopUrl,
       price: priceTTC.toFixed(2),
-      priceCurrency: 'EUR',
+      priceCurrency: currency,
       availability: 'https://schema.org/InStock',
       priceValidUntil: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString().slice(0, 10),
     },

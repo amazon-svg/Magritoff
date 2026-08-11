@@ -15,11 +15,14 @@ import { useTenantPath } from '../../hooks/useTenantPath';
 import { resolvePendingQuotes } from '../../utils/dashboardHomeSections';
 import { statusGroupDef } from '../../utils/quoteStatus';
 import { TEST_IDS } from '../../lib/testIds';
+import { formatMoney } from '../../utils/currency';
+import { useCurrency } from '../../contexts/CurrencyContext';
 
 const T = TEST_IDS.dashboard;
 
 export function DashboardQuotesPending() {
   const { quotes, loading } = useQuotes();
+  const currency = useCurrency();
   const navigate = useNavigate();
   const tp = useTenantPath();
 
@@ -110,7 +113,7 @@ export function DashboardQuotesPending() {
                     className="font-mono text-ink"
                     style={{ fontSize: '13px', fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}
                   >
-                    {(q.total_ttc ?? 0).toFixed(2)}€
+                    {formatMoney(q.total_ttc ?? 0, currency)}
                   </div>
                   <button
                     data-testid={T.pendingQuoteResumeBtn}

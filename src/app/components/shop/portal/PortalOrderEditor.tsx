@@ -24,6 +24,8 @@ import { toast } from 'sonner';
 import { supabase } from '/utils/supabase/client';
 import { lineTotal, round2 } from '../../../utils/quoteMath';
 import { TEST_IDS } from '../../../lib/testIds';
+import { formatMoney } from '../../../utils/currency';
+import { useCurrency } from '../../../contexts/CurrencyContext';
 import type { OrderUI } from './PortalOrders.helpers';
 import {
   Dialog,
@@ -58,6 +60,7 @@ function shortId(id: string): string {
 }
 
 export function PortalOrderEditor({ order, onClose, onSaved }: Props) {
+  const currency = useCurrency();
   const [lines, setLines] = useState<EditableLine[]>([]);
   const [originalIds, setOriginalIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
@@ -259,7 +262,7 @@ export function PortalOrderEditor({ order, onClose, onSaved }: Props) {
                         />
                       </td>
                       <td className="px-2 py-1.5 font-mono text-ink tabular-nums" style={{ fontSize: '12.5px', fontWeight: 500 }}>
-                        {l.line_total_ht.toFixed(2)} €
+                        {formatMoney(l.line_total_ht, currency)}
                       </td>
                       <td className="px-1 py-1.5 text-right">
                         <button
@@ -282,7 +285,7 @@ export function PortalOrderEditor({ order, onClose, onSaved }: Props) {
             <div className="flex justify-end mt-4">
               <div className="flex items-center gap-3 text-ink" style={{ fontSize: '15px', fontWeight: 500 }}>
                 <span className="text-ink-muted" style={{ fontSize: '13px', fontWeight: 400 }}>Total HT</span>
-                <span className="font-mono tabular-nums">{totalHT.toFixed(2)} €</span>
+                <span className="font-mono tabular-nums">{formatMoney(totalHT, currency)}</span>
               </div>
             </div>
           </div>

@@ -9,6 +9,8 @@ import { computeClariprintQuoteSafe } from '../../../../server/clariprint/Clarip
 import { useClaudeSseStream, ClaudeSseStreamError } from '../../../hooks/useClaudeSseStream';
 import { ENABLE_STREAMING_CHAT } from '../../../lib/featureFlags';
 import { TEST_IDS } from '../../../lib/testIds';
+import { formatMoney } from '../../../utils/currency';
+import { useCurrency } from '../../../contexts/CurrencyContext';
 import { ShopProductCard } from '../ShopProductCard';
 import { buildShopTaxonomy } from '../../../utils/shopTaxonomy';
 import {
@@ -157,6 +159,7 @@ export function PortalCatalog({
   onSelectSubcategory,
   initialFormat,
 }: Props) {
+  const currency = useCurrency();
   const [query, setQuery] = useState('');
   // S2.21 — autocomplétion : menu ouvert au focus + saisie ≥ 2 car.
   const [searchOpen, setSearchOpen] = useState(false);
@@ -312,7 +315,10 @@ export function PortalCatalog({
 
   // S2.19 — Facettes dérivées des produits (format + prix), data-driven.
   const formatFacets = useMemo(() => deriveFormatFacets(products), [products]);
-  const priceFacets = useMemo(() => derivePriceFacets(products), [products]);
+  const priceFacets = useMemo(
+    () => derivePriceFacets(products, currency),
+    [products, currency],
+  );
   const facetSelection = useMemo(
     () => ({ formats: selectedFormats, price: priceKey }),
     [selectedFormats, priceKey],
@@ -917,10 +923,7 @@ export function PortalCatalog({
                           className="font-mono text-ink"
                           style={{ fontSize: '16px', fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}
                         >
-                          {p.price_ht.toFixed(0)}
-                          <span className="text-ink-muted ml-1" style={{ fontSize: '12px' }}>
-                            €
-                          </span>
+                          {formatMoney(p.price_ht, currency, { fractionDigits: 0 })}
                           <span
                             className="text-ink-muted ml-1.5"
                             style={{ fontSize: '11.5px', fontWeight: 400 }}

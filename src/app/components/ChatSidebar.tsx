@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Sparkles, X, Send, FileText } from "lucide-react";
+import { formatMoney } from "../utils/currency";
+import { useCurrency } from "../contexts/CurrencyContext";
 
 interface ChatSidebarProps {
   onClose: () => void;
@@ -7,6 +9,7 @@ interface ChatSidebarProps {
 }
 
 export function ChatSidebar({ onClose, currentProduct }: ChatSidebarProps) {
+  const currency = useCurrency();
   const [messages, setMessages] = useState([
     {
       role: "user",
@@ -105,7 +108,7 @@ Pour plus d'impact je vous propose :
           <div className="flex items-center justify-between text-sm">
             <span className="text-gray-900">4.2</span>
             <span className="text-gray-900">Imprimerie Rochelaise Numérique (Konica Xerox Epson)</span>
-            <span className="text-gray-900">38,98 €</span>
+            <span className="text-gray-900">{formatMoney(38.98, currency)}</span>
             <span className="text-gray-900">1 jour(s)</span>
             <span>📄</span>
           </div>

@@ -30,6 +30,8 @@ import type { OrderUI } from './PortalOrders.helpers';
 import { getStatusInfo, type OrderStatus } from '../../../lib/orderStatus';
 import { TEST_IDS } from '../../../lib/testIds';
 import { Popover, PopoverContent, PopoverTrigger } from '../../ui/popover';
+import { formatMoney, getCurrencySymbol } from '../../../utils/currency';
+import { useCurrency } from '../../../contexts/CurrencyContext';
 import {
   Command,
   CommandEmpty,
@@ -177,16 +179,6 @@ const DEFAULT_STATE: TableState = {
 };
 
 // ─── Utils ────────────────────────────────────────────────────────────────
-
-function formatEuro(n: number | null | undefined): string {
-  if (n == null || !Number.isFinite(n)) return '—';
-  return new Intl.NumberFormat('fr-FR', {
-    style: 'currency',
-    currency: 'EUR',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(n);
-}
 
 function formatDate(iso: string): string {
   try {
@@ -343,6 +335,9 @@ export function OrderHistoryTable({
   onStartProductionOrder,
   onMarkShippedOrder,
 }: OrderHistoryTableProps) {
+  // Multi-devise tranche 1 : ce composant portait sa propre copie de
+  // formatEuro(), qui forcait EUR. Supprimee au profit du helper unique.
+  const currency = useCurrency();
   // S3.3 : une commande est renouvelable si v1.1 + status workflow/terminal
   // (pas draft = rien à renouveler depuis un brouillon, pas cancelled =
   // pas de re-commande depuis une commande abandonnée). Legacy non éligible
@@ -727,7 +722,7 @@ export function OrderHistoryTable({
             type="number"
             min="0"
             step="10"
-            placeholder="€"
+            placeholder={getCurrencySymbol(currency)}
             value={state.amountMinHt}
             onChange={(e) =>
               setState((s) => ({ ...s, amountMinHt: e.target.value }))
@@ -953,13 +948,13 @@ export function OrderHistoryTable({
                       className="py-3 pr-4 text-ink font-mono text-right"
                       style={{ fontVariantNumeric: 'tabular-nums' }}
                     >
-                      {formatEuro(o.total_ht)}
+                      {formatMoney(o.total_ht, currency)}
                     </td>
                     <td
                       className="py-3 pr-4 text-ink font-mono text-right font-medium"
                       style={{ fontVariantNumeric: 'tabular-nums' }}
                     >
-                      {formatEuro(o.total_ttc)}
+                      {formatMoney(o.total_ttc, currency)}
                     </td>
                     {(extraColumn?.position === 'before-status' || (extraColumn && !extraColumn.position)) && (
                       <td className="py-3 pr-4 text-ink-muted">{extraColumn.render(o)}</td>

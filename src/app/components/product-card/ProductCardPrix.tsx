@@ -28,6 +28,8 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { TEST_IDS } from '../../lib/testIds';
+import { formatMoney, getCurrencySymbol } from '../../utils/currency';
+import { useCurrency } from '../../contexts/CurrencyContext';
 import { applyTax, extractTaxAmount, formatTaxLabel } from '../../utils/tax';
 import type { ClariprintQuoteResult } from '../../utils/clariprintQuote';
 
@@ -57,6 +59,7 @@ export function ProductCardPrix({
   onClose,
 }: ProductCardPrixProps) {
   const [showDebug, setShowDebug] = useState(false);
+  const currency = useCurrency();
 
   return (
     <div className="bg-paper border-2 border-line rounded-xl p-6 mb-3 shadow-sm">
@@ -80,13 +83,13 @@ export function ProductCardPrix({
             {clariprintQuote?.success ? 'Prix Clariprint HT' : 'Prix estimé HT'}
           </span>
           <span className={`font-semibold ${!user ? 'blur-sm select-none' : ''}`}>
-            {displayPriceHT.toFixed(2)} €
+            {formatMoney(displayPriceHT, currency)}
           </span>
         </div>
         <div className="flex justify-between py-2 border-b border-line">
           <span className="text-ink-muted">TVA ({formatTaxLabel(taxRate)})</span>
           <span className={`font-semibold ${!user ? 'blur-sm select-none' : ''}`}>
-            {extractTaxAmount(displayPriceHT, taxRate).toFixed(2)} €
+            {formatMoney(extractTaxAmount(displayPriceHT, taxRate), currency)}
           </span>
         </div>
         <div
@@ -96,7 +99,7 @@ export function ProductCardPrix({
         >
           <span className="font-semibold text-base">Total TTC</span>
           <span className={`text-xl font-bold ${!user ? 'blur-sm select-none' : ''}`}>
-            {applyTax(displayPriceHT, taxRate).toFixed(2)} €
+            {formatMoney(applyTax(displayPriceHT, taxRate), currency)}
           </span>
         </div>
       </div>
@@ -241,14 +244,14 @@ export function ProductCardPrix({
                       <div key={String(label)} className="flex justify-between text-ink-muted">
                         <span>{label}</span>
                         <span className={!user ? 'blur-sm select-none' : ''}>
-                          {(val as number).toFixed(2)} €
+                          {formatMoney(val as number, currency)}
                         </span>
                       </div>
                     ))}
                   <div className="flex justify-between font-semibold text-green-800 border-t border-green-200 pt-1 mt-1">
                     <span>Total HT</span>
                     <span className={!user ? 'blur-sm select-none' : ''}>
-                      {(clariprintQuote.costs.total || clariprintQuote.priceHT || 0).toFixed(2)} €
+                      {formatMoney(clariprintQuote.costs.total || clariprintQuote.priceHT || 0, currency)}
                     </span>
                   </div>
                 </div>
@@ -257,11 +260,13 @@ export function ProductCardPrix({
               <div className="flex justify-between bg-green-700 text-white px-3 py-2 rounded-lg font-bold text-base">
                 <span>Total TTC</span>
                 <span className={!user ? 'blur-sm select-none' : ''}>
-                  {applyTax(
-                    clariprintQuote.costs?.total || clariprintQuote.priceHT || 0,
-                    taxRate,
-                  ).toFixed(2)}{' '}
-                  €
+                  {formatMoney(
+                    applyTax(
+                      clariprintQuote.costs?.total || clariprintQuote.priceHT || 0,
+                      taxRate,
+                    ),
+                    currency,
+                  )}
                 </span>
               </div>
 

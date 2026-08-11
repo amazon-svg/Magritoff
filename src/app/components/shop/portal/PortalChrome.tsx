@@ -2,6 +2,8 @@ import { ShoppingCart } from 'lucide-react';
 import type { Shop } from '../../../contexts/ShopsContext';
 import type { PortalView } from './types';
 import { TEST_IDS } from '../../../lib/testIds';
+import { formatMoney } from '../../../utils/currency';
+import { useCurrency } from '../../../contexts/CurrencyContext';
 import { AuthMenu } from '../../auth/AuthMenu';
 
 interface Props {
@@ -20,6 +22,7 @@ interface Props {
 // v2.1 : retrait des menus non-implémentés (Templates, Équipe) et du bouton
 // de recherche redondant avec "Catalogue".
 export function PortalChrome({ shop, view, onView, cartCount, budget }: Props) {
+  const currency = useCurrency();
   const navItems: Array<{ key: PortalView; label: string }> = [
     { key: 'home', label: 'Accueil' },
     { key: 'catalog', label: 'Catalogue' },
@@ -121,7 +124,8 @@ export function PortalChrome({ shop, view, onView, cartCount, budget }: Props) {
               className="text-ink font-mono"
               style={{ fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}
             >
-              {budget.used.toLocaleString('fr-FR')}€ / {budget.total.toLocaleString('fr-FR')}€
+              {formatMoney(budget.used, currency, { fractionDigits: 0 })} /{' '}
+              {formatMoney(budget.total, currency, { fractionDigits: 0 })}
             </span>
           </span>
           <div className="flex-1 max-w-[240px] h-1.5 bg-line rounded overflow-hidden relative">

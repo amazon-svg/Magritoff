@@ -12,6 +12,12 @@
  *   parcs imprimeurs Pro souscrits, alimente automatiquement par Clariprint
  *   (cf. Vision Produit Magrit, roadmap V2+ panel Magrit).
  *
+ * ZONE MONETAIRE (arbitrage Arnaud 2026-08-10) : le prix marche est calibre
+ * PAR DEVISE, sur les prix d imprimeurs travaillant dans cette devise. Il
+ * n est jamais converti. Une devise sans zone calibree ne recoit AUCUN prix
+ * marche — la cascade tombe alors sur `zero` et l ecran affiche « Prix sur
+ * demande ». Voir `marketPriceZones.ts`.
+ *
  * Cette valeur est affichee dans l UI avec un badge "Prix marche" pour que
  * l utilisateur sache que ce n est pas le prix exact Clariprint final.
  *
@@ -36,6 +42,11 @@
  */
 
 import type { ClariprintQuoteResult } from './clariprintQuote';
+import { DEFAULT_CURRENCY, formatMoney, type CurrencyCode } from './currency';
+import {
+  resolveMarketPriceFamily,
+  resolveMarketPriceZone,
+} from './marketPriceZones';
 
 export type PriceSource =
   | 'clariprint'      // Source officielle Clariprint, validee
@@ -44,7 +55,7 @@ export type PriceSource =
   | 'zero';           // Securite, jamais affiche tel quel
 
 export interface PriceResolution {
-  /** Prix HT a afficher, en EUR */
+  /** Prix HT a afficher, libelle dans la devise de l imprimeur (cf. currency.ts) */
   priceHT: number;
   /** Source du prix resolu, pour decider de l affichage badge */
   source: PriceSource;
@@ -66,11 +77,30 @@ export interface PriceResolution {
  * (table prix_marche_panel ou equivalent) une fois que les parcs imprimeurs
  * souscrits seront en nombre suffisant pour produire des agregats fiables.
  *
- * En attendant, elle fournit toujours une valeur > 0 (sauf cas degeneres
- * sans nom ni quantite, retour par defaut tres bas).
+ * Retourne 0 dans trois cas : produit absent, cas degenere sans nom ni
+ * quantite, et — depuis l arbitrage du 2026-08-10 — devise sans ZONE
+ * MONETAIRE calibree. Ce dernier cas est normal : il vaut mieux ne pas servir
+ * de prix que d en servir un calibre dans une autre monnaie.
  */
-export function estimateMarketPriceHT(product: any, quantityOverride?: number): number {
+export function estimateMarketPriceHT(
+  product: any,
+  quantityOverride?: number,
+  /**
+   * Devise de l imprimeur — determine la ZONE MONETAIRE de calibration
+   * (arbitrage Arnaud 2026-08-10, cf. `marketPriceZones.ts`).
+   *
+   * Retourne 0 quand la devise n a pas de zone calibree : l imprimeur voit
+   * alors « Prix sur demande » plutot qu une valeur calibree dans une autre
+   * monnaie et simplement relibellee.
+   */
+  currency: CurrencyCode = DEFAULT_CURRENCY,
+): number {
   if (!product) return 0;
+
+  // Zone monetaire : pas de zone calibree → pas de prix marche. C est un etat
+  // normal du systeme, pas une erreur (cf. resolveMarketPriceZone).
+  const zone = resolveMarketPriceZone(currency);
+  if (!zone?.basePerUnit) return 0;
 
   // Resolution config Clariprint imbriquee si presente
   const cfg = product.clariprintData ?? product.config?.clariprintData ?? product.config ?? product;
@@ -84,15 +114,8 @@ export function estimateMarketPriceHT(product: any, quantityOverride?: number): 
       : Number(cfg.quantity ?? product.quantity ?? 500);
   const name = String(product.name ?? cfg.name ?? '').toLowerCase();
 
-  let base = 0.15; // Defaut universel (EUR / unite)
-  if (name.includes('carte') && name.includes('visite')) base = 0.08;
-  else if (name.includes('flyer') || name.includes('tract')) base = 0.12;
-  else if (name.includes('brochure') || name.includes('catalogue')) base = 1.5;
-  else if (name.includes('affiche') || name.includes('poster')) base = 5.0;
-  else if (name.includes('depliant') || name.includes('dépliant')) base = 0.25;
-  else if (name.includes('etiquette') || name.includes('étiquette')) base = 0.04;
-  else if (name.includes('kakemono') || name.includes('roll-up')) base = 35.0;
-  else if (name.includes('packaging') || name.includes('boite')) base = 0.6;
+  // Prix de base : niveau propre a la zone, famille propre au produit.
+  const base = zone.basePerUnit[resolveMarketPriceFamily(name)];
 
   let price = base * qty;
 
@@ -117,8 +140,8 @@ export function estimateMarketPriceHT(product: any, quantityOverride?: number): 
   else if (qty >= 2000) price *= 0.8;
   else if (qty >= 1000) price *= 0.9;
 
-  // Plancher a 1 EUR pour eviter zero (sauf produit explicitement sans nom)
-  if (price < 1 && name) price = 1;
+  // Plancher de la zone, pour eviter zero (sauf produit explicitement sans nom)
+  if (price < zone.floor && name) price = zone.floor;
 
   return Math.round(price * 100) / 100;
 }
@@ -133,6 +156,12 @@ export function estimateMarketPriceHT(product: any, quantityOverride?: number): 
 export function resolvePrice(
   product: any,
   clariprintQuote?: ClariprintQuoteResult | null,
+  /**
+   * Devise de l imprimeur — selectionne la zone monetaire du prix marche
+   * (arbitrage Arnaud 2026-08-10). Sans zone calibree pour cette devise, la
+   * cascade tombe sur `zero` : « Prix sur demande » plutot qu un prix faux.
+   */
+  currency: CurrencyCode = DEFAULT_CURRENCY,
 ): PriceResolution {
   // 1. Clariprint — source officielle si validee
   if (
@@ -180,7 +209,7 @@ export function resolvePrice(
   }
 
   // Calcul a la volee si rien n est cache
-  const marketPrice = estimateMarketPriceHT(product);
+  const marketPrice = estimateMarketPriceHT(product, undefined, currency);
   if (marketPrice > 0) {
     return {
       priceHT: marketPrice,
@@ -201,12 +230,22 @@ export function resolvePrice(
 
 /**
  * Format human-readable d un PriceResolution.
- * Exemple : "12,50 EUR" ou "12,50 EUR (Prix marche)"
+ * Exemple : "12,50 €" ou "12,50 € (Prix marche)".
+ *
+ * Multi-devise tranche 1 : la devise est desormais un parametre OBLIGATOIRE.
+ * Avant, cette fonction forcait `currency: 'EUR'` — c etait l un des deux
+ * helpers de formatage concurrents du projet. Le formatage lui-meme est
+ * delegue a `formatMoney()` : ici on ne fait plus que porter la mention
+ * « Prix marche ».
+ *
+ * La devise vient de `getCurrency(currentTenant)` cote util, `useCurrency()`
+ * cote composant React.
  */
-export function formatPrice(resolution: PriceResolution, locale = 'fr-FR'): string {
-  const formatted = resolution.priceHT.toLocaleString(locale, {
-    style: 'currency',
-    currency: 'EUR',
-  });
+export function formatPrice(
+  resolution: PriceResolution,
+  currency: CurrencyCode,
+  locale = 'fr-FR',
+): string {
+  const formatted = formatMoney(resolution.priceHT, currency, { locale });
   return resolution.isMarketPrice ? `${formatted} (Prix marché)` : formatted;
 }
