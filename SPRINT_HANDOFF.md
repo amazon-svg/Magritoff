@@ -6,7 +6,19 @@
 
 ---
 
-## ▶️ PROCHAIN CHANTIER — Tranche 1 de la refacto multi-devise
+## ▶️ PROCHAIN CHANTIER — AF1 contrats HTTP et composition serveur
+
+La refactorisation API-first a démarré le 2026-08-11 sur la branche `refactor/api-first-foundation`, créée depuis `main@eea7f56`.
+
+**AF0 en review** : ADR §4.21, brief et Epic 8 BMAD, kernel minimal strict, baseline exacte de la dette Supabase UI, tests de frontières et workflow CI architecture. Aucun comportement applicatif, schéma SQL ou endpoint de production n a été modifié. Validation : typecheck vert, architecture 3/3, vitest 757 verts et build vert.
+
+**Point de reprise** : story AF1 dans `_bmad-output/planning-artifacts/epics.md` — définir les contrats communs `/api/v1`, le contexte acteur, les erreurs HTTP et la composition serveur avant de migrer le bootstrap en AF2.
+
+**Dérogation R5 restante** : 45 fichiers UI importent encore Supabase et 83 références `supabase.*` sont figées par `tests/architecture/supabase-ui-baseline.ts`. La baseline ne peut ni augmenter ni rester périmée après une baisse.
+
+---
+
+## CHANTIER PRODUIT EN PARALLÈLE — Tranche 1 de la refacto multi-devise
 
 **Point de reprise pour la prochaine session (prévue dans VS Code).**
 

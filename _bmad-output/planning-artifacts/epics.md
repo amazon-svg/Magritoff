@@ -1652,3 +1652,65 @@ Validation : Implementation Readiness check (skill BMAD)
 🎯 **Epic Breakdown Magrit / e-shop v1.1 — terminé.**
 
 > _Ce document est la sortie de la skill BMAD `bmad-create-epics-and-stories`. Les 32 stories sont sprint-ready : chaque story peut être prise par un dev agent (Claude code, Copilot, dev humain) et complétée indépendamment. La DoD globale (cas TF Notion + testid stables) s'applique à toutes._
+
+---
+
+## Epic 8 — Refactorisation API-first et modules par surfaces
+
+> **Source** : ADR §4.21 et `brief-refacto-api-first-2026-08-11.md`. Cet epic remplace la cible technique de l ancien EPIC-REFACTO-1 sur l accès aux données ; les stabilisations déjà livrées restent acquises.
+
+### Objectif
+
+Retirer progressivement Supabase de `src/app`, introduire des API métier `/api/v1` et isoler les fonctionnalités dans des modules réutilisés par quatre surfaces : storefront, portail client, workspace et back-office.
+
+### Sprint AF-A — Fondation API-first, 4 stories
+
+#### Story AF0 — Socle et garde-fous
+
+Kernel minimal strict, baseline Supabase non croissante, tests de frontières, typecheck modulaire et CI architecture. Aucun changement fonctionnel.
+
+**AC principaux** : une nouvelle dépendance Supabase dans le front ou un nouveau module échoue en CI ; le kernel ne dépend d aucun fournisseur. **Effort : M.**
+
+#### Story AF1 — Contrats HTTP et composition serveur
+
+Définir les conventions `/api/v1`, l enveloppe d erreur, le contexte acteur, validation des entrées/sorties et une composition serveur exécutable sur Supabase Edge sans exposer le fournisseur dans les contrats.
+
+**AC principaux** : OpenAPI ou contrat équivalent versionné ; test de contrat handler/client ; aucun type Supabase dans `api` ou `application`. **Effort : M.**
+
+#### Story AF2 — Bootstrap session, tenant et préférences
+
+Créer l API agrégée de bootstrap et migrer les lectures initiales de `TenantContext` et `PreferencesContext`. L authentification directe reste une dérogation R5 temporaire, mais aucune table de bootstrap n est interrogée par le navigateur.
+
+**AC principaux** : chargement initial via `/api/v1/session`; RLS conservée ; baisse vérifiable de la baseline. **Effort : L, 3 jours maximum.**
+
+#### Story AF3 — Registre des surfaces et contributions UI
+
+Introduire les composition roots `storefront`, `customer-portal`, `workspace`, `backoffice` et séparer manifeste métier, routes, navigation, feature et capability. Migrer un écran témoin sans changer son UX.
+
+**AC principaux** : un module peut contribuer à plusieurs surfaces sans importer React dans son manifeste métier ; routes et menus restent lazy. **Effort : M.**
+
+### Sprint AF-B — Module pilote Orders, 4 stories
+
+#### Story AF4 — API de lecture Orders
+
+Contrats, service applicatif et repository Supabase serveur pour listes, détails, compteurs et audit trail. Les modèles HTTP ne réexportent pas les rows PostgreSQL. **Effort : M.**
+
+#### Story AF5 — Commandes Orders atomiques
+
+Centraliser création, édition de draft et transitions dans des commandes serveur transactionnelles et idempotentes, avec autorisation, RLS et audit. **Effort : L, 3 jours maximum.**
+
+#### Story AF6 — Adaptateurs UI Orders multi-surfaces
+
+Migrer storefront/checkout, portail client et back-office vers le même client API Orders, en conservant les vues et testIds. **Effort : L, 3 jours maximum.**
+
+#### Story AF7 — Sortie Supabase du périmètre Orders
+
+Supprimer les imports, RPC et noms de tables Orders de `src/app`, réduire la baseline et exécuter les smokes acheteur/admin. **Effort : M.**
+
+### Critères de clôture Epic 8
+
+- aucun appel Supabase direct pour le bootstrap et Orders ;
+- contrats `/api/v1` documentés et testés ;
+- mêmes invariants Orders sur toutes les surfaces ;
+- aucune régression build, vitest, RLS, a11y ou smoke acheteur ;
+- dérogations R5 restantes quantifiées par domaine pour l epic suivant.

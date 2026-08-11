@@ -1266,3 +1266,26 @@ Deux enseignements : **(1)** les catalogues sont minuscules (≤ ~30 produits/bo
 🏗️ **Architecture Magrit / e-shop v1.1 — terminée.**
 
 > _Le code suit l'architecture, pas l'inverse. Toute déviation des décisions ci-dessus doit être documentée et justifiée. Mettre à jour ce document si la planification évolue._
+
+---
+
+### §4.21 ADR-API-FIRST-1 — Supabase devient un adaptateur serveur, jamais l API publique du navigateur
+
+> **Date : 2026-08-11. Statut : accepté pour implémentation progressive.** Cette décision applique R1-R5 de `docs/REGLES_ARCHITECTURE.md` et remplace l ADR-R3 de l ancien Epic Refacto 1 qui autorisait les lectures `supabase.from()` dans le navigateur.
+
+**Constat sur `main@eea7f56`** : 45 fichiers de `src/app` importent un SDK ou utilitaire Supabase, dont 42 le client de données ; 83 références `supabase.*` et trois URL `/functions/v1` directes sont présentes. Les surfaces React connaissent ainsi les tables, RPC, buckets et détails de déploiement.
+
+**Décision** :
+
+1. Le navigateur consomme exclusivement des contrats métier Magrit versionnés sous `/api/v1`.
+2. Supabase reste le premier adaptateur de base, Auth, Storage, Realtime et runtime Edge, mais son SDK et ses types restent dans les adaptateurs serveur et la composition de déploiement.
+3. Chaque module possède `domain`, `application`, `api`, `infrastructure` et, selon ses besoins, des adaptateurs `ui` par surface.
+4. Les surfaces reconnues sont `storefront`, `customer-portal`, `workspace` et `backoffice`. Elles composent les modules sans posséder leurs règles métier.
+5. Le kernel contient uniquement les primitives stables et ne connaît ni React, ni fournisseur, ni règle fonctionnelle.
+6. La migration brownfield utilise une baseline non croissante. Elle autorise temporairement l existant au titre de R5, mais toute nouvelle dépendance ou augmentation de compteur casse la CI.
+7. Les opérations critiques multi-écritures deviennent des commandes atomiques côté serveur ; la RLS reste active comme dernière barrière.
+8. Supabase Auth direct peut subsister comme dernière dérogation de transition. La cible finale est une session applicative et un port `IdentityProvider` serveur.
+
+**Conséquences** : l API n est pas un proxy CRUD PostgREST générique ; ses opérations utilisent le vocabulaire du domaine. Un changement de fournisseur ne modifie ni les surfaces React ni les contrats HTTP. Les migrations se font verticalement, domaine par domaine, en commençant par le bootstrap puis Orders.
+
+**Plan BMAD** : voir `brief-refacto-api-first-2026-08-11.md` et Epic 8 dans `epics.md`.
