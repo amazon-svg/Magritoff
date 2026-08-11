@@ -41,6 +41,8 @@ de sa session et un owner ne peut être ni modifié ni retiré par ces routes.
   l’interface demande explicitement de se reconnecter.
 - Si Resend n’est pas configuré ou refuse l’expéditeur, la modale reste ouverte
   et affiche un lien d’invitation sélectionnable avec un bouton **Copier**.
+- Si le tenant ne possède aucune boutique, le mode **Boutique(s)** est désactivé
+  et la modale sélectionne **Dashboard complet** afin de ne pas bloquer l’envoi.
 
 ## 3. Gérer les rôles de ton catalogue
 

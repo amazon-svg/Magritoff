@@ -87,6 +87,10 @@ export function InviteUserModalV2({
       const options = await invitationsApi.options(tenantId);
       setRoles(options.roles);
       setShops(options.shops);
+      if (options.shops.length === 0) {
+        setScope('magrit_full');
+        setSelectedShopIds(new Set());
+      }
     } catch (loadError) {
       setError(loadError instanceof ApiClientError
         ? invitationApiProblemMessage(loadError.problem.code, loadError.problem.detail)
@@ -272,7 +276,7 @@ export function InviteUserModalV2({
               <button
                 type="button"
                 onClick={() => setScope('shop_only')}
-                disabled={sending}
+                disabled={sending || shops.length === 0}
                 data-testid={TEST_IDS.user.inviteScopeShopOnly}
                 aria-pressed={scope === 'shop_only'}
                 className={`px-3 py-2 rounded border text-left transition-colors disabled:opacity-50 ${
@@ -308,6 +312,12 @@ export function InviteUserModalV2({
                 </div>
               </button>
             </div>
+            {shops.length === 0 && !loadingRoles && (
+              <p className="mt-2 text-ink-muted" style={{ fontSize: '11.5px' }}>
+                Aucune boutique disponible : l’accès Dashboard complet est sélectionné.
+                Créez d’abord une boutique pour limiter cette invitation.
+              </p>
+            )}
           </div>
 
           {/* Boutiques accessibles (si scope shop_only) */}
