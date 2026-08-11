@@ -14,6 +14,7 @@ import {
   type UpdatePreferences,
 } from '../../modules/session';
 import { FetchApiClient } from '../../platform/api';
+import { DevSessionClient } from '../../adapters/supabase/dev-session-client';
 import { useAuth } from './AuthContext';
 
 type SessionBootstrapContextValue = Readonly<{
@@ -36,11 +37,15 @@ export function SessionBootstrapProvider({ children }: { children: ReactNode }) 
   const currentUserId = useRef<string | null>(user?.id ?? null);
   currentUserId.current = user?.id ?? null;
   const api = useMemo(
-    () =>
-      new SessionApiClient(
+    () => {
+      if (import.meta.env.DEV && import.meta.env.VITE_API_RUNTIME !== 'edge' && user?.id) {
+        return new DevSessionClient(user.id);
+      }
+      return new SessionApiClient(
         new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null),
-      ),
-    [session?.access_token],
+      );
+    },
+    [session?.access_token, user?.id],
   );
 
   const reload = useCallback(async () => {

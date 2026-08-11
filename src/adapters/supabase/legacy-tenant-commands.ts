@@ -43,6 +43,12 @@ export class LegacyTenantCommands {
       gammeSlugs.map((gamme_slug) => ({ tenant_id: tenantId, gamme_slug, active: true })),
       { onConflict: 'tenant_id,gamme_slug' },
     );
+    if (error?.code === 'PGRST205') {
+      console.warn(
+        '[LegacyTenantCommands] Gammes non activées : table absente du schéma distant.',
+      );
+      return;
+    }
     if (error) throw new Error(error.message);
   }
 

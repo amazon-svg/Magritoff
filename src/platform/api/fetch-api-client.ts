@@ -25,11 +25,15 @@ export class ApiClientError extends Error {
 }
 
 export class FetchApiClient {
+  private readonly fetchImplementation: typeof fetch;
+
   constructor(
     private readonly baseUrl = '',
-    private readonly fetchImplementation: typeof fetch = globalThis.fetch,
+    fetchImplementation: typeof fetch = globalThis.fetch,
     private readonly accessTokenProvider?: AccessTokenProvider,
-  ) {}
+  ) {
+    this.fetchImplementation = fetchImplementation.bind(globalThis);
+  }
 
   async request<T>(request: ApiRequest<T>): Promise<T> {
     if (!request.path.startsWith(`${API_V1_BASE_PATH}/`)) {

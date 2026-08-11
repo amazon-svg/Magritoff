@@ -153,6 +153,17 @@ describe('frontières API-first et modulaires', () => {
     expect(violations).toEqual([]);
   });
 
+  it('réserve le client session direct au développement local', () => {
+    const provider = readFileSync(
+      resolve(process.cwd(), 'src/app/contexts/SessionBootstrapContext.tsx'),
+      'utf8',
+    );
+
+    expect(provider).toContain("import.meta.env.DEV && import.meta.env.VITE_API_RUNTIME !== 'edge'");
+    expect(provider).toContain('return new DevSessionClient(user.id)');
+    expect(provider).toContain('return new SessionApiClient(');
+  });
+
   it('conserve la RLS dans la composition Edge du bootstrap', () => {
     const edgeEntry = readFileSync(
       resolve(process.cwd(), 'supabase/functions/magrit-api/index.ts'),

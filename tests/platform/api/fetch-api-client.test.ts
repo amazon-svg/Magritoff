@@ -9,6 +9,26 @@ import {
 import { createApiV1Application, createApiV1Handler, defineJsonRoute } from '../../../src/server/api';
 
 describe('client fetch API Magrit', () => {
+  it('appelle fetch avec le receveur global attendu par les navigateurs', async () => {
+    let receiver: unknown;
+    const receiverSensitiveFetch = function (this: unknown) {
+      receiver = this;
+      return Promise.resolve(
+        new Response(JSON.stringify({ status: 'ok', apiVersion: 'v1', timestamp: '2026-08-11T12:30:00.000Z' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+    } as typeof fetch;
+    const client = new SystemApiClient(
+      new FetchApiClient('https://magrit.test', receiverSensitiveFetch),
+    );
+
+    await client.health();
+
+    expect(receiver).toBe(globalThis);
+  });
+
   it('partage le contrat health avec la composition serveur', async () => {
     const handler = createApiV1Application({
       clock: fixedClock('2026-08-11T12:30:00.000Z'),
