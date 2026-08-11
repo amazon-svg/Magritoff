@@ -5,7 +5,7 @@
  * seulement la dette historique d'augmenter pendant sa migration vers /api/v1.
  * Chaque story de migration doit supprimer les entrées devenues inutiles et
  * abaisser les compteurs ; la baseline ne doit jamais être augmentée.
- * Après AF3 : 42 fichiers importeurs et 70 références directes restantes.
+ * Après AF3.2 : 42 fichiers importeurs et 64 références directes restantes.
  */
 export const legacySupabaseUiImportFiles = new Set([
   'src/app/components/ChatInterface.tsx',
@@ -84,7 +84,7 @@ export const legacySupabaseUiReferenceLimits = new Map<string, number>([
   ['src/app/components/tenant/AcceptInvitation.tsx', 3],
   ['src/app/components/tenant/LegacySlugRedirect.tsx', 1],
   ['src/app/components/tenant/ShopOnlyRedirect.tsx', 1],
-  ['src/app/contexts/AuthContext.tsx', 7],
+  ['src/app/contexts/AuthContext.tsx', 1],
   ['src/app/contexts/ConversationContext.tsx', 3],
   ['src/app/contexts/LibraryContext.tsx', 12],
   ['src/app/contexts/PIMContext.tsx', 6],

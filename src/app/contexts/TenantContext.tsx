@@ -294,10 +294,12 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     currentTenant,
     currentRole,
     isSuperAdmin,
-    // Fix race 2026-05-27 : effectiveLoading reste true tant que les tenants
-    // du user courant ne sont pas charges (vs loading brut qui retombe a
-    // false entre user-change et reload).
-    loading: authLoading || (!!user && bootstrap.loading),
+    // Le bootstrap démarre dans un effect après le rendu où Auth expose le
+    // user. Tant que les données de ce user ne sont ni chargées ni en erreur,
+    // rester en loading évite une redirection prématurée vers /tenants/new.
+    loading:
+      authLoading ||
+      (!!user && (bootstrap.loading || (!bootstrap.error && dataForUser === null))),
     switchTenant,
     createTenant,
     createSubTenant,

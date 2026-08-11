@@ -27,4 +27,26 @@ describe('runtime Supabase local', () => {
     expect(read('.env.local.example')).toContain('http://127.0.0.1:54321');
     expect(read('supabase/functions/magrit-api/deno.json')).toContain('npm:zod@4.4.3');
   });
+
+  it('accorde explicitement les opérations API protégées par RLS', () => {
+    const grants = read('supabase/migrations/20260811000100_api_role_table_grants.sql');
+
+    expect(grants).toContain('select, insert, update, delete');
+    expect(grants).toContain('to anon, authenticated');
+    expect(grants).toContain('alter default privileges for role postgres');
+  });
+
+  it('ne réutilise pas une session persistée supprimée par un reset local', () => {
+    const authContext = read('src/app/contexts/AuthContext.tsx');
+
+    expect(authContext).toContain('auth.getUser()');
+    expect(authContext).toContain("auth.signOut({ scope: 'local' })");
+    expect(authContext).toContain("event === 'INITIAL_SESSION'");
+  });
+
+  it('attend les données du user avant de conclure qu il n a aucun tenant', () => {
+    const tenantContext = read('src/app/contexts/TenantContext.tsx');
+
+    expect(tenantContext).toContain('!bootstrap.error && dataForUser === null');
+  });
 });

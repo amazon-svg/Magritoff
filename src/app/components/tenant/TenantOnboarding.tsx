@@ -10,7 +10,7 @@
  *   - badge "Entreprise verifiee" stocke en DB pour affichage UI
  */
 
-import { useNavigate } from 'react-router';
+import { Navigate, useNavigate } from 'react-router';
 import { FormEvent, useMemo, useState } from 'react';
 import { CheckCircle2, Loader2, Sparkles, AlertCircle, ArrowLeft, Check } from 'lucide-react';
 import { useTenant } from '../../contexts/TenantContext';
@@ -25,7 +25,7 @@ type Step = 'identity' | 'gammes';
 
 export function TenantOnboarding() {
   const { createTenant } = useTenant();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { gammes, loading: pimLoading } = usePIM();
   const navigate = useNavigate();
 
@@ -96,6 +96,16 @@ export function TenantOnboarding() {
     }
     return map;
   }, [gammes]);
+
+  if (authLoading) {
+    return (
+      <div className="min-h-[calc(100vh-56px)] grid place-items-center bg-bg text-ink-muted">
+        Vérification de la session…
+      </div>
+    );
+  }
+
+  if (!user) return <Navigate to="/tenants" replace />;
 
   // Toggle d une gamme parent : coche/decoche le parent + tous ses enfants
   const toggleParentGamme = (parentSlug: string) => {
