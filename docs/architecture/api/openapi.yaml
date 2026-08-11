@@ -165,6 +165,53 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/OrderAuditTrail' }
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
+  /orders/{orderId}/draft:
+    get:
+      operationId: getDraftOrder
+      summary: Charger les lignes éditables d une commande brouillon
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: orderId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Brouillon et lignes de son auteur
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DraftOrder' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '404':
+          description: Commande absente ou hors périmètre de l auteur
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ApiProblem' }
+    put:
+      operationId: updateDraftOrder
+      summary: Mettre à jour atomiquement les lignes et le total d un brouillon
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: orderId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateDraftOrderCommand' }
+      responses:
+        '200':
+          description: Brouillon mis à jour ou résultat précédent rejoué
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UpdateDraftOrderResult' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403':
+          description: Acteur non autorisé
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ApiProblem' }
+        '409':
+          description: La commande n est plus en brouillon
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ApiProblem' }
   /orders/{orderId}/transitions:
     post:
       operationId: transitionOrder
@@ -463,6 +510,56 @@ components:
         shopId: { type: string, format: uuid }
         totalHt: { type: number, minimum: 0 }
         currency: { type: string }
+        replayed: { type: boolean }
+    DraftOrderItem:
+      type: object
+      additionalProperties: false
+      required: [id, productId, productLabel, clariprintOptions, quantity, unitPriceHt, lineTotalHt]
+      properties:
+        id: { type: string, format: uuid }
+        productId: { type: [string, 'null'], format: uuid }
+        productLabel: { type: string }
+        clariprintOptions: { type: [object, 'null'] }
+        quantity: { type: integer, minimum: 1 }
+        unitPriceHt: { type: number, minimum: 0 }
+        lineTotalHt: { type: number, minimum: 0 }
+    DraftOrder:
+      type: object
+      additionalProperties: false
+      required: [orderId, status, totalHt, items]
+      properties:
+        orderId: { type: string, format: uuid }
+        status: { type: string }
+        totalHt: { type: number, minimum: 0 }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/DraftOrderItem' }
+    UpdateDraftOrderItem:
+      type: object
+      additionalProperties: false
+      required: [id, productLabel, quantity, unitPriceHt]
+      properties:
+        id: { type: string, format: uuid }
+        productLabel: { type: string, minLength: 1 }
+        quantity: { type: integer, minimum: 1 }
+        unitPriceHt: { type: number, minimum: 0 }
+    UpdateDraftOrderCommand:
+      type: object
+      additionalProperties: false
+      required: [items, idempotencyKey]
+      properties:
+        items:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/UpdateDraftOrderItem' }
+        idempotencyKey: { type: string, minLength: 8, maxLength: 200 }
+    UpdateDraftOrderResult:
+      type: object
+      additionalProperties: false
+      required: [orderId, totalHt, replayed]
+      properties:
+        orderId: { type: string, format: uuid }
+        totalHt: { type: number, minimum: 0 }
         replayed: { type: boolean }
   responses:
     AuthenticationRequired:

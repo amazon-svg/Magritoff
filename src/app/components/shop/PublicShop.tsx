@@ -397,32 +397,28 @@ export function PublicShop() {
       setLastOrder(null);
       return;
     }
-    let cancelled = false;
-    supabase
-      .from('tenant_orders')
-      .select('id, status, total_ht, created_at, source')
-      .eq('shop_id', shop.id)
-      .eq('created_by', user.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        if (error || !data) setLastOrder(null);
-        else
-          setLastOrder({
-            id: data.id,
-            status: String(data.status ?? ''),
-            total_ht: Number(data.total_ht) || 0,
-            created_at: String(data.created_at ?? ''),
-            source: String((data as { source?: string }).source ?? ''),
-          });
-      });
+    const controller = new AbortController();
+    ordersApi.listPortalOrders(shop.id, controller.signal).then((response) => {
+      if (controller.signal.aborted) return;
+      const latest = response.datasets.mine.find((order) => order.source === 'v1_1');
+      setLastOrder(latest ? {
+        id: latest.id,
+        status: latest.status,
+        total_ht: latest.totalHt,
+        created_at: latest.createdAt,
+        source: latest.source,
+      } : null);
+    }).catch((cause) => {
+      if (!controller.signal.aborted) {
+        console.warn('[PublicShop] dernière commande indisponible:', cause);
+        setLastOrder(null);
+      }
+    });
     return () => {
-      cancelled = true;
+      controller.abort();
     };
     // Re-fetch après un submitCart réussi (lastOrderId change).
-  }, [user?.id, shop?.id, lastOrderId]);
+  }, [user?.id, shop?.id, lastOrderId, ordersApi]);
 
   /**
    * S3.3 AC2/AC3 : Renouveler 1-clic depuis OrderHistoryTable.
@@ -445,19 +441,25 @@ export function PublicShop() {
       if (!ok) return;
     }
 
-    const { data: items, error: itemsErr } = await supabase
-      .from('tenant_order_items')
-      .select('product_id, product_label, clariprint_options, quantity, unit_price_ht')
-      .eq('order_id', order.id);
-
-    if (itemsErr || !items) {
-      console.error('[handleRenewOrder] query items failed:', itemsErr?.message);
-      alert(`Impossible de charger les articles de cette commande : ${itemsErr?.message ?? 'erreur réseau'}.`);
+    let items: OrderItemRow[];
+    try {
+      const details = await ordersApi.getDraft(order.id);
+      items = details.items.map((item) => ({
+        product_id: item.productId,
+        product_label: item.productLabel,
+        clariprint_options: item.clariprintOptions,
+        quantity: item.quantity,
+        unit_price_ht: item.unitPriceHt,
+      }));
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : 'erreur réseau';
+      console.error('[handleRenewOrder] API items failed:', cause);
+      alert(`Impossible de charger les articles de cette commande : ${message}.`);
       return;
     }
 
     const { lines, warnings, stats } = rebuildCartFromOrderItems(
-      items as OrderItemRow[],
+      items,
       products,
     );
 
@@ -480,12 +482,8 @@ export function PublicShop() {
   const submitCart = async () => {
     if (!shop || cart.length === 0) return;
 
-    // S-MIGRATION-ORDERS (2026-05-18, ADR-ORDERS-1 architecture.md §4.10) :
-    // bascule shop_orders -> tenant_orders + tenant_order_items.
-    //
-    // AC9 (decision Arnaud B2, pre-flight 17/05) : la RLS tenant_orders_insert
-    // exige created_by = auth.uid(). L acheteur DOIT etre authentifie.
-    // Coherent avec persona acheteur B2B v1.1 (compte cree par admin tenant).
+    // La commande API exige une session : l acteur, son périmètre boutique et
+    // sa permission de commander sont vérifiés côté serveur.
     if (!user?.id) {
       alert(
         'Vous devez etre connecte pour valider votre panier.\n\nCliquez sur "Se connecter" en haut a droite pour acceder a votre compte B2B.',
@@ -494,7 +492,7 @@ export function PublicShop() {
     }
 
     if (!shop.tenant_id) {
-      console.error('[submitCart] shop.tenant_id absent, cannot insert tenant_orders');
+      console.error('[submitCart] shop.tenant_id absent, API order creation impossible');
       alert(
         'Erreur de configuration boutique (tenant_id manquant). Contactez l administrateur.',
       );

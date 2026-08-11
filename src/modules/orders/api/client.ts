@@ -7,6 +7,9 @@ import {
   transitionOrderResultSchema,
   createOrderCommandSchema,
   createOrderResultSchema,
+  draftOrderSchema,
+  updateDraftOrderCommandSchema,
+  updateDraftOrderResultSchema,
   type OrderAuditTrail,
   type OrdersList,
   type PortalOrdersResponse,
@@ -14,6 +17,9 @@ import {
   type TransitionOrderResult,
   type CreateOrderCommand,
   type CreateOrderResult,
+  type DraftOrder,
+  type UpdateDraftOrderCommand,
+  type UpdateDraftOrderResult,
 } from './contracts.ts';
 
 export class OrdersApiClient {
@@ -60,6 +66,23 @@ export class OrdersApiClient {
       path: `${API_V1_BASE_PATH}/orders`,
       body: createOrderCommandSchema.parse(command),
       responseSchema: createOrderResultSchema,
+    });
+  }
+
+  getDraft(orderId: string, signal?: AbortSignal): Promise<DraftOrder> {
+    return this.client.request({
+      path: `${API_V1_BASE_PATH}/orders/${encodeURIComponent(orderId)}/draft`,
+      responseSchema: draftOrderSchema,
+      ...(signal === undefined ? {} : { signal }),
+    });
+  }
+
+  updateDraft(orderId: string, command: UpdateDraftOrderCommand): Promise<UpdateDraftOrderResult> {
+    return this.client.request({
+      method: 'PUT',
+      path: `${API_V1_BASE_PATH}/orders/${encodeURIComponent(orderId)}/draft`,
+      body: updateDraftOrderCommandSchema.parse(command),
+      responseSchema: updateDraftOrderResultSchema,
     });
   }
 }

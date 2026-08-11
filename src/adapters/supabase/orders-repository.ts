@@ -4,8 +4,11 @@ import type { PortalOrdersCounters, PortalOrdersTab } from '../../modules/orders
 import type {
   CreateOrderCommand,
   CreateOrderResult,
+  DraftOrder,
   TransitionOrderCommand,
   TransitionOrderResult,
+  UpdateDraftOrderCommand,
+  UpdateDraftOrderResult,
 } from '../../modules/orders/api/contracts.ts';
 import { OrderCommandRejectedError } from '../../modules/orders/application/orders-repository.ts';
 import type {
@@ -215,6 +218,67 @@ export class SupabaseOrdersRepository implements OrdersRepository {
     });
     if (error) throw new Error(`Notification de création impossible: ${error.message}`);
   }
+
+  async getDraftOrder(orderId: string): Promise<DraftOrder> {
+    const { data, error } = await this.client.rpc('api_get_tenant_order_draft', {
+      p_order_id: orderId,
+    });
+    if (error) throw mapOrderCommandError(error.message, 'Lecture du brouillon impossible');
+    const result = toRecord(data);
+    const items = Array.isArray(result.items) ? result.items.map((value) => {
+      const item = toRecord(value);
+      if (
+        typeof item.id !== 'string' || typeof item.product_label !== 'string'
+        || typeof item.quantity !== 'number' || typeof item.unit_price_ht !== 'number'
+        || typeof item.line_total_ht !== 'number'
+      ) throw new Error('Le brouillon a retourné une ligne invalide.');
+      return {
+        id: item.id,
+        productId: typeof item.product_id === 'string' ? item.product_id : null,
+        productLabel: item.product_label,
+        clariprintOptions: (item.clariprint_options ?? null) as DraftOrder['items'][number]['clariprintOptions'],
+        quantity: item.quantity,
+        unitPriceHt: item.unit_price_ht,
+        lineTotalHt: item.line_total_ht,
+      };
+    }) : [];
+    if (
+      typeof result.order_id !== 'string' || typeof result.status !== 'string'
+      || typeof result.total_ht !== 'number'
+    ) throw new Error('Le brouillon a retourné un résultat invalide.');
+    return {
+      orderId: result.order_id,
+      status: result.status,
+      totalHt: result.total_ht,
+      items,
+    };
+  }
+
+  async updateDraftOrder(
+    orderId: string,
+    command: UpdateDraftOrderCommand,
+  ): Promise<UpdateDraftOrderResult> {
+    const { data, error } = await this.client.rpc('api_update_tenant_order_draft', {
+      p_order_id: orderId,
+      p_items: command.items.map((item) => ({
+        id: item.id,
+        product_label: item.productLabel,
+        quantity: item.quantity,
+        unit_price_ht: item.unitPriceHt,
+      })),
+      p_idempotency_key: command.idempotencyKey,
+    });
+    if (error) throw mapOrderCommandError(error.message, 'Édition du brouillon impossible');
+    const result = toRecord(data);
+    if (typeof result.order_id !== 'string' || typeof result.total_ht !== 'number') {
+      throw new Error('L édition du brouillon a retourné un résultat invalide.');
+    }
+    return {
+      orderId: result.order_id,
+      totalHt: result.total_ht,
+      replayed: result.replayed === true,
+    };
+  }
 }
 
 function toTenantOrder(row: TenantOrderRow): TenantOrderRecord {
@@ -265,6 +329,9 @@ function mapOrderCommandError(message: string, fallback: string): Error {
   }
   if (message.includes('invalid_order_items') || message.includes('invalid_currency')) {
     return new OrderCommandRejectedError('invalid_order_items', message);
+  }
+  if (message.includes('order_not_editable')) {
+    return new OrderCommandRejectedError('order_not_editable', message);
   }
   if (message.includes('permission_denied')) {
     return new OrderCommandRejectedError('permission_denied', message);

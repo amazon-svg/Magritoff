@@ -8,22 +8,22 @@
  *  - Supprime une ligne.
  *  - Recalcule le total HT live (réutilise quoteMath.lineTotal / round2).
  *
- * Contraintes (ADR-ORDERS-1 + RLS 20260509000100) :
- *  - Édition réservée aux commandes status='draft' de l'auteur (la RLS
- *    tenant_order_items verrouille au-delà) ; le bouton n'apparaît que là.
- *  - Persistance = UPDATE en place des lignes modifiées + DELETE des lignes
- *    retirées (PAS de delete+reinsert : préserve product_id / clariprint_options
- *    et n'ajoute pas de pim_candidates parasites via le trigger d'insert).
- *  - total_ht recalculé côté app puis réécrit (pas de trigger serveur commande).
+ * Contraintes (ADR-ORDERS-1) :
+ *  - Édition réservée aux commandes status='draft' de l'auteur ; l API
+ *    revalide ces deux invariants dans la transaction.
+ *  - Persistance atomique via l API Orders : lignes + total sont validés et
+ *    écrits dans une transaction serveur idempotente.
  *  - Pas d'ajout de ligne : une nouvelle référence passe par le catalogue → panier.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2, Save, Trash2, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '/utils/supabase/client';
 import { lineTotal, round2 } from '../../../utils/quoteMath';
 import { TEST_IDS } from '../../../lib/testIds';
+import { useAuth } from '../../../contexts/AuthContext';
+import { OrdersApiClient } from '../../../../modules/orders';
+import { FetchApiClient } from '../../../../platform/api';
 import type { OrderUI } from './PortalOrders.helpers';
 import {
   Dialog,
@@ -58,53 +58,54 @@ function shortId(id: string): string {
 }
 
 export function PortalOrderEditor({ order, onClose, onSaved }: Props) {
+  const { session } = useAuth();
   const [lines, setLines] = useState<EditableLine[]>([]);
-  const [originalIds, setOriginalIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const ordersApi = useMemo(() => new OrdersApiClient(
+    new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null),
+  ), [session?.access_token]);
+  const saveCommandKey = useRef(crypto.randomUUID());
 
   // Charge les lignes réelles (avec id + product_id + snapshot config) à
   // l'ouverture — OrderUI.items est allégé (name/qty/price sans id).
   useEffect(() => {
     if (!order) {
       setLines([]);
-      setOriginalIds(new Set());
       setError(null);
       return;
     }
-    let alive = true;
+    const controller = new AbortController();
+    saveCommandKey.current = crypto.randomUUID();
     setLoading(true);
     setError(null);
     (async () => {
-      const { data, error: err } = await supabase
-        .from('tenant_order_items')
-        .select('id, product_id, product_label, quantity, unit_price_ht, line_total_ht, clariprint_options')
-        .eq('order_id', order.id)
-        .order('created_at', { ascending: true });
-      if (!alive) return;
-      if (err) {
-        setError(`Impossible de charger les articles : ${err.message}`);
-        setLoading(false);
-        return;
+      try {
+        const draft = await ordersApi.getDraft(order.id, controller.signal);
+        if (controller.signal.aborted) return;
+        const loaded: EditableLine[] = draft.items.map((it) => ({
+          id: it.id,
+          product_id: it.productId,
+          product_label: it.productLabel,
+          quantity: it.quantity,
+          unit_price_ht: it.unitPriceHt,
+          line_total_ht: it.lineTotalHt,
+          clariprint_options: it.clariprintOptions,
+        }));
+        setLines(loaded);
+      } catch (cause) {
+        if (controller.signal.aborted) return;
+        const message = cause instanceof Error ? cause.message : 'erreur réseau';
+        setError(`Impossible de charger les articles : ${message}`);
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
       }
-      const loaded: EditableLine[] = (data ?? []).map((it: any) => ({
-        id: it.id,
-        product_id: it.product_id ?? null,
-        product_label: it.product_label ?? '—',
-        quantity: it.quantity ?? 1,
-        unit_price_ht: Number(it.unit_price_ht) || 0,
-        line_total_ht: Number(it.line_total_ht) || 0,
-        clariprint_options: it.clariprint_options ?? null,
-      }));
-      setLines(loaded);
-      setOriginalIds(new Set(loaded.map((l) => l.id)));
-      setLoading(false);
     })();
     return () => {
-      alive = false;
+      controller.abort();
     };
-  }, [order]);
+  }, [order, ordersApi]);
 
   const mutateLine = (idx: number, patch: Partial<EditableLine>) => {
     setLines((prev) =>
@@ -136,47 +137,24 @@ export function PortalOrderEditor({ order, onClose, onSaved }: Props) {
     setSaving(true);
     setError(null);
     try {
-      // 1. DELETE des lignes retirées (id présent à l'origine, absent désormais).
-      const currentIds = new Set(lines.map((l) => l.id));
-      const toDelete = [...originalIds].filter((id) => !currentIds.has(id));
-      if (toDelete.length > 0) {
-        const { error: delErr } = await supabase
-          .from('tenant_order_items')
-          .delete()
-          .in('id', toDelete);
-        if (delErr) throw new Error(delErr.message);
-      }
-
-      // 2. UPDATE en place de chaque ligne conservée (qty / prix / total / label).
-      for (const l of lines) {
-        const { error: upErr } = await supabase
-          .from('tenant_order_items')
-          .update({
-            product_label: l.product_label,
-            quantity: l.quantity,
-            unit_price_ht: l.unit_price_ht,
-            line_total_ht: lineTotal(l.quantity, l.unit_price_ht),
-          })
-          .eq('id', l.id);
-        if (upErr) throw new Error(upErr.message);
-      }
-
-      // 3. Recalcul + réécriture du total commande (pas de trigger serveur).
-      const { error: headErr } = await supabase
-        .from('tenant_orders')
-        .update({ total_ht: totalHT })
-        .eq('id', order.id);
-      if (headErr) throw new Error(headErr.message);
+      await ordersApi.updateDraft(order.id, {
+        items: lines.map((line) => ({
+          id: line.id,
+          productLabel: line.product_label,
+          quantity: line.quantity,
+          unitPriceHt: line.unit_price_ht,
+        })),
+        idempotencyKey: saveCommandKey.current,
+      });
 
       toast.success('Commande mise à jour.');
+      saveCommandKey.current = crypto.randomUUID();
       await onSaved();
       onClose();
-    } catch (e: any) {
-      // RLS : si la commande n'est plus draft (validée entre-temps), l'UPDATE
-      // échoue → message explicite.
-      const msg = e?.message ?? 'erreur réseau';
+    } catch (cause) {
+      const msg = cause instanceof Error ? cause.message : 'erreur réseau';
       setError(
-        /row-level security|violates row-level/i.test(msg)
+        /order_not_editable|non modifiable/i.test(msg)
           ? "Cette commande n'est plus modifiable (elle a peut-être été validée). Rechargez la page."
           : `Échec de l'enregistrement : ${msg}`,
       );

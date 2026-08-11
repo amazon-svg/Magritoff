@@ -9,6 +9,9 @@ import type {
   TransitionOrderResult,
   CreateOrderCommand,
   CreateOrderResult,
+  DraftOrder,
+  UpdateDraftOrderCommand,
+  UpdateDraftOrderResult,
 } from '../api/contracts.ts';
 import type {
   LegacyOrderRecord,
@@ -101,6 +104,14 @@ export class OrdersService {
       });
     }
     return result;
+  }
+
+  getDraft(orderId: string): Promise<DraftOrder> {
+    return this.repository.getDraftOrder(orderId);
+  }
+
+  updateDraft(orderId: string, command: UpdateDraftOrderCommand): Promise<UpdateDraftOrderResult> {
+    return this.repository.updateDraftOrder(orderId, command);
   }
 }
 

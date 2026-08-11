@@ -2,7 +2,7 @@
 id: AF5
 epic: EPIC-8-API-FIRST
 priority: P0
-status: in-progress
+status: done
 branch: refactor/api-first-foundation
 depends_on: [AF4]
 ---
@@ -41,11 +41,15 @@ Déplacer les écritures Orders derrière `/api/v1`, avec transactions SQL, auto
 - `PublicShop` ne réalise plus les quatre écritures Supabase du checkout ;
 - baseline abaissée à 38 fichiers et 159 références directes.
 
-## Reste AF5.2b
+## AF5.2b — édition de brouillon
 
-- lecture et commande atomique d édition de brouillon ;
-- migration des callers `PublicShop` et `PortalOrderEditor` ;
-- smoke checkout et édition puis passage en review.
+- `GET /api/v1/orders/{orderId}/draft` charge les lignes de l auteur ;
+- `PUT /api/v1/orders/{orderId}/draft` sérialise et rejoue les éditions ;
+- suppression, modification des lignes et recalcul du total sont une transaction ;
+- toute édition hors statut `draft` retourne `orders.order_not_editable` en 409 ;
+- `PortalOrderEditor` n importe plus Supabase ;
+- reprise et renouvellement dans `PublicShop` utilisent désormais l API Orders ;
+- baseline abaissée à 37 fichiers et 153 références directes.
 
 ## Validation AF5.1
 
@@ -59,6 +63,16 @@ Déplacer les écritures Orders derrière `/api/v1`, avec transactions SQL, auto
 - création locale via `POST /api/v1/orders` : 201, total serveur 150 EUR ;
 - rejeu avec la même clé : 201, même commande, `replayed=true` ;
 - suite complète : 803 tests réussis, 87 ignorés ;
+- typecheck modulaire et build de production : réussis.
+
+## Validation AF5.2b
+
+- lecture brouillon locale : 200, lignes complètes ;
+- mise à jour 3 × 60 EUR : 200, total serveur 180 EUR ;
+- rejeu avec la même clé : 200, même commande, `replayed=true` ;
+- édition d une commande `in_production` : 409 `orders.order_not_editable` ;
+- smoke UX : quantité 3 → 4, total HT 180 → 240 EUR après sauvegarde ;
+- suite complète : 805 tests réussis, 87 ignorés ;
 - typecheck modulaire et build de production : réussis.
 
 ## Correctif AF5.1a — actions owner/admin visibles

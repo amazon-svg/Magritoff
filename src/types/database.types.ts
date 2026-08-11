@@ -1890,6 +1890,18 @@ export type Database = {
         }
         Returns: Json
       }
+      api_get_tenant_order_draft: {
+        Args: { p_order_id: string }
+        Returns: Json
+      }
+      api_update_tenant_order_draft: {
+        Args: {
+          p_idempotency_key: string
+          p_items: Json
+          p_order_id: string
+        }
+        Returns: Json
+      }
       accept_tenant_invitation: { Args: { p_token: string }; Returns: string }
       assign_tenant_order_role: {
         Args: {

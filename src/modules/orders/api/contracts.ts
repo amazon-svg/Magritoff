@@ -95,6 +95,41 @@ export const createOrderResultSchema = z.object({
   replayed: z.boolean(),
 });
 
+export const draftOrderItemSchema = z.object({
+  id: z.uuid(),
+  productId: z.uuid().nullable(),
+  productLabel: z.string(),
+  clariprintOptions: z.record(z.string(), z.json()).nullable(),
+  quantity: z.number().int().positive(),
+  unitPriceHt: z.number().nonnegative(),
+  lineTotalHt: z.number().nonnegative(),
+});
+
+export const draftOrderSchema = z.object({
+  orderId: z.uuid(),
+  status: z.string(),
+  totalHt: z.number().nonnegative(),
+  items: z.array(draftOrderItemSchema),
+});
+
+export const updateDraftOrderItemSchema = z.object({
+  id: z.uuid(),
+  productLabel: z.string().trim().min(1),
+  quantity: z.number().int().positive(),
+  unitPriceHt: z.number().nonnegative(),
+});
+
+export const updateDraftOrderCommandSchema = z.object({
+  items: z.array(updateDraftOrderItemSchema).min(1),
+  idempotencyKey: z.string().trim().min(8).max(200),
+});
+
+export const updateDraftOrderResultSchema = z.object({
+  orderId: z.uuid(),
+  totalHt: z.number().nonnegative(),
+  replayed: z.boolean(),
+});
+
 export type OrderSummary = z.infer<typeof orderSummarySchema>;
 export type OrdersList = z.infer<typeof ordersListSchema>;
 export type PortalOrdersTab = z.infer<typeof portalOrdersTabSchema>;
@@ -106,3 +141,7 @@ export type TransitionOrderCommand = z.infer<typeof transitionOrderCommandSchema
 export type TransitionOrderResult = z.infer<typeof transitionOrderResultSchema>;
 export type CreateOrderCommand = z.infer<typeof createOrderCommandSchema>;
 export type CreateOrderResult = z.infer<typeof createOrderResultSchema>;
+export type DraftOrderItem = z.infer<typeof draftOrderItemSchema>;
+export type DraftOrder = z.infer<typeof draftOrderSchema>;
+export type UpdateDraftOrderCommand = z.infer<typeof updateDraftOrderCommandSchema>;
+export type UpdateDraftOrderResult = z.infer<typeof updateDraftOrderResultSchema>;

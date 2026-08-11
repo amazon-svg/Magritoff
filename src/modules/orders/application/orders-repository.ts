@@ -3,6 +3,9 @@ import type { PortalOrdersCounters, PortalOrdersTab } from '../api/contracts.ts'
 import type {
   CreateOrderCommand,
   CreateOrderResult,
+  DraftOrder,
+  UpdateDraftOrderCommand,
+  UpdateDraftOrderResult,
   TransitionOrderCommand,
   TransitionOrderResult,
 } from '../api/contracts.ts';
@@ -51,6 +54,7 @@ export type OrderCommandRejectionCode =
   | 'order_not_found'
   | 'shop_not_found'
   | 'invalid_order_items'
+  | 'order_not_editable'
   | 'transition_not_allowed'
   | 'permission_denied';
 
@@ -82,4 +86,6 @@ export interface OrdersRepository {
   ): Promise<void>;
   createOrder(command: CreateOrderCommand): Promise<CreateOrderResult>;
   notifyOrderCreated(result: CreateOrderResult, baseUrl: string): Promise<void>;
+  getDraftOrder(orderId: string): Promise<DraftOrder>;
+  updateDraftOrder(orderId: string, command: UpdateDraftOrderCommand): Promise<UpdateDraftOrderResult>;
 }

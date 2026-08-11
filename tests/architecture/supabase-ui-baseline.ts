@@ -5,7 +5,7 @@
  * seulement la dette historique d'augmenter pendant sa migration vers /api/v1.
  * Chaque story de migration doit supprimer les entrées devenues inutiles et
  * abaisser les compteurs ; la baseline ne doit jamais être augmentée.
- * Après AF5.2a : 38 fichiers importeurs et 159 références directes restantes.
+ * Après AF5.2b : 37 fichiers importeurs et 153 références directes restantes.
  * Le compteur inclut les appels où `supabase` et `.` sont séparés par un saut de ligne.
  */
 export const legacySupabaseUiImportFiles = new Set([
@@ -32,7 +32,6 @@ export const legacySupabaseUiImportFiles = new Set([
   'src/app/components/shop/portal/AccountHub.tsx',
   'src/app/components/shop/portal/CheckoutPage.tsx',
   'src/app/components/shop/portal/PortalCatalog.tsx',
-  'src/app/components/shop/portal/PortalOrderEditor.tsx',
   'src/app/components/shop/portal/PortalThankYou.tsx',
   'src/app/components/tenant/AcceptInvitation.tsx',
   'src/app/components/tenant/LegacySlugRedirect.tsx',
@@ -68,11 +67,10 @@ export const legacySupabaseUiReferenceLimits = new Map<string, number>([
   ['src/app/components/dashboard/commercial/commercial.helpers.ts', 2],
   ['src/app/components/mockup/MockupImage.helpers.ts', 3],
   ['src/app/components/mockup/customMockup.helpers.ts', 2],
-  ['src/app/components/shop/PublicShop.tsx', 13],
+  ['src/app/components/shop/PublicShop.tsx', 11],
   ['src/app/components/shop/portal/AccountHub.tsx', 1],
   ['src/app/components/shop/portal/CheckoutPage.tsx', 4],
   ['src/app/components/shop/portal/PortalCatalog.tsx', 3],
-  ['src/app/components/shop/portal/PortalOrderEditor.tsx', 4],
   ['src/app/components/shop/portal/PortalThankYou.tsx', 1],
   ['src/app/components/tenant/AcceptInvitation.tsx', 3],
   ['src/app/components/tenant/LegacySlugRedirect.tsx', 1],

@@ -7,6 +7,9 @@ import {
   transitionOrderResultSchema,
   createOrderCommandSchema,
   createOrderResultSchema,
+  draftOrderSchema,
+  updateDraftOrderCommandSchema,
+  updateDraftOrderResultSchema,
 } from '../../modules/orders/api/contracts.ts';
 import type { OrdersService } from '../../modules/orders/application/orders-service.ts';
 import { OrderCommandRejectedError } from '../../modules/orders/application/orders-repository.ts';
@@ -28,6 +31,41 @@ export function createOrdersRoutes(service: OrdersService): readonly ApiRoute[] 
           return {
             status: 201,
             body: await service.create(command, new URL(context.request.url).origin),
+          };
+        } catch (error) {
+          if (error instanceof OrderCommandRejectedError) throw toHttpError(error);
+          throw error;
+        }
+      },
+    }),
+    defineJsonRoute({
+      method: 'GET',
+      path: `${API_V1_BASE_PATH}/orders/{orderId}/draft`,
+      authentication: 'required',
+      inputSchema: null,
+      outputSchema: draftOrderSchema,
+      async handle(context) {
+        requireUserId(context);
+        try {
+          return { status: 200, body: await service.getDraft(context.params.orderId ?? '') };
+        } catch (error) {
+          if (error instanceof OrderCommandRejectedError) throw toHttpError(error);
+          throw error;
+        }
+      },
+    }),
+    defineJsonRoute({
+      method: 'PUT',
+      path: `${API_V1_BASE_PATH}/orders/{orderId}/draft`,
+      authentication: 'required',
+      inputSchema: updateDraftOrderCommandSchema,
+      outputSchema: updateDraftOrderResultSchema,
+      async handle(context, command) {
+        requireUserId(context);
+        try {
+          return {
+            status: 200,
+            body: await service.updateDraft(context.params.orderId ?? '', command),
           };
         } catch (error) {
           if (error instanceof OrderCommandRejectedError) throw toHttpError(error);
@@ -105,7 +143,8 @@ function toHttpError(error: OrderCommandRejectedError): ApiHttpError {
     type: 'about:blank',
     title: status === 404 ? 'Ressource Orders introuvable'
       : status === 403 ? 'Commande interdite'
-        : status === 422 ? 'Articles de commande invalides' : 'Transition impossible',
+        : status === 422 ? 'Articles de commande invalides'
+          : error.code === 'order_not_editable' ? 'Commande non modifiable' : 'Transition impossible',
     status,
     code: `orders.${error.code}`,
     detail: error.message,

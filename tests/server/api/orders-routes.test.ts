@@ -40,6 +40,17 @@ describe('routes Orders API v1', () => {
         quantity: 2, unitPriceHt: 75,
       }],
     })).resolves.toMatchObject({ totalHt: 150, replayed: false });
+    const draftOrderId = '22222222-2222-4222-8222-222222222222';
+    await expect(client.getDraft(draftOrderId)).resolves.toMatchObject({
+      orderId: draftOrderId, status: 'draft', items: [{ productLabel: 'Flyers' }],
+    });
+    await expect(client.updateDraft(draftOrderId, {
+      items: [{
+        id: '44444444-4444-4444-8444-444444444444',
+        productLabel: 'Flyers premium', quantity: 3, unitPriceHt: 60,
+      }],
+      idempotencyKey: 'update-af5-route',
+    })).resolves.toMatchObject({ orderId: draftOrderId, totalHt: 180, replayed: false });
   });
 
   it('refuse les lectures sans authentification', async () => {
@@ -75,6 +86,36 @@ describe('routes Orders API v1', () => {
       code: 'orders.transition_not_allowed', requestId: 'request-af5-conflict',
     });
   });
+
+  it('traduit un brouillon verrouillé en Problem Details 409', async () => {
+    const repository = repositoryStub();
+    repository.updateDraftOrder = async () => {
+      throw new OrderCommandRejectedError('order_not_editable', 'status is validated');
+    };
+    const handler = createApiV1Application({
+      routes: createOrdersRoutes(new OrdersService(repository)),
+      requestIdFactory: () => 'request-af5-draft-conflict',
+      actorResolver: { async resolve() { return { kind: 'user', userId: id('user-af5') }; } },
+    });
+    const response = await handler(new Request(
+      'https://magrit.test/api/v1/orders/22222222-2222-4222-8222-222222222222/draft',
+      {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: [{
+            id: '44444444-4444-4444-8444-444444444444',
+            productLabel: 'Flyers', quantity: 1, unitPriceHt: 10,
+          }],
+          idempotencyKey: 'update-af5-conflict',
+        }),
+      },
+    ));
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'orders.order_not_editable', requestId: 'request-af5-draft-conflict',
+    });
+  });
 });
 
 function repositoryStub(): OrdersRepository {
@@ -108,6 +149,19 @@ function repositoryStub(): OrdersRepository {
       replayed: false,
     }),
     notifyOrderCreated: async () => undefined,
+    getDraftOrder: async (orderId) => ({
+      orderId, status: 'draft', totalHt: 150,
+      items: [{
+        id: '44444444-4444-4444-8444-444444444444', productId: null,
+        productLabel: 'Flyers', clariprintOptions: null, quantity: 2,
+        unitPriceHt: 75, lineTotalHt: 150,
+      }],
+    }),
+    updateDraftOrder: async (orderId, command) => ({
+      orderId,
+      totalHt: command.items.reduce((sum, item) => sum + item.quantity * item.unitPriceHt, 0),
+      replayed: false,
+    }),
   };
 }
 

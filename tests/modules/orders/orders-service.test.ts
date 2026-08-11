@@ -69,6 +69,21 @@ describe('OrdersService', () => {
     });
     expect(repository.notifyOrderCreated).toHaveBeenCalledOnce();
   });
+
+  it('délègue lecture et édition atomique du brouillon', async () => {
+    const repository = repositoryStub();
+    const service = new OrdersService(repository);
+
+    await expect(service.getDraft('22222222-2222-4222-8222-222222222222'))
+      .resolves.toMatchObject({ status: 'draft', items: [{ productLabel: 'Flyers' }] });
+    await expect(service.updateDraft('22222222-2222-4222-8222-222222222222', {
+      items: [{
+        id: '44444444-4444-4444-8444-444444444444',
+        productLabel: 'Flyers premium', quantity: 3, unitPriceHt: 60,
+      }],
+      idempotencyKey: 'update-af5-2b',
+    })).resolves.toMatchObject({ totalHt: 180, replayed: false });
+  });
 });
 
 function repositoryStub(): OrdersRepository & Record<'listLegacyOrders', ReturnType<typeof vi.fn>> {
@@ -107,6 +122,19 @@ function repositoryStub(): OrdersRepository & Record<'listLegacyOrders', ReturnT
       replayed: false,
     })),
     notifyOrderCreated: vi.fn(async () => undefined),
+    getDraftOrder: vi.fn(async (orderId) => ({
+      orderId, status: 'draft', totalHt: 150,
+      items: [{
+        id: '44444444-4444-4444-8444-444444444444', productId: null,
+        productLabel: 'Flyers', clariprintOptions: null, quantity: 2,
+        unitPriceHt: 75, lineTotalHt: 150,
+      }],
+    })),
+    updateDraftOrder: vi.fn(async (orderId, command) => ({
+      orderId,
+      totalHt: command.items.reduce((sum, item) => sum + item.quantity * item.unitPriceHt, 0),
+      replayed: false,
+    })),
   };
 }
 
