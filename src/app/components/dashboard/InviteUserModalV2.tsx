@@ -9,9 +9,9 @@
  *     (parmi les 5 presets seedés : Owner, Admin, Acheteur, Validateur,
  *     Producteur, + tous les rôles custom créés par l'admin tenant)
  *
- * La commande navigateur passe par POST /api/v1/invitations. L'adaptateur
- * serveur délègue temporairement à invite-member, le temps d'internaliser
- * complètement l'écriture dans le module Invitations. Le RPC
+ * La commande navigateur passe par POST /api/v1/invitations. La création est
+ * contrôlée par une commande SQL sécurisée et l’email passe par le port
+ * InvitationEmailSender. Le RPC
  * accept_tenant_invitation propage les rôles en tenant_role_assignments à
  * l'acceptation (cf. migration 20260525000200).
  *

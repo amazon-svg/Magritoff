@@ -116,8 +116,9 @@ src/
   de `DashboardUsers` hors Supabase — livré ;
 - AF11.1 : renvoi d’invitation directement via un port email et l’adaptateur
   Resend, sans Edge Function imbriquée — livré ;
-- suite : supprimer les adaptateurs transitoires vers les anciennes Edge
-  Functions pour la création initiale et migrer les écrans de définition des rôles.
+- AF11.2 : création initiale via une commande SQL sécurisée puis port Resend,
+  sans `invite-member` ni service-role dans l’API — livré ;
+- suite : migrer les écrans de définition des rôles.
 
 ## Critères de succès
 

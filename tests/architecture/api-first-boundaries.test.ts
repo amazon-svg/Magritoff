@@ -187,6 +187,18 @@ describe('frontières API-first et modulaires', () => {
     expect(repository).toContain('InvitationEmailSender');
     expect(repository).not.toContain('send-invitation-email');
     expect(repository).not.toContain("functions.invoke<LegacyInviteResponse>('make-server");
+    expect(repository).not.toContain('invite-member');
+    expect(repository).not.toContain('.functions.invoke');
+  });
+
+  it('sécurise la création d invitation dans une commande SQL étroite', () => {
+    const migration = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260811000900_api_create_tenant_invitation.sql'), 'utf8');
+    expect(migration).toContain('security definer');
+    expect(migration).toContain("user_has_capability(p_tenant_id, 'can_invite')");
+    expect(migration).toContain('role_mismatch_tenant');
+    expect(migration).toContain('duplicate_pending');
+    expect(migration).toContain('revoke all on function');
+    expect(migration).toContain('grant execute on function');
   });
 
   it('sort le dashboard utilisateurs du fournisseur de données', () => {

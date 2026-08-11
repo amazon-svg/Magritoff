@@ -2003,6 +2003,21 @@ export type Database = {
           user_id: string
         }[]
       }
+      api_create_tenant_invitation: {
+        Args: {
+          p_access_scope: string
+          p_allowed_shop_ids?: string[]
+          p_email: string
+          p_role_definition_ids?: string[]
+          p_tenant_id: string
+        }
+        Returns: {
+          invitation_expires_at: string
+          invitation_id: string
+          invitation_token: string
+          tenant_name: string
+        }[]
+      }
       get_user_llm_usage: {
         Args: {
           p_period_end?: string
