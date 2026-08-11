@@ -110,6 +110,10 @@ export function AccountHub({
 function AccountQuotes() {
   const { user } = useAuth();
   const { quotes, loading } = useQuotes();
+  // CORRECTIF 2026-08-11 : `currency` etait lu depuis AccountHub, hors de
+  // portee ici — ReferenceError sur longlet Devis du compte acheteur. Meme
+  // defaut que le Parc machine et la Gestion commerciale.
+  const currency = useCurrency();
 
   if (!user) {
     return (

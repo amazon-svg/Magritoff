@@ -1,0 +1,83 @@
+{
+  // ---------------------------------------------------------------------------
+  // Verification de types — introduite le 2026-08-11.
+  //
+  // Le depot etait ecrit integralement en .ts / .tsx SANS TypeScript installe
+  // ni tsconfig : `vite build` transpile via esbuild, qui EFFACE les types sans
+  // jamais les verifier. Aucune erreur de type n avait donc jamais ete levee.
+  //
+  // Ce qui l a revele : le module Parc machine referencait une variable
+  // `currency` definie dans un AUTRE composant. Build vert, 866 tests verts,
+  // et une ReferenceError des qu on ouvrait l ecran. Un typage aurait arrete
+  // ca a l ecriture.
+  //
+  // Posture assumee (R5 — souplesse encadree sur l existant) : la configuration
+  // est volontairement PERMISSIVE. Elle attrape la famille de defauts qui nous
+  // a coute cette panne (symbole inconnu, import casse, arite fausse) sans
+  // exiger la reprise de dizaines de milliers de lignes ecrites sans filet.
+  // Le durcissement (`strict`, `noUnusedLocals`…) se fera fichier par fichier,
+  // au fil des interventions.
+  //
+  // ─── Ce que la premiere passe a trouve, le 2026-08-11 ─────────────────────
+  // 79 erreurs, dont 44 de simple resolution de chemins (table `paths`
+  // ci-dessous) et **5 SYMBOLES INTROUVABLES**, tous des pannes reelles :
+  //   · MachineParkDetail / MachineParkWizard  → `currency`  (Parc machine)
+  //   · DashboardCommercial                    → `currency` + `adjustModeLabel`
+  //   · AccountHub                             → `currency`  (onglet Devis)
+  //   · DashboardAdminPIM                      → `upsertGamme` (visuel de gamme)
+  // Trois viennent de la meme purge des euros de la tranche 1 multi-devise.
+  // Toutes corrigees le meme jour. Il reste 0 symbole introuvable.
+  //
+  // DETTE RESTANTE, ASSUMEE : **32 erreurs** de typage heritees, sans effet
+  // au runtime — 13 acces a des proprietes hors type, 10 fixtures de test
+  // incompletes, 7 directives `@ts-expect-error` devenues inutiles, 2 casts.
+  // `pnpm typecheck` est donc encore ROUGE : il se lit comme un compteur a
+  // faire baisser, pas comme une barriere. Il ne deviendra bloquant (CI) que
+  // lorsque ce compteur atteindra zero.
+  // ---------------------------------------------------------------------------
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "allowImportingTsExtensions": true,
+    "allowArbitraryExtensions": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+
+    // Permissif — voir l en-tete. `strict` reste a conquerir.
+    "strict": false,
+    "noImplicitAny": false,
+    "strictNullChecks": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+
+    "types": ["vite/client", "vitest/globals"],
+
+    // Vite resout `/utils/...` depuis la racine du projet (dossier `utils/`
+    // hors de `src/`) et `@/...` vers `src/`. tsc ne connait ni lun ni lautre
+    // sans cette table : sans elle, 44 des 79 erreurs relevees etaient de
+    // simples modules introuvables, pas des defauts de code.
+    "baseUrl": ".",
+    "paths": {
+      "/utils/*": ["./utils/*"],
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["src", "tests", "utils"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "coverage",
+    // Extraits colles depuis loutil de maquettage, non compiles par lapplication.
+    "src/imports",
+    // Deno : resolution de modules par URL, incompatible avec ce tsconfig.
+    "supabase"
+  ]
+}

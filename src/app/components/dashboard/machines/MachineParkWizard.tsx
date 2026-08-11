@@ -33,7 +33,8 @@ import {
 } from 'lucide-react';
 import { useTenant } from '../../../contexts/TenantContext';
 import { useTenantPath } from '../../../hooks/useTenantPath';
-import { formatCurrencyPerUnit, getCurrency, getCurrencySymbol } from '../../../utils/currency';
+import { useCurrency } from '../../../contexts/CurrencyContext';
+import { formatCurrencyPerUnit } from '../../../utils/currency';
 import {
   DEFAULT_ENERGY_RATE, DEFAULT_INKS, DEFAULT_LABOR_RATE, KNOWN_SUBCONTRACTORS,
   MACHINE_LIBRARY, MACHINE_TYPES, PAPER_SUPPLIERS, TRANSPORT_SUPPLIERS,
@@ -64,7 +65,7 @@ const inputCls =
 export function MachineParkWizard() {
   const { currentTenant } = useTenant();
   // Multi-devise tranche 1 : affichage de l unite seulement (cf. tranche 2).
-  const currency = getCurrency(currentTenant);
+  const currency = useCurrency();
   const tp = useTenantPath();
   const navigate = useNavigate();
 
@@ -641,6 +642,9 @@ function CartRow({
   onRemove: () => void;
   onUpdate: (patch: Partial<ParkMachine>) => void;
 }) {
+  // CORRECTIF 2026-08-11 : ce composant lisait `currency` du composant PARENT,
+  // hors de sa portee — une ReferenceError au rendu. Voir MachineParkDetail.
+  const currency = useCurrency();
   const [showSub, setShowSub] = useState(machine.location === 'externe');
   const suggestions = KNOWN_SUBCONTRACTORS.filter(
     (s) =>
@@ -735,6 +739,9 @@ function FinalSteps(props: {
   variant: Variant | null;
   clicksRef: React.MutableRefObject<number>;
 }) {
+  // CORRECTIF 2026-08-11 : ce composant lisait `currency` du composant PARENT,
+  // hors de sa portee — une ReferenceError au rendu. Voir MachineParkDetail.
+  const currency = useCurrency();
   const {
     step, setStep, selected, paperSuppliers, setPaperSuppliers, transportSuppliers,
     setTransportSuppliers, inks, setInks, laborRate, setLaborRate, showEnergyDefault,

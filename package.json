@@ -11,6 +11,7 @@
     "dev:b5:stop": "./scripts/dev-b5.sh --stop",
     "dev:b5:status": "./scripts/dev-b5.sh --status",
     "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "test:coverage": "vitest run --coverage",
     "db:types": "./scripts/gen-db-types.sh",
     "build:analyze": "ANALYZE=1 vite build && echo '✅ Bundle visualizer : dist/stats.html'",
@@ -85,6 +86,7 @@
     "dotenv": "^17.4.2",
     "rollup-plugin-visualizer": "^7.0.1",
     "tailwindcss": "4.1.12",
+    "typescript": "5.9.3",
     "vite": "6.3.5",
     "vitest": "^4.1.5"
   },

@@ -20,9 +20,9 @@ import {
 } from 'lucide-react';
 import { supabase } from '/utils/supabase/client';
 import { useTenant } from '../../../contexts/TenantContext';
+import { useCurrency } from '../../../contexts/CurrencyContext';
 import {
   formatMoney,
-  getCurrency,
   getCurrencySymbol,
 } from '../../../utils/currency';
 import {
@@ -52,7 +52,7 @@ const btnGhost =
 export function DashboardCommercial() {
   const { currentTenant } = useTenant();
   // Multi-devise tranche 1 : prix imposes et libelles suivent la devise du tenant.
-  const currency = getCurrency(currentTenant);
+  const currency = useCurrency();
   const adjustModeLabel = adjustModeLabels(currency);
   const [tab, setTab] = useState<'rules' | 'groups'>('rules');
   const [rules, setRules] = useState<ClientPriceRule[]>([]);
@@ -428,6 +428,12 @@ function RuleDialog({
   onClose: () => void;
   onCreated: () => void;
 }) {
+  // CORRECTIF 2026-08-11 : `currency` et `adjustModeLabel` etaient lus depuis
+  // le composant PARENT, hors de portee ici — ReferenceError a louverture du
+  // dialogue de creation de regle. Meme defaut que le Parc machine, introduit
+  // par la meme purge des euros de la tranche 1 et invisible faute de typage.
+  const currency = useCurrency();
+  const adjustModeLabel = adjustModeLabels(currency);
   const [name, setName] = useState('');
   const [scopeType, setScopeType] = useState<ScopeType>('user');
   const [groupId, setGroupId] = useState('');

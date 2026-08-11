@@ -29,7 +29,9 @@ export function DashboardAdminPIM() {
   const isAdmin = useIsAdmin();
   const { isSuperAdmin } = useTenant();
   const hasAccess = isAdmin || isSuperAdmin;
-  const { gammes, definitions, upsertDefinition, deleteDefinition, refresh } = usePIM();
+  // CORRECTIF 2026-08-11 : `upsertGamme` etait appele sans etre extrait du
+  // contexte PIM — enregistrer le visuel dune gamme levait une ReferenceError.
+  const { gammes, definitions, upsertGamme, upsertDefinition, deleteDefinition, refresh } = usePIM();
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [editing, setEditing] = useState<Partial<ProductDefinition> | null>(null);

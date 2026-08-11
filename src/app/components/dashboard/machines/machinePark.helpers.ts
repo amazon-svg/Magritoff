@@ -95,7 +95,23 @@ export interface LibraryMachine {
 export interface PriceParamDef {
   key: string;
   label: string;
-  unit: string;
+  /**
+   * Unite PHYSIQUE, sans devise (« feuilles/h », « min », « m²/h »).
+   * Absente quand le parametre est monetaire : c est alors `moneyPer` qui
+   * porte le denominateur, et le symbole vient de la devise de l imprimeur.
+   */
+  unit?: string;
+  /**
+   * Denominateur d une unite MONETAIRE — « plaque » rend « €/plaque » en zone
+   * euro, « $/plaque » chez un imprimeur en dollars.
+   *
+   * Multi-devise (2026-08-11) : la bibliotheque de machines est un
+   * REFERENTIEL PARTAGE entre imprimeurs. Y ecrire un symbole monetaire
+   * reintroduit exactement le defaut que la tranche 1 a supprime — le
+   * referentiel n a pas de devise, seul l affichage en a une. Resolution :
+   * `priceParamUnit(p, currency)`.
+   */
+  moneyPer?: string;
   /** Valeur par defaut du TYPE (surchargee par machine via priceDefaults). */
   def: number;
   /** Pas de saisie. */
@@ -107,25 +123,25 @@ export const PRICE_PARAMS: Record<MachineTypeKey, PriceParamDef[]> = {
     { key: 'speed', label: 'Vitesse de tirage', unit: 'feuilles/h', def: 15000, step: 500 },
     { key: 'makeReadyMin', label: 'Temps de calage', unit: 'min', def: 20 },
     { key: 'makeReadyWaste', label: 'Gâche de calage', unit: 'feuilles', def: 250, step: 50 },
-    { key: 'plateCost', label: 'Coût plaque', unit: '€/plaque', def: 8, step: 0.5 },
+    { key: 'plateCost', label: 'Coût plaque', moneyPer: 'plaque', def: 8, step: 0.5 },
   ],
   numerique: [
-    { key: 'clickColor', label: 'Coût clic couleur', unit: '€/face A4', def: 0.045, step: 0.005 },
-    { key: 'clickBW', label: 'Coût clic noir', unit: '€/face A4', def: 0.012, step: 0.002 },
+    { key: 'clickColor', label: 'Coût clic couleur', moneyPer: 'face A4', def: 0.045, step: 0.005 },
+    { key: 'clickBW', label: 'Coût clic noir', moneyPer: 'face A4', def: 0.012, step: 0.002 },
     { key: 'speedPpm', label: 'Vitesse', unit: 'pages A4/min', def: 100, step: 5 },
   ],
   grand_format: [
-    { key: 'inkCostM2', label: 'Coût encre', unit: '€/m²', def: 1.8, step: 0.1 },
+    { key: 'inkCostM2', label: 'Coût encre', moneyPer: 'm²', def: 1.8, step: 0.1 },
     { key: 'speedM2h', label: 'Vitesse', unit: 'm²/h', def: 25, step: 5 },
   ],
   roto: [
     { key: 'speed', label: 'Vitesse', unit: 'ex/h', def: 40000, step: 1000 },
     { key: 'makeReadyMin', label: 'Temps de calage', unit: 'min', def: 45 },
     { key: 'makeReadyWaste', label: 'Gâche de calage', unit: 'm de bande', def: 500, step: 50 },
-    { key: 'plateCost', label: 'Coût plaque', unit: '€/plaque', def: 8, step: 0.5 },
+    { key: 'plateCost', label: 'Coût plaque', moneyPer: 'plaque', def: 8, step: 0.5 },
   ],
   decoupe: [
-    { key: 'dieCost', label: 'Coût forme de découpe', unit: '€/forme', def: 350, step: 10 },
+    { key: 'dieCost', label: 'Coût forme de découpe', moneyPer: 'forme', def: 350, step: 10 },
     { key: 'makeReadyMin', label: 'Temps de calage', unit: 'min', def: 25 },
     { key: 'speed', label: 'Cadence', unit: 'feuilles/h', def: 5000, step: 250 },
   ],
@@ -139,9 +155,23 @@ export const PRICE_PARAMS: Record<MachineTypeKey, PriceParamDef[]> = {
   finition: [
     { key: 'speed', label: 'Cadence', unit: 'ex/h', def: 4000, step: 250 },
     { key: 'makeReadyMin', label: 'Temps de calage', unit: 'min', def: 20 },
-    { key: 'consumableCost', label: 'Consommable (colle, fil, film…)', unit: '€/ex', def: 0.05, step: 0.01 },
+    { key: 'consumableCost', label: 'Consommable (colle, fil, film…)', moneyPer: 'ex', def: 0.05, step: 0.01 },
   ],
 };
+
+/**
+ * Unite affichable d un parametre de prix, devise resolue.
+ *
+ * `formatCurrencyPerUnit` est importe paresseusement par l appelant pour que
+ * ce fichier reste sans dependance React et testable tel quel.
+ */
+export function priceParamUnit(
+  p: Pick<PriceParamDef, 'unit' | 'moneyPer'>,
+  currencySymbolPer: (unit: string) => string,
+): string {
+  if (p.moneyPer) return currencySymbolPer(p.moneyPer);
+  return p.unit ?? '';
+}
 
 /** Valeurs de prix effectives d une machine de parc : defauts du type,
  * surcharges du modele, puis saisies utilisateur. */

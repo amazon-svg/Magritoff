@@ -13,10 +13,11 @@ import { Link, useParams } from 'react-router';
 import { ArrowLeft, AlertTriangle, Factory, Trash2, X, MapPin } from 'lucide-react';
 import { useTenant } from '../../../contexts/TenantContext';
 import { useTenantPath } from '../../../hooks/useTenantPath';
-import { formatCurrencyPerUnit, getCurrency, getCurrencySymbol } from '../../../utils/currency';
+import { useCurrency } from '../../../contexts/CurrencyContext';
+import { formatCurrencyPerUnit, getCurrencySymbol } from '../../../utils/currency';
 import {
   KNOWN_SUBCONTRACTORS, MACHINE_TYPES, PRICE_PARAMS, loadParks, machinePriceValues,
-  parkIsCalculable, upsertPark,
+  parkIsCalculable, priceParamUnit, upsertPark,
   type MachinePark, type MachineTypeKey, type ParkMachine,
 } from './machinePark.helpers';
 
@@ -28,7 +29,7 @@ export function MachineParkDetail() {
   const { parkId } = useParams<{ parkId: string }>();
   const { currentTenant } = useTenant();
   // Multi-devise tranche 1 : affichage de l unite seulement (cf. tranche 2).
-  const currency = getCurrency(currentTenant);
+  const currency = useCurrency();
   const tp = useTenantPath();
   const tenantId = currentTenant?.id ?? '';
   const [park, setPark] = useState<MachinePark | null>(
@@ -245,6 +246,12 @@ function MachineDialog({
   onClose: () => void;
   onSave: (patch: Partial<ParkMachine>) => void;
 }) {
+  // CORRECTIF 2026-08-11 : ce composant lisait `currency` du composant PARENT,
+  // qui n est pas dans sa portee — ouvrir une machine levait une ReferenceError.
+  // Non detecte parce que le depot n a aucune verification de types (vite
+  // transpile sans typer) et que la recette visuelle du module restait a faire.
+  // `useCurrency()` est le point d acces unique pose par la tranche 1.
+  const currency = useCurrency();
   const [location, setLocation] = useState<ParkMachine['location']>(machine.location);
   const [subcontractor, setSubcontractor] = useState(machine.subcontractor ?? '');
   const [transportCost, setTransportCost] = useState(String(machine.transportCost ?? 0));
@@ -363,7 +370,9 @@ function MachineDialog({
                 <div key={p.key}>
                   <label className={labelCls}>
                     {p.label}{' '}
-                    <span className="font-normal text-ink-mute-2">({p.unit})</span>
+                    <span className="font-normal text-ink-mute-2">
+                      ({priceParamUnit(p, (u) => formatCurrencyPerUnit(currency, u))})
+                    </span>
                   </label>
                   <input
                     type="number"
