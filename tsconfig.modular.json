@@ -8,7 +8,9 @@
   "include": [
     "src/kernel",
     "src/platform",
+    "src/modules/access-management",
     "src/modules/clariprint-data",
+    "src/server/access-management",
     "tests/kernel/types.typecheck.ts"
   ]
 }

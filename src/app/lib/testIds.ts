@@ -48,7 +48,11 @@ export const TEST_IDS = {
     sidebarAtelierLink: 'nav-sidebar-atelier-link',
     sidebarConfigLink: 'nav-sidebar-config-link',
     sidebarProfileLink: 'nav-sidebar-profile-link',
+    sidebarClariprintDataLink: 'nav-sidebar-clariprint-data-link',
     tenantSwitcher: 'nav-tenant-switcher',
+  },
+  clariprintData: {
+    page: 'clariprint-data-page',
   },
   dashboard: {
     welcomeCard: 'dashboard-welcome-card',

@@ -3,6 +3,7 @@ import {
   User, Settings, MessageSquare, FileText, ShoppingBag, Users,
   CreditCard, Package, Store, Shield, LayoutTemplate, Building, Layers, Workflow,
   FileClock, BadgePercent, Factory, Image as ImageIcon,
+  Database,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlan } from '../../hooks/usePlan';
@@ -19,6 +20,7 @@ const NAV_LINK_TESTIDS: Record<string, string> = {
   // le testid historique est conserve pour les cahiers de tests P01.
   'Mon compte': TEST_IDS.nav.sidebarProfileLink,
   'Utilisateurs': TEST_IDS.nav.sidebarUsersLink,
+  'Clariprint Data': TEST_IDS.nav.sidebarClariprintDataLink,
 };
 
 // E7.7 — mapping titre de groupe -> data-testid (groupes structurels Linear-like).
@@ -133,6 +135,12 @@ export function DashboardLayout() {
       title: 'Production',
       items: [
         { to: `${basePath}/machines`, label: 'Parc machine', icon: Factory, show: canManageMembers ?? false },
+        {
+          to: `${basePath}/clariprint-data`,
+          label: 'Clariprint Data',
+          icon: Database,
+          show: true,
+        },
       ],
     },
     {

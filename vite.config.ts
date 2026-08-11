@@ -3,6 +3,7 @@ import path from 'path'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { visualizer } from 'rollup-plugin-visualizer'
+import { projectId, publicAnonKey } from './utils/supabase/info'
 
 
 function figmaAssetResolver() {
@@ -50,6 +51,20 @@ export default defineConfig({
 
   // File types to support raw imports. Never add .css, .tsx, or .ts files to this.
   assetsInclude: ['**/*.svg', '**/*.csv'],
+
+  // Façade API locale : le navigateur ne connaît que /api/v1. Le proxy Vite
+  // est la composition d'infrastructure de développement et masque
+  // l'hébergement Supabase de l'API métier access-management.
+  server: {
+    proxy: {
+      '/api/v1': {
+        target: `https://${projectId}.supabase.co`,
+        changeOrigin: true,
+        headers: { apikey: publicAnonKey },
+        rewrite: (requestPath) => `/functions/v1/access-management${requestPath}`,
+      },
+    },
+  },
 
   // R7 : seuil bundle warning a 600 KB (au-dela = warning Vite explicite).
   // La baseline actuelle est ~890 KB → on documente comme dette technique
