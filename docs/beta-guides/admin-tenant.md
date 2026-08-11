@@ -74,6 +74,19 @@ Cascade de résolution : **gamme > shop > default Magrit**. Le helper SQL `resol
 
 **Composition layered** (V5) : le fond est appliqué via CSS `background-image` sur le wrapper du PNG produit (transparent). Le PNG reste cacheable indépendamment du fond — changement de fond instantané sans regénération.
 
+### Choisir le mode d’accès
+
+- **Sur invitation (`invite_only`, valeur par défaut)** : aucun catalogue
+  visible sans invitation. Invite l’acheteur depuis « Utilisateurs » et ajoute
+  cette boutique à son périmètre `shop_only`. La page de connexion ne propose
+  pas de création de compte.
+- **Inscription libre (`self_signup`)** : catalogue public et création de
+  compte disponible au checkout. La première commande rattache automatiquement
+  l’acheteur avec un accès `shop_only` limité à cette boutique.
+
+Ne passe une boutique en inscription libre que si son catalogue et ses prix
+peuvent être rendus publics.
+
 ## 6. Validation et workflow N+1
 
 Quand un acheteur passe commande (status `draft`) :

@@ -6,7 +6,7 @@
 
 ## Contexte & décision d'architecture (option C)
 
-`QuotesProvider` est monté dans `AppShell` ([src/app/AppShell.tsx](../../src/app/AppShell.tsx)), qui enveloppe **toutes** les routes, y compris `/shop/:slug` (`PublicShop`). Mais la boutique publique est **anonyme / hors-tenant** : `useTenant().currentTenant` y est `null`, donc `QuotesContext.reload()` renvoie systématiquement `[]`. Les devis n'y sont donc **pas exploitables**.
+`QuotesProvider` est monté dans `AppShell` ([src/app/AppShell.tsx](../../src/app/AppShell.tsx)), qui enveloppe **toutes** les routes, y compris `/shop/:slug` (`PublicShop`). Historiquement la route était supposée anonyme / hors-tenant. Depuis AF7.1, cela ne vaut que pour `self_signup` : une boutique `invite_only` exige une membership autorisée avant tout contenu. Dans les deux cas, `useTenant().currentTenant` peut être `null`, donc `QuotesContext.reload()` renvoie `[]`. Les devis n'y sont donc **pas exploitables**.
 
 Conséquence (décision Arnaud, tranchée dans [epics.md L739-741](../planning-artifacts/epics.md)) : **scinder** la story S2.7 étendue en deux blocs, chacun là où sa donnée est disponible :
 

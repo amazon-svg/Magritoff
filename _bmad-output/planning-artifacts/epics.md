@@ -1562,8 +1562,12 @@ Relocalisation des fonctions portail : commandes (PortalOrders 4 tabs), devis, v
 Migration `shops.access_mode` (`invite_only` défaut) + RPC `self_register_shop_buyer(p_shop_id)` SECURITY DEFINER (allow-list scope shop_only + preset Acheteur, idempotente) + toggle « Inscription libre » dans `DashboardShopEditor` + tests RLS/RPC vitest.
 **Effort : M (2 j).** Déployable indépendamment de S7.12 (rétro-compat totale).
 
-**S7.12 — Checkout ≤ 2 écrans (ADR §4.20-4/5)**
-Écran « Identification » (onglets Se connecter / Créer un compte selon `access_mode` ; boutique invite_only = login + « Demander un accès ») → écran récap + « Commander » → PortalThankYou. Loggé = 1 écran. Smoke E2E parcours 1 complet (SEO → commande).
+**S7.12 — Checkout ≤ 2 écrans (ADR §4.20-4/5, amendé AF7.1)**
+Écran « Identification » (onglets Se connecter / Créer un compte pour
+`self_signup`). Une boutique `invite_only` bloque dès son entrée : login sans
+inscription, puis 403 si le compte n’est pas invité ; aucun catalogue n’est
+chargé avant autorisation. Écran récap + « Commander » → PortalThankYou.
+Loggé = 1 écran. Smoke E2E parcours 1 complet (SEO → commande).
 **Effort : L (3 j).**
 
 **S7.13 — Sitemap + indexabilité (ADR §4.19-4)**

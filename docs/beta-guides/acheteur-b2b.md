@@ -6,6 +6,13 @@
 
 Tu as été invité par ton admin tenant. Au login :
 
+- Une boutique **sur invitation** ne montre ni son catalogue ni son identité
+  avant connexion. Elle ne permet pas de créer un compte depuis son lien.
+- Un compte Magrit créé ailleurs ne suffit pas : l’admin doit aussi l’avoir
+  ajouté au tenant et à la boutique concernée.
+- Une boutique en **inscription libre** reste consultable sans compte et
+  propose la création de compte au moment de commander.
+
 - Si ton accès est **scope `shop_only`** sur 1 seule boutique → tu es **redirigé automatiquement** vers `/shop/<slug>` (depuis Sprint 5 fix `60bb45c`).
 - Si tu as accès à plusieurs boutiques → TenantPicker propose le choix.
 
@@ -30,7 +37,8 @@ Tu ne vois **PAS** les autres tenants ni les sous-tenants — uniquement les bou
 Quand tu valides ton panier :
 
 1. **Connexion requise** (décision Arnaud B2 — acheteur B2B avec compte tenant)
-2. Insert `tenant_orders` + `tenant_order_items` (ADR-ORDERS-1)
+2. Création atomique via l’API Orders (`tenant_orders` +
+   `tenant_order_items`, ADR-ORDERS-1)
 3. Status initial : `draft`
 4. Notification email part automatiquement aux validateurs du tenant
 5. Page de confirmation `PortalThankYou`

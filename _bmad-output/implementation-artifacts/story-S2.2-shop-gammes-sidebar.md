@@ -352,7 +352,12 @@ const filteredProducts = useMemo(
 
 ### Hypothèse RLS `tenant_gamme_subscriptions` lecture publique
 
-Le SELECT côté `/shop/:slug` est anonyme (route publique). La RLS de `tenant_gamme_subscriptions` doit autoriser `SELECT` aux anon avec `active=true`. **À vérifier** dans la migration E9.6 ou lors du dev. Si RLS bloque, fallback Task 6 sur "gammes inférées depuis produits".
+Le SELECT côté `/shop/:slug` n’est anonyme que pour une boutique
+`self_signup`. Depuis AF7.1, une boutique `invite_only` ne charge les gammes
+qu’après authentification et vérification de la membership. La RLS de
+`tenant_gamme_subscriptions` doit conserver la lecture nécessaire aux
+boutiques publiques `self_signup`; si elle bloque, fallback Task 6 sur
+« gammes inférées depuis produits ».
 
 ### Out of scope S2.2
 
