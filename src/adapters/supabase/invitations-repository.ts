@@ -13,6 +13,7 @@ import {
   type InvitationsRepository,
 } from '../../modules/invitations/application/invitations-repository.ts';
 import type { Database } from '../../types/database.types.ts';
+import type { InvitationEmailSender } from '../../modules/invitations/application/invitation-email-sender.ts';
 
 interface LegacyInviteResponse {
   ok?: boolean;
@@ -25,7 +26,10 @@ interface LegacyInviteResponse {
 }
 
 export class SupabaseInvitationsRepository implements InvitationsRepository {
-  constructor(private readonly client: SupabaseClient<Database>) {}
+  constructor(
+    private readonly client: SupabaseClient<Database>,
+    private readonly emailSender: InvitationEmailSender,
+  ) {}
 
   async create(
     actorUserId: UserId,
@@ -106,15 +110,16 @@ export class SupabaseInvitationsRepository implements InvitationsRepository {
 
   async resend(_actorUserId: UserId, invitationId: string, baseUrl: string): Promise<ResendInvitationResult> {
     const { data: visible, error: visibilityError } = await this.client.from('tenant_invitations')
-      .select('id').eq('id', invitationId).is('accepted_at', null).maybeSingle();
+      .select('id, email, token, expires_at, tenant_id, role').eq('id', invitationId).is('accepted_at', null).maybeSingle();
     if (visibilityError || !visible) throw new InvitationRejectedError('permission_denied', visibilityError?.message ?? 'Invitation inaccessible');
-    const { data, error } = await this.client.functions.invoke<LegacyInviteResponse>('make-server-e3db71a4/send-invitation-email', {
-      body: { invitationId, baseUrl },
+    const { data: tenant, error: tenantError } = await this.client.from('tenants').select('name').eq('id', visible.tenant_id).maybeSingle();
+    if (tenantError || !tenant) throw new InvitationRejectedError('permission_denied', tenantError?.message ?? 'Tenant inaccessible');
+    const link = `${baseUrl.replace(/\/+$/, '')}/invitations/${visible.token}`;
+    const delivery = await this.emailSender.send({
+      to: visible.email, tenantName: tenant.name, link, expiresAt: visible.expires_at,
+      role: toInvitationRole(visible.role),
     });
-    if (error || !data?.ok || !data.link || typeof data.sent !== 'boolean') {
-      throw new InvitationRejectedError('delivery_failed', data?.error ?? error?.message ?? 'Renvoi impossible');
-    }
-    return { sent: data.sent, link: data.link, ...(data.reason ? { reason: data.reason } : {}) };
+    return { sent: delivery.sent, link, ...(delivery.reason ? { reason: delivery.reason } : {}) };
   }
 
   async revoke(actorUserId: UserId, invitationId: string): Promise<void> {
@@ -127,6 +132,10 @@ export class SupabaseInvitationsRepository implements InvitationsRepository {
     });
     if (eventError) throw new Error(`Invitation révoquée mais audit impossible: ${eventError.message}`);
   }
+}
+
+function toInvitationRole(role: string): 'owner' | 'admin' | 'member' | 'partner' {
+  return role === 'owner' || role === 'admin' || role === 'partner' ? role : 'member';
 }
 
 async function readErrorResponse(error: unknown): Promise<{

@@ -13,6 +13,7 @@ import { createInvitationsRoutes } from '../../../src/server/api/invitations-rou
 import { MembersService } from '../../../src/modules/members/application/members-service.ts';
 import { SupabaseMembersRepository } from '../../../src/adapters/supabase/members-repository.ts';
 import { createMembersRoutes } from '../../../src/server/api/members-routes.ts';
+import { ResendInvitationEmailSender } from '../../../src/adapters/resend/invitation-email-sender.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -35,7 +36,11 @@ export async function handleRequest(request: Request): Promise<Response> {
   const repository = new SupabaseSessionRepository(client);
   const service = new SessionService(repository);
   const ordersService = new OrdersService(new SupabaseOrdersRepository(client));
-  const invitationsService = new InvitationsService(new SupabaseInvitationsRepository(client));
+  const invitationEmailSender = new ResendInvitationEmailSender(
+    Deno.env.get('RESEND_API_KEY') ?? null,
+    Deno.env.get('MAGRIT_FROM_EMAIL') ?? 'Magrit <onboarding@resend.dev>',
+  );
+  const invitationsService = new InvitationsService(new SupabaseInvitationsRepository(client, invitationEmailSender));
   const membersService = new MembersService(new SupabaseMembersRepository(client));
   const handler = createApiV1Application({
     routes: [

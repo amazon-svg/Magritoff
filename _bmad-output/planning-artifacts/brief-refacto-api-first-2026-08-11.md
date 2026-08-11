@@ -114,8 +114,10 @@ src/
   l’API Magrit — livré ;
 - AF10 : liste, rôles, droits et retrait des membres via l’API ; sortie complète
   de `DashboardUsers` hors Supabase — livré ;
+- AF11.1 : renvoi d’invitation directement via un port email et l’adaptateur
+  Resend, sans Edge Function imbriquée — livré ;
 - suite : supprimer les adaptateurs transitoires vers les anciennes Edge
-  Functions et migrer les écrans de définition des rôles.
+  Functions pour la création initiale et migrer les écrans de définition des rôles.
 
 ## Critères de succès
 

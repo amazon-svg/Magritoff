@@ -174,11 +174,19 @@ describe('frontières API-first et modulaires', () => {
     expect(edgeEntry).toContain('Authorization: authorization');
     expect(edgeEntry).toContain('SupabaseOrdersRepository(client)');
     expect(edgeEntry).toContain('createOrdersRoutes(ordersService)');
-    expect(edgeEntry).toContain('SupabaseInvitationsRepository(client)');
+    expect(edgeEntry).toContain('SupabaseInvitationsRepository(client, invitationEmailSender)');
     expect(edgeEntry).toContain('createInvitationsRoutes(invitationsService)');
+    expect(edgeEntry).toContain('ResendInvitationEmailSender');
     expect(edgeEntry).toContain('SupabaseMembersRepository(client)');
     expect(edgeEntry).toContain('createMembersRoutes(membersService)');
     expect(edgeEntry).not.toContain('SUPABASE_SERVICE_ROLE_KEY');
+  });
+
+  it('isole le renvoi des invitations derrière le port email', () => {
+    const repository = readFileSync(resolve(process.cwd(), 'src/adapters/supabase/invitations-repository.ts'), 'utf8');
+    expect(repository).toContain('InvitationEmailSender');
+    expect(repository).not.toContain('send-invitation-email');
+    expect(repository).not.toContain("functions.invoke<LegacyInviteResponse>('make-server");
   });
 
   it('sort le dashboard utilisateurs du fournisseur de données', () => {
