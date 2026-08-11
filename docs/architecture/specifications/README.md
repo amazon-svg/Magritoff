@@ -3,6 +3,8 @@
 **Statut :** proposition à valider  
 **Document parent :** [`../../ARCHITECTURE_KERNEL_MODULES_SERVICES.md`](../../ARCHITECTURE_KERNEL_MODULES_SERVICES.md)
 
+**Audit transverse :** [`../AUDIT_SERVICES_EXTERNES.md`](../AUDIT_SERVICES_EXTERNES.md)
+
 ## Ordre de dépendance
 
 ```text
@@ -34,6 +36,9 @@ Les dépendances inverses sont interdites. Le kernel ne connaît aucun module. U
 
 ### Module métier
 
+- [Access Management](./modules/access-management/specification.md)
+- [Modèle de domaine Access Management](./modules/access-management/domain-model.md)
+- [Autorisations Access Management](./modules/access-management/authorization.md)
 - [Clariprint Data](./modules/clariprint-data/specification.md)
 - [Modèle de domaine](./modules/clariprint-data/domain-model.md)
 - [Autorisations](./modules/clariprint-data/authorization.md)

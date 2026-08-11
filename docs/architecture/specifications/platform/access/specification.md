@@ -15,6 +15,11 @@ Répondre à la question « l'acteur possède-t-il la capability nécessaire sur
 - décider si l'état métier autorise une transition ;
 - remplacer la RLS.
 
+La consultation et l'administration des rôles, affectations et projections UX
+sont portées par le module métier
+[`access-management`](../../modules/access-management/specification.md), qui
+utilise ce contrat sans réimplémenter le moteur de décision.
+
 ## Contrat public
 
 ```ts

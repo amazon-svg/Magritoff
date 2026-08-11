@@ -64,3 +64,13 @@ Sur du code déjà écrit, ne pas casser le fonctionnement actuel.
 2. les API créées ou modifiées, avec leur contrat ;
 3. les dérogations R5 utilisées et leur chemin de mise en conformité ;
 4. les tests exécutés et leur résultat.
+
+## Contrôles mécaniques obligatoires
+
+Les règles R1 à R4 ne reposent pas uniquement sur la revue humaine :
+
+- `domain`, `application`, `api` et `ui` des nouveaux modules ne peuvent importer ni Supabase ni le client historique `utils/supabase` ;
+- une UI dépend d'un port ou client API typé, injecté par une composition root de surface ;
+- seuls les adaptateurs `infrastructure` et la composition serveur connaissent le fournisseur de données ;
+- `pnpm test:architecture` vérifie ces frontières et doit être un contrôle CI requis ;
+- les accès directs brownfield restent une dette R5 : ils ne constituent jamais un exemple autorisé pour du code nouveau.

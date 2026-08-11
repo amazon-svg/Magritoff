@@ -15,6 +15,11 @@ Répondre à la question « le tenant dispose-t-il commercialement de cette fonc
 - validité d'une action métier ;
 - facturation complète.
 
+L'API et l'UX opérateur permettant de consulter ou modifier un entitlement
+sont portées par
+[`access-management`](../../modules/access-management/specification.md). Un
+administrateur tenant ne peut pas s'accorder lui-même une fonctionnalité.
+
 ## Contrat public
 
 ```ts

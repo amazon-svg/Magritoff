@@ -123,7 +123,9 @@ Un repository générique `DatabaseRepository<T>` est interdit : chaque port exp
 ## Adaptateurs entrants
 
 - hooks et contrôleurs React ;
-- routes HTTP si un second consommateur le justifie ;
+- API de contrôle d'accès fournie par
+  [`access-management`](../access-management/openapi.yaml) ;
+- routes HTTP métier avant tout nouveau consommateur React ;
 - handlers MCP en lecture seule au premier incrément ;
 - jobs de livraison ou reprise ;
 - commandes d'import.

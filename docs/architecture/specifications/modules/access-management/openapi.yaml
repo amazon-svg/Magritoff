@@ -1,0 +1,738 @@
+openapi: 3.1.0
+info:
+  title: Magrit Access Management API
+  version: 0.1.0
+  description: >-
+    Contrat métier pour consulter et administrer les accès d'un tenant.
+    Le contrat est indépendant de Supabase et de son mode d'hébergement.
+servers:
+  - url: /api/v1
+security:
+  - bearerAuth: []
+tags:
+  - name: Personal access
+  - name: Capabilities
+  - name: Roles
+  - name: Assignments
+  - name: Modules
+  - name: Audit
+paths:
+  /tenants/{tenantId}/access/me:
+    get:
+      operationId: getMyTenantAccess
+      tags: [Personal access]
+      summary: Retourne l'accès effectif de l'acteur courant dans le tenant.
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+      responses:
+        '200':
+          description: Accès résolu.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyTenantAccess'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /tenants/{tenantId}/access/capabilities:
+    get:
+      operationId: listCapabilityCatalog
+      tags: [Capabilities]
+      summary: Liste les capabilities déclarées par les modules installés.
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+      responses:
+        '200':
+          description: Catalogue filtré selon le périmètre de l'acteur.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CapabilityDescriptor'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /tenants/{tenantId}/access/roles:
+    get:
+      operationId: listRoles
+      tags: [Roles]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, archived, all]
+            default: active
+      responses:
+        '200':
+          description: Rôles visibles du tenant.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Role'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      operationId: createRole
+      tags: [Roles]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRoleRequest'
+      responses:
+        '201':
+          description: Rôle créé.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /tenants/{tenantId}/access/roles/{roleId}:
+    get:
+      operationId: getRole
+      tags: [Roles]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/RoleId'
+      responses:
+        '200':
+          description: Rôle demandé.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      operationId: updateRole
+      tags: [Roles]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/RoleId'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRoleRequest'
+      responses:
+        '200':
+          description: Rôle modifié.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+    delete:
+      operationId: archiveRole
+      tags: [Roles]
+      summary: Archive le rôle sans effacer son historique.
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/RoleId'
+        - $ref: '#/components/parameters/IfMatch'
+        - name: reason
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 3
+            maxLength: 500
+      responses:
+        '204':
+          description: Rôle archivé.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /tenants/{tenantId}/access/members:
+    get:
+      operationId: listMemberRoleAssignments
+      tags: [Assignments]
+      summary: Projection de lecture des membres et de leurs rôles.
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - name: cursor
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        '200':
+          description: Affectations visibles.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MemberAssignments'
+                  nextCursor:
+                    type: [string, 'null']
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /tenants/{tenantId}/access/members/{userId}/roles:
+    put:
+      operationId: replaceMemberRoleAssignments
+      tags: [Assignments]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/UserId'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceAssignmentsRequest'
+      responses:
+        '200':
+          description: Ensemble d'affectations remplacé atomiquement.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberAssignments'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /tenants/{tenantId}/access/modules:
+    get:
+      operationId: listTenantModules
+      tags: [Modules]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+      responses:
+        '200':
+          description: Modules et disponibilités visibles pour l'acteur.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ModuleAvailability'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /tenants/{tenantId}/access/modules/{moduleKey}:
+    patch:
+      operationId: setTenantModuleEntitlement
+      tags: [Modules]
+      summary: Modifie un entitlement ; réservé aux opérateurs plateforme.
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/ModuleKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetEntitlementRequest'
+      responses:
+        '200':
+          description: Entitlement modifié et audité.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantModuleEntitlement'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /tenants/{tenantId}/access/events:
+    get:
+      operationId: listAccessAuditEvents
+      tags: [Audit]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - name: cursor
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        '200':
+          description: Événements d'accès visibles.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AccessAuditEvent'
+                  nextCursor:
+                    type: [string, 'null']
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    TenantId:
+      name: tenantId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    RoleId:
+      name: roleId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    UserId:
+      name: userId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ModuleKey:
+      name: moduleKey
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^[a-z][a-z0-9_]{1,63}$'
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      schema:
+        type: string
+      description: ETag reçu lors de la lecture précédente.
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 200
+  headers:
+    ETag:
+      description: Version opaque de la ressource.
+      schema:
+        type: string
+  schemas:
+    CapabilityName:
+      type: string
+      pattern: '^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*){2,}$'
+    CapabilityDescriptor:
+      type: object
+      required: [name, moduleKey, label, assignableByTenantAdmin, sensitivity]
+      properties:
+        name:
+          $ref: '#/components/schemas/CapabilityName'
+        moduleKey:
+          type: string
+        label:
+          type: string
+        description:
+          type: string
+        assignableByTenantAdmin:
+          type: boolean
+        sensitivity:
+          type: string
+          enum: [standard, sensitive, platform_only]
+    Role:
+      type: object
+      required: [id, tenantId, name, capabilities, kind, status, version, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenantId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        capabilities:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/CapabilityName'
+        kind:
+          type: string
+          enum: [system, custom]
+        status:
+          type: string
+          enum: [active, archived]
+        version:
+          type: integer
+          minimum: 1
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    CreateRoleRequest:
+      type: object
+      additionalProperties: false
+      required: [name, capabilities, reason]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 500
+        capabilities:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/CapabilityName'
+        reason:
+          type: string
+          minLength: 3
+          maxLength: 500
+    UpdateRoleRequest:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      minProperties: 2
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 500
+        capabilities:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/CapabilityName'
+        reason:
+          type: string
+          minLength: 3
+          maxLength: 500
+    MemberAssignments:
+      type: object
+      required: [tenantId, userId, displayName, roleIds, effectiveCapabilities, version, updatedAt]
+      properties:
+        tenantId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+        email:
+          type: string
+          format: email
+        roleIds:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+        effectiveCapabilities:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/CapabilityName'
+        version:
+          type: integer
+          minimum: 1
+        updatedAt:
+          type: string
+          format: date-time
+    ReplaceAssignmentsRequest:
+      type: object
+      additionalProperties: false
+      required: [roleIds, reason]
+      properties:
+        roleIds:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+        reason:
+          type: string
+          minLength: 3
+          maxLength: 500
+    ModuleAvailability:
+      type: object
+      required: [moduleKey, enabled, accessible, reason]
+      properties:
+        moduleKey:
+          type: string
+        enabled:
+          type: boolean
+        accessible:
+          type: boolean
+        reason:
+          type: string
+          enum: [available, feature_disabled, missing_capability]
+    TenantModuleEntitlement:
+      type: object
+      required: [tenantId, moduleKey, enabled, source, version]
+      properties:
+        tenantId:
+          type: string
+          format: uuid
+        moduleKey:
+          type: string
+        enabled:
+          type: boolean
+        source:
+          type: string
+          enum: [plan, trial, contract, operator_override, default]
+        validFrom:
+          type: string
+          format: date-time
+        validUntil:
+          type: string
+          format: date-time
+        version:
+          type: integer
+          minimum: 1
+    SetEntitlementRequest:
+      type: object
+      additionalProperties: false
+      required: [enabled, source, reason]
+      properties:
+        enabled:
+          type: boolean
+        source:
+          type: string
+          enum: [trial, contract, operator_override]
+        validFrom:
+          type: string
+          format: date-time
+        validUntil:
+          type: string
+          format: date-time
+        reason:
+          type: string
+          minLength: 3
+          maxLength: 500
+    MyTenantAccess:
+      type: object
+      required: [tenantId, userId, membership, capabilities, modules]
+      properties:
+        tenantId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        membership:
+          type: string
+          enum: [active]
+        capabilities:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/CapabilityName'
+        modules:
+          type: array
+          items:
+            $ref: '#/components/schemas/ModuleAvailability'
+    AccessAuditEvent:
+      type: object
+      required: [id, tenantId, actorUserId, action, resourceType, resourceId, reason, occurredAt, requestId]
+      properties:
+        id:
+          type: string
+        tenantId:
+          type: string
+          format: uuid
+        actorUserId:
+          type: string
+          format: uuid
+        action:
+          type: string
+        resourceType:
+          type: string
+        resourceId:
+          type: string
+        reason:
+          type: string
+        occurredAt:
+          type: string
+          format: date-time
+        requestId:
+          type: string
+    Error:
+      type: object
+      required: [code, message, requestId]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        requestId:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+  responses:
+    BadRequest:
+      description: Requête invalide.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Authentification absente ou invalide.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: Membership ou capability insuffisante.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Ressource inexistante ou non visible.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Conflict:
+      description: Invariant ou version concurrente en conflit.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unprocessable:
+      description: Requête syntaxiquement valide mais métier refusée.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unavailable:
+      description: Fournisseur temporairement indisponible.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'

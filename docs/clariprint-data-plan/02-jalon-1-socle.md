@@ -19,7 +19,9 @@ Le troisième incrément branche `AccessService` sur le RPC existant `user_has_c
 
 Le quatrième incrément encapsule Supabase Auth côté serveur et les memberships directs existants. La validation d'identité reste séparée de l'appartenance tenant, les comptes bannis sont refusés et aucune identité authentifiée n'obtient implicitement un tenant.
 
-Avant de considérer le socle terminé, il reste à créer la composition serveur, choisir la propriété SQL, exposer une première route protégée et prouver l'isolation RLS sur deux tenants. Le typecheck global du brownfield reste disponible via `pnpm typecheck:all` et sera traité progressivement sans bloquer le gate strict des nouveaux modules.
+Le cinquième incrément est remplacé par l'API métier `access-management`. Le dashboard affiche systématiquement l'entrée Clariprint Data et sa composition root injecte un client typé relatif à `/api/v1`. L'UI Clariprint Data ne connaît ni Supabase, ni Edge Function, ni table et présente distinctement les états non activé, non autorisé, accessible et indisponible. Un test d'architecture interdit mécaniquement le retour de ces dépendances dans la couche UI.
+
+Avant de considérer le socle terminé, il reste à choisir la propriété SQL, provisionner la feature et la capability sur un tenant pilote, déployer l'Edge Function `access-management`, configurer la réécriture de production `/api/v1` et exécuter la preuve RLS réelle à deux tenants. Le typecheck global du brownfield reste disponible via `pnpm typecheck:all` et sera traité progressivement sans bloquer le gate strict des nouveaux modules.
 
 ## Périmètre
 
@@ -51,8 +53,8 @@ Avant de considérer le socle terminé, il reste à créer la composition serveu
 - [ ] `J1-VAL-04` Un utilisateur autorisé accède au module dans son organisation.
 - [ ] `J1-VAL-05` Un utilisateur du tenant A ne peut lire aucune donnée du tenant B.
 - [ ] `J1-VAL-06` Les contrôles applicatifs et la RLS sont tous deux actifs.
-- [ ] `J1-VAL-07` React appelle un service applicatif et non une table.
-- [ ] `J1-VAL-08` Les erreurs possèdent un code stable et un identifiant de corrélation.
+- [x] `J1-VAL-07` La première page React Clariprint Data appelle l'API protégée et non une table.
+- [x] `J1-VAL-08` Les erreurs HTTP possèdent un code stable et un identifiant de corrélation.
 - [ ] `J1-VAL-09` Les migrations sont reproductibles sur une base vide.
 - [x] `J1-VAL-10` Le build et les suites de tests existantes restent verts.
 
