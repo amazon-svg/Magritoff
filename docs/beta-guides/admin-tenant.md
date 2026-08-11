@@ -27,6 +27,9 @@ Pour chaque membre à inviter :
 - Pas de doublon : si une invitation pending existe déjà pour cet email/tenant, le système te bloque avec **« duplicate_pending »** + l'id de l'invitation existante (renvoie-la via le bouton Renvoyer plutôt qu'en créer une nouvelle).
 - Rôles strictement du tenant : tu ne peux pas assigner un rôle d'un autre tenant (impossible côté UI mais durci côté serveur depuis Sprint 9 = `role_mismatch_tenant`).
 - Capability requise : ton compte doit avoir `can_invite` pour inviter (Owner et Admin presets l'ont par défaut).
+- La session est rafraîchie juste avant l’envoi à `invite-member`. Si elle ne
+  peut plus l’être, l’interface demande explicitement de se reconnecter au lieu
+  d’afficher l’erreur générique du SDK Edge.
 
 ## 3. Gérer les rôles de ton catalogue
 

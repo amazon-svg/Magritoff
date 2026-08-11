@@ -462,7 +462,6 @@ function MagritUsersSection() {
         <InviteUserModalV2
           open={inviteOpen}
           tenantId={currentTenant.id}
-          invitedBy={user.id}
           baseUrl={window.location.origin}
           onInvited={async () => {
             await load();

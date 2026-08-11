@@ -23,6 +23,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Loader2, Mail, X, Check } from 'lucide-react';
 import { supabase } from '/utils/supabase/client';
 import { TEST_IDS } from '../../lib/testIds';
+import {
+  inviteMemberErrorMessage,
+  type InviteMemberErrorPayload,
+} from './InviteUserModalV2.helpers';
 
 interface RoleOption {
   id: string;
@@ -40,7 +44,6 @@ type AccessScope = 'magrit_full' | 'shop_only';
 export interface InviteUserModalV2Props {
   open: boolean;
   tenantId: string;
-  invitedBy: string;
   baseUrl: string;
   /** Callback appelé après une invitation réussie (refresh parent). */
   onInvited: () => void | Promise<void>;
@@ -50,7 +53,6 @@ export interface InviteUserModalV2Props {
 export function InviteUserModalV2({
   open,
   tenantId,
-  invitedBy,
   baseUrl,
   onInvited,
   onClose,
@@ -138,18 +140,34 @@ export function InviteUserModalV2({
     const roleIds = Array.from(selectedRoleIds);
 
     try {
-      const { data, error: e } = await supabase.functions.invoke<{
+      // La gateway Edge valide le JWT avant même d'exécuter invite-member.
+      // On rafraîchit donc explicitement la session et on utilise son user id
+      // comme source d'identité, plutôt qu'une prop potentiellement obsolète.
+      const edgeClient = supabase;
+      const { data: refreshed, error: refreshError } = await edgeClient.auth.refreshSession();
+      if (refreshError || !refreshed.session) {
+        setError('Votre session a expiré. Reconnectez-vous puis réessayez.');
+        setSending(false);
+        return;
+      }
+
+      const { data, error: e } = await edgeClient.functions.invoke<{
         ok: boolean;
         invitationId?: string;
         sent?: boolean;
         link?: string;
         reason?: string;
         error?: string;
+        message?: string;
+        stage?: string;
       }>('invite-member', {
+        headers: {
+          Authorization: `Bearer ${refreshed.session.access_token}`,
+        },
         body: {
           email: cleanedEmail,
           tenant_id: tenantId,
-          invited_by: invitedBy,
+          invited_by: refreshed.session.user.id,
           baseUrl,
           // S-USERS-REFONTE Phase A : rôles (capabilities)
           role_definition_ids: roleIds,
@@ -163,7 +181,22 @@ export function InviteUserModalV2({
       });
 
       if (e || !data?.ok) {
-        setError(`Échec : ${data?.error || e?.message || 'invocation échouée'}`);
+        let payload: InviteMemberErrorPayload | null = data ?? null;
+        let status: number | null = null;
+        const context = (e as { context?: unknown } | null)?.context;
+        if (context instanceof Response) {
+          status = context.status;
+          try {
+            payload = await context.clone().json() as InviteMemberErrorPayload;
+          } catch {
+            // Le fallback SDK reste disponible si la réponse n'est pas JSON.
+          }
+        }
+        setError(inviteMemberErrorMessage(
+          payload,
+          status,
+          e?.message || 'Invitation impossible.',
+        ));
         setSending(false);
         return;
       }

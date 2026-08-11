@@ -57,7 +57,7 @@ export const legacySupabaseUiReferenceLimits = new Map<string, number>([
   ['src/app/components/dashboard/DashboardTenantSpaces.tsx', 3],
   ['src/app/components/dashboard/DashboardUsers.tsx', 10],
   ['src/app/components/dashboard/EditUserRolesModal.tsx', 7],
-  ['src/app/components/dashboard/InviteUserModalV2.tsx', 3],
+  ['src/app/components/dashboard/InviteUserModalV2.tsx', 2],
   ['src/app/components/dashboard/OrderRoleAdminPage.tsx', 6],
   ['src/app/components/dashboard/RoleEditorDialog.tsx', 2],
   ['src/app/components/dashboard/ShopCustomMockups.tsx', 4],
