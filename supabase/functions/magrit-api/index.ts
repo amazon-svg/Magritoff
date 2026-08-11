@@ -11,7 +11,7 @@ import { createOrdersRoutes } from '../../../src/server/api/orders-routes.ts';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, content-type, x-request-id',
-  'Access-Control-Allow-Methods': 'GET, PATCH, PUT, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, OPTIONS',
 };
 
 export async function handleRequest(request: Request): Promise<Response> {

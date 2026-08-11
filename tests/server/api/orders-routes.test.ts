@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { parseId, type UserId } from '../../../src/kernel';
-import { OrdersApiClient, OrdersService, type OrdersRepository } from '../../../src/modules/orders';
+import {
+  OrderCommandRejectedError,
+  OrdersApiClient,
+  OrdersService,
+  type OrdersRepository,
+} from '../../../src/modules/orders';
 import { FetchApiClient } from '../../../src/platform/api';
 import { createApiV1Application, createOrdersRoutes } from '../../../src/server/api';
 
@@ -22,6 +27,11 @@ describe('routes Orders API v1', () => {
     await expect(client.getAuditTrail('order-af4')).resolves.toMatchObject({
       events: [{ eventId: 'event-af4', orderId: 'order-af4' }],
     });
+    await expect(client.transition('order-af4', {
+      toStatus: 'validated', reason: null, idempotencyKey: 'transition-af5-route',
+    })).resolves.toEqual({
+      orderId: 'order-af4', fromStatus: 'draft', toStatus: 'validated', replayed: false,
+    });
   });
 
   it('refuse les lectures sans authentification', async () => {
@@ -32,6 +42,30 @@ describe('routes Orders API v1', () => {
     const response = await handler(new Request('https://magrit.test/api/v1/shops/shop-af4/orders'));
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toMatchObject({ code: 'identity.authentication_required' });
+  });
+
+  it('traduit un conflit de transition en Problem Details 409', async () => {
+    const repository = repositoryStub();
+    repository.transitionOrder = async () => {
+      throw new OrderCommandRejectedError('transition_not_allowed', 'validated -> validated');
+    };
+    const handler = createApiV1Application({
+      routes: createOrdersRoutes(new OrdersService(repository)),
+      requestIdFactory: () => 'request-af5-conflict',
+      actorResolver: { async resolve() { return { kind: 'user', userId: id('user-af5') }; } },
+    });
+    const response = await handler(new Request('https://magrit.test/api/v1/orders/order-af4/transitions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        toStatus: 'validated', reason: null, idempotencyKey: 'transition-af5-conflict',
+      }),
+    }));
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'orders.transition_not_allowed', requestId: 'request-af5-conflict',
+    });
   });
 });
 
@@ -53,6 +87,10 @@ function repositoryStub(): OrdersRepository {
       eventId: 'event-af4', orderId: 'order-af4', kind: 'status', eventType: 'status_transition',
       actorId: 'user-af4', actorEmail: null, roleName: null, payload: {}, occurredAt: '2026-08-11T12:01:00.000Z',
     }],
+    transitionOrder: async (orderId, command) => ({
+      orderId, fromStatus: 'draft', toStatus: command.toStatus, replayed: false,
+    }),
+    notifyTransition: async () => undefined,
   };
 }
 

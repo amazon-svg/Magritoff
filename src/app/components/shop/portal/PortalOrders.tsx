@@ -31,7 +31,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { supabase } from "/utils/supabase/client";
 import { OrdersApiClient } from "../../../../modules/orders";
 import { FetchApiClient } from "../../../../platform/api";
 import { useAuth } from "../../../contexts/AuthContext";
@@ -53,7 +52,6 @@ import { PortalOrderEditor } from "./PortalOrderEditor";
 import { CancelOrderConfirmDialog } from "./CancelOrderConfirmDialog";
 import { RejectOrderConfirmDialog } from "./RejectOrderConfirmDialog";
 import { formatCancelErrorMessage } from "./orderCancellation.helpers";
-import { triggerOrderWorkflowStep } from "./orderWorkflowStep.helpers";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../ui/tabs";
 
 interface Props {
@@ -184,29 +182,21 @@ export function PortalOrders({ shopId, onRenewOrder, onNavigateToCatalog }: Prop
       successMsg: string,
     ): Promise<string | null> => {
       const fromStatus = order.status;
-      const { error: rpcErr } = await supabase.rpc("update_tenant_order_status", {
-        p_order_id: order.id,
-        p_new_status: toStatus,
-        p_reason: reason,
-      });
-      if (rpcErr) {
-        console.warn(`[PortalOrders] transition ${fromStatus}→${toStatus} failed:`, rpcErr.message);
-        return formatCancelErrorMessage(rpcErr);
-      }
-      // S-N1-APPROVAL : déclenche notifications Resend (fire-and-forget)
-      if (user?.id) {
-        triggerOrderWorkflowStep({
-          orderId: order.id,
-          fromStatus,
-          toStatus,
-          actorUserId: user.id,
+      try {
+        await ordersApi.transition(order.id, {
+          toStatus: toStatus as 'validated' | 'in_production' | 'shipped' | 'delivered' | 'invoiced' | 'cancelled',
+          reason,
+          idempotencyKey: `order-transition:${order.id}:${fromStatus}:${toStatus}`,
         });
+      } catch (cause) {
+        console.warn(`[PortalOrders] transition ${fromStatus}→${toStatus} failed:`, cause);
+        return formatCancelErrorMessage(cause instanceof Error ? cause : null);
       }
       toast.success(successMsg);
       await loadAll();
       return null;
     },
-    [user?.id, loadAll],
+    [ordersApi, loadAll],
   );
 
   const handleCancelConfirm = useCallback(

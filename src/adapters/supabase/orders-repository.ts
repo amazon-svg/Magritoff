@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { UserId } from '../../kernel/ids/index.ts';
 import type { PortalOrdersCounters, PortalOrdersTab } from '../../modules/orders/api/contracts.ts';
+import type { TransitionOrderCommand, TransitionOrderResult } from '../../modules/orders/api/contracts.ts';
+import { OrderCommandRejectedError } from '../../modules/orders/application/orders-repository.ts';
 import type {
   AuditEventRecord,
   LegacyOrderRecord,
@@ -110,6 +112,58 @@ export class SupabaseOrdersRepository implements OrdersRepository {
       payload: toRecord(row.payload),
       occurredAt: row.occurred_at,
     }));
+  }
+
+  async transitionOrder(orderId: string, command: TransitionOrderCommand): Promise<TransitionOrderResult> {
+    const { data, error } = await this.client.rpc('api_transition_tenant_order_status', {
+      p_order_id: orderId,
+      p_new_status_code: command.toStatus,
+      p_reason: command.reason,
+      p_idempotency_key: command.idempotencyKey,
+    });
+    if (error) {
+      const message = error.message;
+      if (message.includes('order_not_found')) {
+        throw new OrderCommandRejectedError('order_not_found', message);
+      }
+      if (message.includes('permission_denied')) {
+        throw new OrderCommandRejectedError('permission_denied', message);
+      }
+      if (message.includes('transition_not_allowed') || message.includes('status_code_unknown')) {
+        throw new OrderCommandRejectedError('transition_not_allowed', message);
+      }
+      throw new Error(`Transition de commande impossible: ${message}`);
+    }
+    const result = toRecord(data);
+    const resultOrderId = result.order_id;
+    const fromStatus = result.from_status;
+    const toStatus = result.to_status;
+    if (typeof resultOrderId !== 'string' || typeof fromStatus !== 'string' || typeof toStatus !== 'string') {
+      throw new Error('La transition a retourné un résultat invalide.');
+    }
+    return {
+      orderId: resultOrderId,
+      fromStatus,
+      toStatus,
+      replayed: result.replayed === true,
+    };
+  }
+
+  async notifyTransition(
+    result: TransitionOrderResult,
+    actorUserId: UserId,
+    baseUrl: string,
+  ): Promise<void> {
+    const { error } = await this.client.functions.invoke('order-workflow-step', {
+      body: {
+        order_id: result.orderId,
+        from_status: result.fromStatus,
+        to_status: result.toStatus,
+        actor_user_id: actorUserId,
+        base_url: baseUrl,
+      },
+    });
+    if (error) throw new Error(`Notification workflow impossible: ${error.message}`);
   }
 }
 

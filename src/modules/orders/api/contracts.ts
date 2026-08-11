@@ -57,6 +57,19 @@ export const orderAuditEventSchema = z.object({
 
 export const orderAuditTrailSchema = z.object({ events: z.array(orderAuditEventSchema) });
 
+export const transitionOrderCommandSchema = z.object({
+  toStatus: z.enum(['validated', 'in_production', 'shipped', 'delivered', 'invoiced', 'cancelled']),
+  reason: z.string().trim().min(1).nullable().default(null),
+  idempotencyKey: z.string().trim().min(8).max(200),
+});
+
+export const transitionOrderResultSchema = z.object({
+  orderId: z.string().min(1),
+  fromStatus: z.string(),
+  toStatus: z.string(),
+  replayed: z.boolean(),
+});
+
 export type OrderSummary = z.infer<typeof orderSummarySchema>;
 export type OrdersList = z.infer<typeof ordersListSchema>;
 export type PortalOrdersTab = z.infer<typeof portalOrdersTabSchema>;
@@ -64,3 +77,5 @@ export type PortalOrdersCounters = z.infer<typeof portalOrdersCountersSchema>;
 export type PortalOrdersResponse = z.infer<typeof portalOrdersResponseSchema>;
 export type OrderAuditEvent = z.infer<typeof orderAuditEventSchema>;
 export type OrderAuditTrail = z.infer<typeof orderAuditTrailSchema>;
+export type TransitionOrderCommand = z.infer<typeof transitionOrderCommandSchema>;
+export type TransitionOrderResult = z.infer<typeof transitionOrderResultSchema>;

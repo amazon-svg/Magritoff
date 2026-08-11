@@ -3,8 +3,11 @@ import {
   orderAuditTrailSchema,
   ordersListSchema,
   portalOrdersResponseSchema,
+  transitionOrderCommandSchema,
+  transitionOrderResultSchema,
 } from '../../modules/orders/api/contracts.ts';
 import type { OrdersService } from '../../modules/orders/application/orders-service.ts';
+import { OrderCommandRejectedError } from '../../modules/orders/application/orders-repository.ts';
 import { API_V1_BASE_PATH } from '../../platform/api/contracts.ts';
 import { ApiHttpError } from './errors.ts';
 import { defineJsonRoute, type ApiRequestContext, type ApiRoute } from './routes.ts';
@@ -45,6 +48,38 @@ export function createOrdersRoutes(service: OrdersService): readonly ApiRoute[] 
       async handle(context) {
         requireUserId(context);
         return { status: 200, body: await service.getAuditTrail(requireParam(context, 'orderId')) };
+      },
+    }),
+    defineJsonRoute({
+      method: 'POST',
+      path: `${API_V1_BASE_PATH}/orders/{orderId}/transitions`,
+      authentication: 'required',
+      inputSchema: transitionOrderCommandSchema,
+      outputSchema: transitionOrderResultSchema,
+      async handle(context, command) {
+        try {
+          return {
+            status: 200,
+            body: await service.transition(
+              requireParam(context, 'orderId'),
+              command,
+              requireUserId(context),
+              new URL(context.request.url).origin,
+            ),
+          };
+        } catch (error) {
+          if (!(error instanceof OrderCommandRejectedError)) throw error;
+          const status = error.code === 'order_not_found' ? 404
+            : error.code === 'permission_denied' ? 403 : 409;
+          throw new ApiHttpError({
+            type: 'about:blank',
+            title: status === 404 ? 'Commande introuvable'
+              : status === 403 ? 'Transition interdite' : 'Transition impossible',
+            status,
+            code: `orders.${error.code}`,
+            detail: error.message,
+          });
+        }
       },
     }),
   ];

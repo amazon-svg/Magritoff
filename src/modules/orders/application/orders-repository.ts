@@ -1,5 +1,6 @@
 import type { UserId } from '../../../kernel/ids/index.ts';
 import type { PortalOrdersCounters, PortalOrdersTab } from '../api/contracts.ts';
+import type { TransitionOrderCommand, TransitionOrderResult } from '../api/contracts.ts';
 
 export type TaxRegime =
   | 'metropole_fr'
@@ -41,6 +42,21 @@ export type AuditEventRecord = Readonly<{
   occurredAt: string;
 }>;
 
+export type OrderCommandRejectionCode =
+  | 'order_not_found'
+  | 'transition_not_allowed'
+  | 'permission_denied';
+
+export class OrderCommandRejectedError extends Error {
+  constructor(
+    public readonly code: OrderCommandRejectionCode,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'OrderCommandRejectedError';
+  }
+}
+
 export interface OrdersRepository {
   getTenantTaxRegime(tenantId: string): Promise<TaxRegime | null>;
   getShopTaxRegime(shopId: string): Promise<TaxRegime | null>;
@@ -51,4 +67,10 @@ export interface OrdersRepository {
   getPortalOrderIds(shopId: string, userId: UserId, tab: PortalOrdersTab): Promise<readonly string[]>;
   getAuthenticatedUserEmail(): Promise<string | null>;
   listAuditEvents(orderId: string): Promise<readonly AuditEventRecord[]>;
+  transitionOrder(orderId: string, command: TransitionOrderCommand): Promise<TransitionOrderResult>;
+  notifyTransition(
+    result: TransitionOrderResult,
+    actorUserId: UserId,
+    baseUrl: string,
+  ): Promise<void>;
 }

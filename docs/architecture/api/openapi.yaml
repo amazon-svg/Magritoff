@@ -138,6 +138,35 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/OrderAuditTrail' }
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
+  /orders/{orderId}/transitions:
+    post:
+      operationId: transitionOrder
+      summary: Exécuter une transition de statut atomique et idempotente
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: orderId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TransitionOrderCommand' }
+      responses:
+        '200':
+          description: Transition exécutée ou résultat précédent rejoué
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TransitionOrderResult' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403':
+          description: Acteur non autorisé pour cette transition
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ApiProblem' }
+        '409':
+          description: Transition absente de la matrice ou statut déjà modifié
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ApiProblem' }
 components:
   securitySchemes:
     bearerAuth:
@@ -355,6 +384,25 @@ components:
       required: [events]
       properties:
         events: { type: array, items: { $ref: '#/components/schemas/OrderAuditEvent' } }
+    TransitionOrderCommand:
+      type: object
+      additionalProperties: false
+      required: [toStatus, reason, idempotencyKey]
+      properties:
+        toStatus:
+          type: string
+          enum: [validated, in_production, shipped, delivered, invoiced, cancelled]
+        reason: { type: [string, 'null'] }
+        idempotencyKey: { type: string, minLength: 8, maxLength: 200 }
+    TransitionOrderResult:
+      type: object
+      additionalProperties: false
+      required: [orderId, fromStatus, toStatus, replayed]
+      properties:
+        orderId: { type: string }
+        fromStatus: { type: string }
+        toStatus: { type: string }
+        replayed: { type: boolean }
   responses:
     AuthenticationRequired:
       description: Bearer token absent ou invalide

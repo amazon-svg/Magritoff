@@ -3,9 +3,13 @@ import {
   orderAuditTrailSchema,
   ordersListSchema,
   portalOrdersResponseSchema,
+  transitionOrderCommandSchema,
+  transitionOrderResultSchema,
   type OrderAuditTrail,
   type OrdersList,
   type PortalOrdersResponse,
+  type TransitionOrderCommand,
+  type TransitionOrderResult,
 } from './contracts.ts';
 
 export class OrdersApiClient {
@@ -34,6 +38,15 @@ export class OrdersApiClient {
       path: `${API_V1_BASE_PATH}/orders/${encodeURIComponent(orderId)}/audit`,
       responseSchema: orderAuditTrailSchema,
       ...(signal === undefined ? {} : { signal }),
+    });
+  }
+
+  transition(orderId: string, command: TransitionOrderCommand): Promise<TransitionOrderResult> {
+    return this.client.request({
+      method: 'POST',
+      path: `${API_V1_BASE_PATH}/orders/${encodeURIComponent(orderId)}/transitions`,
+      body: transitionOrderCommandSchema.parse(command),
+      responseSchema: transitionOrderResultSchema,
     });
   }
 }

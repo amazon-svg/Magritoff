@@ -41,6 +41,16 @@ describe('OrdersService', () => {
       }],
     });
   });
+
+  it('ne notifie une transition qu au premier traitement idempotent', async () => {
+    const repository = repositoryStub();
+    const service = new OrdersService(repository);
+    const command = { toStatus: 'validated' as const, reason: null, idempotencyKey: 'transition-af5-1' };
+
+    await expect(service.transition('v11-1', command, id('user-1'), 'https://magrit.test'))
+      .resolves.toMatchObject({ fromStatus: 'draft', toStatus: 'validated', replayed: false });
+    expect(repository.notifyTransition).toHaveBeenCalledOnce();
+  });
 });
 
 function repositoryStub(): OrdersRepository & Record<'listLegacyOrders', ReturnType<typeof vi.fn>> {
@@ -66,6 +76,10 @@ function repositoryStub(): OrdersRepository & Record<'listLegacyOrders', ReturnT
       actorId: 'user-1', actorEmail: 'buyer@magrit.test', roleName: null,
       payload: { from_status: 'draft', to_status: 'validated' }, occurredAt: '2026-08-11T12:01:00.000Z',
     }]),
+    transitionOrder: vi.fn(async (orderId, command) => ({
+      orderId, fromStatus: 'draft', toStatus: command.toStatus, replayed: false,
+    })),
+    notifyTransition: vi.fn(async () => undefined),
   };
 }
 

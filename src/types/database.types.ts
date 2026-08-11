@@ -1932,6 +1932,15 @@ export type Database = {
           order_id: string
         }[]
       }
+      api_transition_tenant_order_status: {
+        Args: {
+          p_idempotency_key: string
+          p_new_status_code: string
+          p_order_id: string
+          p_reason: string | null
+        }
+        Returns: Json
+      }
       get_subtenant_kpis: {
         Args: { p_parent_tenant_id: string }
         Returns: {
@@ -2255,4 +2264,3 @@ export const Constants = {
     },
   },
 } as const
-

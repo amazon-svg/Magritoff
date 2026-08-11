@@ -5,6 +5,8 @@ import type {
   OrderSummary,
   PortalOrdersResponse,
   PortalOrdersTab,
+  TransitionOrderCommand,
+  TransitionOrderResult,
 } from '../api/contracts.ts';
 import type {
   LegacyOrderRecord,
@@ -72,6 +74,21 @@ export class OrdersService {
         occurredAt: event.occurredAt,
       })),
     };
+  }
+
+  async transition(
+    orderId: string,
+    command: TransitionOrderCommand,
+    actorUserId: UserId,
+    baseUrl: string,
+  ): Promise<TransitionOrderResult> {
+    const result = await this.repository.transitionOrder(orderId, command);
+    if (!result.replayed) {
+      void this.repository.notifyTransition(result, actorUserId, baseUrl).catch((error) => {
+        console.warn('[OrdersService] notification de transition ignorée:', error);
+      });
+    }
+    return result;
   }
 }
 

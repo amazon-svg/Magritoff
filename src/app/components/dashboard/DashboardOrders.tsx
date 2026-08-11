@@ -10,7 +10,6 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { supabase } from '/utils/supabase/client';
 import { OrdersApiClient } from '../../../modules/orders';
 import { FetchApiClient } from '../../../platform/api';
 import { useAuth } from '../../contexts/AuthContext';
@@ -25,7 +24,6 @@ import { CancelOrderConfirmDialog } from '../shop/portal/CancelOrderConfirmDialo
 import { ValidateOrderConfirmDialog } from '../shop/portal/ValidateOrderConfirmDialog';
 import { formatCancelErrorMessage } from '../shop/portal/orderCancellation.helpers';
 import { formatValidateErrorMessage } from '../shop/portal/orderValidation.helpers';
-import { triggerOrderWorkflowStep } from '../shop/portal/orderWorkflowStep.helpers';
 import { useUserCapability } from '../../hooks/useUserCapability';
 
 interface DashboardOrderUI extends OrderUI {
@@ -120,22 +118,15 @@ export function DashboardOrders() {
   const handleCancelConfirm = async (orderId: string): Promise<string | null> => {
     const currentOrder = orders.find((o) => o.id === orderId);
     const fromStatus = currentOrder?.status ?? 'draft';
-    const { error: rpcErr } = await supabase.rpc('update_tenant_order_status', {
-      p_order_id: orderId,
-      p_new_status: 'cancelled',
-      p_reason: null,
-    });
-    if (rpcErr) {
-      console.warn('[DashboardOrders] cancel RPC failed:', rpcErr.message);
-      return formatCancelErrorMessage(rpcErr);
-    }
-    if (user?.id) {
-      triggerOrderWorkflowStep({
-        orderId,
-        fromStatus,
+    try {
+      await ordersApi.transition(orderId, {
         toStatus: 'cancelled',
-        actorUserId: user.id,
+        reason: null,
+        idempotencyKey: transitionKey(orderId, fromStatus, 'cancelled'),
       });
+    } catch (cause) {
+      console.warn('[DashboardOrders] cancel API failed:', cause);
+      return formatCancelErrorMessage(cause instanceof Error ? cause : null);
     }
     await loadOrders({ current: false });
     return null;
@@ -150,22 +141,15 @@ export function DashboardOrders() {
   const handleValidateConfirm = async (orderId: string): Promise<string | null> => {
     const currentOrder = orders.find((o) => o.id === orderId);
     const fromStatus = currentOrder?.status ?? 'draft';
-    const { error: rpcErr } = await supabase.rpc('update_tenant_order_status', {
-      p_order_id: orderId,
-      p_new_status: 'validated',
-      p_reason: null,
-    });
-    if (rpcErr) {
-      console.warn('[DashboardOrders] validate RPC failed:', rpcErr.message);
-      return formatValidateErrorMessage(rpcErr);
-    }
-    if (user?.id) {
-      triggerOrderWorkflowStep({
-        orderId,
-        fromStatus,
+    try {
+      await ordersApi.transition(orderId, {
         toStatus: 'validated',
-        actorUserId: user.id,
+        reason: null,
+        idempotencyKey: transitionKey(orderId, fromStatus, 'validated'),
       });
+    } catch (cause) {
+      console.warn('[DashboardOrders] validate API failed:', cause);
+      return formatValidateErrorMessage(cause instanceof Error ? cause : null);
     }
     await loadOrders({ current: false });
     return null;
@@ -178,22 +162,15 @@ export function DashboardOrders() {
     toStatus: 'in_production' | 'shipped',
   ): Promise<void> => {
     const fromStatus = order.status;
-    const { error: rpcErr } = await supabase.rpc('update_tenant_order_status', {
-      p_order_id: order.id,
-      p_new_status: toStatus,
-      p_reason: null,
-    });
-    if (rpcErr) {
-      console.warn(`[DashboardOrders] transition ${fromStatus}→${toStatus} failed:`, rpcErr.message);
-      return;
-    }
-    if (user?.id) {
-      triggerOrderWorkflowStep({
-        orderId: order.id,
-        fromStatus,
+    try {
+      await ordersApi.transition(order.id, {
         toStatus,
-        actorUserId: user.id,
+        reason: null,
+        idempotencyKey: transitionKey(order.id, fromStatus, toStatus),
       });
+    } catch (cause) {
+      console.warn(`[DashboardOrders] transition ${fromStatus}→${toStatus} failed:`, cause);
+      return;
     }
     await loadOrders({ current: false });
   };
@@ -262,4 +239,8 @@ export function DashboardOrders() {
       />
     </div>
   );
+}
+
+function transitionKey(orderId: string, fromStatus: string, toStatus: string): string {
+  return `order-transition:${orderId}:${fromStatus}:${toStatus}`;
 }

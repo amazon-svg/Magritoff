@@ -5,7 +5,7 @@
  * seulement la dette historique d'augmenter pendant sa migration vers /api/v1.
  * Chaque story de migration doit supprimer les entrées devenues inutiles et
  * abaisser les compteurs ; la baseline ne doit jamais être augmentée.
- * Après AF4 : 41 fichiers importeurs et 168 références directes restantes.
+ * Après AF5.1 : 38 fichiers importeurs et 163 références directes restantes.
  * Le compteur inclut les appels où `supabase` et `.` sont séparés par un saut de ligne.
  */
 export const legacySupabaseUiImportFiles = new Set([
@@ -13,7 +13,6 @@ export const legacySupabaseUiImportFiles = new Set([
   'src/app/components/DiagnosticPanel.tsx',
   'src/app/components/dashboard/DashboardAdminMockups.tsx',
   'src/app/components/dashboard/DashboardAdminPIM.tsx',
-  'src/app/components/dashboard/DashboardOrders.tsx',
   'src/app/components/dashboard/DashboardRolesSection.tsx',
   'src/app/components/dashboard/DashboardShopEditor.tsx',
   'src/app/components/dashboard/DashboardTenantGammes.tsx',
@@ -34,9 +33,7 @@ export const legacySupabaseUiImportFiles = new Set([
   'src/app/components/shop/portal/CheckoutPage.tsx',
   'src/app/components/shop/portal/PortalCatalog.tsx',
   'src/app/components/shop/portal/PortalOrderEditor.tsx',
-  'src/app/components/shop/portal/PortalOrders.tsx',
   'src/app/components/shop/portal/PortalThankYou.tsx',
-  'src/app/components/shop/portal/orderWorkflowStep.helpers.ts',
   'src/app/components/tenant/AcceptInvitation.tsx',
   'src/app/components/tenant/LegacySlugRedirect.tsx',
   'src/app/components/tenant/ShopOnlyRedirect.tsx',
@@ -56,7 +53,6 @@ export const legacySupabaseUiReferenceLimits = new Map<string, number>([
   ['src/app/components/ChatInterface.tsx', 1],
   ['src/app/components/DiagnosticPanel.tsx', 1],
   ['src/app/components/dashboard/DashboardAdminPIM.tsx', 4],
-  ['src/app/components/dashboard/DashboardOrders.tsx', 3],
   ['src/app/components/dashboard/DashboardRolesSection.tsx', 5],
   ['src/app/components/dashboard/DashboardShopEditor.tsx', 5],
   ['src/app/components/dashboard/DashboardTenantGammes.tsx', 3],
@@ -77,9 +73,7 @@ export const legacySupabaseUiReferenceLimits = new Map<string, number>([
   ['src/app/components/shop/portal/CheckoutPage.tsx', 4],
   ['src/app/components/shop/portal/PortalCatalog.tsx', 3],
   ['src/app/components/shop/portal/PortalOrderEditor.tsx', 4],
-  ['src/app/components/shop/portal/PortalOrders.tsx', 1],
   ['src/app/components/shop/portal/PortalThankYou.tsx', 1],
-  ['src/app/components/shop/portal/orderWorkflowStep.helpers.ts', 1],
   ['src/app/components/tenant/AcceptInvitation.tsx', 3],
   ['src/app/components/tenant/LegacySlugRedirect.tsx', 1],
   ['src/app/components/tenant/ShopOnlyRedirect.tsx', 1],
