@@ -2,7 +2,86 @@
 
 > Document de reprise pour démarrer une nouvelle session de Claude code sur le projet sans recharger tout l'historique. À tenir à jour à chaque fin de sprint.
 >
-> **Dernière mise à jour : 2026-08-10 — MULTI-DEVISE tranche 1 livrée sur `feat/multi-devise-t1` (migration `20260810000200` **APPLIQUÉE en prod** le 2026-08-10, en même temps que les visuels de gamme). Voir sections 27 et 28.**
+> **Dernière mise à jour : 2026-08-11 — PARC MACHINE connecté à la base derrière un contrat d API (R1). Migrations `20260811000100` et `20260811000200` **APPLIQUÉES**, edge function `park-api` **DÉPLOYÉE**. Voir section 29.**
+
+## 29. Session 2026-08-11 — Le Parc machine passe en base, derrière un contrat d API
+
+**Branche** : `feat/parc-machine-api` · **Story** :
+[`_bmad-output/implementation-artifacts/story-PARC-MACHINE-API-2026-08-11.md`](_bmad-output/implementation-artifacts/story-PARC-MACHINE-API-2026-08-11.md)
+· **Contrat** : [`docs/API_PARC_MACHINE.md`](docs/API_PARC_MACHINE.md) v1.0.
+**Recette** : build vert · **922 tests verts** (866 avant, +56) · recette visuelle
+des 3 écrans jouée en conditions réelles, 0 erreur console.
+
+### Ce qui a été trouvé avant d écrire une ligne — et qui a changé le départ
+
+**1. La branche ignorait la moitié du module.** `origin/main` portait `b93d741`
+(08/08) : bibliothèque machines **à 70 modèles** avec sous-familles, rang de
+popularité et **paramètres de prix par type**. La purge des `€` de la tranche 1
+avait été appliquée à la version **antérieure à 35 modèles**. Une fusion tardive
+aurait détruit l enrichissement. → `origin/main` fusionné d abord.
+
+**2. ⚠️ Le dépôt n avait AUCUNE vérification de types.** Écrit intégralement en
+`.ts`/`.tsx`, **sans TypeScript installé ni `tsconfig.json`** : `vite build`
+transpile via esbuild, qui efface les types sans les vérifier. Build vert, 866
+tests verts, et **trois écrans en panne**.
+
+**3. Cinq symboles introuvables, tous des pannes réelles** — dont **trois du même
+défaut**, tous introduits par la même purge des euros de la tranche 1 :
+`MachineParkDetail` et `MachineParkWizard` (`currency`) · `DashboardCommercial`
+(`currency` + `adjustModeLabel`, création de règle de prix) · `AccountHub`
+(`currency`, onglet Devis acheteur) · `DashboardAdminPIM` (`upsertGamme`, visuel
+de gamme). Tous corrigés via `useCurrency()`.
+
+**Outillage posé** : `typescript@5.9.3`, `tsconfig.json` volontairement permissif
+(R5), `pnpm typecheck`. **Compteur 79 → 32**, zéro symbole introuvable. Les 32
+restantes sont de la dette héritée sans effet au runtime : le script est **un
+compteur à faire baisser, pas encore une barrière**.
+
+### Livré
+
+- **Contrat d abord (R1)** : `docs/API_PARC_MACHINE.md` v1.0 + `src/server/park/contract.ts`,
+  **partagé entre le navigateur et l edge function** (`zod` résolu des deux côtés
+  par `supabase/functions/import_map.json`). Une seule définition du parc, un
+  seul `parkIsCalculable`.
+- **4 tables** : `machine_library` (référentiel partagé, 70 modèles seedés) ·
+  `supplier_directory` (**référentiel Fournisseur UNIFIÉ BK-07** — papier,
+  transport, sous-traitance dans une seule table) · `machine_parks` et
+  `machine_park_machines` (RLS tenant-scopée + trigger d intégrité).
+- **Edge function `park-api`** : elle **n utilise pas la clé de service**, elle
+  repasse le jeton de l appelant à la base. Un défaut de logique dans la fonction
+  ne peut donc pas faire fuiter le parc d un imprimeur vers un autre.
+- **Les 5 fonctions** gardent noms et paramètres, et rendent des promesses.
+  `parkIsCalculable` reste synchrone à dessein : le wizard doit se prononcer sur
+  un parc en cours de constitution, qui n existe encore nulle part.
+
+### BK-17 couverte pour la première fois
+
+26 cas de contrat + 13 d isolation RLS + 17 de recette du service déployé. Trois
+qui n allaient de soi pour personne : **un massicot INACTIF ne rend pas le parc
+calculable** (BK-27) · `active` absent ou `null` vaut actif · l absence de plieuse
+n est pas bloquante. Et une porte fermée : **`calculable` envoyé par un client est
+ignoré** — sinon un client déclarerait calculable un parc sans massicot.
+
+### Un défaut trouvé EN RECETTE, corrigé et verrouillé
+
+Les fournisseurs étaient servis par ordre alphabétique : « Antalis » passait
+devant « Mon stock papier » et se retrouvait présélectionné. Pas cosmétique —
+BK-08 pose que l imprimeur est lui-même fournisseur de papier, et que c est le
+cas courant. Corrigé par une colonne `rank` (migration `20260811000200`), et un
+test le tient désormais.
+
+### Reste
+
+1. **Faire valider le contrat v1.0 par Xavier** — c est le point de substitution
+   vers Clariprint Data : le jour où le stockage y rejoint, seule l implémentation
+   derrière ces routes change.
+2. Fusion `feat/parc-machine-api` → `beta/v5` → `main` à décider (cadence
+   hebdomadaire de la convention Git).
+3. Faire tomber le compteur de typage de 32 à 0, puis rendre `pnpm typecheck`
+   bloquant en CI.
+4. **Hygiène** : 168 espaces `rls-test-%` s accumulent depuis les campagnes RLS
+   successives — sans effet fonctionnel, mais ils faussent le décompte des tenants.
+
 
 ## 28. Session 2026-08-10 (suite) — Les 16 familles racines ont leur visuel
 

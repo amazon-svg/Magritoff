@@ -406,9 +406,14 @@ Deno.serve(async (req: Request) => {
       });
       if (!parsed.success) return fail('invalid_payload', firstIssue(parsed.error));
 
+      // BK-08 : les ressources propres de l imprimeur (son stock papier, ses
+      // livraisons) passent devant les tiers — c est le cas courant, pas un cas
+      // particulier. Un tri alphabetique seul les noyait et proposait par
+      // defaut un grossiste. D ou `rank` avant `name`.
       let query = db
         .from('supplier_directory')
         .select('id, kind, name, tenant_id')
+        .order('rank')
         .order('name');
 
       if (parsed.data.kind) query = query.eq('kind', parsed.data.kind);

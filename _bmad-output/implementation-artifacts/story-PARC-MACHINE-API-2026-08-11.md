@@ -154,7 +154,8 @@ encore une barrière**. Il ne deviendra bloquant que lorsqu'il atteindra zéro.
 | Fichier | Cas | État |
 |---|---|---|
 | `tests/server/park/parkContract.test.ts` | **26** | ✅ verts |
-| `tests/rls/machine_park_isolation.test.ts` | **10** | ⏳ en attente de la migration |
+| `tests/rls/machine_park_isolation.test.ts` | **13** | ✅ verts contre la base |
+| `tests/server/park/park_api_smoke.test.ts` | **17** | ✅ verts contre le service déployé |
 
 **BK-17 est couverte pour la première fois** — 10 cas, dont trois qui n'étaient
 évidents pour personne :
@@ -168,7 +169,12 @@ encore une barrière**. Il ne deviendra bloquant que lorsqu'il atteindra zéro.
 Et un cas qui ferme une porte : **`calculable` envoyé par un client est ignoré**.
 L'accepter reviendrait à laisser déclarer calculable un parc qui ne l'est pas.
 
-**Suite complète : 892 tests verts** (866 avant, +26).
+**Suite complète : 922 tests verts** (866 avant, +56).
+
+Les trois niveaux se répondent sans se répéter : le contrat vérifie la règle en
+mémoire, la RLS vérifie l'isolation en base, la recette vérifie que le service
+déployé tient ce que le contrat promet — codes d'erreur, refus cross-tenant,
+`numeric` rendu en nombre et non en chaîne.
 
 ---
 
@@ -205,19 +211,50 @@ Contrat v1.0 complet dans [docs/API_PARC_MACHINE.md](../../docs/API_PARC_MACHINE
 
 ---
 
-## 6. Reste à faire
+---
+
+## 6. Déploiement et recette
+
+**Appliqué en production** (`ightkxebexuzfjdbpsdg`) le 2026-08-11 :
+migrations `20260811000100` et `20260811000200`, edge function `park-api`.
+`db push --dry-run` confirme ensuite « Remote database is up to date ».
+
+**Le point de vigilance annoncé est levé** : le bundler Deno a bien embarqué
+`src/server/park/contract.ts` malgré son chemin hors du dossier des fonctions
+(visible au déploiement : `Uploading asset (park-api): src/server/park/contract.ts`).
+Le contrat partagé fonctionne, pas de duplication à tenir.
+
+**Recette visuelle jouée** sur un espace jetable, les trois écrans :
+
+| Vérification | Résultat |
+|---|---|
+| Liste des parcs, état vide | ✅ chargée par l'API |
+| Wizard, sélecteur de machines | ✅ 70 modèles servis par la base, sous-familles, rang `nº1`, facettes, recherche |
+| Wizard, **écran Modèle de coût** | ✅ **s'affiche** — c'est là que le `ReferenceError` se produisait |
+| Wizard, validation | ✅ parc créé en base, UUID réel, parcours B et 12 clics conservés |
+| Liste, badge `calculable` | ✅ verdict rendu par le serveur |
+| Détail, **dialogue machine** | ✅ **s'ouvre** — second point de panne |
+| Défauts de prix du modèle | ✅ 15000 / 15 / 150 / 6 — valeurs du référentiel serveur, pas du type |
+| Autocomplétion sous-traitant | ✅ « Reliure » → « Reliure Occitane (Toulouse) » depuis BK-07 |
+| Persistance après rechargement complet | ✅ « Externe · Reliure Occitane » survit |
+| Console | ✅ 0 erreur, 0 avertissement |
+
+**Un défaut trouvé en recette, corrigé et verrouillé.** Les fournisseurs étaient
+servis par ordre alphabétique : « Antalis » passait devant « Mon stock papier »
+et se retrouvait présélectionné. Ce n'est pas cosmétique — BK-08 pose que
+l'imprimeur est lui-même fournisseur de papier, et que c'est le cas courant.
+L'ordre alphabétique proposait un grossiste par défaut. Corrigé par une colonne
+`rank` (migration `20260811000200`), et **un test le tient désormais**.
+
+Données de recette nettoyées : 0 parc machine résiduel en base.
+
+---
+
+## 7. Reste à faire
 
 | # | Action | Qui |
 |---|---|---|
-| 1 | **Appliquer la migration** `20260811000100` (`supabase db push`) — bloquée par le garde-fou d'autorisation en séance | Arnaud (autorisation) |
-| 2 | **Déployer** `supabase functions deploy park-api --import-map supabase/functions/import_map.json` | idem |
-| 3 | Rejouer les 10 tests RLS une fois la migration appliquée | Amelia |
-| 4 | Recette visuelle des 3 écrans en conditions réelles | Amelia |
-| 5 | Faire valider le contrat v1.0 par Xavier Péchoultres — c'est le point de substitution vers Clariprint Data | Arnaud |
-
-**Point de vigilance à connaître** : l'import du bundle Deno suit un chemin
-relatif vers `src/server/park/contract.ts`, hors du dossier des fonctions. C'est
-supporté (le bundler suit le graphe de modules), mais **c'est le premier usage du
-genre dans ce dépôt** — à vérifier au premier déploiement. En cas d'échec, le
-repli est de recopier le contrat dans `supabase/functions/_shared/`, au prix
-d'une duplication à tenir d'accord.
+| 1 | Faire valider le contrat v1.0 par Xavier Péchoultres — c'est le point de substitution vers Clariprint Data | Arnaud |
+| 2 | Décider de la fusion `feat/parc-machine-api` → `beta/v5` → `main` (cadence hebdomadaire de la convention Git) | Arnaud |
+| 3 | Faire baisser le compteur de typage de 32 à 0, puis rendre `pnpm typecheck` bloquant en CI | prochaine session |
+| 4 | **Hygiène de base** : 168 espaces `rls-test-%` s'accumulent depuis les campagnes RLS successives. Sans effet fonctionnel, mais ils polluent le décompte des tenants — une purge serait saine | à arbitrer |
