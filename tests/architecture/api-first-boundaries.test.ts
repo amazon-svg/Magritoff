@@ -62,6 +62,31 @@ describe('frontières API-first et modulaires', () => {
     expect(violations).toEqual([]);
   });
 
+  it('garde la plateforme API et la composition serveur indépendantes des fournisseurs', () => {
+    const protectedRoots = ['src/platform/api', 'src/server/api'];
+    const violations = protectedRoots.flatMap((root) =>
+      listTypeScriptFiles(resolve(process.cwd(), root)).flatMap((file) => {
+        const source = readFileSync(file, 'utf8');
+        const importsForbidden = importedModules(source).filter(
+          (dependency) =>
+            /^react(?:\/|$)/.test(dependency) ||
+            /^@supabase(?:\/|$)/.test(dependency) ||
+            /utils\/supabase/.test(dependency) ||
+            /database\.types/.test(dependency),
+        );
+        const providerCalls = /\bsupabase\s*\.|functions\/v1/.test(source);
+        return [
+          ...importsForbidden.map(
+            (dependency) => `${relative(process.cwd(), file)} -> ${dependency}`,
+          ),
+          ...(providerCalls ? [`${relative(process.cwd(), file)} -> appel fournisseur`] : []),
+        ];
+      }),
+    );
+
+    expect(violations).toEqual([]);
+  });
+
   it('empêche toute nouvelle dépendance Supabase dans le front brownfield', () => {
     const appRoot = resolve(process.cwd(), 'src/app');
     const violations: string[] = [];

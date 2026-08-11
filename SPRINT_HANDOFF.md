@@ -6,13 +6,15 @@
 
 ---
 
-## ▶️ PROCHAIN CHANTIER — AF1 contrats HTTP et composition serveur
+## ▶️ PROCHAIN CHANTIER — AF2 bootstrap session, tenant et préférences
 
 La refactorisation API-first a démarré le 2026-08-11 sur la branche `refactor/api-first-foundation`, créée depuis `main@eea7f56`.
 
-**AF0 en review** : ADR §4.21, brief et Epic 8 BMAD, kernel minimal strict, baseline exacte de la dette Supabase UI, tests de frontières et workflow CI architecture. Aucun comportement applicatif, schéma SQL ou endpoint de production n a été modifié. Validation : typecheck vert, architecture 3/3, vitest 757 verts et build vert.
+**AF0 committée (`cb5c15e`)** : ADR §4.21, brief et Epic 8 BMAD, kernel minimal strict, baseline exacte de la dette Supabase UI, tests de frontières et workflow CI architecture.
 
-**Point de reprise** : story AF1 dans `_bmad-output/planning-artifacts/epics.md` — définir les contrats communs `/api/v1`, le contexte acteur, les erreurs HTTP et la composition serveur avant de migrer le bootstrap en AF2.
+**AF1 en review** : contrats communs `/api/v1`, client fetch typé, Problem Details, routeur `Request -> Response`, résolution acteur injectée, composition serveur, healthcheck et OpenAPI. Validation : typecheck vert, architecture 4/4, API 11/11, vitest complet 769 verts et build vert.
+
+**Point de reprise** : story AF2 dans `_bmad-output/planning-artifacts/epics.md` — agréger session, tenant et préférences derrière un premier module vertical et migrer les contexts React sans casser Supabase Auth pendant la coexistence.
 
 **Dérogation R5 restante** : 45 fichiers UI importent encore Supabase et 83 références `supabase.*` sont figées par `tests/architecture/supabase-ui-baseline.ts`. La baseline ne peut ni augmenter ni rester périmée après une baisse.
 

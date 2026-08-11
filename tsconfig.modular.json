@@ -5,5 +5,11 @@
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true
   },
-  "include": ["src/kernel", "src/platform", "src/modules", "tests/kernel/types.typecheck.ts"]
+  "include": [
+    "src/kernel",
+    "src/platform",
+    "src/modules",
+    "src/server/api",
+    "tests/kernel/types.typecheck.ts"
+  ]
 }

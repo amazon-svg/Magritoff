@@ -1,0 +1,75 @@
+openapi: 3.1.0
+info:
+  title: API Magrit
+  version: 1.0.0
+  description: >-
+    Façade métier stable de Magrit. Les fournisseurs de données et runtimes
+    de déploiement ne font pas partie de ce contrat.
+servers:
+  - url: /api/v1
+paths:
+  /health:
+    get:
+      operationId: getApiHealth
+      summary: Vérifier la disponibilité de la façade API
+      security: []
+      responses:
+        '200':
+          description: API disponible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      additionalProperties: false
+      required: [status, apiVersion, timestamp]
+      properties:
+        status:
+          const: ok
+        apiVersion:
+          const: v1
+        timestamp:
+          type: string
+          format: date-time
+    ApiProblem:
+      type: object
+      additionalProperties: false
+      required: [type, title, status, code, requestId]
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+          minimum: 400
+          maximum: 599
+        code:
+          type: string
+        detail:
+          type: string
+        requestId:
+          type: string
+        errors:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [field, message]
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+  responses:
+    InternalError:
+      description: Erreur interne corrélée sans détail technique exposé
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ApiProblem'
