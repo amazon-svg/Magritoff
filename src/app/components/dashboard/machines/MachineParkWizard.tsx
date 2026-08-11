@@ -29,20 +29,32 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
   ArrowRight, ArrowLeft, Check, ShoppingCart, X, AlertTriangle,
-  MousePointerClick, Wand2, Square, CheckSquare,
+  MousePointerClick, Wand2, Square, CheckSquare, Loader2,
 } from 'lucide-react';
 import { useTenant } from '../../../contexts/TenantContext';
 import { useTenantPath } from '../../../hooks/useTenantPath';
 import { useCurrency } from '../../../contexts/CurrencyContext';
 import { formatCurrencyPerUnit } from '../../../utils/currency';
+import { useMachineReferentials } from './useMachineReferentials';
 import {
-  DEFAULT_ENERGY_RATE, DEFAULT_INKS, DEFAULT_LABOR_RATE, KNOWN_SUBCONTRACTORS,
-  MACHINE_LIBRARY, MACHINE_TYPES, PAPER_SUPPLIERS, TRANSPORT_SUPPLIERS,
-  parkIsCalculable, upsertPark,
-  type LibraryMachine, type MachinePark, type MachineTypeDef, type MachineTypeKey, type ParkMachine,
+  DEFAULT_ENERGY_RATE, DEFAULT_INKS, DEFAULT_LABOR_RATE,
+  MACHINE_TYPES, parkIsCalculable, upsertPark,
+  type LibraryMachine, type MachineParkInput, type MachineTypeDef,
+  type MachineTypeKey, type ParkMachineInput,
 } from './machinePark.helpers';
 
 type Variant = 'A' | 'B';
+
+/**
+ * Machine du panier du wizard.
+ *
+ * `ParkMachineInput` du contrat, plus une CLE LOCALE. Les identifiants sont
+ * attribues par le serveur a l enregistrement : tant que le parc n existe pas,
+ * il faut bien distinguer deux exemplaires du meme modele — d ou `key`, qui ne
+ * quitte jamais le navigateur et n est pas envoyee a l API.
+ */
+type WizardMachine = ParkMachineInput & { key: string };
+
 
 /** Etapes hors types machines, communes aux deux parcours (BK-18/19/22/20). */
 type FinalStep = 'paper' | 'transport' | 'inks' | 'costs' | 'recap';
@@ -68,6 +80,15 @@ export function MachineParkWizard() {
   const currency = useCurrency();
   const tp = useTenantPath();
   const navigate = useNavigate();
+  const tenantId = currentTenant?.id ?? '';
+
+  // 2026-08-11 : bibliotheque de machines et fournisseurs viennent du serveur
+  // (R1). Ils ARRIVENT : le selecteur et les listes de fournisseurs affichent
+  // un etat de chargement plutot qu une liste vide sans explication.
+  const {
+    library, paperSuppliers: paperOptions, transportSuppliers: transportOptions,
+    subcontractors, loading: refsLoading, error: refsError,
+  } = useMachineReferentials(tenantId);
 
   // ── Etat global du parcours ────────────────────────────────────────────────
   const [variant, setVariant] = useState<Variant | null>(null);
@@ -81,8 +102,12 @@ export function MachineParkWizard() {
   const [confirmingEmpty, setConfirmingEmpty] = useState<MachineTypeDef | null>(null);
 
   // ── Donnees du parc en cours de constitution ───────────────────────────────
-  const [selected, setSelected] = useState<ParkMachine[]>([]);
-  const [paperSuppliers, setPaperSuppliers] = useState<string[]>([PAPER_SUPPLIERS[0]]);
+  const [selected, setSelected] = useState<WizardMachine[]>([]);
+  // BK-08 : le premier fournisseur propose est « mon stock papier » — c est le
+  // cas courant, pas un cas particulier. Il est preselectionne des que le
+  // referentiel arrive, et seulement si l imprimeur n a encore rien touche.
+  const [paperSuppliers, setPaperSuppliers] = useState<string[]>([]);
+  const paperTouched = useRef(false);
   const [transportSuppliers, setTransportSuppliers] = useState<string[]>([]);
   const [inks, setInks] = useState(DEFAULT_INKS);
   const [laborRate, setLaborRate] = useState(String(DEFAULT_LABOR_RATE));
@@ -96,6 +121,11 @@ export function MachineParkWizard() {
   // d affichage est un composant isole qui ecoute seul les clics.
   const clicksRef = useRef(0);
   const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (paperTouched.current || paperSuppliers.length > 0 || paperOptions.length === 0) return;
+    setPaperSuppliers([paperOptions[0]]);
+  }, [paperOptions, paperSuppliers.length]);
 
   const typeSequence: MachineTypeDef[] = useMemo(() => {
     if (variant === 'B')
@@ -131,41 +161,64 @@ export function MachineParkWizard() {
     setSelected((s) => [
       ...s,
       {
-        id: count === 0 ? lib.id : `${lib.id}-${count + 1}`,
+        // Cle LOCALE : deux exemplaires du meme modele doivent se distinguer
+        // avant que le serveur n attribue les identifiants.
+        key: count === 0 ? lib.id : `${lib.id}-${count + 1}`,
         libraryId: lib.id,
         type: lib.type,
         brand: lib.brand,
         model: lib.model,
         format: lib.format,
-        colors: lib.colors,
-        varnish: lib.varnish,
+        colors: lib.colors ?? null,
+        varnish: lib.varnish ?? false,
         location: null,
+        active: true,
       },
     ]);
   };
 
-  const removeMachine = (id: string) => setSelected((s) => s.filter((m) => m.id !== id));
+  const removeMachine = (key: string) => setSelected((s) => s.filter((m) => m.key !== key));
 
-  const updateMachine = (id: string, patch: Partial<ParkMachine>) =>
-    setSelected((s) => s.map((m) => (m.id === id ? { ...m, ...patch } : m)));
+  const updateMachine = (key: string, patch: Partial<WizardMachine>) =>
+    setSelected((s) => s.map((m) => (m.key === key ? { ...m, ...patch } : m)));
 
-  const finish = (parkName: string) => {
-    if (!currentTenant) return;
-    const park: MachinePark = {
-      id: `parc-${Date.now().toString(36)}`,
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  /**
+   * Enregistre le parc constitue. Le serveur attribue les identifiants et
+   * rend le verdict BK-17 ; le wizard n envoie que ce qu il a saisi.
+   *
+   * `key` est retiree ici : c est une cle d affichage, le contrat ne la
+   * connait pas.
+   */
+  const finish = async (parkName: string) => {
+    if (!currentTenant || saving) return;
+    const park: MachineParkInput = {
       name: parkName.trim() || 'Parc principal',
-      machines: selected,
+      machines: selected.map(({ key: _key, ...machine }) => machine),
       paperSuppliers,
       transportSuppliers,
       inks,
       laborRate: Number(laborRate) || DEFAULT_LABOR_RATE,
       energyRate: DEFAULT_ENERGY_RATE,
-      wizardVariant: variant ?? undefined,
+      wizardVariant: variant ?? null,
       wizardClicks: clicksRef.current,
       completedAt: new Date().toISOString(),
     };
-    upsertPark(currentTenant.id, park);
-    navigate(tp('/dashboard/machines'));
+
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await upsertPark(currentTenant.id, park);
+      navigate(tp('/dashboard/machines'));
+    } catch (e) {
+      // On NE navigue pas : le parcours vient de couter 14 a 19 clics, le
+      // perdre sur un echec reseau serait le pire des aboutissements.
+      setSaveError(e instanceof Error ? e.message : 'Enregistrement du parc impossible.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   // ── Rendu ──────────────────────────────────────────────────────────────────
@@ -185,6 +238,17 @@ export function MachineParkWizard() {
         </div>
         <ClickCounter rootRef={rootRef} clicksRef={clicksRef} variant={variant} />
       </div>
+
+      {refsError && (
+        <div className="border border-err-fg/30 bg-err-bg rounded-xl p-4 flex gap-3 text-sm">
+          <AlertTriangle className="w-4.5 h-4.5 text-err-fg shrink-0 mt-0.5" strokeWidth={1.5} />
+          <p className="text-ink-2">
+            <span className="font-medium text-ink">Référentiels indisponibles.</span> {refsError}{' '}
+            La bibliothèque de machines et la liste des fournisseurs viennent du serveur — sans
+            elles, l assistant ne peut rien proposer.
+          </p>
+        </div>
+      )}
 
       {/* ── Ecran d entree : choix du parcours (BK-15) ── */}
       {variant === null && (
@@ -280,6 +344,9 @@ export function MachineParkWizard() {
               key={currentType.key}
               type={currentType}
               selected={selected}
+              library={library}
+              subcontractors={subcontractors}
+              loading={refsLoading}
               onAdd={addMachine}
               onRemove={removeMachine}
               onUpdate={updateMachine}
@@ -345,6 +412,10 @@ export function MachineParkWizard() {
           setPaperSuppliers={setPaperSuppliers}
           transportSuppliers={transportSuppliers}
           setTransportSuppliers={setTransportSuppliers}
+          paperOptions={paperOptions}
+          transportOptions={transportOptions}
+          saving={saving}
+          saveError={saveError}
           inks={inks}
           setInks={setInks}
           laborRate={laborRate}
@@ -494,13 +565,18 @@ function BQualification({ onValidate }: { onValidate: (types: MachineTypeKey[]) 
 
 /** Selection par facettes + panier (BK-16). */
 function MachinePicker({
-  type, selected, onAdd, onRemove, onUpdate,
+  type, selected, library, subcontractors, loading, onAdd, onRemove, onUpdate,
 }: {
   type: MachineTypeDef;
-  selected: ParkMachine[];
+  selected: WizardMachine[];
+  /** Referentiel serveur, deja restreint au type courant par l appelant. */
+  library: ReadonlyArray<LibraryMachine>;
+  /** Referentiel Fournisseur unifie, nature sous-traitance (BK-07/BK-10). */
+  subcontractors: ReadonlyArray<string>;
+  loading: boolean;
   onAdd: (m: LibraryMachine) => void;
-  onRemove: (id: string) => void;
-  onUpdate: (id: string, patch: Partial<ParkMachine>) => void;
+  onRemove: (key: string) => void;
+  onUpdate: (key: string, patch: Partial<WizardMachine>) => void;
 }) {
   const [brandFacet, setBrandFacet] = useState<string | null>(null);
   const [colorFacet, setColorFacet] = useState<number | null>(null);
@@ -508,12 +584,21 @@ function MachinePicker({
   // Point 2 (retour Arnaud 2026-08-08) : recherche libre en plus des facettes.
   const [search, setSearch] = useState('');
 
-  const pool = useMemo(() => MACHINE_LIBRARY.filter((m) => m.type === type.key), [type.key]);
+  const pool = useMemo(() => library.filter((m) => m.type === type.key), [library, type.key]);
   const brands = useMemo(() => Array.from(new Set(pool.map((m) => m.brand))).sort(), [pool]);
   const colorOptions = useMemo(
     () => Array.from(new Set(pool.map((m) => m.colors).filter(Boolean))).sort() as number[],
     [pool],
   );
+
+  if (loading && pool.length === 0) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-ink-muted py-6">
+        <Loader2 className="w-4 h-4 animate-spin" strokeWidth={1.5} />
+        Chargement de la bibliothèque de machines…
+      </div>
+    );
+  }
 
   const visible = pool.filter(
     (m) =>
@@ -577,7 +662,7 @@ function MachinePicker({
           <div className="grid sm:grid-cols-2 gap-2">
             {f.machines.map((m) => (
               <button
-                key={m.id}
+                key={m.key}
                 onClick={() => onAdd(m)}
                 className="text-left border border-line rounded-lg bg-paper px-3 py-2.5 hover:border-brand/60 transition-colors"
               >
@@ -613,7 +698,13 @@ function MachinePicker({
             Dans le parc — {type.label}
           </p>
           {inCart.map((m) => (
-            <CartRow key={m.id} machine={m} onRemove={() => onRemove(m.id)} onUpdate={(p) => onUpdate(m.id, p)} />
+            <CartRow
+              key={m.key}
+              machine={m}
+              subcontractors={subcontractors}
+              onRemove={() => onRemove(m.key)}
+              onUpdate={(p) => onUpdate(m.key, p)}
+            />
           ))}
         </div>
       )}
@@ -636,17 +727,18 @@ function FacetChip({ label, active, onClick }: { label: string; active: boolean;
 
 /** Ligne panier : qualification interne/externe optionnelle (BK-09/10/13). */
 function CartRow({
-  machine, onRemove, onUpdate,
+  machine, subcontractors, onRemove, onUpdate,
 }: {
-  machine: ParkMachine;
+  machine: WizardMachine;
+  subcontractors: ReadonlyArray<string>;
   onRemove: () => void;
-  onUpdate: (patch: Partial<ParkMachine>) => void;
+  onUpdate: (patch: Partial<WizardMachine>) => void;
 }) {
   // CORRECTIF 2026-08-11 : ce composant lisait `currency` du composant PARENT,
   // hors de sa portee — une ReferenceError au rendu. Voir MachineParkDetail.
   const currency = useCurrency();
   const [showSub, setShowSub] = useState(machine.location === 'externe');
-  const suggestions = KNOWN_SUBCONTRACTORS.filter(
+  const suggestions = subcontractors.filter(
     (s) =>
       machine.subcontractor &&
       s.toLowerCase().includes(machine.subcontractor.toLowerCase()) &&
@@ -662,7 +754,7 @@ function CartRow({
         <select
           value={machine.location ?? ''}
           onChange={(e) => {
-            const loc = (e.target.value || null) as ParkMachine['location'];
+            const loc = (e.target.value || null) as WizardMachine['location'];
             onUpdate({ location: loc });
             setShowSub(loc === 'externe');
           }}
@@ -723,11 +815,16 @@ function CartRow({
 function FinalSteps(props: {
   step: FinalStep;
   setStep: (s: FinalStep) => void;
-  selected: ParkMachine[];
+  selected: WizardMachine[];
   paperSuppliers: string[];
   setPaperSuppliers: (v: string[]) => void;
   transportSuppliers: string[];
   setTransportSuppliers: (v: string[]) => void;
+  /** Referentiel Fournisseur unifie (BK-07), charge au serveur. */
+  paperOptions: ReadonlyArray<string>;
+  transportOptions: ReadonlyArray<string>;
+  saving: boolean;
+  saveError: string | null;
   inks: { type: string; costPerKg: number }[];
   setInks: (v: { type: string; costPerKg: number }[]) => void;
   laborRate: string;
@@ -744,7 +841,8 @@ function FinalSteps(props: {
   const currency = useCurrency();
   const {
     step, setStep, selected, paperSuppliers, setPaperSuppliers, transportSuppliers,
-    setTransportSuppliers, inks, setInks, laborRate, setLaborRate, showEnergyDefault,
+    setTransportSuppliers, paperOptions, transportOptions, saving, saveError,
+    inks, setInks, laborRate, setLaborRate, showEnergyDefault,
     setShowEnergyDefault, onBackToTypes, onFinish, variant, clicksRef,
   } = props;
 
@@ -766,7 +864,7 @@ function FinalSteps(props: {
       {step === 'paper' && (
         <CheckList
           intro="Chez qui achetez-vous votre papier ? Votre propre stock compte : beaucoup d'imprimeurs stockent leurs papiers courants et pratiquent un prix à la feuille."
-          options={PAPER_SUPPLIERS}
+          options={paperOptions}
           value={paperSuppliers}
           onToggle={(s) => toggleIn(paperSuppliers, setPaperSuppliers, s)}
         />
@@ -775,7 +873,7 @@ function FinalSteps(props: {
       {step === 'transport' && (
         <CheckList
           intro="Qui livre vos travaux ? Les grilles tarifaires négociées s'importent ensuite (CSV) — les API transporteurs ne connaissent pas vos conditions."
-          options={TRANSPORT_SUPPLIERS}
+          options={transportOptions}
           value={transportSuppliers}
           onToggle={(s) => toggleIn(transportSuppliers, setTransportSuppliers, s)}
         />
@@ -865,7 +963,7 @@ function FinalSteps(props: {
           )}
           <RecapSection title={`Machines (${selected.length})`} onEdit={onBackToTypes}>
             {selected.map((m) => (
-              <p key={m.id} className="text-sm text-ink-2">
+              <p key={m.key} className="text-sm text-ink-2">
                 {m.brand} {m.model}
                 <span className="font-mono text-[11px] text-ink-mute-2">
                   {' '}· {m.format}
@@ -890,6 +988,15 @@ function FinalSteps(props: {
           <p className="font-mono text-[11px] text-ink-mute-2">
             Parcours {variant} · {clicksRef.current} clics — consigné pour l'arbitrage des deux maquettes.
           </p>
+          {saveError && (
+            <div className="border border-err-fg/30 bg-err-bg rounded-xl p-4 flex gap-3 text-sm">
+              <AlertTriangle className="w-4.5 h-4.5 text-err-fg shrink-0 mt-0.5" strokeWidth={1.5} />
+              <p className="text-ink-2">
+                <span className="font-medium text-ink">Le parc n a pas pu être enregistré.</span>{' '}
+                {saveError} Votre saisie est conservée : réessayez.
+              </p>
+            </div>
+          )}
         </div>
       )}
 
@@ -908,9 +1015,17 @@ function FinalSteps(props: {
             <ArrowRight className="w-4 h-4" strokeWidth={1.5} />
           </button>
         ) : (
-          <button className={btnPrimary} disabled={!calculable} onClick={() => onFinish(parkName)}>
-            <Check className="w-4 h-4" strokeWidth={1.5} />
-            Valider le parc
+          <button
+            className={btnPrimary}
+            disabled={!calculable || saving}
+            onClick={() => onFinish(parkName)}
+          >
+            {saving ? (
+              <Loader2 className="w-4 h-4 animate-spin" strokeWidth={1.5} />
+            ) : (
+              <Check className="w-4 h-4" strokeWidth={1.5} />
+            )}
+            {saving ? 'Enregistrement…' : 'Valider le parc'}
           </button>
         )}
       </div>
@@ -922,7 +1037,7 @@ function CheckList({
   intro, options, value, onToggle,
 }: {
   intro: string;
-  options: string[];
+  options: ReadonlyArray<string>;
   value: string[];
   onToggle: (s: string) => void;
 }) {

@@ -8,17 +8,18 @@
  * activation (esquisse du draft BK-27 : une machine inactive est exclue des
  * calculs).
  */
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router';
-import { ArrowLeft, AlertTriangle, Factory, Trash2, X, MapPin } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, Factory, Trash2, X, MapPin, Loader2 } from 'lucide-react';
 import { useTenant } from '../../../contexts/TenantContext';
 import { useTenantPath } from '../../../hooks/useTenantPath';
 import { useCurrency } from '../../../contexts/CurrencyContext';
 import { formatCurrencyPerUnit, getCurrencySymbol } from '../../../utils/currency';
+import { useMachineReferentials } from './useMachineReferentials';
 import {
-  KNOWN_SUBCONTRACTORS, MACHINE_TYPES, PRICE_PARAMS, loadParks, machinePriceValues,
-  parkIsCalculable, priceParamUnit, upsertPark,
-  type MachinePark, type MachineTypeKey, type ParkMachine,
+  MACHINE_TYPES, PRICE_PARAMS, loadParks, machinePriceValues,
+  priceParamUnit, upsertPark,
+  type LibraryMachine, type MachinePark, type MachineTypeKey, type ParkMachine,
 } from './machinePark.helpers';
 
 const inputCls =
@@ -32,12 +33,42 @@ export function MachineParkDetail() {
   const currency = useCurrency();
   const tp = useTenantPath();
   const tenantId = currentTenant?.id ?? '';
-  const [park, setPark] = useState<MachinePark | null>(
-    () => loadParks(tenantId).find((p) => p.id === parkId) ?? null,
-  );
+  // 2026-08-11 : le parc vient de la base par l API (R1).
+  const [park, setPark] = useState<MachinePark | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<MachineTypeKey | null>(null);
   const [brandFilter, setBrandFilter] = useState<string | null>(null);
   const [editing, setEditing] = useState<ParkMachine | null>(null);
+
+  // Referentiels : la bibliotheque sert a resoudre les valeurs de prix par
+  // defaut du modele, les sous-traitants alimentent l autocompletion (BK-10).
+  const { library, subcontractors } = useMachineReferentials(tenantId);
+
+  useEffect(() => {
+    if (!tenantId || !parkId) {
+      setLoading(false);
+      return;
+    }
+    let current = true;
+    setLoading(true);
+    setError(null);
+    loadParks(tenantId)
+      .then((parks) => {
+        if (!current) return;
+        setPark(parks.find((p) => p.id === parkId) ?? null);
+      })
+      .catch((e: unknown) => {
+        if (!current) return;
+        setError(e instanceof Error ? e.message : 'Impossible de charger ce parc.');
+      })
+      .finally(() => {
+        if (current) setLoading(false);
+      });
+    return () => {
+      current = false;
+    };
+  }, [tenantId, parkId]);
 
   const brands = useMemo(
     () => Array.from(new Set((park?.machines ?? []).map((m) => m.brand))).sort(),
@@ -51,28 +82,60 @@ export function MachineParkDetail() {
     [park, typeFilter, brandFilter],
   );
 
-  const persist = (next: MachinePark) => {
-    setPark(next);
-    upsertPark(tenantId, next);
-  };
+  /**
+   * Enregistre le parc entier (le contrat ne connait que le remplacement
+   * complet, cf. docs/API_PARC_MACHINE.md §4.2).
+   *
+   * L etat local est pose d abord pour que l ecran reste vif, puis remplace
+   * par la reponse du serveur : c est elle qui porte les identifiants
+   * attribues et le verdict `calculable` recalcule. En cas d echec, l etat
+   * anterieur est restaure — plutot que de laisser a l ecran une modification
+   * que la base n a pas.
+   */
+  const persist = useCallback(
+    async (next: MachinePark) => {
+      const previous = park;
+      setPark(next);
+      setError(null);
+      try {
+        setPark(await upsertPark(tenantId, next));
+      } catch (e) {
+        setPark(previous);
+        setError(e instanceof Error ? e.message : 'Enregistrement impossible.');
+      }
+    },
+    [park, tenantId],
+  );
 
   const updateMachine = (id: string, patch: Partial<ParkMachine>) => {
     if (!park) return;
-    persist({ ...park, machines: park.machines.map((m) => (m.id === id ? { ...m, ...patch } : m)) });
+    void persist({ ...park, machines: park.machines.map((m) => (m.id === id ? { ...m, ...patch } : m)) });
   };
 
   const removeMachine = (m: ParkMachine) => {
     if (!park || !window.confirm(`Retirer ${m.brand} ${m.model} du parc ?`)) return;
-    persist({ ...park, machines: park.machines.filter((x) => x.id !== m.id) });
+    void persist({ ...park, machines: park.machines.filter((x) => x.id !== m.id) });
   };
 
   const typeLabel = (key: MachineTypeKey) => MACHINE_TYPES.find((t) => t.key === key)?.label ?? key;
+
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <BackLink to={tp('/dashboard/machines')} />
+        <div className="flex items-center gap-2 text-sm text-ink-muted">
+          <Loader2 className="w-4 h-4 animate-spin" strokeWidth={1.5} />
+          Chargement du parc…
+        </div>
+      </div>
+    );
+  }
 
   if (!park) {
     return (
       <div className="space-y-4">
         <BackLink to={tp('/dashboard/machines')} />
-        <p className="text-sm text-ink-muted">Parc introuvable.</p>
+        <p className="text-sm text-ink-muted">{error ?? 'Parc introuvable.'}</p>
       </div>
     );
   }
@@ -80,6 +143,13 @@ export function MachineParkDetail() {
   return (
     <div className="space-y-5">
       <BackLink to={tp('/dashboard/machines')} />
+
+      {error && (
+        <div className="border border-err-fg/30 bg-err-bg rounded-xl p-4 flex gap-3 text-sm max-w-2xl">
+          <AlertTriangle className="w-4.5 h-4.5 text-err-fg shrink-0 mt-0.5" strokeWidth={1.5} />
+          <p className="text-ink-2">{error}</p>
+        </div>
+      )}
 
       <div>
         <h2 className="text-lg font-medium text-ink mb-1 flex items-center gap-2" style={{ letterSpacing: '-0.015em' }}>
@@ -92,7 +162,7 @@ export function MachineParkDetail() {
         </p>
       </div>
 
-      {!parkIsCalculable(park) && (
+      {!park.calculable && (
         <div className="border border-warn-fg/30 bg-warn-bg rounded-xl p-4 flex gap-3 text-sm max-w-2xl">
           <AlertTriangle className="w-4.5 h-4.5 text-warn-fg shrink-0 mt-0.5" strokeWidth={1.5} />
           <p className="text-ink-2">
@@ -203,6 +273,8 @@ export function MachineParkDetail() {
       {editing && (
         <MachineDialog
           machine={editing}
+          library={library}
+          subcontractors={subcontractors}
           onClose={() => setEditing(null)}
           onSave={(patch) => {
             updateMachine(editing.id, patch);
@@ -240,9 +312,13 @@ function Chip({ label, active, onClick }: { label: string; active: boolean; onCl
  * Panneau de parametrage d une machine (point 9).
  */
 function MachineDialog({
-  machine, onClose, onSave,
+  machine, library, subcontractors, onClose, onSave,
 }: {
   machine: ParkMachine;
+  /** Referentiel serveur — sert a resoudre les defauts de prix du modele. */
+  library: ReadonlyArray<LibraryMachine>;
+  /** Referentiel Fournisseur unifie, nature sous-traitance (BK-07/BK-10). */
+  subcontractors: ReadonlyArray<string>;
   onClose: () => void;
   onSave: (patch: Partial<ParkMachine>) => void;
 }) {
@@ -262,12 +338,12 @@ function MachineDialog({
   // par type de machine — pre-remplis des defauts type/modele, ajustables.
   const paramDefs = PRICE_PARAMS[machine.type] ?? [];
   const [params, setParams] = useState<Record<string, string>>(() => {
-    const values = machinePriceValues(machine);
+    const values = machinePriceValues(machine, library);
     return Object.fromEntries(paramDefs.map((p) => [p.key, String(values[p.key])]));
   });
   const userSet = (key: string) => machine.params?.[key] != null;
 
-  const suggestions = KNOWN_SUBCONTRACTORS.filter(
+  const suggestions = subcontractors.filter(
     (s) => subcontractor && s.toLowerCase().includes(subcontractor.toLowerCase()) && s !== subcontractor,
   );
 
