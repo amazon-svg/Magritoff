@@ -27,7 +27,10 @@ import {
   type ResumeLastOrder,
 } from './portal/ResumeBanner';
 import { ShopForbidden403 } from './ShopForbidden403';
-import { resolveShopAccessFromMemberships } from './ShopAccessGuard.helpers';
+import {
+  resolveShopAccessFromMemberships,
+  type ShopAccess,
+} from './ShopAccessGuard.helpers';
 import {
   filterProductsByExpandedGammes,
   groupProductsByGamme,
@@ -40,7 +43,7 @@ import { applyTax, getTaxRate } from '../../utils/tax';
 import { applyPricingOverrides, type PricingOverride } from '../../utils/applyPricingOverrides';
 import { resolveShopProductScope } from '../../utils/resolveShopProductScope';
 import { OrdersApiClient } from '../../../modules/orders';
-import { FetchApiClient } from '../../../platform/api';
+import { ApiClientError, FetchApiClient } from '../../../platform/api';
 
 /**
  * Portail B2B Magrit — version 2.
@@ -64,11 +67,15 @@ export function PublicShop() {
   const splat = params['*'];
   const navigate = useNavigate();
   const { user, session, loading: authLoading } = useAuth();
-  const { tenants, isSuperAdmin, currentTenant } = useTenant();
+  const { tenants, isSuperAdmin, loading: tenantLoading } = useTenant();
   const [shop, setShop] = useState<Shop | null>(null);
   const [products, setProducts] = useState<ShopProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [blockedAccess, setBlockedAccess] = useState<Extract<
+    ShopAccess,
+    'authentication_required' | 'forbidden'
+  > | null>(null);
   const ordersApi = useMemo(() => new OrdersApiClient(
     new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null),
   ), [session?.access_token]);
@@ -221,42 +228,87 @@ export function PublicShop() {
 
   // ─── Chargement shop + produits + realtime subscription ──────────────────
   useEffect(() => {
-    if (!slug) return;
+    if (!slug || authLoading || tenantLoading) return;
     let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
+    let focusHandler: (() => void) | null = null;
+    let cancelled = false;
+
+    setLoading(true);
+    setNotFound(false);
+    setBlockedAccess(null);
+    setShop(null);
+    setProducts([]);
+    setPimGammes([]);
+    setPimDefinitions([]);
+    setSubscribedSlugs(null);
 
     (async () => {
-      const { data: shopData, error: shopError } = await supabase
-        .from('shops')
-        .select('*')
+      // Première lecture volontairement minimale : aucune marque, description,
+      // configuration ou donnée catalogue n'est exposée avant le garde d'accès.
+      const shopsTable = supabase.from('shops');
+      const { data: gateData, error: gateError } = await shopsTable
+        .select('id, tenant_id, access_mode')
         .eq('slug', slug)
         .eq('active', true)
         .maybeSingle();
+      if (cancelled) return;
+      if (gateError || !gateData) {
+        setNotFound(true);
+        setLoading(false);
+        return;
+      }
+
+      const initialAccess = resolveShopAccessFromMemberships({
+        isAuthenticated: Boolean(user),
+        isSuperAdmin,
+        accessMode: gateData.access_mode ?? 'invite_only',
+        memberships: tenants.map((tenant) => ({
+          tenantId: tenant.id,
+          accessScope: tenant.accessScope,
+          allowedShopIds: tenant.allowedShopIds,
+        })),
+        shopId: gateData.id,
+        shopTenantId: gateData.tenant_id ?? null,
+      });
+      if (initialAccess === 'authentication_required' || initialAccess === 'forbidden') {
+        setBlockedAccess(initialAccess);
+        setLoading(false);
+        return;
+      }
+
+      const { data: shopData, error: shopError } = await shopsTable
+        .select('*')
+        .eq('id', gateData.id)
+        .single();
+      if (cancelled) return;
       if (shopError || !shopData) {
         setNotFound(true);
         setLoading(false);
         return;
       }
-      setShop(shopData as Shop);
+      const loadedShop = shopData as Shop;
+      setShop(loadedShop);
 
-      const libraryIds = Array.isArray((shopData as Shop).library_ids)
-        ? (shopData as Shop).library_ids
+      const libraryIds = Array.isArray(loadedShop.library_ids)
+        ? loadedShop.library_ids
         : [];
-      const excludedIds = Array.isArray((shopData as Shop).excluded_product_ids)
-        ? (shopData as Shop).excluded_product_ids
+      const excludedIds = Array.isArray(loadedShop.excluded_product_ids)
+        ? loadedShop.excluded_product_ids
         : [];
       // S2.32 — options de perimetre produit (bibliotheques + mode PIM)
-      const shopTenantId = (shopData as Shop).tenant_id ?? null;
+      const shopTenantId = loadedShop.tenant_id ?? null;
       const scopeOpts = {
         libraryIds,
         excludedIds,
-        pimCatalogMode: (shopData as Shop).pim_catalog_mode === true,
-        pimGammeSlugs: Array.isArray((shopData as Shop).pim_gamme_slugs)
-          ? (shopData as Shop).pim_gamme_slugs
+        pimCatalogMode: loadedShop.pim_catalog_mode === true,
+        pimGammeSlugs: Array.isArray(loadedShop.pim_gamme_slugs)
+          ? loadedShop.pim_gamme_slugs
           : [],
         tenantId: shopTenantId,
       };
 
-      await refetchProducts((shopData as Shop).id, scopeOpts);
+      await refetchProducts(loadedShop.id, scopeOpts);
+      if (cancelled) return;
 
       // PIM lecture publique
       const [gr, dr] = await Promise.all([
@@ -291,40 +343,32 @@ export function PublicShop() {
       // supprimé dans shop_products ou product_library (lib liées).
       // Évite d'avoir à refresh manuellement la page pour voir les nouveautés.
       realtimeChannel = supabase
-        .channel(`shop-${(shopData as Shop).id}`)
+        .channel(`shop-${loadedShop.id}`)
         .on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'shop_products' },
-          () => refetchProducts((shopData as Shop).id, scopeOpts)
+          () => refetchProducts(loadedShop.id, scopeOpts)
         )
         .on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'product_library' },
-          () => refetchProducts((shopData as Shop).id, scopeOpts)
+          () => refetchProducts(loadedShop.id, scopeOpts)
         )
         .subscribe();
+
+      focusHandler = () => {
+        void refetchProducts(loadedShop.id, scopeOpts);
+      };
+      window.addEventListener('focus', focusHandler);
     })();
 
-    // Refetch quand l'onglet redevient actif (cas pas de realtime)
-    const onFocus = () => {
-      if (shop) {
-        refetchProducts(shop.id, {
-          libraryIds: Array.isArray(shop.library_ids) ? shop.library_ids : [],
-          excludedIds: Array.isArray(shop.excluded_product_ids) ? shop.excluded_product_ids : [],
-          pimCatalogMode: shop.pim_catalog_mode === true,
-          pimGammeSlugs: Array.isArray(shop.pim_gamme_slugs) ? shop.pim_gamme_slugs : [],
-          tenantId: shop.tenant_id ?? null,
-        });
-      }
-    };
-    window.addEventListener('focus', onFocus);
-
     return () => {
-      window.removeEventListener('focus', onFocus);
+      cancelled = true;
+      if (focusHandler) window.removeEventListener('focus', focusHandler);
       if (realtimeChannel) supabase.removeChannel(realtimeChannel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug]);
+  }, [slug, user?.id, authLoading, tenantLoading, isSuperAdmin, tenants]);
 
   // ─── SEO : title ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -527,7 +571,10 @@ export function PublicShop() {
       orderId = result.orderId;
     } catch (cause) {
       console.error('[submitCart] API create failed:', cause);
-      const message = cause instanceof Error ? cause.message : 'erreur réseau';
+      const message = cause instanceof ApiClientError
+        && cause.problem.code === 'orders.permission_denied'
+        ? createOrderBlockedMessage
+        : cause instanceof Error ? cause.message : 'erreur réseau';
       alert(`Erreur lors de la validation du panier : ${message}.\n\nMerci de réessayer.`);
       return;
     }
@@ -639,16 +686,19 @@ export function PublicShop() {
     return resolveShopAccessFromMemberships({
       isAuthenticated: Boolean(user),
       isSuperAdmin,
+      accessMode: shop.access_mode ?? 'invite_only',
       memberships: tenants.map((t) => ({
+        tenantId: t.id,
         accessScope: t.accessScope,
         allowedShopIds: t.allowedShopIds,
       })),
       shopId: shop.id,
+      shopTenantId: shop.tenant_id ?? null,
     });
   }, [shop, user, isSuperAdmin, tenants]);
 
   // ─── Rendering ───────────────────────────────────────────────────────────
-  if (loading || authLoading) {
+  if (loading || authLoading || tenantLoading) {
     return (
       <div
         className="min-h-screen grid place-items-center bg-bg"
@@ -657,6 +707,9 @@ export function PublicShop() {
         <Loader2 className="w-8 h-8 animate-spin text-ink-mute-2" strokeWidth={1.5} />
       </div>
     );
+  }
+  if (blockedAccess) {
+    return <ShopForbidden403 authenticationRequired={blockedAccess === 'authentication_required'} />;
   }
   if (notFound || !shop) {
     return (
@@ -682,13 +735,20 @@ export function PublicShop() {
     );
   }
 
-  if (access === 'forbidden') {
-    return <ShopForbidden403 />;
+  if (access === 'authentication_required' || access === 'forbidden') {
+    return <ShopForbidden403 authenticationRequired={access === 'authentication_required'} />;
   }
 
   const cartCount = cart.reduce((s, l) => s + l.qty, 0);
   // S7.7 — montant HT du panier (affiché sur le bouton header, décision D3).
   const cartTotalHT = cart.reduce((s, l) => s + l.product.price_ht * l.qty, 0);
+  const shopMembership = tenants.find((tenant) => tenant.id === shop.tenant_id);
+  const canCreateOrder = !user
+    || shop.access_mode === 'self_signup'
+    || Boolean(shopMembership?.permissions.can_order);
+  const createOrderBlockedMessage = shop.access_mode === 'invite_only' && !shopMembership
+    ? 'Cette boutique fonctionne sur invitation. Demandez un accès à son administrateur.'
+    : "Votre administrateur n'a pas activé la création de commandes pour votre compte.";
 
   // S7.9 — Bandeau Reprendre (chips dérivés de la donnée, vide → absent).
   const resumeChips = buildResumeChips({ cartCount, cartTotalHT, lastOrder });
@@ -736,9 +796,8 @@ export function PublicShop() {
           pimGammes={pimGammes}
           pimDefinitions={pimDefinitions}
           compact
-          // S3.2-residual AC3 : back-compat true si pas de tenant resolu ;
-          // la RLS DB bloquera de toute facon si la permission est revoked.
-          canCreateOrder={currentTenant?.permissions?.can_order ?? true}
+          canCreateOrder={canCreateOrder}
+          createOrderBlockedMessage={createOrderBlockedMessage}
           // S3.3 : banner warnings affiché si dernier renew a skip des items.
           renewalWarnings={renewalWarnings}
           onDismissRenewalWarnings={() => setRenewalWarnings([])}
@@ -830,6 +889,8 @@ export function PublicShop() {
         <CheckoutPage
           shop={shop}
           cart={cart}
+          canCreateOrder={canCreateOrder}
+          createOrderBlockedMessage={createOrderBlockedMessage}
           onSubmit={submitCart}
           onGoCatalog={() => goView('catalog')}
         />

@@ -24,6 +24,8 @@ import { TEST_IDS } from '../../../lib/testIds';
 export interface CheckoutPageProps {
   shop: Shop;
   cart: CartLine[];
+  canCreateOrder: boolean;
+  createOrderBlockedMessage: string;
   /** Soumet la commande (submitCart PublicShop) — navigue vers ThankYou. */
   onSubmit: () => Promise<void> | void;
   onGoCatalog: () => void;
@@ -32,7 +34,14 @@ export interface CheckoutPageProps {
 const inputCls =
   'w-full px-3 py-2 rounded-md border border-line-2 bg-paper text-ink text-[13px] focus:outline-none focus:ring-2 focus:ring-accent';
 
-export function CheckoutPage({ shop, cart, onSubmit, onGoCatalog }: CheckoutPageProps) {
+export function CheckoutPage({
+  shop,
+  cart,
+  canCreateOrder,
+  createOrderBlockedMessage,
+  onSubmit,
+  onGoCatalog,
+}: CheckoutPageProps) {
   const { user } = useAuth();
   const { currentTenant, reload } = useTenant();
   const taxRate = getTaxRate(currentTenant);
@@ -118,7 +127,7 @@ export function CheckoutPage({ shop, cart, onSubmit, onGoCatalog }: CheckoutPage
         <button
           type="button"
           data-testid={TEST_IDS.shop.checkoutSubmitBtn}
-          disabled={!user || submitting}
+          disabled={!user || !canCreateOrder || submitting}
           onClick={async () => {
             setSubmitting(true);
             try {
@@ -136,6 +145,15 @@ export function CheckoutPage({ shop, cart, onSubmit, onGoCatalog }: CheckoutPage
         {!user && (
           <p className="text-ink-mute-2 m-0 text-center" style={{ fontSize: '11.5px' }}>
             Identifiez-vous ci-contre pour valider la commande.
+          </p>
+        )}
+        {user && !canCreateOrder && (
+          <p
+            data-testid={TEST_IDS.shop.cartNoCreateOrderHint}
+            className="m-0 text-center text-err-fg"
+            style={{ fontSize: '11.5px', lineHeight: 1.45 }}
+          >
+            {createOrderBlockedMessage}
           </p>
         )}
       </div>
