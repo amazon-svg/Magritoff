@@ -1,6 +1,11 @@
 import type { UserId } from '../../../kernel/ids/index.ts';
 import type { PortalOrdersCounters, PortalOrdersTab } from '../api/contracts.ts';
-import type { TransitionOrderCommand, TransitionOrderResult } from '../api/contracts.ts';
+import type {
+  CreateOrderCommand,
+  CreateOrderResult,
+  TransitionOrderCommand,
+  TransitionOrderResult,
+} from '../api/contracts.ts';
 
 export type TaxRegime =
   | 'metropole_fr'
@@ -44,6 +49,8 @@ export type AuditEventRecord = Readonly<{
 
 export type OrderCommandRejectionCode =
   | 'order_not_found'
+  | 'shop_not_found'
+  | 'invalid_order_items'
   | 'transition_not_allowed'
   | 'permission_denied';
 
@@ -73,4 +80,6 @@ export interface OrdersRepository {
     actorUserId: UserId,
     baseUrl: string,
   ): Promise<void>;
+  createOrder(command: CreateOrderCommand): Promise<CreateOrderResult>;
+  notifyOrderCreated(result: CreateOrderResult, baseUrl: string): Promise<void>;
 }

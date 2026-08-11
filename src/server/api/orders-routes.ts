@@ -5,6 +5,8 @@ import {
   portalOrdersResponseSchema,
   transitionOrderCommandSchema,
   transitionOrderResultSchema,
+  createOrderCommandSchema,
+  createOrderResultSchema,
 } from '../../modules/orders/api/contracts.ts';
 import type { OrdersService } from '../../modules/orders/application/orders-service.ts';
 import { OrderCommandRejectedError } from '../../modules/orders/application/orders-repository.ts';
@@ -14,6 +16,25 @@ import { defineJsonRoute, type ApiRequestContext, type ApiRoute } from './routes
 
 export function createOrdersRoutes(service: OrdersService): readonly ApiRoute[] {
   return [
+    defineJsonRoute({
+      method: 'POST',
+      path: `${API_V1_BASE_PATH}/orders`,
+      authentication: 'required',
+      inputSchema: createOrderCommandSchema,
+      outputSchema: createOrderResultSchema,
+      async handle(context, command) {
+        requireUserId(context);
+        try {
+          return {
+            status: 201,
+            body: await service.create(command, new URL(context.request.url).origin),
+          };
+        } catch (error) {
+          if (error instanceof OrderCommandRejectedError) throw toHttpError(error);
+          throw error;
+        }
+      },
+    }),
     defineJsonRoute({
       method: 'GET',
       path: `${API_V1_BASE_PATH}/tenants/{tenantId}/orders`,
@@ -69,20 +90,26 @@ export function createOrdersRoutes(service: OrdersService): readonly ApiRoute[] 
           };
         } catch (error) {
           if (!(error instanceof OrderCommandRejectedError)) throw error;
-          const status = error.code === 'order_not_found' ? 404
-            : error.code === 'permission_denied' ? 403 : 409;
-          throw new ApiHttpError({
-            type: 'about:blank',
-            title: status === 404 ? 'Commande introuvable'
-              : status === 403 ? 'Transition interdite' : 'Transition impossible',
-            status,
-            code: `orders.${error.code}`,
-            detail: error.message,
-          });
+          throw toHttpError(error);
         }
       },
     }),
   ];
+}
+
+function toHttpError(error: OrderCommandRejectedError): ApiHttpError {
+  const status = error.code === 'order_not_found' || error.code === 'shop_not_found' ? 404
+    : error.code === 'permission_denied' ? 403
+      : error.code === 'invalid_order_items' ? 422 : 409;
+  return new ApiHttpError({
+    type: 'about:blank',
+    title: status === 404 ? 'Ressource Orders introuvable'
+      : status === 403 ? 'Commande interdite'
+        : status === 422 ? 'Articles de commande invalides' : 'Transition impossible',
+    status,
+    code: `orders.${error.code}`,
+    detail: error.message,
+  });
 }
 
 function requireUserId(context: ApiRequestContext): UserId {

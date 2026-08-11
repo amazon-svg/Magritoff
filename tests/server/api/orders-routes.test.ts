@@ -32,6 +32,14 @@ describe('routes Orders API v1', () => {
     })).resolves.toEqual({
       orderId: 'order-af4', fromStatus: 'draft', toStatus: 'validated', replayed: false,
     });
+    await expect(client.create({
+      shopId: '11111111-1111-4111-8111-111111111111',
+      currency: 'EUR', notes: '', idempotencyKey: 'create-af5-route',
+      items: [{
+        productId: null, productLabel: 'Flyers', clariprintOptions: null,
+        quantity: 2, unitPriceHt: 75,
+      }],
+    })).resolves.toMatchObject({ totalHt: 150, replayed: false });
   });
 
   it('refuse les lectures sans authentification', async () => {
@@ -91,6 +99,15 @@ function repositoryStub(): OrdersRepository {
       orderId, fromStatus: 'draft', toStatus: command.toStatus, replayed: false,
     }),
     notifyTransition: async () => undefined,
+    createOrder: async (command) => ({
+      orderId: '22222222-2222-4222-8222-222222222222',
+      tenantId: '33333333-3333-4333-8333-333333333333',
+      shopId: command.shopId,
+      totalHt: command.items.reduce((sum, item) => sum + item.quantity * item.unitPriceHt, 0),
+      currency: command.currency,
+      replayed: false,
+    }),
+    notifyOrderCreated: async () => undefined,
   };
 }
 

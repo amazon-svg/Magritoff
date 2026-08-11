@@ -7,6 +7,8 @@ import type {
   PortalOrdersTab,
   TransitionOrderCommand,
   TransitionOrderResult,
+  CreateOrderCommand,
+  CreateOrderResult,
 } from '../api/contracts.ts';
 import type {
   LegacyOrderRecord,
@@ -86,6 +88,16 @@ export class OrdersService {
     if (!result.replayed) {
       void this.repository.notifyTransition(result, actorUserId, baseUrl).catch((error) => {
         console.warn('[OrdersService] notification de transition ignorée:', error);
+      });
+    }
+    return result;
+  }
+
+  async create(command: CreateOrderCommand, baseUrl: string): Promise<CreateOrderResult> {
+    const result = await this.repository.createOrder(command);
+    if (!result.replayed) {
+      void this.repository.notifyOrderCreated(result, baseUrl).catch((error) => {
+        console.warn('[OrdersService] notification de création ignorée:', error);
       });
     }
     return result;

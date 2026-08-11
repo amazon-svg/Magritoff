@@ -5,11 +5,15 @@ import {
   portalOrdersResponseSchema,
   transitionOrderCommandSchema,
   transitionOrderResultSchema,
+  createOrderCommandSchema,
+  createOrderResultSchema,
   type OrderAuditTrail,
   type OrdersList,
   type PortalOrdersResponse,
   type TransitionOrderCommand,
   type TransitionOrderResult,
+  type CreateOrderCommand,
+  type CreateOrderResult,
 } from './contracts.ts';
 
 export class OrdersApiClient {
@@ -47,6 +51,15 @@ export class OrdersApiClient {
       path: `${API_V1_BASE_PATH}/orders/${encodeURIComponent(orderId)}/transitions`,
       body: transitionOrderCommandSchema.parse(command),
       responseSchema: transitionOrderResultSchema,
+    });
+  }
+
+  create(command: CreateOrderCommand): Promise<CreateOrderResult> {
+    return this.client.request({
+      method: 'POST',
+      path: `${API_V1_BASE_PATH}/orders`,
+      body: createOrderCommandSchema.parse(command),
+      responseSchema: createOrderResultSchema,
     });
   }
 }

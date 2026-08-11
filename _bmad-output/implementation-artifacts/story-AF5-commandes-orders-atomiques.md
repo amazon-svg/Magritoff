@@ -32,9 +32,17 @@ Déplacer les écritures Orders derrière `/api/v1`, avec transactions SQL, auto
 - `DashboardOrders` et `PortalOrders` n importent plus Supabase ;
 - baseline : 38 fichiers importeurs et 163 références directes.
 
-## Reste AF5.2
+## Avancement AF5.2a — création checkout
 
-- commande atomique de création checkout ;
+- `POST /api/v1/orders` partage son contrat entre le front et le serveur ;
+- la fonction SQL calcule le total et insère entête + lignes + receipt dans une transaction ;
+- un replay retourne la commande existante sans nouvelle notification ;
+- la notification de création est déclenchée côté serveur après commit ;
+- `PublicShop` ne réalise plus les quatre écritures Supabase du checkout ;
+- baseline abaissée à 38 fichiers et 159 références directes.
+
+## Reste AF5.2b
+
 - lecture et commande atomique d édition de brouillon ;
 - migration des callers `PublicShop` et `PortalOrderEditor` ;
 - smoke checkout et édition puis passage en review.
@@ -45,6 +53,13 @@ Déplacer les écritures Orders derrière `/api/v1`, avec transactions SQL, auto
 - transition draft → validated : 200 ;
 - replay avec la même clé : 200, `replayed=true` ;
 - typecheck modulaire, contrats et build : réussis.
+
+## Validation AF5.2a
+
+- création locale via `POST /api/v1/orders` : 201, total serveur 150 EUR ;
+- rejeu avec la même clé : 201, même commande, `replayed=true` ;
+- suite complète : 803 tests réussis, 87 ignorés ;
+- typecheck modulaire et build de production : réussis.
 
 ## Correctif AF5.1a — actions owner/admin visibles
 

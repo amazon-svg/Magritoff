@@ -1880,6 +1880,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      api_create_tenant_order: {
+        Args: {
+          p_currency: string
+          p_idempotency_key: string
+          p_items: Json
+          p_notes: string
+          p_shop_id: string
+        }
+        Returns: Json
+      }
       accept_tenant_invitation: { Args: { p_token: string }; Returns: string }
       assign_tenant_order_role: {
         Args: {

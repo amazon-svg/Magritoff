@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router';
 import { Loader2 } from 'lucide-react';
 import { supabase } from '/utils/supabase/client';
@@ -39,10 +39,8 @@ import { parsePortalPath, shopUrl } from './portal/shopPortalRoutes';
 import { applyTax, getTaxRate } from '../../utils/tax';
 import { applyPricingOverrides, type PricingOverride } from '../../utils/applyPricingOverrides';
 import { resolveShopProductScope } from '../../utils/resolveShopProductScope';
-import {
-  tenantOrderInsertSchema,
-  tenantOrderItemInsertSchema,
-} from '../../../schemas/tenantOrder.schema';
+import { OrdersApiClient } from '../../../modules/orders';
+import { FetchApiClient } from '../../../platform/api';
 
 /**
  * Portail B2B Magrit — version 2.
@@ -65,12 +63,16 @@ export function PublicShop() {
   const slug = params.slug;
   const splat = params['*'];
   const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
+  const { user, session, loading: authLoading } = useAuth();
   const { tenants, isSuperAdmin, currentTenant } = useTenant();
   const [shop, setShop] = useState<Shop | null>(null);
   const [products, setProducts] = useState<ShopProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const ordersApi = useMemo(() => new OrdersApiClient(
+    new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null),
+  ), [session?.access_token]);
+  const checkoutCommandKey = useRef(crypto.randomUUID());
 
   // S7.1 (ADR §4.19-1) — la vue est DÉRIVÉE de l'URL, plus un state interne.
   // Back/forward navigateur et reload sur URL profonde fonctionnent (AC1).
@@ -499,125 +501,44 @@ export function PublicShop() {
       return;
     }
 
-    const total_ht = cart.reduce((s, l) => s + l.product.price_ht * l.qty, 0);
-    // R0 : taxRate du tenant courant. Si shop.tax_regime est defini cote shop,
-    // ce serait plus propre, mais pour MVP on garde getTaxRate(currentTenant).
-
-    // ── Phase 1 : INSERT tenant_orders (1 ligne) ─────────────────────────
-    const orderInsert = tenantOrderInsertSchema.safeParse({
-      tenant_id: shop.tenant_id,
-      shop_id: shop.id,
-      created_by: user.id,
-      status: 'draft',
-      total_ht,
-      currency: 'EUR',
-      notes: '',
-    });
-    if (!orderInsert.success) {
-      console.error('[submitCart] tenant_orders validation Zod failed:', orderInsert.error);
-      alert(`Erreur validation panier : ${orderInsert.error.issues[0]?.message ?? 'inconnue'}.`);
-      return;
-    }
-
-    const { data: orderRow, error: orderErr } = await supabase
-      .from('tenant_orders')
-      .insert(orderInsert.data)
-      .select('id')
-      .single();
-
-    if (orderErr || !orderRow) {
-      // S3.2-residual AC3 : detection RLS bloquant pour permission can_order revoked
-      // pendant la session (race condition cote front qui n'a pas refresh le ctx tenant).
-      // PostgREST renvoie code 42501 (insufficient privilege) ou message "row violates
-      // row-level security policy" quand la policy with_check fail.
-      const msg = orderErr?.message ?? '';
-      const isRlsPermissionDenied =
-        orderErr?.code === '42501' ||
-        msg.includes('row-level security') ||
-        msg.includes('violates row-level security policy');
-      if (isRlsPermissionDenied) {
-        console.warn('[submitCart] RLS INSERT bloque (permission can_order revoquee ?):', msg);
-        alert(
-          "Permission insuffisante pour créer une commande.\n\nVotre administrateur tenant a peut-être désactivé la création de commandes pour votre compte. Contactez-le pour rétablir l'accès.",
-        );
-        return;
-      }
-      console.error('[submitCart] insert tenant_orders failed:', orderErr?.message);
-      alert(
-        `Erreur lors de la validation du panier : ${orderErr?.message ?? 'reseau'}.\n\nMerci de reessayer.`,
-      );
-      return;
-    }
-
-    // ── Phase 2 : INSERT tenant_order_items (N lignes, 1 par cart line) ───
-    // S7.12 (bug débusqué par le smoke self-signup) : la FK product_id
-    // référence product_library. Pour une ligne shop_products MANUELLE,
-    // l.product.id est l'id de la ligne shop_products (UUID valide mais
-    // absent de product_library → violation FK). La bonne réf bibliothèque
-    // est l.product.product_id (null si produit purement manuel).
+    // Commande atomique API : entête + lignes + receipt d idempotence sont
+    // validés et écrits dans une seule transaction SQL.
     const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    const itemsToInsert = cart.map((l) => {
+    const items = cart.map((l) => {
       const libraryRef =
         typeof l.product.product_id === 'string' && UUID_RE.test(l.product.product_id)
           ? l.product.product_id
           : null;
-      return tenantOrderItemInsertSchema.parse({
-        order_id: orderRow.id,
-        product_id: libraryRef,
-        product_label: l.product.name,
-        clariprint_options: (l.product.config as Record<string, unknown> | null) ?? null,
+      return {
+        productId: libraryRef,
+        productLabel: l.product.name,
+        clariprintOptions: (l.product.config as Record<string, unknown> | null) ?? null,
         quantity: l.qty,
-        unit_price_ht: l.product.price_ht,
-        line_total_ht: l.product.price_ht * l.qty,
-      });
+        unitPriceHt: l.product.price_ht,
+      };
     });
-
-    const { error: itemsErr } = await supabase.from('tenant_order_items').insert(itemsToInsert);
-
-    if (itemsErr) {
-      console.error('[submitCart] insert tenant_order_items failed:', itemsErr.message);
-      // Rollback compensatoire : delete l order cree pour eviter une commande
-      // orpheline sans items. Si le delete echoue aussi, on log et on
-      // demande a l admin de cleanup manuellement (cas extreme).
-      const { error: rbErr } = await supabase
-        .from('tenant_orders')
-        .delete()
-        .eq('id', orderRow.id);
-      if (rbErr) {
-        console.error('[submitCart] rollback delete tenant_orders failed:', rbErr.message);
-      }
-      alert(
-        `Erreur lors de la sauvegarde des produits du panier : ${itemsErr.message}.\n\nMerci de reessayer.`,
-      );
+    let orderId: string;
+    try {
+      const result = await ordersApi.create({
+        shopId: shop.id,
+        currency: 'EUR',
+        notes: '',
+        items,
+        idempotencyKey: checkoutCommandKey.current,
+      });
+      orderId = result.orderId;
+    } catch (cause) {
+      console.error('[submitCart] API create failed:', cause);
+      const message = cause instanceof Error ? cause.message : 'erreur réseau';
+      alert(`Erreur lors de la validation du panier : ${message}.\n\nMerci de réessayer.`);
       return;
-    }
-
-    // S3.2-residual AC1 : notification email admin tenant (best-effort).
-    // Invocation fire-and-forget — n'attend pas la fin pour ne pas retarder
-    // l'UX PortalThankYou. Si Resend down ou pas d'admin trouve, l'edge
-    // function logge dans llm_usage_events (endpoint=*-fallback) sans bloquer.
-    if (shop.tenant_id) {
-      supabase.functions
-        .invoke('send-order-notification', {
-          body: {
-            order_id: orderRow.id,
-            tenant_id: shop.tenant_id,
-            shop_id: shop.id,
-            total_ht,
-            currency: 'EUR',
-            base_url: window.location.origin,
-          },
-        })
-        .catch((notifErr) => {
-          // Best-effort : log seulement, ne remonte rien a l'acheteur.
-          console.warn('[submitCart] send-order-notification invoke failed:', notifErr);
-        });
     }
 
     // S-CONSO-3 (Sprint 4 Phase 2) : bascule vers PortalThankYou au lieu
     // d alert + setView('orders'). Artefact visuel persistant pour acheteur
     // B2B (screenshot, transfert compta, archivage).
-    setLastOrderId(orderRow.id);
+    setLastOrderId(orderId);
+    checkoutCommandKey.current = crypto.randomUUID();
     setCart([]);
     setRenewalWarnings([]); // S3.3 : clear warnings après submit réussi
     goView('thankYou');

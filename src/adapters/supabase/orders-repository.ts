@@ -1,7 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { UserId } from '../../kernel/ids/index.ts';
 import type { PortalOrdersCounters, PortalOrdersTab } from '../../modules/orders/api/contracts.ts';
-import type { TransitionOrderCommand, TransitionOrderResult } from '../../modules/orders/api/contracts.ts';
+import type {
+  CreateOrderCommand,
+  CreateOrderResult,
+  TransitionOrderCommand,
+  TransitionOrderResult,
+} from '../../modules/orders/api/contracts.ts';
 import { OrderCommandRejectedError } from '../../modules/orders/application/orders-repository.ts';
 import type {
   AuditEventRecord,
@@ -165,6 +170,51 @@ export class SupabaseOrdersRepository implements OrdersRepository {
     });
     if (error) throw new Error(`Notification workflow impossible: ${error.message}`);
   }
+
+  async createOrder(command: CreateOrderCommand): Promise<CreateOrderResult> {
+    const { data, error } = await this.client.rpc('api_create_tenant_order', {
+      p_shop_id: command.shopId,
+      p_currency: command.currency,
+      p_notes: command.notes,
+      p_items: command.items.map((item) => ({
+        product_id: item.productId,
+        product_label: item.productLabel,
+        clariprint_options: item.clariprintOptions,
+        quantity: item.quantity,
+        unit_price_ht: item.unitPriceHt,
+      })),
+      p_idempotency_key: command.idempotencyKey,
+    });
+    if (error) throw mapOrderCommandError(error.message, 'Création de commande impossible');
+    const result = toRecord(data);
+    if (
+      typeof result.order_id !== 'string' || typeof result.tenant_id !== 'string'
+      || typeof result.shop_id !== 'string' || typeof result.total_ht !== 'number'
+      || typeof result.currency !== 'string'
+    ) throw new Error('La création de commande a retourné un résultat invalide.');
+    return {
+      orderId: result.order_id,
+      tenantId: result.tenant_id,
+      shopId: result.shop_id,
+      totalHt: result.total_ht,
+      currency: result.currency,
+      replayed: result.replayed === true,
+    };
+  }
+
+  async notifyOrderCreated(result: CreateOrderResult, baseUrl: string): Promise<void> {
+    const { error } = await this.client.functions.invoke('send-order-notification', {
+      body: {
+        order_id: result.orderId,
+        tenant_id: result.tenantId,
+        shop_id: result.shopId,
+        total_ht: result.totalHt,
+        currency: result.currency,
+        base_url: baseUrl,
+      },
+    });
+    if (error) throw new Error(`Notification de création impossible: ${error.message}`);
+  }
 }
 
 function toTenantOrder(row: TenantOrderRow): TenantOrderRecord {
@@ -204,4 +254,23 @@ function toRecord(value: Json): Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
     ? value as Record<string, unknown>
     : {};
+}
+
+function mapOrderCommandError(message: string, fallback: string): Error {
+  if (message.includes('order_not_found')) {
+    return new OrderCommandRejectedError('order_not_found', message);
+  }
+  if (message.includes('shop_not_found')) {
+    return new OrderCommandRejectedError('shop_not_found', message);
+  }
+  if (message.includes('invalid_order_items') || message.includes('invalid_currency')) {
+    return new OrderCommandRejectedError('invalid_order_items', message);
+  }
+  if (message.includes('permission_denied')) {
+    return new OrderCommandRejectedError('permission_denied', message);
+  }
+  if (message.includes('transition_not_allowed') || message.includes('status_code_unknown')) {
+    return new OrderCommandRejectedError('transition_not_allowed', message);
+  }
+  return new Error(`${fallback}: ${message}`);
 }

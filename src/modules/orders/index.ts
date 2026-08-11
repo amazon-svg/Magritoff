@@ -12,6 +12,9 @@ export {
   portalOrdersTabSchema,
   transitionOrderCommandSchema,
   transitionOrderResultSchema,
+  createOrderCommandSchema,
+  createOrderItemSchema,
+  createOrderResultSchema,
   type OrderAuditEvent,
   type OrderAuditTrail,
   type OrderSummary,
@@ -21,6 +24,8 @@ export {
   type PortalOrdersTab,
   type TransitionOrderCommand,
   type TransitionOrderResult,
+  type CreateOrderCommand,
+  type CreateOrderResult,
 } from './api/contracts';
 export { OrdersService } from './application/orders-service';
 export { OrderCommandRejectedError } from './application/orders-repository';
