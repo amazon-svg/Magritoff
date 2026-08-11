@@ -23,12 +23,10 @@ import {
   UserMinus, Shield, Plus, Pencil, Trash2, Users as UsersIcon,
   X, Loader2, Settings, Send,
 } from 'lucide-react';
-import { supabase } from '/utils/supabase/client';
 import {
   useTenant,
   AccessScope,
   MemberPermissions,
-  DEFAULT_PERMISSIONS,
 } from '../../contexts/TenantContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useShops } from '../../contexts/ShopsContext';
@@ -37,6 +35,7 @@ import { DashboardRolesSection } from './DashboardRolesSection';
 import { InviteUserModalV2 } from './InviteUserModalV2';
 import { EditUserRolesModal } from './EditUserRolesModal';
 import { InvitationsApiClient } from '../../../modules/invitations';
+import { MembersApiClient } from '../../../modules/members';
 import { ApiClientError, FetchApiClient } from '../../../platform/api';
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -84,45 +83,28 @@ function MagritUsersSection() {
   const invitationsApi = useMemo(() => new InvitationsApiClient(new FetchApiClient(
     '', globalThis.fetch, () => session?.access_token ?? null,
   )), [session?.access_token]);
+  const membersApi = useMemo(() => new MembersApiClient(new FetchApiClient(
+    '', globalThis.fetch, () => session?.access_token ?? null,
+  )), [session?.access_token]);
 
   const canWrite = currentRole === 'owner' || currentRole === 'admin' || isSuperAdmin;
-
-  const logEvent = async (
-    eventType: 'created' | 'role_changed' | 'removed' | 'invited' | 'invitation_revoked',
-    targetUserId: string | null,
-    metadata: Record<string, unknown> = {}
-  ) => {
-    if (!currentTenant || !user) return;
-    await supabase.from('tenant_member_events').insert({
-      tenant_id: currentTenant.id,
-      target_user_id: targetUserId,
-      event_type: eventType,
-      performed_by: user.id,
-      metadata,
-    });
-  };
 
   const load = async () => {
     if (!currentTenant) return;
     setLoading(true);
 
-    const { data: mem, error: memErr } = await supabase.rpc(
-      'get_tenant_members_with_email',
-      { p_tenant_id: currentTenant.id }
-    );
-    if (memErr) console.error('[DashboardUsers] members rpc failed', memErr);
-
-    setMembers(
-      ((mem as any[]) || []).map((m) => ({
-        user_id: m.user_id,
-        email: m.email,
-        role: m.role,
-        joined_at: m.joined_at,
-        access_scope: m.access_scope ?? 'magrit_full',
-        allowed_shop_ids: m.allowed_shop_ids ?? [],
-        permissions: { ...DEFAULT_PERMISSIONS, ...(m.permissions ?? {}) },
-      }))
-    );
+    try {
+      const tenantMembers = await membersApi.list(currentTenant.id);
+      setMembers(tenantMembers.map((member) => ({
+        user_id: member.userId, email: member.email, role: member.role,
+        joined_at: member.joinedAt, access_scope: member.accessScope,
+        allowed_shop_ids: member.allowedShopIds,
+        permissions: { can_quote: member.permissions.canQuote, can_order: member.permissions.canOrder, can_invite: member.permissions.canInvite },
+      })));
+    } catch (memberError) {
+      console.error('[DashboardUsers] members API failed', memberError);
+      setMembers([]);
+    }
 
     try {
       const pending = await invitationsApi.pending(currentTenant.id);
@@ -146,7 +128,7 @@ function MagritUsersSection() {
 
   useEffect(() => {
     load();
-  }, [currentTenant?.id, invitationsApi]);
+  }, [currentTenant?.id, invitationsApi, membersApi]);
 
   const resendInvite = async (id: string, email: string) => {
     let result;
@@ -184,19 +166,12 @@ function MagritUsersSection() {
       return;
     }
     setUpdatingRoleFor(member.user_id);
-    const { error } = await supabase
-      .from('tenant_members')
-      .update({ role: newRole })
-      .eq('tenant_id', currentTenant.id)
-      .eq('user_id', member.user_id);
-    if (error) {
-      alert('Echec de la mise a jour du role : ' + error.message);
-    } else {
-      await logEvent('role_changed', member.user_id, {
-        old_role: member.role,
-        new_role: newRole,
-      });
+    try {
+      if (newRole === 'owner') throw new Error('Le rôle owner ne peut pas être attribué ici.');
+      await membersApi.changeRole(currentTenant.id, member.user_id, { role: newRole });
       await load();
+    } catch (error) {
+      alert('Echec de la mise a jour du role : ' + (error instanceof Error ? error.message : 'inconnue'));
     }
     setUpdatingRoleFor(null);
   };
@@ -212,24 +187,15 @@ function MagritUsersSection() {
       alert('Selectionnez au moins une boutique pour un acces shop_only.');
       return;
     }
-    const { error } = await supabase
-      .from('tenant_members')
-      .update({
-        access_scope: nextScope,
-        allowed_shop_ids: nextScope === 'shop_only' ? nextShopIds : [],
-        permissions: nextPerms,
-      })
-      .eq('tenant_id', currentTenant.id)
-      .eq('user_id', member.user_id);
-    if (error) {
-      alert('Echec de la sauvegarde : ' + error.message);
-    } else {
-      await logEvent('role_changed', member.user_id, {
-        access_scope_changed: { from: member.access_scope, to: nextScope },
-        permissions: nextPerms,
+    try {
+      await membersApi.updateAccess(currentTenant.id, member.user_id, {
+        accessScope: nextScope, allowedShopIds: nextScope === 'shop_only' ? nextShopIds : [],
+        permissions: { canQuote: nextPerms.can_quote, canOrder: nextPerms.can_order, canInvite: nextPerms.can_invite },
       });
       setEditingPerms(null);
       await load();
+    } catch (error) {
+      alert('Echec de la sauvegarde : ' + (error instanceof Error ? error.message : 'inconnue'));
     }
   };
 
@@ -243,19 +209,11 @@ function MagritUsersSection() {
       `Retirer ${member.email ?? member.user_id} de l'espace ?\n\n` +
       "L'utilisateur conservera son compte Magrit, mais perdra l'acces a cet espace."
     )) return;
-    const { error } = await supabase
-      .from('tenant_members')
-      .delete()
-      .eq('tenant_id', currentTenant.id)
-      .eq('user_id', member.user_id);
-    if (error) {
-      alert('Echec du retrait : ' + error.message);
-    } else {
-      await logEvent('removed', member.user_id, {
-        email: member.email,
-        old_role: member.role,
-      });
+    try {
+      await membersApi.remove(currentTenant.id, member.user_id);
       await load();
+    } catch (error) {
+      alert('Echec du retrait : ' + (error instanceof Error ? error.message : 'inconnue'));
     }
   };
 

@@ -10,11 +10,14 @@ import { createOrdersRoutes } from '../../../src/server/api/orders-routes.ts';
 import { InvitationsService } from '../../../src/modules/invitations/application/invitations-service.ts';
 import { SupabaseInvitationsRepository } from '../../../src/adapters/supabase/invitations-repository.ts';
 import { createInvitationsRoutes } from '../../../src/server/api/invitations-routes.ts';
+import { MembersService } from '../../../src/modules/members/application/members-service.ts';
+import { SupabaseMembersRepository } from '../../../src/adapters/supabase/members-repository.ts';
+import { createMembersRoutes } from '../../../src/server/api/members-routes.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, content-type, x-request-id',
-  'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
 };
 
 export async function handleRequest(request: Request): Promise<Response> {
@@ -33,11 +36,13 @@ export async function handleRequest(request: Request): Promise<Response> {
   const service = new SessionService(repository);
   const ordersService = new OrdersService(new SupabaseOrdersRepository(client));
   const invitationsService = new InvitationsService(new SupabaseInvitationsRepository(client));
+  const membersService = new MembersService(new SupabaseMembersRepository(client));
   const handler = createApiV1Application({
     routes: [
       ...createSessionRoutes(service),
       ...createOrdersRoutes(ordersService),
       ...createInvitationsRoutes(invitationsService),
+      ...createMembersRoutes(membersService),
     ],
     actorResolver: {
       async resolve() {

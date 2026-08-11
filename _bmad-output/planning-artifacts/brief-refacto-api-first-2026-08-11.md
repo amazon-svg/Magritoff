@@ -112,8 +112,10 @@ src/
   dérivée côté serveur — livré ;
 - AF9 : options, liste des invitations en attente, révocation et renvoi via
   l’API Magrit — livré ;
+- AF10 : liste, rôles, droits et retrait des membres via l’API ; sortie complète
+  de `DashboardUsers` hors Supabase — livré ;
 - suite : supprimer les adaptateurs transitoires vers les anciennes Edge
-  Functions et migrer l’administration des membres.
+  Functions et migrer les écrans de définition des rôles.
 
 ## Critères de succès
 
