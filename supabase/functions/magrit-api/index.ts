@@ -27,7 +27,7 @@ import { ConversationsService } from '../../../src/modules/conversations/applica
 import { SupabaseConversationsRepository } from '../../../src/adapters/supabase/conversations-repository.ts';
 import { createConversationsRoutes } from '../../../src/server/api/conversations-routes.ts';
 import { DiagnosticsService } from '../../../src/modules/diagnostics/application/diagnostics-service.ts';
-import { AnthropicAiDiagnosticsGateway } from '../../../src/adapters/anthropic/ai-diagnostics-gateway.ts';
+import { ConfiguredAiDiagnosticsGateway, aiProviderConfigurationFromEnvironment } from '../../../src/adapters/ai/configured-ai-diagnostics-gateway.ts';
 import { createDiagnosticsRoutes } from '../../../src/server/api/diagnostics-routes.ts';
 import { HttpClariprintDiagnosticsGateway } from '../../../src/adapters/clariprint/clariprint-diagnostics-gateway.ts';
 import { QuotesService } from '../../../src/modules/quotes/application/quotes-service.ts';
@@ -77,8 +77,8 @@ export async function handleRequest(request: Request): Promise<Response> {
   const shopsService = new ShopsService(new SupabaseShopsRepository(client, publicSupabaseUrl(request, supabaseUrl)));
   const catalogService = new CatalogService(new SupabaseCatalogRepository(client), new SupabaseCatalogAutomationGateway(client));
   const conversationsService = new ConversationsService(new SupabaseConversationsRepository(client));
-  const diagnosticsService = new DiagnosticsService(new AnthropicAiDiagnosticsGateway(
-    Deno.env.get('ANTHROPIC_API_KEY') ?? Deno.env.get('Magrit3') ?? null,
+  const diagnosticsService = new DiagnosticsService(new ConfiguredAiDiagnosticsGateway(
+    aiProviderConfigurationFromEnvironment((name) => Deno.env.get(name)),
   ), new HttpClariprintDiagnosticsGateway(
     Deno.env.get('CLARIPRINT_HOST') ?? 'https://lrdp.clariprint.com',
     Deno.env.get('CLARIPRINT_LOGIN') ?? null,

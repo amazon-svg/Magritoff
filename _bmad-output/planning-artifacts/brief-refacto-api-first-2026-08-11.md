@@ -182,6 +182,8 @@ src/
   passerelle legacy ; le chat sort de Supabase — livré ;
 - AF22.2 : persistance des suggestions IA via Shops `/api/v1` ; `src/app` ne
   contient plus aucune dépendance ou référence Supabase directe — livré ;
+- AF23.1 : sélection serveur du fournisseur IA et diagnostic commun Anthropic,
+  OpenAI ou Mistral, configurable sans modification du front — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.

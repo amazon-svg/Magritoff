@@ -204,7 +204,8 @@ describe('frontières API-first et modulaires', () => {
     expect(edgeEntry).toContain('createCatalogRoutes(catalogService)');
     expect(edgeEntry).toContain('SupabaseConversationsRepository(client)');
     expect(edgeEntry).toContain('createConversationsRoutes(conversationsService)');
-    expect(edgeEntry).toContain('AnthropicAiDiagnosticsGateway');
+    expect(edgeEntry).toContain('ConfiguredAiDiagnosticsGateway');
+    expect(edgeEntry).toContain('aiProviderConfigurationFromEnvironment');
     expect(edgeEntry).toContain('createDiagnosticsRoutes(diagnosticsService)');
     expect(edgeEntry).toContain('HttpClariprintDiagnosticsGateway');
     expect(edgeEntry).toContain('SupabaseQuotesRepository(client)');
