@@ -158,6 +158,8 @@ src/
   `AuthContext` ; `InviteUserModalV2` sort de Supabase — livré ;
 - AF17.3 : diagnostic du fournisseur IA derrière un port et une route API
   authentifiée ; `DiagnosticPanel` sort de Supabase et de Claude — livré ;
+- AF17.4 : diagnostic CheckAuth Clariprint derrière un port serveur ; le
+  panneau ne dépend plus de l’adaptateur Edge legacy — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.

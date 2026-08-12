@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { X, RefreshCw, CheckCircle, XCircle, AlertTriangle, Loader2 } from "lucide-react";
-import { httpAdapter } from "../../server/clariprint/ClariprintAdapter";
-import { DiagnosticsApiClient, type AiProviderDiagnostic } from "../../modules/diagnostics";
+import { DiagnosticsApiClient, type AiProviderDiagnostic, type ClariprintDiagnostic } from "../../modules/diagnostics";
 import { FetchApiClient } from "../../platform/api";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -9,7 +8,7 @@ interface DiagnosticPanelProps {
   onClose: () => void;
 }
 
-interface TestResult<T = any> {
+interface TestResult<T> {
   loading: boolean;
   data: T | null;
   error: string | null;
@@ -20,7 +19,7 @@ export function DiagnosticPanel({ onClose }: DiagnosticPanelProps) {
   const diagnosticsApi = useMemo(() => new DiagnosticsApiClient(new FetchApiClient(
     '', globalThis.fetch, () => session?.access_token ?? null,
   )), [session?.access_token]);
-  const [clariprintTest, setClariprintTest] = useState<TestResult>({
+  const [clariprintTest, setClariprintTest] = useState<TestResult<ClariprintDiagnostic>>({
     loading: false,
     data: null,
     error: null,
@@ -34,8 +33,7 @@ export function DiagnosticPanel({ onClose }: DiagnosticPanelProps) {
   const testClariprint = async () => {
     setClariprintTest({ loading: true, data: null, error: null });
     try {
-      // R3 : passe par l'adapter (pas de fetch direct hors ClariprintAdapter).
-      const data = await httpAdapter.testConnection();
+      const data = await diagnosticsApi.clariprint();
       setClariprintTest({ loading: false, data, error: null });
     } catch (e) {
       setClariprintTest({ loading: false, data: null, error: String(e) });
@@ -83,7 +81,7 @@ export function DiagnosticPanel({ onClose }: DiagnosticPanelProps) {
                 <span className="text-lg">🖨️</span>
                 <h3 className="font-semibold text-gray-900">API Clariprint</h3>
                 {clariprintTest.data && (
-                  <StatusIcon success={clariprintTest.data.success} />
+                  <StatusIcon success={clariprintTest.data.authenticated} />
                 )}
               </div>
               <button
@@ -114,35 +112,20 @@ export function DiagnosticPanel({ onClose }: DiagnosticPanelProps) {
 
             {clariprintTest.data && (
               <div className="space-y-3">
-                {/* Variables d'environnement */}
-                <div className="bg-gray-50 rounded-lg p-3 space-y-1">
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                    Secrets Supabase
-                  </p>
-                  {Object.entries(clariprintTest.data.environment || {}).map(([key, val]) => (
-                    <div key={key} className="flex justify-between text-xs">
-                      <span className="text-gray-600 font-mono">{key}</span>
-                      <span className={String(val).startsWith("✅") ? "text-green-600" : "text-red-600"}>
-                        {String(val)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-
                 {/* Résultat du test */}
                 <div
                   className={`rounded-lg p-3 border ${
-                    clariprintTest.data.success
+                    clariprintTest.data.authenticated
                       ? "bg-green-50 border-green-200"
                       : "bg-red-50 border-red-200"
                   }`}
                 >
                   <p
                     className={`text-sm font-semibold ${
-                      clariprintTest.data.success ? "text-green-800" : "text-red-800"
+                      clariprintTest.data.authenticated ? "text-green-800" : "text-red-800"
                     }`}
                   >
-                    {clariprintTest.data.message || clariprintTest.data.error}
+                    {clariprintTest.data.summary}
                   </p>
                   {clariprintTest.data.httpStatus && (
                     <p className="text-xs text-gray-500 mt-1">
@@ -151,19 +134,12 @@ export function DiagnosticPanel({ onClose }: DiagnosticPanelProps) {
                   )}
                 </div>
 
-                {/* Réponse brute (accordéon) */}
-                {clariprintTest.data.rawResponse && (
-                  <details>
-                    <summary className="text-xs text-gray-400 cursor-pointer hover:text-gray-700">
-                      Réponse brute Clariprint
-                    </summary>
-                    <pre className="mt-2 p-2 bg-gray-900 text-green-400 rounded-lg text-xs overflow-auto max-h-40">
-                      {clariprintTest.data.parsedResponse
-                        ? JSON.stringify(clariprintTest.data.parsedResponse, null, 2)
-                        : clariprintTest.data.rawResponse}
-                    </pre>
-                  </details>
-                )}
+                {clariprintTest.data.checks.map((check, index) => (
+                  <div key={index} className="flex items-start gap-2 text-xs text-gray-600 bg-gray-50 rounded p-2">
+                    <span>{check.status === 'ok' ? "✅" : check.status === 'skipped' ? "⏭️" : "❌"}</span>
+                    <div><span className="font-medium">{check.name}</span>{check.details && <span className="text-gray-400"> — {check.details}</span>}</div>
+                  </div>
+                ))}
               </div>
             )}
           </div>

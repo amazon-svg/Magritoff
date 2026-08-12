@@ -206,6 +206,7 @@ describe('frontières API-first et modulaires', () => {
     expect(edgeEntry).toContain('createConversationsRoutes(conversationsService)');
     expect(edgeEntry).toContain('AnthropicAiDiagnosticsGateway');
     expect(edgeEntry).toContain('createDiagnosticsRoutes(diagnosticsService)');
+    expect(edgeEntry).toContain('HttpClariprintDiagnosticsGateway');
     expect(edgeEntry).not.toContain('SUPABASE_SERVICE_ROLE_KEY');
   });
 
@@ -317,6 +318,8 @@ describe('frontières API-first et modulaires', () => {
     expect(source).not.toContain('utils/supabase');
     expect(source).not.toContain('functions.invoke');
     expect(source).not.toContain('claude-test');
+    expect(source).not.toContain('ClariprintAdapter');
+    expect(source).toContain('diagnosticsApi.clariprint()');
     expect(source).not.toMatch(/\bsupabase\s*\./);
   });
 

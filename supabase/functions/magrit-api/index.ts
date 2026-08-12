@@ -29,6 +29,7 @@ import { createConversationsRoutes } from '../../../src/server/api/conversations
 import { DiagnosticsService } from '../../../src/modules/diagnostics/application/diagnostics-service.ts';
 import { AnthropicAiDiagnosticsGateway } from '../../../src/adapters/anthropic/ai-diagnostics-gateway.ts';
 import { createDiagnosticsRoutes } from '../../../src/server/api/diagnostics-routes.ts';
+import { HttpClariprintDiagnosticsGateway } from '../../../src/adapters/clariprint/clariprint-diagnostics-gateway.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -63,6 +64,10 @@ export async function handleRequest(request: Request): Promise<Response> {
   const conversationsService = new ConversationsService(new SupabaseConversationsRepository(client));
   const diagnosticsService = new DiagnosticsService(new AnthropicAiDiagnosticsGateway(
     Deno.env.get('ANTHROPIC_API_KEY') ?? Deno.env.get('Magrit3') ?? null,
+  ), new HttpClariprintDiagnosticsGateway(
+    Deno.env.get('CLARIPRINT_HOST') ?? 'https://lrdp.clariprint.com',
+    Deno.env.get('CLARIPRINT_LOGIN') ?? null,
+    Deno.env.get('CLARIPRINT_PASSWORD') ?? null,
   ));
   const handler = createApiV1Application({
     routes: [
