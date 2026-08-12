@@ -1,0 +1,15 @@
+/**
+ * Dette brownfield mesurée sur main au 2026-08-11 (commit eea7f56).
+ *
+ * Cette liste n'autorise pas Supabase dans le navigateur : elle empêche
+ * seulement la dette historique d'augmenter pendant sa migration vers /api/v1.
+ * Chaque story de migration doit supprimer les entrées devenues inutiles et
+ * abaisser les compteurs ; la baseline ne doit jamais être augmentée.
+ * Après AF22.2 : aucune dépendance ni référence Supabase directe restante dans src/app.
+ * Le compteur inclut les appels où `supabase` et `.` sont séparés par un saut de ligne.
+ */
+export const legacySupabaseUiImportFiles = new Set<string>();
+
+export const legacySupabaseUiReferenceLimits = new Map<string, number>();
+
+export const legacyDirectEdgeUrlLimits = new Map<string, number>();

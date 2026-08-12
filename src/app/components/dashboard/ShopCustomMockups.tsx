@@ -8,26 +8,22 @@
  *    pour que les produits soient personnalisés à sa guise."
  *
  * Flux upload :
- *   1. File input PNG/JPG/WebP/SVG (max 5 MB côté bucket)
- *   2. Upload bucket `shop_product_mockups` chemin `<shop_id>/<tpl>-front.<ext>`
- *   3. Upsert `shop_template_mockups` (mockup_image_url = public URL bucket)
- *   4. Reload state local
+ *   1. File input PNG/JPG/WebP/SVG (max 5 MB)
+ *   2. Upload multipart vers l'API Magrit
+ *   3. L'adaptateur serveur synchronise Storage et l'override
+ *   4. Reload state local via le client API
  *
  * Restauration :
- *   1. Delete row `shop_template_mockups`
- *   2. (Optionnel) delete fichier bucket — gardé en cache historique
+ *   1. Commande API de restauration de l'override
+ *   2. Le fichier est conservé en cache historique
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Upload, RotateCcw, Loader2, Check, Image as ImageIcon } from 'lucide-react';
-import { supabase } from '/utils/supabase/client';
-import { projectId } from '/utils/supabase/info';
-import {
-  listShopCustomMockups,
-  type CustomMockupRecord,
-  type MockupTemplateType,
-} from '../mockup/customMockup.helpers';
-import { buildEdgeFunctionUrl } from '../mockup/MockupImage.helpers';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Upload, RotateCcw, Loader2, Image as ImageIcon } from 'lucide-react';
+import { ShopsApiClient, type MockupTemplateType, type ShopCustomMockup } from '../../../modules/shops';
+import { FetchApiClient } from '../../../platform/api';
+import { useAuth } from '../../contexts/AuthContext';
+import { resolveProductImage } from '../../utils/productImages';
 
 interface Props {
   shopId: string;
@@ -54,10 +50,10 @@ const TEMPLATES: TemplateDef[] = [
 ];
 
 const ACCEPTED_MIME = 'image/png,image/jpeg,image/webp,image/svg+xml';
-const BUCKET = 'shop_product_mockups';
-
 export function ShopCustomMockups({ shopId, tenantId }: Props) {
-  const [overrides, setOverrides] = useState<Record<string, CustomMockupRecord>>({});
+  const { session } = useAuth();
+  const shopsApi = useMemo(() => new ShopsApiClient(new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null)), [session?.access_token]);
+  const [overrides, setOverrides] = useState<Record<string, ShopCustomMockup>>({});
   const [loading, setLoading] = useState(true);
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -65,72 +61,34 @@ export function ShopCustomMockups({ shopId, tenantId }: Props) {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const records = await listShopCustomMockups(shopId);
-    const map: Record<string, CustomMockupRecord> = {};
-    for (const r of records) {
-      map[`${r.template_type}-${r.view}`] = r;
+    try {
+      const records = await shopsApi.customMockups(tenantId, shopId);
+      const map: Record<string, ShopCustomMockup> = {};
+      for (const r of records) {
+        map[`${r.templateType}-${r.view}`] = r;
+      }
+      setOverrides(map);
+    } catch (loadError) {
+      setError(`Chargement échoué : ${loadError instanceof Error ? loadError.message : 'erreur réseau'}`);
+    } finally {
+      setLoading(false);
     }
-    setOverrides(map);
-    setLoading(false);
-  }, [shopId]);
+  }, [shopId, tenantId, shopsApi]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  // Construit l'URL preview du Magrit-brandé par défaut (edge function)
+  // Même visuel Magrit par défaut que le portail public (résolveur P18).
   const buildDefaultPreviewUrl = (tpl: TemplateDef): string => {
-    return buildEdgeFunctionUrl(projectId, {
-      tenantId,
-      shopId,
-      productId: `preview-${tpl.key}`,
-      width: tpl.width,
-      height: tpl.height,
-      productName: tpl.productName,
-      primaryColor: '#1e3a8a',
-      template: tpl.key,
-      view: 'front',
-    });
+    return resolveProductImage({ name: tpl.productName, kind: tpl.key });
   };
 
   const handleUpload = async (tplKey: MockupTemplateType, file: File) => {
     setError(null);
     setUploadingKey(tplKey);
     try {
-      // Extension à partir du MIME (sinon défaut .png)
-      const ext = file.type === 'image/svg+xml' ? 'svg'
-        : file.type === 'image/jpeg' ? 'jpg'
-        : file.type === 'image/webp' ? 'webp'
-        : 'png';
-      const path = `${shopId}/${tplKey}-front.${ext}`;
-
-      const { error: uploadErr } = await supabase.storage
-        .from(BUCKET)
-        .upload(path, file, { upsert: true, contentType: file.type, cacheControl: '60' });
-      if (uploadErr) {
-        throw new Error(`Upload échoué : ${uploadErr.message}`);
-      }
-
-      // URL publique CDN
-      const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(path);
-      const url = `${pub.publicUrl}?v=${Date.now()}`; // cache buster
-
-      const { error: dbErr } = await supabase
-        .from('shop_template_mockups')
-        .upsert(
-          {
-            shop_id: shopId,
-            template_type: tplKey,
-            view: 'front',
-            mockup_image_url: url,
-            tenant_id: tenantId,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'shop_id,template_type,view' },
-        );
-      if (dbErr) {
-        throw new Error(`Sauvegarde échouée : ${dbErr.message}`);
-      }
+      await shopsApi.uploadCustomMockup(tenantId, shopId, tplKey, 'front', file);
       await load();
     } catch (err) {
       setError((err as Error).message || 'Erreur inconnue');
@@ -143,15 +101,7 @@ export function ShopCustomMockups({ shopId, tenantId }: Props) {
     setError(null);
     setUploadingKey(tplKey);
     try {
-      const { error: delErr } = await supabase
-        .from('shop_template_mockups')
-        .delete()
-        .eq('shop_id', shopId)
-        .eq('template_type', tplKey)
-        .eq('view', 'front');
-      if (delErr) {
-        throw new Error(`Restauration échouée : ${delErr.message}`);
-      }
+      await shopsApi.restoreCustomMockup(tenantId, shopId, tplKey, 'front');
       await load();
     } catch (err) {
       setError((err as Error).message || 'Erreur inconnue');
@@ -187,7 +137,7 @@ export function ShopCustomMockups({ shopId, tenantId }: Props) {
           {TEMPLATES.map((tpl) => {
             const override = overrides[`${tpl.key}-front`];
             const isCustom = !!override;
-            const previewUrl = isCustom ? override.mockup_image_url : buildDefaultPreviewUrl(tpl);
+            const previewUrl = isCustom ? override.mockupImageUrl : buildDefaultPreviewUrl(tpl);
             const isUploading = uploadingKey === tpl.key;
 
             return (

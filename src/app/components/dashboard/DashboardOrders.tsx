@@ -10,25 +10,20 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { supabase } from '/utils/supabase/client';
+import { OrdersApiClient } from '../../../modules/orders';
+import { FetchApiClient } from '../../../platform/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTenant } from '../../contexts/TenantContext';
 import { useShops } from '../../contexts/ShopsContext';
-import { applyTax, getTaxRate } from '../../utils/tax';
 import {
   type OrderUI,
-  type ShopOrderRow,
-  type TenantOrderRow,
-  mergeAndSortOrders,
-  normalizeShopOrder,
-  normalizeTenantOrder,
+  orderSummaryToUi,
 } from '../shop/portal/PortalOrders.helpers';
 import { OrderHistoryTable } from '../shop/portal/OrderHistoryTable';
 import { CancelOrderConfirmDialog } from '../shop/portal/CancelOrderConfirmDialog';
 import { ValidateOrderConfirmDialog } from '../shop/portal/ValidateOrderConfirmDialog';
 import { formatCancelErrorMessage } from '../shop/portal/orderCancellation.helpers';
 import { formatValidateErrorMessage } from '../shop/portal/orderValidation.helpers';
-import { triggerOrderWorkflowStep } from '../shop/portal/orderWorkflowStep.helpers';
 import { useUserCapability } from '../../hooks/useUserCapability';
 
 interface DashboardOrderUI extends OrderUI {
@@ -36,12 +31,15 @@ interface DashboardOrderUI extends OrderUI {
 }
 
 export function DashboardOrders() {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const { currentTenant } = useTenant();
   const { shops } = useShops();
   const [orders, setOrders] = useState<DashboardOrderUI[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const ordersApi = useMemo(() => new OrdersApiClient(
+    new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null),
+  ), [session?.access_token]);
 
   // Fix 2026-05-25 : Map shop_id -> { name, slug } pour afficher le NOM
   // humain dans la colonne Boutique (et plus le slug technique qui ressemble
@@ -77,6 +75,10 @@ export function DashboardOrders() {
   // Producteur). Cohérence avec PortalOrders tab "À produire" mais
   // accessible à l'admin tenant sur l'ensemble des boutiques.
   const { hasIt: canModifyProduction } = useUserCapability('can_modify');
+  // Les owner/admin sont aussi autorisés par la commande serveur. Ce fallback
+  // évite de masquer le workflow si un tenant brownfield n'a pas encore son
+  // assignation de rôle fonctionnel synchronisée avec tenant_members.
+  const isTenantAdmin = currentTenant?.myRole === 'owner' || currentTenant?.myRole === 'admin';
 
   const loadOrders = useCallback(async (cancelled: { current: boolean }) => {
     if (!user || !currentTenant) return;
@@ -89,58 +91,20 @@ export function DashboardOrders() {
     setLoading(true);
     setError(null);
 
-    const taxRate = getTaxRate(currentTenant);
-    const taxedTotal = (ht: number) => applyTax(ht, taxRate);
     const shopIds = shops.map((s) => s.id);
-
-    const queryA = supabase
-      .from('shop_orders')
-      .select('*')
-      .in('shop_id', shopIds)
-      .order('created_at', { ascending: false })
-      .limit(100);
-
-    const queryB = supabase
-      .from('tenant_orders')
-      .select(
-        'id, shop_id, tenant_id, created_by, status, total_ht, currency, notes, created_at, tenant_order_items(product_label, quantity, unit_price_ht, line_total_ht)',
-      )
-      .eq('tenant_id', currentTenant.id)
-      .order('created_at', { ascending: false })
-      .limit(100);
-
-    const [resA, resB] = await Promise.all([queryA, queryB]);
-    if (cancelled.current) return;
-
-    const legacy: DashboardOrderUI[] = [];
-    const v11: DashboardOrderUI[] = [];
-
-    if (resA.error) {
-      console.warn('[DashboardOrders] query shop_orders failed:', resA.error.message);
-    } else if (Array.isArray(resA.data)) {
-      for (const row of resA.data as ShopOrderRow[]) {
-        legacy.push({ ...normalizeShopOrder(row), shop_id: row.shop_id });
-      }
+    try {
+      const response = await ordersApi.listTenantOrders(currentTenant.id, shopIds);
+      if (cancelled.current) return;
+      setOrders(response.orders.map((order) => ({ ...orderSummaryToUi(order), shop_id: order.shopId })));
+    } catch (cause) {
+      if (cancelled.current) return;
+      const message = cause instanceof Error ? cause.message : 'Chargement des commandes impossible.';
+      console.warn('[DashboardOrders] API read failed:', message);
+      setError(message);
+    } finally {
+      if (!cancelled.current) setLoading(false);
     }
-
-    if (resB.error) {
-      console.warn('[DashboardOrders] query tenant_orders failed:', resB.error.message);
-    } else if (Array.isArray(resB.data)) {
-      for (const row of resB.data as TenantOrderRow[]) {
-        v11.push({ ...normalizeTenantOrder(row, taxedTotal), shop_id: row.shop_id });
-      }
-    }
-
-    if (resA.error && resB.error) {
-      setError(`${resA.error.message} / ${resB.error.message}`);
-      setLoading(false);
-      return;
-    }
-
-    const merged = mergeAndSortOrders(legacy, v11) as DashboardOrderUI[];
-    setOrders(merged);
-    setLoading(false);
-  }, [user, currentTenant, shops]);
+  }, [user, currentTenant, shops, ordersApi]);
 
   useEffect(() => {
     const cancelled = { current: false };
@@ -158,22 +122,15 @@ export function DashboardOrders() {
   const handleCancelConfirm = async (orderId: string): Promise<string | null> => {
     const currentOrder = orders.find((o) => o.id === orderId);
     const fromStatus = currentOrder?.status ?? 'draft';
-    const { error: rpcErr } = await supabase.rpc('update_tenant_order_status', {
-      p_order_id: orderId,
-      p_new_status: 'cancelled',
-      p_reason: null,
-    });
-    if (rpcErr) {
-      console.warn('[DashboardOrders] cancel RPC failed:', rpcErr.message);
-      return formatCancelErrorMessage(rpcErr);
-    }
-    if (user?.id) {
-      triggerOrderWorkflowStep({
-        orderId,
-        fromStatus,
+    try {
+      await ordersApi.transition(orderId, {
         toStatus: 'cancelled',
-        actorUserId: user.id,
+        reason: null,
+        idempotencyKey: transitionKey(orderId, fromStatus, 'cancelled'),
       });
+    } catch (cause) {
+      console.warn('[DashboardOrders] cancel API failed:', cause);
+      return formatCancelErrorMessage(cause instanceof Error ? cause : null);
     }
     await loadOrders({ current: false });
     return null;
@@ -188,22 +145,15 @@ export function DashboardOrders() {
   const handleValidateConfirm = async (orderId: string): Promise<string | null> => {
     const currentOrder = orders.find((o) => o.id === orderId);
     const fromStatus = currentOrder?.status ?? 'draft';
-    const { error: rpcErr } = await supabase.rpc('update_tenant_order_status', {
-      p_order_id: orderId,
-      p_new_status: 'validated',
-      p_reason: null,
-    });
-    if (rpcErr) {
-      console.warn('[DashboardOrders] validate RPC failed:', rpcErr.message);
-      return formatValidateErrorMessage(rpcErr);
-    }
-    if (user?.id) {
-      triggerOrderWorkflowStep({
-        orderId,
-        fromStatus,
+    try {
+      await ordersApi.transition(orderId, {
         toStatus: 'validated',
-        actorUserId: user.id,
+        reason: null,
+        idempotencyKey: transitionKey(orderId, fromStatus, 'validated'),
       });
+    } catch (cause) {
+      console.warn('[DashboardOrders] validate API failed:', cause);
+      return formatValidateErrorMessage(cause instanceof Error ? cause : null);
     }
     await loadOrders({ current: false });
     return null;
@@ -216,22 +166,15 @@ export function DashboardOrders() {
     toStatus: 'in_production' | 'shipped',
   ): Promise<void> => {
     const fromStatus = order.status;
-    const { error: rpcErr } = await supabase.rpc('update_tenant_order_status', {
-      p_order_id: order.id,
-      p_new_status: toStatus,
-      p_reason: null,
-    });
-    if (rpcErr) {
-      console.warn(`[DashboardOrders] transition ${fromStatus}→${toStatus} failed:`, rpcErr.message);
-      return;
-    }
-    if (user?.id) {
-      triggerOrderWorkflowStep({
-        orderId: order.id,
-        fromStatus,
+    try {
+      await ordersApi.transition(order.id, {
         toStatus,
-        actorUserId: user.id,
+        reason: null,
+        idempotencyKey: transitionKey(order.id, fromStatus, toStatus),
       });
+    } catch (cause) {
+      console.warn(`[DashboardOrders] transition ${fromStatus}→${toStatus} failed:`, cause);
+      return;
     }
     await loadOrders({ current: false });
   };
@@ -257,12 +200,12 @@ export function DashboardOrders() {
         // S-USERS-REFONTE Phase A : bouton Valider visible uniquement si
         // l'utilisateur courant a la capability can_validate (via rôle actif).
         // Sinon, undefined => OrderHistoryTable masque le bouton.
-        onValidateOrder={canValidate ? handleValidateOrderRequest : undefined}
+        onValidateOrder={canValidate || isTenantAdmin ? handleValidateOrderRequest : undefined}
         // S-ORDER-ROLES-3-UI : boutons Démarrer prod + Marquer expédiée
         // role-driven via can_modify (preset Owner / Admin / Validateur /
         // Producteur). Sans modal de confirmation côté admin tenant.
-        onStartProductionOrder={canModifyProduction ? handleStartProduction : undefined}
-        onMarkShippedOrder={canModifyProduction ? handleMarkShipped : undefined}
+        onStartProductionOrder={canModifyProduction || isTenantAdmin ? handleStartProduction : undefined}
+        onMarkShippedOrder={canModifyProduction || isTenantAdmin ? handleMarkShipped : undefined}
         extraColumn={{
           header: 'Boutique',
           position: 'after-date',
@@ -300,4 +243,8 @@ export function DashboardOrders() {
       />
     </div>
   );
+}
+
+function transitionKey(orderId: string, fromStatus: string, toStatus: string): string {
+  return `order-transition:${orderId}:${fromStatus}:${toStatus}`;
 }

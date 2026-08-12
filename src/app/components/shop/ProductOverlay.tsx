@@ -20,7 +20,7 @@
  * Configurer (testid product-card-configure-btn) sur une ShopProductCard.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { AlertTriangle, Loader2, RefreshCw } from "lucide-react";
 import type { Shop, ShopProduct } from "../../contexts/ShopsContext";
 import { TEST_IDS } from "../../lib/testIds";
@@ -78,31 +78,12 @@ export function ProductOverlay({
     onClose();
   };
 
-  // P4-VISUELS — Custom mockup override per-shop x template (vue detail produit).
-  // Le template est déjà résolu plus bas dans mockupProps via resolveMockupTemplate(product).
-  // On le re-calcule ici pour le useEffect (pas de cyclic dep).
+  // AF13.4 — Override déjà inclus dans le catalogue autorisé.
   const overlayTemplate = useMemo(
     () => (product ? resolveMockupTemplate(product) : null),
     [product],
   );
-  const [customMockupUrl, setCustomMockupUrl] = useState<string | null>(null);
-  useEffect(() => {
-    if (!shop?.id || !overlayTemplate) {
-      setCustomMockupUrl(null);
-      return;
-    }
-    let cancelled = false;
-    resolveCustomMockup(shop.id, overlayTemplate as MockupTemplateType, 'front')
-      .then((url) => {
-        if (!cancelled) setCustomMockupUrl(url);
-      })
-      .catch(() => {
-        if (!cancelled) setCustomMockupUrl(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [shop?.id, overlayTemplate]);
+  const customMockupUrl = useMemo(() => overlayTemplate ? resolveCustomMockup(shop?.custom_mockups ?? [], overlayTemplate as MockupTemplateType, 'front') : null, [shop?.custom_mockups, overlayTemplate]);
 
   return (
     <Sheet

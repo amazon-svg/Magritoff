@@ -14,11 +14,12 @@ import {
   type MockupSpecs,
 } from "../../../src/app/components/mockup/MockupImage.helpers";
 
-const TEST_PROJECT_ID = "test-project-abc";
+const TEST_PUBLIC_BUCKET = "https://assets.magrit.test/product_mockups";
+const TEST_GENERATOR = "https://api.magrit.test/mockup-generator";
 
 describe("buildPublicMockupUrl", () => {
   it("construit l'URL publique CDN avec le path correct (cache version _v2)", () => {
-    const url = buildPublicMockupUrl(TEST_PROJECT_ID, {
+    const url = buildPublicMockupUrl(TEST_PUBLIC_BUCKET, {
       tenantId: "tenant-1",
       shopId: "shop-1",
       productId: "product-1",
@@ -26,7 +27,7 @@ describe("buildPublicMockupUrl", () => {
     // P3-VISUELS (2026-06-15) : suffixe _v2 bump pour invalider le cache PNG
     // post-refonte des templates SVG Magrit-brandés.
     expect(url).toBe(
-      `https://${TEST_PROJECT_ID}.supabase.co/storage/v1/object/public/product_mockups/tenant-1/shop-1/product-1_v7.png`,
+      `${TEST_PUBLIC_BUCKET}/tenant-1/shop-1/product-1_v7.png`,
     );
   });
 
@@ -34,7 +35,7 @@ describe("buildPublicMockupUrl", () => {
     // Si l'amont passe des chars dangereux, c'est son probleme — ces helpers
     // attendent des UUID/slugs safes. On verifie juste qu'il n'y a pas de
     // double-encoding inattendu.
-    const url = buildPublicMockupUrl(TEST_PROJECT_ID, {
+    const url = buildPublicMockupUrl(TEST_PUBLIC_BUCKET, {
       tenantId: "abc-123",
       shopId: "xyz-456",
       productId: "p-789",
@@ -54,10 +55,8 @@ describe("buildEdgeFunctionUrl", () => {
       productName: "Flyer A5",
       primaryColor: "#FF6B35",
     };
-    const url = buildEdgeFunctionUrl(TEST_PROJECT_ID, specs);
-    expect(url).toContain(
-      `https://${TEST_PROJECT_ID}.supabase.co/functions/v1/mockup-generator?`,
-    );
+    const url = buildEdgeFunctionUrl(TEST_GENERATOR, specs);
+    expect(url).toContain(`${TEST_GENERATOR}?`);
     // primaryColor doit etre encode (#FF6B35 -> %23FF6B35)
     expect(url).toContain("primaryColor=%23FF6B35");
     // productName avec espace doit etre encode
@@ -79,7 +78,7 @@ describe("buildEdgeFunctionUrl", () => {
       productName: "Carte été \"premium\"",
       primaryColor: "#000000",
     };
-    const url = buildEdgeFunctionUrl(TEST_PROJECT_ID, specs);
+    const url = buildEdgeFunctionUrl(TEST_GENERATOR, specs);
     // L'encoding URLSearchParams gere correctement ces chars
     expect(url).toContain("productName=Carte+%C3%A9t%C3%A9+%22premium%22");
   });
@@ -95,7 +94,7 @@ describe("buildEdgeFunctionUrl", () => {
       primaryColor: "#FF6B35",
       template: "carteVisite",
     };
-    const url = buildEdgeFunctionUrl(TEST_PROJECT_ID, specs);
+    const url = buildEdgeFunctionUrl(TEST_GENERATOR, specs);
     expect(url).toContain("template=carteVisite");
   });
 
@@ -109,7 +108,7 @@ describe("buildEdgeFunctionUrl", () => {
       productName: "Flyer",
       primaryColor: "#000000",
     };
-    const url = buildEdgeFunctionUrl(TEST_PROJECT_ID, specs);
+    const url = buildEdgeFunctionUrl(TEST_GENERATOR, specs);
     expect(url).not.toContain("template=");
   });
 
@@ -124,7 +123,7 @@ describe("buildEdgeFunctionUrl", () => {
       primaryColor: "#000000",
       template: "   ",
     };
-    const url = buildEdgeFunctionUrl(TEST_PROJECT_ID, specs);
+    const url = buildEdgeFunctionUrl(TEST_GENERATOR, specs);
     expect(url).not.toContain("template=");
   });
 });

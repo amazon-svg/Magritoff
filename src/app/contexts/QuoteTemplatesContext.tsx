@@ -21,10 +21,11 @@ import {
   useMemo,
   useState,
 } from 'react';
-import { supabase } from '/utils/supabase/client';
 import { useAuth } from './AuthContext';
 import { useTenant } from './TenantContext';
 import { BUILTIN_QUOTE_TEMPLATES, QuoteTemplate } from '../utils/quote';
+import { QuoteTemplatesApiClient, type CreateQuoteTemplate, type UpdateQuoteTemplate } from '../../modules/quote-templates';
+import { FetchApiClient } from '../../platform/api';
 
 interface QuoteTemplatesContextType {
   templates: QuoteTemplate[];
@@ -44,10 +45,14 @@ interface QuoteTemplatesContextType {
 const QuoteTemplatesContext = createContext<QuoteTemplatesContextType | undefined>(undefined);
 
 export function QuoteTemplatesProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const { currentTenant } = useTenant();
   const [customTemplates, setCustomTemplates] = useState<QuoteTemplate[]>([]);
   const [loading, setLoading] = useState(false);
+  const [defaultTemplateId, setDefaultTemplateId] = useState<string | null>(null);
+  const templatesApi = useMemo(() => new QuoteTemplatesApiClient(new FetchApiClient(
+    '', globalThis.fetch, () => session?.access_token ?? null,
+  )), [session?.access_token]);
 
   const reload = useCallback(async () => {
     if (!user || !currentTenant) {
@@ -55,63 +60,21 @@ export function QuoteTemplatesProvider({ children }: { children: ReactNode }) {
       return;
     }
     setLoading(true);
-    const { data, error } = await supabase
-      .from('quote_templates')
-      .select('*')
-      .eq('tenant_id', currentTenant.id)
-      .order('created_at', { ascending: true });
-    if (error) {
-      console.error('[quote_templates] load error:', error.message);
+    try {
+      const overview = await templatesApi.overview(currentTenant.id);
+      setCustomTemplates(overview.templates);
+      setDefaultTemplateId(overview.defaultTemplateId);
+    } catch (error) {
+      console.error('[quote_templates] load error:', error instanceof Error ? error.message : String(error));
       setCustomTemplates([]);
-    } else if (data) {
-      setCustomTemplates(
-        data.map((row: any) => ({
-          id: row.id,
-          builtin: false,
-          style: row.style || 'custom',
-          name: row.name,
-          company_name: row.company_name,
-          address: row.address,
-          postal_code: row.postal_code,
-          city: row.city,
-          country: row.country,
-          phone: row.phone,
-          email: row.email,
-          website: row.website,
-          siret: row.siret,
-          tva_number: row.tva_number,
-          logo_url: row.logo_url,
-          brand_color: row.brand_color,
-          accent_color: row.accent_color,
-          font_family: row.font_family,
-          validity_days: row.validity_days,
-          footer_text: row.footer_text,
-        }))
-      );
+      setDefaultTemplateId(null);
     }
     setLoading(false);
-  }, [user, currentTenant?.id]);
+  }, [user, currentTenant?.id, templatesApi]);
 
   useEffect(() => {
     reload();
   }, [reload]);
-
-  // id du template par defaut : stocke dans user_preferences.default_quote_template_id
-  const [defaultTemplateId, setDefaultTemplateId] = useState<string | null>(null);
-  useEffect(() => {
-    if (!user) {
-      setDefaultTemplateId(null);
-      return;
-    }
-    supabase
-      .from('user_preferences')
-      .select('default_quote_template_id')
-      .eq('user_id', user.id)
-      .maybeSingle()
-      .then(({ data }) => {
-        setDefaultTemplateId(data?.default_quote_template_id ?? null);
-      });
-  }, [user, customTemplates.length]);
 
   const templates: QuoteTemplate[] = useMemo(
     () => [...BUILTIN_QUOTE_TEMPLATES, ...customTemplates],
@@ -124,99 +87,39 @@ export function QuoteTemplatesProvider({ children }: { children: ReactNode }) {
     input: Partial<QuoteTemplate>
   ): Promise<QuoteTemplate | null> => {
     if (!user || !currentTenant) return null;
-    const { data, error } = await supabase
-      .from('quote_templates')
-      .insert({
-        user_id: user.id,
-        tenant_id: currentTenant.id,
-        name: input.name || 'Nouveau gabarit',
-        style: input.style || 'custom',
-        company_name: input.company_name,
-        address: input.address,
-        postal_code: input.postal_code,
-        city: input.city,
-        country: input.country,
-        phone: input.phone,
-        email: input.email,
-        website: input.website,
-        siret: input.siret,
-        tva_number: input.tva_number,
-        logo_url: input.logo_url,
-        brand_color: input.brand_color ?? '#111111',
-        accent_color: input.accent_color ?? '#f59e0b',
-        font_family: input.font_family,
-        validity_days: input.validity_days ?? 30,
-        footer_text: input.footer_text,
-      })
-      .select()
-      .single();
-    if (error) {
-      console.error('[quote_templates] create error:', error.message);
+    try {
+      const data = await templatesApi.create(currentTenant.id, templateInput(input, true) as CreateQuoteTemplate);
+      await reload();
+      return data;
+    } catch (error) {
+      console.error('[quote_templates] create error:', error instanceof Error ? error.message : String(error));
       return null;
     }
-    await reload();
-    return data as unknown as QuoteTemplate;
   };
 
   const updateTemplate = async (id: string, input: Partial<QuoteTemplate>) => {
     if (!user || !currentTenant) return;
     // on n'update que les customs (les builtins sont statiques)
     if (id.startsWith('builtin-')) return;
-    const { error } = await supabase
-      .from('quote_templates')
-      .update({
-        name: input.name,
-        style: input.style,
-        company_name: input.company_name,
-        address: input.address,
-        postal_code: input.postal_code,
-        city: input.city,
-        country: input.country,
-        phone: input.phone,
-        email: input.email,
-        website: input.website,
-        siret: input.siret,
-        tva_number: input.tva_number,
-        logo_url: input.logo_url,
-        brand_color: input.brand_color,
-        accent_color: input.accent_color,
-        font_family: input.font_family,
-        validity_days: input.validity_days,
-        footer_text: input.footer_text,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', id)
-      .eq('tenant_id', currentTenant.id);
-    if (error) console.error('[quote_templates] update error:', error.message);
+    try { await templatesApi.update(currentTenant.id, id, templateInput(input, false)); }
+    catch (error) { console.error('[quote_templates] update error:', error instanceof Error ? error.message : String(error)); }
     await reload();
   };
 
   const deleteTemplate = async (id: string) => {
     if (!user || !currentTenant) return;
     if (id.startsWith('builtin-')) return;
-    const { error } = await supabase
-      .from('quote_templates')
-      .delete()
-      .eq('id', id)
-      .eq('tenant_id', currentTenant.id);
-    if (error) console.error('[quote_templates] delete error:', error.message);
-    if (defaultTemplateId === id) {
-      await setDefault('');
-    }
+    try { await templatesApi.remove(currentTenant.id, id); }
+    catch (error) { console.error('[quote_templates] delete error:', error instanceof Error ? error.message : String(error)); }
+    if (defaultTemplateId === id) setDefaultTemplateId(null);
     await reload();
   };
 
   const setDefault = async (id: string) => {
-    if (!user) return;
+    if (!user || !currentTenant) return;
     const value = id || null;
-    // user_preferences a une ligne par user (upsert sur user_id)
-    const { error } = await supabase
-      .from('user_preferences')
-      .upsert(
-        { user_id: user.id, default_quote_template_id: value },
-        { onConflict: 'user_id' }
-      );
-    if (error) console.error('[user_preferences] default template error:', error.message);
+    try { await templatesApi.setDefault(currentTenant.id, value); }
+    catch (error) { console.error('[user_preferences] default template error:', error instanceof Error ? error.message : String(error)); return; }
     setDefaultTemplateId(value);
   };
 
@@ -259,4 +162,10 @@ export function useQuoteTemplates() {
   const ctx = useContext(QuoteTemplatesContext);
   if (!ctx) throw new Error('useQuoteTemplates must be used within a QuoteTemplatesProvider');
   return ctx;
+}
+
+function templateInput(input: Partial<QuoteTemplate>, create: boolean): UpdateQuoteTemplate | CreateQuoteTemplate {
+  const picked = { name: input.name, style: input.style, company_name: input.company_name, address: input.address, postal_code: input.postal_code, city: input.city, country: input.country, phone: input.phone, email: input.email, website: input.website, siret: input.siret, tva_number: input.tva_number, logo_url: input.logo_url, brand_color: input.brand_color, accent_color: input.accent_color, font_family: input.font_family, validity_days: input.validity_days, footer_text: input.footer_text };
+  const clean = Object.fromEntries(Object.entries(picked).filter(([, value]) => value !== undefined));
+  return create ? { ...clean, name: input.name || 'Nouveau gabarit', style: input.style || 'custom', brand_color: input.brand_color ?? '#111111', accent_color: input.accent_color ?? '#f59e0b', validity_days: input.validity_days ?? 30 } as CreateQuoteTemplate : clean as UpdateQuoteTemplate;
 }

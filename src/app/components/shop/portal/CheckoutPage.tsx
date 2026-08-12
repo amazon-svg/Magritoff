@@ -3,7 +3,7 @@
  *
  * Une seule route `/checkout`, deux blocs :
  *  - non loggé → Identification (connexion, + création de compte si la
- *    boutique est en `self_signup` : signUp puis RPC self_register_shop_buyer
+ *    boutique est en `self_signup` : signUp puis commande API d’inscription
  *    allow-list S7.11 ; boutique invite_only → connexion + demande d'accès) ;
  *  - loggé → Récap (packs forfaitaires S-FIX-PANIER, totaux HT/TVA/TTC) +
  *    « Commander » → submitCart existant → PortalThankYou.
@@ -12,7 +12,6 @@
 
 import { useState } from 'react';
 import { AlertTriangle, Loader2, Lock, Mail } from 'lucide-react';
-import { supabase } from '/utils/supabase/client';
 import type { Shop } from '../../../contexts/ShopsContext';
 import type { CartLine } from './types';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -20,10 +19,14 @@ import { useTenant } from '../../../contexts/TenantContext';
 import { applyTax, getTaxRate } from '../../../utils/tax';
 import { formatEuro } from '../ProductOverlay.helpers';
 import { TEST_IDS } from '../../../lib/testIds';
+import { ShopsApiClient } from '../../../../modules/shops';
+import { FetchApiClient } from '../../../../platform/api';
 
 export interface CheckoutPageProps {
   shop: Shop;
   cart: CartLine[];
+  canCreateOrder: boolean;
+  createOrderBlockedMessage: string;
   /** Soumet la commande (submitCart PublicShop) — navigue vers ThankYou. */
   onSubmit: () => Promise<void> | void;
   onGoCatalog: () => void;
@@ -32,7 +35,14 @@ export interface CheckoutPageProps {
 const inputCls =
   'w-full px-3 py-2 rounded-md border border-line-2 bg-paper text-ink text-[13px] focus:outline-none focus:ring-2 focus:ring-accent';
 
-export function CheckoutPage({ shop, cart, onSubmit, onGoCatalog }: CheckoutPageProps) {
+export function CheckoutPage({
+  shop,
+  cart,
+  canCreateOrder,
+  createOrderBlockedMessage,
+  onSubmit,
+  onGoCatalog,
+}: CheckoutPageProps) {
   const { user } = useAuth();
   const { currentTenant, reload } = useTenant();
   const taxRate = getTaxRate(currentTenant);
@@ -118,7 +128,7 @@ export function CheckoutPage({ shop, cart, onSubmit, onGoCatalog }: CheckoutPage
         <button
           type="button"
           data-testid={TEST_IDS.shop.checkoutSubmitBtn}
-          disabled={!user || submitting}
+          disabled={!user || !canCreateOrder || submitting}
           onClick={async () => {
             setSubmitting(true);
             try {
@@ -136,6 +146,15 @@ export function CheckoutPage({ shop, cart, onSubmit, onGoCatalog }: CheckoutPage
         {!user && (
           <p className="text-ink-mute-2 m-0 text-center" style={{ fontSize: '11.5px' }}>
             Identifiez-vous ci-contre pour valider la commande.
+          </p>
+        )}
+        {user && !canCreateOrder && (
+          <p
+            data-testid={TEST_IDS.shop.cartNoCreateOrderHint}
+            className="m-0 text-center text-err-fg"
+            style={{ fontSize: '11.5px', lineHeight: 1.45 }}
+          >
+            {createOrderBlockedMessage}
           </p>
         )}
       </div>
@@ -168,6 +187,7 @@ function CheckoutIdentification({
   shop: Shop;
   onAuthenticated: () => void;
 }) {
+  const { signIn, signUp } = useAuth();
   const selfSignup = shop.access_mode === 'self_signup';
   const [mode, setMode] = useState<'login' | 'signup'>(selfSignup ? 'signup' : 'login');
   const [email, setEmail] = useState('');
@@ -178,48 +198,51 @@ function CheckoutIdentification({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
+  const registerBuyer = async (accessToken: string) => {
+    const api = new ShopsApiClient(new FetchApiClient('', globalThis.fetch, () => accessToken));
+    await api.registerBuyer(shop.id);
+  };
+
   const login = async () => {
     setBusy(true);
     setError(null);
-    const { error: err } = await supabase.auth.signInWithPassword({ email, password });
-    if (err) setError('Connexion impossible : vérifiez votre email et votre mot de passe.');
-    else {
-      // Si la boutique est ouverte, garantir l'accès (idempotent, no-op si membre).
-      if (selfSignup) {
-        await supabase.rpc('self_register_shop_buyer', { p_shop_id: shop.id });
+    try {
+      const { error: err, session } = await signIn(email, password);
+      if (err || !session) {
+        setError('Connexion impossible : vérifiez votre email et votre mot de passe.');
+      } else {
+        // Si la boutique est ouverte, garantir l'accès (idempotent, no-op si membre).
+        if (selfSignup) await registerBuyer(session.access_token);
+        onAuthenticated();
       }
-      onAuthenticated();
+    } catch {
+      setError('Connexion réussie, mais l\'accès boutique a échoué. Contactez la boutique.');
+    } finally {
+      setBusy(false);
     }
-    setBusy(false);
   };
 
   const signup = async () => {
     setBusy(true);
     setError(null);
-    const { data, error: err } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { full_name: fullName, company } },
-    });
+    const { error: err, session } = await signUp(email, password, fullName, company);
     if (err) {
       setError(
         err.message.includes('already registered')
           ? 'Un compte existe déjà avec cet email — connectez-vous.'
           : `Création du compte impossible : ${err.message}`,
       );
-    } else if (!data.session) {
+    } else if (!session) {
       // Confirmation email exigée par le projet : pas de session immédiate.
       setNotice(
         'Vérifiez votre boîte mail pour confirmer votre compte, puis revenez vous connecter.',
       );
     } else {
-      const { error: rpcErr } = await supabase.rpc('self_register_shop_buyer', {
-        p_shop_id: shop.id,
-      });
-      if (rpcErr) {
-        setError('Compte créé, mais l\'accès boutique a échoué. Contactez la boutique.');
-      } else {
+      try {
+        await registerBuyer(session.access_token);
         onAuthenticated();
+      } catch {
+        setError('Compte créé, mais l\'accès boutique a échoué. Contactez la boutique.');
       }
     }
     setBusy(false);

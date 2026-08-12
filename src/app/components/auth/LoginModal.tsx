@@ -7,9 +7,15 @@ interface Props {
   onClose: () => void;
   onSwitchToSignup: () => void;
   onSwitchToForgot: () => void;
+  allowSignup?: boolean;
 }
 
-export function LoginModal({ onClose, onSwitchToSignup, onSwitchToForgot }: Props) {
+export function LoginModal({
+  onClose,
+  onSwitchToSignup,
+  onSwitchToForgot,
+  allowSignup = true,
+}: Props) {
   const { signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -80,9 +86,11 @@ export function LoginModal({ onClose, onSwitchToSignup, onSwitchToForgot }: Prop
           <button onClick={onSwitchToForgot} className="text-blue-600 hover:underline">
             Mot de passe oublié ?
           </button>
-          <button onClick={onSwitchToSignup} className="text-blue-600 hover:underline">
-            Créer un compte
-          </button>
+          {allowSignup && (
+            <button onClick={onSwitchToSignup} className="text-blue-600 hover:underline">
+              Créer un compte
+            </button>
+          )}
         </div>
       </div>
     </div>

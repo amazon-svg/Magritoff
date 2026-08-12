@@ -10,7 +10,12 @@ Quand ton tenant est créé par Arnaud :
 2. Création de ton mot de passe
 3. Accès direct à `/t/<slug>/dashboard`
 
-Si l'invitation est envoyée à un autre email que celui que tu utilises, la RPC `accept_tenant_invitation` te bloque avec un message **« Cette invitation est destinée à X, vous êtes connecté en tant que Y »**. Déconnecte-toi puis reconnecte avec le bon compte.
+Si l'invitation est envoyée à un autre email que celui que tu utilises, Magrit
+te bloque avec un message **« Cette invitation est destinée à X, vous êtes
+connecté en tant que Y »**. Déconnecte-toi puis reconnecte avec le bon compte.
+Après acceptation, la session et les boutiques accessibles sont rechargées via
+l’API Magrit avant la redirection : un acheteur limité à une boutique ne passe
+jamais par le dashboard.
 
 ## 2. Inviter ton équipe
 
@@ -23,10 +28,26 @@ Pour chaque membre à inviter :
 3. Si scope `shop_only` (acheteur dédié à 1 ou N boutiques) : sélectionne les boutiques autorisées
 4. Envoyer → email Resend partira automatiquement
 
+La liste des invitations en attente, les options de rôles/boutiques, le renvoi
+et la révocation passent par l’API Magrit. Une révocation est contrôlée par la
+RLS du tenant et journalisée côté serveur.
+
+La liste des membres, les changements de rôle, les droits d’accès et le retrait
+d’un membre passent également par l’API. L’identité de l’administrateur vient
+de sa session et un owner ne peut être ni modifié ni retiré par ces routes.
+
 **Garde-fous bêta** :
 - Pas de doublon : si une invitation pending existe déjà pour cet email/tenant, le système te bloque avec **« duplicate_pending »** + l'id de l'invitation existante (renvoie-la via le bouton Renvoyer plutôt qu'en créer une nouvelle).
 - Rôles strictement du tenant : tu ne peux pas assigner un rôle d'un autre tenant (impossible côté UI mais durci côté serveur depuis Sprint 9 = `role_mismatch_tenant`).
 - Capability requise : ton compte doit avoir `can_invite` pour inviter (Owner et Admin presets l'ont par défaut).
+- La session est rafraîchie juste avant l’appel à `POST /api/v1/invitations`.
+  L’identité de l’invitant est dérivée côté serveur : elle n’est jamais fournie
+  ni approuvée depuis le formulaire. Si la session ne peut plus être rafraîchie,
+  l’interface demande explicitement de se reconnecter.
+- Si Resend n’est pas configuré ou refuse l’expéditeur, la modale reste ouverte
+  et affiche un lien d’invitation sélectionnable avec un bouton **Copier**.
+- Si le tenant ne possède aucune boutique, le mode **Boutique(s)** est désactivé
+  et la modale sélectionne **Dashboard complet** afin de ne pas bloquer l’envoi.
 
 ## 3. Gérer les rôles de ton catalogue
 
@@ -66,6 +87,7 @@ Si ton imprimerie a plusieurs sites (Paris + Lyon + Bordeaux), crée un sous-ten
 
 Pour chaque boutique tu peux configurer :
 
+- **Identité de marque** : logo et image hero (JPG/PNG/WebP max 5 MB)
 - **Fond global** : choix dans la bibliothèque Magrit (10 fonds curatés Sally) OU upload custom (JPG/PNG/WebP max 5 MB)
 - **Couleur primaire** : utilisée dans les templates SVG mockup (carte de visite liseré, flyer texte, etc.)
 - **Override par gamme** : tu peux assigner un fond différent par gamme (ex: fond marbre pour cartes de visite, fond kraft pour étiquettes)
@@ -73,6 +95,40 @@ Pour chaque boutique tu peux configurer :
 Cascade de résolution : **gamme > shop > default Magrit**. Le helper SQL `resolve_shop_background(shop_id, gamme_slug)` est appelé côté front au rendu mockup.
 
 **Composition layered** (V5) : le fond est appliqué via CSS `background-image` sur le wrapper du PNG produit (transparent). Le PNG reste cacheable indépendamment du fond — changement de fond instantané sans regénération.
+
+Les uploads de logo et d’image hero passent par l’API Magrit en multipart. Le
+navigateur ne contacte pas directement Storage ; le serveur contrôle le tenant,
+le droit `can_manage_catalog`, le type MIME et la limite de 5 Mo.
+
+Les mockups personnalisés suivent le même principe. Leur liste est incluse dans
+le catalogue uniquement après le contrôle d’accès à la boutique ; le portail ne
+déclenche plus une requête de données séparée pour chaque carte produit.
+
+### Gammes actives du tenant
+
+La page « Gammes actives » lit et modifie les souscriptions par l’API Magrit.
+Cocher un parent envoie une commande groupée pour le parent et ses enfants ; le
+tenant et l’auteur ne sont jamais fournis par l’interface. Un membre sans rôle
+owner/admin reste en lecture seule et le serveur conserve le contrôle RLS.
+
+L’administration du PIM global utilise également cette façade pour charger les
+gammes et définitions, enregistrer leurs contenus et les supprimer. Les
+commandes d’écriture vérifient côté serveur le statut super-admin Magrit ou le
+flag administrateur historique ; masquer le bouton dans l’interface ne constitue
+plus le seul contrôle.
+
+### Choisir le mode d’accès
+
+- **Sur invitation (`invite_only`, valeur par défaut)** : aucun catalogue
+  visible sans invitation. Invite l’acheteur depuis « Utilisateurs » et ajoute
+  cette boutique à son périmètre `shop_only`. La page de connexion ne propose
+  pas de création de compte.
+- **Inscription libre (`self_signup`)** : catalogue public et création de
+  compte disponible au checkout. La première commande rattache automatiquement
+  l’acheteur avec un accès `shop_only` limité à cette boutique.
+
+Ne passe une boutique en inscription libre que si son catalogue et ses prix
+peuvent être rendus publics.
 
 ## 6. Validation et workflow N+1
 
@@ -101,7 +157,8 @@ Quand un acheteur passe commande (status `draft`) :
 ## 7. Sécurité & limites
 
 - **Email guard** sur acceptation invitation (faille colmatée 2026-05-27) : seul le compte dont l'email correspond peut accepter.
-- **JWT auth check** sur invite-member (Sprint 9 hardening) : forgery du champ invited_by bloquée.
+- **JWT auth check** sur `POST /api/v1/invitations` : l’auteur est dérivé du JWT ;
+  un champ `invited_by` forgé par le navigateur est ignoré.
 - **Idempotence** invitations : doublon pending même email/tenant → 409.
 - **RLS strict** sur toutes les tables : un user ne voit que son tenant + sous-tenants accessibles via héritage.
 

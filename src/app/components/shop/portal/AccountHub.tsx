@@ -11,7 +11,6 @@
  */
 
 import { FileText, LogOut, Package, User } from 'lucide-react';
-import { supabase } from '/utils/supabase/client';
 import type { Shop } from '../../../contexts/ShopsContext';
 import type { AccountSection } from './types';
 import { PortalOrders } from './PortalOrders';
@@ -52,7 +51,7 @@ export function AccountHub({
   onRenewOrder,
   onGoHome,
 }: AccountHubProps) {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const { currentTenant } = useTenant();
 
   return (
@@ -97,6 +96,7 @@ export function AccountHub({
             shopName={shop.name}
             tenantName={currentTenant?.name ?? null}
             onGoHome={onGoHome}
+            onSignOut={signOut}
           />
         )}
       </div>
@@ -163,11 +163,13 @@ function AccountProfile({
   shopName,
   tenantName,
   onGoHome,
+  onSignOut,
 }: {
   email: string | null;
   shopName: string;
   tenantName: string | null;
   onGoHome: () => void;
+  onSignOut: () => Promise<void>;
 }) {
   if (!email) {
     return <EmptyCard text="Connectez-vous pour accéder à votre profil." />;
@@ -199,7 +201,7 @@ function AccountProfile({
         type="button"
         data-testid={TEST_IDS.shop.accountLogoutBtn}
         onClick={async () => {
-          await supabase.auth.signOut();
+          await onSignOut();
           onGoHome();
         }}
         className="mt-2 self-start inline-flex items-center gap-2 px-3.5 py-2 rounded-md border border-line-2 bg-paper text-ink hover:bg-bg transition-colors"

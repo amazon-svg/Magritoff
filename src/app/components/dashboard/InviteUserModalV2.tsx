@@ -9,10 +9,11 @@
  *     (parmi les 5 presets seedés : Owner, Admin, Acheteur, Validateur,
  *     Producteur, + tous les rôles custom créés par l'admin tenant)
  *
- * L'edge function invite-member est étendue (Phase A B2) pour accepter
- * role_definition_ids: string[]. Le RPC accept_tenant_invitation propage
- * ces rôles en tenant_role_assignments à l'acceptation (cf. migration
- * 20260525000200).
+ * La commande navigateur passe par POST /api/v1/invitations. La création est
+ * contrôlée par une commande SQL sécurisée et l’email passe par le port
+ * InvitationEmailSender. Le RPC
+ * accept_tenant_invitation propage les rôles en tenant_role_assignments à
+ * l'acceptation (cf. migration 20260525000200).
  *
  * Note : l'ancien role/access_scope/permissions est toujours envoyé en
  * back-compat (valeurs par défaut), mais c'est role_definition_ids qui
@@ -20,9 +21,14 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Loader2, Mail, X, Check } from 'lucide-react';
-import { supabase } from '/utils/supabase/client';
+import { Loader2, Mail, X, Check, Copy } from 'lucide-react';
 import { TEST_IDS } from '../../lib/testIds';
+import { useAuth } from '../../contexts/AuthContext';
+import { InvitationsApiClient } from '../../../modules/invitations';
+import { ApiClientError, FetchApiClient } from '../../../platform/api';
+import {
+  invitationApiProblemMessage,
+} from './InviteUserModalV2.helpers';
 
 interface RoleOption {
   id: string;
@@ -40,7 +46,6 @@ type AccessScope = 'magrit_full' | 'shop_only';
 export interface InviteUserModalV2Props {
   open: boolean;
   tenantId: string;
-  invitedBy: string;
   baseUrl: string;
   /** Callback appelé après une invitation réussie (refresh parent). */
   onInvited: () => void | Promise<void>;
@@ -50,11 +55,11 @@ export interface InviteUserModalV2Props {
 export function InviteUserModalV2({
   open,
   tenantId,
-  invitedBy,
   baseUrl,
   onInvited,
   onClose,
 }: InviteUserModalV2Props) {
+  const { session, refreshSession } = useAuth();
   const [email, setEmail] = useState('');
   const [roles, setRoles] = useState<RoleOption[]>([]);
   const [selectedRoleIds, setSelectedRoleIds] = useState<Set<string>>(new Set());
@@ -65,31 +70,33 @@ export function InviteUserModalV2({
   const [loadingRoles, setLoadingRoles] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [manualInvitation, setManualInvitation] = useState<{
+    email: string;
+    link: string;
+    reason: string;
+  } | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const invitationsApi = useMemo(() => new InvitationsApiClient(new FetchApiClient(
+    '', globalThis.fetch, () => session?.access_token ?? null,
+  )), [session?.access_token]);
 
   const loadRoles = useCallback(async () => {
     setLoadingRoles(true);
-    const rolesQ = supabase
-      .from('tenant_role_definitions')
-      .select('id, name, description, ordering_index')
-      .eq('tenant_id', tenantId)
-      .is('archived_at', null)
-      .order('ordering_index', { ascending: true });
-    const shopsQ = supabase
-      .from('shops')
-      .select('id, name')
-      .eq('tenant_id', tenantId)
-      .order('name', { ascending: true });
-    const [rolesR, shopsR] = await Promise.all([rolesQ, shopsQ]);
-    if (rolesR.error) {
-      setError(`Chargement rôles : ${rolesR.error.message}`);
-    } else {
-      setRoles((rolesR.data ?? []) as RoleOption[]);
-    }
-    if (!shopsR.error) {
-      setShops((shopsR.data ?? []) as ShopOption[]);
+    try {
+      const options = await invitationsApi.options(tenantId);
+      setRoles(options.roles);
+      setShops(options.shops);
+      if (options.shops.length === 0) {
+        setScope('magrit_full');
+        setSelectedShopIds(new Set());
+      }
+    } catch (loadError) {
+      setError(loadError instanceof ApiClientError
+        ? invitationApiProblemMessage(loadError.problem.code, loadError.problem.detail)
+        : 'Chargement des rôles et boutiques impossible.');
     }
     setLoadingRoles(false);
-  }, [tenantId]);
+  }, [invitationsApi, tenantId]);
 
   useEffect(() => {
     if (open) {
@@ -98,6 +105,8 @@ export function InviteUserModalV2({
       setScope('shop_only');
       setSelectedShopIds(new Set());
       setError(null);
+      setManualInvitation(null);
+      setLinkCopied(false);
       void loadRoles();
     }
   }, [open, loadRoles]);
@@ -138,52 +147,62 @@ export function InviteUserModalV2({
     const roleIds = Array.from(selectedRoleIds);
 
     try {
-      const { data, error: e } = await supabase.functions.invoke<{
-        ok: boolean;
-        invitationId?: string;
-        sent?: boolean;
-        link?: string;
-        reason?: string;
-        error?: string;
-      }>('invite-member', {
-        body: {
-          email: cleanedEmail,
-          tenant_id: tenantId,
-          invited_by: invitedBy,
-          baseUrl,
-          // S-USERS-REFONTE Phase A : rôles (capabilities)
-          role_definition_ids: roleIds,
-          // Scope d'accès + boutiques (fix 2026-05-27 : c'est ce qui route
-          // l'utilisateur vers SA boutique au login via ShopOnlyRedirect).
-          role: 'member',
-          access_scope: scope,
-          allowed_shop_ids: scope === 'shop_only' ? Array.from(selectedShopIds) : [],
-          permissions: { can_quote: true, can_order: true, can_invite: false },
-        },
-      });
-
-      if (e || !data?.ok) {
-        setError(`Échec : ${data?.error || e?.message || 'invocation échouée'}`);
+      // La gateway API valide le JWT avant la commande Invitations. On
+      // rafraîchit explicitement la session avant de construire le client.
+      const { session: refreshedSession, error: refreshError } = await refreshSession();
+      if (refreshError || !refreshedSession) {
+        setError('Votre session a expiré. Reconnectez-vous puis réessayez.');
         setSending(false);
         return;
       }
+
+      const freshInvitationsApi = new InvitationsApiClient(new FetchApiClient(
+        '',
+        globalThis.fetch,
+        () => refreshedSession.access_token,
+      ));
+      const data = await freshInvitationsApi.create({
+        email: cleanedEmail,
+        tenantId,
+        baseUrl,
+        accessScope: scope,
+        allowedShopIds: scope === 'shop_only' ? Array.from(selectedShopIds) : [],
+        roleDefinitionIds: roleIds,
+      });
 
       // Succès — afficher feedback selon que l'email a été envoyé ou non
       if (data.sent) {
         alert(`Invitation envoyée par email à ${cleanedEmail}.`);
       } else {
-        prompt(
-          `Invitation créée. Email non envoyé (${data.reason || 'config manquante'}). Transmettez ce lien au destinataire :`,
-          data.link || `${baseUrl}/invitations/`,
-        );
+        setManualInvitation({
+          email: cleanedEmail,
+          link: data.link || `${baseUrl}/invitations/`,
+          reason: data.reason || 'service email non configuré',
+        });
+        await onInvited();
+        setSending(false);
+        return;
       }
 
       await onInvited();
       setSending(false);
       onClose();
-    } catch (err: any) {
-      setError(`Erreur réseau : ${err?.message || 'inconnue'}`);
+    } catch (err: unknown) {
+      setError(err instanceof ApiClientError
+        ? invitationApiProblemMessage(err.problem.code, err.problem.detail)
+        : `Erreur réseau : ${err instanceof Error ? err.message : 'inconnue'}`);
       setSending(false);
+    }
+  };
+
+  const copyManualLink = async () => {
+    if (!manualInvitation) return;
+    try {
+      await navigator.clipboard.writeText(manualInvitation.link);
+      setLinkCopied(true);
+    } catch {
+      setLinkCopied(false);
+      setError('Copie automatique impossible. Sélectionnez le lien puis copiez-le manuellement.');
     }
   };
 
@@ -255,7 +274,7 @@ export function InviteUserModalV2({
               <button
                 type="button"
                 onClick={() => setScope('shop_only')}
-                disabled={sending}
+                disabled={sending || shops.length === 0}
                 data-testid={TEST_IDS.user.inviteScopeShopOnly}
                 aria-pressed={scope === 'shop_only'}
                 className={`px-3 py-2 rounded border text-left transition-colors disabled:opacity-50 ${
@@ -291,6 +310,12 @@ export function InviteUserModalV2({
                 </div>
               </button>
             </div>
+            {shops.length === 0 && !loadingRoles && (
+              <p className="mt-2 text-ink-muted" style={{ fontSize: '11.5px' }}>
+                Aucune boutique disponible : l’accès Dashboard complet est sélectionné.
+                Créez d’abord une boutique pour limiter cette invitation.
+              </p>
+            )}
           </div>
 
           {/* Boutiques accessibles (si scope shop_only) */}
@@ -425,6 +450,40 @@ export function InviteUserModalV2({
               {error}
             </div>
           )}
+
+          {manualInvitation && (
+            <div
+              data-testid="invitation-manual-link"
+              role="status"
+              className="px-3 py-3 rounded bg-warn-bg border border-warn-fg/20 text-ink"
+            >
+              <p className="m-0" style={{ fontSize: '13px', fontWeight: 600 }}>
+                Invitation créée, email non envoyé
+              </p>
+              <p className="mt-1 mb-2 text-ink-muted" style={{ fontSize: '12px' }}>
+                {manualInvitation.reason}. Transmettez ce lien à {manualInvitation.email} :
+              </p>
+              <div className="flex gap-2 items-center">
+                <input
+                  aria-label="Lien manuel d'invitation"
+                  readOnly
+                  value={manualInvitation.link}
+                  onFocus={(event) => event.currentTarget.select()}
+                  className="min-w-0 flex-1 px-2 py-1.5 border border-line rounded bg-paper font-mono text-ink"
+                  style={{ fontSize: '11px' }}
+                />
+                <button
+                  type="button"
+                  onClick={copyManualLink}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 border border-line rounded bg-paper hover:border-ink-mute-2"
+                  style={{ fontSize: '12px', fontWeight: 500 }}
+                >
+                  {linkCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  {linkCopied ? 'Copié' : 'Copier'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <footer className="flex justify-end gap-2 px-5 py-3 border-t border-line">
@@ -434,9 +493,9 @@ export function InviteUserModalV2({
             className="px-3 py-1.5 border border-line rounded-md text-ink-muted hover:text-ink disabled:opacity-40"
             style={{ fontSize: '13px', fontWeight: 500 }}
           >
-            Annuler
+            {manualInvitation ? 'Fermer' : 'Annuler'}
           </button>
-          <button
+          {!manualInvitation && <button
             data-testid={TEST_IDS.user.inviteSubmitBtn}
             onClick={handleSubmit}
             disabled={!canSubmit}
@@ -449,7 +508,7 @@ export function InviteUserModalV2({
               <Mail className="w-3.5 h-3.5" strokeWidth={1.8} />
             )}
             {sending ? 'Envoi…' : "Envoyer l'invitation"}
-          </button>
+          </button>}
         </footer>
       </div>
     </div>

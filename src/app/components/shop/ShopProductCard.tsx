@@ -18,7 +18,7 @@
  * Le composant remplace le rendering inline de PortalCatalog (S2.3 Task 6).
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import type { Shop, ShopProduct } from "../../contexts/ShopsContext";
 import type { Gamme, ProductDefinition } from "../../utils/productEnrichment";
 import { resolveProductGamme } from "../../utils/productEnrichment";
@@ -125,23 +125,9 @@ export function ShopProductCard({
     [product, pimGammes],
   );
 
-  // P4-VISUELS (2026-06-15) — Fetch custom mockup override per-shop x template.
-  // Si l'admin tenant a uploadé un mockup custom dans ShopVisualSettings, il
-  // remplace le SVG Magrit-brandé généré par l'edge function.
-  const [customMockupUrl, setCustomMockupUrl] = useState<string | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    resolveCustomMockup(shop.id, template as MockupTemplateType, 'front')
-      .then((url) => {
-        if (!cancelled) setCustomMockupUrl(url);
-      })
-      .catch(() => {
-        if (!cancelled) setCustomMockupUrl(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [shop.id, template]);
+  // AF13.4 — Override résolu dans le catalogue déjà autorisé, sans requête
+  // fournisseur supplémentaire par carte produit.
+  const customMockupUrl = useMemo(() => resolveCustomMockup(shop.custom_mockups ?? [], template as MockupTemplateType, 'front'), [shop.custom_mockups, template]);
 
   // S-FIX-2 — Badge gamme PIM resolue au lieu de product.category brute.
   // S-FIX-BADGES-11/05 — Si la category fallback est un kind Clariprint brut

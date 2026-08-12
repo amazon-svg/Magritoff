@@ -7,31 +7,19 @@
  * page dediee plutot que alert/toast, artefact visuel persistant pour
  * persona B2B (screenshot, transfert compta).
  *
- * Lit l'order depuis tenant_orders + tenant_order_items par order_id passe
- * en prop. Idempotent au refresh (si order_id state est perdu, redirect
+ * Lit le détail depuis l API Orders par order_id passé en prop. Idempotent au
+ * refresh (si order_id state est perdu, redirect
  * vers catalog naturellement via fallback dans PublicShop).
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle2, Loader2 } from "lucide-react";
-import { supabase } from "/utils/supabase/client";
 import { useTenant } from "../../../contexts/TenantContext";
+import { useAuth } from "../../../contexts/AuthContext";
 import { applyTax, getTaxRate } from "../../../utils/tax";
 import { TEST_IDS } from "../../../lib/testIds";
-
-interface OrderItemRow {
-  product_label: string;
-  quantity: number;
-  unit_price_ht: number;
-  line_total_ht: number;
-}
-
-interface OrderRow {
-  id: string;
-  total_ht: number;
-  created_at: string;
-  tenant_order_items: OrderItemRow[];
-}
+import { OrdersApiClient, type DraftOrder } from "../../../../modules/orders";
+import { FetchApiClient } from "../../../../platform/api";
 
 interface Props {
   orderId: string;
@@ -72,10 +60,14 @@ function formatDateLong(iso: string): string {
 
 export function PortalThankYou({ orderId, userEmail, onBackToCatalog, onSeeOrders }: Props) {
   const { currentTenant } = useTenant();
-  const [order, setOrder] = useState<OrderRow | null>(null);
+  const { session } = useAuth();
+  const [order, setOrder] = useState<DraftOrder | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const h1Ref = useRef<HTMLHeadingElement | null>(null);
+  const ordersApi = useMemo(() => new OrdersApiClient(
+    new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null),
+  ), [session?.access_token]);
 
   // A11y : focus auto sur h1 au mount pour annoncer la confirmation au SR
   useEffect(() => {
@@ -88,35 +80,29 @@ export function PortalThankYou({ orderId, userEmail, onBackToCatalog, onSeeOrder
       setLoading(false);
       return;
     }
-    let cancelled = false;
+    const controller = new AbortController();
     (async () => {
       setLoading(true);
-      const { data, error: err } = await supabase
-        .from("tenant_orders")
-        .select(
-          "id, total_ht, created_at, tenant_order_items(product_label, quantity, unit_price_ht, line_total_ht)",
-        )
-        .eq("id", orderId)
-        .single();
-
-      if (cancelled) return;
-      if (err || !data) {
-        console.warn("[PortalThankYou] fetch tenant_orders failed:", err?.message);
-        setError(err?.message ?? "Commande introuvable");
-        setLoading(false);
-        return;
+      try {
+        const details = await ordersApi.getDraft(orderId, controller.signal);
+        if (!controller.signal.aborted) setOrder(details);
+      } catch (cause) {
+        if (controller.signal.aborted) return;
+        const message = cause instanceof Error ? cause.message : "Commande introuvable";
+        console.warn("[PortalThankYou] API Orders failed:", cause);
+        setError(message);
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
       }
-      setOrder(data as OrderRow);
-      setLoading(false);
     })();
     return () => {
-      cancelled = true;
+      controller.abort();
     };
-  }, [orderId]);
+  }, [orderId, ordersApi]);
 
   const shortId = formatShortOrderId(orderId);
   const taxRate = getTaxRate(currentTenant);
-  const totalTtc = order?.total_ht ? applyTax(order.total_ht, taxRate) : 0;
+  const totalTtc = order?.totalHt ? applyTax(order.totalHt, taxRate) : 0;
 
   return (
     <div
@@ -181,21 +167,21 @@ export function PortalThankYou({ orderId, userEmail, onBackToCatalog, onSeeOrder
                 Date
               </span>
               <span className="text-ink font-mono" style={{ fontSize: "13px", fontVariantNumeric: "tabular-nums" }}>
-                {formatDateLong(order.created_at)}
+                {formatDateLong(order.createdAt)}
               </span>
             </div>
 
             <div className="space-y-2 mb-6">
-              {order.tenant_order_items.map((item, idx) => (
-                <div key={idx} className="flex justify-between items-baseline">
+              {order.items.map((item) => (
+                <div key={item.id} className="flex justify-between items-baseline">
                   <span className="text-ink" style={{ fontSize: "14px" }}>
-                    {item.product_label}{" "}
+                    {item.productLabel}{" "}
                     <span className="text-ink-mute-2" style={{ fontSize: "12px" }}>
                       × {item.quantity}
                     </span>
                   </span>
                   <span className="text-ink-2 font-mono" style={{ fontSize: "13px", fontVariantNumeric: "tabular-nums" }}>
-                    {formatEuro(item.line_total_ht)} HT
+                    {formatEuro(item.lineTotalHt)} HT
                   </span>
                 </div>
               ))}

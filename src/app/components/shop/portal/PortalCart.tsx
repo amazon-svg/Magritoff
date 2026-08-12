@@ -35,6 +35,7 @@ interface Props {
    * l'utilisateur tente de submit sans permission).
    */
   canCreateOrder?: boolean;
+  createOrderBlockedMessage?: string;
   /**
    * S3.3 (Sprint 5) : warnings du dernier renouvellement de commande.
    * Si non vide, affiche un banner dismissable en haut du panier listant
@@ -60,6 +61,7 @@ export function PortalCart({
   pimDefinitions,
   compact = false,
   canCreateOrder = true,
+  createOrderBlockedMessage = 'Permission insuffisante pour créer une commande. Contactez votre administrateur.',
   renewalWarnings = [],
   onDismissRenewalWarnings,
 }: Props) {
@@ -307,9 +309,9 @@ export function PortalCart({
         </h5>
         <div className="flex flex-col">
           {[
-            { label: 'Sous-total HT', value: `${subtotalHT.toFixed(2)}€` },
-            { label: `TVA (${formatTaxLabel(taxRate)})`, value: `${tva.toFixed(2)}€` },
-            { label: 'Livraison', value: 'Offerte' },
+            { label: 'Sous-total HT', value: `${subtotalHT.toFixed(2)}€`, neg: false },
+            { label: `TVA (${formatTaxLabel(taxRate)})`, value: `${tva.toFixed(2)}€`, neg: false },
+            { label: 'Livraison', value: 'Offerte', neg: true },
           ].map((row) => (
             <div
               key={row.label}
@@ -392,7 +394,7 @@ export function PortalCart({
           onClick={onSubmit}
           title={
             !canCreateOrder
-              ? "Votre administrateur tenant n'a pas activé la création de commandes pour votre compte."
+              ? createOrderBlockedMessage
               : undefined
           }
           aria-disabled={cart.length === 0 || !canCreateOrder}
@@ -407,7 +409,7 @@ export function PortalCart({
             className="m-0 mt-2.5 text-err-fg text-center"
             style={{ fontSize: '11.5px', fontWeight: 400, lineHeight: 1.45 }}
           >
-            Permission insuffisante pour créer une commande. Contactez votre administrateur.
+            {createOrderBlockedMessage}
           </p>
         )}
         {canCreateOrder && (

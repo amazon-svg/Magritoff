@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router';
 import { Loader2 } from 'lucide-react';
-import { supabase } from '/utils/supabase/client';
 import type { Shop, ShopProduct } from '../../contexts/ShopsContext';
 import type { Gamme, ProductDefinition } from '../../utils/productEnrichment';
 import { useAuth } from '../../contexts/AuthContext';
@@ -27,7 +26,10 @@ import {
   type ResumeLastOrder,
 } from './portal/ResumeBanner';
 import { ShopForbidden403 } from './ShopForbidden403';
-import { resolveShopAccessFromMemberships } from './ShopAccessGuard.helpers';
+import {
+  resolveShopAccessFromMemberships,
+  type ShopAccess,
+} from './ShopAccessGuard.helpers';
 import {
   filterProductsByExpandedGammes,
   groupProductsByGamme,
@@ -37,12 +39,9 @@ import {
 import { buildShopTaxonomy } from '../../utils/shopTaxonomy';
 import { parsePortalPath, shopUrl } from './portal/shopPortalRoutes';
 import { applyTax, getTaxRate } from '../../utils/tax';
-import { applyPricingOverrides, type PricingOverride } from '../../utils/applyPricingOverrides';
-import { resolveShopProductScope } from '../../utils/resolveShopProductScope';
-import {
-  tenantOrderInsertSchema,
-  tenantOrderItemInsertSchema,
-} from '../../../schemas/tenantOrder.schema';
+import { OrdersApiClient } from '../../../modules/orders';
+import { ShopsApiClient, type PublicShopCatalog } from '../../../modules/shops';
+import { ApiClientError, FetchApiClient } from '../../../platform/api';
 
 /**
  * Portail B2B Magrit — version 2.
@@ -65,12 +64,23 @@ export function PublicShop() {
   const slug = params.slug;
   const splat = params['*'];
   const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
-  const { tenants, isSuperAdmin, currentTenant } = useTenant();
+  const { user, session, loading: authLoading } = useAuth();
+  const { tenants, isSuperAdmin, loading: tenantLoading } = useTenant();
   const [shop, setShop] = useState<Shop | null>(null);
   const [products, setProducts] = useState<ShopProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [blockedAccess, setBlockedAccess] = useState<Extract<
+    ShopAccess,
+    'authentication_required' | 'forbidden'
+  > | null>(null);
+  const ordersApi = useMemo(() => new OrdersApiClient(
+    new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null),
+  ), [session?.access_token]);
+  const shopsApi = useMemo(() => new ShopsApiClient(
+    new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null),
+  ), [session?.access_token]);
+  const checkoutCommandKey = useRef(crypto.randomUUID());
 
   // S7.1 (ADR §4.19-1) — la vue est DÉRIVÉE de l'URL, plus un state interne.
   // Back/forward navigateur et reload sur URL profonde fonctionnent (AC1).
@@ -122,207 +132,95 @@ export function PublicShop() {
   // localStorage au mount, persiste a chaque toggle.
   const [expandedGammes, setExpandedGammes] = useState<Set<string>>(new Set());
 
-  // Fonction refetch produits (peut être appelee pour rafraichir a chaud).
-  // v3 : on filtre les excluded_product_ids (produits retires de la
-  // boutique mais gardes dans la bibliotheque via le dialog "Juste de
-  // cette boutique" dans DashboardShopEditor).
-  const refetchProducts = async (
-    shopId: string,
-    opts: {
-      libraryIds: string[];
-      excludedIds?: string[];
-      pimCatalogMode?: boolean;
-      pimGammeSlugs?: string[];
-      tenantId?: string | null;
-    }
-  ) => {
-    const libraryIds = opts.libraryIds ?? [];
-    const excludedIds = opts.excludedIds ?? [];
-    const pimCatalogMode = opts.pimCatalogMode ?? false;
-    const pimGammeSlugs = opts.pimGammeSlugs ?? [];
-    const tenantId = opts.tenantId ?? null;
-
-    const { data: prodData } = await supabase
-      .from('shop_products')
-      .select('*')
-      .eq('shop_id', shopId)
-      .order('display_order', { ascending: true });
-    const manual = (prodData ?? []) as ShopProduct[];
-
-    // S2.32 — Deux voies d'exposition product_library, cumulables :
-    //   (a) bibliotheques liees (library_ids)
-    //   (b) mode PIM : catalogue du tenant filtre par gamme recensee
-    // On concatene les lignes brutes des deux requetes puis on delegue le
-    // perimetre (match library/gamme), la dedup par id et l'exclusion au
-    // helper pur resolveShopProductScope.
-    const rawLib: any[] = [];
-    if (libraryIds.length > 0) {
-      const { data } = await supabase
-        .from('product_library')
-        .select('*')
-        .in('library_id', libraryIds)
-        .eq('active', true)
-        .order('created_at', { ascending: false });
-      if (data) rawLib.push(...data);
-    }
-    if (pimCatalogMode && pimGammeSlugs.length > 0 && tenantId) {
-      const { data } = await supabase
-        .from('product_library')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .in('gamme_slug', pimGammeSlugs)
-        .eq('active', true)
-        .order('created_at', { ascending: false });
-      if (data) rawLib.push(...data);
-    }
-
-    const scoped = resolveShopProductScope(rawLib, {
-      libraryIds,
-      pimCatalogMode,
-      pimGammeSlugs,
-      excludedIds,
-    });
-    const linked: ShopProduct[] = scoped.map((p) => ({
-      id: `lib-${p.id}`,
-      shop_id: shopId,
-      product_id: p.id,
-      name: p.name,
-      category: p.category || 'Autres',
-      description: p.description || '',
-      price_ht: Number(p.price_ht) || 0,
-      image_url: p.image_url || '',
-      config: p.config || {},
-      display_order: 0,
-      created_at: p.created_at,
-      gamme_slug: p.gamme_slug ?? null,
-    })) as ShopProduct[];
-
-    const manualIds = new Set(manual.map((p) => p.product_id).filter(Boolean));
-    const deduped = linked.filter((p) => !p.product_id || !manualIds.has(p.product_id));
-
-    // A4.5 — Charger les prix négociés per-shop puis appliquer override.
-    // RLS lecture publique autorisée si shop.active=true.
-    const { data: overridesRaw } = await supabase
-      .from('shop_product_pricing')
-      .select('library_product_id, price_ht_override')
-      .eq('shop_id', shopId);
-    const overrides = ((overridesRaw ?? []) as Array<{
-      library_product_id: string;
-      price_ht_override: number;
-    }>).map<PricingOverride>((o) => ({
-      library_product_id: o.library_product_id,
-      price_ht_override: Number(o.price_ht_override),
-    }));
-    const merged = applyPricingOverrides([...manual, ...deduped], overrides);
-    setProducts(merged as ShopProduct[]);
+  const applyCatalog = (catalog: PublicShopCatalog) => {
+    setShop(fromPublicShop(catalog));
+    setProducts(catalog.products.map((product) => ({
+      id: product.id, shop_id: product.shopId, product_id: product.productId,
+      name: product.name, category: product.category, description: product.description,
+      price_ht: product.priceHt, image_url: product.imageUrl, config: product.config,
+      display_order: product.displayOrder, created_at: product.createdAt,
+      tenant_id: product.tenantId, gamme_slug: product.gammeSlug,
+    })));
+    setPimGammes(catalog.gammes as Gamme[]);
+    setPimDefinitions(catalog.definitions as unknown as ProductDefinition[]);
+    setSubscribedSlugs(new Set(catalog.subscribedSlugs));
   };
 
-  // ─── Chargement shop + produits + realtime subscription ──────────────────
+  // ─── Chargement API + rafraîchissement à la reprise de fenêtre ────────────
   useEffect(() => {
-    if (!slug) return;
-    let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
+    if (!slug || authLoading || tenantLoading) return;
+    let focusHandler: (() => void) | null = null;
+    let refreshTimer: number | null = null;
+    let cancelled = false;
+
+    setLoading(true);
+    setNotFound(false);
+    setBlockedAccess(null);
+    setShop(null);
+    setProducts([]);
+    setPimGammes([]);
+    setPimDefinitions([]);
+    setSubscribedSlugs(null);
 
     (async () => {
-      const { data: shopData, error: shopError } = await supabase
-        .from('shops')
-        .select('*')
-        .eq('slug', slug)
-        .eq('active', true)
-        .maybeSingle();
-      if (shopError || !shopData) {
-        setNotFound(true);
+      // Première lecture volontairement minimale : aucune marque, description,
+      // configuration ou donnée catalogue n'est exposée avant le garde d'accès.
+      let gateData;
+      try { gateData = await shopsApi.publicProbe(slug); }
+      catch (probeError) {
+        if (cancelled) return;
+        setNotFound(probeError instanceof ApiClientError && probeError.problem.status === 404);
         setLoading(false);
         return;
       }
-      setShop(shopData as Shop);
+      if (cancelled) return;
 
-      const libraryIds = Array.isArray((shopData as Shop).library_ids)
-        ? (shopData as Shop).library_ids
-        : [];
-      const excludedIds = Array.isArray((shopData as Shop).excluded_product_ids)
-        ? (shopData as Shop).excluded_product_ids
-        : [];
-      // S2.32 — options de perimetre produit (bibliotheques + mode PIM)
-      const shopTenantId = (shopData as Shop).tenant_id ?? null;
-      const scopeOpts = {
-        libraryIds,
-        excludedIds,
-        pimCatalogMode: (shopData as Shop).pim_catalog_mode === true,
-        pimGammeSlugs: Array.isArray((shopData as Shop).pim_gamme_slugs)
-          ? (shopData as Shop).pim_gamme_slugs
-          : [],
-        tenantId: shopTenantId,
-      };
-
-      await refetchProducts((shopData as Shop).id, scopeOpts);
-
-      // PIM lecture publique
-      const [gr, dr] = await Promise.all([
-        supabase.from('product_gammes').select('*').order('display_order'),
-        supabase.from('product_definitions').select('*'),
-      ]);
-      if (gr.data) setPimGammes(gr.data as Gamme[]);
-      if (dr.data) setPimDefinitions(dr.data as ProductDefinition[]);
-
-      // S2.2 — Charger les gammes souscrites du tenant proprietaire de la shop.
-      // Lecture publique : si la RLS bloque ou si tenant_id absent, on tombe
-      // sur subscribedSlugs=null -> fallback "gammes inferees" cote sidebar.
-      const tenantId = shopTenantId;
-      if (tenantId) {
-        const { data: subs, error: subsError } = await supabase
-          .from('tenant_gamme_subscriptions')
-          .select('gamme_slug, active')
-          .eq('tenant_id', tenantId)
-          .eq('active', true);
-        if (!subsError && subs) {
-          setSubscribedSlugs(new Set(subs.map((s: any) => s.gamme_slug)));
-        } else {
-          setSubscribedSlugs(null);
-        }
-      } else {
-        setSubscribedSlugs(null);
+      const initialAccess = resolveShopAccessFromMemberships({
+        isAuthenticated: Boolean(user),
+        isSuperAdmin,
+        accessMode: gateData.accessMode,
+        memberships: tenants.map((tenant) => ({
+          tenantId: tenant.id,
+          accessScope: tenant.accessScope,
+          allowedShopIds: tenant.allowedShopIds,
+        })),
+        shopId: gateData.id,
+        shopTenantId: gateData.tenantId,
+      });
+      if (initialAccess === 'authentication_required' || initialAccess === 'forbidden') {
+        setBlockedAccess(initialAccess);
+        setLoading(false);
+        return;
       }
 
+      try {
+        const catalog = await shopsApi.publicCatalog(slug);
+        if (cancelled) return;
+        applyCatalog(catalog);
+      } catch (catalogError) {
+        if (cancelled) return;
+        if (catalogError instanceof ApiClientError && catalogError.problem.status === 401) setBlockedAccess('authentication_required');
+        else if (catalogError instanceof ApiClientError && catalogError.problem.status === 403) setBlockedAccess('forbidden');
+        else setNotFound(catalogError instanceof ApiClientError && catalogError.problem.status === 404);
+      }
       setLoading(false);
 
-      // Realtime : push les updates quand un produit est ajouté, modifié ou
-      // supprimé dans shop_products ou product_library (lib liées).
-      // Évite d'avoir à refresh manuellement la page pour voir les nouveautés.
-      realtimeChannel = supabase
-        .channel(`shop-${(shopData as Shop).id}`)
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'shop_products' },
-          () => refetchProducts((shopData as Shop).id, scopeOpts)
-        )
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'product_library' },
-          () => refetchProducts((shopData as Shop).id, scopeOpts)
-        )
-        .subscribe();
+      focusHandler = () => {
+        void shopsApi.publicCatalog(slug).then(applyCatalog).catch(() => undefined);
+      };
+      window.addEventListener('focus', focusHandler);
+      refreshTimer = window.setInterval(() => {
+        if (document.visibilityState === 'visible') focusHandler?.();
+      }, 15_000);
     })();
 
-    // Refetch quand l'onglet redevient actif (cas pas de realtime)
-    const onFocus = () => {
-      if (shop) {
-        refetchProducts(shop.id, {
-          libraryIds: Array.isArray(shop.library_ids) ? shop.library_ids : [],
-          excludedIds: Array.isArray(shop.excluded_product_ids) ? shop.excluded_product_ids : [],
-          pimCatalogMode: shop.pim_catalog_mode === true,
-          pimGammeSlugs: Array.isArray(shop.pim_gamme_slugs) ? shop.pim_gamme_slugs : [],
-          tenantId: shop.tenant_id ?? null,
-        });
-      }
-    };
-    window.addEventListener('focus', onFocus);
-
     return () => {
-      window.removeEventListener('focus', onFocus);
-      if (realtimeChannel) supabase.removeChannel(realtimeChannel);
+      cancelled = true;
+      if (focusHandler) window.removeEventListener('focus', focusHandler);
+      if (refreshTimer !== null) window.clearInterval(refreshTimer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug]);
+  }, [slug, user?.id, authLoading, tenantLoading, isSuperAdmin, tenants, shopsApi]);
 
   // ─── SEO : title ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -395,32 +293,28 @@ export function PublicShop() {
       setLastOrder(null);
       return;
     }
-    let cancelled = false;
-    supabase
-      .from('tenant_orders')
-      .select('id, status, total_ht, created_at, source')
-      .eq('shop_id', shop.id)
-      .eq('created_by', user.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        if (error || !data) setLastOrder(null);
-        else
-          setLastOrder({
-            id: data.id,
-            status: String(data.status ?? ''),
-            total_ht: Number(data.total_ht) || 0,
-            created_at: String(data.created_at ?? ''),
-            source: String((data as { source?: string }).source ?? ''),
-          });
-      });
+    const controller = new AbortController();
+    ordersApi.listPortalOrders(shop.id, controller.signal).then((response) => {
+      if (controller.signal.aborted) return;
+      const latest = response.datasets.mine.find((order) => order.source === 'v1_1');
+      setLastOrder(latest ? {
+        id: latest.id,
+        status: latest.status,
+        total_ht: latest.totalHt,
+        created_at: latest.createdAt,
+        source: latest.source,
+      } : null);
+    }).catch((cause) => {
+      if (!controller.signal.aborted) {
+        console.warn('[PublicShop] dernière commande indisponible:', cause);
+        setLastOrder(null);
+      }
+    });
     return () => {
-      cancelled = true;
+      controller.abort();
     };
     // Re-fetch après un submitCart réussi (lastOrderId change).
-  }, [user?.id, shop?.id, lastOrderId]);
+  }, [user?.id, shop?.id, lastOrderId, ordersApi]);
 
   /**
    * S3.3 AC2/AC3 : Renouveler 1-clic depuis OrderHistoryTable.
@@ -443,19 +337,25 @@ export function PublicShop() {
       if (!ok) return;
     }
 
-    const { data: items, error: itemsErr } = await supabase
-      .from('tenant_order_items')
-      .select('product_id, product_label, clariprint_options, quantity, unit_price_ht')
-      .eq('order_id', order.id);
-
-    if (itemsErr || !items) {
-      console.error('[handleRenewOrder] query items failed:', itemsErr?.message);
-      alert(`Impossible de charger les articles de cette commande : ${itemsErr?.message ?? 'erreur réseau'}.`);
+    let items: OrderItemRow[];
+    try {
+      const details = await ordersApi.getDraft(order.id);
+      items = details.items.map((item) => ({
+        product_id: item.productId,
+        product_label: item.productLabel,
+        clariprint_options: item.clariprintOptions,
+        quantity: item.quantity,
+        unit_price_ht: item.unitPriceHt,
+      }));
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : 'erreur réseau';
+      console.error('[handleRenewOrder] API items failed:', cause);
+      alert(`Impossible de charger les articles de cette commande : ${message}.`);
       return;
     }
 
     const { lines, warnings, stats } = rebuildCartFromOrderItems(
-      items as OrderItemRow[],
+      items,
       products,
     );
 
@@ -478,12 +378,8 @@ export function PublicShop() {
   const submitCart = async () => {
     if (!shop || cart.length === 0) return;
 
-    // S-MIGRATION-ORDERS (2026-05-18, ADR-ORDERS-1 architecture.md §4.10) :
-    // bascule shop_orders -> tenant_orders + tenant_order_items.
-    //
-    // AC9 (decision Arnaud B2, pre-flight 17/05) : la RLS tenant_orders_insert
-    // exige created_by = auth.uid(). L acheteur DOIT etre authentifie.
-    // Coherent avec persona acheteur B2B v1.1 (compte cree par admin tenant).
+    // La commande API exige une session : l acteur, son périmètre boutique et
+    // sa permission de commander sont vérifiés côté serveur.
     if (!user?.id) {
       alert(
         'Vous devez etre connecte pour valider votre panier.\n\nCliquez sur "Se connecter" en haut a droite pour acceder a votre compte B2B.',
@@ -492,132 +388,54 @@ export function PublicShop() {
     }
 
     if (!shop.tenant_id) {
-      console.error('[submitCart] shop.tenant_id absent, cannot insert tenant_orders');
+      console.error('[submitCart] shop.tenant_id absent, API order creation impossible');
       alert(
         'Erreur de configuration boutique (tenant_id manquant). Contactez l administrateur.',
       );
       return;
     }
 
-    const total_ht = cart.reduce((s, l) => s + l.product.price_ht * l.qty, 0);
-    // R0 : taxRate du tenant courant. Si shop.tax_regime est defini cote shop,
-    // ce serait plus propre, mais pour MVP on garde getTaxRate(currentTenant).
-
-    // ── Phase 1 : INSERT tenant_orders (1 ligne) ─────────────────────────
-    const orderInsert = tenantOrderInsertSchema.safeParse({
-      tenant_id: shop.tenant_id,
-      shop_id: shop.id,
-      created_by: user.id,
-      status: 'draft',
-      total_ht,
-      currency: 'EUR',
-      notes: '',
-    });
-    if (!orderInsert.success) {
-      console.error('[submitCart] tenant_orders validation Zod failed:', orderInsert.error);
-      alert(`Erreur validation panier : ${orderInsert.error.issues[0]?.message ?? 'inconnue'}.`);
-      return;
-    }
-
-    const { data: orderRow, error: orderErr } = await supabase
-      .from('tenant_orders')
-      .insert(orderInsert.data)
-      .select('id')
-      .single();
-
-    if (orderErr || !orderRow) {
-      // S3.2-residual AC3 : detection RLS bloquant pour permission can_order revoked
-      // pendant la session (race condition cote front qui n'a pas refresh le ctx tenant).
-      // PostgREST renvoie code 42501 (insufficient privilege) ou message "row violates
-      // row-level security policy" quand la policy with_check fail.
-      const msg = orderErr?.message ?? '';
-      const isRlsPermissionDenied =
-        orderErr?.code === '42501' ||
-        msg.includes('row-level security') ||
-        msg.includes('violates row-level security policy');
-      if (isRlsPermissionDenied) {
-        console.warn('[submitCart] RLS INSERT bloque (permission can_order revoquee ?):', msg);
-        alert(
-          "Permission insuffisante pour créer une commande.\n\nVotre administrateur tenant a peut-être désactivé la création de commandes pour votre compte. Contactez-le pour rétablir l'accès.",
-        );
-        return;
-      }
-      console.error('[submitCart] insert tenant_orders failed:', orderErr?.message);
-      alert(
-        `Erreur lors de la validation du panier : ${orderErr?.message ?? 'reseau'}.\n\nMerci de reessayer.`,
-      );
-      return;
-    }
-
-    // ── Phase 2 : INSERT tenant_order_items (N lignes, 1 par cart line) ───
-    // S7.12 (bug débusqué par le smoke self-signup) : la FK product_id
-    // référence product_library. Pour une ligne shop_products MANUELLE,
-    // l.product.id est l'id de la ligne shop_products (UUID valide mais
-    // absent de product_library → violation FK). La bonne réf bibliothèque
-    // est l.product.product_id (null si produit purement manuel).
+    // Commande atomique API : entête + lignes + receipt d idempotence sont
+    // validés et écrits dans une seule transaction SQL.
     const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    const itemsToInsert = cart.map((l) => {
+    const items = cart.map((l) => {
       const libraryRef =
         typeof l.product.product_id === 'string' && UUID_RE.test(l.product.product_id)
           ? l.product.product_id
           : null;
-      return tenantOrderItemInsertSchema.parse({
-        order_id: orderRow.id,
-        product_id: libraryRef,
-        product_label: l.product.name,
-        clariprint_options: (l.product.config as Record<string, unknown> | null) ?? null,
+      return {
+        productId: libraryRef,
+        productLabel: l.product.name,
+        clariprintOptions: (l.product.config as Record<string, unknown> | null) ?? null,
         quantity: l.qty,
-        unit_price_ht: l.product.price_ht,
-        line_total_ht: l.product.price_ht * l.qty,
-      });
+        unitPriceHt: l.product.price_ht,
+      };
     });
-
-    const { error: itemsErr } = await supabase.from('tenant_order_items').insert(itemsToInsert);
-
-    if (itemsErr) {
-      console.error('[submitCart] insert tenant_order_items failed:', itemsErr.message);
-      // Rollback compensatoire : delete l order cree pour eviter une commande
-      // orpheline sans items. Si le delete echoue aussi, on log et on
-      // demande a l admin de cleanup manuellement (cas extreme).
-      const { error: rbErr } = await supabase
-        .from('tenant_orders')
-        .delete()
-        .eq('id', orderRow.id);
-      if (rbErr) {
-        console.error('[submitCart] rollback delete tenant_orders failed:', rbErr.message);
-      }
-      alert(
-        `Erreur lors de la sauvegarde des produits du panier : ${itemsErr.message}.\n\nMerci de reessayer.`,
-      );
+    let orderId: string;
+    try {
+      const result = await ordersApi.create({
+        shopId: shop.id,
+        currency: 'EUR',
+        notes: '',
+        items,
+        idempotencyKey: checkoutCommandKey.current,
+      });
+      orderId = result.orderId;
+    } catch (cause) {
+      console.error('[submitCart] API create failed:', cause);
+      const message = cause instanceof ApiClientError
+        && cause.problem.code === 'orders.permission_denied'
+        ? createOrderBlockedMessage
+        : cause instanceof Error ? cause.message : 'erreur réseau';
+      alert(`Erreur lors de la validation du panier : ${message}.\n\nMerci de réessayer.`);
       return;
-    }
-
-    // S3.2-residual AC1 : notification email admin tenant (best-effort).
-    // Invocation fire-and-forget — n'attend pas la fin pour ne pas retarder
-    // l'UX PortalThankYou. Si Resend down ou pas d'admin trouve, l'edge
-    // function logge dans llm_usage_events (endpoint=*-fallback) sans bloquer.
-    if (shop.tenant_id) {
-      supabase.functions
-        .invoke('send-order-notification', {
-          body: {
-            order_id: orderRow.id,
-            tenant_id: shop.tenant_id,
-            shop_id: shop.id,
-            total_ht,
-            currency: 'EUR',
-            base_url: window.location.origin,
-          },
-        })
-        .catch((notifErr) => {
-          // Best-effort : log seulement, ne remonte rien a l'acheteur.
-          console.warn('[submitCart] send-order-notification invoke failed:', notifErr);
-        });
     }
 
     // S-CONSO-3 (Sprint 4 Phase 2) : bascule vers PortalThankYou au lieu
     // d alert + setView('orders'). Artefact visuel persistant pour acheteur
     // B2B (screenshot, transfert compta, archivage).
-    setLastOrderId(orderRow.id);
+    setLastOrderId(orderId);
+    checkoutCommandKey.current = crypto.randomUUID();
     setCart([]);
     setRenewalWarnings([]); // S3.3 : clear warnings après submit réussi
     goView('thankYou');
@@ -720,16 +538,19 @@ export function PublicShop() {
     return resolveShopAccessFromMemberships({
       isAuthenticated: Boolean(user),
       isSuperAdmin,
+      accessMode: shop.access_mode ?? 'invite_only',
       memberships: tenants.map((t) => ({
+        tenantId: t.id,
         accessScope: t.accessScope,
         allowedShopIds: t.allowedShopIds,
       })),
       shopId: shop.id,
+      shopTenantId: shop.tenant_id ?? null,
     });
   }, [shop, user, isSuperAdmin, tenants]);
 
   // ─── Rendering ───────────────────────────────────────────────────────────
-  if (loading || authLoading) {
+  if (loading || authLoading || tenantLoading) {
     return (
       <div
         className="min-h-screen grid place-items-center bg-bg"
@@ -738,6 +559,9 @@ export function PublicShop() {
         <Loader2 className="w-8 h-8 animate-spin text-ink-mute-2" strokeWidth={1.5} />
       </div>
     );
+  }
+  if (blockedAccess) {
+    return <ShopForbidden403 authenticationRequired={blockedAccess === 'authentication_required'} />;
   }
   if (notFound || !shop) {
     return (
@@ -763,13 +587,20 @@ export function PublicShop() {
     );
   }
 
-  if (access === 'forbidden') {
-    return <ShopForbidden403 />;
+  if (access === 'authentication_required' || access === 'forbidden') {
+    return <ShopForbidden403 authenticationRequired={access === 'authentication_required'} />;
   }
 
   const cartCount = cart.reduce((s, l) => s + l.qty, 0);
   // S7.7 — montant HT du panier (affiché sur le bouton header, décision D3).
   const cartTotalHT = cart.reduce((s, l) => s + l.product.price_ht * l.qty, 0);
+  const shopMembership = tenants.find((tenant) => tenant.id === shop.tenant_id);
+  const canCreateOrder = !user
+    || shop.access_mode === 'self_signup'
+    || Boolean(shopMembership?.permissions.can_order);
+  const createOrderBlockedMessage = shop.access_mode === 'invite_only' && !shopMembership
+    ? 'Cette boutique fonctionne sur invitation. Demandez un accès à son administrateur.'
+    : "Votre administrateur n'a pas activé la création de commandes pour votre compte.";
 
   // S7.9 — Bandeau Reprendre (chips dérivés de la donnée, vide → absent).
   const resumeChips = buildResumeChips({ cartCount, cartTotalHT, lastOrder });
@@ -817,9 +648,8 @@ export function PublicShop() {
           pimGammes={pimGammes}
           pimDefinitions={pimDefinitions}
           compact
-          // S3.2-residual AC3 : back-compat true si pas de tenant resolu ;
-          // la RLS DB bloquera de toute facon si la permission est revoked.
-          canCreateOrder={currentTenant?.permissions?.can_order ?? true}
+          canCreateOrder={canCreateOrder}
+          createOrderBlockedMessage={createOrderBlockedMessage}
           // S3.3 : banner warnings affiché si dernier renew a skip des items.
           renewalWarnings={renewalWarnings}
           onDismissRenewalWarnings={() => setRenewalWarnings([])}
@@ -911,6 +741,8 @@ export function PublicShop() {
         <CheckoutPage
           shop={shop}
           cart={cart}
+          canCreateOrder={canCreateOrder}
+          createOrderBlockedMessage={createOrderBlockedMessage}
           onSubmit={submitCart}
           onGoCatalog={() => goView('catalog')}
         />
@@ -942,4 +774,17 @@ export function PublicShop() {
       )}
     </ShopLayout>
   );
+}
+
+function fromPublicShop(catalog: PublicShopCatalog): Shop {
+  const shop = catalog.shop;
+  return {
+    id: shop.id, tenant_id: shop.tenantId, slug: shop.slug, name: shop.name,
+    description: shop.description, theme: shop.theme, logo_url: shop.logoUrl,
+    address: shop.address, contact_email: shop.contactEmail, active: shop.active,
+    library_ids: [], excluded_product_ids: [], hero_image_url: shop.heroImageUrl,
+    tagline: shop.tagline, pim_catalog_mode: false, pim_gamme_slugs: [],
+    access_mode: shop.accessMode, created_at: shop.createdAt,
+    custom_mockups: catalog.customMockups,
+  };
 }

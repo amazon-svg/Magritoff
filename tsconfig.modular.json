@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true
+  },
+  "include": [
+    "src/kernel",
+    "src/platform",
+    "src/modules",
+    "src/surfaces",
+    "src/adapters",
+    "src/server/api",
+    "tests/kernel/types.typecheck.ts"
+  ]
+}

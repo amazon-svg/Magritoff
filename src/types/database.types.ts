@@ -1041,6 +1041,7 @@ export type Database = {
       }
       shops: {
         Row: {
+          access_mode: string
           active: boolean
           address: string | null
           contact_email: string | null
@@ -1053,12 +1054,15 @@ export type Database = {
           logo_url: string | null
           name: string
           owner_user_id: string
+          pim_catalog_mode: boolean
+          pim_gamme_slugs: string[]
           slug: string
           tagline: string | null
           tenant_id: string | null
           theme: Json
         }
         Insert: {
+          access_mode?: string
           active?: boolean
           address?: string | null
           contact_email?: string | null
@@ -1071,12 +1075,15 @@ export type Database = {
           logo_url?: string | null
           name: string
           owner_user_id: string
+          pim_catalog_mode?: boolean
+          pim_gamme_slugs?: string[]
           slug: string
           tagline?: string | null
           tenant_id?: string | null
           theme?: Json
         }
         Update: {
+          access_mode?: string
           active?: boolean
           address?: string | null
           contact_email?: string | null
@@ -1089,6 +1096,8 @@ export type Database = {
           logo_url?: string | null
           name?: string
           owner_user_id?: string
+          pim_catalog_mode?: boolean
+          pim_gamme_slugs?: string[]
           slug?: string
           tagline?: string | null
           tenant_id?: string | null
@@ -1880,6 +1889,40 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      api_swap_tenant_role_order: {
+        Args: {
+          p_first_role_id: string
+          p_second_role_id: string
+          p_tenant_id: string
+        }
+        Returns: undefined
+      }
+      api_create_tenant_order: {
+        Args: {
+          p_currency: string
+          p_idempotency_key: string
+          p_items: Json
+          p_notes: string
+          p_shop_id: string
+        }
+        Returns: Json
+      }
+      api_get_tenant_order_draft: {
+        Args: { p_order_id: string }
+        Returns: Json
+      }
+      api_get_tenant_order_roles: {
+        Args: { p_order_id: string }
+        Returns: Json
+      }
+      api_update_tenant_order_draft: {
+        Args: {
+          p_idempotency_key: string
+          p_items: Json
+          p_order_id: string
+        }
+        Returns: Json
+      }
       accept_tenant_invitation: { Args: { p_token: string }; Returns: string }
       assign_tenant_order_role: {
         Args: {
@@ -1932,6 +1975,15 @@ export type Database = {
           order_id: string
         }[]
       }
+      api_transition_tenant_order_status: {
+        Args: {
+          p_idempotency_key: string
+          p_new_status_code: string
+          p_order_id: string
+          p_reason: string | null
+        }
+        Returns: Json
+      }
       get_subtenant_kpis: {
         Args: { p_parent_tenant_id: string }
         Returns: {
@@ -1966,6 +2018,21 @@ export type Database = {
           permissions: Json
           role: string
           user_id: string
+        }[]
+      }
+      api_create_tenant_invitation: {
+        Args: {
+          p_access_scope: string
+          p_allowed_shop_ids?: string[]
+          p_email: string
+          p_role_definition_ids?: string[]
+          p_tenant_id: string
+        }
+        Returns: {
+          invitation_expires_at: string
+          invitation_id: string
+          invitation_token: string
+          tenant_name: string
         }[]
       }
       get_user_llm_usage: {
@@ -2046,6 +2113,7 @@ export type Database = {
         }[]
       }
       resolve_tenant_slug: { Args: { p_slug: string }; Returns: string }
+      self_register_shop_buyer: { Args: { p_shop_id: string }; Returns: Json }
       revoke_tenant_order_role: {
         Args: { p_assignment_id: string }
         Returns: string
@@ -2255,4 +2323,3 @@ export const Constants = {
     },
   },
 } as const
-

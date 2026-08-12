@@ -31,12 +31,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, Navigate } from 'react-router';
 import { Archive, Copy, Edit, MoreHorizontal, MoveDown, MoveUp, Plus } from 'lucide-react';
-import { supabase } from '/utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTenant } from '../../contexts/TenantContext';
 import { useShops } from '../../contexts/ShopsContext';
 import { useUserCapability } from '../../hooks/useUserCapability';
 import { TEST_IDS } from '../../lib/testIds';
+import { RolesApiClient } from '../../../modules/roles';
+import { FetchApiClient } from '../../../platform/api';
 import {
   RoleEditorDialog,
   type NotifyPolicy,
@@ -104,7 +105,7 @@ function semanticTag(role: TenantRoleDefinition, maxValidatorOrdering: number | 
 }
 
 export function OrderRoleAdminPage() {
-  const { user } = useAuth();
+  const { session } = useAuth();
   const { currentTenant, isSuperAdmin } = useTenant();
   const { shops } = useShops();
   const { hasIt: canManageRoles, loading: capLoading } = useUserCapability('can_manage_roles');
@@ -120,6 +121,9 @@ export function OrderRoleAdminPage() {
   const [editorRole, setEditorRole] = useState<TenantRoleDefinition | undefined>(undefined);
   const [roleToArchive, setRoleToArchive] = useState<TenantRoleDefinition | null>(null);
   const [archiveSubmitting, setArchiveSubmitting] = useState(false);
+  const rolesApi = useMemo(() => new RolesApiClient(new FetchApiClient(
+    '', globalThis.fetch, () => session?.access_token ?? null,
+  )), [session?.access_token]);
 
   // ─── Load ────────────────────────────────────────────────────────────
   const reload = useCallback(async () => {
@@ -127,66 +131,34 @@ export function OrderRoleAdminPage() {
     setLoading(true);
     setError(null);
 
-    const [rolesRes, assignsRes] = await Promise.all([
-      supabase
-        .from('tenant_role_definitions')
-        .select(
-          'id, tenant_id, name, description, capabilities, notify_policy, scope, scope_shop_id, ordering_index, archived_at',
-        )
-        .eq('tenant_id', currentTenant.id)
-        .order('ordering_index', { ascending: true }),
-      supabase
-        .from('tenant_role_assignments')
-        .select(
-          'role_definition_id, user_id, revoked_at, tenant_role_definitions!inner(tenant_id), profiles:auth_user_id_profiles_view(email)',
-        )
-        .is('revoked_at', null),
-    ]);
-
-    if (rolesRes.error) {
-      console.warn('[OrderRoleAdminPage] roles fetch failed:', rolesRes.error.message);
-      setError(rolesRes.error.message);
-      setLoading(false);
-      return;
-    }
-
-    setRoles((rolesRes.data ?? []) as TenantRoleDefinition[]);
-
-    // Assignments : if la jointure profiles échoue (vue absente), on
-    // dégrade gracieusement en n'affichant que les user_id (le résumé reste
-    // utilisable, juste sans nom).
-    if (assignsRes.error) {
-      console.warn('[OrderRoleAdminPage] assignments fetch failed:', assignsRes.error.message);
-      // Retry sans la jointure profiles
-      const fallback = await supabase
-        .from('tenant_role_assignments')
-        .select(
-          'role_definition_id, user_id, revoked_at, tenant_role_definitions!inner(tenant_id)',
-        )
-        .is('revoked_at', null);
-      const allowedRoleIds = new Set((rolesRes.data ?? []).map((r: TenantRoleDefinition) => r.id));
-      const rows = (fallback.data ?? [])
-        .filter((r: any) => allowedRoleIds.has(r.role_definition_id))
-        .map((r: any) => ({
-          role_definition_id: r.role_definition_id,
-          user_id: r.user_id,
-          user_email: null,
-        }));
-      setAssignments(rows);
-    } else {
-      const allowedRoleIds = new Set((rolesRes.data ?? []).map((r: TenantRoleDefinition) => r.id));
-      const rows = (assignsRes.data ?? [])
-        .filter((r: any) => allowedRoleIds.has(r.role_definition_id))
-        .map((r: any) => ({
-          role_definition_id: r.role_definition_id,
-          user_id: r.user_id,
-          user_email: r.profiles?.email ?? null,
-        }));
-      setAssignments(rows);
+    try {
+      const catalog = await rolesApi.catalog(currentTenant.id);
+      setRoles(catalog.roles.map((role) => ({
+        id: role.id,
+        tenant_id: role.tenantId,
+        name: role.name,
+        description: role.description,
+        capabilities: role.capabilities,
+        notify_policy: role.notifyPolicy,
+        scope: role.scope,
+        scope_shop_id: role.scopeShopId,
+        ordering_index: role.orderingIndex,
+        archived_at: role.archivedAt,
+      })));
+      const emailByUserId = new Map(catalog.members.map((member) => [member.userId, member.email]));
+      setAssignments(catalog.assignments.map((assignment) => ({
+        role_definition_id: assignment.roleId,
+        user_id: assignment.userId,
+        user_email: emailByUserId.get(assignment.userId) ?? null,
+      })));
+    } catch (loadError) {
+      const message = loadError instanceof Error ? loadError.message : 'chargement impossible';
+      console.warn('[OrderRoleAdminPage] catalog fetch failed:', message);
+      setError(message);
     }
 
     setLoading(false);
-  }, [currentTenant?.id]);
+  }, [currentTenant?.id, rolesApi]);
 
   useEffect(() => {
     void reload();
@@ -278,16 +250,12 @@ export function OrderRoleAdminPage() {
     if (idx === -1) return;
     const swapWith = direction === 'up' ? active[idx - 1] : active[idx + 1];
     if (!swapWith) return;
-    const a = role.ordering_index;
-    const b = swapWith.ordering_index;
-    // 2 updates : swap. Pas de transaction côté client mais idempotent : si
-    // l'une échoue, le reload reflet l'état réel + on relance manuellement.
-    const [r1, r2] = await Promise.all([
-      supabase.from('tenant_role_definitions').update({ ordering_index: b }).eq('id', role.id),
-      supabase.from('tenant_role_definitions').update({ ordering_index: a }).eq('id', swapWith.id),
-    ]);
-    if (r1.error || r2.error) {
-      console.warn('[OrderRoleAdminPage] reorder failed:', r1.error?.message ?? r2.error?.message);
+    try {
+      await rolesApi.reorderDefinitions(currentTenant!.id, role.id, swapWith.id);
+    } catch (reorderError) {
+      const message = reorderError instanceof Error ? reorderError.message : 'réordonnancement impossible';
+      console.warn('[OrderRoleAdminPage] reorder failed:', message);
+      setError(message);
     }
     await reload();
   }
@@ -295,15 +263,16 @@ export function OrderRoleAdminPage() {
   async function confirmArchive() {
     if (!roleToArchive) return;
     setArchiveSubmitting(true);
-    const { error: updErr } = await supabase
-      .from('tenant_role_definitions')
-      .update({ archived_at: new Date().toISOString() })
-      .eq('id', roleToArchive.id);
-    setArchiveSubmitting(false);
-    if (updErr) {
-      console.warn('[OrderRoleAdminPage] archive failed:', updErr.message);
+    try {
+      await rolesApi.archiveDefinition(currentTenant!.id, roleToArchive.id);
+    } catch (archiveError) {
+      const message = archiveError instanceof Error ? archiveError.message : 'archivage impossible';
+      console.warn('[OrderRoleAdminPage] archive failed:', message);
+      setError(message);
+      setArchiveSubmitting(false);
       return;
     }
+    setArchiveSubmitting(false);
     setRoleToArchive(null);
     await reload();
   }

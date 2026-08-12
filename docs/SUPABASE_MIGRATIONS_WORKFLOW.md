@@ -66,7 +66,11 @@ supabase migration new <description>
 
 Respecter ces patterns Magrit (cf. fichiers existants pour modèles) :
 - `create or replace function ... language sql security definer set search_path = public`
-- `grant execute on function ... to authenticated`
+- pour toute fonction `SECURITY DEFINER`, révoquer d’abord l’exécution par
+  défaut : `revoke all on function ... from public, anon, authenticated`, puis
+  accorder explicitement le seul rôle nécessaire ;
+- `grant execute on function ... to authenticated` uniquement pour le wrapper
+  public attendu ; une fonction `*_core` interne reste propriétaire-only ;
 - `drop policy if exists <name> on <table>;` puis `create policy ...`
 - `notify pgrst, 'reload schema';` à la fin si le schema change (force PostgREST refresh)
 - Header commentaire explicatif (contexte, story, rationale)

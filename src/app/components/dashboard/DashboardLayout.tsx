@@ -11,6 +11,17 @@ import { useTenant } from '../../contexts/TenantContext';
 import { PLAN_LABEL } from '../../utils/plans';
 import { MagritLogo } from '../brand/MagritLogo';
 import { TEST_IDS } from '../../lib/testIds';
+import { workspaceSurface } from '../../../surfaces/workspace';
+
+const ACCOUNT_NAVIGATION = workspaceSurface.navigation.find(
+  ({ id }) => id === 'account.workspace.navigation',
+);
+const ACCOUNT_ROUTE = workspaceSurface.routes.find(
+  ({ id }) => id === ACCOUNT_NAVIGATION?.routeId,
+);
+if (!ACCOUNT_NAVIGATION || !ACCOUNT_ROUTE) {
+  throw new Error('La contribution workspace du module account est incomplète.');
+}
 
 // E7.7 — mapping label de NavLink -> data-testid pour les cas de test.
 // Couvre les liens cles des cahiers de tests P01 (sidebar nav).
@@ -69,6 +80,7 @@ export function DashboardLayout() {
     icon: any;
     show: boolean;
     sub?: boolean;
+    testId?: string;
   };
   // REFONTE-UX v2 (2026-08-08, retours Arnaud) — navigation en 4 groupes :
   //   Gestion commerciale = toute l activite client, de bout en bout (point 6 :
@@ -150,7 +162,13 @@ export function DashboardLayout() {
         // cote composant ; on filtre aussi cote nav.
         { to: `${basePath}/order-roles`, label: 'Workflow & rôles', icon: Workflow, show: canManageMembers ?? false },
         { to: `${basePath}/plan`, label: 'Plan & abonnement', icon: CreditCard, show: true },
-        { to: `${basePath}/account`, label: 'Mon compte', icon: User, show: true },
+        {
+          to: `${basePath}/${ACCOUNT_ROUTE.path}`,
+          label: ACCOUNT_NAVIGATION.label,
+          icon: User,
+          show: true,
+          testId: ACCOUNT_NAVIGATION.testId,
+        },
       ],
     },
   ].map((g) => ({ ...g, items: g.items.filter((i) => i.show) }))
@@ -224,7 +242,7 @@ export function DashboardLayout() {
               {group.items.map((item) => (
                 <NavLink
                   key={item.to}
-                  data-testid={NAV_LINK_TESTIDS[item.label]}
+                  data-testid={item.testId ?? NAV_LINK_TESTIDS[item.label]}
                   to={item.to}
                   end={item.end}
                   className={({ isActive }) =>

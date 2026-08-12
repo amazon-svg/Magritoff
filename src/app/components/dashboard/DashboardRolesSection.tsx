@@ -19,10 +19,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Loader2, Shield, Check, X } from 'lucide-react';
-import { supabase } from '/utils/supabase/client';
 import { useTenant } from '../../contexts/TenantContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { TEST_IDS } from '../../lib/testIds';
+import { RolesApiClient } from '../../../modules/roles';
+import { FetchApiClient } from '../../../platform/api';
 
 /** Liste fermée des capabilities v1.1 — synchronisée avec migration DB. */
 const CAPABILITY_LABELS: Record<string, string> = {
@@ -61,7 +62,7 @@ interface AssignmentRow {
 
 export function DashboardRolesSection() {
   const { currentTenant } = useTenant();
-  const { user: currentUser } = useAuth();
+  const { session } = useAuth();
   const [roles, setRoles] = useState<RoleDefRow[]>([]);
   const [members, setMembers] = useState<MemberRow[]>([]);
   const [assignments, setAssignments] = useState<AssignmentRow[]>([]);
@@ -71,6 +72,9 @@ export function DashboardRolesSection() {
   const [pending, setPending] = useState<Set<string>>(new Set());
 
   const tenantId = currentTenant?.id ?? null;
+  const rolesApi = useMemo(() => new RolesApiClient(new FetchApiClient(
+    '', globalThis.fetch, () => session?.access_token ?? null,
+  )), [session?.access_token]);
 
   const loadData = useCallback(async () => {
     if (!tenantId) {
@@ -80,51 +84,16 @@ export function DashboardRolesSection() {
     setLoading(true);
     setError(null);
 
-    const rolesQ = supabase
-      .from('tenant_role_definitions')
-      .select('id, tenant_id, name, description, capabilities, ordering_index, archived_at')
-      .eq('tenant_id', tenantId)
-      .is('archived_at', null)
-      .order('ordering_index', { ascending: true });
-
-    const membersQ = supabase
-      .rpc('get_tenant_members_with_email', { p_tenant_id: tenantId });
-
-    const assignmentsQ = supabase
-      .from('tenant_role_assignments')
-      .select('id, role_definition_id, user_id')
-      .is('revoked_at', null);
-
-    const [rolesR, membersR, assignmentsR] = await Promise.all([rolesQ, membersQ, assignmentsQ]);
-
-    if (rolesR.error) {
-      setError(`Rôles : ${rolesR.error.message}`);
-      setLoading(false);
-      return;
-    }
-    if (membersR.error) {
-      setError(`Users : ${membersR.error.message}`);
-      setLoading(false);
-      return;
-    }
-
-    setRoles((rolesR.data ?? []) as RoleDefRow[]);
-    setMembers(
-      ((membersR.data ?? []) as Array<{ user_id: string; email: string; role: string }>).map(
-        (m) => ({ user_id: m.user_id, email: m.email, role: m.role }),
-      ),
-    );
-    if (!assignmentsR.error) {
-      // Filtrer les assignments aux roles du tenant (RLS le fait déjà, c'est défensif).
-      const roleIds = new Set((rolesR.data ?? []).map((r: any) => r.id));
-      setAssignments(
-        ((assignmentsR.data ?? []) as AssignmentRow[]).filter((a) =>
-          roleIds.has(a.role_definition_id),
-        ),
-      );
+    try {
+      const overview = await rolesApi.overview(tenantId);
+      setRoles(overview.roles.map((role) => ({ id: role.id, tenant_id: tenantId, name: role.name, description: role.description, capabilities: role.capabilities, ordering_index: role.orderingIndex, archived_at: null })));
+      setMembers(overview.members.map((member) => ({ user_id: member.userId, email: member.email, role: member.legacyRole })));
+      setAssignments(overview.assignments.map((assignment) => ({ id: assignment.id, role_definition_id: assignment.roleId, user_id: assignment.userId })));
+    } catch (loadError) {
+      setError(`Rôles : ${loadError instanceof Error ? loadError.message : 'chargement impossible'}`);
     }
     setLoading(false);
-  }, [tenantId]);
+  }, [rolesApi, tenantId]);
 
   useEffect(() => {
     void loadData();
@@ -146,22 +115,7 @@ export function DashboardRolesSection() {
 
     const existing = assignmentByKey.get(key);
     try {
-      if (existing) {
-        // Révoquer l'assignment existant
-        const { error: revokeErr } = await supabase
-          .from('tenant_role_assignments')
-          .update({ revoked_at: new Date().toISOString(), revoked_by: currentUser?.id ?? null })
-          .eq('id', existing.id);
-        if (revokeErr) throw revokeErr;
-      } else {
-        // Créer une nouvelle assignment
-        const { error: insertErr } = await supabase.from('tenant_role_assignments').insert({
-          role_definition_id: roleId,
-          user_id: userId,
-          assigned_by: currentUser?.id ?? null,
-        });
-        if (insertErr) throw insertErr;
-      }
+      await rolesApi.setAssignment(tenantId!, userId, roleId, !existing);
       await loadData();
     } catch (err: any) {
       console.error('[DashboardRolesSection] toggle failed:', err?.message ?? err);

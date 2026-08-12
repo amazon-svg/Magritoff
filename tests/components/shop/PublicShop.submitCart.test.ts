@@ -1,41 +1,36 @@
 /**
- * Tests vitest pour la garantie defensive S3.2-residual AC2 :
- * submitCart() insere TOUJOURS status='draft' explicite dans tenant_orders,
- * meme si le default DB venait a changer.
+ * Garanties de creation d'une commande depuis la boutique publique.
  *
- * Le default DB tenant_orders.status = 'draft' est confirme par la migration
- * source supabase/migrations/20260509_01_e1_orders_v1_1.sql ligne :
- *   status tenant_order_status not null default 'draft'
- *
- * Cette story (S3.2-residual) ajoute une defense en profondeur : le code
- * applicatif submitCart() explicite 'draft' (PublicShop.tsx ligne ~295)
- * pour ne pas dependre du default si une migration future le change.
- *
- * Test : lecture statique du fichier source + grep du pattern.
+ * Depuis AF5.2a, le front ne construit plus directement tenant_orders et ses
+ * lignes : l'API Orders appelle une commande SQL atomique. Le statut initial
+ * reste explicitement fixe a `draft`, mais dans la frontiere transactionnelle
+ * serveur qui en est desormais proprietaire.
  */
 
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-describe('S3.2-residual AC2 — submitCart() insere status=draft explicite', () => {
-  it("PublicShop.tsx contient 'status: \"draft\"' dans le payload tenant_orders.insert", () => {
+describe('AF5.2a — submitCart() delegue la creation atomique a Orders', () => {
+  it('PublicShop utilise OrdersApiClient sans ecrire directement les tables Orders', () => {
     const src = readFileSync(
       resolve(__dirname, '../../../src/app/components/shop/PublicShop.tsx'),
       'utf-8',
     );
-    // Match les formes possibles : status: 'draft' ou status: "draft" (avec
-    // ou sans virgule, espaces variables).
-    expect(src).toMatch(/status\s*:\s*['"]draft['"]/);
+
+    expect(src).toMatch(/ordersApi\.create\s*\(/);
+    expect(src).not.toMatch(/\.from\(['"]tenant_orders['"]\)\s*\.insert/);
+    expect(src).not.toMatch(/\.from\(['"]tenant_order_items['"]\)\s*\.insert/);
   });
 
-  it("la migration source 20260509 declare bien default 'draft' pour tenant_orders.status (assurance back-compat)", () => {
-    // Chemin post S-RECONCILE-SUPABASE-MIGRATIONS rename (2026-05-23) :
-    // 20260509_01_e1_orders_v1_1.sql → 20260509000100_e1_orders_v1_1.sql
+  it("la commande SQL atomique impose explicitement le statut initial 'draft'", () => {
     const sql = readFileSync(
-      resolve(__dirname, '../../../supabase/migrations/20260509000100_e1_orders_v1_1.sql'),
+      resolve(__dirname, '../../../supabase/migrations/20260811000400_api_create_order_atomic.sql'),
       'utf-8',
     );
-    expect(sql).toMatch(/status\s+tenant_order_status\s+not null\s+default\s+'draft'/);
+
+    expect(sql).toMatch(/insert\s+into\s+public\.tenant_orders/i);
+    expect(sql).toMatch(/values\s*\([\s\S]*?'draft'/i);
+    expect(sql).toMatch(/insert\s+into\s+public\.tenant_order_items/i);
   });
 });

@@ -10,6 +10,8 @@
  * Exportes purs pour testabilite vitest (pas de dependance Supabase).
  */
 
+import type { OrderSummary } from '../../../../modules/orders';
+
 export type OrderSource = 'legacy' | 'v1_1';
 
 export interface OrderUI {
@@ -22,6 +24,25 @@ export interface OrderUI {
   total_ht: number;
   total_ttc: number;
   status: string; // raw status (mapping vers label UI fait dans STATUS_LABELS)
+}
+
+/** Adapte le contrat HTTP Orders vers le modèle de présentation brownfield. */
+export function orderSummaryToUi(order: OrderSummary): OrderUI {
+  return {
+    id: order.id,
+    source: order.source,
+    date: order.createdAt,
+    customer_name: order.customerName,
+    customer_email: order.customerEmail,
+    items: order.items.map((item) => ({
+      name: item.name,
+      qty: item.quantity,
+      price_ht: item.unitPriceHt,
+    })),
+    total_ht: order.totalHt,
+    total_ttc: order.totalTtc,
+    status: order.status,
+  };
 }
 
 // ─── Format DTO Supabase (depuis les 2 queries) ────────────────────────────

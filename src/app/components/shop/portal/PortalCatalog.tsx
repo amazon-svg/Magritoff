@@ -3,8 +3,11 @@ import { Search, Sparkles, X, Loader2, AlertTriangle } from 'lucide-react';
 import type { Shop, ShopProduct } from '../../../contexts/ShopsContext';
 import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
 import { resolveProductImage } from '../../../utils/productImages';
-import { supabase } from '/utils/supabase/client';
-import { projectId, publicAnonKey } from '/utils/supabase/info';
+import { browserAssistantGateway } from '../../../../adapters/http/browser-assistant-gateway';
+import { ShopsApiClient } from '../../../../modules/shops';
+import { DiagnosticsApiClient } from '../../../../modules/diagnostics';
+import { FetchApiClient } from '../../../../platform/api';
+import { useAuth } from '../../../contexts/AuthContext';
 import { computeClariprintQuoteSafe } from '../../../../server/clariprint/ClariprintAdapter';
 import { useClaudeSseStream, ClaudeSseStreamError } from '../../../hooks/useClaudeSseStream';
 import { ENABLE_STREAMING_CHAT } from '../../../lib/featureFlags';
@@ -157,6 +160,9 @@ export function PortalCatalog({
   onSelectSubcategory,
   initialFormat,
 }: Props) {
+  const { session } = useAuth();
+  const shopsApi = useMemo(() => new ShopsApiClient(new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null)), [session?.access_token]);
+  const assistantApi = useMemo(() => new DiagnosticsApiClient(new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null)), [session?.access_token]);
   const [query, setQuery] = useState('');
   // S2.21 — autocomplétion : menu ouvert au focus + saisie ≥ 2 car.
   const [searchOpen, setSearchOpen] = useState(false);
@@ -218,11 +224,12 @@ export function PortalCatalog({
       // reponse et le filtre texte local restait muet sur une phrase en langage
       // naturel = ecran sans reponse. Le streaming donne un retour vivant
       // (aiStreaming via onDelta) et le payload `done` porte les memes configs.
-      const baseUrl = `https://${projectId}.supabase.co/functions/v1/make-server-e3db71a4`;
+      if (!session?.access_token) throw new ClaudeSseStreamError('network', 'Authentification requise', 401);
+      const assistant = browserAssistantGateway.connection(session.access_token, ENABLE_STREAMING_CHAT);
       const data = await sendSseStream(
         {
-          endpoint: `${baseUrl}/${ENABLE_STREAMING_CHAT ? 'claude-proxy-stream' : 'claude-proxy'}`,
-          authToken: publicAnonKey,
+          endpoint: assistant.endpoint,
+          authToken: assistant.authorizationToken,
           body: { messages: [{ role: 'user', content: prompt }] },
           onDelta: ENABLE_STREAMING_CHAT ? () => setAiStreaming(true) : undefined,
         },
@@ -262,25 +269,14 @@ export function PortalCatalog({
       // fire-and-forget : ne bloque pas l'affichage et n'échoue jamais la
       // recherche (RPC SECURITY DEFINER borné à l'accès boutique ; anon ignoré).
       // Le realtime shop_products de PublicShop rafraîchit ensuite la grille.
-      void Promise.all(
+      if (shop.tenant_id) void Promise.all(
         withPrices.map((p) =>
-          // rpc typé en `as any` : fonction hors types générés (migration
-          // S-SHOP-AI-PERSIST) — régénérer db:types après déploiement.
-          (supabase.rpc as any)('persist_shop_ai_product', {
-            p_shop_id: shop.id,
-            p_config_hash: aiConfigSignature(p),
-            p_name: p.name,
-            p_category: p.category ?? 'Autres',
-            p_description: p.description ?? '',
-            p_price_ht: p.price_ht ?? 0,
-            p_image_url: p.image_url ?? '',
-            p_config: p.config ?? {},
-            p_gamme_slug: p.gamme_slug ?? null,
-          }).then(({ error: rpcErr }: { error: { message: string } | null }) => {
-            if (rpcErr) {
-              console.info(`[shop_ai_persist] skip "${p.name}" — ${rpcErr.message}`);
-            }
-          }),
+          shopsApi.persistAiProduct(shop.tenant_id!, shop.id, {
+            configHash: aiConfigSignature(p), name: p.name,
+            category: p.category ?? 'Autres', description: p.description ?? '',
+            priceHt: p.price_ht ?? 0, imageUrl: p.image_url ?? '',
+            config: p.config ?? {}, gammeSlug: p.gamme_slug ?? null,
+          }).catch((error) => console.info(`[shop_ai_persist] skip "${p.name}" — ${error instanceof Error ? error.message : 'erreur'}`)),
         ),
       ).catch(() => {
         /* best-effort : la persistance ne doit jamais casser la recherche */
@@ -351,23 +347,19 @@ export function PortalCatalog({
     (async () => {
       try {
         const CATEGORY_EDITORIAL_TIMEOUT_MS = 12_000;
-        const invokePromise = supabase.functions.invoke(
-          'make-server-e3db71a4/category-editorial',
-          {
-            body: {
-              familyName: activeFamily.label,
-              subcategories: activeFamily.subcategories.filter((s) => s.count > 0).map((s) => s.label),
-              sampleProducts: products.slice(0, 8).map((p) => p.name),
-            },
-          },
-        );
+        if (!shop.tenant_id) throw new Error('category_editorial_tenant_missing');
+        const invokePromise = assistantApi.categoryEditorial(shop.tenant_id, {
+          familyName: activeFamily.label,
+          subcategories: activeFamily.subcategories.filter((s) => s.count > 0).map((s) => s.label),
+          sampleProducts: products.slice(0, 8).map((p) => p.name),
+        });
         const timeoutPromise = new Promise<never>((_, reject) => {
           setTimeout(() => reject(new Error('category_editorial_timeout')), CATEGORY_EDITORIAL_TIMEOUT_MS);
         });
-        const { data } = (await Promise.race([invokePromise, timeoutPromise])) as Awaited<
+        const data = (await Promise.race([invokePromise, timeoutPromise])) as Awaited<
           typeof invokePromise
         >;
-        const ed = (data?.editorial ?? {}) as CategoryEditorial;
+        const ed = data.editorial as CategoryEditorial;
         if (cancelled) return;
         setEditorial(ed);
         try {
@@ -383,7 +375,7 @@ export function PortalCatalog({
     return () => {
       cancelled = true;
     };
-  }, [activeFamily, products]);
+  }, [activeFamily, assistantApi, products, shop.tenant_id]);
 
   // S2.20 — Modèle final de la landing : socle déterministe + overlay éditorial.
   const landingModel = useMemo(

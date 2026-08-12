@@ -17,7 +17,7 @@
  *
  * Usage (depuis l'edge function S4.1c future) :
  *
- *   import { renderSvgToPng } from "../_shared/mockup/renderer.ts";
+ *   Charger `renderSvgToPng` depuis le module partagé `mockup/renderer.ts`.
  *
  *   const png = await renderSvgToPng(
  *     "flyer",

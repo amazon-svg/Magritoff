@@ -17,8 +17,10 @@
  * de suivi S-ORDER-ROLES-3-UI : nécessite Sally UX wireframes (DoD #5).
  */
 
-import { useCallback, useEffect, useState } from 'react';
-import { supabase } from '/utils/supabase/client';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { OrdersApiClient } from '../../modules/orders';
+import { FetchApiClient } from '../../platform/api';
+import { useAuth } from '../contexts/AuthContext';
 
 export type OrderCapability =
   | 'can_quote'
@@ -87,10 +89,14 @@ export function mergeCapabilities(roles: OrderRoleAssignment[]): Record<OrderCap
  * @param userId UUID du user (récupéré via AuthContext côté caller — passé en arg pour testabilité)
  */
 export function useOrderRoles(orderId: string | null, userId: string | null): OrderRolesState {
+  const { session } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [roles, setRoles] = useState<OrderRoleAssignment[]>([]);
   const [isCreator, setIsCreator] = useState(false);
+  const ordersApi = useMemo(() => new OrdersApiClient(
+    new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null),
+  ), [session?.access_token]);
 
   const fetch = useCallback(async () => {
     if (!orderId || !userId) {
@@ -104,66 +110,23 @@ export function useOrderRoles(orderId: string | null, userId: string | null): Or
     setLoading(true);
     setError(null);
 
-    // Query 1 : rôles assignés non-révoqués du user sur cette commande
-    // (join sur tenant_role_definitions pour avoir name/capabilities/notify_policy).
-    // RLS shops_select : user_id = auth.uid() OR membre tenant — donc l'user
-    // voit ses propres rôles + admins tenant voient tout.
-    const { data: assignments, error: rolesErr } = await supabase
-      .from('tenant_order_roles')
-      .select(
-        'id, role_definition_id, tenant_role_definitions(name, capabilities, notify_policy, ordering_index, archived_at)',
-      )
-      .eq('order_id', orderId)
-      .eq('user_id', userId)
-      .is('revoked_at', null);
-
-    if (rolesErr) {
-      setError(rolesErr.message);
-      setLoading(false);
-      return;
-    }
-
-    type Row = {
-      id: string;
-      role_definition_id: string;
-      tenant_role_definitions: {
-        name: string;
-        capabilities: Partial<Record<OrderCapability, boolean>>;
-        notify_policy: 'chain_next' | 'all_roles' | 'none';
-        ordering_index: number;
-        archived_at: string | null;
-      } | null;
-    };
-
-    const parsedRoles: OrderRoleAssignment[] = ((assignments ?? []) as Row[])
-      .filter((r) => r.tenant_role_definitions && r.tenant_role_definitions.archived_at === null)
-      .map((r) => ({
-        assignment_id: r.id,
-        role_definition_id: r.role_definition_id,
-        name: r.tenant_role_definitions!.name,
-        capabilities: r.tenant_role_definitions!.capabilities,
-        notify_policy: r.tenant_role_definitions!.notify_policy,
-        ordering_index: r.tenant_role_definitions!.ordering_index,
-      }));
-
-    setRoles(parsedRoles);
-
-    // Query 2 : vérifie si user est le créateur de la commande
-    const { data: order, error: orderErr } = await supabase
-      .from('tenant_orders')
-      .select('created_by')
-      .eq('id', orderId)
-      .single();
-
-    if (orderErr) {
-      // Pas bloquant : on a déjà les rôles. On loggue.
-      console.warn('[useOrderRoles] order fetch failed:', orderErr.message);
-    } else {
-      setIsCreator(order?.created_by === userId);
+    try {
+      const response = await ordersApi.getRoles(orderId);
+      setRoles(response.roles.map((role) => ({
+        assignment_id: role.assignmentId,
+        role_definition_id: role.roleDefinitionId,
+        name: role.name,
+        capabilities: role.capabilities,
+        notify_policy: role.notifyPolicy,
+        ordering_index: role.orderingIndex,
+      })));
+      setIsCreator(response.isCreator);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Rôles Orders indisponibles');
     }
 
     setLoading(false);
-  }, [orderId, userId]);
+  }, [orderId, userId, ordersApi]);
 
   useEffect(() => {
     void fetch();

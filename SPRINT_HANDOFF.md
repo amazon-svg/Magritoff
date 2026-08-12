@@ -2,11 +2,35 @@
 
 > Document de reprise pour démarrer une nouvelle session de Claude code sur le projet sans recharger tout l'historique. À tenir à jour à chaque fin de sprint.
 >
-> **Dernière mise à jour : 2026-08-10 — remontée `beta/v5` → `main` poussée (merge `796f9c9`), convention Git partagée avec Expert Solutions, décision multi-devise.**
+> **Dernière mise à jour : 2026-08-11 — fondation API-first AF0-AF2 sur branche dédiée, sans déploiement externe.**
 
 ---
 
-## ▶️ PROCHAIN CHANTIER — Tranche 1 de la refacto multi-devise
+## ▶️ PROCHAIN CHANTIER — AF4 API de lecture Orders
+
+La refactorisation API-first a démarré le 2026-08-11 sur la branche `refactor/api-first-foundation`, créée depuis `main@eea7f56`.
+
+**AF0 committée (`cb5c15e`)** : ADR §4.21, brief et Epic 8 BMAD, kernel minimal strict, baseline exacte de la dette Supabase UI, tests de frontières et workflow CI architecture.
+
+**AF1 committée (`94f197e`)** : contrats communs `/api/v1`, client fetch typé, Problem Details, routeur `Request -> Response`, résolution acteur injectée, composition serveur, healthcheck et OpenAPI.
+
+**AF2 committée (`ce819ec`)** : module session, bootstrap agrégé, préférences et dernier tenant via API, composition Edge RLS, provider partagé et contexts migrés. Déploiement Edge et reverse proxy non effectués, runbook backend-first dans `docs/architecture/api/deployment.md`.
+
+**AF3 en review** : registre validé, quatre composition roots, manifeste Account multi-surfaces, route et navigation workspace contribuées, écran témoin séparé en vue et adaptateur. Validation : registre 4/4, architecture 9/9, vitest complet 787 verts et build vert. Baseline : 42 fichiers importeurs et 70 références directes.
+
+**AF4 en review** : module Orders, contrats et routes de lecture tenant/portail/audit, repository Supabase serveur et migration immédiate des lectures de `DashboardOrders`, `PortalOrders` et de l audit trail. Baseline exacte abaissée de 42 à 41 fichiers importeurs et de 175 à 168 références directes.
+
+**AF5.1 committable** : transitions Orders désormais atomiques et idempotentes via API, audit dans la même transaction, notification workflow côté serveur. `DashboardOrders`, `PortalOrders` et l ancien helper de notification sont sortis de Supabase.
+
+**AF5.1a correctif UX** : synchronisation membership owner/admin → rôle fonctionnel, backfill local et fallback UI aligné sur l autorisation serveur. Smoke navigateur `validated → in_production` réussi.
+
+**Point de reprise** : AF5.2 — centraliser création checkout et édition de draft, puis poursuivre AF6-AF7 jusqu à supprimer Supabase du périmètre Orders.
+
+**Dérogation R5 restante** : 38 fichiers UI importent encore Supabase et 163 références `supabase.*` sont figées par `tests/architecture/supabase-ui-baseline.ts`. Le comptage historique 64 ne couvrait pas correctement les appels multi-lignes ; la somme des limites réellement vérifiées était 175. Supabase Auth et les commandes brownfield isolées restent temporaires ; la baseline ne peut ni augmenter ni rester périmée après une baisse.
+
+---
+
+## CHANTIER PRODUIT EN PARALLÈLE — Tranche 1 de la refacto multi-devise
 
 **Point de reprise pour la prochaine session (prévue dans VS Code).**
 

@@ -1,6 +1,6 @@
 # Story S7.11 — Schéma + RPC self-signup (Epic 7, Sprint V2-C)
 
-> **Statut** : en cours — 2026-07-26
+> **Statut** : terminé, amendé par AF7.1 — 2026-08-11
 > **Agent** : Amelia (bmad-dev-story)
 > **ADR** : §4.20 ADR-CHECKOUT-1 (points 2-3) — `shops.access_mode` +
 > `self_register_shop_buyer` SECURITY DEFINER, allow-list stricte.
@@ -37,5 +37,18 @@
   `shop_only` + rôle Acheteur sur boutique self_signup ; idempotente.
 - **AC3** : jamais d'accès magrit_full ni multi-boutiques par cette voie.
 - **AC4** : toggle BO persiste `access_mode` ; 0 régression.
+
+## Amendement AF7.1 — compte déjà authentifié
+
+La RPC d’inscription appelée uniquement pendant le formulaire checkout ne
+couvrait pas un compte créé ou connecté ailleurs. La migration
+`20260811000800_create_order_self_signup.sql` enveloppe désormais la création
+atomique de commande : elle appelle `self_register_shop_buyer` seulement si la
+boutique est `self_signup` et que l’acteur n’a pas encore de membership. La
+fonction de création interne est propriétaire-only pour empêcher tout
+contournement du wrapper.
+
+Cette auto-inscription ne s’applique jamais à `invite_only`. Voir la matrice
+canonique dans `docs/SHOP_ACCESS_CONTROL.md`.
 
 ## TF Notion — créé directement dans la DB (TF-S7.11, type SQL DB + IA Chrome)

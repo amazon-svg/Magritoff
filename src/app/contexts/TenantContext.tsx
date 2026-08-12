@@ -26,11 +26,11 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useState,
 } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { supabase } from '/utils/supabase/client';
+import { legacyTenantCommands } from '../../adapters/supabase/legacy-tenant-commands';
 import { useAuth } from './AuthContext';
+import { useSessionBootstrap } from './SessionBootstrapContext';
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -108,13 +108,6 @@ interface TenantContextType {
     gammeSlugs?: string[];
   }) => Promise<string | null>;
 
-  /** Creer un sous-tenant (filiale OU espace client B2B) sous un tenant parent */
-  createSubTenant: (input: {
-    parentTenantId: string;
-    slug: string;
-    name: string;
-  }) => Promise<string | null>;
-
   /** Accepter une invitation via token recu par email */
   acceptInvitation: (
     token: string
@@ -135,152 +128,16 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   const { user, loading: authLoading } = useAuth();
   const { tenantSlug } = useParams<{ tenantSlug?: string }>();
   const navigate = useNavigate();
-
-  const [tenants, setTenants] = useState<TenantWithMembership[]>([]);
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
-  const [loading, setLoading] = useState(true);
-  // Fix race condition 2026-05-27 : track le user pour lequel `tenants` a
-  // ete charge. Tant que loadedUserId != user.id courant, on considere
-  // qu'on est en chargement (evite que TenantPicker redirige vers
-  // /tenants/new pendant la fenetre transitoire user-change/reload-pending).
-  const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
-
-  // ─── Chargement de la liste des tenants de l'user ──────────────────────
-  const reload = useCallback(async () => {
-    if (!user) {
-      setTenants([]);
-      setIsSuperAdmin(false);
-      setLoadedUserId(null);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-
-    // BUG-INVITATION-AUTO-ACCEPT (2026-06-10) : accepte automatiquement
-    // les invitations pending matchant l'email du user connecté. Permet
-    // à un user qui signup sans cliquer le lien /invitations/<token>
-    // reçu par mail de rejoindre quand même les tenants où il a été
-    // invité. La RPC sous-jacente check EMAIL_MISMATCH par invitation
-    // (lower comparison), donc safe : un user ne peut accepter que ses
-    // propres invitations. Voir migration 20260610000100.
-    try {
-      const { data: acceptedCount, error: autoAcceptErr } = await supabase.rpc(
-        'auto_accept_pending_invitations',
-      );
-      if (autoAcceptErr) {
-        console.warn(
-          '[TenantContext] auto_accept_pending_invitations failed:',
-          autoAcceptErr.message,
-        );
-      } else if (typeof acceptedCount === 'number' && acceptedCount > 0) {
-        console.info(
-          `[TenantContext] auto-accepted ${acceptedCount} pending invitation(s)`,
-        );
-      }
-    } catch (e) {
-      console.warn('[TenantContext] auto_accept exception:', e);
-    }
-
-    // 1. Tenants dont je suis membre direct
-    const { data: memberships, error: memErr } = await supabase
-      .from('tenant_members')
-      .select('role, access_scope, allowed_shop_ids, permissions, tenant:tenants!inner(*)')
-      .eq('user_id', user.id);
-
-    if (memErr) {
-      console.error('[TenantContext] memberships error:', memErr.message);
-      setTenants([]);
-      setLoading(false);
-      return;
-    }
-
-    const direct: TenantWithMembership[] = (memberships || []).map((m: any) => ({
-      ...(m.tenant as Tenant),
-      myRole: m.role as TenantRole,
-      accessScope: (m.access_scope as AccessScope) ?? 'magrit_full',
-      allowedShopIds: (m.allowed_shop_ids as string[]) ?? [],
-      permissions: { ...DEFAULT_PERMISSIONS, ...(m.permissions ?? {}) },
-      inheritedFromParent: false,
-    }));
-
-    // 2. Sous-tenants visibles par heritage descendant.
-    //    Fix 2026-05-27 : l'heritage est reserve aux owner/admin du parent
-    //    AVEC un acces magrit_full. Un simple 'member' ou un acheteur
-    //    'shop_only' ne doit PAS heriter des sous-tenants (sinon un acheteur
-    //    shop_only se retrouve avec des acces magrit_full fantomes sur les
-    //    sous-tenants -> casse le routing ShopOnlyRedirect + faille d'acces).
-    //    Avant : `t.myRole !== 'partner'` incluait member + shop_only a tort.
-    const inheritableParentIds = direct
-      .filter(
-        (t) =>
-          (t.myRole === 'owner' || t.myRole === 'admin') &&
-          t.accessScope === 'magrit_full'
-      )
-      .map((t) => t.id);
-
-    let inherited: TenantWithMembership[] = [];
-    if (inheritableParentIds.length > 0) {
-      const { data: children } = await supabase
-        .from('tenants')
-        .select('*')
-        .in('parent_tenant_id', inheritableParentIds);
-      const directIds = new Set(direct.map((t) => t.id));
-      inherited = (children || [])
-        .filter((c: any) => !directIds.has(c.id))
-        .map((c: any) => {
-          // Le role effectif = role sur le parent. Heritage = magrit_full
-          // par defaut (admin du parent doit pouvoir tout voir).
-          const parent = direct.find((t) => t.id === c.parent_tenant_id);
-          return {
-            ...(c as Tenant),
-            myRole: parent?.myRole ?? 'member',
-            accessScope: 'magrit_full' as AccessScope,
-            allowedShopIds: [],
-            permissions: { ...DEFAULT_PERMISSIONS, can_invite: true },
-            inheritedFromParent: true,
-          };
-        });
-    }
-
-    const all = [...direct, ...inherited];
-    setTenants(all);
-
-    // 3. isSuperAdmin : membre de magrit-root avec role owner/admin
-    setIsSuperAdmin(
-      direct.some(
-        (t) => t.is_system_tenant && (t.myRole === 'owner' || t.myRole === 'admin')
-      )
-    );
-
-    setLoadedUserId(user.id);
-    setLoading(false);
-  }, [user]);
-
-  useEffect(() => {
-    if (!authLoading) reload();
-  }, [authLoading, reload]);
-
-  // Loading effectif : true tant que le chargement n'est pas termine POUR
-  // le user courant. Empeche les consommateurs (TenantPicker) de decider
-  // sur un etat transitoire (user change mais reload pas encore relance).
-  const effectiveLoading = loading || (!!user && loadedUserId !== user.id);
+  const bootstrap = useSessionBootstrap();
+  const dataForUser = bootstrap.data?.user.id === user?.id ? bootstrap.data : null;
+  const tenants = (dataForUser?.tenants ?? []) as TenantWithMembership[];
+  const isSuperAdmin = dataForUser?.isSuperAdmin ?? false;
+  const reload = bootstrap.reload;
 
   // ─── Tenant courant (depuis l'URL, fallback last_tenant, fallback premier) ──
-  const [fallbackSlug, setFallbackSlug] = useState<string | null>(null);
-  useEffect(() => {
-    if (!user) return;
-    supabase
-      .from('user_preferences')
-      .select('last_tenant_id')
-      .eq('user_id', user.id)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data?.last_tenant_id) {
-          const match = tenants.find((t) => t.id === data.last_tenant_id);
-          setFallbackSlug(match?.slug ?? null);
-        }
-      });
-  }, [user, tenants]);
+  const fallbackSlug = tenants.find(
+    (tenant) => tenant.id === dataForUser?.preferences.last_tenant_id,
+  )?.slug ?? null;
 
   const currentTenant = useMemo(() => {
     if (tenantSlug) {
@@ -298,15 +155,15 @@ export function TenantProvider({ children }: { children: ReactNode }) {
 
   // ─── Persiste last_tenant_id quand on change de tenant ─────────────────
   useEffect(() => {
-    if (!user || !currentTenant) return;
-    supabase
-      .from('user_preferences')
-      .upsert(
-        { user_id: user.id, last_tenant_id: currentTenant.id },
-        { onConflict: 'user_id' }
-      )
-      .then(() => {});
-  }, [user, currentTenant?.id]);
+    if (
+      !user ||
+      !currentTenant ||
+      currentTenant.id === dataForUser?.preferences.last_tenant_id
+    ) return;
+    void bootstrap.updateCurrentTenant(currentTenant.id).catch((error) => {
+      console.error('[TenantContext] current tenant update failed', error);
+    });
+  }, [bootstrap.updateCurrentTenant, currentTenant?.id, dataForUser?.preferences.last_tenant_id, user]);
 
   // ─── Actions ────────────────────────────────────────────────────────────
 
@@ -331,47 +188,34 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       sirenData?: Record<string, any>;
       gammeSlugs?: string[];
     }): Promise<string | null> => {
-      const { data, error } = await supabase.rpc('create_tenant_with_owner', {
-        p_slug: slug,
-        p_name: name,
-        p_parent_tenant_id: null,
-      });
-      if (error) {
-        console.error('[TenantContext] createTenant error:', error.message);
+      let tenantId: string;
+      try {
+        tenantId = await legacyTenantCommands.createTenant({ slug, name, parentTenantId: null });
+      } catch (error) {
+        console.error('[TenantContext] createTenant error:', error);
         return null;
       }
-      const tenantId = data as string;
       // E6.1 — Si un SIREN a ete fourni et valide, on enregistre les infos
       // INSEE et on marque le tenant comme verifie. Update post-creation pour
       // ne pas modifier la signature de la RPC partagee.
       if (siren && sirenData) {
-        await supabase
-          .from('tenants')
-          .update({
-            siren,
-            siren_data: sirenData,
-            verified: true,
-            verified_at: new Date().toISOString(),
-          })
-          .eq('id', tenantId);
+        try {
+          await legacyTenantCommands.markTenantVerified(tenantId, siren, sirenData);
+        } catch (error) {
+          console.error('[TenantContext] tenant verification failed:', error);
+        }
       }
       // E9.6 — Si l user a selectionne des gammes au wizard, insert bulk
       // dans tenant_gamme_subscriptions. Best-effort : un echec ici ne
       // bloque pas la creation du tenant (l user peut toujours activer
       // les gammes depuis /dashboard/gammes apres coup).
       if (gammeSlugs && gammeSlugs.length > 0) {
-        const rows = gammeSlugs.map((gamme_slug) => ({
-          tenant_id: tenantId,
-          gamme_slug,
-          active: true,
-        }));
-        const { error: gammesErr } = await supabase
-          .from('tenant_gamme_subscriptions')
-          .upsert(rows, { onConflict: 'tenant_id,gamme_slug' });
-        if (gammesErr) {
+        try {
+          await legacyTenantCommands.activateGammes(tenantId, gammeSlugs);
+        } catch (error) {
           console.error(
             '[TenantContext] gammes subscriptions failed (tenant cree quand meme):',
-            gammesErr.message,
+            error,
           );
         }
       }
@@ -381,49 +225,23 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     [reload]
   );
 
-  const createSubTenant = useCallback(
-    async ({
-      parentTenantId,
-      slug,
-      name,
-    }: {
-      parentTenantId: string;
-      slug: string;
-      name: string;
-    }): Promise<string | null> => {
-      const { data, error } = await supabase.rpc('create_tenant_with_owner', {
-        p_slug: slug,
-        p_name: name,
-        p_parent_tenant_id: parentTenantId,
-      });
-      if (error) {
-        console.error('[TenantContext] createSubTenant error:', error.message);
-        return null;
-      }
-      await reload();
-      return data as string;
-    },
-    [reload]
-  );
-
   const acceptInvitation = useCallback(
     async (
       token: string
     ): Promise<{ tenantId: string | null; errorCode?: string; errorMessage?: string }> => {
-      const { data, error } = await supabase.rpc('accept_tenant_invitation', {
-        p_token: token,
-      });
-      if (error) {
-        console.error('[TenantContext] acceptInvitation error:', error.message);
+      try {
+        const tenantId = await legacyTenantCommands.acceptInvitation(token);
+        await reload();
+        return { tenantId };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error('[TenantContext] acceptInvitation error:', message);
         // Fix 2026-05-27 : propage le code d'erreur pour distinguer
         // EMAIL_MISMATCH (mauvais compte connecte) d'une invitation
         // reellement invalide/expiree. Le RPC prefixe 'EMAIL_MISMATCH:'.
-        const msg = error.message ?? '';
-        const errorCode = msg.includes('EMAIL_MISMATCH') ? 'EMAIL_MISMATCH' : 'INVALID';
-        return { tenantId: null, errorCode, errorMessage: msg };
+        const errorCode = message.includes('EMAIL_MISMATCH') ? 'EMAIL_MISMATCH' : 'INVALID';
+        return { tenantId: null, errorCode, errorMessage: message };
       }
-      await reload();
-      return { tenantId: data as string };
     },
     [reload]
   );
@@ -446,13 +264,14 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     currentTenant,
     currentRole,
     isSuperAdmin,
-    // Fix race 2026-05-27 : effectiveLoading reste true tant que les tenants
-    // du user courant ne sont pas charges (vs loading brut qui retombe a
-    // false entre user-change et reload).
-    loading: effectiveLoading || authLoading,
+    // Le bootstrap démarre dans un effect après le rendu où Auth expose le
+    // user. Tant que les données de ce user ne sont ni chargées ni en erreur,
+    // rester en loading évite une redirection prématurée vers /tenants/new.
+    loading:
+      authLoading ||
+      (!!user && (bootstrap.loading || (!bootstrap.error && dataForUser === null))),
     switchTenant,
     createTenant,
-    createSubTenant,
     acceptInvitation,
     withTenant,
     reload,

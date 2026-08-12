@@ -9,8 +9,6 @@
  *
  * Schema : supabase/migrations/20260808000100_gescom_price_rules.sql
  */
-import { supabase } from '/utils/supabase/client';
-
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export type ScopeType = 'tenant' | 'group' | 'user';
@@ -62,34 +60,6 @@ export const TARGET_LABEL: Record<TargetType, string> = {
   gamme: 'Une gamme',
   product: 'Un produit',
 };
-
-/** Erreur PostgREST quand la table n existe pas encore (migration non jouee). */
-export const TABLE_MISSING_CODES = new Set(['42P01', 'PGRST205']);
-
-// ─── Acces donnees ───────────────────────────────────────────────────────────
-
-export async function listPriceRules(tenantId: string) {
-  return supabase
-    .from('client_price_rules')
-    .select('*')
-    .eq('tenant_id', tenantId)
-    .order('priority', { ascending: true })
-    .order('created_at', { ascending: false });
-}
-
-export async function listClientGroups(tenantId: string) {
-  const res = await supabase
-    .from('client_groups')
-    .select('*, client_group_members(count)')
-    .eq('tenant_id', tenantId)
-    .order('name');
-  if (res.error) return res;
-  const data = (res.data ?? []).map((g: any) => ({
-    ...g,
-    member_count: g.client_group_members?.[0]?.count ?? 0,
-  }));
-  return { ...res, data };
-}
 
 // ─── Moteur d application ────────────────────────────────────────────────────
 

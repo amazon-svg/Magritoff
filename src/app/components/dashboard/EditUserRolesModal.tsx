@@ -12,10 +12,13 @@
  * depuis la table Magrit Users).
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Loader2, X, Check } from 'lucide-react';
-import { supabase } from '/utils/supabase/client';
 import { TEST_IDS } from '../../lib/testIds';
+import { useAuth } from '../../contexts/AuthContext';
+import { RolesApiClient } from '../../../modules/roles';
+import { MembersApiClient } from '../../../modules/members';
+import { FetchApiClient } from '../../../platform/api';
 
 interface RoleOption {
   id: string;
@@ -41,7 +44,6 @@ export interface EditUserRolesModalProps {
   targetUserId: string;
   targetUserEmail: string;
   tenantId: string;
-  currentUserId: string;
   /** Callback après une modification (refresh parent). */
   onChanged: () => void | Promise<void>;
   onClose: () => void;
@@ -52,10 +54,10 @@ export function EditUserRolesModal({
   targetUserId,
   targetUserEmail,
   tenantId,
-  currentUserId,
   onChanged,
   onClose,
 }: EditUserRolesModalProps) {
+  const { session } = useAuth();
   const [roles, setRoles] = useState<RoleOption[]>([]);
   const [assignments, setAssignments] = useState<AssignmentRow[]>([]);
   const [shops, setShops] = useState<ShopOption[]>([]);
@@ -65,86 +67,43 @@ export function EditUserRolesModal({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pendingRoleIds, setPendingRoleIds] = useState<Set<string>>(new Set());
+  const api = useMemo(() => new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null), [session?.access_token]);
+  const rolesApi = useMemo(() => new RolesApiClient(api), [api]);
+  const membersApi = useMemo(() => new MembersApiClient(api), [api]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
 
-    const rolesQ = supabase
-      .from('tenant_role_definitions')
-      .select('id, name, description, ordering_index')
-      .eq('tenant_id', tenantId)
-      .is('archived_at', null)
-      .order('ordering_index', { ascending: true });
-
-    const assignmentsQ = supabase
-      .from('tenant_role_assignments')
-      .select('id, role_definition_id')
-      .eq('user_id', targetUserId)
-      .is('revoked_at', null);
-
-    const shopsQ = supabase
-      .from('shops')
-      .select('id, name')
-      .eq('tenant_id', tenantId)
-      .order('name', { ascending: true });
-
-    // Scope + boutiques actuels du membre (tenant_members)
-    const memberQ = supabase
-      .from('tenant_members')
-      .select('access_scope, allowed_shop_ids')
-      .eq('tenant_id', tenantId)
-      .eq('user_id', targetUserId)
-      .maybeSingle();
-
-    const [rolesR, assignmentsR, shopsR, memberR] = await Promise.all([
-      rolesQ,
-      assignmentsQ,
-      shopsQ,
-      memberQ,
-    ]);
-
-    if (rolesR.error) {
-      setError(`Rôles : ${rolesR.error.message}`);
-      setLoading(false);
-      return;
-    }
-
-    setRoles((rolesR.data ?? []) as RoleOption[]);
-    if (!shopsR.error) setShops((shopsR.data ?? []) as ShopOption[]);
-    if (!memberR.error && memberR.data) {
-      const m = memberR.data as { access_scope?: string; allowed_shop_ids?: string[] };
-      setScope((m.access_scope as AccessScope) ?? 'shop_only');
-      setSelectedShopIds(new Set(m.allowed_shop_ids ?? []));
-    }
-    if (!assignmentsR.error) {
-      const tenantRoleIds = new Set((rolesR.data ?? []).map((r: any) => r.id));
-      setAssignments(
-        ((assignmentsR.data ?? []) as AssignmentRow[]).filter((a) =>
-          tenantRoleIds.has(a.role_definition_id),
-        ),
-      );
+    try {
+      const detail = await rolesApi.userDetail(tenantId, targetUserId);
+      setRoles(detail.roles.map((role) => ({ id: role.id, name: role.name, description: role.description })));
+      setAssignments(detail.assignments.map((assignment) => ({ id: assignment.id, role_definition_id: assignment.roleId })));
+      setShops(detail.shops);
+      setScope(detail.accessScope);
+      setSelectedShopIds(new Set(detail.allowedShopIds));
+    } catch (loadError) {
+      setError(`Rôles : ${loadError instanceof Error ? loadError.message : 'chargement impossible'}`);
     }
     setLoading(false);
-  }, [tenantId, targetUserId]);
+  }, [rolesApi, tenantId, targetUserId]);
 
   const saveAccess = async () => {
     setSavingAccess(true);
     setError(null);
-    const { error: e } = await supabase
-      .from('tenant_members')
-      .update({
-        access_scope: scope,
-        allowed_shop_ids: scope === 'shop_only' ? Array.from(selectedShopIds) : [],
-      })
-      .eq('tenant_id', tenantId)
-      .eq('user_id', targetUserId);
-    setSavingAccess(false);
-    if (e) {
-      setError(`Accès : ${e.message}`);
-      return;
+    try {
+      const member = (await membersApi.list(tenantId)).find((candidate) => candidate.userId === targetUserId);
+      if (!member) throw new Error('Membre introuvable.');
+      await membersApi.updateAccess(tenantId, targetUserId, {
+        accessScope: scope, allowedShopIds: scope === 'shop_only' ? Array.from(selectedShopIds) : [],
+        permissions: member.permissions,
+      });
+      await onChanged();
+    } catch (saveError) {
+      setError(`Accès : ${saveError instanceof Error ? saveError.message : 'enregistrement impossible'}`);
+    } finally {
+      setSavingAccess(false);
     }
-    await onChanged();
   };
 
   useEffect(() => {
@@ -162,23 +121,7 @@ export function EditUserRolesModal({
 
     const existing = assignmentByRoleId.get(roleId);
     try {
-      if (existing) {
-        const { error: e } = await supabase
-          .from('tenant_role_assignments')
-          .update({
-            revoked_at: new Date().toISOString(),
-            revoked_by: currentUserId,
-          })
-          .eq('id', existing.id);
-        if (e) throw e;
-      } else {
-        const { error: e } = await supabase.from('tenant_role_assignments').insert({
-          role_definition_id: roleId,
-          user_id: targetUserId,
-          assigned_by: currentUserId,
-        });
-        if (e) throw e;
-      }
+      await rolesApi.setAssignment(tenantId, targetUserId, roleId, !existing);
       await loadData();
       await onChanged();
     } catch (err: any) {

@@ -1,0 +1,40 @@
+name: architecture
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches:
+      - main
+      - 'refactor/**'
+  workflow_dispatch:
+
+jobs:
+  boundaries:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        # La version exacte et son integrity hash sont verrouillés par
+        # package.json#packageManager. Ne pas la redéclarer ici : action-setup
+        # rejette désormais les deux sources, même si leur version majeure est
+        # identique.
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck modular core
+        run: pnpm typecheck
+
+      - name: Check architecture boundaries
+        run: pnpm test:architecture

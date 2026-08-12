@@ -1,6 +1,6 @@
 # Story S7.12 — Checkout ≤ 2 écrans (Epic 7, Sprint V2-C)
 
-> **Statut** : en cours — 2026-07-26
+> **Statut** : terminé, amendé par AF7.1 — 2026-08-11
 > **Agent** : Amelia (bmad-dev-story)
 > **ADR** : §4.20 points 4-5 — [identification si non loggé] → récap →
 > PortalThankYou. Exigence UX : ≤ 2 écrans entre panier et confirmation.
@@ -14,9 +14,9 @@
    - boutique `self_signup` : onglets Se connecter / Créer un compte (email,
      mot de passe, nom, société) — `auth.signUp` puis RPC
      `self_register_shop_buyer` (idempotente S7.11) ;
-   - boutique `invite_only` : connexion uniquement + « Demander un accès »
-     (mailto `shop.contact_email` — la notification Resend dédiée est tracée
-     en suivi, pas de nouvelle edge function dans cette story) ;
+   - boutique `invite_only` : le garde intervient désormais avant le
+     catalogue et le checkout ; connexion uniquement, sans création de compte
+     ni exposition de `shop.contact_email` ;
    - si le projet exige la confirmation email au signUp (pas de session
      immédiate) → message explicite, pas d'écran cassé.
 3. **Écran Récap** (loggé) : lignes du panier (pack forfaitaire S-FIX-PANIER),
@@ -32,8 +32,8 @@
 - **AC2** : non loggé sur boutique self_signup : création de compte →
   inscription auto (RPC) → récap sur la même page → Commander → ThankYou
   (2 écrans logiques, 0 navigation supplémentaire).
-- **AC3** : non loggé sur boutique invite_only : pas de création de compte ;
-  connexion ou demande d'accès.
+- **AC3** : non loggé sur boutique invite_only : aucun contenu boutique, pas de
+  création de compte ; connexion avec un compte préalablement invité.
 - **AC4** : panier vide → catalogue ; erreurs inline (jamais de modal).
 - **AC5** : smoke E2E complet self-signup joué contre la prod (compte
   éphémère) ; 0 régression.

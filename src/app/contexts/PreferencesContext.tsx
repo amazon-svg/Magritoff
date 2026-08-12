@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { supabase } from '/utils/supabase/client';
 import { useAuth } from './AuthContext';
+import { useSessionBootstrap } from './SessionBootstrapContext';
 
 import type { Plan } from '../utils/plans';
 
@@ -32,8 +32,8 @@ const PreferencesContext = createContext<PreferencesContextType | undefined>(und
 
 export function PreferencesProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
+  const bootstrap = useSessionBootstrap();
   const [prefs, setPrefs] = useState<UserPreferences>(DEFAULTS);
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!user?.id) {
@@ -45,27 +45,12 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       }
       return;
     }
-
-    let cancelled = false;
-    setLoading(true);
-    supabase
-      .from('user_preferences')
-      .select('*')
-      .eq('user_id', user.id)
-      .maybeSingle()
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        if (error) console.error('[Prefs] fetch failed', error.message);
-        if (data) {
-          setPrefs({ ...DEFAULTS, ...data });
-        } else {
-          setPrefs(DEFAULTS);
-        }
-        setLoading(false);
-      });
-
-    return () => { cancelled = true; };
-  }, [user?.id]);
+    if (bootstrap.data?.user.id === user.id) {
+      setPrefs({ ...DEFAULTS, ...bootstrap.data.preferences });
+    } else {
+      setPrefs(DEFAULTS);
+    }
+  }, [bootstrap.data, user?.id]);
 
   const update = async (patch: Partial<UserPreferences>) => {
     const next = { ...prefs, ...patch };
@@ -76,37 +61,16 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    console.log('[Prefs] upsert attempt', { userId: user.id, patch });
-
-    const { data, error } = await supabase
-      .from('user_preferences')
-      .upsert({ user_id: user.id, ...next }, { onConflict: 'user_id' })
-      .select()
-      .maybeSingle();
-
-    if (error) {
-      console.error('[Prefs] upsert failed', {
-        patch,
-        code: (error as any).code,
-        message: error.message,
-        details: (error as any).details,
-        hint: (error as any).hint,
-      });
-      const { data: fresh } = await supabase
-        .from('user_preferences')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle();
-      if (fresh) setPrefs({ ...DEFAULTS, ...fresh });
-      return;
+    try {
+      await bootstrap.updatePreferences(patch);
+    } catch (error) {
+      setPrefs(prefs);
+      console.error('[Prefs] API update failed', error);
     }
-
-    console.log('[Prefs] upsert ok', { returned: data });
-    if (data) setPrefs({ ...DEFAULTS, ...data });
   };
 
   return (
-    <PreferencesContext.Provider value={{ prefs, loading, update }}>
+    <PreferencesContext.Provider value={{ prefs, loading: !!user && bootstrap.loading, update }}>
       {children}
     </PreferencesContext.Provider>
   );

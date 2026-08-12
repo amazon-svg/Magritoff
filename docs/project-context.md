@@ -4,7 +4,7 @@
 >
 > **Source authoritative :** `~/Downloads/CONTEXT_Magrit_IA.md` (maintenu par Arnaud, plus exhaustif). Ce fichier en est la **synthèse opérationnelle pour les agents BMAD** (focus : règles, conventions, états de version, identifiants techniques, **PAS** la stratégie commerciale détaillée).
 >
-> **Dernière mise à jour :** 2026-05-10 (post Sprint 3 / Epic 1 partiel).
+> **Dernière mise à jour :** 2026-08-11 (AF7.1 — accès boutiques privées).
 > **Maintenu par :** Arnaud Mazon — PDG AGE Développement — `arnaud@age-services.fr`.
 > **Langue de travail :** français (livrables, code commits, variables métier).
 
@@ -57,7 +57,7 @@
 | Edge functions | Supabase Edge Functions (Deno), déploiement via `supabase functions deploy <name> --project-ref ightkxebexuzfjdbpsdg` |
 | **LLM raisonnement** | **`claude-sonnet-4-5-20250929`** (upgrade depuis Sonnet 4 le 2026-05-09) |
 | **LLM génération rapide** | **`claude-haiku-4-5-20251001`** |
-| Wrapper LLM unifié (post S1.1 + S1.5) | `supabase/functions/_shared/anthropicClient.ts` — `anthropicComplete()` + `anthropicCompleteStructured(zodSchema)` + `anthropicStream()` (SSE avec parser tee + tracking auto). Lookup secret multi-casing `ANTHROPIC_API_KEY` / `Magrit3` / `MAGRIT3` / `MAGRIT` |
+| IA API-first | `MAGRIT_AI_PROVIDER=anthropic|openai|mistral`, clé dédiée par fournisseur et modèle optionnel `MAGRIT_AI_MODEL`. Diagnostic et éditorial de catégorie utilisent cette sélection. Le navigateur appelle le chat via `/api/v1/assistant/chat` ; son moteur historique Anthropic reste un détail serveur transitoire. |
 | Mockup engine SVG→PNG (post S4.1b) | `npm:@resvg/resvg-wasm@2.6.2` (pure WASM, compat Deno Deploy). Fonts Inter/Bitter/JetBrains Mono incluses. Init lazy via fetch unpkg. **Pivot vs Architecture §4.3** qui spec sharp+svgdom (incompat Deno Deploy) |
 | Tests unit/integration | Vitest |
 | E2E automatisé | **Claude in Chrome** via plugin MCP, sur `data-testid` stables |
@@ -67,11 +67,21 @@
 ### 3.3 Multi-tenancy
 
 - Architecture multi-tenants stricte dès le départ (US-NEW-04 P0).
+- **Cible différée, non livrée** : séparation stricte entre utilisateurs Magrit
+  et comptes boutique, avec un compte indépendant par couple
+  `(boutique, email)`, compte miroir et délégation « Se connecter comme ».
+  Spécification :
+  `_bmad-output/planning-artifacts/spec-identites-magrit-et-comptes-boutique.md`.
 - Chaque tenant = espace isolé. Tables tenant-scoped : `tenants`, `tenant_members`, `tenant_invitations`, `tenant_member_events`, `tenant_slug_history`, `tenant_gamme_subscriptions`, `tenant_orders` (S1.4), `tenant_order_items`, `tenant_order_status_events`, `shops`, `llm_usage_events`.
 - Routes tenant : `/t/:slug/dashboard`, `/t/:slug/atelier`, `/t/:slug/dashboard/users`.
-- Boutique publique tenant : `/shop/:slug` (a pivoté vers portail B2B corporate).
+- Route boutique tenant : `/shop/:slug`. Elle n’est publique que lorsque
+  `shops.access_mode='self_signup'`. En `invite_only`, un anonyme ne voit aucun
+  contenu et ne peut pas créer de compte ; un compte existant doit être membre
+  du tenant propriétaire et autorisé sur la boutique.
 - Création tenant : `/tenants/new` (wizard avec validation SIREN INSEE + email pro).
 - Helpers RLS canoniques (à utiliser dans toute nouvelle policy) : `public.is_super_admin()`, `public.user_role_in_tenant(tenant_id)`, `public.current_user_tenant_ids()`, `public.current_user_can_access_shop(shop_id)`.
+- Matrice et invariants détaillés :
+  [`docs/SHOP_ACCESS_CONTROL.md`](SHOP_ACCESS_CONTROL.md).
 
 ### 3.4 IA conversationnelle (renommée Magrit, pas Marguerite)
 
