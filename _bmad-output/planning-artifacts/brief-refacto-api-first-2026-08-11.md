@@ -103,6 +103,20 @@ src/
 
 `quotes` → `shops/catalog` → `commercial-pricing` → assets/événements → conversations/IA → BFF d'identité.
 
+### Epic différé — Identités Magrit et comptes boutique
+
+La cible fonctionnelle sépare strictement les utilisateurs Magrit des comptes
+clients boutique. Un compte client appartient à une seule boutique et son
+identité est le couple `(boutique, email normalisé)` ; la même adresse dans une
+autre boutique correspond à un autre compte. Le backoffice proposera un compte
+miroir par boutique et une délégation auditée « Se connecter comme ».
+
+Cette évolution est spécifiée dans
+`_bmad-output/planning-artifacts/spec-identites-magrit-et-comptes-boutique.md`.
+Elle est planifiée pour plus tard et ne décrit pas le modèle actuellement livré.
+UM0/UM1 pourront avancer en parallèle d’AF24 ; la migration Auth et la
+généralisation des surfaces dépendront du contrat storefront UM2.
+
 ### Extension AF-C — Identité et invitations
 
 - AF7.1 : verrouillage des boutiques `invite_only` et rattachement contrôlé en

@@ -67,6 +67,11 @@
 ### 3.3 Multi-tenancy
 
 - Architecture multi-tenants stricte dès le départ (US-NEW-04 P0).
+- **Cible différée, non livrée** : séparation stricte entre utilisateurs Magrit
+  et comptes boutique, avec un compte indépendant par couple
+  `(boutique, email)`, compte miroir et délégation « Se connecter comme ».
+  Spécification :
+  `_bmad-output/planning-artifacts/spec-identites-magrit-et-comptes-boutique.md`.
 - Chaque tenant = espace isolé. Tables tenant-scoped : `tenants`, `tenant_members`, `tenant_invitations`, `tenant_member_events`, `tenant_slug_history`, `tenant_gamme_subscriptions`, `tenant_orders` (S1.4), `tenant_order_items`, `tenant_order_status_events`, `shops`, `llm_usage_events`.
 - Routes tenant : `/t/:slug/dashboard`, `/t/:slug/atelier`, `/t/:slug/dashboard/users`.
 - Route boutique tenant : `/shop/:slug`. Elle n’est publique que lorsque
