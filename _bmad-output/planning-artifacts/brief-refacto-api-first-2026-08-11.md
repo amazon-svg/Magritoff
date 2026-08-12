@@ -134,6 +134,8 @@ src/
   catalogue autorisé, sans requête fournisseur par carte — livré ;
 - AF14.1 : nouveau module Catalog et gestion contractuelle des souscriptions
   de gammes du tenant ; `DashboardTenantGammes` sort de Supabase — livré ;
+- AF14.2a : lectures et CRUD du PIM global via le module Catalog ;
+  `PIMContext` sort de Supabase — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.

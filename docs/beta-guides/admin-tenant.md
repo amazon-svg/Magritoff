@@ -106,6 +106,12 @@ Cocher un parent envoie une commande groupée pour le parent et ses enfants ; le
 tenant et l’auteur ne sont jamais fournis par l’interface. Un membre sans rôle
 owner/admin reste en lecture seule et le serveur conserve le contrôle RLS.
 
+L’administration du PIM global utilise également cette façade pour charger les
+gammes et définitions, enregistrer leurs contenus et les supprimer. Les
+commandes d’écriture vérifient côté serveur le statut super-admin Magrit ou le
+flag administrateur historique ; masquer le bouton dans l’interface ne constitue
+plus le seul contrôle.
+
 ### Choisir le mode d’accès
 
 - **Sur invitation (`invite_only`, valeur par défaut)** : aucun catalogue

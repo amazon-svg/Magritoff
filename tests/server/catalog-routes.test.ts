@@ -9,7 +9,9 @@ const parsedActor = parseId<'UserId'>('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
 if (!parsedActor.ok) throw new Error('acteur invalide');
 const tenantId = '11111111-1111-4111-8111-111111111111';
 const subscriptions = [{ gammeSlug: 'flyers', active: true, displayOrder: 0 }];
-function repository(overrides: Partial<CatalogRepository> = {}): CatalogRepository { return { async gammeSubscriptions() { return subscriptions; }, async setGammeSubscriptions() { return subscriptions; }, ...overrides }; }
+const gamme = { id: '22222222-2222-4222-8222-222222222222', slug: 'flyers', name: 'Flyers', parentSlug: null, matchingRules: {}, displayOrder: 0, imageUrl: null };
+const definition = { id: '33333333-3333-4333-8333-333333333333', gammeSlug: 'flyers', variationFilter: {}, locale: 'fr', name: null, keywords: null, titleTemplate: null, shortDescriptionTemplate: null, descriptionTemplate: null, h1Template: null, seoTitle: null, seoDescription: null, schemaOrgType: null, usageExamples: [], faq: [], qualityScore: null, generatedBy: null, validatedBy: 'pending' as const, imageUrl: null, commercialPitch: null, benefits: null, useCases: null, technicalSpec: null, lastReviewedAt: null, version: 1 };
+function repository(overrides: Partial<CatalogRepository> = {}): CatalogRepository { return { async gammeSubscriptions() { return subscriptions; }, async setGammeSubscriptions() { return subscriptions; }, async pimCatalog() { return { gammes: [gamme], definitions: [definition] }; }, async upsertPimGamme() { return gamme; }, async deletePimGamme() {}, async upsertPimDefinition() { return definition; }, async deletePimDefinition() {}, ...overrides }; }
 function handler(repo: CatalogRepository) { return createApiV1Application({ routes: createCatalogRoutes(new CatalogService(repo)), actorResolver: { async resolve() { return { kind: 'user', userId: parsedActor.value }; } }, requestIdFactory: () => 'catalog-test' }); }
 
 describe('routes API catalogue', () => {
@@ -25,6 +27,15 @@ describe('routes API catalogue', () => {
   });
   it('refuse les doublons avant le repository', async () => {
     const response = await handler(repository())(new Request(`http://localhost/api/v1/tenants/${tenantId}/catalog/gamme-subscriptions`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ subscriptions: [{ gammeSlug: 'flyers', active: true }, { gammeSlug: 'flyers', active: false }] }) }));
+    expect(response.status).toBe(422); expect((await response.json()).code).toBe('api.validation_failed');
+  });
+  it('dérive l’acteur et impose le slug de route pour une gamme PIM', async () => {
+    let received: { actor: string; slug: string } | null = null;
+    const response = await handler(repository({ async upsertPimGamme(actor, command) { received = { actor, slug: command.slug }; return { ...gamme, slug: command.slug }; } }))(new Request('http://localhost/api/v1/catalog/pim/gammes/flyers', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slug: 'forged', name: 'Flyers' }) }));
+    expect(response.status).toBe(200); expect(received).toEqual({ actor: parsedActor.value, slug: 'flyers' });
+  });
+  it('valide l’identifiant avant de supprimer une définition PIM', async () => {
+    const response = await handler(repository())(new Request('http://localhost/api/v1/catalog/pim/definitions/not-a-uuid', { method: 'DELETE' }));
     expect(response.status).toBe(422); expect((await response.json()).code).toBe('api.validation_failed');
   });
 });

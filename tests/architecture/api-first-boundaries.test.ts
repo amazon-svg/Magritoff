@@ -195,6 +195,13 @@ describe('frontières API-first et modulaires', () => {
     expect(source).not.toMatch(/\bsupabase\s*\./);
   });
 
+  it('sort le provider PIM du fournisseur', () => {
+    const source = readFileSync(resolve(process.cwd(), 'src/app/contexts/PIMContext.tsx'), 'utf8');
+    expect(source).toContain('CatalogApiClient');
+    expect(source).not.toContain('utils/supabase');
+    expect(source).not.toMatch(/\bsupabase\s*\./);
+  });
+
   it('sort les écrans de gestion des rôles du fournisseur', () => {
     const files = [
       'src/app/components/dashboard/DashboardRolesSection.tsx',

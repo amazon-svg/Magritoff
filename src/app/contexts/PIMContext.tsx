@@ -1,6 +1,8 @@
-import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
-import { supabase } from '/utils/supabase/client';
+import { createContext, useContext, useEffect, useState, useCallback, useMemo, ReactNode } from 'react';
 import type { Gamme, ProductDefinition } from '../utils/productEnrichment';
+import { useAuth } from './AuthContext';
+import { CatalogApiClient, type PimDefinition, type PimGamme } from '../../modules/catalog';
+import { FetchApiClient } from '../../platform/api';
 
 interface PIMContextType {
   gammes: Gamme[];
@@ -16,81 +18,78 @@ interface PIMContextType {
 const PIMContext = createContext<PIMContextType | undefined>(undefined);
 
 export function PIMProvider({ children }: { children: ReactNode }) {
+  const { user, session } = useAuth();
   const [gammes, setGammes] = useState<Gamme[]>([]);
   const [definitions, setDefinitions] = useState<ProductDefinition[]>([]);
   const [loading, setLoading] = useState(false);
+  const catalogApi = useMemo(() => new CatalogApiClient(new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null)), [session?.access_token]);
 
   const refresh = useCallback(async () => {
+    if (!user) { setGammes([]); setDefinitions([]); setLoading(false); return; }
     setLoading(true);
-    const [gammesRes, defsRes] = await Promise.all([
-      supabase.from('product_gammes').select('*').order('display_order'),
-      supabase.from('product_definitions').select('*'),
-    ]);
-    if (gammesRes.error) console.error('[PIM] gammes fetch failed', gammesRes.error.message);
-    if (defsRes.error) console.error('[PIM] definitions fetch failed', defsRes.error.message);
-    if (gammesRes.data) setGammes(gammesRes.data as Gamme[]);
-    if (defsRes.data) setDefinitions(defsRes.data as ProductDefinition[]);
-    setLoading(false);
-  }, []);
+    try {
+      const catalog = await catalogApi.pimCatalog();
+      setGammes(catalog.gammes.map(fromPimGamme));
+      setDefinitions(catalog.definitions.map(fromPimDefinition));
+    } catch (error) {
+      console.error('[PIM] fetch failed', error instanceof Error ? error.message : error);
+    } finally { setLoading(false); }
+  }, [catalogApi, user?.id]);
 
   useEffect(() => { refresh(); }, [refresh]);
 
   const upsertGamme = async (input: Partial<Gamme> & { slug: string; name: string }) => {
-    const { data, error } = await supabase
-      .from('product_gammes')
-      .upsert(input, { onConflict: 'slug' })
-      .select()
-      .single();
-    if (error) {
-      console.error('[PIM] upsertGamme failed', error.message);
+    try {
+      const data = fromPimGamme(await catalogApi.upsertPimGamme({ slug: input.slug, name: input.name, parentSlug: input.parent_slug, matchingRules: input.matching_rules, displayOrder: input.display_order, imageUrl: input.image_url }));
+      setGammes((prev) => {
+        const idx = prev.findIndex((g) => g.slug === data.slug);
+        if (idx >= 0) return prev.map((g) => (g.slug === data.slug ? data : g));
+        return [...prev, data].sort((a, b) => a.display_order - b.display_order);
+      });
+      return data;
+    } catch (error) {
+      console.error('[PIM] upsertGamme failed', error instanceof Error ? error.message : error);
       return null;
     }
-    setGammes((prev) => {
-      const idx = prev.findIndex((g) => g.slug === (data as Gamme).slug);
-      if (idx >= 0) return prev.map((g) => (g.slug === (data as Gamme).slug ? (data as Gamme) : g));
-      return [...prev, data as Gamme].sort((a, b) => a.display_order - b.display_order);
-    });
-    return data as Gamme;
   };
 
   const deleteGamme = async (slug: string) => {
-    const { error } = await supabase.from('product_gammes').delete().eq('slug', slug);
-    if (error) {
-      console.error('[PIM] deleteGamme failed', error.message);
+    try {
+      await catalogApi.deletePimGamme(slug);
+      setGammes((prev) => prev.filter((g) => g.slug !== slug));
+      return true;
+    } catch (error) {
+      console.error('[PIM] deleteGamme failed', error instanceof Error ? error.message : error);
       return false;
     }
-    setGammes((prev) => prev.filter((g) => g.slug !== slug));
-    return true;
   };
 
   const upsertDefinition = async (
     input: Partial<ProductDefinition> & { gamme_slug: string; locale: string }
   ) => {
-    const { data, error } = await supabase
-      .from('product_definitions')
-      .upsert(input, { onConflict: 'gamme_slug,variation_filter,locale' })
-      .select()
-      .single();
-    if (error) {
-      console.error('[PIM] upsertDefinition failed', error.message);
+    try {
+      const data = fromPimDefinition(await catalogApi.upsertPimDefinition(toDefinitionCommand(input)));
+      setDefinitions((prev) => {
+        const idx = prev.findIndex((d) => d.id === data.id);
+        if (idx >= 0) return prev.map((d) => (d.id === data.id ? data : d));
+        return [...prev, data];
+      });
+      return data;
+    } catch (error) {
+      console.error('[PIM] upsertDefinition failed', error instanceof Error ? error.message : error);
       return null;
     }
-    setDefinitions((prev) => {
-      const idx = prev.findIndex((d) => d.id === (data as ProductDefinition).id);
-      if (idx >= 0) return prev.map((d) => (d.id === (data as ProductDefinition).id ? (data as ProductDefinition) : d));
-      return [...prev, data as ProductDefinition];
-    });
-    return data as ProductDefinition;
   };
 
   const deleteDefinition = async (id: string) => {
-    const { error } = await supabase.from('product_definitions').delete().eq('id', id);
-    if (error) {
-      console.error('[PIM] deleteDefinition failed', error.message);
+    try {
+      await catalogApi.deletePimDefinition(id);
+      setDefinitions((prev) => prev.filter((d) => d.id !== id));
+      return true;
+    } catch (error) {
+      console.error('[PIM] deleteDefinition failed', error instanceof Error ? error.message : error);
       return false;
     }
-    setDefinitions((prev) => prev.filter((d) => d.id !== id));
-    return true;
   };
 
   return (
@@ -100,6 +99,13 @@ export function PIMProvider({ children }: { children: ReactNode }) {
       {children}
     </PIMContext.Provider>
   );
+}
+
+function fromPimGamme(gamme: PimGamme): Gamme { return { id: gamme.id, slug: gamme.slug, name: gamme.name, parent_slug: gamme.parentSlug, matching_rules: gamme.matchingRules, display_order: gamme.displayOrder, image_url: gamme.imageUrl }; }
+function fromPimDefinition(definition: PimDefinition): ProductDefinition { return { id: definition.id, gamme_slug: definition.gammeSlug, variation_filter: definition.variationFilter, locale: definition.locale, name: definition.name, keywords: definition.keywords, title_template: definition.titleTemplate, short_description_template: definition.shortDescriptionTemplate, description_template: definition.descriptionTemplate, h1_template: definition.h1Template, seo_title: definition.seoTitle, seo_description: definition.seoDescription, schema_org_type: definition.schemaOrgType, usage_examples: definition.usageExamples, faq: definition.faq, quality_score: definition.qualityScore, generated_by: definition.generatedBy, validated_by: definition.validatedBy, image_url: definition.imageUrl, commercial_pitch: definition.commercialPitch, benefits: definition.benefits, use_cases: definition.useCases, technical_spec: definition.technicalSpec }; }
+function toDefinitionCommand(input: Partial<ProductDefinition> & { gamme_slug: string; locale: string }) {
+  const extended = input as typeof input & { last_reviewed_at?: string | null; version?: number };
+  return { gammeSlug: input.gamme_slug, variationFilter: input.variation_filter ?? {}, locale: input.locale, name: input.name, keywords: input.keywords, titleTemplate: input.title_template, shortDescriptionTemplate: input.short_description_template, descriptionTemplate: input.description_template, h1Template: input.h1_template, seoTitle: input.seo_title, seoDescription: input.seo_description, schemaOrgType: input.schema_org_type, usageExamples: input.usage_examples, faq: input.faq, generatedBy: input.generated_by, validatedBy: input.validated_by, imageUrl: input.image_url, commercialPitch: input.commercial_pitch, benefits: input.benefits, useCases: input.use_cases, technicalSpec: input.technical_spec, lastReviewedAt: extended.last_reviewed_at, version: extended.version };
 }
 
 export function usePIM() {
