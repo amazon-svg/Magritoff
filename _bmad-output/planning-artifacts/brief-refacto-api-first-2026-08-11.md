@@ -130,6 +130,8 @@ src/
 - AF13.3a : lecture et écriture des prix négociés via l’API — livré ;
 - AF13.3b : upload multipart des logos et visuels hero via l’API ; l’éditeur
   de boutique ne connaît plus Supabase — livré ;
+- AF13.4 : gestion des mockups personnalisés via l’API et inclusion dans le
+  catalogue autorisé, sans requête fournisseur par carte — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.

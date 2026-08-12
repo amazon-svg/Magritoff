@@ -8,7 +8,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, useMemo, ReactNode } from 'react';
 import { useAuth } from './AuthContext';
 import { useTenant } from './TenantContext';
-import { ShopsApiClient, type ShopDto, type ShopProductDto } from '../../modules/shops';
+import { ShopsApiClient, type ShopCustomMockup, type ShopDto, type ShopProductDto } from '../../modules/shops';
 import { FetchApiClient } from '../../platform/api';
 
 export interface ShopTheme {
@@ -55,6 +55,7 @@ export interface Shop {
    *  boutique indexable). Optionnel pour rétro-compat des mocks/tests. */
   access_mode?: 'invite_only' | 'self_signup';
   created_at?: string;
+  custom_mockups?: ShopCustomMockup[];
 }
 
 export interface ShopProduct {

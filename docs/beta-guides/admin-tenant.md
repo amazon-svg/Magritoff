@@ -95,6 +95,10 @@ Les uploads de logo et d’image hero passent par l’API Magrit en multipart. L
 navigateur ne contacte pas directement Storage ; le serveur contrôle le tenant,
 le droit `can_manage_catalog`, le type MIME et la limite de 5 Mo.
 
+Les mockups personnalisés suivent le même principe. Leur liste est incluse dans
+le catalogue uniquement après le contrôle d’accès à la boutique ; le portail ne
+déclenche plus une requête de données séparée pour chaque carte produit.
+
 ### Choisir le mode d’accès
 
 - **Sur invitation (`invite_only`, valeur par défaut)** : aucun catalogue

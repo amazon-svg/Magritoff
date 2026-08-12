@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { UserId } from '../../kernel/ids/index.ts';
-import type { CreateShopCommand, CreateShopProductCommand, PublicShopCatalog, PublicShopProbe, SetShopPricingCommand, ShopBrandAssetUpload, ShopDto, ShopPricingOverride, ShopProductDto, UpdateShopCommand, UpdateShopProductCommand } from '../../modules/shops/api/contracts.ts';
+import type { CreateShopCommand, CreateShopProductCommand, MockupTemplateType, MockupView, PublicShopCatalog, PublicShopProbe, SetShopPricingCommand, ShopBrandAssetUpload, ShopCustomMockup, ShopCustomMockupUpload, ShopDto, ShopPricingOverride, ShopProductDto, UpdateShopCommand, UpdateShopProductCommand } from '../../modules/shops/api/contracts.ts';
 import { ShopRejectedError, type ShopsRepository } from '../../modules/shops/application/shops-repository.ts';
 import type { Database, Json } from '../../types/database.types.ts';
 
@@ -76,14 +76,15 @@ export class SupabaseShopsRepository implements ShopsRepository {
     const shopRow = await this.loadActiveShopBySlug(slug, SHOP_COLUMNS);
     if (!shopRow.tenant_id) throw new ShopRejectedError('invalid_request', 'Boutique sans espace propriétaire.');
 
-    const [manualResult, pricingResult, gammesResult, definitionsResult, subscriptionsResult] = await Promise.all([
+    const [manualResult, pricingResult, gammesResult, definitionsResult, subscriptionsResult, mockupsResult] = await Promise.all([
       this.client.from('shop_products').select(PRODUCT_COLUMNS).eq('shop_id', shopRow.id).order('display_order'),
       this.client.from('shop_product_pricing').select('library_product_id, price_ht_override').eq('shop_id', shopRow.id),
       this.client.from('product_gammes').select('*').order('display_order'),
       this.client.from('product_definitions').select('*'),
       this.client.from('tenant_gamme_subscriptions').select('gamme_slug').eq('tenant_id', shopRow.tenant_id).eq('active', true),
+      this.client.from('shop_template_mockups').select('shop_id, template_type, view, mockup_image_url').eq('shop_id', shopRow.id),
     ]);
-    const failed = [manualResult.error, pricingResult.error, gammesResult.error, definitionsResult.error].find(Boolean);
+    const failed = [manualResult.error, pricingResult.error, gammesResult.error, definitionsResult.error, mockupsResult.error].find(Boolean);
     if (failed) throw classified(failed, 'Chargement du catalogue impossible.');
 
     const libraryRows = await this.loadPublicLibraryRows(shopRow);
@@ -114,6 +115,7 @@ export class SupabaseShopsRepository implements ShopsRepository {
       gammes: (gammesResult.data ?? []).map((row) => ({ ...row, matching_rules: toRecord(row.matching_rules) })),
       definitions: (definitionsResult.data ?? []).map((row) => ({ ...row })),
       subscribedSlugs: subscriptionsResult.error ? [] : (subscriptionsResult.data ?? []).map((row) => row.gamme_slug),
+      customMockups: (mockupsResult.data ?? []).map(mapCustomMockup),
     };
   }
   async pricing(_actor: UserId, tenantId: string, shopId: string): Promise<ShopPricingOverride[]> {
@@ -147,6 +149,27 @@ export class SupabaseShopsRepository implements ShopsRepository {
     if (error) throw classified(error, 'Upload du visuel de boutique impossible.');
     return this.client.storage.from('shop_backgrounds').getPublicUrl(path).data.publicUrl;
   }
+  async customMockups(_actor: UserId, tenantId: string, shopId: string): Promise<ShopCustomMockup[]> {
+    await this.requireShop(tenantId, shopId);
+    const { data, error } = await this.client.from('shop_template_mockups').select('shop_id, template_type, view, mockup_image_url').eq('tenant_id', tenantId).eq('shop_id', shopId);
+    if (error) throw classified(error, 'Lecture des mockups personnalisés impossible.');
+    return (data ?? []).map(mapCustomMockup);
+  }
+  async uploadCustomMockup(_actor: UserId, tenantId: string, shopId: string, upload: ShopCustomMockupUpload): Promise<void> {
+    await this.requireShop(tenantId, shopId);
+    const extension = upload.contentType === 'image/jpeg' ? 'jpg' : upload.contentType === 'image/webp' ? 'webp' : upload.contentType === 'image/svg+xml' ? 'svg' : 'png';
+    const path = `${shopId}/${upload.templateType}-${upload.view}.${extension}`;
+    const { error: storageError } = await this.client.storage.from('shop_product_mockups').upload(path, new Uint8Array(upload.bytes), { upsert: true, contentType: upload.contentType, cacheControl: '60' });
+    if (storageError) throw classified(storageError, 'Upload du mockup personnalisé impossible.');
+    const publicUrl = this.client.storage.from('shop_product_mockups').getPublicUrl(path).data.publicUrl;
+    const { error } = await this.client.from('shop_template_mockups').upsert({ shop_id: shopId, tenant_id: tenantId, template_type: upload.templateType, view: upload.view, mockup_image_url: `${publicUrl}?v=${Date.now()}`, updated_at: new Date().toISOString() }, { onConflict: 'shop_id,template_type,view' });
+    if (error) throw classified(error, 'Enregistrement du mockup personnalisé impossible.');
+  }
+  async restoreCustomMockup(_actor: UserId, tenantId: string, shopId: string, templateType: MockupTemplateType, view: MockupView): Promise<void> {
+    await this.requireShop(tenantId, shopId);
+    const { error } = await this.client.from('shop_template_mockups').delete().eq('tenant_id', tenantId).eq('shop_id', shopId).eq('template_type', templateType).eq('view', view);
+    if (error) throw classified(error, 'Restauration du mockup Magrit impossible.');
+  }
   private async requireShop(tenantId: string, shopId: string) {
     const { data, error } = await this.client.from('shops').select('id').eq('tenant_id', tenantId).eq('id', shopId).maybeSingle();
     if (error) throw classified(error, 'Lecture de la boutique impossible.');
@@ -177,12 +200,14 @@ export class SupabaseShopsRepository implements ShopsRepository {
 type ShopRow = Database['public']['Tables']['shops']['Row'];
 type ProductRow = Database['public']['Tables']['shop_products']['Row'];
 type ProductLibraryRow = Database['public']['Tables']['product_library']['Row'];
+type CustomMockupRow = Database['public']['Tables']['shop_template_mockups']['Row'];
 function mapShop(row: Pick<ShopRow, 'id' | 'tenant_id' | 'owner_user_id' | 'slug' | 'name' | 'description' | 'theme' | 'logo_url' | 'address' | 'contact_email' | 'active' | 'library_ids' | 'excluded_product_ids' | 'hero_image_url' | 'tagline' | 'pim_catalog_mode' | 'pim_gamme_slugs' | 'access_mode' | 'created_at'>): ShopDto {
   if (!row.tenant_id) throw new ShopRejectedError('invalid_request', 'Boutique sans espace propriétaire.');
   const theme = row.theme && typeof row.theme === 'object' && !Array.isArray(row.theme) ? row.theme : {};
   return { id: row.id, tenantId: row.tenant_id, ownerUserId: row.owner_user_id, slug: row.slug, name: row.name, description: row.description ?? '', theme: { ...DEFAULT_THEME, ...theme }, logoUrl: row.logo_url ?? '', address: row.address ?? '', contactEmail: row.contact_email ?? '', active: row.active, libraryIds: row.library_ids ?? [], excludedProductIds: row.excluded_product_ids ?? [], heroImageUrl: row.hero_image_url, tagline: row.tagline, pimCatalogMode: row.pim_catalog_mode === true, pimGammeSlugs: row.pim_gamme_slugs ?? [], accessMode: row.access_mode === 'self_signup' ? 'self_signup' : 'invite_only', createdAt: row.created_at };
 }
 function mapProduct(row: Pick<ProductRow, 'id' | 'shop_id' | 'product_id' | 'name' | 'category' | 'description' | 'price_ht' | 'image_url' | 'config' | 'display_order' | 'created_at' | 'tenant_id' | 'gamme_slug'>): ShopProductDto { return { id: row.id, shopId: row.shop_id, productId: row.product_id, name: row.name, category: row.category, description: row.description ?? '', priceHt: Number(row.price_ht), imageUrl: row.image_url ?? '', config: toRecord(row.config), displayOrder: row.display_order, createdAt: row.created_at, tenantId: row.tenant_id, gammeSlug: row.gamme_slug }; }
+function mapCustomMockup(row: Pick<CustomMockupRow, 'shop_id' | 'template_type' | 'view' | 'mockup_image_url'>): ShopCustomMockup { return { shopId: row.shop_id, templateType: row.template_type as MockupTemplateType, view: row.view as MockupView, mockupImageUrl: row.mockup_image_url }; }
 function mapPublicShop(row: Pick<ShopRow, 'id' | 'tenant_id' | 'slug' | 'name' | 'description' | 'theme' | 'logo_url' | 'address' | 'contact_email' | 'active' | 'hero_image_url' | 'tagline' | 'access_mode' | 'created_at'>) {
   if (!row.tenant_id) throw new ShopRejectedError('invalid_request', 'Boutique sans espace propriétaire.');
   const theme = row.theme && typeof row.theme === 'object' && !Array.isArray(row.theme) ? row.theme : {};

@@ -5,7 +5,7 @@
  * seulement la dette historique d'augmenter pendant sa migration vers /api/v1.
  * Chaque story de migration doit supprimer les entrées devenues inutiles et
  * abaisser les compteurs ; la baseline ne doit jamais être augmentée.
- * Après AF13.3b : 27 fichiers importeurs et 90 références directes restantes.
+ * Après AF13.4 : 25 fichiers importeurs et 84 références directes restantes.
  * Le compteur inclut les appels où `supabase` et `.` sont séparés par un saut de ligne.
  */
 export const legacySupabaseUiImportFiles = new Set([
@@ -17,11 +17,9 @@ export const legacySupabaseUiImportFiles = new Set([
   'src/app/components/dashboard/DashboardTenantSettings.tsx',
   'src/app/components/dashboard/DashboardTenantSpaces.tsx',
   'src/app/components/dashboard/InviteUserModalV2.tsx',
-  'src/app/components/dashboard/ShopCustomMockups.tsx',
   'src/app/components/dashboard/commercial/DashboardCommercial.tsx',
   'src/app/components/dashboard/commercial/commercial.helpers.ts',
   'src/app/components/mockup/MockupImage.tsx',
-  'src/app/components/mockup/customMockup.helpers.ts',
   'src/app/components/shop/portal/AccountHub.tsx',
   'src/app/components/shop/portal/CheckoutPage.tsx',
   'src/app/components/shop/portal/PortalCatalog.tsx',
@@ -45,11 +43,9 @@ export const legacySupabaseUiReferenceLimits = new Map<string, number>([
   ['src/app/components/dashboard/DashboardTenantGammes.tsx', 3],
   ['src/app/components/dashboard/DashboardTenantSettings.tsx', 1],
   ['src/app/components/dashboard/DashboardTenantSpaces.tsx', 3],
-  ['src/app/components/dashboard/ShopCustomMockups.tsx', 4],
   ['src/app/components/dashboard/commercial/DashboardCommercial.tsx', 10],
   ['src/app/components/dashboard/commercial/commercial.helpers.ts', 2],
   ['src/app/components/mockup/MockupImage.helpers.ts', 3],
-  ['src/app/components/mockup/customMockup.helpers.ts', 2],
   ['src/app/components/shop/portal/AccountHub.tsx', 1],
   ['src/app/components/shop/portal/CheckoutPage.tsx', 4],
   ['src/app/components/shop/portal/PortalCatalog.tsx', 3],

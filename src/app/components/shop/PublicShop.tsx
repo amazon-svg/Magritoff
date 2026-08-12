@@ -785,5 +785,6 @@ function fromPublicShop(catalog: PublicShopCatalog): Shop {
     library_ids: [], excluded_product_ids: [], hero_image_url: shop.heroImageUrl,
     tagline: shop.tagline, pim_catalog_mode: false, pim_gamme_slugs: [],
     access_mode: shop.accessMode, created_at: shop.createdAt,
+    custom_mockups: catalog.customMockups,
   };
 }

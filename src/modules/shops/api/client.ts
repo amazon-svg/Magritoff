@@ -4,12 +4,14 @@ import {
   publicShopCatalogSchema, publicShopProbeSchema, shopProductSchema, shopProductsSchema, shopRemovalResultSchema, shopSchema, tenantShopsSchema,
   setShopPricingCommandSchema, shopPricingMutationResultSchema, shopPricingOverridesSchema,
   shopBrandAssetResultSchema,
+  shopCustomMockupMutationResultSchema, shopCustomMockupsSchema,
   updateShopCommandSchema, updateShopProductCommandSchema,
   type CreateShopCommand, type CreateShopProductCommand, type ShopDto,
   type ShopProductDto, type UpdateShopCommand, type UpdateShopProductCommand,
   type PublicShopCatalog, type PublicShopProbe,
   type ShopPricingOverride,
   type ShopBrandAssetKind,
+  type MockupTemplateType, type MockupView, type ShopCustomMockup,
 } from './contracts.ts';
 
 export class ShopsApiClient {
@@ -54,5 +56,15 @@ export class ShopsApiClient {
     const form = new FormData(); form.set('kind', kind); form.set('asset', file, file.name);
     const result = await this.client.requestForm({ method: 'POST', path: `${API_V1_BASE_PATH}/tenants/${tenantId}/shops/${shopId}/brand-assets`, form, responseSchema: shopBrandAssetResultSchema });
     return result.assetUrl;
+  }
+  customMockups(tenantId: string, shopId: string): Promise<ShopCustomMockup[]> {
+    return this.client.request({ path: `${API_V1_BASE_PATH}/tenants/${tenantId}/shops/${shopId}/custom-mockups`, responseSchema: shopCustomMockupsSchema });
+  }
+  async uploadCustomMockup(tenantId: string, shopId: string, templateType: MockupTemplateType, view: MockupView, file: File): Promise<void> {
+    const form = new FormData(); form.set('templateType', templateType); form.set('view', view); form.set('asset', file, file.name);
+    await this.client.requestForm({ method: 'POST', path: `${API_V1_BASE_PATH}/tenants/${tenantId}/shops/${shopId}/custom-mockups`, form, responseSchema: shopCustomMockupMutationResultSchema });
+  }
+  restoreCustomMockup(tenantId: string, shopId: string, templateType: MockupTemplateType, view: MockupView): Promise<void> {
+    return this.client.request({ method: 'DELETE', path: `${API_V1_BASE_PATH}/tenants/${tenantId}/shops/${shopId}/custom-mockups/${templateType}/${view}`, responseSchema: shopCustomMockupMutationResultSchema }).then(() => undefined);
   }
 }

@@ -64,12 +64,22 @@ export const publicGammeSchema = z.object({
   matching_rules: z.record(z.string(), z.unknown()), display_order: z.number().int(),
   image_url: z.string().nullable().optional(),
 });
+export const mockupTemplateTypeSchema = z.enum([
+  'carteVisite', 'flyer', 'brochure', 'etiquette', 'kakemono', 'packaging', 'depliant',
+]);
+export const mockupViewSchema = z.enum(['front', 'back']);
+export const shopCustomMockupSchema = z.object({
+  shopId: z.string().uuid(), templateType: mockupTemplateTypeSchema,
+  view: mockupViewSchema, mockupImageUrl: z.string().url(),
+});
+export const shopCustomMockupsSchema = z.array(shopCustomMockupSchema);
 export const publicShopCatalogSchema = z.object({
   shop: publicShopSchema,
   products: z.array(publicShopProductSchema),
   gammes: z.array(publicGammeSchema),
   definitions: z.array(z.record(z.string(), z.unknown())),
   subscribedSlugs: z.array(z.string()),
+  customMockups: shopCustomMockupsSchema,
 });
 export const shopPricingOverrideSchema = z.object({
   libraryProductId: z.string().uuid(), priceHtOverride: z.number().positive(),
@@ -79,6 +89,7 @@ export const setShopPricingCommandSchema = z.object({ priceHtOverride: z.number(
 export const shopPricingMutationResultSchema = z.object({ updated: z.literal(true) });
 export const shopBrandAssetKindSchema = z.enum(['logo', 'hero']);
 export const shopBrandAssetResultSchema = z.object({ assetUrl: z.string().url() });
+export const shopCustomMockupMutationResultSchema = z.object({ updated: z.literal(true) });
 
 export type ShopDto = z.infer<typeof shopSchema>;
 export type ShopProductDto = z.infer<typeof shopProductSchema>;
@@ -92,3 +103,7 @@ export type ShopPricingOverride = z.infer<typeof shopPricingOverrideSchema>;
 export type SetShopPricingCommand = z.infer<typeof setShopPricingCommandSchema>;
 export type ShopBrandAssetKind = z.infer<typeof shopBrandAssetKindSchema>;
 export type ShopBrandAssetUpload = Readonly<{ kind: ShopBrandAssetKind; fileName: string; contentType: string; bytes: ArrayBuffer }>;
+export type MockupTemplateType = z.infer<typeof mockupTemplateTypeSchema>;
+export type MockupView = z.infer<typeof mockupViewSchema>;
+export type ShopCustomMockup = z.infer<typeof shopCustomMockupSchema>;
+export type ShopCustomMockupUpload = Readonly<{ templateType: MockupTemplateType; view: MockupView; fileName: string; contentType: string; bytes: ArrayBuffer }>;
