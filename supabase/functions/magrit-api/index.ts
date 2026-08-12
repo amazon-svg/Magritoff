@@ -17,6 +17,9 @@ import { ResendInvitationEmailSender } from '../../../src/adapters/resend/invita
 import { RolesService } from '../../../src/modules/roles/application/roles-service.ts';
 import { SupabaseRolesRepository } from '../../../src/adapters/supabase/roles-repository.ts';
 import { createRolesRoutes } from '../../../src/server/api/roles-routes.ts';
+import { ShopsService } from '../../../src/modules/shops/application/shops-service.ts';
+import { SupabaseShopsRepository } from '../../../src/adapters/supabase/shops-repository.ts';
+import { createShopsRoutes } from '../../../src/server/api/shops-routes.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -46,6 +49,7 @@ export async function handleRequest(request: Request): Promise<Response> {
   const invitationsService = new InvitationsService(new SupabaseInvitationsRepository(client, invitationEmailSender));
   const membersService = new MembersService(new SupabaseMembersRepository(client));
   const rolesService = new RolesService(new SupabaseRolesRepository(client));
+  const shopsService = new ShopsService(new SupabaseShopsRepository(client));
   const handler = createApiV1Application({
     routes: [
       ...createSessionRoutes(service),
@@ -53,6 +57,7 @@ export async function handleRequest(request: Request): Promise<Response> {
       ...createInvitationsRoutes(invitationsService),
       ...createMembersRoutes(membersService),
       ...createRolesRoutes(rolesService),
+      ...createShopsRoutes(shopsService),
     ],
     actorResolver: {
       async resolve() {

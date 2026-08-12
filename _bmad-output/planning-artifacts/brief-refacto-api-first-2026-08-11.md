@@ -123,9 +123,11 @@ src/
 - AF12.2 : édition, archivage et réordonnancement atomique des définitions de
   rôles via l’API ; `RoleEditorDialog` et `OrderRoleAdminPage` sortent de
   Supabase — livré ;
-- suite : migrer les données et commandes de configuration des boutiques et
-  du catalogue, en conservant la revue fonctionnelle invitations/membres/rôles
-  comme chantier produit distinct.
+- AF13.1 : CRUD tenant des boutiques et produits manuels via l’API ;
+  `ShopsContext` sort de Supabase — livré ;
+- suite : migrer la lecture publique sécurisée des boutiques et catalogues,
+  puis les assets et prix négociés de l’éditeur, en conservant la revue
+  fonctionnelle invitations/membres/rôles comme chantier produit distinct.
 
 ## Critères de succès
 

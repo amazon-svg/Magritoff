@@ -1,0 +1,25 @@
+import { parseId, type UserId } from '../../kernel/ids/index.ts';
+import { createShopCommandSchema, createShopProductCommandSchema, shopMutationResultSchema, shopProductSchema, shopProductsSchema, shopRemovalResultSchema, shopSchema, tenantShopsSchema, updateShopCommandSchema, updateShopProductCommandSchema } from '../../modules/shops/api/contracts.ts';
+import { ShopRejectedError } from '../../modules/shops/application/shops-repository.ts';
+import type { ShopsService } from '../../modules/shops/application/shops-service.ts';
+import { API_V1_BASE_PATH } from '../../platform/api/contracts.ts';
+import { ApiHttpError } from './errors.ts';
+import { defineJsonRoute, type ApiRequestContext, type ApiRoute } from './routes.ts';
+
+export function createShopsRoutes(service: ShopsService): readonly ApiRoute[] {
+  const base = `${API_V1_BASE_PATH}/tenants/{tenantId}/shops`;
+  return [
+    defineJsonRoute({ method: 'GET', path: base, authentication: 'required', inputSchema: null, outputSchema: tenantShopsSchema, async handle(context) { return execute(async () => ({ status: 200, body: await service.list(actor(context), param(context, 'tenantId')) })); } }),
+    defineJsonRoute({ method: 'POST', path: base, authentication: 'required', inputSchema: createShopCommandSchema, outputSchema: shopSchema, async handle(context, command) { return execute(async () => ({ status: 201, body: await service.create(actor(context), param(context, 'tenantId'), command) })); } }),
+    defineJsonRoute({ method: 'PATCH', path: `${base}/{shopId}`, authentication: 'required', inputSchema: updateShopCommandSchema, outputSchema: shopSchema, async handle(context, command) { return execute(async () => ({ status: 200, body: await service.update(actor(context), param(context, 'tenantId'), param(context, 'shopId'), command) })); } }),
+    defineJsonRoute({ method: 'DELETE', path: `${base}/{shopId}`, authentication: 'required', inputSchema: null, outputSchema: shopRemovalResultSchema, async handle(context) { return execute(async () => { await service.remove(actor(context), param(context, 'tenantId'), param(context, 'shopId')); return { status: 200, body: { removed: true as const } }; }); } }),
+    defineJsonRoute({ method: 'GET', path: `${base}/{shopId}/products`, authentication: 'required', inputSchema: null, outputSchema: shopProductsSchema, async handle(context) { return execute(async () => ({ status: 200, body: await service.products(actor(context), param(context, 'tenantId'), param(context, 'shopId')) })); } }),
+    defineJsonRoute({ method: 'POST', path: `${base}/{shopId}/products`, authentication: 'required', inputSchema: createShopProductCommandSchema, outputSchema: shopProductSchema, async handle(context, command) { return execute(async () => ({ status: 201, body: await service.addProduct(actor(context), param(context, 'tenantId'), param(context, 'shopId'), command) })); } }),
+    defineJsonRoute({ method: 'PATCH', path: `${base}/{shopId}/products/{productId}`, authentication: 'required', inputSchema: updateShopProductCommandSchema, outputSchema: shopMutationResultSchema, async handle(context, command) { return execute(async () => { await service.updateProduct(actor(context), param(context, 'tenantId'), param(context, 'shopId'), param(context, 'productId'), command); return { status: 200, body: { updated: true as const } }; }); } }),
+    defineJsonRoute({ method: 'DELETE', path: `${base}/{shopId}/products/{productId}`, authentication: 'required', inputSchema: null, outputSchema: shopRemovalResultSchema, async handle(context) { return execute(async () => { await service.removeProduct(actor(context), param(context, 'tenantId'), param(context, 'shopId'), param(context, 'productId')); return { status: 200, body: { removed: true as const } }; }); } }),
+  ];
+}
+async function execute<T>(operation: () => Promise<T>): Promise<T> { try { return await operation(); } catch (error) { if (error instanceof ShopRejectedError) throw httpError(error); throw error; } }
+function httpError(error: ShopRejectedError) { const status = error.code === 'shop_not_found' || error.code === 'product_not_found' ? 404 : error.code === 'conflict' ? 409 : error.code === 'invalid_request' ? 422 : 403; return new ApiHttpError({ type: 'about:blank', title: status === 404 ? 'Boutique introuvable' : status === 409 ? 'Conflit boutique' : status === 422 ? 'Modification boutique invalide' : 'Gestion boutique interdite', status, code: `shops.${error.code}`, detail: error.message }); }
+function actor(context: ApiRequestContext): UserId { if (context.actor?.kind !== 'user') throw new ApiHttpError({ type: 'about:blank', title: 'Acteur utilisateur requis', status: 403, code: 'identity.user_actor_required' }); return context.actor.userId as UserId; }
+function param(context: ApiRequestContext, name: string): string { const parsed = parseId(context.params[name] ?? ''); if (!parsed.ok) throw new ApiHttpError({ type: 'about:blank', title: 'Identifiant invalide', status: 422, code: 'api.validation_failed' }); return parsed.value; }

@@ -370,7 +370,7 @@ export function DashboardShopEditor() {
       // Legacy shop_product : pas de dialog, supprime direct.
       if (confirm(`Retirer "${product.name}" de la boutique ?`)) {
         void (async () => {
-          await removeShopProduct(product.sourceId);
+          await removeShopProduct(shop.id, product.sourceId);
           setShopProducts((prev) => prev.filter((sp) => sp.id !== product.sourceId));
         })();
       }

@@ -5,10 +5,11 @@
  * v3 exigent tenant_id pour insert/select. On denormalise tenant_id sur
  * shop_products a l'insert pour eviter un join a chaque select.
  */
-import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
-import { supabase } from '/utils/supabase/client';
+import { createContext, useContext, useEffect, useState, useCallback, useMemo, ReactNode } from 'react';
 import { useAuth } from './AuthContext';
 import { useTenant } from './TenantContext';
+import { ShopsApiClient, type ShopDto, type ShopProductDto } from '../../modules/shops';
+import { FetchApiClient } from '../../platform/api';
 
 export interface ShopTheme {
   primaryColor: string;
@@ -79,16 +80,6 @@ export interface ShopProduct {
   gamme_slug?: string | null;
 }
 
-const DEFAULT_THEME: ShopTheme = {
-  primaryColor: '#1e3a8a',
-  accentColor: '#f59e0b',
-  mode: 'light',
-  secondaryColor: '#6b7280',
-  textColor: '#0f172a',
-  bgColor: '#ffffff',
-  fontPairing: 'system',
-};
-
 export type NewShopInput = {
   name: string;
   description?: string;
@@ -109,8 +100,8 @@ interface ShopsContextType {
   deleteShop: (id: string) => Promise<void>;
   getShopProducts: (shopId: string) => Promise<ShopProduct[]>;
   addShopProduct: (shopId: string, product: Omit<ShopProduct, 'id' | 'shop_id' | 'created_at'>) => Promise<void>;
-  updateShopProduct: (id: string, patch: Partial<ShopProduct>) => Promise<void>;
-  removeShopProduct: (id: string) => Promise<void>;
+  updateShopProduct: (shopId: string, id: string, patch: Partial<ShopProduct>) => Promise<void>;
+  removeShopProduct: (shopId: string, id: string) => Promise<void>;
   /** Ajoute un product_library.id a shops.excluded_product_ids : masque
    *  ce produit de la boutique sans le supprimer de la bibliotheque. */
   excludeProduct: (shopId: string, libraryProductId: string) => Promise<void>;
@@ -121,16 +112,14 @@ interface ShopsContextType {
 
 const ShopsContext = createContext<ShopsContextType | undefined>(undefined);
 
-function randomSlug(): string {
-  const part = () => Math.random().toString(36).slice(2, 8);
-  return `${part()}-${part()}`;
-}
-
 export function ShopsProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const { currentTenant } = useTenant();
   const [shops, setShops] = useState<Shop[]>([]);
   const [loading, setLoading] = useState(false);
+  const shopsApi = useMemo(() => new ShopsApiClient(new FetchApiClient(
+    '', globalThis.fetch, () => session?.access_token ?? null,
+  )), [session?.access_token]);
 
   const refresh = useCallback(async () => {
     if (!user || !currentTenant) {
@@ -138,15 +127,10 @@ export function ShopsProvider({ children }: { children: ReactNode }) {
       return;
     }
     setLoading(true);
-    const { data, error } = await supabase
-      .from('shops')
-      .select('*')
-      .eq('tenant_id', currentTenant.id)
-      .order('created_at', { ascending: false });
-    if (error) console.error('[Shops] fetch failed', error.message);
-    if (data) setShops(data as Shop[]);
-    setLoading(false);
-  }, [user, currentTenant?.id]);
+    try { setShops((await shopsApi.list(currentTenant.id)).map(fromShopDto)); }
+    catch (error) { console.error('[Shops] fetch failed', error instanceof Error ? error.message : error); }
+    finally { setLoading(false); }
+  }, [user, currentTenant?.id, shopsApi]);
 
   useEffect(() => {
     refresh();
@@ -154,85 +138,32 @@ export function ShopsProvider({ children }: { children: ReactNode }) {
 
   const createShop = async (input: NewShopInput) => {
     if (!user || !currentTenant) return null;
-    const { data, error } = await supabase
-      .from('shops')
-      .insert({
-        owner_user_id: user.id,
-        tenant_id: currentTenant.id,
-        slug: randomSlug(),
-        name: input.name,
-        description: input.description ?? '',
-        logo_url: input.logo_url ?? '',
-        address: input.address ?? '',
-        contact_email: input.contact_email ?? '',
-        theme: { ...DEFAULT_THEME, ...(input.theme ?? {}) },
-        active: true,
-        library_ids: [],
-        excluded_product_ids: [],
-        hero_image_url: input.hero_image_url ?? null,
-        tagline: input.tagline ?? null,
-      })
-      .select()
-      .single();
-    if (error || !data) {
-      console.error('[Shops] create failed', {
-        message: error?.message,
-        details: (error as any)?.details,
-        hint: (error as any)?.hint,
-        code: (error as any)?.code,
-      });
-      throw new Error(error?.message || 'Impossible de créer la boutique');
-    }
-    setShops((prev) => [data as Shop, ...prev]);
-    return data as Shop;
+    const created = fromShopDto(await shopsApi.create(currentTenant.id, {
+      name: input.name, description: input.description ?? '', logoUrl: input.logo_url ?? '',
+      address: input.address ?? '', contactEmail: input.contact_email ?? '',
+      theme: input.theme ?? {}, heroImageUrl: input.hero_image_url ?? null, tagline: input.tagline ?? null,
+    }));
+    setShops((prev) => [created, ...prev]);
+    return created;
   };
 
   const updateShop = async (id: string, patch: Partial<Shop>) => {
     if (!user) return;
-    console.log('[Shops] update', { id, patch });
-    const { data, error } = await supabase
-      .from('shops')
-      .update(patch)
-      .eq('id', id)
-      .eq('owner_user_id', user.id)
-      .select()
-      .single();
-    if (error) {
-      console.error('[Shops] update failed', {
-        message: error.message,
-        code: (error as any).code,
-        details: (error as any).details,
-      });
-      throw new Error(error.message);
-    }
-    if (data) {
-      console.log('[Shops] update ok', { returned: data });
-      setShops((prev) => prev.map((s) => (s.id === id ? (data as Shop) : s)));
-    }
+    if (!currentTenant) return;
+    const updated = fromShopDto(await shopsApi.update(currentTenant.id, id, toUpdateCommand(patch)));
+    setShops((prev) => prev.map((shop) => shop.id === id ? updated : shop));
   };
 
   const deleteShop = async (id: string) => {
     if (!user) return;
-    const { error } = await supabase
-      .from('shops')
-      .delete()
-      .eq('id', id)
-      .eq('owner_user_id', user.id);
-    if (error) console.error('[Shops] delete failed', error.message);
-    else setShops((prev) => prev.filter((s) => s.id !== id));
+    if (!currentTenant) return;
+    await shopsApi.remove(currentTenant.id, id);
+    setShops((prev) => prev.filter((s) => s.id !== id));
   };
 
   const getShopProducts = async (shopId: string): Promise<ShopProduct[]> => {
-    const { data, error } = await supabase
-      .from('shop_products')
-      .select('*')
-      .eq('shop_id', shopId)
-      .order('display_order', { ascending: true });
-    if (error) {
-      console.error('[Shops] fetch products failed', error.message);
-      return [];
-    }
-    return (data ?? []) as ShopProduct[];
+    if (!currentTenant) return [];
+    return (await shopsApi.products(currentTenant.id, shopId)).map(fromProductDto);
   };
 
   const addShopProduct = async (
@@ -240,20 +171,17 @@ export function ShopsProvider({ children }: { children: ReactNode }) {
     product: Omit<ShopProduct, 'id' | 'shop_id' | 'created_at'>
   ) => {
     if (!currentTenant) return;
-    const { error } = await supabase
-      .from('shop_products')
-      .insert({ ...product, shop_id: shopId, tenant_id: currentTenant.id });
-    if (error) console.error('[Shops] add product failed', error.message);
+    await shopsApi.addProduct(currentTenant.id, shopId, toProductCommand(product));
   };
 
-  const updateShopProduct = async (id: string, patch: Partial<ShopProduct>) => {
-    const { error } = await supabase.from('shop_products').update(patch).eq('id', id);
-    if (error) console.error('[Shops] update product failed', error.message);
+  const updateShopProduct = async (shopId: string, id: string, patch: Partial<ShopProduct>) => {
+    if (!currentTenant) return;
+    await shopsApi.updateProduct(currentTenant.id, shopId, id, toProductCommand(patch));
   };
 
-  const removeShopProduct = async (id: string) => {
-    const { error } = await supabase.from('shop_products').delete().eq('id', id);
-    if (error) console.error('[Shops] remove product failed', error.message);
+  const removeShopProduct = async (shopId: string, id: string) => {
+    if (!currentTenant) return;
+    await shopsApi.removeProduct(currentTenant.id, shopId, id);
   };
 
   // Exclusions : ajoute/retire un product_library.id du array
@@ -298,6 +226,11 @@ export function ShopsProvider({ children }: { children: ReactNode }) {
     </ShopsContext.Provider>
   );
 }
+
+function fromShopDto(shop: ShopDto): Shop { return { id: shop.id, owner_user_id: shop.ownerUserId, tenant_id: shop.tenantId, slug: shop.slug, name: shop.name, description: shop.description, theme: shop.theme, logo_url: shop.logoUrl, address: shop.address, contact_email: shop.contactEmail, active: shop.active, library_ids: shop.libraryIds, excluded_product_ids: shop.excludedProductIds, hero_image_url: shop.heroImageUrl, tagline: shop.tagline, pim_catalog_mode: shop.pimCatalogMode, pim_gamme_slugs: shop.pimGammeSlugs, access_mode: shop.accessMode, created_at: shop.createdAt }; }
+function fromProductDto(product: ShopProductDto): ShopProduct { return { id: product.id, shop_id: product.shopId, product_id: product.productId, name: product.name, category: product.category, description: product.description, price_ht: product.priceHt, image_url: product.imageUrl, config: product.config, display_order: product.displayOrder, created_at: product.createdAt, tenant_id: product.tenantId, gamme_slug: product.gammeSlug }; }
+function toUpdateCommand(patch: Partial<Shop>) { return { name: patch.name, description: patch.description, logoUrl: patch.logo_url, address: patch.address, contactEmail: patch.contact_email, theme: patch.theme, active: patch.active, libraryIds: patch.library_ids, excludedProductIds: patch.excluded_product_ids, heroImageUrl: patch.hero_image_url, tagline: patch.tagline, pimCatalogMode: patch.pim_catalog_mode, pimGammeSlugs: patch.pim_gamme_slugs, accessMode: patch.access_mode }; }
+function toProductCommand(product: Partial<ShopProduct>) { return { productId: product.product_id, name: product.name, category: product.category, description: product.description, priceHt: product.price_ht, imageUrl: product.image_url, config: product.config, displayOrder: product.display_order, gammeSlug: product.gamme_slug }; }
 
 export function useShops() {
   const ctx = useContext(ShopsContext);

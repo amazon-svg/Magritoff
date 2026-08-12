@@ -181,6 +181,8 @@ describe('frontières API-first et modulaires', () => {
     expect(edgeEntry).toContain('createMembersRoutes(membersService)');
     expect(edgeEntry).toContain('SupabaseRolesRepository(client)');
     expect(edgeEntry).toContain('createRolesRoutes(rolesService)');
+    expect(edgeEntry).toContain('SupabaseShopsRepository(client)');
+    expect(edgeEntry).toContain('createShopsRoutes(shopsService)');
     expect(edgeEntry).not.toContain('SUPABASE_SERVICE_ROLE_KEY');
   });
 
@@ -206,6 +208,13 @@ describe('frontières API-first et modulaires', () => {
     expect(migration).toContain('get diagnostics _matched = row_count');
     expect(migration).toContain('grant execute on function public.api_swap_tenant_role_order');
     expect(migration).not.toContain('service_role');
+  });
+
+  it('sort le contexte boutiques du fournisseur', () => {
+    const source = readFileSync(resolve(process.cwd(), 'src/app/contexts/ShopsContext.tsx'), 'utf8');
+    expect(source).toContain('ShopsApiClient');
+    expect(source).not.toContain('utils/supabase');
+    expect(source).not.toMatch(/\bsupabase\s*\./);
   });
 
   it('isole le renvoi des invitations derrière le port email', () => {

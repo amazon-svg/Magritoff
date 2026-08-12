@@ -1041,6 +1041,7 @@ export type Database = {
       }
       shops: {
         Row: {
+          access_mode: string
           active: boolean
           address: string | null
           contact_email: string | null
@@ -1053,12 +1054,15 @@ export type Database = {
           logo_url: string | null
           name: string
           owner_user_id: string
+          pim_catalog_mode: boolean
+          pim_gamme_slugs: string[]
           slug: string
           tagline: string | null
           tenant_id: string | null
           theme: Json
         }
         Insert: {
+          access_mode?: string
           active?: boolean
           address?: string | null
           contact_email?: string | null
@@ -1071,12 +1075,15 @@ export type Database = {
           logo_url?: string | null
           name: string
           owner_user_id: string
+          pim_catalog_mode?: boolean
+          pim_gamme_slugs?: string[]
           slug: string
           tagline?: string | null
           tenant_id?: string | null
           theme?: Json
         }
         Update: {
+          access_mode?: string
           active?: boolean
           address?: string | null
           contact_email?: string | null
@@ -1089,6 +1096,8 @@ export type Database = {
           logo_url?: string | null
           name?: string
           owner_user_id?: string
+          pim_catalog_mode?: boolean
+          pim_gamme_slugs?: string[]
           slug?: string
           tagline?: string | null
           tenant_id?: string | null
