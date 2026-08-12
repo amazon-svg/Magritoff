@@ -178,6 +178,8 @@ src/
   `AuthContext` ne dépend plus du SDK — livré ;
 - AF21.2 : protocole binaire des mockups et URLs de stockage encapsulés dans
   une passerelle Shops ; les composants visuels sortent de Supabase — livré ;
+- AF22.1 : protocole SSE Claude et éditorial de catégorie confinés dans une
+  passerelle legacy ; le chat sort de Supabase — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.

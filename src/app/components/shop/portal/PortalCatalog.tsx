@@ -4,7 +4,7 @@ import type { Shop, ShopProduct } from '../../../contexts/ShopsContext';
 import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
 import { resolveProductImage } from '../../../utils/productImages';
 import { supabase } from '/utils/supabase/client';
-import { projectId, publicAnonKey } from '/utils/supabase/info';
+import { browserAssistantGateway } from '../../../../adapters/supabase/browser-assistant-gateway';
 import { computeClariprintQuoteSafe } from '../../../../server/clariprint/ClariprintAdapter';
 import { useClaudeSseStream, ClaudeSseStreamError } from '../../../hooks/useClaudeSseStream';
 import { ENABLE_STREAMING_CHAT } from '../../../lib/featureFlags';
@@ -218,11 +218,11 @@ export function PortalCatalog({
       // reponse et le filtre texte local restait muet sur une phrase en langage
       // naturel = ecran sans reponse. Le streaming donne un retour vivant
       // (aiStreaming via onDelta) et le payload `done` porte les memes configs.
-      const baseUrl = `https://${projectId}.supabase.co/functions/v1/make-server-e3db71a4`;
+      const assistant = browserAssistantGateway.connection(ENABLE_STREAMING_CHAT);
       const data = await sendSseStream(
         {
-          endpoint: `${baseUrl}/${ENABLE_STREAMING_CHAT ? 'claude-proxy-stream' : 'claude-proxy'}`,
-          authToken: publicAnonKey,
+          endpoint: assistant.endpoint,
+          authToken: assistant.authorizationToken,
           body: { messages: [{ role: 'user', content: prompt }] },
           onDelta: ENABLE_STREAMING_CHAT ? () => setAiStreaming(true) : undefined,
         },
@@ -351,23 +351,18 @@ export function PortalCatalog({
     (async () => {
       try {
         const CATEGORY_EDITORIAL_TIMEOUT_MS = 12_000;
-        const invokePromise = supabase.functions.invoke(
-          'make-server-e3db71a4/category-editorial',
-          {
-            body: {
-              familyName: activeFamily.label,
-              subcategories: activeFamily.subcategories.filter((s) => s.count > 0).map((s) => s.label),
-              sampleProducts: products.slice(0, 8).map((p) => p.name),
-            },
-          },
-        );
+        const invokePromise = browserAssistantGateway.categoryEditorial({
+          familyName: activeFamily.label,
+          subcategories: activeFamily.subcategories.filter((s) => s.count > 0).map((s) => s.label),
+          sampleProducts: products.slice(0, 8).map((p) => p.name),
+        });
         const timeoutPromise = new Promise<never>((_, reject) => {
           setTimeout(() => reject(new Error('category_editorial_timeout')), CATEGORY_EDITORIAL_TIMEOUT_MS);
         });
-        const { data } = (await Promise.race([invokePromise, timeoutPromise])) as Awaited<
+        const data = (await Promise.race([invokePromise, timeoutPromise])) as Awaited<
           typeof invokePromise
         >;
-        const ed = (data?.editorial ?? {}) as CategoryEditorial;
+        const ed = data as CategoryEditorial;
         if (cancelled) return;
         setEditorial(ed);
         try {

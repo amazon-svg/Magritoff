@@ -3,7 +3,7 @@ import {
   Send, History, X, CheckSquare, Square, BookmarkPlus,
   MessageSquare, SquarePen, Paperclip, Mic, Sparkles,
 } from "lucide-react";
-import { projectId, publicAnonKey } from "/utils/supabase/info";
+import { browserAssistantGateway } from '../../adapters/supabase/browser-assistant-gateway';
 import { MagritLogo } from "./brand/MagritLogo";
 import { ProductCard } from "./ProductCard";
 import { CartButton } from "./CartButton";
@@ -182,7 +182,7 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
     try {
       // R2 Phase A : passe par useClaudeSseStream (extraction + AbortController
       // + detection billing). Le payload final reste de meme forme.
-      const baseUrl = `https://${projectId}.supabase.co/functions/v1/make-server-e3db71a4`;
+      const assistant = browserAssistantGateway.connection(ENABLE_STREAMING_CHAT);
       const requestBody = {
         messages: contextMessages,
         userId: user?.id ?? null,
@@ -192,8 +192,8 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
 
       const data = await sendSseStream(
         {
-          endpoint: `${baseUrl}/${ENABLE_STREAMING_CHAT ? 'claude-proxy-stream' : 'claude-proxy'}`,
-          authToken: publicAnonKey,
+          endpoint: assistant.endpoint,
+          authToken: assistant.authorizationToken,
           body: requestBody,
           onDelta: ENABLE_STREAMING_CHAT
             ? () => setStreamingChunks((n) => (n ?? 0) + 1)
