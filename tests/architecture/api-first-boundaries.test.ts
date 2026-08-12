@@ -332,6 +332,17 @@ describe('frontières API-first et modulaires', () => {
     expect(utility).not.toMatch(/\bsupabase\s*\./);
   });
 
+  it('sort le CRUD éditable des devis du fournisseur', () => {
+    const context = readFileSync(resolve(process.cwd(), 'src/app/contexts/QuotesContext.tsx'), 'utf8');
+    const repository = readFileSync(resolve(process.cwd(), 'src/adapters/supabase/quotes-repository.ts'), 'utf8');
+    expect(context).toContain('QuotesApiClient');
+    expect(context).not.toContain('utils/supabase');
+    expect(context).not.toMatch(/\bsupabase\s*\./);
+    expect(repository).toContain("scope === 'all'");
+    expect(repository).toContain("rpc('user_role_in_tenant'");
+    expect(repository).toContain("rpc('is_super_admin'");
+  });
+
   it('isole le renvoi des invitations derrière le port email', () => {
     const repository = readFileSync(resolve(process.cwd(), 'src/adapters/supabase/invitations-repository.ts'), 'utf8');
     expect(repository).toContain('InvitationEmailSender');

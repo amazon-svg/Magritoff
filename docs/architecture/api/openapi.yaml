@@ -73,6 +73,65 @@ paths:
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
         '403': { description: Création interdite dans ce tenant }
         '422': { description: Données du brouillon invalides }
+  /tenants/{tenantId}/quotes:
+    get:
+      operationId: listQuotes
+      summary: Lister les devis du tenant selon le scope autorisé
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: tenantId, in: path, required: true, schema: { type: string } }
+        - { name: scope, in: query, schema: { type: string, enum: [mine, all], default: mine } }
+      responses:
+        '200': { description: Devis accessibles, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/QuoteRecord' } } } } }
+        '403': { description: Scope tous les devis interdit }
+    post:
+      operationId: createEditableQuote
+      summary: Créer un devis éditable avec ses lignes
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: tenantId, in: path, required: true, schema: { type: string } }
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateEditableQuote' } } } }
+      responses:
+        '201': { description: Devis créé, content: { application/json: { schema: { $ref: '#/components/schemas/QuoteDraftCreated' } } } }
+  /tenants/{tenantId}/quotes/{quoteId}:
+    get:
+      operationId: getQuote
+      summary: Charger un devis et ses lignes
+      security: [{ bearerAuth: [] }]
+      parameters: &quotePathParameters
+        - { name: tenantId, in: path, required: true, schema: { type: string } }
+        - { name: quoteId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: Devis complet, content: { application/json: { schema: { $ref: '#/components/schemas/QuoteWithLines' } } } }
+        '404': { description: Devis introuvable }
+    put:
+      operationId: saveQuote
+      summary: Remplacer les lignes et mettre à jour le devis
+      security: [{ bearerAuth: [] }]
+      parameters: *quotePathParameters
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SaveQuote' } } } }
+      responses: { '200': { description: Devis mis à jour } }
+    patch:
+      operationId: setQuoteStatus
+      summary: Modifier le statut d un devis
+      security: [{ bearerAuth: [] }]
+      parameters: *quotePathParameters
+      requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: false, required: [status], properties: { status: { type: string } } } } } }
+      responses: { '200': { description: Statut mis à jour } }
+    delete:
+      operationId: deleteQuote
+      summary: Supprimer un devis et ses lignes
+      security: [{ bearerAuth: [] }]
+      parameters: *quotePathParameters
+      responses: { '200': { description: Devis supprimé } }
+  /tenants/{tenantId}/quotes/{quoteId}/duplicate:
+    post:
+      operationId: duplicateQuote
+      summary: Dupliquer un devis pour l utilisateur courant
+      security: [{ bearerAuth: [] }]
+      parameters: *quotePathParameters
+      requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: false, required: [reference], properties: { reference: { type: string } } } } } }
+      responses: { '201': { description: Copie créée, content: { application/json: { schema: { $ref: '#/components/schemas/QuoteDraftCreated' } } } } }
   /session:
     get:
       operationId: getSessionBootstrap
@@ -597,6 +656,73 @@ components:
       required: [id]
       properties:
         id: { type: string, minLength: 1 }
+    QuoteLineDraft:
+      type: object
+      additionalProperties: false
+      required: [product_name, product_config, quantity, unit_cost_ht, unit_price_ht, margin_pct, line_total_ht, position]
+      properties:
+        product_name: { type: string }
+        product_config: {}
+        quantity: { type: number }
+        unit_cost_ht: { type: number }
+        unit_price_ht: { type: number }
+        margin_pct: { type: number }
+        line_total_ht: { type: number }
+        position: { type: integer }
+    QuoteLine:
+      allOf:
+        - { $ref: '#/components/schemas/QuoteLineDraft' }
+        - type: object
+          required: [id, quote_id]
+          properties:
+            id: { type: string }
+            quote_id: { type: string }
+            created_at: { type: string }
+    QuoteRecord:
+      type: object
+      additionalProperties: false
+      required: [id, user_id, tenant_id, reference, product_name, client_name, status, total_ht, total_ttc, created_at, updated_at]
+      properties:
+        id: { type: string }
+        user_id: { type: string }
+        tenant_id: { type: [string, 'null'] }
+        reference: { type: string }
+        product_name: { type: string }
+        client_name: { type: [string, 'null'] }
+        status: { type: string }
+        total_ht: { type: [number, 'null'] }
+        total_ttc: { type: [number, 'null'] }
+        created_at: { type: string }
+        updated_at: { type: string }
+    QuoteWithLines:
+      allOf:
+        - { $ref: '#/components/schemas/QuoteRecord' }
+        - type: object
+          required: [lines]
+          properties:
+            lines: { type: array, items: { $ref: '#/components/schemas/QuoteLine' } }
+    CreateEditableQuote:
+      type: object
+      additionalProperties: false
+      required: [reference, productName, clientName, totalHt, totalTtc, lines]
+      properties:
+        reference: { type: string }
+        productName: { type: string }
+        clientName: { type: [string, 'null'] }
+        totalHt: { type: number, minimum: 0 }
+        totalTtc: { type: number, minimum: 0 }
+        lines: { type: array, items: { $ref: '#/components/schemas/QuoteLineDraft' } }
+    SaveQuote:
+      type: object
+      additionalProperties: false
+      required: [totalHt, totalTtc, lines]
+      properties:
+        clientName: { type: [string, 'null'] }
+        status: { type: string }
+        productName: { type: string }
+        totalHt: { type: number, minimum: 0 }
+        totalTtc: { type: number, minimum: 0 }
+        lines: { type: array, items: { $ref: '#/components/schemas/QuoteLineDraft' } }
     ApiProblem:
       type: object
       additionalProperties: false

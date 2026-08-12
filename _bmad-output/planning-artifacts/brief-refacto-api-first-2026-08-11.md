@@ -162,6 +162,8 @@ src/
   panneau ne dépend plus de l’adaptateur Edge legacy — livré ;
 - AF18.1 : création rapide d’un brouillon via le nouveau module Quotes ;
   `persistQuote` sort de Supabase et l’auteur vient du bearer — livré ;
+- AF18.2 : CRUD complet des devis éditables via Quotes, avec contrôle serveur
+  du scope `all` ; `QuotesContext` sort de Supabase — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.
