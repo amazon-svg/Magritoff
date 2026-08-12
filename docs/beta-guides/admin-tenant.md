@@ -99,6 +99,13 @@ Les mockups personnalisés suivent le même principe. Leur liste est incluse dan
 le catalogue uniquement après le contrôle d’accès à la boutique ; le portail ne
 déclenche plus une requête de données séparée pour chaque carte produit.
 
+### Gammes actives du tenant
+
+La page « Gammes actives » lit et modifie les souscriptions par l’API Magrit.
+Cocher un parent envoie une commande groupée pour le parent et ses enfants ; le
+tenant et l’auteur ne sont jamais fournis par l’interface. Un membre sans rôle
+owner/admin reste en lecture seule et le serveur conserve le contrôle RLS.
+
 ### Choisir le mode d’accès
 
 - **Sur invitation (`invite_only`, valeur par défaut)** : aucun catalogue

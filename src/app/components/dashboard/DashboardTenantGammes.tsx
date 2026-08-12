@@ -4,12 +4,11 @@
  * Permet a un admin tenant de choisir, parmi les 22 gammes du PIM global
  * Magrit, lesquelles sont exposees a ses users dans ce tenant.
  *
- * La table `tenant_gamme_subscriptions` (migration 03) fait le lien :
- *   (tenant_id, gamme_slug, active, display_order)
+ * Le module Catalog expose les souscriptions du tenant via `/api/v1`.
  *
  * L'UI est une liste de checkboxes groupees par parent (carterie, flyer,
  * affiche, depliant, brochure) avec des sous-gammes nested. Toggle =
- * upsert avec active=true, untoggle = update active=false (pas delete pour
+ * commande groupée avec active=true/false (pas de suppression, afin de
  * conserver l'historique).
  *
  * Ce que le tenant NE peut PAS faire ici :
@@ -17,16 +16,20 @@
  *   - creer une gamme (le PIM est patrimoine Magrit)
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight, Check, Loader2 } from 'lucide-react';
-import { supabase } from '/utils/supabase/client';
 import { usePIM } from '../../contexts/PIMContext';
 import { useTenant } from '../../contexts/TenantContext';
+import { useAuth } from '../../contexts/AuthContext';
 import type { Gamme } from '../../utils/productEnrichment';
+import { CatalogApiClient, type GammeSubscription } from '../../../modules/catalog';
+import { FetchApiClient } from '../../../platform/api';
 
 export function DashboardTenantGammes() {
   const { gammes, loading: pimLoading } = usePIM();
   const { currentTenant, currentRole, isSuperAdmin } = useTenant();
+  const { session } = useAuth();
+  const catalogApi = useMemo(() => new CatalogApiClient(new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null)), [session?.access_token]);
 
   const canWrite = currentRole === 'owner' || currentRole === 'admin' || isSuperAdmin;
 
@@ -34,29 +37,25 @@ export function DashboardTenantGammes() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [error, setError] = useState<string | null>(null);
 
   // ─── Charge les souscriptions du tenant courant ────────────────────────
-  const loadSubscriptions = async () => {
-    if (!currentTenant) return;
+  const loadSubscriptions = useCallback(async () => {
+    if (!currentTenant) { setActiveSlugs(new Set()); setLoading(false); return; }
     setLoading(true);
-    const { data, error } = await supabase
-      .from('tenant_gamme_subscriptions')
-      .select('gamme_slug, active')
-      .eq('tenant_id', currentTenant.id);
-    if (error) {
-      console.error('[gammes] load failed', error.message);
+    setError(null);
+    try {
+      setActiveSlugs(activeSet(await catalogApi.gammeSubscriptions(currentTenant.id)));
+    } catch (loadError) {
+      setError(`Chargement impossible : ${message(loadError)}`);
+    } finally {
+      setLoading(false);
     }
-    const set = new Set<string>();
-    (data ?? []).forEach((row: any) => {
-      if (row.active) set.add(row.gamme_slug);
-    });
-    setActiveSlugs(set);
-    setLoading(false);
-  };
+  }, [catalogApi, currentTenant?.id]);
 
   useEffect(() => {
     loadSubscriptions();
-  }, [currentTenant?.id]);
+  }, [loadSubscriptions]);
 
   // ─── Toggle une gamme ───────────────────────────────────────────────────
   const toggle = async (slug: string) => {
@@ -64,30 +63,15 @@ export function DashboardTenantGammes() {
     setSaving(slug);
     const isActive = activeSlugs.has(slug);
     const newActive = !isActive;
-
-    const { error } = await supabase
-      .from('tenant_gamme_subscriptions')
-      .upsert(
-        {
-          tenant_id: currentTenant.id,
-          gamme_slug: slug,
-          active: newActive,
-        },
-        { onConflict: 'tenant_id,gamme_slug' }
-      );
-
-    setSaving(null);
-    if (error) {
-      console.error('[gammes] toggle failed', error.message);
-      return;
+    setError(null);
+    try {
+      const subscriptions = await catalogApi.setGammeSubscriptions(currentTenant.id, { subscriptions: [{ gammeSlug: slug, active: newActive }] });
+      setActiveSlugs(activeSet(subscriptions));
+    } catch (toggleError) {
+      setError(`Modification impossible : ${message(toggleError)}`);
+    } finally {
+      setSaving(null);
     }
-
-    setActiveSlugs((prev) => {
-      const next = new Set(prev);
-      if (newActive) next.add(slug);
-      else next.delete(slug);
-      return next;
-    });
   };
 
   // ─── Toggle un parent : coche/decoche le parent + toutes ses sous-gammes ─
@@ -99,27 +83,15 @@ export function DashboardTenantGammes() {
     const newActive = !allActive;
 
     setSaving(parentSlug);
-    const rows = all.map((slug) => ({
-      tenant_id: currentTenant.id,
-      gamme_slug: slug,
-      active: newActive,
-    }));
-    const { error } = await supabase
-      .from('tenant_gamme_subscriptions')
-      .upsert(rows, { onConflict: 'tenant_id,gamme_slug' });
-    setSaving(null);
-    if (error) {
-      console.error('[gammes] group toggle failed', error.message);
-      return;
+    setError(null);
+    try {
+      const subscriptions = await catalogApi.setGammeSubscriptions(currentTenant.id, { subscriptions: all.map((gammeSlug) => ({ gammeSlug, active: newActive })) });
+      setActiveSlugs(activeSet(subscriptions));
+    } catch (toggleError) {
+      setError(`Modification du groupe impossible : ${message(toggleError)}`);
+    } finally {
+      setSaving(null);
     }
-    setActiveSlugs((prev) => {
-      const next = new Set(prev);
-      for (const s of all) {
-        if (newActive) next.add(s);
-        else next.delete(s);
-      }
-      return next;
-    });
   };
 
   // ─── Groupe par parent ──────────────────────────────────────────────────
@@ -187,6 +159,7 @@ export function DashboardTenantGammes() {
       </div>
 
       <div className="border border-line rounded-md overflow-hidden bg-paper">
+        {error && <p role="alert" className="m-3 text-sm text-err-fg bg-err-bg border border-err-fg/30 px-3 py-2 rounded">{error}</p>}
         {rootGammes.map((parent) => {
           const children = childrenByParent.get(parent.slug) ?? [];
           const isParentActive = activeSlugs.has(parent.slug);
@@ -301,3 +274,6 @@ export function DashboardTenantGammes() {
     </div>
   );
 }
+
+function activeSet(subscriptions: readonly GammeSubscription[]): Set<string> { return new Set(subscriptions.filter((item) => item.active).map((item) => item.gammeSlug)); }
+function message(error: unknown): string { return error instanceof Error ? error.message : 'erreur réseau'; }

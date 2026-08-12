@@ -132,6 +132,8 @@ src/
   de boutique ne connaît plus Supabase — livré ;
 - AF13.4 : gestion des mockups personnalisés via l’API et inclusion dans le
   catalogue autorisé, sans requête fournisseur par carte — livré ;
+- AF14.1 : nouveau module Catalog et gestion contractuelle des souscriptions
+  de gammes du tenant ; `DashboardTenantGammes` sort de Supabase — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.

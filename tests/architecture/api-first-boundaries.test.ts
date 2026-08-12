@@ -183,7 +183,16 @@ describe('frontières API-first et modulaires', () => {
     expect(edgeEntry).toContain('createRolesRoutes(rolesService)');
     expect(edgeEntry).toContain('SupabaseShopsRepository(client)');
     expect(edgeEntry).toContain('createShopsRoutes(shopsService)');
+    expect(edgeEntry).toContain('SupabaseCatalogRepository(client)');
+    expect(edgeEntry).toContain('createCatalogRoutes(catalogService)');
     expect(edgeEntry).not.toContain('SUPABASE_SERVICE_ROLE_KEY');
+  });
+
+  it('sort la gestion des souscriptions de gammes du fournisseur', () => {
+    const source = readFileSync(resolve(process.cwd(), 'src/app/components/dashboard/DashboardTenantGammes.tsx'), 'utf8');
+    expect(source).toContain('CatalogApiClient');
+    expect(source).not.toContain('utils/supabase');
+    expect(source).not.toMatch(/\bsupabase\s*\./);
   });
 
   it('sort les écrans de gestion des rôles du fournisseur', () => {
