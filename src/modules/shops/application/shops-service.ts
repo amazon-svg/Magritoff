@@ -11,4 +11,6 @@ export class ShopsService {
   addProduct(actor: UserId, tenantId: string, shopId: string, command: CreateShopProductCommand) { return this.repository.addProduct(actor, tenantId, shopId, command); }
   updateProduct(actor: UserId, tenantId: string, shopId: string, productId: string, command: UpdateShopProductCommand) { return this.repository.updateProduct(actor, tenantId, shopId, productId, command); }
   removeProduct(actor: UserId, tenantId: string, shopId: string, productId: string) { return this.repository.removeProduct(actor, tenantId, shopId, productId); }
+  publicProbe(slug: string) { return this.repository.publicProbe(slug); }
+  publicCatalog(actor: UserId | null, slug: string) { return this.repository.publicCatalog(actor, slug); }
 }

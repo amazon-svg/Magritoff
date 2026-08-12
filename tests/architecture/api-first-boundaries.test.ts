@@ -211,10 +211,12 @@ describe('frontières API-first et modulaires', () => {
   });
 
   it('sort le contexte boutiques du fournisseur', () => {
-    const source = readFileSync(resolve(process.cwd(), 'src/app/contexts/ShopsContext.tsx'), 'utf8');
-    expect(source).toContain('ShopsApiClient');
-    expect(source).not.toContain('utils/supabase');
-    expect(source).not.toMatch(/\bsupabase\s*\./);
+    for (const file of ['src/app/contexts/ShopsContext.tsx', 'src/app/components/shop/PublicShop.tsx']) {
+      const source = readFileSync(resolve(process.cwd(), file), 'utf8');
+      expect(source).toContain('ShopsApiClient');
+      expect(source).not.toContain('utils/supabase');
+      expect(source).not.toMatch(/\bsupabase\s*\./);
+    }
   });
 
   it('isole le renvoi des invitations derrière le port email', () => {

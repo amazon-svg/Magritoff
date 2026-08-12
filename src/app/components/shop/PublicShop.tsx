@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router';
 import { Loader2 } from 'lucide-react';
-import { supabase } from '/utils/supabase/client';
 import type { Shop, ShopProduct } from '../../contexts/ShopsContext';
 import type { Gamme, ProductDefinition } from '../../utils/productEnrichment';
 import { useAuth } from '../../contexts/AuthContext';
@@ -40,9 +39,8 @@ import {
 import { buildShopTaxonomy } from '../../utils/shopTaxonomy';
 import { parsePortalPath, shopUrl } from './portal/shopPortalRoutes';
 import { applyTax, getTaxRate } from '../../utils/tax';
-import { applyPricingOverrides, type PricingOverride } from '../../utils/applyPricingOverrides';
-import { resolveShopProductScope } from '../../utils/resolveShopProductScope';
 import { OrdersApiClient } from '../../../modules/orders';
+import { ShopsApiClient, type PublicShopCatalog } from '../../../modules/shops';
 import { ApiClientError, FetchApiClient } from '../../../platform/api';
 
 /**
@@ -77,6 +75,9 @@ export function PublicShop() {
     'authentication_required' | 'forbidden'
   > | null>(null);
   const ordersApi = useMemo(() => new OrdersApiClient(
+    new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null),
+  ), [session?.access_token]);
+  const shopsApi = useMemo(() => new ShopsApiClient(
     new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null),
   ), [session?.access_token]);
   const checkoutCommandKey = useRef(crypto.randomUUID());
@@ -131,106 +132,25 @@ export function PublicShop() {
   // localStorage au mount, persiste a chaque toggle.
   const [expandedGammes, setExpandedGammes] = useState<Set<string>>(new Set());
 
-  // Fonction refetch produits (peut être appelee pour rafraichir a chaud).
-  // v3 : on filtre les excluded_product_ids (produits retires de la
-  // boutique mais gardes dans la bibliotheque via le dialog "Juste de
-  // cette boutique" dans DashboardShopEditor).
-  const refetchProducts = async (
-    shopId: string,
-    opts: {
-      libraryIds: string[];
-      excludedIds?: string[];
-      pimCatalogMode?: boolean;
-      pimGammeSlugs?: string[];
-      tenantId?: string | null;
-    }
-  ) => {
-    const libraryIds = opts.libraryIds ?? [];
-    const excludedIds = opts.excludedIds ?? [];
-    const pimCatalogMode = opts.pimCatalogMode ?? false;
-    const pimGammeSlugs = opts.pimGammeSlugs ?? [];
-    const tenantId = opts.tenantId ?? null;
-
-    const { data: prodData } = await supabase
-      .from('shop_products')
-      .select('*')
-      .eq('shop_id', shopId)
-      .order('display_order', { ascending: true });
-    const manual = (prodData ?? []) as ShopProduct[];
-
-    // S2.32 — Deux voies d'exposition product_library, cumulables :
-    //   (a) bibliotheques liees (library_ids)
-    //   (b) mode PIM : catalogue du tenant filtre par gamme recensee
-    // On concatene les lignes brutes des deux requetes puis on delegue le
-    // perimetre (match library/gamme), la dedup par id et l'exclusion au
-    // helper pur resolveShopProductScope.
-    const rawLib: any[] = [];
-    if (libraryIds.length > 0) {
-      const { data } = await supabase
-        .from('product_library')
-        .select('*')
-        .in('library_id', libraryIds)
-        .eq('active', true)
-        .order('created_at', { ascending: false });
-      if (data) rawLib.push(...data);
-    }
-    if (pimCatalogMode && pimGammeSlugs.length > 0 && tenantId) {
-      const { data } = await supabase
-        .from('product_library')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .in('gamme_slug', pimGammeSlugs)
-        .eq('active', true)
-        .order('created_at', { ascending: false });
-      if (data) rawLib.push(...data);
-    }
-
-    const scoped = resolveShopProductScope(rawLib, {
-      libraryIds,
-      pimCatalogMode,
-      pimGammeSlugs,
-      excludedIds,
-    });
-    const linked: ShopProduct[] = scoped.map((p) => ({
-      id: `lib-${p.id}`,
-      shop_id: shopId,
-      product_id: p.id,
-      name: p.name,
-      category: p.category || 'Autres',
-      description: p.description || '',
-      price_ht: Number(p.price_ht) || 0,
-      image_url: p.image_url || '',
-      config: p.config || {},
-      display_order: 0,
-      created_at: p.created_at,
-      gamme_slug: p.gamme_slug ?? null,
-    })) as ShopProduct[];
-
-    const manualIds = new Set(manual.map((p) => p.product_id).filter(Boolean));
-    const deduped = linked.filter((p) => !p.product_id || !manualIds.has(p.product_id));
-
-    // A4.5 — Charger les prix négociés per-shop puis appliquer override.
-    // RLS lecture publique autorisée si shop.active=true.
-    const { data: overridesRaw } = await supabase
-      .from('shop_product_pricing')
-      .select('library_product_id, price_ht_override')
-      .eq('shop_id', shopId);
-    const overrides = ((overridesRaw ?? []) as Array<{
-      library_product_id: string;
-      price_ht_override: number;
-    }>).map<PricingOverride>((o) => ({
-      library_product_id: o.library_product_id,
-      price_ht_override: Number(o.price_ht_override),
-    }));
-    const merged = applyPricingOverrides([...manual, ...deduped], overrides);
-    setProducts(merged as ShopProduct[]);
+  const applyCatalog = (catalog: PublicShopCatalog) => {
+    setShop(fromPublicShop(catalog));
+    setProducts(catalog.products.map((product) => ({
+      id: product.id, shop_id: product.shopId, product_id: product.productId,
+      name: product.name, category: product.category, description: product.description,
+      price_ht: product.priceHt, image_url: product.imageUrl, config: product.config,
+      display_order: product.displayOrder, created_at: product.createdAt,
+      tenant_id: product.tenantId, gamme_slug: product.gammeSlug,
+    })));
+    setPimGammes(catalog.gammes as Gamme[]);
+    setPimDefinitions(catalog.definitions as unknown as ProductDefinition[]);
+    setSubscribedSlugs(new Set(catalog.subscribedSlugs));
   };
 
-  // ─── Chargement shop + produits + realtime subscription ──────────────────
+  // ─── Chargement API + rafraîchissement à la reprise de fenêtre ────────────
   useEffect(() => {
     if (!slug || authLoading || tenantLoading) return;
-    let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
     let focusHandler: (() => void) | null = null;
+    let refreshTimer: number | null = null;
     let cancelled = false;
 
     setLoading(true);
@@ -245,30 +165,27 @@ export function PublicShop() {
     (async () => {
       // Première lecture volontairement minimale : aucune marque, description,
       // configuration ou donnée catalogue n'est exposée avant le garde d'accès.
-      const shopsTable = supabase.from('shops');
-      const { data: gateData, error: gateError } = await shopsTable
-        .select('id, tenant_id, access_mode')
-        .eq('slug', slug)
-        .eq('active', true)
-        .maybeSingle();
-      if (cancelled) return;
-      if (gateError || !gateData) {
-        setNotFound(true);
+      let gateData;
+      try { gateData = await shopsApi.publicProbe(slug); }
+      catch (probeError) {
+        if (cancelled) return;
+        setNotFound(probeError instanceof ApiClientError && probeError.problem.status === 404);
         setLoading(false);
         return;
       }
+      if (cancelled) return;
 
       const initialAccess = resolveShopAccessFromMemberships({
         isAuthenticated: Boolean(user),
         isSuperAdmin,
-        accessMode: gateData.access_mode ?? 'invite_only',
+        accessMode: gateData.accessMode,
         memberships: tenants.map((tenant) => ({
           tenantId: tenant.id,
           accessScope: tenant.accessScope,
           allowedShopIds: tenant.allowedShopIds,
         })),
         shopId: gateData.id,
-        shopTenantId: gateData.tenant_id ?? null,
+        shopTenantId: gateData.tenantId,
       });
       if (initialAccess === 'authentication_required' || initialAccess === 'forbidden') {
         setBlockedAccess(initialAccess);
@@ -276,99 +193,34 @@ export function PublicShop() {
         return;
       }
 
-      const { data: shopData, error: shopError } = await shopsTable
-        .select('*')
-        .eq('id', gateData.id)
-        .single();
-      if (cancelled) return;
-      if (shopError || !shopData) {
-        setNotFound(true);
-        setLoading(false);
-        return;
+      try {
+        const catalog = await shopsApi.publicCatalog(slug);
+        if (cancelled) return;
+        applyCatalog(catalog);
+      } catch (catalogError) {
+        if (cancelled) return;
+        if (catalogError instanceof ApiClientError && catalogError.problem.status === 401) setBlockedAccess('authentication_required');
+        else if (catalogError instanceof ApiClientError && catalogError.problem.status === 403) setBlockedAccess('forbidden');
+        else setNotFound(catalogError instanceof ApiClientError && catalogError.problem.status === 404);
       }
-      const loadedShop = shopData as Shop;
-      setShop(loadedShop);
-
-      const libraryIds = Array.isArray(loadedShop.library_ids)
-        ? loadedShop.library_ids
-        : [];
-      const excludedIds = Array.isArray(loadedShop.excluded_product_ids)
-        ? loadedShop.excluded_product_ids
-        : [];
-      // S2.32 — options de perimetre produit (bibliotheques + mode PIM)
-      const shopTenantId = loadedShop.tenant_id ?? null;
-      const scopeOpts = {
-        libraryIds,
-        excludedIds,
-        pimCatalogMode: loadedShop.pim_catalog_mode === true,
-        pimGammeSlugs: Array.isArray(loadedShop.pim_gamme_slugs)
-          ? loadedShop.pim_gamme_slugs
-          : [],
-        tenantId: shopTenantId,
-      };
-
-      await refetchProducts(loadedShop.id, scopeOpts);
-      if (cancelled) return;
-
-      // PIM lecture publique
-      const [gr, dr] = await Promise.all([
-        supabase.from('product_gammes').select('*').order('display_order'),
-        supabase.from('product_definitions').select('*'),
-      ]);
-      if (gr.data) setPimGammes(gr.data as Gamme[]);
-      if (dr.data) setPimDefinitions(dr.data as ProductDefinition[]);
-
-      // S2.2 — Charger les gammes souscrites du tenant proprietaire de la shop.
-      // Lecture publique : si la RLS bloque ou si tenant_id absent, on tombe
-      // sur subscribedSlugs=null -> fallback "gammes inferees" cote sidebar.
-      const tenantId = shopTenantId;
-      if (tenantId) {
-        const { data: subs, error: subsError } = await supabase
-          .from('tenant_gamme_subscriptions')
-          .select('gamme_slug, active')
-          .eq('tenant_id', tenantId)
-          .eq('active', true);
-        if (!subsError && subs) {
-          setSubscribedSlugs(new Set(subs.map((s: any) => s.gamme_slug)));
-        } else {
-          setSubscribedSlugs(null);
-        }
-      } else {
-        setSubscribedSlugs(null);
-      }
-
       setLoading(false);
 
-      // Realtime : push les updates quand un produit est ajouté, modifié ou
-      // supprimé dans shop_products ou product_library (lib liées).
-      // Évite d'avoir à refresh manuellement la page pour voir les nouveautés.
-      realtimeChannel = supabase
-        .channel(`shop-${loadedShop.id}`)
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'shop_products' },
-          () => refetchProducts(loadedShop.id, scopeOpts)
-        )
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'product_library' },
-          () => refetchProducts(loadedShop.id, scopeOpts)
-        )
-        .subscribe();
-
       focusHandler = () => {
-        void refetchProducts(loadedShop.id, scopeOpts);
+        void shopsApi.publicCatalog(slug).then(applyCatalog).catch(() => undefined);
       };
       window.addEventListener('focus', focusHandler);
+      refreshTimer = window.setInterval(() => {
+        if (document.visibilityState === 'visible') focusHandler?.();
+      }, 15_000);
     })();
 
     return () => {
       cancelled = true;
       if (focusHandler) window.removeEventListener('focus', focusHandler);
-      if (realtimeChannel) supabase.removeChannel(realtimeChannel);
+      if (refreshTimer !== null) window.clearInterval(refreshTimer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug, user?.id, authLoading, tenantLoading, isSuperAdmin, tenants]);
+  }, [slug, user?.id, authLoading, tenantLoading, isSuperAdmin, tenants, shopsApi]);
 
   // ─── SEO : title ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -922,4 +774,16 @@ export function PublicShop() {
       )}
     </ShopLayout>
   );
+}
+
+function fromPublicShop(catalog: PublicShopCatalog): Shop {
+  const shop = catalog.shop;
+  return {
+    id: shop.id, tenant_id: shop.tenantId, slug: shop.slug, name: shop.name,
+    description: shop.description, theme: shop.theme, logo_url: shop.logoUrl,
+    address: shop.address, contact_email: shop.contactEmail, active: shop.active,
+    library_ids: [], excluded_product_ids: [], hero_image_url: shop.heroImageUrl,
+    tagline: shop.tagline, pim_catalog_mode: false, pim_gamme_slugs: [],
+    access_mode: shop.accessMode, created_at: shop.createdAt,
+  };
 }

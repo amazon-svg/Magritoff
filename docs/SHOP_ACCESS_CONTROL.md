@@ -23,9 +23,9 @@ Une boutique existante est `invite_only` par défaut. Le mode `self_signup` doit
    - `shop_only` exige que l’identifiant de la boutique figure dans
      `allowed_shop_ids` ;
    - une membership d’un autre tenant ne donne aucun accès.
-4. Avant autorisation, `PublicShop` ne charge qu’un triplet technique minimal
-   (`id`, `tenant_id`, `access_mode`). Il ne demande ni marque, ni description,
-   ni produits, ni prix, ni PIM, ni gammes.
+4. Avant autorisation, `PublicShop` ne charge via l’API qu’un triplet technique
+   minimal (`id`, `tenantId`, `accessMode`). Il ne demande ni marque, ni
+   description, ni produits, ni prix, ni PIM, ni gammes.
 5. Un compte authentifié sur `self_signup` est rattaché atomiquement lors de sa
    première commande. Le rattachement est `shop_only`, limité à la boutique et
    ne confère jamais `magrit_full`.
@@ -70,15 +70,14 @@ Une boutique existante est `invite_only` par défaut. Le mode `self_signup` doit
 5. Créer un compte et commander : commande créée et membership `shop_only`
    ajoutée une seule fois.
 
-## Limite et trajectoire API-first
+## Frontière API-first
 
-AF7.1 garantit l’absence de chargement du contenu privé dans le parcours de
-l’application. Certaines policies RLS historiques autorisent encore une
-lecture publique directe de tables catalogue pour les anciens portails. Elles
-doivent être remplacées par une lecture API/RPC qui applique la même matrice
-avant de considérer `invite_only` comme une frontière de sécurité complète
-contre un appel REST forgé. Aucun nouveau composant ne doit étendre ces accès
-Supabase directs.
+AF13.2 garantit l’absence de chargement du contenu privé dans le parcours de
+l’application et revérifie cette autorisation côté serveur avant de construire
+le catalogue. Un appel forgé à `/api/v1/public/shops/:slug/catalog` retourne
+`401` sans session ou `403` sans membership pour une boutique `invite_only`.
+Les policies RLS historiques publiques restent une dette des anciens accès
+PostgREST, mais `PublicShop` ne les consomme plus directement.
 
 ## Administration des membres et rôles
 

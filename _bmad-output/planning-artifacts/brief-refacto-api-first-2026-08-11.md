@@ -125,8 +125,10 @@ src/
   Supabase — livré ;
 - AF13.1 : CRUD tenant des boutiques et produits manuels via l’API ;
   `ShopsContext` sort de Supabase — livré ;
-- suite : migrer la lecture publique sécurisée des boutiques et catalogues,
-  puis les assets et prix négociés de l’éditeur, en conservant la revue
+- AF13.2 : sonde publique minimale et catalogue autorisé via l’API ;
+  `PublicShop` sort de Supabase — livré ;
+- suite : migrer les assets et prix négociés de l’éditeur, puis les autres
+  contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.
 
 ## Critères de succès

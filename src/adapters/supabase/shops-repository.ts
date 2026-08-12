@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { UserId } from '../../kernel/ids/index.ts';
-import type { CreateShopCommand, CreateShopProductCommand, ShopDto, ShopProductDto, UpdateShopCommand, UpdateShopProductCommand } from '../../modules/shops/api/contracts.ts';
+import type { CreateShopCommand, CreateShopProductCommand, PublicShopCatalog, PublicShopProbe, ShopDto, ShopProductDto, UpdateShopCommand, UpdateShopProductCommand } from '../../modules/shops/api/contracts.ts';
 import { ShopRejectedError, type ShopsRepository } from '../../modules/shops/application/shops-repository.ts';
 import type { Database, Json } from '../../types/database.types.ts';
 
@@ -60,21 +60,103 @@ export class SupabaseShopsRepository implements ShopsRepository {
     if (error) throw classified(error, 'Suppression du produit impossible.');
     if (!data) throw new ShopRejectedError('product_not_found', 'Produit de boutique introuvable.');
   }
+  async publicProbe(slug: string): Promise<PublicShopProbe> {
+    const row = await this.loadActiveShopBySlug(slug, 'id, tenant_id, access_mode');
+    if (!row.tenant_id) throw new ShopRejectedError('invalid_request', 'Boutique sans espace propriétaire.');
+    return { id: row.id, tenantId: row.tenant_id, accessMode: row.access_mode === 'self_signup' ? 'self_signup' : 'invite_only' };
+  }
+  async publicCatalog(actor: UserId | null, slug: string): Promise<PublicShopCatalog> {
+    const gate = await this.loadActiveShopBySlug(slug, 'id, tenant_id, access_mode');
+    if (!gate.tenant_id) throw new ShopRejectedError('invalid_request', 'Boutique sans espace propriétaire.');
+    if (gate.access_mode !== 'self_signup') {
+      if (!actor) throw new ShopRejectedError('authentication_required', 'Authentification requise.');
+      const { data: allowed, error: accessError } = await this.client.rpc('current_user_can_access_shop', { p_shop_id: gate.id });
+      if (accessError || !allowed) throw new ShopRejectedError('permission_denied', 'Accès à la boutique interdit.');
+    }
+    const shopRow = await this.loadActiveShopBySlug(slug, SHOP_COLUMNS);
+    if (!shopRow.tenant_id) throw new ShopRejectedError('invalid_request', 'Boutique sans espace propriétaire.');
+
+    const [manualResult, pricingResult, gammesResult, definitionsResult, subscriptionsResult] = await Promise.all([
+      this.client.from('shop_products').select(PRODUCT_COLUMNS).eq('shop_id', shopRow.id).order('display_order'),
+      this.client.from('shop_product_pricing').select('library_product_id, price_ht_override').eq('shop_id', shopRow.id),
+      this.client.from('product_gammes').select('*').order('display_order'),
+      this.client.from('product_definitions').select('*'),
+      this.client.from('tenant_gamme_subscriptions').select('gamme_slug').eq('tenant_id', shopRow.tenant_id).eq('active', true),
+    ]);
+    const failed = [manualResult.error, pricingResult.error, gammesResult.error, definitionsResult.error].find(Boolean);
+    if (failed) throw classified(failed, 'Chargement du catalogue impossible.');
+
+    const libraryRows = await this.loadPublicLibraryRows(shopRow);
+    const excluded = new Set(shopRow.excluded_product_ids ?? []);
+    const libraryIds = new Set(shopRow.library_ids ?? []);
+    const gammeSlugs = new Set(shopRow.pim_gamme_slugs ?? []);
+    const seen = new Set<string>();
+    const scopedLibrary = libraryRows.filter((row) => {
+      if (!row.active || excluded.has(row.id) || seen.has(row.id)) return false;
+      const included = Boolean(row.library_id && libraryIds.has(row.library_id)) || Boolean(shopRow.pim_catalog_mode && row.gamme_slug && gammeSlugs.has(row.gamme_slug));
+      if (included) seen.add(row.id);
+      return included;
+    });
+    const priceByLibraryId = new Map((pricingResult.data ?? []).map((row) => [row.library_product_id, Number(row.price_ht_override)]));
+    const manual = (manualResult.data ?? []).map(mapProduct);
+    const manualProductIds = new Set(manual.map((product) => product.productId).filter(Boolean));
+    const linked = scopedLibrary.filter((row) => !manualProductIds.has(row.id)).map((row) => ({
+      id: `lib-${row.id}`, shopId: shopRow.id, productId: row.id, name: row.name,
+      category: row.category || 'Autres', description: row.description ?? '',
+      priceHt: priceByLibraryId.get(row.id) ?? Number(row.price_ht), imageUrl: row.image_url ?? '',
+      config: toRecord(row.config), displayOrder: 0, createdAt: row.created_at,
+      tenantId: row.tenant_id, gammeSlug: row.gamme_slug,
+    }));
+    const pricedManual = manual.map((product) => product.productId && priceByLibraryId.has(product.productId)
+      ? { ...product, priceHt: priceByLibraryId.get(product.productId)! } : product);
+    return {
+      shop: mapPublicShop(shopRow), products: [...pricedManual, ...linked],
+      gammes: (gammesResult.data ?? []).map((row) => ({ ...row, matching_rules: toRecord(row.matching_rules) })),
+      definitions: (definitionsResult.data ?? []).map((row) => ({ ...row })),
+      subscribedSlugs: subscriptionsResult.error ? [] : (subscriptionsResult.data ?? []).map((row) => row.gamme_slug),
+    };
+  }
   private async requireShop(tenantId: string, shopId: string) {
     const { data, error } = await this.client.from('shops').select('id').eq('tenant_id', tenantId).eq('id', shopId).maybeSingle();
     if (error) throw classified(error, 'Lecture de la boutique impossible.');
     if (!data) throw new ShopRejectedError('shop_not_found', 'Boutique introuvable.');
   }
+  private async loadActiveShopBySlug<TColumns extends string>(slug: string, columns: TColumns) {
+    const { data, error } = await this.client.from('shops').select(columns).eq('slug', slug).eq('active', true).maybeSingle();
+    if (error) throw classified(error, 'Lecture de la boutique impossible.');
+    if (!data) throw new ShopRejectedError('shop_not_found', 'Boutique introuvable.');
+    return data;
+  }
+  private async loadPublicLibraryRows(shop: Pick<ShopRow, 'tenant_id' | 'library_ids' | 'pim_catalog_mode' | 'pim_gamme_slugs'>) {
+    const rows: ProductLibraryRow[] = [];
+    if (shop.library_ids.length > 0) {
+      const { data, error } = await this.client.from('product_library').select('*').in('library_id', shop.library_ids).eq('active', true).order('created_at', { ascending: false });
+      if (error) throw classified(error, 'Lecture des bibliothèques impossible.');
+      rows.push(...(data ?? []));
+    }
+    if (shop.pim_catalog_mode && shop.pim_gamme_slugs.length > 0 && shop.tenant_id) {
+      const { data, error } = await this.client.from('product_library').select('*').eq('tenant_id', shop.tenant_id).in('gamme_slug', shop.pim_gamme_slugs).eq('active', true).order('created_at', { ascending: false });
+      if (error) throw classified(error, 'Lecture du catalogue PIM impossible.');
+      rows.push(...(data ?? []));
+    }
+    return rows;
+  }
 }
 
 type ShopRow = Database['public']['Tables']['shops']['Row'];
 type ProductRow = Database['public']['Tables']['shop_products']['Row'];
+type ProductLibraryRow = Database['public']['Tables']['product_library']['Row'];
 function mapShop(row: Pick<ShopRow, 'id' | 'tenant_id' | 'owner_user_id' | 'slug' | 'name' | 'description' | 'theme' | 'logo_url' | 'address' | 'contact_email' | 'active' | 'library_ids' | 'excluded_product_ids' | 'hero_image_url' | 'tagline' | 'pim_catalog_mode' | 'pim_gamme_slugs' | 'access_mode' | 'created_at'>): ShopDto {
   if (!row.tenant_id) throw new ShopRejectedError('invalid_request', 'Boutique sans espace propriétaire.');
   const theme = row.theme && typeof row.theme === 'object' && !Array.isArray(row.theme) ? row.theme : {};
   return { id: row.id, tenantId: row.tenant_id, ownerUserId: row.owner_user_id, slug: row.slug, name: row.name, description: row.description ?? '', theme: { ...DEFAULT_THEME, ...theme }, logoUrl: row.logo_url ?? '', address: row.address ?? '', contactEmail: row.contact_email ?? '', active: row.active, libraryIds: row.library_ids ?? [], excludedProductIds: row.excluded_product_ids ?? [], heroImageUrl: row.hero_image_url, tagline: row.tagline, pimCatalogMode: row.pim_catalog_mode === true, pimGammeSlugs: row.pim_gamme_slugs ?? [], accessMode: row.access_mode === 'self_signup' ? 'self_signup' : 'invite_only', createdAt: row.created_at };
 }
 function mapProduct(row: Pick<ProductRow, 'id' | 'shop_id' | 'product_id' | 'name' | 'category' | 'description' | 'price_ht' | 'image_url' | 'config' | 'display_order' | 'created_at' | 'tenant_id' | 'gamme_slug'>): ShopProductDto { return { id: row.id, shopId: row.shop_id, productId: row.product_id, name: row.name, category: row.category, description: row.description ?? '', priceHt: Number(row.price_ht), imageUrl: row.image_url ?? '', config: toRecord(row.config), displayOrder: row.display_order, createdAt: row.created_at, tenantId: row.tenant_id, gammeSlug: row.gamme_slug }; }
+function mapPublicShop(row: Pick<ShopRow, 'id' | 'tenant_id' | 'slug' | 'name' | 'description' | 'theme' | 'logo_url' | 'address' | 'contact_email' | 'active' | 'hero_image_url' | 'tagline' | 'access_mode' | 'created_at'>) {
+  if (!row.tenant_id) throw new ShopRejectedError('invalid_request', 'Boutique sans espace propriétaire.');
+  const theme = row.theme && typeof row.theme === 'object' && !Array.isArray(row.theme) ? row.theme : {};
+  return { id: row.id, tenantId: row.tenant_id, slug: row.slug, name: row.name, description: row.description ?? '', theme: { ...DEFAULT_THEME, ...theme }, logoUrl: row.logo_url ?? '', address: row.address ?? '', contactEmail: row.contact_email ?? '', active: row.active, heroImageUrl: row.hero_image_url, tagline: row.tagline, accessMode: row.access_mode === 'self_signup' ? 'self_signup' as const : 'invite_only' as const, createdAt: row.created_at };
+}
 function shopPatch(command: UpdateShopCommand): Database['public']['Tables']['shops']['Update'] {
   const patch: Database['public']['Tables']['shops']['Update'] = {};
   if (command.name !== undefined) patch.name = command.name; if (command.description !== undefined) patch.description = command.description;

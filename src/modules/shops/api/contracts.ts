@@ -50,9 +50,33 @@ export const updateShopProductCommandSchema = createShopProductCommandSchema.par
 export const shopMutationResultSchema = z.object({ updated: z.literal(true) });
 export const shopRemovalResultSchema = z.object({ removed: z.literal(true) });
 
+export const publicShopProbeSchema = z.object({
+  id: z.string().uuid(), tenantId: z.string().uuid(),
+  accessMode: z.enum(['invite_only', 'self_signup']),
+});
+export const publicShopSchema = shopSchema.omit({
+  ownerUserId: true, libraryIds: true, excludedProductIds: true,
+  pimCatalogMode: true, pimGammeSlugs: true,
+});
+export const publicShopProductSchema = shopProductSchema.extend({ id: z.string() });
+export const publicGammeSchema = z.object({
+  id: z.string().uuid(), slug: z.string(), name: z.string(), parent_slug: z.string().nullable(),
+  matching_rules: z.record(z.string(), z.unknown()), display_order: z.number().int(),
+  image_url: z.string().nullable().optional(),
+});
+export const publicShopCatalogSchema = z.object({
+  shop: publicShopSchema,
+  products: z.array(publicShopProductSchema),
+  gammes: z.array(publicGammeSchema),
+  definitions: z.array(z.record(z.string(), z.unknown())),
+  subscribedSlugs: z.array(z.string()),
+});
+
 export type ShopDto = z.infer<typeof shopSchema>;
 export type ShopProductDto = z.infer<typeof shopProductSchema>;
 export type CreateShopCommand = z.input<typeof createShopCommandSchema>;
 export type UpdateShopCommand = z.infer<typeof updateShopCommandSchema>;
 export type CreateShopProductCommand = z.infer<typeof createShopProductCommandSchema>;
 export type UpdateShopProductCommand = z.infer<typeof updateShopProductCommandSchema>;
+export type PublicShopProbe = z.infer<typeof publicShopProbeSchema>;
+export type PublicShopCatalog = z.infer<typeof publicShopCatalogSchema>;

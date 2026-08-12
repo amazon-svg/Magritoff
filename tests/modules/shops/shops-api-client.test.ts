@@ -14,6 +14,8 @@ describe('ShopsApiClient', () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input); const method = init?.method ?? 'GET'; calls.push(`${method} ${url}`);
       if (method === 'GET' && url.endsWith('/shops')) return new Response(JSON.stringify([shop]));
+      if (method === 'GET' && url.endsWith('/probe')) return new Response(JSON.stringify({ id: shopId, tenantId, accessMode: 'invite_only' }));
+      if (method === 'GET' && url.endsWith('/catalog')) return new Response(JSON.stringify({ shop: { ...shop, ownerUserId: undefined, libraryIds: undefined, excludedProductIds: undefined, pimCatalogMode: undefined, pimGammeSlugs: undefined }, products: [], gammes: [], definitions: [], subscribedSlugs: [] }));
       if (method === 'GET' && url.endsWith('/products')) return new Response(JSON.stringify([product]));
       if (method === 'POST' && url.endsWith('/products')) return new Response(JSON.stringify(product));
       if (method === 'POST' || method === 'PATCH' && url.endsWith(`/shops/${shopId}`)) return new Response(JSON.stringify(shop));
@@ -26,8 +28,10 @@ describe('ShopsApiClient', () => {
     await client.addProduct(tenantId, shopId, { productId: null, name: 'Flyer', category: '', description: '', priceHt: 10, imageUrl: '', config: {}, displayOrder: 0, gammeSlug: null });
     await client.updateProduct(tenantId, shopId, productId, { priceHt: 12 });
     await client.removeProduct(tenantId, shopId, productId); await client.remove(tenantId, shopId);
-    expect(calls).toHaveLength(8);
+    await client.publicProbe('demo'); await client.publicCatalog('demo');
+    expect(calls).toHaveLength(10);
     expect(calls[0]).toBe(`GET /api/v1/tenants/${tenantId}/shops`);
     expect(calls[5]).toContain(`/shops/${shopId}/products/${productId}`);
+    expect(calls[9]).toBe('GET /api/v1/public/shops/demo/catalog');
   });
 });

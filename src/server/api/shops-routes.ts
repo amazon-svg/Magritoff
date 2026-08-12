@@ -1,5 +1,5 @@
 import { parseId, type UserId } from '../../kernel/ids/index.ts';
-import { createShopCommandSchema, createShopProductCommandSchema, shopMutationResultSchema, shopProductSchema, shopProductsSchema, shopRemovalResultSchema, shopSchema, tenantShopsSchema, updateShopCommandSchema, updateShopProductCommandSchema } from '../../modules/shops/api/contracts.ts';
+import { createShopCommandSchema, createShopProductCommandSchema, publicShopCatalogSchema, publicShopProbeSchema, shopMutationResultSchema, shopProductSchema, shopProductsSchema, shopRemovalResultSchema, shopSchema, tenantShopsSchema, updateShopCommandSchema, updateShopProductCommandSchema } from '../../modules/shops/api/contracts.ts';
 import { ShopRejectedError } from '../../modules/shops/application/shops-repository.ts';
 import type { ShopsService } from '../../modules/shops/application/shops-service.ts';
 import { API_V1_BASE_PATH } from '../../platform/api/contracts.ts';
@@ -9,6 +9,8 @@ import { defineJsonRoute, type ApiRequestContext, type ApiRoute } from './routes
 export function createShopsRoutes(service: ShopsService): readonly ApiRoute[] {
   const base = `${API_V1_BASE_PATH}/tenants/{tenantId}/shops`;
   return [
+    defineJsonRoute({ method: 'GET', path: `${API_V1_BASE_PATH}/public/shops/{slug}/probe`, authentication: 'public', inputSchema: null, outputSchema: publicShopProbeSchema, async handle(context) { return execute(async () => ({ status: 200, body: await service.publicProbe(slugParam(context)) })); } }),
+    defineJsonRoute({ method: 'GET', path: `${API_V1_BASE_PATH}/public/shops/{slug}/catalog`, authentication: 'public', inputSchema: null, outputSchema: publicShopCatalogSchema, async handle(context) { return execute(async () => ({ status: 200, body: await service.publicCatalog(optionalActor(context), slugParam(context)) })); } }),
     defineJsonRoute({ method: 'GET', path: base, authentication: 'required', inputSchema: null, outputSchema: tenantShopsSchema, async handle(context) { return execute(async () => ({ status: 200, body: await service.list(actor(context), param(context, 'tenantId')) })); } }),
     defineJsonRoute({ method: 'POST', path: base, authentication: 'required', inputSchema: createShopCommandSchema, outputSchema: shopSchema, async handle(context, command) { return execute(async () => ({ status: 201, body: await service.create(actor(context), param(context, 'tenantId'), command) })); } }),
     defineJsonRoute({ method: 'PATCH', path: `${base}/{shopId}`, authentication: 'required', inputSchema: updateShopCommandSchema, outputSchema: shopSchema, async handle(context, command) { return execute(async () => ({ status: 200, body: await service.update(actor(context), param(context, 'tenantId'), param(context, 'shopId'), command) })); } }),
@@ -20,6 +22,8 @@ export function createShopsRoutes(service: ShopsService): readonly ApiRoute[] {
   ];
 }
 async function execute<T>(operation: () => Promise<T>): Promise<T> { try { return await operation(); } catch (error) { if (error instanceof ShopRejectedError) throw httpError(error); throw error; } }
-function httpError(error: ShopRejectedError) { const status = error.code === 'shop_not_found' || error.code === 'product_not_found' ? 404 : error.code === 'conflict' ? 409 : error.code === 'invalid_request' ? 422 : 403; return new ApiHttpError({ type: 'about:blank', title: status === 404 ? 'Boutique introuvable' : status === 409 ? 'Conflit boutique' : status === 422 ? 'Modification boutique invalide' : 'Gestion boutique interdite', status, code: `shops.${error.code}`, detail: error.message }); }
+function httpError(error: ShopRejectedError) { const status = error.code === 'authentication_required' ? 401 : error.code === 'shop_not_found' || error.code === 'product_not_found' ? 404 : error.code === 'conflict' ? 409 : error.code === 'invalid_request' ? 422 : 403; return new ApiHttpError({ type: 'about:blank', title: status === 401 ? 'Authentification requise' : status === 404 ? 'Boutique introuvable' : status === 409 ? 'Conflit boutique' : status === 422 ? 'Modification boutique invalide' : 'Gestion boutique interdite', status, code: `shops.${error.code}`, detail: error.message }); }
 function actor(context: ApiRequestContext): UserId { if (context.actor?.kind !== 'user') throw new ApiHttpError({ type: 'about:blank', title: 'Acteur utilisateur requis', status: 403, code: 'identity.user_actor_required' }); return context.actor.userId as UserId; }
 function param(context: ApiRequestContext, name: string): string { const parsed = parseId(context.params[name] ?? ''); if (!parsed.ok) throw new ApiHttpError({ type: 'about:blank', title: 'Identifiant invalide', status: 422, code: 'api.validation_failed' }); return parsed.value; }
+function optionalActor(context: ApiRequestContext): UserId | null { return context.actor?.kind === 'user' ? context.actor.userId as UserId : null; }
+function slugParam(context: ApiRequestContext): string { const value = context.params.slug?.trim(); if (!value || value.length > 160) throw new ApiHttpError({ type: 'about:blank', title: 'Slug invalide', status: 422, code: 'api.validation_failed' }); return value; }

@@ -1,10 +1,11 @@
 import { API_V1_BASE_PATH, FetchApiClient } from '../../../platform/api/index.ts';
 import {
   createShopCommandSchema, createShopProductCommandSchema, shopMutationResultSchema,
-  shopProductSchema, shopProductsSchema, shopRemovalResultSchema, shopSchema, tenantShopsSchema,
+  publicShopCatalogSchema, publicShopProbeSchema, shopProductSchema, shopProductsSchema, shopRemovalResultSchema, shopSchema, tenantShopsSchema,
   updateShopCommandSchema, updateShopProductCommandSchema,
   type CreateShopCommand, type CreateShopProductCommand, type ShopDto,
   type ShopProductDto, type UpdateShopCommand, type UpdateShopProductCommand,
+  type PublicShopCatalog, type PublicShopProbe,
 } from './contracts.ts';
 
 export class ShopsApiClient {
@@ -32,5 +33,11 @@ export class ShopsApiClient {
   }
   removeProduct(tenantId: string, shopId: string, productId: string): Promise<void> {
     return this.client.request({ method: 'DELETE', path: `${API_V1_BASE_PATH}/tenants/${tenantId}/shops/${shopId}/products/${productId}`, responseSchema: shopRemovalResultSchema }).then(() => undefined);
+  }
+  publicProbe(slug: string): Promise<PublicShopProbe> {
+    return this.client.request({ path: `${API_V1_BASE_PATH}/public/shops/${encodeURIComponent(slug)}/probe`, responseSchema: publicShopProbeSchema });
+  }
+  publicCatalog(slug: string): Promise<PublicShopCatalog> {
+    return this.client.request({ path: `${API_V1_BASE_PATH}/public/shops/${encodeURIComponent(slug)}/catalog`, responseSchema: publicShopCatalogSchema });
   }
 }
