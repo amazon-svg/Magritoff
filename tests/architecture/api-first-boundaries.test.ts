@@ -427,16 +427,17 @@ describe('frontières API-first et modulaires', () => {
     expect(adapter).toContain('SupabaseBrowserMockupGateway');
   });
 
-  it('isole le protocole Claude legacy dans une passerelle', () => {
+  it('limite le protocole Claude legacy au chat SSE', () => {
     const chat = readFileSync(resolve(process.cwd(), 'src/app/components/ChatInterface.tsx'), 'utf8');
     const portal = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/PortalCatalog.tsx'), 'utf8');
     const adapter = readFileSync(resolve(process.cwd(), 'src/adapters/supabase/browser-assistant-gateway.ts'), 'utf8');
     expect(chat).toContain('browserAssistantGateway.connection');
-    expect(portal).toContain('browserAssistantGateway.categoryEditorial');
+    expect(portal).toContain('assistantApi.categoryEditorial');
     expect(chat).not.toContain('utils/supabase');
     expect(chat).not.toContain('functions/v1');
     expect(portal).not.toContain('functions/v1');
     expect(adapter).toContain('SupabaseLegacyAssistantGateway');
+    expect(adapter).not.toContain('category-editorial');
   });
 
   it('fait persister les produits IA par Shops', () => {

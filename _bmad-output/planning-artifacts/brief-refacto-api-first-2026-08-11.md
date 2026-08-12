@@ -184,6 +184,8 @@ src/
   contient plus aucune dépendance ou référence Supabase directe — livré ;
 - AF23.1 : sélection serveur du fournisseur IA et diagnostic commun Anthropic,
   OpenAI ou Mistral, configurable sans modification du front — livré ;
+- AF23.2a : génération de l’éditorial de catégorie via `/api/v1` et le fournisseur
+  configuré ; repli déterministe sans clé ou en cas d’indisponibilité — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.

@@ -45,6 +45,10 @@ import { createLibraryProductsRoutes } from '../../../src/server/api/library-pro
 import { CommercialService } from '../../../src/modules/commercial/application/commercial-service.ts';
 import { SupabaseCommercialRepository } from '../../../src/adapters/supabase/commercial-repository.ts';
 import { createCommercialRoutes } from '../../../src/server/api/commercial-routes.ts';
+import { AssistantService } from '../../../src/modules/diagnostics/application/assistant-service.ts';
+import { ConfiguredAiCompletionGateway } from '../../../src/adapters/ai/configured-ai-completion-gateway.ts';
+import { createAssistantRoutes } from '../../../src/server/api/assistant-routes.ts';
+import { SupabaseAssistantAccessGateway } from '../../../src/adapters/supabase/assistant-access-gateway.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -77,8 +81,9 @@ export async function handleRequest(request: Request): Promise<Response> {
   const shopsService = new ShopsService(new SupabaseShopsRepository(client, publicSupabaseUrl(request, supabaseUrl)));
   const catalogService = new CatalogService(new SupabaseCatalogRepository(client), new SupabaseCatalogAutomationGateway(client));
   const conversationsService = new ConversationsService(new SupabaseConversationsRepository(client));
+  const aiConfiguration = aiProviderConfigurationFromEnvironment((name) => Deno.env.get(name));
   const diagnosticsService = new DiagnosticsService(new ConfiguredAiDiagnosticsGateway(
-    aiProviderConfigurationFromEnvironment((name) => Deno.env.get(name)),
+    aiConfiguration,
   ), new HttpClariprintDiagnosticsGateway(
     Deno.env.get('CLARIPRINT_HOST') ?? 'https://lrdp.clariprint.com',
     Deno.env.get('CLARIPRINT_LOGIN') ?? null,
@@ -89,6 +94,7 @@ export async function handleRequest(request: Request): Promise<Response> {
   const librariesService = new LibrariesService(new SupabaseLibrariesRepository(client));
   const libraryProductsService = new LibraryProductsService(new SupabaseLibraryProductsRepository(client));
   const commercialService = new CommercialService(new SupabaseCommercialRepository(client));
+  const assistantService = new AssistantService(new ConfiguredAiCompletionGateway(aiConfiguration), new SupabaseAssistantAccessGateway(client));
   const handler = createApiV1Application({
     routes: [
       ...createSessionRoutes(service),
@@ -100,6 +106,7 @@ export async function handleRequest(request: Request): Promise<Response> {
       ...createCatalogRoutes(catalogService),
       ...createConversationsRoutes(conversationsService),
       ...createDiagnosticsRoutes(diagnosticsService),
+      ...createAssistantRoutes(assistantService),
       ...createQuotesRoutes(quotesService),
       ...createQuoteTemplatesRoutes(quoteTemplatesService),
       ...createLibrariesRoutes(librariesService),

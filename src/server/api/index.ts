@@ -12,6 +12,7 @@ export { createShopsRoutes } from './shops-routes';
 export { createCatalogRoutes } from './catalog-routes';
 export { createConversationsRoutes } from './conversations-routes';
 export { createDiagnosticsRoutes } from './diagnostics-routes';
+export { createAssistantRoutes } from './assistant-routes';
 export { createQuotesRoutes } from './quotes-routes';
 export { createQuoteTemplatesRoutes } from './quote-templates-routes';
 export { createLibrariesRoutes } from './libraries-routes';

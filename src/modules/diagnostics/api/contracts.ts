@@ -30,3 +30,23 @@ export const clariprintDiagnosticSchema = z.object({
 });
 
 export type ClariprintDiagnostic = z.infer<typeof clariprintDiagnosticSchema>;
+
+export const categoryEditorialCommandSchema = z.object({
+  familyName: z.string().trim().min(1).max(160),
+  subcategories: z.array(z.string().trim().min(1).max(160)).max(12),
+  sampleProducts: z.array(z.string().trim().min(1).max(200)).max(8),
+}).strict();
+
+export const categoryEditorialSchema = z.object({
+  title: z.string().trim().max(60).optional(),
+  intro: z.string().trim().max(240).optional(),
+  seo: z.string().trim().max(155).optional(),
+}).strict();
+
+export const categoryEditorialResultSchema = z.object({
+  editorial: categoryEditorialSchema,
+  generated: z.boolean(),
+});
+
+export type CategoryEditorialCommand = z.infer<typeof categoryEditorialCommandSchema>;
+export type CategoryEditorialResult = z.infer<typeof categoryEditorialResultSchema>;

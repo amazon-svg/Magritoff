@@ -5,6 +5,7 @@ import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment'
 import { resolveProductImage } from '../../../utils/productImages';
 import { browserAssistantGateway } from '../../../../adapters/supabase/browser-assistant-gateway';
 import { ShopsApiClient } from '../../../../modules/shops';
+import { DiagnosticsApiClient } from '../../../../modules/diagnostics';
 import { FetchApiClient } from '../../../../platform/api';
 import { useAuth } from '../../../contexts/AuthContext';
 import { computeClariprintQuoteSafe } from '../../../../server/clariprint/ClariprintAdapter';
@@ -161,6 +162,7 @@ export function PortalCatalog({
 }: Props) {
   const { session } = useAuth();
   const shopsApi = useMemo(() => new ShopsApiClient(new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null)), [session?.access_token]);
+  const assistantApi = useMemo(() => new DiagnosticsApiClient(new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null)), [session?.access_token]);
   const [query, setQuery] = useState('');
   // S2.21 — autocomplétion : menu ouvert au focus + saisie ≥ 2 car.
   const [searchOpen, setSearchOpen] = useState(false);
@@ -344,7 +346,8 @@ export function PortalCatalog({
     (async () => {
       try {
         const CATEGORY_EDITORIAL_TIMEOUT_MS = 12_000;
-        const invokePromise = browserAssistantGateway.categoryEditorial({
+        if (!shop.tenant_id) throw new Error('category_editorial_tenant_missing');
+        const invokePromise = assistantApi.categoryEditorial(shop.tenant_id, {
           familyName: activeFamily.label,
           subcategories: activeFamily.subcategories.filter((s) => s.count > 0).map((s) => s.label),
           sampleProducts: products.slice(0, 8).map((p) => p.name),
@@ -355,7 +358,7 @@ export function PortalCatalog({
         const data = (await Promise.race([invokePromise, timeoutPromise])) as Awaited<
           typeof invokePromise
         >;
-        const ed = data as CategoryEditorial;
+        const ed = data.editorial as CategoryEditorial;
         if (cancelled) return;
         setEditorial(ed);
         try {
@@ -371,7 +374,7 @@ export function PortalCatalog({
     return () => {
       cancelled = true;
     };
-  }, [activeFamily, products]);
+  }, [activeFamily, assistantApi, products, shop.tenant_id]);
 
   // S2.20 — Modèle final de la landing : socle déterministe + overlay éditorial.
   const landingModel = useMemo(
