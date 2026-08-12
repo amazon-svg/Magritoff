@@ -1,4 +1,4 @@
-import { supabase } from '/utils/supabase/client';
+import type { QuotesApiClient } from '../../modules/quotes';
 import { applyTax, DEFAULT_TAX_RATE, extractTaxAmount, formatTaxLabel } from './tax';
 
 /**
@@ -39,29 +39,28 @@ export interface QuoteRowInput {
 }
 
 /**
- * Insere une ligne dans `quotes`. En v3, tenant_id est REQUIS par la RLS —
- * il est donc passe explicitement par l'appelant (qui dispose du tenant
- * courant via useTenant()).
+ * Crée un brouillon via l’API Quotes. Le tenant est explicite, tandis que
+ * l’utilisateur est dérivé de la session serveur et contrôlé par la RLS.
  *
  * Sprint 10 Phase B users : colonne quotes.client_id supprimee (DROP TABLE
  * clients CASCADE). Le devis est lie au tenant + user emetteur uniquement.
  */
 export async function persistQuote(
-  userId: string,
+  quotesApi: QuotesApiClient,
   tenantId: string,
   input: QuoteRowInput
 ) {
-  const { error } = await supabase.from('quotes').insert({
-    user_id: userId,
-    tenant_id: tenantId,
-    reference: input.reference,
-    product_name: input.product_name,
-    product_config: input.product_config,
-    total_ht: input.total_ht,
-    total_ttc: input.total_ttc,
-    status: 'draft',
-  });
-  if (error) console.error('[quotes] persist error:', error.message);
+  try {
+    await quotesApi.createDraft(tenantId, {
+      reference: input.reference,
+      productName: input.product_name,
+      productConfig: input.product_config,
+      totalHt: input.total_ht,
+      totalTtc: input.total_ttc,
+    });
+  } catch (error) {
+    console.error('[quotes] persist error:', error instanceof Error ? error.message : String(error));
+  }
 }
 
 // ─── Gabarits de devis (templating) ───────────────────────────────────────

@@ -52,6 +52,27 @@ paths:
                 $ref: '#/components/schemas/ClariprintDiagnostic'
         '401':
           $ref: '#/components/responses/AuthenticationRequired'
+  /tenants/{tenantId}/quotes/drafts:
+    post:
+      operationId: createQuoteDraft
+      summary: Créer un brouillon de devis rapide pour l utilisateur courant
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: tenantId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateQuoteDraft' }
+      responses:
+        '201':
+          description: Brouillon créé
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QuoteDraftCreated' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { description: Création interdite dans ce tenant }
+        '422': { description: Données du brouillon invalides }
   /session:
     get:
       operationId: getSessionBootstrap
@@ -560,6 +581,22 @@ components:
               status: { type: string, enum: [ok, error, skipped] }
               details: { type: string, maxLength: 500 }
         testedAt: { type: string, format: date-time }
+    CreateQuoteDraft:
+      type: object
+      additionalProperties: false
+      required: [reference, productName, productConfig, totalHt, totalTtc]
+      properties:
+        reference: { type: string, minLength: 1, maxLength: 120 }
+        productName: { type: string, minLength: 1, maxLength: 500 }
+        productConfig: {}
+        totalHt: { type: number, minimum: 0 }
+        totalTtc: { type: number, minimum: 0 }
+    QuoteDraftCreated:
+      type: object
+      additionalProperties: false
+      required: [id]
+      properties:
+        id: { type: string, minLength: 1 }
     ApiProblem:
       type: object
       additionalProperties: false

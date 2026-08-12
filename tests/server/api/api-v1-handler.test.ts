@@ -170,6 +170,7 @@ describe('handler API v1', () => {
     expect(contract).toContain('operationId: getApiHealth');
     expect(contract).toContain('operationId: testAiProvider');
     expect(contract).toContain('operationId: testClariprint');
+    expect(contract).toContain('operationId: createQuoteDraft');
     expect(contract).toContain('AiProviderDiagnostic:');
     expect(contract).toContain('ApiProblem:');
   });

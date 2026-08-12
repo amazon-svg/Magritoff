@@ -5,7 +5,7 @@
  * seulement la dette historique d'augmenter pendant sa migration vers /api/v1.
  * Chaque story de migration doit supprimer les entrées devenues inutiles et
  * abaisser les compteurs ; la baseline ne doit jamais être augmentée.
- * Après AF17.3 : 11 fichiers importeurs et 52 références directes restantes.
+ * Après AF18.1 : 10 fichiers importeurs et 51 références directes restantes.
  * Le compteur inclut les appels où `supabase` et `.` sont séparés par un saut de ligne.
  */
 export const legacySupabaseUiImportFiles = new Set([
@@ -19,7 +19,6 @@ export const legacySupabaseUiImportFiles = new Set([
   'src/app/contexts/LibraryContext.tsx',
   'src/app/contexts/QuoteTemplatesContext.tsx',
   'src/app/contexts/QuotesContext.tsx',
-  'src/app/utils/quote.ts',
 ]);
 
 export const legacySupabaseUiReferenceLimits = new Map<string, number>([
@@ -32,7 +31,6 @@ export const legacySupabaseUiReferenceLimits = new Map<string, number>([
   ['src/app/contexts/LibraryContext.tsx', 12],
   ['src/app/contexts/QuoteTemplatesContext.tsx', 6],
   ['src/app/contexts/QuotesContext.tsx', 13],
-  ['src/app/utils/quote.ts', 1],
 ]);
 
 export const legacyDirectEdgeUrlLimits = new Map<string, number>([

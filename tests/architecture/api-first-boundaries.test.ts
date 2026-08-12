@@ -207,6 +207,8 @@ describe('frontières API-first et modulaires', () => {
     expect(edgeEntry).toContain('AnthropicAiDiagnosticsGateway');
     expect(edgeEntry).toContain('createDiagnosticsRoutes(diagnosticsService)');
     expect(edgeEntry).toContain('HttpClariprintDiagnosticsGateway');
+    expect(edgeEntry).toContain('SupabaseQuotesRepository(client)');
+    expect(edgeEntry).toContain('createQuotesRoutes(quotesService)');
     expect(edgeEntry).not.toContain('SUPABASE_SERVICE_ROLE_KEY');
   });
 
@@ -321,6 +323,13 @@ describe('frontières API-first et modulaires', () => {
     expect(source).not.toContain('ClariprintAdapter');
     expect(source).toContain('diagnosticsApi.clariprint()');
     expect(source).not.toMatch(/\bsupabase\s*\./);
+  });
+
+  it('fait passer la création rapide des brouillons par Quotes', () => {
+    const utility = readFileSync(resolve(process.cwd(), 'src/app/utils/quote.ts'), 'utf8');
+    expect(utility).toContain('quotesApi.createDraft');
+    expect(utility).not.toContain('utils/supabase');
+    expect(utility).not.toMatch(/\bsupabase\s*\./);
   });
 
   it('isole le renvoi des invitations derrière le port email', () => {

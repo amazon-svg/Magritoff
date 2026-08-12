@@ -160,6 +160,8 @@ src/
   authentifiée ; `DiagnosticPanel` sort de Supabase et de Claude — livré ;
 - AF17.4 : diagnostic CheckAuth Clariprint derrière un port serveur ; le
   panneau ne dépend plus de l’adaptateur Edge legacy — livré ;
+- AF18.1 : création rapide d’un brouillon via le nouveau module Quotes ;
+  `persistQuote` sort de Supabase et l’auteur vient du bearer — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.
