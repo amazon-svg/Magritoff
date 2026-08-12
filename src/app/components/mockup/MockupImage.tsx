@@ -15,7 +15,7 @@
  */
 
 import { useMemo, useRef, useState } from "react";
-import { browserMockupGateway } from '../../../adapters/supabase/browser-mockup-gateway';
+import { browserMockupGateway } from '../../../adapters/http/browser-mockup-gateway';
 import { TEST_IDS } from "../../lib/testIds";
 import { ProductMockup } from "../brand/ProductMockup";
 import {

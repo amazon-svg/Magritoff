@@ -22,7 +22,7 @@ import { ArrowLeft, Image as ImageIcon, ShieldCheck, AlertCircle } from 'lucide-
 import { useIsAdmin } from '../../hooks/useIsAdmin';
 import { useTenant } from '../../contexts/TenantContext';
 import { useTenantPath } from '../../hooks/useTenantPath';
-import { browserMockupGateway } from '../../../adapters/supabase/browser-mockup-gateway';
+import { browserMockupGateway } from '../../../adapters/http/browser-mockup-gateway';
 
 interface TemplateRef {
   key:

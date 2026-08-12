@@ -206,6 +206,8 @@ généralisation des surfaces dépendront du contrat storefront UM2.
 - AF24.1 : devis Clariprint via `/api/v1/clariprint/quote`, protocole et secrets
   limités à l’adaptateur serveur ; les configurateurs ne connaissent plus
   l’Edge Function historique — livré ;
+- AF24.2 : assets et génération des mockups via `/api/v1/mockups`, sans URL
+  Storage, Edge Function ou clé Supabase dans les composants — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.

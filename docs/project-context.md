@@ -59,6 +59,7 @@
 | **LLM génération rapide** | **`claude-haiku-4-5-20251001`** |
 | IA API-first | `MAGRIT_AI_PROVIDER=anthropic|openai|mistral`, clé dédiée par fournisseur et modèle optionnel `MAGRIT_AI_MODEL`. Diagnostic et éditorial de catégorie utilisent cette sélection. Le navigateur appelle le chat via `/api/v1/assistant/chat` ; son moteur historique Anthropic reste un détail serveur transitoire. |
 | Prix Clariprint | Les configurateurs appellent `/api/v1/clariprint/quote`. `CLARIPRINT_HOST`, `CLARIPRINT_LOGIN` et `CLARIPRINT_PASSWORD` restent exclusivement côté serveur. |
+| Mockups | Les composants chargent `/api/v1/mockups/public/*` et `/api/v1/mockups/render`. Storage et `mockup-generator` sont des détails de l’adaptateur serveur. |
 | Mockup engine SVG→PNG (post S4.1b) | `npm:@resvg/resvg-wasm@2.6.2` (pure WASM, compat Deno Deploy). Fonts Inter/Bitter/JetBrains Mono incluses. Init lazy via fetch unpkg. **Pivot vs Architecture §4.3** qui spec sharp+svgdom (incompat Deno Deploy) |
 | Tests unit/integration | Vitest |
 | E2E automatisé | **Claude in Chrome** via plugin MCP, sur `data-testid` stables |

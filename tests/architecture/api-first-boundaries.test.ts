@@ -430,14 +430,16 @@ describe('frontières API-first et modulaires', () => {
     const image = readFileSync(resolve(process.cwd(), 'src/app/components/mockup/MockupImage.tsx'), 'utf8');
     const admin = readFileSync(resolve(process.cwd(), 'src/app/components/dashboard/DashboardAdminMockups.tsx'), 'utf8');
     const helpers = readFileSync(resolve(process.cwd(), 'src/app/components/mockup/MockupImage.helpers.ts'), 'utf8');
-    const adapter = readFileSync(resolve(process.cwd(), 'src/adapters/supabase/browser-mockup-gateway.ts'), 'utf8');
+    const adapter = readFileSync(resolve(process.cwd(), 'src/adapters/http/browser-mockup-gateway.ts'), 'utf8');
     expect(image).toContain('browserMockupGateway.generate');
     expect(admin).toContain('browserMockupGateway.previewUrl');
     expect(image).not.toContain('utils/supabase');
     expect(admin).not.toContain('utils/supabase');
     expect(helpers).not.toContain('functions/v1');
     expect(helpers).not.toMatch(/\bsupabase\s*\./);
-    expect(adapter).toContain('SupabaseBrowserMockupGateway');
+    expect(adapter).toContain('BrowserApiMockupGateway');
+    expect(adapter).toContain('/api/v1/mockups');
+    expect(adapter).not.toContain('supabase');
   });
 
   it('place le protocole du chat SSE derrière une façade API', () => {
