@@ -79,3 +79,16 @@ doivent être remplacées par une lecture API/RPC qui applique la même matrice
 avant de considérer `invite_only` comme une frontière de sécurité complète
 contre un appel REST forgé. Aucun nouveau composant ne doit étendre ces accès
 Supabase directs.
+
+## Administration des membres et rôles
+
+Depuis AF12.1, la consultation du catalogue de rôles, la matrice des membres et
+les assignations/révocations passent par `/api/v1`. L’interface ne transmet
+jamais l’identité de l’administrateur : le serveur la dérive du JWT utilisateur
+et les policies RLS contrôlent `can_manage_roles`. Le périmètre `magrit_full` ou
+`shop_only` et les boutiques autorisées continuent de passer par l’API Membres.
+
+La définition du catalogue (création, édition, archivage et ordre) reste
+temporairement legacy jusqu’à AF12.2. Une revue fonctionnelle complète du
+module invitations/membres/rôles reste planifiée après cette migration
+technique.

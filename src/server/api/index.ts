@@ -7,6 +7,7 @@ export { createSessionRoutes } from './session-routes';
 export { createOrdersRoutes } from './orders-routes';
 export { createInvitationsRoutes } from './invitations-routes';
 export { createMembersRoutes } from './members-routes';
+export { createRolesRoutes } from './roles-routes';
 export { createHealthRoute, defineJsonRoute } from './routes';
 export type {
   ApiRequestContext,

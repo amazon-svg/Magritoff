@@ -471,7 +471,6 @@ function MagritUsersSection() {
           targetUserId={editingPerms.user_id}
           targetUserEmail={editingPerms.email}
           tenantId={currentTenant.id}
-          currentUserId={user.id}
           onChanged={async () => {
             await load();
           }}

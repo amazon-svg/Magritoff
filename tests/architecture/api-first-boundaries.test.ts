@@ -179,7 +179,22 @@ describe('frontières API-first et modulaires', () => {
     expect(edgeEntry).toContain('ResendInvitationEmailSender');
     expect(edgeEntry).toContain('SupabaseMembersRepository(client)');
     expect(edgeEntry).toContain('createMembersRoutes(membersService)');
+    expect(edgeEntry).toContain('SupabaseRolesRepository(client)');
+    expect(edgeEntry).toContain('createRolesRoutes(rolesService)');
     expect(edgeEntry).not.toContain('SUPABASE_SERVICE_ROLE_KEY');
+  });
+
+  it('sort les écrans d assignation des rôles du fournisseur', () => {
+    const files = [
+      'src/app/components/dashboard/DashboardRolesSection.tsx',
+      'src/app/components/dashboard/EditUserRolesModal.tsx',
+    ];
+    for (const file of files) {
+      const source = readFileSync(resolve(process.cwd(), file), 'utf8');
+      expect(source).toContain('RolesApiClient');
+      expect(source).not.toContain('utils/supabase');
+      expect(source).not.toMatch(/\bsupabase\s*\./);
+    }
   });
 
   it('isole le renvoi des invitations derrière le port email', () => {

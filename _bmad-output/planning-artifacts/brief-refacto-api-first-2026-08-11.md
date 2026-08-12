@@ -118,7 +118,11 @@ src/
   Resend, sans Edge Function imbriquée — livré ;
 - AF11.2 : création initiale via une commande SQL sécurisée puis port Resend,
   sans `invite-member` ni service-role dans l’API — livré ;
-- suite : migrer les écrans de définition des rôles.
+- AF12.1 : catalogue, matrice et assignations des rôles via l’API Magrit ;
+  `DashboardRolesSection` et `EditUserRolesModal` sortent de Supabase — livré ;
+- AF12.2 : migrer l’édition, l’archivage et le réordonnancement des définitions
+  de rôles, puis retirer `RoleEditorDialog` et `OrderRoleAdminPage` de la
+  baseline — prochain lot.
 
 ## Critères de succès
 

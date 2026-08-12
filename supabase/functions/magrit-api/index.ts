@@ -14,6 +14,9 @@ import { MembersService } from '../../../src/modules/members/application/members
 import { SupabaseMembersRepository } from '../../../src/adapters/supabase/members-repository.ts';
 import { createMembersRoutes } from '../../../src/server/api/members-routes.ts';
 import { ResendInvitationEmailSender } from '../../../src/adapters/resend/invitation-email-sender.ts';
+import { RolesService } from '../../../src/modules/roles/application/roles-service.ts';
+import { SupabaseRolesRepository } from '../../../src/adapters/supabase/roles-repository.ts';
+import { createRolesRoutes } from '../../../src/server/api/roles-routes.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -42,12 +45,14 @@ export async function handleRequest(request: Request): Promise<Response> {
   );
   const invitationsService = new InvitationsService(new SupabaseInvitationsRepository(client, invitationEmailSender));
   const membersService = new MembersService(new SupabaseMembersRepository(client));
+  const rolesService = new RolesService(new SupabaseRolesRepository(client));
   const handler = createApiV1Application({
     routes: [
       ...createSessionRoutes(service),
       ...createOrdersRoutes(ordersService),
       ...createInvitationsRoutes(invitationsService),
       ...createMembersRoutes(membersService),
+      ...createRolesRoutes(rolesService),
     ],
     actorResolver: {
       async resolve() {
