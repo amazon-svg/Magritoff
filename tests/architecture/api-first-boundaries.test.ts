@@ -204,6 +204,8 @@ describe('frontières API-first et modulaires', () => {
     expect(edgeEntry).toContain('createCatalogRoutes(catalogService)');
     expect(edgeEntry).toContain('SupabaseConversationsRepository(client)');
     expect(edgeEntry).toContain('createConversationsRoutes(conversationsService)');
+    expect(edgeEntry).toContain('AnthropicAiDiagnosticsGateway');
+    expect(edgeEntry).toContain('createDiagnosticsRoutes(diagnosticsService)');
     expect(edgeEntry).not.toContain('SUPABASE_SERVICE_ROLE_KEY');
   });
 
@@ -306,6 +308,15 @@ describe('frontières API-first et modulaires', () => {
     const source = readFileSync(resolve(process.cwd(), 'src/app/contexts/ConversationContext.tsx'), 'utf8');
     expect(source).toContain('ConversationsApiClient');
     expect(source).not.toContain('utils/supabase');
+    expect(source).not.toMatch(/\bsupabase\s*\./);
+  });
+
+  it('sort le diagnostic IA du fournisseur et de la plateforme Edge', () => {
+    const source = readFileSync(resolve(process.cwd(), 'src/app/components/DiagnosticPanel.tsx'), 'utf8');
+    expect(source).toContain('DiagnosticsApiClient');
+    expect(source).not.toContain('utils/supabase');
+    expect(source).not.toContain('functions.invoke');
+    expect(source).not.toContain('claude-test');
     expect(source).not.toMatch(/\bsupabase\s*\./);
   });
 

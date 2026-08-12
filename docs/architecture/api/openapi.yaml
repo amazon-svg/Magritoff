@@ -22,6 +22,21 @@ paths:
                 $ref: '#/components/schemas/HealthResponse'
         '500':
           $ref: '#/components/responses/InternalError'
+  /diagnostics/ai:
+    get:
+      operationId: testAiProvider
+      summary: Tester le fournisseur IA actif sans exposer ses secrets
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: État normalisé de la connexion au fournisseur IA
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiProviderDiagnostic'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
   /session:
     get:
       operationId: getSessionBootstrap
@@ -485,6 +500,28 @@ components:
         timestamp:
           type: string
           format: date-time
+    AiProviderDiagnostic:
+      type: object
+      additionalProperties: false
+      required: [provider, configured, reachable, summary, checks, testedAt]
+      properties:
+        provider: { type: string, minLength: 1, maxLength: 80 }
+        configured: { type: boolean }
+        reachable: { type: [boolean, 'null'] }
+        summary: { type: string, minLength: 1, maxLength: 500 }
+        responsePreview: { type: string, maxLength: 500 }
+        checks:
+          type: array
+          maxItems: 20
+          items:
+            type: object
+            additionalProperties: false
+            required: [name, status]
+            properties:
+              name: { type: string, minLength: 1, maxLength: 120 }
+              status: { type: string, enum: [ok, error, skipped] }
+              details: { type: string, maxLength: 500 }
+        testedAt: { type: string, format: date-time }
     ApiProblem:
       type: object
       additionalProperties: false

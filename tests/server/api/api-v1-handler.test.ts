@@ -168,6 +168,8 @@ describe('handler API v1', () => {
 
     expect(contract).toContain('openapi: 3.1.0');
     expect(contract).toContain('operationId: getApiHealth');
+    expect(contract).toContain('operationId: testAiProvider');
+    expect(contract).toContain('AiProviderDiagnostic:');
     expect(contract).toContain('ApiProblem:');
   });
 });

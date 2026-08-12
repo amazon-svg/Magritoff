@@ -1,25 +1,31 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { X, RefreshCw, CheckCircle, XCircle, AlertTriangle, Loader2 } from "lucide-react";
-import { supabase } from "/utils/supabase/client";
 import { httpAdapter } from "../../server/clariprint/ClariprintAdapter";
+import { DiagnosticsApiClient, type AiProviderDiagnostic } from "../../modules/diagnostics";
+import { FetchApiClient } from "../../platform/api";
+import { useAuth } from "../contexts/AuthContext";
 
 interface DiagnosticPanelProps {
   onClose: () => void;
 }
 
-interface TestResult {
+interface TestResult<T = any> {
   loading: boolean;
-  data: any | null;
+  data: T | null;
   error: string | null;
 }
 
 export function DiagnosticPanel({ onClose }: DiagnosticPanelProps) {
+  const { session } = useAuth();
+  const diagnosticsApi = useMemo(() => new DiagnosticsApiClient(new FetchApiClient(
+    '', globalThis.fetch, () => session?.access_token ?? null,
+  )), [session?.access_token]);
   const [clariprintTest, setClariprintTest] = useState<TestResult>({
     loading: false,
     data: null,
     error: null,
   });
-  const [claudeTest, setClaudeTest] = useState<TestResult>({
+  const [aiTest, setAiTest] = useState<TestResult<AiProviderDiagnostic>>({
     loading: false,
     data: null,
     error: null,
@@ -36,18 +42,13 @@ export function DiagnosticPanel({ onClose }: DiagnosticPanelProps) {
     }
   };
 
-  const testClaude = async () => {
-    setClaudeTest({ loading: true, data: null, error: null });
+  const testAiProvider = async () => {
+    setAiTest({ loading: true, data: null, error: null });
     try {
-      // R5 (refacto 2026-05-11) : functions.invoke() (ADR-R3).
-      const { data, error } = await supabase.functions.invoke(
-        'make-server-e3db71a4/claude-test',
-        { method: 'GET' },
-      );
-      if (error) throw error;
-      setClaudeTest({ loading: false, data, error: null });
+      const data = await diagnosticsApi.aiProvider();
+      setAiTest({ loading: false, data, error: null });
     } catch (e) {
-      setClaudeTest({ loading: false, data: null, error: String(e) });
+      setAiTest({ loading: false, data: null, error: String(e) });
     }
   };
 
@@ -167,87 +168,74 @@ export function DiagnosticPanel({ onClose }: DiagnosticPanelProps) {
             )}
           </div>
 
-          {/* ─── TEST CLAUDE ─── */}
+          {/* ─── TEST FOURNISSEUR IA ─── */}
           <div className="border border-gray-200 rounded-xl p-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <span className="text-lg">🤖</span>
-                <h3 className="font-semibold text-gray-900">API Claude (Anthropic)</h3>
-                {claudeTest.data && (
-                  <StatusIcon success={claudeTest.data.summary?.startsWith("✅")} />
+                <h3 className="font-semibold text-gray-900">
+                  Fournisseur IA{aiTest.data ? ` · ${aiTest.data.provider}` : ''}
+                </h3>
+                {aiTest.data && (
+                  <StatusIcon success={aiTest.data.reachable} />
                 )}
               </div>
               <button
-                onClick={testClaude}
-                disabled={claudeTest.loading}
+                onClick={testAiProvider}
+                disabled={aiTest.loading}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 hover:bg-gray-900 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
               >
-                {claudeTest.loading ? (
+                {aiTest.loading ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
                   <RefreshCw className="w-4 h-4" />
                 )}
-                {claudeTest.loading ? "Test en cours..." : "Tester Claude"}
+                {aiTest.loading ? "Test en cours..." : "Tester l’IA"}
               </button>
             </div>
 
-            {!claudeTest.data && !claudeTest.loading && !claudeTest.error && (
+            {!aiTest.data && !aiTest.loading && !aiTest.error && (
               <p className="text-sm text-gray-400 italic">
-                Clique sur "Tester Claude" pour vérifier la clé API Anthropic.
+                Teste la configuration du fournisseur IA actif côté serveur.
               </p>
             )}
 
-            {claudeTest.error && (
+            {aiTest.error && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
-                ❌ Erreur réseau : {claudeTest.error}
+                ❌ Erreur réseau : {aiTest.error}
               </div>
             )}
 
-            {claudeTest.data && (
+            {aiTest.data && (
               <div className="space-y-3">
-                {/* Variables d'environnement */}
-                <div className="bg-gray-50 rounded-lg p-3 space-y-1">
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                    Secrets Supabase
-                  </p>
-                  {Object.entries(claudeTest.data.environment || {}).map(([key, val]) => (
-                    <div key={key} className="flex justify-between text-xs">
-                      <span className="text-gray-600 font-mono">{key}</span>
-                      <span className={String(val).startsWith("✅") ? "text-green-600" : "text-red-600"}>
-                        {String(val)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-
                 {/* Résumé */}
                 <div
                   className={`rounded-lg p-3 border ${
-                    claudeTest.data.summary?.startsWith("✅")
+                    aiTest.data.reachable
                       ? "bg-green-50 border-green-200"
                       : "bg-red-50 border-red-200"
                   }`}
                 >
                   <p
                     className={`text-sm font-semibold ${
-                      claudeTest.data.summary?.startsWith("✅") ? "text-green-800" : "text-red-800"
+                      aiTest.data.reachable ? "text-green-800" : "text-red-800"
                     }`}
                   >
-                    {claudeTest.data.summary}
+                    {aiTest.data.summary}
                   </p>
-                  {claudeTest.data.claudeResponse && (
+                  {aiTest.data.responsePreview && (
                     <p className="text-xs text-green-600 mt-1">
-                      Réponse Claude : "{claudeTest.data.claudeResponse}"
+                      Réponse : "{aiTest.data.responsePreview}"
                     </p>
                   )}
                 </div>
 
                 {/* Checks détaillés */}
-                {claudeTest.data.checks?.length > 0 && (
+                {aiTest.data.checks.length > 0 && (
                   <div className="space-y-1">
-                    {claudeTest.data.checks.map((check: any, i: number) => (
+                    {aiTest.data.checks.map((check, i) => (
                       <div key={i} className="flex items-start gap-2 text-xs text-gray-600 bg-gray-50 rounded p-2">
-                        <span>{check.status?.startsWith("✅") ? "✅" : "❌"}</span>
+                        <span>{check.status === 'ok' ? "✅" : check.status === 'skipped' ? "⏭️" : "❌"}</span>
                         <div>
                           <span className="font-medium">{check.name}</span>
                           {check.details && <span className="text-gray-400"> — {check.details}</span>}
@@ -265,7 +253,7 @@ export function DiagnosticPanel({ onClose }: DiagnosticPanelProps) {
             <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
             <p className="text-xs text-amber-700">
               Les secrets sont à configurer dans{" "}
-              <strong>Supabase → Edge Functions → Secrets</strong>.
+              <strong>l’environnement du serveur API</strong>.
               Les credentials Clariprint seront fournis par Optimproject.
             </p>
           </div>

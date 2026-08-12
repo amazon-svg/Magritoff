@@ -156,6 +156,8 @@ src/
   suppression RLS ; `ConversationContext` sort de Supabase — livré ;
 - AF17.2 : rafraîchissement de la session d’invitation centralisé dans
   `AuthContext` ; `InviteUserModalV2` sort de Supabase — livré ;
+- AF17.3 : diagnostic du fournisseur IA derrière un port et une route API
+  authentifiée ; `DiagnosticPanel` sort de Supabase et de Claude — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.

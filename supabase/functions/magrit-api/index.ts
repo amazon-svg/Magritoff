@@ -26,6 +26,9 @@ import { createCatalogRoutes } from '../../../src/server/api/catalog-routes.ts';
 import { ConversationsService } from '../../../src/modules/conversations/application/conversations-service.ts';
 import { SupabaseConversationsRepository } from '../../../src/adapters/supabase/conversations-repository.ts';
 import { createConversationsRoutes } from '../../../src/server/api/conversations-routes.ts';
+import { DiagnosticsService } from '../../../src/modules/diagnostics/application/diagnostics-service.ts';
+import { AnthropicAiDiagnosticsGateway } from '../../../src/adapters/anthropic/ai-diagnostics-gateway.ts';
+import { createDiagnosticsRoutes } from '../../../src/server/api/diagnostics-routes.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -58,6 +61,9 @@ export async function handleRequest(request: Request): Promise<Response> {
   const shopsService = new ShopsService(new SupabaseShopsRepository(client, publicSupabaseUrl(request, supabaseUrl)));
   const catalogService = new CatalogService(new SupabaseCatalogRepository(client), new SupabaseCatalogAutomationGateway(client));
   const conversationsService = new ConversationsService(new SupabaseConversationsRepository(client));
+  const diagnosticsService = new DiagnosticsService(new AnthropicAiDiagnosticsGateway(
+    Deno.env.get('ANTHROPIC_API_KEY') ?? Deno.env.get('Magrit3') ?? null,
+  ));
   const handler = createApiV1Application({
     routes: [
       ...createSessionRoutes(service),
@@ -68,6 +74,7 @@ export async function handleRequest(request: Request): Promise<Response> {
       ...createShopsRoutes(shopsService),
       ...createCatalogRoutes(catalogService),
       ...createConversationsRoutes(conversationsService),
+      ...createDiagnosticsRoutes(diagnosticsService),
     ],
     actorResolver: {
       async resolve() {

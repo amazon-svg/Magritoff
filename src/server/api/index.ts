@@ -11,6 +11,7 @@ export { createRolesRoutes } from './roles-routes';
 export { createShopsRoutes } from './shops-routes';
 export { createCatalogRoutes } from './catalog-routes';
 export { createConversationsRoutes } from './conversations-routes';
+export { createDiagnosticsRoutes } from './diagnostics-routes';
 export { createHealthRoute, defineJsonRoute, defineMultipartRoute } from './routes';
 export type {
   ApiRequestContext,
