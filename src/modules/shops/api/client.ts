@@ -3,11 +3,13 @@ import {
   createShopCommandSchema, createShopProductCommandSchema, shopMutationResultSchema,
   publicShopCatalogSchema, publicShopProbeSchema, shopProductSchema, shopProductsSchema, shopRemovalResultSchema, shopSchema, tenantShopsSchema,
   setShopPricingCommandSchema, shopPricingMutationResultSchema, shopPricingOverridesSchema,
+  shopBrandAssetResultSchema,
   updateShopCommandSchema, updateShopProductCommandSchema,
   type CreateShopCommand, type CreateShopProductCommand, type ShopDto,
   type ShopProductDto, type UpdateShopCommand, type UpdateShopProductCommand,
   type PublicShopCatalog, type PublicShopProbe,
   type ShopPricingOverride,
+  type ShopBrandAssetKind,
 } from './contracts.ts';
 
 export class ShopsApiClient {
@@ -47,5 +49,10 @@ export class ShopsApiClient {
   }
   setPricing(tenantId: string, shopId: string, libraryProductId: string, priceHtOverride: number | null): Promise<void> {
     return this.client.request({ method: 'PUT', path: `${API_V1_BASE_PATH}/tenants/${tenantId}/shops/${shopId}/pricing/${libraryProductId}`, body: setShopPricingCommandSchema.parse({ priceHtOverride }), responseSchema: shopPricingMutationResultSchema }).then(() => undefined);
+  }
+  async uploadBrandAsset(tenantId: string, shopId: string, kind: ShopBrandAssetKind, file: File): Promise<string> {
+    const form = new FormData(); form.set('kind', kind); form.set('asset', file, file.name);
+    const result = await this.client.requestForm({ method: 'POST', path: `${API_V1_BASE_PATH}/tenants/${tenantId}/shops/${shopId}/brand-assets`, form, responseSchema: shopBrandAssetResultSchema });
+    return result.assetUrl;
   }
 }

@@ -22,6 +22,11 @@ La SPA appelle uniquement des chemins même origine `/api/v1`. Le runtime de ré
 
 Le proxy Vite équivalent est versionné dans `vite.config.ts` pour le développement local. La fonction construit un client Supabase avec la clé anonyme et le bearer utilisateur ; elle ne doit jamais utiliser la service role pour le bootstrap, afin de conserver les politiques RLS.
 
+Le proxy doit transmettre les corps `multipart/form-data` sans les convertir ni
+forcer manuellement leur en-tête `Content-Type`. L’endpoint des visuels de
+boutique accepte des fichiers jusqu’à 5 Mo ; cette limite doit également être
+autorisée par le proxy et le runtime Edge.
+
 ## Rollback
 
 Le backend peut être déployé avant le front et rester inutilisé. En cas de problème après livraison du front, revenir à l artefact front précédent suffit ; ne pas supprimer immédiatement la fonction, afin de conserver les request IDs nécessaires au diagnostic.

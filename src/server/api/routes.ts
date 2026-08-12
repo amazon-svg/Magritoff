@@ -36,6 +36,14 @@ export type JsonRouteDefinition<TInput, TOutput> = Readonly<{
   handle(context: ApiRequestContext, input: TInput): Promise<ApiRouteResult<TOutput>>;
 }>;
 
+export type MultipartRouteDefinition<TOutput> = Readonly<{
+  method: 'POST' | 'PUT' | 'PATCH';
+  path: string;
+  authentication: 'public' | 'required';
+  outputSchema: z.ZodType<TOutput>;
+  handle(context: ApiRequestContext, form: FormData): Promise<ApiRouteResult<TOutput>>;
+}>;
+
 export function defineJsonRoute<TInput, TOutput>(
   definition: JsonRouteDefinition<TInput, TOutput>,
 ): ApiRoute {
@@ -55,6 +63,30 @@ export function defineJsonRoute<TInput, TOutput>(
         ...result,
         body: parsedOutput.data,
       });
+    },
+  });
+}
+
+export function defineMultipartRoute<TOutput>(definition: MultipartRouteDefinition<TOutput>): ApiRoute {
+  return Object.freeze({
+    method: definition.method,
+    path: definition.path,
+    authentication: definition.authentication,
+    async execute(context) {
+      const contentType = context.request.headers.get('content-type') ?? '';
+      if (!contentType.toLowerCase().startsWith('multipart/form-data')) {
+        throw new ApiHttpError({ type: 'about:blank', title: 'Corps multipart requis', status: 415, code: 'api.unsupported_media_type' });
+      }
+      let form: FormData;
+      try {
+        form = await context.request.formData();
+      } catch {
+        throw new ApiHttpError({ type: 'about:blank', title: 'Corps multipart invalide', status: 400, code: 'api.invalid_multipart' });
+      }
+      const result = await definition.handle(context, form);
+      const parsedOutput = definition.outputSchema.safeParse(result.body);
+      if (!parsedOutput.success) throw new Error(`La sortie de ${definition.method} ${definition.path} viole son contrat.`);
+      return Object.freeze({ ...result, body: parsedOutput.data });
     },
   });
 }

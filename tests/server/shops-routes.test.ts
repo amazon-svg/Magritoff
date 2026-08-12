@@ -9,7 +9,7 @@ const parsed = parseId<'UserId'>('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'); if (!p
 const tenantId = '11111111-1111-4111-8111-111111111111';
 const shopId = '22222222-2222-4222-8222-222222222222';
 const shop = { id: shopId, tenantId, ownerUserId: parsed.value, slug: 'demo', name: 'Démo', description: '', theme: { primaryColor: '#000', accentColor: '#fff', mode: 'light' as const }, logoUrl: '', address: '', contactEmail: '', active: true, libraryIds: [], excludedProductIds: [], heroImageUrl: null, tagline: null, pimCatalogMode: false, pimGammeSlugs: [], accessMode: 'invite_only' as const, createdAt: '2026-08-12T10:00:00Z' };
-function repo(overrides: Partial<ShopsRepository> = {}): ShopsRepository { return { async list() { return []; }, async create() { return shop; }, async update() { return shop; }, async remove() {}, async products() { return []; }, async addProduct() { throw new Error('unused'); }, async updateProduct() {}, async removeProduct() {}, async publicProbe() { return { id: shopId, tenantId, accessMode: 'invite_only' }; }, async publicCatalog() { throw new ShopRejectedError('authentication_required', 'Authentification requise.'); }, async pricing() { return []; }, async setPricing() {}, ...overrides }; }
+function repo(overrides: Partial<ShopsRepository> = {}): ShopsRepository { return { async list() { return []; }, async create() { return shop; }, async update() { return shop; }, async remove() {}, async products() { return []; }, async addProduct() { throw new Error('unused'); }, async updateProduct() {}, async removeProduct() {}, async publicProbe() { return { id: shopId, tenantId, accessMode: 'invite_only' }; }, async publicCatalog() { throw new ShopRejectedError('authentication_required', 'Authentification requise.'); }, async pricing() { return []; }, async setPricing() {}, async uploadBrandAsset() { return 'https://assets.magrit.test/logo.png'; }, ...overrides }; }
 function handler(repository: ShopsRepository) { return createApiV1Application({ routes: createShopsRoutes(new ShopsService(repository)), actorResolver: { async resolve() { return { kind: 'user', userId: parsed.value }; } }, requestIdFactory: () => 'shops-test' }); }
 
 describe('routes API Shops', () => {
@@ -38,5 +38,18 @@ describe('routes API Shops', () => {
     let receivedActor = '';
     const response = await handler(repo({ async setPricing(actor) { receivedActor = actor; } }))(new Request(`http://localhost/api/v1/tenants/${tenantId}/shops/${shopId}/pricing/33333333-3333-4333-8333-333333333333`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ priceHtOverride: 12 }) }));
     expect(response.status).toBe(200); expect(receivedActor).toBe(parsed.value);
+  });
+  it('valide et transmet un visuel multipart sans exposer le stockage', async () => {
+    let received: { actor: string; kind: string; type: string; size: number } | null = null;
+    const form = new FormData(); form.set('kind', 'logo'); form.set('asset', new Blob(['png'], { type: 'image/png' }), 'logo.png');
+    const response = await handler(repo({ async uploadBrandAsset(actor, _tenant, _shop, upload) { received = { actor, kind: upload.kind, type: upload.contentType, size: upload.bytes.byteLength }; return 'https://assets.magrit.test/logo.png'; } }))(new Request(`http://localhost/api/v1/tenants/${tenantId}/shops/${shopId}/brand-assets`, { method: 'POST', body: form }));
+    expect(response.status).toBe(201);
+    expect(received).toEqual({ actor: parsed.value, kind: 'logo', type: 'image/png', size: 3 });
+    expect(await response.json()).toEqual({ assetUrl: 'https://assets.magrit.test/logo.png' });
+  });
+  it('refuse un visuel dont le type MIME est interdit', async () => {
+    const form = new FormData(); form.set('kind', 'hero'); form.set('asset', new Blob(['svg'], { type: 'image/svg+xml' }), 'hero.svg');
+    const response = await handler(repo())(new Request(`http://localhost/api/v1/tenants/${tenantId}/shops/${shopId}/brand-assets`, { method: 'POST', body: form }));
+    expect(response.status).toBe(422); expect((await response.json()).code).toBe('shops.invalid_asset');
   });
 });

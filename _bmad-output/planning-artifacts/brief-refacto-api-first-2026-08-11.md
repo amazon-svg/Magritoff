@@ -128,7 +128,9 @@ src/
 - AF13.2 : sonde publique minimale et catalogue autorisé via l’API ;
   `PublicShop` sort de Supabase — livré ;
 - AF13.3a : lecture et écriture des prix négociés via l’API — livré ;
-- suite : migrer les assets binaires de l’éditeur, puis les autres
+- AF13.3b : upload multipart des logos et visuels hero via l’API ; l’éditeur
+  de boutique ne connaît plus Supabase — livré ;
+- suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.
 

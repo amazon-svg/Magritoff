@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { UserId } from '../../kernel/ids/index.ts';
-import type { CreateShopCommand, CreateShopProductCommand, PublicShopCatalog, PublicShopProbe, SetShopPricingCommand, ShopDto, ShopPricingOverride, ShopProductDto, UpdateShopCommand, UpdateShopProductCommand } from '../../modules/shops/api/contracts.ts';
+import type { CreateShopCommand, CreateShopProductCommand, PublicShopCatalog, PublicShopProbe, SetShopPricingCommand, ShopBrandAssetUpload, ShopDto, ShopPricingOverride, ShopProductDto, UpdateShopCommand, UpdateShopProductCommand } from '../../modules/shops/api/contracts.ts';
 import { ShopRejectedError, type ShopsRepository } from '../../modules/shops/application/shops-repository.ts';
 import type { Database, Json } from '../../types/database.types.ts';
 
@@ -136,6 +136,16 @@ export class SupabaseShopsRepository implements ShopsRepository {
       price_ht_override: command.priceHtOverride, updated_at: new Date().toISOString(),
     }, { onConflict: 'shop_id,library_product_id' });
     if (error) throw classified(error, 'Enregistrement du prix négocié impossible.');
+  }
+  async uploadBrandAsset(_actor: UserId, tenantId: string, shopId: string, upload: ShopBrandAssetUpload): Promise<string> {
+    await this.requireShop(tenantId, shopId);
+    const extension = upload.contentType === 'image/jpeg' ? 'jpg' : upload.contentType === 'image/webp' ? 'webp' : 'png';
+    const path = `${shopId}/${upload.kind}-${crypto.randomUUID()}.${extension}`;
+    const { error } = await this.client.storage.from('shop_backgrounds').upload(path, new Uint8Array(upload.bytes), {
+      upsert: false, contentType: upload.contentType, cacheControl: '3600',
+    });
+    if (error) throw classified(error, 'Upload du visuel de boutique impossible.');
+    return this.client.storage.from('shop_backgrounds').getPublicUrl(path).data.publicUrl;
   }
   private async requireShop(tenantId: string, shopId: string) {
     const { data, error } = await this.client.from('shops').select('id').eq('tenant_id', tenantId).eq('id', shopId).maybeSingle();

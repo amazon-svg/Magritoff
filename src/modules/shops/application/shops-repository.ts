@@ -1,5 +1,5 @@
 import type { UserId } from '../../../kernel/ids/index.ts';
-import type { CreateShopCommand, CreateShopProductCommand, PublicShopCatalog, PublicShopProbe, SetShopPricingCommand, ShopDto, ShopPricingOverride, ShopProductDto, UpdateShopCommand, UpdateShopProductCommand } from '../api/contracts.ts';
+import type { CreateShopCommand, CreateShopProductCommand, PublicShopCatalog, PublicShopProbe, SetShopPricingCommand, ShopBrandAssetUpload, ShopDto, ShopPricingOverride, ShopProductDto, UpdateShopCommand, UpdateShopProductCommand } from '../api/contracts.ts';
 
 export class ShopRejectedError extends Error {
   constructor(public readonly code: 'authentication_required' | 'permission_denied' | 'shop_not_found' | 'product_not_found' | 'conflict' | 'invalid_request', message: string) {
@@ -19,4 +19,5 @@ export interface ShopsRepository {
   publicCatalog(actor: UserId | null, slug: string): Promise<PublicShopCatalog>;
   pricing(actor: UserId, tenantId: string, shopId: string): Promise<ShopPricingOverride[]>;
   setPricing(actor: UserId, tenantId: string, shopId: string, libraryProductId: string, command: SetShopPricingCommand): Promise<void>;
+  uploadBrandAsset(actor: UserId, tenantId: string, shopId: string, upload: ShopBrandAssetUpload): Promise<string>;
 }

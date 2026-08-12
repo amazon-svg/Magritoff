@@ -18,6 +18,7 @@ describe('ShopsApiClient', () => {
       if (method === 'GET' && url.endsWith('/catalog')) return new Response(JSON.stringify({ shop: { ...shop, ownerUserId: undefined, libraryIds: undefined, excludedProductIds: undefined, pimCatalogMode: undefined, pimGammeSlugs: undefined }, products: [], gammes: [], definitions: [], subscribedSlugs: [] }));
       if (method === 'GET' && url.endsWith('/pricing')) return new Response(JSON.stringify([]));
       if (method === 'GET' && url.endsWith('/products')) return new Response(JSON.stringify([product]));
+      if (method === 'POST' && url.endsWith('/brand-assets')) return new Response(JSON.stringify({ assetUrl: 'https://assets.magrit.test/logo.png' }));
       if (method === 'POST' && url.endsWith('/products')) return new Response(JSON.stringify(product));
       if (method === 'POST' || method === 'PATCH' && url.endsWith(`/shops/${shopId}`)) return new Response(JSON.stringify(shop));
       if (method === 'PATCH') return new Response(JSON.stringify({ updated: true }));
@@ -32,10 +33,12 @@ describe('ShopsApiClient', () => {
     await client.removeProduct(tenantId, shopId, productId); await client.remove(tenantId, shopId);
     await client.publicProbe('demo'); await client.publicCatalog('demo');
     await client.pricing(tenantId, shopId); await client.setPricing(tenantId, shopId, productId, 12);
-    expect(calls).toHaveLength(12);
+    await expect(client.uploadBrandAsset(tenantId, shopId, 'logo', new File(['png'], 'logo.png', { type: 'image/png' }))).resolves.toBe('https://assets.magrit.test/logo.png');
+    expect(calls).toHaveLength(13);
     expect(calls[0]).toBe(`GET /api/v1/tenants/${tenantId}/shops`);
     expect(calls[5]).toContain(`/shops/${shopId}/products/${productId}`);
     expect(calls[9]).toBe('GET /api/v1/public/shops/demo/catalog');
     expect(calls[11]).toContain(`/pricing/${productId}`);
+    expect(calls[12]).toBe(`POST /api/v1/tenants/${tenantId}/shops/${shopId}/brand-assets`);
   });
 });

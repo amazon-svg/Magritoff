@@ -109,6 +109,23 @@ describe('client fetch API Magrit', () => {
       client.request({ path: '/functions/v1/probe', responseSchema: z.unknown() }),
     ).rejects.toThrow('/api/v1/');
   });
+
+  it('envoie un FormData sans forcer un Content-Type incomplet', async () => {
+    let received: Request | null = null;
+    const client = new FetchApiClient('https://magrit.test', async (input, init) => {
+      received = new Request(input, init);
+      return new Response(JSON.stringify({ uploaded: true }), { headers: { 'Content-Type': 'application/json' } });
+    }, () => 'form-token');
+    const form = new FormData(); form.set('kind', 'logo'); form.set('asset', new Blob(['png'], { type: 'image/png' }), 'logo.png');
+
+    await expect(client.requestForm({ method: 'POST', path: '/api/v1/assets', form, responseSchema: z.object({ uploaded: z.literal(true) }) })).resolves.toEqual({ uploaded: true });
+
+    expect(received?.headers.get('Authorization')).toBe('Bearer form-token');
+    expect(received?.headers.get('Content-Type')).toContain('multipart/form-data; boundary=');
+    const receivedForm = await received?.formData();
+    expect(receivedForm?.get('kind')).toBe('logo');
+    expect(receivedForm?.get('asset')).toBeInstanceOf(Blob);
+  });
 });
 
 function bridgeTo(handler: (request: Request) => Promise<Response>): typeof fetch {

@@ -77,6 +77,8 @@ export const shopPricingOverrideSchema = z.object({
 export const shopPricingOverridesSchema = z.array(shopPricingOverrideSchema);
 export const setShopPricingCommandSchema = z.object({ priceHtOverride: z.number().positive().nullable() });
 export const shopPricingMutationResultSchema = z.object({ updated: z.literal(true) });
+export const shopBrandAssetKindSchema = z.enum(['logo', 'hero']);
+export const shopBrandAssetResultSchema = z.object({ assetUrl: z.string().url() });
 
 export type ShopDto = z.infer<typeof shopSchema>;
 export type ShopProductDto = z.infer<typeof shopProductSchema>;
@@ -88,3 +90,5 @@ export type PublicShopProbe = z.infer<typeof publicShopProbeSchema>;
 export type PublicShopCatalog = z.infer<typeof publicShopCatalogSchema>;
 export type ShopPricingOverride = z.infer<typeof shopPricingOverrideSchema>;
 export type SetShopPricingCommand = z.infer<typeof setShopPricingCommandSchema>;
+export type ShopBrandAssetKind = z.infer<typeof shopBrandAssetKindSchema>;
+export type ShopBrandAssetUpload = Readonly<{ kind: ShopBrandAssetKind; fileName: string; contentType: string; bytes: ArrayBuffer }>;

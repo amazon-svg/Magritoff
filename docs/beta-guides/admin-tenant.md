@@ -82,6 +82,7 @@ Si ton imprimerie a plusieurs sites (Paris + Lyon + Bordeaux), crée un sous-ten
 
 Pour chaque boutique tu peux configurer :
 
+- **Identité de marque** : logo et image hero (JPG/PNG/WebP max 5 MB)
 - **Fond global** : choix dans la bibliothèque Magrit (10 fonds curatés Sally) OU upload custom (JPG/PNG/WebP max 5 MB)
 - **Couleur primaire** : utilisée dans les templates SVG mockup (carte de visite liseré, flyer texte, etc.)
 - **Override par gamme** : tu peux assigner un fond différent par gamme (ex: fond marbre pour cartes de visite, fond kraft pour étiquettes)
@@ -89,6 +90,10 @@ Pour chaque boutique tu peux configurer :
 Cascade de résolution : **gamme > shop > default Magrit**. Le helper SQL `resolve_shop_background(shop_id, gamme_slug)` est appelé côté front au rendu mockup.
 
 **Composition layered** (V5) : le fond est appliqué via CSS `background-image` sur le wrapper du PNG produit (transparent). Le PNG reste cacheable indépendamment du fond — changement de fond instantané sans regénération.
+
+Les uploads de logo et d’image hero passent par l’API Magrit en multipart. Le
+navigateur ne contacte pas directement Storage ; le serveur contrôle le tenant,
+le droit `can_manage_catalog`, le type MIME et la limite de 5 Mo.
 
 ### Choisir le mode d’accès
 

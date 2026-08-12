@@ -33,7 +33,6 @@ import {
 } from 'lucide-react';
 import { useShops, Shop, ShopProduct } from '../../contexts/ShopsContext';
 import { FONT_PAIRINGS } from '../shop/fontPairings';
-import { supabase } from '/utils/supabase/client';
 import { useTenant } from '../../contexts/TenantContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLibrary, LibraryProduct } from '../../contexts/LibraryContext';
@@ -114,14 +113,12 @@ export function DashboardShopEditor() {
   // deviennent les onglets d une section unique "Catalogue de la boutique".
   const [catalogTab, setCatalogTab] = useState<'sources' | 'products' | 'visuals'>('sources');
 
-  // ─── Upload branding (logo / fond du bandeau) — bucket public shop_backgrounds
-  // (2026-07-08, refonte bandeau de marque). Réutilise le bucket + RLS
-  // can_manage_catalog déjà en place (S-PIM-VISUELS-2). Path <shop_id>/<kind>-<uuid>.
+  // ─── Upload branding (logo / fond du bandeau) via l'API Magrit.
   const [uploadingAsset, setUploadingAsset] = useState<null | 'logo' | 'hero'>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
   const uploadBrandAsset = async (kind: 'logo' | 'hero', file: File) => {
-    if (!shop) return;
+    if (!shop || !currentTenant) return;
     setUploadError(null);
     const ALLOWED = ['image/jpeg', 'image/png', 'image/webp'];
     if (!ALLOWED.includes(file.type)) {
@@ -134,16 +131,10 @@ export function DashboardShopEditor() {
     }
     setUploadingAsset(kind);
     try {
-      const ext = file.name.split('.').pop()?.toLowerCase() || 'png';
-      const path = `${shop.id}/${kind}-${crypto.randomUUID()}.${ext}`;
-      const { error: upErr } = await supabase.storage
-        .from('shop_backgrounds')
-        .upload(path, file, { upsert: true, contentType: file.type, cacheControl: '3600' });
-      if (upErr) throw new Error(upErr.message);
-      const { data: pub } = supabase.storage.from('shop_backgrounds').getPublicUrl(path);
+      const assetUrl = await shopsApi.uploadBrandAsset(currentTenant.id, shop.id, kind, file);
       setShop((prev) =>
         prev
-          ? { ...prev, [kind === 'logo' ? 'logo_url' : 'hero_image_url']: pub.publicUrl }
+          ? { ...prev, [kind === 'logo' ? 'logo_url' : 'hero_image_url']: assetUrl }
           : prev,
       );
     } catch (e: any) {
