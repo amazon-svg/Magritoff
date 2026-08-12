@@ -26,6 +26,8 @@ describe('runtime Supabase local', () => {
     expect(read('vite.config.ts')).toContain('env.VITE_API_PROXY_TARGET');
     expect(read('.env.local.example')).toContain('http://127.0.0.1:54321');
     expect(read('supabase/functions/magrit-api/deno.json')).toContain('npm:zod@4.4.3');
+    expect(read('supabase/functions/magrit-api/index.ts')).toContain("Deno.env.get('MAGRIT_PUBLIC_SUPABASE_URL')");
+    expect(read('supabase/functions/magrit-api/index.ts')).toContain("return 'http://127.0.0.1:54321'");
   });
 
   it('accorde explicitement les opérations API protégées par RLS', () => {

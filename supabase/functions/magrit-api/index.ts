@@ -52,7 +52,7 @@ export async function handleRequest(request: Request): Promise<Response> {
   const invitationsService = new InvitationsService(new SupabaseInvitationsRepository(client, invitationEmailSender));
   const membersService = new MembersService(new SupabaseMembersRepository(client));
   const rolesService = new RolesService(new SupabaseRolesRepository(client));
-  const shopsService = new ShopsService(new SupabaseShopsRepository(client));
+  const shopsService = new ShopsService(new SupabaseShopsRepository(client, publicSupabaseUrl(request, supabaseUrl)));
   const catalogService = new CatalogService(new SupabaseCatalogRepository(client));
   const handler = createApiV1Application({
     routes: [
@@ -80,6 +80,20 @@ export async function handleRequest(request: Request): Promise<Response> {
   const headers = new Headers(response.headers);
   Object.entries(corsHeaders).forEach(([name, value]) => headers.set(name, value));
   return new Response(response.body, { status: response.status, headers });
+}
+
+function publicSupabaseUrl(request: Request, internalUrl: string): string {
+  const configured = Deno.env.get('MAGRIT_PUBLIC_SUPABASE_URL');
+  if (configured) return configured;
+  try {
+    if (new URL(internalUrl).hostname !== 'kong') return internalUrl;
+    const forwardedHost = request.headers.get('x-forwarded-host') ?? request.headers.get('host');
+    if (forwardedHost && !forwardedHost.startsWith('kong')) {
+      const protocol = request.headers.get('x-forwarded-proto') ?? 'http';
+      return `${protocol}://${forwardedHost}`;
+    }
+  } catch { /* repli local ci-dessous */ }
+  return 'http://127.0.0.1:54321';
 }
 
 function normalizeApiRequest(request: Request): Request {

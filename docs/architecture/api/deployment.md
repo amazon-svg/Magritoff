@@ -27,6 +27,11 @@ forcer manuellement leur en-tête `Content-Type`. L’endpoint des visuels de
 boutique accepte des fichiers jusqu’à 5 Mo ; cette limite doit également être
 autorisée par le proxy et le runtime Edge.
 
+Les URL Storage sont construites côté serveur. Lorsque le runtime Supabase voit
+l’origine Docker interne `http://kong:8000`, `magrit-api` la remplace par
+l’origine reçue du proxy. `MAGRIT_PUBLIC_SUPABASE_URL` permet de forcer cette
+origine dans un environnement où les en-têtes forwardés ne sont pas fiables.
+
 ## Rollback
 
 Le backend peut être déployé avant le front et rester inutilisé. En cas de problème après livraison du front, revenir à l artefact front précédent suffit ; ne pas supprimer immédiatement la fonction, afin de conserver les request IDs nécessaires au diagnostic.

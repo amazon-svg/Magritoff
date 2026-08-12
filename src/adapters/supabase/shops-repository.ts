@@ -9,12 +9,12 @@ const SHOP_COLUMNS = 'id, tenant_id, owner_user_id, slug, name, description, the
 const PRODUCT_COLUMNS = 'id, shop_id, product_id, name, category, description, price_ht, image_url, config, display_order, created_at, tenant_id, gamme_slug' as const;
 
 export class SupabaseShopsRepository implements ShopsRepository {
-  constructor(private readonly client: SupabaseClient<Database>) {}
+  constructor(private readonly client: SupabaseClient<Database>, private readonly publicBaseUrl?: string) {}
 
   async list(_actor: UserId, tenantId: string): Promise<ShopDto[]> {
     const { data, error } = await this.client.from('shops').select(SHOP_COLUMNS).eq('tenant_id', tenantId).order('created_at', { ascending: false });
     if (error) throw classified(error, 'Chargement des boutiques impossible.');
-    return (data ?? []).map(mapShop);
+    return (data ?? []).map((row) => mapShop(row, this.publicBaseUrl));
   }
   async create(actor: UserId, tenantId: string, command: CreateShopCommand): Promise<ShopDto> {
     const parsed = { ...DEFAULT_THEME, ...(command.theme ?? {}) };
@@ -25,13 +25,13 @@ export class SupabaseShopsRepository implements ShopsRepository {
       hero_image_url: command.heroImageUrl ?? null, tagline: command.tagline ?? null,
     }).select(SHOP_COLUMNS).single();
     if (error || !data) throw classified(error, 'Création de la boutique impossible.');
-    return mapShop(data);
+    return mapShop(data, this.publicBaseUrl);
   }
   async update(actor: UserId, tenantId: string, shopId: string, command: UpdateShopCommand): Promise<ShopDto> {
     const { data, error } = await this.client.from('shops').update(shopPatch(command)).eq('tenant_id', tenantId).eq('id', shopId).eq('owner_user_id', actor).select(SHOP_COLUMNS).maybeSingle();
     if (error) throw classified(error, 'Modification de la boutique impossible.');
     if (!data) throw new ShopRejectedError('shop_not_found', 'Boutique introuvable.');
-    return mapShop(data);
+    return mapShop(data, this.publicBaseUrl);
   }
   async remove(actor: UserId, tenantId: string, shopId: string): Promise<void> {
     const { data, error } = await this.client.from('shops').delete().eq('tenant_id', tenantId).eq('id', shopId).eq('owner_user_id', actor).select('id').maybeSingle();
@@ -111,11 +111,11 @@ export class SupabaseShopsRepository implements ShopsRepository {
     const pricedManual = manual.map((product) => product.productId && priceByLibraryId.has(product.productId)
       ? { ...product, priceHt: priceByLibraryId.get(product.productId)! } : product);
     return {
-      shop: mapPublicShop(shopRow), products: [...pricedManual, ...linked],
+      shop: mapPublicShop(shopRow, this.publicBaseUrl), products: [...pricedManual, ...linked],
       gammes: (gammesResult.data ?? []).map((row) => ({ ...row, matching_rules: toRecord(row.matching_rules) })),
       definitions: (definitionsResult.data ?? []).map((row) => ({ ...row })),
       subscribedSlugs: subscriptionsResult.error ? [] : (subscriptionsResult.data ?? []).map((row) => row.gamme_slug),
-      customMockups: (mockupsResult.data ?? []).map(mapCustomMockup),
+      customMockups: (mockupsResult.data ?? []).map((row) => mapCustomMockup(row, this.publicBaseUrl)),
     };
   }
   async pricing(_actor: UserId, tenantId: string, shopId: string): Promise<ShopPricingOverride[]> {
@@ -147,13 +147,13 @@ export class SupabaseShopsRepository implements ShopsRepository {
       upsert: false, contentType: upload.contentType, cacheControl: '3600',
     });
     if (error) throw classified(error, 'Upload du visuel de boutique impossible.');
-    return this.client.storage.from('shop_backgrounds').getPublicUrl(path).data.publicUrl;
+    return publicAssetUrl(this.client.storage.from('shop_backgrounds').getPublicUrl(path).data.publicUrl, this.publicBaseUrl);
   }
   async customMockups(_actor: UserId, tenantId: string, shopId: string): Promise<ShopCustomMockup[]> {
     await this.requireShop(tenantId, shopId);
     const { data, error } = await this.client.from('shop_template_mockups').select('shop_id, template_type, view, mockup_image_url').eq('tenant_id', tenantId).eq('shop_id', shopId);
     if (error) throw classified(error, 'Lecture des mockups personnalisés impossible.');
-    return (data ?? []).map(mapCustomMockup);
+    return (data ?? []).map((row) => mapCustomMockup(row, this.publicBaseUrl));
   }
   async uploadCustomMockup(_actor: UserId, tenantId: string, shopId: string, upload: ShopCustomMockupUpload): Promise<void> {
     await this.requireShop(tenantId, shopId);
@@ -161,7 +161,7 @@ export class SupabaseShopsRepository implements ShopsRepository {
     const path = `${shopId}/${upload.templateType}-${upload.view}.${extension}`;
     const { error: storageError } = await this.client.storage.from('shop_product_mockups').upload(path, new Uint8Array(upload.bytes), { upsert: true, contentType: upload.contentType, cacheControl: '60' });
     if (storageError) throw classified(storageError, 'Upload du mockup personnalisé impossible.');
-    const publicUrl = this.client.storage.from('shop_product_mockups').getPublicUrl(path).data.publicUrl;
+    const publicUrl = publicAssetUrl(this.client.storage.from('shop_product_mockups').getPublicUrl(path).data.publicUrl, this.publicBaseUrl);
     const { error } = await this.client.from('shop_template_mockups').upsert({ shop_id: shopId, tenant_id: tenantId, template_type: upload.templateType, view: upload.view, mockup_image_url: `${publicUrl}?v=${Date.now()}`, updated_at: new Date().toISOString() }, { onConflict: 'shop_id,template_type,view' });
     if (error) throw classified(error, 'Enregistrement du mockup personnalisé impossible.');
   }
@@ -201,17 +201,17 @@ type ShopRow = Database['public']['Tables']['shops']['Row'];
 type ProductRow = Database['public']['Tables']['shop_products']['Row'];
 type ProductLibraryRow = Database['public']['Tables']['product_library']['Row'];
 type CustomMockupRow = Database['public']['Tables']['shop_template_mockups']['Row'];
-function mapShop(row: Pick<ShopRow, 'id' | 'tenant_id' | 'owner_user_id' | 'slug' | 'name' | 'description' | 'theme' | 'logo_url' | 'address' | 'contact_email' | 'active' | 'library_ids' | 'excluded_product_ids' | 'hero_image_url' | 'tagline' | 'pim_catalog_mode' | 'pim_gamme_slugs' | 'access_mode' | 'created_at'>): ShopDto {
+function mapShop(row: Pick<ShopRow, 'id' | 'tenant_id' | 'owner_user_id' | 'slug' | 'name' | 'description' | 'theme' | 'logo_url' | 'address' | 'contact_email' | 'active' | 'library_ids' | 'excluded_product_ids' | 'hero_image_url' | 'tagline' | 'pim_catalog_mode' | 'pim_gamme_slugs' | 'access_mode' | 'created_at'>, publicBaseUrl?: string): ShopDto {
   if (!row.tenant_id) throw new ShopRejectedError('invalid_request', 'Boutique sans espace propriétaire.');
   const theme = row.theme && typeof row.theme === 'object' && !Array.isArray(row.theme) ? row.theme : {};
-  return { id: row.id, tenantId: row.tenant_id, ownerUserId: row.owner_user_id, slug: row.slug, name: row.name, description: row.description ?? '', theme: { ...DEFAULT_THEME, ...theme }, logoUrl: row.logo_url ?? '', address: row.address ?? '', contactEmail: row.contact_email ?? '', active: row.active, libraryIds: row.library_ids ?? [], excludedProductIds: row.excluded_product_ids ?? [], heroImageUrl: row.hero_image_url, tagline: row.tagline, pimCatalogMode: row.pim_catalog_mode === true, pimGammeSlugs: row.pim_gamme_slugs ?? [], accessMode: row.access_mode === 'self_signup' ? 'self_signup' : 'invite_only', createdAt: row.created_at };
+  return { id: row.id, tenantId: row.tenant_id, ownerUserId: row.owner_user_id, slug: row.slug, name: row.name, description: row.description ?? '', theme: { ...DEFAULT_THEME, ...theme }, logoUrl: publicAssetUrl(row.logo_url ?? '', publicBaseUrl), address: row.address ?? '', contactEmail: row.contact_email ?? '', active: row.active, libraryIds: row.library_ids ?? [], excludedProductIds: row.excluded_product_ids ?? [], heroImageUrl: row.hero_image_url ? publicAssetUrl(row.hero_image_url, publicBaseUrl) : null, tagline: row.tagline, pimCatalogMode: row.pim_catalog_mode === true, pimGammeSlugs: row.pim_gamme_slugs ?? [], accessMode: row.access_mode === 'self_signup' ? 'self_signup' : 'invite_only', createdAt: row.created_at };
 }
 function mapProduct(row: Pick<ProductRow, 'id' | 'shop_id' | 'product_id' | 'name' | 'category' | 'description' | 'price_ht' | 'image_url' | 'config' | 'display_order' | 'created_at' | 'tenant_id' | 'gamme_slug'>): ShopProductDto { return { id: row.id, shopId: row.shop_id, productId: row.product_id, name: row.name, category: row.category, description: row.description ?? '', priceHt: Number(row.price_ht), imageUrl: row.image_url ?? '', config: toRecord(row.config), displayOrder: row.display_order, createdAt: row.created_at, tenantId: row.tenant_id, gammeSlug: row.gamme_slug }; }
-function mapCustomMockup(row: Pick<CustomMockupRow, 'shop_id' | 'template_type' | 'view' | 'mockup_image_url'>): ShopCustomMockup { return { shopId: row.shop_id, templateType: row.template_type as MockupTemplateType, view: row.view as MockupView, mockupImageUrl: row.mockup_image_url }; }
-function mapPublicShop(row: Pick<ShopRow, 'id' | 'tenant_id' | 'slug' | 'name' | 'description' | 'theme' | 'logo_url' | 'address' | 'contact_email' | 'active' | 'hero_image_url' | 'tagline' | 'access_mode' | 'created_at'>) {
+function mapCustomMockup(row: Pick<CustomMockupRow, 'shop_id' | 'template_type' | 'view' | 'mockup_image_url'>, publicBaseUrl?: string): ShopCustomMockup { return { shopId: row.shop_id, templateType: row.template_type as MockupTemplateType, view: row.view as MockupView, mockupImageUrl: publicAssetUrl(row.mockup_image_url, publicBaseUrl) }; }
+function mapPublicShop(row: Pick<ShopRow, 'id' | 'tenant_id' | 'slug' | 'name' | 'description' | 'theme' | 'logo_url' | 'address' | 'contact_email' | 'active' | 'hero_image_url' | 'tagline' | 'access_mode' | 'created_at'>, publicBaseUrl?: string) {
   if (!row.tenant_id) throw new ShopRejectedError('invalid_request', 'Boutique sans espace propriétaire.');
   const theme = row.theme && typeof row.theme === 'object' && !Array.isArray(row.theme) ? row.theme : {};
-  return { id: row.id, tenantId: row.tenant_id, slug: row.slug, name: row.name, description: row.description ?? '', theme: { ...DEFAULT_THEME, ...theme }, logoUrl: row.logo_url ?? '', address: row.address ?? '', contactEmail: row.contact_email ?? '', active: row.active, heroImageUrl: row.hero_image_url, tagline: row.tagline, accessMode: row.access_mode === 'self_signup' ? 'self_signup' as const : 'invite_only' as const, createdAt: row.created_at };
+  return { id: row.id, tenantId: row.tenant_id, slug: row.slug, name: row.name, description: row.description ?? '', theme: { ...DEFAULT_THEME, ...theme }, logoUrl: publicAssetUrl(row.logo_url ?? '', publicBaseUrl), address: row.address ?? '', contactEmail: row.contact_email ?? '', active: row.active, heroImageUrl: row.hero_image_url ? publicAssetUrl(row.hero_image_url, publicBaseUrl) : null, tagline: row.tagline, accessMode: row.access_mode === 'self_signup' ? 'self_signup' as const : 'invite_only' as const, createdAt: row.created_at };
 }
 function shopPatch(command: UpdateShopCommand): Database['public']['Tables']['shops']['Update'] {
   const patch: Database['public']['Tables']['shops']['Update'] = {};
@@ -231,3 +231,13 @@ function productPatch(command: CreateShopProductCommand | UpdateShopProductComma
 function toRecord(value: unknown): Record<string, unknown> { return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
 function randomSlug() { const part = () => Math.random().toString(36).slice(2, 8); return `${part()}-${part()}`; }
 function classified(error: { code?: string; message?: string } | null, fallback: string) { if (error?.code === '23505') return new ShopRejectedError('conflict', error.message ?? fallback); if (error?.code === '23503' || error?.code === '23514') return new ShopRejectedError('invalid_request', error.message ?? fallback); return new ShopRejectedError('permission_denied', error?.message ?? fallback); }
+export function publicAssetUrl(value: string, publicBaseUrl?: string): string {
+  if (!value || !publicBaseUrl) return value;
+  try {
+    const url = new URL(value);
+    if (url.hostname !== 'kong') return value;
+    const publicOrigin = new URL(publicBaseUrl);
+    url.protocol = publicOrigin.protocol; url.hostname = publicOrigin.hostname; url.port = publicOrigin.port;
+    return url.toString();
+  } catch { return value; }
+}
