@@ -28,6 +28,8 @@ const DEFAULT_PERMISSIONS: SessionTenant['permissions'] = Object.freeze({
 export class SessionService {
   constructor(private readonly repository: SessionRepository) {}
 
+  async resolveTenantSlug(userId: UserId, slug: string) { return { slug: await this.repository.resolveTenantSlug(userId, slug) }; }
+
   async load(userId: UserId): Promise<SessionBootstrap> {
     await this.repository.autoAcceptPendingInvitations();
     const directMemberships = await this.repository.listDirectMemberships(userId);

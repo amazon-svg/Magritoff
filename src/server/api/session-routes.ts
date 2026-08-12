@@ -10,6 +10,7 @@ import {
   createSubTenantSchema,
   createSubTenantResultSchema,
   removeSubTenantResultSchema,
+  tenantSlugResolutionSchema,
 } from '../../modules/session/api/contracts.ts';
 import {
   SessionTenantAccessDeniedError,
@@ -22,6 +23,10 @@ import { defineJsonRoute, type ApiRequestContext, type ApiRoute } from './routes
 
 export function createSessionRoutes(service: SessionService): readonly ApiRoute[] {
   return [
+    defineJsonRoute({
+      method: 'GET', path: `${API_V1_BASE_PATH}/tenant-slugs/{slug}`, authentication: 'required', inputSchema: null, outputSchema: tenantSlugResolutionSchema,
+      async handle(context) { return { status: 200, body: await service.resolveTenantSlug(requireUserId(context), requireSlug(context)) }; },
+    }),
     defineJsonRoute({
       method: 'GET',
       path: `${API_V1_BASE_PATH}/session`,
@@ -164,4 +169,10 @@ function requireSubTenantId(context: ApiRequestContext): string {
   const parsed = parseId(context.params.subTenantId ?? '');
   if (!parsed.ok) throw new ApiHttpError({ type: 'about:blank', title: 'Identifiant sous-espace invalide', status: 422, code: 'api.validation_failed' });
   return parsed.value;
+}
+
+function requireSlug(context: ApiRequestContext): string {
+  const slug = context.params.slug?.trim() ?? '';
+  if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(slug) || slug.length > 160) throw new ApiHttpError({ type: 'about:blank', title: 'Slug tenant invalide', status: 422, code: 'api.validation_failed' });
+  return slug;
 }

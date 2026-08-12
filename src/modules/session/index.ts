@@ -15,6 +15,7 @@ export {
   createSubTenantSchema,
   createSubTenantResultSchema,
   removeSubTenantResultSchema,
+  tenantSlugResolutionSchema,
   userPreferencesSchema,
   type SessionBootstrap,
   type SessionTenant,
@@ -25,6 +26,7 @@ export {
   type SubTenantKpi,
   type SubTenantsDashboard,
   type CreateSubTenant,
+  type TenantSlugResolution,
 } from './api/contracts';
 export {
   DEFAULT_SESSION_PREFERENCES,

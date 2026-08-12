@@ -26,6 +26,7 @@ export class SessionTenantMutationError extends Error {
 }
 
 export interface SessionRepository {
+  resolveTenantSlug(userId: UserId, slug: string): Promise<string | null>;
   autoAcceptPendingInvitations(): Promise<void>;
   listDirectMemberships(userId: UserId): Promise<readonly DirectMembership[]>;
   listChildren(parentTenantIds: readonly string[]): Promise<readonly ChildTenant[]>;

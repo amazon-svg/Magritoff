@@ -10,6 +10,7 @@ import {
   createSubTenantSchema,
   createSubTenantResultSchema,
   removeSubTenantResultSchema,
+  tenantSlugResolutionSchema,
   type SessionBootstrap,
   type SessionUserPreferences,
   type UpdatePreferences,
@@ -27,6 +28,10 @@ export class SessionApiClient {
       responseSchema: sessionBootstrapSchema,
       ...(signal === undefined ? {} : { signal }),
     });
+  }
+
+  resolveTenantSlug(slug: string): Promise<string | null> {
+    return this.client.request({ path: `${API_V1_BASE_PATH}/tenant-slugs/${encodeURIComponent(slug)}`, responseSchema: tenantSlugResolutionSchema }).then((result) => result.slug);
   }
 
   updatePreferences(patch: UpdatePreferences): Promise<SessionUserPreferences> {

@@ -76,6 +76,7 @@ function repositoryStub(options: {
   children?: ReturnType<typeof tenant>[];
 } = {}): SessionRepository & Record<'listChildren' | 'autoAcceptPendingInvitations', ReturnType<typeof vi.fn>> {
   return {
+    resolveTenantSlug: vi.fn(async (slug) => slug),
     autoAcceptPendingInvitations: vi.fn(async () => undefined),
     listDirectMemberships: vi.fn(async () => options.direct ?? []),
     listChildren: vi.fn(async () => options.children ?? []),

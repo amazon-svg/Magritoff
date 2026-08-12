@@ -9,9 +9,11 @@
  * Si le slug n'est ni courant ni archive → fallback /tenants (picker).
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Navigate, useLocation } from 'react-router';
-import { supabase } from '/utils/supabase/client';
+import { useAuth } from '../../contexts/AuthContext';
+import { SessionApiClient } from '../../../modules/session';
+import { FetchApiClient } from '../../../platform/api';
 
 interface Props {
   oldSlug: string;
@@ -19,6 +21,8 @@ interface Props {
 
 export function LegacySlugRedirect({ oldSlug }: Props) {
   const location = useLocation();
+  const { session } = useAuth();
+  const sessionApi = useMemo(() => new SessionApiClient(new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null)), [session?.access_token]);
   // undefined = loading, null = no match (fallback), string = redirect target
   const [target, setTarget] = useState<string | null | undefined>(undefined);
 
@@ -27,20 +31,23 @@ export function LegacySlugRedirect({ oldSlug }: Props) {
       setTarget(null);
       return;
     }
-    supabase
-      .rpc('resolve_tenant_slug', { p_slug: oldSlug })
-      .then(({ data, error }) => {
-        if (error || !data || data === oldSlug) {
+    let cancelled = false;
+    sessionApi.resolveTenantSlug(oldSlug)
+      .then((slug) => {
+        if (cancelled) return;
+        if (!slug || slug === oldSlug) {
           setTarget(null);
           return;
         }
         // Remplace seulement le segment slug, conserve le sous-path
-        const newPath = location.pathname.replace(`/t/${oldSlug}`, `/t/${data}`)
+        const newPath = location.pathname.replace(`/t/${oldSlug}`, `/t/${slug}`)
           + location.search
           + location.hash;
         setTarget(newPath);
-      });
-  }, [oldSlug]);
+      })
+      .catch(() => { if (!cancelled) setTarget(null); });
+    return () => { cancelled = true; };
+  }, [oldSlug, location.hash, location.pathname, location.search, sessionApi]);
 
   if (target === undefined) {
     return (

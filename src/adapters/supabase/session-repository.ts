@@ -17,6 +17,12 @@ type PreferencesRow = Database['public']['Tables']['user_preferences']['Row'];
 export class SupabaseSessionRepository implements SessionRepository {
   constructor(private readonly client: UserScopedClient) {}
 
+  async resolveTenantSlug(_userId: UserId, slug: string): Promise<string | null> {
+    const { data, error } = await this.client.rpc('resolve_tenant_slug', { p_slug: slug });
+    if (error) throw new Error(`Résolution du slug tenant impossible: ${error.message}`);
+    return data || null;
+  }
+
   async autoAcceptPendingInvitations(): Promise<void> {
     const { error } = await this.client.rpc('auto_accept_pending_invitations');
     if (error) console.warn('[SessionRepository] auto-accept ignoré:', error.message);

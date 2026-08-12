@@ -71,6 +71,7 @@ export const createSubTenantSchema = z.object({
 });
 export const createSubTenantResultSchema = z.object({ tenantId: z.string().min(1) });
 export const removeSubTenantResultSchema = z.object({ removed: z.literal(true) });
+export const tenantSlugResolutionSchema = z.object({ slug: z.string().nullable() });
 
 export type SessionTenant = z.infer<typeof sessionTenantSchema>;
 export type SessionBootstrap = z.infer<typeof sessionBootstrapSchema>;
@@ -81,3 +82,4 @@ export type SubTenant = z.infer<typeof subTenantSchema>;
 export type SubTenantKpi = z.infer<typeof subTenantKpiSchema>;
 export type SubTenantsDashboard = z.infer<typeof subTenantsDashboardSchema>;
 export type CreateSubTenant = z.infer<typeof createSubTenantSchema>;
+export type TenantSlugResolution = z.infer<typeof tenantSlugResolutionSchema>;

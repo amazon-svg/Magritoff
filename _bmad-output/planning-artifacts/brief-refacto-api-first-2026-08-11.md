@@ -145,6 +145,9 @@ src/
   commande legacy de création de sous-tenant — livré ;
 - AF15.3 : vérification contractuelle d’une capability de l’utilisateur
   courant via le module Roles ; `useUserCapability` sort de Supabase — livré ;
+- AF16.1 : résolution des anciens slugs via Session et redirection du scope
+  boutique via Shops ; les deux composants de routage tenant sortent de
+  Supabase — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.

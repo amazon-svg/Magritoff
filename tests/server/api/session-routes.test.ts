@@ -22,6 +22,7 @@ describe('routes session API v1', () => {
     );
 
     const session = await client.load();
+    const resolvedSlug = await client.resolveTenantSlug('ancien-espace');
     const preferences = await client.updatePreferences({ theme: 'dark' });
     const selected = await client.updateCurrentTenant('tenant-af2');
     await client.updateTenantSettings('tenant-af2', { name: 'Nouveau nom' });
@@ -30,6 +31,7 @@ describe('routes session API v1', () => {
     await client.removeSubTenant('tenant-af2', childId);
 
     expect(session.user.id).toBe('user-af2');
+    expect(resolvedSlug).toBe('tenant-af2');
     expect(session.tenants[0]).toMatchObject({ id: 'tenant-af2', myRole: 'owner' });
     expect(preferences.theme).toBe('dark');
     expect(selected.last_tenant_id).toBe('tenant-af2');
@@ -53,6 +55,14 @@ describe('routes session API v1', () => {
       code: 'identity.authentication_required',
       requestId: 'request-af2',
     });
+  });
+
+  it('refuse un ancien slug tenant invalide avant le repository', async () => {
+    const repository = repositoryStub();
+    const handler = createApiV1Application({ routes: createSessionRoutes(new SessionService(repository)), requestIdFactory: () => 'request-af16', actorResolver: { async resolve() { return { kind: 'user', userId: id('user-af2') }; } } });
+    const response = await handler(new Request('https://magrit.test/api/v1/tenant-slugs/Slug%20invalide'));
+    expect(response.status).toBe(422);
+    expect(repository.resolveTenantSlug).not.toHaveBeenCalled();
   });
 
   it('refuse de sélectionner un tenant inaccessible', async () => {
@@ -105,8 +115,9 @@ describe('routes session API v1', () => {
   });
 });
 
-function repositoryStub(): SessionRepository & Record<'updatePreferences' | 'updateTenantSettings' | 'createSubTenant' | 'removeSubTenant', ReturnType<typeof vi.fn>> {
+function repositoryStub(): SessionRepository & Record<'resolveTenantSlug' | 'updatePreferences' | 'updateTenantSettings' | 'createSubTenant' | 'removeSubTenant', ReturnType<typeof vi.fn>> {
   return {
+    resolveTenantSlug: vi.fn(async () => 'tenant-af2'),
     autoAcceptPendingInvitations: vi.fn(async () => undefined),
     listDirectMemberships: vi.fn(async () => [{
       tenant: {

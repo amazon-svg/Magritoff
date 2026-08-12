@@ -267,6 +267,17 @@ describe('frontières API-first et modulaires', () => {
     }
   });
 
+  it('sort les redirections tenant du fournisseur', () => {
+    const legacy = readFileSync(resolve(process.cwd(), 'src/app/components/tenant/LegacySlugRedirect.tsx'), 'utf8');
+    const shopOnly = readFileSync(resolve(process.cwd(), 'src/app/components/tenant/ShopOnlyRedirect.tsx'), 'utf8');
+    expect(legacy).toContain('SessionApiClient');
+    expect(shopOnly).toContain('ShopsApiClient');
+    for (const source of [legacy, shopOnly]) {
+      expect(source).not.toContain('utils/supabase');
+      expect(source).not.toMatch(/\bsupabase\s*\./);
+    }
+  });
+
   it('isole le renvoi des invitations derrière le port email', () => {
     const repository = readFileSync(resolve(process.cwd(), 'src/adapters/supabase/invitations-repository.ts'), 'utf8');
     expect(repository).toContain('InvitationEmailSender');

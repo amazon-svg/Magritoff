@@ -93,6 +93,21 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ApiProblem'
+  /tenant-slugs/{slug}:
+    get:
+      operationId: resolveTenantSlug
+      summary: Résoudre un slug tenant courant ou archivé
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: slug, in: path, required: true, schema: { type: string, pattern: '^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$', maxLength: 160 } }
+      responses:
+        '200':
+          description: Slug actuel, ou null si le slug est inconnu ou expiré
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TenantSlugResolution' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '422': { description: Slug invalide }
   /tenants/{tenantId}/orders:
     get:
       operationId: listTenantOrders
@@ -756,6 +771,12 @@ components:
       properties:
         name: { type: string, minLength: 1, maxLength: 160 }
         slug: { type: string, minLength: 3, maxLength: 60, pattern: '^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$' }
+    TenantSlugResolution:
+      type: object
+      additionalProperties: false
+      required: [slug]
+      properties:
+        slug: { type: [string, 'null'] }
     TenantMutationResult:
       type: object
       additionalProperties: false
