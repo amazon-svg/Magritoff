@@ -90,10 +90,18 @@ function publicSupabaseUrl(request: Request, internalUrl: string): string {
     const forwardedHost = request.headers.get('x-forwarded-host') ?? request.headers.get('host');
     if (forwardedHost && !forwardedHost.startsWith('kong')) {
       const protocol = request.headers.get('x-forwarded-proto') ?? 'http';
-      return `${protocol}://${forwardedHost}`;
+      const origin = new URL(`${protocol}://${forwardedHost}`);
+      const forwardedPort = request.headers.get('x-forwarded-port');
+      if (!origin.port && forwardedPort) origin.port = forwardedPort;
+      if (!origin.port && isLoopback(origin.hostname)) origin.port = '54321';
+      return origin.origin;
     }
   } catch { /* repli local ci-dessous */ }
   return 'http://127.0.0.1:54321';
+}
+
+function isLoopback(hostname: string): boolean {
+  return hostname === '127.0.0.1' || hostname === 'localhost' || hostname === '::1' || hostname === '[::1]';
 }
 
 function normalizeApiRequest(request: Request): Request {

@@ -235,9 +235,13 @@ export function publicAssetUrl(value: string, publicBaseUrl?: string): string {
   if (!value || !publicBaseUrl) return value;
   try {
     const url = new URL(value);
-    if (url.hostname !== 'kong') return value;
     const publicOrigin = new URL(publicBaseUrl);
+    const isStorageAsset = url.pathname.startsWith('/storage/v1/object/');
+    const isIncompleteLocalUrl = isStorageAsset && isLoopback(url.hostname) && isLoopback(publicOrigin.hostname)
+      && url.origin !== publicOrigin.origin;
+    if (url.hostname !== 'kong' && !isIncompleteLocalUrl) return value;
     url.protocol = publicOrigin.protocol; url.hostname = publicOrigin.hostname; url.port = publicOrigin.port;
     return url.toString();
   } catch { return value; }
 }
+function isLoopback(hostname: string): boolean { return hostname === '127.0.0.1' || hostname === 'localhost' || hostname === '::1' || hostname === '[::1]'; }

@@ -27,7 +27,8 @@ La première exécution télécharge les images Docker. Les services principaux 
 
 - API Supabase : http://127.0.0.1:54321
 - Les URL Storage retournées au navigateur utilisent aussi cette origine ;
-  `kong:8000` est réservé au réseau Docker et ne doit jamais apparaître dans l’UI.
+  `kong:8000` et `http://127.0.0.1` sans le port `54321` sont des origines
+  invalides côté navigateur et ne doivent jamais apparaître dans l’UI.
 - Studio : http://127.0.0.1:54323
 - Mailpit : http://127.0.0.1:54324
 - front beta/v5 : http://127.0.0.1:5177

@@ -18,10 +18,12 @@ navigateur hôte ; le logo était donc enregistré mais son aperçu était cass�
 ## Correction
 
 - `magrit-api` dérive l’origine publique depuis les en-têtes du proxy ;
+- le port transmis par `x-forwarded-port` est conservé et le runtime local se
+  replie sur `54321` lorsque le proxy ne le fournit pas ;
 - `MAGRIT_PUBLIC_SUPABASE_URL` permet une configuration explicite ;
 - l’adaptateur remplace uniquement les URL dont l’hôte est `kong` ;
 - les logos, hero et mockups déjà enregistrés avec cette origine sont corrigés
-  à la lecture, sans migration destructive ;
+  à la lecture, y compris les URL loopback sans port, sans migration destructive ;
 - les URL CDN externes restent inchangées.
 
 ## Validation UX attendue

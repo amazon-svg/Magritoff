@@ -27,6 +27,7 @@ describe('runtime Supabase local', () => {
     expect(read('.env.local.example')).toContain('http://127.0.0.1:54321');
     expect(read('supabase/functions/magrit-api/deno.json')).toContain('npm:zod@4.4.3');
     expect(read('supabase/functions/magrit-api/index.ts')).toContain("Deno.env.get('MAGRIT_PUBLIC_SUPABASE_URL')");
+    expect(read('supabase/functions/magrit-api/index.ts')).toContain("request.headers.get('x-forwarded-port')");
     expect(read('supabase/functions/magrit-api/index.ts')).toContain("return 'http://127.0.0.1:54321'");
   });
 

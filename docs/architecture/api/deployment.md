@@ -29,8 +29,10 @@ autorisée par le proxy et le runtime Edge.
 
 Les URL Storage sont construites côté serveur. Lorsque le runtime Supabase voit
 l’origine Docker interne `http://kong:8000`, `magrit-api` la remplace par
-l’origine reçue du proxy. `MAGRIT_PUBLIC_SUPABASE_URL` permet de forcer cette
-origine dans un environnement où les en-têtes forwardés ne sont pas fiables.
+l’origine reçue du proxy, port `x-forwarded-port` inclus. En local, le port
+`54321` sert de repli pour une origine loopback incomplète.
+`MAGRIT_PUBLIC_SUPABASE_URL` permet de forcer cette origine dans un
+environnement où les en-têtes forwardés ne sont pas fiables.
 
 ## Rollback
 
