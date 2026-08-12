@@ -19,8 +19,10 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 11
+        # La version exacte et son integrity hash sont verrouillés par
+        # package.json#packageManager. Ne pas la redéclarer ici : action-setup
+        # rejette désormais les deux sources, même si leur version majeure est
+        # identique.
 
       - name: Setup Node 22
         uses: actions/setup-node@v4
