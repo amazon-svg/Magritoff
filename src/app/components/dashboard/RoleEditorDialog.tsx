@@ -25,7 +25,9 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Loader2, X as XIcon } from 'lucide-react';
-import { supabase } from '/utils/supabase/client';
+import { useAuth } from '../../contexts/AuthContext';
+import { RolesApiClient } from '../../../modules/roles';
+import { FetchApiClient } from '../../../platform/api';
 import {
   Dialog,
   DialogClose,
@@ -150,12 +152,16 @@ export function RoleEditorDialog({
   onClose,
   onSaved,
 }: RoleEditorDialogProps) {
+  const { session } = useAuth();
   const isEdit = !!role;
   const [form, setForm] = useState<FormState>(() =>
     buildInitialState(role, defaultNameForCreate ?? 'Validateur 1'),
   );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const rolesApi = useMemo(() => new RolesApiClient(new FetchApiClient(
+    '', globalThis.fetch, () => session?.access_token ?? null,
+  )), [session?.access_token]);
 
   // Reset état au changement de mode (création ↔ édition) / nouvelle ouverture
   useEffect(() => {
@@ -220,37 +226,28 @@ export function RoleEditorDialog({
       can_manage_roles: role?.capabilities.can_manage_roles ?? false,
     };
 
-    const payload = {
+    const command = {
       name: trimmedName,
+      description: role?.description ?? '',
       capabilities,
-      notify_policy: form.notify_policy,
+      notifyPolicy: form.notify_policy,
       scope: form.scope,
-      scope_shop_id: form.scope === 'shop' ? form.scope_shop_id : null,
-      ordering_index,
+      scopeShopId: form.scope === 'shop' ? form.scope_shop_id : null,
+      orderingIndex: ordering_index,
     };
 
-    let rpcError: { message: string } | null = null;
-    if (isEdit) {
-      const { error: updErr } = await supabase
-        .from('tenant_role_definitions')
-        .update(payload)
-        .eq('id', role!.id);
-      rpcError = updErr;
-    } else {
-      const { error: insErr } = await supabase
-        .from('tenant_role_definitions')
-        .insert({ ...payload, tenant_id: tenantId });
-      rpcError = insErr;
-    }
-
-    setSubmitting(false);
-
-    if (rpcError) {
-      console.warn('[RoleEditorDialog] save failed:', rpcError.message);
-      setError(`Enregistrement impossible : ${rpcError.message}`);
+    try {
+      if (isEdit) await rolesApi.updateDefinition(tenantId, role!.id, command);
+      else await rolesApi.createDefinition(tenantId, command);
+    } catch (saveError) {
+      const message = saveError instanceof Error ? saveError.message : 'erreur inconnue';
+      console.warn('[RoleEditorDialog] save failed:', message);
+      setError(`Enregistrement impossible : ${message}`);
+      setSubmitting(false);
       return;
     }
 
+    setSubmitting(false);
     onSaved();
     onClose();
   }

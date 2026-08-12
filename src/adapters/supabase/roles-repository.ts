@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { UserId } from '../../kernel/ids/index.ts';
-import type { RolesOverview, SetRoleAssignmentResult, UserRolesDetail } from '../../modules/roles/api/contracts.ts';
+import type { RoleCatalogDefinition, RolesCatalog, RolesOverview, SaveRoleDefinitionCommand, SetRoleAssignmentResult, UserRolesDetail } from '../../modules/roles/api/contracts.ts';
 import { RoleRejectedError, type RolesRepository } from '../../modules/roles/application/roles-repository.ts';
 import type { Database } from '../../types/database.types.ts';
 
@@ -9,6 +9,12 @@ export class SupabaseRolesRepository implements RolesRepository {
 
   async overview(_actor: UserId, tenantId: string): Promise<RolesOverview> {
     const [roles, members] = await Promise.all([this.loadRoles(tenantId), this.loadMembers(tenantId)]);
+    const assignments = await this.loadAssignments(roles.map((role) => role.id));
+    return { roles, members, assignments };
+  }
+
+  async catalog(_actor: UserId, tenantId: string): Promise<RolesCatalog> {
+    const [roles, members] = await Promise.all([this.loadCatalogRoles(tenantId), this.loadMembers(tenantId)]);
     const assignments = await this.loadAssignments(roles.map((role) => role.id));
     return { roles, members, assignments };
   }
@@ -50,15 +56,68 @@ export class SupabaseRolesRepository implements RolesRepository {
       if (error || !data) throw rejected(error?.message ?? 'Assignation impossible.');
       return { active: true, assignmentId: data.id };
     }
-    const { error } = await this.client.from('tenant_role_assignments').update({ revoked_at: new Date().toISOString(), revoked_by: actor }).eq('id', current!.id);
+    const { data: revoked, error } = await this.client.from('tenant_role_assignments')
+      .update({ revoked_at: new Date().toISOString(), revoked_by: actor })
+      .eq('id', current!.id).select('id').maybeSingle();
     if (error) throw rejected(error.message);
+    if (!revoked) throw new RoleRejectedError('permission_denied', 'Révocation interdite.');
     return { active: false, assignmentId: null };
+  }
+
+  async createDefinition(actor: UserId, tenantId: string, command: SaveRoleDefinitionCommand): Promise<RoleCatalogDefinition> {
+    await this.validateScopeShop(tenantId, command);
+    const { data, error } = await this.client.from('tenant_role_definitions').insert({
+      tenant_id: tenantId,
+      created_by: actor,
+      ...definitionPayload(command),
+    }).select(CATALOG_COLUMNS).single();
+    if (error || !data) throw classified(error, 'Création du rôle impossible.');
+    return mapCatalogRole(data);
+  }
+
+  async updateDefinition(_actor: UserId, tenantId: string, roleId: string, command: SaveRoleDefinitionCommand): Promise<RoleCatalogDefinition> {
+    await this.validateScopeShop(tenantId, command);
+    const { data, error } = await this.client.from('tenant_role_definitions')
+      .update(definitionPayload(command))
+      .eq('tenant_id', tenantId).eq('id', roleId)
+      .select(CATALOG_COLUMNS).maybeSingle();
+    if (error) throw classified(error, 'Modification du rôle impossible.');
+    if (!data) throw new RoleRejectedError('role_not_found', 'Rôle introuvable.');
+    return mapCatalogRole(data);
+  }
+
+  async archiveDefinition(_actor: UserId, tenantId: string, roleId: string): Promise<void> {
+    const { data: role, error: roleError } = await this.client.from('tenant_role_definitions')
+      .select('id, name').eq('tenant_id', tenantId).eq('id', roleId).maybeSingle();
+    if (roleError) throw classified(roleError, 'Lecture du rôle impossible.');
+    if (!role) throw new RoleRejectedError('role_not_found', 'Rôle introuvable.');
+    if (CANONICAL_ROLES.has(role.name)) throw new RoleRejectedError('canonical_role', 'Un rôle canonique ne peut pas être archivé.');
+    const { data: archived, error } = await this.client.from('tenant_role_definitions')
+      .update({ archived_at: new Date().toISOString() }).eq('tenant_id', tenantId).eq('id', roleId)
+      .select('id').maybeSingle();
+    if (error) throw classified(error, 'Archivage du rôle impossible.');
+    if (!archived) throw new RoleRejectedError('permission_denied', 'Archivage interdit.');
+  }
+
+  async reorderDefinitions(_actor: UserId, tenantId: string, firstRoleId: string, secondRoleId: string): Promise<void> {
+    const { error } = await this.client.rpc('api_swap_tenant_role_order', {
+      p_first_role_id: firstRoleId,
+      p_second_role_id: secondRoleId,
+      p_tenant_id: tenantId,
+    });
+    if (error) throw classified(error, 'Réordonnancement impossible.');
   }
 
   private async loadRoles(tenantId: string) {
     const { data, error } = await this.client.from('tenant_role_definitions').select('id, name, description, capabilities, ordering_index').eq('tenant_id', tenantId).is('archived_at', null).order('ordering_index');
     if (error) throw rejected(error.message);
     return (data ?? []).map((role) => ({ id: role.id, name: role.name, description: role.description ?? '', capabilities: toCapabilities(role.capabilities), orderingIndex: role.ordering_index }));
+  }
+  private async loadCatalogRoles(tenantId: string): Promise<RoleCatalogDefinition[]> {
+    const { data, error } = await this.client.from('tenant_role_definitions')
+      .select(CATALOG_COLUMNS).eq('tenant_id', tenantId).order('ordering_index');
+    if (error) throw classified(error, 'Chargement du catalogue impossible.');
+    return (data ?? []).map(mapCatalogRole);
   }
   private async loadMembers(tenantId: string) {
     const { data, error } = await this.client.rpc('get_tenant_members_with_email', { p_tenant_id: tenantId });
@@ -71,6 +130,47 @@ export class SupabaseRolesRepository implements RolesRepository {
     if (error) throw rejected(error.message);
     return (data ?? []).map((assignment) => ({ id: assignment.id, roleId: assignment.role_definition_id, userId: assignment.user_id }));
   }
+  private async validateScopeShop(tenantId: string, command: SaveRoleDefinitionCommand): Promise<void> {
+    if (command.scope !== 'shop' || !command.scopeShopId) return;
+    const { data, error } = await this.client.from('shops').select('id')
+      .eq('tenant_id', tenantId).eq('id', command.scopeShopId).maybeSingle();
+    if (error) throw classified(error, 'Validation de la boutique impossible.');
+    if (!data) throw new RoleRejectedError('invalid_definition', 'La boutique de portée n’appartient pas à cet espace.');
+  }
+}
+
+const CATALOG_COLUMNS = 'id, tenant_id, name, description, capabilities, notify_policy, scope, scope_shop_id, ordering_index, archived_at' as const;
+const CANONICAL_ROLES = new Set(['Owner', 'Admin', 'Acheteur', 'Producteur']);
+
+function definitionPayload(command: SaveRoleDefinitionCommand) {
+  return {
+    name: command.name,
+    description: command.description,
+    capabilities: command.capabilities,
+    notify_policy: command.notifyPolicy,
+    scope: command.scope,
+    scope_shop_id: command.scopeShopId,
+    ordering_index: command.orderingIndex,
+  };
+}
+
+function mapCatalogRole(role: {
+  id: string; tenant_id: string; name: string; description: string | null;
+  capabilities: unknown; notify_policy: string; scope: string;
+  scope_shop_id: string | null; ordering_index: number; archived_at: string | null;
+}): RoleCatalogDefinition {
+  return {
+    id: role.id,
+    tenantId: role.tenant_id,
+    name: role.name,
+    description: role.description ?? '',
+    capabilities: toCapabilities(role.capabilities),
+    notifyPolicy: role.notify_policy === 'all_roles' || role.notify_policy === 'none' ? role.notify_policy : 'chain_next',
+    scope: role.scope === 'shop' ? 'shop' : 'tenant',
+    scopeShopId: role.scope_shop_id,
+    orderingIndex: role.ordering_index,
+    archivedAt: role.archived_at,
+  };
 }
 
 function toCapabilities(value: unknown): Record<string, boolean> {
@@ -78,3 +178,9 @@ function toCapabilities(value: unknown): Record<string, boolean> {
   return Object.fromEntries(Object.entries(value).filter((entry): entry is [string, boolean] => typeof entry[1] === 'boolean'));
 }
 function rejected(message: string): RoleRejectedError { return new RoleRejectedError('permission_denied', message); }
+function classified(error: { code?: string; message?: string } | null, fallback: string): RoleRejectedError {
+  if (error?.code === '23505') return new RoleRejectedError('definition_conflict', 'Un rôle portant ce nom existe déjà.');
+  if (error?.code === '23514' || error?.code === '22P02' || error?.code === '22023') return new RoleRejectedError('invalid_definition', error.message ?? fallback);
+  if (error?.code === 'P0002') return new RoleRejectedError('role_not_found', error.message ?? fallback);
+  return rejected(error?.message ?? fallback);
+}

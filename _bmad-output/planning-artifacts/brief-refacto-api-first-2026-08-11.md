@@ -120,9 +120,12 @@ src/
   sans `invite-member` ni service-role dans l’API — livré ;
 - AF12.1 : catalogue, matrice et assignations des rôles via l’API Magrit ;
   `DashboardRolesSection` et `EditUserRolesModal` sortent de Supabase — livré ;
-- AF12.2 : migrer l’édition, l’archivage et le réordonnancement des définitions
-  de rôles, puis retirer `RoleEditorDialog` et `OrderRoleAdminPage` de la
-  baseline — prochain lot.
+- AF12.2 : édition, archivage et réordonnancement atomique des définitions de
+  rôles via l’API ; `RoleEditorDialog` et `OrderRoleAdminPage` sortent de
+  Supabase — livré ;
+- suite : migrer les données et commandes de configuration des boutiques et
+  du catalogue, en conservant la revue fonctionnelle invitations/membres/rôles
+  comme chantier produit distinct.
 
 ## Critères de succès
 

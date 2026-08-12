@@ -46,7 +46,7 @@ comme demandé, sans réintroduire de requêtes fournisseur dans React.
 - tests de contrats client, routes HTTP et frontières d’architecture ;
 - typecheck modulaire, suite complète et build de production.
 
-## Suite
+## Suite livrée
 
-AF12.2 porte les commandes de définition des rôles et migre
+AF12.2 porte désormais les commandes de définition des rôles et migre
 `RoleEditorDialog` ainsi que `OrderRoleAdminPage`.

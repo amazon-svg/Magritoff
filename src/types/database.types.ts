@@ -1880,6 +1880,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      api_swap_tenant_role_order: {
+        Args: {
+          p_first_role_id: string
+          p_second_role_id: string
+          p_tenant_id: string
+        }
+        Returns: undefined
+      }
       api_create_tenant_order: {
         Args: {
           p_currency: string

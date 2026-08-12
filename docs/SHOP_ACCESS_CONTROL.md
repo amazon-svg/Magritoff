@@ -88,7 +88,8 @@ jamais l’identité de l’administrateur : le serveur la dérive du JWT utilis
 et les policies RLS contrôlent `can_manage_roles`. Le périmètre `magrit_full` ou
 `shop_only` et les boutiques autorisées continuent de passer par l’API Membres.
 
-La définition du catalogue (création, édition, archivage et ordre) reste
-temporairement legacy jusqu’à AF12.2. Une revue fonctionnelle complète du
-module invitations/membres/rôles reste planifiée après cette migration
-technique.
+Depuis AF12.2, la définition du catalogue (création, édition, archivage et
+ordre) passe également par l’API. La permutation d’ordre est atomique en base,
+et l’archivage des rôles canoniques est refusé côté serveur. Une revue
+fonctionnelle complète du module invitations/membres/rôles reste planifiée
+après cette migration technique.

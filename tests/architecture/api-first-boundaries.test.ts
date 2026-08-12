@@ -184,10 +184,12 @@ describe('frontières API-first et modulaires', () => {
     expect(edgeEntry).not.toContain('SUPABASE_SERVICE_ROLE_KEY');
   });
 
-  it('sort les écrans d assignation des rôles du fournisseur', () => {
+  it('sort les écrans de gestion des rôles du fournisseur', () => {
     const files = [
       'src/app/components/dashboard/DashboardRolesSection.tsx',
       'src/app/components/dashboard/EditUserRolesModal.tsx',
+      'src/app/components/dashboard/OrderRoleAdminPage.tsx',
+      'src/app/components/dashboard/RoleEditorDialog.tsx',
     ];
     for (const file of files) {
       const source = readFileSync(resolve(process.cwd(), file), 'utf8');
@@ -195,6 +197,15 @@ describe('frontières API-first et modulaires', () => {
       expect(source).not.toContain('utils/supabase');
       expect(source).not.toMatch(/\bsupabase\s*\./);
     }
+  });
+
+  it('réordonne deux rôles atomiquement sous la RLS utilisateur', () => {
+    const migration = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260812000100_api_swap_tenant_role_order.sql'), 'utf8');
+    expect(migration).toContain('security invoker');
+    expect(migration).toContain('set ordering_index = case');
+    expect(migration).toContain('get diagnostics _matched = row_count');
+    expect(migration).toContain('grant execute on function public.api_swap_tenant_role_order');
+    expect(migration).not.toContain('service_role');
   });
 
   it('isole le renvoi des invitations derrière le port email', () => {
