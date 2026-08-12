@@ -164,6 +164,8 @@ src/
   `persistQuote` sort de Supabase et l’auteur vient du bearer — livré ;
 - AF18.2 : CRUD complet des devis éditables via Quotes, avec contrôle serveur
   du scope `all` ; `QuotesContext` sort de Supabase — livré ;
+- AF18.3 : bibliothèque de gabarits et préférence par défaut via le module
+  QuoteTemplates ; `QuoteTemplatesContext` sort de Supabase — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.

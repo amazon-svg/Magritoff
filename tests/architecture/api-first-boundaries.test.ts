@@ -343,6 +343,13 @@ describe('frontières API-first et modulaires', () => {
     expect(repository).toContain("rpc('is_super_admin'");
   });
 
+  it('sort les gabarits de devis du fournisseur', () => {
+    const context = readFileSync(resolve(process.cwd(), 'src/app/contexts/QuoteTemplatesContext.tsx'), 'utf8');
+    expect(context).toContain('QuoteTemplatesApiClient');
+    expect(context).not.toContain('utils/supabase');
+    expect(context).not.toMatch(/\bsupabase\s*\./);
+  });
+
   it('isole le renvoi des invitations derrière le port email', () => {
     const repository = readFileSync(resolve(process.cwd(), 'src/adapters/supabase/invitations-repository.ts'), 'utf8');
     expect(repository).toContain('InvitationEmailSender');

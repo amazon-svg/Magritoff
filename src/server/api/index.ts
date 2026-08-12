@@ -13,6 +13,7 @@ export { createCatalogRoutes } from './catalog-routes';
 export { createConversationsRoutes } from './conversations-routes';
 export { createDiagnosticsRoutes } from './diagnostics-routes';
 export { createQuotesRoutes } from './quotes-routes';
+export { createQuoteTemplatesRoutes } from './quote-templates-routes';
 export { createHealthRoute, defineJsonRoute, defineMultipartRoute } from './routes';
 export type {
   ApiRequestContext,

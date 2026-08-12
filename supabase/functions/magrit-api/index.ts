@@ -33,6 +33,9 @@ import { HttpClariprintDiagnosticsGateway } from '../../../src/adapters/claripri
 import { QuotesService } from '../../../src/modules/quotes/application/quotes-service.ts';
 import { SupabaseQuotesRepository } from '../../../src/adapters/supabase/quotes-repository.ts';
 import { createQuotesRoutes } from '../../../src/server/api/quotes-routes.ts';
+import { QuoteTemplatesService } from '../../../src/modules/quote-templates/application/quote-templates-service.ts';
+import { SupabaseQuoteTemplatesRepository } from '../../../src/adapters/supabase/quote-templates-repository.ts';
+import { createQuoteTemplatesRoutes } from '../../../src/server/api/quote-templates-routes.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -73,6 +76,7 @@ export async function handleRequest(request: Request): Promise<Response> {
     Deno.env.get('CLARIPRINT_PASSWORD') ?? null,
   ));
   const quotesService = new QuotesService(new SupabaseQuotesRepository(client));
+  const quoteTemplatesService = new QuoteTemplatesService(new SupabaseQuoteTemplatesRepository(client));
   const handler = createApiV1Application({
     routes: [
       ...createSessionRoutes(service),
@@ -85,6 +89,7 @@ export async function handleRequest(request: Request): Promise<Response> {
       ...createConversationsRoutes(conversationsService),
       ...createDiagnosticsRoutes(diagnosticsService),
       ...createQuotesRoutes(quotesService),
+      ...createQuoteTemplatesRoutes(quoteTemplatesService),
     ],
     actorResolver: {
       async resolve() {
