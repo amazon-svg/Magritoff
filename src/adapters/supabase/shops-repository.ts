@@ -11,6 +11,11 @@ const PRODUCT_COLUMNS = 'id, shop_id, product_id, name, category, description, p
 export class SupabaseShopsRepository implements ShopsRepository {
   constructor(private readonly client: SupabaseClient<Database>, private readonly publicBaseUrl?: string) {}
 
+  async registerBuyer(_actor: UserId, shopId: string): Promise<void> {
+    const { error } = await this.client.rpc('self_register_shop_buyer', { p_shop_id: shopId });
+    if (error) throw classified(error, 'Rattachement à la boutique impossible.');
+  }
+
   async list(_actor: UserId, tenantId: string): Promise<ShopDto[]> {
     const { data, error } = await this.client.from('shops').select(SHOP_COLUMNS).eq('tenant_id', tenantId).order('created_at', { ascending: false });
     if (error) throw classified(error, 'Chargement des boutiques impossible.');

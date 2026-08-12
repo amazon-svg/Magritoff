@@ -291,6 +291,15 @@ describe('frontières API-first et modulaires', () => {
     }
   });
 
+  it('sort l identification checkout et l auto-inscription du fournisseur', () => {
+    const source = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/CheckoutPage.tsx'), 'utf8');
+    expect(source).toContain('ShopsApiClient');
+    expect(source).toContain('signIn');
+    expect(source).toContain('signUp');
+    expect(source).not.toContain('utils/supabase');
+    expect(source).not.toMatch(/\bsupabase\s*\./);
+  });
+
   it('isole le renvoi des invitations derrière le port email', () => {
     const repository = readFileSync(resolve(process.cwd(), 'src/adapters/supabase/invitations-repository.ts'), 'utf8');
     expect(repository).toContain('InvitationEmailSender');

@@ -150,6 +150,8 @@ src/
   Supabase — livré ;
 - AF16.2 : destination post-invitation via Session/Shops et déconnexion via
   AuthContext ; `AcceptInvitation` et `AccountHub` sortent de Supabase — livré ;
+- AF16.3 : connexion/inscription via AuthContext et rattachement `self_signup`
+  via Shops ; `CheckoutPage` sort de Supabase — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.

@@ -6,8 +6,8 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, password: string, fullName?: string) => Promise<{ error: Error | null }>;
+  signIn: (email: string, password: string) => Promise<{ error: Error | null; session: Session | null }>;
+  signUp: (email: string, password: string, fullName?: string, company?: string) => Promise<{ error: Error | null; session: Session | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: Error | null }>;
   updatePassword: (newPassword: string) => Promise<{ error: Error | null }>;
@@ -68,17 +68,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await auth.signInWithPassword({ email, password });
-    return { error };
+    const { data, error } = await auth.signInWithPassword({ email, password });
+    return { error, session: data.session };
   };
 
-  const signUp = async (email: string, password: string, fullName?: string) => {
-    const { error } = await auth.signUp({
+  const signUp = async (email: string, password: string, fullName?: string, company?: string) => {
+    const { data, error } = await auth.signUp({
       email,
       password,
-      options: { data: { full_name: fullName ?? '' } },
+      options: { data: { full_name: fullName ?? '', ...(company ? { company } : {}) } },
     });
-    return { error };
+    return { error, session: data.session };
   };
 
   const signOut = async () => {

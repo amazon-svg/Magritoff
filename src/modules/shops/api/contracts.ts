@@ -90,6 +90,7 @@ export const shopPricingMutationResultSchema = z.object({ updated: z.literal(tru
 export const shopBrandAssetKindSchema = z.enum(['logo', 'hero']);
 export const shopBrandAssetResultSchema = z.object({ assetUrl: z.string().url() });
 export const shopCustomMockupMutationResultSchema = z.object({ updated: z.literal(true) });
+export const shopBuyerRegistrationResultSchema = z.object({ registered: z.literal(true) });
 
 export type ShopDto = z.infer<typeof shopSchema>;
 export type ShopProductDto = z.infer<typeof shopProductSchema>;

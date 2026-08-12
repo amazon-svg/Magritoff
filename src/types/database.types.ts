@@ -2113,6 +2113,7 @@ export type Database = {
         }[]
       }
       resolve_tenant_slug: { Args: { p_slug: string }; Returns: string }
+      self_register_shop_buyer: { Args: { p_shop_id: string }; Returns: Json }
       revoke_tenant_order_role: {
         Args: { p_assignment_id: string }
         Returns: string

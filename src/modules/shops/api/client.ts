@@ -5,6 +5,7 @@ import {
   setShopPricingCommandSchema, shopPricingMutationResultSchema, shopPricingOverridesSchema,
   shopBrandAssetResultSchema,
   shopCustomMockupMutationResultSchema, shopCustomMockupsSchema,
+  shopBuyerRegistrationResultSchema,
   updateShopCommandSchema, updateShopProductCommandSchema,
   type CreateShopCommand, type CreateShopProductCommand, type ShopDto,
   type ShopProductDto, type UpdateShopCommand, type UpdateShopProductCommand,
@@ -16,6 +17,9 @@ import {
 
 export class ShopsApiClient {
   constructor(private readonly client: FetchApiClient) {}
+  registerBuyer(shopId: string): Promise<void> {
+    return this.client.request({ method: 'POST', path: `${API_V1_BASE_PATH}/shops/${shopId}/buyer-registration`, responseSchema: shopBuyerRegistrationResultSchema }).then(() => undefined);
+  }
   list(tenantId: string): Promise<ShopDto[]> {
     return this.client.request({ path: `${API_V1_BASE_PATH}/tenants/${tenantId}/shops`, responseSchema: tenantShopsSchema });
   }

@@ -27,8 +27,9 @@ Une boutique existante est `invite_only` par défaut. Le mode `self_signup` doit
    minimal (`id`, `tenantId`, `accessMode`). Il ne demande ni marque, ni
    description, ni produits, ni prix, ni PIM, ni gammes.
 5. Un compte authentifié sur `self_signup` est rattaché atomiquement lors de sa
-   première commande. Le rattachement est `shop_only`, limité à la boutique et
-   ne confère jamais `magrit_full`.
+   connexion au checkout ou, en dernier recours, lors de sa première commande.
+   Le rattachement est `shop_only`, limité à la boutique et ne confère jamais
+   `magrit_full`.
 6. La fonction SQL interne `api_create_tenant_order_core` n’est exécutable que
    par son propriétaire. Seul le wrapper `api_create_tenant_order` est accordé
    au rôle `authenticated`.
@@ -78,6 +79,12 @@ le catalogue. Un appel forgé à `/api/v1/public/shops/:slug/catalog` retourne
 `401` sans session ou `403` sans membership pour une boutique `invite_only`.
 Les policies RLS historiques publiques restent une dette des anciens accès
 PostgREST, mais `PublicShop` ne les consomme plus directement.
+
+Depuis AF16.3, l’identification du checkout passe par `AuthContext` et le
+rattachement `self_signup` par
+`POST /api/v1/shops/{shopId}/buyer-registration`. Le navigateur ne connaît
+plus le RPC SQL ; la route dérive l’acheteur du bearer token et l’adaptateur
+conserve l’allow-list SQL idempotente.
 
 ## Administration des membres et rôles
 

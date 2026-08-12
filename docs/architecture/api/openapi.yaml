@@ -139,6 +139,22 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/PortalOrdersResponse' }
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
+  /shops/{shopId}/buyer-registration:
+    post:
+      operationId: registerShopBuyer
+      summary: Rattacher l utilisateur courant à une boutique en inscription libre
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: shopId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Rattachement créé ou déjà présent
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ShopBuyerRegistrationResult' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { description: Boutique privée, inactive ou rattachement interdit }
+        '404': { description: Boutique introuvable }
   /orders:
     post:
       operationId: createOrder
@@ -777,6 +793,12 @@ components:
       required: [slug]
       properties:
         slug: { type: [string, 'null'] }
+    ShopBuyerRegistrationResult:
+      type: object
+      additionalProperties: false
+      required: [registered]
+      properties:
+        registered: { const: true }
     TenantMutationResult:
       type: object
       additionalProperties: false
