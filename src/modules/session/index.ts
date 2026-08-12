@@ -8,11 +8,13 @@ export {
   tenantRoleSchema,
   updateCurrentTenantSchema,
   updatePreferencesSchema,
+  updateTenantSettingsSchema,
   userPreferencesSchema,
   type SessionBootstrap,
   type SessionTenant,
   type SessionUserPreferences,
   type UpdatePreferences,
+  type UpdateTenantSettings,
 } from './api/contracts';
 export {
   DEFAULT_SESSION_PREFERENCES,
@@ -24,3 +26,4 @@ export type {
   DirectMembership,
   SessionRepository,
 } from './application/session-repository';
+export { SessionTenantMutationError } from './application/session-repository';

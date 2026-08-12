@@ -54,8 +54,14 @@ export const updatePreferencesSchema = userPreferencesSchema
   .refine((value) => Object.keys(value).length > 0, 'Au moins une préférence est requise.');
 
 export const updateCurrentTenantSchema = z.object({ tenantId: z.string().min(1) });
+export const updateTenantSettingsSchema = z.object({
+  name: z.string().trim().min(1).max(160).optional(),
+  slug: z.string().trim().min(3).max(60).regex(/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/).optional(),
+}).refine((value) => value.name !== undefined || value.slug !== undefined, 'Au moins une modification est requise.');
+export const tenantMutationResultSchema = z.object({ updated: z.literal(true) });
 
 export type SessionTenant = z.infer<typeof sessionTenantSchema>;
 export type SessionBootstrap = z.infer<typeof sessionBootstrapSchema>;
 export type SessionUserPreferences = z.infer<typeof userPreferencesSchema>;
 export type UpdatePreferences = z.infer<typeof updatePreferencesSchema>;
+export type UpdateTenantSettings = z.infer<typeof updateTenantSettingsSchema>;

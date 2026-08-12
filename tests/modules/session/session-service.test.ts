@@ -82,6 +82,7 @@ function repositoryStub(options: {
     getPreferences: vi.fn(async () => ({ theme: 'dark', last_tenant_id: 'child' })),
     updatePreferences: vi.fn(async (_userId, patch) => patch),
     updateLastTenant: vi.fn(async (_userId, tenantId) => ({ last_tenant_id: tenantId })),
+    updateTenantSettings: vi.fn(async () => undefined),
   };
 }
 

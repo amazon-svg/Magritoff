@@ -3,8 +3,9 @@ import type { UserId } from '../../kernel/ids/index.ts';
 import type {
   SessionUserPreferences,
   UpdatePreferences,
+  UpdateTenantSettings,
 } from '../../modules/session/api/contracts.ts';
-import type { DirectMembership, SessionRepository } from '../../modules/session/application/session-repository.ts';
+import { SessionTenantMutationError, type DirectMembership, type SessionRepository } from '../../modules/session/application/session-repository.ts';
 import type { Database } from '../../types/database.types.ts';
 
 type UserScopedClient = SupabaseClient<Database>;
@@ -84,6 +85,15 @@ export class SupabaseSessionRepository implements SessionRepository {
       .single();
     if (error) throw new Error(`Mise à jour du tenant courant impossible: ${error.message}`);
     return toPreferences(data);
+  }
+
+  async updateTenantSettings(_userId: UserId, tenantId: string, patch: UpdateTenantSettings): Promise<void> {
+    const values: Database['public']['Tables']['tenants']['Update'] = {};
+    if (patch.name !== undefined) values.name = patch.name;
+    if (patch.slug !== undefined) values.slug = patch.slug;
+    const { data, error } = await this.client.from('tenants').update(values).eq('id', tenantId).select('id').maybeSingle();
+    if (error) throw new SessionTenantMutationError(error.code === '23505' ? 'conflict' : 'permission_denied', error.message);
+    if (!data) throw new SessionTenantMutationError('permission_denied', 'Espace introuvable ou modification interdite.');
   }
 }
 

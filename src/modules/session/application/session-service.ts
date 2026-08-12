@@ -4,6 +4,7 @@ import type {
   SessionTenant,
   SessionUserPreferences,
   UpdatePreferences,
+  UpdateTenantSettings,
 } from '../api/contracts.ts';
 import type { DirectMembership, SessionRepository } from './session-repository.ts';
 
@@ -75,6 +76,11 @@ export class SessionService {
       throw new SessionTenantAccessDeniedError(tenantId);
     }
     return normalizePreferences(await this.repository.updateLastTenant(userId, tenantId));
+  }
+
+  async updateTenantSettings(userId: UserId, tenantId: string, patch: UpdateTenantSettings) {
+    await this.repository.updateTenantSettings(userId, tenantId, patch);
+    return { updated: true as const };
   }
 }
 

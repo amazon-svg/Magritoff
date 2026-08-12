@@ -260,6 +260,26 @@ paths:
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/ApiProblem' }
+  /tenants/{tenantId}:
+    patch:
+      operationId: updateTenantSettings
+      summary: Modifier le nom et, pour un super-administrateur, le slug d’un espace
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: tenantId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateTenantSettings' }
+      responses:
+        '200':
+          description: Espace modifié
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TenantMutationResult' }
+        '403': { description: Modification interdite }
+        '409': { description: Slug déjà utilisé }
   /catalog/pim/ingestion:
     get:
       operationId: getPimPendingCandidates
@@ -663,6 +683,19 @@ components:
           items: { $ref: '#/components/schemas/OrderRoleAssignment' }
         capabilities: { $ref: '#/components/schemas/OrderCapabilities' }
         isCreator: { type: boolean }
+    UpdateTenantSettings:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name: { type: string, minLength: 1, maxLength: 160 }
+        slug: { type: string, minLength: 3, maxLength: 60, pattern: '^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$' }
+    TenantMutationResult:
+      type: object
+      additionalProperties: false
+      required: [updated]
+      properties:
+        updated: { const: true }
     PimPendingCandidates:
       type: object
       additionalProperties: false

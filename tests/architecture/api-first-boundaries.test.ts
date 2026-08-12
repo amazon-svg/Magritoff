@@ -153,6 +153,13 @@ describe('frontières API-first et modulaires', () => {
     expect(violations).toEqual([]);
   });
 
+  it('sort les paramètres tenant du fournisseur', () => {
+    const source = readFileSync(resolve(process.cwd(), 'src/app/components/dashboard/DashboardTenantSettings.tsx'), 'utf8');
+    expect(source).toContain('SessionApiClient');
+    expect(source).not.toContain('utils/supabase');
+    expect(source).not.toMatch(/\bsupabase\s*\./);
+  });
+
   it('réserve le client session direct au développement local', () => {
     const provider = readFileSync(
       resolve(process.cwd(), 'src/app/contexts/SessionBootstrapContext.tsx'),

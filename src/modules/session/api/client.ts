@@ -4,9 +4,12 @@ import {
   updateCurrentTenantSchema,
   updatePreferencesSchema,
   userPreferencesSchema,
+  tenantMutationResultSchema,
+  updateTenantSettingsSchema,
   type SessionBootstrap,
   type SessionUserPreferences,
   type UpdatePreferences,
+  type UpdateTenantSettings,
 } from './contracts';
 
 export class SessionApiClient {
@@ -36,5 +39,12 @@ export class SessionApiClient {
       body: updateCurrentTenantSchema.parse({ tenantId }),
       responseSchema: userPreferencesSchema,
     });
+  }
+
+  updateTenantSettings(tenantId: string, patch: UpdateTenantSettings): Promise<void> {
+    return this.client.request({
+      method: 'PATCH', path: `${API_V1_BASE_PATH}/tenants/${tenantId}`,
+      body: updateTenantSettingsSchema.parse(patch), responseSchema: tenantMutationResultSchema,
+    }).then(() => undefined);
   }
 }

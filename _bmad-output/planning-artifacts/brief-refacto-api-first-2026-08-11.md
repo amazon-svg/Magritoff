@@ -138,6 +138,8 @@ src/
   `PIMContext` sort de Supabase — livré ;
 - AF14.2b : compteur, ingestion et génération éditoriale du PIM via le module
   Catalog ; `DashboardAdminPIM` sort de Supabase — livré ;
+- AF15.1 : modification contractuelle du nom et du slug d’un tenant ;
+  `DashboardTenantSettings` sort de Supabase — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.

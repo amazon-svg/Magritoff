@@ -3,6 +3,7 @@ import { parseId, type UserId } from '../../../src/kernel';
 import {
   SessionApiClient,
   SessionService,
+  SessionTenantMutationError,
   type SessionRepository,
 } from '../../../src/modules/session';
 import { FetchApiClient } from '../../../src/platform/api';
@@ -23,12 +24,14 @@ describe('routes session API v1', () => {
     const session = await client.load();
     const preferences = await client.updatePreferences({ theme: 'dark' });
     const selected = await client.updateCurrentTenant('tenant-af2');
+    await client.updateTenantSettings('tenant-af2', { name: 'Nouveau nom' });
 
     expect(session.user.id).toBe('user-af2');
     expect(session.tenants[0]).toMatchObject({ id: 'tenant-af2', myRole: 'owner' });
     expect(preferences.theme).toBe('dark');
     expect(selected.last_tenant_id).toBe('tenant-af2');
     expect(repository.updatePreferences).toHaveBeenCalledWith('user-af2', { theme: 'dark' });
+    expect(repository.updateTenantSettings).toHaveBeenCalledWith('user-af2', 'tenant-af2', { name: 'Nouveau nom' });
   });
 
   it('refuse le bootstrap sans acteur authentifié', async () => {
@@ -62,9 +65,24 @@ describe('routes session API v1', () => {
     expect(response.status).toBe(403);
     await expect(response.json()).resolves.toMatchObject({ code: 'session.tenant_access_denied' });
   });
+
+  it('valide le slug tenant avant le repository', async () => {
+    const repository = repositoryStub();
+    const handler = createApiV1Application({ routes: createSessionRoutes(new SessionService(repository)), requestIdFactory: () => 'request-af15', actorResolver: { async resolve() { return { kind: 'user', userId: id('user-af2') }; } } });
+    const response = await handler(new Request('https://magrit.test/api/v1/tenants/tenant-af2', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slug: 'Slug invalide' }) }));
+    expect(response.status).toBe(422); expect(repository.updateTenantSettings).not.toHaveBeenCalled();
+  });
+
+  it('traduit un conflit de slug tenant en 409', async () => {
+    const repository = repositoryStub();
+    repository.updateTenantSettings.mockRejectedValueOnce(new SessionTenantMutationError('conflict', 'duplicate key'));
+    const handler = createApiV1Application({ routes: createSessionRoutes(new SessionService(repository)), requestIdFactory: () => 'request-af15', actorResolver: { async resolve() { return { kind: 'user', userId: id('user-af2') }; } } });
+    const response = await handler(new Request('https://magrit.test/api/v1/tenants/tenant-af2', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slug: 'slug-utilise' }) }));
+    expect(response.status).toBe(409); expect((await response.json()).code).toBe('session.tenant_conflict');
+  });
 });
 
-function repositoryStub(): SessionRepository & Record<'updatePreferences', ReturnType<typeof vi.fn>> {
+function repositoryStub(): SessionRepository & Record<'updatePreferences' | 'updateTenantSettings', ReturnType<typeof vi.fn>> {
   return {
     autoAcceptPendingInvitations: vi.fn(async () => undefined),
     listDirectMemberships: vi.fn(async () => [{
@@ -87,6 +105,7 @@ function repositoryStub(): SessionRepository & Record<'updatePreferences', Retur
     getPreferences: vi.fn(async () => null),
     updatePreferences: vi.fn(async (_userId, patch) => patch),
     updateLastTenant: vi.fn(async (_userId, tenantId) => ({ last_tenant_id: tenantId })),
+    updateTenantSettings: vi.fn(async () => undefined),
   };
 }
 
