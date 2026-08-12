@@ -202,6 +202,8 @@ describe('frontières API-first et modulaires', () => {
     expect(edgeEntry).toContain('SupabaseCatalogRepository(client)');
     expect(edgeEntry).toContain('SupabaseCatalogAutomationGateway(client)');
     expect(edgeEntry).toContain('createCatalogRoutes(catalogService)');
+    expect(edgeEntry).toContain('SupabaseConversationsRepository(client)');
+    expect(edgeEntry).toContain('createConversationsRoutes(conversationsService)');
     expect(edgeEntry).not.toContain('SUPABASE_SERVICE_ROLE_KEY');
   });
 
@@ -296,6 +298,13 @@ describe('frontières API-first et modulaires', () => {
     expect(source).toContain('ShopsApiClient');
     expect(source).toContain('signIn');
     expect(source).toContain('signUp');
+    expect(source).not.toContain('utils/supabase');
+    expect(source).not.toMatch(/\bsupabase\s*\./);
+  });
+
+  it('sort l historique des conversations du fournisseur', () => {
+    const source = readFileSync(resolve(process.cwd(), 'src/app/contexts/ConversationContext.tsx'), 'utf8');
+    expect(source).toContain('ConversationsApiClient');
     expect(source).not.toContain('utils/supabase');
     expect(source).not.toMatch(/\bsupabase\s*\./);
   });

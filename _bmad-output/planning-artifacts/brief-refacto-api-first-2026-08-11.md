@@ -152,6 +152,8 @@ src/
   AuthContext ; `AcceptInvitation` et `AccountHub` sortent de Supabase — livré ;
 - AF16.3 : connexion/inscription via AuthContext et rattachement `self_signup`
   via Shops ; `CheckoutPage` sort de Supabase — livré ;
+- AF17.1 : nouveau module Conversations pour la liste, la sauvegarde et la
+  suppression RLS ; `ConversationContext` sort de Supabase — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.

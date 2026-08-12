@@ -23,6 +23,9 @@ import { createShopsRoutes } from '../../../src/server/api/shops-routes.ts';
 import { CatalogService } from '../../../src/modules/catalog/application/catalog-service.ts';
 import { SupabaseCatalogAutomationGateway, SupabaseCatalogRepository } from '../../../src/adapters/supabase/catalog-repository.ts';
 import { createCatalogRoutes } from '../../../src/server/api/catalog-routes.ts';
+import { ConversationsService } from '../../../src/modules/conversations/application/conversations-service.ts';
+import { SupabaseConversationsRepository } from '../../../src/adapters/supabase/conversations-repository.ts';
+import { createConversationsRoutes } from '../../../src/server/api/conversations-routes.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -54,6 +57,7 @@ export async function handleRequest(request: Request): Promise<Response> {
   const rolesService = new RolesService(new SupabaseRolesRepository(client));
   const shopsService = new ShopsService(new SupabaseShopsRepository(client, publicSupabaseUrl(request, supabaseUrl)));
   const catalogService = new CatalogService(new SupabaseCatalogRepository(client), new SupabaseCatalogAutomationGateway(client));
+  const conversationsService = new ConversationsService(new SupabaseConversationsRepository(client));
   const handler = createApiV1Application({
     routes: [
       ...createSessionRoutes(service),
@@ -63,6 +67,7 @@ export async function handleRequest(request: Request): Promise<Response> {
       ...createRolesRoutes(rolesService),
       ...createShopsRoutes(shopsService),
       ...createCatalogRoutes(catalogService),
+      ...createConversationsRoutes(conversationsService),
     ],
     actorResolver: {
       async resolve() {

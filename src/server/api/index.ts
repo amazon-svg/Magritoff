@@ -10,6 +10,7 @@ export { createMembersRoutes } from './members-routes';
 export { createRolesRoutes } from './roles-routes';
 export { createShopsRoutes } from './shops-routes';
 export { createCatalogRoutes } from './catalog-routes';
+export { createConversationsRoutes } from './conversations-routes';
 export { createHealthRoute, defineJsonRoute, defineMultipartRoute } from './routes';
 export type {
   ApiRequestContext,
