@@ -203,6 +203,9 @@ généralisation des surfaces dépendront du contrat storefront UM2.
 - AF23.2b : façade `/api/v1/assistant/chat` pour le flux SSE, authentification
   utilisateur et contrôle tenant ; le navigateur ne connaît plus le protocole
   Supabase/Claude historique — livré ;
+- AF24.1 : devis Clariprint via `/api/v1/clariprint/quote`, protocole et secrets
+  limités à l’adaptateur serveur ; les configurateurs ne connaissent plus
+  l’Edge Function historique — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.

@@ -24,7 +24,7 @@ import { ENABLE_OVERLAY_LIVE_RECALC } from "../lib/featureFlags";
 import {
   ClariprintError,
   ClariprintHttpAdapter,
-} from "../../server/clariprint/ClariprintAdapter";
+} from "../../adapters/http/browser-clariprint-adapter";
 import { estimateMarketPriceHT } from "../utils/priceResolver";
 import {
   buildClariprintPayload,

@@ -6,7 +6,7 @@ import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment'
 import { resolveProductGamme } from '../../../utils/productEnrichment';
 import { ProductMockup } from '../../brand/ProductMockup';
 import { priceFingerprint, type ClariprintQuoteResult } from '../../../utils/clariprintQuote';
-import { computeClariprintQuoteSafe } from '../../../../server/clariprint/ClariprintAdapter';
+import { computeClariprintQuoteSafe } from '../../../../adapters/http/browser-clariprint-adapter';
 import { estimateMarketPriceHT, resolvePrice } from '../../../utils/priceResolver';
 import { useTenant } from '../../../contexts/TenantContext';
 import { applyTax, getTaxRate } from '../../../utils/tax';

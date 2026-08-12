@@ -332,6 +332,19 @@ describe('frontières API-first et modulaires', () => {
     expect(source).not.toMatch(/\bsupabase\s*\./);
   });
 
+  it('fait passer les devis Clariprint du navigateur par l API Magrit', () => {
+    const adapter = readFileSync(resolve(process.cwd(), 'src/adapters/http/browser-clariprint-adapter.ts'), 'utf8');
+    const configurator = readFileSync(resolve(process.cwd(), 'src/app/hooks/useProductConfigurator.ts'), 'utf8');
+    const portal = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/PortalCatalog.tsx'), 'utf8');
+    const supabaseConfig = readFileSync(resolve(process.cwd(), 'supabase/config.toml'), 'utf8');
+    expect(adapter).toContain('ClariprintApiClient');
+    expect(adapter).not.toContain('functions/v1');
+    expect(adapter).not.toContain('supabase.co');
+    expect(configurator).not.toContain('server/clariprint');
+    expect(portal).not.toContain('server/clariprint');
+    expect(supabaseConfig).toMatch(/\[functions\.magrit-api\][\s\S]*verify_jwt\s*=\s*false/);
+  });
+
   it('fait passer la création rapide des brouillons par Quotes', () => {
     const utility = readFileSync(resolve(process.cwd(), 'src/app/utils/quote.ts'), 'utf8');
     expect(utility).toContain('quotesApi.createDraft');

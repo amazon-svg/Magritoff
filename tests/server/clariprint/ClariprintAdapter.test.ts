@@ -1,5 +1,5 @@
 /**
- * Tests vitest pour src/server/clariprint/ClariprintAdapter.ts (Story R0 - garde-fou).
+ * Tests vitest pour l'adaptateur navigateur Clariprint (Story R0 - garde-fou).
  *
  * Couvre AC5 : payload valide, prix negatif filtre, undefined filtre, produit
  * manquant, timeout, retry.
@@ -14,7 +14,7 @@ import {
   ClariprintError,
   ClariprintMockAdapter,
   computeClariprintQuoteSafe,
-} from '../../../src/server/clariprint/ClariprintAdapter';
+} from '../../../src/adapters/http/browser-clariprint-adapter';
 
 describe('ClariprintMockAdapter - chemin nominal', () => {
   let mock: ClariprintMockAdapter;

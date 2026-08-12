@@ -7,7 +7,7 @@ La SPA appelle uniquement des chemins même origine `/api/v1`. Le runtime de ré
 1. Déployer le backend :
 
    ```sh
-   supabase functions deploy magrit-api --project-ref ightkxebexuzfjdbpsdg
+   supabase functions deploy magrit-api --no-verify-jwt --project-ref ightkxebexuzfjdbpsdg
    ```
 
 2. Vérifier `GET /functions/v1/magrit-api/api/v1/health`, puis `GET .../session` avec un JWT utilisateur de recette.
@@ -21,6 +21,11 @@ La SPA appelle uniquement des chemins même origine `/api/v1`. Le runtime de ré
 5. Déployer ensuite le front.
 
 Le proxy Vite équivalent est versionné dans `vite.config.ts` pour le développement local. La fonction construit un client Supabase avec la clé anonyme et le bearer utilisateur ; elle ne doit jamais utiliser la service role pour le bootstrap, afin de conserver les politiques RLS.
+
+`--no-verify-jwt` ne rend pas les routes privées publiques : `magrit-api`
+résout le bearer et applique `authentication: 'required'` dans son routeur. Ce
+réglage retire seulement le blocage Supabase global afin que les routes
+explicitement `public` fonctionnent réellement sans header Authorization.
 
 Le proxy doit transmettre les corps `multipart/form-data` sans les convertir ni
 forcer manuellement leur en-tête `Content-Type`. L’endpoint des visuels de

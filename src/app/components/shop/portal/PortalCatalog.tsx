@@ -8,7 +8,7 @@ import { ShopsApiClient } from '../../../../modules/shops';
 import { DiagnosticsApiClient } from '../../../../modules/diagnostics';
 import { FetchApiClient } from '../../../../platform/api';
 import { useAuth } from '../../../contexts/AuthContext';
-import { computeClariprintQuoteSafe } from '../../../../server/clariprint/ClariprintAdapter';
+import { computeClariprintQuoteSafe } from '../../../../adapters/http/browser-clariprint-adapter';
 import { useClaudeSseStream, ClaudeSseStreamError } from '../../../hooks/useClaudeSseStream';
 import { ENABLE_STREAMING_CHAT } from '../../../lib/featureFlags';
 import { TEST_IDS } from '../../../lib/testIds';

@@ -9,20 +9,18 @@
  *    Clariprint → race conditions au demontage / re-render rapide.
  *    R1 corrige ici, dans le hook, en wrappant l'appel.
  *  - Pattern Adapter enforce R3 : le hook passe par
- *    `computeClariprintQuoteSafe` (singleton `httpAdapter`).
+ *    `computeClariprintQuoteSafe` (client Magrit `/api/v1`).
  *
- * Note : `computeClariprintQuoteSafe` ne supporte pas encore l'abort cote
- * adapter (le fetch natif est interne). On simule via un flag `cancelled`
+ * Note : ce hook conserve un flag `cancelled`
  * qui ignore le `setState` apres demontage. Une story future
- * (`useClariprintProduct.v2`) pourra etendre l'adapter pour propager
- * un `AbortSignal` jusqu'au fetch.
+ * pour ignorer les réponses arrivant après un démontage.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   computeClariprintQuoteSafe,
   type ClariprintAdapter,
-} from '../../server/clariprint/ClariprintAdapter';
+} from '../../adapters/http/browser-clariprint-adapter';
 import type { ClariprintQuoteResult } from '../utils/clariprintQuote';
 
 export interface UseClariprintProductState {
