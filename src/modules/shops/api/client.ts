@@ -6,6 +6,7 @@ import {
   shopBrandAssetResultSchema,
   shopCustomMockupMutationResultSchema, shopCustomMockupsSchema,
   shopBuyerRegistrationResultSchema,
+  persistAiShopProductCommandSchema, persistAiShopProductResultSchema,
   updateShopCommandSchema, updateShopProductCommandSchema,
   type CreateShopCommand, type CreateShopProductCommand, type ShopDto,
   type ShopProductDto, type UpdateShopCommand, type UpdateShopProductCommand,
@@ -13,6 +14,7 @@ import {
   type ShopPricingOverride,
   type ShopBrandAssetKind,
   type MockupTemplateType, type MockupView, type ShopCustomMockup,
+  type PersistAiShopProductCommand,
 } from './contracts.ts';
 
 export class ShopsApiClient {
@@ -70,5 +72,8 @@ export class ShopsApiClient {
   }
   restoreCustomMockup(tenantId: string, shopId: string, templateType: MockupTemplateType, view: MockupView): Promise<void> {
     return this.client.request({ method: 'DELETE', path: `${API_V1_BASE_PATH}/tenants/${tenantId}/shops/${shopId}/custom-mockups/${templateType}/${view}`, responseSchema: shopCustomMockupMutationResultSchema }).then(() => undefined);
+  }
+  persistAiProduct(tenantId: string, shopId: string, command: PersistAiShopProductCommand): Promise<void> {
+    return this.client.request({ method: 'POST', path: `${API_V1_BASE_PATH}/tenants/${tenantId}/shops/${shopId}/ai-products`, body: persistAiShopProductCommandSchema.parse(command), responseSchema: persistAiShopProductResultSchema }).then(() => undefined);
   }
 }

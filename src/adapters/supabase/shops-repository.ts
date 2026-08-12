@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { UserId } from '../../kernel/ids/index.ts';
-import type { CreateShopCommand, CreateShopProductCommand, MockupTemplateType, MockupView, PublicShopCatalog, PublicShopProbe, SetShopPricingCommand, ShopBrandAssetUpload, ShopCustomMockup, ShopCustomMockupUpload, ShopDto, ShopPricingOverride, ShopProductDto, UpdateShopCommand, UpdateShopProductCommand } from '../../modules/shops/api/contracts.ts';
+import type { CreateShopCommand, CreateShopProductCommand, MockupTemplateType, MockupView, PersistAiShopProductCommand, PublicShopCatalog, PublicShopProbe, SetShopPricingCommand, ShopBrandAssetUpload, ShopCustomMockup, ShopCustomMockupUpload, ShopDto, ShopPricingOverride, ShopProductDto, UpdateShopCommand, UpdateShopProductCommand } from '../../modules/shops/api/contracts.ts';
 import { ShopRejectedError, type ShopsRepository } from '../../modules/shops/application/shops-repository.ts';
 import type { Database, Json } from '../../types/database.types.ts';
 
@@ -174,6 +174,16 @@ export class SupabaseShopsRepository implements ShopsRepository {
     await this.requireShop(tenantId, shopId);
     const { error } = await this.client.from('shop_template_mockups').delete().eq('tenant_id', tenantId).eq('shop_id', shopId).eq('template_type', templateType).eq('view', view);
     if (error) throw classified(error, 'Restauration du mockup Magrit impossible.');
+  }
+  async persistAiProduct(_actor: UserId, tenantId: string, shopId: string, command: PersistAiShopProductCommand): Promise<void> {
+    await this.requireShop(tenantId, shopId);
+    const { error } = await this.client.rpc('persist_shop_ai_product', {
+      p_shop_id: shopId, p_config_hash: command.configHash, p_name: command.name,
+      p_category: command.category, p_description: command.description,
+      p_price_ht: command.priceHt, p_image_url: command.imageUrl,
+      p_config: command.config as Json, p_gamme_slug: command.gammeSlug ?? '',
+    });
+    if (error) throw classified(error, 'Persistance du produit IA impossible.');
   }
   private async requireShop(tenantId: string, shopId: string) {
     const { data, error } = await this.client.from('shops').select('id').eq('tenant_id', tenantId).eq('id', shopId).maybeSingle();

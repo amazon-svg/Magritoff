@@ -180,6 +180,8 @@ src/
   une passerelle Shops ; les composants visuels sortent de Supabase — livré ;
 - AF22.1 : protocole SSE Claude et éditorial de catégorie confinés dans une
   passerelle legacy ; le chat sort de Supabase — livré ;
+- AF22.2 : persistance des suggestions IA via Shops `/api/v1` ; `src/app` ne
+  contient plus aucune dépendance ou référence Supabase directe — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.

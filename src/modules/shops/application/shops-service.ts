@@ -1,5 +1,5 @@
 import type { UserId } from '../../../kernel/ids/index.ts';
-import type { CreateShopCommand, CreateShopProductCommand, MockupTemplateType, MockupView, SetShopPricingCommand, ShopBrandAssetUpload, ShopCustomMockupUpload, UpdateShopCommand, UpdateShopProductCommand } from '../api/contracts.ts';
+import type { CreateShopCommand, CreateShopProductCommand, MockupTemplateType, MockupView, PersistAiShopProductCommand, SetShopPricingCommand, ShopBrandAssetUpload, ShopCustomMockupUpload, UpdateShopCommand, UpdateShopProductCommand } from '../api/contracts.ts';
 import type { ShopsRepository } from './shops-repository.ts';
 export class ShopsService {
   constructor(private readonly repository: ShopsRepository) {}
@@ -20,4 +20,5 @@ export class ShopsService {
   customMockups(actor: UserId, tenantId: string, shopId: string) { return this.repository.customMockups(actor, tenantId, shopId); }
   uploadCustomMockup(actor: UserId, tenantId: string, shopId: string, upload: ShopCustomMockupUpload) { return this.repository.uploadCustomMockup(actor, tenantId, shopId, upload); }
   restoreCustomMockup(actor: UserId, tenantId: string, shopId: string, templateType: MockupTemplateType, view: MockupView) { return this.repository.restoreCustomMockup(actor, tenantId, shopId, templateType, view); }
+  persistAiProduct(actor: UserId, tenantId: string, shopId: string, command: PersistAiShopProductCommand) { return this.repository.persistAiProduct(actor, tenantId, shopId, command); }
 }

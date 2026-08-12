@@ -5,15 +5,11 @@
  * seulement la dette historique d'augmenter pendant sa migration vers /api/v1.
  * Chaque story de migration doit supprimer les entrées devenues inutiles et
  * abaisser les compteurs ; la baseline ne doit jamais être augmentée.
- * Après AF22.1 : 1 fichier importeur et 1 référence directe restante.
+ * Après AF22.2 : aucune dépendance ni référence Supabase directe restante dans src/app.
  * Le compteur inclut les appels où `supabase` et `.` sont séparés par un saut de ligne.
  */
-export const legacySupabaseUiImportFiles = new Set([
-  'src/app/components/shop/portal/PortalCatalog.tsx',
-]);
+export const legacySupabaseUiImportFiles = new Set<string>();
 
-export const legacySupabaseUiReferenceLimits = new Map<string, number>([
-  ['src/app/components/shop/portal/PortalCatalog.tsx', 1],
-]);
+export const legacySupabaseUiReferenceLimits = new Map<string, number>();
 
 export const legacyDirectEdgeUrlLimits = new Map<string, number>();

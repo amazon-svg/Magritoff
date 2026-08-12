@@ -438,6 +438,16 @@ describe('frontières API-first et modulaires', () => {
     expect(adapter).toContain('SupabaseLegacyAssistantGateway');
   });
 
+  it('fait persister les produits IA par Shops', () => {
+    const portal = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/PortalCatalog.tsx'), 'utf8');
+    const repository = readFileSync(resolve(process.cwd(), 'src/adapters/supabase/shops-repository.ts'), 'utf8');
+    expect(portal).toContain('shopsApi.persistAiProduct');
+    expect(portal).not.toContain('utils/supabase');
+    expect(portal).not.toMatch(/\bsupabase\s*\./);
+    expect(repository).toContain("rpc('persist_shop_ai_product'");
+    expect(repository).toContain('await this.requireShop(tenantId, shopId)');
+  });
+
   it('isole le renvoi des invitations derrière le port email', () => {
     const repository = readFileSync(resolve(process.cwd(), 'src/adapters/supabase/invitations-repository.ts'), 'utf8');
     expect(repository).toContain('InvitationEmailSender');

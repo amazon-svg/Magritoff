@@ -91,6 +91,13 @@ export const shopBrandAssetKindSchema = z.enum(['logo', 'hero']);
 export const shopBrandAssetResultSchema = z.object({ assetUrl: z.string().url() });
 export const shopCustomMockupMutationResultSchema = z.object({ updated: z.literal(true) });
 export const shopBuyerRegistrationResultSchema = z.object({ registered: z.literal(true) });
+export const persistAiShopProductCommandSchema = z.object({
+  configHash: z.string().min(1).max(500), name: z.string().min(1).max(300),
+  category: z.string().max(200), description: z.string().max(5000),
+  priceHt: z.number().nonnegative(), imageUrl: z.string().max(4000),
+  config: z.record(z.string(), z.unknown()), gammeSlug: z.string().max(200).nullable(),
+}).strict();
+export const persistAiShopProductResultSchema = z.object({ persisted: z.literal(true) });
 
 export type ShopDto = z.infer<typeof shopSchema>;
 export type ShopProductDto = z.infer<typeof shopProductSchema>;
@@ -108,3 +115,4 @@ export type MockupTemplateType = z.infer<typeof mockupTemplateTypeSchema>;
 export type MockupView = z.infer<typeof mockupViewSchema>;
 export type ShopCustomMockup = z.infer<typeof shopCustomMockupSchema>;
 export type ShopCustomMockupUpload = Readonly<{ templateType: MockupTemplateType; view: MockupView; fileName: string; contentType: string; bytes: ArrayBuffer }>;
+export type PersistAiShopProductCommand = z.infer<typeof persistAiShopProductCommandSchema>;

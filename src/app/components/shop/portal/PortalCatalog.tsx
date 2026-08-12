@@ -3,8 +3,10 @@ import { Search, Sparkles, X, Loader2, AlertTriangle } from 'lucide-react';
 import type { Shop, ShopProduct } from '../../../contexts/ShopsContext';
 import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
 import { resolveProductImage } from '../../../utils/productImages';
-import { supabase } from '/utils/supabase/client';
 import { browserAssistantGateway } from '../../../../adapters/supabase/browser-assistant-gateway';
+import { ShopsApiClient } from '../../../../modules/shops';
+import { FetchApiClient } from '../../../../platform/api';
+import { useAuth } from '../../../contexts/AuthContext';
 import { computeClariprintQuoteSafe } from '../../../../server/clariprint/ClariprintAdapter';
 import { useClaudeSseStream, ClaudeSseStreamError } from '../../../hooks/useClaudeSseStream';
 import { ENABLE_STREAMING_CHAT } from '../../../lib/featureFlags';
@@ -157,6 +159,8 @@ export function PortalCatalog({
   onSelectSubcategory,
   initialFormat,
 }: Props) {
+  const { session } = useAuth();
+  const shopsApi = useMemo(() => new ShopsApiClient(new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null)), [session?.access_token]);
   const [query, setQuery] = useState('');
   // S2.21 — autocomplétion : menu ouvert au focus + saisie ≥ 2 car.
   const [searchOpen, setSearchOpen] = useState(false);
@@ -262,25 +266,14 @@ export function PortalCatalog({
       // fire-and-forget : ne bloque pas l'affichage et n'échoue jamais la
       // recherche (RPC SECURITY DEFINER borné à l'accès boutique ; anon ignoré).
       // Le realtime shop_products de PublicShop rafraîchit ensuite la grille.
-      void Promise.all(
+      if (shop.tenant_id) void Promise.all(
         withPrices.map((p) =>
-          // rpc typé en `as any` : fonction hors types générés (migration
-          // S-SHOP-AI-PERSIST) — régénérer db:types après déploiement.
-          (supabase.rpc as any)('persist_shop_ai_product', {
-            p_shop_id: shop.id,
-            p_config_hash: aiConfigSignature(p),
-            p_name: p.name,
-            p_category: p.category ?? 'Autres',
-            p_description: p.description ?? '',
-            p_price_ht: p.price_ht ?? 0,
-            p_image_url: p.image_url ?? '',
-            p_config: p.config ?? {},
-            p_gamme_slug: p.gamme_slug ?? null,
-          }).then(({ error: rpcErr }: { error: { message: string } | null }) => {
-            if (rpcErr) {
-              console.info(`[shop_ai_persist] skip "${p.name}" — ${rpcErr.message}`);
-            }
-          }),
+          shopsApi.persistAiProduct(shop.tenant_id!, shop.id, {
+            configHash: aiConfigSignature(p), name: p.name,
+            category: p.category ?? 'Autres', description: p.description ?? '',
+            priceHt: p.price_ht ?? 0, imageUrl: p.image_url ?? '',
+            config: p.config ?? {}, gammeSlug: p.gamme_slug ?? null,
+          }).catch((error) => console.info(`[shop_ai_persist] skip "${p.name}" — ${error instanceof Error ? error.message : 'erreur'}`)),
         ),
       ).catch(() => {
         /* best-effort : la persistance ne doit jamais casser la recherche */

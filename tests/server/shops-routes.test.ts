@@ -9,7 +9,7 @@ const parsed = parseId<'UserId'>('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'); if (!p
 const tenantId = '11111111-1111-4111-8111-111111111111';
 const shopId = '22222222-2222-4222-8222-222222222222';
 const shop = { id: shopId, tenantId, ownerUserId: parsed.value, slug: 'demo', name: 'Démo', description: '', theme: { primaryColor: '#000', accentColor: '#fff', mode: 'light' as const }, logoUrl: '', address: '', contactEmail: '', active: true, libraryIds: [], excludedProductIds: [], heroImageUrl: null, tagline: null, pimCatalogMode: false, pimGammeSlugs: [], accessMode: 'invite_only' as const, createdAt: '2026-08-12T10:00:00Z' };
-function repo(overrides: Partial<ShopsRepository> = {}): ShopsRepository { return { async registerBuyer() {}, async list() { return []; }, async create() { return shop; }, async update() { return shop; }, async remove() {}, async products() { return []; }, async addProduct() { throw new Error('unused'); }, async updateProduct() {}, async removeProduct() {}, async publicProbe() { return { id: shopId, tenantId, accessMode: 'invite_only' }; }, async publicCatalog() { throw new ShopRejectedError('authentication_required', 'Authentification requise.'); }, async pricing() { return []; }, async setPricing() {}, async uploadBrandAsset() { return 'https://assets.magrit.test/logo.png'; }, async customMockups() { return []; }, async uploadCustomMockup() {}, async restoreCustomMockup() {}, ...overrides }; }
+function repo(overrides: Partial<ShopsRepository> = {}): ShopsRepository { return { async registerBuyer() {}, async list() { return []; }, async create() { return shop; }, async update() { return shop; }, async remove() {}, async products() { return []; }, async addProduct() { throw new Error('unused'); }, async updateProduct() {}, async removeProduct() {}, async publicProbe() { return { id: shopId, tenantId, accessMode: 'invite_only' }; }, async publicCatalog() { throw new ShopRejectedError('authentication_required', 'Authentification requise.'); }, async pricing() { return []; }, async setPricing() {}, async uploadBrandAsset() { return 'https://assets.magrit.test/logo.png'; }, async customMockups() { return []; }, async uploadCustomMockup() {}, async restoreCustomMockup() {}, async persistAiProduct() {}, ...overrides }; }
 function handler(repository: ShopsRepository) { return createApiV1Application({ routes: createShopsRoutes(new ShopsService(repository)), actorResolver: { async resolve() { return { kind: 'user', userId: parsed.value }; } }, requestIdFactory: () => 'shops-test' }); }
 
 describe('routes API Shops', () => {
@@ -69,5 +69,12 @@ describe('routes API Shops', () => {
   it('valide les paramètres de restauration avant le repository', async () => {
     const response = await handler(repo())(new Request(`http://localhost/api/v1/tenants/${tenantId}/shops/${shopId}/custom-mockups/inconnu/front`, { method: 'DELETE' }));
     expect(response.status).toBe(422); expect((await response.json()).code).toBe('api.validation_failed');
+  });
+  it('dérive acteur et périmètre pour persister un produit IA', async () => {
+    let received: [string, string, string, string] | null = null;
+    const response = await handler(repo({ async persistAiProduct(actor, tenant, shop, command) { received = [actor, tenant, shop, command.configHash]; } }))(new Request(`http://localhost/api/v1/tenants/${tenantId}/shops/${shopId}/ai-products`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ configHash: 'flyer-a5', name: 'Flyer A5', category: 'Flyers', description: '', priceHt: 12, imageUrl: '', config: {}, gammeSlug: 'flyers' }) }));
+    expect(response.status).toBe(200);
+    expect(received).toEqual([parsed.value, tenantId, shopId, 'flyer-a5']);
+    expect(await response.json()).toEqual({ persisted: true });
   });
 });

@@ -1,5 +1,5 @@
 import type { UserId } from '../../../kernel/ids/index.ts';
-import type { CreateShopCommand, CreateShopProductCommand, MockupTemplateType, MockupView, PublicShopCatalog, PublicShopProbe, SetShopPricingCommand, ShopBrandAssetUpload, ShopCustomMockup, ShopCustomMockupUpload, ShopDto, ShopPricingOverride, ShopProductDto, UpdateShopCommand, UpdateShopProductCommand } from '../api/contracts.ts';
+import type { CreateShopCommand, CreateShopProductCommand, MockupTemplateType, MockupView, PersistAiShopProductCommand, PublicShopCatalog, PublicShopProbe, SetShopPricingCommand, ShopBrandAssetUpload, ShopCustomMockup, ShopCustomMockupUpload, ShopDto, ShopPricingOverride, ShopProductDto, UpdateShopCommand, UpdateShopProductCommand } from '../api/contracts.ts';
 
 export class ShopRejectedError extends Error {
   constructor(public readonly code: 'authentication_required' | 'permission_denied' | 'shop_not_found' | 'product_not_found' | 'conflict' | 'invalid_request', message: string) {
@@ -24,4 +24,5 @@ export interface ShopsRepository {
   customMockups(actor: UserId, tenantId: string, shopId: string): Promise<ShopCustomMockup[]>;
   uploadCustomMockup(actor: UserId, tenantId: string, shopId: string, upload: ShopCustomMockupUpload): Promise<void>;
   restoreCustomMockup(actor: UserId, tenantId: string, shopId: string, templateType: MockupTemplateType, view: MockupView): Promise<void>;
+  persistAiProduct(actor: UserId, tenantId: string, shopId: string, command: PersistAiShopProductCommand): Promise<void>;
 }
