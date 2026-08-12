@@ -1,9 +1,11 @@
 import { API_V1_BASE_PATH, FetchApiClient } from '../../../platform/api/index.ts';
 import {
-  catalogRemovalResultSchema, gammeSubscriptionsSchema, pimCatalogSchema, pimDefinitionSchema, pimGammeSchema,
-  setGammeSubscriptionsCommandSchema, upsertPimDefinitionCommandSchema, upsertPimGammeCommandSchema,
+  catalogRemovalResultSchema, gammeSubscriptionsSchema, generatePimDefinitionCommandSchema, generatedPimDefinitionSchema,
+  pimCatalogSchema, pimDefinitionSchema, pimGammeSchema, pimIngestReportSchema, pimPendingCandidatesSchema,
+  runPimIngestCommandSchema, setGammeSubscriptionsCommandSchema, upsertPimDefinitionCommandSchema, upsertPimGammeCommandSchema,
   type GammeSubscription, type PimCatalog, type PimDefinition, type PimGamme,
-  type SetGammeSubscriptionsCommand, type UpsertPimDefinitionCommand, type UpsertPimGammeCommand,
+  type GeneratePimDefinitionCommand, type PimIngestReport, type SetGammeSubscriptionsCommand,
+  type UpsertPimDefinitionCommand, type UpsertPimGammeCommand,
 } from './contracts.ts';
 
 export class CatalogApiClient {
@@ -39,5 +41,14 @@ export class CatalogApiClient {
   }
   deletePimDefinition(id: string): Promise<void> {
     return this.client.request({ method: 'DELETE', path: `${API_V1_BASE_PATH}/catalog/pim/definitions/${id}`, responseSchema: catalogRemovalResultSchema }).then(() => undefined);
+  }
+  pimPendingCandidates(): Promise<number> {
+    return this.client.request({ path: `${API_V1_BASE_PATH}/catalog/pim/ingestion`, responseSchema: pimPendingCandidatesSchema }).then(({ pendingCount }) => pendingCount);
+  }
+  runPimIngest(dryRun: boolean): Promise<PimIngestReport> {
+    return this.client.request({ method: 'POST', path: `${API_V1_BASE_PATH}/catalog/pim/ingestion`, body: runPimIngestCommandSchema.parse({ dryRun }), responseSchema: pimIngestReportSchema });
+  }
+  generatePimDefinition(command: GeneratePimDefinitionCommand): Promise<Record<string, unknown>> {
+    return this.client.request({ method: 'POST', path: `${API_V1_BASE_PATH}/catalog/pim/generation`, body: generatePimDefinitionCommandSchema.parse(command), responseSchema: generatedPimDefinitionSchema }).then(({ generated }) => generated);
   }
 }

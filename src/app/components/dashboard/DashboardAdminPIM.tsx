@@ -1,20 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight, Sparkles, Pencil, Trash2, Plus, Loader2, Check, X, AlertCircle, Zap, Download, Inbox, Play } from 'lucide-react';
 import { usePIM } from '../../contexts/PIMContext';
 import { useIsAdmin } from '../../hooks/useIsAdmin';
 import { useTenant } from '../../contexts/TenantContext';
-import { supabase } from '/utils/supabase/client';
+import { useAuth } from '../../contexts/AuthContext';
+import { CatalogApiClient, type PimIngestReport } from '../../../modules/catalog';
+import { FetchApiClient } from '../../../platform/api';
 import type { Gamme, ProductDefinition } from '../../utils/productEnrichment';
-
-// Type du rapport renvoye par l'edge function pim-ingest
-interface IngestReport {
-  dryRun: boolean;
-  totalCandidates: number;
-  matched: Array<{ candidateId: string; matchedTo: string; gamme: string }>;
-  rejected: Array<{ candidateId: string; reason: string }>;
-  enriched: Array<{ candidateId: string; definitionId: string; gamme: string }>;
-  errors: Array<{ candidateId: string; error: string }>;
-}
 
 const LOCALES = ['fr', 'en'];
 
@@ -25,8 +17,10 @@ export function DashboardAdminPIM() {
   // L'un des deux suffit.
   const isAdmin = useIsAdmin();
   const { isSuperAdmin } = useTenant();
+  const { session } = useAuth();
   const hasAccess = isAdmin || isSuperAdmin;
-  const { gammes, definitions, upsertDefinition, deleteDefinition, refresh } = usePIM();
+  const { gammes, definitions, upsertGamme, upsertDefinition, deleteDefinition, refresh } = usePIM();
+  const catalogApi = useMemo(() => new CatalogApiClient(new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null)), [session?.access_token]);
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [editing, setEditing] = useState<Partial<ProductDefinition> | null>(null);
@@ -44,34 +38,25 @@ export function DashboardAdminPIM() {
   // ─── Ingestion queue ───────────────────────────────────────────────────
   const [pendingCount, setPendingCount] = useState<number | null>(null);
   const [ingestRunning, setIngestRunning] = useState<false | 'dry' | 'live'>(false);
-  const [ingestReport, setIngestReport] = useState<IngestReport | null>(null);
+  const [ingestReport, setIngestReport] = useState<PimIngestReport | null>(null);
   const [ingestError, setIngestError] = useState<string | null>(null);
 
-  const refreshPendingCount = async () => {
-    const { count, error } = await supabase
-      .from('pim_candidates')
-      .select('id', { count: 'exact', head: true })
-      .eq('status', 'pending');
-    if (!error) setPendingCount(count ?? 0);
-  };
+  const refreshPendingCount = useCallback(async () => {
+    try { setPendingCount(await catalogApi.pimPendingCandidates()); }
+    catch (error) { setIngestError(error instanceof Error ? error.message : 'Lecture de la file PIM impossible.'); }
+  }, [catalogApi]);
 
   useEffect(() => {
     if (hasAccess) refreshPendingCount();
-  }, [hasAccess]);
+  }, [hasAccess, refreshPendingCount]);
 
   const runIngest = async (dryRun: boolean) => {
     setIngestRunning(dryRun ? 'dry' : 'live');
     setIngestError(null);
     setIngestReport(null);
     try {
-      // R5 (refacto 2026-05-11) : passe par functions.invoke() (ADR-R3).
-      const { data, error } = await supabase.functions.invoke<IngestReport>(
-        'pim-ingest',
-        { body: { dryRun } },
-      );
-      if (error) throw new Error(error.message);
-      if (!data) throw new Error('pim-ingest : reponse vide');
-      setIngestReport(data);
+      const report = await catalogApi.runPimIngest(dryRun);
+      setIngestReport(report);
       if (!dryRun) {
         await refreshPendingCount();
         await refresh(); // Refresh PIM context pour voir les nouvelles definitions
@@ -164,26 +149,14 @@ export function DashboardAdminPIM() {
     setGenerating(true);
     setGenError(null);
     try {
-      // R5 (refacto 2026-05-11) : functions.invoke() (ADR-R3).
-      const { data: body, error: invokeErr } = await supabase.functions.invoke<{ generated?: Record<string, unknown> }>(
-        'pim-generate',
-        {
-          body: {
-            gamme_slug: gamme.slug,
-            gamme_name: gamme.name,
-            gamme_matching_rules: gamme.matching_rules,
-            locale: editing.locale,
-            variation_filter: editing.variation_filter ?? {},
-            mode: 'generate',
-          },
-        },
-      );
-      if (invokeErr) throw new Error(invokeErr.message);
-      if (!body?.generated) throw new Error('Réponse LLM vide');
+      const generated = await catalogApi.generatePimDefinition({
+        gammeSlug: gamme.slug, gammeName: gamme.name, gammeMatchingRules: gamme.matching_rules,
+        locale: editing.locale, variationFilter: editing.variation_filter ?? {}, mode: 'generate',
+      });
       // Fusion dans l'édition courante
       setEditing((prev) => ({
         ...prev,
-        ...body.generated,
+        ...generated,
         gamme_slug: prev?.gamme_slug,
         locale: prev?.locale,
         variation_filter: prev?.variation_filter ?? {},
@@ -236,25 +209,13 @@ export function DashboardAdminPIM() {
       setBatch((s) => ({ ...s, done: i, current: `${gamme.name} · ${locale.toUpperCase()}` }));
 
       try {
-        // R5 (refacto 2026-05-11) : functions.invoke() (ADR-R3).
-        const { data: body, error: invokeErr } = await supabase.functions.invoke<{ generated?: Record<string, unknown> }>(
-          'pim-generate',
-          {
-            body: {
-              gamme_slug: gamme.slug,
-              gamme_name: gamme.name,
-              gamme_matching_rules: gamme.matching_rules,
-              locale,
-              variation_filter: {},
-              mode: 'generate',
-            },
-          },
-        );
-        if (invokeErr) throw new Error(invokeErr.message);
-        if (!body?.generated) throw new Error('réponse LLM vide');
+        const generated = await catalogApi.generatePimDefinition({
+          gammeSlug: gamme.slug, gammeName: gamme.name, gammeMatchingRules: gamme.matching_rules,
+          locale, variationFilter: {}, mode: 'generate',
+        });
 
         await upsertDefinition({
-          ...body.generated,
+          ...generated,
           gamme_slug: gamme.slug,
           locale,
           variation_filter: {},

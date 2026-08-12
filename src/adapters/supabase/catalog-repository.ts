@@ -1,7 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { UserId } from '../../kernel/ids/index.ts';
-import type { GammeSubscription, PimCatalog, PimDefinition, PimGamme, SetGammeSubscriptionsCommand, UpsertPimDefinitionCommand, UpsertPimGammeCommand } from '../../modules/catalog/api/contracts.ts';
-import { CatalogRejectedError, type CatalogRepository } from '../../modules/catalog/application/catalog-repository.ts';
+import type { GeneratePimDefinitionCommand, GammeSubscription, PimCatalog, PimDefinition, PimGamme, PimIngestReport, RunPimIngestCommand, SetGammeSubscriptionsCommand, UpsertPimDefinitionCommand, UpsertPimGammeCommand } from '../../modules/catalog/api/contracts.ts';
+import { pimIngestReportSchema } from '../../modules/catalog/api/contracts.ts';
+import { CatalogRejectedError, type CatalogAutomationGateway, type CatalogRepository } from '../../modules/catalog/application/catalog-repository.ts';
 import type { Database, Json } from '../../types/database.types.ts';
 
 export class SupabaseCatalogRepository implements CatalogRepository {
@@ -34,7 +35,7 @@ export class SupabaseCatalogRepository implements CatalogRepository {
   }
 
   async upsertPimGamme(actor: UserId, command: UpsertPimGammeCommand): Promise<PimGamme> {
-    await this.requireAdmin(actor);
+    await this.assertPimAdmin(actor);
     const { data, error } = await this.client.from('product_gammes').upsert({
       slug: command.slug, name: command.name,
       ...(command.parentSlug === undefined ? {} : { parent_slug: command.parentSlug }),
@@ -47,31 +48,56 @@ export class SupabaseCatalogRepository implements CatalogRepository {
   }
 
   async deletePimGamme(actor: UserId, slug: string): Promise<void> {
-    await this.requireAdmin(actor);
+    await this.assertPimAdmin(actor);
     const { data, error } = await this.client.from('product_gammes').delete().eq('slug', slug).select('slug').maybeSingle();
     if (error) throw classified(error, 'Suppression de la gamme PIM impossible.');
     if (!data) throw new CatalogRejectedError('not_found', 'Gamme PIM introuvable.');
   }
 
   async upsertPimDefinition(actor: UserId, command: UpsertPimDefinitionCommand): Promise<PimDefinition> {
-    await this.requireAdmin(actor);
+    await this.assertPimAdmin(actor);
     const { data, error } = await this.client.from('product_definitions').upsert(definitionRow(command), { onConflict: 'gamme_slug,variation_filter,locale' }).select('*').single();
     if (error || !data) throw classified(error ?? {}, 'Enregistrement de la définition PIM impossible.');
     return mapDefinition(data);
   }
 
   async deletePimDefinition(actor: UserId, id: string): Promise<void> {
-    await this.requireAdmin(actor);
+    await this.assertPimAdmin(actor);
     const { data, error } = await this.client.from('product_definitions').delete().eq('id', id).select('id').maybeSingle();
     if (error) throw classified(error, 'Suppression de la définition PIM impossible.');
     if (!data) throw new CatalogRejectedError('not_found', 'Définition PIM introuvable.');
   }
 
-  private async requireAdmin(actor: UserId): Promise<void> {
+  async assertPimAdmin(actor: UserId): Promise<void> {
     const { data: superAdmin, error: superAdminError } = await this.client.rpc('is_super_admin');
     if (!superAdminError && superAdmin) return;
     const { data: preferences, error } = await this.client.from('user_preferences').select('is_admin').eq('user_id', actor).maybeSingle();
     if (error || preferences?.is_admin !== true) throw new CatalogRejectedError('permission_denied', 'Administration du PIM interdite.');
+  }
+}
+
+export class SupabaseCatalogAutomationGateway implements CatalogAutomationGateway {
+  constructor(private readonly client: SupabaseClient<Database>) {}
+  async pendingCandidates(): Promise<number> {
+    const { count, error } = await this.client.from('pim_candidates').select('id', { count: 'exact', head: true }).eq('status', 'pending');
+    if (error) throw new CatalogRejectedError('upstream_error', error.message || 'Lecture de la file PIM impossible.');
+    return count ?? 0;
+  }
+  async runIngest(command: RunPimIngestCommand): Promise<PimIngestReport> {
+    const { data, error } = await this.client.functions.invoke<unknown>('pim-ingest', { body: command });
+    if (error) throw new CatalogRejectedError('upstream_error', error.message || 'Ingestion PIM impossible.');
+    const parsed = pimIngestReportSchema.safeParse(data);
+    if (!parsed.success) throw new CatalogRejectedError('upstream_error', 'Rapport d’ingestion PIM invalide.');
+    return parsed.data;
+  }
+  async generateDefinition(command: GeneratePimDefinitionCommand): Promise<Record<string, unknown>> {
+    const { data, error } = await this.client.functions.invoke<{ generated?: unknown }>('pim-generate', { body: {
+      gamme_slug: command.gammeSlug, gamme_name: command.gammeName, gamme_matching_rules: command.gammeMatchingRules,
+      locale: command.locale, variation_filter: command.variationFilter, mode: command.mode, existing: command.existing,
+    } });
+    if (error) throw new CatalogRejectedError('upstream_error', error.message || 'Génération PIM impossible.');
+    if (!data?.generated || typeof data.generated !== 'object' || Array.isArray(data.generated)) throw new CatalogRejectedError('upstream_error', 'Réponse de génération PIM invalide.');
+    return data.generated as Record<string, unknown>;
   }
 }
 

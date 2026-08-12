@@ -136,6 +136,8 @@ src/
   de gammes du tenant ; `DashboardTenantGammes` sort de Supabase — livré ;
 - AF14.2a : lectures et CRUD du PIM global via le module Catalog ;
   `PIMContext` sort de Supabase — livré ;
+- AF14.2b : compteur, ingestion et génération éditoriale du PIM via le module
+  Catalog ; `DashboardAdminPIM` sort de Supabase — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.

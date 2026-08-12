@@ -21,7 +21,7 @@ import { ShopsService } from '../../../src/modules/shops/application/shops-servi
 import { SupabaseShopsRepository } from '../../../src/adapters/supabase/shops-repository.ts';
 import { createShopsRoutes } from '../../../src/server/api/shops-routes.ts';
 import { CatalogService } from '../../../src/modules/catalog/application/catalog-service.ts';
-import { SupabaseCatalogRepository } from '../../../src/adapters/supabase/catalog-repository.ts';
+import { SupabaseCatalogAutomationGateway, SupabaseCatalogRepository } from '../../../src/adapters/supabase/catalog-repository.ts';
 import { createCatalogRoutes } from '../../../src/server/api/catalog-routes.ts';
 
 const corsHeaders = {
@@ -53,7 +53,7 @@ export async function handleRequest(request: Request): Promise<Response> {
   const membersService = new MembersService(new SupabaseMembersRepository(client));
   const rolesService = new RolesService(new SupabaseRolesRepository(client));
   const shopsService = new ShopsService(new SupabaseShopsRepository(client, publicSupabaseUrl(request, supabaseUrl)));
-  const catalogService = new CatalogService(new SupabaseCatalogRepository(client));
+  const catalogService = new CatalogService(new SupabaseCatalogRepository(client), new SupabaseCatalogAutomationGateway(client));
   const handler = createApiV1Application({
     routes: [
       ...createSessionRoutes(service),

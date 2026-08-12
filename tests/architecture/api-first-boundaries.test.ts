@@ -184,6 +184,7 @@ describe('frontières API-first et modulaires', () => {
     expect(edgeEntry).toContain('SupabaseShopsRepository(client, publicSupabaseUrl(request, supabaseUrl))');
     expect(edgeEntry).toContain('createShopsRoutes(shopsService)');
     expect(edgeEntry).toContain('SupabaseCatalogRepository(client)');
+    expect(edgeEntry).toContain('SupabaseCatalogAutomationGateway(client)');
     expect(edgeEntry).toContain('createCatalogRoutes(catalogService)');
     expect(edgeEntry).not.toContain('SUPABASE_SERVICE_ROLE_KEY');
   });
@@ -200,6 +201,14 @@ describe('frontières API-first et modulaires', () => {
     expect(source).toContain('CatalogApiClient');
     expect(source).not.toContain('utils/supabase');
     expect(source).not.toMatch(/\bsupabase\s*\./);
+  });
+
+  it('sort les opérations longues du dashboard PIM du fournisseur', () => {
+    const source = readFileSync(resolve(process.cwd(), 'src/app/components/dashboard/DashboardAdminPIM.tsx'), 'utf8');
+    expect(source).toContain('CatalogApiClient');
+    expect(source).not.toContain('utils/supabase');
+    expect(source).not.toMatch(/\bsupabase\s*\./);
+    expect(source).not.toContain('functions.invoke');
   });
 
   it('sort les écrans de gestion des rôles du fournisseur', () => {

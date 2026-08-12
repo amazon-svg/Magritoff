@@ -260,6 +260,53 @@ paths:
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/ApiProblem' }
+  /catalog/pim/ingestion:
+    get:
+      operationId: getPimPendingCandidates
+      summary: Compter les candidats PIM en attente
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Taille de la file PIM
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PimPendingCandidates' }
+        '403': { description: Administration PIM interdite }
+    post:
+      operationId: runPimIngestion
+      summary: Simuler ou exécuter l’ingestion des candidats PIM
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RunPimIngestCommand' }
+      responses:
+        '200':
+          description: Rapport d’ingestion
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PimIngestReport' }
+        '403': { description: Administration PIM interdite }
+        '502': { description: Pipeline PIM indisponible }
+  /catalog/pim/generation:
+    post:
+      operationId: generatePimDefinition
+      summary: Générer ou valider le contenu éditorial d’une définition PIM
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GeneratePimDefinitionCommand' }
+      responses:
+        '200':
+          description: Contenu PIM généré
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GeneratedPimDefinition' }
+        '403': { description: Administration PIM interdite }
+        '502': { description: Générateur PIM indisponible }
 components:
   securitySchemes:
     bearerAuth:
@@ -616,6 +663,47 @@ components:
           items: { $ref: '#/components/schemas/OrderRoleAssignment' }
         capabilities: { $ref: '#/components/schemas/OrderCapabilities' }
         isCreator: { type: boolean }
+    PimPendingCandidates:
+      type: object
+      additionalProperties: false
+      required: [pendingCount]
+      properties:
+        pendingCount: { type: integer, minimum: 0 }
+    RunPimIngestCommand:
+      type: object
+      additionalProperties: false
+      required: [dryRun]
+      properties:
+        dryRun: { type: boolean }
+    PimIngestReport:
+      type: object
+      additionalProperties: false
+      required: [dryRun, totalCandidates, matched, rejected, enriched, errors]
+      properties:
+        dryRun: { type: boolean }
+        totalCandidates: { type: integer, minimum: 0 }
+        matched: { type: array, items: { type: object, additionalProperties: true } }
+        rejected: { type: array, items: { type: object, additionalProperties: true } }
+        enriched: { type: array, items: { type: object, additionalProperties: true } }
+        errors: { type: array, items: { type: object, additionalProperties: true } }
+    GeneratePimDefinitionCommand:
+      type: object
+      additionalProperties: false
+      required: [gammeSlug, locale]
+      properties:
+        gammeSlug: { type: string, minLength: 1, maxLength: 160 }
+        gammeName: { type: string, minLength: 1, maxLength: 160 }
+        gammeMatchingRules: { type: object, additionalProperties: true }
+        locale: { type: string, minLength: 2, maxLength: 12 }
+        variationFilter: { type: object, additionalProperties: true, default: {} }
+        mode: { type: string, enum: [generate, validate], default: generate }
+        existing: { type: object, additionalProperties: true }
+    GeneratedPimDefinition:
+      type: object
+      additionalProperties: false
+      required: [generated]
+      properties:
+        generated: { type: object, additionalProperties: true }
   responses:
     AuthenticationRequired:
       description: Bearer token absent ou invalide

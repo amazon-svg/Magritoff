@@ -48,8 +48,32 @@ export const upsertPimDefinitionCommandSchema = pimDefinitionSchema.omit({ id: t
 }).extend({ gammeSlug: z.string().trim().min(1).max(160), variationFilter: recordSchema, locale: z.string().trim().min(2).max(12) });
 export const catalogRemovalResultSchema = z.object({ removed: z.literal(true) });
 
+export const pimPendingCandidatesSchema = z.object({ pendingCount: z.number().int().nonnegative() });
+export const runPimIngestCommandSchema = z.object({ dryRun: z.boolean() });
+const pimIngestCandidateMatchSchema = z.object({ candidateId: z.string(), matchedTo: z.string(), gamme: z.string() });
+const pimIngestCandidateRejectionSchema = z.object({ candidateId: z.string(), reason: z.string() });
+const pimIngestCandidateEnrichmentSchema = z.object({ candidateId: z.string(), definitionId: z.string(), gamme: z.string() });
+const pimIngestCandidateErrorSchema = z.object({ candidateId: z.string(), error: z.string() });
+export const pimIngestReportSchema = z.object({
+  dryRun: z.boolean(), totalCandidates: z.number().int().nonnegative(),
+  matched: z.array(pimIngestCandidateMatchSchema), rejected: z.array(pimIngestCandidateRejectionSchema),
+  enriched: z.array(pimIngestCandidateEnrichmentSchema), errors: z.array(pimIngestCandidateErrorSchema),
+});
+export const generatePimDefinitionCommandSchema = z.object({
+  gammeSlug: z.string().trim().min(1).max(160), gammeName: z.string().trim().min(1).max(160).optional(),
+  gammeMatchingRules: recordSchema.optional(), locale: z.string().trim().min(2).max(12),
+  variationFilter: recordSchema.default({}), mode: z.enum(['generate', 'validate']).default('generate'),
+  existing: recordSchema.optional(),
+});
+export const generatedPimDefinitionSchema = z.object({ generated: recordSchema });
+
 export type PimGamme = z.infer<typeof pimGammeSchema>;
 export type PimDefinition = z.infer<typeof pimDefinitionSchema>;
 export type PimCatalog = z.infer<typeof pimCatalogSchema>;
 export type UpsertPimGammeCommand = z.infer<typeof upsertPimGammeCommandSchema>;
 export type UpsertPimDefinitionCommand = z.infer<typeof upsertPimDefinitionCommandSchema>;
+export type PimPendingCandidates = z.infer<typeof pimPendingCandidatesSchema>;
+export type RunPimIngestCommand = z.infer<typeof runPimIngestCommandSchema>;
+export type PimIngestReport = z.infer<typeof pimIngestReportSchema>;
+export type GeneratePimDefinitionCommand = z.infer<typeof generatePimDefinitionCommandSchema>;
+export type GeneratedPimDefinition = z.infer<typeof generatedPimDefinitionSchema>;
