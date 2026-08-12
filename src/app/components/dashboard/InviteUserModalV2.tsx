@@ -22,7 +22,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Loader2, Mail, X, Check, Copy } from 'lucide-react';
-import { supabase } from '/utils/supabase/client';
 import { TEST_IDS } from '../../lib/testIds';
 import { useAuth } from '../../contexts/AuthContext';
 import { InvitationsApiClient } from '../../../modules/invitations';
@@ -60,7 +59,7 @@ export function InviteUserModalV2({
   onInvited,
   onClose,
 }: InviteUserModalV2Props) {
-  const { session } = useAuth();
+  const { session, refreshSession } = useAuth();
   const [email, setEmail] = useState('');
   const [roles, setRoles] = useState<RoleOption[]>([]);
   const [selectedRoleIds, setSelectedRoleIds] = useState<Set<string>>(new Set());
@@ -150,9 +149,8 @@ export function InviteUserModalV2({
     try {
       // La gateway API valide le JWT avant la commande Invitations. On
       // rafraîchit explicitement la session avant de construire le client.
-      const edgeClient = supabase;
-      const { data: refreshed, error: refreshError } = await edgeClient.auth.refreshSession();
-      if (refreshError || !refreshed.session) {
+      const { session: refreshedSession, error: refreshError } = await refreshSession();
+      if (refreshError || !refreshedSession) {
         setError('Votre session a expiré. Reconnectez-vous puis réessayez.');
         setSending(false);
         return;
@@ -161,7 +159,7 @@ export function InviteUserModalV2({
       const freshInvitationsApi = new InvitationsApiClient(new FetchApiClient(
         '',
         globalThis.fetch,
-        () => refreshed.session.access_token,
+        () => refreshedSession.access_token,
       ));
       const data = await freshInvitationsApi.create({
         email: cleanedEmail,

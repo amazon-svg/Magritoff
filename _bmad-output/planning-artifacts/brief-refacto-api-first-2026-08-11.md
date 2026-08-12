@@ -154,6 +154,8 @@ src/
   via Shops ; `CheckoutPage` sort de Supabase — livré ;
 - AF17.1 : nouveau module Conversations pour la liste, la sauvegarde et la
   suppression RLS ; `ConversationContext` sort de Supabase — livré ;
+- AF17.2 : rafraîchissement de la session d’invitation centralisé dans
+  `AuthContext` ; `InviteUserModalV2` sort de Supabase — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.

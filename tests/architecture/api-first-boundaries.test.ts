@@ -347,6 +347,9 @@ describe('frontières API-first et modulaires', () => {
 
     expect(modal).toContain('new InvitationsApiClient');
     expect(modal).toContain('invitationsApi.options');
+    expect(modal).toContain('refreshSession');
+    expect(modal).not.toContain('utils/supabase');
+    expect(modal).not.toMatch(/\bsupabase\s*\./);
     expect(modal).not.toContain('.functions.invoke');
     expect(modal).not.toContain('prompt(');
     expect(modal).toContain('invitation-manual-link');

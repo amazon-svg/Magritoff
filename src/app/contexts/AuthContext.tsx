@@ -8,6 +8,7 @@ interface AuthContextType {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null; session: Session | null }>;
   signUp: (email: string, password: string, fullName?: string, company?: string) => Promise<{ error: Error | null; session: Session | null }>;
+  refreshSession: () => Promise<{ error: Error | null; session: Session | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: Error | null }>;
   updatePassword: (newPassword: string) => Promise<{ error: Error | null }>;
@@ -81,6 +82,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error, session: data.session };
   };
 
+  const refreshSession = async () => {
+    const { data, error } = await auth.refreshSession();
+    return { error, session: data.session };
+  };
+
   const signOut = async () => {
     await auth.signOut();
   };
@@ -103,7 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signIn, signUp, signOut, resetPassword, updatePassword, updateProfile }}>
+    <AuthContext.Provider value={{ user, session, loading, signIn, signUp, refreshSession, signOut, resetPassword, updatePassword, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );
