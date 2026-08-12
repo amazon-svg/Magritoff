@@ -9,7 +9,7 @@ const parsed = parseId<'UserId'>('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'); if (!p
 const tenantId = '11111111-1111-4111-8111-111111111111';
 const shopId = '22222222-2222-4222-8222-222222222222';
 const shop = { id: shopId, tenantId, ownerUserId: parsed.value, slug: 'demo', name: 'Démo', description: '', theme: { primaryColor: '#000', accentColor: '#fff', mode: 'light' as const }, logoUrl: '', address: '', contactEmail: '', active: true, libraryIds: [], excludedProductIds: [], heroImageUrl: null, tagline: null, pimCatalogMode: false, pimGammeSlugs: [], accessMode: 'invite_only' as const, createdAt: '2026-08-12T10:00:00Z' };
-function repo(overrides: Partial<ShopsRepository> = {}): ShopsRepository { return { async list() { return []; }, async create() { return shop; }, async update() { return shop; }, async remove() {}, async products() { return []; }, async addProduct() { throw new Error('unused'); }, async updateProduct() {}, async removeProduct() {}, async publicProbe() { return { id: shopId, tenantId, accessMode: 'invite_only' }; }, async publicCatalog() { throw new ShopRejectedError('authentication_required', 'Authentification requise.'); }, ...overrides }; }
+function repo(overrides: Partial<ShopsRepository> = {}): ShopsRepository { return { async list() { return []; }, async create() { return shop; }, async update() { return shop; }, async remove() {}, async products() { return []; }, async addProduct() { throw new Error('unused'); }, async updateProduct() {}, async removeProduct() {}, async publicProbe() { return { id: shopId, tenantId, accessMode: 'invite_only' }; }, async publicCatalog() { throw new ShopRejectedError('authentication_required', 'Authentification requise.'); }, async pricing() { return []; }, async setPricing() {}, ...overrides }; }
 function handler(repository: ShopsRepository) { return createApiV1Application({ routes: createShopsRoutes(new ShopsService(repository)), actorResolver: { async resolve() { return { kind: 'user', userId: parsed.value }; } }, requestIdFactory: () => 'shops-test' }); }
 
 describe('routes API Shops', () => {
@@ -33,5 +33,10 @@ describe('routes API Shops', () => {
     const response = await anonymous(new Request('http://localhost/api/v1/public/shops/demo/catalog'));
     expect(response.status).toBe(401);
     expect((await response.json()).code).toBe('shops.authentication_required');
+  });
+  it('dérive l’acteur pour enregistrer un prix négocié', async () => {
+    let receivedActor = '';
+    const response = await handler(repo({ async setPricing(actor) { receivedActor = actor; } }))(new Request(`http://localhost/api/v1/tenants/${tenantId}/shops/${shopId}/pricing/33333333-3333-4333-8333-333333333333`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ priceHtOverride: 12 }) }));
+    expect(response.status).toBe(200); expect(receivedActor).toBe(parsed.value);
   });
 });

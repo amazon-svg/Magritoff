@@ -16,10 +16,12 @@ describe('ShopsApiClient', () => {
       if (method === 'GET' && url.endsWith('/shops')) return new Response(JSON.stringify([shop]));
       if (method === 'GET' && url.endsWith('/probe')) return new Response(JSON.stringify({ id: shopId, tenantId, accessMode: 'invite_only' }));
       if (method === 'GET' && url.endsWith('/catalog')) return new Response(JSON.stringify({ shop: { ...shop, ownerUserId: undefined, libraryIds: undefined, excludedProductIds: undefined, pimCatalogMode: undefined, pimGammeSlugs: undefined }, products: [], gammes: [], definitions: [], subscribedSlugs: [] }));
+      if (method === 'GET' && url.endsWith('/pricing')) return new Response(JSON.stringify([]));
       if (method === 'GET' && url.endsWith('/products')) return new Response(JSON.stringify([product]));
       if (method === 'POST' && url.endsWith('/products')) return new Response(JSON.stringify(product));
       if (method === 'POST' || method === 'PATCH' && url.endsWith(`/shops/${shopId}`)) return new Response(JSON.stringify(shop));
       if (method === 'PATCH') return new Response(JSON.stringify({ updated: true }));
+      if (method === 'PUT') return new Response(JSON.stringify({ updated: true }));
       return new Response(JSON.stringify({ removed: true }));
     });
     const client = new ShopsApiClient(new FetchApiClient('', fetchMock as typeof fetch, () => 'token'));
@@ -29,9 +31,11 @@ describe('ShopsApiClient', () => {
     await client.updateProduct(tenantId, shopId, productId, { priceHt: 12 });
     await client.removeProduct(tenantId, shopId, productId); await client.remove(tenantId, shopId);
     await client.publicProbe('demo'); await client.publicCatalog('demo');
-    expect(calls).toHaveLength(10);
+    await client.pricing(tenantId, shopId); await client.setPricing(tenantId, shopId, productId, 12);
+    expect(calls).toHaveLength(12);
     expect(calls[0]).toBe(`GET /api/v1/tenants/${tenantId}/shops`);
     expect(calls[5]).toContain(`/shops/${shopId}/products/${productId}`);
     expect(calls[9]).toBe('GET /api/v1/public/shops/demo/catalog');
+    expect(calls[11]).toContain(`/pricing/${productId}`);
   });
 });

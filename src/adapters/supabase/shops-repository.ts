@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { UserId } from '../../kernel/ids/index.ts';
-import type { CreateShopCommand, CreateShopProductCommand, PublicShopCatalog, PublicShopProbe, ShopDto, ShopProductDto, UpdateShopCommand, UpdateShopProductCommand } from '../../modules/shops/api/contracts.ts';
+import type { CreateShopCommand, CreateShopProductCommand, PublicShopCatalog, PublicShopProbe, SetShopPricingCommand, ShopDto, ShopPricingOverride, ShopProductDto, UpdateShopCommand, UpdateShopProductCommand } from '../../modules/shops/api/contracts.ts';
 import { ShopRejectedError, type ShopsRepository } from '../../modules/shops/application/shops-repository.ts';
 import type { Database, Json } from '../../types/database.types.ts';
 
@@ -115,6 +115,27 @@ export class SupabaseShopsRepository implements ShopsRepository {
       definitions: (definitionsResult.data ?? []).map((row) => ({ ...row })),
       subscribedSlugs: subscriptionsResult.error ? [] : (subscriptionsResult.data ?? []).map((row) => row.gamme_slug),
     };
+  }
+  async pricing(_actor: UserId, tenantId: string, shopId: string): Promise<ShopPricingOverride[]> {
+    await this.requireShop(tenantId, shopId);
+    const { data, error } = await this.client.from('shop_product_pricing')
+      .select('library_product_id, price_ht_override').eq('tenant_id', tenantId).eq('shop_id', shopId);
+    if (error) throw classified(error, 'Lecture des prix négociés impossible.');
+    return (data ?? []).map((row) => ({ libraryProductId: row.library_product_id, priceHtOverride: Number(row.price_ht_override) }));
+  }
+  async setPricing(_actor: UserId, tenantId: string, shopId: string, libraryProductId: string, command: SetShopPricingCommand): Promise<void> {
+    await this.requireShop(tenantId, shopId);
+    if (command.priceHtOverride === null) {
+      const { error } = await this.client.from('shop_product_pricing').delete()
+        .eq('tenant_id', tenantId).eq('shop_id', shopId).eq('library_product_id', libraryProductId);
+      if (error) throw classified(error, 'Suppression du prix négocié impossible.');
+      return;
+    }
+    const { error } = await this.client.from('shop_product_pricing').upsert({
+      tenant_id: tenantId, shop_id: shopId, library_product_id: libraryProductId,
+      price_ht_override: command.priceHtOverride, updated_at: new Date().toISOString(),
+    }, { onConflict: 'shop_id,library_product_id' });
+    if (error) throw classified(error, 'Enregistrement du prix négocié impossible.');
   }
   private async requireShop(tenantId: string, shopId: string) {
     const { data, error } = await this.client.from('shops').select('id').eq('tenant_id', tenantId).eq('id', shopId).maybeSingle();

@@ -35,6 +35,7 @@ import { useShops, Shop, ShopProduct } from '../../contexts/ShopsContext';
 import { FONT_PAIRINGS } from '../shop/fontPairings';
 import { supabase } from '/utils/supabase/client';
 import { useTenant } from '../../contexts/TenantContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { useLibrary, LibraryProduct } from '../../contexts/LibraryContext';
 import { usePIM } from '../../contexts/PIMContext';
 import { usePlan } from '../../hooks/usePlan';
@@ -44,6 +45,8 @@ import { exportShopToShopifyCsv, exportShopToJson } from '../../utils/shopExport
 import { resolveShopProductScope } from '../../utils/resolveShopProductScope';
 import { TEST_IDS } from '../../lib/testIds';
 import { lazy, Suspense as ReactSuspense } from 'react';
+import { ShopsApiClient } from '../../../modules/shops';
+import { FetchApiClient } from '../../../platform/api';
 
 // P4-VISUELS (2026-06-15) : lazy-load ShopCustomMockups (upload custom).
 // P9-CLEANUP (2026-06-15) : ShopVisualSettings supprimé (remplacé par
@@ -94,6 +97,10 @@ export function DashboardShopEditor() {
   // en number. Source de vérité locale, synchronisée à la DB sur blur.
   const [pricingOverrides, setPricingOverrides] = useState<Record<string, number>>({});
   const { currentTenant } = useTenant();
+  const { session } = useAuth();
+  const shopsApi = useMemo(() => new ShopsApiClient(new FetchApiClient(
+    '', globalThis.fetch, () => session?.access_token ?? null,
+  )), [session?.access_token]);
 
   // Dialog de confirmation suppression
   const [deleteDialog, setDeleteDialog] = useState<DisplayProduct | null>(null);
@@ -153,16 +160,12 @@ export function DashboardShopEditor() {
       Promise.all([
         getShopProducts(s.id),
         // A4.5 — Charger les overrides de prix de cette boutique
-        supabase
-          .from('shop_product_pricing')
-          .select('library_product_id, price_ht_override')
-          .eq('shop_id', s.id)
-          .then((res) => res.data ?? []),
+        currentTenant ? shopsApi.pricing(currentTenant.id, s.id) : Promise.resolve([]),
       ]).then(([products, overrides]) => {
         setShopProducts(products);
         const map: Record<string, number> = {};
-        for (const o of overrides as Array<{ library_product_id: string; price_ht_override: number }>) {
-          map[o.library_product_id] = Number(o.price_ht_override);
+        for (const o of overrides) {
+          map[o.libraryProductId] = Number(o.priceHtOverride);
         }
         setPricingOverrides(map);
         setLoading(false);
@@ -192,13 +195,9 @@ export function DashboardShopEditor() {
     if (!shop || !currentTenant) return;
     if (nextValue === null || !Number.isFinite(nextValue) || nextValue <= 0) {
       // Suppression : on retire l'override (retour au prix biblio).
-      const { error } = await supabase
-        .from('shop_product_pricing')
-        .delete()
-        .eq('shop_id', shop.id)
-        .eq('library_product_id', libraryProductId);
-      if (error) {
-        console.error('[A4.5] delete override failed', error.message);
+      try { await shopsApi.setPricing(currentTenant.id, shop.id, libraryProductId, null); }
+      catch (error) {
+        console.error('[A4.5] delete override failed', error instanceof Error ? error.message : error);
         return;
       }
       setPricingOverrides((prev) => {
@@ -209,20 +208,9 @@ export function DashboardShopEditor() {
       return;
     }
     // Upsert : on insère ou remplace l'override existant.
-    const { error } = await supabase
-      .from('shop_product_pricing')
-      .upsert(
-        {
-          shop_id: shop.id,
-          library_product_id: libraryProductId,
-          price_ht_override: nextValue,
-          tenant_id: currentTenant.id,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'shop_id,library_product_id' },
-      );
-    if (error) {
-      console.error('[A4.5] upsert override failed', error.message);
+    try { await shopsApi.setPricing(currentTenant.id, shop.id, libraryProductId, nextValue); }
+    catch (error) {
+      console.error('[A4.5] upsert override failed', error instanceof Error ? error.message : error);
       return;
     }
     setPricingOverrides((prev) => ({ ...prev, [libraryProductId]: nextValue }));

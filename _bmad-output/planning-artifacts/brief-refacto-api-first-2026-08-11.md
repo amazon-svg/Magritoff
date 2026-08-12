@@ -127,7 +127,8 @@ src/
   `ShopsContext` sort de Supabase — livré ;
 - AF13.2 : sonde publique minimale et catalogue autorisé via l’API ;
   `PublicShop` sort de Supabase — livré ;
-- suite : migrer les assets et prix négociés de l’éditeur, puis les autres
+- AF13.3a : lecture et écriture des prix négociés via l’API — livré ;
+- suite : migrer les assets binaires de l’éditeur, puis les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.
 

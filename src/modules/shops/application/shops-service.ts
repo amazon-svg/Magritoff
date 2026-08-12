@@ -1,5 +1,5 @@
 import type { UserId } from '../../../kernel/ids/index.ts';
-import type { CreateShopCommand, CreateShopProductCommand, UpdateShopCommand, UpdateShopProductCommand } from '../api/contracts.ts';
+import type { CreateShopCommand, CreateShopProductCommand, SetShopPricingCommand, UpdateShopCommand, UpdateShopProductCommand } from '../api/contracts.ts';
 import type { ShopsRepository } from './shops-repository.ts';
 export class ShopsService {
   constructor(private readonly repository: ShopsRepository) {}
@@ -13,4 +13,6 @@ export class ShopsService {
   removeProduct(actor: UserId, tenantId: string, shopId: string, productId: string) { return this.repository.removeProduct(actor, tenantId, shopId, productId); }
   publicProbe(slug: string) { return this.repository.publicProbe(slug); }
   publicCatalog(actor: UserId | null, slug: string) { return this.repository.publicCatalog(actor, slug); }
+  pricing(actor: UserId, tenantId: string, shopId: string) { return this.repository.pricing(actor, tenantId, shopId); }
+  setPricing(actor: UserId, tenantId: string, shopId: string, libraryProductId: string, command: SetShopPricingCommand) { return this.repository.setPricing(actor, tenantId, shopId, libraryProductId, command); }
 }

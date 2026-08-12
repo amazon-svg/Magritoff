@@ -5,7 +5,7 @@
  * seulement la dette historique d'augmenter pendant sa migration vers /api/v1.
  * Chaque story de migration doit supprimer les entrées devenues inutiles et
  * abaisser les compteurs ; la baseline ne doit jamais être augmentée.
- * Après AF13.2 : 28 fichiers importeurs et 95 références directes restantes.
+ * Après AF13.3a : 28 fichiers importeurs et 92 références directes restantes.
  * Le compteur inclut les appels où `supabase` et `.` sont séparés par un saut de ligne.
  */
 export const legacySupabaseUiImportFiles = new Set([
@@ -43,7 +43,7 @@ export const legacySupabaseUiReferenceLimits = new Map<string, number>([
   ['src/app/components/ChatInterface.tsx', 1],
   ['src/app/components/DiagnosticPanel.tsx', 1],
   ['src/app/components/dashboard/DashboardAdminPIM.tsx', 4],
-  ['src/app/components/dashboard/DashboardShopEditor.tsx', 5],
+  ['src/app/components/dashboard/DashboardShopEditor.tsx', 2],
   ['src/app/components/dashboard/DashboardTenantGammes.tsx', 3],
   ['src/app/components/dashboard/DashboardTenantSettings.tsx', 1],
   ['src/app/components/dashboard/DashboardTenantSpaces.tsx', 3],

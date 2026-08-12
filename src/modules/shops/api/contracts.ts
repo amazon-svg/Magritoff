@@ -71,6 +71,12 @@ export const publicShopCatalogSchema = z.object({
   definitions: z.array(z.record(z.string(), z.unknown())),
   subscribedSlugs: z.array(z.string()),
 });
+export const shopPricingOverrideSchema = z.object({
+  libraryProductId: z.string().uuid(), priceHtOverride: z.number().positive(),
+});
+export const shopPricingOverridesSchema = z.array(shopPricingOverrideSchema);
+export const setShopPricingCommandSchema = z.object({ priceHtOverride: z.number().positive().nullable() });
+export const shopPricingMutationResultSchema = z.object({ updated: z.literal(true) });
 
 export type ShopDto = z.infer<typeof shopSchema>;
 export type ShopProductDto = z.infer<typeof shopProductSchema>;
@@ -80,3 +86,5 @@ export type CreateShopProductCommand = z.infer<typeof createShopProductCommandSc
 export type UpdateShopProductCommand = z.infer<typeof updateShopProductCommandSchema>;
 export type PublicShopProbe = z.infer<typeof publicShopProbeSchema>;
 export type PublicShopCatalog = z.infer<typeof publicShopCatalogSchema>;
+export type ShopPricingOverride = z.infer<typeof shopPricingOverrideSchema>;
+export type SetShopPricingCommand = z.infer<typeof setShopPricingCommandSchema>;
