@@ -213,6 +213,8 @@ describe('frontières API-first et modulaires', () => {
     expect(edgeEntry).toContain('createLibrariesRoutes(librariesService)');
     expect(edgeEntry).toContain('SupabaseLibraryProductsRepository(client)');
     expect(edgeEntry).toContain('createLibraryProductsRoutes(libraryProductsService)');
+    expect(edgeEntry).toContain('SupabaseCommercialRepository(client)');
+    expect(edgeEntry).toContain('createCommercialRoutes(commercialService)');
     expect(edgeEntry).not.toContain('SUPABASE_SERVICE_ROLE_KEY');
   });
 
@@ -376,6 +378,17 @@ describe('frontières API-first et modulaires', () => {
     expect(context).not.toMatch(/\bsupabase\s*\./);
     expect(repository).toContain(".eq('tenant_id', tenantId)");
     expect(repository).toContain(".filter('config->>source', 'eq', PIM_GENERATED_SOURCE)");
+  });
+
+  it('fait passer le chargement commercial par Commercial', () => {
+    const dashboard = readFileSync(resolve(process.cwd(), 'src/app/components/dashboard/commercial/DashboardCommercial.tsx'), 'utf8');
+    const helpers = readFileSync(resolve(process.cwd(), 'src/app/components/dashboard/commercial/commercial.helpers.ts'), 'utf8');
+    const repository = readFileSync(resolve(process.cwd(), 'src/adapters/supabase/commercial-repository.ts'), 'utf8');
+    expect(dashboard).toContain('CommercialApiClient');
+    expect(dashboard).toContain('commercialApi.overview');
+    expect(dashboard).not.toContain('get_tenant_members_with_email');
+    expect(helpers).not.toContain('utils/supabase');
+    expect(repository).toContain(".eq('tenant_id', tenantId)");
   });
 
   it('isole le renvoi des invitations derrière le port email', () => {

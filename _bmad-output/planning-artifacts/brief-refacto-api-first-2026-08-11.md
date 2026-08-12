@@ -170,6 +170,8 @@ src/
   de `LibraryContext` sort de Supabase — livré ;
 - AF19.2 : produits de bibliothèque, imports groupés et génération PIM via
   Libraries ; `LibraryContext` sort entièrement de Supabase — livré ;
+- AF20.1 : lecture agrégée des règles, groupes, membres et gammes via le module
+  Commercial ; les helpers de prix sortent de Supabase — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.

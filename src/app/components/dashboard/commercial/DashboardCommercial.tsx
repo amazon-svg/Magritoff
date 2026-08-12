@@ -19,10 +19,12 @@ import {
   ToggleLeft, ToggleRight, X,
 } from 'lucide-react';
 import { supabase } from '/utils/supabase/client';
+import { CommercialApiClient } from '../../../../modules/commercial';
+import { FetchApiClient } from '../../../../platform/api';
+import { useAuth } from '../../../contexts/AuthContext';
 import { useTenant } from '../../../contexts/TenantContext';
 import {
-  ADJUST_MODE_LABEL, SCOPE_LABEL, TARGET_LABEL, TABLE_MISSING_CODES,
-  listClientGroups, listPriceRules,
+  ADJUST_MODE_LABEL, SCOPE_LABEL, TARGET_LABEL,
   type AdjustMode, type ClientGroup, type ClientPriceRule, type ScopeType, type TargetType,
 } from './commercial.helpers';
 
@@ -45,6 +47,7 @@ const btnGhost =
   'px-3 py-1.5 border border-line-2 rounded-lg text-sm text-ink-2 hover:bg-bg hover:text-ink';
 
 export function DashboardCommercial() {
+  const { session } = useAuth();
   const { currentTenant } = useTenant();
   const [tab, setTab] = useState<'rules' | 'groups'>('rules');
   const [rules, setRules] = useState<ClientPriceRule[]>([]);
@@ -56,35 +59,27 @@ export function DashboardCommercial() {
   const [showRuleDialog, setShowRuleDialog] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
   const [creatingGroup, setCreatingGroup] = useState(false);
+  const commercialApi = useMemo(() => new CommercialApiClient(new FetchApiClient(
+    '', globalThis.fetch, () => session?.access_token ?? null,
+  )), [session?.access_token]);
 
   const load = useCallback(async () => {
     if (!currentTenant) return;
     setLoading(true);
 
-    const [rulesRes, groupsRes, membersRes, gammesRes] = await Promise.all([
-      listPriceRules(currentTenant.id),
-      listClientGroups(currentTenant.id),
-      supabase.rpc('get_tenant_members_with_email', { p_tenant_id: currentTenant.id }),
-      supabase.from('product_gammes').select('slug, name').order('display_order'),
-    ]);
-
-    if (rulesRes.error && TABLE_MISSING_CODES.has(rulesRes.error.code ?? '')) {
-      setMigrationMissing(true);
+    try {
+      const overview = await commercialApi.overview(currentTenant.id);
+      setMigrationMissing(!overview.available);
+      setRules(overview.rules);
+      setGroups(overview.groups);
+      setMembers(overview.members);
+      setGammes(overview.gammes);
+    } catch (error) {
+      console.error('[Commercial] overview failed', error);
+    } finally {
       setLoading(false);
-      return;
     }
-    setMigrationMissing(false);
-    setRules((rulesRes.data as ClientPriceRule[]) ?? []);
-    setGroups((groupsRes.data as ClientGroup[]) ?? []);
-    setMembers(
-      (((membersRes.data as any[]) ?? []) as MemberOption[]).map((m: any) => ({
-        user_id: m.user_id,
-        email: m.email,
-      })),
-    );
-    setGammes(((gammesRes.data as any[]) ?? []).map((g) => ({ slug: g.slug, name: g.name })));
-    setLoading(false);
-  }, [currentTenant]);
+  }, [currentTenant, commercialApi]);
 
   useEffect(() => {
     void load();

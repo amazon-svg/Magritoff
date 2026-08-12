@@ -42,6 +42,9 @@ import { createLibrariesRoutes } from '../../../src/server/api/libraries-routes.
 import { LibraryProductsService } from '../../../src/modules/libraries/application/library-products-service.ts';
 import { SupabaseLibraryProductsRepository } from '../../../src/adapters/supabase/library-products-repository.ts';
 import { createLibraryProductsRoutes } from '../../../src/server/api/library-products-routes.ts';
+import { CommercialService } from '../../../src/modules/commercial/application/commercial-service.ts';
+import { SupabaseCommercialRepository } from '../../../src/adapters/supabase/commercial-repository.ts';
+import { createCommercialRoutes } from '../../../src/server/api/commercial-routes.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -85,6 +88,7 @@ export async function handleRequest(request: Request): Promise<Response> {
   const quoteTemplatesService = new QuoteTemplatesService(new SupabaseQuoteTemplatesRepository(client));
   const librariesService = new LibrariesService(new SupabaseLibrariesRepository(client));
   const libraryProductsService = new LibraryProductsService(new SupabaseLibraryProductsRepository(client));
+  const commercialService = new CommercialService(new SupabaseCommercialRepository(client));
   const handler = createApiV1Application({
     routes: [
       ...createSessionRoutes(service),
@@ -100,6 +104,7 @@ export async function handleRequest(request: Request): Promise<Response> {
       ...createQuoteTemplatesRoutes(quoteTemplatesService),
       ...createLibrariesRoutes(librariesService),
       ...createLibraryProductsRoutes(libraryProductsService),
+      ...createCommercialRoutes(commercialService),
     ],
     actorResolver: {
       async resolve() {
