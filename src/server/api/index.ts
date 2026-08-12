@@ -14,6 +14,7 @@ export { createConversationsRoutes } from './conversations-routes';
 export { createDiagnosticsRoutes } from './diagnostics-routes';
 export { createQuotesRoutes } from './quotes-routes';
 export { createQuoteTemplatesRoutes } from './quote-templates-routes';
+export { createLibrariesRoutes } from './libraries-routes';
 export { createHealthRoute, defineJsonRoute, defineMultipartRoute } from './routes';
 export type {
   ApiRequestContext,

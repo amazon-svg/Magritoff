@@ -1,0 +1,3 @@
+import type { UserId } from '../../../kernel/ids/index.ts'; import type { CreateLibrary, LibraryDto, UpdateLibrary } from '../api/contracts.ts';
+export class LibraryRejectedError extends Error { constructor(public readonly code: 'permission_denied' | 'not_found' | 'invalid_library', message: string) { super(message); this.name = 'LibraryRejectedError'; } }
+export interface LibrariesRepository { list(actor: UserId, tenantId: string): Promise<LibraryDto[]>; create(actor: UserId, tenantId: string, input: CreateLibrary): Promise<LibraryDto>; update(actor: UserId, tenantId: string, id: string, input: UpdateLibrary): Promise<LibraryDto>; remove(actor: UserId, tenantId: string, id: string): Promise<void>; }

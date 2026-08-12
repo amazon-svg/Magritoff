@@ -5,8 +5,10 @@
  * est rechargee automatiquement.
  */
 
-import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, useCallback, ReactNode } from 'react';
 import { supabase } from '/utils/supabase/client';
+import { LibrariesApiClient } from '../../modules/libraries';
+import { FetchApiClient } from '../../platform/api';
 import { useAuth } from './AuthContext';
 import { useTenant } from './TenantContext';
 import type { Gamme } from '../utils/productEnrichment';
@@ -71,12 +73,17 @@ interface LibraryContextType {
 const LibraryContext = createContext<LibraryContextType | undefined>(undefined);
 
 export function LibraryProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const { currentTenant } = useTenant();
   const [libraries, setLibraries] = useState<Library[]>([]);
   const [librariesLoading, setLibrariesLoading] = useState(false);
   const [products, setProducts] = useState<LibraryProduct[]>([]);
   const [loading, setLoading] = useState(false);
+  const librariesApi = useMemo(() => new LibrariesApiClient(new FetchApiClient(
+    '',
+    globalThis.fetch,
+    () => session?.access_token ?? null,
+  )), [session?.access_token]);
 
   // ─── Libraries ──────────────────────────────────────────────────────────
   const refreshLibraries = useCallback(async () => {
@@ -85,70 +92,61 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       return;
     }
     setLibrariesLoading(true);
-    const { data, error } = await supabase
-      .from('libraries')
-      .select('*')
-      .eq('tenant_id', currentTenant.id)
-      .order('created_at', { ascending: false });
-    if (error) console.error('[Libraries] fetch failed', error.message);
-    if (data) setLibraries(data as Library[]);
-    setLibrariesLoading(false);
-  }, [user, currentTenant?.id]);
+    try {
+      setLibraries(await librariesApi.list(currentTenant.id));
+    } catch (error) {
+      console.error('[Libraries] fetch failed', error);
+    } finally {
+      setLibrariesLoading(false);
+    }
+  }, [user, currentTenant?.id, librariesApi]);
 
   const createLibrary = useCallback(
     async (input: { name: string; description?: string }) => {
       if (!user || !currentTenant) return null;
-      const { data, error } = await supabase
-        .from('libraries')
-        .insert({
-          user_id: user.id,
-          tenant_id: currentTenant.id,
+      try {
+        const data = await librariesApi.create(currentTenant.id, {
           name: input.name,
           description: input.description ?? '',
-        })
-        .select()
-        .single();
-      if (error || !data) {
-        console.error('[Libraries] create failed', error?.message);
+        });
+        setLibraries((prev) => [data, ...prev]);
+        return data;
+      } catch (error) {
+        console.error('[Libraries] create failed', error);
         return null;
       }
-      setLibraries((prev) => [data as Library, ...prev]);
-      return data as Library;
     },
-    [user, currentTenant?.id]
+    [user, currentTenant?.id, librariesApi]
   );
 
   const updateLibrary = useCallback(
     async (id: string, patch: Partial<Library>) => {
       if (!user || !currentTenant) return;
-      const { data, error } = await supabase
-        .from('libraries')
-        .update(patch)
-        .eq('id', id)
-        .eq('tenant_id', currentTenant.id)
-        .select()
-        .single();
-      if (error) console.error('[Libraries] update failed', error.message);
-      if (data) setLibraries((prev) => prev.map((l) => (l.id === id ? (data as Library) : l)));
+      try {
+        const update: { name?: string; description?: string } = {};
+        if (patch.name !== undefined) update.name = patch.name;
+        if (patch.description !== undefined) update.description = patch.description;
+        const data = await librariesApi.update(currentTenant.id, id, update);
+        setLibraries((prev) => prev.map((library) => (library.id === id ? data : library)));
+      } catch (error) {
+        console.error('[Libraries] update failed', error);
+      }
     },
-    [user, currentTenant?.id]
+    [user, currentTenant?.id, librariesApi]
   );
 
   const deleteLibrary = useCallback(
     async (id: string) => {
       if (!user || !currentTenant) return;
-      const { error } = await supabase
-        .from('libraries')
-        .delete()
-        .eq('id', id)
-        .eq('tenant_id', currentTenant.id);
-      if (error) console.error('[Libraries] delete failed', error.message);
-      else {
+      try {
+        await librariesApi.remove(currentTenant.id, id);
         setLibraries((prev) => prev.filter((l) => l.id !== id));
         setProducts((prev) => prev.filter((p) => p.library_id !== id));
+      } catch (error) {
+        console.error('[Libraries] delete failed', error);
       }
     },
-    [user, currentTenant?.id]
+    [user, currentTenant?.id, librariesApi]
   );
 
   // ─── Products ───────────────────────────────────────────────────────────

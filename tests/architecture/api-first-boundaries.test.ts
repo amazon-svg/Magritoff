@@ -209,6 +209,8 @@ describe('frontières API-first et modulaires', () => {
     expect(edgeEntry).toContain('HttpClariprintDiagnosticsGateway');
     expect(edgeEntry).toContain('SupabaseQuotesRepository(client)');
     expect(edgeEntry).toContain('createQuotesRoutes(quotesService)');
+    expect(edgeEntry).toContain('SupabaseLibrariesRepository(client)');
+    expect(edgeEntry).toContain('createLibrariesRoutes(librariesService)');
     expect(edgeEntry).not.toContain('SUPABASE_SERVICE_ROLE_KEY');
   });
 
@@ -348,6 +350,17 @@ describe('frontières API-first et modulaires', () => {
     expect(context).toContain('QuoteTemplatesApiClient');
     expect(context).not.toContain('utils/supabase');
     expect(context).not.toMatch(/\bsupabase\s*\./);
+  });
+
+  it('fait passer le CRUD des bibliothèques par le module Libraries', () => {
+    const context = readFileSync(resolve(process.cwd(), 'src/app/contexts/LibraryContext.tsx'), 'utf8');
+    const repository = readFileSync(resolve(process.cwd(), 'src/adapters/supabase/libraries-repository.ts'), 'utf8');
+    expect(context).toContain('LibrariesApiClient');
+    expect(context).toContain('librariesApi.list');
+    expect(context).toContain('librariesApi.create');
+    expect(context).toContain('librariesApi.update');
+    expect(context).toContain('librariesApi.remove');
+    expect(repository).toContain(".eq('tenant_id', tenantId)");
   });
 
   it('isole le renvoi des invitations derrière le port email', () => {
