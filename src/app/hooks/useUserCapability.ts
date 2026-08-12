@@ -2,9 +2,9 @@
  * useUserCapability — Hook React qui interroge le RPC SQL user_has_capability
  * (Sprint 5 S-USERS-REFONTE Phase A, 2026-05-25).
  *
- * Wrap la query Supabase RPC pour déterminer si l'utilisateur courant a une
+ * Interroge l'API Magrit pour déterminer si l'utilisateur courant a une
  * capability donnée via au moins un rôle actif (non révoqué + non archivé)
- * dans le tenant courant.
+ * dans le tenant courant. Le RPC fournisseur reste confiné à l'adaptateur.
  *
  * Usage type :
  *   const { hasIt, loading } = useUserCapability('can_validate');
@@ -18,9 +18,11 @@
  * Note v1.1 : le RPC retourne true pour super_admin sans check role assignment.
  */
 
-import { useEffect, useState } from 'react';
-import { supabase } from '/utils/supabase/client';
+import { useEffect, useMemo, useState } from 'react';
 import { useTenant } from '../contexts/TenantContext';
+import { useAuth } from '../contexts/AuthContext';
+import { RolesApiClient } from '../../modules/roles';
+import { FetchApiClient } from '../../platform/api';
 
 export interface UseUserCapabilityResult {
   /** null pendant le chargement initial ; true/false sinon. */
@@ -31,6 +33,8 @@ export interface UseUserCapabilityResult {
 
 export function useUserCapability(capability: string): UseUserCapabilityResult {
   const { currentTenant } = useTenant();
+  const { session } = useAuth();
+  const rolesApi = useMemo(() => new RolesApiClient(new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null)), [session?.access_token]);
   const [hasIt, setHasIt] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -47,25 +51,25 @@ export function useUserCapability(capability: string): UseUserCapabilityResult {
     setError(null);
 
     (async () => {
-      const { data, error: rpcErr } = await supabase.rpc('user_has_capability', {
-        p_tenant_id: currentTenant.id,
-        p_capability: capability,
-      });
-      if (cancelled) return;
-      if (rpcErr) {
-        console.warn('[useUserCapability] RPC failed:', rpcErr.message);
-        setError(rpcErr.message);
+      try {
+        const granted = await rolesApi.userCapability(currentTenant.id, capability);
+        if (cancelled) return;
+        setHasIt(granted);
+      } catch (capabilityError) {
+        if (cancelled) return;
+        const message = capabilityError instanceof Error ? capabilityError.message : 'Vérification de capability impossible.';
+        console.warn('[useUserCapability] API failed:', message);
+        setError(message);
         setHasIt(false);
-      } else {
-        setHasIt(Boolean(data));
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-      setLoading(false);
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [currentTenant?.id, capability]);
+  }, [currentTenant?.id, capability, rolesApi]);
 
   return { hasIt, loading, error };
 }

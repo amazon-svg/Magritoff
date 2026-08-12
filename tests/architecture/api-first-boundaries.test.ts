@@ -242,6 +242,13 @@ describe('frontières API-first et modulaires', () => {
     }
   });
 
+  it('sort la vérification des capabilities du fournisseur', () => {
+    const source = readFileSync(resolve(process.cwd(), 'src/app/hooks/useUserCapability.ts'), 'utf8');
+    expect(source).toContain('RolesApiClient');
+    expect(source).not.toContain('utils/supabase');
+    expect(source).not.toMatch(/\bsupabase\s*\./);
+  });
+
   it('réordonne deux rôles atomiquement sous la RLS utilisateur', () => {
     const migration = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260812000100_api_swap_tenant_role_order.sql'), 'utf8');
     expect(migration).toContain('security invoker');

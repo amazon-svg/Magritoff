@@ -7,6 +7,15 @@ import type { Database } from '../../types/database.types.ts';
 export class SupabaseRolesRepository implements RolesRepository {
   constructor(private readonly client: SupabaseClient<Database>) {}
 
+  async userCapability(_actor: UserId, tenantId: string, capability: string): Promise<boolean> {
+    const { data, error } = await this.client.rpc('user_has_capability', {
+      p_tenant_id: tenantId,
+      p_capability: capability,
+    });
+    if (error) throw rejected(error.message);
+    return Boolean(data);
+  }
+
   async overview(_actor: UserId, tenantId: string): Promise<RolesOverview> {
     const [roles, members] = await Promise.all([this.loadRoles(tenantId), this.loadMembers(tenantId)]);
     const assignments = await this.loadAssignments(roles.map((role) => role.id));

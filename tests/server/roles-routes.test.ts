@@ -13,6 +13,7 @@ const roleId = '33333333-3333-4333-8333-333333333333';
 function repository(overrides: Partial<RolesRepository>): RolesRepository {
   const role = { id: roleId, tenantId, name: 'Validateur', description: '', capabilities: { can_validate: true }, notifyPolicy: 'chain_next' as const, scope: 'tenant' as const, scopeShopId: null, orderingIndex: 40, archivedAt: null };
   return {
+    async userCapability() { return false; },
     async overview() { return { roles: [], members: [], assignments: [] }; },
     async catalog() { return { roles: [], members: [], assignments: [] }; },
     async userDetail() { return { roles: [], assignments: [], shops: [], accessScope: 'magrit_full', allowedShopIds: [] }; },
@@ -24,6 +25,19 @@ function repository(overrides: Partial<RolesRepository>): RolesRepository {
 function handler(repo: RolesRepository) { return createApiV1Application({ routes: createRolesRoutes(new RolesService(repo)), actorResolver: { async resolve() { return { kind: 'user', userId: actor.value }; } }, requestIdFactory: () => 'roles-test' }); }
 
 describe('routes API Roles', () => {
+  it('dérive l utilisateur et le tenant pour vérifier une capability', async () => {
+    let received: [string, string, string] | null = null;
+    const response = await handler(repository({ async userCapability(operator, tenant, capability) { received = [operator, tenant, capability]; return true; } }))(new Request(`http://localhost/api/v1/tenants/${tenantId}/capabilities/can_validate`));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ capability: 'can_validate', granted: true });
+    expect(received).toEqual([actor.value, tenantId, 'can_validate']);
+  });
+  it('refuse une capability hors nomenclature avant le repository', async () => {
+    let called = false;
+    const response = await handler(repository({ async userCapability() { called = true; return true; } }))(new Request(`http://localhost/api/v1/tenants/${tenantId}/capabilities/admin`));
+    expect(response.status).toBe(422);
+    expect(called).toBe(false);
+  });
   it('dérive l’auteur de la session et ignore un auteur forgé', async () => {
     let receivedActor = '';
     const response = await handler(repository({ async setAssignment(operator) { receivedActor = operator; return { active: true, assignmentId: '44444444-4444-4444-8444-444444444444' }; } }))(new Request(`http://localhost/api/v1/tenants/${tenantId}/members/${userId}/roles/${roleId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ active: true, assignedBy: 'forged' }) }));

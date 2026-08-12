@@ -3,6 +3,7 @@ import type { RoleCatalogDefinition, RolesCatalog, RolesOverview, SaveRoleDefini
 import type { RolesRepository } from './roles-repository.ts';
 export class RolesService {
   constructor(private readonly repository: RolesRepository) {}
+  async userCapability(actor: UserId, tenantId: string, capability: string) { return { capability, granted: await this.repository.userCapability(actor, tenantId, capability) }; }
   overview(actor: UserId, tenantId: string): Promise<RolesOverview> { return this.repository.overview(actor, tenantId); }
   catalog(actor: UserId, tenantId: string): Promise<RolesCatalog> { return this.repository.catalog(actor, tenantId); }
   userDetail(actor: UserId, tenantId: string, userId: string): Promise<UserRolesDetail> { return this.repository.userDetail(actor, tenantId, userId); }

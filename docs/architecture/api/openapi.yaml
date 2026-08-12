@@ -280,6 +280,23 @@ paths:
               schema: { $ref: '#/components/schemas/TenantMutationResult' }
         '403': { description: Modification interdite }
         '409': { description: Slug déjà utilisé }
+  /tenants/{tenantId}/capabilities/{capability}:
+    get:
+      operationId: getCurrentUserCapability
+      summary: Vérifier une capacité de l utilisateur courant dans un tenant
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: tenantId, in: path, required: true, schema: { type: string } }
+        - { name: capability, in: path, required: true, schema: { type: string, pattern: '^can_[a-z0-9_]+$', maxLength: 80 } }
+      responses:
+        '200':
+          description: Décision calculée depuis les rôles actifs de la session
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserCapability' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { description: Tenant inaccessible }
+        '422': { description: Capability invalide }
   /tenants/{tenantId}/subtenants:
     get:
       operationId: getSubTenantsDashboard
@@ -745,6 +762,13 @@ components:
       required: [updated]
       properties:
         updated: { const: true }
+    UserCapability:
+      type: object
+      additionalProperties: false
+      required: [capability, granted]
+      properties:
+        capability: { type: string, pattern: '^can_[a-z0-9_]+$', maxLength: 80 }
+        granted: { type: boolean }
     SubTenant:
       type: object
       additionalProperties: false

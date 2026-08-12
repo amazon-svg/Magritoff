@@ -143,6 +143,8 @@ src/
 - AF15.2 : liste, KPI, création et suppression des sous-espaces via l’API ;
   `DashboardTenantSpaces` sort de Supabase et le contexte tenant abandonne sa
   commande legacy de création de sous-tenant — livré ;
+- AF15.3 : vérification contractuelle d’une capability de l’utilisateur
+  courant via le module Roles ; `useUserCapability` sort de Supabase — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.

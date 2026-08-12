@@ -3,7 +3,7 @@ import {
   archiveRoleResultSchema, reorderRolesCommandSchema, reorderRolesResultSchema,
   roleCatalogDefinitionSchema, rolesCatalogSchema, rolesOverviewSchema,
   saveRoleDefinitionCommandSchema, setRoleAssignmentCommandSchema,
-  setRoleAssignmentResultSchema, userRolesDetailSchema,
+  setRoleAssignmentResultSchema, userRolesDetailSchema, userCapabilitySchema,
 } from '../../modules/roles/api/contracts.ts';
 import { RoleRejectedError } from '../../modules/roles/application/roles-repository.ts';
 import type { RolesService } from '../../modules/roles/application/roles-service.ts';
@@ -13,6 +13,8 @@ import { defineJsonRoute, type ApiRequestContext, type ApiRoute } from './routes
 
 export function createRolesRoutes(service: RolesService): readonly ApiRoute[] {
   return [
+    defineJsonRoute({ method: 'GET', path: `${API_V1_BASE_PATH}/tenants/{tenantId}/capabilities/{capability}`, authentication: 'required', inputSchema: null, outputSchema: userCapabilitySchema,
+      async handle(context) { return execute(async () => ({ status: 200, body: await service.userCapability(actor(context), param(context, 'tenantId'), capabilityParam(context)) })); } }),
     defineJsonRoute({ method: 'GET', path: `${API_V1_BASE_PATH}/tenants/{tenantId}/roles-overview`, authentication: 'required', inputSchema: null, outputSchema: rolesOverviewSchema,
       async handle(context) { return execute(async () => ({ status: 200, body: await service.overview(actor(context), param(context, 'tenantId')) })); } }),
     defineJsonRoute({ method: 'GET', path: `${API_V1_BASE_PATH}/tenants/{tenantId}/roles-catalog`, authentication: 'required', inputSchema: null, outputSchema: rolesCatalogSchema,
@@ -40,3 +42,8 @@ function httpError(error: RoleRejectedError): ApiHttpError {
 }
 function actor(context: ApiRequestContext): UserId { if (context.actor?.kind !== 'user') throw new ApiHttpError({ type: 'about:blank', title: 'Acteur utilisateur requis', status: 403, code: 'identity.user_actor_required' }); return context.actor.userId as UserId; }
 function param(context: ApiRequestContext, name: string): string { const parsed = parseId(context.params[name] ?? ''); if (!parsed.ok) throw new ApiHttpError({ type: 'about:blank', title: 'Identifiant invalide', status: 422, code: 'api.validation_failed' }); return parsed.value; }
+function capabilityParam(context: ApiRequestContext): string {
+  const capability = context.params.capability ?? '';
+  if (!/^can_[a-z0-9_]+$/.test(capability) || capability.length > 80) throw new ApiHttpError({ type: 'about:blank', title: 'Capability invalide', status: 422, code: 'api.validation_failed' });
+  return capability;
+}

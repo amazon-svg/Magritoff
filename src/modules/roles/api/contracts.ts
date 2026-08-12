@@ -51,6 +51,10 @@ export const reorderRolesCommandSchema = z.object({
 });
 export const archiveRoleResultSchema = z.object({ archived: z.literal(true) });
 export const reorderRolesResultSchema = z.object({ reordered: z.literal(true) });
+export const userCapabilitySchema = z.object({
+  capability: z.string().trim().min(1).max(80).regex(/^can_[a-z0-9_]+$/),
+  granted: z.boolean(),
+});
 
 export type RolesOverview = z.infer<typeof rolesOverviewSchema>;
 export type RolesCatalog = z.infer<typeof rolesCatalogSchema>;
@@ -58,3 +62,4 @@ export type UserRolesDetail = z.infer<typeof userRolesDetailSchema>;
 export type SetRoleAssignmentResult = z.infer<typeof setRoleAssignmentResultSchema>;
 export type RoleCatalogDefinition = z.infer<typeof roleCatalogDefinitionSchema>;
 export type SaveRoleDefinitionCommand = z.infer<typeof saveRoleDefinitionCommandSchema>;
+export type UserCapability = z.infer<typeof userCapabilitySchema>;
