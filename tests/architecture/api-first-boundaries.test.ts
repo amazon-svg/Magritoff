@@ -278,6 +278,19 @@ describe('frontières API-first et modulaires', () => {
     }
   });
 
+  it('sort l acceptation d invitation et le compte portail du fournisseur', () => {
+    const invitation = readFileSync(resolve(process.cwd(), 'src/app/components/tenant/AcceptInvitation.tsx'), 'utf8');
+    const account = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/AccountHub.tsx'), 'utf8');
+    expect(invitation).toContain('SessionApiClient');
+    expect(invitation).toContain('ShopsApiClient');
+    expect(invitation).toContain('signOut');
+    expect(account).toContain('onSignOut');
+    for (const source of [invitation, account]) {
+      expect(source).not.toContain('utils/supabase');
+      expect(source).not.toMatch(/\bsupabase\s*\./);
+    }
+  });
+
   it('isole le renvoi des invitations derrière le port email', () => {
     const repository = readFileSync(resolve(process.cwd(), 'src/adapters/supabase/invitations-repository.ts'), 'utf8');
     expect(repository).toContain('InvitationEmailSender');

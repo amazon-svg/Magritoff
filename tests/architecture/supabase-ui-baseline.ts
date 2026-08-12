@@ -5,7 +5,7 @@
  * seulement la dette historique d'augmenter pendant sa migration vers /api/v1.
  * Chaque story de migration doit supprimer les entrées devenues inutiles et
  * abaisser les compteurs ; la baseline ne doit jamais être augmentée.
- * Après AF16.1 : 17 fichiers importeurs et 64 références directes restantes.
+ * Après AF16.2 : 15 fichiers importeurs et 60 références directes restantes.
  * Le compteur inclut les appels où `supabase` et `.` sont séparés par un saut de ligne.
  */
 export const legacySupabaseUiImportFiles = new Set([
@@ -16,10 +16,8 @@ export const legacySupabaseUiImportFiles = new Set([
   'src/app/components/dashboard/commercial/DashboardCommercial.tsx',
   'src/app/components/dashboard/commercial/commercial.helpers.ts',
   'src/app/components/mockup/MockupImage.tsx',
-  'src/app/components/shop/portal/AccountHub.tsx',
   'src/app/components/shop/portal/CheckoutPage.tsx',
   'src/app/components/shop/portal/PortalCatalog.tsx',
-  'src/app/components/tenant/AcceptInvitation.tsx',
   'src/app/contexts/AuthContext.tsx',
   'src/app/contexts/ConversationContext.tsx',
   'src/app/contexts/LibraryContext.tsx',
@@ -34,10 +32,8 @@ export const legacySupabaseUiReferenceLimits = new Map<string, number>([
   ['src/app/components/dashboard/commercial/DashboardCommercial.tsx', 10],
   ['src/app/components/dashboard/commercial/commercial.helpers.ts', 2],
   ['src/app/components/mockup/MockupImage.helpers.ts', 3],
-  ['src/app/components/shop/portal/AccountHub.tsx', 1],
   ['src/app/components/shop/portal/CheckoutPage.tsx', 4],
   ['src/app/components/shop/portal/PortalCatalog.tsx', 3],
-  ['src/app/components/tenant/AcceptInvitation.tsx', 3],
   ['src/app/contexts/AuthContext.tsx', 1],
   ['src/app/contexts/ConversationContext.tsx', 3],
   ['src/app/contexts/LibraryContext.tsx', 12],

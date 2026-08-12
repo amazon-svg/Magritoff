@@ -10,7 +10,12 @@ Quand ton tenant est créé par Arnaud :
 2. Création de ton mot de passe
 3. Accès direct à `/t/<slug>/dashboard`
 
-Si l'invitation est envoyée à un autre email que celui que tu utilises, la RPC `accept_tenant_invitation` te bloque avec un message **« Cette invitation est destinée à X, vous êtes connecté en tant que Y »**. Déconnecte-toi puis reconnecte avec le bon compte.
+Si l'invitation est envoyée à un autre email que celui que tu utilises, Magrit
+te bloque avec un message **« Cette invitation est destinée à X, vous êtes
+connecté en tant que Y »**. Déconnecte-toi puis reconnecte avec le bon compte.
+Après acceptation, la session et les boutiques accessibles sont rechargées via
+l’API Magrit avant la redirection : un acheteur limité à une boutique ne passe
+jamais par le dashboard.
 
 ## 2. Inviter ton équipe
 

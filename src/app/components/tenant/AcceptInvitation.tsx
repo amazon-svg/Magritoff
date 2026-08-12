@@ -10,20 +10,25 @@
  * vers /t/:slug du tenant rejoint.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { CheckCircle2, XCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTenant } from '../../contexts/TenantContext';
-import { supabase } from '/utils/supabase/client';
+import { SessionApiClient } from '../../../modules/session';
+import { ShopsApiClient } from '../../../modules/shops';
+import { FetchApiClient } from '../../../platform/api';
 
 const PENDING_INVITATION_KEY = 'magrit:pending-invitation';
 
 export function AcceptInvitation() {
   const { token } = useParams<{ token: string }>();
-  const { user, loading: authLoading } = useAuth();
+  const { user, session, loading: authLoading, signOut } = useAuth();
   const { acceptInvitation } = useTenant();
   const navigate = useNavigate();
+  const fetchClient = useMemo(() => new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null), [session?.access_token]);
+  const sessionApi = useMemo(() => new SessionApiClient(fetchClient), [fetchClient]);
+  const shopsApi = useMemo(() => new ShopsApiClient(fetchClient), [fetchClient]);
 
   const [status, setStatus] = useState<'idle' | 'accepting' | 'success' | 'error'>(
     'idle'
@@ -70,24 +75,12 @@ export function AcceptInvitation() {
         }
         return;
       }
-      // Recupere le slug du tenant + la 1re boutique accessible (si l'invite
-      // est un acheteur shop_only, on l'amene directement sur SA boutique
-      // au lieu de la home du tenant — fix 2026-05-27).
-      const { data: tenant } = await supabase
-        .from('tenants')
-        .select('slug')
-        .eq('id', tenantId)
-        .maybeSingle();
-
-      // Tente de resoudre une boutique accessible (RLS filtre deja sur les
-      // shops que l'user peut voir). Si l'user est shop_only, il ne verra
-      // que sa/ses boutique(s) → on prend la premiere.
-      const { data: shopRows } = await supabase
-        .from('shops')
-        .select('slug')
-        .eq('tenant_id', tenantId)
-        .limit(1);
-      const firstShopSlug = (shopRows && shopRows[0]?.slug) || null;
+      // Recharge les façades après acceptation : la nouvelle membership doit
+      // être visible avant de choisir la destination tenant/boutique.
+      const bootstrap = await sessionApi.load();
+      const tenant = bootstrap.tenants.find(({ id }) => id === tenantId) ?? null;
+      const shops = tenant ? await shopsApi.list(tenantId) : [];
+      const firstShopSlug = shops[0]?.slug ?? null;
 
       setStatus('success');
       setTargetSlug(tenant?.slug ?? null);
@@ -107,7 +100,7 @@ export function AcceptInvitation() {
         }
       }, 1500);
     })();
-  }, [token, user, status, acceptInvitation, navigate]);
+  }, [token, user, status, acceptInvitation, navigate, sessionApi, shopsApi]);
 
   return (
     <div
@@ -178,7 +171,7 @@ export function AcceptInvitation() {
                   } catch {
                     /* ignore */
                   }
-                  await supabase.auth.signOut();
+                  await signOut();
                   navigate('/');
                 }}
                 className="mt-4 inline-flex items-center justify-center px-4 py-2 rounded-md bg-ink text-paper hover:bg-black"

@@ -148,6 +148,8 @@ src/
 - AF16.1 : résolution des anciens slugs via Session et redirection du scope
   boutique via Shops ; les deux composants de routage tenant sortent de
   Supabase — livré ;
+- AF16.2 : destination post-invitation via Session/Shops et déconnexion via
+  AuthContext ; `AcceptInvitation` et `AccountHub` sortent de Supabase — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.
