@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { UserId } from '../../kernel/ids/index.ts';
-import type { CommercialOverview } from '../../modules/commercial/api/contracts.ts';
+import type { ClientGroupDto, ClientPriceRuleDto, CommercialOverview, CreatePriceRule } from '../../modules/commercial/api/contracts.ts';
 import type { CommercialRepository } from '../../modules/commercial/application/commercial-repository.ts';
 
 const TABLE_MISSING_CODES = new Set(['42P01', 'PGRST205']);
@@ -22,10 +22,55 @@ export class SupabaseCommercialRepository implements CommercialRepository {
     if (error) throw new Error(error.message);
     return {
       available: true,
-      rules: rules.data ?? [],
+      rules: (rules.data ?? []).map(toRule),
       groups: (groups.data ?? []).map((group: any) => ({ ...group, member_count: group.client_group_members?.[0]?.count ?? 0 })),
       members: (members.data ?? []).map((member: any) => ({ user_id: member.user_id, email: member.email ?? '' })),
       gammes: (gammes.data ?? []).map((gamme: any) => ({ slug: gamme.slug, name: gamme.name })),
     };
   }
+
+  async createGroup(_actor: UserId, tenantId: string, name: string): Promise<ClientGroupDto> {
+    const { data, error } = await this.client.from('client_groups').insert({ tenant_id: tenantId, name }).select().single();
+    if (error || !data) throw new Error(error?.message ?? 'Création du groupe impossible.');
+    return { ...data, member_count: 0 };
+  }
+  async removeGroup(_actor: UserId, tenantId: string, groupId: string): Promise<void> {
+    const { data, error } = await this.client.from('client_groups').delete().eq('tenant_id', tenantId).eq('id', groupId).select('id').maybeSingle();
+    if (error || !data) throw new Error(error?.message ?? 'Groupe introuvable.');
+  }
+  async groupMembers(_actor: UserId, tenantId: string, groupId: string): Promise<string[]> {
+    await this.assertGroup(tenantId, groupId);
+    const { data, error } = await this.client.from('client_group_members').select('user_id').eq('group_id', groupId);
+    if (error) throw new Error(error.message);
+    return (data ?? []).map((member: any) => member.user_id);
+  }
+  async setGroupMember(_actor: UserId, tenantId: string, groupId: string, userId: string, member: boolean): Promise<void> {
+    await this.assertGroup(tenantId, groupId);
+    const result = member
+      ? await this.client.from('client_group_members').upsert({ group_id: groupId, user_id: userId })
+      : await this.client.from('client_group_members').delete().eq('group_id', groupId).eq('user_id', userId);
+    if (result.error) throw new Error(result.error.message);
+  }
+  async createRule(actor: UserId, tenantId: string, input: CreatePriceRule): Promise<ClientPriceRuleDto> {
+    const { data, error } = await this.client.from('client_price_rules').insert({ ...input, tenant_id: tenantId, created_by: actor }).select().single();
+    if (error || !data) throw new Error(error?.message ?? 'Création de la règle impossible.');
+    return toRule(data);
+  }
+  async setRuleActive(_actor: UserId, tenantId: string, ruleId: string, active: boolean): Promise<ClientPriceRuleDto> {
+    const { data, error } = await this.client.from('client_price_rules').update({ active, updated_at: new Date().toISOString() }).eq('tenant_id', tenantId).eq('id', ruleId).select().maybeSingle();
+    if (error || !data) throw new Error(error?.message ?? 'Règle introuvable.');
+    return toRule(data);
+  }
+  async removeRule(_actor: UserId, tenantId: string, ruleId: string): Promise<void> {
+    const { data, error } = await this.client.from('client_price_rules').delete().eq('tenant_id', tenantId).eq('id', ruleId).select('id').maybeSingle();
+    if (error || !data) throw new Error(error?.message ?? 'Règle introuvable.');
+  }
+  private async assertGroup(tenantId: string, groupId: string): Promise<void> {
+    const { data, error } = await this.client.from('client_groups').select('id').eq('tenant_id', tenantId).eq('id', groupId).maybeSingle();
+    if (error || !data) throw new Error(error?.message ?? 'Groupe introuvable.');
+  }
+}
+
+function toRule(rule: any): ClientPriceRuleDto {
+  return { ...rule, value: Number(rule.value), priority: Number(rule.priority) };
 }

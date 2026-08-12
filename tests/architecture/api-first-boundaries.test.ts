@@ -391,6 +391,16 @@ describe('frontières API-first et modulaires', () => {
     expect(repository).toContain(".eq('tenant_id', tenantId)");
   });
 
+  it('sort les mutations commerciales du fournisseur', () => {
+    const dashboard = readFileSync(resolve(process.cwd(), 'src/app/components/dashboard/commercial/DashboardCommercial.tsx'), 'utf8');
+    expect(dashboard).toContain('commercialApi.createGroup');
+    expect(dashboard).toContain('commercialApi.setGroupMember');
+    expect(dashboard).toContain('commercialApi.createRule');
+    expect(dashboard).toContain('commercialApi.setRuleActive');
+    expect(dashboard).not.toContain('utils/supabase');
+    expect(dashboard).not.toMatch(/\bsupabase\s*\./);
+  });
+
   it('isole le renvoi des invitations derrière le port email', () => {
     const repository = readFileSync(resolve(process.cwd(), 'src/adapters/supabase/invitations-repository.ts'), 'utf8');
     expect(repository).toContain('InvitationEmailSender');

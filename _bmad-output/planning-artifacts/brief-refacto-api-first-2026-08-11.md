@@ -172,6 +172,8 @@ src/
   Libraries ; `LibraryContext` sort entièrement de Supabase — livré ;
 - AF20.1 : lecture agrégée des règles, groupes, membres et gammes via le module
   Commercial ; les helpers de prix sortent de Supabase — livré ;
+- AF20.2 : mutations des règles, groupes et appartenances via Commercial ; le
+  dashboard « Prix & marges » sort entièrement de Supabase — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.

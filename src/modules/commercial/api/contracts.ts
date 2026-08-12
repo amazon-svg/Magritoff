@@ -17,7 +17,19 @@ export const commercialOverviewSchema = z.object({
   available: z.boolean(), rules: z.array(clientPriceRuleSchema), groups: z.array(clientGroupSchema),
   members: z.array(commercialMemberSchema), gammes: z.array(commercialGammeSchema),
 });
+export const createClientGroupSchema = z.object({ name: z.string().trim().min(1).max(200) }).strict();
+export const setRuleActiveSchema = z.object({ active: z.boolean() }).strict();
+export const createPriceRuleSchema = z.object({
+  name: z.string().trim().min(1).max(300), scope_type: scopeTypeSchema,
+  group_id: z.string().nullable(), user_id: z.string().nullable(), target_type: targetTypeSchema,
+  gamme_slug: z.string().nullable(), product_definition_id: z.string().nullable(),
+  adjust_mode: adjustModeSchema, value: z.number().nonnegative(),
+}).strict();
+export const groupMembersSchema = z.array(z.string());
+export const commercialRemovedSchema = z.object({ removed: z.literal(true) });
+export const commercialUpdatedSchema = z.object({ updated: z.literal(true) });
 
 export type ClientPriceRuleDto = z.infer<typeof clientPriceRuleSchema>;
 export type ClientGroupDto = z.infer<typeof clientGroupSchema>;
 export type CommercialOverview = z.infer<typeof commercialOverviewSchema>;
+export type CreatePriceRule = z.infer<typeof createPriceRuleSchema>;

@@ -18,7 +18,6 @@ import {
   BadgePercent, Plus, Loader2, Trash2, Users as UsersIcon, AlertTriangle,
   ToggleLeft, ToggleRight, X,
 } from 'lucide-react';
-import { supabase } from '/utils/supabase/client';
 import { CommercialApiClient } from '../../../../modules/commercial';
 import { FetchApiClient } from '../../../../platform/api';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -87,29 +86,25 @@ export function DashboardCommercial() {
 
   const toggleRule = async (rule: ClientPriceRule) => {
     setRules((rs) => rs.map((r) => (r.id === rule.id ? { ...r, active: !r.active } : r)));
-    const { error } = await supabase
-      .from('client_price_rules')
-      .update({ active: !rule.active, updated_at: new Date().toISOString() })
-      .eq('id', rule.id);
-    if (error) void load();
+    try { await commercialApi.setRuleActive(currentTenant!.id, rule.id, !rule.active); }
+    catch { void load(); }
   };
 
   const deleteRule = async (rule: ClientPriceRule) => {
     if (!window.confirm(`Supprimer la règle « ${rule.name} » ?`)) return;
     setRules((rs) => rs.filter((r) => r.id !== rule.id));
-    await supabase.from('client_price_rules').delete().eq('id', rule.id);
+    await commercialApi.removeRule(currentTenant!.id, rule.id);
   };
 
   const createGroup = async () => {
     if (!currentTenant || !newGroupName.trim()) return;
     setCreatingGroup(true);
-    const { error } = await supabase
-      .from('client_groups')
-      .insert({ tenant_id: currentTenant.id, name: newGroupName.trim() });
-    setCreatingGroup(false);
-    if (!error) {
+    try {
+      await commercialApi.createGroup(currentTenant.id, newGroupName.trim());
       setNewGroupName('');
       void load();
+    } finally {
+      setCreatingGroup(false);
     }
   };
 
@@ -117,7 +112,7 @@ export function DashboardCommercial() {
     if (!window.confirm(`Supprimer le groupe « ${group.name} » ? Les règles liées seront supprimées.`))
       return;
     setGroups((gs) => gs.filter((g) => g.id !== group.id));
-    await supabase.from('client_groups').delete().eq('id', group.id);
+    await commercialApi.removeGroup(currentTenant!.id, group.id);
   };
 
   const describeRule = (r: ClientPriceRule): string => {
@@ -284,7 +279,7 @@ export function DashboardCommercial() {
           ) : (
             <div className="border border-line rounded-xl bg-paper divide-y divide-line">
               {groups.map((g) => (
-                <GroupRow key={g.id} group={g} members={members} onDelete={() => void deleteGroup(g)} onChanged={load} />
+                <GroupRow key={g.id} tenantId={currentTenant!.id} commercialApi={commercialApi} group={g} members={members} onDelete={() => void deleteGroup(g)} onChanged={load} />
               ))}
             </div>
           )}
@@ -294,6 +289,7 @@ export function DashboardCommercial() {
       {showRuleDialog && currentTenant && (
         <RuleDialog
           tenantId={currentTenant.id}
+          commercialApi={commercialApi}
           groups={groups}
           members={members}
           gammes={gammes}
@@ -336,8 +332,10 @@ function EmptyState({ title, body }: { title: string; body: string }) {
 // ─── Ligne groupe avec gestion des membres ───────────────────────────────────
 
 function GroupRow({
-  group, members, onDelete, onChanged,
+  tenantId, commercialApi, group, members, onDelete, onChanged,
 }: {
+  tenantId: string;
+  commercialApi: CommercialApiClient;
   group: ClientGroup;
   members: MemberOption[];
   onDelete: () => void;
@@ -350,11 +348,7 @@ function GroupRow({
   const toggleOpen = async () => {
     setOpen(!open);
     if (!loaded) {
-      const { data } = await supabase
-        .from('client_group_members')
-        .select('user_id')
-        .eq('group_id', group.id);
-      setGroupMembers(((data as any[]) ?? []).map((m) => m.user_id));
+      setGroupMembers(await commercialApi.groupMembers(tenantId, group.id));
       setLoaded(true);
     }
   };
@@ -362,10 +356,10 @@ function GroupRow({
   const toggleMember = async (userId: string) => {
     if (groupMembers.includes(userId)) {
       setGroupMembers((ms) => ms.filter((id) => id !== userId));
-      await supabase.from('client_group_members').delete().eq('group_id', group.id).eq('user_id', userId);
+      await commercialApi.setGroupMember(tenantId, group.id, userId, false);
     } else {
       setGroupMembers((ms) => [...ms, userId]);
-      await supabase.from('client_group_members').insert({ group_id: group.id, user_id: userId });
+      await commercialApi.setGroupMember(tenantId, group.id, userId, true);
     }
     void onChanged();
   };
@@ -406,9 +400,10 @@ function GroupRow({
 // ─── Dialogue de creation de regle ───────────────────────────────────────────
 
 function RuleDialog({
-  tenantId, groups, members, gammes, onClose, onCreated,
+  tenantId, commercialApi, groups, members, gammes, onClose, onCreated,
 }: {
   tenantId: string;
+  commercialApi: CommercialApiClient;
   groups: ClientGroup[];
   members: MemberOption[];
   gammes: GammeOption[];
@@ -438,8 +433,8 @@ function RuleDialog({
   const save = async () => {
     setSaving(true);
     setError(null);
-    const { error: err } = await supabase.from('client_price_rules').insert({
-      tenant_id: tenantId,
+    try {
+      await commercialApi.createRule(tenantId, {
       name: name.trim(),
       scope_type: scopeType,
       group_id: scopeType === 'group' ? groupId : null,
@@ -449,10 +444,13 @@ function RuleDialog({
       product_definition_id: null,
       adjust_mode: adjustMode,
       value: Number(value),
-    });
-    setSaving(false);
-    if (err) setError(err.message);
-    else onCreated();
+      });
+      onCreated();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Création impossible.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
