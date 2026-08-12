@@ -50,3 +50,14 @@ export const categoryEditorialResultSchema = z.object({
 
 export type CategoryEditorialCommand = z.infer<typeof categoryEditorialCommandSchema>;
 export type CategoryEditorialResult = z.infer<typeof categoryEditorialResultSchema>;
+
+export const assistantChatCommandSchema = z.object({
+  messages: z.array(z.object({
+    role: z.enum(['user', 'assistant']),
+    content: z.string().min(1).max(20_000),
+  }).strict()).min(1).max(25),
+  tenantId: z.string().min(1).max(200).nullable().optional(),
+  mode: z.enum(['open', 'strict']).optional(),
+}).strict();
+
+export type AssistantChatCommand = z.infer<typeof assistantChatCommandSchema>;

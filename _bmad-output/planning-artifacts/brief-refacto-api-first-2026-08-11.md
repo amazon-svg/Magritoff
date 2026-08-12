@@ -186,6 +186,9 @@ src/
   OpenAI ou Mistral, configurable sans modification du front — livré ;
 - AF23.2a : génération de l’éditorial de catégorie via `/api/v1` et le fournisseur
   configuré ; repli déterministe sans clé ou en cas d’indisponibilité — livré ;
+- AF23.2b : façade `/api/v1/assistant/chat` pour le flux SSE, authentification
+  utilisateur et contrôle tenant ; le navigateur ne connaît plus le protocole
+  Supabase/Claude historique — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.

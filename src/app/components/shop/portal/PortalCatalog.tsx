@@ -3,7 +3,7 @@ import { Search, Sparkles, X, Loader2, AlertTriangle } from 'lucide-react';
 import type { Shop, ShopProduct } from '../../../contexts/ShopsContext';
 import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
 import { resolveProductImage } from '../../../utils/productImages';
-import { browserAssistantGateway } from '../../../../adapters/supabase/browser-assistant-gateway';
+import { browserAssistantGateway } from '../../../../adapters/http/browser-assistant-gateway';
 import { ShopsApiClient } from '../../../../modules/shops';
 import { DiagnosticsApiClient } from '../../../../modules/diagnostics';
 import { FetchApiClient } from '../../../../platform/api';
@@ -224,7 +224,8 @@ export function PortalCatalog({
       // reponse et le filtre texte local restait muet sur une phrase en langage
       // naturel = ecran sans reponse. Le streaming donne un retour vivant
       // (aiStreaming via onDelta) et le payload `done` porte les memes configs.
-      const assistant = browserAssistantGateway.connection(ENABLE_STREAMING_CHAT);
+      if (!session?.access_token) throw new ClaudeSseStreamError('network', 'Authentification requise', 401);
+      const assistant = browserAssistantGateway.connection(session.access_token, ENABLE_STREAMING_CHAT);
       const data = await sendSseStream(
         {
           endpoint: assistant.endpoint,

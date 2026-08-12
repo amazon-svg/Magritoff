@@ -3,7 +3,7 @@ import {
   Send, History, X, CheckSquare, Square, BookmarkPlus,
   MessageSquare, SquarePen, Paperclip, Mic, Sparkles,
 } from "lucide-react";
-import { browserAssistantGateway } from '../../adapters/supabase/browser-assistant-gateway';
+import { browserAssistantGateway } from '../../adapters/http/browser-assistant-gateway';
 import { MagritLogo } from "./brand/MagritLogo";
 import { ProductCard } from "./ProductCard";
 import { CartButton } from "./CartButton";
@@ -48,7 +48,7 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
     startNewConversation: resetConversation,
   } = useConversation();
 
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const { currentTenant } = useTenant();
   const { canUse } = usePlan();
   const { addProductsBulk } = useLibrary();
@@ -182,7 +182,8 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
     try {
       // R2 Phase A : passe par useClaudeSseStream (extraction + AbortController
       // + detection billing). Le payload final reste de meme forme.
-      const assistant = browserAssistantGateway.connection(ENABLE_STREAMING_CHAT);
+      if (!session?.access_token) throw new ClaudeSseStreamError('network', 'Authentification requise', 401);
+      const assistant = browserAssistantGateway.connection(session.access_token, ENABLE_STREAMING_CHAT);
       const requestBody = {
         messages: contextMessages,
         userId: user?.id ?? null,

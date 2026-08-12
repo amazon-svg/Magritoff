@@ -49,6 +49,7 @@ import { AssistantService } from '../../../src/modules/diagnostics/application/a
 import { ConfiguredAiCompletionGateway } from '../../../src/adapters/ai/configured-ai-completion-gateway.ts';
 import { createAssistantRoutes } from '../../../src/server/api/assistant-routes.ts';
 import { SupabaseAssistantAccessGateway } from '../../../src/adapters/supabase/assistant-access-gateway.ts';
+import { isAssistantChatRequest, proxyAssistantChat } from '../../../src/server/api/assistant-stream-proxy.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -68,6 +69,20 @@ export async function handleRequest(request: Request): Promise<Response> {
     auth: { persistSession: false, autoRefreshToken: false },
     global: { headers: { Authorization: authorization } },
   });
+  if (isAssistantChatRequest(request)) {
+    const { data, error } = await client.auth.getUser();
+    if (error || !data.user) return withCors(Response.json({ type: 'about:blank', title: 'Authentification requise', status: 401, code: 'identity.authentication_required', requestId: crypto.randomUUID() }, { status: 401, headers: { 'Content-Type': 'application/problem+json; charset=utf-8' } }));
+    const actorId = parseId<'UserId'>(data.user.id);
+    if (!actorId.ok) return withCors(Response.json({ type: 'about:blank', title: 'Identité invalide', status: 401, code: 'identity.invalid_user', requestId: crypto.randomUUID() }, { status: 401, headers: { 'Content-Type': 'application/problem+json; charset=utf-8' } }));
+    const accessGateway = new SupabaseAssistantAccessGateway(client);
+    const response = await proxyAssistantChat(request, {
+      legacyBaseUrl: `${supabaseUrl}/functions/v1/make-server-e3db71a4`,
+      authorization,
+      userId: data.user.id,
+      authorizeTenant: (tenantId) => accessGateway.isTenantMember(actorId.value, tenantId),
+    });
+    return withCors(response);
+  }
   const repository = new SupabaseSessionRepository(client);
   const service = new SessionService(repository);
   const ordersService = new OrdersService(new SupabaseOrdersRepository(client));
@@ -126,6 +141,12 @@ export async function handleRequest(request: Request): Promise<Response> {
     },
   });
   const response = await handler(normalizeApiRequest(request));
+  const headers = new Headers(response.headers);
+  Object.entries(corsHeaders).forEach(([name, value]) => headers.set(name, value));
+  return new Response(response.body, { status: response.status, headers });
+}
+
+function withCors(response: Response): Response {
   const headers = new Headers(response.headers);
   Object.entries(corsHeaders).forEach(([name, value]) => headers.set(name, value));
   return new Response(response.body, { status: response.status, headers });
