@@ -41,10 +41,12 @@ describe('runtime Supabase local', () => {
 
   it('ne réutilise pas une session persistée supprimée par un reset local', () => {
     const authContext = read('src/app/contexts/AuthContext.tsx');
+    const authAdapter = read('src/adapters/supabase/browser-authentication-gateway.ts');
 
-    expect(authContext).toContain('auth.getUser()');
-    expect(authContext).toContain("auth.signOut({ scope: 'local' })");
-    expect(authContext).toContain("event === 'INITIAL_SESSION'");
+    expect(authContext).toContain('auth.verifiedUser()');
+    expect(authContext).toContain('auth.clearLocalSession()');
+    expect(authAdapter).toContain("scope: 'local'");
+    expect(authAdapter).toContain("event !== 'INITIAL_SESSION'");
   });
 
   it('attend les données du user avant de conclure qu il n a aucun tenant', () => {

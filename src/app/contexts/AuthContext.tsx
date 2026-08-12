@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import type { Session, User, UserAttributes } from '@supabase/supabase-js';
-import { supabase } from '/utils/supabase/client';
+import type { AuthenticationSession as Session, AuthenticationUser as User } from '../../modules/account';
+import { browserAuthenticationGateway as auth } from '../../adapters/supabase/browser-authentication-gateway';
 
 interface AuthContextType {
   user: User | null;
@@ -17,9 +17,6 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const auth = supabase.auth;
-const updateAuthUser = (attributes: UserAttributes) => auth.updateUser(attributes);
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -29,15 +26,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let active = true;
 
     const initialize = async () => {
-      const { data: { session: persistedSession } } = await auth.getSession();
+      const persistedSession = await auth.persistedSession();
       if (!persistedSession) {
         if (active) setLoading(false);
         return;
       }
 
-      const { data: { user: verifiedUser }, error } = await auth.getUser();
+      const { user: verifiedUser, error } = await auth.verifiedUser();
       if (error || !verifiedUser) {
-        await auth.signOut({ scope: 'local' });
+        await auth.clearLocalSession();
         if (active) {
           setSession(null);
           setUser(null);
@@ -55,36 +52,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     void initialize();
 
-    const { data: { subscription } } = auth.onAuthStateChange((event, session) => {
-      if (event === 'INITIAL_SESSION') return;
+    const unsubscribe = auth.subscribe(({ session, user }) => {
       setSession(session);
-      setUser(session?.user ?? null);
+      setUser(user);
       setLoading(false);
     });
 
     return () => {
       active = false;
-      subscription.unsubscribe();
+      unsubscribe();
     };
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { data, error } = await auth.signInWithPassword({ email, password });
-    return { error, session: data.session };
+    return auth.signIn(email, password);
   };
 
   const signUp = async (email: string, password: string, fullName?: string, company?: string) => {
-    const { data, error } = await auth.signUp({
-      email,
-      password,
-      options: { data: { full_name: fullName ?? '', ...(company ? { company } : {}) } },
-    });
-    return { error, session: data.session };
+    return auth.signUp(email, password, { fullName: fullName ?? '', ...(company ? { company } : {}) });
   };
 
   const refreshSession = async () => {
-    const { data, error } = await auth.refreshSession();
-    return { error, session: data.session };
+    return auth.refreshSession();
   };
 
   const signOut = async () => {
@@ -92,20 +81,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const resetPassword = async (email: string) => {
-    const { error } = await auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
-    return { error };
+    return auth.resetPassword(email, `${window.location.origin}/reset-password`);
   };
 
   const updatePassword = async (newPassword: string) => {
-    const { error } = await updateAuthUser({ password: newPassword });
-    return { error };
+    return auth.updatePassword(newPassword);
   };
 
   const updateProfile = async ({ fullName }: { fullName: string }) => {
-    const { error } = await updateAuthUser({ data: { full_name: fullName } });
-    return { error };
+    return auth.updateProfile(fullName);
   };
 
   return (

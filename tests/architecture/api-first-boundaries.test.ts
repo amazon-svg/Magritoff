@@ -401,6 +401,17 @@ describe('frontières API-first et modulaires', () => {
     expect(dashboard).not.toMatch(/\bsupabase\s*\./);
   });
 
+  it('isole le fournisseur Auth du contexte React', () => {
+    const context = readFileSync(resolve(process.cwd(), 'src/app/contexts/AuthContext.tsx'), 'utf8');
+    const adapter = readFileSync(resolve(process.cwd(), 'src/adapters/supabase/browser-authentication-gateway.ts'), 'utf8');
+    expect(context).toContain('browserAuthenticationGateway');
+    expect(context).not.toContain('utils/supabase');
+    expect(context).not.toContain('@supabase');
+    expect(context).not.toMatch(/\bsupabase\s*\./);
+    expect(adapter).toContain('SupabaseBrowserAuthenticationGateway');
+    expect(adapter).toContain("scope: 'local'");
+  });
+
   it('isole le renvoi des invitations derrière le port email', () => {
     const repository = readFileSync(resolve(process.cwd(), 'src/adapters/supabase/invitations-repository.ts'), 'utf8');
     expect(repository).toContain('InvitationEmailSender');
