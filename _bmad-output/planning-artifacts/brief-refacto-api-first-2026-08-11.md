@@ -168,6 +168,8 @@ src/
   QuoteTemplates ; `QuoteTemplatesContext` sort de Supabase — livré ;
 - AF19.1 : CRUD des bibliothèques via le module Libraries ; la première moitié
   de `LibraryContext` sort de Supabase — livré ;
+- AF19.2 : produits de bibliothèque, imports groupés et génération PIM via
+  Libraries ; `LibraryContext` sort entièrement de Supabase — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.

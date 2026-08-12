@@ -6,15 +6,19 @@
  */
 
 import { createContext, useContext, useEffect, useMemo, useState, useCallback, ReactNode } from 'react';
-import { supabase } from '/utils/supabase/client';
-import { LibrariesApiClient } from '../../modules/libraries';
+import {
+  LibrariesApiClient,
+  LibraryProductsApiClient,
+  type LibraryProductDto,
+  type LibraryProductInput as ApiLibraryProductInput,
+  type UpdateLibraryProduct,
+} from '../../modules/libraries';
 import { FetchApiClient } from '../../platform/api';
 import { useAuth } from './AuthContext';
 import { useTenant } from './TenantContext';
 import type { Gamme } from '../utils/productEnrichment';
 import {
   buildPimGeneratedProducts,
-  PIM_GENERATED_SOURCE,
 } from '../utils/buildPimGeneratedProducts';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -27,25 +31,8 @@ export interface Library {
   created_at?: string;
 }
 
-export interface LibraryProduct {
-  id: string;
-  tenant_id?: string;
-  user_id?: string;
-  library_id: string | null;
-  name: string;
-  category: string;
-  description: string;
-  price_ht: number;
-  image_url: string;
-  /** R4 : Record<string, unknown> au lieu de `any`. */
-  config: Record<string, unknown>;
-  active: boolean;
-  created_at?: string;
-  /** ADR-4.17 : categorie explicite autoritaire (FK product_gammes.slug). */
-  gamme_slug?: string | null;
-}
-
-export type LibraryProductInput = Omit<LibraryProduct, 'id' | 'user_id' | 'tenant_id' | 'created_at'>;
+export type LibraryProduct = LibraryProductDto;
+export type LibraryProductInput = ApiLibraryProductInput;
 
 interface LibraryContextType {
   libraries: Library[];
@@ -80,6 +67,11 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const [products, setProducts] = useState<LibraryProduct[]>([]);
   const [loading, setLoading] = useState(false);
   const librariesApi = useMemo(() => new LibrariesApiClient(new FetchApiClient(
+    '',
+    globalThis.fetch,
+    () => session?.access_token ?? null,
+  )), [session?.access_token]);
+  const productsApi = useMemo(() => new LibraryProductsApiClient(new FetchApiClient(
     '',
     globalThis.fetch,
     () => session?.access_token ?? null,
@@ -156,15 +148,14 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       return;
     }
     setLoading(true);
-    const { data, error } = await supabase
-      .from('product_library')
-      .select('*')
-      .eq('tenant_id', currentTenant.id)
-      .order('created_at', { ascending: false });
-    if (error) console.error('[Library] fetch failed', error.message);
-    if (data) setProducts(data as LibraryProduct[]);
-    setLoading(false);
-  }, [user, currentTenant?.id]);
+    try {
+      setProducts(await productsApi.list(currentTenant.id));
+    } catch (error) {
+      console.error('[Library] fetch failed', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [user, currentTenant?.id, productsApi]);
 
   useEffect(() => {
     refreshLibraries();
@@ -174,41 +165,31 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const addProduct = useCallback(
     async (data: LibraryProductInput) => {
       if (!user || !currentTenant) return null;
-      const { data: inserted, error } = await supabase
-        .from('product_library')
-        .insert({ ...data, user_id: user.id, tenant_id: currentTenant.id })
-        .select()
-        .single();
-      if (error || !inserted) {
-        console.error('[Library] insert failed', error?.message);
+      try {
+        const inserted = await productsApi.create(currentTenant.id, data);
+        setProducts((prev) => [inserted, ...prev]);
+        return inserted;
+      } catch (error) {
+        console.error('[Library] insert failed', error);
         return null;
       }
-      setProducts((prev) => [inserted as LibraryProduct, ...prev]);
-      return inserted as LibraryProduct;
     },
-    [user, currentTenant?.id]
+    [user, currentTenant?.id, productsApi]
   );
 
   const addProductsBulk = useCallback(
     async (items: LibraryProductInput[]) => {
       if (!user || !currentTenant || items.length === 0) return [];
-      const rows = items.map((data) => ({
-        ...data,
-        user_id: user.id,
-        tenant_id: currentTenant.id,
-      }));
-      const { data: inserted, error } = await supabase
-        .from('product_library')
-        .insert(rows)
-        .select();
-      if (error || !inserted) {
-        console.error('[Library] bulk insert failed', error?.message);
+      try {
+        const inserted = await productsApi.createMany(currentTenant.id, items);
+        setProducts((prev) => [...inserted, ...prev]);
+        return inserted;
+      } catch (error) {
+        console.error('[Library] bulk insert failed', error);
         return [];
       }
-      setProducts((prev) => [...(inserted as LibraryProduct[]), ...prev]);
-      return inserted as LibraryProduct[];
     },
-    [user, currentTenant?.id]
+    [user, currentTenant?.id, productsApi]
   );
 
   // S2.33 — Materialise des produits vendables depuis les gammes du PIM.
@@ -218,74 +199,54 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const generateFromPim = useCallback(
     async (gammes: Gamme[]) => {
       if (!user || !currentTenant || gammes.length === 0) return { created: 0 };
-      await supabase
-        .from('product_library')
-        .delete()
-        .eq('tenant_id', currentTenant.id)
-        .filter('config->>source', 'eq', PIM_GENERATED_SOURCE);
-      const rows = buildPimGeneratedProducts(gammes).map((data) => ({
-        ...data,
-        user_id: user.id,
-        tenant_id: currentTenant.id,
-      }));
-      const { data: inserted, error } = await supabase
-        .from('product_library')
-        .insert(rows)
-        .select();
-      if (error) {
-        console.error('[Library] generateFromPim failed', error.message);
+      try {
+        const result = await productsApi.replacePimGenerated(currentTenant.id, buildPimGeneratedProducts(gammes));
+        await refresh();
+        return result;
+      } catch (error) {
+        console.error('[Library] generateFromPim failed', error);
         return { created: 0 };
       }
-      await refresh();
-      return { created: inserted?.length ?? 0 };
     },
-    [user, currentTenant?.id, refresh]
+    [user, currentTenant?.id, refresh, productsApi]
   );
 
   const clearPimGenerated = useCallback(async () => {
     if (!user || !currentTenant) return { removed: 0 };
-    const { data, error } = await supabase
-      .from('product_library')
-      .delete()
-      .eq('tenant_id', currentTenant.id)
-      .filter('config->>source', 'eq', PIM_GENERATED_SOURCE)
-      .select('id');
-    if (error) {
-      console.error('[Library] clearPimGenerated failed', error.message);
+    try {
+      const result = await productsApi.clearPimGenerated(currentTenant.id);
+      await refresh();
+      return result;
+    } catch (error) {
+      console.error('[Library] clearPimGenerated failed', error);
       return { removed: 0 };
     }
-    await refresh();
-    return { removed: data?.length ?? 0 };
-  }, [user, currentTenant?.id, refresh]);
+  }, [user, currentTenant?.id, refresh, productsApi]);
 
   const updateProduct = useCallback(
     async (id: string, patch: Partial<LibraryProduct>) => {
       if (!user || !currentTenant) return;
-      const { data, error } = await supabase
-        .from('product_library')
-        .update(patch)
-        .eq('id', id)
-        .eq('tenant_id', currentTenant.id)
-        .select()
-        .single();
-      if (error) console.error('[Library] update failed', error.message);
-      if (data) setProducts((prev) => prev.map((p) => (p.id === id ? (data as LibraryProduct) : p)));
+      try {
+        const data = await productsApi.update(currentTenant.id, id, toProductUpdate(patch));
+        setProducts((prev) => prev.map((product) => (product.id === id ? data : product)));
+      } catch (error) {
+        console.error('[Library] update failed', error);
+      }
     },
-    [user, currentTenant?.id]
+    [user, currentTenant?.id, productsApi]
   );
 
   const deleteProduct = useCallback(
     async (id: string) => {
       if (!user || !currentTenant) return;
-      const { error } = await supabase
-        .from('product_library')
-        .delete()
-        .eq('id', id)
-        .eq('tenant_id', currentTenant.id);
-      if (error) console.error('[Library] delete failed', error.message);
-      else setProducts((prev) => prev.filter((p) => p.id !== id));
+      try {
+        await productsApi.remove(currentTenant.id, id);
+        setProducts((prev) => prev.filter((product) => product.id !== id));
+      } catch (error) {
+        console.error('[Library] delete failed', error);
+      }
     },
-    [user, currentTenant?.id]
+    [user, currentTenant?.id, productsApi]
   );
 
   const productsByLibrary = useCallback(
@@ -323,4 +284,18 @@ export function useLibrary() {
   const ctx = useContext(LibraryContext);
   if (!ctx) throw new Error('useLibrary must be used within a LibraryProvider');
   return ctx;
+}
+
+function toProductUpdate(patch: Partial<LibraryProduct>): UpdateLibraryProduct {
+  const update: UpdateLibraryProduct = {};
+  if (patch.library_id !== undefined) update.library_id = patch.library_id;
+  if (patch.name !== undefined) update.name = patch.name;
+  if (patch.category !== undefined) update.category = patch.category;
+  if (patch.description !== undefined) update.description = patch.description;
+  if (patch.price_ht !== undefined) update.price_ht = patch.price_ht;
+  if (patch.image_url !== undefined) update.image_url = patch.image_url;
+  if (patch.config !== undefined) update.config = patch.config;
+  if (patch.active !== undefined) update.active = patch.active;
+  if (patch.gamme_slug !== undefined) update.gamme_slug = patch.gamme_slug;
+  return update;
 }

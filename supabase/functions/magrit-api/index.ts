@@ -39,6 +39,9 @@ import { createQuoteTemplatesRoutes } from '../../../src/server/api/quote-templa
 import { LibrariesService } from '../../../src/modules/libraries/application/libraries-service.ts';
 import { SupabaseLibrariesRepository } from '../../../src/adapters/supabase/libraries-repository.ts';
 import { createLibrariesRoutes } from '../../../src/server/api/libraries-routes.ts';
+import { LibraryProductsService } from '../../../src/modules/libraries/application/library-products-service.ts';
+import { SupabaseLibraryProductsRepository } from '../../../src/adapters/supabase/library-products-repository.ts';
+import { createLibraryProductsRoutes } from '../../../src/server/api/library-products-routes.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -81,6 +84,7 @@ export async function handleRequest(request: Request): Promise<Response> {
   const quotesService = new QuotesService(new SupabaseQuotesRepository(client));
   const quoteTemplatesService = new QuoteTemplatesService(new SupabaseQuoteTemplatesRepository(client));
   const librariesService = new LibrariesService(new SupabaseLibrariesRepository(client));
+  const libraryProductsService = new LibraryProductsService(new SupabaseLibraryProductsRepository(client));
   const handler = createApiV1Application({
     routes: [
       ...createSessionRoutes(service),
@@ -95,6 +99,7 @@ export async function handleRequest(request: Request): Promise<Response> {
       ...createQuotesRoutes(quotesService),
       ...createQuoteTemplatesRoutes(quoteTemplatesService),
       ...createLibrariesRoutes(librariesService),
+      ...createLibraryProductsRoutes(libraryProductsService),
     ],
     actorResolver: {
       async resolve() {

@@ -211,6 +211,8 @@ describe('frontières API-first et modulaires', () => {
     expect(edgeEntry).toContain('createQuotesRoutes(quotesService)');
     expect(edgeEntry).toContain('SupabaseLibrariesRepository(client)');
     expect(edgeEntry).toContain('createLibrariesRoutes(librariesService)');
+    expect(edgeEntry).toContain('SupabaseLibraryProductsRepository(client)');
+    expect(edgeEntry).toContain('createLibraryProductsRoutes(libraryProductsService)');
     expect(edgeEntry).not.toContain('SUPABASE_SERVICE_ROLE_KEY');
   });
 
@@ -361,6 +363,19 @@ describe('frontières API-first et modulaires', () => {
     expect(context).toContain('librariesApi.update');
     expect(context).toContain('librariesApi.remove');
     expect(repository).toContain(".eq('tenant_id', tenantId)");
+  });
+
+  it('sort produits, bulk et génération PIM du fournisseur', () => {
+    const context = readFileSync(resolve(process.cwd(), 'src/app/contexts/LibraryContext.tsx'), 'utf8');
+    const repository = readFileSync(resolve(process.cwd(), 'src/adapters/supabase/library-products-repository.ts'), 'utf8');
+    expect(context).toContain('LibraryProductsApiClient');
+    expect(context).toContain('productsApi.createMany');
+    expect(context).toContain('productsApi.replacePimGenerated');
+    expect(context).toContain('productsApi.clearPimGenerated');
+    expect(context).not.toContain('utils/supabase');
+    expect(context).not.toMatch(/\bsupabase\s*\./);
+    expect(repository).toContain(".eq('tenant_id', tenantId)");
+    expect(repository).toContain(".filter('config->>source', 'eq', PIM_GENERATED_SOURCE)");
   });
 
   it('isole le renvoi des invitations derrière le port email', () => {
