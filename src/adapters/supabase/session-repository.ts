@@ -4,6 +4,8 @@ import type {
   SessionUserPreferences,
   UpdatePreferences,
   UpdateTenantSettings,
+  CreateSubTenant,
+  SubTenantsDashboard,
 } from '../../modules/session/api/contracts.ts';
 import { SessionTenantMutationError, type DirectMembership, type SessionRepository } from '../../modules/session/application/session-repository.ts';
 import type { Database } from '../../types/database.types.ts';
@@ -94,6 +96,44 @@ export class SupabaseSessionRepository implements SessionRepository {
     const { data, error } = await this.client.from('tenants').update(values).eq('id', tenantId).select('id').maybeSingle();
     if (error) throw new SessionTenantMutationError(error.code === '23505' ? 'conflict' : 'permission_denied', error.message);
     if (!data) throw new SessionTenantMutationError('permission_denied', 'Espace introuvable ou modification interdite.');
+  }
+
+  async subTenantsDashboard(_userId: UserId, parentTenantId: string): Promise<SubTenantsDashboard> {
+    const [subTenantsResult, kpisResult] = await Promise.all([
+      this.client.from('tenants').select('id, slug, name, created_at').eq('parent_tenant_id', parentTenantId).order('created_at', { ascending: false }),
+      this.client.rpc('get_subtenant_kpis', { p_parent_tenant_id: parentTenantId }),
+    ]);
+    if (subTenantsResult.error) throw new SessionTenantMutationError('permission_denied', subTenantsResult.error.message);
+    if (kpisResult.error) throw new SessionTenantMutationError('permission_denied', kpisResult.error.message);
+    return {
+      subTenants: (subTenantsResult.data ?? []).map((row) => ({ id: row.id, slug: row.slug, name: row.name, createdAt: row.created_at })),
+      kpis: (kpisResult.data ?? []).map((row) => ({
+        tenantId: row.tenant_id,
+        tenantName: row.tenant_name,
+        tenantSlug: row.tenant_slug,
+        createdAt: row.created_at,
+        memberCount: Number(row.member_count),
+        monthOrderCount: Number(row.month_order_count),
+        monthCaHt: Number(row.month_ca_ht),
+      })),
+    };
+  }
+
+  async createSubTenant(_userId: UserId, parentTenantId: string, command: CreateSubTenant): Promise<string> {
+    const { data, error } = await this.client.rpc('create_tenant_with_owner', {
+      p_parent_tenant_id: parentTenantId,
+      p_slug: command.slug,
+      p_name: command.name,
+    });
+    if (error) throw new SessionTenantMutationError(error.code === '23505' ? 'conflict' : 'permission_denied', error.message);
+    if (!data) throw new SessionTenantMutationError('permission_denied', 'Création du sous-espace interdite.');
+    return data;
+  }
+
+  async removeSubTenant(_userId: UserId, parentTenantId: string, subTenantId: string): Promise<void> {
+    const { data, error } = await this.client.from('tenants').delete().eq('id', subTenantId).eq('parent_tenant_id', parentTenantId).select('id').maybeSingle();
+    if (error) throw new SessionTenantMutationError('permission_denied', error.message);
+    if (!data) throw new SessionTenantMutationError('not_found', 'Sous-espace introuvable ou suppression interdite.');
   }
 }
 

@@ -25,6 +25,9 @@ describe('routes session API v1', () => {
     const preferences = await client.updatePreferences({ theme: 'dark' });
     const selected = await client.updateCurrentTenant('tenant-af2');
     await client.updateTenantSettings('tenant-af2', { name: 'Nouveau nom' });
+    const dashboard = await client.subTenantsDashboard('tenant-af2');
+    const childId = await client.createSubTenant('tenant-af2', { name: 'Filiale AF15', slug: 'filiale-af15' });
+    await client.removeSubTenant('tenant-af2', childId);
 
     expect(session.user.id).toBe('user-af2');
     expect(session.tenants[0]).toMatchObject({ id: 'tenant-af2', myRole: 'owner' });
@@ -32,6 +35,9 @@ describe('routes session API v1', () => {
     expect(selected.last_tenant_id).toBe('tenant-af2');
     expect(repository.updatePreferences).toHaveBeenCalledWith('user-af2', { theme: 'dark' });
     expect(repository.updateTenantSettings).toHaveBeenCalledWith('user-af2', 'tenant-af2', { name: 'Nouveau nom' });
+    expect(dashboard.subTenants[0]).toMatchObject({ id: 'subtenant-af15', slug: 'filiale-af15' });
+    expect(repository.createSubTenant).toHaveBeenCalledWith('user-af2', 'tenant-af2', { name: 'Filiale AF15', slug: 'filiale-af15' });
+    expect(repository.removeSubTenant).toHaveBeenCalledWith('user-af2', 'tenant-af2', 'subtenant-af15');
   });
 
   it('refuse le bootstrap sans acteur authentifié', async () => {
@@ -80,9 +86,26 @@ describe('routes session API v1', () => {
     const response = await handler(new Request('https://magrit.test/api/v1/tenants/tenant-af2', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slug: 'slug-utilise' }) }));
     expect(response.status).toBe(409); expect((await response.json()).code).toBe('session.tenant_conflict');
   });
+
+  it('valide la création d un sous-espace avant le repository', async () => {
+    const repository = repositoryStub();
+    const handler = createApiV1Application({ routes: createSessionRoutes(new SessionService(repository)), requestIdFactory: () => 'request-af15', actorResolver: { async resolve() { return { kind: 'user', userId: id('user-af2') }; } } });
+    const response = await handler(new Request('https://magrit.test/api/v1/tenants/tenant-af2/subtenants', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Filiale', slug: 'NON VALIDE' }) }));
+    expect(response.status).toBe(422);
+    expect(repository.createSubTenant).not.toHaveBeenCalled();
+  });
+
+  it('traduit un sous-espace absent en 404', async () => {
+    const repository = repositoryStub();
+    repository.removeSubTenant.mockRejectedValueOnce(new SessionTenantMutationError('not_found', 'absent'));
+    const handler = createApiV1Application({ routes: createSessionRoutes(new SessionService(repository)), requestIdFactory: () => 'request-af15', actorResolver: { async resolve() { return { kind: 'user', userId: id('user-af2') }; } } });
+    const response = await handler(new Request('https://magrit.test/api/v1/tenants/tenant-af2/subtenants/subtenant-absent', { method: 'DELETE' }));
+    expect(response.status).toBe(404);
+    expect((await response.json()).code).toBe('session.tenant_not_found');
+  });
 });
 
-function repositoryStub(): SessionRepository & Record<'updatePreferences' | 'updateTenantSettings', ReturnType<typeof vi.fn>> {
+function repositoryStub(): SessionRepository & Record<'updatePreferences' | 'updateTenantSettings' | 'createSubTenant' | 'removeSubTenant', ReturnType<typeof vi.fn>> {
   return {
     autoAcceptPendingInvitations: vi.fn(async () => undefined),
     listDirectMemberships: vi.fn(async () => [{
@@ -106,6 +129,12 @@ function repositoryStub(): SessionRepository & Record<'updatePreferences' | 'upd
     updatePreferences: vi.fn(async (_userId, patch) => patch),
     updateLastTenant: vi.fn(async (_userId, tenantId) => ({ last_tenant_id: tenantId })),
     updateTenantSettings: vi.fn(async () => undefined),
+    subTenantsDashboard: vi.fn(async () => ({
+      subTenants: [{ id: 'subtenant-af15', slug: 'filiale-af15', name: 'Filiale AF15', createdAt: '2026-08-12T12:00:00.000Z' }],
+      kpis: [{ tenantId: 'subtenant-af15', tenantName: 'Filiale AF15', tenantSlug: 'filiale-af15', createdAt: '2026-08-12T12:00:00.000Z', memberCount: 2, monthOrderCount: 3, monthCaHt: 450 }],
+    })),
+    createSubTenant: vi.fn(async () => 'subtenant-af15'),
+    removeSubTenant: vi.fn(async () => undefined),
   };
 }
 

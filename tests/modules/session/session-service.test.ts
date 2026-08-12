@@ -83,6 +83,9 @@ function repositoryStub(options: {
     updatePreferences: vi.fn(async (_userId, patch) => patch),
     updateLastTenant: vi.fn(async (_userId, tenantId) => ({ last_tenant_id: tenantId })),
     updateTenantSettings: vi.fn(async () => undefined),
+    subTenantsDashboard: vi.fn(async () => ({ subTenants: [], kpis: [] })),
+    createSubTenant: vi.fn(async () => 'subtenant-af15'),
+    removeSubTenant: vi.fn(async () => undefined),
   };
 }
 

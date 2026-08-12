@@ -4,6 +4,8 @@ import type {
   SessionUserPreferences,
   UpdatePreferences,
   UpdateTenantSettings,
+  CreateSubTenant,
+  SubTenantsDashboard,
 } from '../api/contracts.ts';
 
 export type DirectMembership = Readonly<{
@@ -20,7 +22,7 @@ export type DirectMembership = Readonly<{
 export type ChildTenant = DirectMembership['tenant'];
 
 export class SessionTenantMutationError extends Error {
-  constructor(public readonly code: 'permission_denied' | 'conflict', message: string) { super(message); this.name = 'SessionTenantMutationError'; }
+  constructor(public readonly code: 'permission_denied' | 'conflict' | 'not_found', message: string) { super(message); this.name = 'SessionTenantMutationError'; }
 }
 
 export interface SessionRepository {
@@ -34,4 +36,7 @@ export interface SessionRepository {
   ): Promise<Partial<SessionUserPreferences>>;
   updateLastTenant(userId: UserId, tenantId: string): Promise<Partial<SessionUserPreferences>>;
   updateTenantSettings(userId: UserId, tenantId: string, patch: UpdateTenantSettings): Promise<void>;
+  subTenantsDashboard(userId: UserId, parentTenantId: string): Promise<SubTenantsDashboard>;
+  createSubTenant(userId: UserId, parentTenantId: string, command: CreateSubTenant): Promise<string>;
+  removeSubTenant(userId: UserId, parentTenantId: string, subTenantId: string): Promise<void>;
 }

@@ -160,6 +160,15 @@ describe('frontières API-first et modulaires', () => {
     expect(source).not.toMatch(/\bsupabase\s*\./);
   });
 
+  it('sort la gestion des sous-espaces du fournisseur', () => {
+    const source = readFileSync(resolve(process.cwd(), 'src/app/components/dashboard/DashboardTenantSpaces.tsx'), 'utf8');
+    const tenantContext = readFileSync(resolve(process.cwd(), 'src/app/contexts/TenantContext.tsx'), 'utf8');
+    expect(source).toContain('SessionApiClient');
+    expect(source).not.toContain('utils/supabase');
+    expect(source).not.toMatch(/\bsupabase\s*\./);
+    expect(tenantContext).not.toContain('createSubTenant');
+  });
+
   it('réserve le client session direct au développement local', () => {
     const provider = readFileSync(
       resolve(process.cwd(), 'src/app/contexts/SessionBootstrapContext.tsx'),

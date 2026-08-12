@@ -140,6 +140,9 @@ src/
   Catalog ; `DashboardAdminPIM` sort de Supabase — livré ;
 - AF15.1 : modification contractuelle du nom et du slug d’un tenant ;
   `DashboardTenantSettings` sort de Supabase — livré ;
+- AF15.2 : liste, KPI, création et suppression des sous-espaces via l’API ;
+  `DashboardTenantSpaces` sort de Supabase et le contexte tenant abandonne sa
+  commande legacy de création de sous-tenant — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.

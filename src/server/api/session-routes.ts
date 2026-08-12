@@ -6,6 +6,10 @@ import {
   userPreferencesSchema,
   tenantMutationResultSchema,
   updateTenantSettingsSchema,
+  subTenantsDashboardSchema,
+  createSubTenantSchema,
+  createSubTenantResultSchema,
+  removeSubTenantResultSchema,
 } from '../../modules/session/api/contracts.ts';
 import {
   SessionTenantAccessDeniedError,
@@ -76,15 +80,64 @@ export function createSessionRoutes(service: SessionService): readonly ApiRoute[
         try {
           return { status: 200, body: await service.updateTenantSettings(requireUserId(context), requireTenantId(context), patch) };
         } catch (error) {
-          if (error instanceof SessionTenantMutationError) {
-            const status = error.code === 'conflict' ? 409 : 403;
-            throw new ApiHttpError({ type: 'about:blank', title: status === 409 ? 'Slug déjà utilisé' : 'Modification de l’espace interdite', status, code: `session.tenant_${error.code}`, detail: error.message });
-          }
-          throw error;
+          throwTenantMutation(error);
+        }
+      },
+    }),
+    defineJsonRoute({
+      method: 'GET',
+      path: `${API_V1_BASE_PATH}/tenants/{tenantId}/subtenants`,
+      authentication: 'required',
+      inputSchema: null,
+      outputSchema: subTenantsDashboardSchema,
+      async handle(context) {
+        try {
+          return { status: 200, body: await service.subTenantsDashboard(requireUserId(context), requireTenantId(context)) };
+        } catch (error) {
+          throwTenantMutation(error);
+        }
+      },
+    }),
+    defineJsonRoute({
+      method: 'POST',
+      path: `${API_V1_BASE_PATH}/tenants/{tenantId}/subtenants`,
+      authentication: 'required',
+      inputSchema: createSubTenantSchema,
+      outputSchema: createSubTenantResultSchema,
+      async handle(context, command) {
+        try {
+          return { status: 201, body: await service.createSubTenant(requireUserId(context), requireTenantId(context), command) };
+        } catch (error) {
+          throwTenantMutation(error);
+        }
+      },
+    }),
+    defineJsonRoute({
+      method: 'DELETE',
+      path: `${API_V1_BASE_PATH}/tenants/{tenantId}/subtenants/{subTenantId}`,
+      authentication: 'required',
+      inputSchema: null,
+      outputSchema: removeSubTenantResultSchema,
+      async handle(context) {
+        try {
+          return { status: 200, body: await service.removeSubTenant(requireUserId(context), requireTenantId(context), requireSubTenantId(context)) };
+        } catch (error) {
+          throwTenantMutation(error);
         }
       },
     }),
   ];
+}
+
+function throwTenantMutation(error: unknown): never {
+  if (!(error instanceof SessionTenantMutationError)) throw error;
+  const status = error.code === 'conflict' ? 409 : error.code === 'not_found' ? 404 : 403;
+  const title = error.code === 'conflict'
+    ? 'Identifiant déjà utilisé'
+    : error.code === 'not_found'
+      ? 'Sous-espace introuvable'
+      : 'Opération sur l’espace interdite';
+  throw new ApiHttpError({ type: 'about:blank', title, status, code: `session.tenant_${error.code}`, detail: error.message });
 }
 
 function requireUserId(context: ApiRequestContext): UserId {
@@ -104,5 +157,11 @@ function requireUserId(context: ApiRequestContext): UserId {
 function requireTenantId(context: ApiRequestContext): string {
   const parsed = parseId(context.params.tenantId ?? '');
   if (!parsed.ok) throw new ApiHttpError({ type: 'about:blank', title: 'Identifiant tenant invalide', status: 422, code: 'api.validation_failed' });
+  return parsed.value;
+}
+
+function requireSubTenantId(context: ApiRequestContext): string {
+  const parsed = parseId(context.params.subTenantId ?? '');
+  if (!parsed.ok) throw new ApiHttpError({ type: 'about:blank', title: 'Identifiant sous-espace invalide', status: 422, code: 'api.validation_failed' });
   return parsed.value;
 }

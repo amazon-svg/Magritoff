@@ -108,13 +108,6 @@ interface TenantContextType {
     gammeSlugs?: string[];
   }) => Promise<string | null>;
 
-  /** Creer un sous-tenant (filiale OU espace client B2B) sous un tenant parent */
-  createSubTenant: (input: {
-    parentTenantId: string;
-    slug: string;
-    name: string;
-  }) => Promise<string | null>;
-
   /** Accepter une invitation via token recu par email */
   acceptInvitation: (
     token: string
@@ -232,29 +225,6 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     [reload]
   );
 
-  const createSubTenant = useCallback(
-    async ({
-      parentTenantId,
-      slug,
-      name,
-    }: {
-      parentTenantId: string;
-      slug: string;
-      name: string;
-    }): Promise<string | null> => {
-      let tenantId: string;
-      try {
-        tenantId = await legacyTenantCommands.createTenant({ slug, name, parentTenantId });
-      } catch (error) {
-        console.error('[TenantContext] createSubTenant error:', error);
-        return null;
-      }
-      await reload();
-      return tenantId;
-    },
-    [reload]
-  );
-
   const acceptInvitation = useCallback(
     async (
       token: string
@@ -302,7 +272,6 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       (!!user && (bootstrap.loading || (!bootstrap.error && dataForUser === null))),
     switchTenant,
     createTenant,
-    createSubTenant,
     acceptInvitation,
     withTenant,
     reload,

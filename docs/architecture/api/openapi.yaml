@@ -280,6 +280,55 @@ paths:
               schema: { $ref: '#/components/schemas/TenantMutationResult' }
         '403': { description: Modification interdite }
         '409': { description: Slug déjà utilisé }
+  /tenants/{tenantId}/subtenants:
+    get:
+      operationId: getSubTenantsDashboard
+      summary: Lister les sous-espaces et leurs indicateurs mensuels
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: tenantId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Sous-espaces et KPI accessibles à l administrateur du parent
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SubTenantsDashboard' }
+        '403': { description: Lecture interdite }
+    post:
+      operationId: createSubTenant
+      summary: Créer un sous-espace rattaché au tenant parent
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: tenantId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateSubTenant' }
+      responses:
+        '201':
+          description: Sous-espace créé
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CreateSubTenantResult' }
+        '403': { description: Création interdite }
+        '409': { description: Slug déjà utilisé }
+  /tenants/{tenantId}/subtenants/{subTenantId}:
+    delete:
+      operationId: removeSubTenant
+      summary: Supprimer un sous-espace direct du tenant parent
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: tenantId, in: path, required: true, schema: { type: string } }
+        - { name: subTenantId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Sous-espace supprimé
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RemoveSubTenantResult' }
+        '403': { description: Suppression interdite }
+        '404': { description: Sous-espace absent du parent }
   /catalog/pim/ingestion:
     get:
       operationId: getPimPendingCandidates
@@ -696,6 +745,53 @@ components:
       required: [updated]
       properties:
         updated: { const: true }
+    SubTenant:
+      type: object
+      additionalProperties: false
+      required: [id, slug, name, createdAt]
+      properties:
+        id: { type: string }
+        slug: { type: string }
+        name: { type: string }
+        createdAt: { type: string, format: date-time }
+    SubTenantKpi:
+      type: object
+      additionalProperties: false
+      required: [tenantId, tenantName, tenantSlug, createdAt, memberCount, monthOrderCount, monthCaHt]
+      properties:
+        tenantId: { type: string }
+        tenantName: { type: string }
+        tenantSlug: { type: string }
+        createdAt: { type: string, format: date-time }
+        memberCount: { type: integer, minimum: 0 }
+        monthOrderCount: { type: integer, minimum: 0 }
+        monthCaHt: { type: number, minimum: 0 }
+    SubTenantsDashboard:
+      type: object
+      additionalProperties: false
+      required: [subTenants, kpis]
+      properties:
+        subTenants: { type: array, items: { $ref: '#/components/schemas/SubTenant' } }
+        kpis: { type: array, items: { $ref: '#/components/schemas/SubTenantKpi' } }
+    CreateSubTenant:
+      type: object
+      additionalProperties: false
+      required: [name, slug]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 160 }
+        slug: { type: string, minLength: 3, maxLength: 60, pattern: '^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$' }
+    CreateSubTenantResult:
+      type: object
+      additionalProperties: false
+      required: [tenantId]
+      properties:
+        tenantId: { type: string }
+    RemoveSubTenantResult:
+      type: object
+      additionalProperties: false
+      required: [removed]
+      properties:
+        removed: { const: true }
     PimPendingCandidates:
       type: object
       additionalProperties: false

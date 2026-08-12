@@ -5,14 +5,13 @@
  * seulement la dette historique d'augmenter pendant sa migration vers /api/v1.
  * Chaque story de migration doit supprimer les entrées devenues inutiles et
  * abaisser les compteurs ; la baseline ne doit jamais être augmentée.
- * Après AF15.1 : 21 fichiers importeurs et 70 références directes restantes.
+ * Après AF15.2 : 20 fichiers importeurs et 67 références directes restantes.
  * Le compteur inclut les appels où `supabase` et `.` sont séparés par un saut de ligne.
  */
 export const legacySupabaseUiImportFiles = new Set([
   'src/app/components/ChatInterface.tsx',
   'src/app/components/DiagnosticPanel.tsx',
   'src/app/components/dashboard/DashboardAdminMockups.tsx',
-  'src/app/components/dashboard/DashboardTenantSpaces.tsx',
   'src/app/components/dashboard/InviteUserModalV2.tsx',
   'src/app/components/dashboard/commercial/DashboardCommercial.tsx',
   'src/app/components/dashboard/commercial/commercial.helpers.ts',
@@ -35,7 +34,6 @@ export const legacySupabaseUiImportFiles = new Set([
 export const legacySupabaseUiReferenceLimits = new Map<string, number>([
   ['src/app/components/ChatInterface.tsx', 1],
   ['src/app/components/DiagnosticPanel.tsx', 1],
-  ['src/app/components/dashboard/DashboardTenantSpaces.tsx', 3],
   ['src/app/components/dashboard/commercial/DashboardCommercial.tsx', 10],
   ['src/app/components/dashboard/commercial/commercial.helpers.ts', 2],
   ['src/app/components/mockup/MockupImage.helpers.ts', 3],

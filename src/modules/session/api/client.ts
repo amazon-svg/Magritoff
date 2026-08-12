@@ -6,10 +6,16 @@ import {
   userPreferencesSchema,
   tenantMutationResultSchema,
   updateTenantSettingsSchema,
+  subTenantsDashboardSchema,
+  createSubTenantSchema,
+  createSubTenantResultSchema,
+  removeSubTenantResultSchema,
   type SessionBootstrap,
   type SessionUserPreferences,
   type UpdatePreferences,
   type UpdateTenantSettings,
+  type CreateSubTenant,
+  type SubTenantsDashboard,
 } from './contracts';
 
 export class SessionApiClient {
@@ -46,5 +52,17 @@ export class SessionApiClient {
       method: 'PATCH', path: `${API_V1_BASE_PATH}/tenants/${tenantId}`,
       body: updateTenantSettingsSchema.parse(patch), responseSchema: tenantMutationResultSchema,
     }).then(() => undefined);
+  }
+
+  subTenantsDashboard(parentTenantId: string): Promise<SubTenantsDashboard> {
+    return this.client.request({ path: `${API_V1_BASE_PATH}/tenants/${parentTenantId}/subtenants`, responseSchema: subTenantsDashboardSchema });
+  }
+
+  createSubTenant(parentTenantId: string, command: CreateSubTenant): Promise<string> {
+    return this.client.request({ method: 'POST', path: `${API_V1_BASE_PATH}/tenants/${parentTenantId}/subtenants`, body: createSubTenantSchema.parse(command), responseSchema: createSubTenantResultSchema }).then(({ tenantId }) => tenantId);
+  }
+
+  removeSubTenant(parentTenantId: string, subTenantId: string): Promise<void> {
+    return this.client.request({ method: 'DELETE', path: `${API_V1_BASE_PATH}/tenants/${parentTenantId}/subtenants/${subTenantId}`, responseSchema: removeSubTenantResultSchema }).then(() => undefined);
   }
 }

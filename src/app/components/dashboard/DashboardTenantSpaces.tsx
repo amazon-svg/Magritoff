@@ -14,38 +14,21 @@
  * les tenants dont le role utilisateur est 'partner'.
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { Building, Plus, ExternalLink, Trash2 } from 'lucide-react';
-import { supabase } from '/utils/supabase/client';
 import { useTenant } from '../../contexts/TenantContext';
-
-interface SubTenantRow {
-  id: string;
-  slug: string;
-  name: string;
-  created_at: string;
-}
-
-/**
- * S-SUBTENANT-SCOPE (Sprint 8, 2026-06-01) : KPIs consolidés HQ.
- * Retourné par RPC get_subtenant_kpis(parent_tenant_id).
- */
-interface SubTenantKpiRow {
-  tenant_id: string;
-  tenant_name: string;
-  tenant_slug: string;
-  created_at: string;
-  member_count: number;
-  month_order_count: number;
-  month_ca_ht: number;
-}
+import { useAuth } from '../../contexts/AuthContext';
+import { SessionApiClient, type SubTenant, type SubTenantKpi } from '../../../modules/session';
+import { FetchApiClient } from '../../../platform/api';
 
 export function DashboardTenantSpaces() {
-  const { currentTenant, currentRole, createSubTenant, isSuperAdmin } = useTenant();
+  const { currentTenant, currentRole, isSuperAdmin, reload } = useTenant();
+  const { session } = useAuth();
+  const sessionApi = useMemo(() => new SessionApiClient(new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null)), [session?.access_token]);
 
-  const [children, setChildren] = useState<SubTenantRow[]>([]);
-  const [kpis, setKpis] = useState<SubTenantKpiRow[]>([]);
+  const [children, setChildren] = useState<SubTenant[]>([]);
+  const [kpis, setKpis] = useState<SubTenantKpi[]>([]);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [name, setName] = useState('');
@@ -59,34 +42,26 @@ export function DashboardTenantSpaces() {
     !isSubTenant &&
     (currentRole === 'owner' || currentRole === 'admin' || isSuperAdmin);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     if (!currentTenant) return;
     setLoading(true);
-    // Liste des children (back-compat affichage tableau existant)
-    const { data } = await supabase
-      .from('tenants')
-      .select('id, slug, name, created_at')
-      .eq('parent_tenant_id', currentTenant.id)
-      .order('created_at', { ascending: false });
-    setChildren((data as SubTenantRow[]) || []);
-
-    // S-SUBTENANT-SCOPE : KPIs consolidés HQ via RPC get_subtenant_kpis.
-    // Visible uniquement si admin/owner du racine (UI auto-conditionnelle
-    // car la RPC retourne [] sinon, cohérent avec is_subtenant_member_*).
-    const { data: kpiData, error: kpiErr } = await supabase.rpc('get_subtenant_kpis', {
-      p_parent_tenant_id: currentTenant.id,
-    });
-    if (kpiErr) {
-      console.warn('[DashboardTenantSpaces] get_subtenant_kpis échec:', kpiErr.message);
-    } else {
-      setKpis((kpiData as SubTenantKpiRow[]) ?? []);
+    setError(null);
+    try {
+      const dashboard = await sessionApi.subTenantsDashboard(currentTenant.id);
+      setChildren(dashboard.subTenants);
+      setKpis(dashboard.kpis);
+    } catch (loadError) {
+      setChildren([]);
+      setKpis([]);
+      setError(loadError instanceof Error ? loadError.message : 'Chargement des sous-espaces impossible.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-  };
+  }, [currentTenant?.id, sessionApi]);
 
   useEffect(() => {
-    load();
-  }, [currentTenant?.id]);
+    void load();
+  }, [load]);
 
   const autoSlug = (n: string) =>
     n
@@ -104,16 +79,15 @@ export function DashboardTenantSpaces() {
       return;
     }
     setSaving(true);
-    const id = await createSubTenant({
-      parentTenantId: currentTenant.id,
-      slug: slug.trim(),
-      name: name.trim(),
-    });
-    setSaving(false);
-    if (!id) {
-      setError('Creation impossible (slug deja pris ?).');
+    try {
+      await sessionApi.createSubTenant(currentTenant.id, { slug: slug.trim(), name: name.trim() });
+      await reload();
+    } catch (createError) {
+      setSaving(false);
+      setError(createError instanceof Error ? createError.message : 'Création impossible.');
       return;
     }
+    setSaving(false);
     setFormOpen(false);
     setName('');
     setSlug('');
@@ -122,8 +96,14 @@ export function DashboardTenantSpaces() {
 
   const remove = async (id: string, spaceName: string) => {
     if (!confirm(`Supprimer l'espace "${spaceName}" et toutes ses donnees ?`)) return;
-    await supabase.from('tenants').delete().eq('id', id);
-    await load();
+    setError(null);
+    try {
+      await sessionApi.removeSubTenant(currentTenant.id, id);
+      await reload();
+      await load();
+    } catch (removeError) {
+      setError(removeError instanceof Error ? removeError.message : 'Suppression impossible.');
+    }
   };
 
   if (!currentTenant) {
@@ -243,6 +223,12 @@ export function DashboardTenantSpaces() {
         </div>
       )}
 
+      {error && !formOpen && (
+        <div className="px-3 py-2 rounded-md bg-err-bg text-err-fg mb-5" style={{ fontSize: '12.5px' }}>
+          {error}
+        </div>
+      )}
+
       {/* Liste des sous-tenants */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {loading ? (
@@ -271,9 +257,9 @@ export function DashboardTenantSpaces() {
           children.map((c) => {
             // S-SUBTENANT-SCOPE : match KPI row par tenant_id (peut être
             // absent si la RPC n'a pas retourné le sous-tenant — fallback 0).
-            const kpi = kpis.find((k) => k.tenant_id === c.id);
-            const monthOrders = kpi ? Number(kpi.month_order_count) : 0;
-            const monthCa = kpi ? Number(kpi.month_ca_ht) : 0;
+            const kpi = kpis.find((k) => k.tenantId === c.id);
+            const monthOrders = kpi?.monthOrderCount ?? 0;
+            const monthCa = kpi?.monthCaHt ?? 0;
             const formattedCa = monthCa.toLocaleString('fr-FR', {
               style: 'currency',
               currency: 'EUR',
