@@ -19,6 +19,8 @@ const baseParams = {
   shopId: 'shop-uuid',
   productId: 'product-uuid',
 };
+const publicBucket = 'https://assets.magrit.test/product_mockups';
+const generator = 'https://api.magrit.test/mockup-generator';
 
 const baseSpecs: MockupSpecs = {
   ...baseParams,
@@ -31,44 +33,44 @@ const baseSpecs: MockupSpecs = {
 
 describe('buildPublicMockupUrl (S-PRODUCT-VIEWS-MULTI + P3-VISUELS cache _v2)', () => {
   it('front (default) : path avec suffixe cache version _v2', () => {
-    const url = buildPublicMockupUrl('myproject', baseParams);
+    const url = buildPublicMockupUrl(publicBucket, baseParams);
     // P3-VISUELS (2026-06-15) : suffix _v2 ajouté pour invalider le cache PNG
     // post-refonte des templates SVG Magrit-brandés.
     expect(url).toBe(
-      'https://myproject.supabase.co/storage/v1/object/public/product_mockups/tenant-uuid/shop-uuid/product-uuid_v7.png',
+      `${publicBucket}/tenant-uuid/shop-uuid/product-uuid_v7.png`,
     );
   });
 
   it('view=front explicite : identique au default avec _v2', () => {
-    const url = buildPublicMockupUrl('myproject', { ...baseParams, view: 'front' });
+    const url = buildPublicMockupUrl(publicBucket, { ...baseParams, view: 'front' });
     expect(url).toContain('product-uuid_v7.png');
     expect(url).not.toContain('__back');
   });
 
   it('view=back : path suffixé __back_v7.png (back avant version)', () => {
-    const url = buildPublicMockupUrl('myproject', { ...baseParams, view: 'back' });
+    const url = buildPublicMockupUrl(publicBucket, { ...baseParams, view: 'back' });
     expect(url).toContain('product-uuid__back_v7.png');
   });
 });
 
 describe('buildEdgeFunctionUrl (S-PRODUCT-VIEWS-MULTI)', () => {
   it('front (default) : pas de query view= (retro-compat)', () => {
-    const url = buildEdgeFunctionUrl('myproject', baseSpecs);
+    const url = buildEdgeFunctionUrl(generator, baseSpecs);
     expect(url).not.toContain('view=');
   });
 
   it('view=front : pas de query view= (retro-compat, edge default front)', () => {
-    const url = buildEdgeFunctionUrl('myproject', { ...baseSpecs, view: 'front' });
+    const url = buildEdgeFunctionUrl(generator, { ...baseSpecs, view: 'front' });
     expect(url).not.toContain('view=');
   });
 
   it('view=back : query view=back ajouté', () => {
-    const url = buildEdgeFunctionUrl('myproject', { ...baseSpecs, view: 'back' });
+    const url = buildEdgeFunctionUrl(generator, { ...baseSpecs, view: 'back' });
     expect(url).toContain('view=back');
   });
 
   it('view=back préserve les autres params (template, productName, ...)', () => {
-    const url = buildEdgeFunctionUrl('myproject', { ...baseSpecs, view: 'back' });
+    const url = buildEdgeFunctionUrl(generator, { ...baseSpecs, view: 'back' });
     expect(url).toContain('template=flyer');
     expect(url).toContain('width=148');
     expect(url).toContain('view=back');

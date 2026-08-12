@@ -15,13 +15,10 @@
  */
 
 import { useMemo, useRef, useState } from "react";
-import { projectId, publicAnonKey } from "/utils/supabase/info";
+import { browserMockupGateway } from '../../../adapters/supabase/browser-mockup-gateway';
 import { TEST_IDS } from "../../lib/testIds";
 import { ProductMockup } from "../brand/ProductMockup";
 import {
-  buildCacheBuster,
-  buildEdgeFunctionUrl,
-  buildPublicMockupUrl,
   type MockupSpecs,
 } from "./MockupImage.helpers";
 
@@ -100,7 +97,7 @@ export function MockupImage(props: MockupImageProps): JSX.Element {
   );
   const view = props.view ?? 'front';
   const initialSrc = useMemo(
-    () => buildPublicMockupUrl(projectId, { ...params, view }),
+    () => browserMockupGateway.publicImageUrl({ ...params, view }),
     [params, view],
   );
 
@@ -136,25 +133,11 @@ export function MockupImage(props: MockupImageProps): JSX.Element {
       template: props.template,
       view,
     };
-    const edgeUrl = buildEdgeFunctionUrl(projectId, specs);
-
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-      const resp = await fetch(edgeUrl, {
-        method: "GET",
-        headers: { Authorization: `Bearer ${publicAnonKey}` },
-        signal: controller.signal,
-      });
+      const blob = await browserMockupGateway.generate(specs, controller.signal);
       clearTimeout(timeoutId);
-      if (!resp.ok) {
-        console.warn(
-          "[MockupImage] edge function non-ok",
-          { status: resp.status, edgeUrl, productId: props.productId },
-        );
-        setState("error");
-        return;
-      }
       // Fix 2026-06-16 — L'edge function retourne le PNG inline en cache MISS.
       // Avant on retentait l'URL CDN avec cache buster, mais la propagation
       // Supabase Storage CDN apres upload peut prendre quelques secondes :
@@ -162,15 +145,6 @@ export function MockupImage(props: MockupImageProps): JSX.Element {
       // -> handleError 2eme fois -> hasRetried=true -> state=error -> fallback
       // ProductMockup (= ANCIEN visuel SVG schematic). Solution : utiliser
       // directement le blob du PNG inline retourne par l'edge function.
-      const blob = await resp.blob();
-      if (!blob.type.startsWith("image/")) {
-        console.warn(
-          "[MockupImage] blob retourne sans content-type image",
-          { blobType: blob.type, blobSize: blob.size, productId: props.productId },
-        );
-        setState("error");
-        return;
-      }
       const blobUrl = URL.createObjectURL(blob);
       setSrc(blobUrl);
       setState("loading");

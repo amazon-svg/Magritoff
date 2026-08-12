@@ -22,8 +22,7 @@ import { ArrowLeft, Image as ImageIcon, ShieldCheck, AlertCircle } from 'lucide-
 import { useIsAdmin } from '../../hooks/useIsAdmin';
 import { useTenant } from '../../contexts/TenantContext';
 import { useTenantPath } from '../../hooks/useTenantPath';
-import { projectId } from '/utils/supabase/info';
-import { buildEdgeFunctionUrl } from '../mockup/MockupImage.helpers';
+import { browserMockupGateway } from '../../../adapters/supabase/browser-mockup-gateway';
 
 interface TemplateRef {
   key:
@@ -117,7 +116,7 @@ export function DashboardAdminMockups() {
     () =>
       TEMPLATES.map((tpl) => ({
         ...tpl,
-        url: buildEdgeFunctionUrl(projectId, {
+        url: browserMockupGateway.previewUrl({
           tenantId: 'magrit-admin-preview',
           shopId: 'magrit-admin-preview',
           productId: `preview-${tpl.key}`,

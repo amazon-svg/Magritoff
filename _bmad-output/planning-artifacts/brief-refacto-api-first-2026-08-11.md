@@ -176,6 +176,8 @@ src/
   dashboard « Prix & marges » sort entièrement de Supabase — livré ;
 - AF21.1 : fournisseur Supabase Auth encapsulé dans un adaptateur de compte ;
   `AuthContext` ne dépend plus du SDK — livré ;
+- AF21.2 : protocole binaire des mockups et URLs de stockage encapsulés dans
+  une passerelle Shops ; les composants visuels sortent de Supabase — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.

@@ -412,6 +412,20 @@ describe('frontières API-first et modulaires', () => {
     expect(adapter).toContain("scope: 'local'");
   });
 
+  it('isole le protocole binaire des mockups dans une passerelle', () => {
+    const image = readFileSync(resolve(process.cwd(), 'src/app/components/mockup/MockupImage.tsx'), 'utf8');
+    const admin = readFileSync(resolve(process.cwd(), 'src/app/components/dashboard/DashboardAdminMockups.tsx'), 'utf8');
+    const helpers = readFileSync(resolve(process.cwd(), 'src/app/components/mockup/MockupImage.helpers.ts'), 'utf8');
+    const adapter = readFileSync(resolve(process.cwd(), 'src/adapters/supabase/browser-mockup-gateway.ts'), 'utf8');
+    expect(image).toContain('browserMockupGateway.generate');
+    expect(admin).toContain('browserMockupGateway.previewUrl');
+    expect(image).not.toContain('utils/supabase');
+    expect(admin).not.toContain('utils/supabase');
+    expect(helpers).not.toContain('functions/v1');
+    expect(helpers).not.toMatch(/\bsupabase\s*\./);
+    expect(adapter).toContain('SupabaseBrowserMockupGateway');
+  });
+
   it('isole le renvoi des invitations derrière le port email', () => {
     const repository = readFileSync(resolve(process.cwd(), 'src/adapters/supabase/invitations-repository.ts'), 'utf8');
     expect(repository).toContain('InvitationEmailSender');

@@ -5,24 +5,20 @@
  * seulement la dette historique d'augmenter pendant sa migration vers /api/v1.
  * Chaque story de migration doit supprimer les entrées devenues inutiles et
  * abaisser les compteurs ; la baseline ne doit jamais être augmentée.
- * Après AF21.1 : 4 fichiers importeurs et 7 références directes restantes.
+ * Après AF21.2 : 2 fichiers importeurs et 4 références directes restantes.
  * Le compteur inclut les appels où `supabase` et `.` sont séparés par un saut de ligne.
  */
 export const legacySupabaseUiImportFiles = new Set([
   'src/app/components/ChatInterface.tsx',
-  'src/app/components/dashboard/DashboardAdminMockups.tsx',
-  'src/app/components/mockup/MockupImage.tsx',
   'src/app/components/shop/portal/PortalCatalog.tsx',
 ]);
 
 export const legacySupabaseUiReferenceLimits = new Map<string, number>([
   ['src/app/components/ChatInterface.tsx', 1],
-  ['src/app/components/mockup/MockupImage.helpers.ts', 3],
   ['src/app/components/shop/portal/PortalCatalog.tsx', 3],
 ]);
 
 export const legacyDirectEdgeUrlLimits = new Map<string, number>([
   ['src/app/components/ChatInterface.tsx', 1],
-  ['src/app/components/mockup/MockupImage.helpers.ts', 1],
   ['src/app/components/shop/portal/PortalCatalog.tsx', 1],
 ]);
