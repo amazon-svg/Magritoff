@@ -37,11 +37,6 @@ const DashboardUsers = lazy(() =>
 const DashboardPlan = lazy(() =>
   import("./components/dashboard/DashboardPlan").then((m) => ({ default: m.DashboardPlan })),
 );
-const DashboardAdminPIM = lazy(() =>
-  import("./components/dashboard/DashboardAdminPIM").then((m) => ({
-    default: m.DashboardAdminPIM,
-  })),
-);
 const DashboardAdminMockups = lazy(() =>
   import("./components/dashboard/DashboardAdminMockups").then((m) => ({
     default: m.DashboardAdminMockups,
@@ -77,11 +72,6 @@ const DashboardTenantSettings = lazy(() =>
 const DashboardTenantSpaces = lazy(() =>
   import("./components/dashboard/DashboardTenantSpaces").then((m) => ({
     default: m.DashboardTenantSpaces,
-  })),
-);
-const DashboardTenantGammes = lazy(() =>
-  import("./components/dashboard/DashboardTenantGammes").then((m) => ({
-    default: m.DashboardTenantGammes,
   })),
 );
 const OrderRoleAdminPage = lazy(() =>
@@ -188,8 +178,6 @@ export const router = createBrowserRouter([
               // Nouveautes v3
               { path: "settings", element: lazyRoute(<DashboardTenantSettings />) },
               { path: "spaces", element: lazyRoute(<DashboardTenantSpaces />) },
-              { path: "gammes", element: lazyRoute(<DashboardTenantGammes />) },
-              { path: "admin/pim", element: lazyRoute(<DashboardAdminPIM />) },
               // REFONTE-UX v2 (2026-08-08, retour Arnaud point 5) — la galerie
               // des mockups Magrit-brandes est CONSERVEE (visuels generes +
               // verification du moteur E8.3), rangee dans le groupe Catalogue.

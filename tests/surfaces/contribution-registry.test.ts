@@ -5,6 +5,7 @@ import { shopsModuleManifest } from '../../src/modules/shops';
 import { quotesModuleManifest } from '../../src/modules/quotes';
 import { quoteTemplatesModuleManifest } from '../../src/modules/quote-templates';
 import { librariesModuleManifest } from '../../src/modules/libraries';
+import { catalogModuleManifest } from '../../src/modules/catalog';
 import { applicationContributionRegistry } from '../../src/surfaces';
 import {
   ContributionRegistryError,
@@ -88,6 +89,18 @@ describe('registre des contributions de surfaces', () => {
       expect.objectContaining({ id: 'libraries.workspace.navigation', label: 'Bibliothèques' }),
     );
     expect(applicationContributionRegistry.forSurface('backoffice').modules.map(({ id }) => id).includes('libraries')).toBe(false);
+  });
+
+  it('limite la gestion Catalog au workspace', () => {
+    expect(catalogModuleManifest.surfaces).toEqual(['workspace']);
+    expect(applicationContributionRegistry.forSurface('workspace').routes).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'catalog.workspace.gammes', path: 'gammes' }),
+      expect.objectContaining({ id: 'catalog.workspace.pim', path: 'admin/pim' }),
+    ]));
+    expect(applicationContributionRegistry.forSurface('workspace').navigation).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'catalog.workspace.pim-navigation', label: 'PIM — Produits' }),
+      expect.objectContaining({ id: 'catalog.workspace.gammes-navigation', label: 'Gammes actives' }),
+    ]));
   });
 
   it('rejette les modules, features et chemins dupliqués', () => {

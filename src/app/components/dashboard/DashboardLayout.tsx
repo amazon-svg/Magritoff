@@ -39,6 +39,11 @@ if (!QUOTE_TEMPLATES_NAVIGATION || !QUOTE_TEMPLATES_ROUTE) throw new Error('La c
 const LIBRARIES_NAVIGATION = workspaceSurface.navigation.find(({ id }) => id === 'libraries.workspace.navigation');
 const LIBRARIES_ROUTE = workspaceSurface.routes.find(({ id }) => id === LIBRARIES_NAVIGATION?.routeId);
 if (!LIBRARIES_NAVIGATION || !LIBRARIES_ROUTE) throw new Error('La contribution workspace du module libraries est incomplète.');
+const CATALOG_PIM_NAVIGATION = workspaceSurface.navigation.find(({ id }) => id === 'catalog.workspace.pim-navigation');
+const CATALOG_PIM_ROUTE = workspaceSurface.routes.find(({ id }) => id === CATALOG_PIM_NAVIGATION?.routeId);
+const CATALOG_GAMMES_NAVIGATION = workspaceSurface.navigation.find(({ id }) => id === 'catalog.workspace.gammes-navigation');
+const CATALOG_GAMMES_ROUTE = workspaceSurface.routes.find(({ id }) => id === CATALOG_GAMMES_NAVIGATION?.routeId);
+if (!CATALOG_PIM_NAVIGATION || !CATALOG_PIM_ROUTE || !CATALOG_GAMMES_NAVIGATION || !CATALOG_GAMMES_ROUTE) throw new Error('La contribution workspace du module catalog est incomplète.');
 
 // E7.7 — mapping label de NavLink -> data-testid pour les cas de test.
 // Couvre les liens cles des cahiers de tests P01 (sidebar nav).
@@ -142,12 +147,12 @@ export function DashboardLayout() {
       title: 'Catalogue',
       items: [
         {
-          to: `${basePath}/admin/pim`,
-          label: 'PIM — Produits',
+          to: `${basePath}/${CATALOG_PIM_ROUTE.path}`,
+          label: CATALOG_PIM_NAVIGATION.label,
           icon: Shield,
           show: isAdmin || isSuperAdmin,
         },
-        { to: `${basePath}/gammes`, label: 'Gammes actives', icon: Layers, show: canManageMembers ?? false },
+        { to: `${basePath}/${CATALOG_GAMMES_ROUTE.path}`, label: CATALOG_GAMMES_NAVIGATION.label, icon: Layers, show: canManageMembers ?? false },
         { to: `${basePath}/${LIBRARIES_ROUTE.path}`, label: LIBRARIES_NAVIGATION.label, icon: Package, show: canUse('library') },
         {
           to: `${basePath}/admin/mockups`,

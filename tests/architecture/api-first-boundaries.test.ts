@@ -78,6 +78,8 @@ describe('frontières API-first et modulaires', () => {
       'src/modules/quote-templates/surface-contributions.ts',
       'src/modules/libraries/manifest.ts',
       'src/modules/libraries/surface-contributions.ts',
+      'src/modules/catalog/manifest.ts',
+      'src/modules/catalog/surface-contributions.ts',
     ];
     const violations = protectedRoots.flatMap((root) => {
       const path = resolve(process.cwd(), root);
@@ -109,6 +111,8 @@ describe('frontières API-first et modulaires', () => {
     expect(routes).not.toContain('const DashboardQuoteTemplates = lazy');
     expect(routes).not.toContain('const DashboardLibraries = lazy');
     expect(routes).not.toContain('const DashboardLibraryDetail = lazy');
+    expect(routes).not.toContain('const DashboardTenantGammes = lazy');
+    expect(routes).not.toContain('const DashboardAdminPIM = lazy');
     expect(routes).toContain('workspaceRuntimeRoutes.map');
     expect(runtime).toContain("import('../components/dashboard/DashboardAccount')");
     expect(runtime).toContain("import('../components/dashboard/DashboardOrders')");
@@ -120,6 +124,8 @@ describe('frontières API-first et modulaires', () => {
     expect(runtime).toContain("import('../components/dashboard/DashboardQuoteTemplates')");
     expect(runtime).toContain("import('../components/dashboard/DashboardLibraries')");
     expect(runtime).toContain("import('../components/dashboard/DashboardLibraryDetail')");
+    expect(runtime).toContain("import('../components/dashboard/DashboardTenantGammes')");
+    expect(runtime).toContain("import('../components/dashboard/DashboardAdminPIM')");
     expect(runtime).toContain('Component: lazy(loader)');
   });
 

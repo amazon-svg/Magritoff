@@ -23,6 +23,8 @@ const routeLoaders: Readonly<Record<string, LazyPageLoader>> = Object.freeze({
   'quote-templates.workspace.list': () => import('../components/dashboard/DashboardQuoteTemplates').then((module) => ({ default: module.DashboardQuoteTemplates })),
   'libraries.workspace.list': () => import('../components/dashboard/DashboardLibraries').then((module) => ({ default: module.DashboardLibraries })),
   'libraries.workspace.detail': () => import('../components/dashboard/DashboardLibraryDetail').then((module) => ({ default: module.DashboardLibraryDetail })),
+  'catalog.workspace.gammes': () => import('../components/dashboard/DashboardTenantGammes').then((module) => ({ default: module.DashboardTenantGammes })),
+  'catalog.workspace.pim': () => import('../components/dashboard/DashboardAdminPIM').then((module) => ({ default: module.DashboardAdminPIM })),
 });
 
 export type WorkspaceRuntimeRoute = Readonly<{
