@@ -25,6 +25,7 @@ const routeLoaders: Readonly<Record<string, LazyPageLoader>> = Object.freeze({
   'libraries.workspace.detail': () => import('../components/dashboard/DashboardLibraryDetail').then((module) => ({ default: module.DashboardLibraryDetail })),
   'catalog.workspace.gammes': () => import('../components/dashboard/DashboardTenantGammes').then((module) => ({ default: module.DashboardTenantGammes })),
   'catalog.workspace.pim': () => import('../components/dashboard/DashboardAdminPIM').then((module) => ({ default: module.DashboardAdminPIM })),
+  'commercial.workspace.pricing': () => import('../components/dashboard/commercial/DashboardCommercial').then((module) => ({ default: module.DashboardCommercial })),
 });
 
 export type WorkspaceRuntimeRoute = Readonly<{

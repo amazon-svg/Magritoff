@@ -44,6 +44,9 @@ const CATALOG_PIM_ROUTE = workspaceSurface.routes.find(({ id }) => id === CATALO
 const CATALOG_GAMMES_NAVIGATION = workspaceSurface.navigation.find(({ id }) => id === 'catalog.workspace.gammes-navigation');
 const CATALOG_GAMMES_ROUTE = workspaceSurface.routes.find(({ id }) => id === CATALOG_GAMMES_NAVIGATION?.routeId);
 if (!CATALOG_PIM_NAVIGATION || !CATALOG_PIM_ROUTE || !CATALOG_GAMMES_NAVIGATION || !CATALOG_GAMMES_ROUTE) throw new Error('La contribution workspace du module catalog est incomplète.');
+const COMMERCIAL_NAVIGATION = workspaceSurface.navigation.find(({ id }) => id === 'commercial.workspace.navigation');
+const COMMERCIAL_ROUTE = workspaceSurface.routes.find(({ id }) => id === COMMERCIAL_NAVIGATION?.routeId);
+if (!COMMERCIAL_NAVIGATION || !COMMERCIAL_ROUTE) throw new Error('La contribution workspace du module commercial est incomplète.');
 
 // E7.7 — mapping label de NavLink -> data-testid pour les cas de test.
 // Couvre les liens cles des cahiers de tests P01 (sidebar nav).
@@ -134,8 +137,8 @@ export function DashboardLayout() {
         { to: `${basePath}/${ORDERS_ROUTE.path}`, label: ORDERS_NAVIGATION.label, icon: ShoppingBag, show: true },
         { to: `${basePath}/history`, label: 'Historique', icon: MessageSquare, show: true },
         {
-          to: `${basePath}/commercial`,
-          label: 'Prix & marges',
+          to: `${basePath}/${COMMERCIAL_ROUTE.path}`,
+          label: COMMERCIAL_NAVIGATION.label,
           icon: BadgePercent,
           show: canManageMembers ?? false,
         },

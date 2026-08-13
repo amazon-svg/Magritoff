@@ -42,12 +42,6 @@ const DashboardAdminMockups = lazy(() =>
     default: m.DashboardAdminMockups,
   })),
 );
-// REFONTE-UX (2026-08-08) — module Gestion commerciale (point 7).
-const DashboardCommercial = lazy(() =>
-  import("./components/dashboard/commercial/DashboardCommercial").then((m) => ({
-    default: m.DashboardCommercial,
-  })),
-);
 // REFONTE-UX (2026-08-08) — module Parc machine, wizard RP#070826 (point 8).
 const DashboardMachines = lazy(() =>
   import("./components/dashboard/machines/DashboardMachines").then((m) => ({
@@ -182,9 +176,6 @@ export const router = createBrowserRouter([
               // des mockups Magrit-brandes est CONSERVEE (visuels generes +
               // verification du moteur E8.3), rangee dans le groupe Catalogue.
               { path: "admin/mockups", element: lazyRoute(<DashboardAdminMockups />) },
-              // REFONTE-UX (2026-08-08) — Gestion commerciale (point 7) :
-              // prix, marges et remises par gamme/produit x client/groupe.
-              { path: "commercial", element: lazyRoute(<DashboardCommercial />) },
               // REFONTE-UX (2026-08-08) — Parc machine (point 8, RP#070826) :
               // liste du parc + wizard guide de constitution.
               { path: "machines", element: lazyRoute(<DashboardMachines />) },

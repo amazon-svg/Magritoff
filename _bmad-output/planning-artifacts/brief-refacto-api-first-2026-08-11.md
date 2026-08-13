@@ -241,6 +241,8 @@ généralisation des surfaces dépendront du contrat storefront UM2.
   navigation Bibliothèques sont chargées depuis le registre — livré ;
 - AF26.6 : manifeste Catalog limité à sa gestion workspace actuelle ; routes
   Gammes et PIM ainsi que leur navigation sont chargées depuis le registre — livré ;
+- AF26.7 : manifeste Commercial limité au workspace ; route et navigation
+  Prix & marges sont chargées depuis le registre — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.

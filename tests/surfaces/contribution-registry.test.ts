@@ -6,6 +6,7 @@ import { quotesModuleManifest } from '../../src/modules/quotes';
 import { quoteTemplatesModuleManifest } from '../../src/modules/quote-templates';
 import { librariesModuleManifest } from '../../src/modules/libraries';
 import { catalogModuleManifest } from '../../src/modules/catalog';
+import { commercialModuleManifest } from '../../src/modules/commercial';
 import { applicationContributionRegistry } from '../../src/surfaces';
 import {
   ContributionRegistryError,
@@ -101,6 +102,16 @@ describe('registre des contributions de surfaces', () => {
       expect.objectContaining({ id: 'catalog.workspace.pim-navigation', label: 'PIM — Produits' }),
       expect.objectContaining({ id: 'catalog.workspace.gammes-navigation', label: 'Gammes actives' }),
     ]));
+  });
+
+  it('limite la gestion Commercial au workspace', () => {
+    expect(commercialModuleManifest.surfaces).toEqual(['workspace']);
+    expect(applicationContributionRegistry.forSurface('workspace').routes).toContainEqual(
+      expect.objectContaining({ id: 'commercial.workspace.pricing', path: 'commercial' }),
+    );
+    expect(applicationContributionRegistry.forSurface('workspace').navigation).toContainEqual(
+      expect.objectContaining({ id: 'commercial.workspace.navigation', label: 'Prix & marges' }),
+    );
   });
 
   it('rejette les modules, features et chemins dupliqués', () => {
