@@ -25,6 +25,9 @@ if (!ACCOUNT_NAVIGATION || !ACCOUNT_ROUTE) {
 const ORDERS_NAVIGATION = workspaceSurface.navigation.find(({ id }) => id === 'orders.workspace.navigation');
 const ORDERS_ROUTE = workspaceSurface.routes.find(({ id }) => id === ORDERS_NAVIGATION?.routeId);
 if (!ORDERS_NAVIGATION || !ORDERS_ROUTE) throw new Error('La contribution workspace du module orders est incomplète.');
+const SHOPS_NAVIGATION = workspaceSurface.navigation.find(({ id }) => id === 'shops.workspace.navigation');
+const SHOPS_ROUTE = workspaceSurface.routes.find(({ id }) => id === SHOPS_NAVIGATION?.routeId);
+if (!SHOPS_NAVIGATION || !SHOPS_ROUTE) throw new Error('La contribution workspace du module shops est incomplète.');
 
 // E7.7 — mapping label de NavLink -> data-testid pour les cas de test.
 // Couvre les liens cles des cahiers de tests P01 (sidebar nav).
@@ -120,7 +123,7 @@ export function DashboardLayout() {
           icon: BadgePercent,
           show: canManageMembers ?? false,
         },
-        { to: `${basePath}/shops`, label: 'Boutiques', icon: Store, show: canUse('shops') },
+        { to: `${basePath}/${SHOPS_ROUTE.path}`, label: SHOPS_NAVIGATION.label, icon: Store, show: canUse('shops') },
         { to: `${basePath}/users`, label: 'Utilisateurs', icon: Users, show: true },
       ],
     },

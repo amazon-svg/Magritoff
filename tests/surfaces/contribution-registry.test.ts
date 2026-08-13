@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { accountModuleManifest } from '../../src/modules/account';
 import { ordersModuleManifest } from '../../src/modules/orders';
+import { shopsModuleManifest } from '../../src/modules/shops';
 import { applicationContributionRegistry } from '../../src/surfaces';
 import {
   ContributionRegistryError,
@@ -45,6 +46,16 @@ describe('registre des contributions de surfaces', () => {
     expect(applicationContributionRegistry.forSurface('customer-portal').routes).toContainEqual(expect.objectContaining({ id: 'orders.customer-portal.list', path: 'account/orders', mount: 'host' }));
     expect(applicationContributionRegistry.forSurface('workspace').routes).toContainEqual(expect.objectContaining({ id: 'orders.workspace.list', path: 'orders', mount: 'router' }));
     expect(applicationContributionRegistry.forSurface('backoffice').routes).toContainEqual(expect.objectContaining({ id: 'orders.backoffice.production', requiredCapabilities: ['orders.transition'] }));
+  });
+
+  it('compose Shops sur storefront, workspace et backoffice', () => {
+    expect(shopsModuleManifest.surfaces).toEqual(['storefront', 'workspace', 'backoffice']);
+    expect(applicationContributionRegistry.forSurface('storefront').routes).toContainEqual(expect.objectContaining({ id: 'shops.storefront.root', mount: 'host' }));
+    expect(applicationContributionRegistry.forSurface('workspace').routes).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'shops.workspace.list', path: 'shops' }),
+      expect.objectContaining({ id: 'shops.workspace.edit', path: 'shops/:id' }),
+    ]));
+    expect(applicationContributionRegistry.forSurface('backoffice').routes).toContainEqual(expect.objectContaining({ id: 'shops.backoffice.list', requiredCapabilities: ['shops.govern'] }));
   });
 
   it('rejette les modules, features et chemins dupliqués', () => {

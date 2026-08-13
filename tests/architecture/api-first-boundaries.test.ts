@@ -70,6 +70,8 @@ describe('frontières API-first et modulaires', () => {
       'src/modules/account/surface-contributions.ts',
       'src/modules/orders/manifest.ts',
       'src/modules/orders/surface-contributions.ts',
+      'src/modules/shops/manifest.ts',
+      'src/modules/shops/surface-contributions.ts',
     ];
     const violations = protectedRoots.flatMap((root) => {
       const path = resolve(process.cwd(), root);
@@ -93,9 +95,13 @@ describe('frontières API-first et modulaires', () => {
 
     expect(routes).not.toContain('const DashboardAccount = lazy');
     expect(routes).not.toContain('const DashboardOrders = lazy');
+    expect(routes).not.toContain('const DashboardShops = lazy');
+    expect(routes).not.toContain('const DashboardShopEditor = lazy');
     expect(routes).toContain('workspaceRuntimeRoutes.map');
     expect(runtime).toContain("import('../components/dashboard/DashboardAccount')");
     expect(runtime).toContain("import('../components/dashboard/DashboardOrders')");
+    expect(runtime).toContain("import('../components/dashboard/DashboardShops')");
+    expect(runtime).toContain("import('../components/dashboard/DashboardShopEditor')");
     expect(runtime).toContain('Component: lazy(loader)');
   });
 

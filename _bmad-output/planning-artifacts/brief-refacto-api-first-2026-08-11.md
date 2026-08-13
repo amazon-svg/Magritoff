@@ -231,6 +231,8 @@ généralisation des surfaces dépendront du contrat storefront UM2.
 - AF26.1 : manifeste Orders et contributions déclarées pour storefront,
   customer-portal, workspace et backoffice ; la route workspace Commandes est
   désormais chargée par le registre de surfaces — livré ;
+- AF26.2 : manifeste Shops pour storefront, workspace et backoffice ; liste,
+  éditeur et navigation Boutiques proviennent désormais du registre — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.

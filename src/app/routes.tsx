@@ -65,14 +65,6 @@ const DashboardLibraryDetail = lazy(() =>
     default: m.DashboardLibraryDetail,
   })),
 );
-const DashboardShops = lazy(() =>
-  import("./components/dashboard/DashboardShops").then((m) => ({ default: m.DashboardShops })),
-);
-const DashboardShopEditor = lazy(() =>
-  import("./components/dashboard/DashboardShopEditor").then((m) => ({
-    default: m.DashboardShopEditor,
-  })),
-);
 const DashboardAdminPIM = lazy(() =>
   import("./components/dashboard/DashboardAdminPIM").then((m) => ({
     default: m.DashboardAdminPIM,
@@ -227,8 +219,6 @@ export const router = createBrowserRouter([
               { path: "members", element: <Navigate to="../users" replace /> },
               { path: "library", element: lazyRoute(<DashboardLibraries />) },
               { path: "library/:id", element: lazyRoute(<DashboardLibraryDetail />) },
-              { path: "shops", element: lazyRoute(<DashboardShops />) },
-              { path: "shops/:id", element: lazyRoute(<DashboardShopEditor />) },
               // Nouveautes v3
               { path: "settings", element: lazyRoute(<DashboardTenantSettings />) },
               { path: "spaces", element: lazyRoute(<DashboardTenantSpaces />) },
