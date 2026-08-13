@@ -1,8 +1,7 @@
 import { useMemo, useState } from "react";
 import { X, RefreshCw, CheckCircle, XCircle, AlertTriangle, Loader2 } from "lucide-react";
 import { DiagnosticsApiClient, type AiProviderDiagnostic, type ClariprintDiagnostic } from "../../modules/diagnostics";
-import { FetchApiClient } from "../../platform/api";
-import { useAuth } from "../contexts/AuthContext";
+import { useApiRuntimeClient } from "../contexts/ApiRuntimeContext";
 
 interface DiagnosticPanelProps {
   onClose: () => void;
@@ -15,10 +14,8 @@ interface TestResult<T> {
 }
 
 export function DiagnosticPanel({ onClose }: DiagnosticPanelProps) {
-  const { session } = useAuth();
-  const diagnosticsApi = useMemo(() => new DiagnosticsApiClient(new FetchApiClient(
-    '', globalThis.fetch, () => session?.access_token ?? null,
-  )), [session?.access_token]);
+  const apiClient = useApiRuntimeClient();
+  const diagnosticsApi = useMemo(() => new DiagnosticsApiClient(apiClient), [apiClient]);
   const [clariprintTest, setClariprintTest] = useState<TestResult<ClariprintDiagnostic>>({
     loading: false,
     data: null,

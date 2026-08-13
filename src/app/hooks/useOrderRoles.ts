@@ -19,8 +19,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { OrdersApiClient } from '../../modules/orders';
-import { FetchApiClient } from '../../platform/api';
-import { useAuth } from '../contexts/AuthContext';
+import { useApiRuntimeClient } from '../contexts/ApiRuntimeContext';
 
 export type OrderCapability =
   | 'can_quote'
@@ -89,14 +88,12 @@ export function mergeCapabilities(roles: OrderRoleAssignment[]): Record<OrderCap
  * @param userId UUID du user (récupéré via AuthContext côté caller — passé en arg pour testabilité)
  */
 export function useOrderRoles(orderId: string | null, userId: string | null): OrderRolesState {
-  const { session } = useAuth();
+  const apiClient = useApiRuntimeClient();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [roles, setRoles] = useState<OrderRoleAssignment[]>([]);
   const [isCreator, setIsCreator] = useState(false);
-  const ordersApi = useMemo(() => new OrdersApiClient(
-    new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null),
-  ), [session?.access_token]);
+  const ordersApi = useMemo(() => new OrdersApiClient(apiClient), [apiClient]);
 
   const fetch = useCallback(async () => {
     if (!orderId || !userId) {

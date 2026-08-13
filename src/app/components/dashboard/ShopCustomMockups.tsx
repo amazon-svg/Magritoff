@@ -21,8 +21,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Upload, RotateCcw, Loader2, Image as ImageIcon } from 'lucide-react';
 import { ShopsApiClient, type MockupTemplateType, type ShopCustomMockup } from '../../../modules/shops';
-import { FetchApiClient } from '../../../platform/api';
-import { useAuth } from '../../contexts/AuthContext';
+import { useApiRuntimeClient } from '../../contexts/ApiRuntimeContext';
 import { resolveProductImage } from '../../utils/productImages';
 
 interface Props {
@@ -51,8 +50,8 @@ const TEMPLATES: TemplateDef[] = [
 
 const ACCEPTED_MIME = 'image/png,image/jpeg,image/webp,image/svg+xml';
 export function ShopCustomMockups({ shopId, tenantId }: Props) {
-  const { session } = useAuth();
-  const shopsApi = useMemo(() => new ShopsApiClient(new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null)), [session?.access_token]);
+  const apiClient = useApiRuntimeClient();
+  const shopsApi = useMemo(() => new ShopsApiClient(apiClient), [apiClient]);
   const [overrides, setOverrides] = useState<Record<string, ShopCustomMockup>>({});
   const [loading, setLoading] = useState(true);
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);

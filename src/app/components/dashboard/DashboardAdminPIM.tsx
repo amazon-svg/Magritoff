@@ -3,9 +3,8 @@ import { ChevronDown, ChevronRight, Sparkles, Pencil, Trash2, Plus, Loader2, Che
 import { usePIM } from '../../contexts/PIMContext';
 import { useIsAdmin } from '../../hooks/useIsAdmin';
 import { useTenant } from '../../contexts/TenantContext';
-import { useAuth } from '../../contexts/AuthContext';
 import { CatalogApiClient, type PimIngestReport } from '../../../modules/catalog';
-import { FetchApiClient } from '../../../platform/api';
+import { useApiRuntimeClient } from '../../contexts/ApiRuntimeContext';
 import type { Gamme, ProductDefinition } from '../../utils/productEnrichment';
 
 const LOCALES = ['fr', 'en'];
@@ -17,10 +16,10 @@ export function DashboardAdminPIM() {
   // L'un des deux suffit.
   const isAdmin = useIsAdmin();
   const { isSuperAdmin } = useTenant();
-  const { session } = useAuth();
+  const apiClient = useApiRuntimeClient();
   const hasAccess = isAdmin || isSuperAdmin;
   const { gammes, definitions, upsertGamme, upsertDefinition, deleteDefinition, refresh } = usePIM();
-  const catalogApi = useMemo(() => new CatalogApiClient(new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null)), [session?.access_token]);
+  const catalogApi = useMemo(() => new CatalogApiClient(apiClient), [apiClient]);
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [editing, setEditing] = useState<Partial<ProductDefinition> | null>(null);

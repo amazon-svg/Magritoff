@@ -36,7 +36,8 @@ import { InviteUserModalV2 } from './InviteUserModalV2';
 import { EditUserRolesModal } from './EditUserRolesModal';
 import { InvitationsApiClient } from '../../../modules/invitations';
 import { MembersApiClient } from '../../../modules/members';
-import { ApiClientError, FetchApiClient } from '../../../platform/api';
+import { ApiClientError } from '../../../platform/api';
+import { useApiRuntimeClient } from '../../contexts/ApiRuntimeContext';
 
 // ────────────────────────────────────────────────────────────────────────────
 // SECTION 1 — Utilisateurs Magrit (membres tenant + invitations)
@@ -66,7 +67,8 @@ interface InvitationRow {
 }
 
 function MagritUsersSection() {
-  const { user, session } = useAuth();
+  const { user } = useAuth();
+  const apiClient = useApiRuntimeClient();
   const { currentTenant, currentRole, isSuperAdmin } = useTenant();
   const { shops } = useShops();
 
@@ -80,12 +82,8 @@ function MagritUsersSection() {
 
   // Modale "Modifier les droits"
   const [editingPerms, setEditingPerms] = useState<MemberRow | null>(null);
-  const invitationsApi = useMemo(() => new InvitationsApiClient(new FetchApiClient(
-    '', globalThis.fetch, () => session?.access_token ?? null,
-  )), [session?.access_token]);
-  const membersApi = useMemo(() => new MembersApiClient(new FetchApiClient(
-    '', globalThis.fetch, () => session?.access_token ?? null,
-  )), [session?.access_token]);
+  const invitationsApi = useMemo(() => new InvitationsApiClient(apiClient), [apiClient]);
+  const membersApi = useMemo(() => new MembersApiClient(apiClient), [apiClient]);
 
   const canWrite = currentRole === 'owner' || currentRole === 'admin' || isSuperAdmin;
 

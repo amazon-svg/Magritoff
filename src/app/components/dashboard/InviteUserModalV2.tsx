@@ -26,6 +26,7 @@ import { TEST_IDS } from '../../lib/testIds';
 import { useAuth } from '../../contexts/AuthContext';
 import { InvitationsApiClient } from '../../../modules/invitations';
 import { ApiClientError, FetchApiClient } from '../../../platform/api';
+import { useApiRuntimeClient } from '../../contexts/ApiRuntimeContext';
 import {
   invitationApiProblemMessage,
 } from './InviteUserModalV2.helpers';
@@ -60,6 +61,7 @@ export function InviteUserModalV2({
   onClose,
 }: InviteUserModalV2Props) {
   const { session, refreshSession } = useAuth();
+  const apiClient = useApiRuntimeClient();
   const [email, setEmail] = useState('');
   const [roles, setRoles] = useState<RoleOption[]>([]);
   const [selectedRoleIds, setSelectedRoleIds] = useState<Set<string>>(new Set());
@@ -76,9 +78,7 @@ export function InviteUserModalV2({
     reason: string;
   } | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
-  const invitationsApi = useMemo(() => new InvitationsApiClient(new FetchApiClient(
-    '', globalThis.fetch, () => session?.access_token ?? null,
-  )), [session?.access_token]);
+  const invitationsApi = useMemo(() => new InvitationsApiClient(apiClient), [apiClient]);
 
   const loadRoles = useCallback(async () => {
     setLoadingRoles(true);

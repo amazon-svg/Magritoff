@@ -25,9 +25,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Loader2, X as XIcon } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
 import { RolesApiClient } from '../../../modules/roles';
-import { FetchApiClient } from '../../../platform/api';
+import { useApiRuntimeClient } from '../../contexts/ApiRuntimeContext';
 import {
   Dialog,
   DialogClose,
@@ -152,16 +151,14 @@ export function RoleEditorDialog({
   onClose,
   onSaved,
 }: RoleEditorDialogProps) {
-  const { session } = useAuth();
+  const apiClient = useApiRuntimeClient();
   const isEdit = !!role;
   const [form, setForm] = useState<FormState>(() =>
     buildInitialState(role, defaultNameForCreate ?? 'Validateur 1'),
   );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const rolesApi = useMemo(() => new RolesApiClient(new FetchApiClient(
-    '', globalThis.fetch, () => session?.access_token ?? null,
-  )), [session?.access_token]);
+  const rolesApi = useMemo(() => new RolesApiClient(apiClient), [apiClient]);
 
   // Reset état au changement de mode (création ↔ édition) / nouvelle ouverture
   useEffect(() => {

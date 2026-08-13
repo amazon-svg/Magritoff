@@ -31,13 +31,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, Navigate } from 'react-router';
 import { Archive, Copy, Edit, MoreHorizontal, MoveDown, MoveUp, Plus } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
 import { useTenant } from '../../contexts/TenantContext';
 import { useShops } from '../../contexts/ShopsContext';
 import { useUserCapability } from '../../hooks/useUserCapability';
 import { TEST_IDS } from '../../lib/testIds';
 import { RolesApiClient } from '../../../modules/roles';
-import { FetchApiClient } from '../../../platform/api';
+import { useApiRuntimeClient } from '../../contexts/ApiRuntimeContext';
 import {
   RoleEditorDialog,
   type NotifyPolicy,
@@ -105,7 +104,7 @@ function semanticTag(role: TenantRoleDefinition, maxValidatorOrdering: number | 
 }
 
 export function OrderRoleAdminPage() {
-  const { session } = useAuth();
+  const apiClient = useApiRuntimeClient();
   const { currentTenant, isSuperAdmin } = useTenant();
   const { shops } = useShops();
   const { hasIt: canManageRoles, loading: capLoading } = useUserCapability('can_manage_roles');
@@ -121,9 +120,7 @@ export function OrderRoleAdminPage() {
   const [editorRole, setEditorRole] = useState<TenantRoleDefinition | undefined>(undefined);
   const [roleToArchive, setRoleToArchive] = useState<TenantRoleDefinition | null>(null);
   const [archiveSubmitting, setArchiveSubmitting] = useState(false);
-  const rolesApi = useMemo(() => new RolesApiClient(new FetchApiClient(
-    '', globalThis.fetch, () => session?.access_token ?? null,
-  )), [session?.access_token]);
+  const rolesApi = useMemo(() => new RolesApiClient(apiClient), [apiClient]);
 
   // ─── Load ────────────────────────────────────────────────────────────
   const reload = useCallback(async () => {

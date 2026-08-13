@@ -178,6 +178,24 @@ describe('frontières API-first et modulaires', () => {
     expect(violations).toEqual([]);
   });
 
+  it('centralise le transport API de la surface workspace', () => {
+    const workspaceRoots = [
+      resolve(process.cwd(), 'src/app/components/dashboard'),
+      resolve(process.cwd(), 'src/app/hooks'),
+      resolve(process.cwd(), 'src/app/components/DiagnosticPanel.tsx'),
+    ];
+    const files = workspaceRoots.flatMap((root) =>
+      statSync(root).isDirectory() ? listTypeScriptFiles(root) : [root],
+    );
+    const directTransports = files
+      .filter((file) => readFileSync(file, 'utf8').includes('new FetchApiClient'))
+      .map((file) => relative(process.cwd(), file));
+
+    expect(directTransports).toEqual([
+      'src/app/components/dashboard/InviteUserModalV2.tsx',
+    ]);
+  });
+
   it('sort les paramètres tenant du fournisseur', () => {
     const source = readFileSync(resolve(process.cwd(), 'src/app/components/dashboard/DashboardTenantSettings.tsx'), 'utf8');
     expect(source).toContain('SessionApiClient');

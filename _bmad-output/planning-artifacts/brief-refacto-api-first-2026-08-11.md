@@ -219,6 +219,9 @@ généralisation des surfaces dépendront du contrat storefront UM2.
 - AF25.1 : runtime HTTP React unique sous l’Auth et migration des contextes
   Session, PIM, Conversations, Libraries, Quotes, QuoteTemplates et Shops ;
   le jeton n’est plus recâblé séparément dans chaque provider — livré ;
+- AF25.2 : migration des dashboards, outils de rôles, hooks de capabilities et
+  diagnostic vers le runtime HTTP injecté ; seul le renouvellement atomique de
+  session avant invitation conserve temporairement un client frais — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.

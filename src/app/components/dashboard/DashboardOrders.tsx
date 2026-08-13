@@ -11,7 +11,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { OrdersApiClient } from '../../../modules/orders';
-import { FetchApiClient } from '../../../platform/api';
+import { useApiRuntimeClient } from '../../contexts/ApiRuntimeContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTenant } from '../../contexts/TenantContext';
 import { useShops } from '../../contexts/ShopsContext';
@@ -31,15 +31,14 @@ interface DashboardOrderUI extends OrderUI {
 }
 
 export function DashboardOrders() {
-  const { user, session } = useAuth();
+  const { user } = useAuth();
+  const apiClient = useApiRuntimeClient();
   const { currentTenant } = useTenant();
   const { shops } = useShops();
   const [orders, setOrders] = useState<DashboardOrderUI[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const ordersApi = useMemo(() => new OrdersApiClient(
-    new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null),
-  ), [session?.access_token]);
+  const ordersApi = useMemo(() => new OrdersApiClient(apiClient), [apiClient]);
 
   // Fix 2026-05-25 : Map shop_id -> { name, slug } pour afficher le NOM
   // humain dans la colonne Boutique (et plus le slug technique qui ressemble
