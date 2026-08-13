@@ -36,6 +36,9 @@ if (!QUOTES_NAVIGATION || !QUOTES_ROUTE || !PENDING_QUOTES_NAVIGATION || !PENDIN
 const QUOTE_TEMPLATES_NAVIGATION = workspaceSurface.navigation.find(({ id }) => id === 'quote-templates.workspace.navigation');
 const QUOTE_TEMPLATES_ROUTE = workspaceSurface.routes.find(({ id }) => id === QUOTE_TEMPLATES_NAVIGATION?.routeId);
 if (!QUOTE_TEMPLATES_NAVIGATION || !QUOTE_TEMPLATES_ROUTE) throw new Error('La contribution workspace du module quote-templates est incomplète.');
+const LIBRARIES_NAVIGATION = workspaceSurface.navigation.find(({ id }) => id === 'libraries.workspace.navigation');
+const LIBRARIES_ROUTE = workspaceSurface.routes.find(({ id }) => id === LIBRARIES_NAVIGATION?.routeId);
+if (!LIBRARIES_NAVIGATION || !LIBRARIES_ROUTE) throw new Error('La contribution workspace du module libraries est incomplète.');
 
 // E7.7 — mapping label de NavLink -> data-testid pour les cas de test.
 // Couvre les liens cles des cahiers de tests P01 (sidebar nav).
@@ -145,7 +148,7 @@ export function DashboardLayout() {
           show: isAdmin || isSuperAdmin,
         },
         { to: `${basePath}/gammes`, label: 'Gammes actives', icon: Layers, show: canManageMembers ?? false },
-        { to: `${basePath}/library`, label: 'Bibliothèques', icon: Package, show: canUse('library') },
+        { to: `${basePath}/${LIBRARIES_ROUTE.path}`, label: LIBRARIES_NAVIGATION.label, icon: Package, show: canUse('library') },
         {
           to: `${basePath}/admin/mockups`,
           label: 'Visuels Magrit',

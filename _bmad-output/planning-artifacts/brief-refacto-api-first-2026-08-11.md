@@ -237,6 +237,8 @@ généralisation des surfaces dépendront du contrat storefront UM2.
   éditeur et navigation Devis sont chargés depuis le registre — livré ;
 - AF26.4 : manifeste QuoteTemplates limité au workspace ; route et navigation
   Gabarits de devis sont chargées depuis le registre — livré ;
+- AF26.5 : manifeste Libraries limité au workspace ; routes liste/détail et
+  navigation Bibliothèques sont chargées depuis le registre — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.

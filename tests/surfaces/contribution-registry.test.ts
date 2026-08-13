@@ -4,6 +4,7 @@ import { ordersModuleManifest } from '../../src/modules/orders';
 import { shopsModuleManifest } from '../../src/modules/shops';
 import { quotesModuleManifest } from '../../src/modules/quotes';
 import { quoteTemplatesModuleManifest } from '../../src/modules/quote-templates';
+import { librariesModuleManifest } from '../../src/modules/libraries';
 import { applicationContributionRegistry } from '../../src/surfaces';
 import {
   ContributionRegistryError,
@@ -75,6 +76,18 @@ describe('registre des contributions de surfaces', () => {
     expect(quoteTemplatesModuleManifest.surfaces).toEqual(['workspace']);
     expect(applicationContributionRegistry.forSurface('workspace').routes).toContainEqual(expect.objectContaining({ id: 'quote-templates.workspace.list', path: 'quote-templates' }));
     expect(applicationContributionRegistry.forSurface('backoffice').modules.map(({ id }) => id).includes('quote-templates')).toBe(false);
+  });
+
+  it('limite Libraries au workspace', () => {
+    expect(librariesModuleManifest.surfaces).toEqual(['workspace']);
+    expect(applicationContributionRegistry.forSurface('workspace').routes).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'libraries.workspace.list', path: 'library' }),
+      expect.objectContaining({ id: 'libraries.workspace.detail', path: 'library/:id' }),
+    ]));
+    expect(applicationContributionRegistry.forSurface('workspace').navigation).toContainEqual(
+      expect.objectContaining({ id: 'libraries.workspace.navigation', label: 'Bibliothèques' }),
+    );
+    expect(applicationContributionRegistry.forSurface('backoffice').modules.map(({ id }) => id).includes('libraries')).toBe(false);
   });
 
   it('rejette les modules, features et chemins dupliqués', () => {

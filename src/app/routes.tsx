@@ -37,16 +37,6 @@ const DashboardUsers = lazy(() =>
 const DashboardPlan = lazy(() =>
   import("./components/dashboard/DashboardPlan").then((m) => ({ default: m.DashboardPlan })),
 );
-const DashboardLibraries = lazy(() =>
-  import("./components/dashboard/DashboardLibraries").then((m) => ({
-    default: m.DashboardLibraries,
-  })),
-);
-const DashboardLibraryDetail = lazy(() =>
-  import("./components/dashboard/DashboardLibraryDetail").then((m) => ({
-    default: m.DashboardLibraryDetail,
-  })),
-);
 const DashboardAdminPIM = lazy(() =>
   import("./components/dashboard/DashboardAdminPIM").then((m) => ({
     default: m.DashboardAdminPIM,
@@ -195,8 +185,6 @@ export const router = createBrowserRouter([
               { path: "users", element: lazyRoute(<DashboardUsers />) },
               { path: "clients", element: <Navigate to="../users" replace /> },
               { path: "members", element: <Navigate to="../users" replace /> },
-              { path: "library", element: lazyRoute(<DashboardLibraries />) },
-              { path: "library/:id", element: lazyRoute(<DashboardLibraryDetail />) },
               // Nouveautes v3
               { path: "settings", element: lazyRoute(<DashboardTenantSettings />) },
               { path: "spaces", element: lazyRoute(<DashboardTenantSpaces />) },
