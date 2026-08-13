@@ -169,15 +169,15 @@ describe('frontières API-first et modulaires', () => {
     expect(tenantContext).not.toContain('createSubTenant');
   });
 
-  it('réserve le client session direct au développement local', () => {
+  it('impose le client API session dans tous les runtimes', () => {
     const provider = readFileSync(
       resolve(process.cwd(), 'src/app/contexts/SessionBootstrapContext.tsx'),
       'utf8',
     );
 
-    expect(provider).toContain("import.meta.env.DEV && import.meta.env.VITE_API_RUNTIME !== 'edge'");
-    expect(provider).toContain('return new DevSessionClient(user.id)');
-    expect(provider).toContain('return new SessionApiClient(');
+    expect(provider).toContain('new SessionApiClient(');
+    expect(provider).not.toContain('DevSessionClient');
+    expect(provider).not.toContain('VITE_API_RUNTIME');
   });
 
   it('conserve la RLS dans la composition Edge des modules métier', () => {

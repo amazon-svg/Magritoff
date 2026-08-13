@@ -25,7 +25,6 @@ umask 077
 {
   printf 'VITE_SUPABASE_URL=%s\n' "$API_URL"
   printf 'VITE_SUPABASE_ANON_KEY=%s\n' "$ANON_KEY"
-  printf 'VITE_API_RUNTIME=edge\n'
   printf 'VITE_API_PROXY_TARGET=%s/functions/v1/magrit-api\n' "$API_URL"
 } > .env.local
 

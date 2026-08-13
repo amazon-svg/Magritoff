@@ -15,7 +15,6 @@ import {
   type CreateRootTenant,
 } from '../../modules/session';
 import { FetchApiClient } from '../../platform/api';
-import { DevSessionClient } from '../../adapters/supabase/dev-session-client';
 import { useAuth } from './AuthContext';
 
 type SessionBootstrapContextValue = Readonly<{
@@ -40,15 +39,10 @@ export function SessionBootstrapProvider({ children }: { children: ReactNode }) 
   const currentUserId = useRef<string | null>(user?.id ?? null);
   currentUserId.current = user?.id ?? null;
   const api = useMemo(
-    () => {
-      if (import.meta.env.DEV && import.meta.env.VITE_API_RUNTIME !== 'edge' && user?.id) {
-        return new DevSessionClient(user.id);
-      }
-      return new SessionApiClient(
-        new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null),
-      );
-    },
-    [session?.access_token, user?.id],
+    () => new SessionApiClient(
+      new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null),
+    ),
+    [session?.access_token],
   );
 
   const reload = useCallback(async () => {

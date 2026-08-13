@@ -211,6 +211,9 @@ généralisation des surfaces dépendront du contrat storefront UM2.
 - AF24.3 : création d’espace racine et acceptation d’invitation via le module
   Session et `/api/v1` ; `TenantContext` ne dépend plus d’un adaptateur
   Supabase et la commande legacy est supprimée — livré ;
+- AF24.4 : suppression du client Session DEV direct ; le bootstrap emprunte
+  désormais `/api/v1` dans tous les environnements et le proxy Vite choisit
+  seulement la cible Edge locale ou distante — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.
