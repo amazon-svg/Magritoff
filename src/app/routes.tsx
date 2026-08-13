@@ -31,11 +31,6 @@ const PublicShop = lazy(() =>
 const DashboardHistory = lazy(() =>
   import("./components/dashboard/DashboardHistory").then((m) => ({ default: m.DashboardHistory })),
 );
-const DashboardQuoteTemplates = lazy(() =>
-  import("./components/dashboard/DashboardQuoteTemplates").then((m) => ({
-    default: m.DashboardQuoteTemplates,
-  })),
-);
 const DashboardUsers = lazy(() =>
   import("./components/dashboard/DashboardUsers").then((m) => ({ default: m.DashboardUsers })),
 );
@@ -197,7 +192,6 @@ export const router = createBrowserRouter([
               { path: "preferences", element: <Navigate to="../account" replace /> },
               { path: "plan", element: lazyRoute(<DashboardPlan />) },
               { path: "history", element: lazyRoute(<DashboardHistory />) },
-              { path: "quote-templates", element: lazyRoute(<DashboardQuoteTemplates />) },
               { path: "users", element: lazyRoute(<DashboardUsers />) },
               { path: "clients", element: <Navigate to="../users" replace /> },
               { path: "members", element: <Navigate to="../users" replace /> },

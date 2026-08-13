@@ -235,6 +235,8 @@ généralisation des surfaces dépendront du contrat storefront UM2.
   éditeur et navigation Boutiques proviennent désormais du registre — livré ;
 - AF26.3 : manifeste Quotes sur les quatre surfaces ; bibliothèque, attente,
   éditeur et navigation Devis sont chargés depuis le registre — livré ;
+- AF26.4 : manifeste QuoteTemplates limité au workspace ; route et navigation
+  Gabarits de devis sont chargées depuis le registre — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.

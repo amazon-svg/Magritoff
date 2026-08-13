@@ -3,6 +3,7 @@ import { accountModuleManifest } from '../../src/modules/account';
 import { ordersModuleManifest } from '../../src/modules/orders';
 import { shopsModuleManifest } from '../../src/modules/shops';
 import { quotesModuleManifest } from '../../src/modules/quotes';
+import { quoteTemplatesModuleManifest } from '../../src/modules/quote-templates';
 import { applicationContributionRegistry } from '../../src/surfaces';
 import {
   ContributionRegistryError,
@@ -68,6 +69,12 @@ describe('registre des contributions de surfaces', () => {
       expect.objectContaining({ id: 'quotes.workspace.edit', path: 'quotes/:id/edit' }),
     ]));
     expect(applicationContributionRegistry.forSurface('backoffice').routes).toContainEqual(expect.objectContaining({ id: 'quotes.backoffice.pending', requiredCapabilities: ['quotes.validate'] }));
+  });
+
+  it('limite QuoteTemplates au workspace', () => {
+    expect(quoteTemplatesModuleManifest.surfaces).toEqual(['workspace']);
+    expect(applicationContributionRegistry.forSurface('workspace').routes).toContainEqual(expect.objectContaining({ id: 'quote-templates.workspace.list', path: 'quote-templates' }));
+    expect(applicationContributionRegistry.forSurface('backoffice').modules.map(({ id }) => id).includes('quote-templates')).toBe(false);
   });
 
   it('rejette les modules, features et chemins dupliqués', () => {

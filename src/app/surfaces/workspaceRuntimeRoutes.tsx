@@ -20,6 +20,7 @@ const routeLoaders: Readonly<Record<string, LazyPageLoader>> = Object.freeze({
   'quotes.workspace.list': () => import('../components/dashboard/DashboardQuotes').then((module) => ({ default: module.DashboardQuotes })),
   'quotes.workspace.pending': () => import('../components/dashboard/DashboardQuotesPending').then((module) => ({ default: module.DashboardQuotesPending })),
   'quotes.workspace.edit': () => import('../components/dashboard/DashboardQuoteEditor').then((module) => ({ default: module.DashboardQuoteEditor })),
+  'quote-templates.workspace.list': () => import('../components/dashboard/DashboardQuoteTemplates').then((module) => ({ default: module.DashboardQuoteTemplates })),
 });
 
 export type WorkspaceRuntimeRoute = Readonly<{

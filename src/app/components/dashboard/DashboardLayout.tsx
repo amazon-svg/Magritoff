@@ -33,6 +33,9 @@ const QUOTES_ROUTE = workspaceSurface.routes.find(({ id }) => id === QUOTES_NAVI
 const PENDING_QUOTES_NAVIGATION = workspaceSurface.navigation.find(({ id }) => id === 'quotes.workspace.pending-navigation');
 const PENDING_QUOTES_ROUTE = workspaceSurface.routes.find(({ id }) => id === PENDING_QUOTES_NAVIGATION?.routeId);
 if (!QUOTES_NAVIGATION || !QUOTES_ROUTE || !PENDING_QUOTES_NAVIGATION || !PENDING_QUOTES_ROUTE) throw new Error('La contribution workspace du module quotes est incomplète.');
+const QUOTE_TEMPLATES_NAVIGATION = workspaceSurface.navigation.find(({ id }) => id === 'quote-templates.workspace.navigation');
+const QUOTE_TEMPLATES_ROUTE = workspaceSurface.routes.find(({ id }) => id === QUOTE_TEMPLATES_NAVIGATION?.routeId);
+if (!QUOTE_TEMPLATES_NAVIGATION || !QUOTE_TEMPLATES_ROUTE) throw new Error('La contribution workspace du module quote-templates est incomplète.');
 
 // E7.7 — mapping label de NavLink -> data-testid pour les cas de test.
 // Couvre les liens cles des cahiers de tests P01 (sidebar nav).
@@ -114,8 +117,8 @@ export function DashboardLayout() {
           sub: true,
         },
         {
-          to: `${basePath}/quote-templates`,
-          label: 'Gabarits de devis',
+          to: `${basePath}/${QUOTE_TEMPLATES_ROUTE.path}`,
+          label: QUOTE_TEMPLATES_NAVIGATION.label,
           icon: LayoutTemplate,
           show: true,
           sub: true,
