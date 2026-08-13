@@ -31,22 +31,9 @@ const PublicShop = lazy(() =>
 const DashboardHistory = lazy(() =>
   import("./components/dashboard/DashboardHistory").then((m) => ({ default: m.DashboardHistory })),
 );
-const DashboardQuotes = lazy(() =>
-  import("./components/dashboard/DashboardQuotes").then((m) => ({ default: m.DashboardQuotes })),
-);
 const DashboardQuoteTemplates = lazy(() =>
   import("./components/dashboard/DashboardQuoteTemplates").then((m) => ({
     default: m.DashboardQuoteTemplates,
-  })),
-);
-const DashboardQuotesPending = lazy(() =>
-  import("./components/dashboard/DashboardQuotesPending").then((m) => ({
-    default: m.DashboardQuotesPending,
-  })),
-);
-const DashboardQuoteEditor = lazy(() =>
-  import("./components/dashboard/DashboardQuoteEditor").then((m) => ({
-    default: m.DashboardQuoteEditor,
   })),
 );
 const DashboardUsers = lazy(() =>
@@ -210,9 +197,6 @@ export const router = createBrowserRouter([
               { path: "preferences", element: <Navigate to="../account" replace /> },
               { path: "plan", element: lazyRoute(<DashboardPlan />) },
               { path: "history", element: lazyRoute(<DashboardHistory />) },
-              { path: "quotes", element: lazyRoute(<DashboardQuotes />) },
-              { path: "quotes/pending", element: lazyRoute(<DashboardQuotesPending />) },
-              { path: "quotes/:id/edit", element: lazyRoute(<DashboardQuoteEditor />) },
               { path: "quote-templates", element: lazyRoute(<DashboardQuoteTemplates />) },
               { path: "users", element: lazyRoute(<DashboardUsers />) },
               { path: "clients", element: <Navigate to="../users" replace /> },

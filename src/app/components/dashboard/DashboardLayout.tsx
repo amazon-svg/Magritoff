@@ -28,6 +28,11 @@ if (!ORDERS_NAVIGATION || !ORDERS_ROUTE) throw new Error('La contribution worksp
 const SHOPS_NAVIGATION = workspaceSurface.navigation.find(({ id }) => id === 'shops.workspace.navigation');
 const SHOPS_ROUTE = workspaceSurface.routes.find(({ id }) => id === SHOPS_NAVIGATION?.routeId);
 if (!SHOPS_NAVIGATION || !SHOPS_ROUTE) throw new Error('La contribution workspace du module shops est incomplète.');
+const QUOTES_NAVIGATION = workspaceSurface.navigation.find(({ id }) => id === 'quotes.workspace.navigation');
+const QUOTES_ROUTE = workspaceSurface.routes.find(({ id }) => id === QUOTES_NAVIGATION?.routeId);
+const PENDING_QUOTES_NAVIGATION = workspaceSurface.navigation.find(({ id }) => id === 'quotes.workspace.pending-navigation');
+const PENDING_QUOTES_ROUTE = workspaceSurface.routes.find(({ id }) => id === PENDING_QUOTES_NAVIGATION?.routeId);
+if (!QUOTES_NAVIGATION || !QUOTES_ROUTE || !PENDING_QUOTES_NAVIGATION || !PENDING_QUOTES_ROUTE) throw new Error('La contribution workspace du module quotes est incomplète.');
 
 // E7.7 — mapping label de NavLink -> data-testid pour les cas de test.
 // Couvre les liens cles des cahiers de tests P01 (sidebar nav).
@@ -100,10 +105,10 @@ export function DashboardLayout() {
     {
       title: 'Gestion commerciale',
       items: [
-        { to: `${basePath}/quotes`, end: true, label: 'Devis', icon: FileText, show: true },
+        { to: `${basePath}/${QUOTES_ROUTE.path}`, end: true, label: QUOTES_NAVIGATION.label, icon: FileText, show: true },
         {
-          to: `${basePath}/quotes/pending`,
-          label: 'Devis en attente',
+          to: `${basePath}/${PENDING_QUOTES_ROUTE.path}`,
+          label: PENDING_QUOTES_NAVIGATION.label,
           icon: FileClock,
           show: true,
           sub: true,

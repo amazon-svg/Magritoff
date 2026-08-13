@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { accountModuleManifest } from '../../src/modules/account';
 import { ordersModuleManifest } from '../../src/modules/orders';
 import { shopsModuleManifest } from '../../src/modules/shops';
+import { quotesModuleManifest } from '../../src/modules/quotes';
 import { applicationContributionRegistry } from '../../src/surfaces';
 import {
   ContributionRegistryError,
@@ -56,6 +57,17 @@ describe('registre des contributions de surfaces', () => {
       expect.objectContaining({ id: 'shops.workspace.edit', path: 'shops/:id' }),
     ]));
     expect(applicationContributionRegistry.forSurface('backoffice').routes).toContainEqual(expect.objectContaining({ id: 'shops.backoffice.list', requiredCapabilities: ['shops.govern'] }));
+  });
+
+  it('compose Quotes sur les quatre surfaces', () => {
+    expect(quotesModuleManifest.surfaces).toEqual(['storefront', 'customer-portal', 'workspace', 'backoffice']);
+    expect(applicationContributionRegistry.forSurface('customer-portal').routes).toContainEqual(expect.objectContaining({ id: 'quotes.customer-portal.list', path: 'account/quotes' }));
+    expect(applicationContributionRegistry.forSurface('workspace').routes).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'quotes.workspace.list', path: 'quotes' }),
+      expect.objectContaining({ id: 'quotes.workspace.pending', path: 'quotes/pending' }),
+      expect.objectContaining({ id: 'quotes.workspace.edit', path: 'quotes/:id/edit' }),
+    ]));
+    expect(applicationContributionRegistry.forSurface('backoffice').routes).toContainEqual(expect.objectContaining({ id: 'quotes.backoffice.pending', requiredCapabilities: ['quotes.validate'] }));
   });
 
   it('rejette les modules, features et chemins dupliqués', () => {
