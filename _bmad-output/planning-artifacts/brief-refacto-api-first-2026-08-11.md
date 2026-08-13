@@ -225,6 +225,9 @@ généralisation des surfaces dépendront du contrat storefront UM2.
 - AF25.3 : migration du storefront, du portail client, des redirections tenant,
   du panier et des devis vers le runtime injecté ; les constructions directes
   sont bornées au runtime et aux deux parcours post-auth immédiats — livré ;
+- AF25.4 : fabrique de transport à jeton explicite confinée dans le runtime ;
+  checkout et invitations ne construisent plus le client HTTP et
+  `ApiRuntimeContext` devient son unique composition root navigateur — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.

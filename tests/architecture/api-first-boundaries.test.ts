@@ -191,21 +191,15 @@ describe('frontières API-first et modulaires', () => {
       .filter((file) => readFileSync(file, 'utf8').includes('new FetchApiClient'))
       .map((file) => relative(process.cwd(), file));
 
-    expect(directTransports).toEqual([
-      'src/app/components/dashboard/InviteUserModalV2.tsx',
-    ]);
+    expect(directTransports).toEqual([]);
   });
 
-  it('borne les constructions directes du transport aux jetons post-auth immédiats', () => {
+  it('réserve toute construction du transport au runtime API', () => {
     const directTransports = listTypeScriptFiles(resolve(process.cwd(), 'src/app'))
       .filter((file) => readFileSync(file, 'utf8').includes('new FetchApiClient'))
       .map((file) => relative(process.cwd(), file));
 
-    expect(directTransports).toEqual([
-      'src/app/components/dashboard/InviteUserModalV2.tsx',
-      'src/app/components/shop/portal/CheckoutPage.tsx',
-      'src/app/contexts/ApiRuntimeContext.tsx',
-    ]);
+    expect(directTransports).toEqual(['src/app/contexts/ApiRuntimeContext.tsx']);
   });
 
   it('sort les paramètres tenant du fournisseur', () => {

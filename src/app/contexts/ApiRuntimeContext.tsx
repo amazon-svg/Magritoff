@@ -2,7 +2,12 @@ import { createContext, type ReactNode, useContext, useMemo } from 'react';
 import { FetchApiClient } from '../../platform/api';
 import { useAuth } from './AuthContext';
 
-const ApiRuntimeContext = createContext<FetchApiClient | null>(null);
+type ApiRuntime = Readonly<{
+  client: FetchApiClient;
+  forAccessToken(accessToken: string): FetchApiClient;
+}>;
+
+const ApiRuntimeContext = createContext<ApiRuntime | null>(null);
 
 /**
  * Point de composition HTTP unique du navigateur.
@@ -13,16 +18,23 @@ const ApiRuntimeContext = createContext<FetchApiClient | null>(null);
  */
 export function ApiRuntimeProvider({ children }: { children: ReactNode }) {
   const { session } = useAuth();
-  const client = useMemo(
-    () => new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null),
+  const runtime = useMemo<ApiRuntime>(
+    () => ({
+      client: new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null),
+      forAccessToken: (accessToken) => new FetchApiClient('', globalThis.fetch, () => accessToken),
+    }),
     [session?.access_token],
   );
 
-  return <ApiRuntimeContext.Provider value={client}>{children}</ApiRuntimeContext.Provider>;
+  return <ApiRuntimeContext.Provider value={runtime}>{children}</ApiRuntimeContext.Provider>;
+}
+
+export function useApiRuntime(): ApiRuntime {
+  const runtime = useContext(ApiRuntimeContext);
+  if (!runtime) throw new Error('useApiRuntime must be used within an ApiRuntimeProvider');
+  return runtime;
 }
 
 export function useApiRuntimeClient(): FetchApiClient {
-  const client = useContext(ApiRuntimeContext);
-  if (!client) throw new Error('useApiRuntimeClient must be used within an ApiRuntimeProvider');
-  return client;
+  return useApiRuntime().client;
 }
