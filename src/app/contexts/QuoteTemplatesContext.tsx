@@ -25,7 +25,7 @@ import { useAuth } from './AuthContext';
 import { useTenant } from './TenantContext';
 import { BUILTIN_QUOTE_TEMPLATES, QuoteTemplate } from '../utils/quote';
 import { QuoteTemplatesApiClient, type CreateQuoteTemplate, type UpdateQuoteTemplate } from '../../modules/quote-templates';
-import { FetchApiClient } from '../../platform/api';
+import { useApiRuntimeClient } from './ApiRuntimeContext';
 
 interface QuoteTemplatesContextType {
   templates: QuoteTemplate[];
@@ -45,14 +45,13 @@ interface QuoteTemplatesContextType {
 const QuoteTemplatesContext = createContext<QuoteTemplatesContextType | undefined>(undefined);
 
 export function QuoteTemplatesProvider({ children }: { children: ReactNode }) {
-  const { user, session } = useAuth();
+  const { user } = useAuth();
+  const apiClient = useApiRuntimeClient();
   const { currentTenant } = useTenant();
   const [customTemplates, setCustomTemplates] = useState<QuoteTemplate[]>([]);
   const [loading, setLoading] = useState(false);
   const [defaultTemplateId, setDefaultTemplateId] = useState<string | null>(null);
-  const templatesApi = useMemo(() => new QuoteTemplatesApiClient(new FetchApiClient(
-    '', globalThis.fetch, () => session?.access_token ?? null,
-  )), [session?.access_token]);
+  const templatesApi = useMemo(() => new QuoteTemplatesApiClient(apiClient), [apiClient]);
 
   const reload = useCallback(async () => {
     if (!user || !currentTenant) {

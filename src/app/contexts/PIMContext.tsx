@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback, useMemo, R
 import type { Gamme, ProductDefinition } from '../utils/productEnrichment';
 import { useAuth } from './AuthContext';
 import { CatalogApiClient, type PimDefinition, type PimGamme } from '../../modules/catalog';
-import { FetchApiClient } from '../../platform/api';
+import { useApiRuntimeClient } from './ApiRuntimeContext';
 
 interface PIMContextType {
   gammes: Gamme[];
@@ -18,11 +18,12 @@ interface PIMContextType {
 const PIMContext = createContext<PIMContextType | undefined>(undefined);
 
 export function PIMProvider({ children }: { children: ReactNode }) {
-  const { user, session } = useAuth();
+  const { user } = useAuth();
+  const apiClient = useApiRuntimeClient();
   const [gammes, setGammes] = useState<Gamme[]>([]);
   const [definitions, setDefinitions] = useState<ProductDefinition[]>([]);
   const [loading, setLoading] = useState(false);
-  const catalogApi = useMemo(() => new CatalogApiClient(new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null)), [session?.access_token]);
+  const catalogApi = useMemo(() => new CatalogApiClient(apiClient), [apiClient]);
 
   const refresh = useCallback(async () => {
     if (!user) { setGammes([]); setDefinitions([]); setLoading(false); return; }

@@ -17,17 +17,20 @@ import { AuthProvider } from './contexts/AuthContext';
 import { PreferencesProvider } from './contexts/PreferencesContext';
 import { PIMProvider } from './contexts/PIMContext';
 import { SessionBootstrapProvider } from './contexts/SessionBootstrapContext';
+import { ApiRuntimeProvider } from './contexts/ApiRuntimeContext';
 
 export default function App() {
   return (
     <AuthProvider>
-      <SessionBootstrapProvider>
-        <PreferencesProvider>
-          <PIMProvider>
-            <RouterProvider router={router} />
-          </PIMProvider>
-        </PreferencesProvider>
-      </SessionBootstrapProvider>
+      <ApiRuntimeProvider>
+        <SessionBootstrapProvider>
+          <PreferencesProvider>
+            <PIMProvider>
+              <RouterProvider router={router} />
+            </PIMProvider>
+          </PreferencesProvider>
+        </SessionBootstrapProvider>
+      </ApiRuntimeProvider>
     </AuthProvider>
   );
 }

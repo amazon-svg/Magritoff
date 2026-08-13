@@ -9,7 +9,8 @@ import { createContext, useContext, useState, useEffect, useCallback, useMemo, u
 import { useAuth } from './AuthContext';
 import { useTenant } from './TenantContext';
 import { ConversationsApiClient } from '../../modules/conversations';
-import { ApiClientError, FetchApiClient } from '../../platform/api';
+import { ApiClientError } from '../../platform/api';
+import { useApiRuntimeClient } from './ApiRuntimeContext';
 
 export interface ConversationMessage {
   role: string;
@@ -83,9 +84,10 @@ async function deleteRemote(api: ConversationsApiClient, tenantId: string, id: s
 }
 
 export function ConversationProvider({ children }: { children: ReactNode }) {
-  const { user, session } = useAuth();
+  const { user } = useAuth();
+  const apiClient = useApiRuntimeClient();
   const { currentTenant } = useTenant();
-  const conversationsApi = useMemo(() => new ConversationsApiClient(new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null)), [session?.access_token]);
+  const conversationsApi = useMemo(() => new ConversationsApiClient(apiClient), [apiClient]);
   const [messages, setMessages] = useState<ConversationMessage[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [history, setHistory] = useState<ConversationHistory[]>([]);

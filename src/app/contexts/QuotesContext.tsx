@@ -31,7 +31,8 @@ import { getTaxRate, applyTax } from '../utils/tax';
 import { makeQuoteReference } from '../utils/quote';
 import { lineTotal, round2, sumLinesHT } from '../utils/quoteMath';
 import { QuotesApiClient, type QuoteLine as ApiQuoteLine, type QuoteLineDraft as ApiQuoteLineDraft, type QuoteRecord as ApiQuoteRecord, type QuoteScope as ApiQuoteScope, type QuoteWithLines as ApiQuoteWithLines } from '../../modules/quotes';
-import { ApiClientError, FetchApiClient } from '../../platform/api';
+import { ApiClientError } from '../../platform/api';
+import { useApiRuntimeClient } from './ApiRuntimeContext';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -87,14 +88,13 @@ function readQuantity(p: CartProduct): number {
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 export function QuotesProvider({ children }: { children: ReactNode }) {
-  const { user, session } = useAuth();
+  const { user } = useAuth();
+  const apiClient = useApiRuntimeClient();
   const { currentTenant, currentRole, isSuperAdmin } = useTenant();
   const [quotes, setQuotes] = useState<QuoteRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [scope, setScope] = useState<QuoteScope>('mine');
-  const quotesApi = useMemo(() => new QuotesApiClient(new FetchApiClient(
-    '', globalThis.fetch, () => session?.access_token ?? null,
-  )), [session?.access_token]);
+  const quotesApi = useMemo(() => new QuotesApiClient(apiClient), [apiClient]);
 
   const canViewAll = isSuperAdmin || currentRole === 'owner' || currentRole === 'admin';
   const taxRate = getTaxRate(currentTenant);

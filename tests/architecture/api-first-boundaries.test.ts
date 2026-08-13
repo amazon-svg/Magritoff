@@ -166,6 +166,18 @@ describe('frontières API-first et modulaires', () => {
     ]);
   });
 
+  it('centralise le transport API des contextes React', () => {
+    const contextsRoot = resolve(process.cwd(), 'src/app/contexts');
+    const runtime = readFileSync(resolve(contextsRoot, 'ApiRuntimeContext.tsx'), 'utf8');
+    const violations = listTypeScriptFiles(contextsRoot)
+      .filter((file) => !file.endsWith('/ApiRuntimeContext.tsx'))
+      .filter((file) => readFileSync(file, 'utf8').includes('new FetchApiClient'))
+      .map((file) => relative(process.cwd(), file));
+
+    expect(runtime).toContain("new FetchApiClient('', globalThis.fetch");
+    expect(violations).toEqual([]);
+  });
+
   it('sort les paramètres tenant du fournisseur', () => {
     const source = readFileSync(resolve(process.cwd(), 'src/app/components/dashboard/DashboardTenantSettings.tsx'), 'utf8');
     expect(source).toContain('SessionApiClient');

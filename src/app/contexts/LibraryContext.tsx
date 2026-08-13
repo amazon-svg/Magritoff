@@ -13,9 +13,9 @@ import {
   type LibraryProductInput as ApiLibraryProductInput,
   type UpdateLibraryProduct,
 } from '../../modules/libraries';
-import { FetchApiClient } from '../../platform/api';
 import { useAuth } from './AuthContext';
 import { useTenant } from './TenantContext';
+import { useApiRuntimeClient } from './ApiRuntimeContext';
 import type { Gamme } from '../utils/productEnrichment';
 import {
   buildPimGeneratedProducts,
@@ -60,22 +60,15 @@ interface LibraryContextType {
 const LibraryContext = createContext<LibraryContextType | undefined>(undefined);
 
 export function LibraryProvider({ children }: { children: ReactNode }) {
-  const { user, session } = useAuth();
+  const { user } = useAuth();
+  const apiClient = useApiRuntimeClient();
   const { currentTenant } = useTenant();
   const [libraries, setLibraries] = useState<Library[]>([]);
   const [librariesLoading, setLibrariesLoading] = useState(false);
   const [products, setProducts] = useState<LibraryProduct[]>([]);
   const [loading, setLoading] = useState(false);
-  const librariesApi = useMemo(() => new LibrariesApiClient(new FetchApiClient(
-    '',
-    globalThis.fetch,
-    () => session?.access_token ?? null,
-  )), [session?.access_token]);
-  const productsApi = useMemo(() => new LibraryProductsApiClient(new FetchApiClient(
-    '',
-    globalThis.fetch,
-    () => session?.access_token ?? null,
-  )), [session?.access_token]);
+  const librariesApi = useMemo(() => new LibrariesApiClient(apiClient), [apiClient]);
+  const productsApi = useMemo(() => new LibraryProductsApiClient(apiClient), [apiClient]);
 
   // ─── Libraries ──────────────────────────────────────────────────────────
   const refreshLibraries = useCallback(async () => {

@@ -9,7 +9,7 @@ import { createContext, useContext, useEffect, useState, useCallback, useMemo, R
 import { useAuth } from './AuthContext';
 import { useTenant } from './TenantContext';
 import { ShopsApiClient, type ShopCustomMockup, type ShopDto, type ShopProductDto } from '../../modules/shops';
-import { FetchApiClient } from '../../platform/api';
+import { useApiRuntimeClient } from './ApiRuntimeContext';
 
 export interface ShopTheme {
   primaryColor: string;
@@ -114,13 +114,12 @@ interface ShopsContextType {
 const ShopsContext = createContext<ShopsContextType | undefined>(undefined);
 
 export function ShopsProvider({ children }: { children: ReactNode }) {
-  const { user, session } = useAuth();
+  const { user } = useAuth();
+  const apiClient = useApiRuntimeClient();
   const { currentTenant } = useTenant();
   const [shops, setShops] = useState<Shop[]>([]);
   const [loading, setLoading] = useState(false);
-  const shopsApi = useMemo(() => new ShopsApiClient(new FetchApiClient(
-    '', globalThis.fetch, () => session?.access_token ?? null,
-  )), [session?.access_token]);
+  const shopsApi = useMemo(() => new ShopsApiClient(apiClient), [apiClient]);
 
   const refresh = useCallback(async () => {
     if (!user || !currentTenant) {

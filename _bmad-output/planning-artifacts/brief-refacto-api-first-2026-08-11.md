@@ -216,6 +216,9 @@ généralisation des surfaces dépendront du contrat storefront UM2.
   seulement la cible Edge locale ou distante — livré ;
 - AF24.5 : garde-fou transitive interdisant à l’UI de charger un adaptateur
   Supabase, hors passerelle Auth temporaire documentée jusqu’à UM2 — livré ;
+- AF25.1 : runtime HTTP React unique sous l’Auth et migration des contextes
+  Session, PIM, Conversations, Libraries, Quotes, QuoteTemplates et Shops ;
+  le jeton n’est plus recâblé séparément dans chaque provider — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.
