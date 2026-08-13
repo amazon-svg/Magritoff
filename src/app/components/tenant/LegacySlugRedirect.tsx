@@ -11,9 +11,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Navigate, useLocation } from 'react-router';
-import { useAuth } from '../../contexts/AuthContext';
 import { SessionApiClient } from '../../../modules/session';
-import { FetchApiClient } from '../../../platform/api';
+import { useApiRuntimeClient } from '../../contexts/ApiRuntimeContext';
 
 interface Props {
   oldSlug: string;
@@ -21,8 +20,8 @@ interface Props {
 
 export function LegacySlugRedirect({ oldSlug }: Props) {
   const location = useLocation();
-  const { session } = useAuth();
-  const sessionApi = useMemo(() => new SessionApiClient(new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null)), [session?.access_token]);
+  const apiClient = useApiRuntimeClient();
+  const sessionApi = useMemo(() => new SessionApiClient(apiClient), [apiClient]);
   // undefined = loading, null = no match (fallback), string = redirect target
   const [target, setTarget] = useState<string | null | undefined>(undefined);
 

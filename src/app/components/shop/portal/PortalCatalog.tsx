@@ -6,7 +6,7 @@ import { resolveProductImage } from '../../../utils/productImages';
 import { browserAssistantGateway } from '../../../../adapters/http/browser-assistant-gateway';
 import { ShopsApiClient } from '../../../../modules/shops';
 import { DiagnosticsApiClient } from '../../../../modules/diagnostics';
-import { FetchApiClient } from '../../../../platform/api';
+import { useApiRuntimeClient } from '../../../contexts/ApiRuntimeContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { computeClariprintQuoteSafe } from '../../../../adapters/http/browser-clariprint-adapter';
 import { useClaudeSseStream, ClaudeSseStreamError } from '../../../hooks/useClaudeSseStream';
@@ -161,8 +161,9 @@ export function PortalCatalog({
   initialFormat,
 }: Props) {
   const { session } = useAuth();
-  const shopsApi = useMemo(() => new ShopsApiClient(new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null)), [session?.access_token]);
-  const assistantApi = useMemo(() => new DiagnosticsApiClient(new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null)), [session?.access_token]);
+  const apiClient = useApiRuntimeClient();
+  const shopsApi = useMemo(() => new ShopsApiClient(apiClient), [apiClient]);
+  const assistantApi = useMemo(() => new DiagnosticsApiClient(apiClient), [apiClient]);
   const [query, setQuery] = useState('');
   // S2.21 — autocomplétion : menu ouvert au focus + saisie ≥ 2 car.
   const [searchOpen, setSearchOpen] = useState(false);

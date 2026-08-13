@@ -13,19 +13,18 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Navigate } from 'react-router';
-import { useAuth } from '../../contexts/AuthContext';
 import { useTenant } from '../../contexts/TenantContext';
 import { ShopsApiClient } from '../../../modules/shops';
-import { FetchApiClient } from '../../../platform/api';
+import { useApiRuntimeClient } from '../../contexts/ApiRuntimeContext';
 
 interface Props {
   allowedShopIds: string[];
 }
 
 export function ShopOnlyRedirect({ allowedShopIds }: Props) {
-  const { session } = useAuth();
+  const apiClient = useApiRuntimeClient();
   const { currentTenant } = useTenant();
-  const shopsApi = useMemo(() => new ShopsApiClient(new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null)), [session?.access_token]);
+  const shopsApi = useMemo(() => new ShopsApiClient(apiClient), [apiClient]);
   const [shopSlug, setShopSlug] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);

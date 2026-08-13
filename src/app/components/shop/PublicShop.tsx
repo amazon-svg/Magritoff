@@ -41,7 +41,8 @@ import { parsePortalPath, shopUrl } from './portal/shopPortalRoutes';
 import { applyTax, getTaxRate } from '../../utils/tax';
 import { OrdersApiClient } from '../../../modules/orders';
 import { ShopsApiClient, type PublicShopCatalog } from '../../../modules/shops';
-import { ApiClientError, FetchApiClient } from '../../../platform/api';
+import { ApiClientError } from '../../../platform/api';
+import { useApiRuntimeClient } from '../../contexts/ApiRuntimeContext';
 
 /**
  * Portail B2B Magrit — version 2.
@@ -65,6 +66,7 @@ export function PublicShop() {
   const splat = params['*'];
   const navigate = useNavigate();
   const { user, session, loading: authLoading } = useAuth();
+  const apiClient = useApiRuntimeClient();
   const { tenants, isSuperAdmin, loading: tenantLoading } = useTenant();
   const [shop, setShop] = useState<Shop | null>(null);
   const [products, setProducts] = useState<ShopProduct[]>([]);
@@ -74,12 +76,8 @@ export function PublicShop() {
     ShopAccess,
     'authentication_required' | 'forbidden'
   > | null>(null);
-  const ordersApi = useMemo(() => new OrdersApiClient(
-    new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null),
-  ), [session?.access_token]);
-  const shopsApi = useMemo(() => new ShopsApiClient(
-    new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null),
-  ), [session?.access_token]);
+  const ordersApi = useMemo(() => new OrdersApiClient(apiClient), [apiClient]);
+  const shopsApi = useMemo(() => new ShopsApiClient(apiClient), [apiClient]);
   const checkoutCommandKey = useRef(crypto.randomUUID());
 
   // S7.1 (ADR §4.19-1) — la vue est DÉRIVÉE de l'URL, plus un state interne.

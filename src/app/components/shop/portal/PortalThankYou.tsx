@@ -15,11 +15,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { useTenant } from "../../../contexts/TenantContext";
-import { useAuth } from "../../../contexts/AuthContext";
 import { applyTax, getTaxRate } from "../../../utils/tax";
 import { TEST_IDS } from "../../../lib/testIds";
 import { OrdersApiClient, type DraftOrder } from "../../../../modules/orders";
-import { FetchApiClient } from "../../../../platform/api";
+import { useApiRuntimeClient } from "../../../contexts/ApiRuntimeContext";
 
 interface Props {
   orderId: string;
@@ -60,14 +59,12 @@ function formatDateLong(iso: string): string {
 
 export function PortalThankYou({ orderId, userEmail, onBackToCatalog, onSeeOrders }: Props) {
   const { currentTenant } = useTenant();
-  const { session } = useAuth();
+  const apiClient = useApiRuntimeClient();
   const [order, setOrder] = useState<DraftOrder | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const h1Ref = useRef<HTMLHeadingElement | null>(null);
-  const ordersApi = useMemo(() => new OrdersApiClient(
-    new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null),
-  ), [session?.access_token]);
+  const ordersApi = useMemo(() => new OrdersApiClient(apiClient), [apiClient]);
 
   // A11y : focus auto sur h1 au mount pour annoncer la confirmation au SR
   useEffect(() => {

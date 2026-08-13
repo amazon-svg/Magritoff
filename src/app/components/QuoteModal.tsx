@@ -13,7 +13,7 @@ import {
 } from '../utils/quote';
 import { applyTax, extractTaxAmount, formatTaxLabel, getTaxRate } from '../utils/tax';
 import { QuotesApiClient } from '../../modules/quotes';
-import { FetchApiClient } from '../../platform/api';
+import { useApiRuntimeClient } from '../contexts/ApiRuntimeContext';
 
 interface QuoteModalProps {
   isOpen: boolean;
@@ -23,14 +23,13 @@ interface QuoteModalProps {
 
 export function QuoteModal({ isOpen, onClose, product }: QuoteModalProps) {
   const { addToCart } = useCart();
-  const { user, session } = useAuth();
+  const { user } = useAuth();
+  const apiClient = useApiRuntimeClient();
   const { templates, defaultTemplateId } = useQuoteTemplates();
   const { currentTenant } = useTenant();
   const tp = useTenantPath();
   const taxRate = getTaxRate(currentTenant);
-  const quotesApi = useMemo(() => new QuotesApiClient(new FetchApiClient(
-    '', globalThis.fetch, () => session?.access_token ?? null,
-  )), [session?.access_token]);
+  const quotesApi = useMemo(() => new QuotesApiClient(apiClient), [apiClient]);
 
   // Gabarit a appliquer a l'impression. Initialise sur le defaut utilisateur
   // (ou builtin-classique si aucun defaut), mais l'user peut en choisir un

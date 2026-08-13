@@ -17,16 +17,16 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useTenant } from '../../contexts/TenantContext';
 import { SessionApiClient } from '../../../modules/session';
 import { ShopsApiClient } from '../../../modules/shops';
-import { FetchApiClient } from '../../../platform/api';
+import { useApiRuntimeClient } from '../../contexts/ApiRuntimeContext';
 
 const PENDING_INVITATION_KEY = 'magrit:pending-invitation';
 
 export function AcceptInvitation() {
   const { token } = useParams<{ token: string }>();
-  const { user, session, loading: authLoading, signOut } = useAuth();
+  const { user, loading: authLoading, signOut } = useAuth();
   const { acceptInvitation } = useTenant();
   const navigate = useNavigate();
-  const fetchClient = useMemo(() => new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null), [session?.access_token]);
+  const fetchClient = useApiRuntimeClient();
   const sessionApi = useMemo(() => new SessionApiClient(fetchClient), [fetchClient]);
   const shopsApi = useMemo(() => new ShopsApiClient(fetchClient), [fetchClient]);
 
