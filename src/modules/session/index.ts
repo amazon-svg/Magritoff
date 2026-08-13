@@ -16,6 +16,10 @@ export {
   createSubTenantResultSchema,
   removeSubTenantResultSchema,
   tenantSlugResolutionSchema,
+  createRootTenantSchema,
+  createRootTenantResultSchema,
+  acceptTenantInvitationSchema,
+  acceptTenantInvitationResultSchema,
   userPreferencesSchema,
   type SessionBootstrap,
   type SessionTenant,
@@ -26,6 +30,8 @@ export {
   type SubTenantKpi,
   type SubTenantsDashboard,
   type CreateSubTenant,
+  type CreateRootTenant,
+  type AcceptTenantInvitation,
   type TenantSlugResolution,
 } from './api/contracts';
 export {
@@ -39,3 +45,4 @@ export type {
   SessionRepository,
 } from './application/session-repository';
 export { SessionTenantMutationError } from './application/session-repository';
+export { SessionInvitationAcceptanceError } from './application/session-repository';

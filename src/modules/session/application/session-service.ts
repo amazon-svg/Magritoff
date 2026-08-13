@@ -6,6 +6,7 @@ import type {
   UpdatePreferences,
   UpdateTenantSettings,
   CreateSubTenant,
+  CreateRootTenant,
 } from '../api/contracts.ts';
 import type { DirectMembership, SessionRepository } from './session-repository.ts';
 
@@ -88,6 +89,8 @@ export class SessionService {
   subTenantsDashboard(userId: UserId, parentTenantId: string) { return this.repository.subTenantsDashboard(userId, parentTenantId); }
   async createSubTenant(userId: UserId, parentTenantId: string, command: CreateSubTenant) { return { tenantId: await this.repository.createSubTenant(userId, parentTenantId, command) }; }
   async removeSubTenant(userId: UserId, parentTenantId: string, subTenantId: string) { await this.repository.removeSubTenant(userId, parentTenantId, subTenantId); return { removed: true as const }; }
+  async createRootTenant(userId: UserId, command: CreateRootTenant) { return { tenantId: await this.repository.createRootTenant(userId, command) }; }
+  async acceptInvitation(userId: UserId, token: string) { return { tenantId: await this.repository.acceptInvitation(userId, token) }; }
 }
 
 export class SessionTenantAccessDeniedError extends Error {

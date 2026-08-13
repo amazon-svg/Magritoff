@@ -12,6 +12,7 @@ import {
   SessionApiClient,
   type SessionBootstrap,
   type UpdatePreferences,
+  type CreateRootTenant,
 } from '../../modules/session';
 import { FetchApiClient } from '../../platform/api';
 import { DevSessionClient } from '../../adapters/supabase/dev-session-client';
@@ -24,6 +25,8 @@ type SessionBootstrapContextValue = Readonly<{
   reload(): Promise<void>;
   updatePreferences(patch: UpdatePreferences): Promise<void>;
   updateCurrentTenant(tenantId: string): Promise<void>;
+  createRootTenant(command: CreateRootTenant): Promise<string>;
+  acceptInvitation(token: string): Promise<string>;
 }>;
 
 const SessionBootstrapContext = createContext<SessionBootstrapContextValue | undefined>(undefined);
@@ -94,6 +97,16 @@ export function SessionBootstrapProvider({ children }: { children: ReactNode }) 
     [api],
   );
 
+  const createRootTenant = useCallback(
+    (command: CreateRootTenant) => api.createRootTenant(command),
+    [api],
+  );
+
+  const acceptInvitation = useCallback(
+    (token: string) => api.acceptInvitation(token),
+    [api],
+  );
+
   return (
     <SessionBootstrapContext.Provider
       value={{
@@ -103,6 +116,8 @@ export function SessionBootstrapProvider({ children }: { children: ReactNode }) 
         reload,
         updatePreferences,
         updateCurrentTenant,
+        createRootTenant,
+        acceptInvitation,
       }}
     >
       {children}

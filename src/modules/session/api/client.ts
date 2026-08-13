@@ -11,12 +11,17 @@ import {
   createSubTenantResultSchema,
   removeSubTenantResultSchema,
   tenantSlugResolutionSchema,
+  createRootTenantSchema,
+  createRootTenantResultSchema,
+  acceptTenantInvitationSchema,
+  acceptTenantInvitationResultSchema,
   type SessionBootstrap,
   type SessionUserPreferences,
   type UpdatePreferences,
   type UpdateTenantSettings,
   type CreateSubTenant,
   type SubTenantsDashboard,
+  type CreateRootTenant,
 } from './contracts';
 
 export class SessionApiClient {
@@ -69,5 +74,13 @@ export class SessionApiClient {
 
   removeSubTenant(parentTenantId: string, subTenantId: string): Promise<void> {
     return this.client.request({ method: 'DELETE', path: `${API_V1_BASE_PATH}/tenants/${parentTenantId}/subtenants/${subTenantId}`, responseSchema: removeSubTenantResultSchema }).then(() => undefined);
+  }
+
+  createRootTenant(command: CreateRootTenant): Promise<string> {
+    return this.client.request({ method: 'POST', path: `${API_V1_BASE_PATH}/tenants`, body: createRootTenantSchema.parse(command), responseSchema: createRootTenantResultSchema }).then(({ tenantId }) => tenantId);
+  }
+
+  acceptInvitation(token: string): Promise<string> {
+    return this.client.request({ method: 'POST', path: `${API_V1_BASE_PATH}/session/invitations/accept`, body: acceptTenantInvitationSchema.parse({ token }), responseSchema: acceptTenantInvitationResultSchema }).then(({ tenantId }) => tenantId);
   }
 }

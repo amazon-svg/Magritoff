@@ -5,6 +5,7 @@ import type {
   UpdatePreferences,
   UpdateTenantSettings,
   CreateSubTenant,
+  CreateRootTenant,
   SubTenantsDashboard,
 } from '../api/contracts.ts';
 
@@ -25,6 +26,10 @@ export class SessionTenantMutationError extends Error {
   constructor(public readonly code: 'permission_denied' | 'conflict' | 'not_found', message: string) { super(message); this.name = 'SessionTenantMutationError'; }
 }
 
+export class SessionInvitationAcceptanceError extends Error {
+  constructor(public readonly code: 'email_mismatch' | 'invalid', message: string) { super(message); this.name = 'SessionInvitationAcceptanceError'; }
+}
+
 export interface SessionRepository {
   resolveTenantSlug(userId: UserId, slug: string): Promise<string | null>;
   autoAcceptPendingInvitations(): Promise<void>;
@@ -40,4 +45,6 @@ export interface SessionRepository {
   subTenantsDashboard(userId: UserId, parentTenantId: string): Promise<SubTenantsDashboard>;
   createSubTenant(userId: UserId, parentTenantId: string, command: CreateSubTenant): Promise<string>;
   removeSubTenant(userId: UserId, parentTenantId: string, subTenantId: string): Promise<void>;
+  createRootTenant(userId: UserId, command: CreateRootTenant): Promise<string>;
+  acceptInvitation(userId: UserId, token: string): Promise<string>;
 }

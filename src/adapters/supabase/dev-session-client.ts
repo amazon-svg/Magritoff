@@ -6,6 +6,7 @@ import {
   type SessionBootstrap,
   type SessionUserPreferences,
   type UpdatePreferences,
+  type CreateRootTenant,
 } from '../../modules/session';
 import type { Database } from '../../types/database.types';
 import { SupabaseSessionRepository } from './session-repository';
@@ -32,5 +33,13 @@ export class DevSessionClient {
 
   updateCurrentTenant(tenantId: string): Promise<SessionUserPreferences> {
     return this.service.updateLastTenant(this.userId, tenantId);
+  }
+
+  createRootTenant(command: CreateRootTenant): Promise<string> {
+    return this.service.createRootTenant(this.userId, command).then(({ tenantId }) => tenantId);
+  }
+
+  acceptInvitation(token: string): Promise<string> {
+    return this.service.acceptInvitation(this.userId, token).then(({ tenantId }) => tenantId);
   }
 }
