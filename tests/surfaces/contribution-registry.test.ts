@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { accountModuleManifest } from '../../src/modules/account';
+import { ordersModuleManifest } from '../../src/modules/orders';
 import { applicationContributionRegistry } from '../../src/surfaces';
 import {
   ContributionRegistryError,
@@ -23,19 +24,27 @@ describe('registre des contributions de surfaces', () => {
     const portal = applicationContributionRegistry.forSurface('customer-portal');
 
     expect(accountModuleManifest.surfaces).toEqual(['workspace', 'customer-portal']);
-    expect(workspace.routes).toEqual([
+    expect(workspace.routes).toContainEqual(
       expect.objectContaining({ id: 'account.workspace.settings', path: 'account', mount: 'router' }),
-    ]);
-    expect(workspace.navigation).toEqual([
+    );
+    expect(workspace.navigation).toContainEqual(
       expect.objectContaining({
         label: 'Mon compte',
         iconId: 'user',
         testId: 'nav-sidebar-profile-link',
       }),
-    ]);
-    expect(portal.routes).toEqual([
+    );
+    expect(portal.routes).toContainEqual(
       expect.objectContaining({ path: 'account/profile', mount: 'host' }),
-    ]);
+    );
+  });
+
+  it('compose Orders sur les quatre surfaces', () => {
+    expect(ordersModuleManifest.surfaces).toEqual(['storefront', 'customer-portal', 'workspace', 'backoffice']);
+    expect(applicationContributionRegistry.forSurface('storefront').routes).toContainEqual(expect.objectContaining({ id: 'orders.storefront.checkout', path: 'checkout', mount: 'host' }));
+    expect(applicationContributionRegistry.forSurface('customer-portal').routes).toContainEqual(expect.objectContaining({ id: 'orders.customer-portal.list', path: 'account/orders', mount: 'host' }));
+    expect(applicationContributionRegistry.forSurface('workspace').routes).toContainEqual(expect.objectContaining({ id: 'orders.workspace.list', path: 'orders', mount: 'router' }));
+    expect(applicationContributionRegistry.forSurface('backoffice').routes).toContainEqual(expect.objectContaining({ id: 'orders.backoffice.production', requiredCapabilities: ['orders.transition'] }));
   });
 
   it('rejette les modules, features et chemins dupliqués', () => {

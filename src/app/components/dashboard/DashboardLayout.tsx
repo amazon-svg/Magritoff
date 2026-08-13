@@ -22,6 +22,9 @@ const ACCOUNT_ROUTE = workspaceSurface.routes.find(
 if (!ACCOUNT_NAVIGATION || !ACCOUNT_ROUTE) {
   throw new Error('La contribution workspace du module account est incomplète.');
 }
+const ORDERS_NAVIGATION = workspaceSurface.navigation.find(({ id }) => id === 'orders.workspace.navigation');
+const ORDERS_ROUTE = workspaceSurface.routes.find(({ id }) => id === ORDERS_NAVIGATION?.routeId);
+if (!ORDERS_NAVIGATION || !ORDERS_ROUTE) throw new Error('La contribution workspace du module orders est incomplète.');
 
 // E7.7 — mapping label de NavLink -> data-testid pour les cas de test.
 // Couvre les liens cles des cahiers de tests P01 (sidebar nav).
@@ -109,7 +112,7 @@ export function DashboardLayout() {
           show: true,
           sub: true,
         },
-        { to: `${basePath}/orders`, label: 'Commandes', icon: ShoppingBag, show: true },
+        { to: `${basePath}/${ORDERS_ROUTE.path}`, label: ORDERS_NAVIGATION.label, icon: ShoppingBag, show: true },
         { to: `${basePath}/history`, label: 'Historique', icon: MessageSquare, show: true },
         {
           to: `${basePath}/commercial`,

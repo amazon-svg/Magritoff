@@ -4,8 +4,9 @@ import {
   accountWorkspaceContribution,
 } from '../modules/account';
 import { createContributionRegistry } from './registry';
+import { ordersBackofficeContribution, ordersCustomerPortalContribution, ordersModuleManifest, ordersStorefrontContribution, ordersWorkspaceContribution } from '../modules/orders';
 
 export const applicationContributionRegistry = createContributionRegistry({
-  manifests: [accountModuleManifest],
-  contributions: [accountWorkspaceContribution, accountCustomerPortalContribution],
+  manifests: [accountModuleManifest, ordersModuleManifest],
+  contributions: [accountWorkspaceContribution, accountCustomerPortalContribution, ordersStorefrontContribution, ordersCustomerPortalContribution, ordersWorkspaceContribution, ordersBackofficeContribution],
 });

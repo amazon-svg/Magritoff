@@ -49,9 +49,6 @@ const DashboardQuoteEditor = lazy(() =>
     default: m.DashboardQuoteEditor,
   })),
 );
-const DashboardOrders = lazy(() =>
-  import("./components/dashboard/DashboardOrders").then((m) => ({ default: m.DashboardOrders })),
-);
 const DashboardUsers = lazy(() =>
   import("./components/dashboard/DashboardUsers").then((m) => ({ default: m.DashboardUsers })),
 );
@@ -225,7 +222,6 @@ export const router = createBrowserRouter([
               { path: "quotes/pending", element: lazyRoute(<DashboardQuotesPending />) },
               { path: "quotes/:id/edit", element: lazyRoute(<DashboardQuoteEditor />) },
               { path: "quote-templates", element: lazyRoute(<DashboardQuoteTemplates />) },
-              { path: "orders", element: lazyRoute(<DashboardOrders />) },
               { path: "users", element: lazyRoute(<DashboardUsers />) },
               { path: "clients", element: <Navigate to="../users" replace /> },
               { path: "members", element: <Navigate to="../users" replace /> },

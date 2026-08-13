@@ -9,6 +9,10 @@ const routeLoaders: Readonly<Record<string, LazyPageLoader>> = Object.freeze({
     import('../components/dashboard/DashboardAccount').then((module) => ({
       default: module.DashboardAccount,
     })),
+  'orders.workspace.list': () =>
+    import('../components/dashboard/DashboardOrders').then((module) => ({
+      default: module.DashboardOrders,
+    })),
 });
 
 export type WorkspaceRuntimeRoute = Readonly<{

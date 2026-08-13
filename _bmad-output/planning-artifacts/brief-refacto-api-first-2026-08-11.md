@@ -228,6 +228,9 @@ généralisation des surfaces dépendront du contrat storefront UM2.
 - AF25.4 : fabrique de transport à jeton explicite confinée dans le runtime ;
   checkout et invitations ne construisent plus le client HTTP et
   `ApiRuntimeContext` devient son unique composition root navigateur — livré ;
+- AF26.1 : manifeste Orders et contributions déclarées pour storefront,
+  customer-portal, workspace et backoffice ; la route workspace Commandes est
+  désormais chargée par le registre de surfaces — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.
