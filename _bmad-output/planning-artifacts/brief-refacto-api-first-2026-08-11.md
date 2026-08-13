@@ -214,6 +214,8 @@ généralisation des surfaces dépendront du contrat storefront UM2.
 - AF24.4 : suppression du client Session DEV direct ; le bootstrap emprunte
   désormais `/api/v1` dans tous les environnements et le proxy Vite choisit
   seulement la cible Edge locale ou distante — livré ;
+- AF24.5 : garde-fou transitive interdisant à l’UI de charger un adaptateur
+  Supabase, hors passerelle Auth temporaire documentée jusqu’à UM2 — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.

@@ -153,6 +153,19 @@ describe('frontières API-first et modulaires', () => {
     expect(violations).toEqual([]);
   });
 
+  it('limite les adaptateurs Supabase chargés par l UI à la dérogation Auth', () => {
+    const appRoot = resolve(process.cwd(), 'src/app');
+    const imports = listTypeScriptFiles(appRoot).flatMap((file) =>
+      importedModules(readFileSync(file, 'utf8'))
+        .filter((dependency) => /adapters\/supabase/.test(dependency))
+        .map((dependency) => `${relative(process.cwd(), file)} -> ${dependency}`),
+    );
+
+    expect(imports).toEqual([
+      'src/app/contexts/AuthContext.tsx -> ../../adapters/supabase/browser-authentication-gateway',
+    ]);
+  });
+
   it('sort les paramètres tenant du fournisseur', () => {
     const source = readFileSync(resolve(process.cwd(), 'src/app/components/dashboard/DashboardTenantSettings.tsx'), 'utf8');
     expect(source).toContain('SessionApiClient');
