@@ -257,7 +257,7 @@ export function InviteUserModalV2({
               className="block text-ink-muted mb-1.5"
               style={{ fontSize: '11.5px', fontWeight: 500 }}
             >
-              Email du collaborateur
+              {scope === 'shop_only' ? "Email de l'utilisateur" : 'Email du collaborateur'}
             </span>
             <input
               data-testid={TEST_IDS.user.inviteEmailInput}
