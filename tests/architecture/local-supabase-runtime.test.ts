@@ -55,13 +55,19 @@ describe('runtime Supabase local', () => {
     expect(tenantContext).toContain('!bootstrap.error && dataForUser === null');
   });
 
-  it('synchronise les memberships privilégiés avec les rôles fonctionnels Orders', () => {
-    const migration = read('supabase/migrations/20260811000300_sync_membership_order_roles.sql');
+  it('fait dériver les droits owner/admin de l appartenance, sans synchronisation par nom', () => {
+    // Décision Arnaud 2026-08-14 (chantier gestion des utilisateurs) : le
+    // trigger AF5.1a réconciliait appartenance et rôles fonctionnels en
+    // appariant sur les NOMS 'Owner'/'Admin' — renommer l un de ces rôles
+    // cassait la synchronisation des droits sans erreur. Le droit dérive
+    // désormais de l enum d appartenance, à la lecture.
+    const migration = read('supabase/migrations/20260814000100_droits_owner_admin_par_appartenance.sql');
     const dashboard = read('src/app/components/dashboard/DashboardOrders.tsx');
 
-    expect(migration).toContain('trg_sync_membership_functional_role');
-    expect(migration).toContain("definition.name in ('Owner', 'Admin')");
-    expect(migration).toContain("member.role in ('owner', 'admin')");
+    expect(migration).toContain('drop trigger if exists trg_sync_membership_functional_role');
+    expect(migration).toContain('drop function if exists public.sync_membership_functional_role');
+    expect(migration).toContain("m.role = 'owner'");
+    expect(migration).toContain("m.role = 'admin' and p_capability <> 'can_manage_roles'");
     expect(dashboard).toContain("currentTenant?.myRole === 'owner'");
     expect(dashboard).toContain('canValidate || isTenantAdmin');
     expect(dashboard).toContain('canModifyProduction || isTenantAdmin');
