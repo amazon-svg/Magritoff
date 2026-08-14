@@ -50,6 +50,13 @@ export interface InviteUserModalV2Props {
   /** Callback appelé après une invitation réussie (refresh parent). */
   onInvited: () => void | Promise<void>;
   onClose: () => void;
+  /** UM3 — parcours d invitation pré-orienté (équipe ou boutique). */
+  initialScope?: AccessScope;
+  /**
+   * UM3 — verrouille le parcours : le sélecteur de type d accès disparaît,
+   * l invitation est celle de la section d où elle part.
+   */
+  lockScope?: boolean;
 }
 
 export function InviteUserModalV2({
@@ -58,6 +65,8 @@ export function InviteUserModalV2({
   baseUrl,
   onInvited,
   onClose,
+  initialScope,
+  lockScope = false,
 }: InviteUserModalV2Props) {
   const { session, refreshSession } = useAuth();
   const [email, setEmail] = useState('');
@@ -65,7 +74,7 @@ export function InviteUserModalV2({
   const [selectedRoleIds, setSelectedRoleIds] = useState<Set<string>>(new Set());
   const [shops, setShops] = useState<ShopOption[]>([]);
   // Scope d'accès : magrit_full = dashboard complet, shop_only = boutiques précises.
-  const [scope, setScope] = useState<AccessScope>('shop_only');
+  const [scope, setScope] = useState<AccessScope>(initialScope ?? 'shop_only');
   const [selectedShopIds, setSelectedShopIds] = useState<Set<string>>(new Set());
   const [loadingRoles, setLoadingRoles] = useState(true);
   const [sending, setSending] = useState(false);
@@ -86,7 +95,7 @@ export function InviteUserModalV2({
       const options = await invitationsApi.options(tenantId);
       setRoles(options.roles);
       setShops(options.shops);
-      if (options.shops.length === 0) {
+      if (options.shops.length === 0 && !lockScope) {
         setScope('magrit_full');
         setSelectedShopIds(new Set());
       }
@@ -102,14 +111,14 @@ export function InviteUserModalV2({
     if (open) {
       setEmail('');
       setSelectedRoleIds(new Set());
-      setScope('shop_only');
+      setScope(initialScope ?? 'shop_only');
       setSelectedShopIds(new Set());
       setError(null);
       setManualInvitation(null);
       setLinkCopied(false);
       void loadRoles();
     }
-  }, [open, loadRoles]);
+  }, [open, loadRoles, initialScope]);
 
   const toggleRole = (roleId: string) => {
     setSelectedRoleIds((s) => {
@@ -262,8 +271,10 @@ export function InviteUserModalV2({
             />
           </label>
 
-          {/* Scope d'accès : dashboard complet vs boutiques précises */}
-          <div>
+          {/* Scope d'accès : dashboard complet vs boutiques précises.
+              UM3 : masqué quand le parcours est verrouillé — l invitation
+              est typée par la section d où elle part. */}
+          <div hidden={lockScope}>
             <span
               className="block text-ink-muted mb-1.5"
               style={{ fontSize: '11.5px', fontWeight: 500 }}

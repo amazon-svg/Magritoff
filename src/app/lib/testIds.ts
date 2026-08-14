@@ -62,6 +62,7 @@ export const TEST_IDS = {
   user: {
     page: 'users-page',
     sectionMagrit: 'users-section-magrit',
+    sectionShops: 'users-section-shops',
     sectionCrm: 'users-section-crm',
     table: 'users-table',
     row: 'user-row',
@@ -72,6 +73,7 @@ export const TEST_IDS = {
     removeConfirmBtn: 'user-remove-confirm-btn',
     removeCancelBtn: 'user-remove-cancel-btn',
     inviteBtn: 'user-invite-btn',
+    inviteShopBtn: 'user-invite-shop-btn',
     inviteModal: 'user-invite-modal',
     inviteEmailInput: 'user-invite-email-input',
     inviteRoleSelect: 'user-invite-role-select',

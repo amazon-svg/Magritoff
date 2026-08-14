@@ -41,6 +41,10 @@ const CRITICAL: Record<string, string[]> = {
 // Testids dont l UI n existe pas encore (story d ajout future).
 const EXPECTED_MISSING = new Set<string>([
   TEST_IDS.usage.quotaCounter, // P07 — pas de sidebar quota counter aujourd hui
+  // UM3 (2026-08-14) — le sélecteur de périmètre a quitté l écran Utilisateurs :
+  // l invitation est typée par la section d où elle part (équipe / boutique),
+  // et l édition du périmètre passe par EditUserRolesModal (permissionsModal).
+  TEST_IDS.user.accessScopeRadio,
 ]);
 
 function walk(dir: string, acc: string[] = []): string[] {
