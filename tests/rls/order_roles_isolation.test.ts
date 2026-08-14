@@ -90,8 +90,8 @@ describe.skipIf(SKIP_REASON !== null)('RLS order roles isolation (S-ORDER-ROLES-
 
     // Memberships owner
     await admin.from('tenant_members').insert([
-      { tenant_id: tA.id, user_id: a.user.id, role: 'owner', access_scope: 'magrit_full' },
-      { tenant_id: tB.id, user_id: b.user.id, role: 'owner', access_scope: 'magrit_full' },
+      { tenant_id: tA.id, user_id: a.user.id, role: 'admin', access_scope: 'magrit_full' },
+      { tenant_id: tB.id, user_id: b.user.id, role: 'admin', access_scope: 'magrit_full' },
     ]);
 
     // Shops (nécessaire pour FK tenant_orders.shop_id)

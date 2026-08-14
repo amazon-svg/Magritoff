@@ -40,7 +40,7 @@ export function DashboardTenantSpaces() {
   const canCreate =
     !!currentTenant &&
     !isSubTenant &&
-    (currentRole === 'owner' || currentRole === 'admin' || isSuperAdmin);
+    (currentRole === 'admin' || isSuperAdmin);
 
   const load = useCallback(async () => {
     if (!currentTenant) return;

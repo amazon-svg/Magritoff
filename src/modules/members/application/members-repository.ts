@@ -1,7 +1,7 @@
 import type { UserId } from '../../../kernel/ids/index.ts';
 import type { ChangeMemberRoleCommand, TenantMember, UpdateMemberAccessCommand } from '../api/contracts.ts';
 
-export type MemberRejectionCode = 'permission_denied' | 'member_not_found' | 'owner_protected' | 'invalid_request';
+export type MemberRejectionCode = 'permission_denied' | 'member_not_found' | 'last_admin_protected' | 'invalid_request';
 export class MemberRejectedError extends Error {
   constructor(public readonly code: MemberRejectionCode, message: string) { super(message); this.name = 'MemberRejectedError'; }
 }

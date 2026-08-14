@@ -71,7 +71,7 @@ export class SupabaseInvitationsRepository implements InvitationsRepository {
       const permissions = row.permissions as Record<string, unknown> | null;
       return {
         id: row.id, email: row.email,
-        role: row.role as 'owner' | 'admin' | 'member' | 'partner',
+        role: row.role as 'admin' | 'member' | 'partner',
         expiresAt: row.expires_at, createdAt: row.created_at,
         accessScope: row.access_scope === 'shop_only' ? 'shop_only' : 'magrit_full',
         allowedShopIds: row.allowed_shop_ids ?? [],
@@ -110,8 +110,8 @@ export class SupabaseInvitationsRepository implements InvitationsRepository {
   }
 }
 
-function toInvitationRole(role: string): 'owner' | 'admin' | 'member' | 'partner' {
-  return role === 'owner' || role === 'admin' || role === 'partner' ? role : 'member';
+function toInvitationRole(role: string): 'admin' | 'member' | 'partner' {
+  return role === 'admin' || role === 'partner' ? role : 'member';
 }
 
 function toRejectionCode(message: string): 'permission_denied' | 'duplicate_pending' | 'role_mismatch_tenant' | 'invalid_request' | 'delivery_failed' {

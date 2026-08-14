@@ -96,7 +96,7 @@ export function QuotesProvider({ children }: { children: ReactNode }) {
     '', globalThis.fetch, () => session?.access_token ?? null,
   )), [session?.access_token]);
 
-  const canViewAll = isSuperAdmin || currentRole === 'owner' || currentRole === 'admin';
+  const canViewAll = isSuperAdmin || currentRole === 'admin';
   const taxRate = getTaxRate(currentTenant);
 
   // Force le scope a 'mine' si l'utilisateur perd le droit (changement de tenant)

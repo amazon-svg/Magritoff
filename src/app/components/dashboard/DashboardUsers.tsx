@@ -42,7 +42,7 @@ import { ApiClientError, FetchApiClient } from '../../../platform/api';
 // SECTION 1 — Utilisateurs Magrit (membres tenant + invitations)
 // ────────────────────────────────────────────────────────────────────────────
 
-type Role = 'owner' | 'admin' | 'member' | 'partner';
+type Role = 'admin' | 'member' | 'partner';
 
 interface MemberRow {
   user_id: string;
@@ -87,7 +87,7 @@ function MagritUsersSection() {
     '', globalThis.fetch, () => session?.access_token ?? null,
   )), [session?.access_token]);
 
-  const canWrite = currentRole === 'owner' || currentRole === 'admin' || isSuperAdmin;
+  const canWrite = currentRole === 'admin' || isSuperAdmin;
 
   const load = async () => {
     if (!currentTenant) return;
@@ -161,13 +161,8 @@ function MagritUsersSection() {
 
   const changeRole = async (member: MemberRow, newRole: Role) => {
     if (!currentTenant || member.role === newRole) return;
-    if (member.role === 'owner') {
-      alert("Impossible de modifier le role d'un owner.");
-      return;
-    }
     setUpdatingRoleFor(member.user_id);
     try {
-      if (newRole === 'owner') throw new Error('Le rôle owner ne peut pas être attribué ici.');
       await membersApi.changeRole(currentTenant.id, member.user_id, { role: newRole });
       await load();
     } catch (error) {
@@ -201,10 +196,6 @@ function MagritUsersSection() {
 
   const removeMember = async (member: MemberRow) => {
     if (!currentTenant) return;
-    if (member.role === 'owner') {
-      alert('Impossible de retirer un owner.');
-      return;
-    }
     if (!confirm(
       `Retirer ${member.email ?? member.user_id} de l'espace ?\n\n` +
       "L'utilisateur conservera son compte Magrit, mais perdra l'acces a cet espace."
@@ -303,7 +294,6 @@ function MagritUsersSection() {
             <tbody>
               {members.map((m) => {
                 const isMe = m.user_id === user?.id;
-                const isOwner = m.role === 'owner';
                 return (
                   <tr
                     key={m.user_id}
@@ -323,7 +313,7 @@ function MagritUsersSection() {
                       )}
                     </td>
                     <td className="px-4 py-2.5">
-                      {canWrite && !isOwner && !isMe ? (
+                      {canWrite && !isMe ? (
                         <select
                           data-testid={TEST_IDS.user.roleSelect}
                           value={m.role}
@@ -355,7 +345,7 @@ function MagritUsersSection() {
                     </td>
                     <td className="px-4 py-2.5 text-right">
                       <div className="inline-flex items-center gap-1">
-                        {canWrite && !isOwner && (
+                        {canWrite && (
                           <button
                             data-testid={TEST_IDS.user.editPermissionsBtn}
                             onClick={() => setEditingPerms(m)}
@@ -367,7 +357,7 @@ function MagritUsersSection() {
                             Droits
                           </button>
                         )}
-                        {canWrite && !isOwner && !isMe && (
+                        {canWrite && !isMe && (
                           <button
                             data-testid={TEST_IDS.user.removeBtn}
                             onClick={() => removeMember(m)}
@@ -489,9 +479,7 @@ function RoleBadge({ role }: { role: Role }) {
   return (
     <span
       className={`inline-flex items-center gap-1 px-2 py-0.5 rounded font-mono ${
-        role === 'owner'
-          ? 'bg-brand text-brand-ink'
-          : role === 'admin'
+        role === 'admin'
           ? 'bg-info-bg text-info-fg'
           : 'bg-bg text-ink-muted'
       }`}

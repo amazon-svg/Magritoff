@@ -31,7 +31,7 @@ export function DashboardTenantGammes() {
   const { session } = useAuth();
   const catalogApi = useMemo(() => new CatalogApiClient(new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null)), [session?.access_token]);
 
-  const canWrite = currentRole === 'owner' || currentRole === 'admin' || isSuperAdmin;
+  const canWrite = currentRole === 'admin' || isSuperAdmin;
 
   const [activeSlugs, setActiveSlugs] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);

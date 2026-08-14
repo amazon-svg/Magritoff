@@ -67,7 +67,7 @@ describe.skipIf(SKIP_REASON !== null)('invite-member hardened (S9 R5-bis P1)', (
 
     // owner = admin tenant, member = simple (n'aura pas can_invite)
     await admin.from('tenant_members').insert([
-      { tenant_id: tenant!.id, user_id: owner.user!.id, role: 'owner', access_scope: 'magrit_full' },
+      { tenant_id: tenant!.id, user_id: owner.user!.id, role: 'admin', access_scope: 'magrit_full' },
       { tenant_id: tenant!.id, user_id: member.user!.id, role: 'member', access_scope: 'magrit_full' },
     ]);
 

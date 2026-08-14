@@ -73,7 +73,7 @@ describe.skipIf(SKIP_REASON !== null)('Edge order-workflow-step (S-N1-APPROVAL)'
     if (!tenant) throw new Error('tenant insert failed');
 
     await admin.from('tenant_members').insert([
-      { tenant_id: tenant.id, user_id: owner.user.id, role: 'owner', access_scope: 'magrit_full' },
+      { tenant_id: tenant.id, user_id: owner.user.id, role: 'admin', access_scope: 'magrit_full' },
       { tenant_id: tenant.id, user_id: val1.user.id, role: 'member', access_scope: 'magrit_full' },
       { tenant_id: tenant.id, user_id: val2.user.id, role: 'member', access_scope: 'magrit_full' },
     ]);

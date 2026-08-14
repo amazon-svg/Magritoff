@@ -26,7 +26,7 @@ export const invitationOptionsSchema = z.object({
 export const pendingInvitationSchema = z.object({
   id: z.string().uuid(),
   email: z.string().email(),
-  role: z.enum(['owner', 'admin', 'member', 'partner']),
+  role: z.enum(['admin', 'member', 'partner']),
   expiresAt: z.string(),
   createdAt: z.string(),
   accessScope: invitationAccessScopeSchema,

@@ -95,7 +95,7 @@ describe.skipIf(SKIP_REASON !== null)('Flux invitation E2E (DB layer)', () => {
     const { error: memErr } = await admin.from('tenant_members').insert({
       tenant_id: tenant.id,
       user_id: owner.user.id,
-      role: 'owner',
+      role: 'admin',
       access_scope: 'magrit_full',
       permissions: { can_quote: true, can_order: true, can_invite: true },
     });

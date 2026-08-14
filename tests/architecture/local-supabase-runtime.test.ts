@@ -61,14 +61,18 @@ describe('runtime Supabase local', () => {
     // appariant sur les NOMS 'Owner'/'Admin' — renommer l un de ces rôles
     // cassait la synchronisation des droits sans erreur. Le droit dérive
     // désormais de l enum d appartenance, à la lecture.
-    const migration = read('supabase/migrations/20260814000100_droits_owner_admin_par_appartenance.sql');
+    const retraitTrigger = read('supabase/migrations/20260814000100_droits_owner_admin_par_appartenance.sql');
+    const adminUnique = read('supabase/migrations/20260814000200_admin_unique.sql');
     const dashboard = read('src/app/components/dashboard/DashboardOrders.tsx');
 
-    expect(migration).toContain('drop trigger if exists trg_sync_membership_functional_role');
-    expect(migration).toContain('drop function if exists public.sync_membership_functional_role');
-    expect(migration).toContain("m.role = 'owner'");
-    expect(migration).toContain("m.role = 'admin' and p_capability <> 'can_manage_roles'");
-    expect(dashboard).toContain("currentTenant?.myRole === 'owner'");
+    expect(retraitTrigger).toContain('drop trigger if exists trg_sync_membership_functional_role');
+    expect(retraitTrigger).toContain('drop function if exists public.sync_membership_functional_role');
+    // Admin unique (décision Arnaud 2026-08-14) : owner inécrivable, l admin
+    // porte toutes les capabilities par son appartenance.
+    expect(adminUnique).toContain("check (role in ('admin', 'member', 'partner'))");
+    expect(adminUnique).toContain("m.role = 'admin'");
+    expect(adminUnique).not.toContain("p_capability <> 'can_manage_roles'");
+    expect(dashboard).toContain("currentTenant?.myRole === 'admin'");
     expect(dashboard).toContain('canValidate || isTenantAdmin');
     expect(dashboard).toContain('canModifyProduction || isTenantAdmin');
   });

@@ -6,7 +6,7 @@
  * draft → validated, réservée admin tenant) en messages utilisateur lisibles.
  *
  * Cf. matrice RPC migration 20260509000100_e1_orders_v1_1.sql L247-249 :
- *   draft → validated : admin tenant uniquement (role in 'owner','admin')
+ *   draft → validated : admin tenant uniquement (role 'admin')
  */
 
 export interface RpcLikeError {

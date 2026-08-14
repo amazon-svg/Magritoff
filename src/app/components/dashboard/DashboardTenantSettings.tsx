@@ -32,7 +32,7 @@ export function DashboardTenantSettings() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
 
-  const canEditName = currentRole === 'owner' || currentRole === 'admin' || isSuperAdmin;
+  const canEditName = currentRole === 'admin' || isSuperAdmin;
   const canEditSlug = isSuperAdmin;
 
   useEffect(() => {

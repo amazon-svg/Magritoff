@@ -86,7 +86,7 @@ describe.skipIf(SKIP_REASON !== null)('S-SUBTENANT-SCOPE (Usage A filiale)', () 
     }).select('id').single();
 
     await admin.from('tenant_members').insert([
-      { tenant_id: rootT!.id, user_id: a.data.user!.id, role: 'owner', access_scope: 'magrit_full' },
+      { tenant_id: rootT!.id, user_id: a.data.user!.id, role: 'admin', access_scope: 'magrit_full' },
       { tenant_id: rootT!.id, user_id: pa.data.user!.id, role: 'partner', access_scope: 'magrit_full' },
       { tenant_id: paris!.id, user_id: p.data.user!.id, role: 'member', access_scope: 'magrit_full' },
       { tenant_id: lyon!.id, user_id: l.data.user!.id, role: 'member', access_scope: 'magrit_full' },

@@ -67,8 +67,8 @@ describe.skipIf(SKIP_REASON !== null)('RPC get_order_audit_trail (S3.5)', () => 
     if (!tenant || !stranger_tenant) throw new Error('tenant insert failed');
 
     await admin.from('tenant_members').insert([
-      { tenant_id: tenant.id, user_id: m.user.id, role: 'owner', access_scope: 'magrit_full' },
-      { tenant_id: stranger_tenant.id, user_id: s.user.id, role: 'owner', access_scope: 'magrit_full' },
+      { tenant_id: tenant.id, user_id: m.user.id, role: 'admin', access_scope: 'magrit_full' },
+      { tenant_id: stranger_tenant.id, user_id: s.user.id, role: 'admin', access_scope: 'magrit_full' },
     ]);
 
     const { data: shop } = await admin.from('shops').insert({

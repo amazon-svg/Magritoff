@@ -78,7 +78,7 @@ export function DashboardOrders() {
   // Les owner/admin sont aussi autorisés par la commande serveur. Ce fallback
   // évite de masquer le workflow si un tenant brownfield n'a pas encore son
   // assignation de rôle fonctionnel synchronisée avec tenant_members.
-  const isTenantAdmin = currentTenant?.myRole === 'owner' || currentTenant?.myRole === 'admin';
+  const isTenantAdmin = currentTenant?.myRole === 'admin';
 
   const loadOrders = useCallback(async (cancelled: { current: boolean }) => {
     if (!user || !currentTenant) return;
