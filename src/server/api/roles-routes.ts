@@ -3,7 +3,7 @@ import {
   archiveRoleResultSchema, reorderRolesCommandSchema, reorderRolesResultSchema,
   roleCatalogDefinitionSchema, rolesCatalogSchema, rolesOverviewSchema,
   saveRoleDefinitionCommandSchema, setRoleAssignmentCommandSchema,
-  setRoleAssignmentResultSchema, userRolesDetailSchema, userCapabilitySchema,
+  setRoleAssignmentResultSchema, userRolesDetailSchema, userCapabilitySchema, userAccessProfileSchema,
 } from '../../modules/roles/api/contracts.ts';
 import { RoleRejectedError } from '../../modules/roles/application/roles-repository.ts';
 import type { RolesService } from '../../modules/roles/application/roles-service.ts';
@@ -15,6 +15,8 @@ export function createRolesRoutes(service: RolesService): readonly ApiRoute[] {
   return [
     defineJsonRoute({ method: 'GET', path: `${API_V1_BASE_PATH}/tenants/{tenantId}/capabilities/{capability}`, authentication: 'required', inputSchema: null, outputSchema: userCapabilitySchema,
       async handle(context) { return execute(async () => ({ status: 200, body: await service.userCapability(actor(context), param(context, 'tenantId'), capabilityParam(context)) })); } }),
+    defineJsonRoute({ method: 'GET', path: `${API_V1_BASE_PATH}/tenants/{tenantId}/access-profile`, authentication: 'required', inputSchema: null, outputSchema: userAccessProfileSchema,
+      async handle(context) { return execute(async () => ({ status: 200, body: await service.accessProfile(actor(context), param(context, 'tenantId')) })); } }),
     defineJsonRoute({ method: 'GET', path: `${API_V1_BASE_PATH}/tenants/{tenantId}/roles-overview`, authentication: 'required', inputSchema: null, outputSchema: rolesOverviewSchema,
       async handle(context) { return execute(async () => ({ status: 200, body: await service.overview(actor(context), param(context, 'tenantId')) })); } }),
     defineJsonRoute({ method: 'GET', path: `${API_V1_BASE_PATH}/tenants/{tenantId}/roles-catalog`, authentication: 'required', inputSchema: null, outputSchema: rolesCatalogSchema,

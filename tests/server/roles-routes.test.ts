@@ -14,6 +14,9 @@ function repository(overrides: Partial<RolesRepository>): RolesRepository {
   const role = { id: roleId, tenantId, name: 'Validateur', description: '', capabilities: { can_validate: true }, notifyPolicy: 'chain_next' as const, scope: 'tenant' as const, scopeShopId: null, orderingIndex: 40, archivedAt: null };
   return {
     async userCapability() { return false; },
+    async accessProfile() {
+      return { tenantId, userId: actor.ok ? actor.value : '', membership: 'member' as const, isAdmin: false, surfaces: ['workspace' as const], allowedShopIds: [], capabilities: [] };
+    },
     async overview() { return { roles: [], members: [], assignments: [] }; },
     async catalog() { return { roles: [], members: [], assignments: [] }; },
     async userDetail() { return { roles: [], assignments: [], shops: [], accessScope: 'magrit_full', allowedShopIds: [] }; },
@@ -25,6 +28,22 @@ function repository(overrides: Partial<RolesRepository>): RolesRepository {
 function handler(repo: RolesRepository) { return createApiV1Application({ routes: createRolesRoutes(new RolesService(repo)), actorResolver: { async resolve() { return { kind: 'user', userId: actor.value }; } }, requestIdFactory: () => 'roles-test' }); }
 
 describe('routes API Roles', () => {
+  it('sert le profil d acces de l utilisateur courant (UM2)', async () => {
+    let received: [string, string] | null = null;
+    const response = await handler(repository({ async accessProfile(operator, tenant) {
+      received = [operator, tenant];
+      return { tenantId: tenant, userId: operator, membership: 'admin', isAdmin: true, surfaces: ['workspace', 'backoffice'], allowedShopIds: [], capabilities: ['can_validate', 'can_order'] };
+    } }))(new Request(`http://localhost/api/v1/tenants/${tenantId}/access-profile`));
+    expect(response.status).toBe(200);
+    const profile = await response.json();
+    expect(profile).toMatchObject({ isAdmin: true, membership: 'admin', surfaces: ['workspace', 'backoffice'] });
+    // L auteur vient de la session, le tenant du chemin - jamais du client.
+    expect(received).toEqual([actor.value, tenantId]);
+  });
+  it('traduit une non-appartenance en 404 sur le profil d acces', async () => {
+    const response = await handler(repository({ async accessProfile() { throw new RoleRejectedError('member_not_found', 'Vous n appartenez pas a cet espace.'); } }))(new Request(`http://localhost/api/v1/tenants/${tenantId}/access-profile`));
+    expect(response.status).toBe(404);
+  });
   it('dérive l utilisateur et le tenant pour vérifier une capability', async () => {
     let received: [string, string, string] | null = null;
     const response = await handler(repository({ async userCapability(operator, tenant, capability) { received = [operator, tenant, capability]; return true; } }))(new Request(`http://localhost/api/v1/tenants/${tenantId}/capabilities/can_validate`));

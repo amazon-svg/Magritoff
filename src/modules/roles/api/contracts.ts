@@ -26,6 +26,29 @@ export const userRolesDetailSchema = z.object({
   shops: z.array(z.object({ id: z.string().uuid(), name: z.string() })),
   accessScope: z.enum(['magrit_full', 'shop_only']), allowedShopIds: z.array(z.string().uuid()),
 });
+/**
+ * UM2 — réponse unique à « quelles surfaces et quelles actions pour cet
+ * utilisateur ? ». L UX interroge ce contrat, jamais le stockage : la
+ * superposition access_scope / allowed_shop_ids / rôles reste un détail
+ * d implémentation en voie de résorption.
+ *
+ * `surface: 'shop'` désigne la population transitoire des membres `shop_only`,
+ * appelée à migrer vers des comptes boutique (SPEC-IDENTITY-STORE-01, UM7).
+ */
+export const accessSurfaceSchema = z.enum(['workspace', 'backoffice', 'shop']);
+export const userAccessProfileSchema = z.object({
+  tenantId: z.string().uuid(),
+  userId: z.string().uuid(),
+  membership: z.enum(['admin', 'member', 'partner']),
+  isAdmin: z.boolean(),
+  surfaces: z.array(accessSurfaceSchema),
+  allowedShopIds: z.array(z.string().uuid()),
+  /**
+   * Capabilities effectives : union des rôles actifs ; pour un admin, toutes
+   * celles déclarées dans le catalogue de l espace (l admin porte tout).
+   */
+  capabilities: z.array(z.string()),
+});
 export const setRoleAssignmentCommandSchema = z.object({ active: z.boolean() });
 export const setRoleAssignmentResultSchema = z.object({ active: z.boolean(), assignmentId: z.string().uuid().nullable() });
 export const saveRoleDefinitionCommandSchema = z.object({
@@ -63,3 +86,5 @@ export type SetRoleAssignmentResult = z.infer<typeof setRoleAssignmentResultSche
 export type RoleCatalogDefinition = z.infer<typeof roleCatalogDefinitionSchema>;
 export type SaveRoleDefinitionCommand = z.infer<typeof saveRoleDefinitionCommandSchema>;
 export type UserCapability = z.infer<typeof userCapabilitySchema>;
+export type UserAccessProfile = z.infer<typeof userAccessProfileSchema>;
+export type AccessSurface = z.infer<typeof accessSurfaceSchema>;

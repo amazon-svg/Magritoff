@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { UserId } from '../../kernel/ids/index.ts';
-import type { RoleCatalogDefinition, RolesCatalog, RolesOverview, SaveRoleDefinitionCommand, SetRoleAssignmentResult, UserRolesDetail } from '../../modules/roles/api/contracts.ts';
+import type { RoleCatalogDefinition, RolesCatalog, RolesOverview, SaveRoleDefinitionCommand, SetRoleAssignmentResult, UserAccessProfile, UserRolesDetail } from '../../modules/roles/api/contracts.ts';
 import { RoleRejectedError, type RolesRepository } from '../../modules/roles/application/roles-repository.ts';
 import type { Database } from '../../types/database.types.ts';
 
@@ -14,6 +14,76 @@ export class SupabaseRolesRepository implements RolesRepository {
     });
     if (error) throw rejected(error.message);
     return Boolean(data);
+  }
+
+  /**
+   * UM2 — le profil d acces synthetise ce que le stockage disperse encore :
+   * appartenance (tenant_members), perimetre (access_scope + allowed_shop_ids)
+   * et actions (roles actifs, ou tout pour un admin). Les ecrans lisent CETTE
+   * reponse ; la resorption de la superposition se fera derriere elle.
+   */
+  async accessProfile(actor: UserId, tenantId: string): Promise<UserAccessProfile> {
+    const member = await this.client
+      .from('tenant_members')
+      .select('role, access_scope, allowed_shop_ids')
+      .eq('tenant_id', tenantId)
+      .eq('user_id', actor)
+      .maybeSingle();
+    if (member.error) throw rejected(member.error.message);
+    if (!member.data) throw new RoleRejectedError('member_not_found', 'Vous n appartenez pas a cet espace.');
+
+    const membership = member.data.role === 'admin' || member.data.role === 'partner' ? member.data.role : 'member';
+    const isAdmin = membership === 'admin';
+    const shopOnly = member.data.access_scope === 'shop_only';
+
+    // Surfaces : consequence des droits, pas un type de compte (UM1 §1.2).
+    const surfaces: UserAccessProfile['surfaces'] = shopOnly
+      ? ['shop']
+      : isAdmin
+        ? ['workspace', 'backoffice']
+        : ['workspace'];
+
+    // Actions effectives. Un admin porte toutes les capabilities declarees
+    // dans le catalogue de l espace ; sinon, union des roles actifs.
+    const capabilities = new Set<string>();
+    if (isAdmin) {
+      const catalog = await this.client
+        .from('tenant_role_definitions')
+        .select('capabilities')
+        .eq('tenant_id', tenantId)
+        .is('archived_at', null);
+      if (catalog.error) throw rejected(catalog.error.message);
+      for (const row of catalog.data ?? []) {
+        for (const [name, granted] of Object.entries((row.capabilities as Record<string, boolean> | null) ?? {})) {
+          if (granted) capabilities.add(name);
+        }
+      }
+    } else {
+      const assigned = await this.client
+        .from('tenant_role_assignments')
+        .select('revoked_at, tenant_role_definitions!inner(tenant_id, archived_at, capabilities)')
+        .eq('user_id', actor)
+        .is('revoked_at', null)
+        .eq('tenant_role_definitions.tenant_id', tenantId)
+        .is('tenant_role_definitions.archived_at', null);
+      if (assigned.error) throw rejected(assigned.error.message);
+      for (const row of assigned.data ?? []) {
+        const definition = row.tenant_role_definitions as unknown as { capabilities: Record<string, boolean> | null };
+        for (const [name, granted] of Object.entries(definition.capabilities ?? {})) {
+          if (granted) capabilities.add(name);
+        }
+      }
+    }
+
+    return {
+      tenantId,
+      userId: actor,
+      membership,
+      isAdmin,
+      surfaces,
+      allowedShopIds: shopOnly ? (member.data.allowed_shop_ids ?? []) : [],
+      capabilities: [...capabilities].sort(),
+    };
   }
 
   async overview(_actor: UserId, tenantId: string): Promise<RolesOverview> {
