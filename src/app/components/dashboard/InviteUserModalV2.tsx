@@ -257,7 +257,12 @@ export function InviteUserModalV2({
               className="block text-ink-muted mb-1.5"
               style={{ fontSize: '11.5px', fontWeight: 500 }}
             >
-              {scope === 'shop_only' ? "Email de l'utilisateur" : 'Email du collaborateur'}
+              {/* Chaque variante dans son propre span : si la page est
+                  traduite par le navigateur, React retire l element entier
+                  et ne bute pas sur un noeud texte reecrit par le traducteur. */}
+              {scope === 'shop_only'
+                ? <span key="shop">Email de l'utilisateur</span>
+                : <span key="team">Email du collaborateur</span>}
             </span>
             <input
               data-testid={TEST_IDS.user.inviteEmailInput}
