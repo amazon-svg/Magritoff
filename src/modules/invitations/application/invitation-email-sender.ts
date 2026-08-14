@@ -1,7 +1,7 @@
 export type InvitationEmail = Readonly<{
   to: string;
   tenantName: string;
-  role: 'admin' | 'member' | 'partner';
+  role: 'admin' | 'member';
   link: string;
   expiresAt: string;
 }>;

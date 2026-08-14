@@ -1693,6 +1693,7 @@ export type Database = {
           ordering_index: number
           scope: string
           scope_shop_id: string | null
+          system_key: string | null
           tenant_id: string
         }
         Insert: {
@@ -1707,6 +1708,7 @@ export type Database = {
           ordering_index?: number
           scope?: string
           scope_shop_id?: string | null
+          system_key?: string | null
           tenant_id: string
         }
         Update: {
@@ -1721,6 +1723,7 @@ export type Database = {
           ordering_index?: number
           scope?: string
           scope_shop_id?: string | null
+          system_key?: string | null
           tenant_id?: string
         }
         Relationships: [

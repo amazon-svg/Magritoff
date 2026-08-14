@@ -32,7 +32,7 @@ export class SupabaseRolesRepository implements RolesRepository {
     if (member.error) throw rejected(member.error.message);
     if (!member.data) throw new RoleRejectedError('member_not_found', 'Vous n appartenez pas a cet espace.');
 
-    const membership = member.data.role === 'admin' || member.data.role === 'partner' ? member.data.role : 'member';
+    const membership = member.data.role === 'admin' ? 'admin' : 'member';
     const isAdmin = membership === 'admin';
     const shopOnly = member.data.access_scope === 'shop_only';
 
@@ -188,9 +188,9 @@ export class SupabaseRolesRepository implements RolesRepository {
   }
 
   private async loadRoles(tenantId: string) {
-    const { data, error } = await this.client.from('tenant_role_definitions').select('id, name, description, capabilities, ordering_index').eq('tenant_id', tenantId).is('archived_at', null).order('ordering_index');
+    const { data, error } = await this.client.from('tenant_role_definitions').select('id, name, description, capabilities, ordering_index, system_key').eq('tenant_id', tenantId).is('archived_at', null).order('ordering_index');
     if (error) throw rejected(error.message);
-    return (data ?? []).map((role) => ({ id: role.id, name: role.name, description: role.description ?? '', capabilities: toCapabilities(role.capabilities), orderingIndex: role.ordering_index }));
+    return (data ?? []).map((role) => ({ id: role.id, name: role.name, description: role.description ?? '', capabilities: toCapabilities(role.capabilities), orderingIndex: role.ordering_index, systemKey: (role as { system_key?: string | null }).system_key ?? null }));
   }
   private async loadCatalogRoles(tenantId: string): Promise<RoleCatalogDefinition[]> {
     const { data, error } = await this.client.from('tenant_role_definitions')
@@ -218,7 +218,7 @@ export class SupabaseRolesRepository implements RolesRepository {
   }
 }
 
-const CATALOG_COLUMNS = 'id, tenant_id, name, description, capabilities, notify_policy, scope, scope_shop_id, ordering_index, archived_at' as const;
+const CATALOG_COLUMNS = 'id, tenant_id, name, description, capabilities, notify_policy, scope, scope_shop_id, ordering_index, archived_at, system_key' as const;
 const CANONICAL_ROLES = new Set(['Owner', 'Admin', 'Acheteur', 'Producteur']);
 
 function definitionPayload(command: SaveRoleDefinitionCommand) {
@@ -237,11 +237,13 @@ function mapCatalogRole(role: {
   id: string; tenant_id: string; name: string; description: string | null;
   capabilities: unknown; notify_policy: string; scope: string;
   scope_shop_id: string | null; ordering_index: number; archived_at: string | null;
+  system_key?: string | null;
 }): RoleCatalogDefinition {
   return {
     id: role.id,
     tenantId: role.tenant_id,
     name: role.name,
+    systemKey: role.system_key ?? null,
     description: role.description ?? '',
     capabilities: toCapabilities(role.capabilities),
     notifyPolicy: role.notify_policy === 'all_roles' || role.notify_policy === 'none' ? role.notify_policy : 'chain_next',

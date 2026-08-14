@@ -74,6 +74,6 @@ export class SupabaseMembersRepository implements MembersRepository {
   }
 }
 
-function toRole(value: string): 'admin' | 'member' | 'partner' {
-  return value === 'admin' || value === 'partner' ? value : 'member';
+function toRole(value: string): 'admin' | 'member' {
+  return value === 'admin' ? value : 'member';
 }

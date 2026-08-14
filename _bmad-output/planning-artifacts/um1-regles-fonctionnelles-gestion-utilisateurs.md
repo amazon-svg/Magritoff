@@ -2,6 +2,7 @@
 id: UM1-REGLES-FONCTIONNELLES
 title: UM1 — Règles fonctionnelles de la gestion des utilisateurs
 date: 2026-08-14
+revised: 2026-08-14 (v1.1 — profils + options)
 status: validated
 decision_owner: Arnaud (produit)
 plan: instructions UM1→UM4 de Xavier Péchoultres (2026-08-13)
@@ -22,11 +23,23 @@ actions et les règles qui l'accompagnent. Validé par Arnaud le 2026-08-14.
    ou la **délégation** (« se connecter comme »), sans fusion d'identité.
 2. **La surface visible est une conséquence des droits**, jamais un type de
    compte stocké.
-3. **Un seul profil d'administration : admin**, associé à un tenant. La
-   distinction owner/admin n'existe plus (décision 2026-08-14, appliquée en
-   base le même jour — migration `20260814000200`). L'admin porte toutes les
-   capabilities. Le dernier admin d'un espace ne peut être ni rétrogradé ni
-   retiré (contrôle serveur).
+3. **Côté Magrit, deux profils et deux options — pas de catalogue de rôles**
+   (v1.1, décision 2026-08-14) :
+   - **admin** : tout. La distinction owner/admin n'existe plus (migration
+     `20260814000200`) ; le dernier admin d'un espace ne peut être ni
+     rétrogradé ni retiré (contrôle serveur). Le profil `partner` est
+     supprimé (migration `20260814000400`).
+   - **utilisateur** : socle devis — créer, imprimer, gérer les statuts,
+     transmettre — plus deux **options** activables par l'admin :
+     · **Boutiques** — créer des boutiques et administrer les siennes ;
+     · **Commandes** — administrer les commandes : valider, modifier, gérer
+       les statuts, exporter, annuler (Validateur et Producteur absorbés).
+   Les options sont des rôles système identifiés par une clé produit
+   (`option_shops`, `option_orders`), jamais par leur nom. La restriction
+   « commandes des seules boutiques auxquelles le commercial est associé »
+   s'activera avec les comptes miroir (le lien commercial↔boutique n'a pas
+   encore de support de données) ; d'ici là l'option couvre les commandes de
+   l'espace.
 4. **« Acheteur » est un rôle côté boutique** : un utilisateur client d'une
    boutique auquel ce rôle est assigné, avec pour prérogative de valider les
    achats quand un workflow de validation est actif. Ce n'est pas un profil
@@ -39,7 +52,7 @@ actions et les règles qui l'accompagnent. Validé par Arnaud le 2026-08-14.
 | Profil | Population | Surfaces | Boutiques | Actions |
 |---|---|---|---|---|
 | **Admin** (du tenant) | Magrit | workspace + backoffice | toutes (gestion) | toutes les capabilities |
-| **Collaborateur à rôles** (Validateur, Producteur, rôles custom) | Magrit | workspace | aucune en propre | union des capabilities de ses rôles |
+| **Utilisateur** (profil `member`) | Magrit | workspace | aucune en propre | socle devis ; + option **Boutiques** et/ou **Commandes** selon les cases cochées par l'admin |
 | **Client boutique** | Boutique | storefront + portail, une seule boutique | la sienne | acheter, panier, commandes, historique |
 | **Client — rôle Acheteur** | Boutique | idem client | la sienne | en plus : valider les achats quand un workflow de validation est actif |
 | **Compte miroir** (Magrit → boutique) | Boutique | storefront + portail, une boutique | celle du miroir | comme un client ; création explicite, idempotente |
@@ -54,7 +67,7 @@ réel et le compte joué.
 | Profil | Arrivée après connexion / invitation |
 |---|---|
 | Admin | l'atelier de son espace (dernier espace ouvert si plusieurs — `last_tenant_id`) ; backoffice à un clic |
-| Collaborateur à rôles | l'atelier ; les écrans hors de ses capabilities n'apparaissent pas |
+| Utilisateur | l'atelier ; les écrans hors de son socle et de ses options n'apparaissent pas |
 | Client boutique | la page d'accueil de **sa** boutique, connecté |
 | Client — rôle Acheteur | idem, avec compteur « commandes à valider » dès l'entrée du portail |
 | Compte miroir / délégation | la boutique concernée ; bandeau permanent en délégation (acteur réel affiché) |
@@ -86,6 +99,8 @@ suspension et renvoi d'invitation sont possibles (UM3).
 |---|---|
 | Droits admin dérivés de l'appartenance, plus de synchronisation par nom de rôle | migration `20260814000100`, en prod |
 | Admin unique, owner inécrivable, dernier admin protégé | migration `20260814000200` + purge code (commit `f5fd9c2`), en prod |
+| Rôle « Owner » archivé du catalogue | migration `20260814000300`, en prod |
+| Profils + options (partner supprimé, options seedées dans 225 espaces, Validateur/Producteur repris) | migration `20260814000400`, en prod |
 
 ## 7. Points ouverts (hors périmètre UM1)
 

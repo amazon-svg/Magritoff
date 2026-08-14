@@ -18,7 +18,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   UserMinus, Shield, Plus, Store,
-  Settings, Send,
+  Settings, Send, X,
 } from 'lucide-react';
 import {
   useTenant,
@@ -28,14 +28,14 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { useShops } from '../../contexts/ShopsContext';
 import { TEST_IDS } from '../../lib/testIds';
-import { DashboardRolesSection } from './DashboardRolesSection';
 import { InviteUserModalV2 } from './InviteUserModalV2';
 import { EditUserRolesModal } from './EditUserRolesModal';
 import { InvitationsApiClient } from '../../../modules/invitations';
+import { RolesApiClient } from '../../../modules/roles';
 import { MembersApiClient } from '../../../modules/members';
 import { ApiClientError, FetchApiClient } from '../../../platform/api';
 
-type Role = 'admin' | 'member' | 'partner';
+type Role = 'admin' | 'member';
 
 interface MemberRow {
   user_id: string;
@@ -71,8 +71,10 @@ function UsersSections() {
   // UM3 : un seul état pour la modale, typé par le parcours qui l ouvre.
   const [inviteScope, setInviteScope] = useState<AccessScope | null>(null);
 
-  // Modale "Droits" (rôles métier + périmètre)
-  const [editingPerms, setEditingPerms] = useState<MemberRow | null>(null);
+  // Fiche "Droits" : options produit pour l équipe, périmètre + workflow
+  // pour un utilisateur boutique.
+  const [editingTeamMember, setEditingTeamMember] = useState<MemberRow | null>(null);
+  const [editingShopMember, setEditingShopMember] = useState<MemberRow | null>(null);
   const invitationsApi = useMemo(() => new InvitationsApiClient(new FetchApiClient(
     '', globalThis.fetch, () => session?.access_token ?? null,
   )), [session?.access_token]);
@@ -196,12 +198,12 @@ function UsersSections() {
   const dateFr = (value: string) =>
     new Date(value).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
 
-  const memberActions = (m: MemberRow, isMe: boolean) => (
+  const memberActions = (m: MemberRow, isMe: boolean, population: 'team' | 'shop') => (
     <div className="inline-flex items-center gap-1">
       {canWrite && (
         <button
           data-testid={TEST_IDS.user.editPermissionsBtn}
-          onClick={() => setEditingPerms(m)}
+          onClick={() => (population === 'team' ? setEditingTeamMember(m) : setEditingShopMember(m))}
           className="inline-flex items-center gap-1 px-2 py-1 rounded text-ink-muted hover:bg-line/60 hover:text-ink"
           style={{ fontSize: '11.5px', fontWeight: 500 }}
           title="Modifier les droits"
@@ -256,7 +258,7 @@ function UsersSections() {
                       className="font-mono text-ink-muted"
                       style={{ fontSize: '11px', letterSpacing: '0.04em' }}
                     >
-                      {inv.role.toUpperCase()}
+                      {inv.role === 'admin' ? 'ADMIN' : 'UTILISATEUR'}
                     </span>
                   )}
                 </td>
@@ -395,8 +397,7 @@ function UsersSections() {
                             style={{ fontSize: '11px', letterSpacing: '0.04em', fontWeight: 600 }}
                           >
                             <option value="admin">ADMIN</option>
-                            <option value="member">MEMBER</option>
-                            <option value="partner">PARTNER</option>
+                            <option value="member">UTILISATEUR</option>
                           </select>
                         ) : (
                           <RoleBadge role={m.role} />
@@ -408,7 +409,7 @@ function UsersSections() {
                       >
                         {dateFr(m.joined_at)}
                       </td>
-                      <td className="px-4 py-2.5 text-right">{memberActions(m, isMe)}</td>
+                      <td className="px-4 py-2.5 text-right">{memberActions(m, isMe, 'team')}</td>
                     </tr>
                   );
                 })}
@@ -503,7 +504,7 @@ function UsersSections() {
                       >
                         {dateFr(m.joined_at)}
                       </td>
-                      <td className="px-4 py-2.5 text-right">{memberActions(m, isMe)}</td>
+                      <td className="px-4 py-2.5 text-right">{memberActions(m, isMe, 'shop')}</td>
                     </tr>
                   );
                 })}
@@ -530,17 +531,29 @@ function UsersSections() {
         />
       )}
 
-      {/* Rôles métier + périmètre — même modale pour les deux populations. */}
-      {editingPerms && currentTenant && user && (
-        <EditUserRolesModal
-          open={true}
-          targetUserId={editingPerms.user_id}
-          targetUserEmail={editingPerms.email}
+      {/* Équipe : la fiche aux deux options produit (Boutiques, Commandes). */}
+      {editingTeamMember && currentTenant && user && (
+        <TeamOptionsModal
+          member={editingTeamMember}
           tenantId={currentTenant.id}
           onChanged={async () => {
             await load();
           }}
-          onClose={() => setEditingPerms(null)}
+          onClose={() => setEditingTeamMember(null)}
+        />
+      )}
+
+      {/* Utilisateur boutique : périmètre (boutiques) + rôles du workflow. */}
+      {editingShopMember && currentTenant && user && (
+        <EditUserRolesModal
+          open={true}
+          targetUserId={editingShopMember.user_id}
+          targetUserEmail={editingShopMember.email}
+          tenantId={currentTenant.id}
+          onChanged={async () => {
+            await load();
+          }}
+          onClose={() => setEditingShopMember(null)}
         />
       )}
     </>
@@ -550,6 +563,146 @@ function UsersSections() {
 // ────────────────────────────────────────────────────────────────────────────
 // Sous-composants
 // ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Fiche d un membre de l équipe (évolution UM 2026-08-14) : le profil se lit
+ * dans l appartenance (admin / utilisateur), et l admin active deux OPTIONS —
+ * Boutiques et Commandes. Ce sont des rôles système identifiés par leur clé
+ * produit (option_shops, option_orders), jamais par leur nom.
+ */
+function TeamOptionsModal(props: {
+  member: MemberRow;
+  tenantId: string;
+  onChanged: () => Promise<void>;
+  onClose: () => void;
+}) {
+  const { session } = useAuth();
+  const rolesApi = useMemo(() => new RolesApiClient(new FetchApiClient(
+    '', globalThis.fetch, () => session?.access_token ?? null,
+  )), [session?.access_token]);
+
+  const [options, setOptions] = useState<{ id: string; systemKey: string; name: string; description: string; active: boolean }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let current = true;
+    setLoading(true);
+    rolesApi.userDetail(props.tenantId, props.member.user_id)
+      .then((detail) => {
+        if (!current) return;
+        const assigned = new Set(detail.assignments.map((a) => a.roleId));
+        setOptions(detail.roles
+          .filter((role) => role.systemKey !== null)
+          .map((role) => ({
+            id: role.id,
+            systemKey: role.systemKey as string,
+            name: role.name,
+            description: role.description,
+            active: assigned.has(role.id),
+          })));
+      })
+      .catch((detailError: unknown) => {
+        if (current) setError(detailError instanceof Error ? detailError.message : 'Chargement impossible.');
+      })
+      .finally(() => {
+        if (current) setLoading(false);
+      });
+    return () => { current = false; };
+  }, [rolesApi, props.tenantId, props.member.user_id]);
+
+  const toggle = async (option: { id: string; active: boolean }) => {
+    setTogglingId(option.id);
+    setError(null);
+    try {
+      await rolesApi.setAssignment(props.tenantId, props.member.user_id, option.id, !option.active);
+      setOptions((current) => current.map((o) => (o.id === option.id ? { ...o, active: !option.active } : o)));
+      await props.onChanged();
+    } catch (toggleError) {
+      setError(toggleError instanceof Error ? toggleError.message : 'Echec de la mise a jour.');
+    }
+    setTogglingId(null);
+  };
+
+  const isAdminMember = props.member.role === 'admin';
+
+  return (
+    <div
+      data-testid={TEST_IDS.user.permissionsModal}
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50"
+      onClick={props.onClose}
+    >
+      <div
+        className="bg-paper rounded-xl shadow-2xl w-full max-w-md p-5"
+        onClick={(e) => e.stopPropagation()}
+        style={{ fontFamily: 'var(--font-ui)' }}
+      >
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h3 className="text-ink m-0" style={{ fontWeight: 400, fontSize: '17px' }}>
+              Droits du collaborateur
+            </h3>
+            <p className="mt-1 text-ink-muted" style={{ fontSize: '12px' }}>
+              {props.member.email ?? props.member.user_id}
+            </p>
+          </div>
+          <button onClick={props.onClose} className="p-1 rounded hover:bg-line" aria-label="Fermer">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <p className="text-ink-muted mb-3" style={{ fontSize: '12.5px' }}>
+          Socle : créer des devis, les imprimer, gérer leurs statuts, les transmettre.
+        </p>
+
+        {isAdminMember ? (
+          <p className="text-ink-muted border border-line rounded-md px-3 py-2" style={{ fontSize: '12.5px' }}>
+            Ce membre est <span className="text-ink" style={{ fontWeight: 500 }}>admin</span> : il dispose de tous les droits, les options ne s appliquent pas.
+          </p>
+        ) : loading ? (
+          <p className="text-ink-muted" style={{ fontSize: '12.5px' }}>Chargement…</p>
+        ) : (
+          <div className="space-y-2">
+            {options.map((option) => (
+              <label
+                key={option.systemKey}
+                data-testid={TEST_IDS.user.teamOptionToggle}
+                data-option={option.systemKey}
+                className="flex items-start gap-2.5 p-2.5 border border-line rounded-md cursor-pointer hover:bg-line/40"
+              >
+                <input
+                  type="checkbox"
+                  className="mt-0.5"
+                  checked={option.active}
+                  disabled={togglingId === option.id}
+                  onChange={() => toggle(option)}
+                />
+                <span>
+                  <span className="block text-ink" style={{ fontSize: '13px', fontWeight: 500 }}>
+                    {option.name}
+                  </span>
+                  <span className="block text-ink-muted mt-0.5" style={{ fontSize: '11.5px' }}>
+                    {option.description}
+                  </span>
+                </span>
+              </label>
+            ))}
+            {options.length === 0 && (
+              <p className="text-ink-mute-2" style={{ fontSize: '12px' }}>
+                Options indisponibles dans cet espace.
+              </p>
+            )}
+          </div>
+        )}
+
+        {error && (
+          <p className="mt-3 text-err-fg" style={{ fontSize: '12px' }}>{error}</p>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function RoleBadge({ role }: { role: Role }) {
   return (
@@ -562,7 +715,7 @@ function RoleBadge({ role }: { role: Role }) {
       style={{ fontSize: '10.5px', letterSpacing: '0.04em', fontWeight: 600 }}
     >
       <Shield className="w-3 h-3" strokeWidth={1.5} />
-      {role.toUpperCase()}
+      {role === 'admin' ? 'ADMIN' : 'UTILISATEUR'}
     </span>
   );
 }
@@ -627,10 +780,6 @@ export function DashboardUsers() {
       </div>
 
       <UsersSections />
-
-      <hr className="border-line" />
-
-      <DashboardRolesSection />
     </div>
   );
 }

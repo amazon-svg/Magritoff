@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const memberRoleSchema = z.enum(['admin', 'member', 'partner']);
+export const memberRoleSchema = z.enum(['admin', 'member']);
 export const memberAccessScopeSchema = z.enum(['magrit_full', 'shop_only']);
 export const memberPermissionsSchema = z.object({
   canQuote: z.boolean(), canOrder: z.boolean(), canInvite: z.boolean(),

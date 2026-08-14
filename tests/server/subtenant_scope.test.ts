@@ -3,11 +3,11 @@
  *
  * Bootstrap : 1 tenant racine "Imprimerie Dupont" + 3 sous-tenants
  * (Paris/Lyon/Bordeaux) + 5 users (admin racine, member Paris, member Lyon,
- * member Bordeaux, partner racine non-hérité).
+ * member Bordeaux, member racine supplémentaire — partner supprimé le 2026-08-14).
  *
  * Valide :
  *  - is_subtenant_member_direct : OK pour member direct
- *  - is_subtenant_member_inherited : OK pour admin/member racine, KO partner
+ *  - is_subtenant_member_inherited : OK pour tout profil racine (admin, member)
  *  - get_user_subtenants : admin voit tous, members voient leur site +
  *    racine via inherited
  *  - move_user_between_subtenants : OK admin parent, BLOCKED autre user,
@@ -87,7 +87,7 @@ describe.skipIf(SKIP_REASON !== null)('S-SUBTENANT-SCOPE (Usage A filiale)', () 
 
     await admin.from('tenant_members').insert([
       { tenant_id: rootT!.id, user_id: a.data.user!.id, role: 'admin', access_scope: 'magrit_full' },
-      { tenant_id: rootT!.id, user_id: pa.data.user!.id, role: 'partner', access_scope: 'magrit_full' },
+      { tenant_id: rootT!.id, user_id: pa.data.user!.id, role: 'member', access_scope: 'magrit_full' },
       { tenant_id: paris!.id, user_id: p.data.user!.id, role: 'member', access_scope: 'magrit_full' },
       { tenant_id: lyon!.id, user_id: l.data.user!.id, role: 'member', access_scope: 'magrit_full' },
       { tenant_id: bordeaux!.id, user_id: b.data.user!.id, role: 'member', access_scope: 'magrit_full' },
@@ -186,11 +186,14 @@ describe.skipIf(SKIP_REASON !== null)('S-SUBTENANT-SCOPE (Usage A filiale)', () 
     expect(data).toBe(true);
   });
 
-  it('member_inherited : partner racine n hérite PAS (cohérent règle)', async () => {
+  it('member_inherited : un utilisateur (member) racine hérite vers les sous-espaces', async () => {
+    // Évolution UM 2026-08-14 : partner n existe plus. La règle SQL fait
+    // hériter tout profil racine (admin, member) — le cas « profil racine
+    // non héritant » a disparu avec partner.
     const { data } = await ctx.anonPartner.rpc('is_subtenant_member_inherited', {
       p_tenant_id: ctx.parisTenantId,
     });
-    expect(data).toBe(false);
+    expect(data).toBe(true);
   });
 
   it('member_inherited : tenant racine (sans parent) retourne false', async () => {
@@ -223,11 +226,12 @@ describe.skipIf(SKIP_REASON !== null)('S-SUBTENANT-SCOPE (Usage A filiale)', () 
     expect((data as { id: string }[])[0].id).toBe(ctx.parisTenantId);
   });
 
-  it('get_user_subtenants : partner racine ne voit aucun sous-tenant', async () => {
+  it('get_user_subtenants : un utilisateur (member) racine voit les sous-tenants', async () => {
+    // Évolution UM 2026-08-14 : partner supprimé — un member racine hérite.
     const { data } = await ctx.anonPartner.rpc('get_user_subtenants', {
       p_parent_tenant_id: ctx.rootTenantId,
     });
-    expect(data).toEqual([]);
+    expect(data).toHaveLength(3);
   });
 
   // ─── move_user_between_subtenants ──────────────────────────────────────

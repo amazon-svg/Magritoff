@@ -92,6 +92,7 @@ export const TEST_IDS = {
     permissionCanOrderCheckbox: 'user-permission-can-order-checkbox',
     permissionCanInviteCheckbox: 'user-permission-can-invite-checkbox',
     permissionsSaveBtn: 'user-permissions-save-btn',
+    teamOptionToggle: 'user-team-option-toggle',
     // S-USERS-REFONTE Phase A (2026-05-25) : nouvelle section Rôles
     // (catalog + assignations matrix users × rôles).
     sectionRoles: 'users-section-roles',

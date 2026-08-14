@@ -49,7 +49,7 @@ export class SupabaseInvitationsRepository implements InvitationsRepository {
 
   async options(_actorUserId: UserId, tenantId: string): Promise<InvitationOptions> {
     const [rolesResult, shopsResult] = await Promise.all([
-      this.client.from('tenant_role_definitions').select('id, name, description, ordering_index')
+      this.client.from('tenant_role_definitions').select('id, name, description, ordering_index, system_key')
         .eq('tenant_id', tenantId).is('archived_at', null).order('ordering_index'),
       this.client.from('shops').select('id, name').eq('tenant_id', tenantId).order('name'),
     ]);
@@ -57,7 +57,7 @@ export class SupabaseInvitationsRepository implements InvitationsRepository {
       throw new InvitationRejectedError('permission_denied', rolesResult.error?.message ?? shopsResult.error?.message ?? 'Options inaccessibles');
     }
     return {
-      roles: (rolesResult.data ?? []).map((role) => ({ id: role.id, name: role.name, description: role.description ?? '' })),
+      roles: (rolesResult.data ?? []).map((role) => ({ id: role.id, name: role.name, description: role.description ?? '', systemKey: (role as { system_key?: string | null }).system_key ?? null })),
       shops: (shopsResult.data ?? []).map((shop) => ({ id: shop.id, name: shop.name })),
     };
   }
@@ -71,7 +71,7 @@ export class SupabaseInvitationsRepository implements InvitationsRepository {
       const permissions = row.permissions as Record<string, unknown> | null;
       return {
         id: row.id, email: row.email,
-        role: row.role as 'admin' | 'member' | 'partner',
+        role: row.role as 'admin' | 'member',
         expiresAt: row.expires_at, createdAt: row.created_at,
         accessScope: row.access_scope === 'shop_only' ? 'shop_only' : 'magrit_full',
         allowedShopIds: row.allowed_shop_ids ?? [],
@@ -110,8 +110,8 @@ export class SupabaseInvitationsRepository implements InvitationsRepository {
   }
 }
 
-function toInvitationRole(role: string): 'admin' | 'member' | 'partner' {
-  return role === 'admin' || role === 'partner' ? role : 'member';
+function toInvitationRole(role: string): 'admin' | 'member' {
+  return role === 'admin' ? role : 'member';
 }
 
 function toRejectionCode(message: string): 'permission_denied' | 'duplicate_pending' | 'role_mismatch_tenant' | 'invalid_request' | 'delivery_failed' {

@@ -34,6 +34,8 @@ interface RoleOption {
   id: string;
   name: string;
   description: string;
+  /** option_shops / option_orders pour les options Magrit, null pour un rôle boutique. */
+  systemKey: string | null;
 }
 
 interface ShopOption {
@@ -138,6 +140,13 @@ export function InviteUserModalV2({
     });
   };
 
+  // UM (2026-08-14) : les deux populations n ont pas les mêmes profils.
+  // Équipe Magrit -> les options produit (Boutiques, Commandes) ;
+  // utilisateur boutique -> les rôles du workflow du portail.
+  const visibleRoles = roles.filter((role) =>
+    scope === 'magrit_full' ? role.systemKey !== null : role.systemKey === null,
+  );
+
   // shop_only exige au moins une boutique sélectionnée.
   const shopScopeValid = scope === 'magrit_full' || selectedShopIds.size > 0;
   const canSubmit =
@@ -153,7 +162,9 @@ export function InviteUserModalV2({
     setError(null);
 
     const cleanedEmail = email.trim().toLowerCase();
-    const roleIds = Array.from(selectedRoleIds);
+    // Seuls les rôles du parcours courant partent : un basculement de type
+    // d accès ne doit pas embarquer une sélection devenue invisible.
+    const roleIds = Array.from(selectedRoleIds).filter((id) => visibleRoles.some((role) => role.id === id));
 
     try {
       // La gateway API valide le JWT avant la commande Invitations. On
@@ -406,7 +417,7 @@ export function InviteUserModalV2({
               </p>
             ) : (
               <div className="space-y-1.5 max-h-60 overflow-y-auto">
-                {roles.map((r) => {
+                {visibleRoles.map((r) => {
                   const active = selectedRoleIds.has(r.id);
                   return (
                     <button

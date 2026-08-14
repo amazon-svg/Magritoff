@@ -3,6 +3,8 @@ import { z } from 'zod';
 export const roleDefinitionSchema = z.object({
   id: z.string().uuid(), name: z.string(), description: z.string(),
   capabilities: z.record(z.string(), z.boolean()), orderingIndex: z.number(),
+  /** Clé portée par le produit (option_shops, option_orders) — null pour un rôle libre. */
+  systemKey: z.string().nullable().default(null),
 });
 export const roleCatalogDefinitionSchema = roleDefinitionSchema.extend({
   tenantId: z.string().uuid(),
@@ -39,7 +41,7 @@ export const accessSurfaceSchema = z.enum(['workspace', 'backoffice', 'shop']);
 export const userAccessProfileSchema = z.object({
   tenantId: z.string().uuid(),
   userId: z.string().uuid(),
-  membership: z.enum(['admin', 'member', 'partner']),
+  membership: z.enum(['admin', 'member']),
   isAdmin: z.boolean(),
   surfaces: z.array(accessSurfaceSchema),
   allowedShopIds: z.array(z.string().uuid()),
