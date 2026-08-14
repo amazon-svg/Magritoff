@@ -98,14 +98,19 @@ export function TenantPicker() {
               propres devis, clients, boutiques et bibliotheques.
             </p>
           </div>
-          <Link
-            to="/tenants/new"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md bg-ink text-paper hover:bg-black shrink-0"
-            style={{ fontSize: '13.5px', fontWeight: 500 }}
-          >
-            <Plus className="w-4 h-4" strokeWidth={1.8} />
-            Nouvel espace
-          </Link>
+          {/* UM (2026-08-14) : creer un espace n est pas dans le perimetre
+              d un utilisateur — admins et super admin seulement. Un compte
+              sans aucun espace passe par /tenants/new via la redirection. */}
+          {(isSuperAdmin || tenants.some((t) => t.myRole === 'admin')) && (
+            <Link
+              to="/tenants/new"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md bg-ink text-paper hover:bg-black shrink-0"
+              style={{ fontSize: '13.5px', fontWeight: 500 }}
+            >
+              <Plus className="w-4 h-4" strokeWidth={1.8} />
+              Nouvel espace
+            </Link>
+          )}
         </div>
 
         {isSuperAdmin && (

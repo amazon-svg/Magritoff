@@ -77,7 +77,10 @@ export function EditUserRolesModal({
 
     try {
       const detail = await rolesApi.userDetail(tenantId, targetUserId);
-      setRoles(detail.roles.map((role) => ({ id: role.id, name: role.name, description: role.description })));
+      // UM (2026-08-14) : les options produit (Boutiques, Commandes) appartiennent
+      // a l equipe Magrit — la fiche d un utilisateur boutique n en propose que
+      // les roles de workflow.
+      setRoles(detail.roles.filter((role) => role.systemKey === null).map((role) => ({ id: role.id, name: role.name, description: role.description })));
       setAssignments(detail.assignments.map((assignment) => ({ id: assignment.id, role_definition_id: assignment.roleId })));
       setShops(detail.shops);
       setScope(detail.accessScope);

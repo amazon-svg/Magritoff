@@ -8,6 +8,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { usePlan } from '../../hooks/usePlan';
 import { useIsAdmin } from '../../hooks/useIsAdmin';
 import { useTenant } from '../../contexts/TenantContext';
+import { useUserCapability } from '../../hooks/useUserCapability';
 import { PLAN_LABEL } from '../../utils/plans';
 import { MagritLogo } from '../brand/MagritLogo';
 import { TEST_IDS } from '../../lib/testIds';
@@ -56,6 +57,9 @@ export function DashboardLayout() {
   const basePath = `/t/${tenantSlug}/dashboard`;
 
   const canManageMembers = currentRole === 'admin' || isSuperAdmin;
+  // Option Boutiques (UM 2026-08-14) : un utilisateur titulaire de l option
+  // voit et gere les boutiques, sans etre admin.
+  const { hasIt: hasShopsOption } = useUserCapability('can_manage_shops');
   const canManageSpaces =
     canManageMembers && currentTenant && !currentTenant.parent_tenant_id;
 
@@ -117,7 +121,7 @@ export function DashboardLayout() {
           icon: BadgePercent,
           show: canManageMembers ?? false,
         },
-        { to: `${basePath}/shops`, label: 'Boutiques', icon: Store, show: canUse('shops') },
+        { to: `${basePath}/shops`, label: 'Boutiques', icon: Store, show: canUse('shops') || canManageMembers || hasShopsOption === true },
         { to: `${basePath}/users`, label: 'Utilisateurs', icon: Users, show: true },
       ],
     },
