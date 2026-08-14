@@ -49,7 +49,7 @@ const inviteBodySchema = z.object({
   // envoie 'member' par défaut + access_scope='magrit_full' + permissions
   // legacy minimales, mais c'est role_definition_ids qui détermine vraiment
   // les capabilités à l'acceptation.
-  role: z.enum(['admin', 'member', 'partner']).default('member'),
+  role: z.enum(['admin', 'member']).default('member'),
   tenant_id: z.string().uuid(),
   invited_by: z.string().uuid(),
   access_scope: z.enum(['magrit_full', 'shop_only']).default('magrit_full'),
