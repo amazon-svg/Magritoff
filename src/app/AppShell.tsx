@@ -15,6 +15,7 @@
 
 import { Outlet } from 'react-router';
 import { TenantProvider } from './contexts/TenantContext';
+import { AccessProfileProvider } from './contexts/AccessProfileContext';
 import { ConversationProvider } from './contexts/ConversationContext';
 import { LibraryProvider } from './contexts/LibraryContext';
 import { ShopsProvider } from './contexts/ShopsContext';
@@ -25,6 +26,7 @@ import { QuotesProvider } from './contexts/QuotesContext';
 export function AppShell() {
   return (
     <TenantProvider>
+      <AccessProfileProvider>
       <ConversationProvider>
         <LibraryProvider>
           <ShopsProvider>
@@ -38,6 +40,7 @@ export function AppShell() {
           </ShopsProvider>
         </LibraryProvider>
       </ConversationProvider>
+      </AccessProfileProvider>
     </TenantProvider>
   );
 }

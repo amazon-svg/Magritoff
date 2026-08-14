@@ -256,11 +256,19 @@ describe('frontières API-first et modulaires', () => {
     }
   });
 
-  it('sort la vérification des capabilities du fournisseur', () => {
-    const source = readFileSync(resolve(process.cwd(), 'src/app/hooks/useUserCapability.ts'), 'utf8');
-    expect(source).toContain('RolesApiClient');
-    expect(source).not.toContain('utils/supabase');
-    expect(source).not.toMatch(/\bsupabase\s*\./);
+  it('sort la vérification des capabilities du fournisseur, en un appel par espace', () => {
+    // UM2 : les capabilities viennent du profil d accès partagé — un appel
+    // réseau par (utilisateur, espace), plus un par capability vérifiée.
+    const hook = readFileSync(resolve(process.cwd(), 'src/app/hooks/useUserCapability.ts'), 'utf8');
+    const provider = readFileSync(resolve(process.cwd(), 'src/app/contexts/AccessProfileContext.tsx'), 'utf8');
+    expect(hook).toContain('useAccessProfile');
+    expect(hook).not.toContain('RolesApiClient');
+    expect(provider).toContain('RolesApiClient');
+    expect(provider).toContain('accessProfile(tenantId)');
+    for (const source of [hook, provider]) {
+      expect(source).not.toContain('utils/supabase');
+      expect(source).not.toMatch(/\bsupabase\s*\./);
+    }
   });
 
   it('réordonne deux rôles atomiquement sous la RLS utilisateur', () => {
