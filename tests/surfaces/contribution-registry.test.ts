@@ -12,6 +12,7 @@ import { tenantsModuleManifest } from '../../src/modules/tenants';
 import { rolesModuleManifest } from '../../src/modules/roles';
 import { conversationsModuleManifest } from '../../src/modules/conversations';
 import { machineParksModuleManifest } from '../../src/modules/machine-parks';
+import { mockupsModuleManifest } from '../../src/modules/mockups';
 import { applicationContributionRegistry } from '../../src/surfaces';
 import {
   ContributionRegistryError,
@@ -174,6 +175,16 @@ describe('registre des contributions de surfaces', () => {
     ]));
     expect(applicationContributionRegistry.forSurface('workspace').navigation).toContainEqual(
       expect.objectContaining({ id: 'machine-parks.workspace.navigation', label: 'Parc machine' }),
+    );
+  });
+
+  it('limite la galerie Mockups au workspace actuel', () => {
+    expect(mockupsModuleManifest.surfaces).toEqual(['workspace']);
+    expect(applicationContributionRegistry.forSurface('workspace').routes).toContainEqual(
+      expect.objectContaining({ id: 'mockups.workspace.reference', path: 'admin/mockups' }),
+    );
+    expect(applicationContributionRegistry.forSurface('workspace').navigation).toContainEqual(
+      expect.objectContaining({ id: 'mockups.workspace.navigation', label: 'Visuels Magrit' }),
     );
   });
 

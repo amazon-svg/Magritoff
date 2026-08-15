@@ -64,6 +64,9 @@ if (!CONVERSATIONS_NAVIGATION || !CONVERSATIONS_ROUTE) throw new Error('La contr
 const MACHINE_PARKS_NAVIGATION = workspaceSurface.navigation.find(({ id }) => id === 'machine-parks.workspace.navigation');
 const MACHINE_PARKS_ROUTE = workspaceSurface.routes.find(({ id }) => id === MACHINE_PARKS_NAVIGATION?.routeId);
 if (!MACHINE_PARKS_NAVIGATION || !MACHINE_PARKS_ROUTE) throw new Error('La contribution workspace du module machine-parks est incomplète.');
+const MOCKUPS_NAVIGATION = workspaceSurface.navigation.find(({ id }) => id === 'mockups.workspace.navigation');
+const MOCKUPS_ROUTE = workspaceSurface.routes.find(({ id }) => id === MOCKUPS_NAVIGATION?.routeId);
+if (!MOCKUPS_NAVIGATION || !MOCKUPS_ROUTE) throw new Error('La contribution workspace du module mockups est incomplète.');
 
 // E7.7 — mapping label de NavLink -> data-testid pour les cas de test.
 // Couvre les liens cles des cahiers de tests P01 (sidebar nav).
@@ -175,8 +178,8 @@ export function DashboardLayout() {
         { to: `${basePath}/${CATALOG_GAMMES_ROUTE.path}`, label: CATALOG_GAMMES_NAVIGATION.label, icon: Layers, show: canManageMembers ?? false },
         { to: `${basePath}/${LIBRARIES_ROUTE.path}`, label: LIBRARIES_NAVIGATION.label, icon: Package, show: canUse('library') },
         {
-          to: `${basePath}/admin/mockups`,
-          label: 'Visuels Magrit',
+          to: `${basePath}/${MOCKUPS_ROUTE.path}`,
+          label: MOCKUPS_NAVIGATION.label,
           icon: ImageIcon,
           show: isAdmin || isSuperAdmin,
           sub: true,

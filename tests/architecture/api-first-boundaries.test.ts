@@ -92,6 +92,8 @@ describe('frontières API-first et modulaires', () => {
       'src/modules/conversations/surface-contributions.ts',
       'src/modules/machine-parks/manifest.ts',
       'src/modules/machine-parks/surface-contributions.ts',
+      'src/modules/mockups/manifest.ts',
+      'src/modules/mockups/surface-contributions.ts',
     ];
     const violations = protectedRoots.flatMap((root) => {
       const path = resolve(process.cwd(), root);
@@ -133,6 +135,7 @@ describe('frontières API-first et modulaires', () => {
     expect(routes).not.toContain('const DashboardHistory = lazy');
     expect(routes).not.toContain('const DashboardMachines = lazy');
     expect(routes).not.toContain('const MachineParkDetail = lazy');
+    expect(routes).not.toContain('const DashboardAdminMockups = lazy');
     expect(routes).toContain('workspaceRuntimeRoutes.map');
     expect(runtime).toContain("import('../components/dashboard/DashboardAccount')");
     expect(runtime).toContain("import('../components/dashboard/DashboardOrders')");
@@ -155,6 +158,7 @@ describe('frontières API-first et modulaires', () => {
     expect(runtime).toContain("import('../components/dashboard/machines/DashboardMachines')");
     expect(runtime).toContain("import('../components/dashboard/machines/MachineParkWizard')");
     expect(runtime).toContain("import('../components/dashboard/machines/MachineParkDetail')");
+    expect(runtime).toContain("import('../components/dashboard/DashboardAdminMockups')");
     expect(runtime).toContain('Component: lazy(loader)');
   });
 

@@ -31,11 +31,6 @@ const PublicShop = lazy(() =>
 const DashboardPlan = lazy(() =>
   import("./components/dashboard/DashboardPlan").then((m) => ({ default: m.DashboardPlan })),
 );
-const DashboardAdminMockups = lazy(() =>
-  import("./components/dashboard/DashboardAdminMockups").then((m) => ({
-    default: m.DashboardAdminMockups,
-  })),
-);
 // REFONTE-UX (2026-08-08) — module Parc machine, wizard RP#070826 (point 8).
 const MachineParkWizard = lazy(() =>
   import("./components/dashboard/machines/MachineParkWizard").then((m) => ({
@@ -136,10 +131,6 @@ export const router = createBrowserRouter([
               { path: "plan", element: lazyRoute(<DashboardPlan />) },
               { path: "clients", element: <Navigate to="../users" replace /> },
               { path: "members", element: <Navigate to="../users" replace /> },
-              // REFONTE-UX v2 (2026-08-08, retour Arnaud point 5) — la galerie
-              // des mockups Magrit-brandes est CONSERVEE (visuels generes +
-              // verification du moteur E8.3), rangee dans le groupe Catalogue.
-              { path: "admin/mockups", element: lazyRoute(<DashboardAdminMockups />) },
             ],
           },
         ],
