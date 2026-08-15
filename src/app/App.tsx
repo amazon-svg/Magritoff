@@ -18,10 +18,11 @@ import { PreferencesProvider } from './contexts/PreferencesContext';
 import { PIMProvider } from './contexts/PIMContext';
 import { SessionBootstrapProvider } from './contexts/SessionBootstrapContext';
 import { ApiRuntimeProvider } from './contexts/ApiRuntimeContext';
+import { browserRuntime } from '../platform/runtime';
 
 export default function App() {
   return (
-    <AuthProvider>
+    <AuthProvider gateway={browserRuntime.authentication}>
       <ApiRuntimeProvider>
         <SessionBootstrapProvider>
           <PreferencesProvider>

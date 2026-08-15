@@ -1,6 +1,9 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import type { AuthenticationSession as Session, AuthenticationUser as User } from '../../modules/account';
-import { browserAuthenticationGateway as auth } from '../../adapters/supabase/browser-authentication-gateway';
+import type {
+  AuthenticationGateway,
+  AuthenticationSession as Session,
+  AuthenticationUser as User,
+} from '../../modules/account';
 
 interface AuthContextType {
   user: User | null;
@@ -17,7 +20,13 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function AuthProvider({
+  children,
+  gateway: auth,
+}: {
+  children: ReactNode;
+  gateway: AuthenticationGateway;
+}) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -62,7 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       active = false;
       unsubscribe();
     };
-  }, []);
+  }, [auth]);
 
   const signIn = async (email: string, password: string) => {
     return auth.signIn(email, password);

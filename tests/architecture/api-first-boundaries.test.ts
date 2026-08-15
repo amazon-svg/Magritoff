@@ -252,7 +252,7 @@ describe('frontières API-first et modulaires', () => {
     expect(violations).toEqual([]);
   });
 
-  it('limite les adaptateurs Supabase chargés par l UI à la dérogation Auth', () => {
+  it('interdit tout adaptateur Supabase dans l UI', () => {
     const appRoot = resolve(process.cwd(), 'src/app');
     const imports = listTypeScriptFiles(appRoot).flatMap((file) =>
       importedModules(readFileSync(file, 'utf8'))
@@ -260,9 +260,7 @@ describe('frontières API-first et modulaires', () => {
         .map((dependency) => `${relative(process.cwd(), file)} -> ${dependency}`),
     );
 
-    expect(imports).toEqual([
-      'src/app/contexts/AuthContext.tsx -> ../../adapters/supabase/browser-authentication-gateway',
-    ]);
+    expect(imports).toEqual([]);
   });
 
   it('centralise le transport API des contextes React', () => {
@@ -565,9 +563,15 @@ describe('frontières API-first et modulaires', () => {
 
   it('isole le fournisseur Auth du contexte React', () => {
     const context = readFileSync(resolve(process.cwd(), 'src/app/contexts/AuthContext.tsx'), 'utf8');
+    const app = readFileSync(resolve(process.cwd(), 'src/app/App.tsx'), 'utf8');
+    const runtime = readFileSync(resolve(process.cwd(), 'src/platform/runtime/browser-runtime.ts'), 'utf8');
     const adapter = readFileSync(resolve(process.cwd(), 'src/adapters/supabase/browser-authentication-gateway.ts'), 'utf8');
-    expect(context).toContain('browserAuthenticationGateway');
+    expect(context).toContain('gateway: AuthenticationGateway');
+    expect(context).not.toContain('browserAuthenticationGateway');
+    expect(app).toContain('browserRuntime.authentication');
+    expect(runtime).toContain('browserAuthenticationGateway');
     expect(context).not.toContain('utils/supabase');
+    expect(context).not.toContain('adapters/supabase');
     expect(context).not.toContain('@supabase');
     expect(context).not.toMatch(/\bsupabase\s*\./);
     expect(adapter).toContain('SupabaseBrowserAuthenticationGateway');
