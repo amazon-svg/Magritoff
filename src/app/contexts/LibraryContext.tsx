@@ -5,17 +5,15 @@
  * est rechargee automatiquement.
  */
 
-import { createContext, useContext, useEffect, useMemo, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
 import {
-  LibrariesApiClient,
-  LibraryProductsApiClient,
   type LibraryProductDto,
   type LibraryProductInput as ApiLibraryProductInput,
   type UpdateLibraryProduct,
 } from '../../modules/libraries';
 import { useAuth } from './AuthContext';
 import { useTenant } from './TenantContext';
-import { useApiRuntimeClient } from './ApiRuntimeContext';
+import { useLibrariesApi, useLibraryProductsApi } from './ModuleClientsContext';
 import type { Gamme } from '../utils/productEnrichment';
 import {
   buildPimGeneratedProducts,
@@ -61,14 +59,13 @@ const LibraryContext = createContext<LibraryContextType | undefined>(undefined);
 
 export function LibraryProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const apiClient = useApiRuntimeClient();
+  const librariesApi = useLibrariesApi();
+  const productsApi = useLibraryProductsApi();
   const { currentTenant } = useTenant();
   const [libraries, setLibraries] = useState<Library[]>([]);
   const [librariesLoading, setLibrariesLoading] = useState(false);
   const [products, setProducts] = useState<LibraryProduct[]>([]);
   const [loading, setLoading] = useState(false);
-  const librariesApi = useMemo(() => new LibrariesApiClient(apiClient), [apiClient]);
-  const productsApi = useMemo(() => new LibraryProductsApiClient(apiClient), [apiClient]);
 
   // ─── Libraries ──────────────────────────────────────────────────────────
   const refreshLibraries = useCallback(async () => {

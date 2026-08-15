@@ -355,6 +355,20 @@ describe('frontières API-first et modulaires', () => {
     expect(constructors).toEqual(['src/app/contexts/ModuleClientsContext.tsx']);
   });
 
+  it('compose les façades Libraries et LibraryProducts dans un seul root', () => {
+    const appRoot = resolve(process.cwd(), 'src/app');
+    const appFiles = listTypeScriptFiles(appRoot);
+    const libraryConstructors = appFiles
+      .filter((file) => readFileSync(file, 'utf8').includes('new LibrariesApiClient'))
+      .map((file) => relative(process.cwd(), file));
+    const productConstructors = appFiles
+      .filter((file) => readFileSync(file, 'utf8').includes('new LibraryProductsApiClient'))
+      .map((file) => relative(process.cwd(), file));
+
+    expect(libraryConstructors).toEqual(['src/app/contexts/ModuleClientsContext.tsx']);
+    expect(productConstructors).toEqual(['src/app/contexts/ModuleClientsContext.tsx']);
+  });
+
   it('sort les paramètres tenant du fournisseur', () => {
     const source = readFileSync(resolve(process.cwd(), 'src/app/components/dashboard/DashboardTenantSettings.tsx'), 'utf8');
     expect(source).toContain('SessionApiClient');
@@ -603,7 +617,8 @@ describe('frontières API-first et modulaires', () => {
   it('fait passer le CRUD des bibliothèques par le module Libraries', () => {
     const context = readFileSync(resolve(process.cwd(), 'src/app/contexts/LibraryContext.tsx'), 'utf8');
     const repository = readFileSync(resolve(process.cwd(), 'src/adapters/supabase/libraries-repository.ts'), 'utf8');
-    expect(context).toContain('LibrariesApiClient');
+    expect(context).toContain('useLibrariesApi');
+    expect(context).not.toContain('new LibrariesApiClient');
     expect(context).toContain('librariesApi.list');
     expect(context).toContain('librariesApi.create');
     expect(context).toContain('librariesApi.update');
@@ -614,7 +629,8 @@ describe('frontières API-first et modulaires', () => {
   it('sort produits, bulk et génération PIM du fournisseur', () => {
     const context = readFileSync(resolve(process.cwd(), 'src/app/contexts/LibraryContext.tsx'), 'utf8');
     const repository = readFileSync(resolve(process.cwd(), 'src/adapters/supabase/library-products-repository.ts'), 'utf8');
-    expect(context).toContain('LibraryProductsApiClient');
+    expect(context).toContain('useLibraryProductsApi');
+    expect(context).not.toContain('new LibraryProductsApiClient');
     expect(context).toContain('productsApi.createMany');
     expect(context).toContain('productsApi.replacePimGenerated');
     expect(context).toContain('productsApi.clearPimGenerated');

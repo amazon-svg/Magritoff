@@ -291,6 +291,8 @@ généralisation des surfaces dépendront du contrat storefront UM2.
   composants d'impression et contextes devis consomment les instances partagées — livré ;
 - AF29.4 : composition d'une façade Catalog unique pour les écrans PIM,
   administration catalogue et gammes actives — livré ;
+- AF29.5 : composition centralisée des façades Libraries et LibraryProducts ;
+  le contexte bibliothèque reçoit désormais ses dépendances partagées — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.
