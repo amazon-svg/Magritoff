@@ -50,6 +50,11 @@ if (!COMMERCIAL_NAVIGATION || !COMMERCIAL_ROUTE) throw new Error('La contributio
 const MEMBERS_NAVIGATION = workspaceSurface.navigation.find(({ id }) => id === 'members.workspace.navigation');
 const MEMBERS_ROUTE = workspaceSurface.routes.find(({ id }) => id === MEMBERS_NAVIGATION?.routeId);
 if (!MEMBERS_NAVIGATION || !MEMBERS_ROUTE) throw new Error('La contribution workspace du module members est incomplète.');
+const TENANT_SETTINGS_NAVIGATION = workspaceSurface.navigation.find(({ id }) => id === 'tenants.workspace.settings-navigation');
+const TENANT_SETTINGS_ROUTE = workspaceSurface.routes.find(({ id }) => id === TENANT_SETTINGS_NAVIGATION?.routeId);
+const TENANT_SPACES_NAVIGATION = workspaceSurface.navigation.find(({ id }) => id === 'tenants.workspace.spaces-navigation');
+const TENANT_SPACES_ROUTE = workspaceSurface.routes.find(({ id }) => id === TENANT_SPACES_NAVIGATION?.routeId);
+if (!TENANT_SETTINGS_NAVIGATION || !TENANT_SETTINGS_ROUTE || !TENANT_SPACES_NAVIGATION || !TENANT_SPACES_ROUTE) throw new Error('La contribution workspace du module tenants est incomplète.');
 
 // E7.7 — mapping label de NavLink -> data-testid pour les cas de test.
 // Couvre les liens cles des cahiers de tests P01 (sidebar nav).
@@ -178,10 +183,10 @@ export function DashboardLayout() {
     {
       title: 'Paramètres',
       items: [
-        { to: `${basePath}/settings`, label: "Paramètres de l'espace", icon: Settings, show: canManageMembers ?? false },
+        { to: `${basePath}/${TENANT_SETTINGS_ROUTE.path}`, label: TENANT_SETTINGS_NAVIGATION.label, icon: Settings, show: canManageMembers ?? false },
         {
-          to: `${basePath}/spaces`,
-          label: 'Sous-espaces',
+          to: `${basePath}/${TENANT_SPACES_ROUTE.path}`,
+          label: TENANT_SPACES_NAVIGATION.label,
           icon: Building,
           show: canManageSpaces ?? false,
           sub: true,

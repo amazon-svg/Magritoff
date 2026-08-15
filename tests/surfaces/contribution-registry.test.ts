@@ -8,6 +8,7 @@ import { librariesModuleManifest } from '../../src/modules/libraries';
 import { catalogModuleManifest } from '../../src/modules/catalog';
 import { commercialModuleManifest } from '../../src/modules/commercial';
 import { membersModuleManifest } from '../../src/modules/members';
+import { tenantsModuleManifest } from '../../src/modules/tenants';
 import { applicationContributionRegistry } from '../../src/surfaces';
 import {
   ContributionRegistryError,
@@ -127,6 +128,18 @@ describe('registre des contributions de surfaces', () => {
         testId: 'nav-sidebar-users-link',
       }),
     );
+  });
+
+  it('limite la gestion des espaces au workspace', () => {
+    expect(tenantsModuleManifest.surfaces).toEqual(['workspace']);
+    expect(applicationContributionRegistry.forSurface('workspace').routes).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'tenants.workspace.settings', path: 'settings' }),
+      expect.objectContaining({ id: 'tenants.workspace.spaces', path: 'spaces' }),
+    ]));
+    expect(applicationContributionRegistry.forSurface('workspace').navigation).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'tenants.workspace.settings-navigation', label: "Paramètres de l'espace" }),
+      expect.objectContaining({ id: 'tenants.workspace.spaces-navigation', label: 'Sous-espaces' }),
+    ]));
   });
 
   it('rejette les modules, features et chemins dupliqués', () => {

@@ -55,16 +55,6 @@ const MachineParkDetail = lazy(() =>
     default: m.MachineParkDetail,
   })),
 );
-const DashboardTenantSettings = lazy(() =>
-  import("./components/dashboard/DashboardTenantSettings").then((m) => ({
-    default: m.DashboardTenantSettings,
-  })),
-);
-const DashboardTenantSpaces = lazy(() =>
-  import("./components/dashboard/DashboardTenantSpaces").then((m) => ({
-    default: m.DashboardTenantSpaces,
-  })),
-);
 const OrderRoleAdminPage = lazy(() =>
   import("./components/dashboard/OrderRoleAdminPage").then((m) => ({
     default: m.OrderRoleAdminPage,
@@ -165,9 +155,6 @@ export const router = createBrowserRouter([
               { path: "history", element: lazyRoute(<DashboardHistory />) },
               { path: "clients", element: <Navigate to="../users" replace /> },
               { path: "members", element: <Navigate to="../users" replace /> },
-              // Nouveautes v3
-              { path: "settings", element: lazyRoute(<DashboardTenantSettings />) },
-              { path: "spaces", element: lazyRoute(<DashboardTenantSpaces />) },
               // REFONTE-UX v2 (2026-08-08, retour Arnaud point 5) — la galerie
               // des mockups Magrit-brandes est CONSERVEE (visuels generes +
               // verification du moteur E8.3), rangee dans le groupe Catalogue.

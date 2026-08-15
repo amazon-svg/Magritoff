@@ -12,8 +12,9 @@ import { librariesModuleManifest, librariesWorkspaceContribution } from '../modu
 import { catalogModuleManifest, catalogWorkspaceContribution } from '../modules/catalog';
 import { commercialModuleManifest, commercialWorkspaceContribution } from '../modules/commercial';
 import { membersModuleManifest, membersWorkspaceContribution } from '../modules/members';
+import { tenantsModuleManifest, tenantsWorkspaceContribution } from '../modules/tenants';
 
 export const applicationContributionRegistry = createContributionRegistry({
-  manifests: [accountModuleManifest, ordersModuleManifest, shopsModuleManifest, quotesModuleManifest, quoteTemplatesModuleManifest, librariesModuleManifest, catalogModuleManifest, commercialModuleManifest, membersModuleManifest],
-  contributions: [accountWorkspaceContribution, accountCustomerPortalContribution, ordersStorefrontContribution, ordersCustomerPortalContribution, ordersWorkspaceContribution, ordersBackofficeContribution, shopsStorefrontContribution, shopsWorkspaceContribution, shopsBackofficeContribution, quotesStorefrontContribution, quotesCustomerPortalContribution, quotesWorkspaceContribution, quotesBackofficeContribution, quoteTemplatesWorkspaceContribution, librariesWorkspaceContribution, catalogWorkspaceContribution, commercialWorkspaceContribution, membersWorkspaceContribution],
+  manifests: [accountModuleManifest, ordersModuleManifest, shopsModuleManifest, quotesModuleManifest, quoteTemplatesModuleManifest, librariesModuleManifest, catalogModuleManifest, commercialModuleManifest, membersModuleManifest, tenantsModuleManifest],
+  contributions: [accountWorkspaceContribution, accountCustomerPortalContribution, ordersStorefrontContribution, ordersCustomerPortalContribution, ordersWorkspaceContribution, ordersBackofficeContribution, shopsStorefrontContribution, shopsWorkspaceContribution, shopsBackofficeContribution, quotesStorefrontContribution, quotesCustomerPortalContribution, quotesWorkspaceContribution, quotesBackofficeContribution, quoteTemplatesWorkspaceContribution, librariesWorkspaceContribution, catalogWorkspaceContribution, commercialWorkspaceContribution, membersWorkspaceContribution, tenantsWorkspaceContribution],
 });
