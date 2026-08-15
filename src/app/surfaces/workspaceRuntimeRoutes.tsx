@@ -29,6 +29,7 @@ const routeLoaders: Readonly<Record<string, LazyPageLoader>> = Object.freeze({
   'members.workspace.list': () => import('../components/dashboard/DashboardUsers').then((module) => ({ default: module.DashboardUsers })),
   'tenants.workspace.settings': () => import('../components/dashboard/DashboardTenantSettings').then((module) => ({ default: module.DashboardTenantSettings })),
   'tenants.workspace.spaces': () => import('../components/dashboard/DashboardTenantSpaces').then((module) => ({ default: module.DashboardTenantSpaces })),
+  'roles.workspace.workflow': () => import('../components/dashboard/OrderRoleAdminPage').then((module) => ({ default: module.OrderRoleAdminPage })),
 });
 
 export type WorkspaceRuntimeRoute = Readonly<{

@@ -247,6 +247,8 @@ généralisation des surfaces dépendront du contrat storefront UM2.
   route et navigation Utilisateurs sont chargées depuis le registre — livré ;
 - AF26.9 : manifeste Tenants limité au workspace ; routes Paramètres et
   Sous-espaces ainsi que leur navigation sont chargées depuis le registre — livré ;
+- AF26.10 : manifeste Roles limité au workspace ; route et navigation
+  Workflow & rôles sont chargées depuis le registre — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.

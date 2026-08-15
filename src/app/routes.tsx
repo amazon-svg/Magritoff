@@ -55,11 +55,6 @@ const MachineParkDetail = lazy(() =>
     default: m.MachineParkDetail,
   })),
 );
-const OrderRoleAdminPage = lazy(() =>
-  import("./components/dashboard/OrderRoleAdminPage").then((m) => ({
-    default: m.OrderRoleAdminPage,
-  })),
-);
 
 function RouteFallback() {
   return (
@@ -165,10 +160,6 @@ export const router = createBrowserRouter([
               { path: "machines/wizard", element: lazyRoute(<MachineParkWizard />) },
               // Point 8 (retour Arnaud 2026-08-08) — detail d un parc.
               { path: "machines/:parkId", element: lazyRoute(<MachineParkDetail />) },
-              // S-ORDER-ROLES-3-UI T4 — page admin catalog rôles workflow.
-              // Garde d'accès via capability `can_manage_roles` côté composant
-              // (preset Owner / Admin depuis migration 2026-06-09).
-              { path: "order-roles", element: lazyRoute(<OrderRoleAdminPage />) },
             ],
           },
         ],

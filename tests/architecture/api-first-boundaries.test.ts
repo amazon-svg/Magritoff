@@ -86,6 +86,8 @@ describe('frontières API-first et modulaires', () => {
       'src/modules/members/surface-contributions.ts',
       'src/modules/tenants/manifest.ts',
       'src/modules/tenants/surface-contributions.ts',
+      'src/modules/roles/manifest.ts',
+      'src/modules/roles/surface-contributions.ts',
     ];
     const violations = protectedRoots.flatMap((root) => {
       const path = resolve(process.cwd(), root);
@@ -123,6 +125,7 @@ describe('frontières API-first et modulaires', () => {
     expect(routes).not.toContain('const DashboardUsers = lazy');
     expect(routes).not.toContain('const DashboardTenantSettings = lazy');
     expect(routes).not.toContain('const DashboardTenantSpaces = lazy');
+    expect(routes).not.toContain('const OrderRoleAdminPage = lazy');
     expect(routes).toContain('workspaceRuntimeRoutes.map');
     expect(runtime).toContain("import('../components/dashboard/DashboardAccount')");
     expect(runtime).toContain("import('../components/dashboard/DashboardOrders')");
@@ -140,6 +143,7 @@ describe('frontières API-first et modulaires', () => {
     expect(runtime).toContain("import('../components/dashboard/DashboardUsers')");
     expect(runtime).toContain("import('../components/dashboard/DashboardTenantSettings')");
     expect(runtime).toContain("import('../components/dashboard/DashboardTenantSpaces')");
+    expect(runtime).toContain("import('../components/dashboard/OrderRoleAdminPage')");
     expect(runtime).toContain('Component: lazy(loader)');
   });
 

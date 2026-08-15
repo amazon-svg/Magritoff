@@ -55,6 +55,9 @@ const TENANT_SETTINGS_ROUTE = workspaceSurface.routes.find(({ id }) => id === TE
 const TENANT_SPACES_NAVIGATION = workspaceSurface.navigation.find(({ id }) => id === 'tenants.workspace.spaces-navigation');
 const TENANT_SPACES_ROUTE = workspaceSurface.routes.find(({ id }) => id === TENANT_SPACES_NAVIGATION?.routeId);
 if (!TENANT_SETTINGS_NAVIGATION || !TENANT_SETTINGS_ROUTE || !TENANT_SPACES_NAVIGATION || !TENANT_SPACES_ROUTE) throw new Error('La contribution workspace du module tenants est incomplète.');
+const ROLES_NAVIGATION = workspaceSurface.navigation.find(({ id }) => id === 'roles.workspace.navigation');
+const ROLES_ROUTE = workspaceSurface.routes.find(({ id }) => id === ROLES_NAVIGATION?.routeId);
+if (!ROLES_NAVIGATION || !ROLES_ROUTE) throw new Error('La contribution workspace du module roles est incomplète.');
 
 // E7.7 — mapping label de NavLink -> data-testid pour les cas de test.
 // Couvre les liens cles des cahiers de tests P01 (sidebar nav).
@@ -193,7 +196,7 @@ export function DashboardLayout() {
         },
         // S-ORDER-ROLES-3-UI T4 — garde via useUserCapability('can_manage_roles')
         // cote composant ; on filtre aussi cote nav.
-        { to: `${basePath}/order-roles`, label: 'Workflow & rôles', icon: Workflow, show: canManageMembers ?? false },
+        { to: `${basePath}/${ROLES_ROUTE.path}`, label: ROLES_NAVIGATION.label, icon: Workflow, show: canManageMembers ?? false },
         { to: `${basePath}/plan`, label: 'Plan & abonnement', icon: CreditCard, show: true },
         {
           to: `${basePath}/${ACCOUNT_ROUTE.path}`,

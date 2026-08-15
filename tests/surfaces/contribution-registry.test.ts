@@ -9,6 +9,7 @@ import { catalogModuleManifest } from '../../src/modules/catalog';
 import { commercialModuleManifest } from '../../src/modules/commercial';
 import { membersModuleManifest } from '../../src/modules/members';
 import { tenantsModuleManifest } from '../../src/modules/tenants';
+import { rolesModuleManifest } from '../../src/modules/roles';
 import { applicationContributionRegistry } from '../../src/surfaces';
 import {
   ContributionRegistryError,
@@ -140,6 +141,16 @@ describe('registre des contributions de surfaces', () => {
       expect.objectContaining({ id: 'tenants.workspace.settings-navigation', label: "Paramètres de l'espace" }),
       expect.objectContaining({ id: 'tenants.workspace.spaces-navigation', label: 'Sous-espaces' }),
     ]));
+  });
+
+  it('limite la gestion des rôles au workspace', () => {
+    expect(rolesModuleManifest.surfaces).toEqual(['workspace']);
+    expect(applicationContributionRegistry.forSurface('workspace').routes).toContainEqual(
+      expect.objectContaining({ id: 'roles.workspace.workflow', path: 'order-roles' }),
+    );
+    expect(applicationContributionRegistry.forSurface('workspace').navigation).toContainEqual(
+      expect.objectContaining({ id: 'roles.workspace.navigation', label: 'Workflow & rôles' }),
+    );
   });
 
   it('rejette les modules, features et chemins dupliqués', () => {
