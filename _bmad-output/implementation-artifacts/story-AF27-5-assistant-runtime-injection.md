@@ -18,6 +18,5 @@ depends_on: [AF27.4]
   `/api/v1`, avec le jeton de la session courante ;
 - un garde-fou d'architecture impose cette frontière.
 
-La lecture du flux SSE reste pour l'instant dans `useClaudeSseStream`. Une
-future tranche pourra déplacer ce protocole dans la passerelle si le besoin de
-changer de transport apparaît ; ce lot isole déjà le choix de l'endpoint.
+AF27.7 a ensuite déplacé la lecture du flux SSE elle-même dans la passerelle.
+Le hook ne conserve plus que le cycle de vie React et l'annulation.

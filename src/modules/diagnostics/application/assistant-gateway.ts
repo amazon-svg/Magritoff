@@ -1,4 +1,29 @@
-export type AssistantConnection = Readonly<{ endpoint: string; authorizationToken: string }>;
+export type AssistantStreamPayload = Record<string, unknown> & {
+  billingError?: boolean;
+  demoMode?: boolean;
+};
+
+export type AssistantStreamRequest = Readonly<{
+  accessToken: string;
+  streaming: boolean;
+  body: unknown;
+  signal: AbortSignal;
+  onDelta?: (chunk: string) => void;
+}>;
+
+export type AssistantStreamErrorKind = 'billing' | 'network' | 'aborted' | 'protocol';
+
+export class AssistantStreamError extends Error {
+  constructor(
+    public readonly kind: AssistantStreamErrorKind,
+    message: string,
+    public readonly status?: number,
+  ) {
+    super(message);
+    this.name = 'AssistantStreamError';
+  }
+}
+
 export interface AssistantGateway {
-  connection(accessToken: string, streaming: boolean): AssistantConnection;
+  send(request: AssistantStreamRequest): Promise<AssistantStreamPayload>;
 }

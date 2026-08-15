@@ -275,6 +275,9 @@ généralisation des surfaces dépendront du contrat storefront UM2.
 - AF27.6 : passerelle Mockups injectée dans l'image produit et l'administration
   des visuels ; `src/app` n'importe désormais plus aucun adaptateur concret,
   avec garde-fou global en architecture — livré ;
+- AF27.7 : protocole HTTP/SSE assistant déplacé du hook React vers la passerelle
+  injectée ; l'UI ne connaît plus endpoint, parsing d'événements ni détection
+  des erreurs fournisseur — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.

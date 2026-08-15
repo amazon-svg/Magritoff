@@ -24,7 +24,6 @@ import {
   truncateMessages,
   useClaudeSseStream,
 } from "../hooks/useClaudeSseStream";
-import { useBrowserServices } from '../contexts/BrowserServicesContext';
 
 // R2 Phase A : readClaudeSseStream extrait dans useClaudeSseStream.ts
 // (avec AbortController + detection billing error + troncage 25 msg).
@@ -35,7 +34,6 @@ interface ChatInterfaceProps {
 }
 
 export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
-  const { assistant: assistantGateway } = useBrowserServices();
   const {
     messages,
     setMessages,
@@ -184,7 +182,6 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
       // R2 Phase A : passe par useClaudeSseStream (extraction + AbortController
       // + detection billing). Le payload final reste de meme forme.
       if (!session?.access_token) throw new ClaudeSseStreamError('network', 'Authentification requise', 401);
-      const assistant = assistantGateway.connection(session.access_token, ENABLE_STREAMING_CHAT);
       const requestBody = {
         messages: contextMessages,
         userId: user?.id ?? null,
@@ -194,8 +191,7 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
 
       const data = await sendSseStream(
         {
-          endpoint: assistant.endpoint,
-          authToken: assistant.authorizationToken,
+          authToken: session.access_token,
           body: requestBody,
           onDelta: ENABLE_STREAMING_CHAT
             ? () => setStreamingChunks((n) => (n ?? 0) + 1)

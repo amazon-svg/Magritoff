@@ -508,8 +508,8 @@ describe('frontières API-first et modulaires', () => {
 
     expect(chat).not.toContain('browserAssistantGateway');
     expect(catalog).not.toContain('browserAssistantGateway');
-    expect(chat).toContain('assistantGateway.connection');
-    expect(catalog).toContain('assistantGateway.connection');
+    expect(chat).toContain('useClaudeSseStream');
+    expect(catalog).toContain('useClaudeSseStream');
     expect(services).toContain('assistant: runtime.assistant');
     expect(runtime).toContain('assistant: browserAssistantGateway');
   });
@@ -622,14 +622,19 @@ describe('frontières API-first et modulaires', () => {
   it('place le protocole du chat SSE derrière une façade API', () => {
     const chat = readFileSync(resolve(process.cwd(), 'src/app/components/ChatInterface.tsx'), 'utf8');
     const portal = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/PortalCatalog.tsx'), 'utf8');
+    const hook = readFileSync(resolve(process.cwd(), 'src/app/hooks/useClaudeSseStream.ts'), 'utf8');
     const adapter = readFileSync(resolve(process.cwd(), 'src/adapters/http/browser-assistant-gateway.ts'), 'utf8');
-    expect(chat).toContain('assistantGateway.connection');
+    expect(chat).toContain('useClaudeSseStream');
     expect(portal).toContain('assistantApi.categoryEditorial');
     expect(chat).not.toContain('utils/supabase');
     expect(chat).not.toContain('functions/v1');
     expect(portal).not.toContain('functions/v1');
+    expect(hook).toContain('assistant.send');
+    expect(hook).not.toMatch(/\bfetch\s*\(/);
+    expect(hook).not.toContain("event === 'delta'");
     expect(adapter).toContain('BrowserApiAssistantGateway');
     expect(adapter).toContain("'/api/v1/assistant/chat'");
+    expect(adapter).toContain("event === 'delta'");
     expect(adapter).not.toContain('supabase');
   });
 

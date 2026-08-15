@@ -160,7 +160,7 @@ export function PortalCatalog({
   onSelectSubcategory,
   initialFormat,
 }: Props) {
-  const { assistant: assistantGateway, clariprint } = useBrowserServices();
+  const { clariprint } = useBrowserServices();
   const { session } = useAuth();
   const apiClient = useApiRuntimeClient();
   const shopsApi = useMemo(() => new ShopsApiClient(apiClient), [apiClient]);
@@ -227,11 +227,9 @@ export function PortalCatalog({
       // naturel = ecran sans reponse. Le streaming donne un retour vivant
       // (aiStreaming via onDelta) et le payload `done` porte les memes configs.
       if (!session?.access_token) throw new ClaudeSseStreamError('network', 'Authentification requise', 401);
-      const assistant = assistantGateway.connection(session.access_token, ENABLE_STREAMING_CHAT);
       const data = await sendSseStream(
         {
-          endpoint: assistant.endpoint,
-          authToken: assistant.authorizationToken,
+          authToken: session.access_token,
           body: { messages: [{ role: 'user', content: prompt }] },
           onDelta: ENABLE_STREAMING_CHAT ? () => setAiStreaming(true) : undefined,
         },
