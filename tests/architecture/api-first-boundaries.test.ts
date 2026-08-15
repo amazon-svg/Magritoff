@@ -252,11 +252,11 @@ describe('frontières API-first et modulaires', () => {
     expect(violations).toEqual([]);
   });
 
-  it('interdit tout adaptateur Supabase dans l UI', () => {
+  it('interdit tout adaptateur concret dans l UI', () => {
     const appRoot = resolve(process.cwd(), 'src/app');
     const imports = listTypeScriptFiles(appRoot).flatMap((file) =>
       importedModules(readFileSync(file, 'utf8'))
-        .filter((dependency) => /adapters\/supabase/.test(dependency))
+        .filter((dependency) => /adapters\/(?:supabase|http)/.test(dependency))
         .map((dependency) => `${relative(process.cwd(), file)} -> ${dependency}`),
     );
 
@@ -606,8 +606,10 @@ describe('frontières API-first et modulaires', () => {
     const admin = readFileSync(resolve(process.cwd(), 'src/app/components/dashboard/DashboardAdminMockups.tsx'), 'utf8');
     const helpers = readFileSync(resolve(process.cwd(), 'src/app/components/mockup/MockupImage.helpers.ts'), 'utf8');
     const adapter = readFileSync(resolve(process.cwd(), 'src/adapters/http/browser-mockup-gateway.ts'), 'utf8');
-    expect(image).toContain('browserMockupGateway.generate');
-    expect(admin).toContain('browserMockupGateway.previewUrl');
+    expect(image).toContain('mockups.generate');
+    expect(admin).toContain('mockups.previewUrl');
+    expect(image).not.toContain('browserMockupGateway');
+    expect(admin).not.toContain('browserMockupGateway');
     expect(image).not.toContain('utils/supabase');
     expect(admin).not.toContain('utils/supabase');
     expect(helpers).not.toContain('functions/v1');

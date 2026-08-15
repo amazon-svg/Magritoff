@@ -272,6 +272,9 @@ généralisation des surfaces dépendront du contrat storefront UM2.
 - AF27.5 : passerelle de connexion assistant injectée par le runtime dans le
   chat Magrit et la recherche conversationnelle boutique ; suppression des
   imports du singleton HTTP concret dans ces composants — livré ;
+- AF27.6 : passerelle Mockups injectée dans l'image produit et l'administration
+  des visuels ; `src/app` n'importe désormais plus aucun adaptateur concret,
+  avec garde-fou global en architecture — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.

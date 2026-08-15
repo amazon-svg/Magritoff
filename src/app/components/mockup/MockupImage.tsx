@@ -15,12 +15,12 @@
  */
 
 import { useMemo, useRef, useState } from "react";
-import { browserMockupGateway } from '../../../adapters/http/browser-mockup-gateway';
 import { TEST_IDS } from "../../lib/testIds";
 import { ProductMockup } from "../brand/ProductMockup";
 import {
   type MockupSpecs,
 } from "./MockupImage.helpers";
+import { useBrowserServices } from '../../contexts/BrowserServicesContext';
 
 export interface MockupImageProps {
   tenantId: string;
@@ -65,6 +65,7 @@ type ImageState = "loading" | "loaded" | "fetching-edge" | "error";
 const FETCH_TIMEOUT_MS = 10_000;
 
 export function MockupImage(props: MockupImageProps): JSX.Element {
+  const { mockups } = useBrowserServices();
   // P4-VISUELS — Si un mockup custom est fourni par le caller, on l'affiche
   // direct sans passer par l'edge function (bypass complet du mécanisme
   // retry/CDN).
@@ -97,8 +98,8 @@ export function MockupImage(props: MockupImageProps): JSX.Element {
   );
   const view = props.view ?? 'front';
   const initialSrc = useMemo(
-    () => browserMockupGateway.publicImageUrl({ ...params, view }),
-    [params, view],
+    () => mockups.publicImageUrl({ ...params, view }),
+    [mockups, params, view],
   );
 
   const [state, setState] = useState<ImageState>("loading");
@@ -136,7 +137,7 @@ export function MockupImage(props: MockupImageProps): JSX.Element {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-      const blob = await browserMockupGateway.generate(specs, controller.signal);
+      const blob = await mockups.generate(specs, controller.signal);
       clearTimeout(timeoutId);
       // Fix 2026-06-16 — L'edge function retourne le PNG inline en cache MISS.
       // Avant on retentait l'URL CDN avec cache buster, mais la propagation

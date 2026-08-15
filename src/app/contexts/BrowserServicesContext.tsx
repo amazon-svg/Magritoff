@@ -1,12 +1,14 @@
 import { createContext, type ReactNode, useContext, useMemo } from 'react';
 import type { ClariprintPricingGateway } from '../../modules/clariprint';
 import type { AssistantGateway } from '../../modules/diagnostics';
+import type { MockupGateway } from '../../modules/shops';
 import type { BrowserRuntime } from '../../platform/runtime';
 import { useApiRuntimeClient } from './ApiRuntimeContext';
 
 type BrowserServices = Readonly<{
   assistant: AssistantGateway;
   clariprint: ClariprintPricingGateway;
+  mockups: MockupGateway;
 }>;
 
 const BrowserServicesContext = createContext<BrowserServices | null>(null);
@@ -23,6 +25,7 @@ export function BrowserServicesProvider({
     () => ({
       assistant: runtime.assistant,
       clariprint: runtime.createClariprint(apiClient),
+      mockups: runtime.mockups,
     }),
     [apiClient, runtime],
   );
