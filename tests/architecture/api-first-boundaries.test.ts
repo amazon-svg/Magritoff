@@ -306,6 +306,17 @@ describe('frontières API-first et modulaires', () => {
     expect(directTransports).toEqual(['src/app/contexts/ApiRuntimeContext.tsx']);
   });
 
+  it('réserve toute composition de client API aux deux composition roots', () => {
+    const constructors = listTypeScriptFiles(resolve(process.cwd(), 'src/app'))
+      .filter((file) => /\bnew\s+[A-Za-z][A-Za-z0-9]*ApiClient\s*\(/.test(readFileSync(file, 'utf8')))
+      .map((file) => relative(process.cwd(), file));
+
+    expect(constructors).toEqual([
+      'src/app/contexts/ApiRuntimeContext.tsx',
+      'src/app/contexts/ModuleClientsContext.tsx',
+    ]);
+  });
+
   it('compose une seule façade Orders pour tous les écrans', () => {
     const appRoot = resolve(process.cwd(), 'src/app');
     const constructors = listTypeScriptFiles(appRoot)

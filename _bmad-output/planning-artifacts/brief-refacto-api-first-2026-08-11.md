@@ -299,9 +299,10 @@ généralisation des surfaces dépendront du contrat storefront UM2.
   espaces Magrit, redirections et acceptations d'invitation — livré ;
 - AF29.8 : composition centralisée des façades d'identité workspace Roles,
   Members et Invitations, nommées explicitement sans assimilation aux comptes boutique — livré ;
-- suite : migrer les autres
-  contributions catalogue/portail, en conservant la revue
-  fonctionnelle invitations/membres/rôles comme chantier produit distinct.
+- AF29.9 : garde-fou transversal interdisant toute construction de client API
+  React hors des composition roots transport et modules — livré ;
+- suite : implémenter les futurs modules et surfaces depuis ces composition
+  roots, en conservant la séparation fonctionnelle des identités comme chantier produit distinct.
 
 ## Critères de succès
 
