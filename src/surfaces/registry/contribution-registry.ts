@@ -62,12 +62,28 @@ export function createContributionRegistry(input: Readonly<{
     forSurface(surface: SurfaceId): SurfaceDefinition {
       const contributions = input.contributions.filter((item) => item.surface === surface);
       const moduleIds = new Set(contributions.map(({ moduleId }) => moduleId));
+      const surfaceRoutes = routes.filter((route) => route.surface === surface);
+      const activeRouteIds = new Set(
+        surfaceRoutes
+          .filter((route) => route.availability !== 'planned')
+          .map(({ id }) => id),
+      );
       return Object.freeze({
         id: surface,
-        routes: Object.freeze(routes.filter((route) => route.surface === surface)),
+        routes: Object.freeze(
+          surfaceRoutes.filter((route) => route.availability !== 'planned'),
+        ),
+        plannedRoutes: Object.freeze(
+          surfaceRoutes.filter((route) => route.availability === 'planned'),
+        ),
         navigation: Object.freeze(
           navigation
-            .filter((item) => item.surface === surface)
+            .filter((item) => item.surface === surface && activeRouteIds.has(item.routeId))
+            .sort((left, right) => left.order - right.order),
+        ),
+        plannedNavigation: Object.freeze(
+          navigation
+            .filter((item) => item.surface === surface && !activeRouteIds.has(item.routeId))
             .sort((left, right) => left.order - right.order),
         ),
         modules: Object.freeze(

@@ -20,6 +20,6 @@ export const ordersWorkspaceContribution = defineSurfaceContribution({
 
 export const ordersBackofficeContribution = defineSurfaceContribution({
   moduleId: 'orders', surface: 'backoffice',
-  routes: [{ id: 'orders.backoffice.production', moduleId: 'orders', featureId: 'orders.production-management', surface: 'backoffice', path: 'orders', mount: 'router', requiredCapabilities: ['orders.transition'] }],
+  routes: [{ id: 'orders.backoffice.production', moduleId: 'orders', featureId: 'orders.production-management', surface: 'backoffice', path: 'orders', mount: 'router', availability: 'planned', requiredCapabilities: ['orders.transition'] }],
   navigation: [{ id: 'orders.backoffice.navigation', moduleId: 'orders', featureId: 'orders.production-management', surface: 'backoffice', routeId: 'orders.backoffice.production', groupId: 'production', label: 'Commandes', iconId: 'shopping-bag', order: 100 }],
 } as const);

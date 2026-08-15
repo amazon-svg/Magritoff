@@ -19,6 +19,6 @@ depends_on: [AF26.15]
 ## Écart fonctionnel conservé
 
 `quotes.storefront.create` déclare encore le chemin `quote`, mais `PublicShop`
-ne possède aucune vue de création de devis correspondant à cette route. Cette
-tranche ne redirige pas silencieusement et n'invente pas un écran : la
-contribution reste un contrat cible à arbitrer fonctionnellement avant montage.
+ne possède aucune vue de création de devis correspondant à cette route. AF27.3
+classe désormais explicitement cette contribution comme `planned` : elle reste
+un contrat cible, mais ne peut plus être consommée par le runtime.

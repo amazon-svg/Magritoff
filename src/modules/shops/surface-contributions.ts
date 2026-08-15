@@ -17,6 +17,6 @@ export const shopsWorkspaceContribution = defineSurfaceContribution({
 
 export const shopsBackofficeContribution = defineSurfaceContribution({
   moduleId: 'shops', surface: 'backoffice',
-  routes: [{ id: 'shops.backoffice.list', moduleId: 'shops', featureId: 'shops.backoffice-governance', surface: 'backoffice', path: 'shops', mount: 'router', requiredCapabilities: ['shops.govern'] }],
+  routes: [{ id: 'shops.backoffice.list', moduleId: 'shops', featureId: 'shops.backoffice-governance', surface: 'backoffice', path: 'shops', mount: 'router', availability: 'planned', requiredCapabilities: ['shops.govern'] }],
   navigation: [{ id: 'shops.backoffice.navigation', moduleId: 'shops', featureId: 'shops.backoffice-governance', surface: 'backoffice', routeId: 'shops.backoffice.list', groupId: 'governance', label: 'Boutiques', iconId: 'store', order: 120 }],
 } as const);

@@ -32,6 +32,12 @@ export type RouteContribution = Readonly<{
   surface: SurfaceId;
   path: string;
   mount: 'router' | 'host';
+  /**
+   * Une route `planned` décrit une cible produit sans prétendre qu'un host
+   * sait déjà la monter. Les consommateurs runtime ne reçoivent que les
+   * routes actives.
+   */
+  availability?: 'active' | 'planned';
   requiredCapabilities?: readonly string[];
 }>;
 
@@ -60,7 +66,9 @@ export type SurfaceContribution = Readonly<{
 export type SurfaceDefinition = Readonly<{
   id: SurfaceId;
   routes: readonly RouteContribution[];
+  plannedRoutes: readonly RouteContribution[];
   navigation: readonly NavigationContribution[];
+  plannedNavigation: readonly NavigationContribution[];
   modules: readonly ModuleManifest[];
 }>;
 

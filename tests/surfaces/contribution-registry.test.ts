@@ -57,7 +57,7 @@ describe('registre des contributions de surfaces', () => {
     expect(applicationContributionRegistry.forSurface('storefront').routes).toContainEqual(expect.objectContaining({ id: 'orders.storefront.checkout', path: 'checkout', mount: 'host' }));
     expect(applicationContributionRegistry.forSurface('customer-portal').routes).toContainEqual(expect.objectContaining({ id: 'orders.customer-portal.list', path: 'account/orders', mount: 'host' }));
     expect(applicationContributionRegistry.forSurface('workspace').routes).toContainEqual(expect.objectContaining({ id: 'orders.workspace.list', path: 'orders', mount: 'router' }));
-    expect(applicationContributionRegistry.forSurface('backoffice').routes).toContainEqual(expect.objectContaining({ id: 'orders.backoffice.production', requiredCapabilities: ['orders.transition'] }));
+    expect(applicationContributionRegistry.forSurface('backoffice').plannedRoutes).toContainEqual(expect.objectContaining({ id: 'orders.backoffice.production', availability: 'planned', requiredCapabilities: ['orders.transition'] }));
   });
 
   it('compose Shops sur storefront, workspace et backoffice', () => {
@@ -67,12 +67,14 @@ describe('registre des contributions de surfaces', () => {
       expect.objectContaining({ id: 'shops.workspace.list', path: 'shops' }),
       expect.objectContaining({ id: 'shops.workspace.edit', path: 'shops/:id' }),
     ]));
-    expect(applicationContributionRegistry.forSurface('backoffice').routes).toContainEqual(expect.objectContaining({ id: 'shops.backoffice.list', requiredCapabilities: ['shops.govern'] }));
+    expect(applicationContributionRegistry.forSurface('backoffice').plannedRoutes).toContainEqual(expect.objectContaining({ id: 'shops.backoffice.list', availability: 'planned', requiredCapabilities: ['shops.govern'] }));
   });
 
   it('compose Quotes sur les quatre surfaces', () => {
     expect(quotesModuleManifest.surfaces).toEqual(['storefront', 'customer-portal', 'workspace', 'backoffice']);
     expect(applicationContributionRegistry.forSurface('customer-portal').routes).toContainEqual(expect.objectContaining({ id: 'quotes.customer-portal.list', path: 'account/quotes' }));
+    expect(applicationContributionRegistry.forSurface('storefront').routes).not.toContainEqual(expect.objectContaining({ id: 'quotes.storefront.create' }));
+    expect(applicationContributionRegistry.forSurface('storefront').plannedRoutes).toContainEqual(expect.objectContaining({ id: 'quotes.storefront.create', path: 'quote', availability: 'planned' }));
     expect(applicationContributionRegistry.forSurface('workspace').routes).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: 'quotes.workspace.list', path: 'quotes' }),
       expect.objectContaining({ id: 'quotes.workspace.pending', path: 'quotes/pending' }),
@@ -82,7 +84,24 @@ describe('registre des contributions de surfaces', () => {
       expect.objectContaining({ id: 'quotes.workspace.navigation', exact: true }),
       expect.objectContaining({ id: 'quotes.workspace.pending-navigation', nested: true }),
     ]));
-    expect(applicationContributionRegistry.forSurface('backoffice').routes).toContainEqual(expect.objectContaining({ id: 'quotes.backoffice.pending', requiredCapabilities: ['quotes.validate'] }));
+    expect(applicationContributionRegistry.forSurface('backoffice').plannedRoutes).toContainEqual(expect.objectContaining({ id: 'quotes.backoffice.pending', availability: 'planned', requiredCapabilities: ['quotes.validate'] }));
+  });
+
+  it('n expose aucune route ou navigation backoffice avant son composition root', () => {
+    const backoffice = applicationContributionRegistry.forSurface('backoffice');
+
+    expect(backoffice.routes).toEqual([]);
+    expect(backoffice.navigation).toEqual([]);
+    expect(backoffice.plannedRoutes.map(({ id }) => id)).toEqual([
+      'orders.backoffice.production',
+      'shops.backoffice.list',
+      'quotes.backoffice.pending',
+    ]);
+    expect(backoffice.plannedNavigation.map(({ routeId }) => routeId)).toEqual([
+      'quotes.backoffice.pending',
+      'orders.backoffice.production',
+      'shops.backoffice.list',
+    ]);
   });
 
   it('limite QuoteTemplates au workspace', () => {

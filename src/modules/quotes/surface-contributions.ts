@@ -2,7 +2,7 @@ import { defineSurfaceContribution } from '../../surfaces/registry';
 
 export const quotesStorefrontContribution = defineSurfaceContribution({
   moduleId: 'quotes', surface: 'storefront',
-  routes: [{ id: 'quotes.storefront.create', moduleId: 'quotes', featureId: 'quotes.storefront-request', surface: 'storefront', path: 'quote', mount: 'host', requiredCapabilities: ['quotes.create'] }], navigation: [],
+  routes: [{ id: 'quotes.storefront.create', moduleId: 'quotes', featureId: 'quotes.storefront-request', surface: 'storefront', path: 'quote', mount: 'host', availability: 'planned', requiredCapabilities: ['quotes.create'] }], navigation: [],
 } as const);
 export const quotesCustomerPortalContribution = defineSurfaceContribution({
   moduleId: 'quotes', surface: 'customer-portal',
@@ -22,6 +22,6 @@ export const quotesWorkspaceContribution = defineSurfaceContribution({
 } as const);
 export const quotesBackofficeContribution = defineSurfaceContribution({
   moduleId: 'quotes', surface: 'backoffice',
-  routes: [{ id: 'quotes.backoffice.pending', moduleId: 'quotes', featureId: 'quotes.workspace-review', surface: 'backoffice', path: 'quotes/pending', mount: 'router', requiredCapabilities: ['quotes.validate'] }],
+  routes: [{ id: 'quotes.backoffice.pending', moduleId: 'quotes', featureId: 'quotes.workspace-review', surface: 'backoffice', path: 'quotes/pending', mount: 'router', availability: 'planned', requiredCapabilities: ['quotes.validate'] }],
   navigation: [{ id: 'quotes.backoffice.navigation', moduleId: 'quotes', featureId: 'quotes.workspace-review', surface: 'backoffice', routeId: 'quotes.backoffice.pending', groupId: 'commercial', label: 'Devis en attente', iconId: 'file-clock', order: 90 }],
 } as const);

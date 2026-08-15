@@ -263,6 +263,9 @@ généralisation des surfaces dépendront du contrat storefront UM2.
   depuis les contributions host ; l'écart `/quote` reste explicite — livré ;
 - AF27.2 : `AuthenticationGateway` injecté depuis le runtime navigateur ;
   `src/app` ne charge plus aucun adaptateur Supabase — livré ;
+- AF27.3 : distinction entre routes actives et cibles planifiées ; `/quote` et
+  les contributions backoffice restent documentées sans être exposées comme
+  runtime exécutable avant livraison de leurs composition roots — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.
