@@ -243,6 +243,8 @@ généralisation des surfaces dépendront du contrat storefront UM2.
   Gammes et PIM ainsi que leur navigation sont chargées depuis le registre — livré ;
 - AF26.7 : manifeste Commercial limité au workspace ; route et navigation
   Prix & marges sont chargées depuis le registre — livré ;
+- AF26.8 : manifeste Members limité aux utilisateurs Magrit du workspace ;
+  route et navigation Utilisateurs sont chargées depuis le registre — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.

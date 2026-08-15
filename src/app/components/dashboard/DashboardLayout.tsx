@@ -47,6 +47,9 @@ if (!CATALOG_PIM_NAVIGATION || !CATALOG_PIM_ROUTE || !CATALOG_GAMMES_NAVIGATION 
 const COMMERCIAL_NAVIGATION = workspaceSurface.navigation.find(({ id }) => id === 'commercial.workspace.navigation');
 const COMMERCIAL_ROUTE = workspaceSurface.routes.find(({ id }) => id === COMMERCIAL_NAVIGATION?.routeId);
 if (!COMMERCIAL_NAVIGATION || !COMMERCIAL_ROUTE) throw new Error('La contribution workspace du module commercial est incomplète.');
+const MEMBERS_NAVIGATION = workspaceSurface.navigation.find(({ id }) => id === 'members.workspace.navigation');
+const MEMBERS_ROUTE = workspaceSurface.routes.find(({ id }) => id === MEMBERS_NAVIGATION?.routeId);
+if (!MEMBERS_NAVIGATION || !MEMBERS_ROUTE) throw new Error('La contribution workspace du module members est incomplète.');
 
 // E7.7 — mapping label de NavLink -> data-testid pour les cas de test.
 // Couvre les liens cles des cahiers de tests P01 (sidebar nav).
@@ -143,7 +146,7 @@ export function DashboardLayout() {
           show: canManageMembers ?? false,
         },
         { to: `${basePath}/${SHOPS_ROUTE.path}`, label: SHOPS_NAVIGATION.label, icon: Store, show: canUse('shops') },
-        { to: `${basePath}/users`, label: 'Utilisateurs', icon: Users, show: true },
+        { to: `${basePath}/${MEMBERS_ROUTE.path}`, label: MEMBERS_NAVIGATION.label, icon: Users, show: true, testId: MEMBERS_NAVIGATION.testId },
       ],
     },
     {

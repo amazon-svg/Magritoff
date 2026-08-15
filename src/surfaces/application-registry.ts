@@ -11,8 +11,9 @@ import { quoteTemplatesModuleManifest, quoteTemplatesWorkspaceContribution } fro
 import { librariesModuleManifest, librariesWorkspaceContribution } from '../modules/libraries';
 import { catalogModuleManifest, catalogWorkspaceContribution } from '../modules/catalog';
 import { commercialModuleManifest, commercialWorkspaceContribution } from '../modules/commercial';
+import { membersModuleManifest, membersWorkspaceContribution } from '../modules/members';
 
 export const applicationContributionRegistry = createContributionRegistry({
-  manifests: [accountModuleManifest, ordersModuleManifest, shopsModuleManifest, quotesModuleManifest, quoteTemplatesModuleManifest, librariesModuleManifest, catalogModuleManifest, commercialModuleManifest],
-  contributions: [accountWorkspaceContribution, accountCustomerPortalContribution, ordersStorefrontContribution, ordersCustomerPortalContribution, ordersWorkspaceContribution, ordersBackofficeContribution, shopsStorefrontContribution, shopsWorkspaceContribution, shopsBackofficeContribution, quotesStorefrontContribution, quotesCustomerPortalContribution, quotesWorkspaceContribution, quotesBackofficeContribution, quoteTemplatesWorkspaceContribution, librariesWorkspaceContribution, catalogWorkspaceContribution, commercialWorkspaceContribution],
+  manifests: [accountModuleManifest, ordersModuleManifest, shopsModuleManifest, quotesModuleManifest, quoteTemplatesModuleManifest, librariesModuleManifest, catalogModuleManifest, commercialModuleManifest, membersModuleManifest],
+  contributions: [accountWorkspaceContribution, accountCustomerPortalContribution, ordersStorefrontContribution, ordersCustomerPortalContribution, ordersWorkspaceContribution, ordersBackofficeContribution, shopsStorefrontContribution, shopsWorkspaceContribution, shopsBackofficeContribution, quotesStorefrontContribution, quotesCustomerPortalContribution, quotesWorkspaceContribution, quotesBackofficeContribution, quoteTemplatesWorkspaceContribution, librariesWorkspaceContribution, catalogWorkspaceContribution, commercialWorkspaceContribution, membersWorkspaceContribution],
 });

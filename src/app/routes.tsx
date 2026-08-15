@@ -31,9 +31,6 @@ const PublicShop = lazy(() =>
 const DashboardHistory = lazy(() =>
   import("./components/dashboard/DashboardHistory").then((m) => ({ default: m.DashboardHistory })),
 );
-const DashboardUsers = lazy(() =>
-  import("./components/dashboard/DashboardUsers").then((m) => ({ default: m.DashboardUsers })),
-);
 const DashboardPlan = lazy(() =>
   import("./components/dashboard/DashboardPlan").then((m) => ({ default: m.DashboardPlan })),
 );
@@ -166,7 +163,6 @@ export const router = createBrowserRouter([
               { path: "preferences", element: <Navigate to="../account" replace /> },
               { path: "plan", element: lazyRoute(<DashboardPlan />) },
               { path: "history", element: lazyRoute(<DashboardHistory />) },
-              { path: "users", element: lazyRoute(<DashboardUsers />) },
               { path: "clients", element: <Navigate to="../users" replace /> },
               { path: "members", element: <Navigate to="../users" replace /> },
               // Nouveautes v3

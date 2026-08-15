@@ -7,6 +7,7 @@ import { quoteTemplatesModuleManifest } from '../../src/modules/quote-templates'
 import { librariesModuleManifest } from '../../src/modules/libraries';
 import { catalogModuleManifest } from '../../src/modules/catalog';
 import { commercialModuleManifest } from '../../src/modules/commercial';
+import { membersModuleManifest } from '../../src/modules/members';
 import { applicationContributionRegistry } from '../../src/surfaces';
 import {
   ContributionRegistryError,
@@ -111,6 +112,20 @@ describe('registre des contributions de surfaces', () => {
     );
     expect(applicationContributionRegistry.forSurface('workspace').navigation).toContainEqual(
       expect.objectContaining({ id: 'commercial.workspace.navigation', label: 'Prix & marges' }),
+    );
+  });
+
+  it('limite les utilisateurs Magrit au workspace', () => {
+    expect(membersModuleManifest.surfaces).toEqual(['workspace']);
+    expect(applicationContributionRegistry.forSurface('workspace').routes).toContainEqual(
+      expect.objectContaining({ id: 'members.workspace.list', path: 'users' }),
+    );
+    expect(applicationContributionRegistry.forSurface('workspace').navigation).toContainEqual(
+      expect.objectContaining({
+        id: 'members.workspace.navigation',
+        label: 'Utilisateurs',
+        testId: 'nav-sidebar-users-link',
+      }),
     );
   });
 
