@@ -28,9 +28,6 @@ const PublicShop = lazy(() =>
   import("./components/shop/PublicShop").then((m) => ({ default: m.PublicShop })),
 );
 
-const DashboardHistory = lazy(() =>
-  import("./components/dashboard/DashboardHistory").then((m) => ({ default: m.DashboardHistory })),
-);
 const DashboardPlan = lazy(() =>
   import("./components/dashboard/DashboardPlan").then((m) => ({ default: m.DashboardPlan })),
 );
@@ -147,7 +144,6 @@ export const router = createBrowserRouter([
               { path: "profile", element: <Navigate to="../account" replace /> },
               { path: "preferences", element: <Navigate to="../account" replace /> },
               { path: "plan", element: lazyRoute(<DashboardPlan />) },
-              { path: "history", element: lazyRoute(<DashboardHistory />) },
               { path: "clients", element: <Navigate to="../users" replace /> },
               { path: "members", element: <Navigate to="../users" replace /> },
               // REFONTE-UX v2 (2026-08-08, retour Arnaud point 5) — la galerie

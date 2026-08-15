@@ -249,6 +249,8 @@ généralisation des surfaces dépendront du contrat storefront UM2.
   Sous-espaces ainsi que leur navigation sont chargées depuis le registre — livré ;
 - AF26.10 : manifeste Roles limité au workspace ; route et navigation
   Workflow & rôles sont chargées depuis le registre — livré ;
+- AF26.11 : manifeste Conversations limité au workspace ; route et navigation
+  Historique sont chargées depuis le registre — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.

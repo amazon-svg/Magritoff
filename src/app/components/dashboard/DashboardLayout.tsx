@@ -58,6 +58,9 @@ if (!TENANT_SETTINGS_NAVIGATION || !TENANT_SETTINGS_ROUTE || !TENANT_SPACES_NAVI
 const ROLES_NAVIGATION = workspaceSurface.navigation.find(({ id }) => id === 'roles.workspace.navigation');
 const ROLES_ROUTE = workspaceSurface.routes.find(({ id }) => id === ROLES_NAVIGATION?.routeId);
 if (!ROLES_NAVIGATION || !ROLES_ROUTE) throw new Error('La contribution workspace du module roles est incomplète.');
+const CONVERSATIONS_NAVIGATION = workspaceSurface.navigation.find(({ id }) => id === 'conversations.workspace.navigation');
+const CONVERSATIONS_ROUTE = workspaceSurface.routes.find(({ id }) => id === CONVERSATIONS_NAVIGATION?.routeId);
+if (!CONVERSATIONS_NAVIGATION || !CONVERSATIONS_ROUTE) throw new Error('La contribution workspace du module conversations est incomplète.');
 
 // E7.7 — mapping label de NavLink -> data-testid pour les cas de test.
 // Couvre les liens cles des cahiers de tests P01 (sidebar nav).
@@ -146,7 +149,7 @@ export function DashboardLayout() {
           sub: true,
         },
         { to: `${basePath}/${ORDERS_ROUTE.path}`, label: ORDERS_NAVIGATION.label, icon: ShoppingBag, show: true },
-        { to: `${basePath}/history`, label: 'Historique', icon: MessageSquare, show: true },
+        { to: `${basePath}/${CONVERSATIONS_ROUTE.path}`, label: CONVERSATIONS_NAVIGATION.label, icon: MessageSquare, show: true },
         {
           to: `${basePath}/${COMMERCIAL_ROUTE.path}`,
           label: COMMERCIAL_NAVIGATION.label,

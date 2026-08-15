@@ -10,6 +10,7 @@ import { commercialModuleManifest } from '../../src/modules/commercial';
 import { membersModuleManifest } from '../../src/modules/members';
 import { tenantsModuleManifest } from '../../src/modules/tenants';
 import { rolesModuleManifest } from '../../src/modules/roles';
+import { conversationsModuleManifest } from '../../src/modules/conversations';
 import { applicationContributionRegistry } from '../../src/surfaces';
 import {
   ContributionRegistryError,
@@ -150,6 +151,16 @@ describe('registre des contributions de surfaces', () => {
     );
     expect(applicationContributionRegistry.forSurface('workspace').navigation).toContainEqual(
       expect.objectContaining({ id: 'roles.workspace.navigation', label: 'Workflow & rôles' }),
+    );
+  });
+
+  it('limite l historique des conversations au workspace', () => {
+    expect(conversationsModuleManifest.surfaces).toEqual(['workspace']);
+    expect(applicationContributionRegistry.forSurface('workspace').routes).toContainEqual(
+      expect.objectContaining({ id: 'conversations.workspace.history', path: 'history' }),
+    );
+    expect(applicationContributionRegistry.forSurface('workspace').navigation).toContainEqual(
+      expect.objectContaining({ id: 'conversations.workspace.navigation', label: 'Historique' }),
     );
   });
 
