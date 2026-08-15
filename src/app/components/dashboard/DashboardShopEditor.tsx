@@ -43,8 +43,7 @@ import { exportShopToShopifyCsv, exportShopToJson } from '../../utils/shopExport
 import { resolveShopProductScope } from '../../utils/resolveShopProductScope';
 import { TEST_IDS } from '../../lib/testIds';
 import { lazy, Suspense as ReactSuspense } from 'react';
-import { ShopsApiClient } from '../../../modules/shops';
-import { useApiRuntimeClient } from '../../contexts/ApiRuntimeContext';
+import { useShopsApi } from '../../contexts/ModuleClientsContext';
 
 // P4-VISUELS (2026-06-15) : lazy-load ShopCustomMockups (upload custom).
 // P9-CLEANUP (2026-06-15) : ShopVisualSettings supprimé (remplacé par
@@ -95,8 +94,7 @@ export function DashboardShopEditor() {
   // en number. Source de vérité locale, synchronisée à la DB sur blur.
   const [pricingOverrides, setPricingOverrides] = useState<Record<string, number>>({});
   const { currentTenant } = useTenant();
-  const apiClient = useApiRuntimeClient();
-  const shopsApi = useMemo(() => new ShopsApiClient(apiClient), [apiClient]);
+  const shopsApi = useShopsApi();
 
   // Dialog de confirmation suppression
   const [deleteDialog, setDeleteDialog] = useState<DisplayProduct | null>(null);

@@ -16,8 +16,8 @@ import { CheckCircle2, XCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTenant } from '../../contexts/TenantContext';
 import { SessionApiClient } from '../../../modules/session';
-import { ShopsApiClient } from '../../../modules/shops';
 import { useApiRuntimeClient } from '../../contexts/ApiRuntimeContext';
+import { useShopsApi } from '../../contexts/ModuleClientsContext';
 
 const PENDING_INVITATION_KEY = 'magrit:pending-invitation';
 
@@ -27,8 +27,8 @@ export function AcceptInvitation() {
   const { acceptInvitation } = useTenant();
   const navigate = useNavigate();
   const fetchClient = useApiRuntimeClient();
+  const shopsApi = useShopsApi();
   const sessionApi = useMemo(() => new SessionApiClient(fetchClient), [fetchClient]);
-  const shopsApi = useMemo(() => new ShopsApiClient(fetchClient), [fetchClient]);
 
   const [status, setStatus] = useState<'idle' | 'accepting' | 'success' | 'error'>(
     'idle'

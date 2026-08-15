@@ -284,6 +284,9 @@ généralisation des surfaces dépendront du contrat storefront UM2.
   depuis le registre sans littéral dupliqué dans le routeur du portail — livré ;
 - AF29.1 : composition d'une façade Orders unique pour les surfaces React ;
   suppression des sept constructions dispersées du client de module — livré ;
+- AF29.2 : composition centralisée des façades Shops, y compris la fabrique
+  post-authentification du checkout ; suppression des constructions dans les
+  composants et contextes — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.

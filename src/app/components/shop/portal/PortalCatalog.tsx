@@ -3,9 +3,9 @@ import { Search, Sparkles, X, Loader2, AlertTriangle } from 'lucide-react';
 import type { Shop, ShopProduct } from '../../../contexts/ShopsContext';
 import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
 import { resolveProductImage } from '../../../utils/productImages';
-import { ShopsApiClient } from '../../../../modules/shops';
 import { DiagnosticsApiClient } from '../../../../modules/diagnostics';
 import { useApiRuntimeClient } from '../../../contexts/ApiRuntimeContext';
+import { useShopsApi } from '../../../contexts/ModuleClientsContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { computeClariprintQuoteSafe } from '../../../../modules/clariprint';
 import { useClaudeSseStream, ClaudeSseStreamError } from '../../../hooks/useClaudeSseStream';
@@ -163,7 +163,7 @@ export function PortalCatalog({
   const { clariprint } = useBrowserServices();
   const { session } = useAuth();
   const apiClient = useApiRuntimeClient();
-  const shopsApi = useMemo(() => new ShopsApiClient(apiClient), [apiClient]);
+  const shopsApi = useShopsApi();
   const assistantApi = useMemo(() => new DiagnosticsApiClient(apiClient), [apiClient]);
   const [query, setQuery] = useState('');
   // S2.21 — autocomplétion : menu ouvert au focus + saisie ≥ 2 car.

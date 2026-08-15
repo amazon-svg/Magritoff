@@ -5,11 +5,11 @@
  * v3 exigent tenant_id pour insert/select. On denormalise tenant_id sur
  * shop_products a l'insert pour eviter un join a chaque select.
  */
-import { createContext, useContext, useEffect, useState, useCallback, useMemo, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
 import { useAuth } from './AuthContext';
 import { useTenant } from './TenantContext';
-import { ShopsApiClient, type ShopCustomMockup, type ShopDto, type ShopProductDto } from '../../modules/shops';
-import { useApiRuntimeClient } from './ApiRuntimeContext';
+import type { ShopCustomMockup, ShopDto, ShopProductDto } from '../../modules/shops';
+import { useShopsApi } from './ModuleClientsContext';
 
 export interface ShopTheme {
   primaryColor: string;
@@ -115,11 +115,10 @@ const ShopsContext = createContext<ShopsContextType | undefined>(undefined);
 
 export function ShopsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const apiClient = useApiRuntimeClient();
   const { currentTenant } = useTenant();
   const [shops, setShops] = useState<Shop[]>([]);
   const [loading, setLoading] = useState(false);
-  const shopsApi = useMemo(() => new ShopsApiClient(apiClient), [apiClient]);
+  const shopsApi = useShopsApi();
 
   const refresh = useCallback(async () => {
     if (!user || !currentTenant) {

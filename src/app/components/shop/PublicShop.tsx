@@ -39,10 +39,9 @@ import {
 import { buildShopTaxonomy } from '../../utils/shopTaxonomy';
 import { parsePortalPath, shopUrl } from './portal/shopPortalRoutes';
 import { applyTax, getTaxRate } from '../../utils/tax';
-import { ShopsApiClient, type PublicShopCatalog } from '../../../modules/shops';
+import type { PublicShopCatalog } from '../../../modules/shops';
 import { ApiClientError } from '../../../platform/api';
-import { useApiRuntimeClient } from '../../contexts/ApiRuntimeContext';
-import { useOrdersApi } from '../../contexts/ModuleClientsContext';
+import { useOrdersApi, useShopsApi } from '../../contexts/ModuleClientsContext';
 
 /**
  * Portail B2B Magrit — version 2.
@@ -66,7 +65,6 @@ export function PublicShop() {
   const splat = params['*'];
   const navigate = useNavigate();
   const { user, session, loading: authLoading } = useAuth();
-  const apiClient = useApiRuntimeClient();
   const { tenants, isSuperAdmin, loading: tenantLoading } = useTenant();
   const [shop, setShop] = useState<Shop | null>(null);
   const [products, setProducts] = useState<ShopProduct[]>([]);
@@ -77,7 +75,7 @@ export function PublicShop() {
     'authentication_required' | 'forbidden'
   > | null>(null);
   const ordersApi = useOrdersApi();
-  const shopsApi = useMemo(() => new ShopsApiClient(apiClient), [apiClient]);
+  const shopsApi = useShopsApi();
   const checkoutCommandKey = useRef(crypto.randomUUID());
 
   // S7.1 (ADR §4.19-1) — la vue est DÉRIVÉE de l'URL, plus un state interne.

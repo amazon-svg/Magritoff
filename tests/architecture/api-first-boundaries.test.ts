@@ -317,6 +317,21 @@ describe('frontières API-first et modulaires', () => {
     expect(app).toContain('<ModuleClientsProvider>');
   });
 
+  it('compose les façades Shops courante et post-auth dans un seul root', () => {
+    const appRoot = resolve(process.cwd(), 'src/app');
+    const constructors = listTypeScriptFiles(appRoot)
+      .filter((file) => readFileSync(file, 'utf8').includes('new ShopsApiClient'))
+      .map((file) => relative(process.cwd(), file));
+    const checkout = readFileSync(
+      resolve(appRoot, 'components/shop/portal/CheckoutPage.tsx'),
+      'utf8',
+    );
+
+    expect(constructors).toEqual(['src/app/contexts/ModuleClientsContext.tsx']);
+    expect(checkout).toContain('shopsApiForAccessToken(accessToken)');
+    expect(checkout).not.toContain('ShopsApiClient');
+  });
+
   it('sort les paramètres tenant du fournisseur', () => {
     const source = readFileSync(resolve(process.cwd(), 'src/app/components/dashboard/DashboardTenantSettings.tsx'), 'utf8');
     expect(source).toContain('SessionApiClient');
@@ -439,7 +454,7 @@ describe('frontières API-first et modulaires', () => {
   it('sort le contexte boutiques du fournisseur', () => {
     for (const file of ['src/app/contexts/ShopsContext.tsx', 'src/app/components/shop/PublicShop.tsx']) {
       const source = readFileSync(resolve(process.cwd(), file), 'utf8');
-      expect(source).toContain('ShopsApiClient');
+      expect(source).toContain('useShopsApi');
       expect(source).not.toContain('utils/supabase');
       expect(source).not.toMatch(/\bsupabase\s*\./);
     }
@@ -449,7 +464,7 @@ describe('frontières API-first et modulaires', () => {
     const legacy = readFileSync(resolve(process.cwd(), 'src/app/components/tenant/LegacySlugRedirect.tsx'), 'utf8');
     const shopOnly = readFileSync(resolve(process.cwd(), 'src/app/components/tenant/ShopOnlyRedirect.tsx'), 'utf8');
     expect(legacy).toContain('SessionApiClient');
-    expect(shopOnly).toContain('ShopsApiClient');
+    expect(shopOnly).toContain('useShopsApi');
     for (const source of [legacy, shopOnly]) {
       expect(source).not.toContain('utils/supabase');
       expect(source).not.toMatch(/\bsupabase\s*\./);
@@ -460,7 +475,7 @@ describe('frontières API-first et modulaires', () => {
     const invitation = readFileSync(resolve(process.cwd(), 'src/app/components/tenant/AcceptInvitation.tsx'), 'utf8');
     const account = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/AccountHub.tsx'), 'utf8');
     expect(invitation).toContain('SessionApiClient');
-    expect(invitation).toContain('ShopsApiClient');
+    expect(invitation).toContain('useShopsApi');
     expect(invitation).toContain('signOut');
     expect(account).toContain('onSignOut');
     for (const source of [invitation, account]) {
@@ -471,7 +486,7 @@ describe('frontières API-first et modulaires', () => {
 
   it('sort l identification checkout et l auto-inscription du fournisseur', () => {
     const source = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/CheckoutPage.tsx'), 'utf8');
-    expect(source).toContain('ShopsApiClient');
+    expect(source).toContain('useShopsApiFactory');
     expect(source).toContain('signIn');
     expect(source).toContain('signUp');
     expect(source).not.toContain('utils/supabase');
