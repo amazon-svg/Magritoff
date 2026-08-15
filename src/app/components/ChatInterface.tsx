@@ -3,7 +3,6 @@ import {
   Send, History, X, CheckSquare, Square, BookmarkPlus,
   MessageSquare, SquarePen, Paperclip, Mic, Sparkles,
 } from "lucide-react";
-import { browserAssistantGateway } from '../../adapters/http/browser-assistant-gateway';
 import { MagritLogo } from "./brand/MagritLogo";
 import { ProductCard } from "./ProductCard";
 import { CartButton } from "./CartButton";
@@ -183,7 +182,6 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
       // R2 Phase A : passe par useClaudeSseStream (extraction + AbortController
       // + detection billing). Le payload final reste de meme forme.
       if (!session?.access_token) throw new ClaudeSseStreamError('network', 'Authentification requise', 401);
-      const assistant = browserAssistantGateway.connection(session.access_token, ENABLE_STREAMING_CHAT);
       const requestBody = {
         messages: contextMessages,
         userId: user?.id ?? null,
@@ -193,8 +191,7 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
 
       const data = await sendSseStream(
         {
-          endpoint: assistant.endpoint,
-          authToken: assistant.authorizationToken,
+          authToken: session.access_token,
           body: requestBody,
           onDelta: ENABLE_STREAMING_CHAT
             ? () => setStreamingChunks((n) => (n ?? 0) + 1)

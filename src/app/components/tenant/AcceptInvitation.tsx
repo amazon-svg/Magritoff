@@ -10,25 +10,22 @@
  * vers /t/:slug du tenant rejoint.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { CheckCircle2, XCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTenant } from '../../contexts/TenantContext';
-import { SessionApiClient } from '../../../modules/session';
-import { ShopsApiClient } from '../../../modules/shops';
-import { FetchApiClient } from '../../../platform/api';
+import { useSessionApi, useShopsApi } from '../../contexts/ModuleClientsContext';
 
 const PENDING_INVITATION_KEY = 'magrit:pending-invitation';
 
 export function AcceptInvitation() {
   const { token } = useParams<{ token: string }>();
-  const { user, session, loading: authLoading, signOut } = useAuth();
+  const { user, loading: authLoading, signOut } = useAuth();
   const { acceptInvitation } = useTenant();
   const navigate = useNavigate();
-  const fetchClient = useMemo(() => new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null), [session?.access_token]);
-  const sessionApi = useMemo(() => new SessionApiClient(fetchClient), [fetchClient]);
-  const shopsApi = useMemo(() => new ShopsApiClient(fetchClient), [fetchClient]);
+  const shopsApi = useShopsApi();
+  const sessionApi = useSessionApi();
 
   const [status, setStatus] = useState<'idle' | 'accepting' | 'success' | 'error'>(
     'idle'

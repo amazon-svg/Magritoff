@@ -34,7 +34,6 @@ import {
 import { useShops, Shop, ShopProduct } from '../../contexts/ShopsContext';
 import { FONT_PAIRINGS } from '../shop/fontPairings';
 import { useTenant } from '../../contexts/TenantContext';
-import { useAuth } from '../../contexts/AuthContext';
 import { useLibrary, LibraryProduct } from '../../contexts/LibraryContext';
 import { usePIM } from '../../contexts/PIMContext';
 import { usePlan } from '../../hooks/usePlan';
@@ -44,8 +43,7 @@ import { exportShopToShopifyCsv, exportShopToJson } from '../../utils/shopExport
 import { resolveShopProductScope } from '../../utils/resolveShopProductScope';
 import { TEST_IDS } from '../../lib/testIds';
 import { lazy, Suspense as ReactSuspense } from 'react';
-import { ShopsApiClient } from '../../../modules/shops';
-import { FetchApiClient } from '../../../platform/api';
+import { useShopsApi } from '../../contexts/ModuleClientsContext';
 
 // P4-VISUELS (2026-06-15) : lazy-load ShopCustomMockups (upload custom).
 // P9-CLEANUP (2026-06-15) : ShopVisualSettings supprimé (remplacé par
@@ -96,10 +94,7 @@ export function DashboardShopEditor() {
   // en number. Source de vérité locale, synchronisée à la DB sur blur.
   const [pricingOverrides, setPricingOverrides] = useState<Record<string, number>>({});
   const { currentTenant } = useTenant();
-  const { session } = useAuth();
-  const shopsApi = useMemo(() => new ShopsApiClient(new FetchApiClient(
-    '', globalThis.fetch, () => session?.access_token ?? null,
-  )), [session?.access_token]);
+  const shopsApi = useShopsApi();
 
   // Dialog de confirmation suppression
   const [deleteDialog, setDeleteDialog] = useState<DisplayProduct | null>(null);

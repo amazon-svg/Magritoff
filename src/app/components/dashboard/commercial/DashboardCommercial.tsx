@@ -18,9 +18,7 @@ import {
   BadgePercent, Plus, Loader2, Trash2, Users as UsersIcon, AlertTriangle,
   ToggleLeft, ToggleRight, X,
 } from 'lucide-react';
-import { CommercialApiClient } from '../../../../modules/commercial';
-import { FetchApiClient } from '../../../../platform/api';
-import { useAuth } from '../../../contexts/AuthContext';
+import { useCommercialApi } from '../../../contexts/ModuleClientsContext';
 import { useTenant } from '../../../contexts/TenantContext';
 import {
   ADJUST_MODE_LABEL, SCOPE_LABEL, TARGET_LABEL,
@@ -46,7 +44,7 @@ const btnGhost =
   'px-3 py-1.5 border border-line-2 rounded-lg text-sm text-ink-2 hover:bg-bg hover:text-ink';
 
 export function DashboardCommercial() {
-  const { session } = useAuth();
+  const commercialApi = useCommercialApi();
   const { currentTenant } = useTenant();
   const [tab, setTab] = useState<'rules' | 'groups'>('rules');
   const [rules, setRules] = useState<ClientPriceRule[]>([]);
@@ -58,9 +56,6 @@ export function DashboardCommercial() {
   const [showRuleDialog, setShowRuleDialog] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
   const [creatingGroup, setCreatingGroup] = useState(false);
-  const commercialApi = useMemo(() => new CommercialApiClient(new FetchApiClient(
-    '', globalThis.fetch, () => session?.access_token ?? null,
-  )), [session?.access_token]);
 
   const load = useCallback(async () => {
     if (!currentTenant) return;

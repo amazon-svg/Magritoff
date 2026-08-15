@@ -1,11 +1,10 @@
 /**
  * Helpers S3.5 Audit Trail UI (Sprint 6, 2026-06-01).
  *
- * Côté front : appel RPC get_order_audit_trail + formatage timeline.
+ * Côté front : appel du module Orders + formatage timeline.
  */
 
 import { OrdersApiClient } from '../../../../modules/orders';
-import { FetchApiClient } from '../../../../platform/api';
 
 export interface OrderAuditEvent {
   event_id: string;
@@ -29,12 +28,9 @@ export interface FetchOrderAuditTrailResult {
 
 export async function fetchOrderAuditTrail(
   orderId: string,
-  accessToken: string | null,
+  api: OrdersApiClient,
 ): Promise<FetchOrderAuditTrailResult> {
   try {
-    const api = new OrdersApiClient(
-      new FetchApiClient('', globalThis.fetch, () => accessToken),
-    );
     const { events } = await api.getAuditTrail(orderId);
     return {
       data: events.map((event) => ({

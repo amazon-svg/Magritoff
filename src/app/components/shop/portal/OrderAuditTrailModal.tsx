@@ -11,7 +11,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { useAuth } from '../../../contexts/AuthContext';
+import { useOrdersApi } from '../../../contexts/ModuleClientsContext';
 import {
   Dialog,
   DialogContent,
@@ -36,7 +36,7 @@ interface Props {
 }
 
 export function OrderAuditTrailModal({ orderId, orderShortId, onClose }: Props) {
-  const { session } = useAuth();
+  const ordersApi = useOrdersApi();
   const [events, setEvents] = useState<OrderAuditEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,7 +49,7 @@ export function OrderAuditTrailModal({ orderId, orderShortId, onClose }: Props) 
     }
     setLoading(true);
     setError(null);
-    void fetchOrderAuditTrail(orderId, session?.access_token ?? null).then((result) => {
+    void fetchOrderAuditTrail(orderId, ordersApi).then((result) => {
       setLoading(false);
       if (result.error) {
         setError(result.error);
@@ -57,7 +57,7 @@ export function OrderAuditTrailModal({ orderId, orderShortId, onClose }: Props) 
       }
       setEvents(result.data ?? []);
     });
-  }, [orderId, session?.access_token]);
+  }, [orderId, ordersApi]);
 
   return (
     <Dialog

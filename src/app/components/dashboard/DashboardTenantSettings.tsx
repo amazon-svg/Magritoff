@@ -11,20 +11,18 @@
  *     pour permettre la redirection 301 cote frontend.
  */
 
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { Loader2, AlertTriangle } from 'lucide-react';
 import { useTenant } from '../../contexts/TenantContext';
-import { useAuth } from '../../contexts/AuthContext';
 import { TEST_IDS } from '../../lib/testIds';
-import { SessionApiClient, type UpdateTenantSettings } from '../../../modules/session';
-import { FetchApiClient } from '../../../platform/api';
+import { type UpdateTenantSettings } from '../../../modules/session';
+import { useSessionApi } from '../../contexts/ModuleClientsContext';
 
 const SLUG_REGEX = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/;
 
 export function DashboardTenantSettings() {
   const { currentTenant, currentRole, isSuperAdmin, reload } = useTenant();
-  const { session } = useAuth();
-  const sessionApi = useMemo(() => new SessionApiClient(new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null)), [session?.access_token]);
+  const sessionApi = useSessionApi();
 
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');

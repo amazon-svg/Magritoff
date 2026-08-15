@@ -203,9 +203,106 @@ généralisation des surfaces dépendront du contrat storefront UM2.
 - AF23.2b : façade `/api/v1/assistant/chat` pour le flux SSE, authentification
   utilisateur et contrôle tenant ; le navigateur ne connaît plus le protocole
   Supabase/Claude historique — livré ;
-- suite : migrer les autres
-  contributions catalogue/portail, en conservant la revue
-  fonctionnelle invitations/membres/rôles comme chantier produit distinct.
+- AF24.1 : devis Clariprint via `/api/v1/clariprint/quote`, protocole et secrets
+  limités à l’adaptateur serveur ; les configurateurs ne connaissent plus
+  l’Edge Function historique — livré ;
+- AF24.2 : assets et génération des mockups via `/api/v1/mockups`, sans URL
+  Storage, Edge Function ou clé Supabase dans les composants — livré ;
+- AF24.3 : création d’espace racine et acceptation d’invitation via le module
+  Session et `/api/v1` ; `TenantContext` ne dépend plus d’un adaptateur
+  Supabase et la commande legacy est supprimée — livré ;
+- AF24.4 : suppression du client Session DEV direct ; le bootstrap emprunte
+  désormais `/api/v1` dans tous les environnements et le proxy Vite choisit
+  seulement la cible Edge locale ou distante — livré ;
+- AF24.5 : garde-fou transitive interdisant à l’UI de charger un adaptateur
+  Supabase, hors passerelle Auth temporaire documentée jusqu’à UM2 — livré ;
+- AF25.1 : runtime HTTP React unique sous l’Auth et migration des contextes
+  Session, PIM, Conversations, Libraries, Quotes, QuoteTemplates et Shops ;
+  le jeton n’est plus recâblé séparément dans chaque provider — livré ;
+- AF25.2 : migration des dashboards, outils de rôles, hooks de capabilities et
+  diagnostic vers le runtime HTTP injecté ; seul le renouvellement atomique de
+  session avant invitation conserve temporairement un client frais — livré ;
+- AF25.3 : migration du storefront, du portail client, des redirections tenant,
+  du panier et des devis vers le runtime injecté ; les constructions directes
+  sont bornées au runtime et aux deux parcours post-auth immédiats — livré ;
+- AF25.4 : fabrique de transport à jeton explicite confinée dans le runtime ;
+  checkout et invitations ne construisent plus le client HTTP et
+  `ApiRuntimeContext` devient son unique composition root navigateur — livré ;
+- AF26.1 : manifeste Orders et contributions déclarées pour storefront,
+  customer-portal, workspace et backoffice ; la route workspace Commandes est
+  désormais chargée par le registre de surfaces — livré ;
+- AF26.2 : manifeste Shops pour storefront, workspace et backoffice ; liste,
+  éditeur et navigation Boutiques proviennent désormais du registre — livré ;
+- AF26.3 : manifeste Quotes sur les quatre surfaces ; bibliothèque, attente,
+  éditeur et navigation Devis sont chargés depuis le registre — livré ;
+- AF26.4 : manifeste QuoteTemplates limité au workspace ; route et navigation
+  Gabarits de devis sont chargées depuis le registre — livré ;
+- AF26.5 : manifeste Libraries limité au workspace ; routes liste/détail et
+  navigation Bibliothèques sont chargées depuis le registre — livré ;
+- AF26.6 : manifeste Catalog initialement limité à la gestion workspace ; routes
+  Gammes et PIM ainsi que leur navigation sont chargées depuis le registre — livré ;
+- AF26.7 : manifeste Commercial limité au workspace ; route et navigation
+  Prix & marges sont chargées depuis le registre — livré ;
+- AF26.8 : manifeste Members limité aux utilisateurs Magrit du workspace ;
+  route et navigation Utilisateurs sont chargées depuis le registre — livré ;
+- AF26.9 : manifeste Tenants limité au workspace ; routes Paramètres et
+  Sous-espaces ainsi que leur navigation sont chargées depuis le registre — livré ;
+- AF26.10 : manifeste Roles limité au workspace ; route et navigation
+  Workflow & rôles sont chargées depuis le registre — livré ;
+- AF26.11 : manifeste Conversations limité au workspace ; route et navigation
+  Historique sont chargées depuis le registre — livré ;
+- AF26.12 : manifeste MachineParks limité au workspace ; routes liste, wizard,
+  détail et navigation Parc machine sont chargées depuis le registre — livré ;
+- AF26.13 : manifeste Mockups limité au workspace actuel ; route et navigation
+  Visuels Magrit sont chargées depuis le registre — livré ;
+- AF26.14 : manifeste Plans limité au workspace ; route et navigation Plan &
+  abonnement sont chargées depuis le registre — livré ;
+- AF26.15 : sidebar workspace composée directement depuis les contributions ;
+  ordre, groupes, libellés, routes et présentation ne sont plus dupliqués — livré ;
+- AF27.1 : racine storefront, checkout et sections du portail client résolus
+  depuis les contributions host ; l'écart `/quote` reste explicite — livré ;
+- AF27.2 : `AuthenticationGateway` injecté depuis le runtime navigateur ;
+  `src/app` ne charge plus aucun adaptateur Supabase — livré ;
+- AF27.3 : distinction entre routes actives et cibles planifiées ; `/quote` et
+  les contributions backoffice restent documentées sans être exposées comme
+  runtime exécutable avant livraison de leurs composition roots — livré ;
+- AF27.4 : passerelle de prix Clariprint composée par le runtime avec le client
+  authentifié partagé puis injectée aux hooks et vues boutique ; le front ne
+  construit plus l'adaptateur Clariprint concret — livré ;
+- AF27.5 : passerelle de connexion assistant injectée par le runtime dans le
+  chat Magrit et la recherche conversationnelle boutique ; suppression des
+  imports du singleton HTTP concret dans ces composants — livré ;
+- AF27.6 : passerelle Mockups injectée dans l'image produit et l'administration
+  des visuels ; `src/app` n'importe désormais plus aucun adaptateur concret,
+  avec garde-fou global en architecture — livré ;
+- AF27.7 : protocole HTTP/SSE assistant déplacé du hook React vers la passerelle
+  injectée ; l'UI ne connaît plus endpoint, parsing d'événements ni détection
+  des erreurs fournisseur — livré ;
+- AF28.1 : routes storefront de liste catalogue, gamme et produit attribuées au
+  module Catalog puis consommées par le routeur du portail depuis le registre — livré ;
+- AF28.2 : route storefront de confirmation attribuée à Orders et consommée
+  depuis le registre sans littéral dupliqué dans le routeur du portail — livré ;
+- AF29.1 : composition d'une façade Orders unique pour les surfaces React ;
+  suppression des sept constructions dispersées du client de module — livré ;
+- AF29.2 : composition centralisée des façades Shops, y compris la fabrique
+  post-authentification du checkout ; suppression des constructions dans les
+  composants et contextes — livré ;
+- AF29.3 : composition centralisée des façades Quotes et QuoteTemplates ; les
+  composants d'impression et contextes devis consomment les instances partagées — livré ;
+- AF29.4 : composition d'une façade Catalog unique pour les écrans PIM,
+  administration catalogue et gammes actives — livré ;
+- AF29.5 : composition centralisée des façades Libraries et LibraryProducts ;
+  le contexte bibliothèque reçoit désormais ses dépendances partagées — livré ;
+- AF29.6 : composition centralisée des façades Conversations, Commercial et
+  Diagnostics, derniers clients hors chantier identité — livré ;
+- AF29.7 : composition d'une façade Session unique pour le bootstrap, les
+  espaces Magrit, redirections et acceptations d'invitation — livré ;
+- AF29.8 : composition centralisée des façades d'identité workspace Roles,
+  Members et Invitations, nommées explicitement sans assimilation aux comptes boutique — livré ;
+- AF29.9 : garde-fou transversal interdisant toute construction de client API
+  React hors des composition roots transport et modules — livré ;
+- suite : implémenter les futurs modules et surfaces depuis ces composition
+  roots, en conservant la séparation fonctionnelle des identités comme chantier produit distinct.
 
 ## Critères de succès
 

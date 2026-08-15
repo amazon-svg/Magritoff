@@ -9,21 +9,20 @@
  *    Clariprint → race conditions au demontage / re-render rapide.
  *    R1 corrige ici, dans le hook, en wrappant l'appel.
  *  - Pattern Adapter enforce R3 : le hook passe par
- *    `computeClariprintQuoteSafe` (singleton `httpAdapter`).
+ *    `computeClariprintQuoteSafe` (client Magrit `/api/v1`).
  *
- * Note : `computeClariprintQuoteSafe` ne supporte pas encore l'abort cote
- * adapter (le fetch natif est interne). On simule via un flag `cancelled`
+ * Note : ce hook conserve un flag `cancelled`
  * qui ignore le `setState` apres demontage. Une story future
- * (`useClariprintProduct.v2`) pourra etendre l'adapter pour propager
- * un `AbortSignal` jusqu'au fetch.
+ * pour ignorer les réponses arrivant après un démontage.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   computeClariprintQuoteSafe,
-  type ClariprintAdapter,
-} from '../../server/clariprint/ClariprintAdapter';
+  type ClariprintPricingGateway,
+} from '../../modules/clariprint';
 import type { ClariprintQuoteResult } from '../utils/clariprintQuote';
+import { useBrowserServices } from '../contexts/BrowserServicesContext';
 
 export interface UseClariprintProductState {
   /** Resultat Clariprint courant (null = pas encore calcule). */
@@ -45,8 +44,10 @@ export interface UseClariprintProductState {
  *                      En prod, omettre = utilise le wrapper par defaut.
  */
 export function useClariprintProduct(
-  customAdapter?: Pick<ClariprintAdapter, 'computePrice'>,
+  customAdapter?: Pick<ClariprintPricingGateway, 'computePrice'>,
 ): UseClariprintProductState {
+  const { clariprint: runtimeGateway } = useBrowserServices();
+  const gateway = customAdapter ?? runtimeGateway;
   const [quote, setQuote] = useState<ClariprintQuoteResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [lastRequest, setLastRequest] = useState<unknown>(null);
@@ -84,20 +85,7 @@ export function useClariprintProduct(
 
       try {
         let data: ClariprintQuoteResult;
-        if (customAdapter) {
-          // Pour les tests : retourne le format historique a partir de
-          // computePrice qui throw ClariprintError. On wrappe le throw.
-          try {
-            data = await customAdapter.computePrice({ clariprint: clariprintData });
-          } catch (err) {
-            data = {
-              success: false,
-              error: (err as Error).message || 'mock adapter error',
-            };
-          }
-        } else {
-          data = await computeClariprintQuoteSafe(clariprintData);
-        }
+        data = await computeClariprintQuoteSafe(gateway, clariprintData);
         if (cancelledRef.current) return; // unmount / nouvelle requete plus recente
         setLastRawResponse(JSON.stringify(data, null, 2));
         setQuote(data);
@@ -111,7 +99,7 @@ export function useClariprintProduct(
         if (!cancelledRef.current) setLoading(false);
       }
     },
-    [customAdapter],
+    [gateway],
   );
 
   return { quote, loading, lastRequest, lastRawResponse, compute, reset };

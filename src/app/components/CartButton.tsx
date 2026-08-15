@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { ShoppingCart, X, Trash2, FileText, FilePlus } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
@@ -15,8 +15,7 @@ import { useTenant } from '../contexts/TenantContext';
 import { useTenantPath } from '../hooks/useTenantPath';
 import { applyTax, extractTaxAmount, formatTaxLabel, getTaxRate } from '../utils/tax';
 import { TEST_IDS } from '../lib/testIds';
-import { QuotesApiClient } from '../../modules/quotes';
-import { FetchApiClient } from '../../platform/api';
+import { useQuotesApi } from '../contexts/ModuleClientsContext';
 
 interface CartButtonProps {
   /** `rail` : icon-only, pour le rail lateral du chat v2.
@@ -28,7 +27,8 @@ interface CartButtonProps {
 export function CartButton({ variant = 'pill' }: CartButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const { items, removeFromCart, clearCart, getTotalPrice } = useCart();
-  const { user, session } = useAuth();
+  const { user } = useAuth();
+  const quotesApi = useQuotesApi();
   const tp = useTenantPath();
   const navigate = useNavigate();
   const { currentTenant } = useTenant();
@@ -36,9 +36,6 @@ export function CartButton({ variant = 'pill' }: CartButtonProps) {
   const { templates, defaultTemplateId } = useQuoteTemplates();
   const { createQuoteFromCart } = useQuotes();
   const [creating, setCreating] = useState(false);
-  const quotesApi = useMemo(() => new QuotesApiClient(new FetchApiClient(
-    '', globalThis.fetch, () => session?.access_token ?? null,
-  )), [session?.access_token]);
 
   // Selection du gabarit a appliquer aux devis imprimes depuis le panier.
   // Le defaut de la modale suit le defaut utilisateur (ou builtin-classique).

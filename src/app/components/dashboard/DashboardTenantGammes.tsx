@@ -20,16 +20,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight, Check, Loader2 } from 'lucide-react';
 import { usePIM } from '../../contexts/PIMContext';
 import { useTenant } from '../../contexts/TenantContext';
-import { useAuth } from '../../contexts/AuthContext';
 import type { Gamme } from '../../utils/productEnrichment';
-import { CatalogApiClient, type GammeSubscription } from '../../../modules/catalog';
-import { FetchApiClient } from '../../../platform/api';
+import { type GammeSubscription } from '../../../modules/catalog';
+import { useCatalogApi } from '../../contexts/ModuleClientsContext';
 
 export function DashboardTenantGammes() {
   const { gammes, loading: pimLoading } = usePIM();
   const { currentTenant, currentRole, isSuperAdmin } = useTenant();
-  const { session } = useAuth();
-  const catalogApi = useMemo(() => new CatalogApiClient(new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null)), [session?.access_token]);
+  const catalogApi = useCatalogApi();
 
   const canWrite = currentRole === 'owner' || currentRole === 'admin' || isSuperAdmin;
 

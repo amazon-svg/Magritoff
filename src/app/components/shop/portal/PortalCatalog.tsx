@@ -3,15 +3,13 @@ import { Search, Sparkles, X, Loader2, AlertTriangle } from 'lucide-react';
 import type { Shop, ShopProduct } from '../../../contexts/ShopsContext';
 import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
 import { resolveProductImage } from '../../../utils/productImages';
-import { browserAssistantGateway } from '../../../../adapters/http/browser-assistant-gateway';
-import { ShopsApiClient } from '../../../../modules/shops';
-import { DiagnosticsApiClient } from '../../../../modules/diagnostics';
-import { FetchApiClient } from '../../../../platform/api';
+import { useDiagnosticsApi, useShopsApi } from '../../../contexts/ModuleClientsContext';
 import { useAuth } from '../../../contexts/AuthContext';
-import { computeClariprintQuoteSafe } from '../../../../server/clariprint/ClariprintAdapter';
+import { computeClariprintQuoteSafe } from '../../../../modules/clariprint';
 import { useClaudeSseStream, ClaudeSseStreamError } from '../../../hooks/useClaudeSseStream';
 import { ENABLE_STREAMING_CHAT } from '../../../lib/featureFlags';
 import { TEST_IDS } from '../../../lib/testIds';
+import { useBrowserServices } from '../../../contexts/BrowserServicesContext';
 import { ShopProductCard } from '../ShopProductCard';
 import { buildShopTaxonomy } from '../../../utils/shopTaxonomy';
 import {
@@ -160,9 +158,10 @@ export function PortalCatalog({
   onSelectSubcategory,
   initialFormat,
 }: Props) {
+  const { clariprint } = useBrowserServices();
   const { session } = useAuth();
-  const shopsApi = useMemo(() => new ShopsApiClient(new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null)), [session?.access_token]);
-  const assistantApi = useMemo(() => new DiagnosticsApiClient(new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null)), [session?.access_token]);
+  const shopsApi = useShopsApi();
+  const assistantApi = useDiagnosticsApi();
   const [query, setQuery] = useState('');
   // S2.21 — autocomplétion : menu ouvert au focus + saisie ≥ 2 car.
   const [searchOpen, setSearchOpen] = useState(false);
@@ -225,11 +224,9 @@ export function PortalCatalog({
       // naturel = ecran sans reponse. Le streaming donne un retour vivant
       // (aiStreaming via onDelta) et le payload `done` porte les memes configs.
       if (!session?.access_token) throw new ClaudeSseStreamError('network', 'Authentification requise', 401);
-      const assistant = browserAssistantGateway.connection(session.access_token, ENABLE_STREAMING_CHAT);
       const data = await sendSseStream(
         {
-          endpoint: assistant.endpoint,
-          authToken: assistant.authorizationToken,
+          authToken: session.access_token,
           body: { messages: [{ role: 'user', content: prompt }] },
           onDelta: ENABLE_STREAMING_CHAT ? () => setAiStreaming(true) : undefined,
         },
@@ -251,7 +248,7 @@ export function PortalCatalog({
       // (chaque card affiche un skeleton prix tant qu'on attend).
       const withPrices = await Promise.all(
         initialProducts.map(async (p) => {
-          const quote = await computeClariprintQuoteSafe(p.config?.clariprintData ?? p.config);
+          const quote = await computeClariprintQuoteSafe(clariprint, p.config?.clariprintData ?? p.config);
           if (!quote.success || quote.priceHT == null) return p;
           return {
             ...p,

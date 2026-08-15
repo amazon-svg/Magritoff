@@ -2,7 +2,7 @@ import { Navigate, NavLink, Outlet, useLocation } from 'react-router';
 import {
   User, Settings, MessageSquare, FileText, ShoppingBag, Users,
   CreditCard, Package, Store, Shield, LayoutTemplate, Building, Layers, Workflow,
-  FileClock, BadgePercent, Factory, Image as ImageIcon,
+  FileClock, BadgePercent, Factory, Image as ImageIcon, type LucideIcon,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlan } from '../../hooks/usePlan';
@@ -13,33 +13,91 @@ import { MagritLogo } from '../brand/MagritLogo';
 import { TEST_IDS } from '../../lib/testIds';
 import { workspaceSurface } from '../../../surfaces/workspace';
 
-const ACCOUNT_NAVIGATION = workspaceSurface.navigation.find(
-  ({ id }) => id === 'account.workspace.navigation',
-);
-const ACCOUNT_ROUTE = workspaceSurface.routes.find(
-  ({ id }) => id === ACCOUNT_NAVIGATION?.routeId,
-);
-if (!ACCOUNT_NAVIGATION || !ACCOUNT_ROUTE) {
-  throw new Error('La contribution workspace du module account est incomplète.');
+const WORKSPACE_ICONS: Readonly<Record<string, LucideIcon>> = Object.freeze({
+  user: User,
+  settings: Settings,
+  'message-square': MessageSquare,
+  'file-text': FileText,
+  'shopping-bag': ShoppingBag,
+  users: Users,
+  'credit-card': CreditCard,
+  package: Package,
+  store: Store,
+  shield: Shield,
+  'layout-template': LayoutTemplate,
+  building: Building,
+  layers: Layers,
+  workflow: Workflow,
+  'file-clock': FileClock,
+  'badge-percent': BadgePercent,
+  factory: Factory,
+  image: ImageIcon,
+});
+
+const WORKSPACE_GROUPS = [
+  { id: 'commercial', title: 'Gestion commerciale', testId: TEST_IDS.nav.sidebarAtelierLink },
+  { id: 'catalog', title: 'Catalogue' },
+  { id: 'production', title: 'Production' },
+  { id: 'settings', title: 'Paramètres', testId: TEST_IDS.nav.sidebarConfigLink },
+] as const;
+
+const WORKSPACE_ROUTES_BY_ID = new Map(workspaceSurface.routes.map((route) => [route.id, route]));
+
+type WorkspaceNavItem = Readonly<{
+  to: string;
+  end?: boolean;
+  label: string;
+  icon: LucideIcon;
+  sub?: boolean;
+  testId?: string;
+}>;
+
+type WorkspaceVisibility = Readonly<{
+  canManageMembers: boolean;
+  canManageSpaces: boolean;
+  isMagritAdmin: boolean;
+  canUse: (feature: 'shops' | 'library') => boolean;
+}>;
+
+function composeWorkspaceGroups(basePath: string, visibility: WorkspaceVisibility) {
+  return WORKSPACE_GROUPS.map((group) => ({
+    ...group,
+    items: workspaceSurface.navigation
+      .filter((item) => item.groupId === group.id && isNavigationVisible(item.id, visibility))
+      .map((item): WorkspaceNavItem => {
+        const route = WORKSPACE_ROUTES_BY_ID.get(item.routeId);
+        const icon = WORKSPACE_ICONS[item.iconId];
+        if (!route || !icon) {
+          throw new Error(`Contribution workspace incomplète pour ${item.id}.`);
+        }
+        return {
+          to: `${basePath}/${route.path}`,
+          end: item.exact,
+          label: item.label,
+          icon,
+          sub: item.nested,
+          testId: item.testId,
+        };
+      }),
+  })).filter((group) => group.items.length > 0);
 }
 
-// E7.7 — mapping label de NavLink -> data-testid pour les cas de test.
-// Couvre les liens cles des cahiers de tests P01 (sidebar nav).
-const NAV_LINK_TESTIDS: Record<string, string> = {
-  // REFONTE-UX (2026-08-08) — le lien Profil devient Mon compte (Parametres),
-  // le testid historique est conserve pour les cahiers de tests P01.
-  'Mon compte': TEST_IDS.nav.sidebarProfileLink,
-  'Utilisateurs': TEST_IDS.nav.sidebarUsersLink,
-};
-
-// E7.7 — mapping titre de groupe -> data-testid (groupes structurels Linear-like).
-const NAV_GROUP_TESTIDS: Record<string, string> = {
-  // REFONTE-UX v2 (2026-08-08) — l Atelier a fusionne dans Gestion commerciale
-  // (point 6) et Config est devenu Parametres ; testids historiques conserves
-  // pour les cahiers de tests P01.
-  'Gestion commerciale': TEST_IDS.nav.sidebarAtelierLink,
-  'Paramètres': TEST_IDS.nav.sidebarConfigLink,
-};
+function isNavigationVisible(id: string, visibility: WorkspaceVisibility): boolean {
+  if (id === 'shops.workspace.navigation') return visibility.canUse('shops');
+  if (id === 'libraries.workspace.navigation') return visibility.canUse('library');
+  if (id === 'catalog.workspace.pim-navigation' || id === 'mockups.workspace.navigation') {
+    return visibility.isMagritAdmin;
+  }
+  if (id === 'tenants.workspace.spaces-navigation') return visibility.canManageSpaces;
+  if ([
+    'commercial.workspace.navigation',
+    'catalog.workspace.gammes-navigation',
+    'machine-parks.workspace.navigation',
+    'tenants.workspace.settings-navigation',
+    'roles.workspace.navigation',
+  ].includes(id)) return visibility.canManageMembers;
+  return true;
+}
 
 // Design source : .design-handoff/designs/04 - Admin dashboard.html
 // Layout : Linear-dense — sidebar 220px + main, typo Helvetica Neue 300/400/500.
@@ -56,8 +114,7 @@ export function DashboardLayout() {
   const basePath = `/t/${tenantSlug}/dashboard`;
 
   const canManageMembers = currentRole === 'owner' || currentRole === 'admin' || isSuperAdmin;
-  const canManageSpaces =
-    canManageMembers && currentTenant && !currentTenant.parent_tenant_id;
+  const canManageSpaces = canManageMembers && !!currentTenant && !currentTenant.parent_tenant_id;
 
   if (loading) {
     return (
@@ -71,108 +128,12 @@ export function DashboardLayout() {
   }
   if (!user) return <Navigate to="/" replace />;
 
-  // Groupes de navigation Linear-like
-  // `sub: true` → item indente visuellement, signale un sous-menu (ex: gabarits sous devis).
-  type Item = {
-    to: string;
-    end?: boolean;
-    label: string;
-    icon: any;
-    show: boolean;
-    sub?: boolean;
-    testId?: string;
-  };
-  // REFONTE-UX v2 (2026-08-08, retours Arnaud) — navigation en 4 groupes :
-  //   Gestion commerciale = toute l activite client, de bout en bout (point 6 :
-  //     les entrees de l ancien Atelier — devis, commandes, historique —
-  //     rejoignent la gestion commerciale) + prix & marges + boutiques + users
-  //   Catalogue   = referentiel produits (point 3 : le PIM vit ici) + gammes
-  //     + bibliotheques + galerie des visuels Magrit (point 5 : conservee)
-  //   Production  = parcs machine (RP#070826)
-  //   Parametres  = espace + sous-espaces + roles + plan + mon compte
-  const GROUPS: Array<{ title: string; items: Item[] }> = [
-    {
-      title: 'Gestion commerciale',
-      items: [
-        { to: `${basePath}/quotes`, end: true, label: 'Devis', icon: FileText, show: true },
-        {
-          to: `${basePath}/quotes/pending`,
-          label: 'Devis en attente',
-          icon: FileClock,
-          show: true,
-          sub: true,
-        },
-        {
-          to: `${basePath}/quote-templates`,
-          label: 'Gabarits de devis',
-          icon: LayoutTemplate,
-          show: true,
-          sub: true,
-        },
-        { to: `${basePath}/orders`, label: 'Commandes', icon: ShoppingBag, show: true },
-        { to: `${basePath}/history`, label: 'Historique', icon: MessageSquare, show: true },
-        {
-          to: `${basePath}/commercial`,
-          label: 'Prix & marges',
-          icon: BadgePercent,
-          show: canManageMembers ?? false,
-        },
-        { to: `${basePath}/shops`, label: 'Boutiques', icon: Store, show: canUse('shops') },
-        { to: `${basePath}/users`, label: 'Utilisateurs', icon: Users, show: true },
-      ],
-    },
-    {
-      title: 'Catalogue',
-      items: [
-        {
-          to: `${basePath}/admin/pim`,
-          label: 'PIM — Produits',
-          icon: Shield,
-          show: isAdmin || isSuperAdmin,
-        },
-        { to: `${basePath}/gammes`, label: 'Gammes actives', icon: Layers, show: canManageMembers ?? false },
-        { to: `${basePath}/library`, label: 'Bibliothèques', icon: Package, show: canUse('library') },
-        {
-          to: `${basePath}/admin/mockups`,
-          label: 'Visuels Magrit',
-          icon: ImageIcon,
-          show: isAdmin || isSuperAdmin,
-          sub: true,
-        },
-      ],
-    },
-    {
-      title: 'Production',
-      items: [
-        { to: `${basePath}/machines`, label: 'Parc machine', icon: Factory, show: canManageMembers ?? false },
-      ],
-    },
-    {
-      title: 'Paramètres',
-      items: [
-        { to: `${basePath}/settings`, label: "Paramètres de l'espace", icon: Settings, show: canManageMembers ?? false },
-        {
-          to: `${basePath}/spaces`,
-          label: 'Sous-espaces',
-          icon: Building,
-          show: canManageSpaces ?? false,
-          sub: true,
-        },
-        // S-ORDER-ROLES-3-UI T4 — garde via useUserCapability('can_manage_roles')
-        // cote composant ; on filtre aussi cote nav.
-        { to: `${basePath}/order-roles`, label: 'Workflow & rôles', icon: Workflow, show: canManageMembers ?? false },
-        { to: `${basePath}/plan`, label: 'Plan & abonnement', icon: CreditCard, show: true },
-        {
-          to: `${basePath}/${ACCOUNT_ROUTE.path}`,
-          label: ACCOUNT_NAVIGATION.label,
-          icon: User,
-          show: true,
-          testId: ACCOUNT_NAVIGATION.testId,
-        },
-      ],
-    },
-  ].map((g) => ({ ...g, items: g.items.filter((i) => i.show) }))
-    .filter((g) => g.items.length > 0);
+  const GROUPS = composeWorkspaceGroups(basePath, {
+    canManageMembers,
+    canManageSpaces,
+    isMagritAdmin: isAdmin || isSuperAdmin,
+    canUse,
+  });
 
   // Breadcrumb extrait du path courant : "dashboard / segment"
   const segs = location.pathname.split('/').filter(Boolean);
@@ -228,7 +189,7 @@ export function DashboardLayout() {
         {GROUPS.map((group, gi) => (
           <div key={group.title} className={gi > 0 ? 'mt-4' : ''}>
             <div
-              data-testid={NAV_GROUP_TESTIDS[group.title]}
+              data-testid={group.testId}
               className="font-mono uppercase text-ink-mute-2 px-2.5 py-1.5"
               style={{
                 fontSize: '10.5px',
@@ -242,7 +203,7 @@ export function DashboardLayout() {
               {group.items.map((item) => (
                 <NavLink
                   key={item.to}
-                  data-testid={item.testId ?? NAV_LINK_TESTIDS[item.label]}
+                  data-testid={item.testId}
                   to={item.to}
                   end={item.end}
                   className={({ isActive }) =>

@@ -4,18 +4,16 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useMemo,
   useRef,
   useState,
 } from 'react';
 import {
-  SessionApiClient,
   type SessionBootstrap,
   type UpdatePreferences,
+  type CreateRootTenant,
 } from '../../modules/session';
-import { FetchApiClient } from '../../platform/api';
-import { DevSessionClient } from '../../adapters/supabase/dev-session-client';
 import { useAuth } from './AuthContext';
+import { useSessionApi } from './ModuleClientsContext';
 
 type SessionBootstrapContextValue = Readonly<{
   data: SessionBootstrap | null;
@@ -24,29 +22,21 @@ type SessionBootstrapContextValue = Readonly<{
   reload(): Promise<void>;
   updatePreferences(patch: UpdatePreferences): Promise<void>;
   updateCurrentTenant(tenantId: string): Promise<void>;
+  createRootTenant(command: CreateRootTenant): Promise<string>;
+  acceptInvitation(token: string): Promise<string>;
 }>;
 
 const SessionBootstrapContext = createContext<SessionBootstrapContextValue | undefined>(undefined);
 
 export function SessionBootstrapProvider({ children }: { children: ReactNode }) {
   const { user, session, loading: authLoading } = useAuth();
+  const api = useSessionApi();
   const [data, setData] = useState<SessionBootstrap | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const requestSequence = useRef(0);
   const currentUserId = useRef<string | null>(user?.id ?? null);
   currentUserId.current = user?.id ?? null;
-  const api = useMemo(
-    () => {
-      if (import.meta.env.DEV && import.meta.env.VITE_API_RUNTIME !== 'edge' && user?.id) {
-        return new DevSessionClient(user.id);
-      }
-      return new SessionApiClient(
-        new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null),
-      );
-    },
-    [session?.access_token, user?.id],
-  );
 
   const reload = useCallback(async () => {
     const sequence = ++requestSequence.current;
@@ -94,6 +84,16 @@ export function SessionBootstrapProvider({ children }: { children: ReactNode }) 
     [api],
   );
 
+  const createRootTenant = useCallback(
+    (command: CreateRootTenant) => api.createRootTenant(command),
+    [api],
+  );
+
+  const acceptInvitation = useCallback(
+    (token: string) => api.acceptInvitation(token),
+    [api],
+  );
+
   return (
     <SessionBootstrapContext.Provider
       value={{
@@ -103,6 +103,8 @@ export function SessionBootstrapProvider({ children }: { children: ReactNode }) 
         reload,
         updatePreferences,
         updateCurrentTenant,
+        createRootTenant,
+        acceptInvitation,
       }}
     >
       {children}

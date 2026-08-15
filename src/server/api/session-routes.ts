@@ -11,12 +11,16 @@ import {
   createSubTenantResultSchema,
   removeSubTenantResultSchema,
   tenantSlugResolutionSchema,
+  createRootTenantSchema,
+  createRootTenantResultSchema,
+  acceptTenantInvitationSchema,
+  acceptTenantInvitationResultSchema,
 } from '../../modules/session/api/contracts.ts';
 import {
   SessionTenantAccessDeniedError,
   type SessionService,
 } from '../../modules/session/application/session-service.ts';
-import { SessionTenantMutationError } from '../../modules/session/application/session-repository.ts';
+import { SessionInvitationAcceptanceError, SessionTenantMutationError } from '../../modules/session/application/session-repository.ts';
 import { API_V1_BASE_PATH } from '../../platform/api/contracts.ts';
 import { ApiHttpError } from './errors.ts';
 import { defineJsonRoute, type ApiRequestContext, type ApiRoute } from './routes.ts';
@@ -26,6 +30,35 @@ export function createSessionRoutes(service: SessionService): readonly ApiRoute[
     defineJsonRoute({
       method: 'GET', path: `${API_V1_BASE_PATH}/tenant-slugs/{slug}`, authentication: 'required', inputSchema: null, outputSchema: tenantSlugResolutionSchema,
       async handle(context) { return { status: 200, body: await service.resolveTenantSlug(requireUserId(context), requireSlug(context)) }; },
+    }),
+    defineJsonRoute({
+      method: 'POST', path: `${API_V1_BASE_PATH}/tenants`, authentication: 'required', inputSchema: createRootTenantSchema, outputSchema: createRootTenantResultSchema,
+      async handle(context, command) {
+        try {
+          return { status: 201, body: await service.createRootTenant(requireUserId(context), command) };
+        } catch (error) {
+          throwTenantMutation(error);
+        }
+      },
+    }),
+    defineJsonRoute({
+      method: 'POST', path: `${API_V1_BASE_PATH}/session/invitations/accept`, authentication: 'required', inputSchema: acceptTenantInvitationSchema, outputSchema: acceptTenantInvitationResultSchema,
+      async handle(context, { token }) {
+        try {
+          return { status: 200, body: await service.acceptInvitation(requireUserId(context), token) };
+        } catch (error) {
+          if (error instanceof SessionInvitationAcceptanceError) {
+            throw new ApiHttpError({
+              type: 'about:blank',
+              title: error.code === 'email_mismatch' ? 'Invitation destinée à un autre compte' : 'Invitation invalide',
+              status: error.code === 'email_mismatch' ? 409 : 422,
+              code: `session.invitation_${error.code}`,
+              detail: error.message,
+            });
+          }
+          throw error;
+        }
+      },
     }),
     defineJsonRoute({
       method: 'GET',

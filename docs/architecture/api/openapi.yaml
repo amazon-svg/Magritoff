@@ -149,6 +149,42 @@ paths:
           $ref: '#/components/responses/AuthenticationRequired'
         '500':
           $ref: '#/components/responses/InternalError'
+  /session/invitations/accept:
+    post:
+      operationId: acceptTenantInvitation
+      summary: Accepter une invitation tenant pour l utilisateur authentifié
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AcceptTenantInvitation' }
+      responses:
+        '200':
+          description: Invitation acceptée
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TenantMutationCreated' }
+        '409': { description: Invitation destinée à un autre email }
+        '422': { description: Invitation invalide ou expirée }
+  /tenants:
+    post:
+      operationId: createRootTenant
+      summary: Créer un espace racine et affecter son propriétaire
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateRootTenant' }
+      responses:
+        '201':
+          description: Espace créé
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TenantMutationCreated' }
+        '409': { description: Slug déjà utilisé }
+        '422': { description: Données de création invalides }
   /session/preferences:
     patch:
       operationId: updateSessionPreferences
@@ -1151,6 +1187,28 @@ components:
         name: { type: string, minLength: 1, maxLength: 160 }
         slug: { type: string, minLength: 3, maxLength: 60, pattern: '^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$' }
     CreateSubTenantResult:
+      type: object
+      additionalProperties: false
+      required: [tenantId]
+      properties:
+        tenantId: { type: string }
+    CreateRootTenant:
+      type: object
+      additionalProperties: false
+      required: [name, slug]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 160 }
+        slug: { type: string, minLength: 3, maxLength: 60, pattern: '^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$' }
+        siren: { type: string, minLength: 1, maxLength: 32 }
+        sirenData: { type: object, additionalProperties: true }
+        gammeSlugs: { type: array, maxItems: 200, items: { type: string } }
+    AcceptTenantInvitation:
+      type: object
+      additionalProperties: false
+      required: [token]
+      properties:
+        token: { type: string, minLength: 1, maxLength: 512 }
+    TenantMutationCreated:
       type: object
       additionalProperties: false
       required: [tenantId]

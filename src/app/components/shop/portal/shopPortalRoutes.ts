@@ -17,6 +17,7 @@
  */
 
 import type { AccountSection, PortalView } from './types';
+import { portalRuntimePaths, shopRootPath } from '../../../surfaces/portalRuntimePaths';
 
 export interface PortalRouteMatch {
   view: PortalView;
@@ -34,6 +35,11 @@ export interface PortalRouteMatch {
 }
 
 const ACCOUNT_SECTIONS: readonly AccountSection[] = ['orders', 'quotes', 'profile'];
+const ACCOUNT_PATHS: Readonly<Record<AccountSection, string>> = Object.freeze({
+  orders: portalRuntimePaths.accountOrders,
+  quotes: portalRuntimePaths.accountQuotes,
+  profile: portalRuntimePaths.accountProfile,
+});
 
 /** Normalise un splat react-router : slashes de tête/queue, query exclue. */
 function normalizeSplat(splat: string | undefined): string[] {
@@ -41,6 +47,30 @@ function normalizeSplat(splat: string | undefined): string[] {
     .split('/')
     .map((s) => s.trim())
     .filter(Boolean);
+}
+
+function matchRuntimePath(
+  pattern: string,
+  segments: readonly string[],
+): Readonly<Record<string, string>> | null {
+  const patternSegments = normalizeSplat(pattern);
+  if (patternSegments.length !== segments.length) return null;
+  const params: Record<string, string> = {};
+  for (let index = 0; index < patternSegments.length; index += 1) {
+    const expected = patternSegments[index]!;
+    const actual = segments[index]!;
+    if (expected.startsWith(':')) params[expected.slice(1)] = actual;
+    else if (expected !== actual) return null;
+  }
+  return params;
+}
+
+function runtimePathHead(pattern: string): string {
+  return normalizeSplat(pattern)[0] ?? '';
+}
+
+function fillRuntimePath(pattern: string, parameter: string, value: string): string {
+  return pattern.replace(`:${parameter}`, encodeURIComponent(value));
 }
 
 /**
@@ -51,50 +81,51 @@ export function parsePortalPath(splat: string | undefined): PortalRouteMatch {
 
   if (segments.length === 0) return { view: 'home', redirected: false };
 
+  const normalizedPath = segments.join('/');
+  if (normalizedPath === portalRuntimePaths.checkout) {
+    return { view: 'checkout', redirected: false };
+  }
+  if (normalizedPath === portalRuntimePaths.orderConfirmation) {
+    return { view: 'thankYou', redirected: false };
+  }
+  const accountSection = ACCOUNT_SECTIONS.find((section) => ACCOUNT_PATHS[section] === normalizedPath);
+  if (accountSection) {
+    return { view: 'account', accountSection, redirected: false };
+  }
+
+  if (matchRuntimePath(portalRuntimePaths.catalog, segments)) {
+    return { view: 'catalog', redirected: false };
+  }
+  const productMatch = matchRuntimePath(portalRuntimePaths.product, segments);
+  if (productMatch?.productId) {
+    return { view: 'product', productId: productMatch.productId, redirected: false };
+  }
+  const gammeMatch = matchRuntimePath(portalRuntimePaths.gamme, segments);
+  if (gammeMatch?.gammeSlug) {
+    return { view: 'gamme', gammeSlug: gammeMatch.gammeSlug, redirected: false };
+  }
+
   const [head, ...rest] = segments;
 
+  if (
+    head === runtimePathHead(portalRuntimePaths.catalog)
+    || head === runtimePathHead(portalRuntimePaths.product)
+    || head === runtimePathHead(portalRuntimePaths.gamme)
+  ) {
+    return { view: 'catalog', redirected: true };
+  }
+  if (head === runtimePathHead(portalRuntimePaths.orderConfirmation)) {
+    return { view: 'thankYou', redirected: true };
+  }
+
   switch (head) {
-    case 'catalog':
-      return rest.length === 0
-        ? { view: 'catalog', redirected: false }
-        : { view: 'catalog', redirected: true };
-    case 'p': {
-      const productId = rest[0];
-      if (productId && rest.length === 1) {
-        return { view: 'product', productId, redirected: false };
-      }
-      // `p` sans id (ou trop profond) → catalog
-      return { view: 'catalog', redirected: true };
-    }
     case 'orders':
       // S7.10 — alias legacy : les commandes vivent sous /account/orders
       // (le redirect PublicShop préserve la query ?tab=).
       return { view: 'account', accountSection: 'orders', redirected: true };
-    case 'thank-you':
-      return rest.length === 0
-        ? { view: 'thankYou', redirected: false }
-        : { view: 'thankYou', redirected: true };
-    case 'checkout':
-      // S7.12 — récap + identification (ADR §4.20).
-      return rest.length === 0
-        ? { view: 'checkout', redirected: false }
-        : { view: 'checkout', redirected: true };
     case 'account': {
-      // S7.10 — hub Mon compte : /account/orders|quotes|profile.
-      const section = rest[0] as AccountSection | undefined;
-      if (section && rest.length === 1 && ACCOUNT_SECTIONS.includes(section)) {
-        return { view: 'account', accountSection: section, redirected: false };
-      }
       // /account nu ou section inconnue → commandes (canonique).
       return { view: 'account', accountSection: 'orders', redirected: true };
-    }
-    case 'g': {
-      // S7.3 — page gamme-configurateur. Sans slug (ou trop profond) : catalog.
-      const gammeSlug = rest[0];
-      if (gammeSlug && rest.length === 1) {
-        return { view: 'gamme', gammeSlug, redirected: false };
-      }
-      return { view: 'catalog', redirected: true };
     }
     default:
       return { view: 'home', redirected: true };
@@ -111,26 +142,30 @@ export function portalPathForView(view: PortalView, param?: string): string {
     case 'home':
       return '';
     case 'catalog':
-      return 'catalog';
+      return portalRuntimePaths.catalog;
     case 'product':
       // Sans productId on ne peut pas adresser une fiche → catalog.
-      return param ? `p/${param}` : 'catalog';
+      return param
+        ? fillRuntimePath(portalRuntimePaths.product, 'productId', param)
+        : portalRuntimePaths.catalog;
     case 'gamme':
       // S7.3 — sans slug de gamme on retombe sur le catalogue.
-      return param ? `g/${param}` : 'catalog';
+      return param
+        ? fillRuntimePath(portalRuntimePaths.gamme, 'gammeSlug', param)
+        : portalRuntimePaths.catalog;
     case 'orders':
       // S7.10 — les commandes vivent sous Mon compte.
-      return 'account/orders';
+      return ACCOUNT_PATHS.orders;
     case 'account':
       // param = section (orders par défaut).
-      return `account/${param && ACCOUNT_SECTIONS.includes(param as AccountSection) ? param : 'orders'}`;
+      return ACCOUNT_PATHS[param && ACCOUNT_SECTIONS.includes(param as AccountSection) ? param as AccountSection : 'orders'];
     case 'thankYou':
-      return 'thank-you';
+      return portalRuntimePaths.orderConfirmation;
     case 'checkout':
-      return 'checkout';
+      return portalRuntimePaths.checkout;
     case 'cart':
       // Le panier est un drawer, pas une page : on reste sur le catalogue.
-      return 'catalog';
+      return portalRuntimePaths.catalog;
     default:
       return '';
   }
@@ -139,5 +174,6 @@ export function portalPathForView(view: PortalView, param?: string): string {
 /** URL absolue d'une vue portail pour une boutique donnée. */
 export function shopUrl(slug: string, view: PortalView, param?: string): string {
   const path = portalPathForView(view, param);
-  return path ? `/shop/${slug}/${path}` : `/shop/${slug}`;
+  const root = shopRootPath(slug);
+  return path ? `${root}/${path}` : root;
 }

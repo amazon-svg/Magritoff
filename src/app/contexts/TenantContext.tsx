@@ -28,7 +28,7 @@ import {
   useMemo,
 } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { legacyTenantCommands } from '../../adapters/supabase/legacy-tenant-commands';
+import { ApiClientError } from '../../platform/api';
 import { useAuth } from './AuthContext';
 import { useSessionBootstrap } from './SessionBootstrapContext';
 
@@ -188,41 +188,22 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       sirenData?: Record<string, any>;
       gammeSlugs?: string[];
     }): Promise<string | null> => {
-      let tenantId: string;
       try {
-        tenantId = await legacyTenantCommands.createTenant({ slug, name, parentTenantId: null });
+        const tenantId = await bootstrap.createRootTenant({
+          slug,
+          name,
+          ...(siren === undefined ? {} : { siren }),
+          ...(sirenData === undefined ? {} : { sirenData }),
+          ...(gammeSlugs === undefined ? {} : { gammeSlugs }),
+        });
+        await reload();
+        return tenantId;
       } catch (error) {
         console.error('[TenantContext] createTenant error:', error);
         return null;
       }
-      // E6.1 — Si un SIREN a ete fourni et valide, on enregistre les infos
-      // INSEE et on marque le tenant comme verifie. Update post-creation pour
-      // ne pas modifier la signature de la RPC partagee.
-      if (siren && sirenData) {
-        try {
-          await legacyTenantCommands.markTenantVerified(tenantId, siren, sirenData);
-        } catch (error) {
-          console.error('[TenantContext] tenant verification failed:', error);
-        }
-      }
-      // E9.6 — Si l user a selectionne des gammes au wizard, insert bulk
-      // dans tenant_gamme_subscriptions. Best-effort : un echec ici ne
-      // bloque pas la creation du tenant (l user peut toujours activer
-      // les gammes depuis /dashboard/gammes apres coup).
-      if (gammeSlugs && gammeSlugs.length > 0) {
-        try {
-          await legacyTenantCommands.activateGammes(tenantId, gammeSlugs);
-        } catch (error) {
-          console.error(
-            '[TenantContext] gammes subscriptions failed (tenant cree quand meme):',
-            error,
-          );
-        }
-      }
-      await reload();
-      return tenantId;
     },
-    [reload]
+    [bootstrap, reload]
   );
 
   const acceptInvitation = useCallback(
@@ -230,7 +211,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       token: string
     ): Promise<{ tenantId: string | null; errorCode?: string; errorMessage?: string }> => {
       try {
-        const tenantId = await legacyTenantCommands.acceptInvitation(token);
+        const tenantId = await bootstrap.acceptInvitation(token);
         await reload();
         return { tenantId };
       } catch (error) {
@@ -239,11 +220,13 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         // Fix 2026-05-27 : propage le code d'erreur pour distinguer
         // EMAIL_MISMATCH (mauvais compte connecte) d'une invitation
         // reellement invalide/expiree. Le RPC prefixe 'EMAIL_MISMATCH:'.
-        const errorCode = message.includes('EMAIL_MISMATCH') ? 'EMAIL_MISMATCH' : 'INVALID';
+        const errorCode = error instanceof ApiClientError && error.problem.code === 'session.invitation_email_mismatch'
+          ? 'EMAIL_MISMATCH'
+          : 'INVALID';
         return { tenantId: null, errorCode, errorMessage: message };
       }
     },
-    [reload]
+    [bootstrap, reload]
   );
 
   const withTenant = useCallback(

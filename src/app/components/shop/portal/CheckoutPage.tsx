@@ -19,8 +19,7 @@ import { useTenant } from '../../../contexts/TenantContext';
 import { applyTax, getTaxRate } from '../../../utils/tax';
 import { formatEuro } from '../ProductOverlay.helpers';
 import { TEST_IDS } from '../../../lib/testIds';
-import { ShopsApiClient } from '../../../../modules/shops';
-import { FetchApiClient } from '../../../../platform/api';
+import { useShopsApiFactory } from '../../../contexts/ModuleClientsContext';
 
 export interface CheckoutPageProps {
   shop: Shop;
@@ -188,6 +187,7 @@ function CheckoutIdentification({
   onAuthenticated: () => void;
 }) {
   const { signIn, signUp } = useAuth();
+  const shopsApiForAccessToken = useShopsApiFactory();
   const selfSignup = shop.access_mode === 'self_signup';
   const [mode, setMode] = useState<'login' | 'signup'>(selfSignup ? 'signup' : 'login');
   const [email, setEmail] = useState('');
@@ -199,7 +199,7 @@ function CheckoutIdentification({
   const [notice, setNotice] = useState<string | null>(null);
 
   const registerBuyer = async (accessToken: string) => {
-    const api = new ShopsApiClient(new FetchApiClient('', globalThis.fetch, () => accessToken));
+    const api = shopsApiForAccessToken(accessToken);
     await api.registerBuyer(shop.id);
   };
 

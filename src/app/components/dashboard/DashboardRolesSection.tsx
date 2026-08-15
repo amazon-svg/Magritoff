@@ -20,10 +20,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Loader2, Shield, Check, X } from 'lucide-react';
 import { useTenant } from '../../contexts/TenantContext';
-import { useAuth } from '../../contexts/AuthContext';
 import { TEST_IDS } from '../../lib/testIds';
-import { RolesApiClient } from '../../../modules/roles';
-import { FetchApiClient } from '../../../platform/api';
+import { useWorkspaceRolesApi } from '../../contexts/ModuleClientsContext';
 
 /** Liste fermée des capabilities v1.1 — synchronisée avec migration DB. */
 const CAPABILITY_LABELS: Record<string, string> = {
@@ -62,7 +60,7 @@ interface AssignmentRow {
 
 export function DashboardRolesSection() {
   const { currentTenant } = useTenant();
-  const { session } = useAuth();
+  const rolesApi = useWorkspaceRolesApi();
   const [roles, setRoles] = useState<RoleDefRow[]>([]);
   const [members, setMembers] = useState<MemberRow[]>([]);
   const [assignments, setAssignments] = useState<AssignmentRow[]>([]);
@@ -72,9 +70,6 @@ export function DashboardRolesSection() {
   const [pending, setPending] = useState<Set<string>>(new Set());
 
   const tenantId = currentTenant?.id ?? null;
-  const rolesApi = useMemo(() => new RolesApiClient(new FetchApiClient(
-    '', globalThis.fetch, () => session?.access_token ?? null,
-  )), [session?.access_token]);
 
   const loadData = useCallback(async () => {
     if (!tenantId) {

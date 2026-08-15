@@ -22,7 +22,7 @@ import { ArrowLeft, Image as ImageIcon, ShieldCheck, AlertCircle } from 'lucide-
 import { useIsAdmin } from '../../hooks/useIsAdmin';
 import { useTenant } from '../../contexts/TenantContext';
 import { useTenantPath } from '../../hooks/useTenantPath';
-import { browserMockupGateway } from '../../../adapters/supabase/browser-mockup-gateway';
+import { useBrowserServices } from '../../contexts/BrowserServicesContext';
 
 interface TemplateRef {
   key:
@@ -106,6 +106,7 @@ const TEMPLATES: TemplateRef[] = [
 ];
 
 export function DashboardAdminMockups() {
+  const { mockups } = useBrowserServices();
   const isAdmin = useIsAdmin();
   const { isSuperAdmin } = useTenant();
   const tp = useTenantPath();
@@ -116,7 +117,7 @@ export function DashboardAdminMockups() {
     () =>
       TEMPLATES.map((tpl) => ({
         ...tpl,
-        url: browserMockupGateway.previewUrl({
+        url: mockups.previewUrl({
           tenantId: 'magrit-admin-preview',
           shopId: 'magrit-admin-preview',
           productId: `preview-${tpl.key}`,
@@ -128,7 +129,7 @@ export function DashboardAdminMockups() {
           view: 'front',
         }),
       })),
-    [],
+    [mockups],
   );
 
   if (!hasAccess) {

@@ -17,10 +17,8 @@
  * de suivi S-ORDER-ROLES-3-UI : nécessite Sally UX wireframes (DoD #5).
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { OrdersApiClient } from '../../modules/orders';
-import { FetchApiClient } from '../../platform/api';
-import { useAuth } from '../contexts/AuthContext';
+import { useCallback, useEffect, useState } from 'react';
+import { useOrdersApi } from '../contexts/ModuleClientsContext';
 
 export type OrderCapability =
   | 'can_quote'
@@ -89,14 +87,11 @@ export function mergeCapabilities(roles: OrderRoleAssignment[]): Record<OrderCap
  * @param userId UUID du user (récupéré via AuthContext côté caller — passé en arg pour testabilité)
  */
 export function useOrderRoles(orderId: string | null, userId: string | null): OrderRolesState {
-  const { session } = useAuth();
+  const ordersApi = useOrdersApi();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [roles, setRoles] = useState<OrderRoleAssignment[]>([]);
   const [isCreator, setIsCreator] = useState(false);
-  const ordersApi = useMemo(() => new OrdersApiClient(
-    new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null),
-  ), [session?.access_token]);
 
   const fetch = useCallback(async () => {
     if (!orderId || !userId) {

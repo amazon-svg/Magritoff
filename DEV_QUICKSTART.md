@@ -33,7 +33,9 @@ La première exécution télécharge les images Docker. Les services principaux 
 - Mailpit : http://127.0.0.1:54324
 - front beta/v5 : http://127.0.0.1:5177
 
-Le fichier `.env.local` active aussi `VITE_API_RUNTIME=edge` et dirige `/api/v1` vers la fonction locale `magrit-api`. Il est ignoré par Git.
+Le fichier `.env.local` dirige `/api/v1` vers la fonction locale `magrit-api`.
+Le bootstrap emprunte toujours cette API, comme en production. Le fichier est
+ignoré par Git.
 
 Le wrapper local extrait temporairement de `_bootstrap_b4.sql` les deux prérequis historiques `user_data` et `shop_module`, puis applique les migrations normales. Ce préambule n est jamais laissé dans `supabase/migrations`, afin que `db push --linked` ne tente pas de le publier sur le projet distant.
 

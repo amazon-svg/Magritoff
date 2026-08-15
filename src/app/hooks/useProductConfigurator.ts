@@ -22,9 +22,9 @@ import { useEffect, useRef, useState } from "react";
 import type { ShopProduct } from "../contexts/ShopsContext";
 import { ENABLE_OVERLAY_LIVE_RECALC } from "../lib/featureFlags";
 import {
-  ClariprintError,
-  ClariprintHttpAdapter,
-} from "../../server/clariprint/ClariprintAdapter";
+  ClariprintPricingError,
+  type ClariprintPricingErrorKind,
+} from "../../modules/clariprint";
 import { estimateMarketPriceHT } from "../utils/priceResolver";
 import {
   buildClariprintPayload,
@@ -33,8 +33,8 @@ import {
 } from "../components/shop/ProductOverlay.helpers";
 import { useTenant } from "../contexts/TenantContext";
 import { applyTax, getTaxRate } from "../utils/tax";
+import { useBrowserServices } from "../contexts/BrowserServicesContext";
 
-const httpAdapter = new ClariprintHttpAdapter();
 export const COMPUTE_PRICE_TIMEOUT_MS = 10_000;
 export const RECALC_DEBOUNCE_MS = 300;
 
@@ -44,7 +44,7 @@ export type ConfiguratorPhase =
   | { kind: "ready"; priceHT: number; priceTTC: number }
   | {
       kind: "error";
-      errorKind: ClariprintError["kind"] | "unknown";
+      errorKind: ClariprintPricingErrorKind;
       message: string;
       fallbackPriceHT?: number;
       fallbackPriceTTC?: number;
@@ -83,7 +83,7 @@ export function computeSuccessPhase(
 
 /** Phase issue d'une erreur computePrice (typée Clariprint ou réseau). PURE. */
 export function computeErrorPhase(
-  errorKind: ClariprintError["kind"] | "unknown",
+  errorKind: ClariprintPricingErrorKind,
   product: ShopProduct,
   quantity: number,
   taxRate: number,
@@ -184,6 +184,7 @@ export function useProductConfigurator(
   opts: UseProductConfiguratorOpts = {},
 ): UseProductConfiguratorResult {
   const liveRecalc = opts.liveRecalc ?? ENABLE_OVERLAY_LIVE_RECALC;
+  const { clariprint } = useBrowserServices();
   const { currentTenant } = useTenant();
   const taxRate = getTaxRate(currentTenant);
 
@@ -222,7 +223,7 @@ export function useProductConfigurator(
 
       const payload = buildClariprintPayload(options, product.config);
 
-      httpAdapter
+      clariprint
         .computePrice({ clariprint: payload })
         .then((quote) => {
           if (controller.signal.aborted) return;
@@ -230,8 +231,8 @@ export function useProductConfigurator(
         })
         .catch((err) => {
           if (controller.signal.aborted) return;
-          const errorKind: ClariprintError["kind"] | "unknown" =
-            err instanceof ClariprintError ? err.kind : "unknown";
+          const errorKind: ClariprintPricingErrorKind =
+            err instanceof ClariprintPricingError ? err.kind : "unknown";
           setPhase(computeErrorPhase(errorKind, product, options.quantity, taxRate));
         })
         .finally(() => {
@@ -243,7 +244,7 @@ export function useProductConfigurator(
       clearTimeout(debounceId);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [product?.id, options]);
+  }, [product?.id, options, clariprint]);
 
   const retry = () => {
     // Force un re-trigger : phase idle puis shallow copy pour relancer l'effet

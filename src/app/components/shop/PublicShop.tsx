@@ -39,9 +39,9 @@ import {
 import { buildShopTaxonomy } from '../../utils/shopTaxonomy';
 import { parsePortalPath, shopUrl } from './portal/shopPortalRoutes';
 import { applyTax, getTaxRate } from '../../utils/tax';
-import { OrdersApiClient } from '../../../modules/orders';
-import { ShopsApiClient, type PublicShopCatalog } from '../../../modules/shops';
-import { ApiClientError, FetchApiClient } from '../../../platform/api';
+import type { PublicShopCatalog } from '../../../modules/shops';
+import { ApiClientError } from '../../../platform/api';
+import { useOrdersApi, useShopsApi } from '../../contexts/ModuleClientsContext';
 
 /**
  * Portail B2B Magrit — version 2.
@@ -74,12 +74,8 @@ export function PublicShop() {
     ShopAccess,
     'authentication_required' | 'forbidden'
   > | null>(null);
-  const ordersApi = useMemo(() => new OrdersApiClient(
-    new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null),
-  ), [session?.access_token]);
-  const shopsApi = useMemo(() => new ShopsApiClient(
-    new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null),
-  ), [session?.access_token]);
+  const ordersApi = useOrdersApi();
+  const shopsApi = useShopsApi();
   const checkoutCommandKey = useRef(crypto.randomUUID());
 
   // S7.1 (ADR §4.19-1) — la vue est DÉRIVÉE de l'URL, plus un state interne.

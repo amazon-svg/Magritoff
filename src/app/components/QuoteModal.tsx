@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { X, FileText, ShoppingCart, LayoutTemplate, Star } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -12,8 +12,7 @@ import {
   getDefaultTemplate,
 } from '../utils/quote';
 import { applyTax, extractTaxAmount, formatTaxLabel, getTaxRate } from '../utils/tax';
-import { QuotesApiClient } from '../../modules/quotes';
-import { FetchApiClient } from '../../platform/api';
+import { useQuotesApi } from '../contexts/ModuleClientsContext';
 
 interface QuoteModalProps {
   isOpen: boolean;
@@ -23,14 +22,12 @@ interface QuoteModalProps {
 
 export function QuoteModal({ isOpen, onClose, product }: QuoteModalProps) {
   const { addToCart } = useCart();
-  const { user, session } = useAuth();
+  const { user } = useAuth();
+  const quotesApi = useQuotesApi();
   const { templates, defaultTemplateId } = useQuoteTemplates();
   const { currentTenant } = useTenant();
   const tp = useTenantPath();
   const taxRate = getTaxRate(currentTenant);
-  const quotesApi = useMemo(() => new QuotesApiClient(new FetchApiClient(
-    '', globalThis.fetch, () => session?.access_token ?? null,
-  )), [session?.access_token]);
 
   // Gabarit a appliquer a l'impression. Initialise sur le defaut utilisateur
   // (ou builtin-classique si aucun defaut), mais l'user peut en choisir un

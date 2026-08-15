@@ -9,6 +9,33 @@ const routeLoaders: Readonly<Record<string, LazyPageLoader>> = Object.freeze({
     import('../components/dashboard/DashboardAccount').then((module) => ({
       default: module.DashboardAccount,
     })),
+  'orders.workspace.list': () =>
+    import('../components/dashboard/DashboardOrders').then((module) => ({
+      default: module.DashboardOrders,
+    })),
+  'shops.workspace.list': () =>
+    import('../components/dashboard/DashboardShops').then((module) => ({ default: module.DashboardShops })),
+  'shops.workspace.edit': () =>
+    import('../components/dashboard/DashboardShopEditor').then((module) => ({ default: module.DashboardShopEditor })),
+  'quotes.workspace.list': () => import('../components/dashboard/DashboardQuotes').then((module) => ({ default: module.DashboardQuotes })),
+  'quotes.workspace.pending': () => import('../components/dashboard/DashboardQuotesPending').then((module) => ({ default: module.DashboardQuotesPending })),
+  'quotes.workspace.edit': () => import('../components/dashboard/DashboardQuoteEditor').then((module) => ({ default: module.DashboardQuoteEditor })),
+  'quote-templates.workspace.list': () => import('../components/dashboard/DashboardQuoteTemplates').then((module) => ({ default: module.DashboardQuoteTemplates })),
+  'libraries.workspace.list': () => import('../components/dashboard/DashboardLibraries').then((module) => ({ default: module.DashboardLibraries })),
+  'libraries.workspace.detail': () => import('../components/dashboard/DashboardLibraryDetail').then((module) => ({ default: module.DashboardLibraryDetail })),
+  'catalog.workspace.gammes': () => import('../components/dashboard/DashboardTenantGammes').then((module) => ({ default: module.DashboardTenantGammes })),
+  'catalog.workspace.pim': () => import('../components/dashboard/DashboardAdminPIM').then((module) => ({ default: module.DashboardAdminPIM })),
+  'commercial.workspace.pricing': () => import('../components/dashboard/commercial/DashboardCommercial').then((module) => ({ default: module.DashboardCommercial })),
+  'members.workspace.list': () => import('../components/dashboard/DashboardUsers').then((module) => ({ default: module.DashboardUsers })),
+  'tenants.workspace.settings': () => import('../components/dashboard/DashboardTenantSettings').then((module) => ({ default: module.DashboardTenantSettings })),
+  'tenants.workspace.spaces': () => import('../components/dashboard/DashboardTenantSpaces').then((module) => ({ default: module.DashboardTenantSpaces })),
+  'roles.workspace.workflow': () => import('../components/dashboard/OrderRoleAdminPage').then((module) => ({ default: module.OrderRoleAdminPage })),
+  'conversations.workspace.history': () => import('../components/dashboard/DashboardHistory').then((module) => ({ default: module.DashboardHistory })),
+  'machine-parks.workspace.list': () => import('../components/dashboard/machines/DashboardMachines').then((module) => ({ default: module.DashboardMachines })),
+  'machine-parks.workspace.wizard': () => import('../components/dashboard/machines/MachineParkWizard').then((module) => ({ default: module.MachineParkWizard })),
+  'machine-parks.workspace.detail': () => import('../components/dashboard/machines/MachineParkDetail').then((module) => ({ default: module.MachineParkDetail })),
+  'mockups.workspace.reference': () => import('../components/dashboard/DashboardAdminMockups').then((module) => ({ default: module.DashboardAdminMockups })),
+  'plans.workspace.selection': () => import('../components/dashboard/DashboardPlan').then((module) => ({ default: module.DashboardPlan })),
 });
 
 export type WorkspaceRuntimeRoute = Readonly<{

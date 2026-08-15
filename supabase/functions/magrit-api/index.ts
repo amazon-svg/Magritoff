@@ -49,6 +49,10 @@ import { AssistantService } from '../../../src/modules/diagnostics/application/a
 import { ConfiguredAiCompletionGateway } from '../../../src/adapters/ai/configured-ai-completion-gateway.ts';
 import { createAssistantRoutes } from '../../../src/server/api/assistant-routes.ts';
 import { SupabaseAssistantAccessGateway } from '../../../src/adapters/supabase/assistant-access-gateway.ts';
+import { ClariprintService } from '../../../src/modules/clariprint/application/clariprint-service.ts';
+import { HttpClariprintQuoteGateway } from '../../../src/adapters/clariprint/http-clariprint-quote-gateway.ts';
+import { createClariprintRoutes } from '../../../src/server/api/clariprint-routes.ts';
+import { isMockupBinaryRequest, proxyMockupBinary } from '../../../src/adapters/supabase/mockup-binary-proxy.ts';
 import { isAssistantChatRequest, proxyAssistantChat } from '../../../src/server/api/assistant-stream-proxy.ts';
 
 const corsHeaders = {
@@ -64,6 +68,8 @@ export async function handleRequest(request: Request): Promise<Response> {
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
   const authorization = request.headers.get('Authorization') ?? '';
   if (!supabaseUrl || !anonKey) return new Response('Configuration serveur absente', { status: 500 });
+
+  if (isMockupBinaryRequest(request)) return withCors(await proxyMockupBinary(request, supabaseUrl, anonKey));
 
   const client = createClient(supabaseUrl, anonKey, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -110,6 +116,11 @@ export async function handleRequest(request: Request): Promise<Response> {
   const libraryProductsService = new LibraryProductsService(new SupabaseLibraryProductsRepository(client));
   const commercialService = new CommercialService(new SupabaseCommercialRepository(client));
   const assistantService = new AssistantService(new ConfiguredAiCompletionGateway(aiConfiguration), new SupabaseAssistantAccessGateway(client));
+  const clariprintService = new ClariprintService(new HttpClariprintQuoteGateway(
+    Deno.env.get('CLARIPRINT_HOST') ?? 'https://lrdp.clariprint.com',
+    Deno.env.get('CLARIPRINT_LOGIN') ?? null,
+    Deno.env.get('CLARIPRINT_PASSWORD') ?? null,
+  ));
   const handler = createApiV1Application({
     routes: [
       ...createSessionRoutes(service),
@@ -122,6 +133,7 @@ export async function handleRequest(request: Request): Promise<Response> {
       ...createConversationsRoutes(conversationsService),
       ...createDiagnosticsRoutes(diagnosticsService),
       ...createAssistantRoutes(assistantService),
+      ...createClariprintRoutes(clariprintService),
       ...createQuotesRoutes(quotesService),
       ...createQuoteTemplatesRoutes(quoteTemplatesService),
       ...createLibrariesRoutes(librariesService),

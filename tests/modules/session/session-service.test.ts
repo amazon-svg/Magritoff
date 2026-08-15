@@ -80,13 +80,15 @@ function repositoryStub(options: {
     autoAcceptPendingInvitations: vi.fn(async () => undefined),
     listDirectMemberships: vi.fn(async () => options.direct ?? []),
     listChildren: vi.fn(async () => options.children ?? []),
-    getPreferences: vi.fn(async () => ({ theme: 'dark', last_tenant_id: 'child' })),
+    getPreferences: vi.fn(async () => ({ theme: 'dark' as const, last_tenant_id: 'child' })),
     updatePreferences: vi.fn(async (_userId, patch) => patch),
     updateLastTenant: vi.fn(async (_userId, tenantId) => ({ last_tenant_id: tenantId })),
     updateTenantSettings: vi.fn(async () => undefined),
     subTenantsDashboard: vi.fn(async () => ({ subTenants: [], kpis: [] })),
     createSubTenant: vi.fn(async () => 'subtenant-af15'),
     removeSubTenant: vi.fn(async () => undefined),
+    createRootTenant: vi.fn(async () => 'tenant-created'),
+    acceptInvitation: vi.fn(async () => 'tenant-invited'),
   };
 }
 

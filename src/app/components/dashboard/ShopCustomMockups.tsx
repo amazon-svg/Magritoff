@@ -18,11 +18,10 @@
  *   2. Le fichier est conservé en cache historique
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Upload, RotateCcw, Loader2, Image as ImageIcon } from 'lucide-react';
-import { ShopsApiClient, type MockupTemplateType, type ShopCustomMockup } from '../../../modules/shops';
-import { FetchApiClient } from '../../../platform/api';
-import { useAuth } from '../../contexts/AuthContext';
+import type { MockupTemplateType, ShopCustomMockup } from '../../../modules/shops';
+import { useShopsApi } from '../../contexts/ModuleClientsContext';
 import { resolveProductImage } from '../../utils/productImages';
 
 interface Props {
@@ -51,8 +50,7 @@ const TEMPLATES: TemplateDef[] = [
 
 const ACCEPTED_MIME = 'image/png,image/jpeg,image/webp,image/svg+xml';
 export function ShopCustomMockups({ shopId, tenantId }: Props) {
-  const { session } = useAuth();
-  const shopsApi = useMemo(() => new ShopsApiClient(new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null)), [session?.access_token]);
+  const shopsApi = useShopsApi();
   const [overrides, setOverrides] = useState<Record<string, ShopCustomMockup>>({});
   const [loading, setLoading] = useState(true);
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);

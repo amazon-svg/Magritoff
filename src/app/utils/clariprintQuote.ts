@@ -3,41 +3,23 @@
  *
  * R3 (refacto 2026-05-11) : ce module ne fait plus de fetch direct vers
  * l'edge function `clariprint-quote`. Tout appel reseau passe maintenant
- * par `ClariprintHttpAdapter` (cf. `src/server/clariprint/ClariprintAdapter.ts`)
+ * par le client Magrit `/api/v1/clariprint/quote`
  * conformement a l'ADR architecture.md §4.4.
  *
  * Ne sont conserves ici que les utilitaires purs (sans I/O) :
  *  - `ClariprintQuoteResult` : type du payload Clariprint.
  *  - `validateClariprintResponse` : sanitization defensive (prix negatifs / NaN
  *    / undefined → success=false). Appele par l'edge function ET par
- *    `ClariprintHttpAdapter` (ceinture+bretelles).
+ *    l'adaptateur UI (ceinture+bretelles).
  *  - `priceFingerprint` : detection de staleness sur la config.
  *
  * Le wrapper de compatibilite `computeClariprintQuoteSafe()` qui retourne le
  * format historique `ClariprintQuoteResult` (au lieu de throw) est expose
- * depuis `ClariprintAdapter.ts` pour eviter une dependance circulaire.
+ * depuis l'adaptateur HTTP navigateur pour eviter une dependance circulaire.
  */
 
-export interface ClariprintQuoteResult {
-  success: boolean;
-  credentialsMissing?: boolean;
-  message?: string;
-  error?: string;
-  priceHT?: number;
-  costs?: {
-    paper?: number;
-    print?: number;
-    makeready?: number;
-    packaging?: number;
-    delivery?: number;
-    total?: number;
-  };
-  delais?: number;
-  weight?: number;
-  fournisseur?: string;
-  processDuration?: number;
-  details?: string;
-}
+export type { ClariprintQuoteResult } from '../../modules/clariprint/api/contracts';
+import type { ClariprintQuoteResult } from '../../modules/clariprint/api/contracts';
 
 /**
  * Sanitization défensive d'une réponse Clariprint.
@@ -55,7 +37,7 @@ export interface ClariprintQuoteResult {
  * Cette fonction est appelée à 2 endroits :
  *  1. Dans l'edge function clariprint-quote (avant retour c.json) → évite la
  *     propagation au front.
- *  2. (Sécurité) Dans `ClariprintHttpAdapter.computePrice` côté client (au cas
+ *  2. (Sécurité) Dans l'adaptateur UI côté client (au cas
  *     où le backend n'aurait pas validé pour une raison quelconque).
  *
  * @param result Résultat brut Clariprint
@@ -88,10 +70,8 @@ export function validateClariprintResponse(
     const total = result.costs.total;
     if (typeof total !== 'number' || !Number.isFinite(total) || total < 0) {
       // On ne fail pas la réponse entière, on masque juste le total invalide
-      result = {
-        ...result,
-        costs: { ...result.costs, total: undefined },
-      };
+      const { total: _invalidTotal, ...validCosts } = result.costs;
+      result = { ...result, costs: validCosts };
     }
   }
 

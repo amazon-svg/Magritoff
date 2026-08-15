@@ -3,3 +3,5 @@ export { LibraryProductsApiClient } from './api/product-client.ts';
 export * from './api/product-contracts.ts';
 export { LibraryProductsService } from './application/library-products-service.ts';
 export { LibraryProductRejectedError, type LibraryProductsRepository } from './application/library-products-repository.ts';
+export { librariesModuleManifest } from './manifest.ts';
+export { librariesWorkspaceContribution } from './surface-contributions.ts';

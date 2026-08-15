@@ -4,6 +4,7 @@ import {
   SessionApiClient,
   SessionService,
   SessionTenantMutationError,
+  SessionInvitationAcceptanceError,
   type SessionRepository,
 } from '../../../src/modules/session';
 import { FetchApiClient } from '../../../src/platform/api';
@@ -29,6 +30,8 @@ describe('routes session API v1', () => {
     const dashboard = await client.subTenantsDashboard('tenant-af2');
     const childId = await client.createSubTenant('tenant-af2', { name: 'Filiale AF15', slug: 'filiale-af15' });
     await client.removeSubTenant('tenant-af2', childId);
+    const rootId = await client.createRootTenant({ name: 'Nouvel espace', slug: 'nouvel-espace', gammeSlugs: ['flyers'] });
+    const invitedTenantId = await client.acceptInvitation('token-af24');
 
     expect(session.user.id).toBe('user-af2');
     expect(resolvedSlug).toBe('tenant-af2');
@@ -40,6 +43,10 @@ describe('routes session API v1', () => {
     expect(dashboard.subTenants[0]).toMatchObject({ id: 'subtenant-af15', slug: 'filiale-af15' });
     expect(repository.createSubTenant).toHaveBeenCalledWith('user-af2', 'tenant-af2', { name: 'Filiale AF15', slug: 'filiale-af15' });
     expect(repository.removeSubTenant).toHaveBeenCalledWith('user-af2', 'tenant-af2', 'subtenant-af15');
+    expect(rootId).toBe('tenant-created');
+    expect(invitedTenantId).toBe('tenant-invited');
+    expect(repository.createRootTenant).toHaveBeenCalledWith('user-af2', { name: 'Nouvel espace', slug: 'nouvel-espace', gammeSlugs: ['flyers'] });
+    expect(repository.acceptInvitation).toHaveBeenCalledWith('user-af2', 'token-af24');
   });
 
   it('refuse le bootstrap sans acteur authentifié', async () => {
@@ -113,9 +120,22 @@ describe('routes session API v1', () => {
     expect(response.status).toBe(404);
     expect((await response.json()).code).toBe('session.tenant_not_found');
   });
+
+  it('traduit une invitation destinée à un autre email en 409', async () => {
+    const repository = repositoryStub();
+    repository.acceptInvitation.mockRejectedValueOnce(new SessionInvitationAcceptanceError('email_mismatch', 'EMAIL_MISMATCH: compte incorrect'));
+    const handler = createApiV1Application({ routes: createSessionRoutes(new SessionService(repository)), requestIdFactory: () => 'request-af24', actorResolver: { async resolve() { return { kind: 'user', userId: id('user-af2') }; } } });
+
+    const response = await handler(new Request('https://magrit.test/api/v1/session/invitations/accept', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: 'token-af24' }),
+    }));
+
+    expect(response.status).toBe(409);
+    expect((await response.json()).code).toBe('session.invitation_email_mismatch');
+  });
 });
 
-function repositoryStub(): SessionRepository & Record<'resolveTenantSlug' | 'updatePreferences' | 'updateTenantSettings' | 'createSubTenant' | 'removeSubTenant', ReturnType<typeof vi.fn>> {
+function repositoryStub(): SessionRepository & Record<'resolveTenantSlug' | 'updatePreferences' | 'updateTenantSettings' | 'createSubTenant' | 'removeSubTenant' | 'createRootTenant' | 'acceptInvitation', ReturnType<typeof vi.fn>> {
   return {
     resolveTenantSlug: vi.fn(async () => 'tenant-af2'),
     autoAcceptPendingInvitations: vi.fn(async () => undefined),
@@ -125,13 +145,13 @@ function repositoryStub(): SessionRepository & Record<'resolveTenantSlug' | 'upd
         slug: 'tenant-af2',
         name: 'Tenant AF2',
         parent_tenant_id: null,
-        plan: 'pro',
+        plan: 'pro' as const,
         is_system_tenant: false,
         settings: {},
         created_at: '2026-08-11T12:00:00.000Z',
       },
-      role: 'owner',
-      accessScope: 'magrit_full',
+      role: 'owner' as const,
+      accessScope: 'magrit_full' as const,
       allowedShopIds: [],
       permissions: {},
     }]),
@@ -146,6 +166,8 @@ function repositoryStub(): SessionRepository & Record<'resolveTenantSlug' | 'upd
     })),
     createSubTenant: vi.fn(async () => 'subtenant-af15'),
     removeSubTenant: vi.fn(async () => undefined),
+    createRootTenant: vi.fn(async () => 'tenant-created'),
+    acceptInvitation: vi.fn(async () => 'tenant-invited'),
   };
 }
 

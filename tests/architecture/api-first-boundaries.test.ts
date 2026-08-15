@@ -68,6 +68,34 @@ describe('frontières API-first et modulaires', () => {
       'src/surfaces/application-registry.ts',
       'src/modules/account/manifest.ts',
       'src/modules/account/surface-contributions.ts',
+      'src/modules/orders/manifest.ts',
+      'src/modules/orders/surface-contributions.ts',
+      'src/modules/shops/manifest.ts',
+      'src/modules/shops/surface-contributions.ts',
+      'src/modules/quotes/manifest.ts',
+      'src/modules/quotes/surface-contributions.ts',
+      'src/modules/quote-templates/manifest.ts',
+      'src/modules/quote-templates/surface-contributions.ts',
+      'src/modules/libraries/manifest.ts',
+      'src/modules/libraries/surface-contributions.ts',
+      'src/modules/catalog/manifest.ts',
+      'src/modules/catalog/surface-contributions.ts',
+      'src/modules/commercial/manifest.ts',
+      'src/modules/commercial/surface-contributions.ts',
+      'src/modules/members/manifest.ts',
+      'src/modules/members/surface-contributions.ts',
+      'src/modules/tenants/manifest.ts',
+      'src/modules/tenants/surface-contributions.ts',
+      'src/modules/roles/manifest.ts',
+      'src/modules/roles/surface-contributions.ts',
+      'src/modules/conversations/manifest.ts',
+      'src/modules/conversations/surface-contributions.ts',
+      'src/modules/machine-parks/manifest.ts',
+      'src/modules/machine-parks/surface-contributions.ts',
+      'src/modules/mockups/manifest.ts',
+      'src/modules/mockups/surface-contributions.ts',
+      'src/modules/plans/manifest.ts',
+      'src/modules/plans/surface-contributions.ts',
     ];
     const violations = protectedRoots.flatMap((root) => {
       const path = resolve(process.cwd(), root);
@@ -90,9 +118,87 @@ describe('frontières API-first et modulaires', () => {
     );
 
     expect(routes).not.toContain('const DashboardAccount = lazy');
+    expect(routes).not.toContain('const DashboardOrders = lazy');
+    expect(routes).not.toContain('const DashboardShops = lazy');
+    expect(routes).not.toContain('const DashboardShopEditor = lazy');
+    expect(routes).not.toContain('const DashboardQuotes = lazy');
+    expect(routes).not.toContain('const DashboardQuotesPending = lazy');
+    expect(routes).not.toContain('const DashboardQuoteEditor = lazy');
+    expect(routes).not.toContain('const DashboardQuoteTemplates = lazy');
+    expect(routes).not.toContain('const DashboardLibraries = lazy');
+    expect(routes).not.toContain('const DashboardLibraryDetail = lazy');
+    expect(routes).not.toContain('const DashboardTenantGammes = lazy');
+    expect(routes).not.toContain('const DashboardAdminPIM = lazy');
+    expect(routes).not.toContain('const DashboardCommercial = lazy');
+    expect(routes).not.toContain('const DashboardUsers = lazy');
+    expect(routes).not.toContain('const DashboardTenantSettings = lazy');
+    expect(routes).not.toContain('const DashboardTenantSpaces = lazy');
+    expect(routes).not.toContain('const OrderRoleAdminPage = lazy');
+    expect(routes).not.toContain('const DashboardHistory = lazy');
+    expect(routes).not.toContain('const DashboardMachines = lazy');
+    expect(routes).not.toContain('const MachineParkDetail = lazy');
+    expect(routes).not.toContain('const DashboardAdminMockups = lazy');
+    expect(routes).not.toContain('const DashboardPlan = lazy');
     expect(routes).toContain('workspaceRuntimeRoutes.map');
     expect(runtime).toContain("import('../components/dashboard/DashboardAccount')");
+    expect(runtime).toContain("import('../components/dashboard/DashboardOrders')");
+    expect(runtime).toContain("import('../components/dashboard/DashboardShops')");
+    expect(runtime).toContain("import('../components/dashboard/DashboardShopEditor')");
+    expect(runtime).toContain("import('../components/dashboard/DashboardQuotes')");
+    expect(runtime).toContain("import('../components/dashboard/DashboardQuotesPending')");
+    expect(runtime).toContain("import('../components/dashboard/DashboardQuoteEditor')");
+    expect(runtime).toContain("import('../components/dashboard/DashboardQuoteTemplates')");
+    expect(runtime).toContain("import('../components/dashboard/DashboardLibraries')");
+    expect(runtime).toContain("import('../components/dashboard/DashboardLibraryDetail')");
+    expect(runtime).toContain("import('../components/dashboard/DashboardTenantGammes')");
+    expect(runtime).toContain("import('../components/dashboard/DashboardAdminPIM')");
+    expect(runtime).toContain("import('../components/dashboard/commercial/DashboardCommercial')");
+    expect(runtime).toContain("import('../components/dashboard/DashboardUsers')");
+    expect(runtime).toContain("import('../components/dashboard/DashboardTenantSettings')");
+    expect(runtime).toContain("import('../components/dashboard/DashboardTenantSpaces')");
+    expect(runtime).toContain("import('../components/dashboard/OrderRoleAdminPage')");
+    expect(runtime).toContain("import('../components/dashboard/DashboardHistory')");
+    expect(runtime).toContain("import('../components/dashboard/machines/DashboardMachines')");
+    expect(runtime).toContain("import('../components/dashboard/machines/MachineParkWizard')");
+    expect(runtime).toContain("import('../components/dashboard/machines/MachineParkDetail')");
+    expect(runtime).toContain("import('../components/dashboard/DashboardAdminMockups')");
+    expect(runtime).toContain("import('../components/dashboard/DashboardPlan')");
     expect(runtime).toContain('Component: lazy(loader)');
+  });
+
+  it('compose la sidebar workspace depuis les contributions enregistrées', () => {
+    const layout = readFileSync(
+      resolve(process.cwd(), 'src/app/components/dashboard/DashboardLayout.tsx'),
+      'utf8',
+    );
+
+    expect(layout).toContain('workspaceSurface.navigation');
+    expect(layout).toContain('composeWorkspaceGroups');
+    expect(layout).toContain('WORKSPACE_ICONS[item.iconId]');
+    expect(layout).not.toMatch(/const [A-Z_]+_NAVIGATION =/);
+    expect(layout).not.toContain("label: 'Devis'");
+    expect(layout).not.toContain("label: 'Parc machine'");
+  });
+
+  it('compose les chemins du portail depuis les routes host déclarées', () => {
+    const routes = readFileSync(resolve(process.cwd(), 'src/app/routes.tsx'), 'utf8');
+    const portalRoutes = readFileSync(
+      resolve(process.cwd(), 'src/app/components/shop/portal/shopPortalRoutes.ts'),
+      'utf8',
+    );
+
+    expect(routes).toContain('portalRuntimePaths.shopRoot');
+    expect(routes).not.toContain('{ path: "/shop/:slug/*"');
+    expect(portalRoutes).toContain('portalRuntimePaths.checkout');
+    expect(portalRoutes).toContain('portalRuntimePaths.orderConfirmation');
+    expect(portalRoutes).toContain('portalRuntimePaths.catalog');
+    expect(portalRoutes).toContain('portalRuntimePaths.gamme');
+    expect(portalRoutes).toContain('portalRuntimePaths.product');
+    expect(portalRoutes).toContain('ACCOUNT_PATHS.orders');
+    expect(portalRoutes).not.toContain("return 'account/orders'");
+    expect(portalRoutes).not.toContain("return 'thank-you'");
+    expect(portalRoutes).not.toContain('`p/${param}`');
+    expect(portalRoutes).not.toContain('`g/${param}`');
   });
 
   it('sépare la vue Account des adaptateurs brownfield', () => {
@@ -153,9 +259,167 @@ describe('frontières API-first et modulaires', () => {
     expect(violations).toEqual([]);
   });
 
+  it('interdit tout adaptateur concret dans l UI', () => {
+    const appRoot = resolve(process.cwd(), 'src/app');
+    const imports = listTypeScriptFiles(appRoot).flatMap((file) =>
+      importedModules(readFileSync(file, 'utf8'))
+        .filter((dependency) => /adapters\/(?:supabase|http)/.test(dependency))
+        .map((dependency) => `${relative(process.cwd(), file)} -> ${dependency}`),
+    );
+
+    expect(imports).toEqual([]);
+  });
+
+  it('centralise le transport API des contextes React', () => {
+    const contextsRoot = resolve(process.cwd(), 'src/app/contexts');
+    const runtime = readFileSync(resolve(contextsRoot, 'ApiRuntimeContext.tsx'), 'utf8');
+    const violations = listTypeScriptFiles(contextsRoot)
+      .filter((file) => !file.endsWith('/ApiRuntimeContext.tsx'))
+      .filter((file) => readFileSync(file, 'utf8').includes('new FetchApiClient'))
+      .map((file) => relative(process.cwd(), file));
+
+    expect(runtime).toContain("new FetchApiClient('', globalThis.fetch");
+    expect(violations).toEqual([]);
+  });
+
+  it('centralise le transport API de la surface workspace', () => {
+    const workspaceRoots = [
+      resolve(process.cwd(), 'src/app/components/dashboard'),
+      resolve(process.cwd(), 'src/app/hooks'),
+      resolve(process.cwd(), 'src/app/components/DiagnosticPanel.tsx'),
+    ];
+    const files = workspaceRoots.flatMap((root) =>
+      statSync(root).isDirectory() ? listTypeScriptFiles(root) : [root],
+    );
+    const directTransports = files
+      .filter((file) => readFileSync(file, 'utf8').includes('new FetchApiClient'))
+      .map((file) => relative(process.cwd(), file));
+
+    expect(directTransports).toEqual([]);
+  });
+
+  it('réserve toute construction du transport au runtime API', () => {
+    const directTransports = listTypeScriptFiles(resolve(process.cwd(), 'src/app'))
+      .filter((file) => readFileSync(file, 'utf8').includes('new FetchApiClient'))
+      .map((file) => relative(process.cwd(), file));
+
+    expect(directTransports).toEqual(['src/app/contexts/ApiRuntimeContext.tsx']);
+  });
+
+  it('réserve toute composition de client API aux deux composition roots', () => {
+    const constructors = listTypeScriptFiles(resolve(process.cwd(), 'src/app'))
+      .filter((file) => /\bnew\s+[A-Za-z][A-Za-z0-9]*ApiClient\s*\(/.test(readFileSync(file, 'utf8')))
+      .map((file) => relative(process.cwd(), file));
+
+    expect(constructors).toEqual([
+      'src/app/contexts/ApiRuntimeContext.tsx',
+      'src/app/contexts/ModuleClientsContext.tsx',
+    ]);
+  });
+
+  it('compose une seule façade Orders pour tous les écrans', () => {
+    const appRoot = resolve(process.cwd(), 'src/app');
+    const constructors = listTypeScriptFiles(appRoot)
+      .filter((file) => readFileSync(file, 'utf8').includes('new OrdersApiClient'))
+      .map((file) => relative(process.cwd(), file));
+    const app = readFileSync(resolve(appRoot, 'App.tsx'), 'utf8');
+
+    expect(constructors).toEqual(['src/app/contexts/ModuleClientsContext.tsx']);
+    expect(app).toContain('<ModuleClientsProvider>');
+  });
+
+  it('compose les façades Shops courante et post-auth dans un seul root', () => {
+    const appRoot = resolve(process.cwd(), 'src/app');
+    const constructors = listTypeScriptFiles(appRoot)
+      .filter((file) => readFileSync(file, 'utf8').includes('new ShopsApiClient'))
+      .map((file) => relative(process.cwd(), file));
+    const checkout = readFileSync(
+      resolve(appRoot, 'components/shop/portal/CheckoutPage.tsx'),
+      'utf8',
+    );
+
+    expect(constructors).toEqual(['src/app/contexts/ModuleClientsContext.tsx']);
+    expect(checkout).toContain('shopsApiForAccessToken(accessToken)');
+    expect(checkout).not.toContain('ShopsApiClient');
+  });
+
+  it('compose les façades Quotes et QuoteTemplates dans un seul root', () => {
+    const appRoot = resolve(process.cwd(), 'src/app');
+    const appFiles = listTypeScriptFiles(appRoot);
+    const quoteConstructors = appFiles
+      .filter((file) => readFileSync(file, 'utf8').includes('new QuotesApiClient'))
+      .map((file) => relative(process.cwd(), file));
+    const templateConstructors = appFiles
+      .filter((file) => readFileSync(file, 'utf8').includes('new QuoteTemplatesApiClient'))
+      .map((file) => relative(process.cwd(), file));
+
+    expect(quoteConstructors).toEqual(['src/app/contexts/ModuleClientsContext.tsx']);
+    expect(templateConstructors).toEqual(['src/app/contexts/ModuleClientsContext.tsx']);
+  });
+
+  it('compose une seule façade Catalog pour les écrans PIM et gammes', () => {
+    const appRoot = resolve(process.cwd(), 'src/app');
+    const constructors = listTypeScriptFiles(appRoot)
+      .filter((file) => readFileSync(file, 'utf8').includes('new CatalogApiClient'))
+      .map((file) => relative(process.cwd(), file));
+
+    expect(constructors).toEqual(['src/app/contexts/ModuleClientsContext.tsx']);
+  });
+
+  it('compose les façades Libraries et LibraryProducts dans un seul root', () => {
+    const appRoot = resolve(process.cwd(), 'src/app');
+    const appFiles = listTypeScriptFiles(appRoot);
+    const libraryConstructors = appFiles
+      .filter((file) => readFileSync(file, 'utf8').includes('new LibrariesApiClient'))
+      .map((file) => relative(process.cwd(), file));
+    const productConstructors = appFiles
+      .filter((file) => readFileSync(file, 'utf8').includes('new LibraryProductsApiClient'))
+      .map((file) => relative(process.cwd(), file));
+
+    expect(libraryConstructors).toEqual(['src/app/contexts/ModuleClientsContext.tsx']);
+    expect(productConstructors).toEqual(['src/app/contexts/ModuleClientsContext.tsx']);
+  });
+
+  it('compose les dernières façades hors identité dans un seul root', () => {
+    const appRoot = resolve(process.cwd(), 'src/app');
+    const appFiles = listTypeScriptFiles(appRoot);
+    const constructorsFor = (client: string) => appFiles
+      .filter((file) => readFileSync(file, 'utf8').includes(`new ${client}`))
+      .map((file) => relative(process.cwd(), file));
+
+    expect(constructorsFor('ConversationsApiClient')).toEqual(['src/app/contexts/ModuleClientsContext.tsx']);
+    expect(constructorsFor('CommercialApiClient')).toEqual(['src/app/contexts/ModuleClientsContext.tsx']);
+    expect(constructorsFor('DiagnosticsApiClient')).toEqual(['src/app/contexts/ModuleClientsContext.tsx']);
+  });
+
+  it('compose une seule façade Session pour les parcours Magrit', () => {
+    const appRoot = resolve(process.cwd(), 'src/app');
+    const constructors = listTypeScriptFiles(appRoot)
+      .filter((file) => readFileSync(file, 'utf8').includes('new SessionApiClient'))
+      .map((file) => relative(process.cwd(), file));
+
+    expect(constructors).toEqual(['src/app/contexts/ModuleClientsContext.tsx']);
+  });
+
+  it('compose les façades d identité workspace sans les confondre avec les comptes boutique', () => {
+    const appRoot = resolve(process.cwd(), 'src/app');
+    const appFiles = listTypeScriptFiles(appRoot);
+    const constructorsFor = (client: string) => appFiles
+      .filter((file) => readFileSync(file, 'utf8').includes(`new ${client}`))
+      .map((file) => relative(process.cwd(), file));
+    const clientsRoot = readFileSync(resolve(appRoot, 'contexts/ModuleClientsContext.tsx'), 'utf8');
+
+    expect(constructorsFor('RolesApiClient')).toEqual(['src/app/contexts/ModuleClientsContext.tsx']);
+    expect(constructorsFor('MembersApiClient')).toEqual(['src/app/contexts/ModuleClientsContext.tsx']);
+    expect(constructorsFor('InvitationsApiClient')).toEqual(['src/app/contexts/ModuleClientsContext.tsx']);
+    expect(clientsRoot).toContain('workspaceRoles');
+    expect(clientsRoot).toContain('workspaceMembers');
+    expect(clientsRoot).toContain('workspaceInvitations');
+  });
+
   it('sort les paramètres tenant du fournisseur', () => {
     const source = readFileSync(resolve(process.cwd(), 'src/app/components/dashboard/DashboardTenantSettings.tsx'), 'utf8');
-    expect(source).toContain('SessionApiClient');
+    expect(source).toContain('useSessionApi');
     expect(source).not.toContain('utils/supabase');
     expect(source).not.toMatch(/\bsupabase\s*\./);
   });
@@ -163,21 +427,22 @@ describe('frontières API-first et modulaires', () => {
   it('sort la gestion des sous-espaces du fournisseur', () => {
     const source = readFileSync(resolve(process.cwd(), 'src/app/components/dashboard/DashboardTenantSpaces.tsx'), 'utf8');
     const tenantContext = readFileSync(resolve(process.cwd(), 'src/app/contexts/TenantContext.tsx'), 'utf8');
-    expect(source).toContain('SessionApiClient');
+    expect(source).toContain('useSessionApi');
     expect(source).not.toContain('utils/supabase');
     expect(source).not.toMatch(/\bsupabase\s*\./);
     expect(tenantContext).not.toContain('createSubTenant');
   });
 
-  it('réserve le client session direct au développement local', () => {
+  it('impose le client API session dans tous les runtimes', () => {
     const provider = readFileSync(
       resolve(process.cwd(), 'src/app/contexts/SessionBootstrapContext.tsx'),
       'utf8',
     );
 
-    expect(provider).toContain("import.meta.env.DEV && import.meta.env.VITE_API_RUNTIME !== 'edge'");
-    expect(provider).toContain('return new DevSessionClient(user.id)');
-    expect(provider).toContain('return new SessionApiClient(');
+    expect(provider).toContain('useSessionApi');
+    expect(provider).not.toContain('new SessionApiClient(');
+    expect(provider).not.toContain('DevSessionClient');
+    expect(provider).not.toContain('VITE_API_RUNTIME');
   });
 
   it('conserve la RLS dans la composition Edge des modules métier', () => {
@@ -221,21 +486,24 @@ describe('frontières API-first et modulaires', () => {
 
   it('sort la gestion des souscriptions de gammes du fournisseur', () => {
     const source = readFileSync(resolve(process.cwd(), 'src/app/components/dashboard/DashboardTenantGammes.tsx'), 'utf8');
-    expect(source).toContain('CatalogApiClient');
+    expect(source).toContain('useCatalogApi');
+    expect(source).not.toContain('new CatalogApiClient');
     expect(source).not.toContain('utils/supabase');
     expect(source).not.toMatch(/\bsupabase\s*\./);
   });
 
   it('sort le provider PIM du fournisseur', () => {
     const source = readFileSync(resolve(process.cwd(), 'src/app/contexts/PIMContext.tsx'), 'utf8');
-    expect(source).toContain('CatalogApiClient');
+    expect(source).toContain('useCatalogApi');
+    expect(source).not.toContain('new CatalogApiClient');
     expect(source).not.toContain('utils/supabase');
     expect(source).not.toMatch(/\bsupabase\s*\./);
   });
 
   it('sort les opérations longues du dashboard PIM du fournisseur', () => {
     const source = readFileSync(resolve(process.cwd(), 'src/app/components/dashboard/DashboardAdminPIM.tsx'), 'utf8');
-    expect(source).toContain('CatalogApiClient');
+    expect(source).toContain('useCatalogApi');
+    expect(source).not.toContain('new CatalogApiClient');
     expect(source).not.toContain('utils/supabase');
     expect(source).not.toMatch(/\bsupabase\s*\./);
     expect(source).not.toContain('functions.invoke');
@@ -250,7 +518,8 @@ describe('frontières API-first et modulaires', () => {
     ];
     for (const file of files) {
       const source = readFileSync(resolve(process.cwd(), file), 'utf8');
-      expect(source).toContain('RolesApiClient');
+      expect(source).toContain('useWorkspaceRolesApi');
+      expect(source).not.toContain('new RolesApiClient');
       expect(source).not.toContain('utils/supabase');
       expect(source).not.toMatch(/\bsupabase\s*\./);
     }
@@ -258,7 +527,8 @@ describe('frontières API-first et modulaires', () => {
 
   it('sort la vérification des capabilities du fournisseur', () => {
     const source = readFileSync(resolve(process.cwd(), 'src/app/hooks/useUserCapability.ts'), 'utf8');
-    expect(source).toContain('RolesApiClient');
+    expect(source).toContain('useWorkspaceRolesApi');
+    expect(source).not.toContain('new RolesApiClient');
     expect(source).not.toContain('utils/supabase');
     expect(source).not.toMatch(/\bsupabase\s*\./);
   });
@@ -275,7 +545,7 @@ describe('frontières API-first et modulaires', () => {
   it('sort le contexte boutiques du fournisseur', () => {
     for (const file of ['src/app/contexts/ShopsContext.tsx', 'src/app/components/shop/PublicShop.tsx']) {
       const source = readFileSync(resolve(process.cwd(), file), 'utf8');
-      expect(source).toContain('ShopsApiClient');
+      expect(source).toContain('useShopsApi');
       expect(source).not.toContain('utils/supabase');
       expect(source).not.toMatch(/\bsupabase\s*\./);
     }
@@ -284,8 +554,8 @@ describe('frontières API-first et modulaires', () => {
   it('sort les redirections tenant du fournisseur', () => {
     const legacy = readFileSync(resolve(process.cwd(), 'src/app/components/tenant/LegacySlugRedirect.tsx'), 'utf8');
     const shopOnly = readFileSync(resolve(process.cwd(), 'src/app/components/tenant/ShopOnlyRedirect.tsx'), 'utf8');
-    expect(legacy).toContain('SessionApiClient');
-    expect(shopOnly).toContain('ShopsApiClient');
+    expect(legacy).toContain('useSessionApi');
+    expect(shopOnly).toContain('useShopsApi');
     for (const source of [legacy, shopOnly]) {
       expect(source).not.toContain('utils/supabase');
       expect(source).not.toMatch(/\bsupabase\s*\./);
@@ -295,8 +565,8 @@ describe('frontières API-first et modulaires', () => {
   it('sort l acceptation d invitation et le compte portail du fournisseur', () => {
     const invitation = readFileSync(resolve(process.cwd(), 'src/app/components/tenant/AcceptInvitation.tsx'), 'utf8');
     const account = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/AccountHub.tsx'), 'utf8');
-    expect(invitation).toContain('SessionApiClient');
-    expect(invitation).toContain('ShopsApiClient');
+    expect(invitation).toContain('useSessionApi');
+    expect(invitation).toContain('useShopsApi');
     expect(invitation).toContain('signOut');
     expect(account).toContain('onSignOut');
     for (const source of [invitation, account]) {
@@ -307,7 +577,7 @@ describe('frontières API-first et modulaires', () => {
 
   it('sort l identification checkout et l auto-inscription du fournisseur', () => {
     const source = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/CheckoutPage.tsx'), 'utf8');
-    expect(source).toContain('ShopsApiClient');
+    expect(source).toContain('useShopsApiFactory');
     expect(source).toContain('signIn');
     expect(source).toContain('signUp');
     expect(source).not.toContain('utils/supabase');
@@ -316,20 +586,58 @@ describe('frontières API-first et modulaires', () => {
 
   it('sort l historique des conversations du fournisseur', () => {
     const source = readFileSync(resolve(process.cwd(), 'src/app/contexts/ConversationContext.tsx'), 'utf8');
-    expect(source).toContain('ConversationsApiClient');
+    expect(source).toContain('useConversationsApi');
+    expect(source).not.toContain('new ConversationsApiClient');
     expect(source).not.toContain('utils/supabase');
     expect(source).not.toMatch(/\bsupabase\s*\./);
   });
 
   it('sort le diagnostic IA du fournisseur et de la plateforme Edge', () => {
     const source = readFileSync(resolve(process.cwd(), 'src/app/components/DiagnosticPanel.tsx'), 'utf8');
-    expect(source).toContain('DiagnosticsApiClient');
+    expect(source).toContain('useDiagnosticsApi');
+    expect(source).not.toContain('new DiagnosticsApiClient');
     expect(source).not.toContain('utils/supabase');
     expect(source).not.toContain('functions.invoke');
     expect(source).not.toContain('claude-test');
     expect(source).not.toContain('ClariprintAdapter');
     expect(source).toContain('diagnosticsApi.clariprint()');
     expect(source).not.toMatch(/\bsupabase\s*\./);
+  });
+
+  it('fait passer les devis Clariprint du navigateur par l API Magrit', () => {
+    const adapter = readFileSync(resolve(process.cwd(), 'src/adapters/http/browser-clariprint-adapter.ts'), 'utf8');
+    const configurator = readFileSync(resolve(process.cwd(), 'src/app/hooks/useProductConfigurator.ts'), 'utf8');
+    const portal = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/PortalCatalog.tsx'), 'utf8');
+    const product = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/PortalProduct.tsx'), 'utf8');
+    const hook = readFileSync(resolve(process.cwd(), 'src/app/hooks/useClariprintProduct.ts'), 'utf8');
+    const services = readFileSync(resolve(process.cwd(), 'src/app/contexts/BrowserServicesContext.tsx'), 'utf8');
+    const runtime = readFileSync(resolve(process.cwd(), 'src/platform/runtime/browser-runtime.ts'), 'utf8');
+    const supabaseConfig = readFileSync(resolve(process.cwd(), 'supabase/config.toml'), 'utf8');
+    expect(adapter).toContain('ClariprintApiClient');
+    expect(adapter).not.toContain('functions/v1');
+    expect(adapter).not.toContain('supabase.co');
+    expect(configurator).not.toContain('server/clariprint');
+    expect(portal).not.toContain('server/clariprint');
+    for (const source of [configurator, portal, product, hook]) {
+      expect(source).not.toContain('adapters/http/browser-clariprint-adapter');
+    }
+    expect(services).toContain('runtime.createClariprint(apiClient)');
+    expect(runtime).toContain('new ClariprintHttpAdapter(');
+    expect(supabaseConfig).toMatch(/\[functions\.magrit-api\][\s\S]*verify_jwt\s*=\s*false/);
+  });
+
+  it('injecte la passerelle assistant sans singleton concret dans les composants', () => {
+    const chat = readFileSync(resolve(process.cwd(), 'src/app/components/ChatInterface.tsx'), 'utf8');
+    const catalog = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/PortalCatalog.tsx'), 'utf8');
+    const services = readFileSync(resolve(process.cwd(), 'src/app/contexts/BrowserServicesContext.tsx'), 'utf8');
+    const runtime = readFileSync(resolve(process.cwd(), 'src/platform/runtime/browser-runtime.ts'), 'utf8');
+
+    expect(chat).not.toContain('browserAssistantGateway');
+    expect(catalog).not.toContain('browserAssistantGateway');
+    expect(chat).toContain('useClaudeSseStream');
+    expect(catalog).toContain('useClaudeSseStream');
+    expect(services).toContain('assistant: runtime.assistant');
+    expect(runtime).toContain('assistant: browserAssistantGateway');
   });
 
   it('fait passer la création rapide des brouillons par Quotes', () => {
@@ -342,7 +650,8 @@ describe('frontières API-first et modulaires', () => {
   it('sort le CRUD éditable des devis du fournisseur', () => {
     const context = readFileSync(resolve(process.cwd(), 'src/app/contexts/QuotesContext.tsx'), 'utf8');
     const repository = readFileSync(resolve(process.cwd(), 'src/adapters/supabase/quotes-repository.ts'), 'utf8');
-    expect(context).toContain('QuotesApiClient');
+    expect(context).toContain('useQuotesApi');
+    expect(context).not.toContain('new QuotesApiClient');
     expect(context).not.toContain('utils/supabase');
     expect(context).not.toMatch(/\bsupabase\s*\./);
     expect(repository).toContain("scope === 'all'");
@@ -352,7 +661,8 @@ describe('frontières API-first et modulaires', () => {
 
   it('sort les gabarits de devis du fournisseur', () => {
     const context = readFileSync(resolve(process.cwd(), 'src/app/contexts/QuoteTemplatesContext.tsx'), 'utf8');
-    expect(context).toContain('QuoteTemplatesApiClient');
+    expect(context).toContain('useQuoteTemplatesApi');
+    expect(context).not.toContain('new QuoteTemplatesApiClient');
     expect(context).not.toContain('utils/supabase');
     expect(context).not.toMatch(/\bsupabase\s*\./);
   });
@@ -360,7 +670,8 @@ describe('frontières API-first et modulaires', () => {
   it('fait passer le CRUD des bibliothèques par le module Libraries', () => {
     const context = readFileSync(resolve(process.cwd(), 'src/app/contexts/LibraryContext.tsx'), 'utf8');
     const repository = readFileSync(resolve(process.cwd(), 'src/adapters/supabase/libraries-repository.ts'), 'utf8');
-    expect(context).toContain('LibrariesApiClient');
+    expect(context).toContain('useLibrariesApi');
+    expect(context).not.toContain('new LibrariesApiClient');
     expect(context).toContain('librariesApi.list');
     expect(context).toContain('librariesApi.create');
     expect(context).toContain('librariesApi.update');
@@ -371,7 +682,8 @@ describe('frontières API-first et modulaires', () => {
   it('sort produits, bulk et génération PIM du fournisseur', () => {
     const context = readFileSync(resolve(process.cwd(), 'src/app/contexts/LibraryContext.tsx'), 'utf8');
     const repository = readFileSync(resolve(process.cwd(), 'src/adapters/supabase/library-products-repository.ts'), 'utf8');
-    expect(context).toContain('LibraryProductsApiClient');
+    expect(context).toContain('useLibraryProductsApi');
+    expect(context).not.toContain('new LibraryProductsApiClient');
     expect(context).toContain('productsApi.createMany');
     expect(context).toContain('productsApi.replacePimGenerated');
     expect(context).toContain('productsApi.clearPimGenerated');
@@ -385,7 +697,8 @@ describe('frontières API-first et modulaires', () => {
     const dashboard = readFileSync(resolve(process.cwd(), 'src/app/components/dashboard/commercial/DashboardCommercial.tsx'), 'utf8');
     const helpers = readFileSync(resolve(process.cwd(), 'src/app/components/dashboard/commercial/commercial.helpers.ts'), 'utf8');
     const repository = readFileSync(resolve(process.cwd(), 'src/adapters/supabase/commercial-repository.ts'), 'utf8');
-    expect(dashboard).toContain('CommercialApiClient');
+    expect(dashboard).toContain('useCommercialApi');
+    expect(dashboard).not.toContain('new CommercialApiClient');
     expect(dashboard).toContain('commercialApi.overview');
     expect(dashboard).not.toContain('get_tenant_members_with_email');
     expect(helpers).not.toContain('utils/supabase');
@@ -404,9 +717,15 @@ describe('frontières API-first et modulaires', () => {
 
   it('isole le fournisseur Auth du contexte React', () => {
     const context = readFileSync(resolve(process.cwd(), 'src/app/contexts/AuthContext.tsx'), 'utf8');
+    const app = readFileSync(resolve(process.cwd(), 'src/app/App.tsx'), 'utf8');
+    const runtime = readFileSync(resolve(process.cwd(), 'src/platform/runtime/browser-runtime.ts'), 'utf8');
     const adapter = readFileSync(resolve(process.cwd(), 'src/adapters/supabase/browser-authentication-gateway.ts'), 'utf8');
-    expect(context).toContain('browserAuthenticationGateway');
+    expect(context).toContain('gateway: AuthenticationGateway');
+    expect(context).not.toContain('browserAuthenticationGateway');
+    expect(app).toContain('browserRuntime.authentication');
+    expect(runtime).toContain('browserAuthenticationGateway');
     expect(context).not.toContain('utils/supabase');
+    expect(context).not.toContain('adapters/supabase');
     expect(context).not.toContain('@supabase');
     expect(context).not.toMatch(/\bsupabase\s*\./);
     expect(adapter).toContain('SupabaseBrowserAuthenticationGateway');
@@ -417,27 +736,36 @@ describe('frontières API-first et modulaires', () => {
     const image = readFileSync(resolve(process.cwd(), 'src/app/components/mockup/MockupImage.tsx'), 'utf8');
     const admin = readFileSync(resolve(process.cwd(), 'src/app/components/dashboard/DashboardAdminMockups.tsx'), 'utf8');
     const helpers = readFileSync(resolve(process.cwd(), 'src/app/components/mockup/MockupImage.helpers.ts'), 'utf8');
-    const adapter = readFileSync(resolve(process.cwd(), 'src/adapters/supabase/browser-mockup-gateway.ts'), 'utf8');
-    expect(image).toContain('browserMockupGateway.generate');
-    expect(admin).toContain('browserMockupGateway.previewUrl');
+    const adapter = readFileSync(resolve(process.cwd(), 'src/adapters/http/browser-mockup-gateway.ts'), 'utf8');
+    expect(image).toContain('mockups.generate');
+    expect(admin).toContain('mockups.previewUrl');
+    expect(image).not.toContain('browserMockupGateway');
+    expect(admin).not.toContain('browserMockupGateway');
     expect(image).not.toContain('utils/supabase');
     expect(admin).not.toContain('utils/supabase');
     expect(helpers).not.toContain('functions/v1');
     expect(helpers).not.toMatch(/\bsupabase\s*\./);
-    expect(adapter).toContain('SupabaseBrowserMockupGateway');
+    expect(adapter).toContain('BrowserApiMockupGateway');
+    expect(adapter).toContain('/api/v1/mockups');
+    expect(adapter).not.toContain('supabase');
   });
 
   it('place le protocole du chat SSE derrière une façade API', () => {
     const chat = readFileSync(resolve(process.cwd(), 'src/app/components/ChatInterface.tsx'), 'utf8');
     const portal = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/PortalCatalog.tsx'), 'utf8');
+    const hook = readFileSync(resolve(process.cwd(), 'src/app/hooks/useClaudeSseStream.ts'), 'utf8');
     const adapter = readFileSync(resolve(process.cwd(), 'src/adapters/http/browser-assistant-gateway.ts'), 'utf8');
-    expect(chat).toContain('browserAssistantGateway.connection');
+    expect(chat).toContain('useClaudeSseStream');
     expect(portal).toContain('assistantApi.categoryEditorial');
     expect(chat).not.toContain('utils/supabase');
     expect(chat).not.toContain('functions/v1');
     expect(portal).not.toContain('functions/v1');
+    expect(hook).toContain('assistant.send');
+    expect(hook).not.toMatch(/\bfetch\s*\(/);
+    expect(hook).not.toContain("event === 'delta'");
     expect(adapter).toContain('BrowserApiAssistantGateway');
     expect(adapter).toContain("'/api/v1/assistant/chat'");
+    expect(adapter).toContain("event === 'delta'");
     expect(adapter).not.toContain('supabase');
   });
 
@@ -472,7 +800,8 @@ describe('frontières API-first et modulaires', () => {
 
   it('sort le dashboard utilisateurs du fournisseur de données', () => {
     const dashboard = readFileSync(resolve(process.cwd(), 'src/app/components/dashboard/DashboardUsers.tsx'), 'utf8');
-    expect(dashboard).toContain('new MembersApiClient');
+    expect(dashboard).toContain('useWorkspaceMembersApi');
+    expect(dashboard).not.toContain('new MembersApiClient');
     expect(dashboard).not.toContain('utils/supabase');
     expect(dashboard).not.toMatch(/\bsupabase\s*\./);
   });
@@ -487,7 +816,9 @@ describe('frontières API-first et modulaires', () => {
       'utf8',
     );
 
-    expect(modal).toContain('new InvitationsApiClient');
+    expect(modal).toContain('useWorkspaceInvitationsApi');
+    expect(modal).toContain('useWorkspaceInvitationsApiFactory');
+    expect(modal).not.toContain('new InvitationsApiClient');
     expect(modal).toContain('invitationsApi.options');
     expect(modal).toContain('refreshSession');
     expect(modal).not.toContain('utils/supabase');

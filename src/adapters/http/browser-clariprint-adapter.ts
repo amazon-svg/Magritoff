@@ -10,7 +10,7 @@
  *   - Gestion d'erreur typee discriminee par `kind` pour fallback metier.
  *
  * Utilisation :
- *   import { httpAdapter } from "../server/clariprint/ClariprintAdapter";
+ *   import { httpAdapter } from "../adapters/http/browser-clariprint-adapter";
  *   try {
  *     const quote = await httpAdapter.computePrice(input);
  *     // quote.priceHT validee, sanitizee
@@ -40,40 +40,21 @@ import {
   validateClariprintResponse,
   type ClariprintQuoteResult,
 } from "../../app/utils/clariprintQuote";
-import { projectId, publicAnonKey } from "/utils/supabase/info";
-
-/**
- * Endpoint Clariprint cote serveur (edge function Supabase). Centralise ici
- * apres R3 (enforcement Adapter) — auparavant duplique dans
- * src/app/utils/clariprintQuote.ts.
- */
-const CLARIPRINT_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-e3db71a4`;
-const CLARIPRINT_ENDPOINT = `${CLARIPRINT_BASE}/clariprint-quote`;
-const CLARIPRINT_TEST_ENDPOINT = `${CLARIPRINT_BASE}/clariprint-test`;
+import { ClariprintApiClient } from '../../modules/clariprint/api/client.ts';
+import {
+  ClariprintPricingError as ClariprintError,
+  computeClariprintQuoteSafe as computeQuoteSafe,
+  type ClariprintPricingGateway,
+} from '../../modules/clariprint/application/clariprint-pricing-gateway.ts';
+import { DiagnosticsApiClient } from '../../modules/diagnostics/api/client.ts';
+import { FetchApiClient } from '../../platform/api/index.ts';
 
 /**
  * Erreur Clariprint typee, discriminee par `kind`.
  *
  * Cohorte alignee sur PRD v1.1 § Domain Requirements / Risk Mitigations.
  */
-export class ClariprintError extends Error {
-  constructor(
-    public readonly kind:
-      | "negative_price"        // Prix negatif (-1,2 EUR observe)
-      | "nan_price"             // NaN dans priceHT
-      | "undefined_field"       // priceHT absent alors que success=true
-      | "missing_required_product" // Produit legalement requis manquant
-      | "network"               // Erreur reseau / timeout
-      | "timeout"               // Specifique timeout
-      | "unauthenticated"       // Credentials Clariprint manquants/invalides
-      | "unknown",
-    message: string,
-    public readonly details?: unknown,
-  ) {
-    super(message);
-    this.name = "ClariprintError";
-  }
-}
+export { ClariprintError };
 
 export interface ClariprintQuoteInput {
   /** Config produit au format Clariprint JSON API. */
@@ -85,7 +66,7 @@ export interface ClariprintQuoteInput {
  * doit passer par une implementation de cette interface (jamais de fetch
  * direct ailleurs dans le code).
  */
-export interface ClariprintAdapter {
+export interface ClariprintAdapter extends ClariprintPricingGateway {
   /**
    * Calcule un prix pour une config produit. Retourne un quote sanitize
    * (validateClariprintResponse appliquee) ou throw ClariprintError typee.
@@ -105,6 +86,11 @@ export interface ClariprintAdapter {
  * (laquelle integre deja la sanitization defensive cote serveur depuis S0.2).
  */
 export class ClariprintHttpAdapter implements ClariprintAdapter {
+  constructor(
+    private readonly quoteApi = new ClariprintApiClient(new FetchApiClient()),
+    private readonly diagnosticsApi = new DiagnosticsApiClient(new FetchApiClient()),
+  ) {}
+
   async computePrice(input: ClariprintQuoteInput): Promise<ClariprintQuoteResult> {
     if (!input.clariprint) {
       throw new ClariprintError(
@@ -115,15 +101,7 @@ export class ClariprintHttpAdapter implements ClariprintAdapter {
 
     let result: ClariprintQuoteResult;
     try {
-      const response = await fetch(CLARIPRINT_ENDPOINT, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${publicAnonKey}`,
-        },
-        body: JSON.stringify({ clariprint: input.clariprint }),
-      });
-      result = (await response.json()) as ClariprintQuoteResult;
+      result = await this.quoteApi.quote({ clariprint: input.clariprint }) as ClariprintQuoteResult;
     } catch (err) {
       throw new ClariprintError(
         "network",
@@ -161,14 +139,7 @@ export class ClariprintHttpAdapter implements ClariprintAdapter {
   }
 
   async testConnection(): Promise<unknown> {
-    const response = await fetch(CLARIPRINT_TEST_ENDPOINT, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${publicAnonKey}`,
-      },
-    });
-    return await response.json();
+    return this.diagnosticsApi.clariprint();
   }
 }
 
@@ -241,22 +212,5 @@ export const httpAdapter: ClariprintAdapter = new ClariprintHttpAdapter();
 export async function computeClariprintQuoteSafe(
   clariprintData: Record<string, unknown> | null | undefined,
 ): Promise<ClariprintQuoteResult> {
-  if (!clariprintData) {
-    return { success: false, error: 'Configuration produit absente' };
-  }
-  try {
-    return await httpAdapter.computePrice({ clariprint: clariprintData });
-  } catch (err) {
-    if (err instanceof ClariprintError) {
-      return {
-        success: false,
-        error: err.message,
-        details: typeof err.details === 'string' ? err.details : undefined,
-      };
-    }
-    return {
-      success: false,
-      error: (err as Error).message || "Erreur reseau lors de l'appel a Clariprint",
-    };
-  }
+  return computeQuoteSafe(httpAdapter, clariprintData);
 }

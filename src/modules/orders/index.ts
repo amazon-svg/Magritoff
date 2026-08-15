@@ -54,3 +54,5 @@ export type {
   TaxRegime,
   TenantOrderRecord,
 } from './application/orders-repository';
+export { ordersModuleManifest } from './manifest';
+export { ordersBackofficeContribution, ordersCustomerPortalContribution, ordersStorefrontContribution, ordersWorkspaceContribution } from './surface-contributions';

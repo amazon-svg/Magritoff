@@ -6,10 +6,11 @@ import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment'
 import { resolveProductGamme } from '../../../utils/productEnrichment';
 import { ProductMockup } from '../../brand/ProductMockup';
 import { priceFingerprint, type ClariprintQuoteResult } from '../../../utils/clariprintQuote';
-import { computeClariprintQuoteSafe } from '../../../../server/clariprint/ClariprintAdapter';
+import { computeClariprintQuoteSafe } from '../../../../modules/clariprint';
 import { estimateMarketPriceHT, resolvePrice } from '../../../utils/priceResolver';
 import { useTenant } from '../../../contexts/TenantContext';
 import { applyTax, getTaxRate } from '../../../utils/tax';
+import { useBrowserServices } from '../../../contexts/BrowserServicesContext';
 
 interface Props {
   product: ShopProduct;
@@ -22,6 +23,7 @@ interface Props {
 // F3 — Fiche produit + configurateur
 // Design source : .design-handoff/designs/05 - Portail B2B.html (section .f3)
 export function PortalProduct({ product, onBack, onAddToCart, pimGammes, pimDefinitions }: Props) {
+  const { clariprint } = useBrowserServices();
   const { currentTenant } = useTenant();
   const taxRate = getTaxRate(currentTenant);
   // CR §2 (13/05) : afficher la gamme PIM résolue dans le breadcrumb plutôt
@@ -75,7 +77,7 @@ export function PortalProduct({ product, onBack, onAddToCart, pimGammes, pimDefi
     setCalcLoading(true);
     const clariprintData = (product.config as any)?.clariprintData ?? product.config ?? {};
     const payload = { ...clariprintData, quantity: qty };
-    const result = await computeClariprintQuoteSafe(payload);
+    const result = await computeClariprintQuoteSafe(clariprint, payload);
     setQuote(result);
     setQuoteFingerprint(currentFingerprint);
     setCalcLoading(false);

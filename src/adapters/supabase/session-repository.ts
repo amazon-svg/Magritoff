@@ -5,10 +5,11 @@ import type {
   UpdatePreferences,
   UpdateTenantSettings,
   CreateSubTenant,
+  CreateRootTenant,
   SubTenantsDashboard,
 } from '../../modules/session/api/contracts.ts';
-import { SessionTenantMutationError, type DirectMembership, type SessionRepository } from '../../modules/session/application/session-repository.ts';
-import type { Database } from '../../types/database.types.ts';
+import { SessionInvitationAcceptanceError, SessionTenantMutationError, type DirectMembership, type SessionRepository } from '../../modules/session/application/session-repository.ts';
+import type { Database, Json } from '../../types/database.types.ts';
 
 type UserScopedClient = SupabaseClient<Database>;
 type TenantRow = Database['public']['Tables']['tenants']['Row'];
@@ -140,6 +141,46 @@ export class SupabaseSessionRepository implements SessionRepository {
     const { data, error } = await this.client.from('tenants').delete().eq('id', subTenantId).eq('parent_tenant_id', parentTenantId).select('id').maybeSingle();
     if (error) throw new SessionTenantMutationError('permission_denied', error.message);
     if (!data) throw new SessionTenantMutationError('not_found', 'Sous-espace introuvable ou suppression interdite.');
+  }
+
+  async createRootTenant(_userId: UserId, command: CreateRootTenant): Promise<string> {
+    const { data, error } = await this.client.rpc('create_tenant_with_owner', {
+      p_slug: command.slug,
+      p_name: command.name,
+    });
+    if (error) throw new SessionTenantMutationError(error.code === '23505' ? 'conflict' : 'permission_denied', error.message);
+    if (!data) throw new SessionTenantMutationError('permission_denied', 'Création de l’espace interdite.');
+
+    if (command.siren !== undefined && command.sirenData !== undefined) {
+      const { error: verificationError } = await this.client.from('tenants').update({
+        siren: command.siren,
+        siren_data: command.sirenData as Json,
+        verified: true,
+        verified_at: new Date().toISOString(),
+      }).eq('id', data);
+      if (verificationError) console.warn('[SessionRepository] vérification du nouvel espace ignorée:', verificationError.message);
+    }
+
+    if (command.gammeSlugs && command.gammeSlugs.length > 0) {
+      const { error: gammesError } = await this.client.from('tenant_gamme_subscriptions').upsert(
+        command.gammeSlugs.map((gamme_slug) => ({ tenant_id: data, gamme_slug, active: true })),
+        { onConflict: 'tenant_id,gamme_slug' },
+      );
+      if (gammesError?.code !== 'PGRST205' && gammesError) console.warn('[SessionRepository] activation des gammes ignorée:', gammesError.message);
+    }
+    return data;
+  }
+
+  async acceptInvitation(_userId: UserId, token: string): Promise<string> {
+    const { data, error } = await this.client.rpc('accept_tenant_invitation', { p_token: token });
+    if (error) {
+      throw new SessionInvitationAcceptanceError(
+        error.message.includes('EMAIL_MISMATCH') ? 'email_mismatch' : 'invalid',
+        error.message,
+      );
+    }
+    if (!data) throw new SessionInvitationAcceptanceError('invalid', 'Invitation invalide ou expirée.');
+    return data;
   }
 }
 

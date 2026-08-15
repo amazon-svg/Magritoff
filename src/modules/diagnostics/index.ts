@@ -2,7 +2,13 @@ export { DiagnosticsApiClient } from './api/client.ts';
 export * from './api/contracts.ts';
 export type { AiDiagnosticsGateway } from './application/ai-diagnostics-gateway.ts';
 export type { ClariprintDiagnosticsGateway } from './application/clariprint-diagnostics-gateway.ts';
-export type { AssistantConnection, AssistantGateway } from './application/assistant-gateway.ts';
+export {
+  AssistantStreamError,
+  type AssistantGateway,
+  type AssistantStreamErrorKind,
+  type AssistantStreamPayload,
+  type AssistantStreamRequest,
+} from './application/assistant-gateway.ts';
 export type { AiCompletion, AiCompletionGateway, AiCompletionMessage, AiCompletionRequest } from './application/ai-completion-gateway.ts';
 export type { AssistantAccessGateway } from './application/assistant-access-gateway.ts';
 export { AiCompletionUnavailableError } from './application/ai-completion-gateway.ts';

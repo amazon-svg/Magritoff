@@ -14,18 +14,16 @@
  * les tenants dont le role utilisateur est 'partner'.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { Building, Plus, ExternalLink, Trash2 } from 'lucide-react';
 import { useTenant } from '../../contexts/TenantContext';
-import { useAuth } from '../../contexts/AuthContext';
-import { SessionApiClient, type SubTenant, type SubTenantKpi } from '../../../modules/session';
-import { FetchApiClient } from '../../../platform/api';
+import { type SubTenant, type SubTenantKpi } from '../../../modules/session';
+import { useSessionApi } from '../../contexts/ModuleClientsContext';
 
 export function DashboardTenantSpaces() {
   const { currentTenant, currentRole, isSuperAdmin, reload } = useTenant();
-  const { session } = useAuth();
-  const sessionApi = useMemo(() => new SessionApiClient(new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null)), [session?.access_token]);
+  const sessionApi = useSessionApi();
 
   const [children, setChildren] = useState<SubTenant[]>([]);
   const [kpis, setKpis] = useState<SubTenantKpi[]>([]);

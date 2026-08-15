@@ -382,6 +382,13 @@ inspector_port = 8083
 # The Deno major version to use.
 deno_version = 2
 
+# L'authentification est décidée route par route dans createApiV1Application.
+# Désactiver le garde global permet aux seules routes marquées `public`
+# (probe/catalogue storefront, devis Clariprint) d'être appelées sans JWT.
+# Les routes `required` continuent de renvoyer 401 via l'ActorResolver.
+[functions.magrit-api]
+verify_jwt = false
+
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 
