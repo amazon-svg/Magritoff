@@ -67,6 +67,9 @@ if (!MACHINE_PARKS_NAVIGATION || !MACHINE_PARKS_ROUTE) throw new Error('La contr
 const MOCKUPS_NAVIGATION = workspaceSurface.navigation.find(({ id }) => id === 'mockups.workspace.navigation');
 const MOCKUPS_ROUTE = workspaceSurface.routes.find(({ id }) => id === MOCKUPS_NAVIGATION?.routeId);
 if (!MOCKUPS_NAVIGATION || !MOCKUPS_ROUTE) throw new Error('La contribution workspace du module mockups est incomplète.');
+const PLANS_NAVIGATION = workspaceSurface.navigation.find(({ id }) => id === 'plans.workspace.navigation');
+const PLANS_ROUTE = workspaceSurface.routes.find(({ id }) => id === PLANS_NAVIGATION?.routeId);
+if (!PLANS_NAVIGATION || !PLANS_ROUTE) throw new Error('La contribution workspace du module plans est incomplète.');
 
 // E7.7 — mapping label de NavLink -> data-testid pour les cas de test.
 // Couvre les liens cles des cahiers de tests P01 (sidebar nav).
@@ -206,7 +209,7 @@ export function DashboardLayout() {
         // S-ORDER-ROLES-3-UI T4 — garde via useUserCapability('can_manage_roles')
         // cote composant ; on filtre aussi cote nav.
         { to: `${basePath}/${ROLES_ROUTE.path}`, label: ROLES_NAVIGATION.label, icon: Workflow, show: canManageMembers ?? false },
-        { to: `${basePath}/plan`, label: 'Plan & abonnement', icon: CreditCard, show: true },
+        { to: `${basePath}/${PLANS_ROUTE.path}`, label: PLANS_NAVIGATION.label, icon: CreditCard, show: true },
         {
           to: `${basePath}/${ACCOUNT_ROUTE.path}`,
           label: ACCOUNT_NAVIGATION.label,

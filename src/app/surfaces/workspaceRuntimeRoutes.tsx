@@ -35,6 +35,7 @@ const routeLoaders: Readonly<Record<string, LazyPageLoader>> = Object.freeze({
   'machine-parks.workspace.wizard': () => import('../components/dashboard/machines/MachineParkWizard').then((module) => ({ default: module.MachineParkWizard })),
   'machine-parks.workspace.detail': () => import('../components/dashboard/machines/MachineParkDetail').then((module) => ({ default: module.MachineParkDetail })),
   'mockups.workspace.reference': () => import('../components/dashboard/DashboardAdminMockups').then((module) => ({ default: module.DashboardAdminMockups })),
+  'plans.workspace.selection': () => import('../components/dashboard/DashboardPlan').then((module) => ({ default: module.DashboardPlan })),
 });
 
 export type WorkspaceRuntimeRoute = Readonly<{

@@ -13,6 +13,7 @@ import { rolesModuleManifest } from '../../src/modules/roles';
 import { conversationsModuleManifest } from '../../src/modules/conversations';
 import { machineParksModuleManifest } from '../../src/modules/machine-parks';
 import { mockupsModuleManifest } from '../../src/modules/mockups';
+import { plansModuleManifest } from '../../src/modules/plans';
 import { applicationContributionRegistry } from '../../src/surfaces';
 import {
   ContributionRegistryError,
@@ -185,6 +186,16 @@ describe('registre des contributions de surfaces', () => {
     );
     expect(applicationContributionRegistry.forSurface('workspace').navigation).toContainEqual(
       expect.objectContaining({ id: 'mockups.workspace.navigation', label: 'Visuels Magrit' }),
+    );
+  });
+
+  it('limite le sélecteur de Plans au workspace', () => {
+    expect(plansModuleManifest.surfaces).toEqual(['workspace']);
+    expect(applicationContributionRegistry.forSurface('workspace').routes).toContainEqual(
+      expect.objectContaining({ id: 'plans.workspace.selection', path: 'plan' }),
+    );
+    expect(applicationContributionRegistry.forSurface('workspace').navigation).toContainEqual(
+      expect.objectContaining({ id: 'plans.workspace.navigation', label: 'Plan & abonnement' }),
     );
   });
 

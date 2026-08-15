@@ -255,6 +255,8 @@ généralisation des surfaces dépendront du contrat storefront UM2.
   détail et navigation Parc machine sont chargées depuis le registre — livré ;
 - AF26.13 : manifeste Mockups limité au workspace actuel ; route et navigation
   Visuels Magrit sont chargées depuis le registre — livré ;
+- AF26.14 : manifeste Plans limité au workspace ; route et navigation Plan &
+  abonnement sont chargées depuis le registre — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.

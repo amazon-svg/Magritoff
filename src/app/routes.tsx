@@ -28,9 +28,6 @@ const PublicShop = lazy(() =>
   import("./components/shop/PublicShop").then((m) => ({ default: m.PublicShop })),
 );
 
-const DashboardPlan = lazy(() =>
-  import("./components/dashboard/DashboardPlan").then((m) => ({ default: m.DashboardPlan })),
-);
 // REFONTE-UX (2026-08-08) — module Parc machine, wizard RP#070826 (point 8).
 const MachineParkWizard = lazy(() =>
   import("./components/dashboard/machines/MachineParkWizard").then((m) => ({
@@ -128,7 +125,6 @@ export const router = createBrowserRouter([
               })),
               { path: "profile", element: <Navigate to="../account" replace /> },
               { path: "preferences", element: <Navigate to="../account" replace /> },
-              { path: "plan", element: lazyRoute(<DashboardPlan />) },
               { path: "clients", element: <Navigate to="../users" replace /> },
               { path: "members", element: <Navigate to="../users" replace /> },
             ],
