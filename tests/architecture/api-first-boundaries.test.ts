@@ -332,6 +332,20 @@ describe('frontières API-first et modulaires', () => {
     expect(checkout).not.toContain('ShopsApiClient');
   });
 
+  it('compose les façades Quotes et QuoteTemplates dans un seul root', () => {
+    const appRoot = resolve(process.cwd(), 'src/app');
+    const appFiles = listTypeScriptFiles(appRoot);
+    const quoteConstructors = appFiles
+      .filter((file) => readFileSync(file, 'utf8').includes('new QuotesApiClient'))
+      .map((file) => relative(process.cwd(), file));
+    const templateConstructors = appFiles
+      .filter((file) => readFileSync(file, 'utf8').includes('new QuoteTemplatesApiClient'))
+      .map((file) => relative(process.cwd(), file));
+
+    expect(quoteConstructors).toEqual(['src/app/contexts/ModuleClientsContext.tsx']);
+    expect(templateConstructors).toEqual(['src/app/contexts/ModuleClientsContext.tsx']);
+  });
+
   it('sort les paramètres tenant du fournisseur', () => {
     const source = readFileSync(resolve(process.cwd(), 'src/app/components/dashboard/DashboardTenantSettings.tsx'), 'utf8');
     expect(source).toContain('SessionApiClient');
@@ -557,7 +571,8 @@ describe('frontières API-first et modulaires', () => {
   it('sort le CRUD éditable des devis du fournisseur', () => {
     const context = readFileSync(resolve(process.cwd(), 'src/app/contexts/QuotesContext.tsx'), 'utf8');
     const repository = readFileSync(resolve(process.cwd(), 'src/adapters/supabase/quotes-repository.ts'), 'utf8');
-    expect(context).toContain('QuotesApiClient');
+    expect(context).toContain('useQuotesApi');
+    expect(context).not.toContain('new QuotesApiClient');
     expect(context).not.toContain('utils/supabase');
     expect(context).not.toMatch(/\bsupabase\s*\./);
     expect(repository).toContain("scope === 'all'");
@@ -567,7 +582,8 @@ describe('frontières API-first et modulaires', () => {
 
   it('sort les gabarits de devis du fournisseur', () => {
     const context = readFileSync(resolve(process.cwd(), 'src/app/contexts/QuoteTemplatesContext.tsx'), 'utf8');
-    expect(context).toContain('QuoteTemplatesApiClient');
+    expect(context).toContain('useQuoteTemplatesApi');
+    expect(context).not.toContain('new QuoteTemplatesApiClient');
     expect(context).not.toContain('utils/supabase');
     expect(context).not.toMatch(/\bsupabase\s*\./);
   });

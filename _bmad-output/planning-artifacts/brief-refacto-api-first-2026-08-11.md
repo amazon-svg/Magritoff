@@ -287,6 +287,8 @@ généralisation des surfaces dépendront du contrat storefront UM2.
 - AF29.2 : composition centralisée des façades Shops, y compris la fabrique
   post-authentification du checkout ; suppression des constructions dans les
   composants et contextes — livré ;
+- AF29.3 : composition centralisée des façades Quotes et QuoteTemplates ; les
+  composants d'impression et contextes devis consomment les instances partagées — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.
