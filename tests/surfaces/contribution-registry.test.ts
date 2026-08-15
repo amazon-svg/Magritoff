@@ -78,6 +78,10 @@ describe('registre des contributions de surfaces', () => {
       expect.objectContaining({ id: 'quotes.workspace.pending', path: 'quotes/pending' }),
       expect.objectContaining({ id: 'quotes.workspace.edit', path: 'quotes/:id/edit' }),
     ]));
+    expect(applicationContributionRegistry.forSurface('workspace').navigation).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'quotes.workspace.navigation', exact: true }),
+      expect.objectContaining({ id: 'quotes.workspace.pending-navigation', nested: true }),
+    ]));
     expect(applicationContributionRegistry.forSurface('backoffice').routes).toContainEqual(expect.objectContaining({ id: 'quotes.backoffice.pending', requiredCapabilities: ['quotes.validate'] }));
   });
 
@@ -143,7 +147,7 @@ describe('registre des contributions de surfaces', () => {
     ]));
     expect(applicationContributionRegistry.forSurface('workspace').navigation).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: 'tenants.workspace.settings-navigation', label: "Paramètres de l'espace" }),
-      expect.objectContaining({ id: 'tenants.workspace.spaces-navigation', label: 'Sous-espaces' }),
+      expect.objectContaining({ id: 'tenants.workspace.spaces-navigation', label: 'Sous-espaces', nested: true }),
     ]));
   });
 

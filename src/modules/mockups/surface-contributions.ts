@@ -12,6 +12,6 @@ export const mockupsWorkspaceContribution = defineSurfaceContribution({
     id: 'mockups.workspace.navigation', moduleId: 'mockups',
     featureId: 'mockups.workspace-reference', surface: 'workspace',
     routeId: 'mockups.workspace.reference', groupId: 'catalog',
-    label: 'Visuels Magrit', iconId: 'image', order: 260,
+    label: 'Visuels Magrit', iconId: 'image', order: 260, nested: true,
   }],
 } as const);

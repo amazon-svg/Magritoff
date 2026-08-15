@@ -4,7 +4,8 @@
  * Verifie que chaque testid critique des cahiers de tests fonctionnels P00-P09
  * (cf. SPEC_data-testid_06052026.md section 6) :
  *   1. existe dans l enum TEST_IDS (`src/app/lib/testIds.ts`)
- *   2. est effectivement utilise dans un composant React de `src/app/`
+ *   2. est effectivement utilise dans `src/app/` ou dans une contribution de
+ *      module rendue par une surface
  *
  * Implementation : scan statique du source — pas de mount React. Pour les
  * cahiers joues par Claude in Chrome (via MCP), ce qui compte est que
@@ -22,7 +23,10 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { TEST_IDS } from '../src/app/lib/testIds';
 
-const SRC_ROOT = resolve(__dirname, '..', 'src', 'app');
+const SRC_ROOTS = [
+  resolve(__dirname, '..', 'src', 'app'),
+  resolve(__dirname, '..', 'src', 'modules'),
+];
 
 // Testids critiques par parcours (cf. spec section 6).
 const CRITICAL: Record<string, string[]> = {
@@ -53,7 +57,7 @@ function walk(dir: string, acc: string[] = []): string[] {
   return acc;
 }
 
-const ALL_FILES = walk(SRC_ROOT);
+const ALL_FILES = SRC_ROOTS.flatMap((root) => walk(root));
 // On exclut testIds.ts du haystack pour eviter de matcher la definition de l enum
 // elle-meme (chaque ID y apparait par construction).
 const HAYSTACK = ALL_FILES
@@ -97,7 +101,7 @@ describe('E7.7 smoke — data-testid presence par parcours', () => {
           } else {
             expect(
               isUsed(id),
-              `Testid "${id}" introuvable dans src/app/ (hors testIds.ts). ` +
+              `Testid "${id}" introuvable dans src/app/ ou src/modules/ (hors testIds.ts). ` +
                 `Verifiez l instrumentation du parcours ${parcours}.`,
             ).toBe(true);
           }

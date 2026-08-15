@@ -46,6 +46,8 @@ export type NavigationContribution = Readonly<{
   iconId: string;
   order: number;
   testId?: string;
+  exact?: boolean;
+  nested?: boolean;
 }>;
 
 export type SurfaceContribution = Readonly<{

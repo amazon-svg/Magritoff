@@ -257,6 +257,8 @@ généralisation des surfaces dépendront du contrat storefront UM2.
   Visuels Magrit sont chargées depuis le registre — livré ;
 - AF26.14 : manifeste Plans limité au workspace ; route et navigation Plan &
   abonnement sont chargées depuis le registre — livré ;
+- AF26.15 : sidebar workspace composée directement depuis les contributions ;
+  ordre, groupes, libellés, routes et présentation ne sont plus dupliqués — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.

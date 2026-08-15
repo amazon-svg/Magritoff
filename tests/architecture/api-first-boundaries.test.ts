@@ -166,6 +166,20 @@ describe('frontières API-first et modulaires', () => {
     expect(runtime).toContain('Component: lazy(loader)');
   });
 
+  it('compose la sidebar workspace depuis les contributions enregistrées', () => {
+    const layout = readFileSync(
+      resolve(process.cwd(), 'src/app/components/dashboard/DashboardLayout.tsx'),
+      'utf8',
+    );
+
+    expect(layout).toContain('workspaceSurface.navigation');
+    expect(layout).toContain('composeWorkspaceGroups');
+    expect(layout).toContain('WORKSPACE_ICONS[item.iconId]');
+    expect(layout).not.toMatch(/const [A-Z_]+_NAVIGATION =/);
+    expect(layout).not.toContain("label: 'Devis'");
+    expect(layout).not.toContain("label: 'Parc machine'");
+  });
+
   it('sépare la vue Account des adaptateurs brownfield', () => {
     const view = resolve(
       process.cwd(),

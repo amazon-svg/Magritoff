@@ -16,8 +16,8 @@ export const quotesWorkspaceContribution = defineSurfaceContribution({
     { id: 'quotes.workspace.edit', moduleId: 'quotes', featureId: 'quotes.workspace-library', surface: 'workspace', path: 'quotes/:id/edit', mount: 'router', requiredCapabilities: ['quotes.manage'] },
   ],
   navigation: [
-    { id: 'quotes.workspace.navigation', moduleId: 'quotes', featureId: 'quotes.workspace-library', surface: 'workspace', routeId: 'quotes.workspace.list', groupId: 'commercial', label: 'Devis', iconId: 'file-text', order: 100 },
-    { id: 'quotes.workspace.pending-navigation', moduleId: 'quotes', featureId: 'quotes.workspace-review', surface: 'workspace', routeId: 'quotes.workspace.pending', groupId: 'commercial', label: 'Devis en attente', iconId: 'file-clock', order: 110 },
+    { id: 'quotes.workspace.navigation', moduleId: 'quotes', featureId: 'quotes.workspace-library', surface: 'workspace', routeId: 'quotes.workspace.list', groupId: 'commercial', label: 'Devis', iconId: 'file-text', order: 100, exact: true },
+    { id: 'quotes.workspace.pending-navigation', moduleId: 'quotes', featureId: 'quotes.workspace-review', surface: 'workspace', routeId: 'quotes.workspace.pending', groupId: 'commercial', label: 'Devis en attente', iconId: 'file-clock', order: 110, nested: true },
   ],
 } as const);
 export const quotesBackofficeContribution = defineSurfaceContribution({

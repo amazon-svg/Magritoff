@@ -26,7 +26,7 @@ export const tenantsWorkspaceContribution = defineSurfaceContribution({
       id: 'tenants.workspace.spaces-navigation', moduleId: 'tenants',
       featureId: 'tenants.workspace-children', surface: 'workspace',
       routeId: 'tenants.workspace.spaces', groupId: 'settings',
-      label: 'Sous-espaces', iconId: 'building', order: 420,
+      label: 'Sous-espaces', iconId: 'building', order: 420, nested: true,
     },
   ],
 } as const);

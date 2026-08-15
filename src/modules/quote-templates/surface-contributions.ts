@@ -13,5 +13,6 @@ export const quoteTemplatesWorkspaceContribution = defineSurfaceContribution({
     featureId: 'quote-templates.workspace-management', surface: 'workspace',
     routeId: 'quote-templates.workspace.list', groupId: 'commercial',
     label: 'Gabarits de devis', iconId: 'layout-template', order: 120,
+    nested: true,
   }],
 } as const);
