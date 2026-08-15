@@ -269,6 +269,9 @@ généralisation des surfaces dépendront du contrat storefront UM2.
 - AF27.4 : passerelle de prix Clariprint composée par le runtime avec le client
   authentifié partagé puis injectée aux hooks et vues boutique ; le front ne
   construit plus l'adaptateur Clariprint concret — livré ;
+- AF27.5 : passerelle de connexion assistant injectée par le runtime dans le
+  chat Magrit et la recherche conversationnelle boutique ; suppression des
+  imports du singleton HTTP concret dans ces composants — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.

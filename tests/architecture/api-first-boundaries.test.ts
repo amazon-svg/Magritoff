@@ -500,6 +500,20 @@ describe('frontières API-first et modulaires', () => {
     expect(supabaseConfig).toMatch(/\[functions\.magrit-api\][\s\S]*verify_jwt\s*=\s*false/);
   });
 
+  it('injecte la passerelle assistant sans singleton concret dans les composants', () => {
+    const chat = readFileSync(resolve(process.cwd(), 'src/app/components/ChatInterface.tsx'), 'utf8');
+    const catalog = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/PortalCatalog.tsx'), 'utf8');
+    const services = readFileSync(resolve(process.cwd(), 'src/app/contexts/BrowserServicesContext.tsx'), 'utf8');
+    const runtime = readFileSync(resolve(process.cwd(), 'src/platform/runtime/browser-runtime.ts'), 'utf8');
+
+    expect(chat).not.toContain('browserAssistantGateway');
+    expect(catalog).not.toContain('browserAssistantGateway');
+    expect(chat).toContain('assistantGateway.connection');
+    expect(catalog).toContain('assistantGateway.connection');
+    expect(services).toContain('assistant: runtime.assistant');
+    expect(runtime).toContain('assistant: browserAssistantGateway');
+  });
+
   it('fait passer la création rapide des brouillons par Quotes', () => {
     const utility = readFileSync(resolve(process.cwd(), 'src/app/utils/quote.ts'), 'utf8');
     expect(utility).toContain('quotesApi.createDraft');
@@ -607,7 +621,7 @@ describe('frontières API-first et modulaires', () => {
     const chat = readFileSync(resolve(process.cwd(), 'src/app/components/ChatInterface.tsx'), 'utf8');
     const portal = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/PortalCatalog.tsx'), 'utf8');
     const adapter = readFileSync(resolve(process.cwd(), 'src/adapters/http/browser-assistant-gateway.ts'), 'utf8');
-    expect(chat).toContain('browserAssistantGateway.connection');
+    expect(chat).toContain('assistantGateway.connection');
     expect(portal).toContain('assistantApi.categoryEditorial');
     expect(chat).not.toContain('utils/supabase');
     expect(chat).not.toContain('functions/v1');

@@ -3,7 +3,6 @@ import { Search, Sparkles, X, Loader2, AlertTriangle } from 'lucide-react';
 import type { Shop, ShopProduct } from '../../../contexts/ShopsContext';
 import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
 import { resolveProductImage } from '../../../utils/productImages';
-import { browserAssistantGateway } from '../../../../adapters/http/browser-assistant-gateway';
 import { ShopsApiClient } from '../../../../modules/shops';
 import { DiagnosticsApiClient } from '../../../../modules/diagnostics';
 import { useApiRuntimeClient } from '../../../contexts/ApiRuntimeContext';
@@ -161,7 +160,7 @@ export function PortalCatalog({
   onSelectSubcategory,
   initialFormat,
 }: Props) {
-  const { clariprint } = useBrowserServices();
+  const { assistant: assistantGateway, clariprint } = useBrowserServices();
   const { session } = useAuth();
   const apiClient = useApiRuntimeClient();
   const shopsApi = useMemo(() => new ShopsApiClient(apiClient), [apiClient]);
@@ -228,7 +227,7 @@ export function PortalCatalog({
       // naturel = ecran sans reponse. Le streaming donne un retour vivant
       // (aiStreaming via onDelta) et le payload `done` porte les memes configs.
       if (!session?.access_token) throw new ClaudeSseStreamError('network', 'Authentification requise', 401);
-      const assistant = browserAssistantGateway.connection(session.access_token, ENABLE_STREAMING_CHAT);
+      const assistant = assistantGateway.connection(session.access_token, ENABLE_STREAMING_CHAT);
       const data = await sendSseStream(
         {
           endpoint: assistant.endpoint,
