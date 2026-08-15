@@ -346,6 +346,15 @@ describe('frontières API-first et modulaires', () => {
     expect(templateConstructors).toEqual(['src/app/contexts/ModuleClientsContext.tsx']);
   });
 
+  it('compose une seule façade Catalog pour les écrans PIM et gammes', () => {
+    const appRoot = resolve(process.cwd(), 'src/app');
+    const constructors = listTypeScriptFiles(appRoot)
+      .filter((file) => readFileSync(file, 'utf8').includes('new CatalogApiClient'))
+      .map((file) => relative(process.cwd(), file));
+
+    expect(constructors).toEqual(['src/app/contexts/ModuleClientsContext.tsx']);
+  });
+
   it('sort les paramètres tenant du fournisseur', () => {
     const source = readFileSync(resolve(process.cwd(), 'src/app/components/dashboard/DashboardTenantSettings.tsx'), 'utf8');
     expect(source).toContain('SessionApiClient');
@@ -414,21 +423,24 @@ describe('frontières API-first et modulaires', () => {
 
   it('sort la gestion des souscriptions de gammes du fournisseur', () => {
     const source = readFileSync(resolve(process.cwd(), 'src/app/components/dashboard/DashboardTenantGammes.tsx'), 'utf8');
-    expect(source).toContain('CatalogApiClient');
+    expect(source).toContain('useCatalogApi');
+    expect(source).not.toContain('new CatalogApiClient');
     expect(source).not.toContain('utils/supabase');
     expect(source).not.toMatch(/\bsupabase\s*\./);
   });
 
   it('sort le provider PIM du fournisseur', () => {
     const source = readFileSync(resolve(process.cwd(), 'src/app/contexts/PIMContext.tsx'), 'utf8');
-    expect(source).toContain('CatalogApiClient');
+    expect(source).toContain('useCatalogApi');
+    expect(source).not.toContain('new CatalogApiClient');
     expect(source).not.toContain('utils/supabase');
     expect(source).not.toMatch(/\bsupabase\s*\./);
   });
 
   it('sort les opérations longues du dashboard PIM du fournisseur', () => {
     const source = readFileSync(resolve(process.cwd(), 'src/app/components/dashboard/DashboardAdminPIM.tsx'), 'utf8');
-    expect(source).toContain('CatalogApiClient');
+    expect(source).toContain('useCatalogApi');
+    expect(source).not.toContain('new CatalogApiClient');
     expect(source).not.toContain('utils/supabase');
     expect(source).not.toMatch(/\bsupabase\s*\./);
     expect(source).not.toContain('functions.invoke');

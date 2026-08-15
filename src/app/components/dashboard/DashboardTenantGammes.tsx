@@ -21,14 +21,13 @@ import { ChevronDown, ChevronRight, Check, Loader2 } from 'lucide-react';
 import { usePIM } from '../../contexts/PIMContext';
 import { useTenant } from '../../contexts/TenantContext';
 import type { Gamme } from '../../utils/productEnrichment';
-import { CatalogApiClient, type GammeSubscription } from '../../../modules/catalog';
-import { useApiRuntimeClient } from '../../contexts/ApiRuntimeContext';
+import { type GammeSubscription } from '../../../modules/catalog';
+import { useCatalogApi } from '../../contexts/ModuleClientsContext';
 
 export function DashboardTenantGammes() {
   const { gammes, loading: pimLoading } = usePIM();
   const { currentTenant, currentRole, isSuperAdmin } = useTenant();
-  const apiClient = useApiRuntimeClient();
-  const catalogApi = useMemo(() => new CatalogApiClient(apiClient), [apiClient]);
+  const catalogApi = useCatalogApi();
 
   const canWrite = currentRole === 'owner' || currentRole === 'admin' || isSuperAdmin;
 

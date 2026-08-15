@@ -289,6 +289,8 @@ généralisation des surfaces dépendront du contrat storefront UM2.
   composants et contextes — livré ;
 - AF29.3 : composition centralisée des façades Quotes et QuoteTemplates ; les
   composants d'impression et contextes devis consomment les instances partagées — livré ;
+- AF29.4 : composition d'une façade Catalog unique pour les écrans PIM,
+  administration catalogue et gammes actives — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.
