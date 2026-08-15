@@ -282,6 +282,8 @@ généralisation des surfaces dépendront du contrat storefront UM2.
   module Catalog puis consommées par le routeur du portail depuis le registre — livré ;
 - AF28.2 : route storefront de confirmation attribuée à Orders et consommée
   depuis le registre sans littéral dupliqué dans le routeur du portail — livré ;
+- AF29.1 : composition d'une façade Orders unique pour les surfaces React ;
+  suppression des sept constructions dispersées du client de module — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.

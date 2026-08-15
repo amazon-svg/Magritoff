@@ -10,9 +10,8 @@
  * le statut) — wire-up dans PortalOrders/DashboardOrders en S-ORDER-ROLES-3-UI.
  */
 
-import { useEffect, useMemo, useState } from 'react';
-import { OrdersApiClient } from '../../../../modules/orders';
-import { useApiRuntimeClient } from '../../../contexts/ApiRuntimeContext';
+import { useEffect, useState } from 'react';
+import { useOrdersApi } from '../../../contexts/ModuleClientsContext';
 import {
   Dialog,
   DialogContent,
@@ -37,8 +36,7 @@ interface Props {
 }
 
 export function OrderAuditTrailModal({ orderId, orderShortId, onClose }: Props) {
-  const apiClient = useApiRuntimeClient();
-  const ordersApi = useMemo(() => new OrdersApiClient(apiClient), [apiClient]);
+  const ordersApi = useOrdersApi();
   const [events, setEvents] = useState<OrderAuditEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

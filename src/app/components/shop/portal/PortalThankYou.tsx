@@ -12,13 +12,13 @@
  * vers catalog naturellement via fallback dans PublicShop).
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { useTenant } from "../../../contexts/TenantContext";
 import { applyTax, getTaxRate } from "../../../utils/tax";
 import { TEST_IDS } from "../../../lib/testIds";
-import { OrdersApiClient, type DraftOrder } from "../../../../modules/orders";
-import { useApiRuntimeClient } from "../../../contexts/ApiRuntimeContext";
+import type { DraftOrder } from "../../../../modules/orders";
+import { useOrdersApi } from "../../../contexts/ModuleClientsContext";
 
 interface Props {
   orderId: string;
@@ -59,12 +59,11 @@ function formatDateLong(iso: string): string {
 
 export function PortalThankYou({ orderId, userEmail, onBackToCatalog, onSeeOrders }: Props) {
   const { currentTenant } = useTenant();
-  const apiClient = useApiRuntimeClient();
   const [order, setOrder] = useState<DraftOrder | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const h1Ref = useRef<HTMLHeadingElement | null>(null);
-  const ordersApi = useMemo(() => new OrdersApiClient(apiClient), [apiClient]);
+  const ordersApi = useOrdersApi();
 
   // A11y : focus auto sur h1 au mount pour annoncer la confirmation au SR
   useEffect(() => {

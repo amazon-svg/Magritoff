@@ -39,10 +39,10 @@ import {
 import { buildShopTaxonomy } from '../../utils/shopTaxonomy';
 import { parsePortalPath, shopUrl } from './portal/shopPortalRoutes';
 import { applyTax, getTaxRate } from '../../utils/tax';
-import { OrdersApiClient } from '../../../modules/orders';
 import { ShopsApiClient, type PublicShopCatalog } from '../../../modules/shops';
 import { ApiClientError } from '../../../platform/api';
 import { useApiRuntimeClient } from '../../contexts/ApiRuntimeContext';
+import { useOrdersApi } from '../../contexts/ModuleClientsContext';
 
 /**
  * Portail B2B Magrit — version 2.
@@ -76,7 +76,7 @@ export function PublicShop() {
     ShopAccess,
     'authentication_required' | 'forbidden'
   > | null>(null);
-  const ordersApi = useMemo(() => new OrdersApiClient(apiClient), [apiClient]);
+  const ordersApi = useOrdersApi();
   const shopsApi = useMemo(() => new ShopsApiClient(apiClient), [apiClient]);
   const checkoutCommandKey = useRef(crypto.randomUUID());
 

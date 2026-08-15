@@ -31,8 +31,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { OrdersApiClient } from "../../../../modules/orders";
-import { useApiRuntimeClient } from "../../../contexts/ApiRuntimeContext";
+import { useOrdersApi } from "../../../contexts/ModuleClientsContext";
 import { useAuth } from "../../../contexts/AuthContext";
 import { TEST_IDS } from "../../../lib/testIds";
 import {
@@ -111,14 +110,13 @@ function syncActiveTabToUrl(tab: PortalOrdersTab) {
 
 export function PortalOrders({ shopId, onRenewOrder, onNavigateToCatalog }: Props) {
   const { user } = useAuth();
-  const apiClient = useApiRuntimeClient();
+  const ordersApi = useOrdersApi();
 
   const [activeTab, setActiveTabState] = useState<PortalOrdersTab>(readActiveTabFromUrl);
   const [datasets, setDatasets] = useState<DatasetsByTab>(EMPTY_DATASETS);
   const [counters, setCounters] = useState<PortalOrdersCounters>(ZERO_COUNTERS);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const ordersApi = useMemo(() => new OrdersApiClient(apiClient), [apiClient]);
 
   // S3.4 + S-ORDER-ROLES-3-UI : 2 modals de transition workflow
   const [orderToCancel, setOrderToCancel] = useState<OrderUI | null>(null);
