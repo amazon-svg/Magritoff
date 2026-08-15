@@ -482,12 +482,21 @@ describe('frontières API-first et modulaires', () => {
     const adapter = readFileSync(resolve(process.cwd(), 'src/adapters/http/browser-clariprint-adapter.ts'), 'utf8');
     const configurator = readFileSync(resolve(process.cwd(), 'src/app/hooks/useProductConfigurator.ts'), 'utf8');
     const portal = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/PortalCatalog.tsx'), 'utf8');
+    const product = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/PortalProduct.tsx'), 'utf8');
+    const hook = readFileSync(resolve(process.cwd(), 'src/app/hooks/useClariprintProduct.ts'), 'utf8');
+    const services = readFileSync(resolve(process.cwd(), 'src/app/contexts/BrowserServicesContext.tsx'), 'utf8');
+    const runtime = readFileSync(resolve(process.cwd(), 'src/platform/runtime/browser-runtime.ts'), 'utf8');
     const supabaseConfig = readFileSync(resolve(process.cwd(), 'supabase/config.toml'), 'utf8');
     expect(adapter).toContain('ClariprintApiClient');
     expect(adapter).not.toContain('functions/v1');
     expect(adapter).not.toContain('supabase.co');
     expect(configurator).not.toContain('server/clariprint');
     expect(portal).not.toContain('server/clariprint');
+    for (const source of [configurator, portal, product, hook]) {
+      expect(source).not.toContain('adapters/http/browser-clariprint-adapter');
+    }
+    expect(services).toContain('runtime.createClariprint(apiClient)');
+    expect(runtime).toContain('new ClariprintHttpAdapter(');
     expect(supabaseConfig).toMatch(/\[functions\.magrit-api\][\s\S]*verify_jwt\s*=\s*false/);
   });
 

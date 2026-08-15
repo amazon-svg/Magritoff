@@ -18,26 +18,8 @@
  * depuis l'adaptateur HTTP navigateur pour eviter une dependance circulaire.
  */
 
-export interface ClariprintQuoteResult {
-  success: boolean;
-  credentialsMissing?: boolean;
-  message?: string;
-  error?: string;
-  priceHT?: number;
-  costs?: {
-    paper?: number;
-    print?: number;
-    makeready?: number;
-    packaging?: number;
-    delivery?: number;
-    total?: number;
-  };
-  delais?: number;
-  weight?: number;
-  fournisseur?: string;
-  processDuration?: number;
-  details?: string;
-}
+export type { ClariprintQuoteResult } from '../../modules/clariprint/api/contracts';
+import type { ClariprintQuoteResult } from '../../modules/clariprint/api/contracts';
 
 /**
  * Sanitization défensive d'une réponse Clariprint.

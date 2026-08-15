@@ -8,10 +8,11 @@ import { ShopsApiClient } from '../../../../modules/shops';
 import { DiagnosticsApiClient } from '../../../../modules/diagnostics';
 import { useApiRuntimeClient } from '../../../contexts/ApiRuntimeContext';
 import { useAuth } from '../../../contexts/AuthContext';
-import { computeClariprintQuoteSafe } from '../../../../adapters/http/browser-clariprint-adapter';
+import { computeClariprintQuoteSafe } from '../../../../modules/clariprint';
 import { useClaudeSseStream, ClaudeSseStreamError } from '../../../hooks/useClaudeSseStream';
 import { ENABLE_STREAMING_CHAT } from '../../../lib/featureFlags';
 import { TEST_IDS } from '../../../lib/testIds';
+import { useBrowserServices } from '../../../contexts/BrowserServicesContext';
 import { ShopProductCard } from '../ShopProductCard';
 import { buildShopTaxonomy } from '../../../utils/shopTaxonomy';
 import {
@@ -160,6 +161,7 @@ export function PortalCatalog({
   onSelectSubcategory,
   initialFormat,
 }: Props) {
+  const { clariprint } = useBrowserServices();
   const { session } = useAuth();
   const apiClient = useApiRuntimeClient();
   const shopsApi = useMemo(() => new ShopsApiClient(apiClient), [apiClient]);
@@ -252,7 +254,7 @@ export function PortalCatalog({
       // (chaque card affiche un skeleton prix tant qu'on attend).
       const withPrices = await Promise.all(
         initialProducts.map(async (p) => {
-          const quote = await computeClariprintQuoteSafe(p.config?.clariprintData ?? p.config);
+          const quote = await computeClariprintQuoteSafe(clariprint, p.config?.clariprintData ?? p.config);
           if (!quote.success || quote.priceHT == null) return p;
           return {
             ...p,

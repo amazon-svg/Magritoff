@@ -266,6 +266,9 @@ généralisation des surfaces dépendront du contrat storefront UM2.
 - AF27.3 : distinction entre routes actives et cibles planifiées ; `/quote` et
   les contributions backoffice restent documentées sans être exposées comme
   runtime exécutable avant livraison de leurs composition roots — livré ;
+- AF27.4 : passerelle de prix Clariprint composée par le runtime avec le client
+  authentifié partagé puis injectée aux hooks et vues boutique ; le front ne
+  construit plus l'adaptateur Clariprint concret — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.
