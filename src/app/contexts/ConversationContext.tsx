@@ -5,12 +5,12 @@
  * = changer d'historique. Local storage garde un cache par tenant
  * (cle suffixee du tenant.id) pour eviter de fuiter entre espaces.
  */
-import { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { useAuth } from './AuthContext';
 import { useTenant } from './TenantContext';
-import { ConversationsApiClient } from '../../modules/conversations';
+import type { ConversationsApiClient } from '../../modules/conversations';
 import { ApiClientError } from '../../platform/api';
-import { useApiRuntimeClient } from './ApiRuntimeContext';
+import { useConversationsApi } from './ModuleClientsContext';
 
 export interface ConversationMessage {
   role: string;
@@ -85,9 +85,8 @@ async function deleteRemote(api: ConversationsApiClient, tenantId: string, id: s
 
 export function ConversationProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const apiClient = useApiRuntimeClient();
+  const conversationsApi = useConversationsApi();
   const { currentTenant } = useTenant();
-  const conversationsApi = useMemo(() => new ConversationsApiClient(apiClient), [apiClient]);
   const [messages, setMessages] = useState<ConversationMessage[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [history, setHistory] = useState<ConversationHistory[]>([]);

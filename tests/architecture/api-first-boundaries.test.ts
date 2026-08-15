@@ -369,6 +369,18 @@ describe('frontières API-first et modulaires', () => {
     expect(productConstructors).toEqual(['src/app/contexts/ModuleClientsContext.tsx']);
   });
 
+  it('compose les dernières façades hors identité dans un seul root', () => {
+    const appRoot = resolve(process.cwd(), 'src/app');
+    const appFiles = listTypeScriptFiles(appRoot);
+    const constructorsFor = (client: string) => appFiles
+      .filter((file) => readFileSync(file, 'utf8').includes(`new ${client}`))
+      .map((file) => relative(process.cwd(), file));
+
+    expect(constructorsFor('ConversationsApiClient')).toEqual(['src/app/contexts/ModuleClientsContext.tsx']);
+    expect(constructorsFor('CommercialApiClient')).toEqual(['src/app/contexts/ModuleClientsContext.tsx']);
+    expect(constructorsFor('DiagnosticsApiClient')).toEqual(['src/app/contexts/ModuleClientsContext.tsx']);
+  });
+
   it('sort les paramètres tenant du fournisseur', () => {
     const source = readFileSync(resolve(process.cwd(), 'src/app/components/dashboard/DashboardTenantSettings.tsx'), 'utf8');
     expect(source).toContain('SessionApiClient');
@@ -535,14 +547,16 @@ describe('frontières API-first et modulaires', () => {
 
   it('sort l historique des conversations du fournisseur', () => {
     const source = readFileSync(resolve(process.cwd(), 'src/app/contexts/ConversationContext.tsx'), 'utf8');
-    expect(source).toContain('ConversationsApiClient');
+    expect(source).toContain('useConversationsApi');
+    expect(source).not.toContain('new ConversationsApiClient');
     expect(source).not.toContain('utils/supabase');
     expect(source).not.toMatch(/\bsupabase\s*\./);
   });
 
   it('sort le diagnostic IA du fournisseur et de la plateforme Edge', () => {
     const source = readFileSync(resolve(process.cwd(), 'src/app/components/DiagnosticPanel.tsx'), 'utf8');
-    expect(source).toContain('DiagnosticsApiClient');
+    expect(source).toContain('useDiagnosticsApi');
+    expect(source).not.toContain('new DiagnosticsApiClient');
     expect(source).not.toContain('utils/supabase');
     expect(source).not.toContain('functions.invoke');
     expect(source).not.toContain('claude-test');
@@ -644,7 +658,8 @@ describe('frontières API-first et modulaires', () => {
     const dashboard = readFileSync(resolve(process.cwd(), 'src/app/components/dashboard/commercial/DashboardCommercial.tsx'), 'utf8');
     const helpers = readFileSync(resolve(process.cwd(), 'src/app/components/dashboard/commercial/commercial.helpers.ts'), 'utf8');
     const repository = readFileSync(resolve(process.cwd(), 'src/adapters/supabase/commercial-repository.ts'), 'utf8');
-    expect(dashboard).toContain('CommercialApiClient');
+    expect(dashboard).toContain('useCommercialApi');
+    expect(dashboard).not.toContain('new CommercialApiClient');
     expect(dashboard).toContain('commercialApi.overview');
     expect(dashboard).not.toContain('get_tenant_members_with_email');
     expect(helpers).not.toContain('utils/supabase');

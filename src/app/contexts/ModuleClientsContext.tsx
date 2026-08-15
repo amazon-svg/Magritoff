@@ -1,5 +1,8 @@
 import { createContext, type ReactNode, useContext, useMemo } from 'react';
 import { CatalogApiClient } from '../../modules/catalog';
+import { CommercialApiClient } from '../../modules/commercial';
+import { ConversationsApiClient } from '../../modules/conversations';
+import { DiagnosticsApiClient } from '../../modules/diagnostics';
 import { LibrariesApiClient, LibraryProductsApiClient } from '../../modules/libraries';
 import { OrdersApiClient } from '../../modules/orders';
 import { QuoteTemplatesApiClient } from '../../modules/quote-templates';
@@ -9,6 +12,9 @@ import { useApiRuntime } from './ApiRuntimeContext';
 
 type ModuleClients = Readonly<{
   catalog: CatalogApiClient;
+  commercial: CommercialApiClient;
+  conversations: ConversationsApiClient;
+  diagnostics: DiagnosticsApiClient;
   libraries: LibrariesApiClient;
   libraryProducts: LibraryProductsApiClient;
   orders: OrdersApiClient;
@@ -26,6 +32,9 @@ export function ModuleClientsProvider({ children }: { children: ReactNode }) {
   const clients = useMemo<ModuleClients>(
     () => ({
       catalog: new CatalogApiClient(apiRuntime.client),
+      commercial: new CommercialApiClient(apiRuntime.client),
+      conversations: new ConversationsApiClient(apiRuntime.client),
+      diagnostics: new DiagnosticsApiClient(apiRuntime.client),
       libraries: new LibrariesApiClient(apiRuntime.client),
       libraryProducts: new LibraryProductsApiClient(apiRuntime.client),
       orders: new OrdersApiClient(apiRuntime.client),
@@ -56,6 +65,24 @@ export function useCatalogApi(): CatalogApiClient {
   const clients = useContext(ModuleClientsContext);
   if (!clients) throw new Error('useCatalogApi must be used within a ModuleClientsProvider');
   return clients.catalog;
+}
+
+export function useCommercialApi(): CommercialApiClient {
+  const clients = useContext(ModuleClientsContext);
+  if (!clients) throw new Error('useCommercialApi must be used within a ModuleClientsProvider');
+  return clients.commercial;
+}
+
+export function useConversationsApi(): ConversationsApiClient {
+  const clients = useContext(ModuleClientsContext);
+  if (!clients) throw new Error('useConversationsApi must be used within a ModuleClientsProvider');
+  return clients.conversations;
+}
+
+export function useDiagnosticsApi(): DiagnosticsApiClient {
+  const clients = useContext(ModuleClientsContext);
+  if (!clients) throw new Error('useDiagnosticsApi must be used within a ModuleClientsProvider');
+  return clients.diagnostics;
 }
 
 export function useLibrariesApi(): LibrariesApiClient {

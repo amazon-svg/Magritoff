@@ -293,6 +293,8 @@ généralisation des surfaces dépendront du contrat storefront UM2.
   administration catalogue et gammes actives — livré ;
 - AF29.5 : composition centralisée des façades Libraries et LibraryProducts ;
   le contexte bibliothèque reçoit désormais ses dépendances partagées — livré ;
+- AF29.6 : composition centralisée des façades Conversations, Commercial et
+  Diagnostics, derniers clients hors chantier identité — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.
