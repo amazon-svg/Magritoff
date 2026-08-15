@@ -17,6 +17,7 @@
  */
 
 import type { AccountSection, PortalView } from './types';
+import { portalRuntimePaths, shopRootPath } from '../../../surfaces/portalRuntimePaths';
 
 export interface PortalRouteMatch {
   view: PortalView;
@@ -34,6 +35,11 @@ export interface PortalRouteMatch {
 }
 
 const ACCOUNT_SECTIONS: readonly AccountSection[] = ['orders', 'quotes', 'profile'];
+const ACCOUNT_PATHS: Readonly<Record<AccountSection, string>> = Object.freeze({
+  orders: portalRuntimePaths.accountOrders,
+  quotes: portalRuntimePaths.accountQuotes,
+  profile: portalRuntimePaths.accountProfile,
+});
 
 /** Normalise un splat react-router : slashes de tête/queue, query exclue. */
 function normalizeSplat(splat: string | undefined): string[] {
@@ -50,6 +56,15 @@ export function parsePortalPath(splat: string | undefined): PortalRouteMatch {
   const segments = normalizeSplat(splat);
 
   if (segments.length === 0) return { view: 'home', redirected: false };
+
+  const normalizedPath = segments.join('/');
+  if (normalizedPath === portalRuntimePaths.checkout) {
+    return { view: 'checkout', redirected: false };
+  }
+  const accountSection = ACCOUNT_SECTIONS.find((section) => ACCOUNT_PATHS[section] === normalizedPath);
+  if (accountSection) {
+    return { view: 'account', accountSection, redirected: false };
+  }
 
   const [head, ...rest] = segments;
 
@@ -74,17 +89,7 @@ export function parsePortalPath(splat: string | undefined): PortalRouteMatch {
       return rest.length === 0
         ? { view: 'thankYou', redirected: false }
         : { view: 'thankYou', redirected: true };
-    case 'checkout':
-      // S7.12 — récap + identification (ADR §4.20).
-      return rest.length === 0
-        ? { view: 'checkout', redirected: false }
-        : { view: 'checkout', redirected: true };
     case 'account': {
-      // S7.10 — hub Mon compte : /account/orders|quotes|profile.
-      const section = rest[0] as AccountSection | undefined;
-      if (section && rest.length === 1 && ACCOUNT_SECTIONS.includes(section)) {
-        return { view: 'account', accountSection: section, redirected: false };
-      }
       // /account nu ou section inconnue → commandes (canonique).
       return { view: 'account', accountSection: 'orders', redirected: true };
     }
@@ -120,14 +125,14 @@ export function portalPathForView(view: PortalView, param?: string): string {
       return param ? `g/${param}` : 'catalog';
     case 'orders':
       // S7.10 — les commandes vivent sous Mon compte.
-      return 'account/orders';
+      return ACCOUNT_PATHS.orders;
     case 'account':
       // param = section (orders par défaut).
-      return `account/${param && ACCOUNT_SECTIONS.includes(param as AccountSection) ? param : 'orders'}`;
+      return ACCOUNT_PATHS[param && ACCOUNT_SECTIONS.includes(param as AccountSection) ? param as AccountSection : 'orders'];
     case 'thankYou':
       return 'thank-you';
     case 'checkout':
-      return 'checkout';
+      return portalRuntimePaths.checkout;
     case 'cart':
       // Le panier est un drawer, pas une page : on reste sur le catalogue.
       return 'catalog';
@@ -139,5 +144,6 @@ export function portalPathForView(view: PortalView, param?: string): string {
 /** URL absolue d'une vue portail pour une boutique donnée. */
 export function shopUrl(slug: string, view: PortalView, param?: string): string {
   const path = portalPathForView(view, param);
-  return path ? `/shop/${slug}/${path}` : `/shop/${slug}`;
+  const root = shopRootPath(slug);
+  return path ? `${root}/${path}` : root;
 }

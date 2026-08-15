@@ -8,6 +8,7 @@ import { ConfiguratorPage } from "./components/ConfiguratorPage";
 import { NotFound } from "./components/NotFound";
 import { DashboardLayout } from "./components/dashboard/DashboardLayout";
 import { workspaceRuntimeRoutes } from "./surfaces/workspaceRuntimeRoutes";
+import { portalRuntimePaths } from "./surfaces/portalRuntimePaths";
 
 const TenantOnboarding = lazy(() =>
   import("./components/tenant/TenantOnboarding").then((m) => ({ default: m.TenantOnboarding })),
@@ -80,7 +81,7 @@ export const router = createBrowserRouter([
       // S7.1 (ADR §4.19-1) : catch-all — les vues du portail sont des URLs
       // (`/catalog`, `/p/:id`, `/orders`, `/thank-you`, `/g/:gamme` S7.3,
       // `/account/*` S7.10) résolues par parsePortalPath dans PublicShop.
-      { path: "/shop/:slug/*", element: lazyRoute(<PublicShop />) },
+      { path: `/${portalRuntimePaths.shopRoot}/*`, element: lazyRoute(<PublicShop />) },
 
       // REFONTE-UX (2026-08-08) — route DEV seulement : rendre le wizard parc
       // machine hors auth pour les tests automatises et les demos d arbitrage

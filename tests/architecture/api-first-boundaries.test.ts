@@ -180,6 +180,20 @@ describe('frontières API-first et modulaires', () => {
     expect(layout).not.toContain("label: 'Parc machine'");
   });
 
+  it('compose les chemins du portail depuis les routes host déclarées', () => {
+    const routes = readFileSync(resolve(process.cwd(), 'src/app/routes.tsx'), 'utf8');
+    const portalRoutes = readFileSync(
+      resolve(process.cwd(), 'src/app/components/shop/portal/shopPortalRoutes.ts'),
+      'utf8',
+    );
+
+    expect(routes).toContain('portalRuntimePaths.shopRoot');
+    expect(routes).not.toContain('{ path: "/shop/:slug/*"');
+    expect(portalRoutes).toContain('portalRuntimePaths.checkout');
+    expect(portalRoutes).toContain('ACCOUNT_PATHS.orders');
+    expect(portalRoutes).not.toContain("return 'account/orders'");
+  });
+
   it('sépare la vue Account des adaptateurs brownfield', () => {
     const view = resolve(
       process.cwd(),
