@@ -381,9 +381,18 @@ describe('frontières API-first et modulaires', () => {
     expect(constructorsFor('DiagnosticsApiClient')).toEqual(['src/app/contexts/ModuleClientsContext.tsx']);
   });
 
+  it('compose une seule façade Session pour les parcours Magrit', () => {
+    const appRoot = resolve(process.cwd(), 'src/app');
+    const constructors = listTypeScriptFiles(appRoot)
+      .filter((file) => readFileSync(file, 'utf8').includes('new SessionApiClient'))
+      .map((file) => relative(process.cwd(), file));
+
+    expect(constructors).toEqual(['src/app/contexts/ModuleClientsContext.tsx']);
+  });
+
   it('sort les paramètres tenant du fournisseur', () => {
     const source = readFileSync(resolve(process.cwd(), 'src/app/components/dashboard/DashboardTenantSettings.tsx'), 'utf8');
-    expect(source).toContain('SessionApiClient');
+    expect(source).toContain('useSessionApi');
     expect(source).not.toContain('utils/supabase');
     expect(source).not.toMatch(/\bsupabase\s*\./);
   });
@@ -391,7 +400,7 @@ describe('frontières API-first et modulaires', () => {
   it('sort la gestion des sous-espaces du fournisseur', () => {
     const source = readFileSync(resolve(process.cwd(), 'src/app/components/dashboard/DashboardTenantSpaces.tsx'), 'utf8');
     const tenantContext = readFileSync(resolve(process.cwd(), 'src/app/contexts/TenantContext.tsx'), 'utf8');
-    expect(source).toContain('SessionApiClient');
+    expect(source).toContain('useSessionApi');
     expect(source).not.toContain('utils/supabase');
     expect(source).not.toMatch(/\bsupabase\s*\./);
     expect(tenantContext).not.toContain('createSubTenant');
@@ -403,7 +412,8 @@ describe('frontières API-first et modulaires', () => {
       'utf8',
     );
 
-    expect(provider).toContain('new SessionApiClient(');
+    expect(provider).toContain('useSessionApi');
+    expect(provider).not.toContain('new SessionApiClient(');
     expect(provider).not.toContain('DevSessionClient');
     expect(provider).not.toContain('VITE_API_RUNTIME');
   });
@@ -515,7 +525,7 @@ describe('frontières API-first et modulaires', () => {
   it('sort les redirections tenant du fournisseur', () => {
     const legacy = readFileSync(resolve(process.cwd(), 'src/app/components/tenant/LegacySlugRedirect.tsx'), 'utf8');
     const shopOnly = readFileSync(resolve(process.cwd(), 'src/app/components/tenant/ShopOnlyRedirect.tsx'), 'utf8');
-    expect(legacy).toContain('SessionApiClient');
+    expect(legacy).toContain('useSessionApi');
     expect(shopOnly).toContain('useShopsApi');
     for (const source of [legacy, shopOnly]) {
       expect(source).not.toContain('utils/supabase');
@@ -526,7 +536,7 @@ describe('frontières API-first et modulaires', () => {
   it('sort l acceptation d invitation et le compte portail du fournisseur', () => {
     const invitation = readFileSync(resolve(process.cwd(), 'src/app/components/tenant/AcceptInvitation.tsx'), 'utf8');
     const account = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/AccountHub.tsx'), 'utf8');
-    expect(invitation).toContain('SessionApiClient');
+    expect(invitation).toContain('useSessionApi');
     expect(invitation).toContain('useShopsApi');
     expect(invitation).toContain('signOut');
     expect(account).toContain('onSignOut');

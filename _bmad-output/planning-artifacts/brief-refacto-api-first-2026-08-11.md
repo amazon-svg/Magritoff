@@ -295,6 +295,8 @@ généralisation des surfaces dépendront du contrat storefront UM2.
   le contexte bibliothèque reçoit désormais ses dépendances partagées — livré ;
 - AF29.6 : composition centralisée des façades Conversations, Commercial et
   Diagnostics, derniers clients hors chantier identité — livré ;
+- AF29.7 : composition d'une façade Session unique pour le bootstrap, les
+  espaces Magrit, redirections et acceptations d'invitation — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.

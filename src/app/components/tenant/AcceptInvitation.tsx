@@ -10,14 +10,12 @@
  * vers /t/:slug du tenant rejoint.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { CheckCircle2, XCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTenant } from '../../contexts/TenantContext';
-import { SessionApiClient } from '../../../modules/session';
-import { useApiRuntimeClient } from '../../contexts/ApiRuntimeContext';
-import { useShopsApi } from '../../contexts/ModuleClientsContext';
+import { useSessionApi, useShopsApi } from '../../contexts/ModuleClientsContext';
 
 const PENDING_INVITATION_KEY = 'magrit:pending-invitation';
 
@@ -26,9 +24,8 @@ export function AcceptInvitation() {
   const { user, loading: authLoading, signOut } = useAuth();
   const { acceptInvitation } = useTenant();
   const navigate = useNavigate();
-  const fetchClient = useApiRuntimeClient();
   const shopsApi = useShopsApi();
-  const sessionApi = useMemo(() => new SessionApiClient(fetchClient), [fetchClient]);
+  const sessionApi = useSessionApi();
 
   const [status, setStatus] = useState<'idle' | 'accepting' | 'success' | 'error'>(
     'idle'

@@ -4,18 +4,16 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useMemo,
   useRef,
   useState,
 } from 'react';
 import {
-  SessionApiClient,
   type SessionBootstrap,
   type UpdatePreferences,
   type CreateRootTenant,
 } from '../../modules/session';
 import { useAuth } from './AuthContext';
-import { useApiRuntimeClient } from './ApiRuntimeContext';
+import { useSessionApi } from './ModuleClientsContext';
 
 type SessionBootstrapContextValue = Readonly<{
   data: SessionBootstrap | null;
@@ -32,14 +30,13 @@ const SessionBootstrapContext = createContext<SessionBootstrapContextValue | und
 
 export function SessionBootstrapProvider({ children }: { children: ReactNode }) {
   const { user, session, loading: authLoading } = useAuth();
-  const apiClient = useApiRuntimeClient();
+  const api = useSessionApi();
   const [data, setData] = useState<SessionBootstrap | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const requestSequence = useRef(0);
   const currentUserId = useRef<string | null>(user?.id ?? null);
   currentUserId.current = user?.id ?? null;
-  const api = useMemo(() => new SessionApiClient(apiClient), [apiClient]);
 
   const reload = useCallback(async () => {
     const sequence = ++requestSequence.current;

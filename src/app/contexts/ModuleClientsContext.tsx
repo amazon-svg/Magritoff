@@ -7,6 +7,7 @@ import { LibrariesApiClient, LibraryProductsApiClient } from '../../modules/libr
 import { OrdersApiClient } from '../../modules/orders';
 import { QuoteTemplatesApiClient } from '../../modules/quote-templates';
 import { QuotesApiClient } from '../../modules/quotes';
+import { SessionApiClient } from '../../modules/session';
 import { ShopsApiClient } from '../../modules/shops';
 import { useApiRuntime } from './ApiRuntimeContext';
 
@@ -20,6 +21,7 @@ type ModuleClients = Readonly<{
   orders: OrdersApiClient;
   quoteTemplates: QuoteTemplatesApiClient;
   quotes: QuotesApiClient;
+  session: SessionApiClient;
   shops: ShopsApiClient;
   shopsForAccessToken(accessToken: string): ShopsApiClient;
 }>;
@@ -40,6 +42,7 @@ export function ModuleClientsProvider({ children }: { children: ReactNode }) {
       orders: new OrdersApiClient(apiRuntime.client),
       quoteTemplates: new QuoteTemplatesApiClient(apiRuntime.client),
       quotes: new QuotesApiClient(apiRuntime.client),
+      session: new SessionApiClient(apiRuntime.client),
       shops: new ShopsApiClient(apiRuntime.client),
       shopsForAccessToken: (accessToken) => new ShopsApiClient(
         apiRuntime.forAccessToken(accessToken),
@@ -107,6 +110,12 @@ export function useQuotesApi(): QuotesApiClient {
   const clients = useContext(ModuleClientsContext);
   if (!clients) throw new Error('useQuotesApi must be used within a ModuleClientsProvider');
   return clients.quotes;
+}
+
+export function useSessionApi(): SessionApiClient {
+  const clients = useContext(ModuleClientsContext);
+  if (!clients) throw new Error('useSessionApi must be used within a ModuleClientsProvider');
+  return clients.session;
 }
 
 export function useShopsApi(): ShopsApiClient {

@@ -9,10 +9,9 @@
  * Si le slug n'est ni courant ni archive → fallback /tenants (picker).
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router';
-import { SessionApiClient } from '../../../modules/session';
-import { useApiRuntimeClient } from '../../contexts/ApiRuntimeContext';
+import { useSessionApi } from '../../contexts/ModuleClientsContext';
 
 interface Props {
   oldSlug: string;
@@ -20,8 +19,7 @@ interface Props {
 
 export function LegacySlugRedirect({ oldSlug }: Props) {
   const location = useLocation();
-  const apiClient = useApiRuntimeClient();
-  const sessionApi = useMemo(() => new SessionApiClient(apiClient), [apiClient]);
+  const sessionApi = useSessionApi();
   // undefined = loading, null = no match (fallback), string = redirect target
   const [target, setTarget] = useState<string | null | undefined>(undefined);
 
