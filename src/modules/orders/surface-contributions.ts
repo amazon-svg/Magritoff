@@ -2,7 +2,10 @@ import { defineSurfaceContribution } from '../../surfaces/registry';
 
 export const ordersStorefrontContribution = defineSurfaceContribution({
   moduleId: 'orders', surface: 'storefront',
-  routes: [{ id: 'orders.storefront.checkout', moduleId: 'orders', featureId: 'orders.checkout', surface: 'storefront', path: 'checkout', mount: 'host', requiredCapabilities: ['orders.create'] }],
+  routes: [
+    { id: 'orders.storefront.checkout', moduleId: 'orders', featureId: 'orders.checkout', surface: 'storefront', path: 'checkout', mount: 'host', requiredCapabilities: ['orders.create'] },
+    { id: 'orders.storefront.confirmation', moduleId: 'orders', featureId: 'orders.checkout', surface: 'storefront', path: 'thank-you', mount: 'host', requiredCapabilities: ['orders.create'] },
+  ],
   navigation: [],
 } as const);
 

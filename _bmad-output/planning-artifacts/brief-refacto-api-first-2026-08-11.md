@@ -280,6 +280,8 @@ généralisation des surfaces dépendront du contrat storefront UM2.
   des erreurs fournisseur — livré ;
 - AF28.1 : routes storefront de liste catalogue, gamme et produit attribuées au
   module Catalog puis consommées par le routeur du portail depuis le registre — livré ;
+- AF28.2 : route storefront de confirmation attribuée à Orders et consommée
+  depuis le registre sans littéral dupliqué dans le routeur du portail — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.

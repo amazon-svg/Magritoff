@@ -85,6 +85,9 @@ export function parsePortalPath(splat: string | undefined): PortalRouteMatch {
   if (normalizedPath === portalRuntimePaths.checkout) {
     return { view: 'checkout', redirected: false };
   }
+  if (normalizedPath === portalRuntimePaths.orderConfirmation) {
+    return { view: 'thankYou', redirected: false };
+  }
   const accountSection = ACCOUNT_SECTIONS.find((section) => ACCOUNT_PATHS[section] === normalizedPath);
   if (accountSection) {
     return { view: 'account', accountSection, redirected: false };
@@ -111,16 +114,15 @@ export function parsePortalPath(splat: string | undefined): PortalRouteMatch {
   ) {
     return { view: 'catalog', redirected: true };
   }
+  if (head === runtimePathHead(portalRuntimePaths.orderConfirmation)) {
+    return { view: 'thankYou', redirected: true };
+  }
 
   switch (head) {
     case 'orders':
       // S7.10 — alias legacy : les commandes vivent sous /account/orders
       // (le redirect PublicShop préserve la query ?tab=).
       return { view: 'account', accountSection: 'orders', redirected: true };
-    case 'thank-you':
-      return rest.length === 0
-        ? { view: 'thankYou', redirected: false }
-        : { view: 'thankYou', redirected: true };
     case 'account': {
       // /account nu ou section inconnue → commandes (canonique).
       return { view: 'account', accountSection: 'orders', redirected: true };
@@ -158,7 +160,7 @@ export function portalPathForView(view: PortalView, param?: string): string {
       // param = section (orders par défaut).
       return ACCOUNT_PATHS[param && ACCOUNT_SECTIONS.includes(param as AccountSection) ? param as AccountSection : 'orders'];
     case 'thankYou':
-      return 'thank-you';
+      return portalRuntimePaths.orderConfirmation;
     case 'checkout':
       return portalRuntimePaths.checkout;
     case 'cart':

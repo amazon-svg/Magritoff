@@ -6,6 +6,7 @@ describe('chemins runtime du portail', () => {
     expect(portalRuntimePaths).toEqual({
       shopRoot: 'shop/:slug',
       checkout: 'checkout',
+      orderConfirmation: 'thank-you',
       catalog: 'catalog',
       gamme: 'g/:gammeSlug',
       product: 'p/:productId',
