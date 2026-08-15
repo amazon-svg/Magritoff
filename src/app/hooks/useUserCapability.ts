@@ -18,10 +18,9 @@
  * Note v1.1 : le RPC retourne true pour super_admin sans check role assignment.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTenant } from '../contexts/TenantContext';
-import { RolesApiClient } from '../../modules/roles';
-import { useApiRuntimeClient } from '../contexts/ApiRuntimeContext';
+import { useWorkspaceRolesApi } from '../contexts/ModuleClientsContext';
 
 export interface UseUserCapabilityResult {
   /** null pendant le chargement initial ; true/false sinon. */
@@ -32,8 +31,7 @@ export interface UseUserCapabilityResult {
 
 export function useUserCapability(capability: string): UseUserCapabilityResult {
   const { currentTenant } = useTenant();
-  const apiClient = useApiRuntimeClient();
-  const rolesApi = useMemo(() => new RolesApiClient(apiClient), [apiClient]);
+  const rolesApi = useWorkspaceRolesApi();
   const [hasIt, setHasIt] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

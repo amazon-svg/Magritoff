@@ -3,10 +3,13 @@ import { CatalogApiClient } from '../../modules/catalog';
 import { CommercialApiClient } from '../../modules/commercial';
 import { ConversationsApiClient } from '../../modules/conversations';
 import { DiagnosticsApiClient } from '../../modules/diagnostics';
+import { InvitationsApiClient } from '../../modules/invitations';
 import { LibrariesApiClient, LibraryProductsApiClient } from '../../modules/libraries';
+import { MembersApiClient } from '../../modules/members';
 import { OrdersApiClient } from '../../modules/orders';
 import { QuoteTemplatesApiClient } from '../../modules/quote-templates';
 import { QuotesApiClient } from '../../modules/quotes';
+import { RolesApiClient } from '../../modules/roles';
 import { SessionApiClient } from '../../modules/session';
 import { ShopsApiClient } from '../../modules/shops';
 import { useApiRuntime } from './ApiRuntimeContext';
@@ -24,6 +27,10 @@ type ModuleClients = Readonly<{
   session: SessionApiClient;
   shops: ShopsApiClient;
   shopsForAccessToken(accessToken: string): ShopsApiClient;
+  workspaceInvitations: InvitationsApiClient;
+  workspaceInvitationsForAccessToken(accessToken: string): InvitationsApiClient;
+  workspaceMembers: MembersApiClient;
+  workspaceRoles: RolesApiClient;
 }>;
 
 const ModuleClientsContext = createContext<ModuleClients | null>(null);
@@ -47,6 +54,12 @@ export function ModuleClientsProvider({ children }: { children: ReactNode }) {
       shopsForAccessToken: (accessToken) => new ShopsApiClient(
         apiRuntime.forAccessToken(accessToken),
       ),
+      workspaceInvitations: new InvitationsApiClient(apiRuntime.client),
+      workspaceInvitationsForAccessToken: (accessToken) => new InvitationsApiClient(
+        apiRuntime.forAccessToken(accessToken),
+      ),
+      workspaceMembers: new MembersApiClient(apiRuntime.client),
+      workspaceRoles: new RolesApiClient(apiRuntime.client),
     }),
     [apiRuntime],
   );
@@ -128,4 +141,28 @@ export function useShopsApiFactory(): ModuleClients['shopsForAccessToken'] {
   const clients = useContext(ModuleClientsContext);
   if (!clients) throw new Error('useShopsApiFactory must be used within a ModuleClientsProvider');
   return clients.shopsForAccessToken;
+}
+
+export function useWorkspaceInvitationsApi(): InvitationsApiClient {
+  const clients = useContext(ModuleClientsContext);
+  if (!clients) throw new Error('useWorkspaceInvitationsApi must be used within a ModuleClientsProvider');
+  return clients.workspaceInvitations;
+}
+
+export function useWorkspaceInvitationsApiFactory(): ModuleClients['workspaceInvitationsForAccessToken'] {
+  const clients = useContext(ModuleClientsContext);
+  if (!clients) throw new Error('useWorkspaceInvitationsApiFactory must be used within a ModuleClientsProvider');
+  return clients.workspaceInvitationsForAccessToken;
+}
+
+export function useWorkspaceMembersApi(): MembersApiClient {
+  const clients = useContext(ModuleClientsContext);
+  if (!clients) throw new Error('useWorkspaceMembersApi must be used within a ModuleClientsProvider');
+  return clients.workspaceMembers;
+}
+
+export function useWorkspaceRolesApi(): RolesApiClient {
+  const clients = useContext(ModuleClientsContext);
+  if (!clients) throw new Error('useWorkspaceRolesApi must be used within a ModuleClientsProvider');
+  return clients.workspaceRoles;
 }

@@ -24,9 +24,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Loader2, Mail, X, Check, Copy } from 'lucide-react';
 import { TEST_IDS } from '../../lib/testIds';
 import { useAuth } from '../../contexts/AuthContext';
-import { InvitationsApiClient } from '../../../modules/invitations';
 import { ApiClientError } from '../../../platform/api';
-import { useApiRuntime } from '../../contexts/ApiRuntimeContext';
+import {
+  useWorkspaceInvitationsApi,
+  useWorkspaceInvitationsApiFactory,
+} from '../../contexts/ModuleClientsContext';
 import {
   invitationApiProblemMessage,
 } from './InviteUserModalV2.helpers';
@@ -61,7 +63,8 @@ export function InviteUserModalV2({
   onClose,
 }: InviteUserModalV2Props) {
   const { refreshSession } = useAuth();
-  const apiRuntime = useApiRuntime();
+  const invitationsApi = useWorkspaceInvitationsApi();
+  const invitationsApiForAccessToken = useWorkspaceInvitationsApiFactory();
   const [email, setEmail] = useState('');
   const [roles, setRoles] = useState<RoleOption[]>([]);
   const [selectedRoleIds, setSelectedRoleIds] = useState<Set<string>>(new Set());
@@ -78,7 +81,6 @@ export function InviteUserModalV2({
     reason: string;
   } | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
-  const invitationsApi = useMemo(() => new InvitationsApiClient(apiRuntime.client), [apiRuntime.client]);
 
   const loadRoles = useCallback(async () => {
     setLoadingRoles(true);
@@ -156,9 +158,7 @@ export function InviteUserModalV2({
         return;
       }
 
-      const freshInvitationsApi = new InvitationsApiClient(
-        apiRuntime.forAccessToken(refreshedSession.access_token),
-      );
+      const freshInvitationsApi = invitationsApiForAccessToken(refreshedSession.access_token);
       const data = await freshInvitationsApi.create({
         email: cleanedEmail,
         tenantId,

@@ -18,7 +18,7 @@
  *          - permissions : {can_quote, can_order, can_invite}
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   UserMinus, Shield, Plus, Pencil, Trash2, Users as UsersIcon,
   X, Loader2, Settings, Send,
@@ -34,10 +34,8 @@ import { TEST_IDS } from '../../lib/testIds';
 import { DashboardRolesSection } from './DashboardRolesSection';
 import { InviteUserModalV2 } from './InviteUserModalV2';
 import { EditUserRolesModal } from './EditUserRolesModal';
-import { InvitationsApiClient } from '../../../modules/invitations';
-import { MembersApiClient } from '../../../modules/members';
 import { ApiClientError } from '../../../platform/api';
-import { useApiRuntimeClient } from '../../contexts/ApiRuntimeContext';
+import { useWorkspaceInvitationsApi, useWorkspaceMembersApi } from '../../contexts/ModuleClientsContext';
 
 // ────────────────────────────────────────────────────────────────────────────
 // SECTION 1 — Utilisateurs Magrit (membres tenant + invitations)
@@ -68,7 +66,8 @@ interface InvitationRow {
 
 function MagritUsersSection() {
   const { user } = useAuth();
-  const apiClient = useApiRuntimeClient();
+  const invitationsApi = useWorkspaceInvitationsApi();
+  const membersApi = useWorkspaceMembersApi();
   const { currentTenant, currentRole, isSuperAdmin } = useTenant();
   const { shops } = useShops();
 
@@ -82,8 +81,6 @@ function MagritUsersSection() {
 
   // Modale "Modifier les droits"
   const [editingPerms, setEditingPerms] = useState<MemberRow | null>(null);
-  const invitationsApi = useMemo(() => new InvitationsApiClient(apiClient), [apiClient]);
-  const membersApi = useMemo(() => new MembersApiClient(apiClient), [apiClient]);
 
   const canWrite = currentRole === 'owner' || currentRole === 'admin' || isSuperAdmin;
 

@@ -12,12 +12,10 @@
  * depuis la table Magrit Users).
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Loader2, X, Check } from 'lucide-react';
 import { TEST_IDS } from '../../lib/testIds';
-import { RolesApiClient } from '../../../modules/roles';
-import { MembersApiClient } from '../../../modules/members';
-import { useApiRuntimeClient } from '../../contexts/ApiRuntimeContext';
+import { useWorkspaceMembersApi, useWorkspaceRolesApi } from '../../contexts/ModuleClientsContext';
 
 interface RoleOption {
   id: string;
@@ -56,7 +54,8 @@ export function EditUserRolesModal({
   onChanged,
   onClose,
 }: EditUserRolesModalProps) {
-  const api = useApiRuntimeClient();
+  const rolesApi = useWorkspaceRolesApi();
+  const membersApi = useWorkspaceMembersApi();
   const [roles, setRoles] = useState<RoleOption[]>([]);
   const [assignments, setAssignments] = useState<AssignmentRow[]>([]);
   const [shops, setShops] = useState<ShopOption[]>([]);
@@ -66,8 +65,6 @@ export function EditUserRolesModal({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pendingRoleIds, setPendingRoleIds] = useState<Set<string>>(new Set());
-  const rolesApi = useMemo(() => new RolesApiClient(api), [api]);
-  const membersApi = useMemo(() => new MembersApiClient(api), [api]);
 
   const loadData = useCallback(async () => {
     setLoading(true);

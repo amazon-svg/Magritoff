@@ -297,6 +297,8 @@ généralisation des surfaces dépendront du contrat storefront UM2.
   Diagnostics, derniers clients hors chantier identité — livré ;
 - AF29.7 : composition d'une façade Session unique pour le bootstrap, les
   espaces Magrit, redirections et acceptations d'invitation — livré ;
+- AF29.8 : composition centralisée des façades d'identité workspace Roles,
+  Members et Invitations, nommées explicitement sans assimilation aux comptes boutique — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.

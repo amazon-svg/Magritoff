@@ -390,6 +390,22 @@ describe('frontières API-first et modulaires', () => {
     expect(constructors).toEqual(['src/app/contexts/ModuleClientsContext.tsx']);
   });
 
+  it('compose les façades d identité workspace sans les confondre avec les comptes boutique', () => {
+    const appRoot = resolve(process.cwd(), 'src/app');
+    const appFiles = listTypeScriptFiles(appRoot);
+    const constructorsFor = (client: string) => appFiles
+      .filter((file) => readFileSync(file, 'utf8').includes(`new ${client}`))
+      .map((file) => relative(process.cwd(), file));
+    const clientsRoot = readFileSync(resolve(appRoot, 'contexts/ModuleClientsContext.tsx'), 'utf8');
+
+    expect(constructorsFor('RolesApiClient')).toEqual(['src/app/contexts/ModuleClientsContext.tsx']);
+    expect(constructorsFor('MembersApiClient')).toEqual(['src/app/contexts/ModuleClientsContext.tsx']);
+    expect(constructorsFor('InvitationsApiClient')).toEqual(['src/app/contexts/ModuleClientsContext.tsx']);
+    expect(clientsRoot).toContain('workspaceRoles');
+    expect(clientsRoot).toContain('workspaceMembers');
+    expect(clientsRoot).toContain('workspaceInvitations');
+  });
+
   it('sort les paramètres tenant du fournisseur', () => {
     const source = readFileSync(resolve(process.cwd(), 'src/app/components/dashboard/DashboardTenantSettings.tsx'), 'utf8');
     expect(source).toContain('useSessionApi');
@@ -491,7 +507,8 @@ describe('frontières API-first et modulaires', () => {
     ];
     for (const file of files) {
       const source = readFileSync(resolve(process.cwd(), file), 'utf8');
-      expect(source).toContain('RolesApiClient');
+      expect(source).toContain('useWorkspaceRolesApi');
+      expect(source).not.toContain('new RolesApiClient');
       expect(source).not.toContain('utils/supabase');
       expect(source).not.toMatch(/\bsupabase\s*\./);
     }
@@ -499,7 +516,8 @@ describe('frontières API-first et modulaires', () => {
 
   it('sort la vérification des capabilities du fournisseur', () => {
     const source = readFileSync(resolve(process.cwd(), 'src/app/hooks/useUserCapability.ts'), 'utf8');
-    expect(source).toContain('RolesApiClient');
+    expect(source).toContain('useWorkspaceRolesApi');
+    expect(source).not.toContain('new RolesApiClient');
     expect(source).not.toContain('utils/supabase');
     expect(source).not.toMatch(/\bsupabase\s*\./);
   });
@@ -771,7 +789,8 @@ describe('frontières API-first et modulaires', () => {
 
   it('sort le dashboard utilisateurs du fournisseur de données', () => {
     const dashboard = readFileSync(resolve(process.cwd(), 'src/app/components/dashboard/DashboardUsers.tsx'), 'utf8');
-    expect(dashboard).toContain('new MembersApiClient');
+    expect(dashboard).toContain('useWorkspaceMembersApi');
+    expect(dashboard).not.toContain('new MembersApiClient');
     expect(dashboard).not.toContain('utils/supabase');
     expect(dashboard).not.toMatch(/\bsupabase\s*\./);
   });
@@ -786,7 +805,9 @@ describe('frontières API-first et modulaires', () => {
       'utf8',
     );
 
-    expect(modal).toContain('new InvitationsApiClient');
+    expect(modal).toContain('useWorkspaceInvitationsApi');
+    expect(modal).toContain('useWorkspaceInvitationsApiFactory');
+    expect(modal).not.toContain('new InvitationsApiClient');
     expect(modal).toContain('invitationsApi.options');
     expect(modal).toContain('refreshSession');
     expect(modal).not.toContain('utils/supabase');
