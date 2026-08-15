@@ -37,19 +37,9 @@ const DashboardAdminMockups = lazy(() =>
   })),
 );
 // REFONTE-UX (2026-08-08) — module Parc machine, wizard RP#070826 (point 8).
-const DashboardMachines = lazy(() =>
-  import("./components/dashboard/machines/DashboardMachines").then((m) => ({
-    default: m.DashboardMachines,
-  })),
-);
 const MachineParkWizard = lazy(() =>
   import("./components/dashboard/machines/MachineParkWizard").then((m) => ({
     default: m.MachineParkWizard,
-  })),
-);
-const MachineParkDetail = lazy(() =>
-  import("./components/dashboard/machines/MachineParkDetail").then((m) => ({
-    default: m.MachineParkDetail,
   })),
 );
 
@@ -150,12 +140,6 @@ export const router = createBrowserRouter([
               // des mockups Magrit-brandes est CONSERVEE (visuels generes +
               // verification du moteur E8.3), rangee dans le groupe Catalogue.
               { path: "admin/mockups", element: lazyRoute(<DashboardAdminMockups />) },
-              // REFONTE-UX (2026-08-08) — Parc machine (point 8, RP#070826) :
-              // liste du parc + wizard guide de constitution.
-              { path: "machines", element: lazyRoute(<DashboardMachines />) },
-              { path: "machines/wizard", element: lazyRoute(<MachineParkWizard />) },
-              // Point 8 (retour Arnaud 2026-08-08) — detail d un parc.
-              { path: "machines/:parkId", element: lazyRoute(<MachineParkDetail />) },
             ],
           },
         ],

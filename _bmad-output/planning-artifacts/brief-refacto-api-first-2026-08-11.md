@@ -251,6 +251,8 @@ généralisation des surfaces dépendront du contrat storefront UM2.
   Workflow & rôles sont chargées depuis le registre — livré ;
 - AF26.11 : manifeste Conversations limité au workspace ; route et navigation
   Historique sont chargées depuis le registre — livré ;
+- AF26.12 : manifeste MachineParks limité au workspace ; routes liste, wizard,
+  détail et navigation Parc machine sont chargées depuis le registre — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.

@@ -90,6 +90,8 @@ describe('frontières API-first et modulaires', () => {
       'src/modules/roles/surface-contributions.ts',
       'src/modules/conversations/manifest.ts',
       'src/modules/conversations/surface-contributions.ts',
+      'src/modules/machine-parks/manifest.ts',
+      'src/modules/machine-parks/surface-contributions.ts',
     ];
     const violations = protectedRoots.flatMap((root) => {
       const path = resolve(process.cwd(), root);
@@ -129,6 +131,8 @@ describe('frontières API-first et modulaires', () => {
     expect(routes).not.toContain('const DashboardTenantSpaces = lazy');
     expect(routes).not.toContain('const OrderRoleAdminPage = lazy');
     expect(routes).not.toContain('const DashboardHistory = lazy');
+    expect(routes).not.toContain('const DashboardMachines = lazy');
+    expect(routes).not.toContain('const MachineParkDetail = lazy');
     expect(routes).toContain('workspaceRuntimeRoutes.map');
     expect(runtime).toContain("import('../components/dashboard/DashboardAccount')");
     expect(runtime).toContain("import('../components/dashboard/DashboardOrders')");
@@ -148,6 +152,9 @@ describe('frontières API-first et modulaires', () => {
     expect(runtime).toContain("import('../components/dashboard/DashboardTenantSpaces')");
     expect(runtime).toContain("import('../components/dashboard/OrderRoleAdminPage')");
     expect(runtime).toContain("import('../components/dashboard/DashboardHistory')");
+    expect(runtime).toContain("import('../components/dashboard/machines/DashboardMachines')");
+    expect(runtime).toContain("import('../components/dashboard/machines/MachineParkWizard')");
+    expect(runtime).toContain("import('../components/dashboard/machines/MachineParkDetail')");
     expect(runtime).toContain('Component: lazy(loader)');
   });
 

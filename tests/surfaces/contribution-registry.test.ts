@@ -11,6 +11,7 @@ import { membersModuleManifest } from '../../src/modules/members';
 import { tenantsModuleManifest } from '../../src/modules/tenants';
 import { rolesModuleManifest } from '../../src/modules/roles';
 import { conversationsModuleManifest } from '../../src/modules/conversations';
+import { machineParksModuleManifest } from '../../src/modules/machine-parks';
 import { applicationContributionRegistry } from '../../src/surfaces';
 import {
   ContributionRegistryError,
@@ -161,6 +162,18 @@ describe('registre des contributions de surfaces', () => {
     );
     expect(applicationContributionRegistry.forSurface('workspace').navigation).toContainEqual(
       expect.objectContaining({ id: 'conversations.workspace.navigation', label: 'Historique' }),
+    );
+  });
+
+  it('limite les parcs machine au workspace', () => {
+    expect(machineParksModuleManifest.surfaces).toEqual(['workspace']);
+    expect(applicationContributionRegistry.forSurface('workspace').routes).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'machine-parks.workspace.list', path: 'machines' }),
+      expect.objectContaining({ id: 'machine-parks.workspace.wizard', path: 'machines/wizard' }),
+      expect.objectContaining({ id: 'machine-parks.workspace.detail', path: 'machines/:parkId' }),
+    ]));
+    expect(applicationContributionRegistry.forSurface('workspace').navigation).toContainEqual(
+      expect.objectContaining({ id: 'machine-parks.workspace.navigation', label: 'Parc machine' }),
     );
   });
 

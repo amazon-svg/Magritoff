@@ -61,6 +61,9 @@ if (!ROLES_NAVIGATION || !ROLES_ROUTE) throw new Error('La contribution workspac
 const CONVERSATIONS_NAVIGATION = workspaceSurface.navigation.find(({ id }) => id === 'conversations.workspace.navigation');
 const CONVERSATIONS_ROUTE = workspaceSurface.routes.find(({ id }) => id === CONVERSATIONS_NAVIGATION?.routeId);
 if (!CONVERSATIONS_NAVIGATION || !CONVERSATIONS_ROUTE) throw new Error('La contribution workspace du module conversations est incomplète.');
+const MACHINE_PARKS_NAVIGATION = workspaceSurface.navigation.find(({ id }) => id === 'machine-parks.workspace.navigation');
+const MACHINE_PARKS_ROUTE = workspaceSurface.routes.find(({ id }) => id === MACHINE_PARKS_NAVIGATION?.routeId);
+if (!MACHINE_PARKS_NAVIGATION || !MACHINE_PARKS_ROUTE) throw new Error('La contribution workspace du module machine-parks est incomplète.');
 
 // E7.7 — mapping label de NavLink -> data-testid pour les cas de test.
 // Couvre les liens cles des cahiers de tests P01 (sidebar nav).
@@ -183,7 +186,7 @@ export function DashboardLayout() {
     {
       title: 'Production',
       items: [
-        { to: `${basePath}/machines`, label: 'Parc machine', icon: Factory, show: canManageMembers ?? false },
+        { to: `${basePath}/${MACHINE_PARKS_ROUTE.path}`, label: MACHINE_PARKS_NAVIGATION.label, icon: Factory, show: canManageMembers ?? false },
       ],
     },
     {
