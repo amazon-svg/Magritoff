@@ -9,7 +9,7 @@ import { shopsBackofficeContribution, shopsModuleManifest, shopsStorefrontContri
 import { quotesBackofficeContribution, quotesCustomerPortalContribution, quotesModuleManifest, quotesStorefrontContribution, quotesWorkspaceContribution } from '../modules/quotes';
 import { quoteTemplatesModuleManifest, quoteTemplatesWorkspaceContribution } from '../modules/quote-templates';
 import { librariesModuleManifest, librariesWorkspaceContribution } from '../modules/libraries';
-import { catalogModuleManifest, catalogWorkspaceContribution } from '../modules/catalog';
+import { catalogModuleManifest, catalogStorefrontContribution, catalogWorkspaceContribution } from '../modules/catalog';
 import { commercialModuleManifest, commercialWorkspaceContribution } from '../modules/commercial';
 import { membersModuleManifest, membersWorkspaceContribution } from '../modules/members';
 import { tenantsModuleManifest, tenantsWorkspaceContribution } from '../modules/tenants';
@@ -21,5 +21,5 @@ import { plansModuleManifest, plansWorkspaceContribution } from '../modules/plan
 
 export const applicationContributionRegistry = createContributionRegistry({
   manifests: [accountModuleManifest, ordersModuleManifest, shopsModuleManifest, quotesModuleManifest, quoteTemplatesModuleManifest, librariesModuleManifest, catalogModuleManifest, commercialModuleManifest, membersModuleManifest, tenantsModuleManifest, rolesModuleManifest, conversationsModuleManifest, machineParksModuleManifest, mockupsModuleManifest, plansModuleManifest],
-  contributions: [accountWorkspaceContribution, accountCustomerPortalContribution, ordersStorefrontContribution, ordersCustomerPortalContribution, ordersWorkspaceContribution, ordersBackofficeContribution, shopsStorefrontContribution, shopsWorkspaceContribution, shopsBackofficeContribution, quotesStorefrontContribution, quotesCustomerPortalContribution, quotesWorkspaceContribution, quotesBackofficeContribution, quoteTemplatesWorkspaceContribution, librariesWorkspaceContribution, catalogWorkspaceContribution, commercialWorkspaceContribution, membersWorkspaceContribution, tenantsWorkspaceContribution, rolesWorkspaceContribution, conversationsWorkspaceContribution, machineParksWorkspaceContribution, mockupsWorkspaceContribution, plansWorkspaceContribution],
+  contributions: [accountWorkspaceContribution, accountCustomerPortalContribution, ordersStorefrontContribution, ordersCustomerPortalContribution, ordersWorkspaceContribution, ordersBackofficeContribution, shopsStorefrontContribution, shopsWorkspaceContribution, shopsBackofficeContribution, quotesStorefrontContribution, quotesCustomerPortalContribution, quotesWorkspaceContribution, quotesBackofficeContribution, quoteTemplatesWorkspaceContribution, librariesWorkspaceContribution, catalogStorefrontContribution, catalogWorkspaceContribution, commercialWorkspaceContribution, membersWorkspaceContribution, tenantsWorkspaceContribution, rolesWorkspaceContribution, conversationsWorkspaceContribution, machineParksWorkspaceContribution, mockupsWorkspaceContribution, plansWorkspaceContribution],
 });

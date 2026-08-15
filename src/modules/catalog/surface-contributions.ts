@@ -1,5 +1,28 @@
 import { defineSurfaceContribution } from '../../surfaces/registry';
 
+export const catalogStorefrontContribution = defineSurfaceContribution({
+  moduleId: 'catalog',
+  surface: 'storefront',
+  routes: [
+    {
+      id: 'catalog.storefront.list', moduleId: 'catalog',
+      featureId: 'catalog.storefront-browse', surface: 'storefront',
+      path: 'catalog', mount: 'host', requiredCapabilities: ['catalog.read-storefront'],
+    },
+    {
+      id: 'catalog.storefront.gamme', moduleId: 'catalog',
+      featureId: 'catalog.storefront-browse', surface: 'storefront',
+      path: 'g/:gammeSlug', mount: 'host', requiredCapabilities: ['catalog.read-storefront'],
+    },
+    {
+      id: 'catalog.storefront.product', moduleId: 'catalog',
+      featureId: 'catalog.storefront-browse', surface: 'storefront',
+      path: 'p/:productId', mount: 'host', requiredCapabilities: ['catalog.read-storefront'],
+    },
+  ],
+  navigation: [],
+} as const);
+
 export const catalogWorkspaceContribution = defineSurfaceContribution({
   moduleId: 'catalog',
   surface: 'workspace',

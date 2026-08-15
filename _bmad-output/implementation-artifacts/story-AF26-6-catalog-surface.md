@@ -18,6 +18,10 @@ depends_on: [AF26.5]
 - suppression des déclarations correspondantes dans `routes.tsx`.
 
 Cette tranche décrit la sortie de gestion réellement disponible dans
-`workspace`. Le catalogue public reste pour l'instant hébergé par la
-contribution storefront de `shops` ; sa séparation fonctionnelle fera l'objet
-d'une tranche dédiée afin de ne pas inventer une seconde route publique.
+`workspace`.
+
+## Extension AF28.1
+
+La séparation storefront est désormais effective : Catalog possède les routes
+existantes `catalog`, `g/:gammeSlug` et `p/:productId`. Shops conserve la racine
+de boutique `shop/:slug`. Aucune nouvelle URL n'a été inventée.

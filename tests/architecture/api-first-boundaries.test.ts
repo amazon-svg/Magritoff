@@ -190,8 +190,13 @@ describe('frontières API-first et modulaires', () => {
     expect(routes).toContain('portalRuntimePaths.shopRoot');
     expect(routes).not.toContain('{ path: "/shop/:slug/*"');
     expect(portalRoutes).toContain('portalRuntimePaths.checkout');
+    expect(portalRoutes).toContain('portalRuntimePaths.catalog');
+    expect(portalRoutes).toContain('portalRuntimePaths.gamme');
+    expect(portalRoutes).toContain('portalRuntimePaths.product');
     expect(portalRoutes).toContain('ACCOUNT_PATHS.orders');
     expect(portalRoutes).not.toContain("return 'account/orders'");
+    expect(portalRoutes).not.toContain('`p/${param}`');
+    expect(portalRoutes).not.toContain('`g/${param}`');
   });
 
   it('sépare la vue Account des adaptateurs brownfield', () => {

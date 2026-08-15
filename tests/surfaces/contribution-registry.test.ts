@@ -122,8 +122,13 @@ describe('registre des contributions de surfaces', () => {
     expect(applicationContributionRegistry.forSurface('backoffice').modules.map(({ id }) => id).includes('libraries')).toBe(false);
   });
 
-  it('limite la gestion Catalog au workspace', () => {
-    expect(catalogModuleManifest.surfaces).toEqual(['workspace']);
+  it('compose la consultation Catalog sur storefront et sa gestion sur workspace', () => {
+    expect(catalogModuleManifest.surfaces).toEqual(['storefront', 'workspace']);
+    expect(applicationContributionRegistry.forSurface('storefront').routes).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'catalog.storefront.list', path: 'catalog', mount: 'host' }),
+      expect.objectContaining({ id: 'catalog.storefront.gamme', path: 'g/:gammeSlug', mount: 'host' }),
+      expect.objectContaining({ id: 'catalog.storefront.product', path: 'p/:productId', mount: 'host' }),
+    ]));
     expect(applicationContributionRegistry.forSurface('workspace').routes).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: 'catalog.workspace.gammes', path: 'gammes' }),
       expect.objectContaining({ id: 'catalog.workspace.pim', path: 'admin/pim' }),

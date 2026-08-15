@@ -49,6 +49,30 @@ function normalizeSplat(splat: string | undefined): string[] {
     .filter(Boolean);
 }
 
+function matchRuntimePath(
+  pattern: string,
+  segments: readonly string[],
+): Readonly<Record<string, string>> | null {
+  const patternSegments = normalizeSplat(pattern);
+  if (patternSegments.length !== segments.length) return null;
+  const params: Record<string, string> = {};
+  for (let index = 0; index < patternSegments.length; index += 1) {
+    const expected = patternSegments[index]!;
+    const actual = segments[index]!;
+    if (expected.startsWith(':')) params[expected.slice(1)] = actual;
+    else if (expected !== actual) return null;
+  }
+  return params;
+}
+
+function runtimePathHead(pattern: string): string {
+  return normalizeSplat(pattern)[0] ?? '';
+}
+
+function fillRuntimePath(pattern: string, parameter: string, value: string): string {
+  return pattern.replace(`:${parameter}`, encodeURIComponent(value));
+}
+
 /**
  * Résout le splat d'URL en vue portail. Ne jette jamais (AC3).
  */
@@ -66,21 +90,29 @@ export function parsePortalPath(splat: string | undefined): PortalRouteMatch {
     return { view: 'account', accountSection, redirected: false };
   }
 
+  if (matchRuntimePath(portalRuntimePaths.catalog, segments)) {
+    return { view: 'catalog', redirected: false };
+  }
+  const productMatch = matchRuntimePath(portalRuntimePaths.product, segments);
+  if (productMatch?.productId) {
+    return { view: 'product', productId: productMatch.productId, redirected: false };
+  }
+  const gammeMatch = matchRuntimePath(portalRuntimePaths.gamme, segments);
+  if (gammeMatch?.gammeSlug) {
+    return { view: 'gamme', gammeSlug: gammeMatch.gammeSlug, redirected: false };
+  }
+
   const [head, ...rest] = segments;
 
+  if (
+    head === runtimePathHead(portalRuntimePaths.catalog)
+    || head === runtimePathHead(portalRuntimePaths.product)
+    || head === runtimePathHead(portalRuntimePaths.gamme)
+  ) {
+    return { view: 'catalog', redirected: true };
+  }
+
   switch (head) {
-    case 'catalog':
-      return rest.length === 0
-        ? { view: 'catalog', redirected: false }
-        : { view: 'catalog', redirected: true };
-    case 'p': {
-      const productId = rest[0];
-      if (productId && rest.length === 1) {
-        return { view: 'product', productId, redirected: false };
-      }
-      // `p` sans id (ou trop profond) → catalog
-      return { view: 'catalog', redirected: true };
-    }
     case 'orders':
       // S7.10 — alias legacy : les commandes vivent sous /account/orders
       // (le redirect PublicShop préserve la query ?tab=).
@@ -92,14 +124,6 @@ export function parsePortalPath(splat: string | undefined): PortalRouteMatch {
     case 'account': {
       // /account nu ou section inconnue → commandes (canonique).
       return { view: 'account', accountSection: 'orders', redirected: true };
-    }
-    case 'g': {
-      // S7.3 — page gamme-configurateur. Sans slug (ou trop profond) : catalog.
-      const gammeSlug = rest[0];
-      if (gammeSlug && rest.length === 1) {
-        return { view: 'gamme', gammeSlug, redirected: false };
-      }
-      return { view: 'catalog', redirected: true };
     }
     default:
       return { view: 'home', redirected: true };
@@ -116,13 +140,17 @@ export function portalPathForView(view: PortalView, param?: string): string {
     case 'home':
       return '';
     case 'catalog':
-      return 'catalog';
+      return portalRuntimePaths.catalog;
     case 'product':
       // Sans productId on ne peut pas adresser une fiche → catalog.
-      return param ? `p/${param}` : 'catalog';
+      return param
+        ? fillRuntimePath(portalRuntimePaths.product, 'productId', param)
+        : portalRuntimePaths.catalog;
     case 'gamme':
       // S7.3 — sans slug de gamme on retombe sur le catalogue.
-      return param ? `g/${param}` : 'catalog';
+      return param
+        ? fillRuntimePath(portalRuntimePaths.gamme, 'gammeSlug', param)
+        : portalRuntimePaths.catalog;
     case 'orders':
       // S7.10 — les commandes vivent sous Mon compte.
       return ACCOUNT_PATHS.orders;
@@ -135,7 +163,7 @@ export function portalPathForView(view: PortalView, param?: string): string {
       return portalRuntimePaths.checkout;
     case 'cart':
       // Le panier est un drawer, pas une page : on reste sur le catalogue.
-      return 'catalog';
+      return portalRuntimePaths.catalog;
     default:
       return '';
   }

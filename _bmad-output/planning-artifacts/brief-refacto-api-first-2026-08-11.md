@@ -239,7 +239,7 @@ généralisation des surfaces dépendront du contrat storefront UM2.
   Gabarits de devis sont chargées depuis le registre — livré ;
 - AF26.5 : manifeste Libraries limité au workspace ; routes liste/détail et
   navigation Bibliothèques sont chargées depuis le registre — livré ;
-- AF26.6 : manifeste Catalog limité à sa gestion workspace actuelle ; routes
+- AF26.6 : manifeste Catalog initialement limité à la gestion workspace ; routes
   Gammes et PIM ainsi que leur navigation sont chargées depuis le registre — livré ;
 - AF26.7 : manifeste Commercial limité au workspace ; route et navigation
   Prix & marges sont chargées depuis le registre — livré ;
@@ -278,6 +278,8 @@ généralisation des surfaces dépendront du contrat storefront UM2.
 - AF27.7 : protocole HTTP/SSE assistant déplacé du hook React vers la passerelle
   injectée ; l'UI ne connaît plus endpoint, parsing d'événements ni détection
   des erreurs fournisseur — livré ;
+- AF28.1 : routes storefront de liste catalogue, gamme et produit attribuées au
+  module Catalog puis consommées par le routeur du portail depuis le registre — livré ;
 - suite : migrer les autres
   contributions catalogue/portail, en conservant la revue
   fonctionnelle invitations/membres/rôles comme chantier produit distinct.

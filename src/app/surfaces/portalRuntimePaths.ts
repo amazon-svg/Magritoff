@@ -5,6 +5,9 @@ import { storefrontSurface } from '../../surfaces/storefront';
 export const portalRuntimePaths = Object.freeze({
   shopRoot: requiredHostPath(storefrontSurface, 'shops.storefront.root'),
   checkout: requiredHostPath(storefrontSurface, 'orders.storefront.checkout'),
+  catalog: requiredHostPath(storefrontSurface, 'catalog.storefront.list'),
+  gamme: requiredHostPath(storefrontSurface, 'catalog.storefront.gamme'),
+  product: requiredHostPath(storefrontSurface, 'catalog.storefront.product'),
   accountOrders: requiredHostPath(customerPortalSurface, 'orders.customer-portal.list'),
   accountQuotes: requiredHostPath(customerPortalSurface, 'quotes.customer-portal.list'),
   accountProfile: requiredHostPath(customerPortalSurface, 'account.customer-portal.profile'),
