@@ -11,7 +11,8 @@ set search_path = pg_catalog, public, private, extensions
 as $$
 declare v_hash bytea;
 begin
-  if p_opaque_token !~ '^[A-Za-z0-9_-]{32,512}$' then return; end if;
+  if length(p_opaque_token) not between 32 and 512
+    or p_opaque_token !~ '^[A-Za-z0-9_-]+$' then return; end if;
   v_hash := extensions.digest(convert_to(p_opaque_token, 'UTF8'), 'sha256');
   update private.shop_customer_sessions s
   set last_seen_at = clock_timestamp()
@@ -37,7 +38,8 @@ set search_path = pg_catalog, public, private, extensions
 as $$
 declare v_revoked boolean := false;
 begin
-  if p_opaque_token !~ '^[A-Za-z0-9_-]{32,512}$' then return false; end if;
+  if length(p_opaque_token) not between 32 and 512
+    or p_opaque_token !~ '^[A-Za-z0-9_-]+$' then return false; end if;
   update private.shop_customer_sessions
   set revoked_at = coalesce(revoked_at, clock_timestamp())
   where token_hash = extensions.digest(convert_to(p_opaque_token, 'UTF8'), 'sha256')

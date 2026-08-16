@@ -6,7 +6,7 @@ updated: 2026-08-16
 status: in_progress
 target_epic: EPIC-UM-STORE-IDENTITY
 decision_owner: produit
-implementation: um2_session_routes_delivered
+implementation: um2_credential_activation_sql_delivered
 ---
 
 # Spécification — Identités Magrit et comptes boutique séparés
