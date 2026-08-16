@@ -122,7 +122,9 @@ workspace. UM1.3 expose les routes de liste et de création ainsi que leur clien
 HTTP partagé. UM1.4 rend ces comptes visibles et créables dans une section
 distincte de l’éditeur de boutique, sans les mélanger aux utilisateurs Magrit.
 Cette API reste strictement workspace : la migration Auth, les sessions boutique
-et la généralisation des surfaces dépendront du contrat storefront UM2.
+et la généralisation des surfaces dépendront du contrat storefront UM2. UM2.1 a
+figé ce contrat et sa politique de cookie HttpOnly sans encore activer la route
+publique ni modifier le checkout.
 
 ### Extension AF-C — Identité et invitations
 

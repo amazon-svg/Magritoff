@@ -77,6 +77,48 @@ export const storefrontIdentitySchema = z.discriminatedUnion('kind', [
   delegatedShopCustomerSessionSchema,
 ]);
 
+export const storefrontCustomerProfileSchema = z.object({
+  id: z.string().uuid(),
+  shopId: z.string().uuid(),
+  email: shopCustomerEmailSchema,
+  fullName: z.string().trim().min(1).max(200),
+  status: z.enum(['active', 'delegated_only']),
+}).strict();
+
+export const storefrontSessionSchema = z.object({
+  identity: storefrontIdentitySchema,
+  customer: storefrontCustomerProfileSchema,
+  expiresAt: z.iso.datetime({ offset: true }),
+}).strict().superRefine((session, context) => {
+  if (session.identity.shopId !== session.customer.shopId) {
+    context.addIssue({
+      code: 'custom',
+      path: ['customer', 'shopId'],
+      message: 'La session et le compte doivent appartenir à la même boutique.',
+    });
+  }
+  if (session.identity.shopCustomerAccountId !== session.customer.id) {
+    context.addIssue({
+      code: 'custom',
+      path: ['customer', 'id'],
+      message: 'La session doit désigner le compte affiché.',
+    });
+  }
+});
+
+export const createStorefrontSessionCommandSchema = z.object({
+  email: shopCustomerEmailSchema,
+  password: z.string().min(8).max(1024),
+}).strict();
+
+export const createStorefrontSessionResultSchema = z.object({
+  session: storefrontSessionSchema,
+}).strict();
+
+export const endStorefrontSessionResultSchema = z.object({
+  ended: z.literal(true),
+}).strict();
+
 export const shopCustomerDelegationSchema = z.object({
   id: z.string().uuid(),
   shopId: z.string().uuid(),
@@ -108,6 +150,11 @@ export type CreateShopCustomerCommand = z.input<typeof createShopCustomerCommand
 export type DirectShopCustomerSession = z.infer<typeof directShopCustomerSessionSchema>;
 export type DelegatedShopCustomerSession = z.infer<typeof delegatedShopCustomerSessionSchema>;
 export type StorefrontIdentity = z.infer<typeof storefrontIdentitySchema>;
+export type StorefrontCustomerProfile = z.infer<typeof storefrontCustomerProfileSchema>;
+export type StorefrontSession = z.infer<typeof storefrontSessionSchema>;
+export type CreateStorefrontSessionCommand = z.infer<typeof createStorefrontSessionCommandSchema>;
+export type CreateStorefrontSessionResult = z.infer<typeof createStorefrontSessionResultSchema>;
+export type EndStorefrontSessionResult = z.infer<typeof endStorefrontSessionResultSchema>;
 export type ShopCustomerDelegation = z.infer<typeof shopCustomerDelegationSchema>;
 export type CreateShopCustomerDelegationCommand = z.infer<typeof createShopCustomerDelegationCommandSchema>;
 export type SelfShopCustomerDelegationResult = z.infer<typeof selfShopCustomerDelegationResultSchema>;
