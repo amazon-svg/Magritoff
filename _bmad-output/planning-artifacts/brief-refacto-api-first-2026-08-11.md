@@ -127,7 +127,9 @@ figé ce contrat et sa politique de cookie HttpOnly sans encore activer la route
 publique ni modifier le checkout. UM2.2 a ajouté le stockage des credentials et
 sessions dans un schéma privé, sans `service_role` dans l’API et sans réutiliser
 l’email global Supabase Auth. UM2.3 orchestre la connexion, les refus neutres et
-l’émission de session derrière des ports, sans ouvrir encore la route publique.
+l’émission de session derrière des ports. UM2.4 ajoute la primitive SQL atomique,
+le verrouillage après échecs et le stockage du seul hash du jeton, sans ouvrir
+encore la route HTTP publique.
 
 ### Extension AF-C — Identité et invitations
 
