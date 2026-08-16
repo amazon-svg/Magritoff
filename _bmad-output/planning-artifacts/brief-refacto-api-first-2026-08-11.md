@@ -131,7 +131,11 @@ l’émission de session derrière des ports. UM2.4 ajoute la primitive SQL atom
 le verrouillage après échecs et le stockage du seul hash du jeton, sans ouvrir
 encore la route HTTP publique. UM2.5 compose l’adaptateur et ouvre la connexion
 BFF avec cookie HttpOnly, mais ne bascule pas encore le checkout tant que le
-cycle activation/session/déconnexion n’est pas complet.
+cycle activation/session/déconnexion n’est pas complet. UM2.6 à UM2.9 livrent
+désormais ce cycle côté BFF : résolution et révocation de session, émission
+workspace d’un jeton puis activation publique du mot de passe. Le lien reste à
+transmettre manuellement jusqu’au branchement du port email UM3, et le checkout
+n’est pas encore basculé sur cette identité.
 
 ### Extension AF-C — Identité et invitations
 

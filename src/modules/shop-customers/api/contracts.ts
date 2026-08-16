@@ -125,6 +125,24 @@ export const endStorefrontSessionResultSchema = z.object({
   ended: z.literal(true),
 }).strict();
 
+export const issueStorefrontActivationCommandSchema = z.object({
+  expiresInSeconds: z.number().int().min(900).max(604_800).default(86_400),
+}).strict();
+
+export const issueStorefrontActivationResultSchema = z.object({
+  activationToken: z.string().regex(/^[A-Za-z0-9_-]{32,512}$/),
+  expiresInSeconds: z.number().int().min(900).max(604_800),
+}).strict();
+
+export const activateStorefrontCredentialCommandSchema = z.object({
+  token: z.string().regex(/^[A-Za-z0-9_-]{32,512}$/),
+  password: z.string().min(8).max(1024),
+}).strict();
+
+export const activateStorefrontCredentialResultSchema = z.object({
+  activated: z.literal(true),
+}).strict();
+
 export const shopCustomerDelegationSchema = z.object({
   id: z.string().uuid(),
   shopId: z.string().uuid(),
@@ -161,6 +179,9 @@ export type StorefrontSession = z.infer<typeof storefrontSessionSchema>;
 export type CreateStorefrontSessionCommand = z.infer<typeof createStorefrontSessionCommandSchema>;
 export type CreateStorefrontSessionResult = z.infer<typeof createStorefrontSessionResultSchema>;
 export type EndStorefrontSessionResult = z.infer<typeof endStorefrontSessionResultSchema>;
+export type IssueStorefrontActivationCommand = z.input<typeof issueStorefrontActivationCommandSchema>;
+export type IssueStorefrontActivationResult = z.infer<typeof issueStorefrontActivationResultSchema>;
+export type ActivateStorefrontCredentialCommand = z.infer<typeof activateStorefrontCredentialCommandSchema>;
 export type ShopCustomerDelegation = z.infer<typeof shopCustomerDelegationSchema>;
 export type CreateShopCustomerDelegationCommand = z.infer<typeof createShopCustomerDelegationCommandSchema>;
 export type SelfShopCustomerDelegationResult = z.infer<typeof selfShopCustomerDelegationResultSchema>;
