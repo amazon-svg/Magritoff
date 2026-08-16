@@ -254,7 +254,7 @@ Décision Arnaud 2026-05-06 : reportées au prochain bloc Clariprint :
   - **Superadmin Magrit** : oui (membre `magrit-root` via `bootstrap_magrit_admin`)
 - **PAT Supabase** : à régénérer à chaque session (l'ancien est révoqué). Procédure : https://supabase.com/dashboard/account/tokens
 - **Projet Supabase actif** : `ightkxebexuzfjdbpsdg` (B4 + B5 partagés)
-- **Secrets edge functions** : `MAGRIT3` (Anthropic), `RESEND_API_KEY` (E9.5), `CLARIPRINT_HOST/LOGIN/PASSWORD`, `SUPABASE_*` (auto)
+- **Secrets edge functions** : `MAGRIT3` (Anthropic), `RESEND_API_KEY` (invitations Magrit et activation boutique), `MAGRIT_FROM_EMAIL` (expéditeur Resend vérifié), `CLARIPRINT_HOST/LOGIN/PASSWORD`, `SUPABASE_*` (auto). En local, les secrets serveur sont placés dans `supabase/functions/.env` à partir de `.env.example` ; `.env.local` configure Vite mais n’injecte pas les secrets dans l’Edge Runtime. Sans clé Resend, l’activation boutique affiche un lien manuel transmissible.
 
 ## 11. Documents canoniques de référence
 

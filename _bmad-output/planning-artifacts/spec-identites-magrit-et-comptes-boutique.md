@@ -6,7 +6,7 @@ updated: 2026-08-16
 status: in_progress
 target_epic: EPIC-UM-STORE-IDENTITY
 decision_owner: produit
-implementation: um2_activation_screen_delivered
+implementation: um3_activation_invitation_delivered
 ---
 
 # Spécification — Identités Magrit et comptes boutique séparés
@@ -30,7 +30,10 @@ jeton peut être transmis manuellement ; aucun email n’est annoncé tant que l
 port de notification UM3 n’est pas branché. Le checkout et l’écran d’activation
 ne l’utilisent pas encore. UM2.10 ajoute toutefois l’écran public qui consomme
 le jeton, choisit le mot de passe et rejoint ensuite la boutique, via un client
-HTTP anonyme distinct du workspace. Les invitations, le compte miroir
+HTTP anonyme distinct du workspace. UM3.1 branche ensuite l’invitation via un
+port email Resend propre aux comptes boutique, tout en affichant toujours le
+lien manuel dans Magrit. Les invitations tenant et boutique restent deux
+domaines séparés. La récupération de mot de passe, le compte miroir
 et la délégation ne sont pas encore livrés. Chaque vague suivante doit être
 découpée en stories BMAD exécutables avant son implémentation.
 

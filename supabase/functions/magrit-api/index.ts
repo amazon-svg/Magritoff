@@ -65,6 +65,7 @@ import { storefrontSessionCookiePolicy } from '../../../src/server/storefront/se
 import { StorefrontActivationService } from '../../../src/modules/shop-customers/application/storefront-activation-service.ts';
 import { SupabaseStorefrontActivationGateway } from '../../../src/adapters/supabase/storefront-activation-gateway.ts';
 import { createStorefrontActivationRoutes } from '../../../src/server/api/storefront-activation-routes.ts';
+import { ResendStorefrontActivationEmailSender } from '../../../src/adapters/resend/storefront-activation-email-sender.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -114,7 +115,13 @@ export async function handleRequest(request: Request): Promise<Response> {
   const shopCustomersService = new ShopCustomersService(new SupabaseShopCustomersRepository(client));
   const storefrontAuthenticationService = new StorefrontAuthenticationService(new SupabaseStorefrontAuthenticationGateway(client));
   const storefrontSessionService = new StorefrontSessionService(new SupabaseStorefrontAuthenticationGateway(client));
-  const storefrontActivationService = new StorefrontActivationService(new SupabaseStorefrontActivationGateway(client));
+  const storefrontActivationService = new StorefrontActivationService(
+    new SupabaseStorefrontActivationGateway(client),
+    new ResendStorefrontActivationEmailSender(
+      Deno.env.get('RESEND_API_KEY') ?? null,
+      Deno.env.get('MAGRIT_FROM_EMAIL') ?? 'Magrit <onboarding@resend.dev>',
+    ),
+  );
   const catalogService = new CatalogService(new SupabaseCatalogRepository(client), new SupabaseCatalogAutomationGateway(client));
   const conversationsService = new ConversationsService(new SupabaseConversationsRepository(client));
   const aiConfiguration = aiProviderConfigurationFromEnvironment((name) => Deno.env.get(name));

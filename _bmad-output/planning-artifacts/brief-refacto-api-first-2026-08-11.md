@@ -137,7 +137,9 @@ workspace d’un jeton puis activation publique du mot de passe. Le lien reste �
 transmettre manuellement jusqu’au branchement du port email UM3, et le checkout
 n’est pas encore basculé sur cette identité. UM2.10 rend le lien exploitable
 avec un écran d’activation public et un transport anonyme séparé ; UM3 peut donc
-maintenant prendre en charge sa notification et son repli manuel.
+maintenant prendre en charge sa notification et son repli manuel. UM3.1 livre
+ce branchement : port Resend storefront distinct des invitations Magrit, action
+« Inviter/Renvoyer » dans la boutique et lien manuel toujours disponible.
 
 ### Extension AF-C — Identité et invitations
 

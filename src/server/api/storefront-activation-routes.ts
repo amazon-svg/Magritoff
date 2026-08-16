@@ -31,6 +31,7 @@ export function createStorefrontActivationRoutes(service: StorefrontActivationSe
             param(context, 'shopId'),
             param(context, 'customerId'),
             command,
+            publicAppBaseUrl(context.request),
           ),
         }));
       },
@@ -53,6 +54,17 @@ export function createStorefrontActivationRoutes(service: StorefrontActivationSe
       },
     }),
   ];
+}
+
+function publicAppBaseUrl(request: Request): string {
+  const origin = request.headers.get('origin');
+  if (origin) {
+    try {
+      const parsed = new URL(origin);
+      if (parsed.protocol === 'http:' || parsed.protocol === 'https:') return parsed.origin;
+    } catch { /* repli sur l’origine de la requête */ }
+  }
+  return new URL(request.url).origin;
 }
 
 async function execute<T>(operation: () => Promise<T>): Promise<T> {

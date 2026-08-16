@@ -130,8 +130,10 @@ export const issueStorefrontActivationCommandSchema = z.object({
 }).strict();
 
 export const issueStorefrontActivationResultSchema = z.object({
-  activationToken: z.string().regex(/^[A-Za-z0-9_-]{32,512}$/),
+  sent: z.boolean(),
+  link: z.url(),
   expiresInSeconds: z.number().int().min(900).max(604_800),
+  reason: z.string().min(1).max(500).optional(),
 }).strict();
 
 export const activateStorefrontCredentialCommandSchema = z.object({

@@ -14,6 +14,12 @@ describe('ShopCustomerAccountsSection', () => {
     expect(source).not.toMatch(/\bsupabase\s*\./);
   });
 
+  it('expose toujours le lien manuel après une tentative d invitation', () => {
+    expect(source).toContain('api.issueActivation');
+    expect(source).toContain('Lien d’activation manuel');
+    expect(source).toContain('transmettez ce lien manuellement');
+  });
+
   it('explique la séparation des comptes sans promettre une invitation', () => {
     expect(source).toContain('ne sont pas des utilisateurs Magrit');
     expect(source).toContain('Aucun email, mot de passe ou');

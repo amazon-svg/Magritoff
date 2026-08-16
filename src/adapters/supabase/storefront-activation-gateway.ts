@@ -9,7 +9,23 @@ export class SupabaseStorefrontActivationGateway implements StorefrontActivation
       p_tenant_id: tenantId, p_shop_id: shopId, p_account_id: accountId, p_expires_seconds: expiresInSeconds,
     });
     if (error) throw new Error('L’émission du lien d’activation est indisponible.');
-    return data;
+    if (!data) return null;
+    const [accountResult, shopResult] = await Promise.all([
+      this.client.from('shop_customer_accounts').select('email, full_name')
+        .eq('id', accountId).eq('shop_id', shopId).maybeSingle(),
+      this.client.from('shops').select('name, slug')
+        .eq('id', shopId).eq('tenant_id', tenantId).maybeSingle(),
+    ]);
+    if (accountResult.error || shopResult.error || !accountResult.data || !shopResult.data) {
+      throw new Error('Le destinataire du lien d’activation est indisponible.');
+    }
+    return {
+      token: data,
+      customerEmail: accountResult.data.email,
+      customerName: accountResult.data.full_name,
+      shopName: shopResult.data.name,
+      shopSlug: shopResult.data.slug,
+    };
   }
   async activate(token: string, password: string) {
     const { data, error } = await this.client.rpc('api_activate_shop_customer', { p_token: token, p_password: password });

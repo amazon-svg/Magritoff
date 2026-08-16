@@ -1,10 +1,14 @@
 import { API_V1_BASE_PATH, FetchApiClient } from '../../../platform/api/index.ts';
 import {
   createShopCustomerCommandSchema,
+  issueStorefrontActivationCommandSchema,
+  issueStorefrontActivationResultSchema,
   shopCustomerAccountSchema,
   shopCustomerAccountsSchema,
   type CreateShopCustomerCommand,
   type ShopCustomerAccount,
+  type IssueStorefrontActivationCommand,
+  type IssueStorefrontActivationResult,
 } from './contracts.ts';
 
 export class ShopCustomersApiClient {
@@ -27,6 +31,20 @@ export class ShopCustomersApiClient {
       path: `${API_V1_BASE_PATH}/tenants/${tenantId}/shops/${shopId}/customers`,
       body: createShopCustomerCommandSchema.parse(command),
       responseSchema: shopCustomerAccountSchema,
+    });
+  }
+
+  issueActivation(
+    tenantId: string,
+    shopId: string,
+    customerId: string,
+    command: IssueStorefrontActivationCommand = {},
+  ): Promise<IssueStorefrontActivationResult> {
+    return this.client.request({
+      method: 'POST',
+      path: `${API_V1_BASE_PATH}/tenants/${tenantId}/shops/${shopId}/customers/${customerId}/activation`,
+      body: issueStorefrontActivationCommandSchema.parse(command),
+      responseSchema: issueStorefrontActivationResultSchema,
     });
   }
 }

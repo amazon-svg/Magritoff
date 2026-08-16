@@ -17,3 +17,5 @@ export {
 export { shopCustomersModuleManifest } from './manifest';
 export { StorefrontSessionService, type StorefrontSessionGateway } from './application/storefront-session-service';
 export { StorefrontActivationRejectedError, StorefrontActivationService, type StorefrontActivationGateway } from './application/storefront-activation-service';
+export type { StorefrontActivationIssue } from './application/storefront-activation-service';
+export type { StorefrontActivationEmail, StorefrontActivationEmailDelivery, StorefrontActivationEmailSender } from './application/storefront-activation-email-sender';
