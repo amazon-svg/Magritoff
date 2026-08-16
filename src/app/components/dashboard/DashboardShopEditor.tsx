@@ -44,6 +44,7 @@ import { resolveShopProductScope } from '../../utils/resolveShopProductScope';
 import { TEST_IDS } from '../../lib/testIds';
 import { lazy, Suspense as ReactSuspense } from 'react';
 import { useShopsApi } from '../../contexts/ModuleClientsContext';
+import { ShopCustomerAccountsSection } from './ShopCustomerAccountsSection';
 
 // P4-VISUELS (2026-06-15) : lazy-load ShopCustomMockups (upload custom).
 // P9-CLEANUP (2026-06-15) : ShopVisualSettings supprimé (remplacé par
@@ -732,7 +733,9 @@ export function DashboardShopEditor() {
 
         {/* S7.11 (ADR 4.20) — Mode d'accès acheteurs */}
         <label className="block">
-          <p className="text-sm font-medium text-ink mb-1">Accès des acheteurs</p>
+          <p className="text-sm font-medium text-ink mb-1">
+            Accès des acheteurs <span className="font-normal text-ink-muted">(mode transitoire)</span>
+          </p>
           <select
             data-testid={TEST_IDS.shop.accessModeSelect}
             value={shop.access_mode ?? 'invite_only'}
@@ -747,7 +750,9 @@ export function DashboardShopEditor() {
           <p className="text-xs text-ink-muted mt-1">
             En inscription libre, un visiteur peut créer son compte acheteur au
             checkout — accès limité à cette seule boutique. La boutique devient
-            aussi indexable par les moteurs de recherche.
+            aussi indexable par les moteurs de recherche. Ce parcours utilise
+            encore l’ancien modèle ; sa migration vers les comptes boutique
+            ci-dessous sera livrée avec l’authentification storefront UM2.
           </p>
         </label>
 
@@ -761,6 +766,10 @@ export function DashboardShopEditor() {
           Gérer mes bibliothèques
         </Link>
       </section>
+
+      {currentTenant && (
+        <ShopCustomerAccountsSection tenantId={currentTenant.id} shopId={shop.id} />
+      )}
 
       {/* ══ REFONTE-UX (2026-08-08, point 6) — CATALOGUE DE LA BOUTIQUE ══
           Section unique du domaine produit, a onglets :

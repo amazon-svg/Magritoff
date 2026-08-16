@@ -13,13 +13,13 @@ implementation: um1_api_delivered
 
 ## 1. Statut de cette spécification
 
-Cette spécification formalise la cible produit. UM0 et UM1.1 à UM1.3 ont été
+Cette spécification formalise la cible produit. UM0 et UM1.1 à UM1.4 ont été
 livrés le 16 août 2026 : ADR, module, contrats, table, service métier, accès
-workspace par capability et routes de gestion `GET/POST` des comptes boutique.
-Ces routes ne créent aucune session storefront. L’authentification boutique,
-les invitations, le compte miroir et la délégation ne sont pas encore livrés.
-Chaque vague suivante doit être découpée en stories BMAD exécutables avant son
-implémentation.
+workspace par capability, routes de gestion `GET/POST` et première section de
+gestion des comptes dans l’éditeur de boutique. Ces routes et cette interface ne
+créent aucune session storefront. L’authentification boutique, les invitations,
+le compte miroir et la délégation ne sont pas encore livrés. Chaque vague
+suivante doit être découpée en stories BMAD exécutables avant son implémentation.
 
 ## 2. Décisions produit figées
 
