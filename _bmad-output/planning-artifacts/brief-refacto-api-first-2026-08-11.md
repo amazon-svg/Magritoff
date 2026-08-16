@@ -139,7 +139,10 @@ n’est pas encore basculé sur cette identité. UM2.10 rend le lien exploitable
 avec un écran d’activation public et un transport anonyme séparé ; UM3 peut donc
 maintenant prendre en charge sa notification et son repli manuel. UM3.1 livre
 ce branchement : port Resend storefront distinct des invitations Magrit, action
-« Inviter/Renvoyer » dans la boutique et lien manuel toujours disponible.
+« Inviter/Renvoyer » dans la boutique et lien manuel toujours disponible. UM4.1
+ajoute le compte miroir idempotent : identité relue côté serveur depuis
+`auth.uid()`, unicité boutique/email, et aucun credential créé avant la future
+délégation UM5.
 
 ### Extension AF-C — Identité et invitations
 

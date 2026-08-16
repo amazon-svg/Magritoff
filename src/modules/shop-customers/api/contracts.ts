@@ -52,6 +52,11 @@ export const shopCustomerAccountSchema = z.object({
 
 export const shopCustomerAccountsSchema = z.array(shopCustomerAccountSchema);
 
+export const ensureSelfShopCustomerResultSchema = z.object({
+  customer: shopCustomerAccountSchema,
+  created: z.boolean(),
+}).strict();
+
 export const createShopCustomerCommandSchema = z.object({
   email: shopCustomerEmailSchema,
   fullName: z.string().trim().min(1).max(200),
@@ -172,6 +177,7 @@ export function shopCustomerAccountKey(shopId: string, email: string): string {
 
 export type ShopCustomerAccountStatus = z.infer<typeof shopCustomerAccountStatusSchema>;
 export type ShopCustomerAccount = z.infer<typeof shopCustomerAccountSchema>;
+export type EnsureSelfShopCustomerResult = z.infer<typeof ensureSelfShopCustomerResultSchema>;
 export type CreateShopCustomerCommand = z.input<typeof createShopCustomerCommandSchema>;
 export type DirectShopCustomerSession = z.infer<typeof directShopCustomerSessionSchema>;
 export type DelegatedShopCustomerSession = z.infer<typeof delegatedShopCustomerSessionSchema>;

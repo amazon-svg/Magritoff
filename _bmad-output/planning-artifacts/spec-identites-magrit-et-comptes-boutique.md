@@ -6,7 +6,7 @@ updated: 2026-08-16
 status: in_progress
 target_epic: EPIC-UM-STORE-IDENTITY
 decision_owner: produit
-implementation: um3_activation_invitation_delivered
+implementation: um4_self_shop_customer_delivered
 ---
 
 # Spécification — Identités Magrit et comptes boutique séparés
@@ -33,7 +33,8 @@ le jeton, choisit le mot de passe et rejoint ensuite la boutique, via un client
 HTTP anonyme distinct du workspace. UM3.1 branche ensuite l’invitation via un
 port email Resend propre aux comptes boutique, tout en affichant toujours le
 lien manuel dans Magrit. Les invitations tenant et boutique restent deux
-domaines séparés. La récupération de mot de passe, le compte miroir
+domaines séparés. UM4.1 livre ensuite le compte miroir idempotent, dérivé de
+l’identité Magrit côté serveur et créé sans credential. La récupération de mot de passe
 et la délégation ne sont pas encore livrés. Chaque vague suivante doit être
 découpée en stories BMAD exécutables avant son implémentation.
 
@@ -188,9 +189,8 @@ tenant et capability dédiée à la délégation.
    « Se connecter comme ».
 5. Sinon, un compte boutique `delegated_only` est créé avec le même nom et le
    même email métier.
-6. Un mot de passe aléatoire cryptographiquement robuste est généré côté
-   serveur pour l’identité Auth technique. Il n’est ni affiché, ni journalisé,
-   ni transmis au navigateur.
+6. Aucun credential ni mot de passe n’est créé : la délégation utilisera une
+   session courte propre et ne reposera pas sur Supabase Auth.
 7. Le compte devient immédiatement utilisable par délégation.
 8. Une activation autonome ultérieure passe par une invitation ou une
    récupération de mot de passe propre à cette boutique.

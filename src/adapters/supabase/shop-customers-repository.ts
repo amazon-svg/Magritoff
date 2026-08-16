@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { UserId } from '../../kernel/ids/index.ts';
-import { shopCustomerAccountSchema, type ShopCustomerAccount } from '../../modules/shop-customers/api/contracts.ts';
+import { ensureSelfShopCustomerResultSchema, shopCustomerAccountSchema, type EnsureSelfShopCustomerResult, type ShopCustomerAccount } from '../../modules/shop-customers/api/contracts.ts';
 import {
   ShopCustomerRejectedError,
   type CreateShopCustomerRecord,
@@ -63,6 +63,39 @@ export class SupabaseShopCustomersRepository implements ShopCustomersRepository 
       throw new ShopCustomerRejectedError('invalid_request', 'Normalisation email incohérente.');
     }
     return account;
+  }
+
+  async ensureSelf(
+    _actor: UserId,
+    tenantId: string,
+    shopId: string,
+  ): Promise<EnsureSelfShopCustomerResult> {
+    const { data, error } = await this.client.rpc('api_ensure_self_shop_customer', {
+      p_tenant_id: tenantId,
+      p_shop_id: shopId,
+    });
+    if (error) throw rejected(error);
+    const row = data?.[0];
+    if (!row) throw new ShopCustomerRejectedError(
+      'permission_denied',
+      'Création du compte miroir interdite ou identité Magrit incomplète.',
+    );
+    return ensureSelfShopCustomerResultSchema.parse({
+      customer: {
+        id: row.account_id,
+        shopId: row.shop_id,
+        email: row.email,
+        normalizedEmail: row.normalized_email,
+        fullName: row.full_name,
+        authSubjectId: row.auth_subject_id,
+        status: row.status,
+        createdByMagritUserId: row.created_by_magrit_user_id,
+        createdAt: row.created_at,
+        activatedAt: row.activated_at,
+        suspendedAt: row.suspended_at,
+      },
+      created: row.created,
+    });
   }
 
   private async requireShop(tenantId: string, shopId: string): Promise<void> {

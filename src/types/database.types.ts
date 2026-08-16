@@ -1939,6 +1939,23 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      api_ensure_self_shop_customer: {
+        Args: { p_shop_id: string; p_tenant_id: string }
+        Returns: {
+          account_id: string
+          activated_at: string | null
+          auth_subject_id: string | null
+          created: boolean
+          created_at: string
+          created_by_magrit_user_id: string | null
+          email: string
+          full_name: string
+          normalized_email: string
+          shop_id: string
+          status: string
+          suspended_at: string | null
+        }[]
+      }
       api_activate_shop_customer: { Args: { p_password: string; p_token: string }; Returns: boolean }
       api_issue_shop_customer_activation: {
         Args: { p_account_id: string; p_expires_seconds?: number; p_shop_id: string; p_tenant_id: string }

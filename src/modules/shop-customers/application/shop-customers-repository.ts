@@ -1,5 +1,5 @@
 import type { UserId } from '../../../kernel/ids/index.ts';
-import type { ShopCustomerAccount, ShopCustomerAccountStatus } from '../api/contracts.ts';
+import type { EnsureSelfShopCustomerResult, ShopCustomerAccount, ShopCustomerAccountStatus } from '../api/contracts.ts';
 
 export type ShopCustomerRejectionCode =
   | 'permission_denied'
@@ -40,4 +40,5 @@ export interface ShopCustomersRepository {
     shopId: string,
     record: CreateShopCustomerRecord,
   ): Promise<ShopCustomerAccount>;
+  ensureSelf(actor: UserId, tenantId: string, shopId: string): Promise<EnsureSelfShopCustomerResult>;
 }

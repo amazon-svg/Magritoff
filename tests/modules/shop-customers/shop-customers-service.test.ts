@@ -58,6 +58,17 @@ describe('ShopCustomersService', () => {
       actor(), 'tenant-1', SHOP, 'client@example.com',
     );
   });
+
+  it('délègue la création idempotente du compte miroir au repository', async () => {
+    const repository = repositoryStub();
+    const service = new ShopCustomersService(repository);
+
+    await expect(service.ensureSelf(actor(), 'tenant-1', SHOP)).resolves.toMatchObject({
+      customer: { id: CUSTOMER, shopId: SHOP },
+      created: true,
+    });
+    expect(repository.ensureSelf).toHaveBeenCalledWith(actor(), 'tenant-1', SHOP);
+  });
 });
 
 function repositoryStub(): ShopCustomersRepository {
@@ -72,6 +83,7 @@ function repositoryStub(): ShopCustomersRepository {
       status: record.status,
       createdByMagritUserId: record.createdByMagritUserId,
     })),
+    ensureSelf: vi.fn(async () => ({ customer: account({ status: 'delegated_only' }), created: true })),
   };
 }
 

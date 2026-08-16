@@ -1,5 +1,5 @@
 import { parseId, type UserId } from '../../kernel/ids/index.ts';
-import { createShopCustomerCommandSchema, shopCustomerAccountSchema, shopCustomerAccountsSchema } from '../../modules/shop-customers/api/contracts.ts';
+import { createShopCustomerCommandSchema, ensureSelfShopCustomerResultSchema, shopCustomerAccountSchema, shopCustomerAccountsSchema } from '../../modules/shop-customers/api/contracts.ts';
 import { ShopCustomerRejectedError } from '../../modules/shop-customers/application/shop-customers-repository.ts';
 import type { ShopCustomersService } from '../../modules/shop-customers/application/shop-customers-service.ts';
 import { API_V1_BASE_PATH } from '../../platform/api/contracts.ts';
@@ -34,6 +34,20 @@ export function createShopCustomersRoutes(service: ShopCustomersService): readon
             param(context, 'tenantId'),
             param(context, 'shopId'),
             command,
+          ),
+        }));
+      },
+    }),
+    defineJsonRoute({
+      method: 'POST', path: `${base}/self`, authentication: 'required',
+      inputSchema: null, outputSchema: ensureSelfShopCustomerResultSchema,
+      async handle(context) {
+        return execute(async () => ({
+          status: 200,
+          body: await service.ensureSelf(
+            actor(context),
+            param(context, 'tenantId'),
+            param(context, 'shopId'),
           ),
         }));
       },

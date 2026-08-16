@@ -3,12 +3,14 @@ import {
   createShopCustomerCommandSchema,
   issueStorefrontActivationCommandSchema,
   issueStorefrontActivationResultSchema,
+  ensureSelfShopCustomerResultSchema,
   shopCustomerAccountSchema,
   shopCustomerAccountsSchema,
   type CreateShopCustomerCommand,
   type ShopCustomerAccount,
   type IssueStorefrontActivationCommand,
   type IssueStorefrontActivationResult,
+  type EnsureSelfShopCustomerResult,
 } from './contracts.ts';
 
 export class ShopCustomersApiClient {
@@ -45,6 +47,14 @@ export class ShopCustomersApiClient {
       path: `${API_V1_BASE_PATH}/tenants/${tenantId}/shops/${shopId}/customers/${customerId}/activation`,
       body: issueStorefrontActivationCommandSchema.parse(command),
       responseSchema: issueStorefrontActivationResultSchema,
+    });
+  }
+
+  ensureSelf(tenantId: string, shopId: string): Promise<EnsureSelfShopCustomerResult> {
+    return this.client.request({
+      method: 'POST',
+      path: `${API_V1_BASE_PATH}/tenants/${tenantId}/shops/${shopId}/customers/self`,
+      responseSchema: ensureSelfShopCustomerResultSchema,
     });
   }
 }

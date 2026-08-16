@@ -3,6 +3,7 @@ import {
   createShopCustomerCommandSchema,
   normalizeShopCustomerEmail,
   type CreateShopCustomerCommand,
+  type EnsureSelfShopCustomerResult,
   type ShopCustomerAccount,
 } from '../api/contracts.ts';
 import {
@@ -45,5 +46,9 @@ export class ShopCustomersService {
       status: command.initialStatus,
       createdByMagritUserId: actor,
     });
+  }
+
+  ensureSelf(actor: UserId, tenantId: string, shopId: string): Promise<EnsureSelfShopCustomerResult> {
+    return this.repository.ensureSelf(actor, tenantId, shopId);
   }
 }

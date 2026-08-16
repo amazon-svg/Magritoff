@@ -62,6 +62,18 @@ describe('routes ShopCustomers API v1', () => {
       code: 'identity.authentication_required',
     });
   });
+
+  it('expose la création idempotente du compte miroir via le client partagé', async () => {
+    const repository = repositoryStub();
+    const client = new ShopCustomersApiClient(
+      new FetchApiClient('https://magrit.test', bridgeTo(application(repository)), () => 'jwt-um4'),
+    );
+
+    await expect(client.ensureSelf(TENANT, SHOP)).resolves.toMatchObject({
+      customer: { id: CUSTOMER, shopId: SHOP, normalizedEmail: 'client@example.com' },
+      created: true,
+    });
+  });
 });
 
 function application(repository: ShopCustomersRepository) {
@@ -83,6 +95,7 @@ function repositoryStub(): ShopCustomersRepository {
       fullName: record.fullName,
       status: record.status,
     }),
+    ensureSelf: async () => ({ customer: account({ status: 'delegated_only' }), created: true }),
   };
 }
 
