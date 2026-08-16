@@ -111,6 +111,12 @@ export const createStorefrontSessionCommandSchema = z.object({
   password: z.string().min(8).max(1024),
 }).strict();
 
+export const storefrontShopSlugSchema = z.string()
+  .trim()
+  .min(1)
+  .max(100)
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+
 export const createStorefrontSessionResultSchema = z.object({
   session: storefrontSessionSchema,
 }).strict();

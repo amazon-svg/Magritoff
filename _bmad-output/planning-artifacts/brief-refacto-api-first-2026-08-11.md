@@ -126,7 +126,8 @@ et la généralisation des surfaces dépendront du contrat storefront UM2. UM2.1
 figé ce contrat et sa politique de cookie HttpOnly sans encore activer la route
 publique ni modifier le checkout. UM2.2 a ajouté le stockage des credentials et
 sessions dans un schéma privé, sans `service_role` dans l’API et sans réutiliser
-l’email global Supabase Auth.
+l’email global Supabase Auth. UM2.3 orchestre la connexion, les refus neutres et
+l’émission de session derrière des ports, sans ouvrir encore la route publique.
 
 ### Extension AF-C — Identité et invitations
 
