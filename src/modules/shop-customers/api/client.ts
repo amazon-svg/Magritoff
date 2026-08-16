@@ -4,6 +4,8 @@ import {
   issueStorefrontActivationCommandSchema,
   issueStorefrontActivationResultSchema,
   ensureSelfShopCustomerResultSchema,
+  createShopCustomerDelegationCommandSchema,
+  selfShopCustomerDelegationResultSchema,
   shopCustomerAccountSchema,
   shopCustomerAccountsSchema,
   type CreateShopCustomerCommand,
@@ -11,6 +13,8 @@ import {
   type IssueStorefrontActivationCommand,
   type IssueStorefrontActivationResult,
   type EnsureSelfShopCustomerResult,
+  type CreateShopCustomerDelegationCommand,
+  type SelfShopCustomerDelegationResult,
 } from './contracts.ts';
 
 export class ShopCustomersApiClient {
@@ -55,6 +59,19 @@ export class ShopCustomersApiClient {
       method: 'POST',
       path: `${API_V1_BASE_PATH}/tenants/${tenantId}/shops/${shopId}/customers/self`,
       responseSchema: ensureSelfShopCustomerResultSchema,
+    });
+  }
+
+  startSelfDelegation(
+    tenantId: string,
+    shopId: string,
+    command: CreateShopCustomerDelegationCommand = {},
+  ): Promise<SelfShopCustomerDelegationResult> {
+    return this.client.request({
+      method: 'POST',
+      path: `${API_V1_BASE_PATH}/tenants/${tenantId}/shops/${shopId}/customers/self-delegation`,
+      body: createShopCustomerDelegationCommandSchema.parse(command),
+      responseSchema: selfShopCustomerDelegationResultSchema,
     });
   }
 }

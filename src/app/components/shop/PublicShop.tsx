@@ -39,9 +39,11 @@ import {
 import { buildShopTaxonomy } from '../../utils/shopTaxonomy';
 import { parsePortalPath, shopUrl } from './portal/shopPortalRoutes';
 import { applyTax, getTaxRate } from '../../utils/tax';
+import type { StorefrontSession } from '../../../modules/shop-customers';
 import type { PublicShopCatalog } from '../../../modules/shops';
 import { ApiClientError } from '../../../platform/api';
-import { useOrdersApi, useShopsApi } from '../../contexts/ModuleClientsContext';
+import { useOrdersApi, useShopsApi, useStorefrontIdentityApi } from '../../contexts/ModuleClientsContext';
+import { StorefrontDelegationBanner } from './StorefrontDelegationBanner';
 
 /**
  * Portail B2B Magrit — version 2.
@@ -76,7 +78,31 @@ export function PublicShop() {
   > | null>(null);
   const ordersApi = useOrdersApi();
   const shopsApi = useShopsApi();
+  const storefrontIdentityApi = useStorefrontIdentityApi();
+  const [storefrontSession, setStorefrontSession] = useState<StorefrontSession | null>(null);
+  const [endingDelegation, setEndingDelegation] = useState(false);
   const checkoutCommandKey = useRef(crypto.randomUUID());
+
+  useEffect(() => {
+    let cancelled = false;
+    storefrontIdentityApi.current()
+      .then((current) => { if (!cancelled) setStorefrontSession(current); })
+      .catch(() => { if (!cancelled) setStorefrontSession(null); });
+    return () => { cancelled = true; };
+  }, [storefrontIdentityApi]);
+
+  const endDelegation = async () => {
+    setEndingDelegation(true);
+    try {
+      await storefrontIdentityApi.end();
+      setStorefrontSession(null);
+      window.location.reload();
+    } catch {
+      window.alert('Impossible de quitter le mode délégué pour le moment. Réessayez.');
+    } finally {
+      setEndingDelegation(false);
+    }
+  };
 
   // S7.1 (ADR §4.19-1) — la vue est DÉRIVÉE de l'URL, plus un state interne.
   // Back/forward navigateur et reload sur URL profonde fonctionnent (AC1).
@@ -608,6 +634,15 @@ export function PublicShop() {
   };
 
   return (
+    <>
+      {storefrontSession?.identity.kind === 'delegated_shop_customer'
+        && storefrontSession.identity.shopId === shop.id && (
+          <StorefrontDelegationBanner
+            session={storefrontSession}
+            ending={endingDelegation}
+            onEnd={() => void endDelegation()}
+          />
+        )}
     <ShopLayout
       shop={shop}
       view={view}
@@ -769,6 +804,7 @@ export function PublicShop() {
         <Navigate to={shopUrl(slug, 'catalog')} replace />
       )}
     </ShopLayout>
+    </>
   );
 }
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { Check, Copy, Loader2, Mail, Plus, RefreshCw, UserRound } from 'lucide-react';
+import { Check, Copy, ExternalLink, Loader2, Mail, Plus, RefreshCw, UserRound } from 'lucide-react';
 import type { IssueStorefrontActivationResult, ShopCustomerAccount } from '../../../modules/shop-customers';
 import { useShopCustomersApi } from '../../contexts/ModuleClientsContext';
 
@@ -27,6 +27,7 @@ export function ShopCustomerAccountsSection({ tenantId, shopId }: Props) {
   const [issuingFor, setIssuingFor] = useState<string | null>(null);
   const [activation, setActivation] = useState<IssueStorefrontActivationResult | null>(null);
   const [copied, setCopied] = useState(false);
+  const [delegating, setDelegating] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -90,6 +91,28 @@ export function ShopCustomerAccountsSection({ tenantId, shopId }: Props) {
     }
   };
 
+  const openAsSelf = async () => {
+    const storefrontWindow = window.open('about:blank', '_blank');
+    if (storefrontWindow) storefrontWindow.opener = null;
+    setDelegating(true);
+    setError(null);
+    try {
+      const result = await api.startSelfDelegation(tenantId, shopId, {
+        reason: 'Accès depuis l’éditeur de boutique',
+      });
+      if (storefrontWindow) {
+        storefrontWindow.location.replace(result.storefrontPath);
+      } else {
+        window.location.assign(result.storefrontPath);
+      }
+    } catch (cause) {
+      storefrontWindow?.close();
+      setError(messageFrom(cause, 'Impossible d’ouvrir la boutique en mode délégué.'));
+    } finally {
+      setDelegating(false);
+    }
+  };
+
   return (
     <section className="border border-line rounded-xl bg-paper overflow-hidden">
       <div className="p-4 flex flex-wrap items-start justify-between gap-3 border-b border-line">
@@ -104,6 +127,15 @@ export function ShopCustomerAccountsSection({ tenantId, shopId }: Props) {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void openAsSelf()}
+            disabled={delegating}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line-2 text-sm font-medium text-ink hover:bg-bg disabled:opacity-50"
+          >
+            {delegating ? <Loader2 className="w-4 h-4 animate-spin" /> : <ExternalLink className="w-4 h-4" />}
+            Se connecter à la boutique
+          </button>
           <button
             type="button"
             onClick={() => void load()}

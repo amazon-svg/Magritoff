@@ -20,6 +20,13 @@ describe('ShopCustomerAccountsSection', () => {
     expect(source).toContain('transmettez ce lien manuellement');
   });
 
+  it('propose l action unifiée de délégation sans manipuler de jeton', () => {
+    expect(source).toContain('Se connecter à la boutique');
+    expect(source).toContain('api.startSelfDelegation');
+    expect(source).toContain("window.open('about:blank', '_blank')");
+    expect(source).not.toContain('opaqueToken');
+  });
+
   it('explique la séparation des comptes sans promettre une invitation', () => {
     expect(source).toContain('ne sont pas des utilisateurs Magrit');
     expect(source).toContain('Aucun email, mot de passe ou');

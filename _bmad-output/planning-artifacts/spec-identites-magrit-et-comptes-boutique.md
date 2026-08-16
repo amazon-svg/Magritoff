@@ -6,7 +6,7 @@ updated: 2026-08-16
 status: in_progress
 target_epic: EPIC-UM-STORE-IDENTITY
 decision_owner: produit
-implementation: um5_delegation_session_delivered
+implementation: um5_delegation_ui_delivered
 ---
 
 # Spécification — Identités Magrit et comptes boutique séparés
@@ -36,7 +36,8 @@ lien manuel dans Magrit. Les invitations tenant et boutique restent deux
 domaines séparés. UM4.1 livre ensuite le compte miroir idempotent, dérivé de
 l’identité Magrit côté serveur et créé sans credential. UM5.1 compose ce compte
 avec une délégation auditée et une session storefront HttpOnly de trente
-minutes. L’action d’interface et son bandeau arrivent en UM5.2. La récupération de mot de passe
+minutes. UM5.2 livre l’action unifiée dans Magrit, l’ouverture en nouvel onglet,
+le bandeau permanent et la sortie du mode délégué. La récupération de mot de passe
 et la délégation ne sont pas encore livrés. Chaque vague suivante doit être
 découpée en stories BMAD exécutables avant son implémentation.
 

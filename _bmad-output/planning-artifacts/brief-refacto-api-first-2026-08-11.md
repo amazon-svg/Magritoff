@@ -144,7 +144,9 @@ ajoute le compte miroir idempotent : identité relue côté serveur depuis
 `auth.uid()`, unicité boutique/email, et aucun credential créé avant la future
 délégation UM5. UM5.1 livre désormais cette session : enregistrement privé
 audité, jeton opaque en cookie HttpOnly, expiration courte, remplacement et
-révocation liés à l’acteur Magrit et à la boutique. L’action UI reste UM5.2.
+révocation liés à l’acteur Magrit et à la boutique. UM5.2 branche l’action
+unique « Se connecter à la boutique », le nouvel onglet, le bandeau de contexte
+et la sortie explicite, sans exposer le jeton au composant.
 
 ### Extension AF-C — Identité et invitations
 
