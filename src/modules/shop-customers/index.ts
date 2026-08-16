@@ -11,10 +11,6 @@ export {
   StorefrontAuthenticationRejectedError,
   StorefrontAuthenticationService,
   type IssuedStorefrontSession,
-  type StorefrontAuthenticationRepository,
-  type StorefrontCredentialVerifier,
-  type StorefrontPasswordVerification,
-  type StorefrontSessionIssuer,
-  type StorefrontShopIdentity,
+  type StorefrontAuthenticationGateway,
 } from './application/storefront-authentication-service';
 export { shopCustomersModuleManifest } from './manifest';

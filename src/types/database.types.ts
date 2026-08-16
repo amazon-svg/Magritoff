@@ -1939,6 +1939,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      api_authenticate_shop_customer: {
+        Args: { p_email: string; p_password: string; p_shop_slug: string }
+        Returns: {
+          account_id: string
+          account_status: string
+          email: string
+          expires_at: string
+          full_name: string
+          issued_at: string
+          opaque_token: string
+          shop_id: string
+        }[]
+      }
       api_swap_tenant_role_order: {
         Args: {
           p_first_role_id: string

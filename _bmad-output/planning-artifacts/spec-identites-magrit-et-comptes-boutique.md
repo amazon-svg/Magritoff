@@ -6,7 +6,7 @@ updated: 2026-08-16
 status: in_progress
 target_epic: EPIC-UM-STORE-IDENTITY
 decision_owner: produit
-implementation: um2_atomic_auth_primitive_delivered
+implementation: um2_login_route_delivered
 ---
 
 # Spécification — Identités Magrit et comptes boutique séparés
@@ -22,10 +22,12 @@ la politique de cookie ; UM2.2 a ajouté le stockage privé default-deny des
 credentials et sessions. UM2.3 orchestre la résolution boutique/email, les
 refus neutres et l’émission d’une session derrière des ports. UM2.4 fournit la
 primitive SQL atomique avec hash factice, verrouillage et jeton opaque. Aucune
-route HTTP publique n’est encore active. L’authentification boutique utilisable,
-les invitations, le compte miroir et la délégation ne sont pas encore livrés.
-Chaque vague suivante doit être découpée en stories BMAD exécutables avant son
-implémentation.
+route HTTP publique n’était alors active. UM2.5 expose maintenant la connexion
+par le BFF et transforme le jeton en cookie HttpOnly sans l’inclure dans le JSON.
+Le checkout ne l’utilise pas encore : activation, lecture de session et
+déconnexion restent requises avant la bascule. Les invitations, le compte miroir
+et la délégation ne sont pas encore livrés. Chaque vague suivante doit être
+découpée en stories BMAD exécutables avant son implémentation.
 
 ## 2. Décisions produit figées
 

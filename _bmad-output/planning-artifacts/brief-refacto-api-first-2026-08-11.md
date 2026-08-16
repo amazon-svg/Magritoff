@@ -129,7 +129,9 @@ sessions dans un schéma privé, sans `service_role` dans l’API et sans réuti
 l’email global Supabase Auth. UM2.3 orchestre la connexion, les refus neutres et
 l’émission de session derrière des ports. UM2.4 ajoute la primitive SQL atomique,
 le verrouillage après échecs et le stockage du seul hash du jeton, sans ouvrir
-encore la route HTTP publique.
+encore la route HTTP publique. UM2.5 compose l’adaptateur et ouvre la connexion
+BFF avec cookie HttpOnly, mais ne bascule pas encore le checkout tant que le
+cycle activation/session/déconnexion n’est pas complet.
 
 ### Extension AF-C — Identité et invitations
 
