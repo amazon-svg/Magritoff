@@ -14,6 +14,7 @@ import { conversationsModuleManifest } from '../../src/modules/conversations';
 import { machineParksModuleManifest } from '../../src/modules/machine-parks';
 import { mockupsModuleManifest } from '../../src/modules/mockups';
 import { plansModuleManifest } from '../../src/modules/plans';
+import { shopCustomersModuleManifest } from '../../src/modules/shop-customers';
 import { applicationContributionRegistry } from '../../src/surfaces';
 import {
   ContributionRegistryError,
@@ -161,6 +162,19 @@ describe('registre des contributions de surfaces', () => {
         label: 'Utilisateurs',
         testId: 'nav-sidebar-users-link',
       }),
+    );
+  });
+
+  it('déclare les comptes boutique comme un module distinct des membres Magrit', () => {
+    expect(shopCustomersModuleManifest.surfaces).toEqual([
+      'storefront', 'customer-portal', 'workspace', 'backoffice',
+    ]);
+    expect(shopCustomersModuleManifest.id).not.toBe(membersModuleManifest.id);
+    expect(shopCustomersModuleManifest.capabilities.map(({ id }) => id)).toContain(
+      'shop-customers.delegate',
+    );
+    expect(applicationContributionRegistry.manifest('shop-customers')).toBe(
+      shopCustomersModuleManifest,
     );
   });
 

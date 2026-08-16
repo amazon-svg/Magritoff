@@ -18,8 +18,9 @@ import { conversationsModuleManifest, conversationsWorkspaceContribution } from 
 import { machineParksModuleManifest, machineParksWorkspaceContribution } from '../modules/machine-parks';
 import { mockupsModuleManifest, mockupsWorkspaceContribution } from '../modules/mockups';
 import { plansModuleManifest, plansWorkspaceContribution } from '../modules/plans';
+import { shopCustomersModuleManifest } from '../modules/shop-customers';
 
 export const applicationContributionRegistry = createContributionRegistry({
-  manifests: [accountModuleManifest, ordersModuleManifest, shopsModuleManifest, quotesModuleManifest, quoteTemplatesModuleManifest, librariesModuleManifest, catalogModuleManifest, commercialModuleManifest, membersModuleManifest, tenantsModuleManifest, rolesModuleManifest, conversationsModuleManifest, machineParksModuleManifest, mockupsModuleManifest, plansModuleManifest],
+  manifests: [accountModuleManifest, ordersModuleManifest, shopsModuleManifest, shopCustomersModuleManifest, quotesModuleManifest, quoteTemplatesModuleManifest, librariesModuleManifest, catalogModuleManifest, commercialModuleManifest, membersModuleManifest, tenantsModuleManifest, rolesModuleManifest, conversationsModuleManifest, machineParksModuleManifest, mockupsModuleManifest, plansModuleManifest],
   contributions: [accountWorkspaceContribution, accountCustomerPortalContribution, ordersStorefrontContribution, ordersCustomerPortalContribution, ordersWorkspaceContribution, ordersBackofficeContribution, shopsStorefrontContribution, shopsWorkspaceContribution, shopsBackofficeContribution, quotesStorefrontContribution, quotesCustomerPortalContribution, quotesWorkspaceContribution, quotesBackofficeContribution, quoteTemplatesWorkspaceContribution, librariesWorkspaceContribution, catalogStorefrontContribution, catalogWorkspaceContribution, commercialWorkspaceContribution, membersWorkspaceContribution, tenantsWorkspaceContribution, rolesWorkspaceContribution, conversationsWorkspaceContribution, machineParksWorkspaceContribution, mockupsWorkspaceContribution, plansWorkspaceContribution],
 });

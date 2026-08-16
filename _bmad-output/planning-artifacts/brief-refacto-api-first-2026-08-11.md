@@ -115,8 +115,9 @@ fusionner les identités.
 
 Cette évolution est spécifiée dans
 `_bmad-output/planning-artifacts/spec-identites-magrit-et-comptes-boutique.md`.
-Elle est planifiée pour plus tard et ne décrit pas le modèle actuellement livré.
-UM0/UM1 pourront avancer en parallèle d’AF24 ; la migration Auth et la
+UM0.1 a livré l’ADR, le module `shop-customers` et les contrats d’identité, sans
+activer de comportement storefront. UM1 pourra avancer après validation de son
+modèle de données ; la migration Auth et la
 généralisation des surfaces dépendront du contrat storefront UM2.
 
 ### Extension AF-C — Identité et invitations

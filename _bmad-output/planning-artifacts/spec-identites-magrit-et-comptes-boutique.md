@@ -3,19 +3,20 @@ id: SPEC-IDENTITY-STORE-01
 title: Séparation des utilisateurs Magrit et des comptes boutique
 date: 2026-08-12
 updated: 2026-08-16
-status: deferred
+status: in_progress
 target_epic: EPIC-UM-STORE-IDENTITY
 decision_owner: produit
-implementation: a_faire_plus_tard
+implementation: um0_started
 ---
 
 # Spécification — Identités Magrit et comptes boutique séparés
 
 ## 1. Statut de cette spécification
 
-Cette spécification formalise une décision produit à mettre en œuvre plus tard.
-Elle ne décrit pas le comportement actuellement livré. Elle doit être relue
-avant le démarrage de l’epic, puis découpée en stories BMAD exécutables.
+Cette spécification formalise la cible produit. UM0 a démarré le 16 août 2026
+avec l’ADR, le module et les contrats d’identité. Les comportements de comptes,
+d’authentification et de délégation ne sont pas encore livrés. Chaque vague doit
+être découpée en stories BMAD exécutables avant son implémentation.
 
 ## 2. Décisions produit figées
 
