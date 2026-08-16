@@ -58,6 +58,7 @@ import { ShopCustomersService } from '../../../src/modules/shop-customers/applic
 import { SupabaseShopCustomersRepository } from '../../../src/adapters/supabase/shop-customers-repository.ts';
 import { createShopCustomersRoutes } from '../../../src/server/api/shop-customers-routes.ts';
 import { StorefrontAuthenticationService } from '../../../src/modules/shop-customers/application/storefront-authentication-service.ts';
+import { StorefrontSessionService } from '../../../src/modules/shop-customers/application/storefront-session-service.ts';
 import { SupabaseStorefrontAuthenticationGateway } from '../../../src/adapters/supabase/storefront-authentication-gateway.ts';
 import { createStorefrontSessionRoutes } from '../../../src/server/api/storefront-session-routes.ts';
 import { storefrontSessionCookiePolicy } from '../../../src/server/storefront/session-cookie.ts';
@@ -109,6 +110,7 @@ export async function handleRequest(request: Request): Promise<Response> {
   const shopsService = new ShopsService(new SupabaseShopsRepository(client, publicSupabaseUrl(request, supabaseUrl)));
   const shopCustomersService = new ShopCustomersService(new SupabaseShopCustomersRepository(client));
   const storefrontAuthenticationService = new StorefrontAuthenticationService(new SupabaseStorefrontAuthenticationGateway(client));
+  const storefrontSessionService = new StorefrontSessionService(new SupabaseStorefrontAuthenticationGateway(client));
   const catalogService = new CatalogService(new SupabaseCatalogRepository(client), new SupabaseCatalogAutomationGateway(client));
   const conversationsService = new ConversationsService(new SupabaseConversationsRepository(client));
   const aiConfiguration = aiProviderConfigurationFromEnvironment((name) => Deno.env.get(name));
@@ -139,7 +141,7 @@ export async function handleRequest(request: Request): Promise<Response> {
       ...createRolesRoutes(rolesService),
       ...createShopsRoutes(shopsService),
       ...createShopCustomersRoutes(shopCustomersService),
-      ...createStorefrontSessionRoutes(storefrontAuthenticationService, storefrontSessionCookiePolicy(new URL(request.url).protocol === 'https:')),
+      ...createStorefrontSessionRoutes(storefrontAuthenticationService, storefrontSessionService, storefrontSessionCookiePolicy(new URL(request.url).protocol === 'https:')),
       ...createCatalogRoutes(catalogService),
       ...createConversationsRoutes(conversationsService),
       ...createDiagnosticsRoutes(diagnosticsService),

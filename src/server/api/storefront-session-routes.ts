@@ -1,12 +1,14 @@
-import { createStorefrontSessionCommandSchema, createStorefrontSessionResultSchema } from '../../modules/shop-customers/api/contracts.ts';
+import { createStorefrontSessionCommandSchema, createStorefrontSessionResultSchema, endStorefrontSessionResultSchema } from '../../modules/shop-customers/api/contracts.ts';
 import { StorefrontAuthenticationRejectedError, type StorefrontAuthenticationService } from '../../modules/shop-customers/application/storefront-authentication-service.ts';
+import type { StorefrontSessionService } from '../../modules/shop-customers/application/storefront-session-service.ts';
 import { API_V1_BASE_PATH } from '../../platform/api/contracts.ts';
-import { serializeStorefrontSessionCookie, type StorefrontSessionCookiePolicy } from '../storefront/session-cookie.ts';
+import { clearStorefrontSessionCookie, readStorefrontSessionCookie, serializeStorefrontSessionCookie, type StorefrontSessionCookiePolicy } from '../storefront/session-cookie.ts';
 import { ApiHttpError } from './errors.ts';
 import { defineJsonRoute, type ApiRoute } from './routes.ts';
 
 export function createStorefrontSessionRoutes(
   service: StorefrontAuthenticationService,
+  sessions: StorefrontSessionService,
   cookiePolicy: StorefrontSessionCookiePolicy,
 ): readonly ApiRoute[] {
   return [defineJsonRoute({
@@ -33,6 +35,23 @@ export function createStorefrontSessionRoutes(
         }
         throw error;
       }
+    },
+  }), defineJsonRoute({
+    method: 'GET', path: `${API_V1_BASE_PATH}/storefront/session/current`, authentication: 'public',
+    inputSchema: null, outputSchema: createStorefrontSessionResultSchema,
+    async handle(context) {
+      const token = readStorefrontSessionCookie(context.request.headers.get('cookie'), cookiePolicy);
+      const session = token ? await sessions.current(token) : null;
+      if (!session) throw new ApiHttpError({ type: 'about:blank', title: 'Session storefront requise', status: 401, code: 'storefront.session_required' });
+      return { status: 200, headers: { 'Cache-Control': 'no-store' }, body: { session } };
+    },
+  }), defineJsonRoute({
+    method: 'DELETE', path: `${API_V1_BASE_PATH}/storefront/session/current`, authentication: 'public',
+    inputSchema: null, outputSchema: endStorefrontSessionResultSchema,
+    async handle(context) {
+      const token = readStorefrontSessionCookie(context.request.headers.get('cookie'), cookiePolicy);
+      if (token) await sessions.end(token);
+      return { status: 200, headers: { 'Set-Cookie': clearStorefrontSessionCookie(cookiePolicy), 'Cache-Control': 'no-store' }, body: { ended: true as const } };
     },
   })];
 }

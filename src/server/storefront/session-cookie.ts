@@ -36,6 +36,20 @@ export function clearStorefrontSessionCookie(policy: StorefrontSessionCookiePoli
   return serialize(policy, '', 0);
 }
 
+export function readStorefrontSessionCookie(
+  cookieHeader: string | null,
+  policy: StorefrontSessionCookiePolicy,
+): string | null {
+  if (!cookieHeader) return null;
+  for (const part of cookieHeader.split(';')) {
+    const separator = part.indexOf('=');
+    if (separator < 0 || part.slice(0, separator).trim() !== policy.name) continue;
+    const value = part.slice(separator + 1).trim();
+    return /^[A-Za-z0-9_-]{32,512}$/.test(value) ? value : null;
+  }
+  return null;
+}
+
 function serialize(
   policy: StorefrontSessionCookiePolicy,
   value: string,

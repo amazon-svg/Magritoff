@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { StorefrontAuthenticationService, type StorefrontAuthenticationGateway } from '../../../src/modules/shop-customers';
+import { StorefrontAuthenticationService, StorefrontSessionService, type StorefrontAuthenticationGateway } from '../../../src/modules/shop-customers';
 import { createApiV1Application, createStorefrontSessionRoutes } from '../../../src/server/api';
 import { storefrontSessionCookiePolicy } from '../../../src/server/storefront/session-cookie';
 
@@ -27,12 +27,23 @@ describe('route de session storefront', () => {
       detail: 'Email ou mot de passe incorrect.',
     });
   });
+
+  it('efface toujours le cookie à la déconnexion', async () => {
+    const response = await handler(gateway(false))(new Request(
+      'https://magrit.test/api/v1/storefront/session/current',
+      { method: 'DELETE', headers: { Cookie: `magrit-storefront=${TOKEN}` } },
+    ));
+    expect(response.status).toBe(200);
+    expect(response.headers.get('set-cookie')).toContain('Max-Age=0');
+    await expect(response.json()).resolves.toEqual({ ended: true });
+  });
 });
 
 function handler(authenticationGateway: StorefrontAuthenticationGateway) {
   return createApiV1Application({
     routes: createStorefrontSessionRoutes(
       new StorefrontAuthenticationService(authenticationGateway),
+      new StorefrontSessionService({ resolve: async () => null, revoke: async () => true }),
       storefrontSessionCookiePolicy(false),
     ),
     requestIdFactory: () => 'request-storefront-um2',

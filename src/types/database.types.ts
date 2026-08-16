@@ -1952,6 +1952,14 @@ export type Database = {
           shop_id: string
         }[]
       }
+      api_resolve_shop_customer_session: {
+        Args: { p_opaque_token: string }
+        Returns: { account_id: string; account_status: string; actor_magrit_user_id: string | null; delegation_id: string | null; email: string; expires_at: string; full_name: string; session_kind: string; shop_id: string }[]
+      }
+      api_revoke_shop_customer_session: {
+        Args: { p_opaque_token: string }
+        Returns: boolean
+      }
       api_swap_tenant_role_order: {
         Args: {
           p_first_role_id: string

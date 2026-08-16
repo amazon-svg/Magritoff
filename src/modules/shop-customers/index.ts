@@ -14,3 +14,4 @@ export {
   type StorefrontAuthenticationGateway,
 } from './application/storefront-authentication-service';
 export { shopCustomersModuleManifest } from './manifest';
+export { StorefrontSessionService, type StorefrontSessionGateway } from './application/storefront-session-service';
