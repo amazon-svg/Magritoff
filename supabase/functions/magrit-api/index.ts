@@ -54,6 +54,9 @@ import { HttpClariprintQuoteGateway } from '../../../src/adapters/clariprint/htt
 import { createClariprintRoutes } from '../../../src/server/api/clariprint-routes.ts';
 import { isMockupBinaryRequest, proxyMockupBinary } from '../../../src/adapters/supabase/mockup-binary-proxy.ts';
 import { isAssistantChatRequest, proxyAssistantChat } from '../../../src/server/api/assistant-stream-proxy.ts';
+import { ShopCustomersService } from '../../../src/modules/shop-customers/application/shop-customers-service.ts';
+import { SupabaseShopCustomersRepository } from '../../../src/adapters/supabase/shop-customers-repository.ts';
+import { createShopCustomersRoutes } from '../../../src/server/api/shop-customers-routes.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -100,6 +103,7 @@ export async function handleRequest(request: Request): Promise<Response> {
   const membersService = new MembersService(new SupabaseMembersRepository(client));
   const rolesService = new RolesService(new SupabaseRolesRepository(client));
   const shopsService = new ShopsService(new SupabaseShopsRepository(client, publicSupabaseUrl(request, supabaseUrl)));
+  const shopCustomersService = new ShopCustomersService(new SupabaseShopCustomersRepository(client));
   const catalogService = new CatalogService(new SupabaseCatalogRepository(client), new SupabaseCatalogAutomationGateway(client));
   const conversationsService = new ConversationsService(new SupabaseConversationsRepository(client));
   const aiConfiguration = aiProviderConfigurationFromEnvironment((name) => Deno.env.get(name));
@@ -129,6 +133,7 @@ export async function handleRequest(request: Request): Promise<Response> {
       ...createMembersRoutes(membersService),
       ...createRolesRoutes(rolesService),
       ...createShopsRoutes(shopsService),
+      ...createShopCustomersRoutes(shopCustomersService),
       ...createCatalogRoutes(catalogService),
       ...createConversationsRoutes(conversationsService),
       ...createDiagnosticsRoutes(diagnosticsService),

@@ -1,4 +1,5 @@
 export * from './api/contracts';
+export { ShopCustomersApiClient } from './api/client';
 export {
   ShopCustomerRejectedError,
   type CreateShopCustomerRecord,

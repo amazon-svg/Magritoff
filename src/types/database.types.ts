@@ -822,6 +822,56 @@ export type Database = {
           },
         ]
       }
+      shop_customer_accounts: {
+        Row: {
+          activated_at: string | null
+          auth_subject_id: string | null
+          created_at: string
+          created_by_magrit_user_id: string | null
+          email: string
+          full_name: string
+          id: string
+          normalized_email: string
+          shop_id: string
+          status: string
+          suspended_at: string | null
+        }
+        Insert: {
+          activated_at?: string | null
+          auth_subject_id?: string | null
+          created_at?: string
+          created_by_magrit_user_id?: string | null
+          email: string
+          full_name: string
+          id?: string
+          normalized_email?: never
+          shop_id: string
+          status?: string
+          suspended_at?: string | null
+        }
+        Update: {
+          activated_at?: string | null
+          auth_subject_id?: string | null
+          created_at?: string
+          created_by_magrit_user_id?: string | null
+          email?: string
+          full_name?: string
+          id?: string
+          normalized_email?: never
+          shop_id?: string
+          status?: string
+          suspended_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shop_customer_accounts_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shop_product_pricing: {
         Row: {
           created_at: string

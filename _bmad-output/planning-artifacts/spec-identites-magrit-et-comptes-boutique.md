@@ -6,18 +6,20 @@ updated: 2026-08-16
 status: in_progress
 target_epic: EPIC-UM-STORE-IDENTITY
 decision_owner: produit
-implementation: um0_started
+implementation: um1_api_delivered
 ---
 
 # Spécification — Identités Magrit et comptes boutique séparés
 
 ## 1. Statut de cette spécification
 
-Cette spécification formalise la cible produit. UM0, UM1.1 et UM1.2 ont démarré
-le 16 août 2026 avec l’ADR, le module, les contrats, la table, le service métier
-et les accès workspace par capability. Les routes de gestion, l’authentification
-et la délégation ne sont pas encore livrées. Chaque vague doit être découpée en
-stories BMAD exécutables avant son implémentation.
+Cette spécification formalise la cible produit. UM0 et UM1.1 à UM1.3 ont été
+livrés le 16 août 2026 : ADR, module, contrats, table, service métier, accès
+workspace par capability et routes de gestion `GET/POST` des comptes boutique.
+Ces routes ne créent aucune session storefront. L’authentification boutique,
+les invitations, le compte miroir et la délégation ne sont pas encore livrés.
+Chaque vague suivante doit être découpée en stories BMAD exécutables avant son
+implémentation.
 
 ## 2. Décisions produit figées
 

@@ -118,8 +118,10 @@ Cette évolution est spécifiée dans
 UM0.1 a livré l’ADR, le module `shop-customers` et les contrats d’identité.
 UM1.1 a ajouté la table isolée par boutique en RLS default-deny, sans activer de
 comportement storefront. UM1.2 a ajouté service métier, capabilities et policies
-workspace, toujours sans route active. Les APIs suivront ; la migration Auth et la
-généralisation des surfaces dépendront du contrat storefront UM2.
+workspace. UM1.3 expose les routes de liste et de création ainsi que leur client
+HTTP partagé. Cette API reste strictement workspace : la migration Auth, les
+sessions boutique et la généralisation des surfaces dépendront du contrat
+storefront UM2.
 
 ### Extension AF-C — Identité et invitations
 
