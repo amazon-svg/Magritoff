@@ -13,11 +13,11 @@ implementation: um0_started
 
 ## 1. Statut de cette spécification
 
-Cette spécification formalise la cible produit. UM0 et le schéma additif UM1.1
-ont démarré le 16 août 2026 avec l’ADR, le module, les contrats et la table des
-comptes. Les comportements de gestion, d’authentification et de délégation ne
-sont pas encore livrés. Chaque vague doit être découpée en stories BMAD
-exécutables avant son implémentation.
+Cette spécification formalise la cible produit. UM0, UM1.1 et UM1.2 ont démarré
+le 16 août 2026 avec l’ADR, le module, les contrats, la table, le service métier
+et les accès workspace par capability. Les routes de gestion, l’authentification
+et la délégation ne sont pas encore livrées. Chaque vague doit être découpée en
+stories BMAD exécutables avant son implémentation.
 
 ## 2. Décisions produit figées
 

@@ -34,6 +34,8 @@ const CAPABILITY_LABELS: Record<string, string> = {
   can_export: 'Exporter',
   can_manage_catalog: 'Gérer catalogue',
   can_manage_roles: 'Gérer rôles',
+  can_manage_shop_customers: 'Gérer clients boutique',
+  can_impersonate_shop_customer: 'Se connecter à une boutique',
 };
 
 interface RoleDefRow {

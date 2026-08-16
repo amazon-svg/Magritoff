@@ -42,7 +42,21 @@ export const shopCustomerAccountSchema = z.object({
       message: 'L’email normalisé doit correspondre à l’email métier.',
     });
   }
+  if (account.status === 'active' && account.activatedAt === null) {
+    context.addIssue({ code: 'custom', path: ['activatedAt'], message: 'Un compte actif doit être activé.' });
+  }
+  if (account.status === 'suspended' && account.suspendedAt === null) {
+    context.addIssue({ code: 'custom', path: ['suspendedAt'], message: 'Un compte suspendu doit être horodaté.' });
+  }
 });
+
+export const shopCustomerAccountsSchema = z.array(shopCustomerAccountSchema);
+
+export const createShopCustomerCommandSchema = z.object({
+  email: shopCustomerEmailSchema,
+  fullName: z.string().trim().min(1).max(200),
+  initialStatus: z.enum(['delegated_only', 'invited']).default('invited'),
+}).strict();
 
 export const directShopCustomerSessionSchema = z.object({
   kind: z.literal('shop_customer'),
@@ -90,6 +104,7 @@ export function shopCustomerAccountKey(shopId: string, email: string): string {
 
 export type ShopCustomerAccountStatus = z.infer<typeof shopCustomerAccountStatusSchema>;
 export type ShopCustomerAccount = z.infer<typeof shopCustomerAccountSchema>;
+export type CreateShopCustomerCommand = z.input<typeof createShopCustomerCommandSchema>;
 export type DirectShopCustomerSession = z.infer<typeof directShopCustomerSessionSchema>;
 export type DelegatedShopCustomerSession = z.infer<typeof delegatedShopCustomerSessionSchema>;
 export type StorefrontIdentity = z.infer<typeof storefrontIdentitySchema>;

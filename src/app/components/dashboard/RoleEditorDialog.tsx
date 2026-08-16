@@ -219,6 +219,8 @@ export function RoleEditorDialog({
       can_invite: role?.capabilities.can_invite ?? false,
       can_manage_catalog: role?.capabilities.can_manage_catalog ?? false,
       can_manage_roles: role?.capabilities.can_manage_roles ?? false,
+      can_manage_shop_customers: role?.capabilities.can_manage_shop_customers ?? false,
+      can_impersonate_shop_customer: role?.capabilities.can_impersonate_shop_customer ?? false,
     };
 
     const command = {
