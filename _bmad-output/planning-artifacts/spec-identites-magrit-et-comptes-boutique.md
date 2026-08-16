@@ -6,7 +6,7 @@ updated: 2026-08-16
 status: in_progress
 target_epic: EPIC-UM-STORE-IDENTITY
 decision_owner: produit
-implementation: um2_session_boundary_started
+implementation: um2_private_auth_storage_delivered
 ---
 
 # Spécification — Identités Magrit et comptes boutique séparés
@@ -18,10 +18,11 @@ livrés le 16 août 2026 : ADR, module, contrats, table, service métier, accès
 workspace par capability, routes de gestion `GET/POST` et première section de
 gestion des comptes dans l’éditeur de boutique. Ces routes et cette interface ne
 créent aucune session storefront. UM2.1 a ensuite figé le contrat de session et
-la politique de cookie, sans activer de route publique. L’authentification
-boutique, les invitations, le compte miroir et la délégation ne sont pas encore
-livrés. Chaque vague suivante doit être découpée en stories BMAD exécutables
-avant son implémentation.
+la politique de cookie ; UM2.2 a ajouté le stockage privé default-deny des
+credentials et sessions. Aucune route publique n’est encore active.
+L’authentification boutique utilisable, les invitations, le compte miroir et la
+délégation ne sont pas encore livrés. Chaque vague suivante doit être découpée
+en stories BMAD exécutables avant son implémentation.
 
 ## 2. Décisions produit figées
 
@@ -121,9 +122,11 @@ Supabase Auth impose une identité email globalement unique alors que ce modèle
 autorise la même adresse dans plusieurs boutiques et pour un utilisateur Magrit.
 Le storefront ne doit donc pas appeler Supabase Auth directement.
 
-Le BFF reçoit le contexte de boutique, l’email et le secret, résout le compte par
-`(shop_id, normalized_email)`, puis utilise un identifiant Auth technique unique
-et non exposé. L’email métier reste stocké sur le compte boutique.
+Le BFF reçoit le contexte de boutique, l’email et le secret, puis résout le
+compte par `(shop_id, normalized_email)`. Les credentials et sessions sont
+stockés dans un schéma PostgreSQL `private`, hors PostgREST. Le storefront
+n’utilise pas l’email global de Supabase Auth ; le champ `auth_subject_id`
+historique est transitoire et ne fait pas partie du nouveau contrat.
 
 Conséquences :
 
@@ -131,7 +134,7 @@ Conséquences :
   boutique précise ;
 - messages neutres ne révélant pas l’existence du compte ;
 - envoi des emails d’activation et de récupération par le port email Magrit ;
-- aucun identifiant Auth technique renvoyé au navigateur ;
+- aucun hash, jeton ou identifiant Auth technique renvoyé au navigateur ;
 - session storefront distincte de la session Magrit et limitée à une boutique.
 
 ## 7. Parcours unifié « Se connecter à la boutique »

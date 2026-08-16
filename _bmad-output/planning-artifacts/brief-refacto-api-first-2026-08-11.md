@@ -124,7 +124,9 @@ distincte de l’éditeur de boutique, sans les mélanger aux utilisateurs Magri
 Cette API reste strictement workspace : la migration Auth, les sessions boutique
 et la généralisation des surfaces dépendront du contrat storefront UM2. UM2.1 a
 figé ce contrat et sa politique de cookie HttpOnly sans encore activer la route
-publique ni modifier le checkout.
+publique ni modifier le checkout. UM2.2 a ajouté le stockage des credentials et
+sessions dans un schéma privé, sans `service_role` dans l’API et sans réutiliser
+l’email global Supabase Auth.
 
 ### Extension AF-C — Identité et invitations
 
