@@ -135,7 +135,9 @@ cycle activation/session/déconnexion n’est pas complet. UM2.6 à UM2.9 livren
 désormais ce cycle côté BFF : résolution et révocation de session, émission
 workspace d’un jeton puis activation publique du mot de passe. Le lien reste à
 transmettre manuellement jusqu’au branchement du port email UM3, et le checkout
-n’est pas encore basculé sur cette identité.
+n’est pas encore basculé sur cette identité. UM2.10 rend le lien exploitable
+avec un écran d’activation public et un transport anonyme séparé ; UM3 peut donc
+maintenant prendre en charge sa notification et son repli manuel.
 
 ### Extension AF-C — Identité et invitations
 

@@ -11,7 +11,7 @@ import { QuoteTemplatesApiClient } from '../../modules/quote-templates';
 import { QuotesApiClient } from '../../modules/quotes';
 import { RolesApiClient } from '../../modules/roles';
 import { SessionApiClient } from '../../modules/session';
-import { ShopCustomersApiClient } from '../../modules/shop-customers';
+import { ShopCustomersApiClient, StorefrontIdentityApiClient } from '../../modules/shop-customers';
 import { ShopsApiClient } from '../../modules/shops';
 import { useApiRuntime } from './ApiRuntimeContext';
 
@@ -27,6 +27,7 @@ type ModuleClients = Readonly<{
   quotes: QuotesApiClient;
   session: SessionApiClient;
   shopCustomers: ShopCustomersApiClient;
+  storefrontIdentity: StorefrontIdentityApiClient;
   shops: ShopsApiClient;
   shopsForAccessToken(accessToken: string): ShopsApiClient;
   workspaceInvitations: InvitationsApiClient;
@@ -53,6 +54,7 @@ export function ModuleClientsProvider({ children }: { children: ReactNode }) {
       quotes: new QuotesApiClient(apiRuntime.client),
       session: new SessionApiClient(apiRuntime.client),
       shopCustomers: new ShopCustomersApiClient(apiRuntime.client),
+      storefrontIdentity: new StorefrontIdentityApiClient(apiRuntime.anonymousClient),
       shops: new ShopsApiClient(apiRuntime.client),
       shopsForAccessToken: (accessToken) => new ShopsApiClient(
         apiRuntime.forAccessToken(accessToken),
@@ -138,6 +140,12 @@ export function useShopCustomersApi(): ShopCustomersApiClient {
   const clients = useContext(ModuleClientsContext);
   if (!clients) throw new Error('useShopCustomersApi must be used within a ModuleClientsProvider');
   return clients.shopCustomers;
+}
+
+export function useStorefrontIdentityApi(): StorefrontIdentityApiClient {
+  const clients = useContext(ModuleClientsContext);
+  if (!clients) throw new Error('useStorefrontIdentityApi must be used within a ModuleClientsProvider');
+  return clients.storefrontIdentity;
 }
 
 export function useShopsApi(): ShopsApiClient {

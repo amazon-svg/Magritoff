@@ -6,7 +6,7 @@ updated: 2026-08-16
 status: in_progress
 target_epic: EPIC-UM-STORE-IDENTITY
 decision_owner: produit
-implementation: um2_credential_activation_api_delivered
+implementation: um2_activation_screen_delivered
 ---
 
 # Spécification — Identités Magrit et comptes boutique séparés
@@ -28,7 +28,9 @@ UM2.6 et UM2.7 livrent la lecture et la déconnexion de session. UM2.8 et UM2.9
 livrent l’émission sécurisée du jeton et son activation publique par le BFF. Le
 jeton peut être transmis manuellement ; aucun email n’est annoncé tant que le
 port de notification UM3 n’est pas branché. Le checkout et l’écran d’activation
-ne l’utilisent pas encore. Les invitations, le compte miroir
+ne l’utilisent pas encore. UM2.10 ajoute toutefois l’écran public qui consomme
+le jeton, choisit le mot de passe et rejoint ensuite la boutique, via un client
+HTTP anonyme distinct du workspace. Les invitations, le compte miroir
 et la délégation ne sont pas encore livrés. Chaque vague suivante doit être
 découpée en stories BMAD exécutables avant son implémentation.
 

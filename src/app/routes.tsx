@@ -28,6 +28,9 @@ const PersonalizationPage = lazy(() =>
 const PublicShop = lazy(() =>
   import("./components/shop/PublicShop").then((m) => ({ default: m.PublicShop })),
 );
+const StorefrontActivationPage = lazy(() =>
+  import("./components/shop/StorefrontActivationPage").then((m) => ({ default: m.StorefrontActivationPage })),
+);
 
 // REFONTE-UX (2026-08-08) — module Parc machine, wizard RP#070826 (point 8).
 const MachineParkWizard = lazy(() =>
@@ -81,6 +84,7 @@ export const router = createBrowserRouter([
       // S7.1 (ADR §4.19-1) : catch-all — les vues du portail sont des URLs
       // (`/catalog`, `/p/:id`, `/orders`, `/thank-you`, `/g/:gamme` S7.3,
       // `/account/*` S7.10) résolues par parsePortalPath dans PublicShop.
+      { path: `/${portalRuntimePaths.shopRoot}/:slug/activate`, element: lazyRoute(<StorefrontActivationPage />) },
       { path: `/${portalRuntimePaths.shopRoot}/*`, element: lazyRoute(<PublicShop />) },
 
       // REFONTE-UX (2026-08-08) — route DEV seulement : rendre le wizard parc
