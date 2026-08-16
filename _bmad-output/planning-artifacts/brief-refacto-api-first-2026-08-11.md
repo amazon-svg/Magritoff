@@ -108,8 +108,10 @@ src/
 La cible fonctionnelle sépare strictement les utilisateurs Magrit des comptes
 clients boutique. Un compte client appartient à une seule boutique et son
 identité est le couple `(boutique, email normalisé)` ; la même adresse dans une
-autre boutique correspond à un autre compte. Le backoffice proposera un compte
-miroir par boutique et une délégation auditée « Se connecter comme ».
+autre boutique correspond à un autre compte. Le backoffice proposera une action
+unique « Se connecter à la boutique » : elle créera le compte miroir s’il
+manque, puis démarrera une délégation auditée « Se connecter comme » sans
+fusionner les identités.
 
 Cette évolution est spécifiée dans
 `_bmad-output/planning-artifacts/spec-identites-magrit-et-comptes-boutique.md`.

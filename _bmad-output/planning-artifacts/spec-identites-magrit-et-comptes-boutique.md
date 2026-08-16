@@ -2,6 +2,7 @@
 id: SPEC-IDENTITY-STORE-01
 title: Séparation des utilisateurs Magrit et des comptes boutique
 date: 2026-08-12
+updated: 2026-08-16
 status: deferred
 target_epic: EPIC-UM-STORE-IDENTITY
 decision_owner: produit
@@ -32,6 +33,10 @@ avant le démarrage de l’epic, puis découpée en stories BMAD exécutables.
 7. Depuis une boutique, l’action « Créer un utilisateur pour moi » crée un
    compte boutique propre à cette boutique avec le nom et l’email de
    l’utilisateur Magrit.
+8. L’interface Magrit expose une action principale unique « Se connecter à la
+   boutique ». Elle garantit d’abord l’existence du compte miroir, puis démarre
+   immédiatement la délégation. Les deux opérations restent distinctes côté
+   domaine et audit.
 
 ## 3. Terminologie
 
@@ -123,7 +128,33 @@ Conséquences :
 - aucun identifiant Auth technique renvoyé au navigateur ;
 - session storefront distincte de la session Magrit et limitée à une boutique.
 
-## 7. Parcours « Créer un utilisateur pour moi »
+## 7. Parcours unifié « Se connecter à la boutique »
+
+Cette action est le parcours nominal depuis la gestion d’une boutique Magrit.
+Elle combine « Créer un utilisateur pour moi » lorsque nécessaire et « Se
+connecter comme » sans obliger l’utilisateur à comprendre ces deux étapes.
+
+1. L’utilisateur Magrit choisit « Se connecter à la boutique ».
+2. Le serveur vérifie le tenant, la boutique, la capability de délégation et
+   l’état de la boutique.
+3. Il normalise l’email Magrit et recherche le compte miroir par
+   `(shop_id, normalized_email)`.
+4. Si le compte n’existe pas, il le crée en état `delegated_only` avec le nom et
+   l’email métier de l’utilisateur Magrit.
+5. Il crée ensuite une délégation courte pour ce compte.
+6. La boutique s’ouvre, de préférence dans un nouvel onglet, avec le bandeau de
+   délégation permanent.
+
+L’orchestration est idempotente sur la création du compte. Si le compte est créé
+mais que l’émission de la délégation échoue, une nouvelle tentative réutilise ce
+compte et ne produit aucun doublon. Aucune session storefront partielle ne doit
+être retournée au navigateur.
+
+L’interface peut conserver une action avancée « Se connecter comme » pour jouer
+un autre compte client existant. « Créer un utilisateur pour moi » n’a pas à
+rester une action primaire visible si le parcours unifié est disponible.
+
+### 7.1 Primitive « Créer un utilisateur pour moi »
 
 Préconditions : utilisateur Magrit authentifié, boutique appartenant à son
 tenant et capability dédiée à la délégation.
@@ -144,7 +175,7 @@ tenant et capability dédiée à la délégation.
 
 La création est idempotente sur `(shop_id, normalized_email)`.
 
-## 8. Parcours « Se connecter comme »
+## 8. Primitive « Se connecter comme »
 
 1. Depuis le backoffice d’une boutique, un utilisateur Magrit sélectionne un
    compte client existant ou son compte miroir.
@@ -194,6 +225,7 @@ des collisions `(boutique, email)` avant d’activer les contraintes d’unicit�
 - `GET /api/v1/tenants/{tenantId}/shops/{shopId}/customers`
 - `POST /api/v1/tenants/{tenantId}/shops/{shopId}/customers`
 - `POST /api/v1/tenants/{tenantId}/shops/{shopId}/customers/self-mirror`
+- `POST /api/v1/tenants/{tenantId}/shops/{shopId}/customers/self-delegation`
 - `POST /api/v1/tenants/{tenantId}/shops/{shopId}/customers/{customerId}/delegate`
 - `DELETE /api/v1/storefront/delegation/current`
 - `POST /api/v1/storefront/{shopSlug}/session`
@@ -209,8 +241,10 @@ les stories d’implémentation.
 - **UM1 — Comptes boutique** : table, unicité boutique/email, repository et API.
 - **UM2 — Auth storefront BFF** : connexion, déconnexion, activation et reset.
 - **UM3 — Invitations boutique** : parcours et emails séparés de Magrit.
-- **UM4 — Compte miroir** : « Créer un utilisateur pour moi » idempotent.
-- **UM5 — Délégation** : « Se connecter comme », bandeau, sortie et audit.
+- **UM4 — Compte miroir** : primitive « Créer un utilisateur pour moi »
+  idempotente.
+- **UM5 — Délégation** : action unifiée « Se connecter à la boutique »,
+  primitive « Se connecter comme », bandeau, sortie et audit.
 - **UM6 — Références métier** : commandes, devis, paniers et préférences.
 - **UM7 — Migration** : conversion des membres `shop_only` existants.
 - **UM8 — Nettoyage** : retrait de `shop_only`, `allowed_shop_ids` client et du
@@ -235,6 +269,10 @@ doivent attendre la stabilisation du contrat UM2.
 8. Les comptes clients n’apparaissent pas dans la gestion de l’équipe Magrit et
    réciproquement.
 9. Les anciens comptes `shop_only` sont migrés sans perte de commandes.
+10. « Se connecter à la boutique » crée le compte miroir uniquement s’il manque
+    puis ouvre la délégation en une seule action utilisateur.
+11. Réessayer après un échec de délégation ne crée aucun compte miroir
+    supplémentaire.
 
 ## 14. Arbitrages restant à faire avant développement
 
