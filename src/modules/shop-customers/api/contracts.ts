@@ -87,7 +87,7 @@ export const storefrontCustomerProfileSchema = z.object({
   shopId: z.string().uuid(),
   email: shopCustomerEmailSchema,
   fullName: z.string().trim().min(1).max(200),
-  status: z.enum(['active', 'delegated_only']),
+  status: z.enum(['active', 'delegated_only', 'invited']),
 }).strict();
 
 export const storefrontSessionSchema = z.object({

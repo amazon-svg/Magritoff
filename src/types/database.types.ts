@@ -1982,6 +1982,29 @@ export type Database = {
         Args: { p_opaque_token: string }
         Returns: boolean
       }
+      api_start_self_shop_customer_delegation: {
+        Args: { p_expires_seconds?: number; p_reason?: string | null; p_shop_id: string; p_tenant_id: string }
+        Returns: {
+          account_created_at: string
+          account_id: string
+          account_status: string
+          activated_at: string | null
+          actor_magrit_user_id: string
+          auth_subject_id: string | null
+          created_by_magrit_user_id: string | null
+          delegation_id: string
+          email: string
+          expires_at: string
+          full_name: string
+          issued_at: string
+          normalized_email: string
+          opaque_token: string
+          reason: string | null
+          shop_id: string
+          shop_slug: string
+          suspended_at: string | null
+        }[]
+      }
       api_swap_tenant_role_order: {
         Args: {
           p_first_role_id: string

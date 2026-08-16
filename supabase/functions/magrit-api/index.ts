@@ -66,6 +66,9 @@ import { StorefrontActivationService } from '../../../src/modules/shop-customers
 import { SupabaseStorefrontActivationGateway } from '../../../src/adapters/supabase/storefront-activation-gateway.ts';
 import { createStorefrontActivationRoutes } from '../../../src/server/api/storefront-activation-routes.ts';
 import { ResendStorefrontActivationEmailSender } from '../../../src/adapters/resend/storefront-activation-email-sender.ts';
+import { ShopCustomerDelegationService } from '../../../src/modules/shop-customers/application/shop-customer-delegation-service.ts';
+import { SupabaseShopCustomerDelegationGateway } from '../../../src/adapters/supabase/shop-customer-delegation-gateway.ts';
+import { createShopCustomerDelegationRoutes } from '../../../src/server/api/shop-customer-delegation-routes.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -122,6 +125,7 @@ export async function handleRequest(request: Request): Promise<Response> {
       Deno.env.get('MAGRIT_FROM_EMAIL') ?? 'Magrit <onboarding@resend.dev>',
     ),
   );
+  const shopCustomerDelegationService = new ShopCustomerDelegationService(new SupabaseShopCustomerDelegationGateway(client));
   const catalogService = new CatalogService(new SupabaseCatalogRepository(client), new SupabaseCatalogAutomationGateway(client));
   const conversationsService = new ConversationsService(new SupabaseConversationsRepository(client));
   const aiConfiguration = aiProviderConfigurationFromEnvironment((name) => Deno.env.get(name));
@@ -154,6 +158,7 @@ export async function handleRequest(request: Request): Promise<Response> {
       ...createShopCustomersRoutes(shopCustomersService),
       ...createStorefrontSessionRoutes(storefrontAuthenticationService, storefrontSessionService, storefrontSessionCookiePolicy(new URL(request.url).protocol === 'https:')),
       ...createStorefrontActivationRoutes(storefrontActivationService),
+      ...createShopCustomerDelegationRoutes(shopCustomerDelegationService, storefrontSessionCookiePolicy(new URL(request.url).protocol === 'https:')),
       ...createCatalogRoutes(catalogService),
       ...createConversationsRoutes(conversationsService),
       ...createDiagnosticsRoutes(diagnosticsService),
