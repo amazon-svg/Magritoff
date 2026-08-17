@@ -25,9 +25,10 @@ export class SupabaseShopsRepository implements ShopsRepository {
     const parsed = { ...DEFAULT_THEME, ...(command.theme ?? {}) };
     const { data, error } = await this.client.from('shops').insert({
       owner_user_id: actor, tenant_id: tenantId, slug: randomSlug(), name: command.name,
-      description: command.description ?? '', logo_url: command.logoUrl ?? '', address: command.address ?? '',
+      description: command.description ?? '', logo_url: storedAssetReference(command.logoUrl ?? ''), address: command.address ?? '',
       contact_email: command.contactEmail ?? '', theme: parsed, active: true, library_ids: [], excluded_product_ids: [],
-      hero_image_url: command.heroImageUrl ?? null, tagline: command.tagline ?? null,
+      hero_image_url: command.heroImageUrl === null || command.heroImageUrl === undefined
+        ? null : storedAssetReference(command.heroImageUrl), tagline: command.tagline ?? null,
     }).select(SHOP_COLUMNS).single();
     if (error || !data) throw classified(error, 'Création de la boutique impossible.');
     return mapShop(data, this.publicBaseUrl);
@@ -157,7 +158,10 @@ export class SupabaseShopsRepository implements ShopsRepository {
       upsert: false, contentType: upload.contentType, cacheControl: '3600',
     });
     if (error) throw classified(error, 'Upload du visuel de boutique impossible.');
-    return publicAssetUrl(this.client.storage.from('shop_backgrounds').getPublicUrl(path).data.publicUrl, this.publicBaseUrl);
+    const reference = storedAssetReference(
+      this.client.storage.from('shop_backgrounds').getPublicUrl(path).data.publicUrl,
+    );
+    return publicAssetUrl(reference, this.publicBaseUrl);
   }
   async customMockups(_actor: UserId, tenantId: string, shopId: string): Promise<ShopCustomMockup[]> {
     await this.requireShop(tenantId, shopId);
@@ -171,8 +175,10 @@ export class SupabaseShopsRepository implements ShopsRepository {
     const path = `${shopId}/${upload.templateType}-${upload.view}.${extension}`;
     const { error: storageError } = await this.client.storage.from('shop_product_mockups').upload(path, new Uint8Array(upload.bytes), { upsert: true, contentType: upload.contentType, cacheControl: '60' });
     if (storageError) throw classified(storageError, 'Upload du mockup personnalisé impossible.');
-    const publicUrl = publicAssetUrl(this.client.storage.from('shop_product_mockups').getPublicUrl(path).data.publicUrl, this.publicBaseUrl);
-    const { error } = await this.client.from('shop_template_mockups').upsert({ shop_id: shopId, tenant_id: tenantId, template_type: upload.templateType, view: upload.view, mockup_image_url: `${publicUrl}?v=${Date.now()}`, updated_at: new Date().toISOString() }, { onConflict: 'shop_id,template_type,view' });
+    const reference = storedAssetReference(
+      this.client.storage.from('shop_product_mockups').getPublicUrl(path).data.publicUrl,
+    );
+    const { error } = await this.client.from('shop_template_mockups').upsert({ shop_id: shopId, tenant_id: tenantId, template_type: upload.templateType, view: upload.view, mockup_image_url: `${reference}?v=${Date.now()}`, updated_at: new Date().toISOString() }, { onConflict: 'shop_id,template_type,view' });
     if (error) throw classified(error, 'Enregistrement du mockup personnalisé impossible.');
   }
   async restoreCustomMockup(_actor: UserId, tenantId: string, shopId: string, templateType: MockupTemplateType, view: MockupView): Promise<void> {
@@ -236,10 +242,10 @@ function mapPublicShop(row: Pick<ShopRow, 'id' | 'tenant_id' | 'slug' | 'name' |
 function shopPatch(command: UpdateShopCommand): Database['public']['Tables']['shops']['Update'] {
   const patch: Database['public']['Tables']['shops']['Update'] = {};
   if (command.name !== undefined) patch.name = command.name; if (command.description !== undefined) patch.description = command.description;
-  if (command.logoUrl !== undefined) patch.logo_url = command.logoUrl; if (command.address !== undefined) patch.address = command.address;
+  if (command.logoUrl !== undefined) patch.logo_url = storedAssetReference(command.logoUrl); if (command.address !== undefined) patch.address = command.address;
   if (command.contactEmail !== undefined) patch.contact_email = command.contactEmail; if (command.theme !== undefined) patch.theme = command.theme as Json;
   if (command.active !== undefined) patch.active = command.active; if (command.libraryIds !== undefined) patch.library_ids = command.libraryIds;
-  if (command.excludedProductIds !== undefined) patch.excluded_product_ids = command.excludedProductIds; if (command.heroImageUrl !== undefined) patch.hero_image_url = command.heroImageUrl;
+  if (command.excludedProductIds !== undefined) patch.excluded_product_ids = command.excludedProductIds; if (command.heroImageUrl !== undefined) patch.hero_image_url = command.heroImageUrl === null ? null : storedAssetReference(command.heroImageUrl);
   if (command.tagline !== undefined) patch.tagline = command.tagline;
   Object.assign(patch, command.pimCatalogMode !== undefined ? { pim_catalog_mode: command.pimCatalogMode } : {}, command.pimGammeSlugs !== undefined ? { pim_gamme_slugs: command.pimGammeSlugs } : {}, command.accessMode !== undefined ? { access_mode: command.accessMode } : {});
   return patch;
@@ -254,6 +260,9 @@ function classified(error: { code?: string; message?: string } | null, fallback:
 export function publicAssetUrl(value: string, publicBaseUrl?: string): string {
   if (!value || !publicBaseUrl) return value;
   try {
+    if (value.startsWith('/storage/v1/object/')) {
+      return new URL(value, publicBaseUrl.endsWith('/') ? publicBaseUrl : `${publicBaseUrl}/`).toString();
+    }
     const url = new URL(value);
     const publicOrigin = new URL(publicBaseUrl);
     const isStorageAsset = url.pathname.startsWith('/storage/v1/object/');
@@ -263,5 +272,21 @@ export function publicAssetUrl(value: string, publicBaseUrl?: string): string {
     url.protocol = publicOrigin.protocol; url.hostname = publicOrigin.hostname; url.port = publicOrigin.port;
     return url.toString();
   } catch { return value; }
+}
+/**
+ * Persiste une référence Storage portable. Les URL externes restent intactes ;
+ * seule l'origine d'un objet géré par la plateforme est retirée.
+ */
+export function storedAssetReference(value: string): string {
+  if (!value) return value;
+  if (value.startsWith('/storage/v1/object/')) return value;
+  try {
+    const url = new URL(value);
+    return url.pathname.startsWith('/storage/v1/object/')
+      ? `${url.pathname}${url.search}${url.hash}`
+      : value;
+  } catch {
+    return value;
+  }
 }
 function isLoopback(hostname: string): boolean { return hostname === '127.0.0.1' || hostname === 'localhost' || hostname === '::1' || hostname === '[::1]'; }
