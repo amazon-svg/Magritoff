@@ -23,6 +23,26 @@ describe('AF5.2a — submitCart() delegue la creation atomique a Orders', () => 
     expect(src).not.toMatch(/\.from\(['"]tenant_order_items['"]\)\s*\.insert/);
   });
 
+  it('le CTA du drawer soumet réellement quand le checkout est déjà affiché', () => {
+    const src = readFileSync(
+      resolve(__dirname, '../../../src/app/components/shop/PublicShop.tsx'),
+      'utf-8',
+    );
+
+    expect(src).toContain("if (view === 'checkout')");
+    expect(src).toContain('void submitCart();');
+  });
+
+  it('le drawer se ferme en arrivant au checkout et après confirmation', () => {
+    const layout = readFileSync(
+      resolve(__dirname, '../../../src/app/components/shop/ShopLayout.tsx'),
+      'utf-8',
+    );
+
+    expect(layout).toContain('view === "checkout" || view === "thankYou"');
+    expect(layout).toContain('setCartOpen(false)');
+  });
+
   it("la commande SQL atomique impose explicitement le statut initial 'draft'", () => {
     const sql = readFileSync(
       resolve(__dirname, '../../../supabase/migrations/20260811000400_api_create_order_atomic.sql'),

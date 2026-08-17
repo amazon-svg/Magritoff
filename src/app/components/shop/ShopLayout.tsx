@@ -135,6 +135,13 @@ export function ShopLayout({
     if (cartOpenRequest && cartOpenRequest > 0) setCartOpen(true);
   }, [cartOpenRequest]);
 
+  // Le CTA du panier mène d'abord au récapitulatif. Le drawer doit alors
+  // libérer l'écran pour rendre le vrai bouton de validation immédiatement
+  // visible. Il se ferme également après une commande réussie.
+  useEffect(() => {
+    if (view === "checkout" || view === "thankYou") setCartOpen(false);
+  }, [view]);
+
   const budgetPct = budget
     ? Math.min(100, Math.round((budget.used / budget.total) * 100))
     : 0;

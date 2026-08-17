@@ -693,7 +693,13 @@ export function PublicShop() {
           onRemove={removeFromCart}
           // S7.12 (ADR 4.20) — le drawer mène au récap /checkout : c'est là
           // que se joue l'identification éventuelle puis le submitCart.
-          onSubmit={() => goView('checkout')}
+          onSubmit={() => {
+            if (view === 'checkout') {
+              void submitCart();
+              return;
+            }
+            goView('checkout');
+          }}
           onContinue={() => {/* drawer reste ouvert, l'acheteur peut continuer */}}
           pimGammes={pimGammes}
           pimDefinitions={pimDefinitions}
