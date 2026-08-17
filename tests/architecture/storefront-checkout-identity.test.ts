@@ -24,6 +24,12 @@ describe('identité boutique du checkout', () => {
     }
   });
 
+  it('rend visible la séparation avec la connexion Magrit', () => {
+    expect(login).toContain('Ce compte est indépendant de votre accès Magrit');
+    expect(login).toContain('Accéder à mes espaces Magrit');
+    expect(login).toContain('to="/tenants"');
+  });
+
   it('autorise la commande uniquement avec la session de la boutique exacte', () => {
     expect(checkout).toContain('storefrontSession?.identity.shopId === shop.id');
     expect(checkout).toContain('disabled={!hasStorefrontSession || !canCreateOrder || submitting}');

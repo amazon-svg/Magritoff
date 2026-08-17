@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Loader2, Lock } from 'lucide-react';
+import { Link } from 'react-router';
 import type { StorefrontSession } from '../../../modules/shop-customers';
 import { useStorefrontIdentityApi } from '../../contexts/ModuleClientsContext';
 import { TEST_IDS } from '../../lib/testIds';
@@ -34,6 +35,12 @@ export function StorefrontLoginForm({ shopSlug, contactEmail, onAuthenticated }:
 
   return (
     <form className="grid grid-cols-1 gap-3 text-left" onSubmit={submit}>
+      <div>
+        <p className="m-0 text-sm font-semibold text-ink">Connexion à cette boutique</p>
+        <p className="mt-1 mb-0 text-xs text-ink-muted">
+          Ce compte est indépendant de votre accès Magrit et de ses espaces.
+        </p>
+      </div>
       <label className="flex flex-col gap-1 text-sm font-medium text-ink-2">
         Email
         <input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} className={inputClass} autoComplete="email" data-testid={TEST_IDS.shop.checkoutEmailInput} />
@@ -53,6 +60,9 @@ export function StorefrontLoginForm({ shopSlug, contactEmail, onAuthenticated }:
             Demander un accès
           </a>
         )}
+        <Link to="/tenants" className="text-[12.5px] text-ink-muted hover:text-ink hover:underline">
+          Accéder à mes espaces Magrit
+        </Link>
       </div>
     </form>
   );

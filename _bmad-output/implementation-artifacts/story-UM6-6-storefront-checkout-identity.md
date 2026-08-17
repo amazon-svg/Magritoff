@@ -18,6 +18,8 @@ depends_on: [UM6.5]
   boutique exacte ;
 - coexistence possible avec une session Magrit du navigateur sans assimilation
   des deux identités ;
+- libellé explicite de la connexion boutique et accès secondaire vers « Mes
+  espaces Magrit » pour éviter toute confusion entre les deux sessions ;
 - auto-inscription storefront retirée tant que sa primitive compte boutique
   dédiée n'est pas livrée.
 
