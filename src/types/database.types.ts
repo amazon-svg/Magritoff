@@ -2044,6 +2044,19 @@ export type Database = {
         Args: { p_opaque_token: string; p_shop_id: string }
         Returns: Json
       }
+      api_get_order_draft_for_identity: {
+        Args: { p_opaque_token: string | null; p_order_id: string }
+        Returns: Json
+      }
+      api_update_order_draft_for_identity: {
+        Args: {
+          p_idempotency_key: string
+          p_items: Json
+          p_opaque_token: string | null
+          p_order_id: string
+        }
+        Returns: Json
+      }
       api_get_tenant_order_draft: {
         Args: { p_order_id: string }
         Returns: Json

@@ -71,6 +71,7 @@ describe('routes Orders API v1', () => {
   it('crée une commande avec la session boutique correspondant au shop', async () => {
     let authorization: unknown = null;
     let portalToken: string | null = null;
+    const resourceTokens: Array<string | null> = [];
     const repository = repositoryStub();
     repository.createOrder = async (command, received) => {
       authorization = received;
@@ -83,6 +84,17 @@ describe('routes Orders API v1', () => {
     repository.getStorefrontPortalOrders = async (_shopId, receivedToken) => {
       portalToken = receivedToken;
       return { orders: [], taxRegime: 'metropole_fr' };
+    };
+    repository.getDraftOrder = async (orderId, received) => {
+      resourceTokens.push(received.storefrontToken);
+      return {
+        orderId, status: 'draft', createdAt: '2026-08-17T12:00:00.000Z', totalHt: 150,
+        items: [{ id: '55555555-5555-4555-8555-555555555555', productId: null, productLabel: 'Flyers', clariprintOptions: null, quantity: 2, unitPriceHt: 75, lineTotalHt: 150 }],
+      };
+    };
+    repository.updateDraftOrder = async (orderId, command, received) => {
+      resourceTokens.push(received.storefrontToken);
+      return { orderId, totalHt: command.items[0]?.unitPriceHt ?? 0, replayed: false };
     };
     const shopId = '11111111-1111-4111-8111-111111111111';
     const sessions = new StorefrontSessionService({
@@ -113,6 +125,21 @@ describe('routes Orders API v1', () => {
     }));
     expect(portalResponse.status).toBe(200);
     expect(portalToken).toBe(token);
+    const orderId = '22222222-2222-4222-8222-222222222222';
+    const draftResponse = await handler(new Request(`https://magrit.test/api/v1/orders/${orderId}/draft`, {
+      headers: { Cookie: `magrit-storefront=${token}` },
+    }));
+    expect(draftResponse.status).toBe(200);
+    const updateResponse = await handler(new Request(`https://magrit.test/api/v1/orders/${orderId}/draft`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Cookie: `magrit-storefront=${token}` },
+      body: JSON.stringify({
+        items: [{ id: '55555555-5555-4555-8555-555555555555', productLabel: 'Flyers premium', quantity: 2, unitPriceHt: 80 }],
+        idempotencyKey: 'update-um6-storefront',
+      }),
+    }));
+    expect(updateResponse.status).toBe(200);
+    expect(resourceTokens).toEqual([token, token]);
   });
 
   it('traduit un conflit de transition en Problem Details 409', async () => {

@@ -18,6 +18,7 @@ import type {
   CreateOrderAuthorization,
   LegacyOrderRecord,
   OrdersRepository,
+  OrderResourceAuthorization,
   PortalOrdersAuthorization,
   TaxRegime,
   TenantOrderRecord,
@@ -118,12 +119,12 @@ export class OrdersService {
     return result;
   }
 
-  getDraft(orderId: string): Promise<DraftOrder> {
-    return this.repository.getDraftOrder(orderId);
+  getDraft(orderId: string, authorization: OrderResourceAuthorization = { storefrontToken: null }): Promise<DraftOrder> {
+    return this.repository.getDraftOrder(orderId, authorization);
   }
 
-  updateDraft(orderId: string, command: UpdateDraftOrderCommand): Promise<UpdateDraftOrderResult> {
-    return this.repository.updateDraftOrder(orderId, command);
+  updateDraft(orderId: string, command: UpdateDraftOrderCommand, authorization: OrderResourceAuthorization = { storefrontToken: null }): Promise<UpdateDraftOrderResult> {
+    return this.repository.updateDraftOrder(orderId, command, authorization);
   }
 
   getRoles(orderId: string): Promise<OrderRolesResponse> {

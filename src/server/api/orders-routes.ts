@@ -50,13 +50,18 @@ export function createOrdersRoutes(
     defineJsonRoute({
       method: 'GET',
       path: `${API_V1_BASE_PATH}/orders/{orderId}/draft`,
-      authentication: 'required',
+      authentication: 'public',
       inputSchema: null,
       outputSchema: draftOrderSchema,
       async handle(context) {
-        requireUserId(context);
         try {
-          return { status: 200, body: await service.getDraft(context.params.orderId ?? '') };
+          return {
+            status: 200,
+            body: await service.getDraft(
+              context.params.orderId ?? '',
+              await orderResourceAuthorization(context, storefrontSessions, storefrontCookiePolicy),
+            ),
+          };
         } catch (error) {
           if (error instanceof OrderCommandRejectedError) throw toHttpError(error);
           throw error;
@@ -66,15 +71,17 @@ export function createOrdersRoutes(
     defineJsonRoute({
       method: 'PUT',
       path: `${API_V1_BASE_PATH}/orders/{orderId}/draft`,
-      authentication: 'required',
+      authentication: 'public',
       inputSchema: updateDraftOrderCommandSchema,
       outputSchema: updateDraftOrderResultSchema,
       async handle(context, command) {
-        requireUserId(context);
         try {
           return {
             status: 200,
-            body: await service.updateDraft(context.params.orderId ?? '', command),
+            body: await service.updateDraft(
+              context.params.orderId ?? '', command,
+              await orderResourceAuthorization(context, storefrontSessions, storefrontCookiePolicy),
+            ),
           };
         } catch (error) {
           if (error instanceof OrderCommandRejectedError) throw toHttpError(error);
@@ -208,6 +215,25 @@ async function portalOrdersAuthorization(
     });
   }
   return { kind: 'magrit_user' as const, userId: requireUserId(context) };
+}
+
+async function orderResourceAuthorization(
+  context: ApiRequestContext,
+  sessions?: StorefrontSessionService,
+  policy?: StorefrontSessionCookiePolicy,
+) {
+  let storefrontToken: string | null = null;
+  if (sessions && policy) {
+    const token = readStorefrontSessionCookie(context.request.headers.get('cookie'), policy);
+    if (token && await sessions.current(token)) storefrontToken = token;
+  }
+  if (!storefrontToken && context.actor?.kind !== 'user') {
+    throw new ApiHttpError({
+      type: 'about:blank', title: 'Authentification requise', status: 401,
+      code: 'identity.authentication_required',
+    });
+  }
+  return { storefrontToken };
 }
 
 function toHttpError(error: OrderCommandRejectedError): ApiHttpError {

@@ -161,6 +161,10 @@ UM6.2 migre la liste du portail : une primitive dédiée filtre à la fois par
 boutique et compte client. Le portail storefront n'expose que `mine` et ne
 réutilise aucun rôle Magrit ; le portail interne historique conserve ses quatre
 vues de workflow.
+UM6.3 migre le détail et l'édition atomique des brouillons. Le cookie boutique
+et l'identité Magrit peuvent coexister dans le navigateur, mais la primitive
+autorise uniquement l'identité qui possède effectivement la commande ; les
+reçus d'idempotence storefront restent séparés.
 
 ### Extension AF-C — Identité et invitations
 

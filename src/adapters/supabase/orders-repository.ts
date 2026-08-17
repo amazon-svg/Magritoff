@@ -19,6 +19,7 @@ import type {
   CreateOrderAuthorization,
   LegacyOrderRecord,
   OrdersRepository,
+  OrderResourceAuthorization,
   TaxRegime,
   TenantOrderRecord,
   StorefrontPortalOrdersRecord,
@@ -241,9 +242,10 @@ export class SupabaseOrdersRepository implements OrdersRepository {
     if (error) throw new Error(`Notification de création impossible: ${error.message}`);
   }
 
-  async getDraftOrder(orderId: string): Promise<DraftOrder> {
-    const { data, error } = await this.client.rpc('api_get_tenant_order_draft', {
+  async getDraftOrder(orderId: string, authorization: OrderResourceAuthorization): Promise<DraftOrder> {
+    const { data, error } = await this.client.rpc('api_get_order_draft_for_identity', {
       p_order_id: orderId,
+      p_opaque_token: authorization.storefrontToken,
     });
     if (error) throw mapOrderCommandError(error.message, 'Lecture du brouillon impossible');
     const result = toRecord(data);
@@ -281,9 +283,11 @@ export class SupabaseOrdersRepository implements OrdersRepository {
   async updateDraftOrder(
     orderId: string,
     command: UpdateDraftOrderCommand,
+    authorization: OrderResourceAuthorization,
   ): Promise<UpdateDraftOrderResult> {
-    const { data, error } = await this.client.rpc('api_update_tenant_order_draft', {
+    const { data, error } = await this.client.rpc('api_update_order_draft_for_identity', {
       p_order_id: orderId,
+      p_opaque_token: authorization.storefrontToken,
       p_items: command.items.map((item) => ({
         id: item.id,
         product_label: item.productLabel,

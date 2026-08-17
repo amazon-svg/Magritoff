@@ -52,6 +52,7 @@ export type {
   LegacyOrderRecord,
   OrdersRepository,
   OrderCommandRejectionCode,
+  OrderResourceAuthorization,
   PortalOrdersAuthorization,
   StorefrontPortalOrdersRecord,
   TaxRegime,

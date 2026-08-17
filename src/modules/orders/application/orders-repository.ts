@@ -67,6 +67,10 @@ export type PortalOrdersAuthorization =
   | Readonly<{ kind: 'magrit_user'; userId: UserId }>
   | Readonly<{ kind: 'storefront_session'; opaqueToken: string }>;
 
+export type OrderResourceAuthorization = Readonly<{
+  storefrontToken: string | null;
+}>;
+
 export type StorefrontPortalOrdersRecord = Readonly<{
   orders: readonly TenantOrderRecord[];
   taxRegime: TaxRegime | null;
@@ -101,7 +105,7 @@ export interface OrdersRepository {
   ): Promise<void>;
   createOrder(command: CreateOrderCommand, authorization: CreateOrderAuthorization): Promise<CreateOrderResult>;
   notifyOrderCreated(result: CreateOrderResult, baseUrl: string): Promise<void>;
-  getDraftOrder(orderId: string): Promise<DraftOrder>;
-  updateDraftOrder(orderId: string, command: UpdateDraftOrderCommand): Promise<UpdateDraftOrderResult>;
+  getDraftOrder(orderId: string, authorization: OrderResourceAuthorization): Promise<DraftOrder>;
+  updateDraftOrder(orderId: string, command: UpdateDraftOrderCommand, authorization: OrderResourceAuthorization): Promise<UpdateDraftOrderResult>;
   getOrderRoles(orderId: string): Promise<OrderRolesResponse>;
 }
