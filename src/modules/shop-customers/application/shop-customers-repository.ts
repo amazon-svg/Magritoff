@@ -1,5 +1,5 @@
 import type { UserId } from '../../../kernel/ids/index.ts';
-import type { EnsureSelfShopCustomerResult, ShopCustomerAccount, ShopCustomerAccountStatus } from '../api/contracts.ts';
+import type { EnsureSelfShopCustomerResult, LegacyShopCustomerMigrationReportRow, ShopCustomerAccount, ShopCustomerAccountStatus } from '../api/contracts.ts';
 
 export type ShopCustomerRejectionCode =
   | 'permission_denied'
@@ -27,6 +27,7 @@ export type CreateShopCustomerRecord = Readonly<{
 }>;
 
 export interface ShopCustomersRepository {
+  migrationReport(actor: UserId, tenantId: string): Promise<LegacyShopCustomerMigrationReportRow[]>;
   list(actor: UserId, tenantId: string, shopId: string): Promise<ShopCustomerAccount[]>;
   findByNormalizedEmail(
     actor: UserId,

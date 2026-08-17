@@ -11,6 +11,8 @@ declare
   v_account_b uuid;
   v_order_a uuid;
   v_order_b uuid;
+  v_role uuid;
+  v_report_count integer;
   v_result jsonb;
 begin
   select id into v_legacy_user from auth.users where email is not null order by created_at limit 1;
@@ -81,6 +83,18 @@ begin
   if (select count(*) from private.legacy_shop_customer_migrations
       where legacy_tenant_id = v_tenant) <> 2 then
     raise exception 'Audit UM7.1 incomplet';
+  end if;
+
+  insert into public.tenant_role_definitions (tenant_id, name, capabilities, created_by)
+  values (v_tenant, 'UM7 Migration Auditor', '{"can_manage_shop_customers":true}'::jsonb, v_legacy_user)
+  returning id into v_role;
+  insert into public.tenant_role_assignments (role_definition_id, user_id, assigned_by)
+  values (v_role, v_legacy_user, v_legacy_user);
+  perform set_config('request.jwt.claim.sub', v_legacy_user::text, true);
+  select count(*) into v_report_count
+    from public.api_get_legacy_shop_customer_migration_report(v_tenant);
+  if v_report_count <> 2 then
+    raise exception 'Rapport API UM7.1 incomplet : % lignes', v_report_count;
   end if;
 
   select private.migrate_legacy_shop_customers(v_tenant) into v_result;

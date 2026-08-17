@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { UserId } from '../../kernel/ids/index.ts';
-import { ensureSelfShopCustomerResultSchema, shopCustomerAccountSchema, type EnsureSelfShopCustomerResult, type ShopCustomerAccount } from '../../modules/shop-customers/api/contracts.ts';
+import { ensureSelfShopCustomerResultSchema, legacyShopCustomerMigrationReportSchema, shopCustomerAccountSchema, type EnsureSelfShopCustomerResult, type LegacyShopCustomerMigrationReportRow, type ShopCustomerAccount } from '../../modules/shop-customers/api/contracts.ts';
 import {
   ShopCustomerRejectedError,
   type CreateShopCustomerRecord,
@@ -12,6 +12,27 @@ const ACCOUNT_COLUMNS = 'id, shop_id, email, normalized_email, full_name, auth_s
 
 export class SupabaseShopCustomersRepository implements ShopCustomersRepository {
   constructor(private readonly client: SupabaseClient<Database>) {}
+
+  async migrationReport(
+    _actor: UserId,
+    tenantId: string,
+  ): Promise<LegacyShopCustomerMigrationReportRow[]> {
+    const { data, error } = await this.client.rpc(
+      'api_get_legacy_shop_customer_migration_report',
+      { p_tenant_id: tenantId },
+    );
+    if (error) throw rejected(error);
+    return legacyShopCustomerMigrationReportSchema.parse((data ?? []).map((row) => ({
+      legacyUserId: row.legacy_user_id,
+      shopId: row.shop_id,
+      normalizedEmail: row.normalized_email,
+      proposedAction: row.proposed_action,
+      targetAccountId: row.target_account_id,
+      migrationOutcome: row.migration_outcome,
+      ordersLinkedCount: row.orders_linked_count,
+      lastAttemptAt: row.last_attempt_at,
+    })));
+  }
 
   async list(
     _actor: UserId,

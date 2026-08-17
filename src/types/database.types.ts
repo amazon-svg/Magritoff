@@ -1951,6 +1951,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      api_get_legacy_shop_customer_migration_report: {
+        Args: { p_tenant_id: string }
+        Returns: {
+          last_attempt_at: string | null
+          legacy_user_id: string
+          migration_outcome: string | null
+          normalized_email: string | null
+          orders_linked_count: number
+          proposed_action: string
+          shop_id: string | null
+          target_account_id: string | null
+        }[]
+      }
       api_ensure_self_shop_customer: {
         Args: { p_shop_id: string; p_tenant_id: string }
         Returns: {

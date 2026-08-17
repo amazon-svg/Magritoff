@@ -1,5 +1,5 @@
 import { parseId, type UserId } from '../../kernel/ids/index.ts';
-import { createShopCustomerCommandSchema, ensureSelfShopCustomerResultSchema, shopCustomerAccountSchema, shopCustomerAccountsSchema } from '../../modules/shop-customers/api/contracts.ts';
+import { createShopCustomerCommandSchema, ensureSelfShopCustomerResultSchema, legacyShopCustomerMigrationReportSchema, shopCustomerAccountSchema, shopCustomerAccountsSchema } from '../../modules/shop-customers/api/contracts.ts';
 import { ShopCustomerRejectedError } from '../../modules/shop-customers/application/shop-customers-repository.ts';
 import type { ShopCustomersService } from '../../modules/shop-customers/application/shop-customers-service.ts';
 import { API_V1_BASE_PATH } from '../../platform/api/contracts.ts';
@@ -9,6 +9,19 @@ import { defineJsonRoute, type ApiRequestContext, type ApiRoute } from './routes
 export function createShopCustomersRoutes(service: ShopCustomersService): readonly ApiRoute[] {
   const base = `${API_V1_BASE_PATH}/tenants/{tenantId}/shops/{shopId}/customers`;
   return [
+    defineJsonRoute({
+      method: 'GET',
+      path: `${API_V1_BASE_PATH}/tenants/{tenantId}/shop-customer-migration-report`,
+      authentication: 'required',
+      inputSchema: null,
+      outputSchema: legacyShopCustomerMigrationReportSchema,
+      async handle(context) {
+        return execute(async () => ({
+          status: 200,
+          body: await service.migrationReport(actor(context), param(context, 'tenantId')),
+        }));
+      },
+    }),
     defineJsonRoute({
       method: 'GET', path: base, authentication: 'required',
       inputSchema: null, outputSchema: shopCustomerAccountsSchema,
