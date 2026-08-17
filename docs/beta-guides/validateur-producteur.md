@@ -6,8 +6,9 @@
 
 Tu as été invité par ton admin tenant avec un rôle Validateur ou Producteur (ou les deux via cumul).
 
-- Si tu es **scope `magrit_full`** (accès complet tenant) : tu navigues `/t/<slug>/dashboard` comme un admin.
-- Si tu es **scope `shop_only`** sur certaines boutiques : tu vois uniquement ces boutiques.
+Tu utilises un compte Magrit et navigues dans `/t/<slug>/dashboard` selon les
+capabilities de tes rôles. Un accès à une boutique cliente passe par une session
+déléguée explicite, pas par un scope utilisateur mixte.
 
 ## 2. Validation commande (rôle Validateur)
 

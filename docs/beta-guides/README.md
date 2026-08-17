@@ -11,7 +11,7 @@
 | Guide | Persona cible | Sujet |
 |---|---|---|
 | [admin-tenant.md](admin-tenant.md) | Admin / Owner tenant | Configuration espace, invitations, rôles, sous-tenants, visuels boutique |
-| [acheteur-b2b.md](acheteur-b2b.md) | Acheteur B2B (scope shop_only) | Recherche IA, panier, commande, historique |
+| [acheteur-b2b.md](acheteur-b2b.md) | Client d’une boutique | Activation, connexion storefront, panier, commande, historique |
 | [validateur-producteur.md](validateur-producteur.md) | Validateur / Producteur (capabilities can_validate / can_modify) | Validation commandes, transitions statuts, audit trail |
 
 ## Vocabulaire commun
@@ -21,7 +21,8 @@
 | **Tenant** | Espace de travail Magrit. 1 imprimeur = 1 tenant (sauf multi-sites = 1 tenant racine + N sous-tenants filiales). |
 | **Sous-tenant / filiale** | Espace enfant rattaché à un tenant racine (parent_tenant_id). Sert pour les imprimeurs multi-sites (HQ + Paris + Lyon + Bordeaux). |
 | **Shop / Boutique** | Catalogue B2B exposé à un client de l'imprimeur (ex: portail ERAM hébergé par Imprimerie IPA). Sous-domaine logique du tenant. |
-| **Acheteur** | User avec scope `shop_only` + capability `can_order` sur une ou N shops du tenant. Voit uniquement ses shops autorisées. |
+| **Client boutique** | Compte propre à une boutique. Le même email dans une autre boutique représente un autre compte. |
+| **Utilisateur Magrit** | Membre du tenant utilisant le dashboard. Ce compte n’est jamais un compte boutique. |
 | **Validateur N+1** | User avec capability `can_validate` sur les commandes draft → validated. Configurable par tenant via catalog rôles. |
 | **Producteur** | User avec capability `can_modify` pour faire avancer les commandes validated → in_production → shipped. |
 | **Capability** | Droit fin sur une action (can_quote, can_order, can_invite, can_validate, can_cancel, can_modify, can_export, can_manage_catalog, can_manage_roles). |
@@ -48,4 +49,4 @@ Avant de démarrer un compte bêta :
 
 ## Mise à jour
 
-Document maintenu à chaque clôture sprint qualité-first. Dernière mise à jour : **2026-06-01** (post Sprint 9 audit clôture).
+Document maintenu à chaque clôture sprint qualité-first. Dernière mise à jour : **2026-08-17** (séparation identités UM8.1).
