@@ -18,6 +18,7 @@
     "db:local:stop": "./scripts/supabase-local.sh stop",
     "db:local:status": "./scripts/supabase-local.sh status",
     "db:local:reset": "./scripts/supabase-local.sh reset",
+    "db:local:push": "./scripts/supabase-local.sh push",
     "db:local:env": "./scripts/supabase-local-env.sh",
     "test": "vitest run",
     "test:architecture": "vitest run tests/architecture",

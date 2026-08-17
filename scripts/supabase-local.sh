@@ -26,6 +26,12 @@ case "${1:-}" in
   reset)
     with_local_baseline db reset --local
     ;;
+  push)
+    with_local_baseline db push --local
+    ;;
+  repair-baseline)
+    with_local_baseline migration repair --local --status applied 20260417000000
+    ;;
   stop)
     pnpm exec supabase stop
     ;;
@@ -33,7 +39,7 @@ case "${1:-}" in
     pnpm exec supabase status
     ;;
   *)
-    echo "Usage: $0 {start|reset|stop|status}" >&2
+    echo "Usage: $0 {start|reset|push|repair-baseline|stop|status}" >&2
     exit 2
     ;;
 esac

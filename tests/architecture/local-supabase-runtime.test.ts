@@ -17,7 +17,10 @@ describe('runtime Supabase local', () => {
     expect(packageJson.devDependencies.supabase).toBeDefined();
     expect(packageJson.scripts['db:local:start']).toContain('supabase-local.sh start');
     expect(packageJson.scripts['db:local:reset']).toContain('supabase-local.sh reset');
-    expect(read('scripts/supabase-local.sh')).toContain('20260417000000_local_b4_baseline.sql');
+    expect(packageJson.scripts['db:local:push']).toContain('supabase-local.sh push');
+    const localRuntime = read('scripts/supabase-local.sh');
+    expect(localRuntime).toContain('20260417000000_local_b4_baseline.sql');
+    expect(localRuntime).toContain('with_local_baseline db push --local');
   });
 
   it('permet au front et au proxy API de cibler la stack locale', () => {
@@ -65,5 +68,12 @@ describe('runtime Supabase local', () => {
     expect(dashboard).toContain("currentTenant?.myRole === 'owner'");
     expect(dashboard).toContain('canValidate || isTenantAdmin');
     expect(dashboard).toContain('canModifyProduction || isTenantAdmin');
+  });
+
+  it('peut reprendre la migration self-signup après une extraction déjà effectuée', () => {
+    const migration = read('supabase/migrations/20260811000800_create_order_self_signup.sql');
+
+    expect(migration).toContain("to_regprocedure(\n    'public.api_create_tenant_order_core(uuid,text,text,jsonb,text)'");
+    expect(migration).toContain('create or replace function public.api_create_tenant_order');
   });
 });
