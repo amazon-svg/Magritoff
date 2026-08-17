@@ -18,9 +18,11 @@ describe('runtime Supabase local', () => {
     expect(packageJson.scripts['db:local:start']).toContain('supabase-local.sh start');
     expect(packageJson.scripts['db:local:reset']).toContain('supabase-local.sh reset');
     expect(packageJson.scripts['db:local:push']).toContain('supabase-local.sh push');
+    expect(packageJson.scripts['test:storefront:sql']).toContain('test-storefront-sql.sh');
     const localRuntime = read('scripts/supabase-local.sh');
     expect(localRuntime).toContain('20260417000000_local_b4_baseline.sql');
     expect(localRuntime).toContain('with_local_baseline db push --local');
+    expect(read('scripts/test-storefront-sql.sh')).toContain('storefront-order-identity.sql');
   });
 
   it('permet au front et au proxy API de cibler la stack locale', () => {

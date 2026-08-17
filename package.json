@@ -22,6 +22,7 @@
     "db:local:env": "./scripts/supabase-local-env.sh",
     "test": "vitest run",
     "test:architecture": "vitest run tests/architecture",
+    "test:storefront:sql": "./scripts/test-storefront-sql.sh",
     "test:coverage": "vitest run --coverage",
     "db:types": "./scripts/gen-db-types.sh",
     "build:analyze": "ANALYZE=1 vite build && echo '✅ Bundle visualizer : dist/stats.html'",
