@@ -16,7 +16,7 @@ describe('MembersApiClient', () => {
     const userId = '22222222-2222-4222-8222-222222222222';
     await client.list(tenantId);
     await client.changeRole(tenantId, userId, { role: 'admin' });
-    await client.updateAccess(tenantId, userId, { accessScope: 'shop_only', allowedShopIds: ['33333333-3333-4333-8333-333333333333'], permissions: { canQuote: true, canOrder: true, canInvite: false } });
+    await client.updateAccess(tenantId, userId, { accessScope: 'magrit_full', allowedShopIds: [], permissions: { canQuote: true, canOrder: true, canInvite: false } });
     await client.remove(tenantId, userId);
     expect(calls).toEqual([
       `GET /api/v1/tenants/${tenantId}/members`,

@@ -11,11 +11,9 @@
  *      imprimeur garde dans son repertoire pour les associer a des devis.
  *
  * E9.2 : CRUD complet (invite, change role, remove) + audit trail.
- * E9.3 : droits granulaires par membership :
- *          - access_scope : 'magrit_full' (tout le dashboard) | 'shop_only'
- *            (acces uniquement a une ou plusieurs boutiques)
- *          - allowed_shop_ids : liste de boutiques accessibles (si shop_only)
- *          - permissions : {can_quote, can_order, can_invite}
+ * UM8 : les nouveaux membres sont exclusivement des utilisateurs Magrit.
+ * `shop_only` et `allowed_shop_ids` restent lus temporairement pour afficher
+ * et convertir les lignes historiques migrées par UM7.
  */
 
 import { useEffect, useState } from 'react';

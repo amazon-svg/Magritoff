@@ -15,8 +15,6 @@ const body = {
   email: 'buyer@example.com',
   tenantId: '11111111-1111-4111-8111-111111111111',
   baseUrl: 'http://localhost:5177',
-  accessScope: 'shop_only',
-  allowedShopIds: ['22222222-2222-4222-8222-222222222222'],
   roleDefinitionIds: ['33333333-3333-4333-8333-333333333333'],
 };
 
@@ -40,6 +38,19 @@ function repository(overrides: Partial<InvitationsRepository>): InvitationsRepos
 }
 
 describe('POST /api/v1/invitations', () => {
+  it('refuse explicitement l ancien contrat shop_only', async () => {
+    const response = await createHandler(repository({}))(new Request('http://localhost/api/v1/invitations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...body,
+        accessScope: 'shop_only',
+        allowedShopIds: ['22222222-2222-4222-8222-222222222222'],
+      }),
+    }));
+    expect(response.status).toBe(422);
+  });
+
   it('dérive l’inviteur de l’acteur authentifié', async () => {
     let receivedActor = '';
     const handler = createHandler(repository({
@@ -56,7 +67,7 @@ describe('POST /api/v1/invitations', () => {
     const response = await handler(new Request('http://localhost/api/v1/invitations', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...body, invitedBy: 'forged' }),
+      body: JSON.stringify(body),
     }));
 
     expect(response.status).toBe(201);

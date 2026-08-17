@@ -27,8 +27,8 @@ export class SupabaseInvitationsRepository implements InvitationsRepository {
     const { data, error } = await this.client.rpc('api_create_tenant_invitation', {
       p_tenant_id: command.tenantId,
       p_email: command.email,
-      p_access_scope: command.accessScope,
-      p_allowed_shop_ids: command.accessScope === 'shop_only' ? command.allowedShopIds : [],
+      p_access_scope: 'magrit_full',
+      p_allowed_shop_ids: [],
       p_role_definition_ids: command.roleDefinitionIds,
     });
     if (error) throw new InvitationRejectedError(toRejectionCode(error.message), error.message);
