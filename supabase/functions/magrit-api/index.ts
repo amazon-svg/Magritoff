@@ -154,7 +154,7 @@ export async function handleRequest(request: Request): Promise<Response> {
       ...createInvitationsRoutes(invitationsService),
       ...createMembersRoutes(membersService),
       ...createRolesRoutes(rolesService),
-      ...createShopsRoutes(shopsService),
+      ...createShopsRoutes(shopsService, storefrontSessionService, storefrontSessionCookiePolicy(new URL(request.url).protocol === 'https:')),
       ...createShopCustomersRoutes(shopCustomersService),
       ...createStorefrontSessionRoutes(storefrontAuthenticationService, storefrontSessionService, storefrontSessionCookiePolicy(new URL(request.url).protocol === 'https:')),
       ...createStorefrontActivationRoutes(storefrontActivationService),

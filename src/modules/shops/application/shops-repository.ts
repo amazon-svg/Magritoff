@@ -6,6 +6,14 @@ export class ShopRejectedError extends Error {
     super(message); this.name = 'ShopRejectedError';
   }
 }
+export type PublicShopCatalogAccess = Readonly<{
+  magritUserId: UserId | null;
+  storefront: Readonly<{
+    kind: 'shop_customer';
+    shopId: string;
+    shopCustomerAccountId: string;
+  }> | null;
+}>;
 export interface ShopsRepository {
   registerBuyer(actor: UserId, shopId: string): Promise<void>;
   list(actor: UserId, tenantId: string): Promise<ShopDto[]>;
@@ -17,7 +25,7 @@ export interface ShopsRepository {
   updateProduct(actor: UserId, tenantId: string, shopId: string, productId: string, command: UpdateShopProductCommand): Promise<void>;
   removeProduct(actor: UserId, tenantId: string, shopId: string, productId: string): Promise<void>;
   publicProbe(slug: string): Promise<PublicShopProbe>;
-  publicCatalog(actor: UserId | null, slug: string): Promise<PublicShopCatalog>;
+  publicCatalog(access: PublicShopCatalogAccess, slug: string): Promise<PublicShopCatalog>;
   pricing(actor: UserId, tenantId: string, shopId: string): Promise<ShopPricingOverride[]>;
   setPricing(actor: UserId, tenantId: string, shopId: string, libraryProductId: string, command: SetShopPricingCommand): Promise<void>;
   uploadBrandAsset(actor: UserId, tenantId: string, shopId: string, upload: ShopBrandAssetUpload): Promise<string>;

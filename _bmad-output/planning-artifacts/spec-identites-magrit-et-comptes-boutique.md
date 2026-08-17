@@ -2,11 +2,11 @@
 id: SPEC-IDENTITY-STORE-01
 title: Séparation des utilisateurs Magrit et des comptes boutique
 date: 2026-08-12
-updated: 2026-08-16
+updated: 2026-08-17
 status: in_progress
 target_epic: EPIC-UM-STORE-IDENTITY
 decision_owner: produit
-implementation: um5_delegation_ui_delivered
+implementation: um5_storefront_catalog_access_delivered
 ---
 
 # Spécification — Identités Magrit et comptes boutique séparés
@@ -36,9 +36,11 @@ lien manuel dans Magrit. Les invitations tenant et boutique restent deux
 domaines séparés. UM4.1 livre ensuite le compte miroir idempotent, dérivé de
 l’identité Magrit côté serveur et créé sans credential. UM5.1 compose ce compte
 avec une délégation auditée et une session storefront HttpOnly de trente
-minutes. UM5.2 livre l’action unifiée dans Magrit, l’ouverture en nouvel onglet,
-le bandeau permanent et la sortie du mode délégué. La récupération de mot de passe
-et la délégation ne sont pas encore livrés. Chaque vague suivante doit être
+minutes. UM5.2 livre l'action unifiée dans Magrit, l'ouverture en nouvel onglet,
+le bandeau permanent et la sortie du mode délégué. UM5.3 relie désormais cette
+session au catalogue privé : le BFF résout le cookie HttpOnly et n'autorise que
+la boutique exacte portée par la session. La récupération de mot de passe n'est
+pas encore livrée. Chaque vague suivante doit être
 découpée en stories BMAD exécutables avant son implémentation.
 
 ## 2. Décisions produit figées
@@ -153,6 +155,12 @@ Conséquences :
 - envoi des emails d’activation et de récupération par le port email Magrit ;
 - aucun hash, jeton ou identifiant Auth technique renvoyé au navigateur ;
 - session storefront distincte de la session Magrit et limitée à une boutique.
+
+Le catalogue d'une boutique `invite_only` est chargé uniquement après
+résolution de cette session. Le BFF transforme le cookie en contexte d'accès
+typé et ne transmet jamais son jeton au module Shops. Une session valide pour
+une boutique A ne donne aucun accès au catalogue de la boutique B, même si les
+deux comptes utilisent la même adresse email.
 
 ## 7. Parcours unifié « Se connecter à la boutique »
 
@@ -269,7 +277,8 @@ les stories d’implémentation.
 - **UM4 — Compte miroir** : primitive « Créer un utilisateur pour moi »
   idempotente.
 - **UM5 — Délégation** : action unifiée « Se connecter à la boutique »,
-  primitive « Se connecter comme », bandeau, sortie et audit.
+  primitive « Se connecter comme », bandeau, sortie, audit et accès au
+  catalogue privé strictement borné à la boutique de la session.
 - **UM6 — Références métier** : commandes, devis, paniers et préférences.
 - **UM7 — Migration** : conversion des membres `shop_only` existants.
 - **UM8 — Nettoyage** : retrait de `shop_only`, `allowed_shop_ids` client et du

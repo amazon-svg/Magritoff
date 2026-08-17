@@ -80,6 +80,7 @@ export function PublicShop() {
   const shopsApi = useShopsApi();
   const storefrontIdentityApi = useStorefrontIdentityApi();
   const [storefrontSession, setStorefrontSession] = useState<StorefrontSession | null>(null);
+  const [storefrontSessionLoading, setStorefrontSessionLoading] = useState(true);
   const [endingDelegation, setEndingDelegation] = useState(false);
   const checkoutCommandKey = useRef(crypto.randomUUID());
 
@@ -87,7 +88,8 @@ export function PublicShop() {
     let cancelled = false;
     storefrontIdentityApi.current()
       .then((current) => { if (!cancelled) setStorefrontSession(current); })
-      .catch(() => { if (!cancelled) setStorefrontSession(null); });
+      .catch(() => { if (!cancelled) setStorefrontSession(null); })
+      .finally(() => { if (!cancelled) setStorefrontSessionLoading(false); });
     return () => { cancelled = true; };
   }, [storefrontIdentityApi]);
 
@@ -170,7 +172,7 @@ export function PublicShop() {
 
   // ─── Chargement API + rafraîchissement à la reprise de fenêtre ────────────
   useEffect(() => {
-    if (!slug || authLoading || tenantLoading) return;
+    if (!slug || authLoading || tenantLoading || storefrontSessionLoading) return;
     let focusHandler: (() => void) | null = null;
     let refreshTimer: number | null = null;
     let cancelled = false;
@@ -208,6 +210,7 @@ export function PublicShop() {
         })),
         shopId: gateData.id,
         shopTenantId: gateData.tenantId,
+        storefrontShopId: storefrontSession?.identity.shopId ?? null,
       });
       if (initialAccess === 'authentication_required' || initialAccess === 'forbidden') {
         setBlockedAccess(initialAccess);
@@ -242,7 +245,7 @@ export function PublicShop() {
       if (refreshTimer !== null) window.clearInterval(refreshTimer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug, user?.id, authLoading, tenantLoading, isSuperAdmin, tenants, shopsApi]);
+  }, [slug, user?.id, authLoading, tenantLoading, storefrontSessionLoading, storefrontSession?.identity.shopId, isSuperAdmin, tenants, shopsApi]);
 
   // ─── SEO : title ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -568,11 +571,12 @@ export function PublicShop() {
       })),
       shopId: shop.id,
       shopTenantId: shop.tenant_id ?? null,
+      storefrontShopId: storefrontSession?.identity.shopId ?? null,
     });
-  }, [shop, user, isSuperAdmin, tenants]);
+  }, [shop, user, storefrontSession?.identity.shopId, isSuperAdmin, tenants]);
 
   // ─── Rendering ───────────────────────────────────────────────────────────
-  if (loading || authLoading || tenantLoading) {
+  if (loading || authLoading || tenantLoading || storefrontSessionLoading) {
     return (
       <div
         className="min-h-screen grid place-items-center bg-bg"

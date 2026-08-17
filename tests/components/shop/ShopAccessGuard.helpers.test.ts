@@ -61,6 +61,13 @@ describe("resolveShopAccess", () => {
       isSuperAdmin: true,
     })).toBe("allowed");
   });
+
+  it("autorise une session storefront limitée à cette boutique", () => {
+    expect(resolveShopAccess({
+      ...inviteOnly,
+      hasStorefrontAccess: true,
+    })).toBe("allowed");
+  });
 });
 
 describe("resolveShopAccessFromMemberships", () => {
@@ -94,5 +101,14 @@ describe("resolveShopAccessFromMemberships", () => {
 
   it("refuse l'absence de membership sur invite_only", () => {
     expect(resolveShopAccessFromMemberships({ ...base, memberships: [] })).toBe("forbidden");
+  });
+
+  it("accepte uniquement la session storefront de la boutique demandée", () => {
+    expect(resolveShopAccessFromMemberships({
+      ...base, isAuthenticated: false, memberships: [], storefrontShopId: "shop-A",
+    })).toBe("allowed");
+    expect(resolveShopAccessFromMemberships({
+      ...base, isAuthenticated: false, memberships: [], storefrontShopId: "shop-B",
+    })).toBe("authentication_required");
   });
 });

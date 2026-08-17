@@ -463,7 +463,9 @@ describe('frontières API-first et modulaires', () => {
     expect(edgeEntry).toContain('SupabaseRolesRepository(client)');
     expect(edgeEntry).toContain('createRolesRoutes(rolesService)');
     expect(edgeEntry).toContain('SupabaseShopsRepository(client, publicSupabaseUrl(request, supabaseUrl))');
-    expect(edgeEntry).toContain('createShopsRoutes(shopsService)');
+    expect(edgeEntry).toContain(
+      'createShopsRoutes(shopsService, storefrontSessionService, storefrontSessionCookiePolicy',
+    );
     expect(edgeEntry).toContain('SupabaseCatalogRepository(client)');
     expect(edgeEntry).toContain('SupabaseCatalogAutomationGateway(client)');
     expect(edgeEntry).toContain('createCatalogRoutes(catalogService)');

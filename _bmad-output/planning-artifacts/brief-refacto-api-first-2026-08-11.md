@@ -147,6 +147,11 @@ audité, jeton opaque en cookie HttpOnly, expiration courte, remplacement et
 révocation liés à l’acteur Magrit et à la boutique. UM5.2 branche l’action
 unique « Se connecter à la boutique », le nouvel onglet, le bandeau de contexte
 et la sortie explicite, sans exposer le jeton au composant.
+UM5.3 branche enfin ce cookie sur la lecture du catalogue `invite_only` : le
+BFF résout la session, passe au module Shops un contexte typé sans jeton et
+vérifie l'égalité stricte entre la boutique demandée et celle de la session.
+Le storefront attend cette résolution avant de charger le catalogue ; les
+sessions provenant d'une autre boutique restent refusées.
 
 ### Extension AF-C — Identité et invitations
 

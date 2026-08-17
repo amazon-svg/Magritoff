@@ -13,6 +13,7 @@ export interface ShopAccessInput {
   allowedShopIds: string[];
   shopId: string;
   isSuperAdmin?: boolean;
+  hasStorefrontAccess?: boolean;
 }
 
 /**
@@ -24,6 +25,7 @@ export function resolveShopAccess(input: ShopAccessInput): ShopAccess {
   if (input.accessMode === "self_signup") {
     return input.isAuthenticated ? "allowed" : "public";
   }
+  if (input.hasStorefrontAccess) return "allowed";
   if (!input.isAuthenticated) return "authentication_required";
   if (input.isSuperAdmin) return "allowed";
   if (input.accessScope === "magrit_full") return "allowed";
@@ -46,6 +48,7 @@ export interface ShopAccessFromMembershipsInput {
   memberships: MembershipScope[];
   shopId: string;
   shopTenantId: string | null;
+  storefrontShopId?: string | null;
 }
 
 /** Ne considère que la membership du tenant propriétaire de la boutique. */
@@ -63,5 +66,6 @@ export function resolveShopAccessFromMemberships(
     allowedShopIds: membership?.allowedShopIds ?? [],
     shopId: input.shopId,
     isSuperAdmin: input.isSuperAdmin,
+    hasStorefrontAccess: input.storefrontShopId === input.shopId,
   });
 }

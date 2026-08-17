@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { UserId } from '../../kernel/ids/index.ts';
 import type { CreateShopCommand, CreateShopProductCommand, MockupTemplateType, MockupView, PersistAiShopProductCommand, PublicShopCatalog, PublicShopProbe, SetShopPricingCommand, ShopBrandAssetUpload, ShopCustomMockup, ShopCustomMockupUpload, ShopDto, ShopPricingOverride, ShopProductDto, UpdateShopCommand, UpdateShopProductCommand } from '../../modules/shops/api/contracts.ts';
-import { ShopRejectedError, type ShopsRepository } from '../../modules/shops/application/shops-repository.ts';
+import { ShopRejectedError, type PublicShopCatalogAccess, type ShopsRepository } from '../../modules/shops/application/shops-repository.ts';
 import type { Database, Json } from '../../types/database.types.ts';
 
 const DEFAULT_THEME = { primaryColor: '#1e3a8a', accentColor: '#f59e0b', mode: 'light' as const, secondaryColor: '#6b7280', textColor: '#0f172a', bgColor: '#ffffff', fontPairing: 'system' };
@@ -70,13 +70,18 @@ export class SupabaseShopsRepository implements ShopsRepository {
     if (!row.tenant_id) throw new ShopRejectedError('invalid_request', 'Boutique sans espace propriétaire.');
     return { id: row.id, tenantId: row.tenant_id, accessMode: row.access_mode === 'self_signup' ? 'self_signup' : 'invite_only' };
   }
-  async publicCatalog(actor: UserId | null, slug: string): Promise<PublicShopCatalog> {
+  async publicCatalog(access: PublicShopCatalogAccess, slug: string): Promise<PublicShopCatalog> {
     const gate = await this.loadActiveShopBySlug(slug, 'id, tenant_id, access_mode');
     if (!gate.tenant_id) throw new ShopRejectedError('invalid_request', 'Boutique sans espace propriétaire.');
     if (gate.access_mode !== 'self_signup') {
-      if (!actor) throw new ShopRejectedError('authentication_required', 'Authentification requise.');
-      const { data: allowed, error: accessError } = await this.client.rpc('current_user_can_access_shop', { p_shop_id: gate.id });
-      if (accessError || !allowed) throw new ShopRejectedError('permission_denied', 'Accès à la boutique interdit.');
+      if (access.storefront?.shopId !== gate.id) {
+        if (!access.magritUserId) {
+          const code = access.storefront ? 'permission_denied' : 'authentication_required';
+          throw new ShopRejectedError(code, code === 'permission_denied' ? 'Accès à la boutique interdit.' : 'Authentification requise.');
+        }
+        const { data: allowed, error: accessError } = await this.client.rpc('current_user_can_access_shop', { p_shop_id: gate.id });
+        if (accessError || !allowed) throw new ShopRejectedError('permission_denied', 'Accès à la boutique interdit.');
+      }
     }
     const shopRow = await this.loadActiveShopBySlug(slug, SHOP_COLUMNS);
     if (!shopRow.tenant_id) throw new ShopRejectedError('invalid_request', 'Boutique sans espace propriétaire.');

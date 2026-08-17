@@ -4,11 +4,14 @@ import { ShopsService } from '../../src/modules/shops/application/shops-service'
 import { ShopRejectedError, type ShopsRepository } from '../../src/modules/shops/application/shops-repository';
 import { createApiV1Application } from '../../src/server/api/composition';
 import { createShopsRoutes } from '../../src/server/api/shops-routes';
+import { StorefrontSessionService } from '../../src/modules/shop-customers';
+import { storefrontSessionCookiePolicy } from '../../src/server/storefront/session-cookie';
 
 const parsed = parseId<'UserId'>('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'); if (!parsed.ok) throw new Error('actor');
 const tenantId = '11111111-1111-4111-8111-111111111111';
 const shopId = '22222222-2222-4222-8222-222222222222';
 const shop = { id: shopId, tenantId, ownerUserId: parsed.value, slug: 'demo', name: 'Démo', description: '', theme: { primaryColor: '#000', accentColor: '#fff', mode: 'light' as const }, logoUrl: '', address: '', contactEmail: '', active: true, libraryIds: [], excludedProductIds: [], heroImageUrl: null, tagline: null, pimCatalogMode: false, pimGammeSlugs: [], accessMode: 'invite_only' as const, createdAt: '2026-08-12T10:00:00Z' };
+const publicCatalog = { shop: { id: shopId, tenantId, slug: 'demo', name: 'Démo', description: '', theme: { primaryColor: '#000', accentColor: '#fff', mode: 'light' as const }, logoUrl: '', address: '', contactEmail: '', active: true, heroImageUrl: null, tagline: null, accessMode: 'invite_only' as const, createdAt: '2026-08-12T10:00:00Z' }, products: [], gammes: [], definitions: [], subscribedSlugs: [], customMockups: [] };
 function repo(overrides: Partial<ShopsRepository> = {}): ShopsRepository { return { async registerBuyer() {}, async list() { return []; }, async create() { return shop; }, async update() { return shop; }, async remove() {}, async products() { return []; }, async addProduct() { throw new Error('unused'); }, async updateProduct() {}, async removeProduct() {}, async publicProbe() { return { id: shopId, tenantId, accessMode: 'invite_only' }; }, async publicCatalog() { throw new ShopRejectedError('authentication_required', 'Authentification requise.'); }, async pricing() { return []; }, async setPricing() {}, async uploadBrandAsset() { return 'https://assets.magrit.test/logo.png'; }, async customMockups() { return []; }, async uploadCustomMockup() {}, async restoreCustomMockup() {}, async persistAiProduct() {}, ...overrides }; }
 function handler(repository: ShopsRepository) { return createApiV1Application({ routes: createShopsRoutes(new ShopsService(repository)), actorResolver: { async resolve() { return { kind: 'user', userId: parsed.value }; } }, requestIdFactory: () => 'shops-test' }); }
 
@@ -40,6 +43,33 @@ describe('routes API Shops', () => {
     const response = await anonymous(new Request('http://localhost/api/v1/public/shops/demo/catalog'));
     expect(response.status).toBe(401);
     expect((await response.json()).code).toBe('shops.authentication_required');
+  });
+  it('accepte le contexte storefront opaque sans exiger une membership Magrit', async () => {
+    let access: unknown = null;
+    const repository = repo({ async publicCatalog(received) { access = received; return publicCatalog; } });
+    const sessions = new StorefrontSessionService({
+      async resolve() { return {
+        identity: { kind: 'shop_customer', shopId, shopCustomerAccountId: '33333333-3333-4333-8333-333333333333' },
+        customer: { id: '33333333-3333-4333-8333-333333333333', shopId, email: 'client@example.com', fullName: 'Client', status: 'active' },
+        expiresAt: '2026-08-17T12:00:00.000Z',
+      }; },
+      async revoke() { return true; },
+    });
+    const anonymous = createApiV1Application({
+      routes: createShopsRoutes(new ShopsService(repository), sessions, storefrontSessionCookiePolicy(false)),
+      requestIdFactory: () => 'shops-storefront-test',
+    });
+    const response = await anonymous(new Request('http://localhost/api/v1/public/shops/demo/catalog', {
+      headers: { Cookie: 'magrit-storefront=abcdefghijklmnopqrstuvwxyzABCDE_1234567890-storefront' },
+    }));
+    expect(response.status).toBe(200);
+    expect(access).toEqual({
+      magritUserId: null,
+      storefront: {
+        kind: 'shop_customer', shopId,
+        shopCustomerAccountId: '33333333-3333-4333-8333-333333333333',
+      },
+    });
   });
   it('dérive l’acteur pour enregistrer un prix négocié', async () => {
     let receivedActor = '';
