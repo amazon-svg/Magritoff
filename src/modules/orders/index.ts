@@ -52,6 +52,8 @@ export type {
   LegacyOrderRecord,
   OrdersRepository,
   OrderCommandRejectionCode,
+  PortalOrdersAuthorization,
+  StorefrontPortalOrdersRecord,
   TaxRegime,
   TenantOrderRecord,
 } from './application/orders-repository';

@@ -70,6 +70,7 @@ describe('routes Orders API v1', () => {
 
   it('crée une commande avec la session boutique correspondant au shop', async () => {
     let authorization: unknown = null;
+    let portalToken: string | null = null;
     const repository = repositoryStub();
     repository.createOrder = async (command, received) => {
       authorization = received;
@@ -78,6 +79,10 @@ describe('routes Orders API v1', () => {
         tenantId: '33333333-3333-4333-8333-333333333333',
         shopId: command.shopId, totalHt: 150, currency: command.currency, replayed: false,
       };
+    };
+    repository.getStorefrontPortalOrders = async (_shopId, receivedToken) => {
+      portalToken = receivedToken;
+      return { orders: [], taxRegime: 'metropole_fr' };
     };
     const shopId = '11111111-1111-4111-8111-111111111111';
     const sessions = new StorefrontSessionService({
@@ -103,6 +108,11 @@ describe('routes Orders API v1', () => {
     }));
     expect(response.status).toBe(201);
     expect(authorization).toEqual({ kind: 'storefront_session', opaqueToken: token });
+    const portalResponse = await handler(new Request(`https://magrit.test/api/v1/shops/${shopId}/orders`, {
+      headers: { Cookie: `magrit-storefront=${token}` },
+    }));
+    expect(portalResponse.status).toBe(200);
+    expect(portalToken).toBe(token);
   });
 
   it('traduit un conflit de transition en Problem Details 409', async () => {
@@ -174,6 +184,7 @@ function repositoryStub(): OrdersRepository {
     getPortalCounters: async () => ({ mine: 1, to_validate: 0, to_approve: 0, to_produce: 0 }),
     getPortalOrderIds: async (_shopId, _userId, tab) => tab === 'mine' ? ['order-af4'] : [],
     getAuthenticatedUserEmail: async () => 'buyer@magrit.test',
+    getStorefrontPortalOrders: async () => ({ orders: [order], taxRegime: 'metropole_fr' }),
     listAuditEvents: async () => [{
       eventId: 'event-af4', orderId: 'order-af4', kind: 'status', eventType: 'status_transition',
       actorId: 'user-af4', actorEmail: null, roleName: null, payload: {}, occurredAt: '2026-08-11T12:01:00.000Z',

@@ -6,7 +6,7 @@ updated: 2026-08-17
 status: in_progress
 target_epic: EPIC-UM-STORE-IDENTITY
 decision_owner: produit
-implementation: um6_storefront_order_creation_delivered
+implementation: um6_storefront_order_portal_delivered
 ---
 
 # Spécification — Identités Magrit et comptes boutique séparés
@@ -42,8 +42,10 @@ session au catalogue privé : le BFF résout le cookie HttpOnly et n'autorise qu
 la boutique exacte portée par la session. La récupération de mot de passe n'est
 pas encore livrée. UM6.1 rattache désormais toute nouvelle commande storefront
 au compte boutique de la session et conserve séparément l'acteur Magrit en cas
-de délégation. Les lectures, brouillons et transitions restent à migrer dans les
-stories UM6 suivantes. Chaque vague suivante doit être
+de délégation. UM6.2 permet ensuite au compte boutique de consulter uniquement
+ses propres commandes dans son portail, sans lui conférer les rôles Magrit de
+validation ou de production. Les brouillons, détails et transitions restent à
+migrer dans les stories UM6 suivantes. Chaque vague suivante doit être
 découpée en stories BMAD exécutables avant son implémentation.
 
 ## 2. Décisions produit figées

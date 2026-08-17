@@ -63,6 +63,15 @@ export type CreateOrderAuthorization =
   | Readonly<{ kind: 'magrit_user' }>
   | Readonly<{ kind: 'storefront_session'; opaqueToken: string }>;
 
+export type PortalOrdersAuthorization =
+  | Readonly<{ kind: 'magrit_user'; userId: UserId }>
+  | Readonly<{ kind: 'storefront_session'; opaqueToken: string }>;
+
+export type StorefrontPortalOrdersRecord = Readonly<{
+  orders: readonly TenantOrderRecord[];
+  taxRegime: TaxRegime | null;
+}>;
+
 export class OrderCommandRejectedError extends Error {
   constructor(
     public readonly code: OrderCommandRejectionCode,
@@ -82,6 +91,7 @@ export interface OrdersRepository {
   getPortalCounters(shopId: string, userId: UserId): Promise<PortalOrdersCounters>;
   getPortalOrderIds(shopId: string, userId: UserId, tab: PortalOrdersTab): Promise<readonly string[]>;
   getAuthenticatedUserEmail(): Promise<string | null>;
+  getStorefrontPortalOrders(shopId: string, opaqueToken: string): Promise<StorefrontPortalOrdersRecord>;
   listAuditEvents(orderId: string): Promise<readonly AuditEventRecord[]>;
   transitionOrder(orderId: string, command: TransitionOrderCommand): Promise<TransitionOrderResult>;
   notifyTransition(

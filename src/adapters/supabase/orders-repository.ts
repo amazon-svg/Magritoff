@@ -21,6 +21,7 @@ import type {
   OrdersRepository,
   TaxRegime,
   TenantOrderRecord,
+  StorefrontPortalOrdersRecord,
 } from '../../modules/orders/application/orders-repository.ts';
 import type { Database, Json } from '../../types/database.types.ts';
 
@@ -108,6 +109,20 @@ export class SupabaseOrdersRepository implements OrdersRepository {
     const { data, error } = await this.client.auth.getUser();
     if (error) throw new Error(`Lecture de l identité impossible: ${error.message}`);
     return data.user?.email ?? null;
+  }
+
+  async getStorefrontPortalOrders(shopId: string, opaqueToken: string): Promise<StorefrontPortalOrdersRecord> {
+    const { data, error } = await this.client.rpc('api_get_storefront_portal_orders', {
+      p_shop_id: shopId,
+      p_opaque_token: opaqueToken,
+    });
+    if (error) throw mapOrderCommandError(error.message, 'Lecture du portail boutique impossible');
+    const result = toRecord(data);
+    const rows = Array.isArray(result.orders) ? result.orders : [];
+    return {
+      orders: rows.map((row) => toTenantOrder(toRecord(row) as unknown as TenantOrderRow)),
+      taxRegime: normalizeTaxRegime(typeof result.tax_regime === 'string' ? result.tax_regime : null),
+    };
   }
 
   async listAuditEvents(orderId: string): Promise<readonly AuditEventRecord[]> {

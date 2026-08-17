@@ -2040,6 +2040,10 @@ export type Database = {
         }
         Returns: Json
       }
+      api_get_storefront_portal_orders: {
+        Args: { p_opaque_token: string; p_shop_id: string }
+        Returns: Json
+      }
       api_get_tenant_order_draft: {
         Args: { p_order_id: string }
         Returns: Json

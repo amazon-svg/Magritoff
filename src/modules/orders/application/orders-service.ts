@@ -18,6 +18,7 @@ import type {
   CreateOrderAuthorization,
   LegacyOrderRecord,
   OrdersRepository,
+  PortalOrdersAuthorization,
   TaxRegime,
   TenantOrderRecord,
 } from './orders-repository.ts';
@@ -36,7 +37,16 @@ export class OrdersService {
     return { orders: sortOrders([...legacy.map(toLegacySummary), ...tenant.map((order) => toTenantSummary(order, taxRate))]) };
   }
 
-  async listPortalOrders(shopId: string, userId: UserId): Promise<PortalOrdersResponse> {
+  async listPortalOrders(shopId: string, authorization: PortalOrdersAuthorization): Promise<PortalOrdersResponse> {
+    if (authorization.kind === 'storefront_session') {
+      const storefront = await this.repository.getStorefrontPortalOrders(shopId, authorization.opaqueToken);
+      const mine = sortOrders(storefront.orders.map((order) => toTenantSummary(order, taxRateFor(storefront.taxRegime))));
+      return {
+        counters: { mine: mine.length, to_validate: 0, to_approve: 0, to_produce: 0 },
+        datasets: { mine, to_validate: [], to_approve: [], to_produce: [] },
+      };
+    }
+    const userId = authorization.userId;
     const [counters, idsByTab, email] = await Promise.all([
       this.repository.getPortalCounters(shopId, userId),
       Promise.all(PORTAL_TABS.map((tab) => this.repository.getPortalOrderIds(shopId, userId, tab))),

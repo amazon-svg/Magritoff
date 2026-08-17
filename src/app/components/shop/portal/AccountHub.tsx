@@ -38,6 +38,7 @@ const QUOTE_STATUS_LABELS: Record<string, string> = {
 
 export interface AccountHubProps {
   shop: Shop;
+  hasStorefrontSession?: boolean;
   section: AccountSection;
   onSection: (section: AccountSection) => void;
   onRenewOrder: (order: { id: string; source: string }) => void;
@@ -46,6 +47,7 @@ export interface AccountHubProps {
 
 export function AccountHub({
   shop,
+  hasStorefrontSession = false,
   section,
   onSection,
   onRenewOrder,
@@ -87,7 +89,7 @@ export function AccountHub({
 
       <div className="min-w-0">
         {section === 'orders' && (
-          <PortalOrders shopId={shop.id} onRenewOrder={onRenewOrder} />
+          <PortalOrders shopId={shop.id} hasStorefrontSession={hasStorefrontSession} onRenewOrder={onRenewOrder} />
         )}
         {section === 'quotes' && <AccountQuotes />}
         {section === 'profile' && (

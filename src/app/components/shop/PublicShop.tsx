@@ -314,7 +314,8 @@ export function PublicShop() {
   // Best-effort silencieux : anonyme ou erreur RLS → pas de bandeau.
   const [lastOrder, setLastOrder] = useState<ResumeLastOrder | null>(null);
   useEffect(() => {
-    if (!user?.id || !shop?.id) {
+    const hasStorefrontSession = storefrontSession?.identity.shopId === shop?.id;
+    if ((!user?.id && !hasStorefrontSession) || !shop?.id) {
       setLastOrder(null);
       return;
     }
@@ -339,7 +340,7 @@ export function PublicShop() {
       controller.abort();
     };
     // Re-fetch après un submitCart réussi (lastOrderId change).
-  }, [user?.id, shop?.id, lastOrderId, ordersApi]);
+  }, [user?.id, storefrontSession?.identity.shopId, shop?.id, lastOrderId, ordersApi]);
 
   /**
    * S3.3 AC2/AC3 : Renouveler 1-clic depuis OrderHistoryTable.
@@ -787,6 +788,7 @@ export function PublicShop() {
       {view === 'account' && (
         <AccountHub
           shop={shop}
+          hasStorefrontSession={storefrontSession?.identity.shopId === shop.id}
           section={routeMatch.accountSection ?? 'orders'}
           onSection={(s) => goView('account', s)}
           onRenewOrder={handleRenewOrder}

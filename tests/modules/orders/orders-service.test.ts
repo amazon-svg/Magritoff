@@ -23,12 +23,26 @@ describe('OrdersService', () => {
   it('compose les quatre vues portail et réserve le legacy à mine', async () => {
     const service = new OrdersService(repositoryStub());
 
-    const result = await service.listPortalOrders('shop-1', id('user-1'));
+    const result = await service.listPortalOrders('shop-1', { kind: 'magrit_user', userId: id('user-1') });
 
     expect(result.counters).toEqual({ mine: 2, to_validate: 1, to_approve: 0, to_produce: 0 });
     expect(result.datasets.mine.map((order) => order.id)).toEqual(['v11-1', 'legacy-1']);
     expect(result.datasets.to_validate.map((order) => order.id)).toEqual(['v11-1']);
     expect(result.datasets.to_approve).toEqual([]);
+  });
+
+  it('borne le portail storefront aux commandes du compte sans rôles Magrit', async () => {
+    const repository = repositoryStub();
+    const service = new OrdersService(repository);
+
+    const result = await service.listPortalOrders('shop-1', {
+      kind: 'storefront_session', opaqueToken: 'opaque-storefront-token',
+    });
+
+    expect(result.counters).toEqual({ mine: 1, to_validate: 0, to_approve: 0, to_produce: 0 });
+    expect(result.datasets.mine.map((order) => order.id)).toEqual(['v11-1']);
+    expect(result.datasets.to_validate).toEqual([]);
+    expect(repository.listLegacyOrders).not.toHaveBeenCalled();
   });
 
   it('normalise le trail d audit au format HTTP camelCase', async () => {
@@ -110,6 +124,7 @@ function repositoryStub(): OrdersRepository & Record<'listLegacyOrders', ReturnT
     getPortalCounters: vi.fn(async () => ({ mine: 2, to_validate: 1, to_approve: 0, to_produce: 0 })),
     getPortalOrderIds: vi.fn(async (_shopId, _userId, tab) => tab === 'mine' || tab === 'to_validate' ? ['v11-1'] : []),
     getAuthenticatedUserEmail: vi.fn(async () => 'buyer@magrit.test'),
+    getStorefrontPortalOrders: vi.fn(async () => ({ orders: [v11], taxRegime: 'dom_tom' as const })),
     listAuditEvents: vi.fn(async () => [{
       eventId: 'event-1', orderId: 'v11-1', kind: 'status', eventType: 'status_transition',
       actorId: 'user-1', actorEmail: 'buyer@magrit.test', roleName: null,

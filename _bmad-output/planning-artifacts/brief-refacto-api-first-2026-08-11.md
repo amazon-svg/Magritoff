@@ -157,6 +157,10 @@ primitive SQL le valide à nouveau et rattache l'écriture à
 `shop_customer_account_id`. En délégation, `acted_by_magrit_user_id` conserve
 l'acteur réel sans fusionner les deux identités ; le parcours Magrit historique
 reste compatible.
+UM6.2 migre la liste du portail : une primitive dédiée filtre à la fois par
+boutique et compte client. Le portail storefront n'expose que `mine` et ne
+réutilise aucun rôle Magrit ; le portail interne historique conserve ses quatre
+vues de workflow.
 
 ### Extension AF-C — Identité et invitations
 

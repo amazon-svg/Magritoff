@@ -55,6 +55,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../ui/tabs";
 
 interface Props {
   shopId: string;
+  hasStorefrontSession?: boolean;
   /**
    * S3.3 (Sprint 5) : callback Renouveler 1-clic remonté depuis PublicShop.
    * Si fourni, OrderHistoryTable affiche le bouton "Renouveler" sur les
@@ -108,7 +109,7 @@ function syncActiveTabToUrl(tab: PortalOrdersTab) {
   }
 }
 
-export function PortalOrders({ shopId, onRenewOrder, onNavigateToCatalog }: Props) {
+export function PortalOrders({ shopId, hasStorefrontSession = false, onRenewOrder, onNavigateToCatalog }: Props) {
   const { user } = useAuth();
   const ordersApi = useOrdersApi();
 
@@ -135,11 +136,9 @@ export function PortalOrders({ shopId, onRenewOrder, onNavigateToCatalog }: Prop
       setLoading(false);
       return;
     }
-    // Anonyme (pas de session) : pas de query workflow possible (auth.uid()
-    // null côté RPC SECURITY INVOKER). On clear le loading + on laisse les
-    // datasets vides — le render affichera un empty state "Mes commandes"
-    // avec CTA login implicite (cohérent avec UX existante pré-bascule).
-    if (!user?.id) {
+    // Sans identité Magrit ni session storefront, aucune lecture portail n'est
+    // tentée. Une session boutique est résolue par le BFF et filtrée par compte.
+    if (!user?.id && !hasStorefrontSession) {
       setLoading(false);
       setDatasets(EMPTY_DATASETS);
       setCounters(ZERO_COUNTERS);
@@ -163,7 +162,7 @@ export function PortalOrders({ shopId, onRenewOrder, onNavigateToCatalog }: Prop
     } finally {
       setLoading(false);
     }
-  }, [shopId, user?.id, ordersApi]);
+  }, [shopId, user?.id, hasStorefrontSession, ordersApi]);
 
   useEffect(() => {
     void loadAll();
