@@ -23,6 +23,7 @@ import type {
   TaxRegime,
   TenantOrderRecord,
   StorefrontPortalOrdersRecord,
+  TransitionOrderAuthorization,
 } from '../../modules/orders/application/orders-repository.ts';
 import type { Database, Json } from '../../types/database.types.ts';
 
@@ -142,12 +143,13 @@ export class SupabaseOrdersRepository implements OrdersRepository {
     }));
   }
 
-  async transitionOrder(orderId: string, command: TransitionOrderCommand): Promise<TransitionOrderResult> {
-    const { data, error } = await this.client.rpc('api_transition_tenant_order_status', {
+  async transitionOrder(orderId: string, command: TransitionOrderCommand, authorization: TransitionOrderAuthorization): Promise<TransitionOrderResult> {
+    const { data, error } = await this.client.rpc('api_transition_order_for_identity', {
       p_order_id: orderId,
       p_new_status_code: command.toStatus,
       p_reason: command.reason,
       p_idempotency_key: command.idempotencyKey,
+      p_opaque_token: authorization.storefrontToken,
     });
     if (error) {
       const message = error.message;
@@ -179,7 +181,7 @@ export class SupabaseOrdersRepository implements OrdersRepository {
 
   async notifyTransition(
     result: TransitionOrderResult,
-    actorUserId: UserId,
+    actorUserId: UserId | null,
     baseUrl: string,
   ): Promise<void> {
     const { error } = await this.client.functions.invoke('order-workflow-step', {

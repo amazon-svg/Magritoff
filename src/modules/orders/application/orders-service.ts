@@ -1,4 +1,3 @@
-import type { UserId } from '../../../kernel/ids/index.ts';
 import type {
   OrderAuditTrail,
   OrdersList,
@@ -22,6 +21,7 @@ import type {
   PortalOrdersAuthorization,
   TaxRegime,
   TenantOrderRecord,
+  TransitionOrderAuthorization,
 } from './orders-repository.ts';
 
 const PORTAL_TABS: readonly PortalOrdersTab[] = ['mine', 'to_validate', 'to_approve', 'to_produce'];
@@ -97,12 +97,12 @@ export class OrdersService {
   async transition(
     orderId: string,
     command: TransitionOrderCommand,
-    actorUserId: UserId,
+    authorization: TransitionOrderAuthorization,
     baseUrl: string,
   ): Promise<TransitionOrderResult> {
-    const result = await this.repository.transitionOrder(orderId, command);
+    const result = await this.repository.transitionOrder(orderId, command, authorization);
     if (!result.replayed) {
-      void this.repository.notifyTransition(result, actorUserId, baseUrl).catch((error) => {
+      void this.repository.notifyTransition(result, authorization.magritUserId, baseUrl).catch((error) => {
         console.warn('[OrdersService] notification de transition ignorée:', error);
       });
     }

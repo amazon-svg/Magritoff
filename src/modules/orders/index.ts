@@ -55,6 +55,7 @@ export type {
   OrderResourceAuthorization,
   PortalOrdersAuthorization,
   StorefrontPortalOrdersRecord,
+  TransitionOrderAuthorization,
   TaxRegime,
   TenantOrderRecord,
 } from './application/orders-repository';

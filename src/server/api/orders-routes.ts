@@ -150,7 +150,7 @@ export function createOrdersRoutes(
     defineJsonRoute({
       method: 'POST',
       path: `${API_V1_BASE_PATH}/orders/{orderId}/transitions`,
-      authentication: 'required',
+      authentication: 'public',
       inputSchema: transitionOrderCommandSchema,
       outputSchema: transitionOrderResultSchema,
       async handle(context, command) {
@@ -160,7 +160,7 @@ export function createOrdersRoutes(
             body: await service.transition(
               requireParam(context, 'orderId'),
               command,
-              requireUserId(context),
+              await transitionAuthorization(context, storefrontSessions, storefrontCookiePolicy),
               new URL(context.request.url).origin,
             ),
           };
@@ -234,6 +234,26 @@ async function orderResourceAuthorization(
     });
   }
   return { storefrontToken };
+}
+
+async function transitionAuthorization(
+  context: ApiRequestContext,
+  sessions?: StorefrontSessionService,
+  policy?: StorefrontSessionCookiePolicy,
+) {
+  let storefrontToken: string | null = null;
+  if (sessions && policy) {
+    const token = readStorefrontSessionCookie(context.request.headers.get('cookie'), policy);
+    if (token && await sessions.current(token)) storefrontToken = token;
+  }
+  const magritUserId = context.actor?.kind === 'user' ? requireUserId(context) : null;
+  if (!storefrontToken && !magritUserId) {
+    throw new ApiHttpError({
+      type: 'about:blank', title: 'Authentification requise', status: 401,
+      code: 'identity.authentication_required',
+    });
+  }
+  return { storefrontToken, magritUserId };
 }
 
 function toHttpError(error: OrderCommandRejectedError): ApiHttpError {

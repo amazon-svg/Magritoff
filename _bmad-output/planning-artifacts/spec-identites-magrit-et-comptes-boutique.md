@@ -6,7 +6,7 @@ updated: 2026-08-17
 status: in_progress
 target_epic: EPIC-UM-STORE-IDENTITY
 decision_owner: produit
-implementation: um6_storefront_order_drafts_delivered
+implementation: um6_storefront_order_cancellation_delivered
 ---
 
 # Spécification — Identités Magrit et comptes boutique séparés
@@ -46,8 +46,9 @@ de délégation. UM6.2 permet ensuite au compte boutique de consulter uniquement
 ses propres commandes dans son portail, sans lui conférer les rôles Magrit de
 validation ou de production. UM6.3 ouvre ensuite le détail et l'édition des
 brouillons au compte boutique propriétaire, avec un contrôle simultané du
-compte et de la boutique. Les transitions restent à migrer dans les stories UM6
-suivantes. Chaque vague suivante doit être
+compte et de la boutique. UM6.4 autorise enfin le propriétaire boutique à annuler uniquement
+ses propres brouillons ; toutes les transitions internes restent réservées aux
+rôles Magrit. Chaque vague suivante doit être
 découpée en stories BMAD exécutables avant son implémentation.
 
 ## 2. Décisions produit figées

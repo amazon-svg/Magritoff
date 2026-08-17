@@ -61,7 +61,9 @@ describe('OrdersService', () => {
     const service = new OrdersService(repository);
     const command = { toStatus: 'validated' as const, reason: null, idempotencyKey: 'transition-af5-1' };
 
-    await expect(service.transition('v11-1', command, id('user-1'), 'https://magrit.test'))
+    await expect(service.transition('v11-1', command, {
+      storefrontToken: null, magritUserId: id('user-1'),
+    }, 'https://magrit.test'))
       .resolves.toMatchObject({ fromStatus: 'draft', toStatus: 'validated', replayed: false });
     expect(repository.notifyTransition).toHaveBeenCalledOnce();
   });

@@ -71,6 +71,11 @@ export type OrderResourceAuthorization = Readonly<{
   storefrontToken: string | null;
 }>;
 
+export type TransitionOrderAuthorization = Readonly<{
+  storefrontToken: string | null;
+  magritUserId: UserId | null;
+}>;
+
 export type StorefrontPortalOrdersRecord = Readonly<{
   orders: readonly TenantOrderRecord[];
   taxRegime: TaxRegime | null;
@@ -97,10 +102,10 @@ export interface OrdersRepository {
   getAuthenticatedUserEmail(): Promise<string | null>;
   getStorefrontPortalOrders(shopId: string, opaqueToken: string): Promise<StorefrontPortalOrdersRecord>;
   listAuditEvents(orderId: string): Promise<readonly AuditEventRecord[]>;
-  transitionOrder(orderId: string, command: TransitionOrderCommand): Promise<TransitionOrderResult>;
+  transitionOrder(orderId: string, command: TransitionOrderCommand, authorization: TransitionOrderAuthorization): Promise<TransitionOrderResult>;
   notifyTransition(
     result: TransitionOrderResult,
-    actorUserId: UserId,
+    actorUserId: UserId | null,
     baseUrl: string,
   ): Promise<void>;
   createOrder(command: CreateOrderCommand, authorization: CreateOrderAuthorization): Promise<CreateOrderResult>;

@@ -72,6 +72,7 @@ describe('routes Orders API v1', () => {
     let authorization: unknown = null;
     let portalToken: string | null = null;
     const resourceTokens: Array<string | null> = [];
+    let transitionAuthorization: unknown = null;
     const repository = repositoryStub();
     repository.createOrder = async (command, received) => {
       authorization = received;
@@ -95,6 +96,10 @@ describe('routes Orders API v1', () => {
     repository.updateDraftOrder = async (orderId, command, received) => {
       resourceTokens.push(received.storefrontToken);
       return { orderId, totalHt: command.items[0]?.unitPriceHt ?? 0, replayed: false };
+    };
+    repository.transitionOrder = async (orderId, command, received) => {
+      transitionAuthorization = received;
+      return { orderId, fromStatus: 'draft', toStatus: command.toStatus, replayed: false };
     };
     const shopId = '11111111-1111-4111-8111-111111111111';
     const sessions = new StorefrontSessionService({
@@ -140,6 +145,13 @@ describe('routes Orders API v1', () => {
     }));
     expect(updateResponse.status).toBe(200);
     expect(resourceTokens).toEqual([token, token]);
+    const transitionResponse = await handler(new Request(`https://magrit.test/api/v1/orders/${orderId}/transitions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: `magrit-storefront=${token}` },
+      body: JSON.stringify({ toStatus: 'cancelled', reason: null, idempotencyKey: 'cancel-um6-storefront' }),
+    }));
+    expect(transitionResponse.status).toBe(200);
+    expect(transitionAuthorization).toEqual({ storefrontToken: token, magritUserId: null });
   });
 
   it('traduit un conflit de transition en Problem Details 409', async () => {

@@ -165,6 +165,9 @@ UM6.3 migre le détail et l'édition atomique des brouillons. Le cookie boutique
 et l'identité Magrit peuvent coexister dans le navigateur, mais la primitive
 autorise uniquement l'identité qui possède effectivement la commande ; les
 reçus d'idempotence storefront restent séparés.
+UM6.4 ouvre l'annulation propriétaire `draft → cancelled` et enrichit les
+événements de statut avec le compte boutique et l'acteur Magrit délégué. Aucune
+capability de validation ou production n'est accordée aux comptes storefront.
 
 ### Extension AF-C — Identité et invitations
 

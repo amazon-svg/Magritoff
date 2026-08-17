@@ -1536,17 +1536,20 @@ export type Database = {
       }
       tenant_order_status_events: {
         Row: {
-          actor_id: string
+          acted_by_magrit_user_id: string | null
+          actor_id: string | null
           created_at: string
           from_status: Database["public"]["Enums"]["tenant_order_status"] | null
           id: string
           metadata: Json
           order_id: string
           reason: string | null
+          shop_customer_account_id: string | null
           to_status: Database["public"]["Enums"]["tenant_order_status"]
         }
         Insert: {
-          actor_id: string
+          acted_by_magrit_user_id?: string | null
+          actor_id?: string | null
           created_at?: string
           from_status?:
             | Database["public"]["Enums"]["tenant_order_status"]
@@ -1555,10 +1558,12 @@ export type Database = {
           metadata?: Json
           order_id: string
           reason?: string | null
+          shop_customer_account_id?: string | null
           to_status: Database["public"]["Enums"]["tenant_order_status"]
         }
         Update: {
-          actor_id?: string
+          acted_by_magrit_user_id?: string | null
+          actor_id?: string | null
           created_at?: string
           from_status?:
             | Database["public"]["Enums"]["tenant_order_status"]
@@ -1567,6 +1572,7 @@ export type Database = {
           metadata?: Json
           order_id?: string
           reason?: string | null
+          shop_customer_account_id?: string | null
           to_status?: Database["public"]["Enums"]["tenant_order_status"]
         }
         Relationships: [
@@ -2054,6 +2060,16 @@ export type Database = {
           p_items: Json
           p_opaque_token: string | null
           p_order_id: string
+        }
+        Returns: Json
+      }
+      api_transition_order_for_identity: {
+        Args: {
+          p_idempotency_key: string
+          p_new_status_code: string
+          p_opaque_token: string | null
+          p_order_id: string
+          p_reason: string | null
         }
         Returns: Json
       }
