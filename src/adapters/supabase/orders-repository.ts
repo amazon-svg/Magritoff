@@ -16,6 +16,7 @@ import type {
 import { OrderCommandRejectedError } from '../../modules/orders/application/orders-repository.ts';
 import type {
   AuditEventRecord,
+  CreateOrderAuthorization,
   LegacyOrderRecord,
   OrdersRepository,
   TaxRegime,
@@ -177,8 +178,8 @@ export class SupabaseOrdersRepository implements OrdersRepository {
     if (error) throw new Error(`Notification workflow impossible: ${error.message}`);
   }
 
-  async createOrder(command: CreateOrderCommand): Promise<CreateOrderResult> {
-    const { data, error } = await this.client.rpc('api_create_tenant_order', {
+  async createOrder(command: CreateOrderCommand, authorization: CreateOrderAuthorization): Promise<CreateOrderResult> {
+    const parameters = {
       p_shop_id: command.shopId,
       p_currency: command.currency,
       p_notes: command.notes,
@@ -190,7 +191,10 @@ export class SupabaseOrdersRepository implements OrdersRepository {
         unit_price_ht: item.unitPriceHt,
       })),
       p_idempotency_key: command.idempotencyKey,
-    });
+    };
+    const { data, error } = authorization.kind === 'storefront_session'
+      ? await this.client.rpc('api_create_storefront_order', { ...parameters, p_opaque_token: authorization.opaqueToken })
+      : await this.client.rpc('api_create_tenant_order', parameters);
     if (error) throw mapOrderCommandError(error.message, 'Création de commande impossible');
     const result = toRecord(data);
     if (

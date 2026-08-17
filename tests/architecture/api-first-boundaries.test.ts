@@ -454,7 +454,9 @@ describe('frontières API-first et modulaires', () => {
     expect(edgeEntry).toContain("Deno.env.get('SUPABASE_ANON_KEY')");
     expect(edgeEntry).toContain('Authorization: authorization');
     expect(edgeEntry).toContain('SupabaseOrdersRepository(client)');
-    expect(edgeEntry).toContain('createOrdersRoutes(ordersService)');
+    expect(edgeEntry).toContain(
+      'createOrdersRoutes(ordersService, storefrontSessionService, storefrontSessionCookiePolicy',
+    );
     expect(edgeEntry).toContain('SupabaseInvitationsRepository(client, invitationEmailSender)');
     expect(edgeEntry).toContain('createInvitationsRoutes(invitationsService)');
     expect(edgeEntry).toContain('ResendInvitationEmailSender');

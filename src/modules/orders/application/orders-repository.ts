@@ -59,6 +59,10 @@ export type OrderCommandRejectionCode =
   | 'transition_not_allowed'
   | 'permission_denied';
 
+export type CreateOrderAuthorization =
+  | Readonly<{ kind: 'magrit_user' }>
+  | Readonly<{ kind: 'storefront_session'; opaqueToken: string }>;
+
 export class OrderCommandRejectedError extends Error {
   constructor(
     public readonly code: OrderCommandRejectionCode,
@@ -85,7 +89,7 @@ export interface OrdersRepository {
     actorUserId: UserId,
     baseUrl: string,
   ): Promise<void>;
-  createOrder(command: CreateOrderCommand): Promise<CreateOrderResult>;
+  createOrder(command: CreateOrderCommand, authorization: CreateOrderAuthorization): Promise<CreateOrderResult>;
   notifyOrderCreated(result: CreateOrderResult, baseUrl: string): Promise<void>;
   getDraftOrder(orderId: string): Promise<DraftOrder>;
   updateDraftOrder(orderId: string, command: UpdateDraftOrderCommand): Promise<UpdateDraftOrderResult>;

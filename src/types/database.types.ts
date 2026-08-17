@@ -1622,9 +1622,10 @@ export type Database = {
       }
       tenant_orders: {
         Row: {
+          acted_by_magrit_user_id: string | null
           cancelled_at: string | null
           created_at: string
-          created_by: string
+          created_by: string | null
           currency: string
           id: string
           invoice_number: string | null
@@ -1633,6 +1634,7 @@ export type Database = {
           pa_id: string | null
           ppf_message_id: string | null
           shop_id: string
+          shop_customer_account_id: string | null
           status: Database["public"]["Enums"]["tenant_order_status"]
           stripe_payment_intent_id: string | null
           tenant_id: string
@@ -1640,9 +1642,10 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          acted_by_magrit_user_id?: string | null
           cancelled_at?: string | null
           created_at?: string
-          created_by: string
+          created_by?: string | null
           currency?: string
           id?: string
           invoice_number?: string | null
@@ -1651,6 +1654,7 @@ export type Database = {
           pa_id?: string | null
           ppf_message_id?: string | null
           shop_id: string
+          shop_customer_account_id?: string | null
           status?: Database["public"]["Enums"]["tenant_order_status"]
           stripe_payment_intent_id?: string | null
           tenant_id: string
@@ -1658,9 +1662,10 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          acted_by_magrit_user_id?: string | null
           cancelled_at?: string | null
           created_at?: string
-          created_by?: string
+          created_by?: string | null
           currency?: string
           id?: string
           invoice_number?: string | null
@@ -1669,6 +1674,7 @@ export type Database = {
           pa_id?: string | null
           ppf_message_id?: string | null
           shop_id?: string
+          shop_customer_account_id?: string | null
           status?: Database["public"]["Enums"]["tenant_order_status"]
           stripe_payment_intent_id?: string | null
           tenant_id?: string
@@ -2019,6 +2025,17 @@ export type Database = {
           p_idempotency_key: string
           p_items: Json
           p_notes: string
+          p_shop_id: string
+        }
+        Returns: Json
+      }
+      api_create_storefront_order: {
+        Args: {
+          p_currency: string
+          p_idempotency_key: string
+          p_items: Json
+          p_notes: string
+          p_opaque_token: string
           p_shop_id: string
         }
         Returns: Json

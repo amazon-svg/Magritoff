@@ -48,6 +48,7 @@ export { OrdersService } from './application/orders-service';
 export { OrderCommandRejectedError } from './application/orders-repository';
 export type {
   AuditEventRecord,
+  CreateOrderAuthorization,
   LegacyOrderRecord,
   OrdersRepository,
   OrderCommandRejectionCode,

@@ -152,6 +152,11 @@ BFF résout la session, passe au module Shops un contexte typé sans jeton et
 vérifie l'égalité stricte entre la boutique demandée et celle de la session.
 Le storefront attend cette résolution avant de charger le catalogue ; les
 sessions provenant d'une autre boutique restent refusées.
+UM6.1 migre la création de commande : le BFF accepte le cookie storefront, la
+primitive SQL le valide à nouveau et rattache l'écriture à
+`shop_customer_account_id`. En délégation, `acted_by_magrit_user_id` conserve
+l'acteur réel sans fusionner les deux identités ; le parcours Magrit historique
+reste compatible.
 
 ### Extension AF-C — Identité et invitations
 

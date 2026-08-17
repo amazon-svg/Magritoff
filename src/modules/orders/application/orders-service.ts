@@ -15,6 +15,7 @@ import type {
   OrderRolesResponse,
 } from '../api/contracts.ts';
 import type {
+  CreateOrderAuthorization,
   LegacyOrderRecord,
   OrdersRepository,
   TaxRegime,
@@ -97,8 +98,8 @@ export class OrdersService {
     return result;
   }
 
-  async create(command: CreateOrderCommand, baseUrl: string): Promise<CreateOrderResult> {
-    const result = await this.repository.createOrder(command);
+  async create(command: CreateOrderCommand, baseUrl: string, authorization: CreateOrderAuthorization = { kind: 'magrit_user' }): Promise<CreateOrderResult> {
+    const result = await this.repository.createOrder(command, authorization);
     if (!result.replayed) {
       void this.repository.notifyOrderCreated(result, baseUrl).catch((error) => {
         console.warn('[OrdersService] notification de création ignorée:', error);

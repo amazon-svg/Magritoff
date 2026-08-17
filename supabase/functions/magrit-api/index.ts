@@ -150,7 +150,7 @@ export async function handleRequest(request: Request): Promise<Response> {
   const handler = createApiV1Application({
     routes: [
       ...createSessionRoutes(service),
-      ...createOrdersRoutes(ordersService),
+      ...createOrdersRoutes(ordersService, storefrontSessionService, storefrontSessionCookiePolicy(new URL(request.url).protocol === 'https:')),
       ...createInvitationsRoutes(invitationsService),
       ...createMembersRoutes(membersService),
       ...createRolesRoutes(rolesService),

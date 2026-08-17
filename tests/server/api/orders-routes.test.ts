@@ -8,6 +8,8 @@ import {
 } from '../../../src/modules/orders';
 import { FetchApiClient } from '../../../src/platform/api';
 import { createApiV1Application, createOrdersRoutes } from '../../../src/server/api';
+import { StorefrontSessionService } from '../../../src/modules/shop-customers';
+import { storefrontSessionCookiePolicy } from '../../../src/server/storefront/session-cookie';
 
 describe('routes Orders API v1', () => {
   it('partage les contrats liste, portail et audit entre handler et client', async () => {
@@ -64,6 +66,43 @@ describe('routes Orders API v1', () => {
     const response = await handler(new Request('https://magrit.test/api/v1/shops/shop-af4/orders'));
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toMatchObject({ code: 'identity.authentication_required' });
+  });
+
+  it('crée une commande avec la session boutique correspondant au shop', async () => {
+    let authorization: unknown = null;
+    const repository = repositoryStub();
+    repository.createOrder = async (command, received) => {
+      authorization = received;
+      return {
+        orderId: '22222222-2222-4222-8222-222222222222',
+        tenantId: '33333333-3333-4333-8333-333333333333',
+        shopId: command.shopId, totalHt: 150, currency: command.currency, replayed: false,
+      };
+    };
+    const shopId = '11111111-1111-4111-8111-111111111111';
+    const sessions = new StorefrontSessionService({
+      async resolve() { return {
+        identity: { kind: 'shop_customer', shopId, shopCustomerAccountId: '44444444-4444-4444-8444-444444444444' },
+        customer: { id: '44444444-4444-4444-8444-444444444444', shopId, email: 'client@example.com', fullName: 'Client', status: 'active' },
+        expiresAt: '2026-08-17T12:00:00.000Z',
+      }; },
+      async revoke() { return true; },
+    });
+    const handler = createApiV1Application({
+      routes: createOrdersRoutes(new OrdersService(repository), sessions, storefrontSessionCookiePolicy(false)),
+      requestIdFactory: () => 'request-um6-storefront',
+    });
+    const token = 'abcdefghijklmnopqrstuvwxyzABCDE_1234567890-storefront';
+    const response = await handler(new Request('https://magrit.test/api/v1/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: `magrit-storefront=${token}` },
+      body: JSON.stringify({
+        shopId, currency: 'EUR', notes: '', idempotencyKey: 'create-um6-storefront',
+        items: [{ productId: null, productLabel: 'Flyers', clariprintOptions: null, quantity: 2, unitPriceHt: 75 }],
+      }),
+    }));
+    expect(response.status).toBe(201);
+    expect(authorization).toEqual({ kind: 'storefront_session', opaqueToken: token });
   });
 
   it('traduit un conflit de transition en Problem Details 409', async () => {
