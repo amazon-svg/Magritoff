@@ -9,21 +9,19 @@
  * tenant ou une boutique a laquelle il a acces.
  */
 
-import { useState } from "react";
 import { Link } from "react-router";
+import type { StorefrontSession } from "../../../modules/shop-customers";
 import { TEST_IDS } from "../../lib/testIds";
-import { ForgotPasswordModal } from "../auth/ForgotPasswordModal";
-import { LoginModal } from "../auth/LoginModal";
+import { StorefrontLoginForm } from "./StorefrontLoginForm";
 
 interface Props {
   authenticationRequired?: boolean;
+  shopSlug?: string;
+  onStorefrontAuthenticated?: (session: StorefrontSession) => void;
 }
 
-export function ShopForbidden403({ authenticationRequired = false }: Props) {
-  const [modal, setModal] = useState<"login" | "forgot" | null>(null);
-
+export function ShopForbidden403({ authenticationRequired = false, shopSlug = "", onStorefrontAuthenticated }: Props) {
   return (
-    <>
       <div
         data-testid={TEST_IDS.shop.forbidden403}
         className="min-h-screen grid place-items-center bg-bg px-6"
@@ -52,15 +50,8 @@ export function ShopForbidden403({ authenticationRequired = false }: Props) {
               ? "Le catalogue est réservé aux personnes invitées par l’administrateur de la boutique."
               : "Votre compte n’a pas accès à cette boutique. Contactez son administrateur pour recevoir une invitation."}
           </p>
-          {authenticationRequired ? (
-            <button
-              type="button"
-              onClick={() => setModal("login")}
-              className="inline-block px-4 py-2 rounded-md bg-ink text-paper hover:bg-ink-2"
-              style={{ fontSize: "13px", fontWeight: 500 }}
-            >
-              Se connecter
-            </button>
+          {authenticationRequired && shopSlug && onStorefrontAuthenticated ? (
+            <StorefrontLoginForm shopSlug={shopSlug} onAuthenticated={onStorefrontAuthenticated} />
           ) : (
             <Link
               to="/tenants"
@@ -72,20 +63,5 @@ export function ShopForbidden403({ authenticationRequired = false }: Props) {
           )}
         </div>
       </div>
-      {modal === "login" && (
-        <LoginModal
-          onClose={() => setModal(null)}
-          onSwitchToSignup={() => undefined}
-          onSwitchToForgot={() => setModal("forgot")}
-          allowSignup={false}
-        />
-      )}
-      {modal === "forgot" && (
-        <ForgotPasswordModal
-          onClose={() => setModal(null)}
-          onSwitchToLogin={() => setModal("login")}
-        />
-      )}
-    </>
   );
 }

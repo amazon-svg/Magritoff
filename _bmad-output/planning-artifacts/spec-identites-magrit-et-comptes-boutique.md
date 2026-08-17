@@ -6,7 +6,7 @@ updated: 2026-08-17
 status: in_progress
 target_epic: EPIC-UM-STORE-IDENTITY
 decision_owner: produit
-implementation: um6_storefront_order_audit_delivered
+implementation: um6_storefront_checkout_identity_delivered
 ---
 
 # Spécification — Identités Magrit et comptes boutique séparés
@@ -50,7 +50,10 @@ compte et de la boutique. UM6.4 autorise enfin le propriétaire boutique à annu
 ses propres brouillons ; toutes les transitions internes restent réservées aux
 rôles Magrit. UM6.5 ouvre enfin l'historique au propriétaire boutique, mais
 uniquement pour les transitions de statut de sa commande : les événements de
-rôles et les identités internes restent réservés à Magrit. Chaque vague suivante doit être
+rôles et les identités internes restent réservés à Magrit. UM6.6 bascule enfin
+la connexion du checkout et de la garde des boutiques privées sur la session
+boutique BFF ; l'ancien `signIn/signUp` Supabase Auth et la création implicite
+d'un membre `shop_only` disparaissent du storefront. Chaque vague suivante doit être
 découpée en stories BMAD exécutables avant son implémentation.
 
 ## 2. Décisions produit figées

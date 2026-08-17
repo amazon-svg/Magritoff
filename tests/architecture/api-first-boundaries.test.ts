@@ -333,14 +333,7 @@ describe('frontières API-first et modulaires', () => {
     const constructors = listTypeScriptFiles(appRoot)
       .filter((file) => readFileSync(file, 'utf8').includes('new ShopsApiClient'))
       .map((file) => relative(process.cwd(), file));
-    const checkout = readFileSync(
-      resolve(appRoot, 'components/shop/portal/CheckoutPage.tsx'),
-      'utf8',
-    );
-
     expect(constructors).toEqual(['src/app/contexts/ModuleClientsContext.tsx']);
-    expect(checkout).toContain('shopsApiForAccessToken(accessToken)');
-    expect(checkout).not.toContain('ShopsApiClient');
   });
 
   it('compose les façades Quotes et QuoteTemplates dans un seul root', () => {
@@ -579,13 +572,19 @@ describe('frontières API-first et modulaires', () => {
     }
   });
 
-  it('sort l identification checkout et l auto-inscription du fournisseur', () => {
-    const source = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/CheckoutPage.tsx'), 'utf8');
-    expect(source).toContain('useShopsApiFactory');
-    expect(source).toContain('signIn');
-    expect(source).toContain('signUp');
-    expect(source).not.toContain('utils/supabase');
-    expect(source).not.toMatch(/\bsupabase\s*\./);
+  it('isole l identification checkout dans la session boutique', () => {
+    const checkout = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/CheckoutPage.tsx'), 'utf8');
+    const login = readFileSync(resolve(process.cwd(), 'src/app/components/shop/StorefrontLoginForm.tsx'), 'utf8');
+    expect(checkout).toContain('StorefrontLoginForm');
+    expect(checkout).toContain('storefrontSession?.identity.shopId === shop.id');
+    expect(login).toContain('api.authenticate(shopSlug');
+    for (const source of [checkout, login]) {
+      expect(source).not.toContain('useAuth');
+      expect(source).not.toContain('signIn');
+      expect(source).not.toContain('signUp');
+      expect(source).not.toContain('utils/supabase');
+      expect(source).not.toMatch(/\bsupabase\s*\./);
+    }
   });
 
   it('sort l historique des conversations du fournisseur', () => {

@@ -172,6 +172,9 @@ UM6.5 ouvre l'historique au propriétaire de la commande, limité aux transition
 de statut. Les assignations de rôles, l'identifiant et l'email des collaborateurs
 Magrit ne sont jamais publiés au storefront ; le backoffice conserve son audit
 complet.
+UM6.6 bascule la garde des boutiques privées et l'identification du checkout
+sur le BFF storefront. Une session Supabase Auth Magrit ne vaut plus compte
+boutique et le storefront ne propose plus la création d'un membre `shop_only`.
 
 ### Extension AF-C — Identité et invitations
 

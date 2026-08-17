@@ -588,7 +588,13 @@ export function PublicShop() {
     );
   }
   if (blockedAccess) {
-    return <ShopForbidden403 authenticationRequired={blockedAccess === 'authentication_required'} />;
+    return (
+      <ShopForbidden403
+        authenticationRequired={blockedAccess === 'authentication_required'}
+        shopSlug={slug}
+        onStorefrontAuthenticated={setStorefrontSession}
+      />
+    );
   }
   if (notFound || !shop) {
     return (
@@ -615,14 +621,22 @@ export function PublicShop() {
   }
 
   if (access === 'authentication_required' || access === 'forbidden') {
-    return <ShopForbidden403 authenticationRequired={access === 'authentication_required'} />;
+    return (
+      <ShopForbidden403
+        authenticationRequired={access === 'authentication_required'}
+        shopSlug={slug}
+        onStorefrontAuthenticated={setStorefrontSession}
+      />
+    );
   }
 
   const cartCount = cart.reduce((s, l) => s + l.qty, 0);
   // S7.7 — montant HT du panier (affiché sur le bouton header, décision D3).
   const cartTotalHT = cart.reduce((s, l) => s + l.product.price_ht * l.qty, 0);
   const shopMembership = tenants.find((tenant) => tenant.id === shop.tenant_id);
-  const canCreateOrder = !user
+  const hasStorefrontSession = storefrontSession?.identity.shopId === shop.id;
+  const canCreateOrder = hasStorefrontSession
+    || !user
     || shop.access_mode === 'self_signup'
     || Boolean(shopMembership?.permissions.can_order);
   const createOrderBlockedMessage = shop.access_mode === 'invite_only' && !shopMembership
@@ -779,6 +793,8 @@ export function PublicShop() {
           cart={cart}
           canCreateOrder={canCreateOrder}
           createOrderBlockedMessage={createOrderBlockedMessage}
+          storefrontSession={storefrontSession}
+          onStorefrontAuthenticated={setStorefrontSession}
           onSubmit={submitCart}
           onGoCatalog={() => goView('catalog')}
         />
