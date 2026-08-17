@@ -77,8 +77,8 @@ export class OrdersService {
     };
   }
 
-  async getAuditTrail(orderId: string): Promise<OrderAuditTrail> {
-    const events = await this.repository.listAuditEvents(orderId);
+  async getAuditTrail(orderId: string, authorization: OrderResourceAuthorization = { storefrontToken: null }): Promise<OrderAuditTrail> {
+    const events = await this.repository.listAuditEvents(orderId, authorization);
     return {
       events: events.map((event) => ({
         eventId: event.eventId,
@@ -87,6 +87,8 @@ export class OrdersService {
         eventType: event.eventType,
         actorId: event.actorId,
         actorEmail: event.actorEmail,
+        shopCustomerAccountId: event.shopCustomerAccountId,
+        actedByMagritUserId: event.actedByMagritUserId,
         roleName: event.roleName,
         payload: { ...event.payload },
         occurredAt: event.occurredAt,

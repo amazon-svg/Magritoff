@@ -168,6 +168,10 @@ reçus d'idempotence storefront restent séparés.
 UM6.4 ouvre l'annulation propriétaire `draft → cancelled` et enrichit les
 événements de statut avec le compte boutique et l'acteur Magrit délégué. Aucune
 capability de validation ou production n'est accordée aux comptes storefront.
+UM6.5 ouvre l'historique au propriétaire de la commande, limité aux transitions
+de statut. Les assignations de rôles, l'identifiant et l'email des collaborateurs
+Magrit ne sont jamais publiés au storefront ; le backoffice conserve son audit
+complet.
 
 ### Extension AF-C — Identité et invitations
 

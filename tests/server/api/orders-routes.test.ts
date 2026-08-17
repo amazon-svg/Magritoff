@@ -73,6 +73,7 @@ describe('routes Orders API v1', () => {
     let portalToken: string | null = null;
     const resourceTokens: Array<string | null> = [];
     let transitionAuthorization: unknown = null;
+    let auditToken: string | null = null;
     const repository = repositoryStub();
     repository.createOrder = async (command, received) => {
       authorization = received;
@@ -100,6 +101,10 @@ describe('routes Orders API v1', () => {
     repository.transitionOrder = async (orderId, command, received) => {
       transitionAuthorization = received;
       return { orderId, fromStatus: 'draft', toStatus: command.toStatus, replayed: false };
+    };
+    repository.listAuditEvents = async (_orderId, received) => {
+      auditToken = received.storefrontToken;
+      return [];
     };
     const shopId = '11111111-1111-4111-8111-111111111111';
     const sessions = new StorefrontSessionService({
@@ -152,6 +157,11 @@ describe('routes Orders API v1', () => {
     }));
     expect(transitionResponse.status).toBe(200);
     expect(transitionAuthorization).toEqual({ storefrontToken: token, magritUserId: null });
+    const auditResponse = await handler(new Request(`https://magrit.test/api/v1/orders/${orderId}/audit`, {
+      headers: { Cookie: `magrit-storefront=${token}` },
+    }));
+    expect(auditResponse.status).toBe(200);
+    expect(auditToken).toBe(token);
   });
 
   it('traduit un conflit de transition en Problem Details 409', async () => {
@@ -175,6 +185,26 @@ describe('routes Orders API v1', () => {
     expect(response.status).toBe(409);
     await expect(response.json()).resolves.toMatchObject({
       code: 'orders.transition_not_allowed', requestId: 'request-af5-conflict',
+    });
+  });
+
+  it('traduit un historique appartenant à un autre compte en Problem Details 403', async () => {
+    const repository = repositoryStub();
+    repository.listAuditEvents = async () => {
+      throw new OrderCommandRejectedError('permission_denied', 'order identity mismatch');
+    };
+    const handler = createApiV1Application({
+      routes: createOrdersRoutes(new OrdersService(repository)),
+      requestIdFactory: () => 'request-um6-audit-forbidden',
+      actorResolver: { async resolve() { return { kind: 'user', userId: id('user-um6') }; } },
+    });
+    const response = await handler(new Request(
+      'https://magrit.test/api/v1/orders/22222222-2222-4222-8222-222222222222/audit',
+    ));
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'orders.permission_denied', requestId: 'request-um6-audit-forbidden',
     });
   });
 
@@ -226,7 +256,8 @@ function repositoryStub(): OrdersRepository {
     getStorefrontPortalOrders: async () => ({ orders: [order], taxRegime: 'metropole_fr' }),
     listAuditEvents: async () => [{
       eventId: 'event-af4', orderId: 'order-af4', kind: 'status', eventType: 'status_transition',
-      actorId: 'user-af4', actorEmail: null, roleName: null, payload: {}, occurredAt: '2026-08-11T12:01:00.000Z',
+      actorId: 'user-af4', actorEmail: null, shopCustomerAccountId: null,
+      actedByMagritUserId: null, roleName: null, payload: {}, occurredAt: '2026-08-11T12:01:00.000Z',
     }],
     transitionOrder: async (orderId, command) => ({
       orderId, fromStatus: 'draft', toStatus: command.toStatus, replayed: false,

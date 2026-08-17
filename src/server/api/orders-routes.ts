@@ -139,12 +139,22 @@ export function createOrdersRoutes(
     defineJsonRoute({
       method: 'GET',
       path: `${API_V1_BASE_PATH}/orders/{orderId}/audit`,
-      authentication: 'required',
+      authentication: 'public',
       inputSchema: null,
       outputSchema: orderAuditTrailSchema,
       async handle(context) {
-        requireUserId(context);
-        return { status: 200, body: await service.getAuditTrail(requireParam(context, 'orderId')) };
+        try {
+          return {
+            status: 200,
+            body: await service.getAuditTrail(
+              requireParam(context, 'orderId'),
+              await orderResourceAuthorization(context, storefrontSessions, storefrontCookiePolicy),
+            ),
+          };
+        } catch (error) {
+          if (error instanceof OrderCommandRejectedError) throw toHttpError(error);
+          throw error;
+        }
       },
     }),
     defineJsonRoute({

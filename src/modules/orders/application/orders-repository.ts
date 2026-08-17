@@ -46,6 +46,8 @@ export type AuditEventRecord = Readonly<{
   eventType: string;
   actorId: string | null;
   actorEmail: string | null;
+  shopCustomerAccountId: string | null;
+  actedByMagritUserId: string | null;
   roleName: string | null;
   payload: Readonly<Record<string, unknown>>;
   occurredAt: string;
@@ -101,7 +103,7 @@ export interface OrdersRepository {
   getPortalOrderIds(shopId: string, userId: UserId, tab: PortalOrdersTab): Promise<readonly string[]>;
   getAuthenticatedUserEmail(): Promise<string | null>;
   getStorefrontPortalOrders(shopId: string, opaqueToken: string): Promise<StorefrontPortalOrdersRecord>;
-  listAuditEvents(orderId: string): Promise<readonly AuditEventRecord[]>;
+  listAuditEvents(orderId: string, authorization: OrderResourceAuthorization): Promise<readonly AuditEventRecord[]>;
   transitionOrder(orderId: string, command: TransitionOrderCommand, authorization: TransitionOrderAuthorization): Promise<TransitionOrderResult>;
   notifyTransition(
     result: TransitionOrderResult,

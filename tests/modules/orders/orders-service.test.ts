@@ -50,7 +50,8 @@ describe('OrdersService', () => {
     await expect(service.getAuditTrail('v11-1')).resolves.toEqual({
       events: [{
         eventId: 'event-1', orderId: 'v11-1', kind: 'status', eventType: 'status_transition',
-        actorId: 'user-1', actorEmail: 'buyer@magrit.test', roleName: null,
+        actorId: 'user-1', actorEmail: 'buyer@magrit.test',
+        shopCustomerAccountId: null, actedByMagritUserId: null, roleName: null,
         payload: { from_status: 'draft', to_status: 'validated' }, occurredAt: '2026-08-11T12:01:00.000Z',
       }],
     });
@@ -129,7 +130,8 @@ function repositoryStub(): OrdersRepository & Record<'listLegacyOrders', ReturnT
     getStorefrontPortalOrders: vi.fn(async () => ({ orders: [v11], taxRegime: 'dom_tom' as const })),
     listAuditEvents: vi.fn(async () => [{
       eventId: 'event-1', orderId: 'v11-1', kind: 'status', eventType: 'status_transition',
-      actorId: 'user-1', actorEmail: 'buyer@magrit.test', roleName: null,
+      actorId: 'user-1', actorEmail: 'buyer@magrit.test',
+      shopCustomerAccountId: null, actedByMagritUserId: null, roleName: null,
       payload: { from_status: 'draft', to_status: 'validated' }, occurredAt: '2026-08-11T12:01:00.000Z',
     }]),
     transitionOrder: vi.fn(async (orderId, command) => ({

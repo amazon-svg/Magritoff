@@ -127,9 +127,12 @@ export class SupabaseOrdersRepository implements OrdersRepository {
     };
   }
 
-  async listAuditEvents(orderId: string): Promise<readonly AuditEventRecord[]> {
-    const { data, error } = await this.client.rpc('get_order_audit_trail', { p_order_id: orderId });
-    if (error) throw new Error(`Lecture de l audit impossible: ${error.message}`);
+  async listAuditEvents(orderId: string, authorization: OrderResourceAuthorization): Promise<readonly AuditEventRecord[]> {
+    const { data, error } = await this.client.rpc('api_get_order_audit_for_identity', {
+      p_order_id: orderId,
+      p_opaque_token: authorization.storefrontToken,
+    });
+    if (error) throw mapOrderCommandError(error.message, 'Lecture de l audit impossible');
     return (data ?? []).map((row) => ({
       eventId: row.event_id,
       orderId: row.order_id,
@@ -137,6 +140,8 @@ export class SupabaseOrdersRepository implements OrdersRepository {
       eventType: row.event_type,
       actorId: row.actor_id,
       actorEmail: row.actor_email,
+      shopCustomerAccountId: row.shop_customer_account_id,
+      actedByMagritUserId: row.acted_by_magrit_user_id,
       roleName: row.role_name,
       payload: toRecord(row.payload),
       occurredAt: row.occurred_at,

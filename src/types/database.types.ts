@@ -2073,6 +2073,22 @@ export type Database = {
         }
         Returns: Json
       }
+      api_get_order_audit_for_identity: {
+        Args: { p_opaque_token: string | null; p_order_id: string }
+        Returns: {
+          acted_by_magrit_user_id: string | null
+          actor_email: string | null
+          actor_id: string | null
+          event_id: string
+          event_type: string
+          kind: string
+          occurred_at: string
+          order_id: string
+          payload: Json
+          role_name: string | null
+          shop_customer_account_id: string | null
+        }[]
+      }
       api_get_tenant_order_draft: {
         Args: { p_order_id: string }
         Returns: Json
