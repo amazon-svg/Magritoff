@@ -34,6 +34,7 @@ import { TEST_IDS } from '../../lib/testIds';
 import { DashboardRolesSection } from './DashboardRolesSection';
 import { InviteUserModalV2 } from './InviteUserModalV2';
 import { EditUserRolesModal } from './EditUserRolesModal';
+import { LegacyShopCustomerMigrationSection } from './LegacyShopCustomerMigrationSection';
 import { ApiClientError } from '../../../platform/api';
 import { useWorkspaceInvitationsApi, useWorkspaceMembersApi } from '../../contexts/ModuleClientsContext';
 
@@ -791,6 +792,8 @@ export function DashboardUsers() {
       </div>
 
       <MagritUsersSection />
+
+      <LegacyShopCustomerMigrationSection />
 
       <hr className="border-line" />
 
