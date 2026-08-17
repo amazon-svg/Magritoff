@@ -90,6 +90,13 @@ export async function handleRequest(request: Request): Promise<Response> {
     auth: { persistSession: false, autoRefreshToken: false },
     global: { headers: { Authorization: authorization } },
   });
+  // Une session storefront est portée par son cookie opaque, jamais par le JWT
+  // Magrit éventuellement encore présent dans le navigateur. Utiliser un client
+  // sans ce JWT garantit que les primitives storefront restent exécutées sous
+  // le rôle `anon`, y compris pendant une délégation depuis le back-office.
+  const storefrontClient = createClient(supabaseUrl, anonKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
   if (isAssistantChatRequest(request)) {
     const { data, error } = await client.auth.getUser();
     if (error || !data.user) return withCors(Response.json({ type: 'about:blank', title: 'Authentification requise', status: 401, code: 'identity.authentication_required', requestId: crypto.randomUUID() }, { status: 401, headers: { 'Content-Type': 'application/problem+json; charset=utf-8' } }));
@@ -116,8 +123,9 @@ export async function handleRequest(request: Request): Promise<Response> {
   const rolesService = new RolesService(new SupabaseRolesRepository(client));
   const shopsService = new ShopsService(new SupabaseShopsRepository(client, publicSupabaseUrl(request, supabaseUrl)));
   const shopCustomersService = new ShopCustomersService(new SupabaseShopCustomersRepository(client));
-  const storefrontAuthenticationService = new StorefrontAuthenticationService(new SupabaseStorefrontAuthenticationGateway(client));
-  const storefrontSessionService = new StorefrontSessionService(new SupabaseStorefrontAuthenticationGateway(client));
+  const storefrontGateway = new SupabaseStorefrontAuthenticationGateway(storefrontClient);
+  const storefrontAuthenticationService = new StorefrontAuthenticationService(storefrontGateway);
+  const storefrontSessionService = new StorefrontSessionService(storefrontGateway);
   const storefrontActivationService = new StorefrontActivationService(
     new SupabaseStorefrontActivationGateway(client),
     new ResendStorefrontActivationEmailSender(

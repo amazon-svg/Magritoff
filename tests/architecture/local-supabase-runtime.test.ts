@@ -24,14 +24,18 @@ describe('runtime Supabase local', () => {
   });
 
   it('permet au front et au proxy API de cibler la stack locale', () => {
+    const edgeRuntime = read('supabase/functions/magrit-api/index.ts');
+
     expect(read('utils/supabase/info.tsx')).toContain('import.meta.env.VITE_SUPABASE_URL');
     expect(read('utils/supabase/info.tsx')).toContain('import.meta.env.VITE_SUPABASE_ANON_KEY');
     expect(read('vite.config.ts')).toContain('env.VITE_API_PROXY_TARGET');
     expect(read('.env.local.example')).toContain('http://127.0.0.1:54321');
     expect(read('supabase/functions/magrit-api/deno.json')).toContain('npm:zod@4.4.3');
-    expect(read('supabase/functions/magrit-api/index.ts')).toContain("Deno.env.get('MAGRIT_PUBLIC_SUPABASE_URL')");
-    expect(read('supabase/functions/magrit-api/index.ts')).toContain("request.headers.get('x-forwarded-port')");
-    expect(read('supabase/functions/magrit-api/index.ts')).toContain("return 'http://127.0.0.1:54321'");
+    expect(edgeRuntime).toContain("Deno.env.get('MAGRIT_PUBLIC_SUPABASE_URL')");
+    expect(edgeRuntime).toContain("request.headers.get('x-forwarded-port')");
+    expect(edgeRuntime).toContain("return 'http://127.0.0.1:54321'");
+    expect(edgeRuntime).toContain('new SupabaseStorefrontAuthenticationGateway(storefrontClient)');
+    expect(edgeRuntime).not.toContain('new SupabaseStorefrontAuthenticationGateway(client)');
   });
 
   it('accorde explicitement les opérations API protégées par RLS', () => {
