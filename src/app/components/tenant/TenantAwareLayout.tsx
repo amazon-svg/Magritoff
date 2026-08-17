@@ -19,10 +19,11 @@ import { Header } from '../Header';
 import { UnauthBanner } from '../UnauthBanner';
 import { LegacySlugRedirect } from './LegacySlugRedirect';
 import { ShopOnlyRedirect } from './ShopOnlyRedirect';
+import { TenantLoadError } from './TenantLoadError';
 
 export function TenantAwareLayout() {
   const { user, loading: authLoading } = useAuth();
-  const { tenants, currentTenant, isSuperAdmin, loading: tenantLoading } = useTenant();
+  const { tenants, currentTenant, isSuperAdmin, loading: tenantLoading, error, reload } = useTenant();
   const { tenantSlug } = useParams<{ tenantSlug: string }>();
 
   const loading = authLoading || tenantLoading;
@@ -37,6 +38,8 @@ export function TenantAwareLayout() {
       </div>
     );
   }
+
+  if (user && error) return <TenantLoadError retry={reload} />;
 
   // Pas connecte → redirection auth (ou page login dediee)
   if (!user) {

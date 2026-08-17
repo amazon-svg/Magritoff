@@ -93,6 +93,7 @@ interface TenantContextType {
   /** true si l'user est superadmin Magrit (membre de magrit-root) */
   isSuperAdmin: boolean;
   loading: boolean;
+  error: Error | null;
 
   /** Changer de tenant programmatiquement (navigate vers /t/:slug) */
   switchTenant: (slug: string) => void;
@@ -247,6 +248,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     currentTenant,
     currentRole,
     isSuperAdmin,
+    error: bootstrap.error,
     // Le bootstrap démarre dans un effect après le rendu où Auth expose le
     // user. Tant que les données de ce user ne sont ni chargées ni en erreur,
     // rester en loading évite une redirection prématurée vers /tenants/new.

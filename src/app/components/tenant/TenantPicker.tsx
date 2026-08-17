@@ -17,10 +17,11 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useTenant } from '../../contexts/TenantContext';
 import { MagritLogo } from '../brand/MagritLogo';
 import { TEST_IDS } from '../../lib/testIds';
+import { TenantLoadError } from './TenantLoadError';
 
 export function TenantPicker() {
   const { user, loading: authLoading } = useAuth();
-  const { tenants, isSuperAdmin, loading } = useTenant();
+  const { tenants, isSuperAdmin, loading, error, reload } = useTenant();
 
   if (authLoading || loading) {
     return (
@@ -32,6 +33,8 @@ export function TenantPicker() {
       </div>
     );
   }
+
+  if (user && error) return <TenantLoadError retry={reload} />;
 
   if (!user) {
     // L'app expose deja un modal de login via UnauthBanner. En attendant, on

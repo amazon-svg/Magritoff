@@ -175,6 +175,9 @@ complet.
 UM6.6 bascule la garde des boutiques privées et l'identification du checkout
 sur le BFF storefront. Une session Supabase Auth Magrit ne vaut plus compte
 boutique et le storefront ne propose plus la création d'un membre `shop_only`.
+UM6.7 rend le bootstrap Magrit résilient : une indisponibilité du BFF n'est
+plus interprétée comme une liste d'espaces vide et ne redirige plus vers la
+création d'un nouvel espace.
 
 ### Extension AF-C — Identité et invitations
 
