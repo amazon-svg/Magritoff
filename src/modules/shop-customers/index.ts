@@ -24,6 +24,8 @@ export { StorefrontSessionService, type StorefrontSessionGateway } from './appli
 export { StorefrontActivationRejectedError, StorefrontActivationService, type StorefrontActivationGateway } from './application/storefront-activation-service';
 export type { StorefrontActivationIssue } from './application/storefront-activation-service';
 export type { StorefrontActivationEmail, StorefrontActivationEmailDelivery, StorefrontActivationEmailSender } from './application/storefront-activation-email-sender';
+export { StorefrontPasswordRecoveryService, StorefrontPasswordResetRejectedError, type StorefrontPasswordRecoveryGateway, type StorefrontPasswordRecoveryIssue } from './application/storefront-password-recovery-service';
+export type { StorefrontPasswordRecoveryEmail, StorefrontPasswordRecoveryEmailSender } from './application/storefront-password-recovery-email-sender';
 export {
   ShopCustomerDelegationRejectedError,
   ShopCustomerDelegationService,

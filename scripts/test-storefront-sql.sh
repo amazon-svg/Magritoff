@@ -22,6 +22,7 @@ SQL_CASES=(
   tests/sql/legacy-shop-only-customer-migration.sql
   tests/sql/legacy-shop-only-write-freeze.sql
   tests/sql/storefront-self-registration.sql
+  tests/sql/storefront-password-recovery.sql
 )
 
 for sql_case in "${SQL_CASES[@]}"; do

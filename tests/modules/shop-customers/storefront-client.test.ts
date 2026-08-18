@@ -75,4 +75,13 @@ describe('StorefrontIdentityApiClient', () => {
     expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/v1/storefront/session/current');
     expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({ method: 'DELETE' });
   });
+
+  it('demande puis applique une récupération de mot de passe boutique', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(Response.json({ accepted: true }, { status: 202 })).mockResolvedValueOnce(Response.json({ reset: true }));
+    const client = new StorefrontIdentityApiClient(new FetchApiClient('', fetchMock as typeof fetch));
+    await client.requestPasswordRecovery('boutique-test', { email: ' Client@Example.com ' });
+    await client.resetPassword({ token: 'abcdefghijklmnopqrstuvwxyzABCDE_1234567890-opaque', password: 'nouveau-secret' });
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/v1/storefront/boutique-test/password-recovery');
+    expect(fetchMock.mock.calls[1]?.[0]).toBe('/api/v1/storefront/password-reset');
+  });
 });

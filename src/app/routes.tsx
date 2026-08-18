@@ -31,6 +31,9 @@ const PublicShop = lazy(() =>
 const StorefrontActivationPage = lazy(() =>
   import("./components/shop/StorefrontActivationPage").then((m) => ({ default: m.StorefrontActivationPage })),
 );
+const StorefrontPasswordResetPage = lazy(() =>
+  import("./components/shop/StorefrontPasswordResetPage").then((m) => ({ default: m.StorefrontPasswordResetPage })),
+);
 
 // REFONTE-UX (2026-08-08) — module Parc machine, wizard RP#070826 (point 8).
 const MachineParkWizard = lazy(() =>
@@ -85,6 +88,7 @@ export const router = createBrowserRouter([
       // (`/catalog`, `/p/:id`, `/orders`, `/thank-you`, `/g/:gamme` S7.3,
       // `/account/*` S7.10) résolues par parsePortalPath dans PublicShop.
       { path: `/${portalRuntimePaths.shopRoot}/:slug/activate`, element: lazyRoute(<StorefrontActivationPage />) },
+      { path: `/${portalRuntimePaths.shopRoot}/:slug/reset-password`, element: lazyRoute(<StorefrontPasswordResetPage />) },
       { path: `/${portalRuntimePaths.shopRoot}/*`, element: lazyRoute(<PublicShop />) },
 
       // REFONTE-UX (2026-08-08) — route DEV seulement : rendre le wizard parc

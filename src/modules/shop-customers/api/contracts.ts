@@ -167,9 +167,22 @@ export const createStorefrontSessionResultSchema = z.object({
 
 export const createStorefrontRegistrationResultSchema = createStorefrontSessionResultSchema;
 
+export const requestStorefrontPasswordRecoveryCommandSchema = z.object({
+  email: shopCustomerEmailSchema,
+}).strict();
+export const requestStorefrontPasswordRecoveryResultSchema = z.object({ accepted: z.literal(true) }).strict();
+export const resetStorefrontPasswordCommandSchema = z.object({
+  token: z.string().min(32).max(512).regex(/^[A-Za-z0-9_-]+$/),
+  password: z.string().min(8).max(1024),
+}).strict();
+export const resetStorefrontPasswordResultSchema = z.object({ reset: z.literal(true) }).strict();
+
 export const endStorefrontSessionResultSchema = z.object({
   ended: z.literal(true),
 }).strict();
+
+export type RequestStorefrontPasswordRecoveryCommand = z.infer<typeof requestStorefrontPasswordRecoveryCommandSchema>;
+export type ResetStorefrontPasswordCommand = z.infer<typeof resetStorefrontPasswordCommandSchema>;
 
 export const issueStorefrontActivationCommandSchema = z.object({
   expiresInSeconds: z.number().int().min(900).max(604_800).default(86_400),

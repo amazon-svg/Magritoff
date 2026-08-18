@@ -70,6 +70,10 @@ import { ResendStorefrontActivationEmailSender } from '../../../src/adapters/res
 import { ShopCustomerDelegationService } from '../../../src/modules/shop-customers/application/shop-customer-delegation-service.ts';
 import { SupabaseShopCustomerDelegationGateway } from '../../../src/adapters/supabase/shop-customer-delegation-gateway.ts';
 import { createShopCustomerDelegationRoutes } from '../../../src/server/api/shop-customer-delegation-routes.ts';
+import { StorefrontPasswordRecoveryService } from '../../../src/modules/shop-customers/application/storefront-password-recovery-service.ts';
+import { SupabaseStorefrontPasswordRecoveryGateway } from '../../../src/adapters/supabase/storefront-password-recovery-gateway.ts';
+import { ResendStorefrontPasswordRecoveryEmailSender } from '../../../src/adapters/resend/storefront-password-recovery-email-sender.ts';
+import { createStorefrontPasswordRecoveryRoutes } from '../../../src/server/api/storefront-password-recovery-routes.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -136,6 +140,10 @@ export async function handleRequest(request: Request): Promise<Response> {
     ),
   );
   const shopCustomerDelegationService = new ShopCustomerDelegationService(new SupabaseShopCustomerDelegationGateway(client));
+  const storefrontPasswordRecoveryService = new StorefrontPasswordRecoveryService(
+    new SupabaseStorefrontPasswordRecoveryGateway(storefrontClient),
+    new ResendStorefrontPasswordRecoveryEmailSender(Deno.env.get('RESEND_API_KEY') ?? null, Deno.env.get('MAGRIT_FROM_EMAIL') ?? 'Magrit <onboarding@resend.dev>'),
+  );
   const catalogService = new CatalogService(new SupabaseCatalogRepository(client), new SupabaseCatalogAutomationGateway(client));
   const conversationsService = new ConversationsService(new SupabaseConversationsRepository(client));
   const aiConfiguration = aiProviderConfigurationFromEnvironment((name) => Deno.env.get(name));
@@ -168,6 +176,7 @@ export async function handleRequest(request: Request): Promise<Response> {
       ...createShopCustomersRoutes(shopCustomersService),
       ...createStorefrontSessionRoutes(storefrontAuthenticationService, storefrontRegistrationService, storefrontSessionService, storefrontSessionCookiePolicy(new URL(request.url).protocol === 'https:')),
       ...createStorefrontActivationRoutes(storefrontActivationService),
+      ...createStorefrontPasswordRecoveryRoutes(storefrontPasswordRecoveryService),
       ...createShopCustomerDelegationRoutes(shopCustomerDelegationService, storefrontSessionCookiePolicy(new URL(request.url).protocol === 'https:')),
       ...createCatalogRoutes(catalogService),
       ...createConversationsRoutes(conversationsService),

@@ -2015,6 +2015,14 @@ export type Database = {
           shop_id: string
         }[]
       }
+      api_issue_shop_customer_password_recovery: {
+        Args: { p_email: string; p_shop_slug: string }
+        Returns: { email: string; full_name: string; opaque_token: string; shop_name: string; shop_slug: string }[]
+      }
+      api_reset_shop_customer_password: {
+        Args: { p_password: string; p_token: string }
+        Returns: boolean
+      }
       api_resolve_shop_customer_session: {
         Args: { p_opaque_token: string }
         Returns: { account_id: string; account_status: string; actor_magrit_user_id: string | null; delegation_id: string | null; email: string; expires_at: string; full_name: string; session_kind: string; shop_id: string }[]
