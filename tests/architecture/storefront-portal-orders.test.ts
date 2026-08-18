@@ -10,6 +10,7 @@ const storefront = readFileSync(resolve(process.cwd(), 'src/app/components/shop/
 const editor = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/PortalOrderEditor.tsx'), 'utf8');
 const thankYou = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/PortalThankYou.tsx'), 'utf8');
 const moduleClients = readFileSync(resolve(process.cwd(), 'src/app/contexts/ModuleClientsContext.tsx'), 'utf8');
+const catalog = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/PortalCatalog.tsx'), 'utf8');
 
 describe('portail commandes par compte boutique', () => {
   it('valide la session et filtre simultanément par compte et boutique', () => {
@@ -62,5 +63,12 @@ describe('portail commandes par compte boutique', () => {
     expect(moduleClients).toContain('storefrontShops: new ShopsApiClient(apiRuntime.anonymousClient)');
     expect(storefront).toContain('useStorefrontShopsApi()');
     expect(storefront).not.toContain('useShopsApi()');
+  });
+
+  it('ne réutilise pas le bearer Magrit pour l éditorial facultatif', () => {
+    expect(moduleClients).toContain('storefrontDiagnostics: new DiagnosticsApiClient(apiRuntime.anonymousClient)');
+    expect(catalog).toContain('useStorefrontDiagnosticsApi()');
+    expect(catalog).not.toContain('useDiagnosticsApi()');
+    expect(catalog).toContain('socle déterministe');
   });
 });

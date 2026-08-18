@@ -3,7 +3,7 @@ import { Search, Sparkles, X, Loader2, AlertTriangle } from 'lucide-react';
 import type { Shop, ShopProduct } from '../../../contexts/ShopsContext';
 import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
 import { resolveProductImage } from '../../../utils/productImages';
-import { useDiagnosticsApi } from '../../../contexts/ModuleClientsContext';
+import { useStorefrontDiagnosticsApi } from '../../../contexts/ModuleClientsContext';
 import { computeClariprintQuoteSafe } from '../../../../modules/clariprint';
 import { useClaudeSseStream, ClaudeSseStreamError } from '../../../hooks/useClaudeSseStream';
 import { ENABLE_STREAMING_CHAT } from '../../../lib/featureFlags';
@@ -132,7 +132,7 @@ export function PortalCatalog({
   initialFormat,
 }: Props) {
   const { clariprint } = useBrowserServices();
-  const assistantApi = useDiagnosticsApi();
+  const assistantApi = useStorefrontDiagnosticsApi();
   const [query, setQuery] = useState('');
   // S2.21 — autocomplétion : menu ouvert au focus + saisie ≥ 2 car.
   const [searchOpen, setSearchOpen] = useState(false);
@@ -272,8 +272,10 @@ export function PortalCatalog({
   }, [products, pimGammes]);
   const breadcrumbFamily = activeFamily?.label ?? null;
 
-  // S2.20 — Contenu éditorial LLM (endpoint category-editorial), avec cache
-  // session par famille + socle déterministe si l'IA est indisponible.
+  // S2.20 — Contenu éditorial LLM facultatif, avec cache session par famille et
+  // socle déterministe. Le transport storefront n'envoie jamais de bearer
+  // Magrit : tant qu'une route éditoriale boutique n'existe pas, le 401 attendu
+  // est absorbé et le socle déterministe reste la seule source affichée.
   const [editorial, setEditorial] = useState<CategoryEditorial | null>(null);
   useEffect(() => {
     if (!activeFamily) {

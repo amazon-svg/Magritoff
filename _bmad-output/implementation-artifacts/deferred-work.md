@@ -2,6 +2,13 @@
 
 > Items reportés issus des code reviews BMAD. Pré-existants ou hors scope de la story où ils ont été détectés. À traiter dans des stories dédiées ou au prochain sprint qui touche le périmètre concerné.
 
+## Deferred from: UM10.8 storefront editorial identity (2026-08-18)
+
+- **Route éditoriale IA storefront** — `PortalCatalog` n’envoie plus le bearer
+  Magrit à la route tenant `category-editorial` et utilise donc son fallback
+  déterministe. Ajouter une route basée sur le slug qui résout la session
+  boutique HttpOnly côté BFF avant de réactiver cet enrichissement facultatif.
+
 ## Deferred from: code review of story-S1.5-refactor-llm-finalisation (2026-05-10)
 
 - **`isBillingError` / `isClaudeBillingError` regex permissive** — `/credit|billing|authentication/` (et `|invalid` côté make-server) match du texte arbitraire dans le body d'erreur. Pré-existant depuis le code original (S0/avant). Risque : un message d'erreur Anthropic légitime contenant un de ces mots déclenche un fallback démo silencieux. Fix proposé : matcher des patterns plus stricts ou des codes status précis. Story dédiée robustness wrapper recommandée.

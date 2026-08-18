@@ -20,6 +20,7 @@ type ModuleClients = Readonly<{
   commercial: CommercialApiClient;
   conversations: ConversationsApiClient;
   diagnostics: DiagnosticsApiClient;
+  storefrontDiagnostics: DiagnosticsApiClient;
   libraries: LibrariesApiClient;
   libraryProducts: LibraryProductsApiClient;
   orders: OrdersApiClient;
@@ -49,6 +50,7 @@ export function ModuleClientsProvider({ children }: { children: ReactNode }) {
       commercial: new CommercialApiClient(apiRuntime.client),
       conversations: new ConversationsApiClient(apiRuntime.client),
       diagnostics: new DiagnosticsApiClient(apiRuntime.client),
+      storefrontDiagnostics: new DiagnosticsApiClient(apiRuntime.anonymousClient),
       libraries: new LibrariesApiClient(apiRuntime.client),
       libraryProducts: new LibraryProductsApiClient(apiRuntime.client),
       orders: new OrdersApiClient(apiRuntime.client),
@@ -117,6 +119,15 @@ export function useDiagnosticsApi(): DiagnosticsApiClient {
   const clients = useContext(ModuleClientsContext);
   if (!clients) throw new Error('useDiagnosticsApi must be used within a ModuleClientsProvider');
   return clients.diagnostics;
+}
+
+/** Appels diagnostics facultatifs du storefront, sans identité Magrit. */
+export function useStorefrontDiagnosticsApi(): DiagnosticsApiClient {
+  const clients = useContext(ModuleClientsContext);
+  if (!clients) {
+    throw new Error('useStorefrontDiagnosticsApi must be used within a ModuleClientsProvider');
+  }
+  return clients.storefrontDiagnostics;
 }
 
 export function useLibrariesApi(): LibrariesApiClient {
