@@ -39,8 +39,9 @@ avec une délégation auditée et une session storefront HttpOnly de trente
 minutes. UM5.2 livre l'action unifiée dans Magrit, l'ouverture en nouvel onglet,
 le bandeau permanent et la sortie du mode délégué. UM5.3 relie désormais cette
 session au catalogue privé : le BFF résout le cookie HttpOnly et n'autorise que
-la boutique exacte portée par la session. La récupération de mot de passe n'est
-pas encore livrée. UM6.1 rattache désormais toute nouvelle commande storefront
+la boutique exacte portée par la session. UM9.2 livre la récupération de mot de
+passe contextualisée par boutique, avec message neutre, email et révocation des
+sessions antérieures. UM6.1 rattache désormais toute nouvelle commande storefront
 au compte boutique de la session et conserve séparément l'acteur Magrit en cas
 de délégation. UM6.2 permet ensuite au compte boutique de consulter uniquement
 ses propres commandes dans son portail, sans lui conférer les rôles Magrit de

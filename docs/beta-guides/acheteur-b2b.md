@@ -21,6 +21,10 @@ connectes ensuite depuis `/shop/<slug>`.
 Tu ne vois jamais les tenants, sous-espaces ou autres boutiques depuis cette
 session storefront.
 
+Si tu oublies ton mot de passe, utilise « Mot de passe oublié ? » depuis cette
+boutique. Le message reste volontairement neutre. Le lien reçu est valable une
+heure et ferme les anciennes sessions après modification.
+
 ## 2. Recherche IA Magrit
 
 **Route** : `/shop/<slug>/portal` (recherche guidée IA)

@@ -56,6 +56,8 @@ seul adapté aux catalogues privés.
    `/storage/v1/object/...`, jamais l’origine Docker ou distante complète.
 9. Une auto-inscription est refusée hors d’une boutique active `self_signup` et
    ne révèle pas si l’email existe déjà.
+10. La récupération de mot de passe part toujours du slug de la boutique,
+    répond de façon identique pour tout email et révoque les anciennes sessions.
 
 ## Transition `shop_only`
 
@@ -80,6 +82,8 @@ seul adapté aux catalogues privés.
 - **Activation client** : lien à usage unique ; si l’email n’est pas configuré,
   l’interface affiche toujours le lien manuel à transmettre.
 - **Délégation** : bouton « Se connecter à la boutique » dans l’éditeur.
+- **Mot de passe oublié** : action sur le formulaire storefront ; lien valable
+  une heure, à usage unique et limité à ce compte dans cette boutique.
 
 ## Validation manuelle minimale
 
