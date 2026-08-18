@@ -45,4 +45,52 @@ describe('route API assistant éditorial', () => {
     expect(response.status).toBe(403);
     expect(called).toBe(false);
   });
+
+  it('génère l éditorial storefront après résolution serveur du slug', async () => {
+    const gateway: AiCompletionGateway = {
+      async complete() {
+        return { text: '{"title":"Papeterie pro"}', model: 'test' };
+      },
+    };
+    const service = new AssistantService(gateway, allowed);
+    const handler = createApiV1Application({
+      routes: createAssistantRoutes(
+        service,
+        async (_request, shopSlug) => shopSlug === 'boutique-test'
+          ? { tenantId: 'tenant-1' }
+          : null,
+      ),
+      requestIdFactory: () => 'storefront-editorial',
+    });
+    const client = new DiagnosticsApiClient(new FetchApiClient(
+      'https://magrit.test',
+      ((input: RequestInfo | URL, init?: RequestInit) => handler(new Request(input, init))) as typeof fetch,
+    ));
+
+    await expect(client.storefrontCategoryEditorial('boutique-test', {
+      familyName: 'Papeterie', subcategories: [], sampleProducts: [],
+    })).resolves.toEqual({ editorial: { title: 'Papeterie pro' }, generated: true });
+  });
+
+  it('refuse l éditorial storefront si la session ne correspond pas au slug', async () => {
+    let called = false;
+    const service = new AssistantService({
+      async complete() { called = true; return { text: '{}', model: 'test' }; },
+    }, allowed);
+    const handler = createApiV1Application({
+      routes: createAssistantRoutes(service, async () => null),
+      requestIdFactory: () => 'storefront-editorial-denied',
+    });
+    const response = await handler(new Request(
+      'http://localhost/api/v1/public/shops/autre-boutique/assistant/category-editorial',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ familyName: 'Papeterie', subcategories: [], sampleProducts: [] }),
+      },
+    ));
+
+    expect(response.status).toBe(401);
+    expect(called).toBe(false);
+  });
 });

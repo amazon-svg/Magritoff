@@ -105,6 +105,10 @@ export async function handleRequest(request: Request): Promise<Response> {
   const storefrontCookiePolicy = storefrontSessionCookiePolicy(new URL(request.url).protocol === 'https:');
   const storefrontGateway = new SupabaseStorefrontAuthenticationGateway(storefrontClient);
   const storefrontSessionService = new StorefrontSessionService(storefrontGateway);
+  const storefrontShopsRepository = new SupabaseShopsRepository(
+    storefrontClient,
+    publicSupabaseUrl(request, supabaseUrl),
+  );
   if (isAssistantChatRequest(request)) {
     if (authorization) {
       const { data, error } = await client.auth.getUser();
@@ -124,13 +128,12 @@ export async function handleRequest(request: Request): Promise<Response> {
     const opaqueToken = readStorefrontSessionCookie(request.headers.get('cookie'), storefrontCookiePolicy);
     const storefrontSession = opaqueToken ? await storefrontSessionService.current(opaqueToken) : null;
     if (!storefrontSession) return withCors(Response.json({ type: 'about:blank', title: 'Session boutique requise', status: 401, code: 'storefront.session_required', requestId: crypto.randomUUID() }, { status: 401, headers: { 'Content-Type': 'application/problem+json; charset=utf-8' } }));
-    const storefrontShops = new SupabaseShopsRepository(storefrontClient, publicSupabaseUrl(request, supabaseUrl));
     return withCors(await proxyAssistantChat(request, {
       legacyBaseUrl: `${supabaseUrl}/functions/v1/make-server-e3db71a4`,
       authorization: `Bearer ${anonKey}`,
       authorizeShop: async (shopSlug) => {
         try {
-          const probe = await storefrontShops.publicProbe(shopSlug);
+          const probe = await storefrontShopsRepository.publicProbe(shopSlug);
           if (probe.id !== storefrontSession.identity.shopId) return null;
           return {
             userId: storefrontSession.identity.shopCustomerAccountId,
@@ -205,7 +208,24 @@ export async function handleRequest(request: Request): Promise<Response> {
       ...createCatalogRoutes(catalogService),
       ...createConversationsRoutes(conversationsService),
       ...createDiagnosticsRoutes(diagnosticsService),
-      ...createAssistantRoutes(assistantService),
+      ...createAssistantRoutes(assistantService, async (storefrontRequest, shopSlug) => {
+        const opaqueToken = readStorefrontSessionCookie(
+          storefrontRequest.headers.get('cookie'),
+          storefrontCookiePolicy,
+        );
+        const session = opaqueToken
+          ? await storefrontSessionService.current(opaqueToken)
+          : null;
+        if (!session) return null;
+        try {
+          const probe = await storefrontShopsRepository.publicProbe(shopSlug);
+          return probe.id === session.identity.shopId
+            ? { tenantId: probe.tenantId }
+            : null;
+        } catch {
+          return null;
+        }
+      }),
       ...createClariprintRoutes(clariprintService),
       ...createQuotesRoutes(quotesService),
       ...createQuoteTemplatesRoutes(quoteTemplatesService),

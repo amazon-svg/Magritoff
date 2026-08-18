@@ -26,6 +26,12 @@ mode délégué, le bearer Magrit pouvait donc modifier le rendu de la boutique.
 L’enrichissement éditorial IA sera réactivé uniquement lorsqu’une route dédiée
 pourra résoudre le slug et la session boutique côté BFF.
 
+## Évolution UM10.12
+
+La route dédiée est désormais livrée. Elle résout le slug et le cookie côté BFF
+avant la génération ; le fallback déterministe reste disponible uniquement en
+cas d’indisponibilité du fournisseur.
+
 ## Validation
 
 - garde-fou d’architecture sur le client Diagnostics storefront ;

@@ -13,6 +13,15 @@ export class AssistantService {
 
   async categoryEditorial(actor: UserId, tenantId: string, command: CategoryEditorialCommand): Promise<CategoryEditorialResult> {
     if (!await this.access.isTenantMember(actor, tenantId)) throw new AssistantRejectedError('permission_denied', 'Accès IA interdit pour ce tenant.');
+    return this.generateCategoryEditorial(command);
+  }
+
+  /** Appelé uniquement après résolution serveur d’une session boutique. */
+  async storefrontCategoryEditorial(command: CategoryEditorialCommand): Promise<CategoryEditorialResult> {
+    return this.generateCategoryEditorial(command);
+  }
+
+  private async generateCategoryEditorial(command: CategoryEditorialCommand): Promise<CategoryEditorialResult> {
     try {
       const result = await this.completion.complete({
         system: SYSTEM_PROMPT,

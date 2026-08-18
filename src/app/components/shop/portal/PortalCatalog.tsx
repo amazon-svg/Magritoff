@@ -275,9 +275,8 @@ export function PortalCatalog({
   const breadcrumbFamily = activeFamily?.label ?? null;
 
   // S2.20 — Contenu éditorial LLM facultatif, avec cache session par famille et
-  // socle déterministe. Le transport storefront n'envoie jamais de bearer
-  // Magrit : tant qu'une route éditoriale boutique n'existe pas, le 401 attendu
-  // est absorbé et le socle déterministe reste la seule source affichée.
+  // socle déterministe. La route storefront résout le slug et le cookie côté
+  // BFF ; aucun tenant ni bearer Magrit n'est transmis par le navigateur.
   const [editorial, setEditorial] = useState<CategoryEditorial | null>(null);
   useEffect(() => {
     if (!activeFamily) {
@@ -299,8 +298,7 @@ export function PortalCatalog({
     (async () => {
       try {
         const CATEGORY_EDITORIAL_TIMEOUT_MS = 12_000;
-        if (!shop.tenant_id) throw new Error('category_editorial_tenant_missing');
-        const invokePromise = assistantApi.categoryEditorial(shop.tenant_id, {
+        const invokePromise = assistantApi.storefrontCategoryEditorial(shop.slug, {
           familyName: activeFamily.label,
           subcategories: activeFamily.subcategories.filter((s) => s.count > 0).map((s) => s.label),
           sampleProducts: products.slice(0, 8).map((p) => p.name),
@@ -327,7 +325,7 @@ export function PortalCatalog({
     return () => {
       cancelled = true;
     };
-  }, [activeFamily, assistantApi, products, shop.tenant_id]);
+  }, [activeFamily, assistantApi, products, shop.slug]);
 
   // S2.20 — Modèle final de la landing : socle déterministe + overlay éditorial.
   const landingModel = useMemo(

@@ -70,5 +70,7 @@ describe('portail commandes par compte boutique', () => {
     expect(catalog).toContain('useStorefrontDiagnosticsApi()');
     expect(catalog).not.toContain('useDiagnosticsApi()');
     expect(catalog).toContain('socle déterministe');
+    expect(catalog).toContain('storefrontCategoryEditorial(shop.slug');
+    expect(catalog).not.toContain('categoryEditorial(shop.tenant_id');
   });
 });

@@ -29,4 +29,14 @@ export class DiagnosticsApiClient {
       ...(signal === undefined ? {} : { signal }),
     });
   }
+
+  storefrontCategoryEditorial(shopSlug: string, command: CategoryEditorialCommand, signal?: AbortSignal): Promise<CategoryEditorialResult> {
+    return this.client.request({
+      method: 'POST',
+      path: `${API_V1_BASE_PATH}/public/shops/${encodeURIComponent(shopSlug)}/assistant/category-editorial`,
+      body: categoryEditorialCommandSchema.parse(command),
+      responseSchema: categoryEditorialResultSchema,
+      ...(signal === undefined ? {} : { signal }),
+    });
+  }
 }

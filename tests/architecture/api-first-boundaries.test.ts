@@ -784,7 +784,7 @@ describe('frontières API-first et modulaires', () => {
     const hook = readFileSync(resolve(process.cwd(), 'src/app/hooks/useClaudeSseStream.ts'), 'utf8');
     const adapter = readFileSync(resolve(process.cwd(), 'src/adapters/http/browser-assistant-gateway.ts'), 'utf8');
     expect(chat).toContain('useClaudeSseStream');
-    expect(portal).toContain('assistantApi.categoryEditorial');
+    expect(portal).toContain('assistantApi.storefrontCategoryEditorial');
     expect(chat).not.toContain('utils/supabase');
     expect(chat).not.toContain('functions/v1');
     expect(portal).not.toContain('functions/v1');
