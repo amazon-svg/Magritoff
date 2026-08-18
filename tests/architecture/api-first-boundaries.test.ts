@@ -569,6 +569,10 @@ describe('frontières API-first et modulaires', () => {
     expect(invitation).toContain('useShopsApi');
     expect(invitation).toContain('signOut');
     expect(account).toContain('onSignOut');
+    expect(account).toContain('session.customer.email');
+    expect(account).not.toContain('useAuth');
+    expect(account).not.toContain('useTenant');
+    expect(account).not.toContain('useQuotes');
     for (const source of [invitation, account]) {
       expect(source).not.toContain('utils/supabase');
       expect(source).not.toMatch(/\bsupabase\s*\./);

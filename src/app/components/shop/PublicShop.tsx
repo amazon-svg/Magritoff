@@ -81,7 +81,7 @@ export function PublicShop() {
   const storefrontIdentityApi = useStorefrontIdentityApi();
   const [storefrontSession, setStorefrontSession] = useState<StorefrontSession | null>(null);
   const [storefrontSessionLoading, setStorefrontSessionLoading] = useState(true);
-  const [endingDelegation, setEndingDelegation] = useState(false);
+  const [endingStorefrontSession, setEndingStorefrontSession] = useState(false);
   const checkoutCommandKey = useRef(crypto.randomUUID());
 
   useEffect(() => {
@@ -93,16 +93,15 @@ export function PublicShop() {
     return () => { cancelled = true; };
   }, [storefrontIdentityApi]);
 
-  const endDelegation = async () => {
-    setEndingDelegation(true);
+  const endStorefrontSession = async () => {
+    setEndingStorefrontSession(true);
     try {
       await storefrontIdentityApi.end();
       setStorefrontSession(null);
-      window.location.reload();
     } catch {
-      window.alert('Impossible de quitter le mode délégué pour le moment. Réessayez.');
+      window.alert('Impossible de fermer la session boutique pour le moment. Réessayez.');
     } finally {
-      setEndingDelegation(false);
+      setEndingStorefrontSession(false);
     }
   };
 
@@ -406,7 +405,8 @@ export function PublicShop() {
 
     // La commande API exige une session : l acteur, son périmètre boutique et
     // sa permission de commander sont vérifiés côté serveur.
-    if (!user?.id) {
+    const hasStorefrontSession = storefrontSession?.identity.shopId === shop.id;
+    if (!user?.id && !hasStorefrontSession) {
       alert(
         'Vous devez etre connecte pour valider votre panier.\n\nCliquez sur "Se connecter" en haut a droite pour acceder a votre compte B2B.',
       );
@@ -636,9 +636,8 @@ export function PublicShop() {
   const shopMembership = tenants.find((tenant) => tenant.id === shop.tenant_id);
   const hasStorefrontSession = storefrontSession?.identity.shopId === shop.id;
   const canCreateOrder = hasStorefrontSession
-    || !user
-    || shop.access_mode === 'self_signup'
-    || Boolean(shopMembership?.permissions.can_order);
+    || (!user && shop.access_mode === 'self_signup')
+    || Boolean(user && shopMembership?.permissions.can_order);
   const createOrderBlockedMessage = shop.access_mode === 'invite_only' && !shopMembership
     ? 'Cette boutique fonctionne sur invitation. Demandez un accès à son administrateur.'
     : "Votre administrateur n'a pas activé la création de commandes pour votre compte.";
@@ -658,8 +657,8 @@ export function PublicShop() {
         && storefrontSession.identity.shopId === shop.id && (
           <StorefrontDelegationBanner
             session={storefrontSession}
-            ending={endingDelegation}
-            onEnd={() => void endDelegation()}
+            ending={endingStorefrontSession}
+            onEnd={() => void endStorefrontSession()}
           />
         )}
     <ShopLayout
@@ -674,6 +673,7 @@ export function PublicShop() {
       onSelectProduct={(p) => goView('product', p.id)}
       onOpenGamme={(gSlug) => goView('gamme', gSlug)}
       onAskMagrit={() => goView('catalog')}
+      storefrontSession={storefrontSession}
       budget={budget}
       gammes={gammePills}
       activeGammeSlugs={expandedGammes}
@@ -815,6 +815,8 @@ export function PublicShop() {
           onSection={(s) => goView('account', s)}
           onRenewOrder={handleRenewOrder}
           onGoHome={() => goView('home')}
+          storefrontSession={storefrontSession}
+          onSignOut={endStorefrontSession}
         />
       )}
 
@@ -823,7 +825,7 @@ export function PublicShop() {
       {view === 'thankYou' && lastOrderId && (
         <PortalThankYou
           orderId={lastOrderId}
-          userEmail={user?.email ?? ''}
+          userEmail={storefrontSession?.customer.email ?? user?.email ?? ''}
           onBackToCatalog={() => goView('catalog')}
           onSeeOrders={() => goView('orders')}
         />

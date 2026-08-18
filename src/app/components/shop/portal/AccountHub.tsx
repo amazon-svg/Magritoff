@@ -11,12 +11,10 @@
  */
 
 import { FileText, LogOut, Package, User } from 'lucide-react';
+import type { StorefrontSession } from '../../../../modules/shop-customers';
 import type { Shop } from '../../../contexts/ShopsContext';
 import type { AccountSection } from './types';
 import { PortalOrders } from './PortalOrders';
-import { useAuth } from '../../../contexts/AuthContext';
-import { useTenant } from '../../../contexts/TenantContext';
-import { useQuotes } from '../../../contexts/QuotesContext';
 import { TEST_IDS } from '../../../lib/testIds';
 
 const SECTIONS: Array<{ key: AccountSection; label: string; icon: typeof Package }> = [
@@ -25,17 +23,6 @@ const SECTIONS: Array<{ key: AccountSection; label: string; icon: typeof Package
   { key: 'profile', label: 'Mon profil', icon: User },
 ];
 
-/** Statuts devis → libellés FR (mapping 3 groupes S-QUOTES). */
-const QUOTE_STATUS_LABELS: Record<string, string> = {
-  draft: 'brouillon',
-  sent: 'envoyé',
-  pending: 'en attente',
-  validated: 'validé',
-  won: 'gagné',
-  rejected: 'rejeté',
-  lost: 'perdu',
-};
-
 export interface AccountHubProps {
   shop: Shop;
   hasStorefrontSession?: boolean;
@@ -43,6 +30,8 @@ export interface AccountHubProps {
   onSection: (section: AccountSection) => void;
   onRenewOrder: (order: { id: string; source: string }) => void;
   onGoHome: () => void;
+  storefrontSession: StorefrontSession | null;
+  onSignOut: () => Promise<void>;
 }
 
 export function AccountHub({
@@ -52,9 +41,10 @@ export function AccountHub({
   onSection,
   onRenewOrder,
   onGoHome,
+  storefrontSession,
+  onSignOut,
 }: AccountHubProps) {
-  const { user, signOut } = useAuth();
-  const { currentTenant } = useTenant();
+  const hasCurrentShopSession = storefrontSession?.identity.shopId === shop.id;
 
   return (
     <div
@@ -94,11 +84,10 @@ export function AccountHub({
         {section === 'quotes' && <AccountQuotes />}
         {section === 'profile' && (
           <AccountProfile
-            email={user?.email ?? null}
+            session={hasCurrentShopSession ? storefrontSession : null}
             shopName={shop.name}
-            tenantName={currentTenant?.name ?? null}
             onGoHome={onGoHome}
-            onSignOut={signOut}
+            onSignOut={onSignOut}
           />
         )}
       </div>
@@ -107,79 +96,29 @@ export function AccountHub({
 }
 
 function AccountQuotes() {
-  const { user } = useAuth();
-  const { quotes, loading } = useQuotes();
-
-  if (!user) {
-    return (
-      <EmptyCard text="Connectez-vous pour retrouver vos devis." />
-    );
-  }
-  if (loading) {
-    return <EmptyCard text="Chargement de vos devis…" />;
-  }
-  const mine = quotes.filter((q) => q.user_id === user.id);
-  if (mine.length === 0) {
-    return (
-      <EmptyCard text="Aucun devis pour l'instant. Créez-en un depuis votre panier." />
-    );
-  }
-  return (
-    <div
-      data-testid={TEST_IDS.shop.accountQuotesList}
-      className="bg-paper border border-line rounded-xl overflow-hidden"
-    >
-      <table className="w-full border-collapse" style={{ fontSize: '13px' }}>
-        <thead>
-          <tr className="border-b border-line text-left">
-            <th className="px-4 py-3 font-mono uppercase text-ink-mute-2" style={{ fontSize: '10px', letterSpacing: '0.06em' }}>Référence</th>
-            <th className="px-4 py-3 font-mono uppercase text-ink-mute-2" style={{ fontSize: '10px', letterSpacing: '0.06em' }}>Produit</th>
-            <th className="px-4 py-3 font-mono uppercase text-ink-mute-2" style={{ fontSize: '10px', letterSpacing: '0.06em' }}>Statut</th>
-            <th className="px-4 py-3 font-mono uppercase text-ink-mute-2 text-right" style={{ fontSize: '10px', letterSpacing: '0.06em' }}>Total HT</th>
-          </tr>
-        </thead>
-        <tbody>
-          {mine.map((q) => (
-            <tr key={q.id} className="border-b border-line last:border-0">
-              <td className="px-4 py-3 font-mono text-ink-muted">{q.reference ?? q.id.slice(0, 8)}</td>
-              <td className="px-4 py-3 text-ink">{q.product_name}</td>
-              <td className="px-4 py-3 text-ink-muted">
-                {QUOTE_STATUS_LABELS[q.status] ?? q.status}
-              </td>
-              <td
-                className="px-4 py-3 font-mono text-ink text-right"
-                style={{ fontVariantNumeric: 'tabular-nums' }}
-              >
-                {q.total_ht != null ? `${q.total_ht.toFixed(2)} €` : '—'}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
+  // Les anciens devis du workspace sont volontairement exclus : ils sont
+  // rattachés aux utilisateurs Magrit, pas au compte client de la boutique.
+  return <EmptyCard text="Aucun devis boutique pour l’instant. Créez-en un depuis votre panier." />;
 }
 
 function AccountProfile({
-  email,
+  session,
   shopName,
-  tenantName,
   onGoHome,
   onSignOut,
 }: {
-  email: string | null;
+  session: StorefrontSession | null;
   shopName: string;
-  tenantName: string | null;
   onGoHome: () => void;
   onSignOut: () => Promise<void>;
 }) {
-  if (!email) {
+  if (!session) {
     return <EmptyCard text="Connectez-vous pour accéder à votre profil." />;
   }
   const rows: Array<[string, string]> = [
-    ['Email', email],
+    ['Nom', session.customer.fullName],
+    ['Email', session.customer.email],
     ['Boutique', shopName],
-    ...(tenantName ? ([['Espace', tenantName]] as Array<[string, string]>) : []),
   ];
   return (
     <div

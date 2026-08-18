@@ -25,10 +25,10 @@
  */
 
 import { useEffect, useState, type ReactNode } from "react";
-import { ShoppingCart, X } from "lucide-react";
+import { ShoppingCart, UserRound, X } from "lucide-react";
 import type { Shop, ShopProduct } from "../../contexts/ShopsContext";
 import type { Gamme } from "../../utils/productEnrichment";
-import { AuthMenu } from "../auth/AuthMenu";
+import type { StorefrontSession } from "../../../modules/shop-customers";
 import type { PortalView, BudgetInfo } from "./portal/types";
 import { ShopMegaMenu } from "./ShopMegaMenu";
 import { ShopHeaderSearch } from "./ShopHeaderSearch";
@@ -91,6 +91,8 @@ interface Props {
   onAskMagrit?: () => void;
   /** Contenu principal (vue active : home/catalog/product/orders). */
   children: ReactNode;
+  /** Identité propre à cette boutique, distincte de la session Magrit. */
+  storefrontSession?: StorefrontSession | null;
 }
 
 const NAV_ITEMS: Array<{ key: PortalView; label: string }> = [
@@ -120,6 +122,7 @@ export function ShopLayout({
   onSelectProduct,
   onOpenGamme,
   onAskMagrit,
+  storefrontSession = null,
   children,
 }: Props) {
   const { dataTheme, isDark } = resolveShopTheme(shop);
@@ -334,13 +337,24 @@ export function ShopLayout({
           )}
         </button>
 
-        {/* User menu — Bug 2026-06-10 Arnaud : "je ne peux pas me déconnecter
-            en tant que user". L'avatar inerte "U" est remplacé par AuthMenu
-            (email connecté, espace actif, dashboard, changer d'espace,
-            déconnexion). data-testid shop-header-user-menu conservé via le
-            wrapper pour les cahiers de tests Notion. */}
+        {/* Identité storefront uniquement : ne jamais afficher ici le compte
+            Magrit ni ses espaces. La déconnexion vit dans Mon profil. */}
         <div data-testid={TEST_IDS.shop.headerUserMenu}>
-          <AuthMenu />
+          <button
+            type="button"
+            onClick={() => onView("account")}
+            aria-label={storefrontSession ? `Compte de ${storefrontSession.customer.fullName}` : "Compte boutique"}
+            className={`inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[13px] ${
+              isDark ? "text-gray-300 hover:bg-gray-800" : "text-ink-2 hover:bg-bg"
+            }`}
+          >
+            <span className={`grid h-7 w-7 place-items-center rounded-full ${isDark ? "bg-gray-100 text-gray-950" : "bg-ink text-paper"}`}>
+              <UserRound className="h-4 w-4" strokeWidth={1.5} />
+            </span>
+            <span className="hidden max-w-36 truncate sm:inline">
+              {storefrontSession?.customer.fullName ?? "Compte"}
+            </span>
+          </button>
         </div>
       </header>
 
