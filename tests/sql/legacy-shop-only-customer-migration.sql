@@ -25,11 +25,13 @@ begin
   insert into public.shops (owner_user_id, tenant_id, slug, name)
   values (v_legacy_user, v_tenant, 'um7-legacy-b', 'UM7 Shop B') returning id into v_shop_b;
 
+  perform set_config('magrit.allow_legacy_shop_only_write', 'on', true);
   insert into public.tenant_members (
     tenant_id, user_id, role, access_scope, allowed_shop_ids
   ) values (
     v_tenant, v_legacy_user, 'member', 'shop_only', array[v_shop_a, v_shop_b]
   );
+  perform set_config('magrit.allow_legacy_shop_only_write', 'off', true);
 
   insert into public.shop_customer_accounts (shop_id, email, full_name, status)
   select v_shop_b, u.email, 'Compte déjà présent', 'delegated_only'

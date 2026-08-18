@@ -20,6 +20,7 @@ SQL_CASES=(
   tests/sql/storefront-order-cancellation.sql
   tests/sql/storefront-order-audit.sql
   tests/sql/legacy-shop-only-customer-migration.sql
+  tests/sql/legacy-shop-only-write-freeze.sql
 )
 
 for sql_case in "${SQL_CASES[@]}"; do
