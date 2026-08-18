@@ -105,6 +105,9 @@ describe('portail commandes par compte boutique', () => {
     expect(appRoutes).not.toContain('import { WorkspaceRuntimeBoundary }');
     expect(appRoutes).toContain('element: lazyRoute(<StorefrontRuntimeBoundary />)');
     expect(appRoutes).toContain('element: lazyRoute(<WorkspaceRuntimeBoundary />)');
+    expect(appRoutes).toContain('import("./AppShell")');
+    expect(appRoutes).toContain('element: lazyRoute(<AppShell />)');
+    expect(appRoutes).not.toContain('import { AppShell }');
     expect(storefrontBoundary).not.toContain("../contexts/AuthContext");
     expect(storefrontBoundary).not.toContain("../contexts/ApiRuntimeContext");
     expect(storefrontBoundary).not.toContain("../contexts/ModuleClientsContext");

@@ -1,15 +1,29 @@
 import { Suspense, lazy } from "react";
 import { createBrowserRouter, Navigate } from "react-router";
-import { AppShell } from "./AppShell";
-import { MainLayout } from "./components/MainLayout";
-import { TenantAwareLayout } from "./components/tenant/TenantAwareLayout";
-import { TenantPicker } from "./components/tenant/TenantPicker";
-import { ConfiguratorPage } from "./components/ConfiguratorPage";
-import { NotFound } from "./components/NotFound";
-import { DashboardLayout } from "./components/dashboard/DashboardLayout";
 import { workspaceRuntimeRoutes } from "./surfaces/workspaceRuntimeRoutes";
 import { portalRuntimePaths } from "./surfaces/portalRuntimePaths";
 
+const AppShell = lazy(() =>
+  import("./AppShell").then((m) => ({ default: m.AppShell })),
+);
+const MainLayout = lazy(() =>
+  import("./components/MainLayout").then((m) => ({ default: m.MainLayout })),
+);
+const TenantAwareLayout = lazy(() =>
+  import("./components/tenant/TenantAwareLayout").then((m) => ({ default: m.TenantAwareLayout })),
+);
+const TenantPicker = lazy(() =>
+  import("./components/tenant/TenantPicker").then((m) => ({ default: m.TenantPicker })),
+);
+const ConfiguratorPage = lazy(() =>
+  import("./components/ConfiguratorPage").then((m) => ({ default: m.ConfiguratorPage })),
+);
+const NotFound = lazy(() =>
+  import("./components/NotFound").then((m) => ({ default: m.NotFound })),
+);
+const DashboardLayout = lazy(() =>
+  import("./components/dashboard/DashboardLayout").then((m) => ({ default: m.DashboardLayout })),
+);
 const StorefrontRuntimeBoundary = lazy(() =>
   import("./surfaces/StorefrontRuntimeBoundary").then((m) => ({ default: m.StorefrontRuntimeBoundary })),
 );
@@ -84,8 +98,8 @@ function lazyRoute(element: React.ReactNode) {
  *
  * Code-splitting Sprint 10 (S9-PERF-ROUTE-SPLIT) : les frontières d'identité,
  * Dashboard* et les pages secondaires sont lazy via React.lazy + Suspense.
- * AppShell, MainLayout, TenantAwareLayout, DashboardLayout, TenantPicker et
- * ConfiguratorPage restent eager car hot-path post-login.
+ * Les shells workspace sont eux aussi lazy afin qu'une entrée boutique ne
+ * télécharge aucune composition Magrit avant navigation vers cette surface.
  */
 export const router = createBrowserRouter([
   {
@@ -107,7 +121,7 @@ export const router = createBrowserRouter([
     element: lazyRoute(<WorkspaceRuntimeBoundary />),
     children: [
       {
-        element: <AppShell />,
+        element: lazyRoute(<AppShell />),
         children: [
 
       // REFONTE-UX (2026-08-08) — route DEV seulement : rendre le wizard parc
@@ -120,11 +134,11 @@ export const router = createBrowserRouter([
       // Flux hors-tenant (auth, onboarding, picker, invitation)
       {
         path: "/",
-        element: <MainLayout />,
+        element: lazyRoute(<MainLayout />),
         children: [
           { index: true, element: <Navigate to="/tenants" replace /> },
           { path: "reset-password", element: lazyRoute(<ResetPasswordPage />) },
-          { path: "tenants", element: <TenantPicker /> },
+          { path: "tenants", element: lazyRoute(<TenantPicker />) },
           { path: "tenants/new", element: lazyRoute(<TenantOnboarding />) },
           { path: "invitations/:token", element: lazyRoute(<AcceptInvitation />) },
         ],
@@ -133,14 +147,14 @@ export const router = createBrowserRouter([
       // App principale, tenant-scoped
       {
         path: "/t/:tenantSlug",
-        element: <TenantAwareLayout />,
+        element: lazyRoute(<TenantAwareLayout />),
         children: [
-          { index: true, element: <ConfiguratorPage /> },
+          { index: true, element: lazyRoute(<ConfiguratorPage />) },
           { path: "product/:id", element: lazyRoute(<ProductSheet />) },
           { path: "personalization/:id", element: lazyRoute(<PersonalizationPage />) },
           {
             path: "dashboard",
-            element: <DashboardLayout />,
+            element: lazyRoute(<DashboardLayout />),
             children: [
               // REFONTE-UX (2026-08-08) — l entree du dashboard est l Atelier
               // (Devis), plus le profil. Profil + Preferences vivent dans
@@ -160,7 +174,7 @@ export const router = createBrowserRouter([
         ],
       },
 
-      { path: "*", element: <NotFound /> },
+      { path: "*", element: lazyRoute(<NotFound />) },
         ],
       },
     ],
