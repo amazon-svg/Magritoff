@@ -14,6 +14,9 @@ const dashboard = readFileSync(resolve(process.cwd(), 'src/app/components/dashbo
 const workspaceClients = readFileSync(resolve(process.cwd(), 'src/app/contexts/ModuleClientsContext.tsx'), 'utf8');
 const storefrontClients = readFileSync(resolve(process.cwd(), 'src/app/contexts/StorefrontModuleClientsContext.tsx'), 'utf8');
 const storefrontRuntime = readFileSync(resolve(process.cwd(), 'src/app/contexts/StorefrontApiRuntimeContext.tsx'), 'utf8');
+const storefrontBoundary = readFileSync(resolve(process.cwd(), 'src/app/surfaces/StorefrontRuntimeBoundary.tsx'), 'utf8');
+const workspaceBoundary = readFileSync(resolve(process.cwd(), 'src/app/surfaces/WorkspaceRuntimeBoundary.tsx'), 'utf8');
+const appRoutes = readFileSync(resolve(process.cwd(), 'src/app/routes.tsx'), 'utf8');
 const catalog = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/PortalCatalog.tsx'), 'utf8');
 
 describe('portail commandes par compte boutique', () => {
@@ -93,5 +96,16 @@ describe('portail commandes par compte boutique', () => {
     expect(storefrontRuntime).toContain("new FetchApiClient('', globalThis.fetch)");
     expect(storefrontRuntime).not.toContain('useAuth');
     expect(storefrontRuntime).not.toContain('access_token');
+  });
+
+  it('monte les identités uniquement sur leurs routes respectives', () => {
+    expect(appRoutes).toContain('element: <StorefrontRuntimeBoundary />');
+    expect(appRoutes).toContain('element: <WorkspaceRuntimeBoundary />');
+    expect(storefrontBoundary).not.toContain("../contexts/AuthContext");
+    expect(storefrontBoundary).not.toContain("../contexts/ApiRuntimeContext");
+    expect(storefrontBoundary).not.toContain("../contexts/ModuleClientsContext");
+    expect(workspaceBoundary).not.toContain('Storefront');
+    expect(workspaceBoundary).toContain('<AuthProvider');
+    expect(workspaceBoundary).toContain('<SessionBootstrapProvider>');
   });
 });

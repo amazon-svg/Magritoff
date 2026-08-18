@@ -9,44 +9,10 @@ import { router } from './routes';
  * RouterProvider. On le place dans `AppShell` qui est le premier element
  * rendu PAR le router (cf routes.tsx, element: <AppShell />).
  *
- * Les providers "router-agnostiques" (Auth, Preferences, PIM…) restent
- * autour de RouterProvider pour eviter de les ressusciter a chaque
- * navigation.
+ * Les providers sont désormais montés par surface dans les frontières de
+ * routes : storefront sans Auth Magrit, workspace avec Auth/session/tenant.
+ * App ne porte plus aucun contexte d'identité transversal.
  */
-import { AuthProvider } from './contexts/AuthContext';
-import { PreferencesProvider } from './contexts/PreferencesContext';
-import { PIMProvider } from './contexts/PIMContext';
-import { SessionBootstrapProvider } from './contexts/SessionBootstrapContext';
-import { ApiRuntimeProvider } from './contexts/ApiRuntimeContext';
-import { browserRuntime } from '../platform/runtime';
-import { BrowserServicesProvider } from './contexts/BrowserServicesContext';
-import { StorefrontBrowserServicesProvider } from './contexts/StorefrontBrowserServicesContext';
-import { ModuleClientsProvider } from './contexts/ModuleClientsContext';
-import { StorefrontModuleClientsProvider } from './contexts/StorefrontModuleClientsContext';
-import { StorefrontApiRuntimeProvider } from './contexts/StorefrontApiRuntimeContext';
-
 export default function App() {
-  return (
-    <StorefrontApiRuntimeProvider>
-      <AuthProvider gateway={browserRuntime.authentication}>
-        <ApiRuntimeProvider>
-          <BrowserServicesProvider runtime={browserRuntime}>
-            <StorefrontBrowserServicesProvider runtime={browserRuntime}>
-              <ModuleClientsProvider>
-                <StorefrontModuleClientsProvider>
-                  <SessionBootstrapProvider>
-                    <PreferencesProvider>
-                      <PIMProvider>
-                        <RouterProvider router={router} />
-                      </PIMProvider>
-                    </PreferencesProvider>
-                  </SessionBootstrapProvider>
-                </StorefrontModuleClientsProvider>
-              </ModuleClientsProvider>
-            </StorefrontBrowserServicesProvider>
-          </BrowserServicesProvider>
-        </ApiRuntimeProvider>
-      </AuthProvider>
-    </StorefrontApiRuntimeProvider>
-  );
+  return <RouterProvider router={router} />;
 }

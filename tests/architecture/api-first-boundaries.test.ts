@@ -331,14 +331,15 @@ describe('frontières API-first et modulaires', () => {
     const constructors = listTypeScriptFiles(appRoot)
       .filter((file) => readFileSync(file, 'utf8').includes('new OrdersApiClient'))
       .map((file) => relative(process.cwd(), file));
-    const app = readFileSync(resolve(appRoot, 'App.tsx'), 'utf8');
+    const workspaceBoundary = readFileSync(resolve(appRoot, 'surfaces/WorkspaceRuntimeBoundary.tsx'), 'utf8');
+    const storefrontBoundary = readFileSync(resolve(appRoot, 'surfaces/StorefrontRuntimeBoundary.tsx'), 'utf8');
 
     expect(constructors).toEqual([
       'src/app/contexts/ModuleClientsContext.tsx',
       'src/app/contexts/StorefrontModuleClientsContext.tsx',
     ]);
-    expect(app).toContain('<ModuleClientsProvider>');
-    expect(app).toContain('<StorefrontModuleClientsProvider>');
+    expect(workspaceBoundary).toContain('<ModuleClientsProvider>');
+    expect(storefrontBoundary).toContain('<StorefrontModuleClientsProvider>');
   });
 
   it('compose les façades Shops workspace et storefront dans deux roots', () => {
@@ -776,12 +777,12 @@ describe('frontières API-first et modulaires', () => {
 
   it('isole le fournisseur Auth du contexte React', () => {
     const context = readFileSync(resolve(process.cwd(), 'src/app/contexts/AuthContext.tsx'), 'utf8');
-    const app = readFileSync(resolve(process.cwd(), 'src/app/App.tsx'), 'utf8');
+    const workspaceBoundary = readFileSync(resolve(process.cwd(), 'src/app/surfaces/WorkspaceRuntimeBoundary.tsx'), 'utf8');
     const runtime = readFileSync(resolve(process.cwd(), 'src/platform/runtime/browser-runtime.ts'), 'utf8');
     const adapter = readFileSync(resolve(process.cwd(), 'src/adapters/supabase/browser-authentication-gateway.ts'), 'utf8');
     expect(context).toContain('gateway: AuthenticationGateway');
     expect(context).not.toContain('browserAuthenticationGateway');
-    expect(app).toContain('browserRuntime.authentication');
+    expect(workspaceBoundary).toContain('browserRuntime.authentication');
     expect(runtime).toContain('browserAuthenticationGateway');
     expect(context).not.toContain('utils/supabase');
     expect(context).not.toContain('adapters/supabase');

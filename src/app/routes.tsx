@@ -9,6 +9,8 @@ import { NotFound } from "./components/NotFound";
 import { DashboardLayout } from "./components/dashboard/DashboardLayout";
 import { workspaceRuntimeRoutes } from "./surfaces/workspaceRuntimeRoutes";
 import { portalRuntimePaths } from "./surfaces/portalRuntimePaths";
+import { StorefrontRuntimeBoundary } from "./surfaces/StorefrontRuntimeBoundary";
+import { WorkspaceRuntimeBoundary } from "./surfaces/WorkspaceRuntimeBoundary";
 
 const TenantOnboarding = lazy(() =>
   import("./components/tenant/TenantOnboarding").then((m) => ({ default: m.TenantOnboarding })),
@@ -71,8 +73,9 @@ function lazyRoute(element: React.ReactNode) {
  *   /shop/:slug                → boutique publique (anonyme, pas de tenant)
  *   /reset-password            → auth reset (hors tenant)
  *
- * AppShell est le root element qui monte les providers router-aware
- * (TenantProvider notamment).
+ * StorefrontRuntimeBoundary et WorkspaceRuntimeBoundary séparent les
+ * transports et identités. AppShell ne vit que sous la frontière workspace et
+ * monte ensuite les providers tenant-aware.
  *
  * Code-splitting Sprint 10 (S9-PERF-ROUTE-SPLIT) : Dashboard* + pages secondaires
  * sont lazy via React.lazy + Suspense fallback Chargement. AppShell, MainLayout,
@@ -81,7 +84,7 @@ function lazyRoute(element: React.ReactNode) {
  */
 export const router = createBrowserRouter([
   {
-    element: <AppShell />,
+    element: <StorefrontRuntimeBoundary />,
     children: [
       // Boutique publique — anonyme, pas de tenant.
       // S7.1 (ADR §4.19-1) : catch-all — les vues du portail sont des URLs
@@ -93,6 +96,14 @@ export const router = createBrowserRouter([
       { path: `/${portalRuntimePaths.shopRoot}/activate`, element: lazyRoute(<StorefrontActivationPage />) },
       { path: `/${portalRuntimePaths.shopRoot}/reset-password`, element: lazyRoute(<StorefrontPasswordResetPage />) },
       { path: `/${portalRuntimePaths.shopRoot}/*`, element: lazyRoute(<PublicShop />) },
+    ],
+  },
+  {
+    element: <WorkspaceRuntimeBoundary />,
+    children: [
+      {
+        element: <AppShell />,
+        children: [
 
       // REFONTE-UX (2026-08-08) — route DEV seulement : rendre le wizard parc
       // machine hors auth pour les tests automatises et les demos d arbitrage
@@ -145,6 +156,8 @@ export const router = createBrowserRouter([
       },
 
       { path: "*", element: <NotFound /> },
+        ],
+      },
     ],
   },
 ]);
