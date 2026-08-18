@@ -1984,7 +1984,19 @@ export type Database = {
           suspended_at: string | null
         }[]
       }
-      api_activate_shop_customer: { Args: { p_password: string; p_token: string }; Returns: boolean }
+      api_activate_shop_customer: {
+        Args: { p_password: string; p_token: string }
+        Returns: {
+          account_id: string
+          account_status: string
+          email: string
+          expires_at: string
+          full_name: string
+          issued_at: string
+          opaque_token: string
+          shop_id: string
+        }[]
+      }
       api_issue_shop_customer_activation: {
         Args: { p_account_id: string; p_expires_seconds?: number; p_shop_id: string; p_tenant_id: string }
         Returns: string | null

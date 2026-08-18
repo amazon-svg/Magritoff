@@ -91,7 +91,8 @@ seul adapté aux catalogues privés.
    aucun catalogue.
 2. Vérifier qu’aucun bouton de création de compte n’est proposé.
 3. Créer un compte client depuis l’éditeur et transmettre son lien d’activation.
-4. Activer le compte puis se connecter : accès à cette boutique uniquement.
+4. Activer le compte : une session boutique s’ouvre et donne immédiatement
+   accès à cette boutique uniquement, sans seconde saisie du mot de passe.
 5. Avec le même email, créer un compte dans une seconde boutique : deux comptes
    et deux sessions indépendantes.
 6. Depuis Magrit, utiliser « Se connecter à la boutique » : bandeau délégué,

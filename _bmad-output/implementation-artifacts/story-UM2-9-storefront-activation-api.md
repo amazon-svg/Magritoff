@@ -11,7 +11,8 @@ depends_on: [UM2.8]
 - autorisation `can_manage_shop_customers` conservée dans la primitive SQL ;
 - jeton renvoyé explicitement afin de permettre une transmission manuelle ;
 - aucun envoi d’email annoncé tant que le port de notification UM3 n’est pas branché ;
-- activation publique par jeton avec mot de passe, sans création de session implicite ;
+- activation publique par jeton avec mot de passe ; à compter de UM2.11, cette
+  activation émet aussi la première session storefront ;
 - réponse d’échec neutre pour ne pas distinguer jeton inconnu, expiré ou déjà utilisé ;
 - réponses et secrets marqués `Cache-Control: no-store`.
 

@@ -43,13 +43,14 @@ export class StorefrontIdentityApiClient {
     return result.session;
   }
 
-  async activate(command: ActivateStorefrontCredentialCommand): Promise<void> {
-    await this.client.request({
+  async activate(command: ActivateStorefrontCredentialCommand): Promise<StorefrontSession> {
+    const result = await this.client.request({
       method: 'POST',
       path: `${API_V1_BASE_PATH}/storefront/activation`,
       body: activateStorefrontCredentialCommandSchema.parse(command),
       responseSchema: activateStorefrontCredentialResultSchema,
     });
+    return result.session;
   }
 
   async requestPasswordRecovery(shopSlug: string, command: RequestStorefrontPasswordRecoveryCommand): Promise<void> {

@@ -202,6 +202,7 @@ export const activateStorefrontCredentialCommandSchema = z.object({
 
 export const activateStorefrontCredentialResultSchema = z.object({
   activated: z.literal(true),
+  session: storefrontSessionSchema,
 }).strict();
 
 export const shopCustomerDelegationSchema = z.object({

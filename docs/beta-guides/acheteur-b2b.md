@@ -5,8 +5,9 @@
 ## 1. Accès à ta boutique
 
 Ton administrateur crée un compte client dans **cette boutique**, puis te
-transmet un lien d’activation à usage unique. Tu choisis ton mot de passe et te
-connectes ensuite depuis `/shop/<slug>`.
+transmet un lien d’activation à usage unique. Tu choisis ton mot de passe : le
+compte est activé, la session de cette boutique est ouverte et tu arrives
+directement dans son catalogue sans seconde connexion.
 
 - Une boutique **sur invitation** ne montre ni son catalogue ni son identité
   avant connexion et ne propose aucune inscription libre.

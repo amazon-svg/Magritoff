@@ -14,6 +14,6 @@ depends_on: [UM2.9]
 - aucun accès Supabase direct dans l’écran ;
 - redirection vers la boutique après activation réussie.
 
-Le prochain lot UM3 peut désormais envoyer un lien réellement utilisable. La
-connexion automatique n’est volontairement pas implicite : le mot de passe est
-activé, puis une session storefront distincte pourra être ouverte.
+Le prochain lot UM3 peut désormais envoyer un lien réellement utilisable.
+Depuis UM2.11, la validation du mot de passe ouvre atomiquement une session
+storefront distincte et la redirection donne immédiatement accès à la boutique.

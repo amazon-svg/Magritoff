@@ -10,10 +10,14 @@ import {
   type StorefrontActivationService,
 } from '../../modules/shop-customers/application/storefront-activation-service.ts';
 import { API_V1_BASE_PATH } from '../../platform/api/contracts.ts';
+import { serializeStorefrontSessionCookie, type StorefrontSessionCookiePolicy } from '../storefront/session-cookie.ts';
 import { ApiHttpError } from './errors.ts';
 import { defineJsonRoute, type ApiRequestContext, type ApiRoute } from './routes.ts';
 
-export function createStorefrontActivationRoutes(service: StorefrontActivationService): readonly ApiRoute[] {
+export function createStorefrontActivationRoutes(
+  service: StorefrontActivationService,
+  cookiePolicy: StorefrontSessionCookiePolicy,
+): readonly ApiRoute[] {
   return [
     defineJsonRoute({
       method: 'POST',
@@ -44,11 +48,14 @@ export function createStorefrontActivationRoutes(service: StorefrontActivationSe
       outputSchema: activateStorefrontCredentialResultSchema,
       async handle(_context, command) {
         return execute(async () => {
-          await service.activate(command);
+          const issued = await service.activate(command);
           return {
             status: 200,
-            headers: { 'Cache-Control': 'no-store' },
-            body: { activated: true as const },
+            headers: {
+              'Set-Cookie': serializeStorefrontSessionCookie(issued.opaqueToken, issued.maxAgeSeconds, cookiePolicy),
+              'Cache-Control': 'no-store',
+            },
+            body: { activated: true as const, session: issued.session },
           };
         });
       },

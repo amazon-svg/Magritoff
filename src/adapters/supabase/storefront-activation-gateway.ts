@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { StorefrontActivationGateway } from '../../modules/shop-customers/application/storefront-activation-service.ts';
 import type { Database } from '../../types/database.types.ts';
+import { mapStorefrontIssuedSession } from './storefront-authentication-gateway.ts';
 
 export class SupabaseStorefrontActivationGateway implements StorefrontActivationGateway {
   constructor(private readonly client: SupabaseClient<Database>) {}
@@ -30,6 +31,7 @@ export class SupabaseStorefrontActivationGateway implements StorefrontActivation
   async activate(token: string, password: string) {
     const { data, error } = await this.client.rpc('api_activate_shop_customer', { p_token: token, p_password: password });
     if (error) throw new Error('L’activation du compte boutique est indisponible.');
-    return data === true;
+    const row = data?.[0];
+    return row ? mapStorefrontIssuedSession(row) : null;
   }
 }

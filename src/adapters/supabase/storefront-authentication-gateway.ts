@@ -5,8 +5,16 @@ import type { StorefrontRegistrationGateway } from '../../modules/shop-customers
 import type { StorefrontSessionGateway } from '../../modules/shop-customers/application/storefront-session-service.ts';
 import type { Database } from '../../types/database.types.ts';
 
-type AuthenticationRow = Database['public']['Functions']['api_authenticate_shop_customer']['Returns'][number];
-type RegistrationRow = Database['public']['Functions']['api_register_shop_customer']['Returns'][number];
+type StorefrontIssuedSessionRow = Readonly<{
+  account_id: string;
+  shop_id: string;
+  email: string;
+  full_name: string;
+  account_status: string;
+  issued_at: string;
+  expires_at: string;
+  opaque_token: string;
+}>;
 
 export class SupabaseStorefrontAuthenticationGateway implements StorefrontAuthenticationGateway, StorefrontRegistrationGateway, StorefrontSessionGateway {
   constructor(private readonly client: SupabaseClient<Database>) {}
@@ -17,7 +25,7 @@ export class SupabaseStorefrontAuthenticationGateway implements StorefrontAuthen
     });
     if (error) throw new Error('La primitive d’authentification storefront est indisponible.');
     const row = data?.[0];
-    return row ? mapIssuedSession(row) : null;
+    return row ? mapStorefrontIssuedSession(row) : null;
   }
 
   async register(shopSlug: string, normalizedEmail: string, fullName: string, password: string): Promise<IssuedStorefrontSession | null> {
@@ -29,7 +37,7 @@ export class SupabaseStorefrontAuthenticationGateway implements StorefrontAuthen
     });
     if (error) throw new Error('La primitive d’inscription storefront est indisponible.');
     const row = data?.[0];
-    return row ? mapIssuedSession(row) : null;
+    return row ? mapStorefrontIssuedSession(row) : null;
   }
 
   async resolve(opaqueToken: string) {
@@ -53,7 +61,7 @@ export class SupabaseStorefrontAuthenticationGateway implements StorefrontAuthen
   }
 }
 
-function mapIssuedSession(row: AuthenticationRow | RegistrationRow): IssuedStorefrontSession {
+export function mapStorefrontIssuedSession(row: StorefrontIssuedSessionRow): IssuedStorefrontSession {
   const maxAgeSeconds = Math.floor((Date.parse(row.expires_at) - Date.parse(row.issued_at)) / 1_000);
   return {
     opaqueToken: row.opaque_token,

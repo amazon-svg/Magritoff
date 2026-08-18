@@ -175,7 +175,7 @@ export async function handleRequest(request: Request): Promise<Response> {
       ...createShopsRoutes(shopsService, storefrontSessionService, storefrontSessionCookiePolicy(new URL(request.url).protocol === 'https:')),
       ...createShopCustomersRoutes(shopCustomersService),
       ...createStorefrontSessionRoutes(storefrontAuthenticationService, storefrontRegistrationService, storefrontSessionService, storefrontSessionCookiePolicy(new URL(request.url).protocol === 'https:')),
-      ...createStorefrontActivationRoutes(storefrontActivationService),
+      ...createStorefrontActivationRoutes(storefrontActivationService, storefrontSessionCookiePolicy(new URL(request.url).protocol === 'https:')),
       ...createStorefrontPasswordRecoveryRoutes(storefrontPasswordRecoveryService),
       ...createShopCustomerDelegationRoutes(shopCustomerDelegationService, storefrontSessionCookiePolicy(new URL(request.url).protocol === 'https:')),
       ...createCatalogRoutes(catalogService),

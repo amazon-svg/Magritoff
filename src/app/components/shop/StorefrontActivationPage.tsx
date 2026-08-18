@@ -1,17 +1,17 @@
 import { useState, type FormEvent } from 'react';
-import { CheckCircle2, Loader2, LockKeyhole } from 'lucide-react';
-import { Link, useParams, useSearchParams } from 'react-router';
+import { Loader2, LockKeyhole } from 'lucide-react';
+import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { useStorefrontIdentityApi } from '../../contexts/ModuleClientsContext';
 
 export function StorefrontActivationPage() {
   const api = useStorefrontIdentityApi();
+  const navigate = useNavigate();
   const { slug = '' } = useParams();
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token') ?? '';
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [activated, setActivated] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const submit = async (event: FormEvent) => {
@@ -28,9 +28,7 @@ export function StorefrontActivationPage() {
     setSubmitting(true);
     try {
       await api.activate({ token, password });
-      setActivated(true);
-      setPassword('');
-      setConfirmation('');
+      navigate(`/shop/${encodeURIComponent(slug)}`, { replace: true });
     } catch {
       setError('Ce lien est invalide, expiré ou déjà utilisé. Demandez une nouvelle invitation.');
     } finally {
@@ -42,23 +40,9 @@ export function StorefrontActivationPage() {
     <main className="min-h-screen bg-bg px-4 py-12 grid place-items-center">
       <section className="w-full max-w-md rounded-2xl border border-line bg-paper p-6 shadow-sm">
         <div className="mb-6 flex h-11 w-11 items-center justify-center rounded-xl bg-ink text-paper">
-          {activated ? <CheckCircle2 className="h-5 w-5" /> : <LockKeyhole className="h-5 w-5" />}
+          <LockKeyhole className="h-5 w-5" />
         </div>
-        {activated ? (
-          <>
-            <h1 className="text-2xl font-semibold text-ink">Votre compte est activé</h1>
-            <p className="mt-2 text-sm text-ink-muted">
-              Votre mot de passe est enregistré uniquement pour cette boutique.
-            </p>
-            <Link
-              to={`/shop/${encodeURIComponent(slug)}`}
-              className="mt-6 inline-flex w-full justify-center rounded-lg bg-ink px-4 py-2.5 text-sm font-medium text-paper"
-            >
-              Accéder à la boutique
-            </Link>
-          </>
-        ) : (
-          <>
+        <>
             <h1 className="text-2xl font-semibold text-ink">Activer votre compte boutique</h1>
             <p className="mt-2 text-sm text-ink-muted">
               Choisissez un mot de passe propre à cette boutique. Il n’est pas partagé avec votre compte Magrit ni avec une autre boutique.
@@ -100,8 +84,7 @@ export function StorefrontActivationPage() {
                 Activer mon compte
               </button>
             </form>
-          </>
-        )}
+        </>
       </section>
     </main>
   );

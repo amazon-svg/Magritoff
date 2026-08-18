@@ -1,5 +1,7 @@
+begin;
+
 do $$
-declare v_account uuid; v_actor uuid; v_token text; v_ok boolean; v_count integer;
+declare v_account uuid; v_actor uuid; v_token text; v_issued record; v_count integer;
 begin
   select id into v_actor from auth.users limit 1;
   select id into v_account from public.shop_customer_accounts
@@ -16,12 +18,17 @@ begin
     v_account, extensions.digest(convert_to(v_token, 'UTF8'), 'sha256'),
     v_actor, now() + interval '1 hour'
   );
-  select public.api_activate_shop_customer(v_token, 'mot-de-passe-activation') into v_ok;
-  if not v_ok then raise exception 'Activation UM2.8 refusée'; end if;
+  select * into v_issued from public.api_activate_shop_customer(v_token, 'mot-de-passe-activation');
+  if v_issued.account_id is null or v_issued.opaque_token is null then
+    raise exception 'Activation UM2.11 ou session refusée';
+  end if;
   select count(*) into v_count from private.shop_customer_credentials
   where shop_customer_account_id = v_account;
   if v_count <> 1 then raise exception 'Credential UM2.8 absent'; end if;
-  select public.api_activate_shop_customer(v_token, 'mot-de-passe-activation') into v_ok;
-  if v_ok then raise exception 'Jeton UM2.8 réutilisable'; end if;
+  select count(*) into v_count
+  from public.api_activate_shop_customer(v_token, 'mot-de-passe-activation');
+  if v_count <> 0 then raise exception 'Jeton UM2.11 réutilisable'; end if;
 end;
 $$;
+
+rollback;

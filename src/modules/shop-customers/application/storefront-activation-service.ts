@@ -7,6 +7,7 @@ import {
   type IssueStorefrontActivationResult,
 } from '../api/contracts.ts';
 import type { StorefrontActivationEmailSender } from './storefront-activation-email-sender.ts';
+import type { IssuedStorefrontSession } from './storefront-authentication-service.ts';
 
 export type StorefrontActivationIssue = Readonly<{
   token: string;
@@ -18,7 +19,7 @@ export type StorefrontActivationIssue = Readonly<{
 
 export interface StorefrontActivationGateway {
   issue(actorId: string, tenantId: string, shopId: string, accountId: string, expiresInSeconds: number): Promise<StorefrontActivationIssue | null>;
-  activate(token: string, password: string): Promise<boolean>;
+  activate(token: string, password: string): Promise<IssuedStorefrontSession | null>;
 }
 
 export class StorefrontActivationRejectedError extends Error {
@@ -55,10 +56,10 @@ export class StorefrontActivationService {
     };
   }
 
-  async activate(input: ActivateStorefrontCredentialCommand): Promise<void> {
+  async activate(input: ActivateStorefrontCredentialCommand): Promise<IssuedStorefrontSession> {
     const command = activateStorefrontCredentialCommandSchema.parse(input);
-    if (!await this.gateway.activate(command.token, command.password)) {
-      throw new StorefrontActivationRejectedError('activation_failed');
-    }
+    const issued = await this.gateway.activate(command.token, command.password);
+    if (!issued) throw new StorefrontActivationRejectedError('activation_failed');
+    return issued;
   }
 }

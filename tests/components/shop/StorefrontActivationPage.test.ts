@@ -14,6 +14,12 @@ describe('StorefrontActivationPage', () => {
     expect(source).not.toContain('supabase');
   });
 
+  it('entre directement dans la boutique après la création de la session', () => {
+    expect(source).toContain('useNavigate()');
+    expect(source).toContain("navigate(`/shop/${encodeURIComponent(slug)}`, { replace: true })");
+    expect(source).not.toContain('Accéder à la boutique');
+  });
+
   it('explique la séparation des mots de passe et neutralise les erreurs de jeton', () => {
     expect(source).toContain('Il n’est pas partagé avec votre compte Magrit ni avec une autre boutique.');
     expect(source).toContain('invalide, expiré ou déjà utilisé');
