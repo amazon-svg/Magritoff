@@ -1246,13 +1246,22 @@ Deux enseignements : **(1)** les catalogues sont minuscules (≤ ~30 produits/bo
 
 > **Question (c) de la spec UX.** Parcours 1 (visiteur SEO → première commande) : que fait-on au checkout d'un visiteur sans compte ? Exigence UX : **≤ 2 écrans entre panier et confirmation**.
 
-**État des lieux** : l'authentification est obligatoire pour valider un panier (décision B2, Sprint 4). Les acheteurs sont des `tenant_members` scope `shop_only`, créés **exclusivement par invitation** admin (+ `auto_accept_pending_invitations`). Ce modèle tue le parcours 1 : un visiteur SEO ne peut pas commander.
+**État des lieux historique** : l'authentification est obligatoire pour valider
+un panier. Le modèle `tenant_members shop_only` a été gelé par UM8 et remplacé
+par une identité storefront strictement liée à chaque boutique.
 
 **Décision — l'identité reste obligatoire, c'est son acquisition qui devient self-service** :
 
-1. **Pas de checkout invité anonyme.** Tout le modèle transactionnel v1.1 suppose une identité : `tenant_orders.user_id`, RLS, workflow de validation N+1 (§4.12), édition de commande draft, historique/renouvellement, notifications. Une commande orpheline casserait chacun de ces mécanismes — et le B2B réel (persona) commande avec un compte.
+1. **Pas de checkout invité anonyme.** Toute commande référence un
+   `shop_customer_account_id`; en délégation, elle conserve aussi
+   `acted_by_magrit_user_id` pour l’audit.
 2. **`shops.access_mode`** : colonne `text CHECK IN ('invite_only','self_signup') DEFAULT 'invite_only'`. Rétro-compat totale : toutes les boutiques existantes restent sur invitation (statu quo). L'imprimeur choisit par boutique (toggle « Inscription libre » dans `DashboardShopEditor`).
-3. **Boutique `self_signup`** : au checkout non-loggé, **écran unique « Identification »** (2 onglets : Se connecter / Créer un compte — email, mot de passe, nom, société). La création appelle la RPC `self_register_shop_buyer(p_shop_id)` SECURITY DEFINER : vérifie `shops.active AND access_mode='self_signup'`, crée le `tenant_member` **scope `shop_only` sur cette seule boutique** + assigne le preset rôle Acheteur (`tenant_role_assignments`), idempotente. Allow-list stricte (lesson 2026-05-27) : jamais d'accès `magrit_full`, jamais d'héritage sous-tenants.
+3. **Boutique `self_signup`** : au checkout non-loggé, **écran unique
+   « Identification »** avec deux onglets. La commande BFF appelle
+   `api_register_shop_customer` : elle vérifie la boutique active, crée
+   atomiquement `shop_customer_accounts`, un credential privé et une session
+   opaque HttpOnly. Aucun `auth.users`, `tenant_members`, rôle Acheteur ou accès
+   transverse n’est créé.
 4. **Parcours** : drawer panier → \[écran 1 : Identification, sauté si loggé] → écran 2 : récap + « Commander » → `PortalThankYou`. Loggé = 1 écran. **≤ 2 écrans ✔.**
 5. **Boutique `invite_only`** : la barrière intervient dès l’entrée sur
    `/shop/:slug`, pas seulement au checkout. Un anonyme reçoit un écran privé
@@ -1260,12 +1269,9 @@ Deux enseignements : **(1)** les catalogues sont minuscules (≤ ~30 produits/bo
    gamme n’est chargé. Un compte authentifié sans membership du tenant
    propriétaire reçoit un 403. Une membership d’un autre tenant, même
    `magrit_full`, ne donne aucun accès. Pas de création de compte.
-6. **Défense en profondeur (correctif AF7.1, 2026-08-11)** : le front prend sa
-   décision sur `access_mode`, `tenant_id` et la membership propriétaire avant
-   toute lecture catalogue. `api_create_tenant_order` auto-rattache uniquement
-   les acheteurs `self_signup`; sa fonction `*_core` est propriétaire-only.
-   Les policies RLS publiques historiques du catalogue restent à remplacer par
-   une lecture API/RPC équivalente dans la poursuite du refactoring API-first.
+6. **Défense en profondeur** : le BFF vérifie la session storefront et le
+   `shop_id` avant les lectures privées ou les écritures. L’ancien RPC
+   `self_register_shop_buyer` n’est plus exécutable par `authenticated`.
 7. **Abus** : surface limitée POC — contrainte d'unicité email sur
    `self_signup`. Rate-limiting/captcha tracés V2+ (aligné calibrage POC
    2026-07-07).
@@ -1273,7 +1279,7 @@ Deux enseignements : **(1)** les catalogues sont minuscules (≤ ~30 produits/bo
 **Options rejetées** : guest checkout email-only (contradiction modèle commandes + workflow rôles, cf. 1) ; invitation-only strict (statu quo — bloque le parcours 1 et l'objectif SEO §4.19) ; auto-inscription globale non contrôlée par boutique (une boutique B2B privée type ERAM ne doit jamais accepter d'inconnus — le choix appartient au tenant).
 
 **Migrations** : `20260726000100_s7_11_shop_access_mode_self_signup.sql` puis
-`20260811000800_create_order_self_signup.sql`. Voir
+`20260818000300_storefront_self_registration.sql`. Voir
 `docs/SHOP_ACCESS_CONTROL.md`. **PAT requis au déploiement.**
 
 ---

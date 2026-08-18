@@ -10,6 +10,8 @@ connectes ensuite depuis `/shop/<slug>`.
 
 - Une boutique **sur invitation** ne montre ni son catalogue ni son identité
   avant connexion et ne propose aucune inscription libre.
+- Une boutique **en inscription libre** permet de créer ce compte au checkout,
+  puis ouvre immédiatement la session de cette boutique.
 - Ton compte n’existe que dans cette boutique.
 - Utiliser le même email dans une autre boutique nécessite un second compte et
   une autre activation.
@@ -82,5 +84,5 @@ L'IA est connectée à Clariprint pour les vrais devis + utilise Sonnet 4.5 (rai
 - ❌ Refonte UI tabs PortalOrders : pour l'instant, vue plate filtrée. Tabs « Mes commandes / À valider / À approuver / À produire » à venir (S-ORDER-ROLES-3-UI).
 - ❌ Modale historique audit trail : bouton à wirer (S3.5 composant prêt).
 - ❌ Vue 3D packaging : tracé V2+ quand catalogue packaging arrive.
-- ❌ Le mode historique `self_signup` n’est pas encore refondu sur les nouveaux
-  comptes boutique ; utiliser le mode sur invitation pour les tests.
+- ⚠️ L’inscription libre ne vérifie pas encore la propriété de l’adresse email
+  et ne possède pas encore de CAPTCHA/rate-limit applicatif (prévu après bêta).

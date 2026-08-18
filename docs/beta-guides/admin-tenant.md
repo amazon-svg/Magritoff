@@ -130,8 +130,9 @@ plus le seul contrôle.
 - **Sur invitation (`invite_only`, valeur par défaut)** : aucun catalogue
   visible sans compte boutique activé. Crée le client dans l’éditeur de cette
   boutique et transmets son lien d’activation.
-- **Inscription libre (`self_signup`)** : mode historique transitoire. Ne pas
-  l’activer sur une nouvelle boutique avant la refonte fonctionnelle dédiée.
+- **Inscription libre (`self_signup`)** : le catalogue est public et le client
+  peut créer au checkout un compte strictement propre à cette boutique. Cette
+  création ne lui donne aucun accès Magrit ni accès à une autre boutique.
 
 Un utilisateur Magrit peut tester le storefront par « Se connecter à la
 boutique ». La délégation est limitée à la boutique et auditée.

@@ -32,11 +32,12 @@ credential partageable n’est créée pour une délégation.
 | Mode | Catalogue anonyme | Création libre de compte | Compte autorisé |
 |---|---|---|---|
 | `invite_only` (défaut) | Non, écran privé sans branding | Non | Session storefront activée ou délégation Magrit |
-| `self_signup` (transitoire) | Oui | Ancien parcours gelé | Session storefront ou compatibilité legacy pendant UM8 |
+| `self_signup` | Oui | Oui, au checkout | Session storefront directe ou délégation Magrit |
 
-Le modèle cible est `invite_only`. Le mode `self_signup` reste lisible pendant
-la migration mais ne doit plus être choisi pour une nouvelle boutique avant sa
-refonte fonctionnelle sur les identités storefront.
+En `self_signup`, l’inscription crée atomiquement un compte, un credential et
+une session propres à la boutique. Elle ne crée ni `auth.users`, ni
+`tenant_members`, ni rôle Acheteur. Le mode `invite_only` reste le défaut et le
+seul adapté aux catalogues privés.
 
 ## Invariants
 
@@ -53,6 +54,8 @@ refonte fonctionnelle sur les identités storefront.
    `private` ou dans des cookies HttpOnly ; React ne manipule aucun token.
 8. Les médias stockés en base utilisent une référence portable
    `/storage/v1/object/...`, jamais l’origine Docker ou distante complète.
+9. Une auto-inscription est refusée hors d’une boutique active `self_signup` et
+   ne révèle pas si l’email existe déjà.
 
 ## Transition `shop_only`
 
@@ -91,6 +94,8 @@ refonte fonctionnelle sur les identités storefront.
    commande attribuée au compte boutique et acteur Magrit présent dans l’audit.
 7. Depuis « Utilisateurs », vérifier que l’invitation ne propose plus le type
    d’accès Boutique(s).
+8. Sur une boutique `self_signup`, choisir « Créer un compte » au checkout : la
+   session s’ouvre et la commande reste limitée à ce nouveau compte.
 
 ## Frontière API-first
 
