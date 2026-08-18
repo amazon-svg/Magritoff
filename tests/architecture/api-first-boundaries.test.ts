@@ -836,6 +836,27 @@ describe('frontières API-first et modulaires', () => {
     expect(usersDashboard).not.toContain(".from('tenant_invitations')");
   });
 
+  it('sépare les rôles Magrit du rôle Acheteur storefront historique', () => {
+    const invitationsRepository = readFileSync(
+      resolve(process.cwd(), 'src/adapters/supabase/invitations-repository.ts'),
+      'utf8',
+    );
+    const rolesRepository = readFileSync(
+      resolve(process.cwd(), 'src/adapters/supabase/roles-repository.ts'),
+      'utf8',
+    );
+    const migration = readFileSync(
+      resolve(process.cwd(), 'supabase/migrations/20260818000200_separate_magrit_and_legacy_storefront_roles.sql'),
+      'utf8',
+    );
+
+    expect(invitationsRepository).toContain(".eq('identity_context', 'magrit')");
+    expect(rolesRepository.match(/\.eq\('identity_context', 'magrit'\)/g)).toHaveLength(3);
+    expect(migration).toContain("identity_context = 'storefront_legacy'");
+    expect(migration).toContain('tenant_role_assignments_enforce_identity_context');
+    expect(migration).toContain('tenant_invitations_enforce_role_identity_context');
+  });
+
   it('empêche toute nouvelle dépendance Supabase dans le front brownfield', () => {
     const appRoot = resolve(process.cwd(), 'src/app');
     const violations: string[] = [];

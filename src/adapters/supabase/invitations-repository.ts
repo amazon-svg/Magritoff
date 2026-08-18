@@ -50,7 +50,8 @@ export class SupabaseInvitationsRepository implements InvitationsRepository {
   async options(_actorUserId: UserId, tenantId: string): Promise<InvitationOptions> {
     const [rolesResult, shopsResult] = await Promise.all([
       this.client.from('tenant_role_definitions').select('id, name, description, ordering_index')
-        .eq('tenant_id', tenantId).is('archived_at', null).order('ordering_index'),
+        .eq('tenant_id', tenantId).eq('identity_context', 'magrit')
+        .is('archived_at', null).order('ordering_index'),
       this.client.from('shops').select('id, name').eq('tenant_id', tenantId).order('name'),
     ]);
     if (rolesResult.error || shopsResult.error) {

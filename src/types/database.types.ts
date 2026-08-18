@@ -1750,6 +1750,7 @@ export type Database = {
           created_by: string | null
           description: string | null
           id: string
+          identity_context: string
           name: string
           notify_policy: string
           ordering_index: number
@@ -1764,6 +1765,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           id?: string
+          identity_context?: string
           name: string
           notify_policy?: string
           ordering_index?: number
@@ -1778,6 +1780,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           id?: string
+          identity_context?: string
           name?: string
           notify_policy?: string
           ordering_index?: number
