@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { useOrdersApi } from '../../../contexts/ModuleClientsContext';
+import { useStorefrontOrdersApi } from '../../../contexts/ModuleClientsContext';
 import { TEST_IDS } from '../../../lib/testIds';
 import { type OrderUI, orderSummaryToUi } from './PortalOrders.helpers';
 import { OrderHistoryTable } from './OrderHistoryTable';
@@ -30,7 +30,7 @@ export function PortalOrders({
   onRenewOrder,
   onNavigateToCatalog,
 }: Props) {
-  const ordersApi = useOrdersApi();
+  const ordersApi = useStorefrontOrdersApi();
   const [orders, setOrders] = useState<OrderUI[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -127,6 +127,7 @@ export function PortalOrders({
           onCancelOrder={setOrderToCancel}
           onEditOrder={setOrderToEdit}
           onRenewOrder={onRenewOrder}
+          auditApi={ordersApi}
         />
       )}
 

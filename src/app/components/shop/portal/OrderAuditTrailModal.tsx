@@ -12,6 +12,7 @@
 
 import { useEffect, useState } from 'react';
 import { useOrdersApi } from '../../../contexts/ModuleClientsContext';
+import type { OrdersApiClient } from '../../../../modules/orders';
 import {
   Dialog,
   DialogContent,
@@ -33,10 +34,13 @@ interface Props {
   /** Short id (8 premiers chars uppercase) pour le titre de la modale */
   orderShortId?: string;
   onClose: () => void;
+  /** Client explicite pour une surface storefront sans bearer Magrit. */
+  ordersApi?: OrdersApiClient;
 }
 
-export function OrderAuditTrailModal({ orderId, orderShortId, onClose }: Props) {
-  const ordersApi = useOrdersApi();
+export function OrderAuditTrailModal({ orderId, orderShortId, onClose, ordersApi }: Props) {
+  const workspaceOrdersApi = useOrdersApi();
+  const effectiveOrdersApi = ordersApi ?? workspaceOrdersApi;
   const [events, setEvents] = useState<OrderAuditEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,7 +53,7 @@ export function OrderAuditTrailModal({ orderId, orderShortId, onClose }: Props) 
     }
     setLoading(true);
     setError(null);
-    void fetchOrderAuditTrail(orderId, ordersApi).then((result) => {
+    void fetchOrderAuditTrail(orderId, effectiveOrdersApi).then((result) => {
       setLoading(false);
       if (result.error) {
         setError(result.error);
@@ -57,7 +61,7 @@ export function OrderAuditTrailModal({ orderId, orderShortId, onClose }: Props) 
       }
       setEvents(result.data ?? []);
     });
-  }, [orderId, ordersApi]);
+  }, [orderId, effectiveOrdersApi]);
 
   return (
     <Dialog

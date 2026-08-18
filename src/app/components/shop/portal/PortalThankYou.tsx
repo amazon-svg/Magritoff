@@ -17,7 +17,7 @@ import { CheckCircle2, Loader2 } from "lucide-react";
 import { applyTax } from "../../../utils/tax";
 import { TEST_IDS } from "../../../lib/testIds";
 import type { DraftOrder } from "../../../../modules/orders";
-import { useOrdersApi } from "../../../contexts/ModuleClientsContext";
+import { useStorefrontOrdersApi } from "../../../contexts/ModuleClientsContext";
 
 interface Props {
   orderId: string;
@@ -62,7 +62,7 @@ export function PortalThankYou({ orderId, taxRate, userEmail, onBackToCatalog, o
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const h1Ref = useRef<HTMLHeadingElement | null>(null);
-  const ordersApi = useOrdersApi();
+  const ordersApi = useStorefrontOrdersApi();
 
   // A11y : focus auto sur h1 au mount pour annoncer la confirmation au SR
   useEffect(() => {

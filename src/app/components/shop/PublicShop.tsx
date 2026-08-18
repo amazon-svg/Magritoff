@@ -37,7 +37,7 @@ import { DEFAULT_TAX_RATE, getTaxRate } from '../../utils/tax';
 import type { StorefrontSession } from '../../../modules/shop-customers';
 import type { PublicShopCatalog } from '../../../modules/shops';
 import { ApiClientError } from '../../../platform/api';
-import { useOrdersApi, useShopsApi, useStorefrontIdentityApi } from '../../contexts/ModuleClientsContext';
+import { useShopsApi, useStorefrontIdentityApi, useStorefrontOrdersApi } from '../../contexts/ModuleClientsContext';
 import { StorefrontDelegationBanner } from './StorefrontDelegationBanner';
 
 /**
@@ -70,7 +70,7 @@ export function PublicShop() {
     ShopAccess,
     'authentication_required'
   > | null>(null);
-  const ordersApi = useOrdersApi();
+  const ordersApi = useStorefrontOrdersApi();
   const shopsApi = useShopsApi();
   const storefrontIdentityApi = useStorefrontIdentityApi();
   const [storefrontSession, setStorefrontSession] = useState<StorefrontSession | null>(null);

@@ -23,6 +23,7 @@ type ModuleClients = Readonly<{
   libraries: LibrariesApiClient;
   libraryProducts: LibraryProductsApiClient;
   orders: OrdersApiClient;
+  storefrontOrders: OrdersApiClient;
   quoteTemplates: QuoteTemplatesApiClient;
   quotes: QuotesApiClient;
   session: SessionApiClient;
@@ -50,6 +51,7 @@ export function ModuleClientsProvider({ children }: { children: ReactNode }) {
       libraries: new LibrariesApiClient(apiRuntime.client),
       libraryProducts: new LibraryProductsApiClient(apiRuntime.client),
       orders: new OrdersApiClient(apiRuntime.client),
+      storefrontOrders: new OrdersApiClient(apiRuntime.anonymousClient),
       quoteTemplates: new QuoteTemplatesApiClient(apiRuntime.client),
       quotes: new QuotesApiClient(apiRuntime.client),
       session: new SessionApiClient(apiRuntime.client),
@@ -80,6 +82,15 @@ export function useOrdersApi(): OrdersApiClient {
   const clients = useContext(ModuleClientsContext);
   if (!clients) throw new Error('useOrdersApi must be used within a ModuleClientsProvider');
   return clients.orders;
+}
+
+/** Client Orders du storefront : cookie HttpOnly uniquement, sans bearer Magrit. */
+export function useStorefrontOrdersApi(): OrdersApiClient {
+  const clients = useContext(ModuleClientsContext);
+  if (!clients) {
+    throw new Error('useStorefrontOrdersApi must be used within a ModuleClientsProvider');
+  }
+  return clients.storefrontOrders;
 }
 
 export function useCatalogApi(): CatalogApiClient {

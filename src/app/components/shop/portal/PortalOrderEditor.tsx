@@ -21,7 +21,7 @@ import { Loader2, Save, Trash2, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { lineTotal, round2 } from '../../../utils/quoteMath';
 import { TEST_IDS } from '../../../lib/testIds';
-import { useOrdersApi } from '../../../contexts/ModuleClientsContext';
+import { useStorefrontOrdersApi } from '../../../contexts/ModuleClientsContext';
 import type { OrderUI } from './PortalOrders.helpers';
 import {
   Dialog,
@@ -60,7 +60,7 @@ export function PortalOrderEditor({ order, onClose, onSaved }: Props) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const ordersApi = useOrdersApi();
+  const ordersApi = useStorefrontOrdersApi();
   const saveCommandKey = useRef(crypto.randomUUID());
 
   // Charge les lignes réelles (avec id + product_id + snapshot config) à

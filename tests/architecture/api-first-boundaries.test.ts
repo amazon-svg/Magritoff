@@ -320,7 +320,7 @@ describe('frontières API-first et modulaires', () => {
     ]);
   });
 
-  it('compose une seule façade Orders pour tous les écrans', () => {
+  it('compose les façades Orders workspace et storefront dans le même root', () => {
     const appRoot = resolve(process.cwd(), 'src/app');
     const constructors = listTypeScriptFiles(appRoot)
       .filter((file) => readFileSync(file, 'utf8').includes('new OrdersApiClient'))

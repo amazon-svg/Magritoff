@@ -29,6 +29,7 @@ import { OrderAuditTrailModal } from './OrderAuditTrailModal';
 import type { OrderUI } from './PortalOrders.helpers';
 import { getStatusInfo, type OrderStatus } from '../../../lib/orderStatus';
 import { TEST_IDS } from '../../../lib/testIds';
+import type { OrdersApiClient } from '../../../../modules/orders';
 import { Popover, PopoverContent, PopoverTrigger } from '../../ui/popover';
 import {
   Command,
@@ -100,6 +101,8 @@ export interface OrderHistoryTableProps {
   extraFilter?: ExtraFilter;
   /** Cle localStorage pour persistance filtres + tri (optionnel). */
   persistKey?: string;
+  /** Client de lecture de l’audit adapté à la surface appelante. */
+  auditApi?: OrdersApiClient;
   /**
    * S3.3 (Sprint 5) : callback Renouveler 1-clic. Si fourni, une colonne
    * Actions affiche un bouton 'Renouveler' sur chaque ligne eligible
@@ -335,6 +338,7 @@ export function OrderHistoryTable({
   extraColumn,
   extraFilter,
   persistKey,
+  auditApi,
   onRenewOrder,
   onCancelOrder,
   onEditOrder,
@@ -1127,6 +1131,7 @@ export function OrderHistoryTable({
           orderForHistory?.id ? orderForHistory.id.replace(/-/g, '').slice(0, 8).toUpperCase() : undefined
         }
         onClose={() => setOrderForHistory(null)}
+        ordersApi={auditApi}
       />
     </div>
   );

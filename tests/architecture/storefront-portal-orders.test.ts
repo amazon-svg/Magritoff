@@ -7,6 +7,9 @@ const service = readFileSync(resolve(process.cwd(), 'src/modules/orders/applicat
 const routes = readFileSync(resolve(process.cwd(), 'src/server/api/orders-routes.ts'), 'utf8');
 const portal = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/PortalOrders.tsx'), 'utf8');
 const storefront = readFileSync(resolve(process.cwd(), 'src/app/components/shop/PublicShop.tsx'), 'utf8');
+const editor = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/PortalOrderEditor.tsx'), 'utf8');
+const thankYou = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/PortalThankYou.tsx'), 'utf8');
+const moduleClients = readFileSync(resolve(process.cwd(), 'src/app/contexts/ModuleClientsContext.tsx'), 'utf8');
 
 describe('portail commandes par compte boutique', () => {
   it('valide la session et filtre simultanément par compte et boutique', () => {
@@ -40,5 +43,18 @@ describe('portail commandes par compte boutique', () => {
     expect(portal).not.toContain('handleMarkShipped');
     expect(portal).not.toContain('TabsTrigger');
     expect(portal).not.toContain('response.datasets.to_validate');
+  });
+
+  it('utilise un transport sans bearer Magrit pour toutes les commandes storefront', () => {
+    expect(moduleClients).toContain('storefrontOrders: new OrdersApiClient(apiRuntime.anonymousClient)');
+    expect(storefront).toContain('useStorefrontOrdersApi()');
+    expect(portal).toContain('useStorefrontOrdersApi()');
+    expect(portal).toContain('auditApi={ordersApi}');
+    expect(editor).toContain('useStorefrontOrdersApi()');
+    expect(thankYou).toContain('useStorefrontOrdersApi()');
+    expect(storefront).not.toContain('useOrdersApi()');
+    expect(portal).not.toContain('useOrdersApi()');
+    expect(editor).not.toContain('useOrdersApi()');
+    expect(thankYou).not.toContain('useOrdersApi()');
   });
 });
