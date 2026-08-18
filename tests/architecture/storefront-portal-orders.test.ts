@@ -99,8 +99,12 @@ describe('portail commandes par compte boutique', () => {
   });
 
   it('monte les identités uniquement sur leurs routes respectives', () => {
-    expect(appRoutes).toContain('element: <StorefrontRuntimeBoundary />');
-    expect(appRoutes).toContain('element: <WorkspaceRuntimeBoundary />');
+    expect(appRoutes).toContain('import("./surfaces/StorefrontRuntimeBoundary")');
+    expect(appRoutes).toContain('import("./surfaces/WorkspaceRuntimeBoundary")');
+    expect(appRoutes).not.toContain('import { StorefrontRuntimeBoundary }');
+    expect(appRoutes).not.toContain('import { WorkspaceRuntimeBoundary }');
+    expect(appRoutes).toContain('element: lazyRoute(<StorefrontRuntimeBoundary />)');
+    expect(appRoutes).toContain('element: lazyRoute(<WorkspaceRuntimeBoundary />)');
     expect(storefrontBoundary).not.toContain("../contexts/AuthContext");
     expect(storefrontBoundary).not.toContain("../contexts/ApiRuntimeContext");
     expect(storefrontBoundary).not.toContain("../contexts/ModuleClientsContext");

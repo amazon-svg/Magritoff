@@ -9,8 +9,13 @@ import { NotFound } from "./components/NotFound";
 import { DashboardLayout } from "./components/dashboard/DashboardLayout";
 import { workspaceRuntimeRoutes } from "./surfaces/workspaceRuntimeRoutes";
 import { portalRuntimePaths } from "./surfaces/portalRuntimePaths";
-import { StorefrontRuntimeBoundary } from "./surfaces/StorefrontRuntimeBoundary";
-import { WorkspaceRuntimeBoundary } from "./surfaces/WorkspaceRuntimeBoundary";
+
+const StorefrontRuntimeBoundary = lazy(() =>
+  import("./surfaces/StorefrontRuntimeBoundary").then((m) => ({ default: m.StorefrontRuntimeBoundary })),
+);
+const WorkspaceRuntimeBoundary = lazy(() =>
+  import("./surfaces/WorkspaceRuntimeBoundary").then((m) => ({ default: m.WorkspaceRuntimeBoundary })),
+);
 
 const TenantOnboarding = lazy(() =>
   import("./components/tenant/TenantOnboarding").then((m) => ({ default: m.TenantOnboarding })),
@@ -77,14 +82,14 @@ function lazyRoute(element: React.ReactNode) {
  * transports et identités. AppShell ne vit que sous la frontière workspace et
  * monte ensuite les providers tenant-aware.
  *
- * Code-splitting Sprint 10 (S9-PERF-ROUTE-SPLIT) : Dashboard* + pages secondaires
- * sont lazy via React.lazy + Suspense fallback Chargement. AppShell, MainLayout,
- * TenantAwareLayout, DashboardLayout, TenantPicker et ConfiguratorPage restent
- * eager car hot-path post-login.
+ * Code-splitting Sprint 10 (S9-PERF-ROUTE-SPLIT) : les frontières d'identité,
+ * Dashboard* et les pages secondaires sont lazy via React.lazy + Suspense.
+ * AppShell, MainLayout, TenantAwareLayout, DashboardLayout, TenantPicker et
+ * ConfiguratorPage restent eager car hot-path post-login.
  */
 export const router = createBrowserRouter([
   {
-    element: <StorefrontRuntimeBoundary />,
+    element: lazyRoute(<StorefrontRuntimeBoundary />),
     children: [
       // Boutique publique — anonyme, pas de tenant.
       // S7.1 (ADR §4.19-1) : catch-all — les vues du portail sont des URLs
@@ -99,7 +104,7 @@ export const router = createBrowserRouter([
     ],
   },
   {
-    element: <WorkspaceRuntimeBoundary />,
+    element: lazyRoute(<WorkspaceRuntimeBoundary />),
     children: [
       {
         element: <AppShell />,

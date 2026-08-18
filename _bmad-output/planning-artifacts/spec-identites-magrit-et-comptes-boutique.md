@@ -56,7 +56,7 @@ la connexion du checkout et de la garde des boutiques privées sur la session
 boutique BFF ; l'ancien `signIn/signUp` Supabase Auth et la création implicite
 d'un membre `shop_only` disparaissent du storefront. Chaque vague suivante doit être
 découpée en stories BMAD exécutables avant son implémentation.
-UM10.1 à UM10.21 ferment ensuite les fuites de contexte résiduelles : assistant,
+UM10.1 à UM10.22 ferment ensuite les fuites de contexte résiduelles : assistant,
 politique fiscale, ancienne UI de profil mixte et états transactionnels sont
 désormais séparés par identité et par boutique, y compris lors d’un changement
 de slug sans remontage React. Le portail commandes client ne présente plus les
@@ -98,6 +98,9 @@ workspace. Ces services ne sont instanciés que sous la frontière Magrit.
 Cette séparation vaut aussi pour les racines de composition navigateur : le
 runtime storefront est un module autonome sans import, même transitif, de
 l'adaptateur Supabase Auth ou des gateways réservées à Magrit.
+Les deux frontières de surface sont en outre chargées dynamiquement : une
+entrée directe dans `/shop/...` ne télécharge pas la racine de composition
+workspace avant d'en avoir effectivement besoin.
 Enfin, ses modèles `Shop` et `ShopProduct` proviennent du module Shops, plus du
 contexte React réservé au workspace.
 
