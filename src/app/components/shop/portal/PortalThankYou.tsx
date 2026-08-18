@@ -17,7 +17,7 @@ import { CheckCircle2, Loader2 } from "lucide-react";
 import { applyTax } from "../../../utils/tax";
 import { TEST_IDS } from "../../../lib/testIds";
 import type { DraftOrder } from "../../../../modules/orders";
-import { useStorefrontOrdersApi } from "../../../contexts/ModuleClientsContext";
+import { useStorefrontOrdersApi } from "../../../contexts/StorefrontModuleClientsContext";
 
 interface Props {
   orderId: string;

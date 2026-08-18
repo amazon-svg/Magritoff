@@ -37,7 +37,7 @@ import { DEFAULT_TAX_RATE, getTaxRate } from '../../utils/tax';
 import type { StorefrontSession } from '../../../modules/shop-customers';
 import type { PublicShopCatalog } from '../../../modules/shops';
 import { ApiClientError } from '../../../platform/api';
-import { useStorefrontIdentityApi, useStorefrontOrdersApi, useStorefrontShopsApi } from '../../contexts/ModuleClientsContext';
+import { useStorefrontIdentityApi, useStorefrontOrdersApi, useStorefrontShopsApi } from '../../contexts/StorefrontModuleClientsContext';
 import { StorefrontDelegationBanner } from './StorefrontDelegationBanner';
 
 /**

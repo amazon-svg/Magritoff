@@ -21,7 +21,7 @@ import { Loader2, Save, Trash2, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { lineTotal, round2 } from '../../../utils/quoteMath';
 import { TEST_IDS } from '../../../lib/testIds';
-import { useStorefrontOrdersApi } from '../../../contexts/ModuleClientsContext';
+import { useStorefrontOrdersApi } from '../../../contexts/StorefrontModuleClientsContext';
 import type { OrderUI } from './PortalOrders.helpers';
 import {
   Dialog,

@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Loader2, Lock, UserPlus } from 'lucide-react';
 import type { StorefrontSession } from '../../../modules/shop-customers';
-import { useStorefrontIdentityApi } from '../../contexts/ModuleClientsContext';
+import { useStorefrontIdentityApi } from '../../contexts/StorefrontModuleClientsContext';
 import { TEST_IDS } from '../../lib/testIds';
 
 type Props = Readonly<{

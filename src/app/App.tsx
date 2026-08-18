@@ -21,6 +21,7 @@ import { ApiRuntimeProvider } from './contexts/ApiRuntimeContext';
 import { browserRuntime } from '../platform/runtime';
 import { BrowserServicesProvider } from './contexts/BrowserServicesContext';
 import { ModuleClientsProvider } from './contexts/ModuleClientsContext';
+import { StorefrontModuleClientsProvider } from './contexts/StorefrontModuleClientsContext';
 
 export default function App() {
   return (
@@ -28,13 +29,15 @@ export default function App() {
       <ApiRuntimeProvider>
         <BrowserServicesProvider runtime={browserRuntime}>
           <ModuleClientsProvider>
-            <SessionBootstrapProvider>
-              <PreferencesProvider>
-                <PIMProvider>
-                  <RouterProvider router={router} />
-                </PIMProvider>
-              </PreferencesProvider>
-            </SessionBootstrapProvider>
+            <StorefrontModuleClientsProvider>
+              <SessionBootstrapProvider>
+                <PreferencesProvider>
+                  <PIMProvider>
+                    <RouterProvider router={router} />
+                  </PIMProvider>
+                </PreferencesProvider>
+              </SessionBootstrapProvider>
+            </StorefrontModuleClientsProvider>
           </ModuleClientsProvider>
         </BrowserServicesProvider>
       </ApiRuntimeProvider>

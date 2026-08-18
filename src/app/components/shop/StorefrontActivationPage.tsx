@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Loader2, LockKeyhole } from 'lucide-react';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
-import { useStorefrontIdentityApi } from '../../contexts/ModuleClientsContext';
+import { useStorefrontIdentityApi } from '../../contexts/StorefrontModuleClientsContext';
 
 export function StorefrontActivationPage() {
   const api = useStorefrontIdentityApi();

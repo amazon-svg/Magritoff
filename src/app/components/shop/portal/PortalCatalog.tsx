@@ -3,7 +3,7 @@ import { Search, Sparkles, X, Loader2, AlertTriangle } from 'lucide-react';
 import type { Shop, ShopProduct } from '../../../../modules/shops';
 import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
 import { resolveProductImage } from '../../../utils/productImages';
-import { useStorefrontDiagnosticsApi } from '../../../contexts/ModuleClientsContext';
+import { useStorefrontDiagnosticsApi } from '../../../contexts/StorefrontModuleClientsContext';
 import { computeClariprintQuoteSafe } from '../../../../modules/clariprint';
 import { useClaudeSseStream, ClaudeSseStreamError } from '../../../hooks/useClaudeSseStream';
 import { ENABLE_STREAMING_CHAT } from '../../../lib/featureFlags';

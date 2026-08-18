@@ -317,26 +317,34 @@ describe('frontières API-first et modulaires', () => {
     expect(constructors).toEqual([
       'src/app/contexts/ApiRuntimeContext.tsx',
       'src/app/contexts/ModuleClientsContext.tsx',
+      'src/app/contexts/StorefrontModuleClientsContext.tsx',
     ]);
   });
 
-  it('compose les façades Orders workspace et storefront dans le même root', () => {
+  it('compose les façades Orders workspace et storefront dans deux roots', () => {
     const appRoot = resolve(process.cwd(), 'src/app');
     const constructors = listTypeScriptFiles(appRoot)
       .filter((file) => readFileSync(file, 'utf8').includes('new OrdersApiClient'))
       .map((file) => relative(process.cwd(), file));
     const app = readFileSync(resolve(appRoot, 'App.tsx'), 'utf8');
 
-    expect(constructors).toEqual(['src/app/contexts/ModuleClientsContext.tsx']);
+    expect(constructors).toEqual([
+      'src/app/contexts/ModuleClientsContext.tsx',
+      'src/app/contexts/StorefrontModuleClientsContext.tsx',
+    ]);
     expect(app).toContain('<ModuleClientsProvider>');
+    expect(app).toContain('<StorefrontModuleClientsProvider>');
   });
 
-  it('compose les façades Shops workspace, storefront et post-auth dans un seul root', () => {
+  it('compose les façades Shops workspace et storefront dans deux roots', () => {
     const appRoot = resolve(process.cwd(), 'src/app');
     const constructors = listTypeScriptFiles(appRoot)
       .filter((file) => readFileSync(file, 'utf8').includes('new ShopsApiClient'))
       .map((file) => relative(process.cwd(), file));
-    expect(constructors).toEqual(['src/app/contexts/ModuleClientsContext.tsx']);
+    expect(constructors).toEqual([
+      'src/app/contexts/ModuleClientsContext.tsx',
+      'src/app/contexts/StorefrontModuleClientsContext.tsx',
+    ]);
   });
 
   it('compose les façades Quotes et QuoteTemplates dans un seul root', () => {
@@ -385,7 +393,10 @@ describe('frontières API-first et modulaires', () => {
 
     expect(constructorsFor('ConversationsApiClient')).toEqual(['src/app/contexts/ModuleClientsContext.tsx']);
     expect(constructorsFor('CommercialApiClient')).toEqual(['src/app/contexts/ModuleClientsContext.tsx']);
-    expect(constructorsFor('DiagnosticsApiClient')).toEqual(['src/app/contexts/ModuleClientsContext.tsx']);
+    expect(constructorsFor('DiagnosticsApiClient')).toEqual([
+      'src/app/contexts/ModuleClientsContext.tsx',
+      'src/app/contexts/StorefrontModuleClientsContext.tsx',
+    ]);
   });
 
   it('compose une seule façade Session pour les parcours Magrit', () => {

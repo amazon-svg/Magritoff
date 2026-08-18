@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { useStorefrontOrdersApi } from '../../../contexts/ModuleClientsContext';
+import { useStorefrontOrdersApi } from '../../../contexts/StorefrontModuleClientsContext';
 import { TEST_IDS } from '../../../lib/testIds';
 import { type OrderUI, orderSummaryToUi } from './PortalOrders.helpers';
 import { OrderHistoryTable } from './OrderHistoryTable';
