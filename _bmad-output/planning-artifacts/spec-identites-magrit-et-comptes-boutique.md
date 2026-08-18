@@ -56,7 +56,7 @@ la connexion du checkout et de la garde des boutiques privées sur la session
 boutique BFF ; l'ancien `signIn/signUp` Supabase Auth et la création implicite
 d'un membre `shop_only` disparaissent du storefront. Chaque vague suivante doit être
 découpée en stories BMAD exécutables avant son implémentation.
-UM10.1 à UM10.17 ferment ensuite les fuites de contexte résiduelles : assistant,
+UM10.1 à UM10.18 ferment ensuite les fuites de contexte résiduelles : assistant,
 politique fiscale, ancienne UI de profil mixte et états transactionnels sont
 désormais séparés par identité et par boutique, y compris lors d’un changement
 de slug sans remontage React. Le portail commandes client ne présente plus les
@@ -86,6 +86,9 @@ la surface Magrit lui injecte son gateway, sans résolution cachée du runtime.
 Enfin, les clients HTTP React sont composés dans deux modules distincts : le
 registre storefront ne contient que des clients anonymes/cookie et n’expose
 aucun client workspace aux composants boutique.
+Les gateways navigateur suivent la même séparation physique : assistant et
+Clariprint storefront vivent dans un provider dédié qui ne reçoit que le
+transport anonyme et les implémentations fail-closed propres à la boutique.
 Enfin, ses modèles `Shop` et `ShopProduct` proviennent du module Shops, plus du
 contexte React réservé au workspace.
 

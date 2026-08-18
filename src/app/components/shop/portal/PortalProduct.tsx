@@ -9,7 +9,7 @@ import { priceFingerprint, type ClariprintQuoteResult } from '../../../utils/cla
 import { computeClariprintQuoteSafe } from '../../../../modules/clariprint';
 import { estimateMarketPriceHT, resolvePrice } from '../../../utils/priceResolver';
 import { applyTax } from '../../../utils/tax';
-import { useStorefrontClariprint } from '../../../contexts/BrowserServicesContext';
+import { useStorefrontClariprint } from '../../../contexts/StorefrontBrowserServicesContext';
 
 interface Props {
   product: ShopProduct;

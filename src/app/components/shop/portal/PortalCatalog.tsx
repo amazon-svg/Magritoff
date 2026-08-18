@@ -11,7 +11,7 @@ import { TEST_IDS } from '../../../lib/testIds';
 import {
   useStorefrontAssistant,
   useStorefrontClariprint,
-} from '../../../contexts/BrowserServicesContext';
+} from '../../../contexts/StorefrontBrowserServicesContext';
 import { ShopProductCard } from '../ShopProductCard';
 import { buildShopTaxonomy } from '../../../utils/shopTaxonomy';
 import {

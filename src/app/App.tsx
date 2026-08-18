@@ -20,6 +20,7 @@ import { SessionBootstrapProvider } from './contexts/SessionBootstrapContext';
 import { ApiRuntimeProvider } from './contexts/ApiRuntimeContext';
 import { browserRuntime } from '../platform/runtime';
 import { BrowserServicesProvider } from './contexts/BrowserServicesContext';
+import { StorefrontBrowserServicesProvider } from './contexts/StorefrontBrowserServicesContext';
 import { ModuleClientsProvider } from './contexts/ModuleClientsContext';
 import { StorefrontModuleClientsProvider } from './contexts/StorefrontModuleClientsContext';
 
@@ -28,17 +29,19 @@ export default function App() {
     <AuthProvider gateway={browserRuntime.authentication}>
       <ApiRuntimeProvider>
         <BrowserServicesProvider runtime={browserRuntime}>
-          <ModuleClientsProvider>
-            <StorefrontModuleClientsProvider>
-              <SessionBootstrapProvider>
-                <PreferencesProvider>
-                  <PIMProvider>
-                    <RouterProvider router={router} />
-                  </PIMProvider>
-                </PreferencesProvider>
-              </SessionBootstrapProvider>
-            </StorefrontModuleClientsProvider>
-          </ModuleClientsProvider>
+          <StorefrontBrowserServicesProvider runtime={browserRuntime}>
+            <ModuleClientsProvider>
+              <StorefrontModuleClientsProvider>
+                <SessionBootstrapProvider>
+                  <PreferencesProvider>
+                    <PIMProvider>
+                      <RouterProvider router={router} />
+                    </PIMProvider>
+                  </PreferencesProvider>
+                </SessionBootstrapProvider>
+              </StorefrontModuleClientsProvider>
+            </ModuleClientsProvider>
+          </StorefrontBrowserServicesProvider>
         </BrowserServicesProvider>
       </ApiRuntimeProvider>
     </AuthProvider>

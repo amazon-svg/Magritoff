@@ -31,7 +31,7 @@ describe('frontière fiscale du storefront', () => {
     const gamme = readFileSync(resolve(process.cwd(), 'src/app/components/shop/gamme/GammePage.tsx'), 'utf8');
     const configurator = readFileSync(resolve(process.cwd(), 'src/app/hooks/useProductConfigurator.ts'), 'utf8');
     const productCard = readFileSync(resolve(process.cwd(), 'src/app/components/ProductCard.tsx'), 'utf8');
-    const services = readFileSync(resolve(process.cwd(), 'src/app/contexts/BrowserServicesContext.tsx'), 'utf8');
+    const services = readFileSync(resolve(process.cwd(), 'src/app/contexts/StorefrontBrowserServicesContext.tsx'), 'utf8');
 
     expect(publicShop).toContain('<PortalCatalog');
     expect(publicShop).toContain('<GammePage');
@@ -41,7 +41,7 @@ describe('frontière fiscale du storefront', () => {
     expect(overlay).toContain('useProductConfigurator(product, { taxRate: configuredTaxRate, clariprintGateway })');
     expect(gamme).toContain('useProductConfigurator(defaultProduct, { liveRecalc: true, taxRate, clariprintGateway: clariprint })');
     expect(configurator).toContain('opts.taxRate ?? DEFAULT_TAX_RATE');
-    expect(services).toContain('storefrontClariprint: runtime.createClariprint(apiRuntime.anonymousClient)');
+    expect(services).toContain('clariprint: runtime.createClariprint(apiRuntime.anonymousClient)');
     expect(catalog).toContain('useStorefrontClariprint()');
     expect(gamme).toContain('clariprintGateway: clariprint');
     expect(overlay).toContain('clariprintGateway');

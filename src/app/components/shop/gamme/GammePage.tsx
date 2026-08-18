@@ -30,7 +30,7 @@ import { GammeConfigurator } from './GammeConfigurator';
 import { StickyPriceBar } from './StickyPriceBar';
 import { PimEditorial } from './PimEditorial';
 import { ShopProductCard } from '../ShopProductCard';
-import { useStorefrontClariprint } from '../../../contexts/BrowserServicesContext';
+import { useStorefrontClariprint } from '../../../contexts/StorefrontBrowserServicesContext';
 
 export interface GammePageProps {
   shop: Shop;

@@ -647,6 +647,7 @@ describe('frontières API-first et modulaires', () => {
     const product = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/PortalProduct.tsx'), 'utf8');
     const hook = readFileSync(resolve(process.cwd(), 'src/app/hooks/useClariprintProduct.ts'), 'utf8');
     const services = readFileSync(resolve(process.cwd(), 'src/app/contexts/BrowserServicesContext.tsx'), 'utf8');
+    const storefrontServices = readFileSync(resolve(process.cwd(), 'src/app/contexts/StorefrontBrowserServicesContext.tsx'), 'utf8');
     const runtime = readFileSync(resolve(process.cwd(), 'src/platform/runtime/browser-runtime.ts'), 'utf8');
     const supabaseConfig = readFileSync(resolve(process.cwd(), 'supabase/config.toml'), 'utf8');
     expect(adapter).toContain('ClariprintApiClient');
@@ -662,7 +663,8 @@ describe('frontières API-first et modulaires', () => {
       expect(source).not.toContain('adapters/http/browser-clariprint-adapter');
     }
     expect(services).toContain('runtime.createClariprint(apiRuntime.client)');
-    expect(services).toContain('runtime.createClariprint(apiRuntime.anonymousClient)');
+    expect(services).not.toContain('apiRuntime.anonymousClient');
+    expect(storefrontServices).toContain('runtime.createClariprint(apiRuntime.anonymousClient)');
     expect(portal).toContain('useStorefrontClariprint');
     expect(product).toContain('useStorefrontClariprint');
     expect(runtime).toContain('new ClariprintHttpAdapter(');
@@ -673,6 +675,7 @@ describe('frontières API-first et modulaires', () => {
     const chat = readFileSync(resolve(process.cwd(), 'src/app/components/ChatInterface.tsx'), 'utf8');
     const catalog = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/PortalCatalog.tsx'), 'utf8');
     const services = readFileSync(resolve(process.cwd(), 'src/app/contexts/BrowserServicesContext.tsx'), 'utf8');
+    const storefrontServices = readFileSync(resolve(process.cwd(), 'src/app/contexts/StorefrontBrowserServicesContext.tsx'), 'utf8');
     const runtime = readFileSync(resolve(process.cwd(), 'src/platform/runtime/browser-runtime.ts'), 'utf8');
 
     expect(chat).not.toContain('browserAssistantGateway');
@@ -683,7 +686,9 @@ describe('frontières API-first et modulaires', () => {
     expect(catalog).toContain('useClaudeSseStream(storefrontAssistant)');
     expect(catalog).toContain('useStorefrontAssistant');
     expect(services).toContain('assistant: runtime.assistant');
-    expect(services).toContain('storefrontAssistant: runtime.storefrontAssistant');
+    expect(services).not.toContain('storefrontAssistant');
+    expect(storefrontServices).toContain('assistant: runtime.storefrontAssistant');
+    expect(storefrontServices).toContain('apiRuntime.anonymousClient');
     expect(runtime).toContain('assistant: browserAssistantGateway');
     expect(runtime).toContain('storefrontAssistant: browserStorefrontAssistantGateway');
   });
