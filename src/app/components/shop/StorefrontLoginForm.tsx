@@ -1,6 +1,5 @@
 import { useState, type FormEvent } from 'react';
 import { Loader2, Lock, UserPlus } from 'lucide-react';
-import { Link } from 'react-router';
 import type { StorefrontSession } from '../../../modules/shop-customers';
 import { useStorefrontIdentityApi } from '../../contexts/ModuleClientsContext';
 import { TEST_IDS } from '../../lib/testIds';
@@ -98,9 +97,6 @@ export function StorefrontLoginForm({ shopSlug, contactEmail, allowRegistration 
             Demander un accès
           </a>
         )}
-        <Link to="/tenants" className="text-[12.5px] text-ink-muted hover:text-ink hover:underline">
-          Accéder à mes espaces Magrit
-        </Link>
       </div>
       </>}
       {mode === 'login' && (
