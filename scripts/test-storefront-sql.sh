@@ -24,6 +24,7 @@ SQL_CASES=(
   tests/sql/storefront-credential-activation.sql
   tests/sql/storefront-self-registration.sql
   tests/sql/storefront-password-recovery.sql
+  tests/sql/public-shop-tax-regime.sql
 )
 
 for sql_case in "${SQL_CASES[@]}"; do

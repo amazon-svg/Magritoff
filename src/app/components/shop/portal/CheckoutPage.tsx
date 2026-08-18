@@ -12,8 +12,7 @@ import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import type { Shop } from '../../../contexts/ShopsContext';
 import type { CartLine } from './types';
-import { useTenant } from '../../../contexts/TenantContext';
-import { applyTax, getTaxRate } from '../../../utils/tax';
+import { applyTax } from '../../../utils/tax';
 import { formatEuro } from '../ProductOverlay.helpers';
 import { TEST_IDS } from '../../../lib/testIds';
 import type { StorefrontSession } from '../../../../modules/shop-customers';
@@ -22,6 +21,7 @@ import { StorefrontLoginForm } from '../StorefrontLoginForm';
 export interface CheckoutPageProps {
   shop: Shop;
   cart: CartLine[];
+  taxRate: number;
   canCreateOrder: boolean;
   createOrderBlockedMessage: string;
   storefrontSession: StorefrontSession | null;
@@ -34,6 +34,7 @@ export interface CheckoutPageProps {
 export function CheckoutPage({
   shop,
   cart,
+  taxRate,
   canCreateOrder,
   createOrderBlockedMessage,
   storefrontSession,
@@ -41,9 +42,7 @@ export function CheckoutPage({
   onSubmit,
   onGoCatalog,
 }: CheckoutPageProps) {
-  const { currentTenant } = useTenant();
   const hasStorefrontSession = storefrontSession?.identity.shopId === shop.id;
-  const taxRate = getTaxRate(currentTenant);
   const [submitting, setSubmitting] = useState(false);
 
   const totalHT = cart.reduce((s, l) => s + l.product.price_ht * l.qty, 0);

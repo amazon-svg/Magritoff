@@ -1954,6 +1954,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      api_get_public_shop_tax_regime: {
+        Args: { p_shop_slug: string }
+        Returns: string
+      }
       api_get_legacy_shop_customer_migration_report: {
         Args: { p_tenant_id: string }
         Returns: {

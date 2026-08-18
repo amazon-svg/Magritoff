@@ -8,12 +8,12 @@ import { ProductMockup } from '../../brand/ProductMockup';
 import { priceFingerprint, type ClariprintQuoteResult } from '../../../utils/clariprintQuote';
 import { computeClariprintQuoteSafe } from '../../../../modules/clariprint';
 import { estimateMarketPriceHT, resolvePrice } from '../../../utils/priceResolver';
-import { useTenant } from '../../../contexts/TenantContext';
-import { applyTax, getTaxRate } from '../../../utils/tax';
+import { applyTax } from '../../../utils/tax';
 import { useBrowserServices } from '../../../contexts/BrowserServicesContext';
 
 interface Props {
   product: ShopProduct;
+  taxRate: number;
   onBack: () => void;
   onAddToCart: (p: ShopProduct, qty: number, opts: Record<string, string>) => void;
   pimGammes?: Gamme[];
@@ -22,10 +22,8 @@ interface Props {
 
 // F3 — Fiche produit + configurateur
 // Design source : .design-handoff/designs/05 - Portail B2B.html (section .f3)
-export function PortalProduct({ product, onBack, onAddToCart, pimGammes, pimDefinitions }: Props) {
+export function PortalProduct({ product, taxRate, onBack, onAddToCart, pimGammes, pimDefinitions }: Props) {
   const { clariprint } = useBrowserServices();
-  const { currentTenant } = useTenant();
-  const taxRate = getTaxRate(currentTenant);
   // CR §2 (13/05) : afficher la gamme PIM résolue dans le breadcrumb plutôt
   // que `product.category` brut (qui vaut "leaflet" pour ~90% des products
   // library, hérité du kind Clariprint). Fallback : kind Clariprint masqué,

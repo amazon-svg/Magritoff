@@ -33,7 +33,7 @@ import {
 } from './ShopGammesSidebar.helpers';
 import { buildShopTaxonomy } from '../../utils/shopTaxonomy';
 import { parsePortalPath, shopUrl } from './portal/shopPortalRoutes';
-import { applyTax, getTaxRate } from '../../utils/tax';
+import { DEFAULT_TAX_RATE, getTaxRate } from '../../utils/tax';
 import type { StorefrontSession } from '../../../modules/shop-customers';
 import type { PublicShopCatalog } from '../../../modules/shops';
 import { ApiClientError } from '../../../platform/api';
@@ -63,6 +63,7 @@ export function PublicShop() {
   const navigate = useNavigate();
   const [shop, setShop] = useState<Shop | null>(null);
   const [products, setProducts] = useState<ShopProduct[]>([]);
+  const [taxRate, setTaxRate] = useState(DEFAULT_TAX_RATE);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [blockedAccess, setBlockedAccess] = useState<Extract<
@@ -150,6 +151,7 @@ export function PublicShop() {
 
   const applyCatalog = (catalog: PublicShopCatalog) => {
     setShop(fromPublicShop(catalog));
+    setTaxRate(getTaxRate({ tax_regime: catalog.taxRegime }));
     setProducts(catalog.products.map((product) => ({
       id: product.id, shop_id: product.shopId, product_id: product.productId,
       name: product.name, category: product.category, description: product.description,
@@ -173,6 +175,7 @@ export function PublicShop() {
     setNotFound(false);
     setBlockedAccess(null);
     setShop(null);
+    setTaxRate(DEFAULT_TAX_RATE);
     setProducts([]);
     setPimGammes([]);
     setPimDefinitions([]);
@@ -661,6 +664,7 @@ export function PublicShop() {
       cartDrawer={
         <PortalCart
           cart={cart}
+          taxRate={taxRate}
           budget={budget}
           onUpdateQty={updateQty}
           onRemove={removeFromCart}
@@ -748,6 +752,7 @@ export function PublicShop() {
       {view === 'product' && selectedProduct && (
         <PortalProduct
           product={selectedProduct}
+          taxRate={taxRate}
           onBack={() => goView('catalog')}
           onAddToCart={(p, qty) => {
             addToCart(p, qty);
@@ -770,6 +775,7 @@ export function PublicShop() {
         <CheckoutPage
           shop={shop}
           cart={cart}
+          taxRate={taxRate}
           canCreateOrder={canCreateOrder}
           createOrderBlockedMessage={createOrderBlockedMessage}
           storefrontSession={storefrontSession}
@@ -798,6 +804,7 @@ export function PublicShop() {
       {view === 'thankYou' && lastOrderId && (
         <PortalThankYou
           orderId={lastOrderId}
+          taxRate={taxRate}
           userEmail={storefrontSession?.customer.email ?? ''}
           onBackToCatalog={() => goView('catalog')}
           onSeeOrders={() => goView('orders')}

@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { UserId } from '../../kernel/ids/index.ts';
-import type { CreateShopCommand, CreateShopProductCommand, MockupTemplateType, MockupView, PersistAiShopProductCommand, PublicShopCatalog, PublicShopProbe, SetShopPricingCommand, ShopBrandAssetUpload, ShopCustomMockup, ShopCustomMockupUpload, ShopDto, ShopPricingOverride, ShopProductDto, UpdateShopCommand, UpdateShopProductCommand } from '../../modules/shops/api/contracts.ts';
+import { shopTaxRegimeSchema, type CreateShopCommand, type CreateShopProductCommand, type MockupTemplateType, type MockupView, type PersistAiShopProductCommand, type PublicShopCatalog, type PublicShopProbe, type SetShopPricingCommand, type ShopBrandAssetUpload, type ShopCustomMockup, type ShopCustomMockupUpload, type ShopDto, type ShopPricingOverride, type ShopProductDto, type UpdateShopCommand, type UpdateShopProductCommand } from '../../modules/shops/api/contracts.ts';
 import { ShopRejectedError, type PublicShopCatalogAccess, type ShopsRepository } from '../../modules/shops/application/shops-repository.ts';
 import type { Database, Json } from '../../types/database.types.ts';
 
@@ -78,15 +78,16 @@ export class SupabaseShopsRepository implements ShopsRepository {
     const shopRow = await this.loadActiveShopBySlug(slug, SHOP_COLUMNS);
     if (!shopRow.tenant_id) throw new ShopRejectedError('invalid_request', 'Boutique sans espace propriétaire.');
 
-    const [manualResult, pricingResult, gammesResult, definitionsResult, subscriptionsResult, mockupsResult] = await Promise.all([
+    const [manualResult, pricingResult, gammesResult, definitionsResult, subscriptionsResult, mockupsResult, taxResult] = await Promise.all([
       this.client.from('shop_products').select(PRODUCT_COLUMNS).eq('shop_id', shopRow.id).order('display_order'),
       this.client.from('shop_product_pricing').select('library_product_id, price_ht_override').eq('shop_id', shopRow.id),
       this.client.from('product_gammes').select('*').order('display_order'),
       this.client.from('product_definitions').select('*'),
       this.client.from('tenant_gamme_subscriptions').select('gamme_slug').eq('tenant_id', shopRow.tenant_id).eq('active', true),
       this.client.from('shop_template_mockups').select('shop_id, template_type, view, mockup_image_url').eq('shop_id', shopRow.id),
+      this.client.rpc('api_get_public_shop_tax_regime', { p_shop_slug: slug }),
     ]);
-    const failed = [manualResult.error, pricingResult.error, gammesResult.error, definitionsResult.error, mockupsResult.error].find(Boolean);
+    const failed = [manualResult.error, pricingResult.error, gammesResult.error, definitionsResult.error, mockupsResult.error, taxResult.error].find(Boolean);
     if (failed) throw classified(failed, 'Chargement du catalogue impossible.');
 
     const libraryRows = await this.loadPublicLibraryRows(shopRow);
@@ -114,6 +115,7 @@ export class SupabaseShopsRepository implements ShopsRepository {
       ? { ...product, priceHt: priceByLibraryId.get(product.productId)! } : product);
     return {
       shop: mapPublicShop(shopRow, this.publicBaseUrl), products: [...pricedManual, ...linked],
+      taxRegime: shopTaxRegimeSchema.parse(taxResult.data),
       gammes: (gammesResult.data ?? []).map((row) => ({ ...row, matching_rules: toRecord(row.matching_rules) })),
       definitions: (definitionsResult.data ?? []).map((row) => ({ ...row })),
       subscribedSlugs: subscriptionsResult.error ? [] : (subscriptionsResult.data ?? []).map((row) => row.gamme_slug),

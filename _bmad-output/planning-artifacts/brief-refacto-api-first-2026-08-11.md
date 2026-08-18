@@ -178,6 +178,11 @@ boutique et le storefront ne propose plus la création d'un membre `shop_only`.
 UM6.7 rend le bootstrap Magrit résilient : une indisponibilité du BFF n'est
 plus interprétée comme une liste d'espaces vide et ne redirige plus vers la
 création d'un nouvel espace.
+UM10.1 sépare l’assistant storefront : il utilise la session boutique HttpOnly,
+ne reçoit plus le bearer Magrit et ne publie plus ses suggestions dans le
+catalogue partagé. UM10.2 retire ensuite `TenantContext` des calculs fiscaux du
+storefront : le catalogue public porte le régime de la boutique, résolu par le
+BFF, et les écrans boutique reçoivent explicitement le taux correspondant.
 
 ### Extension AF-C — Identité et invitations
 

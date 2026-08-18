@@ -6,11 +6,11 @@ import { resolveProductGamme } from '../../../utils/productEnrichment';
 import { ProductMockup } from '../../brand/ProductMockup';
 import { TEST_IDS } from '../../../lib/testIds';
 import { resolvePrice } from '../../../utils/priceResolver';
-import { useTenant } from '../../../contexts/TenantContext';
-import { applyTax, extractTaxAmount, formatTaxLabel, getTaxRate } from '../../../utils/tax';
+import { applyTax, extractTaxAmount, formatTaxLabel } from '../../../utils/tax';
 
 interface Props {
   cart: CartLine[];
+  taxRate: number;
   budget?: BudgetInfo;
   onUpdateQty: (productId: string, delta: number) => void;
   onRemove: (productId: string) => void;
@@ -52,6 +52,7 @@ interface Props {
 // S-FIX-6 : mode compact pour drawer slide-right (S-REWORK-1).
 export function PortalCart({
   cart,
+  taxRate,
   budget,
   onUpdateQty,
   onRemove,
@@ -65,8 +66,6 @@ export function PortalCart({
   renewalWarnings = [],
   onDismissRenewalWarnings,
 }: Props) {
-  const { currentTenant } = useTenant();
-  const taxRate = getTaxRate(currentTenant);
   // Resolution unifiee du prix par ligne via priceResolver (decision Arnaud
   // 2026-05-09 fix prix marche). Une ligne en "prix marche" devient
   // hasMarketPriceLine=true → on affiche un badge global "Prix marche" en

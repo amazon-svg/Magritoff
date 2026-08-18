@@ -14,14 +14,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, Loader2 } from "lucide-react";
-import { useTenant } from "../../../contexts/TenantContext";
-import { applyTax, getTaxRate } from "../../../utils/tax";
+import { applyTax } from "../../../utils/tax";
 import { TEST_IDS } from "../../../lib/testIds";
 import type { DraftOrder } from "../../../../modules/orders";
 import { useOrdersApi } from "../../../contexts/ModuleClientsContext";
 
 interface Props {
   orderId: string;
+  taxRate: number;
   userEmail: string;
   onBackToCatalog: () => void;
   onSeeOrders: () => void;
@@ -57,8 +57,7 @@ function formatDateLong(iso: string): string {
   }
 }
 
-export function PortalThankYou({ orderId, userEmail, onBackToCatalog, onSeeOrders }: Props) {
-  const { currentTenant } = useTenant();
+export function PortalThankYou({ orderId, taxRate, userEmail, onBackToCatalog, onSeeOrders }: Props) {
   const [order, setOrder] = useState<DraftOrder | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -97,7 +96,6 @@ export function PortalThankYou({ orderId, userEmail, onBackToCatalog, onSeeOrder
   }, [orderId, ordersApi]);
 
   const shortId = formatShortOrderId(orderId);
-  const taxRate = getTaxRate(currentTenant);
   const totalTtc = order?.totalHt ? applyTax(order.totalHt, taxRate) : 0;
 
   return (

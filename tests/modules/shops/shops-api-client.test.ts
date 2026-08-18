@@ -15,7 +15,7 @@ describe('ShopsApiClient', () => {
       const url = String(input); const method = init?.method ?? 'GET'; calls.push(`${method} ${url}`);
       if (method === 'GET' && url.endsWith('/shops')) return new Response(JSON.stringify([shop]));
       if (method === 'GET' && url.endsWith('/probe')) return new Response(JSON.stringify({ id: shopId, tenantId, accessMode: 'invite_only' }));
-      if (method === 'GET' && url.endsWith('/catalog')) return new Response(JSON.stringify({ shop: { ...shop, ownerUserId: undefined, libraryIds: undefined, excludedProductIds: undefined, pimCatalogMode: undefined, pimGammeSlugs: undefined }, products: [], gammes: [], definitions: [], subscribedSlugs: [], customMockups: [] }));
+      if (method === 'GET' && url.endsWith('/catalog')) return new Response(JSON.stringify({ shop: { ...shop, ownerUserId: undefined, libraryIds: undefined, excludedProductIds: undefined, pimCatalogMode: undefined, pimGammeSlugs: undefined }, taxRegime: 'metropole_fr', products: [], gammes: [], definitions: [], subscribedSlugs: [], customMockups: [] }));
       if (method === 'GET' && url.endsWith('/custom-mockups')) return new Response(JSON.stringify([]));
       if (method === 'GET' && url.endsWith('/pricing')) return new Response(JSON.stringify([]));
       if (method === 'GET' && url.endsWith('/products')) return new Response(JSON.stringify([product]));
@@ -34,7 +34,8 @@ describe('ShopsApiClient', () => {
     await client.addProduct(tenantId, shopId, { productId: null, name: 'Flyer', category: '', description: '', priceHt: 10, imageUrl: '', config: {}, displayOrder: 0, gammeSlug: null });
     await client.updateProduct(tenantId, shopId, productId, { priceHt: 12 });
     await client.removeProduct(tenantId, shopId, productId); await client.remove(tenantId, shopId);
-    await client.publicProbe('demo'); await client.publicCatalog('demo');
+    await client.publicProbe('demo');
+    await expect(client.publicCatalog('demo')).resolves.toMatchObject({ taxRegime: 'metropole_fr' });
     await client.pricing(tenantId, shopId); await client.setPricing(tenantId, shopId, productId, 12);
     await expect(client.uploadBrandAsset(tenantId, shopId, 'logo', new File(['png'], 'logo.png', { type: 'image/png' }))).resolves.toBe('https://assets.magrit.test/logo.png');
     await client.customMockups(tenantId, shopId);

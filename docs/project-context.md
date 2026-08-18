@@ -4,7 +4,7 @@
 >
 > **Source authoritative :** `~/Downloads/CONTEXT_Magrit_IA.md` (maintenu par Arnaud, plus exhaustif). Ce fichier en est la **synthèse opérationnelle pour les agents BMAD** (focus : règles, conventions, états de version, identifiants techniques, **PAS** la stratégie commerciale détaillée).
 >
-> **Dernière mise à jour :** 2026-08-18 (UM10.1 — assistant storefront séparé).
+> **Dernière mise à jour :** 2026-08-18 (UM10.2 — fiscalité storefront séparée).
 > **Maintenu par :** Arnaud Mazon — PDG AGE Développement — `arnaud@age-services.fr`.
 > **Langue de travail :** français (livrables, code commits, variables métier).
 
@@ -78,8 +78,11 @@
 - Routes tenant : `/t/:slug/dashboard`, `/t/:slug/atelier`, `/t/:slug/dashboard/users`.
 - Route boutique tenant : `/shop/:slug`. Elle n’est publique que lorsque
   `shops.access_mode='self_signup'`. En `invite_only`, un anonyme ne voit aucun
-  contenu et ne peut pas créer de compte ; un compte existant doit être membre
-  du tenant propriétaire et autorisé sur la boutique.
+  contenu et ne peut pas créer de compte ; l’accès exige un compte boutique
+  actif rattaché à cette boutique précise, jamais une membership Magrit.
+- Le storefront ne lit pas `TenantContext`. Son régime fiscal est fourni par
+  le contrat `PublicShopCatalog` depuis la boutique visitée, puis injecté dans
+  produit, panier, checkout et confirmation.
 - Création tenant : `/tenants/new` (wizard avec validation SIREN INSEE + email pro).
 - Helpers RLS canoniques (à utiliser dans toute nouvelle policy) : `public.is_super_admin()`, `public.user_role_in_tenant(tenant_id)`, `public.current_user_tenant_ids()`, `public.current_user_can_access_shop(shop_id)`.
 - Matrice et invariants détaillés :
