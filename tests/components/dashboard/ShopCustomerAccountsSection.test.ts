@@ -18,6 +18,8 @@ describe('ShopCustomerAccountsSection', () => {
     expect(source).toContain('api.issueActivation');
     expect(source).toContain('Lien d’activation manuel');
     expect(source).toContain('transmettez ce lien manuellement');
+    expect(source).toContain('Ouvrir l’activation');
+    expect(source).toContain('choisit son mot de passe');
   });
 
   it('propose l action unifiée de délégation sans manipuler de jeton', () => {

@@ -189,6 +189,9 @@ describe('frontières API-first et modulaires', () => {
 
     expect(routes).toContain('portalRuntimePaths.shopRoot');
     expect(routes).not.toContain('{ path: "/shop/:slug/*"');
+    expect(routes).toContain('`/${portalRuntimePaths.shopRoot}/activate`');
+    expect(routes).toContain('`/${portalRuntimePaths.shopRoot}/reset-password`');
+    expect(routes).not.toContain('portalRuntimePaths.shopRoot}/:slug');
     expect(portalRoutes).toContain('portalRuntimePaths.checkout');
     expect(portalRoutes).toContain('portalRuntimePaths.orderConfirmation');
     expect(portalRoutes).toContain('portalRuntimePaths.catalog');

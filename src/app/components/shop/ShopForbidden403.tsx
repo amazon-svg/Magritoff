@@ -51,7 +51,13 @@ export function ShopForbidden403({ authenticationRequired = false, shopSlug = ""
               : "Votre compte n’a pas accès à cette boutique. Contactez son administrateur pour recevoir une invitation."}
           </p>
           {authenticationRequired && shopSlug && onStorefrontAuthenticated ? (
-            <StorefrontLoginForm shopSlug={shopSlug} onAuthenticated={onStorefrontAuthenticated} />
+            <>
+              <StorefrontLoginForm shopSlug={shopSlug} onAuthenticated={onStorefrontAuthenticated} />
+              <p className="mt-4 text-left text-xs leading-relaxed text-ink-muted">
+                Première connexion après une invitation ? Ouvrez d’abord le lien d’activation
+                transmis par l’administrateur afin de choisir votre mot de passe.
+              </p>
+            </>
           ) : (
             <Link
               to="/tenants"

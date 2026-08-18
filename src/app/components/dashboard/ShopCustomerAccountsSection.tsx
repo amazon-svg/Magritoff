@@ -205,15 +205,27 @@ export function ShopCustomerAccountsSection({ tenantId, shopId }: Props) {
           <p className="text-sm font-medium text-ink">
             {activation.sent ? 'Email d’activation envoyé.' : 'Email non envoyé : transmettez ce lien manuellement.'}
           </p>
+          <p className="mt-1 text-xs text-ink-muted">
+            Ce lien ouvre la page où l’invité choisit son mot de passe. Il ne doit pas essayer de se connecter avant cette activation.
+          </p>
           {!activation.sent && activation.reason && (
             <p className="mt-1 text-xs text-ink-muted">{activation.reason}</p>
           )}
-          <div className="mt-2 flex gap-2">
+          <div className="mt-2 flex flex-wrap gap-2">
             <input aria-label="Lien d’activation manuel" readOnly value={activation.link} className="min-w-0 flex-1 rounded-lg border border-line-2 bg-paper px-3 py-2 text-xs text-ink" />
             <button type="button" onClick={() => void copyActivationLink()} className="inline-flex items-center gap-1.5 rounded-lg border border-line-2 bg-paper px-3 py-2 text-sm text-ink-2">
               {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
               {copied ? 'Copié' : 'Copier'}
             </button>
+            <a
+              href={activation.link}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-ink px-3 py-2 text-sm text-paper"
+            >
+              <ExternalLink className="h-4 w-4" />
+              Ouvrir l’activation
+            </a>
           </div>
         </div>
       )}

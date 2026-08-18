@@ -87,8 +87,11 @@ export const router = createBrowserRouter([
       // S7.1 (ADR §4.19-1) : catch-all — les vues du portail sont des URLs
       // (`/catalog`, `/p/:id`, `/orders`, `/thank-you`, `/g/:gamme` S7.3,
       // `/account/*` S7.10) résolues par parsePortalPath dans PublicShop.
-      { path: `/${portalRuntimePaths.shopRoot}/:slug/activate`, element: lazyRoute(<StorefrontActivationPage />) },
-      { path: `/${portalRuntimePaths.shopRoot}/:slug/reset-password`, element: lazyRoute(<StorefrontPasswordResetPage />) },
+      // shopRoot contient deja le parametre `:slug` (ex. `shop/:slug`).
+      // Ne pas le rajouter ici : `/shop/:slug/:slug/activate` laisserait le
+      // catch-all PublicShop absorber les liens d invitation.
+      { path: `/${portalRuntimePaths.shopRoot}/activate`, element: lazyRoute(<StorefrontActivationPage />) },
+      { path: `/${portalRuntimePaths.shopRoot}/reset-password`, element: lazyRoute(<StorefrontPasswordResetPage />) },
       { path: `/${portalRuntimePaths.shopRoot}/*`, element: lazyRoute(<PublicShop />) },
 
       // REFONTE-UX (2026-08-08) — route DEV seulement : rendre le wizard parc
