@@ -8,7 +8,10 @@ import { computeClariprintQuoteSafe } from '../../../../modules/clariprint';
 import { useClaudeSseStream, ClaudeSseStreamError } from '../../../hooks/useClaudeSseStream';
 import { ENABLE_STREAMING_CHAT } from '../../../lib/featureFlags';
 import { TEST_IDS } from '../../../lib/testIds';
-import { useStorefrontClariprint } from '../../../contexts/BrowserServicesContext';
+import {
+  useStorefrontAssistant,
+  useStorefrontClariprint,
+} from '../../../contexts/BrowserServicesContext';
 import { ShopProductCard } from '../ShopProductCard';
 import { buildShopTaxonomy } from '../../../utils/shopTaxonomy';
 import {
@@ -134,6 +137,7 @@ export function PortalCatalog({
   initialFormat,
 }: Props) {
   const clariprint = useStorefrontClariprint();
+  const storefrontAssistant = useStorefrontAssistant();
   const assistantApi = useStorefrontDiagnosticsApi();
   const [query, setQuery] = useState('');
   // S2.21 — autocomplétion : menu ouvert au focus + saisie ≥ 2 car.
@@ -170,7 +174,7 @@ export function PortalCatalog({
   // S-SHOP-STREAM (2026-07-08) : compteur de chunks streames -> feedback vivant
   // pendant que Magrit compose (evite l ecran fige sur les requetes 30s+).
   const [aiStreaming, setAiStreaming] = useState(false);
-  const { send: sendSseStream } = useClaudeSseStream();
+  const { send: sendSseStream } = useClaudeSseStream(storefrontAssistant);
 
   // S-CONSO-5 (Sprint 4 Phase 2, Sally) : tri grille catalogue avec
   // persistance localStorage par slug. Sort key chargee au mount.

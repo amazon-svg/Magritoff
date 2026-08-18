@@ -7,6 +7,7 @@ import { useApiRuntime } from './ApiRuntimeContext';
 
 type BrowserServices = Readonly<{
   assistant: AssistantGateway;
+  storefrontAssistant: AssistantGateway;
   clariprint: ClariprintPricingGateway;
   storefrontClariprint: ClariprintPricingGateway;
   mockups: MockupGateway;
@@ -25,6 +26,7 @@ export function BrowserServicesProvider({
   const services = useMemo<BrowserServices>(
     () => ({
       assistant: runtime.assistant,
+      storefrontAssistant: runtime.storefrontAssistant,
       clariprint: runtime.createClariprint(apiRuntime.client),
       storefrontClariprint: runtime.createClariprint(apiRuntime.anonymousClient),
       mockups: runtime.mockups,
@@ -50,4 +52,9 @@ export function useBrowserServices(): BrowserServices {
 /** Passerelle devis publique du storefront, sans bearer Magrit. */
 export function useStorefrontClariprint(): ClariprintPricingGateway {
   return useBrowserServices().storefrontClariprint;
+}
+
+/** Passerelle IA storefront : cookie HttpOnly uniquement, bearer Magrit interdit. */
+export function useStorefrontAssistant(): AssistantGateway {
+  return useBrowserServices().storefrontAssistant;
 }

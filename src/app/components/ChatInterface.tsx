@@ -24,6 +24,7 @@ import {
   truncateMessages,
   useClaudeSseStream,
 } from "../hooks/useClaudeSseStream";
+import { useBrowserServices } from "../contexts/BrowserServicesContext";
 
 // R2 Phase A : readClaudeSseStream extrait dans useClaudeSseStream.ts
 // (avec AbortController + detection billing error + troncage 25 msg).
@@ -57,7 +58,8 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
   // R2 Phase B (bug E4) : banner billing explicite au lieu de bascule
   // demo silencieuse quand Anthropic renvoie un 402 / billing error.
   const [billingError, setBillingError] = useState(false);
-  const { send: sendSseStream } = useClaudeSseStream();
+  const { assistant } = useBrowserServices();
+  const { send: sendSseStream } = useClaudeSseStream(assistant);
   // E3.1 — nb de chunks de texte recus pendant un stream en cours.
   // null quand pas de stream actif. Permet l indicateur "Marguerite redige...".
   const [streamingChunks, setStreamingChunks] = useState<number | null>(null);

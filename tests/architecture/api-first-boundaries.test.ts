@@ -664,8 +664,13 @@ describe('frontières API-first et modulaires', () => {
     expect(catalog).not.toContain('browserAssistantGateway');
     expect(chat).toContain('useClaudeSseStream');
     expect(catalog).toContain('useClaudeSseStream');
+    expect(chat).toContain('useClaudeSseStream(assistant)');
+    expect(catalog).toContain('useClaudeSseStream(storefrontAssistant)');
+    expect(catalog).toContain('useStorefrontAssistant');
     expect(services).toContain('assistant: runtime.assistant');
+    expect(services).toContain('storefrontAssistant: runtime.storefrontAssistant');
     expect(runtime).toContain('assistant: browserAssistantGateway');
+    expect(runtime).toContain('storefrontAssistant: browserStorefrontAssistantGateway');
   });
 
   it('fait passer la création rapide des brouillons par Quotes', () => {
@@ -791,6 +796,7 @@ describe('frontières API-first et modulaires', () => {
     expect(portal).not.toContain('useAuth');
     expect(portal).toContain('shopSlug: shop.slug');
     expect(hook).toContain('assistant.send');
+    expect(hook).not.toContain('useBrowserServices');
     expect(hook).not.toMatch(/\bfetch\s*\(/);
     expect(hook).not.toContain("event === 'delta'");
     expect(adapter).toContain('BrowserApiAssistantGateway');

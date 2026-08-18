@@ -54,7 +54,7 @@ describe('BrowserApiAssistantGateway', () => {
     const fetchMock = vi.fn(async () => Response.json({ configs: [] }));
     vi.stubGlobal('fetch', fetchMock);
 
-    await new BrowserApiAssistantGateway().send({
+    await new BrowserApiAssistantGateway(false).send({
       streaming: false,
       body: { messages: [{ role: 'user', content: 'Bonjour' }], shopSlug: 'boutique-test' },
       signal: new AbortController().signal,
@@ -62,5 +62,19 @@ describe('BrowserApiAssistantGateway', () => {
 
     const request = fetchMock.mock.calls[0]?.[1] as RequestInit;
     expect(request.headers).not.toHaveProperty('Authorization');
+  });
+
+  it('refuse un bearer Magrit sur le transport storefront', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(new BrowserApiAssistantGateway(false).send({
+      accessToken: 'token-interdit',
+      streaming: false,
+      body: { shopSlug: 'boutique-test' },
+      signal: new AbortController().signal,
+    })).rejects.toMatchObject<Partial<AssistantStreamError>>({ kind: 'protocol' });
+
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
