@@ -49,4 +49,18 @@ describe('BrowserApiAssistantGateway', () => {
       signal: new AbortController().signal,
     })).rejects.toMatchObject<Partial<AssistantStreamError>>({ kind: 'billing', status: 402 });
   });
+
+  it('laisse le cookie HttpOnly porter une requête storefront', async () => {
+    const fetchMock = vi.fn(async () => Response.json({ configs: [] }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await new BrowserApiAssistantGateway().send({
+      streaming: false,
+      body: { messages: [{ role: 'user', content: 'Bonjour' }], shopSlug: 'boutique-test' },
+      signal: new AbortController().signal,
+    });
+
+    const request = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect(request.headers).not.toHaveProperty('Authorization');
+  });
 });

@@ -58,6 +58,9 @@ seul adapté aux catalogues privés.
    ne révèle pas si l’email existe déjà.
 10. La récupération de mot de passe part toujours du slug de la boutique,
     répond de façon identique pour tout email et révoque les anciennes sessions.
+11. La recherche IA du storefront s’autorise avec le cookie de cette boutique,
+    jamais avec un JWT Magrit. Une suggestion client reste éphémère ; seule une
+    action de back-office peut publier durablement un produit au catalogue.
 
 ## Transition `shop_only`
 

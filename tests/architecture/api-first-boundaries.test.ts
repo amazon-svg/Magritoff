@@ -451,7 +451,7 @@ describe('frontières API-first et modulaires', () => {
     expect(edgeEntry).toContain('Authorization: authorization');
     expect(edgeEntry).toContain('SupabaseOrdersRepository(client)');
     expect(edgeEntry).toContain(
-      'createOrdersRoutes(ordersService, storefrontSessionService, storefrontSessionCookiePolicy',
+      'createOrdersRoutes(ordersService, storefrontSessionService, storefrontCookiePolicy)',
     );
     expect(edgeEntry).toContain('SupabaseInvitationsRepository(client, invitationEmailSender)');
     expect(edgeEntry).toContain('createInvitationsRoutes(invitationsService)');
@@ -462,7 +462,7 @@ describe('frontières API-first et modulaires', () => {
     expect(edgeEntry).toContain('createRolesRoutes(rolesService)');
     expect(edgeEntry).toContain('SupabaseShopsRepository(client, publicSupabaseUrl(request, supabaseUrl))');
     expect(edgeEntry).toContain(
-      'createShopsRoutes(shopsService, storefrontSessionService, storefrontSessionCookiePolicy',
+      'createShopsRoutes(shopsService, storefrontSessionService, storefrontCookiePolicy)',
     );
     expect(edgeEntry).toContain('SupabaseCatalogRepository(client)');
     expect(edgeEntry).toContain('SupabaseCatalogAutomationGateway(client)');
@@ -770,6 +770,8 @@ describe('frontières API-first et modulaires', () => {
     expect(chat).not.toContain('utils/supabase');
     expect(chat).not.toContain('functions/v1');
     expect(portal).not.toContain('functions/v1');
+    expect(portal).not.toContain('useAuth');
+    expect(portal).toContain('shopSlug: shop.slug');
     expect(hook).toContain('assistant.send');
     expect(hook).not.toMatch(/\bfetch\s*\(/);
     expect(hook).not.toContain("event === 'delta'");
@@ -779,14 +781,12 @@ describe('frontières API-first et modulaires', () => {
     expect(adapter).not.toContain('supabase');
   });
 
-  it('fait persister les produits IA par Shops', () => {
+  it('ne donne pas au storefront un droit Magrit de mutation du catalogue', () => {
     const portal = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/PortalCatalog.tsx'), 'utf8');
-    const repository = readFileSync(resolve(process.cwd(), 'src/adapters/supabase/shops-repository.ts'), 'utf8');
-    expect(portal).toContain('shopsApi.persistAiProduct');
+    expect(portal).not.toContain('shopsApi.persistAiProduct');
+    expect(portal).not.toContain('useShopsApi');
     expect(portal).not.toContain('utils/supabase');
     expect(portal).not.toMatch(/\bsupabase\s*\./);
-    expect(repository).toContain("rpc('persist_shop_ai_product'");
-    expect(repository).toContain('await this.requireShop(tenantId, shopId)');
   });
 
   it('isole le renvoi des invitations derrière le port email', () => {

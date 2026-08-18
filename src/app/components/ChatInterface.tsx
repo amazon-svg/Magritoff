@@ -184,7 +184,6 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
       if (!session?.access_token) throw new ClaudeSseStreamError('network', 'Authentification requise', 401);
       const requestBody = {
         messages: contextMessages,
-        userId: user?.id ?? null,
         tenantId: currentTenant?.id ?? null,
         mode,
       };

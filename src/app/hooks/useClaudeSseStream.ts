@@ -11,7 +11,7 @@ export { AssistantStreamError as ClaudeSseStreamError };
 export const MAX_CONTEXT_MESSAGES = 25;
 
 export interface SseStreamConfig {
-  authToken: string;
+  authToken?: string;
   body: unknown;
   onDelta?: (chunk: string) => void;
 }
@@ -57,10 +57,10 @@ export function useClaudeSseStream() {
 
       try {
         return await assistant.send({
-          accessToken: config.authToken,
           streaming,
           body: config.body,
           signal: controller.signal,
+          ...(config.authToken ? { accessToken: config.authToken } : {}),
           ...(config.onDelta ? { onDelta: config.onDelta } : {}),
         });
       } finally {

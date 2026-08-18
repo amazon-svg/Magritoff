@@ -4,7 +4,7 @@ export type AssistantStreamPayload = Record<string, unknown> & {
 };
 
 export type AssistantStreamRequest = Readonly<{
-  accessToken: string;
+  accessToken?: string;
   streaming: boolean;
   body: unknown;
   signal: AbortSignal;

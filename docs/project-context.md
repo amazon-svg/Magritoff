@@ -4,7 +4,7 @@
 >
 > **Source authoritative :** `~/Downloads/CONTEXT_Magrit_IA.md` (maintenu par Arnaud, plus exhaustif). Ce fichier en est la **synthèse opérationnelle pour les agents BMAD** (focus : règles, conventions, états de version, identifiants techniques, **PAS** la stratégie commerciale détaillée).
 >
-> **Dernière mise à jour :** 2026-08-11 (AF7.1 — accès boutiques privées).
+> **Dernière mise à jour :** 2026-08-18 (UM10.1 — assistant storefront séparé).
 > **Maintenu par :** Arnaud Mazon — PDG AGE Développement — `arnaud@age-services.fr`.
 > **Langue de travail :** français (livrables, code commits, variables métier).
 
@@ -69,10 +69,10 @@
 ### 3.3 Multi-tenancy
 
 - Architecture multi-tenants stricte dès le départ (US-NEW-04 P0).
-- **Cible différée, non livrée** : séparation stricte entre utilisateurs Magrit
-  et comptes boutique, avec un compte indépendant par couple
-  `(boutique, email)`, compte miroir et délégation « Se connecter comme ».
-  Spécification :
+- **Livré sur `feat/storefront-identity-um2`** : séparation stricte entre
+  utilisateurs Magrit et comptes boutique, avec un compte indépendant par
+  couple `(boutique, email)`, compte miroir et délégation « Se connecter comme ».
+  Spécification et règles d’exploitation :
   `_bmad-output/planning-artifacts/spec-identites-magrit-et-comptes-boutique.md`.
 - Chaque tenant = espace isolé. Tables tenant-scoped : `tenants`, `tenant_members`, `tenant_invitations`, `tenant_member_events`, `tenant_slug_history`, `tenant_gamme_subscriptions`, `tenant_orders` (S1.4), `tenant_order_items`, `tenant_order_status_events`, `shops`, `llm_usage_events`.
 - Routes tenant : `/t/:slug/dashboard`, `/t/:slug/atelier`, `/t/:slug/dashboard/users`.

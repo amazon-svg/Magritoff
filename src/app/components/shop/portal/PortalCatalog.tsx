@@ -3,8 +3,7 @@ import { Search, Sparkles, X, Loader2, AlertTriangle } from 'lucide-react';
 import type { Shop, ShopProduct } from '../../../contexts/ShopsContext';
 import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
 import { resolveProductImage } from '../../../utils/productImages';
-import { useDiagnosticsApi, useShopsApi } from '../../../contexts/ModuleClientsContext';
-import { useAuth } from '../../../contexts/AuthContext';
+import { useDiagnosticsApi } from '../../../contexts/ModuleClientsContext';
 import { computeClariprintQuoteSafe } from '../../../../modules/clariprint';
 import { useClaudeSseStream, ClaudeSseStreamError } from '../../../hooks/useClaudeSseStream';
 import { ENABLE_STREAMING_CHAT } from '../../../lib/featureFlags';
@@ -117,32 +116,6 @@ function configToEphemeralShopProduct(config: any, index: number): ShopProduct {
   } as ShopProduct;
 }
 
-/**
- * S-SHOP-AI-PERSIST (2026-07-08) — signature déterministe d'un produit calculé,
- * pour dédupliquer sa persistance en boutique (même config = 1 seul produit).
- * On se base sur l'essence de la config (gamme + format + dimensions + quantité
- * + matière/finitions), pas sur le libellé qui peut varier.
- */
-function aiConfigSignature(p: ShopProduct): string {
-  const c = (p.config ?? {}) as Record<string, any>;
-  const cp = (c.clariprintData ?? {}) as Record<string, any>;
-  return [
-    p.gamme_slug ?? '',
-    String(c.kind ?? cp.kind ?? ''),
-    String(c.format ?? ''),
-    String(c.width ?? cp.width ?? ''),
-    String(c.height ?? cp.height ?? ''),
-    String(c.quantity ?? cp.quantity ?? ''),
-    String(c.material ?? c.support ?? ''),
-    String(c.weight ?? c.grammage ?? ''),
-    String(c.printing ?? c.impression ?? ''),
-    String(c.finishRecto ?? ''),
-    String(c.finishVerso ?? ''),
-  ]
-    .join('|')
-    .toLowerCase();
-}
-
 // F2 — Catalogue recherche conversationnelle
 // Design source : .design-handoff/designs/05 - Portail B2B.html (section .f2b)
 export function PortalCatalog({
@@ -159,8 +132,6 @@ export function PortalCatalog({
   initialFormat,
 }: Props) {
   const { clariprint } = useBrowserServices();
-  const { session } = useAuth();
-  const shopsApi = useShopsApi();
   const assistantApi = useDiagnosticsApi();
   const [query, setQuery] = useState('');
   // S2.21 — autocomplétion : menu ouvert au focus + saisie ≥ 2 car.
@@ -223,11 +194,9 @@ export function PortalCatalog({
       // reponse et le filtre texte local restait muet sur une phrase en langage
       // naturel = ecran sans reponse. Le streaming donne un retour vivant
       // (aiStreaming via onDelta) et le payload `done` porte les memes configs.
-      if (!session?.access_token) throw new ClaudeSseStreamError('network', 'Authentification requise', 401);
       const data = await sendSseStream(
         {
-          authToken: session.access_token,
-          body: { messages: [{ role: 'user', content: prompt }] },
+          body: { messages: [{ role: 'user', content: prompt }], shopSlug: shop.slug },
           onDelta: ENABLE_STREAMING_CHAT ? () => setAiStreaming(true) : undefined,
         },
         ENABLE_STREAMING_CHAT,
@@ -260,24 +229,6 @@ export function PortalCatalog({
       setAiResults(withPrices);
       setSearchMode('ia'); // S-CONSO-4 : reussite -> mode IA
 
-      // S-SHOP-AI-PERSIST (2026-07-08, décision Arnaud) : dès qu'un produit est
-      // calculé par Magrit, il devient PERSISTANT dans cette boutique (catalogue
-      // + recherche future), dédupliqué par config. Best-effort et
-      // fire-and-forget : ne bloque pas l'affichage et n'échoue jamais la
-      // recherche (RPC SECURITY DEFINER borné à l'accès boutique ; anon ignoré).
-      // Le realtime shop_products de PublicShop rafraîchit ensuite la grille.
-      if (shop.tenant_id) void Promise.all(
-        withPrices.map((p) =>
-          shopsApi.persistAiProduct(shop.tenant_id!, shop.id, {
-            configHash: aiConfigSignature(p), name: p.name,
-            category: p.category ?? 'Autres', description: p.description ?? '',
-            priceHt: p.price_ht ?? 0, imageUrl: p.image_url ?? '',
-            config: p.config ?? {}, gammeSlug: p.gamme_slug ?? null,
-          }).catch((error) => console.info(`[shop_ai_persist] skip "${p.name}" — ${error instanceof Error ? error.message : 'erreur'}`)),
-        ),
-      ).catch(() => {
-        /* best-effort : la persistance ne doit jamais casser la recherche */
-      });
     } catch (err: any) {
       // Annulation (demontage / nouvelle requete) : on ne touche a rien.
       if (err instanceof ClaudeSseStreamError && err.kind === 'aborted') {

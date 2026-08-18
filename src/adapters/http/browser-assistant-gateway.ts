@@ -12,7 +12,7 @@ export class BrowserApiAssistantGateway implements AssistantGateway {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${request.accessToken}`,
+          ...(request.accessToken ? { Authorization: `Bearer ${request.accessToken}` } : {}),
           ...(request.streaming ? { Accept: 'text/event-stream' } : {}),
         },
         body: JSON.stringify(request.body),
