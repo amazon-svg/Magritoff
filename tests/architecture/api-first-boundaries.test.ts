@@ -655,6 +655,7 @@ describe('frontières API-first et modulaires', () => {
     const services = readFileSync(resolve(process.cwd(), 'src/app/contexts/BrowserServicesContext.tsx'), 'utf8');
     const storefrontServices = readFileSync(resolve(process.cwd(), 'src/app/contexts/StorefrontBrowserServicesContext.tsx'), 'utf8');
     const runtime = readFileSync(resolve(process.cwd(), 'src/platform/runtime/browser-runtime.ts'), 'utf8');
+    const storefrontRuntime = readFileSync(resolve(process.cwd(), 'src/platform/runtime/storefront-browser-runtime.ts'), 'utf8');
     const supabaseConfig = readFileSync(resolve(process.cwd(), 'supabase/config.toml'), 'utf8');
     expect(adapter).toContain('ClariprintApiClient');
     expect(adapter).not.toContain('functions/v1');
@@ -675,6 +676,7 @@ describe('frontières API-first et modulaires', () => {
     expect(portal).toContain('useStorefrontClariprint');
     expect(product).toContain('useStorefrontClariprint');
     expect(runtime).toContain('new ClariprintHttpAdapter(');
+    expect(storefrontRuntime).toContain('new ClariprintHttpAdapter(');
     expect(supabaseConfig).toMatch(/\[functions\.magrit-api\][\s\S]*verify_jwt\s*=\s*false/);
   });
 
@@ -684,6 +686,7 @@ describe('frontières API-first et modulaires', () => {
     const services = readFileSync(resolve(process.cwd(), 'src/app/contexts/BrowserServicesContext.tsx'), 'utf8');
     const storefrontServices = readFileSync(resolve(process.cwd(), 'src/app/contexts/StorefrontBrowserServicesContext.tsx'), 'utf8');
     const runtime = readFileSync(resolve(process.cwd(), 'src/platform/runtime/browser-runtime.ts'), 'utf8');
+    const storefrontRuntime = readFileSync(resolve(process.cwd(), 'src/platform/runtime/storefront-browser-runtime.ts'), 'utf8');
 
     expect(chat).not.toContain('browserAssistantGateway');
     expect(catalog).not.toContain('browserAssistantGateway');
@@ -694,10 +697,14 @@ describe('frontières API-first et modulaires', () => {
     expect(catalog).toContain('useStorefrontAssistant');
     expect(services).toContain('assistant: runtime.assistant');
     expect(services).not.toContain('storefrontAssistant');
-    expect(storefrontServices).toContain('assistant: runtime.storefrontAssistant');
+    expect(storefrontServices).toContain('assistant: runtime.assistant');
     expect(storefrontServices).toContain('useStorefrontApiRuntime');
     expect(runtime).toContain('assistant: browserAssistantGateway');
-    expect(runtime).toContain('storefrontAssistant: browserStorefrontAssistantGateway');
+    expect(runtime).not.toContain('browserStorefrontAssistantGateway');
+    expect(storefrontRuntime).toContain('assistant: browserStorefrontAssistantGateway');
+    expect(storefrontRuntime).not.toContain('browserAuthenticationGateway');
+    expect(storefrontRuntime).not.toContain('adapters/supabase');
+    expect(storefrontRuntime).not.toContain('AuthenticationGateway');
   });
 
   it('fait passer la création rapide des brouillons par Quotes', () => {

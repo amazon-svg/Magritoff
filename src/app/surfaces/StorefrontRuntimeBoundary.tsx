@@ -1,5 +1,5 @@
 import { Outlet } from 'react-router';
-import { browserRuntime } from '../../platform/runtime';
+import { storefrontBrowserRuntime } from '../../platform/runtime/storefront-browser-runtime';
 import { StorefrontApiRuntimeProvider } from '../contexts/StorefrontApiRuntimeContext';
 import { StorefrontBrowserServicesProvider } from '../contexts/StorefrontBrowserServicesContext';
 import { StorefrontModuleClientsProvider } from '../contexts/StorefrontModuleClientsContext';
@@ -8,7 +8,7 @@ import { StorefrontModuleClientsProvider } from '../contexts/StorefrontModuleCli
 export function StorefrontRuntimeBoundary() {
   return (
     <StorefrontApiRuntimeProvider>
-      <StorefrontBrowserServicesProvider runtime={browserRuntime}>
+      <StorefrontBrowserServicesProvider runtime={storefrontBrowserRuntime}>
         <StorefrontModuleClientsProvider>
           <Outlet />
         </StorefrontModuleClientsProvider>

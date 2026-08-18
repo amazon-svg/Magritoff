@@ -4,10 +4,7 @@ import { ClariprintApiClient, type ClariprintPricingGateway } from '../../module
 import { DiagnosticsApiClient } from '../../modules/diagnostics/index.ts';
 import { ClariprintHttpAdapter } from '../../adapters/http/browser-clariprint-adapter.ts';
 import type { FetchApiClient } from '../api/index.ts';
-import {
-  browserAssistantGateway,
-  browserStorefrontAssistantGateway,
-} from '../../adapters/http/browser-assistant-gateway.ts';
+import { browserAssistantGateway } from '../../adapters/http/browser-assistant-gateway.ts';
 import type { AssistantGateway } from '../../modules/diagnostics/index.ts';
 import { browserMockupGateway } from '../../adapters/http/browser-mockup-gateway.ts';
 import type { MockupGateway } from '../../modules/shops/index.ts';
@@ -15,7 +12,6 @@ import type { MockupGateway } from '../../modules/shops/index.ts';
 export type BrowserRuntime = Readonly<{
   authentication: AuthenticationGateway;
   assistant: AssistantGateway;
-  storefrontAssistant: AssistantGateway;
   mockups: MockupGateway;
   createClariprint(client: FetchApiClient): ClariprintPricingGateway;
 }>;
@@ -23,7 +19,6 @@ export type BrowserRuntime = Readonly<{
 export const browserRuntime: BrowserRuntime = Object.freeze({
   authentication: browserAuthenticationGateway,
   assistant: browserAssistantGateway,
-  storefrontAssistant: browserStorefrontAssistantGateway,
   mockups: browserMockupGateway,
   createClariprint: (client) => new ClariprintHttpAdapter(
     new ClariprintApiClient(client),

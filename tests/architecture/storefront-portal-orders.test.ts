@@ -104,6 +104,10 @@ describe('portail commandes par compte boutique', () => {
     expect(storefrontBoundary).not.toContain("../contexts/AuthContext");
     expect(storefrontBoundary).not.toContain("../contexts/ApiRuntimeContext");
     expect(storefrontBoundary).not.toContain("../contexts/ModuleClientsContext");
+    expect(storefrontBoundary).toContain('runtime={storefrontBrowserRuntime}');
+    expect(storefrontBoundary).toContain("from '../../platform/runtime/storefront-browser-runtime'");
+    expect(storefrontBoundary).not.toContain("from '../../platform/runtime'");
+    expect(storefrontBoundary).not.toContain('import { browserRuntime }');
     expect(workspaceBoundary).not.toContain('Storefront');
     expect(workspaceBoundary).toContain('<AuthProvider');
     expect(workspaceBoundary).toContain('<SessionBootstrapProvider>');
