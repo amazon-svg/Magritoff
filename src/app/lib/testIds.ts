@@ -83,13 +83,6 @@ export const TEST_IDS = {
     invitationResendBtn: 'user-invitation-resend-btn',
     // P03 — droits granulaires
     permissionsModal: 'user-permissions-modal',
-    accessScopeRadio: 'user-access-scope-radio',
-    allowedShopsMultiselect: 'user-allowed-shops-multiselect',
-    allowedShopOption: 'user-allowed-shop-option',
-    permissionCanQuoteCheckbox: 'user-permission-can-quote-checkbox',
-    permissionCanOrderCheckbox: 'user-permission-can-order-checkbox',
-    permissionCanInviteCheckbox: 'user-permission-can-invite-checkbox',
-    permissionsSaveBtn: 'user-permissions-save-btn',
     // S-USERS-REFONTE Phase A (2026-05-25) : nouvelle section Rôles
     // (catalog + assignations matrix users × rôles).
     sectionRoles: 'users-section-roles',

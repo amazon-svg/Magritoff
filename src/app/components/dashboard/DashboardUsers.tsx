@@ -18,8 +18,7 @@
 
 import { useEffect, useState } from 'react';
 import {
-  UserMinus, Shield, Plus, Pencil, Trash2, Users as UsersIcon,
-  X, Loader2, Settings, Send,
+  UserMinus, Shield, Plus, Settings, Send,
 } from 'lucide-react';
 import {
   useTenant,
@@ -168,29 +167,6 @@ function MagritUsersSection() {
       alert('Echec de la mise a jour du role : ' + (error instanceof Error ? error.message : 'inconnue'));
     }
     setUpdatingRoleFor(null);
-  };
-
-  const savePermissions = async (
-    member: MemberRow,
-    nextScope: AccessScope,
-    nextShopIds: string[],
-    nextPerms: MemberPermissions
-  ) => {
-    if (!currentTenant) return;
-    if (nextScope === 'shop_only' && nextShopIds.length === 0) {
-      alert('Selectionnez au moins une boutique pour un acces shop_only.');
-      return;
-    }
-    try {
-      await membersApi.updateAccess(currentTenant.id, member.user_id, {
-        accessScope: nextScope, allowedShopIds: nextScope === 'shop_only' ? nextShopIds : [],
-        permissions: { canQuote: nextPerms.can_quote, canOrder: nextPerms.can_order, canInvite: nextPerms.can_invite },
-      });
-      setEditingPerms(null);
-      await load();
-    } catch (error) {
-      alert('Echec de la sauvegarde : ' + (error instanceof Error ? error.message : 'inconnue'));
-    }
   };
 
   const removeMember = async (member: MemberRow) => {
@@ -457,8 +433,8 @@ function MagritUsersSection() {
         </div>
       )}
 
-      {/* S-USERS-REFONTE Phase A : modal Permissions refait (matrix rôles).
-          L'ancien EditPermissionsModal legacy est conservé en code mort. */}
+      {/* La modale active ne permet qu'une promotion legacy vers Magrit et
+          l'édition des rôles internes. Les comptes boutique vivent ailleurs. */}
       {editingPerms && currentTenant && user && (
         <EditUserRolesModal
           open={true}
@@ -525,238 +501,6 @@ function ScopeBadge({
     >
       BOUTIQUE · {member.allowed_shop_ids.length}
     </span>
-  );
-}
-
-function ScopeAndPermissionsFieldset(props: {
-  scope: AccessScope;
-  shopIds: string[];
-  permissions: MemberPermissions;
-  shops: { id: string; name: string }[];
-  onChangeScope: (v: AccessScope) => void;
-  onToggleShop: (id: string) => void;
-  onChangePermission: (k: keyof MemberPermissions, v: boolean) => void;
-}) {
-  return (
-    <div className="space-y-3">
-      <div>
-        <span
-          className="block text-ink-muted mb-1.5"
-          style={{ fontSize: '11.5px', fontWeight: 500 }}
-        >
-          Acces
-        </span>
-        <div className="flex gap-2">
-          <ScopeRadio
-            current={props.scope}
-            value="magrit_full"
-            label="Magrit complet"
-            description="Voit tout le dashboard"
-            onChange={props.onChangeScope}
-            testId={TEST_IDS.user.accessScopeRadio}
-          />
-          <ScopeRadio
-            current={props.scope}
-            value="shop_only"
-            label="Boutique uniquement"
-            description="Acces limite a une ou plusieurs boutiques"
-            onChange={props.onChangeScope}
-            testId={TEST_IDS.user.accessScopeRadio}
-          />
-        </div>
-      </div>
-
-      {props.scope === 'shop_only' && (
-        <div data-testid={TEST_IDS.user.allowedShopsMultiselect}>
-          <span
-            className="block text-ink-muted mb-1.5"
-            style={{ fontSize: '11.5px', fontWeight: 500 }}
-          >
-            Boutiques accessibles
-          </span>
-          {props.shops.length === 0 ? (
-            <p className="text-ink-mute-2" style={{ fontSize: '12px' }}>
-              Aucune boutique creee. Creez-en une avant d'inviter un user shop_only.
-            </p>
-          ) : (
-            <div className="grid grid-cols-2 gap-1.5">
-              {props.shops.map((s) => (
-                <label
-                  key={s.id}
-                  data-testid={TEST_IDS.user.allowedShopOption}
-                  data-shop-id={s.id}
-                  className="flex items-center gap-2 px-2 py-1 border border-line rounded cursor-pointer hover:bg-line/60"
-                >
-                  <input
-                    type="checkbox"
-                    checked={props.shopIds.includes(s.id)}
-                    onChange={() => props.onToggleShop(s.id)}
-                  />
-                  <span style={{ fontSize: '12.5px' }}>{s.name}</span>
-                </label>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      <div>
-        <span
-          className="block text-ink-muted mb-1.5"
-          style={{ fontSize: '11.5px', fontWeight: 500 }}
-        >
-          Permissions
-        </span>
-        <div className="flex flex-wrap gap-3">
-          <PermCheckbox
-            data-testid={TEST_IDS.user.permissionCanQuoteCheckbox}
-            label="Créer des devis"
-            checked={props.permissions.can_quote}
-            onChange={(v) => props.onChangePermission('can_quote', v)}
-          />
-          <PermCheckbox
-            data-testid={TEST_IDS.user.permissionCanOrderCheckbox}
-            label="Passer commande"
-            checked={props.permissions.can_order}
-            onChange={(v) => props.onChangePermission('can_order', v)}
-          />
-          <PermCheckbox
-            data-testid={TEST_IDS.user.permissionCanInviteCheckbox}
-            label="Inviter d'autres utilisateurs"
-            checked={props.permissions.can_invite}
-            onChange={(v) => props.onChangePermission('can_invite', v)}
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ScopeRadio(props: {
-  current: AccessScope;
-  value: AccessScope;
-  label: string;
-  description: string;
-  onChange: (v: AccessScope) => void;
-  testId?: string;
-}) {
-  const selected = props.current === props.value;
-  return (
-    <label
-      data-testid={props.testId}
-      data-scope={props.value}
-      className={`flex-1 cursor-pointer p-2.5 rounded border ${
-        selected ? 'border-ink bg-bg' : 'border-line hover:bg-line/60'
-      }`}
-    >
-      <input
-        type="radio"
-        className="sr-only"
-        checked={selected}
-        onChange={() => props.onChange(props.value)}
-      />
-      <span className="block text-ink" style={{ fontSize: '13px', fontWeight: selected ? 500 : 400 }}>
-        {props.label}
-      </span>
-      <span className="block text-ink-muted mt-0.5" style={{ fontSize: '11.5px' }}>
-        {props.description}
-      </span>
-    </label>
-  );
-}
-
-function PermCheckbox(props: {
-  label: string;
-  checked: boolean;
-  onChange: (v: boolean) => void;
-  'data-testid'?: string;
-}) {
-  return (
-    <label className="inline-flex items-center gap-2 cursor-pointer">
-      <input
-        data-testid={props['data-testid']}
-        type="checkbox"
-        checked={props.checked}
-        onChange={(e) => props.onChange(e.target.checked)}
-      />
-      <span className="text-ink" style={{ fontSize: '12.5px' }}>
-        {props.label}
-      </span>
-    </label>
-  );
-}
-
-function EditPermissionsModal(props: {
-  member: MemberRow;
-  shops: { id: string; name: string }[];
-  onClose: () => void;
-  onSave: (scope: AccessScope, shopIds: string[], perms: MemberPermissions) => void;
-}) {
-  const [scope, setScope] = useState<AccessScope>(props.member.access_scope);
-  const [shopIds, setShopIds] = useState<string[]>(props.member.allowed_shop_ids);
-  const [perms, setPerms] = useState<MemberPermissions>(props.member.permissions);
-
-  return (
-    <div
-      data-testid={TEST_IDS.user.permissionsModal}
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50"
-      onClick={props.onClose}
-    >
-      <div
-        className="bg-paper rounded-xl shadow-2xl w-full max-w-lg p-5 max-h-[90vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-        style={{ fontFamily: 'var(--font-ui)' }}
-      >
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="text-ink m-0" style={{ fontWeight: 400, fontSize: '17px' }}>
-              Modifier les droits
-            </h3>
-            <p className="mt-1 text-ink-muted" style={{ fontSize: '12px' }}>
-              {props.member.email ?? props.member.user_id}
-            </p>
-          </div>
-          <button
-            onClick={props.onClose}
-            className="p-1 rounded hover:bg-line"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        <ScopeAndPermissionsFieldset
-          scope={scope}
-          shopIds={shopIds}
-          permissions={perms}
-          shops={props.shops}
-          onChangeScope={setScope}
-          onToggleShop={(id) =>
-            setShopIds((prev) =>
-              prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
-            )
-          }
-          onChangePermission={(k, v) => setPerms((p) => ({ ...p, [k]: v }))}
-        />
-
-        <div className="flex gap-2 pt-4 mt-2 border-t border-line">
-          <button
-            onClick={props.onClose}
-            className="flex-1 px-3 py-2 border border-line rounded-md text-ink-muted hover:text-ink"
-            style={{ fontSize: '13px', fontWeight: 500 }}
-          >
-            Annuler
-          </button>
-          <button
-            data-testid={TEST_IDS.user.permissionsSaveBtn}
-            onClick={() => props.onSave(scope, shopIds, perms)}
-            className="flex-1 px-3 py-2 rounded-md bg-ink text-paper hover:bg-black"
-            style={{ fontSize: '13px', fontWeight: 500 }}
-          >
-            Enregistrer
-          </button>
-        </div>
-      </div>
-    </div>
   );
 }
 

@@ -8,6 +8,9 @@ const invite = readFileSync(resolve(
 const edit = readFileSync(resolve(
   process.cwd(), 'src/app/components/dashboard/EditUserRolesModal.tsx',
 ), 'utf8');
+const users = readFileSync(resolve(
+  process.cwd(), 'src/app/components/dashboard/DashboardUsers.tsx',
+), 'utf8');
 const invitationContract = readFileSync(resolve(
   process.cwd(), 'src/modules/invitations/api/contracts.ts',
 ), 'utf8');
@@ -28,6 +31,10 @@ describe('UM8.1 frontière d écriture des utilisateurs Magrit', () => {
     expect(edit).toContain("accessScope: 'magrit_full', allowedShopIds: []");
     expect(edit).toContain('Convertir en utilisateur Magrit');
     expect(edit).not.toContain("setScope('shop_only')");
+    expect(users).not.toContain('ScopeAndPermissionsFieldset');
+    expect(users).not.toContain('EditPermissionsModal');
+    expect(users).not.toContain("nextScope === 'shop_only'");
+    expect(users).not.toContain('value="shop_only"');
   });
 
   it('refuse le modèle legacy dans les contrats de commande', () => {

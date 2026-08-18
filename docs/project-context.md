@@ -74,6 +74,9 @@
   couple `(boutique, email)`, compte miroir et délégation « Se connecter comme ».
   Spécification et règles d’exploitation :
   `_bmad-output/planning-artifacts/spec-identites-magrit-et-comptes-boutique.md`.
+- Les surfaces utilisateurs Magrit ne créent plus de `shop_only`. Les lignes
+  historiques restent lisibles uniquement pour migration ou promotion à sens
+  unique vers `magrit_full` ; les formulaires mixtes ont été retirés.
 - Chaque tenant = espace isolé. Tables tenant-scoped : `tenants`, `tenant_members`, `tenant_invitations`, `tenant_member_events`, `tenant_slug_history`, `tenant_gamme_subscriptions`, `tenant_orders` (S1.4), `tenant_order_items`, `tenant_order_status_events`, `shops`, `llm_usage_events`.
 - Routes tenant : `/t/:slug/dashboard`, `/t/:slug/atelier`, `/t/:slug/dashboard/users`.
 - Route boutique tenant : `/shop/:slug`. Elle n’est publique que lorsque
