@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState, useMemo } from 'react';
 import { Search, Sparkles, X, Loader2, AlertTriangle } from 'lucide-react';
-import type { Shop, ShopProduct } from '../../../contexts/ShopsContext';
+import type { Shop, ShopProduct } from '../../../../modules/shops';
 import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
 import { resolveProductImage } from '../../../utils/productImages';
 import { useStorefrontDiagnosticsApi } from '../../../contexts/ModuleClientsContext';

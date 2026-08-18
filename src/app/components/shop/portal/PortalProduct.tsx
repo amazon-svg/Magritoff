@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ChevronRight, Minus, Plus, Calculator, Loader2, CheckCircle, AlertTriangle, RefreshCw } from 'lucide-react';
-import type { ShopProduct } from '../../../contexts/ShopsContext';
+import type { ShopProduct } from '../../../../modules/shops';
 import { resolveProductImage } from '../../../utils/productImages';
 import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
 import { resolveProductGamme } from '../../../utils/productEnrichment';

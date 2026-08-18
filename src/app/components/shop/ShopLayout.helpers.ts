@@ -20,7 +20,7 @@
  *      (AC1 : badge affiche quand cartCount > 0).
  */
 
-import type { Shop } from "../../contexts/ShopsContext";
+import type { Shop } from '../../../modules/shops';
 import { resolveFontPairing } from "./fontPairings";
 
 export interface ShopThemeResolution {

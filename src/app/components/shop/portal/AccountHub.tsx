@@ -12,7 +12,7 @@
 
 import { FileText, LogOut, Package, User } from 'lucide-react';
 import type { StorefrontSession } from '../../../../modules/shop-customers';
-import type { Shop } from '../../../contexts/ShopsContext';
+import type { Shop } from '../../../../modules/shops';
 import type { AccountSection } from './types';
 import { PortalOrders } from './PortalOrders';
 import { TEST_IDS } from '../../../lib/testIds';

@@ -1,5 +1,5 @@
 import { ShoppingCart } from 'lucide-react';
-import type { Shop } from '../../../contexts/ShopsContext';
+import type { Shop } from '../../../../modules/shops';
 import type { PortalView } from './types';
 import { TEST_IDS } from '../../../lib/testIds';
 import { AuthMenu } from '../../auth/AuthMenu';

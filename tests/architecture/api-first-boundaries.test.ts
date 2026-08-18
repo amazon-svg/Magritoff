@@ -553,6 +553,19 @@ describe('frontières API-first et modulaires', () => {
     }
   });
 
+  it('fait dépendre le storefront du module Shops et non du contexte workspace', () => {
+    const storefrontRoot = resolve(process.cwd(), 'src/app/components/shop');
+    const violations = listTypeScriptFiles(storefrontRoot)
+      .filter((file) => readFileSync(file, 'utf8').includes('contexts/ShopsContext'))
+      .map((file) => relative(process.cwd(), file));
+    const shopModule = readFileSync(resolve(process.cwd(), 'src/modules/shops/index.ts'), 'utf8');
+    const workspaceContext = readFileSync(resolve(process.cwd(), 'src/app/contexts/ShopsContext.tsx'), 'utf8');
+
+    expect(violations).toEqual([]);
+    expect(shopModule).toContain("export type { Shop, ShopProduct, ShopTheme }");
+    expect(workspaceContext).toContain("from '../../modules/shops'");
+  });
+
   it('sort les redirections tenant du fournisseur', () => {
     const legacy = readFileSync(resolve(process.cwd(), 'src/app/components/tenant/LegacySlugRedirect.tsx'), 'utf8');
     const shopOnly = readFileSync(resolve(process.cwd(), 'src/app/components/tenant/ShopOnlyRedirect.tsx'), 'utf8');

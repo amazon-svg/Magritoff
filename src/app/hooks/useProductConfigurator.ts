@@ -19,7 +19,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import type { ShopProduct } from "../contexts/ShopsContext";
+import type { ShopProduct } from "../../modules/shops";
 import { ENABLE_OVERLAY_LIVE_RECALC } from "../lib/featureFlags";
 import {
   ClariprintPricingError,

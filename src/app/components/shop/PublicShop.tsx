@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router';
 import { Loader2 } from 'lucide-react';
-import type { Shop, ShopProduct } from '../../contexts/ShopsContext';
+import type { Shop, ShopProduct } from '../../../modules/shops';
 import type { Gamme, ProductDefinition } from '../../utils/productEnrichment';
 
 import { PortalHome } from './portal/PortalHome';

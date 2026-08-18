@@ -10,7 +10,7 @@
 
 import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
-import type { Shop } from '../../../contexts/ShopsContext';
+import type { Shop } from '../../../../modules/shops';
 import type { CartLine } from './types';
 import { applyTax } from '../../../utils/tax';
 import { formatEuro } from '../ProductOverlay.helpers';

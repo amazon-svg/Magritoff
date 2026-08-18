@@ -26,7 +26,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { ShoppingCart, UserRound, X } from "lucide-react";
-import type { Shop, ShopProduct } from "../../contexts/ShopsContext";
+import type { Shop, ShopProduct } from '../../../modules/shops';
 import type { Gamme } from "../../utils/productEnrichment";
 import type { StorefrontSession } from "../../../modules/shop-customers";
 import type { PortalView, BudgetInfo } from "./portal/types";

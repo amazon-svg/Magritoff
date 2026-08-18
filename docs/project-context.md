@@ -4,7 +4,7 @@
 >
 > **Source authoritative :** `~/Downloads/CONTEXT_Magrit_IA.md` (maintenu par Arnaud, plus exhaustif). Ce fichier en est la **synthèse opérationnelle pour les agents BMAD** (focus : règles, conventions, états de version, identifiants techniques, **PAS** la stratégie commerciale détaillée).
 >
-> **Dernière mise à jour :** 2026-08-18 (UM10.10 — transport Clariprint storefront).
+> **Dernière mise à jour :** 2026-08-18 (UM10.11 — modèle boutique modulaire).
 > **Maintenu par :** Arnaud Mazon — PDG AGE Développement — `arnaud@age-services.fr`.
 > **Langue de travail :** français (livrables, code commits, variables métier).
 
@@ -95,6 +95,9 @@
   les écrans workspace utilisent une instance authentifiée distincte.
 - Le probe et le catalogue Shops du storefront suivent la même règle : client
   HTTP anonyme côté navigateur, puis résolution du cookie boutique côté BFF.
+- Les types de lecture `Shop`, `ShopTheme` et `ShopProduct` appartiennent au
+  module Shops. Le storefront ne doit pas les importer depuis `ShopsContext`,
+  qui reste un adaptateur React de la surface workspace.
 - Les devis Clariprint du storefront utilisent une passerelle anonyme dédiée ;
   l’atelier Magrit conserve une passerelle workspace distincte.
 - L’éditorial IA de catégorie ne doit jamais réutiliser l’identité Magrit. En

@@ -39,7 +39,7 @@ import { ProductCardFiche } from "./product-card/ProductCardFiche";
 import { ProductCardPrix } from "./product-card/ProductCardPrix";
 import { extractClariprintConfigFromAtelierProduct } from "./shop/ProductOverlay.helpers";
 import { resolvePrice } from "../utils/priceResolver";
-import type { ShopProduct } from "../contexts/ShopsContext";
+import type { ShopProduct } from "../../modules/shops";
 
 interface ClariprintQuoteResult {
   success: boolean;

@@ -5,3 +5,4 @@ export { ShopRejectedError, type ShopsRepository } from './application/shops-rep
 export type { MockupGateway, MockupParams, MockupSpecs } from './application/mockup-gateway.ts';
 export { shopsModuleManifest } from './manifest.ts';
 export { shopsBackofficeContribution, shopsStorefrontContribution, shopsWorkspaceContribution } from './surface-contributions.ts';
+export type { Shop, ShopProduct, ShopTheme } from './shop-view-model.ts';
