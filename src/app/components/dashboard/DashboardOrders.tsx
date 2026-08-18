@@ -192,6 +192,7 @@ export function DashboardOrders() {
         orders={orders}
         loading={loading}
         error={error}
+        auditApi={ordersApi}
         persistKey={currentTenant ? `orderHistory:dashboard:${currentTenant.id}` : undefined}
         onCancelOrder={handleCancelOrderRequest}
         // S-USERS-REFONTE Phase A : bouton Valider visible uniquement si

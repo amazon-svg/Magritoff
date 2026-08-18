@@ -101,8 +101,8 @@ export interface OrderHistoryTableProps {
   extraFilter?: ExtraFilter;
   /** Cle localStorage pour persistance filtres + tri (optionnel). */
   persistKey?: string;
-  /** Client de lecture de l’audit adapté à la surface appelante. */
-  auditApi?: OrdersApiClient;
+  /** Client de lecture de l’audit adapté à l’identité de la surface appelante. */
+  auditApi: OrdersApiClient;
   /**
    * S3.3 (Sprint 5) : callback Renouveler 1-clic. Si fourni, une colonne
    * Actions affiche un bouton 'Renouveler' sur chaque ligne eligible

@@ -9,6 +9,8 @@ const portal = readFileSync(resolve(process.cwd(), 'src/app/components/shop/port
 const storefront = readFileSync(resolve(process.cwd(), 'src/app/components/shop/PublicShop.tsx'), 'utf8');
 const editor = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/PortalOrderEditor.tsx'), 'utf8');
 const thankYou = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/PortalThankYou.tsx'), 'utf8');
+const auditModal = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/OrderAuditTrailModal.tsx'), 'utf8');
+const dashboard = readFileSync(resolve(process.cwd(), 'src/app/components/dashboard/DashboardOrders.tsx'), 'utf8');
 const moduleClients = readFileSync(resolve(process.cwd(), 'src/app/contexts/ModuleClientsContext.tsx'), 'utf8');
 const catalog = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/PortalCatalog.tsx'), 'utf8');
 
@@ -57,6 +59,9 @@ describe('portail commandes par compte boutique', () => {
     expect(portal).not.toContain('useOrdersApi()');
     expect(editor).not.toContain('useOrdersApi()');
     expect(thankYou).not.toContain('useOrdersApi()');
+    expect(auditModal).not.toContain('useOrdersApi');
+    expect(auditModal).toContain('ordersApi: OrdersApiClient');
+    expect(dashboard).toContain('auditApi={ordersApi}');
   });
 
   it('charge aussi le catalogue boutique sans bearer Magrit', () => {

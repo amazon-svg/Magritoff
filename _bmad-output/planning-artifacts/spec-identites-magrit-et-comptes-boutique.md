@@ -56,7 +56,7 @@ la connexion du checkout et de la garde des boutiques privées sur la session
 boutique BFF ; l'ancien `signIn/signUp` Supabase Auth et la création implicite
 d'un membre `shop_only` disparaissent du storefront. Chaque vague suivante doit être
 découpée en stories BMAD exécutables avant son implémentation.
-UM10.1 à UM10.12 ferment ensuite les fuites de contexte résiduelles : assistant,
+UM10.1 à UM10.13 ferment ensuite les fuites de contexte résiduelles : assistant,
 politique fiscale, ancienne UI de profil mixte et états transactionnels sont
 désormais séparés par identité et par boutique, y compris lors d’un changement
 de slug sans remontage React. Le portail commandes client ne présente plus les
@@ -68,7 +68,9 @@ Il en va de même pour le probe d’accès et le chargement du catalogue public 
 privé, désormais composés avec une instance Shops storefront dédiée.
 L’éditorial IA facultatif n’emprunte plus le bearer Magrit. Sa route dédiée
 résout le slug et le cookie boutique côté BFF ; le tenant n’est jamais choisi
-par le navigateur.
+par le navigateur. Enfin, la modale d’audit partagée ne possède plus de fallback
+vers le client Orders Magrit : chaque surface doit lui injecter explicitement
+le transport correspondant à son identité.
 Le configurateur partagé ne consulte plus non plus `TenantContext` : le taux de
 TVA du catalogue actif est injecté explicitement jusqu’à l’overlay et la page
 gamme.
