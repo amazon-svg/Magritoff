@@ -26,8 +26,19 @@ describe('portail commandes par compte boutique', () => {
   });
 
   it('ne dépend plus exclusivement de Supabase Auth dans l UX', () => {
-    expect(portal).toContain('if (!hasStorefrontSession)');
+    expect(portal).toContain('!hasStorefrontSession');
     expect(portal).not.toContain('useAuth');
     expect(storefront).toContain('hasStorefrontSession={storefrontSession?.identity.shopId === shop.id}');
+  });
+
+  it('ne présente aucune action du workflow interne Magrit', () => {
+    expect(portal).toContain('response.datasets.mine.map(orderSummaryToUi)');
+    expect(portal).toContain("toStatus: 'cancelled'");
+    expect(portal).not.toContain('RejectOrderConfirmDialog');
+    expect(portal).not.toContain('handleValidate');
+    expect(portal).not.toContain('handleStartProduction');
+    expect(portal).not.toContain('handleMarkShipped');
+    expect(portal).not.toContain('TabsTrigger');
+    expect(portal).not.toContain('response.datasets.to_validate');
   });
 });

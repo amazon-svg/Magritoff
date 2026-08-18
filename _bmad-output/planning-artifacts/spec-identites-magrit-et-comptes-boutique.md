@@ -2,7 +2,7 @@
 id: SPEC-IDENTITY-STORE-01
 title: Séparation des utilisateurs Magrit et des comptes boutique
 date: 2026-08-12
-updated: 2026-08-17
+updated: 2026-08-18
 status: in_progress
 target_epic: EPIC-UM-STORE-IDENTITY
 decision_owner: produit
@@ -56,10 +56,12 @@ la connexion du checkout et de la garde des boutiques privées sur la session
 boutique BFF ; l'ancien `signIn/signUp` Supabase Auth et la création implicite
 d'un membre `shop_only` disparaissent du storefront. Chaque vague suivante doit être
 découpée en stories BMAD exécutables avant son implémentation.
-UM10.1 à UM10.4 ferment ensuite les fuites de contexte résiduelles : assistant,
+UM10.1 à UM10.5 ferment ensuite les fuites de contexte résiduelles : assistant,
 politique fiscale, ancienne UI de profil mixte et états transactionnels sont
 désormais séparés par identité et par boutique, y compris lors d’un changement
-de slug sans remontage React.
+de slug sans remontage React. Le portail commandes client ne présente plus les
+files ni les transitions internes Magrit : il ne consomme que `mine` et conserve
+uniquement les actions appartenant au client boutique.
 
 ## 2. Décisions produit figées
 

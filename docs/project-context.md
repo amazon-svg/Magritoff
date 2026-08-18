@@ -4,7 +4,7 @@
 >
 > **Source authoritative :** `~/Downloads/CONTEXT_Magrit_IA.md` (maintenu par Arnaud, plus exhaustif). Ce fichier en est la **synthèse opérationnelle pour les agents BMAD** (focus : règles, conventions, états de version, identifiants techniques, **PAS** la stratégie commerciale détaillée).
 >
-> **Dernière mise à jour :** 2026-08-18 (UM10.2 — fiscalité storefront séparée).
+> **Dernière mise à jour :** 2026-08-18 (UM10.5 — commandes storefront séparées).
 > **Maintenu par :** Arnaud Mazon — PDG AGE Développement — `arnaud@age-services.fr`.
 > **Langue de travail :** français (livrables, code commits, variables métier).
 
@@ -86,6 +86,10 @@
 - Le storefront ne lit pas `TenantContext`. Son régime fiscal est fourni par
   le contrat `PublicShopCatalog` depuis la boutique visitée, puis injecté dans
   produit, panier, checkout et confirmation.
+- Le portail client boutique n’expose que « Mes commandes » et les actions du
+  propriétaire (consultation, renouvellement, édition ou annulation d’un
+  brouillon). Les files et transitions de validation, production et expédition
+  appartiennent exclusivement aux surfaces Magrit.
 - Création tenant : `/tenants/new` (wizard avec validation SIREN INSEE + email pro).
 - Helpers RLS canoniques (à utiliser dans toute nouvelle policy) : `public.is_super_admin()`, `public.user_role_in_tenant(tenant_id)`, `public.current_user_tenant_ids()`, `public.current_user_can_access_shop(shop_id)`.
 - Matrice et invariants détaillés :

@@ -370,16 +370,7 @@ export const TEST_IDS = {
     gammesPills: 'shop-gammes-pills',
     gammePill: 'shop-gamme-pill',
     gammePillAll: 'shop-gamme-pill-all',
-    // S-ORDER-ROLES-3-UI (Sprint 6+, wireframes Sally 2026-06-08) :
-    // PortalOrders refondu en 4 tabs filtres par role workflow + actions
-    // role-driven par ligne. Le suffixe -role distingue les boutons valider/
-    // rejet workflow des boutons admin tenant historiques (orderValidateBtn).
-    ordersTabs: 'shop-orders-tabs',
-    ordersTabMine: 'shop-orders-tab-mine',
-    ordersTabToValidate: 'shop-orders-tab-to-validate',
-    ordersTabToApprove: 'shop-orders-tab-to-approve',
-    ordersTabToProduce: 'shop-orders-tab-to-produce',
-    ordersTabBadgeCount: 'shop-orders-tab-badge-count',
+    // Portail client : liste strictement limitée aux commandes du compte.
     ordersEmptyState: 'shop-orders-empty-state',
     orderValidateBtnRole: 'shop-order-validate-btn-role',
     orderRejectBtn: 'shop-order-reject-btn',
