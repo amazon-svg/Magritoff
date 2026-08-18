@@ -57,7 +57,8 @@ export interface ProductOverlayProps {
   confirmLabel?: string;
   /** TVA injectée par la surface appelante, jamais résolue dans le storefront. */
   taxRate?: number;
-  clariprintGateway?: ClariprintPricingGateway;
+  /** Transport choisi par la surface appelante (workspace ou storefront). */
+  clariprintGateway: ClariprintPricingGateway;
 }
 
 

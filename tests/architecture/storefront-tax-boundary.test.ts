@@ -30,6 +30,7 @@ describe('frontière fiscale du storefront', () => {
     const overlay = readFileSync(resolve(process.cwd(), 'src/app/components/shop/ProductOverlay.tsx'), 'utf8');
     const gamme = readFileSync(resolve(process.cwd(), 'src/app/components/shop/gamme/GammePage.tsx'), 'utf8');
     const configurator = readFileSync(resolve(process.cwd(), 'src/app/hooks/useProductConfigurator.ts'), 'utf8');
+    const productCard = readFileSync(resolve(process.cwd(), 'src/app/components/ProductCard.tsx'), 'utf8');
     const services = readFileSync(resolve(process.cwd(), 'src/app/contexts/BrowserServicesContext.tsx'), 'utf8');
 
     expect(publicShop).toContain('<PortalCatalog');
@@ -44,6 +45,9 @@ describe('frontière fiscale du storefront', () => {
     expect(catalog).toContain('useStorefrontClariprint()');
     expect(gamme).toContain('clariprintGateway: clariprint');
     expect(overlay).toContain('clariprintGateway');
+    expect(configurator).not.toContain('useBrowserServices');
+    expect(configurator).toContain('clariprintGateway: ClariprintPricingGateway');
+    expect(productCard).toContain('clariprintGateway={clariprint}');
   });
 
   it('rend le régime fiscal obligatoire dans le catalogue public', () => {

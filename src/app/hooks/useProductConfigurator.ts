@@ -32,7 +32,6 @@ import {
   type ConfigOptions,
 } from "../components/shop/ProductOverlay.helpers";
 import { applyTax, DEFAULT_TAX_RATE } from "../utils/tax";
-import { useBrowserServices } from "../contexts/BrowserServicesContext";
 import type { ClariprintPricingGateway } from "../../modules/clariprint";
 
 export const COMPUTE_PRICE_TIMEOUT_MS = 10_000;
@@ -165,8 +164,8 @@ export interface UseProductConfiguratorOpts {
   liveRecalc?: boolean;
   /** Taux fourni par la surface : contrat boutique ou tenant workspace. */
   taxRate?: number;
-  /** Passerelle explicite pour séparer les transports workspace/storefront. */
-  clariprintGateway?: ClariprintPricingGateway;
+  /** Passerelle explicite : le moteur partagé ne choisit jamais une identité. */
+  clariprintGateway: ClariprintPricingGateway;
 }
 
 export interface UseProductConfiguratorResult {
@@ -185,11 +184,10 @@ export interface UseProductConfiguratorResult {
 
 export function useProductConfigurator(
   product: ShopProduct | null,
-  opts: UseProductConfiguratorOpts = {},
+  opts: UseProductConfiguratorOpts,
 ): UseProductConfiguratorResult {
   const liveRecalc = opts.liveRecalc ?? ENABLE_OVERLAY_LIVE_RECALC;
-  const { clariprint: workspaceClariprint } = useBrowserServices();
-  const clariprint = opts.clariprintGateway ?? workspaceClariprint;
+  const clariprint = opts.clariprintGateway;
   const taxRate = opts.taxRate ?? DEFAULT_TAX_RATE;
 
   const [options, setOptions] = useState<ConfigOptions>(() =>
