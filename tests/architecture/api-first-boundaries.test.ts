@@ -633,7 +633,10 @@ describe('frontières API-first et modulaires', () => {
     for (const source of [configurator, portal, product, hook]) {
       expect(source).not.toContain('adapters/http/browser-clariprint-adapter');
     }
-    expect(services).toContain('runtime.createClariprint(apiClient)');
+    expect(services).toContain('runtime.createClariprint(apiRuntime.client)');
+    expect(services).toContain('runtime.createClariprint(apiRuntime.anonymousClient)');
+    expect(portal).toContain('useStorefrontClariprint');
+    expect(product).toContain('useStorefrontClariprint');
     expect(runtime).toContain('new ClariprintHttpAdapter(');
     expect(supabaseConfig).toMatch(/\[functions\.magrit-api\][\s\S]*verify_jwt\s*=\s*false/);
   });

@@ -30,6 +30,7 @@ import { GammeConfigurator } from './GammeConfigurator';
 import { StickyPriceBar } from './StickyPriceBar';
 import { PimEditorial } from './PimEditorial';
 import { ShopProductCard } from '../ShopProductCard';
+import { useStorefrontClariprint } from '../../../contexts/BrowserServicesContext';
 
 export interface GammePageProps {
   shop: Shop;
@@ -72,10 +73,11 @@ export function GammePage({
     [products, pimGammes, gammeSlug],
   );
   const defaultProduct = pickDefaultProduct(gammeProducts);
+  const clariprint = useStorefrontClariprint();
 
   // Moteur unique S7.2 — recalc live (exigence < 1,5 s par option).
   const { options, patchOptions, phase, retry, confirm, addDisabled } =
-    useProductConfigurator(defaultProduct, { liveRecalc: true, taxRate });
+    useProductConfigurator(defaultProduct, { liveRecalc: true, taxRate, clariprintGateway: clariprint });
 
   const title = gamme?.name ?? gammeSlug ?? 'Gamme';
 

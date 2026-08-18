@@ -3,11 +3,12 @@ import type { ClariprintPricingGateway } from '../../modules/clariprint';
 import type { AssistantGateway } from '../../modules/diagnostics';
 import type { MockupGateway } from '../../modules/shops';
 import type { BrowserRuntime } from '../../platform/runtime';
-import { useApiRuntimeClient } from './ApiRuntimeContext';
+import { useApiRuntime } from './ApiRuntimeContext';
 
 type BrowserServices = Readonly<{
   assistant: AssistantGateway;
   clariprint: ClariprintPricingGateway;
+  storefrontClariprint: ClariprintPricingGateway;
   mockups: MockupGateway;
 }>;
 
@@ -20,14 +21,15 @@ export function BrowserServicesProvider({
   children: ReactNode;
   runtime: BrowserRuntime;
 }) {
-  const apiClient = useApiRuntimeClient();
+  const apiRuntime = useApiRuntime();
   const services = useMemo<BrowserServices>(
     () => ({
       assistant: runtime.assistant,
-      clariprint: runtime.createClariprint(apiClient),
+      clariprint: runtime.createClariprint(apiRuntime.client),
+      storefrontClariprint: runtime.createClariprint(apiRuntime.anonymousClient),
       mockups: runtime.mockups,
     }),
-    [apiClient, runtime],
+    [apiRuntime, runtime],
   );
 
   return (
@@ -43,4 +45,9 @@ export function useBrowserServices(): BrowserServices {
     throw new Error('useBrowserServices must be used within a BrowserServicesProvider');
   }
   return services;
+}
+
+/** Passerelle devis publique du storefront, sans bearer Magrit. */
+export function useStorefrontClariprint(): ClariprintPricingGateway {
+  return useBrowserServices().storefrontClariprint;
 }

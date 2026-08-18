@@ -44,6 +44,7 @@ import {
 // n°1 : aucune logique de prix dans ce composant, uniquement du rendu).
 import { useProductConfigurator } from "../../hooks/useProductConfigurator";
 import { applyTax } from "../../utils/tax";
+import type { ClariprintPricingGateway } from "../../../modules/clariprint";
 
 export interface ProductOverlayProps {
   product: ShopProduct | null;
@@ -56,6 +57,7 @@ export interface ProductOverlayProps {
   confirmLabel?: string;
   /** TVA injectée par la surface appelante, jamais résolue dans le storefront. */
   taxRate?: number;
+  clariprintGateway?: ClariprintPricingGateway;
 }
 
 
@@ -66,13 +68,14 @@ export function ProductOverlay({
   onConfirm,
   confirmLabel = "Ajouter au panier",
   taxRate: configuredTaxRate,
+  clariprintGateway,
 }: ProductOverlayProps) {
   const open = product !== null;
 
   // S7.2 — moteur unique de configuration/prix (machine Phase, debounce,
   // abort, repli Prix marché). L'overlay ne fait plus que du rendu.
   const { options, setOptions, phase, retry, confirm, addDisabled, taxRate } =
-    useProductConfigurator(product, { taxRate: configuredTaxRate });
+    useProductConfigurator(product, { taxRate: configuredTaxRate, clariprintGateway });
 
   const handleAdd = () => {
     const result = confirm();

@@ -9,7 +9,7 @@ import { priceFingerprint, type ClariprintQuoteResult } from '../../../utils/cla
 import { computeClariprintQuoteSafe } from '../../../../modules/clariprint';
 import { estimateMarketPriceHT, resolvePrice } from '../../../utils/priceResolver';
 import { applyTax } from '../../../utils/tax';
-import { useBrowserServices } from '../../../contexts/BrowserServicesContext';
+import { useStorefrontClariprint } from '../../../contexts/BrowserServicesContext';
 
 interface Props {
   product: ShopProduct;
@@ -23,7 +23,7 @@ interface Props {
 // F3 — Fiche produit + configurateur
 // Design source : .design-handoff/designs/05 - Portail B2B.html (section .f3)
 export function PortalProduct({ product, taxRate, onBack, onAddToCart, pimGammes, pimDefinitions }: Props) {
-  const { clariprint } = useBrowserServices();
+  const clariprint = useStorefrontClariprint();
   // CR §2 (13/05) : afficher la gamme PIM résolue dans le breadcrumb plutôt
   // que `product.category` brut (qui vaut "leaflet" pour ~90% des products
   // library, hérité du kind Clariprint). Fallback : kind Clariprint masqué,

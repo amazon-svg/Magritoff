@@ -8,7 +8,7 @@ import { computeClariprintQuoteSafe } from '../../../../modules/clariprint';
 import { useClaudeSseStream, ClaudeSseStreamError } from '../../../hooks/useClaudeSseStream';
 import { ENABLE_STREAMING_CHAT } from '../../../lib/featureFlags';
 import { TEST_IDS } from '../../../lib/testIds';
-import { useBrowserServices } from '../../../contexts/BrowserServicesContext';
+import { useStorefrontClariprint } from '../../../contexts/BrowserServicesContext';
 import { ShopProductCard } from '../ShopProductCard';
 import { buildShopTaxonomy } from '../../../utils/shopTaxonomy';
 import {
@@ -133,7 +133,7 @@ export function PortalCatalog({
   onSelectSubcategory,
   initialFormat,
 }: Props) {
-  const { clariprint } = useBrowserServices();
+  const clariprint = useStorefrontClariprint();
   const assistantApi = useStorefrontDiagnosticsApi();
   const [query, setQuery] = useState('');
   // S2.21 — autocomplétion : menu ouvert au focus + saisie ≥ 2 car.
@@ -913,6 +913,7 @@ export function PortalCatalog({
             product={overlayProduct}
             shop={shop}
             taxRate={taxRate}
+            clariprintGateway={clariprint}
             onClose={() => setOverlayProduct(null)}
             onConfirm={(productConfigured, qty) => {
               // S-FIX-PANIER-11/05 (bug #5) : `qty` retourne par l'overlay est la
