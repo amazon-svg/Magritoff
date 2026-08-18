@@ -26,7 +26,8 @@ describe('portail commandes par compte boutique', () => {
   });
 
   it('ne dépend plus exclusivement de Supabase Auth dans l UX', () => {
-    expect(portal).toContain('!user?.id && !hasStorefrontSession');
+    expect(portal).toContain('if (!hasStorefrontSession)');
+    expect(portal).not.toContain('useAuth');
     expect(storefront).toContain('hasStorefrontSession={storefrontSession?.identity.shopId === shop.id}');
   });
 });

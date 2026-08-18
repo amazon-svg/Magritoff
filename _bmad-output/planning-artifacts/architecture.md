@@ -1264,11 +1264,13 @@ par une identité storefront strictement liée à chaque boutique.
    transverse n’est créé.
 4. **Parcours** : drawer panier → \[écran 1 : Identification, sauté si loggé] → écran 2 : récap + « Commander » → `PortalThankYou`. Loggé = 1 écran. **≤ 2 écrans ✔.**
 5. **Boutique `invite_only`** : la barrière intervient dès l’entrée sur
-   `/shop/:slug`, pas seulement au checkout. Un anonyme reçoit un écran privé
-   générique avec connexion uniquement ; aucun branding, produit, prix, PIM ou
-   gamme n’est chargé. Un compte authentifié sans membership du tenant
-   propriétaire reçoit un 403. Une membership d’un autre tenant, même
-   `magrit_full`, ne donne aucun accès. Pas de création de compte.
+   `/shop/:slug`, pas seulement au checkout. Sans session storefront de cette
+   boutique exacte, le visiteur reçoit un écran privé générique avec connexion
+   uniquement ; aucun branding, produit, prix, PIM ou gamme n’est chargé. Une
+   session Magrit, même super-admin, ne donne aucun accès implicite. Le passage
+   Magrit → boutique exige la délégation explicite « Se connecter à la
+   boutique », qui émet une session storefront bornée. Pas de création libre
+   de compte.
 6. **Défense en profondeur** : le BFF vérifie la session storefront et le
    `shop_id` avant les lectures privées ou les écritures. L’ancien RPC
    `self_register_shop_buyer` n’est plus exécutable par `authenticated`.

@@ -50,10 +50,7 @@ async function publicCatalogAccess(context: ApiRequestContext, sessions?: Storef
     const session = token ? await sessions.current(token) : null;
     if (session) storefront = { kind: 'shop_customer', shopId: session.identity.shopId, shopCustomerAccountId: session.identity.shopCustomerAccountId };
   }
-  return {
-    magritUserId: context.actor?.kind === 'user' ? context.actor.userId as UserId : null,
-    storefront,
-  };
+  return { storefront };
 }
 function slugParam(context: ApiRequestContext): string { const value = context.params.slug?.trim(); if (!value || value.length > 160) throw new ApiHttpError({ type: 'about:blank', title: 'Slug invalide', status: 422, code: 'api.validation_failed' }); return value; }
 async function brandAsset(form: FormData) {

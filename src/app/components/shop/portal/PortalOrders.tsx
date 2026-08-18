@@ -32,7 +32,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useOrdersApi } from "../../../contexts/ModuleClientsContext";
-import { useAuth } from "../../../contexts/AuthContext";
 import { TEST_IDS } from "../../../lib/testIds";
 import {
   type OrderUI,
@@ -110,7 +109,6 @@ function syncActiveTabToUrl(tab: PortalOrdersTab) {
 }
 
 export function PortalOrders({ shopId, hasStorefrontSession = false, onRenewOrder, onNavigateToCatalog }: Props) {
-  const { user } = useAuth();
   const ordersApi = useOrdersApi();
 
   const [activeTab, setActiveTabState] = useState<PortalOrdersTab>(readActiveTabFromUrl);
@@ -136,9 +134,9 @@ export function PortalOrders({ shopId, hasStorefrontSession = false, onRenewOrde
       setLoading(false);
       return;
     }
-    // Sans identité Magrit ni session storefront, aucune lecture portail n'est
-    // tentée. Une session boutique est résolue par le BFF et filtrée par compte.
-    if (!user?.id && !hasStorefrontSession) {
+    // Sans session storefront de cette boutique, aucune lecture portail n'est
+    // tentée. Le BFF résout le cookie et filtre ensuite par compte client.
+    if (!hasStorefrontSession) {
       setLoading(false);
       setDatasets(EMPTY_DATASETS);
       setCounters(ZERO_COUNTERS);
@@ -162,7 +160,7 @@ export function PortalOrders({ shopId, hasStorefrontSession = false, onRenewOrde
     } finally {
       setLoading(false);
     }
-  }, [shopId, user?.id, hasStorefrontSession, ordersApi]);
+  }, [shopId, hasStorefrontSession, ordersApi]);
 
   useEffect(() => {
     void loadAll();

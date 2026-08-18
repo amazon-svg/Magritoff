@@ -15,11 +15,15 @@ describe('accès catalogue par session storefront', () => {
 
   it('borne le catalogue à la boutique portée par la session', () => {
     expect(repository).toContain('access.storefront?.shopId !== gate.id');
-    expect(repository).toContain('access.magritUserId');
+    expect(repository).not.toContain('access.magritUserId');
+    expect(repository).not.toContain('current_user_can_access_shop');
   });
 
   it('attend la résolution storefront avant de charger un catalogue privé', () => {
     expect(storefront).toContain('storefrontSessionLoading');
     expect(storefront).toContain('storefrontShopId: storefrontSession?.identity.shopId ?? null');
+    expect(storefront).not.toContain('resolveShopAccessFromMemberships');
+    expect(storefront).not.toContain('useTenant');
+    expect(storefront).not.toContain('useAuth');
   });
 });

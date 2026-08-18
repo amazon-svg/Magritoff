@@ -57,12 +57,21 @@ describe('routes API Shops', () => {
     }));
     expect(response.status).toBe(200);
     expect(access).toEqual({
-      magritUserId: null,
       storefront: {
         kind: 'shop_customer', shopId,
         shopCustomerAccountId: '33333333-3333-4333-8333-333333333333',
       },
     });
+  });
+  it('ne transmet pas l acteur Magrit au catalogue public', async () => {
+    let access: unknown = null;
+    const repository = repo({ async publicCatalog(received) {
+      access = received;
+      throw new ShopRejectedError('authentication_required', 'Authentification boutique requise.');
+    } });
+    const response = await handler(repository)(new Request('http://localhost/api/v1/public/shops/demo/catalog'));
+    expect(response.status).toBe(401);
+    expect(access).toEqual({ storefront: null });
   });
   it('dérive l’acteur pour enregistrer un prix négocié', async () => {
     let receivedActor = '';

@@ -71,12 +71,8 @@ export class SupabaseShopsRepository implements ShopsRepository {
     if (!gate.tenant_id) throw new ShopRejectedError('invalid_request', 'Boutique sans espace propriétaire.');
     if (gate.access_mode !== 'self_signup') {
       if (access.storefront?.shopId !== gate.id) {
-        if (!access.magritUserId) {
-          const code = access.storefront ? 'permission_denied' : 'authentication_required';
-          throw new ShopRejectedError(code, code === 'permission_denied' ? 'Accès à la boutique interdit.' : 'Authentification requise.');
-        }
-        const { data: allowed, error: accessError } = await this.client.rpc('current_user_can_access_shop', { p_shop_id: gate.id });
-        if (accessError || !allowed) throw new ShopRejectedError('permission_denied', 'Accès à la boutique interdit.');
+        const code = access.storefront ? 'permission_denied' : 'authentication_required';
+        throw new ShopRejectedError(code, code === 'permission_denied' ? 'La session appartient à une autre boutique.' : 'Authentification boutique requise.');
       }
     }
     const shopRow = await this.loadActiveShopBySlug(slug, SHOP_COLUMNS);

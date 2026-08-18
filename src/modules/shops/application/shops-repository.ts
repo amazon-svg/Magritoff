@@ -7,7 +7,6 @@ export class ShopRejectedError extends Error {
   }
 }
 export type PublicShopCatalogAccess = Readonly<{
-  magritUserId: UserId | null;
   storefront: Readonly<{
     kind: 'shop_customer';
     shopId: string;

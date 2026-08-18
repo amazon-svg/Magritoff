@@ -3,8 +3,6 @@ import { Navigate, useNavigate, useParams } from 'react-router';
 import { Loader2 } from 'lucide-react';
 import type { Shop, ShopProduct } from '../../contexts/ShopsContext';
 import type { Gamme, ProductDefinition } from '../../utils/productEnrichment';
-import { useAuth } from '../../contexts/AuthContext';
-import { useTenant } from '../../contexts/TenantContext';
 
 import { PortalHome } from './portal/PortalHome';
 import { PortalCatalog } from './portal/PortalCatalog';
@@ -26,10 +24,7 @@ import {
   type ResumeLastOrder,
 } from './portal/ResumeBanner';
 import { ShopForbidden403 } from './ShopForbidden403';
-import {
-  resolveShopAccessFromMemberships,
-  type ShopAccess,
-} from './ShopAccessGuard.helpers';
+import { resolveShopAccess, type ShopAccess } from './ShopAccessGuard.helpers';
 import {
   filterProductsByExpandedGammes,
   groupProductsByGamme,
@@ -66,15 +61,13 @@ export function PublicShop() {
   const slug = params.slug;
   const splat = params['*'];
   const navigate = useNavigate();
-  const { user, session, loading: authLoading } = useAuth();
-  const { tenants, isSuperAdmin, loading: tenantLoading } = useTenant();
   const [shop, setShop] = useState<Shop | null>(null);
   const [products, setProducts] = useState<ShopProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [blockedAccess, setBlockedAccess] = useState<Extract<
     ShopAccess,
-    'authentication_required' | 'forbidden'
+    'authentication_required'
   > | null>(null);
   const ordersApi = useOrdersApi();
   const shopsApi = useShopsApi();
@@ -171,7 +164,7 @@ export function PublicShop() {
 
   // ─── Chargement API + rafraîchissement à la reprise de fenêtre ────────────
   useEffect(() => {
-    if (!slug || authLoading || tenantLoading || storefrontSessionLoading) return;
+    if (!slug || storefrontSessionLoading) return;
     let focusHandler: (() => void) | null = null;
     let refreshTimer: number | null = null;
     let cancelled = false;
@@ -198,20 +191,12 @@ export function PublicShop() {
       }
       if (cancelled) return;
 
-      const initialAccess = resolveShopAccessFromMemberships({
-        isAuthenticated: Boolean(user),
-        isSuperAdmin,
+      const initialAccess = resolveShopAccess({
         accessMode: gateData.accessMode,
-        memberships: tenants.map((tenant) => ({
-          tenantId: tenant.id,
-          accessScope: tenant.accessScope,
-          allowedShopIds: tenant.allowedShopIds,
-        })),
         shopId: gateData.id,
-        shopTenantId: gateData.tenantId,
         storefrontShopId: storefrontSession?.identity.shopId ?? null,
       });
-      if (initialAccess === 'authentication_required' || initialAccess === 'forbidden') {
+      if (initialAccess === 'authentication_required') {
         setBlockedAccess(initialAccess);
         setLoading(false);
         return;
@@ -224,7 +209,7 @@ export function PublicShop() {
       } catch (catalogError) {
         if (cancelled) return;
         if (catalogError instanceof ApiClientError && catalogError.problem.status === 401) setBlockedAccess('authentication_required');
-        else if (catalogError instanceof ApiClientError && catalogError.problem.status === 403) setBlockedAccess('forbidden');
+        else if (catalogError instanceof ApiClientError && catalogError.problem.status === 403) setBlockedAccess('authentication_required');
         else setNotFound(catalogError instanceof ApiClientError && catalogError.problem.status === 404);
       }
       setLoading(false);
@@ -244,7 +229,7 @@ export function PublicShop() {
       if (refreshTimer !== null) window.clearInterval(refreshTimer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug, user?.id, authLoading, tenantLoading, storefrontSessionLoading, storefrontSession?.identity.shopId, isSuperAdmin, tenants, shopsApi]);
+  }, [slug, storefrontSessionLoading, storefrontSession?.identity.shopId, shopsApi]);
 
   // ─── SEO : title ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -314,7 +299,7 @@ export function PublicShop() {
   const [lastOrder, setLastOrder] = useState<ResumeLastOrder | null>(null);
   useEffect(() => {
     const hasStorefrontSession = storefrontSession?.identity.shopId === shop?.id;
-    if ((!user?.id && !hasStorefrontSession) || !shop?.id) {
+    if (!hasStorefrontSession || !shop?.id) {
       setLastOrder(null);
       return;
     }
@@ -339,7 +324,7 @@ export function PublicShop() {
       controller.abort();
     };
     // Re-fetch après un submitCart réussi (lastOrderId change).
-  }, [user?.id, storefrontSession?.identity.shopId, shop?.id, lastOrderId, ordersApi]);
+  }, [storefrontSession?.identity.shopId, shop?.id, lastOrderId, ordersApi]);
 
   /**
    * S3.3 AC2/AC3 : Renouveler 1-clic depuis OrderHistoryTable.
@@ -406,9 +391,9 @@ export function PublicShop() {
     // La commande API exige une session : l acteur, son périmètre boutique et
     // sa permission de commander sont vérifiés côté serveur.
     const hasStorefrontSession = storefrontSession?.identity.shopId === shop.id;
-    if (!user?.id && !hasStorefrontSession) {
+    if (!hasStorefrontSession) {
       alert(
-        'Vous devez etre connecte pour valider votre panier.\n\nCliquez sur "Se connecter" en haut a droite pour acceder a votre compte B2B.',
+        'Vous devez être connecté avec le compte propre à cette boutique pour valider votre panier.',
       );
       return;
     }
@@ -556,28 +541,20 @@ export function PublicShop() {
     [products, pimGammes],
   );
 
-  // ─── Access guard shop_only (S2.1 AC3) ───────────────────────────────────
-  // Calcul du access *avant* tout rendu de contenu boutique pour eviter la
-  // fuite de produits/branding tenant a un user shop_only non-autorise.
+  // ─── Garde storefront ────────────────────────────────────────────────────
+  // Calcul avant tout rendu de contenu : une identité Magrit n'accorde jamais
+  // implicitement l'accès à une boutique privée.
   const access = useMemo(() => {
     if (!shop) return 'pending'; // shop pas encore charge — wait
-    return resolveShopAccessFromMemberships({
-      isAuthenticated: Boolean(user),
-      isSuperAdmin,
+    return resolveShopAccess({
       accessMode: shop.access_mode ?? 'invite_only',
-      memberships: tenants.map((t) => ({
-        tenantId: t.id,
-        accessScope: t.accessScope,
-        allowedShopIds: t.allowedShopIds,
-      })),
       shopId: shop.id,
-      shopTenantId: shop.tenant_id ?? null,
       storefrontShopId: storefrontSession?.identity.shopId ?? null,
     });
-  }, [shop, user, storefrontSession?.identity.shopId, isSuperAdmin, tenants]);
+  }, [shop, storefrontSession?.identity.shopId]);
 
   // ─── Rendering ───────────────────────────────────────────────────────────
-  if (loading || authLoading || tenantLoading || storefrontSessionLoading) {
+  if (loading || storefrontSessionLoading) {
     return (
       <div
         className="min-h-screen grid place-items-center bg-bg"
@@ -620,7 +597,7 @@ export function PublicShop() {
     );
   }
 
-  if (access === 'authentication_required' || access === 'forbidden') {
+  if (access === 'authentication_required') {
     return (
       <ShopForbidden403
         authenticationRequired={access === 'authentication_required'}
@@ -633,14 +610,10 @@ export function PublicShop() {
   const cartCount = cart.reduce((s, l) => s + l.qty, 0);
   // S7.7 — montant HT du panier (affiché sur le bouton header, décision D3).
   const cartTotalHT = cart.reduce((s, l) => s + l.product.price_ht * l.qty, 0);
-  const shopMembership = tenants.find((tenant) => tenant.id === shop.tenant_id);
   const hasStorefrontSession = storefrontSession?.identity.shopId === shop.id;
   const canCreateOrder = hasStorefrontSession
-    || (!user && shop.access_mode === 'self_signup')
-    || Boolean(user && shopMembership?.permissions.can_order);
-  const createOrderBlockedMessage = shop.access_mode === 'invite_only' && !shopMembership
-    ? 'Cette boutique fonctionne sur invitation. Demandez un accès à son administrateur.'
-    : "Votre administrateur n'a pas activé la création de commandes pour votre compte.";
+    || shop.access_mode === 'self_signup';
+  const createOrderBlockedMessage = 'Connectez-vous avec le compte propre à cette boutique pour commander.';
 
   // S7.9 — Bandeau Reprendre (chips dérivés de la donnée, vide → absent).
   const resumeChips = buildResumeChips({ cartCount, cartTotalHT, lastOrder });
@@ -825,7 +798,7 @@ export function PublicShop() {
       {view === 'thankYou' && lastOrderId && (
         <PortalThankYou
           orderId={lastOrderId}
-          userEmail={storefrontSession?.customer.email ?? user?.email ?? ''}
+          userEmail={storefrontSession?.customer.email ?? ''}
           onBackToCatalog={() => goView('catalog')}
           onSeeOrders={() => goView('orders')}
         />
