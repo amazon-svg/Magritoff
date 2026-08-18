@@ -491,6 +491,20 @@ export function PublicShop() {
   // via la facette Format existante (S2.19). Sans formatKey (sous-cat de gamme
   // classique) → comportement identique à selectGammes.
   const [pendingFormat, setPendingFormat] = useState<string | null>(null);
+
+  // UM10.4 — tous ces états appartiennent à une boutique précise. React peut
+  // réutiliser cette instance de PublicShop lors d'une navigation A → B ; sans
+  // reset explicite, panier, confirmation et filtres traverseraient la frontière.
+  useEffect(() => {
+    setCart([]);
+    setRenewalWarnings([]);
+    setLastOrderId(null);
+    setLastOrder(null);
+    setPendingFormat(null);
+    setCartOpenRequest(0);
+    checkoutCommandKey.current = crypto.randomUUID();
+  }, [slug]);
+
   const selectSubcategory = (gammeSlugs: string[], formatKey?: string) => {
     setExpandedGammes(new Set(gammeSlugs));
     setPendingFormat(formatKey ?? null);
@@ -557,7 +571,9 @@ export function PublicShop() {
   }, [shop, storefrontSession?.identity.shopId]);
 
   // ─── Rendering ───────────────────────────────────────────────────────────
-  if (loading || storefrontSessionLoading) {
+  // Le reset des effects intervient après le rendu. Ce garde empêche donc la
+  // boutique précédente d'être peinte, même pendant cette fenêtre React.
+  if (loading || storefrontSessionLoading || (shop !== null && shop.slug !== slug)) {
     return (
       <div
         className="min-h-screen grid place-items-center bg-bg"
