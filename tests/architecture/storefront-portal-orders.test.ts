@@ -57,4 +57,10 @@ describe('portail commandes par compte boutique', () => {
     expect(editor).not.toContain('useOrdersApi()');
     expect(thankYou).not.toContain('useOrdersApi()');
   });
+
+  it('charge aussi le catalogue boutique sans bearer Magrit', () => {
+    expect(moduleClients).toContain('storefrontShops: new ShopsApiClient(apiRuntime.anonymousClient)');
+    expect(storefront).toContain('useStorefrontShopsApi()');
+    expect(storefront).not.toContain('useShopsApi()');
+  });
 });

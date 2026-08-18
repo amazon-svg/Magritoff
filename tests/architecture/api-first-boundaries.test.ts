@@ -331,7 +331,7 @@ describe('frontières API-first et modulaires', () => {
     expect(app).toContain('<ModuleClientsProvider>');
   });
 
-  it('compose les façades Shops courante et post-auth dans un seul root', () => {
+  it('compose les façades Shops workspace, storefront et post-auth dans un seul root', () => {
     const appRoot = resolve(process.cwd(), 'src/app');
     const constructors = listTypeScriptFiles(appRoot)
       .filter((file) => readFileSync(file, 'utf8').includes('new ShopsApiClient'))
@@ -543,9 +543,11 @@ describe('frontières API-first et modulaires', () => {
   });
 
   it('sort le contexte boutiques du fournisseur', () => {
-    for (const file of ['src/app/contexts/ShopsContext.tsx', 'src/app/components/shop/PublicShop.tsx']) {
-      const source = readFileSync(resolve(process.cwd(), file), 'utf8');
-      expect(source).toContain('useShopsApi');
+    const workspace = readFileSync(resolve(process.cwd(), 'src/app/contexts/ShopsContext.tsx'), 'utf8');
+    const storefront = readFileSync(resolve(process.cwd(), 'src/app/components/shop/PublicShop.tsx'), 'utf8');
+    expect(workspace).toContain('useShopsApi');
+    expect(storefront).toContain('useStorefrontShopsApi');
+    for (const source of [workspace, storefront]) {
       expect(source).not.toContain('utils/supabase');
       expect(source).not.toMatch(/\bsupabase\s*\./);
     }

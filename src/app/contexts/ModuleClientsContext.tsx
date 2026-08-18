@@ -29,6 +29,7 @@ type ModuleClients = Readonly<{
   session: SessionApiClient;
   shopCustomers: ShopCustomersApiClient;
   storefrontIdentity: StorefrontIdentityApiClient;
+  storefrontShops: ShopsApiClient;
   shops: ShopsApiClient;
   shopsForAccessToken(accessToken: string): ShopsApiClient;
   workspaceInvitations: InvitationsApiClient;
@@ -57,6 +58,7 @@ export function ModuleClientsProvider({ children }: { children: ReactNode }) {
       session: new SessionApiClient(apiRuntime.client),
       shopCustomers: new ShopCustomersApiClient(apiRuntime.client),
       storefrontIdentity: new StorefrontIdentityApiClient(apiRuntime.anonymousClient),
+      storefrontShops: new ShopsApiClient(apiRuntime.anonymousClient),
       shops: new ShopsApiClient(apiRuntime.client),
       shopsForAccessToken: (accessToken) => new ShopsApiClient(
         apiRuntime.forAccessToken(accessToken),
@@ -163,6 +165,15 @@ export function useShopsApi(): ShopsApiClient {
   const clients = useContext(ModuleClientsContext);
   if (!clients) throw new Error('useShopsApi must be used within a ModuleClientsProvider');
   return clients.shops;
+}
+
+/** Catalogue public/privé résolu par cookie storefront, sans bearer Magrit. */
+export function useStorefrontShopsApi(): ShopsApiClient {
+  const clients = useContext(ModuleClientsContext);
+  if (!clients) {
+    throw new Error('useStorefrontShopsApi must be used within a ModuleClientsProvider');
+  }
+  return clients.storefrontShops;
 }
 
 export function useShopsApiFactory(): ModuleClients['shopsForAccessToken'] {

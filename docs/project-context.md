@@ -4,7 +4,7 @@
 >
 > **Source authoritative :** `~/Downloads/CONTEXT_Magrit_IA.md` (maintenu par Arnaud, plus exhaustif). Ce fichier en est la **synthèse opérationnelle pour les agents BMAD** (focus : règles, conventions, états de version, identifiants techniques, **PAS** la stratégie commerciale détaillée).
 >
-> **Dernière mise à jour :** 2026-08-18 (UM10.6 — transport Orders storefront séparé).
+> **Dernière mise à jour :** 2026-08-18 (UM10.7 — transports storefront séparés).
 > **Maintenu par :** Arnaud Mazon — PDG AGE Développement — `arnaud@age-services.fr`.
 > **Langue de travail :** français (livrables, code commits, variables métier).
 
@@ -93,6 +93,8 @@
 - Les appels Orders du storefront utilisent un client HTTP sans bearer Magrit.
   Leur seule identité est la session boutique portée par le cookie HttpOnly ;
   les écrans workspace utilisent une instance authentifiée distincte.
+- Le probe et le catalogue Shops du storefront suivent la même règle : client
+  HTTP anonyme côté navigateur, puis résolution du cookie boutique côté BFF.
 - Création tenant : `/tenants/new` (wizard avec validation SIREN INSEE + email pro).
 - Helpers RLS canoniques (à utiliser dans toute nouvelle policy) : `public.is_super_admin()`, `public.user_role_in_tenant(tenant_id)`, `public.current_user_tenant_ids()`, `public.current_user_can_access_shop(shop_id)`.
 - Matrice et invariants détaillés :
