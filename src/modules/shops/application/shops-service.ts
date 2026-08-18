@@ -3,7 +3,6 @@ import type { CreateShopCommand, CreateShopProductCommand, MockupTemplateType, M
 import type { PublicShopCatalogAccess, ShopsRepository } from './shops-repository.ts';
 export class ShopsService {
   constructor(private readonly repository: ShopsRepository) {}
-  registerBuyer(actor: UserId, shopId: string) { return this.repository.registerBuyer(actor, shopId); }
   list(actor: UserId, tenantId: string) { return this.repository.list(actor, tenantId); }
   create(actor: UserId, tenantId: string, command: CreateShopCommand) { return this.repository.create(actor, tenantId, command); }
   update(actor: UserId, tenantId: string, shopId: string, command: UpdateShopCommand) { return this.repository.update(actor, tenantId, shopId, command); }

@@ -278,6 +278,9 @@ export const TEST_IDS = {
     // S7.12 — Checkout ≤ 2 écrans (identification + récap)
     checkoutPage: 'shop-checkout-page',
     checkoutIdentification: 'shop-checkout-identification',
+    checkoutLoginTab: 'shop-checkout-login-tab',
+    checkoutRegisterTab: 'shop-checkout-register-tab',
+    checkoutFullNameInput: 'shop-checkout-full-name-input',
     checkoutEmailInput: 'shop-checkout-email-input',
     checkoutPasswordInput: 'shop-checkout-password-input',
     checkoutAuthBtn: 'shop-checkout-auth-btn',

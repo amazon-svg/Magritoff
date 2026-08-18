@@ -1,11 +1,14 @@
 import { API_V1_BASE_PATH, FetchApiClient } from '../../../platform/api/index.ts';
 import {
+  createStorefrontRegistrationCommandSchema,
+  createStorefrontRegistrationResultSchema,
   activateStorefrontCredentialCommandSchema,
   activateStorefrontCredentialResultSchema,
   createStorefrontSessionCommandSchema,
   createStorefrontSessionResultSchema,
   endStorefrontSessionResultSchema,
   type ActivateStorefrontCredentialCommand,
+  type CreateStorefrontRegistrationCommand,
   type CreateStorefrontSessionCommand,
   type StorefrontSession,
 } from './contracts.ts';
@@ -20,6 +23,16 @@ export class StorefrontIdentityApiClient {
       path: `${API_V1_BASE_PATH}/storefront/${encodeURIComponent(shopSlug)}/session`,
       body: createStorefrontSessionCommandSchema.parse(command),
       responseSchema: createStorefrontSessionResultSchema,
+    });
+    return result.session;
+  }
+
+  async register(shopSlug: string, command: CreateStorefrontRegistrationCommand): Promise<StorefrontSession> {
+    const result = await this.client.request({
+      method: 'POST',
+      path: `${API_V1_BASE_PATH}/storefront/${encodeURIComponent(shopSlug)}/registration`,
+      body: createStorefrontRegistrationCommandSchema.parse(command),
+      responseSchema: createStorefrontRegistrationResultSchema,
     });
     return result.session;
   }

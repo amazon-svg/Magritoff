@@ -1,5 +1,6 @@
-import { createStorefrontSessionCommandSchema, createStorefrontSessionResultSchema, endStorefrontSessionResultSchema } from '../../modules/shop-customers/api/contracts.ts';
+import { createStorefrontRegistrationCommandSchema, createStorefrontRegistrationResultSchema, createStorefrontSessionCommandSchema, createStorefrontSessionResultSchema, endStorefrontSessionResultSchema } from '../../modules/shop-customers/api/contracts.ts';
 import { StorefrontAuthenticationRejectedError, type StorefrontAuthenticationService } from '../../modules/shop-customers/application/storefront-authentication-service.ts';
+import { StorefrontRegistrationRejectedError, type StorefrontRegistrationService } from '../../modules/shop-customers/application/storefront-registration-service.ts';
 import type { StorefrontSessionService } from '../../modules/shop-customers/application/storefront-session-service.ts';
 import { API_V1_BASE_PATH } from '../../platform/api/contracts.ts';
 import { clearStorefrontSessionCookie, readStorefrontSessionCookie, serializeStorefrontSessionCookie, type StorefrontSessionCookiePolicy } from '../storefront/session-cookie.ts';
@@ -8,6 +9,7 @@ import { defineJsonRoute, type ApiRoute } from './routes.ts';
 
 export function createStorefrontSessionRoutes(
   service: StorefrontAuthenticationService,
+  registrations: StorefrontRegistrationService,
   sessions: StorefrontSessionService,
   cookiePolicy: StorefrontSessionCookiePolicy,
 ): readonly ApiRoute[] {
@@ -31,6 +33,31 @@ export function createStorefrontSessionRoutes(
           throw new ApiHttpError({
             type: 'about:blank', title: 'Connexion impossible', status: 401,
             code: 'storefront.authentication_failed', detail: error.message,
+          });
+        }
+        throw error;
+      }
+    },
+  }), defineJsonRoute({
+    method: 'POST', path: `${API_V1_BASE_PATH}/storefront/{shopSlug}/registration`,
+    authentication: 'public', inputSchema: createStorefrontRegistrationCommandSchema,
+    outputSchema: createStorefrontRegistrationResultSchema,
+    async handle(context, command) {
+      try {
+        const issued = await registrations.register(context.params.shopSlug ?? '', command);
+        return {
+          status: 201,
+          headers: {
+            'Set-Cookie': serializeStorefrontSessionCookie(issued.opaqueToken, issued.maxAgeSeconds, cookiePolicy),
+            'Cache-Control': 'no-store',
+          },
+          body: { session: issued.session },
+        };
+      } catch (error) {
+        if (error instanceof StorefrontRegistrationRejectedError) {
+          throw new ApiHttpError({
+            type: 'about:blank', title: 'Inscription impossible', status: 409,
+            code: 'storefront.registration_failed', detail: error.message,
           });
         }
         throw error;

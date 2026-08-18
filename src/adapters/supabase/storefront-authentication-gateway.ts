@@ -1,12 +1,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { storefrontSessionSchema } from '../../modules/shop-customers/api/contracts.ts';
 import type { IssuedStorefrontSession, StorefrontAuthenticationGateway } from '../../modules/shop-customers/application/storefront-authentication-service.ts';
+import type { StorefrontRegistrationGateway } from '../../modules/shop-customers/application/storefront-registration-service.ts';
 import type { StorefrontSessionGateway } from '../../modules/shop-customers/application/storefront-session-service.ts';
 import type { Database } from '../../types/database.types.ts';
 
 type AuthenticationRow = Database['public']['Functions']['api_authenticate_shop_customer']['Returns'][number];
+type RegistrationRow = Database['public']['Functions']['api_register_shop_customer']['Returns'][number];
 
-export class SupabaseStorefrontAuthenticationGateway implements StorefrontAuthenticationGateway, StorefrontSessionGateway {
+export class SupabaseStorefrontAuthenticationGateway implements StorefrontAuthenticationGateway, StorefrontRegistrationGateway, StorefrontSessionGateway {
   constructor(private readonly client: SupabaseClient<Database>) {}
 
   async authenticate(shopSlug: string, normalizedEmail: string, password: string): Promise<IssuedStorefrontSession | null> {
@@ -14,6 +16,18 @@ export class SupabaseStorefrontAuthenticationGateway implements StorefrontAuthen
       p_shop_slug: shopSlug, p_email: normalizedEmail, p_password: password,
     });
     if (error) throw new Error('La primitive d’authentification storefront est indisponible.');
+    const row = data?.[0];
+    return row ? mapIssuedSession(row) : null;
+  }
+
+  async register(shopSlug: string, normalizedEmail: string, fullName: string, password: string): Promise<IssuedStorefrontSession | null> {
+    const { data, error } = await this.client.rpc('api_register_shop_customer', {
+      p_shop_slug: shopSlug,
+      p_email: normalizedEmail,
+      p_full_name: fullName,
+      p_password: password,
+    });
+    if (error) throw new Error('La primitive d’inscription storefront est indisponible.');
     const row = data?.[0];
     return row ? mapIssuedSession(row) : null;
   }
@@ -39,7 +53,7 @@ export class SupabaseStorefrontAuthenticationGateway implements StorefrontAuthen
   }
 }
 
-function mapIssuedSession(row: AuthenticationRow): IssuedStorefrontSession {
+function mapIssuedSession(row: AuthenticationRow | RegistrationRow): IssuedStorefrontSession {
   const maxAgeSeconds = Math.floor((Date.parse(row.expires_at) - Date.parse(row.issued_at)) / 1_000);
   return {
     opaqueToken: row.opaque_token,

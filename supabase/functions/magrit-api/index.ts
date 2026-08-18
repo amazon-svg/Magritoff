@@ -58,6 +58,7 @@ import { ShopCustomersService } from '../../../src/modules/shop-customers/applic
 import { SupabaseShopCustomersRepository } from '../../../src/adapters/supabase/shop-customers-repository.ts';
 import { createShopCustomersRoutes } from '../../../src/server/api/shop-customers-routes.ts';
 import { StorefrontAuthenticationService } from '../../../src/modules/shop-customers/application/storefront-authentication-service.ts';
+import { StorefrontRegistrationService } from '../../../src/modules/shop-customers/application/storefront-registration-service.ts';
 import { StorefrontSessionService } from '../../../src/modules/shop-customers/application/storefront-session-service.ts';
 import { SupabaseStorefrontAuthenticationGateway } from '../../../src/adapters/supabase/storefront-authentication-gateway.ts';
 import { createStorefrontSessionRoutes } from '../../../src/server/api/storefront-session-routes.ts';
@@ -125,6 +126,7 @@ export async function handleRequest(request: Request): Promise<Response> {
   const shopCustomersService = new ShopCustomersService(new SupabaseShopCustomersRepository(client));
   const storefrontGateway = new SupabaseStorefrontAuthenticationGateway(storefrontClient);
   const storefrontAuthenticationService = new StorefrontAuthenticationService(storefrontGateway);
+  const storefrontRegistrationService = new StorefrontRegistrationService(storefrontGateway);
   const storefrontSessionService = new StorefrontSessionService(storefrontGateway);
   const storefrontActivationService = new StorefrontActivationService(
     new SupabaseStorefrontActivationGateway(client),
@@ -164,7 +166,7 @@ export async function handleRequest(request: Request): Promise<Response> {
       ...createRolesRoutes(rolesService),
       ...createShopsRoutes(shopsService, storefrontSessionService, storefrontSessionCookiePolicy(new URL(request.url).protocol === 'https:')),
       ...createShopCustomersRoutes(shopCustomersService),
-      ...createStorefrontSessionRoutes(storefrontAuthenticationService, storefrontSessionService, storefrontSessionCookiePolicy(new URL(request.url).protocol === 'https:')),
+      ...createStorefrontSessionRoutes(storefrontAuthenticationService, storefrontRegistrationService, storefrontSessionService, storefrontSessionCookiePolicy(new URL(request.url).protocol === 'https:')),
       ...createStorefrontActivationRoutes(storefrontActivationService),
       ...createShopCustomerDelegationRoutes(shopCustomerDelegationService, storefrontSessionCookiePolicy(new URL(request.url).protocol === 'https:')),
       ...createCatalogRoutes(catalogService),

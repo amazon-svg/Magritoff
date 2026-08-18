@@ -15,7 +15,6 @@ export type PublicShopCatalogAccess = Readonly<{
   }> | null;
 }>;
 export interface ShopsRepository {
-  registerBuyer(actor: UserId, shopId: string): Promise<void>;
   list(actor: UserId, tenantId: string): Promise<ShopDto[]>;
   create(actor: UserId, tenantId: string, command: CreateShopCommand): Promise<ShopDto>;
   update(actor: UserId, tenantId: string, shopId: string, command: UpdateShopCommand): Promise<ShopDto>;

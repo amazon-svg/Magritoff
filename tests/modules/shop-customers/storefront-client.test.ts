@@ -28,6 +28,26 @@ describe('StorefrontIdentityApiClient', () => {
     );
   });
 
+  it('crée un compte propre à une boutique puis ouvre sa session', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({ session: {
+      identity: { kind: 'shop_customer', shopId: SHOP, shopCustomerAccountId: CUSTOMER },
+      customer: { id: CUSTOMER, shopId: SHOP, email: 'client@example.com', fullName: 'Client Exemple', status: 'active' },
+      expiresAt: '2026-08-17T10:30:00.000Z',
+    } }));
+    const client = new StorefrontIdentityApiClient(new FetchApiClient('', fetchMock as typeof fetch));
+
+    await client.register('boutique-test', {
+      email: ' Client@Example.com ', fullName: ' Client Exemple ', password: 'mot-de-passe-solide',
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/storefront/boutique-test/registration',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ email: 'Client@Example.com', fullName: 'Client Exemple', password: 'mot-de-passe-solide' }),
+      }),
+    );
+  });
+
   it('lit puis ferme une session déléguée sans contrat workspace', async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(Response.json({ session: {

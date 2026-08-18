@@ -20,7 +20,6 @@ describe('ShopsApiClient', () => {
       if (method === 'GET' && url.endsWith('/pricing')) return new Response(JSON.stringify([]));
       if (method === 'GET' && url.endsWith('/products')) return new Response(JSON.stringify([product]));
       if (method === 'POST' && url.endsWith('/brand-assets')) return new Response(JSON.stringify({ assetUrl: 'https://assets.magrit.test/logo.png' }));
-      if (method === 'POST' && url.endsWith('/buyer-registration')) return new Response(JSON.stringify({ registered: true }));
       if (method === 'POST' && url.endsWith('/custom-mockups')) return new Response(JSON.stringify({ updated: true }));
       if (method === 'DELETE' && url.includes('/custom-mockups/')) return new Response(JSON.stringify({ updated: true }));
       if (method === 'POST' && url.endsWith('/products')) return new Response(JSON.stringify(product));
@@ -41,8 +40,7 @@ describe('ShopsApiClient', () => {
     await client.customMockups(tenantId, shopId);
     await client.uploadCustomMockup(tenantId, shopId, 'flyer', 'front', new File(['svg'], 'flyer.svg', { type: 'image/svg+xml' }));
     await client.restoreCustomMockup(tenantId, shopId, 'flyer', 'front');
-    await client.registerBuyer(shopId);
-    expect(calls).toHaveLength(17);
+    expect(calls).toHaveLength(16);
     expect(calls[0]).toBe(`GET /api/v1/tenants/${tenantId}/shops`);
     expect(calls[5]).toContain(`/shops/${shopId}/products/${productId}`);
     expect(calls[9]).toBe('GET /api/v1/public/shops/demo/catalog');
@@ -50,6 +48,5 @@ describe('ShopsApiClient', () => {
     expect(calls[12]).toBe(`POST /api/v1/tenants/${tenantId}/shops/${shopId}/brand-assets`);
     expect(calls[13]).toContain('/custom-mockups');
     expect(calls[15]).toBe(`DELETE /api/v1/tenants/${tenantId}/shops/${shopId}/custom-mockups/flyer/front`);
-    expect(calls[16]).toBe(`POST /api/v1/shops/${shopId}/buyer-registration`);
   });
 });

@@ -14,6 +14,11 @@ export {
   type IssuedStorefrontSession,
   type StorefrontAuthenticationGateway,
 } from './application/storefront-authentication-service';
+export {
+  StorefrontRegistrationRejectedError,
+  StorefrontRegistrationService,
+  type StorefrontRegistrationGateway,
+} from './application/storefront-registration-service';
 export { shopCustomersModuleManifest } from './manifest';
 export { StorefrontSessionService, type StorefrontSessionGateway } from './application/storefront-session-service';
 export { StorefrontActivationRejectedError, StorefrontActivationService, type StorefrontActivationGateway } from './application/storefront-activation-service';

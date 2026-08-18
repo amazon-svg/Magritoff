@@ -193,7 +193,12 @@ function CheckoutIdentification({
       <p className="text-ink-muted m-0" style={{ fontSize: '12.5px' }}>
         Utilisez le compte propre à cette boutique. Aucun compte Magrit n’est créé ou réutilisé.
       </p>
-      <StorefrontLoginForm shopSlug={shop.slug} contactEmail={shop.contact_email} onAuthenticated={onAuthenticated} />
+      <StorefrontLoginForm
+        shopSlug={shop.slug}
+        contactEmail={shop.contact_email}
+        allowRegistration={shop.access_mode === 'self_signup'}
+        onAuthenticated={onAuthenticated}
+      />
     </div>
   );
 }

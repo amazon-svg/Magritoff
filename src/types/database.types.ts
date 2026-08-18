@@ -2002,6 +2002,19 @@ export type Database = {
           shop_id: string
         }[]
       }
+      api_register_shop_customer: {
+        Args: { p_email: string; p_full_name: string; p_password: string; p_shop_slug: string }
+        Returns: {
+          account_id: string
+          account_status: string
+          email: string
+          expires_at: string
+          full_name: string
+          issued_at: string
+          opaque_token: string
+          shop_id: string
+        }[]
+      }
       api_resolve_shop_customer_session: {
         Args: { p_opaque_token: string }
         Returns: { account_id: string; account_status: string; actor_magrit_user_id: string | null; delegation_id: string | null; email: string; expires_at: string; full_name: string; session_kind: string; shop_id: string }[]

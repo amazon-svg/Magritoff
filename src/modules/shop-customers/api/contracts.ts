@@ -149,6 +149,12 @@ export const createStorefrontSessionCommandSchema = z.object({
   password: z.string().min(8).max(1024),
 }).strict();
 
+export const createStorefrontRegistrationCommandSchema = z.object({
+  email: shopCustomerEmailSchema,
+  fullName: z.string().trim().min(1).max(200),
+  password: z.string().min(8).max(1024),
+}).strict();
+
 export const storefrontShopSlugSchema = z.string()
   .trim()
   .min(1)
@@ -158,6 +164,8 @@ export const storefrontShopSlugSchema = z.string()
 export const createStorefrontSessionResultSchema = z.object({
   session: storefrontSessionSchema,
 }).strict();
+
+export const createStorefrontRegistrationResultSchema = createStorefrontSessionResultSchema;
 
 export const endStorefrontSessionResultSchema = z.object({
   ended: z.literal(true),
@@ -220,6 +228,8 @@ export type StorefrontCustomerProfile = z.infer<typeof storefrontCustomerProfile
 export type StorefrontSession = z.infer<typeof storefrontSessionSchema>;
 export type CreateStorefrontSessionCommand = z.infer<typeof createStorefrontSessionCommandSchema>;
 export type CreateStorefrontSessionResult = z.infer<typeof createStorefrontSessionResultSchema>;
+export type CreateStorefrontRegistrationCommand = z.infer<typeof createStorefrontRegistrationCommandSchema>;
+export type CreateStorefrontRegistrationResult = z.infer<typeof createStorefrontRegistrationResultSchema>;
 export type EndStorefrontSessionResult = z.infer<typeof endStorefrontSessionResultSchema>;
 export type IssueStorefrontActivationCommand = z.input<typeof issueStorefrontActivationCommandSchema>;
 export type IssueStorefrontActivationResult = z.infer<typeof issueStorefrontActivationResultSchema>;

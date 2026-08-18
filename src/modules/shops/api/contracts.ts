@@ -90,7 +90,6 @@ export const shopPricingMutationResultSchema = z.object({ updated: z.literal(tru
 export const shopBrandAssetKindSchema = z.enum(['logo', 'hero']);
 export const shopBrandAssetResultSchema = z.object({ assetUrl: z.string().url() });
 export const shopCustomMockupMutationResultSchema = z.object({ updated: z.literal(true) });
-export const shopBuyerRegistrationResultSchema = z.object({ registered: z.literal(true) });
 export const persistAiShopProductCommandSchema = z.object({
   configHash: z.string().min(1).max(500), name: z.string().min(1).max(300),
   category: z.string().max(200), description: z.string().max(5000),
