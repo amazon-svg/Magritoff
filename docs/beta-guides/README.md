@@ -26,7 +26,7 @@
 | **Validateur N+1** | User avec capability `can_validate` sur les commandes draft → validated. Configurable par tenant via catalog rôles. |
 | **Producteur** | User avec capability `can_modify` pour faire avancer les commandes validated → in_production → shipped. |
 | **Capability** | Droit fin sur une action (can_quote, can_order, can_invite, can_validate, can_cancel, can_modify, can_export, can_manage_catalog, can_manage_roles). |
-| **Rôle** | Preset de capabilities nommé (Owner, Admin, Acheteur, Validateur, Producteur). Configurable par tenant. |
+| **Rôle Magrit** | Preset de capabilities d’équipe (Owner, Admin, Validateur, Producteur ou rôle personnalisé). Un compte boutique ne reçoit pas ces rôles. |
 | **Notify policy** | Politique de notification email Resend par rôle : chain_next (étape suivante), all_roles (tout le monde), none. |
 
 ## Préalables bêta
@@ -34,7 +34,7 @@
 Avant de démarrer un compte bêta :
 
 1. **Création du tenant racine** : Arnaud crée le tenant + assigne Owner au dirigeant via l'admin Magrit.
-2. **5 rôles presets seedés automatiquement** : Owner, Admin, Acheteur, Validateur, Producteur (via trigger `tenants_seed_catalogs`).
+2. **4 rôles Magrit exposés** : Owner, Admin, Validateur, Producteur. Le preset Acheteur historique reste conservé en base comme `storefront_legacy`, mais il est masqué et non assignable.
 3. **7 statuts canoniques seedés** : draft, validated, in_production, shipped, delivered, invoiced, cancelled.
 4. **8 transitions canoniques seedées** dans la matrice (draft→cancelled self-service, draft→validated can_validate, etc.).
 5. **Le dirigeant reçoit ses identifiants** + accès à `/t/<slug>/dashboard`.
@@ -49,4 +49,4 @@ Avant de démarrer un compte bêta :
 
 ## Mise à jour
 
-Document maintenu à chaque clôture sprint qualité-first. Dernière mise à jour : **2026-08-17** (séparation identités UM8.1).
+Document maintenu à chaque clôture sprint qualité-first. Dernière mise à jour : **2026-08-18** (séparation du catalogue de rôles UM8.3).

@@ -49,20 +49,25 @@ de sa session et un owner ne peut être ni modifié ni retiré par ces routes.
   et affiche un lien d’invitation sélectionnable avec un bouton **Copier**.
 - Le type d’accès **Boutique(s)** n’existe plus pour une nouvelle invitation
   Magrit. Les anciennes lignes restent visibles uniquement pendant UM8.
+- Le rôle historique **Acheteur** n’est plus proposé. Un acheteur est créé dans
+  une boutique précise depuis « Comptes clients de cette boutique ».
 
 ## 3. Gérer les rôles de ton catalogue
 
 **Route** : `/t/<slug>/dashboard/users` section « Rôles et droits »
 
-5 rôles presets seedés à la création de ton tenant :
+4 rôles d’équipe Magrit sont proposés à la création de ton tenant :
 
 | Rôle | can_quote | can_order | can_invite | can_validate | can_cancel | can_modify | can_export | can_manage_catalog | can_manage_roles |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
 | Owner | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Admin | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |   |
-| Acheteur | ✓ | ✓ |   |   |   |   |   |   |   |
+| Admin | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Validateur |   |   |   | ✓ | ✓ | ✓ | ✓ |   |   |
 | Producteur |   |   |   |   |   | ✓ | ✓ |   |   |
+
+Le preset Acheteur de l’ancien modèle est conservé uniquement pour les audits
+et la migration. Il est classé `storefront_legacy`, masqué des écrans Magrit et
+PostgreSQL refuse toute nouvelle invitation ou assignation qui le référence.
 
 Tu peux **assigner plusieurs rôles Magrit à un même utilisateur**. Pour parcourir
 ou tester une boutique, utilise ensuite l’action déléguée « Se connecter à la
@@ -76,7 +81,7 @@ Si ton imprimerie a plusieurs sites (Paris + Lyon + Bordeaux), crée un sous-ten
 
 1. Clic **Créer un sous-espace**
 2. Nom + slug
-3. Le sous-tenant hérite automatiquement de tes gammes PIM, des 5 rôles presets, des 7 statuts canoniques
+3. Le sous-tenant hérite automatiquement de tes gammes PIM, des 4 rôles Magrit exposés et des 7 statuts canoniques
 
 **KPIs HQ consolidés** (Sprint 8 V4) : chaque carte sous-tenant affiche **nb commandes du mois + CA HT du mois**.
 

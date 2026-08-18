@@ -62,6 +62,8 @@ refonte fonctionnelle sur les identités storefront.
   commandes historiques ;
 - le rapport est visible dans « Utilisateurs et rôles » pour les gestionnaires ;
 - UM8.1 interdit toute nouvelle invitation ou attribution `shop_only` ;
+- UM8.3 classe le rôle Acheteur historique en `storefront_legacy`, le masque
+  des catalogues Magrit et bloque toute nouvelle assignation ou propagation ;
 - les lignes existantes restent temporairement lisibles ;
 - elles peuvent uniquement être converties vers `magrit_full` ;
 - leur suppression définitive attend la validation du rapport sur la base
