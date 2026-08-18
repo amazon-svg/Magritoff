@@ -4,7 +4,7 @@
 >
 > **Source authoritative :** `~/Downloads/CONTEXT_Magrit_IA.md` (maintenu par Arnaud, plus exhaustif). Ce fichier en est la **synthèse opérationnelle pour les agents BMAD** (focus : règles, conventions, états de version, identifiants techniques, **PAS** la stratégie commerciale détaillée).
 >
-> **Dernière mise à jour :** 2026-08-18 (UM10.15 — séparation des transports IA Magrit/storefront).
+> **Dernière mise à jour :** 2026-08-18 (UM10.16 — injection du transport devis atelier).
 > **Maintenu par :** Arnaud Mazon — PDG AGE Développement — `arnaud@age-services.fr`.
 > **Langue de travail :** français (livrables, code commits, variables métier).
 

@@ -642,6 +642,10 @@ describe('frontières API-first et modulaires', () => {
     expect(adapter).not.toContain('functions/v1');
     expect(adapter).not.toContain('supabase.co');
     expect(configurator).not.toContain('server/clariprint');
+    expect(hook).not.toContain('useBrowserServices');
+    expect(hook).toContain("gateway: Pick<ClariprintPricingGateway, 'computePrice'>");
+    expect(readFileSync(resolve(process.cwd(), 'src/app/components/ProductCard.tsx'), 'utf8'))
+      .toContain('useClariprintProduct(clariprint)');
     expect(portal).not.toContain('server/clariprint');
     for (const source of [configurator, portal, product, hook]) {
       expect(source).not.toContain('adapters/http/browser-clariprint-adapter');

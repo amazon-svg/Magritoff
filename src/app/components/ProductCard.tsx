@@ -162,7 +162,7 @@ export function ProductCard({
     lastRawResponse,
     compute: triggerClariprint,
     reset: resetClariprintQuote,
-  } = useClariprintProduct();
+  } = useClariprintProduct(clariprint);
 
   const computeClariprintQuote = async () => {
     if (!localProduct.clariprintData) return;
