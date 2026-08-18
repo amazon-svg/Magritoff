@@ -33,6 +33,7 @@ import { ShopProductCard } from '../ShopProductCard';
 
 export interface GammePageProps {
   shop: Shop;
+  taxRate: number;
   gammeSlug: string | undefined;
   products: ShopProduct[];
   pimGammes: Gamme[];
@@ -50,6 +51,7 @@ export interface GammePageProps {
 
 export function GammePage({
   shop,
+  taxRate,
   gammeSlug,
   products,
   pimGammes,
@@ -72,8 +74,8 @@ export function GammePage({
   const defaultProduct = pickDefaultProduct(gammeProducts);
 
   // Moteur unique S7.2 — recalc live (exigence < 1,5 s par option).
-  const { options, patchOptions, phase, retry, confirm, addDisabled, taxRate } =
-    useProductConfigurator(defaultProduct, { liveRecalc: true });
+  const { options, patchOptions, phase, retry, confirm, addDisabled } =
+    useProductConfigurator(defaultProduct, { liveRecalc: true, taxRate });
 
   const title = gamme?.name ?? gammeSlug ?? 'Gamme';
 

@@ -54,6 +54,7 @@ const ProductOverlay = lazy(() =>
 
 interface Props {
   shop: Shop;
+  taxRate: number;
   products: ShopProduct[];
   onSelectProduct: (p: ShopProduct) => void;
   onAddToCart: (p: ShopProduct, qty?: number) => void;
@@ -120,6 +121,7 @@ function configToEphemeralShopProduct(config: any, index: number): ShopProduct {
 // Design source : .design-handoff/designs/05 - Portail B2B.html (section .f2b)
 export function PortalCatalog({
   shop,
+  taxRate,
   products,
   onSelectProduct,
   onAddToCart,
@@ -910,6 +912,7 @@ export function PortalCatalog({
           <ProductOverlay
             product={overlayProduct}
             shop={shop}
+            taxRate={taxRate}
             onClose={() => setOverlayProduct(null)}
             onConfirm={(productConfigured, qty) => {
               // S-FIX-PANIER-11/05 (bug #5) : `qty` retourne par l'overlay est la

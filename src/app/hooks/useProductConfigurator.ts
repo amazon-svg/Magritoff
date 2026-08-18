@@ -31,8 +31,7 @@ import {
   extractInitialOptions,
   type ConfigOptions,
 } from "../components/shop/ProductOverlay.helpers";
-import { useTenant } from "../contexts/TenantContext";
-import { applyTax, getTaxRate } from "../utils/tax";
+import { applyTax, DEFAULT_TAX_RATE } from "../utils/tax";
 import { useBrowserServices } from "../contexts/BrowserServicesContext";
 
 export const COMPUTE_PRICE_TIMEOUT_MS = 10_000;
@@ -163,6 +162,8 @@ export interface UseProductConfiguratorOpts {
    * — sans le flag, seul le calcul initial est joué).
    */
   liveRecalc?: boolean;
+  /** Taux fourni par la surface : contrat boutique ou tenant workspace. */
+  taxRate?: number;
 }
 
 export interface UseProductConfiguratorResult {
@@ -185,8 +186,7 @@ export function useProductConfigurator(
 ): UseProductConfiguratorResult {
   const liveRecalc = opts.liveRecalc ?? ENABLE_OVERLAY_LIVE_RECALC;
   const { clariprint } = useBrowserServices();
-  const { currentTenant } = useTenant();
-  const taxRate = getTaxRate(currentTenant);
+  const taxRate = opts.taxRate ?? DEFAULT_TAX_RATE;
 
   const [options, setOptions] = useState<ConfigOptions>(() =>
     product

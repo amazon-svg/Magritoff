@@ -54,6 +54,8 @@ export interface ProductOverlayProps {
   onConfirm: (productConfigured: ShopProduct, qty: number) => void;
   /** Libelle du bouton primary. Default "Ajouter au panier" (boutique). Atelier passe "Mettre a jour". */
   confirmLabel?: string;
+  /** TVA injectée par la surface appelante, jamais résolue dans le storefront. */
+  taxRate?: number;
 }
 
 
@@ -63,13 +65,14 @@ export function ProductOverlay({
   onClose,
   onConfirm,
   confirmLabel = "Ajouter au panier",
+  taxRate: configuredTaxRate,
 }: ProductOverlayProps) {
   const open = product !== null;
 
   // S7.2 — moteur unique de configuration/prix (machine Phase, debounce,
   // abort, repli Prix marché). L'overlay ne fait plus que du rendu.
   const { options, setOptions, phase, retry, confirm, addDisabled, taxRate } =
-    useProductConfigurator(product);
+    useProductConfigurator(product, { taxRate: configuredTaxRate });
 
   const handleAdd = () => {
     const result = confirm();

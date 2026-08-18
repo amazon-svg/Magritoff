@@ -744,6 +744,7 @@ export function ProductCard({
             : null
         }
         shop={null}
+        taxRate={taxRate}
         confirmLabel="Mettre à jour"
         onClose={() => setOverlayOpen(false)}
         onConfirm={(productConfigured) => {

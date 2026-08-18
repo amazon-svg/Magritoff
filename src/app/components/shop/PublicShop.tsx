@@ -730,6 +730,7 @@ export function PublicShop() {
       {view === 'catalog' && (
         <PortalCatalog
           shop={shop}
+          taxRate={taxRate}
           products={filteredProducts}
           onSelectProduct={(p) => goView('product', p.id)}
           onAddToCart={(p, qty) => addToCart(p, qty ?? 1)}
@@ -747,6 +748,7 @@ export function PublicShop() {
       {view === 'gamme' && (
         <GammePage
           shop={shop}
+          taxRate={taxRate}
           gammeSlug={routeMatch.gammeSlug}
           products={products}
           pimGammes={pimGammes}
