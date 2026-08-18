@@ -2,7 +2,7 @@ import { createContext, type ReactNode, useContext, useMemo } from 'react';
 import type { ClariprintPricingGateway } from '../../modules/clariprint';
 import type { AssistantGateway } from '../../modules/diagnostics';
 import type { BrowserRuntime } from '../../platform/runtime';
-import { useApiRuntime } from './ApiRuntimeContext';
+import { useStorefrontApiRuntime } from './StorefrontApiRuntimeContext';
 
 type StorefrontBrowserServices = Readonly<{
   assistant: AssistantGateway;
@@ -19,11 +19,11 @@ export function StorefrontBrowserServicesProvider({
   children: ReactNode;
   runtime: BrowserRuntime;
 }) {
-  const apiRuntime = useApiRuntime();
+  const apiRuntime = useStorefrontApiRuntime();
   const services = useMemo<StorefrontBrowserServices>(
     () => ({
       assistant: runtime.storefrontAssistant,
-      clariprint: runtime.createClariprint(apiRuntime.anonymousClient),
+      clariprint: runtime.createClariprint(apiRuntime.client),
     }),
     [apiRuntime, runtime],
   );

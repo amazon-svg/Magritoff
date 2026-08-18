@@ -273,11 +273,12 @@ describe('frontières API-first et modulaires', () => {
     expect(imports).toEqual([]);
   });
 
-  it('centralise le transport API des contextes React', () => {
+  it('centralise les transports API par surface', () => {
     const contextsRoot = resolve(process.cwd(), 'src/app/contexts');
     const runtime = readFileSync(resolve(contextsRoot, 'ApiRuntimeContext.tsx'), 'utf8');
     const violations = listTypeScriptFiles(contextsRoot)
       .filter((file) => !file.endsWith('/ApiRuntimeContext.tsx'))
+      .filter((file) => !file.endsWith('/StorefrontApiRuntimeContext.tsx'))
       .filter((file) => readFileSync(file, 'utf8').includes('new FetchApiClient'))
       .map((file) => relative(process.cwd(), file));
 
@@ -306,7 +307,10 @@ describe('frontières API-first et modulaires', () => {
       .filter((file) => readFileSync(file, 'utf8').includes('new FetchApiClient'))
       .map((file) => relative(process.cwd(), file));
 
-    expect(directTransports).toEqual(['src/app/contexts/ApiRuntimeContext.tsx']);
+    expect(directTransports).toEqual([
+      'src/app/contexts/ApiRuntimeContext.tsx',
+      'src/app/contexts/StorefrontApiRuntimeContext.tsx',
+    ]);
   });
 
   it('réserve toute composition de client API aux deux composition roots', () => {
@@ -317,6 +321,7 @@ describe('frontières API-first et modulaires', () => {
     expect(constructors).toEqual([
       'src/app/contexts/ApiRuntimeContext.tsx',
       'src/app/contexts/ModuleClientsContext.tsx',
+      'src/app/contexts/StorefrontApiRuntimeContext.tsx',
       'src/app/contexts/StorefrontModuleClientsContext.tsx',
     ]);
   });
@@ -664,7 +669,8 @@ describe('frontières API-first et modulaires', () => {
     }
     expect(services).toContain('runtime.createClariprint(apiRuntime.client)');
     expect(services).not.toContain('apiRuntime.anonymousClient');
-    expect(storefrontServices).toContain('runtime.createClariprint(apiRuntime.anonymousClient)');
+    expect(storefrontServices).toContain('runtime.createClariprint(apiRuntime.client)');
+    expect(storefrontServices).toContain('useStorefrontApiRuntime');
     expect(portal).toContain('useStorefrontClariprint');
     expect(product).toContain('useStorefrontClariprint');
     expect(runtime).toContain('new ClariprintHttpAdapter(');
@@ -688,7 +694,7 @@ describe('frontières API-first et modulaires', () => {
     expect(services).toContain('assistant: runtime.assistant');
     expect(services).not.toContain('storefrontAssistant');
     expect(storefrontServices).toContain('assistant: runtime.storefrontAssistant');
-    expect(storefrontServices).toContain('apiRuntime.anonymousClient');
+    expect(storefrontServices).toContain('useStorefrontApiRuntime');
     expect(runtime).toContain('assistant: browserAssistantGateway');
     expect(runtime).toContain('storefrontAssistant: browserStorefrontAssistantGateway');
   });

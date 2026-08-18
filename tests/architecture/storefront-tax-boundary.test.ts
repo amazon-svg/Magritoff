@@ -41,7 +41,8 @@ describe('frontière fiscale du storefront', () => {
     expect(overlay).toContain('useProductConfigurator(product, { taxRate: configuredTaxRate, clariprintGateway })');
     expect(gamme).toContain('useProductConfigurator(defaultProduct, { liveRecalc: true, taxRate, clariprintGateway: clariprint })');
     expect(configurator).toContain('opts.taxRate ?? DEFAULT_TAX_RATE');
-    expect(services).toContain('clariprint: runtime.createClariprint(apiRuntime.anonymousClient)');
+    expect(services).toContain('clariprint: runtime.createClariprint(apiRuntime.client)');
+    expect(services).toContain('useStorefrontApiRuntime');
     expect(catalog).toContain('useStorefrontClariprint()');
     expect(gamme).toContain('clariprintGateway: clariprint');
     expect(overlay).toContain('clariprintGateway');

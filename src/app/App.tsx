@@ -23,27 +23,30 @@ import { BrowserServicesProvider } from './contexts/BrowserServicesContext';
 import { StorefrontBrowserServicesProvider } from './contexts/StorefrontBrowserServicesContext';
 import { ModuleClientsProvider } from './contexts/ModuleClientsContext';
 import { StorefrontModuleClientsProvider } from './contexts/StorefrontModuleClientsContext';
+import { StorefrontApiRuntimeProvider } from './contexts/StorefrontApiRuntimeContext';
 
 export default function App() {
   return (
-    <AuthProvider gateway={browserRuntime.authentication}>
-      <ApiRuntimeProvider>
-        <BrowserServicesProvider runtime={browserRuntime}>
-          <StorefrontBrowserServicesProvider runtime={browserRuntime}>
-            <ModuleClientsProvider>
-              <StorefrontModuleClientsProvider>
-                <SessionBootstrapProvider>
-                  <PreferencesProvider>
-                    <PIMProvider>
-                      <RouterProvider router={router} />
-                    </PIMProvider>
-                  </PreferencesProvider>
-                </SessionBootstrapProvider>
-              </StorefrontModuleClientsProvider>
-            </ModuleClientsProvider>
-          </StorefrontBrowserServicesProvider>
-        </BrowserServicesProvider>
-      </ApiRuntimeProvider>
-    </AuthProvider>
+    <StorefrontApiRuntimeProvider>
+      <AuthProvider gateway={browserRuntime.authentication}>
+        <ApiRuntimeProvider>
+          <BrowserServicesProvider runtime={browserRuntime}>
+            <StorefrontBrowserServicesProvider runtime={browserRuntime}>
+              <ModuleClientsProvider>
+                <StorefrontModuleClientsProvider>
+                  <SessionBootstrapProvider>
+                    <PreferencesProvider>
+                      <PIMProvider>
+                        <RouterProvider router={router} />
+                      </PIMProvider>
+                    </PreferencesProvider>
+                  </SessionBootstrapProvider>
+                </StorefrontModuleClientsProvider>
+              </ModuleClientsProvider>
+            </StorefrontBrowserServicesProvider>
+          </BrowserServicesProvider>
+        </ApiRuntimeProvider>
+      </AuthProvider>
+    </StorefrontApiRuntimeProvider>
   );
 }

@@ -13,6 +13,7 @@ const auditModal = readFileSync(resolve(process.cwd(), 'src/app/components/shop/
 const dashboard = readFileSync(resolve(process.cwd(), 'src/app/components/dashboard/DashboardOrders.tsx'), 'utf8');
 const workspaceClients = readFileSync(resolve(process.cwd(), 'src/app/contexts/ModuleClientsContext.tsx'), 'utf8');
 const storefrontClients = readFileSync(resolve(process.cwd(), 'src/app/contexts/StorefrontModuleClientsContext.tsx'), 'utf8');
+const storefrontRuntime = readFileSync(resolve(process.cwd(), 'src/app/contexts/StorefrontApiRuntimeContext.tsx'), 'utf8');
 const catalog = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/PortalCatalog.tsx'), 'utf8');
 
 describe('portail commandes par compte boutique', () => {
@@ -50,7 +51,7 @@ describe('portail commandes par compte boutique', () => {
   });
 
   it('utilise un transport sans bearer Magrit pour toutes les commandes storefront', () => {
-    expect(storefrontClients).toContain('orders: new OrdersApiClient(apiRuntime.anonymousClient)');
+    expect(storefrontClients).toContain('orders: new OrdersApiClient(apiRuntime.client)');
     expect(storefront).toContain('useStorefrontOrdersApi()');
     expect(portal).toContain('useStorefrontOrdersApi()');
     expect(portal).toContain('auditApi={ordersApi}');
@@ -66,13 +67,13 @@ describe('portail commandes par compte boutique', () => {
   });
 
   it('charge aussi le catalogue boutique sans bearer Magrit', () => {
-    expect(storefrontClients).toContain('shops: new ShopsApiClient(apiRuntime.anonymousClient)');
+    expect(storefrontClients).toContain('shops: new ShopsApiClient(apiRuntime.client)');
     expect(storefront).toContain('useStorefrontShopsApi()');
     expect(storefront).not.toContain('useShopsApi()');
   });
 
   it('ne réutilise pas le bearer Magrit pour l éditorial facultatif', () => {
-    expect(storefrontClients).toContain('diagnostics: new DiagnosticsApiClient(apiRuntime.anonymousClient)');
+    expect(storefrontClients).toContain('diagnostics: new DiagnosticsApiClient(apiRuntime.client)');
     expect(catalog).toContain('useStorefrontDiagnosticsApi()');
     expect(catalog).not.toContain('useDiagnosticsApi()');
     expect(catalog).toContain('socle déterministe');
@@ -86,7 +87,11 @@ describe('portail commandes par compte boutique', () => {
     expect(workspaceClients).toContain('useWorkspaceModuleClients().orders');
     expect(storefrontClients).toContain('StorefrontModuleClientsContext');
     expect(storefrontClients).toContain('useStorefrontModuleClients().orders');
-    expect(storefrontClients).toContain('identity: new StorefrontIdentityApiClient(apiRuntime.anonymousClient)');
-    expect(storefrontClients).not.toContain('apiRuntime.client)');
+    expect(storefrontClients).toContain('identity: new StorefrontIdentityApiClient(apiRuntime.client)');
+    expect(storefrontClients).toContain('useStorefrontApiRuntime');
+    expect(storefrontClients).not.toContain("from './ApiRuntimeContext'");
+    expect(storefrontRuntime).toContain("new FetchApiClient('', globalThis.fetch)");
+    expect(storefrontRuntime).not.toContain('useAuth');
+    expect(storefrontRuntime).not.toContain('access_token');
   });
 });

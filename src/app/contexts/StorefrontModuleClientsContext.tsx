@@ -3,7 +3,7 @@ import { DiagnosticsApiClient } from '../../modules/diagnostics';
 import { OrdersApiClient } from '../../modules/orders';
 import { StorefrontIdentityApiClient } from '../../modules/shop-customers';
 import { ShopsApiClient } from '../../modules/shops';
-import { useApiRuntime } from './ApiRuntimeContext';
+import { useStorefrontApiRuntime } from './StorefrontApiRuntimeContext';
 
 type StorefrontModuleClients = Readonly<{
   diagnostics: DiagnosticsApiClient;
@@ -16,13 +16,13 @@ const StorefrontModuleClientsContext = createContext<StorefrontModuleClients | n
 
 /** Composition root storefront : cookie HttpOnly uniquement, aucun bearer Magrit. */
 export function StorefrontModuleClientsProvider({ children }: { children: ReactNode }) {
-  const apiRuntime = useApiRuntime();
+  const apiRuntime = useStorefrontApiRuntime();
   const clients = useMemo<StorefrontModuleClients>(
     () => ({
-      diagnostics: new DiagnosticsApiClient(apiRuntime.anonymousClient),
-      identity: new StorefrontIdentityApiClient(apiRuntime.anonymousClient),
-      orders: new OrdersApiClient(apiRuntime.anonymousClient),
-      shops: new ShopsApiClient(apiRuntime.anonymousClient),
+      diagnostics: new DiagnosticsApiClient(apiRuntime.client),
+      identity: new StorefrontIdentityApiClient(apiRuntime.client),
+      orders: new OrdersApiClient(apiRuntime.client),
+      shops: new ShopsApiClient(apiRuntime.client),
     }),
     [apiRuntime],
   );
