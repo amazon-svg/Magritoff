@@ -678,6 +678,28 @@ describe('frontières API-first et modulaires', () => {
     }
   });
 
+  it('sort la gestion des mockups custom de la vue boutique', () => {
+    const component = readFileSync(resolve(
+      process.cwd(),
+      'src/app/components/dashboard/ShopCustomMockups.tsx',
+    ), 'utf8');
+    const hook = readFileSync(resolve(
+      process.cwd(),
+      'src/app/hooks/useShopCustomMockups.ts',
+    ), 'utf8');
+
+    expect(component).toContain('useShopCustomMockups');
+    expect(component).not.toContain('useShopsApi');
+    expect(hook).toContain('useShopsApi');
+    expect(hook).toContain('uploadCustomMockup');
+    expect(hook).toContain('restoreCustomMockup');
+    expect(hook).toContain('targetKeyRef.current');
+    for (const source of [component, hook]) {
+      expect(source).not.toContain('utils/supabase');
+      expect(source).not.toMatch(/\bsupabase\s*\./);
+    }
+  });
+
   it('sort l acceptation d invitation et le compte portail du fournisseur', () => {
     const invitation = readFileSync(resolve(process.cwd(), 'src/app/components/tenant/AcceptInvitation.tsx'), 'utf8');
     const invitationHook = readFileSync(resolve(process.cwd(), 'src/app/hooks/useMagritInvitationAcceptance.ts'), 'utf8');

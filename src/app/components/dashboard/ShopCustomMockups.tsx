@@ -11,17 +11,17 @@
  *   1. File input PNG/JPG/WebP/SVG (max 5 MB)
  *   2. Upload multipart vers l'API Magrit
  *   3. L'adaptateur serveur synchronise Storage et l'override
- *   4. Reload state local via le client API
+ *   4. Le hook d'orchestration recharge les overrides
  *
  * Restauration :
- *   1. Commande API de restauration de l'override
+ *   1. Commande de restauration portée par le hook d'orchestration
  *   2. Le fichier est conservé en cache historique
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRef } from 'react';
 import { Upload, RotateCcw, Loader2, Image as ImageIcon } from 'lucide-react';
-import type { MockupTemplateType, ShopCustomMockup } from '../../../modules/shops';
-import { useShopsApi } from '../../contexts/ModuleClientsContext';
+import type { MockupTemplateType } from '../../../modules/shops';
+import { useShopCustomMockups } from '../../hooks/useShopCustomMockups';
 import { resolveProductImage } from '../../utils/productImages';
 
 interface Props {
@@ -50,62 +50,19 @@ const TEMPLATES: TemplateDef[] = [
 
 const ACCEPTED_MIME = 'image/png,image/jpeg,image/webp,image/svg+xml';
 export function ShopCustomMockups({ shopId, tenantId }: Props) {
-  const shopsApi = useShopsApi();
-  const [overrides, setOverrides] = useState<Record<string, ShopCustomMockup>>({});
-  const [loading, setLoading] = useState(true);
-  const [uploadingKey, setUploadingKey] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const fileInputsRef = useRef<Record<string, HTMLInputElement | null>>({});
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const records = await shopsApi.customMockups(tenantId, shopId);
-      const map: Record<string, ShopCustomMockup> = {};
-      for (const r of records) {
-        map[`${r.templateType}-${r.view}`] = r;
-      }
-      setOverrides(map);
-    } catch (loadError) {
-      setError(`Chargement échoué : ${loadError instanceof Error ? loadError.message : 'erreur réseau'}`);
-    } finally {
-      setLoading(false);
-    }
-  }, [shopId, tenantId, shopsApi]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const {
+    overrides,
+    loading,
+    uploadingKey,
+    error,
+    upload,
+    restore,
+  } = useShopCustomMockups(tenantId, shopId);
 
   // Même visuel Magrit par défaut que le portail public (résolveur P18).
   const buildDefaultPreviewUrl = (tpl: TemplateDef): string => {
     return resolveProductImage({ name: tpl.productName, kind: tpl.key });
-  };
-
-  const handleUpload = async (tplKey: MockupTemplateType, file: File) => {
-    setError(null);
-    setUploadingKey(tplKey);
-    try {
-      await shopsApi.uploadCustomMockup(tenantId, shopId, tplKey, 'front', file);
-      await load();
-    } catch (err) {
-      setError((err as Error).message || 'Erreur inconnue');
-    } finally {
-      setUploadingKey(null);
-    }
-  };
-
-  const handleRestore = async (tplKey: MockupTemplateType) => {
-    setError(null);
-    setUploadingKey(tplKey);
-    try {
-      await shopsApi.restoreCustomMockup(tenantId, shopId, tplKey, 'front');
-      await load();
-    } catch (err) {
-      setError((err as Error).message || 'Erreur inconnue');
-    } finally {
-      setUploadingKey(null);
-    }
   };
 
   return (
@@ -174,7 +131,7 @@ export function ShopCustomMockups({ shopId, tenantId }: Props) {
                     className="hidden"
                     onChange={(e) => {
                       const f = e.target.files?.[0];
-                      if (f) void handleUpload(tpl.key, f);
+                      if (f) void upload(tpl.key, f);
                       e.target.value = '';
                     }}
                   />
@@ -190,7 +147,7 @@ export function ShopCustomMockups({ shopId, tenantId }: Props) {
                   {isCustom && (
                     <button
                       type="button"
-                      onClick={() => void handleRestore(tpl.key)}
+                      onClick={() => void restore(tpl.key)}
                       disabled={isUploading}
                       title="Restaurer le mockup Magrit par défaut"
                       className="inline-flex items-center justify-center gap-1 px-2 py-1.5 text-xs font-medium border border-line-2 rounded hover:bg-bg text-ink-muted disabled:opacity-50"
