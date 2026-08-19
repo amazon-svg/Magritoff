@@ -9,42 +9,15 @@
  * Si le slug n'est ni courant ni archive → fallback /tenants (picker).
  */
 
-import { useEffect, useState } from 'react';
-import { Navigate, useLocation } from 'react-router';
-import { useSessionApi } from '../../contexts/ModuleClientsContext';
+import { Navigate } from 'react-router';
+import { useLegacyTenantSlugResolution } from '../../hooks/useLegacyTenantSlugResolution';
 
 interface Props {
   oldSlug: string;
 }
 
 export function LegacySlugRedirect({ oldSlug }: Props) {
-  const location = useLocation();
-  const sessionApi = useSessionApi();
-  // undefined = loading, null = no match (fallback), string = redirect target
-  const [target, setTarget] = useState<string | null | undefined>(undefined);
-
-  useEffect(() => {
-    if (!oldSlug) {
-      setTarget(null);
-      return;
-    }
-    let cancelled = false;
-    sessionApi.resolveTenantSlug(oldSlug)
-      .then((slug) => {
-        if (cancelled) return;
-        if (!slug || slug === oldSlug) {
-          setTarget(null);
-          return;
-        }
-        // Remplace seulement le segment slug, conserve le sous-path
-        const newPath = location.pathname.replace(`/t/${oldSlug}`, `/t/${slug}`)
-          + location.search
-          + location.hash;
-        setTarget(newPath);
-      })
-      .catch(() => { if (!cancelled) setTarget(null); });
-    return () => { cancelled = true; };
-  }, [oldSlug, location.hash, location.pathname, location.search, sessionApi]);
+  const target = useLegacyTenantSlugResolution(oldSlug);
 
   if (target === undefined) {
     return (

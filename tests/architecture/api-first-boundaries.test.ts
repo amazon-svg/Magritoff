@@ -622,7 +622,10 @@ describe('frontières API-first et modulaires', () => {
     const legacy = readFileSync(resolve(process.cwd(), 'src/app/components/tenant/LegacySlugRedirect.tsx'), 'utf8');
     const shopOnly = readFileSync(resolve(process.cwd(), 'src/app/components/tenant/LegacyShopOnlyAccessNotice.tsx'), 'utf8');
     const layout = readFileSync(resolve(process.cwd(), 'src/app/components/tenant/TenantAwareLayout.tsx'), 'utf8');
-    expect(legacy).toContain('useSessionApi');
+    const legacyHook = readFileSync(resolve(process.cwd(), 'src/app/hooks/useLegacyTenantSlugResolution.ts'), 'utf8');
+    expect(legacy).toContain('useLegacyTenantSlugResolution');
+    expect(legacy).not.toContain('useSessionApi');
+    expect(legacyHook).toContain('useSessionApi');
     expect(shopOnly).not.toContain('useShopsApi');
     expect(shopOnly).not.toContain('/shop/');
     expect(shopOnly).toContain('Activation boutique nécessaire');
