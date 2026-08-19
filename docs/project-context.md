@@ -4,7 +4,7 @@
 >
 > **Source authoritative :** `~/Downloads/CONTEXT_Magrit_IA.md` (maintenu par Arnaud, plus exhaustif). Ce fichier en est la **synthèse opérationnelle pour les agents BMAD** (focus : règles, conventions, états de version, identifiants techniques, **PAS** la stratégie commerciale détaillée).
 >
-> **Dernière mise à jour :** 2026-08-19 (UM10.29 — revalidation et révocation visuelle des sessions boutique).
+> **Dernière mise à jour :** 2026-08-19 (UM10.30 — cycle de chargement catalogue storefront isolé).
 > **Maintenu par :** Arnaud Mazon — PDG AGE Développement — `arnaud@age-services.fr`.
 > **Langue de travail :** français (livrables, code commits, variables métier).
 
@@ -95,6 +95,10 @@
   les écrans workspace utilisent une instance authentifiée distincte.
 - Le probe et le catalogue Shops du storefront suivent la même règle : client
   HTTP anonyme côté navigateur, puis résolution du cookie boutique côté BFF.
+- Le composant de surface `PublicShop` ne pilote plus le transport ni les états
+  réseau du catalogue. `usePublicShopCatalog` porte le probe fail-closed, le
+  contrôle d'accès, le mapping du contrat public, les reprises focus/visibilité
+  et le retry ; l'écran ne consomme qu'un état explicite.
 - Les types de lecture `Shop`, `ShopTheme` et `ShopProduct` appartiennent au
   module Shops. Le storefront ne doit pas les importer depuis `ShopsContext`,
   qui reste un adaptateur React de la surface workspace.

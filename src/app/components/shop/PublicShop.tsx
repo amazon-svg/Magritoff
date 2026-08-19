@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router';
 import { Loader2 } from 'lucide-react';
-import type { Shop, ShopProduct } from '../../../modules/shops';
-import type { Gamme, ProductDefinition } from '../../utils/productEnrichment';
+import type { ShopProduct } from '../../../modules/shops';
 
 import { PortalHome } from './portal/PortalHome';
 import { PortalCatalog } from './portal/PortalCatalog';
@@ -25,7 +24,7 @@ import {
   type ResumeLastOrder,
 } from './portal/ResumeBanner';
 import { ShopForbidden403 } from './ShopForbidden403';
-import { resolveShopAccess, type ShopAccess } from './ShopAccessGuard.helpers';
+import { resolveShopAccess } from './ShopAccessGuard.helpers';
 import {
   filterProductsByExpandedGammes,
   groupProductsByGamme,
@@ -34,14 +33,12 @@ import {
 } from './ShopGammesSidebar.helpers';
 import { buildShopTaxonomy } from '../../utils/shopTaxonomy';
 import { parsePortalPath, shopUrl } from './portal/shopPortalRoutes';
-import { DEFAULT_TAX_RATE, getTaxRate } from '../../utils/tax';
-import type { PublicShopCatalog } from '../../../modules/shops';
 import { ApiClientError } from '../../../platform/api';
-import { useStorefrontOrdersApi, useStorefrontShopsApi } from '../../contexts/StorefrontModuleClientsContext';
+import { useStorefrontOrdersApi } from '../../contexts/StorefrontModuleClientsContext';
 import { StorefrontDelegationBanner } from './StorefrontDelegationBanner';
 import { StorefrontUnavailable } from './StorefrontUnavailable';
 import { useStorefrontSession } from '../../hooks/useStorefrontSession';
-import { classifyShopLoadFailure } from './shopLoadFailure';
+import { usePublicShopCatalog } from '../../hooks/usePublicShopCatalog';
 
 /**
  * Portail B2B Magrit — version 2.
@@ -64,19 +61,7 @@ export function PublicShop() {
   const slug = params.slug;
   const splat = params['*'];
   const navigate = useNavigate();
-  const [shop, setShop] = useState<Shop | null>(null);
-  const [products, setProducts] = useState<ShopProduct[]>([]);
-  const [taxRate, setTaxRate] = useState(DEFAULT_TAX_RATE);
-  const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
-  const [blockedAccess, setBlockedAccess] = useState<Extract<
-    ShopAccess,
-    'authentication_required'
-  > | null>(null);
-  const [shopUnavailable, setShopUnavailable] = useState(false);
-  const [shopLoadAttempt, setShopLoadAttempt] = useState(0);
   const ordersApi = useStorefrontOrdersApi();
-  const shopsApi = useStorefrontShopsApi();
   const {
     session: storefrontSession,
     loading: storefrontSessionLoading,
@@ -86,6 +71,19 @@ export function PublicShop() {
     setSession: setStorefrontSession,
     end: endSession,
   } = useStorefrontSession();
+  const catalog = usePublicShopCatalog({
+    slug,
+    sessionLoading: storefrontSessionLoading,
+    sessionShopId: storefrontSession?.identity.shopId ?? null,
+  });
+  const {
+    shop,
+    products,
+    taxRate,
+    pimGammes,
+    pimDefinitions,
+    subscribedSlugs,
+  } = catalog;
   const checkoutCommandKey = useRef(crypto.randomUUID());
 
   const endStorefrontSession = async () => {
@@ -130,108 +128,9 @@ export function PublicShop() {
   // renouvellement était une impasse (aucune branche de rendu 'cart').
   const [cartOpenRequest, setCartOpenRequest] = useState(0);
 
-  // PIM (gammes + definitions) — utilise pour resoudre les images produit
-  const [pimGammes, setPimGammes] = useState<Gamme[]>([]);
-  const [pimDefinitions, setPimDefinitions] = useState<ProductDefinition[]>([]);
-
-  // S2.2 — Gammes souscrites du tenant qui possede la shop
-  // (lecture publique de tenant_gamme_subscriptions filtree active=true).
-  // Set vide -> fallback sur les gammes effectivement matchees par le catalogue
-  // produit (cf. visibleGammes ci-dessous).
-  const [subscribedSlugs, setSubscribedSlugs] = useState<Set<string> | null>(null);
-
   // S2.2 — Etat des gammes deplices (filtre additif). Hydrate depuis
   // localStorage au mount, persiste a chaque toggle.
   const [expandedGammes, setExpandedGammes] = useState<Set<string>>(new Set());
-
-  const applyCatalog = (catalog: PublicShopCatalog) => {
-    setShop(fromPublicShop(catalog));
-    setTaxRate(getTaxRate({ tax_regime: catalog.taxRegime }));
-    setProducts(catalog.products.map((product) => ({
-      id: product.id, shop_id: product.shopId, product_id: product.productId,
-      name: product.name, category: product.category, description: product.description,
-      price_ht: product.priceHt, image_url: product.imageUrl, config: product.config,
-      display_order: product.displayOrder, created_at: product.createdAt,
-      tenant_id: product.tenantId, gamme_slug: product.gammeSlug,
-    })));
-    setPimGammes(catalog.gammes as Gamme[]);
-    setPimDefinitions(catalog.definitions as unknown as ProductDefinition[]);
-    setSubscribedSlugs(new Set(catalog.subscribedSlugs));
-  };
-
-  // ─── Chargement API + rafraîchissement à la reprise de fenêtre ────────────
-  useEffect(() => {
-    if (!slug || storefrontSessionLoading) return;
-    let focusHandler: (() => void) | null = null;
-    let refreshTimer: number | null = null;
-    let cancelled = false;
-
-    setLoading(true);
-    setNotFound(false);
-    setBlockedAccess(null);
-    setShopUnavailable(false);
-    setShop(null);
-    setTaxRate(DEFAULT_TAX_RATE);
-    setProducts([]);
-    setPimGammes([]);
-    setPimDefinitions([]);
-    setSubscribedSlugs(null);
-
-    (async () => {
-      // Première lecture volontairement minimale : aucune marque, description,
-      // configuration ou donnée catalogue n'est exposée avant le garde d'accès.
-      let gateData;
-      try { gateData = await shopsApi.publicProbe(slug); }
-      catch (probeError) {
-        if (cancelled) return;
-        const failure = classifyShopLoadFailure(probeError, 'probe');
-        setNotFound(failure === 'not_found');
-        setShopUnavailable(failure === 'unavailable');
-        setLoading(false);
-        return;
-      }
-      if (cancelled) return;
-
-      const initialAccess = resolveShopAccess({
-        accessMode: gateData.accessMode,
-        shopId: gateData.id,
-        storefrontShopId: storefrontSession?.identity.shopId ?? null,
-      });
-      if (initialAccess === 'authentication_required') {
-        setBlockedAccess(initialAccess);
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const catalog = await shopsApi.publicCatalog(slug);
-        if (cancelled) return;
-        applyCatalog(catalog);
-      } catch (catalogError) {
-        if (cancelled) return;
-        const failure = classifyShopLoadFailure(catalogError, 'catalog');
-        setBlockedAccess(failure === 'authentication_required' ? 'authentication_required' : null);
-        setNotFound(failure === 'not_found');
-        setShopUnavailable(failure === 'unavailable');
-      }
-      setLoading(false);
-
-      focusHandler = () => {
-        void shopsApi.publicCatalog(slug).then(applyCatalog).catch(() => undefined);
-      };
-      window.addEventListener('focus', focusHandler);
-      refreshTimer = window.setInterval(() => {
-        if (document.visibilityState === 'visible') focusHandler?.();
-      }, 15_000);
-    })();
-
-    return () => {
-      cancelled = true;
-      if (focusHandler) window.removeEventListener('focus', focusHandler);
-      if (refreshTimer !== null) window.clearInterval(refreshTimer);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug, storefrontSessionLoading, storefrontSession?.identity.shopId, shopsApi, shopLoadAttempt]);
 
   // ─── SEO : title ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -572,7 +471,8 @@ export function PublicShop() {
   // ─── Rendering ───────────────────────────────────────────────────────────
   // Le reset des effects intervient après le rendu. Ce garde empêche donc la
   // boutique précédente d'être peinte, même pendant cette fenêtre React.
-  if (loading || storefrontSessionLoading || (shop !== null && shop.slug !== slug)) {
+  const catalogLoading = catalog.status === 'loading';
+  if (catalogLoading || storefrontSessionLoading || (shop !== null && shop.slug !== slug)) {
     return (
       <div
         className="min-h-screen grid place-items-center bg-bg"
@@ -582,27 +482,27 @@ export function PublicShop() {
       </div>
     );
   }
-  if (storefrontSessionUnavailable || shopUnavailable) {
+  if (storefrontSessionUnavailable || catalog.status === 'unavailable') {
     return (
       <StorefrontUnavailable
-        retrying={storefrontSessionLoading || loading}
+        retrying={storefrontSessionLoading || catalogLoading}
         onRetry={() => {
           if (storefrontSessionUnavailable) void refreshStorefrontSession();
-          else setShopLoadAttempt((attempt) => attempt + 1);
+          else catalog.retry();
         }}
       />
     );
   }
-  if (blockedAccess) {
+  if (catalog.status === 'authentication_required') {
     return (
       <ShopForbidden403
-        authenticationRequired={blockedAccess === 'authentication_required'}
+        authenticationRequired
         shopSlug={slug}
         onStorefrontAuthenticated={setStorefrontSession}
       />
     );
   }
-  if (notFound || !shop) {
+  if (catalog.status === 'not_found' || !shop) {
     return (
       <div
         className="min-h-screen grid place-items-center bg-bg px-6"
@@ -845,17 +745,4 @@ export function PublicShop() {
     </ShopLayout>
     </>
   );
-}
-
-function fromPublicShop(catalog: PublicShopCatalog): Shop {
-  const shop = catalog.shop;
-  return {
-    id: shop.id, tenant_id: shop.tenantId, slug: shop.slug, name: shop.name,
-    description: shop.description, theme: shop.theme, logo_url: shop.logoUrl,
-    address: shop.address, contact_email: shop.contactEmail, active: shop.active,
-    library_ids: [], excluded_product_ids: [], hero_image_url: shop.heroImageUrl,
-    tagline: shop.tagline, pim_catalog_mode: false, pim_gamme_slugs: [],
-    access_mode: shop.accessMode, created_at: shop.createdAt,
-    custom_mockups: catalog.customMockups,
-  };
 }

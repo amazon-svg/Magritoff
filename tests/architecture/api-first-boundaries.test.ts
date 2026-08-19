@@ -562,9 +562,16 @@ describe('frontières API-first et modulaires', () => {
   it('sort le contexte boutiques du fournisseur', () => {
     const workspace = readFileSync(resolve(process.cwd(), 'src/app/contexts/ShopsContext.tsx'), 'utf8');
     const storefront = readFileSync(resolve(process.cwd(), 'src/app/components/shop/PublicShop.tsx'), 'utf8');
+    const storefrontCatalog = readFileSync(resolve(process.cwd(), 'src/app/hooks/usePublicShopCatalog.ts'), 'utf8');
     expect(workspace).toContain('useShopsApi');
-    expect(storefront).toContain('useStorefrontShopsApi');
-    for (const source of [workspace, storefront]) {
+    expect(storefront).toContain('usePublicShopCatalog');
+    expect(storefront).not.toContain('useStorefrontShopsApi');
+    expect(storefrontCatalog).toContain('useStorefrontShopsApi');
+    expect(storefrontCatalog).toContain('resolveShopAccess');
+    expect(storefrontCatalog).toContain('classifyShopLoadFailure');
+    expect(storefront).not.toContain('.publicProbe(');
+    expect(storefront).not.toContain('.publicCatalog(');
+    for (const source of [workspace, storefront, storefrontCatalog]) {
       expect(source).not.toContain('utils/supabase');
       expect(source).not.toMatch(/\bsupabase\s*\./);
     }

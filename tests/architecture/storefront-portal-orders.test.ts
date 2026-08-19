@@ -7,6 +7,7 @@ const service = readFileSync(resolve(process.cwd(), 'src/modules/orders/applicat
 const routes = readFileSync(resolve(process.cwd(), 'src/server/api/orders-routes.ts'), 'utf8');
 const portal = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/PortalOrders.tsx'), 'utf8');
 const storefront = readFileSync(resolve(process.cwd(), 'src/app/components/shop/PublicShop.tsx'), 'utf8');
+const storefrontCatalog = readFileSync(resolve(process.cwd(), 'src/app/hooks/usePublicShopCatalog.ts'), 'utf8');
 const editor = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/PortalOrderEditor.tsx'), 'utf8');
 const thankYou = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/PortalThankYou.tsx'), 'utf8');
 const auditModal = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/OrderAuditTrailModal.tsx'), 'utf8');
@@ -71,8 +72,12 @@ describe('portail commandes par compte boutique', () => {
 
   it('charge aussi le catalogue boutique sans bearer Magrit', () => {
     expect(storefrontClients).toContain('shops: new ShopsApiClient(apiRuntime.client)');
-    expect(storefront).toContain('useStorefrontShopsApi()');
+    expect(storefront).toContain('usePublicShopCatalog({');
+    expect(storefrontCatalog).toContain('useStorefrontShopsApi()');
+    expect(storefrontCatalog).toContain('api.publicProbe(slug)');
+    expect(storefrontCatalog).toContain('api.publicCatalog(slug)');
     expect(storefront).not.toContain('useShopsApi()');
+    expect(storefrontCatalog).not.toContain('useShopsApi()');
   });
 
   it('ne réutilise pas le bearer Magrit pour l éditorial facultatif', () => {
