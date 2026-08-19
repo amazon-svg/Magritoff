@@ -18,8 +18,16 @@ describe('identité du compte storefront', () => {
 
   it('transmet la session au chrome, au profil et à la confirmation', () => {
     expect(storefront).toContain('storefrontSession={storefrontSession}');
+    expect(storefront).toContain('onAuthenticated={setStorefrontSession}');
     expect(storefront).toContain('onSignOut={endStorefrontSession}');
     expect(storefront).toContain("storefrontSession?.customer.email ?? ''");
+  });
+
+  it('demande une session boutique avant d afficher les données du compte', () => {
+    expect(account).toContain('if (!hasCurrentShopSession)');
+    expect(account).toContain('<StorefrontLoginForm');
+    expect(account).toContain("allowRegistration={shop.access_mode === 'self_signup'}");
+    expect(account).toContain('onAuthenticated={onAuthenticated}');
   });
 
   it('autorise une commande avec la session boutique sans exiger Supabase Auth', () => {

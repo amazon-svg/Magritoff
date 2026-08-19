@@ -813,6 +813,7 @@ export function PublicShop() {
           onRenewOrder={handleRenewOrder}
           onGoHome={() => goView('home')}
           storefrontSession={storefrontSession}
+          onAuthenticated={setStorefrontSession}
           onSignOut={endStorefrontSession}
         />
       )}

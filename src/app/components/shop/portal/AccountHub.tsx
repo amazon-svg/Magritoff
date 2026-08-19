@@ -13,6 +13,7 @@
 import { FileText, LogOut, Package, User } from 'lucide-react';
 import type { StorefrontSession } from '../../../../modules/shop-customers';
 import type { Shop } from '../../../../modules/shops';
+import { StorefrontLoginForm } from '../StorefrontLoginForm';
 import type { AccountSection } from './types';
 import { PortalOrders } from './PortalOrders';
 import { TEST_IDS } from '../../../lib/testIds';
@@ -31,6 +32,7 @@ export interface AccountHubProps {
   onRenewOrder: (order: { id: string; source: string }) => void;
   onGoHome: () => void;
   storefrontSession: StorefrontSession | null;
+  onAuthenticated: (session: StorefrontSession) => void;
   onSignOut: () => Promise<void>;
 }
 
@@ -42,9 +44,29 @@ export function AccountHub({
   onRenewOrder,
   onGoHome,
   storefrontSession,
+  onAuthenticated,
   onSignOut,
 }: AccountHubProps) {
   const hasCurrentShopSession = storefrontSession?.identity.shopId === shop.id;
+
+  if (!hasCurrentShopSession) {
+    return (
+      <div className="mx-auto max-w-xl px-5 py-10 lg:px-9">
+        <div className="rounded-xl border border-line bg-paper p-5">
+          <h2 className="m-0 text-xl font-medium text-ink">Accédez à votre compte boutique</h2>
+          <p className="mb-5 mt-1 text-sm text-ink-muted">
+            Connectez-vous pour consulter vos commandes, vos devis et votre profil dans cette boutique.
+          </p>
+          <StorefrontLoginForm
+            shopSlug={shop.slug}
+            contactEmail={shop.contact_email}
+            allowRegistration={shop.access_mode === 'self_signup'}
+            onAuthenticated={onAuthenticated}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -84,7 +106,7 @@ export function AccountHub({
         {section === 'quotes' && <AccountQuotes />}
         {section === 'profile' && (
           <AccountProfile
-            session={hasCurrentShopSession ? storefrontSession : null}
+            session={storefrontSession}
             shopName={shop.name}
             onGoHome={onGoHome}
             onSignOut={onSignOut}
