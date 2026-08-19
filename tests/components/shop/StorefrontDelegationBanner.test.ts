@@ -10,6 +10,10 @@ const shop = readFileSync(
   resolve(process.cwd(), 'src/app/components/shop/PublicShop.tsx'),
   'utf8',
 );
+const sessionHook = readFileSync(
+  resolve(process.cwd(), 'src/app/hooks/useStorefrontSession.ts'),
+  'utf8',
+);
 
 describe('bandeau de délégation storefront', () => {
   it('reste distinct du contenu boutique et permet de quitter le mode', () => {
@@ -19,9 +23,11 @@ describe('bandeau de délégation storefront', () => {
   });
 
   it('lit et ferme la session via la façade anonyme', () => {
-    expect(shop).toContain('storefrontIdentityApi.current()');
-    expect(shop).toContain('await storefrontIdentityApi.end()');
+    expect(shop).toContain('useStorefrontSession()');
+    expect(sessionHook).toContain('await api.current()');
+    expect(sessionHook).toContain('await api.end()');
     expect(shop).toContain('StorefrontDelegationBanner');
     expect(shop).not.toMatch(/supabase\s*\./);
+    expect(sessionHook).not.toMatch(/supabase\s*\./);
   });
 });

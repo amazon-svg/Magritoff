@@ -56,7 +56,7 @@ la connexion du checkout et de la garde des boutiques privées sur la session
 boutique BFF ; l'ancien `signIn/signUp` Supabase Auth et la création implicite
 d'un membre `shop_only` disparaissent du storefront. Chaque vague suivante doit être
 découpée en stories BMAD exécutables avant son implémentation.
-UM10.1 à UM10.27 ferment ensuite les fuites de contexte résiduelles : assistant,
+UM10.1 à UM10.28 ferment ensuite les fuites de contexte résiduelles : assistant,
 politique fiscale, ancienne UI de profil mixte et états transactionnels sont
 désormais séparés par identité et par boutique, y compris lors d’un changement
 de slug sans remontage React. Le portail commandes client ne présente plus les
@@ -65,6 +65,9 @@ uniquement les actions appartenant au client boutique.
 Le prix présenté dans le panier constitue également le prix canonique du
 checkout et de la commande : un fallback prix marché ne peut plus retomber à
 zéro lors du changement d'écran ou de l'écriture Orders.
+Une panne du BFF ne vaut jamais absence de session ou boutique inconnue : seuls
+le 401 de session et le 404 du probe produisent respectivement ces états. Les
+autres erreurs ferment l'accès avec un écran de reprise explicite.
 Le transport Orders du storefront est lui aussi distinct : il n’ajoute aucun
 bearer Magrit et s’appuie exclusivement sur le cookie boutique HttpOnly.
 Il en va de même pour le probe d’accès et le chargement du catalogue public ou

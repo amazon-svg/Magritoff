@@ -35,11 +35,13 @@ import {
 import { buildShopTaxonomy } from '../../utils/shopTaxonomy';
 import { parsePortalPath, shopUrl } from './portal/shopPortalRoutes';
 import { DEFAULT_TAX_RATE, getTaxRate } from '../../utils/tax';
-import type { StorefrontSession } from '../../../modules/shop-customers';
 import type { PublicShopCatalog } from '../../../modules/shops';
 import { ApiClientError } from '../../../platform/api';
-import { useStorefrontIdentityApi, useStorefrontOrdersApi, useStorefrontShopsApi } from '../../contexts/StorefrontModuleClientsContext';
+import { useStorefrontOrdersApi, useStorefrontShopsApi } from '../../contexts/StorefrontModuleClientsContext';
 import { StorefrontDelegationBanner } from './StorefrontDelegationBanner';
+import { StorefrontUnavailable } from './StorefrontUnavailable';
+import { useStorefrontSession } from '../../hooks/useStorefrontSession';
+import { classifyShopLoadFailure } from './shopLoadFailure';
 
 /**
  * Portail B2B Magrit — version 2.
@@ -71,32 +73,24 @@ export function PublicShop() {
     ShopAccess,
     'authentication_required'
   > | null>(null);
+  const [shopUnavailable, setShopUnavailable] = useState(false);
+  const [shopLoadAttempt, setShopLoadAttempt] = useState(0);
   const ordersApi = useStorefrontOrdersApi();
   const shopsApi = useStorefrontShopsApi();
-  const storefrontIdentityApi = useStorefrontIdentityApi();
-  const [storefrontSession, setStorefrontSession] = useState<StorefrontSession | null>(null);
-  const [storefrontSessionLoading, setStorefrontSessionLoading] = useState(true);
-  const [endingStorefrontSession, setEndingStorefrontSession] = useState(false);
+  const {
+    session: storefrontSession,
+    loading: storefrontSessionLoading,
+    unavailable: storefrontSessionUnavailable,
+    ending: endingStorefrontSession,
+    refresh: refreshStorefrontSession,
+    setSession: setStorefrontSession,
+    end: endSession,
+  } = useStorefrontSession();
   const checkoutCommandKey = useRef(crypto.randomUUID());
 
-  useEffect(() => {
-    let cancelled = false;
-    storefrontIdentityApi.current()
-      .then((current) => { if (!cancelled) setStorefrontSession(current); })
-      .catch(() => { if (!cancelled) setStorefrontSession(null); })
-      .finally(() => { if (!cancelled) setStorefrontSessionLoading(false); });
-    return () => { cancelled = true; };
-  }, [storefrontIdentityApi]);
-
   const endStorefrontSession = async () => {
-    setEndingStorefrontSession(true);
-    try {
-      await storefrontIdentityApi.end();
-      setStorefrontSession(null);
-    } catch {
+    if (!(await endSession())) {
       window.alert('Impossible de fermer la session boutique pour le moment. Réessayez.');
-    } finally {
-      setEndingStorefrontSession(false);
     }
   };
 
@@ -175,6 +169,7 @@ export function PublicShop() {
     setLoading(true);
     setNotFound(false);
     setBlockedAccess(null);
+    setShopUnavailable(false);
     setShop(null);
     setTaxRate(DEFAULT_TAX_RATE);
     setProducts([]);
@@ -189,7 +184,9 @@ export function PublicShop() {
       try { gateData = await shopsApi.publicProbe(slug); }
       catch (probeError) {
         if (cancelled) return;
-        setNotFound(probeError instanceof ApiClientError && probeError.problem.status === 404);
+        const failure = classifyShopLoadFailure(probeError, 'probe');
+        setNotFound(failure === 'not_found');
+        setShopUnavailable(failure === 'unavailable');
         setLoading(false);
         return;
       }
@@ -212,9 +209,10 @@ export function PublicShop() {
         applyCatalog(catalog);
       } catch (catalogError) {
         if (cancelled) return;
-        if (catalogError instanceof ApiClientError && catalogError.problem.status === 401) setBlockedAccess('authentication_required');
-        else if (catalogError instanceof ApiClientError && catalogError.problem.status === 403) setBlockedAccess('authentication_required');
-        else setNotFound(catalogError instanceof ApiClientError && catalogError.problem.status === 404);
+        const failure = classifyShopLoadFailure(catalogError, 'catalog');
+        setBlockedAccess(failure === 'authentication_required' ? 'authentication_required' : null);
+        setNotFound(failure === 'not_found');
+        setShopUnavailable(failure === 'unavailable');
       }
       setLoading(false);
 
@@ -233,7 +231,7 @@ export function PublicShop() {
       if (refreshTimer !== null) window.clearInterval(refreshTimer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug, storefrontSessionLoading, storefrontSession?.identity.shopId, shopsApi]);
+  }, [slug, storefrontSessionLoading, storefrontSession?.identity.shopId, shopsApi, shopLoadAttempt]);
 
   // ─── SEO : title ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -582,6 +580,17 @@ export function PublicShop() {
       >
         <Loader2 className="w-8 h-8 animate-spin text-ink-mute-2" strokeWidth={1.5} />
       </div>
+    );
+  }
+  if (storefrontSessionUnavailable || shopUnavailable) {
+    return (
+      <StorefrontUnavailable
+        retrying={storefrontSessionLoading || loading}
+        onRetry={() => {
+          if (storefrontSessionUnavailable) void refreshStorefrontSession();
+          else setShopLoadAttempt((attempt) => attempt + 1);
+        }}
+      />
     );
   }
   if (blockedAccess) {
