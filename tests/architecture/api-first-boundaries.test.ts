@@ -445,10 +445,19 @@ describe('frontières API-first et modulaires', () => {
 
   it('sort la gestion des sous-espaces du fournisseur', () => {
     const source = readFileSync(resolve(process.cwd(), 'src/app/components/dashboard/DashboardTenantSpaces.tsx'), 'utf8');
+    const management = readFileSync(resolve(process.cwd(), 'src/app/hooks/useSubTenantManagement.ts'), 'utf8');
     const tenantContext = readFileSync(resolve(process.cwd(), 'src/app/contexts/TenantContext.tsx'), 'utf8');
-    expect(source).toContain('useSessionApi');
-    expect(source).not.toContain('utils/supabase');
-    expect(source).not.toMatch(/\bsupabase\s*\./);
+    expect(source).toContain('useSubTenantManagement');
+    expect(source).not.toContain('useSessionApi');
+    expect(management).toContain('useSessionApi');
+    expect(management).toContain('sessionApi.subTenantsDashboard(tenantId)');
+    expect(management).toContain('sessionApi.createSubTenant(actionTenantId');
+    expect(management).toContain('sessionApi.removeSubTenant(actionTenantId, id)');
+    expect(management).toContain('activeTenantId.current !== actionTenantId');
+    for (const candidate of [source, management]) {
+      expect(candidate).not.toContain('utils/supabase');
+      expect(candidate).not.toMatch(/\bsupabase\s*\./);
+    }
     expect(tenantContext).not.toContain('createSubTenant');
   });
 

@@ -371,6 +371,9 @@ BFF, et les écrans boutique reçoivent explicitement le taux correspondant.
 - AF30.1 : orchestration du formulaire de paramètres tenant extraite de la vue
   workspace ; validation du slug, mutation Session et reprise du contexte sont
   portées par un hook dédié — livré ;
+- AF30.2 : lecture, création et suppression des sous-espaces extraites de la
+  vue workspace ; les réponses asynchrones sont bornées au tenant qui a initié
+  l'opération — livré ;
 - suite : implémenter les futurs modules et surfaces depuis ces composition
   roots, en conservant la séparation fonctionnelle des identités comme chantier produit distinct.
 

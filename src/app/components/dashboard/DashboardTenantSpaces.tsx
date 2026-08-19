@@ -14,25 +14,17 @@
  * les tenants dont le role utilisateur est 'partner'.
  */
 
-import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { Building, Plus, ExternalLink, Trash2 } from 'lucide-react';
 import { useTenant } from '../../contexts/TenantContext';
-import { type SubTenant, type SubTenantKpi } from '../../../modules/session';
-import { useSessionApi } from '../../contexts/ModuleClientsContext';
+import { useSubTenantManagement } from '../../hooks/useSubTenantManagement';
 
 export function DashboardTenantSpaces() {
   const { currentTenant, currentRole, isSuperAdmin, reload } = useTenant();
-  const sessionApi = useSessionApi();
-
-  const [children, setChildren] = useState<SubTenant[]>([]);
-  const [kpis, setKpis] = useState<SubTenantKpi[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [formOpen, setFormOpen] = useState(false);
-  const [name, setName] = useState('');
-  const [slug, setSlug] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    children, kpis, loading, formOpen, setFormOpen, name, changeName,
+    slug, changeSlug, saving, error, submit, remove,
+  } = useSubTenantManagement({ tenantId: currentTenant?.id ?? null, onChanged: reload });
 
   const isSubTenant = !!currentTenant?.parent_tenant_id;
   const canCreate =
@@ -40,68 +32,9 @@ export function DashboardTenantSpaces() {
     !isSubTenant &&
     (currentRole === 'owner' || currentRole === 'admin' || isSuperAdmin);
 
-  const load = useCallback(async () => {
-    if (!currentTenant) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const dashboard = await sessionApi.subTenantsDashboard(currentTenant.id);
-      setChildren(dashboard.subTenants);
-      setKpis(dashboard.kpis);
-    } catch (loadError) {
-      setChildren([]);
-      setKpis([]);
-      setError(loadError instanceof Error ? loadError.message : 'Chargement des sous-espaces impossible.');
-    } finally {
-      setLoading(false);
-    }
-  }, [currentTenant?.id, sessionApi]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  const autoSlug = (n: string) =>
-    n
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '');
-
-  const submit = async () => {
-    if (!currentTenant) return;
-    setError(null);
-    if (!name.trim() || !slug.trim()) {
-      setError('Nom et identifiant requis.');
-      return;
-    }
-    setSaving(true);
-    try {
-      await sessionApi.createSubTenant(currentTenant.id, { slug: slug.trim(), name: name.trim() });
-      await reload();
-    } catch (createError) {
-      setSaving(false);
-      setError(createError instanceof Error ? createError.message : 'Création impossible.');
-      return;
-    }
-    setSaving(false);
-    setFormOpen(false);
-    setName('');
-    setSlug('');
-    await load();
-  };
-
-  const remove = async (id: string, spaceName: string) => {
+  const confirmRemove = (id: string, spaceName: string) => {
     if (!confirm(`Supprimer l'espace "${spaceName}" et toutes ses donnees ?`)) return;
-    setError(null);
-    try {
-      await sessionApi.removeSubTenant(currentTenant.id, id);
-      await reload();
-      await load();
-    } catch (removeError) {
-      setError(removeError instanceof Error ? removeError.message : 'Suppression impossible.');
-    }
+    void remove(id);
   };
 
   if (!currentTenant) {
@@ -167,10 +100,7 @@ export function DashboardTenantSpaces() {
               <input
                 type="text"
                 value={name}
-                onChange={(e) => {
-                  setName(e.target.value);
-                  setSlug(autoSlug(e.target.value));
-                }}
+                onChange={(e) => changeName(e.target.value)}
                 placeholder="Carrefour France"
                 className="w-full px-3 py-1.5 border border-line rounded-md bg-paper text-ink"
                 style={{ fontSize: '13px' }}
@@ -186,7 +116,7 @@ export function DashboardTenantSpaces() {
               <input
                 type="text"
                 value={slug}
-                onChange={(e) => setSlug(autoSlug(e.target.value))}
+                onChange={(e) => changeSlug(e.target.value)}
                 placeholder="carrefour-france"
                 className="w-full px-3 py-1.5 border border-line rounded-md bg-paper text-ink font-mono"
                 style={{ fontSize: '12.5px' }}
@@ -306,7 +236,7 @@ export function DashboardTenantSpaces() {
                     </Link>
                     {canCreate && (
                       <button
-                        onClick={() => remove(c.id, c.name)}
+                        onClick={() => confirmRemove(c.id, c.name)}
                         className="inline-flex items-center gap-1 px-2 py-1 rounded text-err-fg hover:bg-err-bg"
                         style={{ fontSize: '11.5px', fontWeight: 500 }}
                       >
