@@ -22,6 +22,10 @@ describe('runtime Supabase local', () => {
     const localRuntime = read('scripts/supabase-local.sh');
     expect(localRuntime).toContain('20260417000000_local_b4_baseline.sql');
     expect(localRuntime).toContain('with_local_baseline db push --local');
+    expect(localRuntime).toContain('ensure_edge_runtime');
+    expect(localRuntime).toContain('supabase_edge_runtime_${PROJECT_ID}');
+    expect(localRuntime).toContain("docker inspect --format '{{.State.Running}}'");
+    expect(localRuntime).toContain('docker start "$container"');
     expect(read('scripts/test-storefront-sql.sh')).toContain('storefront-order-identity.sql');
   });
 
