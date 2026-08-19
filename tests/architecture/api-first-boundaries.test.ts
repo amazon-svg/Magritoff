@@ -518,10 +518,18 @@ describe('frontières API-first et modulaires', () => {
 
   it('sort la gestion des souscriptions de gammes du fournisseur', () => {
     const source = readFileSync(resolve(process.cwd(), 'src/app/components/dashboard/DashboardTenantGammes.tsx'), 'utf8');
-    expect(source).toContain('useCatalogApi');
+    const hook = readFileSync(resolve(process.cwd(), 'src/app/hooks/useTenantGammeSubscriptions.ts'), 'utf8');
+    expect(source).toContain('useTenantGammeSubscriptions');
+    expect(source).not.toContain('useCatalogApi');
+    expect(hook).toContain('useCatalogApi');
+    expect(hook).toContain('gammeSubscriptions');
+    expect(hook).toContain('setGammeSubscriptions');
+    expect(hook).toContain('tenantIdRef.current');
     expect(source).not.toContain('new CatalogApiClient');
-    expect(source).not.toContain('utils/supabase');
-    expect(source).not.toMatch(/\bsupabase\s*\./);
+    for (const candidate of [source, hook]) {
+      expect(candidate).not.toContain('utils/supabase');
+      expect(candidate).not.toMatch(/\bsupabase\s*\./);
+    }
   });
 
   it('sort le provider PIM du fournisseur', () => {

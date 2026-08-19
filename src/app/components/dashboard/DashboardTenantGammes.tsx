@@ -16,81 +16,23 @@
  *   - creer une gamme (le PIM est patrimoine Magrit)
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight, Check, Loader2 } from 'lucide-react';
 import { usePIM } from '../../contexts/PIMContext';
 import { useTenant } from '../../contexts/TenantContext';
 import type { Gamme } from '../../utils/productEnrichment';
-import { type GammeSubscription } from '../../../modules/catalog';
-import { useCatalogApi } from '../../contexts/ModuleClientsContext';
+import { useTenantGammeSubscriptions } from '../../hooks/useTenantGammeSubscriptions';
 
 export function DashboardTenantGammes() {
   const { gammes, loading: pimLoading } = usePIM();
   const { currentTenant, currentRole, isSuperAdmin } = useTenant();
-  const catalogApi = useCatalogApi();
-
   const canWrite = currentRole === 'owner' || currentRole === 'admin' || isSuperAdmin;
-
-  const [activeSlugs, setActiveSlugs] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [error, setError] = useState<string | null>(null);
-
-  // ─── Charge les souscriptions du tenant courant ────────────────────────
-  const loadSubscriptions = useCallback(async () => {
-    if (!currentTenant) { setActiveSlugs(new Set()); setLoading(false); return; }
-    setLoading(true);
-    setError(null);
-    try {
-      setActiveSlugs(activeSet(await catalogApi.gammeSubscriptions(currentTenant.id)));
-    } catch (loadError) {
-      setError(`Chargement impossible : ${message(loadError)}`);
-    } finally {
-      setLoading(false);
-    }
-  }, [catalogApi, currentTenant?.id]);
-
-  useEffect(() => {
-    loadSubscriptions();
-  }, [loadSubscriptions]);
-
-  // ─── Toggle une gamme ───────────────────────────────────────────────────
-  const toggle = async (slug: string) => {
-    if (!currentTenant || !canWrite) return;
-    setSaving(slug);
-    const isActive = activeSlugs.has(slug);
-    const newActive = !isActive;
-    setError(null);
-    try {
-      const subscriptions = await catalogApi.setGammeSubscriptions(currentTenant.id, { subscriptions: [{ gammeSlug: slug, active: newActive }] });
-      setActiveSlugs(activeSet(subscriptions));
-    } catch (toggleError) {
-      setError(`Modification impossible : ${message(toggleError)}`);
-    } finally {
-      setSaving(null);
-    }
-  };
-
-  // ─── Toggle un parent : coche/decoche le parent + toutes ses sous-gammes ─
-  const toggleGroup = async (parentSlug: string) => {
-    if (!currentTenant || !canWrite) return;
-    const children = gammes.filter((g) => g.parent_slug === parentSlug).map((g) => g.slug);
-    const all = [parentSlug, ...children];
-    const allActive = all.every((s) => activeSlugs.has(s));
-    const newActive = !allActive;
-
-    setSaving(parentSlug);
-    setError(null);
-    try {
-      const subscriptions = await catalogApi.setGammeSubscriptions(currentTenant.id, { subscriptions: all.map((gammeSlug) => ({ gammeSlug, active: newActive })) });
-      setActiveSlugs(activeSet(subscriptions));
-    } catch (toggleError) {
-      setError(`Modification du groupe impossible : ${message(toggleError)}`);
-    } finally {
-      setSaving(null);
-    }
-  };
+  const { activeSlugs, loading, saving, error, toggle, toggleGroup } = useTenantGammeSubscriptions({
+    tenantId: currentTenant?.id ?? null,
+    canWrite,
+    gammes,
+  });
 
   // ─── Groupe par parent ──────────────────────────────────────────────────
   const rootGammes = useMemo(() => gammes.filter((g) => !g.parent_slug), [gammes]);
@@ -187,7 +129,7 @@ export function DashboardTenantGammes() {
 
                 <label className="flex items-center gap-2 cursor-pointer flex-1">
                   <button
-                    onClick={() => toggleGroup(parent.slug)}
+                    onClick={() => void toggleGroup(parent.slug)}
                     disabled={!canWrite || isSaving}
                     className={`w-4 h-4 rounded border transition-colors shrink-0 grid place-items-center ${
                       isParentActive
@@ -230,7 +172,7 @@ export function DashboardTenantGammes() {
                       >
                         <label className="flex items-center gap-2 cursor-pointer flex-1">
                           <button
-                            onClick={() => toggle(child.slug)}
+                            onClick={() => void toggle(child.slug)}
                             disabled={!canWrite || isChildSaving}
                             className={`w-4 h-4 rounded border transition-colors shrink-0 grid place-items-center ${
                               isActive
@@ -272,6 +214,3 @@ export function DashboardTenantGammes() {
     </div>
   );
 }
-
-function activeSet(subscriptions: readonly GammeSubscription[]): Set<string> { return new Set(subscriptions.filter((item) => item.active).map((item) => item.gammeSlug)); }
-function message(error: unknown): string { return error instanceof Error ? error.message : 'erreur réseau'; }
