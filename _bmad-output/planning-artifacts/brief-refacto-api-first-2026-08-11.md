@@ -368,6 +368,9 @@ BFF, et les écrans boutique reçoivent explicitement le taux correspondant.
   Members et Invitations, nommées explicitement sans assimilation aux comptes boutique — livré ;
 - AF29.9 : garde-fou transversal interdisant toute construction de client API
   React hors des composition roots transport et modules — livré ;
+- AF30.1 : orchestration du formulaire de paramètres tenant extraite de la vue
+  workspace ; validation du slug, mutation Session et reprise du contexte sont
+  portées par un hook dédié — livré ;
 - suite : implémenter les futurs modules et surfaces depuis ces composition
   roots, en conservant la séparation fonctionnelle des identités comme chantier produit distinct.
 

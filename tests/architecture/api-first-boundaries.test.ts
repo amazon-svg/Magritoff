@@ -432,9 +432,15 @@ describe('frontières API-first et modulaires', () => {
 
   it('sort les paramètres tenant du fournisseur', () => {
     const source = readFileSync(resolve(process.cwd(), 'src/app/components/dashboard/DashboardTenantSettings.tsx'), 'utf8');
-    expect(source).toContain('useSessionApi');
-    expect(source).not.toContain('utils/supabase');
-    expect(source).not.toMatch(/\bsupabase\s*\./);
+    const settingsForm = readFileSync(resolve(process.cwd(), 'src/app/hooks/useTenantSettingsForm.ts'), 'utf8');
+    expect(source).toContain('useTenantSettingsForm');
+    expect(source).not.toContain('useSessionApi');
+    expect(settingsForm).toContain('useSessionApi');
+    expect(settingsForm).toContain('sessionApi.updateTenantSettings(tenant.id, updates)');
+    for (const candidate of [source, settingsForm]) {
+      expect(candidate).not.toContain('utils/supabase');
+      expect(candidate).not.toMatch(/\bsupabase\s*\./);
+    }
   });
 
   it('sort la gestion des sous-espaces du fournisseur', () => {
