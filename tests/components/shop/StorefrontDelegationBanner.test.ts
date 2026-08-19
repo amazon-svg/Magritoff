@@ -26,6 +26,8 @@ describe('bandeau de délégation storefront', () => {
     expect(shop).toContain('useStorefrontSession()');
     expect(sessionHook).toContain('await api.current()');
     expect(sessionHook).toContain('await api.end()');
+    expect(sessionHook).toContain("window.addEventListener('focus', revalidate)");
+    expect(sessionHook).toContain('document.visibilityState');
     expect(shop).toContain('StorefrontDelegationBanner');
     expect(shop).not.toMatch(/supabase\s*\./);
     expect(sessionHook).not.toMatch(/supabase\s*\./);

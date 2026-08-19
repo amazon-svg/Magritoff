@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { StorefrontSession } from '../../modules/shop-customers';
 import { ApiClientError } from '../../platform/api';
 import { useStorefrontIdentityApi } from '../contexts/StorefrontModuleClientsContext';
@@ -14,39 +14,73 @@ export function useStorefrontSession() {
   const [loading, setLoading] = useState(true);
   const [unavailable, setUnavailable] = useState(false);
   const [ending, setEnding] = useState(false);
+  const requestVersion = useRef(0);
+  const endingRequest = useRef(false);
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    setUnavailable(false);
+  const checkCurrent = useCallback(async (blocking: boolean) => {
+    const version = ++requestVersion.current;
+    if (blocking) setLoading(true);
     try {
-      setSessionState(await api.current());
+      const current = await api.current();
+      if (version !== requestVersion.current) return;
+      setSessionState(current);
+      setUnavailable(false);
     } catch (cause) {
+      if (version !== requestVersion.current) return;
       setSessionState(null);
-      if (!isMissingStorefrontSession(cause)) setUnavailable(true);
+      setUnavailable(!isMissingStorefrontSession(cause));
     } finally {
-      setLoading(false);
+      if (version === requestVersion.current) setLoading(false);
     }
   }, [api]);
+
+  const refresh = useCallback(async () => {
+    await checkCurrent(true);
+  }, [checkCurrent]);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
 
+  const hasSession = session !== null;
+  useEffect(() => {
+    const revalidate = () => {
+      if (!endingRequest.current) void checkCurrent(false);
+    };
+    window.addEventListener('focus', revalidate);
+    const timer = hasSession
+      ? window.setInterval(() => {
+          if (document.visibilityState === 'visible') revalidate();
+        }, 15_000)
+      : null;
+    return () => {
+      window.removeEventListener('focus', revalidate);
+      if (timer !== null) window.clearInterval(timer);
+    };
+  }, [checkCurrent, hasSession]);
+
   const setSession = useCallback((next: StorefrontSession) => {
+    requestVersion.current += 1;
+    setLoading(false);
     setUnavailable(false);
     setSessionState(next);
   }, []);
 
   const end = useCallback(async (): Promise<boolean> => {
+    const version = ++requestVersion.current;
+    endingRequest.current = true;
     setEnding(true);
     try {
       await api.end();
+      if (version !== requestVersion.current) return false;
       setSessionState(null);
       setUnavailable(false);
+      setLoading(false);
       return true;
     } catch {
       return false;
     } finally {
+      endingRequest.current = false;
       setEnding(false);
     }
   }, [api]);
