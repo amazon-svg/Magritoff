@@ -4,7 +4,7 @@
 >
 > **Source authoritative :** `~/Downloads/CONTEXT_Magrit_IA.md` (maintenu par Arnaud, plus exhaustif). Ce fichier en est la **synthèse opérationnelle pour les agents BMAD** (focus : règles, conventions, états de version, identifiants techniques, **PAS** la stratégie commerciale détaillée).
 >
-> **Dernière mise à jour :** 2026-08-19 (AF30.2 — gestion des sous-espaces isolée).
+> **Dernière mise à jour :** 2026-08-19 (AF30.4 — invitations Magrit isolées du storefront).
 > **Maintenu par :** Arnaud Mazon — PDG AGE Développement — `arnaud@age-services.fr`.
 > **Langue de travail :** français (livrables, code commits, variables métier).
 
@@ -120,6 +120,10 @@
 - `useSubTenantManagement` porte lecture, création et suppression des
   sous-espaces. Les réponses tardives sont ignorées après un changement de
   tenant afin de ne jamais mélanger deux espaces dans la vue workspace.
+- `useMagritInvitationAcceptance` porte l'acceptation, le changement de compte
+  et la redirection des invitations d'équipe. Une invitation Magrit aboutit
+  uniquement sur `/t/:tenantSlug` ; l'entrée dans une boutique exige ensuite
+  la délégation explicite « Se connecter à la boutique ».
 - Le probe et le catalogue Shops du storefront suivent la même règle : client
   HTTP anonyme côté navigateur, puis résolution du cookie boutique côté BFF.
 - Le composant de surface `PublicShop` ne pilote plus le transport ni les états

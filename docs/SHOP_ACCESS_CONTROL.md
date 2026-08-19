@@ -61,6 +61,9 @@ seul adapté aux catalogues privés.
 11. La recherche IA du storefront s’autorise avec le cookie de cette boutique,
     jamais avec un JWT Magrit. Une suggestion client reste éphémère ; seule une
     action de back-office peut publier durablement un produit au catalogue.
+12. L’acceptation d’une invitation d’équipe Magrit aboutit dans l’espace
+    `/t/:tenantSlug`, jamais directement dans une boutique. L’unique pont vers
+    le storefront reste la délégation explicite « Se connecter à la boutique ».
 
 ## Transition `shop_only`
 

@@ -2,7 +2,7 @@
 id: SPEC-IDENTITY-STORE-01
 title: Séparation des utilisateurs Magrit et des comptes boutique
 date: 2026-08-12
-updated: 2026-08-18
+updated: 2026-08-19
 status: in_progress
 target_epic: EPIC-UM-STORE-IDENTITY
 decision_owner: produit
@@ -143,6 +143,9 @@ contexte React réservé au workspace.
    boutique ». Elle garantit d’abord l’existence du compte miroir, puis démarre
    immédiatement la délégation. Les deux opérations restent distinctes côté
    domaine et audit.
+9. Une invitation d’équipe Magrit donne accès à l’espace Magrit et redirige
+   exclusivement vers `/t/:tenantSlug`. Elle ne connecte jamais implicitement
+   l’utilisateur à une boutique ; ce passage exige la délégation explicite.
 
 ## 3. Terminologie
 

@@ -631,9 +631,14 @@ describe('frontières API-first et modulaires', () => {
 
   it('sort l acceptation d invitation et le compte portail du fournisseur', () => {
     const invitation = readFileSync(resolve(process.cwd(), 'src/app/components/tenant/AcceptInvitation.tsx'), 'utf8');
+    const invitationHook = readFileSync(resolve(process.cwd(), 'src/app/hooks/useMagritInvitationAcceptance.ts'), 'utf8');
     const account = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/AccountHub.tsx'), 'utf8');
-    expect(invitation).toContain('useSessionApi');
-    expect(invitation).toContain('useShopsApi');
+    expect(invitation).toContain('useMagritInvitationAcceptance');
+    expect(invitation).not.toContain('useSessionApi');
+    expect(invitation).not.toContain('useShopsApi');
+    expect(invitationHook).toContain('resolveMagritInvitationDestination');
+    expect(invitationHook).not.toContain('useShopsApi');
+    expect(invitationHook).not.toContain('/s/');
     expect(invitation).toContain('signOut');
     expect(account).toContain('onSignOut');
     expect(account).toContain('session.customer.email');
