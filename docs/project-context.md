@@ -4,7 +4,7 @@
 >
 > **Source authoritative :** `~/Downloads/CONTEXT_Magrit_IA.md` (maintenu par Arnaud, plus exhaustif). Ce fichier en est la **synthèse opérationnelle pour les agents BMAD** (focus : règles, conventions, états de version, identifiants techniques, **PAS** la stratégie commerciale détaillée).
 >
-> **Dernière mise à jour :** 2026-08-19 (AF30.10 — souscriptions de gammes isolées).
+> **Dernière mise à jour :** 2026-08-19 (AF30.11 — diagnostics de plateforme isolés).
 > **Maintenu par :** Arnaud Mazon — PDG AGE Développement — `arnaud@age-services.fr`.
 > **Langue de travail :** français (livrables, code commits, variables métier).
 
@@ -144,6 +144,9 @@
 - `useTenantGammeSubscriptions` porte lecture et commandes unitaires ou groupées
   des gammes actives d'un espace. L'écran conserve la hiérarchie PIM, les droits
   d'écriture et l'état d'expansion, sans connaître le client Catalog.
+- `usePlatformDiagnostics` porte les tests Clariprint et fournisseur IA ainsi
+  que leurs états indépendants. La modale ne connaît plus le client Diagnostics
+  et ignore les réponses tardives après sa fermeture.
 - Le probe et le catalogue Shops du storefront suivent la même règle : client
   HTTP anonyme côté navigateur, puis résolution du cookie boutique côté BFF.
 - Le composant de surface `PublicShop` ne pilote plus le transport ni les états

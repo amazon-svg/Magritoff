@@ -757,14 +757,21 @@ describe('frontières API-first et modulaires', () => {
 
   it('sort le diagnostic IA du fournisseur et de la plateforme Edge', () => {
     const source = readFileSync(resolve(process.cwd(), 'src/app/components/DiagnosticPanel.tsx'), 'utf8');
-    expect(source).toContain('useDiagnosticsApi');
+    const hook = readFileSync(resolve(process.cwd(), 'src/app/hooks/usePlatformDiagnostics.ts'), 'utf8');
+    expect(source).toContain('usePlatformDiagnostics');
+    expect(source).not.toContain('useDiagnosticsApi');
+    expect(hook).toContain('useDiagnosticsApi');
     expect(source).not.toContain('new DiagnosticsApiClient');
     expect(source).not.toContain('utils/supabase');
     expect(source).not.toContain('functions.invoke');
     expect(source).not.toContain('claude-test');
     expect(source).not.toContain('ClariprintAdapter');
-    expect(source).toContain('diagnosticsApi.clariprint()');
-    expect(source).not.toMatch(/\bsupabase\s*\./);
+    expect(hook).toContain('diagnosticsApi.clariprint()');
+    expect(hook).toContain('diagnosticsApi.aiProvider()');
+    for (const candidate of [source, hook]) {
+      expect(candidate).not.toContain('utils/supabase');
+      expect(candidate).not.toMatch(/\bsupabase\s*\./);
+    }
   });
 
   it('fait passer les devis Clariprint du navigateur par l API Magrit', () => {
