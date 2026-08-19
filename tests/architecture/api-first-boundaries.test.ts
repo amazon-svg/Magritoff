@@ -637,6 +637,26 @@ describe('frontières API-first et modulaires', () => {
     }
   });
 
+  it('sort le rapport de migration des comptes boutique de la vue', () => {
+    const component = readFileSync(resolve(
+      process.cwd(),
+      'src/app/components/dashboard/LegacyShopCustomerMigrationSection.tsx',
+    ), 'utf8');
+    const hook = readFileSync(resolve(
+      process.cwd(),
+      'src/app/hooks/useLegacyShopCustomerMigrationReport.ts',
+    ), 'utf8');
+
+    expect(component).toContain('useLegacyShopCustomerMigrationReport');
+    expect(component).not.toContain('useShopCustomersApi');
+    expect(hook).toContain('useShopCustomersApi');
+    expect(hook).toContain('api.migrationReport(tenantId)');
+    for (const source of [component, hook]) {
+      expect(source).not.toContain('utils/supabase');
+      expect(source).not.toMatch(/\bsupabase\s*\./);
+    }
+  });
+
   it('sort l acceptation d invitation et le compte portail du fournisseur', () => {
     const invitation = readFileSync(resolve(process.cwd(), 'src/app/components/tenant/AcceptInvitation.tsx'), 'utf8');
     const invitationHook = readFileSync(resolve(process.cwd(), 'src/app/hooks/useMagritInvitationAcceptance.ts'), 'utf8');

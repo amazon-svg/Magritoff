@@ -4,7 +4,7 @@
 >
 > **Source authoritative :** `~/Downloads/CONTEXT_Magrit_IA.md` (maintenu par Arnaud, plus exhaustif). Ce fichier en est la **synthèse opérationnelle pour les agents BMAD** (focus : règles, conventions, états de version, identifiants techniques, **PAS** la stratégie commerciale détaillée).
 >
-> **Dernière mise à jour :** 2026-08-19 (AF30.6 — résolution des slugs historiques isolée).
+> **Dernière mise à jour :** 2026-08-19 (AF30.7 — rapport de migration boutique isolé).
 > **Maintenu par :** Arnaud Mazon — PDG AGE Développement — `arnaud@age-services.fr`.
 > **Langue de travail :** français (livrables, code commits, variables métier).
 
@@ -130,6 +130,10 @@
 - `useLegacyTenantSlugResolution` porte la résolution réseau et reconstruit la
   route d'un ancien slug en conservant sous-chemin, query string et ancre ; la
   vue `LegacySlugRedirect` ne connaît plus le client Session.
+- `useLegacyShopCustomerMigrationReport` porte le chargement, l'invalidation et
+  la synthèse du rapport privé de migration des comptes boutique. La surface
+  Utilisateurs masque l'audit sur refus ou indisponibilité et ne pilote plus le
+  client ShopCustomers.
 - Le probe et le catalogue Shops du storefront suivent la même règle : client
   HTTP anonyme côté navigateur, puis résolution du cookie boutique côté BFF.
 - Le composant de surface `PublicShop` ne pilote plus le transport ni les états

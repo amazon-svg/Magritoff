@@ -1,48 +1,20 @@
-import { useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle2 } from 'lucide-react';
 import type { LegacyShopCustomerMigrationReportRow } from '../../../modules/shop-customers';
-import { useShopCustomersApi } from '../../contexts/ModuleClientsContext';
 import { useShops } from '../../contexts/ShopsContext';
 import { useTenant } from '../../contexts/TenantContext';
-
-type ReportState =
-  | { kind: 'loading' }
-  | { kind: 'hidden' }
-  | { kind: 'ready'; rows: LegacyShopCustomerMigrationReportRow[] };
+import {
+  summarizeLegacyMigration,
+  useLegacyShopCustomerMigrationReport,
+} from '../../hooks/useLegacyShopCustomerMigrationReport';
 
 export function LegacyShopCustomerMigrationSection() {
-  const api = useShopCustomersApi();
   const { currentTenant } = useTenant();
   const { shops } = useShops();
-  const [state, setState] = useState<ReportState>({ kind: 'loading' });
-
-  useEffect(() => {
-    let active = true;
-    if (!currentTenant) {
-      setState({ kind: 'hidden' });
-      return () => { active = false; };
-    }
-
-    setState({ kind: 'loading' });
-    api.migrationReport(currentTenant.id)
-      .then((rows) => {
-        if (active) setState(rows.length > 0 ? { kind: 'ready', rows } : { kind: 'hidden' });
-      })
-      .catch((error) => {
-        // La surface est réservée aux gestionnaires. Un refus d'autorisation ne
-        // doit pas polluer l'écran des autres membres ni révéler l'audit privé.
-        console.warn('[LegacyShopCustomerMigration] report unavailable', error);
-        if (active) setState({ kind: 'hidden' });
-      });
-
-    return () => { active = false; };
-  }, [api, currentTenant?.id]);
+  const state = useLegacyShopCustomerMigrationReport(currentTenant?.id ?? null);
 
   if (state.kind !== 'ready') return null;
 
-  const pending = state.rows.filter((row) => row.migrationOutcome === null).length;
-  const skipped = state.rows.filter((row) => row.migrationOutcome?.startsWith('skipped_')).length;
-  const ordersLinked = state.rows.reduce((total, row) => total + row.ordersLinkedCount, 0);
+  const { pending, skipped, ordersLinked } = summarizeLegacyMigration(state.rows);
   const shopName = (shopId: string | null) => shops.find((shop) => shop.id === shopId)?.name
     ?? (shopId ? `Boutique ${shopId.slice(0, 8)}` : 'Aucune boutique');
 
