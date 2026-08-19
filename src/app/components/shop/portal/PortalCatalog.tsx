@@ -3,7 +3,6 @@ import { Search, Sparkles, X, Loader2, AlertTriangle } from 'lucide-react';
 import type { Shop, ShopProduct } from '../../../../modules/shops';
 import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
 import { resolveProductImage } from '../../../utils/productImages';
-import { useStorefrontDiagnosticsApi } from '../../../contexts/StorefrontModuleClientsContext';
 import { computeClariprintQuoteSafe } from '../../../../modules/clariprint';
 import { useClaudeSseStream, ClaudeSseStreamError } from '../../../hooks/useClaudeSseStream';
 import { ENABLE_STREAMING_CHAT } from '../../../lib/featureFlags';
@@ -28,9 +27,8 @@ import {
 import {
   buildCategoryLandingModel,
   mergeEditorial,
-  categoryEditorialCacheKey,
-  type CategoryEditorial,
 } from '../../../utils/catalogLanding';
+import { useStorefrontCategoryEditorial } from '../../../hooks/useStorefrontCategoryEditorial';
 import { PortalCategoryLanding } from './PortalCategoryLanding';
 import {
   Select,
@@ -138,7 +136,6 @@ export function PortalCatalog({
 }: Props) {
   const clariprint = useStorefrontClariprint();
   const storefrontAssistant = useStorefrontAssistant();
-  const assistantApi = useStorefrontDiagnosticsApi();
   const [query, setQuery] = useState('');
   // S2.21 — autocomplétion : menu ouvert au focus + saisie ≥ 2 car.
   const [searchOpen, setSearchOpen] = useState(false);
@@ -281,55 +278,7 @@ export function PortalCatalog({
   // S2.20 — Contenu éditorial LLM facultatif, avec cache session par famille et
   // socle déterministe. La route storefront résout le slug et le cookie côté
   // BFF ; aucun tenant ni bearer Magrit n'est transmis par le navigateur.
-  const [editorial, setEditorial] = useState<CategoryEditorial | null>(null);
-  useEffect(() => {
-    if (!activeFamily) {
-      setEditorial(null);
-      return;
-    }
-    let cancelled = false;
-    const cacheKey = categoryEditorialCacheKey(activeFamily.key);
-    try {
-      const cached = sessionStorage.getItem(cacheKey);
-      if (cached) {
-        setEditorial(JSON.parse(cached));
-        return;
-      }
-    } catch {
-      /* sessionStorage indispo : on tente l'appel réseau */
-    }
-    setEditorial(null);
-    (async () => {
-      try {
-        const CATEGORY_EDITORIAL_TIMEOUT_MS = 12_000;
-        const invokePromise = assistantApi.storefrontCategoryEditorial(shop.slug, {
-          familyName: activeFamily.label,
-          subcategories: activeFamily.subcategories.filter((s) => s.count > 0).map((s) => s.label),
-          sampleProducts: products.slice(0, 8).map((p) => p.name),
-        });
-        const timeoutPromise = new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error('category_editorial_timeout')), CATEGORY_EDITORIAL_TIMEOUT_MS);
-        });
-        const data = (await Promise.race([invokePromise, timeoutPromise])) as Awaited<
-          typeof invokePromise
-        >;
-        const ed = data.editorial as CategoryEditorial;
-        if (cancelled) return;
-        setEditorial(ed);
-        try {
-          sessionStorage.setItem(cacheKey, JSON.stringify(ed));
-        } catch {
-          /* noop */
-        }
-      } catch {
-        // Timeout / réseau : on garde le socle déterministe (jamais de page vide).
-        if (!cancelled) setEditorial(null);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [activeFamily, assistantApi, products, shop.slug]);
+  const editorial = useStorefrontCategoryEditorial(shop.slug, activeFamily, products);
 
   // S2.20 — Modèle final de la landing : socle déterministe + overlay éditorial.
   const landingModel = useMemo(

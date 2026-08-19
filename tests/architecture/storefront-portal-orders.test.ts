@@ -23,6 +23,7 @@ const storefrontBoundary = readFileSync(resolve(process.cwd(), 'src/app/surfaces
 const workspaceBoundary = readFileSync(resolve(process.cwd(), 'src/app/surfaces/WorkspaceRuntimeBoundary.tsx'), 'utf8');
 const appRoutes = readFileSync(resolve(process.cwd(), 'src/app/routes.tsx'), 'utf8');
 const catalog = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/PortalCatalog.tsx'), 'utf8');
+const storefrontEditorial = readFileSync(resolve(process.cwd(), 'src/app/hooks/useStorefrontCategoryEditorial.ts'), 'utf8');
 
 describe('portail commandes par compte boutique', () => {
   it('valide la session et filtre simultanément par compte et boutique', () => {
@@ -100,11 +101,13 @@ describe('portail commandes par compte boutique', () => {
 
   it('ne réutilise pas le bearer Magrit pour l éditorial facultatif', () => {
     expect(storefrontClients).toContain('diagnostics: new DiagnosticsApiClient(apiRuntime.client)');
-    expect(catalog).toContain('useStorefrontDiagnosticsApi()');
+    expect(catalog).toContain('useStorefrontCategoryEditorial(shop.slug');
+    expect(catalog).not.toContain('useStorefrontDiagnosticsApi()');
+    expect(storefrontEditorial).toContain('useStorefrontDiagnosticsApi()');
     expect(catalog).not.toContain('useDiagnosticsApi()');
-    expect(catalog).toContain('socle déterministe');
-    expect(catalog).toContain('storefrontCategoryEditorial(shop.slug');
-    expect(catalog).not.toContain('categoryEditorial(shop.tenant_id');
+    expect(storefrontEditorial).toContain('socle déterministe');
+    expect(storefrontEditorial).toContain('api.storefrontCategoryEditorial(shopSlug');
+    expect(storefrontEditorial).not.toContain('categoryEditorial(shop.tenant_id');
   });
 
   it('sépare les registres de clients workspace et storefront', () => {

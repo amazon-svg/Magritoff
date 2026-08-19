@@ -827,10 +827,12 @@ describe('frontières API-first et modulaires', () => {
   it('place le protocole du chat SSE derrière une façade API', () => {
     const chat = readFileSync(resolve(process.cwd(), 'src/app/components/ChatInterface.tsx'), 'utf8');
     const portal = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/PortalCatalog.tsx'), 'utf8');
+    const editorial = readFileSync(resolve(process.cwd(), 'src/app/hooks/useStorefrontCategoryEditorial.ts'), 'utf8');
     const hook = readFileSync(resolve(process.cwd(), 'src/app/hooks/useClaudeSseStream.ts'), 'utf8');
     const adapter = readFileSync(resolve(process.cwd(), 'src/adapters/http/browser-assistant-gateway.ts'), 'utf8');
     expect(chat).toContain('useClaudeSseStream');
-    expect(portal).toContain('assistantApi.storefrontCategoryEditorial');
+    expect(portal).toContain('useStorefrontCategoryEditorial');
+    expect(editorial).toContain('api.storefrontCategoryEditorial');
     expect(chat).not.toContain('utils/supabase');
     expect(chat).not.toContain('functions/v1');
     expect(portal).not.toContain('functions/v1');
