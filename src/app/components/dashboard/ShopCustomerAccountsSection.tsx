@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Check, Copy, ExternalLink, Loader2, Mail, Plus, RefreshCw, UserRound } from 'lucide-react';
-import type { IssueStorefrontActivationResult, ShopCustomerAccount } from '../../../modules/shop-customers';
-import { useShopCustomersApi } from '../../contexts/ModuleClientsContext';
+import type { ShopCustomerAccount } from '../../../modules/shop-customers';
+import { useShopCustomerAccountManagement } from '../../hooks/useShopCustomerAccountManagement';
 
 type Props = Readonly<{
   tenantId: string;
@@ -16,102 +16,66 @@ const STATUS_LABELS: Record<ShopCustomerAccount['status'], string> = {
 };
 
 export function ShopCustomerAccountsSection({ tenantId, shopId }: Props) {
-  const api = useShopCustomersApi();
-  const [accounts, setAccounts] = useState<ShopCustomerAccount[]>([]);
-  const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [issuingFor, setIssuingFor] = useState<string | null>(null);
-  const [activation, setActivation] = useState<IssueStorefrontActivationResult | null>(null);
   const [copied, setCopied] = useState(false);
-  const [delegating, setDelegating] = useState(false);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      setAccounts(await api.list(tenantId, shopId));
-    } catch (cause) {
-      setError(messageFrom(cause, 'Impossible de charger les comptes boutique.'));
-    } finally {
-      setLoading(false);
-    }
-  }, [api, shopId, tenantId]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const management = useShopCustomerAccountManagement(tenantId, shopId);
 
   const createAccount = async (event: FormEvent) => {
     event.preventDefault();
-    setSaving(true);
-    setError(null);
-    try {
-      const account = await api.create(tenantId, shopId, {
-        email,
-        fullName,
-        initialStatus: 'delegated_only',
-      });
-      setAccounts((current) => [account, ...current]);
+    const created = await management.createAccount({
+      email,
+      fullName,
+      initialStatus: 'delegated_only',
+    });
+    if (created) {
       setEmail('');
       setFullName('');
       setShowForm(false);
-    } catch (cause) {
-      setError(messageFrom(cause, 'Impossible de créer ce compte boutique.'));
-    } finally {
-      setSaving(false);
     }
   };
 
   const issueActivation = async (account: ShopCustomerAccount) => {
-    setIssuingFor(account.id);
-    setActivation(null);
     setCopied(false);
-    setError(null);
-    try {
-      const result = await api.issueActivation(tenantId, shopId, account.id);
-      setActivation(result);
-    } catch (cause) {
-      setError(messageFrom(cause, 'Impossible de générer le lien d’activation.'));
-    } finally {
-      setIssuingFor(null);
-    }
+    await management.issueActivation(account.id);
   };
 
   const copyActivationLink = async () => {
-    if (!activation) return;
+    if (!management.activation) return;
     try {
-      await navigator.clipboard.writeText(activation.link);
+      await navigator.clipboard.writeText(management.activation.link);
       setCopied(true);
     } catch {
-      setError('La copie automatique a échoué. Sélectionnez le lien manuellement.');
+      management.reportError('La copie automatique a échoué. Sélectionnez le lien manuellement.');
     }
   };
 
   const openAsSelf = async () => {
     const storefrontWindow = window.open('about:blank', '_blank');
     if (storefrontWindow) storefrontWindow.opener = null;
-    setDelegating(true);
-    setError(null);
-    try {
-      const result = await api.startSelfDelegation(tenantId, shopId, {
-        reason: 'Accès depuis l’éditeur de boutique',
-      });
+    const storefrontPath = await management.startSelfDelegation();
+    if (storefrontPath) {
       if (storefrontWindow) {
-        storefrontWindow.location.replace(result.storefrontPath);
+        storefrontWindow.location.replace(storefrontPath);
       } else {
-        window.location.assign(result.storefrontPath);
+        window.location.assign(storefrontPath);
       }
-    } catch (cause) {
+    } else {
       storefrontWindow?.close();
-      setError(messageFrom(cause, 'Impossible d’ouvrir la boutique en mode délégué.'));
-    } finally {
-      setDelegating(false);
     }
   };
+
+  const {
+    accounts,
+    loading,
+    saving,
+    error,
+    issuingFor,
+    activation,
+    delegating,
+    refresh,
+  } = management;
 
   return (
     <section className="border border-line rounded-xl bg-paper overflow-hidden">
@@ -138,7 +102,7 @@ export function ShopCustomerAccountsSection({ tenantId, shopId }: Props) {
           </button>
           <button
             type="button"
-            onClick={() => void load()}
+            onClick={() => void refresh()}
             disabled={loading}
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line-2 text-sm text-ink-2 hover:bg-bg disabled:opacity-50"
           >
@@ -268,8 +232,4 @@ export function ShopCustomerAccountsSection({ tenantId, shopId }: Props) {
       )}
     </section>
   );
-}
-
-function messageFrom(cause: unknown, fallback: string): string {
-  return cause instanceof Error && cause.message ? cause.message : fallback;
 }

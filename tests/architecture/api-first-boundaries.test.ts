@@ -657,6 +657,27 @@ describe('frontières API-first et modulaires', () => {
     }
   });
 
+  it('sort la gestion des comptes clients boutique de la vue', () => {
+    const component = readFileSync(resolve(
+      process.cwd(),
+      'src/app/components/dashboard/ShopCustomerAccountsSection.tsx',
+    ), 'utf8');
+    const hook = readFileSync(resolve(
+      process.cwd(),
+      'src/app/hooks/useShopCustomerAccountManagement.ts',
+    ), 'utf8');
+
+    expect(component).toContain('useShopCustomerAccountManagement');
+    expect(component).not.toContain('useShopCustomersApi');
+    expect(hook).toContain('useShopCustomersApi');
+    expect(hook).toContain('api.startSelfDelegation');
+    expect(hook).toContain('api.issueActivation');
+    for (const source of [component, hook]) {
+      expect(source).not.toContain('utils/supabase');
+      expect(source).not.toMatch(/\bsupabase\s*\./);
+    }
+  });
+
   it('sort l acceptation d invitation et le compte portail du fournisseur', () => {
     const invitation = readFileSync(resolve(process.cwd(), 'src/app/components/tenant/AcceptInvitation.tsx'), 'utf8');
     const invitationHook = readFileSync(resolve(process.cwd(), 'src/app/hooks/useMagritInvitationAcceptance.ts'), 'utf8');

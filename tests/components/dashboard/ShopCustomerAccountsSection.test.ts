@@ -7,15 +7,24 @@ describe('ShopCustomerAccountsSection', () => {
     resolve(process.cwd(), 'src/app/components/dashboard/ShopCustomerAccountsSection.tsx'),
     'utf8',
   );
+  const hook = readFileSync(
+    resolve(process.cwd(), 'src/app/hooks/useShopCustomerAccountManagement.ts'),
+    'utf8',
+  );
 
-  it('utilise la façade ShopCustomers composée et aucun accès Supabase', () => {
-    expect(source).toContain('useShopCustomersApi');
-    expect(source).not.toContain('utils/supabase');
-    expect(source).not.toMatch(/\bsupabase\s*\./);
+  it('délègue la façade ShopCustomers au hook et ne connaît aucun accès Supabase', () => {
+    expect(source).toContain('useShopCustomerAccountManagement');
+    expect(source).not.toContain('useShopCustomersApi');
+    expect(hook).toContain('useShopCustomersApi');
+    expect(hook).toContain('targetKeyRef.current');
+    for (const candidate of [source, hook]) {
+      expect(candidate).not.toContain('utils/supabase');
+      expect(candidate).not.toMatch(/\bsupabase\s*\./);
+    }
   });
 
   it('expose toujours le lien manuel après une tentative d invitation', () => {
-    expect(source).toContain('api.issueActivation');
+    expect(hook).toContain('api.issueActivation');
     expect(source).toContain('Lien d’activation manuel');
     expect(source).toContain('transmettez ce lien manuellement');
     expect(source).toContain('Ouvrir l’activation');
@@ -24,7 +33,7 @@ describe('ShopCustomerAccountsSection', () => {
 
   it('propose l action unifiée de délégation sans manipuler de jeton', () => {
     expect(source).toContain('Se connecter à la boutique');
-    expect(source).toContain('api.startSelfDelegation');
+    expect(hook).toContain('api.startSelfDelegation');
     expect(source).toContain("window.open('about:blank', '_blank')");
     expect(source).not.toContain('opaqueToken');
   });

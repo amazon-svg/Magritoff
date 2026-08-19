@@ -4,7 +4,7 @@
 >
 > **Source authoritative :** `~/Downloads/CONTEXT_Magrit_IA.md` (maintenu par Arnaud, plus exhaustif). Ce fichier en est la **synthèse opérationnelle pour les agents BMAD** (focus : règles, conventions, états de version, identifiants techniques, **PAS** la stratégie commerciale détaillée).
 >
-> **Dernière mise à jour :** 2026-08-19 (AF30.7 — rapport de migration boutique isolé).
+> **Dernière mise à jour :** 2026-08-19 (AF30.8 — gestion des comptes boutique isolée).
 > **Maintenu par :** Arnaud Mazon — PDG AGE Développement — `arnaud@age-services.fr`.
 > **Langue de travail :** français (livrables, code commits, variables métier).
 
@@ -134,6 +134,10 @@
   la synthèse du rapport privé de migration des comptes boutique. La surface
   Utilisateurs masque l'audit sur refus ou indisponibilité et ne pilote plus le
   client ShopCustomers.
+- `useShopCustomerAccountManagement` porte la liste, la création, l'activation
+  et le démarrage de délégation des comptes propres à une boutique. Les réponses
+  tardives sont ignorées après un changement de boutique ; la vue conserve
+  seulement l'ouverture de fenêtre et la copie dans le presse-papiers.
 - Le probe et le catalogue Shops du storefront suivent la même règle : client
   HTTP anonyme côté navigateur, puis résolution du cookie boutique côté BFF.
 - Le composant de surface `PublicShop` ne pilote plus le transport ni les états
