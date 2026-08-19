@@ -30,6 +30,7 @@ export const TEST_IDS = {
     renameSaveBtn: 'tenant-rename-save-btn',
     renameConfirmModal: 'tenant-rename-confirm-modal',
     renameConfirmBtn: 'tenant-rename-confirm-btn',
+    legacyShopOnlyNotice: 'tenant-legacy-shop-only-notice',
   },
 
   // ─── P00, P01 — Auth ──────────────────────────────────────────────────

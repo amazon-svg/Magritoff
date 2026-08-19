@@ -620,9 +620,14 @@ describe('frontières API-first et modulaires', () => {
 
   it('sort les redirections tenant du fournisseur', () => {
     const legacy = readFileSync(resolve(process.cwd(), 'src/app/components/tenant/LegacySlugRedirect.tsx'), 'utf8');
-    const shopOnly = readFileSync(resolve(process.cwd(), 'src/app/components/tenant/ShopOnlyRedirect.tsx'), 'utf8');
+    const shopOnly = readFileSync(resolve(process.cwd(), 'src/app/components/tenant/LegacyShopOnlyAccessNotice.tsx'), 'utf8');
+    const layout = readFileSync(resolve(process.cwd(), 'src/app/components/tenant/TenantAwareLayout.tsx'), 'utf8');
     expect(legacy).toContain('useSessionApi');
-    expect(shopOnly).toContain('useShopsApi');
+    expect(shopOnly).not.toContain('useShopsApi');
+    expect(shopOnly).not.toContain('/shop/');
+    expect(shopOnly).toContain('Activation boutique nécessaire');
+    expect(layout).toContain('LegacyShopOnlyAccessNotice');
+    expect(layout).not.toContain('ShopOnlyRedirect');
     for (const source of [legacy, shopOnly]) {
       expect(source).not.toContain('utils/supabase');
       expect(source).not.toMatch(/\bsupabase\s*\./);

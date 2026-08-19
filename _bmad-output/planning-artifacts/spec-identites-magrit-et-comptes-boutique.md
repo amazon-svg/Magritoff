@@ -146,6 +146,9 @@ contexte React réservé au workspace.
 9. Une invitation d’équipe Magrit donne accès à l’espace Magrit et redirige
    exclusivement vers `/t/:tenantSlug`. Elle ne connecte jamais implicitement
    l’utilisateur à une boutique ; ce passage exige la délégation explicite.
+10. Une ancienne membership `shop_only` ne vaut ni compte ni session boutique.
+    Tant que son compte migré n'est pas activé, elle affiche un état de
+    transition et ne redirige vers aucun catalogue.
 
 ## 3. Terminologie
 

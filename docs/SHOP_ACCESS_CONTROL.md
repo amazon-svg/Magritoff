@@ -76,6 +76,8 @@ seul adapté aux catalogues privés.
 - UM8.3 classe le rôle Acheteur historique en `storefront_legacy`, le masque
   des catalogues Magrit et bloque toute nouvelle assignation ou propagation ;
 - les lignes existantes restent temporairement lisibles ;
+- leur connexion historique affiche une demande d’activation et n’ouvre plus
+  automatiquement `/shop/:slug` ;
 - elles peuvent uniquement être converties vers `magrit_full` ;
 - leur suppression définitive attend la validation du rapport sur la base
   distante.

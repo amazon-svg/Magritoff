@@ -4,7 +4,7 @@
 >
 > **Source authoritative :** `~/Downloads/CONTEXT_Magrit_IA.md` (maintenu par Arnaud, plus exhaustif). Ce fichier en est la **synthèse opérationnelle pour les agents BMAD** (focus : règles, conventions, états de version, identifiants techniques, **PAS** la stratégie commerciale détaillée).
 >
-> **Dernière mise à jour :** 2026-08-19 (AF30.4 — invitations Magrit isolées du storefront).
+> **Dernière mise à jour :** 2026-08-19 (AF30.5 — redirection shop_only historique retirée).
 > **Maintenu par :** Arnaud Mazon — PDG AGE Développement — `arnaud@age-services.fr`.
 > **Langue de travail :** français (livrables, code commits, variables métier).
 
@@ -124,6 +124,9 @@
   et la redirection des invitations d'équipe. Une invitation Magrit aboutit
   uniquement sur `/t/:tenantSlug` ; l'entrée dans une boutique exige ensuite
   la délégation explicite « Se connecter à la boutique ».
+- Une membership historique `shop_only` ne redirige plus vers le storefront.
+  Elle affiche un état de migration jusqu'à l'activation indépendante de son
+  compte boutique ; aucun client Shops n'est appelé dans ce parcours.
 - Le probe et le catalogue Shops du storefront suivent la même règle : client
   HTTP anonyme côté navigateur, puis résolution du cookie boutique côté BFF.
 - Le composant de surface `PublicShop` ne pilote plus le transport ni les états
