@@ -590,6 +590,19 @@ describe('frontières API-first et modulaires', () => {
     expect(workspaceContext).toContain("from '../../modules/shops'");
   });
 
+  it('interdit aux vues storefront de piloter directement les clients de module', () => {
+    const storefrontRoot = resolve(process.cwd(), 'src/app/components/shop');
+    const clientHook = /\buseStorefront(?:Orders|Shops|Identity|Diagnostics)Api\b/;
+    const violations = listTypeScriptFiles(storefrontRoot)
+      .filter((file) => {
+        const source = readFileSync(file, 'utf8');
+        return source.includes('StorefrontModuleClientsContext') || clientHook.test(source);
+      })
+      .map((file) => relative(process.cwd(), file));
+
+    expect(violations).toEqual([]);
+  });
+
   it('sort les redirections tenant du fournisseur', () => {
     const legacy = readFileSync(resolve(process.cwd(), 'src/app/components/tenant/LegacySlugRedirect.tsx'), 'utf8');
     const shopOnly = readFileSync(resolve(process.cwd(), 'src/app/components/tenant/ShopOnlyRedirect.tsx'), 'utf8');

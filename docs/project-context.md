@@ -4,7 +4,7 @@
 >
 > **Source authoritative :** `~/Downloads/CONTEXT_Magrit_IA.md` (maintenu par Arnaud, plus exhaustif). Ce fichier en est la **synthèse opérationnelle pour les agents BMAD** (focus : règles, conventions, états de version, identifiants techniques, **PAS** la stratégie commerciale détaillée).
 >
-> **Dernière mise à jour :** 2026-08-19 (UM10.37 — parcours de mot de passe storefront isolés).
+> **Dernière mise à jour :** 2026-08-19 (UM10.38 — frontière vues storefront verrouillée).
 > **Maintenu par :** Arnaud Mazon — PDG AGE Développement — `arnaud@age-services.fr`.
 > **Langue de travail :** français (livrables, code commits, variables métier).
 
@@ -111,6 +111,9 @@
 - `useStorefrontCredentialSetup` porte l'activation d'une invitation et la
   définition d'un nouveau mot de passe ; les deux écrans restent des vues et
   chaque opération demeure liée à son jeton boutique éphémère.
+- Les composants sous `app/components/shop` ne peuvent pas importer le contexte
+  des clients storefront ni appeler directement un hook de client de module ;
+  un garde-fou d'architecture impose le passage par un hook d'orchestration.
 - Le probe et le catalogue Shops du storefront suivent la même règle : client
   HTTP anonyme côté navigateur, puis résolution du cookie boutique côté BFF.
 - Le composant de surface `PublicShop` ne pilote plus le transport ni les états
