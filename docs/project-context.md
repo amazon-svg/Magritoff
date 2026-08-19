@@ -4,7 +4,7 @@
 >
 > **Source authoritative :** `~/Downloads/CONTEXT_Magrit_IA.md` (maintenu par Arnaud, plus exhaustif). Ce fichier en est la **synthèse opérationnelle pour les agents BMAD** (focus : règles, conventions, états de version, identifiants techniques, **PAS** la stratégie commerciale détaillée).
 >
-> **Dernière mise à jour :** 2026-08-19 (UM10.35 — éditorial catalogue storefront isolé).
+> **Dernière mise à jour :** 2026-08-19 (UM10.36 — formulaire d'identité storefront isolé).
 > **Maintenu par :** Arnaud Mazon — PDG AGE Développement — `arnaud@age-services.fr`.
 > **Langue de travail :** français (livrables, code commits, variables métier).
 
@@ -106,6 +106,8 @@
 - `useStorefrontCategoryEditorial` porte l'enrichissement facultatif des
   landings, son timeout et son cache de session ; le catalogue garde toujours
   son socle déterministe en cas d'indisponibilité IA.
+- `useStorefrontIdentityForm` porte connexion, inscription libre et récupération
+  propres à une boutique ; le formulaire visuel ne connaît plus le client identité.
 - Le probe et le catalogue Shops du storefront suivent la même règle : client
   HTTP anonyme côté navigateur, puis résolution du cookie boutique côté BFF.
 - Le composant de surface `PublicShop` ne pilote plus le transport ni les états

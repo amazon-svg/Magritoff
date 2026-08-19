@@ -1,8 +1,7 @@
-import { useState, type FormEvent } from 'react';
 import { Loader2, Lock, UserPlus } from 'lucide-react';
 import type { StorefrontSession } from '../../../modules/shop-customers';
-import { useStorefrontIdentityApi } from '../../contexts/StorefrontModuleClientsContext';
 import { TEST_IDS } from '../../lib/testIds';
+import { useStorefrontIdentityForm } from '../../hooks/useStorefrontIdentityForm';
 
 type Props = Readonly<{
   shopSlug: string;
@@ -14,38 +13,10 @@ type Props = Readonly<{
 const inputClass = 'w-full rounded-md border border-line-2 bg-paper px-3 py-2 text-[13px] text-ink focus:outline-none focus:ring-2 focus:ring-accent';
 
 export function StorefrontLoginForm({ shopSlug, contactEmail, allowRegistration = false, onAuthenticated }: Props) {
-  const api = useStorefrontIdentityApi();
-  const [mode, setMode] = useState<'login' | 'registration' | 'recovery'>('login');
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [recoveryRequested, setRecoveryRequested] = useState(false);
-
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      if (mode === 'recovery') {
-        await api.requestPasswordRecovery(shopSlug, { email });
-        setRecoveryRequested(true);
-      } else {
-        onAuthenticated(mode === 'registration'
-          ? await api.register(shopSlug, { email, fullName, password })
-          : await api.authenticate(shopSlug, { email, password }));
-      }
-    } catch {
-      setError(mode === 'recovery'
-        ? 'Demande impossible pour le moment. Réessayez plus tard.'
-        : mode === 'registration'
-        ? 'Création impossible : vérifiez vos informations ou connectez-vous si ce compte existe déjà.'
-        : 'Connexion impossible : vérifiez votre email et votre mot de passe.');
-    } finally {
-      setBusy(false);
-    }
-  };
+  const {
+    mode, setMode, fullName, setFullName, email, setEmail, password, setPassword,
+    busy, error, recoveryRequested, submit,
+  } = useStorefrontIdentityForm(shopSlug, onAuthenticated);
 
   return (
     <form className="grid grid-cols-1 gap-3 text-left" onSubmit={submit}>
@@ -64,10 +35,10 @@ export function StorefrontLoginForm({ shopSlug, contactEmail, allowRegistration 
       ) : <>
       {allowRegistration && (
         <div className="grid grid-cols-2 rounded-md border border-line p-1" role="tablist" aria-label="Accès à la boutique">
-          <button type="button" role="tab" aria-selected={mode === 'login'} data-testid={TEST_IDS.shop.checkoutLoginTab} onClick={() => { setMode('login'); setError(null); }} className={`rounded px-3 py-1.5 text-xs font-medium ${mode === 'login' ? 'bg-ink text-paper' : 'text-ink-muted'}`}>
+          <button type="button" role="tab" aria-selected={mode === 'login'} data-testid={TEST_IDS.shop.checkoutLoginTab} onClick={() => setMode('login')} className={`rounded px-3 py-1.5 text-xs font-medium ${mode === 'login' ? 'bg-ink text-paper' : 'text-ink-muted'}`}>
             Se connecter
           </button>
-          <button type="button" role="tab" aria-selected={mode === 'registration'} data-testid={TEST_IDS.shop.checkoutRegisterTab} onClick={() => { setMode('registration'); setError(null); }} className={`rounded px-3 py-1.5 text-xs font-medium ${mode === 'registration' ? 'bg-ink text-paper' : 'text-ink-muted'}`}>
+          <button type="button" role="tab" aria-selected={mode === 'registration'} data-testid={TEST_IDS.shop.checkoutRegisterTab} onClick={() => setMode('registration')} className={`rounded px-3 py-1.5 text-xs font-medium ${mode === 'registration' ? 'bg-ink text-paper' : 'text-ink-muted'}`}>
             Créer un compte
           </button>
         </div>
@@ -100,12 +71,12 @@ export function StorefrontLoginForm({ shopSlug, contactEmail, allowRegistration 
       </div>
       </>}
       {mode === 'login' && (
-        <button type="button" onClick={() => { setMode('recovery'); setError(null); setRecoveryRequested(false); }} className="w-fit text-[12.5px] text-ink-muted hover:text-ink hover:underline">
+        <button type="button" onClick={() => setMode('recovery')} className="w-fit text-[12.5px] text-ink-muted hover:text-ink hover:underline">
           Mot de passe oublié ?
         </button>
       )}
       {mode === 'recovery' && (
-        <button type="button" onClick={() => { setMode('login'); setError(null); setRecoveryRequested(false); }} className="w-fit text-[12.5px] text-ink-muted hover:text-ink hover:underline">
+        <button type="button" onClick={() => setMode('login')} className="w-fit text-[12.5px] text-ink-muted hover:text-ink hover:underline">
           Revenir à la connexion
         </button>
       )}

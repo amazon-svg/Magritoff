@@ -621,10 +621,12 @@ describe('frontières API-first et modulaires', () => {
   it('isole l identification checkout dans la session boutique', () => {
     const checkout = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/CheckoutPage.tsx'), 'utf8');
     const login = readFileSync(resolve(process.cwd(), 'src/app/components/shop/StorefrontLoginForm.tsx'), 'utf8');
+    const identityForm = readFileSync(resolve(process.cwd(), 'src/app/hooks/useStorefrontIdentityForm.ts'), 'utf8');
     expect(checkout).toContain('StorefrontLoginForm');
     expect(checkout).toContain('storefrontSession?.identity.shopId === shop.id');
-    expect(login).toContain('api.authenticate(shopSlug');
-    for (const source of [checkout, login]) {
+    expect(login).toContain('useStorefrontIdentityForm');
+    expect(identityForm).toContain('api.authenticate(shopSlug');
+    for (const source of [checkout, login, identityForm]) {
       expect(source).not.toContain('useAuth');
       expect(source).not.toContain('signIn');
       expect(source).not.toContain('signUp');
