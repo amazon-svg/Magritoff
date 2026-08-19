@@ -1,26 +1,13 @@
-import { useState, type FormEvent } from 'react';
 import { CheckCircle2, Loader2, LockKeyhole } from 'lucide-react';
 import { Link, useParams, useSearchParams } from 'react-router';
-import { useStorefrontIdentityApi } from '../../contexts/StorefrontModuleClientsContext';
+import { useStorefrontCredentialSetup } from '../../hooks/useStorefrontCredentialSetup';
 
 export function StorefrontPasswordResetPage() {
-  const api = useStorefrontIdentityApi();
   const { slug = '' } = useParams();
   const [params] = useSearchParams();
   const token = params.get('token') ?? '';
-  const [password, setPassword] = useState('');
-  const [confirmation, setConfirmation] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const submit = async (event: FormEvent) => {
-    event.preventDefault(); setError(null);
-    if (password !== confirmation) { setError('Les deux mots de passe ne correspondent pas.'); return; }
-    setBusy(true);
-    try { await api.resetPassword({ token, password }); setDone(true); }
-    catch { setError('Ce lien est invalide, expiré ou déjà utilisé.'); }
-    finally { setBusy(false); }
-  };
+  const { password, setPassword, confirmation, setConfirmation, busy, done, error, submit } =
+    useStorefrontCredentialSetup({ token, kind: 'recovery' });
   return <main className="min-h-screen bg-bg px-4 py-12 grid place-items-center">
     <section className="w-full max-w-md rounded-2xl border border-line bg-paper p-6 shadow-sm">
       <div className="mb-6 flex h-11 w-11 items-center justify-center rounded-xl bg-ink text-paper">{done ? <CheckCircle2 className="h-5 w-5" /> : <LockKeyhole className="h-5 w-5" />}</div>

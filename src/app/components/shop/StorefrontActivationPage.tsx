@@ -1,40 +1,18 @@
-import { useState, type FormEvent } from 'react';
 import { Loader2, LockKeyhole } from 'lucide-react';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
-import { useStorefrontIdentityApi } from '../../contexts/StorefrontModuleClientsContext';
+import { useStorefrontCredentialSetup } from '../../hooks/useStorefrontCredentialSetup';
 
 export function StorefrontActivationPage() {
-  const api = useStorefrontIdentityApi();
   const navigate = useNavigate();
   const { slug = '' } = useParams();
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token') ?? '';
-  const [password, setPassword] = useState('');
-  const [confirmation, setConfirmation] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
-    setError(null);
-    if (!token) {
-      setError('Ce lien d’activation est incomplet. Demandez une nouvelle invitation.');
-      return;
-    }
-    if (password !== confirmation) {
-      setError('Les deux mots de passe ne correspondent pas.');
-      return;
-    }
-    setSubmitting(true);
-    try {
-      await api.activate({ token, password });
-      navigate(`/shop/${encodeURIComponent(slug)}`, { replace: true });
-    } catch {
-      setError('Ce lien est invalide, expiré ou déjà utilisé. Demandez une nouvelle invitation.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
+  const { password, setPassword, confirmation, setConfirmation, busy: submitting, error, submit } =
+    useStorefrontCredentialSetup({
+      token,
+      kind: 'activation',
+      onActivated: () => navigate(`/shop/${encodeURIComponent(slug)}`, { replace: true }),
+    });
 
   return (
     <main className="min-h-screen bg-bg px-4 py-12 grid place-items-center">
