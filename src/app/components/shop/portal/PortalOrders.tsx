@@ -7,15 +7,13 @@
  * propre brouillon ; validation, approbation et production restent internes.
  */
 
-import { useCallback, useEffect, useState } from 'react';
-import { toast } from 'sonner';
-import { useStorefrontOrdersApi } from '../../../contexts/StorefrontModuleClientsContext';
+import { useState } from 'react';
 import { TEST_IDS } from '../../../lib/testIds';
-import { type OrderUI, orderSummaryToUi } from './PortalOrders.helpers';
+import { type OrderUI } from './PortalOrders.helpers';
 import { OrderHistoryTable } from './OrderHistoryTable';
 import { PortalOrderEditor } from './PortalOrderEditor';
 import { CancelOrderConfirmDialog } from './CancelOrderConfirmDialog';
-import { formatCancelErrorMessage } from './orderCancellation.helpers';
+import { useStorefrontOrderList } from '../../../hooks/useStorefrontOrderList';
 
 interface Props {
   shopId: string;
@@ -30,57 +28,12 @@ export function PortalOrders({
   onRenewOrder,
   onNavigateToCatalog,
 }: Props) {
-  const ordersApi = useStorefrontOrdersApi();
-  const [orders, setOrders] = useState<OrderUI[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { orders, loading, error, reload, cancel, auditApi } = useStorefrontOrderList(
+    shopId,
+    hasStorefrontSession,
+  );
   const [orderToCancel, setOrderToCancel] = useState<OrderUI | null>(null);
   const [orderToEdit, setOrderToEdit] = useState<OrderUI | null>(null);
-
-  const loadMine = useCallback(async () => {
-    if (!shopId || !hasStorefrontSession) {
-      setOrders([]);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await ordersApi.listPortalOrders(shopId);
-      setOrders(response.datasets.mine.map(orderSummaryToUi));
-    } catch (cause) {
-      console.warn('[PortalOrders] own orders unavailable:', cause);
-      setOrders([]);
-      setError(cause instanceof Error ? cause.message : 'Erreur de chargement');
-    } finally {
-      setLoading(false);
-    }
-  }, [shopId, hasStorefrontSession, ordersApi]);
-
-  useEffect(() => {
-    void loadMine();
-  }, [loadMine]);
-
-  const handleCancelConfirm = useCallback(async (orderId: string): Promise<string | null> => {
-    const order = orders.find((candidate) => candidate.id === orderId);
-    if (!order) return 'Commande introuvable';
-
-    try {
-      await ordersApi.transition(order.id, {
-        toStatus: 'cancelled',
-        reason: null,
-        idempotencyKey: `storefront-cancel:${order.id}:${order.status}`,
-      });
-    } catch (cause) {
-      console.warn('[PortalOrders] owner cancellation failed:', cause);
-      return formatCancelErrorMessage(cause instanceof Error ? cause : null);
-    }
-
-    toast.success('Commande annulée.');
-    await loadMine();
-    return null;
-  }, [orders, ordersApi, loadMine]);
 
   return (
     <div
@@ -127,7 +80,7 @@ export function PortalOrders({
           onCancelOrder={setOrderToCancel}
           onEditOrder={setOrderToEdit}
           onRenewOrder={onRenewOrder}
-          auditApi={ordersApi}
+          auditApi={auditApi}
         />
       )}
 
@@ -136,14 +89,14 @@ export function PortalOrders({
         orderShortId={orderToCancel?.id
           ? orderToCancel.id.replace(/-/g, '').slice(0, 8).toUpperCase()
           : undefined}
-        onConfirm={handleCancelConfirm}
+        onConfirm={cancel}
         onClose={() => setOrderToCancel(null)}
       />
 
       <PortalOrderEditor
         order={orderToEdit}
         onClose={() => setOrderToEdit(null)}
-        onSaved={loadMine}
+        onSaved={reload}
       />
     </div>
   );

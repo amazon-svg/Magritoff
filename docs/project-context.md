@@ -4,7 +4,7 @@
 >
 > **Source authoritative :** `~/Downloads/CONTEXT_Magrit_IA.md` (maintenu par Arnaud, plus exhaustif). Ce fichier en est la **synthèse opérationnelle pour les agents BMAD** (focus : règles, conventions, états de version, identifiants techniques, **PAS** la stratégie commerciale détaillée).
 >
-> **Dernière mise à jour :** 2026-08-19 (UM10.31 — cycle commandes storefront isolé).
+> **Dernière mise à jour :** 2026-08-19 (UM10.32 — liste des commandes storefront isolée).
 > **Maintenu par :** Arnaud Mazon — PDG AGE Développement — `arnaud@age-services.fr`.
 > **Langue de travail :** français (livrables, code commits, variables métier).
 
@@ -96,6 +96,9 @@
 - `useStorefrontOrderLifecycle` porte la lecture de la dernière commande, le
   renouvellement, la création atomique et son idempotence. `PublicShop` ne
   connaît plus le client Orders et conserve uniquement panier et navigation.
+- `useStorefrontOrderList` porte le chargement et l'annulation des commandes
+  du compte boutique ; `PortalOrders` est désormais une vue sans orchestration
+  de transport.
 - Le probe et le catalogue Shops du storefront suivent la même règle : client
   HTTP anonyme côté navigateur, puis résolution du cookie boutique côté BFF.
 - Le composant de surface `PublicShop` ne pilote plus le transport ni les états

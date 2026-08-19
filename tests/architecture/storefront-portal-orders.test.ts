@@ -9,6 +9,7 @@ const portal = readFileSync(resolve(process.cwd(), 'src/app/components/shop/port
 const storefront = readFileSync(resolve(process.cwd(), 'src/app/components/shop/PublicShop.tsx'), 'utf8');
 const storefrontCatalog = readFileSync(resolve(process.cwd(), 'src/app/hooks/usePublicShopCatalog.ts'), 'utf8');
 const storefrontOrders = readFileSync(resolve(process.cwd(), 'src/app/hooks/useStorefrontOrderLifecycle.ts'), 'utf8');
+const storefrontOrderList = readFileSync(resolve(process.cwd(), 'src/app/hooks/useStorefrontOrderList.ts'), 'utf8');
 const editor = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/PortalOrderEditor.tsx'), 'utf8');
 const thankYou = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/PortalThankYou.tsx'), 'utf8');
 const auditModal = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/OrderAuditTrailModal.tsx'), 'utf8');
@@ -39,20 +40,23 @@ describe('portail commandes par compte boutique', () => {
   });
 
   it('ne dépend plus exclusivement de Supabase Auth dans l UX', () => {
-    expect(portal).toContain('!hasStorefrontSession');
+    expect(portal).toContain('hasStorefrontSession,');
+    expect(storefrontOrderList).toContain('!enabled');
     expect(portal).not.toContain('useAuth');
     expect(storefront).toContain('hasStorefrontSession={storefrontSession?.identity.shopId === shop.id}');
   });
 
   it('ne présente aucune action du workflow interne Magrit', () => {
-    expect(portal).toContain('response.datasets.mine.map(orderSummaryToUi)');
-    expect(portal).toContain("toStatus: 'cancelled'");
-    expect(portal).not.toContain('RejectOrderConfirmDialog');
-    expect(portal).not.toContain('handleValidate');
-    expect(portal).not.toContain('handleStartProduction');
-    expect(portal).not.toContain('handleMarkShipped');
-    expect(portal).not.toContain('TabsTrigger');
-    expect(portal).not.toContain('response.datasets.to_validate');
+    expect(storefrontOrderList).toContain('response.datasets.mine.map(orderSummaryToUi)');
+    expect(storefrontOrderList).toContain("toStatus: 'cancelled'");
+    for (const source of [portal, storefrontOrderList]) {
+      expect(source).not.toContain('RejectOrderConfirmDialog');
+      expect(source).not.toContain('handleValidate');
+      expect(source).not.toContain('handleStartProduction');
+      expect(source).not.toContain('handleMarkShipped');
+      expect(source).not.toContain('TabsTrigger');
+      expect(source).not.toContain('response.datasets.to_validate');
+    }
   });
 
   it('utilise un transport sans bearer Magrit pour toutes les commandes storefront', () => {
@@ -61,8 +65,10 @@ describe('portail commandes par compte boutique', () => {
     expect(storefront).not.toContain('useStorefrontOrdersApi()');
     expect(storefrontOrders).toContain('useStorefrontOrdersApi()');
     expect(storefrontOrders).toContain('ordersApi.create({');
-    expect(portal).toContain('useStorefrontOrdersApi()');
-    expect(portal).toContain('auditApi={ordersApi}');
+    expect(portal).toContain('useStorefrontOrderList(');
+    expect(portal).not.toContain('useStorefrontOrdersApi()');
+    expect(storefrontOrderList).toContain('useStorefrontOrdersApi()');
+    expect(portal).toContain('auditApi={auditApi}');
     expect(editor).toContain('useStorefrontOrdersApi()');
     expect(thankYou).toContain('useStorefrontOrdersApi()');
     expect(storefront).not.toContain('useOrdersApi()');
