@@ -7,7 +7,7 @@
  *   - update_tenant_order_role_capabilities (transactional + audit retroactif)
  *   - transition_tenant_order_status (matrice extensible)
  *
- * Pattern : 1 tenant + 2 users (owner = admin, buyer = member acheteur),
+ * Pattern : 1 tenant + 2 utilisateurs Magrit (owner = admin, buyer = membre),
  * 1 commande draft + 1 role Validateur. On exerce les RPCs avec les 2
  * identités pour vérifier autorisations et audits.
  */
@@ -86,10 +86,11 @@ describe.skipIf(SKIP_REASON !== null)('RPC S-ORDER-ROLES-2 (transitions + audit)
     // qui ne l'ont pas, ce qui viole le NOT NULL (la colonne a un DEFAULT
     // mais il ne s'applique pas si null explicite).
     // Laisser le default SQL `{can_quote:true, can_order:true, can_invite:false}`
-    // s'appliquer pour tous (cohérent avec scope shop_only acheteur preset).
+    // s'appliquer pour tous. Les utilisateurs de ce scénario appartiennent au
+    // back-office Magrit ; les comptes boutique sont testés via les API storefront.
     await admin.from('tenant_members').insert([
       { tenant_id: tenant.id, user_id: owner.user.id, role: 'owner', access_scope: 'magrit_full' },
-      { tenant_id: tenant.id, user_id: buyer.user.id, role: 'member', access_scope: 'shop_only' },
+      { tenant_id: tenant.id, user_id: buyer.user.id, role: 'member', access_scope: 'magrit_full' },
       { tenant_id: otherTenant.id, user_id: stranger.user.id, role: 'owner', access_scope: 'magrit_full' },
     ]);
 

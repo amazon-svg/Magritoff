@@ -311,6 +311,22 @@ Décision Arnaud 2026-05-06 : reportées au prochain bloc Clariprint :
 - **Projet Supabase actif** : `ightkxebexuzfjdbpsdg` (B4 + B5 partagés)
 - **Secrets edge functions** : `MAGRIT3` (Anthropic), `RESEND_API_KEY` (invitations Magrit et activation boutique), `MAGRIT_FROM_EMAIL` (expéditeur Resend vérifié), `CLARIPRINT_HOST/LOGIN/PASSWORD`, `SUPABASE_*` (auto). En local, les secrets serveur sont placés dans `supabase/functions/.env` à partir de `.env.example` ; `.env.local` configure Vite mais n’injecte pas les secrets dans l’Edge Runtime. Sans clé Resend, l’activation boutique affiche un lien manuel transmissible.
 
+### 10.1 Tests d'intégration locaux
+
+- `.env.test` active les suites Supabase avec `SUPABASE_URL`,
+  `SUPABASE_ANON_KEY` et `SUPABASE_SERVICE_ROLE_KEY` ; il est ignoré par Git et
+  conservé en permissions `600`.
+- La cible peut être la stack Docker locale ou un projet distant de test, mais
+  jamais la production : plusieurs suites créent puis suppriment leurs fixtures.
+- Le `service_role` est strictement serveur. Ses privilèges sur les données
+  publiques sont versionnés par migration ; aucun accès direct au schéma
+  `private` n'est accordé.
+- Les tests storefront doivent passer par les comptes boutique, sessions opaques
+  et API `api_*`. Ils ne doivent plus fabriquer de `tenant_members.shop_only` ni
+  de rôle `Acheteur` dans l'identité Magrit.
+- Commandes usuelles : `pnpm db:local:start`, `pnpm db:local:push`, puis
+  `pnpm test`.
+
 ## 11. Documents canoniques de référence
 
 | Document | Localisation | Rôle |

@@ -52,6 +52,16 @@ describe('runtime Supabase local', () => {
     expect(grants).toContain('alter default privileges for role postgres');
   });
 
+  it('restaure les privilèges de données du service role serveur', () => {
+    const grants = read('supabase/migrations/20260819000100_service_role_table_grants.sql');
+
+    expect(grants).toContain('on all tables in schema public');
+    expect(grants).toContain('to service_role');
+    expect(grants).toContain('on all sequences in schema public');
+    expect(grants).toContain('alter default privileges for role postgres');
+    expect(grants).not.toContain('schema private to service_role');
+  });
+
   it('ne réutilise pas une session persistée supprimée par un reset local', () => {
     const authContext = read('src/app/contexts/AuthContext.tsx');
     const authAdapter = read('src/adapters/supabase/browser-authentication-gateway.ts');

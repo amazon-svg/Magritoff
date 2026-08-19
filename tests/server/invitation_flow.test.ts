@@ -3,7 +3,7 @@
  *
  * Couvre le parcours complet cote DB :
  *   1. Insert tenant_invitations (simule l'edge invite-member, sans Resend)
- *      avec pending_role_ids[] = [acheteur.id] et access_scope shop_only
+ *      avec pending_role_ids[] = [validateur.id] et access_scope magrit_full
  *   2. EMAIL_MISMATCH : un user authentifie avec un autre email se voit
  *      refuser l'acceptation (fix faille 27/05, migration accept_invitation_email_guard)
  *   3. Accept normal : user cible signe et appelle RPC accept_tenant_invitation
@@ -39,7 +39,7 @@ interface Ctx {
   strangerId: string;
   inviteeEmail: string;
   tenantId: string;
-  acheteurRoleId: string;
+  validateurRoleId: string;
   invitationToken: string;
   invitationId: string;
   cleanup: () => Promise<void>;
@@ -101,15 +101,15 @@ describe.skipIf(SKIP_REASON !== null)('Flux invitation E2E (DB layer)', () => {
     });
     if (memErr) throw new Error(`tenant_member owner: ${memErr.message}`);
 
-    // Récupère le rôle Acheteur auto-seedé par le trigger
+    // Récupère un rôle Magrit auto-seedé par le trigger.
     // tenants_seed_catalogs (migration 20260601000200).
-    const { data: roleAcheteur, error: rErr } = await admin
+    const { data: roleValidateur, error: rErr } = await admin
       .from('tenant_role_definitions')
       .select('id')
       .eq('tenant_id', tenant.id)
-      .eq('name', 'Acheteur')
+      .eq('name', 'Validateur')
       .single();
-    if (rErr || !roleAcheteur) throw new Error(`role Acheteur introuvable: ${rErr?.message}`);
+    if (rErr || !roleValidateur) throw new Error(`role Validateur introuvable: ${rErr?.message}`);
 
     const anonOwner = createClient(url, anonKey, {
       auth: { persistSession: false, autoRefreshToken: false },
@@ -147,7 +147,7 @@ describe.skipIf(SKIP_REASON !== null)('Flux invitation E2E (DB layer)', () => {
       strangerId: stranger.user.id,
       inviteeEmail,
       tenantId: tenant.id,
-      acheteurRoleId: roleAcheteur.id,
+      validateurRoleId: roleValidateur.id,
       invitationToken: '',
       invitationId: '',
       cleanup: async () => {
@@ -156,7 +156,7 @@ describe.skipIf(SKIP_REASON !== null)('Flux invitation E2E (DB layer)', () => {
         await admin
           .from('tenant_role_assignments')
           .delete()
-          .eq('role_definition_id', roleAcheteur.id);
+          .eq('role_definition_id', roleValidateur.id);
         await admin
           .from('tenant_role_definitions')
           .delete()
@@ -191,10 +191,10 @@ describe.skipIf(SKIP_REASON !== null)('Flux invitation E2E (DB layer)', () => {
         token,
         expires_at: expires,
         invited_by: ctx.ownerId,
-        access_scope: 'shop_only',
+        access_scope: 'magrit_full',
         allowed_shop_ids: [],
         permissions: { can_quote: true, can_order: true, can_invite: false },
-        pending_role_ids: [ctx.acheteurRoleId],
+        pending_role_ids: [ctx.validateurRoleId],
       })
       .select('id, token, pending_role_ids')
       .single();
@@ -202,7 +202,7 @@ describe.skipIf(SKIP_REASON !== null)('Flux invitation E2E (DB layer)', () => {
     expect(error).toBeNull();
     expect(data).toBeTruthy();
     expect(data!.token).toBe(token);
-    expect(data!.pending_role_ids).toEqual([ctx.acheteurRoleId]);
+    expect(data!.pending_role_ids).toEqual([ctx.validateurRoleId]);
 
     ctx.invitationToken = token;
     ctx.invitationId = data!.id;
@@ -239,7 +239,7 @@ describe.skipIf(SKIP_REASON !== null)('Flux invitation E2E (DB layer)', () => {
       .eq('user_id', ctx.inviteeId)
       .single();
     expect(member).toBeTruthy();
-    expect(member!.access_scope).toBe('shop_only');
+    expect(member!.access_scope).toBe('magrit_full');
     expect(member!.role).toBe('member');
     expect(member!.permissions).toMatchObject({
       can_quote: true,
@@ -247,14 +247,14 @@ describe.skipIf(SKIP_REASON !== null)('Flux invitation E2E (DB layer)', () => {
       can_invite: false,
     });
 
-    // tenant_role_assignments — Acheteur propage
+    // tenant_role_assignments — rôle Magrit propagé
     const { data: assignments } = await ctx.admin
       .from('tenant_role_assignments')
       .select('role_definition_id, revoked_at')
       .eq('user_id', ctx.inviteeId)
       .is('revoked_at', null);
     expect(assignments).toHaveLength(1);
-    expect(assignments![0].role_definition_id).toBe(ctx.acheteurRoleId);
+    expect(assignments![0].role_definition_id).toBe(ctx.validateurRoleId);
 
     // tenant_invitations.accepted_at est non null
     const { data: inv } = await ctx.admin

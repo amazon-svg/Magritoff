@@ -1,10 +1,9 @@
 /**
- * Tests RPC S7.11 — self_register_shop_buyer (ADR §4.20).
+ * UM9.1 — inscription autonome d'un compte boutique.
  *
- * Pattern order_roles_rpc : tenant + 2 boutiques (invite_only / self_signup),
- * user éphémère « visiteur » (aucune appartenance). On vérifie :
- *  refus boutique fermée · inscription allow-list shop_only + rôle Acheteur ·
- *  idempotence · refus anonyme.
+ * Vérifie que l'ancien RPC créant un tenant_member shop_only reste révoqué et
+ * que le nouveau parcours crée uniquement une identité storefront liée à la
+ * boutique, avec son credential et sa session opaque.
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -23,167 +22,127 @@ const rid = () => Math.random().toString(36).slice(2, 10);
 
 interface Ctx {
   admin: SupabaseClient;
-  anonVisitor: SupabaseClient;
-  visitorId: string;
+  anon: SupabaseClient;
   tenantId: string;
   openShopId: string;
+  openShopSlug: string;
   closedShopId: string;
+  closedShopSlug: string;
+  customerEmail: string;
+  accountId: string;
   cleanup: () => Promise<void>;
 }
 
 const ctx = {} as Ctx;
 
-describe.skipIf(SKIP_REASON !== null)('RPC S7.11 self_register_shop_buyer', () => {
+describe.skipIf(SKIP_REASON !== null)('RPC UM9.1 storefront self registration', () => {
   beforeAll(async () => {
     const url = process.env.SUPABASE_URL!;
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-    const anonKey = process.env.SUPABASE_ANON_KEY!;
-
-    const admin = createClient(url, serviceKey, {
+    const admin = createClient(url, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
-
+    const anon = createClient(url, process.env.SUPABASE_ANON_KEY!, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
     const tag = rid();
-    const password = `selfreg-${tag}-${rid()}`;
-    const visitorEmail = `selfreg-visitor-${tag}@magrit.test`;
-
-    const { data: visitor } = await admin.auth.admin.createUser({
-      email: visitorEmail,
-      password,
+    const customerEmail = `selfreg-customer-${tag}@magrit.test`;
+    const { data: owner, error: ownerError } = await admin.auth.admin.createUser({
+      email: `selfreg-owner-${tag}@magrit.test`,
+      password: `selfreg-${tag}-${rid()}`,
       email_confirm: true,
     });
-    if (!visitor.user) throw new Error('createUser failed');
+    if (ownerError || !owner.user) throw new Error(`createUser failed: ${ownerError?.message}`);
 
-    const { data: tenant } = await admin
-      .from('tenants')
-      .insert({ slug: `selfreg-${tag}`, name: `SelfReg ${tag}` })
-      .select('id')
-      .single();
-    if (!tenant) throw new Error('tenant insert failed');
+    const { data: tenant, error: tenantError } = await admin.from('tenants')
+      .insert({ slug: `selfreg-${tag}`, name: `SelfReg ${tag}` }).select('id').single();
+    if (tenantError || !tenant) throw new Error(`tenant insert failed: ${tenantError?.message}`);
 
     const shopBase = {
       tenant_id: tenant.id,
-      owner_user_id: visitor.user.id,
-      description: '',
-      theme: { primaryColor: '#000', accentColor: '#000', mode: 'light' },
+      owner_user_id: owner.user.id,
       active: true,
       library_ids: [],
       excluded_product_ids: [],
     };
-    const { data: openShop, error: openErr } = await admin
-      .from('shops')
-      .insert({ ...shopBase, slug: `selfreg-open-${tag}`, name: 'Open', access_mode: 'self_signup' })
-      .select('id')
-      .single();
-    const { data: closedShop, error: closedErr } = await admin
-      .from('shops')
-      .insert({ ...shopBase, slug: `selfreg-closed-${tag}`, name: 'Closed', access_mode: 'invite_only' })
-      .select('id')
-      .single();
+    const openShopSlug = `selfreg-open-${tag}`;
+    const closedShopSlug = `selfreg-closed-${tag}`;
+    const { data: openShop, error: openError } = await admin.from('shops')
+      .insert({ ...shopBase, slug: openShopSlug, name: 'Open', access_mode: 'self_signup' })
+      .select('id').single();
+    const { data: closedShop, error: closedError } = await admin.from('shops')
+      .insert({ ...shopBase, slug: closedShopSlug, name: 'Closed', access_mode: 'invite_only' })
+      .select('id').single();
     if (!openShop || !closedShop) {
-      throw new Error(`shop insert failed: ${openErr?.message ?? ''} ${closedErr?.message ?? ''}`);
+      throw new Error(`shop insert failed: ${openError?.message ?? ''} ${closedError?.message ?? ''}`);
     }
 
-    const anonVisitor = createClient(url, anonKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-    await anonVisitor.auth.signInWithPassword({ email: visitorEmail, password });
-
     Object.assign(ctx, {
-      admin,
-      anonVisitor,
-      visitorId: visitor.user.id,
-      tenantId: tenant.id,
-      openShopId: openShop.id,
-      closedShopId: closedShop.id,
+      admin, anon, tenantId: tenant.id, openShopId: openShop.id, openShopSlug,
+      closedShopId: closedShop.id, closedShopSlug, customerEmail, accountId: '',
       cleanup: async () => {
-        await admin.from('tenant_role_assignments').delete().eq('user_id', visitor.user!.id);
-        await admin.from('tenant_members').delete().eq('user_id', visitor.user!.id);
+        await admin.from('shop_customer_accounts').delete().in('shop_id', [openShop.id, closedShop.id]);
         await admin.from('shops').delete().in('id', [openShop.id, closedShop.id]);
+        await admin.from('tenant_role_definitions').delete().eq('tenant_id', tenant.id);
         await admin.from('tenants').delete().eq('id', tenant.id);
-        await admin.auth.admin.deleteUser(visitor.user!.id);
+        await admin.auth.admin.deleteUser(owner.user!.id).catch(() => {});
       },
     });
   }, 30_000);
 
-  afterAll(async () => {
-    await ctx.cleanup?.();
-  });
+  afterAll(async () => ctx.cleanup?.());
 
-  it('anonyme → permission denied (EXECUTE réservé authenticated)', async () => {
-    const anon = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-    const { error } = await anon.rpc('self_register_shop_buyer', {
-      p_shop_id: ctx.openShopId,
-    });
+  it("l'ancien RPC tenant_member reste inaccessible", async () => {
+    const { error } = await ctx.anon.rpc('self_register_shop_buyer', { p_shop_id: ctx.openShopId });
     expect(error).not.toBeNull();
   });
 
-  it('boutique invite_only → shop_not_open, aucun membre créé', async () => {
-    const { error } = await ctx.anonVisitor.rpc('self_register_shop_buyer', {
-      p_shop_id: ctx.closedShopId,
-    });
-    expect(error?.message).toContain('shop_not_open');
-    const { data: members } = await ctx.admin
-      .from('tenant_members')
-      .select('user_id')
-      .eq('tenant_id', ctx.tenantId)
-      .eq('user_id', ctx.visitorId);
-    expect(members).toHaveLength(0);
-  });
-
-  it('boutique self_signup → membre shop_only allow-list + rôle Acheteur (AC2/AC3)', async () => {
-    const { data, error } = await ctx.anonVisitor.rpc('self_register_shop_buyer', {
-      p_shop_id: ctx.openShopId,
+  it("une boutique invite_only refuse silencieusement l'auto-inscription", async () => {
+    const { data, error } = await ctx.anon.rpc('api_register_shop_customer', {
+      p_shop_slug: ctx.closedShopSlug,
+      p_email: ctx.customerEmail,
+      p_full_name: 'Client privé',
+      p_password: 'mot-de-passe-solide',
     });
     expect(error).toBeNull();
-    expect((data as { status: string }).status).toBe('registered');
-
-    const { data: member } = await ctx.admin
-      .from('tenant_members')
-      .select('role, access_scope, allowed_shop_ids, permissions')
-      .eq('tenant_id', ctx.tenantId)
-      .eq('user_id', ctx.visitorId)
-      .single();
-    expect(member?.role).toBe('member');
-    expect(member?.access_scope).toBe('shop_only');
-    expect(member?.allowed_shop_ids).toEqual([ctx.openShopId]);
-    expect((member?.permissions as { can_order: boolean }).can_order).toBe(true);
-    expect((member?.permissions as { can_invite: boolean }).can_invite).toBe(false);
-
-    // Rôle Acheteur (preset auto-seedé à la création du tenant)
-    const { data: assignments } = await ctx.admin
-      .from('tenant_role_assignments')
-      .select('role_definition_id, tenant_role_definitions!inner(name, tenant_id)')
-      .eq('user_id', ctx.visitorId)
-      .is('revoked_at', null);
-    const names = (assignments ?? []).map(
-      (a) => (a.tenant_role_definitions as unknown as { name: string }).name,
-    );
-    expect(names).toContain('Acheteur');
+    expect(data ?? []).toHaveLength(0);
   });
 
-  it('idempotence : 2e appel → already_member, pas de doublon', async () => {
-    const { data, error } = await ctx.anonVisitor.rpc('self_register_shop_buyer', {
-      p_shop_id: ctx.openShopId,
+  it('une boutique self_signup crée un compte boutique et une session, sans profil Magrit', async () => {
+    const { data, error } = await ctx.anon.rpc('api_register_shop_customer', {
+      p_shop_slug: ctx.openShopSlug,
+      p_email: ` ${ctx.customerEmail.toUpperCase()} `,
+      p_full_name: ' Client Exemple ',
+      p_password: 'mot-de-passe-solide',
     });
     expect(error).toBeNull();
-    expect((data as { status: string }).status).toBe('already_member');
+    expect(data).toHaveLength(1);
+    expect(data![0]).toMatchObject({
+      shop_id: ctx.openShopId, email: ctx.customerEmail,
+      full_name: 'Client Exemple', account_status: 'active',
+    });
+    expect(data![0].opaque_token).toMatch(/^[A-Za-z0-9_-]{32,}$/);
+    ctx.accountId = data![0].account_id;
 
-    const { data: members } = await ctx.admin
-      .from('tenant_members')
-      .select('user_id')
-      .eq('tenant_id', ctx.tenantId)
-      .eq('user_id', ctx.visitorId);
-    expect(members).toHaveLength(1);
-    const { data: member } = await ctx.admin
-      .from('tenant_members')
-      .select('allowed_shop_ids')
-      .eq('tenant_id', ctx.tenantId)
-      .eq('user_id', ctx.visitorId)
-      .single();
-    // Pas de doublon dans l'allow-list
-    expect(member?.allowed_shop_ids).toEqual([ctx.openShopId]);
+    const { data: account } = await ctx.admin.from('shop_customer_accounts')
+      .select('id, auth_subject_id, created_by_magrit_user_id').eq('id', ctx.accountId).single();
+    expect(account).toMatchObject({ auth_subject_id: null, created_by_magrit_user_id: null });
+    const { data: members } = await ctx.admin.from('tenant_members')
+      .select('user_id').eq('tenant_id', ctx.tenantId).eq('access_scope', 'shop_only');
+    expect(members ?? []).toHaveLength(0);
+  });
+
+  it('un second appel ne révèle ni ne duplique le compte existant', async () => {
+    const { data, error } = await ctx.anon.rpc('api_register_shop_customer', {
+      p_shop_slug: ctx.openShopSlug,
+      p_email: ctx.customerEmail,
+      p_full_name: 'Duplicata',
+      p_password: 'autre-mot-de-passe',
+    });
+    expect(error).toBeNull();
+    expect(data ?? []).toHaveLength(0);
+    const { count } = await ctx.admin.from('shop_customer_accounts')
+      .select('id', { count: 'exact', head: true })
+      .eq('shop_id', ctx.openShopId).eq('normalized_email', ctx.customerEmail);
+    expect(count).toBe(1);
   });
 });
