@@ -12,6 +12,7 @@ import { PortalThankYou } from './portal/PortalThankYou';
 import { AccountHub } from './portal/AccountHub';
 import { CheckoutPage } from './portal/CheckoutPage';
 import type { PortalView, CartLine, BudgetInfo } from './portal/types';
+import { computePortalCartTotalHt, resolveCartLinePricing } from './portal/cartPricing';
 import {
   rebuildCartFromOrderItems,
   type OrderItemRow,
@@ -422,7 +423,7 @@ export function PublicShop() {
         productLabel: l.product.name,
         clariprintOptions: (l.product.config as Record<string, unknown> | null) ?? null,
         quantity: l.qty,
-        unitPriceHt: l.product.price_ht,
+        unitPriceHt: resolveCartLinePricing(l).unitPriceHt,
       };
     });
     let orderId: string;
@@ -628,7 +629,7 @@ export function PublicShop() {
 
   const cartCount = cart.reduce((s, l) => s + l.qty, 0);
   // S7.7 — montant HT du panier (affiché sur le bouton header, décision D3).
-  const cartTotalHT = cart.reduce((s, l) => s + l.product.price_ht * l.qty, 0);
+  const cartTotalHT = computePortalCartTotalHt(cart);
   const hasStorefrontSession = storefrontSession?.identity.shopId === shop.id;
   const canCreateOrder = hasStorefrontSession
     || shop.access_mode === 'self_signup';

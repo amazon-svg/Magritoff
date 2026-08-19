@@ -17,6 +17,7 @@ import { formatEuro } from '../ProductOverlay.helpers';
 import { TEST_IDS } from '../../../lib/testIds';
 import type { StorefrontSession } from '../../../../modules/shop-customers';
 import { StorefrontLoginForm } from '../StorefrontLoginForm';
+import { computePortalCartTotalHt, resolveCartLinePricing } from './cartPricing';
 
 export interface CheckoutPageProps {
   shop: Shop;
@@ -45,7 +46,7 @@ export function CheckoutPage({
   const hasStorefrontSession = storefrontSession?.identity.shopId === shop.id;
   const [submitting, setSubmitting] = useState(false);
 
-  const totalHT = cart.reduce((s, l) => s + l.product.price_ht * l.qty, 0);
+  const totalHT = computePortalCartTotalHt(cart);
   const totalTTC = applyTax(totalHT, taxRate);
 
   if (cart.length === 0) {
@@ -107,7 +108,7 @@ export function CheckoutPage({
                   className="font-mono text-ink shrink-0"
                   style={{ fontSize: '13.5px', fontVariantNumeric: 'tabular-nums' }}
                 >
-                  {formatEuro(l.product.price_ht * l.qty)} HT
+                  {formatEuro(resolveCartLinePricing(l).lineTotalHt)} HT
                 </span>
               </div>
             );
