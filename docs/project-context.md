@@ -352,7 +352,9 @@ Décision Arnaud 2026-05-06 : reportées au prochain bloc Clariprint :
   et API `api_*`. Ils ne doivent plus fabriquer de `tenant_members.shop_only` ni
   de rôle `Acheteur` dans l'identité Magrit.
 - Commandes usuelles : `pnpm db:local:start`, `pnpm db:local:push`, puis
-  `pnpm test`.
+  `pnpm test`. La suite complète limite Vitest à deux workers afin que les
+  créations Auth, scénarios RLS et opérations Storage ne saturent pas le
+  PostgreSQL Docker local.
 
 ## 11. Documents canoniques de référence
 
