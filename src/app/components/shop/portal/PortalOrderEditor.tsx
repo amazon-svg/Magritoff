@@ -16,13 +16,10 @@
  *  - Pas d'ajout de ligne : une nouvelle référence passe par le catalogue → panier.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2, Save, Trash2, AlertTriangle } from 'lucide-react';
-import { toast } from 'sonner';
-import { lineTotal, round2 } from '../../../utils/quoteMath';
 import { TEST_IDS } from '../../../lib/testIds';
-import { useStorefrontOrdersApi } from '../../../contexts/StorefrontModuleClientsContext';
 import type { OrderUI } from './PortalOrders.helpers';
+import { useStorefrontOrderEditor } from '../../../hooks/useStorefrontOrderEditor';
 import {
   Dialog,
   DialogContent,
@@ -31,17 +28,6 @@ import {
   DialogDescription,
   DialogFooter,
 } from '../../ui/dialog';
-
-interface EditableLine {
-  /** id DB de la ligne (tenant_order_items.id). */
-  id: string;
-  product_id: string | null;
-  product_label: string;
-  quantity: number;
-  unit_price_ht: number;
-  line_total_ht: number;
-  clariprint_options: unknown;
-}
 
 interface Props {
   /** Commande à éditer (null = fermé). Doit être un draft v1.1 de l'auteur. */
@@ -56,107 +42,10 @@ function shortId(id: string): string {
 }
 
 export function PortalOrderEditor({ order, onClose, onSaved }: Props) {
-  const [lines, setLines] = useState<EditableLine[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const ordersApi = useStorefrontOrdersApi();
-  const saveCommandKey = useRef(crypto.randomUUID());
-
-  // Charge les lignes réelles (avec id + product_id + snapshot config) à
-  // l'ouverture — OrderUI.items est allégé (name/qty/price sans id).
-  useEffect(() => {
-    if (!order) {
-      setLines([]);
-      setError(null);
-      return;
-    }
-    const controller = new AbortController();
-    saveCommandKey.current = crypto.randomUUID();
-    setLoading(true);
-    setError(null);
-    (async () => {
-      try {
-        const draft = await ordersApi.getDraft(order.id, controller.signal);
-        if (controller.signal.aborted) return;
-        const loaded: EditableLine[] = draft.items.map((it) => ({
-          id: it.id,
-          product_id: it.productId,
-          product_label: it.productLabel,
-          quantity: it.quantity,
-          unit_price_ht: it.unitPriceHt,
-          line_total_ht: it.lineTotalHt,
-          clariprint_options: it.clariprintOptions,
-        }));
-        setLines(loaded);
-      } catch (cause) {
-        if (controller.signal.aborted) return;
-        const message = cause instanceof Error ? cause.message : 'erreur réseau';
-        setError(`Impossible de charger les articles : ${message}`);
-      } finally {
-        if (!controller.signal.aborted) setLoading(false);
-      }
-    })();
-    return () => {
-      controller.abort();
-    };
-  }, [order, ordersApi]);
-
-  const mutateLine = (idx: number, patch: Partial<EditableLine>) => {
-    setLines((prev) =>
-      prev.map((l, i) => {
-        if (i !== idx) return l;
-        const next = { ...l, ...patch };
-        next.line_total_ht = lineTotal(next.quantity, next.unit_price_ht);
-        return next;
-      }),
-    );
-  };
-
-  const onQtyChange = (idx: number, raw: string) =>
-    mutateLine(idx, { quantity: Math.max(1, Math.round(Number(raw) || 1)) });
-
-  const onPriceChange = (idx: number, raw: string) =>
-    mutateLine(idx, { unit_price_ht: round2(Math.max(0, Number(raw) || 0)) });
-
-  const removeLine = (idx: number) => setLines((prev) => prev.filter((_, i) => i !== idx));
-
-  const totalHT = useMemo(() => round2(lines.reduce((s, l) => s + l.line_total_ht, 0)), [lines]);
-
-  const handleSave = async () => {
-    if (!order) return;
-    if (lines.length === 0) {
-      setError('Une commande doit conserver au moins un article — sinon utilisez « Annuler ».');
-      return;
-    }
-    setSaving(true);
-    setError(null);
-    try {
-      await ordersApi.updateDraft(order.id, {
-        items: lines.map((line) => ({
-          id: line.id,
-          productLabel: line.product_label,
-          quantity: line.quantity,
-          unitPriceHt: line.unit_price_ht,
-        })),
-        idempotencyKey: saveCommandKey.current,
-      });
-
-      toast.success('Commande mise à jour.');
-      saveCommandKey.current = crypto.randomUUID();
-      await onSaved();
-      onClose();
-    } catch (cause) {
-      const msg = cause instanceof Error ? cause.message : 'erreur réseau';
-      setError(
-        /order_not_editable|non modifiable/i.test(msg)
-          ? "Cette commande n'est plus modifiable (elle a peut-être été validée). Rechargez la page."
-          : `Échec de l'enregistrement : ${msg}`,
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
+  const {
+    lines, loading, saving, error, mutateLine, changeQuantity,
+    changePrice, removeLine, totalHT, save,
+  } = useStorefrontOrderEditor(order, onSaved, onClose);
 
   return (
     <Dialog open={!!order} onOpenChange={(o) => { if (!o) onClose(); }}>
@@ -214,7 +103,7 @@ export function PortalOrderEditor({ order, onClose, onSaved }: Props) {
                           type="number"
                           min={1}
                           value={l.quantity}
-                          onChange={(e) => onQtyChange(idx, e.target.value)}
+                          onChange={(e) => changeQuantity(idx, e.target.value)}
                           className="w-[72px] px-2 py-1 border border-line rounded bg-paper text-ink font-mono text-right focus:outline-none focus:border-line-2"
                           style={{ fontSize: '12.5px' }}
                         />
@@ -226,7 +115,7 @@ export function PortalOrderEditor({ order, onClose, onSaved }: Props) {
                           step="0.01"
                           min={0}
                           value={l.unit_price_ht}
-                          onChange={(e) => onPriceChange(idx, e.target.value)}
+                          onChange={(e) => changePrice(idx, e.target.value)}
                           className="w-[96px] px-2 py-1 border border-line rounded bg-paper text-ink font-mono text-right focus:outline-none focus:border-line-2"
                           style={{ fontSize: '12.5px' }}
                         />
@@ -280,7 +169,7 @@ export function PortalOrderEditor({ order, onClose, onSaved }: Props) {
           <button
             type="button"
             data-testid={TEST_IDS.shop.orderEditorSaveBtn}
-            onClick={handleSave}
+            onClick={() => void save()}
             disabled={saving || loading || lines.length === 0}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md bg-ink text-paper hover:bg-black disabled:opacity-50"
             style={{ fontSize: '13px', fontWeight: 500 }}

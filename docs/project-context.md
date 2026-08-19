@@ -4,7 +4,7 @@
 >
 > **Source authoritative :** `~/Downloads/CONTEXT_Magrit_IA.md` (maintenu par Arnaud, plus exhaustif). Ce fichier en est la **synthèse opérationnelle pour les agents BMAD** (focus : règles, conventions, états de version, identifiants techniques, **PAS** la stratégie commerciale détaillée).
 >
-> **Dernière mise à jour :** 2026-08-19 (UM10.33 — reçu de commande storefront isolé).
+> **Dernière mise à jour :** 2026-08-19 (UM10.34 — éditeur de commande storefront isolé).
 > **Maintenu par :** Arnaud Mazon — PDG AGE Développement — `arnaud@age-services.fr`.
 > **Langue de travail :** français (livrables, code commits, variables métier).
 
@@ -101,6 +101,8 @@
   de transport.
 - `useStorefrontOrderReceipt` charge le détail affiché après confirmation avec
   annulation réseau au démontage ; `PortalThankYou` reste purement visuel.
+- `useStorefrontOrderEditor` porte le chargement, les calculs de lignes et la
+  sauvegarde idempotente des brouillons ; le dialogue ne pilote aucun transport.
 - Le probe et le catalogue Shops du storefront suivent la même règle : client
   HTTP anonyme côté navigateur, puis résolution du cookie boutique côté BFF.
 - Le composant de surface `PublicShop` ne pilote plus le transport ni les états

@@ -56,7 +56,7 @@ la connexion du checkout et de la garde des boutiques privées sur la session
 boutique BFF ; l'ancien `signIn/signUp` Supabase Auth et la création implicite
 d'un membre `shop_only` disparaissent du storefront. Chaque vague suivante doit être
 découpée en stories BMAD exécutables avant son implémentation.
-UM10.1 à UM10.33 ferment ensuite les fuites de contexte résiduelles : assistant,
+UM10.1 à UM10.34 ferment ensuite les fuites de contexte résiduelles : assistant,
 politique fiscale, ancienne UI de profil mixte et états transactionnels sont
 désormais séparés par identité et par boutique, y compris lors d’un changement
 de slug sans remontage React. Le portail commandes client ne présente plus les
