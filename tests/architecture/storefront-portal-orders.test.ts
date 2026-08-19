@@ -10,6 +10,7 @@ const storefront = readFileSync(resolve(process.cwd(), 'src/app/components/shop/
 const storefrontCatalog = readFileSync(resolve(process.cwd(), 'src/app/hooks/usePublicShopCatalog.ts'), 'utf8');
 const storefrontOrders = readFileSync(resolve(process.cwd(), 'src/app/hooks/useStorefrontOrderLifecycle.ts'), 'utf8');
 const storefrontOrderList = readFileSync(resolve(process.cwd(), 'src/app/hooks/useStorefrontOrderList.ts'), 'utf8');
+const storefrontOrderReceipt = readFileSync(resolve(process.cwd(), 'src/app/hooks/useStorefrontOrderReceipt.ts'), 'utf8');
 const editor = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/PortalOrderEditor.tsx'), 'utf8');
 const thankYou = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/PortalThankYou.tsx'), 'utf8');
 const auditModal = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/OrderAuditTrailModal.tsx'), 'utf8');
@@ -70,7 +71,10 @@ describe('portail commandes par compte boutique', () => {
     expect(storefrontOrderList).toContain('useStorefrontOrdersApi()');
     expect(portal).toContain('auditApi={auditApi}');
     expect(editor).toContain('useStorefrontOrdersApi()');
-    expect(thankYou).toContain('useStorefrontOrdersApi()');
+    expect(thankYou).toContain('useStorefrontOrderReceipt(orderId)');
+    expect(thankYou).not.toContain('useStorefrontOrdersApi()');
+    expect(storefrontOrderReceipt).toContain('useStorefrontOrdersApi()');
+    expect(storefrontOrderReceipt).toContain('ordersApi.getDraft(orderId');
     expect(storefront).not.toContain('useOrdersApi()');
     expect(portal).not.toContain('useOrdersApi()');
     expect(editor).not.toContain('useOrdersApi()');
