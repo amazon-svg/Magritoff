@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router';
 import { Loader2 } from 'lucide-react';
 import type { ShopProduct } from '../../../modules/shops';
@@ -11,17 +11,12 @@ import { PortalThankYou } from './portal/PortalThankYou';
 import { AccountHub } from './portal/AccountHub';
 import { CheckoutPage } from './portal/CheckoutPage';
 import type { PortalView, CartLine, BudgetInfo } from './portal/types';
-import { computePortalCartTotalHt, resolveCartLinePricing } from './portal/cartPricing';
-import {
-  rebuildCartFromOrderItems,
-  type OrderItemRow,
-} from './portal/orderRenewal.helpers';
+import { computePortalCartTotalHt } from './portal/cartPricing';
 import { ShopLayout } from './ShopLayout';
 import { GammePage } from './gamme/GammePage';
 import {
   ResumeBanner,
   buildResumeChips,
-  type ResumeLastOrder,
 } from './portal/ResumeBanner';
 import { ShopForbidden403 } from './ShopForbidden403';
 import { resolveShopAccess } from './ShopAccessGuard.helpers';
@@ -33,12 +28,11 @@ import {
 } from './ShopGammesSidebar.helpers';
 import { buildShopTaxonomy } from '../../utils/shopTaxonomy';
 import { parsePortalPath, shopUrl } from './portal/shopPortalRoutes';
-import { ApiClientError } from '../../../platform/api';
-import { useStorefrontOrdersApi } from '../../contexts/StorefrontModuleClientsContext';
 import { StorefrontDelegationBanner } from './StorefrontDelegationBanner';
 import { StorefrontUnavailable } from './StorefrontUnavailable';
 import { useStorefrontSession } from '../../hooks/useStorefrontSession';
 import { usePublicShopCatalog } from '../../hooks/usePublicShopCatalog';
+import { useStorefrontOrderLifecycle } from '../../hooks/useStorefrontOrderLifecycle';
 
 /**
  * Portail B2B Magrit — version 2.
@@ -61,7 +55,6 @@ export function PublicShop() {
   const slug = params.slug;
   const splat = params['*'];
   const navigate = useNavigate();
-  const ordersApi = useStorefrontOrdersApi();
   const {
     session: storefrontSession,
     loading: storefrontSessionLoading,
@@ -84,7 +77,6 @@ export function PublicShop() {
     pimDefinitions,
     subscribedSlugs,
   } = catalog;
-  const checkoutCommandKey = useRef(crypto.randomUUID());
 
   const endStorefrontSession = async () => {
     if (!(await endSession())) {
@@ -112,8 +104,6 @@ export function PublicShop() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, splat]);
 
-  // S-CONSO-3 : order_id du dernier submitCart reussi, lu par PortalThankYou.
-  const [lastOrderId, setLastOrderId] = useState<string | null>(null);
   // S7.1 — fiche produit adressée par URL `/p/:productId` (lookup catalogue).
   const selectedProduct = useMemo(
     () =>
@@ -127,6 +117,28 @@ export function PublicShop() {
   // drawer est un state interne ShopLayout ; l'ancien setView('cart') post-
   // renouvellement était une impasse (aucune branche de rendu 'cart').
   const [cartOpenRequest, setCartOpenRequest] = useState(0);
+  const createOrderBlockedMessage = 'Connectez-vous avec le compte propre à cette boutique pour commander.';
+  const {
+    lastOrderId,
+    lastOrder,
+    renewalWarnings,
+    dismissRenewalWarnings,
+    renewOrder: handleRenewOrder,
+    submitCart,
+  } = useStorefrontOrderLifecycle({
+    slug,
+    shop,
+    products,
+    cart,
+    sessionShopId: storefrontSession?.identity.shopId ?? null,
+    createOrderBlockedMessage,
+    setCart,
+    onCartRenewed: () => {
+      goView('catalog');
+      setCartOpenRequest((current) => current + 1);
+    },
+    onOrderCreated: () => goView('thankYou'),
+  });
 
   // S2.2 — Etat des gammes deplices (filtre additif). Hydrate depuis
   // localStorage au mount, persiste a chaque toggle.
@@ -191,168 +203,6 @@ export function PublicShop() {
     setCart((prev) => prev.filter((l) => l.product.id !== productId));
   };
 
-  // S3.3 (Sprint 5) : warnings du dernier renouvellement de commande, affichés
-  // en banner dismissable dans PortalCart (cf. setRenewalWarnings([]) pour reset).
-  const [renewalWarnings, setRenewalWarnings] = useState<string[]>([]);
-
-  // S7.9 — Dernière commande de l'acheteur sur la boutique (bandeau Reprendre).
-  // Best-effort silencieux : anonyme ou erreur RLS → pas de bandeau.
-  const [lastOrder, setLastOrder] = useState<ResumeLastOrder | null>(null);
-  useEffect(() => {
-    const hasStorefrontSession = storefrontSession?.identity.shopId === shop?.id;
-    if (!hasStorefrontSession || !shop?.id) {
-      setLastOrder(null);
-      return;
-    }
-    const controller = new AbortController();
-    ordersApi.listPortalOrders(shop.id, controller.signal).then((response) => {
-      if (controller.signal.aborted) return;
-      const latest = response.datasets.mine.find((order) => order.source === 'v1_1');
-      setLastOrder(latest ? {
-        id: latest.id,
-        status: latest.status,
-        total_ht: latest.totalHt,
-        created_at: latest.createdAt,
-        source: latest.source,
-      } : null);
-    }).catch((cause) => {
-      if (!controller.signal.aborted) {
-        console.warn('[PublicShop] dernière commande indisponible:', cause);
-        setLastOrder(null);
-      }
-    });
-    return () => {
-      controller.abort();
-    };
-    // Re-fetch après un submitCart réussi (lastOrderId change).
-  }, [storefrontSession?.identity.shopId, shop?.id, lastOrderId, ordersApi]);
-
-  /**
-   * S3.3 AC2/AC3 : Renouveler 1-clic depuis OrderHistoryTable.
-   * Query items + rebuild cart (via helper pur) + setCart + view='cart' +
-   * warnings remontés au banner PortalCart.
-   *
-   * Best-effort : si query items échoue, alert simple sans bascule.
-   */
-  const handleRenewOrder = async (order: { id: string; source: string }) => {
-    if (order.source !== 'v1_1') {
-      alert('Le renouvellement n\'est disponible que pour les commandes récentes (post 17/05/2026).');
-      return;
-    }
-
-    // Si le cart actuel n'est pas vide, on confirme avant de l'écraser.
-    if (cart.length > 0) {
-      const ok = window.confirm(
-        'Votre panier contient déjà des articles. Le renouvellement va le remplacer. Continuer ?',
-      );
-      if (!ok) return;
-    }
-
-    let items: OrderItemRow[];
-    try {
-      const details = await ordersApi.getDraft(order.id);
-      items = details.items.map((item) => ({
-        product_id: item.productId,
-        product_label: item.productLabel,
-        clariprint_options: item.clariprintOptions,
-        quantity: item.quantity,
-        unit_price_ht: item.unitPriceHt,
-      }));
-    } catch (cause) {
-      const message = cause instanceof Error ? cause.message : 'erreur réseau';
-      console.error('[handleRenewOrder] API items failed:', cause);
-      alert(`Impossible de charger les articles de cette commande : ${message}.`);
-      return;
-    }
-
-    const { lines, warnings, stats } = rebuildCartFromOrderItems(
-      items,
-      products,
-    );
-
-    if (stats.matched === 0) {
-      // Aucun produit récupérable : on ne bascule pas le panier mais on affiche les warnings
-      alert(
-        `Aucun produit de cette commande n'est plus disponible dans le catalogue actuel.\n\n${warnings.join('\n')}`,
-      );
-      return;
-    }
-
-    setCart(lines);
-    setRenewalWarnings(warnings);
-    // S7.1 : le panier est un drawer, pas une page — retour catalogue + drawer
-    // ouvert (corrige l'impasse setView('cart') sans branche de rendu).
-    goView('catalog');
-    setCartOpenRequest((n) => n + 1);
-  };
-
-  const submitCart = async () => {
-    if (!shop || cart.length === 0) return;
-
-    // La commande API exige une session : l acteur, son périmètre boutique et
-    // sa permission de commander sont vérifiés côté serveur.
-    const hasStorefrontSession = storefrontSession?.identity.shopId === shop.id;
-    if (!hasStorefrontSession) {
-      alert(
-        'Vous devez être connecté avec le compte propre à cette boutique pour valider votre panier.',
-      );
-      return;
-    }
-
-    if (!shop.tenant_id) {
-      console.error('[submitCart] shop.tenant_id absent, API order creation impossible');
-      alert(
-        'Erreur de configuration boutique (tenant_id manquant). Contactez l administrateur.',
-      );
-      return;
-    }
-
-    // Commande atomique API : entête + lignes + receipt d idempotence sont
-    // validés et écrits dans une seule transaction SQL.
-    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    const items = cart.map((l) => {
-      const libraryRef =
-        typeof l.product.product_id === 'string' && UUID_RE.test(l.product.product_id)
-          ? l.product.product_id
-          : null;
-      return {
-        productId: libraryRef,
-        productLabel: l.product.name,
-        clariprintOptions: (l.product.config as Record<string, unknown> | null) ?? null,
-        quantity: l.qty,
-        unitPriceHt: resolveCartLinePricing(l).unitPriceHt,
-      };
-    });
-    let orderId: string;
-    try {
-      const result = await ordersApi.create({
-        shopId: shop.id,
-        currency: 'EUR',
-        notes: '',
-        items,
-        idempotencyKey: checkoutCommandKey.current,
-      });
-      orderId = result.orderId;
-    } catch (cause) {
-      console.error('[submitCart] API create failed:', cause);
-      const message = cause instanceof ApiClientError
-        && cause.problem.code === 'orders.permission_denied'
-        ? createOrderBlockedMessage
-        : cause instanceof Error ? cause.message : 'erreur réseau';
-      alert(`Erreur lors de la validation du panier : ${message}.\n\nMerci de réessayer.`);
-      return;
-    }
-
-    // S-CONSO-3 (Sprint 4 Phase 2) : bascule vers PortalThankYou au lieu
-    // d alert + setView('orders'). Artefact visuel persistant pour acheteur
-    // B2B (screenshot, transfert compta, archivage).
-    setLastOrderId(orderId);
-    checkoutCommandKey.current = crypto.randomUUID();
-    setCart([]);
-    setRenewalWarnings([]); // S3.3 : clear warnings après submit réussi
-    goView('thankYou');
-  };
-
   // ─── S2.2 Hydratation localStorage des gammes deplices ───────────────────
   useEffect(() => {
     if (!slug) return;
@@ -395,12 +245,8 @@ export function PublicShop() {
   // reset explicite, panier, confirmation et filtres traverseraient la frontière.
   useEffect(() => {
     setCart([]);
-    setRenewalWarnings([]);
-    setLastOrderId(null);
-    setLastOrder(null);
     setPendingFormat(null);
     setCartOpenRequest(0);
-    checkoutCommandKey.current = crypto.randomUUID();
   }, [slug]);
 
   const selectSubcategory = (gammeSlugs: string[], formatKey?: string) => {
@@ -542,7 +388,6 @@ export function PublicShop() {
   const hasStorefrontSession = storefrontSession?.identity.shopId === shop.id;
   const canCreateOrder = hasStorefrontSession
     || shop.access_mode === 'self_signup';
-  const createOrderBlockedMessage = 'Connectez-vous avec le compte propre à cette boutique pour commander.';
 
   // S7.9 — Bandeau Reprendre (chips dérivés de la donnée, vide → absent).
   const resumeChips = buildResumeChips({ cartCount, cartTotalHT, lastOrder });
@@ -611,7 +456,7 @@ export function PublicShop() {
           createOrderBlockedMessage={createOrderBlockedMessage}
           // S3.3 : banner warnings affiché si dernier renew a skip des items.
           renewalWarnings={renewalWarnings}
-          onDismissRenewalWarnings={() => setRenewalWarnings([])}
+          onDismissRenewalWarnings={dismissRenewalWarnings}
         />
       }
     >

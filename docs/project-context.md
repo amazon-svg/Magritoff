@@ -4,7 +4,7 @@
 >
 > **Source authoritative :** `~/Downloads/CONTEXT_Magrit_IA.md` (maintenu par Arnaud, plus exhaustif). Ce fichier en est la **synthèse opérationnelle pour les agents BMAD** (focus : règles, conventions, états de version, identifiants techniques, **PAS** la stratégie commerciale détaillée).
 >
-> **Dernière mise à jour :** 2026-08-19 (UM10.30 — cycle de chargement catalogue storefront isolé).
+> **Dernière mise à jour :** 2026-08-19 (UM10.31 — cycle commandes storefront isolé).
 > **Maintenu par :** Arnaud Mazon — PDG AGE Développement — `arnaud@age-services.fr`.
 > **Langue de travail :** français (livrables, code commits, variables métier).
 
@@ -93,6 +93,9 @@
 - Les appels Orders du storefront utilisent un client HTTP sans bearer Magrit.
   Leur seule identité est la session boutique portée par le cookie HttpOnly ;
   les écrans workspace utilisent une instance authentifiée distincte.
+- `useStorefrontOrderLifecycle` porte la lecture de la dernière commande, le
+  renouvellement, la création atomique et son idempotence. `PublicShop` ne
+  connaît plus le client Orders et conserve uniquement panier et navigation.
 - Le probe et le catalogue Shops du storefront suivent la même règle : client
   HTTP anonyme côté navigateur, puis résolution du cookie boutique côté BFF.
 - Le composant de surface `PublicShop` ne pilote plus le transport ni les états

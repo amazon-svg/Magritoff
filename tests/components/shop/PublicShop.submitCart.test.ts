@@ -12,15 +12,23 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 describe('AF5.2a — submitCart() delegue la creation atomique a Orders', () => {
-  it('PublicShop utilise OrdersApiClient sans ecrire directement les tables Orders', () => {
+  it('PublicShop délègue au cycle Orders sans écrire directement les tables', () => {
     const src = readFileSync(
       resolve(__dirname, '../../../src/app/components/shop/PublicShop.tsx'),
       'utf-8',
     );
+    const lifecycle = readFileSync(
+      resolve(__dirname, '../../../src/app/hooks/useStorefrontOrderLifecycle.ts'),
+      'utf-8',
+    );
 
-    expect(src).toMatch(/ordersApi\.create\s*\(/);
-    expect(src).not.toMatch(/\.from\(['"]tenant_orders['"]\)\s*\.insert/);
-    expect(src).not.toMatch(/\.from\(['"]tenant_order_items['"]\)\s*\.insert/);
+    expect(src).toContain('useStorefrontOrderLifecycle({');
+    expect(src).not.toMatch(/ordersApi\./);
+    expect(lifecycle).toMatch(/ordersApi\.create\s*\(/);
+    for (const source of [src, lifecycle]) {
+      expect(source).not.toMatch(/\.from\(['"]tenant_orders['"]\)\s*\.insert/);
+      expect(source).not.toMatch(/\.from\(['"]tenant_order_items['"]\)\s*\.insert/);
+    }
   });
 
   it('le CTA du drawer soumet réellement quand le checkout est déjà affiché', () => {

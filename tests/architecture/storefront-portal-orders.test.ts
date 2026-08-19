@@ -8,6 +8,7 @@ const routes = readFileSync(resolve(process.cwd(), 'src/server/api/orders-routes
 const portal = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/PortalOrders.tsx'), 'utf8');
 const storefront = readFileSync(resolve(process.cwd(), 'src/app/components/shop/PublicShop.tsx'), 'utf8');
 const storefrontCatalog = readFileSync(resolve(process.cwd(), 'src/app/hooks/usePublicShopCatalog.ts'), 'utf8');
+const storefrontOrders = readFileSync(resolve(process.cwd(), 'src/app/hooks/useStorefrontOrderLifecycle.ts'), 'utf8');
 const editor = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/PortalOrderEditor.tsx'), 'utf8');
 const thankYou = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/PortalThankYou.tsx'), 'utf8');
 const auditModal = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/OrderAuditTrailModal.tsx'), 'utf8');
@@ -56,7 +57,10 @@ describe('portail commandes par compte boutique', () => {
 
   it('utilise un transport sans bearer Magrit pour toutes les commandes storefront', () => {
     expect(storefrontClients).toContain('orders: new OrdersApiClient(apiRuntime.client)');
-    expect(storefront).toContain('useStorefrontOrdersApi()');
+    expect(storefront).toContain('useStorefrontOrderLifecycle({');
+    expect(storefront).not.toContain('useStorefrontOrdersApi()');
+    expect(storefrontOrders).toContain('useStorefrontOrdersApi()');
+    expect(storefrontOrders).toContain('ordersApi.create({');
     expect(portal).toContain('useStorefrontOrdersApi()');
     expect(portal).toContain('auditApi={ordersApi}');
     expect(editor).toContain('useStorefrontOrdersApi()');
