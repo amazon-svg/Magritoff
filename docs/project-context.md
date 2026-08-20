@@ -158,6 +158,9 @@
   le téléversement des assets de marque et les écritures de prix spécifiques.
   `DashboardShopEditor` conserve le formulaire et les sélecteurs de fichiers,
   sans connaître le client Shops.
+- `useCommercialManagement` porte l’overview, les règles de prix, les groupes
+  et leurs membres. La page Gestion commerciale et ses dialogues reçoivent des
+  intentions métier et ne connaissent plus le client Commercial.
 - `usePlatformDiagnostics` porte les tests Clariprint et fournisseur IA ainsi
   que leurs états indépendants. La modale ne connaît plus le client Diagnostics
   et ignore les réponses tardives après sa fermeture.

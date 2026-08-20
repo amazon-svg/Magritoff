@@ -756,6 +756,29 @@ describe('frontières API-first et modulaires', () => {
     }
   });
 
+  it('sort les opérations commerciales de la page dashboard', () => {
+    const component = readFileSync(resolve(
+      process.cwd(),
+      'src/app/components/dashboard/commercial/DashboardCommercial.tsx',
+    ), 'utf8');
+    const hook = readFileSync(resolve(
+      process.cwd(),
+      'src/app/hooks/useCommercialManagement.ts',
+    ), 'utf8');
+
+    expect(component).toContain('useCommercialManagement');
+    expect(component).not.toContain('useCommercialApi');
+    expect(component).not.toContain('commercialApi.');
+    expect(hook).toContain('useCommercialApi');
+    expect(hook).toContain('commercialApi.overview');
+    expect(hook).toContain('commercialApi.setGroupMember');
+    expect(hook).toContain('requestVersion.current');
+    for (const source of [component, hook]) {
+      expect(source).not.toContain('utils/supabase');
+      expect(source).not.toMatch(/\bsupabase\s*\./);
+    }
+  });
+
   it('sort l acceptation d invitation et le compte portail du fournisseur', () => {
     const invitation = readFileSync(resolve(process.cwd(), 'src/app/components/tenant/AcceptInvitation.tsx'), 'utf8');
     const invitationHook = readFileSync(resolve(process.cwd(), 'src/app/hooks/useMagritInvitationAcceptance.ts'), 'utf8');
@@ -950,11 +973,14 @@ describe('frontières API-first et modulaires', () => {
 
   it('fait passer le chargement commercial par Commercial', () => {
     const dashboard = readFileSync(resolve(process.cwd(), 'src/app/components/dashboard/commercial/DashboardCommercial.tsx'), 'utf8');
+    const management = readFileSync(resolve(process.cwd(), 'src/app/hooks/useCommercialManagement.ts'), 'utf8');
     const helpers = readFileSync(resolve(process.cwd(), 'src/app/components/dashboard/commercial/commercial.helpers.ts'), 'utf8');
     const repository = readFileSync(resolve(process.cwd(), 'src/adapters/supabase/commercial-repository.ts'), 'utf8');
-    expect(dashboard).toContain('useCommercialApi');
+    expect(dashboard).toContain('useCommercialManagement');
+    expect(dashboard).not.toContain('useCommercialApi');
     expect(dashboard).not.toContain('new CommercialApiClient');
-    expect(dashboard).toContain('commercialApi.overview');
+    expect(management).toContain('useCommercialApi');
+    expect(management).toContain('commercialApi.overview');
     expect(dashboard).not.toContain('get_tenant_members_with_email');
     expect(helpers).not.toContain('utils/supabase');
     expect(repository).toContain(".eq('tenant_id', tenantId)");
@@ -962,10 +988,12 @@ describe('frontières API-first et modulaires', () => {
 
   it('sort les mutations commerciales du fournisseur', () => {
     const dashboard = readFileSync(resolve(process.cwd(), 'src/app/components/dashboard/commercial/DashboardCommercial.tsx'), 'utf8');
-    expect(dashboard).toContain('commercialApi.createGroup');
-    expect(dashboard).toContain('commercialApi.setGroupMember');
-    expect(dashboard).toContain('commercialApi.createRule');
-    expect(dashboard).toContain('commercialApi.setRuleActive');
+    const management = readFileSync(resolve(process.cwd(), 'src/app/hooks/useCommercialManagement.ts'), 'utf8');
+    expect(management).toContain('commercialApi.createGroup');
+    expect(management).toContain('commercialApi.setGroupMember');
+    expect(management).toContain('commercialApi.createRule');
+    expect(management).toContain('commercialApi.setRuleActive');
+    expect(dashboard).not.toContain('commercialApi.');
     expect(dashboard).not.toContain('utils/supabase');
     expect(dashboard).not.toMatch(/\bsupabase\s*\./);
   });
