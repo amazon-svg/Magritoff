@@ -2,31 +2,42 @@
 
 > Document de reprise pour démarrer une nouvelle session de Claude code sur le projet sans recharger tout l'historique. À tenir à jour à chaque fin de sprint.
 >
-> **Dernière mise à jour : 2026-08-11 — fondation API-first AF0-AF2 sur branche dédiée, sans déploiement externe.**
+> **Dernière mise à jour : 2026-08-20 — refactoring API-first et modulaire clôturé sur `feat/storefront-identity-um2`.**
 
 ---
 
-## ▶️ PROCHAIN CHANTIER — AF4 API de lecture Orders
+## ▶️ ÉTAT COURANT — REFACTORING API-FIRST CLÔTURÉ
 
-La refactorisation API-first a démarré le 2026-08-11 sur la branche `refactor/api-first-foundation`, créée depuis `main@eea7f56`.
+Le chantier lancé avec AF0 a migré les lectures et commandes navigateur vers
+`/api/v1`, isolé les domaines dans `src/modules`, confiné Supabase dans
+`src/adapters/supabase` et établi quatre sorties explicites : storefront,
+customer portal, workspace et backoffice.
 
-**AF0 committée (`cb5c15e`)** : ADR §4.21, brief et Epic 8 BMAD, kernel minimal strict, baseline exacte de la dette Supabase UI, tests de frontières et workflow CI architecture.
+**Preuves de clôture au 2026-08-20 :**
 
-**AF1 committée (`94f197e`)** : contrats communs `/api/v1`, client fetch typé, Problem Details, routeur `Request -> Response`, résolution acteur injectée, composition serveur, healthcheck et OpenAPI.
+- baseline Supabase de `src/app` vide : zéro import SDK, zéro appel
+  `supabase.*`, zéro URL Edge directe ;
+- aucun composant React ne consomme un client de module ; l'orchestration vit
+  dans les hooks et contextes applicatifs ;
+- transports et clients sont construits uniquement dans les composition roots ;
+- toutes les routes dashboard actives proviennent du registre de contributions ;
+- les routes storefront et portail canoniques proviennent également du registre ;
+- les comptes Magrit et les comptes clients boutique sont séparés, y compris
+  dans les rôles, invitations, sessions et délégations ;
+- le module `shop-customers` contribue explicitement aux quatre surfaces ;
+- le backoffice reste décrit par des routes `planned`, jamais exposées par le
+  runtime tant qu'un composition root fonctionnel n'est pas livré.
 
-**AF2 committée (`ce819ec`)** : module session, bootstrap agrégé, préférences et dernier tenant via API, composition Edge RLS, provider partagé et contexts migrés. Déploiement Edge et reverse proxy non effectués, runbook backend-first dans `docs/architecture/api/deployment.md`.
+**Validation de référence AF32.2 :** 177 fichiers et 1 260 tests passés, dont
+28 fichiers et 161 tests d'architecture ; typecheck modulaire et build Vite de
+production passés. Les recherches finales retournent zéro dépendance Supabase
+dans `src/app` et zéro consommation de client de module dans les composants.
+Les détails de chaque tranche sont dans
+`_bmad-output/implementation-artifacts/story-AF*.md`.
 
-**AF3 en review** : registre validé, quatre composition roots, manifeste Account multi-surfaces, route et navigation workspace contribuées, écran témoin séparé en vue et adaptateur. Validation : registre 4/4, architecture 9/9, vitest complet 787 verts et build vert. Baseline : 42 fichiers importeurs et 70 références directes.
-
-**AF4 en review** : module Orders, contrats et routes de lecture tenant/portail/audit, repository Supabase serveur et migration immédiate des lectures de `DashboardOrders`, `PortalOrders` et de l audit trail. Baseline exacte abaissée de 42 à 41 fichiers importeurs et de 175 à 168 références directes.
-
-**AF5.1 committable** : transitions Orders désormais atomiques et idempotentes via API, audit dans la même transaction, notification workflow côté serveur. `DashboardOrders`, `PortalOrders` et l ancien helper de notification sont sortis de Supabase.
-
-**AF5.1a correctif UX** : synchronisation membership owner/admin → rôle fonctionnel, backfill local et fallback UI aligné sur l autorisation serveur. Smoke navigateur `validated → in_production` réussi.
-
-**Point de reprise** : AF5.2 — centraliser création checkout et édition de draft, puis poursuivre AF6-AF7 jusqu à supprimer Supabase du périmètre Orders.
-
-**Dérogation R5 restante** : 38 fichiers UI importent encore Supabase et 163 références `supabase.*` sont figées par `tests/architecture/supabase-ui-baseline.ts`. Le comptage historique 64 ne couvrait pas correctement les appels multi-lignes ; la somme des limites réellement vérifiées était 175. Supabase Auth et les commandes brownfield isolées restent temporaires ; la baseline ne peut ni augmenter ni rester périmée après une baisse.
+**Prochain chantier :** choisir une évolution fonctionnelle documentée. Les
+routes backoffice `planned` ne sont pas une dette de refactoring : les activer
+demande un PRD, des droits et un host backoffice dédiés.
 
 ---
 

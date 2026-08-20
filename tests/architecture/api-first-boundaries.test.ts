@@ -305,6 +305,28 @@ describe('frontières API-first et modulaires', () => {
     expect(directTransports).toEqual([]);
   });
 
+  it('interdit aux composants React de consommer directement les clients de modules', () => {
+    const componentsRoot = resolve(process.cwd(), 'src/app/components');
+    const violations = listTypeScriptFiles(componentsRoot)
+      .filter((file) => {
+        const source = readFileSync(file, 'utf8');
+        return source.includes('ModuleClientsContext')
+          || /\buse(?:Workspace|Storefront)?[A-Z][A-Za-z0-9]*Api\s*\(/.test(source);
+      })
+      .map((file) => relative(process.cwd(), file));
+
+    expect(violations).toEqual([]);
+  });
+
+  it('interdit à la couche app d importer les adaptateurs fournisseur', () => {
+    const violations = listTypeScriptFiles(resolve(process.cwd(), 'src/app'))
+      .flatMap((file) => importedModules(readFileSync(file, 'utf8'))
+        .filter((dependency) => /(?:^|\/)adapters(?:\/|$)/.test(dependency))
+        .map((dependency) => `${relative(process.cwd(), file)} -> ${dependency}`));
+
+    expect(violations).toEqual([]);
+  });
+
   it('réserve toute construction du transport au runtime API', () => {
     const directTransports = listTypeScriptFiles(resolve(process.cwd(), 'src/app'))
       .filter((file) => readFileSync(file, 'utf8').includes('new FetchApiClient'))

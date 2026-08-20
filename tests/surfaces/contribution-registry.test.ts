@@ -24,6 +24,25 @@ import {
 } from '../../src/surfaces/registry';
 
 describe('registre des contributions de surfaces', () => {
+  const manifests = [
+    accountModuleManifest,
+    ordersModuleManifest,
+    shopsModuleManifest,
+    shopCustomersModuleManifest,
+    quotesModuleManifest,
+    quoteTemplatesModuleManifest,
+    librariesModuleManifest,
+    catalogModuleManifest,
+    commercialModuleManifest,
+    membersModuleManifest,
+    tenantsModuleManifest,
+    rolesModuleManifest,
+    conversationsModuleManifest,
+    machineParksModuleManifest,
+    mockupsModuleManifest,
+    plansModuleManifest,
+  ];
+
   it('expose les quatre composition roots même lorsqu ils sont encore vides', () => {
     expect(applicationContributionRegistry.surfaces().map(({ id }) => id)).toEqual([
       'storefront',
@@ -31,6 +50,17 @@ describe('registre des contributions de surfaces', () => {
       'workspace',
       'backoffice',
     ]);
+  });
+
+  it('matérialise chaque surface déclarée par chaque module', () => {
+    for (const manifest of manifests) {
+      for (const surface of manifest.surfaces) {
+        expect(
+          applicationContributionRegistry.forSurface(surface).modules.map(({ id }) => id),
+          `${manifest.id} doit contribuer à ${surface}`,
+        ).toContain(manifest.id);
+      }
+    }
   });
 
   it('compose le module account sur workspace et customer portal', () => {
