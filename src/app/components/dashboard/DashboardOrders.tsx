@@ -9,34 +9,39 @@
  * afficher le slug par ligne.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useOrdersApi } from '../../contexts/ModuleClientsContext';
+import { useMemo, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTenant } from '../../contexts/TenantContext';
 import { useShops } from '../../contexts/ShopsContext';
-import {
-  type OrderUI,
-  orderSummaryToUi,
-} from '../shop/portal/PortalOrders.helpers';
+import { type OrderUI } from '../shop/portal/PortalOrders.helpers';
 import { OrderHistoryTable } from '../shop/portal/OrderHistoryTable';
 import { CancelOrderConfirmDialog } from '../shop/portal/CancelOrderConfirmDialog';
 import { ValidateOrderConfirmDialog } from '../shop/portal/ValidateOrderConfirmDialog';
-import { formatCancelErrorMessage } from '../shop/portal/orderCancellation.helpers';
-import { formatValidateErrorMessage } from '../shop/portal/orderValidation.helpers';
 import { useUserCapability } from '../../hooks/useUserCapability';
-
-interface DashboardOrderUI extends OrderUI {
-  shop_id: string;
-}
+import {
+  type DashboardOrderUI,
+  useDashboardOrderManagement,
+} from '../../hooks/useDashboardOrderManagement';
 
 export function DashboardOrders() {
   const { user } = useAuth();
   const { currentTenant } = useTenant();
   const { shops } = useShops();
-  const [orders, setOrders] = useState<DashboardOrderUI[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const ordersApi = useOrdersApi();
+  const shopIds = useMemo(() => shops.map((shop) => shop.id), [shops]);
+  const {
+    orders,
+    loading,
+    error,
+    cancel,
+    validate,
+    startProduction,
+    markShipped,
+    auditApi,
+  } = useDashboardOrderManagement({
+    enabled: Boolean(user),
+    tenantId: currentTenant?.id ?? null,
+    shopIds,
+  });
 
   // Fix 2026-05-25 : Map shop_id -> { name, slug } pour afficher le NOM
   // humain dans la colonne Boutique (et plus le slug technique qui ressemble
@@ -77,60 +82,13 @@ export function DashboardOrders() {
   // assignation de rôle fonctionnel synchronisée avec tenant_members.
   const isTenantAdmin = currentTenant?.myRole === 'owner' || currentTenant?.myRole === 'admin';
 
-  const loadOrders = useCallback(async (cancelled: { current: boolean }) => {
-    if (!user || !currentTenant) return;
-    if (shops.length === 0) {
-      setOrders([]);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    const shopIds = shops.map((s) => s.id);
-    try {
-      const response = await ordersApi.listTenantOrders(currentTenant.id, shopIds);
-      if (cancelled.current) return;
-      setOrders(response.orders.map((order) => ({ ...orderSummaryToUi(order), shop_id: order.shopId })));
-    } catch (cause) {
-      if (cancelled.current) return;
-      const message = cause instanceof Error ? cause.message : 'Chargement des commandes impossible.';
-      console.warn('[DashboardOrders] API read failed:', message);
-      setError(message);
-    } finally {
-      if (!cancelled.current) setLoading(false);
-    }
-  }, [user, currentTenant, shops, ordersApi]);
-
-  useEffect(() => {
-    const cancelled = { current: false };
-    void loadOrders(cancelled);
-    return () => {
-      cancelled.current = true;
-    };
-  }, [loadOrders]);
-
   // S3.4 : handlers cancel (admin tenant peut annuler n'importe quelle draft).
   const handleCancelOrderRequest = (order: OrderUI) => {
     setOrderToCancel(order as DashboardOrderUI);
   };
 
   const handleCancelConfirm = async (orderId: string): Promise<string | null> => {
-    const currentOrder = orders.find((o) => o.id === orderId);
-    const fromStatus = currentOrder?.status ?? 'draft';
-    try {
-      await ordersApi.transition(orderId, {
-        toStatus: 'cancelled',
-        reason: null,
-        idempotencyKey: transitionKey(orderId, fromStatus, 'cancelled'),
-      });
-    } catch (cause) {
-      console.warn('[DashboardOrders] cancel API failed:', cause);
-      return formatCancelErrorMessage(cause instanceof Error ? cause : null);
-    }
-    await loadOrders({ current: false });
-    return null;
+    return cancel(orderId);
   };
 
   // Fix 2026-05-25 : handlers validation (admin tenant uniquement —
@@ -140,44 +98,13 @@ export function DashboardOrders() {
   };
 
   const handleValidateConfirm = async (orderId: string): Promise<string | null> => {
-    const currentOrder = orders.find((o) => o.id === orderId);
-    const fromStatus = currentOrder?.status ?? 'draft';
-    try {
-      await ordersApi.transition(orderId, {
-        toStatus: 'validated',
-        reason: null,
-        idempotencyKey: transitionKey(orderId, fromStatus, 'validated'),
-      });
-    } catch (cause) {
-      console.warn('[DashboardOrders] validate API failed:', cause);
-      return formatValidateErrorMessage(cause instanceof Error ? cause : null);
-    }
-    await loadOrders({ current: false });
-    return null;
+    return validate(orderId);
   };
 
   // S-ORDER-ROLES-3-UI : transitions production (admin tenant via can_modify).
   // Sans modal de confirmation — actions tactiques rapides côté pilotage atelier.
-  const transitionProductionStatus = async (
-    order: OrderUI,
-    toStatus: 'in_production' | 'shipped',
-  ): Promise<void> => {
-    const fromStatus = order.status;
-    try {
-      await ordersApi.transition(order.id, {
-        toStatus,
-        reason: null,
-        idempotencyKey: transitionKey(order.id, fromStatus, toStatus),
-      });
-    } catch (cause) {
-      console.warn(`[DashboardOrders] transition ${fromStatus}→${toStatus} failed:`, cause);
-      return;
-    }
-    await loadOrders({ current: false });
-  };
-
-  const handleStartProduction = (order: OrderUI) => transitionProductionStatus(order, 'in_production');
-  const handleMarkShipped = (order: OrderUI) => transitionProductionStatus(order, 'shipped');
+  const handleStartProduction = (order: OrderUI) => startProduction(order);
+  const handleMarkShipped = (order: OrderUI) => markShipped(order);
 
   return (
     <div className="space-y-4">
@@ -192,7 +119,7 @@ export function DashboardOrders() {
         orders={orders}
         loading={loading}
         error={error}
-        auditApi={ordersApi}
+        auditApi={auditApi}
         persistKey={currentTenant ? `orderHistory:dashboard:${currentTenant.id}` : undefined}
         onCancelOrder={handleCancelOrderRequest}
         // S-USERS-REFONTE Phase A : bouton Valider visible uniquement si
@@ -241,8 +168,4 @@ export function DashboardOrders() {
       />
     </div>
   );
-}
-
-function transitionKey(orderId: string, fromStatus: string, toStatus: string): string {
-  return `order-transition:${orderId}:${fromStatus}:${toStatus}`;
 }

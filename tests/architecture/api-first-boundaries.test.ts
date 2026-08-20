@@ -532,6 +532,22 @@ describe('frontières API-first et modulaires', () => {
     }
   });
 
+  it('sort la gestion agrégée des commandes de la vue dashboard', () => {
+    const source = readFileSync(resolve(process.cwd(), 'src/app/components/dashboard/DashboardOrders.tsx'), 'utf8');
+    const hook = readFileSync(resolve(process.cwd(), 'src/app/hooks/useDashboardOrderManagement.ts'), 'utf8');
+    expect(source).toContain('useDashboardOrderManagement');
+    expect(source).not.toContain('useOrdersApi');
+    expect(hook).toContain('useOrdersApi');
+    expect(hook).toContain('listTenantOrders');
+    expect(hook).toContain('ordersApi.transition');
+    expect(hook).toContain('targetKeyRef.current');
+    expect(source).toContain('auditApi={auditApi}');
+    for (const candidate of [source, hook]) {
+      expect(candidate).not.toContain('utils/supabase');
+      expect(candidate).not.toMatch(/\bsupabase\s*\./);
+    }
+  });
+
   it('sort le provider PIM du fournisseur', () => {
     const source = readFileSync(resolve(process.cwd(), 'src/app/contexts/PIMContext.tsx'), 'utf8');
     expect(source).toContain('useCatalogApi');

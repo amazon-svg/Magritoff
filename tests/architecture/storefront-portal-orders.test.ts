@@ -86,7 +86,8 @@ describe('portail commandes par compte boutique', () => {
     expect(thankYou).not.toContain('useOrdersApi()');
     expect(auditModal).not.toContain('useOrdersApi');
     expect(auditModal).toContain('ordersApi: OrdersApiClient');
-    expect(dashboard).toContain('auditApi={ordersApi}');
+    expect(dashboard).toContain('auditApi={auditApi}');
+    expect(dashboard).not.toContain('useOrdersApi()');
   });
 
   it('charge aussi le catalogue boutique sans bearer Magrit', () => {
