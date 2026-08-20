@@ -733,6 +733,29 @@ describe('frontières API-first et modulaires', () => {
     }
   });
 
+  it('sort le chargement, le branding et les prix de l éditeur boutique', () => {
+    const component = readFileSync(resolve(
+      process.cwd(),
+      'src/app/components/dashboard/DashboardShopEditor.tsx',
+    ), 'utf8');
+    const hook = readFileSync(resolve(
+      process.cwd(),
+      'src/app/hooks/useShopEditorOperations.ts',
+    ), 'utf8');
+
+    expect(component).toContain('useShopEditorOperations');
+    expect(component).not.toContain('useShopsApi');
+    expect(component).not.toContain('shopsApi.');
+    expect(hook).toContain('useShopsApi');
+    expect(hook).toContain('shopsApi.uploadBrandAsset');
+    expect(hook).toContain('shopsApi.setPricing');
+    expect(hook).toContain('targetKeyRef.current');
+    for (const source of [component, hook]) {
+      expect(source).not.toContain('utils/supabase');
+      expect(source).not.toMatch(/\bsupabase\s*\./);
+    }
+  });
+
   it('sort l acceptation d invitation et le compte portail du fournisseur', () => {
     const invitation = readFileSync(resolve(process.cwd(), 'src/app/components/tenant/AcceptInvitation.tsx'), 'utf8');
     const invitationHook = readFileSync(resolve(process.cwd(), 'src/app/hooks/useMagritInvitationAcceptance.ts'), 'utf8');

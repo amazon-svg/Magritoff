@@ -154,6 +154,10 @@
 - `usePimAutomation` porte le comptage et l'ingestion de la file PIM ainsi que
   la commande de génération des définitions. `DashboardAdminPIM` conserve arbre,
   édition et progression visuelle du batch sans connaître le client Catalog.
+- `useShopEditorOperations` porte le chargement des produits et tarifs négociés,
+  le téléversement des assets de marque et les écritures de prix spécifiques.
+  `DashboardShopEditor` conserve le formulaire et les sélecteurs de fichiers,
+  sans connaître le client Shops.
 - `usePlatformDiagnostics` porte les tests Clariprint et fournisseur IA ainsi
   que leurs états indépendants. La modale ne connaît plus le client Diagnostics
   et ignore les réponses tardives après sa fermeture.

@@ -31,7 +31,7 @@ import {
   ArrowLeft, Save, Loader2, Trash2, Check, ExternalLink, Library as LibraryIcon,
   Download, AlertTriangle, EyeOff, Eye, Upload,
 } from 'lucide-react';
-import { useShops, Shop, ShopProduct } from '../../contexts/ShopsContext';
+import { useShops, Shop } from '../../contexts/ShopsContext';
 import { FONT_PAIRINGS } from '../shop/fontPairings';
 import { useTenant } from '../../contexts/TenantContext';
 import { useLibrary, LibraryProduct } from '../../contexts/LibraryContext';
@@ -43,8 +43,8 @@ import { exportShopToShopifyCsv, exportShopToJson } from '../../utils/shopExport
 import { resolveShopProductScope } from '../../utils/resolveShopProductScope';
 import { TEST_IDS } from '../../lib/testIds';
 import { lazy, Suspense as ReactSuspense } from 'react';
-import { useShopsApi } from '../../contexts/ModuleClientsContext';
 import { ShopCustomerAccountsSection } from './ShopCustomerAccountsSection';
+import { useShopEditorOperations } from '../../hooks/useShopEditorOperations';
 
 // P4-VISUELS (2026-06-15) : lazy-load ShopCustomMockups (upload custom).
 // P9-CLEANUP (2026-06-15) : ShopVisualSettings supprimé (remplacé par
@@ -76,8 +76,8 @@ export function DashboardShopEditor() {
   const tp = useTenantPath();
   const {
     shops,
+    loading: shopsLoading,
     updateShop,
-    getShopProducts,
     removeShopProduct,
     excludeProduct,
     includeProduct,
@@ -86,16 +86,27 @@ export function DashboardShopEditor() {
   const { gammes, definitions } = usePIM();
 
   const [shop, setShop] = useState<Shop | null>(null);
-  const [shopProducts, setShopProducts] = useState<ShopProduct[]>([]);
   const [saving, setSaving] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveOk, setSaveOk] = useState(false);
   // A4.5 — Prix négociés per-shop. Map clé = library_product_id, valeur = override
   // en number. Source de vérité locale, synchronisée à la DB sur blur.
-  const [pricingOverrides, setPricingOverrides] = useState<Record<string, number>>({});
   const { currentTenant } = useTenant();
-  const shopsApi = useShopsApi();
+  const {
+    products: shopProducts,
+    pricingOverrides,
+    loading,
+    loadError,
+    uploadingAsset,
+    uploadError,
+    pricingError,
+    uploadBrandAsset,
+    savePricingOverride,
+    forgetProduct,
+  } = useShopEditorOperations({
+    tenantId: currentTenant?.id ?? null,
+    shopId: id ?? null,
+  });
 
   // Dialog de confirmation suppression
   const [deleteDialog, setDeleteDialog] = useState<DisplayProduct | null>(null);
@@ -109,57 +120,9 @@ export function DashboardShopEditor() {
   // deviennent les onglets d une section unique "Catalogue de la boutique".
   const [catalogTab, setCatalogTab] = useState<'sources' | 'products' | 'visuals'>('sources');
 
-  // ─── Upload branding (logo / fond du bandeau) via l'API Magrit.
-  const [uploadingAsset, setUploadingAsset] = useState<null | 'logo' | 'hero'>(null);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-
-  const uploadBrandAsset = async (kind: 'logo' | 'hero', file: File) => {
-    if (!shop || !currentTenant) return;
-    setUploadError(null);
-    const ALLOWED = ['image/jpeg', 'image/png', 'image/webp'];
-    if (!ALLOWED.includes(file.type)) {
-      setUploadError('Format non supporté — PNG, JPG ou WebP attendu.');
-      return;
-    }
-    if (file.size > 5_242_880) {
-      setUploadError('Fichier trop lourd — 5 Mo maximum.');
-      return;
-    }
-    setUploadingAsset(kind);
-    try {
-      const assetUrl = await shopsApi.uploadBrandAsset(currentTenant.id, shop.id, kind, file);
-      setShop((prev) =>
-        prev
-          ? { ...prev, [kind === 'logo' ? 'logo_url' : 'hero_image_url']: assetUrl }
-          : prev,
-      );
-    } catch (e: any) {
-      setUploadError(`Upload échoué : ${e?.message ?? 'erreur réseau'}.`);
-    } finally {
-      setUploadingAsset(null);
-    }
-  };
-
   useEffect(() => {
     const s = shops.find((s) => s.id === id) ?? null;
     setShop(s);
-    if (s) {
-      Promise.all([
-        getShopProducts(s.id),
-        // A4.5 — Charger les overrides de prix de cette boutique
-        currentTenant ? shopsApi.pricing(currentTenant.id, s.id) : Promise.resolve([]),
-      ]).then(([products, overrides]) => {
-        setShopProducts(products);
-        const map: Record<string, number> = {};
-        for (const o of overrides) {
-          map[o.libraryProductId] = Number(o.priceHtOverride);
-        }
-        setPricingOverrides(map);
-        setLoading(false);
-      });
-    } else if (shops.length > 0) {
-      setLoading(false);
-    }
   }, [id, shops]);
 
   // S2.32 — Le depliage liste TOUTE la taxonomie PIM (product_gammes via
@@ -175,33 +138,6 @@ export function DashboardShopEditor() {
     }
     return m;
   }, [library]);
-
-  // A4.5 — Upsert ou delete d'un override de prix sur blur d'un input
-  // « Prix négocié ». Si nextValue est un nombre > 0 : upsert. Sinon : delete.
-  const savePricingOverride = async (libraryProductId: string, nextValue: number | null) => {
-    if (!shop || !currentTenant) return;
-    if (nextValue === null || !Number.isFinite(nextValue) || nextValue <= 0) {
-      // Suppression : on retire l'override (retour au prix biblio).
-      try { await shopsApi.setPricing(currentTenant.id, shop.id, libraryProductId, null); }
-      catch (error) {
-        console.error('[A4.5] delete override failed', error instanceof Error ? error.message : error);
-        return;
-      }
-      setPricingOverrides((prev) => {
-        const next = { ...prev };
-        delete next[libraryProductId];
-        return next;
-      });
-      return;
-    }
-    // Upsert : on insère ou remplace l'override existant.
-    try { await shopsApi.setPricing(currentTenant.id, shop.id, libraryProductId, nextValue); }
-    catch (error) {
-      console.error('[A4.5] upsert override failed', error instanceof Error ? error.message : error);
-      return;
-    }
-    setPricingOverrides((prev) => ({ ...prev, [libraryProductId]: nextValue }));
-  };
 
   // ─── Liste agregee des produits affichable dans la boutique ─────────────
   // IMPORTANT : le useMemo doit etre declare AVANT les early returns (regle
@@ -251,7 +187,7 @@ export function DashboardShopEditor() {
   }, [library, shopProducts, shop?.excluded_product_ids, shop?.library_ids, shop?.pim_catalog_mode, shop?.pim_gamme_slugs]);
 
   if (!canUse('shops')) return <UpgradeCTA feature="Boutiques en ligne" />;
-  if (loading) return <p className="text-sm text-ink-muted">Chargement...</p>;
+  if (shopsLoading || loading) return <p className="text-sm text-ink-muted">Chargement...</p>;
   if (!shop) {
     return (
       <div className="space-y-3">
@@ -346,7 +282,7 @@ export function DashboardShopEditor() {
       if (confirm(`Retirer "${product.name}" de la boutique ?`)) {
         void (async () => {
           await removeShopProduct(shop.id, product.sourceId);
-          setShopProducts((prev) => prev.filter((sp) => sp.id !== product.sourceId));
+          forgetProduct(product.sourceId);
         })();
       }
       return;
@@ -396,6 +332,12 @@ export function DashboardShopEditor() {
 
       <h2 className="text-xl font-bold text-ink">Éditeur — {shop.name}</h2>
 
+      {loadError && (
+        <p className="text-sm text-err-fg rounded-lg border border-err-fg/20 bg-err-bg px-3 py-2">
+          {loadError}
+        </p>
+      )}
+
       {/* ── Infos de base ── */}
       <section className="border border-line rounded-xl p-4 bg-paper space-y-3">
         <h3 className="font-semibold text-ink">Informations</h3>
@@ -442,7 +384,11 @@ export function DashboardShopEditor() {
                   disabled={uploadingAsset !== null}
                   onChange={(e) => {
                     const f = e.target.files?.[0];
-                    if (f) uploadBrandAsset('logo', f);
+                    if (f) {
+                      void uploadBrandAsset('logo', f).then((assetUrl) => {
+                        if (assetUrl) setShop((previous) => previous ? { ...previous, logo_url: assetUrl } : previous);
+                      });
+                    }
                     e.target.value = '';
                   }}
                 />
@@ -520,7 +466,11 @@ export function DashboardShopEditor() {
                   disabled={uploadingAsset !== null}
                   onChange={(e) => {
                     const f = e.target.files?.[0];
-                    if (f) uploadBrandAsset('hero', f);
+                    if (f) {
+                      void uploadBrandAsset('hero', f).then((assetUrl) => {
+                        if (assetUrl) setShop((previous) => previous ? { ...previous, hero_image_url: assetUrl } : previous);
+                      });
+                    }
                     e.target.value = '';
                   }}
                 />
@@ -962,6 +912,11 @@ export function DashboardShopEditor() {
         {/* ── Onglet Produits : vue agregee + exclusions + export ── */}
         {catalogTab === 'products' && (
         <div className="p-4">
+        {pricingError && (
+          <p className="mb-3 text-xs text-err-fg rounded-lg border border-err-fg/20 bg-err-bg px-3 py-2">
+            {pricingError}
+          </p>
+        )}
         {displayProducts.length === 0 ? (
           <p className="text-sm text-ink-muted italic">
             Aucun produit. Associez une bibliothèque dans l'onglet Sources pour les voir apparaître.
