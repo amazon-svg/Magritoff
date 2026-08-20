@@ -1,10 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router';
 import { Loader2 } from 'lucide-react';
-import type { Shop, ShopProduct } from '../../contexts/ShopsContext';
-import type { Gamme, ProductDefinition } from '../../utils/productEnrichment';
-import { useAuth } from '../../contexts/AuthContext';
-import { useTenant } from '../../contexts/TenantContext';
+import type { ShopProduct } from '../../../modules/shops';
 
 import { PortalHome } from './portal/PortalHome';
 import { PortalCatalog } from './portal/PortalCatalog';
@@ -14,22 +11,15 @@ import { PortalThankYou } from './portal/PortalThankYou';
 import { AccountHub } from './portal/AccountHub';
 import { CheckoutPage } from './portal/CheckoutPage';
 import type { PortalView, CartLine, BudgetInfo } from './portal/types';
-import {
-  rebuildCartFromOrderItems,
-  type OrderItemRow,
-} from './portal/orderRenewal.helpers';
+import { computePortalCartTotalHt } from './portal/cartPricing';
 import { ShopLayout } from './ShopLayout';
 import { GammePage } from './gamme/GammePage';
 import {
   ResumeBanner,
   buildResumeChips,
-  type ResumeLastOrder,
 } from './portal/ResumeBanner';
 import { ShopForbidden403 } from './ShopForbidden403';
-import {
-  resolveShopAccessFromMemberships,
-  type ShopAccess,
-} from './ShopAccessGuard.helpers';
+import { resolveShopAccess } from './ShopAccessGuard.helpers';
 import {
   filterProductsByExpandedGammes,
   groupProductsByGamme,
@@ -38,10 +28,11 @@ import {
 } from './ShopGammesSidebar.helpers';
 import { buildShopTaxonomy } from '../../utils/shopTaxonomy';
 import { parsePortalPath, shopUrl } from './portal/shopPortalRoutes';
-import { applyTax, getTaxRate } from '../../utils/tax';
-import type { PublicShopCatalog } from '../../../modules/shops';
-import { ApiClientError } from '../../../platform/api';
-import { useOrdersApi, useShopsApi } from '../../contexts/ModuleClientsContext';
+import { StorefrontDelegationBanner } from './StorefrontDelegationBanner';
+import { StorefrontUnavailable } from './StorefrontUnavailable';
+import { useStorefrontSession } from '../../hooks/useStorefrontSession';
+import { usePublicShopCatalog } from '../../hooks/usePublicShopCatalog';
+import { useStorefrontOrderLifecycle } from '../../hooks/useStorefrontOrderLifecycle';
 
 /**
  * Portail B2B Magrit — version 2.
@@ -64,19 +55,34 @@ export function PublicShop() {
   const slug = params.slug;
   const splat = params['*'];
   const navigate = useNavigate();
-  const { user, session, loading: authLoading } = useAuth();
-  const { tenants, isSuperAdmin, loading: tenantLoading } = useTenant();
-  const [shop, setShop] = useState<Shop | null>(null);
-  const [products, setProducts] = useState<ShopProduct[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
-  const [blockedAccess, setBlockedAccess] = useState<Extract<
-    ShopAccess,
-    'authentication_required' | 'forbidden'
-  > | null>(null);
-  const ordersApi = useOrdersApi();
-  const shopsApi = useShopsApi();
-  const checkoutCommandKey = useRef(crypto.randomUUID());
+  const {
+    session: storefrontSession,
+    loading: storefrontSessionLoading,
+    unavailable: storefrontSessionUnavailable,
+    ending: endingStorefrontSession,
+    refresh: refreshStorefrontSession,
+    setSession: setStorefrontSession,
+    end: endSession,
+  } = useStorefrontSession();
+  const catalog = usePublicShopCatalog({
+    slug,
+    sessionLoading: storefrontSessionLoading,
+    sessionShopId: storefrontSession?.identity.shopId ?? null,
+  });
+  const {
+    shop,
+    products,
+    taxRate,
+    pimGammes,
+    pimDefinitions,
+    subscribedSlugs,
+  } = catalog;
+
+  const endStorefrontSession = async () => {
+    if (!(await endSession())) {
+      window.alert('Impossible de fermer la session boutique pour le moment. Réessayez.');
+    }
+  };
 
   // S7.1 (ADR §4.19-1) — la vue est DÉRIVÉE de l'URL, plus un state interne.
   // Back/forward navigateur et reload sur URL profonde fonctionnent (AC1).
@@ -98,8 +104,6 @@ export function PublicShop() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, splat]);
 
-  // S-CONSO-3 : order_id du dernier submitCart reussi, lu par PortalThankYou.
-  const [lastOrderId, setLastOrderId] = useState<string | null>(null);
   // S7.1 — fiche produit adressée par URL `/p/:productId` (lookup catalogue).
   const selectedProduct = useMemo(
     () =>
@@ -113,110 +117,32 @@ export function PublicShop() {
   // drawer est un state interne ShopLayout ; l'ancien setView('cart') post-
   // renouvellement était une impasse (aucune branche de rendu 'cart').
   const [cartOpenRequest, setCartOpenRequest] = useState(0);
-
-  // PIM (gammes + definitions) — utilise pour resoudre les images produit
-  const [pimGammes, setPimGammes] = useState<Gamme[]>([]);
-  const [pimDefinitions, setPimDefinitions] = useState<ProductDefinition[]>([]);
-
-  // S2.2 — Gammes souscrites du tenant qui possede la shop
-  // (lecture publique de tenant_gamme_subscriptions filtree active=true).
-  // Set vide -> fallback sur les gammes effectivement matchees par le catalogue
-  // produit (cf. visibleGammes ci-dessous).
-  const [subscribedSlugs, setSubscribedSlugs] = useState<Set<string> | null>(null);
+  const createOrderBlockedMessage = 'Connectez-vous avec le compte propre à cette boutique pour commander.';
+  const {
+    lastOrderId,
+    lastOrder,
+    renewalWarnings,
+    dismissRenewalWarnings,
+    renewOrder: handleRenewOrder,
+    submitCart,
+  } = useStorefrontOrderLifecycle({
+    slug,
+    shop,
+    products,
+    cart,
+    sessionShopId: storefrontSession?.identity.shopId ?? null,
+    createOrderBlockedMessage,
+    setCart,
+    onCartRenewed: () => {
+      goView('catalog');
+      setCartOpenRequest((current) => current + 1);
+    },
+    onOrderCreated: () => goView('thankYou'),
+  });
 
   // S2.2 — Etat des gammes deplices (filtre additif). Hydrate depuis
   // localStorage au mount, persiste a chaque toggle.
   const [expandedGammes, setExpandedGammes] = useState<Set<string>>(new Set());
-
-  const applyCatalog = (catalog: PublicShopCatalog) => {
-    setShop(fromPublicShop(catalog));
-    setProducts(catalog.products.map((product) => ({
-      id: product.id, shop_id: product.shopId, product_id: product.productId,
-      name: product.name, category: product.category, description: product.description,
-      price_ht: product.priceHt, image_url: product.imageUrl, config: product.config,
-      display_order: product.displayOrder, created_at: product.createdAt,
-      tenant_id: product.tenantId, gamme_slug: product.gammeSlug,
-    })));
-    setPimGammes(catalog.gammes as Gamme[]);
-    setPimDefinitions(catalog.definitions as unknown as ProductDefinition[]);
-    setSubscribedSlugs(new Set(catalog.subscribedSlugs));
-  };
-
-  // ─── Chargement API + rafraîchissement à la reprise de fenêtre ────────────
-  useEffect(() => {
-    if (!slug || authLoading || tenantLoading) return;
-    let focusHandler: (() => void) | null = null;
-    let refreshTimer: number | null = null;
-    let cancelled = false;
-
-    setLoading(true);
-    setNotFound(false);
-    setBlockedAccess(null);
-    setShop(null);
-    setProducts([]);
-    setPimGammes([]);
-    setPimDefinitions([]);
-    setSubscribedSlugs(null);
-
-    (async () => {
-      // Première lecture volontairement minimale : aucune marque, description,
-      // configuration ou donnée catalogue n'est exposée avant le garde d'accès.
-      let gateData;
-      try { gateData = await shopsApi.publicProbe(slug); }
-      catch (probeError) {
-        if (cancelled) return;
-        setNotFound(probeError instanceof ApiClientError && probeError.problem.status === 404);
-        setLoading(false);
-        return;
-      }
-      if (cancelled) return;
-
-      const initialAccess = resolveShopAccessFromMemberships({
-        isAuthenticated: Boolean(user),
-        isSuperAdmin,
-        accessMode: gateData.accessMode,
-        memberships: tenants.map((tenant) => ({
-          tenantId: tenant.id,
-          accessScope: tenant.accessScope,
-          allowedShopIds: tenant.allowedShopIds,
-        })),
-        shopId: gateData.id,
-        shopTenantId: gateData.tenantId,
-      });
-      if (initialAccess === 'authentication_required' || initialAccess === 'forbidden') {
-        setBlockedAccess(initialAccess);
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const catalog = await shopsApi.publicCatalog(slug);
-        if (cancelled) return;
-        applyCatalog(catalog);
-      } catch (catalogError) {
-        if (cancelled) return;
-        if (catalogError instanceof ApiClientError && catalogError.problem.status === 401) setBlockedAccess('authentication_required');
-        else if (catalogError instanceof ApiClientError && catalogError.problem.status === 403) setBlockedAccess('forbidden');
-        else setNotFound(catalogError instanceof ApiClientError && catalogError.problem.status === 404);
-      }
-      setLoading(false);
-
-      focusHandler = () => {
-        void shopsApi.publicCatalog(slug).then(applyCatalog).catch(() => undefined);
-      };
-      window.addEventListener('focus', focusHandler);
-      refreshTimer = window.setInterval(() => {
-        if (document.visibilityState === 'visible') focusHandler?.();
-      }, 15_000);
-    })();
-
-    return () => {
-      cancelled = true;
-      if (focusHandler) window.removeEventListener('focus', focusHandler);
-      if (refreshTimer !== null) window.clearInterval(refreshTimer);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug, user?.id, authLoading, tenantLoading, isSuperAdmin, tenants, shopsApi]);
 
   // ─── SEO : title ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -277,166 +203,6 @@ export function PublicShop() {
     setCart((prev) => prev.filter((l) => l.product.id !== productId));
   };
 
-  // S3.3 (Sprint 5) : warnings du dernier renouvellement de commande, affichés
-  // en banner dismissable dans PortalCart (cf. setRenewalWarnings([]) pour reset).
-  const [renewalWarnings, setRenewalWarnings] = useState<string[]>([]);
-
-  // S7.9 — Dernière commande de l'acheteur sur la boutique (bandeau Reprendre).
-  // Best-effort silencieux : anonyme ou erreur RLS → pas de bandeau.
-  const [lastOrder, setLastOrder] = useState<ResumeLastOrder | null>(null);
-  useEffect(() => {
-    if (!user?.id || !shop?.id) {
-      setLastOrder(null);
-      return;
-    }
-    const controller = new AbortController();
-    ordersApi.listPortalOrders(shop.id, controller.signal).then((response) => {
-      if (controller.signal.aborted) return;
-      const latest = response.datasets.mine.find((order) => order.source === 'v1_1');
-      setLastOrder(latest ? {
-        id: latest.id,
-        status: latest.status,
-        total_ht: latest.totalHt,
-        created_at: latest.createdAt,
-        source: latest.source,
-      } : null);
-    }).catch((cause) => {
-      if (!controller.signal.aborted) {
-        console.warn('[PublicShop] dernière commande indisponible:', cause);
-        setLastOrder(null);
-      }
-    });
-    return () => {
-      controller.abort();
-    };
-    // Re-fetch après un submitCart réussi (lastOrderId change).
-  }, [user?.id, shop?.id, lastOrderId, ordersApi]);
-
-  /**
-   * S3.3 AC2/AC3 : Renouveler 1-clic depuis OrderHistoryTable.
-   * Query items + rebuild cart (via helper pur) + setCart + view='cart' +
-   * warnings remontés au banner PortalCart.
-   *
-   * Best-effort : si query items échoue, alert simple sans bascule.
-   */
-  const handleRenewOrder = async (order: { id: string; source: string }) => {
-    if (order.source !== 'v1_1') {
-      alert('Le renouvellement n\'est disponible que pour les commandes récentes (post 17/05/2026).');
-      return;
-    }
-
-    // Si le cart actuel n'est pas vide, on confirme avant de l'écraser.
-    if (cart.length > 0) {
-      const ok = window.confirm(
-        'Votre panier contient déjà des articles. Le renouvellement va le remplacer. Continuer ?',
-      );
-      if (!ok) return;
-    }
-
-    let items: OrderItemRow[];
-    try {
-      const details = await ordersApi.getDraft(order.id);
-      items = details.items.map((item) => ({
-        product_id: item.productId,
-        product_label: item.productLabel,
-        clariprint_options: item.clariprintOptions,
-        quantity: item.quantity,
-        unit_price_ht: item.unitPriceHt,
-      }));
-    } catch (cause) {
-      const message = cause instanceof Error ? cause.message : 'erreur réseau';
-      console.error('[handleRenewOrder] API items failed:', cause);
-      alert(`Impossible de charger les articles de cette commande : ${message}.`);
-      return;
-    }
-
-    const { lines, warnings, stats } = rebuildCartFromOrderItems(
-      items,
-      products,
-    );
-
-    if (stats.matched === 0) {
-      // Aucun produit récupérable : on ne bascule pas le panier mais on affiche les warnings
-      alert(
-        `Aucun produit de cette commande n'est plus disponible dans le catalogue actuel.\n\n${warnings.join('\n')}`,
-      );
-      return;
-    }
-
-    setCart(lines);
-    setRenewalWarnings(warnings);
-    // S7.1 : le panier est un drawer, pas une page — retour catalogue + drawer
-    // ouvert (corrige l'impasse setView('cart') sans branche de rendu).
-    goView('catalog');
-    setCartOpenRequest((n) => n + 1);
-  };
-
-  const submitCart = async () => {
-    if (!shop || cart.length === 0) return;
-
-    // La commande API exige une session : l acteur, son périmètre boutique et
-    // sa permission de commander sont vérifiés côté serveur.
-    if (!user?.id) {
-      alert(
-        'Vous devez etre connecte pour valider votre panier.\n\nCliquez sur "Se connecter" en haut a droite pour acceder a votre compte B2B.',
-      );
-      return;
-    }
-
-    if (!shop.tenant_id) {
-      console.error('[submitCart] shop.tenant_id absent, API order creation impossible');
-      alert(
-        'Erreur de configuration boutique (tenant_id manquant). Contactez l administrateur.',
-      );
-      return;
-    }
-
-    // Commande atomique API : entête + lignes + receipt d idempotence sont
-    // validés et écrits dans une seule transaction SQL.
-    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    const items = cart.map((l) => {
-      const libraryRef =
-        typeof l.product.product_id === 'string' && UUID_RE.test(l.product.product_id)
-          ? l.product.product_id
-          : null;
-      return {
-        productId: libraryRef,
-        productLabel: l.product.name,
-        clariprintOptions: (l.product.config as Record<string, unknown> | null) ?? null,
-        quantity: l.qty,
-        unitPriceHt: l.product.price_ht,
-      };
-    });
-    let orderId: string;
-    try {
-      const result = await ordersApi.create({
-        shopId: shop.id,
-        currency: 'EUR',
-        notes: '',
-        items,
-        idempotencyKey: checkoutCommandKey.current,
-      });
-      orderId = result.orderId;
-    } catch (cause) {
-      console.error('[submitCart] API create failed:', cause);
-      const message = cause instanceof ApiClientError
-        && cause.problem.code === 'orders.permission_denied'
-        ? createOrderBlockedMessage
-        : cause instanceof Error ? cause.message : 'erreur réseau';
-      alert(`Erreur lors de la validation du panier : ${message}.\n\nMerci de réessayer.`);
-      return;
-    }
-
-    // S-CONSO-3 (Sprint 4 Phase 2) : bascule vers PortalThankYou au lieu
-    // d alert + setView('orders'). Artefact visuel persistant pour acheteur
-    // B2B (screenshot, transfert compta, archivage).
-    setLastOrderId(orderId);
-    checkoutCommandKey.current = crypto.randomUUID();
-    setCart([]);
-    setRenewalWarnings([]); // S3.3 : clear warnings après submit réussi
-    goView('thankYou');
-  };
-
   // ─── S2.2 Hydratation localStorage des gammes deplices ───────────────────
   useEffect(() => {
     if (!slug) return;
@@ -473,6 +239,16 @@ export function PublicShop() {
   // via la facette Format existante (S2.19). Sans formatKey (sous-cat de gamme
   // classique) → comportement identique à selectGammes.
   const [pendingFormat, setPendingFormat] = useState<string | null>(null);
+
+  // UM10.4 — tous ces états appartiennent à une boutique précise. React peut
+  // réutiliser cette instance de PublicShop lors d'une navigation A → B ; sans
+  // reset explicite, panier, confirmation et filtres traverseraient la frontière.
+  useEffect(() => {
+    setCart([]);
+    setPendingFormat(null);
+    setCartOpenRequest(0);
+  }, [slug]);
+
   const selectSubcategory = (gammeSlugs: string[], formatKey?: string) => {
     setExpandedGammes(new Set(gammeSlugs));
     setPendingFormat(formatKey ?? null);
@@ -526,27 +302,23 @@ export function PublicShop() {
     [products, pimGammes],
   );
 
-  // ─── Access guard shop_only (S2.1 AC3) ───────────────────────────────────
-  // Calcul du access *avant* tout rendu de contenu boutique pour eviter la
-  // fuite de produits/branding tenant a un user shop_only non-autorise.
+  // ─── Garde storefront ────────────────────────────────────────────────────
+  // Calcul avant tout rendu de contenu : une identité Magrit n'accorde jamais
+  // implicitement l'accès à une boutique privée.
   const access = useMemo(() => {
     if (!shop) return 'pending'; // shop pas encore charge — wait
-    return resolveShopAccessFromMemberships({
-      isAuthenticated: Boolean(user),
-      isSuperAdmin,
+    return resolveShopAccess({
       accessMode: shop.access_mode ?? 'invite_only',
-      memberships: tenants.map((t) => ({
-        tenantId: t.id,
-        accessScope: t.accessScope,
-        allowedShopIds: t.allowedShopIds,
-      })),
       shopId: shop.id,
-      shopTenantId: shop.tenant_id ?? null,
+      storefrontShopId: storefrontSession?.identity.shopId ?? null,
     });
-  }, [shop, user, isSuperAdmin, tenants]);
+  }, [shop, storefrontSession?.identity.shopId]);
 
   // ─── Rendering ───────────────────────────────────────────────────────────
-  if (loading || authLoading || tenantLoading) {
+  // Le reset des effects intervient après le rendu. Ce garde empêche donc la
+  // boutique précédente d'être peinte, même pendant cette fenêtre React.
+  const catalogLoading = catalog.status === 'loading';
+  if (catalogLoading || storefrontSessionLoading || (shop !== null && shop.slug !== slug)) {
     return (
       <div
         className="min-h-screen grid place-items-center bg-bg"
@@ -556,10 +328,27 @@ export function PublicShop() {
       </div>
     );
   }
-  if (blockedAccess) {
-    return <ShopForbidden403 authenticationRequired={blockedAccess === 'authentication_required'} />;
+  if (storefrontSessionUnavailable || catalog.status === 'unavailable') {
+    return (
+      <StorefrontUnavailable
+        retrying={storefrontSessionLoading || catalogLoading}
+        onRetry={() => {
+          if (storefrontSessionUnavailable) void refreshStorefrontSession();
+          else catalog.retry();
+        }}
+      />
+    );
   }
-  if (notFound || !shop) {
+  if (catalog.status === 'authentication_required') {
+    return (
+      <ShopForbidden403
+        authenticationRequired
+        shopSlug={slug}
+        onStorefrontAuthenticated={setStorefrontSession}
+      />
+    );
+  }
+  if (catalog.status === 'not_found' || !shop) {
     return (
       <div
         className="min-h-screen grid place-items-center bg-bg px-6"
@@ -583,20 +372,22 @@ export function PublicShop() {
     );
   }
 
-  if (access === 'authentication_required' || access === 'forbidden') {
-    return <ShopForbidden403 authenticationRequired={access === 'authentication_required'} />;
+  if (access === 'authentication_required') {
+    return (
+      <ShopForbidden403
+        authenticationRequired={access === 'authentication_required'}
+        shopSlug={slug}
+        onStorefrontAuthenticated={setStorefrontSession}
+      />
+    );
   }
 
   const cartCount = cart.reduce((s, l) => s + l.qty, 0);
   // S7.7 — montant HT du panier (affiché sur le bouton header, décision D3).
-  const cartTotalHT = cart.reduce((s, l) => s + l.product.price_ht * l.qty, 0);
-  const shopMembership = tenants.find((tenant) => tenant.id === shop.tenant_id);
-  const canCreateOrder = !user
-    || shop.access_mode === 'self_signup'
-    || Boolean(shopMembership?.permissions.can_order);
-  const createOrderBlockedMessage = shop.access_mode === 'invite_only' && !shopMembership
-    ? 'Cette boutique fonctionne sur invitation. Demandez un accès à son administrateur.'
-    : "Votre administrateur n'a pas activé la création de commandes pour votre compte.";
+  const cartTotalHT = computePortalCartTotalHt(cart);
+  const hasStorefrontSession = storefrontSession?.identity.shopId === shop.id;
+  const canCreateOrder = hasStorefrontSession
+    || shop.access_mode === 'self_signup';
 
   // S7.9 — Bandeau Reprendre (chips dérivés de la donnée, vide → absent).
   const resumeChips = buildResumeChips({ cartCount, cartTotalHT, lastOrder });
@@ -608,6 +399,15 @@ export function PublicShop() {
   };
 
   return (
+    <>
+      {storefrontSession?.identity.kind === 'delegated_shop_customer'
+        && storefrontSession.identity.shopId === shop.id && (
+          <StorefrontDelegationBanner
+            session={storefrontSession}
+            ending={endingStorefrontSession}
+            onEnd={() => void endStorefrontSession()}
+          />
+        )}
     <ShopLayout
       shop={shop}
       view={view}
@@ -620,6 +420,7 @@ export function PublicShop() {
       onSelectProduct={(p) => goView('product', p.id)}
       onOpenGamme={(gSlug) => goView('gamme', gSlug)}
       onAskMagrit={() => goView('catalog')}
+      storefrontSession={storefrontSession}
       budget={budget}
       gammes={gammePills}
       activeGammeSlugs={expandedGammes}
@@ -634,12 +435,19 @@ export function PublicShop() {
       cartDrawer={
         <PortalCart
           cart={cart}
+          taxRate={taxRate}
           budget={budget}
           onUpdateQty={updateQty}
           onRemove={removeFromCart}
           // S7.12 (ADR 4.20) — le drawer mène au récap /checkout : c'est là
           // que se joue l'identification éventuelle puis le submitCart.
-          onSubmit={() => goView('checkout')}
+          onSubmit={() => {
+            if (view === 'checkout') {
+              void submitCart();
+              return;
+            }
+            goView('checkout');
+          }}
           onContinue={() => {/* drawer reste ouvert, l'acheteur peut continuer */}}
           pimGammes={pimGammes}
           pimDefinitions={pimDefinitions}
@@ -648,7 +456,7 @@ export function PublicShop() {
           createOrderBlockedMessage={createOrderBlockedMessage}
           // S3.3 : banner warnings affiché si dernier renew a skip des items.
           renewalWarnings={renewalWarnings}
-          onDismissRenewalWarnings={() => setRenewalWarnings([])}
+          onDismissRenewalWarnings={dismissRenewalWarnings}
         />
       }
     >
@@ -677,6 +485,7 @@ export function PublicShop() {
       {view === 'catalog' && (
         <PortalCatalog
           shop={shop}
+          taxRate={taxRate}
           products={filteredProducts}
           onSelectProduct={(p) => goView('product', p.id)}
           onAddToCart={(p, qty) => addToCart(p, qty ?? 1)}
@@ -694,6 +503,7 @@ export function PublicShop() {
       {view === 'gamme' && (
         <GammePage
           shop={shop}
+          taxRate={taxRate}
           gammeSlug={routeMatch.gammeSlug}
           products={products}
           pimGammes={pimGammes}
@@ -715,6 +525,7 @@ export function PublicShop() {
       {view === 'product' && selectedProduct && (
         <PortalProduct
           product={selectedProduct}
+          taxRate={taxRate}
           onBack={() => goView('catalog')}
           onAddToCart={(p, qty) => {
             addToCart(p, qty);
@@ -737,8 +548,11 @@ export function PublicShop() {
         <CheckoutPage
           shop={shop}
           cart={cart}
+          taxRate={taxRate}
           canCreateOrder={canCreateOrder}
           createOrderBlockedMessage={createOrderBlockedMessage}
+          storefrontSession={storefrontSession}
+          onStorefrontAuthenticated={setStorefrontSession}
           onSubmit={submitCart}
           onGoCatalog={() => goView('catalog')}
         />
@@ -748,10 +562,14 @@ export function PublicShop() {
       {view === 'account' && (
         <AccountHub
           shop={shop}
+          hasStorefrontSession={storefrontSession?.identity.shopId === shop.id}
           section={routeMatch.accountSection ?? 'orders'}
           onSection={(s) => goView('account', s)}
           onRenewOrder={handleRenewOrder}
           onGoHome={() => goView('home')}
+          storefrontSession={storefrontSession}
+          onAuthenticated={setStorefrontSession}
+          onSignOut={endStorefrontSession}
         />
       )}
 
@@ -760,7 +578,8 @@ export function PublicShop() {
       {view === 'thankYou' && lastOrderId && (
         <PortalThankYou
           orderId={lastOrderId}
-          userEmail={user?.email ?? ''}
+          taxRate={taxRate}
+          userEmail={storefrontSession?.customer.email ?? ''}
           onBackToCatalog={() => goView('catalog')}
           onSeeOrders={() => goView('orders')}
         />
@@ -769,18 +588,6 @@ export function PublicShop() {
         <Navigate to={shopUrl(slug, 'catalog')} replace />
       )}
     </ShopLayout>
+    </>
   );
-}
-
-function fromPublicShop(catalog: PublicShopCatalog): Shop {
-  const shop = catalog.shop;
-  return {
-    id: shop.id, tenant_id: shop.tenantId, slug: shop.slug, name: shop.name,
-    description: shop.description, theme: shop.theme, logo_url: shop.logoUrl,
-    address: shop.address, contact_email: shop.contactEmail, active: shop.active,
-    library_ids: [], excluded_product_ids: [], hero_image_url: shop.heroImageUrl,
-    tagline: shop.tagline, pim_catalog_mode: false, pim_gamme_slugs: [],
-    access_mode: shop.accessMode, created_at: shop.createdAt,
-    custom_mockups: catalog.customMockups,
-  };
 }

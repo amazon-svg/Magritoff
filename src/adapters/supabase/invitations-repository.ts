@@ -27,8 +27,8 @@ export class SupabaseInvitationsRepository implements InvitationsRepository {
     const { data, error } = await this.client.rpc('api_create_tenant_invitation', {
       p_tenant_id: command.tenantId,
       p_email: command.email,
-      p_access_scope: command.accessScope,
-      p_allowed_shop_ids: command.accessScope === 'shop_only' ? command.allowedShopIds : [],
+      p_access_scope: 'magrit_full',
+      p_allowed_shop_ids: [],
       p_role_definition_ids: command.roleDefinitionIds,
     });
     if (error) throw new InvitationRejectedError(toRejectionCode(error.message), error.message);
@@ -50,7 +50,8 @@ export class SupabaseInvitationsRepository implements InvitationsRepository {
   async options(_actorUserId: UserId, tenantId: string): Promise<InvitationOptions> {
     const [rolesResult, shopsResult] = await Promise.all([
       this.client.from('tenant_role_definitions').select('id, name, description, ordering_index')
-        .eq('tenant_id', tenantId).is('archived_at', null).order('ordering_index'),
+        .eq('tenant_id', tenantId).eq('identity_context', 'magrit')
+        .is('archived_at', null).order('ordering_index'),
       this.client.from('shops').select('id, name').eq('tenant_id', tenantId).order('name'),
     ]);
     if (rolesResult.error || shopsResult.error) {

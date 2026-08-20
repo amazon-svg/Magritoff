@@ -1,50 +1,12 @@
-import { useState } from "react";
 import { X, RefreshCw, CheckCircle, XCircle, AlertTriangle, Loader2 } from "lucide-react";
-import { type AiProviderDiagnostic, type ClariprintDiagnostic } from "../../modules/diagnostics";
-import { useDiagnosticsApi } from "../contexts/ModuleClientsContext";
+import { usePlatformDiagnostics } from "../hooks/usePlatformDiagnostics";
 
 interface DiagnosticPanelProps {
   onClose: () => void;
 }
 
-interface TestResult<T> {
-  loading: boolean;
-  data: T | null;
-  error: string | null;
-}
-
 export function DiagnosticPanel({ onClose }: DiagnosticPanelProps) {
-  const diagnosticsApi = useDiagnosticsApi();
-  const [clariprintTest, setClariprintTest] = useState<TestResult<ClariprintDiagnostic>>({
-    loading: false,
-    data: null,
-    error: null,
-  });
-  const [aiTest, setAiTest] = useState<TestResult<AiProviderDiagnostic>>({
-    loading: false,
-    data: null,
-    error: null,
-  });
-
-  const testClariprint = async () => {
-    setClariprintTest({ loading: true, data: null, error: null });
-    try {
-      const data = await diagnosticsApi.clariprint();
-      setClariprintTest({ loading: false, data, error: null });
-    } catch (e) {
-      setClariprintTest({ loading: false, data: null, error: String(e) });
-    }
-  };
-
-  const testAiProvider = async () => {
-    setAiTest({ loading: true, data: null, error: null });
-    try {
-      const data = await diagnosticsApi.aiProvider();
-      setAiTest({ loading: false, data, error: null });
-    } catch (e) {
-      setAiTest({ loading: false, data: null, error: String(e) });
-    }
-  };
+  const { clariprintTest, aiTest, testClariprint, testAiProvider } = usePlatformDiagnostics();
 
   const StatusIcon = ({ success }: { success: boolean | null }) => {
     if (success === null) return null;
@@ -81,7 +43,7 @@ export function DiagnosticPanel({ onClose }: DiagnosticPanelProps) {
                 )}
               </div>
               <button
-                onClick={testClariprint}
+                onClick={() => void testClariprint()}
                 disabled={clariprintTest.loading}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
               >
@@ -153,7 +115,7 @@ export function DiagnosticPanel({ onClose }: DiagnosticPanelProps) {
                 )}
               </div>
               <button
-                onClick={testAiProvider}
+                onClick={() => void testAiProvider()}
                 disabled={aiTest.loading}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 hover:bg-gray-900 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
               >

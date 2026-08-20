@@ -5,7 +5,15 @@ import { API_V1_BASE_PATH } from '../../platform/api/contracts.ts';
 import { ApiHttpError } from './errors.ts';
 import { defineJsonRoute, type ApiRequestContext, type ApiRoute } from './routes.ts';
 
-export function createAssistantRoutes(service: AssistantService): readonly ApiRoute[] {
+export type StorefrontEditorialAuthorizer = (
+  request: Request,
+  shopSlug: string,
+) => Promise<Readonly<{ tenantId: string }> | null>;
+
+export function createAssistantRoutes(
+  service: AssistantService,
+  authorizeStorefront?: StorefrontEditorialAuthorizer,
+): readonly ApiRoute[] {
   return [defineJsonRoute({
     method: 'POST',
     path: `${API_V1_BASE_PATH}/tenants/{tenantId}/assistant/category-editorial`,
@@ -19,6 +27,31 @@ export function createAssistantRoutes(service: AssistantService): readonly ApiRo
         if (error instanceof AssistantRejectedError) throw new ApiHttpError({ type: 'about:blank', title: 'Accès assistant interdit', status: 403, code: `assistant.${error.code}`, detail: error.message });
         throw error;
       }
+    },
+  }), defineJsonRoute({
+    method: 'POST',
+    path: `${API_V1_BASE_PATH}/public/shops/{shopSlug}/assistant/category-editorial`,
+    authentication: 'public',
+    inputSchema: categoryEditorialCommandSchema,
+    outputSchema: categoryEditorialResultSchema,
+    async handle(context, command) {
+      const shopSlug = context.params.shopSlug ?? '';
+      const storefront = authorizeStorefront
+        ? await authorizeStorefront(context.request, shopSlug)
+        : null;
+      if (!storefront) {
+        throw new ApiHttpError({
+          type: 'about:blank',
+          title: 'Session boutique requise',
+          status: 401,
+          code: 'storefront.session_required',
+          detail: 'Une session valide pour cette boutique est requise.',
+        });
+      }
+      return {
+        status: 200,
+        body: await service.storefrontCategoryEditorial(command),
+      };
     },
   })];
 }

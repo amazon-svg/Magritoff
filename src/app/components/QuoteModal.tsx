@@ -7,12 +7,11 @@ import { useTenant } from '../contexts/TenantContext';
 import { useTenantPath } from '../hooks/useTenantPath';
 import {
   makeQuoteReference,
-  persistQuote,
   renderQuoteHtml,
   getDefaultTemplate,
 } from '../utils/quote';
 import { applyTax, extractTaxAmount, formatTaxLabel, getTaxRate } from '../utils/tax';
-import { useQuotesApi } from '../contexts/ModuleClientsContext';
+import { useQuotePersistence } from '../hooks/useQuotePersistence';
 
 interface QuoteModalProps {
   isOpen: boolean;
@@ -23,7 +22,7 @@ interface QuoteModalProps {
 export function QuoteModal({ isOpen, onClose, product }: QuoteModalProps) {
   const { addToCart } = useCart();
   const { user } = useAuth();
-  const quotesApi = useQuotesApi();
+  const { persist } = useQuotePersistence();
   const { templates, defaultTemplateId } = useQuoteTemplates();
   const { currentTenant } = useTenant();
   const tp = useTenantPath();
@@ -60,7 +59,7 @@ export function QuoteModal({ isOpen, onClose, product }: QuoteModalProps) {
     const reference = makeQuoteReference();
 
     if (user && currentTenant) {
-      await persistQuote(quotesApi, currentTenant.id, {
+      await persist(currentTenant.id, {
         reference,
         product_name: product.name,
         product_config: product,

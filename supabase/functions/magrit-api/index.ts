@@ -54,6 +54,28 @@ import { HttpClariprintQuoteGateway } from '../../../src/adapters/clariprint/htt
 import { createClariprintRoutes } from '../../../src/server/api/clariprint-routes.ts';
 import { isMockupBinaryRequest, proxyMockupBinary } from '../../../src/adapters/supabase/mockup-binary-proxy.ts';
 import { isAssistantChatRequest, proxyAssistantChat } from '../../../src/server/api/assistant-stream-proxy.ts';
+import { ShopCustomersService } from '../../../src/modules/shop-customers/application/shop-customers-service.ts';
+import { SupabaseShopCustomersRepository } from '../../../src/adapters/supabase/shop-customers-repository.ts';
+import { createShopCustomersRoutes } from '../../../src/server/api/shop-customers-routes.ts';
+import { StorefrontAuthenticationService } from '../../../src/modules/shop-customers/application/storefront-authentication-service.ts';
+import { StorefrontRegistrationService } from '../../../src/modules/shop-customers/application/storefront-registration-service.ts';
+import { StorefrontSessionService } from '../../../src/modules/shop-customers/application/storefront-session-service.ts';
+import { SupabaseStorefrontAuthenticationGateway } from '../../../src/adapters/supabase/storefront-authentication-gateway.ts';
+import { createStorefrontSessionRoutes } from '../../../src/server/api/storefront-session-routes.ts';
+import { readStorefrontSessionCookie, storefrontSessionCookiePolicy } from '../../../src/server/storefront/session-cookie.ts';
+import { StorefrontActivationService } from '../../../src/modules/shop-customers/application/storefront-activation-service.ts';
+import { SupabaseStorefrontActivationGateway } from '../../../src/adapters/supabase/storefront-activation-gateway.ts';
+import { createStorefrontActivationRoutes } from '../../../src/server/api/storefront-activation-routes.ts';
+import { ResendStorefrontActivationEmailSender } from '../../../src/adapters/resend/storefront-activation-email-sender.ts';
+import { ShopCustomerDelegationService } from '../../../src/modules/shop-customers/application/shop-customer-delegation-service.ts';
+import { SupabaseShopCustomerDelegationGateway } from '../../../src/adapters/supabase/shop-customer-delegation-gateway.ts';
+import { createShopCustomerDelegationRoutes } from '../../../src/server/api/shop-customer-delegation-routes.ts';
+import { StorefrontPasswordRecoveryService } from '../../../src/modules/shop-customers/application/storefront-password-recovery-service.ts';
+import { SupabaseStorefrontPasswordRecoveryGateway } from '../../../src/adapters/supabase/storefront-password-recovery-gateway.ts';
+import { ResendStorefrontPasswordRecoveryEmailSender } from '../../../src/adapters/resend/storefront-password-recovery-email-sender.ts';
+import { createStorefrontPasswordRecoveryRoutes } from '../../../src/server/api/storefront-password-recovery-routes.ts';
+import { ShopCustomerInvitationService } from '../../../src/modules/shop-customers/application/shop-customer-invitation-service.ts';
+import { createShopCustomerInvitationRoutes } from '../../../src/server/api/shop-customer-invitation-routes.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -75,19 +97,55 @@ export async function handleRequest(request: Request): Promise<Response> {
     auth: { persistSession: false, autoRefreshToken: false },
     global: { headers: { Authorization: authorization } },
   });
+  // Une session storefront est portée par son cookie opaque, jamais par le JWT
+  // Magrit éventuellement encore présent dans le navigateur. Utiliser un client
+  // sans ce JWT garantit que les primitives storefront restent exécutées sous
+  // le rôle `anon`, y compris pendant une délégation depuis le back-office.
+  const storefrontClient = createClient(supabaseUrl, anonKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const storefrontCookiePolicy = storefrontSessionCookiePolicy(new URL(request.url).protocol === 'https:');
+  const storefrontGateway = new SupabaseStorefrontAuthenticationGateway(storefrontClient);
+  const storefrontSessionService = new StorefrontSessionService(storefrontGateway);
+  const storefrontShopsRepository = new SupabaseShopsRepository(
+    storefrontClient,
+    publicSupabaseUrl(request, supabaseUrl),
+  );
   if (isAssistantChatRequest(request)) {
-    const { data, error } = await client.auth.getUser();
-    if (error || !data.user) return withCors(Response.json({ type: 'about:blank', title: 'Authentification requise', status: 401, code: 'identity.authentication_required', requestId: crypto.randomUUID() }, { status: 401, headers: { 'Content-Type': 'application/problem+json; charset=utf-8' } }));
-    const actorId = parseId<'UserId'>(data.user.id);
-    if (!actorId.ok) return withCors(Response.json({ type: 'about:blank', title: 'Identité invalide', status: 401, code: 'identity.invalid_user', requestId: crypto.randomUUID() }, { status: 401, headers: { 'Content-Type': 'application/problem+json; charset=utf-8' } }));
-    const accessGateway = new SupabaseAssistantAccessGateway(client);
-    const response = await proxyAssistantChat(request, {
+    if (authorization) {
+      const { data, error } = await client.auth.getUser();
+      if (!error && data.user) {
+        const actorId = parseId<'UserId'>(data.user.id);
+        if (!actorId.ok) return withCors(Response.json({ type: 'about:blank', title: 'Identité invalide', status: 401, code: 'identity.invalid_user', requestId: crypto.randomUUID() }, { status: 401, headers: { 'Content-Type': 'application/problem+json; charset=utf-8' } }));
+        const accessGateway = new SupabaseAssistantAccessGateway(client);
+        return withCors(await proxyAssistantChat(request, {
+          legacyBaseUrl: `${supabaseUrl}/functions/v1/make-server-e3db71a4`,
+          authorization,
+          userId: data.user.id,
+          authorizeTenant: (tenantId) => accessGateway.isTenantMember(actorId.value, tenantId),
+        }));
+      }
+    }
+
+    const opaqueToken = readStorefrontSessionCookie(request.headers.get('cookie'), storefrontCookiePolicy);
+    const storefrontSession = opaqueToken ? await storefrontSessionService.current(opaqueToken) : null;
+    if (!storefrontSession) return withCors(Response.json({ type: 'about:blank', title: 'Session boutique requise', status: 401, code: 'storefront.session_required', requestId: crypto.randomUUID() }, { status: 401, headers: { 'Content-Type': 'application/problem+json; charset=utf-8' } }));
+    return withCors(await proxyAssistantChat(request, {
       legacyBaseUrl: `${supabaseUrl}/functions/v1/make-server-e3db71a4`,
-      authorization,
-      userId: data.user.id,
-      authorizeTenant: (tenantId) => accessGateway.isTenantMember(actorId.value, tenantId),
-    });
-    return withCors(response);
+      authorization: `Bearer ${anonKey}`,
+      authorizeShop: async (shopSlug) => {
+        try {
+          const probe = await storefrontShopsRepository.publicProbe(shopSlug);
+          if (probe.id !== storefrontSession.identity.shopId) return null;
+          return {
+            userId: storefrontSession.identity.shopCustomerAccountId,
+            tenantId: probe.tenantId,
+          };
+        } catch {
+          return null;
+        }
+      },
+    }));
   }
   const repository = new SupabaseSessionRepository(client);
   const service = new SessionService(repository);
@@ -100,6 +158,25 @@ export async function handleRequest(request: Request): Promise<Response> {
   const membersService = new MembersService(new SupabaseMembersRepository(client));
   const rolesService = new RolesService(new SupabaseRolesRepository(client));
   const shopsService = new ShopsService(new SupabaseShopsRepository(client, publicSupabaseUrl(request, supabaseUrl)));
+  const shopCustomersService = new ShopCustomersService(new SupabaseShopCustomersRepository(client));
+  const storefrontAuthenticationService = new StorefrontAuthenticationService(storefrontGateway);
+  const storefrontRegistrationService = new StorefrontRegistrationService(storefrontGateway);
+  const storefrontActivationService = new StorefrontActivationService(
+    new SupabaseStorefrontActivationGateway(client),
+    new ResendStorefrontActivationEmailSender(
+      Deno.env.get('RESEND_API_KEY') ?? null,
+      Deno.env.get('MAGRIT_FROM_EMAIL') ?? 'Magrit <onboarding@resend.dev>',
+    ),
+  );
+  const shopCustomerInvitationService = new ShopCustomerInvitationService(
+    shopCustomersService,
+    storefrontActivationService,
+  );
+  const shopCustomerDelegationService = new ShopCustomerDelegationService(new SupabaseShopCustomerDelegationGateway(client));
+  const storefrontPasswordRecoveryService = new StorefrontPasswordRecoveryService(
+    new SupabaseStorefrontPasswordRecoveryGateway(storefrontClient),
+    new ResendStorefrontPasswordRecoveryEmailSender(Deno.env.get('RESEND_API_KEY') ?? null, Deno.env.get('MAGRIT_FROM_EMAIL') ?? 'Magrit <onboarding@resend.dev>'),
+  );
   const catalogService = new CatalogService(new SupabaseCatalogRepository(client), new SupabaseCatalogAutomationGateway(client));
   const conversationsService = new ConversationsService(new SupabaseConversationsRepository(client));
   const aiConfiguration = aiProviderConfigurationFromEnvironment((name) => Deno.env.get(name));
@@ -124,15 +201,38 @@ export async function handleRequest(request: Request): Promise<Response> {
   const handler = createApiV1Application({
     routes: [
       ...createSessionRoutes(service),
-      ...createOrdersRoutes(ordersService),
+      ...createOrdersRoutes(ordersService, storefrontSessionService, storefrontCookiePolicy),
       ...createInvitationsRoutes(invitationsService),
       ...createMembersRoutes(membersService),
       ...createRolesRoutes(rolesService),
-      ...createShopsRoutes(shopsService),
+      ...createShopsRoutes(shopsService, storefrontSessionService, storefrontCookiePolicy),
+      ...createShopCustomersRoutes(shopCustomersService),
+      ...createShopCustomerInvitationRoutes(shopCustomerInvitationService),
+      ...createStorefrontSessionRoutes(storefrontAuthenticationService, storefrontRegistrationService, storefrontSessionService, storefrontCookiePolicy),
+      ...createStorefrontActivationRoutes(storefrontActivationService, storefrontCookiePolicy),
+      ...createStorefrontPasswordRecoveryRoutes(storefrontPasswordRecoveryService),
+      ...createShopCustomerDelegationRoutes(shopCustomerDelegationService, storefrontCookiePolicy),
       ...createCatalogRoutes(catalogService),
       ...createConversationsRoutes(conversationsService),
       ...createDiagnosticsRoutes(diagnosticsService),
-      ...createAssistantRoutes(assistantService),
+      ...createAssistantRoutes(assistantService, async (storefrontRequest, shopSlug) => {
+        const opaqueToken = readStorefrontSessionCookie(
+          storefrontRequest.headers.get('cookie'),
+          storefrontCookiePolicy,
+        );
+        const session = opaqueToken
+          ? await storefrontSessionService.current(opaqueToken)
+          : null;
+        if (!session) return null;
+        try {
+          const probe = await storefrontShopsRepository.publicProbe(shopSlug);
+          return probe.id === session.identity.shopId
+            ? { tenantId: probe.tenantId }
+            : null;
+        } catch {
+          return null;
+        }
+      }),
       ...createClariprintRoutes(clariprintService),
       ...createQuotesRoutes(quotesService),
       ...createQuoteTemplatesRoutes(quoteTemplatesService),

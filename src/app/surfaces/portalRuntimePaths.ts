@@ -4,6 +4,8 @@ import { storefrontSurface } from '../../surfaces/storefront';
 
 export const portalRuntimePaths = Object.freeze({
   shopRoot: requiredHostPath(storefrontSurface, 'shops.storefront.root'),
+  activation: requiredHostPath(storefrontSurface, 'shop-customers.storefront.activate'),
+  passwordReset: requiredHostPath(storefrontSurface, 'shop-customers.storefront.reset-password'),
   checkout: requiredHostPath(storefrontSurface, 'orders.storefront.checkout'),
   orderConfirmation: requiredHostPath(storefrontSurface, 'orders.storefront.confirmation'),
   catalog: requiredHostPath(storefrontSurface, 'catalog.storefront.list'),

@@ -13,7 +13,7 @@
 
 import { useMemo } from 'react';
 import { ArrowRight } from 'lucide-react';
-import type { Shop, ShopProduct } from '../../../contexts/ShopsContext';
+import type { Shop, ShopProduct } from '../../../../modules/shops';
 import type { PortalView } from './types';
 import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
 import { resolveNewProducts } from '../../../utils/shopHomeSections';

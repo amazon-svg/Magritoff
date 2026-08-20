@@ -22,7 +22,7 @@
 
 import { useMemo } from "react";
 import { AlertTriangle, Loader2, RefreshCw } from "lucide-react";
-import type { Shop, ShopProduct } from "../../contexts/ShopsContext";
+import type { Shop, ShopProduct } from '../../../modules/shops';
 import { TEST_IDS } from "../../lib/testIds";
 import { Sheet, SheetContent, SheetTitle } from "../ui/sheet";
 import {
@@ -44,6 +44,7 @@ import {
 // n°1 : aucune logique de prix dans ce composant, uniquement du rendu).
 import { useProductConfigurator } from "../../hooks/useProductConfigurator";
 import { applyTax } from "../../utils/tax";
+import type { ClariprintPricingGateway } from "../../../modules/clariprint";
 
 export interface ProductOverlayProps {
   product: ShopProduct | null;
@@ -54,6 +55,10 @@ export interface ProductOverlayProps {
   onConfirm: (productConfigured: ShopProduct, qty: number) => void;
   /** Libelle du bouton primary. Default "Ajouter au panier" (boutique). Atelier passe "Mettre a jour". */
   confirmLabel?: string;
+  /** TVA injectée par la surface appelante, jamais résolue dans le storefront. */
+  taxRate?: number;
+  /** Transport choisi par la surface appelante (workspace ou storefront). */
+  clariprintGateway: ClariprintPricingGateway;
 }
 
 
@@ -63,13 +68,15 @@ export function ProductOverlay({
   onClose,
   onConfirm,
   confirmLabel = "Ajouter au panier",
+  taxRate: configuredTaxRate,
+  clariprintGateway,
 }: ProductOverlayProps) {
   const open = product !== null;
 
   // S7.2 — moteur unique de configuration/prix (machine Phase, debounce,
   // abort, repli Prix marché). L'overlay ne fait plus que du rendu.
   const { options, setOptions, phase, retry, confirm, addDisabled, taxRate } =
-    useProductConfigurator(product);
+    useProductConfigurator(product, { taxRate: configuredTaxRate, clariprintGateway });
 
   const handleAdd = () => {
     const result = confirm();

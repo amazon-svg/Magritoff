@@ -1,13 +1,25 @@
 -- AF7.1 — un compte déjà authentifié depuis la boutique doit être rattaché
 -- automatiquement avant sa première commande si la boutique est self_signup.
 
-alter function public.api_create_tenant_order(uuid, text, text, jsonb, text)
-  rename to api_create_tenant_order_core;
+-- Certaines bases de développement ont déjà reçu cette extraction lors des
+-- tests de migration. Ne renommer la fonction historique que si le cœur
+-- n'existe pas encore permet de reprendre un push interrompu sans écraser sa
+-- définition.
+do $$
+begin
+  if to_regprocedure(
+    'public.api_create_tenant_order_core(uuid,text,text,jsonb,text)'
+  ) is null then
+    alter function public.api_create_tenant_order(uuid, text, text, jsonb, text)
+      rename to api_create_tenant_order_core;
+  end if;
+end;
+$$;
 
 revoke all on function public.api_create_tenant_order_core(uuid, text, text, jsonb, text)
   from public, anon, authenticated;
 
-create function public.api_create_tenant_order(
+create or replace function public.api_create_tenant_order(
   p_shop_id uuid,
   p_currency text,
   p_notes text,

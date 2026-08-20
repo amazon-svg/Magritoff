@@ -32,7 +32,7 @@ export class SupabaseMembersRepository implements MembersRepository {
     const member = await this.requireMutableMember(tenantId, userId);
     const { error } = await this.client.from('tenant_members').update({
       access_scope: command.accessScope,
-      allowed_shop_ids: command.accessScope === 'shop_only' ? command.allowedShopIds : [],
+      allowed_shop_ids: [],
       permissions: { can_quote: command.permissions.canQuote, can_order: command.permissions.canOrder, can_invite: command.permissions.canInvite },
     }).eq('tenant_id', tenantId).eq('user_id', userId);
     if (error) throw new MemberRejectedError('permission_denied', error.message);

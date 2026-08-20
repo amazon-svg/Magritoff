@@ -2,19 +2,126 @@
 id: SPEC-IDENTITY-STORE-01
 title: Séparation des utilisateurs Magrit et des comptes boutique
 date: 2026-08-12
-status: deferred
+updated: 2026-08-19
+status: in_progress
 target_epic: EPIC-UM-STORE-IDENTITY
 decision_owner: produit
-implementation: a_faire_plus_tard
+implementation: um6_storefront_checkout_identity_delivered
 ---
 
 # Spécification — Identités Magrit et comptes boutique séparés
 
 ## 1. Statut de cette spécification
 
-Cette spécification formalise une décision produit à mettre en œuvre plus tard.
-Elle ne décrit pas le comportement actuellement livré. Elle doit être relue
-avant le démarrage de l’epic, puis découpée en stories BMAD exécutables.
+Cette spécification formalise la cible produit. UM0 et UM1.1 à UM1.4 ont été
+livrés le 16 août 2026 : ADR, module, contrats, table, service métier, accès
+workspace par capability, routes de gestion `GET/POST` et première section de
+gestion des comptes dans l’éditeur de boutique. Ces routes et cette interface ne
+créent aucune session storefront. UM2.1 a ensuite figé le contrat de session et
+la politique de cookie ; UM2.2 a ajouté le stockage privé default-deny des
+credentials et sessions. UM2.3 orchestre la résolution boutique/email, les
+refus neutres et l’émission d’une session derrière des ports. UM2.4 fournit la
+primitive SQL atomique avec hash factice, verrouillage et jeton opaque. Aucune
+route HTTP publique n’était alors active. UM2.5 expose maintenant la connexion
+par le BFF et transforme le jeton en cookie HttpOnly sans l’inclure dans le JSON.
+UM2.6 et UM2.7 livrent la lecture et la déconnexion de session. UM2.8 et UM2.9
+livrent l’émission sécurisée du jeton et son activation publique par le BFF. Le
+jeton peut être transmis manuellement ; aucun email n’est annoncé tant que le
+port de notification UM3 n’est pas branché. Le checkout et l’écran d’activation
+ne l’utilisent pas encore. UM2.10 ajoute toutefois l’écran public qui consomme
+le jeton, choisit le mot de passe et rejoint ensuite la boutique, via un client
+HTTP anonyme distinct du workspace. UM3.1 branche ensuite l’invitation via un
+port email Resend propre aux comptes boutique, tout en affichant toujours le
+lien manuel dans Magrit. Les invitations tenant et boutique restent deux
+domaines séparés. UM4.1 livre ensuite le compte miroir idempotent, dérivé de
+l’identité Magrit côté serveur et créé sans credential. UM5.1 compose ce compte
+avec une délégation auditée et une session storefront HttpOnly de trente
+minutes. UM5.2 livre l'action unifiée dans Magrit, l'ouverture en nouvel onglet,
+le bandeau permanent et la sortie du mode délégué. UM5.3 relie désormais cette
+session au catalogue privé : le BFF résout le cookie HttpOnly et n'autorise que
+la boutique exacte portée par la session. UM9.2 livre la récupération de mot de
+passe contextualisée par boutique, avec message neutre, email et révocation des
+sessions antérieures. UM6.1 rattache désormais toute nouvelle commande storefront
+au compte boutique de la session et conserve séparément l'acteur Magrit en cas
+de délégation. UM6.2 permet ensuite au compte boutique de consulter uniquement
+ses propres commandes dans son portail, sans lui conférer les rôles Magrit de
+validation ou de production. UM6.3 ouvre ensuite le détail et l'édition des
+brouillons au compte boutique propriétaire, avec un contrôle simultané du
+compte et de la boutique. UM6.4 autorise enfin le propriétaire boutique à annuler uniquement
+ses propres brouillons ; toutes les transitions internes restent réservées aux
+rôles Magrit. UM6.5 ouvre enfin l'historique au propriétaire boutique, mais
+uniquement pour les transitions de statut de sa commande : les événements de
+rôles et les identités internes restent réservés à Magrit. UM6.6 bascule enfin
+la connexion du checkout et de la garde des boutiques privées sur la session
+boutique BFF ; l'ancien `signIn/signUp` Supabase Auth et la création implicite
+d'un membre `shop_only` disparaissent du storefront. Chaque vague suivante doit être
+découpée en stories BMAD exécutables avant son implémentation.
+UM10.1 à UM10.38 ferment ensuite les fuites de contexte résiduelles : assistant,
+politique fiscale, ancienne UI de profil mixte et états transactionnels sont
+désormais séparés par identité et par boutique, y compris lors d’un changement
+de slug sans remontage React. Le portail commandes client ne présente plus les
+files ni les transitions internes Magrit : il ne consomme que `mine` et conserve
+uniquement les actions appartenant au client boutique.
+Le prix présenté dans le panier constitue également le prix canonique du
+checkout et de la commande : un fallback prix marché ne peut plus retomber à
+zéro lors du changement d'écran ou de l'écriture Orders.
+Une panne du BFF ne vaut jamais absence de session ou boutique inconnue : seuls
+le 401 de session et le 404 du probe produisent respectivement ces états. Les
+autres erreurs ferment l'accès avec un écran de reprise explicite.
+Une session active est revalidée au retour du focus et périodiquement lorsque
+la page est visible. Son expiration ou sa révocation retire l'identité affichée
+et réactive immédiatement la garde de la boutique privée.
+Le transport Orders du storefront est lui aussi distinct : il n’ajoute aucun
+bearer Magrit et s’appuie exclusivement sur le cookie boutique HttpOnly.
+Il en va de même pour le probe d’accès et le chargement du catalogue public ou
+privé, désormais composés avec une instance Shops storefront dédiée.
+L’éditorial IA facultatif n’emprunte plus le bearer Magrit. Sa route dédiée
+résout le slug et le cookie boutique côté BFF ; le tenant n’est jamais choisi
+par le navigateur. Enfin, la modale d’audit partagée ne possède plus de fallback
+vers le client Orders Magrit : chaque surface doit lui injecter explicitement
+le transport correspondant à son identité.
+Le configurateur partagé ne consulte plus non plus `TenantContext` : le taux de
+TVA du catalogue actif est injecté explicitement jusqu’à l’overlay et la page
+gamme.
+Les calculs Clariprint du storefront utilisent également une passerelle
+publique distincte et ne joignent jamais le bearer Magrit. Le moteur de
+configuration partagé exige maintenant cette passerelle en entrée et ne lit
+plus implicitement le contexte de services workspace.
+Le streaming conversationnel suit la même règle : le chat Magrit et la
+recherche boutique reçoivent deux gateways distincts. Le gateway storefront
+refuse explicitement tout bearer Magrit et s’appuie sur le cookie boutique.
+Le hook de devis Clariprint de l’atelier applique également cette discipline :
+la surface Magrit lui injecte son gateway, sans résolution cachée du runtime.
+Enfin, les clients HTTP React sont composés dans deux modules distincts : le
+registre storefront ne contient que des clients anonymes/cookie et n’expose
+aucun client workspace aux composants boutique.
+Les gateways navigateur suivent la même séparation physique : assistant et
+Clariprint storefront vivent dans un provider dédié qui ne reçoit que le
+transport anonyme et les implémentations fail-closed propres à la boutique.
+Le transport HTTP de base est lui aussi autonome : le runtime storefront
+construit un client same-origin sans lire `AuthContext`, session ou token
+Magrit. Les registres boutique ne dépendent plus du runtime workspace.
+Les providers sont enfin montés par route : `/shop/...` ne démarre plus
+Supabase Auth, le bootstrap des espaces, les contexts tenant ou les clients
+workspace. Ces services ne sont instanciés que sous la frontière Magrit.
+Cette séparation vaut aussi pour les racines de composition navigateur : le
+runtime storefront est un module autonome sans import, même transitif, de
+l'adaptateur Supabase Auth ou des gateways réservées à Magrit.
+Les deux frontières de surface sont en outre chargées dynamiquement : une
+entrée directe dans `/shop/...` ne télécharge pas la racine de composition
+workspace avant d'en avoir effectivement besoin.
+Un test de graphe statique part désormais de la frontière storefront et
+interdit tout chemin vers le runtime workspace ou un adaptateur Supabase.
+Les shells React Magrit sont également chargés à la demande : le bundle
+d'entrée d'une boutique ne contient plus les layouts tenant, dashboard ou le
+configurateur workspace.
+Le hub « Compte » storefront est enfin gardé par la session propre à la
+boutique : un visiteur anonyme voit le parcours d'authentification, jamais un
+faux état de commandes vide.
+La recette locale protège aussi son BFF : `db:local:start` répare désormais un
+conteneur Edge Runtime arrêté sans reconstruire ni effacer la base.
+Enfin, ses modèles `Shop` et `ShopProduct` proviennent du module Shops, plus du
+contexte React réservé au workspace.
 
 ## 2. Décisions produit figées
 
@@ -32,6 +139,16 @@ avant le démarrage de l’epic, puis découpée en stories BMAD exécutables.
 7. Depuis une boutique, l’action « Créer un utilisateur pour moi » crée un
    compte boutique propre à cette boutique avec le nom et l’email de
    l’utilisateur Magrit.
+8. L’interface Magrit expose une action principale unique « Se connecter à la
+   boutique ». Elle garantit d’abord l’existence du compte miroir, puis démarre
+   immédiatement la délégation. Les deux opérations restent distinctes côté
+   domaine et audit.
+9. Une invitation d’équipe Magrit donne accès à l’espace Magrit et redirige
+   exclusivement vers `/t/:tenantSlug`. Elle ne connecte jamais implicitement
+   l’utilisateur à une boutique ; ce passage exige la délégation explicite.
+10. Une ancienne membership `shop_only` ne vaut ni compte ni session boutique.
+    Tant que son compte migré n'est pas activé, elle affiche un état de
+    transition et ne redirige vers aucun catalogue.
 
 ## 3. Terminologie
 
@@ -110,9 +227,11 @@ Supabase Auth impose une identité email globalement unique alors que ce modèle
 autorise la même adresse dans plusieurs boutiques et pour un utilisateur Magrit.
 Le storefront ne doit donc pas appeler Supabase Auth directement.
 
-Le BFF reçoit le contexte de boutique, l’email et le secret, résout le compte par
-`(shop_id, normalized_email)`, puis utilise un identifiant Auth technique unique
-et non exposé. L’email métier reste stocké sur le compte boutique.
+Le BFF reçoit le contexte de boutique, l’email et le secret, puis résout le
+compte par `(shop_id, normalized_email)`. Les credentials et sessions sont
+stockés dans un schéma PostgreSQL `private`, hors PostgREST. Le storefront
+n’utilise pas l’email global de Supabase Auth ; le champ `auth_subject_id`
+historique est transitoire et ne fait pas partie du nouveau contrat.
 
 Conséquences :
 
@@ -120,10 +239,42 @@ Conséquences :
   boutique précise ;
 - messages neutres ne révélant pas l’existence du compte ;
 - envoi des emails d’activation et de récupération par le port email Magrit ;
-- aucun identifiant Auth technique renvoyé au navigateur ;
+- aucun hash, jeton ou identifiant Auth technique renvoyé au navigateur ;
 - session storefront distincte de la session Magrit et limitée à une boutique.
 
-## 7. Parcours « Créer un utilisateur pour moi »
+Le catalogue d'une boutique `invite_only` est chargé uniquement après
+résolution de cette session. Le BFF transforme le cookie en contexte d'accès
+typé et ne transmet jamais son jeton au module Shops. Une session valide pour
+une boutique A ne donne aucun accès au catalogue de la boutique B, même si les
+deux comptes utilisent la même adresse email.
+
+## 7. Parcours unifié « Se connecter à la boutique »
+
+Cette action est le parcours nominal depuis la gestion d’une boutique Magrit.
+Elle combine « Créer un utilisateur pour moi » lorsque nécessaire et « Se
+connecter comme » sans obliger l’utilisateur à comprendre ces deux étapes.
+
+1. L’utilisateur Magrit choisit « Se connecter à la boutique ».
+2. Le serveur vérifie le tenant, la boutique, la capability de délégation et
+   l’état de la boutique.
+3. Il normalise l’email Magrit et recherche le compte miroir par
+   `(shop_id, normalized_email)`.
+4. Si le compte n’existe pas, il le crée en état `delegated_only` avec le nom et
+   l’email métier de l’utilisateur Magrit.
+5. Il crée ensuite une délégation courte pour ce compte.
+6. La boutique s’ouvre, de préférence dans un nouvel onglet, avec le bandeau de
+   délégation permanent.
+
+L’orchestration est idempotente sur la création du compte. Si le compte est créé
+mais que l’émission de la délégation échoue, une nouvelle tentative réutilise ce
+compte et ne produit aucun doublon. Aucune session storefront partielle ne doit
+être retournée au navigateur.
+
+L’interface peut conserver une action avancée « Se connecter comme » pour jouer
+un autre compte client existant. « Créer un utilisateur pour moi » n’a pas à
+rester une action primaire visible si le parcours unifié est disponible.
+
+### 7.1 Primitive « Créer un utilisateur pour moi »
 
 Préconditions : utilisateur Magrit authentifié, boutique appartenant à son
 tenant et capability dédiée à la délégation.
@@ -135,16 +286,15 @@ tenant et capability dédiée à la délégation.
    « Se connecter comme ».
 5. Sinon, un compte boutique `delegated_only` est créé avec le même nom et le
    même email métier.
-6. Un mot de passe aléatoire cryptographiquement robuste est généré côté
-   serveur pour l’identité Auth technique. Il n’est ni affiché, ni journalisé,
-   ni transmis au navigateur.
+6. Aucun credential ni mot de passe n’est créé : la délégation utilisera une
+   session courte propre et ne reposera pas sur Supabase Auth.
 7. Le compte devient immédiatement utilisable par délégation.
 8. Une activation autonome ultérieure passe par une invitation ou une
    récupération de mot de passe propre à cette boutique.
 
 La création est idempotente sur `(shop_id, normalized_email)`.
 
-## 8. Parcours « Se connecter comme »
+## 8. Primitive « Se connecter comme »
 
 1. Depuis le backoffice d’une boutique, un utilisateur Magrit sélectionne un
    compte client existant ou son compte miroir.
@@ -194,6 +344,7 @@ des collisions `(boutique, email)` avant d’activer les contraintes d’unicit�
 - `GET /api/v1/tenants/{tenantId}/shops/{shopId}/customers`
 - `POST /api/v1/tenants/{tenantId}/shops/{shopId}/customers`
 - `POST /api/v1/tenants/{tenantId}/shops/{shopId}/customers/self-mirror`
+- `POST /api/v1/tenants/{tenantId}/shops/{shopId}/customers/self-delegation`
 - `POST /api/v1/tenants/{tenantId}/shops/{shopId}/customers/{customerId}/delegate`
 - `DELETE /api/v1/storefront/delegation/current`
 - `POST /api/v1/storefront/{shopSlug}/session`
@@ -209,8 +360,11 @@ les stories d’implémentation.
 - **UM1 — Comptes boutique** : table, unicité boutique/email, repository et API.
 - **UM2 — Auth storefront BFF** : connexion, déconnexion, activation et reset.
 - **UM3 — Invitations boutique** : parcours et emails séparés de Magrit.
-- **UM4 — Compte miroir** : « Créer un utilisateur pour moi » idempotent.
-- **UM5 — Délégation** : « Se connecter comme », bandeau, sortie et audit.
+- **UM4 — Compte miroir** : primitive « Créer un utilisateur pour moi »
+  idempotente.
+- **UM5 — Délégation** : action unifiée « Se connecter à la boutique »,
+  primitive « Se connecter comme », bandeau, sortie, audit et accès au
+  catalogue privé strictement borné à la boutique de la session.
 - **UM6 — Références métier** : commandes, devis, paniers et préférences.
 - **UM7 — Migration** : conversion des membres `shop_only` existants.
 - **UM8 — Nettoyage** : retrait de `shop_only`, `allowed_shop_ids` client et du
@@ -235,6 +389,10 @@ doivent attendre la stabilisation du contrat UM2.
 8. Les comptes clients n’apparaissent pas dans la gestion de l’équipe Magrit et
    réciproquement.
 9. Les anciens comptes `shop_only` sont migrés sans perte de commandes.
+10. « Se connecter à la boutique » crée le compte miroir uniquement s’il manque
+    puis ouvre la délégation en une seule action utilisateur.
+11. Réessayer après un échec de délégation ne crée aucun compte miroir
+    supplémentaire.
 
 ## 14. Arbitrages restant à faire avant développement
 

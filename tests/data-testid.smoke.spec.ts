@@ -33,7 +33,7 @@ const CRITICAL: Record<string, string[]> = {
   P00: [TEST_IDS.tenant.createForm, TEST_IDS.tenant.sirenVerifyBtn, TEST_IDS.tenant.createSubmitBtn],
   P01: [TEST_IDS.auth.loginSubmitBtn, TEST_IDS.nav.sidebarUsersLink],
   P02: [TEST_IDS.user.table, TEST_IDS.user.inviteBtn, TEST_IDS.user.inviteModal],
-  P03: [TEST_IDS.user.permissionsModal, TEST_IDS.user.accessScopeRadio],
+  P03: [TEST_IDS.user.permissionsModal],
   P04: [TEST_IDS.tenant.settingsSection, TEST_IDS.tenant.renameSaveBtn],
   P05: [TEST_IDS.marguerite.chat, TEST_IDS.marguerite.messageInput, TEST_IDS.marguerite.modeToggle],
   P06: [TEST_IDS.marguerite.clarificationBubble],

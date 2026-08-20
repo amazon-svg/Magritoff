@@ -73,8 +73,12 @@ export const shopCustomMockupSchema = z.object({
   view: mockupViewSchema, mockupImageUrl: z.string().url(),
 });
 export const shopCustomMockupsSchema = z.array(shopCustomMockupSchema);
+export const shopTaxRegimeSchema = z.enum([
+  'metropole_fr', 'dom_tom', 'franchise_tva', 'export_eu', 'export_world',
+]);
 export const publicShopCatalogSchema = z.object({
   shop: publicShopSchema,
+  taxRegime: shopTaxRegimeSchema,
   products: z.array(publicShopProductSchema),
   gammes: z.array(publicGammeSchema),
   definitions: z.array(z.record(z.string(), z.unknown())),
@@ -90,7 +94,6 @@ export const shopPricingMutationResultSchema = z.object({ updated: z.literal(tru
 export const shopBrandAssetKindSchema = z.enum(['logo', 'hero']);
 export const shopBrandAssetResultSchema = z.object({ assetUrl: z.string().url() });
 export const shopCustomMockupMutationResultSchema = z.object({ updated: z.literal(true) });
-export const shopBuyerRegistrationResultSchema = z.object({ registered: z.literal(true) });
 export const persistAiShopProductCommandSchema = z.object({
   configHash: z.string().min(1).max(500), name: z.string().min(1).max(300),
   category: z.string().max(200), description: z.string().max(5000),
@@ -107,6 +110,7 @@ export type CreateShopProductCommand = z.infer<typeof createShopProductCommandSc
 export type UpdateShopProductCommand = z.infer<typeof updateShopProductCommandSchema>;
 export type PublicShopProbe = z.infer<typeof publicShopProbeSchema>;
 export type PublicShopCatalog = z.infer<typeof publicShopCatalogSchema>;
+export type ShopTaxRegime = z.infer<typeof shopTaxRegimeSchema>;
 export type ShopPricingOverride = z.infer<typeof shopPricingOverrideSchema>;
 export type SetShopPricingCommand = z.infer<typeof setShopPricingCommandSchema>;
 export type ShopBrandAssetKind = z.infer<typeof shopBrandAssetKindSchema>;

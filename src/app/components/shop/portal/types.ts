@@ -2,7 +2,7 @@
  * Types partages du portail B2B.
  */
 
-import type { ShopProduct } from '../../../contexts/ShopsContext';
+import type { ShopProduct } from '../../../../modules/shops';
 
 export type PortalView =
   | 'home'

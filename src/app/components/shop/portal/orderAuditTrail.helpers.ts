@@ -15,6 +15,8 @@ export interface OrderAuditEvent {
   event_type: string;
   actor_id: string | null;
   actor_email: string | null;
+  shop_customer_account_id: string | null;
+  acted_by_magrit_user_id: string | null;
   /** Pour kind='role' : nom du rôle. Pour kind='status' : null. */
   role_name: string | null;
   payload: Record<string, unknown>;
@@ -40,6 +42,8 @@ export async function fetchOrderAuditTrail(
         event_type: event.eventType,
         actor_id: event.actorId,
         actor_email: event.actorEmail,
+        shop_customer_account_id: event.shopCustomerAccountId,
+        acted_by_magrit_user_id: event.actedByMagritUserId,
         role_name: event.roleName,
         payload: event.payload,
         occurred_at: event.occurredAt,
@@ -88,7 +92,9 @@ export function formatAuditEventTitle(event: OrderAuditEvent): string {
  * Description secondaire affichée sous le titre (acteur + détails).
  */
 export function formatAuditEventDescription(event: OrderAuditEvent): string {
-  const actor = event.actor_email ?? '(acteur inconnu)';
+  const actor = event.shop_customer_account_id
+    ? event.acted_by_magrit_user_id ? 'Intervention Magrit pour le compte boutique' : 'Compte boutique'
+    : event.actor_email ?? '(acteur inconnu)';
   if (event.kind === 'status') {
     const reason = event.payload.reason ? ` — ${event.payload.reason}` : '';
     return `Par ${actor}${reason}`;

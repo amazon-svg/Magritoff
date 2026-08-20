@@ -1,15 +1,16 @@
 import { lazy, Suspense, useEffect, useState, useMemo } from 'react';
 import { Search, Sparkles, X, Loader2, AlertTriangle } from 'lucide-react';
-import type { Shop, ShopProduct } from '../../../contexts/ShopsContext';
+import type { Shop, ShopProduct } from '../../../../modules/shops';
 import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
 import { resolveProductImage } from '../../../utils/productImages';
-import { useDiagnosticsApi, useShopsApi } from '../../../contexts/ModuleClientsContext';
-import { useAuth } from '../../../contexts/AuthContext';
 import { computeClariprintQuoteSafe } from '../../../../modules/clariprint';
 import { useClaudeSseStream, ClaudeSseStreamError } from '../../../hooks/useClaudeSseStream';
 import { ENABLE_STREAMING_CHAT } from '../../../lib/featureFlags';
 import { TEST_IDS } from '../../../lib/testIds';
-import { useBrowserServices } from '../../../contexts/BrowserServicesContext';
+import {
+  useStorefrontAssistant,
+  useStorefrontClariprint,
+} from '../../../contexts/StorefrontBrowserServicesContext';
 import { ShopProductCard } from '../ShopProductCard';
 import { buildShopTaxonomy } from '../../../utils/shopTaxonomy';
 import {
@@ -26,9 +27,8 @@ import {
 import {
   buildCategoryLandingModel,
   mergeEditorial,
-  categoryEditorialCacheKey,
-  type CategoryEditorial,
 } from '../../../utils/catalogLanding';
+import { useStorefrontCategoryEditorial } from '../../../hooks/useStorefrontCategoryEditorial';
 import { PortalCategoryLanding } from './PortalCategoryLanding';
 import {
   Select,
@@ -55,6 +55,7 @@ const ProductOverlay = lazy(() =>
 
 interface Props {
   shop: Shop;
+  taxRate: number;
   products: ShopProduct[];
   onSelectProduct: (p: ShopProduct) => void;
   onAddToCart: (p: ShopProduct, qty?: number) => void;
@@ -117,36 +118,11 @@ function configToEphemeralShopProduct(config: any, index: number): ShopProduct {
   } as ShopProduct;
 }
 
-/**
- * S-SHOP-AI-PERSIST (2026-07-08) — signature déterministe d'un produit calculé,
- * pour dédupliquer sa persistance en boutique (même config = 1 seul produit).
- * On se base sur l'essence de la config (gamme + format + dimensions + quantité
- * + matière/finitions), pas sur le libellé qui peut varier.
- */
-function aiConfigSignature(p: ShopProduct): string {
-  const c = (p.config ?? {}) as Record<string, any>;
-  const cp = (c.clariprintData ?? {}) as Record<string, any>;
-  return [
-    p.gamme_slug ?? '',
-    String(c.kind ?? cp.kind ?? ''),
-    String(c.format ?? ''),
-    String(c.width ?? cp.width ?? ''),
-    String(c.height ?? cp.height ?? ''),
-    String(c.quantity ?? cp.quantity ?? ''),
-    String(c.material ?? c.support ?? ''),
-    String(c.weight ?? c.grammage ?? ''),
-    String(c.printing ?? c.impression ?? ''),
-    String(c.finishRecto ?? ''),
-    String(c.finishVerso ?? ''),
-  ]
-    .join('|')
-    .toLowerCase();
-}
-
 // F2 — Catalogue recherche conversationnelle
 // Design source : .design-handoff/designs/05 - Portail B2B.html (section .f2b)
 export function PortalCatalog({
   shop,
+  taxRate,
   products,
   onSelectProduct,
   onAddToCart,
@@ -158,10 +134,8 @@ export function PortalCatalog({
   onSelectSubcategory,
   initialFormat,
 }: Props) {
-  const { clariprint } = useBrowserServices();
-  const { session } = useAuth();
-  const shopsApi = useShopsApi();
-  const assistantApi = useDiagnosticsApi();
+  const clariprint = useStorefrontClariprint();
+  const storefrontAssistant = useStorefrontAssistant();
   const [query, setQuery] = useState('');
   // S2.21 — autocomplétion : menu ouvert au focus + saisie ≥ 2 car.
   const [searchOpen, setSearchOpen] = useState(false);
@@ -197,7 +171,7 @@ export function PortalCatalog({
   // S-SHOP-STREAM (2026-07-08) : compteur de chunks streames -> feedback vivant
   // pendant que Magrit compose (evite l ecran fige sur les requetes 30s+).
   const [aiStreaming, setAiStreaming] = useState(false);
-  const { send: sendSseStream } = useClaudeSseStream();
+  const { send: sendSseStream } = useClaudeSseStream(storefrontAssistant);
 
   // S-CONSO-5 (Sprint 4 Phase 2, Sally) : tri grille catalogue avec
   // persistance localStorage par slug. Sort key chargee au mount.
@@ -223,11 +197,9 @@ export function PortalCatalog({
       // reponse et le filtre texte local restait muet sur une phrase en langage
       // naturel = ecran sans reponse. Le streaming donne un retour vivant
       // (aiStreaming via onDelta) et le payload `done` porte les memes configs.
-      if (!session?.access_token) throw new ClaudeSseStreamError('network', 'Authentification requise', 401);
       const data = await sendSseStream(
         {
-          authToken: session.access_token,
-          body: { messages: [{ role: 'user', content: prompt }] },
+          body: { messages: [{ role: 'user', content: prompt }], shopSlug: shop.slug },
           onDelta: ENABLE_STREAMING_CHAT ? () => setAiStreaming(true) : undefined,
         },
         ENABLE_STREAMING_CHAT,
@@ -260,24 +232,6 @@ export function PortalCatalog({
       setAiResults(withPrices);
       setSearchMode('ia'); // S-CONSO-4 : reussite -> mode IA
 
-      // S-SHOP-AI-PERSIST (2026-07-08, décision Arnaud) : dès qu'un produit est
-      // calculé par Magrit, il devient PERSISTANT dans cette boutique (catalogue
-      // + recherche future), dédupliqué par config. Best-effort et
-      // fire-and-forget : ne bloque pas l'affichage et n'échoue jamais la
-      // recherche (RPC SECURITY DEFINER borné à l'accès boutique ; anon ignoré).
-      // Le realtime shop_products de PublicShop rafraîchit ensuite la grille.
-      if (shop.tenant_id) void Promise.all(
-        withPrices.map((p) =>
-          shopsApi.persistAiProduct(shop.tenant_id!, shop.id, {
-            configHash: aiConfigSignature(p), name: p.name,
-            category: p.category ?? 'Autres', description: p.description ?? '',
-            priceHt: p.price_ht ?? 0, imageUrl: p.image_url ?? '',
-            config: p.config ?? {}, gammeSlug: p.gamme_slug ?? null,
-          }).catch((error) => console.info(`[shop_ai_persist] skip "${p.name}" — ${error instanceof Error ? error.message : 'erreur'}`)),
-        ),
-      ).catch(() => {
-        /* best-effort : la persistance ne doit jamais casser la recherche */
-      });
     } catch (err: any) {
       // Annulation (demontage / nouvelle requete) : on ne touche a rien.
       if (err instanceof ClaudeSseStreamError && err.kind === 'aborted') {
@@ -321,58 +275,10 @@ export function PortalCatalog({
   }, [products, pimGammes]);
   const breadcrumbFamily = activeFamily?.label ?? null;
 
-  // S2.20 — Contenu éditorial LLM (endpoint category-editorial), avec cache
-  // session par famille + socle déterministe si l'IA est indisponible.
-  const [editorial, setEditorial] = useState<CategoryEditorial | null>(null);
-  useEffect(() => {
-    if (!activeFamily) {
-      setEditorial(null);
-      return;
-    }
-    let cancelled = false;
-    const cacheKey = categoryEditorialCacheKey(activeFamily.key);
-    try {
-      const cached = sessionStorage.getItem(cacheKey);
-      if (cached) {
-        setEditorial(JSON.parse(cached));
-        return;
-      }
-    } catch {
-      /* sessionStorage indispo : on tente l'appel réseau */
-    }
-    setEditorial(null);
-    (async () => {
-      try {
-        const CATEGORY_EDITORIAL_TIMEOUT_MS = 12_000;
-        if (!shop.tenant_id) throw new Error('category_editorial_tenant_missing');
-        const invokePromise = assistantApi.categoryEditorial(shop.tenant_id, {
-          familyName: activeFamily.label,
-          subcategories: activeFamily.subcategories.filter((s) => s.count > 0).map((s) => s.label),
-          sampleProducts: products.slice(0, 8).map((p) => p.name),
-        });
-        const timeoutPromise = new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error('category_editorial_timeout')), CATEGORY_EDITORIAL_TIMEOUT_MS);
-        });
-        const data = (await Promise.race([invokePromise, timeoutPromise])) as Awaited<
-          typeof invokePromise
-        >;
-        const ed = data.editorial as CategoryEditorial;
-        if (cancelled) return;
-        setEditorial(ed);
-        try {
-          sessionStorage.setItem(cacheKey, JSON.stringify(ed));
-        } catch {
-          /* noop */
-        }
-      } catch {
-        // Timeout / réseau : on garde le socle déterministe (jamais de page vide).
-        if (!cancelled) setEditorial(null);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [activeFamily, assistantApi, products, shop.tenant_id]);
+  // S2.20 — Contenu éditorial LLM facultatif, avec cache session par famille et
+  // socle déterministe. La route storefront résout le slug et le cookie côté
+  // BFF ; aucun tenant ni bearer Magrit n'est transmis par le navigateur.
+  const editorial = useStorefrontCategoryEditorial(shop.slug, activeFamily, products);
 
   // S2.20 — Modèle final de la landing : socle déterministe + overlay éditorial.
   const landingModel = useMemo(
@@ -957,6 +863,8 @@ export function PortalCatalog({
           <ProductOverlay
             product={overlayProduct}
             shop={shop}
+            taxRate={taxRate}
+            clariprintGateway={clariprint}
             onClose={() => setOverlayProduct(null)}
             onConfirm={(productConfigured, qty) => {
               // S-FIX-PANIER-11/05 (bug #5) : `qty` retourne par l'overlay est la

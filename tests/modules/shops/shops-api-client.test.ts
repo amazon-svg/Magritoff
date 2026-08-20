@@ -15,12 +15,11 @@ describe('ShopsApiClient', () => {
       const url = String(input); const method = init?.method ?? 'GET'; calls.push(`${method} ${url}`);
       if (method === 'GET' && url.endsWith('/shops')) return new Response(JSON.stringify([shop]));
       if (method === 'GET' && url.endsWith('/probe')) return new Response(JSON.stringify({ id: shopId, tenantId, accessMode: 'invite_only' }));
-      if (method === 'GET' && url.endsWith('/catalog')) return new Response(JSON.stringify({ shop: { ...shop, ownerUserId: undefined, libraryIds: undefined, excludedProductIds: undefined, pimCatalogMode: undefined, pimGammeSlugs: undefined }, products: [], gammes: [], definitions: [], subscribedSlugs: [], customMockups: [] }));
+      if (method === 'GET' && url.endsWith('/catalog')) return new Response(JSON.stringify({ shop: { ...shop, ownerUserId: undefined, libraryIds: undefined, excludedProductIds: undefined, pimCatalogMode: undefined, pimGammeSlugs: undefined }, taxRegime: 'metropole_fr', products: [], gammes: [], definitions: [], subscribedSlugs: [], customMockups: [] }));
       if (method === 'GET' && url.endsWith('/custom-mockups')) return new Response(JSON.stringify([]));
       if (method === 'GET' && url.endsWith('/pricing')) return new Response(JSON.stringify([]));
       if (method === 'GET' && url.endsWith('/products')) return new Response(JSON.stringify([product]));
       if (method === 'POST' && url.endsWith('/brand-assets')) return new Response(JSON.stringify({ assetUrl: 'https://assets.magrit.test/logo.png' }));
-      if (method === 'POST' && url.endsWith('/buyer-registration')) return new Response(JSON.stringify({ registered: true }));
       if (method === 'POST' && url.endsWith('/custom-mockups')) return new Response(JSON.stringify({ updated: true }));
       if (method === 'DELETE' && url.includes('/custom-mockups/')) return new Response(JSON.stringify({ updated: true }));
       if (method === 'POST' && url.endsWith('/products')) return new Response(JSON.stringify(product));
@@ -35,14 +34,14 @@ describe('ShopsApiClient', () => {
     await client.addProduct(tenantId, shopId, { productId: null, name: 'Flyer', category: '', description: '', priceHt: 10, imageUrl: '', config: {}, displayOrder: 0, gammeSlug: null });
     await client.updateProduct(tenantId, shopId, productId, { priceHt: 12 });
     await client.removeProduct(tenantId, shopId, productId); await client.remove(tenantId, shopId);
-    await client.publicProbe('demo'); await client.publicCatalog('demo');
+    await client.publicProbe('demo');
+    await expect(client.publicCatalog('demo')).resolves.toMatchObject({ taxRegime: 'metropole_fr' });
     await client.pricing(tenantId, shopId); await client.setPricing(tenantId, shopId, productId, 12);
     await expect(client.uploadBrandAsset(tenantId, shopId, 'logo', new File(['png'], 'logo.png', { type: 'image/png' }))).resolves.toBe('https://assets.magrit.test/logo.png');
     await client.customMockups(tenantId, shopId);
     await client.uploadCustomMockup(tenantId, shopId, 'flyer', 'front', new File(['svg'], 'flyer.svg', { type: 'image/svg+xml' }));
     await client.restoreCustomMockup(tenantId, shopId, 'flyer', 'front');
-    await client.registerBuyer(shopId);
-    expect(calls).toHaveLength(17);
+    expect(calls).toHaveLength(16);
     expect(calls[0]).toBe(`GET /api/v1/tenants/${tenantId}/shops`);
     expect(calls[5]).toContain(`/shops/${shopId}/products/${productId}`);
     expect(calls[9]).toBe('GET /api/v1/public/shops/demo/catalog');
@@ -50,6 +49,5 @@ describe('ShopsApiClient', () => {
     expect(calls[12]).toBe(`POST /api/v1/tenants/${tenantId}/shops/${shopId}/brand-assets`);
     expect(calls[13]).toContain('/custom-mockups');
     expect(calls[15]).toBe(`DELETE /api/v1/tenants/${tenantId}/shops/${shopId}/custom-mockups/flyer/front`);
-    expect(calls[16]).toBe(`POST /api/v1/shops/${shopId}/buyer-registration`);
   });
 });

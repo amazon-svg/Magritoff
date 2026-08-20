@@ -2,9 +2,10 @@ import { assistantChatCommandSchema } from '../../modules/diagnostics/api/contra
 
 export type AssistantStreamProxyOptions = Readonly<{
   legacyBaseUrl: string;
-  authorization: string;
-  userId: string;
+  authorization?: string;
+  userId?: string;
   authorizeTenant?: (tenantId: string) => Promise<boolean>;
+  authorizeShop?: (shopSlug: string) => Promise<Readonly<{ userId: string; tenantId: string }> | null>;
   fetchImplementation?: typeof fetch;
 }>;
 
@@ -13,16 +14,29 @@ export async function proxyAssistantChat(request: Request, options: AssistantStr
   try { payload = await request.json(); } catch { return problem(400, 'api.invalid_json', 'Corps JSON invalide'); }
   const parsed = assistantChatCommandSchema.safeParse(payload);
   if (!parsed.success) return problem(422, 'api.validation_failed', 'Requête assistant invalide');
-  if (parsed.data.tenantId && options.authorizeTenant && !await options.authorizeTenant(parsed.data.tenantId)) {
+  let userId = options.userId;
+  let tenantId = parsed.data.tenantId ?? undefined;
+  if (parsed.data.shopSlug) {
+    const storefront = options.authorizeShop
+      ? await options.authorizeShop(parsed.data.shopSlug)
+      : null;
+    if (!storefront) {
+      return problem(403, 'assistant.permission_denied', 'Accès assistant interdit pour cette boutique');
+    }
+    userId = storefront.userId;
+    tenantId = storefront.tenantId;
+  } else if (tenantId && options.authorizeTenant && !await options.authorizeTenant(tenantId)) {
     return problem(403, 'assistant.permission_denied', 'Accès assistant interdit pour ce tenant');
   }
+  if (!userId) return problem(401, 'identity.authentication_required', 'Authentification requise');
   const streaming = request.headers.get('accept')?.includes('text/event-stream') ?? false;
   const fetchImplementation = options.fetchImplementation ?? globalThis.fetch;
   try {
+    const { shopSlug: _shopSlug, ...upstreamCommand } = parsed.data;
     const upstream = await fetchImplementation(`${options.legacyBaseUrl}/${streaming ? 'claude-proxy-stream' : 'claude-proxy'}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: options.authorization, ...(streaming ? { Accept: 'text/event-stream' } : {}) },
-      body: JSON.stringify({ ...parsed.data, userId: options.userId }),
+      headers: { 'Content-Type': 'application/json', ...(options.authorization ? { Authorization: options.authorization } : {}), ...(streaming ? { Accept: 'text/event-stream' } : {}) },
+      body: JSON.stringify({ ...upstreamCommand, tenantId, userId }),
       signal: request.signal,
     });
     const headers = new Headers();

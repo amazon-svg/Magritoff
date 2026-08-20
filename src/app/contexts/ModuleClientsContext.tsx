@@ -11,10 +11,11 @@ import { QuoteTemplatesApiClient } from '../../modules/quote-templates';
 import { QuotesApiClient } from '../../modules/quotes';
 import { RolesApiClient } from '../../modules/roles';
 import { SessionApiClient } from '../../modules/session';
+import { ShopCustomersApiClient } from '../../modules/shop-customers';
 import { ShopsApiClient } from '../../modules/shops';
 import { useApiRuntime } from './ApiRuntimeContext';
 
-type ModuleClients = Readonly<{
+type WorkspaceModuleClients = Readonly<{
   catalog: CatalogApiClient;
   commercial: CommercialApiClient;
   conversations: ConversationsApiClient;
@@ -25,6 +26,7 @@ type ModuleClients = Readonly<{
   quoteTemplates: QuoteTemplatesApiClient;
   quotes: QuotesApiClient;
   session: SessionApiClient;
+  shopCustomers: ShopCustomersApiClient;
   shops: ShopsApiClient;
   shopsForAccessToken(accessToken: string): ShopsApiClient;
   workspaceInvitations: InvitationsApiClient;
@@ -33,12 +35,12 @@ type ModuleClients = Readonly<{
   workspaceRoles: RolesApiClient;
 }>;
 
-const ModuleClientsContext = createContext<ModuleClients | null>(null);
+const WorkspaceModuleClientsContext = createContext<WorkspaceModuleClients | null>(null);
 
 /** Composition root des façades `/api/v1` consommées par l'application. */
 export function ModuleClientsProvider({ children }: { children: ReactNode }) {
   const apiRuntime = useApiRuntime();
-  const clients = useMemo<ModuleClients>(
+  const workspaceClients = useMemo<WorkspaceModuleClients>(
     () => ({
       catalog: new CatalogApiClient(apiRuntime.client),
       commercial: new CommercialApiClient(apiRuntime.client),
@@ -50,6 +52,7 @@ export function ModuleClientsProvider({ children }: { children: ReactNode }) {
       quoteTemplates: new QuoteTemplatesApiClient(apiRuntime.client),
       quotes: new QuotesApiClient(apiRuntime.client),
       session: new SessionApiClient(apiRuntime.client),
+      shopCustomers: new ShopCustomersApiClient(apiRuntime.client),
       shops: new ShopsApiClient(apiRuntime.client),
       shopsForAccessToken: (accessToken) => new ShopsApiClient(
         apiRuntime.forAccessToken(accessToken),
@@ -63,106 +66,84 @@ export function ModuleClientsProvider({ children }: { children: ReactNode }) {
     }),
     [apiRuntime],
   );
-
   return (
-    <ModuleClientsContext.Provider value={clients}>
+    <WorkspaceModuleClientsContext.Provider value={workspaceClients}>
       {children}
-    </ModuleClientsContext.Provider>
+    </WorkspaceModuleClientsContext.Provider>
   );
 }
 
+function useWorkspaceModuleClients(): WorkspaceModuleClients {
+  const clients = useContext(WorkspaceModuleClientsContext);
+  if (!clients) throw new Error('Workspace clients require ModuleClientsProvider');
+  return clients;
+}
+
 export function useOrdersApi(): OrdersApiClient {
-  const clients = useContext(ModuleClientsContext);
-  if (!clients) throw new Error('useOrdersApi must be used within a ModuleClientsProvider');
-  return clients.orders;
+  return useWorkspaceModuleClients().orders;
 }
 
 export function useCatalogApi(): CatalogApiClient {
-  const clients = useContext(ModuleClientsContext);
-  if (!clients) throw new Error('useCatalogApi must be used within a ModuleClientsProvider');
-  return clients.catalog;
+  return useWorkspaceModuleClients().catalog;
 }
 
 export function useCommercialApi(): CommercialApiClient {
-  const clients = useContext(ModuleClientsContext);
-  if (!clients) throw new Error('useCommercialApi must be used within a ModuleClientsProvider');
-  return clients.commercial;
+  return useWorkspaceModuleClients().commercial;
 }
 
 export function useConversationsApi(): ConversationsApiClient {
-  const clients = useContext(ModuleClientsContext);
-  if (!clients) throw new Error('useConversationsApi must be used within a ModuleClientsProvider');
-  return clients.conversations;
+  return useWorkspaceModuleClients().conversations;
 }
 
 export function useDiagnosticsApi(): DiagnosticsApiClient {
-  const clients = useContext(ModuleClientsContext);
-  if (!clients) throw new Error('useDiagnosticsApi must be used within a ModuleClientsProvider');
-  return clients.diagnostics;
+  return useWorkspaceModuleClients().diagnostics;
 }
 
+
 export function useLibrariesApi(): LibrariesApiClient {
-  const clients = useContext(ModuleClientsContext);
-  if (!clients) throw new Error('useLibrariesApi must be used within a ModuleClientsProvider');
-  return clients.libraries;
+  return useWorkspaceModuleClients().libraries;
 }
 
 export function useLibraryProductsApi(): LibraryProductsApiClient {
-  const clients = useContext(ModuleClientsContext);
-  if (!clients) throw new Error('useLibraryProductsApi must be used within a ModuleClientsProvider');
-  return clients.libraryProducts;
+  return useWorkspaceModuleClients().libraryProducts;
 }
 
 export function useQuoteTemplatesApi(): QuoteTemplatesApiClient {
-  const clients = useContext(ModuleClientsContext);
-  if (!clients) throw new Error('useQuoteTemplatesApi must be used within a ModuleClientsProvider');
-  return clients.quoteTemplates;
+  return useWorkspaceModuleClients().quoteTemplates;
 }
 
 export function useQuotesApi(): QuotesApiClient {
-  const clients = useContext(ModuleClientsContext);
-  if (!clients) throw new Error('useQuotesApi must be used within a ModuleClientsProvider');
-  return clients.quotes;
+  return useWorkspaceModuleClients().quotes;
 }
 
 export function useSessionApi(): SessionApiClient {
-  const clients = useContext(ModuleClientsContext);
-  if (!clients) throw new Error('useSessionApi must be used within a ModuleClientsProvider');
-  return clients.session;
+  return useWorkspaceModuleClients().session;
+}
+
+export function useShopCustomersApi(): ShopCustomersApiClient {
+  return useWorkspaceModuleClients().shopCustomers;
 }
 
 export function useShopsApi(): ShopsApiClient {
-  const clients = useContext(ModuleClientsContext);
-  if (!clients) throw new Error('useShopsApi must be used within a ModuleClientsProvider');
-  return clients.shops;
+  return useWorkspaceModuleClients().shops;
 }
 
-export function useShopsApiFactory(): ModuleClients['shopsForAccessToken'] {
-  const clients = useContext(ModuleClientsContext);
-  if (!clients) throw new Error('useShopsApiFactory must be used within a ModuleClientsProvider');
-  return clients.shopsForAccessToken;
+export function useShopsApiFactory(): WorkspaceModuleClients['shopsForAccessToken'] {
+  return useWorkspaceModuleClients().shopsForAccessToken;
 }
 
 export function useWorkspaceInvitationsApi(): InvitationsApiClient {
-  const clients = useContext(ModuleClientsContext);
-  if (!clients) throw new Error('useWorkspaceInvitationsApi must be used within a ModuleClientsProvider');
-  return clients.workspaceInvitations;
+  return useWorkspaceModuleClients().workspaceInvitations;
 }
 
-export function useWorkspaceInvitationsApiFactory(): ModuleClients['workspaceInvitationsForAccessToken'] {
-  const clients = useContext(ModuleClientsContext);
-  if (!clients) throw new Error('useWorkspaceInvitationsApiFactory must be used within a ModuleClientsProvider');
-  return clients.workspaceInvitationsForAccessToken;
+export function useWorkspaceInvitationsApiFactory(): WorkspaceModuleClients['workspaceInvitationsForAccessToken'] {
+  return useWorkspaceModuleClients().workspaceInvitationsForAccessToken;
 }
 
 export function useWorkspaceMembersApi(): MembersApiClient {
-  const clients = useContext(ModuleClientsContext);
-  if (!clients) throw new Error('useWorkspaceMembersApi must be used within a ModuleClientsProvider');
-  return clients.workspaceMembers;
+  return useWorkspaceModuleClients().workspaceMembers;
 }
 
 export function useWorkspaceRolesApi(): RolesApiClient {
-  const clients = useContext(ModuleClientsContext);
-  if (!clients) throw new Error('useWorkspaceRolesApi must be used within a ModuleClientsProvider');
-  return clients.workspaceRoles;
+  return useWorkspaceModuleClients().workspaceRoles;
 }

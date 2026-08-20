@@ -12,7 +12,7 @@
  *    tests + reuse.
  */
 
-import type { ShopProduct } from "../../contexts/ShopsContext";
+import type { ShopProduct } from '../../../modules/shops';
 
 // P18 v2 (2026-06-24) — La resolution de famille (kind Clariprint + inference)
 // et le mapping vers les 7 visuels Gemini ont ete extraits dans

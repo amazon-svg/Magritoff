@@ -19,12 +19,7 @@ describe('useClariprintProduct - contrat exporte', () => {
     expect(typeof useClariprintProduct).toBe('function');
   });
 
-  it('2. hook accepte un parametre optionnel (custom adapter pour tests)', () => {
-    // Le hook accepte 1 argument optionnel (`customAdapter`). Function.length
-    // compte les params jusqu au premier optionnel exclu — donc 1 ici car
-    // TypeScript marque `customAdapter?` mais la fonction declare bien 1 param.
-    // On verifie juste qu il est appelable sans arg en pratique (cf. usage prod
-    // dans ProductCard.tsx).
-    expect(useClariprintProduct.length).toBeLessThanOrEqual(1);
+  it('2. exige une passerelle choisie par la surface appelante', () => {
+    expect(useClariprintProduct.length).toBe(1);
   });
 });

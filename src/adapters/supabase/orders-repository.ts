@@ -16,16 +16,22 @@ import type {
 import { OrderCommandRejectedError } from '../../modules/orders/application/orders-repository.ts';
 import type {
   AuditEventRecord,
+  CreateOrderAuthorization,
   LegacyOrderRecord,
   OrdersRepository,
+  OrderResourceAuthorization,
   TaxRegime,
   TenantOrderRecord,
+  StorefrontPortalOrdersRecord,
+  TransitionOrderAuthorization,
 } from '../../modules/orders/application/orders-repository.ts';
 import type { Database, Json } from '../../types/database.types.ts';
 
 type UserScopedClient = SupabaseClient<Database>;
 type TenantOrderRow = Database['public']['Tables']['tenant_orders']['Row'] & {
   tenant_order_items?: Database['public']['Tables']['tenant_order_items']['Row'][] | null;
+  customer_name?: string | null;
+  customer_email?: string | null;
 };
 
 const TENANT_ORDER_SELECTION =
@@ -51,14 +57,14 @@ export class SupabaseOrdersRepository implements OrdersRepository {
     const { data, error } = await this.client.from('tenant_orders').select(TENANT_ORDER_SELECTION)
       .eq('tenant_id', tenantId).order('created_at', { ascending: false }).limit(100);
     if (error) throw new Error(`Lecture des commandes tenant impossible: ${error.message}`);
-    return (data ?? []).map((row) => toTenantOrder(row as unknown as TenantOrderRow));
+    return this.withCustomerIdentities(data ?? []);
   }
 
   async listTenantOrdersByIds(orderIds: readonly string[]): Promise<readonly TenantOrderRecord[]> {
     if (orderIds.length === 0) return [];
     const { data, error } = await this.client.from('tenant_orders').select(TENANT_ORDER_SELECTION).in('id', [...orderIds]);
     if (error) throw new Error(`Lecture des commandes portail impossible: ${error.message}`);
-    return (data ?? []).map((row) => toTenantOrder(row as unknown as TenantOrderRow));
+    return this.withCustomerIdentities(data ?? []);
   }
 
   async listLegacyOrders(shopIds: readonly string[], customerEmail?: string): Promise<readonly LegacyOrderRecord[]> {
@@ -109,9 +115,48 @@ export class SupabaseOrdersRepository implements OrdersRepository {
     return data.user?.email ?? null;
   }
 
-  async listAuditEvents(orderId: string): Promise<readonly AuditEventRecord[]> {
-    const { data, error } = await this.client.rpc('get_order_audit_trail', { p_order_id: orderId });
-    if (error) throw new Error(`Lecture de l audit impossible: ${error.message}`);
+  async getStorefrontPortalOrders(shopId: string, opaqueToken: string): Promise<StorefrontPortalOrdersRecord> {
+    const { data, error } = await this.client.rpc('api_get_storefront_portal_orders', {
+      p_shop_id: shopId,
+      p_opaque_token: opaqueToken,
+    });
+    if (error) throw mapOrderCommandError(error.message, 'Lecture du portail boutique impossible');
+    const result = toRecord(data);
+    const rows = Array.isArray(result.orders) ? result.orders : [];
+    return {
+      orders: rows.map((row) => toTenantOrder(toRecord(row) as unknown as TenantOrderRow)),
+      taxRegime: normalizeTaxRegime(typeof result.tax_regime === 'string' ? result.tax_regime : null),
+    };
+  }
+
+  private async withCustomerIdentities(rows: readonly unknown[]): Promise<readonly TenantOrderRecord[]> {
+    if (rows.length === 0) return [];
+    const orderIds = rows.flatMap((row) => {
+      const id = toRecord(row).id;
+      return typeof id === 'string' ? [id] : [];
+    });
+    const { data, error } = await this.client.rpc('api_get_order_customer_identities', {
+      p_order_ids: orderIds,
+    });
+    if (error) throw new Error(`Lecture des clients de commandes impossible: ${error.message}`);
+    const identities = new Map((data ?? []).map((identity) => [identity.order_id, identity]));
+    return rows.map((row) => {
+      const typedRow = row as TenantOrderRow;
+      const identity = identities.get(typedRow.id);
+      return toTenantOrder({
+        ...typedRow,
+        customer_name: identity?.customer_name ?? null,
+        customer_email: identity?.customer_email ?? null,
+      });
+    });
+  }
+
+  async listAuditEvents(orderId: string, authorization: OrderResourceAuthorization): Promise<readonly AuditEventRecord[]> {
+    const { data, error } = await this.client.rpc('api_get_order_audit_for_identity', {
+      p_order_id: orderId,
+      p_opaque_token: authorization.storefrontToken,
+    });
+    if (error) throw mapOrderCommandError(error.message, 'Lecture de l audit impossible');
     return (data ?? []).map((row) => ({
       eventId: row.event_id,
       orderId: row.order_id,
@@ -119,18 +164,21 @@ export class SupabaseOrdersRepository implements OrdersRepository {
       eventType: row.event_type,
       actorId: row.actor_id,
       actorEmail: row.actor_email,
+      shopCustomerAccountId: row.shop_customer_account_id,
+      actedByMagritUserId: row.acted_by_magrit_user_id,
       roleName: row.role_name,
       payload: toRecord(row.payload),
       occurredAt: row.occurred_at,
     }));
   }
 
-  async transitionOrder(orderId: string, command: TransitionOrderCommand): Promise<TransitionOrderResult> {
-    const { data, error } = await this.client.rpc('api_transition_tenant_order_status', {
+  async transitionOrder(orderId: string, command: TransitionOrderCommand, authorization: TransitionOrderAuthorization): Promise<TransitionOrderResult> {
+    const { data, error } = await this.client.rpc('api_transition_order_for_identity', {
       p_order_id: orderId,
       p_new_status_code: command.toStatus,
       p_reason: command.reason,
       p_idempotency_key: command.idempotencyKey,
+      p_opaque_token: authorization.storefrontToken,
     });
     if (error) {
       const message = error.message;
@@ -162,7 +210,7 @@ export class SupabaseOrdersRepository implements OrdersRepository {
 
   async notifyTransition(
     result: TransitionOrderResult,
-    actorUserId: UserId,
+    actorUserId: UserId | null,
     baseUrl: string,
   ): Promise<void> {
     const { error } = await this.client.functions.invoke('order-workflow-step', {
@@ -177,8 +225,8 @@ export class SupabaseOrdersRepository implements OrdersRepository {
     if (error) throw new Error(`Notification workflow impossible: ${error.message}`);
   }
 
-  async createOrder(command: CreateOrderCommand): Promise<CreateOrderResult> {
-    const { data, error } = await this.client.rpc('api_create_tenant_order', {
+  async createOrder(command: CreateOrderCommand, authorization: CreateOrderAuthorization): Promise<CreateOrderResult> {
+    const parameters = {
       p_shop_id: command.shopId,
       p_currency: command.currency,
       p_notes: command.notes,
@@ -190,7 +238,10 @@ export class SupabaseOrdersRepository implements OrdersRepository {
         unit_price_ht: item.unitPriceHt,
       })),
       p_idempotency_key: command.idempotencyKey,
-    });
+    };
+    const { data, error } = authorization.kind === 'storefront_session'
+      ? await this.client.rpc('api_create_storefront_order', { ...parameters, p_opaque_token: authorization.opaqueToken })
+      : await this.client.rpc('api_create_tenant_order', parameters);
     if (error) throw mapOrderCommandError(error.message, 'Création de commande impossible');
     const result = toRecord(data);
     if (
@@ -222,9 +273,10 @@ export class SupabaseOrdersRepository implements OrdersRepository {
     if (error) throw new Error(`Notification de création impossible: ${error.message}`);
   }
 
-  async getDraftOrder(orderId: string): Promise<DraftOrder> {
-    const { data, error } = await this.client.rpc('api_get_tenant_order_draft', {
+  async getDraftOrder(orderId: string, authorization: OrderResourceAuthorization): Promise<DraftOrder> {
+    const { data, error } = await this.client.rpc('api_get_order_draft_for_identity', {
       p_order_id: orderId,
+      p_opaque_token: authorization.storefrontToken,
     });
     if (error) throw mapOrderCommandError(error.message, 'Lecture du brouillon impossible');
     const result = toRecord(data);
@@ -262,9 +314,11 @@ export class SupabaseOrdersRepository implements OrdersRepository {
   async updateDraftOrder(
     orderId: string,
     command: UpdateDraftOrderCommand,
+    authorization: OrderResourceAuthorization,
   ): Promise<UpdateDraftOrderResult> {
-    const { data, error } = await this.client.rpc('api_update_tenant_order_draft', {
+    const { data, error } = await this.client.rpc('api_update_order_draft_for_identity', {
       p_order_id: orderId,
+      p_opaque_token: authorization.storefrontToken,
       p_items: command.items.map((item) => ({
         id: item.id,
         product_label: item.productLabel,
@@ -323,6 +377,8 @@ function toTenantOrder(row: TenantOrderRow): TenantOrderRecord {
     id: row.id,
     shopId: row.shop_id,
     createdAt: row.created_at,
+    customerName: row.customer_name ?? null,
+    customerEmail: row.customer_email ?? null,
     totalHt: row.total_ht,
     status: row.status,
     items: (row.tenant_order_items ?? []).map((item) => ({

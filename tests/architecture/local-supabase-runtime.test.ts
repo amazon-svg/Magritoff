@@ -17,18 +17,31 @@ describe('runtime Supabase local', () => {
     expect(packageJson.devDependencies.supabase).toBeDefined();
     expect(packageJson.scripts['db:local:start']).toContain('supabase-local.sh start');
     expect(packageJson.scripts['db:local:reset']).toContain('supabase-local.sh reset');
-    expect(read('scripts/supabase-local.sh')).toContain('20260417000000_local_b4_baseline.sql');
+    expect(packageJson.scripts['db:local:push']).toContain('supabase-local.sh push');
+    expect(packageJson.scripts['test:storefront:sql']).toContain('test-storefront-sql.sh');
+    const localRuntime = read('scripts/supabase-local.sh');
+    expect(localRuntime).toContain('20260417000000_local_b4_baseline.sql');
+    expect(localRuntime).toContain('with_local_baseline db push --local');
+    expect(localRuntime).toContain('ensure_edge_runtime');
+    expect(localRuntime).toContain('supabase_edge_runtime_${PROJECT_ID}');
+    expect(localRuntime).toContain("docker inspect --format '{{.State.Running}}'");
+    expect(localRuntime).toContain('docker start "$container"');
+    expect(read('scripts/test-storefront-sql.sh')).toContain('storefront-order-identity.sql');
   });
 
   it('permet au front et au proxy API de cibler la stack locale', () => {
+    const edgeRuntime = read('supabase/functions/magrit-api/index.ts');
+
     expect(read('utils/supabase/info.tsx')).toContain('import.meta.env.VITE_SUPABASE_URL');
     expect(read('utils/supabase/info.tsx')).toContain('import.meta.env.VITE_SUPABASE_ANON_KEY');
     expect(read('vite.config.ts')).toContain('env.VITE_API_PROXY_TARGET');
     expect(read('.env.local.example')).toContain('http://127.0.0.1:54321');
     expect(read('supabase/functions/magrit-api/deno.json')).toContain('npm:zod@4.4.3');
-    expect(read('supabase/functions/magrit-api/index.ts')).toContain("Deno.env.get('MAGRIT_PUBLIC_SUPABASE_URL')");
-    expect(read('supabase/functions/magrit-api/index.ts')).toContain("request.headers.get('x-forwarded-port')");
-    expect(read('supabase/functions/magrit-api/index.ts')).toContain("return 'http://127.0.0.1:54321'");
+    expect(edgeRuntime).toContain("Deno.env.get('MAGRIT_PUBLIC_SUPABASE_URL')");
+    expect(edgeRuntime).toContain("request.headers.get('x-forwarded-port')");
+    expect(edgeRuntime).toContain("return 'http://127.0.0.1:54321'");
+    expect(edgeRuntime).toContain('new SupabaseStorefrontAuthenticationGateway(storefrontClient)');
+    expect(edgeRuntime).not.toContain('new SupabaseStorefrontAuthenticationGateway(client)');
   });
 
   it('accorde explicitement les opérations API protégées par RLS', () => {
@@ -37,6 +50,16 @@ describe('runtime Supabase local', () => {
     expect(grants).toContain('select, insert, update, delete');
     expect(grants).toContain('to anon, authenticated');
     expect(grants).toContain('alter default privileges for role postgres');
+  });
+
+  it('restaure les privilèges de données du service role serveur', () => {
+    const grants = read('supabase/migrations/20260819000100_service_role_table_grants.sql');
+
+    expect(grants).toContain('on all tables in schema public');
+    expect(grants).toContain('to service_role');
+    expect(grants).toContain('on all sequences in schema public');
+    expect(grants).toContain('alter default privileges for role postgres');
+    expect(grants).not.toContain('schema private to service_role');
   });
 
   it('ne réutilise pas une session persistée supprimée par un reset local', () => {
@@ -65,5 +88,12 @@ describe('runtime Supabase local', () => {
     expect(dashboard).toContain("currentTenant?.myRole === 'owner'");
     expect(dashboard).toContain('canValidate || isTenantAdmin');
     expect(dashboard).toContain('canModifyProduction || isTenantAdmin');
+  });
+
+  it('peut reprendre la migration self-signup après une extraction déjà effectuée', () => {
+    const migration = read('supabase/migrations/20260811000800_create_order_self_signup.sql');
+
+    expect(migration).toContain("to_regprocedure(\n    'public.api_create_tenant_order_core(uuid,text,text,jsonb,text)'");
+    expect(migration).toContain('create or replace function public.api_create_tenant_order');
   });
 });

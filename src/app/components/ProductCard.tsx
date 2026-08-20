@@ -39,7 +39,8 @@ import { ProductCardFiche } from "./product-card/ProductCardFiche";
 import { ProductCardPrix } from "./product-card/ProductCardPrix";
 import { extractClariprintConfigFromAtelierProduct } from "./shop/ProductOverlay.helpers";
 import { resolvePrice } from "../utils/priceResolver";
-import type { ShopProduct } from "../contexts/ShopsContext";
+import type { ShopProduct } from "../../modules/shops";
+import { useBrowserServices } from "../contexts/BrowserServicesContext";
 
 interface ClariprintQuoteResult {
   success: boolean;
@@ -119,6 +120,7 @@ export function ProductCard({
   const { canUse } = usePlan();
   const tp = useTenantPath();
   const { currentTenant } = useTenant();
+  const { clariprint } = useBrowserServices();
   const taxRate = getTaxRate(currentTenant);
   const [localProduct, setLocalProduct] = useState(product);
   const [activeTab, setActiveTab] = useState<TabType>(null);
@@ -160,7 +162,7 @@ export function ProductCard({
     lastRawResponse,
     compute: triggerClariprint,
     reset: resetClariprintQuote,
-  } = useClariprintProduct();
+  } = useClariprintProduct(clariprint);
 
   const computeClariprintQuote = async () => {
     if (!localProduct.clariprintData) return;
@@ -744,6 +746,8 @@ export function ProductCard({
             : null
         }
         shop={null}
+        taxRate={taxRate}
+        clariprintGateway={clariprint}
         confirmLabel="Mettre à jour"
         onClose={() => setOverlayOpen(false)}
         onConfirm={(productConfigured) => {

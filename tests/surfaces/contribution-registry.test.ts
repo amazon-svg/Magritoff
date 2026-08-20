@@ -14,6 +14,7 @@ import { conversationsModuleManifest } from '../../src/modules/conversations';
 import { machineParksModuleManifest } from '../../src/modules/machine-parks';
 import { mockupsModuleManifest } from '../../src/modules/mockups';
 import { plansModuleManifest } from '../../src/modules/plans';
+import { shopCustomersModuleManifest } from '../../src/modules/shop-customers';
 import { applicationContributionRegistry } from '../../src/surfaces';
 import {
   ContributionRegistryError,
@@ -23,6 +24,25 @@ import {
 } from '../../src/surfaces/registry';
 
 describe('registre des contributions de surfaces', () => {
+  const manifests = [
+    accountModuleManifest,
+    ordersModuleManifest,
+    shopsModuleManifest,
+    shopCustomersModuleManifest,
+    quotesModuleManifest,
+    quoteTemplatesModuleManifest,
+    librariesModuleManifest,
+    catalogModuleManifest,
+    commercialModuleManifest,
+    membersModuleManifest,
+    tenantsModuleManifest,
+    rolesModuleManifest,
+    conversationsModuleManifest,
+    machineParksModuleManifest,
+    mockupsModuleManifest,
+    plansModuleManifest,
+  ];
+
   it('expose les quatre composition roots même lorsqu ils sont encore vides', () => {
     expect(applicationContributionRegistry.surfaces().map(({ id }) => id)).toEqual([
       'storefront',
@@ -30,6 +50,17 @@ describe('registre des contributions de surfaces', () => {
       'workspace',
       'backoffice',
     ]);
+  });
+
+  it('matérialise chaque surface déclarée par chaque module', () => {
+    for (const manifest of manifests) {
+      for (const surface of manifest.surfaces) {
+        expect(
+          applicationContributionRegistry.forSurface(surface).modules.map(({ id }) => id),
+          `${manifest.id} doit contribuer à ${surface}`,
+        ).toContain(manifest.id);
+      }
+    }
   });
 
   it('compose le module account sur workspace et customer portal', () => {
@@ -96,12 +127,14 @@ describe('registre des contributions de surfaces', () => {
     expect(backoffice.plannedRoutes.map(({ id }) => id)).toEqual([
       'orders.backoffice.production',
       'shops.backoffice.list',
+      'shop-customers.backoffice.accounts',
       'quotes.backoffice.pending',
     ]);
     expect(backoffice.plannedNavigation.map(({ routeId }) => routeId)).toEqual([
       'quotes.backoffice.pending',
       'orders.backoffice.production',
       'shops.backoffice.list',
+      'shop-customers.backoffice.accounts',
     ]);
   });
 
@@ -160,6 +193,32 @@ describe('registre des contributions de surfaces', () => {
         id: 'members.workspace.navigation',
         label: 'Utilisateurs',
         testId: 'nav-sidebar-users-link',
+      }),
+    );
+  });
+
+  it('déclare les comptes boutique comme un module distinct des membres Magrit', () => {
+    expect(shopCustomersModuleManifest.surfaces).toEqual([
+      'storefront', 'customer-portal', 'workspace', 'backoffice',
+    ]);
+    expect(shopCustomersModuleManifest.id).not.toBe(membersModuleManifest.id);
+    expect(shopCustomersModuleManifest.capabilities.map(({ id }) => id)).toContain(
+      'shop-customers.delegate',
+    );
+    expect(applicationContributionRegistry.manifest('shop-customers')).toBe(
+      shopCustomersModuleManifest,
+    );
+    expect(applicationContributionRegistry.forSurface('storefront').routes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'shop-customers.storefront.activate', path: 'activate' }),
+        expect.objectContaining({ id: 'shop-customers.storefront.reset-password', path: 'reset-password' }),
+      ]),
+    );
+    expect(applicationContributionRegistry.forSurface('backoffice').plannedRoutes).toContainEqual(
+      expect.objectContaining({
+        id: 'shop-customers.backoffice.accounts',
+        availability: 'planned',
+        requiredCapabilities: ['shop-customers.manage'],
       }),
     );
   });

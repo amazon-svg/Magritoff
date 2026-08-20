@@ -20,7 +20,7 @@
  *     etc.) tout en bénéficiant de l'image / prix courants du catalogue.
  */
 
-import type { ShopProduct } from '../../../contexts/ShopsContext';
+import type { ShopProduct } from '../../../../modules/shops';
 import type { CartLine } from './types';
 
 /**

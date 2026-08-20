@@ -4,19 +4,27 @@
 
 ## 1. Accès à ta boutique
 
-Tu as été invité par ton admin tenant. Au login :
+Ton administrateur crée un compte client dans **cette boutique**, puis te
+transmet un lien d’activation à usage unique. Tu choisis ton mot de passe : le
+compte est activé, la session de cette boutique est ouverte et tu arrives
+directement dans son catalogue sans seconde connexion.
 
 - Une boutique **sur invitation** ne montre ni son catalogue ni son identité
-  avant connexion. Elle ne permet pas de créer un compte depuis son lien.
-- Un compte Magrit créé ailleurs ne suffit pas : l’admin doit aussi l’avoir
-  ajouté au tenant et à la boutique concernée.
-- Une boutique en **inscription libre** reste consultable sans compte et
-  propose la création de compte au moment de commander.
+  avant connexion et ne propose aucune inscription libre.
+- Une boutique **en inscription libre** permet de créer ce compte au checkout,
+  puis ouvre immédiatement la session de cette boutique.
+- Ton compte n’existe que dans cette boutique.
+- Utiliser le même email dans une autre boutique nécessite un second compte et
+  une autre activation.
+- Un compte Magrit utilisé par l’équipe de l’imprimeur ne donne aucun accès
+  client à la boutique.
 
-- Si ton accès est **scope `shop_only`** sur 1 seule boutique → tu es **redirigé automatiquement** vers `/shop/<slug>` (depuis Sprint 5 fix `60bb45c`).
-- Si tu as accès à plusieurs boutiques → TenantPicker propose le choix.
+Tu ne vois jamais les tenants, sous-espaces ou autres boutiques depuis cette
+session storefront.
 
-Tu ne vois **PAS** les autres tenants ni les sous-tenants — uniquement les boutiques de `allowed_shop_ids` autorisées.
+Si tu oublies ton mot de passe, utilise « Mot de passe oublié ? » depuis cette
+boutique. Le message reste volontairement neutre. Le lien reçu est valable une
+heure et ferme les anciennes sessions après modification.
 
 ## 2. Recherche IA Magrit
 
@@ -36,7 +44,7 @@ Tu ne vois **PAS** les autres tenants ni les sous-tenants — uniquement les bou
 
 Quand tu valides ton panier :
 
-1. **Connexion requise** (décision Arnaud B2 — acheteur B2B avec compte tenant)
+1. **Session storefront requise**, directe ou déléguée par un opérateur Magrit
 2. Création atomique via l’API Orders (`tenant_orders` +
    `tenant_order_items`, ADR-ORDERS-1)
 3. Status initial : `draft`
@@ -49,7 +57,9 @@ Quand tu valides ton panier :
 
 **Route** : `/shop/<slug>/orders`
 
-Tu vois **uniquement tes commandes** (RLS strict sur `tenant_orders` via `created_by = auth.uid()` OU `customer_email = auth.email()` pour cohort shop_orders legacy).
+Tu vois **uniquement les commandes de ton compte dans cette boutique**. Le
+serveur filtre par `shop_customer_account_id` et `shop_id`, pas par une identité
+Magrit transverse.
 
 **Filtres** (S3.1) : statut / période (7j / 30j / 90j / année) / montant min.
 
@@ -79,3 +89,5 @@ L'IA est connectée à Clariprint pour les vrais devis + utilise Sonnet 4.5 (rai
 - ❌ Refonte UI tabs PortalOrders : pour l'instant, vue plate filtrée. Tabs « Mes commandes / À valider / À approuver / À produire » à venir (S-ORDER-ROLES-3-UI).
 - ❌ Modale historique audit trail : bouton à wirer (S3.5 composant prêt).
 - ❌ Vue 3D packaging : tracé V2+ quand catalogue packaging arrive.
+- ⚠️ L’inscription libre ne vérifie pas encore la propriété de l’adresse email
+  et ne possède pas encore de CAPTCHA/rate-limit applicatif (prévu après bêta).

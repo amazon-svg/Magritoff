@@ -6,8 +6,9 @@
 
 Tu as été invité par ton admin tenant avec un rôle Validateur ou Producteur (ou les deux via cumul).
 
-- Si tu es **scope `magrit_full`** (accès complet tenant) : tu navigues `/t/<slug>/dashboard` comme un admin.
-- Si tu es **scope `shop_only`** sur certaines boutiques : tu vois uniquement ces boutiques.
+Tu utilises un compte Magrit et navigues dans `/t/<slug>/dashboard` selon les
+capabilities de tes rôles. Un accès à une boutique cliente passe par une session
+déléguée explicite, pas par un scope utilisateur mixte.
 
 ## 2. Validation commande (rôle Validateur)
 
@@ -15,7 +16,7 @@ Tu reçois un email Resend automatiquement quand :
 
 - Une commande passe en `pending` ou `draft` selon la `notify_policy` du rôle actif sur la transition
 - L'edge function `order-workflow-step` (S-N1-APPROVAL) calcule les destinataires selon :
-  - **chain_next** : tu reçois si ton `ordering_index` est juste au-dessus du rôle actif (ex: tu es Validateur ord 40, le passeur Acheteur ord 30 vient de valider → tu reçois)
+  - **chain_next** : tu reçois si ton `ordering_index` est juste au-dessus du rôle Magrit actif. Une commande storefront entre dans le workflow sans attribuer un rôle Acheteur à son client.
   - **all_roles** : tu reçois pour toutes les transitions de la commande
   - **none** : pas de notification (rôle silencieux)
 
@@ -34,7 +35,7 @@ Matrice MVP :
 | `can_modify` | Bouton **Modifier statut** | validated → in_production → shipped → delivered |
 | `can_export` | Bouton **Exporter** (3 dots menu) | tous statuts |
 
-**Cumul de rôles** : si tu as Validateur + Acheteur, tes capabilities sont **OR cumulées** (helper `mergeCapabilities`).
+**Cumul de rôles Magrit** : si tu as Validateur + Producteur, tes capabilities sont **OR cumulées** (helper `mergeCapabilities`). Le rôle Acheteur historique n’est plus assignable à un utilisateur Magrit.
 
 ## 4. Audit trail commande
 

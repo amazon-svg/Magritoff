@@ -31,7 +31,7 @@ interface Ctx {
   memberId: string;
   tenantId: string;
   otherTenantId: string;
-  acheteurRoleId: string;
+  validRoleId: string;
   otherRoleId: string;
   edgeUrl: string;
   ownerJwt: string;
@@ -78,11 +78,11 @@ describe.skipIf(SKIP_REASON !== null)('invite-member hardened (S9 R5-bis P1)', (
       role_definition_id: ownerRole!.id, user_id: owner.user!.id, assigned_by: owner.user!.id,
     });
 
-    // Acheteur role pour ce tenant + Acheteur role pour OTHER tenant
-    const { data: acheteur } = await admin.from('tenant_role_definitions')
-      .select('id').eq('tenant_id', tenant!.id).eq('name', 'Acheteur').single();
+    // Rôle Magrit valide pour ce tenant + rôle du même type sur OTHER tenant.
+    const { data: validRole } = await admin.from('tenant_role_definitions')
+      .select('id').eq('tenant_id', tenant!.id).eq('name', 'Validateur').single();
     const { data: otherRole } = await admin.from('tenant_role_definitions')
-      .select('id').eq('tenant_id', otherTenant!.id).eq('name', 'Acheteur').single();
+      .select('id').eq('tenant_id', otherTenant!.id).eq('name', 'Validateur').single();
 
     const anonOwner = createClient(url, anonKey, { auth: { persistSession: false } });
     await anonOwner.auth.signInWithPassword({ email: `inv-h-o-${tag}@magrit.test`, password });
@@ -96,7 +96,7 @@ describe.skipIf(SKIP_REASON !== null)('invite-member hardened (S9 R5-bis P1)', (
       admin, anonOwner, anonMember,
       ownerId: owner.user!.id, memberId: member.user!.id,
       tenantId: tenant!.id, otherTenantId: otherTenant!.id,
-      acheteurRoleId: acheteur!.id, otherRoleId: otherRole!.id,
+      validRoleId: validRole!.id, otherRoleId: otherRole!.id,
       edgeUrl: `${url}/functions/v1/invite-member`,
       ownerJwt: ownerSession.session!.access_token,
       memberJwt: memberSession.session!.access_token,
@@ -187,7 +187,7 @@ describe.skipIf(SKIP_REASON !== null)('invite-member hardened (S9 R5-bis P1)', (
       email: targetEmail,
       tenant_id: ctx.tenantId,
       invited_by: ctx.ownerId,
-      role_definition_ids: [ctx.acheteurRoleId],
+      role_definition_ids: [ctx.validRoleId],
       baseUrl: ctx.baseUrl,
     });
     expect([200]).toContain(status);
@@ -202,7 +202,7 @@ describe.skipIf(SKIP_REASON !== null)('invite-member hardened (S9 R5-bis P1)', (
       email: targetEmail,
       tenant_id: ctx.tenantId,
       invited_by: ctx.ownerId,
-      role_definition_ids: [ctx.acheteurRoleId],
+      role_definition_ids: [ctx.validRoleId],
       baseUrl: ctx.baseUrl,
     });
     expect(s1).toBe(200);
@@ -212,7 +212,7 @@ describe.skipIf(SKIP_REASON !== null)('invite-member hardened (S9 R5-bis P1)', (
       email: targetEmail,
       tenant_id: ctx.tenantId,
       invited_by: ctx.ownerId,
-      role_definition_ids: [ctx.acheteurRoleId],
+      role_definition_ids: [ctx.validRoleId],
       baseUrl: ctx.baseUrl,
     });
     expect(s2).toBe(409);

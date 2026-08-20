@@ -181,6 +181,8 @@ describe('orderAuditTrail.helpers (pur)', () => {
     event_type: 'status_transition',
     actor_id: 'u-' + Math.random().toString(36).slice(2),
     actor_email: 'actor@magrit.test',
+    shop_customer_account_id: null,
+    acted_by_magrit_user_id: null,
     role_name: null,
     payload: {},
     occurred_at: new Date().toISOString(),
@@ -231,6 +233,24 @@ describe('orderAuditTrail.helpers (pur)', () => {
     it('acteur inconnu fallback', () => {
       const e = baseEvent({ actor_email: null });
       expect(formatAuditEventDescription(e)).toContain('acteur inconnu');
+    });
+
+    it('identifie une action directe du compte boutique sans email interne', () => {
+      const e = baseEvent({
+        actor_email: null,
+        shop_customer_account_id: 'customer-1',
+        acted_by_magrit_user_id: null,
+      });
+      expect(formatAuditEventDescription(e)).toContain('Compte boutique');
+    });
+
+    it('identifie une délégation Magrit sans exposer son email', () => {
+      const e = baseEvent({
+        actor_email: null,
+        shop_customer_account_id: 'customer-1',
+        acted_by_magrit_user_id: 'magrit-1',
+      });
+      expect(formatAuditEventDescription(e)).toContain('Intervention Magrit pour le compte boutique');
     });
   });
 

@@ -1,0 +1,56 @@
+import { useCallback, useEffect, useState } from 'react';
+import { toast } from 'sonner';
+import { useStorefrontOrdersApi } from '../contexts/StorefrontModuleClientsContext';
+import { type OrderUI, orderSummaryToUi } from '../components/shop/portal/PortalOrders.helpers';
+import { formatCancelErrorMessage } from '../components/shop/portal/orderCancellation.helpers';
+
+export function useStorefrontOrderList(shopId: string, enabled: boolean) {
+  const ordersApi = useStorefrontOrdersApi();
+  const [orders, setOrders] = useState<OrderUI[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const reload = useCallback(async () => {
+    if (!shopId || !enabled) {
+      setOrders([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await ordersApi.listPortalOrders(shopId);
+      setOrders(response.datasets.mine.map(orderSummaryToUi));
+    } catch (cause) {
+      console.warn('[StorefrontOrderList] chargement impossible:', cause);
+      setOrders([]);
+      setError(cause instanceof Error ? cause.message : 'Erreur de chargement');
+    } finally {
+      setLoading(false);
+    }
+  }, [enabled, ordersApi, shopId]);
+
+  useEffect(() => {
+    void reload();
+  }, [reload]);
+
+  const cancel = useCallback(async (orderId: string): Promise<string | null> => {
+    const order = orders.find((candidate) => candidate.id === orderId);
+    if (!order) return 'Commande introuvable';
+    try {
+      await ordersApi.transition(order.id, {
+        toStatus: 'cancelled',
+        reason: null,
+        idempotencyKey: `storefront-cancel:${order.id}:${order.status}`,
+      });
+    } catch (cause) {
+      console.warn('[StorefrontOrderList] annulation impossible:', cause);
+      return formatCancelErrorMessage(cause instanceof Error ? cause : null);
+    }
+    toast.success('Commande annulée.');
+    await reload();
+    return null;
+  }, [orders, ordersApi, reload]);
+
+  return { orders, loading, error, reload, cancel, auditApi: ordersApi } as const;
+}

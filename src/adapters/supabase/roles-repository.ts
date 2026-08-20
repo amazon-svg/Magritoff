@@ -47,7 +47,9 @@ export class SupabaseRolesRepository implements RolesRepository {
 
   async setAssignment(actor: UserId, tenantId: string, userId: string, roleId: string, active: boolean): Promise<SetRoleAssignmentResult> {
     const [role, member] = await Promise.all([
-      this.client.from('tenant_role_definitions').select('id').eq('id', roleId).eq('tenant_id', tenantId).is('archived_at', null).maybeSingle(),
+      this.client.from('tenant_role_definitions').select('id').eq('id', roleId)
+        .eq('tenant_id', tenantId).eq('identity_context', 'magrit')
+        .is('archived_at', null).maybeSingle(),
       this.client.from('tenant_members').select('user_id').eq('tenant_id', tenantId).eq('user_id', userId).maybeSingle(),
     ]);
     if (role.error || member.error) throw rejected(role.error?.message ?? member.error?.message ?? 'Accès refusé.');
@@ -118,13 +120,17 @@ export class SupabaseRolesRepository implements RolesRepository {
   }
 
   private async loadRoles(tenantId: string) {
-    const { data, error } = await this.client.from('tenant_role_definitions').select('id, name, description, capabilities, ordering_index').eq('tenant_id', tenantId).is('archived_at', null).order('ordering_index');
+    const { data, error } = await this.client.from('tenant_role_definitions')
+      .select('id, name, description, capabilities, ordering_index')
+      .eq('tenant_id', tenantId).eq('identity_context', 'magrit')
+      .is('archived_at', null).order('ordering_index');
     if (error) throw rejected(error.message);
     return (data ?? []).map((role) => ({ id: role.id, name: role.name, description: role.description ?? '', capabilities: toCapabilities(role.capabilities), orderingIndex: role.ordering_index }));
   }
   private async loadCatalogRoles(tenantId: string): Promise<RoleCatalogDefinition[]> {
     const { data, error } = await this.client.from('tenant_role_definitions')
-      .select(CATALOG_COLUMNS).eq('tenant_id', tenantId).order('ordering_index');
+      .select(CATALOG_COLUMNS).eq('tenant_id', tenantId)
+      .eq('identity_context', 'magrit').order('ordering_index');
     if (error) throw classified(error, 'Chargement du catalogue impossible.');
     return (data ?? []).map(mapCatalogRole);
   }

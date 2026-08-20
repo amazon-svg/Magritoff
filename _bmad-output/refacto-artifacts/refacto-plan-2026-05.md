@@ -153,7 +153,10 @@ Factory mock typée `createSupabaseMock()` dans `tests/helpers/supabaseMock.ts` 
 **Alternatives considérées.**
 - **MSW HTTP interceptor** : refusé, surface PostgREST (50+ endpoints dynamiques) trop coûteuse à entretenir.
 - **supabase-js mock npm package** : pas de mainstream stable au 2026-05. Refusé.
-- **Tests intégration only (Supabase local)** : trop lent pour TDD composants. Complément seulement.
+- **Tests d'intégration Supabase local** : complément aux tests unitaires, activé par
+  `.env.test` et exécuté dans la validation complète. Depuis AF30.3, les scénarios
+  storefront utilisent les comptes boutique autonomes et non les anciens
+  `tenant_members.shop_only`.
 
 **Conséquences.**
 - Coût initial ≈ 1 j. R0 écrit les garde-fous priceResolver/ClariprintAdapter/CartContext **avant** R1/R2.

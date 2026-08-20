@@ -17,10 +17,11 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useTenant } from '../../contexts/TenantContext';
 import { MagritLogo } from '../brand/MagritLogo';
 import { TEST_IDS } from '../../lib/testIds';
+import { TenantLoadError } from './TenantLoadError';
 
 export function TenantPicker() {
   const { user, loading: authLoading } = useAuth();
-  const { tenants, isSuperAdmin, loading } = useTenant();
+  const { tenants, isSuperAdmin, loading, error, reload } = useTenant();
 
   if (authLoading || loading) {
     return (
@@ -32,6 +33,8 @@ export function TenantPicker() {
       </div>
     );
   }
+
+  if (user && error) return <TenantLoadError retry={reload} />;
 
   if (!user) {
     // L'app expose deja un modal de login via UnauthBanner. En attendant, on
@@ -57,12 +60,9 @@ export function TenantPicker() {
     return <Navigate to="/tenants/new" replace />;
   }
 
-  // Fix 2026-05-27 : un utilisateur dont TOUS les accès sont shop_only
-  // (acheteur) ne doit jamais voir le sélecteur d'espaces. On le redirige
-  // directement vers son tenant → TenantAwareLayout monte ShopOnlyRedirect
-  // qui l'amène sur sa boutique (/shop/:slug). Cas typique : acheteur B2B
-  // d'un client qui n'a accès qu'à une boutique. Superadmin exclu (il doit
-  // garder le picker pour naviguer entre tenants).
+  // UM8 : un utilisateur dont tous les accès sont des vestiges shop_only ne
+  // doit pas voir le workspace. TenantAwareLayout affiche l'état de migration,
+  // sans ouvrir de session ni de route boutique. Le superadmin garde le picker.
   if (!isSuperAdmin && tenants.every((t) => t.accessScope === 'shop_only')) {
     return <Navigate to={`/t/${tenants[0].slug}`} replace />;
   }

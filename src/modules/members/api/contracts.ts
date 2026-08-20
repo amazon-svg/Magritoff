@@ -13,14 +13,10 @@ export const tenantMemberSchema = z.object({
 export const tenantMembersSchema = z.array(tenantMemberSchema);
 export const changeMemberRoleCommandSchema = z.object({ role: memberRoleSchema.exclude(['owner']) });
 export const updateMemberAccessCommandSchema = z.object({
-  accessScope: memberAccessScopeSchema,
-  allowedShopIds: z.array(z.string().uuid()),
+  accessScope: z.literal('magrit_full'),
+  allowedShopIds: z.array(z.string().uuid()).max(0),
   permissions: memberPermissionsSchema,
-}).superRefine((value, context) => {
-  if (value.accessScope === 'shop_only' && value.allowedShopIds.length === 0) {
-    context.addIssue({ code: 'custom', path: ['allowedShopIds'], message: 'Une boutique est requise.' });
-  }
-});
+}).strict();
 export const memberMutationResultSchema = z.object({ updated: z.literal(true) });
 export const memberRemovalResultSchema = z.object({ removed: z.literal(true) });
 

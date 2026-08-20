@@ -28,14 +28,14 @@
  * "Rôles". Ici on n'expose que le résumé en lecture seule + lien.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, Navigate } from 'react-router';
 import { Archive, Copy, Edit, MoreHorizontal, MoveDown, MoveUp, Plus } from 'lucide-react';
 import { useTenant } from '../../contexts/TenantContext';
 import { useShops } from '../../contexts/ShopsContext';
 import { useUserCapability } from '../../hooks/useUserCapability';
 import { TEST_IDS } from '../../lib/testIds';
-import { useWorkspaceRolesApi } from '../../contexts/ModuleClientsContext';
+import { useRoleCatalogManagement } from '../../hooks/useRoleCatalogManagement';
 import {
   RoleEditorDialog,
   type NotifyPolicy,
@@ -63,12 +63,6 @@ import {
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
 const CANONICAL_ROLES_NON_ARCHIVABLE = new Set(['Owner', 'Admin', 'Acheteur', 'Producteur']);
-
-interface AssignmentRow {
-  role_definition_id: string;
-  user_id: string;
-  user_email: string | null;
-}
 
 const NOTIFY_LABELS: Record<NotifyPolicy, string> = {
   chain_next: 'Suivant',
@@ -103,15 +97,12 @@ function semanticTag(role: TenantRoleDefinition, maxValidatorOrdering: number | 
 }
 
 export function OrderRoleAdminPage() {
-  const rolesApi = useWorkspaceRolesApi();
   const { currentTenant, isSuperAdmin } = useTenant();
   const { shops } = useShops();
   const { hasIt: canManageRoles, loading: capLoading } = useUserCapability('can_manage_roles');
 
-  const [roles, setRoles] = useState<TenantRoleDefinition[]>([]);
-  const [assignments, setAssignments] = useState<AssignmentRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const roleCatalog = useRoleCatalogManagement(currentTenant?.id ?? null);
+  const { roles, assignments, loading, error } = roleCatalog;
   const [showArchived, setShowArchived] = useState(false);
 
   // Dialogs
@@ -119,45 +110,6 @@ export function OrderRoleAdminPage() {
   const [editorRole, setEditorRole] = useState<TenantRoleDefinition | undefined>(undefined);
   const [roleToArchive, setRoleToArchive] = useState<TenantRoleDefinition | null>(null);
   const [archiveSubmitting, setArchiveSubmitting] = useState(false);
-
-  // ─── Load ────────────────────────────────────────────────────────────
-  const reload = useCallback(async () => {
-    if (!currentTenant?.id) return;
-    setLoading(true);
-    setError(null);
-
-    try {
-      const catalog = await rolesApi.catalog(currentTenant.id);
-      setRoles(catalog.roles.map((role) => ({
-        id: role.id,
-        tenant_id: role.tenantId,
-        name: role.name,
-        description: role.description,
-        capabilities: role.capabilities,
-        notify_policy: role.notifyPolicy,
-        scope: role.scope,
-        scope_shop_id: role.scopeShopId,
-        ordering_index: role.orderingIndex,
-        archived_at: role.archivedAt,
-      })));
-      const emailByUserId = new Map(catalog.members.map((member) => [member.userId, member.email]));
-      setAssignments(catalog.assignments.map((assignment) => ({
-        role_definition_id: assignment.roleId,
-        user_id: assignment.userId,
-        user_email: emailByUserId.get(assignment.userId) ?? null,
-      })));
-    } catch (loadError) {
-      const message = loadError instanceof Error ? loadError.message : 'chargement impossible';
-      console.warn('[OrderRoleAdminPage] catalog fetch failed:', message);
-      setError(message);
-    }
-
-    setLoading(false);
-  }, [currentTenant?.id, rolesApi]);
-
-  useEffect(() => {
-    void reload();
-  }, [reload]);
 
   // ─── Derived data ────────────────────────────────────────────────────
   const visibleRoles = useMemo(
@@ -246,30 +198,21 @@ export function OrderRoleAdminPage() {
     const swapWith = direction === 'up' ? active[idx - 1] : active[idx + 1];
     if (!swapWith) return;
     try {
-      await rolesApi.reorderDefinitions(currentTenant!.id, role.id, swapWith.id);
-    } catch (reorderError) {
-      const message = reorderError instanceof Error ? reorderError.message : 'réordonnancement impossible';
-      console.warn('[OrderRoleAdminPage] reorder failed:', message);
-      setError(message);
-    }
-    await reload();
+      await roleCatalog.reorderDefinitions(role.id, swapWith.id);
+    } catch { /* erreur rendue par le hook */ }
   }
 
   async function confirmArchive() {
     if (!roleToArchive) return;
     setArchiveSubmitting(true);
     try {
-      await rolesApi.archiveDefinition(currentTenant!.id, roleToArchive.id);
-    } catch (archiveError) {
-      const message = archiveError instanceof Error ? archiveError.message : 'archivage impossible';
-      console.warn('[OrderRoleAdminPage] archive failed:', message);
-      setError(message);
+      await roleCatalog.archiveDefinition(roleToArchive.id);
+    } catch {
       setArchiveSubmitting(false);
       return;
     }
     setArchiveSubmitting(false);
     setRoleToArchive(null);
-    await reload();
   }
 
   // ─── Guard access ─────────────────────────────────────────────────────
@@ -640,15 +583,15 @@ export function OrderRoleAdminPage() {
       <RoleEditorDialog
         open={editorMode !== 'closed'}
         role={editorMode === 'edit' ? editorRole : undefined}
-        tenantId={currentTenant.id}
         shops={shopOptions}
         otherRoleNames={otherRoleNames}
         rolesOrdered={roles.filter((r) => r.archived_at === null)}
         defaultNameForCreate={
           editorMode === 'duplicate' ? editorRole?.name : defaultNameForCreate
         }
+        onSave={roleCatalog.saveDefinition}
         onClose={closeEditor}
-        onSaved={() => void reload()}
+        onSaved={() => undefined}
       />
 
       <AlertDialog

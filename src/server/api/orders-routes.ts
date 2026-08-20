@@ -14,24 +14,32 @@ import {
 } from '../../modules/orders/api/contracts.ts';
 import type { OrdersService } from '../../modules/orders/application/orders-service.ts';
 import { OrderCommandRejectedError } from '../../modules/orders/application/orders-repository.ts';
+import type { StorefrontSessionService } from '../../modules/shop-customers/application/storefront-session-service.ts';
 import { API_V1_BASE_PATH } from '../../platform/api/contracts.ts';
 import { ApiHttpError } from './errors.ts';
 import { defineJsonRoute, type ApiRequestContext, type ApiRoute } from './routes.ts';
+import { readStorefrontSessionCookie, type StorefrontSessionCookiePolicy } from '../storefront/session-cookie.ts';
 
-export function createOrdersRoutes(service: OrdersService): readonly ApiRoute[] {
+export function createOrdersRoutes(
+  service: OrdersService,
+  storefrontSessions?: StorefrontSessionService,
+  storefrontCookiePolicy?: StorefrontSessionCookiePolicy,
+): readonly ApiRoute[] {
   return [
     defineJsonRoute({
       method: 'POST',
       path: `${API_V1_BASE_PATH}/orders`,
-      authentication: 'required',
+      authentication: 'public',
       inputSchema: createOrderCommandSchema,
       outputSchema: createOrderResultSchema,
       async handle(context, command) {
-        requireUserId(context);
         try {
+          const authorization = await orderCreationAuthorization(
+            context, command.shopId, storefrontSessions, storefrontCookiePolicy,
+          );
           return {
             status: 201,
-            body: await service.create(command, new URL(context.request.url).origin),
+            body: await service.create(command, new URL(context.request.url).origin, authorization),
           };
         } catch (error) {
           if (error instanceof OrderCommandRejectedError) throw toHttpError(error);
@@ -42,13 +50,18 @@ export function createOrdersRoutes(service: OrdersService): readonly ApiRoute[] 
     defineJsonRoute({
       method: 'GET',
       path: `${API_V1_BASE_PATH}/orders/{orderId}/draft`,
-      authentication: 'required',
+      authentication: 'public',
       inputSchema: null,
       outputSchema: draftOrderSchema,
       async handle(context) {
-        requireUserId(context);
         try {
-          return { status: 200, body: await service.getDraft(context.params.orderId ?? '') };
+          return {
+            status: 200,
+            body: await service.getDraft(
+              context.params.orderId ?? '',
+              await orderResourceAuthorization(context, storefrontSessions, storefrontCookiePolicy),
+            ),
+          };
         } catch (error) {
           if (error instanceof OrderCommandRejectedError) throw toHttpError(error);
           throw error;
@@ -58,15 +71,17 @@ export function createOrdersRoutes(service: OrdersService): readonly ApiRoute[] 
     defineJsonRoute({
       method: 'PUT',
       path: `${API_V1_BASE_PATH}/orders/{orderId}/draft`,
-      authentication: 'required',
+      authentication: 'public',
       inputSchema: updateDraftOrderCommandSchema,
       outputSchema: updateDraftOrderResultSchema,
       async handle(context, command) {
-        requireUserId(context);
         try {
           return {
             status: 200,
-            body: await service.updateDraft(context.params.orderId ?? '', command),
+            body: await service.updateDraft(
+              context.params.orderId ?? '', command,
+              await orderResourceAuthorization(context, storefrontSessions, storefrontCookiePolicy),
+            ),
           };
         } catch (error) {
           if (error instanceof OrderCommandRejectedError) throw toHttpError(error);
@@ -105,31 +120,47 @@ export function createOrdersRoutes(service: OrdersService): readonly ApiRoute[] 
     defineJsonRoute({
       method: 'GET',
       path: `${API_V1_BASE_PATH}/shops/{shopId}/orders`,
-      authentication: 'required',
+      authentication: 'public',
       inputSchema: null,
       outputSchema: portalOrdersResponseSchema,
       async handle(context) {
+        const shopId = requireParam(context, 'shopId');
         return {
           status: 200,
-          body: await service.listPortalOrders(requireParam(context, 'shopId'), requireUserId(context)),
+          body: await service.listPortalOrders(
+            shopId,
+            await portalOrdersAuthorization(
+              context, shopId, storefrontSessions, storefrontCookiePolicy,
+            ),
+          ),
         };
       },
     }),
     defineJsonRoute({
       method: 'GET',
       path: `${API_V1_BASE_PATH}/orders/{orderId}/audit`,
-      authentication: 'required',
+      authentication: 'public',
       inputSchema: null,
       outputSchema: orderAuditTrailSchema,
       async handle(context) {
-        requireUserId(context);
-        return { status: 200, body: await service.getAuditTrail(requireParam(context, 'orderId')) };
+        try {
+          return {
+            status: 200,
+            body: await service.getAuditTrail(
+              requireParam(context, 'orderId'),
+              await orderResourceAuthorization(context, storefrontSessions, storefrontCookiePolicy),
+            ),
+          };
+        } catch (error) {
+          if (error instanceof OrderCommandRejectedError) throw toHttpError(error);
+          throw error;
+        }
       },
     }),
     defineJsonRoute({
       method: 'POST',
       path: `${API_V1_BASE_PATH}/orders/{orderId}/transitions`,
-      authentication: 'required',
+      authentication: 'public',
       inputSchema: transitionOrderCommandSchema,
       outputSchema: transitionOrderResultSchema,
       async handle(context, command) {
@@ -139,7 +170,7 @@ export function createOrdersRoutes(service: OrdersService): readonly ApiRoute[] 
             body: await service.transition(
               requireParam(context, 'orderId'),
               command,
-              requireUserId(context),
+              await transitionAuthorization(context, storefrontSessions, storefrontCookiePolicy),
               new URL(context.request.url).origin,
             ),
           };
@@ -150,6 +181,89 @@ export function createOrdersRoutes(service: OrdersService): readonly ApiRoute[] 
       },
     }),
   ];
+}
+
+async function orderCreationAuthorization(
+  context: ApiRequestContext,
+  shopId: string,
+  sessions?: StorefrontSessionService,
+  policy?: StorefrontSessionCookiePolicy,
+) {
+  if (sessions && policy) {
+    const token = readStorefrontSessionCookie(context.request.headers.get('cookie'), policy);
+    const session = token ? await sessions.current(token) : null;
+    if (token && session?.identity.shopId === shopId) {
+      return { kind: 'storefront_session' as const, opaqueToken: token };
+    }
+  }
+  if (context.actor?.kind !== 'user') {
+    throw new ApiHttpError({
+      type: 'about:blank', title: 'Authentification requise', status: 401,
+      code: 'identity.authentication_required',
+    });
+  }
+  return { kind: 'magrit_user' as const };
+}
+
+async function portalOrdersAuthorization(
+  context: ApiRequestContext,
+  shopId: string,
+  sessions?: StorefrontSessionService,
+  policy?: StorefrontSessionCookiePolicy,
+) {
+  if (sessions && policy) {
+    const token = readStorefrontSessionCookie(context.request.headers.get('cookie'), policy);
+    const session = token ? await sessions.current(token) : null;
+    if (token && session?.identity.shopId === shopId) {
+      return { kind: 'storefront_session' as const, opaqueToken: token };
+    }
+  }
+  if (context.actor?.kind !== 'user') {
+    throw new ApiHttpError({
+      type: 'about:blank', title: 'Authentification requise', status: 401,
+      code: 'identity.authentication_required',
+    });
+  }
+  return { kind: 'magrit_user' as const, userId: requireUserId(context) };
+}
+
+async function orderResourceAuthorization(
+  context: ApiRequestContext,
+  sessions?: StorefrontSessionService,
+  policy?: StorefrontSessionCookiePolicy,
+) {
+  let storefrontToken: string | null = null;
+  if (sessions && policy) {
+    const token = readStorefrontSessionCookie(context.request.headers.get('cookie'), policy);
+    if (token && await sessions.current(token)) storefrontToken = token;
+  }
+  if (!storefrontToken && context.actor?.kind !== 'user') {
+    throw new ApiHttpError({
+      type: 'about:blank', title: 'Authentification requise', status: 401,
+      code: 'identity.authentication_required',
+    });
+  }
+  return { storefrontToken };
+}
+
+async function transitionAuthorization(
+  context: ApiRequestContext,
+  sessions?: StorefrontSessionService,
+  policy?: StorefrontSessionCookiePolicy,
+) {
+  let storefrontToken: string | null = null;
+  if (sessions && policy) {
+    const token = readStorefrontSessionCookie(context.request.headers.get('cookie'), policy);
+    if (token && await sessions.current(token)) storefrontToken = token;
+  }
+  const magritUserId = context.actor?.kind === 'user' ? requireUserId(context) : null;
+  if (!storefrontToken && !magritUserId) {
+    throw new ApiHttpError({
+      type: 'about:blank', title: 'Authentification requise', status: 401,
+      code: 'identity.authentication_required',
+    });
+  }
+  return { storefrontToken, magritUserId };
 }
 
 function toHttpError(error: OrderCommandRejectedError): ApiHttpError {

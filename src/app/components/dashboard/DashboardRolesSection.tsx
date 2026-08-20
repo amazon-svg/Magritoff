@@ -17,11 +17,10 @@
  *   - Notify policy + scope_shop_id (S-ORDER-ROLES-1 Sprint 6)
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Loader2, Shield, Check, X } from 'lucide-react';
 import { useTenant } from '../../contexts/TenantContext';
 import { TEST_IDS } from '../../lib/testIds';
-import { useWorkspaceRolesApi } from '../../contexts/ModuleClientsContext';
+import { useRoleAssignmentMatrix } from '../../hooks/useRoleAssignmentManagement';
 
 /** Liste fermée des capabilities v1.1 — synchronisée avec migration DB. */
 const CAPABILITY_LABELS: Record<string, string> = {
@@ -34,95 +33,15 @@ const CAPABILITY_LABELS: Record<string, string> = {
   can_export: 'Exporter',
   can_manage_catalog: 'Gérer catalogue',
   can_manage_roles: 'Gérer rôles',
+  can_manage_shop_customers: 'Gérer clients boutique',
+  can_impersonate_shop_customer: 'Se connecter à une boutique',
 };
-
-interface RoleDefRow {
-  id: string;
-  tenant_id: string;
-  name: string;
-  description: string;
-  capabilities: Record<string, boolean>;
-  ordering_index: number;
-  archived_at: string | null;
-}
-
-interface MemberRow {
-  user_id: string;
-  email: string;
-  role: string; // legacy role tenant_members.role (back-compat)
-}
-
-interface AssignmentRow {
-  id: string;
-  role_definition_id: string;
-  user_id: string;
-}
 
 export function DashboardRolesSection() {
   const { currentTenant } = useTenant();
-  const rolesApi = useWorkspaceRolesApi();
-  const [roles, setRoles] = useState<RoleDefRow[]>([]);
-  const [members, setMembers] = useState<MemberRow[]>([]);
-  const [assignments, setAssignments] = useState<AssignmentRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  /** Set de "role_definition_id:user_id" en cours de toggle (UI loading). */
-  const [pending, setPending] = useState<Set<string>>(new Set());
-
   const tenantId = currentTenant?.id ?? null;
-
-  const loadData = useCallback(async () => {
-    if (!tenantId) {
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    setError(null);
-
-    try {
-      const overview = await rolesApi.overview(tenantId);
-      setRoles(overview.roles.map((role) => ({ id: role.id, tenant_id: tenantId, name: role.name, description: role.description, capabilities: role.capabilities, ordering_index: role.orderingIndex, archived_at: null })));
-      setMembers(overview.members.map((member) => ({ user_id: member.userId, email: member.email, role: member.legacyRole })));
-      setAssignments(overview.assignments.map((assignment) => ({ id: assignment.id, role_definition_id: assignment.roleId, user_id: assignment.userId })));
-    } catch (loadError) {
-      setError(`Rôles : ${loadError instanceof Error ? loadError.message : 'chargement impossible'}`);
-    }
-    setLoading(false);
-  }, [rolesApi, tenantId]);
-
-  useEffect(() => {
-    void loadData();
-  }, [loadData]);
-
-  // Index : pour chaque (user, role), retourne l'assignment row (ou undefined).
-  const assignmentByKey = useMemo(() => {
-    const map = new Map<string, AssignmentRow>();
-    for (const a of assignments) {
-      map.set(`${a.user_id}:${a.role_definition_id}`, a);
-    }
-    return map;
-  }, [assignments]);
-
-  const handleToggle = async (userId: string, roleId: string) => {
-    const key = `${userId}:${roleId}`;
-    if (pending.has(key)) return;
-    setPending((s) => new Set(s).add(key));
-
-    const existing = assignmentByKey.get(key);
-    try {
-      await rolesApi.setAssignment(tenantId!, userId, roleId, !existing);
-      await loadData();
-    } catch (err: any) {
-      console.error('[DashboardRolesSection] toggle failed:', err?.message ?? err);
-      setError(`Erreur assignation : ${err?.message ?? 'inconnue'}`);
-    } finally {
-      setPending((s) => {
-        const next = new Set(s);
-        next.delete(key);
-        return next;
-      });
-    }
-  };
+  const { roles, members, loading, error, pending, assignmentByKey, toggleAssignment } =
+    useRoleAssignmentMatrix(tenantId);
 
   if (loading) {
     return (
@@ -254,7 +173,7 @@ export function DashboardRolesSection() {
                       <td key={r.id} className="px-3 py-2 text-center">
                         <button
                           type="button"
-                          onClick={() => handleToggle(m.user_id, r.id)}
+                          onClick={() => toggleAssignment(m.user_id, r.id)}
                           disabled={isPending}
                           data-testid={TEST_IDS.user.assignmentToggle}
                           data-user-id={m.user_id}
