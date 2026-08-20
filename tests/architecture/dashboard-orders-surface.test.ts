@@ -24,9 +24,11 @@ describe('surface du dashboard commandes', () => {
     expect(orderHistoryTable).toContain("appearance === 'dashboard'");
   });
 
-  it('rend le tableau dashboard dans une surface compacte et scrollable', () => {
+  it('rend le tableau dashboard dans une surface compacte, stable et scrollable', () => {
     expect(orderHistoryTable).toContain('rounded-md border border-line bg-paper');
-    expect(orderHistoryTable).toContain('min-w-[1120px]');
+    expect(orderHistoryTable).toContain('min-w-[1280px] table-fixed');
+    expect(orderHistoryTable).toContain('<colgroup>');
+    expect(orderHistoryTable).toContain('Actions');
     expect(orderHistoryTable).toContain('bg-bg px-4 py-3');
   });
 });

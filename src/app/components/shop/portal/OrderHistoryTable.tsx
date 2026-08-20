@@ -812,15 +812,30 @@ export function OrderHistoryTable({
           }`}
         >
           <table
-            className={`w-full text-left ${isDashboardAppearance ? 'min-w-[1120px]' : ''}`}
+            className={`w-full text-left ${isDashboardAppearance ? 'min-w-[1280px] table-fixed' : ''}`}
             style={{ fontSize: '13px' }}
           >
+            {isDashboardAppearance && (
+              <colgroup>
+                <col style={{ width: '14%' }} />
+                {extraColumn?.position === 'after-date' && <col style={{ width: '9%' }} />}
+                <col style={{ width: '8%' }} />
+                <col style={{ width: '9%' }} />
+                <col style={{ width: '9%' }} />
+                <col style={{ width: '9%' }} />
+                {(extraColumn?.position === 'before-status' || (extraColumn && !extraColumn.position)) && (
+                  <col style={{ width: '9%' }} />
+                )}
+                <col style={{ width: '11%' }} />
+                {showActionsColumn && <col style={{ width: '31%' }} />}
+              </colgroup>
+            )}
             <thead>
               <tr className={`border-b border-line ${isDashboardAppearance ? 'bg-paper' : ''}`}>
                 <th
                   scope="col"
                   aria-sort={ariaSortFor('date')}
-                  className="py-2.5 pr-4 font-mono uppercase text-ink-mute-2"
+                  className="py-2.5 pr-4 font-mono uppercase text-ink-mute-2 whitespace-nowrap"
                   style={{ fontSize: '10.5px', letterSpacing: '0.08em', fontWeight: 500 }}
                 >
                   <button
@@ -837,7 +852,7 @@ export function OrderHistoryTable({
                   <th
                     scope="col"
                     aria-sort={extraColumn.sortValue ? ariaSortFor('extra') : undefined}
-                    className="py-2.5 pr-4 font-mono uppercase text-ink-mute-2"
+                    className="py-2.5 pr-4 font-mono uppercase text-ink-mute-2 whitespace-nowrap"
                     style={{ fontSize: '10.5px', letterSpacing: '0.08em', fontWeight: 500 }}
                   >
                     {extraColumn.sortValue ? (
@@ -858,7 +873,7 @@ export function OrderHistoryTable({
                 <th
                   scope="col"
                   aria-sort={ariaSortFor('customer_name')}
-                  className="py-2.5 pr-4 font-mono uppercase text-ink-mute-2"
+                  className="py-2.5 pr-4 font-mono uppercase text-ink-mute-2 whitespace-nowrap"
                   style={{ fontSize: '10.5px', letterSpacing: '0.08em', fontWeight: 500 }}
                 >
                   <button
@@ -873,7 +888,7 @@ export function OrderHistoryTable({
                 </th>
                 <th
                   scope="col"
-                  className="py-2.5 pr-4 font-mono uppercase text-ink-mute-2"
+                  className="py-2.5 pr-4 font-mono uppercase text-ink-mute-2 whitespace-nowrap"
                   style={{ fontSize: '10.5px', letterSpacing: '0.08em', fontWeight: 500 }}
                 >
                   Articles
@@ -881,14 +896,14 @@ export function OrderHistoryTable({
                 <th
                   scope="col"
                   aria-sort={ariaSortFor('total_ht')}
-                  className="py-2.5 pr-4 font-mono uppercase text-ink-mute-2 text-right"
+                  className="py-2.5 pr-4 font-mono uppercase text-ink-mute-2 text-right whitespace-nowrap"
                   style={{ fontSize: '10.5px', letterSpacing: '0.08em', fontWeight: 500 }}
                 >
                   <button
                     type="button"
                     onClick={() => handleSortClick('total_ht')}
                     data-testid={TEST_IDS.shop.orderSortHeaderTotalHt}
-                    className="inline-flex items-center hover:text-ink transition-colors"
+                    className="inline-flex w-full items-center justify-end hover:text-ink transition-colors"
                   >
                     Total HT
                     <SortIndicator col="total_ht" />
@@ -897,14 +912,14 @@ export function OrderHistoryTable({
                 <th
                   scope="col"
                   aria-sort={ariaSortFor('total_ttc')}
-                  className="py-2.5 pr-4 font-mono uppercase text-ink-mute-2 text-right"
+                  className="py-2.5 pr-4 font-mono uppercase text-ink-mute-2 text-right whitespace-nowrap"
                   style={{ fontSize: '10.5px', letterSpacing: '0.08em', fontWeight: 500 }}
                 >
                   <button
                     type="button"
                     onClick={() => handleSortClick('total_ttc')}
                     data-testid={TEST_IDS.shop.orderSortHeaderTotalTtc}
-                    className="inline-flex items-center hover:text-ink transition-colors"
+                    className="inline-flex w-full items-center justify-end hover:text-ink transition-colors"
                   >
                     Total TTC
                     <SortIndicator col="total_ttc" />
@@ -914,7 +929,7 @@ export function OrderHistoryTable({
                   <th
                     scope="col"
                     aria-sort={extraColumn.sortValue ? ariaSortFor('extra') : undefined}
-                    className="py-2.5 pr-4 font-mono uppercase text-ink-mute-2"
+                    className="py-2.5 pr-4 font-mono uppercase text-ink-mute-2 whitespace-nowrap"
                     style={{ fontSize: '10.5px', letterSpacing: '0.08em', fontWeight: 500 }}
                   >
                     {extraColumn.sortValue ? (
@@ -934,7 +949,7 @@ export function OrderHistoryTable({
                 )}
                 <th
                   scope="col"
-                  className="py-2.5 font-mono uppercase text-ink-mute-2"
+                  className="py-2.5 font-mono uppercase text-ink-mute-2 whitespace-nowrap"
                   style={{ fontSize: '10.5px', letterSpacing: '0.08em', fontWeight: 500 }}
                 >
                   Statut
@@ -942,10 +957,10 @@ export function OrderHistoryTable({
                 {showActionsColumn && (
                   <th
                     scope="col"
-                    className="py-2.5 font-mono uppercase text-ink-mute-2 text-right"
+                    className="py-2.5 font-mono uppercase text-ink-mute-2 text-right whitespace-nowrap"
                     style={{ fontSize: '10.5px', letterSpacing: '0.08em', fontWeight: 500 }}
                   >
-                    <span className="sr-only">Actions</span>
+                    Actions
                   </th>
                 )}
               </tr>
@@ -964,16 +979,16 @@ export function OrderHistoryTable({
                     className="border-b border-line hover:bg-bg transition-colors"
                   >
                     <td
-                      className="py-3 pr-4 text-ink-2 font-mono"
+                      className="py-3 pr-4 text-ink-2 font-mono whitespace-nowrap"
                       style={{ fontVariantNumeric: 'tabular-nums' }}
                     >
                       {formatDate(o.date)}
                     </td>
                     {extraColumn?.position === 'after-date' && (
-                      <td className="py-3 pr-4 text-ink-muted">{extraColumn.render(o)}</td>
+                      <td className="py-3 pr-4 text-ink-muted truncate">{extraColumn.render(o)}</td>
                     )}
-                    <td className="py-3 pr-4 text-ink">{o.customer_name || '—'}</td>
-                    <td className="py-3 pr-4 text-ink-muted">
+                    <td className="py-3 pr-4 text-ink truncate">{o.customer_name || '—'}</td>
+                    <td className="py-3 pr-4 text-ink-muted whitespace-nowrap">
                       <span
                         className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-line bg-paper text-ink-2"
                         style={{ fontSize: '11.5px' }}
@@ -982,13 +997,13 @@ export function OrderHistoryTable({
                       </span>
                     </td>
                     <td
-                      className="py-3 pr-4 text-ink font-mono text-right"
+                      className="py-3 pr-4 text-ink font-mono text-right whitespace-nowrap"
                       style={{ fontVariantNumeric: 'tabular-nums' }}
                     >
                       {formatEuro(o.total_ht)}
                     </td>
                     <td
-                      className="py-3 pr-4 text-ink font-mono text-right font-medium"
+                      className="py-3 pr-4 text-ink font-mono text-right font-medium whitespace-nowrap"
                       style={{ fontVariantNumeric: 'tabular-nums' }}
                     >
                       {formatEuro(o.total_ttc)}
@@ -996,7 +1011,7 @@ export function OrderHistoryTable({
                     {(extraColumn?.position === 'before-status' || (extraColumn && !extraColumn.position)) && (
                       <td className="py-3 pr-4 text-ink-muted">{extraColumn.render(o)}</td>
                     )}
-                    <td className="py-3">
+                    <td className="py-3 whitespace-nowrap">
                       <div className="flex items-center gap-2">
                         {o.source === 'legacy' && (
                           <>
@@ -1020,7 +1035,7 @@ export function OrderHistoryTable({
                     </td>
                     {showActionsColumn && (
                       <td className="py-3 text-right">
-                        <div className="inline-flex items-center gap-1.5">
+                        <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
                           {canValidate(o) && (
                             <button
                               type="button"
