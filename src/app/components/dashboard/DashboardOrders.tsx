@@ -107,11 +107,20 @@ export function DashboardOrders() {
   const handleMarkShipped = (order: OrderUI) => markShipped(order);
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h2 className="text-lg font-semibold text-ink mb-1">Commandes</h2>
-        <p className="text-sm text-ink-muted">
-          {orders.length} commande(s) enregistrée(s) sur l ensemble de vos boutiques.
+    <div
+      className="max-w-[1400px]"
+      style={{ fontFamily: 'var(--font-ui)' }}
+      data-testid="dashboard-orders-page"
+    >
+      <div className="mb-6">
+        <h1
+          className="text-ink m-0"
+          style={{ fontWeight: 300, fontSize: '34px', letterSpacing: '-0.025em', lineHeight: 1.05 }}
+        >
+          Commandes
+        </h1>
+        <p className="mt-2 mb-0 text-ink-muted" style={{ fontSize: '13.5px' }}>
+          {orders.length} commande{orders.length > 1 ? 's' : ''} enregistrée{orders.length > 1 ? 's' : ''} sur l’ensemble de vos boutiques.
         </p>
       </div>
 
@@ -120,6 +129,7 @@ export function DashboardOrders() {
         loading={loading}
         error={error}
         auditApi={auditApi}
+        appearance="dashboard"
         persistKey={currentTenant ? `orderHistory:dashboard:${currentTenant.id}` : undefined}
         onCancelOrder={handleCancelOrderRequest}
         // S-USERS-REFONTE Phase A : bouton Valider visible uniquement si

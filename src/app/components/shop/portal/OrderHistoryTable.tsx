@@ -104,6 +104,11 @@ export interface OrderHistoryTableProps {
   /** Client de lecture de l’audit adapté à l’identité de la surface appelante. */
   auditApi: OrdersApiClient;
   /**
+   * Présentation de la surface appelante. Le portail conserve son historique
+   * ouvert ; le dashboard utilise une surface compacte, bordée et autonome.
+   */
+  appearance?: 'portal' | 'dashboard';
+  /**
    * S3.3 (Sprint 5) : callback Renouveler 1-clic. Si fourni, une colonne
    * Actions affiche un bouton 'Renouveler' sur chaque ligne eligible
    * (cohort v1.1 + status != draft/cancelled). Le parent (PortalOrders →
@@ -339,6 +344,7 @@ export function OrderHistoryTable({
   extraFilter,
   persistKey,
   auditApi,
+  appearance = 'portal',
   onRenewOrder,
   onCancelOrder,
   onEditOrder,
@@ -347,6 +353,7 @@ export function OrderHistoryTable({
   onStartProductionOrder,
   onMarkShippedOrder,
 }: OrderHistoryTableProps) {
+  const isDashboardAppearance = appearance === 'dashboard';
   // S3.3 : une commande est renouvelable si v1.1 + status workflow/terminal
   // (pas draft = rien à renouveler depuis un brouillon, pas cancelled =
   // pas de re-commande depuis une commande abandonnée). Legacy non éligible
@@ -536,10 +543,19 @@ export function OrderHistoryTable({
   }
 
   return (
-    <div>
+    <div
+      data-appearance={appearance}
+      className={
+        isDashboardAppearance
+          ? 'overflow-hidden rounded-md border border-line bg-paper'
+          : undefined
+      }
+    >
       {/* ─── Barre de filtres ──────────────────────────────────────────── */}
       <div
-        className="flex flex-wrap items-end gap-4 mb-5 pb-4 border-b border-line"
+        className={`flex flex-wrap items-end gap-4 border-b border-line ${
+          isDashboardAppearance ? 'bg-bg px-4 py-3' : 'mb-5 pb-4'
+        }`}
         style={{ fontSize: '12.5px' }}
       >
         {/* Filtre Statut */}
@@ -767,7 +783,10 @@ export function OrderHistoryTable({
 
       {/* ─── Empty state filtre ───────────────────────────────────────── */}
       {sorted.length === 0 && (
-        <div className="text-center py-12" data-testid={TEST_IDS.shop.orderFilteredEmpty}>
+        <div
+          className={`text-center py-12 ${isDashboardAppearance ? 'px-4' : ''}`}
+          data-testid={TEST_IDS.shop.orderFilteredEmpty}
+        >
           <p className="text-ink-muted m-0 mb-3" style={{ fontSize: '14px', lineHeight: 1.55 }}>
             Aucune commande ne correspond aux filtres.
           </p>
@@ -785,10 +804,19 @@ export function OrderHistoryTable({
 
       {/* ─── Table ────────────────────────────────────────────────────── */}
       {sorted.length > 0 && (
-        <div className="overflow-x-auto">
-          <table className="w-full text-left" style={{ fontSize: '13px' }}>
+        <div
+          className={`overflow-x-auto ${
+            isDashboardAppearance
+              ? '[&_th:first-child]:pl-4 [&_td:first-child]:pl-4 [&_th:last-child]:pr-4 [&_td:last-child]:pr-4 [&_tbody_tr:last-child]:border-b-0'
+              : ''
+          }`}
+        >
+          <table
+            className={`w-full text-left ${isDashboardAppearance ? 'min-w-[1120px]' : ''}`}
+            style={{ fontSize: '13px' }}
+          >
             <thead>
-              <tr className="border-b border-line">
+              <tr className={`border-b border-line ${isDashboardAppearance ? 'bg-paper' : ''}`}>
                 <th
                   scope="col"
                   aria-sort={ariaSortFor('date')}

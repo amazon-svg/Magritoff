@@ -4,7 +4,7 @@
 >
 > **Source authoritative :** `~/Downloads/CONTEXT_Magrit_IA.md` (maintenu par Arnaud, plus exhaustif). Ce fichier en est la **synthèse opérationnelle pour les agents BMAD** (focus : règles, conventions, états de version, identifiants techniques, **PAS** la stratégie commerciale détaillée).
 >
-> **Dernière mise à jour :** 2026-08-20 (AF30.14 — persistance des devis imprimés isolée).
+> **Dernière mise à jour :** 2026-08-20 (UX31.1 — surface du dashboard commandes harmonisée).
 > **Maintenu par :** Arnaud Mazon — PDG AGE Développement — `arnaud@age-services.fr`.
 > **Langue de travail :** français (livrables, code commits, variables métier).
 
@@ -151,6 +151,10 @@
   et les transitions annulation, validation, production et expédition. La vue
   conserve permissions, modales et présentation par boutique ; elle reçoit
   aussi l'API d'audit explicitement depuis le hook.
+- Le dashboard Commandes utilise l'apparence explicite `dashboard` du tableau
+  partagé : largeur de lecture limitée à 1400 px, filtres et lignes regroupés
+  dans une surface bordée. L'apparence `portal` reste la valeur par défaut afin
+  d'éviter toute dérive visuelle du storefront.
 - `useQuotePersistence` compose la façade Quotes pour les devis imprimés depuis
   une fiche produit ou le panier. Les vues conservent le rendu HTML et les
   fenêtres d'impression, sans connaître le client Quotes.
