@@ -30,6 +30,8 @@ import type { Database, Json } from '../../types/database.types.ts';
 type UserScopedClient = SupabaseClient<Database>;
 type TenantOrderRow = Database['public']['Tables']['tenant_orders']['Row'] & {
   tenant_order_items?: Database['public']['Tables']['tenant_order_items']['Row'][] | null;
+  customer_name?: string | null;
+  customer_email?: string | null;
 };
 
 const TENANT_ORDER_SELECTION =
@@ -55,14 +57,14 @@ export class SupabaseOrdersRepository implements OrdersRepository {
     const { data, error } = await this.client.from('tenant_orders').select(TENANT_ORDER_SELECTION)
       .eq('tenant_id', tenantId).order('created_at', { ascending: false }).limit(100);
     if (error) throw new Error(`Lecture des commandes tenant impossible: ${error.message}`);
-    return (data ?? []).map((row) => toTenantOrder(row as unknown as TenantOrderRow));
+    return this.withCustomerIdentities(data ?? []);
   }
 
   async listTenantOrdersByIds(orderIds: readonly string[]): Promise<readonly TenantOrderRecord[]> {
     if (orderIds.length === 0) return [];
     const { data, error } = await this.client.from('tenant_orders').select(TENANT_ORDER_SELECTION).in('id', [...orderIds]);
     if (error) throw new Error(`Lecture des commandes portail impossible: ${error.message}`);
-    return (data ?? []).map((row) => toTenantOrder(row as unknown as TenantOrderRow));
+    return this.withCustomerIdentities(data ?? []);
   }
 
   async listLegacyOrders(shopIds: readonly string[], customerEmail?: string): Promise<readonly LegacyOrderRecord[]> {
@@ -125,6 +127,28 @@ export class SupabaseOrdersRepository implements OrdersRepository {
       orders: rows.map((row) => toTenantOrder(toRecord(row) as unknown as TenantOrderRow)),
       taxRegime: normalizeTaxRegime(typeof result.tax_regime === 'string' ? result.tax_regime : null),
     };
+  }
+
+  private async withCustomerIdentities(rows: readonly unknown[]): Promise<readonly TenantOrderRecord[]> {
+    if (rows.length === 0) return [];
+    const orderIds = rows.flatMap((row) => {
+      const id = toRecord(row).id;
+      return typeof id === 'string' ? [id] : [];
+    });
+    const { data, error } = await this.client.rpc('api_get_order_customer_identities', {
+      p_order_ids: orderIds,
+    });
+    if (error) throw new Error(`Lecture des clients de commandes impossible: ${error.message}`);
+    const identities = new Map((data ?? []).map((identity) => [identity.order_id, identity]));
+    return rows.map((row) => {
+      const typedRow = row as TenantOrderRow;
+      const identity = identities.get(typedRow.id);
+      return toTenantOrder({
+        ...typedRow,
+        customer_name: identity?.customer_name ?? null,
+        customer_email: identity?.customer_email ?? null,
+      });
+    });
   }
 
   async listAuditEvents(orderId: string, authorization: OrderResourceAuthorization): Promise<readonly AuditEventRecord[]> {
@@ -353,6 +377,8 @@ function toTenantOrder(row: TenantOrderRow): TenantOrderRecord {
     id: row.id,
     shopId: row.shop_id,
     createdAt: row.created_at,
+    customerName: row.customer_name ?? null,
+    customerEmail: row.customer_email ?? null,
     totalHt: row.total_ht,
     status: row.status,
     items: (row.tenant_order_items ?? []).map((item) => ({

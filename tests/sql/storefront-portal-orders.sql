@@ -46,6 +46,10 @@ begin
   if v_result#>>'{orders,0,tenant_order_items,0,product_label}' <> 'Commande A' then
     raise exception 'Le portail UM6.2 ne retourne pas la commande attendue';
   end if;
+  if v_result#>>'{orders,0,customer_name}' <> 'Portal A'
+     or v_result#>>'{orders,0,customer_email}' <> 'portal-a@example.com' then
+    raise exception 'Le portail UM6.2 ne retourne pas l identité de son compte boutique';
+  end if;
 end;
 $$;
 

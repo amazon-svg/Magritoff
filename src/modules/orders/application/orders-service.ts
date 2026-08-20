@@ -145,7 +145,8 @@ function toLegacySummary(order: LegacyOrderRecord): OrderSummary {
 function toTenantSummary(order: TenantOrderRecord, taxRate: number): OrderSummary {
   return {
     id: order.id, shopId: order.shopId, source: 'v1_1', createdAt: order.createdAt,
-    customerName: '—', customerEmail: '', items: [...order.items], totalHt: order.totalHt,
+    customerName: order.customerName ?? '—', customerEmail: order.customerEmail ?? '',
+    items: [...order.items], totalHt: order.totalHt,
     totalTtc: order.totalHt * (1 + taxRate), status: order.status,
   };
 }

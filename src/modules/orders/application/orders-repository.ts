@@ -34,6 +34,8 @@ export type TenantOrderRecord = Readonly<{
   id: string;
   shopId: string;
   createdAt: string;
+  customerName: string | null;
+  customerEmail: string | null;
   items: readonly Readonly<{ name: string; quantity: number; unitPriceHt: number }>[];
   totalHt: number;
   status: string;

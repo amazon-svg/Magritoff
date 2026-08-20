@@ -15,6 +15,7 @@ describe('OrdersService', () => {
     expect(result.orders.map((order) => order.id)).toEqual(['v11-1', 'legacy-1']);
     expect(result.orders[0]).toMatchObject({
       source: 'v1_1', shopId: 'shop-1', totalHt: 100, totalTtc: 108.5,
+      customerName: 'Xav 12', customerEmail: 'xav.12@laposte.net',
       items: [{ name: 'Affiche', quantity: 2, unitPriceHt: 50 }],
     });
     expect(repository.listLegacyOrders).toHaveBeenCalledWith(['shop-1']);
@@ -112,6 +113,7 @@ describe('OrdersService', () => {
 function repositoryStub(): OrdersRepository & Record<'listLegacyOrders', ReturnType<typeof vi.fn>> {
   const v11 = {
     id: 'v11-1', shopId: 'shop-1', createdAt: '2026-08-11T12:00:00.000Z',
+    customerName: 'Xav 12', customerEmail: 'xav.12@laposte.net',
     items: [{ name: 'Affiche', quantity: 2, unitPriceHt: 50 }], totalHt: 100, status: 'draft',
   };
   return {

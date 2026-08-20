@@ -242,6 +242,7 @@ describe('routes Orders API v1', () => {
 function repositoryStub(): OrdersRepository {
   const order = {
     id: 'order-af4', shopId: 'shop-af4', createdAt: '2026-08-11T12:00:00.000Z',
+    customerName: 'Client AF4', customerEmail: 'client-af4@magrit.test',
     items: [], totalHt: 10, status: 'draft',
   };
   return {
