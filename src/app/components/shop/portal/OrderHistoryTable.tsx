@@ -812,26 +812,26 @@ export function OrderHistoryTable({
           }`}
         >
           <table
-            className={`w-full text-left ${isDashboardAppearance ? 'min-w-[1280px] table-fixed' : ''}`}
+            className={`w-full text-left ${isDashboardAppearance ? 'min-w-[1365px] table-fixed' : ''}`}
             style={{ fontSize: '13px' }}
           >
             {isDashboardAppearance && (
               <colgroup>
-                <col style={{ width: '14%' }} />
-                {extraColumn?.position === 'after-date' && <col style={{ width: '9%' }} />}
-                <col style={{ width: '8%' }} />
-                <col style={{ width: '9%' }} />
-                <col style={{ width: '9%' }} />
-                <col style={{ width: '9%' }} />
+                <col style={{ width: '175px' }} />
+                {extraColumn?.position === 'after-date' && <col style={{ width: '125px' }} />}
+                <col style={{ width: '125px' }} />
+                <col style={{ width: '130px' }} />
+                <col style={{ width: '135px' }} />
+                <col style={{ width: '135px' }} />
                 {(extraColumn?.position === 'before-status' || (extraColumn && !extraColumn.position)) && (
-                  <col style={{ width: '9%' }} />
+                  <col style={{ width: '125px' }} />
                 )}
-                <col style={{ width: '11%' }} />
-                {showActionsColumn && <col style={{ width: '31%' }} />}
+                <col style={{ width: '150px' }} />
+                {showActionsColumn && <col style={{ width: '390px' }} />}
               </colgroup>
             )}
             <thead>
-              <tr className={`border-b border-line ${isDashboardAppearance ? 'bg-paper' : ''}`}>
+              <tr className={`border-b border-line ${isDashboardAppearance ? 'bg-bg' : ''}`}>
                 <th
                   scope="col"
                   aria-sort={ariaSortFor('date')}
@@ -842,7 +842,7 @@ export function OrderHistoryTable({
                     type="button"
                     onClick={() => handleSortClick('date')}
                     data-testid={TEST_IDS.shop.orderSortHeaderDate}
-                    className="inline-flex items-center hover:text-ink transition-colors"
+                    className="inline-flex items-center font-mono uppercase text-[10.5px] tracking-[0.08em] font-medium hover:text-ink transition-colors"
                   >
                     Date
                     <SortIndicator col="date" />
@@ -860,7 +860,7 @@ export function OrderHistoryTable({
                         type="button"
                         onClick={() => handleSortClick('extra')}
                         data-testid={TEST_IDS.shop.orderSortHeaderExtra}
-                        className="inline-flex items-center hover:text-ink transition-colors"
+                        className="inline-flex items-center font-mono uppercase text-[10.5px] tracking-[0.08em] font-medium hover:text-ink transition-colors"
                       >
                         {extraColumn.header}
                         <SortIndicator col="extra" />
@@ -880,7 +880,7 @@ export function OrderHistoryTable({
                     type="button"
                     onClick={() => handleSortClick('customer_name')}
                     data-testid={TEST_IDS.shop.orderSortHeaderClient}
-                    className="inline-flex items-center hover:text-ink transition-colors"
+                    className="inline-flex items-center font-mono uppercase text-[10.5px] tracking-[0.08em] font-medium hover:text-ink transition-colors"
                   >
                     Client
                     <SortIndicator col="customer_name" />
@@ -903,7 +903,7 @@ export function OrderHistoryTable({
                     type="button"
                     onClick={() => handleSortClick('total_ht')}
                     data-testid={TEST_IDS.shop.orderSortHeaderTotalHt}
-                    className="inline-flex w-full items-center justify-end hover:text-ink transition-colors"
+                    className="inline-flex w-full items-center justify-end font-mono uppercase text-[10.5px] tracking-[0.08em] font-medium hover:text-ink transition-colors"
                   >
                     Total HT
                     <SortIndicator col="total_ht" />
@@ -919,7 +919,7 @@ export function OrderHistoryTable({
                     type="button"
                     onClick={() => handleSortClick('total_ttc')}
                     data-testid={TEST_IDS.shop.orderSortHeaderTotalTtc}
-                    className="inline-flex w-full items-center justify-end hover:text-ink transition-colors"
+                    className="inline-flex w-full items-center justify-end font-mono uppercase text-[10.5px] tracking-[0.08em] font-medium hover:text-ink transition-colors"
                   >
                     Total TTC
                     <SortIndicator col="total_ttc" />
@@ -937,7 +937,7 @@ export function OrderHistoryTable({
                         type="button"
                         onClick={() => handleSortClick('extra')}
                         data-testid={TEST_IDS.shop.orderSortHeaderExtra}
-                        className="inline-flex items-center hover:text-ink transition-colors"
+                        className="inline-flex items-center font-mono uppercase text-[10.5px] tracking-[0.08em] font-medium hover:text-ink transition-colors"
                       >
                         {extraColumn.header}
                         <SortIndicator col="extra" />
@@ -949,7 +949,7 @@ export function OrderHistoryTable({
                 )}
                 <th
                   scope="col"
-                  className="py-2.5 font-mono uppercase text-ink-mute-2 whitespace-nowrap"
+                  className="py-2.5 pr-4 font-mono uppercase text-ink-mute-2 whitespace-nowrap"
                   style={{ fontSize: '10.5px', letterSpacing: '0.08em', fontWeight: 500 }}
                 >
                   Statut
@@ -957,7 +957,7 @@ export function OrderHistoryTable({
                 {showActionsColumn && (
                   <th
                     scope="col"
-                    className="py-2.5 font-mono uppercase text-ink-mute-2 text-right whitespace-nowrap"
+                    className="py-2.5 font-mono uppercase text-ink-mute-2 text-left whitespace-nowrap"
                     style={{ fontSize: '10.5px', letterSpacing: '0.08em', fontWeight: 500 }}
                   >
                     Actions
@@ -1011,7 +1011,7 @@ export function OrderHistoryTable({
                     {(extraColumn?.position === 'before-status' || (extraColumn && !extraColumn.position)) && (
                       <td className="py-3 pr-4 text-ink-muted">{extraColumn.render(o)}</td>
                     )}
-                    <td className="py-3 whitespace-nowrap">
+                    <td className="py-3 pr-4 whitespace-nowrap">
                       <div className="flex items-center gap-2">
                         {o.source === 'legacy' && (
                           <>
@@ -1034,8 +1034,8 @@ export function OrderHistoryTable({
                       </div>
                     </td>
                     {showActionsColumn && (
-                      <td className="py-3 text-right">
-                        <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
+                      <td className="py-3 text-left">
+                        <div className="flex items-center justify-start gap-1.5 whitespace-nowrap">
                           {canValidate(o) && (
                             <button
                               type="button"
