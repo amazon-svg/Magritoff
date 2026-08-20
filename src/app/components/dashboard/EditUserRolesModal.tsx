@@ -12,21 +12,9 @@
  * depuis la table Magrit Users).
  */
 
-import { useCallback, useEffect, useState } from 'react';
 import { Loader2, X, Check } from 'lucide-react';
 import { TEST_IDS } from '../../lib/testIds';
-import { useWorkspaceMembersApi, useWorkspaceRolesApi } from '../../contexts/ModuleClientsContext';
-
-interface RoleOption {
-  id: string;
-  name: string;
-  description: string;
-}
-
-interface AssignmentRow {
-  id: string;
-  role_definition_id: string;
-}
+import { useUserRoleManagement } from '../../hooks/useRoleAssignmentManagement';
 
 export interface EditUserRolesModalProps {
   open: boolean;
@@ -47,78 +35,17 @@ export function EditUserRolesModal({
   onChanged,
   onClose,
 }: EditUserRolesModalProps) {
-  const rolesApi = useWorkspaceRolesApi();
-  const membersApi = useWorkspaceMembersApi();
-  const [roles, setRoles] = useState<RoleOption[]>([]);
-  const [assignments, setAssignments] = useState<AssignmentRow[]>([]);
-  const [legacyShopOnly, setLegacyShopOnly] = useState(false);
-  const [savingAccess, setSavingAccess] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [pendingRoleIds, setPendingRoleIds] = useState<Set<string>>(new Set());
-
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const detail = await rolesApi.userDetail(tenantId, targetUserId);
-      setRoles(detail.roles.map((role) => ({ id: role.id, name: role.name, description: role.description })));
-      setAssignments(detail.assignments.map((assignment) => ({ id: assignment.id, role_definition_id: assignment.roleId })));
-      setLegacyShopOnly(detail.accessScope === 'shop_only');
-    } catch (loadError) {
-      setError(`Rôles : ${loadError instanceof Error ? loadError.message : 'chargement impossible'}`);
-    }
-    setLoading(false);
-  }, [rolesApi, tenantId, targetUserId]);
-
-  const promoteToMagrit = async () => {
-    setSavingAccess(true);
-    setError(null);
-    try {
-      const member = (await membersApi.list(tenantId)).find((candidate) => candidate.userId === targetUserId);
-      if (!member) throw new Error('Membre introuvable.');
-      await membersApi.updateAccess(tenantId, targetUserId, {
-        accessScope: 'magrit_full', allowedShopIds: [],
-        permissions: member.permissions,
-      });
-      setLegacyShopOnly(false);
-      await onChanged();
-    } catch (saveError) {
-      setError(`Accès : ${saveError instanceof Error ? saveError.message : 'enregistrement impossible'}`);
-    } finally {
-      setSavingAccess(false);
-    }
-  };
-
-  useEffect(() => {
-    if (open) {
-      void loadData();
-    }
-  }, [open, loadData]);
-
-  const assignmentByRoleId = new Map(assignments.map((a) => [a.role_definition_id, a]));
-
-  const handleToggle = async (roleId: string) => {
-    if (pendingRoleIds.has(roleId)) return;
-    setPendingRoleIds((s) => new Set(s).add(roleId));
-    setError(null);
-
-    const existing = assignmentByRoleId.get(roleId);
-    try {
-      await rolesApi.setAssignment(tenantId, targetUserId, roleId, !existing);
-      await loadData();
-      await onChanged();
-    } catch (err: any) {
-      setError(`Erreur : ${err?.message || 'inconnue'}`);
-    } finally {
-      setPendingRoleIds((s) => {
-        const next = new Set(s);
-        next.delete(roleId);
-        return next;
-      });
-    }
-  };
+  const {
+    roles,
+    legacyShopOnly,
+    savingAccess,
+    loading,
+    error,
+    pendingRoleIds,
+    assignmentByRoleId,
+    toggleAssignment,
+    promoteToMagrit,
+  } = useUserRoleManagement({ open, tenantId, targetUserId, onChanged });
 
   if (!open) return null;
 
@@ -202,7 +129,7 @@ export function EditUserRolesModal({
                   <button
                     key={r.id}
                     type="button"
-                    onClick={() => handleToggle(r.id)}
+                    onClick={() => toggleAssignment(r.id)}
                     disabled={isPending}
                     data-testid={TEST_IDS.user.assignmentToggle}
                     data-user-id={targetUserId}

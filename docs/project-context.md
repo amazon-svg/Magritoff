@@ -163,7 +163,12 @@
   intentions métier et ne connaissent plus le client Commercial.
 - `useRoleCatalogManagement` porte lecture, création, édition, réordonnancement
   et archivage des rôles Magrit. La page Workflow et son éditeur ne connaissent
-  plus le client Roles ; les assignations utilisateurs restent un lot séparé.
+  plus le client Roles.
+- `useRoleAssignmentMatrix` et `useUserRoleManagement` portent la matrice des
+  assignations, l'édition ciblée d'un utilisateur et la conversion explicite à
+  sens unique d'un ancien accès boutique vers Magrit. Les composants de rôles
+  ne connaissent plus les clients Roles ou Members ; aucun profil mixte n'est
+  réintroduit.
 - `usePlatformDiagnostics` porte les tests Clariprint et fournisseur IA ainsi
   que leurs états indépendants. La modale ne connaît plus le client Diagnostics
   et ignore les réponses tardives après sa fermeture.

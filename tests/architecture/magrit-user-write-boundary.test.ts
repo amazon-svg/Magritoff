@@ -8,6 +8,9 @@ const invite = readFileSync(resolve(
 const edit = readFileSync(resolve(
   process.cwd(), 'src/app/components/dashboard/EditUserRolesModal.tsx',
 ), 'utf8');
+const roleManagement = readFileSync(resolve(
+  process.cwd(), 'src/app/hooks/useRoleAssignmentManagement.ts',
+), 'utf8');
 const users = readFileSync(resolve(
   process.cwd(), 'src/app/components/dashboard/DashboardUsers.tsx',
 ), 'utf8');
@@ -27,8 +30,9 @@ describe('UM8.1 frontière d écriture des utilisateurs Magrit', () => {
   });
 
   it('limite un compte legacy à une conversion à sens unique vers Magrit', () => {
-    expect(edit).toContain("detail.accessScope === 'shop_only'");
-    expect(edit).toContain("accessScope: 'magrit_full', allowedShopIds: []");
+    expect(roleManagement).toContain("detail.accessScope === 'shop_only'");
+    expect(roleManagement).toContain("accessScope: 'magrit_full'");
+    expect(roleManagement).toContain('allowedShopIds: []');
     expect(edit).toContain('Convertir en utilisateur Magrit');
     expect(edit).not.toContain("setScope('shop_only')");
     expect(users).not.toContain('ScopeAndPermissionsFieldset');

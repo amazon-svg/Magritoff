@@ -578,6 +578,8 @@ describe('frontières API-first et modulaires', () => {
     const orchestratedFiles = [
       'src/app/components/dashboard/OrderRoleAdminPage.tsx',
       'src/app/components/dashboard/RoleEditorDialog.tsx',
+      'src/app/components/dashboard/DashboardRolesSection.tsx',
+      'src/app/components/dashboard/EditUserRolesModal.tsx',
     ];
     for (const file of orchestratedFiles) {
       const source = readFileSync(resolve(process.cwd(), file), 'utf8');
@@ -591,14 +593,12 @@ describe('frontières API-first et modulaires', () => {
     expect(hook).toContain('rolesApi.catalog');
     expect(hook).toContain('rolesApi.reorderDefinitions');
     expect(hook).toContain('rolesApi.archiveDefinition');
-
-    for (const file of [
-      'src/app/components/dashboard/DashboardRolesSection.tsx',
-      'src/app/components/dashboard/EditUserRolesModal.tsx',
-    ]) {
-      const source = readFileSync(resolve(process.cwd(), file), 'utf8');
-      expect(source).toContain('useWorkspaceRolesApi');
-    }
+    const assignmentsHook = readFileSync(resolve(process.cwd(), 'src/app/hooks/useRoleAssignmentManagement.ts'), 'utf8');
+    expect(assignmentsHook).toContain('useWorkspaceRolesApi');
+    expect(assignmentsHook).toContain('useWorkspaceMembersApi');
+    expect(assignmentsHook).toContain('rolesApi.overview');
+    expect(assignmentsHook).toContain('rolesApi.userDetail');
+    expect(assignmentsHook).toContain('rolesApi.setAssignment');
   });
 
   it('sort la vérification des capabilities du fournisseur', () => {
