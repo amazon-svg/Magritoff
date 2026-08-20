@@ -4,7 +4,7 @@
 >
 > **Source authoritative :** `~/Downloads/CONTEXT_Magrit_IA.md` (maintenu par Arnaud, plus exhaustif). Ce fichier en est la **synthèse opérationnelle pour les agents BMAD** (focus : règles, conventions, états de version, identifiants techniques, **PAS** la stratégie commerciale détaillée).
 >
-> **Dernière mise à jour :** 2026-08-20 (AF30.13 — commandes dashboard isolées).
+> **Dernière mise à jour :** 2026-08-20 (AF30.14 — persistance des devis imprimés isolée).
 > **Maintenu par :** Arnaud Mazon — PDG AGE Développement — `arnaud@age-services.fr`.
 > **Langue de travail :** français (livrables, code commits, variables métier).
 
@@ -151,6 +151,9 @@
   et les transitions annulation, validation, production et expédition. La vue
   conserve permissions, modales et présentation par boutique ; elle reçoit
   aussi l'API d'audit explicitement depuis le hook.
+- `useQuotePersistence` compose la façade Quotes pour les devis imprimés depuis
+  une fiche produit ou le panier. Les vues conservent le rendu HTML et les
+  fenêtres d'impression, sans connaître le client Quotes.
 - Le probe et le catalogue Shops du storefront suivent la même règle : client
   HTTP anonyme côté navigateur, puis résolution du cookie boutique côté BFF.
 - Le composant de surface `PublicShop` ne pilote plus le transport ni les états

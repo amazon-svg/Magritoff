@@ -853,9 +853,21 @@ describe('frontières API-first et modulaires', () => {
 
   it('fait passer la création rapide des brouillons par Quotes', () => {
     const utility = readFileSync(resolve(process.cwd(), 'src/app/utils/quote.ts'), 'utf8');
+    const hook = readFileSync(resolve(process.cwd(), 'src/app/hooks/useQuotePersistence.ts'), 'utf8');
+    const modal = readFileSync(resolve(process.cwd(), 'src/app/components/QuoteModal.tsx'), 'utf8');
+    const cart = readFileSync(resolve(process.cwd(), 'src/app/components/CartButton.tsx'), 'utf8');
     expect(utility).toContain('quotesApi.createDraft');
-    expect(utility).not.toContain('utils/supabase');
-    expect(utility).not.toMatch(/\bsupabase\s*\./);
+    expect(hook).toContain('useQuotesApi');
+    expect(hook).toContain('persistQuote(quotesApi, tenantId, input)');
+    for (const view of [modal, cart]) {
+      expect(view).toContain('useQuotePersistence');
+      expect(view).not.toContain('useQuotesApi');
+      expect(view).not.toContain('persistQuote(');
+    }
+    for (const candidate of [utility, hook, modal, cart]) {
+      expect(candidate).not.toContain('utils/supabase');
+      expect(candidate).not.toMatch(/\bsupabase\s*\./);
+    }
   });
 
   it('sort le CRUD éditable des devis du fournisseur', () => {
