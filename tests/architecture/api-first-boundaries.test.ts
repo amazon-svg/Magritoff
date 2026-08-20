@@ -96,6 +96,7 @@ describe('frontières API-first et modulaires', () => {
       'src/modules/mockups/surface-contributions.ts',
       'src/modules/plans/manifest.ts',
       'src/modules/plans/surface-contributions.ts',
+      'src/modules/shop-customers/surface-contributions.ts',
     ];
     const violations = protectedRoots.flatMap((root) => {
       const path = resolve(process.cwd(), root);
@@ -189,8 +190,10 @@ describe('frontières API-first et modulaires', () => {
 
     expect(routes).toContain('portalRuntimePaths.shopRoot');
     expect(routes).not.toContain('{ path: "/shop/:slug/*"');
-    expect(routes).toContain('`/${portalRuntimePaths.shopRoot}/activate`');
-    expect(routes).toContain('`/${portalRuntimePaths.shopRoot}/reset-password`');
+    expect(routes).toContain('portalRuntimePaths.activation');
+    expect(routes).toContain('portalRuntimePaths.passwordReset');
+    expect(routes).not.toContain('portalRuntimePaths.shopRoot}/activate`');
+    expect(routes).not.toContain('portalRuntimePaths.shopRoot}/reset-password`');
     expect(routes).not.toContain('portalRuntimePaths.shopRoot}/:slug');
     expect(portalRoutes).toContain('portalRuntimePaths.checkout');
     expect(portalRoutes).toContain('portalRuntimePaths.orderConfirmation');

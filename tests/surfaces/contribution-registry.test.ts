@@ -97,12 +97,14 @@ describe('registre des contributions de surfaces', () => {
     expect(backoffice.plannedRoutes.map(({ id }) => id)).toEqual([
       'orders.backoffice.production',
       'shops.backoffice.list',
+      'shop-customers.backoffice.accounts',
       'quotes.backoffice.pending',
     ]);
     expect(backoffice.plannedNavigation.map(({ routeId }) => routeId)).toEqual([
       'quotes.backoffice.pending',
       'orders.backoffice.production',
       'shops.backoffice.list',
+      'shop-customers.backoffice.accounts',
     ]);
   });
 
@@ -175,6 +177,19 @@ describe('registre des contributions de surfaces', () => {
     );
     expect(applicationContributionRegistry.manifest('shop-customers')).toBe(
       shopCustomersModuleManifest,
+    );
+    expect(applicationContributionRegistry.forSurface('storefront').routes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'shop-customers.storefront.activate', path: 'activate' }),
+        expect.objectContaining({ id: 'shop-customers.storefront.reset-password', path: 'reset-password' }),
+      ]),
+    );
+    expect(applicationContributionRegistry.forSurface('backoffice').plannedRoutes).toContainEqual(
+      expect.objectContaining({
+        id: 'shop-customers.backoffice.accounts',
+        availability: 'planned',
+        requiredCapabilities: ['shop-customers.manage'],
+      }),
     );
   });
 

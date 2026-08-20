@@ -177,6 +177,11 @@
   d'invitation. Il renouvelle la session juste avant la commande et construit le
   client avec le jeton frais ; la modale conserve saisie, sélection et restitution
   du lien manuel sans connaître le client Invitations.
+- Le module `shop-customers` possède ses contributions de surfaces : activation
+  et récupération de mot de passe sont des routes storefront actives dont le
+  host résout les chemins depuis le registre ; portail et workspace restent des
+  montages intégrés, et la gestion backoffice est déclarée `planned` sans être
+  exposée avant l'existence de son composition root.
 - `usePlatformDiagnostics` porte les tests Clariprint et fournisseur IA ainsi
   que leurs états indépendants. La modale ne connaît plus le client Diagnostics
   et ignore les réponses tardives après sa fermeture.

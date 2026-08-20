@@ -24,6 +24,12 @@ export {
   type StorefrontRegistrationGateway,
 } from './application/storefront-registration-service';
 export { shopCustomersModuleManifest } from './manifest';
+export {
+  shopCustomersBackofficeContribution,
+  shopCustomersCustomerPortalContribution,
+  shopCustomersStorefrontContribution,
+  shopCustomersWorkspaceContribution,
+} from './surface-contributions';
 export { StorefrontSessionService, type StorefrontSessionGateway } from './application/storefront-session-service';
 export { StorefrontActivationRejectedError, StorefrontActivationService, type StorefrontActivationGateway } from './application/storefront-activation-service';
 export type { StorefrontActivationIssue } from './application/storefront-activation-service';

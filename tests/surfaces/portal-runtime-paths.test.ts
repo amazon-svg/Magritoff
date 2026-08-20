@@ -5,6 +5,8 @@ describe('chemins runtime du portail', () => {
   it('résout les routes host depuis les contributions de surfaces', () => {
     expect(portalRuntimePaths).toEqual({
       shopRoot: 'shop/:slug',
+      activation: 'activate',
+      passwordReset: 'reset-password',
       checkout: 'checkout',
       orderConfirmation: 'thank-you',
       catalog: 'catalog',
