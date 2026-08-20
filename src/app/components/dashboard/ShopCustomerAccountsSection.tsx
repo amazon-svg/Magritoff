@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Check, Copy, ExternalLink, Loader2, Mail, Plus, RefreshCw, UserRound } from 'lucide-react';
+import { Check, Copy, ExternalLink, Loader2, Mail, RefreshCw, UserRound } from 'lucide-react';
 import type { ShopCustomerAccount } from '../../../modules/shop-customers';
 import { useShopCustomerAccountManagement } from '../../hooks/useShopCustomerAccountManagement';
 
@@ -16,23 +16,16 @@ const STATUS_LABELS: Record<ShopCustomerAccount['status'], string> = {
 };
 
 export function ShopCustomerAccountsSection({ tenantId, shopId }: Props) {
-  const [showForm, setShowForm] = useState(false);
   const [email, setEmail] = useState('');
-  const [fullName, setFullName] = useState('');
   const [copied, setCopied] = useState(false);
   const management = useShopCustomerAccountManagement(tenantId, shopId);
 
-  const createAccount = async (event: FormEvent) => {
+  const inviteCustomer = async (event: FormEvent) => {
     event.preventDefault();
-    const created = await management.createAccount({
-      email,
-      fullName,
-      initialStatus: 'delegated_only',
-    });
-    if (created) {
+    setCopied(false);
+    const invited = await management.inviteByEmail(email);
+    if (invited) {
       setEmail('');
-      setFullName('');
-      setShowForm(false);
     }
   };
 
@@ -109,54 +102,35 @@ export function ShopCustomerAccountsSection({ tenantId, shopId }: Props) {
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             Actualiser
           </button>
-          <button
-            type="button"
-            onClick={() => setShowForm((visible) => !visible)}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-ink text-paper text-sm hover:opacity-90"
-          >
-            <Plus className="w-4 h-4" />
-            Créer un compte
-          </button>
         </div>
       </div>
 
-      {showForm && (
-        <form onSubmit={createAccount} className="p-4 grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-3 border-b border-line bg-bg/50">
-          <label className="text-xs font-medium text-ink-2">
-            Nom complet
-            <input
-              required
-              maxLength={200}
-              value={fullName}
-              onChange={(event) => setFullName(event.target.value)}
-              className="mt-1 w-full px-3 py-2 border border-line-2 rounded-lg bg-paper text-sm"
-            />
-          </label>
-          <label className="text-xs font-medium text-ink-2">
-            Email dans cette boutique
-            <input
-              required
-              type="email"
-              maxLength={320}
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              className="mt-1 w-full px-3 py-2 border border-line-2 rounded-lg bg-paper text-sm"
-            />
-          </label>
-          <button
-            type="submit"
-            disabled={saving}
-            className="self-end inline-flex justify-center items-center gap-1.5 px-4 py-2 rounded-lg bg-ink text-paper text-sm disabled:opacity-50"
-          >
-            {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-            Créer
-          </button>
-          <p className="md:col-span-3 text-xs text-ink-muted m-0">
-            Cette étape prépare uniquement le compte métier. Aucun email, mot de passe ou
-            accès storefront n’est encore créé.
-          </p>
-        </form>
-      )}
+      <form
+        onSubmit={inviteCustomer}
+        className="p-4 flex flex-col md:flex-row md:items-end gap-3 border-b border-line bg-bg/50"
+      >
+        <label className="flex-1 text-xs font-medium text-ink-2">
+          Email du client à inviter
+          <input
+            required
+            type="email"
+            maxLength={320}
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="client@entreprise.fr"
+            autoComplete="email"
+            className="mt-1 w-full px-3 py-2 border border-line-2 rounded-lg bg-paper text-sm"
+          />
+        </label>
+        <button
+          type="submit"
+          disabled={saving}
+          className="self-end inline-flex justify-center items-center gap-1.5 px-4 py-2 rounded-lg bg-ink text-paper text-sm disabled:opacity-50"
+        >
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+          {saving ? 'Envoi…' : 'Envoyer l’invitation'}
+        </button>
+      </form>
 
       {error && (
         <p role="alert" className="m-4 rounded-lg border border-err-fg/20 bg-err-bg px-3 py-2 text-sm text-err-fg">

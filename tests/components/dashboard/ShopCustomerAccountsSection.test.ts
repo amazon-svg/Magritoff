@@ -38,9 +38,13 @@ describe('ShopCustomerAccountsSection', () => {
     expect(source).not.toContain('opaqueToken');
   });
 
-  it('explique la séparation des comptes sans promettre une invitation', () => {
+  it('propose une invitation directe à partir du seul email', () => {
     expect(source).toContain('ne sont pas des utilisateurs Magrit');
-    expect(source).toContain('Aucun email, mot de passe ou');
-    expect(source).toContain("initialStatus: 'delegated_only'");
+    expect(source).toContain('Email du client à inviter');
+    expect(source).toContain('Envoyer l’invitation');
+    expect(source).not.toContain('Nom complet');
+    expect(hook).toContain('inviteByEmail');
+    expect(hook).toContain("initialStatus: 'invited'");
+    expect(hook).toContain('api.issueActivation');
   });
 });

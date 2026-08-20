@@ -42,6 +42,23 @@ describe('ShopCustomersService', () => {
     );
   });
 
+  it('déduit un nom lisible lorsque l invitation ne fournit que l email', async () => {
+    const repository = repositoryStub();
+    const service = new ShopCustomersService(repository);
+
+    await service.create(actor(), 'tenant-1', SHOP, {
+      email: 'xavier.pechoultres@example.com',
+    });
+
+    expect(repository.create).toHaveBeenCalledWith(
+      actor(), 'tenant-1', SHOP,
+      expect.objectContaining({
+        fullName: 'Xavier Pechoultres',
+        status: 'invited',
+      }),
+    );
+  });
+
   it('refuse un doublon dans la même boutique', async () => {
     const repository = repositoryStub();
     vi.mocked(repository.findByNormalizedEmail).mockResolvedValue(account());

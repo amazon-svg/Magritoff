@@ -23,10 +23,11 @@ describe('routes ShopCustomers API v1', () => {
     await expect(client.list(TENANT, SHOP)).resolves.toEqual([]);
     await expect(client.migrationReport(TENANT)).resolves.toEqual([]);
     await expect(client.create(TENANT, SHOP, {
-      email: 'Client@Example.com', fullName: 'Client Exemple',
+      email: 'Client.Exemple@Example.com',
     })).resolves.toMatchObject({
       shopId: SHOP,
-      normalizedEmail: 'client@example.com',
+      normalizedEmail: 'client.exemple@example.com',
+      fullName: 'Client Exemple',
       status: 'invited',
     });
   });

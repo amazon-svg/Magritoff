@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type {
-  CreateShopCustomerCommand,
   IssueStorefrontActivationResult,
   ShopCustomerAccount,
 } from '../../modules/shop-customers';
+import { normalizeShopCustomerEmail } from '../../modules/shop-customers';
 import { useShopCustomersApi } from '../contexts/ModuleClientsContext';
 
 export function shopCustomerManagementError(cause: unknown, fallback: string): string {
@@ -51,18 +51,47 @@ export function useShopCustomerAccountManagement(tenantId: string, shopId: strin
     };
   }, [refresh]);
 
-  const createAccount = async (command: CreateShopCustomerCommand): Promise<boolean> => {
+  const inviteByEmail = async (email: string): Promise<boolean> => {
     const operationTarget = targetKey;
     setSaving(true);
+    setActivation(null);
     setError(null);
     try {
-      const account = await api.create(tenantId, shopId, command);
+      const normalizedEmail = normalizeShopCustomerEmail(email);
+      let account = accounts.find((candidate) => candidate.normalizedEmail === normalizedEmail);
+
+      if (account?.status === 'active') {
+        setError('Ce client possède déjà un compte actif dans cette boutique.');
+        return false;
+      }
+      if (account?.status === 'suspended') {
+        setError('Ce compte est suspendu. Réactivez-le avant de renvoyer une invitation.');
+        return false;
+      }
+
+      if (!account) {
+        account = await api.create(tenantId, shopId, {
+          email,
+          initialStatus: 'invited',
+        });
+        if (operationTarget !== targetKeyRef.current) return false;
+        setAccounts((current) => [account, ...current]);
+      }
       if (operationTarget !== targetKeyRef.current) return false;
-      setAccounts((current) => [account, ...current]);
+
+      const result = await api.issueActivation(tenantId, shopId, account.id);
+      if (operationTarget !== targetKeyRef.current) return false;
+
+      setActivation(result);
+      setAccounts((current) => {
+        const nextAccount = { ...account, status: 'invited' as const };
+        const withoutAccount = current.filter((candidate) => candidate.id !== account.id);
+        return [nextAccount, ...withoutAccount];
+      });
       return true;
     } catch (cause) {
       if (operationTarget === targetKeyRef.current) {
-        setError(shopCustomerManagementError(cause, 'Impossible de créer ce compte boutique.'));
+        setError(shopCustomerManagementError(cause, 'Impossible d’envoyer cette invitation.'));
       }
       return false;
     } finally {
@@ -116,7 +145,7 @@ export function useShopCustomerAccountManagement(tenantId: string, shopId: strin
     activation,
     delegating,
     refresh,
-    createAccount,
+    inviteByEmail,
     issueActivation,
     startSelfDelegation,
   } as const;

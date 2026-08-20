@@ -4,6 +4,16 @@ export function normalizeShopCustomerEmail(email: string): string {
   return email.trim().normalize('NFKC').toLowerCase();
 }
 
+export function inferShopCustomerNameFromEmail(email: string): string {
+  const localPart = normalizeShopCustomerEmail(email).split('@')[0] ?? '';
+  const readable = localPart
+    .replace(/[._+-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!readable) return 'Client';
+  return readable.replace(/(^|\s)\p{L}/gu, (letter) => letter.toUpperCase());
+}
+
 export const shopCustomerEmailSchema = z.string().trim().email().max(320);
 
 export const normalizedShopCustomerEmailSchema = z.string()
@@ -59,7 +69,7 @@ export const ensureSelfShopCustomerResultSchema = z.object({
 
 export const createShopCustomerCommandSchema = z.object({
   email: shopCustomerEmailSchema,
-  fullName: z.string().trim().min(1).max(200),
+  fullName: z.string().trim().min(1).max(200).optional(),
   initialStatus: z.enum(['delegated_only', 'invited']).default('invited'),
 }).strict();
 

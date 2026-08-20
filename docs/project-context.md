@@ -4,7 +4,7 @@
 >
 > **Source authoritative :** `~/Downloads/CONTEXT_Magrit_IA.md` (maintenu par Arnaud, plus exhaustif). Ce fichier en est la **synthèse opérationnelle pour les agents BMAD** (focus : règles, conventions, états de version, identifiants techniques, **PAS** la stratégie commerciale détaillée).
 >
-> **Dernière mise à jour :** 2026-08-20 (UX31.1 — surface du dashboard commandes harmonisée).
+> **Dernière mise à jour :** 2026-08-20 (UX31.2 — invitation directe des clients boutique).
 > **Maintenu par :** Arnaud Mazon — PDG AGE Développement — `arnaud@age-services.fr`.
 > **Langue de travail :** français (livrables, code commits, variables métier).
 
@@ -138,6 +138,10 @@
   et le démarrage de délégation des comptes propres à une boutique. Les réponses
   tardives sont ignorées après un changement de boutique ; la vue conserve
   seulement l'ouverture de fenêtre et la copie dans le presse-papiers.
+- Dans l'éditeur de boutique, inviter un client est une commande unique fondée
+  sur son email : création du compte boutique si nécessaire, puis émission de
+  l'activation. La préparation technique du compte n'est plus exposée comme une
+  étape séparée ; un lien manuel reste fourni si l'email n'est pas délivré.
 - `useShopCustomMockups` porte lecture, indexation, téléversement et restauration
   des visuels propres à une boutique. La grille conserve uniquement le sélecteur
   de fichier navigateur et ne connaît plus le client Shops.

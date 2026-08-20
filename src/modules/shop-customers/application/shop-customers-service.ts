@@ -1,6 +1,7 @@
 import type { UserId } from '../../../kernel/ids/index.ts';
 import {
   createShopCustomerCommandSchema,
+  inferShopCustomerNameFromEmail,
   normalizeShopCustomerEmail,
   type CreateShopCustomerCommand,
   type EnsureSelfShopCustomerResult,
@@ -47,7 +48,7 @@ export class ShopCustomersService {
     return this.repository.create(actor, tenantId, shopId, {
       email: command.email.trim(),
       normalizedEmail,
-      fullName: command.fullName,
+      fullName: command.fullName ?? inferShopCustomerNameFromEmail(command.email),
       status: command.initialStatus,
       createdByMagritUserId: actor,
     });
