@@ -74,6 +74,8 @@ import { StorefrontPasswordRecoveryService } from '../../../src/modules/shop-cus
 import { SupabaseStorefrontPasswordRecoveryGateway } from '../../../src/adapters/supabase/storefront-password-recovery-gateway.ts';
 import { ResendStorefrontPasswordRecoveryEmailSender } from '../../../src/adapters/resend/storefront-password-recovery-email-sender.ts';
 import { createStorefrontPasswordRecoveryRoutes } from '../../../src/server/api/storefront-password-recovery-routes.ts';
+import { ShopCustomerInvitationService } from '../../../src/modules/shop-customers/application/shop-customer-invitation-service.ts';
+import { createShopCustomerInvitationRoutes } from '../../../src/server/api/shop-customer-invitation-routes.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -166,6 +168,10 @@ export async function handleRequest(request: Request): Promise<Response> {
       Deno.env.get('MAGRIT_FROM_EMAIL') ?? 'Magrit <onboarding@resend.dev>',
     ),
   );
+  const shopCustomerInvitationService = new ShopCustomerInvitationService(
+    shopCustomersService,
+    storefrontActivationService,
+  );
   const shopCustomerDelegationService = new ShopCustomerDelegationService(new SupabaseShopCustomerDelegationGateway(client));
   const storefrontPasswordRecoveryService = new StorefrontPasswordRecoveryService(
     new SupabaseStorefrontPasswordRecoveryGateway(storefrontClient),
@@ -201,6 +207,7 @@ export async function handleRequest(request: Request): Promise<Response> {
       ...createRolesRoutes(rolesService),
       ...createShopsRoutes(shopsService, storefrontSessionService, storefrontCookiePolicy),
       ...createShopCustomersRoutes(shopCustomersService),
+      ...createShopCustomerInvitationRoutes(shopCustomerInvitationService),
       ...createStorefrontSessionRoutes(storefrontAuthenticationService, storefrontRegistrationService, storefrontSessionService, storefrontCookiePolicy),
       ...createStorefrontActivationRoutes(storefrontActivationService, storefrontCookiePolicy),
       ...createStorefrontPasswordRecoveryRoutes(storefrontPasswordRecoveryService),

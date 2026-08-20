@@ -2,12 +2,20 @@ import { describe, expect, it } from 'vitest';
 import { parseId, type UserId } from '../../../src/kernel';
 import {
   ShopCustomersApiClient,
+  ShopCustomerInvitationService,
   ShopCustomersService,
+  StorefrontActivationService,
   type ShopCustomerAccount,
   type ShopCustomersRepository,
+  type StorefrontActivationEmailSender,
+  type StorefrontActivationGateway,
 } from '../../../src/modules/shop-customers';
 import { FetchApiClient } from '../../../src/platform/api';
-import { createApiV1Application, createShopCustomersRoutes } from '../../../src/server/api';
+import {
+  createApiV1Application,
+  createShopCustomerInvitationRoutes,
+  createShopCustomersRoutes,
+} from '../../../src/server/api';
 
 const TENANT = '11111111-1111-4111-8111-111111111111';
 const SHOP = '22222222-2222-4222-8222-222222222222';
@@ -102,6 +110,32 @@ describe('routes ShopCustomers API v1', () => {
       }),
     ]);
   });
+
+  it('expose l invitation email comme une commande HTTP unique', async () => {
+    const repository = repositoryStub();
+    const handler = createApiV1Application({
+      routes: [
+        ...createShopCustomersRoutes(new ShopCustomersService(repository)),
+        ...createShopCustomerInvitationRoutes(invitationService(repository)),
+      ],
+      requestIdFactory: () => 'request-ux31-3',
+      actorResolver: { async resolve() { return { kind: 'user', userId: actor() }; } },
+    });
+    const client = new ShopCustomersApiClient(
+      new FetchApiClient('https://magrit.test', bridgeTo(handler), () => 'jwt-ux31-3'),
+    );
+
+    await expect(client.invite(TENANT, SHOP, {
+      email: 'nouveau.client@example.com',
+    })).resolves.toMatchObject({
+      created: true,
+      customer: { shopId: SHOP, status: 'invited' },
+      activation: {
+        sent: true,
+        link: 'https://magrit.test/shop/boutique-test/activate?token=abcdefghijklmnopqrstuvwxyzABCDE_1234567890-invitation',
+      },
+    });
+  });
 });
 
 function application(repository: ShopCustomersRepository) {
@@ -136,6 +170,26 @@ function account(overrides: Partial<ShopCustomerAccount> = {}): ShopCustomerAcco
     createdAt: '2026-08-16T08:00:00+00:00', activatedAt: null,
     suspendedAt: null, ...overrides,
   };
+}
+
+function invitationService(repository: ShopCustomersRepository) {
+  const gateway: StorefrontActivationGateway = {
+    issue: async () => ({
+      token: 'abcdefghijklmnopqrstuvwxyzABCDE_1234567890-invitation',
+      customerEmail: 'nouveau.client@example.com',
+      customerName: 'Nouveau Client',
+      shopName: 'Boutique Test',
+      shopSlug: 'boutique-test',
+    }),
+    activate: async () => null,
+  };
+  const sender: StorefrontActivationEmailSender = {
+    send: async () => ({ sent: true }),
+  };
+  return new ShopCustomerInvitationService(
+    new ShopCustomersService(repository),
+    new StorefrontActivationService(gateway, sender),
+  );
 }
 
 function bridgeTo(handler: (request: Request) => Promise<Response>): typeof fetch {

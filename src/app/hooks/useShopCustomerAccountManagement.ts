@@ -3,7 +3,6 @@ import type {
   IssueStorefrontActivationResult,
   ShopCustomerAccount,
 } from '../../modules/shop-customers';
-import { normalizeShopCustomerEmail } from '../../modules/shop-customers';
 import { useShopCustomersApi } from '../contexts/ModuleClientsContext';
 
 export function shopCustomerManagementError(cause: unknown, fallback: string): string {
@@ -57,36 +56,15 @@ export function useShopCustomerAccountManagement(tenantId: string, shopId: strin
     setActivation(null);
     setError(null);
     try {
-      const normalizedEmail = normalizeShopCustomerEmail(email);
-      let account = accounts.find((candidate) => candidate.normalizedEmail === normalizedEmail);
-
-      if (account?.status === 'active') {
-        setError('Ce client possède déjà un compte actif dans cette boutique.');
-        return false;
-      }
-      if (account?.status === 'suspended') {
-        setError('Ce compte est suspendu. Réactivez-le avant de renvoyer une invitation.');
-        return false;
-      }
-
-      if (!account) {
-        account = await api.create(tenantId, shopId, {
-          email,
-          initialStatus: 'invited',
-        });
-        if (operationTarget !== targetKeyRef.current) return false;
-        setAccounts((current) => [account, ...current]);
-      }
+      const result = await api.invite(tenantId, shopId, { email });
       if (operationTarget !== targetKeyRef.current) return false;
 
-      const result = await api.issueActivation(tenantId, shopId, account.id);
-      if (operationTarget !== targetKeyRef.current) return false;
-
-      setActivation(result);
+      setActivation(result.activation);
       setAccounts((current) => {
-        const nextAccount = { ...account, status: 'invited' as const };
-        const withoutAccount = current.filter((candidate) => candidate.id !== account.id);
-        return [nextAccount, ...withoutAccount];
+        const withoutAccount = current.filter(
+          (candidate) => candidate.id !== result.customer.id,
+        );
+        return [result.customer, ...withoutAccount];
       });
       return true;
     } catch (cause) {

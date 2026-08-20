@@ -24,6 +24,20 @@ export class ShopCustomersService {
     return this.repository.list(actor, tenantId, shopId);
   }
 
+  findByEmail(
+    actor: UserId,
+    tenantId: string,
+    shopId: string,
+    email: string,
+  ): Promise<ShopCustomerAccount | null> {
+    return this.repository.findByNormalizedEmail(
+      actor,
+      tenantId,
+      shopId,
+      normalizeShopCustomerEmail(email),
+    );
+  }
+
   async create(
     actor: UserId,
     tenantId: string,

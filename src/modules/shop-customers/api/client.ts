@@ -3,6 +3,8 @@ import {
   createShopCustomerCommandSchema,
   issueStorefrontActivationCommandSchema,
   issueStorefrontActivationResultSchema,
+  inviteShopCustomerCommandSchema,
+  inviteShopCustomerResultSchema,
   legacyShopCustomerMigrationReportSchema,
   ensureSelfShopCustomerResultSchema,
   createShopCustomerDelegationCommandSchema,
@@ -13,6 +15,8 @@ import {
   type ShopCustomerAccount,
   type IssueStorefrontActivationCommand,
   type IssueStorefrontActivationResult,
+  type InviteShopCustomerCommand,
+  type InviteShopCustomerResult,
   type LegacyShopCustomerMigrationReportRow,
   type EnsureSelfShopCustomerResult,
   type CreateShopCustomerDelegationCommand,
@@ -46,6 +50,19 @@ export class ShopCustomersApiClient {
       path: `${API_V1_BASE_PATH}/tenants/${tenantId}/shops/${shopId}/customers`,
       body: createShopCustomerCommandSchema.parse(command),
       responseSchema: shopCustomerAccountSchema,
+    });
+  }
+
+  invite(
+    tenantId: string,
+    shopId: string,
+    command: InviteShopCustomerCommand,
+  ): Promise<InviteShopCustomerResult> {
+    return this.client.request({
+      method: 'POST',
+      path: `${API_V1_BASE_PATH}/tenants/${tenantId}/shops/${shopId}/customers/invitations`,
+      body: inviteShopCustomerCommandSchema.parse(command),
+      responseSchema: inviteShopCustomerResultSchema,
     });
   }
 

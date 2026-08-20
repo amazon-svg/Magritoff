@@ -44,7 +44,7 @@ describe('ShopCustomerAccountsSection', () => {
     expect(source).toContain('Envoyer l’invitation');
     expect(source).not.toContain('Nom complet');
     expect(hook).toContain('inviteByEmail');
-    expect(hook).toContain("initialStatus: 'invited'");
+    expect(hook).toContain('api.invite');
     expect(hook).toContain('api.issueActivation');
   });
 });

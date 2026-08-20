@@ -2,12 +2,18 @@ import { describe, expect, it, vi } from 'vitest';
 import { parseId, type UserId } from '../../../src/kernel';
 import {
   ShopCustomerRejectedError,
+  ShopCustomerInvitationRejectedError,
+  ShopCustomerInvitationService,
   ShopCustomersService,
+  StorefrontActivationService,
   type ShopCustomerAccount,
   type ShopCustomersRepository,
+  type StorefrontActivationEmailSender,
+  type StorefrontActivationGateway,
 } from '../../../src/modules/shop-customers';
 
 const SHOP = '11111111-1111-4111-8111-111111111111';
+const TENANT = '22222222-2222-4222-8222-222222222222';
 const CUSTOMER = '33333333-3333-4333-8333-333333333333';
 
 describe('ShopCustomersService', () => {
@@ -96,6 +102,56 @@ describe('ShopCustomersService', () => {
   });
 });
 
+describe('ShopCustomerInvitationService', () => {
+  it('crée et invite un nouveau compte en une commande métier', async () => {
+    const repository = repositoryStub();
+    const activationGateway = storefrontActivationGateway();
+    const service = invitationService(repository, activationGateway);
+
+    await expect(service.invite(
+      actor(), TENANT, SHOP, { email: 'nouveau.client@example.com' }, 'https://magrit.test',
+    )).resolves.toMatchObject({
+      created: true,
+      customer: { email: 'nouveau.client@example.com', status: 'invited' },
+      activation: { sent: true },
+    });
+
+    expect(repository.create).toHaveBeenCalledOnce();
+    expect(activationGateway.issue).toHaveBeenCalledWith(
+      actor(), TENANT, SHOP, CUSTOMER, 86_400,
+    );
+  });
+
+  it('renvoie l invitation d un compte préparé sans créer de doublon', async () => {
+    const repository = repositoryStub();
+    vi.mocked(repository.findByNormalizedEmail).mockResolvedValue(
+      account({ status: 'delegated_only' }),
+    );
+    const service = invitationService(repository);
+
+    await expect(service.invite(
+      actor(), TENANT, SHOP, { email: 'client@example.com' }, 'https://magrit.test',
+    )).resolves.toMatchObject({ created: false, customer: { status: 'invited' } });
+    expect(repository.create).not.toHaveBeenCalled();
+  });
+
+  it.each(['active', 'suspended'] as const)(
+    'refuse une nouvelle invitation pour un compte %s',
+    async (status) => {
+      const repository = repositoryStub();
+      vi.mocked(repository.findByNormalizedEmail).mockResolvedValue(account({
+        status,
+        activatedAt: status === 'active' ? '2026-08-16T09:00:00+00:00' : null,
+        suspendedAt: status === 'suspended' ? '2026-08-16T09:00:00+00:00' : null,
+      }));
+
+      await expect(invitationService(repository).invite(
+        actor(), TENANT, SHOP, { email: 'client@example.com' }, 'https://magrit.test',
+      )).rejects.toBeInstanceOf(ShopCustomerInvitationRejectedError);
+    },
+  );
+});
+
 function repositoryStub(): ShopCustomersRepository {
   return {
     migrationReport: vi.fn(async () => []),
@@ -121,6 +177,33 @@ function account(overrides: Partial<ShopCustomerAccount> = {}): ShopCustomerAcco
     createdAt: '2026-08-16T08:00:00+00:00', activatedAt: null,
     suspendedAt: null, ...overrides,
   };
+}
+
+function invitationService(
+  repository: ShopCustomersRepository,
+  activationGateway = storefrontActivationGateway(),
+) {
+  return new ShopCustomerInvitationService(
+    new ShopCustomersService(repository),
+    new StorefrontActivationService(activationGateway, storefrontActivationSender()),
+  );
+}
+
+function storefrontActivationGateway(): StorefrontActivationGateway {
+  return {
+    issue: vi.fn(async () => ({
+      token: 'abcdefghijklmnopqrstuvwxyzABCDE_1234567890-invitation',
+      customerEmail: 'nouveau.client@example.com',
+      customerName: 'Nouveau Client',
+      shopName: 'Boutique Test',
+      shopSlug: 'boutique-test',
+    })),
+    activate: vi.fn(async () => null),
+  };
+}
+
+function storefrontActivationSender(): StorefrontActivationEmailSender {
+  return { send: vi.fn(async () => ({ sent: true })) };
 }
 
 function actor(): UserId {

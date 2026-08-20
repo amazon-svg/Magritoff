@@ -10,6 +10,7 @@ export { createMembersRoutes } from './members-routes';
 export { createRolesRoutes } from './roles-routes';
 export { createShopsRoutes } from './shops-routes';
 export { createShopCustomersRoutes } from './shop-customers-routes';
+export { createShopCustomerInvitationRoutes } from './shop-customer-invitation-routes';
 export { createStorefrontSessionRoutes } from './storefront-session-routes';
 export { createStorefrontActivationRoutes } from './storefront-activation-routes';
 export { createStorefrontPasswordRecoveryRoutes } from './storefront-password-recovery-routes';

@@ -73,6 +73,16 @@ export const createShopCustomerCommandSchema = z.object({
   initialStatus: z.enum(['delegated_only', 'invited']).default('invited'),
 }).strict();
 
+export const inviteShopCustomerCommandSchema = z.object({
+  email: shopCustomerEmailSchema,
+}).strict();
+
+export const inviteShopCustomerResultSchema = z.object({
+  customer: shopCustomerAccountSchema,
+  created: z.boolean(),
+  activation: z.lazy(() => issueStorefrontActivationResultSchema),
+}).strict();
+
 export const legacyShopCustomerMigrationActionSchema = z.enum([
   'create_delegated',
   'matched_existing',
@@ -244,6 +254,8 @@ export type ShopCustomerAccountStatus = z.infer<typeof shopCustomerAccountStatus
 export type ShopCustomerAccount = z.infer<typeof shopCustomerAccountSchema>;
 export type EnsureSelfShopCustomerResult = z.infer<typeof ensureSelfShopCustomerResultSchema>;
 export type CreateShopCustomerCommand = z.input<typeof createShopCustomerCommandSchema>;
+export type InviteShopCustomerCommand = z.input<typeof inviteShopCustomerCommandSchema>;
+export type InviteShopCustomerResult = z.infer<typeof inviteShopCustomerResultSchema>;
 export type LegacyShopCustomerMigrationReportRow = z.infer<typeof legacyShopCustomerMigrationReportRowSchema>;
 export type DirectShopCustomerSession = z.infer<typeof directShopCustomerSessionSchema>;
 export type DelegatedShopCustomerSession = z.infer<typeof delegatedShopCustomerSessionSchema>;

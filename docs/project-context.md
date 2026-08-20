@@ -4,7 +4,7 @@
 >
 > **Source authoritative :** `~/Downloads/CONTEXT_Magrit_IA.md` (maintenu par Arnaud, plus exhaustif). Ce fichier en est la **synthèse opérationnelle pour les agents BMAD** (focus : règles, conventions, états de version, identifiants techniques, **PAS** la stratégie commerciale détaillée).
 >
-> **Dernière mise à jour :** 2026-08-20 (UX31.2 — invitation directe des clients boutique).
+> **Dernière mise à jour :** 2026-08-20 (AF30.15 — commande API d'invitation client boutique).
 > **Maintenu par :** Arnaud Mazon — PDG AGE Développement — `arnaud@age-services.fr`.
 > **Langue de travail :** français (livrables, code commits, variables métier).
 
@@ -142,6 +142,9 @@
   sur son email : création du compte boutique si nécessaire, puis émission de
   l'activation. La préparation technique du compte n'est plus exposée comme une
   étape séparée ; un lien manuel reste fourni si l'email n'est pas délivré.
+- Cette invitation passe par `ShopCustomerInvitationService` et une seule route
+  HTTP du module. Le hook React ne compose plus lui-même création et activation ;
+  la route d'activation unitaire reste disponible pour les renvois depuis la liste.
 - `useShopCustomMockups` porte lecture, indexation, téléversement et restauration
   des visuels propres à une boutique. La grille conserve uniquement le sélecteur
   de fichier navigateur et ne connaît plus le client Shops.

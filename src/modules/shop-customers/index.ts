@@ -9,6 +9,10 @@ export {
 } from './application/shop-customers-repository';
 export { ShopCustomersService } from './application/shop-customers-service';
 export {
+  ShopCustomerInvitationRejectedError,
+  ShopCustomerInvitationService,
+} from './application/shop-customer-invitation-service';
+export {
   StorefrontAuthenticationRejectedError,
   StorefrontAuthenticationService,
   type IssuedStorefrontSession,
