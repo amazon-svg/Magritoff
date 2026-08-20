@@ -169,6 +169,11 @@
   sens unique d'un ancien accès boutique vers Magrit. Les composants de rôles
   ne connaissent plus les clients Roles ou Members ; aucun profil mixte n'est
   réintroduit.
+- `useMagritUsersManagement` porte la lecture indépendante des membres et des
+  invitations Magrit ainsi que changement de rôle, retrait, renvoi et révocation.
+  La page Utilisateurs garde confirmations et retours navigateur, mais ne connaît
+  plus les clients Members ou Invitations. La création d'invitation reste isolée
+  dans une tranche dédiée à cause du rafraîchissement de session préalable.
 - `usePlatformDiagnostics` porte les tests Clariprint et fournisseur IA ainsi
   que leurs états indépendants. La modale ne connaît plus le client Diagnostics
   et ignore les réponses tardives après sa fermeture.

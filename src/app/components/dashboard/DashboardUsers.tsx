@@ -16,14 +16,14 @@
  * et convertir les lignes historiques migrées par UM7.
  */
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   UserMinus, Shield, Plus, Settings, Send,
 } from 'lucide-react';
 import {
   useTenant,
   AccessScope,
-  MemberPermissions,
+  TenantRole,
 } from '../../contexts/TenantContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useShops } from '../../contexts/ShopsContext';
@@ -33,100 +33,45 @@ import { InviteUserModalV2 } from './InviteUserModalV2';
 import { EditUserRolesModal } from './EditUserRolesModal';
 import { LegacyShopCustomerMigrationSection } from './LegacyShopCustomerMigrationSection';
 import { ApiClientError } from '../../../platform/api';
-import { useWorkspaceInvitationsApi, useWorkspaceMembersApi } from '../../contexts/ModuleClientsContext';
+import {
+  type MagritMemberRow,
+  useMagritUsersManagement,
+} from '../../hooks/useMagritUsersManagement';
 
 // ────────────────────────────────────────────────────────────────────────────
 // SECTION 1 — Utilisateurs Magrit (membres tenant + invitations)
 // ────────────────────────────────────────────────────────────────────────────
 
-type Role = 'owner' | 'admin' | 'member' | 'partner';
-
-interface MemberRow {
-  user_id: string;
-  email: string | null;
-  role: Role;
-  joined_at: string;
-  access_scope: AccessScope;
-  allowed_shop_ids: string[];
-  permissions: MemberPermissions;
-}
-
-interface InvitationRow {
-  id: string;
-  email: string;
-  role: Role;
-  expires_at: string;
-  created_at: string;
-  access_scope: AccessScope;
-  allowed_shop_ids: string[];
-  permissions: MemberPermissions;
-}
+type Role = TenantRole;
 
 function MagritUsersSection() {
   const { user } = useAuth();
-  const invitationsApi = useWorkspaceInvitationsApi();
-  const membersApi = useWorkspaceMembersApi();
   const { currentTenant, currentRole, isSuperAdmin } = useTenant();
   const { shops } = useShops();
-
-  const [members, setMembers] = useState<MemberRow[]>([]);
-  const [invitations, setInvitations] = useState<InvitationRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [updatingRoleFor, setUpdatingRoleFor] = useState<string | null>(null);
+  const {
+    members,
+    invitations,
+    loading,
+    updatingRoleFor,
+    reload,
+    resendInvitation,
+    revokeInvitation,
+    changeRole: persistRole,
+    removeMember: persistRemoval,
+  } = useMagritUsersManagement(currentTenant?.id ?? null);
 
   // Form invite
   const [inviteOpen, setInviteOpen] = useState(false);
 
   // Modale "Modifier les droits"
-  const [editingPerms, setEditingPerms] = useState<MemberRow | null>(null);
+  const [editingPerms, setEditingPerms] = useState<MagritMemberRow | null>(null);
 
   const canWrite = currentRole === 'owner' || currentRole === 'admin' || isSuperAdmin;
-
-  const load = async () => {
-    if (!currentTenant) return;
-    setLoading(true);
-
-    try {
-      const tenantMembers = await membersApi.list(currentTenant.id);
-      setMembers(tenantMembers.map((member) => ({
-        user_id: member.userId, email: member.email, role: member.role,
-        joined_at: member.joinedAt, access_scope: member.accessScope,
-        allowed_shop_ids: member.allowedShopIds,
-        permissions: { can_quote: member.permissions.canQuote, can_order: member.permissions.canOrder, can_invite: member.permissions.canInvite },
-      })));
-    } catch (memberError) {
-      console.error('[DashboardUsers] members API failed', memberError);
-      setMembers([]);
-    }
-
-    try {
-      const pending = await invitationsApi.pending(currentTenant.id);
-      setInvitations(pending.map((invitation) => ({
-        id: invitation.id, email: invitation.email, role: invitation.role,
-        expires_at: invitation.expiresAt, created_at: invitation.createdAt,
-        access_scope: invitation.accessScope, allowed_shop_ids: invitation.allowedShopIds,
-        permissions: {
-          can_quote: invitation.permissions.canQuote,
-          can_order: invitation.permissions.canOrder,
-          can_invite: invitation.permissions.canInvite,
-        },
-      })));
-    } catch (invitationError) {
-      console.error('[DashboardUsers] invitations API failed', invitationError);
-      setInvitations([]);
-    }
-
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    load();
-  }, [currentTenant?.id, invitationsApi, membersApi]);
 
   const resendInvite = async (id: string, email: string) => {
     let result;
     try {
-      result = await invitationsApi.resend(id, window.location.origin);
+      result = await resendInvitation(id, window.location.origin);
     } catch (error) {
       alert(error instanceof ApiClientError ? error.message : "Echec du renvoi de l'invitation.");
       return;
@@ -145,31 +90,27 @@ function MagritUsersSection() {
   const revokeInvite = async (id: string, email: string) => {
     if (!confirm(`Revoquer l'invitation envoyee a ${email} ?`)) return;
     try {
-      await invitationsApi.revoke(id);
-      await load();
+      await revokeInvitation(id);
     } catch (error) {
       alert(error instanceof ApiClientError ? error.message : "Echec de la révocation de l'invitation.");
     }
   };
 
-  const changeRole = async (member: MemberRow, newRole: Role) => {
+  const changeRole = async (member: MagritMemberRow, newRole: Role) => {
     if (!currentTenant || member.role === newRole) return;
     if (member.role === 'owner') {
       alert("Impossible de modifier le role d'un owner.");
       return;
     }
-    setUpdatingRoleFor(member.user_id);
     try {
       if (newRole === 'owner') throw new Error('Le rôle owner ne peut pas être attribué ici.');
-      await membersApi.changeRole(currentTenant.id, member.user_id, { role: newRole });
-      await load();
+      await persistRole(member, newRole);
     } catch (error) {
       alert('Echec de la mise a jour du role : ' + (error instanceof Error ? error.message : 'inconnue'));
     }
-    setUpdatingRoleFor(null);
   };
 
-  const removeMember = async (member: MemberRow) => {
+  const removeMember = async (member: MagritMemberRow) => {
     if (!currentTenant) return;
     if (member.role === 'owner') {
       alert('Impossible de retirer un owner.');
@@ -180,8 +121,7 @@ function MagritUsersSection() {
       "L'utilisateur conservera son compte Magrit, mais perdra l'acces a cet espace."
     )) return;
     try {
-      await membersApi.remove(currentTenant.id, member.user_id);
-      await load();
+      await persistRemoval(member.user_id);
     } catch (error) {
       alert('Echec du retrait : ' + (error instanceof Error ? error.message : 'inconnue'));
     }
@@ -232,7 +172,7 @@ function MagritUsersSection() {
           tenantId={currentTenant.id}
           baseUrl={window.location.origin}
           onInvited={async () => {
-            await load();
+            await reload();
           }}
           onClose={() => setInviteOpen(false)}
         />
@@ -442,7 +382,7 @@ function MagritUsersSection() {
           targetUserEmail={editingPerms.email}
           tenantId={currentTenant.id}
           onChanged={async () => {
-            await load();
+            await reload();
           }}
           onClose={() => setEditingPerms(null)}
         />

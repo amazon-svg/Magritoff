@@ -1097,7 +1097,14 @@ describe('frontières API-first et modulaires', () => {
 
   it('sort le dashboard utilisateurs du fournisseur de données', () => {
     const dashboard = readFileSync(resolve(process.cwd(), 'src/app/components/dashboard/DashboardUsers.tsx'), 'utf8');
-    expect(dashboard).toContain('useWorkspaceMembersApi');
+    const hook = readFileSync(resolve(process.cwd(), 'src/app/hooks/useMagritUsersManagement.ts'), 'utf8');
+    expect(dashboard).toContain('useMagritUsersManagement');
+    expect(dashboard).not.toContain('useWorkspaceMembersApi');
+    expect(dashboard).not.toContain('useWorkspaceInvitationsApi');
+    expect(hook).toContain('useWorkspaceMembersApi');
+    expect(hook).toContain('useWorkspaceInvitationsApi');
+    expect(hook).toContain('membersApi.list');
+    expect(hook).toContain('invitationsApi.pending');
     expect(dashboard).not.toContain('new MembersApiClient');
     expect(dashboard).not.toContain('utils/supabase');
     expect(dashboard).not.toMatch(/\bsupabase\s*\./);
