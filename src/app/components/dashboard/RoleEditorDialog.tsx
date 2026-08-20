@@ -25,7 +25,12 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Loader2, X as XIcon } from 'lucide-react';
-import { useWorkspaceRolesApi } from '../../contexts/ModuleClientsContext';
+import type { SaveRoleDefinitionCommand } from '../../../modules/roles';
+import type {
+  NotifyPolicy,
+  RoleScope,
+  TenantRoleDefinition,
+} from '../../hooks/roleManagement.types';
 import {
   Dialog,
   DialogClose,
@@ -53,21 +58,7 @@ import { TEST_IDS } from '../../lib/testIds';
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
-export type NotifyPolicy = 'chain_next' | 'all_roles' | 'none';
-export type RoleScope = 'tenant' | 'shop';
-
-export interface TenantRoleDefinition {
-  id: string;
-  tenant_id: string;
-  name: string;
-  description: string;
-  capabilities: Record<string, boolean>;
-  notify_policy: NotifyPolicy;
-  scope: RoleScope;
-  scope_shop_id: string | null;
-  ordering_index: number;
-  archived_at: string | null;
-}
+export type { NotifyPolicy, RoleScope, TenantRoleDefinition } from '../../hooks/roleManagement.types';
 
 export interface ShopOption {
   id: string;
@@ -79,7 +70,6 @@ export interface RoleEditorDialogProps {
   open: boolean;
   /** Si fourni : mode édition. Sinon : mode création. */
   role?: TenantRoleDefinition;
-  tenantId: string;
   /** Liste des boutiques du tenant pour le Combobox scope=shop. */
   shops: ShopOption[];
   /**
@@ -91,6 +81,7 @@ export interface RoleEditorDialogProps {
   rolesOrdered: TenantRoleDefinition[];
   /** Auto-fill name proposé en création ("Validateur N"). */
   defaultNameForCreate?: string;
+  onSave: (roleId: string | null, command: SaveRoleDefinitionCommand) => Promise<void>;
   onClose: () => void;
   /** Trigger reload côté parent post-save. */
   onSaved: () => void;
@@ -142,15 +133,14 @@ function buildInitialState(role: TenantRoleDefinition | undefined, defaultName: 
 export function RoleEditorDialog({
   open,
   role,
-  tenantId,
   shops,
   otherRoleNames,
   rolesOrdered,
   defaultNameForCreate,
+  onSave,
   onClose,
   onSaved,
 }: RoleEditorDialogProps) {
-  const rolesApi = useWorkspaceRolesApi();
   const isEdit = !!role;
   const [form, setForm] = useState<FormState>(() =>
     buildInitialState(role, defaultNameForCreate ?? 'Validateur 1'),
@@ -234,8 +224,7 @@ export function RoleEditorDialog({
     };
 
     try {
-      if (isEdit) await rolesApi.updateDefinition(tenantId, role!.id, command);
-      else await rolesApi.createDefinition(tenantId, command);
+      await onSave(isEdit ? role!.id : null, command);
     } catch (saveError) {
       const message = saveError instanceof Error ? saveError.message : 'erreur inconnue';
       console.warn('[RoleEditorDialog] save failed:', message);

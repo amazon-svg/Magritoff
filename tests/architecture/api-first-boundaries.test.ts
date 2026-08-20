@@ -575,18 +575,29 @@ describe('frontières API-first et modulaires', () => {
   });
 
   it('sort les écrans de gestion des rôles du fournisseur', () => {
-    const files = [
-      'src/app/components/dashboard/DashboardRolesSection.tsx',
-      'src/app/components/dashboard/EditUserRolesModal.tsx',
+    const orchestratedFiles = [
       'src/app/components/dashboard/OrderRoleAdminPage.tsx',
       'src/app/components/dashboard/RoleEditorDialog.tsx',
     ];
-    for (const file of files) {
+    for (const file of orchestratedFiles) {
       const source = readFileSync(resolve(process.cwd(), file), 'utf8');
-      expect(source).toContain('useWorkspaceRolesApi');
+      expect(source).not.toContain('useWorkspaceRolesApi');
       expect(source).not.toContain('new RolesApiClient');
       expect(source).not.toContain('utils/supabase');
       expect(source).not.toMatch(/\bsupabase\s*\./);
+    }
+    const hook = readFileSync(resolve(process.cwd(), 'src/app/hooks/useRoleCatalogManagement.ts'), 'utf8');
+    expect(hook).toContain('useWorkspaceRolesApi');
+    expect(hook).toContain('rolesApi.catalog');
+    expect(hook).toContain('rolesApi.reorderDefinitions');
+    expect(hook).toContain('rolesApi.archiveDefinition');
+
+    for (const file of [
+      'src/app/components/dashboard/DashboardRolesSection.tsx',
+      'src/app/components/dashboard/EditUserRolesModal.tsx',
+    ]) {
+      const source = readFileSync(resolve(process.cwd(), file), 'utf8');
+      expect(source).toContain('useWorkspaceRolesApi');
     }
   });
 
