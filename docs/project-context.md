@@ -172,8 +172,11 @@
 - `useMagritUsersManagement` porte la lecture indépendante des membres et des
   invitations Magrit ainsi que changement de rôle, retrait, renvoi et révocation.
   La page Utilisateurs garde confirmations et retours navigateur, mais ne connaît
-  plus les clients Members ou Invitations. La création d'invitation reste isolée
-  dans une tranche dédiée à cause du rafraîchissement de session préalable.
+  plus les clients Members ou Invitations.
+- `useMagritInvitationManagement` porte les options de rôles et la création
+  d'invitation. Il renouvelle la session juste avant la commande et construit le
+  client avec le jeton frais ; la modale conserve saisie, sélection et restitution
+  du lien manuel sans connaître le client Invitations.
 - `usePlatformDiagnostics` porte les tests Clariprint et fournisseur IA ainsi
   que leurs états indépendants. La modale ne connaît plus le client Diagnostics
   et ignore les réponses tardives après sa fermeture.

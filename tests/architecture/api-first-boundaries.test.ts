@@ -1119,12 +1119,19 @@ describe('frontières API-first et modulaires', () => {
       resolve(process.cwd(), 'src/app/components/dashboard/DashboardUsers.tsx'),
       'utf8',
     );
+    const hook = readFileSync(
+      resolve(process.cwd(), 'src/app/hooks/useMagritInvitationManagement.ts'),
+      'utf8',
+    );
 
-    expect(modal).toContain('useWorkspaceInvitationsApi');
-    expect(modal).toContain('useWorkspaceInvitationsApiFactory');
+    expect(modal).toContain('useMagritInvitationManagement');
+    expect(modal).not.toContain('useWorkspaceInvitationsApi');
+    expect(modal).not.toContain('useWorkspaceInvitationsApiFactory');
+    expect(hook).toContain('useWorkspaceInvitationsApi');
+    expect(hook).toContain('useWorkspaceInvitationsApiFactory');
     expect(modal).not.toContain('new InvitationsApiClient');
-    expect(modal).toContain('invitationsApi.options');
-    expect(modal).toContain('refreshSession');
+    expect(hook).toContain('invitationsApi.options');
+    expect(hook).toContain('refreshSession');
     expect(modal).not.toContain('utils/supabase');
     expect(modal).not.toMatch(/\bsupabase\s*\./);
     expect(modal).not.toContain('.functions.invoke');

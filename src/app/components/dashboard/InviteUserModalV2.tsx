@@ -20,24 +20,17 @@
  * access_scope shop_only n'est envoyé par le navigateur.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Loader2, Mail, X, Check, Copy } from 'lucide-react';
 import { TEST_IDS } from '../../lib/testIds';
-import { useAuth } from '../../contexts/AuthContext';
 import { ApiClientError } from '../../../platform/api';
 import {
-  useWorkspaceInvitationsApi,
-  useWorkspaceInvitationsApiFactory,
-} from '../../contexts/ModuleClientsContext';
+  InvitationSessionExpiredError,
+  useMagritInvitationManagement,
+} from '../../hooks/useMagritInvitationManagement';
 import {
   invitationApiProblemMessage,
 } from './InviteUserModalV2.helpers';
-
-interface RoleOption {
-  id: string;
-  name: string;
-  description: string;
-}
 
 export interface InviteUserModalV2Props {
   open: boolean;
@@ -55,13 +48,8 @@ export function InviteUserModalV2({
   onInvited,
   onClose,
 }: InviteUserModalV2Props) {
-  const { refreshSession } = useAuth();
-  const invitationsApi = useWorkspaceInvitationsApi();
-  const invitationsApiForAccessToken = useWorkspaceInvitationsApiFactory();
   const [email, setEmail] = useState('');
-  const [roles, setRoles] = useState<RoleOption[]>([]);
   const [selectedRoleIds, setSelectedRoleIds] = useState<Set<string>>(new Set());
-  const [loadingRoles, setLoadingRoles] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [manualInvitation, setManualInvitation] = useState<{
@@ -70,19 +58,8 @@ export function InviteUserModalV2({
     reason: string;
   } | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
-
-  const loadRoles = useCallback(async () => {
-    setLoadingRoles(true);
-    try {
-      const options = await invitationsApi.options(tenantId);
-      setRoles(options.roles);
-    } catch (loadError) {
-      setError(loadError instanceof ApiClientError
-        ? invitationApiProblemMessage(loadError.problem.code, loadError.problem.detail)
-        : 'Chargement des rôles et boutiques impossible.');
-    }
-    setLoadingRoles(false);
-  }, [invitationsApi, tenantId]);
+  const { roles, loadingRoles, loadError, createInvitation } =
+    useMagritInvitationManagement({ open, tenantId });
 
   useEffect(() => {
     if (open) {
@@ -91,9 +68,15 @@ export function InviteUserModalV2({
       setError(null);
       setManualInvitation(null);
       setLinkCopied(false);
-      void loadRoles();
     }
-  }, [open, loadRoles]);
+  }, [open]);
+
+  useEffect(() => {
+    if (!loadError) return;
+    setError(loadError instanceof ApiClientError
+      ? invitationApiProblemMessage(loadError.problem.code, loadError.problem.detail)
+      : 'Chargement des rôles et boutiques impossible.');
+  }, [loadError]);
 
   const toggleRole = (roleId: string) => {
     setSelectedRoleIds((s) => {
@@ -119,19 +102,8 @@ export function InviteUserModalV2({
     const roleIds = Array.from(selectedRoleIds);
 
     try {
-      // La gateway API valide le JWT avant la commande Invitations. On
-      // rafraîchit explicitement la session avant de construire le client.
-      const { session: refreshedSession, error: refreshError } = await refreshSession();
-      if (refreshError || !refreshedSession) {
-        setError('Votre session a expiré. Reconnectez-vous puis réessayez.');
-        setSending(false);
-        return;
-      }
-
-      const freshInvitationsApi = invitationsApiForAccessToken(refreshedSession.access_token);
-      const data = await freshInvitationsApi.create({
+      const data = await createInvitation({
         email: cleanedEmail,
-        tenantId,
         baseUrl,
         roleDefinitionIds: roleIds,
       });
@@ -154,7 +126,9 @@ export function InviteUserModalV2({
       setSending(false);
       onClose();
     } catch (err: unknown) {
-      setError(err instanceof ApiClientError
+      setError(err instanceof InvitationSessionExpiredError
+        ? err.message
+        : err instanceof ApiClientError
         ? invitationApiProblemMessage(err.problem.code, err.problem.detail)
         : `Erreur réseau : ${err instanceof Error ? err.message : 'inconnue'}`);
       setSending(false);
