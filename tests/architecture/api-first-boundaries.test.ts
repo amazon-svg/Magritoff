@@ -558,10 +558,19 @@ describe('frontières API-first et modulaires', () => {
 
   it('sort les opérations longues du dashboard PIM du fournisseur', () => {
     const source = readFileSync(resolve(process.cwd(), 'src/app/components/dashboard/DashboardAdminPIM.tsx'), 'utf8');
-    expect(source).toContain('useCatalogApi');
+    const hook = readFileSync(resolve(process.cwd(), 'src/app/hooks/usePimAutomation.ts'), 'utf8');
+    expect(source).toContain('usePimAutomation');
+    expect(source).not.toContain('useCatalogApi');
+    expect(hook).toContain('useCatalogApi');
+    expect(hook).toContain('pimPendingCandidates');
+    expect(hook).toContain('runPimIngest');
+    expect(hook).toContain('generatePimDefinition');
+    expect(hook).toContain('requestVersion.current');
     expect(source).not.toContain('new CatalogApiClient');
-    expect(source).not.toContain('utils/supabase');
-    expect(source).not.toMatch(/\bsupabase\s*\./);
+    for (const candidate of [source, hook]) {
+      expect(candidate).not.toContain('utils/supabase');
+      expect(candidate).not.toMatch(/\bsupabase\s*\./);
+    }
     expect(source).not.toContain('functions.invoke');
   });
 

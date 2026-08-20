@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight, Sparkles, Pencil, Trash2, Plus, Loader2, Check, X, AlertCircle, Zap, Download, Inbox, Play } from 'lucide-react';
 import { usePIM } from '../../contexts/PIMContext';
 import { useIsAdmin } from '../../hooks/useIsAdmin';
 import { useTenant } from '../../contexts/TenantContext';
-import { type PimIngestReport } from '../../../modules/catalog';
-import { useCatalogApi } from '../../contexts/ModuleClientsContext';
+import { usePimAutomation } from '../../hooks/usePimAutomation';
 import type { Gamme, ProductDefinition } from '../../utils/productEnrichment';
 
 const LOCALES = ['fr', 'en'];
@@ -16,9 +15,9 @@ export function DashboardAdminPIM() {
   // L'un des deux suffit.
   const isAdmin = useIsAdmin();
   const { isSuperAdmin } = useTenant();
-  const catalogApi = useCatalogApi();
   const hasAccess = isAdmin || isSuperAdmin;
   const { gammes, definitions, upsertGamme, upsertDefinition, deleteDefinition, refresh } = usePIM();
+  const pimAutomation = usePimAutomation({ enabled: hasAccess, onLiveIngest: refresh });
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [editing, setEditing] = useState<Partial<ProductDefinition> | null>(null);
@@ -33,38 +32,13 @@ export function DashboardAdminPIM() {
     errors: string[];
   }>({ running: false, done: 0, total: 0, current: '', errors: [] });
 
-  // ─── Ingestion queue ───────────────────────────────────────────────────
-  const [pendingCount, setPendingCount] = useState<number | null>(null);
-  const [ingestRunning, setIngestRunning] = useState<false | 'dry' | 'live'>(false);
-  const [ingestReport, setIngestReport] = useState<PimIngestReport | null>(null);
-  const [ingestError, setIngestError] = useState<string | null>(null);
-
-  const refreshPendingCount = useCallback(async () => {
-    try { setPendingCount(await catalogApi.pimPendingCandidates()); }
-    catch (error) { setIngestError(error instanceof Error ? error.message : 'Lecture de la file PIM impossible.'); }
-  }, [catalogApi]);
-
-  useEffect(() => {
-    if (hasAccess) refreshPendingCount();
-  }, [hasAccess, refreshPendingCount]);
-
-  const runIngest = async (dryRun: boolean) => {
-    setIngestRunning(dryRun ? 'dry' : 'live');
-    setIngestError(null);
-    setIngestReport(null);
-    try {
-      const report = await catalogApi.runPimIngest(dryRun);
-      setIngestReport(report);
-      if (!dryRun) {
-        await refreshPendingCount();
-        await refresh(); // Refresh PIM context pour voir les nouvelles definitions
-      }
-    } catch (err) {
-      setIngestError((err as Error).message);
-    } finally {
-      setIngestRunning(false);
-    }
-  };
+  const {
+    pendingCount,
+    ingestRunning,
+    ingestReport,
+    ingestError,
+    runIngest,
+  } = pimAutomation;
 
   const gammesByParent = useMemo(() => {
     const map = new Map<string | null, Gamme[]>();
@@ -147,7 +121,7 @@ export function DashboardAdminPIM() {
     setGenerating(true);
     setGenError(null);
     try {
-      const generated = await catalogApi.generatePimDefinition({
+      const generated = await pimAutomation.generateDefinition({
         gammeSlug: gamme.slug, gammeName: gamme.name, gammeMatchingRules: gamme.matching_rules,
         locale: editing.locale, variationFilter: editing.variation_filter ?? {}, mode: 'generate',
       });
@@ -207,7 +181,7 @@ export function DashboardAdminPIM() {
       setBatch((s) => ({ ...s, done: i, current: `${gamme.name} · ${locale.toUpperCase()}` }));
 
       try {
-        const generated = await catalogApi.generatePimDefinition({
+        const generated = await pimAutomation.generateDefinition({
           gammeSlug: gamme.slug, gammeName: gamme.name, gammeMatchingRules: gamme.matching_rules,
           locale, variationFilter: {}, mode: 'generate',
         });
