@@ -15,6 +15,7 @@ describe('OrdersService', () => {
     expect(result.orders.map((order) => order.id)).toEqual(['v11-1', 'legacy-1']);
     expect(result.orders[0]).toMatchObject({
       source: 'v1_1', shopId: 'shop-1', totalHt: 100, totalTtc: 108.5,
+      customerName: 'Xav 12', customerEmail: 'xav.12@laposte.net',
       items: [{ name: 'Affiche', quantity: 2, unitPriceHt: 50 }],
     });
     expect(repository.listLegacyOrders).toHaveBeenCalledWith(['shop-1']);
@@ -23,7 +24,7 @@ describe('OrdersService', () => {
   it('compose les quatre vues portail et réserve le legacy à mine', async () => {
     const service = new OrdersService(repositoryStub());
 
-    const result = await service.listPortalOrders('shop-1', id('user-1'));
+    const result = await service.listPortalOrders('shop-1', { kind: 'magrit_user', userId: id('user-1') });
 
     expect(result.counters).toEqual({ mine: 2, to_validate: 1, to_approve: 0, to_produce: 0 });
     expect(result.datasets.mine.map((order) => order.id)).toEqual(['v11-1', 'legacy-1']);
@@ -31,12 +32,27 @@ describe('OrdersService', () => {
     expect(result.datasets.to_approve).toEqual([]);
   });
 
+  it('borne le portail storefront aux commandes du compte sans rôles Magrit', async () => {
+    const repository = repositoryStub();
+    const service = new OrdersService(repository);
+
+    const result = await service.listPortalOrders('shop-1', {
+      kind: 'storefront_session', opaqueToken: 'opaque-storefront-token',
+    });
+
+    expect(result.counters).toEqual({ mine: 1, to_validate: 0, to_approve: 0, to_produce: 0 });
+    expect(result.datasets.mine.map((order) => order.id)).toEqual(['v11-1']);
+    expect(result.datasets.to_validate).toEqual([]);
+    expect(repository.listLegacyOrders).not.toHaveBeenCalled();
+  });
+
   it('normalise le trail d audit au format HTTP camelCase', async () => {
     const service = new OrdersService(repositoryStub());
     await expect(service.getAuditTrail('v11-1')).resolves.toEqual({
       events: [{
         eventId: 'event-1', orderId: 'v11-1', kind: 'status', eventType: 'status_transition',
-        actorId: 'user-1', actorEmail: 'buyer@magrit.test', roleName: null,
+        actorId: 'user-1', actorEmail: 'buyer@magrit.test',
+        shopCustomerAccountId: null, actedByMagritUserId: null, roleName: null,
         payload: { from_status: 'draft', to_status: 'validated' }, occurredAt: '2026-08-11T12:01:00.000Z',
       }],
     });
@@ -47,7 +63,9 @@ describe('OrdersService', () => {
     const service = new OrdersService(repository);
     const command = { toStatus: 'validated' as const, reason: null, idempotencyKey: 'transition-af5-1' };
 
-    await expect(service.transition('v11-1', command, id('user-1'), 'https://magrit.test'))
+    await expect(service.transition('v11-1', command, {
+      storefrontToken: null, magritUserId: id('user-1'),
+    }, 'https://magrit.test'))
       .resolves.toMatchObject({ fromStatus: 'draft', toStatus: 'validated', replayed: false });
     expect(repository.notifyTransition).toHaveBeenCalledOnce();
   });
@@ -95,6 +113,7 @@ describe('OrdersService', () => {
 function repositoryStub(): OrdersRepository & Record<'listLegacyOrders', ReturnType<typeof vi.fn>> {
   const v11 = {
     id: 'v11-1', shopId: 'shop-1', createdAt: '2026-08-11T12:00:00.000Z',
+    customerName: 'Xav 12', customerEmail: 'xav.12@laposte.net',
     items: [{ name: 'Affiche', quantity: 2, unitPriceHt: 50 }], totalHt: 100, status: 'draft',
   };
   return {
@@ -110,9 +129,11 @@ function repositoryStub(): OrdersRepository & Record<'listLegacyOrders', ReturnT
     getPortalCounters: vi.fn(async () => ({ mine: 2, to_validate: 1, to_approve: 0, to_produce: 0 })),
     getPortalOrderIds: vi.fn(async (_shopId, _userId, tab) => tab === 'mine' || tab === 'to_validate' ? ['v11-1'] : []),
     getAuthenticatedUserEmail: vi.fn(async () => 'buyer@magrit.test'),
+    getStorefrontPortalOrders: vi.fn(async () => ({ orders: [v11], taxRegime: 'dom_tom' as const })),
     listAuditEvents: vi.fn(async () => [{
       eventId: 'event-1', orderId: 'v11-1', kind: 'status', eventType: 'status_transition',
-      actorId: 'user-1', actorEmail: 'buyer@magrit.test', roleName: null,
+      actorId: 'user-1', actorEmail: 'buyer@magrit.test',
+      shopCustomerAccountId: null, actedByMagritUserId: null, roleName: null,
       payload: { from_status: 'draft', to_status: 'validated' }, occurredAt: '2026-08-11T12:01:00.000Z',
     }]),
     transitionOrder: vi.fn(async (orderId, command) => ({

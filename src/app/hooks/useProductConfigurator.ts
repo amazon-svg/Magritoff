@@ -19,7 +19,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import type { ShopProduct } from "../contexts/ShopsContext";
+import type { ShopProduct } from "../../modules/shops";
 import { ENABLE_OVERLAY_LIVE_RECALC } from "../lib/featureFlags";
 import {
   ClariprintPricingError,
@@ -31,9 +31,8 @@ import {
   extractInitialOptions,
   type ConfigOptions,
 } from "../components/shop/ProductOverlay.helpers";
-import { useTenant } from "../contexts/TenantContext";
-import { applyTax, getTaxRate } from "../utils/tax";
-import { useBrowserServices } from "../contexts/BrowserServicesContext";
+import { applyTax, DEFAULT_TAX_RATE } from "../utils/tax";
+import type { ClariprintPricingGateway } from "../../modules/clariprint";
 
 export const COMPUTE_PRICE_TIMEOUT_MS = 10_000;
 export const RECALC_DEBOUNCE_MS = 300;
@@ -163,6 +162,10 @@ export interface UseProductConfiguratorOpts {
    * — sans le flag, seul le calcul initial est joué).
    */
   liveRecalc?: boolean;
+  /** Taux fourni par la surface : contrat boutique ou tenant workspace. */
+  taxRate?: number;
+  /** Passerelle explicite : le moteur partagé ne choisit jamais une identité. */
+  clariprintGateway: ClariprintPricingGateway;
 }
 
 export interface UseProductConfiguratorResult {
@@ -181,12 +184,11 @@ export interface UseProductConfiguratorResult {
 
 export function useProductConfigurator(
   product: ShopProduct | null,
-  opts: UseProductConfiguratorOpts = {},
+  opts: UseProductConfiguratorOpts,
 ): UseProductConfiguratorResult {
   const liveRecalc = opts.liveRecalc ?? ENABLE_OVERLAY_LIVE_RECALC;
-  const { clariprint } = useBrowserServices();
-  const { currentTenant } = useTenant();
-  const taxRate = getTaxRate(currentTenant);
+  const clariprint = opts.clariprintGateway;
+  const taxRate = opts.taxRate ?? DEFAULT_TAX_RATE;
 
   const [options, setOptions] = useState<ConfigOptions>(() =>
     product

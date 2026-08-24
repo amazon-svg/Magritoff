@@ -12,28 +12,9 @@
  * depuis la table Magrit Users).
  */
 
-import { useCallback, useEffect, useState } from 'react';
 import { Loader2, X, Check } from 'lucide-react';
 import { TEST_IDS } from '../../lib/testIds';
-import { useWorkspaceMembersApi, useWorkspaceRolesApi } from '../../contexts/ModuleClientsContext';
-
-interface RoleOption {
-  id: string;
-  name: string;
-  description: string;
-}
-
-interface AssignmentRow {
-  id: string;
-  role_definition_id: string;
-}
-
-interface ShopOption {
-  id: string;
-  name: string;
-}
-
-type AccessScope = 'magrit_full' | 'shop_only';
+import { useUserRoleManagement } from '../../hooks/useRoleAssignmentManagement';
 
 export interface EditUserRolesModalProps {
   open: boolean;
@@ -54,81 +35,17 @@ export function EditUserRolesModal({
   onChanged,
   onClose,
 }: EditUserRolesModalProps) {
-  const rolesApi = useWorkspaceRolesApi();
-  const membersApi = useWorkspaceMembersApi();
-  const [roles, setRoles] = useState<RoleOption[]>([]);
-  const [assignments, setAssignments] = useState<AssignmentRow[]>([]);
-  const [shops, setShops] = useState<ShopOption[]>([]);
-  const [scope, setScope] = useState<AccessScope>('shop_only');
-  const [selectedShopIds, setSelectedShopIds] = useState<Set<string>>(new Set());
-  const [savingAccess, setSavingAccess] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [pendingRoleIds, setPendingRoleIds] = useState<Set<string>>(new Set());
-
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const detail = await rolesApi.userDetail(tenantId, targetUserId);
-      setRoles(detail.roles.map((role) => ({ id: role.id, name: role.name, description: role.description })));
-      setAssignments(detail.assignments.map((assignment) => ({ id: assignment.id, role_definition_id: assignment.roleId })));
-      setShops(detail.shops);
-      setScope(detail.accessScope);
-      setSelectedShopIds(new Set(detail.allowedShopIds));
-    } catch (loadError) {
-      setError(`Rôles : ${loadError instanceof Error ? loadError.message : 'chargement impossible'}`);
-    }
-    setLoading(false);
-  }, [rolesApi, tenantId, targetUserId]);
-
-  const saveAccess = async () => {
-    setSavingAccess(true);
-    setError(null);
-    try {
-      const member = (await membersApi.list(tenantId)).find((candidate) => candidate.userId === targetUserId);
-      if (!member) throw new Error('Membre introuvable.');
-      await membersApi.updateAccess(tenantId, targetUserId, {
-        accessScope: scope, allowedShopIds: scope === 'shop_only' ? Array.from(selectedShopIds) : [],
-        permissions: member.permissions,
-      });
-      await onChanged();
-    } catch (saveError) {
-      setError(`Accès : ${saveError instanceof Error ? saveError.message : 'enregistrement impossible'}`);
-    } finally {
-      setSavingAccess(false);
-    }
-  };
-
-  useEffect(() => {
-    if (open) {
-      void loadData();
-    }
-  }, [open, loadData]);
-
-  const assignmentByRoleId = new Map(assignments.map((a) => [a.role_definition_id, a]));
-
-  const handleToggle = async (roleId: string) => {
-    if (pendingRoleIds.has(roleId)) return;
-    setPendingRoleIds((s) => new Set(s).add(roleId));
-    setError(null);
-
-    const existing = assignmentByRoleId.get(roleId);
-    try {
-      await rolesApi.setAssignment(tenantId, targetUserId, roleId, !existing);
-      await loadData();
-      await onChanged();
-    } catch (err: any) {
-      setError(`Erreur : ${err?.message || 'inconnue'}`);
-    } finally {
-      setPendingRoleIds((s) => {
-        const next = new Set(s);
-        next.delete(roleId);
-        return next;
-      });
-    }
-  };
+  const {
+    roles,
+    legacyShopOnly,
+    savingAccess,
+    loading,
+    error,
+    pendingRoleIds,
+    assignmentByRoleId,
+    toggleAssignment,
+    promoteToMagrit,
+  } = useUserRoleManagement({ open, tenantId, targetUserId, onChanged });
 
   if (!open) return null;
 
@@ -167,78 +84,33 @@ export function EditUserRolesModal({
             </div>
           ) : (
           <>
-          {/* Section Accès : scope + boutiques (fix 2026-05-27) */}
+          {/* UM8 : lecture legacy et conversion à sens unique vers Magrit. */}
           <div className="pb-3 border-b border-line">
             <span className="block text-ink-muted mb-1.5" style={{ fontSize: '11.5px', fontWeight: 600 }}>
               Type d'accès
             </span>
-            <div className="grid grid-cols-2 gap-2 mb-2">
-              <button
-                type="button"
-                onClick={() => setScope('shop_only')}
-                data-testid={TEST_IDS.user.editScopeShopOnly}
-                aria-pressed={scope === 'shop_only'}
-                className={`px-3 py-1.5 rounded border text-left transition-colors ${
-                  scope === 'shop_only' ? 'bg-ok-bg border-ok-fg/40' : 'bg-paper border-line hover:border-ink-mute-2'
-                }`}
-              >
-                <span className="text-ink" style={{ fontSize: '12px', fontWeight: 600 }}>Boutique(s)</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setScope('magrit_full')}
-                data-testid={TEST_IDS.user.editScopeFull}
-                aria-pressed={scope === 'magrit_full'}
-                className={`px-3 py-1.5 rounded border text-left transition-colors ${
-                  scope === 'magrit_full' ? 'bg-ok-bg border-ok-fg/40' : 'bg-paper border-line hover:border-ink-mute-2'
-                }`}
-              >
-                <span className="text-ink" style={{ fontSize: '12px', fontWeight: 600 }}>Dashboard complet</span>
-              </button>
-            </div>
-            {scope === 'shop_only' && (
-              <div className="space-y-1 max-h-32 overflow-y-auto mb-2">
-                {shops.map((s) => {
-                  const active = selectedShopIds.has(s.id);
-                  return (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onClick={() =>
-                        setSelectedShopIds((prev) => {
-                          const next = new Set(prev);
-                          if (next.has(s.id)) next.delete(s.id);
-                          else next.add(s.id);
-                          return next;
-                        })
-                      }
-                      data-testid={TEST_IDS.user.editShopOption}
-                      data-shop-id={s.id}
-                      aria-pressed={active}
-                      className={`w-full flex items-center gap-2 px-2.5 py-1 rounded border text-left transition-colors ${
-                        active ? 'bg-ok-bg border-ok-fg/40' : 'bg-paper border-line hover:border-ink-mute-2'
-                      }`}
-                    >
-                      <span className={`inline-flex items-center justify-center w-4 h-4 rounded border shrink-0 ${active ? 'bg-ok-fg border-ok-fg text-paper' : 'bg-paper border-line'}`}>
-                        {active && <Check className="w-3 h-3" strokeWidth={3} />}
-                      </span>
-                      <span className="text-ink" style={{ fontSize: '12px' }}>{s.name}</span>
-                    </button>
-                  );
-                })}
+            {legacyShopOnly ? (
+              <div className="rounded-md border border-warn-fg/25 bg-warn-bg px-3 py-2">
+                <p className="m-0 text-warn-fg" style={{ fontSize: '12px' }}>
+                  Ancien accès boutique détecté. Le compte boutique séparé a été préparé par UM7.
+                </p>
+                <button
+                  type="button"
+                  onClick={promoteToMagrit}
+                  disabled={savingAccess}
+                  data-testid={TEST_IDS.user.editAccessSaveBtn}
+                  className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-1.5 text-paper hover:bg-black disabled:opacity-40"
+                  style={{ fontSize: '12.5px', fontWeight: 500 }}
+                >
+                  {savingAccess && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  Convertir en utilisateur Magrit
+                </button>
               </div>
+            ) : (
+              <p className="m-0 rounded-md border border-ok-fg/20 bg-ok-bg px-3 py-2 text-ok-fg" style={{ fontSize: '12px' }}>
+                Utilisateur Magrit — accès au dashboard. Les comptes boutique sont gérés séparément.
+              </p>
             )}
-            <button
-              type="button"
-              onClick={saveAccess}
-              disabled={savingAccess || (scope === 'shop_only' && selectedShopIds.size === 0)}
-              data-testid={TEST_IDS.user.editAccessSaveBtn}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-ink text-paper hover:bg-black disabled:opacity-40 disabled:cursor-not-allowed"
-              style={{ fontSize: '12.5px', fontWeight: 500 }}
-            >
-              {savingAccess && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-              Enregistrer l'accès
-            </button>
           </div>
 
           <span className="block text-ink-muted pt-1" style={{ fontSize: '11.5px', fontWeight: 600 }}>
@@ -257,7 +129,7 @@ export function EditUserRolesModal({
                   <button
                     key={r.id}
                     type="button"
-                    onClick={() => handleToggle(r.id)}
+                    onClick={() => toggleAssignment(r.id)}
                     disabled={isPending}
                     data-testid={TEST_IDS.user.assignmentToggle}
                     data-user-id={targetUserId}

@@ -2,52 +2,51 @@
  * S7.12 — CheckoutPage : ≤ 2 écrans entre panier et confirmation (ADR §4.20).
  *
  * Une seule route `/checkout`, deux blocs :
- *  - non loggé → Identification (connexion, + création de compte si la
- *    boutique est en `self_signup` : signUp puis commande API d’inscription
- *    allow-list S7.11 ; boutique invite_only → connexion + demande d'accès) ;
+ *  - sans session boutique → identification via le BFF storefront ;
  *  - loggé → Récap (packs forfaitaires S-FIX-PANIER, totaux HT/TVA/TTC) +
  *    « Commander » → submitCart existant → PortalThankYou.
  * Erreurs inline, jamais de modal (Feedback Patterns spec UX).
  */
 
 import { useState } from 'react';
-import { AlertTriangle, Loader2, Lock, Mail } from 'lucide-react';
-import type { Shop } from '../../../contexts/ShopsContext';
+import { Loader2 } from 'lucide-react';
+import type { Shop } from '../../../../modules/shops';
 import type { CartLine } from './types';
-import { useAuth } from '../../../contexts/AuthContext';
-import { useTenant } from '../../../contexts/TenantContext';
-import { applyTax, getTaxRate } from '../../../utils/tax';
+import { applyTax } from '../../../utils/tax';
 import { formatEuro } from '../ProductOverlay.helpers';
 import { TEST_IDS } from '../../../lib/testIds';
-import { useShopsApiFactory } from '../../../contexts/ModuleClientsContext';
+import type { StorefrontSession } from '../../../../modules/shop-customers';
+import { StorefrontLoginForm } from '../StorefrontLoginForm';
+import { computePortalCartTotalHt, resolveCartLinePricing } from './cartPricing';
 
 export interface CheckoutPageProps {
   shop: Shop;
   cart: CartLine[];
+  taxRate: number;
   canCreateOrder: boolean;
   createOrderBlockedMessage: string;
+  storefrontSession: StorefrontSession | null;
+  onStorefrontAuthenticated(session: StorefrontSession): void;
   /** Soumet la commande (submitCart PublicShop) — navigue vers ThankYou. */
   onSubmit: () => Promise<void> | void;
   onGoCatalog: () => void;
 }
 
-const inputCls =
-  'w-full px-3 py-2 rounded-md border border-line-2 bg-paper text-ink text-[13px] focus:outline-none focus:ring-2 focus:ring-accent';
-
 export function CheckoutPage({
   shop,
   cart,
+  taxRate,
   canCreateOrder,
   createOrderBlockedMessage,
+  storefrontSession,
+  onStorefrontAuthenticated,
   onSubmit,
   onGoCatalog,
 }: CheckoutPageProps) {
-  const { user } = useAuth();
-  const { currentTenant, reload } = useTenant();
-  const taxRate = getTaxRate(currentTenant);
+  const hasStorefrontSession = storefrontSession?.identity.shopId === shop.id;
   const [submitting, setSubmitting] = useState(false);
 
-  const totalHT = cart.reduce((s, l) => s + l.product.price_ht * l.qty, 0);
+  const totalHT = computePortalCartTotalHt(cart);
   const totalTTC = applyTax(totalHT, taxRate);
 
   if (cart.length === 0) {
@@ -78,11 +77,11 @@ export function CheckoutPage({
           className="text-ink m-0"
           style={{ fontSize: '24px', fontWeight: 300, letterSpacing: '-0.02em' }}
         >
-          {user ? 'Récapitulatif de votre commande' : 'Identifiez-vous pour commander'}
+          {hasStorefrontSession ? 'Récapitulatif de votre commande' : 'Identifiez-vous pour commander'}
         </h1>
 
-        {!user && (
-          <CheckoutIdentification shop={shop} onAuthenticated={() => reload()} />
+        {!hasStorefrontSession && (
+          <CheckoutIdentification shop={shop} onAuthenticated={onStorefrontAuthenticated} />
         )}
 
         {/* Récap lignes (toujours visible : l'acheteur voit ce qu'il commande) */}
@@ -109,7 +108,7 @@ export function CheckoutPage({
                   className="font-mono text-ink shrink-0"
                   style={{ fontSize: '13.5px', fontVariantNumeric: 'tabular-nums' }}
                 >
-                  {formatEuro(l.product.price_ht * l.qty)} HT
+                  {formatEuro(resolveCartLinePricing(l).lineTotalHt)} HT
                 </span>
               </div>
             );
@@ -127,7 +126,7 @@ export function CheckoutPage({
         <button
           type="button"
           data-testid={TEST_IDS.shop.checkoutSubmitBtn}
-          disabled={!user || !canCreateOrder || submitting}
+          disabled={!hasStorefrontSession || !canCreateOrder || submitting}
           onClick={async () => {
             setSubmitting(true);
             try {
@@ -142,12 +141,12 @@ export function CheckoutPage({
           {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={1.5} />}
           Commander
         </button>
-        {!user && (
+        {!hasStorefrontSession && (
           <p className="text-ink-mute-2 m-0 text-center" style={{ fontSize: '11.5px' }}>
             Identifiez-vous ci-contre pour valider la commande.
           </p>
         )}
-        {user && !canCreateOrder && (
+        {hasStorefrontSession && !canCreateOrder && (
           <p
             data-testid={TEST_IDS.shop.cartNoCreateOrderHint}
             className="m-0 text-center text-err-fg"
@@ -184,212 +183,22 @@ function CheckoutIdentification({
   onAuthenticated,
 }: {
   shop: Shop;
-  onAuthenticated: () => void;
+  onAuthenticated: (session: StorefrontSession) => void;
 }) {
-  const { signIn, signUp } = useAuth();
-  const shopsApiForAccessToken = useShopsApiFactory();
-  const selfSignup = shop.access_mode === 'self_signup';
-  const [mode, setMode] = useState<'login' | 'signup'>(selfSignup ? 'signup' : 'login');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
-  const [company, setCompany] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-
-  const registerBuyer = async (accessToken: string) => {
-    const api = shopsApiForAccessToken(accessToken);
-    await api.registerBuyer(shop.id);
-  };
-
-  const login = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      const { error: err, session } = await signIn(email, password);
-      if (err || !session) {
-        setError('Connexion impossible : vérifiez votre email et votre mot de passe.');
-      } else {
-        // Si la boutique est ouverte, garantir l'accès (idempotent, no-op si membre).
-        if (selfSignup) await registerBuyer(session.access_token);
-        onAuthenticated();
-      }
-    } catch {
-      setError('Connexion réussie, mais l\'accès boutique a échoué. Contactez la boutique.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const signup = async () => {
-    setBusy(true);
-    setError(null);
-    const { error: err, session } = await signUp(email, password, fullName, company);
-    if (err) {
-      setError(
-        err.message.includes('already registered')
-          ? 'Un compte existe déjà avec cet email — connectez-vous.'
-          : `Création du compte impossible : ${err.message}`,
-      );
-    } else if (!session) {
-      // Confirmation email exigée par le projet : pas de session immédiate.
-      setNotice(
-        'Vérifiez votre boîte mail pour confirmer votre compte, puis revenez vous connecter.',
-      );
-    } else {
-      try {
-        await registerBuyer(session.access_token);
-        onAuthenticated();
-      } catch {
-        setError('Compte créé, mais l\'accès boutique a échoué. Contactez la boutique.');
-      }
-    }
-    setBusy(false);
-  };
-
   return (
     <div
       data-testid={TEST_IDS.shop.checkoutIdentification}
       className="bg-paper border border-line rounded-xl p-4 flex flex-col gap-3"
     >
-      {selfSignup ? (
-        <div className="flex gap-1 rounded-lg bg-bg p-1 w-fit" role="tablist">
-          {(
-            [
-              ['signup', 'Créer un compte'],
-              ['login', 'Se connecter'],
-            ] as const
-          ).map(([key, label]) => (
-            <button
-              key={key}
-              type="button"
-              role="tab"
-              aria-selected={mode === key}
-              onClick={() => setMode(key)}
-              className={`px-3 py-1.5 rounded-md transition-colors ${
-                mode === key ? 'bg-paper text-ink shadow-sm' : 'text-ink-muted hover:text-ink'
-              }`}
-              style={{ fontSize: '12.5px', fontWeight: 500 }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      ) : (
-        <p className="text-ink-muted m-0" style={{ fontSize: '12.5px' }}>
-          Cette boutique est réservée aux acheteurs invités par {shop.name}.
-        </p>
-      )}
-
-      <form
-        className="grid grid-cols-1 sm:grid-cols-2 gap-3"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (mode === 'signup' && selfSignup) void signup();
-          else void login();
-        }}
-      >
-        {mode === 'signup' && selfSignup && (
-          <>
-            <label className="flex flex-col gap-1">
-              <FieldLabel>Nom</FieldLabel>
-              <input value={fullName} onChange={(e) => setFullName(e.target.value)} className={inputCls} autoComplete="name" />
-            </label>
-            <label className="flex flex-col gap-1">
-              <FieldLabel>Société</FieldLabel>
-              <input value={company} onChange={(e) => setCompany(e.target.value)} className={inputCls} autoComplete="organization" />
-            </label>
-          </>
-        )}
-        <label className="flex flex-col gap-1">
-          <FieldLabel>Email</FieldLabel>
-          <input
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className={inputCls}
-            autoComplete="email"
-            data-testid={TEST_IDS.shop.checkoutEmailInput}
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <FieldLabel>Mot de passe</FieldLabel>
-          <input
-            type="password"
-            required
-            minLength={6}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className={inputCls}
-            autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-            data-testid={TEST_IDS.shop.checkoutPasswordInput}
-          />
-        </label>
-
-        <div className="sm:col-span-2 flex items-center gap-3">
-          <button
-            type="submit"
-            data-testid={TEST_IDS.shop.checkoutAuthBtn}
-            disabled={busy}
-            className="px-4 py-2 rounded-md bg-ink text-paper hover:bg-black transition-colors disabled:opacity-50 inline-flex items-center gap-2"
-            style={{ fontSize: '13px', fontWeight: 500 }}
-          >
-            {busy ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={1.5} />
-            ) : mode === 'signup' && selfSignup ? (
-              <Mail className="w-3.5 h-3.5" strokeWidth={1.5} />
-            ) : (
-              <Lock className="w-3.5 h-3.5" strokeWidth={1.5} />
-            )}
-            {mode === 'signup' && selfSignup ? 'Créer mon compte' : 'Se connecter'}
-          </button>
-
-          {!selfSignup && (
-            <a
-              data-testid={TEST_IDS.shop.checkoutRequestAccess}
-              href={
-                shop.contact_email
-                  ? `mailto:${shop.contact_email}?subject=${encodeURIComponent(`Demande d'accès à la boutique ${shop.name}`)}`
-                  : undefined
-              }
-              aria-disabled={!shop.contact_email}
-              className={`text-ink-muted hover:text-ink hover:underline ${!shop.contact_email ? 'pointer-events-none opacity-50' : ''}`}
-              style={{ fontSize: '12.5px' }}
-            >
-              Demander un accès
-            </a>
-          )}
-        </div>
-      </form>
-
-      {error && (
-        <p
-          className="m-0 inline-flex items-start gap-1.5 text-warn-fg"
-          style={{ fontSize: '12.5px' }}
-          role="alert"
-        >
-          <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" strokeWidth={1.5} />
-          {error}
-        </p>
-      )}
-      {notice && (
-        <p className="m-0 text-ink-muted" style={{ fontSize: '12.5px' }} role="status">
-          {notice}
-        </p>
-      )}
+      <p className="text-ink-muted m-0" style={{ fontSize: '12.5px' }}>
+        Utilisez le compte propre à cette boutique. Aucun compte Magrit n’est créé ou réutilisé.
+      </p>
+      <StorefrontLoginForm
+        shopSlug={shop.slug}
+        contactEmail={shop.contact_email}
+        allowRegistration={shop.access_mode === 'self_signup'}
+        onAuthenticated={onAuthenticated}
+      />
     </div>
-  );
-}
-
-function FieldLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <span
-      className="font-mono uppercase text-ink-mute-2"
-      style={{ fontSize: '10px', letterSpacing: '0.08em', fontWeight: 500 }}
-    >
-      {children}
-    </span>
   );
 }

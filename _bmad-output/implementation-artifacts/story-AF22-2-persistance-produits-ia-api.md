@@ -30,3 +30,10 @@ Lancer une recherche IA authentifiée dans une boutique, vérifier l'affichage
 immédiat des résultats puis leur présence après rechargement. Rejouer la même
 recherche : la signature doit dédupliquer le produit. Une erreur de persistance
 ne doit pas casser la recherche ni le calcul du prix.
+
+## Évolution UM10.1
+
+Cette persistance concernait l’ancien acheteur porté par une identité Magrit.
+Avec les comptes boutique séparés, une recherche client ne reçoit plus le droit
+Magrit de modifier durablement le catalogue. Les suggestions restent
+éphémères et commandables ; leur publication permanente relève du back-office.

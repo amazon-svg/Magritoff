@@ -19,7 +19,7 @@
  */
 
 import { useMemo } from "react";
-import type { Shop, ShopProduct } from "../../contexts/ShopsContext";
+import type { Shop, ShopProduct } from '../../../modules/shops';
 import type { Gamme, ProductDefinition } from "../../utils/productEnrichment";
 import { resolveProductGamme } from "../../utils/productEnrichment";
 import { TEST_IDS } from "../../lib/testIds";

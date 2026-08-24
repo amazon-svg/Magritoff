@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { UserId } from '../../kernel/ids/index.ts';
-import type { CreateShopCommand, CreateShopProductCommand, MockupTemplateType, MockupView, PersistAiShopProductCommand, PublicShopCatalog, PublicShopProbe, SetShopPricingCommand, ShopBrandAssetUpload, ShopCustomMockup, ShopCustomMockupUpload, ShopDto, ShopPricingOverride, ShopProductDto, UpdateShopCommand, UpdateShopProductCommand } from '../../modules/shops/api/contracts.ts';
-import { ShopRejectedError, type ShopsRepository } from '../../modules/shops/application/shops-repository.ts';
+import { shopTaxRegimeSchema, type CreateShopCommand, type CreateShopProductCommand, type MockupTemplateType, type MockupView, type PersistAiShopProductCommand, type PublicShopCatalog, type PublicShopProbe, type SetShopPricingCommand, type ShopBrandAssetUpload, type ShopCustomMockup, type ShopCustomMockupUpload, type ShopDto, type ShopPricingOverride, type ShopProductDto, type UpdateShopCommand, type UpdateShopProductCommand } from '../../modules/shops/api/contracts.ts';
+import { ShopRejectedError, type PublicShopCatalogAccess, type ShopsRepository } from '../../modules/shops/application/shops-repository.ts';
 import type { Database, Json } from '../../types/database.types.ts';
 
 const DEFAULT_THEME = { primaryColor: '#1e3a8a', accentColor: '#f59e0b', mode: 'light' as const, secondaryColor: '#6b7280', textColor: '#0f172a', bgColor: '#ffffff', fontPairing: 'system' };
@@ -10,11 +10,6 @@ const PRODUCT_COLUMNS = 'id, shop_id, product_id, name, category, description, p
 
 export class SupabaseShopsRepository implements ShopsRepository {
   constructor(private readonly client: SupabaseClient<Database>, private readonly publicBaseUrl?: string) {}
-
-  async registerBuyer(_actor: UserId, shopId: string): Promise<void> {
-    const { error } = await this.client.rpc('self_register_shop_buyer', { p_shop_id: shopId });
-    if (error) throw classified(error, 'Rattachement à la boutique impossible.');
-  }
 
   async list(_actor: UserId, tenantId: string): Promise<ShopDto[]> {
     const { data, error } = await this.client.from('shops').select(SHOP_COLUMNS).eq('tenant_id', tenantId).order('created_at', { ascending: false });
@@ -25,9 +20,10 @@ export class SupabaseShopsRepository implements ShopsRepository {
     const parsed = { ...DEFAULT_THEME, ...(command.theme ?? {}) };
     const { data, error } = await this.client.from('shops').insert({
       owner_user_id: actor, tenant_id: tenantId, slug: randomSlug(), name: command.name,
-      description: command.description ?? '', logo_url: command.logoUrl ?? '', address: command.address ?? '',
+      description: command.description ?? '', logo_url: storedAssetReference(command.logoUrl ?? ''), address: command.address ?? '',
       contact_email: command.contactEmail ?? '', theme: parsed, active: true, library_ids: [], excluded_product_ids: [],
-      hero_image_url: command.heroImageUrl ?? null, tagline: command.tagline ?? null,
+      hero_image_url: command.heroImageUrl === null || command.heroImageUrl === undefined
+        ? null : storedAssetReference(command.heroImageUrl), tagline: command.tagline ?? null,
     }).select(SHOP_COLUMNS).single();
     if (error || !data) throw classified(error, 'Création de la boutique impossible.');
     return mapShop(data, this.publicBaseUrl);
@@ -70,26 +66,28 @@ export class SupabaseShopsRepository implements ShopsRepository {
     if (!row.tenant_id) throw new ShopRejectedError('invalid_request', 'Boutique sans espace propriétaire.');
     return { id: row.id, tenantId: row.tenant_id, accessMode: row.access_mode === 'self_signup' ? 'self_signup' : 'invite_only' };
   }
-  async publicCatalog(actor: UserId | null, slug: string): Promise<PublicShopCatalog> {
+  async publicCatalog(access: PublicShopCatalogAccess, slug: string): Promise<PublicShopCatalog> {
     const gate = await this.loadActiveShopBySlug(slug, 'id, tenant_id, access_mode');
     if (!gate.tenant_id) throw new ShopRejectedError('invalid_request', 'Boutique sans espace propriétaire.');
     if (gate.access_mode !== 'self_signup') {
-      if (!actor) throw new ShopRejectedError('authentication_required', 'Authentification requise.');
-      const { data: allowed, error: accessError } = await this.client.rpc('current_user_can_access_shop', { p_shop_id: gate.id });
-      if (accessError || !allowed) throw new ShopRejectedError('permission_denied', 'Accès à la boutique interdit.');
+      if (access.storefront?.shopId !== gate.id) {
+        const code = access.storefront ? 'permission_denied' : 'authentication_required';
+        throw new ShopRejectedError(code, code === 'permission_denied' ? 'La session appartient à une autre boutique.' : 'Authentification boutique requise.');
+      }
     }
     const shopRow = await this.loadActiveShopBySlug(slug, SHOP_COLUMNS);
     if (!shopRow.tenant_id) throw new ShopRejectedError('invalid_request', 'Boutique sans espace propriétaire.');
 
-    const [manualResult, pricingResult, gammesResult, definitionsResult, subscriptionsResult, mockupsResult] = await Promise.all([
+    const [manualResult, pricingResult, gammesResult, definitionsResult, subscriptionsResult, mockupsResult, taxResult] = await Promise.all([
       this.client.from('shop_products').select(PRODUCT_COLUMNS).eq('shop_id', shopRow.id).order('display_order'),
       this.client.from('shop_product_pricing').select('library_product_id, price_ht_override').eq('shop_id', shopRow.id),
       this.client.from('product_gammes').select('*').order('display_order'),
       this.client.from('product_definitions').select('*'),
       this.client.from('tenant_gamme_subscriptions').select('gamme_slug').eq('tenant_id', shopRow.tenant_id).eq('active', true),
       this.client.from('shop_template_mockups').select('shop_id, template_type, view, mockup_image_url').eq('shop_id', shopRow.id),
+      this.client.rpc('api_get_public_shop_tax_regime', { p_shop_slug: slug }),
     ]);
-    const failed = [manualResult.error, pricingResult.error, gammesResult.error, definitionsResult.error, mockupsResult.error].find(Boolean);
+    const failed = [manualResult.error, pricingResult.error, gammesResult.error, definitionsResult.error, mockupsResult.error, taxResult.error].find(Boolean);
     if (failed) throw classified(failed, 'Chargement du catalogue impossible.');
 
     const libraryRows = await this.loadPublicLibraryRows(shopRow);
@@ -117,6 +115,7 @@ export class SupabaseShopsRepository implements ShopsRepository {
       ? { ...product, priceHt: priceByLibraryId.get(product.productId)! } : product);
     return {
       shop: mapPublicShop(shopRow, this.publicBaseUrl), products: [...pricedManual, ...linked],
+      taxRegime: shopTaxRegimeSchema.parse(taxResult.data),
       gammes: (gammesResult.data ?? []).map((row) => ({ ...row, matching_rules: toRecord(row.matching_rules) })),
       definitions: (definitionsResult.data ?? []).map((row) => ({ ...row })),
       subscribedSlugs: subscriptionsResult.error ? [] : (subscriptionsResult.data ?? []).map((row) => row.gamme_slug),
@@ -152,7 +151,10 @@ export class SupabaseShopsRepository implements ShopsRepository {
       upsert: false, contentType: upload.contentType, cacheControl: '3600',
     });
     if (error) throw classified(error, 'Upload du visuel de boutique impossible.');
-    return publicAssetUrl(this.client.storage.from('shop_backgrounds').getPublicUrl(path).data.publicUrl, this.publicBaseUrl);
+    const reference = storedAssetReference(
+      this.client.storage.from('shop_backgrounds').getPublicUrl(path).data.publicUrl,
+    );
+    return publicAssetUrl(reference, this.publicBaseUrl);
   }
   async customMockups(_actor: UserId, tenantId: string, shopId: string): Promise<ShopCustomMockup[]> {
     await this.requireShop(tenantId, shopId);
@@ -166,8 +168,10 @@ export class SupabaseShopsRepository implements ShopsRepository {
     const path = `${shopId}/${upload.templateType}-${upload.view}.${extension}`;
     const { error: storageError } = await this.client.storage.from('shop_product_mockups').upload(path, new Uint8Array(upload.bytes), { upsert: true, contentType: upload.contentType, cacheControl: '60' });
     if (storageError) throw classified(storageError, 'Upload du mockup personnalisé impossible.');
-    const publicUrl = publicAssetUrl(this.client.storage.from('shop_product_mockups').getPublicUrl(path).data.publicUrl, this.publicBaseUrl);
-    const { error } = await this.client.from('shop_template_mockups').upsert({ shop_id: shopId, tenant_id: tenantId, template_type: upload.templateType, view: upload.view, mockup_image_url: `${publicUrl}?v=${Date.now()}`, updated_at: new Date().toISOString() }, { onConflict: 'shop_id,template_type,view' });
+    const reference = storedAssetReference(
+      this.client.storage.from('shop_product_mockups').getPublicUrl(path).data.publicUrl,
+    );
+    const { error } = await this.client.from('shop_template_mockups').upsert({ shop_id: shopId, tenant_id: tenantId, template_type: upload.templateType, view: upload.view, mockup_image_url: `${reference}?v=${Date.now()}`, updated_at: new Date().toISOString() }, { onConflict: 'shop_id,template_type,view' });
     if (error) throw classified(error, 'Enregistrement du mockup personnalisé impossible.');
   }
   async restoreCustomMockup(_actor: UserId, tenantId: string, shopId: string, templateType: MockupTemplateType, view: MockupView): Promise<void> {
@@ -231,10 +235,10 @@ function mapPublicShop(row: Pick<ShopRow, 'id' | 'tenant_id' | 'slug' | 'name' |
 function shopPatch(command: UpdateShopCommand): Database['public']['Tables']['shops']['Update'] {
   const patch: Database['public']['Tables']['shops']['Update'] = {};
   if (command.name !== undefined) patch.name = command.name; if (command.description !== undefined) patch.description = command.description;
-  if (command.logoUrl !== undefined) patch.logo_url = command.logoUrl; if (command.address !== undefined) patch.address = command.address;
+  if (command.logoUrl !== undefined) patch.logo_url = storedAssetReference(command.logoUrl); if (command.address !== undefined) patch.address = command.address;
   if (command.contactEmail !== undefined) patch.contact_email = command.contactEmail; if (command.theme !== undefined) patch.theme = command.theme as Json;
   if (command.active !== undefined) patch.active = command.active; if (command.libraryIds !== undefined) patch.library_ids = command.libraryIds;
-  if (command.excludedProductIds !== undefined) patch.excluded_product_ids = command.excludedProductIds; if (command.heroImageUrl !== undefined) patch.hero_image_url = command.heroImageUrl;
+  if (command.excludedProductIds !== undefined) patch.excluded_product_ids = command.excludedProductIds; if (command.heroImageUrl !== undefined) patch.hero_image_url = command.heroImageUrl === null ? null : storedAssetReference(command.heroImageUrl);
   if (command.tagline !== undefined) patch.tagline = command.tagline;
   Object.assign(patch, command.pimCatalogMode !== undefined ? { pim_catalog_mode: command.pimCatalogMode } : {}, command.pimGammeSlugs !== undefined ? { pim_gamme_slugs: command.pimGammeSlugs } : {}, command.accessMode !== undefined ? { access_mode: command.accessMode } : {});
   return patch;
@@ -249,6 +253,9 @@ function classified(error: { code?: string; message?: string } | null, fallback:
 export function publicAssetUrl(value: string, publicBaseUrl?: string): string {
   if (!value || !publicBaseUrl) return value;
   try {
+    if (value.startsWith('/storage/v1/object/')) {
+      return new URL(value, publicBaseUrl.endsWith('/') ? publicBaseUrl : `${publicBaseUrl}/`).toString();
+    }
     const url = new URL(value);
     const publicOrigin = new URL(publicBaseUrl);
     const isStorageAsset = url.pathname.startsWith('/storage/v1/object/');
@@ -258,5 +265,21 @@ export function publicAssetUrl(value: string, publicBaseUrl?: string): string {
     url.protocol = publicOrigin.protocol; url.hostname = publicOrigin.hostname; url.port = publicOrigin.port;
     return url.toString();
   } catch { return value; }
+}
+/**
+ * Persiste une référence Storage portable. Les URL externes restent intactes ;
+ * seule l'origine d'un objet géré par la plateforme est retirée.
+ */
+export function storedAssetReference(value: string): string {
+  if (!value) return value;
+  if (value.startsWith('/storage/v1/object/')) return value;
+  try {
+    const url = new URL(value);
+    return url.pathname.startsWith('/storage/v1/object/')
+      ? `${url.pathname}${url.search}${url.hash}`
+      : value;
+  } catch {
+    return value;
+  }
 }
 function isLoopback(hostname: string): boolean { return hostname === '127.0.0.1' || hostname === 'localhost' || hostname === '::1' || hostname === '[::1]'; }

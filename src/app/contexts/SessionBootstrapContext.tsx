@@ -19,7 +19,7 @@ type SessionBootstrapContextValue = Readonly<{
   data: SessionBootstrap | null;
   loading: boolean;
   error: Error | null;
-  reload(): Promise<void>;
+  reload(): Promise<SessionBootstrap | null>;
   updatePreferences(patch: UpdatePreferences): Promise<void>;
   updateCurrentTenant(tenantId: string): Promise<void>;
   createRootTenant(command: CreateRootTenant): Promise<string>;
@@ -44,7 +44,7 @@ export function SessionBootstrapProvider({ children }: { children: ReactNode }) 
       setData(null);
       setError(null);
       setLoading(false);
-      return;
+      return null;
     }
     setLoading(true);
     setError(null);
@@ -52,13 +52,16 @@ export function SessionBootstrapProvider({ children }: { children: ReactNode }) 
       const bootstrap = await api.load();
       if (sequence === requestSequence.current && currentUserId.current === bootstrap.user.id) {
         setData(bootstrap);
+        return bootstrap;
       }
+      return null;
     } catch (cause) {
       if (sequence !== requestSequence.current) return;
       const nextError = cause instanceof Error ? cause : new Error('Bootstrap session impossible.');
       setData(null);
       setError(nextError);
       console.error('[SessionBootstrap] load failed', nextError);
+      return null;
     } finally {
       if (sequence === requestSequence.current) setLoading(false);
     }

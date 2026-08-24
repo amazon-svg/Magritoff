@@ -50,6 +50,8 @@ export const orderAuditEventSchema = z.object({
   eventType: z.string(),
   actorId: z.string().nullable(),
   actorEmail: z.string().nullable(),
+  shopCustomerAccountId: z.string().nullable(),
+  actedByMagritUserId: z.string().nullable(),
   roleName: z.string().nullable(),
   payload: z.record(z.string(), z.unknown()),
   occurredAt: z.string(),

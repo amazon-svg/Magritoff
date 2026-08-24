@@ -11,7 +11,7 @@
 | Guide | Persona cible | Sujet |
 |---|---|---|
 | [admin-tenant.md](admin-tenant.md) | Admin / Owner tenant | Configuration espace, invitations, rôles, sous-tenants, visuels boutique |
-| [acheteur-b2b.md](acheteur-b2b.md) | Acheteur B2B (scope shop_only) | Recherche IA, panier, commande, historique |
+| [acheteur-b2b.md](acheteur-b2b.md) | Client d’une boutique | Activation, connexion storefront, panier, commande, historique |
 | [validateur-producteur.md](validateur-producteur.md) | Validateur / Producteur (capabilities can_validate / can_modify) | Validation commandes, transitions statuts, audit trail |
 
 ## Vocabulaire commun
@@ -21,11 +21,12 @@
 | **Tenant** | Espace de travail Magrit. 1 imprimeur = 1 tenant (sauf multi-sites = 1 tenant racine + N sous-tenants filiales). |
 | **Sous-tenant / filiale** | Espace enfant rattaché à un tenant racine (parent_tenant_id). Sert pour les imprimeurs multi-sites (HQ + Paris + Lyon + Bordeaux). |
 | **Shop / Boutique** | Catalogue B2B exposé à un client de l'imprimeur (ex: portail ERAM hébergé par Imprimerie IPA). Sous-domaine logique du tenant. |
-| **Acheteur** | User avec scope `shop_only` + capability `can_order` sur une ou N shops du tenant. Voit uniquement ses shops autorisées. |
+| **Client boutique** | Compte propre à une boutique. Le même email dans une autre boutique représente un autre compte. |
+| **Utilisateur Magrit** | Membre du tenant utilisant le dashboard. Ce compte n’est jamais un compte boutique. |
 | **Validateur N+1** | User avec capability `can_validate` sur les commandes draft → validated. Configurable par tenant via catalog rôles. |
 | **Producteur** | User avec capability `can_modify` pour faire avancer les commandes validated → in_production → shipped. |
 | **Capability** | Droit fin sur une action (can_quote, can_order, can_invite, can_validate, can_cancel, can_modify, can_export, can_manage_catalog, can_manage_roles). |
-| **Rôle** | Preset de capabilities nommé (Owner, Admin, Acheteur, Validateur, Producteur). Configurable par tenant. |
+| **Rôle Magrit** | Preset de capabilities d’équipe (Owner, Admin, Validateur, Producteur ou rôle personnalisé). Un compte boutique ne reçoit pas ces rôles. |
 | **Notify policy** | Politique de notification email Resend par rôle : chain_next (étape suivante), all_roles (tout le monde), none. |
 
 ## Préalables bêta
@@ -33,7 +34,7 @@
 Avant de démarrer un compte bêta :
 
 1. **Création du tenant racine** : Arnaud crée le tenant + assigne Owner au dirigeant via l'admin Magrit.
-2. **5 rôles presets seedés automatiquement** : Owner, Admin, Acheteur, Validateur, Producteur (via trigger `tenants_seed_catalogs`).
+2. **4 rôles Magrit exposés** : Owner, Admin, Validateur, Producteur. Le preset Acheteur historique reste conservé en base comme `storefront_legacy`, mais il est masqué et non assignable.
 3. **7 statuts canoniques seedés** : draft, validated, in_production, shipped, delivered, invoiced, cancelled.
 4. **8 transitions canoniques seedées** dans la matrice (draft→cancelled self-service, draft→validated can_validate, etc.).
 5. **Le dirigeant reçoit ses identifiants** + accès à `/t/<slug>/dashboard`.
@@ -48,4 +49,4 @@ Avant de démarrer un compte bêta :
 
 ## Mise à jour
 
-Document maintenu à chaque clôture sprint qualité-first. Dernière mise à jour : **2026-06-01** (post Sprint 9 audit clôture).
+Document maintenu à chaque clôture sprint qualité-first. Dernière mise à jour : **2026-08-18** (séparation du catalogue de rôles UM8.3).

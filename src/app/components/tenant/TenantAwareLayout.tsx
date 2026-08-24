@@ -18,11 +18,12 @@ import { useTenant } from '../../contexts/TenantContext';
 import { Header } from '../Header';
 import { UnauthBanner } from '../UnauthBanner';
 import { LegacySlugRedirect } from './LegacySlugRedirect';
-import { ShopOnlyRedirect } from './ShopOnlyRedirect';
+import { LegacyShopOnlyAccessNotice } from './LegacyShopOnlyAccessNotice';
+import { TenantLoadError } from './TenantLoadError';
 
 export function TenantAwareLayout() {
   const { user, loading: authLoading } = useAuth();
-  const { tenants, currentTenant, isSuperAdmin, loading: tenantLoading } = useTenant();
+  const { tenants, currentTenant, isSuperAdmin, loading: tenantLoading, error, reload } = useTenant();
   const { tenantSlug } = useParams<{ tenantSlug: string }>();
 
   const loading = authLoading || tenantLoading;
@@ -37,6 +38,8 @@ export function TenantAwareLayout() {
       </div>
     );
   }
+
+  if (user && error) return <TenantLoadError retry={reload} />;
 
   // Pas connecte → redirection auth (ou page login dediee)
   if (!user) {
@@ -56,13 +59,13 @@ export function TenantAwareLayout() {
     return <LegacySlugRedirect oldSlug={tenantSlug ?? ''} />;
   }
 
-  // E9.3 — Guard scope. Un user shop_only ne doit jamais voir le dashboard
-  // ni la chat home : on l'envoie directement sur sa boutique.
+  // UM8 — Une membership shop_only est un vestige de migration. Elle ne vaut
+  // ni compte ni session boutique et ne doit ouvrir aucune surface storefront.
   // EXCEPTION : un superadmin Magrit (membre de magrit-root) doit pouvoir
   // tout voir, peu importe le scope de son membership sur ce tenant. Sinon
   // impossible d'auditer ou de debugger un tenant client en prod.
   if (match.accessScope === 'shop_only' && !isSuperAdmin) {
-    return <ShopOnlyRedirect allowedShopIds={match.allowedShopIds} />;
+    return <LegacyShopOnlyAccessNotice />;
   }
 
   return (

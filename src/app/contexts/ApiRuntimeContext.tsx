@@ -4,6 +4,7 @@ import { useAuth } from './AuthContext';
 
 type ApiRuntime = Readonly<{
   client: FetchApiClient;
+  anonymousClient: FetchApiClient;
   forAccessToken(accessToken: string): FetchApiClient;
 }>;
 
@@ -21,6 +22,7 @@ export function ApiRuntimeProvider({ children }: { children: ReactNode }) {
   const runtime = useMemo<ApiRuntime>(
     () => ({
       client: new FetchApiClient('', globalThis.fetch, () => session?.access_token ?? null),
+      anonymousClient: new FetchApiClient('', globalThis.fetch),
       forAccessToken: (accessToken) => new FetchApiClient('', globalThis.fetch, () => accessToken),
     }),
     [session?.access_token],

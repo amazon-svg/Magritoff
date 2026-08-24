@@ -11,22 +11,19 @@
  *      imprimeur garde dans son repertoire pour les associer a des devis.
  *
  * E9.2 : CRUD complet (invite, change role, remove) + audit trail.
- * E9.3 : droits granulaires par membership :
- *          - access_scope : 'magrit_full' (tout le dashboard) | 'shop_only'
- *            (acces uniquement a une ou plusieurs boutiques)
- *          - allowed_shop_ids : liste de boutiques accessibles (si shop_only)
- *          - permissions : {can_quote, can_order, can_invite}
+ * UM8 : les nouveaux membres sont exclusivement des utilisateurs Magrit.
+ * `shop_only` et `allowed_shop_ids` restent lus temporairement pour afficher
+ * et convertir les lignes historiques migrées par UM7.
  */
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
-  UserMinus, Shield, Plus, Pencil, Trash2, Users as UsersIcon,
-  X, Loader2, Settings, Send,
+  UserMinus, Shield, Plus, Settings, Send,
 } from 'lucide-react';
 import {
   useTenant,
   AccessScope,
-  MemberPermissions,
+  TenantRole,
 } from '../../contexts/TenantContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useShops } from '../../contexts/ShopsContext';
@@ -34,101 +31,47 @@ import { TEST_IDS } from '../../lib/testIds';
 import { DashboardRolesSection } from './DashboardRolesSection';
 import { InviteUserModalV2 } from './InviteUserModalV2';
 import { EditUserRolesModal } from './EditUserRolesModal';
+import { LegacyShopCustomerMigrationSection } from './LegacyShopCustomerMigrationSection';
 import { ApiClientError } from '../../../platform/api';
-import { useWorkspaceInvitationsApi, useWorkspaceMembersApi } from '../../contexts/ModuleClientsContext';
+import {
+  type MagritMemberRow,
+  useMagritUsersManagement,
+} from '../../hooks/useMagritUsersManagement';
 
 // ────────────────────────────────────────────────────────────────────────────
 // SECTION 1 — Utilisateurs Magrit (membres tenant + invitations)
 // ────────────────────────────────────────────────────────────────────────────
 
-type Role = 'owner' | 'admin' | 'member' | 'partner';
-
-interface MemberRow {
-  user_id: string;
-  email: string | null;
-  role: Role;
-  joined_at: string;
-  access_scope: AccessScope;
-  allowed_shop_ids: string[];
-  permissions: MemberPermissions;
-}
-
-interface InvitationRow {
-  id: string;
-  email: string;
-  role: Role;
-  expires_at: string;
-  created_at: string;
-  access_scope: AccessScope;
-  allowed_shop_ids: string[];
-  permissions: MemberPermissions;
-}
+type Role = TenantRole;
 
 function MagritUsersSection() {
   const { user } = useAuth();
-  const invitationsApi = useWorkspaceInvitationsApi();
-  const membersApi = useWorkspaceMembersApi();
   const { currentTenant, currentRole, isSuperAdmin } = useTenant();
   const { shops } = useShops();
-
-  const [members, setMembers] = useState<MemberRow[]>([]);
-  const [invitations, setInvitations] = useState<InvitationRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [updatingRoleFor, setUpdatingRoleFor] = useState<string | null>(null);
+  const {
+    members,
+    invitations,
+    loading,
+    updatingRoleFor,
+    reload,
+    resendInvitation,
+    revokeInvitation,
+    changeRole: persistRole,
+    removeMember: persistRemoval,
+  } = useMagritUsersManagement(currentTenant?.id ?? null);
 
   // Form invite
   const [inviteOpen, setInviteOpen] = useState(false);
 
   // Modale "Modifier les droits"
-  const [editingPerms, setEditingPerms] = useState<MemberRow | null>(null);
+  const [editingPerms, setEditingPerms] = useState<MagritMemberRow | null>(null);
 
   const canWrite = currentRole === 'owner' || currentRole === 'admin' || isSuperAdmin;
-
-  const load = async () => {
-    if (!currentTenant) return;
-    setLoading(true);
-
-    try {
-      const tenantMembers = await membersApi.list(currentTenant.id);
-      setMembers(tenantMembers.map((member) => ({
-        user_id: member.userId, email: member.email, role: member.role,
-        joined_at: member.joinedAt, access_scope: member.accessScope,
-        allowed_shop_ids: member.allowedShopIds,
-        permissions: { can_quote: member.permissions.canQuote, can_order: member.permissions.canOrder, can_invite: member.permissions.canInvite },
-      })));
-    } catch (memberError) {
-      console.error('[DashboardUsers] members API failed', memberError);
-      setMembers([]);
-    }
-
-    try {
-      const pending = await invitationsApi.pending(currentTenant.id);
-      setInvitations(pending.map((invitation) => ({
-        id: invitation.id, email: invitation.email, role: invitation.role,
-        expires_at: invitation.expiresAt, created_at: invitation.createdAt,
-        access_scope: invitation.accessScope, allowed_shop_ids: invitation.allowedShopIds,
-        permissions: {
-          can_quote: invitation.permissions.canQuote,
-          can_order: invitation.permissions.canOrder,
-          can_invite: invitation.permissions.canInvite,
-        },
-      })));
-    } catch (invitationError) {
-      console.error('[DashboardUsers] invitations API failed', invitationError);
-      setInvitations([]);
-    }
-
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    load();
-  }, [currentTenant?.id, invitationsApi, membersApi]);
 
   const resendInvite = async (id: string, email: string) => {
     let result;
     try {
-      result = await invitationsApi.resend(id, window.location.origin);
+      result = await resendInvitation(id, window.location.origin);
     } catch (error) {
       alert(error instanceof ApiClientError ? error.message : "Echec du renvoi de l'invitation.");
       return;
@@ -147,54 +90,27 @@ function MagritUsersSection() {
   const revokeInvite = async (id: string, email: string) => {
     if (!confirm(`Revoquer l'invitation envoyee a ${email} ?`)) return;
     try {
-      await invitationsApi.revoke(id);
-      await load();
+      await revokeInvitation(id);
     } catch (error) {
       alert(error instanceof ApiClientError ? error.message : "Echec de la révocation de l'invitation.");
     }
   };
 
-  const changeRole = async (member: MemberRow, newRole: Role) => {
+  const changeRole = async (member: MagritMemberRow, newRole: Role) => {
     if (!currentTenant || member.role === newRole) return;
     if (member.role === 'owner') {
       alert("Impossible de modifier le role d'un owner.");
       return;
     }
-    setUpdatingRoleFor(member.user_id);
     try {
       if (newRole === 'owner') throw new Error('Le rôle owner ne peut pas être attribué ici.');
-      await membersApi.changeRole(currentTenant.id, member.user_id, { role: newRole });
-      await load();
+      await persistRole(member, newRole);
     } catch (error) {
       alert('Echec de la mise a jour du role : ' + (error instanceof Error ? error.message : 'inconnue'));
     }
-    setUpdatingRoleFor(null);
   };
 
-  const savePermissions = async (
-    member: MemberRow,
-    nextScope: AccessScope,
-    nextShopIds: string[],
-    nextPerms: MemberPermissions
-  ) => {
-    if (!currentTenant) return;
-    if (nextScope === 'shop_only' && nextShopIds.length === 0) {
-      alert('Selectionnez au moins une boutique pour un acces shop_only.');
-      return;
-    }
-    try {
-      await membersApi.updateAccess(currentTenant.id, member.user_id, {
-        accessScope: nextScope, allowedShopIds: nextScope === 'shop_only' ? nextShopIds : [],
-        permissions: { canQuote: nextPerms.can_quote, canOrder: nextPerms.can_order, canInvite: nextPerms.can_invite },
-      });
-      setEditingPerms(null);
-      await load();
-    } catch (error) {
-      alert('Echec de la sauvegarde : ' + (error instanceof Error ? error.message : 'inconnue'));
-    }
-  };
-
-  const removeMember = async (member: MemberRow) => {
+  const removeMember = async (member: MagritMemberRow) => {
     if (!currentTenant) return;
     if (member.role === 'owner') {
       alert('Impossible de retirer un owner.');
@@ -205,8 +121,7 @@ function MagritUsersSection() {
       "L'utilisateur conservera son compte Magrit, mais perdra l'acces a cet espace."
     )) return;
     try {
-      await membersApi.remove(currentTenant.id, member.user_id);
-      await load();
+      await persistRemoval(member.user_id);
     } catch (error) {
       alert('Echec du retrait : ' + (error instanceof Error ? error.message : 'inconnue'));
     }
@@ -257,7 +172,7 @@ function MagritUsersSection() {
           tenantId={currentTenant.id}
           baseUrl={window.location.origin}
           onInvited={async () => {
-            await load();
+            await reload();
           }}
           onClose={() => setInviteOpen(false)}
         />
@@ -458,8 +373,8 @@ function MagritUsersSection() {
         </div>
       )}
 
-      {/* S-USERS-REFONTE Phase A : modal Permissions refait (matrix rôles).
-          L'ancien EditPermissionsModal legacy est conservé en code mort. */}
+      {/* La modale active ne permet qu'une promotion legacy vers Magrit et
+          l'édition des rôles internes. Les comptes boutique vivent ailleurs. */}
       {editingPerms && currentTenant && user && (
         <EditUserRolesModal
           open={true}
@@ -467,7 +382,7 @@ function MagritUsersSection() {
           targetUserEmail={editingPerms.email}
           tenantId={currentTenant.id}
           onChanged={async () => {
-            await load();
+            await reload();
           }}
           onClose={() => setEditingPerms(null)}
         />
@@ -529,238 +444,6 @@ function ScopeBadge({
   );
 }
 
-function ScopeAndPermissionsFieldset(props: {
-  scope: AccessScope;
-  shopIds: string[];
-  permissions: MemberPermissions;
-  shops: { id: string; name: string }[];
-  onChangeScope: (v: AccessScope) => void;
-  onToggleShop: (id: string) => void;
-  onChangePermission: (k: keyof MemberPermissions, v: boolean) => void;
-}) {
-  return (
-    <div className="space-y-3">
-      <div>
-        <span
-          className="block text-ink-muted mb-1.5"
-          style={{ fontSize: '11.5px', fontWeight: 500 }}
-        >
-          Acces
-        </span>
-        <div className="flex gap-2">
-          <ScopeRadio
-            current={props.scope}
-            value="magrit_full"
-            label="Magrit complet"
-            description="Voit tout le dashboard"
-            onChange={props.onChangeScope}
-            testId={TEST_IDS.user.accessScopeRadio}
-          />
-          <ScopeRadio
-            current={props.scope}
-            value="shop_only"
-            label="Boutique uniquement"
-            description="Acces limite a une ou plusieurs boutiques"
-            onChange={props.onChangeScope}
-            testId={TEST_IDS.user.accessScopeRadio}
-          />
-        </div>
-      </div>
-
-      {props.scope === 'shop_only' && (
-        <div data-testid={TEST_IDS.user.allowedShopsMultiselect}>
-          <span
-            className="block text-ink-muted mb-1.5"
-            style={{ fontSize: '11.5px', fontWeight: 500 }}
-          >
-            Boutiques accessibles
-          </span>
-          {props.shops.length === 0 ? (
-            <p className="text-ink-mute-2" style={{ fontSize: '12px' }}>
-              Aucune boutique creee. Creez-en une avant d'inviter un user shop_only.
-            </p>
-          ) : (
-            <div className="grid grid-cols-2 gap-1.5">
-              {props.shops.map((s) => (
-                <label
-                  key={s.id}
-                  data-testid={TEST_IDS.user.allowedShopOption}
-                  data-shop-id={s.id}
-                  className="flex items-center gap-2 px-2 py-1 border border-line rounded cursor-pointer hover:bg-line/60"
-                >
-                  <input
-                    type="checkbox"
-                    checked={props.shopIds.includes(s.id)}
-                    onChange={() => props.onToggleShop(s.id)}
-                  />
-                  <span style={{ fontSize: '12.5px' }}>{s.name}</span>
-                </label>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      <div>
-        <span
-          className="block text-ink-muted mb-1.5"
-          style={{ fontSize: '11.5px', fontWeight: 500 }}
-        >
-          Permissions
-        </span>
-        <div className="flex flex-wrap gap-3">
-          <PermCheckbox
-            data-testid={TEST_IDS.user.permissionCanQuoteCheckbox}
-            label="Créer des devis"
-            checked={props.permissions.can_quote}
-            onChange={(v) => props.onChangePermission('can_quote', v)}
-          />
-          <PermCheckbox
-            data-testid={TEST_IDS.user.permissionCanOrderCheckbox}
-            label="Passer commande"
-            checked={props.permissions.can_order}
-            onChange={(v) => props.onChangePermission('can_order', v)}
-          />
-          <PermCheckbox
-            data-testid={TEST_IDS.user.permissionCanInviteCheckbox}
-            label="Inviter d'autres utilisateurs"
-            checked={props.permissions.can_invite}
-            onChange={(v) => props.onChangePermission('can_invite', v)}
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ScopeRadio(props: {
-  current: AccessScope;
-  value: AccessScope;
-  label: string;
-  description: string;
-  onChange: (v: AccessScope) => void;
-  testId?: string;
-}) {
-  const selected = props.current === props.value;
-  return (
-    <label
-      data-testid={props.testId}
-      data-scope={props.value}
-      className={`flex-1 cursor-pointer p-2.5 rounded border ${
-        selected ? 'border-ink bg-bg' : 'border-line hover:bg-line/60'
-      }`}
-    >
-      <input
-        type="radio"
-        className="sr-only"
-        checked={selected}
-        onChange={() => props.onChange(props.value)}
-      />
-      <span className="block text-ink" style={{ fontSize: '13px', fontWeight: selected ? 500 : 400 }}>
-        {props.label}
-      </span>
-      <span className="block text-ink-muted mt-0.5" style={{ fontSize: '11.5px' }}>
-        {props.description}
-      </span>
-    </label>
-  );
-}
-
-function PermCheckbox(props: {
-  label: string;
-  checked: boolean;
-  onChange: (v: boolean) => void;
-  'data-testid'?: string;
-}) {
-  return (
-    <label className="inline-flex items-center gap-2 cursor-pointer">
-      <input
-        data-testid={props['data-testid']}
-        type="checkbox"
-        checked={props.checked}
-        onChange={(e) => props.onChange(e.target.checked)}
-      />
-      <span className="text-ink" style={{ fontSize: '12.5px' }}>
-        {props.label}
-      </span>
-    </label>
-  );
-}
-
-function EditPermissionsModal(props: {
-  member: MemberRow;
-  shops: { id: string; name: string }[];
-  onClose: () => void;
-  onSave: (scope: AccessScope, shopIds: string[], perms: MemberPermissions) => void;
-}) {
-  const [scope, setScope] = useState<AccessScope>(props.member.access_scope);
-  const [shopIds, setShopIds] = useState<string[]>(props.member.allowed_shop_ids);
-  const [perms, setPerms] = useState<MemberPermissions>(props.member.permissions);
-
-  return (
-    <div
-      data-testid={TEST_IDS.user.permissionsModal}
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50"
-      onClick={props.onClose}
-    >
-      <div
-        className="bg-paper rounded-xl shadow-2xl w-full max-w-lg p-5 max-h-[90vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-        style={{ fontFamily: 'var(--font-ui)' }}
-      >
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="text-ink m-0" style={{ fontWeight: 400, fontSize: '17px' }}>
-              Modifier les droits
-            </h3>
-            <p className="mt-1 text-ink-muted" style={{ fontSize: '12px' }}>
-              {props.member.email ?? props.member.user_id}
-            </p>
-          </div>
-          <button
-            onClick={props.onClose}
-            className="p-1 rounded hover:bg-line"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        <ScopeAndPermissionsFieldset
-          scope={scope}
-          shopIds={shopIds}
-          permissions={perms}
-          shops={props.shops}
-          onChangeScope={setScope}
-          onToggleShop={(id) =>
-            setShopIds((prev) =>
-              prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
-            )
-          }
-          onChangePermission={(k, v) => setPerms((p) => ({ ...p, [k]: v }))}
-        />
-
-        <div className="flex gap-2 pt-4 mt-2 border-t border-line">
-          <button
-            onClick={props.onClose}
-            className="flex-1 px-3 py-2 border border-line rounded-md text-ink-muted hover:text-ink"
-            style={{ fontSize: '13px', fontWeight: 500 }}
-          >
-            Annuler
-          </button>
-          <button
-            data-testid={TEST_IDS.user.permissionsSaveBtn}
-            onClick={() => props.onSave(scope, shopIds, perms)}
-            className="flex-1 px-3 py-2 rounded-md bg-ink text-paper hover:bg-black"
-            style={{ fontSize: '13px', fontWeight: 500 }}
-          >
-            Enregistrer
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // SECTION 2 — Contacts CRM SUPPRIME Sprint 10 Phase B users (decision Arnaud
 // 2026-06-02 : consolidation utilisateurs via tenant_members uniquement).
 // La section etait dead code depuis Phase A : ni appelee ni rendue dans
@@ -791,6 +474,8 @@ export function DashboardUsers() {
       </div>
 
       <MagritUsersSection />
+
+      <LegacyShopCustomerMigrationSection />
 
       <hr className="border-line" />
 

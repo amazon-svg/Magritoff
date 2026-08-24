@@ -10,94 +10,20 @@
  * vers /t/:slug du tenant rejoint.
  */
 
-import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { useParams } from 'react-router';
 import { CheckCircle2, XCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { useTenant } from '../../contexts/TenantContext';
-import { useSessionApi, useShopsApi } from '../../contexts/ModuleClientsContext';
-
-const PENDING_INVITATION_KEY = 'magrit:pending-invitation';
+import { useMagritInvitationAcceptance } from '../../hooks/useMagritInvitationAcceptance';
 
 export function AcceptInvitation() {
   const { token } = useParams<{ token: string }>();
   const { user, loading: authLoading, signOut } = useAuth();
-  const { acceptInvitation } = useTenant();
-  const navigate = useNavigate();
-  const shopsApi = useShopsApi();
-  const sessionApi = useSessionApi();
-
-  const [status, setStatus] = useState<'idle' | 'accepting' | 'success' | 'error'>(
-    'idle'
-  );
-  const [targetSlug, setTargetSlug] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
-  const [isEmailMismatch, setIsEmailMismatch] = useState(false);
-
-  // Si l'user n'est pas connecte, on stocke le token pour le reprendre apres login
-  useEffect(() => {
-    if (!token) return;
-    if (!authLoading && !user) {
-      try {
-        window.localStorage.setItem(PENDING_INVITATION_KEY, token);
-      } catch {
-        /* ignore */
-      }
-    }
-  }, [token, authLoading, user]);
-
-  // Une fois connecte, on accepte l'invitation automatiquement
-  useEffect(() => {
-    if (!token || !user || status !== 'idle') return;
-
-    (async () => {
-      setStatus('accepting');
-      const { tenantId, errorCode, errorMessage } = await acceptInvitation(token);
-      if (!tenantId) {
-        setStatus('error');
-        // Fix 2026-05-27 : message specifique si le compte connecte ne
-        // correspond pas a l'email cible de l'invitation (EMAIL_MISMATCH).
-        if (errorCode === 'EMAIL_MISMATCH') {
-          setIsEmailMismatch(true);
-          // Le message RPC contient 'EMAIL_MISMATCH: Cette invitation est
-          // destinee a X. Vous etes connecte en tant que Y...'. On retire
-          // le prefixe technique pour l'affichage.
-          const clean = (errorMessage ?? '').replace(/^.*EMAIL_MISMATCH:\s*/, '');
-          setMessage(
-            clean ||
-              "Cette invitation est destinee a un autre compte. Deconnectez-vous puis reconnectez-vous avec le compte invite.",
-          );
-        } else {
-          setMessage('Invitation invalide ou expiree.');
-        }
-        return;
-      }
-      // Recharge les façades après acceptation : la nouvelle membership doit
-      // être visible avant de choisir la destination tenant/boutique.
-      const bootstrap = await sessionApi.load();
-      const tenant = bootstrap.tenants.find(({ id }) => id === tenantId) ?? null;
-      const shops = tenant ? await shopsApi.list(tenantId) : [];
-      const firstShopSlug = shops[0]?.slug ?? null;
-
-      setStatus('success');
-      setTargetSlug(tenant?.slug ?? null);
-      try {
-        window.localStorage.removeItem(PENDING_INVITATION_KEY);
-      } catch {
-        /* ignore */
-      }
-      setTimeout(() => {
-        if (tenant?.slug && firstShopSlug) {
-          // Acheteur / membre avec une boutique accessible → direct boutique
-          navigate(`/t/${tenant.slug}/s/${firstShopSlug}`);
-        } else if (tenant?.slug) {
-          navigate(`/t/${tenant.slug}`);
-        } else {
-          navigate('/tenants');
-        }
-      }, 1500);
-    })();
-  }, [token, user, status, acceptInvitation, navigate, sessionApi, shopsApi]);
+  const invitation = useMagritInvitationAcceptance({
+    token,
+    userId: user?.id ?? null,
+    authLoading,
+  });
+  const { status, targetSlug, message, isEmailMismatch } = invitation;
 
   return (
     <div
@@ -160,16 +86,8 @@ export function AcceptInvitation() {
             {isEmailMismatch && (
               <button
                 onClick={async () => {
-                  // Le token reste en localStorage (set au mount si !user).
-                  // On le re-set par securite avant signOut pour reprendre
-                  // l'invitation apres reconnexion avec le bon compte.
-                  try {
-                    if (token) window.localStorage.setItem(PENDING_INVITATION_KEY, token);
-                  } catch {
-                    /* ignore */
-                  }
+                  invitation.rememberPendingInvitation();
                   await signOut();
-                  navigate('/');
                 }}
                 className="mt-4 inline-flex items-center justify-center px-4 py-2 rounded-md bg-ink text-paper hover:bg-black"
                 style={{ fontSize: '13px', fontWeight: 500 }}

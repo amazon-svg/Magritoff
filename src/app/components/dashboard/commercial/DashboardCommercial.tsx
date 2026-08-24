@@ -13,13 +13,14 @@
  * Prerequis DB : migration 20260808000100_gescom_price_rules.sql. Tant qu elle
  * n est pas jouee, la page affiche un etat "migration a appliquer" explicite.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   BadgePercent, Plus, Loader2, Trash2, Users as UsersIcon, AlertTriangle,
   ToggleLeft, ToggleRight, X,
 } from 'lucide-react';
-import { useCommercialApi } from '../../../contexts/ModuleClientsContext';
 import { useTenant } from '../../../contexts/TenantContext';
+import type { CreatePriceRule } from '../../../../modules/commercial';
+import { useCommercialManagement } from '../../../hooks/useCommercialManagement';
 import {
   ADJUST_MODE_LABEL, SCOPE_LABEL, TARGET_LABEL,
   type AdjustMode, type ClientGroup, type ClientPriceRule, type ScopeType, type TargetType,
@@ -44,60 +45,30 @@ const btnGhost =
   'px-3 py-1.5 border border-line-2 rounded-lg text-sm text-ink-2 hover:bg-bg hover:text-ink';
 
 export function DashboardCommercial() {
-  const commercialApi = useCommercialApi();
   const { currentTenant } = useTenant();
+  const commercial = useCommercialManagement(currentTenant?.id ?? null);
   const [tab, setTab] = useState<'rules' | 'groups'>('rules');
-  const [rules, setRules] = useState<ClientPriceRule[]>([]);
-  const [groups, setGroups] = useState<ClientGroup[]>([]);
-  const [members, setMembers] = useState<MemberOption[]>([]);
-  const [gammes, setGammes] = useState<GammeOption[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [migrationMissing, setMigrationMissing] = useState(false);
   const [showRuleDialog, setShowRuleDialog] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
   const [creatingGroup, setCreatingGroup] = useState(false);
 
-  const load = useCallback(async () => {
-    if (!currentTenant) return;
-    setLoading(true);
-
-    try {
-      const overview = await commercialApi.overview(currentTenant.id);
-      setMigrationMissing(!overview.available);
-      setRules(overview.rules);
-      setGroups(overview.groups);
-      setMembers(overview.members);
-      setGammes(overview.gammes);
-    } catch (error) {
-      console.error('[Commercial] overview failed', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [currentTenant, commercialApi]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
   const toggleRule = async (rule: ClientPriceRule) => {
-    setRules((rs) => rs.map((r) => (r.id === rule.id ? { ...r, active: !r.active } : r)));
-    try { await commercialApi.setRuleActive(currentTenant!.id, rule.id, !rule.active); }
-    catch { void load(); }
+    await commercial.toggleRule(rule.id, !rule.active);
   };
 
   const deleteRule = async (rule: ClientPriceRule) => {
     if (!window.confirm(`Supprimer la règle « ${rule.name} » ?`)) return;
-    setRules((rs) => rs.filter((r) => r.id !== rule.id));
-    await commercialApi.removeRule(currentTenant!.id, rule.id);
+    try { await commercial.removeRule(rule.id); } catch { /* erreur rendue par le hook */ }
   };
 
   const createGroup = async () => {
     if (!currentTenant || !newGroupName.trim()) return;
     setCreatingGroup(true);
     try {
-      await commercialApi.createGroup(currentTenant.id, newGroupName.trim());
+      await commercial.createGroup(newGroupName.trim());
       setNewGroupName('');
-      void load();
+    } catch {
+      // Le hook expose le message dans la page.
     } finally {
       setCreatingGroup(false);
     }
@@ -106,20 +77,19 @@ export function DashboardCommercial() {
   const deleteGroup = async (group: ClientGroup) => {
     if (!window.confirm(`Supprimer le groupe « ${group.name} » ? Les règles liées seront supprimées.`))
       return;
-    setGroups((gs) => gs.filter((g) => g.id !== group.id));
-    await commercialApi.removeGroup(currentTenant!.id, group.id);
+    try { await commercial.removeGroup(group.id); } catch { /* erreur rendue par le hook */ }
   };
 
   const describeRule = (r: ClientPriceRule): string => {
     const who =
       r.scope_type === 'user'
-        ? members.find((m) => m.user_id === r.user_id)?.email ?? 'client supprimé'
+        ? commercial.members.find((m) => m.user_id === r.user_id)?.email ?? 'client supprimé'
         : r.scope_type === 'group'
-          ? groups.find((g) => g.id === r.group_id)?.name ?? 'groupe supprimé'
+          ? commercial.groups.find((g) => g.id === r.group_id)?.name ?? 'groupe supprimé'
           : SCOPE_LABEL.tenant;
     const what =
       r.target_type === 'gamme'
-        ? gammes.find((g) => g.slug === r.gamme_slug)?.name ?? r.gamme_slug ?? ''
+        ? commercial.gammes.find((g) => g.slug === r.gamme_slug)?.name ?? r.gamme_slug ?? ''
         : r.target_type === 'product'
           ? 'produit ciblé'
           : TARGET_LABEL.all;
@@ -133,7 +103,7 @@ export function DashboardCommercial() {
   };
 
   // ── Etats speciaux ─────────────────────────────────────────────────────────
-  if (migrationMissing) {
+  if (commercial.migrationMissing) {
     return (
       <div className="max-w-2xl space-y-4">
         <PageHeader />
@@ -165,6 +135,12 @@ export function DashboardCommercial() {
         )}
       </div>
 
+      {commercial.error && (
+        <p className="text-sm text-err-fg rounded-lg border border-err-fg/20 bg-err-bg px-3 py-2">
+          {commercial.error}
+        </p>
+      )}
+
       {/* Onglets */}
       <div className="flex gap-1 border-b border-line">
         {(
@@ -187,12 +163,12 @@ export function DashboardCommercial() {
         ))}
       </div>
 
-      {loading ? (
+      {commercial.loading ? (
         <div className="py-16 grid place-items-center text-ink-muted">
           <Loader2 className="w-5 h-5 animate-spin" />
         </div>
       ) : tab === 'rules' ? (
-        rules.length === 0 ? (
+        commercial.rules.length === 0 ? (
           <EmptyState
             title="Aucune règle de prix"
             body="Créez une première règle pour appliquer une marge, une remise ou un prix imposé à une gamme ou un produit, pour un client ou un groupe de clients. Elle s'appliquera automatiquement aux devis de ce client et à sa boutique."
@@ -210,7 +186,7 @@ export function DashboardCommercial() {
                 </tr>
               </thead>
               <tbody>
-                {rules.map((r) => (
+                {commercial.rules.map((r) => (
                   <tr key={r.id} className="border-b border-line last:border-b-0">
                     <td className="px-4 py-2.5">
                       <span className={r.active ? 'text-ink' : 'text-ink-mute-2 line-through'}>
@@ -266,15 +242,22 @@ export function DashboardCommercial() {
               Créer
             </button>
           </div>
-          {groups.length === 0 ? (
+          {commercial.groups.length === 0 ? (
             <EmptyState
               title="Aucun groupe de clients"
               body="Un groupe rassemble plusieurs clients pour leur appliquer les mêmes conditions commerciales (ex. Grands comptes, Revendeurs)."
             />
           ) : (
             <div className="border border-line rounded-xl bg-paper divide-y divide-line">
-              {groups.map((g) => (
-                <GroupRow key={g.id} tenantId={currentTenant!.id} commercialApi={commercialApi} group={g} members={members} onDelete={() => void deleteGroup(g)} onChanged={load} />
+              {commercial.groups.map((g) => (
+                <GroupRow
+                  key={g.id}
+                  group={g}
+                  members={commercial.members}
+                  onDelete={() => void deleteGroup(g)}
+                  onLoadMembers={commercial.groupMembers}
+                  onSetMember={commercial.setGroupMember}
+                />
               ))}
             </div>
           )}
@@ -283,15 +266,13 @@ export function DashboardCommercial() {
 
       {showRuleDialog && currentTenant && (
         <RuleDialog
-          tenantId={currentTenant.id}
-          commercialApi={commercialApi}
-          groups={groups}
-          members={members}
-          gammes={gammes}
+          groups={commercial.groups}
+          members={commercial.members}
+          gammes={commercial.gammes}
+          onCreate={commercial.createRule}
           onClose={() => setShowRuleDialog(false)}
           onCreated={() => {
             setShowRuleDialog(false);
-            void load();
           }}
         />
       )}
@@ -327,14 +308,13 @@ function EmptyState({ title, body }: { title: string; body: string }) {
 // ─── Ligne groupe avec gestion des membres ───────────────────────────────────
 
 function GroupRow({
-  tenantId, commercialApi, group, members, onDelete, onChanged,
+  group, members, onDelete, onLoadMembers, onSetMember,
 }: {
-  tenantId: string;
-  commercialApi: CommercialApiClient;
   group: ClientGroup;
   members: MemberOption[];
   onDelete: () => void;
-  onChanged: () => Promise<void> | void;
+  onLoadMembers: (groupId: string) => Promise<string[]>;
+  onSetMember: (groupId: string, userId: string, member: boolean) => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
   const [groupMembers, setGroupMembers] = useState<string[]>([]);
@@ -343,20 +323,29 @@ function GroupRow({
   const toggleOpen = async () => {
     setOpen(!open);
     if (!loaded) {
-      setGroupMembers(await commercialApi.groupMembers(tenantId, group.id));
-      setLoaded(true);
+      try {
+        setGroupMembers(await onLoadMembers(group.id));
+        setLoaded(true);
+      } catch {
+        setLoaded(false);
+      }
     }
   };
 
   const toggleMember = async (userId: string) => {
-    if (groupMembers.includes(userId)) {
+    const wasMember = groupMembers.includes(userId);
+    if (wasMember) {
       setGroupMembers((ms) => ms.filter((id) => id !== userId));
-      await commercialApi.setGroupMember(tenantId, group.id, userId, false);
     } else {
       setGroupMembers((ms) => [...ms, userId]);
-      await commercialApi.setGroupMember(tenantId, group.id, userId, true);
     }
-    void onChanged();
+    try {
+      await onSetMember(group.id, userId, !wasMember);
+    } catch {
+      setGroupMembers((current) => wasMember
+        ? current.includes(userId) ? current : [...current, userId]
+        : current.filter((id) => id !== userId));
+    }
   };
 
   return (
@@ -395,13 +384,12 @@ function GroupRow({
 // ─── Dialogue de creation de regle ───────────────────────────────────────────
 
 function RuleDialog({
-  tenantId, commercialApi, groups, members, gammes, onClose, onCreated,
+  groups, members, gammes, onCreate, onClose, onCreated,
 }: {
-  tenantId: string;
-  commercialApi: CommercialApiClient;
   groups: ClientGroup[];
   members: MemberOption[];
   gammes: GammeOption[];
+  onCreate: (command: CreatePriceRule) => Promise<void>;
   onClose: () => void;
   onCreated: () => void;
 }) {
@@ -429,7 +417,7 @@ function RuleDialog({
     setSaving(true);
     setError(null);
     try {
-      await commercialApi.createRule(tenantId, {
+      await onCreate({
       name: name.trim(),
       scope_type: scopeType,
       group_id: scopeType === 'group' ? groupId : null,

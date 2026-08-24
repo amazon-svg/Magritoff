@@ -16,7 +16,7 @@
  *  - formatEuro(priceHT, locale?) -> string : formatage 1 234,56 EUR.
  */
 
-import type { ShopProduct } from "../../contexts/ShopsContext";
+import type { ShopProduct } from '../../../modules/shops';
 
 export const QUANTITIES = [50, 100, 250, 500, 1000, 2500, 5000, 10000] as const;
 export const FORMATS = [

@@ -1,20 +1,8 @@
 /**
- * Smoke E2E acheteur AI — DoD #3 obligatoire Sprint 5 closure (2026-06-01).
+ * Smoke storefront : compte boutique autonome + IA + commande.
  *
- * Parcours teste cote DB+SDK (pas Playwright, harness vitest existant) :
- *   1. "login boutique" : l'acheteur shop_only authentifie peut SELECT
- *      la shop active dont il est membre (RLS shops_select_tenant +
- *      shops_public_read).
- *   2. "askMagrit" : health check edge function claude-proxy-stream
- *      (preflight CORS OPTIONS). Confirme que la function est ACTIVE
- *      sans consommer de LLM (le vrai prompt est valide en smoke prod).
- *   3. "panier -> commande" : insert tenant_orders + tenant_order_items
- *      avec created_by = acheteur.id, status=draft. Le trigger PIM
- *      enqueue automatiquement les candidats (P0.10). RLS impose
- *      created_by = auth.uid() (AC9 S-MIGRATION-ORDERS, decision B2).
- *
- * Couvre le persona acheteur B2B shop_only avec allowed_shop_ids[shop.id]
- * + role Acheteur preset Phase A (permission can_order=true via capabilities).
+ * Le client boutique n'est ni un auth.users ni un tenant_member. Il reçoit
+ * une session opaque et passe sa commande par l'API storefront canonique.
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -34,215 +22,112 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 interface Ctx {
   admin: SupabaseClient;
-  anonAcheteur: SupabaseClient;
-  ownerId: string;
-  acheteurId: string;
+  anon: SupabaseClient;
   tenantId: string;
   shopId: string;
   shopSlug: string;
   productLibraryId: string;
-  shopProductId: string;
-  acheteurRoleId: string;
+  customerEmail: string;
+  accountId: string;
+  opaqueToken: string;
   orderId: string;
   cleanup: () => Promise<void>;
 }
 
 const ctx = {} as Ctx;
 
-describe.skipIf(SKIP_REASON !== null)('Smoke E2E acheteur AI (DoD #3)', () => {
+describe.skipIf(SKIP_REASON !== null)('Smoke E2E storefront identity', () => {
   beforeAll(async () => {
     const url = process.env.SUPABASE_URL!;
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-    const anonKey = process.env.SUPABASE_ANON_KEY!;
-
-    const admin = createClient(url, serviceKey, {
+    const admin = createClient(url, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
-
+    const anon = createClient(url, process.env.SUPABASE_ANON_KEY!, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
     const tag = rid();
-    const password = `smoke-${tag}-${rid()}`;
-    const ownerEmail = `smoke-owner-${tag}@magrit.test`;
-    const acheteurEmail = `smoke-buyer-${tag}@magrit.test`;
-
-    const { data: owner, error: oErr } = await admin.auth.admin.createUser({
-      email: ownerEmail,
-      password,
+    const customerEmail = `smoke-customer-${tag}@magrit.test`;
+    const { data: owner, error: ownerError } = await admin.auth.admin.createUser({
+      email: `smoke-owner-${tag}@magrit.test`,
+      password: `smoke-${tag}-${rid()}`,
       email_confirm: true,
     });
-    if (oErr || !owner.user) throw new Error(`createUser owner: ${oErr?.message}`);
+    if (ownerError || !owner.user) throw new Error(`createUser owner: ${ownerError?.message}`);
 
-    const { data: acheteur, error: aErr } = await admin.auth.admin.createUser({
-      email: acheteurEmail,
-      password,
-      email_confirm: true,
-    });
-    if (aErr || !acheteur.user) throw new Error(`createUser acheteur: ${aErr?.message}`);
-
-    // Tenant + owner membership
-    const slug = `smoke-tenant-${tag}`;
-    const { data: tenant, error: tErr } = await admin
-      .from('tenants')
-      .insert({ slug, name: `Smoke Acheteur ${tag}` })
-      .select('id')
-      .single();
-    if (tErr || !tenant) throw new Error(`tenant insert: ${tErr?.message}`);
-
+    const { data: tenant, error: tenantError } = await admin.from('tenants')
+      .insert({ slug: `smoke-tenant-${tag}`, name: `Smoke Storefront ${tag}` })
+      .select('id').single();
+    if (tenantError || !tenant) throw new Error(`tenant insert: ${tenantError?.message}`);
     await admin.from('tenant_members').insert({
-      tenant_id: tenant.id,
-      user_id: owner.user.id,
-      role: 'owner',
-      access_scope: 'magrit_full',
-      permissions: { can_quote: true, can_order: true, can_invite: true },
+      tenant_id: tenant.id, user_id: owner.user.id, role: 'owner', access_scope: 'magrit_full',
     });
 
-    // Shop active, owned by owner
     const shopSlug = `smoke-shop-${tag}`;
-    const { data: shop, error: sErr } = await admin
-      .from('shops')
-      .insert({
-        tenant_id: tenant.id,
-        owner_user_id: owner.user.id,
-        slug: shopSlug,
-        name: `Smoke Shop ${tag}`,
-        description: 'Boutique de test smoke acheteur',
-        theme: { primaryColor: '#1e3a8a', accentColor: '#f59e0b', mode: 'light' },
-        active: true,
-        library_ids: [],
-        excluded_product_ids: [],
-      })
-      .select('id, slug')
-      .single();
-    if (sErr || !shop) throw new Error(`shop insert: ${sErr?.message}`);
-
-    // Product library + shop_product (UUID)
-    const { data: libProduct, error: lpErr } = await admin
-      .from('product_library')
-      .insert({
-        user_id: owner.user.id,
-        name: `Smoke Flyer ${tag}`,
-        category: 'Flyer',
-        config: { format: 'A5', paper: 'std' },
-        price_ht: 99.5,
-      })
-      .select('id')
-      .single();
-    if (lpErr || !libProduct) throw new Error(`product_library insert: ${lpErr?.message}`);
-
-    const { data: shopProduct, error: spErr } = await admin
-      .from('shop_products')
-      .insert({
-        shop_id: shop.id,
-        tenant_id: tenant.id,
-        product_id: libProduct.id,
-        name: `Smoke Flyer ${tag}`,
-        category: 'Flyer',
-        description: 'Flyer A5 std',
-        price_ht: 99.5,
-        image_url: '',
-        config: { format: 'A5', paper: 'std' },
-        display_order: 0,
-      })
-      .select('id')
-      .single();
-    if (spErr || !shopProduct) throw new Error(`shop_products insert: ${spErr?.message}`);
-
-    // Récupère le rôle Acheteur auto-seedé par le trigger
-    // tenants_seed_catalogs (migration 20260601000200).
-    const { data: roleAcheteur, error: rErr } = await admin
-      .from('tenant_role_definitions')
-      .select('id')
-      .eq('tenant_id', tenant.id)
-      .eq('name', 'Acheteur')
-      .single();
-    if (rErr || !roleAcheteur) throw new Error(`role Acheteur introuvable: ${rErr?.message}`);
-
-    // Membership acheteur shop_only + role assignment
-    await admin.from('tenant_members').insert({
+    const { data: shop, error: shopError } = await admin.from('shops').insert({
       tenant_id: tenant.id,
-      user_id: acheteur.user.id,
-      role: 'member',
-      access_scope: 'shop_only',
-      allowed_shop_ids: [shop.id],
-      permissions: { can_quote: true, can_order: true, can_invite: false },
-    });
-    await admin.from('tenant_role_assignments').insert({
-      role_definition_id: roleAcheteur.id,
-      user_id: acheteur.user.id,
-      assigned_by: owner.user.id,
-    });
+      owner_user_id: owner.user.id,
+      slug: shopSlug,
+      name: `Smoke Shop ${tag}`,
+      active: true,
+      access_mode: 'self_signup',
+      library_ids: [],
+      excluded_product_ids: [],
+    }).select('id, slug').single();
+    if (shopError || !shop) throw new Error(`shop insert: ${shopError?.message}`);
 
-    const anonAcheteur = createClient(url, anonKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-    const { error: signErr } = await anonAcheteur.auth.signInWithPassword({
-      email: acheteurEmail,
-      password,
-    });
-    if (signErr) throw new Error(`signIn acheteur: ${signErr.message}`);
+    const { data: product, error: productError } = await admin.from('product_library').insert({
+      user_id: owner.user.id,
+      name: `Smoke Flyer ${tag}`,
+      category: 'Flyer',
+      config: { format: 'A5', paper: 'std' },
+      price_ht: 99.5,
+    }).select('id').single();
+    if (productError || !product) throw new Error(`product insert: ${productError?.message}`);
 
     Object.assign(ctx, {
-      admin,
-      anonAcheteur,
-      ownerId: owner.user.id,
-      acheteurId: acheteur.user.id,
-      tenantId: tenant.id,
-      shopId: shop.id,
-      shopSlug: shop.slug,
-      productLibraryId: libProduct.id,
-      shopProductId: shopProduct.id,
-      acheteurRoleId: roleAcheteur.id,
-      orderId: '',
+      admin, anon, tenantId: tenant.id, shopId: shop.id, shopSlug: shop.slug,
+      productLibraryId: product.id, customerEmail, accountId: '', opaqueToken: '', orderId: '',
       cleanup: async () => {
-        // Ordre defensif : items -> orders -> assignments -> definitions
-        //                  -> shop_products -> shops -> product_library
-        //                  -> members -> invitations -> tenants -> users
-        await admin
-          .from('tenant_order_items')
-          .delete()
-          .in('order_id', [ctx.orderId].filter(Boolean));
+        await admin.from('tenant_order_items').delete().in('order_id', [ctx.orderId].filter(Boolean));
         await admin.from('tenant_orders').delete().eq('tenant_id', tenant.id);
         await admin.from('pim_candidates').delete().eq('source_tenant_id', tenant.id);
-        await admin
-          .from('tenant_role_assignments')
-          .delete()
-          .eq('role_definition_id', roleAcheteur.id);
-        await admin
-          .from('tenant_role_definitions')
-          .delete()
-          .eq('tenant_id', tenant.id);
-        await admin.from('shop_products').delete().eq('shop_id', shop.id);
+        await admin.from('shop_customer_accounts').delete().eq('shop_id', shop.id);
         await admin.from('shops').delete().eq('id', shop.id);
-        await admin.from('product_library').delete().eq('id', libProduct.id);
+        await admin.from('product_library').delete().eq('id', product.id);
         await admin.from('tenant_members').delete().eq('tenant_id', tenant.id);
-        await admin.from('tenant_invitations').delete().eq('tenant_id', tenant.id);
+        await admin.from('tenant_role_definitions').delete().eq('tenant_id', tenant.id);
         await admin.from('tenants').delete().eq('id', tenant.id);
         await admin.auth.admin.deleteUser(owner.user!.id).catch(() => {});
-        await admin.auth.admin.deleteUser(acheteur.user!.id).catch(() => {});
       },
     });
   }, 45_000);
 
-  afterAll(async () => {
-    if (ctx.cleanup) await ctx.cleanup();
-  });
+  afterAll(async () => ctx.cleanup?.());
 
-  it('login boutique — l acheteur shop_only SELECT la shop active', async () => {
-    const { data, error } = await ctx.anonAcheteur
-      .from('shops')
-      .select('id, slug, active, tenant_id')
-      .eq('slug', ctx.shopSlug)
-      .single();
+  it('inscription boutique — crée une identité storefront sans identité Magrit', async () => {
+    const { data, error } = await ctx.anon.rpc('api_register_shop_customer', {
+      p_shop_slug: ctx.shopSlug,
+      p_email: ctx.customerEmail,
+      p_full_name: 'Client Smoke',
+      p_password: 'mot-de-passe-solide',
+    });
     expect(error).toBeNull();
-    expect(data).toBeTruthy();
-    expect(data!.id).toBe(ctx.shopId);
-    expect(data!.active).toBe(true);
-    expect(data!.tenant_id).toBe(ctx.tenantId);
+    expect(data).toHaveLength(1);
+    ctx.accountId = data![0].account_id;
+    ctx.opaqueToken = data![0].opaque_token;
+    const { data: mixedMemberships } = await ctx.admin.from('tenant_members')
+      .select('user_id').eq('tenant_id', ctx.tenantId).eq('access_scope', 'shop_only');
+    expect(mixedMemberships ?? []).toHaveLength(0);
   });
 
-  it('askMagrit — edge function claude-proxy-stream est ACTIVE (CORS preflight)', async () => {
-    // ChatInterface pointe sur make-server-e3db71a4/claude-proxy-stream
-    // (sous-endpoint Hono cf. ChatInterface.tsx:183). Middleware CORS
-    // configure avec allowMethods POST + OPTIONS.
+  it('catalogue — la boutique active reste lisible publiquement', async () => {
+    const { data, error } = await ctx.anon.from('shops')
+      .select('id, slug, active, tenant_id').eq('slug', ctx.shopSlug).single();
+    expect(error).toBeNull();
+    expect(data).toMatchObject({ id: ctx.shopId, slug: ctx.shopSlug, active: true, tenant_id: ctx.tenantId });
+  });
+
+  it('askMagrit — la fonction IA répond au preflight CORS', async () => {
     const url = `${process.env.SUPABASE_URL}/functions/v1/make-server-e3db71a4/claude-proxy-stream`;
     const resp = await fetch(url, {
       method: 'OPTIONS',
@@ -252,63 +137,39 @@ describe.skipIf(SKIP_REASON !== null)('Smoke E2E acheteur AI (DoD #3)', () => {
         'Access-Control-Request-Headers': 'authorization, content-type',
       },
     });
-    // Edge function ACTIVE retourne 200 (ou 204) avec headers CORS.
-    // BOOT_ERROR retournerait 503. Tout autre code = function down.
     expect([200, 204]).toContain(resp.status);
-    const allowMethods = resp.headers.get('access-control-allow-methods') || '';
-    expect(allowMethods.toLowerCase()).toContain('post');
+    expect(resp.headers.get('access-control-allow-methods')?.toLowerCase()).toContain('post');
   });
 
-  it('panier -> commande — l acheteur cree tenant_orders + items en status draft', async () => {
-    const quantity = 250;
-    const unit_price_ht = 99.5;
-    const line_total_ht = quantity * unit_price_ht;
-
-    const { data: orderRow, error: orderErr } = await ctx.anonAcheteur
-      .from('tenant_orders')
-      .insert({
-        tenant_id: ctx.tenantId,
-        shop_id: ctx.shopId,
-        created_by: ctx.acheteurId,
-        status: 'draft',
-        total_ht: line_total_ht,
-        currency: 'EUR',
-        notes: '',
-      })
-      .select('id, status, created_by, shop_id')
-      .single();
-
-    expect(orderErr).toBeNull();
-    expect(orderRow).toBeTruthy();
-    expect(orderRow!.status).toBe('draft');
-    expect(orderRow!.created_by).toBe(ctx.acheteurId);
-    expect(orderRow!.shop_id).toBe(ctx.shopId);
-    expect(UUID_RE.test(orderRow!.id)).toBe(true);
-
-    ctx.orderId = orderRow!.id;
-
-    const { error: itemsErr } = await ctx.anonAcheteur.from('tenant_order_items').insert([
-      {
-        order_id: orderRow!.id,
+  it('panier -> commande — crée la commande avec le compte boutique', async () => {
+    const { data, error } = await ctx.anon.rpc('api_create_storefront_order', {
+      p_opaque_token: ctx.opaqueToken,
+      p_shop_id: ctx.shopId,
+      p_currency: 'EUR',
+      p_notes: '',
+      p_items: [{
         product_id: ctx.productLibraryId,
         product_label: 'Smoke Flyer A5',
         clariprint_options: { format: 'A5', paper: 'std' },
-        quantity,
-        unit_price_ht,
-        line_total_ht,
-      },
-    ]);
-    expect(itemsErr).toBeNull();
+        quantity: 2,
+        unit_price_ht: 99.5,
+      }],
+      p_idempotency_key: `smoke-${rid()}`,
+    });
+    expect(error).toBeNull();
+    expect(data).toMatchObject({ shop_id: ctx.shopId, total_ht: 199, currency: 'EUR', replayed: false });
+    expect(data.order_id).toMatch(UUID_RE);
+    ctx.orderId = data.order_id;
 
-    // L'acheteur peut relire sa propre commande
-    const { data: readBack } = await ctx.anonAcheteur
-      .from('tenant_orders')
-      .select('id, status, total_ht, tenant_order_items(id, quantity, line_total_ht)')
-      .eq('id', orderRow!.id)
-      .single();
-    expect(readBack).toBeTruthy();
-    expect(readBack!.total_ht).toBe(line_total_ht);
-    expect((readBack as any).tenant_order_items).toHaveLength(1);
-    expect((readBack as any).tenant_order_items[0].quantity).toBe(quantity);
+    const { data: order, error: readError } = await ctx.admin.from('tenant_orders')
+      .select('id, created_by, shop_customer_account_id, acted_by_magrit_user_id, tenant_order_items(quantity, line_total_ht)')
+      .eq('id', ctx.orderId).single();
+    expect(readError).toBeNull();
+    expect(order).toMatchObject({
+      created_by: null,
+      shop_customer_account_id: ctx.accountId,
+      acted_by_magrit_user_id: null,
+    });
+    expect(order!.tenant_order_items).toHaveLength(1);
   });
 });

@@ -22,7 +22,6 @@ import {
   type ClariprintPricingGateway,
 } from '../../modules/clariprint';
 import type { ClariprintQuoteResult } from '../utils/clariprintQuote';
-import { useBrowserServices } from '../contexts/BrowserServicesContext';
 
 export interface UseClariprintProductState {
   /** Resultat Clariprint courant (null = pas encore calcule). */
@@ -40,14 +39,12 @@ export interface UseClariprintProductState {
 }
 
 /**
- * @param customAdapter Permet d'injecter un mock pour les tests vitest.
- *                      En prod, omettre = utilise le wrapper par defaut.
+ * @param gateway Passerelle choisie par la surface appelante. Le hook ne
+ *                résout jamais lui-même une identité ou un transport.
  */
 export function useClariprintProduct(
-  customAdapter?: Pick<ClariprintPricingGateway, 'computePrice'>,
+  gateway: Pick<ClariprintPricingGateway, 'computePrice'>,
 ): UseClariprintProductState {
-  const { clariprint: runtimeGateway } = useBrowserServices();
-  const gateway = customAdapter ?? runtimeGateway;
   const [quote, setQuote] = useState<ClariprintQuoteResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [lastRequest, setLastRequest] = useState<unknown>(null);

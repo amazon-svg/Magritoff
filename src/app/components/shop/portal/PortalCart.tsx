@@ -5,12 +5,12 @@ import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment'
 import { resolveProductGamme } from '../../../utils/productEnrichment';
 import { ProductMockup } from '../../brand/ProductMockup';
 import { TEST_IDS } from '../../../lib/testIds';
-import { resolvePrice } from '../../../utils/priceResolver';
-import { useTenant } from '../../../contexts/TenantContext';
-import { applyTax, extractTaxAmount, formatTaxLabel, getTaxRate } from '../../../utils/tax';
+import { applyTax, extractTaxAmount, formatTaxLabel } from '../../../utils/tax';
+import { resolveCartLinePricing } from './cartPricing';
 
 interface Props {
   cart: CartLine[];
+  taxRate: number;
   budget?: BudgetInfo;
   onUpdateQty: (productId: string, delta: number) => void;
   onRemove: (productId: string) => void;
@@ -52,6 +52,7 @@ interface Props {
 // S-FIX-6 : mode compact pour drawer slide-right (S-REWORK-1).
 export function PortalCart({
   cart,
+  taxRate,
   budget,
   onUpdateQty,
   onRemove,
@@ -65,16 +66,12 @@ export function PortalCart({
   renewalWarnings = [],
   onDismissRenewalWarnings,
 }: Props) {
-  const { currentTenant } = useTenant();
-  const taxRate = getTaxRate(currentTenant);
   // Resolution unifiee du prix par ligne via priceResolver (decision Arnaud
   // 2026-05-09 fix prix marche). Une ligne en "prix marche" devient
   // hasMarketPriceLine=true → on affiche un badge global "Prix marche" en
   // bas du panier pour informer l acheteur que le total est indicatif.
   const cartLines = cart.map((l) => {
-    const clariprintQuote = (l.product.config as any)?.clariprintQuote ?? null;
-    const resolution = resolvePrice(l.product, clariprintQuote);
-    const lineTotal = resolution.priceHT * l.qty;
+    const { resolution, lineTotalHt: lineTotal } = resolveCartLinePricing(l);
     return { line: l, resolution, lineTotal };
   });
   const subtotalHT = cartLines.reduce((s, c) => s + c.lineTotal, 0);
@@ -165,7 +162,7 @@ export function PortalCart({
               </button>
             </div>
           ) : (
-            cart.map((line, i) => {
+            cartLines.map(({ line, lineTotal }, i) => {
               const imgSrc = resolveProductImage({
                 name: line.product.name,
                 id: line.product.id,
@@ -276,7 +273,7 @@ export function PortalCart({
                     className="font-mono text-ink text-right tabular-nums"
                     style={{ fontSize: '14px', fontWeight: 500, fontVariantNumeric: 'tabular-nums', minWidth: '80px' }}
                   >
-                    {applyTax(line.product.price_ht * line.qty, taxRate).toFixed(2)}€
+                    {applyTax(lineTotal, taxRate).toFixed(2)}€
                   </div>
                   <button
                     onClick={() => onRemove(line.product.id)}

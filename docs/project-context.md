@@ -4,7 +4,7 @@
 >
 > **Source authoritative :** `~/Downloads/CONTEXT_Magrit_IA.md` (maintenu par Arnaud, plus exhaustif). Ce fichier en est la **synthèse opérationnelle pour les agents BMAD** (focus : règles, conventions, états de version, identifiants techniques, **PAS** la stratégie commerciale détaillée).
 >
-> **Dernière mise à jour :** 2026-08-11 (AF7.1 — accès boutiques privées).
+> **Dernière mise à jour :** 2026-08-20 (AF32.2 — clôture du refactoring API-first et modulaire).
 > **Maintenu par :** Arnaud Mazon — PDG AGE Développement — `arnaud@age-services.fr`.
 > **Langue de travail :** français (livrables, code commits, variables métier).
 
@@ -69,17 +69,148 @@
 ### 3.3 Multi-tenancy
 
 - Architecture multi-tenants stricte dès le départ (US-NEW-04 P0).
-- **Cible différée, non livrée** : séparation stricte entre utilisateurs Magrit
-  et comptes boutique, avec un compte indépendant par couple
-  `(boutique, email)`, compte miroir et délégation « Se connecter comme ».
-  Spécification :
+- **Livré sur `feat/storefront-identity-um2`** : séparation stricte entre
+  utilisateurs Magrit et comptes boutique, avec un compte indépendant par
+  couple `(boutique, email)`, compte miroir et délégation « Se connecter comme ».
+  Spécification et règles d’exploitation :
   `_bmad-output/planning-artifacts/spec-identites-magrit-et-comptes-boutique.md`.
+- Les surfaces utilisateurs Magrit ne créent plus de `shop_only`. Les lignes
+  historiques restent lisibles uniquement pour migration ou promotion à sens
+  unique vers `magrit_full` ; les formulaires mixtes ont été retirés.
 - Chaque tenant = espace isolé. Tables tenant-scoped : `tenants`, `tenant_members`, `tenant_invitations`, `tenant_member_events`, `tenant_slug_history`, `tenant_gamme_subscriptions`, `tenant_orders` (S1.4), `tenant_order_items`, `tenant_order_status_events`, `shops`, `llm_usage_events`.
 - Routes tenant : `/t/:slug/dashboard`, `/t/:slug/atelier`, `/t/:slug/dashboard/users`.
 - Route boutique tenant : `/shop/:slug`. Elle n’est publique que lorsque
   `shops.access_mode='self_signup'`. En `invite_only`, un anonyme ne voit aucun
-  contenu et ne peut pas créer de compte ; un compte existant doit être membre
-  du tenant propriétaire et autorisé sur la boutique.
+  contenu et ne peut pas créer de compte ; l’accès exige un compte boutique
+  actif rattaché à cette boutique précise, jamais une membership Magrit.
+- Le storefront ne lit pas `TenantContext`. Son régime fiscal est fourni par
+  le contrat `PublicShopCatalog` depuis la boutique visitée, puis injecté dans
+  produit, configurateur, page gamme, panier, checkout et confirmation.
+- Le portail client boutique n’expose que « Mes commandes » et les actions du
+  propriétaire (consultation, renouvellement, édition ou annulation d’un
+  brouillon). Les files et transitions de validation, production et expédition
+  appartiennent exclusivement aux surfaces Magrit.
+- Les appels Orders du storefront utilisent un client HTTP sans bearer Magrit.
+  Leur seule identité est la session boutique portée par le cookie HttpOnly ;
+  les écrans workspace utilisent une instance authentifiée distincte.
+- `useStorefrontOrderLifecycle` porte la lecture de la dernière commande, le
+  renouvellement, la création atomique et son idempotence. `PublicShop` ne
+  connaît plus le client Orders et conserve uniquement panier et navigation.
+- `useStorefrontOrderList` porte le chargement et l'annulation des commandes
+  du compte boutique ; `PortalOrders` est désormais une vue sans orchestration
+  de transport.
+- `useStorefrontOrderReceipt` charge le détail affiché après confirmation avec
+  annulation réseau au démontage ; `PortalThankYou` reste purement visuel.
+- `useStorefrontOrderEditor` porte le chargement, les calculs de lignes et la
+  sauvegarde idempotente des brouillons ; le dialogue ne pilote aucun transport.
+- `useStorefrontCategoryEditorial` porte l'enrichissement facultatif des
+  landings, son timeout et son cache de session ; le catalogue garde toujours
+  son socle déterministe en cas d'indisponibilité IA.
+- `useStorefrontIdentityForm` porte connexion, inscription libre et récupération
+  propres à une boutique ; le formulaire visuel ne connaît plus le client identité.
+- `useStorefrontCredentialSetup` porte l'activation d'une invitation et la
+  définition d'un nouveau mot de passe ; les deux écrans restent des vues et
+  chaque opération demeure liée à son jeton boutique éphémère.
+- Les composants sous `app/components/shop` ne peuvent pas importer le contexte
+  des clients storefront ni appeler directement un hook de client de module ;
+  un garde-fou d'architecture impose le passage par un hook d'orchestration.
+- `useTenantSettingsForm` porte validation du slug, mutation Session et états
+  de sauvegarde des paramètres d'espace ; la vue workspace correspondante ne
+  pilote plus directement le client Session.
+- `useSubTenantManagement` porte lecture, création et suppression des
+  sous-espaces. Les réponses tardives sont ignorées après un changement de
+  tenant afin de ne jamais mélanger deux espaces dans la vue workspace.
+- `useMagritInvitationAcceptance` porte l'acceptation, le changement de compte
+  et la redirection des invitations d'équipe. Une invitation Magrit aboutit
+  uniquement sur `/t/:tenantSlug` ; l'entrée dans une boutique exige ensuite
+  la délégation explicite « Se connecter à la boutique ».
+- Une membership historique `shop_only` ne redirige plus vers le storefront.
+  Elle affiche un état de migration jusqu'à l'activation indépendante de son
+  compte boutique ; aucun client Shops n'est appelé dans ce parcours.
+- `useLegacyTenantSlugResolution` porte la résolution réseau et reconstruit la
+  route d'un ancien slug en conservant sous-chemin, query string et ancre ; la
+  vue `LegacySlugRedirect` ne connaît plus le client Session.
+- `useLegacyShopCustomerMigrationReport` porte le chargement, l'invalidation et
+  la synthèse du rapport privé de migration des comptes boutique. La surface
+  Utilisateurs masque l'audit sur refus ou indisponibilité et ne pilote plus le
+  client ShopCustomers.
+- `useShopCustomerAccountManagement` porte la liste, la création, l'activation
+  et le démarrage de délégation des comptes propres à une boutique. Les réponses
+  tardives sont ignorées après un changement de boutique ; la vue conserve
+  seulement l'ouverture de fenêtre et la copie dans le presse-papiers.
+- Dans l'éditeur de boutique, inviter un client est une commande unique fondée
+  sur son email : création du compte boutique si nécessaire, puis émission de
+  l'activation. La préparation technique du compte n'est plus exposée comme une
+  étape séparée ; un lien manuel reste fourni si l'email n'est pas délivré.
+- Cette invitation passe par `ShopCustomerInvitationService` et une seule route
+  HTTP du module. Le hook React ne compose plus lui-même création et activation ;
+  la route d'activation unitaire reste disponible pour les renvois depuis la liste.
+- `useShopCustomMockups` porte lecture, indexation, téléversement et restauration
+  des visuels propres à une boutique. La grille conserve uniquement le sélecteur
+  de fichier navigateur et ne connaît plus le client Shops.
+- `useTenantGammeSubscriptions` porte lecture et commandes unitaires ou groupées
+  des gammes actives d'un espace. L'écran conserve la hiérarchie PIM, les droits
+  d'écriture et l'état d'expansion, sans connaître le client Catalog.
+- `usePimAutomation` porte le comptage et l'ingestion de la file PIM ainsi que
+  la commande de génération des définitions. `DashboardAdminPIM` conserve arbre,
+  édition et progression visuelle du batch sans connaître le client Catalog.
+- `useShopEditorOperations` porte le chargement des produits et tarifs négociés,
+  le téléversement des assets de marque et les écritures de prix spécifiques.
+  `DashboardShopEditor` conserve le formulaire et les sélecteurs de fichiers,
+  sans connaître le client Shops.
+- `useCommercialManagement` porte l’overview, les règles de prix, les groupes
+  et leurs membres. La page Gestion commerciale et ses dialogues reçoivent des
+  intentions métier et ne connaissent plus le client Commercial.
+- `useRoleCatalogManagement` porte lecture, création, édition, réordonnancement
+  et archivage des rôles Magrit. La page Workflow et son éditeur ne connaissent
+  plus le client Roles.
+- `useRoleAssignmentMatrix` et `useUserRoleManagement` portent la matrice des
+  assignations, l'édition ciblée d'un utilisateur et la conversion explicite à
+  sens unique d'un ancien accès boutique vers Magrit. Les composants de rôles
+  ne connaissent plus les clients Roles ou Members ; aucun profil mixte n'est
+  réintroduit.
+- `useMagritUsersManagement` porte la lecture indépendante des membres et des
+  invitations Magrit ainsi que changement de rôle, retrait, renvoi et révocation.
+  La page Utilisateurs garde confirmations et retours navigateur, mais ne connaît
+  plus les clients Members ou Invitations.
+- `useMagritInvitationManagement` porte les options de rôles et la création
+  d'invitation. Il renouvelle la session juste avant la commande et construit le
+  client avec le jeton frais ; la modale conserve saisie, sélection et restitution
+  du lien manuel sans connaître le client Invitations.
+- Le module `shop-customers` possède ses contributions de surfaces : activation
+  et récupération de mot de passe sont des routes storefront actives dont le
+  host résout les chemins depuis le registre ; portail et workspace restent des
+  montages intégrés, et la gestion backoffice est déclarée `planned` sans être
+  exposée avant l'existence de son composition root.
+- `usePlatformDiagnostics` porte les tests Clariprint et fournisseur IA ainsi
+  que leurs états indépendants. La modale ne connaît plus le client Diagnostics
+  et ignore les réponses tardives après sa fermeture.
+- `useDashboardOrderManagement` porte la lecture agrégée des commandes tenant
+  et les transitions annulation, validation, production et expédition. La vue
+  conserve permissions, modales et présentation par boutique ; elle reçoit
+  aussi l'API d'audit explicitement depuis le hook.
+- Le dashboard Commandes utilise l'apparence explicite `dashboard` du tableau
+  partagé : largeur de lecture limitée à 1400 px, filtres et lignes regroupés
+  dans une surface bordée. L'apparence `portal` reste la valeur par défaut afin
+  d'éviter toute dérive visuelle du storefront.
+- `useQuotePersistence` compose la façade Quotes pour les devis imprimés depuis
+  une fiche produit ou le panier. Les vues conservent le rendu HTML et les
+  fenêtres d'impression, sans connaître le client Quotes.
+- Le probe et le catalogue Shops du storefront suivent la même règle : client
+  HTTP anonyme côté navigateur, puis résolution du cookie boutique côté BFF.
+- Le composant de surface `PublicShop` ne pilote plus le transport ni les états
+  réseau du catalogue. `usePublicShopCatalog` porte le probe fail-closed, le
+  contrôle d'accès, le mapping du contrat public, les reprises focus/visibilité
+  et le retry ; l'écran ne consomme qu'un état explicite.
+- Les types de lecture `Shop`, `ShopTheme` et `ShopProduct` appartiennent au
+  module Shops. Le storefront ne doit pas les importer depuis `ShopsContext`,
+  qui reste un adaptateur React de la surface workspace.
+- Les devis Clariprint du storefront utilisent une passerelle anonyme dédiée ;
+  l’atelier Magrit conserve une passerelle workspace distincte.
+- L’éditorial IA de catégorie ne réutilise jamais l’identité Magrit. Sa route
+  `/api/v1/public/shops/:slug/assistant/category-editorial` résout le cookie et
+  la boutique côté BFF ; la recherche conversationnelle suit la même politique
+  via `/api/v1/assistant/chat`.
 - Création tenant : `/tenants/new` (wizard avec validation SIREN INSEE + email pro).
 - Helpers RLS canoniques (à utiliser dans toute nouvelle policy) : `public.is_super_admin()`, `public.user_role_in_tenant(tenant_id)`, `public.current_user_tenant_ids()`, `public.current_user_can_access_shop(shop_id)`.
 - Matrice et invariants détaillés :
@@ -254,7 +385,25 @@ Décision Arnaud 2026-05-06 : reportées au prochain bloc Clariprint :
   - **Superadmin Magrit** : oui (membre `magrit-root` via `bootstrap_magrit_admin`)
 - **PAT Supabase** : à régénérer à chaque session (l'ancien est révoqué). Procédure : https://supabase.com/dashboard/account/tokens
 - **Projet Supabase actif** : `ightkxebexuzfjdbpsdg` (B4 + B5 partagés)
-- **Secrets edge functions** : `MAGRIT3` (Anthropic), `RESEND_API_KEY` (E9.5), `CLARIPRINT_HOST/LOGIN/PASSWORD`, `SUPABASE_*` (auto)
+- **Secrets edge functions** : `MAGRIT3` (Anthropic), `RESEND_API_KEY` (invitations Magrit et activation boutique), `MAGRIT_FROM_EMAIL` (expéditeur Resend vérifié), `CLARIPRINT_HOST/LOGIN/PASSWORD`, `SUPABASE_*` (auto). En local, les secrets serveur sont placés dans `supabase/functions/.env` à partir de `.env.example` ; `.env.local` configure Vite mais n’injecte pas les secrets dans l’Edge Runtime. Sans clé Resend, l’activation boutique affiche un lien manuel transmissible.
+
+### 10.1 Tests d'intégration locaux
+
+- `.env.test` active les suites Supabase avec `SUPABASE_URL`,
+  `SUPABASE_ANON_KEY` et `SUPABASE_SERVICE_ROLE_KEY` ; il est ignoré par Git et
+  conservé en permissions `600`.
+- La cible peut être la stack Docker locale ou un projet distant de test, mais
+  jamais la production : plusieurs suites créent puis suppriment leurs fixtures.
+- Le `service_role` est strictement serveur. Ses privilèges sur les données
+  publiques sont versionnés par migration ; aucun accès direct au schéma
+  `private` n'est accordé.
+- Les tests storefront doivent passer par les comptes boutique, sessions opaques
+  et API `api_*`. Ils ne doivent plus fabriquer de `tenant_members.shop_only` ni
+  de rôle `Acheteur` dans l'identité Magrit.
+- Commandes usuelles : `pnpm db:local:start`, `pnpm db:local:push`, puis
+  `pnpm test`. La suite complète limite Vitest à deux workers afin que les
+  créations Auth, scénarios RLS et opérations Storage ne saturent pas le
+  PostgreSQL Docker local.
 
 ## 11. Documents canoniques de référence
 

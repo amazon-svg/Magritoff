@@ -28,7 +28,6 @@ import {
   useMemo,
 } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { ApiClientError } from '../../platform/api';
 import { useAuth } from './AuthContext';
 import { useSessionBootstrap } from './SessionBootstrapContext';
 
@@ -93,6 +92,7 @@ interface TenantContextType {
   /** true si l'user est superadmin Magrit (membre de magrit-root) */
   isSuperAdmin: boolean;
   loading: boolean;
+  error: Error | null;
 
   /** Changer de tenant programmatiquement (navigate vers /t/:slug) */
   switchTenant: (slug: string) => void;
@@ -107,11 +107,6 @@ interface TenantContextType {
     sirenData?: Record<string, any>;
     gammeSlugs?: string[];
   }) => Promise<string | null>;
-
-  /** Accepter une invitation via token recu par email */
-  acceptInvitation: (
-    token: string
-  ) => Promise<{ tenantId: string | null; errorCode?: string; errorMessage?: string }>;
 
   /** Merge tenant_id dans un objet d'insert Supabase. Raccourci courant. */
   withTenant: <T extends Record<string, any>>(payload: T) => T & { tenant_id: string };
@@ -132,7 +127,9 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   const dataForUser = bootstrap.data?.user.id === user?.id ? bootstrap.data : null;
   const tenants = (dataForUser?.tenants ?? []) as TenantWithMembership[];
   const isSuperAdmin = dataForUser?.isSuperAdmin ?? false;
-  const reload = bootstrap.reload;
+  const reload = useCallback(async () => {
+    await bootstrap.reload();
+  }, [bootstrap.reload]);
 
   // ─── Tenant courant (depuis l'URL, fallback last_tenant, fallback premier) ──
   const fallbackSlug = tenants.find(
@@ -206,29 +203,6 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     [bootstrap, reload]
   );
 
-  const acceptInvitation = useCallback(
-    async (
-      token: string
-    ): Promise<{ tenantId: string | null; errorCode?: string; errorMessage?: string }> => {
-      try {
-        const tenantId = await bootstrap.acceptInvitation(token);
-        await reload();
-        return { tenantId };
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        console.error('[TenantContext] acceptInvitation error:', message);
-        // Fix 2026-05-27 : propage le code d'erreur pour distinguer
-        // EMAIL_MISMATCH (mauvais compte connecte) d'une invitation
-        // reellement invalide/expiree. Le RPC prefixe 'EMAIL_MISMATCH:'.
-        const errorCode = error instanceof ApiClientError && error.problem.code === 'session.invitation_email_mismatch'
-          ? 'EMAIL_MISMATCH'
-          : 'INVALID';
-        return { tenantId: null, errorCode, errorMessage: message };
-      }
-    },
-    [bootstrap, reload]
-  );
-
   const withTenant = useCallback(
     <T extends Record<string, any>>(payload: T): T & { tenant_id: string } => {
       if (!currentTenant) {
@@ -247,6 +221,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     currentTenant,
     currentRole,
     isSuperAdmin,
+    error: bootstrap.error,
     // Le bootstrap démarre dans un effect après le rendu où Auth expose le
     // user. Tant que les données de ce user ne sont ni chargées ni en erreur,
     // rester en loading évite une redirection prématurée vers /tenants/new.
@@ -255,7 +230,6 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       (!!user && (bootstrap.loading || (!bootstrap.error && dataForUser === null))),
     switchTenant,
     createTenant,
-    acceptInvitation,
     withTenant,
     reload,
   };

@@ -11,71 +11,22 @@
  *     pour permettre la redirection 301 cote frontend.
  */
 
-import { FormEvent, useEffect, useState } from 'react';
 import { Loader2, AlertTriangle } from 'lucide-react';
 import { useTenant } from '../../contexts/TenantContext';
 import { TEST_IDS } from '../../lib/testIds';
-import { type UpdateTenantSettings } from '../../../modules/session';
-import { useSessionApi } from '../../contexts/ModuleClientsContext';
-
-const SLUG_REGEX = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/;
+import { useTenantSettingsForm } from '../../hooks/useTenantSettingsForm';
 
 export function DashboardTenantSettings() {
   const { currentTenant, currentRole, isSuperAdmin, reload } = useTenant();
-  const sessionApi = useSessionApi();
-
-  const [name, setName] = useState('');
-  const [slug, setSlug] = useState('');
-  const [originalSlug, setOriginalSlug] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
-
   const canEditName = currentRole === 'owner' || currentRole === 'admin' || isSuperAdmin;
   const canEditSlug = isSuperAdmin;
-
-  useEffect(() => {
-    if (currentTenant) {
-      setName(currentTenant.name);
-      setSlug(currentTenant.slug);
-      setOriginalSlug(currentTenant.slug);
-    }
-  }, [currentTenant?.id]);
-
-  const slugChanged = slug !== originalSlug;
-  const slugValid = SLUG_REGEX.test(slug) && slug.length >= 3 && slug.length <= 60;
-
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!currentTenant || !canEditName) return;
-    if (slugChanged && !slugValid) {
-      setMessage({ kind: 'err', text: 'Slug invalide : a-z, 0-9 et tirets uniquement, 3-60 caracteres.' });
-      return;
-    }
-
-    setSaving(true);
-    setMessage(null);
-
-    const updates: UpdateTenantSettings = { name };
-    if (slugChanged && canEditSlug) updates.slug = slug;
-    try {
-      await sessionApi.updateTenantSettings(currentTenant.id, updates);
-    } catch (error) {
-      setSaving(false);
-      setMessage({ kind: 'err', text: error instanceof Error ? error.message : 'Modification impossible.' });
-      return;
-    }
-
-    setSaving(false);
-
-    setMessage({
-      kind: 'ok',
-      text: slugChanged
-        ? `Espace renomme. L'ancien lien /t/${originalSlug} reste actif 90 jours via redirection.`
-        : 'Espace renomme.',
+  const { name, setName, slug, setSlug, slugChanged, saving, message, submit } =
+    useTenantSettingsForm({
+      tenant: currentTenant,
+      canEditName,
+      canEditSlug,
+      onSaved: reload,
     });
-    setOriginalSlug(slug);
-    await reload();
-  };
 
   if (!currentTenant) {
     return (

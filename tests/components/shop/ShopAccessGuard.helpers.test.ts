@@ -1,98 +1,43 @@
 import { describe, expect, it } from "vitest";
-import {
-  resolveShopAccess,
-  resolveShopAccessFromMemberships,
-  type ShopAccessInput,
-} from "../../../src/app/components/shop/ShopAccessGuard.helpers";
-
-const inviteOnly: ShopAccessInput = {
-  isAuthenticated: false,
-  accessMode: "invite_only",
-  accessScope: null,
-  allowedShopIds: [],
-  shopId: "shop-A",
-};
+import { resolveShopAccess } from "../../../src/app/components/shop/ShopAccessGuard.helpers";
 
 describe("resolveShopAccess", () => {
-  it("demande une connexion à l'anonyme sur une boutique sur invitation", () => {
-    expect(resolveShopAccess(inviteOnly)).toBe("authentication_required");
-  });
-
-  it("refuse un compte sans membership sur une boutique sur invitation", () => {
-    expect(resolveShopAccess({ ...inviteOnly, isAuthenticated: true })).toBe("forbidden");
-  });
-
-  it("autorise magrit_full et le shop_only explicitement invité", () => {
+  it("demande une session storefront pour une boutique sur invitation", () => {
     expect(resolveShopAccess({
-      ...inviteOnly,
-      isAuthenticated: true,
-      accessScope: "magrit_full",
+      accessMode: "invite_only",
+      shopId: "shop-A",
+      storefrontShopId: null,
+    })).toBe("authentication_required");
+  });
+
+  it("autorise uniquement la session de la boutique exacte", () => {
+    expect(resolveShopAccess({
+      accessMode: "invite_only",
+      shopId: "shop-A",
+      storefrontShopId: "shop-A",
     })).toBe("allowed");
     expect(resolveShopAccess({
-      ...inviteOnly,
-      isAuthenticated: true,
-      accessScope: "shop_only",
-      allowedShopIds: ["shop-A"],
-    })).toBe("allowed");
+      accessMode: "invite_only",
+      shopId: "shop-A",
+      storefrontShopId: "shop-B",
+    })).toBe("authentication_required");
   });
 
-  it("refuse un shop_only qui n'inclut pas la boutique", () => {
+  it("laisse le catalogue self_signup public sans confondre les boutiques", () => {
     expect(resolveShopAccess({
-      ...inviteOnly,
-      isAuthenticated: true,
-      accessScope: "shop_only",
-      allowedShopIds: ["shop-B"],
-    })).toBe("forbidden");
-  });
-
-  it("laisse une boutique self_signup publique et accepte un compte existant", () => {
-    expect(resolveShopAccess({ ...inviteOnly, accessMode: "self_signup" })).toBe("public");
-    expect(resolveShopAccess({
-      ...inviteOnly,
       accessMode: "self_signup",
-      isAuthenticated: true,
-    })).toBe("allowed");
-  });
-
-  it("autorise un superadmin authentifié sur invite_only", () => {
+      shopId: "shop-A",
+      storefrontShopId: null,
+    })).toBe("public");
     expect(resolveShopAccess({
-      ...inviteOnly,
-      isAuthenticated: true,
-      isSuperAdmin: true,
+      accessMode: "self_signup",
+      shopId: "shop-A",
+      storefrontShopId: "shop-B",
+    })).toBe("public");
+    expect(resolveShopAccess({
+      accessMode: "self_signup",
+      shopId: "shop-A",
+      storefrontShopId: "shop-A",
     })).toBe("allowed");
-  });
-});
-
-describe("resolveShopAccessFromMemberships", () => {
-  const base = {
-    isAuthenticated: true,
-    accessMode: "invite_only" as const,
-    shopId: "shop-A",
-    shopTenantId: "tenant-A",
-  };
-
-  it("n'utilise pas une membership magrit_full d'un autre tenant", () => {
-    expect(resolveShopAccessFromMemberships({
-      ...base,
-      memberships: [{
-        tenantId: "tenant-B",
-        accessScope: "magrit_full",
-        allowedShopIds: [],
-      }],
-    })).toBe("forbidden");
-  });
-
-  it("utilise uniquement la membership du tenant propriétaire", () => {
-    expect(resolveShopAccessFromMemberships({
-      ...base,
-      memberships: [
-        { tenantId: "tenant-B", accessScope: "magrit_full", allowedShopIds: [] },
-        { tenantId: "tenant-A", accessScope: "shop_only", allowedShopIds: ["shop-A"] },
-      ],
-    })).toBe("allowed");
-  });
-
-  it("refuse l'absence de membership sur invite_only", () => {
-    expect(resolveShopAccessFromMemberships({ ...base, memberships: [] })).toBe("forbidden");
   });
 });

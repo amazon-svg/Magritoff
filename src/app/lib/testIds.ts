@@ -30,6 +30,7 @@ export const TEST_IDS = {
     renameSaveBtn: 'tenant-rename-save-btn',
     renameConfirmModal: 'tenant-rename-confirm-modal',
     renameConfirmBtn: 'tenant-rename-confirm-btn',
+    legacyShopOnlyNotice: 'tenant-legacy-shop-only-notice',
   },
 
   // ─── P00, P01 — Auth ──────────────────────────────────────────────────
@@ -83,13 +84,6 @@ export const TEST_IDS = {
     invitationResendBtn: 'user-invitation-resend-btn',
     // P03 — droits granulaires
     permissionsModal: 'user-permissions-modal',
-    accessScopeRadio: 'user-access-scope-radio',
-    allowedShopsMultiselect: 'user-allowed-shops-multiselect',
-    allowedShopOption: 'user-allowed-shop-option',
-    permissionCanQuoteCheckbox: 'user-permission-can-quote-checkbox',
-    permissionCanOrderCheckbox: 'user-permission-can-order-checkbox',
-    permissionCanInviteCheckbox: 'user-permission-can-invite-checkbox',
-    permissionsSaveBtn: 'user-permissions-save-btn',
     // S-USERS-REFONTE Phase A (2026-05-25) : nouvelle section Rôles
     // (catalog + assignations matrix users × rôles).
     sectionRoles: 'users-section-roles',
@@ -278,6 +272,9 @@ export const TEST_IDS = {
     // S7.12 — Checkout ≤ 2 écrans (identification + récap)
     checkoutPage: 'shop-checkout-page',
     checkoutIdentification: 'shop-checkout-identification',
+    checkoutLoginTab: 'shop-checkout-login-tab',
+    checkoutRegisterTab: 'shop-checkout-register-tab',
+    checkoutFullNameInput: 'shop-checkout-full-name-input',
     checkoutEmailInput: 'shop-checkout-email-input',
     checkoutPasswordInput: 'shop-checkout-password-input',
     checkoutAuthBtn: 'shop-checkout-auth-btn',
@@ -374,16 +371,7 @@ export const TEST_IDS = {
     gammesPills: 'shop-gammes-pills',
     gammePill: 'shop-gamme-pill',
     gammePillAll: 'shop-gamme-pill-all',
-    // S-ORDER-ROLES-3-UI (Sprint 6+, wireframes Sally 2026-06-08) :
-    // PortalOrders refondu en 4 tabs filtres par role workflow + actions
-    // role-driven par ligne. Le suffixe -role distingue les boutons valider/
-    // rejet workflow des boutons admin tenant historiques (orderValidateBtn).
-    ordersTabs: 'shop-orders-tabs',
-    ordersTabMine: 'shop-orders-tab-mine',
-    ordersTabToValidate: 'shop-orders-tab-to-validate',
-    ordersTabToApprove: 'shop-orders-tab-to-approve',
-    ordersTabToProduce: 'shop-orders-tab-to-produce',
-    ordersTabBadgeCount: 'shop-orders-tab-badge-count',
+    // Portail client : liste strictement limitée aux commandes du compte.
     ordersEmptyState: 'shop-orders-empty-state',
     orderValidateBtnRole: 'shop-order-validate-btn-role',
     orderRejectBtn: 'shop-order-reject-btn',

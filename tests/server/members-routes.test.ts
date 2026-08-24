@@ -18,6 +18,18 @@ function handler(repo: MembersRepository) {
 }
 
 describe('routes API membres', () => {
+  it('refuse d attribuer le scope boutique legacy à un utilisateur Magrit', async () => {
+    const response = await handler(repository({}))(new Request(`http://localhost/api/v1/tenants/${tenantId}/members/${userId}/access`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        accessScope: 'shop_only',
+        allowedShopIds: ['33333333-3333-4333-8333-333333333333'],
+        permissions: { canQuote: true, canOrder: true, canInvite: false },
+      }),
+    }));
+    expect(response.status).toBe(422);
+  });
+
   it('dérive l’opérateur de la session pour changer un rôle', async () => {
     let receivedActor = '';
     const response = await handler(repository({ async changeRole(operator) { receivedActor = operator; } }))(new Request(`http://localhost/api/v1/tenants/${tenantId}/members/${userId}/role`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role: 'admin', actor: 'forged' }) }));

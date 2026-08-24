@@ -6,10 +6,8 @@ export const createInvitationCommandSchema = z.object({
   email: z.string().email(),
   tenantId: z.string().uuid(),
   baseUrl: z.string().url(),
-  accessScope: invitationAccessScopeSchema,
-  allowedShopIds: z.array(z.string().uuid()),
   roleDefinitionIds: z.array(z.string().uuid()),
-});
+}).strict();
 
 export const createInvitationResultSchema = z.object({
   invitationId: z.string().uuid(),

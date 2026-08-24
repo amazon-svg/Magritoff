@@ -11,7 +11,7 @@
  * Exportes purs pour testabilite vitest.
  */
 
-import type { ShopProduct } from '../../../contexts/ShopsContext';
+import type { ShopProduct } from '../../../../modules/shops';
 import type { Gamme } from '../../../utils/productEnrichment';
 import { resolveProductGamme } from '../../../utils/productEnrichment';
 

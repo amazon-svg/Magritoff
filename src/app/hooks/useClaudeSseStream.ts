@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef } from 'react';
 import {
   AssistantStreamError,
+  type AssistantGateway,
   type AssistantStreamPayload,
 } from '../../modules/diagnostics';
-import { useBrowserServices } from '../contexts/BrowserServicesContext';
 
 export { AssistantStreamError as ClaudeSseStreamError };
 
@@ -11,7 +11,7 @@ export { AssistantStreamError as ClaudeSseStreamError };
 export const MAX_CONTEXT_MESSAGES = 25;
 
 export interface SseStreamConfig {
-  authToken: string;
+  authToken?: string;
   body: unknown;
   onDelta?: (chunk: string) => void;
 }
@@ -35,8 +35,7 @@ export function truncateMessages<T>(
  * Le protocole HTTP/SSE, son endpoint et la classification des erreurs sont
  * volontairement confinés dans AssistantGateway.
  */
-export function useClaudeSseStream() {
-  const { assistant } = useBrowserServices();
+export function useClaudeSseStream(assistant: AssistantGateway) {
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => () => abortRef.current?.abort(), []);
@@ -57,10 +56,10 @@ export function useClaudeSseStream() {
 
       try {
         return await assistant.send({
-          accessToken: config.authToken,
           streaming,
           body: config.body,
           signal: controller.signal,
+          ...(config.authToken ? { accessToken: config.authToken } : {}),
           ...(config.onDelta ? { onDelta: config.onDelta } : {}),
         });
       } finally {

@@ -12,7 +12,7 @@
 
 import { useMemo } from 'react';
 import { Sparkles } from 'lucide-react';
-import type { Shop, ShopProduct } from '../../../contexts/ShopsContext';
+import type { Shop, ShopProduct } from '../../../../modules/shops';
 import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
 import { TEST_IDS } from '../../../lib/testIds';
 import { resolveProductImage } from '../../../utils/productImages';
@@ -30,9 +30,11 @@ import { GammeConfigurator } from './GammeConfigurator';
 import { StickyPriceBar } from './StickyPriceBar';
 import { PimEditorial } from './PimEditorial';
 import { ShopProductCard } from '../ShopProductCard';
+import { useStorefrontClariprint } from '../../../contexts/StorefrontBrowserServicesContext';
 
 export interface GammePageProps {
   shop: Shop;
+  taxRate: number;
   gammeSlug: string | undefined;
   products: ShopProduct[];
   pimGammes: Gamme[];
@@ -50,6 +52,7 @@ export interface GammePageProps {
 
 export function GammePage({
   shop,
+  taxRate,
   gammeSlug,
   products,
   pimGammes,
@@ -70,10 +73,11 @@ export function GammePage({
     [products, pimGammes, gammeSlug],
   );
   const defaultProduct = pickDefaultProduct(gammeProducts);
+  const clariprint = useStorefrontClariprint();
 
   // Moteur unique S7.2 — recalc live (exigence < 1,5 s par option).
-  const { options, patchOptions, phase, retry, confirm, addDisabled, taxRate } =
-    useProductConfigurator(defaultProduct, { liveRecalc: true });
+  const { options, patchOptions, phase, retry, confirm, addDisabled } =
+    useProductConfigurator(defaultProduct, { liveRecalc: true, taxRate, clariprintGateway: clariprint });
 
   const title = gamme?.name ?? gammeSlug ?? 'Gamme';
 

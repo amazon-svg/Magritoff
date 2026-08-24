@@ -12,7 +12,7 @@
  * 6 cas obligatoires (cf. PRD § Success Criteria + Architecture §4.2) :
  *   1. cross-tenant SELECT bloque (user A ne lit pas orders du tenant B)
  *   2. cross-tenant INSERT bloque
- *   3. cross-shop SELECT bloque pour acheteur shop_only
+ *   3. reconversion d'un utilisateur Magrit en shop_only bloquee
  *   4. cancel sans permission bloque (auteur != caller, non-admin)
  *   5. superadmin Magrit bypass OK
  *   6. RPC update_tenant_order_status respecte la matrice (transitions illegales rejetees)
@@ -134,24 +134,10 @@ describeIfCreds('RLS Order entity isolation (S1.4 / Epic 1 v1.1)', () => {
   });
 
   // ───────────────────────────────────────────────────────────────────────
-  // Cas 3 — cross-shop SELECT bloque pour acheteur shop_only
+  // Cas 3 — l'ancien profil mixte shop_only reste gele
   // ───────────────────────────────────────────────────────────────────────
-  it("Cas 3 — un acheteur shop_only ne lit pas les orders d'autres shops", async () => {
-    // Cree un 2eme shop dans tenantA
-    const { data: sA2 } = await h.admin
-      .from('shops')
-      .insert({
-        tenant_id: h.tenantA.id,
-        owner_user_id: h.userA.id,
-        slug: `rls-shop-a2-${Date.now()}`,
-        name: 'Shop RLS A2 (hors scope user A)',
-      })
-      .select('id')
-      .single();
-    if (!sA2) throw new Error('shop A2 insert failed');
-
-    // Restreint user A au shop A1 uniquement
-    await h.admin
+  it("Cas 3 — un utilisateur Magrit ne peut pas etre reconverti en shop_only", async () => {
+    const { error } = await h.admin
       .from('tenant_members')
       .update({
         access_scope: 'shop_only',
@@ -160,27 +146,18 @@ describeIfCreds('RLS Order entity isolation (S1.4 / Epic 1 v1.1)', () => {
       .eq('user_id', h.userA.id)
       .eq('tenant_id', h.tenantA.id);
 
-    const orderInA2 = await adminCreateOrder({
-      tenant_id: h.tenantA.id,
-      shop_id: sA2.id,
-      created_by: h.userA.id,
-    });
+    expect(error?.message).toMatch(/legacy_shop_only_frozen/);
 
-    const { data, error } = await h.anonA
-      .from('tenant_orders')
-      .select('id, shop_id')
-      .eq('id', orderInA2);
-
-    // Reset du scope user A pour ne pas casser les autres tests
-    await h.admin
+    const { data: membership, error: readError } = await h.admin
       .from('tenant_members')
-      .update({ access_scope: 'magrit_full', allowed_shop_ids: [] })
+      .select('access_scope, allowed_shop_ids')
       .eq('user_id', h.userA.id)
-      .eq('tenant_id', h.tenantA.id);
-    await h.admin.from('shops').delete().eq('id', sA2.id);
+      .eq('tenant_id', h.tenantA.id)
+      .single();
 
-    expect(error).toBeNull();
-    expect(data ?? []).toHaveLength(0);
+    expect(readError).toBeNull();
+    expect(membership?.access_scope).toBe('magrit_full');
+    expect(membership?.allowed_shop_ids ?? []).toHaveLength(0);
   });
 
   // ───────────────────────────────────────────────────────────────────────

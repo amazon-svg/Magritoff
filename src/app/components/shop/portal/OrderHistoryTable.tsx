@@ -29,6 +29,7 @@ import { OrderAuditTrailModal } from './OrderAuditTrailModal';
 import type { OrderUI } from './PortalOrders.helpers';
 import { getStatusInfo, type OrderStatus } from '../../../lib/orderStatus';
 import { TEST_IDS } from '../../../lib/testIds';
+import type { OrdersApiClient } from '../../../../modules/orders';
 import { Popover, PopoverContent, PopoverTrigger } from '../../ui/popover';
 import {
   Command,
@@ -100,6 +101,13 @@ export interface OrderHistoryTableProps {
   extraFilter?: ExtraFilter;
   /** Cle localStorage pour persistance filtres + tri (optionnel). */
   persistKey?: string;
+  /** Client de lecture de l’audit adapté à l’identité de la surface appelante. */
+  auditApi: OrdersApiClient;
+  /**
+   * Présentation de la surface appelante. Le portail conserve son historique
+   * ouvert ; le dashboard utilise une surface compacte, bordée et autonome.
+   */
+  appearance?: 'portal' | 'dashboard';
   /**
    * S3.3 (Sprint 5) : callback Renouveler 1-clic. Si fourni, une colonne
    * Actions affiche un bouton 'Renouveler' sur chaque ligne eligible
@@ -335,6 +343,8 @@ export function OrderHistoryTable({
   extraColumn,
   extraFilter,
   persistKey,
+  auditApi,
+  appearance = 'portal',
   onRenewOrder,
   onCancelOrder,
   onEditOrder,
@@ -343,6 +353,7 @@ export function OrderHistoryTable({
   onStartProductionOrder,
   onMarkShippedOrder,
 }: OrderHistoryTableProps) {
+  const isDashboardAppearance = appearance === 'dashboard';
   // S3.3 : une commande est renouvelable si v1.1 + status workflow/terminal
   // (pas draft = rien à renouveler depuis un brouillon, pas cancelled =
   // pas de re-commande depuis une commande abandonnée). Legacy non éligible
@@ -532,10 +543,19 @@ export function OrderHistoryTable({
   }
 
   return (
-    <div>
+    <div
+      data-appearance={appearance}
+      className={
+        isDashboardAppearance
+          ? 'overflow-hidden rounded-md border border-line bg-paper'
+          : undefined
+      }
+    >
       {/* ─── Barre de filtres ──────────────────────────────────────────── */}
       <div
-        className="flex flex-wrap items-end gap-4 mb-5 pb-4 border-b border-line"
+        className={`flex flex-wrap items-end gap-4 border-b border-line ${
+          isDashboardAppearance ? 'bg-bg px-4 py-3' : 'mb-5 pb-4'
+        }`}
         style={{ fontSize: '12.5px' }}
       >
         {/* Filtre Statut */}
@@ -763,7 +783,10 @@ export function OrderHistoryTable({
 
       {/* ─── Empty state filtre ───────────────────────────────────────── */}
       {sorted.length === 0 && (
-        <div className="text-center py-12" data-testid={TEST_IDS.shop.orderFilteredEmpty}>
+        <div
+          className={`text-center py-12 ${isDashboardAppearance ? 'px-4' : ''}`}
+          data-testid={TEST_IDS.shop.orderFilteredEmpty}
+        >
           <p className="text-ink-muted m-0 mb-3" style={{ fontSize: '14px', lineHeight: 1.55 }}>
             Aucune commande ne correspond aux filtres.
           </p>
@@ -781,21 +804,45 @@ export function OrderHistoryTable({
 
       {/* ─── Table ────────────────────────────────────────────────────── */}
       {sorted.length > 0 && (
-        <div className="overflow-x-auto">
-          <table className="w-full text-left" style={{ fontSize: '13px' }}>
+        <div
+          className={`overflow-x-auto ${
+            isDashboardAppearance
+              ? '[&_th:first-child]:pl-4 [&_td:first-child]:pl-4 [&_th:last-child]:pr-4 [&_td:last-child]:pr-4 [&_tbody_tr:last-child]:border-b-0'
+              : ''
+          }`}
+        >
+          <table
+            className={`w-full text-left ${isDashboardAppearance ? 'min-w-[1365px] table-fixed' : ''}`}
+            style={{ fontSize: '13px' }}
+          >
+            {isDashboardAppearance && (
+              <colgroup>
+                <col style={{ width: '175px' }} />
+                {extraColumn?.position === 'after-date' && <col style={{ width: '125px' }} />}
+                <col style={{ width: '125px' }} />
+                <col style={{ width: '130px' }} />
+                <col style={{ width: '135px' }} />
+                <col style={{ width: '135px' }} />
+                {(extraColumn?.position === 'before-status' || (extraColumn && !extraColumn.position)) && (
+                  <col style={{ width: '125px' }} />
+                )}
+                <col style={{ width: '150px' }} />
+                {showActionsColumn && <col style={{ width: '390px' }} />}
+              </colgroup>
+            )}
             <thead>
-              <tr className="border-b border-line">
+              <tr className={`border-b border-line ${isDashboardAppearance ? 'bg-bg' : ''}`}>
                 <th
                   scope="col"
                   aria-sort={ariaSortFor('date')}
-                  className="py-2.5 pr-4 font-mono uppercase text-ink-mute-2"
+                  className="py-2.5 pr-4 font-mono uppercase text-ink-mute-2 whitespace-nowrap"
                   style={{ fontSize: '10.5px', letterSpacing: '0.08em', fontWeight: 500 }}
                 >
                   <button
                     type="button"
                     onClick={() => handleSortClick('date')}
                     data-testid={TEST_IDS.shop.orderSortHeaderDate}
-                    className="inline-flex items-center hover:text-ink transition-colors"
+                    className="inline-flex items-center font-mono uppercase text-[10.5px] tracking-[0.08em] font-medium hover:text-ink transition-colors"
                   >
                     Date
                     <SortIndicator col="date" />
@@ -805,7 +852,7 @@ export function OrderHistoryTable({
                   <th
                     scope="col"
                     aria-sort={extraColumn.sortValue ? ariaSortFor('extra') : undefined}
-                    className="py-2.5 pr-4 font-mono uppercase text-ink-mute-2"
+                    className="py-2.5 pr-4 font-mono uppercase text-ink-mute-2 whitespace-nowrap"
                     style={{ fontSize: '10.5px', letterSpacing: '0.08em', fontWeight: 500 }}
                   >
                     {extraColumn.sortValue ? (
@@ -813,7 +860,7 @@ export function OrderHistoryTable({
                         type="button"
                         onClick={() => handleSortClick('extra')}
                         data-testid={TEST_IDS.shop.orderSortHeaderExtra}
-                        className="inline-flex items-center hover:text-ink transition-colors"
+                        className="inline-flex items-center font-mono uppercase text-[10.5px] tracking-[0.08em] font-medium hover:text-ink transition-colors"
                       >
                         {extraColumn.header}
                         <SortIndicator col="extra" />
@@ -826,14 +873,14 @@ export function OrderHistoryTable({
                 <th
                   scope="col"
                   aria-sort={ariaSortFor('customer_name')}
-                  className="py-2.5 pr-4 font-mono uppercase text-ink-mute-2"
+                  className="py-2.5 pr-4 font-mono uppercase text-ink-mute-2 whitespace-nowrap"
                   style={{ fontSize: '10.5px', letterSpacing: '0.08em', fontWeight: 500 }}
                 >
                   <button
                     type="button"
                     onClick={() => handleSortClick('customer_name')}
                     data-testid={TEST_IDS.shop.orderSortHeaderClient}
-                    className="inline-flex items-center hover:text-ink transition-colors"
+                    className="inline-flex items-center font-mono uppercase text-[10.5px] tracking-[0.08em] font-medium hover:text-ink transition-colors"
                   >
                     Client
                     <SortIndicator col="customer_name" />
@@ -841,7 +888,7 @@ export function OrderHistoryTable({
                 </th>
                 <th
                   scope="col"
-                  className="py-2.5 pr-4 font-mono uppercase text-ink-mute-2"
+                  className="py-2.5 pr-4 font-mono uppercase text-ink-mute-2 whitespace-nowrap"
                   style={{ fontSize: '10.5px', letterSpacing: '0.08em', fontWeight: 500 }}
                 >
                   Articles
@@ -849,14 +896,14 @@ export function OrderHistoryTable({
                 <th
                   scope="col"
                   aria-sort={ariaSortFor('total_ht')}
-                  className="py-2.5 pr-4 font-mono uppercase text-ink-mute-2 text-right"
+                  className="py-2.5 pr-4 font-mono uppercase text-ink-mute-2 text-right whitespace-nowrap"
                   style={{ fontSize: '10.5px', letterSpacing: '0.08em', fontWeight: 500 }}
                 >
                   <button
                     type="button"
                     onClick={() => handleSortClick('total_ht')}
                     data-testid={TEST_IDS.shop.orderSortHeaderTotalHt}
-                    className="inline-flex items-center hover:text-ink transition-colors"
+                    className="inline-flex w-full items-center justify-end font-mono uppercase text-[10.5px] tracking-[0.08em] font-medium hover:text-ink transition-colors"
                   >
                     Total HT
                     <SortIndicator col="total_ht" />
@@ -865,14 +912,14 @@ export function OrderHistoryTable({
                 <th
                   scope="col"
                   aria-sort={ariaSortFor('total_ttc')}
-                  className="py-2.5 pr-4 font-mono uppercase text-ink-mute-2 text-right"
+                  className="py-2.5 pr-4 font-mono uppercase text-ink-mute-2 text-right whitespace-nowrap"
                   style={{ fontSize: '10.5px', letterSpacing: '0.08em', fontWeight: 500 }}
                 >
                   <button
                     type="button"
                     onClick={() => handleSortClick('total_ttc')}
                     data-testid={TEST_IDS.shop.orderSortHeaderTotalTtc}
-                    className="inline-flex items-center hover:text-ink transition-colors"
+                    className="inline-flex w-full items-center justify-end font-mono uppercase text-[10.5px] tracking-[0.08em] font-medium hover:text-ink transition-colors"
                   >
                     Total TTC
                     <SortIndicator col="total_ttc" />
@@ -882,7 +929,7 @@ export function OrderHistoryTable({
                   <th
                     scope="col"
                     aria-sort={extraColumn.sortValue ? ariaSortFor('extra') : undefined}
-                    className="py-2.5 pr-4 font-mono uppercase text-ink-mute-2"
+                    className="py-2.5 pr-4 font-mono uppercase text-ink-mute-2 whitespace-nowrap"
                     style={{ fontSize: '10.5px', letterSpacing: '0.08em', fontWeight: 500 }}
                   >
                     {extraColumn.sortValue ? (
@@ -890,7 +937,7 @@ export function OrderHistoryTable({
                         type="button"
                         onClick={() => handleSortClick('extra')}
                         data-testid={TEST_IDS.shop.orderSortHeaderExtra}
-                        className="inline-flex items-center hover:text-ink transition-colors"
+                        className="inline-flex items-center font-mono uppercase text-[10.5px] tracking-[0.08em] font-medium hover:text-ink transition-colors"
                       >
                         {extraColumn.header}
                         <SortIndicator col="extra" />
@@ -902,7 +949,7 @@ export function OrderHistoryTable({
                 )}
                 <th
                   scope="col"
-                  className="py-2.5 font-mono uppercase text-ink-mute-2"
+                  className="py-2.5 pr-4 font-mono uppercase text-ink-mute-2 whitespace-nowrap"
                   style={{ fontSize: '10.5px', letterSpacing: '0.08em', fontWeight: 500 }}
                 >
                   Statut
@@ -910,10 +957,10 @@ export function OrderHistoryTable({
                 {showActionsColumn && (
                   <th
                     scope="col"
-                    className="py-2.5 font-mono uppercase text-ink-mute-2 text-right"
+                    className="py-2.5 font-mono uppercase text-ink-mute-2 text-left whitespace-nowrap"
                     style={{ fontSize: '10.5px', letterSpacing: '0.08em', fontWeight: 500 }}
                   >
-                    <span className="sr-only">Actions</span>
+                    Actions
                   </th>
                 )}
               </tr>
@@ -932,16 +979,16 @@ export function OrderHistoryTable({
                     className="border-b border-line hover:bg-bg transition-colors"
                   >
                     <td
-                      className="py-3 pr-4 text-ink-2 font-mono"
+                      className="py-3 pr-4 text-ink-2 font-mono whitespace-nowrap"
                       style={{ fontVariantNumeric: 'tabular-nums' }}
                     >
                       {formatDate(o.date)}
                     </td>
                     {extraColumn?.position === 'after-date' && (
-                      <td className="py-3 pr-4 text-ink-muted">{extraColumn.render(o)}</td>
+                      <td className="py-3 pr-4 text-ink-muted truncate">{extraColumn.render(o)}</td>
                     )}
-                    <td className="py-3 pr-4 text-ink">{o.customer_name || '—'}</td>
-                    <td className="py-3 pr-4 text-ink-muted">
+                    <td className="py-3 pr-4 text-ink truncate">{o.customer_name || '—'}</td>
+                    <td className="py-3 pr-4 text-ink-muted whitespace-nowrap">
                       <span
                         className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-line bg-paper text-ink-2"
                         style={{ fontSize: '11.5px' }}
@@ -950,13 +997,13 @@ export function OrderHistoryTable({
                       </span>
                     </td>
                     <td
-                      className="py-3 pr-4 text-ink font-mono text-right"
+                      className="py-3 pr-4 text-ink font-mono text-right whitespace-nowrap"
                       style={{ fontVariantNumeric: 'tabular-nums' }}
                     >
                       {formatEuro(o.total_ht)}
                     </td>
                     <td
-                      className="py-3 pr-4 text-ink font-mono text-right font-medium"
+                      className="py-3 pr-4 text-ink font-mono text-right font-medium whitespace-nowrap"
                       style={{ fontVariantNumeric: 'tabular-nums' }}
                     >
                       {formatEuro(o.total_ttc)}
@@ -964,7 +1011,7 @@ export function OrderHistoryTable({
                     {(extraColumn?.position === 'before-status' || (extraColumn && !extraColumn.position)) && (
                       <td className="py-3 pr-4 text-ink-muted">{extraColumn.render(o)}</td>
                     )}
-                    <td className="py-3">
+                    <td className="py-3 pr-4 whitespace-nowrap">
                       <div className="flex items-center gap-2">
                         {o.source === 'legacy' && (
                           <>
@@ -987,8 +1034,8 @@ export function OrderHistoryTable({
                       </div>
                     </td>
                     {showActionsColumn && (
-                      <td className="py-3 text-right">
-                        <div className="inline-flex items-center gap-1.5">
+                      <td className="py-3 text-left">
+                        <div className="flex items-center justify-start gap-1.5 whitespace-nowrap">
                           {canValidate(o) && (
                             <button
                               type="button"
@@ -1127,6 +1174,7 @@ export function OrderHistoryTable({
           orderForHistory?.id ? orderForHistory.id.replace(/-/g, '').slice(0, 8).toUpperCase() : undefined
         }
         onClose={() => setOrderForHistory(null)}
+        ordersApi={auditApi}
       />
     </div>
   );

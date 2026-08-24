@@ -13,9 +13,8 @@ Quand ton tenant est créé par Arnaud :
 Si l'invitation est envoyée à un autre email que celui que tu utilises, Magrit
 te bloque avec un message **« Cette invitation est destinée à X, vous êtes
 connecté en tant que Y »**. Déconnecte-toi puis reconnecte avec le bon compte.
-Après acceptation, la session et les boutiques accessibles sont rechargées via
-l’API Magrit avant la redirection : un acheteur limité à une boutique ne passe
-jamais par le dashboard.
+Après acceptation, la session et les espaces accessibles sont rechargés via
+l’API Magrit avant la redirection.
 
 ## 2. Inviter ton équipe
 
@@ -24,9 +23,11 @@ jamais par le dashboard.
 Pour chaque membre à inviter :
 
 1. Clic **Inviter un utilisateur**
-2. Email + sélection des rôles (Acheteur / Validateur / Producteur / Admin)
-3. Si scope `shop_only` (acheteur dédié à 1 ou N boutiques) : sélectionne les boutiques autorisées
-4. Envoyer → email Resend partira automatiquement
+2. Email + sélection des rôles Magrit (Validateur / Producteur / Admin)
+3. Envoyer → l’email d’invitation part si le service est configuré
+
+Cette modale ne crée jamais de client boutique. Pour cela, ouvre l’éditeur de
+la boutique puis utilise « Comptes clients de cette boutique ».
 
 La liste des invitations en attente, les options de rôles/boutiques, le renvoi
 et la révocation passent par l’API Magrit. Une révocation est contrôlée par la
@@ -46,24 +47,31 @@ de sa session et un owner ne peut être ni modifié ni retiré par ces routes.
   l’interface demande explicitement de se reconnecter.
 - Si Resend n’est pas configuré ou refuse l’expéditeur, la modale reste ouverte
   et affiche un lien d’invitation sélectionnable avec un bouton **Copier**.
-- Si le tenant ne possède aucune boutique, le mode **Boutique(s)** est désactivé
-  et la modale sélectionne **Dashboard complet** afin de ne pas bloquer l’envoi.
+- Le type d’accès **Boutique(s)** n’existe plus pour une nouvelle invitation
+  Magrit. Les anciennes lignes restent visibles uniquement pendant UM8.
+- Le rôle historique **Acheteur** n’est plus proposé. Un acheteur est créé dans
+  une boutique précise depuis « Comptes clients de cette boutique ».
 
 ## 3. Gérer les rôles de ton catalogue
 
 **Route** : `/t/<slug>/dashboard/users` section « Rôles et droits »
 
-5 rôles presets seedés à la création de ton tenant :
+4 rôles d’équipe Magrit sont proposés à la création de ton tenant :
 
 | Rôle | can_quote | can_order | can_invite | can_validate | can_cancel | can_modify | can_export | can_manage_catalog | can_manage_roles |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
 | Owner | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Admin | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |   |
-| Acheteur | ✓ | ✓ |   |   |   |   |   |   |   |
+| Admin | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Validateur |   |   |   | ✓ | ✓ | ✓ | ✓ |   |   |
 | Producteur |   |   |   |   |   | ✓ | ✓ |   |   |
 
-Tu peux **assigner plusieurs rôles à un même user** (cumul) : ex Acheteur + Validateur pour un dirigeant qui passe des commandes pour lui-même et les valide.
+Le preset Acheteur de l’ancien modèle est conservé uniquement pour les audits
+et la migration. Il est classé `storefront_legacy`, masqué des écrans Magrit et
+PostgreSQL refuse toute nouvelle invitation ou assignation qui le référence.
+
+Tu peux **assigner plusieurs rôles Magrit à un même utilisateur**. Pour parcourir
+ou tester une boutique, utilise ensuite l’action déléguée « Se connecter à la
+boutique » : elle ne transforme pas l’utilisateur en client permanent.
 
 ## 4. Sous-tenants (filiales multi-sites)
 
@@ -73,7 +81,7 @@ Si ton imprimerie a plusieurs sites (Paris + Lyon + Bordeaux), crée un sous-ten
 
 1. Clic **Créer un sous-espace**
 2. Nom + slug
-3. Le sous-tenant hérite automatiquement de tes gammes PIM, des 5 rôles presets, des 7 statuts canoniques
+3. Le sous-tenant hérite automatiquement de tes gammes PIM, des 4 rôles Magrit exposés et des 7 statuts canoniques
 
 **KPIs HQ consolidés** (Sprint 8 V4) : chaque carte sous-tenant affiche **nb commandes du mois + CA HT du mois**.
 
@@ -120,15 +128,14 @@ plus le seul contrôle.
 ### Choisir le mode d’accès
 
 - **Sur invitation (`invite_only`, valeur par défaut)** : aucun catalogue
-  visible sans invitation. Invite l’acheteur depuis « Utilisateurs » et ajoute
-  cette boutique à son périmètre `shop_only`. La page de connexion ne propose
-  pas de création de compte.
-- **Inscription libre (`self_signup`)** : catalogue public et création de
-  compte disponible au checkout. La première commande rattache automatiquement
-  l’acheteur avec un accès `shop_only` limité à cette boutique.
+  visible sans compte boutique activé. Crée le client dans l’éditeur de cette
+  boutique et transmets son lien d’activation.
+- **Inscription libre (`self_signup`)** : le catalogue est public et le client
+  peut créer au checkout un compte strictement propre à cette boutique. Cette
+  création ne lui donne aucun accès Magrit ni accès à une autre boutique.
 
-Ne passe une boutique en inscription libre que si son catalogue et ses prix
-peuvent être rendus publics.
+Un utilisateur Magrit peut tester le storefront par « Se connecter à la
+boutique ». La délégation est limitée à la boutique et auditée.
 
 ## 6. Validation et workflow N+1
 

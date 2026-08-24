@@ -822,6 +822,56 @@ export type Database = {
           },
         ]
       }
+      shop_customer_accounts: {
+        Row: {
+          activated_at: string | null
+          auth_subject_id: string | null
+          created_at: string
+          created_by_magrit_user_id: string | null
+          email: string
+          full_name: string
+          id: string
+          normalized_email: string
+          shop_id: string
+          status: string
+          suspended_at: string | null
+        }
+        Insert: {
+          activated_at?: string | null
+          auth_subject_id?: string | null
+          created_at?: string
+          created_by_magrit_user_id?: string | null
+          email: string
+          full_name: string
+          id?: string
+          normalized_email?: never
+          shop_id: string
+          status?: string
+          suspended_at?: string | null
+        }
+        Update: {
+          activated_at?: string | null
+          auth_subject_id?: string | null
+          created_at?: string
+          created_by_magrit_user_id?: string | null
+          email?: string
+          full_name?: string
+          id?: string
+          normalized_email?: never
+          shop_id?: string
+          status?: string
+          suspended_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shop_customer_accounts_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shop_product_pricing: {
         Row: {
           created_at: string
@@ -1486,17 +1536,20 @@ export type Database = {
       }
       tenant_order_status_events: {
         Row: {
-          actor_id: string
+          acted_by_magrit_user_id: string | null
+          actor_id: string | null
           created_at: string
           from_status: Database["public"]["Enums"]["tenant_order_status"] | null
           id: string
           metadata: Json
           order_id: string
           reason: string | null
+          shop_customer_account_id: string | null
           to_status: Database["public"]["Enums"]["tenant_order_status"]
         }
         Insert: {
-          actor_id: string
+          acted_by_magrit_user_id?: string | null
+          actor_id?: string | null
           created_at?: string
           from_status?:
             | Database["public"]["Enums"]["tenant_order_status"]
@@ -1505,10 +1558,12 @@ export type Database = {
           metadata?: Json
           order_id: string
           reason?: string | null
+          shop_customer_account_id?: string | null
           to_status: Database["public"]["Enums"]["tenant_order_status"]
         }
         Update: {
-          actor_id?: string
+          acted_by_magrit_user_id?: string | null
+          actor_id?: string | null
           created_at?: string
           from_status?:
             | Database["public"]["Enums"]["tenant_order_status"]
@@ -1517,6 +1572,7 @@ export type Database = {
           metadata?: Json
           order_id?: string
           reason?: string | null
+          shop_customer_account_id?: string | null
           to_status?: Database["public"]["Enums"]["tenant_order_status"]
         }
         Relationships: [
@@ -1572,9 +1628,10 @@ export type Database = {
       }
       tenant_orders: {
         Row: {
+          acted_by_magrit_user_id: string | null
           cancelled_at: string | null
           created_at: string
-          created_by: string
+          created_by: string | null
           currency: string
           id: string
           invoice_number: string | null
@@ -1583,6 +1640,7 @@ export type Database = {
           pa_id: string | null
           ppf_message_id: string | null
           shop_id: string
+          shop_customer_account_id: string | null
           status: Database["public"]["Enums"]["tenant_order_status"]
           stripe_payment_intent_id: string | null
           tenant_id: string
@@ -1590,9 +1648,10 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          acted_by_magrit_user_id?: string | null
           cancelled_at?: string | null
           created_at?: string
-          created_by: string
+          created_by?: string | null
           currency?: string
           id?: string
           invoice_number?: string | null
@@ -1601,6 +1660,7 @@ export type Database = {
           pa_id?: string | null
           ppf_message_id?: string | null
           shop_id: string
+          shop_customer_account_id?: string | null
           status?: Database["public"]["Enums"]["tenant_order_status"]
           stripe_payment_intent_id?: string | null
           tenant_id: string
@@ -1608,9 +1668,10 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          acted_by_magrit_user_id?: string | null
           cancelled_at?: string | null
           created_at?: string
-          created_by?: string
+          created_by?: string | null
           currency?: string
           id?: string
           invoice_number?: string | null
@@ -1619,6 +1680,7 @@ export type Database = {
           pa_id?: string | null
           ppf_message_id?: string | null
           shop_id?: string
+          shop_customer_account_id?: string | null
           status?: Database["public"]["Enums"]["tenant_order_status"]
           stripe_payment_intent_id?: string | null
           tenant_id?: string
@@ -1688,6 +1750,7 @@ export type Database = {
           created_by: string | null
           description: string | null
           id: string
+          identity_context: string
           name: string
           notify_policy: string
           ordering_index: number
@@ -1702,6 +1765,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           id?: string
+          identity_context?: string
           name: string
           notify_policy?: string
           ordering_index?: number
@@ -1716,6 +1780,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           id?: string
+          identity_context?: string
           name?: string
           notify_policy?: string
           ordering_index?: number
@@ -1889,6 +1954,130 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      api_get_order_customer_identities: {
+        Args: { p_order_ids: string[] }
+        Returns: {
+          customer_email: string | null
+          customer_name: string | null
+          order_id: string
+        }[]
+      }
+      api_get_public_shop_tax_regime: {
+        Args: { p_shop_slug: string }
+        Returns: string
+      }
+      api_get_legacy_shop_customer_migration_report: {
+        Args: { p_tenant_id: string }
+        Returns: {
+          last_attempt_at: string | null
+          legacy_user_id: string
+          migration_outcome: string | null
+          normalized_email: string | null
+          orders_linked_count: number
+          proposed_action: string
+          shop_id: string | null
+          target_account_id: string | null
+        }[]
+      }
+      api_ensure_self_shop_customer: {
+        Args: { p_shop_id: string; p_tenant_id: string }
+        Returns: {
+          account_id: string
+          activated_at: string | null
+          auth_subject_id: string | null
+          created: boolean
+          created_at: string
+          created_by_magrit_user_id: string | null
+          email: string
+          full_name: string
+          normalized_email: string
+          shop_id: string
+          status: string
+          suspended_at: string | null
+        }[]
+      }
+      api_activate_shop_customer: {
+        Args: { p_password: string; p_token: string }
+        Returns: {
+          account_id: string
+          account_status: string
+          email: string
+          expires_at: string
+          full_name: string
+          issued_at: string
+          opaque_token: string
+          shop_id: string
+        }[]
+      }
+      api_issue_shop_customer_activation: {
+        Args: { p_account_id: string; p_expires_seconds?: number; p_shop_id: string; p_tenant_id: string }
+        Returns: string | null
+      }
+      api_authenticate_shop_customer: {
+        Args: { p_email: string; p_password: string; p_shop_slug: string }
+        Returns: {
+          account_id: string
+          account_status: string
+          email: string
+          expires_at: string
+          full_name: string
+          issued_at: string
+          opaque_token: string
+          shop_id: string
+        }[]
+      }
+      api_register_shop_customer: {
+        Args: { p_email: string; p_full_name: string; p_password: string; p_shop_slug: string }
+        Returns: {
+          account_id: string
+          account_status: string
+          email: string
+          expires_at: string
+          full_name: string
+          issued_at: string
+          opaque_token: string
+          shop_id: string
+        }[]
+      }
+      api_issue_shop_customer_password_recovery: {
+        Args: { p_email: string; p_shop_slug: string }
+        Returns: { email: string; full_name: string; opaque_token: string; shop_name: string; shop_slug: string }[]
+      }
+      api_reset_shop_customer_password: {
+        Args: { p_password: string; p_token: string }
+        Returns: boolean
+      }
+      api_resolve_shop_customer_session: {
+        Args: { p_opaque_token: string }
+        Returns: { account_id: string; account_status: string; actor_magrit_user_id: string | null; delegation_id: string | null; email: string; expires_at: string; full_name: string; session_kind: string; shop_id: string }[]
+      }
+      api_revoke_shop_customer_session: {
+        Args: { p_opaque_token: string }
+        Returns: boolean
+      }
+      api_start_self_shop_customer_delegation: {
+        Args: { p_expires_seconds?: number; p_reason?: string | null; p_shop_id: string; p_tenant_id: string }
+        Returns: {
+          account_created_at: string
+          account_id: string
+          account_status: string
+          activated_at: string | null
+          actor_magrit_user_id: string
+          auth_subject_id: string | null
+          created_by_magrit_user_id: string | null
+          delegation_id: string
+          email: string
+          expires_at: string
+          full_name: string
+          issued_at: string
+          normalized_email: string
+          opaque_token: string
+          reason: string | null
+          shop_id: string
+          shop_slug: string
+          suspended_at: string | null
+        }[]
+      }
       api_swap_tenant_role_order: {
         Args: {
           p_first_role_id: string
@@ -1906,6 +2095,60 @@ export type Database = {
           p_shop_id: string
         }
         Returns: Json
+      }
+      api_create_storefront_order: {
+        Args: {
+          p_currency: string
+          p_idempotency_key: string
+          p_items: Json
+          p_notes: string
+          p_opaque_token: string
+          p_shop_id: string
+        }
+        Returns: Json
+      }
+      api_get_storefront_portal_orders: {
+        Args: { p_opaque_token: string; p_shop_id: string }
+        Returns: Json
+      }
+      api_get_order_draft_for_identity: {
+        Args: { p_opaque_token: string | null; p_order_id: string }
+        Returns: Json
+      }
+      api_update_order_draft_for_identity: {
+        Args: {
+          p_idempotency_key: string
+          p_items: Json
+          p_opaque_token: string | null
+          p_order_id: string
+        }
+        Returns: Json
+      }
+      api_transition_order_for_identity: {
+        Args: {
+          p_idempotency_key: string
+          p_new_status_code: string
+          p_opaque_token: string | null
+          p_order_id: string
+          p_reason: string | null
+        }
+        Returns: Json
+      }
+      api_get_order_audit_for_identity: {
+        Args: { p_opaque_token: string | null; p_order_id: string }
+        Returns: {
+          acted_by_magrit_user_id: string | null
+          actor_email: string | null
+          actor_id: string | null
+          event_id: string
+          event_type: string
+          kind: string
+          occurred_at: string
+          order_id: string
+          payload: Json
+          role_name: string | null
+          shop_customer_account_id: string | null
+        }[]
       }
       api_get_tenant_order_draft: {
         Args: { p_order_id: string }

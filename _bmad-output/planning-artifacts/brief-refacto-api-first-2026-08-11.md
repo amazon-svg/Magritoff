@@ -108,14 +108,81 @@ src/
 La cible fonctionnelle sépare strictement les utilisateurs Magrit des comptes
 clients boutique. Un compte client appartient à une seule boutique et son
 identité est le couple `(boutique, email normalisé)` ; la même adresse dans une
-autre boutique correspond à un autre compte. Le backoffice proposera un compte
-miroir par boutique et une délégation auditée « Se connecter comme ».
+autre boutique correspond à un autre compte. Le backoffice proposera une action
+unique « Se connecter à la boutique » : elle créera le compte miroir s’il
+manque, puis démarrera une délégation auditée « Se connecter comme » sans
+fusionner les identités.
 
 Cette évolution est spécifiée dans
 `_bmad-output/planning-artifacts/spec-identites-magrit-et-comptes-boutique.md`.
-Elle est planifiée pour plus tard et ne décrit pas le modèle actuellement livré.
-UM0/UM1 pourront avancer en parallèle d’AF24 ; la migration Auth et la
-généralisation des surfaces dépendront du contrat storefront UM2.
+UM0.1 a livré l’ADR, le module `shop-customers` et les contrats d’identité.
+UM1.1 a ajouté la table isolée par boutique en RLS default-deny, sans activer de
+comportement storefront. UM1.2 a ajouté service métier, capabilities et policies
+workspace. UM1.3 expose les routes de liste et de création ainsi que leur client
+HTTP partagé. UM1.4 rend ces comptes visibles et créables dans une section
+distincte de l’éditeur de boutique, sans les mélanger aux utilisateurs Magrit.
+Cette API reste strictement workspace : la migration Auth, les sessions boutique
+et la généralisation des surfaces dépendront du contrat storefront UM2. UM2.1 a
+figé ce contrat et sa politique de cookie HttpOnly sans encore activer la route
+publique ni modifier le checkout. UM2.2 a ajouté le stockage des credentials et
+sessions dans un schéma privé, sans `service_role` dans l’API et sans réutiliser
+l’email global Supabase Auth. UM2.3 orchestre la connexion, les refus neutres et
+l’émission de session derrière des ports. UM2.4 ajoute la primitive SQL atomique,
+le verrouillage après échecs et le stockage du seul hash du jeton, sans ouvrir
+encore la route HTTP publique. UM2.5 compose l’adaptateur et ouvre la connexion
+BFF avec cookie HttpOnly, mais ne bascule pas encore le checkout tant que le
+cycle activation/session/déconnexion n’est pas complet. UM2.6 à UM2.9 livrent
+désormais ce cycle côté BFF : résolution et révocation de session, émission
+workspace d’un jeton puis activation publique du mot de passe. Le lien reste à
+transmettre manuellement jusqu’au branchement du port email UM3, et le checkout
+n’est pas encore basculé sur cette identité. UM2.10 rend le lien exploitable
+avec un écran d’activation public et un transport anonyme séparé ; UM3 peut donc
+maintenant prendre en charge sa notification et son repli manuel. UM3.1 livre
+ce branchement : port Resend storefront distinct des invitations Magrit, action
+« Inviter/Renvoyer » dans la boutique et lien manuel toujours disponible. UM4.1
+ajoute le compte miroir idempotent : identité relue côté serveur depuis
+`auth.uid()`, unicité boutique/email, et aucun credential créé avant la future
+délégation UM5. UM5.1 livre désormais cette session : enregistrement privé
+audité, jeton opaque en cookie HttpOnly, expiration courte, remplacement et
+révocation liés à l’acteur Magrit et à la boutique. UM5.2 branche l’action
+unique « Se connecter à la boutique », le nouvel onglet, le bandeau de contexte
+et la sortie explicite, sans exposer le jeton au composant.
+UM5.3 branche enfin ce cookie sur la lecture du catalogue `invite_only` : le
+BFF résout la session, passe au module Shops un contexte typé sans jeton et
+vérifie l'égalité stricte entre la boutique demandée et celle de la session.
+Le storefront attend cette résolution avant de charger le catalogue ; les
+sessions provenant d'une autre boutique restent refusées.
+UM6.1 migre la création de commande : le BFF accepte le cookie storefront, la
+primitive SQL le valide à nouveau et rattache l'écriture à
+`shop_customer_account_id`. En délégation, `acted_by_magrit_user_id` conserve
+l'acteur réel sans fusionner les deux identités ; le parcours Magrit historique
+reste compatible.
+UM6.2 migre la liste du portail : une primitive dédiée filtre à la fois par
+boutique et compte client. Le portail storefront n'expose que `mine` et ne
+réutilise aucun rôle Magrit ; le portail interne historique conserve ses quatre
+vues de workflow.
+UM6.3 migre le détail et l'édition atomique des brouillons. Le cookie boutique
+et l'identité Magrit peuvent coexister dans le navigateur, mais la primitive
+autorise uniquement l'identité qui possède effectivement la commande ; les
+reçus d'idempotence storefront restent séparés.
+UM6.4 ouvre l'annulation propriétaire `draft → cancelled` et enrichit les
+événements de statut avec le compte boutique et l'acteur Magrit délégué. Aucune
+capability de validation ou production n'est accordée aux comptes storefront.
+UM6.5 ouvre l'historique au propriétaire de la commande, limité aux transitions
+de statut. Les assignations de rôles, l'identifiant et l'email des collaborateurs
+Magrit ne sont jamais publiés au storefront ; le backoffice conserve son audit
+complet.
+UM6.6 bascule la garde des boutiques privées et l'identification du checkout
+sur le BFF storefront. Une session Supabase Auth Magrit ne vaut plus compte
+boutique et le storefront ne propose plus la création d'un membre `shop_only`.
+UM6.7 rend le bootstrap Magrit résilient : une indisponibilité du BFF n'est
+plus interprétée comme une liste d'espaces vide et ne redirige plus vers la
+création d'un nouvel espace.
+UM10.1 sépare l’assistant storefront : il utilise la session boutique HttpOnly,
+ne reçoit plus le bearer Magrit et ne publie plus ses suggestions dans le
+catalogue partagé. UM10.2 retire ensuite `TenantContext` des calculs fiscaux du
+storefront : le catalogue public porte le régime de la boutique, résolu par le
+BFF, et les écrans boutique reçoivent explicitement le taux correspondant.
 
 ### Extension AF-C — Identité et invitations
 
@@ -301,6 +368,12 @@ généralisation des surfaces dépendront du contrat storefront UM2.
   Members et Invitations, nommées explicitement sans assimilation aux comptes boutique — livré ;
 - AF29.9 : garde-fou transversal interdisant toute construction de client API
   React hors des composition roots transport et modules — livré ;
+- AF30.1 : orchestration du formulaire de paramètres tenant extraite de la vue
+  workspace ; validation du slug, mutation Session et reprise du contexte sont
+  portées par un hook dédié — livré ;
+- AF30.2 : lecture, création et suppression des sous-espaces extraites de la
+  vue workspace ; les réponses asynchrones sont bornées au tenant qui a initié
+  l'opération — livré ;
 - suite : implémenter les futurs modules et surfaces depuis ces composition
   roots, en conservant la séparation fonctionnelle des identités comme chantier produit distinct.
 

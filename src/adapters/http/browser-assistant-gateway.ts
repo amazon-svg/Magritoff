@@ -6,13 +6,21 @@ import {
 } from '../../modules/diagnostics/application/assistant-gateway.ts';
 
 export class BrowserApiAssistantGateway implements AssistantGateway {
+  constructor(private readonly allowAccessToken: boolean = true) {}
+
   async send(request: AssistantStreamRequest): Promise<AssistantStreamPayload> {
     try {
+      if (!this.allowAccessToken && request.accessToken) {
+        throw new AssistantStreamError(
+          'protocol',
+          'Un transport storefront ne peut pas envoyer de bearer Magrit',
+        );
+      }
       const response = await fetch('/api/v1/assistant/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${request.accessToken}`,
+          ...(request.accessToken ? { Authorization: `Bearer ${request.accessToken}` } : {}),
           ...(request.streaming ? { Accept: 'text/event-stream' } : {}),
         },
         body: JSON.stringify(request.body),
@@ -97,3 +105,4 @@ async function readAssistantSseStream(
 }
 
 export const browserAssistantGateway: AssistantGateway = new BrowserApiAssistantGateway();
+export const browserStorefrontAssistantGateway: AssistantGateway = new BrowserApiAssistantGateway(false);

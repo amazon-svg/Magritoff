@@ -57,7 +57,11 @@ export const assistantChatCommandSchema = z.object({
     content: z.string().min(1).max(20_000),
   }).strict()).min(1).max(25),
   tenantId: z.string().min(1).max(200).nullable().optional(),
+  shopSlug: z.string().trim().min(1).max(160).optional(),
   mode: z.enum(['open', 'strict']).optional(),
-}).strict();
+}).strict().refine(
+  (command) => !(command.tenantId && command.shopSlug),
+  { message: 'Un seul contexte assistant est autorisé.', path: ['shopSlug'] },
+);
 
 export type AssistantChatCommand = z.infer<typeof assistantChatCommandSchema>;

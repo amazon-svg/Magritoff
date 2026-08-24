@@ -1,4 +1,4 @@
-import type { ShopProduct } from '../../../contexts/ShopsContext';
+import type { ShopProduct } from '../../../../modules/shops';
 import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
 import type { CategoryLandingModel } from '../../../utils/catalogLanding';
 import { resolveProductImage } from '../../../utils/productImages';

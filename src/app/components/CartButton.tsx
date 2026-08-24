@@ -6,7 +6,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { useQuotes } from '../contexts/QuotesContext';
 import {
   makeQuoteReference,
-  persistQuote,
   getDefaultTemplate,
   renderQuoteHtml,
 } from '../utils/quote';
@@ -15,7 +14,7 @@ import { useTenant } from '../contexts/TenantContext';
 import { useTenantPath } from '../hooks/useTenantPath';
 import { applyTax, extractTaxAmount, formatTaxLabel, getTaxRate } from '../utils/tax';
 import { TEST_IDS } from '../lib/testIds';
-import { useQuotesApi } from '../contexts/ModuleClientsContext';
+import { useQuotePersistence } from '../hooks/useQuotePersistence';
 
 interface CartButtonProps {
   /** `rail` : icon-only, pour le rail lateral du chat v2.
@@ -28,7 +27,7 @@ export function CartButton({ variant = 'pill' }: CartButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const { items, removeFromCart, clearCart, getTotalPrice } = useCart();
   const { user } = useAuth();
-  const quotesApi = useQuotesApi();
+  const { persist } = useQuotePersistence();
   const tp = useTenantPath();
   const navigate = useNavigate();
   const { currentTenant } = useTenant();
@@ -90,7 +89,7 @@ export function CartButton({ variant = 'pill' }: CartButtonProps) {
           const p = item.product;
           const cp = p.clariprintQuote;
           const totalHT = cp?.costs?.total ?? cp?.priceHT ?? p.price ?? 0;
-          return persistQuote(quotesApi, currentTenant.id, {
+          return persist(currentTenant.id, {
             reference,
             product_name: p.name,
             product_config: p,

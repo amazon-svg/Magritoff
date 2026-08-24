@@ -1,9 +1,8 @@
 import type { UserId } from '../../../kernel/ids/index.ts';
 import type { CreateShopCommand, CreateShopProductCommand, MockupTemplateType, MockupView, PersistAiShopProductCommand, SetShopPricingCommand, ShopBrandAssetUpload, ShopCustomMockupUpload, UpdateShopCommand, UpdateShopProductCommand } from '../api/contracts.ts';
-import type { ShopsRepository } from './shops-repository.ts';
+import type { PublicShopCatalogAccess, ShopsRepository } from './shops-repository.ts';
 export class ShopsService {
   constructor(private readonly repository: ShopsRepository) {}
-  registerBuyer(actor: UserId, shopId: string) { return this.repository.registerBuyer(actor, shopId); }
   list(actor: UserId, tenantId: string) { return this.repository.list(actor, tenantId); }
   create(actor: UserId, tenantId: string, command: CreateShopCommand) { return this.repository.create(actor, tenantId, command); }
   update(actor: UserId, tenantId: string, shopId: string, command: UpdateShopCommand) { return this.repository.update(actor, tenantId, shopId, command); }
@@ -13,7 +12,7 @@ export class ShopsService {
   updateProduct(actor: UserId, tenantId: string, shopId: string, productId: string, command: UpdateShopProductCommand) { return this.repository.updateProduct(actor, tenantId, shopId, productId, command); }
   removeProduct(actor: UserId, tenantId: string, shopId: string, productId: string) { return this.repository.removeProduct(actor, tenantId, shopId, productId); }
   publicProbe(slug: string) { return this.repository.publicProbe(slug); }
-  publicCatalog(actor: UserId | null, slug: string) { return this.repository.publicCatalog(actor, slug); }
+  publicCatalog(access: PublicShopCatalogAccess, slug: string) { return this.repository.publicCatalog(access, slug); }
   pricing(actor: UserId, tenantId: string, shopId: string) { return this.repository.pricing(actor, tenantId, shopId); }
   setPricing(actor: UserId, tenantId: string, shopId: string, libraryProductId: string, command: SetShopPricingCommand) { return this.repository.setPricing(actor, tenantId, shopId, libraryProductId, command); }
   uploadBrandAsset(actor: UserId, tenantId: string, shopId: string, upload: ShopBrandAssetUpload) { return this.repository.uploadBrandAsset(actor, tenantId, shopId, upload); }
