@@ -21,6 +21,19 @@ Toute fonctionnalité nouvelle est développée comme un module autonome.
 - Interdit : dépendance directe d'un module à l'implémentation interne d'un autre module — le passage se fait par l'API ou par le noyau.
 - Motif explicite : au-delà de la maintenabilité, la modularité conditionne la capacité d'un agent à travailler sur le code sans saturer sa fenêtre de contexte.
 
+### R2.1 — Propriété de l’UX métier
+
+- Toute page, tout composant métier, hook de contrôleur ou contexte de présentation appartient à `src/modules/<module>/ui`.
+- `src/app` ne contient que le bootstrap, les layouts globaux, les boundaries et la composition des surfaces.
+- Les primitives visuelles sans vocabulaire métier appartiennent à `src/shared/ui` et ne dépendent ni de `app`, ni d’un module, ni d’un fournisseur.
+- Une UI de module ne dépend jamais de `src/app`, `src/adapters`, Supabase ou d’un autre fournisseur concret.
+- Les dépendances inter-modules passent uniquement par une entrée publique du module cible (`modules/<id>`, `modules/<id>/ui` ou une entrée UI catégorisée possédant son `index.ts`). Un leaf explicitement réexporté par `ui/index.ts` peut être ciblé directement lorsqu’un barrel créerait un cycle de chunks ; le test d’architecture vérifie cette publication explicite.
+- Les pages déclarées par une contribution de surface sont résolues en lazy depuis l’entrée UI publique du module propriétaire.
+- Les runtimes React workspace et storefront restent distincts ; le storefront ne reçoit jamais l’identité ni les clients du workspace.
+
+Ces règles sont bloquées en CI par les tests d’architecture MUX. La baseline de
+fichiers métier autorisés sous `src/app/components` est fixée à zéro.
+
 ## R3 — Vocabulaire MCP (différé, à ne pas anticiper)
 
 Chaque module exposera un vocabulaire MCP dérivé de son API.

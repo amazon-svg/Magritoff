@@ -1,7 +1,7 @@
 ---
 title: Plan de migration UX modulaire
 date: 2026-08-24
-status: in_progress
+status: done
 depends_on: [spec-migration-ux-modulaire]
 ---
 
@@ -19,11 +19,11 @@ uniquement à déplacer des fichiers sans fermer les dépendances vers `app`.
 |---|---|---|---|---|
 | MUX0 | livré | Socle et frontières | `shared/ui`, convention d'injection, tests bloquants | — |
 | MUX1 | livré | Pilote `members` | UX Utilisateurs entièrement possédée par le module | MUX0 |
-| MUX2 | prêt | Workspace commercial | `orders`, `quotes`, `quote-templates`, `commercial` | MUX1 |
-| MUX3 | prêt | Workspace catalogue | `shops`, `catalog`, `libraries`, `mockups` | MUX1 |
-| MUX4 | prêt | Workspace plateforme | `account`, `tenants`, `conversations`, `machine-parks`, `plans` | MUX1 |
-| MUX5 | planifié | Storefront et portail | UX distribuée entre `shops`, `catalog`, `orders`, `shop-customers`, `account` | MUX2, MUX3 |
-| MUX6 | planifié | Fermeture brownfield | suppression des chemins métier `app/components`, baseline à zéro | MUX4, MUX5 |
+| MUX2 | livré | Workspace commercial | `orders`, `quotes`, `quote-templates`, `commercial` | MUX1 |
+| MUX3 | livré | Workspace catalogue | `shops`, `catalog`, `libraries`, `mockups` | MUX1 |
+| MUX4 | livré | Workspace plateforme | `account`, `tenants`, `conversations`, `machine-parks`, `plans` | MUX1 |
+| MUX5 | livré | Storefront et portail | UX distribuée entre `shops`, `catalog`, `orders`, `shop-customers`, `account` | MUX2, MUX3 |
+| MUX6 | livré | Fermeture brownfield | suppression des chemins métier `app/components`, baseline à zéro | MUX4, MUX5 |
 
 MUX2, MUX3 et MUX4 peuvent être développées en parallèle après validation du
 pilote. Elles ne doivent pas modifier les mêmes shells globaux.
@@ -123,17 +123,17 @@ soit décomposés en primitive neutre et composant métier. Aucun répertoire
 
 ## 5. Checklist obligatoire par module
 
-- [ ] Le propriétaire fonctionnel de chaque composant est explicite.
-- [ ] La page et ses composants métier sont sous `modules/<id>/ui`.
-- [ ] L'entrée publique du module exporte uniquement les éléments nécessaires.
-- [ ] Aucun import depuis `app`, `adapters`, Supabase ou un fournisseur.
-- [ ] Aucun import profond vers un autre module.
-- [ ] Route, capability, navigation et test IDs inchangés.
-- [ ] Chargement lazy conservé.
-- [ ] Tests unitaires/helpers déplacés avec le module.
-- [ ] Tests de parcours et d'architecture verts.
-- [ ] Ancien chemin supprimé, sans shim permanent.
-- [ ] Baseline brownfield diminuée et enregistrée.
+- [x] Le propriétaire fonctionnel de chaque composant est explicite.
+- [x] La page et ses composants métier sont sous `modules/<id>/ui`.
+- [x] L'entrée publique du module exporte uniquement les éléments nécessaires.
+- [x] Aucun import depuis `app`, `adapters`, Supabase ou un fournisseur.
+- [x] Aucun import interne non publié vers un autre module.
+- [x] Route, capability, navigation et test IDs inchangés.
+- [x] Chargement lazy conservé.
+- [x] Tests unitaires/helpers déplacés avec le module.
+- [x] Tests de parcours et d'architecture verts.
+- [x] Ancien chemin supprimé, sans shim permanent.
+- [x] Baseline brownfield diminuée et enregistrée à zéro.
 
 ## 6. Validation à chaque story
 
@@ -162,3 +162,6 @@ La migration est terminée lorsque toutes les routes actives chargent une entré
 UI appartenant à un module, que `app` ne possède plus de composant métier, que
 les règles sont bloquées par la CI et que les parcours fonctionnels restent
 équivalents à la baseline précédant MUX0.
+
+État au 24 août 2026 : critères atteints. La preuve d'exécution et le détail des
+modules figurent dans `implementation-artifacts/story-MUX2-MUX6-migration-ux-modulaire.md`.

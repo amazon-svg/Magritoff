@@ -1,9 +1,9 @@
 ---
 title: Spécification de migration vers une UX modulaire
 date: 2026-08-24
-source_branch: main@ddf4758
-delivery_branch: codex/um-users-rebuild
-status: active
+source_branch: main@037be90
+delivery_branch: migrate-modular-ux
+status: implemented
 owners: [AGE Développement, Expert Solutions]
 ---
 
@@ -15,7 +15,7 @@ Magrit possède déjà des modules métier sous `src/modules`, des manifestes et
 contributions de surface déclaratives. Cependant, l'implémentation React des
 fonctionnalités reste majoritairement centralisée sous `src/app/components`.
 
-Baseline au 24 août 2026 :
+Baseline initiale au 24 août 2026 :
 
 - 183 fichiers sous `src/app/components` ;
 - 48 primitives sous `src/app/components/ui` ;
@@ -236,3 +236,27 @@ restent composés une fois au niveau de la surface.
 - entrée publique UI : `modules/<id>/ui/index.ts` ;
 - une UX inter-domaines est importée depuis cette entrée UI publique, comme le
   rapport legacy publié par `shop-customers/ui` et composé par `members/ui`.
+
+## 11. État livré MUX2 à MUX6
+
+La migration complète applique les décisions précédentes aux vingt modules UI
+du dépôt.
+
+- `src/app/components` ne contient plus aucun fichier métier (baseline 0) ;
+- les primitives neutres résident dans `src/shared/ui` (49 fichiers) ;
+- les pages, hooks, contexts de présentation et helpers métier résident sous
+  `src/modules/<module>/ui` ;
+- les shells globaux résident sous `src/app/layouts` et la composition des
+  surfaces sous `src/app/surfaces` ;
+- le workspace injecte `WorkspaceUiRuntime` depuis
+  `WorkspaceModuleUiBridge` ;
+- le storefront injecte un `StorefrontUiRuntime` anonyme distinct depuis
+  `StorefrontRuntimeBoundary` ;
+- les anciens registres globaux de clients et services React ont été supprimés ;
+- les entrées publiques peuvent être spécialisées par catégorie (`ui/hooks`,
+  `ui/runtime`, `ui/storefront`, etc.). Un leaf explicitement réexporté par
+  `ui/index.ts` peut être importé directement lorsque le barrel créerait un
+  cycle de chunks ; les autres imports internes restent interdits.
+
+Les invariants sont rendus opposables par `modular-ui-boundaries.test.ts`,
+`api-first-boundaries.test.ts` et le test du graphe statique storefront.
