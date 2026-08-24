@@ -2,6 +2,7 @@ import type { UserId } from '../../../kernel/ids/index.ts';
 import type {
   CreateInvitationCommand,
   CreateInvitationResult,
+  InvitationActivation,
   InvitationOptions,
   PendingInvitation,
   ResendInvitationResult,
@@ -10,6 +11,7 @@ import type {
 export type InvitationRejectionCode =
   | 'authentication_required'
   | 'permission_denied'
+  | 'already_member'
   | 'duplicate_pending'
   | 'role_mismatch_tenant'
   | 'invalid_request'
@@ -26,6 +28,7 @@ export class InvitationRejectedError extends Error {
 }
 
 export interface InvitationsRepository {
+  activation(token: string): Promise<InvitationActivation>;
   create(
     actorUserId: UserId,
     command: CreateInvitationCommand,

@@ -2,6 +2,7 @@ export { InvitationsApiClient } from './api/client';
 export {
   createInvitationCommandSchema,
   createInvitationResultSchema,
+  invitationActivationSchema,
   invitationAccessScopeSchema,
   invitationOptionsSchema,
   pendingInvitationSchema,
@@ -11,6 +12,7 @@ export {
   revokeInvitationResultSchema,
   type CreateInvitationCommand,
   type CreateInvitationResult,
+  type InvitationActivation,
   type InvitationOptions,
   type PendingInvitation,
   type ResendInvitationResult,

@@ -25,7 +25,9 @@ const DEFAULTS: UserPreferences = {
 interface PreferencesContextType {
   prefs: UserPreferences;
   loading: boolean;
-  update: (patch: Partial<UserPreferences>) => Promise<void>;
+  update: (patch: Partial<Pick<UserPreferences,
+    'theme' | 'language' | 'default_delivery_zone' | 'notifications_email'
+  >>) => Promise<void>;
 }
 
 const PreferencesContext = createContext<PreferencesContextType | undefined>(undefined);
@@ -52,7 +54,9 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     }
   }, [bootstrap.data, user?.id]);
 
-  const update = async (patch: Partial<UserPreferences>) => {
+  const update = async (patch: Partial<Pick<UserPreferences,
+    'theme' | 'language' | 'default_delivery_zone' | 'notifications_email'
+  >>) => {
     const next = { ...prefs, ...patch };
     setPrefs(next);
 

@@ -49,7 +49,7 @@ export const sessionBootstrapSchema = z.object({
 });
 
 export const updatePreferencesSchema = userPreferencesSchema
-  .omit({ last_tenant_id: true })
+  .omit({ last_tenant_id: true, plan: true, is_admin: true })
   .partial()
   .refine((value) => Object.keys(value).length > 0, 'Au moins une préférence est requise.');
 
@@ -57,7 +57,11 @@ export const updateCurrentTenantSchema = z.object({ tenantId: z.string().min(1) 
 export const updateTenantSettingsSchema = z.object({
   name: z.string().trim().min(1).max(160).optional(),
   slug: z.string().trim().min(3).max(60).regex(/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/).optional(),
-}).refine((value) => value.name !== undefined || value.slug !== undefined, 'Au moins une modification est requise.');
+  plan: tenantPlanSchema.optional(),
+}).refine(
+  (value) => value.name !== undefined || value.slug !== undefined || value.plan !== undefined,
+  'Au moins une modification est requise.',
+);
 export const tenantMutationResultSchema = z.object({ updated: z.literal(true) });
 export const subTenantSchema = z.object({ id: z.string().min(1), slug: z.string(), name: z.string(), createdAt: z.string() });
 export const subTenantKpiSchema = z.object({

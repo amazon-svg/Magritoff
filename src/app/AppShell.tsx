@@ -27,36 +27,40 @@ import { browserRuntime } from '@/platform/runtime';
 import { PIMProvider } from '@/modules/catalog/ui/runtime';
 import { PreferencesProvider } from '@/modules/account/ui/preferences';
 import { SessionBootstrapProvider } from '@/modules/session/ui/bootstrap';
+import { PendingMagritInvitationRedirect } from '@/modules/invitations/ui/runtime/PendingMagritInvitationRedirect';
 import { useApiRuntime } from '@/app/contexts/ApiRuntimeContext';
 
 export function AppShell() {
   const { client } = useApiRuntime();
 
   return (
-    <SessionBootstrapProvider apiClient={client}>
-      <TenantProvider>
-        <WorkspaceModuleUiBridge runtime={browserRuntime}>
-          <PreferencesProvider>
-            <PIMProvider>
-              <AccessProfileProvider>
-                <ConversationProvider>
-                  <LibraryProvider>
-                    <ShopsProvider>
-                      <QuoteTemplatesProvider>
-                        <CartProvider>
-                          <QuotesProvider>
-                            <Outlet />
-                          </QuotesProvider>
-                        </CartProvider>
-                      </QuoteTemplatesProvider>
-                    </ShopsProvider>
-                  </LibraryProvider>
-                </ConversationProvider>
-              </AccessProfileProvider>
-            </PIMProvider>
-          </PreferencesProvider>
-        </WorkspaceModuleUiBridge>
-      </TenantProvider>
-    </SessionBootstrapProvider>
+    <>
+      <PendingMagritInvitationRedirect />
+      <SessionBootstrapProvider apiClient={client}>
+        <TenantProvider>
+          <WorkspaceModuleUiBridge runtime={browserRuntime}>
+            <PreferencesProvider>
+              <PIMProvider>
+                <AccessProfileProvider>
+                  <ConversationProvider>
+                    <LibraryProvider>
+                      <ShopsProvider>
+                        <QuoteTemplatesProvider>
+                          <CartProvider>
+                            <QuotesProvider>
+                              <Outlet />
+                            </QuotesProvider>
+                          </CartProvider>
+                        </QuoteTemplatesProvider>
+                      </ShopsProvider>
+                    </LibraryProvider>
+                  </ConversationProvider>
+                </AccessProfileProvider>
+              </PIMProvider>
+            </PreferencesProvider>
+          </WorkspaceModuleUiBridge>
+        </TenantProvider>
+      </SessionBootstrapProvider>
+    </>
   );
 }

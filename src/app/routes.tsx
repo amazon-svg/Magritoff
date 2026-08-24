@@ -161,11 +161,14 @@ export const router = createBrowserRouter([
               // (Devis), plus le profil. Profil + Preferences vivent dans
               // Parametres > Mon compte (/account).
               { index: true, element: <Navigate to="quotes" replace /> },
-              ...workspaceRuntimeRoutes.map(({ id, path, Component, requiredCapabilities }) => ({
+              ...workspaceRuntimeRoutes.map(({ id, path, Component, requiredCapabilities, requiredTenantRole }) => ({
                 id,
                 path,
                 element: lazyRoute(
-                  <WorkspaceCapabilityGate requiredCapabilities={requiredCapabilities}>
+                  <WorkspaceCapabilityGate
+                    requiredCapabilities={requiredCapabilities}
+                    requiredTenantRole={requiredTenantRole}
+                  >
                     <Component />
                   </WorkspaceCapabilityGate>,
                 ),

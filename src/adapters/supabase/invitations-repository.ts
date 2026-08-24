@@ -3,6 +3,7 @@ import type { UserId } from '../../kernel/ids/index.ts';
 import type {
   CreateInvitationCommand,
   CreateInvitationResult,
+  InvitationActivation,
   InvitationOptions,
   PendingInvitation,
   ResendInvitationResult,
@@ -19,6 +20,21 @@ export class SupabaseInvitationsRepository implements InvitationsRepository {
     private readonly client: SupabaseClient<Database>,
     private readonly emailSender: InvitationEmailSender,
   ) {}
+
+  async activation(token: string): Promise<InvitationActivation> {
+    const { data, error } = await this.client.rpc('api_get_tenant_invitation_activation', {
+      p_token: token,
+    });
+    if (error) throw new InvitationRejectedError('invalid_request', error.message);
+    const activation = data?.[0];
+    if (!activation) throw new InvitationRejectedError('invalid_request', 'Invitation invalide ou expirée.');
+    return {
+      email: activation.invitation_email,
+      tenantName: activation.tenant_name,
+      accountExists: activation.account_exists,
+      expiresAt: activation.invitation_expires_at,
+    };
+  }
 
   async create(
     _actorUserId: UserId,
@@ -67,7 +83,8 @@ export class SupabaseInvitationsRepository implements InvitationsRepository {
   async pending(_actorUserId: UserId, tenantId: string): Promise<PendingInvitation[]> {
     const { data, error } = await this.client.from('tenant_invitations')
       .select('id, email, role, expires_at, created_at, access_scope, allowed_shop_ids, permissions')
-      .eq('tenant_id', tenantId).is('accepted_at', null).order('created_at', { ascending: false });
+      .eq('tenant_id', tenantId).eq('access_scope', 'magrit_full')
+      .is('accepted_at', null).order('created_at', { ascending: false });
     if (error) throw new InvitationRejectedError('permission_denied', error.message);
     return (data ?? []).map((row) => {
       const permissions = row.permissions as Record<string, unknown> | null;
@@ -87,15 +104,19 @@ export class SupabaseInvitationsRepository implements InvitationsRepository {
   }
 
   async resend(_actorUserId: UserId, invitationId: string, baseUrl: string): Promise<ResendInvitationResult> {
-    const { data: visible, error: visibilityError } = await this.client.from('tenant_invitations')
-      .select('id, email, token, expires_at, tenant_id, role').eq('id', invitationId).is('accepted_at', null).maybeSingle();
-    if (visibilityError || !visible) throw new InvitationRejectedError('permission_denied', visibilityError?.message ?? 'Invitation inaccessible');
-    const { data: tenant, error: tenantError } = await this.client.from('tenants').select('name').eq('id', visible.tenant_id).maybeSingle();
-    if (tenantError || !tenant) throw new InvitationRejectedError('permission_denied', tenantError?.message ?? 'Tenant inaccessible');
-    const link = `${baseUrl.replace(/\/+$/, '')}/invitations/${visible.token}`;
+    const { data, error } = await this.client.rpc('api_reissue_tenant_invitation', {
+      p_invitation_id: invitationId,
+    });
+    if (error) throw new InvitationRejectedError(toRejectionCode(error.message), error.message);
+    const invitation = data?.[0];
+    if (!invitation) throw new InvitationRejectedError('permission_denied', 'Invitation inaccessible');
+    const link = `${baseUrl.replace(/\/+$/, '')}/invitations/${invitation.invitation_token}`;
     const delivery = await this.emailSender.send({
-      to: visible.email, tenantName: tenant.name, link, expiresAt: visible.expires_at,
-      role: toInvitationRole(visible.role),
+      to: invitation.invitation_email,
+      tenantName: invitation.tenant_name,
+      link,
+      expiresAt: invitation.invitation_expires_at,
+      role: toInvitationRole(invitation.invitation_role),
     });
     return { sent: delivery.sent, link, ...(delivery.reason ? { reason: delivery.reason } : {}) };
   }
@@ -116,7 +137,8 @@ function toInvitationRole(role: string): 'admin' | 'member' {
   return role === 'admin' ? 'admin' : 'member';
 }
 
-function toRejectionCode(message: string): 'permission_denied' | 'duplicate_pending' | 'role_mismatch_tenant' | 'invalid_request' | 'delivery_failed' {
+function toRejectionCode(message: string): 'permission_denied' | 'already_member' | 'duplicate_pending' | 'role_mismatch_tenant' | 'invalid_request' | 'delivery_failed' {
+  if (/already_member/i.test(message)) return 'already_member';
   if (/duplicate_pending/i.test(message)) return 'duplicate_pending';
   if (/role_mismatch_tenant/i.test(message)) return 'role_mismatch_tenant';
   if (/permission_denied|can_invite/i.test(message)) return 'permission_denied';

@@ -3,6 +3,7 @@ import {
   createInvitationCommandSchema,
   createInvitationResultSchema,
   invitationOptionsSchema,
+  invitationActivationSchema,
   pendingInvitationsSchema,
   resendInvitationCommandSchema,
   resendInvitationResultSchema,
@@ -10,12 +11,20 @@ import {
   type CreateInvitationCommand,
   type CreateInvitationResult,
   type InvitationOptions,
+  type InvitationActivation,
   type PendingInvitation,
   type ResendInvitationResult,
 } from './contracts.ts';
 
 export class InvitationsApiClient {
   constructor(private readonly client: FetchApiClient) {}
+
+  activation(token: string): Promise<InvitationActivation> {
+    return this.client.request({
+      path: `${API_V1_BASE_PATH}/invitations/${encodeURIComponent(token)}/activation`,
+      responseSchema: invitationActivationSchema,
+    });
+  }
 
   create(command: CreateInvitationCommand): Promise<CreateInvitationResult> {
     return this.client.request({

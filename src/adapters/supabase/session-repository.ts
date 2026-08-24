@@ -75,8 +75,6 @@ export class SupabaseSessionRepository implements SessionRepository {
     if (patch.notifications_email !== undefined) {
       values.notifications_email = patch.notifications_email;
     }
-    if (patch.plan !== undefined) values.plan = patch.plan;
-    if (patch.is_admin !== undefined) values.is_admin = patch.is_admin;
     const { data, error } = await this.client
       .from('user_preferences')
       .upsert(values, { onConflict: 'user_id' })
@@ -100,6 +98,7 @@ export class SupabaseSessionRepository implements SessionRepository {
     const values: Database['public']['Tables']['tenants']['Update'] = {};
     if (patch.name !== undefined) values.name = patch.name;
     if (patch.slug !== undefined) values.slug = patch.slug;
+    if (patch.plan !== undefined) values.plan = patch.plan;
     const { data, error } = await this.client.from('tenants').update(values).eq('id', tenantId).select('id').maybeSingle();
     if (error) throw new SessionTenantMutationError(error.code === '23505' ? 'conflict' : 'permission_denied', error.message);
     if (!data) throw new SessionTenantMutationError('permission_denied', 'Espace introuvable ou modification interdite.');

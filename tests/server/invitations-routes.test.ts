@@ -29,6 +29,7 @@ function createHandler(repository: InvitationsRepository) {
 
 function repository(overrides: Partial<InvitationsRepository>): InvitationsRepository {
   return {
+    async activation() { throw new InvitationRejectedError('invalid_request', 'Invitation invalide'); },
     async create() { throw new Error('not implemented'); },
     async options() { return { roles: [], shops: [] }; },
     async pending() { return []; },
@@ -37,6 +38,36 @@ function repository(overrides: Partial<InvitationsRepository>): InvitationsRepos
     ...overrides,
   };
 }
+
+describe('activation publique d une invitation', () => {
+  it('retourne l email imposé et indique si le compte existe', async () => {
+    const token = 'abcdefghijklmnopqrstuvwxyzABCDE_1234567890-token';
+    const handler = createHandler(repository({
+      async activation(receivedToken) {
+        expect(receivedToken).toBe(token);
+        return {
+          email: 'invitee@example.com',
+          tenantName: 'Imprimerie Exemple',
+          accountExists: false,
+          expiresAt: '2026-09-07T12:00:00.000Z',
+        };
+      },
+    }));
+
+    const response = await handler(new Request(
+      `http://localhost/api/v1/invitations/${token}/activation`,
+    ));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    await expect(response.json()).resolves.toEqual({
+      email: 'invitee@example.com',
+      tenantName: 'Imprimerie Exemple',
+      accountExists: false,
+      expiresAt: '2026-09-07T12:00:00.000Z',
+    });
+  });
+});
 
 describe('POST /api/v1/invitations', () => {
   it('refuse explicitement l ancien contrat shop_only', async () => {
@@ -92,6 +123,26 @@ describe('POST /api/v1/invitations', () => {
     expect(response.status).toBe(409);
     expect(problem.code).toBe('invitations.duplicate_pending');
   });
+
+  it('refuse de réinviter un utilisateur déjà membre', async () => {
+    const handler = createHandler(repository({
+      async create() {
+        throw new InvitationRejectedError('already_member', 'already_member');
+      },
+    }));
+
+    const response = await handler(new Request('http://localhost/api/v1/invitations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }));
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'invitations.already_member',
+      title: 'Utilisateur déjà membre',
+    });
+  });
 });
 
 describe('administration des invitations', () => {
@@ -114,5 +165,30 @@ describe('administration des invitations', () => {
     const response = await handler(new Request(`http://localhost/api/v1/invitations/${invitationId}`, { method: 'DELETE' }));
     expect(response.status).toBe(200);
     expect(received).toBe(invitationId);
+  });
+
+  it('renvoie une invitation via le dépôt qui régénère son lien', async () => {
+    const invitationId = '44444444-4444-4444-8444-444444444444';
+    let receivedBaseUrl = '';
+    const handler = createHandler(repository({
+      async resend(userId, id, baseUrl) {
+        expect(userId).toBe(actorId.value);
+        expect(id).toBe(invitationId);
+        receivedBaseUrl = baseUrl;
+        return { sent: true, link: `${baseUrl}/invitations/nouveau-token` };
+      },
+    }));
+
+    const response = await handler(new Request(
+      `http://localhost/api/v1/invitations/${invitationId}/resend`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ baseUrl: 'https://magrit.test' }),
+      },
+    ));
+
+    expect(response.status).toBe(200);
+    expect(receivedBaseUrl).toBe('https://magrit.test');
   });
 });

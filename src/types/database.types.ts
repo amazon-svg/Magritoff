@@ -2289,6 +2289,25 @@ export type Database = {
           tenant_name: string
         }[]
       }
+      api_get_tenant_invitation_activation: {
+        Args: { p_token: string }
+        Returns: {
+          account_exists: boolean
+          invitation_email: string
+          invitation_expires_at: string
+          tenant_name: string
+        }[]
+      }
+      api_reissue_tenant_invitation: {
+        Args: { p_invitation_id: string }
+        Returns: {
+          invitation_email: string
+          invitation_expires_at: string
+          invitation_role: string
+          invitation_token: string
+          tenant_name: string
+        }[]
+      }
       get_user_llm_usage: {
         Args: {
           p_period_end?: string

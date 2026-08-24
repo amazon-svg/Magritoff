@@ -5,6 +5,9 @@ export function invitationApiProblemMessage(code: string, detail?: string): stri
   if (code === 'invitations.duplicate_pending') {
     return 'Une invitation active existe déjà pour cette adresse email.';
   }
+  if (code === 'invitations.already_member') {
+    return 'Cette adresse appartient déjà à un utilisateur de cet espace. Modifiez directement son profil ou ses options.';
+  }
   if (code === 'invitations.permission_denied') {
     return "Votre compte n'a pas le droit d'inviter sur cet espace.";
   }

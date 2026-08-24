@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useLocation } from 'react-router';
 import { Lock, X } from 'lucide-react';
 import { useAuth } from '@/modules/account/ui/runtime';
 import { LoginModal } from '@/modules/account/ui/auth';
@@ -9,10 +10,11 @@ type ModalType = 'login' | 'signup' | 'forgot' | null;
 
 export function UnauthBanner() {
   const { user } = useAuth();
+  const location = useLocation();
   const [dismissed, setDismissed] = useState(false);
   const [modal, setModal] = useState<ModalType>(null);
 
-  if (user || dismissed) return null;
+  if (user || dismissed || location.pathname.startsWith('/invitations/')) return null;
 
   return (
     <>

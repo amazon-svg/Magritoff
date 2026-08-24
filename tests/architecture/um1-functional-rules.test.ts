@@ -51,6 +51,25 @@ describe('UM1 règles fonctionnelles de gestion des utilisateurs', () => {
     expect(invite).toContain("['admin', 'Administrateur'");
   });
 
+  it('aligne le cycle de vie des invitations Magrit sur les activations boutique', () => {
+    const migration = read('supabase/migrations/20260824000700_um1_magrit_invitation_lifecycle.sql');
+    expect(migration).toContain("raise exception 'already_member'");
+    expect(migration).toContain('api_reissue_tenant_invitation');
+    expect(migration).toContain('set token = _token');
+    expect(migration).toContain("access_scope = 'shop_only'");
+    expect(migration).toContain('if _inv.accepted_at is not null then return _inv.tenant_id');
+  });
+
+  it('impose l email du lien dans le formulaire d activation', () => {
+    const migration = read('supabase/migrations/20260824000800_um1_invitation_activation_identity.sql');
+    const page = read('src/modules/invitations/ui/workspace/AcceptInvitationPage.tsx');
+    expect(migration).toContain('api_get_tenant_invitation_activation');
+    expect(migration).toContain('account_exists boolean');
+    expect(page).toContain('readOnly');
+    expect(page).toContain('signUp(activation.email');
+    expect(page).toContain('Créer mon compte et rejoindre');
+  });
+
   it('seed les options, sans recréer le catalogue historique', () => {
     const migration = read('supabase/migrations/20260824000600_um1_seed_profile_options.sql');
     expect(migration).toContain("'option_shops'");

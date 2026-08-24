@@ -54,6 +54,7 @@ type WorkspaceNavItem = Readonly<{
 }>;
 
 type WorkspaceVisibility = Readonly<{
+  isTenantAdmin: boolean;
   canManageMembers: boolean;
   canManageSpaces: boolean;
   isMagritAdmin: boolean;
@@ -87,6 +88,7 @@ function composeWorkspaceGroups(basePath: string, visibility: WorkspaceVisibilit
 function isNavigationVisible(id: string, visibility: WorkspaceVisibility): boolean {
   const item = workspaceSurface.navigation.find((candidate) => candidate.id === id);
   const route = item ? WORKSPACE_ROUTES_BY_ID.get(item.routeId) : undefined;
+  if (route?.requiredTenantRole === 'admin' && !visibility.isTenantAdmin) return false;
   if (route && !(route.requiredCapabilities ?? []).every(visibility.hasCapability)) return false;
   if (id === 'shops.workspace.navigation') return visibility.canUse('shops');
   if (id === 'libraries.workspace.navigation') return visibility.canUse('library');
@@ -135,6 +137,7 @@ export function DashboardLayout() {
   if (!user) return <Navigate to="/" replace />;
 
   const GROUPS = composeWorkspaceGroups(basePath, {
+    isTenantAdmin: canManageMembers,
     canManageMembers,
     canManageSpaces,
     isMagritAdmin: isAdmin || isSuperAdmin,

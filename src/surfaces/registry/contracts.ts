@@ -39,6 +39,7 @@ export type RouteContribution = Readonly<{
    */
   availability?: 'active' | 'planned';
   requiredCapabilities?: readonly string[];
+  requiredTenantRole?: 'admin';
 }>;
 
 export type NavigationContribution = Readonly<{

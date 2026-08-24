@@ -42,6 +42,7 @@ export type WorkspaceRuntimeRoute = Readonly<{
   path: string;
   Component: LazyExoticComponent<ComponentType>;
   requiredCapabilities: readonly string[];
+  requiredTenantRole?: 'admin';
 }>;
 
 export const workspaceRuntimeRoutes: readonly WorkspaceRuntimeRoute[] = workspaceSurface.routes
@@ -49,5 +50,11 @@ export const workspaceRuntimeRoutes: readonly WorkspaceRuntimeRoute[] = workspac
   .map((route) => {
     const loader = routeLoaders[route.id];
     if (!loader) throw new Error(`Aucun loader lazy pour la route workspace ${route.id}.`);
-    return Object.freeze({ id: route.id, path: route.path, Component: lazy(loader), requiredCapabilities: route.requiredCapabilities ?? [] });
+    return Object.freeze({
+      id: route.id,
+      path: route.path,
+      Component: lazy(loader),
+      requiredCapabilities: route.requiredCapabilities ?? [],
+      ...(route.requiredTenantRole ? { requiredTenantRole: route.requiredTenantRole } : {}),
+    });
   });

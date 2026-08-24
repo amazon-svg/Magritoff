@@ -3,6 +3,7 @@ import {
   createInvitationCommandSchema,
   createInvitationResultSchema,
   invitationOptionsSchema,
+  invitationActivationSchema,
   pendingInvitationsSchema,
   resendInvitationCommandSchema,
   resendInvitationResultSchema,
@@ -16,6 +17,19 @@ import { defineJsonRoute, type ApiRequestContext, type ApiRoute } from './routes
 
 export function createInvitationsRoutes(service: InvitationsService): readonly ApiRoute[] {
   return [
+    defineJsonRoute({
+      method: 'GET', path: `${API_V1_BASE_PATH}/invitations/{token}/activation`,
+      authentication: 'public', inputSchema: null, outputSchema: invitationActivationSchema,
+      async handle(context) {
+        const token = requireInvitationToken(context);
+        try {
+          return { status: 200, headers: { 'Cache-Control': 'no-store' }, body: await service.activation(token) };
+        } catch (error) {
+          if (error instanceof InvitationRejectedError) throw toHttpError(error);
+          throw error;
+        }
+      },
+    }),
     defineJsonRoute({
       method: 'GET', path: `${API_V1_BASE_PATH}/tenants/{tenantId}/invitation-options`,
       authentication: 'required', inputSchema: null, outputSchema: invitationOptionsSchema,
@@ -88,14 +102,14 @@ export function createInvitationsRoutes(service: InvitationsService): readonly A
 
 function toHttpError(error: InvitationRejectedError): ApiHttpError {
   const status = error.code === 'authentication_required' ? 401
-    : error.code === 'permission_denied' || error.code === 'role_mismatch_tenant' ? 403
-      : error.code === 'duplicate_pending' ? 409
+      : error.code === 'permission_denied' || error.code === 'role_mismatch_tenant' ? 403
+      : error.code === 'duplicate_pending' || error.code === 'already_member' ? 409
         : error.code === 'invalid_request' ? 422 : 502;
   return new ApiHttpError({
     type: 'about:blank',
     title: status === 401 ? 'Session expirée'
       : status === 403 ? 'Invitation interdite'
-        : status === 409 ? 'Invitation déjà active'
+        : status === 409 ? (error.code === 'already_member' ? 'Utilisateur déjà membre' : 'Invitation déjà active')
           : status === 422 ? 'Invitation invalide' : 'Envoi de l’invitation impossible',
     status,
     code: `invitations.${error.code}`,
@@ -121,4 +135,12 @@ function requireUuidParam(context: ApiRequestContext, name: string): string {
     throw new ApiHttpError({ type: 'about:blank', title: 'Identifiant invalide', status: 422, code: 'api.validation_failed' });
   }
   return value;
+}
+
+function requireInvitationToken(context: ApiRequestContext): string {
+  const token = context.params.token ?? '';
+  if (!/^[A-Za-z0-9_-]{32,512}$/.test(token)) {
+    throw new ApiHttpError({ type: 'about:blank', title: 'Lien invalide', status: 422, code: 'api.validation_failed' });
+  }
+  return token;
 }

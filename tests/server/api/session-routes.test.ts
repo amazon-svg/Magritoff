@@ -89,6 +89,33 @@ describe('routes session API v1', () => {
     await expect(response.json()).resolves.toMatchObject({ code: 'session.tenant_access_denied' });
   });
 
+  it('transmet le changement de plan au tenant et refuse le plan dans les préférences personnelles', async () => {
+    const repository = repositoryStub();
+    const handler = createApiV1Application({
+      routes: createSessionRoutes(new SessionService(repository)),
+      requestIdFactory: () => 'request-plan-admin',
+      actorResolver: { async resolve() { return { kind: 'user', userId: id('user-af2') }; } },
+    });
+    const client = new SessionApiClient(
+      new FetchApiClient('https://magrit.test', bridgeTo(handler), () => 'jwt-af2'),
+    );
+
+    await client.updateTenantSettings('tenant-af2', { plan: 'pro' });
+    expect(repository.updateTenantSettings).toHaveBeenCalledWith(
+      'user-af2',
+      'tenant-af2',
+      { plan: 'pro' },
+    );
+
+    const response = await handler(new Request('https://magrit.test/api/v1/session/preferences', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ plan: 'enterprise' }),
+    }));
+    expect(response.status).toBe(422);
+    expect(repository.updatePreferences).not.toHaveBeenCalled();
+  });
+
   it('valide le slug tenant avant le repository', async () => {
     const repository = repositoryStub();
     const handler = createApiV1Application({ routes: createSessionRoutes(new SessionService(repository)), requestIdFactory: () => 'request-af15', actorResolver: { async resolve() { return { kind: 'user', userId: id('user-af2') }; } } });

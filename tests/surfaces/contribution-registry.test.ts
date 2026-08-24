@@ -278,7 +278,11 @@ describe('registre des contributions de surfaces', () => {
   it('limite le sélecteur de Plans au workspace', () => {
     expect(plansModuleManifest.surfaces).toEqual(['workspace']);
     expect(applicationContributionRegistry.forSurface('workspace').routes).toContainEqual(
-      expect.objectContaining({ id: 'plans.workspace.selection', path: 'plan' }),
+      expect.objectContaining({
+        id: 'plans.workspace.selection',
+        path: 'plan',
+        requiredTenantRole: 'admin',
+      }),
     );
     expect(applicationContributionRegistry.forSurface('workspace').navigation).toContainEqual(
       expect.objectContaining({ id: 'plans.workspace.navigation', label: 'Plan & abonnement' }),

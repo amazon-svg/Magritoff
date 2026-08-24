@@ -11,6 +11,26 @@ const command = {
 };
 
 describe('InvitationsApiClient', () => {
+  it('résout publiquement l identité portée par le lien', async () => {
+    const token = 'abcdefghijklmnopqrstuvwxyzABCDE_1234567890-token';
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+      email: 'invitee@example.com',
+      tenantName: 'Imprimerie Exemple',
+      accountExists: false,
+      expiresAt: '2026-09-07T12:00:00.000Z',
+    })));
+    const client = new InvitationsApiClient(new FetchApiClient('', fetchMock as typeof fetch));
+
+    await expect(client.activation(token)).resolves.toMatchObject({
+      email: 'invitee@example.com',
+      accountExists: false,
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/v1/invitations/${token}/activation`,
+      expect.any(Object),
+    );
+  });
+
   it('envoie la commande au endpoint API v1 authentifié', async () => {
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
       expect(init?.method).toBe('POST');

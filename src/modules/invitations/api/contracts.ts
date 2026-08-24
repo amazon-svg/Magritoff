@@ -17,6 +17,13 @@ export const createInvitationResultSchema = z.object({
   reason: z.string().optional(),
 });
 
+export const invitationActivationSchema = z.object({
+  email: z.string().email(),
+  tenantName: z.string().min(1),
+  accountExists: z.boolean(),
+  expiresAt: z.string(),
+});
+
 export const invitationOptionsSchema = z.object({
   roles: z.array(z.object({ id: z.string().uuid(), name: z.string(), description: z.string(), systemKey: z.string().nullable().default(null) })),
   shops: z.array(z.object({ id: z.string().uuid(), name: z.string() })),
@@ -40,6 +47,7 @@ export const revokeInvitationResultSchema = z.object({ revoked: z.literal(true) 
 
 export type CreateInvitationCommand = z.infer<typeof createInvitationCommandSchema>;
 export type CreateInvitationResult = z.infer<typeof createInvitationResultSchema>;
+export type InvitationActivation = z.infer<typeof invitationActivationSchema>;
 export type InvitationOptions = z.infer<typeof invitationOptionsSchema>;
 export type PendingInvitation = z.infer<typeof pendingInvitationSchema>;
 export type ResendInvitationResult = z.infer<typeof resendInvitationResultSchema>;

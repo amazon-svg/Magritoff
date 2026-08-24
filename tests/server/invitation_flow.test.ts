@@ -207,6 +207,18 @@ describe.skipIf(SKIP_REASON !== null)('Flux invitation E2E (DB layer)', () => {
     ctx.invitationId = data!.id;
   });
 
+  it('etape 1 bis — le lien résout l email imposé et détecte le compte existant', async () => {
+    const { data, error } = await ctx.anonStranger.rpc('api_get_tenant_invitation_activation', {
+      p_token: ctx.invitationToken,
+    });
+    expect(error).toBeNull();
+    expect(data).toHaveLength(1);
+    expect(data![0]).toMatchObject({
+      invitation_email: ctx.inviteeEmail.toLowerCase(),
+      account_exists: true,
+    });
+  });
+
   it('etape 2 — accept par un autre user echoue avec EMAIL_MISMATCH', async () => {
     const { error } = await ctx.anonStranger.rpc('accept_tenant_invitation', {
       p_token: ctx.invitationToken,
@@ -221,6 +233,23 @@ describe.skipIf(SKIP_REASON !== null)('Flux invitation E2E (DB layer)', () => {
       .eq('id', ctx.invitationId)
       .single();
     expect(inv?.accepted_at).toBeNull();
+  });
+
+  it('etape 2 bis — renvoyer invalide l ancien lien et renouvelle l échéance', async () => {
+    const previousToken = ctx.invitationToken;
+    const { data, error } = await ctx.anonOwner.rpc('api_reissue_tenant_invitation', {
+      p_invitation_id: ctx.invitationId,
+    });
+    expect(error).toBeNull();
+    expect(data).toHaveLength(1);
+    expect(data![0].invitation_token).not.toBe(previousToken);
+    expect(new Date(data![0].invitation_expires_at).getTime()).toBeGreaterThan(Date.now());
+
+    const { error: oldLinkError } = await ctx.anonInvitee.rpc('accept_tenant_invitation', {
+      p_token: previousToken,
+    });
+    expect(oldLinkError?.message).toMatch(/Invitation invalide/i);
+    ctx.invitationToken = data![0].invitation_token;
   });
 
   it('etape 3 — accept par le user cible cree membership + role assignment', async () => {
@@ -264,11 +293,43 @@ describe.skipIf(SKIP_REASON !== null)('Flux invitation E2E (DB layer)', () => {
     expect(inv?.accepted_at).not.toBeNull();
   });
 
-  it('etape 4 — replay accept echoue (idempotence)', async () => {
-    const { error } = await ctx.anonInvitee.rpc('accept_tenant_invitation', {
+  it('etape 4 — replay par le même compte reste un succès idempotent', async () => {
+    const { data, error } = await ctx.anonInvitee.rpc('accept_tenant_invitation', {
       p_token: ctx.invitationToken,
     });
-    expect(error).toBeTruthy();
-    expect(error!.message).toMatch(/invalide|deja acceptee/i);
+    expect(error).toBeNull();
+    expect(data).toBe(ctx.tenantId);
+  });
+
+  it('etape 5 — un membre existant ne peut pas être réinvité', async () => {
+    const { error } = await ctx.anonOwner.rpc('api_create_tenant_invitation', {
+      p_tenant_id: ctx.tenantId,
+      p_email: ctx.inviteeEmail,
+      p_access_scope: 'magrit_full',
+      p_allowed_shop_ids: [],
+      p_role_definition_ids: [],
+      p_role: 'member',
+    });
+    expect(error?.message).toMatch(/already_member/i);
+  });
+
+  it('etape 6 — seul l admin du tenant peut modifier son plan', async () => {
+    const { data: memberUpdate, error: memberError } = await ctx.anonInvitee
+      .from('tenants')
+      .update({ plan: 'enterprise' })
+      .eq('id', ctx.tenantId)
+      .select('plan')
+      .maybeSingle();
+    expect(memberError).toBeNull();
+    expect(memberUpdate).toBeNull();
+
+    const { data: adminUpdate, error: adminError } = await ctx.anonOwner
+      .from('tenants')
+      .update({ plan: 'pro' })
+      .eq('id', ctx.tenantId)
+      .select('plan')
+      .single();
+    expect(adminError).toBeNull();
+    expect(adminUpdate?.plan).toBe('pro');
   });
 });

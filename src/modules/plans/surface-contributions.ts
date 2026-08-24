@@ -7,6 +7,7 @@ export const plansWorkspaceContribution = defineSurfaceContribution({
     id: 'plans.workspace.selection', moduleId: 'plans',
     featureId: 'plans.workspace-selection', surface: 'workspace',
     path: 'plan', mount: 'router',
+    requiredTenantRole: 'admin',
   }],
   navigation: [{
     id: 'plans.workspace.navigation', moduleId: 'plans',
