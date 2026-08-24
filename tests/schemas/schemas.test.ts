@@ -10,13 +10,13 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { cartItemSchema } from '../../src/schemas/cartItem.schema';
-import { clariprintQuoteSchema } from '../../src/schemas/clariprintPayload.schema';
-import { productDefinitionSchema } from '../../src/schemas/productDefinition.schema';
+import { cartItemSchema } from '@/schemas/cartItem.schema';
+import { clariprintQuoteSchema } from '@/schemas/clariprintPayload.schema';
+import { productDefinitionSchema } from '@/schemas/productDefinition.schema';
 import {
   shopOrderInsertSchema,
   shopOrderItemSchema,
-} from '../../src/schemas/shopOrder.schema';
+} from '@/schemas/shopOrder.schema';
 
 describe('cartItemSchema - cart item zod', () => {
   it('1. Cart item valide avec qty=1 → parse OK', () => {

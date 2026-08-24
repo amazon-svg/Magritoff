@@ -5,7 +5,7 @@ import {
   SECURE_STOREFRONT_SESSION_COOKIE,
   serializeStorefrontSessionCookie,
   storefrontSessionCookiePolicy,
-} from '../../../src/server/storefront/session-cookie';
+} from '@/server/storefront/session-cookie';
 
 const TOKEN = 'abcdefghijklmnopqrstuvwxyzABCDE_1234567890-opaque';
 

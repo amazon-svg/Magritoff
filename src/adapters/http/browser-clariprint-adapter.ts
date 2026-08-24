@@ -31,7 +31,7 @@
  *   }
  *
  * Note : la sanitization elle-meme reste implementee dans
- * src/app/utils/clariprintQuote.ts (validateClariprintResponse) pour
+ * modules/clariprint (validateClariprintResponse) pour
  * compatibilite avec les call-sites existants. L'adapter delegue a cette
  * fonction pour garantir UN SEUL ENDROIT de validation (DRY).
  */
@@ -39,7 +39,7 @@
 import {
   validateClariprintResponse,
   type ClariprintQuoteResult,
-} from "../../app/utils/clariprintQuote";
+} from '../../modules/clariprint/index.ts';
 import { ClariprintApiClient } from '../../modules/clariprint/api/client.ts';
 import {
   ClariprintPricingError as ClariprintError,

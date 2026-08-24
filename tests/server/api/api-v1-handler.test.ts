@@ -2,8 +2,8 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { z } from 'zod';
 import { describe, expect, it, vi } from 'vitest';
-import { fixedClock, parseId, type TenantId, type UserId } from '../../../src/kernel';
-import { createApiV1Application, createApiV1Handler, defineJsonRoute } from '../../../src/server/api';
+import { fixedClock, parseId, type TenantId, type UserId } from '@/kernel';
+import { createApiV1Application, createApiV1Handler, defineJsonRoute } from '@/server/api';
 
 const requestIdFactory = () => 'request-af1';
 

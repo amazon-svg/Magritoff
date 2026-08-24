@@ -9,7 +9,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { resolveProductChips } from '../../src/app/utils/productAttributeChips';
+import { resolveProductChips } from '@/modules/catalog/ui/helpers/productAttributeChips';
 
 describe('productAttributeChips — resolveProductChips', () => {
   it('extrait format + grammage + finition pour une carte de visite', () => {

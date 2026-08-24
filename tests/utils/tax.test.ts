@@ -11,7 +11,7 @@ import {
   extractTaxAmount,
   formatTaxLabel,
   getTaxRate,
-} from '../../src/app/utils/tax';
+} from '@/modules/orders/ui/helpers/tax';
 import {
   domTomTenant,
   exportEuTenant,

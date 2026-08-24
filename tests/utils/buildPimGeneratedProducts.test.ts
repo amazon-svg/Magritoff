@@ -8,8 +8,8 @@ import {
   isPimGenerated,
   PIM_GENERATED_SOURCE,
   PIM_DEFAULT_QUANTITY,
-} from '../../src/app/utils/buildPimGeneratedProducts';
-import type { Gamme } from '../../src/app/utils/productEnrichment';
+} from '@/modules/libraries/ui/helpers/buildPimGeneratedProducts';
+import type { Gamme } from '@/modules/catalog/ui/helpers/productEnrichment';
 
 const gamme = (slug: string, name: string, matching_rules: any = {}): Gamme =>
   ({ slug, name, matching_rules } as Gamme);

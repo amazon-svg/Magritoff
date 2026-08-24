@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { parseId } from '../../src/kernel/ids';
-import { RolesService } from '../../src/modules/roles/application/roles-service';
-import { RoleRejectedError, type RolesRepository } from '../../src/modules/roles/application/roles-repository';
-import { createApiV1Application } from '../../src/server/api/composition';
-import { createRolesRoutes } from '../../src/server/api/roles-routes';
+import { parseId } from '@/kernel/ids';
+import { RolesService } from '@/modules/roles/application/roles-service';
+import { RoleRejectedError, type RolesRepository } from '@/modules/roles/application/roles-repository';
+import { createApiV1Application } from '@/server/api/composition';
+import { createRolesRoutes } from '@/server/api/roles-routes';
 
 const actor = parseId<'UserId'>('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
 if (!actor.ok) throw new Error('acteur invalide');

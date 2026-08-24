@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { formatValidateErrorMessage } from '../../../../src/app/components/shop/portal/orderValidation.helpers';
+import { formatValidateErrorMessage } from '@/modules/orders/ui/storefront/orderValidation.helpers';
 
 describe('formatValidateErrorMessage', () => {
   it('null / undefined → message reseau generique', () => {

@@ -1,5 +1,6 @@
-import { createContext, type ReactNode, useContext } from 'react';
+import { createContext, type ReactNode, useContext, useMemo } from 'react';
 import type { FetchApiClient } from '../api';
+import type { BrowserRuntime } from './browser-runtime';
 
 export type WorkspaceUiActor = Readonly<{
   userId: string;
@@ -18,6 +19,9 @@ export type WorkspaceUiRuntime = Readonly<{
   apiClient: FetchApiClient;
   apiForAccessToken(accessToken: string): FetchApiClient;
   refreshAccessToken(): Promise<string | null>;
+  assistant: BrowserRuntime['assistant'];
+  clariprint: ReturnType<BrowserRuntime['createClariprint']>;
+  mockups: BrowserRuntime['mockups'];
 }>;
 
 const WorkspaceUiRuntimeContext = createContext<WorkspaceUiRuntime | null>(null);
@@ -45,4 +49,12 @@ export function useWorkspaceUiRuntime(): WorkspaceUiRuntime {
     throw new Error('Module workspace UI requires WorkspaceUiRuntimeProvider');
   }
   return runtime;
+}
+
+type ApiClientConstructor<T> = new (client: FetchApiClient) => T;
+
+/** Construit une façade de module à partir du transport injecté par la surface. */
+export function useWorkspaceApi<T>(Client: ApiClientConstructor<T>): T {
+  const { apiClient } = useWorkspaceUiRuntime();
+  return useMemo(() => new Client(apiClient), [Client, apiClient]);
 }

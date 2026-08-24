@@ -14,9 +14,9 @@ import {
   isAddDisabled,
   resolveFinalPriceHT,
   type ConfiguratorPhase,
-} from '../../src/app/hooks/useProductConfigurator';
-import { extractInitialOptions } from '../../src/app/components/shop/ProductOverlay.helpers';
-import type { ShopProduct } from '../../src/app/contexts/ShopsContext';
+} from '@/modules/clariprint/ui/hooks/useProductConfigurator';
+import { extractInitialOptions } from '@/modules/catalog/ui/storefront/ProductOverlay.helpers';
+import type { ShopProduct } from '@/modules/shops/ui/runtime/ShopsContext';
 
 const product = {
   id: 'p-1',

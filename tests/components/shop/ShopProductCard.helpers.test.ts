@@ -7,8 +7,8 @@ import {
   resolveMockupTemplate,
   resolveProductDimensions,
   parseFormatToDimensions,
-} from "../../../src/app/components/shop/ShopProductCard.helpers";
-import type { ShopProduct } from "../../../src/app/contexts/ShopsContext";
+} from "@/modules/catalog/ui/storefront/ShopProductCard.helpers";
+import type { ShopProduct } from "@/modules/shops/ui/runtime/ShopsContext";
 
 function makeProduct(config: Record<string, unknown>): ShopProduct {
   return {

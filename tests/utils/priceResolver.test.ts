@@ -14,8 +14,8 @@ import {
   estimateMarketPriceHT,
   formatPrice,
   resolvePrice,
-} from '../../src/app/utils/priceResolver';
-import type { ClariprintQuoteResult } from '../../src/app/utils/clariprintQuote';
+} from '@/modules/clariprint/ui/helpers/priceResolver';
+import type { ClariprintQuoteResult } from '@/modules/clariprint';
 
 const baseProduct = {
   name: 'Flyer A5 quadri',

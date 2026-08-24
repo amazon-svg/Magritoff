@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 describe('StorefrontUnavailable', () => {
   const source = readFileSync(
-    resolve(process.cwd(), 'src/app/components/shop/StorefrontUnavailable.tsx'),
+    resolve(process.cwd(), 'src/modules/shops/ui/storefront/StorefrontUnavailable.tsx'),
     'utf8',
   );
 

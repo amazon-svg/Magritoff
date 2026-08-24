@@ -1,0 +1,1 @@
+export { DashboardAccount } from './AccountPage';

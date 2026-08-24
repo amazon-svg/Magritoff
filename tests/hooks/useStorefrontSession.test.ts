@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { ApiClientError } from '../../src/platform/api';
-import { isMissingStorefrontSession } from '../../src/app/hooks/useStorefrontSession';
+import { ApiClientError } from '@/platform/api';
+import { isMissingStorefrontSession } from '@/modules/shop-customers/ui/hooks/useStorefrontSession';
 
 function apiError(status: number, code: string): ApiClientError {
   return new ApiClientError({

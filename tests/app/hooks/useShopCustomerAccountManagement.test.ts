@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { shopCustomerManagementError } from '../../../src/app/hooks/useShopCustomerAccountManagement';
+import { shopCustomerManagementError } from '@/modules/shop-customers/ui/hooks/useShopCustomerAccountManagement';
 
 describe('shopCustomerManagementError', () => {
   it('conserve un message métier exploitable', () => {

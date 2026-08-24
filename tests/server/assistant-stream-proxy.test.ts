@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { proxyAssistantChat } from '../../src/server/api/assistant-stream-proxy';
+import { proxyAssistantChat } from '@/server/api/assistant-stream-proxy';
 
 function request(body: unknown, streaming = true) {
   return new Request('https://magrit.test/api/v1/assistant/chat', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(streaming ? { Accept: 'text/event-stream' } : {}) }, body: JSON.stringify(body) });

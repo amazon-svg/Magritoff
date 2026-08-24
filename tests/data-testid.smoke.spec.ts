@@ -21,7 +21,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { TEST_IDS } from '../src/shared/presentation/testIds';
+import { TEST_IDS } from '@/shared/presentation/testIds';
 
 const SRC_ROOTS = [
   resolve(__dirname, '..', 'src', 'app'),

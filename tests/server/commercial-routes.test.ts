@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { parseId } from '../../src/kernel/ids';
-import { CommercialApiClient } from '../../src/modules/commercial/api/client';
-import type { CommercialRepository } from '../../src/modules/commercial/application/commercial-repository';
-import { CommercialService } from '../../src/modules/commercial/application/commercial-service';
-import { FetchApiClient } from '../../src/platform/api';
-import { createApiV1Application } from '../../src/server/api/composition';
-import { createCommercialRoutes } from '../../src/server/api/commercial-routes';
+import { parseId } from '@/kernel/ids';
+import { CommercialApiClient } from '@/modules/commercial/api/client';
+import type { CommercialRepository } from '@/modules/commercial/application/commercial-repository';
+import { CommercialService } from '@/modules/commercial/application/commercial-service';
+import { FetchApiClient } from '@/platform/api';
+import { createApiV1Application } from '@/server/api/composition';
+import { createCommercialRoutes } from '@/server/api/commercial-routes';
 
 const actor = parseId<'UserId'>('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
 if (!actor.ok) throw new Error('actor');

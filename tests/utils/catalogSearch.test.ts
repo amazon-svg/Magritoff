@@ -9,8 +9,8 @@ import {
   buildSearchSuggestions,
   hasNoMatch,
   MIN_QUERY_LENGTH,
-} from '../../src/app/utils/catalogSearch';
-import type { Gamme } from '../../src/app/utils/productEnrichment';
+} from '@/modules/catalog/ui/helpers/catalogSearch';
+import type { Gamme } from '@/modules/catalog/ui/helpers/productEnrichment';
 
 const gammes: Gamme[] = [
   { slug: 'affiche', name: 'Affiches', parent_slug: null } as never,

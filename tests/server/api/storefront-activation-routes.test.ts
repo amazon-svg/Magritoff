@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
-import { parseId, type UserId } from '../../../src/kernel';
+import { parseId, type UserId } from '@/kernel';
 import {
   StorefrontActivationService,
   type StorefrontActivationEmailSender,
   type StorefrontActivationGateway,
-} from '../../../src/modules/shop-customers';
-import { createApiV1Application, createStorefrontActivationRoutes } from '../../../src/server/api';
-import { storefrontSessionCookiePolicy } from '../../../src/server/storefront/session-cookie';
+} from '@/modules/shop-customers';
+import { createApiV1Application, createStorefrontActivationRoutes } from '@/server/api';
+import { storefrontSessionCookiePolicy } from '@/server/storefront/session-cookie';
 
 const ACTOR = '11111111-1111-4111-8111-111111111111';
 const TENANT = '22222222-2222-4222-8222-222222222222';

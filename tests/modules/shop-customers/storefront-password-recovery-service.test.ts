@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { StorefrontPasswordRecoveryService, StorefrontPasswordResetRejectedError, type StorefrontPasswordRecoveryGateway } from '../../../src/modules/shop-customers';
+import { StorefrontPasswordRecoveryService, StorefrontPasswordResetRejectedError, type StorefrontPasswordRecoveryGateway } from '@/modules/shop-customers';
 
 describe('StorefrontPasswordRecoveryService', () => {
   it('normalise la demande et envoie le lien sans le retourner au client', async () => {

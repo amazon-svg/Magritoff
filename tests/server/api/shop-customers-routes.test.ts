@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseId, type UserId } from '../../../src/kernel';
+import { parseId, type UserId } from '@/kernel';
 import {
   ShopCustomersApiClient,
   ShopCustomerInvitationService,
@@ -9,13 +9,13 @@ import {
   type ShopCustomersRepository,
   type StorefrontActivationEmailSender,
   type StorefrontActivationGateway,
-} from '../../../src/modules/shop-customers';
-import { FetchApiClient } from '../../../src/platform/api';
+} from '@/modules/shop-customers';
+import { FetchApiClient } from '@/platform/api';
 import {
   createApiV1Application,
   createShopCustomerInvitationRoutes,
   createShopCustomersRoutes,
-} from '../../../src/server/api';
+} from '@/server/api';
 
 const TENANT = '11111111-1111-4111-8111-111111111111';
 const SHOP = '22222222-2222-4222-8222-222222222222';

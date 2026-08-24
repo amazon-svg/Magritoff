@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { BrowserApiAssistantGateway } from '../../../src/adapters/http/browser-assistant-gateway';
-import { AssistantStreamError } from '../../../src/modules/diagnostics';
+import { BrowserApiAssistantGateway } from '@/adapters/http/browser-assistant-gateway';
+import { AssistantStreamError } from '@/modules/diagnostics';
 
 describe('BrowserApiAssistantGateway', () => {
   afterEach(() => vi.unstubAllGlobals());

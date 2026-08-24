@@ -3,11 +3,11 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const source = readFileSync(
-  resolve(process.cwd(), 'src/app/components/shop/StorefrontActivationPage.tsx'),
+  resolve(process.cwd(), 'src/modules/shop-customers/ui/storefront/StorefrontActivationPage.tsx'),
   'utf8',
 );
 const credentialSetup = readFileSync(
-  resolve(process.cwd(), 'src/app/hooks/useStorefrontCredentialSetup.ts'),
+  resolve(process.cwd(), 'src/modules/shop-customers/ui/hooks/useStorefrontCredentialSetup.ts'),
   'utf8',
 );
 
@@ -15,7 +15,7 @@ describe('StorefrontActivationPage', () => {
   it('passe par la façade storefront anonyme sans accès direct à Supabase', () => {
     expect(source).toContain('useStorefrontCredentialSetup');
     expect(source).not.toContain('useStorefrontIdentityApi');
-    expect(credentialSetup).toContain('useStorefrontIdentityApi');
+    expect(credentialSetup).toContain('useStorefrontApi(StorefrontIdentityApiClient)');
     expect(credentialSetup).toContain('api.activate({ token, password })');
     expect(credentialSetup).toContain('api.resetPassword({ token, password })');
     expect(source).not.toContain('supabase');

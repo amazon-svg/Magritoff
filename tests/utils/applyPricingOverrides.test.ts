@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { applyPricingOverrides } from "../../src/app/utils/applyPricingOverrides";
+import { applyPricingOverrides } from "@/modules/catalog/ui/helpers/applyPricingOverrides";
 
 describe("applyPricingOverrides — A4.5 tarif négocié per-shop", () => {
   const baseProducts = [

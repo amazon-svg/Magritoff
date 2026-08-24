@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { portalRuntimePaths, shopRootPath } from '../../src/app/surfaces/portalRuntimePaths';
+import { portalRuntimePaths, shopRootPath } from '@/app/surfaces/portalRuntimePaths';
 
 describe('chemins runtime du portail', () => {
   it('résout les routes host depuis les contributions de surfaces', () => {

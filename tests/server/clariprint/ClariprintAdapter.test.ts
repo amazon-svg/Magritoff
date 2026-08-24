@@ -14,7 +14,7 @@ import {
   ClariprintError,
   ClariprintMockAdapter,
   computeClariprintQuoteSafe,
-} from '../../../src/adapters/http/browser-clariprint-adapter';
+} from '@/adapters/http/browser-clariprint-adapter';
 
 describe('ClariprintMockAdapter - chemin nominal', () => {
   let mock: ClariprintMockAdapter;

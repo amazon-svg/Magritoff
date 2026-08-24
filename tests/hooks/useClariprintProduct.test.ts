@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { useClariprintProduct } from '../../src/app/hooks/useClariprintProduct';
+import { useClariprintProduct } from '@/modules/clariprint/ui/hooks/useClariprintProduct';
 
 describe('useClariprintProduct - contrat exporte', () => {
   it('1. hook est une fonction', () => {

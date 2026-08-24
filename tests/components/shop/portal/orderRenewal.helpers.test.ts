@@ -6,8 +6,8 @@ import { describe, it, expect } from 'vitest';
 import {
   rebuildCartFromOrderItems,
   type OrderItemRow,
-} from '../../../../src/app/components/shop/portal/orderRenewal.helpers';
-import type { ShopProduct } from '../../../../src/app/contexts/ShopsContext';
+} from '@/modules/orders/ui/storefront/orderRenewal.helpers';
+import type { ShopProduct } from '@/modules/shops/ui/runtime/ShopsContext';
 
 function makeProduct(overrides: Partial<ShopProduct>): ShopProduct {
   return {

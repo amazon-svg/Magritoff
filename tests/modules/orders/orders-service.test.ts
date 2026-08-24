@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { parseId, type UserId } from '../../../src/kernel';
+import { parseId, type UserId } from '@/kernel';
 import {
   OrdersService,
   type OrdersRepository,
-} from '../../../src/modules/orders';
+} from '@/modules/orders';
 
 describe('OrdersService', () => {
   it('agrège les cohortes tenant et legacy sans exposer leurs rows', async () => {

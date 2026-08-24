@@ -3,15 +3,15 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const banner = readFileSync(
-  resolve(process.cwd(), 'src/app/components/shop/StorefrontDelegationBanner.tsx'),
+  resolve(process.cwd(), 'src/modules/shop-customers/ui/storefront/StorefrontDelegationBanner.tsx'),
   'utf8',
 );
 const shop = readFileSync(
-  resolve(process.cwd(), 'src/app/components/shop/PublicShop.tsx'),
+  resolve(process.cwd(), 'src/modules/shops/ui/storefront/PublicShop.tsx'),
   'utf8',
 );
 const sessionHook = readFileSync(
-  resolve(process.cwd(), 'src/app/hooks/useStorefrontSession.ts'),
+  resolve(process.cwd(), 'src/modules/shop-customers/ui/hooks/useStorefrontSession.ts'),
   'utf8',
 );
 

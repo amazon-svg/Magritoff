@@ -1,0 +1,1 @@
+export { useTenantPath } from './useTenantPath';

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { MembersApiClient } from '../../../src/modules/members/api/client';
-import { FetchApiClient } from '../../../src/platform/api/fetch-api-client';
+import { MembersApiClient } from '@/modules/members/api/client';
+import { FetchApiClient } from '@/platform/api/fetch-api-client';
 
 describe('MembersApiClient', () => {
   it('utilise uniquement les routes API membres', async () => {

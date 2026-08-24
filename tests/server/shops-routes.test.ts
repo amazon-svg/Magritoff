@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { parseId } from '../../src/kernel/ids';
-import { ShopsService } from '../../src/modules/shops/application/shops-service';
-import { ShopRejectedError, type ShopsRepository } from '../../src/modules/shops/application/shops-repository';
-import { createApiV1Application } from '../../src/server/api/composition';
-import { createShopsRoutes } from '../../src/server/api/shops-routes';
-import { StorefrontSessionService } from '../../src/modules/shop-customers';
-import { storefrontSessionCookiePolicy } from '../../src/server/storefront/session-cookie';
+import { parseId } from '@/kernel/ids';
+import { ShopsService } from '@/modules/shops/application/shops-service';
+import { ShopRejectedError, type ShopsRepository } from '@/modules/shops/application/shops-repository';
+import { createApiV1Application } from '@/server/api/composition';
+import { createShopsRoutes } from '@/server/api/shops-routes';
+import { StorefrontSessionService } from '@/modules/shop-customers';
+import { storefrontSessionCookiePolicy } from '@/server/storefront/session-cookie';
 
 const parsed = parseId<'UserId'>('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'); if (!parsed.ok) throw new Error('actor');
 const tenantId = '11111111-1111-4111-8111-111111111111';

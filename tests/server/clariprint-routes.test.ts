@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { ClariprintApiClient } from '../../src/modules/clariprint/api/client';
-import type { ClariprintQuoteGateway } from '../../src/modules/clariprint/application/clariprint-quote-gateway';
-import { ClariprintService } from '../../src/modules/clariprint/application/clariprint-service';
-import { FetchApiClient } from '../../src/platform/api';
-import { createApiV1Application } from '../../src/server/api/composition';
-import { createClariprintRoutes } from '../../src/server/api/clariprint-routes';
+import { ClariprintApiClient } from '@/modules/clariprint/api/client';
+import type { ClariprintQuoteGateway } from '@/modules/clariprint/application/clariprint-quote-gateway';
+import { ClariprintService } from '@/modules/clariprint/application/clariprint-service';
+import { FetchApiClient } from '@/platform/api';
+import { createApiV1Application } from '@/server/api/composition';
+import { createClariprintRoutes } from '@/server/api/clariprint-routes';
 
 describe('route API devis Clariprint', () => {
   it('partage le contrat avec le client navigateur et reste disponible au storefront public', async () => {

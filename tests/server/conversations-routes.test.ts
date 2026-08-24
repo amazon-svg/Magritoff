@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { parseId } from '../../src/kernel/ids';
-import { ConversationsApiClient } from '../../src/modules/conversations/api/client';
-import { ConversationRejectedError, type ConversationsRepository } from '../../src/modules/conversations/application/conversations-repository';
-import { ConversationsService } from '../../src/modules/conversations/application/conversations-service';
-import { FetchApiClient } from '../../src/platform/api';
-import { createApiV1Application } from '../../src/server/api/composition';
-import { createConversationsRoutes } from '../../src/server/api/conversations-routes';
+import { parseId } from '@/kernel/ids';
+import { ConversationsApiClient } from '@/modules/conversations/api/client';
+import { ConversationRejectedError, type ConversationsRepository } from '@/modules/conversations/application/conversations-repository';
+import { ConversationsService } from '@/modules/conversations/application/conversations-service';
+import { FetchApiClient } from '@/platform/api';
+import { createApiV1Application } from '@/server/api/composition';
+import { createConversationsRoutes } from '@/server/api/conversations-routes';
 
 const parsed = parseId<'UserId'>('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'); if (!parsed.ok) throw new Error('actor');
 const tenantId = '11111111-1111-4111-8111-111111111111';

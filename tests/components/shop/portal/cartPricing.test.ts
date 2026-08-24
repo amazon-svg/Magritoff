@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { computePortalCartTotalHt, resolveCartLinePricing } from '../../../../src/app/components/shop/portal/cartPricing';
-import type { CartLine } from '../../../../src/app/components/shop/portal/types';
+import { computePortalCartTotalHt, resolveCartLinePricing } from '@/modules/orders/ui/storefront/cartPricing';
+import type { CartLine } from '@/modules/orders/ui/storefront/types';
 
 function line(priceHt: number, qty = 1): CartLine {
   return {

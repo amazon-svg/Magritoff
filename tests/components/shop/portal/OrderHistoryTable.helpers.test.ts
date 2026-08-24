@@ -9,8 +9,8 @@ import { describe, it, expect } from 'vitest';
 import {
   applyFilters,
   applySort,
-} from '../../../../src/app/components/shop/portal/OrderHistoryTable';
-import type { OrderUI } from '../../../../src/app/components/shop/portal/PortalOrders.helpers';
+} from '@/modules/orders/ui/storefront/OrderHistoryTable';
+import type { OrderUI } from '@/modules/orders/ui/storefront/PortalOrders.helpers';
 
 function makeOrder(overrides: Partial<OrderUI>): OrderUI {
   return {

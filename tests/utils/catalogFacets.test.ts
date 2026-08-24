@@ -10,7 +10,7 @@ import {
   derivePriceFacets,
   applyFacets,
   hasActiveFacets,
-} from '../../src/app/utils/catalogFacets';
+} from '@/modules/catalog/ui/helpers/catalogFacets';
 
 const p = (id: string, format: string, price_ht: number) =>
   ({ id, config: { format }, price_ht }) as never;

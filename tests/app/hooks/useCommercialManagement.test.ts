@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { commercialManagementError } from '../../../src/app/hooks/useCommercialManagement';
+import { commercialManagementError } from '@/modules/commercial/ui/hooks/useCommercialManagement';
 
 describe('useCommercialManagement helpers', () => {
   it('conserve le message métier et fournit un fallback stable', () => {

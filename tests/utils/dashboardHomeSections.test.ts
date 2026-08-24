@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { resolvePendingQuotes } from '../../src/app/utils/dashboardHomeSections';
+import { resolvePendingQuotes } from '@/modules/quotes/ui/helpers/dashboardHomeSections';
 
 const q = (id: string, status: string, created_at?: string) =>
   ({ id, status, created_at }) as { id: string; status: string; created_at?: string };

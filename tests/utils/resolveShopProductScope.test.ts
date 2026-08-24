@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { resolveShopProductScope } from "../../src/app/utils/resolveShopProductScope";
+import { resolveShopProductScope } from "@/modules/shops/ui/helpers/resolveShopProductScope";
 
 const P = (
   id: string,

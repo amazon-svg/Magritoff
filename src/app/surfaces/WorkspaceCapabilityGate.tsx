@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Navigate } from 'react-router';
-import { useAccessProfile } from '../contexts/AccessProfileContext';
-import { useTenant } from '../contexts/TenantContext';
+import { useAccessProfile } from '@/modules/roles/ui/runtime';
+import { useTenant } from '@/modules/tenants/ui/runtime';
 
 export function WorkspaceCapabilityGate({
   requiredCapabilities,

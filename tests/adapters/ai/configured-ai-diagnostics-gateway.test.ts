@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ConfiguredAiDiagnosticsGateway, aiProviderConfigurationFromEnvironment } from '../../../src/adapters/ai/configured-ai-diagnostics-gateway';
+import { ConfiguredAiDiagnosticsGateway, aiProviderConfigurationFromEnvironment } from '@/adapters/ai/configured-ai-diagnostics-gateway';
 
 describe('ConfiguredAiDiagnosticsGateway', () => {
   it('sélectionne OpenAI et son protocole sans exposer la clé', async () => {

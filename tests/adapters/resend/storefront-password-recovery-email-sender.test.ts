@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ResendStorefrontPasswordRecoveryEmailSender } from '../../../src/adapters/resend/storefront-password-recovery-email-sender';
+import { ResendStorefrontPasswordRecoveryEmailSender } from '@/adapters/resend/storefront-password-recovery-email-sender';
 
 describe('ResendStorefrontPasswordRecoveryEmailSender', () => {
   it('reste silencieux sans clé et n appelle pas le réseau', async () => {

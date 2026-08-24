@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveShopAccess } from "../../../src/app/components/shop/ShopAccessGuard.helpers";
+import { resolveShopAccess } from "@/modules/shops/ui/storefront/ShopAccessGuard.helpers";
 
 describe("resolveShopAccess", () => {
   it("demande une session storefront pour une boutique sur invitation", () => {

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { parseId } from '../../src/kernel/ids';
-import { MembersService } from '../../src/modules/members/application/members-service';
-import { MemberRejectedError, type MembersRepository } from '../../src/modules/members/application/members-repository';
-import { createApiV1Application } from '../../src/server/api/composition';
-import { createMembersRoutes } from '../../src/server/api/members-routes';
+import { parseId } from '@/kernel/ids';
+import { MembersService } from '@/modules/members/application/members-service';
+import { MemberRejectedError, type MembersRepository } from '@/modules/members/application/members-repository';
+import { createApiV1Application } from '@/server/api/composition';
+import { createMembersRoutes } from '@/server/api/members-routes';
 
 const actor = parseId<'UserId'>('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
 if (!actor.ok) throw new Error('acteur invalide');

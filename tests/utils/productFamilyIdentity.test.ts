@@ -13,8 +13,8 @@ import {
   resolveFamilyIdentity,
   FAMILY_IDENTITY,
   FAMILY_ICON,
-} from '../../src/app/utils/productFamilyIdentity';
-import type { MockupTemplate } from '../../src/app/utils/productMockupAssets';
+} from '@/modules/catalog/ui/helpers/productFamilyIdentity';
+import type { MockupTemplate } from '@/modules/mockups/ui/helpers/productMockupAssets';
 
 const ALL_TEMPLATES: MockupTemplate[] = [
   'flyer',

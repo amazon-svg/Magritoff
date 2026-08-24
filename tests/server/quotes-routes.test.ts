@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { parseId } from '../../src/kernel/ids';
-import { QuotesApiClient } from '../../src/modules/quotes/api/client';
-import type { CreateEditableQuote, CreateQuoteDraft, QuoteRecord } from '../../src/modules/quotes/api/contracts';
-import { QuoteRejectedError, type QuotesRepository } from '../../src/modules/quotes/application/quotes-repository';
-import { QuotesService } from '../../src/modules/quotes/application/quotes-service';
-import { FetchApiClient } from '../../src/platform/api';
-import { createApiV1Application } from '../../src/server/api/composition';
-import { createQuotesRoutes } from '../../src/server/api/quotes-routes';
+import { parseId } from '@/kernel/ids';
+import { QuotesApiClient } from '@/modules/quotes/api/client';
+import type { CreateEditableQuote, CreateQuoteDraft, QuoteRecord } from '@/modules/quotes/api/contracts';
+import { QuoteRejectedError, type QuotesRepository } from '@/modules/quotes/application/quotes-repository';
+import { QuotesService } from '@/modules/quotes/application/quotes-service';
+import { FetchApiClient } from '@/platform/api';
+import { createApiV1Application } from '@/server/api/composition';
+import { createQuotesRoutes } from '@/server/api/quotes-routes';
 
 const parsedActor = parseId<'UserId'>('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
 if (!parsedActor.ok) throw new Error('acteur invalide');

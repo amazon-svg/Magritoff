@@ -2,10 +2,10 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const context = readFileSync(resolve(process.cwd(), 'src/app/contexts/TenantContext.tsx'), 'utf8');
-const picker = readFileSync(resolve(process.cwd(), 'src/app/components/tenant/TenantPicker.tsx'), 'utf8');
-const layout = readFileSync(resolve(process.cwd(), 'src/app/components/tenant/TenantAwareLayout.tsx'), 'utf8');
-const failure = readFileSync(resolve(process.cwd(), 'src/app/components/tenant/TenantLoadError.tsx'), 'utf8');
+const context = readFileSync(resolve(process.cwd(), 'src/modules/tenants/ui/runtime/TenantContext.tsx'), 'utf8');
+const picker = readFileSync(resolve(process.cwd(), 'src/modules/tenants/ui/workspace/TenantPickerPage.tsx'), 'utf8');
+const layout = readFileSync(resolve(process.cwd(), 'src/app/layouts/TenantAwareLayout.tsx'), 'utf8');
+const failure = readFileSync(resolve(process.cwd(), 'src/modules/tenants/ui/components/TenantLoadError.tsx'), 'utf8');
 
 describe('échec du bootstrap des espaces Magrit', () => {
   it('propage l erreur sans la convertir en liste vide métier', () => {

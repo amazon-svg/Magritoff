@@ -1,6 +1,6 @@
 import { createContext, type ReactNode, useContext, useMemo } from 'react';
-import { FetchApiClient } from '../../platform/api';
-import { useAuth } from './AuthContext';
+import { FetchApiClient } from '@/platform/api';
+import { useAuth } from '@/modules/account/ui/runtime';
 
 type ApiRuntime = Readonly<{
   client: FetchApiClient;

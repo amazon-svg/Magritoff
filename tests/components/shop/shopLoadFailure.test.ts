@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { ApiClientError } from '../../../src/platform/api';
-import { classifyShopLoadFailure } from '../../../src/app/components/shop/shopLoadFailure';
+import { ApiClientError } from '@/platform/api';
+import { classifyShopLoadFailure } from '@/modules/shops/ui/storefront/shopLoadFailure';
 
 function apiError(status: number): ApiClientError {
   return new ApiClientError({

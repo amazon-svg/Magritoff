@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
-import { parseId, type UserId } from '../../../src/kernel';
+import { parseId, type UserId } from '@/kernel';
 import {
   SessionService,
   SessionTenantAccessDeniedError,
   type DirectMembership,
   type SessionRepository,
-} from '../../../src/modules/session';
+} from '@/modules/session';
 
 const userId = id('user-af2');
 

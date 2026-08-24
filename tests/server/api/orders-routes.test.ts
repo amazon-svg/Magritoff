@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { parseId, type UserId } from '../../../src/kernel';
+import { parseId, type UserId } from '@/kernel';
 import {
   OrderCommandRejectedError,
   OrdersApiClient,
   OrdersService,
   type OrdersRepository,
-} from '../../../src/modules/orders';
-import { FetchApiClient } from '../../../src/platform/api';
-import { createApiV1Application, createOrdersRoutes } from '../../../src/server/api';
-import { StorefrontSessionService } from '../../../src/modules/shop-customers';
-import { storefrontSessionCookiePolicy } from '../../../src/server/storefront/session-cookie';
+} from '@/modules/orders';
+import { FetchApiClient } from '@/platform/api';
+import { createApiV1Application, createOrdersRoutes } from '@/server/api';
+import { StorefrontSessionService } from '@/modules/shop-customers';
+import { storefrontSessionCookiePolicy } from '@/server/storefront/session-cookie';
 
 describe('routes Orders API v1', () => {
   it('partage les contrats liste, portail et audit entre handler et client', async () => {

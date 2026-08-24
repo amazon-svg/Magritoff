@@ -10,8 +10,8 @@ import {
   parseFormatToWidthHeight,
   formatEuro,
   normalizeDimensions,
-} from "../../../src/app/components/shop/ProductOverlay.helpers";
-import type { ShopProduct } from "../../../src/app/contexts/ShopsContext";
+} from "@/modules/catalog/ui/storefront/ProductOverlay.helpers";
+import type { ShopProduct } from "@/modules/shops/ui/runtime/ShopsContext";
 
 function makeProduct(config: Record<string, unknown>): ShopProduct {
   return {

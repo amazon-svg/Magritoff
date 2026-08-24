@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const migration = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260817000500_storefront_order_audit.sql'), 'utf8');
 const routes = readFileSync(resolve(process.cwd(), 'src/server/api/orders-routes.ts'), 'utf8');
-const helper = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/orderAuditTrail.helpers.ts'), 'utf8');
+const helper = readFileSync(resolve(process.cwd(), 'src/modules/orders/ui/storefront/orderAuditTrail.helpers.ts'), 'utf8');
 
 describe('historique de commande du compte boutique', () => {
   it('exige le compte et la boutique exacts de la commande', () => {

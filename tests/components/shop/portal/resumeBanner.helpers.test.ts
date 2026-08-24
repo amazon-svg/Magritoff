@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildResumeChips,
   type ResumeLastOrder,
-} from '../../../../src/app/components/shop/portal/ResumeBanner';
+} from '@/modules/orders/ui/storefront/ResumeBanner';
 
 const order = (over: Partial<ResumeLastOrder> = {}): ResumeLastOrder => ({
   id: 'o-1',

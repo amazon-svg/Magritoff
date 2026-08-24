@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   activeGammeSlugs,
   gammeSubscriptionError,
-} from '../../../src/app/hooks/useTenantGammeSubscriptions';
+} from '@/modules/catalog/ui/hooks/useTenantGammeSubscriptions';
 
 describe('useTenantGammeSubscriptions helpers', () => {
   it('ne conserve que les souscriptions actives', () => {

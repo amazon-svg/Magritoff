@@ -11,7 +11,7 @@ import {
   type OrderUI,
   type ShopOrderRow,
   type TenantOrderRow,
-} from '../../../../src/app/components/shop/portal/PortalOrders.helpers';
+} from '@/modules/orders/ui/storefront/PortalOrders.helpers';
 
 const SHOP_ID = '9d6d69f8-e26b-4d10-8bd6-ba1519c0338b';
 const TENANT_ID = '662cae96-79e7-4a33-ab98-820a4f758501';

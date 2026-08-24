@@ -23,7 +23,7 @@ function imports(source: string): string[] {
   );
 }
 
-describe('frontières de l UX modulaire MUX0/MUX1', () => {
+describe('frontières de l UX modulaire MUX0-MUX6', () => {
   const sourceRoot = resolve(process.cwd(), 'src');
   const modulesRoot = resolve(sourceRoot, 'modules');
   const moduleUiFiles = listSourceFiles(modulesRoot).filter((file) =>
@@ -78,8 +78,16 @@ describe('frontières de l UX modulaire MUX0/MUX1', () => {
         if (targetRelative.startsWith('..')) return [];
         const [targetModule, ...targetPath] = targetRelative.split('/');
         if (!targetModule || targetModule === owner) return [];
+        const uiRootEntry = resolve(modulesRoot, targetModule, 'ui/index.ts');
+        const explicitlyPublishedLeaf = targetPath.length > 2
+          && targetPath[0] === 'ui'
+          && existsSync(uiRootEntry)
+          && readFileSync(uiRootEntry, 'utf8').includes(`from './${targetPath.slice(1).join('/')}'`);
         const publicEntry = targetPath.length === 0
-          || (targetPath.length === 1 && targetPath[0] === 'ui');
+          || (targetPath.length === 1 && targetPath[0] === 'ui')
+          || (targetPath.length === 2 && targetPath[0] === 'ui'
+            && existsSync(resolve(modulesRoot, targetModule, ...targetPath, 'index.ts')))
+          || explicitlyPublishedLeaf;
         return publicEntry
           ? []
           : [`${relative(sourceRoot, file)} -> ${dependency}`];
@@ -122,7 +130,7 @@ describe('frontières de l UX modulaire MUX0/MUX1', () => {
       resolve(sourceRoot, 'app/surfaces/workspaceRuntimeRoutes.tsx'),
       'utf8',
     );
-    expect(runtime).toContain("import('../../modules/members/ui')");
+    expect(runtime).toContain("import('@/modules/members/ui')");
     expect(runtime).toContain('default: module.MembersPage');
     expect(runtime).toContain('Component: lazy(loader)');
     expect(runtime).not.toContain('components/dashboard/DashboardUsers');

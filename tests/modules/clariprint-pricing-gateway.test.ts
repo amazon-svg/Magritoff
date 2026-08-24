@@ -3,7 +3,7 @@ import {
   ClariprintPricingError,
   computeClariprintQuoteSafe,
   type ClariprintPricingGateway,
-} from '../../src/modules/clariprint';
+} from '@/modules/clariprint';
 
 function gateway(
   computePrice: ClariprintPricingGateway['computePrice'],

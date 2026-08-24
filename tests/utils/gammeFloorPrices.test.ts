@@ -3,9 +3,9 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { computeGammeFloorPrices } from '../../src/app/utils/gammeFloorPrices';
-import type { Gamme } from '../../src/app/utils/productEnrichment';
-import type { ShopProduct } from '../../src/app/contexts/ShopsContext';
+import { computeGammeFloorPrices } from '@/modules/catalog/ui/helpers/gammeFloorPrices';
+import type { Gamme } from '@/modules/catalog/ui/helpers/productEnrichment';
+import type { ShopProduct } from '@/modules/shops/ui/runtime/ShopsContext';
 
 const gammes = [
   { id: '1', slug: 'flyer', name: 'Flyers', parent_slug: null, matching_rules: {}, display_order: 1 },

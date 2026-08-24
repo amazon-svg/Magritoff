@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { LegacyShopCustomerMigrationReportRow } from '../../../src/modules/shop-customers';
-import { summarizeLegacyMigration } from '../../../src/modules/shop-customers/ui';
+import type { LegacyShopCustomerMigrationReportRow } from '@/modules/shop-customers';
+import { summarizeLegacyMigration } from '@/modules/shop-customers/ui';
 
 const row = (
   migrationOutcome: LegacyShopCustomerMigrationReportRow['migrationOutcome'],

@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import type { PendingInvitation } from '../../../src/modules/invitations';
-import type { TenantMember } from '../../../src/modules/members';
+import type { PendingInvitation } from '@/modules/invitations';
+import type { TenantMember } from '@/modules/members';
 import {
   toMagritInvitationRow,
   toMagritMemberRow,
-} from '../../../src/modules/members/ui';
+} from '@/modules/members/ui';
 
 describe('useMagritUsersManagement helpers', () => {
   it('adapte un membre Magrit sans perdre son scope legacy', () => {

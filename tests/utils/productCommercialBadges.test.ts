@@ -17,7 +17,7 @@ import {
   BADGE_META,
   BADGE_PRIORITY,
   type CommercialBadgeKind,
-} from '../../src/app/utils/productCommercialBadges';
+} from '@/modules/catalog/ui/helpers/productCommercialBadges';
 
 describe('productCommercialBadges — resolveCommercialBadges', () => {
   it('ne retourne aucun badge quand aucun flag actif (silence visuel)', () => {

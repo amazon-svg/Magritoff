@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { proxyMockupBinary } from '../../src/adapters/supabase/mockup-binary-proxy';
+import { proxyMockupBinary } from '@/adapters/supabase/mockup-binary-proxy';
 
 describe('façade binaire mockups', () => {
   it('relaie un asset public Storage sans exposer son URL', async () => {

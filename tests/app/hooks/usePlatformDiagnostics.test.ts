@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   diagnosticRequestError,
   emptyDiagnosticResult,
-} from '../../../src/app/hooks/usePlatformDiagnostics';
+} from '@/modules/diagnostics/ui/hooks/usePlatformDiagnostics';
 
 describe('usePlatformDiagnostics helpers', () => {
   it('initialise un test sans résultat ni erreur', () => {

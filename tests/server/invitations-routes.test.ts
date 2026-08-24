@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { parseId } from '../../src/kernel/ids';
-import { InvitationsService } from '../../src/modules/invitations/application/invitations-service';
+import { parseId } from '@/kernel/ids';
+import { InvitationsService } from '@/modules/invitations/application/invitations-service';
 import {
   InvitationRejectedError,
   type InvitationsRepository,
-} from '../../src/modules/invitations/application/invitations-repository';
-import { createApiV1Application } from '../../src/server/api/composition';
-import { createInvitationsRoutes } from '../../src/server/api/invitations-routes';
+} from '@/modules/invitations/application/invitations-repository';
+import { createApiV1Application } from '@/server/api/composition';
+import { createInvitationsRoutes } from '@/server/api/invitations-routes';
 
 const actorId = parseId<'UserId'>('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
 if (!actorId.ok) throw new Error('fixture actor invalide');

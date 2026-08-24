@@ -1,0 +1,1 @@
+export { useQuotePersistence } from './useQuotePersistence';

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import { StorefrontAuthenticationService, StorefrontRegistrationService, StorefrontSessionService, type StorefrontAuthenticationGateway, type StorefrontRegistrationGateway } from '../../../src/modules/shop-customers';
-import { createApiV1Application, createStorefrontSessionRoutes } from '../../../src/server/api';
-import { storefrontSessionCookiePolicy } from '../../../src/server/storefront/session-cookie';
+import { StorefrontAuthenticationService, StorefrontRegistrationService, StorefrontSessionService, type StorefrontAuthenticationGateway, type StorefrontRegistrationGateway } from '@/modules/shop-customers';
+import { createApiV1Application, createStorefrontSessionRoutes } from '@/server/api';
+import { storefrontSessionCookiePolicy } from '@/server/storefront/session-cookie';
 
 const SHOP = '11111111-1111-4111-8111-111111111111';
 const CUSTOMER = '22222222-2222-4222-8222-222222222222';

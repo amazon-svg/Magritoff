@@ -9,9 +9,9 @@ import {
   priceBadgeForPhase,
   resolveGammeInfo,
   selectGammeProducts,
-} from '../../../../src/app/components/shop/gamme/gammePage.helpers';
-import type { Gamme } from '../../../../src/app/utils/productEnrichment';
-import type { ShopProduct } from '../../../../src/app/contexts/ShopsContext';
+} from '@/modules/catalog/ui/storefront/gamme/gammePage.helpers';
+import type { Gamme } from '@/modules/catalog/ui/helpers/productEnrichment';
+import type { ShopProduct } from '@/modules/shops/ui/runtime/ShopsContext';
 
 const gammes = [
   { id: '1', slug: 'flyer', name: 'Flyers', parent_slug: null, matching_rules: {}, display_order: 1 },

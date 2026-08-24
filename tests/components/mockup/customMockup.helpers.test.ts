@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveCustomMockup } from '../../../src/app/components/mockup/customMockup.helpers';
+import { resolveCustomMockup } from '@/modules/mockups/ui/components/customMockup.helpers';
 
 describe('resolveCustomMockup', () => {
   it('résout localement un override déjà autorisé par le catalogue', () => {

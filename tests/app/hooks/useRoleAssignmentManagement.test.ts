@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import type { RolesOverview, UserRolesDetail } from '../../../src/modules/roles';
+import type { RolesOverview, UserRolesDetail } from '@/modules/roles';
 import {
   mapRolesOverview,
   roleAssignmentError,
-} from '../../../src/app/hooks/useRoleAssignmentManagement';
-import { mapMemberOptionsDetail } from '../../../src/modules/members/ui';
+} from '@/modules/roles/ui/hooks/useRoleAssignmentManagement';
+import { mapMemberOptionsDetail } from '@/modules/members/ui';
 
 describe('useRoleAssignmentManagement helpers', () => {
   it('adapte la vue globale à la matrice historique', () => {

@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { resolveGamme, type Gamme } from '../../src/app/utils/productEnrichment';
+import { resolveGamme, type Gamme } from '@/modules/catalog/ui/helpers/productEnrichment';
 
 // Fixtures minimales : seulement les gammes pertinentes aux tests, plus
 // quelques distracteurs pour valider le tri par specificity + filterByName.

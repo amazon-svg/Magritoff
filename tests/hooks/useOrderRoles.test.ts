@@ -14,7 +14,7 @@ import {
   mergeCapabilities,
   type OrderRoleAssignment,
   type OrderRolesState,
-} from '../../src/app/hooks/useOrderRoles';
+} from '@/modules/orders/ui/hooks/useOrderRoles';
 
 const makeRole = (
   caps: Partial<OrderRoleAssignment['capabilities']>,

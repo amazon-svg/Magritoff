@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { formatShortOrderId } from '../../../../src/app/components/shop/portal/PortalThankYou';
+import { formatShortOrderId } from '@/modules/orders/ui/storefront/PortalThankYou';
 
 describe('formatShortOrderId', () => {
   it('UUID standard -> 8 premiers chars uppercase', () => {
