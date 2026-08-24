@@ -7,7 +7,7 @@
  * États : défaut / hover / sans-prix / skeleton. Clic → page gamme /g/:slug.
  */
 
-import { TEST_IDS } from '../../../lib/testIds';
+import { TEST_IDS } from '@/shared/presentation/testIds';
 import { resolveRootFamilyIdentity } from '../../../utils/shopFamilyIdentity';
 import type { PriceResolution } from '../../../utils/priceResolver';
 import { formatEuro } from '../ProductOverlay.helpers';

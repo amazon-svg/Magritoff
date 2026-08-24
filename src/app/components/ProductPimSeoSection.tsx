@@ -21,7 +21,7 @@
 import { useState } from "react";
 import { Copy, Check } from "lucide-react";
 import type { EnrichedProduct } from "../utils/productEnrichment";
-import { TEST_IDS } from "../lib/testIds";
+import { TEST_IDS } from "@/shared/presentation/testIds";
 import { buildPimJsonExport } from "./ProductPimMarketingTab.helpers";
 
 interface Props {

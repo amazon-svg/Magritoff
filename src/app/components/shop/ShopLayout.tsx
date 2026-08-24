@@ -34,8 +34,8 @@ import { ShopMegaMenu } from "./ShopMegaMenu";
 import { ShopHeaderSearch } from "./ShopHeaderSearch";
 import { ReassuranceStrip } from "./ReassuranceStrip";
 import type { TaxonomyFamily } from "../../utils/shopTaxonomy";
-import { TEST_IDS } from "../../lib/testIds";
-import { Sheet, SheetContent, SheetTitle } from "../ui/sheet";
+import { TEST_IDS } from "@/shared/presentation/testIds";
+import { Sheet, SheetContent, SheetTitle } from "../../../shared/ui/sheet";
 import {
   resolveShopTheme,
   resolveShopBrandStyle,

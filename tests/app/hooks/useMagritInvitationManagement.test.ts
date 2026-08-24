@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { InvitationSessionExpiredError } from '../../../src/app/hooks/useMagritInvitationManagement';
+import { InvitationSessionExpiredError } from '../../../src/modules/members/ui';
 
 describe('useMagritInvitationManagement', () => {
   it('expose une erreur dédiée quand la session ne peut pas être renouvelée', () => {

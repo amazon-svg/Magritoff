@@ -16,7 +16,7 @@ import { Building2, Plus, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTenant } from '../../contexts/TenantContext';
 import { MagritLogo } from '../brand/MagritLogo';
-import { TEST_IDS } from '../../lib/testIds';
+import { TEST_IDS } from '@/shared/presentation/testIds';
 import { TenantLoadError } from './TenantLoadError';
 
 export function TenantPicker() {

@@ -34,7 +34,7 @@ import { Archive, Copy, Edit, MoreHorizontal, MoveDown, MoveUp, Plus } from 'luc
 import { useTenant } from '../../contexts/TenantContext';
 import { useShops } from '../../contexts/ShopsContext';
 import { useUserCapability } from '../../hooks/useUserCapability';
-import { TEST_IDS } from '../../lib/testIds';
+import { TEST_IDS } from '@/shared/presentation/testIds';
 import { useRoleCatalogManagement } from '../../hooks/useRoleCatalogManagement';
 import {
   RoleEditorDialog,
@@ -51,14 +51,14 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '../ui/alert-dialog';
+} from '../../../shared/ui/alert-dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '../ui/dropdown-menu';
+} from '../../../shared/ui/dropdown-menu';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 

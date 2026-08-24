@@ -1,5 +1,5 @@
 import { Loader2, SlidersHorizontal, User } from 'lucide-react';
-import { TEST_IDS } from '../../lib/testIds';
+import { TEST_IDS } from '@/shared/presentation/testIds';
 
 export type AccountPreferencesViewModel = Readonly<{
   theme: 'light' | 'dark';

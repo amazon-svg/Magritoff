@@ -16,7 +16,7 @@ import type { Shop } from '../../../../modules/shops';
 import { StorefrontLoginForm } from '../StorefrontLoginForm';
 import type { AccountSection } from './types';
 import { PortalOrders } from './PortalOrders';
-import { TEST_IDS } from '../../../lib/testIds';
+import { TEST_IDS } from '@/shared/presentation/testIds';
 
 const SECTIONS: Array<{ key: AccountSection; label: string; icon: typeof Package }> = [
   { key: 'orders', label: 'Mes commandes', icon: Package },

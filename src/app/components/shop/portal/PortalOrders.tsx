@@ -8,7 +8,7 @@
  */
 
 import { useState } from 'react';
-import { TEST_IDS } from '../../../lib/testIds';
+import { TEST_IDS } from '@/shared/presentation/testIds';
 import { type OrderUI } from './PortalOrders.helpers';
 import { OrderHistoryTable } from './OrderHistoryTable';
 import { PortalOrderEditor } from './PortalOrderEditor';

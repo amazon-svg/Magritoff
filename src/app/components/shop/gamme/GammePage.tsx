@@ -14,7 +14,7 @@ import { useMemo } from 'react';
 import { Sparkles } from 'lucide-react';
 import type { Shop, ShopProduct } from '../../../../modules/shops';
 import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
-import { TEST_IDS } from '../../../lib/testIds';
+import { TEST_IDS } from '@/shared/presentation/testIds';
 import { resolveProductImage } from '../../../utils/productImages';
 import { useProductConfigurator } from '../../../hooks/useProductConfigurator';
 import { applyTax } from '../../../utils/tax';

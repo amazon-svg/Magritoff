@@ -9,13 +9,13 @@
 
 import { useMemo } from 'react';
 import type { ProductDefinition } from '../../../utils/productEnrichment';
-import { TEST_IDS } from '../../../lib/testIds';
+import { TEST_IDS } from '@/shared/presentation/testIds';
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from '../../ui/accordion';
+} from '../../../../shared/ui/accordion';
 import {
   normalizeUsageExamples,
   parseLightMarkdown,

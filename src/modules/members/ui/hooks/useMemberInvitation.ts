@@ -1,10 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import type { CreateInvitationResult } from '../../modules/invitations';
-import { useAuth } from '../contexts/AuthContext';
-import {
-  useWorkspaceInvitationsApi,
-  useWorkspaceInvitationsApiFactory,
-} from '../contexts/ModuleClientsContext';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { InvitationsApiClient, type CreateInvitationResult } from '../../../invitations';
+import { useWorkspaceUiRuntime } from '../../../../platform/runtime/workspace-ui-runtime';
 
 export interface InvitationRoleOption {
   id: string;
@@ -32,13 +28,12 @@ interface CreateMagritInvitationInput {
   role: 'admin' | 'member';
 }
 
-export function useMagritInvitationManagement({
+export function useMemberInvitation({
   open,
   tenantId,
 }: UseMagritInvitationManagementOptions) {
-  const { refreshSession } = useAuth();
-  const invitationsApi = useWorkspaceInvitationsApi();
-  const invitationsApiForAccessToken = useWorkspaceInvitationsApiFactory();
+  const { apiClient, apiForAccessToken, refreshAccessToken } = useWorkspaceUiRuntime();
+  const invitationsApi = useMemo(() => new InvitationsApiClient(apiClient), [apiClient]);
   const requestVersion = useRef(0);
   const [roles, setRoles] = useState<InvitationRoleOption[]>([]);
   const [loadingRoles, setLoadingRoles] = useState(open);
@@ -72,10 +67,10 @@ export function useMagritInvitationManagement({
     roleDefinitionIds,
     role,
   }: CreateMagritInvitationInput): Promise<CreateInvitationResult> => {
-    const { session, error } = await refreshSession();
-    if (error || !session) throw new InvitationSessionExpiredError();
+    const accessToken = await refreshAccessToken();
+    if (!accessToken) throw new InvitationSessionExpiredError();
 
-    return invitationsApiForAccessToken(session.access_token).create({
+    return new InvitationsApiClient(apiForAccessToken(accessToken)).create({
       email,
       tenantId,
       baseUrl,

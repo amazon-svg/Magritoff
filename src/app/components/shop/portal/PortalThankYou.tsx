@@ -15,7 +15,7 @@
 import { useEffect, useRef } from "react";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { applyTax } from "../../../utils/tax";
-import { TEST_IDS } from "../../../lib/testIds";
+import { TEST_IDS } from "@/shared/presentation/testIds";
 import { useStorefrontOrderReceipt } from "../../../hooks/useStorefrontOrderReceipt";
 
 interface Props {

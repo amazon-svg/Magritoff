@@ -1,7 +1,7 @@
 ---
 title: Plan de migration UX modulaire
 date: 2026-08-24
-status: draft
+status: in_progress
 depends_on: [spec-migration-ux-modulaire]
 ---
 
@@ -15,15 +15,15 @@ uniquement à déplacer des fichiers sans fermer les dépendances vers `app`.
 
 ## 2. Séquencement BMAD
 
-| Story | Périmètre | Résultat vérifiable | Dépend de |
-|---|---|---|---|
-| MUX0 | Socle et frontières | `shared/ui`, convention d'injection, tests bloquants | — |
-| MUX1 | Pilote `members` | UX Utilisateurs entièrement possédée par le module | MUX0 |
-| MUX2 | Workspace commercial | `orders`, `quotes`, `quote-templates`, `commercial` | MUX1 |
-| MUX3 | Workspace catalogue | `shops`, `catalog`, `libraries`, `mockups` | MUX1 |
-| MUX4 | Workspace plateforme | `account`, `tenants`, `conversations`, `machine-parks`, `plans` | MUX1 |
-| MUX5 | Storefront et portail | UX distribuée entre `shops`, `catalog`, `orders`, `shop-customers`, `account` | MUX2, MUX3 |
-| MUX6 | Fermeture brownfield | suppression des chemins métier `app/components`, baseline à zéro | MUX4, MUX5 |
+| Story | Statut | Périmètre | Résultat vérifiable | Dépend de |
+|---|---|---|---|---|
+| MUX0 | livré | Socle et frontières | `shared/ui`, convention d'injection, tests bloquants | — |
+| MUX1 | livré | Pilote `members` | UX Utilisateurs entièrement possédée par le module | MUX0 |
+| MUX2 | prêt | Workspace commercial | `orders`, `quotes`, `quote-templates`, `commercial` | MUX1 |
+| MUX3 | prêt | Workspace catalogue | `shops`, `catalog`, `libraries`, `mockups` | MUX1 |
+| MUX4 | prêt | Workspace plateforme | `account`, `tenants`, `conversations`, `machine-parks`, `plans` | MUX1 |
+| MUX5 | planifié | Storefront et portail | UX distribuée entre `shops`, `catalog`, `orders`, `shop-customers`, `account` | MUX2, MUX3 |
+| MUX6 | planifié | Fermeture brownfield | suppression des chemins métier `app/components`, baseline à zéro | MUX4, MUX5 |
 
 MUX2, MUX3 et MUX4 peuvent être développées en parallèle après validation du
 pilote. Elles ne doivent pas modifier les mêmes shells globaux.
@@ -162,4 +162,3 @@ La migration est terminée lorsque toutes les routes actives chargent une entré
 UI appartenant à un module, que `app` ne possède plus de composant métier, que
 les règles sont bloquées par la CI et que les parcours fonctionnels restent
 équivalents à la baseline précédant MUX0.
-

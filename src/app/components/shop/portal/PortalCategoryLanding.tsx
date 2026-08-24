@@ -2,7 +2,7 @@ import type { ShopProduct } from '../../../../modules/shops';
 import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
 import type { CategoryLandingModel } from '../../../utils/catalogLanding';
 import { resolveProductImage } from '../../../utils/productImages';
-import { TEST_IDS } from '../../../lib/testIds';
+import { TEST_IDS } from '@/shared/presentation/testIds';
 
 interface Props {
   model: CategoryLandingModel;

@@ -15,7 +15,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '../ui/dropdown-menu';
+} from '../../../shared/ui/dropdown-menu';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,8 +25,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '../ui/alert-dialog';
-import { TEST_IDS } from '../../lib/testIds';
+} from '../../../shared/ui/alert-dialog';
+import { TEST_IDS } from '@/shared/presentation/testIds';
 
 // Design source : .design-handoff/designs/04 - Admin dashboard.html
 // Pattern : Linear-dense — KPIs inline + sparklines + filtres segmentes + table compacte.

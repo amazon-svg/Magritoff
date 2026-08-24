@@ -13,7 +13,7 @@
 
 import { Loader2, AlertTriangle } from 'lucide-react';
 import { useTenant } from '../../contexts/TenantContext';
-import { TEST_IDS } from '../../lib/testIds';
+import { TEST_IDS } from '@/shared/presentation/testIds';
 import { useTenantSettingsForm } from '../../hooks/useTenantSettingsForm';
 
 export function DashboardTenantSettings() {

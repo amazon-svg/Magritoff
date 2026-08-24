@@ -15,7 +15,7 @@
  */
 
 import { useMemo, useRef, useState } from "react";
-import { TEST_IDS } from "../../lib/testIds";
+import { TEST_IDS } from "@/shared/presentation/testIds";
 import { ProductMockup } from "../brand/ProductMockup";
 import {
   type MockupSpecs,

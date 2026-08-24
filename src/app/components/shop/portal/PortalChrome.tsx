@@ -1,7 +1,7 @@
 import { ShoppingCart } from 'lucide-react';
 import type { Shop } from '../../../../modules/shops';
 import type { PortalView } from './types';
-import { TEST_IDS } from '../../../lib/testIds';
+import { TEST_IDS } from '@/shared/presentation/testIds';
 import { AuthMenu } from '../../auth/AuthMenu';
 
 interface Props {

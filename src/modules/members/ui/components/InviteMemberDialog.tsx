@@ -1,5 +1,5 @@
 /**
- * InviteUserModalV2 — Modal d'invitation refait Phase A S-USERS-REFONTE (2026-05-25).
+ * InviteMemberDialog — invitation d'un membre Magrit.
  *
  * Remplace l'ancien InviteForm legacy qui exposait role (enum) +
  * access_scope + allowed_shop_ids + permissions jsonb. Désormais :
@@ -21,17 +21,17 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Loader2, Mail, X, Check, Copy } from 'lucide-react';
-import { TEST_IDS } from '../../lib/testIds';
-import { ApiClientError } from '../../../platform/api';
+import { ApiClientError } from '../../../../platform/api';
+import { TEST_IDS } from '../../../../shared/presentation/testIds';
 import {
   InvitationSessionExpiredError,
-  useMagritInvitationManagement,
-} from '../../hooks/useMagritInvitationManagement';
+  useMemberInvitation,
+} from '../hooks/useMemberInvitation';
 import {
   invitationApiProblemMessage,
-} from './InviteUserModalV2.helpers';
+} from './InviteMemberDialog.helpers';
 
-export interface InviteUserModalV2Props {
+export interface InviteMemberDialogProps {
   open: boolean;
   tenantId: string;
   baseUrl: string;
@@ -40,13 +40,13 @@ export interface InviteUserModalV2Props {
   onClose: () => void;
 }
 
-export function InviteUserModalV2({
+export function InviteMemberDialog({
   open,
   tenantId,
   baseUrl,
   onInvited,
   onClose,
-}: InviteUserModalV2Props) {
+}: InviteMemberDialogProps) {
   const [email, setEmail] = useState('');
   const [profile, setProfile] = useState<'admin' | 'member'>('member');
   const [selectedRoleIds, setSelectedRoleIds] = useState<Set<string>>(new Set());
@@ -59,7 +59,7 @@ export function InviteUserModalV2({
   } | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
   const { roles, loadingRoles, loadError, createInvitation } =
-    useMagritInvitationManagement({ open, tenantId });
+    useMemberInvitation({ open, tenantId });
 
   useEffect(() => {
     if (open) {

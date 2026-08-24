@@ -10,7 +10,7 @@ import { useIsAdmin } from '../../hooks/useIsAdmin';
 import { useTenant } from '../../contexts/TenantContext';
 import { PLAN_LABEL } from '../../utils/plans';
 import { MagritLogo } from '../brand/MagritLogo';
-import { TEST_IDS } from '../../lib/testIds';
+import { TEST_IDS } from '@/shared/presentation/testIds';
 import { workspaceSurface } from '../../../surfaces/workspace';
 import { useAccessProfile } from '../../contexts/AccessProfileContext';
 

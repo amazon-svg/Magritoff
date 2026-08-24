@@ -46,7 +46,7 @@ import {
   statusGroup,
   storeValueForGroup,
 } from '../../utils/quoteStatus';
-import { TEST_IDS } from '../../lib/testIds';
+import { TEST_IDS } from '@/shared/presentation/testIds';
 
 const T = TEST_IDS.quoteLib;
 

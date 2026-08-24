@@ -11,7 +11,7 @@
 
 import { Link } from "react-router";
 import type { StorefrontSession } from "../../../modules/shop-customers";
-import { TEST_IDS } from "../../lib/testIds";
+import { TEST_IDS } from "@/shared/presentation/testIds";
 import { StorefrontLoginForm } from "./StorefrontLoginForm";
 
 interface Props {

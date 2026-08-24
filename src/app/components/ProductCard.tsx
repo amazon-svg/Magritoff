@@ -16,7 +16,7 @@ import {
   resolveProductDimensions,
 } from "./shop/ShopProductCard.helpers";
 import { resolveProductImage } from "../utils/productImages";
-import { TEST_IDS } from "../lib/testIds";
+import { TEST_IDS } from "@/shared/presentation/testIds";
 
 // R7 (refacto 2026-05-11) : lazy-load des 3 modales lourdes pour reduire le
 // bundle initial de ProductCard. Suspense fallback = null (les modales sont

@@ -19,7 +19,7 @@
 
 import { Loader2, Shield, Check, X } from 'lucide-react';
 import { useTenant } from '../../contexts/TenantContext';
-import { TEST_IDS } from '../../lib/testIds';
+import { TEST_IDS } from '@/shared/presentation/testIds';
 import { useRoleAssignmentMatrix } from '../../hooks/useRoleAssignmentManagement';
 
 /** Liste fermée des capabilities v1.1 — synchronisée avec migration DB. */

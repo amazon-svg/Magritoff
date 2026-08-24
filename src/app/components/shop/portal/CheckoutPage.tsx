@@ -14,7 +14,7 @@ import type { Shop } from '../../../../modules/shops';
 import type { CartLine } from './types';
 import { applyTax } from '../../../utils/tax';
 import { formatEuro } from '../ProductOverlay.helpers';
-import { TEST_IDS } from '../../../lib/testIds';
+import { TEST_IDS } from '@/shared/presentation/testIds';
 import type { StorefrontSession } from '../../../../modules/shop-customers';
 import { StorefrontLoginForm } from '../StorefrontLoginForm';
 import { computePortalCartTotalHt, resolveCartLinePricing } from './cartPricing';

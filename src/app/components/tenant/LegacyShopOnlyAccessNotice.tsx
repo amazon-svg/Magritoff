@@ -8,7 +8,7 @@
 
 import { ShieldAlert } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { TEST_IDS } from '../../lib/testIds';
+import { TEST_IDS } from '@/shared/presentation/testIds';
 
 export function LegacyShopOnlyAccessNotice() {
   const { signOut } = useAuth();

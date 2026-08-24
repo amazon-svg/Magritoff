@@ -6,7 +6,7 @@ import { resolveProductImage } from '../../../utils/productImages';
 import { computeClariprintQuoteSafe } from '../../../../modules/clariprint';
 import { useClaudeSseStream, ClaudeSseStreamError } from '../../../hooks/useClaudeSseStream';
 import { ENABLE_STREAMING_CHAT } from '../../../lib/featureFlags';
-import { TEST_IDS } from '../../../lib/testIds';
+import { TEST_IDS } from '@/shared/presentation/testIds';
 import {
   useStorefrontAssistant,
   useStorefrontClariprint,
@@ -36,7 +36,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../../ui/select';
+} from '../../../../shared/ui/select';
 import {
   DEFAULT_SORT_KEY,
   filterProductsByTextQuery,

@@ -19,7 +19,7 @@ import { useMemo } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import type { ShopProduct } from '../../../modules/shops';
 import type { Gamme } from "../../utils/productEnrichment";
-import { TEST_IDS } from "../../lib/testIds";
+import { TEST_IDS } from "@/shared/presentation/testIds";
 import {
   buildGammeTree,
   groupProductsByGamme,

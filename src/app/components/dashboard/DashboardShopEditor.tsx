@@ -41,7 +41,7 @@ import { useTenantPath } from '../../hooks/useTenantPath';
 import { UpgradeCTA } from './UpgradeCTA';
 import { exportShopToShopifyCsv, exportShopToJson } from '../../utils/shopExport';
 import { resolveShopProductScope } from '../../utils/resolveShopProductScope';
-import { TEST_IDS } from '../../lib/testIds';
+import { TEST_IDS } from '@/shared/presentation/testIds';
 import { lazy, Suspense as ReactSuspense } from 'react';
 import { ShopCustomerAccountsSection } from './ShopCustomerAccountsSection';
 import { useShopEditorOperations } from '../../hooks/useShopEditorOperations';

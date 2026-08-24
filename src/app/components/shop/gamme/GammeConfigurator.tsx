@@ -8,7 +8,7 @@
  */
 
 import { AlertTriangle, RefreshCw } from 'lucide-react';
-import { TEST_IDS } from '../../../lib/testIds';
+import { TEST_IDS } from '@/shared/presentation/testIds';
 import {
   DORURES,
   FINISHINGS,

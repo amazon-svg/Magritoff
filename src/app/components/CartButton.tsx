@@ -13,7 +13,7 @@ import { useQuoteTemplates } from '../contexts/QuoteTemplatesContext';
 import { useTenant } from '../contexts/TenantContext';
 import { useTenantPath } from '../hooks/useTenantPath';
 import { applyTax, extractTaxAmount, formatTaxLabel, getTaxRate } from '../utils/tax';
-import { TEST_IDS } from '../lib/testIds';
+import { TEST_IDS } from '@/shared/presentation/testIds';
 import { useQuotePersistence } from '../hooks/useQuotePersistence';
 
 interface CartButtonProps {

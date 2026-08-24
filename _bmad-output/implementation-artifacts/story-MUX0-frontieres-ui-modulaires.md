@@ -4,7 +4,7 @@ epic: EPIC-MUX-UX-MODULAIRE
 sprint: MUX-A
 priority: P0
 effort: M
-status: ready-for-dev
+status: done
 branch: refactor/modular-ux-foundation
 depends_on: []
 unblocks: [MUX1]
@@ -39,16 +39,16 @@ posséder leur UX sans dépendre de l'application ou des fournisseurs techniques
 
 ## Tasks
 
-- [ ] Valider `src/shared/ui` comme racine du design system.
-- [ ] Déplacer les 48 primitives et adapter les imports de manière mécanique.
-- [ ] Définir `modules/<id>/ui/index.ts` comme entrée publique UI.
-- [ ] Choisir et documenter l'injection des clients, de l'acteur et du tenant.
-- [ ] Ajouter un test `modules-ui-boundaries` dans la suite architecture.
-- [ ] Ajouter un test des imports profonds inter-modules.
-- [ ] Mesurer et versionner la baseline de composants métier dans `app`.
-- [ ] Ajouter un exemple minimal d'entrée UI lazy sans migrer de page métier.
-- [ ] Mettre à jour les alias TypeScript/Vite et les règles de lint si requis.
-- [ ] Exécuter la validation complète.
+- [x] Valider `src/shared/ui` comme racine du design system.
+- [x] Déplacer les 48 primitives et adapter les imports de manière mécanique.
+- [x] Définir `modules/<id>/ui/index.ts` comme entrée publique UI.
+- [x] Choisir et documenter l'injection des clients, de l'acteur et du tenant.
+- [x] Ajouter un test `modular-ui-boundaries` dans la suite architecture.
+- [x] Ajouter un test des imports profonds inter-modules.
+- [x] Mesurer et versionner la baseline de composants métier dans `app`.
+- [x] Ajouter une entrée UI lazy réelle avec le pilote Members.
+- [x] Conserver l'alias TypeScript/Vite partagé et déclarer les types React.
+- [x] Exécuter la validation complète.
 
 ## Décision attendue sur l'injection
 
@@ -81,3 +81,21 @@ Le socle est livré sans changement fonctionnel, les règles de dépendance sont
 opposables en CI, et MUX1 peut migrer `members` sans créer de nouveau mécanisme
 de composition.
 
+## Dev Agent Record
+
+### Décisions d'implémentation
+
+- Le port `WorkspaceUiRuntime` appartient à `platform/runtime` et ne connaît
+  aucun module métier.
+- `WorkspaceModuleUiBridge` injecte acteur, tenant, transport API et
+  rafraîchissement du jeton depuis la composition `app`.
+- Les `data-testid` ont rejoint `shared/presentation` afin de rester une source
+  unique accessible aux modules sans dépendance vers `app`.
+- La baseline brownfield après MUX1 est de 130 fichiers sous `app/components`.
+
+### Résultats de validation
+
+- `pnpm run typecheck` : vert ;
+- `pnpm run test:architecture` : 174 tests verts ;
+- `pnpm test` : 1 239 tests verts, 36 ignorés ;
+- `pnpm run build` : vert, 2 193 modules transformés.

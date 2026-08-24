@@ -3,7 +3,7 @@ title: Spécification de migration vers une UX modulaire
 date: 2026-08-24
 source_branch: main@ddf4758
 delivery_branch: codex/um-users-rebuild
-status: draft
+status: active
 owners: [AGE Développement, Expert Solutions]
 ---
 
@@ -226,11 +226,13 @@ restent composés une fois au niveau de la surface.
    profit de `app/layouts` et `shared/ui`.
 6. Les parcours existants restent couverts et sans régression fonctionnelle.
 
-## 10. Décisions à valider avant MUX0
+## 10. Décisions validées par MUX0/MUX1
 
-- nom définitif de la racine du design system : `shared/ui` recommandé ;
-- mécanisme d'injection React : ports `platform` ou props de boundary ;
-- convention d'entrée publique UI : `modules/<id>/ui/index.ts` recommandée ;
-- propriété des composants transverses ambigus, documentée dans la matrice de
-  migration associée.
-
+- racine du design system : `src/shared/ui` ;
+- source commune des identifiants de test :
+  `src/shared/presentation/testIds.ts` ;
+- injection React : port neutre `WorkspaceUiRuntime` publié par `platform` et
+  alimenté par `WorkspaceModuleUiBridge` dans la composition applicative ;
+- entrée publique UI : `modules/<id>/ui/index.ts` ;
+- une UX inter-domaines est importée depuis cette entrée UI publique, comme le
+  rapport legacy publié par `shop-customers/ui` et composé par `members/ui`.

@@ -22,25 +22,28 @@ import { QuoteTemplatesProvider } from './contexts/QuoteTemplatesContext';
 import { CartProvider } from './contexts/CartContext';
 import { QuotesProvider } from './contexts/QuotesContext';
 import { AccessProfileProvider } from './contexts/AccessProfileContext';
+import { WorkspaceModuleUiBridge } from './surfaces/WorkspaceModuleUiBridge';
 
 export function AppShell() {
   return (
     <TenantProvider>
-      <AccessProfileProvider>
-      <ConversationProvider>
-        <LibraryProvider>
-          <ShopsProvider>
-            <QuoteTemplatesProvider>
-              <CartProvider>
-                <QuotesProvider>
-                  <Outlet />
-                </QuotesProvider>
-              </CartProvider>
-            </QuoteTemplatesProvider>
-          </ShopsProvider>
-        </LibraryProvider>
-      </ConversationProvider>
-      </AccessProfileProvider>
+      <WorkspaceModuleUiBridge>
+        <AccessProfileProvider>
+          <ConversationProvider>
+            <LibraryProvider>
+              <ShopsProvider>
+                <QuoteTemplatesProvider>
+                  <CartProvider>
+                    <QuotesProvider>
+                      <Outlet />
+                    </QuotesProvider>
+                  </CartProvider>
+                </QuoteTemplatesProvider>
+              </ShopsProvider>
+            </LibraryProvider>
+          </ConversationProvider>
+        </AccessProfileProvider>
+      </WorkspaceModuleUiBridge>
     </TenantProvider>
   );
 }

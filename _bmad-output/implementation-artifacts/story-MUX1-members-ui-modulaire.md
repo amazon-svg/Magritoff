@@ -4,7 +4,7 @@ epic: EPIC-MUX-UX-MODULAIRE
 sprint: MUX-A
 priority: P0
 effort: L
-status: blocked-by-MUX0
+status: done
 branch: refactor/members-modular-ui
 depends_on: [MUX0, UM1-REGLES-FONCTIONNELLE]
 unblocks: [MUX2, MUX3, MUX4]
@@ -82,22 +82,22 @@ publiques de `invitations` et `roles`, mais ne peut pas importer leurs dossiers
 
 ## Tasks
 
-- [ ] Créer l'entrée publique `src/modules/members/ui/index.ts`.
-- [ ] Déplacer et renommer `DashboardUsers` en `MembersPage`.
-- [ ] Décomposer la page en table des membres et invitations en attente.
-- [ ] Déplacer et renommer les modales d'invitation et d'options.
-- [ ] Déplacer les helpers purs et leurs tests dans le périmètre Members.
-- [ ] Remplacer `useMagritUsersManagement` par un contrôleur appartenant à
+- [x] Créer l'entrée publique `src/modules/members/ui/index.ts`.
+- [x] Déplacer et renommer `DashboardUsers` en `MembersPage`.
+- [x] Décomposer la page en table des membres et invitations en attente.
+- [x] Déplacer et renommer les modales d'invitation et d'options.
+- [x] Déplacer les helpers purs et leurs tests dans le périmètre Members.
+- [x] Remplacer `useMagritUsersManagement` par un contrôleur appartenant à
       `members/ui` utilisant les façades publiques.
-- [ ] Injecter acteur, tenant et clients selon la décision MUX0.
-- [ ] Publier les opérations nécessaires dans les entrées publiques de
+- [x] Injecter acteur, tenant et clients selon la décision MUX0.
+- [x] Publier les opérations nécessaires dans les entrées publiques de
       `invitations` et `roles` sans exposer leur implémentation.
-- [ ] Modifier `workspaceRuntimeRoutes` pour charger l'entrée UI Members.
-- [ ] Conserver la contribution déclarative `membersWorkspaceContribution`
+- [x] Modifier `workspaceRuntimeRoutes` pour charger l'entrée UI Members.
+- [x] Conserver la contribution déclarative `membersWorkspaceContribution`
       indépendante de React.
-- [ ] Supprimer les anciens fichiers et corriger les imports/tests.
-- [ ] Mettre à jour la baseline brownfield.
-- [ ] Documenter le patron obtenu pour MUX2 à MUX4.
+- [x] Supprimer les anciens fichiers et corriger les imports/tests.
+- [x] Mettre à jour la baseline brownfield.
+- [x] Documenter le patron obtenu pour MUX2 à MUX4.
 
 ## API et données
 
@@ -140,3 +140,22 @@ Le parcours Utilisateurs est fonctionnellement équivalent à UM1, son code Reac
 appartient au module `members`, aucun import interdit n'est présent et ce module
 sert d'exemple officiel aux migrations suivantes.
 
+## Dev Agent Record
+
+### Notes d'implémentation
+
+- `MembersPage`, `MembersTable`, `PendingInvitations`, les deux dialogues et les
+  trois contrôleurs vivent sous `modules/members/ui`.
+- Le rapport legacy appartient à `shop-customers/ui` et est consommé depuis son
+  entrée publique, conformément à sa responsabilité fonctionnelle.
+- Les clients Members, Invitations et Roles sont construits dans les
+  contrôleurs à partir du transport injecté ; aucun context `app` n'est importé.
+- La route `members.workspace.list` conserve son ID, son chemin, sa capability
+  et son chargement lazy.
+
+### Résultats de validation
+
+- tests ciblés MUX/UM1 : 97 tests verts ;
+- architecture complète : 174 tests verts ;
+- suite complète : 1 239 tests verts, 36 ignorés ;
+- typecheck modulaire strict et build Vite : verts.

@@ -28,9 +28,9 @@ import { ArrowDown, ArrowUp, Ban, Check, ChevronDown, History, Loader2, Package,
 import { OrderAuditTrailModal } from './OrderAuditTrailModal';
 import type { OrderUI } from './PortalOrders.helpers';
 import { getStatusInfo, type OrderStatus } from '../../../lib/orderStatus';
-import { TEST_IDS } from '../../../lib/testIds';
+import { TEST_IDS } from '@/shared/presentation/testIds';
 import type { OrdersApiClient } from '../../../../modules/orders';
-import { Popover, PopoverContent, PopoverTrigger } from '../../ui/popover';
+import { Popover, PopoverContent, PopoverTrigger } from '../../../../shared/ui/popover';
 import {
   Command,
   CommandEmpty,
@@ -38,7 +38,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from '../../ui/command';
+} from '../../../../shared/ui/command';
 
 // ─── Types ────────────────────────────────────────────────────────────────
 

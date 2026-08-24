@@ -39,13 +39,13 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '../ui/dialog';
-import { ToggleGroup, ToggleGroupItem } from '../ui/toggle-group';
+} from '../../../shared/ui/dialog';
+import { ToggleGroup, ToggleGroupItem } from '../../../shared/ui/toggle-group';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '../ui/popover';
+} from '../../../shared/ui/popover';
 import {
   Command,
   CommandEmpty,
@@ -53,8 +53,8 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from '../ui/command';
-import { TEST_IDS } from '../../lib/testIds';
+} from '../../../shared/ui/command';
+import { TEST_IDS } from '@/shared/presentation/testIds';
 
 // ─── Types ────────────────────────────────────────────────────────────────
 

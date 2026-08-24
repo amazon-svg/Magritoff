@@ -1,21 +1,21 @@
 import { AlertTriangle, CheckCircle2 } from 'lucide-react';
-import type { LegacyShopCustomerMigrationReportRow } from '../../../modules/shop-customers';
-import { useShops } from '../../contexts/ShopsContext';
-import { useTenant } from '../../contexts/TenantContext';
+import { useWorkspaceUiRuntime } from '../../../../platform/runtime/workspace-ui-runtime';
+import type { LegacyShopCustomerMigrationReportRow } from '../../api/contracts';
 import {
   summarizeLegacyMigration,
+  useLegacyMigrationShopNames,
   useLegacyShopCustomerMigrationReport,
-} from '../../hooks/useLegacyShopCustomerMigrationReport';
+} from '../hooks/useLegacyShopCustomerMigrationReport';
 
 export function LegacyShopCustomerMigrationSection() {
-  const { currentTenant } = useTenant();
-  const { shops } = useShops();
+  const { tenant: currentTenant } = useWorkspaceUiRuntime();
   const state = useLegacyShopCustomerMigrationReport(currentTenant?.id ?? null);
+  const shopNames = useLegacyMigrationShopNames(currentTenant?.id ?? null);
 
   if (state.kind !== 'ready') return null;
 
   const { pending, skipped, ordersLinked } = summarizeLegacyMigration(state.rows);
-  const shopName = (shopId: string | null) => shops.find((shop) => shop.id === shopId)?.name
+  const shopName = (shopId: string | null) => (shopId ? shopNames.get(shopId) : undefined)
     ?? (shopId ? `Boutique ${shopId.slice(0, 8)}` : 'Aucune boutique');
 
   return (

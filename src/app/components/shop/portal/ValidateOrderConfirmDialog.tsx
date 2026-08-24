@@ -21,8 +21,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '../../ui/alert-dialog';
-import { TEST_IDS } from '../../../lib/testIds';
+} from '../../../../shared/ui/alert-dialog';
+import { TEST_IDS } from '@/shared/presentation/testIds';
 
 export interface ValidateOrderConfirmDialogProps {
   orderId: string | null;

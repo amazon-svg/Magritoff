@@ -23,8 +23,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '../../ui/alert-dialog';
-import { TEST_IDS } from '../../../lib/testIds';
+} from '../../../../shared/ui/alert-dialog';
+import { TEST_IDS } from '@/shared/presentation/testIds';
 
 export interface CancelOrderConfirmDialogProps {
   /** UUID de la commande à annuler, ou null si modal fermé. */

@@ -8,7 +8,7 @@ function source(path: string): string {
 
 describe('compatibilité React 18 des wrappers Radix', () => {
   it('transmet les refs des overlays et contenus de dialogue', () => {
-    const dialog = source('src/app/components/ui/dialog.tsx');
+    const dialog = source('src/shared/ui/dialog.tsx');
     expect(dialog).toContain('const DialogOverlay = React.forwardRef');
     expect(dialog).toContain('const DialogContent = React.forwardRef');
     expect(dialog).toMatch(/DialogPrimitive\.Overlay\s+ref=\{ref\}/);
@@ -16,14 +16,14 @@ describe('compatibilité React 18 des wrappers Radix', () => {
   });
 
   it('applique la même frontière aux dialogues de confirmation', () => {
-    const alertDialog = source('src/app/components/ui/alert-dialog.tsx');
+    const alertDialog = source('src/shared/ui/alert-dialog.tsx');
     expect(alertDialog).toContain('const AlertDialogOverlay = React.forwardRef');
     expect(alertDialog).toContain('const AlertDialogContent = React.forwardRef');
     expect(alertDialog).toMatch(/AlertDialogPrimitive\.Overlay\s+ref=\{ref\}/);
   });
 
   it('rend le bouton compatible avec Slot asChild', () => {
-    const button = source('src/app/components/ui/button.tsx');
+    const button = source('src/shared/ui/button.tsx');
     expect(button).toContain('React.forwardRef<HTMLButtonElement, ButtonProps>');
     expect(button).toContain('ref={ref}');
   });

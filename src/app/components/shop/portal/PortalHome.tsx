@@ -22,7 +22,7 @@ import { resolveProductImage } from '../../../utils/productImages';
 import { computeGammeFloorPrices } from '../../../utils/gammeFloorPrices';
 import { ShopProductCard } from '../ShopProductCard';
 import { GammeTile } from '../gamme/GammeTile';
-import { TEST_IDS } from '../../../lib/testIds';
+import { TEST_IDS } from '@/shared/presentation/testIds';
 
 interface Props {
   shop: Shop;

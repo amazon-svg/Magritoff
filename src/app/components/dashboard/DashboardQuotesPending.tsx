@@ -14,7 +14,7 @@ import { useQuotes } from '../../contexts/QuotesContext';
 import { useTenantPath } from '../../hooks/useTenantPath';
 import { resolvePendingQuotes } from '../../utils/dashboardHomeSections';
 import { statusGroupDef } from '../../utils/quoteStatus';
-import { TEST_IDS } from '../../lib/testIds';
+import { TEST_IDS } from '@/shared/presentation/testIds';
 
 const T = TEST_IDS.dashboard;
 

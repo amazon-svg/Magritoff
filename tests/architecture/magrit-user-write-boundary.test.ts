@@ -3,16 +3,16 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const invite = readFileSync(resolve(
-  process.cwd(), 'src/app/components/dashboard/InviteUserModalV2.tsx',
+  process.cwd(), 'src/modules/members/ui/components/InviteMemberDialog.tsx',
 ), 'utf8');
 const edit = readFileSync(resolve(
-  process.cwd(), 'src/app/components/dashboard/EditUserRolesModal.tsx',
+  process.cwd(), 'src/modules/members/ui/components/EditMemberOptionsDialog.tsx',
 ), 'utf8');
 const roleManagement = readFileSync(resolve(
-  process.cwd(), 'src/app/hooks/useRoleAssignmentManagement.ts',
+  process.cwd(), 'src/modules/members/ui/hooks/useMemberOptions.ts',
 ), 'utf8');
 const users = readFileSync(resolve(
-  process.cwd(), 'src/app/components/dashboard/DashboardUsers.tsx',
+  process.cwd(), 'src/modules/members/ui/workspace/MembersPage.tsx',
 ), 'utf8');
 const invitationContract = readFileSync(resolve(
   process.cwd(), 'src/modules/invitations/api/contracts.ts',

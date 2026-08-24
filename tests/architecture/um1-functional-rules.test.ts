@@ -42,8 +42,8 @@ describe('UM1 règles fonctionnelles de gestion des utilisateurs', () => {
   });
 
   it('n expose que les profils et options produit dans l écran équipe', () => {
-    const users = read('src/app/components/dashboard/DashboardUsers.tsx');
-    const invite = read('src/app/components/dashboard/InviteUserModalV2.tsx');
+    const users = read('src/modules/members/ui/workspace/MembersPage.tsx');
+    const invite = read('src/modules/members/ui/components/InviteMemberDialog.tsx');
     expect(users).not.toContain('<DashboardRolesSection');
     expect(users).toContain("member.access_scope === 'magrit_full'");
     expect(invite).toContain("role.systemKey === 'option_shops'");

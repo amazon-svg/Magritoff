@@ -17,7 +17,7 @@
  */
 
 import { Loader2, Save, Trash2, AlertTriangle } from 'lucide-react';
-import { TEST_IDS } from '../../../lib/testIds';
+import { TEST_IDS } from '@/shared/presentation/testIds';
 import type { OrderUI } from './PortalOrders.helpers';
 import { useStorefrontOrderEditor } from '../../../hooks/useStorefrontOrderEditor';
 import {
@@ -27,7 +27,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from '../../ui/dialog';
+} from '../../../../shared/ui/dialog';
 
 interface Props {
   /** Commande à éditer (null = fermé). Doit être un draft v1.1 de l'auteur. */

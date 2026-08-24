@@ -1,15 +1,24 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import type { PendingInvitation, ResendInvitationResult } from '../../modules/invitations';
-import type { TenantMember } from '../../modules/members';
-import type { AccessScope, MemberPermissions, TenantRole } from '../contexts/TenantContext';
-import { useWorkspaceInvitationsApi, useWorkspaceMembersApi } from '../contexts/ModuleClientsContext';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { InvitationsApiClient, type PendingInvitation, type ResendInvitationResult } from '../../../invitations';
+import { useWorkspaceUiRuntime } from '../../../../platform/runtime/workspace-ui-runtime';
+import { MembersApiClient } from '../../api/client';
+import type { TenantMember } from '../../api/contracts';
+
+export type MemberRole = 'admin' | 'member';
+export type MemberAccessScope = 'magrit_full' | 'shop_only';
+
+export interface MemberPermissions {
+  can_quote: boolean;
+  can_order: boolean;
+  can_invite: boolean;
+}
 
 export interface MagritMemberRow {
   user_id: string;
   email: string | null;
-  role: TenantRole;
+  role: MemberRole;
   joined_at: string;
-  access_scope: AccessScope;
+  access_scope: MemberAccessScope;
   allowed_shop_ids: string[];
   permissions: MemberPermissions;
 }
@@ -17,10 +26,10 @@ export interface MagritMemberRow {
 export interface MagritInvitationRow {
   id: string;
   email: string;
-  role: TenantRole;
+  role: MemberRole;
   expires_at: string;
   created_at: string;
-  access_scope: AccessScope;
+  access_scope: MemberAccessScope;
   allowed_shop_ids: string[];
   permissions: MemberPermissions;
 }
@@ -62,9 +71,10 @@ export function toMagritInvitationRow(invitation: PendingInvitation): MagritInvi
   };
 }
 
-export function useMagritUsersManagement(tenantId: string | null) {
-  const invitationsApi = useWorkspaceInvitationsApi();
-  const membersApi = useWorkspaceMembersApi();
+export function useMembersWorkspace(tenantId: string | null) {
+  const { apiClient } = useWorkspaceUiRuntime();
+  const invitationsApi = useMemo(() => new InvitationsApiClient(apiClient), [apiClient]);
+  const membersApi = useMemo(() => new MembersApiClient(apiClient), [apiClient]);
   const requestVersion = useRef(0);
   const [members, setMembers] = useState<MagritMemberRow[]>([]);
   const [invitations, setInvitations] = useState<MagritInvitationRow[]>([]);
@@ -89,13 +99,13 @@ export function useMagritUsersManagement(tenantId: string | null) {
     if (membersResult.status === 'fulfilled') {
       setMembers(membersResult.value.map(toMagritMemberRow));
     } else {
-      console.error('[useMagritUsersManagement] members API failed', membersResult.reason);
+      console.error('[useMembersWorkspace] members API failed', membersResult.reason);
       setMembers([]);
     }
     if (invitationsResult.status === 'fulfilled') {
       setInvitations(invitationsResult.value.map(toMagritInvitationRow));
     } else {
-      console.error('[useMagritUsersManagement] invitations API failed', invitationsResult.reason);
+      console.error('[useMembersWorkspace] invitations API failed', invitationsResult.reason);
       setInvitations([]);
     }
     setLoading(false);
@@ -114,7 +124,7 @@ export function useMagritUsersManagement(tenantId: string | null) {
     await reload();
   };
 
-  const changeRole = async (member: MagritMemberRow, role: TenantRole) => {
+  const changeRole = async (member: MagritMemberRow, role: MemberRole) => {
     if (!tenantId || member.role === role) return;
     setUpdatingRoleFor(member.user_id);
     try {

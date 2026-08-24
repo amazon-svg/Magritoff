@@ -7,7 +7,7 @@
  */
 
 import { Loader2, Sparkles } from 'lucide-react';
-import { TEST_IDS } from '../../../lib/testIds';
+import { TEST_IDS } from '@/shared/presentation/testIds';
 import { formatEuro } from '../ProductOverlay.helpers';
 import type { ConfiguratorPhase } from '../../../hooks/useProductConfigurator';
 import { priceBadgeForPhase } from './gammePage.helpers';

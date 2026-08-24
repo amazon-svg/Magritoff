@@ -1,6 +1,6 @@
 import { Loader2, Lock, UserPlus } from 'lucide-react';
 import type { StorefrontSession } from '../../../modules/shop-customers';
-import { TEST_IDS } from '../../lib/testIds';
+import { TEST_IDS } from '@/shared/presentation/testIds';
 import { useStorefrontIdentityForm } from '../../hooks/useStorefrontIdentityForm';
 
 type Props = Readonly<{

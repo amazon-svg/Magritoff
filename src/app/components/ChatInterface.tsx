@@ -17,7 +17,7 @@ import { useLibrary } from "../contexts/LibraryContext";
 import { usePlan } from "../hooks/usePlan";
 import { useTenant } from "../contexts/TenantContext";
 import { ENABLE_STREAMING_CHAT } from "../lib/featureFlags";
-import { TEST_IDS } from "../lib/testIds";
+import { TEST_IDS } from "@/shared/presentation/testIds";
 import {
   ClaudeSseStreamError,
   MAX_CONTEXT_MESSAGES,

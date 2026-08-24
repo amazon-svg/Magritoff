@@ -19,7 +19,7 @@ import { usePIM } from '../../contexts/PIMContext';
 import { validateProEmail } from '../../lib/emailValidator';
 import { validateSiren, SirenInfo } from '../../lib/sirenValidator';
 import { REQUIRE_PRO_EMAIL, REQUIRE_VERIFIED_SIREN } from '../../lib/featureFlags';
-import { TEST_IDS } from '../../lib/testIds';
+import { TEST_IDS } from '@/shared/presentation/testIds';
 
 type Step = 'identity' | 'gammes';
 

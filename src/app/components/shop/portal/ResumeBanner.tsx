@@ -8,7 +8,7 @@
  */
 
 import { History, RotateCcw, ShoppingCart } from 'lucide-react';
-import { TEST_IDS } from '../../../lib/testIds';
+import { TEST_IDS } from '@/shared/presentation/testIds';
 import { formatEuro } from '../ProductOverlay.helpers';
 
 /** Dernière commande de l'acheteur sur la boutique (fetch PublicShop). */

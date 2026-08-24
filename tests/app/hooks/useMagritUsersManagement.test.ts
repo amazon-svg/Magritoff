@@ -4,7 +4,7 @@ import type { TenantMember } from '../../../src/modules/members';
 import {
   toMagritInvitationRow,
   toMagritMemberRow,
-} from '../../../src/app/hooks/useMagritUsersManagement';
+} from '../../../src/modules/members/ui';
 
 describe('useMagritUsersManagement helpers', () => {
   it('adapte un membre Magrit sans perdre son scope legacy', () => {

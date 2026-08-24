@@ -154,7 +154,7 @@ describe('frontières API-first et modulaires', () => {
     expect(runtime).toContain("import('../components/dashboard/DashboardTenantGammes')");
     expect(runtime).toContain("import('../components/dashboard/DashboardAdminPIM')");
     expect(runtime).toContain("import('../components/dashboard/commercial/DashboardCommercial')");
-    expect(runtime).toContain("import('../components/dashboard/DashboardUsers')");
+    expect(runtime).toContain("import('../../modules/members/ui')");
     expect(runtime).toContain("import('../components/dashboard/DashboardTenantSettings')");
     expect(runtime).toContain("import('../components/dashboard/DashboardTenantSpaces')");
     expect(runtime).not.toContain("import('../components/dashboard/OrderRoleAdminPage')");
@@ -604,7 +604,7 @@ describe('frontières API-first et modulaires', () => {
       'src/app/components/dashboard/OrderRoleAdminPage.tsx',
       'src/app/components/dashboard/RoleEditorDialog.tsx',
       'src/app/components/dashboard/DashboardRolesSection.tsx',
-      'src/app/components/dashboard/EditUserRolesModal.tsx',
+      'src/modules/members/ui/components/EditMemberOptionsDialog.tsx',
     ];
     for (const file of orchestratedFiles) {
       const source = readFileSync(resolve(process.cwd(), file), 'utf8');
@@ -621,8 +621,11 @@ describe('frontières API-first et modulaires', () => {
     const assignmentsHook = readFileSync(resolve(process.cwd(), 'src/app/hooks/useRoleAssignmentManagement.ts'), 'utf8');
     expect(assignmentsHook).toContain('useWorkspaceRolesApi');
     expect(assignmentsHook).toContain('rolesApi.overview');
-    expect(assignmentsHook).toContain('rolesApi.userDetail');
     expect(assignmentsHook).toContain('rolesApi.setAssignment');
+    const memberOptionsHook = readFileSync(resolve(process.cwd(), 'src/modules/members/ui/hooks/useMemberOptions.ts'), 'utf8');
+    expect(memberOptionsHook).toContain('new RolesApiClient');
+    expect(memberOptionsHook).toContain('rolesApi.userDetail');
+    expect(memberOptionsHook).toContain('rolesApi.setAssignment');
   });
 
   it('sort la vérification des capabilities du fournisseur', () => {
@@ -710,16 +713,17 @@ describe('frontières API-first et modulaires', () => {
   it('sort le rapport de migration des comptes boutique de la vue', () => {
     const component = readFileSync(resolve(
       process.cwd(),
-      'src/app/components/dashboard/LegacyShopCustomerMigrationSection.tsx',
+      'src/modules/shop-customers/ui/workspace/LegacyShopCustomerMigrationSection.tsx',
     ), 'utf8');
     const hook = readFileSync(resolve(
       process.cwd(),
-      'src/app/hooks/useLegacyShopCustomerMigrationReport.ts',
+      'src/modules/shop-customers/ui/hooks/useLegacyShopCustomerMigrationReport.ts',
     ), 'utf8');
 
     expect(component).toContain('useLegacyShopCustomerMigrationReport');
-    expect(component).not.toContain('useShopCustomersApi');
-    expect(hook).toContain('useShopCustomersApi');
+    expect(component).not.toContain('ShopCustomersApiClient');
+    expect(hook).toContain('new ShopCustomersApiClient');
+    expect(hook).toContain('useWorkspaceUiRuntime');
     expect(hook).toContain('api.migrationReport(tenantId)');
     for (const source of [component, hook]) {
       expect(source).not.toContain('utils/supabase');
@@ -1122,13 +1126,13 @@ describe('frontières API-first et modulaires', () => {
   });
 
   it('sort le dashboard utilisateurs du fournisseur de données', () => {
-    const dashboard = readFileSync(resolve(process.cwd(), 'src/app/components/dashboard/DashboardUsers.tsx'), 'utf8');
-    const hook = readFileSync(resolve(process.cwd(), 'src/app/hooks/useMagritUsersManagement.ts'), 'utf8');
-    expect(dashboard).toContain('useMagritUsersManagement');
-    expect(dashboard).not.toContain('useWorkspaceMembersApi');
-    expect(dashboard).not.toContain('useWorkspaceInvitationsApi');
-    expect(hook).toContain('useWorkspaceMembersApi');
-    expect(hook).toContain('useWorkspaceInvitationsApi');
+    const dashboard = readFileSync(resolve(process.cwd(), 'src/modules/members/ui/workspace/MembersPage.tsx'), 'utf8');
+    const hook = readFileSync(resolve(process.cwd(), 'src/modules/members/ui/hooks/useMembersWorkspace.ts'), 'utf8');
+    expect(dashboard).toContain('useMembersWorkspace');
+    expect(dashboard).not.toContain('MembersApiClient');
+    expect(dashboard).not.toContain('InvitationsApiClient');
+    expect(hook).toContain('new MembersApiClient');
+    expect(hook).toContain('new InvitationsApiClient');
     expect(hook).toContain('membersApi.list');
     expect(hook).toContain('invitationsApi.pending');
     expect(dashboard).not.toContain('new MembersApiClient');
@@ -1138,26 +1142,25 @@ describe('frontières API-first et modulaires', () => {
 
   it('fait passer la création des invitations par le client API Magrit', () => {
     const modal = readFileSync(
-      resolve(process.cwd(), 'src/app/components/dashboard/InviteUserModalV2.tsx'),
+      resolve(process.cwd(), 'src/modules/members/ui/components/InviteMemberDialog.tsx'),
       'utf8',
     );
     const usersDashboard = readFileSync(
-      resolve(process.cwd(), 'src/app/components/dashboard/DashboardUsers.tsx'),
+      resolve(process.cwd(), 'src/modules/members/ui/workspace/MembersPage.tsx'),
       'utf8',
     );
     const hook = readFileSync(
-      resolve(process.cwd(), 'src/app/hooks/useMagritInvitationManagement.ts'),
+      resolve(process.cwd(), 'src/modules/members/ui/hooks/useMemberInvitation.ts'),
       'utf8',
     );
 
-    expect(modal).toContain('useMagritInvitationManagement');
-    expect(modal).not.toContain('useWorkspaceInvitationsApi');
-    expect(modal).not.toContain('useWorkspaceInvitationsApiFactory');
-    expect(hook).toContain('useWorkspaceInvitationsApi');
-    expect(hook).toContain('useWorkspaceInvitationsApiFactory');
+    expect(modal).toContain('useMemberInvitation');
+    expect(modal).not.toContain('InvitationsApiClient');
+    expect(hook).toContain('new InvitationsApiClient');
+    expect(hook).toContain('useWorkspaceUiRuntime');
     expect(modal).not.toContain('new InvitationsApiClient');
     expect(hook).toContain('invitationsApi.options');
-    expect(hook).toContain('refreshSession');
+    expect(hook).toContain('refreshAccessToken');
     expect(modal).not.toContain('utils/supabase');
     expect(modal).not.toMatch(/\bsupabase\s*\./);
     expect(modal).not.toContain('.functions.invoke');

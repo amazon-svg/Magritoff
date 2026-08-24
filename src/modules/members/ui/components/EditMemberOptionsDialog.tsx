@@ -6,14 +6,14 @@
 
 import { useMemo } from 'react';
 import { Loader2, X, Check } from 'lucide-react';
-import { TEST_IDS } from '../../lib/testIds';
-import { useUserRoleManagement } from '../../hooks/useRoleAssignmentManagement';
+import { TEST_IDS } from '../../../../shared/presentation/testIds';
+import { useMemberOptions } from '../hooks/useMemberOptions';
 
-export interface EditUserRolesModalProps {
+export interface EditMemberOptionsDialogProps {
   open: boolean;
   /** UUID + email de l'user dont on édite les rôles. */
   targetUserId: string;
-  targetUserEmail: string;
+  targetUserEmail: string | null;
   targetRole: 'admin' | 'member';
   tenantId: string;
   /** Callback après une modification (refresh parent). */
@@ -21,7 +21,7 @@ export interface EditUserRolesModalProps {
   onClose: () => void;
 }
 
-export function EditUserRolesModal({
+export function EditMemberOptionsDialog({
   open,
   targetUserId,
   targetUserEmail,
@@ -29,7 +29,7 @@ export function EditUserRolesModal({
   tenantId,
   onChanged,
   onClose,
-}: EditUserRolesModalProps) {
+}: EditMemberOptionsDialogProps) {
   const {
     roles,
     loading,
@@ -37,7 +37,7 @@ export function EditUserRolesModal({
     pendingRoleIds,
     assignmentByRoleId,
     toggleAssignment,
-  } = useUserRoleManagement({ open, tenantId, targetUserId, onChanged });
+  } = useMemberOptions({ open, tenantId, targetUserId, onChanged });
 
   const options = useMemo(
     () => roles.filter((role) =>
@@ -62,7 +62,7 @@ export function EditUserRolesModal({
               Options de l’utilisateur
             </h3>
             <p className="m-0 mt-0.5 text-ink-muted" style={{ fontSize: '12px' }}>
-              {targetUserEmail}
+              {targetUserEmail ?? targetUserId}
             </p>
           </div>
           <button

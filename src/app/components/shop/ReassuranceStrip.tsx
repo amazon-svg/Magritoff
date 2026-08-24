@@ -8,7 +8,7 @@
  */
 
 import { Leaf, MapPin, Zap } from 'lucide-react';
-import { TEST_IDS } from '../../lib/testIds';
+import { TEST_IDS } from '@/shared/presentation/testIds';
 
 const FACTS = [
   { icon: Zap, label: 'Prix immédiat par Magrit' },

@@ -23,8 +23,8 @@
 import { useMemo } from "react";
 import { AlertTriangle, Loader2, RefreshCw } from "lucide-react";
 import type { Shop, ShopProduct } from '../../../modules/shops';
-import { TEST_IDS } from "../../lib/testIds";
-import { Sheet, SheetContent, SheetTitle } from "../ui/sheet";
+import { TEST_IDS } from "@/shared/presentation/testIds";
+import { Sheet, SheetContent, SheetTitle } from "../../../shared/ui/sheet";
 import {
   resolveCustomMockup,
   type MockupTemplateType,

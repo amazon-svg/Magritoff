@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { X, Loader2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { TEST_IDS } from '../../lib/testIds';
+import { TEST_IDS } from '@/shared/presentation/testIds';
 
 interface Props {
   onClose: () => void;

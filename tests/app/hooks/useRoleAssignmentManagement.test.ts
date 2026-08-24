@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import type { RolesOverview, UserRolesDetail } from '../../../src/modules/roles';
 import {
   mapRolesOverview,
-  mapUserRolesDetail,
   roleAssignmentError,
 } from '../../../src/app/hooks/useRoleAssignmentManagement';
+import { mapMemberOptionsDetail } from '../../../src/modules/members/ui';
 
 describe('useRoleAssignmentManagement helpers', () => {
   it('adapte la vue globale à la matrice historique', () => {
@@ -25,7 +25,7 @@ describe('useRoleAssignmentManagement helpers', () => {
     const detail = {
       roles: [], assignments: [], shops: [], accessScope: 'shop_only', allowedShopIds: [],
     } as UserRolesDetail;
-    expect(mapUserRolesDetail(detail).roles).toHaveLength(0);
+    expect(mapMemberOptionsDetail(detail).roles).toHaveLength(0);
   });
 
   it('normalise les erreurs d assignation', () => {

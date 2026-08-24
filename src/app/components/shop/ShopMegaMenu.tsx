@@ -13,7 +13,7 @@
 import { useId, useRef, useState } from 'react';
 import { ChevronDown, ArrowRight } from 'lucide-react';
 import type { TaxonomyFamily } from '../../utils/shopTaxonomy';
-import { TEST_IDS } from '../../lib/testIds';
+import { TEST_IDS } from '@/shared/presentation/testIds';
 
 interface Props {
   families: TaxonomyFamily[];

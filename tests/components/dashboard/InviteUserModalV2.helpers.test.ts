@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { invitationApiProblemMessage } from '../../../src/app/components/dashboard/InviteUserModalV2.helpers';
+import { invitationApiProblemMessage } from '../../../src/modules/members/ui';
 
 describe('invitationApiProblemMessage', () => {
   it('traduit une session expirée en action utilisateur', () => {

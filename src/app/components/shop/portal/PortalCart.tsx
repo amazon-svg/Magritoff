@@ -4,7 +4,7 @@ import { resolveProductImage } from '../../../utils/productImages';
 import type { Gamme, ProductDefinition } from '../../../utils/productEnrichment';
 import { resolveProductGamme } from '../../../utils/productEnrichment';
 import { ProductMockup } from '../../brand/ProductMockup';
-import { TEST_IDS } from '../../../lib/testIds';
+import { TEST_IDS } from '@/shared/presentation/testIds';
 import { applyTax, extractTaxAmount, formatTaxLabel } from '../../../utils/tax';
 import { resolveCartLinePricing } from './cartPricing';
 

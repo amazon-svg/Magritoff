@@ -27,7 +27,7 @@ import {
   Printer,
   RefreshCw,
 } from 'lucide-react';
-import { TEST_IDS } from '../../lib/testIds';
+import { TEST_IDS } from '@/shared/presentation/testIds';
 import { applyTax, extractTaxAmount, formatTaxLabel } from '../../utils/tax';
 import type { ClariprintQuoteResult } from '../../utils/clariprintQuote';
 
