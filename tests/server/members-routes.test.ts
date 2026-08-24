@@ -36,10 +36,10 @@ describe('routes API membres', () => {
     expect(response.status).toBe(200);
     expect(receivedActor).toBe(actor.value);
   });
-  it('traduit la protection owner en 403', async () => {
-    const response = await handler(repository({ async remove() { throw new MemberRejectedError('owner_protected', 'owner protégé'); } }))(new Request(`http://localhost/api/v1/tenants/${tenantId}/members/${userId}`, { method: 'DELETE' }));
+  it('traduit la protection du dernier admin en 403', async () => {
+    const response = await handler(repository({ async remove() { throw new MemberRejectedError('last_admin_protected', 'dernier admin protégé'); } }))(new Request(`http://localhost/api/v1/tenants/${tenantId}/members/${userId}`, { method: 'DELETE' }));
     const problem = await response.json();
     expect(response.status).toBe(403);
-    expect(problem.code).toBe('members.owner_protected');
+    expect(problem.code).toBe('members.last_admin_protected');
   });
 });

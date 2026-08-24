@@ -5,9 +5,8 @@
  * access_scope + allowed_shop_ids + permissions jsonb. Désormais :
  *
  *   - Email du futur user
- *   - Multi-select des rôles du tenant à appliquer à l'acceptation
- *     (parmi les 5 presets seedés : Owner, Admin, Acheteur, Validateur,
- *     Producteur, + tous les rôles custom créés par l'admin tenant)
+ *   - Profil Magrit : administrateur ou utilisateur
+ *   - Options fonctionnelles Boutiques et Commandes pour un utilisateur
  *
  * La commande navigateur passe par POST /api/v1/invitations. La création est
  * contrôlée par une commande SQL sécurisée et l’email passe par le port
@@ -49,6 +48,7 @@ export function InviteUserModalV2({
   onClose,
 }: InviteUserModalV2Props) {
   const [email, setEmail] = useState('');
+  const [profile, setProfile] = useState<'admin' | 'member'>('member');
   const [selectedRoleIds, setSelectedRoleIds] = useState<Set<string>>(new Set());
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,6 +64,7 @@ export function InviteUserModalV2({
   useEffect(() => {
     if (open) {
       setEmail('');
+      setProfile('member');
       setSelectedRoleIds(new Set());
       setError(null);
       setManualInvitation(null);
@@ -77,6 +78,12 @@ export function InviteUserModalV2({
       ? invitationApiProblemMessage(loadError.problem.code, loadError.problem.detail)
       : 'Chargement des rôles et boutiques impossible.');
   }, [loadError]);
+
+  const options = useMemo(
+    () => roles.filter((role) =>
+      role.systemKey === 'option_shops' || role.systemKey === 'option_orders'),
+    [roles],
+  );
 
   const toggleRole = (roleId: string) => {
     setSelectedRoleIds((s) => {
@@ -99,13 +106,14 @@ export function InviteUserModalV2({
     setError(null);
 
     const cleanedEmail = email.trim().toLowerCase();
-    const roleIds = Array.from(selectedRoleIds);
+    const roleIds = profile === 'member' ? Array.from(selectedRoleIds) : [];
 
     try {
       const data = await createInvitation({
         email: cleanedEmail,
         baseUrl,
         roleDefinitionIds: roleIds,
+        role: profile,
       });
 
       // Succès — afficher feedback selon que l'email a été envoyé ou non
@@ -148,13 +156,13 @@ export function InviteUserModalV2({
 
   const selectedCount = selectedRoleIds.size;
   const selectedSummary = useMemo(() => {
-    if (selectedCount === 0) return 'Aucun rôle sélectionné';
+    if (selectedCount === 0) return 'Aucune option sélectionnée';
     if (selectedCount === 1) {
-      const r = roles.find((x) => selectedRoleIds.has(x.id));
-      return r?.name ?? '1 rôle';
+      const r = options.find((x) => selectedRoleIds.has(x.id));
+      return r?.name ?? '1 option';
     }
-    return `${selectedCount} rôles sélectionnés`;
-  }, [selectedCount, roles, selectedRoleIds]);
+    return `${selectedCount} options sélectionnées`;
+  }, [selectedCount, options, selectedRoleIds]);
 
   if (!open) return null;
 
@@ -207,26 +215,54 @@ export function InviteUserModalV2({
             Les comptes clients sont créés séparément depuis l’éditeur de chaque boutique.
           </div>
 
-          {/* Rôles à appliquer à l'acceptation */}
-          <div>
+          <fieldset>
+            <legend className="block text-ink-muted mb-1.5" style={{ fontSize: '11.5px', fontWeight: 500 }}>
+              Profil Magrit
+            </legend>
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                ['member', 'Utilisateur', 'Accès métier selon ses options'],
+                ['admin', 'Administrateur', 'Tous les droits de l’espace'],
+              ] as const).map(([value, label, description]) => (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={profile === value}
+                  disabled={sending}
+                  onClick={() => {
+                    setProfile(value);
+                    if (value === 'admin') setSelectedRoleIds(new Set());
+                  }}
+                  className={`rounded-md border px-3 py-2 text-left ${
+                    profile === value ? 'border-info-fg/40 bg-info-bg' : 'border-line bg-paper'
+                  }`}
+                >
+                  <span className="block text-ink" style={{ fontSize: '13px', fontWeight: 500 }}>{label}</span>
+                  <span className="block text-ink-muted mt-0.5" style={{ fontSize: '11px' }}>{description}</span>
+                </button>
+              ))}
+            </div>
+          </fieldset>
+
+          {profile === 'member' && <div>
             <span
               className="block text-ink-muted mb-1.5"
               style={{ fontSize: '11.5px', fontWeight: 500 }}
             >
-              Rôles à appliquer ({selectedSummary})
+              Options ({selectedSummary})
             </span>
             {loadingRoles ? (
               <div className="flex items-center gap-2 text-ink-muted" style={{ fontSize: '12.5px' }}>
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 Chargement des rôles…
               </div>
-            ) : roles.length === 0 ? (
+            ) : options.length === 0 ? (
               <p className="text-ink-muted" style={{ fontSize: '12.5px' }}>
-                Aucun rôle défini dans ce tenant.
+                Aucune option disponible pour cet espace.
               </p>
             ) : (
               <div className="space-y-1.5 max-h-60 overflow-y-auto">
-                {roles.map((r) => {
+                {options.map((r) => {
                   const active = selectedRoleIds.has(r.id);
                   return (
                     <button
@@ -270,12 +306,10 @@ export function InviteUserModalV2({
                 })}
               </div>
             )}
-            {selectedCount === 0 && !loadingRoles && roles.length > 0 && (
-              <p className="mt-2 text-warn-fg" style={{ fontSize: '11.5px' }}>
-                Aucun rôle sélectionné = utilisateur invité sans droits. Cochez au moins un rôle.
-              </p>
-            )}
-          </div>
+            <p className="mt-2 text-ink-muted" style={{ fontSize: '11.5px' }}>
+              Sans option, l’utilisateur conserve l’accès à son compte et aux devis.
+            </p>
+          </div>}
 
           {error && (
             <div

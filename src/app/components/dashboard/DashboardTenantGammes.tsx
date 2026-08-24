@@ -26,7 +26,7 @@ import { useTenantGammeSubscriptions } from '../../hooks/useTenantGammeSubscript
 export function DashboardTenantGammes() {
   const { gammes, loading: pimLoading } = usePIM();
   const { currentTenant, currentRole, isSuperAdmin } = useTenant();
-  const canWrite = currentRole === 'owner' || currentRole === 'admin' || isSuperAdmin;
+  const canWrite = currentRole === 'admin' || isSuperAdmin;
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const { activeSlugs, loading, saving, error, toggle, toggleGroup } = useTenantGammeSubscriptions({
     tenantId: currentTenant?.id ?? null,
@@ -94,7 +94,7 @@ export function DashboardTenantGammes() {
           style={{ fontSize: '12px', fontWeight: 300 }}
         >
           {activeSlugs.size} / {gammes.length} gamme{gammes.length > 1 ? 's' : ''} active{activeSlugs.size > 1 ? 's' : ''}
-          {!canWrite && ' · lecture seule (role member/partner)'}
+          {!canWrite && ' · lecture seule (profil utilisateur)'}
         </p>
       </div>
 

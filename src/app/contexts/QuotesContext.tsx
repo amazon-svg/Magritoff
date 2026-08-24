@@ -5,7 +5,7 @@
  *
  * - Liste (bibliotheque) : entetes seuls, filtres par `scope` :
  *     · 'mine' → mes devis (user_id = moi) — defaut
- *     · 'all'  → tous les devis du tenant — EXPOSE seulement si owner/admin/superadmin
+ *     · 'all'  → tous les devis du tenant — exposé seulement aux admins/superadmins
  *   (La RLS laisse deja passer tout le tenant en SELECT ; le cloisonnement
  *   "mine vs all" est donc applicatif, cf. migration 20260702000100.)
  * - Editeur : `getQuote(id)` charge entete + lignes ; `saveQuote(id, patch)`
@@ -94,7 +94,7 @@ export function QuotesProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [scope, setScope] = useState<QuoteScope>('mine');
 
-  const canViewAll = isSuperAdmin || currentRole === 'owner' || currentRole === 'admin';
+  const canViewAll = isSuperAdmin || currentRole === 'admin';
   const taxRate = getTaxRate(currentTenant);
 
   // Force le scope a 'mine' si l'utilisateur perd le droit (changement de tenant)

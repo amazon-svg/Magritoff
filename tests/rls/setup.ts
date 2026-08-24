@@ -85,8 +85,8 @@ export async function bootstrapHarness(): Promise<RlsHarness> {
   if (tBErr || !tB) throw new Error(`tenant B insert: ${tBErr?.message}`);
 
   await admin.from('tenant_members').insert([
-    { tenant_id: tA.id, user_id: a.user.id, role: 'owner', access_scope: 'magrit_full' },
-    { tenant_id: tB.id, user_id: b.user.id, role: 'owner', access_scope: 'magrit_full' },
+    { tenant_id: tA.id, user_id: a.user.id, role: 'admin', access_scope: 'magrit_full' },
+    { tenant_id: tB.id, user_id: b.user.id, role: 'admin', access_scope: 'magrit_full' },
   ]);
 
   // Cree 2 clients anon, un signIn par user pour avoir leur JWT

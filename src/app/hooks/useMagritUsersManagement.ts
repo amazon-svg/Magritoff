@@ -114,7 +114,7 @@ export function useMagritUsersManagement(tenantId: string | null) {
     await reload();
   };
 
-  const changeRole = async (member: MagritMemberRow, role: Exclude<TenantRole, 'owner'>) => {
+  const changeRole = async (member: MagritMemberRow, role: TenantRole) => {
     if (!tenantId || member.role === role) return;
     setUpdatingRoleFor(member.user_id);
     try {

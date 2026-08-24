@@ -95,21 +95,20 @@ describe.skipIf(SKIP_REASON !== null)('Flux invitation E2E (DB layer)', () => {
     const { error: memErr } = await admin.from('tenant_members').insert({
       tenant_id: tenant.id,
       user_id: owner.user.id,
-      role: 'owner',
+      role: 'admin',
       access_scope: 'magrit_full',
       permissions: { can_quote: true, can_order: true, can_invite: true },
     });
     if (memErr) throw new Error(`tenant_member owner: ${memErr.message}`);
 
-    // Récupère un rôle Magrit auto-seedé par le trigger.
-    // tenants_seed_catalogs (migration 20260601000200).
+    // Récupère l'option Commandes seedée pour le tenant.
     const { data: roleValidateur, error: rErr } = await admin
       .from('tenant_role_definitions')
       .select('id')
       .eq('tenant_id', tenant.id)
-      .eq('name', 'Validateur')
+      .eq('system_key', 'option_orders')
       .single();
-    if (rErr || !roleValidateur) throw new Error(`role Validateur introuvable: ${rErr?.message}`);
+    if (rErr || !roleValidateur) throw new Error(`option Commandes introuvable: ${rErr?.message}`);
 
     const anonOwner = createClient(url, anonKey, {
       auth: { persistSession: false, autoRefreshToken: false },

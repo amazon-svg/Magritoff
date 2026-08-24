@@ -29,11 +29,11 @@ describe('UM8.1 frontière d écriture des utilisateurs Magrit', () => {
     expect(invite).not.toContain('allowedShopIds:');
   });
 
-  it('limite un compte legacy à une conversion à sens unique vers Magrit', () => {
-    expect(roleManagement).toContain("detail.accessScope === 'shop_only'");
-    expect(roleManagement).toContain("accessScope: 'magrit_full'");
-    expect(roleManagement).toContain('allowedShopIds: []');
-    expect(edit).toContain('Convertir en utilisateur Magrit');
+  it('isole les comptes legacy de la gestion de l équipe Magrit', () => {
+    expect(roleManagement).not.toContain("accessScope: 'shop_only'");
+    expect(roleManagement).not.toContain('allowedShopIds:');
+    expect(users).toContain("member.access_scope === 'magrit_full'");
+    expect(edit).toContain('Options de l’utilisateur');
     expect(edit).not.toContain("setScope('shop_only')");
     expect(users).not.toContain('ScopeAndPermissionsFieldset');
     expect(users).not.toContain('EditPermissionsModal');

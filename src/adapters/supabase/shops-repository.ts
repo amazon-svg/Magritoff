@@ -12,7 +12,7 @@ export class SupabaseShopsRepository implements ShopsRepository {
   constructor(private readonly client: SupabaseClient<Database>, private readonly publicBaseUrl?: string) {}
 
   async list(_actor: UserId, tenantId: string): Promise<ShopDto[]> {
-    const { data, error } = await this.client.from('shops').select(SHOP_COLUMNS).eq('tenant_id', tenantId).order('created_at', { ascending: false });
+    const { data, error } = await this.client.from('shops').select(SHOP_COLUMNS).eq('tenant_id', tenantId).is('deleted_at', null).order('created_at', { ascending: false });
     if (error) throw classified(error, 'Chargement des boutiques impossible.');
     return (data ?? []).map((row) => mapShop(row, this.publicBaseUrl));
   }
@@ -29,15 +29,16 @@ export class SupabaseShopsRepository implements ShopsRepository {
     return mapShop(data, this.publicBaseUrl);
   }
   async update(actor: UserId, tenantId: string, shopId: string, command: UpdateShopCommand): Promise<ShopDto> {
-    const { data, error } = await this.client.from('shops').update(shopPatch(command)).eq('tenant_id', tenantId).eq('id', shopId).eq('owner_user_id', actor).select(SHOP_COLUMNS).maybeSingle();
+    const { data, error } = await this.client.from('shops').update(shopPatch(command)).eq('tenant_id', tenantId).eq('id', shopId).select(SHOP_COLUMNS).maybeSingle();
     if (error) throw classified(error, 'Modification de la boutique impossible.');
     if (!data) throw new ShopRejectedError('shop_not_found', 'Boutique introuvable.');
     return mapShop(data, this.publicBaseUrl);
   }
   async remove(actor: UserId, tenantId: string, shopId: string): Promise<void> {
-    const { data, error } = await this.client.from('shops').delete().eq('tenant_id', tenantId).eq('id', shopId).eq('owner_user_id', actor).select('id').maybeSingle();
+    const { data, error } = await this.client.rpc('api_delete_shop', { p_tenant_id: tenantId, p_shop_id: shopId });
     if (error) throw classified(error, 'Suppression de la boutique impossible.');
     if (!data) throw new ShopRejectedError('shop_not_found', 'Boutique introuvable.');
+    await this.cleanupShopStorage(shopId);
   }
   async products(_actor: UserId, tenantId: string, shopId: string): Promise<ShopProductDto[]> {
     await this.requireShop(tenantId, shopId);
@@ -194,8 +195,22 @@ export class SupabaseShopsRepository implements ShopsRepository {
     if (error) throw classified(error, 'Lecture de la boutique impossible.');
     if (!data) throw new ShopRejectedError('shop_not_found', 'Boutique introuvable.');
   }
+  private async cleanupShopStorage(shopId: string): Promise<void> {
+    for (const bucket of ['shop_backgrounds', 'shop_product_mockups']) {
+      const storage = this.client.storage.from(bucket);
+      const { data, error } = await storage.list(shopId, { limit: 1000 });
+      if (error) {
+        console.warn(`[Shops] nettoyage du bucket ${bucket} ignoré: ${error.message}`);
+        continue;
+      }
+      const paths = (data ?? []).filter((entry) => entry.name).map((entry) => `${shopId}/${entry.name}`);
+      if (paths.length === 0) continue;
+      const removed = await storage.remove(paths);
+      if (removed.error) console.warn(`[Shops] nettoyage du bucket ${bucket} incomplet: ${removed.error.message}`);
+    }
+  }
   private async loadActiveShopBySlug<TColumns extends string>(slug: string, columns: TColumns) {
-    const { data, error } = await this.client.from('shops').select(columns).eq('slug', slug).eq('active', true).maybeSingle();
+    const { data, error } = await this.client.from('shops').select(columns).eq('slug', slug).eq('active', true).is('deleted_at', null).maybeSingle();
     if (error) throw classified(error, 'Lecture de la boutique impossible.');
     if (!data) throw new ShopRejectedError('shop_not_found', 'Boutique introuvable.');
     return data;

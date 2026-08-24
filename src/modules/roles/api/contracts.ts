@@ -3,6 +3,7 @@ import { z } from 'zod';
 export const roleDefinitionSchema = z.object({
   id: z.string().uuid(), name: z.string(), description: z.string(),
   capabilities: z.record(z.string(), z.boolean()), orderingIndex: z.number(),
+  systemKey: z.string().nullable().default(null),
 });
 export const roleCatalogDefinitionSchema = roleDefinitionSchema.extend({
   tenantId: z.string().uuid(),
@@ -25,6 +26,15 @@ export const userRolesDetailSchema = z.object({
   roles: z.array(roleDefinitionSchema), assignments: z.array(roleAssignmentSchema),
   shops: z.array(z.object({ id: z.string().uuid(), name: z.string() })),
   accessScope: z.enum(['magrit_full', 'shop_only']), allowedShopIds: z.array(z.string().uuid()),
+});
+export const accessSurfaceSchema = z.enum(['workspace', 'backoffice']);
+export const userAccessProfileSchema = z.object({
+  tenantId: z.string().uuid(),
+  userId: z.string().uuid(),
+  membership: z.enum(['admin', 'member']),
+  isAdmin: z.boolean(),
+  surfaces: z.array(accessSurfaceSchema),
+  capabilities: z.array(z.string()),
 });
 export const setRoleAssignmentCommandSchema = z.object({ active: z.boolean() });
 export const setRoleAssignmentResultSchema = z.object({ active: z.boolean(), assignmentId: z.string().uuid().nullable() });
@@ -63,3 +73,5 @@ export type SetRoleAssignmentResult = z.infer<typeof setRoleAssignmentResultSche
 export type RoleCatalogDefinition = z.infer<typeof roleCatalogDefinitionSchema>;
 export type SaveRoleDefinitionCommand = z.infer<typeof saveRoleDefinitionCommandSchema>;
 export type UserCapability = z.infer<typeof userCapabilitySchema>;
+export type UserAccessProfile = z.infer<typeof userAccessProfileSchema>;
+export type AccessSurface = z.infer<typeof accessSurfaceSchema>;

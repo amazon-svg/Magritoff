@@ -12,6 +12,7 @@ import { PLAN_LABEL } from '../../utils/plans';
 import { MagritLogo } from '../brand/MagritLogo';
 import { TEST_IDS } from '../../lib/testIds';
 import { workspaceSurface } from '../../../surfaces/workspace';
+import { useAccessProfile } from '../../contexts/AccessProfileContext';
 
 const WORKSPACE_ICONS: Readonly<Record<string, LucideIcon>> = Object.freeze({
   user: User,
@@ -57,6 +58,7 @@ type WorkspaceVisibility = Readonly<{
   canManageSpaces: boolean;
   isMagritAdmin: boolean;
   canUse: (feature: 'shops' | 'library') => boolean;
+  hasCapability: (capability: string) => boolean;
 }>;
 
 function composeWorkspaceGroups(basePath: string, visibility: WorkspaceVisibility) {
@@ -83,6 +85,9 @@ function composeWorkspaceGroups(basePath: string, visibility: WorkspaceVisibilit
 }
 
 function isNavigationVisible(id: string, visibility: WorkspaceVisibility): boolean {
+  const item = workspaceSurface.navigation.find((candidate) => candidate.id === id);
+  const route = item ? WORKSPACE_ROUTES_BY_ID.get(item.routeId) : undefined;
+  if (route && !(route.requiredCapabilities ?? []).every(visibility.hasCapability)) return false;
   if (id === 'shops.workspace.navigation') return visibility.canUse('shops');
   if (id === 'libraries.workspace.navigation') return visibility.canUse('library');
   if (id === 'catalog.workspace.pim-navigation' || id === 'mockups.workspace.navigation') {
@@ -107,13 +112,14 @@ export function DashboardLayout() {
   const isAdmin = useIsAdmin();
   const { currentTenant, currentRole, isSuperAdmin } = useTenant();
   const location = useLocation();
+  const { hasCapability } = useAccessProfile();
 
   // Raccourci : tenantSlug extrait du path courant pour construire les `to` absolus.
   // On prefere absolus pour que la NavLink active-match fonctionne sans surprise.
   const tenantSlug = currentTenant?.slug ?? '';
   const basePath = `/t/${tenantSlug}/dashboard`;
 
-  const canManageMembers = currentRole === 'owner' || currentRole === 'admin' || isSuperAdmin;
+  const canManageMembers = currentRole === 'admin' || isSuperAdmin;
   const canManageSpaces = canManageMembers && !!currentTenant && !currentTenant.parent_tenant_id;
 
   if (loading) {
@@ -133,6 +139,7 @@ export function DashboardLayout() {
     canManageSpaces,
     isMagritAdmin: isAdmin || isSuperAdmin,
     canUse,
+    hasCapability: (capability) => hasCapability(capability) === true,
   });
 
   // Breadcrumb extrait du path courant : "dashboard / segment"

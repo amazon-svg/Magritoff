@@ -35,7 +35,7 @@ describe('routes session API v1', () => {
 
     expect(session.user.id).toBe('user-af2');
     expect(resolvedSlug).toBe('tenant-af2');
-    expect(session.tenants[0]).toMatchObject({ id: 'tenant-af2', myRole: 'owner' });
+    expect(session.tenants[0]).toMatchObject({ id: 'tenant-af2', myRole: 'admin' });
     expect(preferences.theme).toBe('dark');
     expect(selected.last_tenant_id).toBe('tenant-af2');
     expect(repository.updatePreferences).toHaveBeenCalledWith('user-af2', { theme: 'dark' });
@@ -150,7 +150,7 @@ function repositoryStub(): SessionRepository & Record<'resolveTenantSlug' | 'upd
         settings: {},
         created_at: '2026-08-11T12:00:00.000Z',
       },
-      role: 'owner' as const,
+      role: 'admin' as const,
       accessScope: 'magrit_full' as const,
       allowedShopIds: [],
       permissions: {},

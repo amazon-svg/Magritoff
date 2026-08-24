@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { RolesOverview, UserRolesDetail } from '../../modules/roles';
-import { useWorkspaceMembersApi, useWorkspaceRolesApi } from '../contexts/ModuleClientsContext';
+import { useWorkspaceRolesApi } from '../contexts/ModuleClientsContext';
 
 export interface RoleAssignmentDefinition {
   id: string;
@@ -10,6 +10,7 @@ export interface RoleAssignmentDefinition {
   capabilities: Record<string, boolean>;
   ordering_index: number;
   archived_at: null;
+  systemKey: string | null;
 }
 
 export interface RoleAssignmentMember {
@@ -28,6 +29,7 @@ export interface UserRoleOption {
   id: string;
   name: string;
   description: string;
+  systemKey: string | null;
 }
 
 export function mapRolesOverview(tenantId: string, overview: RolesOverview) {
@@ -40,6 +42,7 @@ export function mapRolesOverview(tenantId: string, overview: RolesOverview) {
       capabilities: role.capabilities,
       ordering_index: role.orderingIndex,
       archived_at: null,
+      systemKey: role.systemKey,
     })),
     members: overview.members.map((member): RoleAssignmentMember => ({
       user_id: member.userId,
@@ -60,13 +63,13 @@ export function mapUserRolesDetail(detail: UserRolesDetail) {
       id: role.id,
       name: role.name,
       description: role.description,
+      systemKey: role.systemKey,
     })),
     assignments: detail.assignments.map((assignment): RoleAssignmentRow => ({
       id: assignment.id,
       role_definition_id: assignment.roleId,
       user_id: assignment.userId,
     })),
-    legacyShopOnly: detail.accessScope === 'shop_only',
   };
 }
 
@@ -160,12 +163,9 @@ export function useUserRoleManagement({
   onChanged,
 }: UseUserRoleManagementOptions) {
   const rolesApi = useWorkspaceRolesApi();
-  const membersApi = useWorkspaceMembersApi();
   const requestVersion = useRef(0);
   const [roles, setRoles] = useState<UserRoleOption[]>([]);
   const [assignments, setAssignments] = useState<RoleAssignmentRow[]>([]);
-  const [legacyShopOnly, setLegacyShopOnly] = useState(false);
-  const [savingAccess, setSavingAccess] = useState(false);
   const [loading, setLoading] = useState(open);
   const [error, setError] = useState<string | null>(null);
   const [pendingRoleIds, setPendingRoleIds] = useState<Set<string>>(new Set());
@@ -179,7 +179,6 @@ export function useUserRoleManagement({
       if (version !== requestVersion.current) return;
       setRoles(mapped.roles);
       setAssignments(mapped.assignments);
-      setLegacyShopOnly(mapped.legacyShopOnly);
     } catch (cause) {
       if (version === requestVersion.current) {
         setError(`Rôles : ${roleAssignmentError(cause, 'chargement impossible')}`);
@@ -222,37 +221,12 @@ export function useUserRoleManagement({
     }
   };
 
-  const promoteToMagrit = async () => {
-    setSavingAccess(true);
-    setError(null);
-    try {
-      const member = (await membersApi.list(tenantId)).find(
-        (candidate) => candidate.userId === targetUserId,
-      );
-      if (!member) throw new Error('Membre introuvable.');
-      await membersApi.updateAccess(tenantId, targetUserId, {
-        accessScope: 'magrit_full',
-        allowedShopIds: [],
-        permissions: member.permissions,
-      });
-      setLegacyShopOnly(false);
-      await onChanged();
-    } catch (cause) {
-      setError(`Accès : ${roleAssignmentError(cause, 'enregistrement impossible')}`);
-    } finally {
-      setSavingAccess(false);
-    }
-  };
-
   return {
     roles,
-    legacyShopOnly,
-    savingAccess,
     loading,
     error,
     pendingRoleIds,
     assignmentByRoleId,
     toggleAssignment,
-    promoteToMagrit,
   } as const;
 }

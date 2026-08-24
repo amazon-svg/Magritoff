@@ -235,14 +235,12 @@ describe('registre des contributions de surfaces', () => {
     ]));
   });
 
-  it('limite la gestion des rôles au workspace', () => {
+  it('ne publie plus de catalogue de rôles Magrit', () => {
     expect(rolesModuleManifest.surfaces).toEqual(['workspace']);
-    expect(applicationContributionRegistry.forSurface('workspace').routes).toContainEqual(
-      expect.objectContaining({ id: 'roles.workspace.workflow', path: 'order-roles' }),
-    );
-    expect(applicationContributionRegistry.forSurface('workspace').navigation).toContainEqual(
-      expect.objectContaining({ id: 'roles.workspace.navigation', label: 'Workflow & rôles' }),
-    );
+    expect(applicationContributionRegistry.forSurface('workspace').routes)
+      .not.toEqual(expect.arrayContaining([expect.objectContaining({ moduleId: 'roles' })]));
+    expect(applicationContributionRegistry.forSurface('workspace').navigation)
+      .not.toEqual(expect.arrayContaining([expect.objectContaining({ moduleId: 'roles' })]));
   });
 
   it('limite l historique des conversations au workspace', () => {

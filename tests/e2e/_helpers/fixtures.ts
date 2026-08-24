@@ -49,7 +49,7 @@ export async function bootstrapChromeFixtures(): Promise<ChromeFixtures> {
   if (e3 || !tenant) throw new Error(`tenant insert: ${e3?.message}`);
 
   await admin.from('tenant_members').insert([
-    { tenant_id: tenant.id, user_id: adminUser.user.id, role: 'owner', access_scope: 'magrit_full' },
+    { tenant_id: tenant.id, user_id: adminUser.user.id, role: 'admin', access_scope: 'magrit_full' },
     {
       tenant_id: tenant.id,
       user_id: acheteurUser.user.id,

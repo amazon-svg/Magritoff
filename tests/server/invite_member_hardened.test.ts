@@ -65,24 +65,17 @@ describe.skipIf(SKIP_REASON !== null)('invite-member hardened (S9 R5-bis P1)', (
       .from('tenants').insert({ slug: `inv-h-other-${tag}`, name: `Other ${tag}` })
       .select('id').single();
 
-    // owner = admin tenant, member = simple (n'aura pas can_invite)
+    // admin tenant, membre simple (sans can_invite)
     await admin.from('tenant_members').insert([
-      { tenant_id: tenant!.id, user_id: owner.user!.id, role: 'owner', access_scope: 'magrit_full' },
+      { tenant_id: tenant!.id, user_id: owner.user!.id, role: 'admin', access_scope: 'magrit_full' },
       { tenant_id: tenant!.id, user_id: member.user!.id, role: 'member', access_scope: 'magrit_full' },
     ]);
 
-    // Owner reçoit rôle Owner (avec can_invite)
-    const { data: ownerRole } = await admin.from('tenant_role_definitions')
-      .select('id').eq('tenant_id', tenant!.id).eq('name', 'Owner').single();
-    await admin.from('tenant_role_assignments').insert({
-      role_definition_id: ownerRole!.id, user_id: owner.user!.id, assigned_by: owner.user!.id,
-    });
-
-    // Rôle Magrit valide pour ce tenant + rôle du même type sur OTHER tenant.
+    // Option Magrit valide pour ce tenant + option du même type sur OTHER tenant.
     const { data: validRole } = await admin.from('tenant_role_definitions')
-      .select('id').eq('tenant_id', tenant!.id).eq('name', 'Validateur').single();
+      .select('id').eq('tenant_id', tenant!.id).eq('system_key', 'option_orders').single();
     const { data: otherRole } = await admin.from('tenant_role_definitions')
-      .select('id').eq('tenant_id', otherTenant!.id).eq('name', 'Validateur').single();
+      .select('id').eq('tenant_id', otherTenant!.id).eq('system_key', 'option_orders').single();
 
     const anonOwner = createClient(url, anonKey, { auth: { persistSession: false } });
     await anonOwner.auth.signInWithPassword({ email: `inv-h-o-${tag}@magrit.test`, password });
@@ -102,7 +95,6 @@ describe.skipIf(SKIP_REASON !== null)('invite-member hardened (S9 R5-bis P1)', (
       memberJwt: memberSession.session!.access_token,
       baseUrl: 'http://localhost:5177',
       cleanup: async () => {
-        await admin.from('tenant_role_assignments').delete().eq('role_definition_id', ownerRole!.id);
         await admin.from('tenant_invitations').delete().in('tenant_id', [tenant!.id, otherTenant!.id]);
         await admin.from('tenant_order_status_transitions').delete().in('tenant_id', [tenant!.id, otherTenant!.id]);
         await admin.from('tenant_order_status_definitions').delete().in('tenant_id', [tenant!.id, otherTenant!.id]);
@@ -158,7 +150,7 @@ describe.skipIf(SKIP_REASON !== null)('invite-member hardened (S9 R5-bis P1)', (
     expect(body.error).toMatch(/invited_by_mismatch/);
   });
 
-  it('3. Caller sans can_invite (member simple sans rôle Owner) → 403 permission_denied', async () => {
+  it('3. Caller sans can_invite (utilisateur simple) → 403 permission_denied', async () => {
     const { status, body } = await callEdge(ctx.memberJwt, {
       email: `new-${rid()}@magrit.test`,
       tenant_id: ctx.tenantId,
@@ -181,7 +173,7 @@ describe.skipIf(SKIP_REASON !== null)('invite-member hardened (S9 R5-bis P1)', (
     expect(body.error).toMatch(/role_mismatch_tenant/);
   });
 
-  it('5. Happy path : owner avec can_invite + role tenant valide → 200', async () => {
+  it('5. Happy path : admin avec can_invite + option tenant valide → 200', async () => {
     const targetEmail = `happy-${rid()}@magrit.test`;
     const { status, body } = await callEdge(ctx.ownerJwt, {
       email: targetEmail,

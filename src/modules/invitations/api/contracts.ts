@@ -6,6 +6,7 @@ export const createInvitationCommandSchema = z.object({
   email: z.string().email(),
   tenantId: z.string().uuid(),
   baseUrl: z.string().url(),
+  role: z.enum(['admin', 'member']),
   roleDefinitionIds: z.array(z.string().uuid()),
 }).strict();
 
@@ -17,14 +18,14 @@ export const createInvitationResultSchema = z.object({
 });
 
 export const invitationOptionsSchema = z.object({
-  roles: z.array(z.object({ id: z.string().uuid(), name: z.string(), description: z.string() })),
+  roles: z.array(z.object({ id: z.string().uuid(), name: z.string(), description: z.string(), systemKey: z.string().nullable().default(null) })),
   shops: z.array(z.object({ id: z.string().uuid(), name: z.string() })),
 });
 
 export const pendingInvitationSchema = z.object({
   id: z.string().uuid(),
   email: z.string().email(),
-  role: z.enum(['owner', 'admin', 'member', 'partner']),
+  role: z.enum(['admin', 'member']),
   expiresAt: z.string(),
   createdAt: z.string(),
   accessScope: invitationAccessScopeSchema,

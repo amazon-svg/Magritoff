@@ -29,7 +29,6 @@ const routeLoaders: Readonly<Record<string, LazyPageLoader>> = Object.freeze({
   'members.workspace.list': () => import('../components/dashboard/DashboardUsers').then((module) => ({ default: module.DashboardUsers })),
   'tenants.workspace.settings': () => import('../components/dashboard/DashboardTenantSettings').then((module) => ({ default: module.DashboardTenantSettings })),
   'tenants.workspace.spaces': () => import('../components/dashboard/DashboardTenantSpaces').then((module) => ({ default: module.DashboardTenantSpaces })),
-  'roles.workspace.workflow': () => import('../components/dashboard/OrderRoleAdminPage').then((module) => ({ default: module.OrderRoleAdminPage })),
   'conversations.workspace.history': () => import('../components/dashboard/DashboardHistory').then((module) => ({ default: module.DashboardHistory })),
   'machine-parks.workspace.list': () => import('../components/dashboard/machines/DashboardMachines').then((module) => ({ default: module.DashboardMachines })),
   'machine-parks.workspace.wizard': () => import('../components/dashboard/machines/MachineParkWizard').then((module) => ({ default: module.MachineParkWizard })),
@@ -42,6 +41,7 @@ export type WorkspaceRuntimeRoute = Readonly<{
   id: string;
   path: string;
   Component: LazyExoticComponent<ComponentType>;
+  requiredCapabilities: readonly string[];
 }>;
 
 export const workspaceRuntimeRoutes: readonly WorkspaceRuntimeRoute[] = workspaceSurface.routes
@@ -49,5 +49,5 @@ export const workspaceRuntimeRoutes: readonly WorkspaceRuntimeRoute[] = workspac
   .map((route) => {
     const loader = routeLoaders[route.id];
     if (!loader) throw new Error(`Aucun loader lazy pour la route workspace ${route.id}.`);
-    return Object.freeze({ id: route.id, path: route.path, Component: lazy(loader) });
+    return Object.freeze({ id: route.id, path: route.path, Component: lazy(loader), requiredCapabilities: route.requiredCapabilities ?? [] });
   });

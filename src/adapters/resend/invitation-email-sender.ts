@@ -39,7 +39,7 @@ function renderText(message: InvitationEmail): string {
   return `Bonjour,\n\nVous avez été invité(e) à rejoindre ${message.tenantName} sur Magrit.\nRôle : ${roleLabel(message.role)}\nInvitation valable jusqu’au ${formatDate(message.expiresAt)}.\n\n${message.link}`;
 }
 function roleLabel(role: InvitationEmail['role']): string {
-  return ({ owner: 'Propriétaire', admin: 'Administrateur', member: 'Membre', partner: 'Partenaire' } as const)[role];
+  return ({ admin: 'Administrateur', member: 'Utilisateur' } as const)[role];
 }
 function formatDate(value: string): string {
   return new Date(value).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });

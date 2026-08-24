@@ -11,7 +11,7 @@ const LOCALES = ['fr', 'en'];
 export function DashboardAdminPIM() {
   // v3 : l'acces admin PIM est ouvert a 2 categories d'utilisateurs :
   //   - isAdmin : ancien flag user_preferences.is_admin (compat v1/v2)
-  //   - isSuperAdmin : membre owner/admin du tenant system 'magrit-root' (v3)
+  //   - isSuperAdmin : admin du tenant système 'magrit-root' (v3)
   // L'un des deux suffit.
   const isAdmin = useIsAdmin();
   const { isSuperAdmin } = useTenant();
@@ -66,7 +66,7 @@ export function DashboardAdminPIM() {
         <h2 className="text-xl font-bold text-ink mb-2">Accès admin requis</h2>
         <p className="text-sm text-ink-muted">
           Cette page est réservée aux super-administrateurs Magrit. Il faut être
-          membre owner ou admin du tenant système <code className="bg-bg px-1.5 py-0.5 rounded">magrit-root</code>.
+          administrateur du tenant système <code className="bg-bg px-1.5 py-0.5 rounded">magrit-root</code>.
         </p>
       </div>
     );

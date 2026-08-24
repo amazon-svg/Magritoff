@@ -11,7 +11,7 @@ const userId = id('user-af2');
 
 describe('SessionService', () => {
   it('agrège les tenants directs, les enfants hérités et les préférences', async () => {
-    const owner = membership('root', 'owner', 'magrit_full', true);
+    const owner = membership('root', 'admin', 'magrit_full', true);
     const child = tenant('child', 'root');
     const repository = repositoryStub({ direct: [owner], children: [child] });
 
@@ -21,11 +21,11 @@ describe('SessionService', () => {
     expect(repository.listChildren).toHaveBeenCalledWith(['root']);
     expect(result.isSuperAdmin).toBe(true);
     expect(result.tenants).toEqual([
-      expect.objectContaining({ id: 'root', inheritedFromParent: false, myRole: 'owner' }),
+      expect.objectContaining({ id: 'root', inheritedFromParent: false, myRole: 'admin' }),
       expect.objectContaining({
         id: 'child',
         inheritedFromParent: true,
-        myRole: 'owner',
+        myRole: 'admin',
         accessScope: 'magrit_full',
         permissions: expect.objectContaining({ can_invite: true }),
       }),
@@ -35,8 +35,7 @@ describe('SessionService', () => {
 
   it.each([
     ['member', 'magrit_full'],
-    ['partner', 'magrit_full'],
-    ['owner', 'shop_only'],
+    ['member', 'shop_only'],
   ] as const)('n hérite pas avec le rôle %s et le scope %s', async (role, scope) => {
     const repository = repositoryStub({ direct: [membership('root', role, scope)] });
 
@@ -62,7 +61,7 @@ describe('SessionService', () => {
   });
 
   it('refuse de mémoriser un tenant hors de la session', async () => {
-    const repository = repositoryStub({ direct: [membership('root', 'owner', 'magrit_full')] });
+    const repository = repositoryStub({ direct: [membership('root', 'admin', 'magrit_full')] });
 
     await expect(new SessionService(repository).updateLastTenant(userId, 'stranger')).rejects.toBeInstanceOf(
       SessionTenantAccessDeniedError,

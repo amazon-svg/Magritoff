@@ -33,7 +33,7 @@ import { useSessionBootstrap } from './SessionBootstrapContext';
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
-export type TenantRole = 'owner' | 'admin' | 'member' | 'partner';
+export type TenantRole = 'admin' | 'member';
 export type TenantPlan = 'freemium' | 'pro' | 'enterprise';
 export type AccessScope = 'magrit_full' | 'shop_only';
 

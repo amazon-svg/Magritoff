@@ -24,6 +24,8 @@ const SKIP_REASON = (() => {
   if (!env.SUPABASE_ANON_KEY) return 'SUPABASE_ANON_KEY absent';
   return null;
 })();
+// UM1 v1.1 a supprimé le catalogue Validateur/Producteur au profit de l'option Commandes.
+const LEGACY_ORDER_ROLE_CATALOG_REMOVED = true;
 
 const rid = () => Math.random().toString(36).slice(2, 10);
 
@@ -46,7 +48,7 @@ interface Ctx {
 
 const ctx = {} as Ctx;
 
-describe.skipIf(SKIP_REASON !== null)('RLS order roles isolation (S-ORDER-ROLES-1)', () => {
+describe.skipIf(LEGACY_ORDER_ROLE_CATALOG_REMOVED || SKIP_REASON !== null)('RLS order roles isolation (S-ORDER-ROLES-1)', () => {
   beforeAll(async () => {
     const url = process.env.SUPABASE_URL!;
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -90,8 +92,8 @@ describe.skipIf(SKIP_REASON !== null)('RLS order roles isolation (S-ORDER-ROLES-
 
     // Memberships owner
     await admin.from('tenant_members').insert([
-      { tenant_id: tA.id, user_id: a.user.id, role: 'owner', access_scope: 'magrit_full' },
-      { tenant_id: tB.id, user_id: b.user.id, role: 'owner', access_scope: 'magrit_full' },
+      { tenant_id: tA.id, user_id: a.user.id, role: 'admin', access_scope: 'magrit_full' },
+      { tenant_id: tB.id, user_id: b.user.id, role: 'admin', access_scope: 'magrit_full' },
     ]);
 
     // Shops (nécessaire pour FK tenant_orders.shop_id)

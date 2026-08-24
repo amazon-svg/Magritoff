@@ -18,9 +18,7 @@
  * Note v1.1 : le RPC retourne true pour super_admin sans check role assignment.
  */
 
-import { useEffect, useState } from 'react';
-import { useTenant } from '../contexts/TenantContext';
-import { useWorkspaceRolesApi } from '../contexts/ModuleClientsContext';
+import { useAccessProfile } from '../contexts/AccessProfileContext';
 
 export interface UseUserCapabilityResult {
   /** null pendant le chargement initial ; true/false sinon. */
@@ -30,43 +28,6 @@ export interface UseUserCapabilityResult {
 }
 
 export function useUserCapability(capability: string): UseUserCapabilityResult {
-  const { currentTenant } = useTenant();
-  const rolesApi = useWorkspaceRolesApi();
-  const [hasIt, setHasIt] = useState<boolean | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!currentTenant?.id) {
-      setHasIt(null);
-      setLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-
-    (async () => {
-      try {
-        const granted = await rolesApi.userCapability(currentTenant.id, capability);
-        if (cancelled) return;
-        setHasIt(granted);
-      } catch (capabilityError) {
-        if (cancelled) return;
-        const message = capabilityError instanceof Error ? capabilityError.message : 'Vérification de capability impossible.';
-        console.warn('[useUserCapability] API failed:', message);
-        setError(message);
-        setHasIt(false);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [currentTenant?.id, capability, rolesApi]);
-
-  return { hasIt, loading, error };
+  const { hasCapability, loading, error } = useAccessProfile();
+  return { hasIt: hasCapability(capability), loading, error };
 }

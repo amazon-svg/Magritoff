@@ -215,7 +215,7 @@ function toPreferences(row: PreferencesRow): SessionUserPreferences {
 }
 
 function normalizeRole(value: string): DirectMembership['role'] {
-  return ['owner', 'admin', 'member', 'partner'].includes(value)
+  return ['admin', 'member'].includes(value)
     ? (value as DirectMembership['role'])
     : 'member';
 }

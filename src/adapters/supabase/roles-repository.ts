@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { UserId } from '../../kernel/ids/index.ts';
-import type { RoleCatalogDefinition, RolesCatalog, RolesOverview, SaveRoleDefinitionCommand, SetRoleAssignmentResult, UserRolesDetail } from '../../modules/roles/api/contracts.ts';
+import type { RoleCatalogDefinition, RolesCatalog, RolesOverview, SaveRoleDefinitionCommand, SetRoleAssignmentResult, UserAccessProfile, UserRolesDetail } from '../../modules/roles/api/contracts.ts';
 import { RoleRejectedError, type RolesRepository } from '../../modules/roles/application/roles-repository.ts';
 import type { Database } from '../../types/database.types.ts';
 
@@ -14,6 +14,48 @@ export class SupabaseRolesRepository implements RolesRepository {
     });
     if (error) throw rejected(error.message);
     return Boolean(data);
+  }
+
+  async accessProfile(actor: UserId, tenantId: string): Promise<UserAccessProfile> {
+    const member = await this.client.from('tenant_members')
+      .select('role, access_scope')
+      .eq('tenant_id', tenantId)
+      .eq('user_id', actor)
+      .maybeSingle();
+    if (member.error) throw rejected(member.error.message);
+    if (!member.data || member.data.access_scope !== 'magrit_full') {
+      throw new RoleRejectedError('member_not_found', 'Vous n appartenez pas a l equipe de cet espace.');
+    }
+
+    const membership: UserAccessProfile['membership'] = member.data.role === 'admin' ? 'admin' : 'member';
+    const isAdmin = membership === 'admin';
+    const capabilities = new Set<string>();
+
+    if (!isAdmin) {
+      const assigned = await this.client.from('tenant_role_assignments')
+        .select('tenant_role_definitions!inner(tenant_id, archived_at, identity_context, capabilities)')
+        .eq('user_id', actor)
+        .is('revoked_at', null)
+        .eq('tenant_role_definitions.tenant_id', tenantId)
+        .eq('tenant_role_definitions.identity_context', 'magrit')
+        .is('tenant_role_definitions.archived_at', null);
+      if (assigned.error) throw rejected(assigned.error.message);
+      for (const row of assigned.data ?? []) {
+        const definition = row.tenant_role_definitions as unknown as { capabilities: Record<string, boolean> | null };
+        for (const [name, granted] of Object.entries(definition.capabilities ?? {})) {
+          if (granted) capabilities.add(name);
+        }
+      }
+    }
+
+    return {
+      tenantId,
+      userId: actor,
+      membership,
+      isAdmin,
+      surfaces: isAdmin ? ['workspace', 'backoffice'] : ['workspace'],
+      capabilities: [...capabilities].sort(),
+    };
   }
 
   async overview(_actor: UserId, tenantId: string): Promise<RolesOverview> {
@@ -47,13 +89,16 @@ export class SupabaseRolesRepository implements RolesRepository {
 
   async setAssignment(actor: UserId, tenantId: string, userId: string, roleId: string, active: boolean): Promise<SetRoleAssignmentResult> {
     const [role, member] = await Promise.all([
-      this.client.from('tenant_role_definitions').select('id').eq('id', roleId)
+      this.client.from('tenant_role_definitions').select('id, system_key').eq('id', roleId)
         .eq('tenant_id', tenantId).eq('identity_context', 'magrit')
         .is('archived_at', null).maybeSingle(),
       this.client.from('tenant_members').select('user_id').eq('tenant_id', tenantId).eq('user_id', userId).maybeSingle(),
     ]);
     if (role.error || member.error) throw rejected(role.error?.message ?? member.error?.message ?? 'Accès refusé.');
     if (!role.data) throw new RoleRejectedError('role_not_found', 'Rôle introuvable.');
+    if (role.data.system_key !== 'option_shops' && role.data.system_key !== 'option_orders') {
+      throw new RoleRejectedError('invalid_definition', 'Seules les options Boutiques et Commandes sont assignables à un utilisateur Magrit.');
+    }
     if (!member.data) throw new RoleRejectedError('member_not_found', 'Membre introuvable.');
 
     const { data: current, error: currentError } = await this.client.from('tenant_role_assignments')
@@ -121,11 +166,11 @@ export class SupabaseRolesRepository implements RolesRepository {
 
   private async loadRoles(tenantId: string) {
     const { data, error } = await this.client.from('tenant_role_definitions')
-      .select('id, name, description, capabilities, ordering_index')
+      .select('id, name, description, capabilities, ordering_index, system_key')
       .eq('tenant_id', tenantId).eq('identity_context', 'magrit')
       .is('archived_at', null).order('ordering_index');
     if (error) throw rejected(error.message);
-    return (data ?? []).map((role) => ({ id: role.id, name: role.name, description: role.description ?? '', capabilities: toCapabilities(role.capabilities), orderingIndex: role.ordering_index }));
+    return (data ?? []).map((role) => ({ id: role.id, name: role.name, description: role.description ?? '', capabilities: toCapabilities(role.capabilities), orderingIndex: role.ordering_index, systemKey: role.system_key ?? null }));
   }
   private async loadCatalogRoles(tenantId: string): Promise<RoleCatalogDefinition[]> {
     const { data, error } = await this.client.from('tenant_role_definitions')
@@ -154,7 +199,7 @@ export class SupabaseRolesRepository implements RolesRepository {
   }
 }
 
-const CATALOG_COLUMNS = 'id, tenant_id, name, description, capabilities, notify_policy, scope, scope_shop_id, ordering_index, archived_at' as const;
+const CATALOG_COLUMNS = 'id, tenant_id, name, description, capabilities, notify_policy, scope, scope_shop_id, ordering_index, archived_at, system_key' as const;
 const CANONICAL_ROLES = new Set(['Owner', 'Admin', 'Acheteur', 'Producteur']);
 
 function definitionPayload(command: SaveRoleDefinitionCommand) {
@@ -173,11 +218,13 @@ function mapCatalogRole(role: {
   id: string; tenant_id: string; name: string; description: string | null;
   capabilities: unknown; notify_policy: string; scope: string;
   scope_shop_id: string | null; ordering_index: number; archived_at: string | null;
+  system_key: string | null;
 }): RoleCatalogDefinition {
   return {
     id: role.id,
     tenantId: role.tenant_id,
     name: role.name,
+    systemKey: role.system_key,
     description: role.description ?? '',
     capabilities: toCapabilities(role.capabilities),
     notifyPolicy: role.notify_policy === 'all_roles' || role.notify_policy === 'none' ? role.notify_policy : 'chain_next',

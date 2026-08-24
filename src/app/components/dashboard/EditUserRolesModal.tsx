@@ -1,17 +1,10 @@
 /**
- * EditUserRolesModal — Modal de gestion des rôles d'un user existant.
- * S-USERS-REFONTE Phase A (2026-05-25).
- *
- * Remplace l'ancien modal "Modifier les permissions" qui exposait les
- * checkboxes legacy can_quote/can_order/can_invite. Désormais : matrix
- * verticale "rôles du tenant" × "actif pour cet user" avec toggle live
- * (insert ou revoke d'un tenant_role_assignment).
- *
- * Logique identique à la matrix DashboardRolesSection mais focalisée
- * sur 1 seul user (UX : pour les admins qui éditent un user à la fois
- * depuis la table Magrit Users).
+ * Gestion des options fonctionnelles d'un utilisateur Magrit.
+ * Le catalogue interne des rôles n'est jamais exposé : seuls les deux
+ * produits optionnels Boutiques et Commandes sont présentés.
  */
 
+import { useMemo } from 'react';
 import { Loader2, X, Check } from 'lucide-react';
 import { TEST_IDS } from '../../lib/testIds';
 import { useUserRoleManagement } from '../../hooks/useRoleAssignmentManagement';
@@ -21,6 +14,7 @@ export interface EditUserRolesModalProps {
   /** UUID + email de l'user dont on édite les rôles. */
   targetUserId: string;
   targetUserEmail: string;
+  targetRole: 'admin' | 'member';
   tenantId: string;
   /** Callback après une modification (refresh parent). */
   onChanged: () => void | Promise<void>;
@@ -31,21 +25,25 @@ export function EditUserRolesModal({
   open,
   targetUserId,
   targetUserEmail,
+  targetRole,
   tenantId,
   onChanged,
   onClose,
 }: EditUserRolesModalProps) {
   const {
     roles,
-    legacyShopOnly,
-    savingAccess,
     loading,
     error,
     pendingRoleIds,
     assignmentByRoleId,
     toggleAssignment,
-    promoteToMagrit,
   } = useUserRoleManagement({ open, tenantId, targetUserId, onChanged });
+
+  const options = useMemo(
+    () => roles.filter((role) =>
+      role.systemKey === 'option_shops' || role.systemKey === 'option_orders'),
+    [roles],
+  );
 
   if (!open) return null;
 
@@ -61,7 +59,7 @@ export function EditUserRolesModal({
         <header className="flex items-center justify-between px-5 py-3 border-b border-line">
           <div>
             <h3 className="m-0 text-ink" style={{ fontSize: '16px', fontWeight: 500 }}>
-              Rôles de l'utilisateur
+              Options de l’utilisateur
             </h3>
             <p className="m-0 mt-0.5 text-ink-muted" style={{ fontSize: '12px' }}>
               {targetUserEmail}
@@ -84,45 +82,17 @@ export function EditUserRolesModal({
             </div>
           ) : (
           <>
-          {/* UM8 : lecture legacy et conversion à sens unique vers Magrit. */}
-          <div className="pb-3 border-b border-line">
-            <span className="block text-ink-muted mb-1.5" style={{ fontSize: '11.5px', fontWeight: 600 }}>
-              Type d'accès
-            </span>
-            {legacyShopOnly ? (
-              <div className="rounded-md border border-warn-fg/25 bg-warn-bg px-3 py-2">
-                <p className="m-0 text-warn-fg" style={{ fontSize: '12px' }}>
-                  Ancien accès boutique détecté. Le compte boutique séparé a été préparé par UM7.
-                </p>
-                <button
-                  type="button"
-                  onClick={promoteToMagrit}
-                  disabled={savingAccess}
-                  data-testid={TEST_IDS.user.editAccessSaveBtn}
-                  className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-1.5 text-paper hover:bg-black disabled:opacity-40"
-                  style={{ fontSize: '12.5px', fontWeight: 500 }}
-                >
-                  {savingAccess && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  Convertir en utilisateur Magrit
-                </button>
-              </div>
-            ) : (
-              <p className="m-0 rounded-md border border-ok-fg/20 bg-ok-bg px-3 py-2 text-ok-fg" style={{ fontSize: '12px' }}>
-                Utilisateur Magrit — accès au dashboard. Les comptes boutique sont gérés séparément.
-              </p>
-            )}
-          </div>
-
-          <span className="block text-ink-muted pt-1" style={{ fontSize: '11.5px', fontWeight: 600 }}>
-            Rôles
-          </span>
-          {roles.length === 0 ? (
+          {targetRole === 'admin' ? (
+            <p className="m-0 rounded-md border border-info-fg/20 bg-info-bg px-3 py-2 text-info-fg" style={{ fontSize: '12px' }}>
+              Un administrateur dispose de tous les droits. Les options ne s’appliquent pas à ce profil.
+            </p>
+          ) : options.length === 0 ? (
             <p className="text-ink-muted" style={{ fontSize: '12.5px' }}>
-              Aucun rôle défini dans ce tenant.
+              Aucune option disponible pour cet espace.
             </p>
           ) : (
             <div className="space-y-1.5 max-h-80 overflow-y-auto">
-              {roles.map((r) => {
+              {options.map((r) => {
                 const active = assignmentByRoleId.has(r.id);
                 const isPending = pendingRoleIds.has(r.id);
                 return (

@@ -85,7 +85,7 @@ describe('runtime Supabase local', () => {
     expect(migration).toContain('trg_sync_membership_functional_role');
     expect(migration).toContain("definition.name in ('Owner', 'Admin')");
     expect(migration).toContain("member.role in ('owner', 'admin')");
-    expect(dashboard).toContain("currentTenant?.myRole === 'owner'");
+    expect(dashboard).toContain("currentTenant?.myRole === 'admin'");
     expect(dashboard).toContain('canValidate || isTenantAdmin');
     expect(dashboard).toContain('canModifyProduction || isTenantAdmin');
   });

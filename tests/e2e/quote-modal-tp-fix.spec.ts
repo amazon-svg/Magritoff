@@ -36,7 +36,7 @@ async function bootstrapMinimal(): Promise<MinimalFixture> {
   const { error: tmErr } = await admin.from('tenant_members').insert({
     tenant_id: t.id,
     user_id: u.user.id,
-    role: 'owner',
+    role: 'admin',
     access_scope: 'magrit_full',
     permissions: { can_quote: true, can_order: true, can_invite: true },
   });
