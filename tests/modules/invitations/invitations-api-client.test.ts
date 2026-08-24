@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { InvitationsApiClient } from '../../../src/modules/invitations/api/client';
-import { FetchApiClient } from '../../../src/platform/api/fetch-api-client';
+import { InvitationsApiClient } from '@/modules/invitations/api/client';
+import { FetchApiClient } from '@/platform/api/fetch-api-client';
 
 const command = {
   email: 'buyer@example.com',

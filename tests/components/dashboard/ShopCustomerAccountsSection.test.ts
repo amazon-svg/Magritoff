@@ -4,18 +4,18 @@ import { describe, expect, it } from 'vitest';
 
 describe('ShopCustomerAccountsSection', () => {
   const source = readFileSync(
-    resolve(process.cwd(), 'src/app/components/dashboard/ShopCustomerAccountsSection.tsx'),
+    resolve(process.cwd(), 'src/modules/shop-customers/ui/workspace/ShopCustomerAccountsSection.tsx'),
     'utf8',
   );
   const hook = readFileSync(
-    resolve(process.cwd(), 'src/app/hooks/useShopCustomerAccountManagement.ts'),
+    resolve(process.cwd(), 'src/modules/shop-customers/ui/hooks/useShopCustomerAccountManagement.ts'),
     'utf8',
   );
 
   it('délègue la façade ShopCustomers au hook et ne connaît aucun accès Supabase', () => {
     expect(source).toContain('useShopCustomerAccountManagement');
     expect(source).not.toContain('useShopCustomersApi');
-    expect(hook).toContain('useShopCustomersApi');
+    expect(hook).toContain('useWorkspaceApi(ShopCustomersApiClient)');
     expect(hook).toContain('targetKeyRef.current');
     for (const candidate of [source, hook]) {
       expect(candidate).not.toContain('utils/supabase');

@@ -6,11 +6,11 @@ import { describe, expect, it } from 'vitest';
 import {
   buildGammeJsonLd,
   buildGammeSeo,
-} from '../../../../src/app/components/shop/gamme/gammeSeo.helpers';
+} from '@/modules/catalog/ui/storefront/gamme/gammeSeo.helpers';
 import type {
   Gamme,
   ProductDefinition,
-} from '../../../../src/app/utils/productEnrichment';
+} from '@/modules/catalog/ui/helpers/productEnrichment';
 
 const gamme = { id: '1', slug: 'flyer', name: 'Flyers', parent_slug: null } as Gamme;
 const family = { id: '0', slug: 'imprimes', name: 'Imprimés', parent_slug: null } as Gamme;

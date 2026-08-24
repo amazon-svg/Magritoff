@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { PublicShopCatalog } from '../../src/modules/shops';
-import { mapPublicShopCatalog } from '../../src/app/hooks/usePublicShopCatalog';
+import type { PublicShopCatalog } from '@/modules/shops';
+import { mapPublicShopCatalog } from '@/modules/shops/ui/hooks/usePublicShopCatalog';
 
 const shopId = '10000000-0000-4000-8000-000000000001';
 const tenantId = '10000000-0000-4000-8000-000000000002';

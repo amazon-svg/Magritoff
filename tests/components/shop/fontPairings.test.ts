@@ -9,7 +9,7 @@ import {
   FONT_PAIRINGS,
   DEFAULT_FONT_PAIRING,
   resolveFontPairing,
-} from "../../../src/app/components/shop/fontPairings";
+} from "@/modules/shops/ui/storefront/fontPairings";
 
 describe("FONT_PAIRINGS — A4.2 catalog curated", () => {
   it("contient exactement 5 pairings (system + 4 Google Fonts)", () => {

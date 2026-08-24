@@ -10,8 +10,8 @@ import {
   buildFallbackIntro,
   mergeEditorial,
   categoryEditorialCacheKey,
-} from '../../src/app/utils/catalogLanding';
-import type { TaxonomyFamily, TaxonomyNode } from '../../src/app/utils/shopTaxonomy';
+} from '@/modules/catalog/ui/helpers/catalogLanding';
+import type { TaxonomyFamily, TaxonomyNode } from '@/modules/catalog/ui/helpers/shopTaxonomy';
 
 const node = (key: string, label: string, count: number): TaxonomyNode =>
   ({ key, label, count, featured: null, imageUrl: null, gammeSlugs: [key] });

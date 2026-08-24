@@ -6,8 +6,8 @@ import { describe, it, expect } from "vitest";
 import {
   buildPimJsonExport,
   hasUsefulPimContent,
-} from "../../src/app/components/ProductPimMarketingTab.helpers";
-import type { EnrichedProduct } from "../../src/app/utils/productEnrichment";
+} from "@/modules/catalog/ui/components/ProductPimMarketingTab.helpers";
+import type { EnrichedProduct } from "@/modules/catalog/ui/helpers/productEnrichment";
 
 function makeEnriched(overrides: Partial<EnrichedProduct["resolved"]> = {}, definition?: any): EnrichedProduct {
   return {

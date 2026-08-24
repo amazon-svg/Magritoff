@@ -11,8 +11,8 @@ import {
   ClaudeSseStreamError,
   MAX_CONTEXT_MESSAGES,
   truncateMessages,
-} from '../../src/app/hooks/useClaudeSseStream';
-import { detectAssistantBillingError } from '../../src/adapters/http/browser-assistant-gateway';
+} from '@/modules/conversations/ui/hooks/useClaudeSseStream';
+import { detectAssistantBillingError } from '@/adapters/http/browser-assistant-gateway';
 
 describe('truncateMessages - troncage 25 messages (E5 fix)', () => {
   it('1. Liste vide → vide, 0 dropped', () => {

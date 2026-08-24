@@ -8,8 +8,8 @@ import { describe, expect, it } from 'vitest';
 import {
   resolveRootFamilyIdentity,
   resolveShopFamily,
-} from '../../src/app/utils/shopFamilyIdentity';
-import type { Gamme } from '../../src/app/utils/productEnrichment';
+} from '@/modules/catalog/ui/helpers/shopFamilyIdentity';
+import type { Gamme } from '@/modules/catalog/ui/helpers/productEnrichment';
 
 const g = (slug: string, name: string, parent: string | null, kind: string): Gamme =>
   ({ id: slug, slug, name, parent_slug: parent, matching_rules: { kind }, display_order: 0 }) as Gamme;

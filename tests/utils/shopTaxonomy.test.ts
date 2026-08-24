@@ -8,8 +8,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { buildShopTaxonomy } from '../../src/app/utils/shopTaxonomy';
-import type { Gamme } from '../../src/app/utils/productEnrichment';
+import { buildShopTaxonomy } from '@/modules/catalog/ui/helpers/shopTaxonomy';
+import type { Gamme } from '@/modules/catalog/ui/helpers/productEnrichment';
 
 const prod = (id: string, name: string, kind: string, display_order = 0) =>
   ({ id, name, category: '', display_order, image_url: '', config: { kind } }) as never;

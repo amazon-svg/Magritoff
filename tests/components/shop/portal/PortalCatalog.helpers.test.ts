@@ -3,8 +3,8 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import type { ShopProduct } from '../../../../src/app/contexts/ShopsContext';
-import type { Gamme } from '../../../../src/app/utils/productEnrichment';
+import type { ShopProduct } from '@/modules/shops/ui/runtime/ShopsContext';
+import type { Gamme } from '@/modules/catalog/ui/helpers/productEnrichment';
 import {
   DEFAULT_SORT_KEY,
   filterProductsByTextQuery,
@@ -13,7 +13,7 @@ import {
   sortKeyStorageKey,
   SORT_OPTIONS,
   sortProductsBy,
-} from '../../../../src/app/components/shop/portal/PortalCatalog.helpers';
+} from '@/modules/catalog/ui/storefront/PortalCatalog.helpers';
 
 function makeProduct(opts: Partial<ShopProduct>): ShopProduct {
   return {

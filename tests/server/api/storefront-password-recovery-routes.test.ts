@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { StorefrontPasswordRecoveryService, type StorefrontPasswordRecoveryGateway } from '../../../src/modules/shop-customers';
-import { createApiV1Application, createStorefrontPasswordRecoveryRoutes } from '../../../src/server/api';
+import { StorefrontPasswordRecoveryService, type StorefrontPasswordRecoveryGateway } from '@/modules/shop-customers';
+import { createApiV1Application, createStorefrontPasswordRecoveryRoutes } from '@/server/api';
 
 const TOKEN = 'abcdefghijklmnopqrstuvwxyzABCDE_1234567890-opaque';
 describe('routes récupération storefront', () => {

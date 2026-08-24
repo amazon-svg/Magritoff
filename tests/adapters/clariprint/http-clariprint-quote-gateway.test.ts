@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { HttpClariprintQuoteGateway } from '../../../src/adapters/clariprint/http-clariprint-quote-gateway';
+import { HttpClariprintQuoteGateway } from '@/adapters/clariprint/http-clariprint-quote-gateway';
 
 describe('HttpClariprintQuoteGateway', () => {
   it('normalise le produit et traduit une réponse de prix valide', async () => {

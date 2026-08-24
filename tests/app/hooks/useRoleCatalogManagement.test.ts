@@ -3,8 +3,8 @@ import {
   roleCatalogError,
   toRoleAssignmentViews,
   toTenantRoleDefinition,
-} from '../../../src/app/hooks/useRoleCatalogManagement';
-import type { RoleCatalogDefinition, RolesCatalog } from '../../../src/modules/roles';
+} from '@/modules/roles/ui/hooks/useRoleCatalogManagement';
+import type { RoleCatalogDefinition, RolesCatalog } from '@/modules/roles';
 
 describe('useRoleCatalogManagement helpers', () => {
   it('adapte une définition de rôle au modèle historique de la vue', () => {

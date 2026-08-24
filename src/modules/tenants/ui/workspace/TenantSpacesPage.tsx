@@ -1,0 +1,254 @@
+/**
+ * DashboardTenantSpaces
+ * ─────────────────────
+ * Dashboard > Espaces : gestion des sous-tenants d'un tenant racine.
+ *
+ * Un administrateur d'un tenant racine peut créer des sous-espaces isolés
+ * pour ses filiales ou équipes internes.
+ *
+ * L'admin du tenant racine garde l'acces en lecture/ecriture sur les sous-tenants
+ * qu'il a crees (via heritage RLS).
+ *
+ * Non disponible pour les sous-tenants (pas de sous-sous-tenant).
+ */
+
+import { Link } from 'react-router';
+import { Building, Plus, ExternalLink, Trash2 } from 'lucide-react';
+import { useTenant } from '@/modules/tenants/ui/runtime/TenantContext';
+import { useSubTenantManagement } from '@/modules/tenants/ui/hooks/useSubTenantManagement';
+
+export function DashboardTenantSpaces() {
+  const { currentTenant, currentRole, isSuperAdmin, reload } = useTenant();
+  const {
+    children, kpis, loading, formOpen, setFormOpen, name, changeName,
+    slug, changeSlug, saving, error, submit, remove,
+  } = useSubTenantManagement({ tenantId: currentTenant?.id ?? null, onChanged: reload });
+
+  const isSubTenant = !!currentTenant?.parent_tenant_id;
+  const canCreate =
+    !!currentTenant &&
+    !isSubTenant &&
+    (currentRole === 'admin' || isSuperAdmin);
+
+  const confirmRemove = (id: string, spaceName: string) => {
+    if (!confirm(`Supprimer l'espace "${spaceName}" et toutes ses donnees ?`)) return;
+    void remove(id);
+  };
+
+  if (!currentTenant) {
+    return (
+      <div className="text-ink-muted" style={{ fontSize: '13.5px' }}>
+        Aucun tenant actif.
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-[1200px]" style={{ fontFamily: 'var(--font-ui)' }}>
+      <div className="flex items-baseline justify-between gap-4 mb-6">
+        <div>
+          <h1
+            className="text-ink m-0"
+            style={{ fontWeight: 300, fontSize: '34px', letterSpacing: '-0.025em' }}
+          >
+            Sous-espaces
+          </h1>
+          <p
+            className="mt-1.5 text-ink-muted max-w-2xl"
+            style={{ fontSize: '13.5px', fontWeight: 300, lineHeight: 1.5 }}
+          >
+            Creez des espaces isoles sous <span className="text-ink">{currentTenant.name}</span> :
+            filiales internes ou portails dedies a vos gros comptes B2B. Chaque
+            sous-espace herite de vos souscriptions aux gammes PIM.
+          </p>
+        </div>
+        {canCreate && (
+          <button
+            onClick={() => setFormOpen((v) => !v)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-ink text-paper hover:bg-black"
+            style={{ fontSize: '13px', fontWeight: 500 }}
+          >
+            <Plus className="w-3.5 h-3.5" strokeWidth={1.8} />
+            Nouvel espace
+          </button>
+        )}
+      </div>
+
+      {isSubTenant && (
+        <div
+          className="px-3 py-2 rounded-md bg-info-bg text-info-fg mb-5"
+          style={{ fontSize: '12.5px', fontWeight: 400 }}
+        >
+          Cet espace est deja un sous-espace — la hierarchie est limitee a 2
+          niveaux. Pour creer un nouveau sous-espace, selectionnez d'abord le
+          tenant racine.
+        </div>
+      )}
+
+      {formOpen && canCreate && (
+        <div className="mb-5 p-4 rounded-md border border-line bg-paper space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <label>
+              <span
+                className="block text-ink-muted mb-1"
+                style={{ fontSize: '11.5px', fontWeight: 500 }}
+              >
+                Nom de l'espace
+              </span>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => changeName(e.target.value)}
+                placeholder="Carrefour France"
+                className="w-full px-3 py-1.5 border border-line rounded-md bg-paper text-ink"
+                style={{ fontSize: '13px' }}
+              />
+            </label>
+            <label>
+              <span
+                className="block text-ink-muted mb-1"
+                style={{ fontSize: '11.5px', fontWeight: 500 }}
+              >
+                Slug
+              </span>
+              <input
+                type="text"
+                value={slug}
+                onChange={(e) => changeSlug(e.target.value)}
+                placeholder="carrefour-france"
+                className="w-full px-3 py-1.5 border border-line rounded-md bg-paper text-ink font-mono"
+                style={{ fontSize: '12.5px' }}
+              />
+            </label>
+          </div>
+          {error && (
+            <div
+              className="px-3 py-2 rounded-md bg-err-bg text-err-fg"
+              style={{ fontSize: '12.5px' }}
+            >
+              {error}
+            </div>
+          )}
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={() => setFormOpen(false)}
+              className="px-3 py-1.5 rounded-md border border-line bg-paper text-ink-2 hover:bg-bg"
+              style={{ fontSize: '13px', fontWeight: 500 }}
+            >
+              Annuler
+            </button>
+            <button
+              onClick={submit}
+              disabled={saving}
+              className="px-3.5 py-1.5 rounded-md bg-ink text-paper hover:bg-black disabled:opacity-40"
+              style={{ fontSize: '13px', fontWeight: 500 }}
+            >
+              {saving ? 'Creation…' : 'Creer le sous-espace'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {error && !formOpen && (
+        <div className="px-3 py-2 rounded-md bg-err-bg text-err-fg mb-5" style={{ fontSize: '12.5px' }}>
+          {error}
+        </div>
+      )}
+
+      {/* Liste des sous-tenants */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        {loading ? (
+          <div className="text-ink-muted" style={{ fontSize: '13px' }}>
+            Chargement…
+          </div>
+        ) : children.length === 0 ? (
+          <div
+            className="col-span-full border border-dashed border-line-2 rounded-md px-6 py-10 text-center text-ink-mute-2"
+            style={{ fontSize: '13px' }}
+          >
+            Aucun sous-espace pour le moment.
+            {canCreate && (
+              <>
+                {' '}
+                <button
+                  onClick={() => setFormOpen(true)}
+                  className="text-brand hover:underline"
+                >
+                  Creer le premier.
+                </button>
+              </>
+            )}
+          </div>
+        ) : (
+          children.map((c) => {
+            // S-SUBTENANT-SCOPE : match KPI row par tenant_id (peut être
+            // absent si la RPC n'a pas retourné le sous-tenant — fallback 0).
+            const kpi = kpis.find((k) => k.tenantId === c.id);
+            const monthOrders = kpi?.monthOrderCount ?? 0;
+            const monthCa = kpi?.monthCaHt ?? 0;
+            const formattedCa = monthCa.toLocaleString('fr-FR', {
+              style: 'currency',
+              currency: 'EUR',
+              maximumFractionDigits: 0,
+            });
+            return (
+              <div
+                key={c.id}
+                className="border border-line rounded-md bg-paper p-4 flex items-start gap-3"
+                data-testid="subtenant-card"
+                data-subtenant-id={c.id}
+              >
+                <div className="w-8 h-8 rounded-md bg-bg border border-line grid place-items-center shrink-0">
+                  <Building className="w-4 h-4 text-ink-muted" strokeWidth={1.5} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p
+                    className="text-ink truncate mb-0.5"
+                    style={{ fontSize: '14px', fontWeight: 500 }}
+                  >
+                    {c.name}
+                  </p>
+                  <p
+                    className="font-mono text-ink-mute-2"
+                    style={{ fontSize: '11px', letterSpacing: '0.02em' }}
+                  >
+                    /t/{c.slug}
+                  </p>
+                  {/* S-SUBTENANT-SCOPE Q4 MVP : KPIs consolidés du mois */}
+                  <div className="mt-2 flex items-center gap-3 text-ink-muted" style={{ fontSize: '11.5px' }}>
+                    <span title="Commandes du mois en cours">
+                      <strong className="text-ink">{monthOrders}</strong> cmd.
+                    </span>
+                    <span title="CA HT du mois en cours">
+                      <strong className="text-ink">{formattedCa}</strong>
+                    </span>
+                  </div>
+                  <div className="mt-2 flex items-center gap-2">
+                    <Link
+                      to={`/t/${c.slug}`}
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded border border-line text-ink-2 hover:bg-bg"
+                      style={{ fontSize: '11.5px', fontWeight: 500 }}
+                    >
+                      <ExternalLink className="w-3 h-3" strokeWidth={1.5} />
+                      Ouvrir
+                    </Link>
+                    {canCreate && (
+                      <button
+                        onClick={() => confirmRemove(c.id, c.name)}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded text-err-fg hover:bg-err-bg"
+                        style={{ fontSize: '11.5px', fontWeight: 500 }}
+                      >
+                        <Trash2 className="w-3 h-3" strokeWidth={1.5} />
+                        Supprimer
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}

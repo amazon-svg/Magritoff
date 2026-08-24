@@ -91,6 +91,7 @@
     "@axe-core/playwright": "^4.11.3",
     "@playwright/test": "^1.60.0",
     "@tailwindcss/vite": "4.1.12",
+    "@types/react": "19.2.14",
     "@vitejs/plugin-react": "4.7.0",
     "@vitest/coverage-v8": "^4.1.6",
     "chromedriver": "^147.0.4",

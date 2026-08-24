@@ -3,7 +3,7 @@
  *
  * Verifie que chaque testid critique des cahiers de tests fonctionnels P00-P09
  * (cf. SPEC_data-testid_06052026.md section 6) :
- *   1. existe dans l enum TEST_IDS (`src/app/lib/testIds.ts`)
+ *   1. existe dans l enum TEST_IDS (`src/shared/presentation/testIds.ts`)
  *   2. est effectivement utilise dans `src/app/` ou dans une contribution de
  *      module rendue par une surface
  *
@@ -21,7 +21,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { TEST_IDS } from '../src/app/lib/testIds';
+import { TEST_IDS } from '@/shared/presentation/testIds';
 
 const SRC_ROOTS = [
   resolve(__dirname, '..', 'src', 'app'),

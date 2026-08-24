@@ -1,6 +1,6 @@
-import type { SurfaceDefinition } from '../../surfaces/registry';
-import { customerPortalSurface } from '../../surfaces/customer-portal';
-import { storefrontSurface } from '../../surfaces/storefront';
+import type { SurfaceDefinition } from '@/surfaces/registry';
+import { customerPortalSurface } from '@/surfaces/customer-portal';
+import { storefrontSurface } from '@/surfaces/storefront';
 
 export const portalRuntimePaths = Object.freeze({
   shopRoot: requiredHostPath(storefrontSurface, 'shops.storefront.root'),

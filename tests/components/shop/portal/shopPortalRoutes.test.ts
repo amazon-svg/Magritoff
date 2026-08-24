@@ -3,8 +3,8 @@ import {
   parsePortalPath,
   portalPathForView,
   shopUrl,
-} from '../../../../src/app/components/shop/portal/shopPortalRoutes';
-import type { PortalView } from '../../../../src/app/components/shop/portal/types';
+} from '@/surfaces/customer-portal/portal-routes';
+import type { PortalView } from '@/modules/orders/ui/storefront/types';
 
 describe('parsePortalPath (S7.1 AC1/AC3)', () => {
   it('splat vide ou undefined → home', () => {

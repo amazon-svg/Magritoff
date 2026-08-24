@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ResendStorefrontActivationEmailSender } from '../../../src/adapters/resend/storefront-activation-email-sender';
+import { ResendStorefrontActivationEmailSender } from '@/adapters/resend/storefront-activation-email-sender';
 
 const message = {
   to: 'client@example.com',

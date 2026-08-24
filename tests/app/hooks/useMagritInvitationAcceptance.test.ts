@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { SessionBootstrap } from '../../../src/modules/session';
-import { resolveMagritInvitationDestination } from '../../../src/app/hooks/useMagritInvitationAcceptance';
+import type { SessionBootstrap } from '@/modules/session';
+import { resolveMagritInvitationDestination } from '@/modules/invitations/ui/hooks/useMagritInvitationAcceptance';
 
 const bootstrap = {
   user: { id: 'user-1' },

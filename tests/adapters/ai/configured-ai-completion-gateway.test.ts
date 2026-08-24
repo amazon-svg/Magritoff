@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ConfiguredAiCompletionGateway } from '../../../src/adapters/ai/configured-ai-completion-gateway';
-import { AiCompletionUnavailableError } from '../../../src/modules/diagnostics/application/ai-completion-gateway';
+import { ConfiguredAiCompletionGateway } from '@/adapters/ai/configured-ai-completion-gateway';
+import { AiCompletionUnavailableError } from '@/modules/diagnostics/application/ai-completion-gateway';
 
 const request = { system: 'Système', messages: [{ role: 'user' as const, content: 'Bonjour' }], maxTokens: 120, temperature: 0.2 };
 

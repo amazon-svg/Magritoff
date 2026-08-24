@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { DiagnosticsApiClient } from '../../src/modules/diagnostics/api/client';
-import type { AiCompletionGateway } from '../../src/modules/diagnostics/application/ai-completion-gateway';
-import { AssistantService } from '../../src/modules/diagnostics/application/assistant-service';
-import type { AssistantAccessGateway } from '../../src/modules/diagnostics/application/assistant-access-gateway';
-import { FetchApiClient } from '../../src/platform/api';
-import { createApiV1Application } from '../../src/server/api/composition';
-import { createAssistantRoutes } from '../../src/server/api/assistant-routes';
+import { DiagnosticsApiClient } from '@/modules/diagnostics/api/client';
+import type { AiCompletionGateway } from '@/modules/diagnostics/application/ai-completion-gateway';
+import { AssistantService } from '@/modules/diagnostics/application/assistant-service';
+import type { AssistantAccessGateway } from '@/modules/diagnostics/application/assistant-access-gateway';
+import { FetchApiClient } from '@/platform/api';
+import { createApiV1Application } from '@/server/api/composition';
+import { createAssistantRoutes } from '@/server/api/assistant-routes';
 
 const allowed: AssistantAccessGateway = { async isTenantMember() { return true; } };
 function bridge(gateway: AiCompletionGateway, access: AssistantAccessGateway = allowed): typeof fetch {

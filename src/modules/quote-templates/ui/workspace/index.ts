@@ -1,0 +1,1 @@
+export { DashboardQuoteTemplates } from './QuoteTemplatesPage';

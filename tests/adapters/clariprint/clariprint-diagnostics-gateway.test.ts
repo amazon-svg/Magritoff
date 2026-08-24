@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { HttpClariprintDiagnosticsGateway } from '../../../src/adapters/clariprint/clariprint-diagnostics-gateway';
+import { HttpClariprintDiagnosticsGateway } from '@/adapters/clariprint/clariprint-diagnostics-gateway';
 
 describe('HttpClariprintDiagnosticsGateway', () => {
   it('ne contacte pas Clariprint lorsque les identifiants sont absents', async () => {

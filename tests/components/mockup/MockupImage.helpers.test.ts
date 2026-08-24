@@ -12,7 +12,7 @@ import {
   buildEdgeFunctionUrl,
   buildCacheBuster,
   type MockupSpecs,
-} from "../../../src/app/components/mockup/MockupImage.helpers";
+} from "@/modules/mockups/ui/components/MockupImage.helpers";
 
 const TEST_PUBLIC_BUCKET = "https://assets.magrit.test/product_mockups";
 const TEST_GENERATOR = "https://api.magrit.test/mockup-generator";

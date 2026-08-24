@@ -1,4 +1,4 @@
-import type { Id, TenantId, UserId } from '../../src/kernel';
+import type { Id, TenantId, UserId } from '@/kernel';
 
 declare const tenantId: TenantId;
 declare const userId: UserId;

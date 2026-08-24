@@ -3,8 +3,8 @@ import {
   indexShopPricing,
   toShopProduct,
   validateShopBrandAsset,
-} from '../../../src/app/hooks/useShopEditorOperations';
-import type { ShopProductDto } from '../../../src/modules/shops';
+} from '@/modules/shops/ui/hooks/useShopEditorOperations';
+import type { ShopProductDto } from '@/modules/shops';
 
 describe('useShopEditorOperations helpers', () => {
   it('normalise un produit du contrat Shops pour la vue historique', () => {

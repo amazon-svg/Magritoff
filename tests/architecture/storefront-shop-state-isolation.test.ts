@@ -3,10 +3,10 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const storefront = readFileSync(resolve(
-  process.cwd(), 'src/app/components/shop/PublicShop.tsx',
+  process.cwd(), 'src/modules/shops/ui/storefront/PublicShop.tsx',
 ), 'utf8');
 const orderLifecycle = readFileSync(resolve(
-  process.cwd(), 'src/app/hooks/useStorefrontOrderLifecycle.ts',
+  process.cwd(), 'src/modules/orders/ui/hooks/useStorefrontOrderLifecycle.ts',
 ), 'utf8');
 
 describe('UM10.4 isolation des états entre boutiques', () => {

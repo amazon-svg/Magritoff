@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { SupabaseCatalogAutomationGateway } from '../../../src/adapters/supabase/catalog-repository';
-import { CatalogRejectedError } from '../../../src/modules/catalog/application/catalog-repository';
+import { SupabaseCatalogAutomationGateway } from '@/adapters/supabase/catalog-repository';
+import { CatalogRejectedError } from '@/modules/catalog/application/catalog-repository';
 
 describe('SupabaseCatalogAutomationGateway', () => {
   it('traduit la commande contractuelle vers le payload de génération legacy', async () => {

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { parseId } from '../../src/kernel/ids';
-import { CatalogService } from '../../src/modules/catalog/application/catalog-service';
-import { CatalogRejectedError, type CatalogAutomationGateway, type CatalogRepository } from '../../src/modules/catalog/application/catalog-repository';
-import { createApiV1Application } from '../../src/server/api/composition';
-import { createCatalogRoutes } from '../../src/server/api/catalog-routes';
+import { parseId } from '@/kernel/ids';
+import { CatalogService } from '@/modules/catalog/application/catalog-service';
+import { CatalogRejectedError, type CatalogAutomationGateway, type CatalogRepository } from '@/modules/catalog/application/catalog-repository';
+import { createApiV1Application } from '@/server/api/composition';
+import { createCatalogRoutes } from '@/server/api/catalog-routes';
 
 const parsedActor = parseId<'UserId'>('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
 if (!parsedActor.ok) throw new Error('acteur invalide');

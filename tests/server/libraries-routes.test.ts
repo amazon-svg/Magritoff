@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { parseId } from '../../src/kernel/ids';
-import { LibrariesApiClient } from '../../src/modules/libraries/api/client';
-import type { LibrariesRepository } from '../../src/modules/libraries/application/libraries-repository';
-import { LibrariesService } from '../../src/modules/libraries/application/libraries-service';
-import { FetchApiClient } from '../../src/platform/api';
-import { createApiV1Application } from '../../src/server/api/composition';
-import { createLibrariesRoutes } from '../../src/server/api/libraries-routes';
+import { parseId } from '@/kernel/ids';
+import { LibrariesApiClient } from '@/modules/libraries/api/client';
+import type { LibrariesRepository } from '@/modules/libraries/application/libraries-repository';
+import { LibrariesService } from '@/modules/libraries/application/libraries-service';
+import { FetchApiClient } from '@/platform/api';
+import { createApiV1Application } from '@/server/api/composition';
+import { createLibrariesRoutes } from '@/server/api/libraries-routes';
 
 const actor = parseId<'UserId'>('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
 if (!actor.ok) throw new Error('actor');

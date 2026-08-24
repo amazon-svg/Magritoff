@@ -11,9 +11,9 @@ import {
   filterProductsByExpandedGammes,
   NO_GAMME_KEY,
   EXPANDED_GAMMES_KEY_PREFIX,
-} from "../../../src/app/components/shop/ShopGammesSidebar.helpers";
-import type { ShopProduct } from "../../../src/app/contexts/ShopsContext";
-import type { Gamme } from "../../../src/app/utils/productEnrichment";
+} from "@/modules/catalog/ui/storefront/ShopGammesSidebar.helpers";
+import type { ShopProduct } from "@/modules/shops/ui/runtime/ShopsContext";
+import type { Gamme } from "@/modules/catalog/ui/helpers/productEnrichment";
 
 function makeGamme(partial: Partial<Gamme> & { slug: string }): Gamme {
   return {

@@ -14,7 +14,7 @@ import {
   shouldRenderBrandBanner,
   resolveBrandBannerBackground,
   resolveCartLabel,
-} from "../../../src/app/components/shop/ShopLayout.helpers";
+} from "@/modules/shops/ui/storefront/ShopLayout.helpers";
 
 describe("resolveShopTheme — AC2 S2.1 dark par defaut", () => {
   it("dark par defaut quand mode est 'dark'", () => {

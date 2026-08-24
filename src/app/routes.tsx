@@ -1,65 +1,65 @@
 import { Suspense, lazy } from "react";
 import { createBrowserRouter, Navigate } from "react-router";
-import { workspaceRuntimeRoutes } from "./surfaces/workspaceRuntimeRoutes";
-import { WorkspaceCapabilityGate } from "./surfaces/WorkspaceCapabilityGate";
-import { portalRuntimePaths } from "./surfaces/portalRuntimePaths";
+import { workspaceRuntimeRoutes } from "@/app/surfaces/workspaceRuntimeRoutes";
+import { WorkspaceCapabilityGate } from "@/app/surfaces/WorkspaceCapabilityGate";
+import { portalRuntimePaths } from "@/app/surfaces/portalRuntimePaths";
 
 const AppShell = lazy(() =>
-  import("./AppShell").then((m) => ({ default: m.AppShell })),
+  import("@/app/AppShell").then((m) => ({ default: m.AppShell })),
 );
 const MainLayout = lazy(() =>
-  import("./components/MainLayout").then((m) => ({ default: m.MainLayout })),
+  import("@/app/layouts/MainLayout").then((m) => ({ default: m.MainLayout })),
 );
 const TenantAwareLayout = lazy(() =>
-  import("./components/tenant/TenantAwareLayout").then((m) => ({ default: m.TenantAwareLayout })),
+  import("@/app/layouts/TenantAwareLayout").then((m) => ({ default: m.TenantAwareLayout })),
 );
 const TenantPicker = lazy(() =>
-  import("./components/tenant/TenantPicker").then((m) => ({ default: m.TenantPicker })),
+  import("@/modules/tenants/ui").then((m) => ({ default: m.TenantPicker })),
 );
 const ConfiguratorPage = lazy(() =>
-  import("./components/ConfiguratorPage").then((m) => ({ default: m.ConfiguratorPage })),
+  import("@/modules/catalog/ui").then((m) => ({ default: m.ConfiguratorPage })),
 );
 const NotFound = lazy(() =>
-  import("./components/NotFound").then((m) => ({ default: m.NotFound })),
+  import("@/app/layouts/NotFound").then((m) => ({ default: m.NotFound })),
 );
 const DashboardLayout = lazy(() =>
-  import("./components/dashboard/DashboardLayout").then((m) => ({ default: m.DashboardLayout })),
+  import("@/app/layouts/DashboardLayout").then((m) => ({ default: m.DashboardLayout })),
 );
 const StorefrontRuntimeBoundary = lazy(() =>
-  import("./surfaces/StorefrontRuntimeBoundary").then((m) => ({ default: m.StorefrontRuntimeBoundary })),
+  import("@/app/surfaces/StorefrontRuntimeBoundary").then((m) => ({ default: m.StorefrontRuntimeBoundary })),
 );
 const WorkspaceRuntimeBoundary = lazy(() =>
-  import("./surfaces/WorkspaceRuntimeBoundary").then((m) => ({ default: m.WorkspaceRuntimeBoundary })),
+  import("@/app/surfaces/WorkspaceRuntimeBoundary").then((m) => ({ default: m.WorkspaceRuntimeBoundary })),
 );
 
 const TenantOnboarding = lazy(() =>
-  import("./components/tenant/TenantOnboarding").then((m) => ({ default: m.TenantOnboarding })),
+  import("@/modules/tenants/ui").then((m) => ({ default: m.TenantOnboarding })),
 );
 const AcceptInvitation = lazy(() =>
-  import("./components/tenant/AcceptInvitation").then((m) => ({ default: m.AcceptInvitation })),
+  import("@/modules/invitations/ui").then((m) => ({ default: m.AcceptInvitation })),
 );
 const ResetPasswordPage = lazy(() =>
-  import("./components/auth/ResetPasswordPage").then((m) => ({ default: m.ResetPasswordPage })),
+  import("@/modules/account/ui").then((m) => ({ default: m.ResetPasswordPage })),
 );
 const ProductSheet = lazy(() =>
-  import("./components/ProductSheet").then((m) => ({ default: m.ProductSheet })),
+  import("@/modules/catalog/ui").then((m) => ({ default: m.ProductSheet })),
 );
 const PersonalizationPage = lazy(() =>
-  import("./components/PersonalizationPage").then((m) => ({ default: m.PersonalizationPage })),
+  import("@/modules/catalog/ui").then((m) => ({ default: m.PersonalizationPage })),
 );
 const PublicShop = lazy(() =>
-  import("./components/shop/PublicShop").then((m) => ({ default: m.PublicShop })),
+  import("@/modules/shops/ui").then((m) => ({ default: m.PublicShop })),
 );
 const StorefrontActivationPage = lazy(() =>
-  import("./components/shop/StorefrontActivationPage").then((m) => ({ default: m.StorefrontActivationPage })),
+  import("@/modules/shop-customers/ui").then((m) => ({ default: m.StorefrontActivationPage })),
 );
 const StorefrontPasswordResetPage = lazy(() =>
-  import("./components/shop/StorefrontPasswordResetPage").then((m) => ({ default: m.StorefrontPasswordResetPage })),
+  import("@/modules/shop-customers/ui").then((m) => ({ default: m.StorefrontPasswordResetPage })),
 );
 
 // REFONTE-UX (2026-08-08) — module Parc machine, wizard RP#070826 (point 8).
 const MachineParkWizard = lazy(() =>
-  import("./components/dashboard/machines/MachineParkWizard").then((m) => ({
+  import("@/modules/machine-parks/ui").then((m) => ({
     default: m.MachineParkWizard,
   })),
 );

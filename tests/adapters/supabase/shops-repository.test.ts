@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { publicAssetUrl, storedAssetReference } from '../../../src/adapters/supabase/shops-repository';
+import { publicAssetUrl, storedAssetReference } from '@/adapters/supabase/shops-repository';
 
 describe('URL publiques des assets boutique', () => {
   it('remplace l’origine Docker interne par l’origine publique locale', () => {

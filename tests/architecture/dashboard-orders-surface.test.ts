@@ -3,12 +3,12 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const dashboardOrders = readFileSync(
-  resolve(process.cwd(), 'src/app/components/dashboard/DashboardOrders.tsx'),
+  resolve(process.cwd(), 'src/modules/orders/ui/workspace/OrdersPage.tsx'),
   'utf8',
 );
 
 const orderHistoryTable = readFileSync(
-  resolve(process.cwd(), 'src/app/components/shop/portal/OrderHistoryTable.tsx'),
+  resolve(process.cwd(), 'src/modules/orders/ui/storefront/OrderHistoryTable.tsx'),
   'utf8',
 );
 

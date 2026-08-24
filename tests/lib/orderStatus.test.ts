@@ -14,7 +14,7 @@ import {
   getStatusInfo,
   labelToStatus,
   type OrderStatus,
-} from "../../src/app/lib/orderStatus";
+} from "@/modules/orders/ui/helpers/orderStatus";
 
 describe("orderStatus / STATUS_LABELS", () => {
   it("contient les 7 statuts canoniques tenant_orders v1.1", () => {

@@ -1,14 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
-import { parseId, type UserId } from '../../../src/kernel';
+import { parseId, type UserId } from '@/kernel';
 import {
   SessionApiClient,
   SessionService,
   SessionTenantMutationError,
   SessionInvitationAcceptanceError,
   type SessionRepository,
-} from '../../../src/modules/session';
-import { FetchApiClient } from '../../../src/platform/api';
-import { createApiV1Application, createSessionRoutes } from '../../../src/server/api';
+} from '@/modules/session';
+import { FetchApiClient } from '@/platform/api';
+import { createApiV1Application, createSessionRoutes } from '@/server/api';
 
 describe('routes session API v1', () => {
   it('partage le contrat bootstrap entre handler et client', async () => {

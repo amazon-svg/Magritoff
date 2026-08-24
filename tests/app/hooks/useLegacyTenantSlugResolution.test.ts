@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildResolvedTenantPath } from '../../../src/app/hooks/useLegacyTenantSlugResolution';
+import { buildResolvedTenantPath } from '@/modules/tenants/ui/hooks/useLegacyTenantSlugResolution';
 
 describe('buildResolvedTenantPath', () => {
   it('remplace uniquement le segment tenant et conserve la route complète', () => {

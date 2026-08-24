@@ -63,7 +63,7 @@ describe('runtime Supabase local', () => {
   });
 
   it('ne réutilise pas une session persistée supprimée par un reset local', () => {
-    const authContext = read('src/app/contexts/AuthContext.tsx');
+    const authContext = read('src/modules/account/ui/runtime/AuthContext.tsx');
     const authAdapter = read('src/adapters/supabase/browser-authentication-gateway.ts');
 
     expect(authContext).toContain('auth.verifiedUser()');
@@ -73,14 +73,14 @@ describe('runtime Supabase local', () => {
   });
 
   it('attend les données du user avant de conclure qu il n a aucun tenant', () => {
-    const tenantContext = read('src/app/contexts/TenantContext.tsx');
+    const tenantContext = read('src/modules/tenants/ui/runtime/TenantContext.tsx');
 
     expect(tenantContext).toContain('!bootstrap.error && dataForUser === null');
   });
 
   it('synchronise les memberships privilégiés avec les rôles fonctionnels Orders', () => {
     const migration = read('supabase/migrations/20260811000300_sync_membership_order_roles.sql');
-    const dashboard = read('src/app/components/dashboard/DashboardOrders.tsx');
+    const dashboard = read('src/modules/orders/ui/workspace/OrdersPage.tsx');
 
     expect(migration).toContain('trg_sync_membership_functional_role');
     expect(migration).toContain("definition.name in ('Owner', 'Admin')");

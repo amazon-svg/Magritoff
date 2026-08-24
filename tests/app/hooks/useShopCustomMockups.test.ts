@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   indexShopCustomMockups,
   shopCustomMockupError,
-} from '../../../src/app/hooks/useShopCustomMockups';
-import type { ShopCustomMockup } from '../../../src/modules/shops';
+} from '@/modules/mockups/ui/hooks/useShopCustomMockups';
+import type { ShopCustomMockup } from '@/modules/shops';
 
 describe('useShopCustomMockups helpers', () => {
   it('indexe chaque vue par type et face', () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { RolesApiClient } from '../../../src/modules/roles/api/client';
-import { FetchApiClient } from '../../../src/platform/api/fetch-api-client';
+import { RolesApiClient } from '@/modules/roles/api/client';
+import { FetchApiClient } from '@/platform/api/fetch-api-client';
 
 describe('RolesApiClient', () => {
   it('consomme les routes Roles contractuelles', async () => {

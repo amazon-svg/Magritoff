@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { toTenantSlug } from '../../../src/app/hooks/useSubTenantManagement';
+import { toTenantSlug } from '@/modules/tenants/ui/hooks/useSubTenantManagement';
 
 describe('toTenantSlug', () => {
   it('normalise un nom de sous-espace en identifiant URL stable', () => {

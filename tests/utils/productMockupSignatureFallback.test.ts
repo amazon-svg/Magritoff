@@ -13,7 +13,7 @@ import { describe, expect, it } from 'vitest';
 import {
   resolveMockupTemplate,
   resolveProductMockupAsset,
-} from '../../src/app/utils/productMockupAssets';
+} from '@/modules/mockups/ui/helpers/productMockupAssets';
 
 describe('S2.14 — mockup-signature : fallback garanti', () => {
   it('retourne toujours une URL non vide (jamais de card cassée)', () => {

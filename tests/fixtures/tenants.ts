@@ -11,7 +11,7 @@
  * Plus un fixture "legacy" sans `tax_regime` pour valider le defaulting.
  */
 
-import type { TaxRegime } from '../../src/app/utils/tax';
+import type { TaxRegime } from '@/modules/orders/ui/helpers/tax';
 
 export interface TenantFixture {
   id: string;

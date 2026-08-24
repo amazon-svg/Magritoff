@@ -1,0 +1,248 @@
+/**
+ * TenantContext (v3 multi-tenant)
+ * ───────────────────────────────
+ * Context global qui expose :
+ *   - la liste des tenants auxquels l'utilisateur a acces
+ *   - le tenant COURANT (resolu depuis l'URL /t/:slug, fallback last_tenant_id
+ *     dans user_preferences, sinon premier tenant disponible)
+ *   - le role de l'user dans le tenant courant
+ *   - un flag isSuperAdmin (membership dans le tenant systeme 'magrit-root')
+ *   - des helpers pour changer de tenant, creer un tenant / sous-tenant,
+ *     inviter, accepter une invitation
+ *
+ * Toutes les requetes data (contextes Clients, Libraries, Shops, Quotes...)
+ * doivent desormais filtrer par `tenant.id`. Le provider expose aussi une
+ * fonction `withTenant(payload)` qui merge `tenant_id` dans n'importe quel
+ * objet d'insert Supabase — shortcut pour eviter d'oublier.
+ *
+ * Design note : le tenant courant est la SOURCE DE VERITE. Si l'URL ne
+ * correspond a aucun tenant accessible, on redirige vers le picker /tenants.
+ */
+
+import {
+  createContext,
+  ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+} from 'react';
+import { useNavigate, useParams } from 'react-router';
+import { useAuth } from '@/modules/account/ui/runtime';
+import { useSessionBootstrap } from '@/modules/session/ui/runtime';
+
+// ─── Types ────────────────────────────────────────────────────────────────
+
+export type TenantRole = 'admin' | 'member';
+export type TenantPlan = 'freemium' | 'pro' | 'enterprise';
+export type AccessScope = 'magrit_full' | 'shop_only';
+
+export interface MemberPermissions {
+  can_quote: boolean;
+  can_order: boolean;
+  can_invite: boolean;
+}
+
+export const DEFAULT_PERMISSIONS: MemberPermissions = {
+  can_quote: true,
+  can_order: true,
+  can_invite: false,
+};
+
+export interface Tenant {
+  id: string;
+  slug: string;
+  name: string;
+  parent_tenant_id: string | null;
+  plan: TenantPlan;
+  is_system_tenant: boolean;
+  settings: Record<string, any>;
+  created_at: string;
+  /** SIREN FR ou tax id international, optionnel (E6.1) */
+  siren?: string | null;
+  /** Reponse INSEE (raison sociale, code NAF, actif…) — bouchon pour l'instant */
+  siren_data?: Record<string, any>;
+  /** True si le SIREN a ete valide a la creation du tenant */
+  verified?: boolean;
+  verified_at?: string | null;
+  /** Regime fiscal TVA (R0 Spike H, migration 20260511_02). Defaut DB : 'metropole_fr'. */
+  tax_regime?: import('@/modules/orders/ui/helpers').TaxRegime | null;
+}
+
+export interface TenantWithMembership extends Tenant {
+  /** role du user courant dans ce tenant */
+  myRole: TenantRole;
+  /** scope d'acces : magrit_full (dashboard complet) ou shop_only (boutique seule) */
+  accessScope: AccessScope;
+  /** liste de boutiques accessibles si scope=shop_only (vide si magrit_full) */
+  allowedShopIds: string[];
+  /** permissions fines */
+  permissions: MemberPermissions;
+  /** acces "herite" (ex: je suis admin du parent donc je vois le child) */
+  inheritedFromParent: boolean;
+}
+
+interface TenantContextType {
+  /** tenants auxquels l'user a acces (direct + enfants heritesvia parent) */
+  tenants: TenantWithMembership[];
+  /** tenant actuellement selectionne (routing / dernier actif) */
+  currentTenant: TenantWithMembership | null;
+  /** role du user dans le tenant courant (null si pas encore resolu) */
+  currentRole: TenantRole | null;
+  /** true si l'user est superadmin Magrit (membre de magrit-root) */
+  isSuperAdmin: boolean;
+  loading: boolean;
+  error: Error | null;
+
+  /** Changer de tenant programmatiquement (navigate vers /t/:slug) */
+  switchTenant: (slug: string) => void;
+
+  /** Creer un nouveau tenant racine (signup). E6.1 : siren + siren_data optionnels.
+   *  E9.6 : gammeSlugs = liste de gammes du PIM a activer immediatement (wizard
+   *  d onboarding). Insert bulk dans tenant_gamme_subscriptions apres creation. */
+  createTenant: (input: {
+    slug: string;
+    name: string;
+    siren?: string;
+    sirenData?: Record<string, any>;
+    gammeSlugs?: string[];
+  }) => Promise<string | null>;
+
+  /** Merge tenant_id dans un objet d'insert Supabase. Raccourci courant. */
+  withTenant: <T extends Record<string, any>>(payload: T) => T & { tenant_id: string };
+
+  /** Force un reload de la liste (apres invite, apres creation...) */
+  reload: () => Promise<void>;
+}
+
+const TenantContext = createContext<TenantContextType | undefined>(undefined);
+
+// ─── Provider ─────────────────────────────────────────────────────────────
+
+export function TenantProvider({ children }: { children: ReactNode }) {
+  const { user, loading: authLoading } = useAuth();
+  const { tenantSlug } = useParams<{ tenantSlug?: string }>();
+  const navigate = useNavigate();
+  const bootstrap = useSessionBootstrap();
+  const dataForUser = bootstrap.data?.user.id === user?.id ? bootstrap.data : null;
+  const tenants = (dataForUser?.tenants ?? []) as TenantWithMembership[];
+  const isSuperAdmin = dataForUser?.isSuperAdmin ?? false;
+  const reload = useCallback(async () => {
+    await bootstrap.reload();
+  }, [bootstrap.reload]);
+
+  // ─── Tenant courant (depuis l'URL, fallback last_tenant, fallback premier) ──
+  const fallbackSlug = tenants.find(
+    (tenant) => tenant.id === dataForUser?.preferences.last_tenant_id,
+  )?.slug ?? null;
+
+  const currentTenant = useMemo(() => {
+    if (tenantSlug) {
+      const t = tenants.find((t) => t.slug === tenantSlug);
+      if (t) return t;
+    }
+    if (fallbackSlug) {
+      const t = tenants.find((t) => t.slug === fallbackSlug);
+      if (t) return t;
+    }
+    return tenants[0] ?? null;
+  }, [tenants, tenantSlug, fallbackSlug]);
+
+  const currentRole = currentTenant?.myRole ?? null;
+
+  // ─── Persiste last_tenant_id quand on change de tenant ─────────────────
+  useEffect(() => {
+    if (
+      !user ||
+      !currentTenant ||
+      currentTenant.id === dataForUser?.preferences.last_tenant_id
+    ) return;
+    void bootstrap.updateCurrentTenant(currentTenant.id).catch((error) => {
+      console.error('[TenantContext] current tenant update failed', error);
+    });
+  }, [bootstrap.updateCurrentTenant, currentTenant?.id, dataForUser?.preferences.last_tenant_id, user]);
+
+  // ─── Actions ────────────────────────────────────────────────────────────
+
+  const switchTenant = useCallback(
+    (slug: string) => {
+      navigate(`/t/${slug}`);
+    },
+    [navigate]
+  );
+
+  const createTenant = useCallback(
+    async ({
+      slug,
+      name,
+      siren,
+      sirenData,
+      gammeSlugs,
+    }: {
+      slug: string;
+      name: string;
+      siren?: string;
+      sirenData?: Record<string, any>;
+      gammeSlugs?: string[];
+    }): Promise<string | null> => {
+      try {
+        const tenantId = await bootstrap.createRootTenant({
+          slug,
+          name,
+          ...(siren === undefined ? {} : { siren }),
+          ...(sirenData === undefined ? {} : { sirenData }),
+          ...(gammeSlugs === undefined ? {} : { gammeSlugs }),
+        });
+        await reload();
+        return tenantId;
+      } catch (error) {
+        console.error('[TenantContext] createTenant error:', error);
+        return null;
+      }
+    },
+    [bootstrap, reload]
+  );
+
+  const withTenant = useCallback(
+    <T extends Record<string, any>>(payload: T): T & { tenant_id: string } => {
+      if (!currentTenant) {
+        throw new Error(
+          '[TenantContext] withTenant() appele sans tenant courant. ' +
+            "L'appelant doit attendre que TenantContext soit charge."
+        );
+      }
+      return { ...payload, tenant_id: currentTenant.id };
+    },
+    [currentTenant]
+  );
+
+  const value: TenantContextType = {
+    tenants,
+    currentTenant,
+    currentRole,
+    isSuperAdmin,
+    error: bootstrap.error,
+    // Le bootstrap démarre dans un effect après le rendu où Auth expose le
+    // user. Tant que les données de ce user ne sont ni chargées ni en erreur,
+    // rester en loading évite une redirection prématurée vers /tenants/new.
+    loading:
+      authLoading ||
+      (!!user && (bootstrap.loading || (!bootstrap.error && dataForUser === null))),
+    switchTenant,
+    createTenant,
+    withTenant,
+    reload,
+  };
+
+  return <TenantContext.Provider value={value}>{children}</TenantContext.Provider>;
+}
+
+// ─── Hook ─────────────────────────────────────────────────────────────────
+
+export function useTenant() {
+  const ctx = useContext(TenantContext);
+  if (!ctx) {
+    throw new Error('useTenant must be used within a TenantProvider');
+  }
+  return ctx;
+}

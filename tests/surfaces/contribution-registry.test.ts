@@ -1,27 +1,27 @@
 import { describe, expect, it } from 'vitest';
-import { accountModuleManifest } from '../../src/modules/account';
-import { ordersModuleManifest } from '../../src/modules/orders';
-import { shopsModuleManifest } from '../../src/modules/shops';
-import { quotesModuleManifest } from '../../src/modules/quotes';
-import { quoteTemplatesModuleManifest } from '../../src/modules/quote-templates';
-import { librariesModuleManifest } from '../../src/modules/libraries';
-import { catalogModuleManifest } from '../../src/modules/catalog';
-import { commercialModuleManifest } from '../../src/modules/commercial';
-import { membersModuleManifest } from '../../src/modules/members';
-import { tenantsModuleManifest } from '../../src/modules/tenants';
-import { rolesModuleManifest } from '../../src/modules/roles';
-import { conversationsModuleManifest } from '../../src/modules/conversations';
-import { machineParksModuleManifest } from '../../src/modules/machine-parks';
-import { mockupsModuleManifest } from '../../src/modules/mockups';
-import { plansModuleManifest } from '../../src/modules/plans';
-import { shopCustomersModuleManifest } from '../../src/modules/shop-customers';
-import { applicationContributionRegistry } from '../../src/surfaces';
+import { accountModuleManifest } from '@/modules/account';
+import { ordersModuleManifest } from '@/modules/orders';
+import { shopsModuleManifest } from '@/modules/shops';
+import { quotesModuleManifest } from '@/modules/quotes';
+import { quoteTemplatesModuleManifest } from '@/modules/quote-templates';
+import { librariesModuleManifest } from '@/modules/libraries';
+import { catalogModuleManifest } from '@/modules/catalog';
+import { commercialModuleManifest } from '@/modules/commercial';
+import { membersModuleManifest } from '@/modules/members';
+import { tenantsModuleManifest } from '@/modules/tenants';
+import { rolesModuleManifest } from '@/modules/roles';
+import { conversationsModuleManifest } from '@/modules/conversations';
+import { machineParksModuleManifest } from '@/modules/machine-parks';
+import { mockupsModuleManifest } from '@/modules/mockups';
+import { plansModuleManifest } from '@/modules/plans';
+import { shopCustomersModuleManifest } from '@/modules/shop-customers';
+import { applicationContributionRegistry } from '@/surfaces';
 import {
   ContributionRegistryError,
   createContributionRegistry,
   defineModuleManifest,
   defineSurfaceContribution,
-} from '../../src/surfaces/registry';
+} from '@/surfaces/registry';
 
 describe('registre des contributions de surfaces', () => {
   const manifests = [

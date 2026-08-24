@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { UserAccessProfile } from '../../src/modules/roles';
-import { normalizeWorkspaceCapability, resolveCapability } from '../../src/app/contexts/accessProfile.helpers';
+import type { UserAccessProfile } from '@/modules/roles';
+import { normalizeWorkspaceCapability, resolveCapability } from '@/modules/roles/ui/runtime/accessProfile.helpers';
 
 const member: UserAccessProfile = {
   tenantId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',

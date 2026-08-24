@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { resolveNewProducts, summarizeCartResume } from '../../src/app/utils/shopHomeSections';
+import { resolveNewProducts, summarizeCartResume } from '@/modules/catalog/ui/helpers/shopHomeSections';
 
 const p = (id: string, created_at?: string) =>
   ({ id, created_at }) as { id: string; created_at?: string };

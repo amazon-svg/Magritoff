@@ -9,8 +9,8 @@ import {
   pickDefinition,
   resolvePimTemplate,
   specRows,
-} from '../../../../src/app/components/shop/gamme/pimEditorial.helpers';
-import type { ProductDefinition } from '../../../../src/app/utils/productEnrichment';
+} from '@/modules/catalog/ui/storefront/gamme/pimEditorial.helpers';
+import type { ProductDefinition } from '@/modules/catalog/ui/helpers/productEnrichment';
 
 const makeDef = (over: Partial<ProductDefinition>): ProductDefinition =>
   ({

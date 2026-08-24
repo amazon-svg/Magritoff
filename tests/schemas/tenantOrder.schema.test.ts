@@ -11,7 +11,7 @@ import {
   tenantOrderInsertSchema,
   tenantOrderItemInsertSchema,
   tenantOrderStatusEnum,
-} from '../../src/schemas/tenantOrder.schema';
+} from '@/schemas/tenantOrder.schema';
 
 const VALID_UUID_1 = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
 const VALID_UUID_2 = '9d6d69f8-e26b-4d10-8bd6-ba1519c0338b';

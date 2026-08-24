@@ -7,8 +7,10 @@ const projectRoot = process.cwd();
 const sourceRoot = resolve(projectRoot, 'src');
 
 function resolveSourceImport(importer: string, specifier: string): string | null {
-  if (!specifier.startsWith('.')) return null;
-  const base = resolve(dirname(importer), specifier);
+  if (!specifier.startsWith('.') && !specifier.startsWith('@/')) return null;
+  const base = specifier.startsWith('@/')
+    ? resolve(sourceRoot, specifier.slice(2))
+    : resolve(dirname(importer), specifier);
   const candidates = [base, `${base}.ts`, `${base}.tsx`, resolve(base, 'index.ts'), resolve(base, 'index.tsx')];
   return candidates.find((candidate) => existsSync(candidate) && statSync(candidate).isFile()) ?? null;
 }

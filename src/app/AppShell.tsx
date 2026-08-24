@@ -14,33 +14,49 @@
  */
 
 import { Outlet } from 'react-router';
-import { TenantProvider } from './contexts/TenantContext';
-import { ConversationProvider } from './contexts/ConversationContext';
-import { LibraryProvider } from './contexts/LibraryContext';
-import { ShopsProvider } from './contexts/ShopsContext';
-import { QuoteTemplatesProvider } from './contexts/QuoteTemplatesContext';
-import { CartProvider } from './contexts/CartContext';
-import { QuotesProvider } from './contexts/QuotesContext';
-import { AccessProfileProvider } from './contexts/AccessProfileContext';
+import { TenantProvider } from '@/modules/tenants/ui/runtime';
+import { ConversationProvider } from '@/modules/conversations/ui/runtime';
+import { LibraryProvider } from '@/modules/libraries/ui/runtime';
+import { ShopsProvider } from '@/modules/shops/ui/runtime';
+import { QuoteTemplatesProvider } from '@/modules/quote-templates/ui/runtime';
+import { CartProvider } from '@/modules/orders/ui/runtime';
+import { QuotesProvider } from '@/modules/quotes/ui/runtime';
+import { AccessProfileProvider } from '@/modules/roles/ui/runtime';
+import { WorkspaceModuleUiBridge } from '@/app/surfaces/WorkspaceModuleUiBridge';
+import { browserRuntime } from '@/platform/runtime';
+import { PIMProvider } from '@/modules/catalog/ui/runtime';
+import { PreferencesProvider } from '@/modules/account/ui/preferences';
+import { SessionBootstrapProvider } from '@/modules/session/ui/bootstrap';
+import { useApiRuntime } from '@/app/contexts/ApiRuntimeContext';
 
 export function AppShell() {
+  const { client } = useApiRuntime();
+
   return (
-    <TenantProvider>
-      <AccessProfileProvider>
-      <ConversationProvider>
-        <LibraryProvider>
-          <ShopsProvider>
-            <QuoteTemplatesProvider>
-              <CartProvider>
-                <QuotesProvider>
-                  <Outlet />
-                </QuotesProvider>
-              </CartProvider>
-            </QuoteTemplatesProvider>
-          </ShopsProvider>
-        </LibraryProvider>
-      </ConversationProvider>
-      </AccessProfileProvider>
-    </TenantProvider>
+    <SessionBootstrapProvider apiClient={client}>
+      <TenantProvider>
+        <WorkspaceModuleUiBridge runtime={browserRuntime}>
+          <PreferencesProvider>
+            <PIMProvider>
+              <AccessProfileProvider>
+                <ConversationProvider>
+                  <LibraryProvider>
+                    <ShopsProvider>
+                      <QuoteTemplatesProvider>
+                        <CartProvider>
+                          <QuotesProvider>
+                            <Outlet />
+                          </QuotesProvider>
+                        </CartProvider>
+                      </QuoteTemplatesProvider>
+                    </ShopsProvider>
+                  </LibraryProvider>
+                </ConversationProvider>
+              </AccessProfileProvider>
+            </PIMProvider>
+          </PreferencesProvider>
+        </WorkspaceModuleUiBridge>
+      </TenantProvider>
+    </SessionBootstrapProvider>
   );
 }

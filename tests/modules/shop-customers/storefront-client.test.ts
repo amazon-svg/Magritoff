@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { StorefrontIdentityApiClient } from '../../../src/modules/shop-customers';
-import { FetchApiClient } from '../../../src/platform/api';
+import { StorefrontIdentityApiClient } from '@/modules/shop-customers';
+import { FetchApiClient } from '@/platform/api';
 
 const SHOP = '11111111-1111-4111-8111-111111111111';
 const CUSTOMER = '22222222-2222-4222-8222-222222222222';

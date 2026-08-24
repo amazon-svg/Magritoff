@@ -15,7 +15,7 @@ import {
   formatAuditEventTitle,
   formatAuditTimestamp,
   type OrderAuditEvent,
-} from '../../src/app/components/shop/portal/orderAuditTrail.helpers';
+} from '@/modules/orders/ui/storefront/orderAuditTrail.helpers';
 
 const SKIP_REASON = (() => {
   const env = process.env;

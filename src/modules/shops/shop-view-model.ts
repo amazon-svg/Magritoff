@@ -5,15 +5,15 @@ export interface ShopTheme {
   primaryColor: string;
   accentColor: string;
   mode: 'light' | 'dark';
-  secondaryColor?: string;
-  textColor?: string;
-  bgColor?: string;
-  fontPairing?: string;
+  secondaryColor?: string | undefined;
+  textColor?: string | undefined;
+  bgColor?: string | undefined;
+  fontPairing?: string | undefined;
 }
 
 export interface Shop {
   id: string;
-  owner_user_id?: string;
+  owner_user_id?: string | undefined;
   slug: string;
   name: string;
   description: string;
@@ -28,10 +28,10 @@ export interface Shop {
   tagline: string | null;
   pim_catalog_mode: boolean;
   pim_gamme_slugs: string[];
-  tenant_id?: string | null;
-  access_mode?: 'invite_only' | 'self_signup';
-  created_at?: string;
-  custom_mockups?: ShopCustomMockup[];
+  tenant_id?: string | null | undefined;
+  access_mode?: 'invite_only' | 'self_signup' | undefined;
+  created_at?: string | undefined;
+  custom_mockups?: ShopCustomMockup[] | undefined;
 }
 
 export interface ShopProduct {
@@ -45,7 +45,7 @@ export interface ShopProduct {
   image_url: string;
   config: Record<string, unknown>;
   display_order: number;
-  created_at?: string;
-  tenant_id?: string | null;
-  gamme_slug?: string | null;
+  created_at?: string | undefined;
+  tenant_id?: string | null | undefined;
+  gamme_slug?: string | null | undefined;
 }

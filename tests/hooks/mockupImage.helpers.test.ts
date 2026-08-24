@@ -12,7 +12,7 @@ import {
   buildEdgeFunctionUrl,
   buildPublicMockupUrl,
   type MockupSpecs,
-} from '../../src/app/components/mockup/MockupImage.helpers';
+} from '@/modules/mockups/ui/components/MockupImage.helpers';
 
 const baseParams = {
   tenantId: 'tenant-uuid',

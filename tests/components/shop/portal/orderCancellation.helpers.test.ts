@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { formatCancelErrorMessage } from '../../../../src/app/components/shop/portal/orderCancellation.helpers';
+import { formatCancelErrorMessage } from '@/modules/orders/ui/storefront/orderCancellation.helpers';
 
 describe('formatCancelErrorMessage', () => {
   it('null / undefined → message reseau generique', () => {

@@ -4,22 +4,22 @@ import { describe, expect, it } from 'vitest';
 
 const source = readFileSync(resolve(
   process.cwd(),
-  'src/app/components/dashboard/LegacyShopCustomerMigrationSection.tsx',
+  'src/modules/shop-customers/ui/workspace/LegacyShopCustomerMigrationSection.tsx',
 ), 'utf8');
 const hook = readFileSync(resolve(
   process.cwd(),
-  'src/app/hooks/useLegacyShopCustomerMigrationReport.ts',
+  'src/modules/shop-customers/ui/hooks/useLegacyShopCustomerMigrationReport.ts',
 ), 'utf8');
 const users = readFileSync(resolve(
   process.cwd(),
-  'src/app/components/dashboard/DashboardUsers.tsx',
+  'src/modules/members/ui/workspace/MembersPage.tsx',
 ), 'utf8');
 
 describe('surface de contrôle de migration des comptes boutique', () => {
   it('passe exclusivement par la façade API et reste dans la surface Utilisateurs', () => {
     expect(source).toContain('useLegacyShopCustomerMigrationReport');
-    expect(source).not.toContain('useShopCustomersApi');
-    expect(hook).toContain('useShopCustomersApi');
+    expect(source).not.toContain('ShopCustomersApiClient');
+    expect(hook).toContain('new ShopCustomersApiClient');
     expect(hook).toContain('api.migrationReport(tenantId)');
     expect(source).not.toContain('utils/supabase');
     expect(source).not.toMatch(/\bsupabase\s*\./);

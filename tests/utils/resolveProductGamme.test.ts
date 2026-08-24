@@ -6,8 +6,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { resolveProductGamme } from '../../src/app/utils/productEnrichment';
-import type { Gamme } from '../../src/app/utils/productEnrichment';
+import { resolveProductGamme } from '@/modules/catalog/ui/helpers/productEnrichment';
+import type { Gamme } from '@/modules/catalog/ui/helpers/productEnrichment';
 
 const g = (slug: string, name: string, kind: string, extra: Partial<Gamme> = {}): Gamme =>
   ({ id: slug, slug, name, parent_slug: null, matching_rules: { kind }, display_order: 0, ...extra }) as Gamme;

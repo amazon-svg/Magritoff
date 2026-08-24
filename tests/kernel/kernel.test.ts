@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { appError, err, fixedClock, ok, parseId } from '../../src/kernel';
+import { appError, err, fixedClock, ok, parseId } from '@/kernel';
 
 describe('kernel minimal', () => {
   it('normalise un identifiant non vide', () => {

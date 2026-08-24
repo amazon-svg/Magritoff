@@ -10,7 +10,7 @@ import {
   priceFromMargin,
   round2,
   sumLinesHT,
-} from '../../src/app/utils/quoteMath';
+} from '@/modules/quotes/ui/helpers/quoteMath';
 
 describe('quoteMath — round2', () => {
   it('arrondit a 2 decimales', () => {

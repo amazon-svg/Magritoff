@@ -1,40 +1,40 @@
 import { lazy, type ComponentType, type LazyExoticComponent } from 'react';
-import { workspaceSurface } from '../../surfaces/workspace';
+import { workspaceSurface } from '@/surfaces/workspace';
 
 type PageModule = Readonly<{ default: ComponentType }>;
 type LazyPageLoader = () => Promise<PageModule>;
 
 const routeLoaders: Readonly<Record<string, LazyPageLoader>> = Object.freeze({
   'account.workspace.settings': () =>
-    import('../components/dashboard/DashboardAccount').then((module) => ({
+    import('@/modules/account/ui').then((module) => ({
       default: module.DashboardAccount,
     })),
   'orders.workspace.list': () =>
-    import('../components/dashboard/DashboardOrders').then((module) => ({
+    import('@/modules/orders/ui').then((module) => ({
       default: module.DashboardOrders,
     })),
   'shops.workspace.list': () =>
-    import('../components/dashboard/DashboardShops').then((module) => ({ default: module.DashboardShops })),
+    import('@/modules/shops/ui').then((module) => ({ default: module.DashboardShops })),
   'shops.workspace.edit': () =>
-    import('../components/dashboard/DashboardShopEditor').then((module) => ({ default: module.DashboardShopEditor })),
-  'quotes.workspace.list': () => import('../components/dashboard/DashboardQuotes').then((module) => ({ default: module.DashboardQuotes })),
-  'quotes.workspace.pending': () => import('../components/dashboard/DashboardQuotesPending').then((module) => ({ default: module.DashboardQuotesPending })),
-  'quotes.workspace.edit': () => import('../components/dashboard/DashboardQuoteEditor').then((module) => ({ default: module.DashboardQuoteEditor })),
-  'quote-templates.workspace.list': () => import('../components/dashboard/DashboardQuoteTemplates').then((module) => ({ default: module.DashboardQuoteTemplates })),
-  'libraries.workspace.list': () => import('../components/dashboard/DashboardLibraries').then((module) => ({ default: module.DashboardLibraries })),
-  'libraries.workspace.detail': () => import('../components/dashboard/DashboardLibraryDetail').then((module) => ({ default: module.DashboardLibraryDetail })),
-  'catalog.workspace.gammes': () => import('../components/dashboard/DashboardTenantGammes').then((module) => ({ default: module.DashboardTenantGammes })),
-  'catalog.workspace.pim': () => import('../components/dashboard/DashboardAdminPIM').then((module) => ({ default: module.DashboardAdminPIM })),
-  'commercial.workspace.pricing': () => import('../components/dashboard/commercial/DashboardCommercial').then((module) => ({ default: module.DashboardCommercial })),
-  'members.workspace.list': () => import('../components/dashboard/DashboardUsers').then((module) => ({ default: module.DashboardUsers })),
-  'tenants.workspace.settings': () => import('../components/dashboard/DashboardTenantSettings').then((module) => ({ default: module.DashboardTenantSettings })),
-  'tenants.workspace.spaces': () => import('../components/dashboard/DashboardTenantSpaces').then((module) => ({ default: module.DashboardTenantSpaces })),
-  'conversations.workspace.history': () => import('../components/dashboard/DashboardHistory').then((module) => ({ default: module.DashboardHistory })),
-  'machine-parks.workspace.list': () => import('../components/dashboard/machines/DashboardMachines').then((module) => ({ default: module.DashboardMachines })),
-  'machine-parks.workspace.wizard': () => import('../components/dashboard/machines/MachineParkWizard').then((module) => ({ default: module.MachineParkWizard })),
-  'machine-parks.workspace.detail': () => import('../components/dashboard/machines/MachineParkDetail').then((module) => ({ default: module.MachineParkDetail })),
-  'mockups.workspace.reference': () => import('../components/dashboard/DashboardAdminMockups').then((module) => ({ default: module.DashboardAdminMockups })),
-  'plans.workspace.selection': () => import('../components/dashboard/DashboardPlan').then((module) => ({ default: module.DashboardPlan })),
+    import('@/modules/shops/ui').then((module) => ({ default: module.DashboardShopEditor })),
+  'quotes.workspace.list': () => import('@/modules/quotes/ui').then((module) => ({ default: module.DashboardQuotes })),
+  'quotes.workspace.pending': () => import('@/modules/quotes/ui').then((module) => ({ default: module.DashboardQuotesPending })),
+  'quotes.workspace.edit': () => import('@/modules/quotes/ui').then((module) => ({ default: module.DashboardQuoteEditor })),
+  'quote-templates.workspace.list': () => import('@/modules/quote-templates/ui').then((module) => ({ default: module.DashboardQuoteTemplates })),
+  'libraries.workspace.list': () => import('@/modules/libraries/ui').then((module) => ({ default: module.DashboardLibraries })),
+  'libraries.workspace.detail': () => import('@/modules/libraries/ui').then((module) => ({ default: module.DashboardLibraryDetail })),
+  'catalog.workspace.gammes': () => import('@/modules/catalog/ui').then((module) => ({ default: module.DashboardTenantGammes })),
+  'catalog.workspace.pim': () => import('@/modules/catalog/ui').then((module) => ({ default: module.DashboardAdminPIM })),
+  'commercial.workspace.pricing': () => import('@/modules/commercial/ui').then((module) => ({ default: module.DashboardCommercial })),
+  'members.workspace.list': () => import('@/modules/members/ui').then((module) => ({ default: module.MembersPage })),
+  'tenants.workspace.settings': () => import('@/modules/tenants/ui').then((module) => ({ default: module.DashboardTenantSettings })),
+  'tenants.workspace.spaces': () => import('@/modules/tenants/ui').then((module) => ({ default: module.DashboardTenantSpaces })),
+  'conversations.workspace.history': () => import('@/modules/conversations/ui').then((module) => ({ default: module.DashboardHistory })),
+  'machine-parks.workspace.list': () => import('@/modules/machine-parks/ui').then((module) => ({ default: module.DashboardMachines })),
+  'machine-parks.workspace.wizard': () => import('@/modules/machine-parks/ui').then((module) => ({ default: module.MachineParkWizard })),
+  'machine-parks.workspace.detail': () => import('@/modules/machine-parks/ui').then((module) => ({ default: module.MachineParkDetail })),
+  'mockups.workspace.reference': () => import('@/modules/mockups/ui').then((module) => ({ default: module.DashboardAdminMockups })),
+  'plans.workspace.selection': () => import('@/modules/plans/ui').then((module) => ({ default: module.DashboardPlan })),
 });
 
 export type WorkspaceRuntimeRoute = Readonly<{

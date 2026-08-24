@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { DiagnosticsApiClient } from '../../src/modules/diagnostics/api/client';
-import type { AiDiagnosticsGateway } from '../../src/modules/diagnostics/application/ai-diagnostics-gateway';
-import type { ClariprintDiagnosticsGateway } from '../../src/modules/diagnostics/application/clariprint-diagnostics-gateway';
-import { DiagnosticsService } from '../../src/modules/diagnostics/application/diagnostics-service';
-import { FetchApiClient } from '../../src/platform/api';
-import { createApiV1Application } from '../../src/server/api/composition';
-import { createDiagnosticsRoutes } from '../../src/server/api/diagnostics-routes';
+import { DiagnosticsApiClient } from '@/modules/diagnostics/api/client';
+import type { AiDiagnosticsGateway } from '@/modules/diagnostics/application/ai-diagnostics-gateway';
+import type { ClariprintDiagnosticsGateway } from '@/modules/diagnostics/application/clariprint-diagnostics-gateway';
+import { DiagnosticsService } from '@/modules/diagnostics/application/diagnostics-service';
+import { FetchApiClient } from '@/platform/api';
+import { createApiV1Application } from '@/server/api/composition';
+import { createDiagnosticsRoutes } from '@/server/api/diagnostics-routes';
 
 const diagnostic = {
   provider: 'TestAI', configured: true, reachable: true,

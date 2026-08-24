@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { CatalogApiClient } from '../../../src/modules/catalog/api/client';
-import { FetchApiClient } from '../../../src/platform/api/fetch-api-client';
+import { CatalogApiClient } from '@/modules/catalog/api/client';
+import { FetchApiClient } from '@/platform/api/fetch-api-client';
 
 describe('CatalogApiClient', () => {
   it('utilise le contrat tenant des souscriptions de gammes', async () => {

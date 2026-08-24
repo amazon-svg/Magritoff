@@ -14,11 +14,11 @@ import { resolve } from 'node:path';
 describe('AF5.2a — submitCart() delegue la creation atomique a Orders', () => {
   it('PublicShop délègue au cycle Orders sans écrire directement les tables', () => {
     const src = readFileSync(
-      resolve(__dirname, '../../../src/app/components/shop/PublicShop.tsx'),
+      resolve(__dirname, '../../../src/modules/shops/ui/storefront/PublicShop.tsx'),
       'utf-8',
     );
     const lifecycle = readFileSync(
-      resolve(__dirname, '../../../src/app/hooks/useStorefrontOrderLifecycle.ts'),
+      resolve(__dirname, '../../../src/modules/orders/ui/hooks/useStorefrontOrderLifecycle.ts'),
       'utf-8',
     );
 
@@ -33,7 +33,7 @@ describe('AF5.2a — submitCart() delegue la creation atomique a Orders', () => 
 
   it('le CTA du drawer soumet réellement quand le checkout est déjà affiché', () => {
     const src = readFileSync(
-      resolve(__dirname, '../../../src/app/components/shop/PublicShop.tsx'),
+      resolve(__dirname, '../../../src/modules/shops/ui/storefront/PublicShop.tsx'),
       'utf-8',
     );
 
@@ -43,7 +43,7 @@ describe('AF5.2a — submitCart() delegue la creation atomique a Orders', () => 
 
   it('le drawer se ferme en arrivant au checkout et après confirmation', () => {
     const layout = readFileSync(
-      resolve(__dirname, '../../../src/app/components/shop/ShopLayout.tsx'),
+      resolve(__dirname, '../../../src/modules/shops/ui/storefront/ShopLayout.tsx'),
       'utf-8',
     );
 

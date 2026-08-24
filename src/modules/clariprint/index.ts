@@ -8,3 +8,7 @@ export {
   type ClariprintPricingGateway,
 } from './application/clariprint-pricing-gateway.ts';
 export { ClariprintService } from './application/clariprint-service.ts';
+export {
+  priceFingerprint,
+  validateClariprintResponse,
+} from './application/clariprint-quote.ts';

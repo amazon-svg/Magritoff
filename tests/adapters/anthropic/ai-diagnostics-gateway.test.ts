@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { AnthropicAiDiagnosticsGateway } from '../../../src/adapters/anthropic/ai-diagnostics-gateway';
+import { AnthropicAiDiagnosticsGateway } from '@/adapters/anthropic/ai-diagnostics-gateway';
 
 describe('AnthropicAiDiagnosticsGateway', () => {
   it('ne fait aucun appel externe sans clé serveur', async () => {

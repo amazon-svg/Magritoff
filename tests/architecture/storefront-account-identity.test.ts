@@ -2,10 +2,10 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const storefront = readFileSync(resolve(process.cwd(), 'src/app/components/shop/PublicShop.tsx'), 'utf8');
-const orderLifecycle = readFileSync(resolve(process.cwd(), 'src/app/hooks/useStorefrontOrderLifecycle.ts'), 'utf8');
-const layout = readFileSync(resolve(process.cwd(), 'src/app/components/shop/ShopLayout.tsx'), 'utf8');
-const account = readFileSync(resolve(process.cwd(), 'src/app/components/shop/portal/AccountHub.tsx'), 'utf8');
+const storefront = readFileSync(resolve(process.cwd(), 'src/modules/shops/ui/storefront/PublicShop.tsx'), 'utf8');
+const orderLifecycle = readFileSync(resolve(process.cwd(), 'src/modules/orders/ui/hooks/useStorefrontOrderLifecycle.ts'), 'utf8');
+const layout = readFileSync(resolve(process.cwd(), 'src/modules/shops/ui/storefront/ShopLayout.tsx'), 'utf8');
+const account = readFileSync(resolve(process.cwd(), 'src/modules/account/ui/customer-portal/AccountHub.tsx'), 'utf8');
 
 describe('identité du compte storefront', () => {
   it('affiche le client boutique sans réutiliser le menu Magrit', () => {

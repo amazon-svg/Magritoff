@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dashboardOrderTransitionKey } from '../../../src/app/hooks/useDashboardOrderManagement';
+import { dashboardOrderTransitionKey } from '@/modules/orders/ui/hooks/useDashboardOrderManagement';
 
 describe('dashboardOrderTransitionKey', () => {
   it('stabilise la clé par commande et transition', () => {

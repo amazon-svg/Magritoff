@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { pimAutomationError } from '../../../src/app/hooks/usePimAutomation';
+import { pimAutomationError } from '@/modules/catalog/ui/hooks/usePimAutomation';
 
 describe('pimAutomationError', () => {
   it('conserve le message métier du contrat API', () => {

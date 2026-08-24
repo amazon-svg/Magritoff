@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { parseId } from '../../src/kernel/ids';
-import { QuoteTemplatesApiClient } from '../../src/modules/quote-templates/api/client';
-import type { QuoteTemplatesRepository } from '../../src/modules/quote-templates/application/quote-templates-repository';
-import { QuoteTemplatesService } from '../../src/modules/quote-templates/application/quote-templates-service';
-import { FetchApiClient } from '../../src/platform/api';
-import { createApiV1Application } from '../../src/server/api/composition';
-import { createQuoteTemplatesRoutes } from '../../src/server/api/quote-templates-routes';
+import { parseId } from '@/kernel/ids';
+import { QuoteTemplatesApiClient } from '@/modules/quote-templates/api/client';
+import type { QuoteTemplatesRepository } from '@/modules/quote-templates/application/quote-templates-repository';
+import { QuoteTemplatesService } from '@/modules/quote-templates/application/quote-templates-service';
+import { FetchApiClient } from '@/platform/api';
+import { createApiV1Application } from '@/server/api/composition';
+import { createQuoteTemplatesRoutes } from '@/server/api/quote-templates-routes';
 const actor = parseId<'UserId'>('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'); if (!actor.ok) throw new Error('actor');
 const tenant = '11111111-1111-4111-8111-111111111111';
 const template = { id: 'template-1', builtin: false as const, name: 'Atelier', style: 'custom' as const };

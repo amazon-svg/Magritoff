@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { parseId, type UserId } from '../../../src/kernel';
+import { parseId, type UserId } from '@/kernel';
 import {
   ShopCustomerRejectedError,
   ShopCustomerInvitationRejectedError,
@@ -10,7 +10,7 @@ import {
   type ShopCustomersRepository,
   type StorefrontActivationEmailSender,
   type StorefrontActivationGateway,
-} from '../../../src/modules/shop-customers';
+} from '@/modules/shop-customers';
 
 const SHOP = '11111111-1111-4111-8111-111111111111';
 const TENANT = '22222222-2222-4222-8222-222222222222';

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ShopsApiClient } from '../../../src/modules/shops/api/client';
-import { FetchApiClient } from '../../../src/platform/api/fetch-api-client';
+import { ShopsApiClient } from '@/modules/shops/api/client';
+import { FetchApiClient } from '@/platform/api/fetch-api-client';
 
 const tenantId = '11111111-1111-4111-8111-111111111111';
 const shopId = '22222222-2222-4222-8222-222222222222';

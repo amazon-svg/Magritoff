@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ResendInvitationEmailSender } from '../../../src/adapters/resend/invitation-email-sender';
+import { ResendInvitationEmailSender } from '@/adapters/resend/invitation-email-sender';
 
 const message = {
   to: 'buyer@example.com', tenantName: 'Imprimerie Test', role: 'member' as const,

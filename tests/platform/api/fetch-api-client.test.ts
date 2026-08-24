@@ -1,12 +1,12 @@
 import { z } from 'zod';
 import { describe, expect, it } from 'vitest';
-import { fixedClock, parseId, type TenantId, type UserId } from '../../../src/kernel';
+import { fixedClock, parseId, type TenantId, type UserId } from '@/kernel';
 import {
   ApiClientError,
   FetchApiClient,
   SystemApiClient,
-} from '../../../src/platform/api';
-import { createApiV1Application, createApiV1Handler, defineJsonRoute } from '../../../src/server/api';
+} from '@/platform/api';
+import { createApiV1Application, createApiV1Handler, defineJsonRoute } from '@/server/api';
 
 describe('client fetch API Magrit', () => {
   it('appelle fetch avec le receveur global attendu par les navigateurs', async () => {
