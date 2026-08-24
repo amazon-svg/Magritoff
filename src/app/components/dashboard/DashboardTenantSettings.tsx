@@ -1,10 +1,10 @@
 /**
  * DashboardTenantSettings — Parametres de l'espace
  * =================================================
- * Implemente E9.4 : permettre a un owner/admin de renommer son espace.
+ * Implemente E9.4 : permettre à un admin de renommer son espace.
  *
  * Regles :
- *   - Le nom (`name`) est editable par owner ou admin du tenant.
+ *   - Le nom (`name`) est éditable par un admin du tenant.
  *   - Le slug est editable UNIQUEMENT par un superadmin Magrit (impact URL/SEO).
  *     Le trigger DB `enforce_slug_change_authorization` enforce cote serveur.
  *   - Tout changement de slug est archive 90 jours dans tenant_slug_history
@@ -18,7 +18,7 @@ import { useTenantSettingsForm } from '../../hooks/useTenantSettingsForm';
 
 export function DashboardTenantSettings() {
   const { currentTenant, currentRole, isSuperAdmin, reload } = useTenant();
-  const canEditName = currentRole === 'owner' || currentRole === 'admin' || isSuperAdmin;
+  const canEditName = currentRole === 'admin' || isSuperAdmin;
   const canEditSlug = isSuperAdmin;
   const { name, setName, slug, setSlug, slugChanged, saving, message, submit } =
     useTenantSettingsForm({
@@ -41,7 +41,7 @@ export function DashboardTenantSettings() {
       <div className="max-w-xl space-y-3">
         <h2 className="text-lg font-semibold text-ink">Parametres de l'espace</h2>
         <p className="text-sm text-ink-muted">
-          Vous devez etre owner ou admin de cet espace pour modifier ses parametres.
+          Vous devez être administrateur de cet espace pour modifier ses paramètres.
         </p>
       </div>
     );

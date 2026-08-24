@@ -677,7 +677,7 @@ export function DashboardShopEditor() {
           />
           <div>
             <p className="text-sm font-medium text-ink">Boutique active</p>
-            <p className="text-xs text-ink-muted">Accessible publiquement via l'URL. Désactivez pour masquer.</p>
+            <p className="text-xs text-ink-muted">Accessible publiquement via l'URL. Une boutique désactivée reste conservée et peut être réactivée à tout moment.</p>
           </div>
         </label>
 

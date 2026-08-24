@@ -157,7 +157,7 @@ describe('frontières API-first et modulaires', () => {
     expect(runtime).toContain("import('../components/dashboard/DashboardUsers')");
     expect(runtime).toContain("import('../components/dashboard/DashboardTenantSettings')");
     expect(runtime).toContain("import('../components/dashboard/DashboardTenantSpaces')");
-    expect(runtime).toContain("import('../components/dashboard/OrderRoleAdminPage')");
+    expect(runtime).not.toContain("import('../components/dashboard/OrderRoleAdminPage')");
     expect(runtime).toContain("import('../components/dashboard/DashboardHistory')");
     expect(runtime).toContain("import('../components/dashboard/machines/DashboardMachines')");
     expect(runtime).toContain("import('../components/dashboard/machines/MachineParkWizard')");
@@ -620,7 +620,6 @@ describe('frontières API-first et modulaires', () => {
     expect(hook).toContain('rolesApi.archiveDefinition');
     const assignmentsHook = readFileSync(resolve(process.cwd(), 'src/app/hooks/useRoleAssignmentManagement.ts'), 'utf8');
     expect(assignmentsHook).toContain('useWorkspaceRolesApi');
-    expect(assignmentsHook).toContain('useWorkspaceMembersApi');
     expect(assignmentsHook).toContain('rolesApi.overview');
     expect(assignmentsHook).toContain('rolesApi.userDetail');
     expect(assignmentsHook).toContain('rolesApi.setAssignment');
@@ -628,7 +627,9 @@ describe('frontières API-first et modulaires', () => {
 
   it('sort la vérification des capabilities du fournisseur', () => {
     const source = readFileSync(resolve(process.cwd(), 'src/app/hooks/useUserCapability.ts'), 'utf8');
-    expect(source).toContain('useWorkspaceRolesApi');
+    expect(source).toContain('useAccessProfile');
+    const provider = readFileSync(resolve(process.cwd(), 'src/app/contexts/AccessProfileContext.tsx'), 'utf8');
+    expect(provider).toContain('useWorkspaceRolesApi');
     expect(source).not.toContain('new RolesApiClient');
     expect(source).not.toContain('utils/supabase');
     expect(source).not.toMatch(/\bsupabase\s*\./);

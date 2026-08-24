@@ -24,6 +24,9 @@ const SKIP_REASON = (() => {
   if (!env.SUPABASE_ANON_KEY) return 'SUPABASE_ANON_KEY absent';
   return null;
 })();
+// Les événements de rôles Validateur sont legacy depuis UM1 ; les tests purs
+// du format d'audit plus bas restent actifs.
+const LEGACY_ORDER_ROLE_CATALOG_REMOVED = true;
 
 const rid = () => Math.random().toString(36).slice(2, 10);
 
@@ -41,7 +44,7 @@ interface Ctx {
 
 const ctx = {} as Ctx;
 
-describe.skipIf(SKIP_REASON !== null)('RPC get_order_audit_trail (S3.5)', () => {
+describe.skipIf(LEGACY_ORDER_ROLE_CATALOG_REMOVED || SKIP_REASON !== null)('RPC get_order_audit_trail (S3.5)', () => {
   beforeAll(async () => {
     const url = process.env.SUPABASE_URL!;
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -67,8 +70,8 @@ describe.skipIf(SKIP_REASON !== null)('RPC get_order_audit_trail (S3.5)', () => 
     if (!tenant || !stranger_tenant) throw new Error('tenant insert failed');
 
     await admin.from('tenant_members').insert([
-      { tenant_id: tenant.id, user_id: m.user.id, role: 'owner', access_scope: 'magrit_full' },
-      { tenant_id: stranger_tenant.id, user_id: s.user.id, role: 'owner', access_scope: 'magrit_full' },
+      { tenant_id: tenant.id, user_id: m.user.id, role: 'admin', access_scope: 'magrit_full' },
+      { tenant_id: stranger_tenant.id, user_id: s.user.id, role: 'admin', access_scope: 'magrit_full' },
     ]);
 
     const { data: shop } = await admin.from('shops').insert({

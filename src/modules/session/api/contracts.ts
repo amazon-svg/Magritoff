@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const tenantRoleSchema = z.enum(['owner', 'admin', 'member', 'partner']);
+export const tenantRoleSchema = z.enum(['admin', 'member']);
 export const tenantPlanSchema = z.enum(['freemium', 'pro', 'enterprise']);
 export const accessScopeSchema = z.enum(['magrit_full', 'shop_only']);
 

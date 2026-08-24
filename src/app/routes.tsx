@@ -1,6 +1,7 @@
 import { Suspense, lazy } from "react";
 import { createBrowserRouter, Navigate } from "react-router";
 import { workspaceRuntimeRoutes } from "./surfaces/workspaceRuntimeRoutes";
+import { WorkspaceCapabilityGate } from "./surfaces/WorkspaceCapabilityGate";
 import { portalRuntimePaths } from "./surfaces/portalRuntimePaths";
 
 const AppShell = lazy(() =>
@@ -160,10 +161,14 @@ export const router = createBrowserRouter([
               // (Devis), plus le profil. Profil + Preferences vivent dans
               // Parametres > Mon compte (/account).
               { index: true, element: <Navigate to="quotes" replace /> },
-              ...workspaceRuntimeRoutes.map(({ id, path, Component }) => ({
+              ...workspaceRuntimeRoutes.map(({ id, path, Component, requiredCapabilities }) => ({
                 id,
                 path,
-                element: lazyRoute(<Component />),
+                element: lazyRoute(
+                  <WorkspaceCapabilityGate requiredCapabilities={requiredCapabilities}>
+                    <Component />
+                  </WorkspaceCapabilityGate>,
+                ),
               })),
               { path: "profile", element: <Navigate to="../account" replace /> },
               { path: "preferences", element: <Navigate to="../account" replace /> },

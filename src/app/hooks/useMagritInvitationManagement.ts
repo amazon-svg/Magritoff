@@ -10,6 +10,7 @@ export interface InvitationRoleOption {
   id: string;
   name: string;
   description: string;
+  systemKey: string | null;
 }
 
 export class InvitationSessionExpiredError extends Error {
@@ -28,6 +29,7 @@ interface CreateMagritInvitationInput {
   email: string;
   baseUrl: string;
   roleDefinitionIds: string[];
+  role: 'admin' | 'member';
 }
 
 export function useMagritInvitationManagement({
@@ -68,6 +70,7 @@ export function useMagritInvitationManagement({
     email,
     baseUrl,
     roleDefinitionIds,
+    role,
   }: CreateMagritInvitationInput): Promise<CreateInvitationResult> => {
     const { session, error } = await refreshSession();
     if (error || !session) throw new InvitationSessionExpiredError();
@@ -77,6 +80,7 @@ export function useMagritInvitationManagement({
       tenantId,
       baseUrl,
       roleDefinitionIds,
+      role,
     });
   };
 

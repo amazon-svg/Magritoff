@@ -86,8 +86,8 @@ describe.skipIf(SKIP_REASON !== null)('S-SUBTENANT-SCOPE (Usage A filiale)', () 
     }).select('id').single();
 
     await admin.from('tenant_members').insert([
-      { tenant_id: rootT!.id, user_id: a.data.user!.id, role: 'owner', access_scope: 'magrit_full' },
-      { tenant_id: rootT!.id, user_id: pa.data.user!.id, role: 'partner', access_scope: 'magrit_full' },
+      { tenant_id: rootT!.id, user_id: a.data.user!.id, role: 'admin', access_scope: 'magrit_full' },
+      { tenant_id: rootT!.id, user_id: pa.data.user!.id, role: 'member', access_scope: 'magrit_full' },
       { tenant_id: paris!.id, user_id: p.data.user!.id, role: 'member', access_scope: 'magrit_full' },
       { tenant_id: lyon!.id, user_id: l.data.user!.id, role: 'member', access_scope: 'magrit_full' },
       { tenant_id: bordeaux!.id, user_id: b.data.user!.id, role: 'member', access_scope: 'magrit_full' },
@@ -186,7 +186,7 @@ describe.skipIf(SKIP_REASON !== null)('S-SUBTENANT-SCOPE (Usage A filiale)', () 
     expect(data).toBe(true);
   });
 
-  it('member_inherited : partner racine n hérite PAS (cohérent règle)', async () => {
+  it('member_inherited : utilisateur racine n hérite PAS', async () => {
     const { data } = await ctx.anonPartner.rpc('is_subtenant_member_inherited', {
       p_tenant_id: ctx.parisTenantId,
     });
@@ -223,7 +223,7 @@ describe.skipIf(SKIP_REASON !== null)('S-SUBTENANT-SCOPE (Usage A filiale)', () 
     expect((data as { id: string }[])[0].id).toBe(ctx.parisTenantId);
   });
 
-  it('get_user_subtenants : partner racine ne voit aucun sous-tenant', async () => {
+  it('get_user_subtenants : utilisateur racine ne voit aucun sous-tenant', async () => {
     const { data } = await ctx.anonPartner.rpc('get_user_subtenants', {
       p_parent_tenant_id: ctx.rootTenantId,
     });

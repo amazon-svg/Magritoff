@@ -4,14 +4,17 @@ import {
   reorderRolesResultSchema, rolesCatalogSchema, rolesOverviewSchema,
   saveRoleDefinitionCommandSchema, setRoleAssignmentCommandSchema,
   setRoleAssignmentResultSchema, userRolesDetailSchema,
-  userCapabilitySchema,
+  userCapabilitySchema, userAccessProfileSchema,
   type RoleCatalogDefinition, type RolesCatalog, type RolesOverview,
-  type SaveRoleDefinitionCommand, type SetRoleAssignmentResult, type UserRolesDetail,
+  type SaveRoleDefinitionCommand, type SetRoleAssignmentResult, type UserAccessProfile, type UserRolesDetail,
 } from './contracts.ts';
 export class RolesApiClient {
   constructor(private readonly client: FetchApiClient) {}
   userCapability(tenantId: string, capability: string): Promise<boolean> {
     return this.client.request({ path: `${API_V1_BASE_PATH}/tenants/${tenantId}/capabilities/${encodeURIComponent(capability)}`, responseSchema: userCapabilitySchema }).then(({ granted }) => granted);
+  }
+  accessProfile(tenantId: string): Promise<UserAccessProfile> {
+    return this.client.request({ path: `${API_V1_BASE_PATH}/tenants/${tenantId}/access-profile`, responseSchema: userAccessProfileSchema });
   }
   overview(tenantId: string): Promise<RolesOverview> {
     return this.client.request({ path: `${API_V1_BASE_PATH}/tenants/${tenantId}/roles-overview`, responseSchema: rolesOverviewSchema });

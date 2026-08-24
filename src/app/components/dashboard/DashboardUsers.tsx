@@ -1,19 +1,8 @@
 /**
  * DashboardUsers — Onglet "Utilisateurs" du dashboard tenant
  * ===========================================================
- * Cet ecran fusionne, dans un seul onglet, les deux populations
- * presentes dans un espace Magrit :
- *
- *   1. UTILISATEURS MAGRIT   — membres du tenant (owner/admin/member/partner)
- *      qui se connectent a l'app + invitations en attente. Couvert E9.2 et E9.3.
- *
- *   2. CONTACTS CRM          — contacts client (entreprise + email + tel) qu'un
- *      imprimeur garde dans son repertoire pour les associer a des devis.
- *
- * E9.2 : CRUD complet (invite, change role, remove) + audit trail.
- * UM8 : les nouveaux membres sont exclusivement des utilisateurs Magrit.
- * `shop_only` et `allowed_shop_ids` restent lus temporairement pour afficher
- * et convertir les lignes historiques migrées par UM7.
+ * Cet écran ne présente que l'équipe Magrit. Les comptes clients boutique
+ * sont gérés dans leur boutique et ne partagent ni profils ni permissions.
  */
 
 import { useState } from 'react';
@@ -22,13 +11,10 @@ import {
 } from 'lucide-react';
 import {
   useTenant,
-  AccessScope,
   TenantRole,
 } from '../../contexts/TenantContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { useShops } from '../../contexts/ShopsContext';
 import { TEST_IDS } from '../../lib/testIds';
-import { DashboardRolesSection } from './DashboardRolesSection';
 import { InviteUserModalV2 } from './InviteUserModalV2';
 import { EditUserRolesModal } from './EditUserRolesModal';
 import { LegacyShopCustomerMigrationSection } from './LegacyShopCustomerMigrationSection';
@@ -47,7 +33,6 @@ type Role = TenantRole;
 function MagritUsersSection() {
   const { user } = useAuth();
   const { currentTenant, currentRole, isSuperAdmin } = useTenant();
-  const { shops } = useShops();
   const {
     members,
     invitations,
@@ -66,7 +51,8 @@ function MagritUsersSection() {
   // Modale "Modifier les droits"
   const [editingPerms, setEditingPerms] = useState<MagritMemberRow | null>(null);
 
-  const canWrite = currentRole === 'owner' || currentRole === 'admin' || isSuperAdmin;
+  const canWrite = currentRole === 'admin' || isSuperAdmin;
+  const magritMembers = members.filter((member) => member.access_scope === 'magrit_full');
 
   const resendInvite = async (id: string, email: string) => {
     let result;
@@ -98,12 +84,7 @@ function MagritUsersSection() {
 
   const changeRole = async (member: MagritMemberRow, newRole: Role) => {
     if (!currentTenant || member.role === newRole) return;
-    if (member.role === 'owner') {
-      alert("Impossible de modifier le role d'un owner.");
-      return;
-    }
     try {
-      if (newRole === 'owner') throw new Error('Le rôle owner ne peut pas être attribué ici.');
       await persistRole(member, newRole);
     } catch (error) {
       alert('Echec de la mise a jour du role : ' + (error instanceof Error ? error.message : 'inconnue'));
@@ -112,10 +93,6 @@ function MagritUsersSection() {
 
   const removeMember = async (member: MagritMemberRow) => {
     if (!currentTenant) return;
-    if (member.role === 'owner') {
-      alert('Impossible de retirer un owner.');
-      return;
-    }
     if (!confirm(
       `Retirer ${member.email ?? member.user_id} de l'espace ?\n\n` +
       "L'utilisateur conservera son compte Magrit, mais perdra l'acces a cet espace."
@@ -145,7 +122,7 @@ function MagritUsersSection() {
           >
             Utilisateurs Magrit
             <span className="ml-2 text-ink-mute-2 font-mono" style={{ fontSize: '12px' }}>
-              · {members.length}
+              · {magritMembers.length}
             </span>
           </h2>
           <p className="mt-1 text-ink-muted" style={{ fontSize: '13px', fontWeight: 300 }}>
@@ -183,7 +160,7 @@ function MagritUsersSection() {
           <div className="px-4 py-6 text-center text-ink-muted" style={{ fontSize: '13px' }}>
             Chargement…
           </div>
-        ) : members.length === 0 ? (
+        ) : magritMembers.length === 0 ? (
           <div className="px-4 py-6 text-center text-ink-mute-2" style={{ fontSize: '13px' }}>
             Aucun membre.
           </div>
@@ -201,19 +178,14 @@ function MagritUsersSection() {
                 </th>
                 <th className="px-4 py-2 text-left font-mono text-ink-mute-2"
                     style={{ fontSize: '10.5px', letterSpacing: '0.06em', fontWeight: 500 }}>
-                  Acces
-                </th>
-                <th className="px-4 py-2 text-right font-mono text-ink-mute-2"
-                    style={{ fontSize: '10.5px', letterSpacing: '0.06em', fontWeight: 500 }}>
                   Rejoint
                 </th>
                 <th className="px-4 py-2"></th>
               </tr>
             </thead>
             <tbody>
-              {members.map((m) => {
+              {magritMembers.map((m) => {
                 const isMe = m.user_id === user?.id;
-                const isOwner = m.role === 'owner';
                 return (
                   <tr
                     key={m.user_id}
@@ -233,7 +205,7 @@ function MagritUsersSection() {
                       )}
                     </td>
                     <td className="px-4 py-2.5">
-                      {canWrite && !isOwner && !isMe ? (
+                      {canWrite && !isMe ? (
                         <select
                           data-testid={TEST_IDS.user.roleSelect}
                           value={m.role}
@@ -243,15 +215,11 @@ function MagritUsersSection() {
                           style={{ fontSize: '11px', letterSpacing: '0.04em', fontWeight: 600 }}
                         >
                           <option value="admin">ADMIN</option>
-                          <option value="member">MEMBER</option>
-                          <option value="partner">PARTNER</option>
+                          <option value="member">UTILISATEUR</option>
                         </select>
                       ) : (
                         <RoleBadge role={m.role} />
                       )}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <ScopeBadge member={m} shops={shops} />
                     </td>
                     <td
                       className="px-4 py-2.5 text-ink-muted text-right"
@@ -265,7 +233,7 @@ function MagritUsersSection() {
                     </td>
                     <td className="px-4 py-2.5 text-right">
                       <div className="inline-flex items-center gap-1">
-                        {canWrite && !isOwner && (
+                        {canWrite && (
                           <button
                             data-testid={TEST_IDS.user.editPermissionsBtn}
                             onClick={() => setEditingPerms(m)}
@@ -277,7 +245,7 @@ function MagritUsersSection() {
                             Droits
                           </button>
                         )}
-                        {canWrite && !isOwner && !isMe && (
+                        {canWrite && !isMe && (
                           <button
                             data-testid={TEST_IDS.user.removeBtn}
                             onClick={() => removeMember(m)}
@@ -328,9 +296,6 @@ function MagritUsersSection() {
                     >
                       {inv.role.toUpperCase()}
                     </td>
-                    <td className="px-4 py-2">
-                      <ScopeBadge member={inv as any} shops={shops} />
-                    </td>
                     <td
                       className="px-4 py-2 text-ink-muted text-right"
                       style={{ fontSize: '11.5px' }}
@@ -373,13 +338,13 @@ function MagritUsersSection() {
         </div>
       )}
 
-      {/* La modale active ne permet qu'une promotion legacy vers Magrit et
-          l'édition des rôles internes. Les comptes boutique vivent ailleurs. */}
+      {/* Les options produit sont les seuls rôles système exposés ici. */}
       {editingPerms && currentTenant && user && (
         <EditUserRolesModal
           open={true}
           targetUserId={editingPerms.user_id}
           targetUserEmail={editingPerms.email}
+          targetRole={editingPerms.role}
           tenantId={currentTenant.id}
           onChanged={async () => {
             await reload();
@@ -399,47 +364,14 @@ function RoleBadge({ role }: { role: Role }) {
   return (
     <span
       className={`inline-flex items-center gap-1 px-2 py-0.5 rounded font-mono ${
-        role === 'owner'
-          ? 'bg-brand text-brand-ink'
-          : role === 'admin'
+        role === 'admin'
           ? 'bg-info-bg text-info-fg'
           : 'bg-bg text-ink-muted'
       }`}
       style={{ fontSize: '10.5px', letterSpacing: '0.04em', fontWeight: 600 }}
     >
       <Shield className="w-3 h-3" strokeWidth={1.5} />
-      {role.toUpperCase()}
-    </span>
-  );
-}
-
-function ScopeBadge({
-  member,
-  shops,
-}: {
-  member: { access_scope: AccessScope; allowed_shop_ids: string[] };
-  shops: { id: string; name: string }[];
-}) {
-  if (member.access_scope === 'magrit_full') {
-    return (
-      <span
-        className="inline-block px-2 py-0.5 rounded bg-bg text-ink-muted font-mono"
-        style={{ fontSize: '10.5px', letterSpacing: '0.04em', fontWeight: 600 }}
-      >
-        MAGRIT COMPLET
-      </span>
-    );
-  }
-  const names = member.allowed_shop_ids
-    .map((id) => shops.find((s) => s.id === id)?.name)
-    .filter(Boolean) as string[];
-  return (
-    <span
-      className="inline-block px-2 py-0.5 rounded bg-warn-bg text-warn-fg font-mono"
-      style={{ fontSize: '10.5px', letterSpacing: '0.04em', fontWeight: 600 }}
-      title={names.join(', ')}
-    >
-      BOUTIQUE · {member.allowed_shop_ids.length}
+      {role === 'admin' ? 'ADMIN' : 'UTILISATEUR'}
     </span>
   );
 }
@@ -447,7 +379,7 @@ function ScopeBadge({
 // SECTION 2 — Contacts CRM SUPPRIME Sprint 10 Phase B users (decision Arnaud
 // 2026-06-02 : consolidation utilisateurs via tenant_members uniquement).
 // La section etait dead code depuis Phase A : ni appelee ni rendue dans
-// DashboardUsers final (qui n'utilise que MagritUsersSection + DashboardRolesSection).
+// DashboardUsers final n'affiche que l'équipe Magrit et la migration legacy.
 // Bloc fonctionnel supprime ci-dessous (200+ lignes), historique via git log.
 
 
@@ -463,13 +395,13 @@ export function DashboardUsers() {
           className="text-ink m-0"
           style={{ fontWeight: 300, fontSize: '34px', letterSpacing: '-0.025em' }}
         >
-          Utilisateurs et rôles
+          Utilisateurs
         </h1>
         <p
           className="mt-1.5 text-ink-muted"
           style={{ fontSize: '13.5px', fontWeight: 300 }}
         >
-          Gérez les utilisateurs de votre tenant et les rôles que vous leur attribuez.
+          Gérez l’équipe Magrit, les profils administrateur/utilisateur et leurs options.
         </p>
       </div>
 
@@ -477,14 +409,6 @@ export function DashboardUsers() {
 
       <LegacyShopCustomerMigrationSection />
 
-      <hr className="border-line" />
-
-      {/* S-USERS-REFONTE Phase A (2026-05-25) : nouvel onglet Rôles
-          (catalog rôles + assignation users via capabilities modulaires).
-          La section CrmContactsSection legacy a été retirée (table clients
-          reste en DB pour back-compat des 15 fichiers qui import useClients
-          — refactor en Phase B). */}
-      <DashboardRolesSection />
     </div>
   );
 }

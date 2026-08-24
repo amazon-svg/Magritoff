@@ -108,7 +108,7 @@ export class SupabaseQuotesRepository implements QuotesRepository {
       this.client.rpc('user_role_in_tenant', { p_tenant_id: tenantId }), this.client.rpc('is_super_admin'),
     ]);
     if (role.error || superAdmin.error) throw rejected(role.error ?? superAdmin.error!);
-    if (!superAdmin.data && role.data !== 'owner' && role.data !== 'admin') throw new QuoteRejectedError('permission_denied', 'Lecture de tous les devis interdite.');
+    if (!superAdmin.data && role.data !== 'admin') throw new QuoteRejectedError('permission_denied', 'Lecture de tous les devis interdite.');
   }
 }
 

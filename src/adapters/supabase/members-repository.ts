@@ -22,14 +22,15 @@ export class SupabaseMembersRepository implements MembersRepository {
   }
 
   async changeRole(actor: UserId, tenantId: string, userId: string, command: ChangeMemberRoleCommand): Promise<void> {
-    const member = await this.requireMutableMember(tenantId, userId);
+    const member = await this.requireMember(tenantId, userId);
+    if (member.role === 'admin' && command.role !== 'admin') await this.ensureAnotherAdmin(tenantId, userId);
     const { error } = await this.client.from('tenant_members').update({ role: command.role }).eq('tenant_id', tenantId).eq('user_id', userId);
     if (error) throw new MemberRejectedError('permission_denied', error.message);
     await this.audit(actor, tenantId, userId, 'role_changed', { old_role: member.role, new_role: command.role });
   }
 
   async updateAccess(actor: UserId, tenantId: string, userId: string, command: UpdateMemberAccessCommand): Promise<void> {
-    const member = await this.requireMutableMember(tenantId, userId);
+    const member = await this.requireMember(tenantId, userId);
     const { error } = await this.client.from('tenant_members').update({
       access_scope: command.accessScope,
       allowed_shop_ids: [],
@@ -40,18 +41,30 @@ export class SupabaseMembersRepository implements MembersRepository {
   }
 
   async remove(actor: UserId, tenantId: string, userId: string): Promise<void> {
-    const member = await this.requireMutableMember(tenantId, userId);
+    const member = await this.requireMember(tenantId, userId);
+    if (member.role === 'admin') await this.ensureAnotherAdmin(tenantId, userId);
     const { error } = await this.client.from('tenant_members').delete().eq('tenant_id', tenantId).eq('user_id', userId);
     if (error) throw new MemberRejectedError('permission_denied', error.message);
     await this.audit(actor, tenantId, userId, 'removed', { old_role: member.role });
   }
 
-  private async requireMutableMember(tenantId: string, userId: string) {
+  private async requireMember(tenantId: string, userId: string) {
     const { data, error } = await this.client.from('tenant_members').select('role, access_scope').eq('tenant_id', tenantId).eq('user_id', userId).maybeSingle();
     if (error) throw new MemberRejectedError('permission_denied', error.message);
     if (!data) throw new MemberRejectedError('member_not_found', 'Membre introuvable.');
-    if (data.role === 'owner') throw new MemberRejectedError('owner_protected', 'Un owner ne peut pas être modifié ou retiré.');
     return data;
+  }
+
+  private async ensureAnotherAdmin(tenantId: string, userId: string): Promise<void> {
+    const { count, error } = await this.client.from('tenant_members')
+      .select('user_id', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId)
+      .eq('role', 'admin')
+      .neq('user_id', userId);
+    if (error) throw new MemberRejectedError('permission_denied', error.message);
+    if ((count ?? 0) === 0) {
+      throw new MemberRejectedError('last_admin_protected', 'Le dernier admin de l espace ne peut pas être modifié ou retiré.');
+    }
   }
 
   private async audit(actor: UserId, tenantId: string, targetUserId: string, eventType: 'role_changed' | 'removed', metadata: Json) {
@@ -60,6 +73,6 @@ export class SupabaseMembersRepository implements MembersRepository {
   }
 }
 
-function toRole(value: string): 'owner' | 'admin' | 'member' | 'partner' {
-  return value === 'owner' || value === 'admin' || value === 'partner' ? value : 'member';
+function toRole(value: string): 'admin' | 'member' {
+  return value === 'admin' ? 'admin' : 'member';
 }

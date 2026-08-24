@@ -1,5 +1,5 @@
 /**
- * DashboardOrders — Vue agregee toutes commandes du tenant (persona owner).
+ * DashboardOrders — Vue agrégée des commandes du tenant.
  *
  * S-DASHBOARD-ORDERS-DUAL (Sprint 4 Phase 1 complement, 2026-05-18) :
  * remplace l ancien placeholder. Dual-read shop_orders + tenant_orders.
@@ -77,10 +77,10 @@ export function DashboardOrders() {
   // Producteur). Cohérence avec PortalOrders tab "À produire" mais
   // accessible à l'admin tenant sur l'ensemble des boutiques.
   const { hasIt: canModifyProduction } = useUserCapability('can_modify');
-  // Les owner/admin sont aussi autorisés par la commande serveur. Ce fallback
+  // Les admins sont aussi autorisés par la commande serveur. Ce fallback
   // évite de masquer le workflow si un tenant brownfield n'a pas encore son
   // assignation de rôle fonctionnel synchronisée avec tenant_members.
-  const isTenantAdmin = currentTenant?.myRole === 'owner' || currentTenant?.myRole === 'admin';
+  const isTenantAdmin = currentTenant?.myRole === 'admin';
 
   // S3.4 : handlers cancel (admin tenant peut annuler n'importe quelle draft).
   const handleCancelOrderRequest = (order: OrderUI) => {
@@ -92,7 +92,7 @@ export function DashboardOrders() {
   };
 
   // Fix 2026-05-25 : handlers validation (admin tenant uniquement —
-  // RPC matrice draft→validated réservée role owner/admin).
+  // RPC matrice draft→validated réservée au profil admin ou option Commandes).
   const handleValidateOrderRequest = (order: OrderUI) => {
     setOrderToValidate(order as DashboardOrderUI);
   };

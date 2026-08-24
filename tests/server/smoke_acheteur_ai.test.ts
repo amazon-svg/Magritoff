@@ -59,7 +59,7 @@ describe.skipIf(SKIP_REASON !== null)('Smoke E2E storefront identity', () => {
       .select('id').single();
     if (tenantError || !tenant) throw new Error(`tenant insert: ${tenantError?.message}`);
     await admin.from('tenant_members').insert({
-      tenant_id: tenant.id, user_id: owner.user.id, role: 'owner', access_scope: 'magrit_full',
+      tenant_id: tenant.id, user_id: owner.user.id, role: 'admin', access_scope: 'magrit_full',
     });
 
     const shopSlug = `smoke-shop-${tag}`;

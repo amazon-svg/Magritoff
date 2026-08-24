@@ -21,12 +21,11 @@ describe('useRoleAssignmentManagement helpers', () => {
     });
   });
 
-  it('identifie exclusivement un accès legacy boutique', () => {
+  it('ignore le scope legacy dans la vue des options', () => {
     const detail = {
       roles: [], assignments: [], shops: [], accessScope: 'shop_only', allowedShopIds: [],
     } as UserRolesDetail;
-    expect(mapUserRolesDetail(detail).legacyShopOnly).toBe(true);
-    expect(mapUserRolesDetail({ ...detail, accessScope: 'magrit_full' }).legacyShopOnly).toBe(false);
+    expect(mapUserRolesDetail(detail).roles).toHaveLength(0);
   });
 
   it('normalise les erreurs d assignation', () => {

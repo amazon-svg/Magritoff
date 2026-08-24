@@ -3,15 +3,13 @@
  * ─────────────────────
  * Dashboard > Espaces : gestion des sous-tenants d'un tenant racine.
  *
- * Un imprimeur (tenant racine) peut creer :
- *   - des sous-espaces "filiale" (role member par defaut) pour ses equipes internes
- *   - des sous-espaces "client" (role partner par defaut) pour ses gros comptes B2B
+ * Un administrateur d'un tenant racine peut créer des sous-espaces isolés
+ * pour ses filiales ou équipes internes.
  *
  * L'admin du tenant racine garde l'acces en lecture/ecriture sur les sous-tenants
  * qu'il a crees (via heritage RLS).
  *
- * Non dispo pour : les sous-tenants (on ne cree pas de sous-sous-tenant), et
- * les tenants dont le role utilisateur est 'partner'.
+ * Non disponible pour les sous-tenants (pas de sous-sous-tenant).
  */
 
 import { Link } from 'react-router';
@@ -30,7 +28,7 @@ export function DashboardTenantSpaces() {
   const canCreate =
     !!currentTenant &&
     !isSubTenant &&
-    (currentRole === 'owner' || currentRole === 'admin' || isSuperAdmin);
+    (currentRole === 'admin' || isSuperAdmin);
 
   const confirmRemove = (id: string, spaceName: string) => {
     if (!confirm(`Supprimer l'espace "${spaceName}" et toutes ses donnees ?`)) return;

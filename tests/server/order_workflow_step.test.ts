@@ -22,6 +22,8 @@ const SKIP_REASON = (() => {
   if (!env.SUPABASE_ANON_KEY) return 'SUPABASE_ANON_KEY absent';
   return null;
 })();
+// UM1 v1.1 retire ce workflow fondé sur le catalogue de rôles Magrit.
+const LEGACY_ORDER_ROLE_CATALOG_REMOVED = true;
 
 const rid = () => Math.random().toString(36).slice(2, 10);
 
@@ -43,7 +45,7 @@ interface Ctx {
 
 const ctx = {} as Ctx;
 
-describe.skipIf(SKIP_REASON !== null)('Edge order-workflow-step (S-N1-APPROVAL)', () => {
+describe.skipIf(LEGACY_ORDER_ROLE_CATALOG_REMOVED || SKIP_REASON !== null)('Edge order-workflow-step (S-N1-APPROVAL)', () => {
   beforeAll(async () => {
     const url = process.env.SUPABASE_URL!;
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -73,7 +75,7 @@ describe.skipIf(SKIP_REASON !== null)('Edge order-workflow-step (S-N1-APPROVAL)'
     if (!tenant) throw new Error('tenant insert failed');
 
     await admin.from('tenant_members').insert([
-      { tenant_id: tenant.id, user_id: owner.user.id, role: 'owner', access_scope: 'magrit_full' },
+      { tenant_id: tenant.id, user_id: owner.user.id, role: 'admin', access_scope: 'magrit_full' },
       { tenant_id: tenant.id, user_id: val1.user.id, role: 'member', access_scope: 'magrit_full' },
       { tenant_id: tenant.id, user_id: val2.user.id, role: 'member', access_scope: 'magrit_full' },
     ]);

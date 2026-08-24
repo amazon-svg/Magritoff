@@ -1096,6 +1096,7 @@ export type Database = {
           address: string | null
           contact_email: string | null
           created_at: string
+          deleted_at: string | null
           description: string | null
           excluded_product_ids: string[]
           hero_image_url: string | null
@@ -1117,6 +1118,7 @@ export type Database = {
           address?: string | null
           contact_email?: string | null
           created_at?: string
+          deleted_at?: string | null
           description?: string | null
           excluded_product_ids?: string[]
           hero_image_url?: string | null
@@ -1138,6 +1140,7 @@ export type Database = {
           address?: string | null
           contact_email?: string | null
           created_at?: string
+          deleted_at?: string | null
           description?: string | null
           excluded_product_ids?: string[]
           hero_image_url?: string | null
@@ -1756,6 +1759,7 @@ export type Database = {
           ordering_index: number
           scope: string
           scope_shop_id: string | null
+          system_key: string | null
           tenant_id: string
         }
         Insert: {
@@ -1771,6 +1775,7 @@ export type Database = {
           ordering_index?: number
           scope?: string
           scope_shop_id?: string | null
+          system_key?: string | null
           tenant_id: string
         }
         Update: {
@@ -1786,6 +1791,7 @@ export type Database = {
           ordering_index?: number
           scope?: string
           scope_shop_id?: string | null
+          system_key?: string | null
           tenant_id?: string
         }
         Relationships: [
@@ -1954,6 +1960,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      api_delete_shop: {
+        Args: { p_shop_id: string; p_tenant_id: string }
+        Returns: boolean
+      }
       api_get_order_customer_identities: {
         Args: { p_order_ids: string[] }
         Returns: {
@@ -2269,6 +2279,7 @@ export type Database = {
           p_allowed_shop_ids?: string[]
           p_email: string
           p_role_definition_ids?: string[]
+          p_role?: string
           p_tenant_id: string
         }
         Returns: {

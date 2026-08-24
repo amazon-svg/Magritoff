@@ -13,7 +13,7 @@
  * Body attendu (valide via Zod) :
  *   {
  *     email: string,
- *     role: 'owner' | 'admin' | 'member' | 'partner',
+ *     role: 'admin' | 'member',
  *     tenant_id: string (uuid),
  *     invited_by: string (uuid),
  *     access_scope: 'magrit_full' | 'shop_only',
@@ -33,10 +33,8 @@ import { z } from 'npm:zod@4.4.3';
 import { corsHeaders } from '../_shared/cors.ts';
 
 const ROLE_LABELS_FR: Record<string, string> = {
-  owner: 'Proprietaire',
   admin: 'Administrateur',
   member: 'Membre',
-  partner: 'Partenaire',
 };
 
 // S-USERS-REFONTE Phase A (2026-05-25) : ajout role_definition_ids pour
@@ -49,7 +47,7 @@ const inviteBodySchema = z.object({
   // envoie 'member' par défaut + access_scope='magrit_full' + permissions
   // legacy minimales, mais c'est role_definition_ids qui détermine vraiment
   // les capabilités à l'acceptation.
-  role: z.enum(['owner', 'admin', 'member', 'partner']).default('member'),
+  role: z.enum(['admin', 'member']).default('member'),
   tenant_id: z.string().uuid(),
   invited_by: z.string().uuid(),
   access_scope: z.enum(['magrit_full', 'shop_only']).default('magrit_full'),

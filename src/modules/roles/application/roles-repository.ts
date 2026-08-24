@@ -1,10 +1,11 @@
 import type { UserId } from '../../../kernel/ids/index.ts';
-import type { RoleCatalogDefinition, RolesCatalog, RolesOverview, SaveRoleDefinitionCommand, SetRoleAssignmentResult, UserRolesDetail } from '../api/contracts.ts';
+import type { RoleCatalogDefinition, RolesCatalog, RolesOverview, SaveRoleDefinitionCommand, SetRoleAssignmentResult, UserAccessProfile, UserRolesDetail } from '../api/contracts.ts';
 export class RoleRejectedError extends Error {
   constructor(public readonly code: 'permission_denied' | 'role_not_found' | 'member_not_found' | 'definition_conflict' | 'invalid_definition' | 'canonical_role', message: string) { super(message); this.name = 'RoleRejectedError'; }
 }
 export interface RolesRepository {
   userCapability(actor: UserId, tenantId: string, capability: string): Promise<boolean>;
+  accessProfile(actor: UserId, tenantId: string): Promise<UserAccessProfile>;
   overview(actor: UserId, tenantId: string): Promise<RolesOverview>;
   catalog(actor: UserId, tenantId: string): Promise<RolesCatalog>;
   userDetail(actor: UserId, tenantId: string, userId: string): Promise<UserRolesDetail>;

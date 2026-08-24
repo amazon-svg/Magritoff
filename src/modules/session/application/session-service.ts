@@ -36,7 +36,7 @@ export class SessionService {
     const directMemberships = await this.repository.listDirectMemberships(userId);
     const inheritable = directMemberships.filter(
       ({ role, accessScope }) =>
-        (role === 'owner' || role === 'admin') && accessScope === 'magrit_full',
+        role === 'admin' && accessScope === 'magrit_full',
     );
     const children =
       inheritable.length === 0
@@ -64,7 +64,7 @@ export class SessionService {
       tenants: [...direct, ...inherited],
       isSuperAdmin: direct.some(
         (tenant) =>
-          tenant.is_system_tenant && (tenant.myRole === 'owner' || tenant.myRole === 'admin'),
+          tenant.is_system_tenant && tenant.myRole === 'admin',
       ),
       preferences,
     };

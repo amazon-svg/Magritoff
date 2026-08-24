@@ -23,6 +23,8 @@ const SKIP_REASON = (() => {
   if (!env.SUPABASE_ANON_KEY) return 'SUPABASE_ANON_KEY absent';
   return null;
 })();
+// UM1 v1.1 a supprimé le catalogue Validateur/Producteur au profit de l'option Commandes.
+const LEGACY_ORDER_ROLE_CATALOG_REMOVED = true;
 
 const rid = () => Math.random().toString(36).slice(2, 10);
 
@@ -45,7 +47,7 @@ interface Ctx {
 
 const ctx = {} as Ctx;
 
-describe.skipIf(SKIP_REASON !== null)('RPC S-ORDER-ROLES-2 (transitions + audit)', () => {
+describe.skipIf(LEGACY_ORDER_ROLE_CATALOG_REMOVED || SKIP_REASON !== null)('RPC S-ORDER-ROLES-2 (transitions + audit)', () => {
   beforeAll(async () => {
     const url = process.env.SUPABASE_URL!;
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -89,9 +91,9 @@ describe.skipIf(SKIP_REASON !== null)('RPC S-ORDER-ROLES-2 (transitions + audit)
     // s'appliquer pour tous. Les utilisateurs de ce scénario appartiennent au
     // back-office Magrit ; les comptes boutique sont testés via les API storefront.
     await admin.from('tenant_members').insert([
-      { tenant_id: tenant.id, user_id: owner.user.id, role: 'owner', access_scope: 'magrit_full' },
+      { tenant_id: tenant.id, user_id: owner.user.id, role: 'admin', access_scope: 'magrit_full' },
       { tenant_id: tenant.id, user_id: buyer.user.id, role: 'member', access_scope: 'magrit_full' },
-      { tenant_id: otherTenant.id, user_id: stranger.user.id, role: 'owner', access_scope: 'magrit_full' },
+      { tenant_id: otherTenant.id, user_id: stranger.user.id, role: 'admin', access_scope: 'magrit_full' },
     ]);
 
     const { data: shop } = await admin.from('shops').insert({

@@ -21,10 +21,12 @@ import { ShopsProvider } from './contexts/ShopsContext';
 import { QuoteTemplatesProvider } from './contexts/QuoteTemplatesContext';
 import { CartProvider } from './contexts/CartContext';
 import { QuotesProvider } from './contexts/QuotesContext';
+import { AccessProfileProvider } from './contexts/AccessProfileContext';
 
 export function AppShell() {
   return (
     <TenantProvider>
+      <AccessProfileProvider>
       <ConversationProvider>
         <LibraryProvider>
           <ShopsProvider>
@@ -38,6 +40,7 @@ export function AppShell() {
           </ShopsProvider>
         </LibraryProvider>
       </ConversationProvider>
+      </AccessProfileProvider>
     </TenantProvider>
   );
 }

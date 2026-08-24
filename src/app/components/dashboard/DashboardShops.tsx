@@ -22,6 +22,20 @@ export function DashboardShops() {
 
   const publicUrl = (slug: string) => `${window.location.origin}/shop/${slug}`;
 
+  const removeShop = async (shop: { id: string; name: string }) => {
+    const confirmed = confirm(
+      `Supprimer définitivement la boutique « ${shop.name} » ?\n\n` +
+      'Ses produits, réglages, comptes clients et commandes non validées seront supprimés. ' +
+      'Les commandes déjà validées seront conservées pour l’historique. Cette action est irréversible.',
+    );
+    if (!confirmed) return;
+    try {
+      await deleteShop(shop.id);
+    } catch (cause) {
+      alert(cause instanceof Error ? cause.message : 'Suppression de la boutique impossible.');
+    }
+  };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -113,9 +127,7 @@ export function DashboardShops() {
                     </div>
                   </div>
                   <button
-                    onClick={() => {
-                      if (confirm(`Supprimer la boutique "${shop.name}" ?`)) deleteShop(shop.id);
-                    }}
+                    onClick={() => void removeShop(shop)}
                     className="p-2 text-ink-mute-2 hover:text-err-fg hover:bg-err-bg rounded"
                   >
                     <Trash2 className="w-4 h-4" />
