@@ -1,11 +1,12 @@
-import { useWorkspaceApi, useWorkspaceUiRuntime } from '@/platform/runtime/workspace-ui-runtime';
 import { SessionApiClient } from '@/modules/session';
+import type { FetchApiClient } from '@/platform/api';
 import {
   createContext,
   type ReactNode,
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -29,9 +30,15 @@ type SessionBootstrapContextValue = Readonly<{
 
 const SessionBootstrapContext = createContext<SessionBootstrapContextValue | undefined>(undefined);
 
-export function SessionBootstrapProvider({ children }: { children: ReactNode }) {
+export function SessionBootstrapProvider({
+  apiClient,
+  children,
+}: {
+  apiClient: FetchApiClient;
+  children: ReactNode;
+}) {
   const { user, session, loading: authLoading } = useAuth();
-  const api = useWorkspaceApi(SessionApiClient);
+  const api = useMemo(() => new SessionApiClient(apiClient), [apiClient]);
   const [data, setData] = useState<SessionBootstrap | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);

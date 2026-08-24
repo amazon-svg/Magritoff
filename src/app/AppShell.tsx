@@ -27,12 +27,15 @@ import { browserRuntime } from '@/platform/runtime';
 import { PIMProvider } from '@/modules/catalog/ui/runtime';
 import { PreferencesProvider } from '@/modules/account/ui/preferences';
 import { SessionBootstrapProvider } from '@/modules/session/ui/bootstrap';
+import { useApiRuntime } from '@/app/contexts/ApiRuntimeContext';
 
 export function AppShell() {
+  const { client } = useApiRuntime();
+
   return (
-    <TenantProvider>
-      <WorkspaceModuleUiBridge runtime={browserRuntime}>
-        <SessionBootstrapProvider>
+    <SessionBootstrapProvider apiClient={client}>
+      <TenantProvider>
+        <WorkspaceModuleUiBridge runtime={browserRuntime}>
           <PreferencesProvider>
             <PIMProvider>
               <AccessProfileProvider>
@@ -52,8 +55,8 @@ export function AppShell() {
               </AccessProfileProvider>
             </PIMProvider>
           </PreferencesProvider>
-        </SessionBootstrapProvider>
-      </WorkspaceModuleUiBridge>
-    </TenantProvider>
+        </WorkspaceModuleUiBridge>
+      </TenantProvider>
+    </SessionBootstrapProvider>
   );
 }
