@@ -1,0 +1,80 @@
+<%
+  var tContext = value.translationContext ?? locals.translationContext ?? "products";
+//  if (locals.translationContext) tContext = locals.translationContext;
+//  if (value.translationContext) tContext = value.translationContext;
+  const asLabel = locals.label && label !== "";
+
+%>
+    <div class="col-12" role="fieds-multicontrol" id="<%=fid%>">
+      <input type="hidden" name="<%=fid%>[value][kind]" value="<%= (value.askind ? value.askind : value.kind) %>">
+       <% if (asLabel) { %>
+      <div class="card border mt-2 mb-2">  
+        <div class="card-header h6">
+            <label id="label<%= fid %>"><%= HCSR.transl(label,tContext) %></label>
+            <div role="help" field="<%= fid %>"></div>
+        </div>
+      <% } else { %>
+      <div class="card border-0 p-0">  
+      <% } %>
+        <div class="card-body container pb-0 pt-0 px-3 <%if (!asLabel) { %>p-0<% } %>" aria-labelledby="label<%= fid %>">
+            <div class="row">
+<% 
+Object.entries(value.value).forEach(entry => {
+  var [rffid,_val] = entry; 
+  const ffid = fid.search(/zzz/) < 0 ? `${fid}zzzvaluezzzvaluezzz${rffid}` : `${fid}zzzvaluezzz${rffid}`;
+  const asUnit = !!_val["unit"] && _val.unit != "";
+  const asLabel = _val.kind != "multicontrol" && !!_val.label && _val.label !== "";  
+  const ctContext = !!_val.translationContext ? _val.translationContext : tContext;
+
+  var cssClass = "col-12";
+
+  if (!!_val.bt_nb_cols) 
+    cssClass = `col col-sm-12 col-lg-${_val.bt_nb_cols}`;
+  else if (!HU.isObject(_val) || HU.isObject(_val) && 
+                ["imgFile"].includes(_val.kind))
+    cssClass = "col col-sm-12 col-md-6 col-lg-4";
+
+  var cssCardCl = "card mt-1 mb-1 mx-0 border";
+  if (!asLabel) cssCardCl = "card border-0 m-1 p-0";
+
+  var cssCardBody = asLabel ? "" : "m-0 p-0";
+
+  if (_val.kind) {
+    var valueToSet = ["number","text"].includes(_val.kind) ? _val.value : _val;
+    if (_val.kind === "multicontrol")
+      valueToSet = _val;
+  %>
+              <div class="<%= cssClass %> m-0 p-0" _id="<%= ffid %>">
+                 <div class="<%= cssCardCl %>">  
+                 <% if (asLabel) { %>
+                  <div class="card-header h6">
+                      <label id="label<%= ffid %>"><%= HCSR.transl(_val.label,ctContext) %></label>
+                      <div role="help" field="<%= ffid %>"></div>
+                  </div>
+                 <% } %>
+                  <div class="card-body <%= cssCardBody %>">
+                    <div class="input-group <%= cssCardBody %>" id="<%= ffid %>">
+               <%- waitIncludeEJS(_val.kind,
+                          {
+                            fid: ffid,
+                            translationContext: ctContext,
+                            label: _val.label, // (_val.label ? _val.label : rffid),
+                            value: valueToSet,
+                            placeholder: _val.placeholder
+                          }) %>
+
+                    <% if (asUnit) { %>
+                      <span class="input-group-text"><%= _val.unit %></span>           
+                    <% } %>  
+                    </div>
+                    <% if (_val.require == true && !!_val.invalid_msg) { %>
+                    <div class="invalid-feedback"><%= _val.invalid_msg %></div>
+                  <% } %>     
+                  </div>
+                </div>
+              </div>
+  <% }}); %>
+            </div>
+        </div>
+      </div>
+    </div>

@@ -1,0 +1,28 @@
+<div class="modal fade_inactive" id="quitModal" tabindex="-1" role="dialog" aria-labelledby="quitModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="quitModalLabel"><%= HCSR.transl("Quit current work ?") %></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p>If you fullfill you action the current work will be lost, think to save it before ...</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-primary" role="fullfillquit" data-bs-dismiss="modal">Fullfill Quit</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  function showQuitModal(callback) {
+    $("#quitModal")
+      .modal("show")
+      .find("button[role=fullfillquit]").on('click',callback);
+
+  }
+  </script>
+     

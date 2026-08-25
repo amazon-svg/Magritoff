@@ -1,0 +1,78 @@
+<% var cards = [];
+  
+  if (schl_dis()) 
+    cards = cards.concat([
+      ["last_projects",HCSR.transl("Last favorites"),"text-dark bg-light"],
+      ["last_baskets",HCSR.transl("Last baskets"),"text-dark bg-light"]
+    ]);  
+
+  if (schl_cli()) 
+    cards = cards.concat([
+      ["last_projects",HCSR.transl("Last favorites"),"text-dark bg-light"],
+      ["last_baskets",HCSR.transl("Last baskets"),"text-dark bg-light"],
+      ["last_orders",HCSR.transl("Last orders"),"text-dark bg-light"],
+      ["last_cold_orders", HCSR.transl("Last past orders"),"bg-light"]
+    ]);
+
+  if (schl_sup()) cards = cards.concat([
+      ["last_incomes", HCSR.transl("Last pending income orders"),"text-dark bg-light"],
+      ["last_past_incomes",HCSR.transl("last closed income orders"),"bg-light"],
+      ["last_invoices",HCSR.transl("Last invoices"),"text-dark bg-light"]
+    ]);
+
+  if (schl_adm()) cards = cards.concat([
+    ["last_projects",HCSR.transl("Last favorites"),"text-dark bg-light"],
+    ["last_baskets",HCSR.transl("Last baskets"),"text-dark bg-light"],
+    ["last_orders",HCSR.transl("Last orders"),"text-dark bg-light"],
+    ["last_cold_orders", HCSR.transl("Last past orders"),"bg-light"],
+    ["last_invoices",HCSR.transl("Last invoices"),"text-dark bg-light"]
+  ]);
+%>
+  <ul class="nav nav-tabs h2" id="dashTab" role="tablist">
+<% var first = true; 
+
+  cards.forEach(card => { %>
+    <li class="nav-item">
+      <button class="nav-link <% if (first) {%>active<%}%>" id="nav-<%= card[0] %>-tab" data-toggle="tab" href="#nav-<%= card[0] %>"  role="tab"  data-bs-toggle="tab" data-bs-target="#nav-<%= card[0] %>" aria-controls="nav-<%= card[0] %>" aria-selected="<%= first %>"><%= card[1] %></a>
+    </li><% 
+    first = false;
+  }); %>
+  </ul>
+  <div class="tab-content pt-1 m-0" id="dashTabContent">
+<%  first = true; 
+  cards.forEach(card => { %>
+      <div class="tab-pane fade_inactive <% if (first) {%>active show<%}%>" role="tabpanel" id="nav-<%= card[0] %>" aria-labelledby="nav-<%= card[0] %>-tab">
+        <div role="<%= card[0] %>"></div>
+      </div><% 
+      first = false;
+    }); %>
+  </div>
+<script type="text/javascript">
+/*   $("#dashTab").find("a.nav-link[role=tab]").on('click',function(){
+    $("#dashTabContent").find(".tab-pane[role=tabpanel]").hide();
+    $($(this).attr("href")).show();
+  }); */
+</script>
+<style type="text/css">
+  .table th, .table td {
+    border-top: 0px;
+  }
+</style>
+<!-- Modal -->
+<div class="modal fade" id="inspectItemModal" tabindex="-1" role="dialog" aria-labelledby="inspectItemModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="inspectItemModalLabel"><%= HCSR.transl("Inspect item") %></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+
+      </div>
+      <div class="modal-footer mx-auto">
+      </div>
+    </div>
+  </div>
+</div>
