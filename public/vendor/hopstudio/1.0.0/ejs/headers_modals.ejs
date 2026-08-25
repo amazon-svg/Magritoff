@@ -1,0 +1,90 @@
+
+<!-- Help Modal -->
+<div class="modal fade_inactive modal-xl" id="helpModal" tabindex="-1" role="dialog" aria-labelledby="helpModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content p-0">
+      <div class="modal-header">
+        <h5 class="modal-title" id="helpModalLabel"><%= HCSR.transl("Infos") %></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body m-0 p-4">
+
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- Wait Modal -->
+<div class="modal fade_inactive" id="waitModal" tabindex="-1" role="dialog" aria-labelledby="importModalLabel" aria-hidden="true">
+  <div class="modal-dialog" style="background: transparent!important;height:100%;display:flex;justify-content: center; align-items: center;" role="document">
+    <div class="modal-content" style="justify-content: center; align-items: center;">
+<!--      <div class="modal-body" style="justify-content: center; align-items: center;"> -->
+        <div class="spinner-border text-light" style="position: absolute;width: 7rem;height: 7rem;border-width: 1em;"></div>
+<!--      </div> -->
+    </div>
+  </div>
+</div>
+
+<!-- Printer infos modal -->
+<div class="modal fade_inactive" id="modalPrinterInfos" >
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content p-0">
+      <div class="modal-header">
+        <h5 class="modal-title" id="importModalLabel"><%= HCSR.transl("Builder infos") %></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body m-0 p-4">
+  <iframe referrerpolicy="origin" width="795px" height="500px" id="printerFrame" allowTransparency="true" scrolling="yes" frameborder="0">
+    </iframe>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- Inport Modal -->
+<div class="modal fade_inactive" id="importModal" tabindex="-1" role="dialog" aria-labelledby="importModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="importModalLabel"><%= HCSR.transl("Import a sugarcrepe project file") %></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <input type="file" accept=""
+              class="form-control" role="import_project_file"
+              name="import_project_file" 
+              placeholder="" value="" <% if (locals.require == true) { %>required<% } %>>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-primary" role="import" data-bs-dismiss="modal"
+          onclick=" const inputfile = $(this).parents('div[class=modal-content]').find('input[type=file]')[0];
+                        const FR1  = new FileReader();
+                        inputfile.reader = FR1;
+                        FR1.readAsDataURL(inputfile.files[0]);
+                        FR1.addEventListener('loadend', $.proxy(function() { 
+                            console.log(FR1.result);
+                            const jencode = FR1.result.split(',')[1];
+                            const jdecode = atob(jencode);
+                            console.log(jdecode);
+                            const jinit = JSON.parse(jdecode);
+                            console.log(jinit);
+                            sugarcrepeHL.instance(this).rinit(jinit);
+                        },this));" 
+        ><%= HCSR.transl("Import Selected file") %></button>
+      </div>
+    </div>
+  </div>
+</div>

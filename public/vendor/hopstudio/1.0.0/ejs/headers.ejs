@@ -1,0 +1,43 @@
+<style>
+  .dropdown-menu.show {
+    display: block; 
+}
+</style>
+<% if (layout_name !== "" && whatabout === "share") { 
+  // view only product %>
+        <%- waitIncludeEJS('headers_share',locals) %>
+<% } else if (layout_name !== "" && whatabout !== "share") {
+  // product main page %>   
+        <main role="main" class="col-12 mx-auto p-0 p-sm-0 p-md-0 col-lg-12" usage="product-page">
+          <%- waitIncludeEJS('headers_product',locals) %>
+<% } 
+  
+  else if (!schl_sha()) { 
+    // dashboard & deck %>
+        <main role="main" class="col-12 m-0 p-0 col-lg-12 mx-auto">
+    <% if (sugarcrepeHL.mainbar === null && sugarcrepeHL.mainbartooglebtn === null && whatabout !== "dash") { 
+      // no global bar %>
+          <%- includeEJS('headers_dashdeck_navbar',locals) %>
+    <% } else { 
+      // with global bar %>
+        <%- includeEJS('headers_script_globalbar_utils',locals) %>
+    <% } %>
+    <% if (whatabout === "dash") { 
+    // dashboard %>
+          <%- waitIncludeEJS("headers_dashboard",locals) %>
+    <% } else { 
+    // product deck %>
+          <%- waitIncludeEJS("headers_deck",locals) %>
+    <% } %>
+<% } %>
+
+<% var welcome = "hide";
+   if (whatabout === "dash") welcome = "show"; %>
+
+<script type="text/javascript">
+  $("#welcome").<%= welcome %>();
+</script>
+
+<%- includeEJS("headers_modals",locals) %>
+        </main>
+<%- includeEJS("headers_scripts",locals) %>

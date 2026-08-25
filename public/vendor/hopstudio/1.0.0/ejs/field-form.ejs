@@ -1,0 +1,76 @@
+           <div class="container"> 
+            <div class="row">
+              <form class="needs-validation" novalidate>
+            <% 
+
+
+HForm.templates = HForm.templates ? : HForm.templates : {};
+
+function printField(field) {
+  const _val = field.value;
+  const fid = field.fid;
+  const asUnit = !!field["unit"] && field.unit != "";
+  const asLabel = !!field.label && field.label !== "";
+
+  var tContext = "product";
+  if (field.translationContext) tContext = field.translationContext;
+
+  var ccsCl = "col-12";
+  if (!!field.bt_nb_cols) 
+    cssCl = `col col-sm-12 col-lg-${field.bt_nb_cols}`;
+
+  else if (HU.isObject(_val) && _val.kind === "multiselect")
+    cssCl = "col col-12";
+
+  else if (!HU.isObject(_val) || HU.isObject(_val) && 
+                ["imgFile"].includes(_val.kind))
+    cssCl = "col col-sm-12 col-md-6 col-lg-4";
+
+  else if (HU.isObject(_val) && _val.kind === "select")
+    cssCl = "col col-sm-12 col-lg-6";
+
+  var cssCardCl = "card mt-2 mb-2 border";
+  if (!asLabel) cssCardCl = "card border-0";
+
+%>
+              <div class="<%= cssCl %>" _id="<%= fid %>">
+                <div class="<%= cssCardCl %>">  
+                 <% if (asLabel) { %>
+                  <div class="card-header h6">
+                      <label id="label<%= fid %>"><%= HCSR.transl(field.label,tContext) %></label>
+                      <div role="help" field="<%= fid %>"></div>
+                  </div>
+                 <% } %>
+                  <div class="card-body">
+                    <div class="input-group need-content" id="<%= fid %>">
+
+                    <% if (asUnit) { %>
+                      <span class="input-group-text"><%= field.unit %></span>           
+                    <% } %>  
+                    </div>
+                    <% if (_val.require == true && !!_val.invalid_msg) { %>
+                    <div class="invalid-feedback"><%= _val.invalid_msg %></div>
+                  <% } %>     
+                  </div>
+                </div>
+              </div>
+<% 
+}
+HForm.printField = printField;
+
+const fieldsSorted = HForm.sortFields(user_interface_organizer,fields);
+
+fieldsSorted.forEach(field => {
+  if (typeof field.fid === "string") printField(field);
+  else if (HU.isObject(field)) {
+    Object.entries(field).forEach(entry => {
+    var [groupId,groupFields] = entry;
+    if (Array.isArray(groupFields) && groupFields.length > 0) {
+  %><%- waitIncludeEJS('field-group',{gid:groupId,fields:groupFields}) %><% }
+                });
+  }
+})
+%>
+              </form>
+            </div>
+          </div>

@@ -1,0 +1,76 @@
+<style>
+    :root { --gap: 12px; --fg:#111; --muted:#666; --border:#e5e7eb; }
+    .sheet { max-width: 860px; margin: auto; padding: 10px; }
+    .card { border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+    .header { padding: 20px; border-bottom:1px solid var(--border); display:block; gap: var(--gap); align-items:center; }
+    .image-wrap { width: 100%; aspect-ratio: 1.2 / 1; background:#f7f7f7; border:1px solid var(--border); border-radius:8px; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+    .image-wrap img { width:100%; height:100%; object-fit:cover; }
+    .placeholder { font-size:12px; color:var(--muted); }
+    .title { font-size: 22px; font-weight: 700; margin:0 0 6px 0; }
+    .sku   { font-size: 13px; color: var(--muted); margin:0 0 8px 0; }
+    .summary { font-size: 14px; margin:0; color:#222; }
+    .tags { margin-top:8px; font-size:12px; color:var(--muted); }
+    .body { padding: 16px 20px 24px; }
+    .section-title { font-size: 14px; letter-spacing:.04em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px 0; }
+    #chat-form .container {
+      width: 100%;
+      padding: 0px;
+    }
+    #chat-form form {
+      padding: 0px;
+    }
+    .specs { 
+      display:block; 
+ /*     grid-template-columns: 1fr 1fr;  */
+      border:1px solid var(--border); 
+      border-radius:8px; 
+      overflow:hidden; }
+    .row { display:contents; }
+    .cell { padding: 10px 12px; border-bottom:1px solid var(--border); }
+    .cell:nth-child(4n+1), .cell:nth-child(4n+2) { background:#fcfcfc; }
+    .key { font-weight:600; }
+    .val { color:#222; }
+    .muted { color: var(--muted); }
+    /* last row bottom border removal */
+    .specs .cell:last-child, .specs .cell:nth-last-child(2) { border-bottom:none; }
+    @media (max-width: 640px) {
+      .header { grid-template-columns: 1fr; }
+      .specs { 
+      }
+    }
+  </style>
+<body>
+  <div class="sheet">
+    <div class="card">
+      <!-- HEADER: image + basics -->
+      <div class="header">
+        <div class="image-wrap">
+          <% if (product.name) { %>
+            <img src="<%= sugarcrepeHL.getRootImg("base") %>products_img/<%= product.name %>.png" alt="<%= (product.title || product.name || 'Produit') %>">
+          <% } else { %>
+            <div class="placeholder">Emplacement image produit</div>
+          <% } %>
+        </div>
+        <br>
+        <div>
+          <h1 class="title"><%= HCSR.tMCtx(product.title || product.name || "Produit",["products","clariprint"]) %></h1>
+          <% if (product.name) { %>
+            <p class="sku">SKU&nbsp;: <strong><%= CryptoJS.MD5(product.name + '~' + JSON.stringify(values)) %></strong></p>
+          <% } %>
+          <% if (product.ai_summary) { %>
+            <p class="summary"><%= product.ai_summary %></p>
+          <% } %>
+          <% if (product.ai_match) { %>
+            <p class="tags">Match&nbsp;: <span class="muted"><%= product.ai_match %></span></p>
+          <% } %>
+        </div>
+      </div>
+
+      <!-- BODY: specs from required_fields only (2 columns: key : value) -->
+      <div class="body" id="chat-form">
+      </div>
+      </div class="footer">
+        <button class="configuration-update"><%= HCSR?.tMCtx('Valider les modifications',['products','Chat']) || 'Valider les modification' %></button>
+      </div>
+    </div>
+  </div>

@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html id="html" lang="en">
+    <head id="head">
+     	<script type="text/javascript" src="https://cdn.jsdelivr.net/gh/space10-community/conversational-form@1.0.1/dist/conversational-form.min.js" crossorigin></script>
+     <script type="module" crossorigin src="./sugarcrepeHLUX.umd.js"></script>
+   </head>
+	<body id="body">
+
+<!-- 💬 Chatbox Widget IA -->
+<style>
+#chat-widget {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 620px;
+  max-height: 600px;
+  background: white;
+  border: 1px solid #ccc;
+  box-shadow: 0 0 12px rgba(0,0,0,0.2);
+  border-radius: 8px;
+  font-family: sans-serif;
+  display: flex;
+  flex-direction: column;
+  z-index: 9999;
+}
+
+#chat-header {
+  background: #333;
+  color: #fff;
+  padding: 8px 12px;
+  cursor: move;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  user-select: none;
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+}
+
+#chat-header button {
+  background: none;
+  color: #fff;
+  border: none;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+#chat-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+#chat-input {
+  display: flex;
+  border-top: 1px solid #ccc;
+}
+
+#chat-input input {
+  flex: 1;
+  border: none;
+  padding: 8px;
+  font-size: 14px;
+}
+
+#chat-input input:focus {
+  outline: none;
+}
+
+.chat-msg.user {
+  text-align: right;
+  color: #000;
+}
+
+.chat-msg.ai {
+  text-align: left;
+  color: #444;
+  background: #f1f1f1;
+  padding: 6px 10px;
+  border-radius: 6px;
+  max-width: 90%;
+}
+</style>
+
+<div id="chat-widget">
+  <div id="chat-header">
+    <span>Copilote IA</span>
+    <button id="chat-toggle">−</button>
+  </div>
+  <div id="chat-body"></div>
+  <div id="chat-input">
+    <input type="text" placeholder="Écrivez ici..." id="chat-text" />
+  </div>
+</div>
+
+<script>
+(() => {
+  const chat = document.getElementById("chat-widget");
+  const body = document.getElementById("chat-body");
+  const input = document.getElementById("chat-text");
+  const toggle = document.getElementById("chat-toggle");
+  var ragContext = {};
+
+  // 🧠 Dialogue simple (remplace par ton appel API GPT)
+/*  async function sendMessage(text) {
+    appendMessage("user", text);
+    input.value = "";
+    appendMessage("ai", "Je réfléchis...");
+    const response = await fetch("http://dev.sugarcrepe.local/json.wcl", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ 
+      	'action': 'CallAI',
+      	'id' : 'hopes-studio-user-GPT',
+      	prompt: text }),
+    });
+    const data = await response.json();
+    body.lastChild.remove(); // remove "Je réfléchis..."
+    appendMessage("ai", data.reply || "[Pas de réponse]");
+  }
+*/
+
+  async function sendMessage(text) {
+    appendMessage("user", text);
+    input.value = "";
+    appendMessage("ai", "Je réfléchis...");
+    
+    const bodydata = {
+      	'action': 'CallAI',
+      	'id' : 'hopes-chat-to-product-UI-full-lib',
+      	'parameters_value' : JSON.stringify({
+      		'prompt': text,
+      		'ragContext' : ragContext })
+    };
+    
+    const response = await fetch("/json.wcl", {
+      method: "POST",
+//      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body : new URLSearchParams(bodydata).toString()
+//      body: JSON.stringify(bodydata)
+    });
+
+    const data = await response.json();
+    
+    ragContext = data.response.ragContext ?? ragContext;
+    
+    body.lastChild.remove(); // remove "Je réfléchis..."
+
+   	const ui_event = data.response.ui_event;
+    const ui_event2 = data.response.ui_event ?? {};
+    const ui_event_name = ui_event2.event ?? null;
+    const ui_event_lib_id = ui_event2.ID ?? null;
+    const ui_event_config = ui_event2.configuration ?? null;
+    const ui_app = window.sugarcrepeHL.allInstances[0] ?? null;
+
+    if (typeof ui_event_name === "string" && typeof ui_event_lib_id === "string" && !!ui_event_config && !!ui_app) {
+    	chat.addEventListener(ui_event_name, () => {
+    		ui_app.processEvent(ui_event_name,{ id : ui_event_lib_id, conf : ui_event_config});
+    	});
+    }
+
+   	const CTAs = ui_event ? [
+   		{
+   			text : 'Cliquez pour aller à la configuration',
+   			onclick : `document.getElementById('chat-widget').dispatchEvent(new CustomEvent('${ui_event_name}'));`
+   		}
+   	] : [];
+
+    appendMessage("ai", data.response.ai_message || "[Pas de réponse]", CTAs);
+
+  }
+
+	function txtToHtmlPlus(text) {
+	  const escaped = text
+	    .replace(/&/g, "&amp;")
+	    .replace(/</g, "&lt;")
+	    .replace(/>/g, "&gt;");
+
+	  const paragraphs = escaped.split(/\n{2,}/); // 2+ sauts = nouveau paragraphe
+	  return paragraphs.map(p => `<p>${p.replace(/\n/g, "<br>")}</p>`).join("\n");
+	}
+
+  function txtToHtml(text) {
+	  try {
+	    text = JSON.parse(`"${text}"`); // force le décodage \n, \t, etc.
+	  } catch (e) {
+	    // ignore si ce n'est pas du JSON-encodé
+	  }
+
+	  return text
+	    .replace(/&/g, "&amp;")    // sécurisation HTML
+	    .replace(/</g, "&lt;")
+	    .replace(/>/g, "&gt;")
+	    .replace(/\n/g, "<br>");
+	}
+
+	function renderModelResponse(text) {
+	  try {
+	    text = JSON.parse(`"${text}"`); // force le décodage \n, \t, etc.
+	  } catch (e) {
+	    // ignore si ce n'est pas du JSON-encodé
+	  }
+
+	  // Décode éventuels `\n`
+	  text = text.replace(/\\n/g, '\n');
+
+	  // Encode HTML et convertit \n en <br>
+	  text = text
+	    .replace(/&/g, "&amp;")
+	    .replace(/</g, "&lt;")
+	    .replace(/>/g, "&gt;")
+	    .replace(/\n/g, "<br>");
+
+
+		// Remplace les noms de modèles entre ** ** par des liens cliquables
+		text = text.replace(/\*\*([^:*]+:)\*\*/g, (match, proposition) => {
+		  return `<a href="#" class="proposition-uncomplete" data-proposition="${proposition}"><strong>${proposition}</strong></a>`;
+		});
+		text = text.replace(/\*\*([a-z,A-Z,~]+[^*]+)\*\*/g, (match, proposition) => {
+		  return `<a href="#" class="proposition-complete" data-proposition="${proposition}"><strong>${proposition}</strong></a>`;
+		});
+
+	  return text;
+	}
+
+
+  function appendMessage(role, text, CTAs = []) {
+    const div = document.createElement("div");
+    div.className = "chat-msg " + role;
+//    div.innerText = txtToHtml(text);
+    div.innerHTML = renderModelResponse(text);
+    CTAs.forEach(CTA => {
+    	div.innerHTML += `<br><a href="#" onclick="${CTA.onclick}">${CTA.text}</a>`;
+    });
+
+    body.appendChild(div);
+    body.scrollTop = body.scrollHeight;
+
+    // Ajout d’un gestionnaire de clic
+	  div.querySelectorAll('.proposition-complete').forEach(link => {
+	    link.addEventListener('click', function(e) {
+	      e.preventDefault();
+	      const proposition = this.dataset.proposition;
+	      if (proposition.match(/[a-z;A-Z,0-9]+~[a-z,A-Z,0-9]+/))
+	      	sendMessage(`OK : ${proposition}`);
+	      else sendMessage(`${proposition}`);
+
+	      // Tu peux ici déclencher d'autres actions comme charger le modèle
+	      // ex: loadLibrary(model);
+	    });
+	  });
+	  div.querySelectorAll('.proposition-uncomplete').forEach(link => {
+	    link.addEventListener('click', function(e) {
+	      e.preventDefault();
+	      const proposition = this.dataset.proposition;
+	      input.value = `${proposition}`;
+
+	      // Tu peux ici déclencher d'autres actions comme charger le modèle
+	      // ex: loadLibrary(model);
+	    });
+	  });
+  }
+
+  input.addEventListener("keypress", (e) => {
+    if (e.key === "Enter" && input.value.trim()) {
+      sendMessage(input.value.trim());
+    }
+  });
+
+  // 🧲 Réduction / extension
+  toggle.addEventListener("click", () => {
+    const isOpen = body.style.display !== "none";
+    body.style.display = isOpen ? "none" : "flex";
+    input.parentElement.style.display = isOpen ? "none" : "flex";
+    toggle.textContent = isOpen ? "+" : "−";
+  });
+
+  // 🎣 Drag and drop
+  let isDragging = false, offsetX = 0, offsetY = 0;
+  const header = document.getElementById("chat-header");
+  header.addEventListener("mousedown", (e) => {
+    isDragging = true;
+    offsetX = e.clientX - chat.offsetLeft;
+    offsetY = e.clientY - chat.offsetTop;
+    document.body.style.userSelect = "none";
+  });
+  document.addEventListener("mouseup", () => {
+    isDragging = false;
+    document.body.style.userSelect = "";
+  });
+  document.addEventListener("mousemove", (e) => {
+    if (isDragging) {
+      chat.style.left = e.clientX - offsetX + "px";
+      chat.style.top = e.clientY - offsetY + "px";
+      chat.style.right = "auto";
+      chat.style.bottom = "auto";
+      chat.style.position = "fixed";
+    }
+  });
+})();
+</script>
+
+
+		<script>
+	window.addEventListener('sugarcrepeHLReady', () => {
+        console.log("✅ `sugarcrepeHL` est prêt !");
+        if (typeof window.sugarcrepeHL.createWidgets === 'function') {
+            window.sugarcrepeHL.createWidgets();
+        } else {
+            console.error("❌ La méthode `createWidgets` n'est pas définie.");
+        }
+    });    
+		</script>
+
+<!--	    <div role="SugarCrepe" url="http://dev.sugarcrepe.local/json.wcl" layout="S0" ux="all -rc *spc *cust *3D *pl"></div> -->
+<!-- 	<div role="SugarCrepe" url="https://sugar.clariprint.com/json.wcl" ux="all rc *spc *cust *3D *pl"></div> -->
+
+<!--	    <div role="SugarCrepe" url="http://dev.sugarcrepe.local/json.wcl" headless="https://headless.clariprint.com/" ux="all rc *spc *cust *3D *pl"></div> -->
+ <!--	    <div role="SugarCrepe" url="http://dev.sugarcrepe.local/json.wcl" headless=""  -->
+	    <div role="SugarCrepe" url="/json.wcl" headless="" 
+	    	_layout="L_FEFCO_2XX"
+	    	_reification='{
+	    		"FCODE":"215",
+	    		"HP": ["L","W","H"],
+	    		"DEF_L" : 400,
+	    		"DEF_W" : 400,
+	    		"DEF_H" : 400,
+	    		"DEF_Q" : 10,
+	    		"PAPER_MODE" : "list",
+	    		"PAPER_LIST" : "Carton Alveolaire;;;505.0;Carton 1mm|Carton Alveolaire;;;1375.0;Carton 2mm|Carton Alveolaire;;;1930.0;Carton 2,5mm"
+	    	}'
+	    	_layout="L_N_rounded_cards"
+	    	_layout="L_Four_folds_box_with_lid_For_N_Cards"
+
+	    	_layout="L_Ncards_in_SD_with_notice_PB"
+	    	_reification='{
+	    		"LAY_TITLE" : "Jeu de N cartes dans son etuis",
+	    		"HP": [],
+	    		"DEF_N" : 32,
+	    		"DEF_W" : 60,
+	    		"DEF_H" : 100,
+	    		"DEF_Q" : 10,
+	    		"PAPER_MODE" : "graphic",
+	    		"CARD_PAPER_LIST" : "Carte Couche 2 Faces GZ;;;345.0;Carte GZ 345g|Carton Couche 2 Faces;;;500.0;Carton 500g",
+	    		"CARD_PAPER_QUALITIES" : ["Carte","Carton Couche"],
+	    		"BOX_PAPER_LIST" : "Carte Couche 2 Faces GZ;;;345.0;Carte GZ 345g|Carton Couche 2 Faces;;;500.0;Carton 500g",
+	    		"BOX_PAPER_QUALITIES" : ["Carte","Carton"]
+	    	}'
+
+	    	_layout="L_Ncards_in_kipper_card_box"
+	    	_reification='{
+	    		"LAY_TITLE" : "Jeu de N cartes dans son etuis",
+	    		"HP": [],
+	    		"DEF_N" : 32,
+	    		"DEF_W" : 60,
+	    		"DEF_H" : 100,
+	    		"DEF_Q" : 10,
+	    		"PAPER_MODE" : "graphic",
+	    		"CARD_PAPER_LIST" : "Carte Couche 2 Faces GZ;;;345.0;Carte GZ 345g|Carton Couche 2 Faces;;;500.0;Carton 500g",
+	    		"CARD_PAPER_QUALITIES" : ["Carte","Carton Couche"],
+	    		"BOX_PAPER_LIST" : "Carte Couche 2 Faces GZ;;;345.0;Carte GZ 345g|Carton Couche 2 Faces;;;500.0;Carton 500g",
+	    		"BOX_PAPER_QUALITIES" : ["Carte","Carton"]
+	    	}'
+
+	    	_layout="L_kipper_card_box"
+	    	_reification='{
+	    		"LAY_TITLE" : "Etuis standard",
+	    		"HP": [],
+	    		"DEF_L" : 100,
+	    		"DEF_W" : 60,
+	    		"DEF_H" : 20,
+	    		"DEF_Q" : 10,
+	    		"PAPER_MODE" : "graphic",
+	    		"PAPER_LIST" : "Carte Couche 2 Faces GZ;;;345.0;Carte GZ 345g|Carton Couche 2 Faces;;;500.0;Carton 500g",
+	    		"PAPER_QUALITIES" : ["Carte","Carton Couche"]
+	    	}'
+
+	    	_layout="L_N_rounded_cards"
+	    	_reification='{"_HP":["LAY_TITLE","DEF_N","DEF_W","DEF_H","DEF_Q","PAPER_MODE","PAPER_LIST","PAPER_QUALITIES","DEF_BACK_IMG","HP","ARP"],"LAY_TITLE":"Card game","DEF_N":"30","DEF_W":"50","DEF_H":"100","DEF_Q":"100","PAPER_MODE":"list","PAPER_LIST":"Carte Couche 2 Faces GZ;;;345.0;Carte GZ 345g","PAPER_QUALITIES":["Carte","Couche"],"img_root":"toto","HP":[],"ARP":[],
+	    		"FINISH_KIND" : "simpleR"}'
+        
+	    	_reification='{
+	    		"LAY_TITLE" : "Jeu de 32 cartes",
+	    		"HP": [],
+	    		"DEF_N" : 32,
+	    		"DEF_W" : 60,
+	    		"DEF_H" : 100,
+	    		"DEF_Q" : 10,
+	    		"PAPER_MODE" : "list",
+	    		"PAPER_LIST" : "Carte Couche 2 Faces GZ;;;345.0;Carte GZ 345g|Carton Couche 2 Faces;;;500.0;Carton 500g",
+	    		"PAPER_QUALITIES" : ["Carte","Carton Couche"],
+	    		"FINISH_KIND" : "unique"
+	    	}'
+	    	_layout="L_Test_Panel"
+	    	
+	    	_ux='all +ti +pa +sa +sh -rc'
+	    	ux='all ti +sa +pa +sh market'
+	    	options='{ 
+	    				"verbose" : -1,
+	    				"ui_mode0" : "templater",
+	    				"ui_mode" : "developper",
+	    				"ui_mode2" : "client",
+	    				"ui_mode3" : "supplier",
+	    				"ui_mode4" : "admin",
+	    				"ui_mode5" : "disconnect",
+	    					
+	    				"ui_lang" : "fr",
+
+	    				"sugarcrepe_server" : "/json.wcl",
+	    				"sugarcrepe_headless" : "",
+	    				"root_ejs" : { 
+	    					"base" : "/ejs/"
+	    				},
+	    				"root_img" : {
+	    					"base" : "/img/"
+	    				},
+	    				"http_apis" : {
+	    					"get" : { "url" : "https://www.quoteyourpack.com/api/httpget", "method" : "GET" },
+	    					"get64" : { "url" : "https://www.quoteyourpack.com/api/httpgetencode64", "method" : "GET" }
+	    				}, 
+
+						"share_apis" : {
+							"uid" : { "url" : "https://www.quoteyourpack.com/api/uid", "method" : "GET" },
+							"get" : { "url" : "https://www.quoteyourpack.com/api/share", "method" : "GET" }
+						},
+
+						"projects_apis" : {
+	    					"list" : { "url" : "https://www.quoteyourpack.com/api/projects", "method" : "GET" },
+	    					"get" : { "url" : "https://www.quoteyourpack.com/api/project", "method" : "GET" },
+	    					"set" : { "url" : "https://www.quoteyourpack.com/api/project", "method" : "POST" },
+	    					"remove" : { "url" : "https://www.quoteyourpack.com/api/remove", "method" : "GET" },
+	    					"order" : {"url" : "", "method" : "POST"}
+	    				},
+
+						"baskets_apis" : {
+	    					"list" : { "url" : "https://www.quoteyourpack.com/api/baskets", "method" : "GET" },
+	    					"get" : { "url" : "https://www.quoteyourpack.com/api/basket", "method" : "GET" },
+	    					"set" : { "url" : "https://www.quoteyourpack.com/api/basket", "method" : "POST" },
+	    					"move" : {"url" : "https://www.quoteyourpack.com/api/baskettoorder", "method" : "POST" },
+	    					"remove" : { "url" : "https://www.quoteyourpack.com/api/basket_remove", "method" : "GET" },
+	    					"redirect" : { "url" : "/update_basket", "method" : "GET" }
+	    				},
+
+	    				"lines_apis" : {
+	    					"list" : { "url" : "https://www.quoteyourpack.com/api/lines", "method" : "GET" },
+	    					"set" : { "url" : "https://www.quoteyourpack.com/api/line", "method" : "POST" },
+	    					"get" : { "url" : "https://www.quoteyourpack.com/api/line", "method" : "GET" },
+	    					"remove" : { "url" : "https://www.quoteyourpack.com/api/line_remove", "method" : "GET" }
+	    				},
+
+						"orders_apis" : {
+	    					"list" : { "url" : "https://www.quoteyourpack.com/api/orders", "method" : "GET" },
+	    					"get" : { "url" : "https://www.quoteyourpack.com/api/order", "method" : "GET" },
+	    					"last": { "url" : "https://www.quoteyourpack.com/api/lastorder", "method" : "GET" },
+	    					"set" : { "url" : "https://www.quoteyourpack.com/api/order", "method" : "POST" },
+	    					"invoice" : { "url" : "https://www.quoteyourpack.com/api/ordertoinvoice", "method" : "POST" },
+	    					"status" : { "url" : "https://www.quoteyourpack.com/api/orderstatus", "method" : "POST" },
+	    					"close" : { "url" : "https://www.quoteyourpack.com/api/close", "method" : "GET" }
+	    				},
+
+	    				"cold_orders_apis" : {
+	    					"list" : { "url" : "https://www.quoteyourpack.com/api/cold_orders", "method" : "GET" },
+	    					"get" : { "url" : "https://www.quoteyourpack.com/api/cold_order", "method" : "GET" },
+	    					"reopen" : { "url" : "https://www.quoteyourpack.com/api/reopen", "method" : "GET" }
+	    				},
+
+						"incomes_apis" : {
+	    					"list" : { "url" : "https://www.quoteyourpack.com/api/incomes", "method" : "GET" },
+	    					"get" : { "url" : "https://www.quoteyourpack.com/api/income", "method" : "GET" },
+	    					"set" : { "url" : "https://www.quoteyourpack.com/api/income", "method" : "POST" }
+	    				},
+
+	    				"cold_incomes_apis" : {
+	    					"list" : { "url" : "https://www.quoteyourpack.com/api/cold_incomes", "method" : "GET" },
+	    					"get" : { "url" : "https://www.quoteyourpack.com/api/cold_income", "method" : "GET" }
+	    				},
+
+						"invoices_apis" : {
+	    					"list" : { "url" : "https://www.quoteyourpack.com/api/invoices", "method" : "GET" },
+	    					"get" : { "url" : "https://www.quoteyourpack.com/api/invoice", "method" : "GET" },
+	    					"last": { "url" : "https://www.quoteyourpack.com/api/lastinvoice", "method" : "GET" },
+	    					"set" : { "url" : "https://www.quoteyourpack.com/api/invoice", "method" : "POST" }
+	    				},
+
+	    				"parameters" : {
+	    					"clariprint_HLUX" : {
+	    						"materials_server" : "https://lrdp.clariprint.com/optimproject/json.wcl",
+	    						"_materials_server" : "https://dev.clariprint.local/optimproject/json.wcl",
+	    						"materials_login" : "QYP",
+	    						"materials_pwd" : "QYP"
+	    					}
+	    				}
+	    			}' 
+	    	></div>
+
+<!--	    <div role="SugarCrepe" url="http://dev.sugarcrepe.local/json.wcl" layout="S-BT-Card-Game" ux="all -rc *spc *cust *3D *pl"></div> -->
+	<!--    <div role="SugarCrepe" url="http://dev.sugarcrepe.local/json.wcl" layout="S3" ux="spc pl 3D"></div> -->
+	</body>
+
+ </html>

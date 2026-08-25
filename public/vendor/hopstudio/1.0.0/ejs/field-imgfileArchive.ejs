@@ -1,0 +1,128 @@
+    <!-- Wrapper drag&drop -->
+    <div class="file-drop" data-role="image-uploader">
+      <!-- Input natif (accessible), masqué visuellement -->
+      <input
+        name="<%= fid %>" 
+        role="<%= value.role %>"
+        id="uploader-f-<%= fid %>"
+        type="file"
+        accept="archive/zip"
+        class="visually-hidden"
+        name="f"
+        aria-labelledby="label-f-<%= fid %>"
+      />
+
+      <!-- Zone cliquable + drop -->
+      <label id="label-f-<%= fid %>" for="uploader-f-<%= fid %>" class="file-drop-zone" tabindex="0" role="button" aria-describedby="hint-f">
+        <svg aria-hidden="true" viewBox="0 0 24 24" class="file-drop-icon"><path d="M19 13v6H5v-6H3v8h18v-8h-2zM11 3v10l-3.5-3.5-1.42 1.42L12 16.34l5.92-5.92-1.42-1.42L13 13V3h-2z"/></svg>
+        <div class="file-drop-text">
+          <strong>Dépose ton archive ici</strong> ou <span class="file-drop-link">parcourir</span>
+          <div id="hint-f" class="file-drop-hint">Zip contenant des fichiers PNG ou JPEG — max 300×300 (compression auto)</div>
+        </div>
+      </label>
+
+      <!-- Aperçu (optionnel) -->
+        <div role="archive-img" archive-role="<%= value.role %>" class="file-drop-preview" style="display:block;"></div>
+    </div>
+<!--              <input type="file" accept="archive/zip"
+                    class="form-control" role="<%= value.role %>"
+                    name="<%= fid %>"  
+                    aria-labelledby="label<%= fid %>"
+                    onchange="
+                        const $loadbtn = sugarcrepeHL.instance(this).$find('button[role=loadTexture]');
+                        $loadbtn.attr('disabled',true);
+                        const c3D = sugarcrepeHL.instance(this).$find('canvas[role=viewer3D]');
+                        const $divImg = $(this).next();
+                        $divImg.html('');
+                        const FR1  = new FileReader();
+                        this.reader = FR1;
+                       // FR1.readAsDataURL(this.files[0]);
+                        FR1.readAsBinaryString(this.files[0]);
+                        FR1.addEventListener('loadend', $.proxy(function() { 
+                            const content = FR1.result;
+                            var new_zip = JSZip();
+                            var img_counter = 0;
+                            var img_file = 0;
+                            // more files !
+                            new_zip.loadAsync(content)
+                            .then(function(zip) {
+                                // you now have every files contained in the loaded zip
+                                var imgIndex = 0;
+                                zip.forEach(function (relativePath, zipEntry) { 
+                                    const firstFileChar = relativePath.split('/').at(-1)[0];
+                                    const matchPngExt = relativePath.match(/.png/);
+                                    const matchJpgExt = relativePath.match(/.jpg/);
+                                    const matchJpegExt = relativePath.match(/.jpeg/);
+                                    console.log(`try to load ${relativePath} / first filename char: '${firstFileChar}' / match png ext ? ${matchPngExt}`);
+                                    if (firstFileChar === '.' || !matchPngExt && !matchJpgExt && !matchJpegExt) return;
+                                    img_file++;
+                                   
+//                                    zipEntry.async('base64').then(function(b64){
+                                    zipEntry.async('blob').then(function(b64){
+                                        const config = {
+                                          quality: 0.05,
+                                          maxWidth: 200,
+                                          maxHeight: 200,
+                                          debug: true,
+                                          mimeType:'image/png'
+                                        };
+
+                                        // Note: A single file comes from event.target.files on <input>
+                                        BrowserImageResizer.readAndCompressImage(b64, config)
+                                          .then(resizedImage => {
+                                            const reader = new FileReader();
+                                            reader.addEventListener('load',() => {
+                                               // console.log(reader.result);    
+                                                const $img = $(`<img role='<%=value.role%>-${++imgIndex}' style='display: inline-flex;' width='100px' height='100px'/>`);
+                                                $divImg.append($img);
+                                                const img = $img[0];
+                                                img.src=reader.result;
+                                                img.onload = function(){
+                                                    img_counter++;
+                                                    if (img_counter === img_file && c3D !== undefined) {
+                                                        $loadbtn.attr('disabled',false);
+                                                  //      c3D.attr('reload_textures','1');
+                                                   //     c3D.trigger('click');
+                                                    }
+                                                }
+                                                img.onerror = function(){
+                                                    img_counter++;
+                                                    if (img_counter === img_file && c3D !== undefined) 
+                                                        $loadbtn.attr('disabled',false);
+                                                };
+                                            });
+                                            reader.readAsDataURL(resizedImage);
+                                          });
+/*
+                                        Jimp.read(Buffer.from(b64,'base64'))
+                                          .then((image) => {
+                                            image.resize(250, Jimp.AUTO);
+                                            image.quality(30);
+                                            image.getBase64(Jimp.MIME_PNG,function(cb64){
+                                                const $img = $(`<img role='<%=value.role%>-${++imgIndex}' style='display: inline-flex;' width='100px' height='100px'/>`);
+                                                $divImg.append($img);
+                                                const img = $img[0];
+                                                img.src='data:image/png;base64,' + cb64;
+                                                img.onload = function(){
+                                                    img_counter++;
+                                                    if (img_counter === img_file && c3D !== undefined) {
+                                                        c3D.attr('reload_textures','1');
+                                                        c3D.trigger('click');
+                                                    }
+                                                };
+                                            });
+                                            // Do stuff with the image.
+                                          })
+                                          .catch((err) => {
+                                            console.log('!!!!!!!!!!!! error on read img buffer !!!!!!!!!!!!!!!!');
+                                            console.log(err);
+                                            // Handle an exception.
+                                          }); */
+                                    })
+                                });
+                            });
+                        },this));"
+                    placeholder="" value="" <% if (locals.require == true) { %>required<% } %>>
+            <div role="archive-img" archive-role="<%= value.role %>"></div>
+
+        -->
