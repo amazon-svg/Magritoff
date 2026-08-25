@@ -1,0 +1,22 @@
+<%  var categories = ["My projects", "All categories"]; 
+    const cats = [];
+    Object.entries(response).forEach(entry => {
+      const [id,obj] = entry; 
+      if (Array.isArray(obj.categories)) 
+        obj.categories.forEach(cat => {if (!cats.includes(cat)) cats.push(cat)});
+    });
+    categories = categories.concat(cats);
+    categories.forEach(cat => {
+      const rcat = cat.replace(' ','_');
+       %>
+                <a class="dropdown-item bg-light" category="<%= rcat %>" onclick="
+                    $(this).parent().find('a').attr('class','dropdown-item');
+                    sugarcrepeHL.instance(this).selectCategory('<%= cat %>');
+                    $(this).attr('class','dropdown-item active');
+                    $(this).parents('li.dropdown').find('a[role=button]')
+                      .val('<%= HCSR.transl(cat,"categories") %>')
+                      .html('<%= HCSR.transl(cat,"categories") %>');">
+                  <span data-feather="home"></span>
+                  <%= HCSR.transl(cat,"categories") %><span class="sr-only">(current)</span>
+                </a>
+<% }); %>

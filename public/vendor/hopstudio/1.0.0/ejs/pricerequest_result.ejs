@@ -1,0 +1,40 @@
+<table class="table">
+    <caption><a onclick="sugarcrepeHL.htmlEJS($('#pricerequest-content'), sugarcrepeHL.getEJSbyKind(cpq.ejsGetPriceResult), HLUX.businessResponse);">Click to refresh display EJS</a></caption>
+    <thead>
+        <tr>
+            <th scope="col">#</th>
+            <th scope="col"><%= HCSR.transl("Printer") %></th>
+            <th scope="col"><%= HCSR.transl("Material") %></th>
+            <th scope="col"><%= HCSR.transl("Print") %></th>
+            <th scope="col"><%= HCSR.transl("Makeready") %></th>
+            <th scope="col"><%= HCSR.transl("Delivery") %></th>
+            <th scope="col"><%= HCSR.transl("Amount") %></th>
+            <th scope="col"><%= HCSR.transl("Delay") %></th>
+            <th scope="col"><%= HCSR.transl("Doc") %></th>
+        </tr>
+    </thead>
+    <tbody>
+<% var i = 0;
+    all_process.forEach(p => {i++; %>
+        <tr>
+            <th scope="row"><%= i %></th>
+            <td><%= p.printer %></td>
+            <td><%= p.paper %></td>
+            <td><%= p.print %></td>
+            <td><%= p.makeready %></td>
+            <td><%= p.delivery %></td>
+            <td><%= p.total %></td>
+            <td><%= p.delais %></td>
+            <td>
+                <a onclick="$('#divpdf_<%= i %>').attr('style')='display: block'" 
+                    style='cursor: pointer' ><img src="modules/clariprint_HLUX/img/pdf.png" title="Détails de gamme"></a></td>
+        </tr>
+<% }); %>
+<% i = 0;
+   all_process.forEach(p => {i++; %>
+<div id="divpdf_<%= i %>" class="pdfcontainer" style="display: none;">
+    <embed id="pdf_<%= i %>" src="" width="1024" height="800" type="application/pdf"/>
+</div>
+<% }); %>
+    </tbody>
+</table>

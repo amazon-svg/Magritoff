@@ -1,0 +1,45 @@
+<table class="table text-nowrap table-striped table-hover" role="projects_table">
+    <thead _class="thead-light b-0">
+        <tr class="h5">
+            <th scope="col">#</th>
+<% if (schl_adm()) { %> 
+            <th style="width: 100px;">Used Id</th>
+            <th style="width: 100px;">Session</th>
+<% } %>           
+            <th scope="col"><%= HCSR.transl("Title") %></th>
+            <th scope="col"><%= HCSR.transl("Product") %></th>
+            <th scope="col"><%= HCSR.transl("Amount") %></th>
+<% if (schl_adm()) { %> 
+            <th scope="col">&nbsp;</th>
+<% } %>           
+        </tr>
+    </thead>
+    <tbody _class="bg-white text-dark">
+<% var i = 0;
+    data.forEach(p => {
+        var [id,title,infos,price] = ["unknown","unknown","unknown","unknown"];
+        if (p.name !== null)
+            [id,title,infos,price] = p.name.split(";");
+        i++; %>
+        <tr data-toggle="tooltip" data-placement="bottom" title="<%= p.id %> : <%= p.name %>" 
+            onclick="$(this).tooltip('hide'); sugarcrepeHL.instance(this).rinit({uid:'<%= p.id %>'})">
+            <th scope="row"><%= p.id %></th>
+<% if (schl_adm()) {
+    var usrid = truncate(p.user_id,15), sess = truncate(p.session_id,15); %> 
+            <td class="" style="width: 100px;" title="<%= p.user_id %>"><%= usrid %></td>
+            <td class="" style="width: 100px;" title="<%= p.session_id %>" style="overflow: hidden;"><%= sess %></td>
+<% } %>           
+            <td title="<%= title %>"><%= truncate(title,30) %></td>
+            <td title="<%= id %>"><%= truncate(id,20) %></td>
+            <td><%= sugarcrepeHL.formatPrice(price) %></td>
+<% if (schl_adm()) { %> 
+            <td><a class="btn btn-sm"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16">
+  <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5Zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5Zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6Z"/>
+  <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1ZM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118ZM2.5 3h11V2h-11v1Z"/>
+</svg></a></td>
+<% } %>           
+
+        </tr>
+<% }); %>
+    </tbody>
+</table>

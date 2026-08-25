@@ -1,0 +1,24 @@
+<table class="table table-striped table-hover" role="cold_orders_table">
+    <caption><%= HCSR.transl("Last cold orders") %></caption>
+    <thead _class="thead-light">
+        <tr class="h5">
+            <th scope="col">#</th>
+            <th scope="col"><%= HCSR.transl("Name") %></th>
+            <th scope="col"><%= HCSR.transl("supplier") %></th>
+            <th scope="col"><%= HCSR.transl("Created") %></th>
+        </tr>
+    </thead>
+    <tbody _class="bg-white text-dark">
+<% var i = 0;
+    data.forEach(p => {
+      i++; %>
+        <tr 
+         onclick="sugarcrepeHL.instance(this).inspectColdOrder('<%=p.id%>');">
+            <th scope="row"><%= p.id %></th>
+            <td><%= p.name %></td>
+            <td><%= p.supplier_mail %></td>
+            <td><%= p.created %></td>
+        </tr>
+<% }); %>
+    </tbody>
+</table>

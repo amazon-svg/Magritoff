@@ -1,0 +1,138 @@
+        <label for="basketname"><%= HCSR.transl("Basket title") %></label>
+        <input type="text" class="form-control" name="basketname" id="basketname" placeholder="" value="<%= name %>">
+        <label for="supplier_mail"><%= HCSR.transl("Supplier") %></label>
+        <input type="text" disabled class="form-control" name="supplier_mail" id="supplier_mail" placeholder="" value="<%= supplier_mail %>">
+        <label for="created"><%= HCSR.transl("Created") %></label>
+        <input type="text" disabled class="form-control" name="created" id="created" placeholder="" value="<%= created%>">
+        <label for="basket_lines"><%= HCSR.transl("Items") %></label>
+        <table class="table table-striped table-hover" id="basket_lines">
+            <thead class="thead-light">
+                <tr>
+                    <th scope="col">#</th>
+                    <th scope="col"><%= HCSR.transl("Title") %></th>
+                    <th scope="col"><%= HCSR.transl("Amount") %></th>
+                    <th scope="col"><%= HCSR.transl("Files") %></th>
+                </tr>
+            </thead>
+            <tbody>
+        <% var i = 0;
+            sum_price = 0;
+            if (Array.isArray(lines)) {
+                lines.forEach(line => {
+                i++; sum_price += (1 * line.amount); %>
+                <tr line_id="<%=line.id%>">
+                    <th scope="row"><%= line.id %></th>
+                    <td><%= line.name %></td>
+                    <td align="right"><%= line.amount %> &euro;</td>
+                    <td align="right"><button class="btn btn-primary btn-sm" role="designersvg">SVGs</button></td>
+                </tr>
+        <% })}; %>
+                <tr>
+                    <th colspan="2">Total :</th>
+                    <td align="right"><%= sum_price %> &euro;</td>
+                </tr>
+            </tbody>
+        </table>
+
+<!-- Modal View line details -->
+<div class="modal fade_inactive modal-details" id="viewLineModal" tabindex="-1" role="dialog" aria-labelledby="viewLineModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="viewLineModalLabel"><%= HCSR.transl("Line details") %></h5>
+        <button type="button" class="btn-close" onclick="$('#viewLineModal').modal('hide');" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body container-fluid">
+        <div class="row">
+          <div class="col-6 m-2 bg-dark p-0 mx-auto" style="display: none;width: 94%;" role="3Dview-content"></div>
+          <div class="col-5 m-2" role="resume-content"></div>
+          <div class="col-12" role="pricerequest-content"></div>          
+        </div>
+      </div>
+      <div class="modal-footer mx-auto">
+        <button type="button" class="btn btn-secondary" onclick="$('.modal-details').modal('hide');"><%= HCSR.transl("Close") %></button>
+        <button type="button" class="btn btn-primary" role="editLine" line_id><%= HCSR.transl("Edit line") %></button>
+        <button type="button" class="btn btn-warning" role="removeLineConfirm" line_id><%= HCSR.transl("Delete line") %></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Basket to order confirm -->
+<div class="modal fade_inactive modal-confirm" id="basketConfirmModal" tabindex="-1" role="dialog" aria-labelledby="basketConfirmModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="basketConfirmModalLabel"><%= HCSR.transl("Are you sure ?") %></h5>
+        <button type="button" class="btn-close" onclick="$('.modal-confirm').modal('hide');" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p><%= HCSR.transl("If you confirm your order, the supplier will be notified and will send you the process to upload your design...") %></p><p><b><%= HCSR.transl("Please fullfill the next form with your company coordinates : ") %></b></p>
+        <label for="client_social_name"><%= HCSR.transl("Company name *") %></label>
+        <input type="text" name="client_social_name" id="client_social_name"><br>
+        <label for="client_phone"><%= HCSR.transl("Phone *") %></label>
+        <input type="text" name="client_phone" id="client_phone"><br>
+        <label for="client_registered_id"><%= HCSR.transl("International VAT number *") %></label>
+        <input type="text" name="client_registered_id" id="client_registered_id"><br>
+        <label for="client_address"><%= HCSR.transl("Address *") %></label>
+        <input type="text" name="client_address" id="client_address"><br>
+        <label for="client_zip"><%= HCSR.transl("Zip code *") %></label>
+        <input type="text" name="client_zip" id="client_zip"><br>
+        <label for="client_city"><%= HCSR.transl("City *") %></label>
+        <input type="text" name="client_city" id="client_city"><br>
+        <label for="client_country"><%= HCSR.transl("Country *") %></label>
+        <input type="text" name="client_country" id="client_country"><br>
+      </div>
+      <div class="modal-footer mx-auto">
+        <button type="button" class="btn btn-secondary" onclick="$('.modal-confirm').modal('hide');"><%= HCSR.transl("Close") %></button>
+        <button type="button" class="btn btn-primary" role="pushOrder" data-bs-dismiss="modal"><%= HCSR.transl("Fullfill the order !") %></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Delete basket confirm -->
+<div class="modal fade_inactive modal-confirm" id="basketDeleteModal" tabindex="-1" role="dialog" aria-labelledby="basketDeleteModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="basketDeleteModalLabel"><%= HCSR.transl("Are you sure ?") %></h5>
+        <button type="button" class="btn-close" onclick="$('.modal-confirm').modal('hide');" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p><%= HCSR.transl(`If you confirm, your basket will be delete for EVER ...<br>So after this confirm, don't ask us : "is it possible to recover the basket I've just delete this morning before I take my coffee cause I was not totaly wake up ? pleaaaaase", NO THIS IS NOT POSSIBLE ! next time take your coffee before open your computer...`) %></p>
+      </div>
+      <div class="modal-footer mx-auto">
+        <button type="button" class="btn btn-secondary" onclick="$('.modal-confirm').modal('hide');"><%= HCSR.transl("Close") %></button>
+        <button type="button" class="btn btn-primary" role="deleteBasket" data-bs-dismiss="modal"><%= HCSR.transl("Delete it !") %></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Delete line confirm -->
+<div class="modal fade_inactive modal-confirm" id="lineDeleteModal" tabindex="-1" role="dialog" aria-labelledby="lineDeleteModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="lineDeleteModalLabel"><%= HCSR.transl("Are you sure ?") %></h5>
+        <button type="button" class="btn-close" onclick="$('.modal-confirm').modal('hide');" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p><%= HCSR.transl(`If you confirm, your line will be delete for EVER ...`) %><br><%= HCSR.transl(`So after this confirm, don't ask us : "is it possible to recover the line I've just delete this morning before I take my coffee cause I was not totaly wake up ? pleaaaaase", NO THIS IS NOT POSSIBLE ! next time take your coffee before open your computer...`) %></p>
+      </div>
+      <div class="modal-footer mx-auto">
+        <button type="button" class="btn btn-secondary" onclick="$('.modal-confirm').modal('hide');"><%= HCSR.transl("Close") %></button>
+        <button type="button" class="btn btn-primary" role="deleteLine"><%= HCSR.transl("Delete it !") %></button>
+      </div>
+    </div>
+  </div>
+</div>

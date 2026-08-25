@@ -1,0 +1,46 @@
+          <div class="container-fluid mx-0" role="products">
+            <div class="row">
+<% var count = 0; 
+  var i = 0;
+  var len = Object.entries(response).length;
+  Object.entries(response).forEach(entry => {
+    const [id,obj] = entry; 
+    const title = obj.title;
+    const price = obj.price;
+    const info = obj.infos;
+    const tagA = id.split("~");
+    const cats = [];
+    if (Array.isArray(obj.categories)) obj.categories.forEach(cat => cats.push(cat));
+    i++;
+   // const title = id; 
+%>
+<% if (true || count === 0) { %>
+<% }
+  if (!target_cat || target_cat === "All categories" || cats.includes(target_cat)) { %>
+              <div class="col-sm-12 col-md-6 col-lg-4 m-0 p-2">
+                <div class="card bg-light" 
+                onmouseover="$(this).removeClass('bg-light').addClass('bg-secondary').addClass('text-white')"
+                onmouseleave="$(this).removeClass('bg-secondary').removeClass('text-white').addClass('bg-light')"
+                style="width: 18rem; height:18rem;" search="<% tagA.forEach(tag => { %><%= tag %> <% }) %>" categories="<% cats.forEach(cat => { %><%=cat %>|<% }) %>">
+                  <a onclick="sugarcrepeHL.instance(this).rinit({id:'<%= id %>'})"><img class="card-img-top" src="<%= rooturl %>/products_img/<%= id %>.png" 
+                    width="300px" height="300px"
+                    alt="Card image cap" title="<%= HCSR.transl(info,"products") %>"></a>
+                  <div class="card-body">
+                    <h4 class="card-title"><a class="nav-link" onclick="sugarcrepeHL.instance(this).rinit({id:'<%= id %>'})" title="<%= HCSR.transl(info,"products") %>"><%=HCSR.transl(title,"products")%> <font size="-2">from&nbsp;</font><font size="-1"><%= price %>&nbsp;&euro;/ex</font></a></h1>
+                    <p class="card-text"><small class="card-text">
+                      <% tagA.forEach(tag => { %><a tag="<%= tag %>" onclick="
+                        const isearch = $(this).parents('main').find('input[placeholder=Search]');
+                        const oldv = isearch.val();
+                        isearch.val(oldv + ' ' + $(this).attr('tag'));
+                        isearch.trigger('change');
+                        ">#<%= tag %></a><% }) %>
+                    </small></p>
+                  </div>
+                </div>
+              </div> 
+<% } %>
+<% if (count === 3 || i > len) {count = 0; %>
+<% } else count++; %>
+<% }); %>
+            </div>
+          </div>

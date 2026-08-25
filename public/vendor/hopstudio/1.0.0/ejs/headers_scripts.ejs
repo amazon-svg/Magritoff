@@ -1,0 +1,62 @@
+
+<script type="text/javascript">
+$(function(){
+  
+  function updateDropdownPos() {
+    const dt = $("header").find(".dropdown-toggle");
+    dt.next("div.dropdown-menu").each(function(i){
+      const $prev = $(this).prev(".dropdown-toggle");
+      const $prevOff = $prev.offset();
+      var W = 0;
+      $(this).children().each(()=>{W = Math.max(W,$(this).width())});
+      $(this).width(W);
+      $(this).width(Math.max($prev.width() + 10, $(this).width()));
+      const npos = {
+        top : $prev[0].offsetTop + 36,
+        left : Math.max(0,$prev[0].offsetLeft + 10 + $prev.width() - $(this).width())
+      }
+      $(this).css("position","absolute");
+      $(this).children().css("whiteSpace","nowrap");
+      $(this).offset(npos);
+    });
+  }
+  updateDropdownPos();
+
+  $(window).on("resize",updateDropdownPos);
+  
+  const dt = $("header").find(".dropdown-toggle");
+  dt.off();
+  dt.next(".dropdown-menu").off();
+  dt.on("hover",
+      function(evt){
+        const $elm = $(evt.target);
+        dt.next("div.dropdown-menu").hide();
+        const $next = $elm.next("div.dropdown-menu");
+        var W = 0;
+        $next.children().each(()=>{W = Math.max(W,$(this).width())});
+        $next.width(W);
+        $next.width(Math.max($next.width(), $elm.width() + 10.));
+        const npos = {  top : $elm[0].offsetTop + 36.0, 
+                        left : Math.max(0,$elm[0].offsetLeft + 10 + $elm.width() - $next.width())   };
+     //   console.log(`$elm.top=${$elm[0].offsetTop}, left=${$elm[0].offsetLeft}, W:${W}`);
+      //  console.log(npos);
+        $next.show();
+        $next.offset(npos);
+        setTimeout(10,function(){$next.css("position","absolute");});
+    },function(evt){
+        const $elm = $(evt.target);
+        $elm.next("div.dropdown-menu").hide();
+        
+    });
+  dt.next("div.dropdown-menu")
+    .on("hover",function(evt){
+        $(this).show();
+        $this = $(this);
+        setTimeout(10,function(){$this.css("position","absolute");});
+      },
+      function(evt){
+        $(this).hide();
+      }
+    );
+});
+</script>
