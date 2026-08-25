@@ -1,0 +1,105 @@
+<style type="text/css">
+  .multi-item-carousel{
+  .carousel-inner{
+    text-align: center;
+    > .item{
+      transition: 500ms ease-in-out left;
+    }
+    .active{
+      &.left{
+        left:-25%;
+      }
+      &.right{
+        left:25%;
+      }
+    }
+    .next{
+      left: 25%;
+    }
+    .prev{
+      left: -25%;
+    }
+    @media all and (transform-3d), (-webkit-transform-3d) {
+      > .item{
+        // use your favourite prefixer here
+        transition: 500ms ease-in-out left;
+        transition: 500ms ease-in-out all;
+        backface-visibility: visible;
+        transform: none!important;
+      }
+    }
+  }
+  .carouse-control{
+    &.left, &.right{
+      background-image: none;
+    }
+  }
+}
+</style>
+
+<div id="carouselProducts" class="carousel slide bg-light" _class="multi-item-carousel m-0" data-interval="3000" data-ride="carousel" style="height: 100%;">
+  <!--  <ol class="carousel-indicators">
+    <li data-target="#carouselProducts" data-slide-to="0" class="active"></li>
+    <li data-target="#carouselProducts" data-slide-to="1"></li>
+    <li data-target="#carouselProducts" data-slide-to="2"></li>
+  </ol> -->
+  <div class="carousel-inner" style="height: 100%;">
+<% var count = 0;
+  if (HU.isObject(sugarcrepeHL.jsonCatalog) && HU.isObject(sugarcrepeHL.jsonCatalog.response)) { 
+      Object.entries(sugarcrepeHL.jsonCatalog.response).forEach(entry => {
+        var _active = "";
+        const [id,obj] = entry;
+        if (obj.categories.includes("New")) { 
+          count++;
+          if (count <= 1) _active = "active";
+        %>
+      <div class="item carousel-item <%=_active%>">
+        <span class="col-xs-4">
+          <img class="img-responsive d-none d-md-block mx-auto" style="height:400px;width:auto;margin-left:auto;margin-right:auto;" src="<%=sugarcrepeHL.getRootImg("base") %>products_img/<%=id%>.png" alt="<%=obj.title%>" title="<%=obj.title%>">
+          <div class="carousel-caption d-none d-md-block text-dark">
+            <h5><%=HCSR.transl(obj.title,"products")%></h5>
+            <p><%=HCSR.transl(obj.infos,"products")%></p>
+          </div>
+        </span>
+      </div>
+<%    }
+    });
+  } %>
+  </div>
+  <a class="carousel-control-prev" href="#carouselProducts" role="button" data-slide="prev">
+      <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+      <span class="sr-only">Previous</span>
+  </a>
+  <a class="carousel-control-next" href="#carouselProducts" role="button" data-slide="next">
+      <span class="carousel-control-next-icon" aria-hidden="true"></span>
+      <span class="sr-only">Next</span>
+  </a>
+</div>
+
+<script type="text/javascript">
+  // Instantiate the Bootstrap carousel
+  $('.multi-item-carousel').carousel({
+    interval: false
+  });
+
+  // for every slide in carousel, copy the next slide's item in the slide.
+  // Do the same for the next, next item.
+  $('.multi-item-carousel .item').each(function(){
+    var next = $(this).next();
+    if (!next.length) {
+      next = $(this).siblings(':first');
+    }
+    next.children(':first-child').clone().appendTo($(this));
+    
+ /*   if (next.next().length>0) {
+      next.next().children(':first-child').clone().appendTo($(this));
+    } else {
+      $(this).siblings(':first').children(':first-child').clone().appendTo($(this));
+    }
+    if (next.next().next().length>0) {
+      next.next().next().children(':first-child').clone().appendTo($(this));
+    } else {
+      $(this).siblings(':first').children(':first-child').clone().appendTo($(this));
+    } */
+  });
+</script>

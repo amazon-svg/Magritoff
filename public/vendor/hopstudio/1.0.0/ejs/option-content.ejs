@@ -1,0 +1,40 @@
+            <form class="needs-validation" novalidate>
+              <div role="optionnals" class="row">
+<%
+/*
+function printField(field) {
+    const _val = field.value;
+    if (!HU.isObject(_val) || HU.isObject(_val) && _val.kind === "select") {
+                %>
+              <div class="col col-sm-12 col-md-6 col-lg-4" id="<%= field.fid %>"></div><%  
+    } else { %><div class="col-12" id="<%= field.fid %>"></div><%    }
+  
+}
+*/ 
+const fieldsSorted = sugarcrepeHL.sortFields(user_interface_organizer["optional_fields"],optional_fields);
+console.log('option-content/fieldsSorted !!!!!!!!!!!!!!!!!');
+console.log(fieldsSorted);
+
+fieldsSorted.forEach(field => {
+  console.log(field);
+  if (typeof field.fid === "string") { 
+    const htmlField = HU.printField(field);
+    console.log(htmlField);
+    %><%- htmlField %>
+    <% 
+  }
+  else if (HU.isObject(field)) { 
+    Object.entries(field).forEach(entry => {
+    var [groupId,groupFields] = entry;
+    if (Array.isArray(groupFields) && groupFields.length > 0) {
+  %><%- waitIncludeEJS('field-group',{gid:groupId,fields:groupFields}) %><% }
+                });
+    }
+})
+ %>      
+              </div>
+            </form>
+        <% if (schl_dev()) { %>
+            <hr class="mb-12">
+            <button class="btn btn-primary btn-lg btn-block" type="button" role="validate-spec-price"><%= HCSR.transl("Get Price and resume") %></button>
+        <%}%>

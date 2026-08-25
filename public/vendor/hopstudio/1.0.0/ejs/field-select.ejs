@@ -1,0 +1,71 @@
+<%
+  const selectval = value.value; 
+  const showUnit = !!value["unit"] && value.unit != "";
+  const _options = value.options;
+  const _imgs = value.options_img;
+  const dyn_select = Array.isArray(_imgs) ? true : false;
+  if (dyn_select && _imgs.length < _options.length) {
+      for (var i=_imgs.length;i<_options.length;i++) 
+        _img.push("select/default.png");
+  }
+  const img_path = !!locals["img_path"] ? `${locals["img_path"]}/select/` : "/img/select/";
+  var tContext = tContext = locals.translationContext ?? "products";
+%> 
+              <% if (dyn_select) { %>
+              <div class="dropdown form-control bootstrap-select" id="<%= fid %>">
+              <% } %>
+               <select class="form-control" name="<%= fid %>zzzvalue" placeholder="" aria-labelledby="label<%= fid %>">
+<%  var i = 0;
+  if (Array.isArray(_options))
+  _options.forEach(opt => { var val = ""; var label = "";
+                    if (opt.value && opt.label) {val = opt.value; label = HCSR.transl(opt.label,'products')} 
+                    else if (typeof(opt) === "number") {val = opt; label = opt} 
+                    else if (typeof(opt) === "string") {val = opt; label = HCSR.transl(opt,tContext)} 
+                  %>
+                    <option <% if (showUnit) { %> style="text-align: right;" <% } %> value="<%= val %>" <% if (val === selectval) { %>selected<% } %> <% 
+                  if (dyn_select) { 
+                    %>data-content="<div class='d-flex justify-content-between'><span><%= label %></span><img src='<%= img_path %><%= _imgs[i++] %>' width='128px' height='128px'/></div>"<% } 
+                  %>><%= label %></option>
+<% }); %>
+               </select>
+              <% if (dyn_select) { %>
+                <button type="button" tabindex="-1" class="btn dropdown-toggle btn-light" data-bs-toggle="dropdown" role="combobox" aria-owns="bs-select-1" aria-haspopup="listbox" aria-expanded="false" title="boite étuis">
+                  <div class="filter-option">
+                    <div class="filter-option-inner">
+                      <div class="filter-option-inner-inner">
+
+                      </div>
+                    </div> 
+                  </div>
+                </button>
+                <div class="dropdown-menu" style="max-height: 511.74px; overflow: hidden; min-height: 0px;">
+                  <div class="inner show" role="listbox" id="bs-select-1" tabindex="-1" aria-activedescendant="bs-select-1-2" style="max-height: 493.74px; overflow: hidden auto; min-height: 0px;">
+                    <ul class="dropdown-menu inner show" role="presentation" style="margin-top: 0px; margin-bottom: 0px;">
+<%  i = 0;
+  value.options.forEach(opt => { var val = ""; var label = "";
+                    if (opt.value && opt.label) {val = opt.value; label = HCSR.transl(opt.label,'products')} 
+                    else if (typeof(opt) === "number") {val = opt; label = opt} 
+                    else if (typeof(opt) === "string") {val = opt; label = HCSR.transl(opt,tContext)} 
+%>                    
+                      <li>
+                        <a role="option" class="dropdown-item" id="bs-select-1-0" tabindex="0" aria-index="<%= i %>">
+                          <span class="text">
+                            <div class="d-flex justify-content-between">
+                              <span style="white-space: normal;place-content: center;"><%= label %></span>
+                              <img src="<%= img_path %><%= _imgs[i++] %>" style="width:128px;height:128px;">
+                            </div>
+                          </span>
+                        </a>
+                      </li>
+                      <% }); %>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+              <% } %>
+
+     <% if (dyn_select) { %>
+     <script type="text/javascript">
+      new HU.BtSelect($("div.bootstrap-select#<%= fid %>"));
+    </script>
+    <% } %>

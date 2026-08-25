@@ -1,0 +1,26 @@
+<% 
+/*
+function printField(field) {
+    const _val = field.value;
+    if (!HU.isObject(_val) || HU.isObject(_val) && _val.kind === "select") {
+                %>
+              <div class="col col-sm-12 col-md-6 col-lg-4" id="<%= field.fid %>"></div><%  
+    } else { %><div class="col-12" id="<%= field.fid %>"></div><%    }
+  
+}
+HForm.printField = printField;
+*/
+%>
+    <div class="col-12" role="fieds-group" id="<%=gid%>">
+      <div class="card border mt-2 mb-2">  
+        <div class="card-header h6">
+            <label for="<%= gid %>"><%= HCSR.transl(gid,"products") %></label>
+            <div role="help" field="<%= gid %>"></div>
+        </div> 
+        <div class="card-body container">
+            <div class="row">
+<% fields.forEach(field => { %><%- HU.printField(field) %><% }); %>
+            </div>
+        </div>
+    </div>
+    </div>
