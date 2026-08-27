@@ -1,0 +1,21 @@
+<header class="hs-product-card-header">
+  <div class="hs-product-card-identity">
+    <span class="hs-product-card-kind"><%= product.kind %></span>
+    <h3><%= product.title %></h3>
+  </div>
+  <% if (product.price) { %>
+    <div class="hs-product-card-price">
+      <span><%= product.pricePrefix %></span>
+      <strong><%= product.price %></strong>
+    </div>
+  <% } %>
+</header>
+
+<div class="hs-product-card-specs">
+  <% product.specs.forEach(function(spec) { %>
+    <div class="hs-product-card-spec">
+      <span class="hs-product-card-spec-label"><%= spec.label %></span>
+      <div class="hs-product-card-spec-value"><%= spec.value %></div>
+    </div>
+  <% }); %>
+</div>
