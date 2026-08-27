@@ -350,3 +350,544 @@ body {
     max-width: 94%;
   }
 }
+
+/* --------------------------------------------------------------------------
+ * Conversation canvas — direction UX Magrit « Le papier pense »
+ * ----------------------------------------------------------------------- */
+
+.hopstudio-workspace {
+  position: relative;
+  min-height: calc(100vh - 7rem);
+  overflow: hidden;
+  padding: 0;
+  background: #fbfbfb;
+}
+
+.hopstudio-workspace .hopstudio-container {
+  position: relative;
+  min-height: calc(100vh - 7rem);
+}
+
+.hopstudio-workspace .hopstudio-welcome {
+  position: absolute;
+  z-index: 8;
+  top: clamp(72px, 11vh, 132px);
+  left: 50%;
+  width: min(760px, calc(100% - 48px));
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.hopstudio-workspace .hopstudio-welcome[aria-hidden='true'] {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -8px);
+}
+
+.hopstudio-workspace .hopstudio-welcome h1 {
+  margin: 30px 0 12px;
+  color: var(--hs-ink);
+  font-size: clamp(38px, 4.1vw, 58px);
+  font-weight: 200;
+  letter-spacing: -.045em;
+  line-height: 1.02;
+}
+
+.hopstudio-workspace .hopstudio-welcome > p {
+  max-width: 600px;
+  margin: 0;
+  color: var(--hs-muted);
+  font-size: clamp(15px, 1.25vw, 18px);
+  font-weight: 300;
+  line-height: 1.6;
+}
+
+.hopstudio-workspace .hopstudio-prompt-grid {
+  width: 100%;
+  margin-top: clamp(30px, 4.5vh, 50px);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.hopstudio-workspace .hopstudio-prompt-grid button {
+  min-height: 86px;
+  padding: 16px 20px;
+  border: 1px solid var(--hs-line);
+  border-radius: 12px;
+  background: rgb(255 255 255 / 88%);
+  color: var(--hs-ink);
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+}
+
+.hopstudio-workspace .hopstudio-prompt-grid button:hover,
+.hopstudio-workspace .hopstudio-prompt-grid button:focus-visible {
+  border-color: var(--hs-line-2);
+  box-shadow: 0 8px 24px rgb(15 23 42 / 5%);
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.hopstudio-workspace .hopstudio-prompt-grid strong,
+.hopstudio-workspace .hopstudio-prompt-grid span {
+  display: block;
+}
+
+.hopstudio-workspace .hopstudio-prompt-grid strong {
+  margin-bottom: 6px;
+  font-size: 15px;
+  font-weight: 550;
+}
+
+.hopstudio-workspace .hopstudio-prompt-grid span {
+  color: var(--hs-muted);
+  font-size: 13.5px;
+  font-weight: 350;
+}
+
+.hopstudio-workspace #chat-bar {
+  width: 100%;
+  max-width: none;
+  min-height: calc(100vh - 7rem);
+}
+
+.hopstudio-workspace #chat-widget {
+  position: relative;
+  min-height: calc(100vh - 7rem);
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* Les commandes HopeStudio restent disponibles, avec un chrome discret. */
+.hopstudio-workspace #chat-header {
+  position: absolute;
+  z-index: 24;
+  top: 18px;
+  right: 24px;
+  width: auto;
+  min-height: 38px;
+  display: flex;
+  grid-template-columns: none;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.hopstudio-workspace #chat-header .title,
+.hopstudio-workspace #chat-header-basket,
+.hopstudio-workspace #chat-reset {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 7px 12px;
+  border: 1px solid var(--hs-line);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 92%);
+  color: var(--hs-ink-2);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 3%);
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.hopstudio-workspace #chat-header .title {
+  letter-spacing: 0;
+}
+
+.hopstudio-workspace #chat-header .title::before {
+  content: '↶';
+  color: var(--hs-muted);
+  font-size: 15px;
+}
+
+.hopstudio-workspace #session-title,
+.hopstudio-workspace #chat-toggle,
+.hopstudio-workspace #chat-expand {
+  display: none;
+}
+
+.hopstudio-workspace #chat-header > span:last-child {
+  display: flex;
+}
+
+.hopstudio-workspace #chat-header-basket {
+  margin: 0;
+}
+
+.hopstudio-workspace #chat-header-basket img {
+  width: 17px;
+  height: 17px;
+  opacity: .72;
+}
+
+.hopstudio-workspace #chat-body {
+  width: min(900px, 100%);
+  min-height: calc(100vh - 7rem);
+  margin-inline: auto;
+  padding: 88px 28px 170px;
+  gap: 24px;
+  background: transparent;
+  transition: opacity 160ms ease;
+}
+
+.hopstudio-workspace[data-chat-started='false'] #chat-body {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Le message d’accueil natif est remplacé par le hero Magrit. */
+.hopstudio-workspace #chat-body > .chat-msg.ai:first-child {
+  display: none;
+}
+
+.hopstudio-workspace .chat-msg {
+  width: 100%;
+  max-width: none;
+  padding: 0;
+  border-radius: 0;
+  line-height: 1.65;
+}
+
+.hopstudio-workspace .chat-msg.ai {
+  align-self: stretch;
+  border: 0;
+  background: transparent;
+  color: var(--hs-ink-2);
+  font-size: 15.5px;
+  font-weight: 300;
+}
+
+.hopstudio-workspace .chat-msg.user {
+  width: fit-content;
+  max-width: min(86%, 700px);
+  align-self: flex-end;
+  padding: 11px 15px;
+  border-radius: 13px;
+  background: #f1f1f1;
+  color: var(--hs-ink);
+  font-size: 15px;
+}
+
+.hopstudio-workspace .chat-card {
+  margin-top: 12px;
+  padding: 18px;
+  border: 1px solid var(--hs-line);
+  border-radius: 14px;
+  background: var(--hs-paper);
+  box-shadow: 0 2px 10px rgb(15 23 42 / 4%);
+}
+
+.hopstudio-workspace .chat-actions-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.hopstudio-workspace .chat-actions-container .u-btn {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 7px 11px;
+  border: 1px solid var(--hs-line-2);
+  border-radius: 999px;
+  color: var(--hs-ink-2);
+  font-size: 12.5px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+/* Composeur principal, ancré comme dans la proposition Magrit. */
+.hopstudio-workspace #chat-input {
+  position: absolute;
+  z-index: 28;
+  bottom: 22px;
+  left: 50%;
+  width: min(860px, calc(100% - 48px));
+  min-height: 116px;
+  transform: translateX(-50%);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 8px 12px;
+  padding: 18px;
+  border: 1px solid var(--hs-line-2);
+  border-radius: 18px;
+  background: rgb(255 255 255 / 96%);
+  box-shadow: 0 14px 38px rgb(15 23 42 / 9%);
+}
+
+.hopstudio-workspace #chat-input input {
+  grid-column: 1 / -1;
+  width: 100%;
+  min-height: 48px;
+  padding: 2px 2px 12px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--hs-ink);
+  font-size: 15.5px;
+}
+
+.hopstudio-workspace #chat-input input:focus {
+  border: 0;
+  box-shadow: none;
+  outline: none;
+}
+
+.hopstudio-workspace #chat-text-suggest {
+  grid-column: 1;
+  min-width: 0;
+}
+
+.hopstudio-workspace #hopstudio-send {
+  grid-column: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--hs-ink);
+  color: white;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 550;
+  cursor: pointer;
+}
+
+.hopstudio-workspace #hopstudio-send:disabled {
+  background: #aaa;
+  cursor: default;
+}
+
+.hopstudio-workspace #hopstudio-send kbd {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  opacity: .72;
+}
+
+/* Le dashboard fournisseur n’est pas affiché sur l’accueil conversationnel.
+   Les fiches et formulaires restent rendus dans les modales du chat. */
+.hopstudio-workspace #ui-main {
+  display: none;
+}
+
+/* Historique HopeStudio : drawer latéral inspiré du panneau Magrit. */
+.hopstudio-workspace #chat-admin.modal-overlay,
+.hopstudio-workspace #chat-basket.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  padding: 0;
+  background: rgb(10 10 10 / 38%);
+}
+
+.hopstudio-workspace #chat-admin.modal-overlay {
+  justify-content: flex-start;
+}
+
+.hopstudio-workspace #chat-basket.modal-overlay {
+  justify-content: flex-end;
+}
+
+.hopstudio-workspace #chat-admin .modal-panel,
+.hopstudio-workspace #chat-basket .modal-panel {
+  width: min(440px, 92vw);
+  height: 100%;
+  max-height: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: 0 24px 70px rgb(0 0 0 / 16%);
+}
+
+.hopstudio-workspace #chat-admin .modal-header,
+.hopstudio-workspace #chat-basket .modal-header {
+  min-height: 86px;
+  padding: 22px 26px;
+}
+
+.hopstudio-workspace #chat-admin .modal-title,
+.hopstudio-workspace #chat-basket .modal-title {
+  font-size: 24px;
+  font-weight: 550;
+  letter-spacing: -.025em;
+}
+
+.hopstudio-workspace #chat-admin .modal-title::before {
+  content: '↶';
+  display: inline-block;
+  margin-right: 12px;
+  color: var(--hs-muted);
+  font-size: 25px;
+  font-weight: 350;
+}
+
+.hopstudio-workspace #chat-admin .modal-body {
+  padding: 24px;
+}
+
+.hopstudio-workspace .hs-history-new {
+  width: 100%;
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 14px 18px;
+  border: 0;
+  border-radius: 12px;
+  background: #050505;
+  color: white;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 550;
+  cursor: pointer;
+}
+
+.hopstudio-workspace .hs-history-new span {
+  font-size: 25px;
+  font-weight: 250;
+  line-height: 1;
+}
+
+.hopstudio-workspace .hs-history-list {
+  margin-top: 22px;
+  border-top: 1px solid var(--hs-line);
+}
+
+.hopstudio-workspace .hs-history-entry {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 34px;
+  gap: 8px;
+  padding: 19px 0;
+  border-bottom: 1px solid var(--hs-line);
+}
+
+.hopstudio-workspace .hs-history-open {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--hs-ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.hopstudio-workspace .hs-history-open strong,
+.hopstudio-workspace .hs-history-open span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hopstudio-workspace .hs-history-open strong {
+  margin-bottom: 7px;
+  font-size: 16px;
+  font-weight: 550;
+}
+
+.hopstudio-workspace .hs-history-open span {
+  color: #8b8b95;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12px;
+  letter-spacing: .035em;
+}
+
+.hopstudio-workspace .hs-history-delete {
+  width: 32px;
+  height: 32px;
+  align-self: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--hs-muted);
+  font-size: 19px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms ease, background 120ms ease;
+}
+
+.hopstudio-workspace .hs-history-entry:hover .hs-history-delete,
+.hopstudio-workspace .hs-history-delete:focus-visible {
+  opacity: 1;
+}
+
+.hopstudio-workspace .hs-history-delete:hover {
+  background: var(--hs-bg);
+}
+
+@media (max-width: 720px) {
+  .hopstudio-workspace .hopstudio-welcome {
+    top: 48px;
+    width: calc(100% - 28px);
+  }
+
+  .hopstudio-workspace .hopstudio-welcome svg {
+    width: 72px;
+    height: 72px;
+  }
+
+  .hopstudio-workspace .hopstudio-welcome h1 {
+    margin-top: 20px;
+    font-size: 38px;
+  }
+
+  .hopstudio-workspace .hopstudio-welcome > p {
+    font-size: 14px;
+  }
+
+  .hopstudio-workspace .hopstudio-prompt-grid {
+    margin-top: 24px;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .hopstudio-workspace .hopstudio-prompt-grid button {
+    min-height: 64px;
+    padding: 11px 14px;
+  }
+
+  .hopstudio-workspace #chat-header {
+    top: 10px;
+    right: 12px;
+  }
+
+  .hopstudio-workspace #chat-header .title,
+  .hopstudio-workspace #chat-reset {
+    display: none;
+  }
+
+  .hopstudio-workspace #chat-body {
+    min-height: calc(100vh - 7rem);
+    padding: 62px 16px 140px;
+  }
+
+  .hopstudio-workspace #chat-input {
+    bottom: 12px;
+    width: calc(100% - 24px);
+    min-height: 100px;
+    padding: 14px;
+    border-radius: 15px;
+  }
+
+  .hopstudio-workspace .chat-msg.user {
+    max-width: 94%;
+  }
+}
