@@ -73,6 +73,8 @@ describe('page de test d intégration HopeStudio', () => {
     expect(workspaceSource).toContain('getCardFromUid?.(uid)');
     expect(workspaceSource).toContain('buildProductCardView');
     expect(workspaceSource).toContain('chat_product_card.ejs');
+    expect(workspaceSource).toContain('prefetchEJS([templateUrl])');
+    expect(workspaceSource).toContain('if (!rendered.trim())');
     expect(workspaceSource).not.toContain('PRODUCT_FIELD_PATTERN');
     expect(workspaceSource).toContain('action.dataset.hsAction = kind');
     expect(productCardTemplate).toContain('product.specs.forEach');
