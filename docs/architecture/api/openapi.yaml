@@ -22,6 +22,36 @@ paths:
                 $ref: '#/components/schemas/HealthResponse'
         '500':
           $ref: '#/components/responses/InternalError'
+  /assistant/chat:
+    post:
+      operationId: chatWithProductAssistant
+      summary: Décrire et configurer des produits avec l’assistant métier
+      description: >-
+        Façade stable du chat Magrit. Le fournisseur HopeStudio et son runtime
+        de déploiement restent des détails serveur. Le flux peut être servi par
+        un service autonome et ne dépend pas d une Edge Function Supabase.
+        Le serveur déduit userId du jeton authentifié et valide tenantId dans
+        les appartenances Magrit avant de transmettre cette identité stable à
+        HopeStudio. HopeStudio reste responsable de sa propre sécurité, de
+        l isolation de ses données et de la récupération de l historique métier.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AssistantChatCommand' }
+      responses:
+        '200':
+          description: Réponse normalisée ou flux SSE terminé par un événement done
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HopeStudioChatResult' }
+            text/event-stream:
+              schema: { type: string }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '422': { description: Requête assistant invalide }
+        '502': { description: HopeStudio indisponible ou réponse non conforme }
   /diagnostics/ai:
     get:
       operationId: testAiProvider
@@ -457,6 +487,68 @@ paths:
               schema: { $ref: '#/components/schemas/TenantMutationResult' }
         '403': { description: Modification interdite }
         '409': { description: Slug déjà utilisé }
+  /tenants/{tenantId}/integrations/hopstudio:
+    get:
+      operationId: getHopeStudioTenantSettings
+      summary: Charger la configuration Clariprint Studio expurgée du tenant
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: tenantId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Configuration sans aucun secret lisible
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HopeStudioTenantSettings' }
+        '403': { description: Administration du tenant interdite }
+    put:
+      operationId: updateHopeStudioTenantSettings
+      summary: Enregistrer la configuration Clariprint Studio du tenant
+      description: >-
+        Un mot de passe absent conserve le secret existant. La valeur null le
+        supprime. Le secret n est jamais retourné par cette API.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: tenantId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateHopeStudioTenantSettings' }
+      responses:
+        '200':
+          description: Configuration enregistrée
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HopeStudioTenantSettingsUpdated' }
+        '403': { description: Administration du tenant interdite }
+        '422': { description: Configuration invalide }
+  /tenants/{tenantId}/integrations/hopstudio/workflow:
+    post:
+      operationId: callHopeStudioWorkflow
+      summary: Relayer une action de l UX headless HopeStudio
+      description: >-
+        Endpoint utilisé exclusivement par HLUX.customApiFetch. L URL sortante,
+        le tenantId et le userId sont résolus ou réécrits par le backend ; les
+        secrets Clariprint ne sont jamais transmis au navigateur.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: tenantId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/HopeStudioWorkflowCommand' }
+      responses:
+        '200':
+          description: Réponse JSON HopeStudio transmise sans normalisation métier
+          content:
+            application/json:
+              schema: {}
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { description: Tenant inaccessible ou contexte incohérent }
+        '422': { description: Enveloppe callback invalide }
+        '502': { description: HopeStudio indisponible ou réponse invalide }
   /tenants/{tenantId}/capabilities/{capability}:
     get:
       operationId: getCurrentUserCapability
@@ -631,6 +723,131 @@ components:
         timestamp:
           type: string
           format: date-time
+    AssistantChatMessage:
+      type: object
+      additionalProperties: false
+      required: [role, content]
+      properties:
+        role: { type: string, enum: [user, assistant] }
+        content: { type: string, minLength: 1, maxLength: 20000 }
+    AssistantChatCommand:
+      type: object
+      additionalProperties: false
+      required: [messages]
+      properties:
+        messages:
+          type: array
+          minItems: 1
+          maxItems: 25
+          items: { $ref: '#/components/schemas/AssistantChatMessage' }
+        tenantId:
+          type: [string, 'null']
+          maxLength: 200
+          description: >-
+            Tenant demandé comme contexte. Il est contrôlé côté serveur et ne
+            constitue jamais à lui seul une preuve d autorisation.
+        shopSlug: { type: string, minLength: 1, maxLength: 160 }
+        mode: { type: string, enum: [open, strict] }
+        sessionRef:
+          type: [string, 'null']
+          maxLength: 500
+          description: >-
+            Référence opaque de la session HopeStudio précédente. Elle est
+            toujours réassociée côté serveur au tenant et à l utilisateur authentifiés.
+        sessionDataRef:
+          type: [string, 'null']
+          maxLength: 500
+          description: >-
+            Clé DBK associée à la session HopeStudio précédente. Elle ne
+            remplace jamais les tenantId et userId résolus par le serveur.
+    HopeStudioProductConfig:
+      type: object
+      additionalProperties: false
+      required: [clariprint, display, hopStudio]
+      properties:
+        clariprint: { type: object, additionalProperties: true }
+        display: { type: object, additionalProperties: true }
+        hopStudio:
+          type: object
+          additionalProperties: false
+          required: [cardRef, dataRef]
+          properties:
+            cardRef: { type: [string, 'null'] }
+            dataRef: { type: [string, 'null'] }
+    HopeStudioChatResult:
+      type: object
+      additionalProperties: false
+      required: [success, configs, teachingNote, demoMode, provider, sessionRef, sessionDataRef]
+      properties:
+        success: { const: true }
+        configs:
+          type: array
+          items: { $ref: '#/components/schemas/HopeStudioProductConfig' }
+        teachingNote: { type: [string, 'null'] }
+        demoMode: { const: false }
+        provider: { const: hopstudio }
+        sessionRef:
+          type: [string, 'null']
+          description: >-
+            Référence de session HopeStudio à conserver côté Magrit, toujours
+            associée au couple tenantId/userId authentifié.
+        sessionDataRef:
+          type: [string, 'null']
+          description: Clé DBK requise par HopeStudio pour poursuivre la session.
+    HopeStudioTenantSettings:
+      type: object
+      additionalProperties: false
+      required: [enabled, hopeStudioUrl, clariprintUser, clariprintPasswordConfigured, clariprintUrl]
+      properties:
+        enabled: { type: boolean }
+        hopeStudioUrl: { type: [string, 'null'], format: uri }
+        clariprintUser: { type: [string, 'null'] }
+        clariprintPasswordConfigured:
+          type: boolean
+          description: Indique la présence du secret optionnel sans jamais le révéler.
+        clariprintUrl: { type: [string, 'null'], format: uri }
+    UpdateHopeStudioTenantSettings:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        enabled: { type: boolean }
+        hopeStudioUrl: { type: [string, 'null'], format: uri }
+        clariprintUser: { type: [string, 'null'], maxLength: 512 }
+        clariprintPassword:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 4096
+          writeOnly: true
+        clariprintUrl: { type: [string, 'null'], format: uri }
+    HopeStudioTenantSettingsUpdated:
+      type: object
+      additionalProperties: false
+      required: [updated]
+      properties:
+        updated: { const: true }
+    HopeStudioWorkflowCommand:
+      type: object
+      additionalProperties: false
+      required: [hook, event, provider, context]
+      properties:
+        hook: { type: string, minLength: 1, maxLength: 200 }
+        event: { type: string, minLength: 1, maxLength: 200 }
+        provider: { type: string, minLength: 1, maxLength: 200 }
+        context:
+          type: object
+          required: [tenantId, userId, body]
+          properties:
+            tenantId: { type: string, minLength: 1, maxLength: 200 }
+            userId: { type: string, minLength: 1, maxLength: 200 }
+            method: { type: string, maxLength: 20 }
+            headers:
+              type: object
+              additionalProperties: { type: string }
+            body:
+              type: string
+              maxLength: 2000000
+              description: Formulaire application/x-www-form-urlencoded émis par HopeStudio.
     AiProviderDiagnostic:
       type: object
       additionalProperties: false

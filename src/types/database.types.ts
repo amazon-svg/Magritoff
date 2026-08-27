@@ -14,6 +14,101 @@ export type Database = {
   }
   public: {
     Tables: {
+      external_service_requests: {
+        Row: {
+          completed_at: string | null
+          correlation_id: string
+          created_at: string
+          duration_ms: number | null
+          error_code: string | null
+          error_message: string | null
+          expires_at: string
+          http_status: number | null
+          id: string
+          input_tokens: number | null
+          metadata: Json
+          method: string
+          operation: string
+          output_tokens: number | null
+          provider: string
+          request_payload: Json | null
+          request_size_bytes: number | null
+          response_content_type: string | null
+          response_payload: Json | null
+          response_size_bytes: number | null
+          started_at: string
+          state: string
+          tenant_id: string | null
+          total_tokens: number | null
+          url: string
+          user_id: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          correlation_id: string
+          created_at?: string
+          duration_ms?: number | null
+          error_code?: string | null
+          error_message?: string | null
+          expires_at?: string
+          http_status?: number | null
+          id?: string
+          input_tokens?: number | null
+          metadata?: Json
+          method?: string
+          operation: string
+          output_tokens?: number | null
+          provider: string
+          request_payload?: Json | null
+          request_size_bytes?: number | null
+          response_content_type?: string | null
+          response_payload?: Json | null
+          response_size_bytes?: number | null
+          started_at?: string
+          state?: string
+          tenant_id?: string | null
+          total_tokens?: number | null
+          url: string
+          user_id?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          correlation_id?: string
+          created_at?: string
+          duration_ms?: number | null
+          error_code?: string | null
+          error_message?: string | null
+          expires_at?: string
+          http_status?: number | null
+          id?: string
+          input_tokens?: number | null
+          metadata?: Json
+          method?: string
+          operation?: string
+          output_tokens?: number | null
+          provider?: string
+          request_payload?: Json | null
+          request_size_bytes?: number | null
+          response_content_type?: string | null
+          response_payload?: Json | null
+          response_size_bytes?: number | null
+          started_at?: string
+          state?: string
+          tenant_id?: string | null
+          total_tokens?: number | null
+          url?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_service_requests_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversations: {
         Row: {
           created_at: string
@@ -1338,6 +1433,47 @@ export type Database = {
             foreignKeyName: "tenant_members_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_hopstudio_settings: {
+        Row: {
+          clariprint_password_encrypted: string | null
+          clariprint_url: string | null
+          clariprint_user: string | null
+          created_at: string
+          enabled: boolean
+          hope_studio_url: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          clariprint_password_encrypted?: string | null
+          clariprint_url?: string | null
+          clariprint_user?: string | null
+          created_at?: string
+          enabled?: boolean
+          hope_studio_url?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          clariprint_password_encrypted?: string | null
+          clariprint_url?: string | null
+          clariprint_user?: string | null
+          created_at?: string
+          enabled?: boolean
+          hope_studio_url?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_hopstudio_settings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },

@@ -7,6 +7,9 @@ dist/
 .env.local
 .env.*.local
 .env.test
+.env.hopstudio.test
+.env.hopstudio.test.local
+.env.hopstudio.test.local.*
 .vite/
 supabase/.temp/
 test-results/

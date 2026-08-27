@@ -16,7 +16,10 @@ export interface HopeStudioAssistantIdentityResolver {
 export type HopeStudioAssistantHandlerOptions = Readonly<{
   gateway: HopeStudioChatGateway;
   identityResolver: HopeStudioAssistantIdentityResolver;
-  onUnexpectedError?: (error: unknown) => void;
+  onUnexpectedError?: (
+    error: unknown,
+    context: Readonly<{ requestId: string; tenantId: string; userId: string }>,
+  ) => void;
 }>;
 
 /**
@@ -27,21 +30,22 @@ export type HopeStudioAssistantHandlerOptions = Readonly<{
  */
 export function createHopeStudioAssistantHandler(options: HopeStudioAssistantHandlerOptions) {
   return async function handle(request: Request): Promise<Response> {
+    const requestId = request.headers.get('x-request-id')?.trim() || crypto.randomUUID();
     const url = new URL(request.url);
     if (request.method !== 'POST' || url.pathname !== '/api/v1/assistant/chat') {
-      return problem(404, 'api.not_found', 'Ressource introuvable');
+      return problem(404, 'api.not_found', 'Ressource introuvable', requestId);
     }
 
     let payload: unknown;
     try {
       payload = await request.json();
     } catch {
-      return problem(400, 'api.invalid_json', 'Corps JSON invalide');
+      return problem(400, 'api.invalid_json', 'Corps JSON invalide', requestId);
     }
 
     const command = assistantChatCommandSchema.safeParse(payload);
     if (!command.success) {
-      return problem(422, 'api.validation_failed', 'Requête assistant invalide');
+      return problem(422, 'api.validation_failed', validationDetail(command.error.issues), requestId);
     }
 
     const identity = await options.identityResolver.resolve(request, {
@@ -49,7 +53,7 @@ export function createHopeStudioAssistantHandler(options: HopeStudioAssistantHan
       ...(command.data.shopSlug ? { shopSlug: command.data.shopSlug } : {}),
     });
     if (!identity) {
-      return problem(401, 'identity.authentication_required', 'Authentification requise');
+      return problem(401, 'identity.authentication_required', 'Authentification requise', requestId);
     }
 
     try {
@@ -57,35 +61,52 @@ export function createHopeStudioAssistantHandler(options: HopeStudioAssistantHan
         messages: command.data.messages,
         tenantId: identity.tenantId,
         userId: identity.userId,
+        traceId: requestId,
+        ...(command.data.sessionRef ? { sessionRef: command.data.sessionRef } : {}),
+        ...(command.data.sessionDataRef ? { sessionDataRef: command.data.sessionDataRef } : {}),
         signal: request.signal,
       });
       return request.headers.get('accept')?.includes('text/event-stream')
-        ? doneEvent(result)
-        : Response.json(result);
+        ? doneEvent(result, requestId)
+        : Response.json(result, { headers: { 'X-Request-Id': requestId } });
     } catch (error) {
       if ((error as Error).name === 'AbortError') {
-        return problem(499, 'assistant.request_aborted', 'Requête assistant annulée');
+        return problem(499, 'assistant.request_aborted', 'Requête assistant annulée', requestId);
       }
-      options.onUnexpectedError?.(error);
+      options.onUnexpectedError?.(error, {
+        requestId,
+        tenantId: identity.tenantId,
+        userId: identity.userId,
+      });
       return problem(
         502,
         'assistant.hopstudio_unavailable',
         error instanceof Error ? error.message : 'HopeStudio indisponible',
+        requestId,
       );
     }
   };
 }
 
-function doneEvent(payload: unknown): Response {
+function validationDetail(issues: readonly { path: PropertyKey[]; message: string }[]): string {
+  const details = issues.slice(0, 3).map((issue) => {
+    const path = issue.path.map(String).join('.') || 'body';
+    return `${path}: ${issue.message}`;
+  });
+  return `Requête assistant invalide — ${details.join(' ; ')}`;
+}
+
+function doneEvent(payload: unknown, requestId: string): Response {
   return new Response(`event: done\ndata: ${JSON.stringify(payload)}\n\n`, {
     headers: {
       'Content-Type': 'text/event-stream; charset=utf-8',
       'Cache-Control': 'no-cache, no-transform',
+      'X-Request-Id': requestId,
     },
   });
 }
 
-function problem(status: number, code: string, detail: string): Response {
+function problem(status: number, code: string, detail: string, requestId: string): Response {
   return Response.json(
     {
       type: 'about:blank',
@@ -93,9 +114,14 @@ function problem(status: number, code: string, detail: string): Response {
       status,
       code,
       detail,
-      requestId: crypto.randomUUID(),
+      requestId,
     },
-    { status, headers: { 'Content-Type': 'application/problem+json; charset=utf-8' } },
+    {
+      status,
+      headers: {
+        'Content-Type': 'application/problem+json; charset=utf-8',
+        'X-Request-Id': requestId,
+      },
+    },
   );
 }
-

@@ -16,10 +16,12 @@ export class BrowserApiAssistantGateway implements AssistantGateway {
           'Un transport storefront ne peut pas envoyer de bearer Magrit',
         );
       }
+      const clientRequestId = crypto.randomUUID();
       const response = await fetch('/api/v1/assistant/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-Request-Id': clientRequestId,
           ...(request.accessToken ? { Authorization: `Bearer ${request.accessToken}` } : {}),
           ...(request.streaming ? { Accept: 'text/event-stream' } : {}),
         },
@@ -29,10 +31,13 @@ export class BrowserApiAssistantGateway implements AssistantGateway {
 
       if (!response.ok) {
         const billing = await detectAssistantBillingError(response);
+        const problem = await assistantHttpProblem(response);
         throw new AssistantStreamError(
           billing ? 'billing' : 'network',
-          `HTTP error ${response.status}`,
+          problem.detail ?? `HTTP error ${response.status}`,
           response.status,
+          problem.code ?? undefined,
+          problem.requestId ?? response.headers.get('x-request-id') ?? clientRequestId,
         );
       }
 
@@ -49,6 +54,33 @@ export class BrowserApiAssistantGateway implements AssistantGateway {
       );
     }
   }
+}
+
+type AssistantHttpProblem = Readonly<{
+  detail: string | null;
+  code: string | null;
+  requestId: string | null;
+}>;
+
+async function assistantHttpProblem(response: Response): Promise<AssistantHttpProblem> {
+  try {
+    const payload = await response.clone().json() as Record<string, unknown>;
+    const detail = typeof payload.detail === 'string' && payload.detail.trim()
+      ? payload.detail.trim()
+      : typeof payload.title === 'string' && payload.title.trim()
+        ? payload.title.trim()
+        : null;
+    return {
+      detail,
+      code: typeof payload.code === 'string' && payload.code.trim() ? payload.code.trim() : null,
+      requestId: typeof payload.requestId === 'string' && payload.requestId.trim()
+        ? payload.requestId.trim()
+        : null,
+    };
+  } catch {
+    // Une réponse non JSON conserve le message HTTP générique.
+  }
+  return { detail: null, code: null, requestId: null };
 }
 
 export async function detectAssistantBillingError(response: Response): Promise<boolean> {
