@@ -12,7 +12,11 @@ import { CartButton } from '@/modules/orders/ui/components';
 const LibraryPickerModal = lazy(() =>
   import('@/modules/libraries/ui/components').then((m) => ({ default: m.LibraryPickerModal })),
 );
-import { useConversation, ConversationHistory } from "@/modules/conversations/ui/runtime/ConversationContext";
+import {
+  useConversation,
+  type ConversationHistory,
+  type ConversationMessage,
+} from "@/modules/conversations/ui/runtime/ConversationContext";
 import { useAuth } from '@/modules/account/ui/runtime';
 import { useLibrary } from '@/modules/libraries/ui/runtime';
 import { usePlan } from '@/modules/plans/ui/hooks';
@@ -58,6 +62,12 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
   // R2 Phase B (bug E4) : banner billing explicite au lieu de bascule
   // demo silencieuse quand Anthropic renvoie un 402 / billing error.
   const [billingError, setBillingError] = useState(false);
+  const [assistantError, setAssistantError] = useState<{
+    message: string;
+    status?: number;
+    code?: string;
+    requestId?: string;
+  } | null>(null);
   const { assistant } = useWorkspaceUiRuntime();
   const { send: sendSseStream } = useClaudeSseStream(assistant);
   // E3.1 — nb de chunks de texte recus pendant un stream en cours.
@@ -68,6 +78,8 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
   const [bulkLibraryPickerOpen, setBulkLibraryPickerOpen] = useState(false);
   // E2.2 — options cliquables associees a la derniere clarification mode strict
   const [pendingOptions, setPendingOptions] = useState<string[]>([]);
+  const [hopeStudioSessionRef, setHopeStudioSessionRef] = useState<string | null>(null);
+  const [hopeStudioSessionDataRef, setHopeStudioSessionDataRef] = useState<string | null>(null);
   // E2 — Mode Marguerite (open=extrapolation libre / strict=interpretation litterale)
   // Persiste en localStorage pour reprendre le dernier mode utilise.
   const [mode, setMode] = useState<"open" | "strict">(() => {
@@ -82,6 +94,11 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
       localStorage.setItem("magrit.marguerite.mode", mode);
     } catch { /* noop */ }
   }, [mode]);
+
+  useEffect(() => {
+    setHopeStudioSessionRef(null);
+    setHopeStudioSessionDataRef(null);
+  }, [currentTenant?.id]);
 
   // ─── ⌘K : ouvrir l'historique rapidement ────────────────────────────────
   useEffect(() => {
@@ -100,6 +117,8 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
 
   const loadConversation = (conv: ConversationHistory) => {
     loadFromContext(conv);
+    setHopeStudioSessionRef(null);
+    setHopeStudioSessionDataRef(null);
     setShowHistory(false);
     if (conv.products.length > 0) onShowResults?.();
   };
@@ -111,36 +130,9 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
 
   const startNewConversation = () => {
     resetConversation();
+    setHopeStudioSessionRef(null);
+    setHopeStudioSessionDataRef(null);
     setShowHistory(false);
-  };
-
-  // ─── Mapper les configs JSON Clariprint → objets ProductCard ─────────────
-  const parseConfigsToProducts = (configs: any[]): any[] => {
-    if (!configs || configs.length === 0) return [];
-    return configs.map((config: any, index: number) => {
-      const d = config.display || {};
-      const c = config.clariprint || {};
-      return {
-        id: `product-${Date.now()}-${index}`,
-        name: d.productName || c.reference || "Produit",
-        // ADR-4.17 : gamme/famille explicite renvoyee par le LLM (display.gamme).
-        gamme: d.gamme || null,
-        quantity: d.quantity || c.quantity || 0,
-        format: d.format || `${c.width} × ${c.height} cm`,
-        material: d.support || "",
-        weight: typeof d.grammage === "number" ? d.grammage : parseInt(d.grammage) || 0,
-        printing: {
-          recto: d.impression?.recto || "Quadrichromie (CMJN)",
-          verso: d.impression?.verso || (c.back_colors?.length > 0 ? "Quadrichromie (CMJN)" : "Sans impression"),
-        },
-        finish: d.finitionRecto || "",
-        finishRecto: d.finitionRecto || "",
-        finishVerso: d.finitionVerso || "Sans finition",
-        suggestions: Array.isArray(d.suggestions) ? d.suggestions : [],
-        pages: c.pages || null,
-        clariprintData: c,
-      };
-    });
   };
 
   // ─── handleSend ───────────────────────────────────────────────────────────
@@ -161,13 +153,16 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
     setIsLoading(true);
     setPendingOptions([]); // reset des options precedentes
     setBillingError(false);
+    setAssistantError(null);
+    setIsDemoMode(false);
 
     // R2 Phase B (bug E5) : on tronque l'historique a 25 messages max
     // (NFR43, project-context §3.4) AVANT d'ajouter le nouveau user message,
     // pour garantir que le payload envoye au LLM ne depasse jamais la limite.
     const fullMessages = [...messages, { role: "user", content: userMessage }];
+    const normalizedMessages = normalizeAssistantContext(fullMessages);
     const { truncated: contextMessages, droppedCount } = truncateMessages(
-      fullMessages,
+      normalizedMessages,
       MAX_CONTEXT_MESSAGES,
     );
     setMessages(fullMessages); // l'UI conserve tout l'historique (l'indicateur signale le troncage)
@@ -188,6 +183,8 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
         messages: contextMessages,
         tenantId: currentTenant?.id ?? null,
         mode,
+        ...(hopeStudioSessionRef ? { sessionRef: hopeStudioSessionRef } : {}),
+        ...(hopeStudioSessionDataRef ? { sessionDataRef: hopeStudioSessionDataRef } : {}),
       };
 
       const data = await sendSseStream(
@@ -202,6 +199,13 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
       );
 
       if (ENABLE_STREAMING_CHAT) setStreamingChunks(0);
+
+      if (data.provider === 'hopstudio' && typeof data.sessionRef === 'string') {
+        setHopeStudioSessionRef(data.sessionRef);
+        setHopeStudioSessionDataRef(
+          typeof data.sessionDataRef === 'string' ? data.sessionDataRef : null,
+        );
+      }
 
       // v3 : le edge function peut retourner un teachingNote (reponse
       // pedagogique en markdown) pour les questions du type
@@ -253,7 +257,7 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
       setIsDemoMode(!!data.demoMode);
 
       if (data.configs && Array.isArray(data.configs) && data.configs.length > 0) {
-        parsedProducts = parseConfigsToProducts(data.configs);
+        parsedProducts = mapAssistantConfigsToProducts(data.configs);
       }
 
       if (parsedProducts.length > 0) {
@@ -272,48 +276,25 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
         setBillingError(true);
         assistantMessage =
           "IA temporairement indisponible — facturation Anthropic suspendue. " +
-          "Contactez votre administrateur Magrit pour reactivation. " +
-          "Vous pouvez continuer en mode demo via le bouton ci-dessous.";
+          "Contactez votre administrateur Magrit pour réactivation.";
         setMessages((prev) => [...prev, { role: "assistant", content: assistantMessage }]);
         return;
       }
 
-      // Autres erreurs reseau / serveur : fallback demo (comportement
-      // historique conserve, mais documente comme fallback uniquement).
-      setIsDemoMode(true);
-      const demoConfigs = [
-        {
-          clariprint: {
-            reference: "Cartes de visite",
-            kind: "leaflet",
-            quantity: 500,
-            width: "8.5",
-            height: "5.5",
-            with_bleeds: "1",
-            front_colors: ["4-color"],
-            back_colors: ["4-color"],
-            papers: { custom: { quality: "Couché Brillant PEFC", weight: "350" } },
-            finishing_front: "PELLIC_ACETATE_MAT",
-            finishing_back: "PELLIC_ACETATE_MAT",
-          },
-          display: {
-            productName: "Cartes de visite",
-            quantity: 500,
-            format: "85 × 55 mm (format standard)",
-            support: "Papier couché brillant",
-            grammage: 350,
-            impression: { recto: "Quadrichromie (CMJN)", verso: "Quadrichromie (CMJN)" },
-            finitionRecto: "Pelliculage mat",
-            finitionVerso: "Pelliculage mat",
-            suggestions: [],
-          },
-        },
-      ];
-      parsedProducts = parseConfigsToProducts(demoConfigs);
-      assistantMessage = "Mode démo — voici un exemple de produit.";
-      setMessages((prev) => [...prev, { role: "assistant", content: assistantMessage }]);
-      setProducts((prev) => [...prev, ...parsedProducts]);
-      onShowResults?.();
+      if (error instanceof ClaudeSseStreamError) {
+        setAssistantError({
+          message: error.message,
+          ...(error.status !== undefined ? { status: error.status } : {}),
+          ...(error.code ? { code: error.code } : {}),
+          ...(error.requestId ? { requestId: error.requestId } : {}),
+        });
+      } else {
+        setAssistantError({ message: error instanceof Error ? error.message : 'Erreur assistant inconnue' });
+      }
+
+      // Une erreur fournisseur ne doit jamais créer un produit synthétique :
+      // le panneau corrélé ci-dessus reste l'unique résultat visible.
+      setIsDemoMode(false);
     } finally {
       setIsLoading(false);
       setStreamingChunks(null);
@@ -322,7 +303,9 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
       // n'avait pas ete migre -> ReferenceError a chaque envoi -> saveCurrent
       // jamais appele -> currentConversationId reste null -> pas de cle
       // localStorage de restauration -> home perd la conv au tab focus.
-      const finalMessages = [...fullMessages, { role: "assistant", content: assistantMessage }];
+      const finalMessages = assistantMessage.trim()
+        ? [...fullMessages, { role: "assistant", content: assistantMessage }]
+        : fullMessages;
       const allProducts = [...products, ...parsedProducts];
       saveCurrentConversation(finalMessages, allProducts);
     }
@@ -451,6 +434,25 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
             )}
           </div>
         </div>
+
+        {assistantError && (
+          <div
+            data-testid={TEST_IDS.marguerite.assistantErrorBanner}
+            role="alert"
+            className="mx-6 mt-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-800"
+            style={{ fontSize: '13px', lineHeight: 1.5 }}
+          >
+            <div style={{ fontWeight: 600 }}>HopeStudio n’a pas pu traiter la demande.</div>
+            <div>{assistantError.message}</div>
+            <div className="mt-1 font-mono" style={{ fontSize: '11px' }}>
+              {[
+                assistantError.status ? `HTTP ${assistantError.status}` : null,
+                assistantError.code ?? null,
+                assistantError.requestId ? `requête ${assistantError.requestId}` : null,
+              ].filter(Boolean).join(' · ')}
+            </div>
+          </div>
+        )}
 
         {/* Feed scrollable — deux wrappers : messages centrés 760px,
             grille produits 1180px. Evite que le texte soit mal cadré
@@ -907,6 +909,78 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
       )}
     </div>
   );
+}
+
+/** Nettoie les conversations legacy avant de franchir le contrat API assistant. */
+export function normalizeAssistantContext(messages: ConversationMessage[]): Array<{
+  role: 'user' | 'assistant';
+  content: string;
+}> {
+  const normalized: Array<{ role: 'user' | 'assistant'; content: string }> = [];
+  for (const message of messages) {
+    const content = typeof message.content === 'string'
+      ? message.content.trim().slice(0, 20_000)
+      : '';
+    if (!content) continue;
+
+    if (message.role === 'user' || message.role === 'human') {
+      normalized.push({ role: 'user', content });
+    } else if (
+      message.role === 'assistant'
+      || message.role === 'ai'
+      || message.role === 'bot'
+    ) {
+      normalized.push({ role: 'assistant', content });
+    }
+  }
+  return normalized;
+}
+
+/**
+ * Adapte uniquement les valeurs réellement fournies par le backend.
+ * Aucun support, mode d'impression ou finition n'est inventé en repli.
+ */
+export function mapAssistantConfigsToProducts(configs: any[]): any[] {
+  if (!Array.isArray(configs) || configs.length === 0) return [];
+  const createdAt = Date.now();
+  return configs.map((config: any, index: number) => {
+    const display = config?.display ?? {};
+    const clariprint = config?.clariprint ?? {};
+    const recto = display.impression?.recto ?? colors(clariprint.front_colors);
+    const verso = display.impression?.verso ?? colors(clariprint.back_colors);
+    return {
+      id: `product-${createdAt}-${index}`,
+      name: display.productName ?? clariprint.reference ?? clariprint.selected ?? 'Produit',
+      gamme: display.gamme ?? null,
+      quantity: display.quantity ?? clariprint.quantity ?? 0,
+      format: display.format ?? dimensions(clariprint.width, clariprint.height),
+      material: display.support ?? clariprint.material ?? clariprint.support ?? '',
+      weight: numeric(display.grammage ?? clariprint.weight ?? clariprint.grammage),
+      printing: { recto, verso },
+      finish: display.finitionRecto ?? clariprint.finishing_front ?? '',
+      finishRecto: display.finitionRecto ?? clariprint.finishing_front ?? '',
+      finishVerso: display.finitionVerso ?? clariprint.finishing_back ?? '',
+      suggestions: Array.isArray(display.suggestions) ? display.suggestions : [],
+      pages: clariprint.pages ?? null,
+      clariprintData: clariprint,
+      hopStudioData: config?.hopStudio ?? null,
+    };
+  });
+}
+
+function colors(value: unknown): string {
+  if (Array.isArray(value)) return value.filter((item) => typeof item === 'string').join(', ');
+  return typeof value === 'string' ? value : '';
+}
+
+function dimensions(width: unknown, height: unknown): string {
+  if (width === undefined || width === null || height === undefined || height === null) return '';
+  return `${String(width)} × ${String(height)}`;
+}
+
+function numeric(value: unknown): number {
+  const parsed = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────

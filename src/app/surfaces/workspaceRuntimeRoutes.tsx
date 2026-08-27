@@ -35,6 +35,7 @@ const routeLoaders: Readonly<Record<string, LazyPageLoader>> = Object.freeze({
   'machine-parks.workspace.detail': () => import('@/modules/machine-parks/ui').then((module) => ({ default: module.MachineParkDetail })),
   'mockups.workspace.reference': () => import('@/modules/mockups/ui').then((module) => ({ default: module.DashboardAdminMockups })),
   'plans.workspace.selection': () => import('@/modules/plans/ui').then((module) => ({ default: module.DashboardPlan })),
+  'hopstudio.workspace.settings': () => import('@/modules/hopstudio/ui').then((module) => ({ default: module.ClariprintStudioSettingsPage })),
 });
 
 export type WorkspaceRuntimeRoute = Readonly<{
