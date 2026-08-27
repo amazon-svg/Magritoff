@@ -1,0 +1,31 @@
+<table class="table table-striped table-hover" role="orders_table">
+    <thead _class="thead-light">
+        <tr class="h5">
+            <th scope="col">#</th>
+<% if (schl_adm()) { %>
+            <th scope="col"><%= HCSR.transl("Client") %></th>
+<% } %>
+            <th scope="col"><%= HCSR.transl("Name") %></th>
+            <th scope="col"><%= HCSR.transl("supplier") %></th>
+            <th scope="col"><%= HCSR.transl("Created") %></th>
+            <th scope="col"><%= HCSR.transl("Status") %></th>
+        </tr>
+    </thead>
+    <tbody _class="bg-white text-dark">
+<% var i = 0;
+    data.forEach(p => {
+      i++; %>
+        <tr
+         onclick="sugarcrepeHL.instance(this).inspectOrder('<%=p.id%>');">
+            <th scope="row"><%= p.id %></th>
+<% if (schl_adm()) { %>
+            <td><%= p.client_mail %></td>
+<% } %>
+            <td><%= p.name %></td>
+            <td><%= p.supplier_mail %></td>
+            <td><%= p.created %></td>
+            <td><%= p.status %></td>
+        </tr>
+<% }); %>
+    </tbody>
+</table>
