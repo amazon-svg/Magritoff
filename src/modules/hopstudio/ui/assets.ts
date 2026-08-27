@@ -11,6 +11,9 @@ export const HOPSTUDIO_STYLESHEET_URL = `${HOPSTUDIO_ASSET_ROOT}css/sugarcrepeHL
 
 export type HopeStudioBrowserCardData = Readonly<{
   selected?: unknown;
+  configuration?: unknown;
+  infos?: unknown;
+  clicked_intent?: unknown;
 }>;
 
 export type HopeStudioBrowserChat = {
