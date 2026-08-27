@@ -1,7 +1,10 @@
 import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { useAuth } from '@/modules/account/ui/runtime';
-import { PENDING_MAGRIT_INVITATION_KEY } from '@/modules/invitations/ui/hooks/useMagritInvitationAcceptance';
+import {
+  clearPendingMagritInvitation,
+  consumePendingMagritInvitation,
+} from '@/modules/invitations/ui/pendingMagritInvitation';
 
 export function PendingMagritInvitationRedirect() {
   const { user, loading } = useAuth();
@@ -11,8 +14,15 @@ export function PendingMagritInvitationRedirect() {
   useEffect(() => {
     if (loading || !user || location.pathname.startsWith('/invitations/')) return;
     try {
-      const token = window.localStorage.getItem(PENDING_MAGRIT_INVITATION_KEY);
-      if (token && /^[A-Za-z0-9_-]{32,512}$/.test(token)) {
+      // Supprime les anciens tokens persistants : ils sont la cause des
+      // redirections surprises lors d'une connexion ultérieure.
+      clearPendingMagritInvitation(window.localStorage);
+    } catch {
+      // Un localStorage désactivé ne doit pas bloquer sessionStorage.
+    }
+    try {
+      const token = consumePendingMagritInvitation(window.sessionStorage);
+      if (token) {
         navigate(`/invitations/${encodeURIComponent(token)}`, { replace: true });
       }
     } catch {
