@@ -22,6 +22,14 @@ type HopeStudioRuntime = Readonly<{
   newInstanceFromElem(element: HTMLElement): HopeStudioInstance;
 }>;
 
+type ProductCardView = Readonly<{
+  kind: string;
+  title: string;
+  price: string | null;
+  pricePrefix: string;
+  specs: ReadonlyArray<Readonly<{ label: string; value: string }>>;
+}>;
+
 const PROMPT_EXAMPLES = [
   {
     label: 'Cartes de visite',
@@ -49,6 +57,9 @@ declare global {
   interface Window {
     sugarcrepeHL?: HopeStudioRuntime;
     HChat?: Record<string, unknown>;
+    HU?: {
+      renderEJS(template: string, locals: Readonly<Record<string, unknown>>): string;
+    };
     hopes_suite?: {
       chat?: HopeStudioBrowserChat;
     };
@@ -56,6 +67,7 @@ declare global {
 }
 
 let runtimePromise: Promise<HopeStudioRuntime> | null = null;
+let productCardTemplatePromise: Promise<string> | null = null;
 
 export function HopeStudioWorkspace({
   tenantId,
@@ -225,8 +237,10 @@ function enhanceChatChrome(
   send.addEventListener('click', sendCurrentPrompt);
   input.addEventListener('input', updateSendState);
 
-  decorateProductCards();
-  const observer = chatBody ? new MutationObserver(decorateProductCards) : null;
+  void decorateProductCards();
+  const observer = chatBody
+    ? new MutationObserver(() => { void decorateProductCards(); })
+    : null;
   if (chatBody && observer) observer.observe(chatBody, { childList: true, subtree: true });
 
   return () => {
@@ -238,7 +252,8 @@ function enhanceChatChrome(
   };
 }
 
-function decorateProductCards() {
+async function decorateProductCards() {
+  const template = await loadProductCardTemplate().catch(() => null);
   document.querySelectorAll<HTMLElement>('#chat-body [data-card-uid]:not([data-magrit-card])')
     .forEach((container) => {
       const card = container.querySelector<HTMLElement>(':scope > .chat-card');
@@ -252,7 +267,7 @@ function decorateProductCards() {
       const displayedPrice = priceAction?.textContent?.trim() ?? '';
       const uid = container.dataset.cardUid ?? '';
       const source = uid ? window.hopes_suite?.chat?.getCardFromUid?.(uid) : null;
-      structureProductCard(card, source, displayedPrice);
+      structureProductCard(card, source, displayedPrice, template);
       decorateCardActions(actionLinks);
     });
 }
@@ -261,202 +276,122 @@ function structureProductCard(
   card: HTMLElement,
   source: HopeStudioBrowserCardData | null | undefined,
   displayedPrice: string,
+  template: string | null,
 ) {
-  const parsed = parseProductCard(card);
-  if (!parsed) {
+  const product = buildProductCardView(source, displayedPrice);
+  if (!product || !template || !window.HU) {
     card.classList.add('hs-product-card-rich');
     return;
   }
-
-  const kind = typeof source?.selected === 'string' && source.selected.trim()
-    ? source.selected.trim()
-    : 'Produit configuré';
-  const header = document.createElement('header');
-  header.className = 'hs-product-card-header';
-
-  const identity = document.createElement('div');
-  identity.className = 'hs-product-card-identity';
-  const eyebrow = document.createElement('span');
-  eyebrow.className = 'hs-product-card-kind';
-  eyebrow.textContent = kind;
-  const heading = document.createElement('h3');
-  heading.textContent = parsed.title;
-  identity.append(eyebrow, heading);
-  header.appendChild(identity);
-
-  const priceLabel = normalizeDisplayedPrice(displayedPrice);
-  if (priceLabel) {
-    const price = document.createElement('div');
-    price.className = 'hs-product-card-price';
-    const prefix = document.createElement('span');
-    prefix.textContent = priceLabel === 'Sur devis' ? 'PRIX' : 'DÈS';
-    const value = document.createElement('strong');
-    value.textContent = priceLabel;
-    price.append(prefix, value);
-    header.appendChild(price);
-  }
-
-  const specs = document.createElement('div');
-  specs.className = 'hs-product-card-specs';
-  parsed.specs.forEach(({ label, nodes }) => {
-    specs.appendChild(createProductSpec(label, nodes));
-  });
-  card.replaceChildren(header, specs);
+  card.innerHTML = window.HU.renderEJS(template, { product });
 }
 
-const PRODUCT_FIELD_PATTERN = /\b(Format|Description|Support papier|Impression recto\/verso|Finition recto\/verso|Quantité|Conditionnement|Livraison pays\/région|Adresse de livraison)\s*:\s*/giu;
+function buildProductCardView(
+  source: HopeStudioBrowserCardData | null | undefined,
+  displayedPrice: string,
+): ProductCardView | null {
+  if (!source) return null;
+  const configuration = asRecord(source.configuration);
+  const selected = asString(source.selected);
+  const sessionAliases = asRecord(window.hopes_suite?.chat?.session?.alias_infos);
+  const directInfos = asRecord(source.infos);
+  const infos = Object.keys(directInfos).length > 0
+    ? directInfos
+    : asRecord(selected ? sessionAliases[selected] : null);
+  const fields = [infos.required_fields, infos.optional_fields, infos.delivery_fields]
+    .flatMap((value) => Array.isArray(value) ? value : [])
+    .map(asRecord)
+    .filter((field) => Object.keys(field).length > 0);
+  if (Object.keys(configuration).length === 0 || fields.length === 0) return null;
 
-type ProductSpecRange = Readonly<{
-  label: string;
-  start: number;
-  end: number;
-}>;
+  const specs = fields.flatMap((field) => {
+    const name = asString(field.name);
+    if (!name || configuration[name] === undefined || configuration[name] === null) return [];
+    const value = formatFieldValue(configuration[name], field);
+    if (!value) return [];
+    return [{ label: asString(field.title) ?? name, value }];
+  });
+  if (specs.length === 0) return null;
 
-function parseProductCard(card: HTMLElement): Readonly<{
-  title: string;
-  specs: ReadonlyArray<Readonly<{ label: string; nodes: Node[] }>>;
-}> | null {
-  const sourceNodes = Array.from(card.childNodes);
-  const text = sourceNodes.map(nodeText).join('');
-  const fields = findProductFieldRanges(text);
-  const firstFieldStart = fields[0]?.markerStart ?? text.length;
-  const natural = parseNaturalProductPrefix(text.slice(0, firstFieldStart));
-  const title = (natural?.title ?? cleanProductText(text.slice(0, firstFieldStart)))
-    .replace(/\s*-\s*$/, '')
-    .trim();
-  const ranges: ProductSpecRange[] = [
-    ...(natural?.specs ?? []),
-    ...fields.map((field, index) => ({
-      label: field.label,
-      start: trimRangeStart(text, field.valueStart, fields[index + 1]?.markerStart ?? text.length),
-      end: trimRangeEnd(text, field.valueStart, fields[index + 1]?.markerStart ?? text.length),
-    })),
-  ].filter(({ start, end }) => end > start);
-
-  if (!title || ranges.length === 0) return null;
+  const structuredPrice = asRecord(asRecord(source.clicked_intent).getPrice).response;
+  const price = formatProductPrice(structuredPrice, displayedPrice);
   return {
-    title,
-    specs: ranges.map(({ label, start, end }) => ({
-      label,
-      nodes: sliceInlineNodes(sourceNodes, start, end),
-    })),
+    kind: selected ?? 'Produit configuré',
+    title: asString(infos.title) ?? asString(infos.name) ?? selected ?? 'Produit configuré',
+    price,
+    pricePrefix: price === 'Sur devis' ? 'PRIX' : 'DÈS',
+    specs,
   };
 }
 
-function findProductFieldRanges(text: string): Array<Readonly<{
-  label: string;
-  markerStart: number;
-  valueStart: number;
-}>> {
-  return Array.from(text.matchAll(PRODUCT_FIELD_PATTERN), (match) => ({
-    label: match[1] ?? 'Détail',
-    markerStart: match.index ?? 0,
-    valueStart: (match.index ?? 0) + match[0].length,
-  }));
-}
+function formatFieldValue(rawValue: unknown, field: Record<string, unknown>): string | null {
+  const unit = asString(field.unit);
+  const kind = asString(field.kind);
+  let value: string | null = null;
 
-function parseNaturalProductPrefix(prefix: string): Readonly<{
-  title: string;
-  specs: ProductSpecRange[];
-}> | null {
-  const format = /\b\d+(?:[.,]\d+)?\s*[x×]\s*\d+(?:[.,]\d+)?(?:\s*mm)?\b/iu.exec(prefix);
-  if (!format?.[0] || format.index === undefined) return null;
-
-  const title = cleanProductText(prefix.slice(0, format.index));
-  const specs: ProductSpecRange[] = [{
-    label: 'Format',
-    start: format.index,
-    end: format.index + format[0].length,
-  }];
-  const suffixStart = format.index + format[0].length;
-  const suffix = prefix.slice(suffixStart);
-  const paper = /\bpapier\s+(.+?)(?=\.\s*$|$)/iu.exec(suffix);
-  if (paper?.[1] && paper.index !== undefined) {
-    const beforePaperStart = trimRangeStart(prefix, suffixStart, suffixStart + paper.index);
-    const beforePaperEnd = trimRangeEnd(prefix, suffixStart, suffixStart + paper.index);
-    if (beforePaperEnd > beforePaperStart) {
-      specs.push({ label: 'Impression', start: beforePaperStart, end: beforePaperEnd });
-    }
-    const paperValueStart = suffixStart + paper.index + paper[0].indexOf(paper[1]);
-    specs.push({
-      label: 'Support papier',
-      start: paperValueStart,
-      end: paperValueStart + paper[1].length,
-    });
+  if (kind === 'select' && Array.isArray(field.options)) {
+    const selectedOption = field.options.map(asRecord)
+      .find((option) => option.value === rawValue);
+    value = asString(selectedOption?.label) ?? asString(rawValue);
+  } else if (kind === 'completion' && typeof rawValue === 'string') {
+    const parts = rawValue.split(';');
+    const labels = Array.isArray(field.labels) ? field.labels : [];
+    const units = Array.isArray(field.units) ? field.units : [];
+    value = parts.flatMap((part, index) => {
+      if (labels[index] === 'hidden' || !part.trim()) return [];
+      const partUnit = asString(units[index]);
+      return [`${part.trim()}${partUnit ? ` ${partUnit}` : ''}`];
+    }).join(' · ');
+  } else if (Array.isArray(rawValue)) {
+    value = rawValue.flatMap((item) => asString(item) ?? []).join(' · ');
+  } else {
+    value = asString(rawValue);
   }
-  return title ? { title, specs } : null;
+  return value ? `${value}${unit ? ` ${unit}` : ''}` : null;
 }
 
-function sliceInlineNodes(sourceNodes: Node[], start: number, end: number): Node[] {
-  const result: Node[] = [];
-  let cursor = 0;
-  sourceNodes.forEach((node) => {
-    const value = nodeText(node);
-    const nodeStart = cursor;
-    const nodeEnd = cursor + value.length;
-    cursor = nodeEnd;
-    const overlapStart = Math.max(start, nodeStart);
-    const overlapEnd = Math.min(end, nodeEnd);
-    if (overlapEnd <= overlapStart || node instanceof HTMLBRElement) return;
-
-    if (overlapStart === nodeStart && overlapEnd === nodeEnd && node.nodeType !== Node.TEXT_NODE) {
-      result.push(node);
-      return;
-    }
-    result.push(document.createTextNode(value.slice(overlapStart - nodeStart, overlapEnd - nodeStart)));
-  });
-  return result;
+function formatProductPrice(structuredPrice: unknown, fallback: string): string | null {
+  const numericPrice = typeof structuredPrice === 'number'
+    ? structuredPrice
+    : typeof structuredPrice === 'string' && structuredPrice.trim() && Number.isFinite(Number(structuredPrice))
+      ? Number(structuredPrice)
+      : null;
+  if (numericPrice !== null) {
+    if (numericPrice < 0) return 'Sur devis';
+    const runtime = window.sugarcrepeHL as (HopeStudioRuntime & {
+      formatPrice?: (value: unknown) => string;
+    }) | undefined;
+    return runtime?.formatPrice?.(numericPrice) ?? String(numericPrice);
+  }
+  return fallback.trim() || null;
 }
 
-function nodeText(node: Node): string {
-  return node instanceof HTMLBRElement ? '\n' : node.textContent ?? '';
+function asRecord(value: unknown): Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
 }
 
-function trimRangeStart(text: string, start: number, end: number): number {
-  const leading = text.slice(start, end).match(/^[\s,.;:-]*/u)?.[0].length ?? 0;
-  return start + leading;
+function asString(value: unknown): string | null {
+  if (typeof value === 'string' && value.trim()) return value.trim();
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  return null;
 }
 
-function trimRangeEnd(text: string, start: number, end: number): number {
-  const trailing = text.slice(start, end).match(/[\s,.;:-]*$/u)?.[0].length ?? 0;
-  return end - trailing;
-}
-
-function cleanProductText(value: string): string {
-  return value.replace(/[\s,.;:-]+$/u, '').replace(/^\s+/u, '');
-}
-
-function normalizeDisplayedPrice(value: string): string | null {
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  return /^-\s*1(?:[,.]0+)?\s*€?$/u.test(trimmed) ? 'Sur devis' : trimmed;
-}
-
-function createProductSpec(labelText: string, nodes: Node[]): HTMLElement {
-  const spec = document.createElement('div');
-  spec.className = 'hs-product-card-spec';
-  const label = document.createElement('span');
-  label.className = 'hs-product-card-spec-label';
-  label.textContent = labelText;
-  const value = document.createElement('div');
-  value.className = 'hs-product-card-spec-value';
-  nodes.forEach((node) => value.appendChild(node));
-  spec.append(label, value);
-  return spec;
+function loadProductCardTemplate(): Promise<string> {
+  productCardTemplatePromise ??= fetch(`${HOPSTUDIO_EJS_ROOT}chat_product_card.ejs`)
+    .then((response) => {
+      if (!response.ok) throw new Error(`Template carte HopeStudio indisponible (${response.status}).`);
+      return response.text();
+    });
+  return productCardTemplatePromise;
 }
 
 function decorateCardActions(actions: HTMLAnchorElement[]) {
   actions.forEach((action, index) => {
-    const current = action.textContent?.trim().toLocaleLowerCase('fr') ?? '';
     const kind = action.classList.contains('price')
       ? 'price'
-      : current.includes('sheet') || current.includes('fiche')
-        ? 'sheet'
-        : current.includes('3d') || current.includes('mokup') || current.includes('mockup')
-          ? 'mockup'
-          : current.includes('formulaire') || current.includes('edit') || current.includes('édit')
-            ? 'edit'
-            : `action-${index + 1}`;
+      : ['sheet', 'price', 'mockup', 'edit'][index] ?? `action-${index + 1}`;
     const labels: Record<string, string> = {
       sheet: 'Fiche',
       price: 'Prix',
