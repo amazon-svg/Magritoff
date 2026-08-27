@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ApiClientError } from '../../../platform/api/fetch-api-client.ts';
 import { useWorkspaceApi } from '../../../platform/runtime/workspace-ui-runtime.tsx';
+import { MagritLogo } from '../../../shared/presentation/MagritLogo.tsx';
 import { HopeStudioApiClient } from '../api/client.ts';
 import {
   HOPSTUDIO_ASSET_ROOT,
@@ -19,10 +20,39 @@ type HopeStudioRuntime = Readonly<{
   newInstanceFromElem(element: HTMLElement): HopeStudioInstance;
 }>;
 
+const PROMPT_EXAMPLES = [
+  {
+    label: 'Cartes de visite',
+    description: '500 cartes avec pelliculage mat',
+    prompt: '500 cartes de visite avec pelliculage mat',
+  },
+  {
+    label: 'Flyers',
+    description: '1000 flyers A5 recto verso',
+    prompt: '1000 flyers A5 recto verso',
+  },
+  {
+    label: 'Brochure',
+    description: '24 pages format A4',
+    prompt: 'Brochure 24 pages format A4',
+  },
+  {
+    label: 'Affiches',
+    description: '250 affiches A2 brillant',
+    prompt: '250 affiches A2 brillant',
+  },
+] as const;
+
 declare global {
   interface Window {
     sugarcrepeHL?: HopeStudioRuntime;
     HChat?: Record<string, unknown>;
+    hopes_suite?: {
+      chat?: {
+        session?: Readonly<Record<string, unknown>>;
+        sendMessage?: (message: string) => Promise<unknown>;
+      };
+    };
   }
 }
 
@@ -39,10 +69,15 @@ export function HopeStudioWorkspace({
   const hostRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [error, setError] = useState<string | null>(null);
+  const [chatStarted, setChatStarted] = useState(false);
 
   useEffect(() => {
     let active = true;
     let mountedInstance: HopeStudioInstance | null = null;
+    const showConversation = () => setChatStarted(true);
+    const showWelcome = () => setChatStarted(false);
+    window.addEventListener('hopstudio:conversation-start', showConversation);
+    window.addEventListener('hopstudio:conversation-reset', showWelcome);
 
     const mount = async () => {
       try {
@@ -60,6 +95,8 @@ export function HopeStudioWorkspace({
         await waitForElement('#chat-widget', 10_000);
         if (!active) return;
         document.querySelector('#chat-widget')?.classList.remove('chat-minimized');
+        enhanceChatChrome(showConversation, showWelcome);
+        setChatStarted(hasConversationActivity(window.hopes_suite?.chat?.session));
         setStatus('ready');
       } catch (cause) {
         if (!active) return;
@@ -71,6 +108,8 @@ export function HopeStudioWorkspace({
     void mount();
     return () => {
       active = false;
+      window.removeEventListener('hopstudio:conversation-start', showConversation);
+      window.removeEventListener('hopstudio:conversation-reset', showWelcome);
       if (mountedInstance && window.sugarcrepeHL) {
         const index = window.sugarcrepeHL.allInstances.indexOf(mountedInstance);
         if (index >= 0) window.sugarcrepeHL.allInstances.splice(index, 1);
@@ -79,10 +118,19 @@ export function HopeStudioWorkspace({
     };
   }, [api, tenantId, userId]);
 
+  const selectPrompt = (prompt: string) => {
+    const input = document.querySelector<HTMLInputElement>('#chat-text');
+    if (!input) return;
+    input.value = prompt;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.focus();
+  };
+
   return (
     <section
       className="hopstudio-workspace min-h-[calc(100vh-7rem)] overflow-auto bg-white"
       data-testid="hopstudio-workspace"
+      data-chat-started={chatStarted ? 'true' : 'false'}
       aria-busy={status === 'loading'}
     >
       {status !== 'ready' && (
@@ -92,6 +140,24 @@ export function HopeStudioWorkspace({
       )}
 
       <div id="hopes-container" className="hopstudio-container">
+        <div className="hopstudio-welcome" aria-hidden={chatStarted || status !== 'ready'}>
+          <MagritLogo size={96} />
+          <h1>Le papier pense.</h1>
+          <p>Décrivez votre projet d’impression — je calcule le devis et je construis la fiche produit.</p>
+          <div className="hopstudio-prompt-grid">
+            {PROMPT_EXAMPLES.map((example) => (
+              <button
+                key={example.prompt}
+                type="button"
+                onClick={() => selectPrompt(example.prompt)}
+                disabled={status !== 'ready'}
+              >
+                <strong>{example.label}</strong>
+                <span>{example.description}</span>
+              </button>
+            ))}
+          </div>
+        </div>
         <div id="chat-bar" className="chat-bar" />
         <div id="ui-main" className="ui-main">
           <div
@@ -107,6 +173,55 @@ export function HopeStudioWorkspace({
       </div>
     </section>
   );
+}
+
+function enhanceChatChrome(
+  onConversationStart: () => void,
+  onConversationReset: () => void,
+) {
+  const input = document.querySelector<HTMLInputElement>('#chat-text');
+  const composer = document.querySelector<HTMLElement>('#chat-input');
+  const title = document.querySelector<HTMLElement>('#chat-header .title');
+  const reset = document.querySelector<HTMLButtonElement>('#chat-reset');
+  const basketImage = document.querySelector<HTMLImageElement>('#chat-header-basket img');
+  if (!input || !composer) return;
+
+  input.placeholder = 'Décrivez votre projet d’impression…';
+  title?.replaceChildren(document.createTextNode('Historique'));
+  title?.setAttribute('title', 'Afficher l’historique HopeStudio');
+  reset?.replaceChildren(document.createTextNode('Nouveau'));
+  reset?.setAttribute('title', 'Démarrer une nouvelle conversation');
+  reset?.addEventListener('click', onConversationReset, { capture: true });
+  basketImage?.setAttribute('alt', 'Panier');
+
+  const startOnEnter = (event: KeyboardEvent) => {
+    if (event.key === 'Enter' && input.value.trim()) onConversationStart();
+  };
+  input.addEventListener('keypress', startOnEnter, { capture: true });
+
+  if (!composer.querySelector('#hopstudio-send')) {
+    const send = document.createElement('button');
+    send.id = 'hopstudio-send';
+    send.type = 'button';
+    send.disabled = !input.value.trim();
+    send.innerHTML = '<span>Envoyer</span><kbd>↵</kbd>';
+    send.addEventListener('click', () => {
+      const prompt = input.value.trim();
+      if (!prompt) return;
+      onConversationStart();
+      input.value = '';
+      void window.hopes_suite?.chat?.sendMessage?.(prompt);
+    });
+    composer.appendChild(send);
+    input.addEventListener('input', () => {
+      send.disabled = !input.value.trim();
+    });
+  }
+}
+
+function hasConversationActivity(session: Readonly<Record<string, unknown>> | undefined): boolean {
+  if (!session) return false;
+  return [session.history, session.events].some((value) => Array.isArray(value) && value.length > 0);
 }
 
 function configureHost(element: HTMLElement, tenantId: string) {
