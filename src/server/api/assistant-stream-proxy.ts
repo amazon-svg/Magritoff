@@ -13,7 +13,11 @@ export async function proxyAssistantChat(request: Request, options: AssistantStr
   let payload: unknown;
   try { payload = await request.json(); } catch { return problem(400, 'api.invalid_json', 'Corps JSON invalide'); }
   const parsed = assistantChatCommandSchema.safeParse(payload);
-  if (!parsed.success) return problem(422, 'api.validation_failed', 'Requête assistant invalide');
+  if (!parsed.success) return problem(
+    422,
+    'api.validation_failed',
+    `Requête assistant invalide — ${parsed.error.issues.slice(0, 3).map((issue) => `${issue.path.join('.') || 'body'}: ${issue.message}`).join(' ; ')}`,
+  );
   let userId = options.userId;
   let tenantId = parsed.data.tenantId ?? undefined;
   if (parsed.data.shopSlug) {
@@ -32,7 +36,12 @@ export async function proxyAssistantChat(request: Request, options: AssistantStr
   const streaming = request.headers.get('accept')?.includes('text/event-stream') ?? false;
   const fetchImplementation = options.fetchImplementation ?? globalThis.fetch;
   try {
-    const { shopSlug: _shopSlug, ...upstreamCommand } = parsed.data;
+    const {
+      shopSlug: _shopSlug,
+      sessionRef: _sessionRef,
+      sessionDataRef: _sessionDataRef,
+      ...upstreamCommand
+    } = parsed.data;
     const upstream = await fetchImplementation(`${options.legacyBaseUrl}/${streaming ? 'claude-proxy-stream' : 'claude-proxy'}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(options.authorization ? { Authorization: options.authorization } : {}), ...(streaming ? { Accept: 'text/event-stream' } : {}) },

@@ -90,6 +90,20 @@ import { InMemoryIdempotencyStore, OutboxPublisher } from '../../../src/modules/
 import { TENANT_SELECTION_HEADER } from '../../../src/modules/_shared/api/index.ts';
 import { SupabaseOutboxRepository, bestEffortOutbox } from '../../../src/adapters/supabase/outbox-repository.ts';
 import type { OutboxRepository } from '../../../src/modules/_shared/application/index.ts';
+import { HopeStudioTenantSettingsService } from '../../../src/modules/hopstudio/application/hopstudio-tenant-settings-service.ts';
+import {
+  SupabaseHopeStudioSettingsAccessGateway,
+  SupabaseHopeStudioTenantSettingsRepository,
+} from '../../../src/adapters/supabase/hopstudio-tenant-settings-repository.ts';
+import { WebCryptoHopeStudioSecretCipher } from '../../../src/adapters/hopstudio/web-crypto-secret-cipher.ts';
+import { createHopeStudioSettingsRoutes } from '../../../src/server/api/hopstudio-settings-routes.ts';
+import { tryHandleConfiguredWorkspaceChat } from '../../../src/server/hopstudio/configured-workspace-chat-handler.ts';
+import { SupabaseExternalServiceRequestRegistry } from '../../../src/adapters/supabase/external-service-request-registry.ts';
+import { HttpHopeStudioWorkflowGateway } from '../../../src/adapters/hopstudio/http-hopstudio-workflow-gateway.ts';
+import {
+  handleHopeStudioWorkflow,
+  isHopeStudioWorkflowRequest,
+} from '../../../src/server/hopstudio/workflow-handler.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -137,6 +151,58 @@ export async function handleRequest(request: Request): Promise<Response> {
     storefrontClient,
     publicSupabaseUrl(request, supabaseUrl),
   );
+  const normalizedRequest = normalizeApiRequest(request);
+  if (isHopeStudioWorkflowRequest(normalizedRequest)) {
+    if (!authorization) {
+      return withCors(Response.json({
+        type: 'about:blank', title: 'Authentification requise', status: 401,
+        code: 'identity.authentication_required', requestId: crypto.randomUUID(),
+      }, { status: 401, headers: { 'Content-Type': 'application/problem+json; charset=utf-8' } }));
+    }
+    const { data, error } = await client.auth.getUser();
+    if (error || !data.user) {
+      return withCors(Response.json({
+        type: 'about:blank', title: 'Authentification requise', status: 401,
+        code: 'identity.authentication_required', requestId: crypto.randomUUID(),
+      }, { status: 401, headers: { 'Content-Type': 'application/problem+json; charset=utf-8' } }));
+    }
+    const actorId = parseId<'UserId'>(data.user.id);
+    if (!actorId.ok) {
+      return withCors(Response.json({
+        type: 'about:blank', title: 'Identité invalide', status: 401,
+        code: 'identity.invalid_user', requestId: crypto.randomUUID(),
+      }, { status: 401, headers: { 'Content-Type': 'application/problem+json; charset=utf-8' } }));
+    }
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (!serviceRoleKey) {
+      return withCors(Response.json({
+        type: 'about:blank', title: 'Workflow HopeStudio indisponible', status: 503,
+        code: 'hopstudio.server_configuration_missing', requestId: crypto.randomUUID(),
+      }, { status: 503, headers: { 'Content-Type': 'application/problem+json; charset=utf-8' } }));
+    }
+    const serverClient = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const settings = new SupabaseHopeStudioTenantSettingsRepository(
+      serverClient,
+      new WebCryptoHopeStudioSecretCipher(Deno.env.get('HOPSTUDIO_CONFIG_ENCRYPTION_KEY') ?? null),
+    );
+    const access = new SupabaseAssistantAccessGateway(client);
+    const gateway = new HttpHopeStudioWorkflowGateway(
+      settings,
+      globalThis.fetch,
+      (event) => console.info('[hopstudio-workflow]', JSON.stringify({
+        at: new Date().toISOString(), ...event,
+      })),
+      new SupabaseExternalServiceRequestRegistry(serverClient),
+    );
+    return withCors(await handleHopeStudioWorkflow(normalizedRequest, {
+      userId: data.user.id,
+      isTenantMember: (tenantId) => access.isTenantMember(actorId.value, tenantId),
+      gateway,
+      onTrace: (event) => console.info('[hopstudio-callback]', JSON.stringify(event)),
+    }));
+  }
   if (isAssistantChatRequest(request)) {
     if (authorization) {
       const { data, error } = await client.auth.getUser();
@@ -144,6 +210,66 @@ export async function handleRequest(request: Request): Promise<Response> {
         const actorId = parseId<'UserId'>(data.user.id);
         if (!actorId.ok) return withCors(Response.json({ type: 'about:blank', title: 'Identité invalide', status: 401, code: 'identity.invalid_user', requestId: crypto.randomUUID() }, { status: 401, headers: { 'Content-Type': 'application/problem+json; charset=utf-8' } }));
         const accessGateway = new SupabaseAssistantAccessGateway(client);
+        const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+        if (serviceRoleKey) {
+          const serverClient = createClient(supabaseUrl, serviceRoleKey, {
+            auth: { persistSession: false, autoRefreshToken: false },
+          });
+          const hopeStudioSettings = new SupabaseHopeStudioTenantSettingsRepository(
+            serverClient,
+            new WebCryptoHopeStudioSecretCipher(
+              Deno.env.get('HOPSTUDIO_CONFIG_ENCRYPTION_KEY') ?? null,
+            ),
+          );
+          const externalRequestRegistry = new SupabaseExternalServiceRequestRegistry(serverClient);
+          try {
+            const hopeStudioResponse = await tryHandleConfiguredWorkspaceChat(
+              // Le routeur HopeStudio inspecte le JSON. Une branche distincte
+              // empêche le runtime Edge de perturber le body encore nécessaire
+              // au fallback assistant historique lorsque HS est désactivé.
+              normalizeApiRequest(request.clone()),
+              {
+                userId: data.user.id,
+                settings: hopeStudioSettings,
+                registry: externalRequestRegistry,
+                isTenantMember: (tenantId) => accessGateway.isTenantMember(actorId.value, tenantId),
+                onTrace(event) {
+                  console.info('[hopstudio-trace]', JSON.stringify({
+                    at: new Date().toISOString(),
+                    ...event,
+                  }));
+                },
+                onRequestStart(context) {
+                  console.info('[hopstudio-chat:start]', JSON.stringify(context));
+                },
+                onRequestCompleted(context) {
+                  console.info('[hopstudio-chat:completed]', JSON.stringify(context));
+                },
+                onUnexpectedError(error, context) {
+                  console.error('[hopstudio-chat:error]', JSON.stringify({
+                    requestId: context.requestId,
+                    tenantId: context.tenantId,
+                    error: error instanceof Error ? error.message : String(error),
+                  }));
+                },
+              },
+            );
+            if (hopeStudioResponse) return withCors(hopeStudioResponse);
+          } catch (error) {
+            console.error('[hopstudio-routing]', error);
+            return withCors(Response.json({
+              type: 'about:blank',
+              title: 'Assistant HopeStudio indisponible',
+              status: 503,
+              code: 'assistant.hopstudio_configuration_unavailable',
+              detail: error instanceof Error ? error.message : 'Configuration HopeStudio indisponible.',
+              requestId: crypto.randomUUID(),
+            }, {
+              status: 503,
+              headers: { 'Content-Type': 'application/problem+json; charset=utf-8' },
+            }));
+          }
+        }
         return withCors(await proxyAssistantChat(request, {
           legacyBaseUrl: `${supabaseUrl}/functions/v1/make-server-e3db71a4`,
           authorization,
@@ -223,6 +349,16 @@ export async function handleRequest(request: Request): Promise<Response> {
     Deno.env.get('CLARIPRINT_LOGIN') ?? null,
     Deno.env.get('CLARIPRINT_PASSWORD') ?? null,
   ));
+  const hopeStudioSettingsService = new HopeStudioTenantSettingsService(
+    new SupabaseHopeStudioSettingsAccessGateway(client),
+    new SupabaseHopeStudioTenantSettingsRepository(
+      client,
+      new WebCryptoHopeStudioSecretCipher(
+        Deno.env.get('HOPSTUDIO_CONFIG_ENCRYPTION_KEY') ?? null,
+      ),
+    ),
+  );
+
   // ── Facade Gestion commerciale (E10) ──────────────────────────────────────
   // Montee A COTE de la facade historique, sur le meme prefixe /api/v1.
   // `createMagritApiApplication` aiguille par chemin et refuse de demarrer si
@@ -537,7 +673,8 @@ export async function handleRequest(request: Request): Promise<Response> {
     // src/server/api/legacy-routes.ts, ou elle est typecheckee et testable.
     // Importer ce module verifie AU CHARGEMENT qu aucun chemin E10 ne recouvre
     // un chemin historique.
-    routes: createLegacyApiRoutes({
+    routes: [
+      ...createLegacyApiRoutes({
       session: service,
       orders: ordersService,
       invitations: invitationsService,
@@ -562,7 +699,7 @@ export async function handleRequest(request: Request): Promise<Response> {
       libraryProducts: libraryProductsService,
       commercial: commercialService,
       storefrontCookiePolicy,
-      authorizeStorefrontEditorial: async (storefrontRequest, shopSlug) => {
+        authorizeStorefrontEditorial: async (storefrontRequest, shopSlug) => {
         const opaqueToken = readStorefrontSessionCookie(
           storefrontRequest.headers.get('cookie'),
           storefrontCookiePolicy,
@@ -579,8 +716,10 @@ export async function handleRequest(request: Request): Promise<Response> {
         } catch {
           return null;
         }
-      },
-    }),
+        },
+      }),
+      ...createHopeStudioSettingsRoutes(hopeStudioSettingsService),
+    ],
     actorResolver: {
       async resolve() {
         const { data, error } = await client.auth.getUser();

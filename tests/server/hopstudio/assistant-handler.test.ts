@@ -8,6 +8,7 @@ const result = {
   demoMode: false as const,
   provider: 'hopstudio' as const,
   sessionRef: null,
+  sessionDataRef: null,
 };
 
 function request(streaming = false) {
@@ -15,6 +16,7 @@ function request(streaming = false) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'X-Request-Id': 'request-correlation-1',
       ...(streaming ? { Accept: 'text/event-stream' } : {}),
     },
     body: JSON.stringify({
@@ -39,11 +41,41 @@ describe('façade HTTP autonome HopeStudio', () => {
 
     const response = await handler(request());
     expect(response.status).toBe(200);
+    expect(response.headers.get('x-request-id')).toBe('request-correlation-1');
     expect(await response.json()).toEqual(result);
     expect(chat).toHaveBeenCalledWith(expect.objectContaining({
       tenantId: 'tenant-autorisé',
       userId: 'user-autorisé',
     }));
+  });
+
+  it('corrèle l erreur affichée avec le log backend', async () => {
+    const onUnexpectedError = vi.fn();
+    const handler = createHopeStudioAssistantHandler({
+      gateway: { async chat() { throw new Error('Réponse HopeStudio invalide'); } },
+      identityResolver: {
+        async resolve() { return { tenantId: 'tenant-autorisé', userId: 'user-autorisé' }; },
+      },
+      onUnexpectedError,
+    });
+
+    const response = await handler(request());
+    const body = await response.json();
+
+    expect(response.status).toBe(502);
+    expect(body).toMatchObject({
+      code: 'assistant.hopstudio_unavailable',
+      detail: 'Réponse HopeStudio invalide',
+      requestId: 'request-correlation-1',
+    });
+    expect(onUnexpectedError).toHaveBeenCalledWith(
+      expect.any(Error),
+      {
+        requestId: 'request-correlation-1',
+        tenantId: 'tenant-autorisé',
+        userId: 'user-autorisé',
+      },
+    );
   });
 
   it('convertit le résultat en événement SSE done', async () => {
@@ -69,4 +101,3 @@ describe('façade HTTP autonome HopeStudio', () => {
     expect(chat).not.toHaveBeenCalled();
   });
 });
-

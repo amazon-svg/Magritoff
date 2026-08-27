@@ -50,6 +50,28 @@ describe('BrowserApiAssistantGateway', () => {
     })).rejects.toMatchObject<Partial<AssistantStreamError>>({ kind: 'billing', status: 402 });
   });
 
+  it('remonte le détail problem+json fourni par le serveur', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({
+      title: 'Requête invalide',
+      detail: 'Corps JSON invalide',
+      code: 'assistant.hopstudio_unavailable',
+      requestId: 'request-test-1',
+    }, { status: 400 })));
+
+    await expect(new BrowserApiAssistantGateway().send({
+      accessToken: 'token-test',
+      streaming: false,
+      body: {},
+      signal: new AbortController().signal,
+    })).rejects.toMatchObject<Partial<AssistantStreamError>>({
+      kind: 'network',
+      status: 400,
+      message: 'Corps JSON invalide',
+      code: 'assistant.hopstudio_unavailable',
+      requestId: 'request-test-1',
+    });
+  });
+
   it('laisse le cookie HttpOnly porter une requête storefront', async () => {
     const fetchMock = vi.fn(async () => Response.json({ configs: [] }));
     vi.stubGlobal('fetch', fetchMock);
