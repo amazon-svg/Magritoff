@@ -86,6 +86,12 @@ sessions et données métier.
   bundle vendor, et chemin injecté dans `options.root_ejs.base` du `div` HLUX ;
 - feuille `sugarcrepeHLUX.magrit.css` dédiée à l’adaptation graphique dans
   Magrit ;
+- accueil conversationnel aligné sur la direction « Le papier pense », avec
+  logo Magrit, exemples de prompts et composeur ancré ;
+- chrome HopeStudio réduit à des actions compactes et message d’accueil natif
+  remplacé par l’accueil Magrit ;
+- historique HopeStudio rendu comme un drawer latéral personnalisable via
+  `chat_user_sessions.ejs` ;
 - nettoyage des instances détachées et du widget lors du démontage React ;
 - écran `/dev/hopstudio` conservé comme banc d’intégration du runtime headless.
 
@@ -145,8 +151,10 @@ reste à réaliser.
 
 ## Reste à faire
 
-- effectuer la passe UX sur les templates et la CSS HopeStudio dans le contexte
-  réel de l’accueil Magrit ;
+- valider visuellement et affiner cette première passe sur les tailles desktop
+  et mobile dans le contexte authentifié de l’accueil Magrit ;
+- poursuivre l’adaptation des EJS de fiches produit, formulaires, panier et
+  résultats de prix ;
 - ajouter un écran d’administration pour explorer facilement le registre
   `external_service_requests` ;
 - persister durablement `sessionRef` et `sessionDataRef` avec la conversation
