@@ -49,6 +49,7 @@ const routeLoaders: Readonly<Record<string, LazyPageLoader>> = Object.freeze({
   'document-templates.workspace.fields': () => import('@/modules/document-templates/ui').then((module) => ({ default: module.DashboardDocumentTemplateFields })),
   'notifications.workspace.templates': () => import('@/modules/notifications/ui').then((module) => ({ default: module.DashboardNotificationTemplates })),
   'notifications.workspace.logs': () => import('@/modules/notifications/ui').then((module) => ({ default: module.DashboardNotificationLogs })),
+  'hopstudio.workspace.settings': () => import('@/modules/hopstudio/ui').then((module) => ({ default: module.ClariprintStudioSettingsPage }))
 });
 
 export type WorkspaceRuntimeRoute = Readonly<{

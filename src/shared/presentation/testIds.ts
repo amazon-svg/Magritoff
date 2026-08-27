@@ -132,6 +132,7 @@ export const TEST_IDS = {
     /** Sprint 5 (raccourcis rail lateral) - acces rapides Projets / Devis depuis la home chat. */
     railProjectsLink: 'marguerite-rail-projects-link',
     railQuotesLink: 'marguerite-rail-quotes-link',
+    assistantErrorBanner: 'marguerite-assistant-error-banner',
   },
 
   // ─── P07 — Tracking conso IA ──────────────────────────────────────────

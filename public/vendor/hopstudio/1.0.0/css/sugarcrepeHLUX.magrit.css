@@ -1,0 +1,352 @@
+/*
+ * Adaptation Magrit de l'UX HopeStudio 1.0.0.
+ *
+ * La feuille fournisseur reste importée en premier. Les règles suivantes
+ * corrigent ses dépendances visuelles manquantes et traduisent l'interface
+ * avec les tokens Magrit sans modifier le bundle HopeStudio d'origine.
+ */
+@import url('./sugarcrepeHLUX.css');
+
+/* sugarcrepeHLUX.css fixe body à .875rem : Magrit conserve son échelle. */
+body {
+  font-size: var(--font-size, 16px);
+}
+
+:where(.hopstudio-workspace, [data-testid='hopstudio-integration-test']) {
+  --hs-bg: var(--bg, #fafafa);
+  --hs-paper: var(--paper, #fff);
+  --hs-ink: var(--ink, #0a0a0a);
+  --hs-ink-2: var(--ink-2, #2a2a2d);
+  --hs-muted: var(--ink-muted, #52525b);
+  --hs-line: var(--line, #ececec);
+  --hs-line-2: var(--line-2, #d4d4d8);
+  --hs-brand: var(--brand, #0f172a);
+  --hs-brand-ink: var(--brand-ink, #fff);
+  --hs-radius: var(--v2-radius-lg, 10px);
+  --hs-radius-sm: var(--v2-radius, 6px);
+  --hs-shadow: var(--v2-shadow-md, 0 8px 24px rgb(0 0 0 / 6%));
+
+  color: var(--hs-ink);
+  font-family: var(--font-ui, 'Helvetica Neue', Helvetica, Arial, sans-serif);
+  font-size: var(--fs-base, 14.5px);
+  font-weight: 300;
+}
+
+.hopstudio-workspace {
+  padding: clamp(12px, 2vw, 28px);
+  background: var(--hs-bg);
+}
+
+:where(.hopstudio-workspace, [data-testid='hopstudio-integration-test']) #chat-bar {
+  width: 100%;
+  max-width: 1040px;
+  margin-inline: auto;
+}
+
+/* Le chat devient le contenu principal de Magrit, et non un widget flottant. */
+:where(.hopstudio-workspace, [data-testid='hopstudio-integration-test']) #chat-widget {
+  position: relative;
+  inset: auto;
+  z-index: 20;
+  width: 100%;
+  max-width: none;
+  min-height: min(680px, calc(100vh - 180px));
+  max-height: none;
+  overflow: hidden;
+  border: 1px solid var(--hs-line);
+  border-radius: var(--v2-radius-2xl, 16px);
+  background: var(--hs-paper);
+  box-shadow: var(--hs-shadow);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  color: var(--hs-ink);
+  font-family: inherit;
+}
+
+:where(.hopstudio-workspace, [data-testid='hopstudio-integration-test']) #chat-header {
+  min-height: 68px;
+  display: grid;
+  grid-template-columns: minmax(120px, auto) minmax(180px, 1fr) auto auto;
+  gap: 16px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--hs-line);
+  border-radius: 0;
+  background: var(--hs-paper);
+  color: var(--hs-ink);
+  cursor: default;
+  font-size: var(--fs-base, 14.5px);
+}
+
+:where(.hopstudio-workspace, [data-testid='hopstudio-integration-test']) #chat-header .title {
+  font-size: var(--fs-xl, 21px);
+  font-weight: 500;
+  letter-spacing: var(--tracking-tight, -.025em);
+}
+
+:where(.hopstudio-workspace, [data-testid='hopstudio-integration-test']) #session-title {
+  min-width: 0;
+}
+
+:where(.hopstudio-workspace, [data-testid='hopstudio-integration-test']) .sess-title {
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--hs-radius-sm);
+  background: transparent;
+  color: var(--hs-ink-2);
+  font: inherit;
+  text-align: center;
+}
+
+:where(.hopstudio-workspace, [data-testid='hopstudio-integration-test']) .sess-title:hover,
+:where(.hopstudio-workspace, [data-testid='hopstudio-integration-test']) .sess-title:focus {
+  border-color: var(--hs-line-2);
+  background: var(--hs-bg);
+  outline: none;
+}
+
+:where(.hopstudio-workspace, [data-testid='hopstudio-integration-test']) #chat-header-basket {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 9px;
+  border-radius: var(--hs-radius-sm);
+  background: var(--hs-bg);
+}
+
+:where(.hopstudio-workspace, [data-testid='hopstudio-integration-test']) #chat-header button {
+  min-width: 32px;
+  min-height: 32px;
+  padding: 4px 8px;
+  border-radius: var(--hs-radius-sm);
+  background: transparent;
+  color: var(--hs-muted);
+  font: inherit;
+}
+
+:where(.hopstudio-workspace, [data-testid='hopstudio-integration-test']) #chat-header button:hover {
+  background: var(--hs-bg);
+  color: var(--hs-ink);
+}
+
+:where(.hopstudio-workspace, [data-testid='hopstudio-integration-test']) #chat-body {
+  min-height: 500px;
+  padding: clamp(16px, 2.5vw, 30px);
+  gap: 12px;
+  background: var(--hs-bg);
+  color: var(--hs-ink);
+  font-size: var(--fs-md, 15.5px);
+  line-height: var(--lh-relax, 1.6);
+}
+
+:where(.hopstudio-workspace, [data-testid='hopstudio-integration-test']) .chat-msg {
+  width: fit-content;
+  max-width: min(82%, 760px);
+  padding: 12px 15px;
+  border-radius: var(--hs-radius);
+}
+
+:where(.hopstudio-workspace, [data-testid='hopstudio-integration-test']) .chat-msg.ai {
+  align-self: flex-start;
+  border: 1px solid var(--hs-line);
+  background: var(--hs-paper);
+  color: var(--hs-ink-2);
+}
+
+:where(.hopstudio-workspace, [data-testid='hopstudio-integration-test']) .chat-msg.user {
+  align-self: flex-end;
+  background: var(--hs-brand);
+  color: var(--hs-brand-ink);
+  text-align: left;
+}
+
+:where(.hopstudio-workspace, [data-testid='hopstudio-integration-test']) .chat-msg a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+:where(.hopstudio-workspace, [data-testid='hopstudio-integration-test']) #chat-input {
+  min-height: 68px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--hs-line);
+  background: var(--hs-paper);
+}
+
+:where(.hopstudio-workspace, [data-testid='hopstudio-integration-test']) #chat-input input {
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid var(--hs-line-2);
+  border-radius: var(--hs-radius);
+  background: var(--hs-paper);
+  color: var(--hs-ink);
+  font: inherit;
+}
+
+:where(.hopstudio-workspace, [data-testid='hopstudio-integration-test']) #chat-input input:focus {
+  border-color: var(--hs-brand);
+  box-shadow: var(--v2-shadow-focus, 0 0 0 2px #fff, 0 0 0 4px #0f172a);
+}
+
+/* Modales natives de chat.js : absentes de la CSS du dist fourni. */
+:where(.hopstudio-workspace, [data-testid='hopstudio-integration-test']) .modal-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(12px, 3vw, 32px);
+  background: rgb(10 10 10 / 48%);
+}
+
+:where(.hopstudio-workspace, [data-testid='hopstudio-integration-test']) .modal-overlay[aria-hidden='false'] {
+  display: flex;
+}
+
+:where(.hopstudio-workspace, [data-testid='hopstudio-integration-test']) .modal-panel {
+  width: min(920px, 100%);
+  max-height: 90%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--hs-line);
+  border-radius: var(--v2-radius-2xl, 16px);
+  background: var(--hs-paper);
+  box-shadow: var(--v2-shadow-lg, 0 24px 60px rgb(9 9 11 / 12%));
+}
+
+:where(.hopstudio-workspace, [data-testid='hopstudio-integration-test']) .modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--hs-line);
+}
+
+:where(.hopstudio-workspace, [data-testid='hopstudio-integration-test']) .modal-title {
+  margin: 0;
+  color: var(--hs-ink);
+  font-size: var(--fs-lg, 17px);
+  font-weight: 500;
+}
+
+:where(.hopstudio-workspace, [data-testid='hopstudio-integration-test']) .modal-close,
+:where(.hopstudio-workspace, [data-testid='hopstudio-integration-test']) .btn-close {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: var(--hs-radius-sm);
+  background: var(--hs-bg);
+  color: var(--hs-muted);
+  cursor: pointer;
+}
+
+:where(.hopstudio-workspace, [data-testid='hopstudio-integration-test']) .modal-body {
+  min-height: 0;
+  overflow: auto;
+  padding: 20px;
+}
+
+:where(.hopstudio-workspace, [data-testid='hopstudio-integration-test']) .modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--hs-line);
+}
+
+/* Primitives Bootstrap employées par les templates EJS HopeStudio. */
+:where(.hopstudio-workspace, [data-testid='hopstudio-integration-test']) .nav-tabs {
+  display: flex;
+  gap: 4px;
+  margin: 0 0 16px;
+  padding: 0;
+  border-bottom: 1px solid var(--hs-line);
+  list-style: none;
+}
+
+:where(.hopstudio-workspace, [data-testid='hopstudio-integration-test']) .nav-link {
+  padding: 10px 12px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--hs-muted);
+  cursor: pointer;
+  font: inherit;
+}
+
+:where(.hopstudio-workspace, [data-testid='hopstudio-integration-test']) .nav-link.active {
+  border-bottom-color: var(--hs-brand);
+  color: var(--hs-ink);
+  font-weight: 500;
+}
+
+:where(.hopstudio-workspace, [data-testid='hopstudio-integration-test']) .card,
+:where(.hopstudio-workspace, [data-testid='hopstudio-integration-test']) .modal-content {
+  border: 1px solid var(--hs-line);
+  border-radius: var(--hs-radius);
+  background: var(--hs-paper);
+  box-shadow: var(--v2-shadow-xs, 0 1px 2px rgb(0 0 0 / 4%));
+}
+
+:where(.hopstudio-workspace, [data-testid='hopstudio-integration-test']) .form-control,
+:where(.hopstudio-workspace, [data-testid='hopstudio-integration-test']) select,
+:where(.hopstudio-workspace, [data-testid='hopstudio-integration-test']) textarea {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid var(--hs-line-2);
+  border-radius: var(--hs-radius-sm);
+  background: var(--hs-paper);
+  color: var(--hs-ink);
+  font: inherit;
+}
+
+:where(.hopstudio-workspace, [data-testid='hopstudio-integration-test']) .btn,
+:where(.hopstudio-workspace, [data-testid='hopstudio-integration-test']) .configuration-update {
+  min-height: 40px;
+  padding: 9px 14px;
+  border: 1px solid var(--hs-brand);
+  border-radius: var(--hs-radius-sm);
+  background: var(--hs-brand);
+  color: var(--hs-brand-ink);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 500;
+}
+
+:where(.hopstudio-workspace, [data-testid='hopstudio-integration-test']) .table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+:where(.hopstudio-workspace, [data-testid='hopstudio-integration-test']) .table th,
+:where(.hopstudio-workspace, [data-testid='hopstudio-integration-test']) .table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--hs-line);
+  text-align: left;
+}
+
+@media (max-width: 720px) {
+  :where(.hopstudio-workspace, [data-testid='hopstudio-integration-test']) #chat-header {
+    grid-template-columns: 1fr auto;
+  }
+
+  :where(.hopstudio-workspace, [data-testid='hopstudio-integration-test']) #session-title {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  :where(.hopstudio-workspace, [data-testid='hopstudio-integration-test']) #chat-widget {
+    min-height: calc(100vh - 120px);
+    border-radius: var(--hs-radius);
+  }
+
+  :where(.hopstudio-workspace, [data-testid='hopstudio-integration-test']) .chat-msg {
+    max-width: 94%;
+  }
+}

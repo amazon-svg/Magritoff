@@ -69,6 +69,11 @@ const MachineParkWizard = lazy(() =>
     default: m.MachineParkWizard,
   })),
 );
+const HopeStudioIntegrationTestPage = lazy(() =>
+  import('@/modules/hopstudio/ui').then((module) => ({
+    default: module.HopeStudioIntegrationTestPage,
+  })),
+);
 
 function RouteFallback() {
   return (
@@ -109,6 +114,9 @@ function lazyRoute(element: React.ReactNode) {
  * télécharge aucune composition Magrit avant navigation vers cette surface.
  */
 export const router = createBrowserRouter([
+  ...(import.meta.env.DEV
+    ? [{ path: '/dev/hopstudio', element: lazyRoute(<HopeStudioIntegrationTestPage />) }]
+    : []),
   {
     element: lazyRoute(<StorefrontRuntimeBoundary />),
     children: [
