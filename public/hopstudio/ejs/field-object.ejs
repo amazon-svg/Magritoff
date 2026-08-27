@@ -1,0 +1,7 @@
+              <label for="<%= fid %>"><%= label %></label>
+              <div class="row">
+              <input type="hidden" name="<%= fid %>" value='<%= encodeURIComponent(JSON.stringify(value)) %>'/>
+<% for (const [key,val] of Object.entries(value)) { %>
+                <div class="col-md-6 mb-3" id="<%= fid %>zzz<%= key %>"></div>
+<% } %>
+              </div>

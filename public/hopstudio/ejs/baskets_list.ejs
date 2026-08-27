@@ -1,0 +1,46 @@
+<table class="table table-striped table-hover" role="baskets_table">
+<% if (select) { %><caption><%= HCSR.transl("Select one basket") %></caption><% } %>
+    <thead _class="thead-light">
+        <tr class="h5">
+            <th scope="col">#</th>
+<% if (schl_adm()) { %>
+            <th scope="col"><%= HCSR.transl("Client") %></th>
+<% } %>
+            <th scope="col"><%= HCSR.transl("Name") %></th>
+            <th scope="col"><%= HCSR.transl("supplier") %></th>
+            <th scope="col"><%= HCSR.transl("Created") %></th>
+<% if (schl_adm()) { %>
+            <th scope="col">&nbsp;</th>
+<% } %>
+        </tr>
+    </thead>
+    <tbody _class="bg-white text-dark">
+<% var i = 0;
+    data.forEach(p => {
+      i++; %>
+        <tr basket_id="<%= p.id %>"
+         onclick="
+<% if (select) { %>
+         const actif = $(this).hasClass('table-active');
+         $(this).parent().find('.table-active').removeClass('table-active');
+          if (!actif) $(this).addClass('table-active');
+<% } else { %>
+          sugarcrepeHL.instance(this).inspectBasket('<%=p.id%>');
+<% } %>">
+            <th scope="row"><%= p.id %></th>
+<% if (schl_adm()) { %>
+            <td><%= p.client_mail %></td>
+<% } %>
+            <td role="name"><%= p.name %></td>
+            <td><%= p.supplier_mail %></td>
+            <td><%= p.created %></td>
+<% if (schl_adm()) { %>
+            <td><a class="btn btn-sm"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16">
+  <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5Zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5Zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6Z"/>
+  <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1ZM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118ZM2.5 3h11V2h-11v1Z"/>
+</svg></a></td>
+<% } %>
+        </tr>
+<% }); %>
+    </tbody>
+</table>

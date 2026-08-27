@@ -82,6 +82,8 @@ sessions et données métier.
 - initialisation de `window.HChat` avec `tenant_id`, `user_id` et la session par
   défaut ;
 - configuration des chemins headless, templates EJS, images, langues et CSS ;
+- copie personnalisable des templates dans `/hopstudio/ejs/`, séparée du
+  bundle vendor, et chemin injecté dans `options.root_ejs.base` du `div` HLUX ;
 - feuille `sugarcrepeHLUX.magrit.css` dédiée à l’adaptation graphique dans
   Magrit ;
 - nettoyage des instances détachées et du widget lors du démontage React ;

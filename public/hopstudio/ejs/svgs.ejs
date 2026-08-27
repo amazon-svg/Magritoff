@@ -1,0 +1,62 @@
+          <div class="container">
+          <% if (schl_tpl()) { %>
+                <div class="input-group">
+                <label for="offgridcheckbox"><%= HCSR.transl("Grid") %></label>
+                <input type="checkbox" id="offgridcheckbox" checked data-toggle="toggle" data-on="On Grid" data-offlabel="Off Grid" data-onstyle="success" data-offstyle="danger" data-width="160px" onchange="toggleSVG(this,'g','role','grid','btn-success');">
+                </div><div class="input-group">
+                <label for="offmaterialcheckbox"><%= HCSR.transl("Material") %></label>
+                <input type="checkbox" id="offmaterialcheckbox" checked data-toggle="toggle" data-on="On Material" data-offlabel="Off Material" data-onstyle="success" data-offstyle="danger" data-width="160px" onchange="toggleSVG(this,'image','kind','bgroot','btn-success');">
+                </div><div class="input-group">
+                <label for="offbgimgcheckbox"><%= HCSR.transl("Bg Img") %></label>
+                <input type="checkbox" id="offbgimgcheckbox" checked data-toggle="toggle" data-on="On Bg Img" data-offlabel="Off Bg Img" data-onstyle="success" data-offstyle="danger" data-width="160px" onchange="toggleSVG(this,'image','kind','bgcustom','btn-success');">
+                </div><div class="input-group">
+                <label for="offinfocheckbox"><%= HCSR.transl("Infos") %></label>
+                <input type="checkbox" id="offinfocheckbox" checked data-toggle="toggle" data-on="On Infos" data-offlabel="Off Infos" data-onstyle="success" data-offstyle="danger" data-width="160px" onchange="toggleSVG(this,'text','role','name','btn-success');">
+                </div><div class="input-group">
+                <label for="offmetrixcheckbox"><%= HCSR.transl("Metrix") %></label>
+                <input type="checkbox" id="offmetrixcheckbox" checked data-toggle="toggle" data-on="On Metrix" data-offlabel="Off Metrix" data-onstyle="success" data-offstyle="danger" data-width="160px" onchange="toggleSVG(this,'text','role','metrix','btn-success');">
+                </div><div class="input-group">
+                <label for="offfaceorigincheckbox"><%= HCSR.transl("Faces origin") %></label>
+                <input type="checkbox" id="offfaceorigincheckbox" data-toggle="toggle" data-on="On Faces Origins" data-offlabel="Off Faces Origins" data-onstyle="success" data-offstyle="danger" data-width="160px" onchange="toggleSVG(this,['text','path'],'role','faceorigin','btn-success');">
+                </div><div class="input-group">
+                <label for="offfacenamecheckbox"><%= HCSR.transl("Faces names") %></label>
+                <input type="checkbox" id="offfacenamecheckbox" data-toggle="toggle" data-on="On Faces Names" data-offlabel="Off Faces Names" data-onstyle="success" data-offstyle="danger" data-width="160px" onchange="toggleSVG(this,'text','role','facename','btn-success');">
+                </div>
+
+                <button class="btn btn-outline-secondary" role="savePrinterTemplates"
+                        onclick="sugarcrepeHL.instance(this).savePrinterSVGs();
+                       /* const HLUX=sugarcrepeHL.instance(this); $.proxy(HLUX.savePrinterSVGs(),HLUX); */
+                        "><%= HCSR.transl("download SVG templates for printer") %></button>
+          <% }  %>
+                <div class="w-100 text-center p-4">
+                  <button class="btn btn-lg btn-primary" role="saveDesignerTemplates"
+                        onclick="sugarcrepeHL.instance(this).saveDesignerSVGs();
+                       /* const HLUX=sugarcrepeHL.instance(this); $.proxy(HLUX.saveDesignerSVGs(),HLUX); */
+                        "><%= HCSR.transl("download SVG templates for designer") %></button></div>
+            <ul class="nav nav-tabs h6" id="myTabSVG" role="tablist">
+            <% var first = true;
+              htmlSVGs.forEach(entity => {
+                const sideName = entity.sources[0];
+                if (typeof(sideName) === "string" && sideName.substring(sideName.length-4,sideName.length) !== "side") { %>
+              <li class="nav-item">
+                <a class="nav-link <% if (first) {%>active<% } %>" id="E<%= entity.id %>-tab" data-toggle="tab"
+                 href="#E<%= entity.id %>" role="tab"
+                 data-bs-toggle="tab" data-bs-target="#E<%= entity.id %>"
+                 aria-controls="E<%= entity.id %>" aria-selected="false"><%= sideName.replace("custom_scene>custom_layout>","") %></a>
+              </li>
+            <% first = false; }}); %>
+            </ul>
+            <div class="tab-content" id="myTabSVGContent">
+            <% first = true;
+                htmlSVGs.forEach(entity => {
+                const sideName = entity.sources[0];
+                if (typeof(sideName) === "string" && sideName.substring(sideName.length-4,sideName.length) !== "side") { %>
+              <div class="container-fluid tab-pane fade_inactive <% if (first) {%>active<% } %>" id="E<%= entity.id %>" role="tabpanel" aria-labelledby="E<%= entity.id %>-tab">
+                <div role="svg-entity" class="row">
+                  <%- entity.svg %>
+                </div>
+              </div>
+            <% first = false;
+              }}); %>
+            </div>
+          </div>

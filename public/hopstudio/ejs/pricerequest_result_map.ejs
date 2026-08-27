@@ -1,0 +1,81 @@
+<%  if (locals.all_process && Array.isArray(all_process)) { %>
+<div id="mapprice" style="height: 500px;"></div>
+<%}%>
+<table class="table table-sm table-striped">
+<% if (false && !locals.viewLine) { %><caption>
+        <a onclick="const HLUX = sugarcrepeHL.instance(this).locals;
+                    const $divpdf=$('div[role=displaypdf]');
+                    if ($divpdf.attr('style') === 'display: none;') {
+                        sugarcrepeHL.htmlEJS($divpdf, sugarcrepeHL.getEJSbyKind('embedpdf'), { pdfencoded : HLUX.businessResponse.quote_process } );
+                        $divpdf.attr('style','display: block;');
+                    }  else {
+                        $divpdf.attr('style','display: none;');
+                        $divpdf.html('');
+                    }"
+            style='cursor: pointer' ><img src="<%= sugarcrepeHL.getRootImg("clariprint_HLUX") %>pdf.png" title="Détails de gamme"></a></td>
+        <br>
+        <a onclick="
+            const HLUX = sugarcrepeHL.instance(this).locals;
+            sugarcrepeHL.htmlEJS($('[role=pricerequest-content]'), sugarcrepeHL.getEJSbyKind(HLUX.CPQ.ejsGetPriceResult), HLUX.businessResponse);"
+                style='cursor: pointer'>Click to refresh EJS display !</a></caption><%}%>
+    <thead>
+        <tr>
+            <th scope="col">#</th>
+<% if (sugarcrepeHL.marketplace) { %>
+            <th scope="col"><%= HCSR.transl("Printer") %></th>
+<% } %>
+<!--            <th scope="col"><%= HCSR.transl("Material") %></th>
+            <th scope="col"><%= HCSR.transl("Print") %></th>
+            <th scope="col"><%= HCSR.transl("Makeready") %></th>
+            <th scope="col"><%= HCSR.transl("Delivery") %></th> -->
+            <th scope="col"><%= HCSR.transl("Amount") %></th>
+            <th scope="col"><%= HCSR.transl("Delay") %></th>
+<% if (!locals.viewLine) { %><th scope="col">&nbsp;</th><% } %>
+        </tr>
+    </thead>
+    <tbody>
+<%  if (locals.all_process && Array.isArray(all_process)) { %>
+<%
+    function compareProcesses(p1,p2) {
+        return parseInt(p1.total) - parseInt(p2.total);
+    }
+
+        var i = 0;
+        console.log(all_process);
+        console.log(compareProcesses);
+       all_process.sort(compareProcesses).forEach(p => {i++; %>
+        <tr>
+            <th scope="row"><%= i %></th>
+            <td><%= p.printer %>
+              <!--  <button class="btn btn-secondary" onclick="sugarcrepeHL.instance(this).modalPrinterInfos('<%= p.mail %>','<%=p.printer%>');"><%= p.printer %></button> -->
+            </td>
+<!--            <td><%= p.paper %></td>
+            <td><%= p.print %></td>
+            <td><%= p.makeready %></td>
+            <td><%= p.delivery %></td> -->
+            <td><%= sugarcrepeHL.formatPrice(p.total) %></td>
+            <td><%= p.delais %> day(s)</td>
+        <% if (!locals.viewLine) { %>
+            <td><button class="btn btn-sm btn-primary" role="openToBasketModal"
+                onclick="<% if (schl_dis()) {%>alert('<%= HCSR.transl('Connect you to add to basket, but first SAVE YOUR PROJECT with the drive icon below') %>');<%} else {%>sugarcrepeHL.instance(this).modaltobasket(<%= (i - 1) %>);<%}%>">To basket &gt;&gt;</button></td>
+        <%}%>
+        </tr>
+<%      });
+    } else { %>
+        <tr>
+            <th scope="row"><%= i %></th>
+            <td><%= fournisseur %></td>
+<!--            <td><%= costs.paper %></td>
+            <td><%= costs.print %></td>
+            <td><%= costs.makeready %></td>
+            <td><%= costs.delivery %></td> -->
+            <td><%= sugarcrepeHL.formatPrice(costs.total) %></td>
+            <td><%= delais %> day(s)</td>
+        <% if (!locals.viewLine) { %>
+            <td><button class="btn btn-sm btn-primary" role="openToBasketModal"
+                onclick="<% if (schl_dis()) {%>alert('<%= HCSR.transl('Connect you to add to basket, but first SAVE YOUR PROJECT with the drive icon below') %>');<%} else {%>sugarcrepeHL.instance(this).modaltobasket();<%}%>">To basket &gt;&gt;</button></td>
+        <%}%>
+        </tr>
+<% } %>
+    </tbody>
+</table>

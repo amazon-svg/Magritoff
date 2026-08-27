@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html id="html" lang="en">
+    <head id="head">
+   </head>
+  <body id="body">
+      <H1><%= id %></H1>
+      <H4><%= infos %></H4>
+      <p><%- technical %></p>
+      <p><%= notes %></p>
+      <% const mokupEntries = Object.entries(mokup);
+        if (mokupEntries.length > 0) { %>
+    </HR>
+      <H5>Ressources</H5>
+        <% mokupEntries.forEach(entry => {
+            const [key,val] = entry; %>
+            <img role="<%= key %>" src="<%= val %>"/><%
+          }); %>
+      <% } %>
+    <form action="<%=url%>" method="post">
+      <label for="password"><%= HCSR.transl("Password to edit the project") %></label>
+        <input type="Password" name="password" id="password" value="">
+        <input type="hidden" name="project-data" value="<%= JSON.stringify(locals) %>">
+        <button type="submit">Edit</button>
+    </form>
+  </body>
+</html>

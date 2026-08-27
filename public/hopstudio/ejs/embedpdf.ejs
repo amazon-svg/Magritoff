@@ -1,0 +1,3 @@
+            <embed id="processpdf" src="<%= `data:application/pdf;base64,${pdfencoded}` %>" width="90%" height="400px" type="application/pdf"/>
+            <button class="btn btn-sm btn-outline-secondary" onclick="const $divpdf=$('div[role=displaypdf]'); $divpdf.attr('style','display: none;');
+                        $divpdf.html('');">Close</button>

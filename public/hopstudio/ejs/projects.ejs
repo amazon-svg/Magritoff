@@ -1,0 +1,59 @@
+<% var count = 0;
+  var i = 0;
+  const response = {};
+  if (Array.isArray(data)) {
+    data.forEach(project => {
+      if (HU.isObject(project) && typeof project.name === "string") {
+        const [id,title,infos,price] = project.name.split(";");
+        response[id] = {
+          id : project.id,
+          title : title,
+          infos : infos,
+          price : price,
+          created : project.created
+        }
+      }
+    });
+  }
+
+  var len = Object.entries(response).length;
+  Object.entries(response).forEach(entry => {
+    const [id,obj] = entry;
+    const uid = obj.id;
+    const title = obj.title;
+    const price = obj.price;
+    const info = obj.infos;
+    const date = obj.created;
+    const tagA = id.split("~");
+    const cats = ["My projects"];
+    if (Array.isArray(obj.categories)) obj.categories.forEach(cat => cats.push(cat));
+    i++;
+   // const title = id;
+%><% if (count === 0) { %>
+          <div class="card-deck">
+<% } %>
+              <div class="card text-white bg-secondary w-20 m-2" id="<%=uid%>"
+                onmouseover="$(this).removeClass('bg-secondary').addClass('bg-info')"
+                onmouseleave="$(this).removeClass('bg-info').addClass('bg-secondary')"
+                style="width: 18rem;" search="<% tagA.forEach(tag => { %><%= tag %> <% }) %>" categories="<% cats.forEach(cat => { %><%=cat %>|<% }) %>">
+                <a onclick="sugarcrepeHL.instance(this).rinit({uid:'<%= uid %>'})"><img class="card-img-top" src="<%= rooturl %>/products_img/<%= id %>.png"
+                  width="300px" height="300px"
+                  alt="Card image cap" title="<%= info %>"></a>
+                <div class="card-body">
+                  <h4 class="card-title"><a class="nav-link" onclick="sugarcrepeHL.instance(this).rinit({uid:'<%= uid %>'})" title="<%= info %>"><%=title%> <font size="-2">from&nbsp;</font><font size="-1"><%= price %>&nbsp;&euro;/ex</font></a></h1>
+                  <p class="card-text"><small class="card-text">
+                    <% tagA.forEach(tag => { %><a tag="<%= tag %>" onclick="
+                      const isearch = $(this).parents('main').find('input[placeholder=Search]');
+                      const oldv = isearch.val();
+                      isearch.val(oldv + ' ' + $(this).attr('tag'));
+                      isearch.trigger('change');
+                      ">#<%= tag %></a><% }) %>
+                  </small>
+                  <span><button type="button" class="btn btn-danger" onclick="sugarcrepeHL.instance(this).removeProject('<%=uid%>');$('#<%=uid%>').remove();">Delete</button></span>
+                </p>
+                </div>
+              </div>
+
+<% if (count === 3 || i > len) {count = 0; %>
+          </div>
+<% } else count++; %><% }); %>

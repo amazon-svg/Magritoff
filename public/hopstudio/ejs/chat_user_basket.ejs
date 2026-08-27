@@ -1,0 +1,59 @@
+<style>
+    :root { --gap: 12px; --fg:#111; --muted:#666; --border:#e5e7eb; }
+    .sheet { max-width: 860px; margin: auto; padding: 10px; }
+    .card { border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+    .header { padding: 20px; border-bottom:1px solid var(--border); display:block; gap: var(--gap); align-items:center; }
+    .image-wrap { width: 100%; aspect-ratio: 1.2 / 1; background:#f7f7f7; border:1px solid var(--border); border-radius:8px; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+    .image-wrap img { width:100%; height:100%; object-fit:cover; }
+    .placeholder { font-size:12px; color:var(--muted); }
+    .title { font-size: 22px; font-weight: 700; margin:0 0 6px 0; }
+    .sku   { font-size: 13px; color: var(--muted); margin:0 0 8px 0; }
+    .summary { font-size: 14px; margin:0; color:#222; }
+    .tags { margin-top:8px; font-size:12px; color:var(--muted); }
+    .body { padding: 16px 20px 24px; }
+    .section-title { font-size: 14px; letter-spacing:.04em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px 0; }
+    .content3 { display:grid; grid-template-columns: 1fr 1fr 1fr; border:1px solid var(--border); border-radius:8px; overflow:hidden; }
+    .row { display:contents; }
+    .cell { padding: 10px 12px; border-bottom:1px solid var(--border); }
+    .cell:nth-child(4n+1), .cell:nth-child(4n+2) { background:#fcfcfc; }
+    .prompt {width: 200px;}
+    .key { font-weight:600; }
+    .val { color:#222; }
+    .sess-title {max-width:120px;}
+    .muted { color: var(--muted); }
+    /* last row bottom border removal */
+    .content3 .cell:last-child, .content3 .cell:nth-last-child(2) { border-bottom:none; }
+    @media (max-width: 640px) {
+      .header { grid-template-columns: 1fr; }
+      .content3 { grid-template-columns: 1fr 1fr; }
+    }
+</style>
+  <div class="sheet">
+    <div class="card">
+      <!-- HEADER: image + basics -->
+      <div class="header">
+      </div>
+      <!-- BODY -->
+      <div class="body">
+        <h2 class="section-title"><%= HCSR.tMCtx('Cards') %></h2>
+        <div class="content3">
+<%
+    console.log(basketCards);
+    var total=0;
+    basketCards.forEach(card=>{
+      cardPrice = card.clicked_intent?.getPrice?.response;
+      total += cardPrice %>
+          <div class="cell prompt" data-card-key="<%= card.DBK %>"><%= card.prompt %></div>
+          <div class="cell price" data-card-key="<%= card.DBK %>"><%= sugarcrepeHL.formatPrice(cardPrice) %></div>
+          <div class="cell action" data-card-key="<%= card.DBK %>">
+            <a style="cursor: pointer;"
+              data-card-key="<%= card.DBK %>"
+              onclick="window.hopes_suite.chat.showChatConfirmRemoveToBasket(this)"><%= HCSR.tMCtx('delete') %></a>
+          </div>
+<% }); %>
+          <div class="cell label"><b><%= HCSR.tMCtx('Total HT') %></b></div>
+          <div class="cell price"><b><%= sugarcrepeHL.formatPrice(total) %></b></div>
+        </div>
+      </div>
+    </div>
+  </div>
