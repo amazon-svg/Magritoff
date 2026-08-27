@@ -833,6 +833,186 @@ body {
   background: var(--hs-bg);
 }
 
+/* Carte produit conversationnelle : lecture rapide et actions persistantes. */
+.hopstudio-workspace .chat-msg.ai > .hs-product-card {
+  overflow: hidden;
+  border: 1px solid var(--hs-line);
+  border-radius: 18px;
+  background: var(--hs-paper);
+  box-shadow: 0 8px 30px rgb(15 23 42 / 6%);
+}
+
+.hopstudio-workspace .hs-product-card > .chat-card {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.hopstudio-workspace .hs-product-card-header {
+  min-height: 124px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  padding: 25px 28px;
+}
+
+.hopstudio-workspace .hs-product-card-identity {
+  min-width: 0;
+}
+
+.hopstudio-workspace .hs-product-card-kind,
+.hopstudio-workspace .hs-product-card-spec-label,
+.hopstudio-workspace .hs-product-card-price > span {
+  display: block;
+  color: #777780;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .13em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.hopstudio-workspace .hs-product-card-header h3 {
+  margin: 7px 0 0;
+  color: var(--hs-ink);
+  font-size: clamp(22px, 3vw, 30px);
+  font-weight: 430;
+  letter-spacing: -.035em;
+  line-height: 1.12;
+}
+
+.hopstudio-workspace .hs-product-card-price {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  color: var(--hs-ink);
+  white-space: nowrap;
+}
+
+.hopstudio-workspace .hs-product-card-price > strong {
+  font-size: 25px;
+  font-weight: 650;
+  letter-spacing: -.035em;
+}
+
+.hopstudio-workspace .hs-product-card-specs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-top: 1px solid var(--hs-line);
+}
+
+.hopstudio-workspace .hs-product-card-spec {
+  min-width: 0;
+  min-height: 94px;
+  padding: 17px 18px 18px;
+  border-right: 1px solid var(--hs-line);
+  border-bottom: 1px solid var(--hs-line);
+}
+
+.hopstudio-workspace .hs-product-card-spec:nth-child(4n) {
+  border-right: 0;
+}
+
+.hopstudio-workspace .hs-product-card-spec-value {
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+  color: var(--hs-ink);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.hopstudio-workspace .hs-product-card-spec-value a {
+  color: inherit;
+  text-decoration-color: #a8a8ae;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.hopstudio-workspace .hs-product-card > .chat-actions-container {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  margin: -1px 0 0;
+  overflow: hidden;
+  border-top: 1px solid var(--hs-line);
+  background: #fcfcfc;
+}
+
+.hopstudio-workspace .hs-product-card > .chat-actions-container .u-btn {
+  min-width: 0;
+  min-height: 72px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 10px 8px;
+  border: 0;
+  border-right: 1px solid var(--hs-line);
+  border-radius: 0;
+  background: transparent;
+  color: var(--hs-ink-2);
+  font-size: 12px;
+  font-weight: 550;
+  line-height: 1.2;
+  text-align: center;
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.hopstudio-workspace .hs-product-card > .chat-actions-container .u-btn:last-child {
+  border-right: 0;
+}
+
+.hopstudio-workspace .hs-product-card > .chat-actions-container .u-btn::before {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 21px;
+  font-weight: 350;
+  line-height: 1;
+}
+
+.hopstudio-workspace .hs-product-card [data-hs-action='sheet']::before {
+  content: '▤';
+}
+
+.hopstudio-workspace .hs-product-card [data-hs-action='price']::before {
+  content: '◇';
+}
+
+.hopstudio-workspace .hs-product-card [data-hs-action='mockup']::before {
+  content: '⬡';
+}
+
+.hopstudio-workspace .hs-product-card [data-hs-action='edit']::before {
+  content: '✎';
+}
+
+.hopstudio-workspace .hs-product-card > .chat-actions-container .u-btn:hover,
+.hopstudio-workspace .hs-product-card > .chat-actions-container .u-btn:focus-visible {
+  background: #f2f2f2;
+  color: #050505;
+}
+
+@media (max-width: 900px) {
+  .hopstudio-workspace .hs-product-card-specs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .hopstudio-workspace .hs-product-card-spec:nth-child(4n) {
+    border-right: 1px solid var(--hs-line);
+  }
+
+  .hopstudio-workspace .hs-product-card-spec:nth-child(2n) {
+    border-right: 0;
+  }
+}
+
 @media (max-width: 720px) {
   .hopstudio-workspace .hopstudio-welcome {
     top: 48px;
@@ -889,5 +1069,35 @@ body {
 
   .hopstudio-workspace .chat-msg.user {
     max-width: 94%;
+  }
+
+  .hopstudio-workspace .hs-product-card-header {
+    min-height: 0;
+    align-items: flex-start;
+    padding: 20px;
+  }
+
+  .hopstudio-workspace .hs-product-card-price {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+  }
+
+  .hopstudio-workspace .hs-product-card-spec {
+    min-height: 82px;
+    padding: 14px;
+  }
+
+  .hopstudio-workspace .hs-product-card > .chat-actions-container {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .hopstudio-workspace .hs-product-card > .chat-actions-container .u-btn {
+    min-height: 62px;
+    border-bottom: 1px solid var(--hs-line);
+  }
+
+  .hopstudio-workspace .hs-product-card > .chat-actions-container .u-btn:nth-child(2n) {
+    border-right: 0;
   }
 }

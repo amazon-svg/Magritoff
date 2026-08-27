@@ -4,6 +4,7 @@ import {
   HOPSTUDIO_EJS_ROOT,
   HOPSTUDIO_RUNTIME_URL,
   HOPSTUDIO_STYLESHEET_URL,
+  type HopeStudioBrowserChat,
 } from './assets.ts';
 
 const TEST_API_URL = '/dev/hopstudio-api';
@@ -21,10 +22,7 @@ declare global {
   interface Window {
     sugarcrepeHL?: HopeStudioRuntime;
     hopes_suite?: {
-      chat?: {
-        session?: Readonly<Record<string, unknown>>;
-        sendMessage?: (message: string) => Promise<unknown>;
-      };
+      chat?: HopeStudioBrowserChat;
     };
   }
 }

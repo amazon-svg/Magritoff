@@ -8,3 +8,13 @@ export const HOPSTUDIO_EJS_ROOT = '/hopstudio/ejs/';
 
 export const HOPSTUDIO_RUNTIME_URL = `${HOPSTUDIO_ASSET_ROOT}sugarcrepeHLUX.mjs`;
 export const HOPSTUDIO_STYLESHEET_URL = `${HOPSTUDIO_ASSET_ROOT}css/sugarcrepeHLUX.magrit.css`;
+
+export type HopeStudioBrowserCardData = Readonly<{
+  selected?: unknown;
+}>;
+
+export type HopeStudioBrowserChat = {
+  session?: Readonly<Record<string, unknown>>;
+  sendMessage?: (message: string) => Promise<unknown>;
+  getCardFromUid?: (uid: string) => HopeStudioBrowserCardData | null;
+};

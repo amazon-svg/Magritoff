@@ -8,6 +8,8 @@ import {
   HOPSTUDIO_EJS_ROOT,
   HOPSTUDIO_RUNTIME_URL,
   HOPSTUDIO_STYLESHEET_URL,
+  type HopeStudioBrowserCardData,
+  type HopeStudioBrowserChat,
 } from './assets.ts';
 
 
@@ -48,10 +50,7 @@ declare global {
     sugarcrepeHL?: HopeStudioRuntime;
     HChat?: Record<string, unknown>;
     hopes_suite?: {
-      chat?: {
-        session?: Readonly<Record<string, unknown>>;
-        sendMessage?: (message: string) => Promise<unknown>;
-      };
+      chat?: HopeStudioBrowserChat;
     };
   }
 }
@@ -74,6 +73,7 @@ export function HopeStudioWorkspace({
   useEffect(() => {
     let active = true;
     let mountedInstance: HopeStudioInstance | null = null;
+    let disposeChatChrome = () => {};
     const showConversation = () => setChatStarted(true);
     const showWelcome = () => setChatStarted(false);
     window.addEventListener('hopstudio:conversation-start', showConversation);
@@ -95,7 +95,7 @@ export function HopeStudioWorkspace({
         await waitForElement('#chat-widget', 10_000);
         if (!active) return;
         document.querySelector('#chat-widget')?.classList.remove('chat-minimized');
-        enhanceChatChrome(showConversation, showWelcome);
+        disposeChatChrome = enhanceChatChrome(showConversation, showWelcome);
         setChatStarted(hasConversationActivity(window.hopes_suite?.chat?.session));
         setStatus('ready');
       } catch (cause) {
@@ -108,6 +108,7 @@ export function HopeStudioWorkspace({
     void mount();
     return () => {
       active = false;
+      disposeChatChrome();
       window.removeEventListener('hopstudio:conversation-start', showConversation);
       window.removeEventListener('hopstudio:conversation-reset', showWelcome);
       if (mountedInstance && window.sugarcrepeHL) {
@@ -184,7 +185,8 @@ function enhanceChatChrome(
   const title = document.querySelector<HTMLElement>('#chat-header .title');
   const reset = document.querySelector<HTMLButtonElement>('#chat-reset');
   const basketImage = document.querySelector<HTMLImageElement>('#chat-header-basket img');
-  if (!input || !composer) return;
+  const chatBody = document.querySelector<HTMLElement>('#chat-body');
+  if (!input || !composer) return () => {};
 
   input.placeholder = 'Décrivez votre projet d’impression…';
   title?.replaceChildren(document.createTextNode('Historique'));
@@ -199,24 +201,170 @@ function enhanceChatChrome(
   };
   input.addEventListener('keypress', startOnEnter, { capture: true });
 
-  if (!composer.querySelector('#hopstudio-send')) {
-    const send = document.createElement('button');
+  let send = composer.querySelector<HTMLButtonElement>('#hopstudio-send');
+  const updateSendState = () => {
+    if (send) send.disabled = !input.value.trim();
+  };
+  const sendCurrentPrompt = () => {
+    const prompt = input.value.trim();
+    if (!prompt) return;
+    onConversationStart();
+    input.value = '';
+    updateSendState();
+    void window.hopes_suite?.chat?.sendMessage?.(prompt);
+  };
+
+  if (!send) {
+    send = document.createElement('button');
     send.id = 'hopstudio-send';
     send.type = 'button';
     send.disabled = !input.value.trim();
     send.innerHTML = '<span>Envoyer</span><kbd>↵</kbd>';
-    send.addEventListener('click', () => {
-      const prompt = input.value.trim();
-      if (!prompt) return;
-      onConversationStart();
-      input.value = '';
-      void window.hopes_suite?.chat?.sendMessage?.(prompt);
-    });
     composer.appendChild(send);
-    input.addEventListener('input', () => {
-      send.disabled = !input.value.trim();
-    });
   }
+  send.addEventListener('click', sendCurrentPrompt);
+  input.addEventListener('input', updateSendState);
+
+  decorateProductCards();
+  const observer = chatBody ? new MutationObserver(decorateProductCards) : null;
+  if (chatBody && observer) observer.observe(chatBody, { childList: true, subtree: true });
+
+  return () => {
+    observer?.disconnect();
+    input.removeEventListener('keypress', startOnEnter, { capture: true });
+    input.removeEventListener('input', updateSendState);
+    reset?.removeEventListener('click', onConversationReset, { capture: true });
+    send?.removeEventListener('click', sendCurrentPrompt);
+  };
+}
+
+function decorateProductCards() {
+  document.querySelectorAll<HTMLElement>('#chat-body [data-card-uid]:not([data-magrit-card])')
+    .forEach((container) => {
+      const card = container.querySelector<HTMLElement>(':scope > .chat-card');
+      const actions = container.querySelector<HTMLElement>(':scope > .chat-actions-container');
+      if (!card || !actions) return;
+
+      container.dataset.magritCard = 'true';
+      container.classList.add('hs-product-card');
+      const actionLinks = Array.from(actions.querySelectorAll<HTMLAnchorElement>('a.u-btn'));
+      const priceAction = actionLinks.find((action) => action.classList.contains('price'));
+      const displayedPrice = priceAction?.textContent?.trim() ?? '';
+      const uid = container.dataset.cardUid ?? '';
+      const source = uid ? window.hopes_suite?.chat?.getCardFromUid?.(uid) : null;
+      structureProductCard(card, source, displayedPrice);
+      decorateCardActions(actionLinks);
+    });
+}
+
+function structureProductCard(
+  card: HTMLElement,
+  source: HopeStudioBrowserCardData | null | undefined,
+  displayedPrice: string,
+) {
+  const lines = splitCardLines(card);
+  if (lines.length < 2) {
+    card.classList.add('hs-product-card-rich');
+    return;
+  }
+
+  const title = lineText(lines[0] ?? []).replace(/\s*-\s*$/, '') || 'Produit configuré';
+  const kind = typeof source?.selected === 'string' && source.selected.trim()
+    ? source.selected.trim()
+    : 'Produit configuré';
+  const header = document.createElement('header');
+  header.className = 'hs-product-card-header';
+
+  const identity = document.createElement('div');
+  identity.className = 'hs-product-card-identity';
+  const eyebrow = document.createElement('span');
+  eyebrow.className = 'hs-product-card-kind';
+  eyebrow.textContent = kind;
+  const heading = document.createElement('h3');
+  heading.textContent = title;
+  identity.append(eyebrow, heading);
+  header.appendChild(identity);
+
+  if (displayedPrice) {
+    const price = document.createElement('div');
+    price.className = 'hs-product-card-price';
+    const prefix = document.createElement('span');
+    prefix.textContent = 'DÈS';
+    const value = document.createElement('strong');
+    value.textContent = displayedPrice;
+    price.append(prefix, value);
+    header.appendChild(price);
+  }
+
+  const specs = document.createElement('div');
+  specs.className = 'hs-product-card-specs';
+  lines.slice(1).forEach((nodes) => {
+    if (!lineText(nodes)) return;
+    specs.appendChild(createProductSpec(nodes));
+  });
+  card.replaceChildren(header, specs);
+}
+
+function splitCardLines(card: HTMLElement): Node[][] {
+  const lines: Node[][] = [[]];
+  Array.from(card.childNodes).forEach((node) => {
+    if (node instanceof HTMLBRElement) {
+      if (lines.at(-1)?.length) lines.push([]);
+      return;
+    }
+    lines.at(-1)?.push(node);
+  });
+  return lines.filter((line) => lineText(line));
+}
+
+function createProductSpec(nodes: Node[]): HTMLElement {
+  const spec = document.createElement('div');
+  spec.className = 'hs-product-card-spec';
+  const label = document.createElement('span');
+  label.className = 'hs-product-card-spec-label';
+  const value = document.createElement('div');
+  value.className = 'hs-product-card-spec-value';
+
+  const first = nodes[0];
+  const match = first?.nodeType === Node.TEXT_NODE
+    ? (first.textContent ?? '').match(/^\s*([^:]+)\s*:\s*(.*)$/s)
+    : null;
+  if (match && first) {
+    label.textContent = (match[1] ?? 'Détail').trim();
+    first.textContent = match[2] ?? '';
+  } else {
+    label.textContent = 'Détail';
+  }
+  nodes.forEach((node) => value.appendChild(node));
+  spec.append(label, value);
+  return spec;
+}
+
+function lineText(nodes: Node[]): string {
+  return nodes.map((node) => node.textContent ?? '').join('').trim();
+}
+
+function decorateCardActions(actions: HTMLAnchorElement[]) {
+  actions.forEach((action, index) => {
+    const current = action.textContent?.trim().toLocaleLowerCase('fr') ?? '';
+    const kind = action.classList.contains('price')
+      ? 'price'
+      : current.includes('sheet') || current.includes('fiche')
+        ? 'sheet'
+        : current.includes('3d') || current.includes('mokup') || current.includes('mockup')
+          ? 'mockup'
+          : current.includes('formulaire') || current.includes('edit') || current.includes('édit')
+            ? 'edit'
+            : `action-${index + 1}`;
+    const labels: Record<string, string> = {
+      sheet: 'Fiche',
+      price: 'Prix',
+      mockup: '3D',
+      edit: 'Éditer',
+    };
+    action.dataset.hsAction = kind;
+    action.textContent = labels[kind] ?? action.textContent;
+  });
 }
 
 function hasConversationActivity(session: Readonly<Record<string, unknown>> | undefined): boolean {
