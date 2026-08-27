@@ -1,0 +1,99 @@
+<!--
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" id="_x34_" x="0px" y="0px" viewBox="0 0 512 512" style="opacity: 1; width: 200px;" xml:space="preserve">
+<style type="text/css">
+  .st0{fill:#229B19;}
+  .st1{opacity:0.1;fill:#F4F7E8;}
+  .st2{fill:#FFFFFF;}
+  .st3{opacity:5.000000e-02;fill:#040000;}
+</style>
+<g>
+  <circle class="st0" cx="256" cy="256" r="256"/>
+  <g>
+  <path fill=none d="M50,250c0-110.5,89.5-200,200-200s200,89.5,200,200s-89.5,200-200,200S50,360.5,50,250" id="texte"/>
+  <text dy="20" textLength="1220" fill="white" font-size='50pt'>
+    <textPath href="#texte"><%= HCSR.transl("It's here & now")%></textPath>
+  </text>
+  <path class="st1" d="M160.1,343.3V168.7c0-15.6,16.9-25.4,30.4-17.6l108,62.4L437,75C390.7,28.7,326.7,0,256,0   C114.6,0,0,114.6,0,256c0,70.7,28.7,134.7,75,181l86.5-86.5C160.6,348.3,160.1,345.9,160.1,343.3z"/>
+  <path class="st2" d="M366.5,244.3l-171.6-99.1c-9-5.2-20.3,1.3-20.3,11.7v198.2c0,10.4,11.2,16.9,20.3,11.7l171.6-99.1   C375.5,262.5,375.5,249.5,366.5,244.3z"/>
+  <path class="st3" d="M384.6,258.9l-11.8-6.8c-0.8-3.4-2.9-6.5-6.3-8.4l-12.9-7.4c-0.8,0.8-1.7,1.5-2.8,2.1l-171.6,99.1   c-1.5,0.8-3,1.4-4.5,1.6v15.4c0,10.4,11.2,16.9,20.2,11.7L366.5,267c4.3-2.5,6.4-6.7,6.7-11c0.4,4.9-1.8,9.9-6.6,12.7l-171.6,99.1   c-0.7,0.4-1.4,0.7-2.1,1v0.9c0,10.4,11.2,16.9,20.2,11.7l171.6-99.1C393.6,277.1,393.6,264.1,384.6,258.9z"/>
+</g>
+</svg>
+-->
+<div class="container-fluid pb-4">
+<% if (schl_dis() && false) { %>
+      <div class="row m-4 pb-2 d-md-block collapse text-center">
+        <h3 class="text-dark" style="font-weight:750;"><%- HCSR.transl("builders_title") %></h4>
+        <h5 class="text-dark" style="font-weight:500;"><%- HCSR.transl("builders_sub") %></h5>
+      </div>
+<%}%>
+  <div class="dash-header">
+<% if (false && !schl_dis()) { %>
+      <div class="m-0 p-0 col-md-4 d-md-block collapse" role="carousel" style="height:100%;"></div>
+<%}%>
+<!--      class="m-0 pt-4 pb-5 px-sm-3 px-md-2 px-lg-5 col-sm-12 col-md-4 align-middle text-center"  -->
+      <div
+          class="col-12 m-0 pt-4 pb-5 px-sm-3 px-md-2 px-lg-5 align-middle text-center" style="background-color: transparent;">
+        <H3 id="dash-bienvenu" style="color:var(--logo-bg-yellow);"><%=HCSR.transl("Bienvenue sur Marguerite")%></H3>
+        <div class="pt-4 pb-4 px-sm-3 px-md-2 px-lg-5" style="">
+          <button role="startProjet" id="button-enter-catalog" class="btn btn-lg p-2"
+              style="_border-radius : 0rem!important;"
+              title="<%=HCSR.transl('Let start !')%>">
+              <div class="hopes-logo" style="height: 200px; width: 200px;"></div>
+          </button>
+        </div>
+        <H3 id="dash-ask"><%= HCSR.transl("Que souhaitez vous faire ?") %></div>
+        <H6 id="dash-browse"><%= HCSR.transl("Cliquez sur la fleur pour parcourir le catalogue") %></H6>
+        <H6 id="dash-prompt"><%= HCSR.transl("Ou formulez votre demande ci-dessous") %></H6>
+        <div id="dash-prompt-invite" class="px-auto">
+          <input type="text" id="dash-prompt-input" placeholder="<%= HCSR.transl("Ecrivez ici ...") %>"></input>
+        </div>
+        <script language="javascript">
+const start = document.getElementById("button-enter-catalog");
+start?.addEventListener("click", (e)=>{
+  e.preventDefault();
+  e.stopPropagation();
+  console.log(e.target);
+  sugarcrepeHL.instance(e.target).selectCategory();
+});
+
+const dashInput = document.getElementById("dash-prompt-input");
+const expand = document.getElementById("chat-expand");
+
+if (dashInput && expand && window.hopes_suite && window.hopes_suite.chat && window.hopes_suite.chat.sendMessage) {
+    dashInput.addEventListener("keypress", (e) => {
+        if (e.key === "Enter" && dashInput.value.trim()) {
+          expand.click();
+          window.hopes_suite.chat.scrollToBottom();
+          window.hopes_suite.chat.sendMessage(dashInput.value.trim());
+          dashInput.value = "";
+        }
+      });
+}
+
+        </script>
+<!--        <H3 id="dash-dashboard" style="color:var(--logo-bg-blue);"><%=HCSR.transl("Dashboard")%></H3> -->
+      </div>
+<% if (false) { %>
+      <div class="m-0 p-0 col-md-4 d-md-block collapse text-center" role="partner-map" style="height:100%;">
+        <div id="map" style="height: 100%;"></div>
+        <script type="text/javascript">
+var map = L.map('map').setView([46.0759588, 1.0], 5);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 8,
+    minZoom:5,
+    attribution: "<h4><%= HCSR.transl('Our builders') %></h4>"
+}).addTo(map);
+PartnerLeaflet.initPartnerMap(map);
+$(".leaflet-attribution-flag").parent().remove();
+$(".leaflet-control-attribution span").remove();
+        </script>
+      </div>
+<% } %>
+<% if (false && schl_dis()) { %>
+      <div class="m-0 p-0 col-md-4 d-md-block collapse text-center" role="builder_promo" style="height:100%;">
+        <img class="m-2 w-75" src="<%=sugarcrepeHL.getRootImg()%>builders_logos.png"/>
+      </div>
+<% } %>
+  </div>
+</div>
+<div class="bg-light p-3" role="dashboard" style="display: none;">
