@@ -262,13 +262,12 @@ function structureProductCard(
   source: HopeStudioBrowserCardData | null | undefined,
   displayedPrice: string,
 ) {
-  const lines = splitCardLines(card);
-  if (lines.length < 2) {
+  const parsed = parseProductCard(card);
+  if (!parsed) {
     card.classList.add('hs-product-card-rich');
     return;
   }
 
-  const title = lineText(lines[0] ?? []).replace(/\s*-\s*$/, '') || 'Produit configuré';
   const kind = typeof source?.selected === 'string' && source.selected.trim()
     ? source.selected.trim()
     : 'Produit configuré';
@@ -281,67 +280,169 @@ function structureProductCard(
   eyebrow.className = 'hs-product-card-kind';
   eyebrow.textContent = kind;
   const heading = document.createElement('h3');
-  heading.textContent = title;
+  heading.textContent = parsed.title;
   identity.append(eyebrow, heading);
   header.appendChild(identity);
 
-  if (displayedPrice) {
+  const priceLabel = normalizeDisplayedPrice(displayedPrice);
+  if (priceLabel) {
     const price = document.createElement('div');
     price.className = 'hs-product-card-price';
     const prefix = document.createElement('span');
-    prefix.textContent = 'DÈS';
+    prefix.textContent = priceLabel === 'Sur devis' ? 'PRIX' : 'DÈS';
     const value = document.createElement('strong');
-    value.textContent = displayedPrice;
+    value.textContent = priceLabel;
     price.append(prefix, value);
     header.appendChild(price);
   }
 
   const specs = document.createElement('div');
   specs.className = 'hs-product-card-specs';
-  lines.slice(1).forEach((nodes) => {
-    if (!lineText(nodes)) return;
-    specs.appendChild(createProductSpec(nodes));
+  parsed.specs.forEach(({ label, nodes }) => {
+    specs.appendChild(createProductSpec(label, nodes));
   });
   card.replaceChildren(header, specs);
 }
 
-function splitCardLines(card: HTMLElement): Node[][] {
-  const lines: Node[][] = [[]];
-  Array.from(card.childNodes).forEach((node) => {
-    if (node instanceof HTMLBRElement) {
-      if (lines.at(-1)?.length) lines.push([]);
-      return;
-    }
-    lines.at(-1)?.push(node);
-  });
-  return lines.filter((line) => lineText(line));
+const PRODUCT_FIELD_PATTERN = /\b(Format|Description|Support papier|Impression recto\/verso|Finition recto\/verso|Quantité|Conditionnement|Livraison pays\/région|Adresse de livraison)\s*:\s*/giu;
+
+type ProductSpecRange = Readonly<{
+  label: string;
+  start: number;
+  end: number;
+}>;
+
+function parseProductCard(card: HTMLElement): Readonly<{
+  title: string;
+  specs: ReadonlyArray<Readonly<{ label: string; nodes: Node[] }>>;
+}> | null {
+  const sourceNodes = Array.from(card.childNodes);
+  const text = sourceNodes.map(nodeText).join('');
+  const fields = findProductFieldRanges(text);
+  const firstFieldStart = fields[0]?.markerStart ?? text.length;
+  const natural = parseNaturalProductPrefix(text.slice(0, firstFieldStart));
+  const title = (natural?.title ?? cleanProductText(text.slice(0, firstFieldStart)))
+    .replace(/\s*-\s*$/, '')
+    .trim();
+  const ranges: ProductSpecRange[] = [
+    ...(natural?.specs ?? []),
+    ...fields.map((field, index) => ({
+      label: field.label,
+      start: trimRangeStart(text, field.valueStart, fields[index + 1]?.markerStart ?? text.length),
+      end: trimRangeEnd(text, field.valueStart, fields[index + 1]?.markerStart ?? text.length),
+    })),
+  ].filter(({ start, end }) => end > start);
+
+  if (!title || ranges.length === 0) return null;
+  return {
+    title,
+    specs: ranges.map(({ label, start, end }) => ({
+      label,
+      nodes: sliceInlineNodes(sourceNodes, start, end),
+    })),
+  };
 }
 
-function createProductSpec(nodes: Node[]): HTMLElement {
+function findProductFieldRanges(text: string): Array<Readonly<{
+  label: string;
+  markerStart: number;
+  valueStart: number;
+}>> {
+  return Array.from(text.matchAll(PRODUCT_FIELD_PATTERN), (match) => ({
+    label: match[1] ?? 'Détail',
+    markerStart: match.index ?? 0,
+    valueStart: (match.index ?? 0) + match[0].length,
+  }));
+}
+
+function parseNaturalProductPrefix(prefix: string): Readonly<{
+  title: string;
+  specs: ProductSpecRange[];
+}> | null {
+  const format = /\b\d+(?:[.,]\d+)?\s*[x×]\s*\d+(?:[.,]\d+)?(?:\s*mm)?\b/iu.exec(prefix);
+  if (!format?.[0] || format.index === undefined) return null;
+
+  const title = cleanProductText(prefix.slice(0, format.index));
+  const specs: ProductSpecRange[] = [{
+    label: 'Format',
+    start: format.index,
+    end: format.index + format[0].length,
+  }];
+  const suffixStart = format.index + format[0].length;
+  const suffix = prefix.slice(suffixStart);
+  const paper = /\bpapier\s+(.+?)(?=\.\s*$|$)/iu.exec(suffix);
+  if (paper?.[1] && paper.index !== undefined) {
+    const beforePaperStart = trimRangeStart(prefix, suffixStart, suffixStart + paper.index);
+    const beforePaperEnd = trimRangeEnd(prefix, suffixStart, suffixStart + paper.index);
+    if (beforePaperEnd > beforePaperStart) {
+      specs.push({ label: 'Impression', start: beforePaperStart, end: beforePaperEnd });
+    }
+    const paperValueStart = suffixStart + paper.index + paper[0].indexOf(paper[1]);
+    specs.push({
+      label: 'Support papier',
+      start: paperValueStart,
+      end: paperValueStart + paper[1].length,
+    });
+  }
+  return title ? { title, specs } : null;
+}
+
+function sliceInlineNodes(sourceNodes: Node[], start: number, end: number): Node[] {
+  const result: Node[] = [];
+  let cursor = 0;
+  sourceNodes.forEach((node) => {
+    const value = nodeText(node);
+    const nodeStart = cursor;
+    const nodeEnd = cursor + value.length;
+    cursor = nodeEnd;
+    const overlapStart = Math.max(start, nodeStart);
+    const overlapEnd = Math.min(end, nodeEnd);
+    if (overlapEnd <= overlapStart || node instanceof HTMLBRElement) return;
+
+    if (overlapStart === nodeStart && overlapEnd === nodeEnd && node.nodeType !== Node.TEXT_NODE) {
+      result.push(node);
+      return;
+    }
+    result.push(document.createTextNode(value.slice(overlapStart - nodeStart, overlapEnd - nodeStart)));
+  });
+  return result;
+}
+
+function nodeText(node: Node): string {
+  return node instanceof HTMLBRElement ? '\n' : node.textContent ?? '';
+}
+
+function trimRangeStart(text: string, start: number, end: number): number {
+  const leading = text.slice(start, end).match(/^[\s,.;:-]*/u)?.[0].length ?? 0;
+  return start + leading;
+}
+
+function trimRangeEnd(text: string, start: number, end: number): number {
+  const trailing = text.slice(start, end).match(/[\s,.;:-]*$/u)?.[0].length ?? 0;
+  return end - trailing;
+}
+
+function cleanProductText(value: string): string {
+  return value.replace(/[\s,.;:-]+$/u, '').replace(/^\s+/u, '');
+}
+
+function normalizeDisplayedPrice(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return /^-\s*1(?:[,.]0+)?\s*€?$/u.test(trimmed) ? 'Sur devis' : trimmed;
+}
+
+function createProductSpec(labelText: string, nodes: Node[]): HTMLElement {
   const spec = document.createElement('div');
   spec.className = 'hs-product-card-spec';
   const label = document.createElement('span');
   label.className = 'hs-product-card-spec-label';
+  label.textContent = labelText;
   const value = document.createElement('div');
   value.className = 'hs-product-card-spec-value';
-
-  const first = nodes[0];
-  const match = first?.nodeType === Node.TEXT_NODE
-    ? (first.textContent ?? '').match(/^\s*([^:]+)\s*:\s*(.*)$/s)
-    : null;
-  if (match && first) {
-    label.textContent = (match[1] ?? 'Détail').trim();
-    first.textContent = match[2] ?? '';
-  } else {
-    label.textContent = 'Détail';
-  }
   nodes.forEach((node) => value.appendChild(node));
   spec.append(label, value);
   return spec;
-}
-
-function lineText(nodes: Node[]): string {
-  return nodes.map((node) => node.textContent ?? '').join('').trim();
 }
 
 function decorateCardActions(actions: HTMLAnchorElement[]) {
