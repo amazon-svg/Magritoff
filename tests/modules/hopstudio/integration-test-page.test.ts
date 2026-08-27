@@ -19,6 +19,10 @@ describe('page de test d intégration HopeStudio', () => {
     resolve(process.cwd(), 'src/modules/hopstudio/ui/assets.ts'),
     'utf8',
   );
+  const magritStyles = readFileSync(
+    resolve(process.cwd(), 'public/vendor/hopstudio/1.0.0/css/sugarcrepeHLUX.magrit.css'),
+    'utf8',
+  );
 
   it('charge le bundle versionné et configure toutes les racines statiques', () => {
     expect(assetsSource).toContain("HOPSTUDIO_ASSET_ROOT = '/vendor/hopstudio/1.0.0/'");
@@ -57,5 +61,15 @@ describe('page de test d intégration HopeStudio', () => {
     expect(workspaceSource).toContain("send.id = 'hopstudio-send'");
     expect(historyTemplate).toContain('Nouvelle conversation');
     expect(historyTemplate).toContain('hs-history-entry');
+  });
+
+  it('transforme les réponses HopeStudio en cartes produit Magrit responsives', () => {
+    expect(workspaceSource).toContain('decorateProductCards');
+    expect(workspaceSource).toContain("container.classList.add('hs-product-card')");
+    expect(workspaceSource).toContain('getCardFromUid?.(uid)');
+    expect(workspaceSource).toContain('action.dataset.hsAction = kind');
+    expect(magritStyles).toContain('.hs-product-card-specs');
+    expect(magritStyles).toContain("[data-hs-action='price']::before");
+    expect(magritStyles).toContain('grid-template-columns: repeat(2, minmax(0, 1fr))');
   });
 });
