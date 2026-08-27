@@ -11,6 +11,10 @@ describe('page de test d intégration HopeStudio', () => {
     resolve(process.cwd(), 'src/modules/hopstudio/ui/HopeStudioWorkspace.tsx'),
     'utf8',
   );
+  const historyTemplate = readFileSync(
+    resolve(process.cwd(), 'public/hopstudio/ejs/chat_user_sessions.ejs'),
+    'utf8',
+  );
   const assetsSource = readFileSync(
     resolve(process.cwd(), 'src/modules/hopstudio/ui/assets.ts'),
     'utf8',
@@ -44,5 +48,14 @@ describe('page de test d intégration HopeStudio', () => {
     expect(source).toContain('id="chat-bar"');
     expect(source).toContain("sendMessage?.('Je veux 500 flyers')");
     expect(source).not.toContain('X-CLARIPRINT-PASS');
+  });
+
+  it('reprend l accueil Magrit et expose les actions HopeStudio sans le chrome historique', () => {
+    expect(workspaceSource).toContain('Le papier pense.');
+    expect(workspaceSource).toContain('hopstudio-prompt-grid');
+    expect(workspaceSource).toContain('enhanceChatChrome');
+    expect(workspaceSource).toContain("send.id = 'hopstudio-send'");
+    expect(historyTemplate).toContain('Nouvelle conversation');
+    expect(historyTemplate).toContain('hs-history-entry');
   });
 });

@@ -22,6 +22,7 @@ declare global {
     sugarcrepeHL?: HopeStudioRuntime;
     hopes_suite?: {
       chat?: {
+        session?: Readonly<Record<string, unknown>>;
         sendMessage?: (message: string) => Promise<unknown>;
       };
     };
