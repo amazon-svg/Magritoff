@@ -58,7 +58,8 @@ declare global {
     sugarcrepeHL?: HopeStudioRuntime;
     HChat?: Record<string, unknown>;
     HU?: {
-      renderEJS(template: string, locals: Readonly<Record<string, unknown>>): string;
+      prefetchEJS(urls: string[]): Promise<unknown>;
+      renderEJS(templateUrl: string, locals: Readonly<Record<string, unknown>>): string;
     };
     hopes_suite?: {
       chat?: HopeStudioBrowserChat;
@@ -253,7 +254,7 @@ function enhanceChatChrome(
 }
 
 async function decorateProductCards() {
-  const template = await loadProductCardTemplate().catch(() => null);
+  const templateUrl = await loadProductCardTemplate().catch(() => null);
   document.querySelectorAll<HTMLElement>('#chat-body [data-card-uid]:not([data-magrit-card])')
     .forEach((container) => {
       const card = container.querySelector<HTMLElement>(':scope > .chat-card');
@@ -267,7 +268,7 @@ async function decorateProductCards() {
       const displayedPrice = priceAction?.textContent?.trim() ?? '';
       const uid = container.dataset.cardUid ?? '';
       const source = uid ? window.hopes_suite?.chat?.getCardFromUid?.(uid) : null;
-      structureProductCard(card, source, displayedPrice, template);
+      structureProductCard(card, source, displayedPrice, templateUrl);
       decorateCardActions(actionLinks);
     });
 }
@@ -276,14 +277,19 @@ function structureProductCard(
   card: HTMLElement,
   source: HopeStudioBrowserCardData | null | undefined,
   displayedPrice: string,
-  template: string | null,
+  templateUrl: string | null,
 ) {
   const product = buildProductCardView(source, displayedPrice);
-  if (!product || !template || !window.HU) {
+  if (!product || !templateUrl || !window.HU) {
     card.classList.add('hs-product-card-rich');
     return;
   }
-  card.innerHTML = window.HU.renderEJS(template, { product });
+  const rendered = window.HU.renderEJS(templateUrl, { product });
+  if (!rendered.trim()) {
+    card.classList.add('hs-product-card-rich');
+    return;
+  }
+  card.innerHTML = rendered;
 }
 
 function buildProductCardView(
@@ -379,11 +385,10 @@ function asString(value: unknown): string | null {
 }
 
 function loadProductCardTemplate(): Promise<string> {
-  productCardTemplatePromise ??= fetch(`${HOPSTUDIO_EJS_ROOT}chat_product_card.ejs`)
-    .then((response) => {
-      if (!response.ok) throw new Error(`Template carte HopeStudio indisponible (${response.status}).`);
-      return response.text();
-    });
+  const templateUrl = `${HOPSTUDIO_EJS_ROOT}chat_product_card.ejs`;
+  productCardTemplatePromise ??= window.HU
+    ? window.HU.prefetchEJS([templateUrl]).then(() => templateUrl)
+    : Promise.reject(new Error('Moteur de templates HopeStudio indisponible.'));
   return productCardTemplatePromise;
 }
 
