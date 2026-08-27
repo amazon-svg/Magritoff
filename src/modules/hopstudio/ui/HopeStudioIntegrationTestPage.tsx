@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
+import {
+  HOPSTUDIO_ASSET_ROOT,
+  HOPSTUDIO_EJS_ROOT,
+  HOPSTUDIO_RUNTIME_URL,
+  HOPSTUDIO_STYLESHEET_URL,
+} from './assets.ts';
 
-const ASSET_ROOT = '/vendor/hopstudio/1.0.0/';
-const RUNTIME_URL = `${ASSET_ROOT}sugarcrepeHLUX.mjs`;
-const STYLESHEET_URL = `${ASSET_ROOT}css/sugarcrepeHLUX.magrit.css`;
 const TEST_API_URL = '/dev/hopstudio-api';
 
 type HopeStudioInstance = Readonly<{
@@ -135,7 +138,7 @@ async function waitForElement(selector: string, timeoutMs: number) {
 
 function configureHopeStudioHost(element: HTMLElement) {
   element.setAttribute('url', TEST_API_URL);
-  element.setAttribute('headless', ASSET_ROOT);
+  element.setAttribute('headless', HOPSTUDIO_ASSET_ROOT);
   element.setAttribute('ux', 'all -rc');
   element.setAttribute('options', JSON.stringify({
     verbose: -1,
@@ -143,11 +146,11 @@ function configureHopeStudioHost(element: HTMLElement) {
     ui_lang: 'fr',
     useInCustomUX: true,
     sugarcrepe_server: TEST_API_URL,
-    sugarcrepe_headless: ASSET_ROOT,
-    root_ejs: { base: `${ASSET_ROOT}ejs/` },
-    root_img: { base: `${ASSET_ROOT}img/` },
-    root_css: { base: `${ASSET_ROOT}css/` },
-    root_lang: { base: `${ASSET_ROOT}lang/` },
+    sugarcrepe_headless: HOPSTUDIO_ASSET_ROOT,
+    root_ejs: { base: HOPSTUDIO_EJS_ROOT },
+    root_img: { base: `${HOPSTUDIO_ASSET_ROOT}img/` },
+    root_css: { base: `${HOPSTUDIO_ASSET_ROOT}css/` },
+    root_lang: { base: `${HOPSTUDIO_ASSET_ROOT}lang/` },
   }));
 }
 
@@ -159,23 +162,23 @@ function loadHopeStudioRuntime(): Promise<HopeStudioRuntime> {
   runtimePromise = new Promise((resolve, reject) => {
     const script = document.createElement('script');
     script.type = 'module';
-    script.src = RUNTIME_URL;
+    script.src = HOPSTUDIO_RUNTIME_URL;
     script.dataset.hopstudioRuntime = 'true';
     script.addEventListener('load', () => {
       if (window.sugarcrepeHL) resolve(window.sugarcrepeHL);
       else reject(new Error('Le bundle est chargé mais window.sugarcrepeHL est absent.'));
     }, { once: true });
-    script.addEventListener('error', () => reject(new Error(`Impossible de charger ${RUNTIME_URL}.`)), { once: true });
+    script.addEventListener('error', () => reject(new Error(`Impossible de charger ${HOPSTUDIO_RUNTIME_URL}.`)), { once: true });
     document.head.appendChild(script);
   });
   return runtimePromise;
 }
 
 function ensureStylesheet() {
-  if (document.querySelector(`link[href="${STYLESHEET_URL}"]`)) return;
+  if (document.querySelector(`link[href="${HOPSTUDIO_STYLESHEET_URL}"]`)) return;
   const link = document.createElement('link');
   link.rel = 'stylesheet';
-  link.href = STYLESHEET_URL;
+  link.href = HOPSTUDIO_STYLESHEET_URL;
   link.dataset.hopstudioStyles = 'true';
   document.head.appendChild(link);
 }

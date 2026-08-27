@@ -2,10 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { ApiClientError } from '../../../platform/api/fetch-api-client.ts';
 import { useWorkspaceApi } from '../../../platform/runtime/workspace-ui-runtime.tsx';
 import { HopeStudioApiClient } from '../api/client.ts';
+import {
+  HOPSTUDIO_ASSET_ROOT,
+  HOPSTUDIO_EJS_ROOT,
+  HOPSTUDIO_RUNTIME_URL,
+  HOPSTUDIO_STYLESHEET_URL,
+} from './assets.ts';
 
-const ASSET_ROOT = '/vendor/hopstudio/1.0.0/';
-const RUNTIME_URL = `${ASSET_ROOT}sugarcrepeHLUX.mjs`;
-const STYLESHEET_URL = `${ASSET_ROOT}css/sugarcrepeHLUX.magrit.css`;
 
 type HopeStudioInstance = Readonly<{
   locals: Record<string, unknown> & { customApiFetch?: typeof fetch };
@@ -109,7 +112,7 @@ export function HopeStudioWorkspace({
 function configureHost(element: HTMLElement, tenantId: string) {
   const workflowUrl = `/api/v1/tenants/${encodeURIComponent(tenantId)}/integrations/hopstudio/workflow`;
   element.setAttribute('url', workflowUrl);
-  element.setAttribute('headless', ASSET_ROOT);
+  element.setAttribute('headless', HOPSTUDIO_ASSET_ROOT);
   element.setAttribute('ux', 'all -rc -sa -sh +market');
   element.setAttribute('options', JSON.stringify({
     verbose: -1,
@@ -117,11 +120,11 @@ function configureHost(element: HTMLElement, tenantId: string) {
     ui_lang: 'fr',
     useInCustomUX: true,
     sugarcrepe_server: workflowUrl,
-    sugarcrepe_headless: ASSET_ROOT,
-    root_ejs: { base: `${ASSET_ROOT}ejs/` },
-    root_img: { base: `${ASSET_ROOT}img/` },
-    root_css: { base: `${ASSET_ROOT}css/` },
-    root_lang: { base: `${ASSET_ROOT}lang/` },
+    sugarcrepe_headless: HOPSTUDIO_ASSET_ROOT,
+    root_ejs: { base: HOPSTUDIO_EJS_ROOT },
+    root_img: { base: `${HOPSTUDIO_ASSET_ROOT}img/` },
+    root_css: { base: `${HOPSTUDIO_ASSET_ROOT}css/` },
+    root_lang: { base: `${HOPSTUDIO_ASSET_ROOT}lang/` },
   }));
 }
 
@@ -222,7 +225,7 @@ function loadHopeStudioRuntime(): Promise<HopeStudioRuntime> {
     const existing = document.querySelector<HTMLScriptElement>('script[data-hopstudio-runtime="true"]');
     const script = existing ?? document.createElement('script');
     script.type = 'module';
-    script.src = RUNTIME_URL;
+    script.src = HOPSTUDIO_RUNTIME_URL;
     script.dataset.hopstudioRuntime = 'true';
     script.addEventListener('load', () => {
       if (window.sugarcrepeHL) resolve(window.sugarcrepeHL);
@@ -230,7 +233,7 @@ function loadHopeStudioRuntime(): Promise<HopeStudioRuntime> {
     }, { once: true });
     script.addEventListener('error', () => {
       runtimePromise = null;
-      reject(new Error(`Impossible de charger ${RUNTIME_URL}.`));
+      reject(new Error(`Impossible de charger ${HOPSTUDIO_RUNTIME_URL}.`));
     }, { once: true });
     if (!existing) document.head.appendChild(script);
   });
@@ -238,10 +241,10 @@ function loadHopeStudioRuntime(): Promise<HopeStudioRuntime> {
 }
 
 function ensureStylesheet() {
-  if (document.querySelector(`link[href="${STYLESHEET_URL}"]`)) return;
+  if (document.querySelector(`link[href="${HOPSTUDIO_STYLESHEET_URL}"]`)) return;
   const link = document.createElement('link');
   link.rel = 'stylesheet';
-  link.href = STYLESHEET_URL;
+  link.href = HOPSTUDIO_STYLESHEET_URL;
   link.dataset.hopstudioStyles = 'true';
   document.head.appendChild(link);
 }

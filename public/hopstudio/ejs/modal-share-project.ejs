@@ -1,0 +1,71 @@
+<!-- Modal -->
+<div class="modal fade" id="shareModal" tabindex="-1" role="dialog" aria-labelledby="saveModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="shareModalLabel"></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+<!--        <label for="filename"><%= HCSR.transl("Nom du favori") %></label> -->
+        <input type="hidden" class="form-control" name="filename" id="filename2" placeholder="" value="share <%= layout_name%>">
+      <!--  <label for="save_price"><%= HCSR.transl("Price") %></label> -->
+        <input type="hidden" class="form-control" name="save_price" id="save_price2" placeholder="???" value="">
+     <!--   <label for="notes"><%= HCSR.transl("Notes") %></label> -->
+        <input type="hidden" class="form-control" name="notes" id="notes2" rows="3"></input>
+        <label for="link"><%= HCSR.transl("Lien du partage") %> <button type="button" class="btn btn-clipboard"
+          id="copylink"
+          onClick="
+            sugarcrepeHL.log('click on clipboard button');
+            const $link = sugarcrepeHL.instance(this).$find('#link');
+            navigator.clipboard.writeText($link.val())
+              .then(()=>{
+                const $THIS = $(this).find('i');
+                $THIS.removeClass('bi-clipboard').addClass('bi-check2');
+                setTimeout(()=>{
+                  $THIS.removeClass('bi-check2').addClass('bi-clipboard');
+                }, 2000);
+            });"
+          title="<%= HCSR.transl("Copy to clipboard")%>"><i class="bi bi-clipboard"></i></button>
+</label>
+        <input type="text" class="form-control disabled" disabled name="link" id="link" value="link comming ..."></input>
+        <label for="embeded"><%= HCSR.transl("Code html à intégrer") %> <button type="button" class="btn btn-clipboard"
+          title="<%= HCSR.transl("Copy to clipboard")%>"
+          onClick="
+            sugarcrepeHL.log('click on clipboard button');
+            const $link = sugarcrepeHL.instance(this).$find('#link');
+            navigator.clipboard.writeText($link.val())
+              .then(()=>{
+                const $THIS = $(this).find('i');
+                $THIS.removeClass('bi-clipboard').addClass('bi-check2');
+                setTimeout(()=>{
+                  $THIS.removeClass('bi-check2').addClass('bi-clipboard');
+                }, 2000);
+            });"><i class="bi bi-clipboard"></i></button>
+</label>
+        <textarea class="form-control disabled" disabled id="embeded-code" name="embeded"><%= HCSR.transl("code comming ...") %></textarea>
+      </div>
+      <div class="modal-footer mx-auto">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><%= HCSR.transl("Close") %></button>
+      </div>
+    </div>
+  </div>
+</div>
+<!--
+<script type="text/javascript">
+  $(".btn-clipboard").click((evt)=>{
+          const $THIS = evt.target;
+          const $link = sugarcrepeHL.instance($THIS).$find('#link');
+            navigator.clipboard.writeText($link.val())
+              .then(()=>{
+                const $I = $THIS.find('i');
+                $I.removeClass('bi-clipboard').addClass('bi-check2');
+                setTimeout(()=>{
+                  $I.removeClass('bi-check2').addClass('bi-clipboard');
+                });
+            });
+    });
+</script>
+-->

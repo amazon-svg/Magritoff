@@ -1,0 +1,268 @@
+<!-- Quit confirm Modal -->
+  <%- includeEJS('modal-quit-confirm',locals) %>
+
+      <% if (true || sugarcrepeHL.mainbar === null || sugarcrepeHL.mainbartooglebtn === null) { %>
+        <%- includeEJS('headers_navbar',locals) %>
+        <% } else { %>
+        <%- includeEJS('headers_global_navbar',locals) %>
+        <% } %>
+          <div role="modal-share-project"></div>
+          <div role="modal-save-project"></div>
+          <div role="modal-to-basket"></div>
+          <div class="container-fluid">
+<% if (ux_options.rightcol) { %>
+
+              <div class="row">
+                <div class="col col-3 col-md-5 col-lg-6 col-sm-12 bg-light p-0 p-md-1 p-lg-2">
+<% } %>
+<% if (ux_options.rightcol && (ux_options.view3D || ux_options.viewSVGs || ux_options.pricelist || ux_options.resume )) { %>
+            <ul class="nav nav-tabs h2" id="myTab" role="tablist">
+              <li class="nav-item" onclick="console.log('click on 3D tab');window.setTimeout(triggerResizeWindow,200);">
+                <button class="nav-link active" id="view3D_<%= UUID %>-tab" data-toggle="tab" role="tab"  data-bs-toggle="tab" data-bs-target="#T3Dview_<%= UUID %>" aria-controls="T3Dview_<%= UUID %>" aria-selected="true">3D</button>
+              </li>
+              <li class="nav-item">
+                <button class="nav-link" id="SVG_<%= UUID %>-tab" data-toggle="tab" role="tab"
+                  data-bs-toggle="tab" data-bs-target="#SVG_<%= UUID %>"
+                  aria-controls="SVG_<%= UUID %>" aria-selected="false"><%= HCSR.transl("Templates") %></button>
+              </li>
+<% if (schl_tpl()) { %>
+              <li class="nav-item">
+                <button class="nav-link" id="ATLAS_<%= UUID %>-tab" data-toggle="tab" role="tab"
+                  data-bs-toggle="tab" data-bs-target="#ATLAS_<%= UUID %>"
+                  aria-controls="ATLAS_<%= UUID %>" aria-selected="false"><%= HCSR.transl("Atlas Textures") %></button>
+              </li>
+<% } %>
+<% if (sugarcrepeHL.marketplace) { %>
+              <li class="nav-item">
+                <button class="nav-link" style="display: none;" id="pricerequest_<%= UUID %>-tab" data-toggle="tab"
+                data-bs-toggle="tab" data-bs-target="#pricerequest_<%= UUID %>"
+                role="tab" aria-controls="pricerequest_<%= UUID %>" aria-selected="false"><%= HCSR.transl("Select your vendors") %></button>
+              </li>
+<%}%>
+            </ul>
+            <div class="tab-content m-0 w-100 pt-1" id="myTabContent">
+              <div class="tab-pane fade_inactive show active p-2 mx-auto" id="T3Dview_<%= UUID %>" role="tabpanel" aria-labelledby="T3Dview_<%= UUID %>-tab">
+<% if (ux_options.view3D ) { %>
+                <div role="3Dwait" class="mx-auto text-center" style="display: flex; justify-content: center; align-items: center;"
+      ><img src="<%=sugarcrepeHL.rootimg.base%>3Dwait.svg"></img><div class="spinner-border text-light" style="width: 7rem;position: absolute;height: 7rem;border-width: 1em;"></div></div>
+                <div role="3Dview-content" class="bg-dark p-0 w-100" style="display: none;"></div>
+                <p class="mx-auto w-100 p-3 m-0">
+                  <div class="card mt-2 mb-2 border">
+                    <div class="card-header h6">
+                        <label for="user_video_duration"><%= HCSR.transl("Durée des enregistrement videos") %></label>
+                        <div role="help" field="user_video_duration"></div>
+                    </div>
+                    <div class="card-body">
+                        <div class="input-group">
+                          <select class="form-control" name="user_video_duration" placeholder="">
+                              <option value="10">10s</option>
+                              <option value="15">15s</option>
+                              <option value="20">20s</option>
+                              <option value="30">30s</option>
+                          </select>
+                        </div>
+                    </div>
+                  </div>
+                  <a class="btn btn-outline-primary w-100" onclick="
+                  const mokup_tab = $(this).parents('main').find('#customizer<%= UUID %>-tab');
+                  if (typeof(bootstrap) !== 'undefined' && mokup_tab.length > 0) {
+                    var TAB = bootstrap.Tab.getInstance(mokup_tab[0]);
+                    if (!TAB) TAB = new bootstrap.Tab(mokup_tab[0]);
+                    TAB.show();
+                  }
+"><%= HCSR.transl(`Skin your model via the "mokup" tab`) %></a>
+              <button class="btn btn-primary btn-lg btn-block w-100 mt-4" type="button" role="validate-spec-graphics"><%= HCSR.transl("Reload 3D and SVGs") %></button>
+</p>
+<% } %>
+              </div>
+              <div class="tab-pane fade_inactive" id="SVG_<%= UUID %>" role="tabpanel" aria-labelledby="SVG_<%= UUID %>-tab">
+<% if (ux_options.viewSVGs ) { %>
+                  <div role="SVG-content"></div>
+                  <button class="btn btn-primary btn-lg btn-block w-100 mt-4" type="button" role="validate-spec-graphics"><%= HCSR.transl("Reload 3D and SVGs") %></button>
+
+<% } %>
+              </div>
+              <div class="tab-pane fade_inactive container-fluid" id="ATLAS_<%= UUID %>" role="tabpanel" aria-labelledby="ATLAS_<%= UUID %>-tab">
+<% if (ux_options.viewSVGs && schl_tpl()) { %>
+                  <div role="ATLAS-content" class="row"></div>
+<% } %>
+              </div>
+              <div role="displaypdf" class="position-sticky sticky-top col-12" style="display: none;">
+              </div>
+<% if (sugarcrepeHL.marketplace) { %>
+              <div class="tab-pane fade_inactive" role="tabpanel" id="pricerequest_<%= UUID %>" aria-labelledby="pricerequest_<%= UUID %>-tab">
+<% if (ux_options.pricelist ) { %>
+                <div role="pricerequest-content"></div>
+<% } %>
+              </div>
+<% } %>
+            </div>
+<% } %>
+<% if (ux_options.rightcol ) { %>
+        </div>
+        <div class="col col-3 col-md-5 col-lg-6 col-sm-12 bg-white p-0 p-md-1 p-lg-2">
+<% } %>
+<!--          <div class="sidebar-sticky container-fluid"> -->
+            <div role="side-bestprice-content"></div>
+            <div class="needs-validation" id="specForm">
+            <div class="row">
+              <ul class="nav nav-tabs h4" id="specTab" role="tablist">
+                <li class="nav-item">
+                  <a class="nav-link active" id="spec_<%= UUID %>-tab" data-toggle="tab" role="tab"
+                  data-bs-toggle="tab" data-bs-target="#spec_<%= UUID %>"
+                   aria-controls="spec_<%= UUID %>" aria-selected="true"><%= HCSR.transl("Dimensions & materials") %></a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link " id="option_<%= UUID %>-tab" data-toggle="tab" role="tab"
+                    data-bs-toggle="tab" data-bs-target="#option_<%= UUID %>"
+                    aria-controls="option_<%= UUID %>" aria-selected="false"><%= HCSR.transl("Options (print & finish)") %></a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link " id="delivery_<%= UUID %>-tab" data-toggle="tab" role="tab"
+                  data-bs-toggle="tab" data-bs-target="#delivery_<%= UUID %>"
+                  aria-controls="delivery_<%= UUID %>" aria-selected="false"><%= HCSR.transl("Delivery") %></a>
+                </li>
+<% if (!ux_options.rightcol ) { %>
+              <li class="nav-item">
+                <a class="nav-link" id="SVG_<%= UUID %>-tab" data-toggle="tab" role="tab"
+                  data-bs-toggle="tab" data-bs-target="#SVG_<%= UUID %>"
+                  aria-controls="SVG_<%= UUID %>" aria-selected="false"><%= HCSR.transl("Templates") %></a>
+              </li>
+<% } %>
+                <li class="nav-item">
+                  <a class="nav-link" id="customizer<%= UUID %>-tab" data-toggle="tab" role="tab"
+                  data-bs-toggle="tab" data-bs-target="#customizer<%= UUID %>"
+                  aria-controls="customizer<%= UUID %>" aria-selected="false"><%= HCSR.transl("Mockup") %></a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" style="display: none;" id="resume_<%= UUID %>-tab" data-toggle="tab" role="tab"
+                  data-bs-toggle="tab" data-bs-target="#resume_<%= UUID %>"
+                  aria-controls="resume_<%= UUID %>" aria-selected="false"><%= HCSR.transl("Technical resume") %></a>
+                </li>
+<% if (!ux_options.rightcol ) { %>
+              <li class="nav-item" onclick="console.log('click on 3D tab');window.setTimeout(triggerResizeWindow,200);">
+                <a class="nav-link" id="view3D_<%= UUID %>-tab" data-toggle="tab" role="tab"  data-bs-toggle="tab" data-bs-target="#T3Dview_<%= UUID %>" aria-controls="T3Dview_<%= UUID %>" aria-selected="true">3D</a>
+              </li>
+<% if (schl_tpl()) { %>
+              <li class="nav-item">
+                <a class="nav-link" id="ATLAS_<%= UUID %>-tab" data-toggle="tab" role="tab"
+                  data-bs-toggle="tab" data-bs-target="#ATLAS_<%= UUID %>"
+                  aria-controls="ATLAS_<%= UUID %>" aria-selected="false"><%= HCSR.transl("Atlas Textures") %></a>
+              </li>
+<% } %>
+<% if (sugarcrepeHL.marketplace) { %>
+              <li class="nav-item">
+                <a class="nav-link" style="display: none;" id="pricerequest_<%= UUID %>-tab" data-toggle="tab"
+                data-bs-toggle="tab" data-bs-target="#pricerequest_<%= UUID %>"
+                role="tab" aria-controls="pricerequest_<%= UUID %>" aria-selected="false"><%= HCSR.transl("Select your vendors") %></a>
+              </li>
+<% } %>
+<% } %>
+              </ul>
+              <div class="tab-content pt-1 m-0" id="specTabContent">
+                <div class="tab-pane fade_inactive" role="tabpanel" id="resume_<%= UUID %>" aria-labelledby="resume_<%= UUID %>-tab">
+<% if (ux_options.resume ) { %>
+                  <div role="resume-content"></div>
+<% } %>
+    <% if (!sugarcrepeHL.marketplace && ux_options.pricelist ) { %>
+                <hr class="hr hr-blurry" />
+                <div role="pricerequest-content"></div>
+    <% } %>
+                </div>
+                <div class="tab-pane fade_inactive show active" id="spec_<%= UUID %>" role="tabpanel" aria-labelledby="spec_<%= UUID %>-tab">
+<% if (ux_options.spec ) { %>
+                  <div class="container" role="specification-content"></div>
+<% } %>
+                </div>
+                <div class="tab-pane fade_inactive" id="option_<%= UUID %>" role="tabpanel" aria-labelledby="option_<%= UUID %>-tab">
+<% if (ux_options.spec ) { %>
+                  <div class="container" role="option-content"></div>
+<% } %>
+                </div>
+                <div class="tab-pane fade_inactive" id="delivery_<%= UUID %>" role="tabpanel" aria-labelledby="delivery_<%= UUID %>-tab">
+<% if (ux_options.spec ) { %>
+                  <div class="container" role="delivery-content"></div>
+<% } %>
+                </div>
+                <div class="tab-pane fade_inactive" id="customizer<%= UUID %>" role="tabpanel" aria-labelledby="customizer<%= UUID %>-tab">
+<% if (ux_options.customizer ) { %>
+                  <div class="container hopes-listener-container" role="customizer-content"></div>
+<% } %>
+                </div>
+<% if (!ux_options.rightcol ) { %>
+              <div class="tab-pane fade_inactive" id="T3Dview_<%= UUID %>" role="tabpanel" aria-labelledby="T3Dview_<%= UUID %>-tab">
+<% if (ux_options.view3D ) { %>
+                <div role="3Dwait" class="mx-auto text-center" style="display: flex; justify-content: center; align-items: center;"
+      ><img src="<%=sugarcrepeHL.rootimg.base%>3Dwait.svg"></img><div class="spinner-border text-light" style="width: 7rem;position: absolute;height: 7rem;border-width: 1em;"></div></div>
+                <div role="3Dview-content" class="bg-dark p-0 w-100" style="display: none;"></div>
+                <p class="mx-auto w-100 p-3 m-0">
+                  <div class="card mt-2 mb-2 border">
+                    <div class="card-header h6">
+                        <label for="user_video_duration"><%= HCSR.transl("Durée des enregistrement videos") %></label>
+                        <div role="help" field="user_video_duration"></div>
+                    </div>
+                    <div class="card-body">
+                        <div class="input-group">
+                          <select class="form-control" name="user_video_duration" placeholder="">
+                              <option value="10">10s</option>
+                              <option value="15">15s</option>
+                              <option value="20">20s</option>
+                              <option value="30">30s</option>
+                          </select>
+                        </div>
+                    </div>
+                  </div>
+                  <a class="btn btn-outline-primary w-100" onclick="
+                  const mokup_tab = $(this).parents('main').find('#customizer<%= UUID %>-tab');
+                  if (typeof(bootstrap) !== 'undefined' && mokup_tab.length > 0) {
+                    var TAB = bootstrap.Tab.getInstance(mokup_tab[0]);
+                    if (!TAB) TAB = new bootstrap.Tab(mokup_tab[0]);
+                    TAB.show();
+                  }
+"><%= HCSR.transl(`Skin your model via the "mokup" tab`) %></a>
+              <button class="btn btn-primary btn-lg btn-block w-100 mt-4" type="button" role="validate-spec-graphics"><%= HCSR.transl("Reload 3D and SVGs") %></button>
+              <button class="hidden" type="button"
+                  role="downloadGLB"
+                  onclick="
+        setTimeout(() => {
+            const _sampler = HCSR.sampler.XL3DSampler.instances[0] ?? null;
+            if (_sampler != null) {
+              const blob = HCSR.sampler.XL3DSampler.instances[0].exportGLB();
+              HU.downloadBlob('view_3D_export.glb',blob);
+            }
+        }, 2000);"
+                ><%= HCSR.transl("Download GLB 3D model") %></button>
+                </p>
+<% } %>
+              </div>
+              <div class="tab-pane fade_inactive" id="SVG_<%= UUID %>" role="tabpanel" aria-labelledby="SVG_<%= UUID %>-tab">
+<% if (ux_options.viewSVGs ) { %>
+                  <div role="SVG-content"></div>
+                  <button class="btn btn-primary btn-lg btn-block w-100 mt-4" type="button" role="validate-spec-graphics"><%= HCSR.transl("Reload 3D and SVGs") %></button>
+<% } %>
+              </div>
+              <div class="tab-pane fade_inactive container-fluid" id="ATLAS_<%= UUID %>" role="tabpanel" aria-labelledby="ATLAS_<%= UUID %>-tab">
+<% if (ux_options.viewSVGs && schl_tpl()) { %>
+                  <div role="ATLAS-content" class="row"></div>
+<% } %>
+              </div>
+              <div role="displaypdf" class="position-sticky sticky-top col-12" style="display: none;">
+              </div>
+  <% if (sugarcrepeHL.marketplace) { %>
+              <div class="tab-pane fade_inactive" role="tabpanel" id="pricerequest_<%= UUID %>" aria-labelledby="pricerequest_<%= UUID %>-tab">
+
+    <% if (ux_options.pricelist ) { %>
+                <div role="pricerequest-content"></div>
+    <% } %>
+              </div>
+  <% } %>
+<%}%>
+            </div>
+            </div>
+          </div>
+          </div>
+        </div>
+<% if (ux_options.rightcol ) { %>
+      </div>
+ <!--   </div> -->
+<% } %>

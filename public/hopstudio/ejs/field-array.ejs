@@ -1,0 +1,10 @@
+              <label for="<%= fid %>"><%= label %></label>
+              <div class="input-group">
+              <input type="hidden" name="<%= fid %>" value='<%= encodeURIComponent(JSON.stringify(value)) %>'/>
+<%
+    var gid = 0;
+    value.forEach(val => {
+        let groupid = `${fid}zzz${gid}`; gid++; %>
+                <div class="input-group" id="<%= groupid %>"></div>
+<% }); %>
+              </div>

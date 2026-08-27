@@ -1,0 +1,36 @@
+            <form class="needs-validation" novalidate>
+              <div class="row">
+
+            <%
+/*
+function printField(field) {
+    const _val = field.value;
+    if (!HU.isObject(_val) || HU.isObject(_val) && _val.kind === "select") {
+                %>
+              <div class="col col-sm-12 col-md-6 col-lg-4" id="<%= field.fid %>"></div><%
+    } else { %><div class="col-12" id="<%= field.fid %>"></div><%    }
+
+}
+*/
+const fieldsSorted = sugarcrepeHL.sortFields(user_interface_organizer["required_fields"],fields);
+
+fieldsSorted.forEach(field => {
+  if (typeof field.fid === "string") { %><%- HU.printField(field) %><% }
+  else if (HU.isObject(field)) {
+    Object.entries(field).forEach(entry => {
+    var [groupId,groupFields] = entry;
+    if (Array.isArray(groupFields) && groupFields.length > 0) {
+  %><%- waitIncludeEJS('field-group',{gid:groupId,fields:groupFields}) %><% }
+                });
+  }
+})
+%>
+              </div>
+            </form>
+        <% if (schl_tpl()||schl_dev()) { %>
+            <hr class="mb-12">
+              <button class="btn btn-primary btn-lg btn-block" type="button" role="show-faces"><%= HCSR.transl("Show faces names on 3D") %></button>
+              <button class="btn btn-primary btn-lg btn-block" type="button" role="validate-spec-graphics"><%= HCSR.transl("Reload 3D and SVGs") %></button>
+        <% } %>
+
+  <!--          <button class="btn btn-primary btn-lg btn-block" type="button" role="validate-spec-price">Get Price and resume</button> -->

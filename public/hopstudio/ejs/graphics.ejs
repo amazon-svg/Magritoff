@@ -1,0 +1,60 @@
+      <div class="row">
+        <div class="col-md-12 order-md-1">
+          <p style="font-size: larger;"><%= HCSR.transl("To personalize the 3D render view, you can :") %><br>1/ <%= HCSR.transl("download template files by click on the button below,") %><br>2/ <%= HCSR.transl("open it with Inkscape, Illustrator or Canva,") %><br>3/ <%= HCSR.transl("make your design and save it in png,") %><br>4/ <%= HCSR.transl("select it in the correct zone below...") %></p>
+          <button type="button" class="btn btn-lg btn-primary" role="saveDesignerTemplates"
+                          onclick="sugarcrepeHL.instance(this).saveDesignerSVGs();
+                         /* const HLUX=$(this).parents('div[role=SugarCrepe]')[0].widget.schl; $.proxy(HLUX.saveDesignerSVGs(),HLUX); */
+                          "><%= HCSR.transl("download SVG templates for designer") %></button>
+
+          <hr class="mb-4">
+        </div>
+        <div class="col-md-12 order-md-1 container">
+     <!--     <form class="needs-validation" novalidate id="specForm"> -->
+
+            <div class="row">
+            <%
+/*
+function printField(field) {
+    const _val = field.value;
+    if (!HU.isObject(_val) || HU.isObject(_val) &&
+                !["tatoo-text","imgFileArchive"].includes(_val.kind) ) {
+                %>
+              <div class="col col-sm-12 col-md-6 col-lg-4 mb-3" id="<%= field.fid %>"></div><%
+    } else { %><div class="col-12" id="<%= field.fid %>"></div><%    }
+
+}
+*/
+const fieldsSorted = sugarcrepeHL.sortFields(user_interface_organizer["graphic_fields"],graphic_fields);
+
+fieldsSorted.forEach(field => {
+  if (typeof field.fid === "string") { %><%- HU.printField(field) %><% }
+  else if (HU.isObject(field)) {
+    Object.entries(field).forEach(entry => {
+    var [groupId,groupFields] = entry;
+    if (Array.isArray(groupFields) && groupFields.length > 0) {
+  %><%- waitIncludeEJS('field-group',{gid:groupId,fields:groupFields}) %><% }
+                });
+  }
+})
+%>
+              <hr class="mb-4">
+              <button type="button" class="btn btn-primary btn-lg btn-block"
+                      role="loadTexture"
+                      onclick="
+  const c3D = this.closest('.hopes-listener-container').hopes3DCanvas;
+  if (c3D !== undefined) {
+    c3D.ctx.reloadTextures();
+    $(c3D).trigger('click');
+    if (!c3D) $('[role=validate-spec-graphics]').trigger('click');
+    const mokup_tab = sugarcrepeHL.instance(this).$find('#view3D_<%= UUID %>-tab');
+    if (mokup_tab) mokup_tab[0].click();
+  }"
+                      ><%= HCSR.transl("Apply custom texture on 3D model") %></button>
+        <% if (schl_tpl()) { %>
+              <button class="btn btn-primary btn-lg btn-block" type="button" role="show-faces"><%= HCSR.transl("Show faces names on 3D") %></button>
+              <button class="btn btn-primary btn-lg btn-block" type="button" role="validate-spec-graphics"><%= HCSR.transl("Reload 3D and SVGs") %></button>
+        <% } %>
+            </div>
+  <!--        </form> -->
+        </div>
+      </div>

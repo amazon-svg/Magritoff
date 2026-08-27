@@ -1,0 +1,123 @@
+<% if (true || schl_tpl()) {
+    console.log(locals);
+    const T = locals.value.value;
+        %>
+      <div class="card mt-2 mb-2 border">
+        <div class="card-header h6">
+            <label for="<%= fid %>"><%= HCSR.transl(label,"products") %></label>
+            <div role="help" field="<%= fid %>"></div>
+        </div>
+        <div id="tatoo-text-<%= T.role %>" role="tatoo-text-<%= T.role %>" class="card-body" onchange="onTatooTextChange(this);">
+            <div class="w-100">
+                  <input type="text" role="text"
+                        class="form-control"
+                        name="<%= fid %>zzzvaluezzzvaluezzztext"
+                        placeholder="" value="<%= T.text %>" <% if (locals.require == true) { %>required<% } %>>
+
+            </div>
+    <!--        <div class="btn-group" role="toolbar" aria-label="toolbar">
+                <div class="btn-group mr-2" role="toolbar" aria-label="Horizontal align">
+                    <button type="button" class="btn btn-outline-secondary" onclick="changeAlign(this,'left');">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"  viewBox="0 0 16 16">
+                            <text x="7" y="15"
+                                fill="grey" font-family="Helvetica" font-style="normal" font-weight="bold" font-size="16px" text-anchor="middle" alignment-baseline="baseline">&lt;</text>
+                        </svg>
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" onclick="changeAlign(this,'center');">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="22" height="16" fill="currentColor"  viewBox="0 0 16 16">
+                            <text x="8" y="15"
+                                fill="grey" font-family="Helvetica" font-style="normal" font-weight="bold" font-size="16px" text-anchor="middle" alignment-baseline="baseline">&lt;-&gt;</text>
+                        </svg>
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" onclick="changeAlign(this,'right');">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"  viewBox="0 0 16 16">
+                            <text x="9" y="15"
+                                fill="grey" font-family="Helvetica" font-style="normal" font-weight="bold" font-size="16px" text-anchor="middle" alignment-baseline="baseline">&gt;</text>
+                        </svg>
+                    </button>
+                   <input type="hidden" name="<%= fid %>zzzvaluezzzalign" role="align" value="<%= T.align %>">
+                </div>
+                <div class="btn-group mr-2" role="toolbar" aria-label="vertical align">
+                    <button type="button" class="btn btn-outline-secondary" onclick="changeValign(this,'top');">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"  viewBox="0 0 16 16">
+                            <text x="8" y="3"
+                                fill="grey" font-family="Helvetica" font-style="normal" font-weight="bold" font-size="20px" text-anchor="middle" alignment-baseline="baseline">_</text>
+                        </svg>
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" onclick="changeValign(this,'middle');">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"  viewBox="0 0 16 16">
+                            <text x="8" y="9"
+                                fill="grey" font-family="Helvetica" font-style="normal" font-weight="bold" font-size="20px" text-anchor="middle" alignment-baseline="baseline">_</text>
+                        </svg>
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" onclick="changeValign(this,'bottom');">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"  viewBox="0 0 16 16">
+                            <text x="8" y="14"
+                                fill="grey" font-family="Helvetica" font-style="normal" font-weight="bold" font-size="20px" text-anchor="middle" alignment-baseline="baseline">_</text>
+                        </svg>
+                    </button>
+                   <input type="hidden" name="<%= fid %>zzzvaluezzzvalign" role="valign" value="<%= T.valign %>">
+                </div>
+            </div> -->
+            <div class="btn-group" role="toolbar" aria-label="toolbar">
+                <div class="btn-group" role="toolbar" aria-label="font">
+                    <button type="button" class="btn btn-outline-secondary" onclick="changeFontWeight(this);">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"  viewBox="0 0 16 16">
+                        <text x="8" y="15"
+                                fill="grey" font-family="Helvetica" font-style="normal" font-weight="bold" font-size="16px" text-anchor="middle" alignment-baseline="baseline">B</text>
+                    </svg>
+                      <input type="hidden" name="<%= fid %>zzzvaluezzzfontzzzfont-weight" role="fw" value="<%= T.font["font-weight"] %>">
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" onclick="changeFontStyle(this);">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"  viewBox="0 0 16 16">
+                        <text x="8" y="15"
+                                fill="grey" font-family="Helvetica" font-style="italic" font-weight="bold" font-size="16px" text-anchor="middle" alignment-baseline="baseline">I</text>
+                    </svg>
+                      <input type="hidden" name="<%= fid %>zzzvaluezzzfontzzzfont-style" role="fstyle" value="<%= T.font["font-style"] %>">
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" onclick="changeUnderline(this);">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"  viewBox="0 0 16 16">
+                        <text x="8" y="15"
+                                fill="grey" font-family="Helvetica" font-style="normal" font-weight="bold" font-size="16px"
+                                text-decoration="underline"
+                                text-anchor="middle" alignment-baseline="baseline">U</text>
+                    </svg>
+                      <input type="hidden" name="<%= fid %>zzzvaluezzzfontzzztext-decoration" role="tdeco" value="<%= T.font["text-decoration"] %>">
+                    </button>
+                    <label class="btn btn-outline-secondary" for="" style="margin-bottom: 0;">
+                          <select style="width: 100px;" name="<%= fid %>zzzvaluezzzfontzzzfont-family" class="form-control" role="ff">
+                              <% HU.WebSafeFonts.forEach(ff => { %>
+                              <option value="<%= ff %>" <% if (T.font["font-family"] === ff) { %>selected<% } %>><%= ff %></option>
+                              <% }); %>
+                          </select>
+                    </label>
+                    <label class="btn btn-outline-secondary" for="" style="margin-bottom: 0;">
+                          <select style="width: 70px;" name="<%= fid %>zzzvaluezzzfontzzzfont-size" class="form-control" role="fsize">
+                              <% for (var fs=2;fs < 50; fs++) { %>
+                              <option value="<%= fs %>px" <% if (T.font["font-size"] === `${fs}px`) { %>selected<% } %>><%= fs %> px</option>
+                              <% } %>
+                          </select>
+                    </label>
+                    <label class="btn btn-outline-secondary" for="" style="margin-bottom: 0; vertical-align: middle; padding-bottom: 0;">
+                          <input
+                                id="color-selector"
+                                type="text" role="fill" style="width: 40px; background-color:<%= T.fill %>;color:<%=T.fill%>"
+                                class="form-control"
+                                onchange="this.style.backgroundColor = this.value;this.style.color = this.value;"
+                                name="<%= fid %>zzzvaluezzzfill" data-coloris
+                                placeholder="" value="<%= T.fill %>" <% if (locals.require == true) { %>required<% } %>>
+                    </label>
+                </div>
+            </div>
+            <div class="w-100">
+                  <svg class="form-control" role="<%= T.role %>" kind="TextRich" xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 30' width="100%" height="100px" onclick="
+                    const div = $('div[role=tatoo-text-<%= T.role %>]').find('div[role=<%= T.role %>-style]');
+                    if (div.attr('style') === 'display: none;') div.attr('style','display: block;');
+                    else div.attr('style','display: none;');"></svg>
+            </div>
+            <script type="text/javascript">
+                onTatooTextChange($('div[role=tatoo-text-<%= T.role %>]'));
+            </script>
+        </div>
+      </div>
+<% } %>

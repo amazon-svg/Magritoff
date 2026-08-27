@@ -1,0 +1,8 @@
+<% response.forEach(id => { %>
+              <li class="nav-item">
+                <a class="nav-link active" href="?use_layout=<%= id %>">
+                  <span data-feather="home"></span>
+                  <%= id %><span class="sr-only">(current)</span>
+                </a>
+              </li>
+<% }); %>

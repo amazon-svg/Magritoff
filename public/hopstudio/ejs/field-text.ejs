@@ -1,0 +1,2 @@
+ <% const tContext = locals.translationContext || locals.tContext; %>
+              <input type="text" id="<%=fid%>" <% if (locals.placeholder && tContext) { %>placeholder="<%= HCSR.transl(placeholder,tContext) %>"<% } %> class="form-control <% if (typeof locals.unit === "string") { %>text-end<% } %>" name="<%= fid %>" style="min-width: 50px" placeholder="" value="<%= value %>" <% if (locals.require == true) { %>required<% } %> aria-labelledby="label<%= fid %>">

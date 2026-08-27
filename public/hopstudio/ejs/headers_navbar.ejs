@@ -1,0 +1,60 @@
+
+
+          <nav
+          style="z-index: 50!important;"
+          class="navbar<% if (ux_options.path||ux_options.title) { %>  navbar-expand-md sticky-top <% } %>">
+<% if (ux_options.path||ux_options.title) { %>
+              <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+              </button>
+<%} else {%>
+
+<% } %>
+              <span class="collapse navbar-collapse w-100" id="navbarSupportedContent">
+                <ul class="navbar-nav w-100 flex flex-row">
+                  <% if (ux_options.path||ux_options.title) { %>
+                  <li class="nav-item active mr-auto">
+                    <div class="flex flex-row">
+                     <% if (ux_options.path) { %>
+                   <button type="button" title="Click to return home" class="btn btn-light text-secondary"
+                   onclick="showQuitModal(function(){sugarcrepeHL.instance(this).rinit({});})"><%= short_title %></button><span class="text-light">&gt;</span>
+                   <!-- <a class="nav-link" style="display: contents;color:#fff;cursor: pointer;"
+                    onclick="showQuitModal(function(){sugarcrepeHL.instance(this).rinit({});})"><%= short_title %> <span class="sr-only">(current)</span></a> -->
+                  <% var i=0;
+                    categories.forEach(cat => { %>
+                      <button type="button" title="Click to return to current category" class="btn btn-light text-secondary"
+                   onclick="showQuitModal(function(){sugarcrepeHL.instance(this).selectCategory('<%= cat %>');})">
+                        <% if (i > 0) { %><% } %><%=HCSR.transl(cat,"categories")%>
+                      </button>
+                   <!--   <a class="nav-link" style="display: contents;color:#fff;cursor: pointer;"
+                        onclick="showQuitModal(function(){sugarcrepeHL.instance(this).selectCategory('<%= cat %>');})"><% if (i == 0) { %>&gt; <% } else  { %>| <% } %><%=HCSR.transl(cat,"categories")%></a> -->
+
+                  <% i++; }) %>
+                  <% } %>
+                  <% if (ux_options.title) { %>
+                    <span class="btn btn-light"><%= HCSR.transl(description,"products") %></span>
+                  <% } %>
+
+                    </div>
+                  </li>
+                  <% } %>
+                <% if (ux_options.save) { %>
+                 <li class="nav-item active text-right mr-2">
+                    <button type="button" title="<%= HCSR.transl("Click to save your project...") %>" class="btn btn-light text-light" data-toggle="modal" role="openSaveModal" data-target="#saveModal">
+                      <i class="bi bi-device-ssd-light"></i></button>
+                  </li>
+                <% } %>
+                <% if (ux_options.share) { %>
+                  <li class="nav-item active text-right mr-2">
+                    <button type="button" title="<%= HCSR.transl("Click to share your project...") %>" class="btn btn-light text-light" data-toggle="modal" role="openShareModal" data-target="#shareModal">
+                     <i class="bi bi-link-45deg-light"></i></button>
+                  </li>
+                <% } %>
+                </ul>
+              </span>
+              <ul class="navbar-nav mr-auto flex flex-row ml-auto">
+                <li class="nav-item active text-right w-100">
+                  <button type="button" title="<%= HCSR.transl("Click to refresh price and 3D view") %>" class="btn btn-primary bi-basket" role="display_global_price" style="min-width: 250px;"><%= HCSR.transl("Get price") %><!-- from&nbsp;<%= price %>&nbsp;&euro;/ex --></button>
+                </li>
+              </ul>
+          </nav>
