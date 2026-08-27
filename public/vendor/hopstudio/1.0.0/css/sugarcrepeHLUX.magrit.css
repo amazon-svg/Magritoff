@@ -851,6 +851,11 @@ body {
   box-shadow: none;
 }
 
+.hopstudio-workspace .hs-product-card > .chat-card.hs-product-card-rich {
+  padding: 20px 24px;
+  line-height: 1.55;
+}
+
 .hopstudio-workspace .hs-product-card-header {
   min-height: 124px;
   display: flex;
