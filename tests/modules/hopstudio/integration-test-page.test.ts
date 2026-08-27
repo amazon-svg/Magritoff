@@ -67,6 +67,8 @@ describe('page de test d intégration HopeStudio', () => {
     expect(workspaceSource).toContain('decorateProductCards');
     expect(workspaceSource).toContain("container.classList.add('hs-product-card')");
     expect(workspaceSource).toContain('getCardFromUid?.(uid)');
+    expect(workspaceSource).toContain('parseNaturalProductPrefix');
+    expect(workspaceSource).toContain("? 'Sur devis' : trimmed");
     expect(workspaceSource).toContain('action.dataset.hsAction = kind');
     expect(magritStyles).toContain('.hs-product-card-specs');
     expect(magritStyles).toContain("[data-hs-action='price']::before");
