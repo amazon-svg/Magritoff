@@ -51,6 +51,7 @@ declare global {
 let runtimePromise: Promise<HopeStudioRuntime> | null = null;
 let productCardTemplatePromise: Promise<string> | null = null;
 const sentInitialRequestIds = new Set<string>();
+const HOPSTUDIO_WIDGET_TIMEOUT_MS = 60_000;
 
 export function HopeStudioWorkspace({
   tenantId,
@@ -84,7 +85,7 @@ export function HopeStudioWorkspace({
         const HLUX = mountedInstance.locals;
         HLUX.customApiFetch = createWorkflowTransport(api, tenantId, userId);
 
-        await waitForElement('#chat-widget', 10_000);
+        await waitForElement('#chat-widget', HOPSTUDIO_WIDGET_TIMEOUT_MS);
         if (!active) return;
         document.querySelector('#chat-widget')?.classList.remove('chat-minimized');
         disposeChatChrome = enhanceChatChrome(() => {}, () => {});
