@@ -389,6 +389,21 @@ describe('module Clients (E10.4) contre le contrat', () => {
     expect(body.data.orders).toEqual([]);
   });
 
+  it('M2 — GET /customers/{id} emet un ETag, declare au contrat, exploitable pour le PATCH', async () => {
+    const { data: customer } = await createCompany();
+    const detail = await call(`/api/v1/customers/${customer.id}`, { headers: asUser });
+    await expectContract(detail, { status: 200, dataSchema: 'CustomerDetail' });
+    const etag = detail.headers.get('etag');
+    expect(etag).toBeTruthy();
+
+    const patched = await call(`/api/v1/customers/${customer.id}`, {
+      method: 'PATCH',
+      headers: { ...jsonHeaders, 'If-Match': etag! },
+      body: JSON.stringify({ vat_number: 'FR123456789' }),
+    });
+    await expectContract(patched, { status: 200, dataSchema: 'Customer' });
+  });
+
   it('CA7 — un client inconnu du tenant rend 404, jamais une autre reponse', async () => {
     const response = await call(`/api/v1/customers/${uuid()}`, { headers: asUser });
     await expectContract(response, { status: 404 });

@@ -75,7 +75,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Recupere un interlocuteur et son `ETag` courant — necessaire pour enchainer un `PATCH` protege par `If-Match` (CA9) sans passer par la liste, dont l `ETag` de reponse couvre la collection, pas un interlocuteur pris isolement. */
+        /** Recupere un interlocuteur et son `ETag` courant — necessaire pour enchainer un `PATCH` protege par `If-Match` (CA9). `listCustomerContacts` n emet aucun `ETag` : une collection n a pas de version unique opposable a un `If-Match` portant sur UN de ses elements ; c est cet endpoint, pas la liste, qui fait foi pour la concurrence optimiste d un interlocuteur donne. */
         get: operations["getCustomerContact"];
         put?: never;
         post?: never;
@@ -785,9 +785,10 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Fiche client detaillee. */
+            /** @description Fiche client detaillee. L `ETag` porte sur le sous-ensemble `Customer` de cette fiche (hors interlocuteurs et points d extension) : c est la meme base de calcul que celle verifiee par `updateCustomer`, condition necessaire pour qu un `If-Match` lu ici soit accepte par le `PATCH` (CA9). */
             200: {
                 headers: {
+                    ETag: components["headers"]["ETag"];
                     [name: string]: unknown;
                 };
                 content: {
