@@ -12,7 +12,8 @@
  *      • detail des couts (papier/print/calage/conditionnement/livraison)
  *      • infos complementaires (delais, poids, fournisseur)
  *      • bouton recalculer
- *  - Bouton final "Imprimer le devis / Ajouter au panier" (ouvre QuoteModal).
+ *  - Bouton final "Imprimer le devis / Ajouter au projet" (ouvre QuoteModal,
+ *    E10.1 — remplace « Ajouter au panier » sur les surfaces internes).
  *
  * Note : le state `showDebug` est gere localement (specifique a ce panneau).
  */
@@ -344,12 +345,15 @@ export function ProductCardPrix({
         </div>
       )}
 
-      {/* Bouton devis/panier */}
+      {/* Bouton devis/projet — E10.1 (2026-09-01) : « Ajouter au panier »
+          disparait des surfaces internes Magrit (decision RP 28/08/2026),
+          remplace par « Ajouter au projet » (ouvre QuoteModal, qui porte les
+          deux actions). */}
       <button
         onClick={onOpenQuoteModal}
         className="w-full mt-4 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-colors"
       >
-        Imprimer le devis / Ajouter au panier
+        Imprimer le devis / Ajouter au projet
       </button>
     </div>
   );

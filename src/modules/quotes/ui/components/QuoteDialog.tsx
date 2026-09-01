@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { X, FileText, ShoppingCart, LayoutTemplate, Star } from 'lucide-react';
-import { useCart } from '@/modules/orders/ui/runtime';
+import { X, FileText, FolderKanban, LayoutTemplate, Star } from 'lucide-react';
 import { useAuth } from '@/modules/account/ui/runtime';
 import { useQuoteTemplates } from '@/modules/quote-templates/ui/runtime';
 import { useTenant } from '@/modules/tenants/ui/runtime';
 import { useTenantPath } from '@/modules/tenants/ui/hooks';
+import { TEST_IDS } from '@/shared/presentation/testIds';
+import { AddToProjectModal } from '@/modules/projects/ui';
 import {
   makeQuoteReference,
   renderQuoteHtml,
@@ -20,7 +21,7 @@ interface QuoteModalProps {
 }
 
 export function QuoteModal({ isOpen, onClose, product }: QuoteModalProps) {
-  const { addToCart } = useCart();
+  const [showAddToProject, setShowAddToProject] = useState(false);
   const { user } = useAuth();
   const { persist } = useQuotePersistence();
   const { templates, defaultTemplateId } = useQuoteTemplates();
@@ -42,11 +43,6 @@ export function QuoteModal({ isOpen, onClose, product }: QuoteModalProps) {
 
   const template =
     templates.find((t) => t.id === selectedTemplateId) ?? getDefaultTemplate();
-
-  const handleAddToCart = () => {
-    addToCart({ ...product });
-    onClose();
-  };
 
   const handlePrintQuote = async () => {
     const printWindow = window.open('', '_blank');
@@ -239,11 +235,12 @@ export function QuoteModal({ isOpen, onClose, product }: QuoteModalProps) {
           </button>
           
           <button
-            onClick={handleAddToCart}
+            onClick={() => setShowAddToProject(true)}
             className="w-full px-6 py-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-colors flex items-center justify-center gap-3"
+            data-testid={TEST_IDS.project.addToProjectBtn}
           >
-            <ShoppingCart className="w-5 h-5" />
-            Ajouter au panier
+            <FolderKanban className="w-5 h-5" />
+            Ajouter au projet
           </button>
 
           <button
@@ -254,6 +251,21 @@ export function QuoteModal({ isOpen, onClose, product }: QuoteModalProps) {
           </button>
         </div>
       </div>
+
+      {showAddToProject && (
+        <AddToProjectModal
+          item={{
+            label: product.name,
+            quotePayload: product,
+            clariprintConfig: product.clariprintData ?? null,
+          }}
+          onClose={() => setShowAddToProject(false)}
+          onAdded={() => {
+            setShowAddToProject(false);
+            onClose();
+          }}
+        />
+      )}
     </div>
   );
 }

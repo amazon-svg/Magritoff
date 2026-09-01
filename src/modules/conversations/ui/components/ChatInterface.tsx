@@ -1,5 +1,6 @@
 import { useWorkspaceUiRuntime } from '@/platform/runtime/workspace-ui-runtime';
 import { lazy, Suspense, useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router";
 import {
   Send, History, X, CheckSquare, Square, BookmarkPlus,
   MessageSquare, SquarePen, Paperclip, Mic, Sparkles,
@@ -51,6 +52,37 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
   const { user, session } = useAuth();
   const { currentTenant } = useTenant();
   const { canUse } = usePlan();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // E10.1 CA5 — reprise de l iteration conversationnelle sur un chiffrage
+  // deja associe a un projet (ProjectDetailPage, bouton « Reprendre »). Le
+  // payload restitue est celui deja calcule (`project_items.quote_payload`) :
+  // aucun appel Clariprint n est rejoue ici.
+  useEffect(() => {
+    const state = location.state as
+      | { resumeProject?: { item?: { label?: string; quote_payload?: unknown } } }
+      | null;
+    const resumeItem = state?.resumeProject?.item;
+    if (!resumeItem) return;
+
+    const payload: Record<string, unknown> =
+      resumeItem.quote_payload && typeof resumeItem.quote_payload === 'object'
+        ? { ...(resumeItem.quote_payload as Record<string, unknown>) }
+        : {};
+    resetConversation();
+    setProducts([{ id: `resume-${Date.now()}`, ...payload } as any]);
+    setMessages([
+      {
+        role: 'assistant',
+        content: `Reprise du chiffrage « ${resumeItem.label ?? 'produit'} » depuis le projet. Vous pouvez continuer à l’ajuster.`,
+      },
+    ]);
+    // Nettoie le state de navigation : sans ca, un remount du composant lazy
+    // (retour arriere, changement d onglet) rejouerait la reprise en boucle.
+    navigate(location.pathname, { replace: true, state: null });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state]);
   const { addProductsBulk } = useLibrary();
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
