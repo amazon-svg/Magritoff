@@ -28,6 +28,24 @@ import {
 const UNIQUE_VIOLATION = '23505';
 const CHECK_VIOLATION = '23514';
 
+/**
+ * Neutralise les caracteres reserves de la grammaire de filtre PostgREST
+ * (m2 qa-review) avant de les interpoler dans un `.or(...)`. La virgule
+ * separe les conditions et les parentheses delimitent `and()/or()` : une
+ * saisie ordinaire les contenant (ex. "Martin, Paris") romptait la requete
+ * en 500 cote client, sans fuite inter-tenant.
+ *
+ * Choix : RETIRER ces caracteres plutot que tenter de les echapper — la
+ * syntaxe exacte de citation de PostgREST n a pas pu etre revalidee via
+ * documentation dans cet environnement (MCP context7 indisponible ici). Un
+ * terme de recherche perd un signe de ponctuation ; il ne casse jamais la
+ * requete.
+ */
+/** Exporte uniquement pour test unitaire (m3). */
+export function sanitizeSearchTerm(raw: string): string {
+  return raw.replace(/[,()]/g, ' ').trim();
+}
+
 export class SupabaseCustomersRepository implements CustomersRepository {
   constructor(private readonly client: SupabaseClient<any>) {}
 
@@ -41,11 +59,14 @@ export class SupabaseCustomersRepository implements CustomersRepository {
       .limit(params.size + 1);
 
     if (params.type) query = query.eq('type', params.type);
-    if (params.q && params.q.trim().length > 0) {
-      const term = `%${params.q.trim()}%`;
-      query = query.or(
-        `company_name.ilike.${term},first_name.ilike.${term},last_name.ilike.${term}`,
-      );
+    if (params.q) {
+      const sanitized = sanitizeSearchTerm(params.q);
+      if (sanitized.length > 0) {
+        const term = `%${sanitized}%`;
+        query = query.or(
+          `company_name.ilike.${term},first_name.ilike.${term},last_name.ilike.${term}`,
+        );
+      }
     }
     if (params.cursor) {
       // Pagination par cle (created_at, id) descendante : la page suivante
