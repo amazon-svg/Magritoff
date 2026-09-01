@@ -31,13 +31,20 @@ type ClientStub = Readonly<{
   user?: string | null;
   tenants?: readonly string[];
   rpcError?: { message: string } | null;
+  /** E10.5 CA4 — reponse de `current_user_is_shop_customer()`. */
+  isShopCustomer?: boolean;
 }>;
 
 function supabaseStub(options: ClientStub = {}) {
-  const rpc = vi.fn(async () => ({
-    data: options.rpcError ? null : [...(options.tenants ?? [])],
-    error: options.rpcError ?? null,
-  }));
+  const rpc = vi.fn(async (fn: string) => {
+    if (fn === 'current_user_is_shop_customer') {
+      return { data: options.isShopCustomer ?? false, error: null };
+    }
+    return {
+      data: options.rpcError ? null : [...(options.tenants ?? [])],
+      error: options.rpcError ?? null,
+    };
+  });
   const getUser = vi.fn(async () =>
     options.user === null || options.user === undefined
       ? { data: { user: null }, error: { message: 'jwt invalide' } }
@@ -195,6 +202,26 @@ describe('identite et disponibilite', () => {
     // Si la facade et la base divergeaient sur ce qui est accessible, la
     // premiere autoriserait ce que la seconde refuse — ou l inverse.
     expect(rpc).toHaveBeenCalledWith('current_user_tenant_ids');
+  });
+
+  it('CA4 (E10.5) — un compte client boutique recoit 403 auth.scope_forbidden, jamais une selection d espace', async () => {
+    const { instance, rpc } = verifier({ user: USER, isShopCustomer: true });
+
+    expect(JSON.parse(await problemOf(instance.verify(bearer)))).toMatchObject({
+      status: 403,
+      code: 'auth.scope_forbidden',
+    });
+    // Le refus est pose AVANT toute lecture des espaces accessibles : un
+    // compte client boutique n a pas a interroger current_user_tenant_ids().
+    expect(rpc).not.toHaveBeenCalledWith('current_user_tenant_ids');
+  });
+
+  it('CA4 (E10.5) — un utilisateur Magrit ordinaire (pas un compte client boutique) n est pas affecte', async () => {
+    const { instance } = verifier({ user: USER, tenants: [TENANT_A], isShopCustomer: false });
+
+    const principal = (await instance.verify(bearer)) as ApiPrincipal;
+
+    expect(principal).toMatchObject({ kind: 'user', userId: USER, tenantId: TENANT_A });
   });
 
   it('ignore un en-tete vide ou fait d espaces comme s il etait absent', async () => {

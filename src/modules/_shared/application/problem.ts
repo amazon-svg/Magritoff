@@ -31,6 +31,13 @@ export const SHARED_PROBLEM_CODES = Object.freeze({
   tenantSelectionRequired: 'identity.tenant_selection_required',
   scopeRequired: 'identity.scope_required',
   actorKindRequired: 'identity.actor_kind_required',
+  /**
+   * E10.5 CA4 — un compte `shop_customer` (client boutique) appelle une route
+   * reservee au back-office. Distinct de `tenantNotResolved` : celui-ci
+   * couvre AUSSI un utilisateur Magrit legitime qui n a pas encore d espace,
+   * ce qui n est pas la meme situation a diagnostiquer.
+   */
+  scopeForbidden: 'auth.scope_forbidden',
 } as const);
 
 export type SharedProblemCode =

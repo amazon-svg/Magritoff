@@ -83,8 +83,34 @@ export class SupabaseApiPrincipalVerifier implements PrincipalVerifier {
     const userId = parseId<'UserId'>(data.user.id);
     if (!userId.ok) return null;
 
+    // E10.5 CA4 — un compte client boutique (`shop_customer_accounts`) n a
+    // structurellement pas de membership tenant (CA5, exclusivite posee en
+    // base) : sans ce garde-fou explicite, il tomberait dans le cas generique
+    // « aucun espace accessible » (`identity.tenant_not_resolved`), qui
+    // recouvre AUSSI un utilisateur Magrit legitime pas encore rattache a un
+    // espace. Un code distinct nomme la vraie raison du refus.
+    if (await this.isShopCustomer()) {
+      throw problem({
+        status: 403,
+        title: 'Compte client boutique',
+        code: SHARED_PROBLEM_CODES.scopeForbidden,
+        detail: 'Ce compte est un compte client boutique : il n a acces a aucune route reservee au back-office.',
+      });
+    }
+
     const tenantId = await this.selectTenant();
     return Object.freeze({ kind: 'user' as const, userId: userId.value as UserId, tenantId });
+  }
+
+  /**
+   * Meme principe que `current_user_tenant_ids()` : la facade et la RLS
+   * partagent la MEME primitive SQL (`current_user_is_shop_customer()`,
+   * security definer sur `shop_customer_accounts`, table fermee par defaut).
+   */
+  private async isShopCustomer(): Promise<boolean> {
+    const { data, error } = await this.client.rpc('current_user_is_shop_customer');
+    if (error) return false;
+    return data === true;
   }
 
   /**
