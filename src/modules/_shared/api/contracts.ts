@@ -195,6 +195,7 @@ export const OUTBOX_EVENT_NAMES = [
   'order.step_changed',
   'order.files_submitted',
   'customer.created',
+  'project.created',
   'price_rule.changed',
 ] as const;
 

@@ -31,8 +31,10 @@
  */
 import type { CustomersService } from '../../modules/customers/application/customers-service.ts';
 import type { CustomerContactShopAccessService } from '../../modules/shop-customers/application/customer-contact-shop-access-service.ts';
+import type { ProjectsService } from '../../modules/projects/application/projects-service.ts';
 import { createCustomersRoutes } from './customers-routes.ts';
 import { createCustomerShopAccessRoutes } from './customer-shop-access-routes.ts';
+import { createProjectsRoutes } from './projects-routes.ts';
 import type { GescomRoute } from './gescom-middleware.ts';
 
 /**
@@ -43,6 +45,8 @@ export type GescomServices = Readonly<{
   customers: CustomersService;
   /** E10.5 — ouverture/revocation d un acces boutique depuis un interlocuteur. */
   customerShopAccess: CustomerContactShopAccessService;
+  /** E10.1 — conteneur de travail Projets, en remplacement du panier. */
+  projects: ProjectsService;
 }>;
 
 /**
@@ -55,6 +59,7 @@ export function gescomRoutes(services: GescomServices): readonly GescomRoute[] {
   return [
     ...createCustomersRoutes(services.customers),
     ...createCustomerShopAccessRoutes(services.customers, services.customerShopAccess),
+    ...createProjectsRoutes(services.projects),
   ];
 }
 
@@ -70,6 +75,7 @@ export const GESCOM_ROUTES: readonly GescomRoute[] = Object.freeze(
   gescomRoutes({
     customers: createNullCustomersService(),
     customerShopAccess: createNullService('CustomerContactShopAccessService'),
+    projects: createNullService('ProjectsService'),
   }),
 );
 

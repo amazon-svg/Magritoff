@@ -45,6 +45,7 @@ export const OUTBOX_EVENT_VERSIONS: Readonly<Record<EventNameDto, number>> = Obj
   'order.step_changed': 1,
   'order.files_submitted': 1,
   'customer.created': 1,
+  'project.created': 1,
   'price_rule.changed': 1,
 });
 

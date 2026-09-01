@@ -59,6 +59,8 @@ import { createLegacyApiRoutes } from '../../../src/server/api/legacy-routes.ts'
 import { CustomersService } from '../../../src/modules/customers/application/customers-service.ts';
 import { SupabaseCustomersRepository } from '../../../src/adapters/supabase/customers-repository.ts';
 import { CustomerContactShopAccessService } from '../../../src/modules/shop-customers/application/customer-contact-shop-access-service.ts';
+import { ProjectsService } from '../../../src/modules/projects/application/projects-service.ts';
+import { SupabaseProjectsRepository } from '../../../src/adapters/supabase/projects-repository.ts';
 import { SupabaseApiPrincipalVerifier } from '../../../src/adapters/supabase/api-principal-verifier.ts';
 import { InMemoryIdempotencyStore, OutboxPublisher } from '../../../src/modules/_shared/application/index.ts';
 import { TENANT_SELECTION_HEADER } from '../../../src/modules/_shared/api/index.ts';
@@ -214,8 +216,9 @@ export async function handleRequest(request: Request): Promise<Response> {
       )
     : unavailableOutbox('SUPABASE_SERVICE_ROLE_KEY absente');
 
+  const customersRepository = new SupabaseCustomersRepository(client);
   const customersService = new CustomersService({
-    repository: new SupabaseCustomersRepository(client),
+    repository: customersRepository,
     outbox: new OutboxPublisher({
       repository: bestEffortOutbox(outboxRepository, (error, events) => {
         console.error(
@@ -237,8 +240,31 @@ export async function handleRequest(request: Request): Promise<Response> {
     storefrontActivationService,
   );
 
+  // E10.1 — conteneur de travail Projets. Reutilise le referentiel Clients
+  // (E10.4) deja instancie pour verifier l existence du `customer_id` (CA3),
+  // sans dupliquer cette logique.
+  const projectsService = new ProjectsService({
+    repository: new SupabaseProjectsRepository(client),
+    customers: customersRepository,
+    outbox: new OutboxPublisher({
+      repository: bestEffortOutbox(outboxRepository, (error, events) => {
+        console.error(
+          '[magrit-api] publication outbox echouee',
+          events.map((event) => event.name),
+          error,
+        );
+      }),
+      now: () => new Date(),
+      newEventId: () => crypto.randomUUID(),
+    }),
+  });
+
   const handler = createMagritApiApplication({
-    gescomServices: { customers: customersService, customerShopAccess: customerShopAccessService },
+    gescomServices: {
+      customers: customersService,
+      customerShopAccess: customerShopAccessService,
+      projects: projectsService,
+    },
     principalVerifier: new SupabaseApiPrincipalVerifier(client, {
       requestedTenantId: request.headers.get(TENANT_SELECTION_HEADER),
     }),
