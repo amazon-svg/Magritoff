@@ -30,7 +30,9 @@
  * echouer la CI.
  */
 import type { CustomersService } from '../../modules/customers/application/customers-service.ts';
+import type { CustomerContactShopAccessService } from '../../modules/shop-customers/application/customer-contact-shop-access-service.ts';
 import { createCustomersRoutes } from './customers-routes.ts';
+import { createCustomerShopAccessRoutes } from './customer-shop-access-routes.ts';
 import type { GescomRoute } from './gescom-middleware.ts';
 
 /**
@@ -39,6 +41,8 @@ import type { GescomRoute } from './gescom-middleware.ts';
  */
 export type GescomServices = Readonly<{
   customers: CustomersService;
+  /** E10.5 — ouverture/revocation d un acces boutique depuis un interlocuteur. */
+  customerShopAccess: CustomerContactShopAccessService;
 }>;
 
 /**
@@ -48,7 +52,10 @@ export type GescomServices = Readonly<{
  * suivantes concatenent leur propre fabrique de routes ici.
  */
 export function gescomRoutes(services: GescomServices): readonly GescomRoute[] {
-  return [...createCustomersRoutes(services.customers)];
+  return [
+    ...createCustomersRoutes(services.customers),
+    ...createCustomerShopAccessRoutes(services.customers, services.customerShopAccess),
+  ];
 }
 
 /**
@@ -60,7 +67,10 @@ export function gescomRoutes(services: GescomServices): readonly GescomRoute[] {
  * (chemin, operationId, scopes) compte pour ces tests.
  */
 export const GESCOM_ROUTES: readonly GescomRoute[] = Object.freeze(
-  gescomRoutes({ customers: createNullCustomersService() }),
+  gescomRoutes({
+    customers: createNullCustomersService(),
+    customerShopAccess: createNullService('CustomerContactShopAccessService'),
+  }),
 );
 
 /**
@@ -72,16 +82,21 @@ export const GESCOM_ROUTES: readonly GescomRoute[] = Object.freeze(
  * Supabase, voir src/server/api/composition.ts / l edge function).
  */
 function createNullCustomersService(): CustomersService {
+  return createNullService('CustomersService');
+}
+
+/** Meme principe que `createNullCustomersService`, generalise aux services ajoutes depuis E10.5. */
+function createNullService<T>(serviceName: string): T {
   return new Proxy(
     {},
     {
       get() {
         throw new Error(
-          'GESCOM_ROUTES est un registre de DEFINITIONS pour les tests de contrat/architecture ; ' +
-            'il ne doit jamais executer de handler. Utiliser gescomRoutes({ customers: ... }) avec ' +
-            'un service reel pour servir une requete.',
+          `GESCOM_ROUTES est un registre de DEFINITIONS pour les tests de contrat/architecture ; ` +
+            `il ne doit jamais executer de handler. Utiliser gescomRoutes({ ... }) avec un ${serviceName} ` +
+            'reel pour servir une requete.',
         );
       },
     },
-  ) as CustomersService;
+  ) as T;
 }

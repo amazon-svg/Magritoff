@@ -507,6 +507,137 @@ paths:
         '428':
           $ref: '#/components/responses/PreconditionRequired'
 
+  /customers/{customerId}/contacts/{contactId}/shop-access:
+    # story E10.5 — dissociation comptes Magrit / comptes clients boutique.
+    # Ouvrir un acces boutique a un interlocuteur est une action EXPLICITE et
+    # DISTINCTE de sa creation (CA2, CA3) : aucune route de conversion de type
+    # de compte n existe, dans un sens ou l autre — l exclusivite entre
+    # `tenant_members` et `shop_customer_accounts` est posee en base (CA5).
+    parameters:
+      - $ref: '#/components/parameters/MagritTenant'
+    post:
+      operationId: openCustomerContactShopAccess
+      summary: >-
+        Ouvre un acces boutique explicite pour cet interlocuteur : cree (ou
+        relie) un compte `shop_customer_accounts` lie a `customer_contact_id`
+        et emet son lien d activation. Un interlocuteur ne porte qu un seul
+        acces par boutique (CA3).
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CustomerId'
+        - name: contactId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: >-
+            Cle d idempotence de la creation (CA8, voir
+            components/parameters/IdempotencyKey pour la description
+            complete).
+          schema:
+            type: string
+            minLength: 8
+            maxLength: 255
+            pattern: '^[A-Za-z0-9_.:-]{8,255}$'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OpenCustomerContactShopAccessCommand'
+      responses:
+        '201':
+          description: Acces boutique ouvert.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CustomerContactShopAccess'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: >-
+            Un acces est deja ouvert pour cet interlocuteur dans cette
+            boutique (`customer_contact.shop_access_already_open`), ou l
+            email de l interlocuteur est deja utilise par le compte boutique
+            d un AUTRE interlocuteur dans cette boutique
+            (`customer_contact.shop_access_email_conflict`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+    delete:
+      operationId: revokeCustomerContactShopAccess
+      summary: >-
+        Revoque l acces boutique de cet interlocuteur dans la boutique
+        indiquee : delie l interlocuteur du compte et suspend ce dernier.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CustomerId'
+        - name: contactId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RevokeCustomerContactShopAccessCommand'
+      responses:
+        '200':
+          description: Acces revoque.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: false
+                        required: [revoked]
+                        properties:
+                          revoked:
+                            type: boolean
+                            enum: [true]
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: >-
+            Aucun acces boutique ouvert pour cet interlocuteur dans cette
+            boutique (`customer_contact.shop_access_not_open`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
   /customers/{customerId}/siret-verifications:
     # Selection de l espace de travail : commune a toutes les operations de ce
     # chemin. Declaree au niveau du chemin plutot que repetee sur chaque
@@ -1463,6 +1594,35 @@ components:
           $ref: '#/components/schemas/Timestamp'
         updated_at:
           $ref: '#/components/schemas/Timestamp'
+        shop_accesses:
+          description: >-
+            E10.5 — acces boutique explicitement ouverts pour cet
+            interlocuteur (`POST .../shop-access`), un par boutique au plus
+            (CA3). Absent d une v1 anterieure a E10.5 (champ additif) ;
+            tableau vide tant qu aucun acces n a ete ouvert (CA2 : aucun
+            compte n est cree par defaut).
+          type: array
+          items:
+            $ref: '#/components/schemas/CustomerContactShopAccess'
+
+    CustomerContactShopAccess:
+      title: CustomerContactShopAccess
+      description: >-
+        Acces boutique ouvert pour un interlocuteur dans UNE boutique donnee
+        (E10.5, CA3/CA4). `suspended` n est jamais restitue ici : une
+        revocation delie l interlocuteur du compte cote base, l acces
+        disparait donc de cette liste plutot que d y apparaitre suspendu.
+      type: object
+      additionalProperties: false
+      required:
+        - shop_id
+        - status
+      properties:
+        shop_id:
+          $ref: '#/components/schemas/Uuid'
+        status:
+          type: string
+          enum: [invited, active]
 
     CustomerDetail:
       title: CustomerDetail
@@ -1746,6 +1906,29 @@ components:
             - type: 'null'
         is_primary:
           type: boolean
+
+    OpenCustomerContactShopAccessCommand:
+      title: OpenCustomerContactShopAccessCommand
+      description: >-
+        `shop_id` est obligatoire : un client de gestion (E10.4) n est pas
+        rattache a une boutique particuliere, un tenant peut porter plusieurs
+        boutiques. L acces ouvert par cet appel ne vaut que pour CETTE
+        boutique (CA3).
+      type: object
+      additionalProperties: false
+      required: [shop_id]
+      properties:
+        shop_id:
+          $ref: '#/components/schemas/Uuid'
+
+    RevokeCustomerContactShopAccessCommand:
+      title: RevokeCustomerContactShopAccessCommand
+      type: object
+      additionalProperties: false
+      required: [shop_id]
+      properties:
+        shop_id:
+          $ref: '#/components/schemas/Uuid'
 
     SiretVerificationResult:
       title: SiretVerificationResult

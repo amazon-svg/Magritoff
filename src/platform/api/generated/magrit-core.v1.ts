@@ -130,6 +130,35 @@ export interface paths {
         patch: operations["updateCustomerContact"];
         trace?: never;
     };
+    "/customers/{customerId}/contacts/{contactId}/shop-access": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ouvre un acces boutique explicite pour cet interlocuteur : cree (ou relie) un compte `shop_customer_accounts` lie a `customer_contact_id` et emet son lien d activation. Un interlocuteur ne porte qu un seul acces par boutique (CA3). */
+        post: operations["openCustomerContactShopAccess"];
+        /** Revoque l acces boutique de cet interlocuteur dans la boutique indiquee : delie l interlocuteur du compte et suspend ce dernier. */
+        delete: operations["revokeCustomerContactShopAccess"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/customers/{customerId}/siret-verifications": {
         parameters: {
             query?: never;
@@ -488,6 +517,17 @@ export interface components {
             is_primary: boolean;
             created_at: components["schemas"]["Timestamp"];
             updated_at: components["schemas"]["Timestamp"];
+            /** @description E10.5 — acces boutique explicitement ouverts pour cet interlocuteur (`POST .../shop-access`), un par boutique au plus (CA3). Absent d une v1 anterieure a E10.5 (champ additif) ; tableau vide tant qu aucun acces n a ete ouvert (CA2 : aucun compte n est cree par defaut). */
+            shop_accesses?: components["schemas"]["CustomerContactShopAccess"][];
+        };
+        /**
+         * CustomerContactShopAccess
+         * @description Acces boutique ouvert pour un interlocuteur dans UNE boutique donnee (E10.5, CA3/CA4). `suspended` n est jamais restitue ici : une revocation delie l interlocuteur du compte cote base, l acces disparait donc de cette liste plutot que d y apparaitre suspendu.
+         */
+        CustomerContactShopAccess: {
+            shop_id: components["schemas"]["Uuid"];
+            /** @enum {string} */
+            status: "invited" | "active";
         };
         /**
          * CustomerDetail
@@ -568,6 +608,17 @@ export interface components {
             email?: string;
             phone?: string | null;
             is_primary?: boolean;
+        };
+        /**
+         * OpenCustomerContactShopAccessCommand
+         * @description `shop_id` est obligatoire : un client de gestion (E10.4) n est pas rattache a une boutique particuliere, un tenant peut porter plusieurs boutiques. L acces ouvert par cet appel ne vaut que pour CETTE boutique (CA3).
+         */
+        OpenCustomerContactShopAccessCommand: {
+            shop_id: components["schemas"]["Uuid"];
+        };
+        /** RevokeCustomerContactShopAccessCommand */
+        RevokeCustomerContactShopAccessCommand: {
+            shop_id: components["schemas"]["Uuid"];
         };
         /**
          * SiretVerificationResult
@@ -745,11 +796,14 @@ export type Civility = components['schemas']['Civility'];
 export type Address = components['schemas']['Address'];
 export type Customer = components['schemas']['Customer'];
 export type CustomerContact = components['schemas']['CustomerContact'];
+export type CustomerContactShopAccess = components['schemas']['CustomerContactShopAccess'];
 export type CustomerDetail = components['schemas']['CustomerDetail'];
 export type CreateCustomerCommand = components['schemas']['CreateCustomerCommand'];
 export type UpdateCustomerCommand = components['schemas']['UpdateCustomerCommand'];
 export type CreateCustomerContactCommand = components['schemas']['CreateCustomerContactCommand'];
 export type UpdateCustomerContactCommand = components['schemas']['UpdateCustomerContactCommand'];
+export type OpenCustomerContactShopAccessCommand = components['schemas']['OpenCustomerContactShopAccessCommand'];
+export type RevokeCustomerContactShopAccessCommand = components['schemas']['RevokeCustomerContactShopAccessCommand'];
 export type SiretVerificationResult = components['schemas']['SiretVerificationResult'];
 export type ResponseBadRequest = components['responses']['BadRequest'];
 export type ResponseUnauthorized = components['responses']['Unauthorized'];
@@ -1143,6 +1197,119 @@ export interface operations {
             409: components["responses"]["Conflict"];
             422: components["responses"]["UnprocessableEntity"];
             428: components["responses"]["PreconditionRequired"];
+        };
+    };
+    openCustomerContactShopAccess: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+                /** @description Cle d idempotence de la creation (CA8, voir components/parameters/IdempotencyKey pour la description complete). */
+                "Idempotency-Key": string;
+            };
+            path: {
+                /** @description Identifiant technique du client, dans le tenant du jeton. */
+                customerId: components["parameters"]["CustomerId"];
+                contactId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpenCustomerContactShopAccessCommand"];
+            };
+        };
+        responses: {
+            /** @description Acces boutique ouvert. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["CustomerContactShopAccess"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description Un acces est deja ouvert pour cet interlocuteur dans cette boutique (`customer_contact.shop_access_already_open`), ou l email de l interlocuteur est deja utilise par le compte boutique d un AUTRE interlocuteur dans cette boutique (`customer_contact.shop_access_email_conflict`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    revokeCustomerContactShopAccess: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path: {
+                /** @description Identifiant technique du client, dans le tenant du jeton. */
+                customerId: components["parameters"]["CustomerId"];
+                contactId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RevokeCustomerContactShopAccessCommand"];
+            };
+        };
+        responses: {
+            /** @description Acces revoque. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: {
+                            /** @enum {boolean} */
+                            revoked: true;
+                        };
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description Aucun acces boutique ouvert pour cet interlocuteur dans cette boutique (`customer_contact.shop_access_not_open`). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
         };
     };
     verifyCustomerSiret: {

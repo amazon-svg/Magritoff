@@ -29,6 +29,16 @@ const UNIQUE_VIOLATION = '23505';
 const CHECK_VIOLATION = '23514';
 
 /**
+ * E10.5 — acces boutique embarque via la relation inverse
+ * `shop_customer_accounts.customer_contact_id`. La RLS de
+ * `shop_customer_accounts` (20260816000200) ne rend visibles que les comptes
+ * des boutiques ou l acteur a la capability `can_manage_shop_customers` ou
+ * `can_impersonate_shop_customer` : un acteur qui ne l a pas voit un tableau
+ * vide, jamais une erreur — fail-closed, pas une fuite.
+ */
+const SHOP_ACCESS_EMBED = 'shop_customer_accounts(shop_id, status)' as const;
+
+/**
  * Neutralise les caracteres reserves de la grammaire de filtre PostgREST
  * (m2 qa-review) avant de les interpoler dans un `.or(...)`. La virgule
  * separe les conditions et les parentheses delimitent `and()/or()` : une
@@ -167,7 +177,7 @@ export class SupabaseCustomersRepository implements CustomersRepository {
   ): Promise<readonly CustomerContactDto[]> {
     const { data, error } = await this.client
       .from('customer_contacts')
-      .select('*, customers!inner(tenant_id)')
+      .select(`*, customers!inner(tenant_id), ${SHOP_ACCESS_EMBED}`)
       .eq('customer_id', customerId)
       .eq('customers.tenant_id', tenantId)
       .order('is_primary', { ascending: false })
@@ -183,7 +193,7 @@ export class SupabaseCustomersRepository implements CustomersRepository {
   ): Promise<CustomerContactDto | null> {
     const { data, error } = await this.client
       .from('customer_contacts')
-      .select('*, customers!inner(tenant_id)')
+      .select(`*, customers!inner(tenant_id), ${SHOP_ACCESS_EMBED}`)
       .eq('id', contactId)
       .eq('customer_id', customerId)
       .eq('customers.tenant_id', tenantId)
@@ -310,7 +320,24 @@ function toContactDto(row: Record<string, any>): CustomerContactDto {
     is_primary: Boolean(row.is_primary),
     created_at: row.created_at,
     updated_at: row.updated_at,
+    shop_accesses: toShopAccesses(row.shop_customer_accounts),
   };
+}
+
+/**
+ * `suspended` n est jamais restitue (voir commentaire du schema Zod) : un
+ * acces revoque a deja perdu son `customer_contact_id` cote base et ne peut
+ * donc pas apparaitre ici. Le filtre reste une deuxieme ligne de defense si
+ * une ligne suspendue restait exceptionnellement liee.
+ */
+function toShopAccesses(value: unknown): { shop_id: string; status: 'invited' | 'active' }[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter(
+      (row): row is { shop_id: string; status: string } =>
+        Boolean(row) && (row.status === 'invited' || row.status === 'active'),
+    )
+    .map((row) => ({ shop_id: row.shop_id, status: row.status as 'invited' | 'active' }));
 }
 
 function toAddress(value: unknown): Address | null {

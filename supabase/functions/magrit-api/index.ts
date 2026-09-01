@@ -58,6 +58,7 @@ import { createMagritApiApplication } from '../../../src/server/api/composition.
 import { createLegacyApiRoutes } from '../../../src/server/api/legacy-routes.ts';
 import { CustomersService } from '../../../src/modules/customers/application/customers-service.ts';
 import { SupabaseCustomersRepository } from '../../../src/adapters/supabase/customers-repository.ts';
+import { CustomerContactShopAccessService } from '../../../src/modules/shop-customers/application/customer-contact-shop-access-service.ts';
 import { SupabaseApiPrincipalVerifier } from '../../../src/adapters/supabase/api-principal-verifier.ts';
 import { InMemoryIdempotencyStore, OutboxPublisher } from '../../../src/modules/_shared/application/index.ts';
 import { TENANT_SELECTION_HEADER } from '../../../src/modules/_shared/api/index.ts';
@@ -228,8 +229,16 @@ export async function handleRequest(request: Request): Promise<Response> {
     }),
   });
 
+  // E10.5 — ouverture/revocation d un acces boutique depuis un interlocuteur.
+  // Reutilise deliberement les services shop-customers deja instancies plus
+  // haut (memes primitives d activation que l invitation boutique classique).
+  const customerShopAccessService = new CustomerContactShopAccessService(
+    shopCustomersService,
+    storefrontActivationService,
+  );
+
   const handler = createMagritApiApplication({
-    gescomServices: { customers: customersService },
+    gescomServices: { customers: customersService, customerShopAccess: customerShopAccessService },
     principalVerifier: new SupabaseApiPrincipalVerifier(client, {
       requestedTenantId: request.headers.get(TENANT_SELECTION_HEADER),
     }),

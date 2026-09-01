@@ -54,6 +54,21 @@ export const customerSchema = z
   })
   .strict();
 
+/**
+ * E10.5 CA3/CA4 — acces boutique ouvert pour cet interlocuteur dans UNE
+ * boutique donnee. `suspended` n est jamais restitue ici : une revocation
+ * (CA3) delie l interlocuteur du compte cote base (`customer_contact_id`
+ * repasse a `null`), donc un compte revoque disparait simplement de cette
+ * liste plutot que d y apparaitre `suspended` — c est ce que le badge UI
+ * attend (data-status `none`/`invited`/`active` uniquement).
+ */
+export const customerContactShopAccessSchema = z
+  .object({
+    shop_id: uuidSchema,
+    status: z.enum(['invited', 'active']),
+  })
+  .strict();
+
 export const customerContactSchema = z
   .object({
     id: uuidSchema,
@@ -66,6 +81,14 @@ export const customerContactSchema = z
     is_primary: z.boolean(),
     created_at: timestampSchema,
     updated_at: timestampSchema,
+    /**
+     * E10.5 — jamais invente : reflete strictement les
+     * `shop_customer_accounts.customer_contact_id` reellement ouverts.
+     * Tableau vide par defaut (aucun compte boutique n est cree par defaut,
+     * CA2). Absent d une reponse lue avec des droits qui ne permettent pas de
+     * gerer les comptes boutique (fail-closed, pas une fuite d information).
+     */
+    shop_accesses: z.array(customerContactShopAccessSchema).optional().default([]),
   })
   .strict();
 
@@ -205,6 +228,19 @@ export const updateCustomerContactCommandSchema = z
     message: 'La modification doit porter au moins un champ.',
   });
 
+/** E10.5 CA3 — `shop_id` obligatoire : un client de gestion n est pas rattache a une boutique unique. */
+export const openCustomerContactShopAccessCommandSchema = z
+  .object({ shop_id: uuidSchema })
+  .strict();
+
+export const revokeCustomerContactShopAccessCommandSchema = z
+  .object({ shop_id: uuidSchema })
+  .strict();
+
+export const revokeCustomerContactShopAccessResultSchema = z
+  .object({ revoked: z.literal(true) })
+  .strict();
+
 export const siretVerificationResultSchema = z
   .object({
     siret: siretSchema,
@@ -230,6 +266,10 @@ export type UpdateCustomerCommand = z.infer<typeof updateCustomerCommandSchema>;
 export type CreateCustomerContactCommand = z.infer<typeof createCustomerContactCommandSchema>;
 export type UpdateCustomerContactCommand = z.infer<typeof updateCustomerContactCommandSchema>;
 export type SiretVerificationResultDto = z.infer<typeof siretVerificationResultSchema>;
+export type CustomerContactShopAccessDto = z.infer<typeof customerContactShopAccessSchema>;
+export type OpenCustomerContactShopAccessCommand = z.infer<typeof openCustomerContactShopAccessCommandSchema>;
+export type RevokeCustomerContactShopAccessCommand = z.infer<typeof revokeCustomerContactShopAccessCommandSchema>;
+export type RevokeCustomerContactShopAccessResultDto = z.infer<typeof revokeCustomerContactShopAccessResultSchema>;
 
 // ---------------------------------------------------------------------------
 // Alignement de compilation contrat <-> schemas (meme garde-fou que E10.0,
