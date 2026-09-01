@@ -15,13 +15,19 @@
  * tsconfig) ni executable ici (Deno + Docker absents). Voir
  * docs/api/CONVENTIONS.md §8.1.
  */
+import { z } from 'zod';
 import { describe, expect, it, vi } from 'vitest';
 import { parseId, type TenantId, type UserId } from '@/kernel';
 import { InMemoryIdempotencyStore, OutboxPublisher } from '@/modules/_shared/application';
 import type { ApiPrincipal, PrincipalVerifier } from '@/modules/_shared/application';
 import { CustomersService } from '@/modules/customers/application/customers-service';
 import type { CustomersRepository } from '@/modules/customers/application/customers-repository';
-import { GESCOM_ROUTES, assertNoFacadeCollision, createMagritApiApplication } from '@/server/api';
+import {
+  GESCOM_ROUTES,
+  assertNoFacadeCollision,
+  createMagritApiApplication,
+  defineGescomRoute,
+} from '@/server/api';
 import { LEGACY_ROUTE_DEFINITIONS } from '@/server/api/legacy-routes';
 
 const TENANT = brand<TenantId>('7f0d2a1e-1c4b-4f8a-9c3d-5b6e7a8f9012');
@@ -177,24 +183,32 @@ describe('absence de collision sur le jeu de routes reel', () => {
     expect(() => assertNoFacadeCollision(GESCOM_ROUTES, LEGACY_ROUTE_DEFINITIONS)).not.toThrow();
   });
 
-  it('detecterait un recouvrement avec un vrai chemin historique', () => {
-    // Preuve que l assertion precedente n est pas vacante : on confronte les
-    // routes historiques REELLES a une route E10 qui empiete sur l une d elles.
-    const legacyPath = LEGACY_ROUTE_DEFINITIONS.find((route) =>
-      route.path.startsWith('/api/v1/tenants/'),
-    );
-    expect(legacyPath).toBeDefined();
+  it('detecterait le recouvrement REALISTE : une future ressource E10 nommee /orders', () => {
+    // Preuve que l assertion precedente n est pas vacante, sur le cas qui
+    // arrivera vraiment. `/api/v1/orders` existe deja cote historique
+    // (createOrdersRoutes) et le sprint prevoit des evenements
+    // `order.step_changed` / `order.files_submitted` : une story E10 declarant
+    // la ressource `/orders` est une hypothese serieuse, pas theorique.
+    //
+    // Ce chemin est en outre DECLARABLE par defineGescomRoute — pluriel,
+    // kebab-case, sans tenant. Un intrus en `/tenants/{tenantId}/...` n aurait
+    // rien prouve : le CA4 interdit deja qu une route E10 le porte.
+    expect(LEGACY_ROUTE_DEFINITIONS.some((route) => route.path === '/api/v1/orders')).toBe(true);
 
-    const intruder = {
-      // Meme gabarit que la route historique, donc recouvrement certain.
-      path: legacyPath?.path ?? '',
-      method: 'GET' as const,
-    };
+    const futureGescomOrders = defineGescomRoute({
+      method: 'GET',
+      path: '/orders',
+      operationId: 'listGescomOrders',
+      requiredScopes: ['orders:read'],
+      inputSchema: null,
+      dataSchema: z.array(z.object({ id: z.string() })),
+      async handle() {
+        return { status: 200, data: [] };
+      },
+    });
+
     expect(() =>
-      assertNoFacadeCollision(
-        [intruder as unknown as (typeof GESCOM_ROUTES)[number]],
-        LEGACY_ROUTE_DEFINITIONS,
-      ),
-    ).toThrow(/Collision entre les facades API/);
+      assertNoFacadeCollision([futureGescomOrders], LEGACY_ROUTE_DEFINITIONS),
+    ).toThrow(/\/api\/v1\/orders \(E10\) recouvre \/api\/v1\/orders \(historique\)/);
   });
 });
