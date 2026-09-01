@@ -21,6 +21,7 @@ import type {
   ProjectItemDto,
   UpdateProjectCommand,
 } from '@/modules/projects/api/contracts';
+import type { InMemoryProjectTagsRepository } from './project-tags-repository.fake';
 
 let sequence = 0;
 export function fakeUuid(): string {
@@ -52,6 +53,30 @@ function isStrictlyAfterCursor(
 export class InMemoryProjectsRepository implements ProjectsRepository {
   private readonly projects = new Map<string, ProjectDto>();
   private readonly items = new Map<string, ProjectItemDto>();
+  /** projectId -> Set<tagId>, meme role que `project_tag_links` (E10.2). */
+  private readonly tagLinks = new Map<string, Set<string>>();
+
+  /**
+   * Reference OPTIONNELLE vers le faux repository Tags de projet (E10.2),
+   * pour resoudre l embed `tags` d un `ProjectDto` — meme role que la
+   * jointure `project_tag_links(project_tags(...))` de l adaptateur Supabase
+   * reel. `undefined` pour les tests qui n exercent pas E10.2 : `tags` reste
+   * alors toujours `[]`, jamais une erreur.
+   */
+  constructor(private readonly tags?: InMemoryProjectTagsRepository) {}
+
+  private resolveTags(projectId: string): ProjectDto['tags'] {
+    const linked = this.tagLinks.get(projectId);
+    if (!linked || !this.tags) return [];
+    return [...linked]
+      .map((tagId) => this.tags!.peek(tagId))
+      .filter((tag): tag is NonNullable<typeof tag> => Boolean(tag));
+  }
+
+  /** Recalcule TOUJOURS `tags` depuis `tagLinks` avant de rendre un projet : le champ stocke n est jamais la source de verite. */
+  private withTags(project: ProjectDto): ProjectDto {
+    return { ...project, tags: this.resolveTags(project.id) };
+  }
 
   /**
    * B2 (qa-review) : le faux DOIT appliquer le meme filtre keyset + la meme
@@ -71,7 +96,19 @@ export class InMemoryProjectsRepository implements ProjectsRepository {
       .filter((p) => !params.status || p.status === params.status)
       .filter((p) => {
         if (!params.q) return true;
-        return p.name.toLowerCase().includes(params.q.toLowerCase());
+        const needle = params.q.toLowerCase();
+        // CA4 (E10.2) : meme critere que l adaptateur reel — nom du projet
+        // OU nom du client (resolu via le faux repository Clients quand la
+        // suite de test en fournit un, sinon uniquement le nom du projet).
+        if (p.name.toLowerCase().includes(needle)) return true;
+        const customerName = this.customerNames?.get(p.customer_id);
+        return Boolean(customerName && customerName.toLowerCase().includes(needle));
+      })
+      // CA4 (E10.2) : filtre multi-tags en ET LOGIQUE.
+      .filter((p) => {
+        if (params.tagIds.length === 0) return true;
+        const linked = this.tagLinks.get(p.id) ?? new Set<string>();
+        return params.tagIds.every((tagId) => linked.has(tagId));
       })
       .sort(compareUpdatedAtThenIdDesc);
 
@@ -83,12 +120,12 @@ export class InMemoryProjectsRepository implements ProjectsRepository {
     // `size + 1` lignes au plus, NON tronquees davantage ici : c est
     // `buildPage()` (cote route) qui decoupe et encode `meta.next_cursor` a
     // partir de la ligne excedentaire — meme contrat que l adaptateur reel.
-    return { rows: rows.slice(0, params.size + 1) };
+    return { rows: rows.slice(0, params.size + 1).map((p) => this.withTags(p)) };
   }
 
   async findById(tenantId: TenantId, projectId: string): Promise<ProjectDto | null> {
     const found = this.projects.get(projectId);
-    return found && found.tenant_id === tenantId ? found : null;
+    return found && found.tenant_id === tenantId ? this.withTags(found) : null;
   }
 
   async findDetailById(tenantId: TenantId, projectId: string): Promise<ProjectDetailDto | null> {
@@ -127,8 +164,8 @@ export class InMemoryProjectsRepository implements ProjectsRepository {
     projectId: string,
     command: UpdateProjectCommand,
   ): Promise<ProjectDto> {
-    const current = await this.findById(tenantId, projectId);
-    if (!current) throw new ProjectNotFoundError();
+    const current = this.projects.get(projectId);
+    if (!current || current.tenant_id !== tenantId) throw new ProjectNotFoundError();
     const updated: ProjectDto = {
       ...current,
       ...('name' in command && command.name !== undefined ? { name: command.name } : {}),
@@ -139,8 +176,47 @@ export class InMemoryProjectsRepository implements ProjectsRepository {
       updated_at: new Date().toISOString(),
     };
     this.projects.set(projectId, updated);
-    return updated;
+    return this.withTags(updated);
   }
+
+  /**
+   * Remplace la liste complete des tags du projet (CA6, E10.2), et tient a
+   * jour `linkCountByTagId` du faux repository Tags de projet quand il est
+   * fourni — meme role que la contrainte FK RESTRICT reelle, pour que le
+   * scenario "suppression refusee tant qu un tag est utilise" (CA5) soit
+   * exercable sur les deux fakes ensemble.
+   */
+  async replaceTags(tenantId: TenantId, projectId: string, tagIds: readonly string[]): Promise<ProjectDto> {
+    const project = this.projects.get(projectId);
+    if (!project || project.tenant_id !== tenantId) throw new ProjectNotFoundError();
+
+    const previous = this.tagLinks.get(projectId) ?? new Set<string>();
+    if (this.tags) {
+      for (const tagId of previous) {
+        const count = this.tags.linkCountByTagId.get(tagId) ?? 0;
+        this.tags.linkCountByTagId.set(tagId, Math.max(0, count - 1));
+      }
+    }
+
+    const next = new Set(tagIds);
+    this.tagLinks.set(projectId, next);
+    if (this.tags) {
+      for (const tagId of next) {
+        this.tags.linkCountByTagId.set(tagId, (this.tags.linkCountByTagId.get(tagId) ?? 0) + 1);
+      }
+    }
+
+    return this.withTags(project);
+  }
+
+  /**
+   * CA4 (E10.2) — permet aux tests de contrat de simuler la recherche sur le
+   * nom du CLIENT sans dependre d une instance reelle de
+   * `InMemoryCustomersRepository` (couplage evite entre deux fakes de
+   * modules distincts). `undefined` par defaut : seul le nom du projet est
+   * alors cherche, comme avant E10.2.
+   */
+  customerNames?: Map<string, string>;
 
   async addItem(
     tenantId: TenantId,

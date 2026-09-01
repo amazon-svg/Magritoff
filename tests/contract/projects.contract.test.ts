@@ -24,6 +24,7 @@ import { createGescomApiHandler } from '@/server/api';
 import { checkResponseAgainstContract } from './_harness.ts';
 import { InMemoryProjectsRepository } from './_fakes/projects-repository.fake.ts';
 import { InMemoryCustomersRepository } from './_fakes/customers-repository.fake.ts';
+import { InMemoryProjectTagsRepository } from './_fakes/project-tags-repository.fake.ts';
 
 const TENANT = brand<TenantId>('7f0d2a1e-1c4b-4f8a-9c3d-5b6e7a8f9012');
 const USER = brand<UserId>('a1b2c3d4-e5f6-4708-8910-1a2b3c4d5e6f');
@@ -75,11 +76,19 @@ class InMemoryOutboxRepository implements OutboxRepository {
 
 let projectsRepository: InMemoryProjectsRepository;
 let customersRepository: InMemoryCustomersRepository;
+let projectTagsRepository: InMemoryProjectTagsRepository;
 let outboxRepository: InMemoryOutboxRepository;
 let handler: (request: Request) => Promise<Response>;
 
 beforeEach(() => {
-  projectsRepository = new InMemoryProjectsRepository();
+  projectTagsRepository = new InMemoryProjectTagsRepository();
+  // E10.2 : le faux Projets resout l embed `tags` via le faux Tags de
+  // projet, meme role que la jointure `project_tag_links(project_tags(...))`
+  // de l adaptateur Supabase reel — ce test de contrat E10.1 n exerce
+  // aucun scenario de tags, mais le champ `tags` du contrat doit rester un
+  // tableau valide (toujours vide ici faute de liaison) plutot qu un
+  // artefact du faux.
+  projectsRepository = new InMemoryProjectsRepository(projectTagsRepository);
   customersRepository = new InMemoryCustomersRepository();
   outboxRepository = new InMemoryOutboxRepository();
   const outbox = new OutboxPublisher({
@@ -90,6 +99,7 @@ beforeEach(() => {
   const service = new ProjectsService({
     repository: projectsRepository,
     customers: customersRepository,
+    projectTags: projectTagsRepository,
     outbox,
   });
   handler = createGescomApiHandler({
