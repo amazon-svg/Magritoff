@@ -30,6 +30,7 @@ SQL_CASES=(
   tests/sql/storefront-password-recovery.sql
   tests/sql/public-shop-tax-regime.sql
   tests/sql/gescom-outbox-append-only.sql
+  tests/sql/gescom-e10-4-customers.sql
 )
 
 for sql_case in "${SQL_CASES[@]}"; do
