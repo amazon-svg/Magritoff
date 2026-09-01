@@ -1014,10 +1014,10 @@ body {
 }
 
 .hopstudio-workspace[data-embedded='true'] #chat-body {
-  height: 100%;
+  height: calc(100% - 120px);
   min-height: 0;
   overflow-y: auto;
-  padding: 72px 18px 132px;
+  padding: 72px 18px 24px;
 }
 
 .hopstudio-workspace[data-embedded='true'] #chat-header {
@@ -1030,6 +1030,64 @@ body {
   width: calc(100% - 24px);
   min-height: 96px;
   padding: 14px;
+}
+
+.hopstudio-workspace[data-embedded='true'][data-compact='true'] #chat-body {
+  height: calc(100% - 102px);
+  padding: 64px 16px 20px;
+  gap: 16px;
+}
+
+.hopstudio-workspace[data-embedded='true'][data-compact='true'] #chat-input {
+  bottom: 10px;
+  width: calc(100% - 20px);
+  min-height: 82px;
+  padding: 11px 12px;
+  border-radius: 14px;
+}
+
+.hopstudio-workspace[data-embedded='true'][data-compact='true'] #chat-input input {
+  min-height: 34px;
+  padding-bottom: 6px;
+  font-size: 14px;
+}
+
+.hopstudio-workspace[data-embedded='true'][data-compact='true'] .hs-product-card-header {
+  min-height: 88px;
+  gap: 16px;
+  padding: 18px 20px;
+}
+
+.hopstudio-workspace[data-embedded='true'][data-compact='true'] .hs-product-card-header h3 {
+  font-size: clamp(18px, 2vw, 23px);
+}
+
+.hopstudio-workspace[data-embedded='true'][data-compact='true'] .hs-product-card-price > strong {
+  font-size: 21px;
+}
+
+.hopstudio-workspace[data-embedded='true'][data-compact='true'] .hs-product-card-spec {
+  min-height: 68px;
+  padding: 12px 14px;
+}
+
+.hopstudio-workspace[data-embedded='true'][data-compact='true'] .hs-product-card-spec-label {
+  font-size: 9px;
+}
+
+.hopstudio-workspace[data-embedded='true'][data-compact='true'] .hs-product-card-spec-value {
+  margin-top: 5px;
+  font-size: 12.5px;
+}
+
+.hopstudio-workspace[data-embedded='true'][data-compact='true'] .hs-product-card > .chat-actions-container .u-btn {
+  min-height: 54px;
+  padding: 7px 6px;
+  font-size: 11px;
+}
+
+.hopstudio-workspace[data-embedded='true'][data-compact='true'] .hs-product-card > .chat-actions-container .u-btn::before {
+  font-size: 16px;
 }
 
 .hopstudio-workspace[data-embedded='true'] .chat-msg.user {
