@@ -134,6 +134,30 @@ create trigger customers_set_updated_at
   before update on public.customers
   for each row execute function public.customers_set_updated_at();
 
+-- Un SIRET verifie aupres de l INSEE (CA3) n est plus la preuve de rien des
+-- qu il change : remettre le drapeau a plat EN BASE, pour tout ecrivain (pas
+-- seulement CustomersService.update()), evite qu un SIRET B jamais soumis a
+-- l INSEE reste marque "verifie" avec l horodatage de la verification de
+-- l ancien SIRET A. Le WHEN ne se declenche que si la valeur change reellement
+-- (y compris null -> valeur ou valeur -> null), pas a chaque UPDATE.
+create or replace function public.customers_reset_siret_verification()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.siret_verified := false;
+  new.siret_verified_at := null;
+  return new;
+end;
+$$;
+
+drop trigger if exists customers_reset_siret_verification on public.customers;
+create trigger customers_reset_siret_verification
+  before update of siret on public.customers
+  for each row
+  when (new.siret is distinct from old.siret)
+  execute function public.customers_reset_siret_verification();
+
 -- ── Interlocuteurs ──────────────────────────────────────────────────────────
 create table if not exists public.customer_contacts (
   id           uuid primary key default gen_random_uuid(),
@@ -275,6 +299,8 @@ notify pgrst, 'reload schema';
 --   drop function if exists public.customer_contacts_enforce_single_primary();
 --   drop trigger if exists customer_contacts_set_updated_at on public.customer_contacts;
 --   drop function if exists public.customer_contacts_set_updated_at();
+--   drop trigger if exists customers_reset_siret_verification on public.customers;
+--   drop function if exists public.customers_reset_siret_verification();
 --   drop trigger if exists customers_set_updated_at on public.customers;
 --   drop function if exists public.customers_set_updated_at();
 --   drop policy if exists "customer_contacts_write" on public.customer_contacts;

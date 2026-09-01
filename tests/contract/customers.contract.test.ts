@@ -143,14 +143,19 @@ class InMemoryCustomersRepository implements CustomersRepository {
   ): Promise<CustomerDto> {
     const current = await this.findById(tenantId, customerId);
     if (!current) throw new CustomerNotFoundError();
+    const nextSiret = 'siret' in command ? (command.siret ?? null) : current.siret;
+    // Reproduit le trigger DB `customers_reset_siret_verification` (M1) :
+    // tout changement de SIRET remet le drapeau a plat, meme cote fake.
+    const siretChanged = nextSiret !== current.siret;
     const updated: CustomerDto = {
       ...current,
       ...('company_name' in command ? { company_name: command.company_name ?? null } : {}),
-      ...('siret' in command ? { siret: command.siret ?? null } : {}),
+      siret: nextSiret,
       ...('vat_number' in command ? { vat_number: command.vat_number ?? null } : {}),
       ...('first_name' in command ? { first_name: command.first_name ?? null } : {}),
       ...('last_name' in command ? { last_name: command.last_name ?? null } : {}),
       ...('is_active' in command ? { is_active: command.is_active! } : {}),
+      ...(siretChanged ? { siret_verified: false, siret_verified_at: null } : {}),
       updated_at: new Date().toISOString(),
     };
     this.customers.set(customerId, updated);
@@ -465,6 +470,58 @@ describe('module Clients (E10.4) contre le contrat', () => {
     await expectContract(response, { status: 422 });
     const body = (await response.json()) as { code: string };
     expect(body.code).toBe('customer.siret_invalid');
+  });
+
+  it('M1 — remplacer un SIRET verifie retombe a siret_verified: false, sans re-verification', async () => {
+    const { data: customer } = await createCompany({ siret: '73282932000074' });
+
+    const verified = await call(`/api/v1/customers/${customer.id}/siret-verifications`, {
+      method: 'POST',
+      headers: { ...jsonHeaders, 'Idempotency-Key': `verify-${uuid()}` },
+    });
+    await expectContract(verified, { status: 201, dataSchema: 'SiretVerificationResult' });
+    const afterVerify = (await (await call(`/api/v1/customers/${customer.id}`, { headers: asUser })).json()) as {
+      data: CustomerDetailDto;
+    };
+    expect(afterVerify.data.siret_verified).toBe(true);
+    expect(afterVerify.data.siret_verified_at).not.toBeNull();
+
+    const etag = (await call(`/api/v1/customers/${customer.id}`, { headers: asUser })).headers.get('etag')!;
+    const patched = await call(`/api/v1/customers/${customer.id}`, {
+      method: 'PATCH',
+      headers: { ...jsonHeaders, 'If-Match': etag },
+      // SIRET B distinct, jamais soumis a la verification INSEE.
+      body: JSON.stringify({ siret: '56078919152347' }),
+    });
+    await expectContract(patched, { status: 200, dataSchema: 'Customer' });
+    const patchedBody = (await patched.json()) as { data: CustomerDto };
+    expect(patchedBody.data.siret).toBe('56078919152347');
+    expect(patchedBody.data.siret_verified).toBe(false);
+    expect(patchedBody.data.siret_verified_at).toBeNull();
+
+    const reread = (await (await call(`/api/v1/customers/${customer.id}`, { headers: asUser })).json()) as {
+      data: CustomerDetailDto;
+    };
+    expect(reread.data.siret_verified).toBe(false);
+    expect(reread.data.siret_verified_at).toBeNull();
+  });
+
+  it('M1 — remettre le meme SIRET (aucun changement) ne remet pas siret_verified a false', async () => {
+    const { data: customer } = await createCompany({ siret: '73282932000074' });
+    await call(`/api/v1/customers/${customer.id}/siret-verifications`, {
+      method: 'POST',
+      headers: { ...jsonHeaders, 'Idempotency-Key': `verify-${uuid()}` },
+    });
+    const etag = (await call(`/api/v1/customers/${customer.id}`, { headers: asUser })).headers.get('etag')!;
+
+    const patched = await call(`/api/v1/customers/${customer.id}`, {
+      method: 'PATCH',
+      headers: { ...jsonHeaders, 'If-Match': etag },
+      body: JSON.stringify({ siret: '73282932000074' }),
+    });
+    await expectContract(patched, { status: 200, dataSchema: 'Customer' });
+    const body = (await patched.json()) as { data: CustomerDto };
+    expect(body.data.siret_verified).toBe(true);
   });
 
   it('CA4 — deux interlocuteurs, le second marque principal retrograde le premier', async () => {
