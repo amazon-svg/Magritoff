@@ -19,6 +19,13 @@
 --      `projects` — jamais exercee jusqu ici.
 --   4. Archiver un projet (`status = 'archived'`) est un UPDATE, jamais un
 --      DELETE : la ligne reste lisible et son historique d elements intact.
+--   5. (B3 qa-review) `with check`, pas seulement `using` : un INSERT
+--      portant le tenant_id d un tenant tiers est refuse, et un UPDATE qui
+--      ferait MUTER tenant_id (projects) ou project_id (project_items)
+--      d une ligne qui appartient a l acteur, vers une valeur d un autre
+--      tenant, est refuse. Le scenario 2 ne prouvait que `using` (cible
+--      D UN AUTRE tenant) ; celui-ci porte sur une ligne qui appartient
+--      bien a l acteur, donc n echoue QUE grace a `with check`.
 --
 -- Lancer : pnpm test:storefront:sql (necessite Supabase local demarre).
 -- ============================================================================
@@ -231,6 +238,85 @@ begin
   select count(*) into v_items_visible_b from public.project_items where project_id = v_project_b;
   if v_items_visible_b <> 1 then
     raise exception 'L archivage du projet a fait disparaitre son element (comportement attendu : jamais)';
+  end if;
+end;
+$$;
+
+-- ── B3 (qa-review) — `with check`, pas seulement `using` ───────────────────
+-- Le bloc precedent ne prouve que `using` (visibilite/cible d un UPDATE sur
+-- une ligne D UN AUTRE tenant). Il ne prouve PAS `with check` : sans cette
+-- clause, un membre pourrait INSERER une ligne portant le tenant_id d un
+-- tenant tiers, ou faire MUTER tenant_id/project_id d une ligne qui lui
+-- appartient pour la faire "sortir" vers un tenant tiers. Les deux
+-- scenarios ci-dessous echouent EXCLUSIVEMENT grace a `with check` : leur
+-- ligne cible (avant modification) appartient bien a l acteur (tenant B),
+-- donc `using` seul les laisserait passer.
+do $$
+declare
+  v_tenant_a uuid;
+  v_customer_a uuid;
+  v_project_a uuid;
+  v_project_b uuid;
+  v_item_b uuid;
+  v_rejected boolean := false;
+  v_updated integer;
+  v_still_tenant uuid;
+  v_still_project uuid;
+begin
+  select tenant_a, customer_a, project_a, project_b, item_b
+    into v_tenant_a, v_customer_a, v_project_a, v_project_b, v_item_b
+    from e10_1_projects_context;
+
+  -- INSERT explicite portant le tenant_id d un tenant tiers -> refuse par
+  -- `with check` (aucune ligne existante, seul `with check` s applique).
+  v_rejected := false;
+  begin
+    insert into public.projects (tenant_id, customer_id, name)
+    values (v_tenant_a, v_customer_a, 'Injecte par B dans le tenant A');
+  exception
+    when insufficient_privilege then v_rejected := true;
+  end;
+  if not v_rejected then
+    raise exception
+      'Un membre du tenant B a pu INSERER un projet portant tenant_id = tenant A';
+  end if;
+
+  -- UPDATE qui mute tenant_id d un projet du tenant B VERS le tenant A. La
+  -- ligne CIBLE appartient a l acteur (using passe) : seul with check,
+  -- evalue sur la ligne APRES modification, peut bloquer ce detournement.
+  v_rejected := false;
+  begin
+    update public.projects set tenant_id = v_tenant_a where id = v_project_b;
+  exception
+    when insufficient_privilege then v_rejected := true;
+  end;
+  if not v_rejected then
+    raise exception
+      'Un membre du tenant B a pu deplacer son propre projet vers le tenant A (mutation de tenant_id)';
+  end if;
+  select tenant_id into v_still_tenant from public.projects where id = v_project_b;
+  if v_still_tenant is distinct from (select tenant_b from e10_1_projects_context) then
+    raise exception 'Le projet du tenant B a change de tenant malgre le rejet attendu (valeur: %)', v_still_tenant;
+  end if;
+
+  -- UPDATE qui mute project_id d un element du tenant B pour le rattacher a
+  -- un projet du tenant A. Meme raisonnement : la ligne CIBLE (item_b)
+  -- appartient a l acteur, seul with check (qui rejoue la jointure
+  -- projects x tenant_members sur la NOUVELLE valeur de project_id) protege.
+  v_rejected := false;
+  begin
+    update public.project_items set project_id = v_project_a where id = v_item_b;
+  exception
+    when insufficient_privilege then v_rejected := true;
+  end;
+  if not v_rejected then
+    raise exception
+      'Un membre du tenant B a pu rattacher son propre element au projet du tenant A (mutation de project_id)';
+  end if;
+  select project_id into v_still_project from public.project_items where id = v_item_b;
+  if v_still_project is distinct from v_project_b then
+    raise exception
+      'L element du tenant B a change de projet malgre le rejet attendu (valeur: %)', v_still_project;
   end if;
 end;
 $$;
