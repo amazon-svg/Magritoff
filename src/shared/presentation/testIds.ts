@@ -163,7 +163,11 @@ export const TEST_IDS = {
     deleteDialog: 'quote-lib-delete-dialog',
     deleteConfirmBtn: 'quote-lib-delete-confirm-btn',
     // Editeur de devis (page dediee)
-    editorPage: 'quote-editor-page',
+    // Renomme en E10.3 (qa-review Lot 2) : collisionnait avec
+    // commercialQuote.editorPage, testid retenu par le cahier de test
+    // Notion TF-163 pour la nouvelle page d edition E10.3. Ce testid-ci
+    // n est actuellement rendu par aucun composant.
+    editorPage: 'quote-lib-editor-page',
     editorClientNameInput: 'quote-editor-client-name-input',
     editorLineRow: 'quote-editor-line-row',
     editorLineQuantityInput: 'quote-editor-line-quantity-input',
