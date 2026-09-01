@@ -12,19 +12,19 @@ Le contrat n'est pas un sous-produit du code. Il vient **avant**. Un endpoint qu
 
 | # | Critère | Où c'est tenu | Comment le vérifier |
 |---|---|---|---|
-| 1 | `openapi/magrit-core.v1.yaml` (OpenAPI 3.1) fait foi ; aucun endpoint E10 codé sans y être décrit avant | `openapi/magrit-core.v1.yaml` ; l'ancien `docs/architecture/api/openapi.yaml` porte un en-tête de dépréciation | `pnpm vitest run tests/contract` → `openapi-document.contract.test.ts` « CA1 » |
-| 2 | Types TS générés depuis le contrat via `pnpm gen:api` ; aucun DTO écrit à la main des deux côtés | `scripts/gen-api-types.sh` → `src/platform/api/generated/magrit-core.v1.ts` ; verrou de compilation `CONTRACT_ALIGNMENT` dans `src/modules/_shared/api/contracts.ts` | `pnpm gen:api:check` (échoue si le fichier généré a dérivé) + test « CA2 » |
-| 3 | Routes préfixées `/api/v1/`, ressources au pluriel en kebab-case | `servers[0].url` du contrat ; `assertRoutePath()` dans `src/server/api/gescom-middleware.ts` | test « CA3 » (contrat) + `gescom-middleware.contract.test.ts` (refus à la définition) |
+| 1 | `openapi/magrit-core.v1.yaml` (OpenAPI 3.1) fait foi ; aucun endpoint E10 codé sans y être décrit avant | Le contrat ; l'ancien `docs/architecture/api/openapi.yaml` porte un en-tête de dépréciation ; **registre `src/server/api/gescom-routes.ts`** | `pnpm test:contract` → « CA1 » du document **et** `gescom-routes.contract.test.ts`, qui exige pour chaque route enregistrée un `operationId` correspondant dans le contrat |
+| 2 | Types TS générés depuis le contrat via `pnpm gen:api` ; aucun DTO écrit à la main des deux côtés | `scripts/gen-api-types.sh` → `src/platform/api/generated/magrit-core.v1.ts` ; `CONTRACT_ALIGNMENT` dans `src/modules/_shared/api/contracts.ts` (portée réelle : §2.1) | `pnpm gen:api:check` (échoue si le fichier généré a dérivé) + test « CA2 » |
+| 3 | Routes préfixées `/api/v1/`, ressources au pluriel en kebab-case | `servers[0].url` du contrat ; règle **unique** `checkResourcePath()` dans `src/modules/_shared/api/path-rules.ts`, partagée par `assertRoutePath()` et le lint | test « CA3 » (contrat) + `gescom-middleware.contract.test.ts` (refus à la définition) |
 | 4 | Tenant toujours résolu depuis le jeton, jamais un paramètre | `src/modules/_shared/application/tenant-resolution.ts` | test « CA4 » : `?tenant_id=` → 400 `api.tenant_not_addressable` ; `{tenantId}` en chemin → la route ne se déclare pas |
-| 5 | Deux modes d'auth : Bearer JWT utilisateur et clé de service à scopes | `securitySchemes.bearerAuth` / `securitySchemes.serviceKey` ; `resolvePrincipal()` + `assertScopes()` | test « CA5 » |
+| 5 | Deux modes d'auth : Bearer JWT utilisateur et clé de service à scopes | `securitySchemes.bearerAuth` / `serviceKey` ; `resolvePrincipal()` + `assertScopes()` **fermé par défaut** (§3.1) | tests « CA5 » : route sans scope refusée à la définition, clé de service refusée en 403, `x-required-scopes` linté sur le contrat |
 | 6 | Succès `{ data, meta }` ; erreur RFC 7807 `application/problem+json` avec `code` métier stable | `buildEnvelope()` et `renderProblem()` dans `gescom-middleware.ts` ; `problem.ts` | tests « CA6 » |
 | 7 | Pagination par curseur `?page[size]&page[cursor]`, suivant dans `meta.next_cursor` | `src/modules/_shared/application/pagination.ts` | test « CA7 » |
-| 8 | Tout POST créant une ressource honore `Idempotency-Key` | `idempotency.ts` + table `public.api_idempotency_keys` | test « CA8 » |
-| 9 | Tout PATCH protégé par `ETag`/`If-Match` ; conflit → 409 avec l'état courant | `concurrency.ts` ; `concurrencyGuarded` non désactivable sur un PATCH | tests « CA9 » |
-| 10 | Bus d'événements `outbox_events`, payload versionné, signature HMAC | `outbox.ts` + migration `20260901000100_gescom_outbox_events.sql` ; section `webhooks` du contrat | test « CA10 » |
+| 8 | Tout POST créant une ressource honore `Idempotency-Key` | `idempotency.ts` + table `public.api_idempotency_keys` ; empreinte = méthode + chemin + **query** + corps | tests « CA8 », rejeu et réutilisation abusive compris |
+| 9 | Tout PATCH protégé par `ETag`/`If-Match` ; conflit → 409 avec l'état courant | `concurrency.ts` ; `concurrencyGuarded` non désactivable sur un PATCH ; **`If-Match: *` refusé** (§3.2) | tests « CA9 » : 428 sans en-tête, 400 sur `*`, 409 sur ETag périmé, 200 + nouvel ETag sinon |
+| 10 | Bus d'événements `outbox_events`, payload versionné, signature HMAC | `outbox.ts` + migration `20260901000100_gescom_outbox_events.sql` ; section `webhooks` du contrat | test « CA10 » (contrat) **et** `tests/sql/gescom-outbox-append-only.sql`, qui exerce réellement trigger et RLS via `pnpm test:storefront:sql` |
 | 11 | Organisation modulaire cohérente avec le dépôt ; aucun composant React n'interroge la base | `src/modules/_shared/` (pas de `ui/`) | `pnpm test:architecture` → `gescom-api-socle-boundaries.test.ts` |
 | 12 | Test de contrat par endpoint, CI bloquante | `tests/contract/` + `.github/workflows/architecture.yml` | `pnpm test:contract` |
-| 13 | v1 additive uniquement ; changement cassant → `/api/v2` | §6 de ce document + en-tête du contrat | test « CA13 » |
+| 13 | v1 additive uniquement ; changement cassant → `/api/v2` | §7 de ce document + en-tête du contrat | test « CA13 » |
 
 ---
 
@@ -36,10 +36,13 @@ Le contrat n'est pas un sous-produit du code. Il vient **avant**. Un endpoint qu
 
 **Écarté : `zod-openapi`.** La compatibilité a été vérifiée, pas supposée : `zod-openapi@6.0.2` déclare `peerDependencies: { "zod": "^4.0.0" }`, et le dépôt est en `zod@4.4.3` — il **fonctionnerait**. Il est écarté pour une raison de direction, pas de version : `zod-openapi` va du code vers le contrat (code-first). Le YAML deviendrait un artefact de build, ce qui contredit frontalement le CA1 et l'attente du partenaire, qui veut un contrat lisible **avant** que le code existe.
 
-Conséquence assumée : les schémas Zod du socle et le contrat décrivent la même chose à deux endroits. Deux garde-fous empêchent la dérive silencieuse :
+Conséquence assumée : les schémas Zod du socle et le contrat décrivent la même chose à deux endroits. Deux garde-fous empêchent la dérive silencieuse.
 
-1. **Compilation** — `CONTRACT_ALIGNMENT` dans `src/modules/_shared/api/contracts.ts` : chaque schéma Zod doit produire une valeur assignable au type généré depuis le YAML, sinon `tsc` échoue.
-2. **Exécution** — `tests/contract/shared-components.contract.test.ts` valide les payloads réellement produits par le code contre le JSON Schema du contrat, via Ajv 2020.
+**Ce que `CONTRACT_ALIGNMENT` garantit, et ce qu'il ne garantit pas.** Cette assertion de compilation (`src/modules/_shared/api/contracts.ts`) attrape la disparition ou le renommage d'un champ, un champ requis devenu incompatible, et surtout les **énumérations** — `EventName` est généré en union de littéraux, donc ajouter une valeur côté Zod sans l'ajouter au YAML ne compile plus.
+
+Elle n'attrape **rien** de ce que le contrat exprime en `pattern`, `format`, `minimum` ou `maxLength`. `Money` et `Rate` sont générés en `string` des deux côtés : l'assertion y est **tautologique** (`string extends string`) et ne prouve rien sur le format. Un montant sérialisé en flottant passerait sans bruit.
+
+La garantie de format est portée par le second garde-fou, à l'exécution : **`tests/contract/shared-components.contract.test.ts`** valide via Ajv 2020 les payloads réellement produits par le code contre le JSON Schema du contrat, dans les deux sens (ce que Zod produit est légal au contrat ; ce que le contrat déclare légal est accepté par Zod). C'est ce test-là qui tient le CA2 sur les formats.
 
 ### 2.2 Sort de `DomainEvent`
 
@@ -56,7 +59,7 @@ Conséquence assumée : les schémas Zod du socle et le contrat décrivent la m�
 | Succès | payload nu | `{ data, meta }` |
 | Erreur | `{ ..., requestId }` | `{ ..., request_id, code }` en `application/problem+json` |
 
-Aligner l'historique casserait ses clients (dérogation R5 — voir §7).
+Aligner l'historique casserait ses clients (dérogation R5 — voir §8).
 
 ### 2.4 Table `api_idempotency_keys`
 
@@ -64,7 +67,36 @@ Le CA8 exige que l'`Idempotency-Key` soit **honorée**, ce qui suppose un stocka
 
 ---
 
-## 3. Forme des réponses
+## 3. Règles transverses opposables
+
+### 3.1 Scopes de clé de service — fermé par défaut
+
+Une opération joignable par une clé de service **doit** déclarer ses scopes, en code (`requiredScopes`) comme au contrat (`x-required-scopes`). La règle est fermée par défaut, dans les deux sens :
+
+- `defineGescomRoute()` **refuse à la définition** toute route dont `authentication` vaut `'any'` (le défaut) ou `'service'` sans `requiredScopes` non vide ;
+- `assertScopes()` **refuse en 403** une clé de service qui atteindrait malgré tout une opération sans scope déclaré ;
+- `lintRequiredScopes()` refuse un contrat où une opération joignable par `serviceKey` n'annonce pas ses `x-required-scopes`, ou en annonce un absent de `x-magrit-scopes` ;
+- `lintRoutesAgainstContract()` refuse un écart entre les scopes du code et ceux du contrat.
+
+La seule dispense est de restreindre explicitement l'opération aux jetons utilisateur : `authentication: 'user'`. Leurs droits viennent des rôles du tenant, vérifiés par la RLS et le service métier, pas de scopes.
+
+Laisser passer une liste vide reviendrait à transformer chaque oubli de déclaration en ouverture silencieuse de l'opération à **toutes** les clés du tenant — Studio pourrait écrire là où il n'a que la lecture.
+
+### 3.2 `If-Match: *` est refusé
+
+Contrairement à la sémantique RFC 7232, où `*` signifie « pourvu que la ressource existe », la façade le refuse en **400 `api.if_match_invalid`**. L'accepter reviendrait à laisser un appelant désactiver le contrôle de concurrence à sa guise : deux commerciaux éditant la même fiche s'écraseraient en silence, ce que le CA9 interdit. Le `pattern` du paramètre `IfMatch` au contrat n'admet qu'un ETag, faible ou fort.
+
+### 3.3 Rejeu d'idempotence
+
+Une requête est identifiée par **méthode + chemin + query + corps** — deux POST au même chemin avec des query différentes ne sont pas la même requête. Sur un rejeu :
+
+- la réponse mémorisée est rendue telle quelle, `data` compris ;
+- `meta.request_id` est **recalé sur la requête courante**, pour que la promesse « `meta.request_id` == en-tête `X-Request-Id` » reste vraie sans exception ;
+- l'en-tête `Idempotency-Replayed: true` signale le rejeu, ce que le seul statut 201 ne dit pas.
+
+---
+
+## 4. Forme des réponses
 
 ### Succès
 
@@ -97,7 +129,7 @@ Codes transverses du socle : voir `SHARED_PROBLEM_CODES` dans `src/modules/_shar
 
 ---
 
-## 4. Typage — règles opposables
+## 5. Typage — règles opposables
 
 | Notion | Base | JSON | Exemple |
 |---|---|---|---|
@@ -113,7 +145,7 @@ Codes transverses du socle : voir `SHARED_PROBLEM_CODES` dans `src/modules/_shar
 
 ---
 
-## 5. Écrire un endpoint E10.x — la séquence
+## 6. Écrire un endpoint E10.x — la séquence
 
 1. **Décrire l'opération dans `openapi/magrit-core.v1.yaml`** (seul l'agent `architecte` y touche). Réutiliser les composants partagés : `Problem`, `Meta`, `Money`, `Rate`, `Audit`, `PageSize`, `PageCursor`, `IdempotencyKey`, `IfMatch`, et les réponses d'erreur mutualisées.
 2. **`pnpm gen:api`**, committer le fichier généré.
@@ -141,7 +173,7 @@ Introduire la structure littérale de l'énoncé aurait créé une onzième conv
 
 ---
 
-## 6. Versionnement — v1 additive uniquement
+## 7. Versionnement — v1 additive uniquement
 
 **Autorisé en v1** (additif) :
 
@@ -164,7 +196,7 @@ Introduire la structure littérale de l'énoncé aurait créé une onzième conv
 
 ---
 
-## 7. Dérogations R5 en cours
+## 8. Dérogations R5 en cours
 
 | Dérogation | Portée | Chemin de mise en conformité |
 |---|---|---|
@@ -176,14 +208,17 @@ Introduire la structure littérale de l'énoncé aurait créé une onzième conv
 
 ---
 
-## 8. Commandes
+## 9. Commandes
 
 ```bash
-pnpm gen:api            # regénère les types depuis le contrat
-pnpm gen:api:check      # échoue si les types générés ont dérivé du contrat
-pnpm typecheck          # tsc sur kernel + platform + modules + adapters + server/api
-pnpm test:architecture  # frontières modulaires, dont le socle E10
-pnpm test:contract      # conformité du contrat et du code au contrat
+pnpm gen:api               # regénère les types depuis le contrat
+pnpm gen:api:check         # échoue si les types générés ont dérivé du contrat
+pnpm typecheck             # tsc sur kernel + platform + modules + adapters + server/api
+pnpm test:architecture     # frontières modulaires, dont le socle E10
+pnpm test:contract         # conformité du contrat et du code au contrat
+pnpm test:storefront:sql   # comportement réel en base : triggers, RLS, append-only
 ```
 
-Les trois derniers tournent en CI sur toute PR vers `main` ([`.github/workflows/architecture.yml`](../../.github/workflows/architecture.yml)) et sont **bloquants**.
+Les quatre premières tournent en CI sur toute PR vers `main` ([`.github/workflows/architecture.yml`](../../.github/workflows/architecture.yml)) et sont **bloquantes**.
+
+`pnpm test:storefront:sql` exige **Supabase local démarré** (`pnpm db:local:start`, donc Docker) : il exécute les cas de `tests/sql/` par `psql` contre la base réelle. Il n'est pas dans le workflow CI actuel, qui n'a pas de service Postgres. C'est le seul moyen de tester un trigger ou une policy pour de vrai — relire le texte d'une migration ne prouve rien, puisqu'une migration ne change jamais après coup.

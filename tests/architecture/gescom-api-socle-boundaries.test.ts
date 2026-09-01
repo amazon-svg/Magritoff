@@ -160,31 +160,35 @@ describe('frontières du socle API Gestion commerciale (E10.0)', () => {
     expect(workflow).toContain('pnpm test:architecture');
   });
 
-  it('outbox_events est append-only et fermée aux rôles client', () => {
-    const migration = read('supabase/migrations/20260901000100_gescom_outbox_events.sql');
-    expect(migration).toContain('create table if not exists public.outbox_events');
-    expect(migration).toContain('alter table public.outbox_events enable row level security');
-    expect(migration).toContain('drop policy if exists "outbox_events_select"');
-    expect(migration).toContain(
-      'revoke all on table public.outbox_events from public, anon, authenticated',
-    );
-    expect(migration).toContain('outbox_events_append_only');
-    expect(migration).toContain('outbox_append_only: le contenu d un evenement est immuable');
-    // Réversibilité documentée : le CLI Supabase n a pas de bloc down.
-    expect(migration).toContain('drop table if exists public.outbox_events;');
+  it('le comportement append-only et RLS de outbox_events est couvert par un test SQL réel', () => {
+    // Ce test ne relit PAS le texte de la migration : une migration ne change
+    // jamais après coup, donc un `toContain()` sur son contenu ne peut pas
+    // échouer et ne détecterait aucune régression — ni un `drop trigger`
+    // ultérieur, ni un `grant update` accordé par erreur dans une migration
+    // suivante. Il vérifie seulement que le vrai test comportemental existe et
+    // est bien exécuté par le runner SQL.
+    const sqlCase = 'tests/sql/gescom-outbox-append-only.sql';
+    expect(existsSync(resolve(root, sqlCase))).toBe(true);
+    expect(read('scripts/test-storefront-sql.sh')).toContain(sqlCase);
+
+    // Le cas doit réellement exercer les quatre garanties, pas seulement exister.
+    const scenario = read(sqlCase);
+    expect(scenario).toContain('update public.outbox_events');
+    expect(scenario).toContain('delete from public.outbox_events');
+    expect(scenario).toContain('set local role authenticated');
+    expect(scenario).toContain('information_schema.table_privileges');
   });
 
-  it('api_idempotency_keys reste une table strictement serveur', () => {
-    const migration = read('supabase/migrations/20260901000200_gescom_api_idempotency_keys.sql');
-    expect(migration).toContain('create table if not exists public.api_idempotency_keys');
-    expect(migration).toContain(
-      'alter table public.api_idempotency_keys enable row level security',
-    );
-    expect(migration).toContain(
-      'revoke all on table public.api_idempotency_keys from public, anon, authenticated',
-    );
-    expect(migration).toContain('constraint api_idempotency_keys_unique unique (tenant_id, idempotency_key)');
-    expect(migration).toContain('drop table if exists public.api_idempotency_keys;');
+  it('les migrations E10 documentent leur retrait, faute de bloc down natif', () => {
+    // Seule assertion textuelle conservée sur les migrations : la réversibilité
+    // est de la documentation, pas un comportement observable en base.
+    for (const migration of [
+      'supabase/migrations/20260901000100_gescom_outbox_events.sql',
+      'supabase/migrations/20260901000200_gescom_api_idempotency_keys.sql',
+    ]) {
+      expect(read(migration), migration).toContain('REVERSIBILITE');
+      expect(read(migration), migration).toMatch(/drop table if exists public\.\w+;/);
+    }
   });
 
   it('les conventions API sont écrites et couvrent les 13 critères', () => {

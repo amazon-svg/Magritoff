@@ -11,6 +11,10 @@ if ! docker inspect "$DATABASE_CONTAINER" >/dev/null 2>&1; then
   exit 1
 fi
 
+# Cas SQL executes contre la base locale. Historiquement storefront ; le
+# Sprint 5 y ajoute les cas Gestion commerciale, qui exigent le meme runtime
+# (triggers et RLS reels, ce qu une lecture du fichier de migration ne teste
+# pas).
 SQL_CASES=(
   tests/sql/storefront-session-lifecycle.sql
   tests/sql/shop-customer-delegation.sql
@@ -25,10 +29,11 @@ SQL_CASES=(
   tests/sql/storefront-self-registration.sql
   tests/sql/storefront-password-recovery.sql
   tests/sql/public-shop-tax-regime.sql
+  tests/sql/gescom-outbox-append-only.sql
 )
 
 for sql_case in "${SQL_CASES[@]}"; do
-  echo "Storefront SQL: $sql_case"
+  echo "SQL: $sql_case"
   docker exec -i "$DATABASE_CONTAINER" \
     psql -v ON_ERROR_STOP=1 -U postgres -d postgres < "$sql_case"
 done
