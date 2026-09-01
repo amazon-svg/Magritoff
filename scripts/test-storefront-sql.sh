@@ -32,6 +32,7 @@ SQL_CASES=(
   tests/sql/gescom-outbox-append-only.sql
   tests/sql/gescom-e10-4-customers.sql
   tests/sql/gescom-e10-5-shop-customer-link.sql
+  tests/sql/gescom-e10-1-projects.sql
 )
 
 for sql_case in "${SQL_CASES[@]}"; do
