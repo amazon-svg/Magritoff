@@ -43,6 +43,7 @@ describe('page de test d intégration HopeStudio', () => {
   it('charge le bundle versionné et configure toutes les racines statiques', () => {
     expect(assetsSource).toContain("HOPSTUDIO_ASSET_ROOT = '/vendor/hopstudio/1.0.0/'");
     expect(assetsSource).toContain("HOPSTUDIO_EJS_ROOT = '/hopstudio/ejs/'");
+    expect(assetsSource).toContain('sugarcrepeHLUX.magrit.css?v=');
     expect(source).toContain('root_ejs');
     expect(source).toContain('base: HOPSTUDIO_EJS_ROOT');
     expect(workspaceSource).toContain('base: HOPSTUDIO_EJS_ROOT');
@@ -101,7 +102,8 @@ describe('page de test d intégration HopeStudio', () => {
     expect(magritStyles).toContain('.hs-product-card-specs');
     expect(magritStyles).toContain("[data-hs-action='price']::before");
     expect(magritStyles).toContain('grid-template-columns: repeat(2, minmax(0, 1fr))');
-    expect(magritStyles).toContain('height: calc(100% - 120px)');
-    expect(magritStyles).toContain('height: calc(100% - 102px)');
+    expect(magritStyles).toContain('flex-direction: column');
+    expect(magritStyles).toContain('position: relative');
+    expect(magritStyles).toContain('background: #fff');
   });
 });
