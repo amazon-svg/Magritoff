@@ -13,7 +13,97 @@
  * Do not make direct changes to the file.
  */
 
-export type paths = Record<string, never>;
+export interface paths {
+    "/customers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Liste les clients du tenant courant. */
+        get: operations["listCustomers"];
+        put?: never;
+        /** Cree un client (personne morale ou physique). */
+        post: operations["createCustomer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/customers/{customerId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Recupere la fiche detaillee d un client : coordonnees, interlocuteurs, et points d extension projets/devis/commandes (vides tant que E10.1/E10.3/E10.12 ne sont pas livrees). */
+        get: operations["getCustomer"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Modifie un client existant, ou le desactive (`is_active: false`). Le type (`company`/`individual`) n est pas modifiable par cette operation. */
+        patch: operations["updateCustomer"];
+        trace?: never;
+    };
+    "/customers/{customerId}/contacts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Liste les interlocuteurs d un client. */
+        get: operations["listCustomerContacts"];
+        put?: never;
+        /** Ajoute un interlocuteur a un client. Donnee de gestion pure : ne cree aucun compte utilisateur, n envoie aucune invitation. */
+        post: operations["createCustomerContact"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/customers/{customerId}/contacts/{contactId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Recupere un interlocuteur et son `ETag` courant — necessaire pour enchainer un `PATCH` protege par `If-Match` (CA9) sans passer par la liste, dont l `ETag` de reponse couvre la collection, pas un interlocuteur pris isolement. */
+        get: operations["getCustomerContact"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Modifie un interlocuteur. Passer `is_primary: true` bascule automatiquement l ancien interlocuteur principal a `false`. */
+        patch: operations["updateCustomerContact"];
+        trace?: never;
+    };
+    "/customers/{customerId}/siret-verifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Verifie le SIRET d un client aupres de l INSEE. BOUCHON (mock) tant que le compte INSEE reel n est pas cree — meme principe que le mock SIREN de E6.1 (`src/modules/tenants/ui/helpers/sirenValidator.ts`) : format + cle de Luhn controles reellement, reponse INSEE simulee de facon credible, `mocked: true` explicite dans la reponse. */
+        post: operations["verifyCustomerSiret"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+}
 export interface webhooks {
     "quote.converted": {
         parameters: {
@@ -269,6 +359,163 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /**
+         * CustomerType
+         * @description Un client est soit une personne morale (`company`), soit une personne physique (`individual`). Ce choix conditionne les champs requis a la creation et n est plus modifiable ensuite.
+         * @enum {string}
+         */
+        CustomerType: "company" | "individual";
+        /**
+         * Address
+         * @description Adresse structuree (jamais du texte libre) : l export comptable futur (E10.18) en depend.
+         */
+        Address: {
+            line1: string;
+            line2?: string | null;
+            postal_code: string;
+            city: string;
+            /**
+             * @description Code pays ISO 3166-1 alpha-2.
+             * @example FR
+             */
+            country: string;
+        };
+        /**
+         * Customer
+         * @description Client (personne morale ou physique) du referentiel commercial. Table pivot de l Epic E10 : `projects`, `quotes`, `orders` et `price_rules` y referencent leur client.
+         */
+        Customer: {
+            id: components["schemas"]["Uuid"];
+            tenant_id: components["schemas"]["Uuid"];
+            type: components["schemas"]["CustomerType"];
+            /** @description Raison sociale. Requis pour `company`, `null` pour `individual`. */
+            company_name?: string | null;
+            /** @description 14 chiffres, cle de Luhn valide. `null` pour `individual` ou tant qu il n a pas ete saisi. */
+            siret?: string | null;
+            vat_number?: string | null;
+            /** @description Requis pour `individual`, `null` pour `company`. */
+            first_name?: string | null;
+            /** @description Requis pour `individual`, `null` pour `company`. */
+            last_name?: string | null;
+            billing_address?: components["schemas"]["Address"] | null;
+            shipping_address?: components["schemas"]["Address"] | null;
+            /** @description Un client referme par un projet, un devis ou une commande ne peut pas etre supprime (contrainte FK `ON DELETE RESTRICT`) ; il est desactive via ce champ. */
+            is_active: boolean;
+            /** @description Vrai si `POST .../siret-verifications` a confirme ce SIRET aupres de l INSEE (bouchon tant que E6.1 n est pas branche sur l API reelle). */
+            siret_verified: boolean;
+            siret_verified_at?: components["schemas"]["Timestamp"] | null;
+            created_at: components["schemas"]["Timestamp"];
+            updated_at: components["schemas"]["Timestamp"];
+        };
+        /**
+         * CustomerContact
+         * @description Interlocuteur d un client. Donnee de gestion pure : sa creation ne cree aucun compte utilisateur et n envoie aucune invitation.
+         */
+        CustomerContact: {
+            id: components["schemas"]["Uuid"];
+            customer_id: components["schemas"]["Uuid"];
+            first_name: string;
+            last_name: string;
+            role?: string | null;
+            /** Format: email */
+            email: string;
+            phone?: string | null;
+            /** @description Un seul interlocuteur principal par client. Le poser a `true` bascule automatiquement l ancien principal a `false`. */
+            is_primary: boolean;
+            created_at: components["schemas"]["Timestamp"];
+            updated_at: components["schemas"]["Timestamp"];
+        };
+        /**
+         * CustomerDetail
+         * @description Fiche client complete : coordonnees, interlocuteurs, et points d extension projets/devis/commandes. Ces trois listes sont TOUJOURS vides tant que E10.1 (projets), E10.3 (devis) et E10.12 (commandes) ne sont pas livrees — ce ne sont pas des donnees inventees, c est un point d extension prevu par le contrat.
+         */
+        CustomerDetail: {
+            id: components["schemas"]["Uuid"];
+            tenant_id: components["schemas"]["Uuid"];
+            type: components["schemas"]["CustomerType"];
+            company_name?: string | null;
+            siret?: string | null;
+            vat_number?: string | null;
+            first_name?: string | null;
+            last_name?: string | null;
+            billing_address?: components["schemas"]["Address"] | null;
+            shipping_address?: components["schemas"]["Address"] | null;
+            is_active: boolean;
+            siret_verified: boolean;
+            siret_verified_at?: components["schemas"]["Timestamp"] | null;
+            created_at: components["schemas"]["Timestamp"];
+            updated_at: components["schemas"]["Timestamp"];
+            contacts: components["schemas"]["CustomerContact"][];
+            /** @description Point d extension E10.1. Toujours vide pour l instant. */
+            projects: unknown[];
+            /** @description Point d extension E10.3. Toujours vide pour l instant. */
+            quotes: unknown[];
+            /** @description Point d extension E10.12. Toujours vide pour l instant. */
+            orders: unknown[];
+        };
+        /**
+         * CreateCustomerCommand
+         * @description Commande de creation d un client. Les champs requis dependent de `type` (verifie par regle metier, pas seulement par la forme du schema) : `company_name` et `siret` pour `company`, `first_name` et `last_name` pour `individual`.
+         */
+        CreateCustomerCommand: {
+            type: components["schemas"]["CustomerType"];
+            company_name?: string | null;
+            siret?: string | null;
+            vat_number?: string | null;
+            first_name?: string | null;
+            last_name?: string | null;
+            billing_address?: components["schemas"]["Address"] | null;
+            shipping_address?: components["schemas"]["Address"] | null;
+        };
+        /**
+         * UpdateCustomerCommand
+         * @description Modification partielle d un client. `type` n est pas modifiable par cette operation.
+         */
+        UpdateCustomerCommand: {
+            company_name?: string | null;
+            siret?: string | null;
+            vat_number?: string | null;
+            first_name?: string | null;
+            last_name?: string | null;
+            billing_address?: components["schemas"]["Address"] | null;
+            shipping_address?: components["schemas"]["Address"] | null;
+            is_active?: boolean;
+        };
+        /** CreateCustomerContactCommand */
+        CreateCustomerContactCommand: {
+            first_name: string;
+            last_name: string;
+            role?: string | null;
+            /** Format: email */
+            email: string;
+            phone?: string | null;
+            /** @default false */
+            is_primary: boolean;
+        };
+        /** UpdateCustomerContactCommand */
+        UpdateCustomerContactCommand: {
+            first_name?: string;
+            last_name?: string;
+            role?: string | null;
+            /** Format: email */
+            email?: string;
+            phone?: string | null;
+            is_primary?: boolean;
+        };
+        /**
+         * SiretVerificationResult
+         * @description Resultat d une verification SIRET aupres de l INSEE. BOUCHON tant que le compte INSEE reel n est pas cree (voir description de l operation `verifyCustomerSiret`).
+         */
+        SiretVerificationResult: {
+            siret: string;
+            verified: boolean;
+            company_name?: string | null;
+            naf_code?: string | null;
+            active: boolean;
+            /** @description Vrai tant que l appel INSEE reel n est pas branche (E6.1). */
+            mocked: boolean;
+            checked_at: components["schemas"]["Timestamp"];
+        };
     };
     responses: {
         /** @description Requete malformee. */
@@ -386,6 +633,8 @@ export interface components {
         MagritSignature: string;
         /** @description Nom de l evenement livre, identique a `EventEnvelope.event_name`. */
         MagritEventName: components["schemas"]["EventName"];
+        /** @description Identifiant technique du client, dans le tenant du jeton. */
+        CustomerId: components["schemas"]["Uuid"];
     };
     requestBodies: never;
     headers: {
@@ -414,6 +663,16 @@ export type ProblemFieldError = components['schemas']['ProblemFieldError'];
 export type Problem = components['schemas']['Problem'];
 export type EventName = components['schemas']['EventName'];
 export type EventEnvelope = components['schemas']['EventEnvelope'];
+export type CustomerType = components['schemas']['CustomerType'];
+export type Address = components['schemas']['Address'];
+export type Customer = components['schemas']['Customer'];
+export type CustomerContact = components['schemas']['CustomerContact'];
+export type CustomerDetail = components['schemas']['CustomerDetail'];
+export type CreateCustomerCommand = components['schemas']['CreateCustomerCommand'];
+export type UpdateCustomerCommand = components['schemas']['UpdateCustomerCommand'];
+export type CreateCustomerContactCommand = components['schemas']['CreateCustomerContactCommand'];
+export type UpdateCustomerContactCommand = components['schemas']['UpdateCustomerContactCommand'];
+export type SiretVerificationResult = components['schemas']['SiretVerificationResult'];
 export type ResponseBadRequest = components['responses']['BadRequest'];
 export type ResponseUnauthorized = components['responses']['Unauthorized'];
 export type ResponseForbidden = components['responses']['Forbidden'];
@@ -430,12 +689,336 @@ export type ParameterIdempotencyKey = components['parameters']['IdempotencyKey']
 export type ParameterIfMatch = components['parameters']['IfMatch'];
 export type ParameterMagritSignature = components['parameters']['MagritSignature'];
 export type ParameterMagritEventName = components['parameters']['MagritEventName'];
+export type ParameterCustomerId = components['parameters']['CustomerId'];
 export type HeaderETag = components['headers']['ETag'];
 export type HeaderXRequestId = components['headers']['XRequestId'];
 export type HeaderIdempotencyReplayed = components['headers']['IdempotencyReplayed'];
 export type HeaderRetryAfter = components['headers']['RetryAfter'];
 export type $defs = Record<string, never>;
 export interface operations {
+    listCustomers: {
+        parameters: {
+            query?: {
+                /** @description Recherche plein texte sur la raison sociale, le nom ou le prenom du client. */
+                q?: string;
+                /** @description Filtre sur le type de client. */
+                type?: components["schemas"]["CustomerType"];
+                /** @description Nombre d elements par page. Defaut 50, maximum 200. */
+                "page[size]"?: components["parameters"]["PageSize"];
+                /** @description Curseur opaque renvoye par `meta.next_cursor` de la page precedente. Absent sur la premiere page. Ne jamais construire un curseur cote client : sa structure interne n est pas contractuelle. */
+                "page[cursor]"?: components["parameters"]["PageCursor"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Page de clients du tenant. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["Customer"][];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    createCustomer: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Cle d idempotence de la creation (CA8, voir components/parameters/IdempotencyKey pour la description complete). */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCustomerCommand"];
+            };
+        };
+        responses: {
+            /** @description Client cree. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["Customer"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            /** @description SIRET au format invalide (14 chiffres, cle de Luhn), ou champ requis absent pour le type de client (raison sociale et SIRET pour `company`, prenom et nom pour `individual`). Code `api.validation_failed`, detail champ par champ dans `errors`. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getCustomer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant technique du client, dans le tenant du jeton. */
+                customerId: components["parameters"]["CustomerId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Fiche client detaillee. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["CustomerDetail"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateCustomer: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Precondition de concurrence optimiste (CA9, voir components/parameters/IfMatch pour la description complete). */
+                "If-Match": string;
+            };
+            path: {
+                /** @description Identifiant technique du client, dans le tenant du jeton. */
+                customerId: components["parameters"]["CustomerId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateCustomerCommand"];
+            };
+        };
+        responses: {
+            /** @description Client modifie. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["Customer"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+            428: components["responses"]["PreconditionRequired"];
+        };
+    };
+    listCustomerContacts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant technique du client, dans le tenant du jeton. */
+                customerId: components["parameters"]["CustomerId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Interlocuteurs du client. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["CustomerContact"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createCustomerContact: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Cle d idempotence de la creation (CA8, voir components/parameters/IdempotencyKey pour la description complete). */
+                "Idempotency-Key": string;
+            };
+            path: {
+                /** @description Identifiant technique du client, dans le tenant du jeton. */
+                customerId: components["parameters"]["CustomerId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCustomerContactCommand"];
+            };
+        };
+        responses: {
+            /** @description Interlocuteur cree. Si `is_primary: true`, l ancien interlocuteur principal (s il existe) perd automatiquement ce statut. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["CustomerContact"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    getCustomerContact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant technique du client, dans le tenant du jeton. */
+                customerId: components["parameters"]["CustomerId"];
+                contactId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Interlocuteur. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["CustomerContact"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateCustomerContact: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Precondition de concurrence optimiste (CA9, voir components/parameters/IfMatch pour la description complete). */
+                "If-Match": string;
+            };
+            path: {
+                /** @description Identifiant technique du client, dans le tenant du jeton. */
+                customerId: components["parameters"]["CustomerId"];
+                contactId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateCustomerContactCommand"];
+            };
+        };
+        responses: {
+            /** @description Interlocuteur modifie. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["CustomerContact"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+            428: components["responses"]["PreconditionRequired"];
+        };
+    };
+    verifyCustomerSiret: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Cle d idempotence de la creation (CA8, voir components/parameters/IdempotencyKey pour la description complete). */
+                "Idempotency-Key": string;
+            };
+            path: {
+                /** @description Identifiant technique du client, dans le tenant du jeton. */
+                customerId: components["parameters"]["CustomerId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resultat de la verification, applique au client. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["SiretVerificationResult"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description Le client n est pas de type `company`, ou ne porte aucun SIRET (`customer.not_a_company`, `customer.siret_missing`). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     onQuoteConverted: {
         parameters: {
             query?: never;

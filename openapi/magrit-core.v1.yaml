@@ -67,12 +67,460 @@ tags:
     description: Ressources metier du module Gestion commerciale (Epic E10).
 
 # ----------------------------------------------------------------------------
-# Aucun chemin n est encore publie : E10.0 livre le socle transverse
-# (composants partages, securite, evenements sortants). Les operations sont
-# ajoutees ici par les stories E10.1 a E10.21, AVANT leur implementation.
-# `paths` vide est valide en OpenAPI 3.1 (webhooks seuls suffisent).
+# story E10.4 — Entite Client (personne morale ou physique) et interlocuteurs.
+# Table pivot de l Epic E10 : projects, quotes, orders, price_rules pointeront
+# tous vers `customers`.
+#
+# Ecriture (creation, modification, interlocuteurs, verification SIRET)
+# reservee aux jetons utilisateur (`authentication: user` cote code) : cette
+# story n ouvre aucun scope d ecriture aux cles de service. Lecture ouverte a
+# Studio via le scope `customers:read` (deja declare par E10.0 dans
+# x-magrit-scopes).
 # ----------------------------------------------------------------------------
-paths: {}
+paths:
+  /customers:
+    get:
+      operationId: listCustomers
+      summary: Liste les clients du tenant courant.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+        - serviceKey: []
+      x-required-scopes: [customers:read]
+      parameters:
+        - name: q
+          in: query
+          required: false
+          description: >-
+            Recherche plein texte sur la raison sociale, le nom ou le prenom
+            du client.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 200
+        - name: type
+          in: query
+          required: false
+          description: Filtre sur le type de client.
+          schema:
+            $ref: '#/components/schemas/CustomerType'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/PageCursor'
+      responses:
+        '200':
+          description: Page de clients du tenant.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Customer'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+    post:
+      operationId: createCustomer
+      summary: Cree un client (personne morale ou physique).
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: >-
+            Cle d idempotence de la creation (CA8, voir
+            components/parameters/IdempotencyKey pour la description
+            complete).
+          schema:
+            type: string
+            minLength: 8
+            maxLength: 255
+            pattern: '^[A-Za-z0-9_.:-]{8,255}$'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCustomerCommand'
+      responses:
+        '201':
+          description: Client cree.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Customer'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          description: >-
+            SIRET au format invalide (14 chiffres, cle de Luhn), ou champ
+            requis absent pour le type de client (raison sociale et SIRET
+            pour `company`, prenom et nom pour `individual`). Code
+            `api.validation_failed`, detail champ par champ dans `errors`.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  /customers/{customerId}:
+    get:
+      operationId: getCustomer
+      summary: >-
+        Recupere la fiche detaillee d un client : coordonnees, interlocuteurs,
+        et points d extension projets/devis/commandes (vides tant que
+        E10.1/E10.3/E10.12 ne sont pas livrees).
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+        - serviceKey: []
+      x-required-scopes: [customers:read]
+      parameters:
+        - $ref: '#/components/parameters/CustomerId'
+      responses:
+        '200':
+          description: Fiche client detaillee.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CustomerDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      operationId: updateCustomer
+      summary: >-
+        Modifie un client existant, ou le desactive (`is_active: false`). Le
+        type (`company`/`individual`) n est pas modifiable par cette
+        operation.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CustomerId'
+        - name: If-Match
+          in: header
+          required: true
+          description: >-
+            Precondition de concurrence optimiste (CA9, voir
+            components/parameters/IfMatch pour la description complete).
+          schema:
+            type: string
+            minLength: 3
+            maxLength: 255
+            pattern: '^(W/)?"[^"]+"$'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCustomerCommand'
+      responses:
+        '200':
+          description: Client modifie.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Customer'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+
+  /customers/{customerId}/contacts:
+    get:
+      operationId: listCustomerContacts
+      summary: Liste les interlocuteurs d un client.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+        - serviceKey: []
+      x-required-scopes: [customers:read]
+      parameters:
+        - $ref: '#/components/parameters/CustomerId'
+      responses:
+        '200':
+          description: Interlocuteurs du client.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/CustomerContact'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    post:
+      operationId: createCustomerContact
+      summary: >-
+        Ajoute un interlocuteur a un client. Donnee de gestion pure : ne cree
+        aucun compte utilisateur, n envoie aucune invitation.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CustomerId'
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: >-
+            Cle d idempotence de la creation (CA8, voir
+            components/parameters/IdempotencyKey pour la description
+            complete).
+          schema:
+            type: string
+            minLength: 8
+            maxLength: 255
+            pattern: '^[A-Za-z0-9_.:-]{8,255}$'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCustomerContactCommand'
+      responses:
+        '201':
+          description: >-
+            Interlocuteur cree. Si `is_primary: true`, l ancien interlocuteur
+            principal (s il existe) perd automatiquement ce statut.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CustomerContact'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /customers/{customerId}/contacts/{contactId}:
+    get:
+      operationId: getCustomerContact
+      summary: >-
+        Recupere un interlocuteur et son `ETag` courant — necessaire pour
+        enchainer un `PATCH` protege par `If-Match` (CA9) sans passer par la
+        liste, dont l `ETag` de reponse couvre la collection, pas un
+        interlocuteur pris isolement.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+        - serviceKey: []
+      x-required-scopes: [customers:read]
+      parameters:
+        - $ref: '#/components/parameters/CustomerId'
+        - name: contactId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+      responses:
+        '200':
+          description: Interlocuteur.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CustomerContact'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      operationId: updateCustomerContact
+      summary: >-
+        Modifie un interlocuteur. Passer `is_primary: true` bascule
+        automatiquement l ancien interlocuteur principal a `false`.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CustomerId'
+        - name: contactId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: If-Match
+          in: header
+          required: true
+          description: >-
+            Precondition de concurrence optimiste (CA9, voir
+            components/parameters/IfMatch pour la description complete).
+          schema:
+            type: string
+            minLength: 3
+            maxLength: 255
+            pattern: '^(W/)?"[^"]+"$'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCustomerContactCommand'
+      responses:
+        '200':
+          description: Interlocuteur modifie.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CustomerContact'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+
+  /customers/{customerId}/siret-verifications:
+    post:
+      operationId: verifyCustomerSiret
+      summary: >-
+        Verifie le SIRET d un client aupres de l INSEE. BOUCHON (mock) tant
+        que le compte INSEE reel n est pas cree — meme principe que le mock
+        SIREN de E6.1 (`src/modules/tenants/ui/helpers/sirenValidator.ts`) :
+        format + cle de Luhn controles reellement, reponse INSEE simulee de
+        facon credible, `mocked: true` explicite dans la reponse.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CustomerId'
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: >-
+            Cle d idempotence de la creation (CA8, voir
+            components/parameters/IdempotencyKey pour la description
+            complete).
+          schema:
+            type: string
+            minLength: 8
+            maxLength: 255
+            pattern: '^[A-Za-z0-9_.:-]{8,255}$'
+      responses:
+        '201':
+          description: Resultat de la verification, applique au client.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SiretVerificationResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          description: >-
+            Le client n est pas de type `company`, ou ne porte aucun SIRET
+            (`customer.not_a_company`, `customer.siret_missing`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
 
 # ----------------------------------------------------------------------------
 # Bus d evenements sortants (CA10)
@@ -317,6 +765,14 @@ components:
       description: Nom de l evenement livre, identique a `EventEnvelope.event_name`.
       schema:
         $ref: '#/components/schemas/EventName'
+
+    CustomerId:
+      name: customerId
+      in: path
+      required: true
+      description: Identifiant technique du client, dans le tenant du jeton.
+      schema:
+        $ref: '#/components/schemas/Uuid'
 
   # --------------------------------------------------------------------------
   # En-tetes de reponse partages
@@ -730,3 +1186,492 @@ components:
             `event_version`.
           type: object
           additionalProperties: true
+
+    # --------------------------------------------------------------------------
+    # Story E10.4 — Entite Client et interlocuteurs
+    # --------------------------------------------------------------------------
+    CustomerType:
+      title: CustomerType
+      description: >-
+        Un client est soit une personne morale (`company`), soit une personne
+        physique (`individual`). Ce choix conditionne les champs requis a la
+        creation et n est plus modifiable ensuite.
+      type: string
+      enum: [company, individual]
+
+    Address:
+      title: Address
+      description: >-
+        Adresse structuree (jamais du texte libre) : l export comptable futur
+        (E10.18) en depend.
+      type: object
+      additionalProperties: false
+      required: [line1, postal_code, city, country]
+      properties:
+        line1:
+          type: string
+          minLength: 1
+          maxLength: 200
+        line2:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 200
+            - type: 'null'
+        postal_code:
+          type: string
+          minLength: 1
+          maxLength: 20
+        city:
+          type: string
+          minLength: 1
+          maxLength: 120
+        country:
+          description: Code pays ISO 3166-1 alpha-2.
+          type: string
+          pattern: '^[A-Z]{2}$'
+          examples: [FR]
+
+    Customer:
+      title: Customer
+      description: >-
+        Client (personne morale ou physique) du referentiel commercial.
+        Table pivot de l Epic E10 : `projects`, `quotes`, `orders` et
+        `price_rules` y referencent leur client.
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - tenant_id
+        - type
+        - is_active
+        - siret_verified
+        - created_at
+        - updated_at
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        tenant_id:
+          $ref: '#/components/schemas/Uuid'
+        type:
+          $ref: '#/components/schemas/CustomerType'
+        company_name:
+          description: Raison sociale. Requis pour `company`, `null` pour `individual`.
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 300
+            - type: 'null'
+        siret:
+          description: >-
+            14 chiffres, cle de Luhn valide. `null` pour `individual` ou tant
+            qu il n a pas ete saisi.
+          oneOf:
+            - type: string
+              pattern: '^[0-9]{14}$'
+            - type: 'null'
+        vat_number:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 32
+            - type: 'null'
+        first_name:
+          description: Requis pour `individual`, `null` pour `company`.
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 120
+            - type: 'null'
+        last_name:
+          description: Requis pour `individual`, `null` pour `company`.
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 120
+            - type: 'null'
+        billing_address:
+          oneOf:
+            - $ref: '#/components/schemas/Address'
+            - type: 'null'
+        shipping_address:
+          oneOf:
+            - $ref: '#/components/schemas/Address'
+            - type: 'null'
+        is_active:
+          description: >-
+            Un client referme par un projet, un devis ou une commande ne peut
+            pas etre supprime (contrainte FK `ON DELETE RESTRICT`) ; il est
+            desactive via ce champ.
+          type: boolean
+        siret_verified:
+          description: >-
+            Vrai si `POST .../siret-verifications` a confirme ce SIRET aupres
+            de l INSEE (bouchon tant que E6.1 n est pas branche sur l API
+            reelle).
+          type: boolean
+        siret_verified_at:
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+        created_at:
+          $ref: '#/components/schemas/Timestamp'
+        updated_at:
+          $ref: '#/components/schemas/Timestamp'
+
+    CustomerContact:
+      title: CustomerContact
+      description: >-
+        Interlocuteur d un client. Donnee de gestion pure : sa creation ne
+        cree aucun compte utilisateur et n envoie aucune invitation.
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - customer_id
+        - first_name
+        - last_name
+        - email
+        - is_primary
+        - created_at
+        - updated_at
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        customer_id:
+          $ref: '#/components/schemas/Uuid'
+        first_name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        last_name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        role:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 120
+            - type: 'null'
+        email:
+          type: string
+          format: email
+          maxLength: 320
+        phone:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 40
+            - type: 'null'
+        is_primary:
+          description: >-
+            Un seul interlocuteur principal par client. Le poser a `true`
+            bascule automatiquement l ancien principal a `false`.
+          type: boolean
+        created_at:
+          $ref: '#/components/schemas/Timestamp'
+        updated_at:
+          $ref: '#/components/schemas/Timestamp'
+
+    CustomerDetail:
+      title: CustomerDetail
+      description: >-
+        Fiche client complete : coordonnees, interlocuteurs, et points
+        d extension projets/devis/commandes. Ces trois listes sont TOUJOURS
+        vides tant que E10.1 (projets), E10.3 (devis) et E10.12 (commandes)
+        ne sont pas livrees — ce ne sont pas des donnees inventees, c est un
+        point d extension prevu par le contrat.
+      #
+      # Schema APLATI plutot que compose par `allOf` sur `Customer` : combine a
+      # `additionalProperties: false`, un `allOf` fait valider CHAQUE membre
+      # INDEPENDAMMENT par Ajv — `Customer`, ferme sur ses seuls champs,
+      # rejetterait alors `contacts`/`projects`/`quotes`/`orders` comme des
+      # proprietes en trop, meme portees par l autre membre du `allOf`. Un
+      # schema plat evite l ecueil (cf. le `allOf` de `SuccessEnvelope`, qui ne
+      # marche que parce que son second membre n a justement PAS de
+      # `additionalProperties: false`).
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - tenant_id
+        - type
+        - is_active
+        - siret_verified
+        - created_at
+        - updated_at
+        - contacts
+        - projects
+        - quotes
+        - orders
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        tenant_id:
+          $ref: '#/components/schemas/Uuid'
+        type:
+          $ref: '#/components/schemas/CustomerType'
+        company_name:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 300
+            - type: 'null'
+        siret:
+          oneOf:
+            - type: string
+              pattern: '^[0-9]{14}$'
+            - type: 'null'
+        vat_number:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 32
+            - type: 'null'
+        first_name:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 120
+            - type: 'null'
+        last_name:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 120
+            - type: 'null'
+        billing_address:
+          oneOf:
+            - $ref: '#/components/schemas/Address'
+            - type: 'null'
+        shipping_address:
+          oneOf:
+            - $ref: '#/components/schemas/Address'
+            - type: 'null'
+        is_active:
+          type: boolean
+        siret_verified:
+          type: boolean
+        siret_verified_at:
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+        created_at:
+          $ref: '#/components/schemas/Timestamp'
+        updated_at:
+          $ref: '#/components/schemas/Timestamp'
+        contacts:
+          type: array
+          items:
+            $ref: '#/components/schemas/CustomerContact'
+        projects:
+          description: Point d extension E10.1. Toujours vide pour l instant.
+          type: array
+          items: {}
+        quotes:
+          description: Point d extension E10.3. Toujours vide pour l instant.
+          type: array
+          items: {}
+        orders:
+          description: Point d extension E10.12. Toujours vide pour l instant.
+          type: array
+          items: {}
+
+    CreateCustomerCommand:
+      title: CreateCustomerCommand
+      description: >-
+        Commande de creation d un client. Les champs requis dependent de
+        `type` (verifie par regle metier, pas seulement par la forme du
+        schema) : `company_name` et `siret` pour `company`, `first_name` et
+        `last_name` pour `individual`.
+      type: object
+      additionalProperties: false
+      required: [type]
+      properties:
+        type:
+          $ref: '#/components/schemas/CustomerType'
+        company_name:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 300
+            - type: 'null'
+        siret:
+          oneOf:
+            - type: string
+              pattern: '^[0-9]{14}$'
+            - type: 'null'
+        vat_number:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 32
+            - type: 'null'
+        first_name:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 120
+            - type: 'null'
+        last_name:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 120
+            - type: 'null'
+        billing_address:
+          oneOf:
+            - $ref: '#/components/schemas/Address'
+            - type: 'null'
+        shipping_address:
+          oneOf:
+            - $ref: '#/components/schemas/Address'
+            - type: 'null'
+
+    UpdateCustomerCommand:
+      title: UpdateCustomerCommand
+      description: >-
+        Modification partielle d un client. `type` n est pas modifiable par
+        cette operation.
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        company_name:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 300
+            - type: 'null'
+        siret:
+          oneOf:
+            - type: string
+              pattern: '^[0-9]{14}$'
+            - type: 'null'
+        vat_number:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 32
+            - type: 'null'
+        first_name:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 120
+            - type: 'null'
+        last_name:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 120
+            - type: 'null'
+        billing_address:
+          oneOf:
+            - $ref: '#/components/schemas/Address'
+            - type: 'null'
+        shipping_address:
+          oneOf:
+            - $ref: '#/components/schemas/Address'
+            - type: 'null'
+        is_active:
+          type: boolean
+
+    CreateCustomerContactCommand:
+      title: CreateCustomerContactCommand
+      type: object
+      additionalProperties: false
+      required: [first_name, last_name, email]
+      properties:
+        first_name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        last_name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        role:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 120
+            - type: 'null'
+        email:
+          type: string
+          format: email
+          maxLength: 320
+        phone:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 40
+            - type: 'null'
+        is_primary:
+          type: boolean
+          default: false
+
+    UpdateCustomerContactCommand:
+      title: UpdateCustomerContactCommand
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        first_name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        last_name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        role:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 120
+            - type: 'null'
+        email:
+          type: string
+          format: email
+          maxLength: 320
+        phone:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 40
+            - type: 'null'
+        is_primary:
+          type: boolean
+
+    SiretVerificationResult:
+      title: SiretVerificationResult
+      description: >-
+        Resultat d une verification SIRET aupres de l INSEE. BOUCHON tant que
+        le compte INSEE reel n est pas cree (voir description de l operation
+        `verifyCustomerSiret`).
+      type: object
+      additionalProperties: false
+      required: [siret, verified, active, mocked, checked_at]
+      properties:
+        siret:
+          type: string
+          pattern: '^[0-9]{14}$'
+        verified:
+          type: boolean
+        company_name:
+          oneOf:
+            - type: string
+            - type: 'null'
+        naf_code:
+          oneOf:
+            - type: string
+            - type: 'null'
+        active:
+          type: boolean
+        mocked:
+          description: Vrai tant que l appel INSEE reel n est pas branche (E6.1).
+          type: boolean
+        checked_at:
+          $ref: '#/components/schemas/Timestamp'

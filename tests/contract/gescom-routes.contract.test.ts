@@ -53,10 +53,13 @@ describe('routes declarees en code contre le contrat', () => {
   });
 
   it('CA1 — une route absente du contrat est refusee, chemin comme operationId', () => {
+    // E10.4 decrit desormais reellement /customers : le placeholder de ce test
+    // doit rester un chemin garanti absent du contrat, pas une ressource qui a
+    // fini par exister.
     const undescribed = defineGescomRoute({
       method: 'POST',
-      path: '/customers',
-      operationId: 'createCustomer',
+      path: '/unregistered-resources',
+      operationId: 'createUnregisteredResource',
       requiredScopes: ['customers:write'],
       createsResource: true,
       inputSchema: z.object({ name: z.string() }),
@@ -68,7 +71,9 @@ describe('routes declarees en code contre le contrat', () => {
 
     const violations = lintRoutesAgainstContract([undescribed], contract);
     expect(violations).toHaveLength(1);
-    expect(violations[0]).toContain('POST /customers (createCustomer)');
+    expect(violations[0]).toContain(
+      'POST /unregistered-resources (createUnregisteredResource)',
+    );
     expect(violations[0]).toContain("n est decrit par aucun chemin du contrat");
   });
 
