@@ -11,6 +11,18 @@ describe('page de test d intégration HopeStudio', () => {
     resolve(process.cwd(), 'src/modules/hopstudio/ui/HopeStudioWorkspace.tsx'),
     'utf8',
   );
+  const configuratorSource = readFileSync(
+    resolve(process.cwd(), 'src/modules/catalog/ui/workspace/ConfiguratorWorkspace.tsx'),
+    'utf8',
+  );
+  const homeSource = readFileSync(
+    resolve(process.cwd(), 'src/modules/catalog/ui/workspace/MagritConfiguratorHome.tsx'),
+    'utf8',
+  );
+  const dualWorkspaceSource = readFileSync(
+    resolve(process.cwd(), 'src/modules/catalog/ui/workspace/DualToolWorkspace.tsx'),
+    'utf8',
+  );
   const historyTemplate = readFileSync(
     resolve(process.cwd(), 'public/hopstudio/ejs/chat_user_sessions.ejs'),
     'utf8',
@@ -58,11 +70,16 @@ describe('page de test d intégration HopeStudio', () => {
     expect(source).not.toContain('X-CLARIPRINT-PASS');
   });
 
-  it('reprend l accueil Magrit et expose les actions HopeStudio sans le chrome historique', () => {
-    expect(workspaceSource).toContain('Le papier pense.');
-    expect(workspaceSource).toContain('hopstudio-prompt-grid');
+  it('sépare l accueil Magrit du panneau HopeStudio et conserve ses actions', () => {
+    expect(homeSource).toContain('Le papier pense.');
+    expect(homeSource).toContain('magrit-configurator-prompt');
+    expect(configuratorSource).toContain('createInitialConfiguratorRequest');
+    expect(dualWorkspaceSource).toContain('Clariprint Studio');
+    expect(dualWorkspaceSource).toContain('Recherche PIM');
     expect(workspaceSource).toContain('enhanceChatChrome');
     expect(workspaceSource).toContain("send.id = 'hopstudio-send'");
+    expect(workspaceSource).toContain('sentInitialRequestIds');
+    expect(workspaceSource).not.toContain('hopstudio-prompt-grid');
     expect(historyTemplate).toContain('Nouvelle conversation');
     expect(historyTemplate).toContain('hs-history-entry');
   });
