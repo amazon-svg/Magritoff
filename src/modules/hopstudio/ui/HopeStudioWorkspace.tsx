@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ApiClientError } from '../../../platform/api/fetch-api-client.ts';
 import { useWorkspaceApi } from '../../../platform/runtime/workspace-ui-runtime.tsx';
-import { MagritLogo } from '../../../shared/presentation/MagritLogo.tsx';
 import { HopeStudioApiClient } from '../api/client.ts';
 import {
   HOPSTUDIO_ASSET_ROOT,
@@ -30,28 +29,10 @@ type ProductCardView = Readonly<{
   specs: ReadonlyArray<Readonly<{ label: string; value: string }>>;
 }>;
 
-const PROMPT_EXAMPLES = [
-  {
-    label: 'Cartes de visite',
-    description: '500 cartes avec pelliculage mat',
-    prompt: '500 cartes de visite avec pelliculage mat',
-  },
-  {
-    label: 'Flyers',
-    description: '1000 flyers A5 recto verso',
-    prompt: '1000 flyers A5 recto verso',
-  },
-  {
-    label: 'Brochure',
-    description: '24 pages format A4',
-    prompt: 'Brochure 24 pages format A4',
-  },
-  {
-    label: 'Affiches',
-    description: '250 affiches A2 brillant',
-    prompt: '250 affiches A2 brillant',
-  },
-] as const;
+export type HopeStudioInitialRequest = Readonly<{
+  id: string;
+  query: string;
+}>;
 
 declare global {
   interface Window {
@@ -69,28 +50,26 @@ declare global {
 
 let runtimePromise: Promise<HopeStudioRuntime> | null = null;
 let productCardTemplatePromise: Promise<string> | null = null;
+const sentInitialRequestIds = new Set<string>();
 
 export function HopeStudioWorkspace({
   tenantId,
   userId,
+  initialRequest,
 }: Readonly<{
   tenantId: string;
   userId: string;
+  initialRequest: HopeStudioInitialRequest;
 }>) {
   const api = useWorkspaceApi(HopeStudioApiClient);
   const hostRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [error, setError] = useState<string | null>(null);
-  const [chatStarted, setChatStarted] = useState(false);
 
   useEffect(() => {
     let active = true;
     let mountedInstance: HopeStudioInstance | null = null;
     let disposeChatChrome = () => {};
-    const showConversation = () => setChatStarted(true);
-    const showWelcome = () => setChatStarted(false);
-    window.addEventListener('hopstudio:conversation-start', showConversation);
-    window.addEventListener('hopstudio:conversation-reset', showWelcome);
 
     const mount = async () => {
       try {
@@ -108,8 +87,7 @@ export function HopeStudioWorkspace({
         await waitForElement('#chat-widget', 10_000);
         if (!active) return;
         document.querySelector('#chat-widget')?.classList.remove('chat-minimized');
-        disposeChatChrome = enhanceChatChrome(showConversation, showWelcome);
-        setChatStarted(hasConversationActivity(window.hopes_suite?.chat?.session));
+        disposeChatChrome = enhanceChatChrome(() => {}, () => {});
         setStatus('ready');
       } catch (cause) {
         if (!active) return;
@@ -122,8 +100,6 @@ export function HopeStudioWorkspace({
     return () => {
       active = false;
       disposeChatChrome();
-      window.removeEventListener('hopstudio:conversation-start', showConversation);
-      window.removeEventListener('hopstudio:conversation-reset', showWelcome);
       if (mountedInstance && window.sugarcrepeHL) {
         const index = window.sugarcrepeHL.allInstances.indexOf(mountedInstance);
         if (index >= 0) window.sugarcrepeHL.allInstances.splice(index, 1);
@@ -132,19 +108,29 @@ export function HopeStudioWorkspace({
     };
   }, [api, tenantId, userId]);
 
-  const selectPrompt = (prompt: string) => {
-    const input = document.querySelector<HTMLInputElement>('#chat-text');
-    if (!input) return;
-    input.value = prompt;
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-    input.focus();
-  };
+  useEffect(() => {
+    if (status !== 'ready') return;
+    const key = `${tenantId}:${userId}:${initialRequest.id}`;
+    if (sentInitialRequestIds.has(key)) return;
+    const sendMessage = window.hopes_suite?.chat?.sendMessage;
+    if (!sendMessage) {
+      setError('Le chat HopeStudio est monté mais son API de message est indisponible.');
+      return;
+    }
+    sentInitialRequestIds.add(key);
+    setError(null);
+    void sendMessage(initialRequest.query).catch((cause) => {
+      sentInitialRequestIds.delete(key);
+      setError(cause instanceof Error ? cause.message : 'La demande initiale n’a pas pu être envoyée à HopeStudio.');
+    });
+  }, [initialRequest.id, initialRequest.query, status, tenantId, userId]);
 
   return (
     <section
-      className="hopstudio-workspace min-h-[calc(100vh-7rem)] overflow-auto bg-white"
+      className="hopstudio-workspace h-full min-h-0 overflow-hidden bg-white"
       data-testid="hopstudio-workspace"
-      data-chat-started={chatStarted ? 'true' : 'false'}
+      data-chat-started="true"
+      data-embedded="true"
       aria-busy={status === 'loading'}
     >
       {status !== 'ready' && (
@@ -152,26 +138,13 @@ export function HopeStudioWorkspace({
           {status === 'loading' ? 'Chargement de Clariprint Studio…' : error}
         </div>
       )}
+      {status === 'ready' && error && (
+        <div className="absolute inset-x-3 top-3 z-40 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+          {error}
+        </div>
+      )}
 
       <div id="hopes-container" className="hopstudio-container">
-        <div className="hopstudio-welcome" aria-hidden={chatStarted || status !== 'ready'}>
-          <MagritLogo size={96} />
-          <h1>Le papier pense.</h1>
-          <p>Décrivez votre projet d’impression — je calcule le devis et je construis la fiche produit.</p>
-          <div className="hopstudio-prompt-grid">
-            {PROMPT_EXAMPLES.map((example) => (
-              <button
-                key={example.prompt}
-                type="button"
-                onClick={() => selectPrompt(example.prompt)}
-                disabled={status !== 'ready'}
-              >
-                <strong>{example.label}</strong>
-                <span>{example.description}</span>
-              </button>
-            ))}
-          </div>
-        </div>
         <div id="chat-bar" className="chat-bar" />
         <div id="ui-main" className="ui-main">
           <div
@@ -406,11 +379,6 @@ function decorateCardActions(actions: HTMLAnchorElement[]) {
     action.dataset.hsAction = kind;
     action.textContent = labels[kind] ?? action.textContent;
   });
-}
-
-function hasConversationActivity(session: Readonly<Record<string, unknown>> | undefined): boolean {
-  if (!session) return false;
-  return [session.history, session.events].some((value) => Array.isArray(value) && value.length > 0);
 }
 
 function configureHost(element: HTMLElement, tenantId: string) {

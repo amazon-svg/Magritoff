@@ -2,9 +2,24 @@
 
 ## Statut
 
-Planification — prête à être découpée en lots d’implémentation.
+Implémentation en cours — première tranche fonctionnelle réalisée.
 
 Date de cadrage : 1er septembre 2026.
+
+### Avancement au 1er septembre 2026
+
+- Lot 1 réalisé : machine d’état, accueil Magrit et requête initiale partagée ;
+- Lot 2 réalisé pour le socle : split 55/45, focus Studio/PIM et onglets mobile ;
+- Lot 3 réalisé pour le socle : HopeStudio embarqué et premier prompt envoyé une
+  seule fois après initialisation ;
+- Lot 4 amorcé : recherche locale dans les définitions PIM déjà chargées, avec
+  compteur et états chargement/vide/résultats ;
+- Lots 5 et 6 à réaliser après validation visuelle et confirmation du contrat de
+  recherche PIM côté serveur.
+
+La recherche locale du Lot 4 est volontairement un MVP. Elle ne remplace pas
+encore une route de recherche tenant-aware avec pagination, annulation,
+instrumentation et contrat Zod.
 
 ## Intention UX
 
