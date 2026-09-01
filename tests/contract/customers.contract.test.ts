@@ -231,10 +231,15 @@ class InMemoryCustomersRepository implements CustomersRepository {
   async markSiretVerified(
     tenantId: TenantId,
     customerId: string,
-    result: Readonly<{ verified: boolean; verifiedAt: string }>,
+    result: Readonly<{ verified: boolean; verifiedAt: string; siret: string }>,
   ): Promise<CustomerDto> {
     const current = await this.findById(tenantId, customerId);
     if (!current) throw new CustomerNotFoundError();
+    // Le SIRET verifie est une CONDITION D ECRITURE, comme dans l adaptateur
+    // Supabase (`.eq('siret', result.siret)`). Sans elle, ce faux certifierait
+    // « verifie » un numero que personne n a controle, et la suite de contrat
+    // attesterait un comportement oppose a celui de la production.
+    if (current.siret !== result.siret) throw new CustomerNotFoundError();
     const updated = {
       ...current,
       siret_verified: result.verified,
@@ -264,7 +269,18 @@ let repository: InMemoryCustomersRepository;
 let outboxRepository: InMemoryOutboxRepository;
 let handler: (request: Request) => Promise<Response>;
 
+/**
+ * Point d interleaving de la verification SIRET.
+ *
+ * `lookupSiretAtInsee` attend `delay(350)` AVANT que le resultat ne soit
+ * ecrit : c est exactement la fenetre pendant laquelle un PATCH concurrent
+ * peut changer le SIRET. Ce crochet permet de jouer cette course de facon
+ * deterministe, sans horloge ni concurrence reelle.
+ */
+let duringInseeLookup: () => Promise<void> = async () => undefined;
+
 beforeEach(() => {
+  duringInseeLookup = async () => undefined;
   repository = new InMemoryCustomersRepository();
   outboxRepository = new InMemoryOutboxRepository();
   const outbox = new OutboxPublisher({
@@ -276,7 +292,9 @@ beforeEach(() => {
     repository,
     outbox,
     clock: () => new Date('2026-09-01T10:00:00.000Z'),
-    delay: async () => undefined,
+    delay: async () => {
+      await duringInseeLookup();
+    },
   });
   handler = createGescomApiHandler({
     routes: createCustomersRoutes(service),
@@ -546,6 +564,46 @@ describe('module Clients (E10.4) contre le contrat', () => {
     const reread = (await (await call(`/api/v1/customers/${customer.id}`, { headers: asUser })).json()) as {
       data: CustomerDetailDto;
     };
+    expect(reread.data.siret_verified).toBe(false);
+    expect(reread.data.siret_verified_at).toBeNull();
+  });
+
+  it('m4 — un PATCH concurrent pendant la verification INSEE ne certifie pas le nouveau SIRET', async () => {
+    // La course que ferme `.eq('siret', result.siret)` dans l adaptateur
+    // Supabase. Sans ce test, retirer cette condition ne casserait rien : le
+    // faux repository certifierait le SIRET courant quel qu il soit, et la
+    // suite de contrat attesterait l inverse de la production.
+    const { data: customer } = await createCompany({ siret: '73282932000074' });
+    const etag = (await call(`/api/v1/customers/${customer.id}`, { headers: asUser })).headers.get(
+      'etag',
+    )!;
+
+    // Pendant l appel INSEE sur le SIRET A, un PATCH bascule le client sur B.
+    duringInseeLookup = async () => {
+      duringInseeLookup = async () => undefined;
+      const patched = await call(`/api/v1/customers/${customer.id}`, {
+        method: 'PATCH',
+        headers: { ...jsonHeaders, 'If-Match': etag },
+        body: JSON.stringify({ siret: '56078919152347' }),
+      });
+      expect(patched.status).toBe(200);
+    };
+
+    const verification = await call(`/api/v1/customers/${customer.id}/siret-verifications`, {
+      method: 'POST',
+      headers: { ...jsonHeaders, 'Idempotency-Key': `verify-${uuid()}` },
+    });
+
+    // Le resultat porte sur un SIRET qui n est plus celui du client : il est
+    // perdu, pas applique. 404 plutot qu une certification erronee.
+    await expectContract(verification, { status: 404 });
+
+    const reread = (await (
+      await call(`/api/v1/customers/${customer.id}`, { headers: asUser })
+    ).json()) as { data: CustomerDetailDto };
+    expect(reread.data.siret).toBe('56078919152347');
+    // Le point qui compte : le nouveau numero n a PAS herite du « verifie »
+    // obtenu pour l ancien.
     expect(reread.data.siret_verified).toBe(false);
     expect(reread.data.siret_verified_at).toBeNull();
   });
