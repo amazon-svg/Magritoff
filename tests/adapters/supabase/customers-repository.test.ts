@@ -64,14 +64,28 @@ describe('sanitizeSearchTerm — neutralise la grammaire de filtre PostgREST (m3
   });
 
   it('retire les virgules qui casseraient un .or(...) en 500', () => {
-    expect(sanitizeSearchTerm('Martin, Paris')).toBe('Martin  Paris');
+    expect(sanitizeSearchTerm('Martin, Paris')).toBe('Martin Paris');
   });
 
   it('retire les parentheses (grammaire and()/or())', () => {
-    expect(sanitizeSearchTerm('Dupont (Sarl)')).toBe('Dupont  Sarl');
+    expect(sanitizeSearchTerm('Dupont (Sarl)')).toBe('Dupont Sarl');
   });
 
   it('supprime les espaces superflus en tete et en fin apres neutralisation', () => {
     expect(sanitizeSearchTerm(',Martin,')).toBe('Martin');
+  });
+
+  it('compacte les suites d espaces issues de la neutralisation (qa-review E10.2)', () => {
+    // Piege plus insidieux que le crash : sans compaction, "Martin,  Paris"
+    // devient "Martin   Paris" (espaces multiples) et ne matche plus JAMAIS
+    // un nom stocke SANS virgule comme "Martin Paris Imprimerie" en
+    // `ILIKE '%...%'` — un resultat VIDE silencieux, pas une erreur visible.
+    // (Un nom stocke qui contient LUI-MEME une virgule ne matcherait de
+    // toute facon jamais un terme sanitise : la virgule est retiree du
+    // terme de recherche, jamais de la donnee stockee — ce n est pas le cas
+    // que ce test verifie.)
+    const sanitized = sanitizeSearchTerm('Martin,  Paris');
+    expect(sanitized).toBe('Martin Paris');
+    expect('Martin Paris Imprimerie'.toLowerCase()).toContain(sanitized.toLowerCase());
   });
 });

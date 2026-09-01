@@ -401,16 +401,26 @@ describe('module Tags de projet (E10.2) contre le contrat', () => {
   });
 
   it('CA4 — recherche plein texte sur le nom du projet ET le nom du client, virgule comprise sans planter', async () => {
-    const customer = await createCustomer('Dupont, Martin & Fils');
+    // Nom SANS virgule ("Dupont Martin", espaces simples) : c est le cas ou
+    // la recherche DOIT trouver le client une fois la virgule et les espaces
+    // multiples du terme saisi neutralises. Un nom qui contiendrait lui-meme
+    // une virgule ne matcherait jamais un terme sanitise (la virgule est
+    // retiree du terme, jamais de la donnee stockee) — ce n est pas le
+    // scenario que ce test verifie.
+    const customer = await createCustomer('Dupont Martin Impression');
     const other = await createCustomer('Autre Client');
     const matching = await createProject(customer.id, { name: 'Salon Imprim’Expo' });
     await createProject(other.id, { name: 'Autre projet' });
 
-    // Recherche par nom de CLIENT, avec une virgule dans le terme (lecon
-    // E10.4 : casser la requete PostgREST sur une virgule non echappee
-    // rendait 500).
+    // qa-review E10.2 : la virgule ET les espaces multiples qui en
+    // resultent doivent tous deux etre neutralises. "Dupont,  Martin" (deux
+    // espaces apres la virgule) doit se reduire a "Dupont Martin" (un seul
+    // espace) pour matcher "Dupont Martin Impression" en ILIKE — sans la
+    // compaction des espaces, le terme sanitise devenait "Dupont  Martin"
+    // (deux espaces) et ne matchait plus RIEN, silencieusement (pas un
+    // crash : un tableau vide, piege plus insidieux que la virgule d E10.4).
     const response = await call(
-      `/api/v1/projects?q=${encodeURIComponent('Dupont, Martin')}`,
+      `/api/v1/projects?q=${encodeURIComponent('Dupont,  Martin')}`,
       { headers: asTenantA },
     );
     await expectContract(response, { status: 200 });

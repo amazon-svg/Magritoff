@@ -390,21 +390,33 @@ export function lintIdempotency(document: Doc): string[] {
   return violations;
 }
 
-/** CA9 : tout PATCH declare If-Match et une reponse 409. */
+/**
+ * CA9 : tout PATCH declare If-Match et une reponse 409.
+ *
+ * Etendu a PUT (qa-review E10.2) : le middleware socle
+ * (`src/server/api/gescom-middleware.ts`, `concurrencyGuarded`) protege
+ * desormais PATCH ET PUT de la MEME garde de concurrence optimiste (un
+ * remplacement complet d une sous-ressource, ex. `PUT /projects/{id}/tags`,
+ * expose au meme risque d ecrasement concurrent qu un PATCH). Ce lint ne
+ * verifiait que PATCH : une future route PUT pouvait omettre If-Match/409
+ * du contrat sans qu aucun test ne s en apercoive, alors que le code, lui,
+ * applique deja la meme contrainte aux deux methodes.
+ */
 export function lintConcurrency(document: Doc): string[] {
   const violations: string[] = [];
   for (const [path, item] of Object.entries(pathsOf(document))) {
     for (const [method, operation] of operationsOf(item)) {
-      if (method !== 'patch') continue;
+      if (method !== 'patch' && method !== 'put') continue;
+      const label = method.toUpperCase();
       const declared = declaresParameter(
         parametersOf(operation, item),
         { name: 'If-Match' },
         document,
       );
-      if (!declared) violations.push(`CA9 : PATCH ${path} ne declare pas If-Match.`);
+      if (!declared) violations.push(`CA9 : ${label} ${path} ne declare pas If-Match.`);
       const responses = isRecord(operation['responses']) ? operation['responses'] : {};
       if (!Object.keys(responses).includes('409')) {
-        violations.push(`CA9 : PATCH ${path} ne declare pas de reponse 409 de conflit.`);
+        violations.push(`CA9 : ${label} ${path} ne declare pas de reponse 409 de conflit.`);
       }
     }
   }

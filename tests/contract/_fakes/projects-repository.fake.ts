@@ -22,6 +22,12 @@ import type {
   UpdateProjectCommand,
 } from '@/modules/projects/api/contracts';
 import type { InMemoryProjectTagsRepository } from './project-tags-repository.fake';
+// qa-review E10.2 : reutilise la MEME normalisation que l adaptateur reel
+// (`sanitizeSearchTerm`) au lieu d un `includes` naif sur le texte brut — le
+// test "virgule" precedent passait pour la MAUVAISE raison (le faux matchait
+// "Dupont, Martin" tel quel contre "Dupont, Martin & Fils", alors que l
+// adaptateur reel, apres sanitisation, ne matchait plus rien).
+import { sanitizeSearchTerm } from '@/adapters/supabase/projects-repository';
 
 let sequence = 0;
 export function fakeUuid(): string {
@@ -65,12 +71,20 @@ export class InMemoryProjectsRepository implements ProjectsRepository {
    */
   constructor(private readonly tags?: InMemoryProjectTagsRepository) {}
 
+  /**
+   * Trie par `id` (qa-review), EXACTEMENT comme `toProjectTagDtos` de l
+   * adaptateur reel : un `Set<string>` iterant dans l ordre d insertion,
+   * sans ce tri le faux produirait un ordre stable-par-insertion la ou le
+   * reel ne garantit RIEN — les deux doivent converger vers le MEME ordre
+   * canonique pour que l ETag calcule sur le faux vaille quelque chose.
+   */
   private resolveTags(projectId: string): ProjectDto['tags'] {
     const linked = this.tagLinks.get(projectId);
     if (!linked || !this.tags) return [];
     return [...linked]
       .map((tagId) => this.tags!.peek(tagId))
-      .filter((tag): tag is NonNullable<typeof tag> => Boolean(tag));
+      .filter((tag): tag is NonNullable<typeof tag> => Boolean(tag))
+      .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   }
 
   /** Recalcule TOUJOURS `tags` depuis `tagLinks` avant de rendre un projet : le champ stocke n est jamais la source de verite. */
@@ -96,10 +110,13 @@ export class InMemoryProjectsRepository implements ProjectsRepository {
       .filter((p) => !params.status || p.status === params.status)
       .filter((p) => {
         if (!params.q) return true;
-        const needle = params.q.toLowerCase();
+        const sanitized = sanitizeSearchTerm(params.q);
+        if (sanitized.length === 0) return true;
+        const needle = sanitized.toLowerCase();
         // CA4 (E10.2) : meme critere que l adaptateur reel — nom du projet
         // OU nom du client (resolu via le faux repository Clients quand la
-        // suite de test en fournit un, sinon uniquement le nom du projet).
+        // suite de test en fournit un, sinon uniquement le nom du projet),
+        // sur le terme SANITISE, jamais le terme brut.
         if (p.name.toLowerCase().includes(needle)) return true;
         const customerName = this.customerNames?.get(p.customer_id);
         return Boolean(customerName && customerName.toLowerCase().includes(needle));

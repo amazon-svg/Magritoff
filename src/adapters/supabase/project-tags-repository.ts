@@ -24,10 +24,13 @@ const FOREIGN_KEY_VIOLATION = '23503';
  * Neutralise les caracteres reserves de la grammaire de filtre PostgREST,
  * meme raison que `sanitizeSearchTerm` des modules Clients et Projets
  * (docs/api/CONVENTIONS.md, lecon du sprint sur une virgule qui casse une
- * requete `.or()`/`.ilike()`).
+ * requete `.or()`/`.ilike()`). Compacte aussi les suites d espaces
+ * resultantes (qa-review E10.2) : sans cela, un libelle contenant une
+ * virgule cherche via `q` ne matcherait plus jamais son tag (resultat vide
+ * silencieux, pas un crash).
  */
 export function sanitizeSearchTerm(raw: string): string {
-  return raw.replace(/[,()]/g, ' ').trim();
+  return raw.replace(/[,()]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 /** Meme normalisation que la contrainte unique en base (`btrim(lower(label))`). */

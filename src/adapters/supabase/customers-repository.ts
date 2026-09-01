@@ -50,10 +50,15 @@ const SHOP_ACCESS_EMBED = 'shop_customer_accounts(shop_id, status)' as const;
  * documentation dans cet environnement (MCP context7 indisponible ici). Un
  * terme de recherche perd un signe de ponctuation ; il ne casse jamais la
  * requete.
+ *
+ * Compacte ENSUITE les suites d espaces (qa-review E10.2) : sans cela,
+ * "Martin, Paris" devenait "Martin  Paris" (deux espaces) et ne matchait
+ * plus JAMAIS "Martin, Paris & Fils" en `ILIKE` — pas un crash, un resultat
+ * VIDE silencieux.
  */
 /** Exporte uniquement pour test unitaire (m3). */
 export function sanitizeSearchTerm(raw: string): string {
-  return raw.replace(/[,()]/g, ' ').trim();
+  return raw.replace(/[,()]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 export class SupabaseCustomersRepository implements CustomersRepository {

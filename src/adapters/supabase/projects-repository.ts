@@ -40,9 +40,16 @@ const TAGS_EMBED = 'project_tag_links(project_tags(id, tenant_id, label, color, 
  * meme raison et meme choix que `sanitizeSearchTerm` du module Clients
  * (src/adapters/supabase/customers-repository.ts, m2/m3 qa-review) : retirer
  * plutot que tenter d echapper.
+ *
+ * Compacte ENSUITE les suites d espaces (qa-review E10.2) : remplacer une
+ * virgule par une espace sans fusionner les espaces resultants laissait
+ * passer un terme du type "Dupont, Martin" -> "Dupont  Martin" (deux
+ * espaces), qui ne matche plus JAMAIS "Dupont, Martin & Fils" en
+ * `ILIKE '%Dupont  Martin%'` — pas un crash (500), un resultat VIDE
+ * silencieux, plus insidieux que la virgule d E10.4 qu il reprend.
  */
 export function sanitizeSearchTerm(raw: string): string {
-  return raw.replace(/[,()]/g, ' ').trim();
+  return raw.replace(/[,()]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 export class SupabaseProjectsRepository implements ProjectsRepository {
@@ -308,8 +315,20 @@ function toProjectDto(row: Record<string, any>): ProjectDto {
  * Aplati l embed PostgREST `project_tag_links(project_tags(...))` (CA6,
  * E10.2) en liste de tags. Absent (requete qui n a pas demande l embed) ->
  * tableau vide, jamais une erreur.
+ *
+ * TRIE PAR `id` (qa-review) : Postgres NE GARANTIT PAS l ordre des lignes
+ * d un embed agrege sans `ORDER BY` explicite — il peut changer entre deux
+ * lectures du MEME projet (HOT update, plan different, ...). Or l ETag
+ * (`computeEntityTag`, src/modules/_shared/application/concurrency.ts) hache
+ * une serialisation qui trie les CLES d objet mais PAS les elements de
+ * tableau : deux lectures avec les memes tags dans un ordre different
+ * produisaient deux hachages differents, et un `If-Match` pourtant a jour
+ * cote client se voyait refuse en 409 sans qu aucune ecriture concurrente
+ * n ait eu lieu. Trier ici, une fois, canonicalise l ordre pour CE DTO ET
+ * pour l ETag qui en depend.
  */
-function toProjectTagDtos(links: unknown): ProjectTagDto[] {
+/** Exporte uniquement pour test unitaire (stabilite d ordre, qa-review). */
+export function toProjectTagDtos(links: unknown): ProjectTagDto[] {
   if (!Array.isArray(links)) return [];
   return links
     .map((link) => (link && typeof link === 'object' ? (link as Record<string, any>)['project_tags'] : null))
@@ -320,7 +339,8 @@ function toProjectTagDtos(links: unknown): ProjectTagDto[] {
       label: tag.label,
       color: tag.color,
       created_at: tag.created_at,
-    }));
+    }))
+    .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 }
 
 function toProjectItemDto(row: Record<string, any>): ProjectItemDto {

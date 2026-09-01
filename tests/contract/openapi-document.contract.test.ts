@@ -335,6 +335,27 @@ describe('contrat OpenAPI magrit-core v1', () => {
     ]);
   });
 
+  it('CA9 (E10.2) — un PUT est soumis a la MEME regle qu un PATCH (If-Match + 409)', () => {
+    // Le middleware socle (gescom-middleware.ts) protege PATCH ET PUT de la
+    // meme garde de concurrence optimiste depuis E10.2 (PUT
+    // /projects/{id}/tags) : ce controle NEGATIF prouve que le lint refuse
+    // desormais un PUT fautif exactement comme il refuse deja un PATCH
+    // fautif, et pas seulement que le vrai contrat est propre.
+    const missingPut = withPath('/price-rules/{ruleId}/tags', { put: { responses: { '200': {} } } });
+    expect(lintConcurrency(missingPut)).toEqual([
+      'CA9 : PUT /price-rules/{ruleId}/tags ne declare pas If-Match.',
+      'CA9 : PUT /price-rules/{ruleId}/tags ne declare pas de reponse 409 de conflit.',
+    ]);
+
+    const compliantPut = withPath('/price-rules/{ruleId}/tags', {
+      put: {
+        parameters: [{ name: 'If-Match', in: 'header' }],
+        responses: { '200': {}, '409': {} },
+      },
+    });
+    expect(lintConcurrency(compliantPut)).toEqual([]);
+  });
+
   it('CA10 — les cinq evenements du sprint sont decrits, payload versionne et signe', () => {
     expect(lintEventBus(contract)).toEqual([]);
 

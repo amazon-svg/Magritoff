@@ -24,6 +24,13 @@ import type {
   UpdateCustomerCommand,
   UpdateCustomerContactCommand,
 } from '@/modules/customers/api/contracts';
+// qa-review E10.2 : reutilise la MEME normalisation que l adaptateur reel
+// (`sanitizeSearchTerm`), plutot qu un `includes` naif sur le texte brut —
+// sinon le faux valide un scenario ("Martin, Paris" matche "Martin, Paris &
+// Fils") que l adaptateur reel rejette silencieusement (espaces multiples
+// non compactes avant le fix qa-review), et inversement un futur ecart entre
+// les deux passerait le typecheck sans etre detecte.
+import { sanitizeSearchTerm } from '@/adapters/supabase/customers-repository';
 
 let sequence = 0;
 export function fakeUuid(): string {
@@ -41,8 +48,10 @@ export class InMemoryCustomersRepository implements CustomersRepository {
       .filter((c) => !params.type || c.type === params.type)
       .filter((c) => {
         if (!params.q) return true;
+        const sanitized = sanitizeSearchTerm(params.q);
+        if (sanitized.length === 0) return true;
         const haystack = `${c.company_name ?? ''} ${c.first_name ?? ''} ${c.last_name ?? ''}`.toLowerCase();
-        return haystack.includes(params.q.toLowerCase());
+        return haystack.includes(sanitized.toLowerCase());
       })
       .sort((a, b) => (a.created_at < b.created_at ? 1 : a.created_at > b.created_at ? -1 : 0));
     return { rows };
