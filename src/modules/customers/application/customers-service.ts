@@ -138,6 +138,14 @@ export class CustomersService {
       }
     }
 
+    if (command.civility !== undefined && command.civility !== null && current.type !== 'individual') {
+      throw new CustomerCommandRejectedError(
+        'customer.not_an_individual',
+        'Seul un client particulier porte une civilite.',
+        [{ field: 'civility', message: 'Ce client n est pas un particulier.' }],
+      );
+    }
+
     return this.repository.update(tenantId, customerId, command);
   }
 

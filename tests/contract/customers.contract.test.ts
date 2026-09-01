@@ -122,6 +122,7 @@ class InMemoryCustomersRepository implements CustomersRepository {
       company_name: command.company_name ?? null,
       siret: command.siret ?? null,
       vat_number: command.vat_number ?? null,
+      civility: command.civility ?? null,
       first_name: command.first_name ?? null,
       last_name: command.last_name ?? null,
       billing_address: command.billing_address ?? null,
@@ -152,6 +153,7 @@ class InMemoryCustomersRepository implements CustomersRepository {
       ...('company_name' in command ? { company_name: command.company_name ?? null } : {}),
       siret: nextSiret,
       ...('vat_number' in command ? { vat_number: command.vat_number ?? null } : {}),
+      ...('civility' in command ? { civility: command.civility ?? null } : {}),
       ...('first_name' in command ? { first_name: command.first_name ?? null } : {}),
       ...('last_name' in command ? { last_name: command.last_name ?? null } : {}),
       ...('is_active' in command ? { is_active: command.is_active! } : {}),
@@ -349,13 +351,55 @@ describe('module Clients (E10.4) contre le contrat', () => {
     await expectContract(response, { status: 422 });
   });
 
-  it('CA2 — un client particulier sans nom/prenom est refuse en 422', async () => {
+  it('CA2 — un client particulier sans civilite/nom/prenom est refuse en 422', async () => {
     const response = await call('/api/v1/customers', {
       method: 'POST',
       headers: { ...jsonHeaders, 'Idempotency-Key': `create-${uuid()}` },
       body: JSON.stringify({ type: 'individual' }),
     });
     await expectContract(response, { status: 422 });
+    const body = (await response.json()) as { errors?: { field: string }[] };
+    const fields = (body.errors ?? []).map((issue) => issue.field);
+    expect(fields).toContain('civility');
+    expect(fields).toContain('first_name');
+    expect(fields).toContain('last_name');
+  });
+
+  it('M3 — un client particulier avec civilite est cree et la civilite est restituee', async () => {
+    const response = await call('/api/v1/customers', {
+      method: 'POST',
+      headers: { ...jsonHeaders, 'Idempotency-Key': `create-${uuid()}` },
+      body: JSON.stringify({
+        type: 'individual',
+        civility: 'mrs',
+        first_name: 'Jeanne',
+        last_name: 'Martin',
+      }),
+    });
+    await expectContract(response, { status: 201, dataSchema: 'Customer' });
+    const body = (await response.json()) as { data: CustomerDto };
+    expect(body.data.civility).toBe('mrs');
+
+    const detail = await call(`/api/v1/customers/${body.data.id}`, { headers: asUser });
+    await expectContract(detail, { status: 200, dataSchema: 'CustomerDetail' });
+    const detailBody = (await detail.json()) as { data: CustomerDetailDto };
+    expect(detailBody.data.civility).toBe('mrs');
+  });
+
+  it('M3 — poser une civilite sur un client entreprise est refuse', async () => {
+    const { data: customer } = await createCompany();
+    const etag = (await call(`/api/v1/customers/${customer.id}`, { headers: asUser })).headers.get(
+      'etag',
+    )!;
+
+    const response = await call(`/api/v1/customers/${customer.id}`, {
+      method: 'PATCH',
+      headers: { ...jsonHeaders, 'If-Match': etag },
+      body: JSON.stringify({ civility: 'mr' }),
+    });
+    await expectContract(response, { status: 422 });
+    const body = (await response.json()) as { code: string };
+    expect(body.code).toBe('customer.not_an_individual');
   });
 
   it('CA1 — liste et recherche les clients du tenant, pagine par curseur', async () => {
@@ -441,7 +485,7 @@ describe('module Clients (E10.4) contre le contrat', () => {
     const created = await call('/api/v1/customers', {
       method: 'POST',
       headers: { ...jsonHeaders, 'Idempotency-Key': `create-${uuid()}` },
-      body: JSON.stringify({ type: 'individual', first_name: 'Jean', last_name: 'Dupont' }),
+      body: JSON.stringify({ type: 'individual', civility: 'mr', first_name: 'Jean', last_name: 'Dupont' }),
     });
     const { data: customer } = (await created.json()) as { data: CustomerDto };
     const detail = await call(`/api/v1/customers/${customer.id}`, { headers: asUser });
@@ -606,7 +650,7 @@ describe('module Clients (E10.4) contre le contrat', () => {
     const created = await call('/api/v1/customers', {
       method: 'POST',
       headers: { ...jsonHeaders, 'Idempotency-Key': `create-${uuid()}` },
-      body: JSON.stringify({ type: 'individual', first_name: 'Jean', last_name: 'Dupont' }),
+      body: JSON.stringify({ type: 'individual', civility: 'mr', first_name: 'Jean', last_name: 'Dupont' }),
     });
     const { data: customer } = (await created.json()) as { data: CustomerDto };
 

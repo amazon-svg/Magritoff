@@ -13,6 +13,9 @@ import { checkSiretFormat } from '../application/siret-verification.ts';
 
 export const customerTypeSchema = z.enum(['company', 'individual']);
 
+/** Civilite d une personne physique (CA2). Requise pour `individual`. */
+export const civilitySchema = z.enum(['mr', 'mrs']);
+
 export const addressSchema = z
   .object({
     line1: z.string().trim().min(1).max(200),
@@ -38,6 +41,7 @@ export const customerSchema = z
     company_name: z.string().nullable(),
     siret: siretSchema.nullable(),
     vat_number: z.string().nullable(),
+    civility: civilitySchema.nullable(),
     first_name: z.string().nullable(),
     last_name: z.string().nullable(),
     billing_address: addressSchema.nullable(),
@@ -78,6 +82,7 @@ export const customerDetailSchema = z
     company_name: z.string().nullable(),
     siret: siretSchema.nullable(),
     vat_number: z.string().nullable(),
+    civility: civilitySchema.nullable(),
     first_name: z.string().nullable(),
     last_name: z.string().nullable(),
     billing_address: addressSchema.nullable(),
@@ -98,6 +103,7 @@ const baseCreateCustomerFields = {
   company_name: z.string().trim().min(1).max(300).nullable().optional(),
   siret: z.string().trim().nullable().optional(),
   vat_number: z.string().trim().min(1).max(32).nullable().optional(),
+  civility: civilitySchema.nullable().optional(),
   first_name: z.string().trim().min(1).max(120).nullable().optional(),
   last_name: z.string().trim().min(1).max(120).nullable().optional(),
   billing_address: addressSchema.nullable().optional(),
@@ -107,8 +113,8 @@ const baseCreateCustomerFields = {
 /**
  * Commande de creation. La forme du schema n exige que `type` : les champs
  * requis selon `type` (CA2) sont verifies par `superRefine`, pour produire des
- * erreurs de champ nommees (`company_name`, `siret`, `first_name`,
- * `last_name`) plutot qu un rejet de forme generique.
+ * erreurs de champ nommees (`company_name`, `siret`, `civility`,
+ * `first_name`, `last_name`) plutot qu un rejet de forme generique.
  */
 export const createCustomerCommandSchema = z
   .object({ type: customerTypeSchema, ...baseCreateCustomerFields })
@@ -142,6 +148,13 @@ export const createCustomerCommandSchema = z
         }
       }
     } else {
+      if (!value.civility) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['civility'],
+          message: 'La civilite est requise pour un client particulier.',
+        });
+      }
       if (!value.first_name) {
         ctx.addIssue({
           code: 'custom',
@@ -207,6 +220,7 @@ export const siretVerificationResultSchema = z
 export const customersListSchema = z.array(customerSchema);
 
 export type CustomerType = z.infer<typeof customerTypeSchema>;
+export type Civility = z.infer<typeof civilitySchema>;
 export type Address = z.infer<typeof addressSchema>;
 export type CustomerDto = z.infer<typeof customerSchema>;
 export type CustomerContactDto = z.infer<typeof customerContactSchema>;

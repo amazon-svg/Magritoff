@@ -99,6 +99,7 @@ export class SupabaseCustomersRepository implements CustomersRepository {
         company_name: command.company_name ?? null,
         siret: command.siret ?? null,
         vat_number: command.vat_number ?? null,
+        civility: command.civility ?? null,
         first_name: command.first_name ?? null,
         last_name: command.last_name ?? null,
         billing_address: command.billing_address ?? null,
@@ -120,6 +121,7 @@ export class SupabaseCustomersRepository implements CustomersRepository {
     if ('company_name' in command) patch['company_name'] = command.company_name;
     if ('siret' in command) patch['siret'] = command.siret;
     if ('vat_number' in command) patch['vat_number'] = command.vat_number;
+    if ('civility' in command) patch['civility'] = command.civility;
     if ('first_name' in command) patch['first_name'] = command.first_name;
     if ('last_name' in command) patch['last_name'] = command.last_name;
     if ('billing_address' in command) patch['billing_address'] = command.billing_address;
@@ -256,6 +258,7 @@ function toCustomerDto(row: Record<string, any>): CustomerDto {
     company_name: row.company_name ?? null,
     siret: row.siret ?? null,
     vat_number: row.vat_number ?? null,
+    civility: row.civility ?? null,
     first_name: row.first_name ?? null,
     last_name: row.last_name ?? null,
     billing_address: toAddress(row.billing_address),

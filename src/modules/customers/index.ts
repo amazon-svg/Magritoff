@@ -1,6 +1,7 @@
 export { CustomersApiClient } from './api/client';
 export {
   addressSchema,
+  civilitySchema,
   createCustomerCommandSchema,
   createCustomerContactCommandSchema,
   customerContactSchema,
@@ -13,6 +14,7 @@ export {
   updateCustomerCommandSchema,
   updateCustomerContactCommandSchema,
   type Address,
+  type Civility,
   type CreateCustomerCommand,
   type CreateCustomerContactCommand,
   type CustomerContactDto,

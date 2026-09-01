@@ -10,7 +10,8 @@
 -- Modele :
 --   - `customers.type` distingue personne morale (`company`) et personne
 --     physique (`individual`) ; les champs requis different selon le type
---     (CA2), verifies par CHECK, pas seulement cote application.
+--     (CA2), verifies par CHECK, pas seulement cote application. Pour
+--     `individual` : civilite (`civility`, 'mr'/'mrs'), nom, prenom.
 --   - Adresses en jsonb STRUCTURE (line1/line2/postal_code/city/country),
 --     jamais du texte libre : l export comptable futur (E10.18) en depend.
 --   - `siret_verified` / `siret_verified_at` tracent le resultat du bouchon
@@ -42,7 +43,9 @@ create table if not exists public.customers (
   siret               text,
   vat_number          text,
 
-  -- Personne physique.
+  -- Personne physique. Civilite requise au meme titre que nom/prenom (CA2) :
+  -- 'mr' ou 'mrs', enumeration API en snake_case comme le reste du contrat.
+  civility            text,
   first_name          text,
   last_name           text,
 
@@ -71,10 +74,12 @@ create table if not exists public.customers (
   ),
   constraint customers_individual_fields_required check (
     type <> 'individual' or (
-      first_name is not null and btrim(first_name) <> ''
+      civility is not null
+      and first_name is not null and btrim(first_name) <> ''
       and last_name is not null and btrim(last_name) <> ''
     )
   ),
+  constraint customers_civility_values check (civility is null or civility in ('mr', 'mrs')),
   -- Forme uniquement (14 chiffres). La cle de Luhn est verifiee cote
   -- application (src/modules/customers/application/siret-verification.ts) et
   -- redondante avec ce garde-fou : la forme reste le dernier rempart si un

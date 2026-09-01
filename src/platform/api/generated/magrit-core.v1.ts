@@ -366,6 +366,12 @@ export interface components {
          */
         CustomerType: "company" | "individual";
         /**
+         * Civility
+         * @description Civilite d une personne physique (CA2). Requise pour `individual`, sans objet pour `company`.
+         * @enum {string}
+         */
+        Civility: "mr" | "mrs";
+        /**
          * Address
          * @description Adresse structuree (jamais du texte libre) : l export comptable futur (E10.18) en depend.
          */
@@ -393,6 +399,8 @@ export interface components {
             /** @description 14 chiffres, cle de Luhn valide. `null` pour `individual` ou tant qu il n a pas ete saisi. */
             siret?: string | null;
             vat_number?: string | null;
+            /** @description Requise pour `individual`, `null` pour `company`. */
+            civility?: components["schemas"]["Civility"] | null;
             /** @description Requis pour `individual`, `null` pour `company`. */
             first_name?: string | null;
             /** @description Requis pour `individual`, `null` pour `company`. */
@@ -436,6 +444,7 @@ export interface components {
             company_name?: string | null;
             siret?: string | null;
             vat_number?: string | null;
+            civility?: components["schemas"]["Civility"] | null;
             first_name?: string | null;
             last_name?: string | null;
             billing_address?: components["schemas"]["Address"] | null;
@@ -455,13 +464,14 @@ export interface components {
         };
         /**
          * CreateCustomerCommand
-         * @description Commande de creation d un client. Les champs requis dependent de `type` (verifie par regle metier, pas seulement par la forme du schema) : `company_name` et `siret` pour `company`, `first_name` et `last_name` pour `individual`.
+         * @description Commande de creation d un client. Les champs requis dependent de `type` (verifie par regle metier, pas seulement par la forme du schema) : `company_name` et `siret` pour `company`, `civility`, `first_name` et `last_name` pour `individual`.
          */
         CreateCustomerCommand: {
             type: components["schemas"]["CustomerType"];
             company_name?: string | null;
             siret?: string | null;
             vat_number?: string | null;
+            civility?: components["schemas"]["Civility"] | null;
             first_name?: string | null;
             last_name?: string | null;
             billing_address?: components["schemas"]["Address"] | null;
@@ -475,6 +485,7 @@ export interface components {
             company_name?: string | null;
             siret?: string | null;
             vat_number?: string | null;
+            civility?: components["schemas"]["Civility"] | null;
             first_name?: string | null;
             last_name?: string | null;
             billing_address?: components["schemas"]["Address"] | null;
@@ -664,6 +675,7 @@ export type Problem = components['schemas']['Problem'];
 export type EventName = components['schemas']['EventName'];
 export type EventEnvelope = components['schemas']['EventEnvelope'];
 export type CustomerType = components['schemas']['CustomerType'];
+export type Civility = components['schemas']['Civility'];
 export type Address = components['schemas']['Address'];
 export type Customer = components['schemas']['Customer'];
 export type CustomerContact = components['schemas']['CustomerContact'];

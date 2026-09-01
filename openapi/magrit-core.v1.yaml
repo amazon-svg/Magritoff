@@ -1209,6 +1209,14 @@ components:
       type: string
       enum: [company, individual]
 
+    Civility:
+      title: Civility
+      description: >-
+        Civilite d une personne physique (CA2). Requise pour `individual`,
+        sans objet pour `company`.
+      type: string
+      enum: [mr, mrs]
+
     Address:
       title: Address
       description: >-
@@ -1285,6 +1293,11 @@ components:
             - type: string
               minLength: 1
               maxLength: 32
+            - type: 'null'
+        civility:
+          description: Requise pour `individual`, `null` pour `company`.
+          oneOf:
+            - $ref: '#/components/schemas/Civility'
             - type: 'null'
         first_name:
           description: Requis pour `individual`, `null` pour `company`.
@@ -1439,6 +1452,10 @@ components:
               minLength: 1
               maxLength: 32
             - type: 'null'
+        civility:
+          oneOf:
+            - $ref: '#/components/schemas/Civility'
+            - type: 'null'
         first_name:
           oneOf:
             - type: string
@@ -1493,8 +1510,8 @@ components:
       description: >-
         Commande de creation d un client. Les champs requis dependent de
         `type` (verifie par regle metier, pas seulement par la forme du
-        schema) : `company_name` et `siret` pour `company`, `first_name` et
-        `last_name` pour `individual`.
+        schema) : `company_name` et `siret` pour `company`, `civility`,
+        `first_name` et `last_name` pour `individual`.
       type: object
       additionalProperties: false
       required: [type]
@@ -1517,6 +1534,10 @@ components:
             - type: string
               minLength: 1
               maxLength: 32
+            - type: 'null'
+        civility:
+          oneOf:
+            - $ref: '#/components/schemas/Civility'
             - type: 'null'
         first_name:
           oneOf:
@@ -1564,6 +1585,10 @@ components:
             - type: string
               minLength: 1
               maxLength: 32
+            - type: 'null'
+        civility:
+          oneOf:
+            - $ref: '#/components/schemas/Civility'
             - type: 'null'
         first_name:
           oneOf:
