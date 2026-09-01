@@ -35,11 +35,6 @@ describe('page de test d intégration HopeStudio', () => {
     resolve(process.cwd(), 'public/vendor/hopstudio/1.0.0/css/sugarcrepeHLUX.magrit.css'),
     'utf8',
   );
-  const productCardTemplate = readFileSync(
-    resolve(process.cwd(), 'public/hopstudio/ejs/chat_product_card.ejs'),
-    'utf8',
-  );
-
   it('charge le bundle versionné et configure toutes les racines statiques', () => {
     expect(assetsSource).toContain("HOPSTUDIO_ASSET_ROOT = '/vendor/hopstudio/1.0.0/'");
     expect(assetsSource).toContain("HOPSTUDIO_EJS_ROOT = '/hopstudio/ejs/'");
@@ -88,21 +83,19 @@ describe('page de test d intégration HopeStudio', () => {
     expect(historyTemplate).toContain('hs-history-entry');
   });
 
-  it('transforme les réponses HopeStudio en cartes produit Magrit responsives', () => {
-    expect(workspaceSource).toContain('decorateProductCards');
-    expect(workspaceSource).toContain("container.classList.add('hs-product-card')");
-    expect(workspaceSource).toContain('getCardFromUid?.(uid)');
-    expect(workspaceSource).toContain('buildProductCardView');
-    expect(workspaceSource).toContain('chat_product_card.ejs');
-    expect(workspaceSource).toContain('prefetchEJS([templateUrl])');
-    expect(workspaceSource).toContain('if (!rendered.trim())');
-    expect(workspaceSource).not.toContain('PRODUCT_FIELD_PATTERN');
-    expect(workspaceSource).toContain('action.dataset.hsAction = kind');
-    expect(productCardTemplate).toContain('product.specs.forEach');
-    expect(productCardTemplate).toContain('hs-product-card-spec-value');
-    expect(magritStyles).toContain('.hs-product-card-specs');
-    expect(magritStyles).toContain("[data-hs-action='price']::before");
-    expect(magritStyles).toContain('grid-template-columns: repeat(2, minmax(0, 1fr))');
+  it('habille le DOM natif des cartes HopeStudio sans le reconstruire', () => {
+    expect(workspaceSource).not.toContain('decorateProductCards');
+    expect(workspaceSource).not.toContain('MutationObserver');
+    expect(workspaceSource).not.toContain('getCardFromUid');
+    expect(workspaceSource).not.toContain('chat_product_card.ejs');
+    expect(workspaceSource).not.toContain('card.innerHTML');
+    expect(magritStyles).toContain('.chat-card-container');
+    expect(magritStyles).toContain('.chat-card-banner');
+    expect(magritStyles).toContain('.chat-card-infos');
+    expect(magritStyles).toContain('.chat-card-property');
+    expect(magritStyles).toContain('.chat-card-price');
+    expect(magritStyles).not.toContain('.hs-product-card');
+    expect(magritStyles).not.toContain('[data-hs-action=');
     expect(magritStyles).toContain('flex-direction: column');
     expect(magritStyles).toContain('position: relative');
     expect(magritStyles).toContain('background: #fff');

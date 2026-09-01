@@ -7,7 +7,6 @@ import {
   HOPSTUDIO_EJS_ROOT,
   HOPSTUDIO_RUNTIME_URL,
   HOPSTUDIO_STYLESHEET_URL,
-  type HopeStudioBrowserCardData,
   type HopeStudioBrowserChat,
 } from './assets.ts';
 
@@ -21,14 +20,6 @@ type HopeStudioRuntime = Readonly<{
   newInstanceFromElem(element: HTMLElement): HopeStudioInstance;
 }>;
 
-type ProductCardView = Readonly<{
-  kind: string;
-  title: string;
-  price: string | null;
-  pricePrefix: string;
-  specs: ReadonlyArray<Readonly<{ label: string; value: string }>>;
-}>;
-
 export type HopeStudioInitialRequest = Readonly<{
   id: string;
   query: string;
@@ -38,10 +29,6 @@ declare global {
   interface Window {
     sugarcrepeHL?: HopeStudioRuntime;
     HChat?: Record<string, unknown>;
-    HU?: {
-      prefetchEJS(urls: string[]): Promise<unknown>;
-      renderEJS(templateUrl: string, locals: Readonly<Record<string, unknown>>): string;
-    };
     hopes_suite?: {
       chat?: HopeStudioBrowserChat;
     };
@@ -49,7 +36,6 @@ declare global {
 }
 
 let runtimePromise: Promise<HopeStudioRuntime> | null = null;
-let productCardTemplatePromise: Promise<string> | null = null;
 const sentInitialRequestIds = new Set<string>();
 const HOPSTUDIO_WIDGET_TIMEOUT_MS = 60_000;
 
@@ -175,7 +161,6 @@ function enhanceChatChrome(
   const title = document.querySelector<HTMLElement>('#chat-header .title');
   const reset = document.querySelector<HTMLButtonElement>('#chat-reset');
   const basketImage = document.querySelector<HTMLImageElement>('#chat-header-basket img');
-  const chatBody = document.querySelector<HTMLElement>('#chat-body');
   if (!input || !composer) return () => {};
 
   input.placeholder = 'Décrivez votre projet d’impression…';
@@ -215,174 +200,12 @@ function enhanceChatChrome(
   send.addEventListener('click', sendCurrentPrompt);
   input.addEventListener('input', updateSendState);
 
-  void decorateProductCards();
-  const observer = chatBody
-    ? new MutationObserver(() => { void decorateProductCards(); })
-    : null;
-  if (chatBody && observer) observer.observe(chatBody, { childList: true, subtree: true });
-
   return () => {
-    observer?.disconnect();
     input.removeEventListener('keypress', startOnEnter, { capture: true });
     input.removeEventListener('input', updateSendState);
     reset?.removeEventListener('click', onConversationReset, { capture: true });
     send?.removeEventListener('click', sendCurrentPrompt);
   };
-}
-
-async function decorateProductCards() {
-  const templateUrl = await loadProductCardTemplate().catch(() => null);
-  document.querySelectorAll<HTMLElement>('#chat-body [data-card-uid]:not([data-magrit-card])')
-    .forEach((container) => {
-      const card = container.querySelector<HTMLElement>(':scope > .chat-card');
-      const actions = container.querySelector<HTMLElement>(':scope > .chat-actions-container');
-      if (!card || !actions) return;
-
-      container.dataset.magritCard = 'true';
-      container.classList.add('hs-product-card');
-      const actionLinks = Array.from(actions.querySelectorAll<HTMLAnchorElement>('a.u-btn'));
-      const priceAction = actionLinks.find((action) => action.classList.contains('price'));
-      const displayedPrice = priceAction?.textContent?.trim() ?? '';
-      const uid = container.dataset.cardUid ?? '';
-      const source = uid ? window.hopes_suite?.chat?.getCardFromUid?.(uid) : null;
-      structureProductCard(card, source, displayedPrice, templateUrl);
-      decorateCardActions(actionLinks);
-    });
-}
-
-function structureProductCard(
-  card: HTMLElement,
-  source: HopeStudioBrowserCardData | null | undefined,
-  displayedPrice: string,
-  templateUrl: string | null,
-) {
-  const product = buildProductCardView(source, displayedPrice);
-  if (!product || !templateUrl || !window.HU) {
-    card.classList.add('hs-product-card-rich');
-    return;
-  }
-  const rendered = window.HU.renderEJS(templateUrl, { product });
-  if (!rendered.trim()) {
-    card.classList.add('hs-product-card-rich');
-    return;
-  }
-  card.innerHTML = rendered;
-}
-
-function buildProductCardView(
-  source: HopeStudioBrowserCardData | null | undefined,
-  displayedPrice: string,
-): ProductCardView | null {
-  if (!source) return null;
-  const configuration = asRecord(source.configuration);
-  const selected = asString(source.selected);
-  const sessionAliases = asRecord(window.hopes_suite?.chat?.session?.alias_infos);
-  const directInfos = asRecord(source.infos);
-  const infos = Object.keys(directInfos).length > 0
-    ? directInfos
-    : asRecord(selected ? sessionAliases[selected] : null);
-  const fields = [infos.required_fields, infos.optional_fields, infos.delivery_fields]
-    .flatMap((value) => Array.isArray(value) ? value : [])
-    .map(asRecord)
-    .filter((field) => Object.keys(field).length > 0);
-  if (Object.keys(configuration).length === 0 || fields.length === 0) return null;
-
-  const specs = fields.flatMap((field) => {
-    const name = asString(field.name);
-    if (!name || configuration[name] === undefined || configuration[name] === null) return [];
-    const value = formatFieldValue(configuration[name], field);
-    if (!value) return [];
-    return [{ label: asString(field.title) ?? name, value }];
-  });
-  if (specs.length === 0) return null;
-
-  const structuredPrice = asRecord(asRecord(source.clicked_intent).getPrice).response;
-  const price = formatProductPrice(structuredPrice, displayedPrice);
-  return {
-    kind: selected ?? 'Produit configuré',
-    title: asString(infos.title) ?? asString(infos.name) ?? selected ?? 'Produit configuré',
-    price,
-    pricePrefix: price === 'Sur devis' ? 'PRIX' : 'DÈS',
-    specs,
-  };
-}
-
-function formatFieldValue(rawValue: unknown, field: Record<string, unknown>): string | null {
-  const unit = asString(field.unit);
-  const kind = asString(field.kind);
-  let value: string | null = null;
-
-  if (kind === 'select' && Array.isArray(field.options)) {
-    const selectedOption = field.options.map(asRecord)
-      .find((option) => option.value === rawValue);
-    value = asString(selectedOption?.label) ?? asString(rawValue);
-  } else if (kind === 'completion' && typeof rawValue === 'string') {
-    const parts = rawValue.split(';');
-    const labels = Array.isArray(field.labels) ? field.labels : [];
-    const units = Array.isArray(field.units) ? field.units : [];
-    value = parts.flatMap((part, index) => {
-      if (labels[index] === 'hidden' || !part.trim()) return [];
-      const partUnit = asString(units[index]);
-      return [`${part.trim()}${partUnit ? ` ${partUnit}` : ''}`];
-    }).join(' · ');
-  } else if (Array.isArray(rawValue)) {
-    value = rawValue.flatMap((item) => asString(item) ?? []).join(' · ');
-  } else {
-    value = asString(rawValue);
-  }
-  return value ? `${value}${unit ? ` ${unit}` : ''}` : null;
-}
-
-function formatProductPrice(structuredPrice: unknown, fallback: string): string | null {
-  const numericPrice = typeof structuredPrice === 'number'
-    ? structuredPrice
-    : typeof structuredPrice === 'string' && structuredPrice.trim() && Number.isFinite(Number(structuredPrice))
-      ? Number(structuredPrice)
-      : null;
-  if (numericPrice !== null) {
-    if (numericPrice < 0) return 'Sur devis';
-    const runtime = window.sugarcrepeHL as (HopeStudioRuntime & {
-      formatPrice?: (value: unknown) => string;
-    }) | undefined;
-    return runtime?.formatPrice?.(numericPrice) ?? String(numericPrice);
-  }
-  return fallback.trim() || null;
-}
-
-function asRecord(value: unknown): Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-    ? value as Record<string, unknown>
-    : {};
-}
-
-function asString(value: unknown): string | null {
-  if (typeof value === 'string' && value.trim()) return value.trim();
-  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
-  return null;
-}
-
-function loadProductCardTemplate(): Promise<string> {
-  const templateUrl = `${HOPSTUDIO_EJS_ROOT}chat_product_card.ejs`;
-  productCardTemplatePromise ??= window.HU
-    ? window.HU.prefetchEJS([templateUrl]).then(() => templateUrl)
-    : Promise.reject(new Error('Moteur de templates HopeStudio indisponible.'));
-  return productCardTemplatePromise;
-}
-
-function decorateCardActions(actions: HTMLAnchorElement[]) {
-  actions.forEach((action, index) => {
-    const kind = action.classList.contains('price')
-      ? 'price'
-      : ['sheet', 'price', 'mockup', 'edit'][index] ?? `action-${index + 1}`;
-    const labels: Record<string, string> = {
-      sheet: 'Fiche',
-      price: 'Prix',
-      mockup: '3D',
-      edit: 'Éditer',
-    };
-    action.dataset.hsAction = kind;
-    action.textContent = labels[kind] ?? action.textContent;
-  });
 }
 
 function configureHost(element: HTMLElement, tenantId: string) {
