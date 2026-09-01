@@ -8,11 +8,23 @@
  * `POST /customers/{id}/siret-verifications` exige un client existant, la
  * verification ne peut donc pas precede sa creation. Un client `individual`
  * se ferme directement apres creation.
+ *
+ * M3/M4 (qa-review) : civilite obligatoire pour `individual` (CA2), TVA et
+ * adresses de facturation/livraison saisissables pour `company` (adresse
+ * unique pour `individual`) — l API les acceptait deja, seule la saisie
+ * manquait.
  */
 import { useState } from 'react';
 import { Loader2, X, CheckCircle2 } from 'lucide-react';
 import { TEST_IDS } from '@/shared/presentation/testIds';
-import type { CreateCustomerCommand, CustomerDto, CustomerType } from '@/modules/customers/api/contracts';
+import type {
+  Address,
+  Civility,
+  CreateCustomerCommand,
+  CustomerDto,
+  CustomerType,
+} from '@/modules/customers/api/contracts';
+import { AddressFields, EMPTY_ADDRESS, isAddressBlank } from './AddressFields';
 
 const inputCls =
   'w-full px-3 py-2 border border-line-2 rounded-lg bg-paper text-ink text-sm focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand';
@@ -34,8 +46,13 @@ export function CustomerFormModal({ onClose, onCreate, onVerifySiret }: Customer
   const [type, setType] = useState<CustomerType>('company');
   const [companyName, setCompanyName] = useState('');
   const [siret, setSiret] = useState('');
+  const [vatNumber, setVatNumber] = useState('');
+  const [civility, setCivility] = useState<Civility>('mr');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [billingAddress, setBillingAddress] = useState<Address>(EMPTY_ADDRESS);
+  const [shippingDifferent, setShippingDifferent] = useState(false);
+  const [shippingAddress, setShippingAddress] = useState<Address>(EMPTY_ADDRESS);
   const [step, setStep] = useState<Step>('form');
   const [created, setCreated] = useState<CustomerDto | null>(null);
   const [saving, setSaving] = useState(false);
@@ -48,10 +65,25 @@ export function CustomerFormModal({ onClose, onCreate, onVerifySiret }: Customer
     setError(null);
     setSaving(true);
     try {
+      const billing = isAddressBlank(billingAddress) ? null : billingAddress;
+      const shipping = shippingDifferent && !isAddressBlank(shippingAddress) ? shippingAddress : null;
       const command: CreateCustomerCommand =
         type === 'company'
-          ? { type, company_name: companyName, siret: siret.replace(/[\s.-]/g, '') }
-          : { type, first_name: firstName, last_name: lastName };
+          ? {
+              type,
+              company_name: companyName,
+              siret: siret.replace(/[\s.-]/g, ''),
+              vat_number: vatNumber || null,
+              billing_address: billing,
+              shipping_address: shipping,
+            }
+          : {
+              type,
+              civility,
+              first_name: firstName,
+              last_name: lastName,
+              billing_address: billing,
+            };
       const customer = await onCreate(command);
       setCreated(customer);
       if (customer.type === 'company') {
@@ -156,9 +188,58 @@ export function CustomerFormModal({ onClose, onCreate, onVerifySiret }: Customer
                     vérification INSEE se fait à l’étape suivante.
                   </p>
                 </div>
+                <div>
+                  <label className={labelCls} htmlFor="customer-vat-number">
+                    Numéro de TVA intracommunautaire
+                  </label>
+                  <input
+                    id="customer-vat-number"
+                    type="text"
+                    value={vatNumber}
+                    onChange={(event) => setVatNumber(event.target.value)}
+                    className={inputCls}
+                    placeholder="Optionnel"
+                  />
+                </div>
+
+                <AddressFields
+                  legend="Adresse de facturation"
+                  value={billingAddress}
+                  onChange={setBillingAddress}
+                />
+
+                <label className="flex items-center gap-2 text-sm text-ink-2">
+                  <input
+                    type="checkbox"
+                    checked={shippingDifferent}
+                    onChange={(event) => setShippingDifferent(event.target.checked)}
+                  />
+                  Adresse de livraison différente
+                </label>
+                {shippingDifferent && (
+                  <AddressFields
+                    legend="Adresse de livraison"
+                    value={shippingAddress}
+                    onChange={setShippingAddress}
+                  />
+                )}
               </>
             ) : (
               <>
+                <div>
+                  <label className={labelCls} htmlFor="customer-civility">
+                    Civilité
+                  </label>
+                  <select
+                    id="customer-civility"
+                    value={civility}
+                    onChange={(event) => setCivility(event.target.value as Civility)}
+                    className={inputCls}
+                  >
+                    <option value="mr">Monsieur</option>
+                    <option value="mrs">Madame</option>
+                  </select>
+                </div>
                 <div>
                   <label className={labelCls}>Prénom</label>
                   <input
@@ -179,6 +260,8 @@ export function CustomerFormModal({ onClose, onCreate, onVerifySiret }: Customer
                     className={inputCls}
                   />
                 </div>
+
+                <AddressFields legend="Adresse" value={billingAddress} onChange={setBillingAddress} />
               </>
             )}
 

@@ -12,6 +12,10 @@ import { ArrowLeft, CheckCircle2, Loader2, Plus, Star } from 'lucide-react';
 import { useTenantPath } from '@/modules/tenants/ui/hooks';
 import { TEST_IDS } from '@/shared/presentation/testIds';
 import { useCustomerDetail } from '@/modules/customers/ui/hooks';
+import type { Address } from '@/modules/customers/api/contracts';
+import { AddressFields, AddressSummary, EMPTY_ADDRESS, isAddressBlank } from './AddressFields';
+
+const CIVILITY_LABEL: Record<string, string> = { mr: 'Monsieur', mrs: 'Madame' };
 
 const inputCls =
   'w-full px-3 py-2 border border-line-2 rounded-lg bg-paper text-ink text-sm focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand';
@@ -39,6 +43,16 @@ export function DashboardCustomerDetail() {
   const [contactEmail, setContactEmail] = useState('');
   const [savingContact, setSavingContact] = useState(false);
 
+  // M4 (qa-review) : TVA et adresses de facturation/livraison, saisissables
+  // et editables ici — l API les acceptait deja, seule la fiche ne les
+  // affichait ni ne les proposait a l edition.
+  const [editingCoordinates, setEditingCoordinates] = useState(false);
+  const [editVatNumber, setEditVatNumber] = useState('');
+  const [editBillingAddress, setEditBillingAddress] = useState<Address>(EMPTY_ADDRESS);
+  const [editShippingDifferent, setEditShippingDifferent] = useState(false);
+  const [editShippingAddress, setEditShippingAddress] = useState<Address>(EMPTY_ADDRESS);
+  const [savingCoordinates, setSavingCoordinates] = useState(false);
+
   if (loading) return <p className="text-sm text-ink-muted">Chargement…</p>;
 
   if (!detail) {
@@ -59,7 +73,37 @@ export function DashboardCustomerDetail() {
   const displayName =
     detail.type === 'company'
       ? detail.company_name
-      : `${detail.first_name ?? ''} ${detail.last_name ?? ''}`.trim();
+      : [
+          detail.civility ? CIVILITY_LABEL[detail.civility] : null,
+          detail.first_name,
+          detail.last_name,
+        ]
+          .filter(Boolean)
+          .join(' ');
+
+  const startEditingCoordinates = () => {
+    setEditVatNumber(detail.vat_number ?? '');
+    setEditBillingAddress(detail.billing_address ?? EMPTY_ADDRESS);
+    setEditShippingDifferent(Boolean(detail.shipping_address));
+    setEditShippingAddress(detail.shipping_address ?? EMPTY_ADDRESS);
+    setEditingCoordinates(true);
+  };
+
+  const submitCoordinates = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setSavingCoordinates(true);
+    try {
+      await update({
+        ...(detail.type === 'company' ? { vat_number: editVatNumber || null } : {}),
+        billing_address: isAddressBlank(editBillingAddress) ? null : editBillingAddress,
+        shipping_address:
+          editShippingDifferent && !isAddressBlank(editShippingAddress) ? editShippingAddress : null,
+      });
+      setEditingCoordinates(false);
+    } finally {
+      setSavingCoordinates(false);
+    }
+  };
 
   const submitContact = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -133,9 +177,97 @@ export function DashboardCustomerDetail() {
               Vérifier le SIRET
             </button>
           )}
-          {detail.vat_number && <p className="text-sm text-ink-muted">TVA : {detail.vat_number}</p>}
         </section>
       )}
+
+      <section className="border border-line rounded-xl p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-bold text-ink-2 uppercase tracking-wider">Coordonnées</h2>
+          {!editingCoordinates && (
+            <button type="button" onClick={startEditingCoordinates} className={btnGhost}>
+              Modifier
+            </button>
+          )}
+        </div>
+
+        {editingCoordinates ? (
+          <form onSubmit={submitCoordinates} className="space-y-3">
+            {detail.type === 'company' && (
+              <div>
+                <label className="block text-xs text-ink-muted mb-1">
+                  Numéro de TVA intracommunautaire
+                </label>
+                <input
+                  type="text"
+                  value={editVatNumber}
+                  onChange={(event) => setEditVatNumber(event.target.value)}
+                  className={inputCls}
+                />
+              </div>
+            )}
+
+            <AddressFields
+              legend={detail.type === 'company' ? 'Adresse de facturation' : 'Adresse'}
+              value={editBillingAddress}
+              onChange={setEditBillingAddress}
+            />
+
+            {detail.type === 'company' && (
+              <>
+                <label className="flex items-center gap-2 text-sm text-ink-2">
+                  <input
+                    type="checkbox"
+                    checked={editShippingDifferent}
+                    onChange={(event) => setEditShippingDifferent(event.target.checked)}
+                  />
+                  Adresse de livraison différente
+                </label>
+                {editShippingDifferent && (
+                  <AddressFields
+                    legend="Adresse de livraison"
+                    value={editShippingAddress}
+                    onChange={setEditShippingAddress}
+                  />
+                )}
+              </>
+            )}
+
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setEditingCoordinates(false)}
+                className={btnGhost}
+              >
+                Annuler
+              </button>
+              <button type="submit" disabled={savingCoordinates} className={btnPrimary}>
+                {savingCoordinates && <Loader2 className="w-4 h-4 animate-spin" />}
+                Enregistrer
+              </button>
+            </div>
+          </form>
+        ) : (
+          <div className="space-y-2">
+            {detail.type === 'company' && (
+              <p className="text-sm text-ink-muted">TVA : {detail.vat_number ?? '—'}</p>
+            )}
+            <div>
+              <p className="text-xs text-ink-muted uppercase tracking-wider mb-1">
+                {detail.type === 'company' ? 'Adresse de facturation' : 'Adresse'}
+              </p>
+              <AddressSummary address={detail.billing_address} />
+            </div>
+            {detail.type === 'company' && detail.shipping_address && (
+              <div>
+                <p className="text-xs text-ink-muted uppercase tracking-wider mb-1">
+                  Adresse de livraison
+                </p>
+                <AddressSummary address={detail.shipping_address} />
+              </div>
+            )}
+          </div>
+        )}
+      </section>
 
       <section className="border border-line rounded-xl p-4 space-y-3">
         <div className="flex items-center justify-between">
