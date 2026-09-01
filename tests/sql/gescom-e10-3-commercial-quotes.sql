@@ -10,6 +10,27 @@
 -- futur `drop policy`, un `grant` sur le compteur accorde par erreur, ou une
 -- serialisation qui cesserait de tenir sous appels concurrents).
 --
+-- ── Correction qa-review (bloquant) ─────────────────────────────────────────
+-- Une premiere version de ce cas relisait l id du devis du tenant A et l etat
+-- du compteur EN LES REQUETANT SOUS LE ROLE RESTREINT (`authenticated`,
+-- reduit au seul tenant B a partir du scenario 4) — exactement la RLS que le
+-- test est cense verifier. Sous ce role, ces lectures rendaient NULL, ce qui
+-- rendait vacants quatre controles (comparaison a NULL, jamais prise ; DELETE/
+-- UPDATE cible sur `id = NULL`, 0 ligne quelle que soit la policy). Le
+-- correctif reprend le patron de `gescom-e10-1-projects.sql` : tout ce dont
+-- une assertion a besoin comme ORACLE (identifiants, valeurs "avant") est
+-- calcule et fige PENDANT LA PHASE PRIVILEGIEE (role de connexion `postgres`,
+-- qui contourne la RLS sans dependre d aucune policy), jamais rederive sous
+-- le role restreint. Les scenarios 1, 2, 3 et 7 n exercent d ailleurs aucune
+-- RLS : ils verifient le COMPORTEMENT de la fonction `security definer`
+-- (numerotation, atomicite, rejet), qui s applique a l identique quel que
+-- soit le role appelant (une fonction `security definer` s execute avec les
+-- droits de son PROPRIETAIRE, jamais ceux de l appelant) — ils sont donc
+-- executes en phase privilegiee, avant meme le premier `set local role
+-- authenticated`. Seuls les scenarios 4, 5, 6 (isolation RLS proprement dite)
+-- s executent sous le role restreint, et n y lisent plus que des valeurs
+-- deja figees dans `e10_3_quotes_context`.
+--
 -- Scenarios :
 --   1. api_create_commercial_quote_from_project_items() cree un devis avec
 --      ses lignes dans la meme transaction : numero DEV-AAAA-NNNNN, client
@@ -19,10 +40,14 @@
 --      SECOND devis avec un numero DIFFERENT et SEQUENTIEL : l element de
 --      projet n est jamais consomme ni marque exclusif (CA7).
 --   3. item_ids ne appartenant pas au projet -> exception invalid_item_ids,
---      aucune ligne n est ecrite (ni devis, ni compteur avance).
+--      aucune ligne n est ecrite (ni devis, ni compteur avance) — verifie en
+--      lisant le compteur EN PHASE PRIVILEGIEE, avant et apres la tentative.
 --   4. Isolation par tenant en lecture ET en ecriture sur commercial_quotes
 --      ET commercial_quote_lines (jointure dediee, jamais exercee avant ce
 --      test), avec controle positif symetrique sur le tenant de l acteur.
+--      Les identifiants "cible" du tenant A viennent de `e10_3_quotes_context`
+--      (figes en phase privilegiee), jamais d une lecture sous le role
+--      restreint qui rendrait NULL.
 --   5. `with check` : un INSERT direct portant le tenant_id d un tenant tiers
 --      est refuse ; un UPDATE qui ferait muter tenant_id d une ligne qui
 --      appartient a l acteur est refuse.
@@ -51,12 +76,22 @@ create temporary table e10_3_quotes_context (
   project_b     uuid not null,
   item_a1       uuid not null,
   item_a2       uuid not null,
-  item_b        uuid not null
+  item_b        uuid not null,
+  -- Figes PENDANT LA PHASE PRIVILEGIEE, une fois connus (colonnes nullable a
+  -- la creation de la ligne, renseignees par la suite via UPDATE — toujours
+  -- comme `postgres`, jamais sous le role restreint).
+  quote_a1      uuid,
+  quote_b1      uuid
 );
 
 grant select on e10_3_quotes_context to authenticated;
 
--- ── Prealables, joues en tant que postgres (avant tout test RLS) ───────────
+-- ── Phase privilegiee (role de connexion `postgres`, contourne la RLS) ─────
+-- Prealables ET scenarios 1, 2, 3, 7 : aucun d eux n exerce de RLS (voir
+-- en-tete). `set_config` fixe le sujet JWT pour toute la duree de la
+-- TRANSACTION (troisieme argument `true` = local a la transaction, pas au
+-- role) : il reste actif meme apres un `set local role authenticated` plus
+-- bas, `auth.uid()` continue donc de resoudre correctement partout.
 do $$
 declare
   v_actor uuid;
@@ -69,6 +104,22 @@ declare
   v_item_a1 uuid;
   v_item_a2 uuid;
   v_item_b uuid;
+  v_quote_1 uuid;
+  v_quote_2 uuid;
+  v_quote_b uuid;
+  v_number_1 text;
+  v_number_2 text;
+  v_line_count integer;
+  v_production_1 numeric;
+  v_production_2 numeric;
+  v_customer_on_quote uuid;
+  v_project_item_still_there integer;
+  v_rejected boolean;
+  v_counter_before integer;
+  v_counter_after integer;
+  v_quote_seq uuid;
+  v_seq_numbers text[] := '{}';
+  i integer;
 begin
   select u.id into v_actor
     from auth.users u
@@ -94,7 +145,7 @@ begin
 
   -- L acteur est membre (role admin) du tenant A ET du tenant B, pour
   -- pouvoir exercer la fonction de creation sur SES DEUX espaces (scenarios
-  -- 1-3), puis n etre reduit qu au tenant B pour les scenarios d isolation
+  -- 1-3, 7), puis n etre reduit qu au tenant B pour les scenarios d isolation
   -- (4-6), ou sa qualite de membre du tenant A est retiree.
   insert into public.tenant_members (tenant_id, user_id, role, access_scope, allowed_shop_ids)
   values (v_tenant_a, v_actor, 'admin', 'magrit_full', '{}');
@@ -146,53 +197,24 @@ begin
     v_actor, v_tenant_a, v_tenant_b, v_customer_a, v_customer_b,
     v_project_a, v_project_b, v_item_a1, v_item_a2, v_item_b
   );
-end;
-$$;
 
-set local role authenticated;
+  -- Sujet JWT fixe pour TOUTE la transaction (troisieme argument `true`),
+  -- pas seulement pour le role courant : `auth.uid()` continuera de le
+  -- resoudre apres le `set local role authenticated` de la phase 2.
+  perform set_config('request.jwt.claim.sub', v_actor::text, true);
 
-select set_config(
-  'request.jwt.claim.sub',
-  (select actor_id::text from e10_3_quotes_context),
-  true
-);
-
--- ── 1., 2., 3., 7. La fonction transactionnelle, exercee via le role reel ──
-do $$
-declare
-  v_tenant_a uuid;
-  v_customer_a uuid;
-  v_project_a uuid;
-  v_item_a1 uuid;
-  v_item_a2 uuid;
-  v_item_b uuid;
-  v_quote_1 uuid;
-  v_quote_2 uuid;
-  v_number_1 text;
-  v_number_2 text;
-  v_line_count integer;
-  v_production_1 numeric;
-  v_production_2 numeric;
-  v_customer_on_quote uuid;
-  v_project_item_still_there integer;
-  v_rejected boolean;
-  v_counter_before integer;
-  v_counter_after integer;
-  v_quote_seq uuid;
-  v_seq_numbers text[] := '{}';
-  i integer;
-begin
-  select tenant_a, customer_a, project_a, item_a1, item_a2, item_b
-    into v_tenant_a, v_customer_a, v_project_a, v_item_a1, v_item_a2, v_item_b
-    from e10_3_quotes_context;
-
-  -- 1. Premier devis, sur les deux elements du projet A.
+  -- ── 1. Premier devis, sur les deux elements du projet A ──────────────────
   v_quote_1 := public.api_create_commercial_quote_from_project_items(
     v_tenant_a, v_project_a, array[v_item_a1, v_item_a2]
   );
   if v_quote_1 is null then
     raise exception 'La creation du premier devis n a rendu aucun identifiant';
   end if;
+
+  -- Fige IMMEDIATEMENT l id, en phase privilegiee : c est la valeur oracle
+  -- reutilisee par les scenarios 4 et 5 (jamais rederivee sous le role
+  -- restreint, voir en-tete).
+  update e10_3_quotes_context set quote_a1 = v_quote_1;
 
   select number, customer_id into v_number_1, v_customer_on_quote
     from public.commercial_quotes where id = v_quote_1;
@@ -235,8 +257,8 @@ begin
     raise exception 'Une colonne de prix de vente E10.21 a ete renseignee alors qu E10.21 n est pas livree';
   end if;
 
-  -- 2. Second devis sur le MEME projet et le MEME premier element : CA7,
-  -- l element n est jamais consomme ni marque exclusif.
+  -- ── 2. Second devis sur le MEME projet et le MEME premier element ────────
+  -- CA7 : l element n est jamais consomme ni marque exclusif.
   v_quote_2 := public.api_create_commercial_quote_from_project_items(
     v_tenant_a, v_project_a, array[v_item_a1]
   );
@@ -254,10 +276,17 @@ begin
     raise exception 'L element de projet a disparu apres avoir alimente deux devis (CA7 viole)';
   end if;
 
-  -- 3. item_ids hors du projet -> exception, aucun effet de bord.
+  -- ── 3. item_ids hors du projet -> exception, aucun effet de bord ─────────
+  -- Lu EN PHASE PRIVILEGIEE (role `postgres`) : le scenario 6 prouve plus
+  -- bas que ce compteur est invisible sous `authenticated`, une lecture sous
+  -- ce role rendrait systematiquement NULL et ne prouverait rien (bug corrige
+  -- suite qa-review).
   select last_value into v_counter_before
     from public.commercial_quote_number_counters
    where tenant_id = v_tenant_a and year = extract(year from (now() at time zone 'utc'))::integer;
+  if v_counter_before is null then
+    raise exception 'Compteur illisible en phase privilegiee : le prealable du scenario 3 est invalide';
+  end if;
 
   v_rejected := false;
   begin
@@ -274,14 +303,14 @@ begin
   select last_value into v_counter_after
     from public.commercial_quote_number_counters
    where tenant_id = v_tenant_a and year = extract(year from (now() at time zone 'utc'))::integer;
-  if v_counter_after <> v_counter_before then
+  if v_counter_after is distinct from v_counter_before then
     raise exception
       'Le compteur a avance (% -> %) malgre une creation refusee : trou de sequence possible',
       v_counter_before, v_counter_after;
   end if;
 
-  -- 7. N appels sequentiels rapides sur le meme (tenant, annee) : la
-  -- sequence avance de exactement 1 a chaque fois, jamais de doublon ni de
+  -- ── 7. N appels sequentiels rapides sur le meme (tenant, annee) ──────────
+  -- La sequence avance de exactement 1 a chaque fois, jamais de doublon ni de
   -- saut — c est ce que verrouille l UPSERT sous concurrence reelle.
   for i in 1..5 loop
     v_quote_seq := public.api_create_commercial_quote_from_project_items(
@@ -296,8 +325,34 @@ begin
   if array_length(v_seq_numbers, 1) <> 5 then
     raise exception 'Attendu 5 numeros distincts, obtenu %', array_length(v_seq_numbers, 1);
   end if;
+
+  -- Devis de reference sur le tenant B, pour le controle positif symetrique
+  -- des scenarios 4/5. Meme raison que ci-dessus : la fonction s execute a
+  -- l identique quel que soit le role appelant (security definer), ce n est
+  -- donc PAS un test de RLS de le creer ici, en phase privilegiee.
+  v_quote_b := public.api_create_commercial_quote_from_project_items(
+    v_tenant_b, v_project_b, array[v_item_b]
+  );
+  if v_quote_b is null then
+    raise exception 'La creation du devis de reference sur le tenant B a echoue';
+  end if;
+  update e10_3_quotes_context set quote_b1 = v_quote_b;
 end;
 $$;
+
+-- ── Phase 2 : retire la qualite de membre du tenant A ──────────────────────
+-- A partir d ici, l acteur n est plus membre QUE du tenant B — les scenarios
+-- 4, 5, 6 exercent la RLS pour de vrai, sous le role reellement restreint.
+delete from public.tenant_members
+ where user_id = (select actor_id from e10_3_quotes_context)
+   and tenant_id = (select tenant_a from e10_3_quotes_context);
+
+set local role authenticated;
+select set_config(
+  'request.jwt.claim.sub',
+  (select actor_id::text from e10_3_quotes_context),
+  true
+);
 
 -- ── 6. commercial_quote_number_counters : deni total hors de la fonction ──
 do $$
@@ -324,55 +379,27 @@ begin
 end;
 $$;
 
--- ── 4. Isolation par tenant : retire la qualite de membre du tenant A ──────
--- pour n exercer les policies commercial_quotes/commercial_quote_lines QUE
--- depuis le tenant B, comme un membre normal du tenant B le ferait.
-reset role;
-delete from public.tenant_members
- where user_id = (select actor_id from e10_3_quotes_context)
-   and tenant_id = (select tenant_a from e10_3_quotes_context);
-
--- Devis de reference sur le tenant B, pour le controle positif symetrique.
-do $$
-declare
-  v_tenant_b uuid;
-  v_project_b uuid;
-  v_item_b uuid;
-  v_quote_b uuid;
-begin
-  select tenant_b, project_b, item_b into v_tenant_b, v_project_b, v_item_b
-    from e10_3_quotes_context;
-  v_quote_b := public.api_create_commercial_quote_from_project_items(
-    v_tenant_b, v_project_b, array[v_item_b]
-  );
-  if v_quote_b is null then
-    raise exception 'La creation du devis de reference sur le tenant B a echoue';
-  end if;
-end;
-$$;
-
-set local role authenticated;
-select set_config(
-  'request.jwt.claim.sub',
-  (select actor_id::text from e10_3_quotes_context),
-  true
-);
-
+-- ── 4. Isolation par tenant, lecture ET ecriture ────────────────────────────
+-- `v_quote_a_id` vient de `e10_3_quotes_context.quote_a1`, fige en phase
+-- privilegiee (scenario 1) : PAS d une lecture sous le role restreint, qui
+-- rendrait NULL et viderait les deux controles negatifs de leur sens (bug
+-- corrige suite qa-review).
 do $$
 declare
   v_tenant_a uuid;
   v_tenant_b uuid;
+  v_quote_a_id uuid;
   v_visible_a integer;
   v_visible_b integer;
   v_lines_visible_a integer;
   v_lines_visible_b integer;
-  v_quote_a_id uuid;
   v_updated integer;
 begin
-  select tenant_a, tenant_b into v_tenant_a, v_tenant_b from e10_3_quotes_context;
-
-  select id into v_quote_a_id from public.commercial_quotes
-   where tenant_id = v_tenant_a order by created_at limit 1;
+  select tenant_a, tenant_b, quote_a1 into v_tenant_a, v_tenant_b, v_quote_a_id
+    from e10_3_quotes_context;
+  if v_quote_a_id is null then
+    raise exception 'quote_a1 n a pas ete fige en phase privilegiee : le scenario 4 ne peut pas cibler une ligne reelle';
+  end if;
 
   -- Lecture commercial_quotes : rien du tenant A, controle positif sur B.
   select count(*) into v_visible_a from public.commercial_quotes where tenant_id = v_tenant_a;
@@ -385,7 +412,8 @@ begin
     raise exception 'Un membre du tenant B lit % devis de son propre tenant, 1 attendu', v_visible_b;
   end if;
 
-  -- Lecture commercial_quote_lines (jointure DEDIEE, jamais exercee avant).
+  -- Lecture commercial_quote_lines (jointure DEDIEE, jamais exercee avant),
+  -- ciblee sur le VRAI id du devis du tenant A (quote_a1).
   select count(*) into v_lines_visible_a
     from public.commercial_quote_lines where quote_id = v_quote_a_id;
   if v_lines_visible_a <> 0 then
@@ -400,7 +428,9 @@ begin
     raise exception 'Un membre du tenant B lit % ligne(s) de son propre devis, 1 attendue', v_lines_visible_b;
   end if;
 
-  -- Ecriture : refus sur le devis du tenant A (using).
+  -- Ecriture : refus sur le devis REEL du tenant A (using) — cible desormais
+  -- une ligne qui existe vraiment, donc ce controle mordrait si la policy
+  -- etait relachee (ex. `using (true)`).
   update public.commercial_quotes set show_discounts = true where id = v_quote_a_id;
   get diagnostics v_updated = row_count;
   if v_updated <> 0 then
@@ -432,7 +462,12 @@ begin
     into v_tenant_a, v_tenant_b, v_customer_a, v_project_a
     from e10_3_quotes_context;
 
+  -- Positif : l acteur reste membre du tenant B, cette lecture est legitime
+  -- (pas un oracle de negation, contrairement a quote_a1 ci-dessus).
   select id into v_quote_b from public.commercial_quotes where tenant_id = v_tenant_b limit 1;
+  if v_quote_b is null then
+    raise exception 'Aucun devis du tenant B visible pour cibler le scenario with check';
+  end if;
 
   -- INSERT direct portant le tenant_id d un tenant tiers -> refuse.
   v_rejected := false;
@@ -466,15 +501,16 @@ $$;
 
 reset role;
 
--- Aucune ligne bloquee ci-dessus n a ete modifiee sur le tenant A.
+-- Aucune ligne bloquee ci-dessus n a ete modifiee sur le tenant A. Cible le
+-- MEME id que le scenario 4 (quote_a1, fige en phase privilegiee), pas une
+-- redecouverte "la plus ancienne" qui pourrait masquer un id different si le
+-- test evolue un jour.
 do $$
 declare
   v_quote_a_id uuid;
   v_still_flag boolean;
 begin
-  select id into v_quote_a_id from public.commercial_quotes
-   where tenant_id = (select tenant_a from e10_3_quotes_context)
-   order by created_at limit 1;
+  select quote_a1 into v_quote_a_id from e10_3_quotes_context;
   select show_discounts into v_still_flag from public.commercial_quotes where id = v_quote_a_id;
   if v_still_flag is distinct from false then
     raise exception 'Le devis du tenant A a ete modifie malgre le blocage RLS attendu (valeur: %)', v_still_flag;
