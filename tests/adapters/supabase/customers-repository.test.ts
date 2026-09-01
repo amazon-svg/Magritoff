@@ -10,7 +10,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { CustomerCommandRejectedError } from '@/modules/customers/application/customers-repository';
-import { sanitizeSearchTerm, toDomainError } from '@/adapters/supabase/customers-repository';
+import { sanitizeSearchTerm, toDomainError, toShopAccesses } from '@/adapters/supabase/customers-repository';
 
 describe('toDomainError — discrimination par contrainte (23505)', () => {
   it('mappe la contrainte SIRET sur customer.siret_already_used (409)', () => {
@@ -87,5 +87,31 @@ describe('sanitizeSearchTerm — neutralise la grammaire de filtre PostgREST (m3
     const sanitized = sanitizeSearchTerm('Martin,  Paris');
     expect(sanitized).toBe('Martin Paris');
     expect('Martin Paris Imprimerie'.toLowerCase()).toContain(sanitized.toLowerCase());
+  });
+});
+
+describe('toShopAccesses — ordre canonique (qa-review E10.2, meme defaut que Project.tags)', () => {
+  it('rend le meme ordre quel que soit l ordre de l embed PostgREST', () => {
+    const a = { shop_id: 'aaaaaaaa-0000-0000-0000-000000000001', status: 'active' };
+    const b = { shop_id: 'bbbbbbbb-0000-0000-0000-000000000002', status: 'invited' };
+    const c = { shop_id: 'cccccccc-0000-0000-0000-000000000003', status: 'active' };
+
+    const orderings = [
+      [a, b, c],
+      [c, b, a],
+      [b, a, c],
+    ];
+
+    const results = orderings.map((rows) => toShopAccesses(rows));
+    const [first, ...rest] = results;
+    rest.forEach((result) => expect(result).toEqual(first));
+    expect(first?.map((r) => r.shop_id)).toEqual([a.shop_id, b.shop_id, c.shop_id]);
+  });
+
+  it('filtre toujours les acces suspendus, quel que soit l ordre', () => {
+    const active = { shop_id: 'aaaaaaaa-0000-0000-0000-000000000001', status: 'active' };
+    const suspended = { shop_id: 'bbbbbbbb-0000-0000-0000-000000000002', status: 'suspended' };
+
+    expect(toShopAccesses([suspended, active])).toEqual([{ shop_id: active.shop_id, status: 'active' }]);
   });
 });

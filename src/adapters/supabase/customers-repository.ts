@@ -335,14 +335,21 @@ function toContactDto(row: Record<string, any>): CustomerContactDto {
  * donc pas apparaitre ici. Le filtre reste une deuxieme ligne de defense si
  * une ligne suspendue restait exceptionnellement liee.
  */
-function toShopAccesses(value: unknown): { shop_id: string; status: 'invited' | 'active' }[] {
+export function toShopAccesses(value: unknown): { shop_id: string; status: 'invited' | 'active' }[] {
   if (!Array.isArray(value)) return [];
   return value
     .filter(
       (row): row is { shop_id: string; status: string } =>
         Boolean(row) && (row.status === 'invited' || row.status === 'active'),
     )
-    .map((row) => ({ shop_id: row.shop_id, status: row.status as 'invited' | 'active' }));
+    .map((row) => ({ shop_id: row.shop_id, status: row.status as 'invited' | 'active' }))
+    // Ordre canonique requis : l embed PostgREST n a pas d ORDER BY, l ordre
+    // des lignes agregees n est donc pas garanti par Postgres et peut changer
+    // entre deux lectures sans ecriture concurrente. Sans ce tri, l ETag
+    // calcule sur ce tableau (computeEntityTag) serait instable et un
+    // If-Match frais pourrait etre refuse a tort (meme defaut trouve et
+    // corrige sur Project.tags en E10.2, cf. docs/api/CONVENTIONS.md).
+    .sort((a, b) => (a.shop_id < b.shop_id ? -1 : a.shop_id > b.shop_id ? 1 : 0));
 }
 
 function toAddress(value: unknown): Address | null {
