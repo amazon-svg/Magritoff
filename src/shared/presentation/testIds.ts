@@ -535,6 +535,18 @@ export const TEST_IDS = {
     searchInput: 'projects-search-input',
     tagFilter: 'projects-tag-filter',
     tagFilterOption: 'projects-tag-filter-option',
+    // E10.3 — creation d un devis depuis un projet (CA1, CA2).
+    createQuoteBtn: 'project-create-quote-btn',
+    itemCheckbox: 'project-item-checkbox',
+  },
+
+  // ─── E10.3 — Creation d un devis depuis un projet (P13, TF-163) ────────
+  commercialQuote: {
+    createDrawer: 'quote-create-drawer',
+    createSubmitBtn: 'quote-create-submit-btn',
+    editorPage: 'quote-editor-page',
+    numberDisplay: 'quote-number-display',
+    lineRow: 'quote-line-row',
   },
 } as const;
 

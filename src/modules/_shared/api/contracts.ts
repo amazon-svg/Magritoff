@@ -192,6 +192,7 @@ export const eventSignatureSchema = z.string().regex(/^sha256=[0-9a-f]{64}$/);
  */
 export const OUTBOX_EVENT_NAMES = [
   'quote.converted',
+  'quote.created',
   'order.step_changed',
   'order.files_submitted',
   'customer.created',

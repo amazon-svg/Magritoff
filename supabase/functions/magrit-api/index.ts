@@ -63,6 +63,8 @@ import { ProjectsService } from '../../../src/modules/projects/application/proje
 import { SupabaseProjectsRepository } from '../../../src/adapters/supabase/projects-repository.ts';
 import { ProjectTagsService } from '../../../src/modules/project-tags/application/project-tags-service.ts';
 import { SupabaseProjectTagsRepository } from '../../../src/adapters/supabase/project-tags-repository.ts';
+import { CommercialQuotesService } from '../../../src/modules/commercial-quotes/application/commercial-quotes-service.ts';
+import { SupabaseCommercialQuotesRepository } from '../../../src/adapters/supabase/commercial-quotes-repository.ts';
 import { SupabaseApiPrincipalVerifier } from '../../../src/adapters/supabase/api-principal-verifier.ts';
 import { InMemoryIdempotencyStore, OutboxPublisher } from '../../../src/modules/_shared/application/index.ts';
 import { TENANT_SELECTION_HEADER } from '../../../src/modules/_shared/api/index.ts';
@@ -267,12 +269,31 @@ export async function handleRequest(request: Request): Promise<Response> {
     }),
   });
 
+  // E10.3 — creation d un devis depuis un projet (selection multi-produits).
+  // L outbox publie quote.created via le meme mecanisme best-effort que
+  // project.created ci-dessus (dette M2 partagee, docs/api/CONVENTIONS.md).
+  const commercialQuotesService = new CommercialQuotesService({
+    repository: new SupabaseCommercialQuotesRepository(client),
+    outbox: new OutboxPublisher({
+      repository: bestEffortOutbox(outboxRepository, (error, events) => {
+        console.error(
+          '[magrit-api] publication outbox echouee',
+          events.map((event) => event.name),
+          error,
+        );
+      }),
+      now: () => new Date(),
+      newEventId: () => crypto.randomUUID(),
+    }),
+  });
+
   const handler = createMagritApiApplication({
     gescomServices: {
       customers: customersService,
       customerShopAccess: customerShopAccessService,
       projects: projectsService,
       projectTags: projectTagsService,
+      commercialQuotes: commercialQuotesService,
     },
     principalVerifier: new SupabaseApiPrincipalVerifier(client, {
       requestedTenantId: request.headers.get(TENANT_SELECTION_HEADER),

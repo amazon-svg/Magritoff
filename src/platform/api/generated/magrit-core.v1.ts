@@ -386,6 +386,65 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/quotes": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /** Liste les devis du tenant courant. */
+        get: operations["listQuotes"];
+        put?: never;
+        /** Cree un devis a partir d elements coches d un projet (CA2, CA3). Transactionnel : numerotation, creation du devis et de ses lignes aboutissent ou echouent ensemble (aucun trou de sequence, aucun devis orphelin). Le client (CA4) et les configurations produit (CA3) sont heritees du projet et de ses elements, jamais ressaisis. */
+        post: operations["createQuoteFromProject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/quotes/{quoteId}": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /** Recupere un devis et ses lignes. */
+        get: operations["getQuote"];
+        put?: never;
+        post?: never;
+        /** Supprime un devis A L ETAT BROUILLON UNIQUEMENT (CA6). Refuse sur tout autre statut : un devis envoye ou valide reste dans l historique commercial. */
+        delete: operations["deleteQuote"];
+        options?: never;
+        head?: never;
+        /** Modifie l entete d un devis brouillon : validite, affichage des remises (CA6). Jamais le numero ni le client. */
+        patch: operations["updateQuote"];
+        trace?: never;
+    };
 }
 export interface webhooks {
     "quote.converted": {
@@ -467,6 +526,23 @@ export interface webhooks {
         put?: never;
         /** Un projet a ete cree dans le referentiel commercial. */
         post: operations["onProjectCreated"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "quote.created": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Un devis a ete cree depuis un projet (E10.3). Distinct de `quote.converted` (E10.12, story future), qui signale la conversion en commande. */
+        post: operations["onQuoteCreated"];
         delete?: never;
         options?: never;
         head?: never;
@@ -629,7 +705,7 @@ export interface components {
          * @description Nom d evenement sortant, `agregat.action` en snake_case. Liste additive : une story ulterieure peut en ajouter, jamais en retirer.
          * @enum {string}
          */
-        EventName: "quote.converted" | "order.step_changed" | "order.files_submitted" | "customer.created" | "project.created" | "price_rule.changed";
+        EventName: "quote.converted" | "quote.created" | "order.step_changed" | "order.files_submitted" | "customer.created" | "project.created" | "price_rule.changed";
         /**
          * EventEnvelope
          * @description Enveloppe versionnee d un evenement sortant (CA10). Le corps signe par `X-Magrit-Signature` est exactement la serialisation JSON de cette enveloppe, octet pour octet.
@@ -975,6 +1051,104 @@ export interface components {
                 [key: string]: unknown;
             } | null;
         };
+        /**
+         * QuoteStatus
+         * @description Cycle de vie du devis. Cette story ne cree et ne fait transiter que `draft` : les autres valeurs existent au schema pour les stories futures (E10.10 remises, E10.12 conversion en commande) et ne sont jamais produites ici.
+         * @enum {string}
+         */
+        QuoteStatus: "draft" | "sent" | "accepted" | "rejected" | "converted";
+        /**
+         * QuoteLine
+         * @description Ligne de devis au format `PricedLine` de l interface PricingEngine (E10.21, pas encore livree — E10.8 est gelee, specification seule). `production_price` (cout de production issu du chiffrage source, CA3) est le seul prix renseigne par cette story : `public_price`, `customer_price`, `applied_margin_rate` et `applied_rule_id` sont `null` et `breakdown` est vide tant qu E10.21 n est pas livree. Voir docs/api/CONVENTIONS.md pour la tracabilite de cette dependance.
+         */
+        QuoteLine: {
+            id: components["schemas"]["Uuid"];
+            quote_id: components["schemas"]["Uuid"];
+            /** @description Element de chiffrage source (CA3). Le retrait de ce devis ne supprime ni ne marque exclusivement l element : il reste disponible pour d autres devis (CA7). */
+            project_item_id: components["schemas"]["Uuid"];
+            label: string;
+            /** @description Configuration produit reprise telle quelle du chiffrage source (CA3), forme libre — miroir de `ProjectItem.quote_payload`. */
+            product_config: {
+                [key: string]: unknown;
+            };
+            /** Format: int32 */
+            quantity: number;
+            /** Format: int32 */
+            position: number;
+            /** @description Cout de production issu du chiffrage source (CA3). */
+            production_price: components["schemas"]["Money"];
+            /** @description Point d extension E10.21 : `null` tant que le moteur de prix n est pas livre. */
+            public_price: components["schemas"]["Money"] | null;
+            /** @description Point d extension E10.21 : `null` tant que le moteur de prix n est pas livre. */
+            customer_price: components["schemas"]["Money"] | null;
+            /** @description Point d extension E10.21 : `null` tant que le moteur de prix n est pas livre. */
+            applied_margin_rate: components["schemas"]["Rate"] | null;
+            /** @description Point d extension E10.21 : `null` tant que le moteur de prix n est pas livre. */
+            applied_rule_id: components["schemas"]["Uuid"] | null;
+            /** @description Detail du calcul de prix (E10.21). Toujours vide tant que cette story n est pas livree — pas de donnee inventee. */
+            breakdown: {
+                [key: string]: unknown;
+            }[];
+            created_at: components["schemas"]["Timestamp"];
+        };
+        /**
+         * Quote
+         * @description Devis (CA1-CA7), cree depuis un ou plusieurs elements d un projet. Le client est herite du projet (CA4), jamais ressaisi. Un projet peut donner lieu a plusieurs devis successifs (CA7).
+         */
+        Quote: {
+            id: components["schemas"]["Uuid"];
+            tenant_id: components["schemas"]["Uuid"];
+            /** @description Herite du projet source (CA4), jamais modifiable depuis le devis. */
+            customer_id: components["schemas"]["Uuid"];
+            project_id: components["schemas"]["Uuid"];
+            /**
+             * @description Numero metier unique et sequentiel par tenant et par annee (CA5), attribue en base a la creation — jamais calcule cote client.
+             * @example DEV-2026-00042
+             */
+            number: string;
+            status: components["schemas"]["QuoteStatus"];
+            /** @description Date de validite du devis. `null` tant qu elle n est pas fixee. */
+            valid_until: string | null;
+            /** @description Affichage des remises sur le devis. Point d extension E10.10 : `false` par defaut tant que cette story n est pas livree. */
+            show_discounts: boolean;
+            created_by: components["schemas"]["Uuid"] | null;
+            created_at: components["schemas"]["Timestamp"];
+            updated_at: components["schemas"]["Timestamp"];
+        };
+        /**
+         * QuoteDetail
+         * @description Devis complet avec ses lignes (CA5, CA6). Schema APLATI plutot que compose par `allOf`, meme raison que `ProjectDetail` : combine a `additionalProperties: false`, un `allOf` ferait rejeter `lines` par le membre `Quote`, ferme sur ses seuls champs.
+         */
+        QuoteDetail: {
+            id: components["schemas"]["Uuid"];
+            tenant_id: components["schemas"]["Uuid"];
+            customer_id: components["schemas"]["Uuid"];
+            project_id: components["schemas"]["Uuid"];
+            number: string;
+            status: components["schemas"]["QuoteStatus"];
+            valid_until: string | null;
+            show_discounts: boolean;
+            created_by: components["schemas"]["Uuid"] | null;
+            created_at: components["schemas"]["Timestamp"];
+            updated_at: components["schemas"]["Timestamp"];
+            lines: components["schemas"]["QuoteLine"][];
+        };
+        /**
+         * CreateQuoteFromProjectCommand
+         * @description Commande de creation d un devis depuis des elements coches d un projet (CA2). `item_ids` doit designer des elements existants DU PROJET DONNE, sans quoi la creation est refusee en 422 `quote.items_invalid`.
+         */
+        CreateQuoteFromProjectCommand: {
+            project_id: components["schemas"]["Uuid"];
+            item_ids: components["schemas"]["Uuid"][];
+        };
+        /**
+         * UpdateQuoteCommand
+         * @description Modification partielle de l entete d un devis : validite, affichage des remises (CA6). Jamais le numero, le client ou le projet source.
+         */
+        UpdateQuoteCommand: {
+            valid_until?: string | null;
+            show_discounts?: boolean;
+        };
     };
     responses: {
         /** @description Requete malformee. */
@@ -1106,6 +1280,8 @@ export interface components {
         CustomerId: components["schemas"]["Uuid"];
         /** @description Identifiant technique du projet, dans le tenant du jeton. */
         ProjectId: components["schemas"]["Uuid"];
+        /** @description Identifiant technique du devis, dans le tenant du jeton. */
+        QuoteId: components["schemas"]["Uuid"];
     };
     requestBodies: never;
     headers: {
@@ -1159,6 +1335,12 @@ export type ProjectTag = components['schemas']['ProjectTag'];
 export type CreateProjectTagCommand = components['schemas']['CreateProjectTagCommand'];
 export type ReplaceProjectTagsCommand = components['schemas']['ReplaceProjectTagsCommand'];
 export type CreateProjectItemCommand = components['schemas']['CreateProjectItemCommand'];
+export type QuoteStatus = components['schemas']['QuoteStatus'];
+export type QuoteLine = components['schemas']['QuoteLine'];
+export type Quote = components['schemas']['Quote'];
+export type QuoteDetail = components['schemas']['QuoteDetail'];
+export type CreateQuoteFromProjectCommand = components['schemas']['CreateQuoteFromProjectCommand'];
+export type UpdateQuoteCommand = components['schemas']['UpdateQuoteCommand'];
 export type ResponseBadRequest = components['responses']['BadRequest'];
 export type ResponseUnauthorized = components['responses']['Unauthorized'];
 export type ResponseForbidden = components['responses']['Forbidden'];
@@ -1178,6 +1360,7 @@ export type ParameterMagritSignature = components['parameters']['MagritSignature
 export type ParameterMagritEventName = components['parameters']['MagritEventName'];
 export type ParameterCustomerId = components['parameters']['CustomerId'];
 export type ParameterProjectId = components['parameters']['ProjectId'];
+export type ParameterQuoteId = components['parameters']['QuoteId'];
 export type HeaderETag = components['headers']['ETag'];
 export type HeaderXRequestId = components['headers']['XRequestId'];
 export type HeaderIdempotencyReplayed = components['headers']['IdempotencyReplayed'];
@@ -2225,6 +2408,257 @@ export interface operations {
             };
         };
     };
+    listQuotes: {
+        parameters: {
+            query?: {
+                /** @description Filtre sur le client du devis. */
+                customer_id?: components["schemas"]["Uuid"];
+                /** @description Filtre sur le projet source du devis. */
+                project_id?: components["schemas"]["Uuid"];
+                /** @description Filtre sur le statut du devis. Absent -> tous statuts. */
+                status?: components["schemas"]["QuoteStatus"];
+                /** @description Nombre d elements par page. Defaut 50, maximum 200. */
+                "page[size]"?: components["parameters"]["PageSize"];
+                /** @description Curseur opaque renvoye par `meta.next_cursor` de la page precedente. Absent sur la premiere page. Ne jamais construire un curseur cote client : sa structure interne n est pas contractuelle. */
+                "page[cursor]"?: components["parameters"]["PageCursor"];
+            };
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Page de devis du tenant. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["Quote"][];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    createQuoteFromProject: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+                /** @description Cle d idempotence de la creation (CA8). Un client qui rejoue la meme cle recoit le devis deja cree, jamais un second. */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateQuoteFromProjectCommand"];
+            };
+        };
+        responses: {
+            /** @description Devis cree au statut brouillon, avec ses lignes (CA5, CA6). */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["QuoteDetail"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description Projet introuvable dans le tenant du jeton (`quote.project_not_found`). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            409: components["responses"]["Conflict"];
+            /** @description `item_ids` vide, ou un identifiant ne correspond a aucun element du projet donne (`quote.items_invalid`). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getQuote: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path: {
+                /** @description Identifiant technique du devis, dans le tenant du jeton. */
+                quoteId: components["parameters"]["QuoteId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Devis detaille. L `ETag` porte sur le sous-ensemble `Quote` de cette fiche (hors `lines`), meme base de calcul que celle verifiee par `updateQuote` (CA9). */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["QuoteDetail"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteQuote: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path: {
+                /** @description Identifiant technique du devis, dans le tenant du jeton. */
+                quoteId: components["parameters"]["QuoteId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Devis supprime. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: {
+                            /** @enum {boolean} */
+                            deleted: true;
+                        };
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description Le devis n est plus a l etat brouillon (`quote.delete_requires_draft`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    updateQuote: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+                /** @description Precondition de concurrence optimiste (CA9, voir components/parameters/IfMatch pour la description complete). */
+                "If-Match": string;
+            };
+            path: {
+                /** @description Identifiant technique du devis, dans le tenant du jeton. */
+                quoteId: components["parameters"]["QuoteId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateQuoteCommand"];
+            };
+        };
+        responses: {
+            /** @description Devis modifie. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["Quote"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            428: components["responses"]["PreconditionRequired"];
+        };
+    };
     onQuoteConverted: {
         parameters: {
             query?: never;
@@ -2334,6 +2768,33 @@ export interface operations {
         };
     };
     onProjectCreated: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Signature HMAC-SHA256 du corps brut de l evenement, au format `sha256=<hex minuscule>`. A verifier en comparaison a temps constant. */
+                "X-Magrit-Signature": components["parameters"]["MagritSignature"];
+                /** @description Nom de l evenement livre, identique a `EventEnvelope.event_name`. */
+                "X-Magrit-Event": components["parameters"]["MagritEventName"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EventEnvelope"];
+            };
+        };
+        responses: {
+            /** @description Evenement accepte par le consommateur. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    onQuoteCreated: {
         parameters: {
             query?: never;
             header: {

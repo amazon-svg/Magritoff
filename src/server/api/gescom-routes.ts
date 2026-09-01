@@ -33,10 +33,12 @@ import type { CustomersService } from '../../modules/customers/application/custo
 import type { CustomerContactShopAccessService } from '../../modules/shop-customers/application/customer-contact-shop-access-service.ts';
 import type { ProjectsService } from '../../modules/projects/application/projects-service.ts';
 import type { ProjectTagsService } from '../../modules/project-tags/application/project-tags-service.ts';
+import type { CommercialQuotesService } from '../../modules/commercial-quotes/application/commercial-quotes-service.ts';
 import { createCustomersRoutes } from './customers-routes.ts';
 import { createCustomerShopAccessRoutes } from './customer-shop-access-routes.ts';
 import { createProjectsRoutes } from './projects-routes.ts';
 import { createProjectTagsRoutes } from './project-tags-routes.ts';
+import { createCommercialQuotesRoutes } from './commercial-quotes-routes.ts';
 import type { GescomRoute } from './gescom-middleware.ts';
 
 /**
@@ -51,6 +53,8 @@ export type GescomServices = Readonly<{
   projects: ProjectsService;
   /** E10.2 — tags libres colores sur les projets, crees a la volee. */
   projectTags: ProjectTagsService;
+  /** E10.3 — creation d un devis depuis un projet (selection multi-produits). */
+  commercialQuotes: CommercialQuotesService;
 }>;
 
 /**
@@ -65,6 +69,7 @@ export function gescomRoutes(services: GescomServices): readonly GescomRoute[] {
     ...createCustomerShopAccessRoutes(services.customers, services.customerShopAccess),
     ...createProjectsRoutes(services.projects),
     ...createProjectTagsRoutes(services.projectTags),
+    ...createCommercialQuotesRoutes(services.commercialQuotes),
   ];
 }
 
@@ -82,6 +87,7 @@ export const GESCOM_ROUTES: readonly GescomRoute[] = Object.freeze(
     customerShopAccess: createNullService('CustomerContactShopAccessService'),
     projects: createNullService('ProjectsService'),
     projectTags: createNullService('ProjectTagsService'),
+    commercialQuotes: createNullService('CommercialQuotesService'),
   }),
 );
 

@@ -13,7 +13,7 @@
  */
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { ArrowLeft, Archive, ArchiveRestore, Loader2, RefreshCw, Trash2 } from 'lucide-react';
+import { ArrowLeft, Archive, ArchiveRestore, FileText, Loader2, RefreshCw, Trash2 } from 'lucide-react';
 import { useTenant } from '@/modules/tenants/ui/runtime';
 import { useTenantPath } from '@/modules/tenants/ui/hooks';
 import { useWorkspaceApi } from '@/platform/runtime/workspace-ui-runtime';
@@ -21,6 +21,7 @@ import { CustomersApiClient, type CustomerDto } from '@/modules/customers';
 import { TEST_IDS } from '@/shared/presentation/testIds';
 import { useProjectDetail, useProjectTagsCatalog } from '@/modules/projects/ui/hooks';
 import type { ProjectItemDto } from '@/modules/projects/api/contracts';
+import { CreateQuoteDrawer } from '@/modules/commercial-quotes/ui';
 import { customerDisplayName } from './ProjectCreateModal';
 import { ProjectTagsEditor } from './ProjectTagsEditor';
 
@@ -69,6 +70,21 @@ export function DashboardProjectDetail() {
   const [savingName, setSavingName] = useState(false);
   const [savingArchive, setSavingArchive] = useState(false);
   const [removingItemId, setRemovingItemId] = useState<string | null>(null);
+
+  // E10.3 CA2 — case a cocher par element, convertie en ligne de devis a la
+  // creation. Pas de calcul ni de total ici : la selection ne fait que
+  // determiner QUELS elements partent dans la commande de creation.
+  const [selectedItemIds, setSelectedItemIds] = useState<ReadonlySet<string>>(new Set());
+  const [quoteDrawerOpen, setQuoteDrawerOpen] = useState(false);
+
+  const toggleItemSelection = (itemId: string) => {
+    setSelectedItemIds((current) => {
+      const next = new Set(current);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+  };
 
   if (loading) return <p className="text-sm text-ink-muted">Chargement…</p>;
 
@@ -194,23 +210,37 @@ export function DashboardProjectDetail() {
             />
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => void toggleArchive()}
-          disabled={savingArchive}
-          className={btnGhost}
-        >
-          {savingArchive && <Loader2 className="w-4 h-4 animate-spin" />}
-          {detail.status === 'active' ? (
-            <>
-              <Archive className="w-4 h-4" /> Archiver
-            </>
-          ) : (
-            <>
-              <ArchiveRestore className="w-4 h-4" /> Réactiver
-            </>
-          )}
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          {/* E10.3 CA1 — actif seulement si le projet contient au moins un
+              chiffrage. Ouvre la selection des elements coches (CA2). */}
+          <button
+            type="button"
+            onClick={() => setQuoteDrawerOpen(true)}
+            disabled={detail.items.length === 0}
+            className="px-3 py-1.5 bg-brand text-brand-ink rounded-lg hover:opacity-90 disabled:opacity-50 text-sm font-medium flex items-center gap-2"
+            data-testid={TEST_IDS.project.createQuoteBtn}
+          >
+            <FileText className="w-4 h-4" />
+            Créer un devis
+          </button>
+          <button
+            type="button"
+            onClick={() => void toggleArchive()}
+            disabled={savingArchive}
+            className={btnGhost}
+          >
+            {savingArchive && <Loader2 className="w-4 h-4 animate-spin" />}
+            {detail.status === 'active' ? (
+              <>
+                <Archive className="w-4 h-4" /> Archiver
+              </>
+            ) : (
+              <>
+                <ArchiveRestore className="w-4 h-4" /> Réactiver
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {error && <p className="text-sm text-err-fg">{error}</p>}
@@ -235,6 +265,15 @@ export function DashboardProjectDetail() {
                   data-item-id={item.id}
                   className="py-3 flex items-center justify-between gap-3"
                 >
+                  <input
+                    type="checkbox"
+                    checked={selectedItemIds.has(item.id)}
+                    onChange={() => toggleItemSelection(item.id)}
+                    className="shrink-0"
+                    aria-label={`Selectionner ${item.label} pour un devis`}
+                    data-testid={TEST_IDS.project.itemCheckbox}
+                    data-item-id={item.id}
+                  />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-ink font-medium">{item.label}</p>
                     <p className="text-xs text-ink-muted">
@@ -278,6 +317,21 @@ export function DashboardProjectDetail() {
           </ul>
         )}
       </section>
+
+      {quoteDrawerOpen && (
+        <CreateQuoteDrawer
+          projectId={detail.id}
+          items={detail.items
+            .filter((item) => selectedItemIds.has(item.id))
+            .map((item) => ({ id: item.id, label: item.label }))}
+          onClose={() => setQuoteDrawerOpen(false)}
+          onCreated={(quote) => {
+            setQuoteDrawerOpen(false);
+            setSelectedItemIds(new Set());
+            navigate(tp(`/dashboard/commercial-quotes/${quote.id}`));
+          }}
+        />
+      )}
     </div>
   );
 }
