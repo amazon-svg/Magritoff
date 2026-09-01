@@ -301,6 +301,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{projectId}/tags": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Remplace la liste des tags d un projet (E10.2 CA1, CA6). Retrait implicite de tout tag absent de `tag_ids` : le tag lui-meme n est jamais supprime du tenant (CA5), seul le lien au projet l est. */
+        put: operations["replaceProjectTags"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/project-tags": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /** Liste les tags du tenant courant (CA3), `q` sert l autocompletion depuis le champ de saisie du projet (CA2). */
+        get: operations["listProjectTags"];
+        put?: never;
+        /** Cree un tag a la volee depuis le champ de saisie du projet (CA2). Creation IDEMPOTENTE sur le libelle normalise (trim, casse insensible) : si le libelle existe deja dans le tenant, l operation rend 200 avec le tag EXISTANT plutot qu un 409 — ce n est pas un conflit, deux commerciaux qui saisissent le meme libelle en meme temps doivent obtenir le meme identifiant. La concurrence est geree cote base (contrainte unique + gestion du conflit d insertion), pas seulement par une verification applicative prealable. */
+        post: operations["createProjectTag"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/project-tags/{tagId}": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Supprime un tag du tenant (CA5). Refuse tant qu il est encore lie a au moins un projet (`project_tag.in_use`, 409) : un tag encore utilise ne se supprime jamais silencieusement, retirer d abord le lien depuis chaque projet. */
+        delete: operations["deleteProjectTag"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export interface webhooks {
     "quote.converted": {
@@ -783,8 +868,8 @@ export interface components {
             customer_id: components["schemas"]["Uuid"];
             name: string;
             status: components["schemas"]["ProjectStatus"];
-            /** @description Point d extension E10.2 (tags de projet). Toujours vide tant que cette story n est pas livree — pas de donnee inventee. */
-            tags: unknown[];
+            /** @description Tags libres colores du projet (CA1, CA6, E10.2), 0 a N. Ordre non garanti. */
+            tags: components["schemas"]["ProjectTag"][];
             /** @description Acteur createur. `null` pour une creation systeme. */
             created_by?: components["schemas"]["Uuid"] | null;
             created_at: components["schemas"]["Timestamp"];
@@ -823,7 +908,7 @@ export interface components {
             customer_id: components["schemas"]["Uuid"];
             name: string;
             status: components["schemas"]["ProjectStatus"];
-            tags: unknown[];
+            tags: components["schemas"]["ProjectTag"][];
             created_by?: components["schemas"]["Uuid"] | null;
             created_at: components["schemas"]["Timestamp"];
             updated_at: components["schemas"]["Timestamp"];
@@ -845,6 +930,37 @@ export interface components {
             name?: string;
             customer_id?: components["schemas"]["Uuid"];
             status?: components["schemas"]["ProjectStatus"];
+        };
+        /**
+         * ProjectTagColor
+         * @description JETON de couleur d une palette FERMEE, alignee sur les tokens shadcn/Tailwind du design system (CA1). Jamais un code hexadecimal : la charte doit pouvoir evoluer sans migration.
+         * @enum {string}
+         */
+        ProjectTagColor: "slate" | "blue" | "green" | "amber" | "red" | "violet";
+        /**
+         * ProjectTag
+         * @description Tag libre colore, scope au tenant (CA1, CA3). Le libelle est affiche TEL QUE SAISI ; l unicite dans le tenant est verifiee sur sa forme normalisee (trim, casse insensible), jamais sur le libelle brut.
+         */
+        ProjectTag: {
+            id: components["schemas"]["Uuid"];
+            tenant_id: components["schemas"]["Uuid"];
+            label: string;
+            color: components["schemas"]["ProjectTagColor"];
+            created_at: components["schemas"]["Timestamp"];
+        };
+        /**
+         * CreateProjectTagCommand
+         * @description Commande de creation a la volee (CA2). La couleur n est pas choisie par l appelant : elle est assignee par le serveur depuis la palette fermee, de facon deterministe pour un meme libelle normalise.
+         */
+        CreateProjectTagCommand: {
+            label: string;
+        };
+        /**
+         * ReplaceProjectTagsCommand
+         * @description Remplace la liste COMPLETE des tags d un projet (CA6). Un `tag_ids` vide retire tous les tags du projet, sans jamais supprimer les tags eux-memes du tenant (CA5).
+         */
+        ReplaceProjectTagsCommand: {
+            tag_ids: components["schemas"]["Uuid"][];
         };
         /**
          * CreateProjectItemCommand
@@ -1038,6 +1154,10 @@ export type ProjectItem = components['schemas']['ProjectItem'];
 export type ProjectDetail = components['schemas']['ProjectDetail'];
 export type CreateProjectCommand = components['schemas']['CreateProjectCommand'];
 export type UpdateProjectCommand = components['schemas']['UpdateProjectCommand'];
+export type ProjectTagColor = components['schemas']['ProjectTagColor'];
+export type ProjectTag = components['schemas']['ProjectTag'];
+export type CreateProjectTagCommand = components['schemas']['CreateProjectTagCommand'];
+export type ReplaceProjectTagsCommand = components['schemas']['ReplaceProjectTagsCommand'];
 export type CreateProjectItemCommand = components['schemas']['CreateProjectItemCommand'];
 export type ResponseBadRequest = components['responses']['BadRequest'];
 export type ResponseUnauthorized = components['responses']['Unauthorized'];
@@ -1606,8 +1726,10 @@ export interface operations {
                 q?: string;
                 /** @description Filtre sur le client du projet. */
                 customer_id?: components["schemas"]["Uuid"];
-                /** @description Filtre sur un tag de projet. PARAMETRE RESERVE : accepte des E10.1 pour stabiliser le contrat consomme par Studio, mais n est exploite qu a partir d E10.2 (tags de projet). Un tag_id fourni avant E10.2 est ignore, jamais une erreur. */
+                /** @description Filtre sur un seul tag de projet (E10.2). Conserve pour compatibilite avec les integrations qui ciblent un tag unique (Studio) ; equivalent a `tag_ids` a un seul element. Combinable avec `tag_ids` (union, dedoublonnee). */
                 tag_id?: components["schemas"]["Uuid"];
+                /** @description Filtre multi-tags en ET logique (CA4, E10.2) : seuls les projets portant TOUS les tags listes sont rendus. Liste d UUID separes par des virgules, ex. `tag_ids=<uuid1>,<uuid2>`. Un identifiant malforme rend 400. */
+                tag_ids?: string;
                 /** @description Filtre sur le statut du projet. Absent -> tous statuts. */
                 status?: components["schemas"]["ProjectStatus"];
                 /** @description Nombre d elements par page. Defaut 50, maximum 200. */
@@ -1890,6 +2012,217 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    replaceProjectTags: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+                /** @description Precondition de concurrence optimiste sur le PROJET (CA9, meme garantie qu un PATCH — voir components/parameters/IfMatch). E10.2 etend cette garde a ce PUT : deux commerciaux qui retaguent le meme projet en parallele ne doivent pas s ecraser en silence. */
+                "If-Match": string;
+            };
+            path: {
+                /** @description Identifiant technique du projet, dans le tenant du jeton. */
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplaceProjectTagsCommand"];
+            };
+        };
+        responses: {
+            /** @description Tags du projet remplaces. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["Project"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Un `tag_ids` reference un tag inconnu ou hors du tenant (`project.tag_unknown`). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            428: components["responses"]["PreconditionRequired"];
+        };
+    };
+    listProjectTags: {
+        parameters: {
+            query?: {
+                /** @description Recherche plein texte sur le libelle, pour l autocompletion. */
+                q?: string;
+            };
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tags du tenant, tries par libelle. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["ProjectTag"][];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createProjectTag: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+                /** @description Cle d idempotence de la tentative de creation (CA8, voir components/parameters/IdempotencyKey). Distincte de l idempotence sur le libelle : celle-ci protege contre la RE-EMISSION de la MEME requete HTTP (retry reseau), l idempotence sur le libelle protege contre deux requetes DIFFERENTES portant le meme libelle. */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateProjectTagCommand"];
+            };
+        };
+        responses: {
+            /** @description Le libelle normalise existait deja dans ce tenant, tag existant rendu. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["ProjectTag"];
+                    };
+                };
+            };
+            /** @description Tag cree. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["ProjectTag"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            /** @description Libelle vide ou trop long (`api.validation_failed`). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    deleteProjectTag: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path: {
+                tagId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tag supprime du tenant. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: {
+                            /** @enum {boolean} */
+                            deleted: true;
+                        };
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description Le tag est encore lie a au moins un projet (`project_tag.in_use`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
         };
     };
     onQuoteConverted: {

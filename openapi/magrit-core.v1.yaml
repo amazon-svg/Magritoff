@@ -747,12 +747,24 @@ paths:
           in: query
           required: false
           description: >-
-            Filtre sur un tag de projet. PARAMETRE RESERVE : accepte des
-            E10.1 pour stabiliser le contrat consomme par Studio, mais
-            n est exploite qu a partir d E10.2 (tags de projet). Un tag_id
-            fourni avant E10.2 est ignore, jamais une erreur.
+            Filtre sur un seul tag de projet (E10.2). Conserve pour
+            compatibilite avec les integrations qui ciblent un tag unique
+            (Studio) ; equivalent a `tag_ids` a un seul element. Combinable
+            avec `tag_ids` (union, dedoublonnee).
           schema:
             $ref: '#/components/schemas/Uuid'
+        - name: tag_ids
+          in: query
+          required: false
+          description: >-
+            Filtre multi-tags en ET logique (CA4, E10.2) : seuls les projets
+            portant TOUS les tags listes sont rendus. Liste d UUID separes
+            par des virgules, ex. `tag_ids=<uuid1>,<uuid2>`. Un identifiant
+            malforme rend 400.
+          schema:
+            type: string
+            minLength: 36
+            maxLength: 2000
         - name: status
           in: query
           required: false
@@ -1045,6 +1057,251 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /projects/{projectId}/tags:
+    parameters:
+      - $ref: '#/components/parameters/MagritTenant'
+    put:
+      operationId: replaceProjectTags
+      summary: >-
+        Remplace la liste des tags d un projet (E10.2 CA1, CA6). Retrait
+        implicite de tout tag absent de `tag_ids` : le tag lui-meme n est
+        jamais supprime du tenant (CA5), seul le lien au projet l est.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - name: If-Match
+          in: header
+          required: true
+          description: >-
+            Precondition de concurrence optimiste sur le PROJET (CA9, meme
+            garantie qu un PATCH — voir components/parameters/IfMatch).
+            E10.2 etend cette garde a ce PUT : deux commerciaux qui retaguent
+            le meme projet en parallele ne doivent pas s ecraser en silence.
+          schema:
+            type: string
+            minLength: 3
+            maxLength: 255
+            pattern: '^(W/)?"[^"]+"$'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceProjectTagsCommand'
+      responses:
+        '200':
+          description: Tags du projet remplaces.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Project'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          description: >-
+            Un `tag_ids` reference un tag inconnu ou hors du tenant
+            (`project.tag_unknown`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+
+# ----------------------------------------------------------------------------
+# story E10.2 — Tags libres colores sur les projets (RP du 28/08/2026) :
+# classement par arborescence ecarte au profit de tags textuels crees a la
+# volee, combines a une recherche plein texte et un filtre multi-tags (CA1 a
+# CA6). Scopes au tenant (CA3) : deux tenants peuvent partager un libelle sans
+# collision, la contrainte d unicite porte sur (tenant_id, lower(label)).
+# ----------------------------------------------------------------------------
+  /project-tags:
+    parameters:
+      - $ref: '#/components/parameters/MagritTenant'
+    get:
+      operationId: listProjectTags
+      summary: >-
+        Liste les tags du tenant courant (CA3), `q` sert l autocompletion
+        depuis le champ de saisie du projet (CA2).
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+        - serviceKey: []
+      x-required-scopes: [project-tags:read]
+      parameters:
+        - name: q
+          in: query
+          required: false
+          description: Recherche plein texte sur le libelle, pour l autocompletion.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 60
+      responses:
+        '200':
+          description: Tags du tenant, tries par libelle.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ProjectTag'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    post:
+      operationId: createProjectTag
+      summary: >-
+        Cree un tag a la volee depuis le champ de saisie du projet (CA2).
+        Creation IDEMPOTENTE sur le libelle normalise (trim, casse
+        insensible) : si le libelle existe deja dans le tenant, l operation
+        rend 200 avec le tag EXISTANT plutot qu un 409 — ce n est pas un
+        conflit, deux commerciaux qui saisissent le meme libelle en meme
+        temps doivent obtenir le meme identifiant. La concurrence est geree
+        cote base (contrainte unique + gestion du conflit d insertion), pas
+        seulement par une verification applicative prealable.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: >-
+            Cle d idempotence de la tentative de creation (CA8, voir
+            components/parameters/IdempotencyKey). Distincte de l idempotence
+            sur le libelle : celle-ci protege contre la RE-EMISSION de la
+            MEME requete HTTP (retry reseau), l idempotence sur le libelle
+            protege contre deux requetes DIFFERENTES portant le meme
+            libelle.
+          schema:
+            type: string
+            minLength: 8
+            maxLength: 255
+            pattern: '^[A-Za-z0-9_.:-]{8,255}$'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProjectTagCommand'
+      responses:
+        '200':
+          description: Le libelle normalise existait deja dans ce tenant, tag existant rendu.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ProjectTag'
+        '201':
+          description: Tag cree.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ProjectTag'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          description: Libelle vide ou trop long (`api.validation_failed`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  /project-tags/{tagId}:
+    parameters:
+      - $ref: '#/components/parameters/MagritTenant'
+    delete:
+      operationId: deleteProjectTag
+      summary: >-
+        Supprime un tag du tenant (CA5). Refuse tant qu il est encore lie a
+        au moins un projet (`project_tag.in_use`, 409) : un tag encore
+        utilise ne se supprime jamais silencieusement, retirer d abord le
+        lien depuis chaque projet.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: tagId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+      responses:
+        '200':
+          description: Tag supprime du tenant.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: false
+                        required: [deleted]
+                        properties:
+                          deleted:
+                            type: boolean
+                            enum: [true]
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Le tag est encore lie a au moins un projet (`project_tag.in_use`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
 # ----------------------------------------------------------------------------
 # Bus d evenements sortants (CA10)
 # ----------------------------------------------------------------------------
@@ -1208,6 +1465,7 @@ components:
         customers:write: Creation et modification du referentiel client.
         projects:read: Lecture des projets (conteneurs de chiffrage) du tenant.
         projects:write: Creation et modification des projets du tenant.
+        project-tags:read: Lecture des tags de projet du tenant.
         price-rules:read: Lecture des regles de prix commerciales.
         price-rules:write: Creation et modification des regles de prix.
         events:subscribe: Abonnement au bus d evenements sortants.
@@ -2383,10 +2641,11 @@ components:
           $ref: '#/components/schemas/ProjectStatus'
         tags:
           description: >-
-            Point d extension E10.2 (tags de projet). Toujours vide tant que
-            cette story n est pas livree — pas de donnee inventee.
+            Tags libres colores du projet (CA1, CA6, E10.2), 0 a N. Ordre non
+            garanti.
           type: array
-          items: {}
+          items:
+            $ref: '#/components/schemas/ProjectTag'
         created_by:
           description: Acteur createur. `null` pour une creation systeme.
           oneOf:
@@ -2474,7 +2733,8 @@ components:
           $ref: '#/components/schemas/ProjectStatus'
         tags:
           type: array
-          items: {}
+          items:
+            $ref: '#/components/schemas/ProjectTag'
         created_by:
           oneOf:
             - $ref: '#/components/schemas/Uuid'
@@ -2522,6 +2782,72 @@ components:
           $ref: '#/components/schemas/Uuid'
         status:
           $ref: '#/components/schemas/ProjectStatus'
+
+    # --------------------------------------------------------------------------
+    # story E10.2 — Tags libres colores sur les projets
+    # --------------------------------------------------------------------------
+    ProjectTagColor:
+      title: ProjectTagColor
+      description: >-
+        JETON de couleur d une palette FERMEE, alignee sur les tokens
+        shadcn/Tailwind du design system (CA1). Jamais un code hexadecimal :
+        la charte doit pouvoir evoluer sans migration.
+      type: string
+      enum: [slate, blue, green, amber, red, violet]
+
+    ProjectTag:
+      title: ProjectTag
+      description: >-
+        Tag libre colore, scope au tenant (CA1, CA3). Le libelle est affiche
+        TEL QUE SAISI ; l unicite dans le tenant est verifiee sur sa forme
+        normalisee (trim, casse insensible), jamais sur le libelle brut.
+      type: object
+      additionalProperties: false
+      required: [id, tenant_id, label, color, created_at]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        tenant_id:
+          $ref: '#/components/schemas/Uuid'
+        label:
+          type: string
+          minLength: 1
+          maxLength: 60
+        color:
+          $ref: '#/components/schemas/ProjectTagColor'
+        created_at:
+          $ref: '#/components/schemas/Timestamp'
+
+    CreateProjectTagCommand:
+      title: CreateProjectTagCommand
+      description: >-
+        Commande de creation a la volee (CA2). La couleur n est pas choisie
+        par l appelant : elle est assignee par le serveur depuis la palette
+        fermee, de facon deterministe pour un meme libelle normalise.
+      type: object
+      additionalProperties: false
+      required: [label]
+      properties:
+        label:
+          type: string
+          minLength: 1
+          maxLength: 60
+
+    ReplaceProjectTagsCommand:
+      title: ReplaceProjectTagsCommand
+      description: >-
+        Remplace la liste COMPLETE des tags d un projet (CA6). Un `tag_ids`
+        vide retire tous les tags du projet, sans jamais supprimer les tags
+        eux-memes du tenant (CA5).
+      type: object
+      additionalProperties: false
+      required: [tag_ids]
+      properties:
+        tag_ids:
+          type: array
+          maxItems: 50
+          items:
+            $ref: '#/components/schemas/Uuid'
 
     CreateProjectItemCommand:
       title: CreateProjectItemCommand
