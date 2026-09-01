@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { TEST_IDS } from '@/shared/presentation/testIds';
 import { applyTax, extractTaxAmount, formatTaxLabel } from '@/modules/orders/ui/helpers';
+import { formatClariprintAmount } from './clariprintAmount';
 import type { ClariprintQuoteResult } from '@/modules/clariprint';
 
 interface ProductCardPrixProps {
@@ -242,14 +243,14 @@ export function ProductCardPrix({
                       <div key={String(label)} className="flex justify-between text-ink-muted">
                         <span>{label}</span>
                         <span className={!user ? 'blur-sm select-none' : ''}>
-                          {(val as number).toFixed(2)} €
+                          {formatClariprintAmount(val)} €
                         </span>
                       </div>
                     ))}
                   <div className="flex justify-between font-semibold text-green-800 border-t border-green-200 pt-1 mt-1">
                     <span>Total HT</span>
                     <span className={!user ? 'blur-sm select-none' : ''}>
-                      {(clariprintQuote.costs.total || clariprintQuote.priceHT || 0).toFixed(2)} €
+                      {formatClariprintAmount(clariprintQuote.costs.total || clariprintQuote.priceHT || 0)} €
                     </span>
                   </div>
                 </div>
