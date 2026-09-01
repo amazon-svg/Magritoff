@@ -41,11 +41,17 @@ export interface UseClariprintProductState {
 /**
  * @param gateway Passerelle choisie par la surface appelante. Le hook ne
  *                résout jamais lui-même une identité ou un transport.
+ * @param initialQuote Résultat Clariprint déjà connu au montage (E10.1, C4
+ *                qa-review — reprise d'un chiffrage depuis un projet, dont
+ *                le `clariprintQuote` a déjà été calculé et persisté dans
+ *                `project_items.quote_payload`). `null`/omis pour tout autre
+ *                appelant existant : comportement inchangé, aucun rejeu.
  */
 export function useClariprintProduct(
   gateway: Pick<ClariprintPricingGateway, 'computePrice'>,
+  initialQuote: ClariprintQuoteResult | null = null,
 ): UseClariprintProductState {
-  const [quote, setQuote] = useState<ClariprintQuoteResult | null>(null);
+  const [quote, setQuote] = useState<ClariprintQuoteResult | null>(initialQuote);
   const [loading, setLoading] = useState(false);
   const [lastRequest, setLastRequest] = useState<unknown>(null);
   const [lastRawResponse, setLastRawResponse] = useState<string | null>(null);

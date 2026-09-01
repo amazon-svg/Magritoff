@@ -93,6 +93,14 @@ interface ProductCardProps {
     claudeResponse?: string;
     // ✅ Données Clariprint brutes (champs API)
     clariprintData?: any;
+    // E10.1 (C4 qa-review) : resultat Clariprint DEJA calcule et persiste
+    // (reprise depuis un projet, ProjectDetailPage -> ChatInterface). Sert
+    // uniquement de valeur INITIALE au hook useClariprintProduct ; jamais
+    // rejoue tant que l utilisateur ne redemande pas un calcul. Type `any`,
+    // comme `clariprintData` ci-dessus : la forme reelle vient du gateway
+    // Clariprint (@/modules/clariprint), distincte de l interface locale
+    // ClariprintQuoteResult de ce fichier (props d affichage uniquement).
+    clariprintQuote?: any;
     client_id?: string | null;
   };
   onProductUpdate?: (updatedProduct: any) => void;
@@ -163,7 +171,13 @@ export function ProductCard({
     lastRawResponse,
     compute: triggerClariprint,
     reset: resetClariprintQuote,
-  } = useClariprintProduct(clariprint);
+    // E10.1 (C4 qa-review) : initialise sur le clariprintQuote deja stocke
+    // (reprise depuis un projet) plutot que null — sinon resolvePrice()
+    // retombe sur "Prix estime" pour un chiffrage Clariprint pourtant deja
+    // valide, meme quand product.price vaut 0 (declenchant en plus un
+    // recalcul heuristique de prix marche). `product` (la prop), pas
+    // `localProduct`, car cette valeur ne sert qu au MONTAGE.
+  } = useClariprintProduct(clariprint, product.clariprintQuote ?? null);
 
   const computeClariprintQuote = async () => {
     if (!localProduct.clariprintData) return;
