@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { ChatInterface } from '@/modules/conversations/ui/components';
 import { HopeStudioApiClient } from '@/modules/hopstudio';
-import { HopeStudioWorkspace } from '@/modules/hopstudio/ui';
 import { useWorkspaceApi, useWorkspaceUiRuntime } from '@/platform/runtime/workspace-ui-runtime';
+import { ConfiguratorWorkspace } from './ConfiguratorWorkspace';
 
 export function ConfiguratorPage() {
   const api = useWorkspaceApi(HopeStudioApiClient);
@@ -32,7 +32,7 @@ export function ConfiguratorPage() {
   }
 
   if (hopeStudioEnabled && tenant && actor) {
-    return <HopeStudioWorkspace tenantId={tenant.id} userId={actor.userId} />;
+    return <ConfiguratorWorkspace tenantId={tenant.id} userId={actor.userId} />;
   }
 
   return (
