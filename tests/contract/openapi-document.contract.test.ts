@@ -26,6 +26,7 @@ import {
   lintRequiredScopes,
   lintResponseShapes,
   lintSecuritySchemes,
+  lintSharedParameterDefinitions,
   lintTenantNeverAddressed,
   REQUIRED_EVENT_NAMES,
 } from './_lint.ts';
@@ -188,6 +189,83 @@ describe('contrat OpenAPI magrit-core v1', () => {
       get: { responses: { '200': {}, '400': {}, '401': {}, '403': {} } },
     });
     expect(lintOperationCoverage(inheritedFromPath)).toEqual([]);
+  });
+
+  it('les parametres partages sont epingles sur leur nom et leur emplacement', () => {
+    expect(lintSharedParameterDefinitions(contract)).toEqual([]);
+
+    // La mutation exacte relevee par la revue : un composant qui glisse en
+    // query. Les operations qui le referencent promettraient une idempotence
+    // par query string, que le middleware ne lit pas.
+    const slipped = baseDocument();
+    const parameters = (slipped['components'] as Record<string, unknown>)['parameters'] as Record<
+      string,
+      Record<string, unknown>
+    >;
+    parameters['IdempotencyKey'] = { ...parameters['IdempotencyKey'], in: 'query' };
+    expect(lintSharedParameterDefinitions(slipped)).toEqual([
+      'components/parameters/IdempotencyKey doit etre transmis en header, trouve "query".',
+    ]);
+
+    const renamed = baseDocument();
+    const renamedParameters = (renamed['components'] as Record<string, unknown>)[
+      'parameters'
+    ] as Record<string, Record<string, unknown>>;
+    renamedParameters['MagritTenant'] = { ...renamedParameters['MagritTenant'], name: 'X-Tenant' };
+    expect(lintSharedParameterDefinitions(renamed)).toEqual([
+      'components/parameters/MagritTenant doit se nommer "X-Magrit-Tenant", trouve "X-Tenant".',
+    ]);
+  });
+
+  it('un $ref est RESOLU, pas cru sur son nom', () => {
+    // Sans resolution, la regle voyait « le $ref finit par /IdempotencyKey »
+    // et validait, quel que soit ce que le composant declare vraiment.
+    const document = baseDocument();
+    const parameters = (document['components'] as Record<string, unknown>)['parameters'] as Record<
+      string,
+      Record<string, unknown>
+    >;
+    parameters['IdempotencyKey'] = { ...parameters['IdempotencyKey'], in: 'query' };
+    document['paths'] = {
+      '/price-rules': {
+        parameters: [{ $ref: '#/components/parameters/MagritTenant' }],
+        post: {
+          parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }],
+          responses: { '201': {}, '400': {}, '401': {}, '403': {}, '409': {} },
+        },
+      },
+    };
+
+    expect(lintIdempotency(document)).toEqual([
+      'CA8 : POST /price-rules cree une ressource sans declarer Idempotency-Key.',
+    ]);
+
+    // Une reference qui pointe dans le vide ne vaut pas declaration non plus.
+    const dangling = baseDocument();
+    dangling['paths'] = {
+      '/price-rules': {
+        parameters: [{ $ref: '#/components/parameters/MagritTenant' }],
+        post: {
+          parameters: [{ $ref: '#/components/parameters/Inexistant' }],
+          responses: { '201': {}, '400': {}, '401': {}, '403': {}, '409': {} },
+        },
+      },
+    };
+    expect(lintIdempotency(dangling)).toHaveLength(1);
+  });
+
+  it('CA4/CA6 — une operation publique est dispensee de tenant et d authentification', () => {
+    // `security: []` retire toute exigence d authentification : pas d espace a
+    // choisir, pas d acteur a resoudre, donc ni MagritTenant ni 401/403.
+    const publicOperation = withPath('/public-catalogs', {
+      get: { security: [], responses: { '200': {} } },
+    });
+    expect(lintOperationCoverage(publicOperation)).toEqual([]);
+
+    // La dispense ne vaut que pour `security: []`, pas pour une operation qui
+    // omet simplement le champ.
+    const notPublic = withPath('/public-catalogs', { get: { responses: { '200': {} } } });
+    expect(lintOperationCoverage(notPublic).length).toBeGreaterThan(0);
   });
 
   it('CA8/CA9 — Idempotency-Key et If-Match sont reconnus sous leur forme $ref', () => {

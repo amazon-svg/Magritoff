@@ -162,6 +162,51 @@ export function lintRequiredScopes(document: Doc): string[] {
 }
 
 /**
+ * CA4, CA8, CA9 : les parametres partages sont EPINGLES sur leur emplacement
+ * et leur nom.
+ *
+ * Une operation peut les referencer par `$ref` ; la reference est alors crue
+ * sur ce que le composant declare. Si `IdempotencyKey` passait a `in: query`,
+ * toutes les operations qui le referencent promettraient une idempotence par
+ * query string — que le middleware ne lit pas, il ne regarde que l en-tete.
+ * Le contrat mentirait sans qu aucune regle ne bronche.
+ *
+ * Meme principe que `lintPagination`, qui epingle deja `page[size]` et
+ * `page[cursor]`.
+ */
+export function lintSharedParameterDefinitions(document: Doc): string[] {
+  const violations: string[] = [];
+  const components = document['components'];
+  const parameters = isRecord(components) ? components['parameters'] : undefined;
+
+  const pinned = [
+    { component: 'IdempotencyKey', name: 'Idempotency-Key', location: 'header' },
+    { component: 'IfMatch', name: 'If-Match', location: 'header' },
+    { component: 'MagritTenant', name: 'X-Magrit-Tenant', location: 'header' },
+    { component: 'MagritSignature', name: 'X-Magrit-Signature', location: 'header' },
+  ] as const;
+
+  for (const { component, name, location } of pinned) {
+    const declared = isRecord(parameters) ? parameters[component] : undefined;
+    if (!isRecord(declared)) {
+      violations.push(`components/parameters/${component} est absent.`);
+      continue;
+    }
+    if (declared['name'] !== name) {
+      violations.push(
+        `components/parameters/${component} doit se nommer "${name}", trouve "${String(declared['name'])}".`,
+      );
+    }
+    if (declared['in'] !== location) {
+      violations.push(
+        `components/parameters/${component} doit etre transmis en ${location}, trouve "${String(declared['in'])}".`,
+      );
+    }
+  }
+  return violations;
+}
+
+/**
  * CA4 et CA6 : couverture minimale de TOUTE operation de la facade.
  *
  * Regle generique plutot que verification cas par cas : les trois manques
@@ -188,7 +233,15 @@ export function lintOperationCoverage(document: Doc): string[] {
       const label = `${method.toUpperCase()} ${path}`;
       const parameters = parametersOf(operation, item);
 
-      if (!declaresParameter(parameters, { name: 'X-Magrit-Tenant', component: 'MagritTenant' })) {
+      // Dispense pour une operation PUBLIQUE (`security: []`, la forme
+      // OpenAPI qui retire toute exigence d authentification) : elle n a ni
+      // espace a choisir, ni acteur a resoudre, donc ni MagritTenant ni 401 ou
+      // 403 a declarer. Prevue des maintenant plutot que decouverte sous
+      // contrainte a la premiere story exposant un endpoint public.
+      const security = operation['security'];
+      if (Array.isArray(security) && security.length === 0) continue;
+
+      if (!declaresParameter(parameters, { name: 'X-Magrit-Tenant' }, document)) {
         violations.push(
           `CA4 : ${label} ne declare pas MagritTenant — un client pilote par le contrat ignorerait qu il doit choisir son espace.`,
         );
@@ -324,10 +377,11 @@ export function lintIdempotency(document: Doc): string[] {
       const responses = isRecord(operation['responses']) ? operation['responses'] : {};
       const creates = Object.keys(responses).includes('201');
       if (!creates) continue;
-      const declared = declaresParameter(parametersOf(operation, item), {
-        name: 'Idempotency-Key',
-        component: 'IdempotencyKey',
-      });
+      const declared = declaresParameter(
+        parametersOf(operation, item),
+        { name: 'Idempotency-Key' },
+        document,
+      );
       if (!declared) {
         violations.push(`CA8 : POST ${path} cree une ressource sans declarer Idempotency-Key.`);
       }
@@ -342,10 +396,11 @@ export function lintConcurrency(document: Doc): string[] {
   for (const [path, item] of Object.entries(pathsOf(document))) {
     for (const [method, operation] of operationsOf(item)) {
       if (method !== 'patch') continue;
-      const declared = declaresParameter(parametersOf(operation, item), {
-        name: 'If-Match',
-        component: 'IfMatch',
-      });
+      const declared = declaresParameter(
+        parametersOf(operation, item),
+        { name: 'If-Match' },
+        document,
+      );
       if (!declared) violations.push(`CA9 : PATCH ${path} ne declare pas If-Match.`);
       const responses = isRecord(operation['responses']) ? operation['responses'] : {};
       if (!Object.keys(responses).includes('409')) {
@@ -493,6 +548,7 @@ export function lintContract(document: Doc): string[] {
     ...lintTenantNeverAddressed(document),
     ...lintSecuritySchemes(document),
     ...lintRequiredScopes(document),
+    ...lintSharedParameterDefinitions(document),
     ...lintOperationCoverage(document),
     ...lintResponseShapes(document),
     ...lintPagination(document),
@@ -540,20 +596,42 @@ function parametersOf(
 }
 
 /**
- * Un parametre est declare s il apparait en clair (`name` + `in`) ou par
- * reference vers `components/parameters`. Les deux formes sont valides ; n en
- * reconnaitre qu une produirait de faux positifs.
+ * Resout un `$ref` local vers l objet qu il designe. Rend `null` si la
+ * reference est externe ou pointe dans le vide.
+ */
+function resolveReference(node: Record<string, unknown>, document: Doc): Record<string, unknown> | null {
+  const reference = node['$ref'];
+  if (typeof reference !== 'string') return node;
+  if (!reference.startsWith('#/')) return null;
+
+  let current: unknown = document;
+  for (const segment of reference.slice(2).split('/')) {
+    if (!isRecord(current)) return null;
+    current = current[segment.replace(/~1/g, '/').replace(/~0/g, '~')];
+  }
+  return isRecord(current) ? current : null;
+}
+
+/**
+ * Un parametre est declare s il apparait en clair ou par reference vers
+ * `components/parameters`. Les deux formes sont valides ; n en reconnaitre
+ * qu une produirait de faux positifs.
+ *
+ * La reference est RESOLUE, pas reconnue a son nom. Se fier au suffixe du
+ * `$ref` reviendrait a croire un composant sur parole : si
+ * `components/parameters/IdempotencyKey` passait a `in: query`, la regle
+ * continuerait de valider un contrat promettant une idempotence par query
+ * string, que le middleware ne lit pas. C est le nom ET l emplacement reels
+ * du parametre resolu qui comptent.
  */
 function declaresParameter(
   parameters: Array<Record<string, unknown>>,
-  expected: Readonly<{ name: string; component: string }>,
+  expected: Readonly<{ name: string }>,
+  document: Doc,
 ): boolean {
   return parameters.some((parameter) => {
-    const reference = parameter['$ref'];
-    if (typeof reference === 'string') {
-      return reference.endsWith(`/parameters/${expected.component}`);
-    }
-    return parameter['in'] === 'header' && parameter['name'] === expected.name;
+    const resolved = resolveReference(parameter, document);
+    return resolved !== null && resolved['in'] === 'header' && resolved['name'] === expected.name;
   });
 }
 
