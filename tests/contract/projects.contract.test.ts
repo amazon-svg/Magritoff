@@ -235,6 +235,46 @@ describe('module Projets (E10.1) contre le contrat', () => {
     expect(searchedBody.data[0]?.name).toBe('Projet B1');
   });
 
+  it('B4 (qa-review) — ?customer_id= malforme est refuse en 400, jamais un 500', async () => {
+    const response = await call('/api/v1/projects?customer_id=abc', { headers: asUser });
+    await expectContract(response, { status: 400 });
+    const body = (await response.json()) as { code: string };
+    expect(body.code).toBe('api.validation_failed');
+  });
+
+  it('B2 (qa-review) — enchaine page 1 -> page 2 -> page 3 sans doublon ni trou', async () => {
+    // Le faux repository doit honorer le curseur EXACTEMENT comme
+    // l adaptateur Supabase (filtre keyset + tri updated_at desc, id desc) :
+    // sans ca, un client qui suit `meta.next_cursor` (Studio en premier)
+    // rendrait indefiniment la meme page.
+    const customer = await createCustomer();
+    const created: ProjectDto[] = [];
+    for (let index = 0; index < 5; index += 1) {
+      const { data } = await createProject(customer.id, { name: `Projet ${index}` });
+      created.push(data);
+    }
+    const expectedIds = [...created].reverse().map((p) => p.id); // updated_at desc = ordre de creation inverse
+
+    const seenIds: string[] = [];
+    let cursor: string | null = null;
+    let pageCount = 0;
+    do {
+      const response = await call(
+        `/api/v1/projects?page[size]=2${cursor ? `&page[cursor]=${encodeURIComponent(cursor)}` : ''}`,
+        { headers: asUser },
+      );
+      await expectContract(response, { status: 200 });
+      const body = (await response.json()) as { data: ProjectDto[]; meta: { next_cursor: string | null } };
+      seenIds.push(...body.data.map((p) => p.id));
+      cursor = body.meta.next_cursor;
+      pageCount += 1;
+      expect(pageCount).toBeLessThanOrEqual(10); // filet de securite anti-boucle infinie
+    } while (cursor !== null);
+
+    expect(pageCount).toBe(3); // 5 elements, page[size]=2 -> 2 + 2 + 1
+    expect(seenIds).toEqual(expectedIds); // aucun doublon, aucun trou, ordre respecte
+  });
+
   it('CA6 — renomme, change de client et archive/reactive un projet, proteges par If-Match', async () => {
     const customerA = await createCustomer({ company_name: 'Client A' });
     const customerB = await createCustomer({ company_name: 'Client B', siret: '56078919152347' });
