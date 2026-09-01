@@ -11,12 +11,17 @@ type PimSearchHit = Readonly<{
 }>;
 
 const MAX_RESULTS = 24;
+const SEARCH_STOP_WORDS = new Set([
+  'avec', 'dans', 'des', 'les', 'pour', 'sur', 'une', 'livre', 'livree',
+]);
 
 export function PimSearchPanel({
   query,
+  compact = false,
   onQueryChange,
 }: Readonly<{
   query: string;
+  compact?: boolean;
   onQueryChange: (query: string) => void;
 }>) {
   const { definitions, gammes, loading } = usePIM();
@@ -58,25 +63,28 @@ export function PimSearchPanel({
         ) : results.length === 0 ? (
           <PimSearchEmpty title="Aucun résultat PIM" detail="Modifiez la recherche ou poursuivez la configuration dans Studio." />
         ) : (
-          <div className="grid grid-cols-1 gap-3" aria-live="polite">
+          <div
+            className={`grid grid-cols-1 gap-3 ${compact ? '' : 'xl:grid-cols-2'}`}
+            aria-live="polite"
+          >
             {results.map(({ definition, gamme }) => (
               <article key={definition.id} className="overflow-hidden rounded-xl border border-line bg-white shadow-sm">
-                {(definition.image_url || gamme?.image_url) && (
+                {!compact && (definition.image_url || gamme?.image_url) && (
                   <img
                     src={definition.image_url ?? gamme?.image_url ?? ''}
                     alt=""
                     className="aspect-[16/7] w-full object-cover"
                   />
                 )}
-                <div className="p-4">
+                <div className={compact ? 'p-3.5' : 'p-4'}>
                   <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.13em] text-ink-muted">
                     {gamme?.name ?? definition.gamme_slug}
                   </span>
-                  <h3 className="mt-1.5 text-base font-medium leading-snug text-ink">
+                  <h3 className={`${compact ? 'text-sm' : 'text-base'} mt-1.5 font-medium leading-snug text-ink`}>
                     {definition.name ?? definition.h1_template ?? gamme?.name ?? 'Produit PIM'}
                   </h3>
                   {(definition.short_description_template || definition.commercial_pitch) && (
-                    <p className="mt-2 line-clamp-3 text-sm leading-5 text-ink-muted">
+                    <p className={`${compact ? 'line-clamp-2 text-xs leading-4' : 'line-clamp-3 text-sm leading-5'} mt-2 text-ink-muted`}>
                       {definition.short_description_template ?? definition.commercial_pitch}
                     </p>
                   )}
@@ -105,26 +113,41 @@ export function searchPimDefinitions(
   definitions: ProductDefinition[],
   gammes: Gamme[],
 ): PimSearchHit[] {
-  const words = normalizeSearchText(query).split(' ').filter((word) => word.length >= 2);
+  const words = Array.from(new Set(
+    normalizeSearchText(query)
+      .split(' ')
+      .filter((word) => word.length >= 3 && !SEARCH_STOP_WORDS.has(word)),
+  ));
   if (words.length === 0) return [];
   const gammeBySlug = new Map(gammes.map((gamme) => [gamme.slug, gamme]));
   const frenchDefinitions = definitions.filter((definition) => definition.locale.toLowerCase().startsWith('fr'));
   const source = frenchDefinitions.length > 0 ? frenchDefinitions : definitions;
 
-  return source.flatMap((definition) => {
+  const hits = source.flatMap((definition) => {
     const gamme = gammeBySlug.get(definition.gamme_slug) ?? null;
-    const searchable = normalizeSearchText([
+    const primary = normalizeSearchText([
       definition.name,
       definition.keywords?.join(' '),
-      definition.short_description_template,
-      definition.description_template,
-      definition.commercial_pitch,
       gamme?.name,
       definition.gamme_slug,
     ].filter(Boolean).join(' '));
-    const score = words.reduce((total, word) => total + (searchable.includes(word) ? 1 : 0), 0);
+    const secondary = normalizeSearchText([
+      definition.short_description_template,
+      definition.description_template,
+      definition.commercial_pitch,
+    ].filter(Boolean).join(' '));
+    const score = words.reduce((total, word) => {
+      if (primary.includes(word)) return total + 3;
+      if (secondary.includes(word)) return total + 1;
+      return total;
+    }, 0);
     return score > 0 ? [{ definition, gamme, score }] : [];
-  })
+  });
+  const bestScore = Math.max(0, ...hits.map((hit) => hit.score));
+  const relevanceFloor = words.length === 1 ? 1 : Math.max(2, Math.ceil(bestScore * 0.4));
+
+  return hits
+    .filter((hit) => hit.score >= relevanceFloor)
     .sort((left, right) => right.score - left.score || (left.definition.name ?? '').localeCompare(right.definition.name ?? '', 'fr'))
     .slice(0, MAX_RESULTS);
 }
