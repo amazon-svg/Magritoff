@@ -123,7 +123,12 @@ export function createApiV1Handler(options: ApiV1HandlerOptions) {
   };
 }
 
-function compilePathTemplate(template: string) {
+/**
+ * Compile un gabarit de chemin `/api/v1/tenants/{tenantId}/x` en fonction de
+ * correspondance. Exporte pour que la facade Gestion commerciale (E10) reutilise
+ * exactement le meme routage plutot que d en entretenir une seconde copie.
+ */
+export function compilePathTemplate(template: string) {
   const parameterNames: string[] = [];
   const escaped = template
     .split('/')

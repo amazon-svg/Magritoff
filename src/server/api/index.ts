@@ -1,5 +1,14 @@
-export { createApiV1Handler } from './api-v1-handler';
+export { compilePathTemplate, createApiV1Handler } from './api-v1-handler';
 export type { ActorResolver, ApiV1HandlerOptions, ResolvedActor } from './api-v1-handler';
+export { buildEnvelope, createGescomApiHandler, defineGescomRoute } from './gescom-middleware';
+export type {
+  GescomApiHandlerOptions,
+  GescomAuthentication,
+  GescomRequestContext,
+  GescomRoute,
+  GescomRouteDefinition,
+  GescomRouteResult,
+} from './gescom-middleware';
 export { createApiV1Application } from './composition';
 export type { ApiV1ApplicationDependencies } from './composition';
 export { ApiHttpError } from './errors';
