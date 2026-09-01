@@ -7,7 +7,6 @@ import {
 } from "lucide-react";
 import { MagritLogo } from "@/shared/presentation/MagritLogo";
 import { ProductCard } from '@/modules/catalog/ui/components';
-import { CartButton } from '@/modules/orders/ui/components';
 // R7 (refacto 2026-05-11) : lazy-load la modale library picker (modale lourde,
 // pas necessaire au shell initial du chat).
 const LibraryPickerModal = lazy(() =>
@@ -412,9 +411,9 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
           badge={conversationHistory.length > 0 ? conversationHistory.length : undefined}
         />
 
-        {/* Panier — permet d'agreger plusieurs productcards pour imprimer
-            un devis groupe par client. Le composant gere lui-meme le badge. */}
-        <CartButton variant="rail" />
+        {/* E10.1 (qa-review B1) : le rail Panier a disparu (decision RP
+            28/08/2026, CA1) — remplace par le conteneur Projet (« Ajouter au
+            projet » depuis QuoteModal, entree « Projets » de la sidebar). */}
 
         {/* Avatar user en bas (placeholder) */}
         <div

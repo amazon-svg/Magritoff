@@ -3,7 +3,6 @@ import { useNavigate } from "react-router";
 import { Settings } from "lucide-react";
 import { MagritLogo } from "@/shared/presentation/MagritLogo";
 import { DiagnosticPanel } from '@/modules/diagnostics/ui/components';
-import { CartButton } from '@/modules/orders/ui/components';
 import { useConversation } from '@/modules/conversations/ui/runtime';
 import { AuthMenu } from '@/modules/account/ui/auth';
 
@@ -39,7 +38,9 @@ export function Header() {
             >
               <Settings className="w-4 h-4" />
             </button>
-            <CartButton variant="pill" />
+            {/* E10.1 (qa-review B1) : le panier disparait des surfaces
+                internes Magrit (decision RP 28/08/2026) — plus de bouton
+                Panier dans le header, remplace par le conteneur Projet. */}
             <AuthMenu />
           </div>
         </div>
