@@ -298,8 +298,38 @@ function toAddress(value: unknown): Address | null {
   };
 }
 
-function toDomainError(error: { code?: string; message: string } | null, fallback: string): Error {
+/**
+ * Nom de la contrainte violee, extrait du message Postgres
+ * (`duplicate key value violates unique constraint "nom_contrainte"`).
+ * `details` est inclus car PostgREST y reporte parfois la contrainte quand
+ * `message` a ete reformule.
+ */
+function violatedConstraintName(error: { message: string; details?: string | null }): string | null {
+  const haystack = `${error.message} ${error.details ?? ''}`;
+  return haystack.match(/constraint "([^"]+)"/)?.[1] ?? null;
+}
+
+/** Exporte uniquement pour test unitaire (discrimination par contrainte, m2). */
+export function toDomainError(
+  error: { code?: string; message: string; details?: string | null } | null,
+  fallback: string,
+): Error {
   if (error?.code === UNIQUE_VIOLATION) {
+    const constraint = violatedConstraintName(error);
+    // Discrimine par CONTRAINTE, pas par code seul : 23505 est leve aussi
+    // bien par customers_tenant_siret_uidx (creation/modification de client)
+    // que par customer_contacts_primary_uidx (rarissime en pratique, le
+    // trigger customer_contacts_enforce_single_primary retrograde deja
+    // l ancien principal AVANT l ecriture, mais une course entre deux
+    // requetes concurrentes reste possible). Un meme code pour les deux
+    // aurait affiche "SIRET deja utilise" sur une operation d interlocuteur.
+    if (constraint === 'customer_contacts_primary_uidx') {
+      return new CustomerCommandRejectedError(
+        'customer.primary_contact_conflict',
+        'Un autre interlocuteur vient d etre defini comme principal, reessayer.',
+        [{ field: 'is_primary', message: 'Conflit sur l interlocuteur principal.' }],
+      );
+    }
     return new CustomerCommandRejectedError(
       'customer.siret_already_used',
       'Ce SIRET est deja utilise par un autre client de ce tenant.',

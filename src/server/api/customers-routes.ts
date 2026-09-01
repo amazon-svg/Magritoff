@@ -276,8 +276,9 @@ async function withDomainErrors<T>(operation: () => Promise<T>): Promise<T> {
       throw problem({ status: 404, title: 'Client introuvable', code: SHARED_PROBLEM_CODES.notFound });
     }
     if (error instanceof CustomerCommandRejectedError) {
+      const CONFLICT_CODES = new Set(['customer.siret_already_used', 'customer.primary_contact_conflict']);
       throw problem({
-        status: error.code === 'customer.siret_already_used' ? 409 : 422,
+        status: CONFLICT_CODES.has(error.code) ? 409 : 422,
         title: 'Commande refusee',
         code: error.code,
         detail: error.message,
