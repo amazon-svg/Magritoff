@@ -162,6 +162,17 @@ export const IF_MATCH_HEADER = 'If-Match' as const;
 export const ETAG_HEADER = 'ETag' as const;
 export const REQUEST_ID_HEADER = 'X-Request-Id' as const;
 export const SERVICE_KEY_HEADER = 'X-Magrit-Service-Key' as const;
+/**
+ * SELECTION de l espace de travail parmi ceux que le jeton autorise deja.
+ *
+ * Ce n est pas une exception au CA4 : l en-tete ne peut jamais elargir les
+ * droits, seulement choisir dans ce que le jeton permet. Il existe parce qu un
+ * utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et
+ * sous-tenants) et qu aucun claim du JWT ne dit lequel il regarde — le front
+ * lui-meme le resout depuis l URL `/t/:slug`. Voir docs/api/CONVENTIONS.md
+ * §3.4.
+ */
+export const TENANT_SELECTION_HEADER = 'X-Magrit-Tenant' as const;
 export const EVENT_SIGNATURE_HEADER = 'X-Magrit-Signature' as const;
 export const EVENT_NAME_HEADER = 'X-Magrit-Event' as const;
 

@@ -288,6 +288,7 @@ export interface components {
          * @example identity.authentication_required
          * @example identity.scope_required
          * @example identity.tenant_not_resolved
+         * @example identity.tenant_selection_required
          */
         ProblemCode: string;
         /** ProblemFieldError */
@@ -629,6 +630,16 @@ export interface components {
          *     `If-Match: *` est REFUSE en 400 `api.if_match_invalid`, contrairement a la semantique RFC 7232 ou il signifie « pourvu que la ressource existe ». Ici il reviendrait a desactiver le controle de concurrence : deux modifications concurrentes s ecraseraient en silence, ce que le CA9 interdit. Le `pattern` ci-dessous n admet qu un ETag, faible ou fort.
          */
         IfMatch: string;
+        /**
+         * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+         *
+         *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+         *
+         *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+         *
+         *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+         */
+        MagritTenant: components["schemas"]["Uuid"];
         /** @description Signature HMAC-SHA256 du corps brut de l evenement, au format `sha256=<hex minuscule>`. A verifier en comparaison a temps constant. */
         MagritSignature: string;
         /** @description Nom de l evenement livre, identique a `EventEnvelope.event_name`. */
@@ -687,6 +698,7 @@ export type ParameterPageSize = components['parameters']['PageSize'];
 export type ParameterPageCursor = components['parameters']['PageCursor'];
 export type ParameterIdempotencyKey = components['parameters']['IdempotencyKey'];
 export type ParameterIfMatch = components['parameters']['IfMatch'];
+export type ParameterMagritTenant = components['parameters']['MagritTenant'];
 export type ParameterMagritSignature = components['parameters']['MagritSignature'];
 export type ParameterMagritEventName = components['parameters']['MagritEventName'];
 export type ParameterCustomerId = components['parameters']['CustomerId'];
