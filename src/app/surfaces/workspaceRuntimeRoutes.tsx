@@ -30,6 +30,7 @@ const routeLoaders: Readonly<Record<string, LazyPageLoader>> = Object.freeze({
   'customers.workspace.detail': () => import('@/modules/customers/ui').then((module) => ({ default: module.DashboardCustomerDetail })),
   'projects.workspace.list': () => import('@/modules/projects/ui').then((module) => ({ default: module.DashboardProjects })),
   'projects.workspace.detail': () => import('@/modules/projects/ui').then((module) => ({ default: module.DashboardProjectDetail })),
+  'commercial-quotes.workspace.editor': () => import('@/modules/commercial-quotes/ui').then((module) => ({ default: module.QuoteEditorPage })),
   'members.workspace.list': () => import('@/modules/members/ui').then((module) => ({ default: module.MembersPage })),
   'tenants.workspace.settings': () => import('@/modules/tenants/ui').then((module) => ({ default: module.DashboardTenantSettings })),
   'tenants.workspace.spaces': () => import('@/modules/tenants/ui').then((module) => ({ default: module.DashboardTenantSpaces })),
