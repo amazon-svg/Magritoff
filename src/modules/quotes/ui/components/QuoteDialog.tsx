@@ -5,7 +5,7 @@ import { useQuoteTemplates } from '@/modules/quote-templates/ui/runtime';
 import { useTenant } from '@/modules/tenants/ui/runtime';
 import { useTenantPath } from '@/modules/tenants/ui/hooks';
 import { TEST_IDS } from '@/shared/presentation/testIds';
-import { AddToProjectModal, serializeQuotePayloadMoney } from '@/modules/projects/ui';
+import { AddToProjectModal, buildQuotePayload } from '@/modules/projects/ui';
 import {
   makeQuoteReference,
   renderQuoteHtml,
@@ -256,10 +256,12 @@ export function QuoteModal({ isOpen, onClose, product }: QuoteModalProps) {
         <AddToProjectModal
           item={{
             label: product.name,
-            // C3 (qa-review) : montants serialises en chaine decimale avant
-            // persistance (docs/api/CONVENTIONS.md §5) — `product` lui-meme
-            // reste inchange, seul le payload envoye a l API est normalise.
-            quotePayload: serializeQuotePayloadMoney(product),
+            // C3 (qa-review, corrige suite au conflit C3/C4) : le payload de
+            // REJEU garde `price`/`clariprintQuote.*` en number (CA5 en
+            // depend, cf. commentaire de tete de serializeQuotePayload.ts) ;
+            // les montants sont dupliques en chaine Money dans `amounts`,
+            // additif, destine a E10.3.
+            quotePayload: buildQuotePayload(product),
             clariprintConfig: product.clariprintData ?? null,
           }}
           onClose={() => setShowAddToProject(false)}
