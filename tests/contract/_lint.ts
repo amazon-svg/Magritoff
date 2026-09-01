@@ -70,7 +70,7 @@ export function lintTenantNeverAddressed(document: Doc): string[] {
       }
     }
     for (const [method, operation] of operationsOf(item)) {
-      for (const parameter of parametersOf(operation)) {
+      for (const parameter of parametersOf(operation, item)) {
         const name = typeof parameter['name'] === 'string' ? parameter['name'].toLowerCase() : '';
         const location = parameter['in'];
         if ((location === 'path' || location === 'query') && TENANT_TOKENS.includes(name)) {
@@ -155,6 +155,58 @@ export function lintRequiredScopes(document: Doc): string[] {
             `CA5 : ${method.toUpperCase()} ${path} exige le scope "${String(scope)}", absent de x-magrit-scopes.`,
           );
         }
+      }
+    }
+  }
+  return violations;
+}
+
+/**
+ * CA4 et CA6 : couverture minimale de TOUTE operation de la facade.
+ *
+ * Regle generique plutot que verification cas par cas : les trois manques
+ * trouves par la revue (MagritTenant reference nulle part, 400 absent de trois
+ * operations, 409 absent de verifyCustomerSiret) etaient tous du meme type — un
+ * statut ou un en-tete que le middleware peut produire mais que le contrat
+ * passait sous silence. Sans regle generique, le trou revient a la story
+ * suivante.
+ *
+ * Ce que toute operation doit declarer :
+ *  - `MagritTenant`, en clair ou herite du chemin : c est ainsi qu un client
+ *    pilote par le contrat apprend qu il doit choisir son espace ;
+ *  - `400`, que `resolvePrincipal` peut lever sur n importe quelle operation
+ *    (espace a preciser, credentials ambigues, tenant adresse par l URL) ;
+ *  - `401` et `403`, que la resolution d acteur et les scopes peuvent lever ;
+ *  - `409` des lors que l operation cree une ressource (`201`), car elle passe
+ *    alors par l idempotence, qui leve `api.idempotency_key_reused`.
+ */
+export function lintOperationCoverage(document: Doc): string[] {
+  const violations: string[] = [];
+
+  for (const [path, item] of Object.entries(pathsOf(document))) {
+    for (const [method, operation] of operationsOf(item)) {
+      const label = `${method.toUpperCase()} ${path}`;
+      const parameters = parametersOf(operation, item);
+
+      if (!declaresParameter(parameters, { name: 'X-Magrit-Tenant', component: 'MagritTenant' })) {
+        violations.push(
+          `CA4 : ${label} ne declare pas MagritTenant — un client pilote par le contrat ignorerait qu il doit choisir son espace.`,
+        );
+      }
+
+      const responses = isRecord(operation['responses']) ? operation['responses'] : {};
+      const declared = Object.keys(responses);
+
+      for (const status of ['400', '401', '403']) {
+        if (!declared.includes(status)) {
+          violations.push(`CA6 : ${label} ne declare pas la reponse ${status}, pourtant atteignable.`);
+        }
+      }
+
+      if (declared.includes('201') && !declared.includes('409')) {
+        violations.push(
+          `CA8 : ${label} cree une ressource sans declarer 409 — l idempotence peut le lever.`,
+        );
       }
     }
   }
@@ -250,7 +302,7 @@ export function lintPagination(document: Doc): string[] {
   // Aucune operation ne pagine par offset.
   for (const [path, item] of Object.entries(pathsOf(document))) {
     for (const [method, operation] of operationsOf(item)) {
-      for (const parameter of parametersOf(operation)) {
+      for (const parameter of parametersOf(operation, item)) {
         const name = typeof parameter['name'] === 'string' ? parameter['name'] : '';
         if (['offset', 'page', 'page[number]', 'skip'].includes(name)) {
           violations.push(
@@ -272,9 +324,10 @@ export function lintIdempotency(document: Doc): string[] {
       const responses = isRecord(operation['responses']) ? operation['responses'] : {};
       const creates = Object.keys(responses).includes('201');
       if (!creates) continue;
-      const declared = parametersOf(operation).some(
-        (parameter) => parameter['in'] === 'header' && parameter['name'] === 'Idempotency-Key',
-      );
+      const declared = declaresParameter(parametersOf(operation, item), {
+        name: 'Idempotency-Key',
+        component: 'IdempotencyKey',
+      });
       if (!declared) {
         violations.push(`CA8 : POST ${path} cree une ressource sans declarer Idempotency-Key.`);
       }
@@ -289,9 +342,10 @@ export function lintConcurrency(document: Doc): string[] {
   for (const [path, item] of Object.entries(pathsOf(document))) {
     for (const [method, operation] of operationsOf(item)) {
       if (method !== 'patch') continue;
-      const declared = parametersOf(operation).some(
-        (parameter) => parameter['in'] === 'header' && parameter['name'] === 'If-Match',
-      );
+      const declared = declaresParameter(parametersOf(operation, item), {
+        name: 'If-Match',
+        component: 'IfMatch',
+      });
       if (!declared) violations.push(`CA9 : PATCH ${path} ne declare pas If-Match.`);
       const responses = isRecord(operation['responses']) ? operation['responses'] : {};
       if (!Object.keys(responses).includes('409')) {
@@ -439,6 +493,7 @@ export function lintContract(document: Doc): string[] {
     ...lintTenantNeverAddressed(document),
     ...lintSecuritySchemes(document),
     ...lintRequiredScopes(document),
+    ...lintOperationCoverage(document),
     ...lintResponseShapes(document),
     ...lintPagination(document),
     ...lintIdempotency(document),
@@ -461,10 +516,45 @@ function operationsOf(item: unknown): Array<[string, Record<string, unknown>]> {
     .map(([method, operation]) => [method, operation as Record<string, unknown>]);
 }
 
-function parametersOf(operation: Record<string, unknown>): Array<Record<string, unknown>> {
-  const parameters = operation['parameters'];
-  if (!Array.isArray(parameters)) return [];
-  return parameters.filter(isRecord);
+/**
+ * Parametres effectifs d une operation : ceux du CHEMIN plus ceux de
+ * l operation.
+ *
+ * OpenAPI fait heriter les parametres declares au niveau du chemin par toutes
+ * ses operations. Ne lire que le niveau operation ferait passer pour absent un
+ * parametre pourtant bien declare — et inversement laisserait un parametre
+ * interdit au niveau chemin echapper au controle du CA4.
+ */
+function parametersOf(
+  operation: Record<string, unknown>,
+  pathItem: unknown = undefined,
+): Array<Record<string, unknown>> {
+  const own = Array.isArray(operation['parameters'])
+    ? operation['parameters'].filter(isRecord)
+    : [];
+  const inherited =
+    isRecord(pathItem) && Array.isArray(pathItem['parameters'])
+      ? pathItem['parameters'].filter(isRecord)
+      : [];
+  return [...inherited, ...own];
+}
+
+/**
+ * Un parametre est declare s il apparait en clair (`name` + `in`) ou par
+ * reference vers `components/parameters`. Les deux formes sont valides ; n en
+ * reconnaitre qu une produirait de faux positifs.
+ */
+function declaresParameter(
+  parameters: Array<Record<string, unknown>>,
+  expected: Readonly<{ name: string; component: string }>,
+): boolean {
+  return parameters.some((parameter) => {
+    const reference = parameter['$ref'];
+    if (typeof reference === 'string') {
+      return reference.endsWith(`/parameters/${expected.component}`);
+    }
+    return parameter['in'] === 'header' && parameter['name'] === expected.name;
+  });
 }
 
 function mediaTypesOf(response: unknown): string[] {

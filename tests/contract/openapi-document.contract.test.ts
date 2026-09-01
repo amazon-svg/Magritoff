@@ -21,6 +21,7 @@ import {
   lintEventBus,
   lintIdempotency,
   lintPagination,
+  lintOperationCoverage,
   lintPathNaming,
   lintRequiredScopes,
   lintResponseShapes,
@@ -147,6 +148,64 @@ describe('contrat OpenAPI magrit-core v1', () => {
       },
     });
     expect(lintRequiredScopes(compliant)).toEqual([]);
+  });
+
+  it('CA4/CA6/CA8 — toute operation declare MagritTenant et ses statuts atteignables', () => {
+    expect(lintOperationCoverage(contract)).toEqual([]);
+
+    // MagritTenant absent : un client pilote par le contrat ignorerait qu il
+    // doit choisir son espace. C etait le cas des 9 operations avant ce lot.
+    const withoutTenant = withPath('/price-rules', {
+      get: { responses: { '200': {}, '400': {}, '401': {}, '403': {} } },
+    });
+    expect(lintOperationCoverage(withoutTenant)).toEqual([
+      'CA4 : GET /price-rules ne declare pas MagritTenant — un client pilote par le contrat ignorerait qu il doit choisir son espace.',
+    ]);
+
+    // Statuts que resolvePrincipal peut lever sur n importe quelle operation.
+    const missingStatuses = withPath('/price-rules', {
+      parameters: [{ $ref: '#/components/parameters/MagritTenant' }],
+      get: { responses: { '200': {}, '401': {} } },
+    });
+    expect(lintOperationCoverage(missingStatuses)).toEqual([
+      'CA6 : GET /price-rules ne declare pas la reponse 400, pourtant atteignable.',
+      'CA6 : GET /price-rules ne declare pas la reponse 403, pourtant atteignable.',
+    ]);
+
+    // Une creation passe par l idempotence, qui peut lever 409.
+    const creationWithoutConflict = withPath('/price-rules', {
+      parameters: [{ $ref: '#/components/parameters/MagritTenant' }],
+      post: { responses: { '201': {}, '400': {}, '401': {}, '403': {} } },
+    });
+    expect(lintOperationCoverage(creationWithoutConflict)).toEqual([
+      'CA8 : POST /price-rules cree une ressource sans declarer 409 — l idempotence peut le lever.',
+    ]);
+
+    // Un parametre herite du CHEMIN vaut declaration : c est la semantique
+    // OpenAPI, et c est la forme retenue par la facade.
+    const inheritedFromPath = withPath('/price-rules', {
+      parameters: [{ $ref: '#/components/parameters/MagritTenant' }],
+      get: { responses: { '200': {}, '400': {}, '401': {}, '403': {} } },
+    });
+    expect(lintOperationCoverage(inheritedFromPath)).toEqual([]);
+  });
+
+  it('CA8/CA9 — Idempotency-Key et If-Match sont reconnus sous leur forme $ref', () => {
+    // Les regles ne lisaient que la forme en clair : une operation qui
+    // referencait le composant partage aurait ete signalee a tort.
+    const byReference = withPath('/price-rules', {
+      parameters: [{ $ref: '#/components/parameters/MagritTenant' }],
+      post: {
+        parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }],
+        responses: { '201': {}, '400': {}, '401': {}, '403': {}, '409': {} },
+      },
+      patch: {
+        parameters: [{ $ref: '#/components/parameters/IfMatch' }],
+        responses: { '200': {}, '400': {}, '401': {}, '403': {}, '409': {} },
+      },
+    });
+    expect(lintIdempotency(byReference)).toEqual([]);
+    expect(lintConcurrency(byReference)).toEqual([]);
   });
 
   it('CA6 — enveloppe data/meta en succes, problem+json avec code en erreur', () => {

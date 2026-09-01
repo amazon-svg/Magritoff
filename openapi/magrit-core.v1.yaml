@@ -79,6 +79,12 @@ tags:
 # ----------------------------------------------------------------------------
 paths:
   /customers:
+    # Selection de l espace de travail : commune a toutes les operations de ce
+    # chemin. Declaree au niveau du chemin plutot que repetee sur chaque
+    # operation — un oubli sur une seule operation rendrait l en-tete invisible
+    # pour un client pilote par le contrat.
+    parameters:
+      - $ref: '#/components/parameters/MagritTenant'
     get:
       operationId: listCustomers
       summary: Liste les clients du tenant courant.
@@ -186,6 +192,12 @@ paths:
                 $ref: '#/components/schemas/Problem'
 
   /customers/{customerId}:
+    # Selection de l espace de travail : commune a toutes les operations de ce
+    # chemin. Declaree au niveau du chemin plutot que repetee sur chaque
+    # operation — un oubli sur une seule operation rendrait l en-tete invisible
+    # pour un client pilote par le contrat.
+    parameters:
+      - $ref: '#/components/parameters/MagritTenant'
     get:
       operationId: getCustomer
       summary: >-
@@ -219,6 +231,8 @@ paths:
                     properties:
                       data:
                         $ref: '#/components/schemas/CustomerDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -285,6 +299,12 @@ paths:
           $ref: '#/components/responses/PreconditionRequired'
 
   /customers/{customerId}/contacts:
+    # Selection de l espace de travail : commune a toutes les operations de ce
+    # chemin. Declaree au niveau du chemin plutot que repetee sur chaque
+    # operation — un oubli sur une seule operation rendrait l en-tete invisible
+    # pour un client pilote par le contrat.
+    parameters:
+      - $ref: '#/components/parameters/MagritTenant'
     get:
       operationId: listCustomerContacts
       summary: Liste les interlocuteurs d un client.
@@ -309,6 +329,8 @@ paths:
                         type: array
                         items:
                           $ref: '#/components/schemas/CustomerContact'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -372,6 +394,12 @@ paths:
           $ref: '#/components/responses/UnprocessableEntity'
 
   /customers/{customerId}/contacts/{contactId}:
+    # Selection de l espace de travail : commune a toutes les operations de ce
+    # chemin. Declaree au niveau du chemin plutot que repetee sur chaque
+    # operation — un oubli sur une seule operation rendrait l en-tete invisible
+    # pour un client pilote par le contrat.
+    parameters:
+      - $ref: '#/components/parameters/MagritTenant'
     get:
       operationId: getCustomerContact
       summary: >-
@@ -408,6 +436,8 @@ paths:
                     properties:
                       data:
                         $ref: '#/components/schemas/CustomerContact'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -478,6 +508,12 @@ paths:
           $ref: '#/components/responses/PreconditionRequired'
 
   /customers/{customerId}/siret-verifications:
+    # Selection de l espace de travail : commune a toutes les operations de ce
+    # chemin. Declaree au niveau du chemin plutot que repetee sur chaque
+    # operation — un oubli sur une seule operation rendrait l en-tete invisible
+    # pour un client pilote par le contrat.
+    parameters:
+      - $ref: '#/components/parameters/MagritTenant'
     post:
       operationId: verifyCustomerSiret
       summary: >-
@@ -523,6 +559,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '422':
           description: >-
             Le client n est pas de type `company`, ou ne porte aucun SIRET
