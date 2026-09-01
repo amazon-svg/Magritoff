@@ -151,6 +151,9 @@ reste à réaliser.
 
 ## Reste à faire
 
+La prochaine itération d’accueil et de workspace partagé est détaillée dans
+[`story-hopstudio-pim-dual-workspace.md`](./story-hopstudio-pim-dual-workspace.md).
+
 - valider visuellement et affiner cette première passe sur les tailles desktop
   et mobile dans le contexte authentifié de l’accueil Magrit ;
 - poursuivre l’adaptation des EJS de fiches produit, formulaires, panier et
