@@ -187,6 +187,120 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /** Liste les projets du tenant courant, tries par date de derniere modification decroissante (CA2). */
+        get: operations["listProjects"];
+        put?: never;
+        /** Cree un projet, rattache obligatoirement a un client (CA3). */
+        post: operations["createProject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectId}": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /** Recupere un projet et ses elements de chiffrage (CA5). */
+        get: operations["getProject"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Renomme un projet, change son client, ou l archive/reactive via `status` (CA6). Jamais un DELETE : un projet n est pas supprime physiquement. */
+        patch: operations["updateProject"];
+        trace?: never;
+    };
+    "/projects/{projectId}/items": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ajoute un element de chiffrage a un projet (CA4). Conserve le payload de chiffrage tel que calcule, pour reprendre l iteration conversationnelle sans rejouer Clariprint (CA5). */
+        post: operations["addProjectItem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectId}/items/{itemId}": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Retire un element de chiffrage du projet : retrait du lien uniquement, jamais suppression de l historique de chiffrage si celui-ci existe ailleurs (E10.3+). */
+        delete: operations["removeProjectItem"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export interface webhooks {
     "quote.converted": {
@@ -251,6 +365,23 @@ export interface webhooks {
         put?: never;
         /** Un client a ete cree dans le referentiel commercial. */
         post: operations["onCustomerCreated"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "project.created": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Un projet a ete cree dans le referentiel commercial. */
+        post: operations["onProjectCreated"];
         delete?: never;
         options?: never;
         head?: never;
@@ -413,7 +544,7 @@ export interface components {
          * @description Nom d evenement sortant, `agregat.action` en snake_case. Liste additive : une story ulterieure peut en ajouter, jamais en retirer.
          * @enum {string}
          */
-        EventName: "quote.converted" | "order.step_changed" | "order.files_submitted" | "customer.created" | "price_rule.changed";
+        EventName: "quote.converted" | "order.step_changed" | "order.files_submitted" | "customer.created" | "project.created" | "price_rule.changed";
         /**
          * EventEnvelope
          * @description Enveloppe versionnee d un evenement sortant (CA10). Le corps signe par `X-Magrit-Signature` est exactement la serialisation JSON de cette enveloppe, octet pour octet.
@@ -435,6 +566,7 @@ export interface components {
              * @example quote
              * @example order
              * @example customer
+             * @example project
              * @example price_rule
              */
             aggregate_type: string;
@@ -634,6 +766,99 @@ export interface components {
             mocked: boolean;
             checked_at: components["schemas"]["Timestamp"];
         };
+        /**
+         * ProjectStatus
+         * @description Un projet est `active` par defaut, ou `archived`. L archivage est un changement de statut, jamais une suppression (CA6) : un projet n est jamais supprime physiquement.
+         * @enum {string}
+         */
+        ProjectStatus: "active" | "archived";
+        /**
+         * Project
+         * @description Conteneur de travail commercial (CA1-CA7), remplace le panier sur les surfaces internes Magrit (atelier, resultats de chiffrage). Point d entree de la creation de devis (E10.3).
+         */
+        Project: {
+            id: components["schemas"]["Uuid"];
+            tenant_id: components["schemas"]["Uuid"];
+            /** @description Client du projet (E10.4). Obligatoire : un projet n existe pas sans client (CA3). */
+            customer_id: components["schemas"]["Uuid"];
+            name: string;
+            status: components["schemas"]["ProjectStatus"];
+            /** @description Point d extension E10.2 (tags de projet). Toujours vide tant que cette story n est pas livree — pas de donnee inventee. */
+            tags: unknown[];
+            /** @description Acteur createur. `null` pour une creation systeme. */
+            created_by?: components["schemas"]["Uuid"] | null;
+            created_at: components["schemas"]["Timestamp"];
+            updated_at: components["schemas"]["Timestamp"];
+        };
+        /**
+         * ProjectItem
+         * @description Element de chiffrage rattache a un projet (CA4). `quote_payload` conserve le payload de chiffrage tel que calcule, pour reprendre l iteration conversationnelle sans rejouer Clariprint (CA5).
+         */
+        ProjectItem: {
+            id: components["schemas"]["Uuid"];
+            project_id: components["schemas"]["Uuid"];
+            label: string;
+            /** @description Payload de chiffrage tel que calcule, forme libre. */
+            quote_payload: {
+                [key: string]: unknown;
+            };
+            /** @description Configuration Clariprint brute de ce chiffrage, si disponible. */
+            clariprint_config: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Format: int32
+             * @description Ordre d affichage au sein du projet.
+             */
+            position: number;
+            created_at: components["schemas"]["Timestamp"];
+        };
+        /**
+         * ProjectDetail
+         * @description Projet complet avec ses elements de chiffrage (CA5). Meme remarque que `CustomerDetail` sur le schema APLATI plutot que compose par `allOf` : combine a `additionalProperties: false`, un `allOf` ferait rejeter `items` par le membre `Project`, ferme sur ses seuls champs.
+         */
+        ProjectDetail: {
+            id: components["schemas"]["Uuid"];
+            tenant_id: components["schemas"]["Uuid"];
+            customer_id: components["schemas"]["Uuid"];
+            name: string;
+            status: components["schemas"]["ProjectStatus"];
+            tags: unknown[];
+            created_by?: components["schemas"]["Uuid"] | null;
+            created_at: components["schemas"]["Timestamp"];
+            updated_at: components["schemas"]["Timestamp"];
+            items: components["schemas"]["ProjectItem"][];
+        };
+        /**
+         * CreateProjectCommand
+         * @description Commande de creation d un projet. `customer_id` est obligatoire (CA3) : absent ou inconnu du tenant, la creation est refusee en 422 `project.customer_required`.
+         */
+        CreateProjectCommand: {
+            name: string;
+            customer_id: components["schemas"]["Uuid"];
+        };
+        /**
+         * UpdateProjectCommand
+         * @description Modification partielle d un projet : renommage, changement de client, archivage/reactivation via `status` (CA6).
+         */
+        UpdateProjectCommand: {
+            name?: string;
+            customer_id?: components["schemas"]["Uuid"];
+            status?: components["schemas"]["ProjectStatus"];
+        };
+        /**
+         * CreateProjectItemCommand
+         * @description Commande d ajout d un element de chiffrage a un projet (CA4).
+         */
+        CreateProjectItemCommand: {
+            label: string;
+            quote_payload: {
+                [key: string]: unknown;
+            };
+            clariprint_config?: {
+                [key: string]: unknown;
+            } | null;
+        };
     };
     responses: {
         /** @description Requete malformee. */
@@ -763,6 +988,8 @@ export interface components {
         MagritEventName: components["schemas"]["EventName"];
         /** @description Identifiant technique du client, dans le tenant du jeton. */
         CustomerId: components["schemas"]["Uuid"];
+        /** @description Identifiant technique du projet, dans le tenant du jeton. */
+        ProjectId: components["schemas"]["Uuid"];
     };
     requestBodies: never;
     headers: {
@@ -805,6 +1032,13 @@ export type UpdateCustomerContactCommand = components['schemas']['UpdateCustomer
 export type OpenCustomerContactShopAccessCommand = components['schemas']['OpenCustomerContactShopAccessCommand'];
 export type RevokeCustomerContactShopAccessCommand = components['schemas']['RevokeCustomerContactShopAccessCommand'];
 export type SiretVerificationResult = components['schemas']['SiretVerificationResult'];
+export type ProjectStatus = components['schemas']['ProjectStatus'];
+export type Project = components['schemas']['Project'];
+export type ProjectItem = components['schemas']['ProjectItem'];
+export type ProjectDetail = components['schemas']['ProjectDetail'];
+export type CreateProjectCommand = components['schemas']['CreateProjectCommand'];
+export type UpdateProjectCommand = components['schemas']['UpdateProjectCommand'];
+export type CreateProjectItemCommand = components['schemas']['CreateProjectItemCommand'];
 export type ResponseBadRequest = components['responses']['BadRequest'];
 export type ResponseUnauthorized = components['responses']['Unauthorized'];
 export type ResponseForbidden = components['responses']['Forbidden'];
@@ -823,6 +1057,7 @@ export type ParameterMagritTenant = components['parameters']['MagritTenant'];
 export type ParameterMagritSignature = components['parameters']['MagritSignature'];
 export type ParameterMagritEventName = components['parameters']['MagritEventName'];
 export type ParameterCustomerId = components['parameters']['CustomerId'];
+export type ParameterProjectId = components['parameters']['ProjectId'];
 export type HeaderETag = components['headers']['ETag'];
 export type HeaderXRequestId = components['headers']['XRequestId'];
 export type HeaderIdempotencyReplayed = components['headers']['IdempotencyReplayed'];
@@ -1364,6 +1599,299 @@ export interface operations {
             };
         };
     };
+    listProjects: {
+        parameters: {
+            query?: {
+                /** @description Recherche plein texte sur le nom du projet. */
+                q?: string;
+                /** @description Filtre sur le client du projet. */
+                customer_id?: components["schemas"]["Uuid"];
+                /** @description Filtre sur un tag de projet. PARAMETRE RESERVE : accepte des E10.1 pour stabiliser le contrat consomme par Studio, mais n est exploite qu a partir d E10.2 (tags de projet). Un tag_id fourni avant E10.2 est ignore, jamais une erreur. */
+                tag_id?: components["schemas"]["Uuid"];
+                /** @description Filtre sur le statut du projet. Absent -> tous statuts. */
+                status?: components["schemas"]["ProjectStatus"];
+                /** @description Nombre d elements par page. Defaut 50, maximum 200. */
+                "page[size]"?: components["parameters"]["PageSize"];
+                /** @description Curseur opaque renvoye par `meta.next_cursor` de la page precedente. Absent sur la premiere page. Ne jamais construire un curseur cote client : sa structure interne n est pas contractuelle. */
+                "page[cursor]"?: components["parameters"]["PageCursor"];
+            };
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Page de projets du tenant. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["Project"][];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    createProject: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+                /** @description Cle d idempotence de la creation (CA8, voir components/parameters/IdempotencyKey pour la description complete). */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateProjectCommand"];
+            };
+        };
+        responses: {
+            /** @description Projet cree. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["Project"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            /** @description `customer_id` absent ou inconnu du tenant (`project.customer_required`), ou `name` vide (`api.validation_failed`). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getProject: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path: {
+                /** @description Identifiant technique du projet, dans le tenant du jeton. */
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Projet detaille. L `ETag` porte sur le sous-ensemble `Project` de cette fiche (hors `items`) : c est la meme base de calcul que celle verifiee par `updateProject` (CA9). */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["ProjectDetail"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateProject: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+                /** @description Precondition de concurrence optimiste (CA9, voir components/parameters/IfMatch pour la description complete). */
+                "If-Match": string;
+            };
+            path: {
+                /** @description Identifiant technique du projet, dans le tenant du jeton. */
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateProjectCommand"];
+            };
+        };
+        responses: {
+            /** @description Projet modifie. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["Project"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description `customer_id` fourni mais inconnu du tenant (`project.customer_required`). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            428: components["responses"]["PreconditionRequired"];
+        };
+    };
+    addProjectItem: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+                /** @description Cle d idempotence de la creation (CA8, voir components/parameters/IdempotencyKey pour la description complete). */
+                "Idempotency-Key": string;
+            };
+            path: {
+                /** @description Identifiant technique du projet, dans le tenant du jeton. */
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateProjectItemCommand"];
+            };
+        };
+        responses: {
+            /** @description Element de chiffrage ajoute au projet. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["ProjectItem"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    removeProjectItem: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path: {
+                /** @description Identifiant technique du projet, dans le tenant du jeton. */
+                projectId: components["parameters"]["ProjectId"];
+                itemId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Element retire du projet. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: {
+                            /** @enum {boolean} */
+                            removed: true;
+                        };
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     onQuoteConverted: {
         parameters: {
             query?: never;
@@ -1446,6 +1974,33 @@ export interface operations {
         };
     };
     onCustomerCreated: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Signature HMAC-SHA256 du corps brut de l evenement, au format `sha256=<hex minuscule>`. A verifier en comparaison a temps constant. */
+                "X-Magrit-Signature": components["parameters"]["MagritSignature"];
+                /** @description Nom de l evenement livre, identique a `EventEnvelope.event_name`. */
+                "X-Magrit-Event": components["parameters"]["MagritEventName"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EventEnvelope"];
+            };
+        };
+        responses: {
+            /** @description Evenement accepte par le consommateur. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    onProjectCreated: {
         parameters: {
             query?: never;
             header: {

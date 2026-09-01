@@ -702,6 +702,350 @@ paths:
                 $ref: '#/components/schemas/Problem'
 
 # ----------------------------------------------------------------------------
+# story E10.1 — Espace Projets : conteneur de travail commercial, en
+# remplacement du panier sur les surfaces internes Magrit (atelier, resultats
+# de chiffrage). Point d entree de la creation de devis (E10.3, story
+# suivante) ; Studio consomme cette API des sa publication (WM du 01/09).
+#
+# Ecriture (creation, renommage, changement de client, archivage, ajout/retrait
+# d elements) reservee aux jetons utilisateur, comme E10.4. Lecture ouverte a
+# Studio via le scope `projects:read`.
+# ----------------------------------------------------------------------------
+  /projects:
+    # Selection de l espace de travail : commune a toutes les operations de ce
+    # chemin. Declaree au niveau du chemin plutot que repetee sur chaque
+    # operation — un oubli sur une seule operation rendrait l en-tete invisible
+    # pour un client pilote par le contrat.
+    parameters:
+      - $ref: '#/components/parameters/MagritTenant'
+    get:
+      operationId: listProjects
+      summary: >-
+        Liste les projets du tenant courant, tries par date de derniere
+        modification decroissante (CA2).
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+        - serviceKey: []
+      x-required-scopes: [projects:read]
+      parameters:
+        - name: q
+          in: query
+          required: false
+          description: Recherche plein texte sur le nom du projet.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 200
+        - name: customer_id
+          in: query
+          required: false
+          description: Filtre sur le client du projet.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: tag_id
+          in: query
+          required: false
+          description: >-
+            Filtre sur un tag de projet. PARAMETRE RESERVE : accepte des
+            E10.1 pour stabiliser le contrat consomme par Studio, mais
+            n est exploite qu a partir d E10.2 (tags de projet). Un tag_id
+            fourni avant E10.2 est ignore, jamais une erreur.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: status
+          in: query
+          required: false
+          description: Filtre sur le statut du projet. Absent -> tous statuts.
+          schema:
+            $ref: '#/components/schemas/ProjectStatus'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/PageCursor'
+      responses:
+        '200':
+          description: Page de projets du tenant.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Project'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+    post:
+      operationId: createProject
+      summary: Cree un projet, rattache obligatoirement a un client (CA3).
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: >-
+            Cle d idempotence de la creation (CA8, voir
+            components/parameters/IdempotencyKey pour la description
+            complete).
+          schema:
+            type: string
+            minLength: 8
+            maxLength: 255
+            pattern: '^[A-Za-z0-9_.:-]{8,255}$'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProjectCommand'
+      responses:
+        '201':
+          description: Projet cree.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Project'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          description: >-
+            `customer_id` absent ou inconnu du tenant (`project.customer_required`),
+            ou `name` vide (`api.validation_failed`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  /projects/{projectId}:
+    parameters:
+      - $ref: '#/components/parameters/MagritTenant'
+    get:
+      operationId: getProject
+      summary: Recupere un projet et ses elements de chiffrage (CA5).
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+        - serviceKey: []
+      x-required-scopes: [projects:read]
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '200':
+          description: >-
+            Projet detaille. L `ETag` porte sur le sous-ensemble `Project` de
+            cette fiche (hors `items`) : c est la meme base de calcul que
+            celle verifiee par `updateProject` (CA9).
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ProjectDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      operationId: updateProject
+      summary: >-
+        Renomme un projet, change son client, ou l archive/reactive via
+        `status` (CA6). Jamais un DELETE : un projet n est pas supprime
+        physiquement.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - name: If-Match
+          in: header
+          required: true
+          description: >-
+            Precondition de concurrence optimiste (CA9, voir
+            components/parameters/IfMatch pour la description complete).
+          schema:
+            type: string
+            minLength: 3
+            maxLength: 255
+            pattern: '^(W/)?"[^"]+"$'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProjectCommand'
+      responses:
+        '200':
+          description: Projet modifie.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Project'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          description: >-
+            `customer_id` fourni mais inconnu du tenant
+            (`project.customer_required`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+
+  /projects/{projectId}/items:
+    parameters:
+      - $ref: '#/components/parameters/MagritTenant'
+    post:
+      operationId: addProjectItem
+      summary: >-
+        Ajoute un element de chiffrage a un projet (CA4). Conserve le payload
+        de chiffrage tel que calcule, pour reprendre l iteration
+        conversationnelle sans rejouer Clariprint (CA5).
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: >-
+            Cle d idempotence de la creation (CA8, voir
+            components/parameters/IdempotencyKey pour la description
+            complete).
+          schema:
+            type: string
+            minLength: 8
+            maxLength: 255
+            pattern: '^[A-Za-z0-9_.:-]{8,255}$'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProjectItemCommand'
+      responses:
+        '201':
+          description: Element de chiffrage ajoute au projet.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ProjectItem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /projects/{projectId}/items/{itemId}:
+    parameters:
+      - $ref: '#/components/parameters/MagritTenant'
+    delete:
+      operationId: removeProjectItem
+      summary: >-
+        Retire un element de chiffrage du projet : retrait du lien
+        uniquement, jamais suppression de l historique de chiffrage si
+        celui-ci existe ailleurs (E10.3+).
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+      responses:
+        '200':
+          description: Element retire du projet.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: false
+                        required: [removed]
+                        properties:
+                          removed:
+                            type: boolean
+                            enum: [true]
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+# ----------------------------------------------------------------------------
 # Bus d evenements sortants (CA10)
 # ----------------------------------------------------------------------------
 # Chaque evenement metier est ecrit dans la table `outbox_events` puis livre en
@@ -788,6 +1132,25 @@ webhooks:
         '204':
           description: Evenement accepte par le consommateur.
 
+  project.created:
+    post:
+      operationId: onProjectCreated
+      summary: Un projet a ete cree dans le referentiel commercial.
+      tags: [gestion-commerciale]
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/MagritSignature'
+        - $ref: '#/components/parameters/MagritEventName'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventEnvelope'
+      responses:
+        '204':
+          description: Evenement accepte par le consommateur.
+
   price_rule.changed:
     post:
       operationId: onPriceRuleChanged
@@ -843,6 +1206,8 @@ components:
         orders:write: Creation et modification des commandes du tenant.
         customers:read: Lecture du referentiel client du tenant.
         customers:write: Creation et modification du referentiel client.
+        projects:read: Lecture des projets (conteneurs de chiffrage) du tenant.
+        projects:write: Creation et modification des projets du tenant.
         price-rules:read: Lecture des regles de prix commerciales.
         price-rules:write: Creation et modification des regles de prix.
         events:subscribe: Abonnement au bus d evenements sortants.
@@ -978,6 +1343,14 @@ components:
       in: path
       required: true
       description: Identifiant technique du client, dans le tenant du jeton.
+      schema:
+        $ref: '#/components/schemas/Uuid'
+
+    ProjectId:
+      name: projectId
+      in: path
+      required: true
+      description: Identifiant technique du projet, dans le tenant du jeton.
       schema:
         $ref: '#/components/schemas/Uuid'
 
@@ -1339,6 +1712,7 @@ components:
         - order.step_changed
         - order.files_submitted
         - customer.created
+        - project.created
         - price_rule.changed
 
     EventEnvelope:
@@ -1385,6 +1759,7 @@ components:
             - quote
             - order
             - customer
+            - project
             - price_rule
         aggregate_id:
           $ref: '#/components/schemas/Uuid'
@@ -1960,3 +2335,210 @@ components:
           type: boolean
         checked_at:
           $ref: '#/components/schemas/Timestamp'
+
+    # --------------------------------------------------------------------------
+    # Story E10.1 — Espace Projets
+    # --------------------------------------------------------------------------
+    ProjectStatus:
+      title: ProjectStatus
+      description: >-
+        Un projet est `active` par defaut, ou `archived`. L archivage est un
+        changement de statut, jamais une suppression (CA6) : un projet n est
+        jamais supprime physiquement.
+      type: string
+      enum: [active, archived]
+
+    Project:
+      title: Project
+      description: >-
+        Conteneur de travail commercial (CA1-CA7), remplace le panier sur les
+        surfaces internes Magrit (atelier, resultats de chiffrage). Point d
+        entree de la creation de devis (E10.3).
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - tenant_id
+        - customer_id
+        - name
+        - status
+        - tags
+        - created_at
+        - updated_at
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        tenant_id:
+          $ref: '#/components/schemas/Uuid'
+        customer_id:
+          description: >-
+            Client du projet (E10.4). Obligatoire : un projet n existe pas
+            sans client (CA3).
+          $ref: '#/components/schemas/Uuid'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 300
+        status:
+          $ref: '#/components/schemas/ProjectStatus'
+        tags:
+          description: >-
+            Point d extension E10.2 (tags de projet). Toujours vide tant que
+            cette story n est pas livree — pas de donnee inventee.
+          type: array
+          items: {}
+        created_by:
+          description: Acteur createur. `null` pour une creation systeme.
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        created_at:
+          $ref: '#/components/schemas/Timestamp'
+        updated_at:
+          $ref: '#/components/schemas/Timestamp'
+
+    ProjectItem:
+      title: ProjectItem
+      description: >-
+        Element de chiffrage rattache a un projet (CA4). `quote_payload`
+        conserve le payload de chiffrage tel que calcule, pour reprendre l
+        iteration conversationnelle sans rejouer Clariprint (CA5).
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - project_id
+        - label
+        - quote_payload
+        - clariprint_config
+        - position
+        - created_at
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        project_id:
+          $ref: '#/components/schemas/Uuid'
+        label:
+          type: string
+          minLength: 1
+          maxLength: 300
+        quote_payload:
+          description: Payload de chiffrage tel que calcule, forme libre.
+          type: object
+          additionalProperties: true
+        clariprint_config:
+          description: Configuration Clariprint brute de ce chiffrage, si disponible.
+          oneOf:
+            - type: object
+              additionalProperties: true
+            - type: 'null'
+        position:
+          description: Ordre d affichage au sein du projet.
+          type: integer
+          format: int32
+          minimum: 0
+        created_at:
+          $ref: '#/components/schemas/Timestamp'
+
+    ProjectDetail:
+      title: ProjectDetail
+      description: >-
+        Projet complet avec ses elements de chiffrage (CA5). Meme remarque
+        que `CustomerDetail` sur le schema APLATI plutot que compose par
+        `allOf` : combine a `additionalProperties: false`, un `allOf` ferait
+        rejeter `items` par le membre `Project`, ferme sur ses seuls champs.
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - tenant_id
+        - customer_id
+        - name
+        - status
+        - tags
+        - created_at
+        - updated_at
+        - items
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        tenant_id:
+          $ref: '#/components/schemas/Uuid'
+        customer_id:
+          $ref: '#/components/schemas/Uuid'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 300
+        status:
+          $ref: '#/components/schemas/ProjectStatus'
+        tags:
+          type: array
+          items: {}
+        created_by:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        created_at:
+          $ref: '#/components/schemas/Timestamp'
+        updated_at:
+          $ref: '#/components/schemas/Timestamp'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProjectItem'
+
+    CreateProjectCommand:
+      title: CreateProjectCommand
+      description: >-
+        Commande de creation d un projet. `customer_id` est obligatoire
+        (CA3) : absent ou inconnu du tenant, la creation est refusee en 422
+        `project.customer_required`.
+      type: object
+      additionalProperties: false
+      required: [name, customer_id]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 300
+        customer_id:
+          $ref: '#/components/schemas/Uuid'
+
+    UpdateProjectCommand:
+      title: UpdateProjectCommand
+      description: >-
+        Modification partielle d un projet : renommage, changement de
+        client, archivage/reactivation via `status` (CA6).
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 300
+        customer_id:
+          $ref: '#/components/schemas/Uuid'
+        status:
+          $ref: '#/components/schemas/ProjectStatus'
+
+    CreateProjectItemCommand:
+      title: CreateProjectItemCommand
+      description: Commande d ajout d un element de chiffrage a un projet (CA4).
+      type: object
+      additionalProperties: false
+      required: [label, quote_payload]
+      properties:
+        label:
+          type: string
+          minLength: 1
+          maxLength: 300
+        quote_payload:
+          type: object
+          additionalProperties: true
+        clariprint_config:
+          oneOf:
+            - type: object
+              additionalProperties: true
+            - type: 'null'
