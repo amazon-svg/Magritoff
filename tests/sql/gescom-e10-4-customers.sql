@@ -10,13 +10,19 @@
 -- Scenarios :
 --   1. Un client `company` sans SIRET est refuse (CHECK).
 --   2. Un SIRET a 13 chiffres est refuse (CHECK de forme).
---   3. Un membre du tenant B ne lit ni n ecrit les clients du tenant A (RLS).
+--   2bis. Un client `individual` sans civilite est refuse (CHECK, M3).
+--   3. Un membre du tenant B ne lit ni n ecrit les clients du tenant A (RLS),
+--      AVEC controle positif symetrique en lecture ET en ecriture sur son
+--      propre tenant (m1 qa-review : un test qui ne verifie que le refus
+--      laisserait passer une policy d ecriture cassee en permanence).
 --   4. Poser `is_primary = true` sur un second interlocuteur bascule
 --      automatiquement l ancien principal a `false`, dans la meme
 --      transaction (trigger + index unique partiel).
---   5. Un role client (`authenticated`, `anon`) sans policy ne lit rien d un
---      tenant dont il n est pas membre — verifie via la policy elle-meme,
---      pas seulement sa presence textuelle.
+--   5. (M5 qa-review) Meme isolation que le scenario 3, mais sur
+--      `customer_contacts` : ses policies reposent sur une jointure
+--      `customers` x `tenant_members` distincte de celle de `customers`,
+--      jamais exercee jusqu ici — cette table porte des PII (nom, email,
+--      telephone des interlocuteurs).
 --
 -- Lancer : pnpm test:storefront:sql (necessite Supabase local demarre).
 -- ============================================================================
@@ -28,7 +34,9 @@ create temporary table e10_4_customers_context (
   tenant_a uuid not null,
   tenant_b uuid not null,
   customer_a uuid not null,
-  customer_b uuid not null
+  customer_b uuid not null,
+  contact_a uuid not null,
+  contact_b uuid not null
 );
 
 grant select on e10_4_customers_context to authenticated;
@@ -41,6 +49,8 @@ declare
   v_tenant_b uuid;
   v_customer_a uuid;
   v_customer_b uuid;
+  v_contact_a uuid;
+  v_contact_b uuid;
   v_rejected boolean := false;
 begin
   select u.id into v_actor
@@ -103,17 +113,39 @@ begin
     raise exception 'Un client individual sans nom ni prenom a ete accepte';
   end if;
 
+  -- 2bis. Client individual sans civilite (M3) -> refuse, meme avec nom/prenom.
+  v_rejected := false;
+  begin
+    insert into public.customers (tenant_id, type, first_name, last_name)
+    values (v_tenant_a, 'individual', 'Sans', 'Civilite');
+  exception
+    when check_violation then v_rejected := true;
+  end;
+  if not v_rejected then
+    raise exception 'Un client individual sans civilite a ete accepte';
+  end if;
+
   -- Clients valides, un par tenant.
   insert into public.customers (tenant_id, type, company_name, siret)
   values (v_tenant_a, 'company', 'Tenant A Impression', '73282932000074')
   returning id into v_customer_a;
 
-  insert into public.customers (tenant_id, type, first_name, last_name)
-  values (v_tenant_b, 'individual', 'Jean', 'Dupont')
+  insert into public.customers (tenant_id, type, civility, first_name, last_name)
+  values (v_tenant_b, 'individual', 'mr', 'Jean', 'Dupont')
   returning id into v_customer_b;
 
-  insert into e10_4_customers_context (actor_id, tenant_a, tenant_b, customer_a, customer_b)
-  values (v_actor, v_tenant_a, v_tenant_b, v_customer_a, v_customer_b);
+  -- Un interlocuteur par client, pour le scenario 5 (RLS customer_contacts).
+  insert into public.customer_contacts (customer_id, first_name, last_name, email)
+  values (v_customer_a, 'Contact', 'TenantA', 'contact.tenant-a@example.test')
+  returning id into v_contact_a;
+
+  insert into public.customer_contacts (customer_id, first_name, last_name, email)
+  values (v_customer_b, 'Contact', 'TenantB', 'contact.tenant-b@example.test')
+  returning id into v_contact_b;
+
+  insert into e10_4_customers_context (
+    actor_id, tenant_a, tenant_b, customer_a, customer_b, contact_a, contact_b
+  ) values (v_actor, v_tenant_a, v_tenant_b, v_customer_a, v_customer_b, v_contact_a, v_contact_b);
 end;
 $$;
 
@@ -162,7 +194,7 @@ begin
 end;
 $$;
 
--- ── 3. et 5. Isolation par tenant, exercee via la policy reelle ────────────
+-- ── 3. et 5. Isolation par tenant, exercee via les policies reelles ────────
 set local role authenticated;
 
 select set_config(
@@ -176,13 +208,21 @@ declare
   v_tenant_a uuid;
   v_tenant_b uuid;
   v_customer_a uuid;
+  v_customer_b uuid;
+  v_contact_a uuid;
+  v_contact_b uuid;
   v_visible_a integer;
   v_visible_b integer;
+  v_contacts_visible_a integer;
+  v_contacts_visible_b integer;
   v_updated integer;
+  v_email text;
 begin
-  select tenant_a, tenant_b, customer_a into v_tenant_a, v_tenant_b, v_customer_a
+  select tenant_a, tenant_b, customer_a, customer_b, contact_a, contact_b
+    into v_tenant_a, v_tenant_b, v_customer_a, v_customer_b, v_contact_a, v_contact_b
     from e10_4_customers_context;
 
+  -- 3. Lecture customers : rien du tenant A, controle positif sur le tenant B.
   select count(*) into v_visible_a from public.customers where tenant_id = v_tenant_a;
   if v_visible_a <> 0 then
     raise exception 'Un membre du tenant B lit % client(s) du tenant A', v_visible_a;
@@ -193,29 +233,94 @@ begin
     raise exception 'Un membre du tenant B lit % client(s) de son propre tenant, 1 attendu', v_visible_b;
   end if;
 
-  -- Ecriture : un membre du tenant B ne peut pas desactiver un client du
-  -- tenant A. La policy `with check` bloque la ligne, l UPDATE affecte 0 ligne
-  -- plutot que de lever une erreur — RLS filtre la CIBLE avant l ecriture.
+  -- Ecriture customers : un membre du tenant B ne peut pas desactiver un
+  -- client du tenant A. La policy `with check` bloque la ligne, l UPDATE
+  -- affecte 0 ligne plutot que de lever une erreur — RLS filtre la CIBLE
+  -- avant l ecriture.
   update public.customers set is_active = false where id = v_customer_a;
   get diagnostics v_updated = row_count;
   if v_updated <> 0 then
     raise exception 'Un membre du tenant B a pu modifier un client du tenant A';
+  end if;
+
+  -- m1 (qa-review) : controle positif symetrique en ECRITURE sur customers.
+  -- Sans lui, une policy customers_write cassee en permanence (ex. `using
+  -- (false)`) passerait le controle negatif ci-dessus pour la mauvaise
+  -- raison.
+  update public.customers set vat_number = 'FR00000000000' where id = v_customer_b;
+  get diagnostics v_updated = row_count;
+  if v_updated <> 1 then
+    raise exception
+      'Un membre du tenant B n a pas pu modifier son propre client (% ligne(s))', v_updated;
+  end if;
+
+  -- 5 (M5 qa-review) : meme isolation sur customer_contacts, dont la policy
+  -- repose sur une jointure customers x tenant_members DIFFERENTE de celle
+  -- de customers — jamais exercee avant ce test, alors que la table porte
+  -- des PII (nom, email, telephone).
+  select count(*) into v_contacts_visible_a
+    from public.customer_contacts where id = v_contact_a;
+  if v_contacts_visible_a <> 0 then
+    raise exception
+      'Un membre du tenant B lit % interlocuteur(s) du tenant A', v_contacts_visible_a;
+  end if;
+
+  select count(*) into v_contacts_visible_b
+    from public.customer_contacts where customer_id = v_customer_b;
+  -- v_contact_b + Alice/Bob du scenario 4 = 3 interlocuteurs sur le client B.
+  if v_contacts_visible_b <> 3 then
+    raise exception
+      'Un membre du tenant B lit % interlocuteur(s) de son propre client, 3 attendus',
+      v_contacts_visible_b;
+  end if;
+
+  -- Ecriture customer_contacts : refus sur l interlocuteur du tenant A.
+  update public.customer_contacts set last_name = 'Modifie' where id = v_contact_a;
+  get diagnostics v_updated = row_count;
+  if v_updated <> 0 then
+    raise exception 'Un membre du tenant B a pu modifier un interlocuteur du tenant A';
+  end if;
+
+  -- Controle positif : ecriture acceptee sur l interlocuteur de son propre
+  -- client.
+  update public.customer_contacts set phone = '0600000000' where id = v_contact_b;
+  get diagnostics v_updated = row_count;
+  if v_updated <> 1 then
+    raise exception
+      'Un membre du tenant B n a pas pu modifier un interlocuteur de son propre client (% ligne(s))',
+      v_updated;
+  end if;
+  select phone into v_email from public.customer_contacts where id = v_contact_b;
+  if v_email is distinct from '0600000000' then
+    raise exception
+      'La modification du telephone de l interlocuteur du tenant B ne s est pas appliquee (valeur: %)',
+      v_email;
   end if;
 end;
 $$;
 
 reset role;
 
--- Aucune ligne n a ete modifiee par la tentative bloquee ci-dessus.
+-- Aucune ligne bloquee ci-dessus n a ete modifiee (customers ET customer_contacts).
 do $$
 declare
   v_customer_a uuid;
+  v_contact_a uuid;
   v_still_active boolean;
+  v_still_last_name text;
 begin
-  select customer_a into v_customer_a from e10_4_customers_context;
+  select customer_a, contact_a into v_customer_a, v_contact_a from e10_4_customers_context;
+
   select is_active into v_still_active from public.customers where id = v_customer_a;
   if v_still_active is not true then
     raise exception 'Le client du tenant A a ete desactive malgre le blocage RLS attendu';
+  end if;
+
+  select last_name into v_still_last_name from public.customer_contacts where id = v_contact_a;
+  if v_still_last_name <> 'TenantA' then
+    raise exception
+      'L interlocuteur du tenant A a ete modifie malgre le blocage RLS attendu (valeur: %)',
+      v_still_last_name;
   end if;
 end;
 $$;
