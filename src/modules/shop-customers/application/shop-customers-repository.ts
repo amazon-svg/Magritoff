@@ -24,6 +24,8 @@ export type CreateShopCustomerRecord = Readonly<{
   fullName: string;
   status: Extract<ShopCustomerAccountStatus, 'delegated_only' | 'invited'>;
   createdByMagritUserId: UserId;
+  /** E10.5 CA3 — interlocuteur a l origine de l ouverture, ou `null`/absent. */
+  customerContactId?: string | null;
 }>;
 
 export interface ShopCustomersRepository {
@@ -42,4 +44,26 @@ export interface ShopCustomersRepository {
     record: CreateShopCustomerRecord,
   ): Promise<ShopCustomerAccount>;
   ensureSelf(actor: UserId, tenantId: string, shopId: string): Promise<EnsureSelfShopCustomerResult>;
+  /** E10.5 — l acces boutique deja ouvert pour cet interlocuteur, dans CETTE boutique. */
+  findByCustomerContactId(
+    actor: UserId,
+    tenantId: string,
+    shopId: string,
+    customerContactId: string,
+  ): Promise<ShopCustomerAccount | null>;
+  /** E10.5 — tous les acces boutique ouverts pour cet interlocuteur, toutes boutiques du tenant confondues. */
+  listByCustomerContactId(actor: UserId, customerContactId: string): Promise<ShopCustomerAccount[]>;
+  /** E10.5 — relie un compte boutique existant (email trouve, non lie) a l interlocuteur. */
+  linkCustomerContact(
+    actor: UserId,
+    accountId: string,
+    customerContactId: string,
+  ): Promise<ShopCustomerAccount>;
+  /** E10.5 — revoque l acces : delie l interlocuteur et suspend le compte. */
+  revokeCustomerContactAccess(
+    actor: UserId,
+    tenantId: string,
+    shopId: string,
+    customerContactId: string,
+  ): Promise<void>;
 }
