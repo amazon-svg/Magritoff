@@ -352,6 +352,12 @@ exception
 end;
 $$;
 
+-- Postgres accorde EXECUTE a PUBLIC par defaut sur toute fonction nouvellement
+-- creee : sans ce revoke, `anon` pourrait appeler la fonction (seul le garde
+-- `auth.uid() is null` a l interieur l arreterait, ce qui n est pas une
+-- deuxieme ligne de defense si ce controle a un jour un trou). Meme pattern
+-- que public.outbox_events_reject_mutation() (20260901000100, ligne 125).
+revoke all on function public.api_create_commercial_quote_from_project_items(uuid, uuid, uuid[]) from public, anon;
 grant execute on function public.api_create_commercial_quote_from_project_items(uuid, uuid, uuid[]) to authenticated;
 
 notify pgrst, 'reload schema';
