@@ -65,6 +65,11 @@ export const TEST_IDS = {
   user: {
     page: 'users-page',
     sectionMagrit: 'users-section-magrit',
+    // E10.5 (Sprint 5, parcours P12) — l ecran Utilisateurs ne liste que les
+    // membres internes du tenant (CA1), jamais un interlocuteur client
+    // (customer_contacts, E10.4). Pose sur le meme conteneur que
+    // `sectionMagrit`, cible du cahier de test Notion.
+    sectionInternal: 'users-section-internal',
     sectionCrm: 'users-section-crm',
     table: 'users-table',
     row: 'user-row',
@@ -480,6 +485,13 @@ export const TEST_IDS = {
     contactRow: 'customer-contact-row',
     contactAddBtn: 'customer-contact-add-btn',
     contactPrimaryToggle: 'customer-contact-primary-toggle',
+    // E10.5 (Sprint 5, parcours P12) — ouverture/revocation explicite d un
+    // acces boutique depuis la fiche client. `data-status` sur le badge vaut
+    // "none" | "invited" | "active" (jamais "suspended" : un acces revoque
+    // disparait de `shop_accesses`, cf. contrat OpenAPI).
+    contactOpenShopAccessBtn: 'customer-contact-open-shop-access-btn',
+    contactRevokeShopAccessBtn: 'customer-contact-revoke-shop-access-btn',
+    contactShopAccessBadge: 'customer-contact-shop-access-badge',
   },
 } as const;
 

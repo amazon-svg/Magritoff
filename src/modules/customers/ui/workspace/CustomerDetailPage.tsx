@@ -6,13 +6,15 @@
  * projets/devis/commandes — vides tant que E10.1/E10.3/E10.12 ne sont pas
  * livrees (pas de donnee inventee).
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { ArrowLeft, CheckCircle2, Loader2, Plus, Star } from 'lucide-react';
 import { useTenantPath } from '@/modules/tenants/ui/hooks';
+import { useWorkspaceApi, useWorkspaceUiRuntime } from '@/platform/runtime/workspace-ui-runtime';
+import { ShopsApiClient, type ShopDto } from '@/modules/shops';
 import { TEST_IDS } from '@/shared/presentation/testIds';
 import { useCustomerDetail } from '@/modules/customers/ui/hooks';
-import type { Address } from '@/modules/customers/api/contracts';
+import type { Address, CustomerContactDto } from '@/modules/customers/api/contracts';
 import { AddressFields, AddressSummary, EMPTY_ADDRESS, isAddressBlank } from './AddressFields';
 
 const CIVILITY_LABEL: Record<string, string> = { mr: 'Monsieur', mrs: 'Madame' };
@@ -36,12 +38,58 @@ export function DashboardCustomerDetail() {
     verifySiret,
     addContact,
     setContactPrimary,
+    openContactShopAccess,
+    revokeContactShopAccess,
   } = useCustomerDetail(customerId ?? null);
   const [showAddContact, setShowAddContact] = useState(false);
   const [contactFirstName, setContactFirstName] = useState('');
   const [contactLastName, setContactLastName] = useState('');
   const [contactEmail, setContactEmail] = useState('');
   const [savingContact, setSavingContact] = useState(false);
+
+  // E10.5 CA3 — boutiques du tenant, pour choisir OU ouvrir l acces quand un
+  // interlocuteur n en a encore aucun. Une seule boutique -> selection
+  // implicite, sans demander a l utilisateur de choisir ce qui n a qu une
+  // reponse possible.
+  const shopsApi = useWorkspaceApi(ShopsApiClient);
+  const { tenant: currentTenant } = useWorkspaceUiRuntime();
+  const [shops, setShops] = useState<readonly ShopDto[]>([]);
+  const [shopAccessPendingFor, setShopAccessPendingFor] = useState<string | null>(null);
+  useEffect(() => {
+    if (!currentTenant) return;
+    void shopsApi.list(currentTenant.id).then(setShops).catch(() => setShops([]));
+  }, [shopsApi, currentTenant]);
+
+  const openShopAccess = async (contact: CustomerContactDto) => {
+    const shopId =
+      shops.length === 1
+        ? shops[0]!.id
+        : window.prompt(
+            `Boutique pour ouvrir l’accès de ${contact.first_name} ${contact.last_name} :\n` +
+              shops.map((shop) => `${shop.id} — ${shop.name}`).join('\n'),
+          );
+    if (!shopId) return;
+    setShopAccessPendingFor(contact.id);
+    try {
+      await openContactShopAccess(contact.id, shopId);
+    } catch {
+      // L erreur est deja posee dans `error` par le hook ; rien a faire ici.
+    } finally {
+      setShopAccessPendingFor(null);
+    }
+  };
+
+  const revokeShopAccess = async (contact: CustomerContactDto, shopId: string) => {
+    if (!window.confirm(`Révoquer l’accès boutique de ${contact.first_name} ${contact.last_name} ?`)) return;
+    setShopAccessPendingFor(contact.id);
+    try {
+      await revokeContactShopAccess(contact.id, shopId);
+    } catch {
+      // idem
+    } finally {
+      setShopAccessPendingFor(null);
+    }
+  };
 
   // M4 (qa-review) : TVA et adresses de facturation/livraison, saisissables
   // et editables ici — l API les acceptait deja, seule la fiche ne les
@@ -345,17 +393,25 @@ export function DashboardCustomerDetail() {
                     {contact.phone ? ` · ${contact.phone}` : ''}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => void setContactPrimary(contact.id, !contact.is_primary)}
-                  className={`p-1 rounded hover:bg-bg ${contact.is_primary ? 'text-amber-500' : 'text-ink-muted'}`}
-                  data-testid={TEST_IDS.customer.contactPrimaryToggle}
-                  data-contact-id={contact.id}
-                  aria-pressed={contact.is_primary}
-                  title={contact.is_primary ? 'Contact principal' : 'Définir comme contact principal'}
-                >
-                  <Star className="w-4 h-4" fill={contact.is_primary ? 'currentColor' : 'none'} />
-                </button>
+                <div className="flex items-center gap-2">
+                  <ShopAccessBadgeAndAction
+                    contact={contact}
+                    pending={shopAccessPendingFor === contact.id}
+                    onOpen={() => void openShopAccess(contact)}
+                    onRevoke={(shopId) => void revokeShopAccess(contact, shopId)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void setContactPrimary(contact.id, !contact.is_primary)}
+                    className={`p-1 rounded hover:bg-bg ${contact.is_primary ? 'text-amber-500' : 'text-ink-muted'}`}
+                    data-testid={TEST_IDS.customer.contactPrimaryToggle}
+                    data-contact-id={contact.id}
+                    aria-pressed={contact.is_primary}
+                    title={contact.is_primary ? 'Contact principal' : 'Définir comme contact principal'}
+                  >
+                    <Star className="w-4 h-4" fill={contact.is_primary ? 'currentColor' : 'none'} />
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
@@ -367,6 +423,74 @@ export function DashboardCustomerDetail() {
         <ExtensionPointCard title="Devis" hint="E10.3" items={detail.quotes} />
         <ExtensionPointCard title="Commandes" hint="E10.12" items={detail.orders} />
       </section>
+    </div>
+  );
+}
+
+/**
+ * E10.5 CA3/CA4 — badge + action d ouverture/revocation d un acces boutique.
+ * `data-status` vaut "none" | "invited" | "active" (jamais "suspended" : un
+ * acces revoque disparait de `contact.shop_accesses`, cf. contrat OpenAPI).
+ * Une seule ligne par interlocuteur : s il a plusieurs acces (plusieurs
+ * boutiques), le badge reflete le premier — geree explicitement une seule
+ * boutique a la fois reste le perimetre de cette story (pas de gestion de
+ * compte boutique complete).
+ */
+function ShopAccessBadgeAndAction({
+  contact,
+  pending,
+  onOpen,
+  onRevoke,
+}: {
+  contact: CustomerContactDto;
+  pending: boolean;
+  onOpen: () => void;
+  onRevoke: (shopId: string) => void;
+}) {
+  const access = contact.shop_accesses[0] ?? null;
+  const status = access?.status ?? 'none';
+
+  return (
+    <div className="flex items-center gap-2">
+      <span
+        data-testid={TEST_IDS.customer.contactShopAccessBadge}
+        data-status={status}
+        className={
+          'px-2 py-0.5 rounded-full text-xs font-medium ' +
+          (status === 'active'
+            ? 'bg-green-100 text-green-800'
+            : status === 'invited'
+              ? 'bg-amber-100 text-amber-800'
+              : 'bg-bg text-ink-muted')
+        }
+      >
+        {status === 'active' ? 'Accès boutique actif' : status === 'invited' ? 'Accès invité' : 'Aucun accès boutique'}
+      </span>
+      {access ? (
+        <button
+          type="button"
+          onClick={() => onRevoke(access.shop_id)}
+          disabled={pending}
+          className={btnGhost}
+          data-testid={TEST_IDS.customer.contactRevokeShopAccessBtn}
+          data-contact-id={contact.id}
+        >
+          {pending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+          Révoquer
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={onOpen}
+          disabled={pending}
+          className={btnGhost}
+          data-testid={TEST_IDS.customer.contactOpenShopAccessBtn}
+          data-contact-id={contact.id}
+        >
+          {pending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+          Ouvrir un accès boutique
+        </button>
+      )}
     </div>
   );
 }

@@ -115,6 +115,39 @@ export function useCustomerDetail(customerId: string | null) {
     [api, customerId, load],
   );
 
+  /** E10.5 CA3 — action explicite et distincte de la creation de l interlocuteur. */
+  const openContactShopAccess = useCallback(
+    async (contactId: string, shopId: string) => {
+      if (!customerId) throw new Error('Fiche client non chargée.');
+      setError(null);
+      try {
+        const result = await api.openContactShopAccess(customerId, contactId, shopId);
+        await load();
+        return result;
+      } catch (cause) {
+        setError(customersManagementError(cause, 'Ouverture de l’accès boutique impossible.'));
+        throw cause;
+      }
+    },
+    [api, customerId, load],
+  );
+
+  /** E10.5 CA3 — revoque l acces boutique ouvert pour cet interlocuteur dans cette boutique. */
+  const revokeContactShopAccess = useCallback(
+    async (contactId: string, shopId: string) => {
+      if (!customerId) throw new Error('Fiche client non chargée.');
+      setError(null);
+      try {
+        await api.revokeContactShopAccess(customerId, contactId, shopId);
+        await load();
+      } catch (cause) {
+        setError(customersManagementError(cause, 'Révocation de l’accès boutique impossible.'));
+        throw cause;
+      }
+    },
+    [api, customerId, load],
+  );
+
   return {
     detail,
     etag,
@@ -127,5 +160,7 @@ export function useCustomerDetail(customerId: string | null) {
     verifySiret,
     addContact,
     setContactPrimary,
+    openContactShopAccess,
+    revokeContactShopAccess,
   } as const;
 }

@@ -12,15 +12,20 @@ import {
   createCustomerCommandSchema,
   createCustomerContactCommandSchema,
   customerContactSchema,
+  customerContactShopAccessSchema,
   customerDetailSchema,
   customerSchema,
   customersListSchema,
+  openCustomerContactShopAccessCommandSchema,
+  revokeCustomerContactShopAccessCommandSchema,
+  revokeCustomerContactShopAccessResultSchema,
   siretVerificationResultSchema,
   updateCustomerCommandSchema,
   updateCustomerContactCommandSchema,
   type CreateCustomerCommand,
   type CreateCustomerContactCommand,
   type CustomerContactDto,
+  type CustomerContactShopAccessDto,
   type CustomerDetailDto,
   type CustomerDto,
   type CustomerType,
@@ -152,6 +157,32 @@ export class CustomersApiClient {
       responseSchema: successEnvelopeSchema(customerContactSchema),
     });
     return unwrapEnvelopeWithEtag(result);
+  }
+
+  /** E10.5 CA3 — action explicite, distincte de la creation de l interlocuteur. */
+  async openContactShopAccess(
+    customerId: string,
+    contactId: string,
+    shopId: string,
+  ): Promise<CustomerContactShopAccessDto> {
+    const envelope = await this.client.request({
+      method: 'POST',
+      path: `${BASE_PATH}/${customerId}/contacts/${contactId}/shop-access`,
+      body: openCustomerContactShopAccessCommandSchema.parse({ shop_id: shopId }),
+      headers: { 'Idempotency-Key': newIdempotencyKey() },
+      responseSchema: successEnvelopeSchema(customerContactShopAccessSchema),
+    });
+    return envelope.data;
+  }
+
+  /** E10.5 CA3 — revoque l acces boutique ouvert dans CETTE boutique. */
+  async revokeContactShopAccess(customerId: string, contactId: string, shopId: string): Promise<void> {
+    await this.client.request({
+      method: 'DELETE',
+      path: `${BASE_PATH}/${customerId}/contacts/${contactId}/shop-access`,
+      body: revokeCustomerContactShopAccessCommandSchema.parse({ shop_id: shopId }),
+      responseSchema: successEnvelopeSchema(revokeCustomerContactShopAccessResultSchema),
+    });
   }
 
   async verifySiret(customerId: string): Promise<SiretVerificationResultDto> {
