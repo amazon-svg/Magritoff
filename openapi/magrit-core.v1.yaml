@@ -1046,6 +1046,284 @@ paths:
           $ref: '#/components/responses/NotFound'
 
 # ----------------------------------------------------------------------------
+# story E10.3 — Creation d un devis depuis un projet (selection multi-produits).
+# Decision RP du 28/08/2026 : un bouton « Creer un devis » dans l en-tete du
+# projet ouvre une selection des elements du projet, puis bascule vers l
+# edition du devis. Un projet peut donner lieu a plusieurs devis successifs,
+# sans jamais consommer ni marquer exclusivement un `project_item`.
+#
+# Les colonnes de prix de `QuoteLine` suivent le format `PricedLine` d E10.21
+# (interface PricingEngine), PAS E10.8 (gelee au WM du 01/09, specification
+# seule). E10.21 n est pas encore livree : seul `production_price` (cout de
+# production issu du chiffrage source, CA3) est renseigne par cette story.
+# `public_price`, `customer_price`, `applied_margin_rate`, `applied_rule_id`
+# sont `null` et `breakdown` est vide jusqu a l arrivee d E10.21 — voir
+# docs/api/CONVENTIONS.md pour la tracabilite de cette dependance.
+#
+# Ecriture (creation, modification, suppression) reservee aux jetons
+# utilisateur, comme E10.1/E10.4. Lecture ouverte a Studio via `quotes:read`
+# (scope deja declare par E10.0 dans x-magrit-scopes).
+# ----------------------------------------------------------------------------
+  /quotes:
+    parameters:
+      - $ref: '#/components/parameters/MagritTenant'
+    get:
+      operationId: listQuotes
+      summary: Liste les devis du tenant courant.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+        - serviceKey: []
+      x-required-scopes: [quotes:read]
+      parameters:
+        - name: customer_id
+          in: query
+          required: false
+          description: Filtre sur le client du devis.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: project_id
+          in: query
+          required: false
+          description: Filtre sur le projet source du devis.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - name: status
+          in: query
+          required: false
+          description: Filtre sur le statut du devis. Absent -> tous statuts.
+          schema:
+            $ref: '#/components/schemas/QuoteStatus'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/PageCursor'
+      responses:
+        '200':
+          description: Page de devis du tenant.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Quote'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+    post:
+      operationId: createQuoteFromProject
+      summary: >-
+        Cree un devis a partir d elements coches d un projet (CA2, CA3).
+        Transactionnel : numerotation, creation du devis et de ses lignes
+        aboutissent ou echouent ensemble (aucun trou de sequence, aucun devis
+        orphelin). Le client (CA4) et les configurations produit (CA3) sont
+        heritees du projet et de ses elements, jamais ressaisis.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: >-
+            Cle d idempotence de la creation (CA8). Un client qui rejoue la
+            meme cle recoit le devis deja cree, jamais un second.
+          schema:
+            type: string
+            minLength: 8
+            maxLength: 255
+            pattern: '^[A-Za-z0-9_.:-]{8,255}$'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateQuoteFromProjectCommand'
+      responses:
+        '201':
+          description: Devis cree au statut brouillon, avec ses lignes (CA5, CA6).
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/QuoteDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Projet introuvable dans le tenant du jeton (`quote.project_not_found`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          description: >-
+            `item_ids` vide, ou un identifiant ne correspond a aucun element
+            du projet donne (`quote.items_invalid`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  /quotes/{quoteId}:
+    parameters:
+      - $ref: '#/components/parameters/MagritTenant'
+    get:
+      operationId: getQuote
+      summary: Recupere un devis et ses lignes.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+        - serviceKey: []
+      x-required-scopes: [quotes:read]
+      parameters:
+        - $ref: '#/components/parameters/QuoteId'
+      responses:
+        '200':
+          description: >-
+            Devis detaille. L `ETag` porte sur le sous-ensemble `Quote` de
+            cette fiche (hors `lines`), meme base de calcul que celle verifiee
+            par `updateQuote` (CA9).
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/QuoteDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      operationId: updateQuote
+      summary: >-
+        Modifie l entete d un devis brouillon : validite, affichage des
+        remises (CA6). Jamais le numero ni le client.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/QuoteId'
+        - name: If-Match
+          in: header
+          required: true
+          description: >-
+            Precondition de concurrence optimiste (CA9, voir
+            components/parameters/IfMatch pour la description complete).
+          schema:
+            type: string
+            minLength: 3
+            maxLength: 255
+            pattern: '^(W/)?"[^"]+"$'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateQuoteCommand'
+      responses:
+        '200':
+          description: Devis modifie.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Quote'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+
+    delete:
+      operationId: deleteQuote
+      summary: >-
+        Supprime un devis A L ETAT BROUILLON UNIQUEMENT (CA6). Refuse sur tout
+        autre statut : un devis envoye ou valide reste dans l historique
+        commercial.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/QuoteId'
+      responses:
+        '200':
+          description: Devis supprime.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: false
+                        required: [deleted]
+                        properties:
+                          deleted:
+                            type: boolean
+                            enum: [true]
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: >-
+            Le devis n est plus a l etat brouillon (`quote.delete_requires_draft`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+# ----------------------------------------------------------------------------
 # Bus d evenements sortants (CA10)
 # ----------------------------------------------------------------------------
 # Chaque evenement metier est ecrit dans la table `outbox_events` puis livre en
@@ -1136,6 +1414,28 @@ webhooks:
     post:
       operationId: onProjectCreated
       summary: Un projet a ete cree dans le referentiel commercial.
+      tags: [gestion-commerciale]
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/MagritSignature'
+        - $ref: '#/components/parameters/MagritEventName'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventEnvelope'
+      responses:
+        '204':
+          description: Evenement accepte par le consommateur.
+
+  quote.created:
+    post:
+      operationId: onQuoteCreated
+      summary: >-
+        Un devis a ete cree depuis un projet (E10.3). Distinct de
+        `quote.converted` (E10.12, story future), qui signale la conversion
+        en commande.
       tags: [gestion-commerciale]
       security: []
       parameters:
@@ -1351,6 +1651,14 @@ components:
       in: path
       required: true
       description: Identifiant technique du projet, dans le tenant du jeton.
+      schema:
+        $ref: '#/components/schemas/Uuid'
+
+    QuoteId:
+      name: quoteId
+      in: path
+      required: true
+      description: Identifiant technique du devis, dans le tenant du jeton.
       schema:
         $ref: '#/components/schemas/Uuid'
 
@@ -1709,6 +2017,7 @@ components:
       type: string
       enum:
         - quote.converted
+        - quote.created
         - order.step_changed
         - order.files_submitted
         - customer.created
@@ -2542,3 +2851,262 @@ components:
             - type: object
               additionalProperties: true
             - type: 'null'
+
+    # --------------------------------------------------------------------------
+    # Story E10.3 — Creation d un devis depuis un projet
+    # --------------------------------------------------------------------------
+    QuoteStatus:
+      title: QuoteStatus
+      description: >-
+        Cycle de vie du devis. Cette story ne cree et ne fait transiter que
+        `draft` : les autres valeurs existent au schema pour les stories
+        futures (E10.10 remises, E10.12 conversion en commande) et ne sont
+        jamais produites ici.
+      type: string
+      enum: [draft, sent, accepted, rejected, converted]
+
+    QuoteLine:
+      title: QuoteLine
+      description: >-
+        Ligne de devis au format `PricedLine` de l interface PricingEngine
+        (E10.21, pas encore livree — E10.8 est gelee, specification seule).
+        `production_price` (cout de production issu du chiffrage source, CA3)
+        est le seul prix renseigne par cette story : `public_price`,
+        `customer_price`, `applied_margin_rate` et `applied_rule_id` sont
+        `null` et `breakdown` est vide tant qu E10.21 n est pas livree. Voir
+        docs/api/CONVENTIONS.md pour la tracabilite de cette dependance.
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - quote_id
+        - project_item_id
+        - label
+        - product_config
+        - quantity
+        - position
+        - production_price
+        - public_price
+        - customer_price
+        - applied_margin_rate
+        - applied_rule_id
+        - breakdown
+        - created_at
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        quote_id:
+          $ref: '#/components/schemas/Uuid'
+        project_item_id:
+          description: >-
+            Element de chiffrage source (CA3). Le retrait de ce devis ne
+            supprime ni ne marque exclusivement l element : il reste
+            disponible pour d autres devis (CA7).
+          $ref: '#/components/schemas/Uuid'
+        label:
+          type: string
+          minLength: 1
+          maxLength: 300
+        product_config:
+          description: >-
+            Configuration produit reprise telle quelle du chiffrage source
+            (CA3), forme libre — miroir de `ProjectItem.quote_payload`.
+          type: object
+          additionalProperties: true
+        quantity:
+          type: integer
+          format: int32
+          minimum: 1
+        position:
+          type: integer
+          format: int32
+          minimum: 0
+        production_price:
+          description: Cout de production issu du chiffrage source (CA3).
+          $ref: '#/components/schemas/Money'
+        public_price:
+          description: 'Point d extension E10.21 : `null` tant que le moteur de prix n est pas livre.'
+          oneOf:
+            - $ref: '#/components/schemas/Money'
+            - type: 'null'
+        customer_price:
+          description: 'Point d extension E10.21 : `null` tant que le moteur de prix n est pas livre.'
+          oneOf:
+            - $ref: '#/components/schemas/Money'
+            - type: 'null'
+        applied_margin_rate:
+          description: 'Point d extension E10.21 : `null` tant que le moteur de prix n est pas livre.'
+          oneOf:
+            - $ref: '#/components/schemas/Rate'
+            - type: 'null'
+        applied_rule_id:
+          description: 'Point d extension E10.21 : `null` tant que le moteur de prix n est pas livre.'
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        breakdown:
+          description: >-
+            Detail du calcul de prix (E10.21). Toujours vide tant que cette
+            story n est pas livree — pas de donnee inventee.
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        created_at:
+          $ref: '#/components/schemas/Timestamp'
+
+    Quote:
+      title: Quote
+      description: >-
+        Devis (CA1-CA7), cree depuis un ou plusieurs elements d un projet. Le
+        client est herite du projet (CA4), jamais ressaisi. Un projet peut
+        donner lieu a plusieurs devis successifs (CA7).
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - tenant_id
+        - customer_id
+        - project_id
+        - number
+        - status
+        - valid_until
+        - show_discounts
+        - created_by
+        - created_at
+        - updated_at
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        tenant_id:
+          $ref: '#/components/schemas/Uuid'
+        customer_id:
+          description: Herite du projet source (CA4), jamais modifiable depuis le devis.
+          $ref: '#/components/schemas/Uuid'
+        project_id:
+          $ref: '#/components/schemas/Uuid'
+        number:
+          description: >-
+            Numero metier unique et sequentiel par tenant et par annee (CA5),
+            attribue en base a la creation — jamais calcule cote client.
+          type: string
+          pattern: '^DEV-[0-9]{4}-[0-9]{5}$'
+          examples:
+            - DEV-2026-00042
+        status:
+          $ref: '#/components/schemas/QuoteStatus'
+        valid_until:
+          description: Date de validite du devis. `null` tant qu elle n est pas fixee.
+          oneOf:
+            - type: string
+              format: date
+              pattern: '^\d{4}-\d{2}-\d{2}$'
+            - type: 'null'
+        show_discounts:
+          description: >-
+            Affichage des remises sur le devis. Point d extension E10.10 :
+            `false` par defaut tant que cette story n est pas livree.
+          type: boolean
+        created_by:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        created_at:
+          $ref: '#/components/schemas/Timestamp'
+        updated_at:
+          $ref: '#/components/schemas/Timestamp'
+
+    QuoteDetail:
+      title: QuoteDetail
+      description: >-
+        Devis complet avec ses lignes (CA5, CA6). Schema APLATI plutot que
+        compose par `allOf`, meme raison que `ProjectDetail` : combine a
+        `additionalProperties: false`, un `allOf` ferait rejeter `lines` par
+        le membre `Quote`, ferme sur ses seuls champs.
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - tenant_id
+        - customer_id
+        - project_id
+        - number
+        - status
+        - valid_until
+        - show_discounts
+        - created_by
+        - created_at
+        - updated_at
+        - lines
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        tenant_id:
+          $ref: '#/components/schemas/Uuid'
+        customer_id:
+          $ref: '#/components/schemas/Uuid'
+        project_id:
+          $ref: '#/components/schemas/Uuid'
+        number:
+          type: string
+          pattern: '^DEV-[0-9]{4}-[0-9]{5}$'
+        status:
+          $ref: '#/components/schemas/QuoteStatus'
+        valid_until:
+          oneOf:
+            - type: string
+              format: date
+              pattern: '^\d{4}-\d{2}-\d{2}$'
+            - type: 'null'
+        show_discounts:
+          type: boolean
+        created_by:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        created_at:
+          $ref: '#/components/schemas/Timestamp'
+        updated_at:
+          $ref: '#/components/schemas/Timestamp'
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuoteLine'
+
+    CreateQuoteFromProjectCommand:
+      title: CreateQuoteFromProjectCommand
+      description: >-
+        Commande de creation d un devis depuis des elements coches d un
+        projet (CA2). `item_ids` doit designer des elements existants DU
+        PROJET DONNE, sans quoi la creation est refusee en 422
+        `quote.items_invalid`.
+      type: object
+      additionalProperties: false
+      required: [project_id, item_ids]
+      properties:
+        project_id:
+          $ref: '#/components/schemas/Uuid'
+        item_ids:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/Uuid'
+
+    UpdateQuoteCommand:
+      title: UpdateQuoteCommand
+      description: >-
+        Modification partielle de l entete d un devis : validite, affichage
+        des remises (CA6). Jamais le numero, le client ou le projet source.
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        valid_until:
+          oneOf:
+            - type: string
+              format: date
+              pattern: '^\d{4}-\d{2}-\d{2}$'
+            - type: 'null'
+        show_discounts:
+          type: boolean
