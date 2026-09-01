@@ -365,9 +365,19 @@ export interface components {
         PageSize: number;
         /** @description Curseur opaque renvoye par `meta.next_cursor` de la page precedente. Absent sur la premiere page. Ne jamais construire un curseur cote client : sa structure interne n est pas contractuelle. */
         PageCursor: string;
-        /** @description Cle d idempotence fournie par l appelant sur tout POST creant une ressource metier (CA8). Rejouer la meme cle avec le meme corps renvoie la reponse initiale ; la rejouer avec un corps different renvoie 409 `api.idempotency_key_reused`. */
+        /**
+         * @description Cle d idempotence fournie par l appelant sur tout POST creant une ressource metier (CA8). Rejouer la meme cle avec la meme requete renvoie la reponse initiale, accompagnee de l en-tete `Idempotency-Replayed: true` ; la rejouer avec une requete differente renvoie 409 `api.idempotency_key_reused`.
+         *
+         *     L identite d une requete couvre la methode, le chemin, LA QUERY et le corps : deux POST au meme chemin avec des query differentes ne sont pas la meme requete.
+         *
+         *     Sur un rejeu, seul `meta.request_id` est recale sur la requete courante ; `data` est rendu inchange.
+         */
         IdempotencyKey: string;
-        /** @description Valeur d `ETag` de la representation lue, exigee sur tout PATCH (CA9). Absente -> 428. Differente de l etat courant -> 409 avec l etat courant dans `current_state`. */
+        /**
+         * @description Valeur d `ETag` de la representation lue, exigee sur tout PATCH (CA9). Absente -> 428 `api.if_match_required`. Differente de l etat courant -> 409 avec l etat courant dans `current_state`.
+         *
+         *     `If-Match: *` est REFUSE en 400 `api.if_match_invalid`, contrairement a la semantique RFC 7232 ou il signifie « pourvu que la ressource existe ». Ici il reviendrait a desactiver le controle de concurrence : deux modifications concurrentes s ecraseraient en silence, ce que le CA9 interdit. Le `pattern` ci-dessous n admet qu un ETag, faible ou fort.
+         */
         IfMatch: string;
         /** @description Signature HMAC-SHA256 du corps brut de l evenement, au format `sha256=<hex minuscule>`. A verifier en comparaison a temps constant. */
         MagritSignature: string;
@@ -378,8 +388,10 @@ export interface components {
     headers: {
         /** @description Empreinte de la representation renvoyee. A repasser dans `If-Match` lors d un PATCH ulterieur. */
         ETag: string;
-        /** @description Identifiant de correlation de la requete, repris dans `meta.request_id`. */
+        /** @description Identifiant de correlation de la requete. Il vaut TOUJOURS `meta.request_id` du corps, y compris sur une reponse rejouee depuis le cache d idempotence. */
         XRequestId: string;
+        /** @description Present et egal a `true` quand la reponse provient du cache d idempotence plutot que d une execution neuve. Permet a l appelant de distinguer « ma creation a abouti » de « ma creation avait deja abouti », ce que le seul statut 201 ne dit pas. Absent sinon. */
+        IdempotencyReplayed: "true";
         /** @description Delai en secondes avant nouvelle tentative. */
         RetryAfter: number;
     };
@@ -417,6 +429,7 @@ export type ParameterMagritSignature = components['parameters']['MagritSignature
 export type ParameterMagritEventName = components['parameters']['MagritEventName'];
 export type HeaderETag = components['headers']['ETag'];
 export type HeaderXRequestId = components['headers']['XRequestId'];
+export type HeaderIdempotencyReplayed = components['headers']['IdempotencyReplayed'];
 export type HeaderRetryAfter = components['headers']['RetryAfter'];
 export type $defs = Record<string, never>;
 export interface operations {

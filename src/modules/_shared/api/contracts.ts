@@ -72,17 +72,30 @@ export const apiEnumTokenSchema = z.string().regex(/^[a-z][a-z0-9_]*$/);
 // Composants partages
 // ---------------------------------------------------------------------------
 
+/**
+ * Tracabilite. `created_by` et `updated_by` sont OPTIONNELS, comme au contrat :
+ * un payload qui les omet est legal cote YAML, il doit l etre cote Zod. Les
+ * rendre obligatoires ici ferait rejeter par le client une reponse que l API
+ * documente comme valide.
+ */
 export const auditSchema = z.object({
   created_at: timestampSchema,
-  created_by: uuidSchema.nullable(),
+  created_by: uuidSchema.nullable().optional(),
   updated_at: timestampSchema,
-  updated_by: uuidSchema.nullable(),
+  updated_by: uuidSchema.nullable().optional(),
 });
 
-/** Bloc `meta` de toute reponse de succes (CA6, CA7). */
+/**
+ * Bloc `meta` de toute reponse de succes (CA6, CA7).
+ *
+ * `next_cursor` est OPTIONNEL, comme dans le contrat : un payload qui l omet
+ * est legal cote YAML, il doit donc l etre cote Zod. La facade, elle, l emet
+ * toujours (`null` quand il n y a pas de page suivante) — c est une garantie
+ * de l implementation, pas une exigence du contrat.
+ */
 export const metaSchema = z.object({
   request_id: z.string().min(1),
-  next_cursor: z.string().min(1).max(512).nullable(),
+  next_cursor: z.string().min(1).max(512).nullable().optional(),
   page_size: z.number().int().min(1).max(200).optional(),
 });
 
@@ -139,6 +152,12 @@ export const pageParamsSchema = z.object({
 // ---------------------------------------------------------------------------
 
 export const IDEMPOTENCY_KEY_HEADER = 'Idempotency-Key' as const;
+/**
+ * Marque une reponse rendue depuis le cache d idempotence plutot que par une
+ * execution neuve. L appelant peut ainsi distinguer « ma creation a abouti » de
+ * « ma creation avait deja abouti », ce que le seul statut 201 ne dit pas.
+ */
+export const IDEMPOTENCY_REPLAYED_HEADER = 'Idempotency-Replayed' as const;
 export const IF_MATCH_HEADER = 'If-Match' as const;
 export const ETAG_HEADER = 'ETag' as const;
 export const REQUEST_ID_HEADER = 'X-Request-Id' as const;
@@ -199,25 +218,35 @@ export type EventEnvelopeDto = z.infer<typeof eventEnvelopeSchema>;
 export type SuccessEnvelopeDto<TData> = Readonly<{ data: TData; meta: MetaDto }>;
 
 // ---------------------------------------------------------------------------
-// Verrou de compilation contrat <-> schemas (CA2)
+// Alignement de compilation contrat <-> schemas (CA2)
 // ---------------------------------------------------------------------------
-// Si un schema Zod cesse de produire une valeur acceptee par le type genere
-// depuis openapi/magrit-core.v1.yaml, l assertion ci-dessous ne compile plus.
-// C est le garde-fou qui empeche les DTO de diverger du contrat sans que
-// personne ne s en apercoive.
+// PORTEE REELLE DE CE GARDE-FOU, a ne pas surestimer.
+//
+// Ce qu il attrape : la disparition ou le renommage d un champ (l indexation
+// `Dto['champ']` ne compile plus), un champ requis devenu incompatible, et
+// surtout les ENUMERATIONS — `EventName` est genere en union de litteraux,
+// donc ajouter une valeur cote Zod sans l ajouter au YAML echoue ici.
+//
+// Ce qu il n attrape PAS : tout ce que le contrat exprime en `pattern`,
+// `format`, `minimum` ou `maxLength`. Money et Rate sont generes en `string`
+// des deux cotes — l assertion est alors tautologique et ne prouve rien sur le
+// format. Un montant serialise en flottant passerait ici sans bruit.
+//
+// La verification de FORMAT est faite ailleurs, a l execution :
+// tests/contract/shared-components.contract.test.ts confronte les payloads
+// reellement produits aux JSON Schema du contrat via Ajv. C est ce test-la qui
+// tient le CA2 sur les formats, pas cette assertion.
 
 type AssertAssignable<TSource, TTarget> = TSource extends TTarget ? true : never;
 
 export const CONTRACT_ALIGNMENT = Object.freeze({
-  money: true as AssertAssignable<MoneyDto, MoneyContract>,
-  rate: true as AssertAssignable<RateDto, RateContract>,
-  timestamp: true as AssertAssignable<TimestampDto, TimestampContract>,
-  uuid: true as AssertAssignable<UuidDto, UuidContract>,
+  // Assertions structurelles : elles mordent (champ disparu, type incompatible).
   eventName: true as AssertAssignable<EventNameDto, EventNameContract>,
-  problemCode: true as AssertAssignable<ProblemDto['code'], ProblemCodeContract>,
   auditCreatedAt: true as AssertAssignable<AuditDto['created_at'], AuditContract['created_at']>,
+  auditUpdatedBy: true as AssertAssignable<AuditDto['updated_by'], AuditContract['updated_by']>,
   metaRequestId: true as AssertAssignable<MetaDto['request_id'], MetaContract['request_id']>,
-  metaNextCursor: true as AssertAssignable<MetaDto['next_cursor'], string | null>,
+  metaNextCursor: true as AssertAssignable<MetaDto['next_cursor'], MetaContract['next_cursor']>,
+  metaPageSize: true as AssertAssignable<MetaDto['page_size'], MetaContract['page_size']>,
   eventVersion: true as AssertAssignable<
     EventEnvelopeDto['event_version'],
     EventEnvelopeContract['event_version']
@@ -226,4 +255,15 @@ export const CONTRACT_ALIGNMENT = Object.freeze({
     EventEnvelopeDto['tenant_id'],
     EventEnvelopeContract['tenant_id']
   >,
+  eventPayload: true as AssertAssignable<
+    EventEnvelopeDto['payload'],
+    EventEnvelopeContract['payload']
+  >,
+  // Assertions tautologiques assumees : le contrat genere `string`, la garantie
+  // de format est portee par le test Ajv, pas par ces trois lignes.
+  money: true as AssertAssignable<MoneyDto, MoneyContract>,
+  rate: true as AssertAssignable<RateDto, RateContract>,
+  timestamp: true as AssertAssignable<TimestampDto, TimestampContract>,
+  uuid: true as AssertAssignable<UuidDto, UuidContract>,
+  problemCode: true as AssertAssignable<ProblemDto['code'], ProblemCodeContract>,
 });

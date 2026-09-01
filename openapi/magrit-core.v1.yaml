@@ -255,9 +255,19 @@ components:
       required: true
       description: >-
         Cle d idempotence fournie par l appelant sur tout POST creant une
-        ressource metier (CA8). Rejouer la meme cle avec le meme corps renvoie
-        la reponse initiale ; la rejouer avec un corps different renvoie 409
+        ressource metier (CA8). Rejouer la meme cle avec la meme requete renvoie
+        la reponse initiale, accompagnee de l en-tete `Idempotency-Replayed:
+        true` ; la rejouer avec une requete differente renvoie 409
         `api.idempotency_key_reused`.
+
+
+        L identite d une requete couvre la methode, le chemin, LA QUERY et le
+        corps : deux POST au meme chemin avec des query differentes ne sont pas
+        la meme requete.
+
+
+        Sur un rejeu, seul `meta.request_id` est recale sur la requete
+        courante ; `data` est rendu inchange.
       schema:
         type: string
         minLength: 8
@@ -270,12 +280,24 @@ components:
       required: true
       description: >-
         Valeur d `ETag` de la representation lue, exigee sur tout PATCH (CA9).
-        Absente -> 428. Differente de l etat courant -> 409 avec l etat courant
-        dans `current_state`.
+        Absente -> 428 `api.if_match_required`. Differente de l etat courant ->
+        409 avec l etat courant dans `current_state`.
+
+
+        `If-Match: *` est REFUSE en 400 `api.if_match_invalid`, contrairement a
+        la semantique RFC 7232 ou il signifie « pourvu que la ressource
+        existe ». Ici il reviendrait a desactiver le controle de concurrence :
+        deux modifications concurrentes s ecraseraient en silence, ce que le
+        CA9 interdit. Le `pattern` ci-dessous n admet qu un ETag, faible ou
+        fort.
       schema:
         type: string
         minLength: 3
         maxLength: 255
+        pattern: '^(W/)?"[^"]+"$'
+        examples:
+          - '"9f2a1c4b8e7d6503a1b2c3d4e5f60718"'
+          - 'W/"9f2a1c4b8e7d6503a1b2c3d4e5f60718"'
 
     MagritSignature:
       name: X-Magrit-Signature
@@ -309,10 +331,24 @@ components:
         type: string
 
     XRequestId:
-      description: Identifiant de correlation de la requete, repris dans `meta.request_id`.
+      description: >-
+        Identifiant de correlation de la requete. Il vaut TOUJOURS
+        `meta.request_id` du corps, y compris sur une reponse rejouee depuis le
+        cache d idempotence.
       required: true
       schema:
         type: string
+
+    IdempotencyReplayed:
+      description: >-
+        Present et egal a `true` quand la reponse provient du cache
+        d idempotence plutot que d une execution neuve. Permet a l appelant de
+        distinguer « ma creation a abouti » de « ma creation avait deja
+        abouti », ce que le seul statut 201 ne dit pas. Absent sinon.
+      required: false
+      schema:
+        type: string
+        enum: ['true']
 
     RetryAfter:
       description: Delai en secondes avant nouvelle tentative.

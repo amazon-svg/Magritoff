@@ -137,15 +137,34 @@ export async function resolvePrincipal(
   return principal;
 }
 
-/** Verifie que l acteur porte tous les scopes exiges par l operation (CA5). */
+/**
+ * Verifie que l acteur porte tous les scopes exiges par l operation (CA5).
+ *
+ * FERME PAR DEFAUT : une cle de service qui atteint une operation sans scope
+ * declare est REFUSEE, elle ne passe pas. Le contraire — laisser passer quand
+ * la liste est vide — transformait chaque oubli de declaration en ouverture
+ * silencieuse de l operation a toutes les cles du tenant.
+ *
+ * `defineGescomRoute` refuse deja une telle route a la definition ; cette
+ * seconde barriere couvre les appelants qui composent le middleware autrement.
+ */
 export function assertScopes(
   principal: ApiPrincipal,
   requiredScopes: readonly ServiceScope[],
 ): void {
-  if (requiredScopes.length === 0) return;
   // Un JWT utilisateur ne porte pas de scope de service : ses droits sont
   // portes par les roles du tenant, verifies par la RLS et le service metier.
   if (principal.kind === 'user') return;
+
+  if (requiredScopes.length === 0) {
+    throw problem({
+      status: 403,
+      title: 'Operation fermee aux cles de service',
+      code: SHARED_PROBLEM_CODES.scopeRequired,
+      detail:
+        'Cette operation ne declare aucun scope : elle est reservee aux jetons utilisateur.',
+    });
+  }
 
   const missing = requiredScopes.filter((scope) => !principal.scopes.includes(scope));
   if (missing.length > 0) throw scopeRequired(missing);

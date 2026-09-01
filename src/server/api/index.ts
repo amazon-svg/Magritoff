@@ -1,6 +1,7 @@
 export { compilePathTemplate, createApiV1Handler } from './api-v1-handler';
 export type { ActorResolver, ApiV1HandlerOptions, ResolvedActor } from './api-v1-handler';
 export { buildEnvelope, createGescomApiHandler, defineGescomRoute } from './gescom-middleware';
+export { GESCOM_ROUTES } from './gescom-routes';
 export type {
   GescomApiHandlerOptions,
   GescomAuthentication,

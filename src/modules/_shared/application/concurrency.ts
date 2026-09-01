@@ -41,7 +41,19 @@ export function readIfMatch(request: Request, required: boolean): string | null 
   }
 
   const value = raw.trim();
-  if (value === '*') return value;
+  // `If-Match: *` est REFUSE, contrairement a la semantique RFC 7232 ou il
+  // signifie « pourvu que la ressource existe ». Ici il reviendrait a desactiver
+  // la protection : deux commerciaux editant la meme fiche s ecraseraient en
+  // silence, ce que le CA9 interdit. Le contrat impose d ailleurs minLength 3
+  // sur If-Match, ce qu une etoile ne satisfait pas.
+  if (value === '*') {
+    throw problem({
+      status: 400,
+      title: 'Precondition trop permissive',
+      code: SHARED_PROBLEM_CODES.ifMatchInvalid,
+      detail: `${IF_MATCH_HEADER}: * desactiverait le controle de concurrence. Reprendre l ETag lu.`,
+    });
+  }
   if (!/^(W\/)?"[^"]+"$/.test(value)) {
     throw problem({
       status: 400,
@@ -63,7 +75,10 @@ export function assertPrecondition(
   currentEntityTag: string,
   currentState: Readonly<Record<string, unknown>>,
 ): void {
-  if (ifMatch === null || ifMatch === '*') return;
+  // `null` n arrive que sur une operation non gardee : `readIfMatch(_, true)`,
+  // applique a tout PATCH, a deja leve un 428 dans le cas contraire. Aucune
+  // valeur joker n est acceptee ici : voir le refus de `*` dans readIfMatch.
+  if (ifMatch === null) return;
   if (normalize(ifMatch) === normalize(currentEntityTag)) return;
   throw resourceConflict(currentState);
 }

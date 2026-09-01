@@ -14,6 +14,7 @@ export {
   eventSignatureSchema,
   GESCOM_API_BASE_PATH,
   IDEMPOTENCY_KEY_HEADER,
+  IDEMPOTENCY_REPLAYED_HEADER,
   idempotencyKeySchema,
   IF_MATCH_HEADER,
   JSON_MEDIA_TYPE,
@@ -35,6 +36,15 @@ export {
   timestampSchema,
   uuidSchema,
 } from './contracts.ts';
+
+export {
+  checkResourcePath,
+  isResourcePosition,
+  PATH_PARAM_SEGMENT,
+  RESOURCE_SEGMENT,
+  TENANT_ADDRESSING_TOKENS,
+} from './path-rules.ts';
+export type { PathViolation } from './path-rules.ts';
 
 export type {
   AuditDto,

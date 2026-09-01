@@ -18,8 +18,10 @@ import type { z } from 'zod';
 import { systemClock, type Clock } from '../../kernel/clock/index.ts';
 import type { TenantId } from '../../kernel/ids/index.ts';
 import {
+  checkResourcePath,
   ETAG_HEADER,
   GESCOM_API_BASE_PATH,
+  IDEMPOTENCY_REPLAYED_HEADER,
   JSON_MEDIA_TYPE,
   PROBLEM_MEDIA_TYPE,
   REQUEST_ID_HEADER,
@@ -108,10 +110,6 @@ export type GescomRoute = Readonly<{
   parseInput(request: Request): Promise<unknown>;
 }>;
 
-const KEBAB_SEGMENT = /^[a-z0-9]+(-[a-z0-9]+)*$/;
-const PATH_PARAM_SEGMENT = /^\{[A-Za-z][A-Za-z0-9_]*\}$/;
-const TENANT_PARAM_NAMES = new Set(['tenantid', 'tenant_id', 'tenant']);
-
 /**
  * Declare une route de la facade. Les invariants du sprint sont verifies ICI,
  * au chargement du module : une definition non conforme fait echouer le
@@ -121,6 +119,21 @@ export function defineGescomRoute<TInput, TData>(
   definition: GescomRouteDefinition<TInput, TData>,
 ): GescomRoute {
   assertRoutePath(definition.method, definition.path);
+
+  const authentication = definition.authentication ?? 'any';
+  const requiredScopes = Object.freeze([...(definition.requiredScopes ?? [])]);
+
+  // CA5 — portee FERMEE par defaut. Une route joignable par une cle de service
+  // sans scope declare serait ouverte a n importe quelle cle du tenant : le
+  // module Studio pourrait ecrire la ou il n a que la lecture. Une route
+  // reservee aux utilisateurs (`authentication: 'user'`) n a pas de scope :
+  // ses droits viennent des roles du tenant, verifies par la RLS.
+  if (authentication !== 'user' && requiredScopes.length === 0) {
+    throw new TypeError(
+      `${definition.operationId} : une route joignable par cle de service doit declarer requiredScopes (CA5). ` +
+        `Sinon, la restreindre explicitement avec authentication: 'user'.`,
+    );
+  }
 
   const createsResource = definition.createsResource ?? false;
   if (createsResource && definition.method !== 'POST') {
@@ -137,8 +150,8 @@ export function defineGescomRoute<TInput, TData>(
     path: `${GESCOM_API_BASE_PATH}${definition.path}`,
     relativePath: definition.path,
     operationId: definition.operationId,
-    authentication: definition.authentication ?? 'any',
-    requiredScopes: Object.freeze([...(definition.requiredScopes ?? [])]),
+    authentication,
+    requiredScopes,
     createsResource,
     // CA9 : tout PATCH est protege, sans exception declarative possible.
     concurrencyGuarded: definition.method === 'PATCH',
@@ -228,7 +241,9 @@ export function createGescomApiHandler(options: GescomApiHandlerOptions) {
         idempotency = {
           tenantId: principal.tenantId,
           key,
-          fingerprint: await fingerprintRequest(request.method, url.pathname, input),
+          // L empreinte couvre la query : deux POST au meme chemin avec des
+          // query differentes ne sont pas la meme requete.
+          fingerprint: await fingerprintRequest(request.method, url, input),
         };
         const lookup = await options.idempotencyStore.begin(idempotency);
         if (lookup.outcome === 'conflict') throw idempotencyKeyReused(key);
@@ -236,9 +251,15 @@ export function createGescomApiHandler(options: GescomApiHandlerOptions) {
         if (lookup.outcome === 'replayed') {
           return renderSuccess(
             lookup.record.status,
-            lookup.record.body,
+            // `meta.request_id` est recale sur la requete COURANTE : le contrat
+            // promet qu il vaut l en-tete X-Request-Id, et rendre celui de la
+            // premiere tentative casserait la correlation des traces du client.
+            rewriteEnvelopeRequestId(lookup.record.body, requestId),
             requestId,
-            lookup.record.etag === null ? {} : { [ETAG_HEADER]: lookup.record.etag },
+            {
+              [IDEMPOTENCY_REPLAYED_HEADER]: 'true',
+              ...(lookup.record.etag === null ? {} : { [ETAG_HEADER]: lookup.record.etag }),
+            },
           );
         }
       }
@@ -294,6 +315,21 @@ export function buildEnvelope<TData>(
   return Object.freeze({ data: result.data, meta });
 }
 
+/**
+ * Recale `meta.request_id` d une reponse memorisee sur la requete courante.
+ * Le reste de l enveloppe — `data` compris — est rendu inchange : c est tout
+ * l interet du rejeu.
+ */
+function rewriteEnvelopeRequestId(body: unknown, requestId: string): unknown {
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) return body;
+  const envelope = body as { data?: unknown; meta?: unknown };
+  if (typeof envelope.meta !== 'object' || envelope.meta === null) return body;
+  return {
+    ...envelope,
+    meta: { ...(envelope.meta as Record<string, unknown>), request_id: requestId },
+  };
+}
+
 function renderSuccess(
   status: number,
   body: unknown,
@@ -345,41 +381,17 @@ async function parseJsonInput<T>(
 /**
  * CA3 et CA4 : prefixe `/api/v1`, ressources au pluriel en kebab-case, aucun
  * segment de chemin ne designe un tenant.
+ *
+ * La regle elle-meme vit dans `src/modules/_shared/api/path-rules.ts` et est
+ * partagee avec le lint du contrat : elle existait auparavant en deux
+ * exemplaires qui avaient deja diverge sur le pluriel des sous-ressources.
  */
 function assertRoutePath(method: HttpMethod, path: string): void {
-  if (!path.startsWith('/') || path.startsWith('//')) {
-    throw new TypeError(
-      `Chemin ${method} ${path} : declarer un chemin relatif au prefixe ${GESCOM_API_BASE_PATH}, commencant par /.`,
-    );
+  const violations = checkResourcePath(path, GESCOM_API_BASE_PATH);
+  const first = violations[0];
+  if (first !== undefined) {
+    throw new TypeError(`Chemin ${method} ${path} : ${first.message} (${first.rule}).`);
   }
-  if (path.startsWith(GESCOM_API_BASE_PATH)) {
-    throw new TypeError(
-      `Chemin ${method} ${path} : le prefixe ${GESCOM_API_BASE_PATH} est ajoute par la facade, ne pas le repeter.`,
-    );
-  }
-
-  const segments = path.slice(1).split('/');
-  segments.forEach((segment, index) => {
-    if (PATH_PARAM_SEGMENT.test(segment)) {
-      const name = segment.slice(1, -1);
-      if (TENANT_PARAM_NAMES.has(name.toLowerCase())) {
-        throw new TypeError(
-          `Chemin ${method} ${path} : le tenant est resolu depuis le jeton, jamais par {${name}} (CA4).`,
-        );
-      }
-      return;
-    }
-    if (!KEBAB_SEGMENT.test(segment)) {
-      throw new TypeError(
-        `Chemin ${method} ${path} : le segment "${segment}" doit etre en kebab-case (CA3).`,
-      );
-    }
-    if (index === 0 && !segment.endsWith('s')) {
-      throw new TypeError(
-        `Chemin ${method} ${path} : la ressource racine "${segment}" doit etre au pluriel (CA3).`,
-      );
-    }
-  });
 }
 
 function assertUniqueOperationIds(routes: readonly GescomRoute[]): void {

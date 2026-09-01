@@ -77,18 +77,42 @@ export function readIdempotencyKey(request: Request, required: boolean): string 
 }
 
 /**
- * Empreinte stable du couple (methode, chemin, corps). Deux corps
- * semantiquement identiques mais serialises differemment donnent la meme
- * empreinte grace au tri des cles d objet.
+ * Empreinte stable du couple (methode, cible, corps). La CIBLE comprend le
+ * chemin ET la query : deux POST au meme chemin avec des query differentes ne
+ * sont pas la meme requete, et les traiter comme telles ferait rejouer la
+ * mauvaise reponse.
+ *
+ * Canonicalisation : les cles d objet et les parametres de query sont tries,
+ * de sorte que deux requetes semantiquement identiques mais serialisees
+ * differemment donnent la meme empreinte.
  */
 export async function fingerprintRequest(
   method: string,
-  path: string,
+  target: string | URL,
   body: unknown,
 ): Promise<string> {
-  const canonical = `${method.toUpperCase()} ${path}\n${stableStringify(body)}`;
+  const canonical = `${method.toUpperCase()} ${canonicalTarget(target)}\n${stableStringify(body)}`;
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonical));
   return toHex(digest);
+}
+
+function canonicalTarget(target: string | URL): string {
+  if (typeof target === 'string') return target;
+  const parameters = [...target.searchParams.entries()].sort(([leftKey, leftValue], [rightKey, rightValue]) =>
+    leftKey === rightKey
+      ? leftValue < rightValue
+        ? -1
+        : leftValue > rightValue
+          ? 1
+          : 0
+      : leftKey < rightKey
+        ? -1
+        : 1,
+  );
+  const query = parameters
+    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
+    .join('&');
+  return query.length === 0 ? target.pathname : `${target.pathname}?${query}`;
 }
 
 export function idempotencyKeyReused(key: string) {

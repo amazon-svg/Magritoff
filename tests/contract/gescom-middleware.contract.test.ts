@@ -93,6 +93,7 @@ function buildHandler() {
       method: 'PATCH',
       path: '/price-rules/{ruleId}',
       operationId: 'fixtureUpdatePriceRule',
+      requiredScopes: ['price-rules:write'],
       inputSchema: z.object({ name: z.string() }),
       dataSchema: ruleSchema,
       async handle(context, input) {
@@ -159,19 +160,21 @@ describe('facade Gestion commerciale : reponses contre contrat', () => {
         method: 'GET',
         path: '/tenants/{tenantId}/price-rules',
         operationId: 'fixtureTenantInPath',
+        requiredScopes: ['price-rules:read'],
         inputSchema: null,
         dataSchema: z.array(ruleSchema),
         async handle() {
           return { status: 200, data: [] };
         },
       }),
-    ).toThrow(/le tenant est resolu depuis le jeton/i);
+    ).toThrow(/adresse un tenant|le tenant est resolu depuis le jeton/i);
   });
 
   it('CA3 — une ressource au singulier ou en camelCase est refusee a la definition', () => {
     const base = {
       method: 'GET',
       operationId: 'fixtureBadPath',
+      requiredScopes: ['price-rules:read'],
       inputSchema: null,
       dataSchema: z.array(ruleSchema),
       async handle() {
@@ -181,6 +184,34 @@ describe('facade Gestion commerciale : reponses contre contrat', () => {
     expect(() => defineGescomRoute({ ...base, path: '/price-rule' })).toThrow(/pluriel/i);
     expect(() => defineGescomRoute({ ...base, path: '/priceRules' })).toThrow(/kebab-case/i);
     expect(() => defineGescomRoute({ ...base, path: '/api/v1/price-rules' })).toThrow(/prefixe/i);
+    // Regle unifiee avec le lint du contrat : le pluriel vaut pour TOUTE
+    // ressource, pas seulement la racine.
+    expect(() => defineGescomRoute({ ...base, path: '/price-rules/{ruleId}/history' })).toThrow(
+      /pluriel/i,
+    );
+    expect(() =>
+      defineGescomRoute({ ...base, path: '/price-rules/{ruleId}/revisions' }),
+    ).not.toThrow();
+  });
+
+  it('CA5 — une route joignable par cle de service sans scope est refusee a la definition', () => {
+    const base = {
+      method: 'GET',
+      path: '/price-rules',
+      operationId: 'fixtureNoScopes',
+      inputSchema: null,
+      dataSchema: z.array(ruleSchema),
+      async handle() {
+        return { status: 200, data: [] };
+      },
+    } as const;
+    // Portee fermee par defaut : `authentication` vaut 'any' sans declaration.
+    expect(() => defineGescomRoute(base)).toThrow(/requiredScopes/i);
+    expect(() => defineGescomRoute({ ...base, authentication: 'service' })).toThrow(
+      /requiredScopes/i,
+    );
+    // Se restreindre aux jetons utilisateur est la seule dispense.
+    expect(() => defineGescomRoute({ ...base, authentication: 'user' })).not.toThrow();
   });
 
   it('CA5 — une cle de service sans le scope requis recoit 403', async () => {
@@ -264,6 +295,57 @@ describe('facade Gestion commerciale : reponses contre contrat', () => {
     expect(((await reused.json()) as { code: string }).code).toBe('api.idempotency_key_reused');
   });
 
+  it('CA8 — une reponse rejouee est signalee et recale meta.request_id sur la requete courante', async () => {
+    const request = () => ({
+      method: 'POST',
+      headers: {
+        ...asUser,
+        'Content-Type': 'application/json',
+        'Idempotency-Key': 'creation-regle-replay',
+      },
+      body: JSON.stringify({ name: 'Regle rejouee' }),
+    });
+
+    const first = await call('/api/v1/price-rules', request());
+    expect(first.headers.get('idempotency-replayed')).toBeNull();
+
+    // Le request_id du rejeu vient de l en-tete entrant, distinct du premier.
+    const replay = await handler(
+      new Request('https://magrit.test/api/v1/price-rules', {
+        ...request(),
+        headers: { ...request().headers, 'X-Request-Id': 'req-second-essai' },
+      }),
+    );
+    await expectContract(replay, { status: 201 });
+    expect(replay.headers.get('idempotency-replayed')).toBe('true');
+    expect(replay.headers.get('x-request-id')).toBe('req-second-essai');
+
+    const body = (await replay.json()) as { data: unknown; meta: { request_id: string } };
+    // Le contrat promet meta.request_id === X-Request-Id, rejeu compris.
+    expect(body.meta.request_id).toBe('req-second-essai');
+    // Les donnees, elles, sont bien celles de la premiere tentative.
+    expect(body.data).toEqual({ ...rule, name: 'Regle rejouee' });
+  });
+
+  it('CA8 — la query fait partie de l empreinte : meme cle, query differente, requetes differentes', async () => {
+    const request = () => ({
+      method: 'POST',
+      headers: {
+        ...asUser,
+        'Content-Type': 'application/json',
+        'Idempotency-Key': 'creation-regle-query',
+      },
+      body: JSON.stringify({ name: 'Regle query' }),
+    });
+
+    const first = await call('/api/v1/price-rules?source=studio', request());
+    await expectContract(first, { status: 201 });
+
+    const other = await call('/api/v1/price-rules?source=atelier', request());
+    await expectContract(other, { status: 409 });
+    expect(((await other.json()) as { code: string }).code).toBe('api.idempotency_key_reused');
+  });
+
   it('CA9 — un PATCH sans If-Match est refuse en 428', async () => {
     const response = await call(`/api/v1/price-rules/${RULE_ID}`, {
       method: 'PATCH',
@@ -272,6 +354,20 @@ describe('facade Gestion commerciale : reponses contre contrat', () => {
     });
     await expectContract(response, { status: 428 });
     expect(((await response.json()) as { code: string }).code).toBe('api.if_match_required');
+  });
+
+  it('CA9 — If-Match: * est refuse, il desactiverait le controle de concurrence', async () => {
+    const response = await call(`/api/v1/price-rules/${RULE_ID}`, {
+      method: 'PATCH',
+      headers: { ...asUser, 'Content-Type': 'application/json', 'If-Match': '*' },
+      body: JSON.stringify({ name: 'Renommee' }),
+    });
+    await expectContract(response, { status: 400 });
+    const body = (await response.json()) as { code: string; detail?: string };
+    expect(body.code).toBe('api.if_match_invalid');
+    expect(body.detail).toContain('desactiverait');
+    // La ressource n a pas bouge : le PATCH n a jamais atteint son handler.
+    expect(storedRule.name).toBe('Fidelite');
   });
 
   it('CA9 — un If-Match perime rend 409 avec l etat courant', async () => {

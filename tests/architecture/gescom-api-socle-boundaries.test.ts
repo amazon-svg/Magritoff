@@ -115,6 +115,36 @@ describe('frontières du socle API Gestion commerciale (E10.0)', () => {
     expect(middleware).not.toMatch(/new RegExp\(`\^/);
   });
 
+  it('aucun fichier de routes E10 n échappe au registre relié au contrat', () => {
+    // Le registre `GESCOM_ROUTES` est ce qui relie une route codée à une
+    // entrée réelle de l'OpenAPI (vérifié par
+    // tests/contract/gescom-routes.contract.test.ts). Un fichier de routes qui
+    // n'y arrive pas rouvre le trou : ses routes existeraient sans que
+    // personne ne vérifie qu'elles sont décrites au partenaire.
+    const registry = read('src/server/api/gescom-routes.ts');
+    const definingFiles = sourceFiles(resolve(sourceRoot, 'server/api'))
+      .filter((file) => readFileSync(file, 'utf8').includes('defineGescomRoute('))
+      .map((file) => relative(resolve(sourceRoot, 'server/api'), file))
+      // Le middleware EXPOSE defineGescomRoute et le registre le cite dans sa
+      // documentation : ni l'un ni l'autre ne déclare de route.
+      .filter(
+        (file) =>
+          file !== 'gescom-middleware.ts' &&
+          file !== 'gescom-routes.ts' &&
+          file !== 'index.ts',
+      );
+
+    const unregistered = definingFiles.filter(
+      (file) => !registry.includes(`./${file.replace(/\.tsx?$/, '')}`),
+    );
+    expect(
+      unregistered,
+      `fichiers de routes absents de GESCOM_ROUTES : ${unregistered.join(', ')}`,
+    ).toEqual([]);
+
+    expect(registry).toContain('export const GESCOM_ROUTES');
+  });
+
   it('le harnais de tests de contrat est en place et branché en CI', () => {
     expect(existsSync(resolve(root, 'tests/contract'))).toBe(true);
     const contractTests = readdirSync(resolve(root, 'tests/contract')).filter((file) =>

@@ -9,14 +9,13 @@
  *
  * Chaque regle porte le numero du critere d acceptation qu elle tient.
  */
+import { checkResourcePath, TENANT_ADDRESSING_TOKENS } from '@/modules/_shared/api';
 import { isRecord } from './_harness.ts';
 
 export const API_BASE_PATH = '/api/v1';
 
 const HTTP_METHODS = ['get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace'];
-const KEBAB_SEGMENT = /^[a-z0-9]+(-[a-z0-9]+)*$/;
-const PATH_PARAM_SEGMENT = /^\{[A-Za-z][A-Za-z0-9_]*\}$/;
-const TENANT_TOKENS = ['tenant', 'tenant_id', 'tenantid', 'tenant-id', 'espace'];
+const TENANT_TOKENS = TENANT_ADDRESSING_TOKENS;
 
 export const REQUIRED_EVENT_NAMES = [
   'quote.converted',
@@ -46,34 +45,19 @@ export function lintDocumentShape(document: Doc): string[] {
   return violations;
 }
 
-/** CA3 : prefixe /api/v1, ressources au pluriel en kebab-case. */
+/**
+ * CA3 : prefixe /api/v1, ressources au pluriel en kebab-case.
+ *
+ * La regle est celle de `checkResourcePath` (src/modules/_shared/api/path-rules.ts),
+ * partagee avec `assertRoutePath` du middleware. Elle etait auparavant ecrite
+ * deux fois et les deux copies divergeaient sur le pluriel des sous-ressources.
+ */
 export function lintPathNaming(document: Doc): string[] {
-  const violations: string[] = [];
-  for (const path of Object.keys(pathsOf(document))) {
-    if (!path.startsWith('/')) {
-      violations.push(`CA3 : le chemin "${path}" doit commencer par /.`);
-      continue;
-    }
-    if (path.startsWith(API_BASE_PATH)) {
-      violations.push(
-        `CA3 : le chemin "${path}" ne doit pas repeter le prefixe ${API_BASE_PATH}, porte par servers[0].url.`,
-      );
-    }
-    const segments = path.slice(1).split('/');
-    segments.forEach((segment, index) => {
-      if (PATH_PARAM_SEGMENT.test(segment)) return;
-      if (!KEBAB_SEGMENT.test(segment)) {
-        violations.push(`CA3 : segment "${segment}" du chemin "${path}" non kebab-case.`);
-        return;
-      }
-      // Les segments en position paire nomment une ressource : ils sont au
-      // pluriel. Les positions impaires sont des identifiants.
-      if (index % 2 === 0 && !segment.endsWith('s')) {
-        violations.push(`CA3 : ressource "${segment}" du chemin "${path}" doit etre au pluriel.`);
-      }
-    });
-  }
-  return violations;
+  return Object.keys(pathsOf(document)).flatMap((path) =>
+    checkResourcePath(path, API_BASE_PATH)
+      .filter((violation) => violation.rule === 'CA3')
+      .map((violation) => `CA3 : chemin "${path}" — ${violation.message}.`),
+  );
 }
 
 /** CA4 : le tenant n est jamais adressable par le chemin ni la requete. */
@@ -125,6 +109,54 @@ export function lintSecuritySchemes(document: Doc): string[] {
   const scopes = service['x-magrit-scopes'];
   if (!isRecord(scopes) || Object.keys(scopes).length === 0) {
     violations.push('CA5 : serviceKey doit enumerer ses scopes dans x-magrit-scopes.');
+  }
+  return violations;
+}
+
+/**
+ * CA5 : toute operation joignable par une cle de service declare ses scopes.
+ *
+ * Le contrat le PROMET dans la description de `serviceKey` (« chaque operation
+ * declare les siens dans x-required-scopes ») ; sans cette regle, la promesse
+ * n etait tenue nulle part et une operation pouvait etre ouverte a toutes les
+ * cles du tenant.
+ */
+export function lintRequiredScopes(document: Doc): string[] {
+  const violations: string[] = [];
+  const components = document['components'];
+  const schemes = isRecord(components) ? components['securitySchemes'] : undefined;
+  const serviceKey = isRecord(schemes) ? schemes['serviceKey'] : undefined;
+  const declaredScopes = isRecord(serviceKey) && isRecord(serviceKey['x-magrit-scopes'])
+    ? Object.keys(serviceKey['x-magrit-scopes'] as Record<string, unknown>)
+    : [];
+
+  const rootSecurity = Array.isArray(document['security']) ? document['security'] : [];
+
+  for (const [path, item] of Object.entries(pathsOf(document))) {
+    for (const [method, operation] of operationsOf(item)) {
+      const security = Array.isArray(operation['security'])
+        ? operation['security']
+        : rootSecurity;
+      const serviceReachable = security.some(
+        (requirement) => isRecord(requirement) && 'serviceKey' in requirement,
+      );
+      if (!serviceReachable) continue;
+
+      const required = operation['x-required-scopes'];
+      if (!Array.isArray(required) || required.length === 0) {
+        violations.push(
+          `CA5 : ${method.toUpperCase()} ${path} est joignable par cle de service sans x-required-scopes.`,
+        );
+        continue;
+      }
+      for (const scope of required) {
+        if (typeof scope !== 'string' || !declaredScopes.includes(scope)) {
+          violations.push(
+            `CA5 : ${method.toUpperCase()} ${path} exige le scope "${String(scope)}", absent de x-magrit-scopes.`,
+          );
+        }
+      }
+    }
   }
   return violations;
 }
@@ -332,13 +364,81 @@ export function lintEventBus(document: Doc): string[] {
   return violations;
 }
 
-/** Agrege toutes les regles. */
+/**
+ * CA1 : chaque route DECLAREE EN CODE correspond a une operation reelle du
+ * contrat.
+ *
+ * C est la regle qui ferme le trou principal : le reste du lint ne regarde que
+ * le document, jamais le code. Une route ecrite sans entree dans le YAML
+ * passait donc toutes les verifications.
+ *
+ * `exemptOperationIds` n existe que pour les FIXTURES de test, qui montent des
+ * routes jetables pour exercer le middleware. Aucune route de production ne
+ * doit y figurer.
+ */
+export type RegisteredRoute = Readonly<{
+  method: string;
+  relativePath: string;
+  operationId: string;
+  requiredScopes: readonly string[];
+  authentication: string;
+}>;
+
+export function lintRoutesAgainstContract(
+  routes: readonly RegisteredRoute[],
+  document: Doc,
+  exemptOperationIds: readonly string[] = [],
+): string[] {
+  const violations: string[] = [];
+  const paths = pathsOf(document);
+
+  for (const route of routes) {
+    if (exemptOperationIds.includes(route.operationId)) continue;
+
+    const label = `${route.method} ${route.relativePath} (${route.operationId})`;
+    const item = paths[route.relativePath];
+    if (!isRecord(item)) {
+      violations.push(
+        `CA1 : ${label} n est decrit par aucun chemin du contrat. Decrire l operation dans openapi/magrit-core.v1.yaml avant de la coder.`,
+      );
+      continue;
+    }
+
+    const operation = item[route.method.toLowerCase()];
+    if (!isRecord(operation)) {
+      violations.push(`CA1 : ${label} — le contrat ne decrit pas cette methode sur ce chemin.`);
+      continue;
+    }
+
+    if (operation['operationId'] !== route.operationId) {
+      violations.push(
+        `CA1 : ${label} — le contrat annonce operationId "${String(operation['operationId'])}".`,
+      );
+    }
+
+    // Les scopes du code et ceux du contrat doivent dire la meme chose, sinon
+    // la documentation d integration ment au partenaire.
+    const contractScopes = Array.isArray(operation['x-required-scopes'])
+      ? (operation['x-required-scopes'] as unknown[]).map(String)
+      : [];
+    const missing = route.requiredScopes.filter((scope) => !contractScopes.includes(scope));
+    if (route.authentication !== 'user' && missing.length > 0) {
+      violations.push(
+        `CA5 : ${label} exige les scopes ${missing.join(', ')}, absents de x-required-scopes du contrat.`,
+      );
+    }
+  }
+  return violations;
+}
+
+/** Agrege toutes les regles portant sur le document seul. */
 export function lintContract(document: Doc): string[] {
   return [
     ...lintDocumentShape(document),
     ...lintPathNaming(document),
     ...lintTenantNeverAddressed(document),
     ...lintSecuritySchemes(document),
+    ...lintRequiredScopes(document),
     ...lintResponseShapes(document),
     ...lintPagination(document),
     ...lintIdempotency(document),

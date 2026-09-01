@@ -22,6 +22,7 @@ import {
   lintIdempotency,
   lintPagination,
   lintPathNaming,
+  lintRequiredScopes,
   lintResponseShapes,
   lintSecuritySchemes,
   lintTenantNeverAddressed,
@@ -73,12 +74,22 @@ describe('contrat OpenAPI magrit-core v1', () => {
   it('CA3 — prefixe /api/v1 et ressources au pluriel en kebab-case', () => {
     expect(lintPathNaming(contract)).toEqual([]);
     expect(lintPathNaming(withPath('/PriceRules', { get: {} }))).toEqual([
-      'CA3 : segment "PriceRules" du chemin "/PriceRules" non kebab-case.',
+      'CA3 : chemin "/PriceRules" — le segment "PriceRules" doit etre en kebab-case.',
     ]);
     expect(lintPathNaming(withPath('/price-rule', { get: {} }))).toEqual([
-      'CA3 : ressource "price-rule" du chemin "/price-rule" doit etre au pluriel.',
+      'CA3 : chemin "/price-rule" — la ressource "price-rule" doit etre au pluriel.',
     ]);
     expect(lintPathNaming(withPath('/api/v1/price-rules', { get: {} })).length).toBeGreaterThan(0);
+  });
+
+  it('CA3 — la regle de pluriel du contrat et celle du code sont la meme', () => {
+    // Le lint et `assertRoutePath` importent tous deux `checkResourcePath` :
+    // ils ne peuvent plus diverger sur les sous-ressources, ce qui etait le cas
+    // quand la regle existait en deux exemplaires.
+    expect(lintPathNaming(withPath('/price-rules/{ruleId}/history', { get: {} }))).toEqual([
+      'CA3 : chemin "/price-rules/{ruleId}/history" — la ressource "history" doit etre au pluriel.',
+    ]);
+    expect(lintPathNaming(withPath('/price-rules/{ruleId}/revisions', { get: {} }))).toEqual([]);
   });
 
   it('CA4 — le tenant n est jamais adressable par le chemin ni la requete', () => {
@@ -105,6 +116,37 @@ describe('contrat OpenAPI magrit-core v1', () => {
     const stripped = baseDocument();
     delete (stripped['components'] as Record<string, unknown>)['securitySchemes'];
     expect(lintSecuritySchemes(stripped)).toEqual(['CA5 : components.securitySchemes est absent.']);
+  });
+
+  it('CA5 — une operation joignable par cle de service declare ses x-required-scopes', () => {
+    expect(lintRequiredScopes(contract)).toEqual([]);
+
+    const undeclared = withPath('/price-rules', {
+      post: { security: [{ serviceKey: [] }], responses: {} },
+    });
+    expect(lintRequiredScopes(undeclared)).toEqual([
+      'CA5 : POST /price-rules est joignable par cle de service sans x-required-scopes.',
+    ]);
+
+    const unknownScope = withPath('/price-rules', {
+      post: {
+        security: [{ serviceKey: [] }],
+        'x-required-scopes': ['price-rules:destroy'],
+        responses: {},
+      },
+    });
+    expect(lintRequiredScopes(unknownScope)).toEqual([
+      'CA5 : POST /price-rules exige le scope "price-rules:destroy", absent de x-magrit-scopes.',
+    ]);
+
+    const compliant = withPath('/price-rules', {
+      post: {
+        security: [{ serviceKey: [] }],
+        'x-required-scopes': ['price-rules:write'],
+        responses: {},
+      },
+    });
+    expect(lintRequiredScopes(compliant)).toEqual([]);
   });
 
   it('CA6 — enveloppe data/meta en succes, problem+json avec code en erreur', () => {

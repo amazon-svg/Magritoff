@@ -111,6 +111,37 @@ describe('composants partages : code contre contrat', () => {
     expectInvalid('Meta', { next_cursor: null });
   });
 
+  it('sens contrat -> Zod : tout payload legal selon le YAML est accepte par Zod', () => {
+    // Les tests precedents vont dans le sens Zod -> contrat. Celui-ci ferme
+    // l autre sens : un champ optionnel cote contrat ne doit pas etre exige
+    // cote Zod, sinon l API refuse une reponse qu elle documente comme valide.
+    const legalMetas = [
+      { request_id: 'req-e10-0' },
+      { request_id: 'req-e10-0', next_cursor: null },
+      { request_id: 'req-e10-0', next_cursor: 'Y3Vyc2V1cg', page_size: 200 },
+    ];
+    for (const meta of legalMetas) {
+      expectValid('Meta', meta);
+      const parsed = metaSchema.safeParse(meta);
+      expect(parsed.success, `Zod refuse un Meta legal : ${JSON.stringify(meta)}`).toBe(true);
+    }
+
+    const legalAudits = [
+      { created_at: '2026-09-01T08:30:00.000Z', updated_at: '2026-09-01T08:30:00.000Z' },
+      {
+        created_at: '2026-09-01T08:30:00.000Z',
+        created_by: null,
+        updated_at: '2026-09-01T08:30:00.000Z',
+        updated_by: AGGREGATE,
+      },
+    ];
+    for (const audit of legalAudits) {
+      expectValid('Audit', audit);
+      const parsed = auditSchema.safeParse(audit);
+      expect(parsed.success, `Zod refuse un Audit legal : ${JSON.stringify(audit)}`).toBe(true);
+    }
+  });
+
   it('SuccessEnvelope — toute reponse de succes rendue par la facade', () => {
     const envelope = buildEnvelope(
       { status: 200, data: { id: AGGREGATE }, meta: { page_size: 25 } },
