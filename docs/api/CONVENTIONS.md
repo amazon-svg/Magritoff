@@ -61,6 +61,17 @@ La garantie de format est portée par le second garde-fou, à l'exécution : **`
 
 Aligner l'historique casserait ses clients (dérogation R5 — voir §8).
 
+**Comment elles coexistent concrètement** (décision du montage, E10.0) : elles sont servies par **la même edge function**, `supabase/functions/magrit-api/index.ts`, sur le même préfixe `/api/v1`. `createMagritApiApplication()` compose les deux et place devant elles `createApiFacadeRouter()`, qui aiguille **d'après le chemin** :
+
+- le chemin correspond à une route de `gescomRoutes()` → façade E10 ;
+- sinon → façade historique, inchangée.
+
+*Pourquoi pas une edge function séparée* : il aurait fallu un second déploiement, une seconde configuration CORS et surtout une règle de routage côté hébergeur pour découper `/api/v1` entre deux fonctions — de la configuration de déploiement que ce sprint ne peut pas livrer. Le front (`FetchApiClient`) pointe déjà sur `/api/v1/...` sans savoir qui répond : router en interne le laisse inchangé.
+
+*Pourquoi aiguiller sur le chemin seul, et pas sur le couple chemin + méthode* : un `DELETE /api/v1/customers` non déclaré retomberait sinon sur la façade historique, qui répondrait 404 dans **son** format (`requestId` camelCase) à un client qui attend `request_id`. Un chemin appartient à une façade, avec toutes ses méthodes.
+
+*Collisions* : deux façades qui partagent un espace d'URL peuvent se recouvrir, et un recouvrement rendrait une route historique injoignable **en silence**. `assertNoFacadeCollision()` refuse au **démarrage** — l'edge function ne boote pas plutôt que de servir une API amputée. Le recouvrement par paramètre est traité : `/customers/{id}` capterait `/customers/export`.
+
 ### 2.4 Table `api_idempotency_keys`
 
 Le CA8 exige que l'`Idempotency-Key` soit **honorée**, ce qui suppose un stockage qui survive au redémarrage du process : c'est justement après un incident réseau que le client retente. Le socle définit le port `IdempotencyStore` et une implémentation en mémoire pour les tests ; la table `public.api_idempotency_keys` (migration `20260901000200`) est son support durable. L'adaptateur Supabase du port sera écrit par la première story E10.x qui expose une création.
@@ -93,6 +104,32 @@ Une requête est identifiée par **méthode + chemin + query + corps** — deux 
 - la réponse mémorisée est rendue telle quelle, `data` compris ;
 - `meta.request_id` est **recalé sur la requête courante**, pour que la promesse « `meta.request_id` == en-tête `X-Request-Id` » reste vraie sans exception ;
 - l'en-tête `Idempotency-Replayed: true` signale le rejeu, ce que le seul statut 201 ne dit pas.
+
+### 3.4 Sélection de l'espace de travail — `X-Magrit-Tenant`
+
+> ⚠️ **Amendement au CA4, à faire ratifier.** Le CA4 a été accepté tel quel par la revue du Lot 0. Le montage a révélé qu'il était **inapplicable en l'état** ; cette section décrit la lecture retenue. Elle doit être validée explicitement.
+
+**Le problème.** Le CA4 impose que le tenant vienne du jeton. Or un JWT Supabase ne porte **aucun** tenant Magrit, et un compte appartient régulièrement à plusieurs espaces — un tenant parent et ses sous-tenants, une agence et ses clients. Le front lui-même résout l'espace courant depuis l'URL `/t/:slug` (voir `TenantContext`), pas depuis la session. Le port `PrincipalVerifier` n'avait donc **aucune implémentation possible** : E10.4 ne pouvait pas savoir de quel espace lister les clients.
+
+Deviner « le » tenant d'un compte multi-espaces reviendrait à lui montrer le référentiel client d'un autre espace que celui qu'il consulte. C'est un défaut de confidentialité, pas une approximation d'ergonomie.
+
+**La règle : le jeton autorise, l'en-tête sélectionne.**
+
+| `X-Magrit-Tenant` | Espaces accessibles | Résultat |
+|---|---|---|
+| absent | exactement 1 | cet espace |
+| absent | plusieurs | **400** `identity.tenant_selection_required` — l'API ne devine pas |
+| absent | aucun | **403** `identity.tenant_not_resolved` |
+| présent | l'espace en fait partie | cet espace |
+| présent | l'espace n'en fait pas partie | **403** `identity.tenant_not_resolved`, réponse identique à celle d'un espace inexistant |
+
+L'en-tête ne peut **jamais élargir** les droits : il choisit parmi ce que le jeton autorise déjà, et l'habilitation réelle reste tenue par la RLS. C'est le sens défendable du CA4 — interdire qu'un paramètre fasse **autorité**, ce que faisait `/tenants/{tenantId}/...`. Un en-tête n'est d'ailleurs ni un paramètre de chemin ni un paramètre de requête, les deux formes que le CA4 nomme.
+
+`SupabaseApiPrincipalVerifier` interroge `current_user_tenant_ids()`, **la même fonction** que celle utilisée par les policies RLS : la façade et la base ne peuvent pas être en désaccord sur ce qui est accessible.
+
+Côté front, `WorkspaceModuleUiBridge` attache l'en-tête depuis le tenant courant. Les clients de module ne transportent pas cette notion — `CustomersApiClient` ne connaît que sa ressource.
+
+Une **clé de service** ignore cet en-tête : elle est émise **pour** un espace, qu'elle porte déjà.
 
 ---
 
@@ -217,6 +254,16 @@ Ces points sont des **trous de couverture**, pas des défauts de comportement : 
 | **R2** | Aucun test ne couvre `public.api_idempotency_keys` : ni ses contraintes (`unique (tenant_id, idempotency_key)`, forme de l'empreinte, cohérence `completed`), ni sa fermeture aux rôles client. | La table est le support durable du CA8. Une contrainte qui ne tient pas ferait silencieusement dériver l'idempotence vers du best-effort. | Cas SQL `tests/sql/gescom-idempotency-keys.sql`, à écrire avec l'adaptateur Supabase du port `IdempotencyStore` (première story E10.x exposant un POST). |
 | **R3** | Le garde B2 tient sur **deux gonds** non redondants : le test d'architecture vérifie que tout fichier appelant `defineGescomRoute(` est cité par `gescom-routes.ts`, et le test de contrat vérifie que les routes du registre existent au contrat. Une route déclarée **hors** de `src/server/api/` (dans un module, par exemple) échapperait au premier gond, donc au second. | Le CA1 reposerait alors sur la discipline, ce que ce garde était censé remplacer. | Élargir le balayage du test d'architecture à `src/modules/**` et `src/adapters/**`, ou déplacer l'assertion dans `createGescomApiHandler` (refus au démarrage d'une route absente d'un manifeste d'operationId généré depuis le contrat). À faire à la première story qui publie un endpoint. |
 
+### 8.2 Dette introduite par le montage des façades
+
+| Réf. | Trou | Pourquoi c'est un risque | Chemin de mise en conformité |
+|---|---|---|---|
+| **M1** | L'edge function `supabase/functions/magrit-api/index.ts` n'est **ni typecheckée ni testée** : elle n'est dans aucun `tsconfig` (`include` ne couvre pas `supabase/`) et son exécution demande Deno + un déploiement Supabase. | Une erreur de câblage dans ce fichier n'est vue qu'au déploiement. C'est le seul maillon du montage qu'aucune commande locale ne couvre. | La composition a été **sortie du fichier** vers `createMagritApiApplication()` (dans `src/`, typechecké et testé) pour réduire au minimum ce qui reste non couvert : il n'y subsiste que l'instanciation des adaptateurs. Couverture réelle possible via `deno check` en CI. |
+| **M2** | L'écriture dans `outbox_events` n'est **pas transactionnelle** avec l'écriture métier : les deux passent par PostgREST en deux appels HTTP. Le pattern outbox suppose l'atomicité. | Un événement peut se perdre si l'écriture métier réussit et l'ajout à l'outbox échoue. `bestEffortOutbox` journalise sans faire échouer la requête — échouer dirait au client que son opération a échoué alors qu'elle a réussi, et il rejouerait en créant un doublon. | Déplacer l'écriture métier **et** l'ajout à l'outbox dans une même fonction `api_*` `security definer`. À trancher avec la première story qui rend un événement critique (facturation, Studio). |
+| **M3** | Le store d'idempotence monté est `InMemoryIdempotencyStore` : il ne survit pas au recyclage de l'isolat Deno. | La garantie du CA8 ne couvre qu'une fenêtre courte. Deux tentatives séparées par un recyclage créeraient un doublon. | Adaptateur Supabase sur `api_idempotency_keys` — déjà tracé en §8.1 (R2) et §8 (dérogations R5). Le montage rend cette dette **active** : elle n'était que théorique tant qu'aucun POST n'était joignable. |
+
+**Ce qui a été corrigé au montage et n'est donc pas de la dette** : `Access-Control-Allow-Headers` ne listait ni `idempotency-key` ni `if-match`, et `Access-Control-Expose-Headers` était absent. Le préflight aurait rejeté toute création et toute modification E10.4, et `response.headers.get('etag')` aurait rendu `null` dans le navigateur — le flux `If-Match` était inutilisable depuis le front, indépendamment du montage.
+
 **Ce qui a été corrigé et n'est donc pas de la dette** : `Timestamp` déclarait `format: date-time` sans `pattern`, ce qui laissait le contrat accepter `2026-09-01T08:30:00+02:00` que Zod refusait. Corrigé à la clôture du Lot 0 — c'était la dernière fenêtre où durcir ce schéma restait gratuit, la règle « v1 additive » (§7) l'interdisant dès la publication du premier endpoint. La divergence est désormais impossible à réintroduire sans être vue : le test de **parité** de `shared-components.contract.test.ts` confronte, échantillon par échantillon, le verdict Zod et le verdict du contrat sur tous les scalaires.
 
 ---
@@ -233,5 +280,16 @@ pnpm test:storefront:sql   # comportement réel en base : triggers, RLS, append-
 ```
 
 Les quatre premières tournent en CI sur toute PR vers `main` ([`.github/workflows/architecture.yml`](../../.github/workflows/architecture.yml)) et sont **bloquantes**.
+
+### Ce qui est vérifiable localement, et ce qui ne l'est pas
+
+| Maillon | Vérifiable ici ? | Par quoi |
+|---|---|---|
+| Aiguillage entre les deux façades | **oui** | `tests/server/api/api-facade-router.test.ts` — façades bouchonnées, on observe laquelle reçoit la requête |
+| Refus des collisions de chemin | **oui** | même fichier, `assertNoFacadeCollision` |
+| Composition réelle (routes E10.4 montées, tenant du jeton, formats de réponse des deux façades) | **oui** | `tests/server/api/magrit-api-composition.test.ts` |
+| Câblage des adaptateurs dans l'edge function | **non** | fichier hors `tsconfig`, exécution Deno requise (§8.2 M1) |
+| Exécution bout en bout (`pnpm dev:b5` → clic « Clients » → réponse) | **non** | demande un déploiement Supabase Functions, donc Docker — absent de la machine de développement |
+| Comportement réel en base (triggers, RLS) | **non** | `pnpm test:storefront:sql`, Docker requis (§8.1 B3) |
 
 `pnpm test:storefront:sql` exige **Supabase local démarré** (`pnpm db:local:start`, donc Docker) : il exécute les cas de `tests/sql/` par `psql` contre la base réelle. Il n'est pas dans le workflow CI actuel, qui n'a pas de service Postgres. C'est le seul moyen de tester un trigger ou une policy pour de vrai — relire le texte d'une migration ne prouve rien, puisqu'une migration ne change jamais après coup.
