@@ -8,6 +8,7 @@ import {
 } from './assets.ts';
 
 const TEST_API_URL = '/dev/hopstudio-api';
+const HOPSTUDIO_WIDGET_TIMEOUT_MS = 60_000;
 
 type HopeStudioInstance = Readonly<{
   locals: Record<string, unknown> & { customApiFetch?: typeof fetch };
@@ -48,7 +49,7 @@ export function HopeStudioIntegrationTestPage() {
         instance.locals.customApiFetch = createMockApiFetch((action) => {
           if (active) setCalls((previous) => [...previous, action].slice(-12));
         });
-        await waitForElement('#chat-widget', 10_000);
+        await waitForElement('#chat-widget', HOPSTUDIO_WIDGET_TIMEOUT_MS);
         document.querySelector('#chat-widget')?.classList.remove('chat-minimized');
 
         if (!active) return;
