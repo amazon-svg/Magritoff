@@ -78,18 +78,16 @@ export function PimSearchPanel({
           <PimSearchEmpty title="Aucun résultat PIM" detail="Modifiez la recherche ou poursuivez la configuration dans Studio." />
         ) : (
           <div
-            className={`grid grid-cols-1 gap-3 ${compact ? '' : 'xl:grid-cols-2'}`}
+            className="grid grid-cols-1 gap-3 lg:grid-cols-2"
             aria-live="polite"
           >
             {results.map(({ definition, gamme }) => (
               <article key={definition.id} className="overflow-hidden rounded-xl border border-line bg-white shadow-sm">
-                {!compact && (definition.image_url || gamme?.image_url) && (
-                  <img
-                    src={definition.image_url ?? gamme?.image_url ?? ''}
-                    alt=""
-                    className="aspect-[16/7] w-full object-cover"
-                  />
-                )}
+                <ProductResultImage
+                  src={definition.image_url ?? gamme?.image_url}
+                  productName={definition.name ?? gamme?.name ?? 'Produit PIM'}
+                  compact={compact}
+                />
                 <div className={compact ? 'p-3.5' : 'p-4'}>
                   <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.13em] text-ink-muted">
                     {gamme?.name ?? definition.gamme_slug}
@@ -109,6 +107,37 @@ export function PimSearchPanel({
         )}
       </div>
     </div>
+  );
+}
+
+function ProductResultImage({
+  src,
+  productName,
+  compact,
+}: Readonly<{
+  src: string | null | undefined;
+  productName: string;
+  compact: boolean;
+}>) {
+  if (!src) {
+    return (
+      <div
+        className={`${compact ? 'aspect-[16/6]' : 'aspect-[16/7]'} grid w-full place-items-center border-b border-line bg-bg`}
+        aria-hidden="true"
+      >
+        <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink-mute-2">
+          Aperçu indisponible
+        </span>
+      </div>
+    );
+  }
+  return (
+    <img
+      src={src}
+      alt={`Aperçu de ${productName}`}
+      className={`${compact ? 'aspect-[16/6]' : 'aspect-[16/7]'} w-full border-b border-line object-cover`}
+      loading="lazy"
+    />
   );
 }
 
