@@ -32,9 +32,11 @@
 import type { CustomersService } from '../../modules/customers/application/customers-service.ts';
 import type { CustomerContactShopAccessService } from '../../modules/shop-customers/application/customer-contact-shop-access-service.ts';
 import type { ProjectsService } from '../../modules/projects/application/projects-service.ts';
+import type { CommercialQuotesService } from '../../modules/commercial-quotes/application/commercial-quotes-service.ts';
 import { createCustomersRoutes } from './customers-routes.ts';
 import { createCustomerShopAccessRoutes } from './customer-shop-access-routes.ts';
 import { createProjectsRoutes } from './projects-routes.ts';
+import { createCommercialQuotesRoutes } from './commercial-quotes-routes.ts';
 import type { GescomRoute } from './gescom-middleware.ts';
 
 /**
@@ -47,6 +49,8 @@ export type GescomServices = Readonly<{
   customerShopAccess: CustomerContactShopAccessService;
   /** E10.1 — conteneur de travail Projets, en remplacement du panier. */
   projects: ProjectsService;
+  /** E10.3 — creation d un devis depuis un projet (selection multi-produits). */
+  commercialQuotes: CommercialQuotesService;
 }>;
 
 /**
@@ -60,6 +64,7 @@ export function gescomRoutes(services: GescomServices): readonly GescomRoute[] {
     ...createCustomersRoutes(services.customers),
     ...createCustomerShopAccessRoutes(services.customers, services.customerShopAccess),
     ...createProjectsRoutes(services.projects),
+    ...createCommercialQuotesRoutes(services.commercialQuotes),
   ];
 }
 
@@ -76,6 +81,7 @@ export const GESCOM_ROUTES: readonly GescomRoute[] = Object.freeze(
     customers: createNullCustomersService(),
     customerShopAccess: createNullService('CustomerContactShopAccessService'),
     projects: createNullService('ProjectsService'),
+    commercialQuotes: createNullService('CommercialQuotesService'),
   }),
 );
 
