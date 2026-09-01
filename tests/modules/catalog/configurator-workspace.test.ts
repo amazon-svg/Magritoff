@@ -83,4 +83,22 @@ describe('workspace partagé configurateur', () => {
 
     expect(results.map((result) => result.definition.id)).toEqual(['business-card']);
   });
+
+  it('retrouve un concept métier anglais depuis une requête française avec une faute légère', () => {
+    const gammes: Gamme[] = [{
+      id: 'flyers', slug: 'leaflets', name: 'Leaflets', parent_slug: null,
+      matching_rules: {}, display_order: 1,
+    }];
+    const definition: ProductDefinition = {
+      id: 'leaflet', gamme_slug: 'leaflets', variation_filter: {}, locale: 'fr',
+      name: 'Commercial printed leaflet', keywords: ['papier couché', 'flyer'],
+      title_template: null, short_description_template: null, description_template: null,
+      h1_template: null, seo_title: null, seo_description: null, schema_org_type: null,
+      usage_examples: [], faq: [], quality_score: 90, generated_by: 'human',
+      validated_by: 'human', image_url: null,
+    };
+
+    expect(searchPimDefinitions('500 flier papier couché', [definition], gammes))
+      .toHaveLength(1);
+  });
 });
