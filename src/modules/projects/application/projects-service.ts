@@ -10,12 +10,14 @@ import { uuidSchema } from '../../_shared/api/index.ts';
 import type { TenantId, UserId } from '../../../kernel/ids/index.ts';
 import type { OutboxPublisher } from '../../_shared/application/index.ts';
 import type { CustomersRepository } from '../../customers/application/customers-repository.ts';
+import type { ProjectTagsRepository } from '../../project-tags/application/project-tags-repository.ts';
 import type {
   CreateProjectCommand,
   CreateProjectItemCommand,
   ProjectDetailDto,
   ProjectDto,
   ProjectItemDto,
+  ReplaceProjectTagsCommand,
   UpdateProjectCommand,
 } from '../api/contracts.ts';
 import {
@@ -28,6 +30,8 @@ import {
 
 /** Code metier stable (CA3) : partage entre `create()` et `update()`. */
 const CUSTOMER_REQUIRED_CODE = 'project.customer_required';
+/** Code metier stable (CA6, E10.2) : un `tag_ids` reference un tag inconnu ou hors du tenant. */
+const TAG_UNKNOWN_CODE = 'project.tag_unknown';
 
 export type ProjectsServiceDependencies = Readonly<{
   repository: ProjectsRepository;
@@ -38,17 +42,25 @@ export type ProjectsServiceDependencies = Readonly<{
    * d existence d un client.
    */
   customers: CustomersRepository;
+  /**
+   * Reutilise le referentiel Tags de projet (E10.2) pour verifier qu un
+   * `tag_ids` fourni a `replaceTags()` ne reference que des tags existants
+   * du tenant — pas de duplication de cette logique.
+   */
+  projectTags: ProjectTagsRepository;
   outbox: OutboxPublisher;
 }>;
 
 export class ProjectsService {
   private readonly repository: ProjectsRepository;
   private readonly customers: CustomersRepository;
+  private readonly projectTags: ProjectTagsRepository;
   private readonly outbox: OutboxPublisher;
 
   constructor(dependencies: ProjectsServiceDependencies) {
     this.repository = dependencies.repository;
     this.customers = dependencies.customers;
+    this.projectTags = dependencies.projectTags;
     this.outbox = dependencies.outbox;
   }
 
@@ -132,6 +144,37 @@ export class ProjectsService {
     const exists = await this.repository.findById(tenantId, projectId);
     if (!exists) throw new ProjectNotFoundError();
     return this.repository.removeItem(tenantId, projectId, itemId);
+  }
+
+  /**
+   * Remplace la liste complete des tags d un projet (CA6). Chaque
+   * `tag_ids` DOIT exister dans le tenant AVANT l ecriture — sinon
+   * `ProjectCommandRejectedError('project.tag_unknown')` (422), meme
+   * discipline que `requireExistingCustomer` pour `customer_id` (CA3).
+   */
+  async replaceTags(
+    tenantId: TenantId,
+    projectId: string,
+    command: ReplaceProjectTagsCommand,
+  ): Promise<ProjectDto> {
+    const exists = await this.repository.findById(tenantId, projectId);
+    if (!exists) throw new ProjectNotFoundError();
+
+    const uniqueTagIds = [...new Set(command.tag_ids)];
+    if (uniqueTagIds.length > 0) {
+      const found = await this.projectTags.findManyByIds(tenantId, uniqueTagIds);
+      if (found.length !== uniqueTagIds.length) {
+        const foundIds = new Set(found.map((tag) => tag.id));
+        const missing = uniqueTagIds.filter((id) => !foundIds.has(id));
+        throw new ProjectCommandRejectedError(
+          TAG_UNKNOWN_CODE,
+          'Un ou plusieurs tags sont introuvables dans ce tenant.',
+          missing.map((id) => ({ field: 'tag_ids', message: `Tag inconnu de ce tenant : ${id}` })),
+        );
+      }
+    }
+
+    return this.repository.replaceTags(tenantId, projectId, uniqueTagIds);
   }
 
   /**

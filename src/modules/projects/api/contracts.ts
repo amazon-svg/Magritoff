@@ -18,6 +18,7 @@
  */
 import { z } from 'zod';
 import { timestampSchema, uuidSchema } from '../../_shared/api/index.ts';
+import { projectTagSchema } from '../../project-tags/api/contracts.ts';
 
 export const projectStatusSchema = z.enum(['active', 'archived']);
 
@@ -28,8 +29,8 @@ export const projectSchema = z
     customer_id: uuidSchema,
     name: z.string().min(1).max(300),
     status: projectStatusSchema,
-    /** Point d extension E10.2 (tags de projet). Toujours vide pour l instant. */
-    tags: z.array(z.unknown()),
+    /** Tags libres colores du projet (CA1, CA6, E10.2), 0 a N. */
+    tags: z.array(projectTagSchema),
     created_by: uuidSchema.nullable(),
     created_at: timestampSchema,
     updated_at: timestampSchema,
@@ -59,7 +60,7 @@ export const projectDetailSchema = z
     customer_id: uuidSchema,
     name: z.string().min(1).max(300),
     status: projectStatusSchema,
-    tags: z.array(z.unknown()),
+    tags: z.array(projectTagSchema),
     created_by: uuidSchema.nullable(),
     created_at: timestampSchema,
     updated_at: timestampSchema,
@@ -90,6 +91,17 @@ export const updateProjectCommandSchema = z
     message: 'La modification doit porter au moins un champ.',
   });
 
+/**
+ * Remplace la liste COMPLETE des tags d un projet (CA6, E10.2). Un
+ * `tag_ids` vide retire tous les tags du projet, sans jamais supprimer les
+ * tags eux-memes du tenant (CA5).
+ */
+export const replaceProjectTagsCommandSchema = z
+  .object({
+    tag_ids: z.array(uuidSchema).max(50),
+  })
+  .strict();
+
 export const createProjectItemCommandSchema = z
   .object({
     label: z.string().trim().min(1).max(300),
@@ -108,6 +120,7 @@ export type ProjectItemDto = z.infer<typeof projectItemSchema>;
 export type ProjectDetailDto = z.infer<typeof projectDetailSchema>;
 export type CreateProjectCommand = z.infer<typeof createProjectCommandSchema>;
 export type UpdateProjectCommand = z.infer<typeof updateProjectCommandSchema>;
+export type ReplaceProjectTagsCommand = z.infer<typeof replaceProjectTagsCommandSchema>;
 export type CreateProjectItemCommand = z.infer<typeof createProjectItemCommandSchema>;
 export type RemoveProjectItemResultDto = z.infer<typeof removeProjectItemResultSchema>;
 

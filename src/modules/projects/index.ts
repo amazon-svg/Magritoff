@@ -9,6 +9,7 @@ export {
   projectStatusSchema,
   projectsListSchema,
   removeProjectItemResultSchema,
+  replaceProjectTagsCommandSchema,
   updateProjectCommandSchema,
   type CreateProjectCommand,
   type CreateProjectItemCommand,
@@ -17,6 +18,7 @@ export {
   type ProjectItemDto,
   type ProjectStatus,
   type RemoveProjectItemResultDto,
+  type ReplaceProjectTagsCommand,
   type UpdateProjectCommand,
 } from './api/contracts';
 export { ProjectsService } from './application/projects-service';

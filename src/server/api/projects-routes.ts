@@ -19,6 +19,7 @@ import {
   projectsListSchema,
   projectStatusSchema,
   removeProjectItemResultSchema,
+  replaceProjectTagsCommandSchema,
   updateProjectCommandSchema,
   type ProjectDetailDto,
   type ProjectDto,
@@ -65,7 +66,35 @@ export function createProjectsRoutes(service: ProjectsService): readonly GescomR
           });
         }
         const customerId = customerIdParam;
-        // `tag_id` reserve E10.2 : accepte au contrat, jamais exploite ici.
+        // CA4 (E10.2) : `tag_id` (un seul, compatibilite Studio) et
+        // `tag_ids` (liste separee par des virgules, filtre ET logique)
+        // s additionnent en un ensemble unique, dedoublonne. Chaque
+        // identifiant est valide comme UUID -> 400 sur une valeur malformee,
+        // meme discipline que `customer_id` (B4 qa-review E10.1).
+        const tagIdParam = context.url.searchParams.get('tag_id');
+        const tagIdsParam = context.url.searchParams.get('tag_ids');
+        const rawTagIds = [
+          ...(tagIdParam !== null ? [tagIdParam] : []),
+          ...(tagIdsParam !== null
+            ? tagIdsParam
+                .split(',')
+                .map((value) => value.trim())
+                .filter((value) => value.length > 0)
+            : []),
+        ];
+        for (const tagId of rawTagIds) {
+          if (!uuidSchema.safeParse(tagId).success) {
+            throw problem({
+              status: 400,
+              title: 'Parametre invalide',
+              code: SHARED_PROBLEM_CODES.validationFailed,
+              detail: 'tag_id et tag_ids doivent etre des UUID valides.',
+              errors: [{ field: 'tag_ids', message: 'UUID invalide.' }],
+            });
+          }
+        }
+        const tagIds = [...new Set(rawTagIds)];
+
         const statusParam = context.url.searchParams.get('status');
         const status = projectStatusSchema.safeParse(statusParam ?? undefined);
         const cursor = context.page.cursor ? decodeCursor(context.page.cursor) : null;
@@ -74,6 +103,7 @@ export function createProjectsRoutes(service: ProjectsService): readonly GescomR
           q,
           customerId,
           status: status.success ? status.data : null,
+          tagIds,
           size: context.page.size,
           cursor,
         });
@@ -175,6 +205,26 @@ export function createProjectsRoutes(service: ProjectsService): readonly GescomR
             context.params['itemId']!,
           );
           return { status: 200, data: { removed: true as const } };
+        });
+      },
+    }),
+
+    defineGescomRoute({
+      method: 'PUT',
+      path: '/projects/{projectId}/tags',
+      operationId: 'replaceProjectTags',
+      authentication: 'user',
+      inputSchema: replaceProjectTagsCommandSchema,
+      dataSchema: projectSchema,
+      async handle(context, input) {
+        return withDomainErrors(async () => {
+          const projectId = context.params['projectId']!;
+          const current = await service.getSummary(context.tenantId, projectId);
+          const currentTag = await computeEntityTag(current);
+          assertPrecondition(context.ifMatch, currentTag, current);
+
+          const updated = await service.replaceTags(context.tenantId, projectId, input);
+          return { status: 200, data: updated, etag: await computeEntityTag(updated) };
         });
       },
     }),

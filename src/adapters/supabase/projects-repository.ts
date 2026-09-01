@@ -22,9 +22,18 @@ import {
   type ListProjectsResult,
   type ProjectsRepository,
 } from '../../modules/projects/application/projects-repository.ts';
+import type { ProjectTagDto } from '../../modules/project-tags/api/contracts.ts';
 
 const CHECK_VIOLATION = '23514';
 const NOT_NULL_VIOLATION = '23502';
+
+/**
+ * Embed PostgREST des tags d un projet (E10.2, CA6) : un projet porte 0 a N
+ * tags via `project_tag_links`, meme principe que `SHOP_ACCESS_EMBED` du
+ * module Clients (src/adapters/supabase/customers-repository.ts) — un seul
+ * aller-retour plutot qu une requete par projet.
+ */
+const TAGS_EMBED = 'project_tag_links(project_tags(id, tenant_id, label, color, created_at))' as const;
 
 /**
  * Neutralise les caracteres reserves de la grammaire de filtre PostgREST,
@@ -42,7 +51,7 @@ export class SupabaseProjectsRepository implements ProjectsRepository {
   async list(tenantId: TenantId, params: ListProjectsParams): Promise<ListProjectsResult> {
     let query = this.client
       .from('projects')
-      .select('*')
+      .select(`*, ${TAGS_EMBED}`)
       // CA2 : tries par date de derniere modification decroissante.
       .eq('tenant_id', tenantId)
       .order('updated_at', { ascending: false })
@@ -53,7 +62,29 @@ export class SupabaseProjectsRepository implements ProjectsRepository {
     if (params.status) query = query.eq('status', params.status);
     if (params.q) {
       const sanitized = sanitizeSearchTerm(params.q);
-      if (sanitized.length > 0) query = query.ilike('name', `%${sanitized}%`);
+      if (sanitized.length > 0) {
+        const term = `%${sanitized}%`;
+        // CA4 (E10.2) : recherche plein texte sur le nom du projet ET le nom
+        // du client. Un aller-retour prealable resout les clients dont le
+        // nom matche (le tenant est petit, jamais des milliers de clients),
+        // puis combine les deux criteres en OU — un embed PostgREST ne peut
+        // pas filtrer la ressource RACINE sur un champ d une table jointe
+        // combine en OU avec un champ de la racine elle-meme.
+        const matchingCustomerIds = await this.findCustomerIdsByName(tenantId, sanitized);
+        query =
+          matchingCustomerIds.length > 0
+            ? query.or(`name.ilike.${term},customer_id.in.(${matchingCustomerIds.join(',')})`)
+            : query.ilike('name', term);
+      }
+    }
+    if (params.tagIds.length > 0) {
+      // CA4 : filtre multi-tags en ET LOGIQUE. `project_tag_links` n a pas de
+      // colonne `tenant_id` propre : croiser avec les projets deja filtres
+      // par tenant plus haut suffit a ecarter tout lien hors tenant, sans
+      // jointure supplementaire ici.
+      const matchingProjectIds = await this.findProjectIdsHavingAllTags(params.tagIds);
+      if (matchingProjectIds.length === 0) return { rows: [] };
+      query = query.in('id', matchingProjectIds);
     }
     if (params.cursor) {
       // Pagination par cle (updated_at, id) descendante : la page suivante
@@ -71,12 +102,49 @@ export class SupabaseProjectsRepository implements ProjectsRepository {
   async findById(tenantId: TenantId, projectId: string): Promise<ProjectDto | null> {
     const { data, error } = await this.client
       .from('projects')
-      .select('*')
+      .select(`*, ${TAGS_EMBED}`)
       .eq('tenant_id', tenantId)
       .eq('id', projectId)
       .maybeSingle();
     if (error) throw new Error(error.message);
     return data ? toProjectDto(data) : null;
+  }
+
+  /** CA4 (E10.2) : clients du tenant dont le nom matche le terme sanitize. */
+  private async findCustomerIdsByName(tenantId: TenantId, sanitizedTerm: string): Promise<string[]> {
+    const term = `%${sanitizedTerm}%`;
+    const { data, error } = await this.client
+      .from('customers')
+      .select('id')
+      .eq('tenant_id', tenantId)
+      .or(`company_name.ilike.${term},first_name.ilike.${term},last_name.ilike.${term}`);
+    if (error) throw new Error(error.message);
+    return (data ?? []).map((row: Record<string, any>) => String(row.id));
+  }
+
+  /**
+   * CA4 (E10.2) : identifiants de projet portant TOUS les `tagIds` donnes
+   * (ET logique). Calcule en JS plutot qu en SQL agregatif : `postgrest-js`
+   * n expose pas de `HAVING count(distinct tag_id) = N` sur une table liee,
+   * et le nombre de liens par tenant reste petit.
+   */
+  private async findProjectIdsHavingAllTags(tagIds: readonly string[]): Promise<string[]> {
+    const { data, error } = await this.client
+      .from('project_tag_links')
+      .select('project_id, tag_id')
+      .in('tag_id', [...tagIds]);
+    if (error) throw new Error(error.message);
+
+    const tagsByProject = new Map<string, Set<string>>();
+    for (const row of (data ?? []) as { project_id: string; tag_id: string }[]) {
+      const set = tagsByProject.get(row.project_id) ?? new Set<string>();
+      set.add(row.tag_id);
+      tagsByProject.set(row.project_id, set);
+    }
+    const required = new Set(tagIds);
+    return [...tagsByProject.entries()]
+      .filter(([, tags]) => [...required].every((tagId) => tags.has(tagId)))
+      .map(([projectId]) => projectId);
   }
 
   async findDetailById(tenantId: TenantId, projectId: string): Promise<ProjectDetailDto | null> {
@@ -127,7 +195,10 @@ export class SupabaseProjectsRepository implements ProjectsRepository {
       .update(patch)
       .eq('tenant_id', tenantId)
       .eq('id', projectId)
-      .select()
+      // Embed des tags (E10.2) : sans lui, renommer ou archiver un projet
+      // qui en porte deja renverrait `tags: []` dans la meme reponse — les
+      // deux endpoints qui rendent un `Project` doivent rester coherents.
+      .select(`*, ${TAGS_EMBED}`)
       .maybeSingle();
     if (error) throw toDomainError(error, 'Modification du projet impossible.');
     if (!data) throw new ProjectNotFoundError();
@@ -178,6 +249,35 @@ export class SupabaseProjectsRepository implements ProjectsRepository {
     if (error) throw new Error(error.message);
   }
 
+  /**
+   * Remplace la liste COMPLETE des tags d un projet (CA6, E10.2). `tagIds`
+   * est GARANTI par le service comme des tags existants du tenant : ce port
+   * ne fait que persister le lien. Retrait des liens absents puis insertion
+   * des nouveaux plutot qu une diff cible : le nombre de tags par projet
+   * reste petit (quelques unites), la simplicite prime sur l economie d une
+   * requete.
+   */
+  async replaceTags(tenantId: TenantId, projectId: string, tagIds: readonly string[]): Promise<ProjectDto> {
+    await this.assertProjectInTenant(tenantId, projectId);
+
+    const { error: deleteError } = await this.client
+      .from('project_tag_links')
+      .delete()
+      .eq('project_id', projectId);
+    if (deleteError) throw new Error(deleteError.message);
+
+    if (tagIds.length > 0) {
+      const { error: insertError } = await this.client
+        .from('project_tag_links')
+        .insert(tagIds.map((tagId) => ({ project_id: projectId, tag_id: tagId })));
+      if (insertError) throw new Error(insertError.message);
+    }
+
+    const updated = await this.findById(tenantId, projectId);
+    if (!updated) throw new ProjectNotFoundError();
+    return updated;
+  }
+
   private async assertProjectInTenant(tenantId: TenantId, projectId: string): Promise<void> {
     const { data, error } = await this.client
       .from('projects')
@@ -197,13 +297,30 @@ function toProjectDto(row: Record<string, any>): ProjectDto {
     customer_id: row.customer_id,
     name: row.name,
     status: row.status,
-    // Point d extension E10.2 : toujours vide tant que les tags de projet ne
-    // sont pas livres (pas de donnee inventee).
-    tags: Array.isArray(row.tags) ? row.tags : [],
+    tags: toProjectTagDtos(row.project_tag_links),
     created_by: row.created_by ?? null,
     created_at: row.created_at,
     updated_at: row.updated_at,
   };
+}
+
+/**
+ * Aplati l embed PostgREST `project_tag_links(project_tags(...))` (CA6,
+ * E10.2) en liste de tags. Absent (requete qui n a pas demande l embed) ->
+ * tableau vide, jamais une erreur.
+ */
+function toProjectTagDtos(links: unknown): ProjectTagDto[] {
+  if (!Array.isArray(links)) return [];
+  return links
+    .map((link) => (link && typeof link === 'object' ? (link as Record<string, any>)['project_tags'] : null))
+    .filter((tag): tag is Record<string, any> => Boolean(tag))
+    .map((tag) => ({
+      id: tag.id,
+      tenant_id: tag.tenant_id,
+      label: tag.label,
+      color: tag.color,
+      created_at: tag.created_at,
+    }));
 }
 
 function toProjectItemDto(row: Record<string, any>): ProjectItemDto {

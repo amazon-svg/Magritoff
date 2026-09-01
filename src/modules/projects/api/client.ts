@@ -16,6 +16,7 @@ import {
   projectSchema,
   projectsListSchema,
   removeProjectItemResultSchema,
+  replaceProjectTagsCommandSchema,
   updateProjectCommandSchema,
   type CreateProjectCommand,
   type CreateProjectItemCommand,
@@ -23,6 +24,7 @@ import {
   type ProjectDto,
   type ProjectItemDto,
   type ProjectStatus,
+  type ReplaceProjectTagsCommand,
   type UpdateProjectCommand,
 } from './contracts.ts';
 
@@ -31,8 +33,8 @@ const BASE_PATH = `${API_V1_BASE_PATH}/projects`;
 export type ListProjectsQuery = Readonly<{
   q?: string;
   customerId?: string;
-  /** Reserve E10.2 (tags de projet) : accepte, pas encore exploite. */
-  tagId?: string;
+  /** Filtre multi-tags en ET logique (CA4, E10.2). */
+  tagIds?: readonly string[];
   status?: ProjectStatus;
   pageSize?: number;
   pageCursor?: string;
@@ -50,7 +52,7 @@ export class ProjectsApiClient {
     const params = new URLSearchParams();
     if (query.q) params.set('q', query.q);
     if (query.customerId) params.set('customer_id', query.customerId);
-    if (query.tagId) params.set('tag_id', query.tagId);
+    if (query.tagIds && query.tagIds.length > 0) params.set('tag_ids', query.tagIds.join(','));
     if (query.status) params.set('status', query.status);
     if (query.pageSize) params.set('page[size]', String(query.pageSize));
     if (query.pageCursor) params.set('page[cursor]', query.pageCursor);
@@ -100,6 +102,22 @@ export class ProjectsApiClient {
       method: 'PATCH',
       path: `${BASE_PATH}/${projectId}`,
       body: updateProjectCommandSchema.parse(command),
+      headers: { 'If-Match': ifMatch },
+      responseSchema: successEnvelopeSchema(projectSchema),
+    });
+    return unwrapEnvelopeWithEtag(result);
+  }
+
+  /** Remplace la liste complete des tags du projet (CA6, E10.2), protege par If-Match (CA9). */
+  async replaceTags(
+    projectId: string,
+    command: ReplaceProjectTagsCommand,
+    ifMatch: string,
+  ): Promise<ApiResponseWithEtag<ProjectDto>> {
+    const result = await this.client.requestWithEtag({
+      method: 'PUT',
+      path: `${BASE_PATH}/${projectId}/tags`,
+      body: replaceProjectTagsCommandSchema.parse(command),
       headers: { 'If-Match': ifMatch },
       responseSchema: successEnvelopeSchema(projectSchema),
     });

@@ -13,6 +13,11 @@ export type ListProjectsParams = Readonly<{
   q: string | null;
   customerId: string | null;
   status: ProjectStatus | null;
+  /**
+   * Filtre multi-tags en ET LOGIQUE (CA4, E10.2) : seuls les projets portant
+   * TOUS les tags de la liste sont rendus. Vide -> aucun filtre.
+   */
+  tagIds: readonly string[];
   size: number;
   cursor: Readonly<{ sort: string; id: string }> | null;
 }>;
@@ -80,4 +85,13 @@ export interface ProjectsRepository {
 
   /** Retrait du LIEN uniquement ; ne supprime jamais un historique de chiffrage ailleurs. */
   removeItem(tenantId: TenantId, projectId: string, itemId: string): Promise<void>;
+
+  /**
+   * Remplace la liste COMPLETE des tags d un projet (CA6, E10.2). `tagIds`
+   * est GARANTI par le service comme un ensemble de tags EXISTANTS dans le
+   * tenant : la verification metier est faite en amont, ce port ne fait que
+   * persister le lien. Ne supprime jamais les tags eux-memes du tenant
+   * (CA5) — seuls les LIENS au projet changent.
+   */
+  replaceTags(tenantId: TenantId, projectId: string, tagIds: readonly string[]): Promise<ProjectDto>;
 }
