@@ -4,6 +4,8 @@ import {
   configuratorWorkspaceReducer,
 } from '@/modules/catalog/ui/workspace/configurator-workspace-state';
 import { searchPimDefinitions } from '@/modules/catalog/ui/workspace/PimSearchPanel';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import type { Gamme, ProductDefinition } from '@/modules/catalog/ui/helpers/productEnrichment';
 
 const request = {
@@ -13,6 +15,17 @@ const request = {
 } as const;
 
 describe('workspace partagé configurateur', () => {
+  it('présente les résultats PIM en deux colonnes avec un aperçu', () => {
+    const source = readFileSync(
+      resolve(process.cwd(), 'src/modules/catalog/ui/workspace/PimSearchPanel.tsx'),
+      'utf8',
+    );
+
+    expect(source).toContain('lg:grid-cols-2');
+    expect(source).toContain('<ProductResultImage');
+    expect(source).toContain('loading="lazy"');
+  });
+
   it('passe de l accueil au split et initialise la recherche PIM', () => {
     const state = configuratorWorkspaceReducer(INITIAL_CONFIGURATOR_WORKSPACE_STATE, {
       type: 'submit',
