@@ -29,16 +29,59 @@
  * fichier de routes n echappe au registre. Oublier l une ou l autre fait
  * echouer la CI.
  */
+import type { CustomersService } from '../../modules/customers/application/customers-service.ts';
+import { createCustomersRoutes } from './customers-routes.ts';
 import type { GescomRoute } from './gescom-middleware.ts';
 
 /**
- * Routes montees sur la facade E10.
- *
- * Vide en E10.0 : le socle ne publie aucun endpoint. Les stories E10.1 a
- * E10.21 remplacent ce tableau par la concatenation de leurs fabriques, ex. :
- *
- *     export function gescomRoutes(services: GescomServices): readonly GescomRoute[] {
- *       return [...createCustomersRoutes(services.customers)];
- *     }
+ * Services metier requis par les routes enregistrees ici. Une story E10.x
+ * ajoute son propre champ ; `gescomRoutes()` grossit d autant.
  */
-export const GESCOM_ROUTES: readonly GescomRoute[] = Object.freeze([]);
+export type GescomServices = Readonly<{
+  customers: CustomersService;
+}>;
+
+/**
+ * Compose les routes de tous les modules E10.x montes sur la facade.
+ *
+ * E10.4 est la premiere story a la remplir (module Clients). Les stories
+ * suivantes concatenent leur propre fabrique de routes ici.
+ */
+export function gescomRoutes(services: GescomServices): readonly GescomRoute[] {
+  return [...createCustomersRoutes(services.customers)];
+}
+
+/**
+ * Routes montees sur la facade E10, dans leur configuration de production.
+ * Conserve pour compatibilite avec le harnais de tests qui inspecte le
+ * registre sans construire de services (`tests/contract/gescom-routes.contract.test.ts`,
+ * `tests/architecture/gescom-api-socle-boundaries.test.ts`) : ces routes ne
+ * different pas selon l instance de service injectee, seule leur DEFINITION
+ * (chemin, operationId, scopes) compte pour ces tests.
+ */
+export const GESCOM_ROUTES: readonly GescomRoute[] = Object.freeze(
+  gescomRoutes({ customers: createNullCustomersService() }),
+);
+
+/**
+ * Service factice pour la seule fin d enumerer les DEFINITIONS de routes
+ * (chemin/operationId/scopes) sans dependance a Supabase. Aucune de ses
+ * methodes n est jamais executee : `GESCOM_ROUTES` n est utilise que par les
+ * tests de contrat et d architecture, jamais pour servir une vraie requete
+ * (la composition applicative reelle appelle `gescomRoutes()` avec le service
+ * Supabase, voir src/server/api/composition.ts / l edge function).
+ */
+function createNullCustomersService(): CustomersService {
+  return new Proxy(
+    {},
+    {
+      get() {
+        throw new Error(
+          'GESCOM_ROUTES est un registre de DEFINITIONS pour les tests de contrat/architecture ; ' +
+            'il ne doit jamais executer de handler. Utiliser gescomRoutes({ customers: ... }) avec ' +
+            'un service reel pour servir une requete.',
+        );
+      },
+    },
+  ) as CustomersService;
+}
