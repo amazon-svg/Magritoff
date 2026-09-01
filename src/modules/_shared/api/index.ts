@@ -33,6 +33,7 @@ export {
   REQUEST_ID_HEADER,
   SERVICE_KEY_HEADER,
   successEnvelopeSchema,
+  TENANT_SELECTION_HEADER,
   timestampSchema,
   uuidSchema,
 } from './contracts.ts';

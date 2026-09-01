@@ -76,11 +76,31 @@ import { ResendStorefrontPasswordRecoveryEmailSender } from '../../../src/adapte
 import { createStorefrontPasswordRecoveryRoutes } from '../../../src/server/api/storefront-password-recovery-routes.ts';
 import { ShopCustomerInvitationService } from '../../../src/modules/shop-customers/application/shop-customer-invitation-service.ts';
 import { createShopCustomerInvitationRoutes } from '../../../src/server/api/shop-customer-invitation-routes.ts';
+// ── Facade Gestion commerciale (E10) ────────────────────────────────────────
+import { createMagritApiApplication } from '../../../src/server/api/composition.ts';
+import { CustomersService } from '../../../src/modules/customers/application/customers-service.ts';
+import { SupabaseCustomersRepository } from '../../../src/adapters/supabase/customers-repository.ts';
+import { SupabaseApiPrincipalVerifier } from '../../../src/adapters/supabase/api-principal-verifier.ts';
+import { InMemoryIdempotencyStore, OutboxPublisher } from '../../../src/modules/_shared/application/index.ts';
+import { TENANT_SELECTION_HEADER } from '../../../src/modules/_shared/api/index.ts';
+import { SupabaseOutboxRepository, bestEffortOutbox } from '../../../src/adapters/supabase/outbox-repository.ts';
+import type { OutboxRepository } from '../../../src/modules/_shared/application/index.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, content-type, x-request-id',
+  // Les quatre derniers en-tetes sont exiges par la facade E10 (socle E10.0) :
+  // `idempotency-key` sur toute creation (CA8), `if-match` sur tout PATCH
+  // (CA9), `x-magrit-tenant` pour selectionner l espace parmi ceux du jeton,
+  // `x-magrit-service-key` pour les modules tiers (CA5). Sans eux, le
+  // prevol navigateur rejette la requete avant qu elle parte.
+  'Access-Control-Allow-Headers':
+    'authorization, content-type, x-request-id, idempotency-key, if-match, x-magrit-tenant, x-magrit-service-key',
   'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
+  // Sans cette ligne, `response.headers.get('etag')` rend `null` dans un
+  // navigateur : seuls quelques en-tetes sont lisibles par defaut en CORS.
+  // Le flux `If-Match` de la facade E10 serait alors inutilisable depuis le
+  // front, qui ne pourrait jamais lire l ETag qu il doit renvoyer.
+  'Access-Control-Expose-Headers': 'etag, x-request-id, idempotency-replayed',
 };
 
 export async function handleRequest(request: Request): Promise<Response> {
@@ -198,7 +218,48 @@ export async function handleRequest(request: Request): Promise<Response> {
     Deno.env.get('CLARIPRINT_LOGIN') ?? null,
     Deno.env.get('CLARIPRINT_PASSWORD') ?? null,
   ));
-  const handler = createApiV1Application({
+  // ── Facade Gestion commerciale (E10) ──────────────────────────────────────
+  // Montee A COTE de la facade historique, sur le meme prefixe /api/v1.
+  // `createMagritApiApplication` aiguille par chemin et refuse de demarrer si
+  // les deux facades se recouvrent (voir api-facade-router.ts).
+  //
+  // L outbox ecrit sous `service_role` : la table est fermee aux roles client
+  // par construction. Sans cette cle, les evenements sont perdus plutot que de
+  // faire echouer une operation metier deja commise — le cas est journalise.
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  const outboxRepository: OutboxRepository = serviceRoleKey
+    ? new SupabaseOutboxRepository(
+        createClient(supabaseUrl, serviceRoleKey, {
+          auth: { persistSession: false, autoRefreshToken: false },
+        }),
+      )
+    : unavailableOutbox('SUPABASE_SERVICE_ROLE_KEY absente');
+
+  const customersService = new CustomersService({
+    repository: new SupabaseCustomersRepository(client),
+    outbox: new OutboxPublisher({
+      repository: bestEffortOutbox(outboxRepository, (error, events) => {
+        console.error(
+          '[magrit-api] publication outbox echouee',
+          events.map((event) => event.name),
+          error,
+        );
+      }),
+      now: () => new Date(),
+      newEventId: () => crypto.randomUUID(),
+    }),
+  });
+
+  const handler = createMagritApiApplication({
+    gescomServices: { customers: customersService },
+    principalVerifier: new SupabaseApiPrincipalVerifier(client, {
+      requestedTenantId: request.headers.get(TENANT_SELECTION_HEADER),
+    }),
+    // Store en memoire : il ne survit pas au recyclage de l isolat, donc la
+    // garantie d idempotence ne couvre qu une fenetre courte. L adaptateur
+    // durable sur `api_idempotency_keys` reste la dette tracee en
+    // docs/api/CONVENTIONS.md §8.1.
+    idempotencyStore: new InMemoryIdempotencyStore(),
     routes: [
       ...createSessionRoutes(service),
       ...createOrdersRoutes(ordersService, storefrontSessionService, storefrontCookiePolicy),
@@ -256,6 +317,25 @@ export async function handleRequest(request: Request): Promise<Response> {
   const headers = new Headers(response.headers);
   Object.entries(corsHeaders).forEach(([name, value]) => headers.set(name, value));
   return new Response(response.body, { status: response.status, headers });
+}
+
+/**
+ * Depot d evenements indisponible : journalise et laisse passer.
+ *
+ * Faire echouer une operation metier DEJA COMMISE parce que son evenement n a
+ * pas pu partir dirait au client que son operation a echoue alors qu elle a
+ * reussi ; il rejouerait, et creerait un doublon. On perd l evenement,
+ * bruyamment. Voir docs/api/CONVENTIONS.md §8.1.
+ */
+function unavailableOutbox(reason: string): OutboxRepository {
+  return {
+    async append(events) {
+      console.error(
+        `[magrit-api] outbox indisponible (${reason}) : evenements perdus`,
+        events.map((event) => event.name),
+      );
+    },
+  };
 }
 
 function withCors(response: Response): Response {

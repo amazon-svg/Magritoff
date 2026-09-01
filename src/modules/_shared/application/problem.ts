@@ -28,6 +28,7 @@ export const SHARED_PROBLEM_CODES = Object.freeze({
   tenantNotAddressable: 'api.tenant_not_addressable',
   authenticationRequired: 'identity.authentication_required',
   tenantNotResolved: 'identity.tenant_not_resolved',
+  tenantSelectionRequired: 'identity.tenant_selection_required',
   scopeRequired: 'identity.scope_required',
   actorKindRequired: 'identity.actor_kind_required',
 } as const);
