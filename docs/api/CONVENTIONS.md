@@ -70,7 +70,14 @@ Aligner l'historique casserait ses clients (dérogation R5 — voir §8).
 
 *Pourquoi aiguiller sur le chemin seul, et pas sur le couple chemin + méthode* : un `DELETE /api/v1/customers` non déclaré retomberait sinon sur la façade historique, qui répondrait 404 dans **son** format (`requestId` camelCase) à un client qui attend `request_id`. Un chemin appartient à une façade, avec toutes ses méthodes.
 
-*Collisions* : deux façades qui partagent un espace d'URL peuvent se recouvrir, et un recouvrement rendrait une route historique injoignable **en silence**. `assertNoFacadeCollision()` refuse au **démarrage** — l'edge function ne boote pas plutôt que de servir une API amputée. Le recouvrement par paramètre est traité : `/customers/{id}` capterait `/customers/export`.
+*Collisions* : deux façades qui partagent un espace d'URL peuvent se recouvrir, et un recouvrement rendrait une route historique injoignable **en silence**. Le recouvrement par paramètre est traité : `/customers/{id}` capterait `/customers/export`.
+
+`assertNoFacadeCollision()` s'exécute à **deux moments**, et il faut savoir lequel fait quoi :
+
+1. **Au chargement du module** `src/server/api/legacy-routes.ts`, sur `GESCOM_ROUTES` × `LEGACY_ROUTE_DEFINITIONS` — deux listes de **définitions**, construites sans service réel, donc disponibles avant toute requête. L'edge function importe ce module : une collision fait échouer le démarrage à froid, franchement, et la CI la voit au premier test qui importe le module.
+2. **À chaque composition**, dans `createMagritApiApplication()`. Ce second passage est une conséquence du fait que les services sont liés au client Supabase de la requête : la composition ne peut pas être hissée au chargement du module sans changer la façon dont les clients sont injectés. Il ne remplace pas le premier — il le double.
+
+Autrement dit : la garantie « ça ne démarre pas » est portée par (1), pas par (2). Avant l'extraction de `legacy-routes.ts`, seul (2) existait, et une collision aurait levé une erreur **à chaque requête, en continu**, au lieu d'un échec de boot propre.
 
 ### 2.4 Table `api_idempotency_keys`
 
@@ -107,7 +114,7 @@ Une requête est identifiée par **méthode + chemin + query + corps** — deux 
 
 ### 3.4 Sélection de l'espace de travail — `X-Magrit-Tenant`
 
-> ⚠️ **Amendement au CA4, à faire ratifier.** Le CA4 a été accepté tel quel par la revue du Lot 0. Le montage a révélé qu'il était **inapplicable en l'état** ; cette section décrit la lecture retenue. Elle doit être validée explicitement.
+> ✅ **Amendement au CA4 — RATIFIÉ le 2026-09-01 (décision Arnaud).** Le CA4 avait été accepté tel quel par la revue du Lot 0. Le montage a montré qu'il était **inapplicable en l'état** : aucun claim du JWT ne porte le tenant Magrit. La lecture décrite ci-dessous est la règle en vigueur ; elle ne se rediscute plus story par story.
 
 **Le problème.** Le CA4 impose que le tenant vienne du jeton. Or un JWT Supabase ne porte **aucun** tenant Magrit, et un compte appartient régulièrement à plusieurs espaces — un tenant parent et ses sous-tenants, une agence et ses clients. Le front lui-même résout l'espace courant depuis l'URL `/t/:slug` (voir `TenantContext`), pas depuis la session. Le port `PrincipalVerifier` n'avait donc **aucune implémentation possible** : E10.4 ne pouvait pas savoir de quel espace lister les clients.
 
@@ -261,6 +268,14 @@ Ces points sont des **trous de couverture**, pas des défauts de comportement : 
 | **M1** | L'edge function `supabase/functions/magrit-api/index.ts` n'est **ni typecheckée ni testée** : elle n'est dans aucun `tsconfig` (`include` ne couvre pas `supabase/`) et son exécution demande Deno + un déploiement Supabase. | Une erreur de câblage dans ce fichier n'est vue qu'au déploiement. C'est le seul maillon du montage qu'aucune commande locale ne couvre. | La composition a été **sortie du fichier** vers `createMagritApiApplication()` (dans `src/`, typechecké et testé) pour réduire au minimum ce qui reste non couvert : il n'y subsiste que l'instanciation des adaptateurs. Couverture réelle possible via `deno check` en CI. |
 | **M2** | L'écriture dans `outbox_events` n'est **pas transactionnelle** avec l'écriture métier : les deux passent par PostgREST en deux appels HTTP. Le pattern outbox suppose l'atomicité. | Un événement peut se perdre si l'écriture métier réussit et l'ajout à l'outbox échoue. `bestEffortOutbox` journalise sans faire échouer la requête — échouer dirait au client que son opération a échoué alors qu'elle a réussi, et il rejouerait en créant un doublon. | Déplacer l'écriture métier **et** l'ajout à l'outbox dans une même fonction `api_*` `security definer`. À trancher avec la première story qui rend un événement critique (facturation, Studio). |
 | **M3** | Le store d'idempotence monté est `InMemoryIdempotencyStore` : il ne survit pas au recyclage de l'isolat Deno. | La garantie du CA8 ne couvre qu'une fenêtre courte. Deux tentatives séparées par un recyclage créeraient un doublon. | Adaptateur Supabase sur `api_idempotency_keys` — déjà tracé en §8.1 (R2) et §8 (dérogations R5). Le montage rend cette dette **active** : elle n'était que théorique tant qu'aucun POST n'était joignable. |
+
+### 8.3 Dette signalée sur E10.4 (module Clients), acceptée
+
+| Réf. | Trou | Pourquoi c'est un risque | Chemin de mise en conformité |
+|---|---|---|---|
+| **m5** | Le trigger qui réinitialise `siret_verified` quand le SIRET change n'a **aucun test SQL réel**. Il n'est couvert que par un test de contrat contre un faux repository qui **réimplémente** le comportement du trigger. | Un test qui rejoue en TypeScript ce que fait le trigger prouve que le faux est cohérent avec lui-même, pas que le trigger existe ni qu'il fonctionne. Le supprimer ne casserait aucun test. | Ajouter le scénario au cas SQL `tests/sql/gescom-e10-4-customers.sql` : insérer un client SIRET vérifié, changer le SIRET, vérifier que `siret_verified` retombe à `false`. À faire au premier passage réel des cas SQL (§8.1 B3, Docker requis). |
+
+**Corrigé plutôt que tracé** : `markSiretVerified` filtrait sur `tenant_id` + `id` sans le SIRET (m4). Un appel INSEE dure ; un `PATCH` concurrent changeant le SIRET pendant la vérification faisait apposer « vérifié » sur un numéro que personne n'avait contrôlé — un faux positif à valeur commerciale, pas une approximation. Le SIRET vérifié est désormais une **condition d'écriture** : zéro ligne touchée → `CustomerNotFoundError`, la vérification est perdue et relançable, ce qui est le bon comportement.
 
 **Ce qui a été corrigé au montage et n'est donc pas de la dette** : `Access-Control-Allow-Headers` ne listait ni `idempotency-key` ni `if-match`, et `Access-Control-Expose-Headers` était absent. Le préflight aurait rejeté toute création et toute modification E10.4, et `response.headers.get('etag')` aurait rendu `null` dans le navigateur — le flux `If-Match` était inutilisable depuis le front, indépendamment du montage.
 
