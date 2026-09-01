@@ -1004,6 +1004,38 @@ body {
   color: #050505;
 }
 
+/* Variante embarquée dans le workspace partagé Studio / PIM. */
+.hopstudio-workspace[data-embedded='true'],
+.hopstudio-workspace[data-embedded='true'] .hopstudio-container,
+.hopstudio-workspace[data-embedded='true'] #chat-bar,
+.hopstudio-workspace[data-embedded='true'] #chat-widget {
+  height: 100%;
+  min-height: 0;
+}
+
+.hopstudio-workspace[data-embedded='true'] #chat-body {
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 72px 18px 132px;
+}
+
+.hopstudio-workspace[data-embedded='true'] #chat-header {
+  top: 10px;
+  right: 12px;
+}
+
+.hopstudio-workspace[data-embedded='true'] #chat-input {
+  bottom: 12px;
+  width: calc(100% - 24px);
+  min-height: 96px;
+  padding: 14px;
+}
+
+.hopstudio-workspace[data-embedded='true'] .chat-msg.user {
+  max-width: 92%;
+}
+
 @media (max-width: 900px) {
   .hopstudio-workspace .hs-product-card-specs {
     grid-template-columns: repeat(2, minmax(0, 1fr));
