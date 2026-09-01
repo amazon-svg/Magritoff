@@ -7,7 +7,12 @@ export {
   type AddToProjectItem,
   type AddToProjectModalProps,
 } from './workspace';
-export { useProjectsManagement, projectsManagementError, useProjectDetail } from './hooks';
+export {
+  useProjectsManagement,
+  projectsManagementError,
+  useProjectDetail,
+  useProjectTagsCatalog,
+} from './hooks';
 export {
   buildQuotePayload,
   extractQuotePayloadAmounts,

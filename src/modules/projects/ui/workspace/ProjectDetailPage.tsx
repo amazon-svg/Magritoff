@@ -19,9 +19,10 @@ import { useTenantPath } from '@/modules/tenants/ui/hooks';
 import { useWorkspaceApi } from '@/platform/runtime/workspace-ui-runtime';
 import { CustomersApiClient, type CustomerDto } from '@/modules/customers';
 import { TEST_IDS } from '@/shared/presentation/testIds';
-import { useProjectDetail } from '@/modules/projects/ui/hooks';
+import { useProjectDetail, useProjectTagsCatalog } from '@/modules/projects/ui/hooks';
 import type { ProjectItemDto } from '@/modules/projects/api/contracts';
 import { customerDisplayName } from './ProjectCreateModal';
+import { ProjectTagsEditor } from './ProjectTagsEditor';
 
 const inputCls =
   'w-full px-3 py-2 border border-line-2 rounded-lg bg-paper text-ink text-sm focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand';
@@ -43,7 +44,8 @@ export function DashboardProjectDetail() {
   const tp = useTenantPath();
   const { currentTenant } = useTenant();
   const navigate = useNavigate();
-  const { detail, loading, error, update, removeItem } = useProjectDetail(projectId ?? null);
+  const { detail, loading, error, update, removeItem, replaceTags } = useProjectDetail(projectId ?? null);
+  const { tags: allTags, createOrGet: createOrGetTag } = useProjectTagsCatalog(Boolean(currentTenant));
 
   const customersApi = useWorkspaceApi(CustomersApiClient);
   const [customers, setCustomers] = useState<readonly CustomerDto[]>([]);
@@ -183,6 +185,14 @@ export function DashboardProjectDetail() {
             {' · '}
             {detail.status === 'active' ? 'Actif' : 'Archivé'}
           </p>
+          <div className="mt-2">
+            <ProjectTagsEditor
+              tags={detail.tags}
+              allTags={allTags}
+              onCreateOrGet={createOrGetTag}
+              onChange={replaceTags}
+            />
+          </div>
         </div>
         <button
           type="button"

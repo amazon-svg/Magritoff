@@ -25,6 +25,8 @@ export function useProjectsManagement(enabled: boolean) {
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState('');
   const [status, setStatus] = useState<ProjectStatus | null>(null);
+  /** Filtre multi-tags en ET logique (CA4, E10.2). */
+  const [tagIds, setTagIds] = useState<readonly string[]>([]);
 
   const load = useCallback(async () => {
     const version = ++requestVersion.current;
@@ -36,7 +38,11 @@ export function useProjectsManagement(enabled: boolean) {
     setLoading(true);
     setError(null);
     try {
-      const response = await api.list({ ...(q ? { q } : {}), ...(status ? { status } : {}) });
+      const response = await api.list({
+        ...(q ? { q } : {}),
+        ...(status ? { status } : {}),
+        ...(tagIds.length > 0 ? { tagIds } : {}),
+      });
       if (version === requestVersion.current) setItems(response.items);
     } catch (cause) {
       if (version === requestVersion.current) {
@@ -45,7 +51,7 @@ export function useProjectsManagement(enabled: boolean) {
     } finally {
       if (version === requestVersion.current) setLoading(false);
     }
-  }, [api, enabled, q, status]);
+  }, [api, enabled, q, status, tagIds]);
 
   useEffect(() => {
     void load();
@@ -71,6 +77,8 @@ export function useProjectsManagement(enabled: boolean) {
     setQ,
     status,
     setStatus,
+    tagIds,
+    setTagIds,
     refresh: load,
     create,
   } as const;

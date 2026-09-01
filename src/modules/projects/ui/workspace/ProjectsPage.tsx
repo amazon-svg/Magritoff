@@ -4,12 +4,13 @@
  */
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { Plus, Search, FolderKanban } from 'lucide-react';
+import { Plus, Search, FolderKanban, Tag as TagIcon, ChevronDown } from 'lucide-react';
 import { useAuth } from '@/modules/account/ui/runtime';
 import { useTenant } from '@/modules/tenants/ui/runtime';
 import { useTenantPath } from '@/modules/tenants/ui/hooks';
 import { TEST_IDS } from '@/shared/presentation/testIds';
-import { useProjectsManagement } from '@/modules/projects/ui/hooks';
+import { useProjectsManagement, useProjectTagsCatalog } from '@/modules/projects/ui/hooks';
+import { projectTagColorClassName } from '../helpers/tagColors';
 import { ProjectCreateModal } from './ProjectCreateModal';
 
 const inputCls =
@@ -21,9 +22,16 @@ export function DashboardProjects() {
   const { user } = useAuth();
   const { currentTenant } = useTenant();
   const tp = useTenantPath();
-  const { items, loading, error, q, setQ, status, setStatus, create, refresh } =
-    useProjectsManagement(Boolean(user && currentTenant));
+  const enabled = Boolean(user && currentTenant);
+  const { items, loading, error, q, setQ, status, setStatus, tagIds, setTagIds, create, refresh } =
+    useProjectsManagement(enabled);
+  const { tags: allTags } = useProjectTagsCatalog(enabled);
   const [showCreate, setShowCreate] = useState(false);
+  const [showTagFilter, setShowTagFilter] = useState(false);
+
+  const toggleTagFilter = (tagId: string) => {
+    setTagIds(tagIds.includes(tagId) ? tagIds.filter((id) => id !== tagId) : [...tagIds, tagId]);
+  };
 
   return (
     <div className="space-y-5" data-testid={TEST_IDS.project.page}>
@@ -52,8 +60,9 @@ export function DashboardProjects() {
             type="search"
             value={q}
             onChange={(event) => setQ(event.target.value)}
-            placeholder="Rechercher un projet..."
+            placeholder="Rechercher un projet ou un client..."
             className={`${inputCls} pl-9`}
+            data-testid={TEST_IDS.project.searchInput}
           />
         </div>
         <select
@@ -66,6 +75,43 @@ export function DashboardProjects() {
           <option value="active">Actifs</option>
           <option value="archived">Archivés</option>
         </select>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setShowTagFilter((open) => !open)}
+            className={`${inputCls} flex items-center gap-2 whitespace-nowrap`}
+            data-testid={TEST_IDS.project.tagFilter}
+          >
+            <TagIcon className="w-4 h-4 text-ink-muted" />
+            Tags{tagIds.length > 0 ? ` (${tagIds.length})` : ''}
+            <ChevronDown className="w-3 h-3 text-ink-muted" />
+          </button>
+          {showTagFilter && (
+            <div className="absolute right-0 mt-1 w-56 bg-paper border border-line rounded-lg shadow-lg z-10 p-2 space-y-1 max-h-64 overflow-auto">
+              {allTags.length === 0 ? (
+                <p className="text-xs text-ink-muted px-2 py-1">Aucun tag dans cet espace.</p>
+              ) : (
+                allTags.map((tag) => (
+                  <label
+                    key={tag.id}
+                    className="flex items-center gap-2 px-2 py-1 rounded hover:bg-bg cursor-pointer text-sm"
+                    data-testid={TEST_IDS.project.tagFilterOption}
+                    data-tag-id={tag.id}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={tagIds.includes(tag.id)}
+                      onChange={() => toggleTagFilter(tag.id)}
+                    />
+                    <span className={`px-1.5 py-0.5 rounded border text-xs ${projectTagColorClassName(tag.color)}`}>
+                      {tag.label}
+                    </span>
+                  </label>
+                ))
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {error && <p className="text-sm text-err-fg">{error}</p>}
@@ -99,6 +145,20 @@ export function DashboardProjects() {
                     <FolderKanban className="w-4 h-4 text-ink-muted" />
                     {project.name}
                   </Link>
+                  {project.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1 ml-6">
+                      {project.tags.map((tag) => (
+                        <span
+                          key={tag.id}
+                          data-testid={TEST_IDS.project.tagBadge}
+                          data-tag-id={tag.id}
+                          className={`px-1.5 py-0.5 rounded border text-xs ${projectTagColorClassName(tag.color)}`}
+                        >
+                          {tag.label}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </td>
                 <td className="py-2 pr-3">
                   {project.status === 'active' ? (

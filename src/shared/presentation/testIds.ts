@@ -520,6 +520,21 @@ export const TEST_IDS = {
     addToProjectExistingOption: 'project-add-to-project-existing-option',
     addToProjectCreateOption: 'project-add-to-project-create-option',
     addToProjectSubmitBtn: 'project-add-to-project-submit-btn',
+    // ─── E10.2 — Tags libres colores sur les projets (Sprint 5) ─────────────
+    // `tagInput`/`tagOption` : champ de saisie + autocompletion, cree a la
+    // volee (CA2), pose dans l en-tete de la fiche projet (ProjectDetailPage).
+    // `tagBadge`/`tagRemoveBtn` : affiche sur la ligne de la liste (lecture
+    // seule) ET dans l en-tete du projet (CA6), avec un bouton de retrait
+    // uniquement dans l en-tete (retrait du LIEN, jamais du tag du tenant,
+    // CA5). `data-tag-id` pose sur chaque option/badge.
+    tagInput: 'project-tag-input',
+    tagOption: 'project-tag-option',
+    tagBadge: 'project-tag-badge',
+    tagRemoveBtn: 'project-tag-remove-btn',
+    // Recherche et filtre de la liste des projets (CA4), sur ProjectsPage.
+    searchInput: 'projects-search-input',
+    tagFilter: 'projects-tag-filter',
+    tagFilterOption: 'projects-tag-filter-option',
   },
 } as const;
 

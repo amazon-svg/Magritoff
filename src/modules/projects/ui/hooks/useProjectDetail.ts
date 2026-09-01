@@ -92,6 +92,27 @@ export function useProjectDetail(projectId: string | null) {
     [api, projectId, load],
   );
 
+  /**
+   * Remplace la liste complete des tags du projet (CA6, E10.2). Relit la
+   * ressource apres ecriture, meme discipline que `update()` : pas d etat
+   * optimiste local qui pourrait diverger de la base.
+   */
+  const replaceTags = useCallback(
+    async (tagIds: readonly string[]) => {
+      if (!projectId || !etag) throw new Error('Projet non chargé.');
+      setError(null);
+      try {
+        const result = await api.replaceTags(projectId, { tag_ids: [...tagIds] }, etag);
+        await load();
+        return result.data;
+      } catch (cause) {
+        setError(projectsManagementError(cause, 'Modification des tags impossible.'));
+        throw cause;
+      }
+    },
+    [api, projectId, etag, load],
+  );
+
   return {
     detail,
     etag,
@@ -101,5 +122,6 @@ export function useProjectDetail(projectId: string | null) {
     update,
     addItem,
     removeItem,
+    replaceTags,
   } as const;
 }
