@@ -50,6 +50,8 @@ export const TEST_IDS = {
     sidebarConfigLink: 'nav-sidebar-config-link',
     sidebarProfileLink: 'nav-sidebar-profile-link',
     tenantSwitcher: 'nav-tenant-switcher',
+    // E10.4 (Sprint 5, TF-165, parcours P13) — module Clients.
+    sidebarCustomersLink: 'nav-sidebar-customers-link',
   },
   dashboard: {
     welcomeCard: 'dashboard-welcome-card',
@@ -460,6 +462,24 @@ export const TEST_IDS = {
     productImageSkeleton: 'mockup-product-image-skeleton',
     productImageImg: 'mockup-product-image-img',
     productImageFallback: 'mockup-product-image-fallback',
+  },
+
+  // ─── E10.4 — Module Clients (Sprint 5 Gestion commerciale, TF-165, P13) ──
+  customer: {
+    page: 'customers-page',
+    table: 'customers-table',
+    row: 'customer-row',
+    createBtn: 'customer-create-btn',
+    formModal: 'customer-form-modal',
+    typeRadio: 'customer-type-radio',
+    companyNameInput: 'customer-company-name-input',
+    siretInput: 'customer-siret-input',
+    siretVerifyBtn: 'customer-siret-verify-btn',
+    saveBtn: 'customer-save-btn',
+    detailPage: 'customer-detail-page',
+    contactRow: 'customer-contact-row',
+    contactAddBtn: 'customer-contact-add-btn',
+    contactPrimaryToggle: 'customer-contact-primary-toggle',
   },
 } as const;
 

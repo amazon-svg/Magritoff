@@ -26,6 +26,8 @@ const routeLoaders: Readonly<Record<string, LazyPageLoader>> = Object.freeze({
   'catalog.workspace.gammes': () => import('@/modules/catalog/ui').then((module) => ({ default: module.DashboardTenantGammes })),
   'catalog.workspace.pim': () => import('@/modules/catalog/ui').then((module) => ({ default: module.DashboardAdminPIM })),
   'commercial.workspace.pricing': () => import('@/modules/commercial/ui').then((module) => ({ default: module.DashboardCommercial })),
+  'customers.workspace.list': () => import('@/modules/customers/ui').then((module) => ({ default: module.DashboardCustomers })),
+  'customers.workspace.detail': () => import('@/modules/customers/ui').then((module) => ({ default: module.DashboardCustomerDetail })),
   'members.workspace.list': () => import('@/modules/members/ui').then((module) => ({ default: module.MembersPage })),
   'tenants.workspace.settings': () => import('@/modules/tenants/ui').then((module) => ({ default: module.DashboardTenantSettings })),
   'tenants.workspace.spaces': () => import('@/modules/tenants/ui').then((module) => ({ default: module.DashboardTenantSpaces })),
