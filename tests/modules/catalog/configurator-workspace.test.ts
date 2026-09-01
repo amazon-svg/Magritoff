@@ -57,4 +57,30 @@ describe('workspace partagé configurateur', () => {
     expect(results[0]?.definition.id).toBe('definition-fr');
     expect(results[0]?.score).toBeGreaterThanOrEqual(2);
   });
+
+  it('écarte les produits qui ne correspondent qu à un mot faible de la demande', () => {
+    const gammes: Gamme[] = [
+      { id: 'cards', slug: 'business-cards', name: 'Cartes de visite', parent_slug: null, matching_rules: {}, display_order: 1 },
+      { id: 'menus', slug: 'menus', name: 'Menus restaurant', parent_slug: null, matching_rules: {}, display_order: 2 },
+    ];
+    const definition = (id: string, gamme_slug: string, name: string, keywords: string[]): ProductDefinition => ({
+      id, gamme_slug, variation_filter: {}, locale: 'fr', name, keywords,
+      title_template: null, short_description_template: null, description_template: null,
+      h1_template: null, seo_title: null, seo_description: null, schema_org_type: null,
+      usage_examples: [], faq: [], quality_score: null, generated_by: 'human',
+      validated_by: 'human', image_url: null,
+    });
+    const definitions = [
+      definition('business-card', 'business-cards', 'Carte de visite', ['pelliculage mat']),
+      definition('restaurant-menu', 'menus', 'Menu restaurant', ['carte des plats']),
+    ];
+
+    const results = searchPimDefinitions(
+      '500 cartes de visite avec pelliculage mat',
+      definitions,
+      gammes,
+    );
+
+    expect(results.map((result) => result.definition.id)).toEqual(['business-card']);
+  });
 });

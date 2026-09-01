@@ -57,10 +57,12 @@ export function HopeStudioWorkspace({
   tenantId,
   userId,
   initialRequest,
+  compact = false,
 }: Readonly<{
   tenantId: string;
   userId: string;
   initialRequest: HopeStudioInitialRequest;
+  compact?: boolean;
 }>) {
   const api = useWorkspaceApi(HopeStudioApiClient);
   const hostRef = useRef<HTMLDivElement>(null);
@@ -132,6 +134,7 @@ export function HopeStudioWorkspace({
       data-testid="hopstudio-workspace"
       data-chat-started="true"
       data-embedded="true"
+      data-compact={compact ? 'true' : 'false'}
       aria-busy={status === 'loading'}
     >
       {status !== 'ready' && (

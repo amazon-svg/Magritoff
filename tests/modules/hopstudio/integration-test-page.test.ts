@@ -101,5 +101,7 @@ describe('page de test d intégration HopeStudio', () => {
     expect(magritStyles).toContain('.hs-product-card-specs');
     expect(magritStyles).toContain("[data-hs-action='price']::before");
     expect(magritStyles).toContain('grid-template-columns: repeat(2, minmax(0, 1fr))');
+    expect(magritStyles).toContain('height: calc(100% - 120px)');
+    expect(magritStyles).toContain('height: calc(100% - 102px)');
   });
 });

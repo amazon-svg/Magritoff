@@ -42,7 +42,7 @@ export function DualToolWorkspace({
         </div>
       )}
 
-      <div className={`grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] overflow-hidden ${mode === 'split' ? 'md:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]' : 'grid-cols-1'}`}>
+      <div className={`grid min-h-0 min-w-0 flex-1 grid-rows-[minmax(0,1fr)] overflow-hidden ${mode === 'split' ? 'md:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]' : 'grid-cols-1'}`}>
         <WorkspacePanel
           title="Clariprint Studio"
           icon={<Sparkles className="size-4" />}
@@ -57,6 +57,7 @@ export function DualToolWorkspace({
             tenantId={tenantId}
             userId={userId}
             initialRequest={initialRequest}
+            compact={mode === 'split'}
           />
         </WorkspacePanel>
 
@@ -70,7 +71,11 @@ export function DualToolWorkspace({
           onFocus={() => onModeChange('pim')}
           onSplit={() => onModeChange('split')}
         >
-          <PimSearchPanel query={pimQuery} onQueryChange={onPimQueryChange} />
+          <PimSearchPanel
+            query={pimQuery}
+            compact={mode === 'split'}
+            onQueryChange={onPimQueryChange}
+          />
         </WorkspacePanel>
       </div>
     </main>
@@ -100,7 +105,7 @@ function WorkspacePanel({
 }>) {
   return (
     <section
-      className={`${visible ? 'flex' : 'hidden'} ${desktopVisible ? 'md:flex' : 'md:hidden'} min-h-0 flex-col bg-white ${side === 'left' ? 'md:border-r md:border-line' : ''}`}
+      className={`${visible ? 'flex' : 'hidden'} ${desktopVisible ? 'md:flex' : 'md:hidden'} min-h-0 min-w-0 flex-col overflow-hidden bg-white ${side === 'left' ? 'md:border-r md:border-line' : ''}`}
       aria-label={title}
       data-workspace-panel={side}
     >
