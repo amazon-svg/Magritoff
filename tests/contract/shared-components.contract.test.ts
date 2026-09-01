@@ -10,10 +10,13 @@ import { describe, expect, it } from 'vitest';
 import { parseId, type TenantId } from '@/kernel';
 import {
   auditSchema,
+  currencySchema,
   eventEnvelopeSchema,
+  eventNameSchema,
   eventSignatureSchema,
   metaSchema,
   moneySchema,
+  problemCodeSchema,
   problemSchema,
   rateSchema,
   timestampSchema,
@@ -109,6 +112,107 @@ describe('composants partages : code contre contrat', () => {
     expectValid('Meta', meta);
     expectValid('Meta', { request_id: 'req-e10-0', next_cursor: null });
     expectInvalid('Meta', { next_cursor: null });
+  });
+
+  it('parite scalaires : Zod et le contrat rendent le MEME verdict sur chaque valeur', () => {
+    // Ce test remplace les paires d assertions ecrites a la main, qui
+    // verifiaient chaque cote separement et laissaient passer les divergences
+    // qu on avait oublie de tester des deux cotes. C est exactement ainsi que
+    // `Timestamp` a pu declarer `format: date-time` sans `pattern` : le contrat
+    // acceptait "2026-09-01T08:30:00+02:00" que Zod refusait, et aucun test ne
+    // confrontait les deux verdicts sur cette valeur.
+    //
+    // Ici le verdict Zod et le verdict contrat doivent COINCIDER, quel que soit
+    // l echantillon. Toute nouvelle divergence est attrapee sans qu on ait a y
+    // penser.
+    const parity = [
+      {
+        name: 'Money',
+        schema: moneySchema,
+        legal: ['1234.50', '0.00', '-89.90', '9999999999.99'],
+        illegal: ['1234.5', '1234', '1234.500', '1 234.50', 'abc', ''],
+      },
+      {
+        name: 'Rate',
+        schema: rateSchema,
+        legal: ['0.5000', '0.2000', '0.0000', '-0.1000'],
+        illegal: ['0.5', '0.50000', '123.4567', '.5000', ''],
+      },
+      {
+        name: 'Timestamp',
+        schema: timestampSchema,
+        legal: ['2026-09-01T08:30:00.000Z', '2026-09-01T08:30:00Z'],
+        // L offset non-UTC est LE cas qui manquait : le contrat l acceptait.
+        illegal: [
+          '2026-09-01T08:30:00+02:00',
+          '2026-09-01T08:30:00-05:00',
+          '2026-09-01T08:30:00',
+          '2026-09-01',
+          'pas une date',
+        ],
+      },
+      {
+        name: 'Uuid',
+        schema: uuidSchema,
+        legal: [AGGREGATE, EVENT_ID],
+        illegal: [
+          'DEV-2026-00042',
+          // UUID v1 : accepte par `format: uuid`, refuse par le pattern v4.
+          '7f0d2a1e-1c4b-1f8a-9c3d-5b6e7a8f9012',
+          '7F0D2A1E-1C4B-4F8A-9C3D-5B6E7A8F9012',
+          '',
+        ],
+      },
+      {
+        name: 'Currency',
+        schema: currencySchema,
+        legal: ['EUR', 'USD'],
+        illegal: ['eur', 'EURO', 'EU', ''],
+      },
+      {
+        name: 'ProblemCode',
+        schema: problemCodeSchema,
+        legal: ['api.validation_failed', 'price_rule.value_out_of_range'],
+        illegal: ['PriceRuleFailed', 'api', 'api.', '.api', 'api.Validation'],
+      },
+      {
+        name: 'EventName',
+        schema: eventNameSchema,
+        legal: ['quote.converted', 'price_rule.changed'],
+        illegal: ['quote.transformed', 'QuoteConverted', ''],
+      },
+    ] as const;
+
+    for (const { name, schema, legal, illegal } of parity) {
+      for (const sample of [...legal, ...illegal]) {
+        const expected = (legal as readonly string[]).includes(sample);
+        const zodVerdict = schema.safeParse(sample).success;
+        const contractVerdict = checkAgainstSchema(name, sample).valid;
+
+        expect(zodVerdict, `${name} — Zod sur ${JSON.stringify(sample)}`).toBe(expected);
+        expect(contractVerdict, `${name} — contrat sur ${JSON.stringify(sample)}`).toBe(expected);
+        expect(
+          zodVerdict,
+          `${name} — Zod et le contrat divergent sur ${JSON.stringify(sample)} : ` +
+            `Zod dit ${zodVerdict}, le contrat dit ${contractVerdict}`,
+        ).toBe(contractVerdict);
+      }
+    }
+  });
+
+  it('parite scalaires : une valeur non textuelle est refusee des deux cotes', () => {
+    // Un montant serialise en flottant JSON est l erreur que le CA veut rendre
+    // impossible : les deux schemas doivent le refuser, pas seulement l un.
+    for (const [name, schema] of [
+      ['Money', moneySchema],
+      ['Rate', rateSchema],
+      ['Timestamp', timestampSchema],
+    ] as const) {
+      for (const sample of [1234.5, 0, null, true, {}, []]) {
+        expect(schema.safeParse(sample).success, `${name} Zod`).toBe(false);
+        expect(checkAgainstSchema(name, sample).valid, `${name} contrat`).toBe(false);
+      }
+    }
   });
 
   it('sens contrat -> Zod : tout payload legal selon le YAML est accepte par Zod', () => {

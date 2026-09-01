@@ -206,6 +206,19 @@ Introduire la structure littérale de l'énoncé aurait créé une onzième conv
 
 **Aucune dérogation n'est admise sur du code nouveau** (R5). Les trois lignes ci-dessus sont des périmètres non encore implémentés, pas des écarts dans ce qui a été livré.
 
+### 8.1 Dette de vérification acceptée à la clôture du Lot 0
+
+Ces points sont des **trous de couverture**, pas des défauts de comportement : le code fait ce qu'il doit, mais rien ne le prouverait automatiquement s'il cessait de le faire. Acceptés à la clôture du Lot 0 (revue qa-review), à résorber par les stories indiquées.
+
+| Réf. | Trou | Pourquoi c'est un risque | Chemin de mise en conformité |
+|---|---|---|---|
+| **B3** | `tests/sql/gescom-outbox-append-only.sql` n'a **jamais été exécuté** — le poste de rédaction n'avait ni Docker ni `psql`. Le fichier est écrit et enregistré dans `SQL_CASES`, mais son verdict est inconnu. | Un cas SQL jamais lancé peut échouer sur une broutille (colonne manquante, seed absent) et donner l'illusion d'une garantie. | Lancer `pnpm db:local:start && pnpm test:storefront:sql` sur un poste équipé, **avant** la première story E10.x qui émet un événement. Corriger le cas s'il échoue. |
+| **R1** | Le cas SQL accorde `grant select ... to authenticated` pour exercer la policy, puis le retire. Il ne teste donc **pas** l'état réel de production, où `authenticated` n'a aucun privilège : la policy est vérifiée, la fermeture par `revoke` l'est séparément, mais jamais les deux ensemble dans l'ordre réel. | Si un jour un `grant` est accordé par erreur, le test le détecte (dernière assertion). Mais si la policy était supprimée **et** le grant maintenu, l'ordre actuel des assertions ne le verrait pas. | Ajouter un scénario qui, sans aucun grant, vérifie que `authenticated` reçoit bien `42501` sur `select`. À faire avec le premier passage réel du cas (B3). |
+| **R2** | Aucun test ne couvre `public.api_idempotency_keys` : ni ses contraintes (`unique (tenant_id, idempotency_key)`, forme de l'empreinte, cohérence `completed`), ni sa fermeture aux rôles client. | La table est le support durable du CA8. Une contrainte qui ne tient pas ferait silencieusement dériver l'idempotence vers du best-effort. | Cas SQL `tests/sql/gescom-idempotency-keys.sql`, à écrire avec l'adaptateur Supabase du port `IdempotencyStore` (première story E10.x exposant un POST). |
+| **R3** | Le garde B2 tient sur **deux gonds** non redondants : le test d'architecture vérifie que tout fichier appelant `defineGescomRoute(` est cité par `gescom-routes.ts`, et le test de contrat vérifie que les routes du registre existent au contrat. Une route déclarée **hors** de `src/server/api/` (dans un module, par exemple) échapperait au premier gond, donc au second. | Le CA1 reposerait alors sur la discipline, ce que ce garde était censé remplacer. | Élargir le balayage du test d'architecture à `src/modules/**` et `src/adapters/**`, ou déplacer l'assertion dans `createGescomApiHandler` (refus au démarrage d'une route absente d'un manifeste d'operationId généré depuis le contrat). À faire à la première story qui publie un endpoint. |
+
+**Ce qui a été corrigé et n'est donc pas de la dette** : `Timestamp` déclarait `format: date-time` sans `pattern`, ce qui laissait le contrat accepter `2026-09-01T08:30:00+02:00` que Zod refusait. Corrigé à la clôture du Lot 0 — c'était la dernière fenêtre où durcir ce schéma restait gratuit, la règle « v1 additive » (§7) l'interdisant dès la publication du premier endpoint. La divergence est désormais impossible à réintroduire sans être vue : le test de **parité** de `shared-components.contract.test.ts` confronte, échantillon par échantillon, le verdict Zod et le verdict du contrat sur tous les scalaires.
+
 ---
 
 ## 9. Commandes

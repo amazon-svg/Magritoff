@@ -128,8 +128,11 @@ export interface components {
         /**
          * Timestamp
          * Format: date-time
-         * @description Instant ISO 8601 en UTC, suffixe `Z`.
+         * @description Instant ISO 8601 en **UTC**, suffixe `Z` obligatoire.
+         *
+         *     `format: date-time` ne suffit pas : il accepte n importe quel decalage, donc `2026-09-01T08:30:00+02:00` serait valide. Le `pattern` ci-dessous impose l UTC, exactement comme `timestampSchema` cote Zod. Sans lui, le schema machine autorisait ce que le code et la documentation interdisaient.
          * @example 2026-09-01T08:30:00.000Z
+         * @example 2026-09-01T08:30:00Z
          */
         Timestamp: string;
         /**
