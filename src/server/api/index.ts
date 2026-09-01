@@ -1,7 +1,8 @@
 export { compilePathTemplate, createApiV1Handler } from './api-v1-handler';
 export type { ActorResolver, ApiV1HandlerOptions, ResolvedActor } from './api-v1-handler';
 export { buildEnvelope, createGescomApiHandler, defineGescomRoute } from './gescom-middleware';
-export { GESCOM_ROUTES } from './gescom-routes';
+export { GESCOM_ROUTES, gescomRoutes } from './gescom-routes';
+export type { GescomServices } from './gescom-routes';
 export type {
   GescomApiHandlerOptions,
   GescomAuthentication,
@@ -10,8 +11,17 @@ export type {
   GescomRouteDefinition,
   GescomRouteResult,
 } from './gescom-middleware';
-export { createApiV1Application } from './composition';
-export type { ApiV1ApplicationDependencies } from './composition';
+export { createApiV1Application, createMagritApiApplication } from './composition';
+export type {
+  ApiV1ApplicationDependencies,
+  MagritApiApplicationDependencies,
+} from './composition';
+export {
+  assertNoFacadeCollision,
+  createApiFacadeRouter,
+  pathTemplatesOverlap,
+} from './api-facade-router';
+export type { ApiFacadeHandler, ApiFacadeRouterOptions } from './api-facade-router';
 export { ApiHttpError } from './errors';
 export { createSessionRoutes } from './session-routes';
 export { createOrdersRoutes } from './orders-routes';
