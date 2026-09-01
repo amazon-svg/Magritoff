@@ -52,6 +52,8 @@ export const TEST_IDS = {
     tenantSwitcher: 'nav-tenant-switcher',
     // E10.4 (Sprint 5, TF-165, parcours P13) — module Clients.
     sidebarCustomersLink: 'nav-sidebar-customers-link',
+    // E10.1 (Sprint 5, parcours P13) — module Projets.
+    sidebarProjectsLink: 'nav-sidebar-projects-link',
   },
   dashboard: {
     welcomeCard: 'dashboard-welcome-card',
@@ -492,6 +494,32 @@ export const TEST_IDS = {
     contactOpenShopAccessBtn: 'customer-contact-open-shop-access-btn',
     contactRevokeShopAccessBtn: 'customer-contact-revoke-shop-access-btn',
     contactShopAccessBadge: 'customer-contact-shop-access-badge',
+  },
+
+  // ─── E10.1 — Module Projets (Sprint 5 Gestion commerciale, parcours P13) ──
+  // Le projet remplace le panier comme conteneur de travail sur les
+  // surfaces internes Magrit (atelier, resultats de chiffrage). Structure de
+  // page/detail prevue pour accueillir sans refonte les testid E10.3
+  // (project-item-checkbox, project-create-quote-btn — hors perimetre E10.1).
+  project: {
+    page: 'projects-page',
+    table: 'projects-table',
+    row: 'project-row',
+    createBtn: 'project-create-btn',
+    createModal: 'project-create-modal',
+    nameInput: 'project-name-input',
+    customerSelect: 'project-customer-select',
+    createSubmitBtn: 'project-create-submit-btn',
+    detailPage: 'project-detail-page',
+    itemRow: 'project-item-row',
+    itemRemoveBtn: 'project-item-remove-btn',
+    // CA1/CA4 — remplace le CTA "Ajouter au panier" sur les surfaces
+    // internes (atelier, resultats de chiffrage, cf. QuoteDialog.tsx).
+    addToProjectBtn: 'project-add-to-project-btn',
+    addToProjectModal: 'project-add-to-project-modal',
+    addToProjectExistingOption: 'project-add-to-project-existing-option',
+    addToProjectCreateOption: 'project-add-to-project-create-option',
+    addToProjectSubmitBtn: 'project-add-to-project-submit-btn',
   },
 } as const;
 
