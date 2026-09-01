@@ -13,9 +13,18 @@ export type ApiRequest<T> = Readonly<{
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   path: string;
   body?: unknown;
+  /**
+   * En-tetes supplementaires (ex. `Idempotency-Key`, `If-Match`), exiges par
+   * la facade E10 (docs/api/CONVENTIONS.md CA8/CA9). `Authorization` et
+   * `Content-Type` restent geres par le client, ne pas les fournir ici.
+   */
+  headers?: Readonly<Record<string, string>>;
   responseSchema: z.ZodType<T>;
   signal?: AbortSignal;
 }>;
+
+/** Reponse enrichie de l `ETag`, necessaire pour un futur PATCH (`If-Match`). */
+export type ApiResponseWithEtag<T> = Readonly<{ data: T; etag: string | null }>;
 
 export type ApiFormRequest<T> = Readonly<{
   method: 'POST' | 'PUT' | 'PATCH';
@@ -44,22 +53,39 @@ export class FetchApiClient {
   }
 
   async request<T>(request: ApiRequest<T>): Promise<T> {
+    const response = await this.send(request);
+    return parseResponse(response, request.responseSchema);
+  }
+
+  /**
+   * Comme `request()`, mais rend aussi l `ETag` de la reponse (en-tete exigee
+   * par la facade E10 sur toute ressource modifiable, CA9). Necessaire pour
+   * enchainer un PATCH proteg par `If-Match` sans relire la ressource.
+   */
+  async requestWithEtag<T>(request: ApiRequest<T>): Promise<ApiResponseWithEtag<T>> {
+    const response = await this.send(request);
+    const data = await parseResponse(response, request.responseSchema);
+    return { data, etag: response.headers.get('etag') };
+  }
+
+  private async send(request: ApiRequest<unknown>): Promise<Response> {
     assertApiPath(request.path);
 
     const headers = new Headers({ Accept: 'application/json' });
     if (request.body !== undefined) headers.set('Content-Type', 'application/json');
+    if (request.headers) {
+      for (const [name, value] of Object.entries(request.headers)) headers.set(name, value);
+    }
 
     const accessToken = await this.accessTokenProvider?.();
     if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`);
 
-    const response = await this.fetchImplementation(`${this.baseUrl}${request.path}`, {
+    return this.fetchImplementation(`${this.baseUrl}${request.path}`, {
       method: request.method ?? 'GET',
       headers,
       ...(request.body === undefined ? {} : { body: JSON.stringify(request.body) }),
       ...(request.signal === undefined ? {} : { signal: request.signal }),
     });
-
-    return parseResponse(response, request.responseSchema);
   }
 
   async requestForm<T>(request: ApiFormRequest<T>): Promise<T> {

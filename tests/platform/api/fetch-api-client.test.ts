@@ -126,6 +126,72 @@ describe('client fetch API Magrit', () => {
     expect(receivedForm?.get('kind')).toBe('logo');
     expect(receivedForm?.get('asset')).toBeInstanceOf(Blob);
   });
+
+  // E10.4 — le module Clients est le premier a exiger Idempotency-Key / If-Match
+  // et a lire l ETag de reponse depuis l UI ; ces deux capacites sont ajoutees
+  // au client transverse plutot que dupliquees module par module.
+  it('transmet des en-tetes personnalises (Idempotency-Key, If-Match)', async () => {
+    let received: Request | null = null;
+    const client = new FetchApiClient('https://magrit.test', async (input, init) => {
+      received = new Request(input, init);
+      return new Response(JSON.stringify({ ok: true }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    });
+
+    await client.request({
+      method: 'POST',
+      path: '/api/v1/customers',
+      body: { type: 'individual' },
+      headers: { 'Idempotency-Key': 'creation-client-01' },
+      responseSchema: z.object({ ok: z.boolean() }),
+    });
+
+    expect(received?.headers.get('Idempotency-Key')).toBe('creation-client-01');
+  });
+
+  it('requestWithEtag rend la donnee et l ETag de la reponse', async () => {
+    const client = new FetchApiClient('https://magrit.test', async () =>
+      new Response(JSON.stringify({ ok: true }), {
+        headers: { 'Content-Type': 'application/json', ETag: '"abc123"' },
+      }),
+    );
+
+    await expect(
+      client.requestWithEtag({
+        path: '/api/v1/customers',
+        responseSchema: z.object({ ok: z.boolean() }),
+      }),
+    ).resolves.toEqual({ data: { ok: true }, etag: '"abc123"' });
+  });
+
+  it('comprend un Problem au format E10 (request_id, current_state) sans que l appelant le sache', async () => {
+    const client = new FetchApiClient('https://magrit.test', async () =>
+      new Response(
+        JSON.stringify({
+          type: 'about:blank',
+          title: 'Conflit de version',
+          status: 409,
+          code: 'api.resource_conflict',
+          request_id: 'req-gescom-1',
+          current_state: { id: 'c1', is_active: true },
+        }),
+        { status: 409, headers: { 'Content-Type': 'application/problem+json' } },
+      ),
+    );
+
+    await expect(
+      client.request({ path: '/api/v1/customers/c1', responseSchema: z.unknown() }),
+    ).rejects.toMatchObject({
+      name: 'ApiClientError',
+      problem: {
+        status: 409,
+        code: 'api.resource_conflict',
+        requestId: 'req-gescom-1',
+        currentState: { id: 'c1', is_active: true },
+      },
+    } satisfies Partial<ApiClientError>);
+  });
 });
 
 function bridgeTo(handler: (request: Request) => Promise<Response>): typeof fetch {
