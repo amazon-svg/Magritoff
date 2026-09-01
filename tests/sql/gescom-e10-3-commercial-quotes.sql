@@ -39,9 +39,19 @@
 --   2. Un second appel sur le MEME projet et le MEME element produit un
 --      SECOND devis avec un numero DIFFERENT et SEQUENTIEL : l element de
 --      projet n est jamais consomme ni marque exclusif (CA7).
---   3. item_ids ne appartenant pas au projet -> exception invalid_item_ids,
---      aucune ligne n est ecrite (ni devis, ni compteur avance) — verifie en
---      lisant le compteur EN PHASE PRIVILEGIEE, avant et apres la tentative.
+--   3. item_ids ne appartenant pas au projet -> exception invalid_item_ids
+--      (verifiee par le CONTENU du message, pas seulement `when others` : un
+--      rejet pour une tout autre raison ne doit pas faire passer ce
+--      scenario). Le compteur n avance pas — garanti par le SAVEPOINT
+--      implicite que PL/pgSQL pose autour de tout bloc `begin ... exception
+--      ... end` : une exception depuis `perform` y annule TOUT ce que l
+--      appel a fait, y compris un increment de compteur qui aurait eu lieu
+--      avant le point d echec. Ce n est PAS une garantie sur l ORDRE interne
+--      des validations de la fonction (elle valide bien `item_ids` avant de
+--      toucher au compteur, mais le test resterait vrai meme si ce n etait
+--      pas le cas). Compteur lu EN PHASE PRIVILEGIEE, avant et apres la
+--      tentative (le scenario 6 prouve plus bas qu une lecture sous le role
+--      restreint y rendrait NULL, ce qui ne prouverait rien).
 --   4. Isolation par tenant en lecture ET en ecriture sur commercial_quotes
 --      ET commercial_quote_lines (jointure dediee, jamais exercee avant ce
 --      test), avec controle positif symetrique sur le tenant de l acteur.
@@ -54,12 +64,19 @@
 --   6. commercial_quote_number_counters n est accessible ni en lecture ni en
 --      ecriture directe par un role authenticated (RLS activee, aucune
 --      policy declaree) : seule la fonction security definer l atteint.
+--      L assertion qui doit reellement mordre porte sur le compteur du
+--      tenant B — celui dont l acteur EST membre a ce stade du script — pas
+--      sur celui du tenant A dont il vient d etre exclu : cibler A masquerait
+--      une future policy d ecriture scopee "admin du tenant proprietaire",
+--      calquee sur `commercial_quotes_write`, qui laisserait un admin
+--      modifier le compteur de SON PROPRE tenant (exactement ce que CA5
+--      interdit) sans que le controle sur A ne le detecte jamais.
 --   7. Sous deux appels concurrents entrelaces sur le meme (tenant, annee)
 --      (deux transactions simultanees via dblink/session paralleles n etant
 --      pas disponible en un seul script psql sequentiel), l UPSERT du
---      compteur est verrouillant : ce scenario le prouve en verifiant que la
---      ligne du compteur avance de exactement 1 par appel, jamais un saut ni
---      une reutilisation, sur N appels sequentiels rapides.
+--      compteur est verrouillant : ce scenario le prouve en verifiant que
+--      chaque numero avance de EXACTEMENT 1 par rapport au precedent (pas
+--      seulement qu ils sont distincts), sur N appels sequentiels rapides.
 --
 -- Lancer : pnpm test:storefront:sql (necessite Supabase local demarre).
 -- ============================================================================
@@ -119,6 +136,8 @@ declare
   v_counter_after integer;
   v_quote_seq uuid;
   v_seq_numbers text[] := '{}';
+  v_previous_seq integer;
+  v_current_seq integer;
   i integer;
 begin
   select u.id into v_actor
@@ -288,13 +307,26 @@ begin
     raise exception 'Compteur illisible en phase privilegiee : le prealable du scenario 3 est invalide';
   end if;
 
+  -- `invalid_item_ids` est leve par un `raise exception` applicatif, sans
+  -- SQLSTATE dedie (P0001 generique, partage par tout `raise exception` sans
+  -- code explicite) : il n existe pas de condition nommee equivalente a
+  -- `insufficient_privilege` (scenario 5) a capturer specifiquement. Le
+  -- `when others` est donc necessairement large, mais on verifie ENSUITE le
+  -- CONTENU du message : un rejet pour une tout autre raison (ex. une
+  -- regression qui ferait echouer la fonction sur `permission_denied` ou une
+  -- erreur interne) ne doit pas faire passer ce scenario en silence.
   v_rejected := false;
   begin
     perform public.api_create_commercial_quote_from_project_items(
       v_tenant_a, v_project_a, array[v_item_b]
     );
   exception
-    when others then v_rejected := true;
+    when others then
+      if SQLERRM like 'invalid_item_ids%' then
+        v_rejected := true;
+      else
+        raise exception 'Rejet inattendu pour un item_id hors du projet : %', SQLERRM;
+      end if;
   end;
   if not v_rejected then
     raise exception 'Un item_id hors du projet a ete accepte par la fonction de creation';
@@ -310,8 +342,10 @@ begin
   end if;
 
   -- ── 7. N appels sequentiels rapides sur le meme (tenant, annee) ──────────
-  -- La sequence avance de exactement 1 a chaque fois, jamais de doublon ni de
-  -- saut — c est ce que verrouille l UPSERT sous concurrence reelle.
+  -- La sequence avance de EXACTEMENT 1 a chaque fois (pas seulement des
+  -- numeros distincts : un generateur qui sauterait ou reculerait produirait
+  -- lui aussi des valeurs distinctes) — c est ce que verrouille l UPSERT sous
+  -- concurrence reelle.
   for i in 1..5 loop
     v_quote_seq := public.api_create_commercial_quote_from_project_items(
       v_tenant_a, v_project_a, array[v_item_a1]
@@ -320,6 +354,13 @@ begin
     if v_number_1 = any(v_seq_numbers) then
       raise exception 'Numero de devis duplique detecte au passage % : %', i, v_number_1;
     end if;
+    v_current_seq := right(v_number_1, 5)::integer;
+    if i > 1 and v_current_seq <> v_previous_seq + 1 then
+      raise exception
+        'Le compteur n a pas avance de exactement 1 au passage % (precedent: %, courant: %)',
+        i, v_previous_seq, v_current_seq;
+    end if;
+    v_previous_seq := v_current_seq;
     v_seq_numbers := array_append(v_seq_numbers, v_number_1);
   end loop;
   if array_length(v_seq_numbers, 1) <> 5 then
@@ -355,26 +396,58 @@ select set_config(
 );
 
 -- ── 6. commercial_quote_number_counters : deni total hors de la fonction ──
+-- Correction qa-review (regression introduite par le correctif precedent) :
+-- a ce stade, l acteur n est plus membre QUE du tenant B. Cibler le compteur
+-- du tenant A pour l assertion d ECRITURE serait vacant, meme corrige :
+-- l UPDATE rendrait 0 ligne affectee que ce soit a cause de l absence totale
+-- de policy (ce qu on veut prouver) OU d une future policy d ecriture
+-- scopee "admin/member du tenant proprietaire de la ligne" (calquee sur
+-- `commercial_quotes_write`/`commercial_quote_lines_write`, lignes 192-214
+-- de la migration — exactement ce qu un futur contributeur copierait-
+-- collerait). Dans ce second cas, la policy hypothetique refuserait a bon
+-- droit l acces au compteur du tenant A (isolation inter-tenant correcte),
+-- mais AUTORISERAIT l acteur a modifier le compteur de SON PROPRE tenant
+-- (B) — exactement le trou que CA5 interdit (un admin de B pourrait forcer
+-- une collision ou un trou de numerotation dans son propre tenant). Seule
+-- une assertion ciblant le compteur de B peut detecter cette regression.
+-- Le compteur de A reste sonde en LECTURE, en controle inter-tenant
+-- additionnel (invisibilite meme d une ligne dont l acteur n est pas
+-- proprietaire).
 do $$
 declare
   v_tenant_a uuid;
-  v_visible integer;
+  v_tenant_b uuid;
+  v_visible_a integer;
+  v_visible_b integer;
   v_updated integer;
 begin
-  select tenant_a into v_tenant_a from e10_3_quotes_context;
+  select tenant_a, tenant_b into v_tenant_a, v_tenant_b from e10_3_quotes_context;
 
-  select count(*) into v_visible
+  -- Controle inter-tenant additionnel (le compteur du tenant A, dont l
+  -- acteur n est plus membre, reste invisible).
+  select count(*) into v_visible_a
     from public.commercial_quote_number_counters where tenant_id = v_tenant_a;
-  if v_visible <> 0 then
+  if v_visible_a <> 0 then
     raise exception
-      'Un role authenticated lit % ligne(s) du compteur de numerotation malgre l absence de policy RLS',
-      v_visible;
+      'Un role authenticated lit % ligne(s) du compteur du tenant A malgre l absence de policy RLS',
+      v_visible_a;
   end if;
 
-  update public.commercial_quote_number_counters set last_value = 999 where tenant_id = v_tenant_a;
+  -- Assertion qui doit REELLEMENT mordre : le compteur de SON PROPRE tenant
+  -- (B), dont l acteur est admin a ce stade.
+  select count(*) into v_visible_b
+    from public.commercial_quote_number_counters where tenant_id = v_tenant_b;
+  if v_visible_b <> 0 then
+    raise exception
+      'Un admin lit % ligne(s) du compteur de SON PROPRE tenant (B) malgre l absence de policy RLS',
+      v_visible_b;
+  end if;
+
+  update public.commercial_quote_number_counters set last_value = 999 where tenant_id = v_tenant_b;
   get diagnostics v_updated = row_count;
   if v_updated <> 0 then
-    raise exception 'Un role authenticated a pu modifier directement le compteur de numerotation';
+    raise exception
+      'Un admin du tenant B a pu modifier DIRECTEMENT le compteur de SON PROPRE tenant (CA5 viole : collision ou trou de numerotation possible)';
   end if;
 end;
 $$;
@@ -514,6 +587,28 @@ begin
   select show_discounts into v_still_flag from public.commercial_quotes where id = v_quote_a_id;
   if v_still_flag is distinct from false then
     raise exception 'Le devis du tenant A a ete modifie malgre le blocage RLS attendu (valeur: %)', v_still_flag;
+  end if;
+end;
+$$;
+
+-- Le "0 ligne affectee" du scenario 6 ne prouve pas a lui seul que l ecriture
+-- n a pas atterri ailleurs (ex. sur une AUTRE annee du meme tenant, si le
+-- filtre de la policy hypothetique etait imparfait) : reverifie ICI, en
+-- phase privilegiee, que `last_value` du tenant B (SEUL tenant dont l acteur
+-- etait membre pendant le scenario 6) vaut toujours 1 — la seule creation de
+-- devis jamais faite sur ce tenant, en phase 1.
+do $$
+declare
+  v_tenant_b uuid;
+  v_last_value integer;
+begin
+  select tenant_b into v_tenant_b from e10_3_quotes_context;
+  select last_value into v_last_value
+    from public.commercial_quote_number_counters
+   where tenant_id = v_tenant_b and year = extract(year from (now() at time zone 'utc'))::integer;
+  if v_last_value is distinct from 1 then
+    raise exception
+      'Le compteur du tenant B a change malgre le blocage RLS attendu au scenario 6 (valeur: %)', v_last_value;
   end if;
 end;
 $$;
