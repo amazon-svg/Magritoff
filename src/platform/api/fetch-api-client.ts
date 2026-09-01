@@ -48,8 +48,28 @@ export class FetchApiClient {
     private readonly baseUrl = '',
     fetchImplementation: typeof fetch = globalThis.fetch,
     private readonly accessTokenProvider?: AccessTokenProvider,
+    /**
+     * En-tetes joints a CHAQUE requete. Sert a porter le contexte d appel que
+     * les clients de module n ont pas a connaitre — aujourd hui la selection
+     * de l espace de travail (`X-Magrit-Tenant`), exigee par la facade E10.
+     */
+    private readonly defaultHeaders: Readonly<Record<string, string>> = {},
   ) {
     this.fetchImplementation = fetchImplementation.bind(globalThis);
+  }
+
+  /**
+   * Derive un client identique, enrichi d en-tetes par defaut.
+   *
+   * Permet a la surface applicative d attacher le contexte d appel sans que
+   * les clients de module (`CustomersApiClient`, ...) aient a le transporter
+   * dans chaque methode — ils continuent de ne connaitre que leur ressource.
+   */
+  withHeaders(headers: Readonly<Record<string, string>>): FetchApiClient {
+    return new FetchApiClient(this.baseUrl, this.fetchImplementation, this.accessTokenProvider, {
+      ...this.defaultHeaders,
+      ...headers,
+    });
   }
 
   async request<T>(request: ApiRequest<T>): Promise<T> {
@@ -73,6 +93,8 @@ export class FetchApiClient {
 
     const headers = new Headers({ Accept: 'application/json' });
     if (request.body !== undefined) headers.set('Content-Type', 'application/json');
+    // Les en-tetes par defaut d abord : ceux de la requete restent prioritaires.
+    for (const [name, value] of Object.entries(this.defaultHeaders)) headers.set(name, value);
     if (request.headers) {
       for (const [name, value] of Object.entries(request.headers)) headers.set(name, value);
     }
@@ -91,6 +113,7 @@ export class FetchApiClient {
   async requestForm<T>(request: ApiFormRequest<T>): Promise<T> {
     assertApiPath(request.path);
     const headers = new Headers({ Accept: 'application/json' });
+    for (const [name, value] of Object.entries(this.defaultHeaders)) headers.set(name, value);
     const accessToken = await this.accessTokenProvider?.();
     if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`);
 
