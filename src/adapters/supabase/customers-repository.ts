@@ -245,13 +245,19 @@ export class SupabaseCustomersRepository implements CustomersRepository {
   async markSiretVerified(
     tenantId: TenantId,
     customerId: string,
-    result: Readonly<{ verified: boolean; verifiedAt: string }>,
+    result: Readonly<{ verified: boolean; verifiedAt: string; siret: string }>,
   ): Promise<CustomerDto> {
     const { data, error } = await this.client
       .from('customers')
       .update({ siret_verified: result.verified, siret_verified_at: result.verifiedAt })
       .eq('tenant_id', tenantId)
       .eq('id', customerId)
+      // Condition de course : l appel INSEE dure, un PATCH concurrent peut
+      // avoir change le SIRET entre-temps. Sans ce filtre, on apposerait
+      // « verifie » sur un numero que personne n a controle. Zero ligne
+      // touchee -> CustomerNotFoundError, la verification est simplement
+      // perdue et l appelant peut la relancer.
+      .eq('siret', result.siret)
       .select()
       .maybeSingle();
     if (error) throw toDomainError(error, 'Mise a jour de la verification SIRET impossible.');

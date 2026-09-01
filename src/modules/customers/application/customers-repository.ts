@@ -94,10 +94,18 @@ export interface CustomersRepository {
     command: UpdateCustomerContactCommand,
   ): Promise<CustomerContactDto>;
 
-  /** Applique le resultat d une verification SIRET (CA3) au client. */
+  /**
+   * Applique le resultat d une verification SIRET (CA3) au client.
+   *
+   * `result.siret` est le numero SUR LEQUEL la verification a porte :
+   * l implementation doit s en servir comme condition d ecriture. Un appel
+   * INSEE dure, et un PATCH concurrent peut changer le SIRET du client
+   * entre-temps ; sans cette condition, le resultat s appliquerait a un numero
+   * que personne n a controle. `CustomerNotFoundError` si le SIRET a change.
+   */
   markSiretVerified(
     tenantId: TenantId,
     customerId: string,
-    result: Readonly<{ verified: boolean; verifiedAt: string }>,
+    result: Readonly<{ verified: boolean; verifiedAt: string; siret: string }>,
   ): Promise<CustomerDto>;
 }

@@ -235,6 +235,11 @@ export class CustomersService {
     const updated = await this.repository.markSiretVerified(tenantId, customerId, {
       verified: lookup.verified,
       verifiedAt: lookup.checkedAt,
+      // Le SIRET REELLEMENT verifie. L appel INSEE dure ; si un PATCH
+      // concurrent change le SIRET du client entre-temps, ecrire le resultat
+      // sans verifier sur quel SIRET il porte apposerait un « verifie » sur un
+      // numero que personne n a controle.
+      siret: format.siret,
     });
 
     return {
