@@ -27,7 +27,7 @@ export function DualToolWorkspace({
 
   return (
     <main
-      className="flex min-h-[calc(100vh-7rem)] flex-col overflow-hidden bg-bg"
+      className="flex h-[calc(100dvh-3.5rem)] min-h-0 flex-col overflow-hidden bg-bg"
       data-testid="dual-tool-workspace"
       data-mode={mode}
     >
@@ -42,7 +42,7 @@ export function DualToolWorkspace({
         </div>
       )}
 
-      <div className={`grid min-h-0 flex-1 ${mode === 'split' ? 'md:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]' : 'grid-cols-1'}`}>
+      <div className={`grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] overflow-hidden ${mode === 'split' ? 'md:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]' : 'grid-cols-1'}`}>
         <WorkspacePanel
           title="Clariprint Studio"
           icon={<Sparkles className="size-4" />}
