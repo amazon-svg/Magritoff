@@ -2,82 +2,60 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { parseId } from '../../../src/kernel/ids/index.ts';
 import { SessionService } from '../../../src/modules/session/application/session-service.ts';
 import { SupabaseSessionRepository } from '../../../src/adapters/supabase/session-repository.ts';
-import { createApiV1Application } from '../../../src/server/api/composition.ts';
-import { createSessionRoutes } from '../../../src/server/api/session-routes.ts';
 import { OrdersService } from '../../../src/modules/orders/application/orders-service.ts';
 import { SupabaseOrdersRepository } from '../../../src/adapters/supabase/orders-repository.ts';
-import { createOrdersRoutes } from '../../../src/server/api/orders-routes.ts';
 import { InvitationsService } from '../../../src/modules/invitations/application/invitations-service.ts';
 import { SupabaseInvitationsRepository } from '../../../src/adapters/supabase/invitations-repository.ts';
-import { createInvitationsRoutes } from '../../../src/server/api/invitations-routes.ts';
 import { MembersService } from '../../../src/modules/members/application/members-service.ts';
 import { SupabaseMembersRepository } from '../../../src/adapters/supabase/members-repository.ts';
-import { createMembersRoutes } from '../../../src/server/api/members-routes.ts';
 import { ResendInvitationEmailSender } from '../../../src/adapters/resend/invitation-email-sender.ts';
 import { RolesService } from '../../../src/modules/roles/application/roles-service.ts';
 import { SupabaseRolesRepository } from '../../../src/adapters/supabase/roles-repository.ts';
-import { createRolesRoutes } from '../../../src/server/api/roles-routes.ts';
 import { ShopsService } from '../../../src/modules/shops/application/shops-service.ts';
 import { SupabaseShopsRepository } from '../../../src/adapters/supabase/shops-repository.ts';
-import { createShopsRoutes } from '../../../src/server/api/shops-routes.ts';
 import { CatalogService } from '../../../src/modules/catalog/application/catalog-service.ts';
 import { SupabaseCatalogAutomationGateway, SupabaseCatalogRepository } from '../../../src/adapters/supabase/catalog-repository.ts';
-import { createCatalogRoutes } from '../../../src/server/api/catalog-routes.ts';
 import { ConversationsService } from '../../../src/modules/conversations/application/conversations-service.ts';
 import { SupabaseConversationsRepository } from '../../../src/adapters/supabase/conversations-repository.ts';
-import { createConversationsRoutes } from '../../../src/server/api/conversations-routes.ts';
 import { DiagnosticsService } from '../../../src/modules/diagnostics/application/diagnostics-service.ts';
 import { ConfiguredAiDiagnosticsGateway, aiProviderConfigurationFromEnvironment } from '../../../src/adapters/ai/configured-ai-diagnostics-gateway.ts';
-import { createDiagnosticsRoutes } from '../../../src/server/api/diagnostics-routes.ts';
 import { HttpClariprintDiagnosticsGateway } from '../../../src/adapters/clariprint/clariprint-diagnostics-gateway.ts';
 import { QuotesService } from '../../../src/modules/quotes/application/quotes-service.ts';
 import { SupabaseQuotesRepository } from '../../../src/adapters/supabase/quotes-repository.ts';
-import { createQuotesRoutes } from '../../../src/server/api/quotes-routes.ts';
 import { QuoteTemplatesService } from '../../../src/modules/quote-templates/application/quote-templates-service.ts';
 import { SupabaseQuoteTemplatesRepository } from '../../../src/adapters/supabase/quote-templates-repository.ts';
-import { createQuoteTemplatesRoutes } from '../../../src/server/api/quote-templates-routes.ts';
 import { LibrariesService } from '../../../src/modules/libraries/application/libraries-service.ts';
 import { SupabaseLibrariesRepository } from '../../../src/adapters/supabase/libraries-repository.ts';
-import { createLibrariesRoutes } from '../../../src/server/api/libraries-routes.ts';
 import { LibraryProductsService } from '../../../src/modules/libraries/application/library-products-service.ts';
 import { SupabaseLibraryProductsRepository } from '../../../src/adapters/supabase/library-products-repository.ts';
-import { createLibraryProductsRoutes } from '../../../src/server/api/library-products-routes.ts';
 import { CommercialService } from '../../../src/modules/commercial/application/commercial-service.ts';
 import { SupabaseCommercialRepository } from '../../../src/adapters/supabase/commercial-repository.ts';
-import { createCommercialRoutes } from '../../../src/server/api/commercial-routes.ts';
 import { AssistantService } from '../../../src/modules/diagnostics/application/assistant-service.ts';
 import { ConfiguredAiCompletionGateway } from '../../../src/adapters/ai/configured-ai-completion-gateway.ts';
-import { createAssistantRoutes } from '../../../src/server/api/assistant-routes.ts';
 import { SupabaseAssistantAccessGateway } from '../../../src/adapters/supabase/assistant-access-gateway.ts';
 import { ClariprintService } from '../../../src/modules/clariprint/application/clariprint-service.ts';
 import { HttpClariprintQuoteGateway } from '../../../src/adapters/clariprint/http-clariprint-quote-gateway.ts';
-import { createClariprintRoutes } from '../../../src/server/api/clariprint-routes.ts';
 import { isMockupBinaryRequest, proxyMockupBinary } from '../../../src/adapters/supabase/mockup-binary-proxy.ts';
 import { isAssistantChatRequest, proxyAssistantChat } from '../../../src/server/api/assistant-stream-proxy.ts';
 import { ShopCustomersService } from '../../../src/modules/shop-customers/application/shop-customers-service.ts';
 import { SupabaseShopCustomersRepository } from '../../../src/adapters/supabase/shop-customers-repository.ts';
-import { createShopCustomersRoutes } from '../../../src/server/api/shop-customers-routes.ts';
 import { StorefrontAuthenticationService } from '../../../src/modules/shop-customers/application/storefront-authentication-service.ts';
 import { StorefrontRegistrationService } from '../../../src/modules/shop-customers/application/storefront-registration-service.ts';
 import { StorefrontSessionService } from '../../../src/modules/shop-customers/application/storefront-session-service.ts';
 import { SupabaseStorefrontAuthenticationGateway } from '../../../src/adapters/supabase/storefront-authentication-gateway.ts';
-import { createStorefrontSessionRoutes } from '../../../src/server/api/storefront-session-routes.ts';
 import { readStorefrontSessionCookie, storefrontSessionCookiePolicy } from '../../../src/server/storefront/session-cookie.ts';
 import { StorefrontActivationService } from '../../../src/modules/shop-customers/application/storefront-activation-service.ts';
 import { SupabaseStorefrontActivationGateway } from '../../../src/adapters/supabase/storefront-activation-gateway.ts';
-import { createStorefrontActivationRoutes } from '../../../src/server/api/storefront-activation-routes.ts';
 import { ResendStorefrontActivationEmailSender } from '../../../src/adapters/resend/storefront-activation-email-sender.ts';
 import { ShopCustomerDelegationService } from '../../../src/modules/shop-customers/application/shop-customer-delegation-service.ts';
 import { SupabaseShopCustomerDelegationGateway } from '../../../src/adapters/supabase/shop-customer-delegation-gateway.ts';
-import { createShopCustomerDelegationRoutes } from '../../../src/server/api/shop-customer-delegation-routes.ts';
 import { StorefrontPasswordRecoveryService } from '../../../src/modules/shop-customers/application/storefront-password-recovery-service.ts';
 import { SupabaseStorefrontPasswordRecoveryGateway } from '../../../src/adapters/supabase/storefront-password-recovery-gateway.ts';
 import { ResendStorefrontPasswordRecoveryEmailSender } from '../../../src/adapters/resend/storefront-password-recovery-email-sender.ts';
-import { createStorefrontPasswordRecoveryRoutes } from '../../../src/server/api/storefront-password-recovery-routes.ts';
 import { ShopCustomerInvitationService } from '../../../src/modules/shop-customers/application/shop-customer-invitation-service.ts';
-import { createShopCustomerInvitationRoutes } from '../../../src/server/api/shop-customer-invitation-routes.ts';
 // ── Facade Gestion commerciale (E10) ────────────────────────────────────────
 import { createMagritApiApplication } from '../../../src/server/api/composition.ts';
+import { createLegacyApiRoutes } from '../../../src/server/api/legacy-routes.ts';
 import { CustomersService } from '../../../src/modules/customers/application/customers-service.ts';
 import { SupabaseCustomersRepository } from '../../../src/adapters/supabase/customers-repository.ts';
 import { SupabaseApiPrincipalVerifier } from '../../../src/adapters/supabase/api-principal-verifier.ts';
@@ -260,23 +238,37 @@ export async function handleRequest(request: Request): Promise<Response> {
     // durable sur `api_idempotency_keys` reste la dette tracee en
     // docs/api/CONVENTIONS.md §8.1.
     idempotencyStore: new InMemoryIdempotencyStore(),
-    routes: [
-      ...createSessionRoutes(service),
-      ...createOrdersRoutes(ordersService, storefrontSessionService, storefrontCookiePolicy),
-      ...createInvitationsRoutes(invitationsService),
-      ...createMembersRoutes(membersService),
-      ...createRolesRoutes(rolesService),
-      ...createShopsRoutes(shopsService, storefrontSessionService, storefrontCookiePolicy),
-      ...createShopCustomersRoutes(shopCustomersService),
-      ...createShopCustomerInvitationRoutes(shopCustomerInvitationService),
-      ...createStorefrontSessionRoutes(storefrontAuthenticationService, storefrontRegistrationService, storefrontSessionService, storefrontCookiePolicy),
-      ...createStorefrontActivationRoutes(storefrontActivationService, storefrontCookiePolicy),
-      ...createStorefrontPasswordRecoveryRoutes(storefrontPasswordRecoveryService),
-      ...createShopCustomerDelegationRoutes(shopCustomerDelegationService, storefrontCookiePolicy),
-      ...createCatalogRoutes(catalogService),
-      ...createConversationsRoutes(conversationsService),
-      ...createDiagnosticsRoutes(diagnosticsService),
-      ...createAssistantRoutes(assistantService, async (storefrontRequest, shopSlug) => {
+    // Facade historique : la liste des fabriques vit desormais dans
+    // src/server/api/legacy-routes.ts, ou elle est typecheckee et testable.
+    // Importer ce module verifie AU CHARGEMENT qu aucun chemin E10 ne recouvre
+    // un chemin historique.
+    routes: createLegacyApiRoutes({
+      session: service,
+      orders: ordersService,
+      invitations: invitationsService,
+      members: membersService,
+      roles: rolesService,
+      shops: shopsService,
+      shopCustomers: shopCustomersService,
+      shopCustomerInvitations: shopCustomerInvitationService,
+      shopCustomerDelegations: shopCustomerDelegationService,
+      storefrontAuthentication: storefrontAuthenticationService,
+      storefrontRegistration: storefrontRegistrationService,
+      storefrontSessions: storefrontSessionService,
+      storefrontActivation: storefrontActivationService,
+      storefrontPasswordRecovery: storefrontPasswordRecoveryService,
+      catalog: catalogService,
+      conversations: conversationsService,
+      diagnostics: diagnosticsService,
+      assistant: assistantService,
+      clariprint: clariprintService,
+      quotes: quotesService,
+      quoteTemplates: quoteTemplatesService,
+      libraries: librariesService,
+      libraryProducts: libraryProductsService,
+      commercial: commercialService,
+      storefrontCookiePolicy,
+      authorizeStorefrontEditorial: async (storefrontRequest, shopSlug) => {
         const opaqueToken = readStorefrontSessionCookie(
           storefrontRequest.headers.get('cookie'),
           storefrontCookiePolicy,
@@ -293,14 +285,8 @@ export async function handleRequest(request: Request): Promise<Response> {
         } catch {
           return null;
         }
-      }),
-      ...createClariprintRoutes(clariprintService),
-      ...createQuotesRoutes(quotesService),
-      ...createQuoteTemplatesRoutes(quoteTemplatesService),
-      ...createLibrariesRoutes(librariesService),
-      ...createLibraryProductsRoutes(libraryProductsService),
-      ...createCommercialRoutes(commercialService),
-    ],
+      },
+    }),
     actorResolver: {
       async resolve() {
         const { data, error } = await client.auth.getUser();

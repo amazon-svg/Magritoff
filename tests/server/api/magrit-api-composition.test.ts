@@ -21,7 +21,8 @@ import { InMemoryIdempotencyStore, OutboxPublisher } from '@/modules/_shared/app
 import type { ApiPrincipal, PrincipalVerifier } from '@/modules/_shared/application';
 import { CustomersService } from '@/modules/customers/application/customers-service';
 import type { CustomersRepository } from '@/modules/customers/application/customers-repository';
-import { createMagritApiApplication } from '@/server/api';
+import { GESCOM_ROUTES, assertNoFacadeCollision, createMagritApiApplication } from '@/server/api';
+import { LEGACY_ROUTE_DEFINITIONS } from '@/server/api/legacy-routes';
 
 const TENANT = brand<TenantId>('7f0d2a1e-1c4b-4f8a-9c3d-5b6e7a8f9012');
 const USER = brand<UserId>('a1b2c3d4-e5f6-4708-8910-1a2b3c4d5e6f');
@@ -65,9 +66,10 @@ function buildApplication() {
     principalVerifier: verifier,
     idempotencyStore: new InMemoryIdempotencyStore(),
     requestIdFactory: () => 'req-montage',
-    // Aucune route historique injectee : `createApiV1Application` ajoute
-    // toujours /api/v1/health, ce qui suffit a prouver que la facade
-    // historique reste servie.
+    // Le JEU REEL de routes historiques, pas un echantillon : c est la seule
+    // facon d exercer `assertNoFacadeCollision` sur ce qui tourne vraiment.
+    // Un test avec zero route historique ne prouvait rien sur le recouvrement.
+    routes: LEGACY_ROUTE_DEFINITIONS,
   });
 
   return { handler, list };
@@ -129,6 +131,22 @@ describe('composition reelle des deux facades', () => {
     expect(body['requestId']).toBe('req-montage');
   });
 
+  it('sert une route historique reelle, pas seulement /api/v1/health', async () => {
+    const { handler } = buildApplication();
+
+    // `/api/v1/tenants/{tenantId}/commercial` vient de createCommercialRoutes.
+    // Sans jeton la facade historique repond 401 dans SON format (`requestId`
+    // camelCase) : la preuve que le chemin lui est bien reste.
+    const response = await handler(
+      new Request('https://magrit.test/api/v1/tenants/7f0d2a1e-1c4b-4f8a-9c3d-5b6e7a8f9012/commercial'),
+    );
+
+    expect(response.status).toBe(401);
+    const body = (await response.json()) as Record<string, unknown>;
+    expect(body['requestId']).toBe('req-montage');
+    expect(body['request_id']).toBeUndefined();
+  });
+
   it('monte toutes les routes du registre E10, pas seulement la premiere', async () => {
     const { handler } = buildApplication();
 
@@ -146,5 +164,37 @@ describe('composition reelle des deux facades', () => {
     expect((await response.json()) as { code: string }).toMatchObject({
       code: 'api.method_not_allowed',
     });
+  });
+});
+
+describe('absence de collision sur le jeu de routes reel', () => {
+  it('les routes E10 ne recouvrent aucune des routes historiques montees', () => {
+    // Cette assertion tourne deja au chargement de legacy-routes.ts ; la
+    // repeter ici la rend visible dans le rapport de test plutot que sous la
+    // forme d une erreur d import difficile a rattacher a sa cause.
+    expect(LEGACY_ROUTE_DEFINITIONS.length).toBeGreaterThan(20);
+    expect(GESCOM_ROUTES.length).toBeGreaterThan(0);
+    expect(() => assertNoFacadeCollision(GESCOM_ROUTES, LEGACY_ROUTE_DEFINITIONS)).not.toThrow();
+  });
+
+  it('detecterait un recouvrement avec un vrai chemin historique', () => {
+    // Preuve que l assertion precedente n est pas vacante : on confronte les
+    // routes historiques REELLES a une route E10 qui empiete sur l une d elles.
+    const legacyPath = LEGACY_ROUTE_DEFINITIONS.find((route) =>
+      route.path.startsWith('/api/v1/tenants/'),
+    );
+    expect(legacyPath).toBeDefined();
+
+    const intruder = {
+      // Meme gabarit que la route historique, donc recouvrement certain.
+      path: legacyPath?.path ?? '',
+      method: 'GET' as const,
+    };
+    expect(() =>
+      assertNoFacadeCollision(
+        [intruder as unknown as (typeof GESCOM_ROUTES)[number]],
+        LEGACY_ROUTE_DEFINITIONS,
+      ),
+    ).toThrow(/Collision entre les facades API/);
   });
 });
