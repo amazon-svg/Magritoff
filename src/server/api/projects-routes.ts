@@ -28,6 +28,7 @@ import {
   ProjectCommandRejectedError,
   ProjectNotFoundError,
 } from '../../modules/projects/application/projects-repository.ts';
+import { uuidSchema } from '../../modules/_shared/api/index.ts';
 import {
   assertPrecondition,
   buildPage,
@@ -49,7 +50,21 @@ export function createProjectsRoutes(service: ProjectsService): readonly GescomR
       dataSchema: projectsListSchema,
       async handle(context) {
         const q = context.url.searchParams.get('q');
-        const customerId = context.url.searchParams.get('customer_id');
+        // B4 (qa-review) : `customer_id` est type `Uuid` au contrat (400
+        // attendu sur une valeur malformee). Sans cette validation, une
+        // chaine arbitraire etait transmise telle quelle a Postgres, qui
+        // levait une erreur non typee remontee en 500 `api.internal_error`.
+        const customerIdParam = context.url.searchParams.get('customer_id');
+        if (customerIdParam !== null && !uuidSchema.safeParse(customerIdParam).success) {
+          throw problem({
+            status: 400,
+            title: 'Parametre invalide',
+            code: SHARED_PROBLEM_CODES.validationFailed,
+            detail: 'customer_id doit etre un UUID valide.',
+            errors: [{ field: 'customer_id', message: 'UUID invalide.' }],
+          });
+        }
+        const customerId = customerIdParam;
         // `tag_id` reserve E10.2 : accepte au contrat, jamais exploite ici.
         const statusParam = context.url.searchParams.get('status');
         const status = projectStatusSchema.safeParse(statusParam ?? undefined);
