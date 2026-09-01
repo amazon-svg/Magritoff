@@ -1,0 +1,686 @@
+# ============================================================================
+# Magrit Core API v1 — module Gestion commerciale (Epic E10)
+# ----------------------------------------------------------------------------
+# SOURCE DE VERITE UNIQUE de tout endpoint /api/v1 du module Gestion
+# commerciale. Aucun endpoint E10 n est implemente sans etre decrit ici avant
+# (E10.0 CA1). Les types TypeScript en sont derives par `pnpm gen:api` — aucun
+# DTO n est ecrit a la main des deux cotes (CA2).
+#
+# L ancien fichier docs/architecture/api/openapi.yaml reste en vigueur pour les
+# endpoints qu il decrit deja (/health, /diagnostics/*). Il est DEPRECIE pour
+# tout nouvel endpoint E10.
+#
+# Regle de versionnement (CA13) : v1 est ADDITIVE uniquement. Ajouter un champ
+# optionnel, une operation, une valeur d enumeration : autorise. Retirer ou
+# renommer un champ, restreindre un type, changer un statut de reponse :
+# interdit — cela exige /api/v2.
+#
+# Conventions detaillees : docs/api/CONVENTIONS.md
+# ============================================================================
+openapi: 3.1.0
+
+info:
+  title: Magrit Core API — Gestion commerciale
+  version: 1.0.0
+  summary: Facade metier stable du module Gestion commerciale de Magrit.
+  description: >-
+    Contrat API-first du module Gestion commerciale (Epic E10). Il est produit
+    avant le code et sert de reference d integration aux modules tiers (Studio,
+    Clariprint Data).
+
+
+    Principes opposables :
+
+    - Toutes les routes sont prefixees `/api/v1/`, les ressources sont au
+      pluriel en kebab-case (`/price-rules`, `/customers`).
+
+    - Le tenant est TOUJOURS resolu depuis le jeton d authentification. Il n est
+      jamais un parametre de chemin ni de requete.
+
+    - Reponse de succes uniforme : `{ "data": ..., "meta": {...} }`.
+
+    - Reponse d erreur : RFC 7807 `application/problem+json` avec un champ
+      `code` metier stable de la forme `domaine.raison`.
+
+    - Pagination par curseur : `?page[size]=50&page[cursor]=...`, curseur
+      suivant dans `meta.next_cursor`.
+
+    - Tout POST creant une ressource metier honore `Idempotency-Key`.
+
+    - Tout PATCH est protege par `ETag` / `If-Match` ; conflit -> 409 avec l
+      etat courant dans `current_state`.
+  contact:
+    name: AGE Developpement — equipe Magrit
+  license:
+    name: Proprietaire
+    identifier: LicenseRef-AGE-Proprietary
+
+servers:
+  - url: /api/v1
+    description: Facade API v1 montee par l application Magrit.
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: gestion-commerciale
+    description: Ressources metier du module Gestion commerciale (Epic E10).
+
+# ----------------------------------------------------------------------------
+# Aucun chemin n est encore publie : E10.0 livre le socle transverse
+# (composants partages, securite, evenements sortants). Les operations sont
+# ajoutees ici par les stories E10.1 a E10.21, AVANT leur implementation.
+# `paths` vide est valide en OpenAPI 3.1 (webhooks seuls suffisent).
+# ----------------------------------------------------------------------------
+paths: {}
+
+# ----------------------------------------------------------------------------
+# Bus d evenements sortants (CA10)
+# ----------------------------------------------------------------------------
+# Chaque evenement metier est ecrit dans la table `outbox_events` puis livre en
+# HTTP POST sur l URL d abonnement du consommateur. Le corps est une enveloppe
+# versionnee `EventEnvelope`. La signature HMAC-SHA256 du corps brut est
+# transmise dans l en-tete `X-Magrit-Signature: sha256=<hex>`.
+#
+# Le consommateur DOIT verifier la signature avant de traiter l evenement, et
+# DOIT etre idempotent sur `event_id` (livraison au moins une fois).
+webhooks:
+  quote.converted:
+    post:
+      operationId: onQuoteConverted
+      summary: Un devis a ete converti en commande.
+      tags: [gestion-commerciale]
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/MagritSignature'
+        - $ref: '#/components/parameters/MagritEventName'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventEnvelope'
+      responses:
+        '204':
+          description: Evenement accepte par le consommateur.
+
+  order.step_changed:
+    post:
+      operationId: onOrderStepChanged
+      summary: Une commande a change d etape de production.
+      tags: [gestion-commerciale]
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/MagritSignature'
+        - $ref: '#/components/parameters/MagritEventName'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventEnvelope'
+      responses:
+        '204':
+          description: Evenement accepte par le consommateur.
+
+  order.files_submitted:
+    post:
+      operationId: onOrderFilesSubmitted
+      summary: Les fichiers d une commande ont ete deposes.
+      tags: [gestion-commerciale]
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/MagritSignature'
+        - $ref: '#/components/parameters/MagritEventName'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventEnvelope'
+      responses:
+        '204':
+          description: Evenement accepte par le consommateur.
+
+  customer.created:
+    post:
+      operationId: onCustomerCreated
+      summary: Un client a ete cree dans le referentiel commercial.
+      tags: [gestion-commerciale]
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/MagritSignature'
+        - $ref: '#/components/parameters/MagritEventName'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventEnvelope'
+      responses:
+        '204':
+          description: Evenement accepte par le consommateur.
+
+  price_rule.changed:
+    post:
+      operationId: onPriceRuleChanged
+      summary: Une regle de prix commerciale a ete creee, modifiee ou desactivee.
+      tags: [gestion-commerciale]
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/MagritSignature'
+        - $ref: '#/components/parameters/MagritEventName'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventEnvelope'
+      responses:
+        '204':
+          description: Evenement accepte par le consommateur.
+
+components:
+  # --------------------------------------------------------------------------
+  # Securite (CA4, CA5)
+  # --------------------------------------------------------------------------
+  # Deux modes, jamais combines sur une meme requete :
+  #  - `bearerAuth`  : JWT utilisateur Supabase. Le tenant est lu dans le jeton.
+  #  - `serviceKey`  : cle de service pour un module tiers (Studio, Clariprint
+  #                    Data). Portee explicite : la cle porte son tenant et sa
+  #                    liste de scopes. Une cle sans le scope requis par l
+  #                    operation recoit 403 `identity.scope_required`.
+  # Dans les deux cas le tenant vient du jeton — jamais d un parametre.
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >-
+        Jeton utilisateur Supabase. Le tenant courant est resolu depuis les
+        claims du jeton, jamais depuis l URL.
+
+    serviceKey:
+      type: apiKey
+      in: header
+      name: X-Magrit-Service-Key
+      description: >-
+        Cle de service a portee explicite, destinee aux modules tiers. Elle
+        porte le tenant et la liste des scopes accordes. Les scopes disponibles
+        sont enumeres dans `x-magrit-scopes` ; chaque operation declare les
+        siens dans `x-required-scopes`.
+      x-magrit-scopes:
+        quotes:read: Lecture des devis du tenant.
+        quotes:write: Creation et modification des devis du tenant.
+        orders:read: Lecture des commandes du tenant.
+        orders:write: Creation et modification des commandes du tenant.
+        customers:read: Lecture du referentiel client du tenant.
+        customers:write: Creation et modification du referentiel client.
+        price-rules:read: Lecture des regles de prix commerciales.
+        price-rules:write: Creation et modification des regles de prix.
+        events:subscribe: Abonnement au bus d evenements sortants.
+
+  # --------------------------------------------------------------------------
+  # Parametres partages
+  # --------------------------------------------------------------------------
+  parameters:
+    PageSize:
+      name: page[size]
+      in: query
+      required: false
+      description: Nombre d elements par page. Defaut 50, maximum 200.
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        maximum: 200
+        default: 50
+
+    PageCursor:
+      name: page[cursor]
+      in: query
+      required: false
+      description: >-
+        Curseur opaque renvoye par `meta.next_cursor` de la page precedente.
+        Absent sur la premiere page. Ne jamais construire un curseur cote
+        client : sa structure interne n est pas contractuelle.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 512
+
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: >-
+        Cle d idempotence fournie par l appelant sur tout POST creant une
+        ressource metier (CA8). Rejouer la meme cle avec le meme corps renvoie
+        la reponse initiale ; la rejouer avec un corps different renvoie 409
+        `api.idempotency_key_reused`.
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 255
+        pattern: '^[A-Za-z0-9_.:-]{8,255}$'
+
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      description: >-
+        Valeur d `ETag` de la representation lue, exigee sur tout PATCH (CA9).
+        Absente -> 428. Differente de l etat courant -> 409 avec l etat courant
+        dans `current_state`.
+      schema:
+        type: string
+        minLength: 3
+        maxLength: 255
+
+    MagritSignature:
+      name: X-Magrit-Signature
+      in: header
+      required: true
+      description: >-
+        Signature HMAC-SHA256 du corps brut de l evenement, au format
+        `sha256=<hex minuscule>`. A verifier en comparaison a temps constant.
+      schema:
+        type: string
+        pattern: '^sha256=[0-9a-f]{64}$'
+
+    MagritEventName:
+      name: X-Magrit-Event
+      in: header
+      required: true
+      description: Nom de l evenement livre, identique a `EventEnvelope.event_name`.
+      schema:
+        $ref: '#/components/schemas/EventName'
+
+  # --------------------------------------------------------------------------
+  # En-tetes de reponse partages
+  # --------------------------------------------------------------------------
+  headers:
+    ETag:
+      description: >-
+        Empreinte de la representation renvoyee. A repasser dans `If-Match`
+        lors d un PATCH ulterieur.
+      required: true
+      schema:
+        type: string
+
+    XRequestId:
+      description: Identifiant de correlation de la requete, repris dans `meta.request_id`.
+      required: true
+      schema:
+        type: string
+
+    RetryAfter:
+      description: Delai en secondes avant nouvelle tentative.
+      required: false
+      schema:
+        type: integer
+        format: int32
+        minimum: 0
+
+  # --------------------------------------------------------------------------
+  # Reponses d erreur partagees (CA6)
+  # --------------------------------------------------------------------------
+  responses:
+    BadRequest:
+      description: Requete malformee.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Unauthorized:
+      description: Authentification absente ou invalide.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Forbidden:
+      description: Acteur authentifie mais non habilite, ou scope de service manquant.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    NotFound:
+      description: Ressource inexistante dans le tenant du jeton.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Conflict:
+      description: >-
+        Conflit d etat. Sur un PATCH avec `If-Match` perime, le corps porte l
+        etat courant dans `current_state`.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    PreconditionFailed:
+      description: Precondition `If-Match` non satisfaite au niveau transport.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    PreconditionRequired:
+      description: En-tete `If-Match` absent sur une operation qui l exige.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    UnprocessableEntity:
+      description: Corps syntaxiquement valide mais refuse par les regles metier.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    TooManyRequests:
+      description: Quota d appels depasse.
+      headers:
+        Retry-After:
+          $ref: '#/components/headers/RetryAfter'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    InternalError:
+      description: Erreur interne non attribuable a l appelant.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+
+  # --------------------------------------------------------------------------
+  # Schemas partages
+  # --------------------------------------------------------------------------
+  schemas:
+    Money:
+      title: Money
+      description: >-
+        Montant monetaire. Stocke en `numeric(12,2)`, serialise en CHAINE
+        decimale a deux decimales. Jamais un flottant JSON : un flottant perd
+        des centimes sur les arrondis de TVA et de remise.
+      type: string
+      pattern: '^-?[0-9]{1,10}\.[0-9]{2}$'
+      examples:
+        - '1234.50'
+        - '0.00'
+        - '-89.90'
+
+    Rate:
+      title: Rate
+      description: >-
+        Taux (marge, remise, TVA). Stocke en `numeric(6,4)`, serialise en
+        CHAINE a quatre decimales. `"0.5000"` vaut 50 %.
+      type: string
+      pattern: '^-?[0-9]{1,2}\.[0-9]{4}$'
+      examples:
+        - '0.5000'
+        - '0.2000'
+        - '0.0000'
+
+    Currency:
+      title: Currency
+      description: Code devise ISO 4217.
+      type: string
+      pattern: '^[A-Z]{3}$'
+      examples:
+        - EUR
+
+    Timestamp:
+      title: Timestamp
+      description: Instant ISO 8601 en UTC, suffixe `Z`.
+      type: string
+      format: date-time
+      examples:
+        - '2026-09-01T08:30:00.000Z'
+
+    Uuid:
+      title: Uuid
+      description: >-
+        Identifiant technique UUID v4. Les numeros metier (`DEV-2026-00042`)
+        sont des attributs, jamais des cles.
+      type: string
+      format: uuid
+      pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+
+    Audit:
+      title: Audit
+      description: Tracabilite de creation et de derniere modification d une ressource.
+      type: object
+      additionalProperties: false
+      required:
+        - created_at
+        - updated_at
+      properties:
+        created_at:
+          $ref: '#/components/schemas/Timestamp'
+        created_by:
+          description: Acteur createur. `null` pour une creation systeme.
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        updated_at:
+          $ref: '#/components/schemas/Timestamp'
+        updated_by:
+          description: Dernier acteur modificateur. `null` si jamais modifiee par un humain.
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+
+    PageParams:
+      title: PageParams
+      description: >-
+        Parametres de pagination par curseur (CA7). Documentes ici comme
+        schema ; ils sont transmis en query sous la forme `page[size]` et
+        `page[cursor]` (voir `components/parameters`).
+      type: object
+      additionalProperties: false
+      properties:
+        size:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 200
+          default: 50
+        cursor:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 512
+            - type: 'null'
+
+    Meta:
+      title: Meta
+      description: >-
+        Bloc `meta` present dans toute reponse de succes. Sur une collection
+        paginee, `next_cursor` porte le curseur de la page suivante ou `null`
+        quand la page courante est la derniere.
+      type: object
+      additionalProperties: false
+      required:
+        - request_id
+      properties:
+        request_id:
+          description: Identifiant de correlation, identique a l en-tete `X-Request-Id`.
+          type: string
+          minLength: 1
+        next_cursor:
+          description: Curseur de la page suivante, `null` s il n y en a pas.
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 512
+            - type: 'null'
+        page_size:
+          description: Taille de page effectivement appliquee.
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 200
+
+    SuccessEnvelope:
+      title: SuccessEnvelope
+      description: >-
+        Forme uniforme de toute reponse de succes (CA6). Chaque operation
+        restreint `data` a son schema propre via `allOf`.
+      type: object
+      additionalProperties: false
+      required:
+        - data
+        - meta
+      properties:
+        data: true
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    ProblemCode:
+      title: ProblemCode
+      description: >-
+        Code metier stable de la forme `domaine.raison`, en snake_case. Il est
+        contractuel : un client peut brancher son comportement dessus. Un code
+        publie n est jamais renomme en v1 (CA13).
+      type: string
+      pattern: '^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$'
+      examples:
+        - api.validation_failed
+        - api.idempotency_key_reused
+        - api.if_match_required
+        - api.resource_conflict
+        - identity.authentication_required
+        - identity.scope_required
+        - identity.tenant_not_resolved
+
+    ProblemFieldError:
+      title: ProblemFieldError
+      type: object
+      additionalProperties: false
+      required:
+        - field
+        - message
+      properties:
+        field:
+          description: Chemin du champ fautif, segments separes par des points.
+          type: string
+        message:
+          type: string
+
+    Problem:
+      title: Problem
+      description: >-
+        Erreur au format RFC 7807, servie en `application/problem+json`,
+        enrichie d un `code` metier stable et du `request_id` de correlation.
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - title
+        - status
+        - code
+        - request_id
+      properties:
+        type:
+          description: URI identifiant le type de probleme. `about:blank` par defaut.
+          type: string
+          default: 'about:blank'
+        title:
+          description: Resume court et stable du type de probleme.
+          type: string
+        status:
+          type: integer
+          format: int32
+          minimum: 400
+          maximum: 599
+        detail:
+          description: Explication propre a cette occurrence.
+          type: string
+        instance:
+          description: URI de l occurrence.
+          type: string
+        code:
+          $ref: '#/components/schemas/ProblemCode'
+        request_id:
+          type: string
+          minLength: 1
+        errors:
+          description: Erreurs de validation champ par champ.
+          type: array
+          items:
+            $ref: '#/components/schemas/ProblemFieldError'
+        current_state:
+          description: >-
+            Etat courant de la ressource, renvoye sur un 409 de conflit
+            optimiste pour que l appelant rejoue sans relire (CA9).
+          type:
+            - object
+            - 'null'
+          additionalProperties: true
+
+    EventName:
+      title: EventName
+      description: >-
+        Nom d evenement sortant, `agregat.action` en snake_case. Liste
+        additive : une story ulterieure peut en ajouter, jamais en retirer.
+      type: string
+      enum:
+        - quote.converted
+        - order.step_changed
+        - order.files_submitted
+        - customer.created
+        - price_rule.changed
+
+    EventEnvelope:
+      title: EventEnvelope
+      description: >-
+        Enveloppe versionnee d un evenement sortant (CA10). Le corps signe par
+        `X-Magrit-Signature` est exactement la serialisation JSON de cette
+        enveloppe, octet pour octet.
+      type: object
+      additionalProperties: false
+      required:
+        - event_id
+        - event_name
+        - event_version
+        - occurred_at
+        - tenant_id
+        - aggregate_type
+        - aggregate_id
+        - payload
+      properties:
+        event_id:
+          description: Identifiant unique de l evenement. Cle de deduplication cote consommateur.
+          $ref: '#/components/schemas/Uuid'
+        event_name:
+          $ref: '#/components/schemas/EventName'
+        event_version:
+          description: >-
+            Version du schema de `payload` pour ce `event_name`. Incrementee
+            uniquement sur changement cassant du payload ; les ajouts de champs
+            optionnels ne l incrementent pas.
+          type: integer
+          format: int32
+          minimum: 1
+        occurred_at:
+          $ref: '#/components/schemas/Timestamp'
+        tenant_id:
+          description: Tenant proprietaire de l agregat. Toujours present, jamais devine.
+          $ref: '#/components/schemas/Uuid'
+        aggregate_type:
+          description: Type de l agregat porteur, en snake_case.
+          type: string
+          pattern: '^[a-z][a-z0-9_]*$'
+          examples:
+            - quote
+            - order
+            - customer
+            - price_rule
+        aggregate_id:
+          $ref: '#/components/schemas/Uuid'
+        payload:
+          description: >-
+            Charge utile propre a `event_name`, dont la forme est figee par
+            `event_version`.
+          type: object
+          additionalProperties: true

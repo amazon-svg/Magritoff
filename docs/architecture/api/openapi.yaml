@@ -1,3 +1,25 @@
+# ============================================================================
+# DEPRECIE POUR TOUT NOUVEL ENDPOINT (decision Sprint 5, story E10.0).
+# ----------------------------------------------------------------------------
+# Ce fichier reste la reference des endpoints qu il decrit deja (/health,
+# /diagnostics/*, etc.) et continue d etre maintenu pour eux.
+#
+# Il est SUPERSEDE par openapi/magrit-core.v1.yaml, seule source de verite de
+# tout endpoint /api/v1 du module Gestion commerciale (Epic E10.x). N ajouter
+# ici aucun endpoint, schema ni security scheme nouveau : tout ajout E10 va
+# dans openapi/magrit-core.v1.yaml.
+#
+# Divergences assumees entre les deux fichiers, non retro-appliquees ici pour
+# ne rien casser (derogation R5) :
+#   - nommage des champs : `requestId` (ce fichier) vs `request_id` (E10) ;
+#   - forme de reponse : payload nu (ce fichier) vs enveloppe
+#     `{ data, meta }` (E10).
+# Chemin de mise en conformite : migration des endpoints historiques vers
+# l enveloppe E10 lors de leur prochaine evolution fonctionnelle, ou bascule
+# groupee en /api/v2.
+#
+# Conventions applicables aux nouveaux endpoints : docs/api/CONVENTIONS.md
+# ============================================================================
 openapi: 3.1.0
 info:
   title: API Magrit
