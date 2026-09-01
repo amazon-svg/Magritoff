@@ -61,6 +61,8 @@ import { SupabaseCustomersRepository } from '../../../src/adapters/supabase/cust
 import { CustomerContactShopAccessService } from '../../../src/modules/shop-customers/application/customer-contact-shop-access-service.ts';
 import { ProjectsService } from '../../../src/modules/projects/application/projects-service.ts';
 import { SupabaseProjectsRepository } from '../../../src/adapters/supabase/projects-repository.ts';
+import { ProjectTagsService } from '../../../src/modules/project-tags/application/project-tags-service.ts';
+import { SupabaseProjectTagsRepository } from '../../../src/adapters/supabase/project-tags-repository.ts';
 import { SupabaseApiPrincipalVerifier } from '../../../src/adapters/supabase/api-principal-verifier.ts';
 import { InMemoryIdempotencyStore, OutboxPublisher } from '../../../src/modules/_shared/application/index.ts';
 import { TENANT_SELECTION_HEADER } from '../../../src/modules/_shared/api/index.ts';
@@ -240,12 +242,18 @@ export async function handleRequest(request: Request): Promise<Response> {
     storefrontActivationService,
   );
 
+  // E10.2 — tags libres colores sur les projets, crees a la volee.
+  const projectTagsRepository = new SupabaseProjectTagsRepository(client);
+  const projectTagsService = new ProjectTagsService({ repository: projectTagsRepository });
+
   // E10.1 — conteneur de travail Projets. Reutilise le referentiel Clients
   // (E10.4) deja instancie pour verifier l existence du `customer_id` (CA3),
-  // sans dupliquer cette logique.
+  // et le referentiel Tags de projet (E10.2) pour verifier `tag_ids` avant
+  // remplacement (CA6), sans dupliquer ces logiques.
   const projectsService = new ProjectsService({
     repository: new SupabaseProjectsRepository(client),
     customers: customersRepository,
+    projectTags: projectTagsRepository,
     outbox: new OutboxPublisher({
       repository: bestEffortOutbox(outboxRepository, (error, events) => {
         console.error(
@@ -264,6 +272,7 @@ export async function handleRequest(request: Request): Promise<Response> {
       customers: customersService,
       customerShopAccess: customerShopAccessService,
       projects: projectsService,
+      projectTags: projectTagsService,
     },
     principalVerifier: new SupabaseApiPrincipalVerifier(client, {
       requestedTenantId: request.headers.get(TENANT_SELECTION_HEADER),

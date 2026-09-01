@@ -141,8 +141,11 @@ export function defineGescomRoute<TInput, TData>(
       `${definition.operationId} : createsResource ne vaut que pour un POST (CA8).`,
     );
   }
-  if (definition.method === 'PATCH' && definition.inputSchema === null) {
-    throw new TypeError(`${definition.operationId} : un PATCH doit declarer un inputSchema.`);
+  if (
+    (definition.method === 'PATCH' || definition.method === 'PUT') &&
+    definition.inputSchema === null
+  ) {
+    throw new TypeError(`${definition.operationId} : un PATCH/PUT doit declarer un inputSchema.`);
   }
 
   return Object.freeze({
@@ -154,7 +157,11 @@ export function defineGescomRoute<TInput, TData>(
     requiredScopes,
     createsResource,
     // CA9 : tout PATCH est protege, sans exception declarative possible.
-    concurrencyGuarded: definition.method === 'PATCH',
+    // E10.2 etend la MEME garde a PUT : un remplacement complet d une
+    // sous-ressource (ex. PUT /projects/{id}/tags) expose au meme risque
+    // d ecrasement concurrent qu un PATCH, et merite la meme protection
+    // If-Match/ETag plutot qu un mecanisme distinct.
+    concurrencyGuarded: definition.method === 'PATCH' || definition.method === 'PUT',
     async parseInput(request) {
       return parseJsonInput(request, definition.inputSchema);
     },
