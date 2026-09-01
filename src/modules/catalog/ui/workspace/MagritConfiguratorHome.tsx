@@ -37,7 +37,7 @@ export function MagritConfiguratorHome({
 
   return (
     <main
-      className="flex min-h-[calc(100vh-7rem)] items-center justify-center bg-[#fbfbfb] px-6 py-12"
+      className="flex min-h-[calc(100dvh-3.5rem)] items-center justify-center bg-[#fbfbfb] px-6 py-12"
       data-testid="magrit-configurator-home"
     >
       <div className="flex w-full max-w-3xl -translate-y-6 flex-col items-center text-center">

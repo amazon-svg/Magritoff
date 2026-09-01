@@ -76,6 +76,8 @@ describe('page de test d intégration HopeStudio', () => {
     expect(configuratorSource).toContain('createInitialConfiguratorRequest');
     expect(dualWorkspaceSource).toContain('Clariprint Studio');
     expect(dualWorkspaceSource).toContain('Recherche PIM');
+    expect(dualWorkspaceSource).toContain('h-[calc(100dvh-3.5rem)]');
+    expect(dualWorkspaceSource).toContain('grid-rows-[minmax(0,1fr)]');
     expect(workspaceSource).toContain('enhanceChatChrome');
     expect(workspaceSource).toContain("send.id = 'hopstudio-send'");
     expect(workspaceSource).toContain('sentInitialRequestIds');
