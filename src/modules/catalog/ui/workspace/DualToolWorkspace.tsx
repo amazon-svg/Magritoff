@@ -42,7 +42,7 @@ export function DualToolWorkspace({
         </div>
       )}
 
-      <div className={`grid min-h-0 min-w-0 flex-1 grid-rows-[minmax(0,1fr)] overflow-hidden ${mode === 'split' ? 'md:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]' : 'grid-cols-1'}`}>
+      <div className={`grid min-h-0 min-w-0 flex-1 grid-rows-[minmax(0,1fr)] gap-3 overflow-hidden p-3 md:gap-4 md:p-4 ${mode === 'split' ? 'md:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]' : 'grid-cols-1'}`}>
         <WorkspacePanel
           title="Clariprint Studio"
           icon={<Sparkles className="size-4" />}
@@ -105,7 +105,7 @@ function WorkspacePanel({
 }>) {
   return (
     <section
-      className={`${visible ? 'flex' : 'hidden'} ${desktopVisible ? 'md:flex' : 'md:hidden'} min-h-0 min-w-0 flex-col overflow-hidden bg-white ${side === 'left' ? 'md:border-r md:border-line' : ''}`}
+      className={`${visible ? 'flex' : 'hidden'} ${desktopVisible ? 'md:flex' : 'md:hidden'} min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-line bg-white shadow-[0_8px_30px_rgba(15,23,42,0.07)]`}
       aria-label={title}
       data-workspace-panel={side}
     >
