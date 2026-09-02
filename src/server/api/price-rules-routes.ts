@@ -30,6 +30,7 @@ import {
   ProductRangeNotFoundError,
   type PriceRuleSortField,
 } from '../../modules/pricing/application/price-rules-repository.ts';
+import { uuidSchema } from '../../modules/_shared/api/index.ts';
 import {
   assertPrecondition,
   buildPage,
@@ -56,18 +57,30 @@ export function createPriceRulesRoutes(service: PriceRulesService): readonly Ges
       async handle(context) {
         const q = context.url.searchParams.get('q');
         const status = parseStatus(context.url.searchParams.get('status'));
+        const customerId = parseUuidFilter(context.url.searchParams.get('customer_id'), 'customer_id');
+        const productRangeId = parseUuidFilter(
+          context.url.searchParams.get('product_range_id'),
+          'product_range_id',
+        );
         const sort = parseSort(context.url.searchParams.get('sort'));
-        const cursor = parseCursor(context.page.cursor, sort.field);
+        const filters: ListFilters = { q, status, customerId, productRangeId };
+        const cursor = parseCursor(context.page.cursor, sort.field, filters);
 
         const result = await service.list(context.tenantId, {
           q,
           status,
+          customerId,
+          productRangeId,
           sort: { field: sort.field, direction: sort.direction },
           size: context.page.size,
           cursor,
         });
         const page = buildPage(result.rows, context.page, (row) => ({
-          sort: `${sort.field}|${sort.field === 'starts_on' ? row.starts_on : row.created_at}`,
+          sort: encodeSortToken(
+            sort.field,
+            sort.field === 'starts_on' ? row.starts_on : row.created_at,
+            filters,
+          ),
           id: row.id,
         }));
 
@@ -184,6 +197,19 @@ function parseStatus(raw: string | null): 'active' | 'disabled' | null {
   return parsed.data;
 }
 
+/**
+ * Valide le format UUID d un filtre optionnel (`customer_id`,
+ * `product_range_id`) — meme pattern que `commercial-quotes-routes.ts` /
+ * `projects-routes.ts` pour les filtres de meme nature.
+ */
+function parseUuidFilter(raw: string | null, field: string): string | null {
+  if (raw === null) return null;
+  if (!uuidSchema.safeParse(raw).success) {
+    throw validationFailed([{ field, message: 'UUID invalide.' }]);
+  }
+  return raw;
+}
+
 function parseSort(raw: string | null): Readonly<{
   field: PriceRuleSortField;
   direction: 'asc' | 'desc';
@@ -200,26 +226,63 @@ function parseSort(raw: string | null): Readonly<{
   return { field, direction };
 }
 
+/** Jeu de filtres de `listPriceRules`, hors tri et pagination. */
+type ListFilters = Readonly<{
+  q: string | null;
+  status: 'active' | 'disabled' | null;
+  customerId: string | null;
+  productRangeId: string | null;
+}>;
+
 /**
- * Decode le curseur opaque et verifie qu il porte le MEME champ de tri que
- * celui demande (`sort`) — un ecart rend `api.validation_failed` plutot
- * qu une page silencieusement incoherente (contrat `listPriceRules`).
+ * Empreinte stable du jeu de filtres courant, encodee dans le curseur au
+ * meme titre que le champ de tri. `encodeURIComponent` garantit l absence du
+ * separateur `|` dans le resultat, ce qui permet de le distinguer sans
+ * ambiguite de la valeur de tri lors du decodage.
+ */
+function encodeFilterSignature(filters: ListFilters): string {
+  return encodeURIComponent(
+    JSON.stringify([filters.q, filters.status, filters.customerId, filters.productRangeId]),
+  );
+}
+
+function encodeSortToken(field: PriceRuleSortField, value: string, filters: ListFilters): string {
+  return `${field}|${encodeFilterSignature(filters)}|${value}`;
+}
+
+/**
+ * Decode le curseur opaque et verifie qu il porte le MEME champ de tri ET LE
+ * MEME JEU DE FILTRES que la requete courante — un ecart sur l un ou l autre
+ * rend `api.validation_failed` plutot qu une page silencieusement
+ * incoherente (contrat `listPriceRules`, note sur `sort` etendue par
+ * symetrie a `q`/`status`/`customer_id`/`product_range_id`).
  */
 function parseCursor(
   raw: string | null,
   requestedField: PriceRuleSortField,
+  requestedFilters: ListFilters,
 ): Readonly<{ field: PriceRuleSortField; value: string; id: string }> | null {
   if (raw === null) return null;
   const decoded = decodeCursor(raw);
-  const separator = decoded.sort.indexOf('|');
-  const cursorField = (separator === -1 ? decoded.sort : decoded.sort.slice(0, separator)) as PriceRuleSortField;
-  const cursorValue = separator === -1 ? '' : decoded.sort.slice(separator + 1);
+  const firstSeparator = decoded.sort.indexOf('|');
+  const secondSeparator = firstSeparator === -1 ? -1 : decoded.sort.indexOf('|', firstSeparator + 1);
 
-  if (cursorField !== requestedField) {
+  if (firstSeparator === -1 || secondSeparator === -1) {
+    throw validationFailed([
+      { field: 'page[cursor]', message: 'Curseur illisible pour ce jeu de filtres et de tri.' },
+    ]);
+  }
+
+  const cursorField = decoded.sort.slice(0, firstSeparator) as PriceRuleSortField;
+  const cursorFilterSignature = decoded.sort.slice(firstSeparator + 1, secondSeparator);
+  const cursorValue = decoded.sort.slice(secondSeparator + 1);
+
+  if (cursorField !== requestedField || cursorFilterSignature !== encodeFilterSignature(requestedFilters)) {
     throw validationFailed([
       {
         field: 'page[cursor]',
-        message: 'Le tri demande ne correspond pas au tri encode dans ce curseur. Reprendre le meme `sort`.',
+        message:
+          'Le tri ou les filtres demandes ne correspondent pas a ceux encodes dans ce curseur. Reprendre le meme `sort` et le meme jeu de filtres.',
       },
     ]);
   }

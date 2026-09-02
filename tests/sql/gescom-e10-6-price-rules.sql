@@ -12,19 +12,25 @@
 --   1. Coherence scope <-> cibles (CHECK), dans LES DEUX SENS : `customer`
 --      sans `customer_id`, `global` AVEC `customer_id`, `range` sans
 --      `product_range_id`, `customer_range` avec les deux -> accepte.
---   2. Ordre des periodes : `valid_to <= valid_from` refuse.
+--   2. Ordre des periodes : `valid_to` INCLUS — `valid_to < valid_from` refuse,
+--      `valid_to = valid_from` (regle d un seul jour) accepte.
 --   3. `name` vide et `value` negatif refuses (CHECK).
 --   4. Isolation par tenant sur `price_rules`, AVEC controle positif
 --      symetrique en lecture ET en ecriture (m1 qa-review E10.4 : un test qui
 --      ne verifie que le refus laisserait passer une policy cassee en
 --      permanence).
---   5. Meme isolation sur `product_range_default_margins`.
+--   5. Meme isolation sur `product_range_default_margins`, AVEC le meme
+--      controle negatif d ecriture cross-tenant que le scenario 4 (qa-review
+--      E10.6, B3) : un membre du tenant B ne peut pas creer de marge standard
+--      pour une gamme au nom du tenant A.
 --   6. Journal d audit (CA6) : une creation journalise `created` ; un UPDATE
 --      qui ne bascule QUE `is_active` journalise `activated`/`deactivated` ;
 --      toute autre modification journalise `updated`.
 --   7. `price_rules_audit` est append-only : `authenticated` ne peut ni
 --      l ecrire directement, ni la modifier, ni la supprimer (grants), au-dela
---      de ce que la RLS filtre deja.
+--      de ce que la RLS filtre deja. Isolation en LECTURE testee aussi
+--      (qa-review E10.6, B3) : un membre du tenant B lit ses propres lignes
+--      d audit mais aucune de celles du tenant A.
 --
 -- Lancer : pnpm test:storefront:sql (necessite Supabase local demarre).
 -- ============================================================================
@@ -140,7 +146,7 @@ begin
     raise exception 'Une regle scope=customer_range coherente a ete refusee';
   end if;
 
-  -- 2. valid_to <= valid_from -> refuse.
+  -- 2a. valid_to STRICTEMENT anterieure a valid_from -> refuse.
   v_rejected := false;
   begin
     insert into public.price_rules (tenant_id, name, scope, value_type, value, valid_from, valid_to)
@@ -149,8 +155,21 @@ begin
     when check_violation then v_rejected := true;
   end;
   if not v_rejected then
-    raise exception 'Une regle avec valid_to <= valid_from a ete acceptee';
+    raise exception 'Une regle avec valid_to < valid_from a ete acceptee';
   end if;
+
+  -- 2b. valid_to = valid_from -> accepte (regle d un seul jour, `valid_to`
+  -- INCLUS, contrat openapi/magrit-core.v1.yaml).
+  declare
+    v_one_day_rule uuid;
+  begin
+    insert into public.price_rules (tenant_id, name, scope, value_type, value, valid_from, valid_to)
+    values (v_tenant_a, 'Regle d un seul jour', 'global', 'margin_rate', 0.3000, '2026-09-10', '2026-09-10')
+    returning id into v_one_day_rule;
+    if v_one_day_rule is null then
+      raise exception 'Une regle avec valid_to = valid_from a ete refusee';
+    end if;
+  end;
 
   -- 3a. name vide -> refuse.
   v_rejected := false;
@@ -280,6 +299,7 @@ declare
   v_updated integer;
   v_rule_a_id uuid;
   v_insert_rejected boolean := false;
+  v_margin_insert_rejected boolean := false;
   v_audit_insert_rejected boolean := false;
 begin
   select tenant_a, tenant_b, customer_a, gamme_a, rule_b
@@ -332,8 +352,9 @@ begin
     end if;
   end if;
 
-  -- 5. Isolation sur product_range_default_margins : ecriture refusee pour le
-  -- tenant A depuis un membre du tenant B.
+  -- 5. Isolation sur product_range_default_margins : controle positif d
+  -- ecriture sur son propre tenant, puis lecture (rien du tenant A, controle
+  -- positif sur B).
   insert into public.product_range_default_margins (tenant_id, product_range_id, margin_rate)
   values (v_tenant_b, v_gamme_a, 0.4000)
   on conflict (tenant_id, product_range_id) do update set margin_rate = excluded.margin_rate;
@@ -352,9 +373,41 @@ begin
       'Un membre du tenant B lit % marge(s) standard de son propre tenant, 1 attendue', v_visible_b;
   end if;
 
-  -- 7. `price_rules_audit` : lecture seule via RLS (defense en profondeur),
-  -- ecriture directe absente des grants — meme sous une session authentifiee
-  -- legitime du tenant.
+  -- Controle negatif SYMETRIQUE en ECRITURE (qa-review E10.6, B3) : un membre
+  -- du tenant B ne peut pas creer de marge standard au nom du tenant A, sur
+  -- le modele exact du controle negatif deja fait pour price_rules
+  -- ci-dessus (exception RLS, ou a defaut aucune ligne creee pour le tenant A).
+  begin
+    insert into public.product_range_default_margins (tenant_id, product_range_id, margin_rate)
+    values (v_tenant_a, v_gamme_a, 0.9999);
+  exception
+    when insufficient_privilege or others then v_margin_insert_rejected := true;
+  end;
+  if not v_margin_insert_rejected then
+    perform 1 from public.product_range_default_margins
+     where tenant_id = v_tenant_a and product_range_id = v_gamme_a;
+    if found then
+      raise exception 'Un membre du tenant B a pu creer une marge standard pour le tenant A';
+    end if;
+  end if;
+
+  -- 7. `price_rules_audit` : isolation en LECTURE (qa-review E10.6, B3),
+  -- AVEC controle positif symetrique — un membre du tenant B lit ses propres
+  -- lignes d audit (creees par les ecritures ci-dessus sur ses propres
+  -- regles) mais aucune de celles du tenant A (regle de controle positif
+  -- 'Client + gamme OK', creee pendant la phase privilegiee).
+  select count(*) into v_visible_a from public.price_rules_audit where tenant_id = v_tenant_a;
+  if v_visible_a <> 0 then
+    raise exception 'Un membre du tenant B lit % ligne(s) d audit du tenant A', v_visible_a;
+  end if;
+
+  select count(*) into v_visible_b from public.price_rules_audit where tenant_id = v_tenant_b;
+  if v_visible_b = 0 then
+    raise exception 'Un membre du tenant B ne lit aucune ligne d audit de son propre tenant';
+  end if;
+
+  -- `price_rules_audit` : ecriture directe absente des grants — meme sous une
+  -- session authentifiee legitime du tenant.
   begin
     insert into public.price_rules_audit (tenant_id, price_rule_id, action, after_state)
     values (v_tenant_b, v_rule_b, 'created', '{}'::jsonb);

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useWorkspaceApi } from '@/platform/runtime/workspace-ui-runtime';
-import { PriceRulesApiClient } from '@/modules/pricing/api/client';
+import { PriceRulesApiClient, type ListPriceRulesQuery } from '@/modules/pricing/api/client';
 import type { CreatePriceRuleCommand, PriceRuleDto, PriceRuleStatusFilter } from '@/modules/pricing/api/contracts';
 
 export function pricingManagementError(
@@ -11,31 +11,57 @@ export function pricingManagementError(
 }
 
 /**
- * Liste + recherche + filtre par statut des regles de prix du tenant courant
- * (CA5). Le tenant est resolu par la facade depuis le jeton (CA4 du socle
- * E10.0) : ce hook ne le transmet jamais dans un chemin ni une query.
+ * Liste + recherche + filtres (statut, client, gamme) des regles de prix du
+ * tenant courant (CA5). Le tenant est resolu par la facade depuis le jeton
+ * (CA4 du socle E10.0) : ce hook ne le transmet jamais dans un chemin ni une
+ * query.
+ *
+ * Pagination par curseur explicite (`loadMore`) : au-dela de la premiere
+ * page (`DEFAULT_PAGE_SIZE`), les regles suivantes n apparaissent qu au clic
+ * — jamais silencieusement absentes sans que `hasMore` en informe l ecran
+ * (qa-review E10.6, B1.5). Un changement de filtre ou de recherche repart
+ * toujours de la premiere page : le curseur d une page precedente n a plus
+ * de sens pour un autre jeu de filtres (meme regle que `sort` cote contrat).
  */
 export function usePriceRulesManagement(enabled: boolean) {
   const api = useWorkspaceApi(PriceRulesApiClient);
   const requestVersion = useRef(0);
   const [items, setItems] = useState<readonly PriceRuleDto[]>([]);
   const [loading, setLoading] = useState(enabled);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState('');
   const [status, setStatus] = useState<PriceRuleStatusFilter | null>(null);
+  const [customerId, setCustomerId] = useState<string | null>(null);
+  const [productRangeId, setProductRangeId] = useState<string | null>(null);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+
+  const baseQuery = useCallback(
+    (): ListPriceRulesQuery => ({
+      ...(q ? { q } : {}),
+      ...(status ? { status } : {}),
+      ...(customerId ? { customerId } : {}),
+      ...(productRangeId ? { productRangeId } : {}),
+    }),
+    [q, status, customerId, productRangeId],
+  );
 
   const load = useCallback(async () => {
     const version = ++requestVersion.current;
     if (!enabled) {
       setItems([]);
+      setNextCursor(null);
       setLoading(false);
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      const response = await api.list({ ...(q ? { q } : {}), ...(status ? { status } : {}) });
-      if (version === requestVersion.current) setItems(response.items);
+      const response = await api.list(baseQuery());
+      if (version === requestVersion.current) {
+        setItems(response.items);
+        setNextCursor(response.nextCursor);
+      }
     } catch (cause) {
       if (version === requestVersion.current) {
         setError(pricingManagementError(cause, 'Chargement des règles de prix impossible.'));
@@ -43,7 +69,7 @@ export function usePriceRulesManagement(enabled: boolean) {
     } finally {
       if (version === requestVersion.current) setLoading(false);
     }
-  }, [api, enabled, q, status]);
+  }, [api, enabled, baseQuery]);
 
   useEffect(() => {
     void load();
@@ -51,6 +77,31 @@ export function usePriceRulesManagement(enabled: boolean) {
       requestVersion.current += 1;
     };
   }, [load]);
+
+  /**
+   * Charge la page suivante en reprenant le MEME jeu de filtres et de tri —
+   * un ecart serait de toute facon refuse en 422 par l API (contrat
+   * `listPriceRules`).
+   */
+  const loadMore = useCallback(async () => {
+    if (!nextCursor || loadingMore) return;
+    const version = requestVersion.current;
+    setLoadingMore(true);
+    setError(null);
+    try {
+      const response = await api.list({ ...baseQuery(), pageCursor: nextCursor });
+      if (version === requestVersion.current) {
+        setItems((previous) => [...previous, ...response.items]);
+        setNextCursor(response.nextCursor);
+      }
+    } catch (cause) {
+      if (version === requestVersion.current) {
+        setError(pricingManagementError(cause, 'Chargement de la page suivante impossible.'));
+      }
+    } finally {
+      if (version === requestVersion.current) setLoadingMore(false);
+    }
+  }, [api, baseQuery, nextCursor, loadingMore]);
 
   const create = useCallback(
     async (command: CreatePriceRuleCommand): Promise<PriceRuleDto> => {
@@ -85,6 +136,13 @@ export function usePriceRulesManagement(enabled: boolean) {
     setQ,
     status,
     setStatus,
+    customerId,
+    setCustomerId,
+    productRangeId,
+    setProductRangeId,
+    hasMore: nextCursor !== null,
+    loadingMore,
+    loadMore,
     refresh: load,
     create,
     toggleActive,

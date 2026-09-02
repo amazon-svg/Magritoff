@@ -47,6 +47,12 @@ export class InMemoryPriceRulesRepository implements PriceRulesRepository {
       const term = sanitizeSearchTerm(params.q).toLowerCase();
       if (term.length > 0) rows = rows.filter((rule) => rule.name.toLowerCase().includes(term));
     }
+    // Egalite stricte, fidele au comportement reel (adaptateur Supabase) :
+    // jamais de simulation de resolution (pas de `OR ... IS NULL`).
+    if (params.customerId) rows = rows.filter((rule) => rule.customer_id === params.customerId);
+    if (params.productRangeId) {
+      rows = rows.filter((rule) => rule.product_range_id === params.productRangeId);
+    }
 
     const field = params.sort.field;
     const ascending = params.sort.direction === 'asc';

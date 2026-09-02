@@ -31,6 +31,15 @@ export type PriceRuleListCursor = Readonly<{
 export type ListPriceRulesParams = Readonly<{
   q: string | null;
   status: PriceRuleStatusFilter | null;
+  /**
+   * Egalite stricte sur `customer_id` (CA5) : ne retient que les portees
+   * `customer`/`customer_range` visant NOMMEMENT ce client. Ce n est jamais
+   * une simulation de resolution (`resolvePriceRule`, E10.7) — voir la
+   * description du parametre dans le contrat.
+   */
+  customerId: string | null;
+  /** Symetrique de `customerId`, egalite stricte sur `product_range_id`. */
+  productRangeId: string | null;
   sort: PriceRuleListSort;
   size: number;
   cursor: PriceRuleListCursor | null;

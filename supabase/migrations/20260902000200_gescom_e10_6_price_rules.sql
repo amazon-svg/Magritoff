@@ -78,9 +78,12 @@ create table if not exists public.price_rules (
   constraint price_rules_scope_range_coherence check (
     (scope in ('range', 'customer_range')) = (product_range_id is not null)
   ),
-  -- `valid_to` INCLUS ; `null` = sans terme. Pas de contrainte d exclusion
-  -- (amendement WM du 01/09) : le chevauchement entre deux regles est normal.
-  constraint price_rules_period_order check (valid_to is null or valid_to > valid_from)
+  -- `valid_to` INCLUS ; `null` = sans terme. `valid_to = valid_from` est donc
+  -- une regle d un seul jour, valide (contrat, plusieurs occurrences :
+  -- openapi/magrit-core.v1.yaml). Seul un `valid_to` STRICTEMENT anterieur a
+  -- `valid_from` est rejete. Pas de contrainte d exclusion (amendement WM du
+  -- 01/09) : le chevauchement entre deux regles est normal.
+  constraint price_rules_period_order check (valid_to is null or valid_to >= valid_from)
 );
 
 comment on table public.price_rules is

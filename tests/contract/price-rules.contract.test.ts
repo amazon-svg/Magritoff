@@ -31,6 +31,7 @@ import { checkResponseAgainstContract } from './_harness.ts';
 const TENANT = brand<TenantId>('7f0d2a1e-1c4b-4f8a-9c3d-5b6e7a8f9012');
 const USER = brand<UserId>('a1b2c3d4-e5f6-4708-8910-1a2b3c4d5e6f');
 const RANGE_ID = '11111111-1111-4111-8111-111111111100';
+const RANGE_ID_2 = '11111111-1111-4111-8111-111111111200';
 const UNKNOWN_RANGE_ID = '11111111-1111-4111-8111-111111119999';
 
 function brand<T extends string>(value: string): T {
@@ -78,6 +79,7 @@ let customerId: string;
 beforeEach(async () => {
   priceRules = new InMemoryPriceRulesRepository();
   priceRules.knownProductRanges.add(RANGE_ID);
+  priceRules.knownProductRanges.add(RANGE_ID_2);
   customers = new InMemoryCustomersRepository();
   outboxRepository = new InMemoryOutboxRepository();
   const outbox = new OutboxPublisher({
@@ -234,7 +236,7 @@ describe('module Pricing — referentiel des regles de prix (E10.6) contre le co
     await expectContract(response, { status: 201, dataSchema: 'PriceRule' });
   });
 
-  it('CA1 — ends_on anterieure ou egale a starts_on est refuse en 422 price_rule.invalid_period', async () => {
+  it('CA1 — ends_on anterieure a starts_on est refuse en 422 price_rule.invalid_period', async () => {
     const response = await call('/api/v1/price-rules', {
       method: 'POST',
       headers: { ...jsonHeaders, 'Idempotency-Key': `create-${uuid()}` },
@@ -250,6 +252,25 @@ describe('module Pricing — referentiel des regles de prix (E10.6) contre le co
     await expectContract(response, { status: 422 });
     const body = (await response.json()) as { code: string };
     expect(body.code).toBe('price_rule.invalid_period');
+  });
+
+  it('CA1 — ends_on egale a starts_on est accepte (regle d un seul jour, ends_on INCLUS)', async () => {
+    const response = await call('/api/v1/price-rules', {
+      method: 'POST',
+      headers: { ...jsonHeaders, 'Idempotency-Key': `create-${uuid()}` },
+      body: JSON.stringify({
+        name: 'Regle d un seul jour',
+        scope: 'global',
+        value_type: 'margin_rate',
+        value: '0.5000',
+        starts_on: '2026-09-10',
+        ends_on: '2026-09-10',
+      }),
+    });
+    await expectContract(response, { status: 201, dataSchema: 'PriceRule' });
+    const body = (await response.json()) as { data: PriceRuleDto };
+    expect(body.data.starts_on).toBe('2026-09-10');
+    expect(body.data.ends_on).toBe('2026-09-10');
   });
 
   it('CA1 — un nom vide est refuse en 422 api.validation_failed', async () => {
@@ -383,6 +404,106 @@ describe('module Pricing — referentiel des regles de prix (E10.6) contre le co
     const searched = await call('/api/v1/price-rules?q=affiches', { headers: asUser });
     await expectContract(searched, { status: 200 });
     expect(((await searched.json()) as { data: PriceRuleDto[] }).data).toHaveLength(1);
+  });
+
+  it('CA5 — filtre par customer_id et product_range_id (egalite stricte sur la cible declaree, seuls, combines, absents)', async () => {
+    const { data: global } = await createGlobalRule({ name: 'Globale' });
+    const { data: customerOnly } = await createGlobalRule({
+      name: 'Client seul',
+      scope: 'customer',
+      customer_id: customerId,
+    });
+    const { data: rangeOnly } = await createGlobalRule({
+      name: 'Gamme seule',
+      scope: 'range',
+      product_range_id: RANGE_ID,
+    });
+    const { data: customerAndRange } = await createGlobalRule({
+      name: 'Client + gamme',
+      scope: 'customer_range',
+      customer_id: customerId,
+      product_range_id: RANGE_ID,
+    });
+    // Portee customer_range visant une AUTRE gamme : satisfait le filtre
+    // customer_id=customerId seul, mais jamais le filtre combine avec
+    // RANGE_ID.
+    const { data: customerAndOtherRange } = await createGlobalRule({
+      name: 'Client + autre gamme',
+      scope: 'customer_range',
+      customer_id: customerId,
+      product_range_id: RANGE_ID_2,
+    });
+
+    // Absent : les 5 regles creees dans ce test (le seuil de page par defaut n
+    // est jamais atteint ici).
+    const noFilter = await call('/api/v1/price-rules', { headers: asUser });
+    await expectContract(noFilter, { status: 200 });
+    expect(((await noFilter.json()) as { data: PriceRuleDto[] }).data).toHaveLength(5);
+
+    // customer_id seul : les deux portees NOMMANT ce client, quelle que soit
+    // la gamme — jamais la regle `global` ni la regle `range` seule.
+    const byCustomer = await call(`/api/v1/price-rules?customer_id=${customerId}`, { headers: asUser });
+    await expectContract(byCustomer, { status: 200 });
+    const byCustomerIds = ((await byCustomer.json()) as { data: PriceRuleDto[] }).data.map((r) => r.id).sort();
+    expect(byCustomerIds).toEqual(
+      [customerOnly.id, customerAndRange.id, customerAndOtherRange.id].sort(),
+    );
+    expect(byCustomerIds).not.toContain(global.id);
+    expect(byCustomerIds).not.toContain(rangeOnly.id);
+
+    // product_range_id seul : symetrique, les deux portees NOMMANT cette
+    // gamme.
+    const byRange = await call(`/api/v1/price-rules?product_range_id=${RANGE_ID}`, { headers: asUser });
+    await expectContract(byRange, { status: 200 });
+    const byRangeIds = ((await byRange.json()) as { data: PriceRuleDto[] }).data.map((r) => r.id).sort();
+    expect(byRangeIds).toEqual([rangeOnly.id, customerAndRange.id].sort());
+    expect(byRangeIds).not.toContain(global.id);
+    expect(byRangeIds).not.toContain(customerOnly.id);
+
+    // Les deux combines : SEULE la regle customer_range visant exactement ce
+    // couple — ni `customer` seule, ni `range` seule, ni `customer_range`
+    // visant une autre gamme (contrat, ET logique strict).
+    const combined = await call(
+      `/api/v1/price-rules?customer_id=${customerId}&product_range_id=${RANGE_ID}`,
+      { headers: asUser },
+    );
+    await expectContract(combined, { status: 200 });
+    const combinedBody = (await combined.json()) as { data: PriceRuleDto[] };
+    expect(combinedBody.data).toHaveLength(1);
+    expect(combinedBody.data[0]?.id).toBe(customerAndRange.id);
+  });
+
+  it('CA5 — customer_id/product_range_id invalides (non-UUID) sont refuses en 422 api.validation_failed', async () => {
+    const response = await call('/api/v1/price-rules?customer_id=not-a-uuid', { headers: asUser });
+    await expectContract(response, { status: 422 });
+    expect(((await response.json()) as { code: string }).code).toBe('api.validation_failed');
+
+    const responseRange = await call('/api/v1/price-rules?product_range_id=not-a-uuid', { headers: asUser });
+    await expectContract(responseRange, { status: 422 });
+    expect(((await responseRange.json()) as { code: string }).code).toBe('api.validation_failed');
+  });
+
+  it('CA5 — un changement de filtre invalide le curseur d une pagination en cours (meme regle que sort)', async () => {
+    await createGlobalRule({ name: 'Filtre 1' });
+    await createGlobalRule({ name: 'Filtre 2' });
+
+    const firstPage = await call('/api/v1/price-rules?page[size]=1', { headers: asUser });
+    const firstBody = (await firstPage.json()) as { meta: { next_cursor: string | null } };
+    expect(firstBody.meta.next_cursor).toBeTruthy();
+
+    const mismatchedFilter = await call(
+      `/api/v1/price-rules?status=active&page[cursor]=${encodeURIComponent(firstBody.meta.next_cursor!)}`,
+      { headers: asUser },
+    );
+    await expectContract(mismatchedFilter, { status: 422 });
+    expect(((await mismatchedFilter.json()) as { code: string }).code).toBe('api.validation_failed');
+
+    // Reprendre le MEME jeu de filtres (aucun) fonctionne toujours.
+    const samefilters = await call(
+      `/api/v1/price-rules?page[size]=1&page[cursor]=${encodeURIComponent(firstBody.meta.next_cursor!)}`,
+      { headers: asUser },
+    );
+    await expectContract(samefilters, { status: 200 });
   });
 
   it('CA5 — pagine par curseur et refuse un sort different de celui du curseur en cours', async () => {

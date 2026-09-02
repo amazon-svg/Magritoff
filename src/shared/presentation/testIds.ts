@@ -568,6 +568,18 @@ export const TEST_IDS = {
     saveBtn: 'pricing-rule-save-btn',
     statusPill: 'pricing-rule-status-pill',
     toggleActiveBtn: 'pricing-rule-toggle-active-btn',
+    // CA5 (qa-review B1) — filtres client/gamme de la liste, distincts des
+    // selects de portee du formulaire.
+    customerFilterSelect: 'pricing-rules-customer-filter-select',
+    rangeFilterSelect: 'pricing-rules-range-filter-select',
+    // CA5 (qa-review B1.5) — pagination explicite, jamais de troncature
+    // silencieuse au-dela de la premiere page.
+    loadMoreBtn: 'pricing-rules-load-more-btn',
+    // CA4 (qa-review R2) — marge publique standard par gamme.
+    defaultMarginSection: 'pricing-default-margin-section',
+    defaultMarginRangeSelect: 'pricing-default-margin-range-select',
+    defaultMarginInput: 'pricing-default-margin-input',
+    defaultMarginSaveBtn: 'pricing-default-margin-save-btn',
   },
 } as const;
 

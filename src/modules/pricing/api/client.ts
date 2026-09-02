@@ -29,6 +29,10 @@ const BASE_PATH = `${API_V1_BASE_PATH}/price-rules`;
 export type ListPriceRulesQuery = Readonly<{
   q?: string;
   status?: PriceRuleStatusFilter;
+  /** Egalite stricte sur le client cible de la regle (contrat `listPriceRules`, CA5). */
+  customerId?: string;
+  /** Egalite stricte sur la gamme ciblee de la regle (contrat `listPriceRules`, CA5). */
+  productRangeId?: string;
   sort?: PriceRuleSort;
   pageSize?: number;
   pageCursor?: string;
@@ -46,6 +50,8 @@ export class PriceRulesApiClient {
     const params = new URLSearchParams();
     if (query.q) params.set('q', query.q);
     if (query.status) params.set('status', query.status);
+    if (query.customerId) params.set('customer_id', query.customerId);
+    if (query.productRangeId) params.set('product_range_id', query.productRangeId);
     if (query.sort) params.set('sort', query.sort);
     if (query.pageSize) params.set('page[size]', String(query.pageSize));
     if (query.pageCursor) params.set('page[cursor]', query.pageCursor);

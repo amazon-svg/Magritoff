@@ -23,6 +23,7 @@ import type {
   PriceRuleValueType,
   UpdatePriceRuleCommand,
 } from '@/modules/pricing/api/contracts';
+import { rateToPercentString, toRateString } from './rate-format';
 
 const inputCls =
   'w-full px-3 py-2 border border-line-2 rounded-lg bg-paper text-ink text-sm focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand disabled:opacity-60 disabled:bg-bg';
@@ -70,9 +71,7 @@ export function PriceRuleFormModal({ onClose, editing, onCreate, onUpdate, onSav
   const [customerId, setCustomerId] = useState(editing?.rule.customer_id ?? '');
   const [productRangeId, setProductRangeId] = useState(editing?.rule.product_range_id ?? '');
   const [valueType, setValueType] = useState<PriceRuleValueType>(editing?.rule.value_type ?? 'margin_rate');
-  const [valuePercent, setValuePercent] = useState(
-    editing ? String(Number(editing.rule.value) * 100) : '',
-  );
+  const [valuePercent, setValuePercent] = useState(editing ? rateToPercentString(editing.rule.value) : '');
   const [startsOn, setStartsOn] = useState(editing?.rule.starts_on ?? '');
   const [endsOn, setEndsOn] = useState(editing?.rule.ends_on ?? '');
   const [saving, setSaving] = useState(false);
@@ -340,9 +339,3 @@ export function PriceRuleFormModal({ onClose, editing, onCreate, onUpdate, onSav
   );
 }
 
-/** Convertit un pourcentage saisi ("50") en taux `Rate` (`"0.5000"`), ou `null` si invalide/negatif. */
-function toRateString(percent: string): string | null {
-  const parsed = Number(percent);
-  if (!Number.isFinite(parsed) || parsed < 0) return null;
-  return (parsed / 100).toFixed(4);
-}

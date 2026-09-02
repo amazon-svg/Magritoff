@@ -218,16 +218,17 @@ export class PriceRulesService {
 }
 
 /**
- * `ends_on` (INCLUS) doit rester strictement posterieure a `starts_on` —
- * comparaison lexicographique valide sur des dates `YYYY-MM-DD`
- * (`price_rule.invalid_period`, contrat).
+ * `ends_on` est INCLUSIVE (contrat, plusieurs occurrences) : une regle d un
+ * seul jour ou `ends_on === starts_on` est valide. Seule une fin strictement
+ * ANTERIEURE au debut est rejetee — comparaison lexicographique valide sur
+ * des dates `YYYY-MM-DD` (`price_rule.invalid_period`, contrat).
  */
 function assertPeriodOrder(startsOn: string, endsOn: string | null): void {
-  if (endsOn !== null && endsOn <= startsOn) {
+  if (endsOn !== null && endsOn < startsOn) {
     throw new PriceRuleCommandRejectedError(
       INVALID_PERIOD_CODE,
-      'La date de fin doit etre posterieure a la date de debut.',
-      [{ field: 'ends_on', message: 'Doit etre posterieure a la date de debut.' }],
+      'La date de fin ne peut pas etre anterieure a la date de debut.',
+      [{ field: 'ends_on', message: 'Ne peut pas etre anterieure a la date de debut.' }],
     );
   }
 }

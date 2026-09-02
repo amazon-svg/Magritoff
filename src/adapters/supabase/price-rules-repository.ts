@@ -63,6 +63,11 @@ export class SupabasePriceRulesRepository implements PriceRulesRepository {
       const sanitized = sanitizeSearchTerm(params.q);
       if (sanitized.length > 0) query = query.ilike('name', `%${sanitized}%`);
     }
+    // Egalite stricte, jamais une simulation de resolution (contrat
+    // `listPriceRules` : ces filtres portent sur la CIBLE DECLAREE de la
+    // regle, pas sur son applicabilite — aucun `OR ... IS NULL`).
+    if (params.customerId) query = query.eq('customer_id', params.customerId);
+    if (params.productRangeId) query = query.eq('product_range_id', params.productRangeId);
     if (params.cursor) {
       const op = ascending ? 'gt' : 'lt';
       query = query.or(
