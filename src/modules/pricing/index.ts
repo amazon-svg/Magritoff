@@ -39,3 +39,24 @@ export type {
 } from './application/price-rules-repository';
 export { pricingModuleManifest } from './manifest';
 export { pricingWorkspaceContribution } from './surface-contributions';
+
+// ── E10.21 — interface PricingEngine et implementation provisoire ──────────
+export { EmptyCostInputError } from './application/pricing-engine';
+export type {
+  CostInput,
+  CostInputPost,
+  CostPost,
+  CostSource,
+  PricedLine,
+  PricedLineBreakdownItem,
+  PricingContext,
+  PricingEngine,
+  ResolvedPricingRule,
+} from './application/pricing-engine';
+// `SingleCostPricingEngine` n'est volontairement PAS exporte ici (CA6, qa-review
+// B1) : le seul point d'entree pour un appelant est `createPricingEngine()`,
+// jamais l'implementation concrete. Un test qui en a besoin (par ex. pour
+// verifier le fournisseur lui-meme) l'importe par chemin profond
+// (`@/modules/pricing/application/single-cost-pricing-engine`), pas par ce
+// barrel.
+export { createPricingEngine } from './application/pricing-engine-provider';
