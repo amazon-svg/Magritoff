@@ -256,13 +256,14 @@ begin
   end if;
 
   -- 5 — aucune regle active ne couvre ce contexte (aucune regle B n a de
-  -- periode couvrant 2020-01-01) -> rule_id et reason NULL.
+  -- periode couvrant 2020-01-01) -> AUCUNE ligne rendue (pas une ligne
+  -- (null, null) : `where rule_id is not null` laisserait passer ce cas-la,
+  -- qa-review R3).
   select count(*) into v_row_count
-    from public.resolve_price_rule(v_tenant_b, null, null, '2020-01-01'::date)
-   where rule_id is not null;
+    from public.resolve_price_rule(v_tenant_b, null, null, '2020-01-01'::date);
   if v_row_count <> 0 then
     raise exception
-      'Sans aucune regle active couvrant le contexte, resolve_price_rule a rendu % ligne(s) non nulle(s)',
+      'Sans aucune regle active couvrant le contexte, resolve_price_rule a rendu % ligne(s) au lieu de zero',
       v_row_count;
   end if;
 end;

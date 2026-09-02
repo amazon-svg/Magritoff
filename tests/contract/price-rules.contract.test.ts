@@ -617,11 +617,10 @@ describe('module Pricing — referentiel des regles de prix (E10.6) contre le co
     });
 
     it('CA4 — une regle de portee differente ne concourt jamais : la specificite prime toujours sur la recence', async () => {
-      // Globale, creee en PREMIER (donc la moins recente).
+      // Globale (rang 0), creee en PREMIER (donc la moins recente des trois).
       await createGlobalRule({ name: 'Marge annuelle', starts_on: '2026-01-01' });
-      // customer_range, creee APRES mais moins specifique n a pas a etre
-      // departagee par la date : seule la specificite compte ici, une seule
-      // candidate au rang le plus specifique.
+      // customer_range (rang 3, LE PLUS SPECIFIQUE), creee en second — doit
+      // gagner malgre la troisieme regle ci-dessous, creee APRES elle.
       const { data: specific } = await createGlobalRule({
         name: 'Marge septembre client+gamme',
         scope: 'customer_range',
@@ -629,6 +628,17 @@ describe('module Pricing — referentiel des regles de prix (E10.6) contre le co
         product_range_id: RANGE_ID,
         starts_on: '2026-09-01',
         ends_on: '2026-09-30',
+      });
+      // range (rang 1), sur la MEME gamme, creee EN DERNIER (donc la plus
+      // recente des trois) : si l arbitrage departageait par recence sur
+      // TOUTES les candidates au lieu des seules candidates du rang maximal,
+      // c est CETTE regle qui gagnerait a tort — elle doit perdre face a la
+      // customer_range malgre sa recence, seule la specificite compte ici.
+      await createGlobalRule({
+        name: 'Marge gamme seule, plus recente mais moins specifique',
+        scope: 'range',
+        product_range_id: RANGE_ID,
+        starts_on: '2026-09-01',
       });
 
       const response = await resolve({

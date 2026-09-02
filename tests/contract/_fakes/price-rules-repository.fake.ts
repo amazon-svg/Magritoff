@@ -161,7 +161,10 @@ export class InMemoryPriceRulesRepository implements PriceRulesRepository {
    * Reimplemente l algorithme d E10.7 (Dev Notes de la story) : filtre les
    * regles ACTIVES du tenant dont la periode couvre `at` et dont la portee
    * est candidate au contexte fourni, retient le rang de specificite le plus
-   * eleve, puis departage par `created_at` decroissant. `reason` vaut
+   * eleve, puis departage par `created_at` decroissant puis, a egalite
+   * stricte de `created_at`, par `id` decroissant (meme critere que la
+   * fonction SQL `resolve_price_rule`, qa-review R2 : ne jamais laisser un
+   * comparateur JS rendre un ordre non specifie sur egalite). `reason` vaut
    * `recency` SSI plus d une regle etait candidate au rang retenu.
    */
   async resolve(
@@ -197,7 +200,11 @@ export class InMemoryPriceRulesRepository implements PriceRulesRepository {
 
     const maxRank = Math.max(...candidates.map((rule) => SPECIFICITY_RANK[rule.scope]));
     const atMaxRank = candidates.filter((rule) => SPECIFICITY_RANK[rule.scope] === maxRank);
-    const sorted = [...atMaxRank].sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+    const sorted = [...atMaxRank].sort((a, b) => {
+      if (a.created_at !== b.created_at) return a.created_at < b.created_at ? 1 : -1;
+      if (a.id === b.id) return 0;
+      return a.id < b.id ? 1 : -1;
+    });
     const winner = sorted[0]!;
     return {
       rule: winner,

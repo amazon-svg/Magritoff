@@ -22,8 +22,13 @@
 --      n elargit jamais la recherche.
 --   3. Retenir le rang de specificite le plus eleve parmi les candidates
 --      (global=0 < range=1 < customer=2 < customer_range=3).
---   4. A specificite egale, departager par `created_at` DECROISSANT — jamais
---      par un champ de priorite saisi a la main.
+--   4. A specificite egale, departager par `created_at` DECROISSANT puis,
+--      SEULEMENT en cas d egalite stricte de `created_at` (deux regles creees
+--      dans la meme transaction), par `id` DECROISSANT — jamais par un champ
+--      de priorite saisi a la main. Sans ce second critere, `order by ...
+--      limit 1` sur un `created_at` a egalite rendrait un resultat dependant
+--      du plan d execution (qa-review R2) : le departage complet est donc
+--      `(created_at desc, id desc)`, pas `created_at` seul.
 --   5. Motif (`PriceRuleSelectionReason`, contrat) : `recency` SSI plus d une
 --      candidate au rang retenu, `specificity` sinon.
 --
@@ -119,12 +124,12 @@ as $$
     a.id as rule_id,
     case when a.candidate_count > 1 then 'recency' else 'specificity' end as reason
   from at_max_rank a
-  order by a.created_at desc
+  order by a.created_at desc, a.id desc
   limit 1;
 $$;
 
 comment on function public.resolve_price_rule(uuid, uuid, uuid, date) is
-  'E10.7 — arbitrage des regles de prix concurrentes : la regle la plus SPECIFIQUE couvrant (p_customer_id, p_product_range_id) a p_at, departagee par created_at decroissant a specificite egale (reason = recency). Lecture pure, deterministe, SECURITY INVOKER (la RLS de price_rules s applique).';
+  'E10.7 — arbitrage des regles de prix concurrentes : la regle la plus SPECIFIQUE couvrant (p_customer_id, p_product_range_id) a p_at, departagee par (created_at desc, id desc) a specificite egale (reason = recency). Lecture pure, SECURITY INVOKER (la RLS de price_rules s applique).';
 
 -- Meme discipline que le grant de base herite sur `price_rules` (RLS = seule
 -- barriere d autorisation, pas le grant) : execute ouvert a `anon` ET
