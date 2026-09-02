@@ -65,6 +65,8 @@ export {
   toEventEnvelope,
   verifyEventSignature,
 } from './outbox.ts';
+
+export { toIsoTimestamp, toIsoTimestampOrNull } from './timestamps.ts';
 export type {
   EventPayload,
   OutboxEvent,

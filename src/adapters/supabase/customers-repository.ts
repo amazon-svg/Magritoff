@@ -7,6 +7,7 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { TenantId, UserId } from '../../kernel/ids/index.ts';
+import { toIsoTimestamp, toIsoTimestampOrNull } from '../../modules/_shared/application/index.ts';
 import type {
   Address,
   CreateCustomerCommand,
@@ -307,9 +308,9 @@ function toCustomerDto(row: Record<string, any>): CustomerDto {
     shipping_address: toAddress(row.shipping_address),
     is_active: Boolean(row.is_active),
     siret_verified: Boolean(row.siret_verified),
-    siret_verified_at: row.siret_verified_at ?? null,
-    created_at: row.created_at,
-    updated_at: row.updated_at,
+    siret_verified_at: toIsoTimestampOrNull(row.siret_verified_at),
+    created_at: toIsoTimestamp(row.created_at),
+    updated_at: toIsoTimestamp(row.updated_at),
   };
 }
 
@@ -323,8 +324,8 @@ function toContactDto(row: Record<string, any>): CustomerContactDto {
     email: row.email,
     phone: row.phone ?? null,
     is_primary: Boolean(row.is_primary),
-    created_at: row.created_at,
-    updated_at: row.updated_at,
+    created_at: toIsoTimestamp(row.created_at),
+    updated_at: toIsoTimestamp(row.updated_at),
     shop_accesses: toShopAccesses(row.shop_customer_accounts),
   };
 }

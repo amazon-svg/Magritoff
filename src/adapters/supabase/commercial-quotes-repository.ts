@@ -31,6 +31,7 @@ import {
   type ListQuotesParams,
   type ListQuotesResult,
 } from '../../modules/commercial-quotes/application/commercial-quotes-repository.ts';
+import { toIsoTimestamp } from '../../modules/_shared/application/index.ts';
 
 const CHECK_VIOLATION = '23514';
 
@@ -156,8 +157,8 @@ function toQuoteDto(row: Record<string, any>): QuoteDto {
     valid_until: row.valid_until ?? null,
     show_discounts: Boolean(row.show_discounts),
     created_by: row.created_by ?? null,
-    created_at: row.created_at,
-    updated_at: row.updated_at,
+    created_at: toIsoTimestamp(row.created_at),
+    updated_at: toIsoTimestamp(row.updated_at),
   };
 }
 
@@ -183,7 +184,7 @@ function toQuoteLineDto(row: Record<string, any>): QuoteLineDto {
         : toRateString(row.applied_margin_rate),
     applied_rule_id: row.applied_rule_id ?? null,
     breakdown: Array.isArray(row.breakdown) ? row.breakdown : [],
-    created_at: row.created_at,
+    created_at: toIsoTimestamp(row.created_at),
   };
 }
 

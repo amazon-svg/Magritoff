@@ -23,6 +23,7 @@ import {
   type ProjectsRepository,
 } from '../../modules/projects/application/projects-repository.ts';
 import type { ProjectTagDto } from '../../modules/project-tags/api/contracts.ts';
+import { toIsoTimestamp } from '../../modules/_shared/application/index.ts';
 
 const CHECK_VIOLATION = '23514';
 const NOT_NULL_VIOLATION = '23502';
@@ -306,8 +307,8 @@ function toProjectDto(row: Record<string, any>): ProjectDto {
     status: row.status,
     tags: toProjectTagDtos(row.project_tag_links),
     created_by: row.created_by ?? null,
-    created_at: row.created_at,
-    updated_at: row.updated_at,
+    created_at: toIsoTimestamp(row.created_at),
+    updated_at: toIsoTimestamp(row.updated_at),
   };
 }
 
@@ -338,7 +339,7 @@ export function toProjectTagDtos(links: unknown): ProjectTagDto[] {
       tenant_id: tag.tenant_id,
       label: tag.label,
       color: tag.color,
-      created_at: tag.created_at,
+      created_at: toIsoTimestamp(tag.created_at),
     }))
     .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 }
@@ -351,7 +352,7 @@ function toProjectItemDto(row: Record<string, any>): ProjectItemDto {
     quote_payload: row.quote_payload ?? {},
     clariprint_config: row.clariprint_config ?? null,
     position: Number(row.position),
-    created_at: row.created_at,
+    created_at: toIsoTimestamp(row.created_at),
   };
 }
 

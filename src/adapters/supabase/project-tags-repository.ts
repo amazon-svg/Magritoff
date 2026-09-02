@@ -8,6 +8,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { TenantId } from '../../kernel/ids/index.ts';
 import type { CreateProjectTagCommand, ProjectTagColor, ProjectTagDto } from '../../modules/project-tags/api/contracts.ts';
+import { toIsoTimestamp } from '../../modules/_shared/application/index.ts';
 import {
   ProjectTagCommandRejectedError,
   ProjectTagNotFoundError,
@@ -142,7 +143,7 @@ function toProjectTagDto(row: Record<string, any>): ProjectTagDto {
     tenant_id: row.tenant_id,
     label: row.label,
     color: row.color,
-    created_at: row.created_at,
+    created_at: toIsoTimestamp(row.created_at),
   };
 }
 
