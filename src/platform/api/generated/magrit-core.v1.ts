@@ -445,6 +445,121 @@ export interface paths {
         patch: operations["updateQuote"];
         trace?: never;
     };
+    "/price-rules": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /** Liste les regles de prix du tenant courant : filtrables par etat (`status`) et par nom (`q`), triables par date de creation et par date de debut (`sort`). */
+        get: operations["listPriceRules"];
+        put?: never;
+        /** Cree une regle de prix. Ne modifie, ne decoupe et ne duplique JAMAIS une regle existante (E10.7) : deux regles applicables a la meme date sont un etat normal du referentiel, tranche a la resolution. */
+        post: operations["createPriceRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/price-rules/resolve": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resout LA regle applicable a un contexte (client, gamme, date) et rend le motif de sa selection (E10.7). Operation de LECTURE : elle n ecrit rien, ne cree rien et n emet aucun evenement — POST parce que le contexte est un corps structure, pas parce qu elle mute quoi que ce soit. Elle ne porte donc ni `Idempotency-Key` ni 201. */
+        post: operations["resolvePriceRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/price-rules/{priceRuleId}": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /** Recupere une regle de prix et son `ETag` courant — necessaire pour enchainer un `PATCH` protege par `If-Match` (CA9), que `listPriceRules` ne permet pas puisqu une collection n emet aucun `ETag`. */
+        get: operations["getPriceRule"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Modifie le nom, la valeur, la periode ou l etat actif d une regle. La PORTEE, la CIBLE et le TYPE DE VALEUR ne sont pas modifiables : les changer reviendrait a reecrire l historique d arbitrage d une regle deja appliquee a des devis. Creer une nouvelle regle a la place — c est justement ce que l arbitrage par la recence rend indolore (E10.7). */
+        patch: operations["updatePriceRule"];
+        trace?: never;
+    };
+    "/product-ranges/{productRangeId}/default-margins": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /** Lit la marge publique standard que le tenant applique a cette gamme, et son `ETag` courant. */
+        get: operations["getProductRangeDefaultMargin"];
+        /** Definit la marge publique standard du tenant sur cette gamme. `PUT` et non `POST` : la ressource est un singleton, l appel est idempotent par nature et son identite est celle du chemin — c est `If-Match`, pas une cle d idempotence, qui protege deux redacteurs concurrents. */
+        put: operations["setProductRangeDefaultMargin"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export interface webhooks {
     "quote.converted": {
@@ -558,7 +673,10 @@ export interface webhooks {
         };
         get?: never;
         put?: never;
-        /** Une regle de prix commerciale a ete creee, modifiee ou desactivee. */
+        /**
+         * Une regle de prix commerciale a ete creee, modifiee, activee ou desactivee (E10.7). Emis a CHACUNE de ces quatre actions, y compris une simple bascule d etat : un consommateur qui cache des prix doit pouvoir invalider son cache sans distinguer les cas.
+         * @description `payload` est fige par `PriceRuleChangedPayload` (`event_version: 1`). Il ne porte que l identifiant de la regle et l action : un consommateur relit la regle par `getPriceRule` s il lui faut son contenu, plutot que de dependre d une copie transportee dans l evenement, qui aurait a etre versionnee a chaque evolution de `PriceRule`.
+         */
         post: operations["onPriceRuleChanged"];
         delete?: never;
         options?: never;
@@ -1149,6 +1267,187 @@ export interface components {
             valid_until?: string | null;
             show_discounts?: boolean;
         };
+        /**
+         * PriceRuleScope
+         * @description Portee d une regle, de la moins a la PLUS SPECIFIQUE. L ordre de cette enumeration est CONTRACTUEL : c est lui qui fonde l arbitrage d E10.7, ou la specificite prime toujours sur la recence.
+         *
+         *     - `global` : toutes les gammes, tous les clients du tenant.
+         *     - `range` : une gamme de produits, tous les clients.
+         *     - `customer` : un client, toutes les gammes.
+         *     - `customer_range` : un client ET une gamme.
+         *
+         *     Une regle `customer_range` applicable l emporte donc toujours sur une regle `customer`, meme creee bien plus tard — la recence ne departage que des regles de MEME portee et MEME cible.
+         * @enum {string}
+         */
+        PriceRuleScope: "global" | "range" | "customer" | "customer_range";
+        /**
+         * PriceRuleValueType
+         * @description Nature de la valeur portee par la regle. `margin_rate` AJOUTE une marge au prix de production, `discount_rate` RETRANCHE une remise au prix public. Le type n est pas modifiable apres creation : il change le sens du nombre, pas seulement sa valeur.
+         *
+         *     L application effective au prix (dans quel ordre, sur quelle base) n appartient pas a ce referentiel : elle est du ressort de l interface `PricingEngine` (E10.21). E10.6 dit QUELLE regle s applique, pas comment le prix se calcule.
+         * @enum {string}
+         */
+        PriceRuleValueType: "margin_rate" | "discount_rate";
+        /**
+         * PriceRuleStatusFilter
+         * @description Filtre de liste sur l etat de premier plan de la regle : `active` vaut `is_active: true`, `disabled` vaut `is_active: false`.
+         * @enum {string}
+         */
+        PriceRuleStatusFilter: "active" | "disabled";
+        /**
+         * PriceRuleSort
+         * @description Ordre de tri de `listPriceRules`, prefixe `-` pour decroissant. Defaut `-created_at`.
+         * @default -created_at
+         * @enum {string}
+         */
+        PriceRuleSort: "-created_at" | "created_at" | "-starts_on" | "starts_on";
+        /**
+         * PriceRuleSelectionReason
+         * @description Motif pour lequel une regle a ete retenue par `resolvePriceRule` (E10.7). Rendu pour que l appelant puisse EXPLIQUER un prix, pas seulement l afficher.
+         *
+         *     - `specificity` : une seule regle etait candidate au niveau de portee
+         *       le plus specifique. Aucun departage par la date n a ete necessaire.
+         *
+         *     - `recency` : PLUSIEURS regles de meme portee et meme cible etaient
+         *       applicables a cette date ; celle dont `created_at` est la plus
+         *       recente a ete retenue.
+         *
+         *
+         *     Ces deux cas sont exhaustifs et mutuellement exclusifs : le motif vaut `recency` si et seulement si le niveau de portee retenu comptait plus d une candidate.
+         * @enum {string}
+         */
+        PriceRuleSelectionReason: "specificity" | "recency";
+        /**
+         * PriceRule
+         * @description Regle de prix commerciale du tenant (E10.6). Les periodes de deux regles PEUVENT se chevaucher : c est un etat normal du referentiel, aucune contrainte d exclusion ne l interdit et aucune regle n est jamais decoupee ni dupliquee a la creation d une autre (E10.7). Le conflit se tranche a la LECTURE, par `resolvePriceRule`.
+         */
+        PriceRule: {
+            id: components["schemas"]["Uuid"];
+            tenant_id: components["schemas"]["Uuid"];
+            /** @description Libelle de la regle, OBLIGATOIRE et non vide (E10.6) : une regle sans nom est illisible dans une liste ou l on doit choisir laquelle desactiver. Le nom n a aucun role dans l arbitrage. */
+            name: string;
+            scope: components["schemas"]["PriceRuleScope"];
+            /** @description Client vise (E10.4). Renseigne pour `customer` et `customer_range`, `null` pour `global` et `range`. */
+            customer_id: components["schemas"]["Uuid"] | null;
+            /** @description Gamme de produits visee (`public.product_gammes`). Renseignee pour `range` et `customer_range`, `null` pour `global` et `customer`. */
+            product_range_id: components["schemas"]["Uuid"] | null;
+            value_type: components["schemas"]["PriceRuleValueType"];
+            /** @description Taux applique, en chaine a quatre decimales (`"0.1500"` vaut 15 %). Toujours positif ou nul : c est `value_type` qui dit si le taux s ajoute ou se retranche, jamais le signe. Un taux negatif est refuse en 422 `api.validation_failed`. */
+            value: components["schemas"]["Rate"];
+            /**
+             * Format: date
+             * @description Premier jour d application, inclus.
+             */
+            starts_on: string;
+            /** @description Dernier jour d application, INCLUS. `null` signifie « sans terme » — la regle reste applicable indefiniment. C est une valeur ordinaire, pas une donnee manquante. */
+            ends_on: string | null;
+            /** @description Etat de PREMIER PLAN, pas un effacement logique (E10.6) : une regle desactivee reste listee, nommee et reactivable d une bascule. Une regle inactive n est jamais candidate a la resolution, quelle que soit sa periode. */
+            is_active: boolean;
+            /** @description Acteur createur. `null` pour une creation systeme. */
+            created_by: components["schemas"]["Uuid"] | null;
+            /** @description Instant de creation. CHAMP D ARBITRAGE (E10.7) : a portee et cible egales, c est le `created_at` le plus recent qui l emporte. Il est attribue par le serveur et ne bouge JAMAIS ensuite, pas meme sur une modification — sans quoi un renommage suffirait a faire gagner un departage. */
+            created_at: components["schemas"]["Timestamp"];
+            updated_at: components["schemas"]["Timestamp"];
+        };
+        /**
+         * CreatePriceRuleCommand
+         * @description Commande de creation d une regle de prix. La coherence entre `scope` et les cibles est une regle METIER, verifiee au-dela de la forme du schema (422 `price_rule.invalid_scope`) : `customer_id` requis par `customer` et `customer_range`, `product_range_id` requis par `range` et `customer_range`, et refuses hors de leur portee — une cible ignoree en silence donnerait une regle qui ne s applique pas la ou son auteur croit l avoir posee.
+         *
+         *     Cette commande n a AUCUN effet de bord sur les regles existantes (E10.7) : ni desactivation, ni fermeture de periode, ni decoupage.
+         */
+        CreatePriceRuleCommand: {
+            name: string;
+            scope: components["schemas"]["PriceRuleScope"];
+            customer_id?: components["schemas"]["Uuid"] | null;
+            product_range_id?: components["schemas"]["Uuid"] | null;
+            value_type: components["schemas"]["PriceRuleValueType"];
+            value: components["schemas"]["Rate"];
+            /** Format: date */
+            starts_on: string;
+            /** @description Absent ou `null` : regle sans terme. */
+            ends_on?: string | null;
+            /**
+             * @description Une regle est active a la creation sauf mention contraire.
+             * @default true
+             */
+            is_active: boolean;
+        };
+        /**
+         * UpdatePriceRuleCommand
+         * @description Modification partielle d une regle : nom, valeur, periode, etat actif. `scope`, `customer_id`, `product_range_id` et `value_type` sont ABSENTS de cette commande et ne sont donc pas modifiables — reciblage ou changement de nature se font en creant une nouvelle regle, que l arbitrage par la recence fera prevaloir sans qu il faille toucher a l ancienne (E10.7).
+         */
+        UpdatePriceRuleCommand: {
+            name?: string;
+            value?: components["schemas"]["Rate"];
+            /** Format: date */
+            starts_on?: string;
+            ends_on?: string | null;
+            /** @description Bascule d activation. Un `PATCH` qui ne porte QUE ce champ emet `price_rule.changed` avec l action `activated` ou `deactivated` ; toute autre modification emet `updated`. */
+            is_active?: boolean;
+        };
+        /**
+         * PriceRuleResolveQuery
+         * @description Contexte de resolution (E10.7). `customer_id` et `product_range_id` sont facultatifs : leur ABSENCE restreint les portees candidates plutot qu elle n elargit la recherche. Sans `customer_id`, aucune regle `customer` ni `customer_range` ne peut etre retenue ; sans `product_range_id`, aucune regle `range` ni `customer_range`.
+         *
+         *     Une resolution sans aucun des deux ne peut donc rendre qu une regle `global` — c est le cas d usage « quel est le taux par defaut du tenant aujourd hui ».
+         */
+        PriceRuleResolveQuery: {
+            /** @description Client du contexte (E10.4). Absent ou `null` -> portees client exclues. */
+            customer_id?: components["schemas"]["Uuid"] | null;
+            /** @description Gamme du contexte (`public.product_gammes`). Absente ou `null` -> portees gamme exclues. */
+            product_range_id?: components["schemas"]["Uuid"] | null;
+            /**
+             * Format: date
+             * @description Date d application evaluee, au format `YYYY-MM-DD`. Une DATE, pas un instant : les bornes `starts_on`/`ends_on` sont des dates, et comparer un instant a une date ferait dependre le resultat du fuseau de l appelant. Obligatoire — l API ne substitue pas « le jour courant » du serveur a une date que l appelant n a pas dite.
+             */
+            at: string;
+        };
+        /**
+         * PriceRuleResolveResult
+         * @description Regle retenue pour le contexte demande, et motif de sa selection (E10.7).
+         */
+        PriceRuleResolveResult: {
+            /** @description Regle applicable, ou `null` si aucune regle ACTIVE du tenant ne couvre ce contexte a cette date. `null` est une reponse normale, pas une erreur. */
+            rule: components["schemas"]["PriceRule"] | null;
+            /** @description Motif de selection, `null` quand `rule` est `null` — il n y a rien a expliquer quand rien n a ete retenu. */
+            reason: components["schemas"]["PriceRuleSelectionReason"] | null;
+        };
+        /**
+         * PriceRuleChangedPayload
+         * @description Charge utile de l evenement sortant `price_rule.changed` (`event_version: 1`). Volontairement minimale : l identifiant et l action. Un consommateur qui a besoin du contenu de la regle la relit par `getPriceRule` — transporter une copie de `PriceRule` obligerait a versionner l evenement a chaque evolution du schema de la regle.
+         */
+        PriceRuleChangedPayload: {
+            rule_id: components["schemas"]["Uuid"];
+            /**
+             * @description `created` a la creation, `activated` / `deactivated` quand `is_active` bascule, `updated` pour toute autre modification.
+             * @enum {string}
+             */
+            action: "created" | "updated" | "activated" | "deactivated";
+        };
+        /**
+         * ProductRangeDefaultMargin
+         * @description Marge publique standard appliquee par le TENANT a une gamme de produits (E10.6). Elle sert de defaut quand aucune regle de prix ne s applique ; elle n est PAS une regle de prix et n entre jamais dans l arbitrage d E10.7.
+         *
+         *     Le couple (tenant, gamme) est l identite de cette ressource : `public.product_gammes` est un catalogue PARTAGE, sans tenant — deux imprimeurs ne pratiquent pas la meme marge sur la meme gamme.
+         */
+        ProductRangeDefaultMargin: {
+            tenant_id: components["schemas"]["Uuid"];
+            product_range_id: components["schemas"]["Uuid"];
+            /** @description Marge publique standard, en chaine a quatre decimales. `null` tant que le tenant n en a defini aucune sur cette gamme. */
+            margin_rate: components["schemas"]["Rate"] | null;
+            /** @description Derniere ecriture de cette marge, `null` si elle n a jamais ete definie. */
+            updated_at: components["schemas"]["Timestamp"] | null;
+            /** @description Dernier acteur, `null` si jamais definie ou ecriture systeme. */
+            updated_by: components["schemas"]["Uuid"] | null;
+        };
+        /**
+         * SetProductRangeDefaultMarginCommand
+         * @description Definit la marge publique standard du tenant sur une gamme. `null` n est pas accepte : E10.6 ne prevoit pas d EFFACER une marge standard, seulement de la poser ou de la corriger. Ouvrir l effacement demanderait de trancher ce que devient le prix public d une gamme sans defaut, question qui appartient au PricingEngine (E10.21).
+         */
+        SetProductRangeDefaultMarginCommand: {
+            /** @description Taux positif ou nul, en chaine a quatre decimales. */
+            margin_rate: components["schemas"]["Rate"];
+        };
     };
     responses: {
         /** @description Requete malformee. */
@@ -1282,6 +1581,10 @@ export interface components {
         ProjectId: components["schemas"]["Uuid"];
         /** @description Identifiant technique du devis, dans le tenant du jeton. */
         QuoteId: components["schemas"]["Uuid"];
+        /** @description Identifiant technique de la regle de prix, dans le tenant du jeton. */
+        PriceRuleId: components["schemas"]["Uuid"];
+        /** @description Identifiant technique de la gamme de produits (`public.product_gammes`, catalogue PIM partage). Le `slug` de la gamme (`depliant`, `affiche`) en est un attribut metier, pas une cle : il n adresse pas cette ressource (schema `Uuid`). */
+        ProductRangeId: components["schemas"]["Uuid"];
     };
     requestBodies: never;
     headers: {
@@ -1341,6 +1644,19 @@ export type Quote = components['schemas']['Quote'];
 export type QuoteDetail = components['schemas']['QuoteDetail'];
 export type CreateQuoteFromProjectCommand = components['schemas']['CreateQuoteFromProjectCommand'];
 export type UpdateQuoteCommand = components['schemas']['UpdateQuoteCommand'];
+export type PriceRuleScope = components['schemas']['PriceRuleScope'];
+export type PriceRuleValueType = components['schemas']['PriceRuleValueType'];
+export type PriceRuleStatusFilter = components['schemas']['PriceRuleStatusFilter'];
+export type PriceRuleSort = components['schemas']['PriceRuleSort'];
+export type PriceRuleSelectionReason = components['schemas']['PriceRuleSelectionReason'];
+export type PriceRule = components['schemas']['PriceRule'];
+export type CreatePriceRuleCommand = components['schemas']['CreatePriceRuleCommand'];
+export type UpdatePriceRuleCommand = components['schemas']['UpdatePriceRuleCommand'];
+export type PriceRuleResolveQuery = components['schemas']['PriceRuleResolveQuery'];
+export type PriceRuleResolveResult = components['schemas']['PriceRuleResolveResult'];
+export type PriceRuleChangedPayload = components['schemas']['PriceRuleChangedPayload'];
+export type ProductRangeDefaultMargin = components['schemas']['ProductRangeDefaultMargin'];
+export type SetProductRangeDefaultMarginCommand = components['schemas']['SetProductRangeDefaultMarginCommand'];
 export type ResponseBadRequest = components['responses']['BadRequest'];
 export type ResponseUnauthorized = components['responses']['Unauthorized'];
 export type ResponseForbidden = components['responses']['Forbidden'];
@@ -1361,6 +1677,8 @@ export type ParameterMagritEventName = components['parameters']['MagritEventName
 export type ParameterCustomerId = components['parameters']['CustomerId'];
 export type ParameterProjectId = components['parameters']['ProjectId'];
 export type ParameterQuoteId = components['parameters']['QuoteId'];
+export type ParameterPriceRuleId = components['parameters']['PriceRuleId'];
+export type ParameterProductRangeId = components['parameters']['ProductRangeId'];
 export type HeaderETag = components['headers']['ETag'];
 export type HeaderXRequestId = components['headers']['XRequestId'];
 export type HeaderIdempotencyReplayed = components['headers']['IdempotencyReplayed'];
@@ -2659,6 +2977,387 @@ export interface operations {
             428: components["responses"]["PreconditionRequired"];
         };
     };
+    listPriceRules: {
+        parameters: {
+            query?: {
+                /** @description Recherche plein texte sur le nom de la regle. */
+                q?: string;
+                /** @description Filtre sur l etat de premier plan de la regle : `active` vaut `is_active: true`, `disabled` vaut `is_active: false`. Absent -> les deux. `is_active` n est PAS un effacement logique : une regle desactivee reste listee, affichee et reactivable (E10.6). */
+                status?: components["schemas"]["PriceRuleStatusFilter"];
+                /**
+                 * @description Ordre de tri, prefixe `-` pour l ordre decroissant. Defaut `-created_at` : c est l ordre qui met en tete la regle qui gagnerait un departage par la recence (E10.7).
+                 *
+                 *     Le curseur de pagination encode l ordre demande. Reprendre le MEME `sort` sur les pages suivantes ; un `sort` different d un curseur en cours rend 400 `api.validation_failed`, jamais une page silencieusement incoherente.
+                 */
+                sort?: components["schemas"]["PriceRuleSort"];
+                /** @description Nombre d elements par page. Defaut 50, maximum 200. */
+                "page[size]"?: components["parameters"]["PageSize"];
+                /** @description Curseur opaque renvoye par `meta.next_cursor` de la page precedente. Absent sur la premiere page. Ne jamais construire un curseur cote client : sa structure interne n est pas contractuelle. */
+                "page[cursor]"?: components["parameters"]["PageCursor"];
+            };
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Page de regles de prix du tenant. Aucun `ETag` n est emis sur une collection : une collection n a pas de version unique opposable a un `If-Match` portant sur UN de ses elements. C est `getPriceRule` qui fait foi pour la concurrence optimiste d une regle donnee, meme regle qu en E10.4 pour les interlocuteurs. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["PriceRule"][];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    createPriceRule: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+                /**
+                 * @description Cle d idempotence fournie par l appelant sur tout POST creant une ressource metier (CA8). Rejouer la meme cle avec la meme requete renvoie la reponse initiale, accompagnee de l en-tete `Idempotency-Replayed: true` ; la rejouer avec une requete differente renvoie 409 `api.idempotency_key_reused`.
+                 *
+                 *     L identite d une requete couvre la methode, le chemin, LA QUERY et le corps : deux POST au meme chemin avec des query differentes ne sont pas la meme requete.
+                 *
+                 *     Sur un rejeu, seul `meta.request_id` est recale sur la requete courante ; `data` est rendu inchange.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePriceRuleCommand"];
+            };
+        };
+        responses: {
+            /** @description Regle creee. `created_at` est attribue par le serveur : c est lui qui departage deux regles de meme portee et meme cible (E10.7), il n est donc jamais fourni par l appelant. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["PriceRule"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            /** @description Cible incoherente avec la portee — `customer_id` requis par `customer`/`customer_range`, `product_range_id` requis par `range`/`customer_range`, l un ou l autre fourni hors de sa portee (`price_rule.invalid_scope`) ; `ends_on` anterieure a `starts_on` (`price_rule.invalid_period`) ; client ou gamme inconnus du tenant (`price_rule.customer_unknown`, `price_rule.product_range_unknown`) ; nom vide ou taux hors format (`api.validation_failed`). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    resolvePriceRule: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PriceRuleResolveQuery"];
+            };
+        };
+        responses: {
+            /** @description Regle retenue et motif de selection, ou `rule: null` si aucune regle du tenant n est applicable a ce contexte a cette date. Un `null` n est pas une erreur : il dit qu il n y a pas de regle, ce que l appelant traite en retombant sur la marge publique standard de la gamme (`getProductRangeDefaultMargin`) puis sur ses propres defauts. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["PriceRuleResolveResult"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description `customer_id` ou `product_range_id` fourni mais inconnu du tenant (`price_rule.customer_unknown`, `price_rule.product_range_unknown`). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getPriceRule: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path: {
+                /** @description Identifiant technique de la regle de prix, dans le tenant du jeton. */
+                priceRuleId: components["parameters"]["PriceRuleId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Regle de prix. L `ETag` porte sur la representation `PriceRule` rendue ici : c est la meme base de calcul que celle verifiee par `updatePriceRule`, condition necessaire pour qu un `If-Match` lu ici soit accepte par le `PATCH`. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["PriceRule"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description Regle inexistante dans le tenant du jeton (`price_rule.not_found`). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    updatePriceRule: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+                /**
+                 * @description Valeur d `ETag` de la representation lue, exigee sur tout PATCH (CA9). Absente -> 428 `api.if_match_required`. Differente de l etat courant -> 409 avec l etat courant dans `current_state`.
+                 *
+                 *     `If-Match: *` est REFUSE en 400 `api.if_match_invalid`, contrairement a la semantique RFC 7232 ou il signifie « pourvu que la ressource existe ». Ici il reviendrait a desactiver le controle de concurrence : deux modifications concurrentes s ecraseraient en silence, ce que le CA9 interdit. Le `pattern` ci-dessous n admet qu un ETag, faible ou fort.
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description Identifiant technique de la regle de prix, dans le tenant du jeton. */
+                priceRuleId: components["parameters"]["PriceRuleId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePriceRuleCommand"];
+            };
+        };
+        responses: {
+            /** @description Regle modifiee. `created_at` reste celui de la creation : une modification ne rajeunit PAS une regle, sans quoi un simple renommage la ferait gagner un arbitrage qu elle perdait (E10.7). */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["PriceRule"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description `ends_on` anterieure a `starts_on` (`price_rule.invalid_period`), nom vide ou taux hors format (`api.validation_failed`). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            428: components["responses"]["PreconditionRequired"];
+        };
+    };
+    getProductRangeDefaultMargin: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path: {
+                /** @description Identifiant technique de la gamme de produits (`public.product_gammes`, catalogue PIM partage). Le `slug` de la gamme (`depliant`, `affiche`) en est un attribut metier, pas une cle : il n adresse pas cette ressource (schema `Uuid`). */
+                productRangeId: components["parameters"]["ProductRangeId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Marge publique standard de la gamme. `margin_rate: null` quand le tenant n en a jamais defini : la reponse est 200, pas 404 — la gamme existe, c est la marge qui n est pas encore posee, et l `ETag` de cet etat « non defini » est ce qui rend le PREMIER `PUT` executable sous `If-Match`. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["ProductRangeDefaultMargin"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description Gamme de produits inconnue (`price_rule.product_range_unknown`). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    setProductRangeDefaultMargin: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+                /**
+                 * @description Valeur d `ETag` de la representation lue, exigee sur tout PATCH (CA9). Absente -> 428 `api.if_match_required`. Differente de l etat courant -> 409 avec l etat courant dans `current_state`.
+                 *
+                 *     `If-Match: *` est REFUSE en 400 `api.if_match_invalid`, contrairement a la semantique RFC 7232 ou il signifie « pourvu que la ressource existe ». Ici il reviendrait a desactiver le controle de concurrence : deux modifications concurrentes s ecraseraient en silence, ce que le CA9 interdit. Le `pattern` ci-dessous n admet qu un ETag, faible ou fort.
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description Identifiant technique de la gamme de produits (`public.product_gammes`, catalogue PIM partage). Le `slug` de la gamme (`depliant`, `affiche`) en est un attribut metier, pas une cle : il n adresse pas cette ressource (schema `Uuid`). */
+                productRangeId: components["parameters"]["ProductRangeId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetProductRangeDefaultMarginCommand"];
+            };
+        };
+        responses: {
+            /** @description Marge publique standard enregistree. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["ProductRangeDefaultMargin"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description Gamme de produits inconnue (`price_rule.product_range_unknown`). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+            428: components["responses"]["PreconditionRequired"];
+        };
+    };
     onQuoteConverted: {
         parameters: {
             query?: never;
@@ -2835,7 +3534,9 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["EventEnvelope"];
+                "application/json": components["schemas"]["EventEnvelope"] & {
+                    payload?: components["schemas"]["PriceRuleChangedPayload"];
+                };
             };
         };
         responses: {

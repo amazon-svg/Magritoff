@@ -1581,6 +1581,482 @@ paths:
                 $ref: '#/components/schemas/Problem'
 
 # ----------------------------------------------------------------------------
+# stories E10.6 (referentiel des regles de prix) et E10.7 (arbitrage des regles
+# concurrentes par la plus recente).
+#
+# UNE SEULE ressource `price-rules` pour les deux stories : E10.7 ne cree pas
+# un second referentiel, elle FIXE la regle d arbitrage de celui d E10.6 et en
+# publie le CRUD complet. Aucune contrainte d exclusion sur les periodes, aucun
+# champ de decoupage de regle : le chevauchement de dates est NORMAL et se
+# tranche a la resolution, jamais a l ecriture (E10.7 v2, qui abroge la
+# specification du 28/08).
+#
+# Frontiere avec l existant — a lire AVANT d implementer.
+# `public.client_price_rules` / `public.client_groups` (migration
+# 20260808000100, facade historique `/api/v1/tenants/{tenantId}/commercial`)
+# decrivent une AUTRE notion, pas une version anterieure de celle-ci :
+#  - leur cible client est `auth.users` (un compte), celle d E10.6 est
+#    `customers` (personne morale ou physique, E10.4 — le contrat annonce deja
+#    que `price_rules` pointe vers `customers`) ;
+#  - elles se departagent par une colonne `priority` saisie a la main ; E10.7
+#    departage par la specificite de portee puis par la RECENCE, sans champ de
+#    priorite ;
+#  - elles portent un mode `fixed_price` et une cible `product`, hors perimetre
+#    d E10.6 ;
+#  - leur resolution vit dans le navigateur (`applyCommercialRules()`,
+#    src/app/components/dashboard/commercial/commercial.helpers.ts), ce que le
+#    sprint interdit desormais.
+# Les deux referentiels coexistent donc durablement, exactement comme `quotes`
+# et `commercial_quotes` en E10.3 (docs/api/CONVENTIONS.md §8.6, p3). Aucune
+# convergence n est faite en silence : elle releverait d une decision produit
+# explicite, pas d un refactor.
+#
+# Ce que ces regles N EMBARQUENT PAS : le calcul de prix lui-meme. Elles
+# disent QUELLE regle s applique ; l application du taux au prix resolu par
+# `resolvePrice()` (hierarchie clariprint > library_cached > prix_marche)
+# reste du ressort de l interface `PricingEngine` (E10.21). E10.8 est gelee.
+#
+# Lecture ouverte aux cles de service (`price-rules:read`) : c est par
+# `resolvePriceRule` que Clariprint et Studio obtiennent la regle applicable
+# sans rejouer la hierarchie de prix, sans jeton utilisateur. Ecriture
+# reservee aux jetons utilisateur, comme E10.1/E10.3/E10.4.
+# ----------------------------------------------------------------------------
+  /price-rules:
+    # Selection de l espace de travail : commune a toutes les operations de ce
+    # chemin. Declaree au niveau du chemin plutot que repetee sur chaque
+    # operation — un oubli sur une seule operation rendrait l en-tete invisible
+    # pour un client pilote par le contrat.
+    parameters:
+      - $ref: '#/components/parameters/MagritTenant'
+    get:
+      operationId: listPriceRules
+      summary: >-
+        Liste les regles de prix du tenant courant : filtrables par etat
+        (`status`) et par nom (`q`), triables par date de creation et par date
+        de debut (`sort`).
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+        - serviceKey: []
+      x-required-scopes: [price-rules:read]
+      parameters:
+        - name: q
+          in: query
+          required: false
+          description: Recherche plein texte sur le nom de la regle.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 200
+        - name: status
+          in: query
+          required: false
+          description: >-
+            Filtre sur l etat de premier plan de la regle : `active` vaut
+            `is_active: true`, `disabled` vaut `is_active: false`. Absent ->
+            les deux. `is_active` n est PAS un effacement logique : une regle
+            desactivee reste listee, affichee et reactivable (E10.6).
+          schema:
+            $ref: '#/components/schemas/PriceRuleStatusFilter'
+        - name: sort
+          in: query
+          required: false
+          description: >-
+            Ordre de tri, prefixe `-` pour l ordre decroissant. Defaut
+            `-created_at` : c est l ordre qui met en tete la regle qui
+            gagnerait un departage par la recence (E10.7).
+
+
+            Le curseur de pagination encode l ordre demande. Reprendre le MEME
+            `sort` sur les pages suivantes ; un `sort` different d un curseur
+            en cours rend 400 `api.validation_failed`, jamais une page
+            silencieusement incoherente.
+          schema:
+            $ref: '#/components/schemas/PriceRuleSort'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/PageCursor'
+      responses:
+        '200':
+          description: >-
+            Page de regles de prix du tenant. Aucun `ETag` n est emis sur une
+            collection : une collection n a pas de version unique opposable a
+            un `If-Match` portant sur UN de ses elements. C est `getPriceRule`
+            qui fait foi pour la concurrence optimiste d une regle donnee,
+            meme regle qu en E10.4 pour les interlocuteurs.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/PriceRule'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+    post:
+      operationId: createPriceRule
+      summary: >-
+        Cree une regle de prix. Ne modifie, ne decoupe et ne duplique JAMAIS
+        une regle existante (E10.7) : deux regles applicables a la meme date
+        sont un etat normal du referentiel, tranche a la resolution.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePriceRuleCommand'
+      responses:
+        '201':
+          description: >-
+            Regle creee. `created_at` est attribue par le serveur : c est lui
+            qui departage deux regles de meme portee et meme cible (E10.7), il
+            n est donc jamais fourni par l appelant.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/PriceRule'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          description: >-
+            Cible incoherente avec la portee — `customer_id` requis par
+            `customer`/`customer_range`, `product_range_id` requis par
+            `range`/`customer_range`, l un ou l autre fourni hors de sa portee
+            (`price_rule.invalid_scope`) ; `ends_on` anterieure a `starts_on`
+            (`price_rule.invalid_period`) ; client ou gamme inconnus du tenant
+            (`price_rule.customer_unknown`,
+            `price_rule.product_range_unknown`) ; nom vide ou taux hors format
+            (`api.validation_failed`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  # Chemin LITTERAL place avant `/price-rules/{priceRuleId}` : les deux sont
+  # candidats pour `/price-rules/resolve`, et un routeur qui essaierait le
+  # gabarit parametre en premier ferait passer « resolve » pour un identifiant
+  # de regle. Le routage doit preferer le segment litteral ; a defaut,
+  # `priceRuleId` etant contraint au format UUID, la requete tomberait en 400
+  # plutot que sur la bonne operation.
+  /price-rules/resolve:
+    parameters:
+      - $ref: '#/components/parameters/MagritTenant'
+    post:
+      operationId: resolvePriceRule
+      summary: >-
+        Resout LA regle applicable a un contexte (client, gamme, date) et rend
+        le motif de sa selection (E10.7). Operation de LECTURE : elle n ecrit
+        rien, ne cree rien et n emet aucun evenement — POST parce que le
+        contexte est un corps structure, pas parce qu elle mute quoi que ce
+        soit. Elle ne porte donc ni `Idempotency-Key` ni 201.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+        - serviceKey: []
+      x-required-scopes: [price-rules:read]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PriceRuleResolveQuery'
+      responses:
+        '200':
+          description: >-
+            Regle retenue et motif de selection, ou `rule: null` si aucune
+            regle du tenant n est applicable a ce contexte a cette date. Un
+            `null` n est pas une erreur : il dit qu il n y a pas de regle, ce
+            que l appelant traite en retombant sur la marge publique standard
+            de la gamme (`getProductRangeDefaultMargin`) puis sur ses propres
+            defauts.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/PriceRuleResolveResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          description: >-
+            `customer_id` ou `product_range_id` fourni mais inconnu du tenant
+            (`price_rule.customer_unknown`,
+            `price_rule.product_range_unknown`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  /price-rules/{priceRuleId}:
+    parameters:
+      - $ref: '#/components/parameters/MagritTenant'
+    get:
+      operationId: getPriceRule
+      summary: >-
+        Recupere une regle de prix et son `ETag` courant — necessaire pour
+        enchainer un `PATCH` protege par `If-Match` (CA9), que
+        `listPriceRules` ne permet pas puisqu une collection n emet aucun
+        `ETag`.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+        - serviceKey: []
+      x-required-scopes: [price-rules:read]
+      parameters:
+        - $ref: '#/components/parameters/PriceRuleId'
+      responses:
+        '200':
+          description: >-
+            Regle de prix. L `ETag` porte sur la representation `PriceRule`
+            rendue ici : c est la meme base de calcul que celle verifiee par
+            `updatePriceRule`, condition necessaire pour qu un `If-Match` lu
+            ici soit accepte par le `PATCH`.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/PriceRule'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Regle inexistante dans le tenant du jeton (`price_rule.not_found`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+    patch:
+      operationId: updatePriceRule
+      summary: >-
+        Modifie le nom, la valeur, la periode ou l etat actif d une regle. La
+        PORTEE, la CIBLE et le TYPE DE VALEUR ne sont pas modifiables : les
+        changer reviendrait a reecrire l historique d arbitrage d une regle
+        deja appliquee a des devis. Creer une nouvelle regle a la place —
+        c est justement ce que l arbitrage par la recence rend indolore
+        (E10.7).
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PriceRuleId'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePriceRuleCommand'
+      responses:
+        '200':
+          description: >-
+            Regle modifiee. `created_at` reste celui de la creation : une
+            modification ne rajeunit PAS une regle, sans quoi un simple
+            renommage la ferait gagner un arbitrage qu elle perdait (E10.7).
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/PriceRule'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          description: >-
+            `ends_on` anterieure a `starts_on` (`price_rule.invalid_period`),
+            nom vide ou taux hors format (`api.validation_failed`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+
+# ----------------------------------------------------------------------------
+# story E10.6 — marge publique standard par gamme de produits.
+#
+# La « gamme de produits » est `public.product_gammes` (catalogue PIM partage,
+# adresse ici par son identifiant technique — le `slug` en reste un attribut,
+# jamais une cle, conformement au schema `Uuid`). La marge, elle, est propre au
+# TENANT : `product_gammes` est un catalogue partage sans tenant, deux
+# imprimeurs ne pratiquent pas la meme marge sur la meme gamme.
+#
+# Ce n est PAS une ligne de `price_rules` : elle ne participe pas a l arbitrage
+# d E10.7 et `resolvePriceRule` ne la rend jamais. C est le defaut sur lequel
+# le PricingEngine (E10.21) retombe quand aucune regle ne s applique. La
+# modeliser en regle de portee `range` aurait cree deux ecritures concurrentes
+# sur la meme ligne (ce PUT et `updatePriceRule`) et fait entrer un defaut dans
+# un departage par la recence auquel il n a rien a faire.
+#
+# Ressource SINGLETON servie sur un segment au pluriel (`default-margins`) :
+# la regle CA3 « toute ressource au pluriel » est mecanique et bloquante en CI
+# (checkResourcePath, src/modules/_shared/api/path-rules.ts). Il y a au plus
+# une marge standard par gamme et par tenant, et les deux operations la
+# traitent comme un objet unique, pas comme une collection.
+# ----------------------------------------------------------------------------
+  /product-ranges/{productRangeId}/default-margins:
+    parameters:
+      - $ref: '#/components/parameters/MagritTenant'
+    get:
+      operationId: getProductRangeDefaultMargin
+      summary: >-
+        Lit la marge publique standard que le tenant applique a cette gamme,
+        et son `ETag` courant.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+        - serviceKey: []
+      x-required-scopes: [price-rules:read]
+      parameters:
+        - $ref: '#/components/parameters/ProductRangeId'
+      responses:
+        '200':
+          description: >-
+            Marge publique standard de la gamme. `margin_rate: null` quand le
+            tenant n en a jamais defini : la reponse est 200, pas 404 — la
+            gamme existe, c est la marge qui n est pas encore posee, et
+            l `ETag` de cet etat « non defini » est ce qui rend le PREMIER
+            `PUT` executable sous `If-Match`.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ProductRangeDefaultMargin'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: >-
+            Gamme de produits inconnue
+            (`price_rule.product_range_unknown`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+    put:
+      operationId: setProductRangeDefaultMargin
+      summary: >-
+        Definit la marge publique standard du tenant sur cette gamme. `PUT` et
+        non `POST` : la ressource est un singleton, l appel est idempotent par
+        nature et son identite est celle du chemin — c est `If-Match`, pas une
+        cle d idempotence, qui protege deux redacteurs concurrents.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ProductRangeId'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetProductRangeDefaultMarginCommand'
+      responses:
+        '200':
+          description: Marge publique standard enregistree.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ProductRangeDefaultMargin'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: >-
+            Gamme de produits inconnue
+            (`price_rule.product_range_unknown`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+
+# ----------------------------------------------------------------------------
 # Bus d evenements sortants (CA10)
 # ----------------------------------------------------------------------------
 # Chaque evenement metier est ecrit dans la table `outbox_events` puis livre en
@@ -1711,7 +2187,17 @@ webhooks:
   price_rule.changed:
     post:
       operationId: onPriceRuleChanged
-      summary: Une regle de prix commerciale a ete creee, modifiee ou desactivee.
+      summary: >-
+        Une regle de prix commerciale a ete creee, modifiee, activee ou
+        desactivee (E10.7). Emis a CHACUNE de ces quatre actions, y compris
+        une simple bascule d etat : un consommateur qui cache des prix doit
+        pouvoir invalider son cache sans distinguer les cas.
+      description: >-
+        `payload` est fige par `PriceRuleChangedPayload` (`event_version: 1`).
+        Il ne porte que l identifiant de la regle et l action : un consommateur
+        relit la regle par `getPriceRule` s il lui faut son contenu, plutot que
+        de dependre d une copie transportee dans l evenement, qui aurait a etre
+        versionnee a chaque evolution de `PriceRule`.
       tags: [gestion-commerciale]
       security: []
       parameters:
@@ -1721,8 +2207,25 @@ webhooks:
         required: true
         content:
           application/json:
+            # Enveloppe commune RESTREINTE a la charge utile de cet evenement.
+            # Le second membre du `allOf` ne porte volontairement PAS
+            # `additionalProperties: false` : combine a l enveloppe qui, elle,
+            # est fermee, chaque membre est valide INDEPENDAMMENT par Ajv, et
+            # un second membre ferme rejetterait tous les champs de l enveloppe
+            # (meme ecueil que celui documente sur `CustomerDetail`).
+            #
+            # Restreindre un webhook n est pas un changement cassant au sens du
+            # CA13 : un webhook decrit ce que Magrit ENVOIE, et aucun evenement
+            # n a encore ete emis — le relais d `outbox_events` reste a ecrire
+            # (docs/api/CONVENTIONS.md §8). Meme fenetre que le durcissement de
+            # `Timestamp` a la cloture du Lot 0.
             schema:
-              $ref: '#/components/schemas/EventEnvelope'
+              allOf:
+                - $ref: '#/components/schemas/EventEnvelope'
+                - type: object
+                  properties:
+                    payload:
+                      $ref: '#/components/schemas/PriceRuleChangedPayload'
       responses:
         '204':
           description: Evenement accepte par le consommateur.
@@ -1917,6 +2420,26 @@ components:
       in: path
       required: true
       description: Identifiant technique du devis, dans le tenant du jeton.
+      schema:
+        $ref: '#/components/schemas/Uuid'
+
+    PriceRuleId:
+      name: priceRuleId
+      in: path
+      required: true
+      description: Identifiant technique de la regle de prix, dans le tenant du jeton.
+      schema:
+        $ref: '#/components/schemas/Uuid'
+
+    ProductRangeId:
+      name: productRangeId
+      in: path
+      required: true
+      description: >-
+        Identifiant technique de la gamme de produits (`public.product_gammes`,
+        catalogue PIM partage). Le `slug` de la gamme (`depliant`, `affiche`)
+        en est un attribut metier, pas une cle : il n adresse pas cette
+        ressource (schema `Uuid`).
       schema:
         $ref: '#/components/schemas/Uuid'
 
@@ -3436,3 +3959,421 @@ components:
             - type: 'null'
         show_discounts:
           type: boolean
+
+    # --------------------------------------------------------------------------
+    # Stories E10.6 (referentiel des regles de prix) et E10.7 (arbitrage par la
+    # plus recente)
+    # --------------------------------------------------------------------------
+    PriceRuleScope:
+      title: PriceRuleScope
+      description: >-
+        Portee d une regle, de la moins a la PLUS SPECIFIQUE. L ordre de cette
+        enumeration est CONTRACTUEL : c est lui qui fonde l arbitrage d E10.7,
+        ou la specificite prime toujours sur la recence.
+
+
+        - `global` : toutes les gammes, tous les clients du tenant.
+
+        - `range` : une gamme de produits, tous les clients.
+
+        - `customer` : un client, toutes les gammes.
+
+        - `customer_range` : un client ET une gamme.
+
+
+        Une regle `customer_range` applicable l emporte donc toujours sur une
+        regle `customer`, meme creee bien plus tard — la recence ne departage
+        que des regles de MEME portee et MEME cible.
+      type: string
+      enum: [global, range, customer, customer_range]
+
+    PriceRuleValueType:
+      title: PriceRuleValueType
+      description: >-
+        Nature de la valeur portee par la regle. `margin_rate` AJOUTE une marge
+        au prix de production, `discount_rate` RETRANCHE une remise au prix
+        public. Le type n est pas modifiable apres creation : il change le sens
+        du nombre, pas seulement sa valeur.
+
+
+        L application effective au prix (dans quel ordre, sur quelle base)
+        n appartient pas a ce referentiel : elle est du ressort de l interface
+        `PricingEngine` (E10.21). E10.6 dit QUELLE regle s applique, pas
+        comment le prix se calcule.
+      type: string
+      enum: [margin_rate, discount_rate]
+
+    PriceRuleStatusFilter:
+      title: PriceRuleStatusFilter
+      description: >-
+        Filtre de liste sur l etat de premier plan de la regle : `active` vaut
+        `is_active: true`, `disabled` vaut `is_active: false`.
+      type: string
+      enum: [active, disabled]
+
+    PriceRuleSort:
+      title: PriceRuleSort
+      description: >-
+        Ordre de tri de `listPriceRules`, prefixe `-` pour decroissant. Defaut
+        `-created_at`.
+      type: string
+      enum: ['-created_at', 'created_at', '-starts_on', 'starts_on']
+      default: '-created_at'
+
+    PriceRuleSelectionReason:
+      title: PriceRuleSelectionReason
+      description: >-
+        Motif pour lequel une regle a ete retenue par `resolvePriceRule`
+        (E10.7). Rendu pour que l appelant puisse EXPLIQUER un prix, pas
+        seulement l afficher.
+
+
+        - `specificity` : une seule regle etait candidate au niveau de portee
+          le plus specifique. Aucun departage par la date n a ete necessaire.
+
+        - `recency` : PLUSIEURS regles de meme portee et meme cible etaient
+          applicables a cette date ; celle dont `created_at` est la plus
+          recente a ete retenue.
+
+
+        Ces deux cas sont exhaustifs et mutuellement exclusifs : le motif vaut
+        `recency` si et seulement si le niveau de portee retenu comptait plus
+        d une candidate.
+      type: string
+      enum: [specificity, recency]
+
+    PriceRule:
+      title: PriceRule
+      description: >-
+        Regle de prix commerciale du tenant (E10.6). Les periodes de deux
+        regles PEUVENT se chevaucher : c est un etat normal du referentiel,
+        aucune contrainte d exclusion ne l interdit et aucune regle n est
+        jamais decoupee ni dupliquee a la creation d une autre (E10.7). Le
+        conflit se tranche a la LECTURE, par `resolvePriceRule`.
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - tenant_id
+        - name
+        - scope
+        - customer_id
+        - product_range_id
+        - value_type
+        - value
+        - starts_on
+        - ends_on
+        - is_active
+        - created_by
+        - created_at
+        - updated_at
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        tenant_id:
+          $ref: '#/components/schemas/Uuid'
+        name:
+          description: >-
+            Libelle de la regle, OBLIGATOIRE et non vide (E10.6) : une regle
+            sans nom est illisible dans une liste ou l on doit choisir laquelle
+            desactiver. Le nom n a aucun role dans l arbitrage.
+          type: string
+          minLength: 1
+          maxLength: 200
+        scope:
+          $ref: '#/components/schemas/PriceRuleScope'
+        customer_id:
+          description: >-
+            Client vise (E10.4). Renseigne pour `customer` et
+            `customer_range`, `null` pour `global` et `range`.
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        product_range_id:
+          description: >-
+            Gamme de produits visee (`public.product_gammes`). Renseignee pour
+            `range` et `customer_range`, `null` pour `global` et `customer`.
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        value_type:
+          $ref: '#/components/schemas/PriceRuleValueType'
+        value:
+          description: >-
+            Taux applique, en chaine a quatre decimales (`"0.1500"` vaut
+            15 %). Toujours positif ou nul : c est `value_type` qui dit si le
+            taux s ajoute ou se retranche, jamais le signe. Un taux negatif est
+            refuse en 422 `api.validation_failed`.
+          $ref: '#/components/schemas/Rate'
+        starts_on:
+          description: Premier jour d application, inclus.
+          type: string
+          format: date
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+        ends_on:
+          description: >-
+            Dernier jour d application, INCLUS. `null` signifie « sans terme »
+            — la regle reste applicable indefiniment. C est une valeur
+            ordinaire, pas une donnee manquante.
+          oneOf:
+            - type: string
+              format: date
+              pattern: '^\d{4}-\d{2}-\d{2}$'
+            - type: 'null'
+        is_active:
+          description: >-
+            Etat de PREMIER PLAN, pas un effacement logique (E10.6) : une regle
+            desactivee reste listee, nommee et reactivable d une bascule. Une
+            regle inactive n est jamais candidate a la resolution, quelle que
+            soit sa periode.
+          type: boolean
+        created_by:
+          description: Acteur createur. `null` pour une creation systeme.
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        created_at:
+          description: >-
+            Instant de creation. CHAMP D ARBITRAGE (E10.7) : a portee et cible
+            egales, c est le `created_at` le plus recent qui l emporte. Il est
+            attribue par le serveur et ne bouge JAMAIS ensuite, pas meme sur
+            une modification — sans quoi un renommage suffirait a faire gagner
+            un departage.
+          $ref: '#/components/schemas/Timestamp'
+        updated_at:
+          $ref: '#/components/schemas/Timestamp'
+
+    CreatePriceRuleCommand:
+      title: CreatePriceRuleCommand
+      description: >-
+        Commande de creation d une regle de prix. La coherence entre `scope` et
+        les cibles est une regle METIER, verifiee au-dela de la forme du schema
+        (422 `price_rule.invalid_scope`) : `customer_id` requis par `customer`
+        et `customer_range`, `product_range_id` requis par `range` et
+        `customer_range`, et refuses hors de leur portee — une cible ignoree en
+        silence donnerait une regle qui ne s applique pas la ou son auteur
+        croit l avoir posee.
+
+
+        Cette commande n a AUCUN effet de bord sur les regles existantes
+        (E10.7) : ni desactivation, ni fermeture de periode, ni decoupage.
+      type: object
+      additionalProperties: false
+      required: [name, scope, value_type, value, starts_on]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        scope:
+          $ref: '#/components/schemas/PriceRuleScope'
+        customer_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        product_range_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        value_type:
+          $ref: '#/components/schemas/PriceRuleValueType'
+        value:
+          $ref: '#/components/schemas/Rate'
+        starts_on:
+          type: string
+          format: date
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+        ends_on:
+          description: 'Absent ou `null` : regle sans terme.'
+          oneOf:
+            - type: string
+              format: date
+              pattern: '^\d{4}-\d{2}-\d{2}$'
+            - type: 'null'
+        is_active:
+          description: Une regle est active a la creation sauf mention contraire.
+          type: boolean
+          default: true
+
+    UpdatePriceRuleCommand:
+      title: UpdatePriceRuleCommand
+      description: >-
+        Modification partielle d une regle : nom, valeur, periode, etat actif.
+        `scope`, `customer_id`, `product_range_id` et `value_type` sont ABSENTS
+        de cette commande et ne sont donc pas modifiables — reciblage ou
+        changement de nature se font en creant une nouvelle regle, que
+        l arbitrage par la recence fera prevaloir sans qu il faille toucher a
+        l ancienne (E10.7).
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        value:
+          $ref: '#/components/schemas/Rate'
+        starts_on:
+          type: string
+          format: date
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+        ends_on:
+          oneOf:
+            - type: string
+              format: date
+              pattern: '^\d{4}-\d{2}-\d{2}$'
+            - type: 'null'
+        is_active:
+          description: >-
+            Bascule d activation. Un `PATCH` qui ne porte QUE ce champ emet
+            `price_rule.changed` avec l action `activated` ou `deactivated` ;
+            toute autre modification emet `updated`.
+          type: boolean
+
+    PriceRuleResolveQuery:
+      title: PriceRuleResolveQuery
+      description: >-
+        Contexte de resolution (E10.7). `customer_id` et `product_range_id`
+        sont facultatifs : leur ABSENCE restreint les portees candidates plutot
+        qu elle n elargit la recherche. Sans `customer_id`, aucune regle
+        `customer` ni `customer_range` ne peut etre retenue ; sans
+        `product_range_id`, aucune regle `range` ni `customer_range`.
+
+
+        Une resolution sans aucun des deux ne peut donc rendre qu une regle
+        `global` — c est le cas d usage « quel est le taux par defaut du
+        tenant aujourd hui ».
+      type: object
+      additionalProperties: false
+      required: [at]
+      properties:
+        customer_id:
+          description: Client du contexte (E10.4). Absent ou `null` -> portees client exclues.
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        product_range_id:
+          description: >-
+            Gamme du contexte (`public.product_gammes`). Absente ou `null` ->
+            portees gamme exclues.
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        at:
+          description: >-
+            Date d application evaluee, au format `YYYY-MM-DD`. Une DATE, pas
+            un instant : les bornes `starts_on`/`ends_on` sont des dates, et
+            comparer un instant a une date ferait dependre le resultat du
+            fuseau de l appelant. Obligatoire — l API ne substitue pas « le
+            jour courant » du serveur a une date que l appelant n a pas dite.
+          type: string
+          format: date
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+
+    PriceRuleResolveResult:
+      title: PriceRuleResolveResult
+      description: >-
+        Regle retenue pour le contexte demande, et motif de sa selection
+        (E10.7).
+      type: object
+      additionalProperties: false
+      required: [rule, reason]
+      properties:
+        rule:
+          description: >-
+            Regle applicable, ou `null` si aucune regle ACTIVE du tenant ne
+            couvre ce contexte a cette date. `null` est une reponse normale,
+            pas une erreur.
+          oneOf:
+            - $ref: '#/components/schemas/PriceRule'
+            - type: 'null'
+        reason:
+          description: >-
+            Motif de selection, `null` quand `rule` est `null` — il n y a rien
+            a expliquer quand rien n a ete retenu.
+          oneOf:
+            - $ref: '#/components/schemas/PriceRuleSelectionReason'
+            - type: 'null'
+
+    PriceRuleChangedPayload:
+      title: PriceRuleChangedPayload
+      description: >-
+        Charge utile de l evenement sortant `price_rule.changed`
+        (`event_version: 1`). Volontairement minimale : l identifiant et
+        l action. Un consommateur qui a besoin du contenu de la regle la relit
+        par `getPriceRule` — transporter une copie de `PriceRule` obligerait a
+        versionner l evenement a chaque evolution du schema de la regle.
+      type: object
+      additionalProperties: false
+      required: [rule_id, action]
+      properties:
+        rule_id:
+          $ref: '#/components/schemas/Uuid'
+        action:
+          description: >-
+            `created` a la creation, `activated` / `deactivated` quand
+            `is_active` bascule, `updated` pour toute autre modification.
+          type: string
+          enum: [created, updated, activated, deactivated]
+
+    ProductRangeDefaultMargin:
+      title: ProductRangeDefaultMargin
+      description: >-
+        Marge publique standard appliquee par le TENANT a une gamme de
+        produits (E10.6). Elle sert de defaut quand aucune regle de prix ne
+        s applique ; elle n est PAS une regle de prix et n entre jamais dans
+        l arbitrage d E10.7.
+
+
+        Le couple (tenant, gamme) est l identite de cette ressource :
+        `public.product_gammes` est un catalogue PARTAGE, sans tenant — deux
+        imprimeurs ne pratiquent pas la meme marge sur la meme gamme.
+      type: object
+      additionalProperties: false
+      required:
+        - tenant_id
+        - product_range_id
+        - margin_rate
+        - updated_at
+        - updated_by
+      properties:
+        tenant_id:
+          $ref: '#/components/schemas/Uuid'
+        product_range_id:
+          $ref: '#/components/schemas/Uuid'
+        margin_rate:
+          description: >-
+            Marge publique standard, en chaine a quatre decimales. `null` tant
+            que le tenant n en a defini aucune sur cette gamme.
+          oneOf:
+            - $ref: '#/components/schemas/Rate'
+            - type: 'null'
+        updated_at:
+          description: >-
+            Derniere ecriture de cette marge, `null` si elle n a jamais ete
+            definie.
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+        updated_by:
+          description: Dernier acteur, `null` si jamais definie ou ecriture systeme.
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+
+    SetProductRangeDefaultMarginCommand:
+      title: SetProductRangeDefaultMarginCommand
+      description: >-
+        Definit la marge publique standard du tenant sur une gamme. `null` n
+        est pas accepte : E10.6 ne prevoit pas d EFFACER une marge standard,
+        seulement de la poser ou de la corriger. Ouvrir l effacement demanderait
+        de trancher ce que devient le prix public d une gamme sans defaut,
+        question qui appartient au PricingEngine (E10.21).
+      type: object
+      additionalProperties: false
+      required: [margin_rate]
+      properties:
+        margin_rate:
+          description: Taux positif ou nul, en chaine a quatre decimales.
+          $ref: '#/components/schemas/Rate'
