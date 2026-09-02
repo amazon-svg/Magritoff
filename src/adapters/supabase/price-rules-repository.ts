@@ -18,6 +18,7 @@ import { toIsoTimestamp, toIsoTimestampOrNull } from '../../modules/_shared/appl
 import type {
   CreatePriceRuleCommand,
   PriceRuleDto,
+  PriceRuleResolveResultDto,
   ProductRangeDefaultMarginDto,
   UpdatePriceRuleCommand,
 } from '../../modules/pricing/api/contracts.ts';
@@ -27,6 +28,7 @@ import {
   type ListPriceRulesParams,
   type ListPriceRulesResult,
   type PriceRulesRepository,
+  type ResolvePriceRuleParams,
 } from '../../modules/pricing/application/price-rules-repository.ts';
 
 const UNIQUE_VIOLATION = '23505';
@@ -139,6 +141,47 @@ export class SupabasePriceRulesRepository implements PriceRulesRepository {
     if (error) throw toDomainError(error, 'Modification de la règle de prix impossible.');
     if (!data) throw new PriceRuleNotFoundError();
     return toPriceRuleDto(data);
+  }
+
+  /**
+   * Arbitrage E10.7 : delegue le calcul de specificite/recence a la fonction
+   * SQL `resolve_price_rule` (migration `..._gescom_e10_7_resolve_price_rule.sql`),
+   * SEULE source de cet algorithme — pas de reimplementation cote adaptateur.
+   * `p_tenant_id` est passe explicitement (meme discipline que le reste de
+   * cet adaptateur, CA4 du socle) ; la fonction est SECURITY INVOKER, donc la
+   * RLS de `price_rules` s applique en defense en profondeur pour une session
+   * utilisateur, exactement comme `list()`/`findById()` ci-dessus.
+   *
+   * La fonction ne rend que `(rule_id, reason)` : le mapping complet vers
+   * `PriceRuleDto` est delegue a `findById()`, seul et unique endroit ou la
+   * ligne Postgres est traduite en DTO (`toPriceRuleDto`) — pas de deuxieme
+   * mapping divergent ici.
+   */
+  async resolve(
+    tenantId: TenantId,
+    params: ResolvePriceRuleParams,
+  ): Promise<PriceRuleResolveResultDto> {
+    const { data, error } = (await this.client
+      .rpc('resolve_price_rule', {
+        p_tenant_id: tenantId,
+        p_customer_id: params.customerId,
+        p_product_range_id: params.productRangeId,
+        p_at: params.at,
+      })
+      .maybeSingle()) as { data: { rule_id: string | null; reason: string | null } | null; error: { message: string } | null };
+    if (error) throw new Error(error.message);
+    if (!data || !data.rule_id) return { rule: null, reason: null };
+
+    const rule = await this.findById(tenantId, data.rule_id);
+    if (!rule) {
+      // Incoherence transitoire (course entre la resolution et une
+      // desactivation/suppression concurrente) : jamais vu en pratique, la
+      // fonction et `findById` interrogeant la meme ligne sous la meme
+      // transaction PostgREST, mais un `null` silencieux masquerait le
+      // probleme plutot que de le signaler.
+      throw new Error('Regle resolue introuvable a la relecture (incoherence transitoire).');
+    }
+    return { rule, reason: (data.reason as PriceRuleResolveResultDto['reason']) ?? null };
   }
 
   /** `public.product_gammes` : catalogue PARTAGE, sans tenant (CA2). */

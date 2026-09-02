@@ -8,7 +8,8 @@
  * verifier `price_rule.changed` (CA10). Chaque reponse est confrontee au
  * contrat via `checkResponseAgainstContract`.
  *
- * Hors perimetre (E10.7) : aucun test de `resolvePriceRule` ici.
+ * E10.7 : `resolvePriceRule` (arbitrage specificite puis recence) est teste
+ * en fin de fichier.
  */
 import { describe, expect, it, beforeEach } from 'vitest';
 import { parseId, type TenantId, type UserId } from '@/kernel';
@@ -596,5 +597,155 @@ describe('module Pricing — referentiel des regles de prix (E10.6) contre le co
   it('CA7 — une regle inconnue du tenant rend 404, jamais une autre reponse', async () => {
     const response = await call(`/api/v1/price-rules/${uuid()}`, { headers: asUser });
     await expectContract(response, { status: 404 });
+  });
+
+  describe('E10.7 — resolvePriceRule (arbitrage specificite puis recence)', () => {
+    async function resolve(body: Record<string, unknown>): Promise<Response> {
+      return call('/api/v1/price-rules/resolve', {
+        method: 'POST',
+        headers: jsonHeaders,
+        body: JSON.stringify(body),
+      });
+    }
+
+    it('CA3d — rend rule: null et reason: null quand aucune regle active ne couvre le contexte', async () => {
+      const response = await resolve({ at: '2026-09-01' });
+      await expectContract(response, { status: 200, dataSchema: 'PriceRuleResolveResult' });
+      const body = (await response.json()) as { data: { rule: unknown; reason: unknown } };
+      expect(body.data.rule).toBeNull();
+      expect(body.data.reason).toBeNull();
+    });
+
+    it('CA4 — une regle de portee differente ne concourt jamais : la specificite prime toujours sur la recence', async () => {
+      // Globale (rang 0), creee en PREMIER (donc la moins recente des trois).
+      await createGlobalRule({ name: 'Marge annuelle', starts_on: '2026-01-01' });
+      // customer_range (rang 3, LE PLUS SPECIFIQUE), creee en second — doit
+      // gagner malgre la troisieme regle ci-dessous, creee APRES elle.
+      const { data: specific } = await createGlobalRule({
+        name: 'Marge septembre client+gamme',
+        scope: 'customer_range',
+        customer_id: customerId,
+        product_range_id: RANGE_ID,
+        starts_on: '2026-09-01',
+        ends_on: '2026-09-30',
+      });
+      // range (rang 1), sur la MEME gamme, creee EN DERNIER (donc la plus
+      // recente des trois) : si l arbitrage departageait par recence sur
+      // TOUTES les candidates au lieu des seules candidates du rang maximal,
+      // c est CETTE regle qui gagnerait a tort — elle doit perdre face a la
+      // customer_range malgre sa recence, seule la specificite compte ici.
+      await createGlobalRule({
+        name: 'Marge gamme seule, plus recente mais moins specifique',
+        scope: 'range',
+        product_range_id: RANGE_ID,
+        starts_on: '2026-09-01',
+      });
+
+      const response = await resolve({
+        customer_id: customerId,
+        product_range_id: RANGE_ID,
+        at: '2026-09-15',
+      });
+      await expectContract(response, { status: 200, dataSchema: 'PriceRuleResolveResult' });
+      const body = (await response.json()) as { data: { rule: { id: string } | null; reason: string | null } };
+      expect(body.data.rule?.id).toBe(specific.id);
+      expect(body.data.reason).toBe('specificity');
+    });
+
+    it('CA2/CA3 — plusieurs regles de meme portee et meme cible : la plus recente (created_at) l emporte, motif recency', async () => {
+      const { data: older } = await createGlobalRule({ name: 'Marge annuelle 2026', starts_on: '2026-01-01' });
+      const { data: newer } = await createGlobalRule({ name: 'Marge septembre 2026', starts_on: '2026-09-01', ends_on: '2026-09-30' });
+      expect(newer.created_at >= older.created_at).toBe(true);
+
+      const response = await resolve({ at: '2026-09-15' });
+      await expectContract(response, { status: 200, dataSchema: 'PriceRuleResolveResult' });
+      const body = (await response.json()) as { data: { rule: { id: string; name: string } | null; reason: string | null } };
+      expect(body.data.rule?.id).toBe(newer.id);
+      expect(body.data.reason).toBe('recency');
+
+      // En dehors de la periode de la regle de septembre, la regle annuelle
+      // reprend IMMEDIATEMENT — aucune ecriture n a modifie son etat.
+      const outside = await resolve({ at: '2026-10-01' });
+      const outsideBody = (await outside.json()) as { data: { rule: { id: string } | null; reason: string | null } };
+      expect(outsideBody.data.rule?.id).toBe(older.id);
+      expect(outsideBody.data.reason).toBe('specificity');
+    });
+
+    it('CA1 — desactiver la regle la plus recente fait immediatement reprendre la regle annuelle, sans aucune ecriture sur celle-ci', async () => {
+      const { data: annual } = await createGlobalRule({ name: 'Marge annuelle', starts_on: '2026-01-01' });
+      const { data: september } = await createGlobalRule({
+        name: 'Marge septembre',
+        starts_on: '2026-09-01',
+        ends_on: '2026-09-30',
+      });
+
+      const beforeToggle = await resolve({ at: '2026-09-15' });
+      expect(((await beforeToggle.json()) as { data: { rule: { id: string } | null } }).data.rule?.id).toBe(
+        september.id,
+      );
+
+      const etag = (await call(`/api/v1/price-rules/${september.id}`, { headers: asUser })).headers.get('etag')!;
+      await call(`/api/v1/price-rules/${september.id}`, {
+        method: 'PATCH',
+        headers: { ...jsonHeaders, 'If-Match': etag },
+        body: JSON.stringify({ is_active: false }),
+      });
+
+      const afterToggle = await resolve({ at: '2026-09-15' });
+      const afterBody = (await afterToggle.json()) as { data: { rule: { id: string } | null; reason: string | null } };
+      expect(afterBody.data.rule?.id).toBe(annual.id);
+      expect(afterBody.data.reason).toBe('specificity');
+
+      // L annuelle elle-meme n a jamais ete touchee (meme created_at/updated_at).
+      const annualReread = await call(`/api/v1/price-rules/${annual.id}`, { headers: asUser });
+      const annualBody = (await annualReread.json()) as { data: { updated_at: string } };
+      expect(annualBody.data.updated_at).toBe(annual.updated_at);
+    });
+
+    it('CA — customer_id/product_range_id inconnus du tenant rendent 422 avec le code metier dedie', async () => {
+      const unknownCustomer = await resolve({ customer_id: uuid(), at: '2026-09-01' });
+      await expectContract(unknownCustomer, { status: 422 });
+      expect(((await unknownCustomer.json()) as { code: string }).code).toBe('price_rule.customer_unknown');
+
+      const unknownRange = await resolve({ product_range_id: UNKNOWN_RANGE_ID, at: '2026-09-01' });
+      await expectContract(unknownRange, { status: 422 });
+      expect(((await unknownRange.json()) as { code: string }).code).toBe('price_rule.product_range_unknown');
+    });
+
+    it('CA — sans customer_id ni product_range_id, seule une regle globale peut etre retenue', async () => {
+      await createGlobalRule({
+        name: 'Regle client seule',
+        scope: 'customer',
+        customer_id: customerId,
+        starts_on: '2026-09-01',
+      });
+      const { data: global } = await createGlobalRule({ name: 'Regle globale', starts_on: '2026-09-01' });
+
+      const response = await resolve({ at: '2026-09-15' });
+      const body = (await response.json()) as { data: { rule: { id: string } | null } };
+      expect(body.data.rule?.id).toBe(global.id);
+    });
+
+    it('CA8 — Studio (cle de service, scope price-rules:read) peut resoudre une regle', async () => {
+      const { data: rule } = await createGlobalRule();
+      const response = await call('/api/v1/price-rules/resolve', {
+        method: 'POST',
+        headers: { 'X-Magrit-Service-Key': 'cle-studio', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ at: '2026-09-01' }),
+      });
+      await expectContract(response, { status: 200, dataSchema: 'PriceRuleResolveResult' });
+      const body = (await response.json()) as { data: { rule: { id: string } | null } };
+      expect(body.data.rule?.id).toBe(rule.id);
+    });
+
+    it('deterministe : deux appels identiques rendent la meme regle', async () => {
+      const { data: rule } = await createGlobalRule();
+      const first = await resolve({ at: '2026-09-01' });
+      const second = await resolve({ at: '2026-09-01' });
+      const firstBody = (await first.json()) as { data: { rule: { id: string } | null } };
+      const secondBody = (await second.json()) as { data: { rule: { id: string } | null } };
+      expect(firstBody.data.rule?.id).toBe(rule.id);
+      expect(secondBody.data.rule?.id).toBe(rule.id);
+    });
   });
 });

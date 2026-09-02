@@ -2,6 +2,7 @@ import type { TenantId, UserId } from '../../../kernel/ids/index.ts';
 import type {
   CreatePriceRuleCommand,
   PriceRuleDto,
+  PriceRuleResolveResultDto,
   PriceRuleStatusFilter,
   ProductRangeDefaultMarginDto,
   UpdatePriceRuleCommand,
@@ -48,6 +49,18 @@ export type ListPriceRulesParams = Readonly<{
 export type ListPriceRulesResult = Readonly<{
   /** `size + 1` lignes lues au plus, non tronquees ici (meme convention que les autres modules E10.x). */
   rows: readonly PriceRuleDto[];
+}>;
+
+/**
+ * Contexte de resolution (E10.7, contrat `PriceRuleResolveQuery`). Une valeur
+ * `null`/absente RESTREINT les portees candidates plutot que d elargir la
+ * recherche (voir la description du parametre au contrat).
+ */
+export type ResolvePriceRuleParams = Readonly<{
+  customerId: string | null;
+  productRangeId: string | null;
+  /** `YYYY-MM-DD`, jamais un instant (contrat `PriceRuleResolveQuery.at`). */
+  at: string;
 }>;
 
 /** La regle n existe pas dans le tenant du jeton. */
@@ -108,6 +121,16 @@ export interface PriceRulesRepository {
     priceRuleId: string,
     command: UpdatePriceRuleCommand,
   ): Promise<PriceRuleDto>;
+
+  /**
+   * Arbitrage des regles concurrentes (E10.7) : la regle la plus specifique
+   * couvrant le contexte a `at`, departagee par `created_at` decroissant a
+   * specificite egale. Operation de LECTURE PURE, deterministe a un contexte
+   * et une date donnes — deux appels identiques rendent la meme regle.
+   * `rule: null` (donc `reason: null`) est un resultat normal, pas une
+   * erreur : aucune regle active du tenant ne couvre ce contexte a cette date.
+   */
+  resolve(tenantId: TenantId, params: ResolvePriceRuleParams): Promise<PriceRuleResolveResultDto>;
 
   /**
    * `public.product_gammes` est un catalogue PARTAGE, sans tenant (CA2) :

@@ -572,6 +572,12 @@ export const TEST_IDS = {
     // selects de portee du formulaire.
     customerFilterSelect: 'pricing-rules-customer-filter-select',
     rangeFilterSelect: 'pricing-rules-range-filter-select',
+    // E10.7 CA7 — filtre par statut, recherche par nom et tri (creation /
+    // debut de validite), poses sur les elements deja existants depuis
+    // E10.6 qui n avaient pas encore de testid.
+    statusFilterSelect: 'pricing-rules-status-filter',
+    searchInput: 'pricing-rules-search-input',
+    sortSelect: 'pricing-rules-sort-select',
     // CA5 (qa-review B1.5) — pagination explicite, jamais de troncature
     // silencieuse au-dela de la premiere page.
     loadMoreBtn: 'pricing-rules-load-more-btn',
