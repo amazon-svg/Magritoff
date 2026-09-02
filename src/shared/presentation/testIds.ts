@@ -552,6 +552,23 @@ export const TEST_IDS = {
     numberDisplay: 'quote-number-display',
     lineRow: 'quote-line-row',
   },
+
+  // ─── E10.6 — Referentiel des regles de prix (P13) ──────────────────────
+  pricing: {
+    page: 'pricing-rules-page',
+    row: 'pricing-rule-row',
+    createBtn: 'pricing-rule-create-btn',
+    modal: 'pricing-rule-modal',
+    scopeSelect: 'pricing-rule-scope-select',
+    rangeSelect: 'pricing-rule-range-select',
+    customerSelect: 'pricing-rule-customer-select',
+    valueInput: 'pricing-rule-value-input',
+    validFromInput: 'pricing-rule-valid-from-input',
+    validToInput: 'pricing-rule-valid-to-input',
+    saveBtn: 'pricing-rule-save-btn',
+    statusPill: 'pricing-rule-status-pill',
+    toggleActiveBtn: 'pricing-rule-toggle-active-btn',
+  },
 } as const;
 
 /**

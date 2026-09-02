@@ -34,11 +34,13 @@ import type { CustomerContactShopAccessService } from '../../modules/shop-custom
 import type { ProjectsService } from '../../modules/projects/application/projects-service.ts';
 import type { ProjectTagsService } from '../../modules/project-tags/application/project-tags-service.ts';
 import type { CommercialQuotesService } from '../../modules/commercial-quotes/application/commercial-quotes-service.ts';
+import type { PriceRulesService } from '../../modules/pricing/application/price-rules-service.ts';
 import { createCustomersRoutes } from './customers-routes.ts';
 import { createCustomerShopAccessRoutes } from './customer-shop-access-routes.ts';
 import { createProjectsRoutes } from './projects-routes.ts';
 import { createProjectTagsRoutes } from './project-tags-routes.ts';
 import { createCommercialQuotesRoutes } from './commercial-quotes-routes.ts';
+import { createPriceRulesRoutes } from './price-rules-routes.ts';
 import type { GescomRoute } from './gescom-middleware.ts';
 
 /**
@@ -55,6 +57,8 @@ export type GescomServices = Readonly<{
   projectTags: ProjectTagsService;
   /** E10.3 — creation d un devis depuis un projet (selection multi-produits). */
   commercialQuotes: CommercialQuotesService;
+  /** E10.6 — referentiel des regles de prix et marge publique standard par gamme. */
+  priceRules: PriceRulesService;
 }>;
 
 /**
@@ -70,6 +74,7 @@ export function gescomRoutes(services: GescomServices): readonly GescomRoute[] {
     ...createProjectsRoutes(services.projects),
     ...createProjectTagsRoutes(services.projectTags),
     ...createCommercialQuotesRoutes(services.commercialQuotes),
+    ...createPriceRulesRoutes(services.priceRules),
   ];
 }
 
@@ -88,6 +93,7 @@ export const GESCOM_ROUTES: readonly GescomRoute[] = Object.freeze(
     projects: createNullService('ProjectsService'),
     projectTags: createNullService('ProjectTagsService'),
     commercialQuotes: createNullService('CommercialQuotesService'),
+    priceRules: createNullService('PriceRulesService'),
   }),
 );
 
