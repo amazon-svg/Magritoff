@@ -65,6 +65,8 @@ import { ProjectTagsService } from '../../../src/modules/project-tags/applicatio
 import { SupabaseProjectTagsRepository } from '../../../src/adapters/supabase/project-tags-repository.ts';
 import { CommercialQuotesService } from '../../../src/modules/commercial-quotes/application/commercial-quotes-service.ts';
 import { SupabaseCommercialQuotesRepository } from '../../../src/adapters/supabase/commercial-quotes-repository.ts';
+import { PriceRulesService } from '../../../src/modules/pricing/application/price-rules-service.ts';
+import { SupabasePriceRulesRepository } from '../../../src/adapters/supabase/price-rules-repository.ts';
 import { SupabaseApiPrincipalVerifier } from '../../../src/adapters/supabase/api-principal-verifier.ts';
 import { InMemoryIdempotencyStore, OutboxPublisher } from '../../../src/modules/_shared/application/index.ts';
 import { TENANT_SELECTION_HEADER } from '../../../src/modules/_shared/api/index.ts';
@@ -287,6 +289,26 @@ export async function handleRequest(request: Request): Promise<Response> {
     }),
   });
 
+  // E10.6 — referentiel des regles de prix et marge publique standard par
+  // gamme. Reutilise le referentiel Clients (E10.4) deja instancie pour
+  // verifier l existence d un `customer_id` (CA1), sans dupliquer cette
+  // logique.
+  const priceRulesService = new PriceRulesService({
+    repository: new SupabasePriceRulesRepository(client),
+    customers: customersRepository,
+    outbox: new OutboxPublisher({
+      repository: bestEffortOutbox(outboxRepository, (error, events) => {
+        console.error(
+          '[magrit-api] publication outbox echouee',
+          events.map((event) => event.name),
+          error,
+        );
+      }),
+      now: () => new Date(),
+      newEventId: () => crypto.randomUUID(),
+    }),
+  });
+
   const handler = createMagritApiApplication({
     gescomServices: {
       customers: customersService,
@@ -294,6 +316,7 @@ export async function handleRequest(request: Request): Promise<Response> {
       projects: projectsService,
       projectTags: projectTagsService,
       commercialQuotes: commercialQuotesService,
+      priceRules: priceRulesService,
     },
     principalVerifier: new SupabaseApiPrincipalVerifier(client, {
       requestedTenantId: request.headers.get(TENANT_SELECTION_HEADER),

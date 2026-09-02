@@ -463,7 +463,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Liste les regles de prix du tenant courant : filtrables par etat (`status`) et par nom (`q`), triables par date de creation et par date de debut (`sort`). */
+        /**
+         * Liste les regles de prix du tenant courant : filtrables par etat (`status`), par nom (`q`), par client cible (`customer_id`) et par gamme cible (`product_range_id`), triables par date de creation et par date de debut (`sort`).
+         *
+         *     Tous les filtres se combinent en ET logique. `customer_id` et `product_range_id` fournis ENSEMBLE ne rendent donc que les regles `customer_range` visant exactement ce couple : une regle `customer` seule, ou `range` seule, ne satisfait pas les deux predicats. C est voulu — cette liste filtre sur la CIBLE DECLAREE de la regle, elle ne simule pas son applicabilite. Pour « quelle regle s appliquerait a ce client sur cette gamme a cette date », appeler `resolvePriceRule` (E10.7), seul a arbitrer la specificite, la recence et les bornes de validite.
+         */
         get: operations["listPriceRules"];
         put?: never;
         /** Cree une regle de prix. Ne modifie, ne decoupe et ne duplique JAMAIS une regle existante (E10.7) : deux regles applicables a la meme date sont un etat normal du referentiel, tranche a la resolution. */
@@ -2984,6 +2988,14 @@ export interface operations {
                 q?: string;
                 /** @description Filtre sur l etat de premier plan de la regle : `active` vaut `is_active: true`, `disabled` vaut `is_active: false`. Absent -> les deux. `is_active` n est PAS un effacement logique : une regle desactivee reste listee, affichee et reactivable (E10.6). */
                 status?: components["schemas"]["PriceRuleStatusFilter"];
+                /**
+                 * @description Filtre sur le client CIBLE par la regle : ne retient que les regles dont `customer_id` vaut exactement cette valeur, donc les portees `customer` et `customer_range`. Les regles `global` et `range`, qui ne nomment aucun client, sont EXCLUES — meme si elles s appliqueraient a ce client lors d une resolution.
+                 *
+                 *     Ce filtre repond a « quelles regles portent nommement sur ce client », question de l ecran de gestion (CA5, E10.6), pas a « quelle regle s applique a ce client » : celle-la est du ressort de `resolvePriceRule` (E10.7). Ne pas reconstituer une resolution partielle a partir de cette liste.
+                 */
+                customer_id?: components["schemas"]["Uuid"];
+                /** @description Filtre sur la gamme CIBLEE par la regle (`public.product_gammes`) : ne retient que les regles dont `product_range_id` vaut exactement cette valeur, donc les portees `range` et `customer_range`. Symetrique de `customer_id` — les portees qui ne nomment aucune gamme (`global`, `customer`) sont exclues. */
+                product_range_id?: components["schemas"]["Uuid"];
                 /**
                  * @description Ordre de tri, prefixe `-` pour l ordre decroissant. Defaut `-created_at` : c est l ordre qui met en tete la regle qui gagnerait un departage par la recence (E10.7).
                  *
