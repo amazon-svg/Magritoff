@@ -39,3 +39,18 @@ export type {
 } from './application/price-rules-repository';
 export { pricingModuleManifest } from './manifest';
 export { pricingWorkspaceContribution } from './surface-contributions';
+
+// ── E10.21 — interface PricingEngine et implementation provisoire ──────────
+export { EmptyCostInputError } from './application/pricing-engine';
+export type {
+  CostInput,
+  CostInputPost,
+  CostPost,
+  PricedLine,
+  PricedLineBreakdownItem,
+  PricingContext,
+  PricingEngine,
+  ResolvedPricingRule,
+} from './application/pricing-engine';
+export { SingleCostPricingEngine } from './application/single-cost-pricing-engine';
+export { createPricingEngine } from './application/pricing-engine-provider';
