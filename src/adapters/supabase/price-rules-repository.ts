@@ -273,7 +273,7 @@ export function toDomainError(
     if (constraint.includes('period')) {
       return new PriceRuleCommandRejectedError(
         'price_rule.invalid_period',
-        'La date de fin doit etre posterieure a la date de debut.',
+        'La date de fin doit etre egale ou posterieure a la date de debut.',
       );
     }
     return new PriceRuleCommandRejectedError('api.validation_failed', error.message ?? fallback);

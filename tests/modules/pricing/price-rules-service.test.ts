@@ -131,7 +131,7 @@ describe('PriceRulesService — creation (CA1, CA2)', () => {
     expect(created.product_range_id).toBe(RANGE_ID);
   });
 
-  it('rejette ends_on <= starts_on (price_rule.invalid_period)', async () => {
+  it('rejette ends_on strictement anterieure a starts_on (price_rule.invalid_period)', async () => {
     await expect(
       service.create(TENANT, USER, {
         ...baseCommand,
@@ -142,7 +142,17 @@ describe('PriceRulesService — creation (CA1, CA2)', () => {
     ).rejects.toMatchObject({ code: 'price_rule.invalid_period' });
   });
 
-  it('accepte ends_on strictement posterieure a starts_on', async () => {
+  it('accepte ends_on egale a starts_on - regle d un seul jour, borne inclusive', async () => {
+    const created = await service.create(TENANT, USER, {
+      ...baseCommand,
+      scope: 'global',
+      starts_on: '2026-09-01',
+      ends_on: '2026-09-01',
+    });
+    expect(created.ends_on).toBe('2026-09-01');
+  });
+
+  it('accepte ends_on posterieure a starts_on', async () => {
     const created = await service.create(TENANT, USER, {
       ...baseCommand,
       scope: 'global',
