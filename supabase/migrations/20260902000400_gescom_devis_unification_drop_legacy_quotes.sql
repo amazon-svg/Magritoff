@@ -209,26 +209,26 @@ begin
 end;
 $$;
 
--- ── 1. Fonction orpheline du pipeline d ingestion sur `quotes` (correction
---      qa-review B2) — son seul trigger disparait avec le CASCADE plus bas,
---      mais la fonction elle-meme doit etre explicitement droppee ──────────
-drop function if exists public.enqueue_pim_candidate_on_order();
-
--- ── 2. Colonnes de liaison vers l ancien systeme (0 ligne non-nulle) ────────
+-- ── 1. Colonnes de liaison vers l ancien systeme (0 ligne non-nulle) ────────
 alter table if exists public.orders
   drop column if exists quote_id;
 
 alter table if exists public.pim_candidates
   drop column if exists source_quote_id;
 
--- ── 3. Lignes de devis (doit etre droppee avant l entete, FK on delete cascade) ─
+-- ── 2. Lignes de devis (doit etre droppee avant l entete, FK on delete cascade) ─
 drop table if exists public.quote_lines cascade;
 
--- ── 4. Entete de devis ───────────────────────────────────────────────────────
+-- ── 3. Entete de devis — le trigger trg_enqueue_pim_candidate et
+--      trg_quotes_updated_at disparaissent tous deux avec ce CASCADE ────────
 drop table if exists public.quotes cascade;
 
--- ── 5. Fonction de trigger dediee (aucune autre table ne l utilise) ─────────
+-- ── 4. Fonctions de trigger dediees — droppees APRES le CASCADE ci-dessus,
+--      qui a deja retire leurs triggers respectifs (trg_quotes_updated_at,
+--      trg_enqueue_pim_candidate) ; un DROP FUNCTION avant leur trigger
+--      echoue (2BP01, objet encore dependant) — correction qa-review B4 ───
 drop function if exists public.set_quote_updated_at();
+drop function if exists public.enqueue_pim_candidate_on_order();
 
 notify pgrst, 'reload schema';
 
