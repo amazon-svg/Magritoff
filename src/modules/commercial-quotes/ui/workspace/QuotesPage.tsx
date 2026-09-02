@@ -201,8 +201,17 @@ export function DashboardQuotes() {
               style={{ fontSize: '12.5px', fontWeight: active ? 500 : 400 }}
             >
               {f.label}
-              <span className={`font-mono ${active ? 'opacity-70' : 'text-ink-mute-2'}`} style={{ fontSize: '11px', fontWeight: 500 }}>
+              <span
+                className={`font-mono ${active ? 'opacity-70' : 'text-ink-mute-2'}`}
+                style={{ fontSize: '11px', fontWeight: 500 }}
+                title={
+                  nextCursor
+                    ? `${counts[f.key]} sur les devis chargés — d'autres devis existent, "Charger plus" pour les compter`
+                    : `${counts[f.key]} devis`
+                }
+              >
                 {counts[f.key]}
+                {nextCursor ? '+' : ''}
               </span>
             </button>
           );
