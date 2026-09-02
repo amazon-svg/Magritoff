@@ -8,10 +8,12 @@
  * route qui les traduit en Problem RFC 7807, avec le request_id qu elle
  * seule connait.
  *
- * CA3 (rappel de perimetre) : le CRUD complet et l algorithme de resolution
- * `resolvePriceRule` sont livres par E10.7. Ce service livre le modele et un
- * CRUD basique (list/create/read/update) suffisant pour l ecran de gestion —
- * aucune methode de resolution n est exposee ici.
+ * CA3 (rappel de perimetre) : le CRUD complet est livre par E10.6 ; E10.7
+ * ajoute `resolve()`, l algorithme d arbitrage des regles concurrentes
+ * (specificite puis recence), delegue a la fonction SQL `resolve_price_rule`
+ * (voir `src/adapters/supabase/price-rules-repository.ts`) — ce service ne
+ * fait que valider le contexte (client/gamme connus du tenant) avant de
+ * deleguer, meme discipline que `create()`.
  */
 import type { TenantId, UserId } from '../../../kernel/ids/index.ts';
 import type { OutboxPublisher } from '../../_shared/application/index.ts';
@@ -19,6 +21,7 @@ import type { CustomersRepository } from '../../customers/application/customers-
 import type {
   CreatePriceRuleCommand,
   PriceRuleDto,
+  PriceRuleResolveResultDto,
   ProductRangeDefaultMarginDto,
   UpdatePriceRuleCommand,
 } from '../api/contracts.ts';
@@ -29,6 +32,7 @@ import {
   type ListPriceRulesParams,
   type ListPriceRulesResult,
   type PriceRulesRepository,
+  type ResolvePriceRuleParams,
 } from './price-rules-repository.ts';
 
 /** Codes metier stables (CA3, contrat `createPriceRule`/`updatePriceRule`). */
@@ -114,6 +118,23 @@ export class PriceRulesService {
     return updated;
   }
 
+  /**
+   * Arbitrage des regles concurrentes (E10.7, CA2/CA3/CA4). Valide que
+   * `customer_id`/`product_range_id`, s ils sont fournis, existent dans le
+   * tenant AVANT de deleguer a `resolve_price_rule` — memes codes metier et
+   * meme ordre que `assertScopeTargets` pour la creation (422
+   * `price_rule.customer_unknown` / `price_rule.product_range_unknown`).
+   * Aucune ecriture, aucun evenement : c est une LECTURE pure (contrat).
+   */
+  async resolve(
+    tenantId: TenantId,
+    params: ResolvePriceRuleParams,
+  ): Promise<PriceRuleResolveResultDto> {
+    if (params.customerId !== null) await this.assertKnownCustomer(tenantId, params.customerId);
+    if (params.productRangeId !== null) await this.assertKnownProductRange(params.productRangeId);
+    return this.repository.resolve(tenantId, params);
+  }
+
   async getDefaultMargin(
     tenantId: TenantId,
     productRangeId: string,
@@ -178,25 +199,31 @@ export class PriceRulesService {
       );
     }
 
-    if (customerId !== null) {
-      const customer = await this.customers.findById(tenantId, customerId);
-      if (!customer) {
-        throw new PriceRuleCommandRejectedError(
-          CUSTOMER_UNKNOWN_CODE,
-          'Client inconnu de ce tenant.',
-          [{ field: 'customer_id', message: 'Client inconnu de ce tenant.' }],
-        );
-      }
+    if (customerId !== null) await this.assertKnownCustomer(tenantId, customerId);
+    if (productRangeId !== null) await this.assertKnownProductRange(productRangeId);
+  }
+
+  /** Partage entre `create()`/`assertScopeTargets()` et `resolve()` (E10.7). */
+  private async assertKnownCustomer(tenantId: TenantId, customerId: string): Promise<void> {
+    const customer = await this.customers.findById(tenantId, customerId);
+    if (!customer) {
+      throw new PriceRuleCommandRejectedError(
+        CUSTOMER_UNKNOWN_CODE,
+        'Client inconnu de ce tenant.',
+        [{ field: 'customer_id', message: 'Client inconnu de ce tenant.' }],
+      );
     }
-    if (productRangeId !== null) {
-      const exists = await this.repository.productRangeExists(productRangeId);
-      if (!exists) {
-        throw new PriceRuleCommandRejectedError(
-          PRODUCT_RANGE_UNKNOWN_CODE,
-          'Gamme de produits inconnue.',
-          [{ field: 'product_range_id', message: 'Gamme de produits inconnue.' }],
-        );
-      }
+  }
+
+  /** Partage entre `create()`/`assertScopeTargets()` et `resolve()` (E10.7). */
+  private async assertKnownProductRange(productRangeId: string): Promise<void> {
+    const exists = await this.repository.productRangeExists(productRangeId);
+    if (!exists) {
+      throw new PriceRuleCommandRejectedError(
+        PRODUCT_RANGE_UNKNOWN_CODE,
+        'Gamme de produits inconnue.',
+        [{ field: 'product_range_id', message: 'Gamme de produits inconnue.' }],
+      );
     }
   }
 

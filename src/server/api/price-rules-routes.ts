@@ -10,11 +10,16 @@
  * Enregistrement obligatoire dans `gescom-routes.ts` (CA1) — sans quoi
  * `tests/architecture/gescom-api-socle-boundaries.test.ts` echoue.
  *
- * Hors perimetre (E10.7) : `POST /price-rules/resolve` n est pas implemente
- * ici, bien que decrit au contrat.
+ * `POST /price-rules/resolve` (E10.7) : arbitrage des regles concurrentes,
+ * place AVANT `/price-rules/{priceRuleId}` dans le tableau retourne pour
+ * suivre la note du contrat (chemin litteral avant gabarit parametre) —
+ * sans risque reel de collision ici puisque `createGescomApiHandler`
+ * departage d abord par METHODE (POST vs GET/PATCH), voir gescom-middleware.ts.
  */
 import {
   createPriceRuleCommandSchema,
+  priceRuleResolveQuerySchema,
+  priceRuleResolveResultSchema,
   priceRuleSchema,
   priceRuleStatusFilterSchema,
   priceRuleSortSchema,
@@ -104,6 +109,25 @@ export function createPriceRulesRoutes(service: PriceRulesService): readonly Ges
         return withDomainErrors(async () => ({
           status: 201,
           data: await service.create(context.tenantId, requireUserId(context), input),
+        }));
+      },
+    }),
+
+    defineGescomRoute({
+      method: 'POST',
+      path: '/price-rules/resolve',
+      operationId: 'resolvePriceRule',
+      requiredScopes: ['price-rules:read'],
+      inputSchema: priceRuleResolveQuerySchema,
+      dataSchema: priceRuleResolveResultSchema,
+      async handle(context, input) {
+        return withDomainErrors(async () => ({
+          status: 200,
+          data: await service.resolve(context.tenantId, {
+            customerId: input.customer_id ?? null,
+            productRangeId: input.product_range_id ?? null,
+            at: input.at,
+          }),
         }));
       },
     }),

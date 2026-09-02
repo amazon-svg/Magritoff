@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useWorkspaceApi } from '@/platform/runtime/workspace-ui-runtime';
 import { PriceRulesApiClient, type ListPriceRulesQuery } from '@/modules/pricing/api/client';
-import type { CreatePriceRuleCommand, PriceRuleDto, PriceRuleStatusFilter } from '@/modules/pricing/api/contracts';
+import type {
+  CreatePriceRuleCommand,
+  PriceRuleDto,
+  PriceRuleSort,
+  PriceRuleStatusFilter,
+} from '@/modules/pricing/api/contracts';
+
+/** Defaut du contrat `listPriceRules` (E10.7, CA7) : la plus recente en tete. */
+const DEFAULT_SORT: PriceRuleSort = '-created_at';
 
 export function pricingManagementError(
   cause: unknown,
@@ -34,6 +42,10 @@ export function usePriceRulesManagement(enabled: boolean) {
   const [status, setStatus] = useState<PriceRuleStatusFilter | null>(null);
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [productRangeId, setProductRangeId] = useState<string | null>(null);
+  // CA7 (E10.7) : tri par date de creation (defaut contrat) OU par date de
+  // debut de validite, chacun croissant/decroissant — reprend EXACTEMENT les
+  // 4 valeurs de `PriceRuleSort` au contrat, aucune valeur inventee cote UI.
+  const [sort, setSort] = useState<PriceRuleSort>(DEFAULT_SORT);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
 
   const baseQuery = useCallback(
@@ -42,8 +54,9 @@ export function usePriceRulesManagement(enabled: boolean) {
       ...(status ? { status } : {}),
       ...(customerId ? { customerId } : {}),
       ...(productRangeId ? { productRangeId } : {}),
+      sort,
     }),
-    [q, status, customerId, productRangeId],
+    [q, status, customerId, productRangeId, sort],
   );
 
   const load = useCallback(async () => {
@@ -140,6 +153,8 @@ export function usePriceRulesManagement(enabled: boolean) {
     setCustomerId,
     productRangeId,
     setProductRangeId,
+    sort,
+    setSort,
     hasMore: nextCursor !== null,
     loadingMore,
     loadMore,

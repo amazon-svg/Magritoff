@@ -15,19 +15,47 @@ import {
   type ListPriceRulesParams,
   type ListPriceRulesResult,
   type PriceRulesRepository,
+  type ResolvePriceRuleParams,
 } from '@/modules/pricing/application/price-rules-repository';
 import type {
   CreatePriceRuleCommand,
   PriceRuleDto,
+  PriceRuleResolveResultDto,
   ProductRangeDefaultMarginDto,
   UpdatePriceRuleCommand,
 } from '@/modules/pricing/api/contracts';
 import { sanitizeSearchTerm } from '@/adapters/supabase/price-rules-repository';
 
+/**
+ * Rang de specificite (E10.7 Dev Notes) : `global` < `range` < `customer` <
+ * `customer_range`. Duplique de l ordre attendu de `SPECIFICITY_RANK` cote
+ * fonction SQL `resolve_price_rule` — un ecart entre les deux ferait passer
+ * ce fake sans jamais exercer le vrai algorithme.
+ */
+const SPECIFICITY_RANK: Record<PriceRuleDto['scope'], number> = {
+  global: 0,
+  range: 1,
+  customer: 2,
+  customer_range: 3,
+};
+
 let sequence = 0;
 export function fakeUuid(): string {
   sequence += 1;
   return `00000000-0000-4000-9100-${String(sequence).padStart(12, '0')}`;
+}
+
+/**
+ * `created_at` STRICTEMENT croissant a chaque appel : deux regles creees dans
+ * la meme milliseconde de test (Date.now() n a pas cette garantie) doivent
+ * quand meme se departager sans ambiguite dans les tests de recence (E10.7)
+ * — meme invariant que deux INSERT Postgres successifs, dont `now()` ne
+ * revient jamais en arriere au sein d une session.
+ */
+let lastTimestampMs = 0;
+function monotonicIsoTimestamp(): string {
+  lastTimestampMs = Math.max(Date.now(), lastTimestampMs + 1);
+  return new Date(lastTimestampMs).toISOString();
 }
 
 export class InMemoryPriceRulesRepository implements PriceRulesRepository {
@@ -88,7 +116,7 @@ export class InMemoryPriceRulesRepository implements PriceRulesRepository {
     actor: UserId,
     command: CreatePriceRuleCommand,
   ): Promise<PriceRuleDto> {
-    const now = new Date().toISOString();
+    const now = monotonicIsoTimestamp();
     const rule: PriceRuleDto = {
       id: fakeUuid(),
       tenant_id: tenantId,
@@ -127,6 +155,54 @@ export class InMemoryPriceRulesRepository implements PriceRulesRepository {
     };
     this.rules.set(priceRuleId, updated);
     return updated;
+  }
+
+  /**
+   * Reimplemente l algorithme d E10.7 (Dev Notes de la story) : filtre les
+   * regles ACTIVES du tenant dont la periode couvre `at` et dont la portee
+   * est candidate au contexte fourni, retient le rang de specificite le plus
+   * eleve, puis departage par `created_at` decroissant. `reason` vaut
+   * `recency` SSI plus d une regle etait candidate au rang retenu.
+   */
+  async resolve(
+    tenantId: TenantId,
+    params: ResolvePriceRuleParams,
+  ): Promise<PriceRuleResolveResultDto> {
+    const candidates = [...this.rules.values()].filter((rule) => {
+      if (rule.tenant_id !== tenantId) return false;
+      if (!rule.is_active) return false;
+      if (rule.starts_on > params.at) return false;
+      if (rule.ends_on !== null && rule.ends_on < params.at) return false;
+
+      switch (rule.scope) {
+        case 'global':
+          return true;
+        case 'range':
+          return params.productRangeId !== null && rule.product_range_id === params.productRangeId;
+        case 'customer':
+          return params.customerId !== null && rule.customer_id === params.customerId;
+        case 'customer_range':
+          return (
+            params.customerId !== null &&
+            params.productRangeId !== null &&
+            rule.customer_id === params.customerId &&
+            rule.product_range_id === params.productRangeId
+          );
+        default:
+          return false;
+      }
+    });
+
+    if (candidates.length === 0) return { rule: null, reason: null };
+
+    const maxRank = Math.max(...candidates.map((rule) => SPECIFICITY_RANK[rule.scope]));
+    const atMaxRank = candidates.filter((rule) => SPECIFICITY_RANK[rule.scope] === maxRank);
+    const sorted = [...atMaxRank].sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+    const winner = sorted[0]!;
+    return {
+      rule: winner,
+      reason: atMaxRank.length > 1 ? 'recency' : 'specificity',
+    };
   }
 
   async productRangeExists(productRangeId: string): Promise<boolean> {

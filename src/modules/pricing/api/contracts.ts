@@ -17,10 +17,12 @@
  * sprint interdit desormais. Les deux referentiels coexistent durablement
  * (voir l en-tete de la migration `..._gescom_e10_6_price_rules.sql`).
  *
- * ── Hors perimetre de cette story ────────────────────────────────────────
+ * ── E10.7 ────────────────────────────────────────────────────────────────
  * `resolvePriceRule` (arbitrage des regles concurrentes par specificite puis
- * recence) est livre par E10.7 : aucun schema ni route ici pour cet
- * endpoint, bien qu il soit deja decrit au contrat.
+ * recence) ajoute `priceRuleResolveQuerySchema` / `priceRuleResolveResultSchema`
+ * / `priceRuleSelectionReasonSchema` ci-dessous, miroirs de
+ * `PriceRuleResolveQuery` / `PriceRuleResolveResult` / `PriceRuleSelectionReason`
+ * au contrat.
  */
 import { z } from 'zod';
 import { rateSchema, timestampSchema, uuidSchema } from '../../_shared/api/index.ts';
@@ -123,6 +125,41 @@ export const setProductRangeDefaultMarginCommandSchema = z
 
 export const priceRulesListSchema = z.array(priceRuleSchema);
 
+/**
+ * Motif de selection d E10.7 (contrat `PriceRuleSelectionReason`) :
+ * `specificity` quand une seule regle etait candidate au niveau de portee le
+ * plus specifique retenu, `recency` quand plusieurs regles de meme portee et
+ * meme cible etaient applicables et que `created_at` a departage. Exhaustif
+ * et mutuellement exclusif — jamais les deux a la fois.
+ */
+export const priceRuleSelectionReasonSchema = z.enum(['specificity', 'recency']);
+
+/**
+ * Contexte de resolution (E10.7). `at` est une DATE (`YYYY-MM-DD`), jamais un
+ * instant : comparer un instant a `starts_on`/`ends_on` ferait dependre le
+ * resultat du fuseau de l appelant (contrat `PriceRuleResolveQuery`).
+ */
+export const priceRuleResolveQuerySchema = z
+  .object({
+    customer_id: uuidSchema.nullable().optional(),
+    product_range_id: uuidSchema.nullable().optional(),
+    at: dateOnlySchema,
+  })
+  .strict();
+
+/**
+ * Regle retenue et motif de sa selection. `rule: null` est une reponse
+ * NORMALE (aucune regle active ne couvre le contexte a cette date), pas une
+ * erreur ; `reason` vaut alors `null` — rien a expliquer (contrat
+ * `PriceRuleResolveResult`).
+ */
+export const priceRuleResolveResultSchema = z
+  .object({
+    rule: priceRuleSchema.nullable(),
+    reason: priceRuleSelectionReasonSchema.nullable(),
+  })
+  .strict();
+
 export type PriceRuleScope = z.infer<typeof priceRuleScopeSchema>;
 export type PriceRuleValueType = z.infer<typeof priceRuleValueTypeSchema>;
 export type PriceRuleStatusFilter = z.infer<typeof priceRuleStatusFilterSchema>;
@@ -134,6 +171,9 @@ export type ProductRangeDefaultMarginDto = z.infer<typeof productRangeDefaultMar
 export type SetProductRangeDefaultMarginCommand = z.infer<
   typeof setProductRangeDefaultMarginCommandSchema
 >;
+export type PriceRuleSelectionReason = z.infer<typeof priceRuleSelectionReasonSchema>;
+export type PriceRuleResolveQuery = z.infer<typeof priceRuleResolveQuerySchema>;
+export type PriceRuleResolveResultDto = z.infer<typeof priceRuleResolveResultSchema>;
 
 // ---------------------------------------------------------------------------
 // Alignement de compilation contrat <-> schemas (meme garde-fou que les
@@ -144,6 +184,7 @@ export type SetProductRangeDefaultMarginCommand = z.infer<
 import type {
   PriceRule as PriceRuleContract,
   PriceRuleScope as PriceRuleScopeContract,
+  PriceRuleSelectionReason as PriceRuleSelectionReasonContract,
   PriceRuleValueType as PriceRuleValueTypeContract,
   ProductRangeDefaultMargin as ProductRangeDefaultMarginContract,
 } from '../../../platform/api/generated/magrit-core.v1.ts';
@@ -161,5 +202,9 @@ export const PRICING_CONTRACT_ALIGNMENT = Object.freeze({
   defaultMarginProductRangeId: true as AssertAssignable<
     ProductRangeDefaultMarginDto['product_range_id'],
     ProductRangeDefaultMarginContract['product_range_id']
+  >,
+  priceRuleSelectionReason: true as AssertAssignable<
+    PriceRuleSelectionReason,
+    PriceRuleSelectionReasonContract
   >,
 });

@@ -342,6 +342,13 @@ Ces points sont des **trous de couverture**, pas des défauts de comportement : 
 
 ---
 
+### 8.8 Dette signalée sur E10.7 (Arbitrage des règles de prix concurrentes), acceptée
+
+| Réf. | Trou | Pourquoi c'est un risque | Chemin de mise en conformité |
+|---|---|---|---|
+| **r1** | `tests/sql/gescom-e10-7-price-rules-resolve.sql` (algorithme complet de `resolve_price_rule` — specificité puis récence, motif `specificity`/`recency`, non-écriture de la règle perdante, cas `null`, et isolation par tenant AVEC attaque directe par `p_tenant_id` forcé) n'a **jamais été exécuté** — même contrainte que B3/n1/o1/p1/q1 (§8.1/§8.4/§8.5/§8.6/§8.7), Docker absent (`docker: command not found`) sur le poste de rédaction. | Un cas SQL écrit mais jamais lancé peut échouer sur une broutille et donner l'illusion d'une garantie prouvée — en particulier le scénario 7, qui est LE test qui prouve que `p_tenant_id` ne peut pas être détourné pour lire un autre tenant malgré la fonction `SECURITY INVOKER`. | Lancer `pnpm db:local:start && pnpm test:storefront:sql` sur un poste équipé. Le fichier est déjà enregistré dans `SQL_CASES` (`scripts/test-storefront-sql.sh`). |
+| **r2** | Le déploiement de la migration `20260902000300_gescom_e10_7_resolve_price_rule.sql` sur le projet Supabase partagé n'a pas pu être effectué dans cette session : ni le CLI `supabase` (PAT absent, `supabase projects list` renvoie `Unauthorized`), ni `psql`/`DATABASE_URL` direct ne sont disponibles. | L'endpoint fonctionne en mémoire (tests de contrat contre un fake qui réimplémente l'algorithme) et compile (`pnpm typecheck`), mais n'a pas encore de preuve d'exécution réelle de la fonction SQL contre Postgres, ni de disponibilité pour Studio/Clariprint. | Régénérer un PAT Supabase (cf. CLAUDE.md) et lancer `supabase db push` sur le projet `ightkxebexuzfjdbpsdg`, comme pour E10.1/E10.3/E10.4/E10.5/E10.6. |
+
 ## 9. Commandes
 
 ```bash

@@ -36,6 +36,7 @@ SQL_CASES=(
   tests/sql/gescom-e10-2-project-tags.sql
   tests/sql/gescom-e10-3-commercial-quotes.sql
   tests/sql/gescom-e10-6-price-rules.sql
+  tests/sql/gescom-e10-7-price-rules-resolve.sql
 )
 
 for sql_case in "${SQL_CASES[@]}"; do

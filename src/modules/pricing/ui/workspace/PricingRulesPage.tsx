@@ -18,7 +18,7 @@ import { TEST_IDS } from '@/shared/presentation/testIds';
 import { CustomersApiClient, type CustomerDto } from '@/modules/customers';
 import { CatalogApiClient } from '@/modules/catalog';
 import { PriceRulesApiClient } from '@/modules/pricing/api/client';
-import type { PriceRuleDto, PriceRuleStatusFilter } from '@/modules/pricing/api/contracts';
+import type { PriceRuleDto, PriceRuleSort, PriceRuleStatusFilter } from '@/modules/pricing/api/contracts';
 import { usePriceRulesManagement } from '@/modules/pricing/ui/hooks';
 import { PriceRuleFormModal } from './PriceRuleFormModal';
 import { rateToPercentString, toRateString } from './rate-format';
@@ -73,6 +73,8 @@ export function DashboardPricingRules() {
     setCustomerId,
     productRangeId,
     setProductRangeId,
+    sort,
+    setSort,
     hasMore,
     loadingMore,
     loadMore,
@@ -151,6 +153,7 @@ export function DashboardPricingRules() {
           onChange={(event) => setQ(event.target.value)}
           placeholder="Rechercher par nom..."
           className={`${inputCls} max-w-sm`}
+          data-testid={TEST_IDS.pricing.searchInput}
         />
         <select
           value={status ?? ''}
@@ -159,10 +162,26 @@ export function DashboardPricingRules() {
           }
           className={inputCls}
           style={{ maxWidth: 200 }}
+          data-testid={TEST_IDS.pricing.statusFilterSelect}
         >
           <option value="">Tous les statuts</option>
           <option value="active">Actives</option>
           <option value="disabled">Désactivées</option>
+        </select>
+        {/* E10.7 CA7 — tri par date de creation OU par date de debut de
+            validite, dans les deux sens. Les 4 valeurs reprennent exactement
+            `PriceRuleSort` du contrat (contrat `listPriceRules`). */}
+        <select
+          value={sort}
+          onChange={(event) => setSort(event.target.value as PriceRuleSort)}
+          className={inputCls}
+          style={{ maxWidth: 220 }}
+          data-testid={TEST_IDS.pricing.sortSelect}
+        >
+          <option value="-created_at">Création (plus récente d’abord)</option>
+          <option value="created_at">Création (plus ancienne d’abord)</option>
+          <option value="-starts_on">Début de validité (plus tardif d’abord)</option>
+          <option value="starts_on">Début de validité (plus tôt d’abord)</option>
         </select>
         <select
           value={customerId ?? ''}

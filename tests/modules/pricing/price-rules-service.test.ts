@@ -275,3 +275,51 @@ describe('PriceRulesService — nature des erreurs', () => {
     ).rejects.toBeInstanceOf(PriceRuleCommandRejectedError);
   });
 });
+
+/**
+ * `resolve()` (E10.7) : le service ne fait que valider le contexte avant de
+ * deleguer l algorithme au repository (`InMemoryPriceRulesRepository.resolve()`,
+ * qui reimplemente specificite + recence a l identique de la fonction SQL —
+ * voir tests/contract/price-rules.contract.test.ts pour l algorithme
+ * complet bout en bout via la facade HTTP). Ces tests-ci couvrent la couche
+ * de VALIDATION propre au service, absente du fake lui-meme.
+ */
+describe('PriceRulesService — resolve (E10.7)', () => {
+  it('rend rule: null et reason: null quand aucune regle ne couvre le contexte', async () => {
+    const result = await service.resolve(TENANT, { customerId: null, productRangeId: null, at: '2026-09-01' });
+    expect(result).toEqual({ rule: null, reason: null });
+  });
+
+  it('un customer_id inconnu du tenant est refuse en price_rule.customer_unknown, AVANT toute resolution', async () => {
+    const otherTenant = brand<TenantId>('11111111-1111-4111-8111-111111111111');
+    const foreignCustomer = await customers.create(otherTenant, USER, {
+      type: 'individual',
+      civility: 'mr',
+      first_name: 'Autre',
+      last_name: 'Tenant',
+    });
+    await expect(
+      service.resolve(TENANT, { customerId: foreignCustomer.id, productRangeId: null, at: '2026-09-01' }),
+    ).rejects.toMatchObject({ code: 'price_rule.customer_unknown' });
+  });
+
+  it('un product_range_id inconnu du catalogue est refuse en price_rule.product_range_unknown', async () => {
+    await expect(
+      service.resolve(TENANT, { customerId: null, productRangeId: 'unknown-range', at: '2026-09-01' }),
+    ).rejects.toMatchObject({ code: 'price_rule.product_range_unknown' });
+  });
+
+  it('delegue au repository et rend la regle retenue avec son motif', async () => {
+    const created = await service.create(TENANT, USER, { ...baseCommand, scope: 'global' });
+    const result = await service.resolve(TENANT, { customerId: null, productRangeId: null, at: '2026-09-01' });
+    expect(result.rule?.id).toBe(created.id);
+    expect(result.reason).toBe('specificity');
+  });
+
+  it('n emet aucun evenement outbox (operation de lecture pure)', async () => {
+    await service.create(TENANT, USER, { ...baseCommand, scope: 'global' });
+    outboxRepository.events.length = 0;
+    await service.resolve(TENANT, { customerId: null, productRangeId: null, at: '2026-09-01' });
+    expect(outboxRepository.events).toHaveLength(0);
+  });
+});
