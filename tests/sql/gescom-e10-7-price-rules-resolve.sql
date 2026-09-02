@@ -196,6 +196,7 @@ declare
   v_newer_rule_b uuid;
   v_tie_rule_1_b uuid;
   v_tie_rule_2_b uuid;
+  v_older_rule_updated_at_before timestamptz;
   v_result_rule_id uuid;
   v_result_reason text;
   v_row_count integer;
@@ -204,10 +205,18 @@ begin
     into v_tenant_b, v_customer_b, v_gamme_b, v_annual_rule_b, v_september_rule_b
     from e10_7_resolve_context;
 
-  select id into v_older_rule_b from public.price_rules where name = 'Ancienne regle globale B';
-  select id into v_newer_rule_b from public.price_rules where name = 'Nouvelle regle globale B';
-  select id into v_tie_rule_1_b from public.price_rules where name = 'Egalite id 1 B';
-  select id into v_tie_rule_2_b from public.price_rules where name = 'Egalite id 2 B';
+  select id into v_older_rule_b
+    from public.price_rules
+   where tenant_id = v_tenant_b and name = 'Ancienne regle globale B';
+  select id into v_newer_rule_b
+    from public.price_rules
+   where tenant_id = v_tenant_b and name = 'Nouvelle regle globale B';
+  select id into v_tie_rule_1_b
+    from public.price_rules
+   where tenant_id = v_tenant_b and name = 'Egalite id 1 B';
+  select id into v_tie_rule_2_b
+    from public.price_rules
+   where tenant_id = v_tenant_b and name = 'Egalite id 2 B';
 
   -- 1/3 — sans customer_id/product_range_id : seule la regle globale peut
   -- etre candidate (la customer_range B n a ni customer_id ni
@@ -267,6 +276,17 @@ begin
   -- actives au meme rang (l annuelle, 09:00, et l ancienne, 10:00) : le
   -- departage se fait encore par recence, pas par specificite (candidate_count
   -- = 2), et c est l ancienne (10:00 > 09:00) qui l emporte.
+  --
+  -- On capture updated_at de l ancienne regle AVANT le update ci-dessous, pour
+  -- prouver ensuite (par egalite avec la valeur relue apres coup) qu aucune
+  -- ecriture ne l a touchee — comparer a created_at serait faux en dur ici :
+  -- created_at est un litteral du 1er aout pose a l insertion (qa-review round
+  -- 3), tandis qu updated_at prend le defaut de colonne now(), l instant reel
+  -- de cet insert dans cette transaction ; les deux ne peuvent donc jamais
+  -- coincider, meme quand aucune ecriture ulterieure n a lieu.
+  select updated_at into v_older_rule_updated_at_before
+    from public.price_rules where id = v_older_rule_b;
+
   update public.price_rules set is_active = false where id = v_newer_rule_b;
 
   select rule_id, reason into v_result_rule_id, v_result_reason
@@ -277,20 +297,25 @@ begin
       v_result_rule_id, v_result_reason, v_older_rule_b;
   end if;
 
-  -- L ancienne regle globale B n a jamais ete ecrite (aucun decoupage/duplication).
+  -- L ancienne regle globale B n a jamais ete ecrite (aucun decoupage/
+  -- duplication) : son updated_at releve maintenant est IDENTIQUE a celui
+  -- capture avant le update ci-dessus (qa-review round 4 — comparer a
+  -- created_at etait faux en dur, cf. commentaire ci-dessus).
   perform 1 from public.price_rules
-   where id = v_older_rule_b and updated_at = created_at;
+   where id = v_older_rule_b and updated_at = v_older_rule_updated_at_before;
   if not found then
     raise exception 'La regle plus ancienne a ete modifiee alors qu aucune ecriture ne devait la toucher';
   end if;
 
-  -- Reactivation : la plus recente reprend immediatement la main.
+  -- Reactivation : la plus recente reprend immediatement la main, avec le
+  -- bon motif (specificity/recency) et pas seulement le bon identifiant.
   update public.price_rules set is_active = true where id = v_newer_rule_b;
   select rule_id, reason into v_result_rule_id, v_result_reason
     from public.resolve_price_rule(v_tenant_b, null, null, '2026-09-15'::date);
-  if v_result_rule_id is distinct from v_newer_rule_b then
-    raise exception 'Apres reactivation, resolve_price_rule n a pas repris la regle la plus recente (%)',
-      v_result_rule_id;
+  if v_result_rule_id is distinct from v_newer_rule_b or v_result_reason is distinct from 'recency' then
+    raise exception
+      'Apres reactivation, resolve_price_rule a rendu (%, %), attendu (%, recency)',
+      v_result_rule_id, v_result_reason, v_newer_rule_b;
   end if;
 
   -- 5 — aucune regle active ne couvre ce contexte (aucune regle B n a de
