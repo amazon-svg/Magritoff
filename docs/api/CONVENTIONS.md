@@ -187,6 +187,14 @@ Codes transverses du socle : voir `SHARED_PROBLEM_CODES` dans `src/modules/_shar
 
 **Aucun montant ni taux en flottant JSON.** Un flottant perd des centimes sur les arrondis de TVA et de remise, et l'erreur ne se voit qu'à la facture.
 
+### Piège découvert en production (2026-09-02) — normaliser TOUT timestamp lu d'une ligne Postgres
+
+**Ne jamais restituer `row.created_at`/`row.updated_at` (ou tout champ `timestamptz`) tel quel depuis une ligne Supabase.** PostgREST sérialise systématiquement avec un décalage explicite (`2026-09-02T06:54:39.688293+00:00`), **jamais** avec le suffixe `Z` — y compris pour une valeur stockée en UTC. `timestampSchema` (regex stricte, exige le `Z` littéral) rejette cette forme : toute route qui renvoie une valeur de date lue brute échoue en 500 `api.internal_error` à la validation de réponse (`gescom-middleware.ts`), **avec des données parfaitement valides**, et **après que l'écriture métier a déjà réussi** — le client voit une erreur alors que la ressource existe en base (créée en double au prochain essai si le SIRET/libellé n'a pas de contrainte d'unicité qui l'en empêche).
+
+Ce défaut est resté invisible pendant tout le Lot 1 et le Lot 2 parce que les fakes des suites de contrat construisent leurs dates via `new Date().toISOString()`, qui produit déjà `Z` — jamais exercé contre PostgREST. Ni `pnpm test`, ni `pnpm test:contract`, ni `pnpm test:architecture` ne pouvaient le détecter. Découvert en production le 2026-09-02 suite à un signalement direct (création de client systématiquement en "erreur interne", personne physique et morale), diagnostiqué par lecture des logs de la edge function déployée.
+
+**Règle désormais opposable** : tout adaptateur qui mappe une ligne Postgres vers un DTO doit passer chaque champ `timestamptz` par `toIsoTimestamp()` (requis) ou `toIsoTimestampOrNull()` (nullable), exportés par `src/modules/_shared/application/index.ts`. Corrigé sur les 4 adaptateurs E10 existants (`customers`, `projects`, `project-tags`, `commercial-quotes`) ; toute story future qui ajoute un adaptateur doit faire de même — sans quoi le même défaut réapparaît, silencieusement en test, bruyamment en production.
+
 ---
 
 ## 6. Écrire un endpoint E10.x — la séquence
