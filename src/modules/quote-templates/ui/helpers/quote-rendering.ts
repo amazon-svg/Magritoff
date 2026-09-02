@@ -1,4 +1,21 @@
-import type { QuotesApiClient } from '@/modules/quotes';
+/**
+ * Rendu HTML imprimable d'un devis + gabarits "sortie d'usine".
+ *
+ * Relocalise depuis `src/modules/quotes/ui/helpers/quote.ts` (chantier
+ * d unification des devis, post Sprint 5 : voir docs/api/CONVENTIONS.md
+ * §8.10). Le module `quotes` (ancien systeme storefront, jamais construit
+ * cote soumission client) a ete supprime purement et simplement (decision
+ * Arnaud). Ce fichier ne portait AUCUNE logique couplee a son schema de
+ * table — uniquement du gabarit/rendu HTML et les 3 gabarits `builtin` — et
+ * son proprietaire naturel est `quote-templates`, qui consommait deja
+ * `QuoteTemplate`/`BUILTIN_QUOTE_TEMPLATES` depuis l ancien module.
+ *
+ * La fonction `persistQuote` (ecriture dans la table legacy `public.quotes`)
+ * n a PAS ete portee : son backend a disparu. Les appelants qui l utilisaient
+ * (CartButton, ProductCard/QuoteModal) impriment desormais sans historiser de
+ * ligne — l historique d un devis reel se fait desormais exclusivement via
+ * `commercial_quotes` (E10.3), qui exige un projet source.
+ */
 import { applyTax, DEFAULT_TAX_RATE, extractTaxAmount, formatTaxLabel } from '@/modules/orders/ui/helpers';
 
 /**
@@ -28,39 +45,6 @@ export function computeProductTotals(
   const cp = product.clariprintQuote;
   const totalHT = cp?.costs?.total ?? cp?.priceHT ?? product.price ?? 0;
   return { totalHT, totalTTC: applyTax(totalHT, taxRate) };
-}
-
-export interface QuoteRowInput {
-  reference: string;
-  product_name: string;
-  product_config: any;
-  total_ht: number;
-  total_ttc: number;
-}
-
-/**
- * Crée un brouillon via l’API Quotes. Le tenant est explicite, tandis que
- * l’utilisateur est dérivé de la session serveur et contrôlé par la RLS.
- *
- * Sprint 10 Phase B users : colonne quotes.client_id supprimee (DROP TABLE
- * clients CASCADE). Le devis est lie au tenant + user emetteur uniquement.
- */
-export async function persistQuote(
-  quotesApi: QuotesApiClient,
-  tenantId: string,
-  input: QuoteRowInput
-) {
-  try {
-    await quotesApi.createDraft(tenantId, {
-      reference: input.reference,
-      productName: input.product_name,
-      productConfig: input.product_config,
-      totalHt: input.total_ht,
-      totalTtc: input.total_ttc,
-    });
-  } catch (error) {
-    console.error('[quotes] persist error:', error instanceof Error ? error.message : String(error));
-  }
 }
 
 // ─── Gabarits de devis (templating) ───────────────────────────────────────

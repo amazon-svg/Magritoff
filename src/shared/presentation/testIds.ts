@@ -57,10 +57,10 @@ export const TEST_IDS = {
   },
   dashboard: {
     welcomeCard: 'dashboard-welcome-card',
-    // S2.16 — Page "Devis en attente" (sous-menu de Devis, option C)
-    pendingQuotes: 'dashboard-pending-quotes',
-    pendingQuoteRow: 'dashboard-pending-quote-row',
-    pendingQuoteResumeBtn: 'dashboard-pending-quote-resume-btn',
+    // S2.16 — Page "Devis en attente" (sous-menu de Devis, option C).
+    // Retire au chantier d unification des devis (docs/api/CONVENTIONS.md
+    // §8.10) : le nouveau systeme (commercial_quotes) n a pas d equivalent au
+    // concept "en attente de validation" — pas de composant a re-tagger.
   },
 
   // ─── P02 — Gestion utilisateurs ───────────────────────────────────────
@@ -148,41 +148,6 @@ export const TEST_IDS = {
     priceErrorBanner: 'quote-price-error-banner',
     anomalyBanner: 'quote-anomaly-banner',
     refreshBtn: 'quote-refresh-btn',
-  },
-
-  // ─── S-QUOTES — Bibliotheque de devis editables ───────────────────────
-  quoteLib: {
-    page: 'quote-lib-page',
-    scopeToggleMine: 'quote-lib-scope-mine',
-    scopeToggleAll: 'quote-lib-scope-all',
-    row: 'quote-lib-row',
-    rowMenuBtn: 'quote-lib-row-menu-btn',
-    rowMenuEdit: 'quote-lib-row-menu-edit',
-    rowMenuDuplicate: 'quote-lib-row-menu-duplicate',
-    rowMenuDelete: 'quote-lib-row-menu-delete',
-    deleteDialog: 'quote-lib-delete-dialog',
-    deleteConfirmBtn: 'quote-lib-delete-confirm-btn',
-    // Editeur de devis (page dediee)
-    // Renomme en E10.3 (qa-review Lot 2) : collisionnait avec
-    // commercialQuote.editorPage, testid retenu par le cahier de test
-    // Notion TF-163 pour la nouvelle page d edition E10.3. Ce testid-ci
-    // n est actuellement rendu par aucun composant.
-    editorPage: 'quote-lib-editor-page',
-    editorClientNameInput: 'quote-editor-client-name-input',
-    editorLineRow: 'quote-editor-line-row',
-    editorLineQuantityInput: 'quote-editor-line-quantity-input',
-    editorLinePriceInput: 'quote-editor-line-price-input',
-    editorLineMarginInput: 'quote-editor-line-margin-input',
-    editorLineMoveUp: 'quote-editor-line-move-up',
-    editorLineMoveDown: 'quote-editor-line-move-down',
-    editorLineDeleteBtn: 'quote-editor-line-delete-btn',
-    editorTemplateSelect: 'quote-editor-template-select',
-    editorStatusSelect: 'quote-editor-status-select',
-    editorTotalTtc: 'quote-editor-total-ttc',
-    editorPrintBtn: 'quote-editor-print-btn',
-    editorSaveBtn: 'quote-editor-save-btn',
-    // Entree "Creer un devis" depuis le panier
-    cartCreateQuoteBtn: 'shop-cart-create-quote-btn',
   },
 
   // ─── P09 — Boutique portail B2B ───────────────────────────────────────
@@ -296,7 +261,6 @@ export const TEST_IDS = {
     // S7.10 — AccountHub « Mon compte » /account/*
     accountHub: 'shop-account-hub',
     accountTab: 'shop-account-tab',
-    accountQuotesList: 'shop-account-quotes-list',
     accountProfile: 'shop-account-profile',
     accountLogoutBtn: 'shop-account-logout-btn',
     // S7.9 — Bandeau Reprendre riche (home) + compact (pages gammes)
@@ -551,6 +515,15 @@ export const TEST_IDS = {
     editorPage: 'quote-editor-page',
     numberDisplay: 'quote-number-display',
     lineRow: 'quote-line-row',
+    // Ecran de liste (chantier d unification des devis, une seule IHM
+    // "Devis" sur commercial_quotes — docs/api/CONVENTIONS.md §8.10).
+    listPage: 'quote-list-page',
+    listRow: 'quote-list-row',
+    listStatusFilter: 'quote-list-status-filter',
+    listSearchInput: 'quote-list-search-input',
+    listDeleteBtn: 'quote-list-delete-btn',
+    listDeleteConfirmBtn: 'quote-list-delete-confirm-btn',
+    listDeleteDialog: 'quote-list-delete-dialog',
   },
 
   // ─── E10.6 — Referentiel des regles de prix (P13) ──────────────────────

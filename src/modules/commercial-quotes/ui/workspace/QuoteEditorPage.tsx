@@ -24,14 +24,7 @@ import { customerDisplayName } from '@/modules/projects/ui';
 import { TEST_IDS } from '@/shared/presentation/testIds';
 import { CommercialQuotesApiClient } from '../../api/client';
 import type { QuoteDetailDto } from '../../api/contracts';
-
-const QUOTE_STATUS_LABELS: Readonly<Record<string, string>> = {
-  draft: 'Brouillon',
-  sent: 'Envoye',
-  accepted: 'Accepte',
-  rejected: 'Refuse',
-  converted: 'Converti',
-};
+import { statusLabel } from '../helpers';
 
 export function QuoteEditorPage() {
   const { quoteId } = useParams<{ quoteId: string }>();
@@ -134,7 +127,7 @@ export function QuoteEditorPage() {
         <p className="text-sm text-ink-muted mt-1">
           Client : {customer ? customerDisplayName(customer) : '—'}
           {' · '}
-          {QUOTE_STATUS_LABELS[detail.status] ?? detail.status}
+          {statusLabel(detail.status)}
         </p>
       </div>
 

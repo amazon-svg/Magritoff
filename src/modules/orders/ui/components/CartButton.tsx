@@ -1,16 +1,11 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router';
-import { ShoppingCart, X, Trash2, FileText, FilePlus } from 'lucide-react';
+import { ShoppingCart, X, Trash2, FileText } from 'lucide-react';
 import { useCart } from '@/modules/orders/ui/runtime/CartContext';
-import { useAuth } from '@/modules/account/ui/runtime';
-import { useQuotes } from '@/modules/quotes/ui/runtime';
-import { makeQuoteReference, getDefaultTemplate, renderQuoteHtml } from '@/modules/quotes/ui/helpers';
+import { makeQuoteReference, getDefaultTemplate, renderQuoteHtml } from '@/modules/quote-templates/ui/helpers';
 import { useQuoteTemplates } from '@/modules/quote-templates/ui/runtime';
 import { useTenant } from '@/modules/tenants/ui/runtime';
 import { useTenantPath } from '@/modules/tenants/ui/hooks';
 import { applyTax, extractTaxAmount, formatTaxLabel, getTaxRate } from '@/modules/orders/ui/helpers/tax';
-import { TEST_IDS } from '@/shared/presentation/testIds';
-import { useQuotePersistence } from '@/modules/quotes/ui/hooks';
 
 interface CartButtonProps {
   /** `rail` : icon-only, pour le rail lateral du chat v2.
@@ -22,15 +17,10 @@ interface CartButtonProps {
 export function CartButton({ variant = 'pill' }: CartButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const { items, removeFromCart, clearCart, getTotalPrice } = useCart();
-  const { user } = useAuth();
-  const { persist } = useQuotePersistence();
   const tp = useTenantPath();
-  const navigate = useNavigate();
   const { currentTenant } = useTenant();
   const taxRate = getTaxRate(currentTenant);
   const { templates, defaultTemplateId } = useQuoteTemplates();
-  const { createQuoteFromCart } = useQuotes();
-  const [creating, setCreating] = useState(false);
 
   // Selection du gabarit a appliquer aux devis imprimes depuis le panier.
   // Le defaut de la modale suit le defaut utilisateur (ou builtin-classique).
@@ -79,23 +69,6 @@ export function CartButton({ variant = 'pill' }: CartButtonProps) {
       }),
     });
 
-    if (user && currentTenant) {
-      void Promise.all(
-        items.map((item) => {
-          const p = item.product;
-          const cp = p.clariprintQuote;
-          const totalHT = cp?.costs?.total ?? cp?.priceHT ?? p.price ?? 0;
-          return persist(currentTenant.id, {
-            reference,
-            product_name: p.name,
-            product_config: p,
-            total_ht: totalHT,
-            total_ttc: applyTax(totalHT, taxRate),
-          });
-        })
-      );
-    }
-
     // Template-driven wrapper
     const brand = effectiveTemplate.brand_color || '#111';
     const accent = effectiveTemplate.accent_color || '#f59e0b';
@@ -125,25 +98,6 @@ export function CartButton({ variant = 'pill' }: CartButtonProps) {
     `);
     printWindow.document.close();
     setTimeout(() => printWindow.print(), 250);
-  };
-
-  // Cree un devis multi-lignes editable depuis le panier puis ouvre l'editeur.
-  const handleCreateQuote = async () => {
-    if (items.length === 0 || creating) return;
-    if (!user || !currentTenant) {
-      alert('Connectez-vous a un espace pour creer un devis editable.');
-      return;
-    }
-    setCreating(true);
-    const quoteId = await createQuoteFromCart(items, undefined);
-    setCreating(false);
-    if (quoteId) {
-      clearCart();
-      setIsOpen(false);
-      navigate(tp(`/dashboard/quotes/${quoteId}/edit`));
-    } else {
-      alert('La creation du devis a echoue. Reessayez.');
-    }
   };
 
   // ── Trigger ───────────────────────────────────────────────────────────────
@@ -391,21 +345,11 @@ export function CartButton({ variant = 'pill' }: CartButtonProps) {
                   </button>
                   <button
                     onClick={handlePrintQuotes}
-                    className="flex-1 min-w-[150px] px-4 py-2.5 border border-line bg-paper text-ink-2 hover:bg-bg rounded-xl transition-colors inline-flex items-center justify-center gap-2"
+                    className="flex-[2] min-w-[200px] px-4 py-2.5 bg-ink text-paper hover:bg-black rounded-xl transition-colors inline-flex items-center justify-center gap-2"
                     style={{ fontSize: '13.5px', fontWeight: 500 }}
                   >
                     <FileText className="w-4 h-4" strokeWidth={1.5} />
                     Imprimer directement
-                  </button>
-                  <button
-                    data-testid={TEST_IDS.quoteLib.cartCreateQuoteBtn}
-                    onClick={handleCreateQuote}
-                    disabled={creating}
-                    className="flex-[2] min-w-[200px] px-4 py-2.5 bg-ink text-paper hover:bg-black rounded-xl transition-colors inline-flex items-center justify-center gap-2 disabled:opacity-50"
-                    style={{ fontSize: '13.5px', fontWeight: 500 }}
-                  >
-                    <FilePlus className="w-4 h-4" strokeWidth={1.5} />
-                    {creating ? 'Création…' : 'Créer un devis'}
                   </button>
                 </div>
               </div>

@@ -1,0 +1,154 @@
+-- ============================================================================
+-- Chantier post Sprint 5 — Unification des devis : retrait pur et simple du
+-- systeme legacy `public.quotes`/`public.quote_lines`.
+-- ----------------------------------------------------------------------------
+-- Decision explicite d Arnaud (PDG, product owner), verbatim :
+--   1. « L existant ne releve que de donnees de tests donc n a aucune
+--      importance, ne pas le migrer, le supprimer purement et simplement »
+--   2. « Nous supprimons l ancien module pour ne conserver que le nouveau
+--      auquel nous associons les IHM existantes »
+--   3. « Un devis est un devis, qu il soit initie par un client cote boutique
+--      ou realise par un commercial depuis Magrit home, au final ce dernier
+--      devra le gerer depuis l outil de gestion commerciale »
+--
+-- ── Pourquoi une suppression et pas une migration de donnees ────────────────
+-- `public.quotes` (25 lignes) / `public.quote_lines` (30 lignes) sont des
+-- donnees de test (activite mai -> fin aout 2026, arretee pile avant le debut
+-- du Sprint 5, coherent avec le remplacement du panier par les Projets en
+-- E10.1). Aucune dependance reelle : `orders.quote_id` (FK `on delete set
+-- null`) a 0 ligne non-nulle referencant `quotes` ; `pim_candidates.source_quote_id`
+-- a 0 ligne non-nulle. Le systeme cible, `commercial_quotes`/
+-- `commercial_quote_lines` (E10.3, migration `20260901000600`), est un modele
+-- INCOMPATIBLE documente en detail dans son en-tete — pas une extension de
+-- celui-ci. Aucune ligne n est donc portee vers le nouveau systeme.
+--
+-- ── Ce qui disparait ──────────────────────────────────────────────────────
+--   - `public.quotes` (et tout ce qui en depend : policies RLS, index, trigger
+--     `trg_quotes_updated_at`, contraintes) ;
+--   - `public.quote_lines` (idem) ;
+--   - `public.set_quote_updated_at()` — fonction dediee au trigger ci-dessus,
+--     utilisee par AUCUNE autre table ;
+--   - `orders.quote_id` — colonne de liaison vers l ancien systeme. 0 ligne
+--     non-nulle (verifie avant redaction de cette migration) : conservee
+--     seule, sans table cible, elle n aurait plus aucun sens (jamais
+--     alimentee par `commercial_quotes`, qui n a pas vocation a etre
+--     reference depuis `orders` par cette meme colonne). DROP plutot que
+--     conservation "generique" : une colonne FK vers une table qui n existe
+--     plus serait une source de confusion, pas une garantie de compatibilite.
+--   - `pim_candidates.source_quote_id` — meme raisonnement (0 ligne
+--     non-nulle, plus aucune source `quotes` possible pour l alimenter).
+--
+-- ── Ce qui NE disparait PAS ───────────────────────────────────────────────
+--   - `public.commercial_quotes` / `public.commercial_quote_lines` (E10.3) :
+--     systeme cible, desormais UNIQUE systeme de devis. Non touche par cette
+--     migration.
+--   - `public.orders` (table), `public.pim_candidates` (table) : seules les
+--     deux colonnes de liaison vers l ancien systeme sont retirees.
+-- ============================================================================
+
+-- ── 1. Colonnes de liaison vers l ancien systeme (0 ligne non-nulle) ────────
+alter table if exists public.orders
+  drop column if exists quote_id;
+
+alter table if exists public.pim_candidates
+  drop column if exists source_quote_id;
+
+-- ── 2. Lignes de devis (doit etre droppee avant l entete, FK on delete cascade) ─
+drop table if exists public.quote_lines cascade;
+
+-- ── 3. Entete de devis ───────────────────────────────────────────────────────
+drop table if exists public.quotes cascade;
+
+-- ── 4. Fonction de trigger dediee (aucune autre table ne l utilise) ─────────
+drop function if exists public.set_quote_updated_at();
+
+notify pgrst, 'reload schema';
+
+-- ============================================================================
+-- REVERSIBILITE — le CLI Supabase ne gere pas de bloc `down`. SQL de retrait
+-- (recree le SCHEMA vide, PAS les donnees — explicitement perdues et
+-- acceptees comme telles par la decision produit ci-dessus), a jouer tel
+-- quel dans une migration inverse si ce chantier est annule :
+--
+--   create table if not exists public.quotes (
+--     id              uuid primary key default gen_random_uuid(),
+--     user_id         uuid not null references auth.users(id) on delete cascade,
+--     client_id       uuid references public.clients(id) on delete set null,
+--     tenant_id       uuid references public.tenants(id),
+--     reference       text not null,
+--     product_name    text not null,
+--     product_config  jsonb,
+--     total_ht        numeric(12,2),
+--     total_ttc       numeric(12,2),
+--     status          text not null default 'draft'
+--                       check (status in ('draft','sent','won','lost','pending','validated','rejected')),
+--     client_name     text,
+--     updated_at      timestamptz not null default now(),
+--     created_at      timestamptz not null default now()
+--   );
+--   create index if not exists quotes_user_id_idx on public.quotes(user_id);
+--   create index if not exists quotes_tenant_idx on public.quotes(tenant_id);
+--   alter table public.quotes enable row level security;
+--   create policy "quotes_select" on public.quotes for select using (
+--     public.is_super_admin() or (tenant_id in (select public.current_user_tenant_ids()))
+--   );
+--   create policy "quotes_insert" on public.quotes for insert with check (
+--     user_id = auth.uid() and (tenant_id in (select public.current_user_tenant_ids()))
+--   );
+--   create policy "quotes_update" on public.quotes for update using (
+--     (user_id = auth.uid() and tenant_id in (select public.current_user_tenant_ids()))
+--     or public.user_role_in_tenant(tenant_id) in ('owner', 'admin')
+--     or public.is_super_admin()
+--   );
+--   create policy "quotes_delete" on public.quotes for delete using (
+--     (user_id = auth.uid() and tenant_id in (select public.current_user_tenant_ids()))
+--     or public.user_role_in_tenant(tenant_id) in ('owner', 'admin')
+--     or public.is_super_admin()
+--   );
+--
+--   create table if not exists public.quote_lines (
+--     id             uuid primary key default gen_random_uuid(),
+--     quote_id       uuid not null references public.quotes(id) on delete cascade,
+--     product_name   text not null,
+--     product_config jsonb,
+--     quantity       integer not null default 1 check (quantity > 0),
+--     unit_cost_ht   numeric(12,2) not null default 0,
+--     unit_price_ht  numeric(12,2) not null default 0,
+--     margin_pct     numeric(6,2)  not null default 0,
+--     line_total_ht  numeric(12,2) not null default 0,
+--     position       integer not null default 0,
+--     created_at     timestamptz not null default now()
+--   );
+--   create index if not exists quote_lines_quote_id_idx on public.quote_lines(quote_id, position);
+--   alter table public.quote_lines enable row level security;
+--   create policy quote_lines_select on public.quote_lines for select using (
+--     exists (select 1 from public.quotes q where q.id = quote_id
+--       and (q.tenant_id in (select public.current_user_tenant_ids()) or public.is_super_admin()))
+--   );
+--   create policy quote_lines_write on public.quote_lines for all using (
+--     exists (select 1 from public.quotes q where q.id = quote_id
+--       and ((q.user_id = auth.uid() and q.tenant_id in (select public.current_user_tenant_ids()))
+--         or public.user_role_in_tenant(q.tenant_id) in ('owner', 'admin')
+--         or public.is_super_admin()))
+--   );
+--
+--   create or replace function public.set_quote_updated_at()
+--   returns trigger language plpgsql as $$
+--   begin
+--     new.updated_at = now();
+--     return new;
+--   end;
+--   $$;
+--   create trigger trg_quotes_updated_at
+--     before update on public.quotes
+--     for each row execute function public.set_quote_updated_at();
+--
+--   alter table public.orders add column if not exists quote_id uuid references public.quotes(id) on delete set null;
+--   alter table public.pim_candidates add column if not exists source_quote_id uuid references public.quotes(id) on delete set null;
+--
+--   notify pgrst, 'reload schema';
+--
+-- Aucune donnee n est restauree par ce retrait (elle a ete perdue au DROP) :
+-- ce script recree uniquement un schema vide, identique a celui laisse par
+-- 20260702000100 avant cette migration.
+-- ============================================================================

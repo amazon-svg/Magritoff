@@ -7,14 +7,17 @@
  * types generes ne peuvent pas exprimer.
  *
  * ── Nom du module : `commercial-quotes`, pas `quotes` ──────────────────────
- * `src/modules/quotes/` existe deja et porte un domaine DIFFERENT et
+ * `src/modules/quotes/` a existe un temps et portait un domaine DIFFERENT et
  * INCOMPATIBLE (demande de devis boutique storefront, table legacy
  * `public.quotes` adressee par `/api/v1/tenants/{tenantId}/quotes`, modele de
- * marge maison). Ce module-ci ne le remplace pas et ne le duplique pas : il
- * couvre le devis "atelier" de la Gestion commerciale (E10), sur les tables
- * `commercial_quotes`/`commercial_quote_lines`. Voir l en-tete de la
- * migration `20260901000600_gescom_e10_3_commercial_quotes.sql` pour le
- * detail de l incompatibilite qui justifie deux systemes distincts.
+ * marge maison). Il a ete supprime purement et simplement au chantier
+ * d unification des devis (post Sprint 5, decision Arnaud — voir
+ * docs/api/CONVENTIONS.md §8.10) : ce module-ci, sur les tables
+ * `commercial_quotes`/`commercial_quote_lines`, est desormais l UNIQUE
+ * systeme de devis, quelle que soit son origine (commercial ou boutique).
+ * Voir l en-tete de la migration `20260901000600_gescom_e10_3_commercial_quotes.sql`
+ * pour le detail de l incompatibilite qui a justifie deux systemes distincts
+ * a l epoque de la creation de ce module-ci.
  *
  * ── Prix : E10.21 pas encore livree ────────────────────────────────────────
  * `QuoteLine` porte les colonnes du format `PricedLine` (E10.21, interface

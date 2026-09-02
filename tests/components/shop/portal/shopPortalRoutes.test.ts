@@ -41,15 +41,10 @@ describe('parsePortalPath (S7.1 AC1/AC3)', () => {
     });
   });
 
-  it('account/orders|quotes|profile → sections du hub (S7.10)', () => {
+  it('account/orders|profile → sections du hub (S7.10)', () => {
     expect(parsePortalPath('account/orders')).toEqual({
       view: 'account',
       accountSection: 'orders',
-      redirected: false,
-    });
-    expect(parsePortalPath('account/quotes')).toEqual({
-      view: 'account',
-      accountSection: 'quotes',
       redirected: false,
     });
     expect(parsePortalPath('account/profile')).toEqual({
@@ -105,7 +100,7 @@ describe('portalPathForView round-trip (S7.1 AC5)', () => {
     ['catalog', undefined],
     ['product', 'prod-1'],
     ['gamme', 'flyer'],
-    ['account', 'quotes'],
+    ['account', 'profile'],
     ['thankYou', undefined],
   ];
 

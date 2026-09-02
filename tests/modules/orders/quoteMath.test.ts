@@ -1,5 +1,8 @@
 /**
  * S-QUOTES-2 — Tests unitaires quoteMath (synchro prix <-> marge, cout 0).
+ *
+ * Relocalise depuis tests/utils/ (chantier d unification des devis, module
+ * `quotes` supprime — voir docs/api/CONVENTIONS.md §8.10).
  */
 
 import { describe, expect, it } from 'vitest';
@@ -10,7 +13,7 @@ import {
   priceFromMargin,
   round2,
   sumLinesHT,
-} from '@/modules/quotes/ui/helpers/quoteMath';
+} from '@/modules/orders/ui/helpers/quoteMath';
 
 describe('quoteMath — round2', () => {
   it('arrondit a 2 decimales', () => {
