@@ -23,10 +23,15 @@
  * jamais une migration de schema ni une reprise de l API.
  *
  * ── A NE PAS FAIRE quand E10.8 sera livree ──────────────────────────────────
- * Ne JAMAIS ajouter de champ a `CostInput`/`PricedLine`, ni retirer
- * `breakdown`, ni le rendre optionnel : la signature de cette interface ne
- * bouge pas. Une decomposition plus riche se traduit par PLUS d elements dans
- * `breakdown[]`, jamais par une forme differente.
+ * La FORME centrale de `PricedLine` (`production_price`/`public_price`/
+ * `customer_price`/`applied_margin_rate`/`applied_rule_id`/`breakdown`) est
+ * STABLE : ne jamais la retirer, ne jamais rendre `breakdown` optionnel ou
+ * vide. Une decomposition plus riche se traduit par PLUS d elements dans
+ * `breakdown[]`, jamais par une forme differente. Ceci n est PAS une
+ * interdiction absolue d etendre `CostInputPost`/`PricedLineBreakdownItem` par
+ * un champ optionnel additif quand un besoin reel et documente existe (voir
+ * `source`, resolution de la derogation p7, `docs/api/CONVENTIONS.md` §8.9) —
+ * seule la forme centrale ci-dessus ne bouge pas.
  */
 
 /**
@@ -38,10 +43,30 @@
  */
 export type CostPost = 'printing' | 'finishing' | 'packaging' | 'shipping' | 'total';
 
+/**
+ * Provenance d un cout (resolution de la derogation p7, `docs/api/
+ * CONVENTIONS.md` §8.6/§8.9) : `'clariprint'` pour un vrai chiffrage
+ * Clariprint, `'prix_marche'` pour une estimation heuristique
+ * (`estimateMarketPriceHT()`, `priceResolver.ts`). Sous-ensemble volontaire de
+ * `PriceSource` (`priceResolver.ts`, qui porte aussi `'library_cached'` et
+ * `'zero'`) : seules les deux valeurs pertinentes pour un COUT de production
+ * deja arrete ont un sens ici — un cout n est jamais "en cache bibliotheque"
+ * ni "zero par securite", ces deux notions concernent la resolution du prix
+ * affiche, pas le cout d entree du moteur.
+ */
+export type CostSource = 'clariprint' | 'prix_marche';
+
 /** Un poste de cout et son montant (Money, `_shared/api/contracts.ts`, toujours >= 0). */
 export interface CostInputPost {
   readonly post: CostPost;
   readonly amount: string;
+  /**
+   * Provenance de ce cout, optionnelle (CA2 : un appelant historique qui ne la
+   * fournit pas n est pas casse). Absente == `'clariprint'` par defaut,
+   * coherent avec l hypothese implicite du moteur avant cette resolution de
+   * p7 (tout cout d entree etait deja suppose etre un chiffrage reel).
+   */
+  readonly source?: CostSource;
 }
 
 /**
@@ -55,19 +80,46 @@ export interface CostInput {
   readonly posts: readonly CostInputPost[];
 }
 
-/** Detail du calcul pour un poste (CA3). Reduit a un seul element `total` dans l implementation provisoire. */
+/**
+ * Detail du calcul pour un poste (CA3). Reduit a un seul element `total` dans
+ * l implementation provisoire.
+ *
+ * ── Semantique de `price` (qa-review B3, a ne pas re-deriver soi-meme) ──────
+ * `price` est le montant FINAL du (au sens "restant a payer") pour ce poste,
+ * remise client DEJA incluse
+ * — c est a dire le `customer_price` reparti sur ce poste, jamais le prix
+ * public (avant remise) ni le cout de production. Invariant a preserver par
+ * toute implementation future (y compris une decomposition reelle a
+ * plusieurs elements) :
+ *
+ *     sum(breakdown[].price) === customer_price
+ *
+ * (a une eventuelle repartition de reste de centime pres entre plusieurs
+ * postes, si une future implementation decompose `customer_price` sur
+ * plusieurs elements). `margin_rate` est le taux de l etape
+ * production -> public UNIQUEMENT (voir `applied_margin_rate` sur
+ * `PricedLine`) : il ne permet PAS de retrouver `price` par un simple calcul
+ * `cost * (1 + margin_rate)` des qu une remise client s applique — `price`
+ * porte en plus l effet de la remise, que ce champ ne represente pas.
+ * `source` (resolution p7, voir `CostSource`) est la provenance du cout de ce
+ * poste, propagee depuis `CostInputPost.source` (defaut `'clariprint'` si
+ * l entree ne la precise pas).
+ */
 export interface PricedLineBreakdownItem {
   readonly post: CostPost;
   readonly cost: string;
   readonly margin_rate: string;
   readonly price: string;
+  readonly source: CostSource;
 }
 
 /**
  * Sortie du calcul (CA3), miroir d execution du schema `QuoteLine` de
  * `openapi/magrit-core.v1.yaml` (colonnes de prix) une fois qu un appelant
  * cablera ce moteur sur une ressource reelle — cette story ne cable rien
- * (hors perimetre, voir le rapport de fin de story).
+ * (hors perimetre, voir `docs/api/CONVENTIONS.md` §8.9, qui remplace le
+ * renvoi vers un "rapport de fin de story" qui n existe pas en tant que
+ * fichier verse au depot).
  */
 export interface PricedLine {
   readonly production_price: string;
@@ -75,8 +127,12 @@ export interface PricedLine {
   readonly customer_price: string;
   readonly applied_margin_rate: string;
   readonly applied_rule_id: string | null;
-  /** JAMAIS vide, meme implementation provisoire (red flag ci-dessus). */
-  readonly breakdown: readonly PricedLineBreakdownItem[];
+  /**
+   * JAMAIS vide, meme implementation provisoire (red flag ci-dessus) — type e
+   * en tuple non-vide (qa-review B2) pour que ce soit verifie par le
+   * compilateur, pas seulement par convention documentaire.
+   */
+  readonly breakdown: readonly [PricedLineBreakdownItem, ...PricedLineBreakdownItem[]];
 }
 
 /**

@@ -34,6 +34,15 @@
  * 6. `breakdown` contient toujours un seul element (`post: 'total'`, red flag
  *    E10.21 : jamais vide), dont `price` est `customer_price` (le montant
  *    final effectivement du pour ce poste).
+ * 7. `source` (resolution p7, `docs/api/CONVENTIONS.md` §8.9) : le premier
+ *    poste d entree qui precise une provenance explicite l emporte pour
+ *    l unique element du breakdown agrege ; `'clariprint'` par defaut si
+ *    aucun poste n en precise (hypothese implicite deja en vigueur avant
+ *    cette resolution). Choix documente, pas une regle de la story : des
+ *    postes aux provenances differentes ne peuvent pas etre distingues tant
+ *    que le breakdown reste agrege en un seul `total` (implementation
+ *    provisoire) — une vraie decomposition par poste (E10.8 degelee) portera
+ *    une `source` par element, sans ambiguite.
  */
 import {
   applyRateToCents,
@@ -44,6 +53,7 @@ import {
 import {
   EmptyCostInputError,
   type CostInput,
+  type CostSource,
   type PricedLine,
   type PricedLineBreakdownItem,
   type PricingContext,
@@ -52,6 +62,9 @@ import {
 
 /** Marge/remise nulle, utilisee quand ni la regle ni la marge par defaut n en fournissent une (CA2/CA4). */
 const ZERO_RATE = '0.0000';
+
+/** Provenance par defaut d un cout qui ne precise pas `source` (resolution p7, algorithme point 7). */
+const DEFAULT_COST_SOURCE: CostSource = 'clariprint';
 
 export class SingleCostPricingEngine implements PricingEngine {
   price(cost: CostInput, ctx: PricingContext): PricedLine {
@@ -86,12 +99,16 @@ export class SingleCostPricingEngine implements PricingEngine {
     }
     const customerPrice = formatCentsToMoney(customerPriceCents);
 
-    const breakdown: readonly PricedLineBreakdownItem[] = [
+    const source: CostSource =
+      cost.posts.find((post) => post.source !== undefined)?.source ?? DEFAULT_COST_SOURCE;
+
+    const breakdown: readonly [PricedLineBreakdownItem, ...PricedLineBreakdownItem[]] = [
       {
         post: 'total',
         cost: productionPrice,
         margin_rate: appliedMarginRate,
         price: customerPrice,
+        source,
       },
     ];
 
