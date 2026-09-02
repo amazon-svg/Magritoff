@@ -34,10 +34,9 @@ export interface PortalRouteMatch {
   redirected: boolean;
 }
 
-const ACCOUNT_SECTIONS: readonly AccountSection[] = ['orders', 'quotes', 'profile'];
+const ACCOUNT_SECTIONS: readonly AccountSection[] = ['orders', 'profile'];
 const ACCOUNT_PATHS: Readonly<Record<AccountSection, string>> = Object.freeze({
   orders: portalRuntimePaths.accountOrders,
-  quotes: portalRuntimePaths.accountQuotes,
   profile: portalRuntimePaths.accountProfile,
 });
 

@@ -1,5 +1,13 @@
 /**
- * quoteMath — calculs purs pour l'edition de devis (S-QUOTES-2).
+ * quoteMath — calculs purs de ligne de devis (quantite * prix, marge sur cout).
+ *
+ * Relocalise depuis `src/modules/quotes/ui/helpers/quoteMath.ts` (chantier
+ * d unification des devis, post Sprint 5 : voir docs/api/CONVENTIONS.md §8.10).
+ * Le module `quotes` (ancien systeme storefront) a ete supprime ; cette
+ * logique de calcul n est couplee a aucun schema de table et reste utile a
+ * plusieurs modules (commercial-quotes, orders/storefront) : elle vit ici,
+ * a cote de `tax.ts`/`cartMath.ts`, qui suivent deja ce meme pattern
+ * (helper de calcul pur heberge par `orders`, importe cross-module).
  *
  * Isole (comme cartMath.ts / *.helpers.ts) pour etre eprouve avec vitest en
  * mode node, sans DOM ni Provider React.
@@ -8,9 +16,9 @@
  *   prix_vente = cout * (1 + marge% / 100)
  *   marge%     = (prix_vente - cout) / cout * 100
  *
- * ⚠️ Piege cout = 0 (devis legacy migres, ou prix marche sans cout Clariprint) :
- * la marge n'est pas calculable → marginFromPrice renvoie 0 et l'UI doit
- * desactiver le champ marge (edition du prix seul).
+ * ⚠️ Piege cout = 0 (devis sans cout Clariprint, prix marche) : la marge
+ * n'est pas calculable → marginFromPrice renvoie 0 et l'UI doit desactiver
+ * le champ marge (edition du prix seul).
  */
 
 /** Arrondi comptable a 2 decimales (evite les flottants type 0.30000000004). */

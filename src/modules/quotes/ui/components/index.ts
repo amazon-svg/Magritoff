@@ -1,1 +1,0 @@
-export { QuoteModal } from './QuoteDialog';

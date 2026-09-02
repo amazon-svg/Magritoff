@@ -1,6 +1,24 @@
+/**
+ * QuoteModal — impression d'un devis rapide pour un produit configure +
+ * bascule vers "Ajouter au projet" (E10.1).
+ *
+ * Relocalise depuis `src/modules/quotes/ui/components/QuoteDialog.tsx`
+ * (chantier d unification des devis, post Sprint 5 : voir
+ * docs/api/CONVENTIONS.md §8.10). Le module `quotes` (ancien systeme
+ * storefront) a ete supprime purement et simplement (decision Arnaud) : cette
+ * modale n en depend plus. Elle est desormais hebergee par `catalog`, seul
+ * consommateur (ProductCard).
+ *
+ * L'ancienne fonction `persist()` (historisation dans la table legacy
+ * `public.quotes`) a ete retiree : sa cible a disparu et n a pas d equivalent
+ * dans `commercial_quotes` (qui exige un `project_id` reel, cf. E10.3) — un
+ * devis "historise" hors d un projet n a plus de sens dans le nouveau modele.
+ * Cette modale reste un outil d'impression rapide ; la creation d'un devis
+ * geree par l'outil de Gestion commerciale se fait desormais exclusivement
+ * via "Ajouter au projet" puis "Creer un devis" depuis la fiche projet.
+ */
 import { useEffect, useState } from 'react';
 import { X, FileText, FolderKanban, LayoutTemplate, Star } from 'lucide-react';
-import { useAuth } from '@/modules/account/ui/runtime';
 import { useQuoteTemplates } from '@/modules/quote-templates/ui/runtime';
 import { useTenant } from '@/modules/tenants/ui/runtime';
 import { useTenantPath } from '@/modules/tenants/ui/hooks';
@@ -10,9 +28,8 @@ import {
   makeQuoteReference,
   renderQuoteHtml,
   getDefaultTemplate,
-} from '@/modules/quotes/ui/helpers/quote';
+} from '@/modules/quote-templates/ui/helpers';
 import { applyTax, extractTaxAmount, formatTaxLabel, getTaxRate } from '@/modules/orders/ui/helpers';
-import { useQuotePersistence } from '@/modules/quotes/ui/hooks/useQuotePersistence';
 
 interface QuoteModalProps {
   isOpen: boolean;
@@ -22,8 +39,6 @@ interface QuoteModalProps {
 
 export function QuoteModal({ isOpen, onClose, product }: QuoteModalProps) {
   const [showAddToProject, setShowAddToProject] = useState(false);
-  const { user } = useAuth();
-  const { persist } = useQuotePersistence();
   const { templates, defaultTemplateId } = useQuoteTemplates();
   const { currentTenant } = useTenant();
   const tp = useTenantPath();
@@ -44,7 +59,7 @@ export function QuoteModal({ isOpen, onClose, product }: QuoteModalProps) {
   const template =
     templates.find((t) => t.id === selectedTemplateId) ?? getDefaultTemplate();
 
-  const handlePrintQuote = async () => {
+  const handlePrintQuote = () => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
@@ -53,16 +68,6 @@ export function QuoteModal({ isOpen, onClose, product }: QuoteModalProps) {
     const totalHT = clariprintQuote?.costs?.total || clariprintQuote?.priceHT || product.price || 0;
     const totalTTC = applyTax(totalHT, taxRate);
     const reference = makeQuoteReference();
-
-    if (user && currentTenant) {
-      await persist(currentTenant.id, {
-        reference,
-        product_name: product.name,
-        product_config: product,
-        total_ht: totalHT,
-        total_ttc: totalTTC,
-      });
-    }
 
     // Rendu HTML via le gabarit par defaut de l'utilisateur (ou builtin classique).
     const section = renderQuoteHtml({
@@ -129,9 +134,9 @@ export function QuoteModal({ isOpen, onClose, product }: QuoteModalProps) {
         </body>
       </html>
     `);
-    
+
     printWindow.document.close();
-    
+
     // Attendre que la fenêtre soit chargée avant d'imprimer
     setTimeout(() => {
       printWindow.print();
@@ -185,7 +190,7 @@ export function QuoteModal({ isOpen, onClose, product }: QuoteModalProps) {
           </div>
         </div>
 
-        {/* Sélecteur de gabarit de devis — toujours visible, user ou pas */}
+        {/* Sélecteur de gabarit — toujours visible, user ou pas */}
         <div className="px-6 pt-6">
           <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1.5">
             <LayoutTemplate className="w-3.5 h-3.5 text-gray-500" strokeWidth={1.5} />
@@ -233,7 +238,7 @@ export function QuoteModal({ isOpen, onClose, product }: QuoteModalProps) {
             <FileText className="w-5 h-5" />
             Imprimer le devis
           </button>
-          
+
           <button
             onClick={() => setShowAddToProject(true)}
             className="w-full px-6 py-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-colors flex items-center justify-center gap-3"

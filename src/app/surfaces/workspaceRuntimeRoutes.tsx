@@ -17,9 +17,6 @@ const routeLoaders: Readonly<Record<string, LazyPageLoader>> = Object.freeze({
     import('@/modules/shops/ui').then((module) => ({ default: module.DashboardShops })),
   'shops.workspace.edit': () =>
     import('@/modules/shops/ui').then((module) => ({ default: module.DashboardShopEditor })),
-  'quotes.workspace.list': () => import('@/modules/quotes/ui').then((module) => ({ default: module.DashboardQuotes })),
-  'quotes.workspace.pending': () => import('@/modules/quotes/ui').then((module) => ({ default: module.DashboardQuotesPending })),
-  'quotes.workspace.edit': () => import('@/modules/quotes/ui').then((module) => ({ default: module.DashboardQuoteEditor })),
   'quote-templates.workspace.list': () => import('@/modules/quote-templates/ui').then((module) => ({ default: module.DashboardQuoteTemplates })),
   'libraries.workspace.list': () => import('@/modules/libraries/ui').then((module) => ({ default: module.DashboardLibraries })),
   'libraries.workspace.detail': () => import('@/modules/libraries/ui').then((module) => ({ default: module.DashboardLibraryDetail })),
@@ -30,6 +27,7 @@ const routeLoaders: Readonly<Record<string, LazyPageLoader>> = Object.freeze({
   'customers.workspace.detail': () => import('@/modules/customers/ui').then((module) => ({ default: module.DashboardCustomerDetail })),
   'projects.workspace.list': () => import('@/modules/projects/ui').then((module) => ({ default: module.DashboardProjects })),
   'projects.workspace.detail': () => import('@/modules/projects/ui').then((module) => ({ default: module.DashboardProjectDetail })),
+  'commercial-quotes.workspace.list': () => import('@/modules/commercial-quotes/ui').then((module) => ({ default: module.DashboardQuotes })),
   'commercial-quotes.workspace.editor': () => import('@/modules/commercial-quotes/ui').then((module) => ({ default: module.QuoteEditorPage })),
   'members.workspace.list': () => import('@/modules/members/ui').then((module) => ({ default: module.MembersPage })),
   'tenants.workspace.settings': () => import('@/modules/tenants/ui').then((module) => ({ default: module.DashboardTenantSettings })),

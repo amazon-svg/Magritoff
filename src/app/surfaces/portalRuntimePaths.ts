@@ -12,7 +12,11 @@ export const portalRuntimePaths = Object.freeze({
   gamme: requiredHostPath(storefrontSurface, 'catalog.storefront.gamme'),
   product: requiredHostPath(storefrontSurface, 'catalog.storefront.product'),
   accountOrders: requiredHostPath(customerPortalSurface, 'orders.customer-portal.list'),
-  accountQuotes: requiredHostPath(customerPortalSurface, 'quotes.customer-portal.list'),
+  // `accountQuotes` retire au chantier d unification des devis (post Sprint 5 :
+  // docs/api/CONVENTIONS.md §8.10) — la contribution de surface
+  // `quotes.customer-portal.list` (ancien module, backend disparu) est
+  // supprimee. Le point d entree boutique reste a concevoir sur
+  // `commercial_quotes` par une story future.
   accountProfile: requiredHostPath(customerPortalSurface, 'account.customer-portal.profile'),
 });
 

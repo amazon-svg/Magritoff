@@ -25,7 +25,7 @@ import {
 } from 'react';
 import { useAuth } from '@/modules/account/ui/runtime';
 import { useTenant } from '@/modules/tenants/ui/runtime';
-import { BUILTIN_QUOTE_TEMPLATES, QuoteTemplate } from '@/modules/quotes/ui/helpers';
+import { BUILTIN_QUOTE_TEMPLATES, QuoteTemplate } from '@/modules/quote-templates/ui/helpers';
 import { type CreateQuoteTemplate, type UpdateQuoteTemplate } from '@/modules/quote-templates';
 
 interface QuoteTemplatesContextType {
