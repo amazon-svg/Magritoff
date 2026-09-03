@@ -22,7 +22,7 @@ export function DashboardCustomers() {
   const { user } = useAuth();
   const { currentTenant } = useTenant();
   const tp = useTenantPath();
-  const { items, loading, error, q, setQ, type, setType, create, refresh } = useCustomersManagement(
+  const { items, loading, error, q, setQ, type, setType, create } = useCustomersManagement(
     Boolean(user && currentTenant),
   );
   const api = useWorkspaceApi(CustomersApiClient);
@@ -129,11 +129,12 @@ export function DashboardCustomers() {
       )}
 
       {showCreate && (
+        // Meme correctif que ProjectsPage.tsx (bug live 2026-09-02, lenteur
+        // percue) : `create()` (useCustomersManagement) rafraichit deja la
+        // liste apres un `POST /customers` reussi ; `onClose` ne doit pas
+        // refaire un second `GET /customers` en plus.
         <CustomerFormModal
-          onClose={() => {
-            setShowCreate(false);
-            void refresh();
-          }}
+          onClose={() => setShowCreate(false)}
           onCreate={create}
           onVerifySiret={(customerId) => api.verifySiret(customerId)}
         />

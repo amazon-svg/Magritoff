@@ -36,13 +36,33 @@ export interface AddToProjectItem {
 export interface AddToProjectModalProps {
   item: AddToProjectItem;
   onClose: () => void;
-  /** Notifie le projet dans lequel le chiffrage vient d etre ajoute. */
+  /**
+   * Notifie le projet dans lequel le chiffrage vient d etre ajoute.
+   *
+   * Correctif bug live (2026-09-02, chantier unification des devis) : cette
+   * callback est un pur hook d INFORMATION, jamais un signal de fermeture.
+   * `QuoteModal.tsx` l utilisait a tort pour fermer la modale au moment
+   * meme ou `setAddedTo(project)` venait de programmer l affichage de l
+   * ecran de confirmation ("addedTo") — les deux mises a jour d etat
+   * synchrones se batchaient dans le meme rendu et la confirmation n
+   * apparaissait jamais : l utilisateur voyait tout disparaitre d un coup,
+   * sans aucun retour visible. Utiliser `onFinish` pour tout ce qui doit
+   * fermer une modale englobante APRES que l utilisateur ait vu et
+   * acquitte la confirmation.
+   */
   onAdded?: (project: ProjectDto) => void;
+  /**
+   * Appele quand l utilisateur quitte l ecran de confirmation ("Terminer"),
+   * apres un ajout reussi. Distinct de `onClose` (annulation avant tout
+   * ajout) pour que l appelant puisse fermer une modale parente SEULEMENT
+   * une fois la confirmation acquittee. Retombe sur `onClose` si absent.
+   */
+  onFinish?: () => void;
 }
 
 type Mode = 'existing' | 'create';
 
-export function AddToProjectModal({ item, onClose, onAdded }: AddToProjectModalProps) {
+export function AddToProjectModal({ item, onClose, onAdded, onFinish }: AddToProjectModalProps) {
   const projectsApi = useWorkspaceApi(ProjectsApiClient);
   const customersApi = useWorkspaceApi(CustomersApiClient);
 
@@ -151,7 +171,7 @@ export function AddToProjectModal({ item, onClose, onAdded }: AddToProjectModalP
               <CheckCircle2 className="w-5 h-5 text-green-600" />
               « {item.label} » ajouté au projet « {addedTo.name} ».
             </p>
-            <button type="button" onClick={onClose} className={btnPrimary}>
+            <button type="button" onClick={onFinish ?? onClose} className={btnPrimary}>
               Terminer
             </button>
           </div>
