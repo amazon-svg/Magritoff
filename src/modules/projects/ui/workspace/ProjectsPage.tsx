@@ -23,7 +23,7 @@ export function DashboardProjects() {
   const { currentTenant } = useTenant();
   const tp = useTenantPath();
   const enabled = Boolean(user && currentTenant);
-  const { items, loading, error, q, setQ, status, setStatus, tagIds, setTagIds, create, refresh } =
+  const { items, loading, error, q, setQ, status, setStatus, tagIds, setTagIds, create } =
     useProjectsManagement(enabled);
   const { tags: allTags } = useProjectTagsCatalog(enabled);
   const [showCreate, setShowCreate] = useState(false);
@@ -181,13 +181,17 @@ export function DashboardProjects() {
       )}
 
       {showCreate && (
-        <ProjectCreateModal
-          onClose={() => {
-            setShowCreate(false);
-            void refresh();
-          }}
-          onCreate={create}
-        />
+        // Bug live remonte par Arnaud (2026-09-02, lenteur perçue a la
+        // creation d un projet) : `onClose` appelait `refresh()` (donc un
+        // second `GET /projects`) alors que `create()` (useProjectsManagement)
+        // rafraichit DEJA la liste apres un `POST /projects` reussi —
+        // `ProjectCreateModal.handleSubmit` appelle `onClose()` juste apres
+        // `onCreate()`. Resultat : deux requetes de liste sequentielles a
+        // chaque creation, invisible sur un tenant vide, perceptible sur un
+        // tenant charge (imprimerie-ipa). Annuler n a, de plus, jamais rien
+        // a rafraichir puisque rien n a ete mute. Ne pas reintroduire ce
+        // refresh ici.
+        <ProjectCreateModal onClose={() => setShowCreate(false)} onCreate={create} />
       )}
     </div>
   );

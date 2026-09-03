@@ -21,6 +21,7 @@ import { useTenantPath } from '@/modules/tenants/ui/hooks';
 import { useWorkspaceApi } from '@/platform/runtime/workspace-ui-runtime';
 import { CustomersApiClient, type CustomerDto } from '@/modules/customers';
 import { customerDisplayName } from '@/modules/projects/ui';
+import { ProjectsApiClient } from '@/modules/projects';
 import { TEST_IDS } from '@/shared/presentation/testIds';
 import { CommercialQuotesApiClient } from '../../api/client';
 import type { QuoteDetailDto } from '../../api/contracts';
@@ -31,10 +32,12 @@ export function QuoteEditorPage() {
   const tp = useTenantPath();
   const quotesApi = useWorkspaceApi(CommercialQuotesApiClient);
   const customersApi = useWorkspaceApi(CustomersApiClient);
+  const projectsApi = useWorkspaceApi(ProjectsApiClient);
 
   const [detail, setDetail] = useState<QuoteDetailDto | null>(null);
   const [etag, setEtag] = useState<string | null>(null);
   const [customer, setCustomer] = useState<CustomerDto | null>(null);
+  const [projectName, setProjectName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showDiscountsDraft, setShowDiscountsDraft] = useState(false);
@@ -57,12 +60,18 @@ export function QuoteEditorPage() {
       } catch {
         setCustomer(null);
       }
+      try {
+        const fetchedProject = await projectsApi.getDetail(result.data.project_id);
+        setProjectName(fetchedProject.name);
+      } catch {
+        setProjectName(null);
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Chargement du devis impossible.');
     } finally {
       setLoading(false);
     }
-  }, [quotesApi, customersApi, quoteId]);
+  }, [quotesApi, customersApi, projectsApi, quoteId]);
 
   useEffect(() => {
     void load();
@@ -106,14 +115,17 @@ export function QuoteEditorPage() {
 
   return (
     <div className="space-y-6" data-testid={TEST_IDS.commercialQuote.editorPage}>
-      <Link
-        to={tp(`/dashboard/projects/${detail.project_id}`)}
-        className="inline-flex items-center gap-1 text-sm text-ink-muted hover:text-ink"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Retour au projet
-      </Link>
-
+      {/*
+        Bug live remonte par Arnaud (2026-09-02) : un clic sur un devis dans
+        la liste "donnait l impression" de renvoyer vers le projet. La
+        navigation elle-meme fonctionnait (verifie par
+        tests/e2e/quote-navigation-live-fix.spec.ts) : c est ce lien qui
+        precedait TOUT, y compris le titre/numero du devis, qui pretait a
+        confusion — rien ne signalait encore "vous etes sur le devis" avant
+        de voir un lien de sortie. Le titre du devis passe donc en premier ;
+        ce lien devient une navigation secondaire, explicite sur SA cible
+        (nom du projet), pas un simple "retour" ambigu.
+      */}
       <div>
         <h1 className="text-xl font-bold text-ink flex items-center gap-3">
           Devis
@@ -129,6 +141,13 @@ export function QuoteEditorPage() {
           {' · '}
           {statusLabel(detail.status)}
         </p>
+        <Link
+          to={tp(`/dashboard/projects/${detail.project_id}`)}
+          className="inline-flex items-center gap-1 text-sm text-ink-muted hover:text-ink mt-2"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          Voir le projet source{projectName ? ` « ${projectName} »` : ''}
+        </Link>
       </div>
 
       {error && <p className="text-sm text-err-fg">{error}</p>}

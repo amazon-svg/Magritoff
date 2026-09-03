@@ -270,7 +270,13 @@ export function QuoteModal({ isOpen, onClose, product }: QuoteModalProps) {
             clariprintConfig: product.clariprintData ?? null,
           }}
           onClose={() => setShowAddToProject(false)}
-          onAdded={() => {
+          // Correctif bug live (2026-09-02) : ne PAS fermer ici. `onAdded`
+          // se declenche au meme rendu que `setAddedTo(project)` cote
+          // AddToProjectModal (ecran de confirmation) ; fermer les deux
+          // modales a cet instant supprimait la confirmation avant qu elle
+          // ne s affiche jamais a l ecran. La fermeture reelle se fait
+          // quand l utilisateur acquitte via "Terminer" (`onFinish`).
+          onFinish={() => {
             setShowAddToProject(false);
             onClose();
           }}

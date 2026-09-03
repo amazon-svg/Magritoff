@@ -38,11 +38,29 @@ export interface CustomerFormModalProps {
   onClose: () => void;
   onCreate: (command: CreateCustomerCommand) => Promise<CustomerDto>;
   onVerifySiret: (customerId: string) => Promise<{ verified: boolean; mocked: boolean } | null>;
+  /**
+   * Correctif qa-review B1 (2026-09-03) : `POST /customers/{id}/siret-
+   * verifications` mute la ligne cote serveur (`siret_verified`,
+   * `siret_verified_at`) mais ce composant ne tient qu un etat local
+   * (`verified`) pour l affichage du badge dans la modale elle-meme. Sans ce
+   * callback, la liste (`CustomersPage`) resterait sur le DTO perime tant
+   * que la page n est pas rechargee manuellement. Appele UNIQUEMENT quand
+   * `handleVerify` reussit — jamais a la creation (deja couverte par
+   * `onCreate` cote appelant) ni a la fermeture (`onClose` reste un pur
+   * abandon/fermeture, pour ne pas reintroduire le double `GET` du chemin
+   * personne physique).
+   */
+  onVerified?: (customerId: string) => void;
 }
 
 type Step = 'form' | 'verify';
 
-export function CustomerFormModal({ onClose, onCreate, onVerifySiret }: CustomerFormModalProps) {
+export function CustomerFormModal({
+  onClose,
+  onCreate,
+  onVerifySiret,
+  onVerified,
+}: CustomerFormModalProps) {
   const [type, setType] = useState<CustomerType>('company');
   const [companyName, setCompanyName] = useState('');
   const [siret, setSiret] = useState('');
@@ -104,7 +122,9 @@ export function CustomerFormModal({ onClose, onCreate, onVerifySiret }: Customer
     setVerifying(true);
     try {
       const result = await onVerifySiret(created.id);
-      setVerified(Boolean(result?.verified));
+      const isVerified = Boolean(result?.verified);
+      setVerified(isVerified);
+      if (isVerified) onVerified?.(created.id);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Vérification SIRET impossible.');
     } finally {

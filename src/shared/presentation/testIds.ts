@@ -444,6 +444,11 @@ export const TEST_IDS = {
     page: 'customers-page',
     table: 'customers-table',
     row: 'customer-row',
+    // Correctif qa-review B1 (2026-09-03) : badge de la LISTE (distinct de
+    // `siretVerifyBtn`, dans la modale) — permet aux tests de verifier que
+    // la ligne reflete bien `siret_verified` sans attendre un rechargement
+    // manuel de page.
+    siretVerifiedBadge: 'customer-siret-verified-badge',
     createBtn: 'customer-create-btn',
     formModal: 'customer-form-modal',
     typeRadio: 'customer-type-radio',

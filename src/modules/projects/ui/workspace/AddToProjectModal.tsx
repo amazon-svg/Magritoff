@@ -36,13 +36,33 @@ export interface AddToProjectItem {
 export interface AddToProjectModalProps {
   item: AddToProjectItem;
   onClose: () => void;
-  /** Notifie le projet dans lequel le chiffrage vient d etre ajoute. */
+  /**
+   * Notifie le projet dans lequel le chiffrage vient d etre ajoute.
+   *
+   * Correctif bug live (2026-09-02, chantier unification des devis) : cette
+   * callback est un pur hook d INFORMATION, jamais un signal de fermeture.
+   * `QuoteModal.tsx` l utilisait a tort pour fermer la modale au moment
+   * meme ou `setAddedTo(project)` venait de programmer l affichage de l
+   * ecran de confirmation ("addedTo") — les deux mises a jour d etat
+   * synchrones se batchaient dans le meme rendu et la confirmation n
+   * apparaissait jamais : l utilisateur voyait tout disparaitre d un coup,
+   * sans aucun retour visible. Utiliser `onFinish` pour tout ce qui doit
+   * fermer une modale englobante APRES que l utilisateur ait vu et
+   * acquitte la confirmation.
+   */
   onAdded?: (project: ProjectDto) => void;
+  /**
+   * Appele quand l utilisateur quitte l ecran de confirmation ("Terminer"),
+   * apres un ajout reussi. Distinct de `onClose` (annulation avant tout
+   * ajout) pour que l appelant puisse fermer une modale parente SEULEMENT
+   * une fois la confirmation acquittee. Retombe sur `onClose` si absent.
+   */
+  onFinish?: () => void;
 }
 
 type Mode = 'existing' | 'create';
 
-export function AddToProjectModal({ item, onClose, onAdded }: AddToProjectModalProps) {
+export function AddToProjectModal({ item, onClose, onAdded, onFinish }: AddToProjectModalProps) {
   const projectsApi = useWorkspaceApi(ProjectsApiClient);
   const customersApi = useWorkspaceApi(CustomersApiClient);
 
@@ -128,10 +148,18 @@ export function AddToProjectModal({ item, onClose, onAdded }: AddToProjectModalP
     }
   };
 
+  // Correctif qa-review R1 (2026-09-03) : une fois l ajout confirme
+  // (`addedTo` non nul), fermer par la croix ou par le fond doit acquitter
+  // la confirmation comme le bouton "Terminer" (`onFinish ?? onClose`), pas
+  // l abandonner silencieusement (`onClose`) — sinon la modale englobante
+  // (`QuoteModal`) reste ouverte sur le meme chiffrage et un second clic sur
+  // "Ajouter au projet" peut recreer un item duplique.
+  const dismiss = addedTo ? (onFinish ?? onClose) : onClose;
+
   return (
     <div
       className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50"
-      onClick={onClose}
+      onClick={dismiss}
     >
       <div
         className="bg-paper rounded-2xl shadow-2xl w-full max-w-md p-6"
@@ -140,7 +168,7 @@ export function AddToProjectModal({ item, onClose, onAdded }: AddToProjectModalP
       >
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-bold text-ink">Ajouter au projet</h3>
-          <button onClick={onClose} className="p-1 hover:bg-bg rounded" aria-label="Fermer">
+          <button onClick={dismiss} className="p-1 hover:bg-bg rounded" aria-label="Fermer">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -151,7 +179,7 @@ export function AddToProjectModal({ item, onClose, onAdded }: AddToProjectModalP
               <CheckCircle2 className="w-5 h-5 text-green-600" />
               « {item.label} » ajouté au projet « {addedTo.name} ».
             </p>
-            <button type="button" onClick={onClose} className={btnPrimary}>
+            <button type="button" onClick={onFinish ?? onClose} className={btnPrimary}>
               Terminer
             </button>
           </div>

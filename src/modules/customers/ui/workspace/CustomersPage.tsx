@@ -112,7 +112,12 @@ export function DashboardCustomers() {
                 <td className="py-2 pr-3 text-ink-muted">
                   {customer.siret ?? '—'}
                   {customer.siret && customer.siret_verified ? (
-                    <span className="ml-2 text-xs text-green-700">vérifié</span>
+                    <span
+                      className="ml-2 text-xs text-green-700"
+                      data-testid={TEST_IDS.customer.siretVerifiedBadge}
+                    >
+                      vérifié
+                    </span>
                   ) : null}
                 </td>
                 <td className="py-2 pr-3">
@@ -129,13 +134,27 @@ export function DashboardCustomers() {
       )}
 
       {showCreate && (
+        // Meme correctif que ProjectsPage.tsx (bug live 2026-09-02, lenteur
+        // percue) : `create()` (useCustomersManagement) rafraichit deja la
+        // liste apres un `POST /customers` reussi ; `onClose` ne doit pas
+        // refaire un second `GET /customers` en plus.
+        //
+        // Correctif qa-review B1 (2026-09-03) : le chemin personne morale a
+        // une etape supplementaire (verification SIRET) que le chemin
+        // personne physique n a pas — cette verification mute la ligne cote
+        // serveur mais ne serait, sans `onVerified`, jamais repercutee dans
+        // la liste avant un rechargement manuel. `onClose` reste un pur
+        // fermant (pas de refresh systematique, pour ne pas reintroduire le
+        // double `GET` du chemin personne physique) ; `onVerified` declenche
+        // le seul refresh necessaire, exactement quand la mutation reelle a
+        // eu lieu.
         <CustomerFormModal
-          onClose={() => {
-            setShowCreate(false);
-            void refresh();
-          }}
+          onClose={() => setShowCreate(false)}
           onCreate={create}
           onVerifySiret={(customerId) => api.verifySiret(customerId)}
+          onVerified={() => {
+            void refresh();
+          }}
         />
       )}
     </div>
