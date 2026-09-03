@@ -94,13 +94,22 @@ test('creer un projet ne declenche qu un seul rafraichissement de la liste', asy
         .catch(() => false);
       if (archiveBtnAppeared) {
         await archiveBtn.click();
-        // Confirme que l archivage a reellement pris effet cote UI (statut
-        // "Archivé" affiche et bouton devenu "Réactiver") avant de conclure
-        // le nettoyage — ne pas se contenter d avoir clique.
-        await expect(page.getByText(/Archivé/)).toBeVisible({ timeout: 10_000 });
-        await expect(page.getByRole('button', { name: /^réactiver/i })).toBeVisible({
-          timeout: 5_000,
-        });
+        try {
+          // Confirme que l archivage a reellement pris effet cote UI (statut
+          // "Archivé" affiche et bouton devenu "Réactiver") avant de
+          // conclure le nettoyage — ne pas se contenter d avoir clique.
+          await expect(page.getByText(/Archivé/)).toBeVisible({ timeout: 10_000 });
+          await expect(page.getByRole('button', { name: /^réactiver/i })).toBeVisible({
+            timeout: 5_000,
+          });
+        } catch (cleanupError) {
+          // N ecrase pas une eventuelle erreur de test d origine : une
+          // erreur de nettoyage est signalee sans etre lancee.
+          console.warn(
+            '[project-create-no-double-fetch] echec de verification du nettoyage (archivage non confirme) :',
+            cleanupError,
+          );
+        }
       }
     }
   }

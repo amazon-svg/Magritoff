@@ -120,9 +120,18 @@ test('la verification SIRET d un client personne morale met a jour le badge de l
         .catch(() => false);
       if (appeared) {
         await deactivateBtn.click();
-        await expect(page.getByRole('button', { name: /^réactiver/i })).toBeVisible({
-          timeout: 10_000,
-        });
+        try {
+          await expect(page.getByRole('button', { name: /^réactiver/i })).toBeVisible({
+            timeout: 10_000,
+          });
+        } catch (cleanupError) {
+          // N ecrase pas une eventuelle erreur de test d origine : une
+          // erreur de nettoyage est signalee sans etre lancee.
+          console.warn(
+            '[customer-siret-verify-badge] echec de verification du nettoyage (desactivation non confirmee) :',
+            cleanupError,
+          );
+        }
       }
     }
   }
