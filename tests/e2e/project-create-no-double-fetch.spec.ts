@@ -17,6 +17,21 @@ import { loginAs } from './_helpers/auth';
  * chaque creation — perceptible sur un tenant charge (imprimerie-ipa).
  *
  * Meme correctif applique a `CustomersPage.tsx` (meme pattern exact).
+ *
+ * Correctif qa-review R2 (2026-09-03) : le nettoyage (archivage du projet
+ * de test) est deplace dans un `finally` — il s executait auparavant APRES
+ * l assertion principale, donc jamais si celle-ci echouait. De plus, il
+ * utilisait `locator.isVisible({ timeout })` pour attendre l apparition de
+ * la ligne/du bouton : cette methode ne RE-essaie jamais, contrairement aux
+ * assertions web-first (`expect(locator).toBeVisible()`) — elle renvoie
+ * `false` immediatement si l element n est pas encore dans le DOM au moment
+ * precis de l appel, sans attendre le rendu (chargement de la fiche projet
+ * apres navigation). Resultat observe en pratique : le `if` etait souvent
+ * `false` et `archiveBtn.click()` n etait jamais tente, sans qu aucune
+ * assertion ne l ait signale (le test passait quand meme, seule l assertion
+ * principale etait verifiee). Remplace par des assertions `toBeVisible`
+ * (qui attendent/re-essaient) suivies d une verification que l archivage a
+ * reellement pris effet cote UI.
  */
 const TENANT_SLUG = process.env.E2E_QA_TENANT_SLUG ?? 'qa-espace-2408';
 const ADMIN_EMAIL = process.env.E2E_QA_EMAIL ?? 'amazon@ageservices.fr';
@@ -57,18 +72,36 @@ test('creer un projet ne declenche qu un seul rafraichissement de la liste', asy
   // Laisse le reseau se stabiliser avant de compter.
   await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
 
-  expect(listGetCount).toBe(1);
-
-  // Nettoyage : archive immediatement le projet de test (pas de suppression
-  // possible sur cette ressource — l archivage est le seul retrait prevu,
-  // cf. DashboardProjectDetail.tsx).
-  const row = page.getByTestId('project-row').filter({ hasText: uniqueName }).first();
-  if (await row.isVisible({ timeout: 5_000 }).catch(() => false)) {
-    await row.getByRole('link').click();
-    await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
-    const archiveBtn = page.getByRole('button', { name: /archiver/i });
-    if (await archiveBtn.isVisible({ timeout: 5_000 }).catch(() => false)) {
-      await archiveBtn.click();
+  try {
+    expect(listGetCount).toBe(1);
+  } finally {
+    // Nettoyage : archive le projet de test — pas de suppression possible
+    // sur cette ressource, l archivage est le seul retrait prevu (cf.
+    // DashboardProjectDetail.tsx). Dans un `finally` pour s executer meme si
+    // l assertion ci-dessus echoue.
+    const row = page.getByTestId('project-row').filter({ hasText: uniqueName }).first();
+    const rowAppeared = await expect(row)
+      .toBeVisible({ timeout: 10_000 })
+      .then(() => true)
+      .catch(() => false);
+    if (rowAppeared) {
+      await row.getByRole('link').click();
+      await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
+      const archiveBtn = page.getByRole('button', { name: /^archiver/i });
+      const archiveBtnAppeared = await expect(archiveBtn)
+        .toBeVisible({ timeout: 10_000 })
+        .then(() => true)
+        .catch(() => false);
+      if (archiveBtnAppeared) {
+        await archiveBtn.click();
+        // Confirme que l archivage a reellement pris effet cote UI (statut
+        // "Archivé" affiche et bouton devenu "Réactiver") avant de conclure
+        // le nettoyage — ne pas se contenter d avoir clique.
+        await expect(page.getByText(/Archivé/)).toBeVisible({ timeout: 10_000 });
+        await expect(page.getByRole('button', { name: /^réactiver/i })).toBeVisible({
+          timeout: 5_000,
+        });
+      }
     }
   }
 });

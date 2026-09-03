@@ -139,7 +139,6 @@ test('clic sur une ligne de devis ouvre bien l editeur du devis, pas un retour p
   await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {});
   await expect(page).toHaveURL(new RegExp(`/t/${TENANT_SLUG}/dashboard/quotes`));
 
-  const row = page.getByTestId('quote-list-row').filter({ has: page.locator(`[data-quote-id="${quoteId}"]`) });
   const rowByAttr = page.locator(`[data-testid="quote-list-row"][data-quote-id="${quoteId}"]`);
   await expect(rowByAttr).toBeVisible({ timeout: 10_000 });
   await rowByAttr.locator('a').click();

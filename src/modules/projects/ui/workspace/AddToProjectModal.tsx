@@ -148,10 +148,18 @@ export function AddToProjectModal({ item, onClose, onAdded, onFinish }: AddToPro
     }
   };
 
+  // Correctif qa-review R1 (2026-09-03) : une fois l ajout confirme
+  // (`addedTo` non nul), fermer par la croix ou par le fond doit acquitter
+  // la confirmation comme le bouton "Terminer" (`onFinish ?? onClose`), pas
+  // l abandonner silencieusement (`onClose`) — sinon la modale englobante
+  // (`QuoteModal`) reste ouverte sur le meme chiffrage et un second clic sur
+  // "Ajouter au projet" peut recreer un item duplique.
+  const dismiss = addedTo ? (onFinish ?? onClose) : onClose;
+
   return (
     <div
       className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50"
-      onClick={onClose}
+      onClick={dismiss}
     >
       <div
         className="bg-paper rounded-2xl shadow-2xl w-full max-w-md p-6"
@@ -160,7 +168,7 @@ export function AddToProjectModal({ item, onClose, onAdded, onFinish }: AddToPro
       >
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-bold text-ink">Ajouter au projet</h3>
-          <button onClick={onClose} className="p-1 hover:bg-bg rounded" aria-label="Fermer">
+          <button onClick={dismiss} className="p-1 hover:bg-bg rounded" aria-label="Fermer">
             <X className="w-5 h-5" />
           </button>
         </div>
