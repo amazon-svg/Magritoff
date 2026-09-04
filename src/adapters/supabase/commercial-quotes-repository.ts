@@ -55,6 +55,8 @@ import {
 import { toIsoTimestamp } from '../../modules/_shared/application/index.ts';
 
 const CHECK_VIOLATION = '23514';
+/** `commercial_quote_lines_quote_position_unique` (qa-review, point mineur 2) : retente `addLine` une fois. */
+const UNIQUE_VIOLATION = '23505';
 
 export class SupabaseCommercialQuotesRepository implements CommercialQuotesRepository {
   constructor(private readonly client: SupabaseClient<any>) {}
@@ -171,10 +173,13 @@ export class SupabaseCommercialQuotesRepository implements CommercialQuotesRepos
   // ---------------------------------------------------------------------------
 
   async findLineById(tenantId: TenantId, quoteId: string, lineId: string): Promise<QuoteLineDto | null> {
-    // Tenant verifie via le devis parent (RLS + jointure applicative, meme
-    // discipline que `findDetailById`) : une ligne d un devis hors tenant ne
-    // peut de toute facon pas etre atteinte, `quoteId` a deja ete valide en
-    // amont par l appelant (service) via `findById`/`getSummary`.
+    // qa-review (point mineur 4) — la garde REELLE ici est la RLS
+    // (`commercial_quote_lines_select`, jointure sur `commercial_quotes.
+    // tenant_id`), pas une validation applicative prealable : `tenantId` n
+    // est PAS revalide par un appelant (le service n appelle pas forcement
+    // `findById`/`getSummary` avant ce point, ex. `getLine`/`updateLine`
+    // partent directement d ici). Une ligne d un devis hors tenant est donc
+    // filtree par Postgres lui-meme, jamais par une garantie cote code.
     void tenantId;
     const { data, error } = await this.client
       .from('commercial_quote_lines')
@@ -186,41 +191,66 @@ export class SupabaseCommercialQuotesRepository implements CommercialQuotesRepos
     return data ? toQuoteLineDto(data) : null;
   }
 
+  /**
+   * qa-review (point mineur 2) — `count()` PUIS `insert()` en deux
+   * allers-retours SEPARES n est pas atomique : deux `addLine` concurrents
+   * sur le MEME devis peuvent lire le meme compte et tenter la MEME
+   * `position`. La contrainte `commercial_quote_lines_quote_position_unique`
+   * (migration 20260904000100, DEFERRABLE INITIALLY DEFERRED) rend ce
+   * scenario IMPOSSIBLE a committer plutot que de le laisser produire deux
+   * lignes silencieusement mal ordonnees : le perdant recoit une violation
+   * d unicite (23505), qu on retente ICI une seule fois avec un compte
+   * fraichement relu — un vrai verrou (`select ... for update` sur le devis,
+   * ou une fonction `security invoker` dediee comme `api_delete_commercial_
+   * quote_line`) serait plus robuste sous forte contention, mais cette story
+   * ne l exige pas : le cas reste rare (deux commerciaux ajoutant une ligne
+   * A LA MEME MILLISECONDE sur le MEME devis) et UNE retentative suffit a le
+   * rendre correct plutot que silencieux.
+   */
   async addLine(tenantId: TenantId, quoteId: string, line: PricedQuoteLineWrite): Promise<QuoteLineDto> {
     void tenantId;
-    const { count, error: countError } = await this.client
-      .from('commercial_quote_lines')
-      .select('id', { count: 'exact', head: true })
-      .eq('quote_id', quoteId);
-    if (countError) throw new Error(countError.message);
+    const MAX_ATTEMPTS = 3;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+      const { count, error: countError } = await this.client
+        .from('commercial_quote_lines')
+        .select('id', { count: 'exact', head: true })
+        .eq('quote_id', quoteId);
+      if (countError) throw new Error(countError.message);
 
-    const { data, error } = await this.client
-      .from('commercial_quote_lines')
-      .insert({
-        quote_id: quoteId,
-        origin: line.origin,
-        project_item_id: line.projectItemId,
-        label: line.label,
-        product_config: line.productConfig,
-        quantity: line.quantity,
-        chiffrage_quantity: line.chiffrageQuantity,
-        position: count ?? 0,
-        production_price: line.productionPrice,
-        public_price: line.publicPrice,
-        customer_price: line.customerPrice,
-        applied_margin_rate: line.appliedMarginRate,
-        applied_rule_id: line.appliedRuleId,
-        sale_price: line.salePrice,
-        sale_margin_rate: line.saleMarginRate,
-        discount_rate: line.discountRate,
-        margin_variation: line.marginVariation,
-        breakdown: line.breakdown,
-      })
-      .select()
-      .maybeSingle();
-    if (error) throw mapQuoteLineWriteError(error.message);
-    if (!data) throw new Error('La ligne ajoutee est introuvable juste apres son insertion.');
-    return toQuoteLineDto(data);
+      const { data, error } = await this.client
+        .from('commercial_quote_lines')
+        .insert({
+          quote_id: quoteId,
+          origin: line.origin,
+          project_item_id: line.projectItemId,
+          label: line.label,
+          product_config: line.productConfig,
+          quantity: line.quantity,
+          chiffrage_quantity: line.chiffrageQuantity,
+          position: count ?? 0,
+          production_price: line.productionPrice,
+          public_price: line.publicPrice,
+          customer_price: line.customerPrice,
+          applied_margin_rate: line.appliedMarginRate,
+          applied_rule_id: line.appliedRuleId,
+          sale_price: line.salePrice,
+          sale_margin_rate: line.saleMarginRate,
+          discount_rate: line.discountRate,
+          margin_variation: line.marginVariation,
+          breakdown: line.breakdown,
+        })
+        .select()
+        .maybeSingle();
+      if (error) {
+        if (error.code === UNIQUE_VIOLATION && attempt < MAX_ATTEMPTS) continue;
+        throw mapQuoteLineWriteError(error.message);
+      }
+      if (!data) throw new Error('La ligne ajoutee est introuvable juste apres son insertion.');
+      return toQuoteLineDto(data);
+    }
+    // Inatteignable (la derniere iteration renvoie ou leve toujours), mais
+    // TypeScript ne peut pas le prouver a partir d une boucle `for`.
+    throw new Error('addLine : nombre maximal de tentatives atteint.');
   }
 
   async updateLine(

@@ -17,7 +17,10 @@
 -- Scenarios :
 --   1. Garde d etat brouillon (BEFORE trigger) : INSERT/UPDATE/DELETE sur
 --      une ligne d un devis NON brouillon sont tous les trois rejetes
---      (`quote_line.quote_not_draft`), quel que soit le chemin d ecriture.
+--      (`quote_line.quote_not_draft`), quel que soit le chemin d ecriture
+--      (INSERT sur un devis deja "sent" ; UPDATE et DELETE sur une ligne
+--      dont le devis PASSE ENSUITE a "sent" — qa-review, point mineur 1 : l
+--      en-tete promettait ces deux derniers sans les exercer).
 --   2. Granularite de l audit : un INSERT produit UNE entree `added` avec
 --      snapshot ; un UPDATE qui ne change QUE `sale_price` (les autres
 --      colonnes auditables identiques) produit UNE SEULE entree `updated`/
@@ -33,6 +36,11 @@
 --      et reciproquement.
 --   6. RLS — isolation inter-tenant de `commercial_quote_line_audit` (lecture)
 --      et append-only (UPDATE/DELETE directs rejetes pour `authenticated`).
+--   7. Garde-fou de non-regression SQL vs `SingleCostPricingEngine`
+--      (qa-review C2) : une regle `margin_rate` PUIS une regle
+--      `discount_rate`, comparees a des constantes calculees a la main. Memes
+--      entrees reprises dans `tests/modules/pricing/single-cost-pricing-
+--      engine.test.ts` (describe "E10.9 SQL guard-rail").
 --
 -- Lancer : pnpm test:storefront:sql (necessite Supabase local demarre).
 -- ============================================================================
@@ -70,6 +78,17 @@ declare
   v_change_set_removed uuid;
   v_change_set_reordered uuid;
   v_audit_count integer;
+  v_quote_state_test uuid;
+  v_line_state_test uuid;
+  v_item_margin uuid;
+  v_item_discount uuid;
+  v_price_rule_margin uuid;
+  v_price_rule_discount uuid;
+  v_quote_margin uuid;
+  v_quote_discount uuid;
+  v_applied_margin numeric;
+  v_public_price numeric;
+  v_customer_price numeric;
 begin
   select u.id into v_actor
     from auth.users u
@@ -138,6 +157,51 @@ begin
   end;
   if not v_rejected then
     raise exception 'Une ligne a ete inseree sur un devis "sent" malgre la garde d etat';
+  end if;
+
+  -- Une ligne EXISTANTE dont le devis passe ENSUITE a un etat non brouillon :
+  -- UPDATE et DELETE doivent etre rejetes exactement comme l INSERT
+  -- ci-dessus (meme trigger BEFORE, tous les chemins d ecriture). L en-tete
+  -- de ce fichier promettait ces deux scenarios sans les exercer (qa-review,
+  -- point mineur 1).
+  insert into public.commercial_quotes (tenant_id, customer_id, project_id, number, status, created_by)
+  values (v_tenant_a, v_customer_a, v_project_a, 'DEV-9999-00003', 'draft', v_actor)
+  returning id into v_quote_state_test;
+
+  insert into public.commercial_quote_lines
+    (quote_id, origin, project_item_id, label, quantity, production_price, public_price,
+     customer_price, applied_margin_rate, sale_price, breakdown)
+  values
+    (v_quote_state_test, 'free', null, 'Ligne devenue non-brouillon', 1, 10.00, 10.00, 10.00, 0.0000, 10.00,
+     '[{"post":"total","cost":"10.00","margin_rate":"0.0000","price":"10.00","source":"clariprint"}]'::jsonb)
+  returning id into v_line_state_test;
+
+  update public.commercial_quotes set status = 'sent' where id = v_quote_state_test;
+
+  v_rejected := false;
+  begin
+    update public.commercial_quote_lines set quantity = 2 where id = v_line_state_test;
+  exception
+    when others then
+      if SQLERRM like 'quote_line.quote_not_draft%' then v_rejected := true;
+      else raise exception 'Rejet inattendu a l UPDATE sur un devis non brouillon : %', SQLERRM;
+      end if;
+  end;
+  if not v_rejected then
+    raise exception 'Un UPDATE de ligne a ete accepte sur un devis "sent" malgre la garde d etat';
+  end if;
+
+  v_rejected := false;
+  begin
+    delete from public.commercial_quote_lines where id = v_line_state_test;
+  exception
+    when others then
+      if SQLERRM like 'quote_line.quote_not_draft%' then v_rejected := true;
+      else raise exception 'Rejet inattendu au DELETE sur un devis non brouillon : %', SQLERRM;
+      end if;
+  end;
+  if not v_rejected then
+    raise exception 'Un DELETE de ligne a ete accepte sur un devis "sent" malgre la garde d etat';
   end if;
 
   -- ── Lignes de reference sur le devis BROUILLON (scenarios 2-5) ──────────
@@ -275,6 +339,78 @@ begin
   end;
   if not v_rejected then
     raise exception 'Un ensemble incomplet de line_ids a ete accepte par le reordonnancement';
+  end if;
+
+  -- ── 7. Garde-fou de non-regression SQL vs SingleCostPricingEngine
+  --      (qa-review C2) : une regle margin_rate PUIS une regle discount_rate
+  --      sur le MEME tenant, comparees a des constantes calculees a la main.
+  --      Memes entrees reprises dans tests/modules/pricing/single-cost-
+  --      pricing-engine.test.ts (describe "E10.9 SQL guard-rail"), pour
+  --      qu un futur lecteur voie le lien sans avoir a les rapprocher
+  --      lui-meme. ───────────────────────────────────────────────────────────
+  insert into public.project_items (project_id, label, quote_payload)
+  values (
+    v_project_a,
+    'Poster A0 (garde-fou margin_rate)',
+    '{"quantity": 1, "amounts": {"clariprint_price_ht": "80.00"}}'::jsonb
+  )
+  returning id into v_item_margin;
+
+  insert into public.project_items (project_id, label, quote_payload)
+  values (
+    v_project_a,
+    'Banderole (garde-fou discount_rate)',
+    '{"quantity": 1, "amounts": {"clariprint_price_ht": "200.00"}}'::jsonb
+  )
+  returning id into v_item_discount;
+
+  -- 7a. Regle margin_rate, portee 'global' : aucune regle de portee plus
+  -- specifique n existe encore -> elle est retenue seule.
+  -- 80.00 * (1 + 0.1500) = 92.00 EXACT (aucune ambiguite d arrondi).
+  insert into public.price_rules (tenant_id, name, scope, value_type, value, valid_from, created_by)
+  values (v_tenant_a, 'Marge garde-fou C2', 'global', 'margin_rate', 0.1500, date '2020-01-01', v_actor)
+  returning id into v_price_rule_margin;
+
+  v_quote_margin := public.api_create_commercial_quote_from_project_items(
+    v_tenant_a, v_project_a, array[v_item_margin]
+  );
+  select applied_margin_rate, public_price, customer_price
+    into v_applied_margin, v_public_price, v_customer_price
+    from public.commercial_quote_lines
+   where quote_id = v_quote_margin and project_item_id = v_item_margin;
+
+  if v_applied_margin is distinct from 0.1500
+     or v_public_price is distinct from 92.00
+     or v_customer_price is distinct from 92.00 then
+    raise exception
+      'Garde-fou margin_rate (C2) : attendu (applied_margin_rate=0.1500, public_price=92.00, customer_price=92.00), obtenu (%, %, %)',
+      v_applied_margin, v_public_price, v_customer_price;
+  end if;
+
+  -- 7b. Regle discount_rate, portee 'customer' (plus SPECIFIQUE que 'global' :
+  -- l emporte sur la regle margin_rate ci-dessus pour ce client, quelle que
+  -- soit la recence). Aucune regle margin_rate ne matche ce rang -> marge
+  -- par defaut 0.0000 (commercial_quote_line_default_pricing n a pas de
+  -- notion de marge de gamme, cf. en-tete de cette migration).
+  -- 200.00 * (1 + 0.0000) = 200.00, puis 200.00 * (1 - 0.1000) = 180.00 EXACT.
+  insert into public.price_rules (tenant_id, name, scope, customer_id, value_type, value, valid_from, created_by)
+  values (v_tenant_a, 'Remise garde-fou C2', 'customer', v_customer_a, 'discount_rate', 0.1000, date '2020-01-01', v_actor)
+  returning id into v_price_rule_discount;
+
+  v_quote_discount := public.api_create_commercial_quote_from_project_items(
+    v_tenant_a, v_project_a, array[v_item_discount]
+  );
+  select applied_margin_rate, public_price, customer_price
+    into v_applied_margin, v_public_price, v_customer_price
+    from public.commercial_quote_lines
+   where quote_id = v_quote_discount and project_item_id = v_item_discount;
+
+  if v_applied_margin is distinct from 0.0000
+     or v_public_price is distinct from 200.00
+     or v_customer_price is distinct from 180.00 then
+    raise exception
+      'Garde-fou discount_rate (C2) : attendu (applied_margin_rate=0.0000, public_price=200.00, customer_price=180.00), obtenu (%, %, %)',
+      v_applied_margin, v_public_price, v_customer_price;
   end if;
 end;
 $$;

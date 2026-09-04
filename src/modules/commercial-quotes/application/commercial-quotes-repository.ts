@@ -121,6 +121,22 @@ export class QuoteLinePositionsMismatchError extends Error {
 }
 
 /**
+ * `margin_rate` envoye produirait un `sale_price` negatif, non representable
+ * (`quote_line.invalid_margin_rate`, qa-review C1). Distinct de
+ * `QuoteLineMarginNotDerivableError` (division par zero) : ici c est le
+ * RESULTAT du calcul qui sort du domaine representable, pas l operation qui
+ * est indefinie.
+ */
+export class QuoteLineInvalidMarginRateError extends Error {
+  constructor(
+    message = 'Le taux de marge fourni produirait un prix de vente negatif : passer par sale_price.',
+  ) {
+    super(message);
+    this.name = 'QuoteLineInvalidMarginRateError';
+  }
+}
+
+/**
  * Ligne PRETE A PERSISTER : tous les champs de prix ont deja ete calcules par
  * le service (`PriceRulesService.resolve()` + `PricingEngine.price()` +
  * `quote-line-pricing.ts`). Le repository ne fait AUCUN calcul de prix, il

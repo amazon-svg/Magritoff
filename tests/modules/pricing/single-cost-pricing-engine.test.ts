@@ -240,6 +240,43 @@ describe('SingleCostPricingEngine — decomposition en entree (CA2, CA7)', () =>
   });
 });
 
+describe('SingleCostPricingEngine — E10.9 SQL guard-rail (qa-review C2)', () => {
+  // Meme triplet d entrees (cout de production, taux de marge, taux de
+  // remise) et memes constantes attendues que le scenario 7 de
+  // tests/sql/gescom-e10-9-quote-line-discounts.sql, pour qu un futur lecteur
+  // voie le lien entre `commercial_quote_line_default_pricing` (SQL, seul
+  // chemin d ecriture qui ne passe pas par CETTE interface) et
+  // `SingleCostPricingEngine` (TypeScript) sans avoir a les rapprocher
+  // lui-meme. `defaultMarginRate: null` : la fonction SQL n a pas de notion
+  // de marge de gamme (cf. en-tete de la migration 20260904000100), ce test
+  // reste donc dans les memes bornes qu elle.
+  const engine = new SingleCostPricingEngine();
+
+  it('7a. regle margin_rate 0.1500 sur un cout de 80.00 -> public/customer_price 92.00 EXACT', () => {
+    const ctx: PricingContext = {
+      rule: { id: RULE_ID, value_type: 'margin_rate', value: '0.1500' },
+      defaultMarginRate: null,
+    };
+    const result = engine.price(totalCost('80.00'), ctx);
+
+    expect(result.applied_margin_rate).toBe('0.1500');
+    expect(result.public_price).toBe('92.00'); // 80.00 * 1.15 = 92.00 exact
+    expect(result.customer_price).toBe('92.00');
+  });
+
+  it('7b. regle discount_rate 0.1000 sur un cout de 200.00, aucune marge -> customer_price 180.00 EXACT', () => {
+    const ctx: PricingContext = {
+      rule: { id: RULE_ID, value_type: 'discount_rate', value: '0.1000' },
+      defaultMarginRate: null,
+    };
+    const result = engine.price(totalCost('200.00'), ctx);
+
+    expect(result.applied_margin_rate).toBe('0.0000');
+    expect(result.public_price).toBe('200.00');
+    expect(result.customer_price).toBe('180.00'); // 200.00 * (1 - 0.10) = 180.00 exact
+  });
+});
+
 describe('createPricingEngine — fournisseur unique (CA6)', () => {
   it('rend une instance conforme a PricingEngine, sans que l appelant connaisse la classe concrete', () => {
     const engine: PricingEngine = createPricingEngine();

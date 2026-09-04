@@ -666,6 +666,46 @@ describe('module Devis commerciaux (E10.9) contre le contrat — lignes et audit
     expect(((await response.json()) as { code: string }).code).toBe('quote_line.margin_not_derivable');
   });
 
+  it('updateQuoteLine — margin_rate produisant un sale_price negatif est refuse en 422 (qa-review C1, quote_line.invalid_margin_rate)', async () => {
+    const { quote } = await createDraftQuote();
+    const added = await addFreeLine(quote.id, { production_price: '100.00' });
+    const { data: line } = (await added.json()) as { data: QuoteLineDto };
+    const etag = (await call(`/api/v1/quotes/${quote.id}/lines/${line.id}`, { headers: asUser })).headers.get(
+      'etag',
+    )!;
+
+    // -2.0000 est un Rate valide au contrat (motif regex ^-?[0-9]{1,2}\.
+    // [0-9]{4}$, remise/marge negative documentee comme acceptee) mais
+    // produirait ici 100.00 * (1 - 2) = -100.00 : non representable en
+    // Money. Avant ce correctif, `salePriceFromMarginRate` levait un `Error`
+    // generique non rattrape par `withDomainErrors`, retombant sur un 500.
+    const response = await call(`/api/v1/quotes/${quote.id}/lines/${line.id}`, {
+      method: 'PATCH',
+      headers: { ...jsonHeaders, 'If-Match': etag },
+      body: JSON.stringify({ margin_rate: '-2.0000' }),
+    });
+    await expectContract(response, { status: 422 });
+    expect(((await response.json()) as { code: string }).code).toBe('quote_line.invalid_margin_rate');
+  });
+
+  it('updateQuoteLine sur un devis non brouillon est refuse en 409 (qa-review, point mineur 5)', async () => {
+    const { quote } = await createDraftQuote();
+    const added = await addFreeLine(quote.id, { production_price: '100.00' });
+    const { data: line } = (await added.json()) as { data: QuoteLineDto };
+    const etag = (await call(`/api/v1/quotes/${quote.id}/lines/${line.id}`, { headers: asUser })).headers.get(
+      'etag',
+    )!;
+    quotesRepository.forceStatusForTest(quote.id, 'sent');
+
+    const response = await call(`/api/v1/quotes/${quote.id}/lines/${line.id}`, {
+      method: 'PATCH',
+      headers: { ...jsonHeaders, 'If-Match': etag },
+      body: JSON.stringify({ sale_price: '90.00' }),
+    });
+    await expectContract(response, { status: 409 });
+    expect(((await response.json()) as { code: string }).code).toBe('quote_line.quote_not_draft');
+  });
+
   it('CA6 elargi — deleteQuoteLine retire la ligne et resserre les positions restantes', async () => {
     const { quote } = await createDraftQuote();
     const first = (await (await addFreeLine(quote.id, { label: 'Un' })).json()) as { data: QuoteLineDto };
@@ -704,6 +744,29 @@ describe('module Devis commerciaux (E10.9) contre le contrat — lignes et audit
     expect(((await response.json()) as { code: string }).code).toBe('quote_line.quote_not_draft');
   });
 
+  it('reorderQuoteLines sur un devis non brouillon est refuse en 409 (qa-review, point mineur 5)', async () => {
+    const { quote } = await createDraftQuote();
+    const second = (await (await addFreeLine(quote.id, { label: 'Deux' })).json()) as { data: QuoteLineDto };
+    // Statut force AVANT de lire l ETag : celui-ci reflete donc deja le
+    // devis "sent", le test isole ainsi la garde d etat (409
+    // quote_line.quote_not_draft) d un simple conflit d ETag perime
+    // (409 api.resource_conflict, deja couvert par ailleurs).
+    quotesRepository.forceStatusForTest(quote.id, 'sent');
+
+    const detail = await call(`/api/v1/quotes/${quote.id}`, { headers: asUser });
+    const etag = detail.headers.get('etag')!;
+    const { data } = (await detail.json()) as { data: QuoteDetailDto };
+    const firstId = data.lines.find((l) => l.id !== second.data.id)!.id;
+
+    const response = await call(`/api/v1/quotes/${quote.id}/line-positions`, {
+      method: 'PUT',
+      headers: { ...jsonHeaders, 'If-Match': etag },
+      body: JSON.stringify({ line_ids: [second.data.id, firstId] }),
+    });
+    await expectContract(response, { status: 409 });
+    expect(((await response.json()) as { code: string }).code).toBe('quote_line.quote_not_draft');
+  });
+
   it('reorderQuoteLines — reordonne integralement les lignes, If-Match sur LE DEVIS', async () => {
     const { quote } = await createDraftQuote();
     const second = (await (await addFreeLine(quote.id, { label: 'Deux' })).json()) as { data: QuoteLineDto };
@@ -728,6 +791,23 @@ describe('module Devis commerciaux (E10.9) contre le contrat — lignes et audit
     const { data: after } = (await reordered.json()) as { data: QuoteDetailDto };
     expect(after.lines.find((l) => l.id === second.data.id)!.position).toBe(0);
     expect(after.lines.find((l) => l.id === firstId)!.position).toBe(1);
+
+    // B1 (qa-review, BLOQUANT) — le contrat promet que TOUTE ecriture de
+    // ligne (dont le reordonnancement) avance updated_at du devis, donc son
+    // ETag (openapi/magrit-core.v1.yaml, description du parametre If-Match
+    // de reorderQuoteLines). Verifie DIRECTEMENT que l ETag a change...
+    expect(reordered.headers.get('etag')).not.toBe(quoteEtag);
+    // ...puis rejoue le MEME If-Match (desormais perime) sur un second
+    // reordonnancement complet et valide : DOIT rendre 409, jamais un second
+    // succes qui ecraserait silencieusement le premier en concurrence
+    // optimiste inerte.
+    const staleRetry = await call(`/api/v1/quotes/${quote.id}/line-positions`, {
+      method: 'PUT',
+      headers: { ...jsonHeaders, 'If-Match': quoteEtag },
+      body: JSON.stringify({ line_ids: [firstId, second.data.id] }),
+    });
+    await expectContract(staleRetry, { status: 409 });
+    expect(((await staleRetry.json()) as { code: string }).code).toBe('api.resource_conflict');
 
     // Ensemble incomplet -> 422 quote_line.positions_mismatch, aucun effet.
     const mismatchEtag = reordered.headers.get('etag')!;

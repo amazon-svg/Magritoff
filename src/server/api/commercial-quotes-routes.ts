@@ -35,6 +35,7 @@ import {
 import {
   QuoteCommandRejectedError,
   QuoteDeleteRequiresDraftError,
+  QuoteLineInvalidMarginRateError,
   QuoteLineInvalidQuantityError,
   QuoteLineMarginNotDerivableError,
   QuoteLineNotFoundError,
@@ -404,6 +405,19 @@ async function withDomainErrors<T>(operation: () => Promise<T>): Promise<T> {
         status: 422,
         title: 'Marge non derivable',
         code: 'quote_line.margin_not_derivable',
+        detail: error.message,
+      });
+    }
+    if (error instanceof QuoteLineInvalidMarginRateError) {
+      // qa-review C1 — un taux negatif au point de rendre le prix de vente
+      // NEGATIF (ex. -2.0000) : 422, jamais un 500. Distinct de
+      // `quote_line.margin_not_derivable` (production_price = 0.00, division
+      // indefinie) : ici le calcul est defini, c est son RESULTAT qui sort du
+      // domaine representable.
+      throw problem({
+        status: 422,
+        title: 'Taux de marge invalide',
+        code: 'quote_line.invalid_margin_rate',
         detail: error.message,
       });
     }

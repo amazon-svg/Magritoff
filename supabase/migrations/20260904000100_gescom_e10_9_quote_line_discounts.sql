@@ -36,6 +36,12 @@
 --      affectee, le prix est calcule cote application par `PriceRulesService`
 --      + `PricingEngine`, jamais en SQL — E10.8 gelee, aucun calcul de prix de
 --      vente hors PricingEngine).
+--   7. (qa-review, correctifs) Position UNIQUE par devis (`quote_id,
+--      position`, DEFERRABLE INITIALLY DEFERRED — point mineur 2), et
+--      propagation de TOUTE ecriture de ligne vers `commercial_quotes.
+--      updated_at` (trigger AFTER, section 4bis) : sans ce dernier,
+--      `reorderQuoteLines` promettait par contrat une concurrence optimiste
+--      qui n avancait jamais l ETag du devis (B1, BLOQUANT).
 --
 -- ── Backfill des lignes E10.3 existantes (choix documente) ─────────────────
 -- Ces lignes ont `public_price`/`customer_price`/`applied_margin_rate` NULL et
@@ -211,6 +217,35 @@ alter table public.commercial_quote_lines
   -- Durcissement E10.9 : breakdown JAMAIS vide (red flag E10.21).
   add constraint commercial_quote_lines_breakdown_not_empty check (jsonb_array_length(breakdown) >= 1);
 
+-- ── 3bis. Position UNIQUE par devis (qa-review, point mineur 2) ─────────────
+-- `commercial_quote_lines_quote_position_idx` (migration 20260901000600)
+-- n etait qu un index de tri, pas une contrainte : `addLine` (adaptateur
+-- Supabase) calcule `position` par `count(*)` PUIS `insert` en deux
+-- allers-retours SEPARES, jamais dans la meme transaction verrouillante —
+-- deux ajouts concurrents sur le MEME devis peuvent lire le meme compte et
+-- produire deux lignes a la MEME position. Remplace l index par une
+-- contrainte d unicite sur (quote_id, position), qui rend cette situation
+-- IMPOSSIBLE a committer (l adaptateur retente alors l ajout, voir
+-- `SupabaseCommercialQuotesRepository.addLine`).
+--
+-- DEFERRABLE INITIALLY DEFERRED, jamais IMMEDIATE : `api_reorder_commercial_
+-- quote_lines` (section 6 ci-dessous) reordonne PLUSIEURS lignes dans un
+-- SEUL `update ... from wanted`, ce qui traverse necessairement un etat
+-- intermediaire ou deux lignes partagent momentanement la meme position
+-- avant que la derniere ligne du batch ne retablisse l unicite — un controle
+-- IMMEDIAT (verifie ligne par ligne au fil de l instruction) casserait ce
+-- balayage pourtant parfaitement valide au moment du COMMIT. C est l exemple
+-- canonique documente par Postgres pour DEFERRABLE (permutation de valeurs
+-- uniques) : la verification est reportee a la fin de la transaction, donc
+-- de la requete HTTP (chaque appel PostgREST = une transaction), ce qui la
+-- laisse strictement equivalente a un controle immediat pour un `addLine`
+-- (une seule ligne inseree par transaction) tout en laissant passer un
+-- reordonnancement complet.
+drop index if exists public.commercial_quote_lines_quote_position_idx;
+alter table public.commercial_quote_lines
+  add constraint commercial_quote_lines_quote_position_unique
+    unique (quote_id, position) deferrable initially deferred;
+
 -- ── 4. Garde d etat — toute ecriture exige un devis brouillon ──────────────
 -- BEFORE INSERT/UPDATE/DELETE : vrai quel que soit le chemin d ecriture
 -- (insert/update PostgREST direct, ou les fonctions RPC ci-dessous), une
@@ -239,6 +274,40 @@ drop trigger if exists commercial_quote_lines_require_draft_before_write on publ
 create trigger commercial_quote_lines_require_draft_before_write
   before insert or update or delete on public.commercial_quote_lines
   for each row execute function public.commercial_quote_lines_require_draft_quote();
+
+-- ── 4bis. Propagation vers l ETag du devis parent (B1, qa-review BLOQUANT) ──
+-- Le contrat (`If-Match` de `reorderQuoteLines`, openapi/magrit-core.v1.yaml)
+-- promet explicitement : « Toute ecriture de ligne (ajout, modification,
+-- retrait, reordonnancement) avance `updated_at` du devis, donc son ETag. »
+-- `commercial_quotes_set_updated_at` (migration 20260901000600) est un
+-- trigger BEFORE UPDATE ON commercial_quotes UNIQUEMENT : aucune ecriture sur
+-- commercial_quote_lines ne le declenchait, ce qui rendait la concurrence
+-- optimiste de `reorderQuoteLines` INERTE — deux commerciaux qui lisent le
+-- meme devis (meme ETag), l un reordonne (200, ETag inchange en reponse), le
+-- second rejoue le MEME `If-Match` perime et obtenait 200 au lieu du 409
+-- attendu, ecrasant le premier reordonnancement en silence.
+--
+-- AFTER INSERT OR UPDATE OR DELETE, SANS `when` : contrairement au trigger
+-- d audit (qui ne journalise QUE les changements reels), celui-ci doit
+-- avancer `updated_at` pour TOUTE ecriture reellement executee par Postgres,
+-- y compris un `update` dont les valeurs finales sont identiques aux valeurs
+-- de depart (une requete PATCH a bien ete honoree, l ETag doit en temoigner).
+create or replace function public.commercial_quote_lines_touch_quote_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  update public.commercial_quotes
+     set updated_at = now()
+   where id = coalesce(new.quote_id, old.quote_id);
+  return coalesce(new, old);
+end;
+$$;
+
+drop trigger if exists commercial_quote_lines_touch_quote_updated_at_trigger on public.commercial_quote_lines;
+create trigger commercial_quote_lines_touch_quote_updated_at_trigger
+  after insert or update or delete on public.commercial_quote_lines
+  for each row execute function public.commercial_quote_lines_touch_quote_updated_at();
 
 -- ── 5. Journal d audit append-only (CA5, CA6) ──────────────────────────────
 -- `quote_line_id` porte AUCUNE contrainte de cle etrangere : une ligne
@@ -766,9 +835,12 @@ notify pgrst, 'reload schema';
 --   drop function if exists public.commercial_quote_lines_write_audit();
 --   drop policy if exists "commercial_quote_line_audit_select" on public.commercial_quote_line_audit;
 --   drop table if exists public.commercial_quote_line_audit;
+--   drop trigger if exists commercial_quote_lines_touch_quote_updated_at_trigger on public.commercial_quote_lines;
+--   drop function if exists public.commercial_quote_lines_touch_quote_updated_at();
 --   drop trigger if exists commercial_quote_lines_require_draft_before_write on public.commercial_quote_lines;
 --   drop function if exists public.commercial_quote_lines_require_draft_quote();
 --   alter table public.commercial_quote_lines
+--     drop constraint if exists commercial_quote_lines_quote_position_unique,
 --     drop constraint if exists commercial_quote_lines_breakdown_not_empty,
 --     drop constraint if exists commercial_quote_lines_origin_project_item_coherence,
 --     drop constraint if exists commercial_quote_lines_origin_check,
@@ -787,6 +859,8 @@ notify pgrst, 'reload schema';
 --   -- libre creee entre-temps ferait echouer le retour arriere. A traiter au
 --   -- cas par cas si ce retrait est reellement joue (purger les lignes
 --   -- origin=free au prealable).
+--   create index if not exists commercial_quote_lines_quote_position_idx
+--     on public.commercial_quote_lines (quote_id, position);
 --   notify pgrst, 'reload schema';
 --
 -- Aucune autre table ne reference commercial_quote_line_audit : le retrait

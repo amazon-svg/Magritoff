@@ -34,6 +34,24 @@ export class MarginNotDerivableError extends Error {
   }
 }
 
+/**
+ * Un `margin_rate` negatif au point de produire un `sale_price` NEGATIF
+ * (ex. `-2.0000` sur un cout de production strictement positif) — non
+ * representable en Money (`moneyNonNegativeSchema`). Distinct de
+ * `MarginNotDerivableError` (division par zero) : ici la division est bien
+ * definie, c est le RESULTAT qui sort du domaine representable. Une remise ou
+ * une marge negative RESTE acceptee (CA7 amende, vente sous le cout) tant que
+ * le prix de vente qui en resulte reste >= 0 (qa-review C1).
+ */
+export class NegativeSalePriceError extends Error {
+  constructor(
+    message = 'Le taux de marge fourni produirait un prix de vente negatif, non representable.',
+  ) {
+    super(message);
+    this.name = 'NegativeSalePriceError';
+  }
+}
+
 export function parseMoneyNonNegativeToCents(amount: string): bigint {
   const match = MONEY_NON_NEGATIVE_PATTERN.exec(amount);
   if (!match) {
@@ -90,7 +108,7 @@ export function salePriceFromMarginRate(productionPrice: string, marginRate: str
   const factor = RATE_SCALE + marginBasisPoints;
   const saleCents = roundDivHalfAwayFromZero(productionCents * factor, RATE_SCALE);
   if (saleCents < 0n) {
-    throw new Error('Un taux de marge negatif produit un prix de vente negatif, non representable en Money.');
+    throw new NegativeSalePriceError();
   }
   return formatCentsToMoneyNonNegative(saleCents);
 }

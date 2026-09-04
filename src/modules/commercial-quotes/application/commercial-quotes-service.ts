@@ -33,20 +33,23 @@ import {
   computeQuoteLineWarnings,
   deriveLineCommercials,
   MarginNotDerivableError,
+  NegativeSalePriceError,
   salePriceFromMarginRate,
 } from './quote-line-pricing.ts';
-import type {
-  CreateQuoteFromProjectCommand,
-  CreateQuoteLineCommand,
-  QuoteDetailDto,
-  QuoteDto,
-  QuoteLineAuditEntryDto,
-  QuoteLineDto,
-  QuoteLineWarningDto,
-  UpdateQuoteCommand,
-  UpdateQuoteLineCommand,
+import {
+  moneyNonNegativeSchema,
+  type CreateQuoteFromProjectCommand,
+  type CreateQuoteLineCommand,
+  type QuoteDetailDto,
+  type QuoteDto,
+  type QuoteLineAuditEntryDto,
+  type QuoteLineDto,
+  type QuoteLineWarningDto,
+  type UpdateQuoteCommand,
+  type UpdateQuoteLineCommand,
 } from '../api/contracts.ts';
 import {
+  QuoteLineInvalidMarginRateError,
   QuoteLineInvalidQuantityError,
   QuoteLineMarginNotDerivableError,
   QuoteLineNotFoundError,
@@ -227,8 +230,17 @@ export class CommercialQuotesService {
 
       const payload = (item.quote_payload ?? {}) as Readonly<Record<string, unknown>>;
       const amounts = (payload['amounts'] ?? {}) as Readonly<Record<string, unknown>>;
-      const rawPrice = Number(amounts['clariprint_price_ht'] ?? amounts['price'] ?? 0);
-      const productionPrice = Number.isFinite(rawPrice) && rawPrice >= 0 ? rawPrice.toFixed(2) : '0.00';
+      // qa-review (point mineur 3) — lecture de la chaine SOURCE, jamais un
+      // detour par `Number()` : `serializeQuotePayload.ts` persiste deja ces
+      // montants en chaine Money a 2 decimales (docs/api/CONVENTIONS.md §5),
+      // un `Number(...).toFixed(2)` pourrait tronquer silencieusement un
+      // payload a plus de 2 decimales et diverger du chemin SQL
+      // (`(...)::numeric`, memes valeurs mais jamais rearrondi en JS).
+      const rawPrice = amounts['clariprint_price_ht'] ?? amounts['price'];
+      const productionPrice =
+        typeof rawPrice === 'string' && moneyNonNegativeSchema.safeParse(rawPrice).success
+          ? rawPrice
+          : '0.00';
       const rawChiffrageQuantity = Math.trunc(Number(payload['quantity'] ?? 1));
       const chiffrageQuantity =
         Number.isFinite(rawChiffrageQuantity) && rawChiffrageQuantity >= 1 ? rawChiffrageQuantity : 1;
@@ -325,6 +337,7 @@ export class CommercialQuotesService {
         salePrice = salePriceFromMarginRate(current.production_price, command.margin_rate);
       } catch (cause) {
         if (cause instanceof MarginNotDerivableError) throw new QuoteLineMarginNotDerivableError();
+        if (cause instanceof NegativeSalePriceError) throw new QuoteLineInvalidMarginRateError();
         throw cause;
       }
     } else if (command.sale_price !== undefined) {

@@ -13,6 +13,7 @@ import {
   formatCentsToMoneyNonNegative,
   MarginNotDerivableError,
   marginVariationOf,
+  NegativeSalePriceError,
   parseMoneyNonNegativeToCents,
   parseRateToBasisPoints,
   saleMarginRateOf,
@@ -33,9 +34,29 @@ describe('salePriceFromMarginRate (CA1, UpdateQuoteLineCommand.margin_rate)', ()
     expect(() => salePriceFromMarginRate('0.00', '0.2000')).toThrow(MarginNotDerivableError);
   });
 
+  it('rejette un taux qui produirait un sale_price negatif (qa-review C1, quote_line.invalid_margin_rate)', () => {
+    // -2.0000 est un Rate valide (pattern ^-?[0-9]{1,2}\.[0-9]{4}$, accepte
+    // au contrat) mais produit 100.00 * (1 - 2) = -100.00, non representable
+    // en Money : erreur de domaine DEDIEE (422), jamais un Error generique
+    // (qui remontait en 500 avant ce correctif).
+    expect(() => salePriceFromMarginRate('100.00', '-2.0000')).toThrow(NegativeSalePriceError);
+  });
+
   it('arrondit au centime le plus proche (demi a l ecart de zero)', () => {
     // 10.005 -> arrondi a 10.01 (moitie superieure), pas 10.00.
     expect(salePriceFromMarginRate('20.01', '-0.5000')).toBe('10.01');
+  });
+
+  it('cas discriminant flottant vs bigint (qa-review point mineur 6) : 0.15 * 1.5 = 0.225 -> 0.23, pas 0.22', () => {
+    // `20.01 * 0.5` (test precedent, version d origine) tombe JUSTE en
+    // IEEE-754 (0.5 est exactement representable en binaire) : il ne
+    // departageait pas une implementation en bigint d une implementation
+    // naive en flottant. `0.15 * 1.5` EST discriminant : 0.15 n est pas
+    // exactement representable en binaire, `0.15 * 1.5` en JS natif vaut
+    // 0.22499999999999998 (imprecision AVANT arrondi), qui arrondirait a
+    // "0.22" par un `Math.round(...)` naif — alors que le calcul exact est
+    // 0.225, qui arrondit a "0.23" (demi a l ecart de zero).
+    expect(salePriceFromMarginRate('0.15', '0.5000')).toBe('0.23');
   });
 });
 

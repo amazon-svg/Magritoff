@@ -29,6 +29,12 @@
  * - Les alertes (`warnings`) calculees par `computeQuoteLineWarnings()`, LA
  *   MEME fonction que l adaptateur Supabase (aucune reimplementation
  *   divergente possible).
+ * - B1 (qa-review, BLOQUANT) — TOUTE ecriture de ligne (ajout, modification,
+ *   retrait, reordonnancement) avance `updated_at` du devis PARENT, meme
+ *   discipline que le trigger AFTER `commercial_quote_lines_touch_quote_
+ *   updated_at_trigger` (migration 20260904000100) : sans quoi la
+ *   concurrence optimiste de `reorderQuoteLines` (`If-Match` sur LE DEVIS)
+ *   resterait inerte dans ce faux, exactement le defaut demontre cote base.
  */
 import type { TenantId, UserId } from '@/kernel';
 import type { ProjectDto, ProjectItemDto } from '@/modules/projects/api/contracts';
@@ -94,7 +100,11 @@ function isStrictlyAfterCursor(
  */
 type StoredQuoteLine = QuoteLineDto & { chiffrage_quantity: number | null };
 
-/** `occurred_at` STRICTEMENT croissant : deux entrees d audit nees dans la meme milliseconde de test doivent quand meme se departager. */
+/**
+ * Horodatage STRICTEMENT croissant, partage par l audit (`occurred_at`) et
+ * par `touchQuoteUpdatedAt()` (B1) : deux ecritures nees dans la meme
+ * milliseconde de test doivent quand meme se departager.
+ */
 let lastAuditTimestampMs = 0;
 function monotonicIsoTimestamp(): string {
   lastAuditTimestampMs = Math.max(Date.now(), lastAuditTimestampMs + 1);
@@ -162,6 +172,24 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
     if (!quote) throw new QuoteNotFoundError();
     if (quote.status !== 'draft') throw new QuoteLineQuoteNotDraftError();
     return quote;
+  }
+
+  /**
+   * B1 (qa-review, BLOQUANT) — avance `updated_at` du devis PARENT, appele
+   * par TOUTE methode qui ecrit une ligne (`addLine`/`updateLine`/
+   * `removeLine`/`reorderLines`), meme quand la mutation en elle-meme ne
+   * change aucun champ visible de la ligne (le trigger SQL reel n a pas de
+   * `when` non plus, cf. migration 20260904000100).
+   */
+  private touchQuoteUpdatedAt(quoteId: string): void {
+    const quote = this.quotes.get(quoteId);
+    if (!quote) return;
+    // `monotonicIsoTimestamp()` (deja utilise par l audit) : garantit que
+    // deux ecritures rapides (meme milliseconde) produisent malgre tout des
+    // ETag DIFFERENTS, comme le ferait `now()` cote Postgres (resolution
+    // microseconde) — un `new Date().toISOString()` simple pourrait rendre
+    // deux appels tres rapproches indiscernables dans ce faux.
+    this.quotes.set(quoteId, { ...quote, updated_at: monotonicIsoTimestamp() });
   }
 
   private pushAudit(
@@ -366,6 +394,7 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
       actor_id: null,
       actor_label: null,
     });
+    this.touchQuoteUpdatedAt(quoteId);
     return toDto(stored);
   }
 
@@ -449,6 +478,7 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
     }
 
     this.lines.set(lineId, next);
+    this.touchQuoteUpdatedAt(quoteId);
     return toDto(next);
   }
 
@@ -496,6 +526,7 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
         this.lines.set(line.id, { ...line, position: index });
       }
     });
+    this.touchQuoteUpdatedAt(quoteId);
   }
 
   async reorderLines(
@@ -516,9 +547,15 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
     }
 
     const changeSetId = fakeQuoteUuid();
+    // B1 — comme le trigger SQL reel (`where l.position <> ranked.new_position`,
+    // qui ne s execute QUE sur les lignes reellement mises a jour), `updated_at`
+    // n avance que si AU MOINS une ligne a effectivement change de position :
+    // un reordonnancement demande qui reproduit l ordre courant n ecrit rien.
+    let anyPositionChanged = false;
     lineIds.forEach((id, index) => {
       const line = this.lines.get(id)!;
       if (line.position !== index) {
+        anyPositionChanged = true;
         this.pushAudit({
           quote_id: quoteId,
           quote_line_id: id,
@@ -534,6 +571,7 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
         this.lines.set(id, { ...line, position: index });
       }
     });
+    if (anyPositionChanged) this.touchQuoteUpdatedAt(quoteId);
 
     const detail = await this.findDetailById(tenantId, quoteId);
     if (!detail) throw new QuoteNotFoundError();
