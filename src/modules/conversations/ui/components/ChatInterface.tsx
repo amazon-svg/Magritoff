@@ -24,6 +24,12 @@ import { useTenant } from '@/modules/tenants/ui/runtime';
 import { ENABLE_STREAMING_CHAT } from "@/shared/config/featureFlags";
 import { TEST_IDS } from "@/shared/presentation/testIds";
 import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetTitle,
+} from "@/shared/ui/sheet";
+import {
   ClaudeSseStreamError,
   MAX_CONTEXT_MESSAGES,
   truncateMessages,
@@ -107,13 +113,10 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
         e.preventDefault();
         setShowHistory((v) => !v);
       }
-      if (e.key === "Escape" && showHistory) {
-        setShowHistory(false);
-      }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [showHistory]);
+  }, []);
 
   const loadConversation = (conv: ConversationHistory) => {
     loadFromContext(conv);
@@ -813,100 +816,92 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
       </main>
 
       {/* ── Drawer historique (⌘K ou bouton rail) ─────────────────────────── */}
-      {showHistory && (
-        <div className="fixed inset-0 z-50 flex">
-          <div
-            className="absolute inset-0 bg-black/40"
-            onClick={() => setShowHistory(false)}
-          />
-          <div
-            className="relative w-96 bg-paper border-r border-line overflow-hidden flex flex-col"
-            style={{ boxShadow: "var(--v2-shadow-lg)" }}
-          >
-            <div className="p-4 flex items-center justify-between border-b border-line">
-              <div className="flex items-center gap-2">
-                <History className="w-4 h-4 text-ink-muted" strokeWidth={1.5} />
-                <span className="text-ink" style={{ fontSize: "14.5px", fontWeight: 500 }}>
-                  Historique
-                </span>
-                <span
-                  className="font-mono text-ink-mute-2"
-                  style={{ fontSize: "11px", letterSpacing: "0.04em" }}
-                >
-                  ⌘K
-                </span>
-              </div>
-              <button
-                onClick={() => setShowHistory(false)}
-                className="p-1 hover:bg-bg rounded"
+      <Sheet open={showHistory} onOpenChange={setShowHistory}>
+        <SheetContent
+          side="left"
+          className="w-[min(24rem,100vw)] max-w-none gap-0 overflow-hidden border-line bg-paper p-0"
+          style={{ boxShadow: "var(--v2-shadow-lg)" }}
+        >
+          <div className="p-4 pr-12 flex items-center justify-between border-b border-line">
+            <div className="flex items-center gap-2">
+              <History className="w-4 h-4 text-ink-muted" strokeWidth={1.5} />
+              <SheetTitle className="text-ink" style={{ fontSize: "14.5px", fontWeight: 500 }}>
+                Historique
+              </SheetTitle>
+              <SheetDescription className="sr-only">
+                Consultez ou reprenez une conversation enregistrée.
+              </SheetDescription>
+              <span
+                className="font-mono text-ink-mute-2"
+                style={{ fontSize: "11px", letterSpacing: "0.04em" }}
               >
-                <X className="w-4 h-4 text-ink-muted" strokeWidth={1.5} />
-              </button>
-            </div>
-
-            <div className="p-3 border-b border-line">
-              <button
-                onClick={startNewConversation}
-                className="w-full inline-flex items-center gap-2 py-2 px-3 rounded-lg bg-ink text-paper hover:bg-black"
-                style={{ fontSize: "13.5px", fontWeight: 500 }}
-              >
-                <SquarePen className="w-4 h-4" strokeWidth={1.5} />
-                Nouvelle conversation
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-2 space-y-1">
-              {conversationHistory.length === 0 ? (
-                <div className="text-center text-ink-mute-2 py-12">
-                  <History className="w-10 h-10 mx-auto mb-2 opacity-40" strokeWidth={1.5} />
-                  <p style={{ fontSize: "13px" }}>Aucune conversation</p>
-                </div>
-              ) : (
-                conversationHistory.map((conv) => (
-                  <div
-                    key={conv.id}
-                    onClick={() => loadConversation(conv)}
-                    className={`p-3 rounded-lg cursor-pointer transition-colors group ${
-                      currentConversationId === conv.id
-                        ? "bg-accent-soft"
-                        : "hover:bg-bg"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <p
-                          className="text-ink truncate"
-                          style={{ fontSize: "13.5px", fontWeight: 500 }}
-                        >
-                          {conv.title}
-                        </p>
-                        <p
-                          className="text-ink-mute-2 mt-0.5 font-mono"
-                          style={{ fontSize: "11px" }}
-                        >
-                          {new Date(conv.timestamp).toLocaleDateString("fr-FR", {
-                            day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
-                          })}
-                          {conv.products.length > 0 && (
-                            <span className="ml-2">· {conv.products.length} produit{conv.products.length > 1 ? "s" : ""}</span>
-                          )}
-                        </p>
-                      </div>
-                      <button
-                        onClick={(e) => deleteConversation(conv.id, e)}
-                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-err-bg rounded transition-opacity"
-                        aria-label="Supprimer"
-                      >
-                        <X className="w-3.5 h-3.5 text-err-fg" strokeWidth={1.5} />
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
+                ⌘K
+              </span>
             </div>
           </div>
-        </div>
-      )}
+
+          <div className="p-3 border-b border-line">
+            <button
+              onClick={startNewConversation}
+              className="w-full inline-flex items-center gap-2 py-2 px-3 rounded-lg bg-ink text-paper hover:bg-black"
+              style={{ fontSize: "13.5px", fontWeight: 500 }}
+            >
+              <SquarePen className="w-4 h-4" strokeWidth={1.5} />
+              Nouvelle conversation
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-2 space-y-1">
+            {conversationHistory.length === 0 ? (
+              <div className="text-center text-ink-mute-2 py-12">
+                <History className="w-10 h-10 mx-auto mb-2 opacity-40" strokeWidth={1.5} />
+                <p style={{ fontSize: "13px" }}>Aucune conversation</p>
+              </div>
+            ) : (
+              conversationHistory.map((conv) => (
+                <div
+                  key={conv.id}
+                  onClick={() => loadConversation(conv)}
+                  className={`p-3 rounded-lg cursor-pointer transition-colors group ${
+                    currentConversationId === conv.id
+                      ? "bg-accent-soft"
+                      : "hover:bg-bg"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p
+                        className="text-ink truncate"
+                        style={{ fontSize: "13.5px", fontWeight: 500 }}
+                      >
+                        {conv.title}
+                      </p>
+                      <p
+                        className="text-ink-mute-2 mt-0.5 font-mono"
+                        style={{ fontSize: "11px" }}
+                      >
+                        {new Date(conv.timestamp).toLocaleDateString("fr-FR", {
+                          day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
+                        })}
+                        {conv.products.length > 0 && (
+                          <span className="ml-2">· {conv.products.length} produit{conv.products.length > 1 ? "s" : ""}</span>
+                        )}
+                      </p>
+                    </div>
+                    <button
+                      onClick={(e) => deleteConversation(conv.id, e)}
+                      className="opacity-0 group-hover:opacity-100 p-1 hover:bg-err-bg rounded transition-opacity"
+                      aria-label="Supprimer"
+                    >
+                      <X className="w-3.5 h-3.5 text-err-fg" strokeWidth={1.5} />
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
