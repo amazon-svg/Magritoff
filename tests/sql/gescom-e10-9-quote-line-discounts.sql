@@ -41,6 +41,13 @@
 --      `discount_rate`, comparees a des constantes calculees a la main. Memes
 --      entrees reprises dans `tests/modules/pricing/single-cost-pricing-
 --      engine.test.ts` (describe "E10.9 SQL guard-rail").
+--   8. (qa-review round 2, N1 BLOQUANT) Suppression d un devis BROUILLON
+--      portant plusieurs lignes par le chemin EXACT de
+--      `SupabaseCommercialQuotesRepository.remove` (`DELETE FROM
+--      commercial_quotes WHERE id = ... AND status = 'draft'`, pas de
+--      fonction RPC dediee) : ne doit lever AUCUNE erreur, et ne doit laisser
+--      subsister NI ligne NI entree d audit pour ce devis (cascade sur les
+--      deux tables).
 --
 -- Lancer : pnpm test:storefront:sql (necessite Supabase local demarre).
 -- ============================================================================
@@ -89,6 +96,9 @@ declare
   v_applied_margin numeric;
   v_public_price numeric;
   v_customer_price numeric;
+  v_quote_delete_test uuid;
+  v_line_delete_1 uuid;
+  v_line_delete_2 uuid;
 begin
   select u.id into v_actor
     from auth.users u
@@ -339,6 +349,62 @@ begin
   end;
   if not v_rejected then
     raise exception 'Un ensemble incomplet de line_ids a ete accepte par le reordonnancement';
+  end if;
+
+  -- ── 8. Suppression d un devis BROUILLON portant des lignes (qa-review
+  --      round 2, N1 BLOQUANT) : chemin EXACT de
+  --      `SupabaseCommercialQuotesRepository.remove` (DELETE direct filtre
+  --      par `status = 'draft'`, AUCUNE fonction RPC dediee pour cette
+  --      operation). Avant le correctif, la cascade sur les LIGNES du devis
+  --      (declenchee APRES la suppression physique de la ligne PARENTE, dans
+  --      la MEME transaction) faisait lever au trigger BEFORE
+  --      `quote_line.quote_not_draft: devis introuvable` (le SELECT sur
+  --      commercial_quotes ne voit plus rien), et la FK immediate de
+  --      `commercial_quote_line_audit.quote_id` aurait de toute facon rejete
+  --      l entree 'removed' en 23503. ────────────────────────────────────────
+  insert into public.commercial_quotes (tenant_id, customer_id, project_id, number, status, created_by)
+  values (v_tenant_a, v_customer_a, v_project_a, 'DEV-9999-00004', 'draft', v_actor)
+  returning id into v_quote_delete_test;
+
+  insert into public.commercial_quote_lines
+    (quote_id, origin, project_item_id, label, quantity, production_price, public_price,
+     customer_price, applied_margin_rate, sale_price, breakdown)
+  values
+    (v_quote_delete_test, 'free', null, 'Ligne a supprimer 1', 1, 10.00, 10.00, 10.00, 0.0000, 10.00,
+     '[{"post":"total","cost":"10.00","margin_rate":"0.0000","price":"10.00","source":"clariprint"}]'::jsonb)
+  returning id into v_line_delete_1;
+
+  insert into public.commercial_quote_lines
+    (quote_id, origin, project_item_id, label, quantity, production_price, public_price,
+     customer_price, applied_margin_rate, sale_price, breakdown)
+  values
+    (v_quote_delete_test, 'free', null, 'Ligne a supprimer 2', 1, 20.00, 20.00, 20.00, 0.0000, 20.00,
+     '[{"post":"total","cost":"20.00","margin_rate":"0.0000","price":"20.00","source":"clariprint"}]'::jsonb)
+  returning id into v_line_delete_2;
+
+  -- Les deux insertions ci-dessus ont deja produit une entree 'added' chacune
+  -- (verifie explicitement, pour prouver ensuite qu elles disparaissent bien
+  -- et non qu elles n ont jamais existe).
+  select count(*) into v_audit_count
+    from public.commercial_quote_line_audit
+   where quote_id = v_quote_delete_test;
+  if v_audit_count <> 2 then
+    raise exception
+      'Devis de test N1 : % entree(s) d audit avant suppression, 2 "added" attendues', v_audit_count;
+  end if;
+
+  -- Chemin EXACT de SupabaseCommercialQuotesRepository.remove : AUCUNE
+  -- exception ne doit remonter ici (c est tout l objet du correctif N1).
+  delete from public.commercial_quotes where id = v_quote_delete_test and status = 'draft';
+
+  if exists (select 1 from public.commercial_quotes where id = v_quote_delete_test) then
+    raise exception 'Le devis de test N1 existe toujours apres sa propre suppression';
+  end if;
+  if exists (select 1 from public.commercial_quote_lines where quote_id = v_quote_delete_test) then
+    raise exception 'Une ligne du devis de test N1 survit a la suppression du devis (regression N1)';
+  end if;
+  if exists (select 1 from public.commercial_quote_line_audit where quote_id = v_quote_delete_test) then
+    raise exception 'Une entree d audit du devis de test N1 survit a sa suppression (regression N1)';
   end if;
 
   -- ── 7. Garde-fou de non-regression SQL vs SingleCostPricingEngine

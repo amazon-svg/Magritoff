@@ -42,6 +42,21 @@
 --      updated_at` (trigger AFTER, section 4bis) : sans ce dernier,
 --      `reorderQuoteLines` promettait par contrat une concurrence optimiste
 --      qui n avancait jamais l ETag du devis (B1, BLOQUANT).
+--   8. (qa-review round 2, N1 BLOQUANT) Supprimer un devis BROUILLON portant
+--      des lignes levait un 500 : la garde d etat (section 4) re-verifiait a
+--      tort le devis parent sur la cascade DELETE de ses propres lignes, ou
+--      il vient justement de disparaitre DANS LA MEME TRANSACTION (garde
+--      desormais silencieuse sur DELETE quand le devis est introuvable,
+--      conservee telle quelle sur INSERT/UPDATE). Le trigger d audit (section
+--      5) ne journalise plus un retrait de ligne quand son devis parent n
+--      existe deja plus : choix retenu PLUTOT qu une FK DEFERRABLE INITIALLY
+--      DEFERRED sur `commercial_quote_line_audit.quote_id`, qui aurait fait
+--      dependre la correction d un ordre non garanti par Postgres entre les
+--      deux cascades ON DELETE CASCADE issues du meme devis (celle sur
+--      `commercial_quote_lines` et celle, independante, sur
+--      `commercial_quote_line_audit` elle-meme) — voir le commentaire du
+--      trigger `commercial_quote_lines_write_audit` pour le detail du
+--      raisonnement.
 --
 -- ── Backfill des lignes E10.3 existantes (choix documente) ─────────────────
 -- Ces lignes ont `public_price`/`customer_price`/`applied_margin_rate` NULL et
@@ -261,6 +276,24 @@ declare
 begin
   select status into v_status from public.commercial_quotes where id = v_quote_id;
   if v_status is null then
+    -- qa-review N1 (BLOQUANT) — sur DELETE, un devis parent INTROUVABLE n
+    -- est PAS une anomalie : `commercial_quote_lines.quote_id` porte
+    -- `on delete cascade` (migration 20260901000600), donc supprimer un
+    -- devis brouillon (`SupabaseCommercialQuotesRepository.remove`, garde
+    -- `status = 'draft'` DEJA posee sur CE DELETE) supprime physiquement la
+    -- ligne du devis AVANT que la cascade ne declenche ce trigger BEFORE sur
+    -- chacune de ses lignes, DANS LA MEME TRANSACTION : ce SELECT ne peut
+    -- alors plus voir le devis, deja disparu. Re-lever l exception ici
+    -- rendrait IMPOSSIBLE de supprimer tout devis brouillon portant au moins
+    -- une ligne (500 systematique). La garde d etat a deja ete faite, par le
+    -- devis lui-meme, au moment de SON PROPRE DELETE : la cascade sur ses
+    -- lignes est donc legitime et ne doit pas etre re-bloquee.
+    -- Sur INSERT/UPDATE en revanche, rien n explique l absence du devis (pas
+    -- de cascade possible dans ce sens) : l exception reste levee, un devis
+    -- cible doit TOUJOURS exister pour ces deux operations.
+    if tg_op = 'DELETE' then
+      return old;
+    end if;
     raise exception 'quote_line.quote_not_draft: devis introuvable (%)', v_quote_id;
   end if;
   if v_status <> 'draft' then
@@ -388,6 +421,29 @@ begin
   end if;
 
   if tg_op = 'DELETE' then
+    -- qa-review round 2 (N1, BLOQUANT) — si le devis PARENT n existe deja
+    -- plus, cette suppression de ligne est la cascade DU PROPRE DELETE du
+    -- devis (`commercial_quote_lines.quote_id on delete cascade`, migration
+    -- 20260901000600 ; le trigger BEFORE de garde d etat, section 4
+    -- ci-dessus, laisse desormais passer ce cas sans exception). Journaliser
+    -- ici violerait la FK `commercial_quote_line_audit.quote_id` (le devis
+    -- reference n existe plus) ; ne PAS journaliser est le choix retenu
+    -- plutot qu une FK DEFERRABLE INITIALLY DEFERRED sur cette colonne : une
+    -- FK differee n aurait ete correcte QUE si la cascade PROPRE de
+    -- `commercial_quote_line_audit` (elle aussi `on delete cascade` sur
+    -- `commercial_quotes`, purge naturellement le reste du journal de ce
+    -- devis) s executait TOUJOURS APRES celle de `commercial_quote_lines` —
+    -- un ORDRE ENTRE DEUX CASCADES ON DELETE CASCADE issues du MEME parent
+    -- QUE POSTGRES NE GARANTIT PAS (deux triggers RI internes distincts sur
+    -- deux constraintes independantes). Ce test d existence, lui, est
+    -- correct QUEL QUE SOIT cet ordre : le devis est deja physiquement
+    -- absent avant que la moindre cascade ne parte, dans les deux sens. Le
+    -- reste du journal de ce devis (entrees 'added'/'updated' anterieures)
+    -- disparait de toute facon via SA PROPRE cascade `on delete cascade` :
+    -- aucune entree orpheline ne subsiste, append-only prouve vide.
+    if not exists (select 1 from public.commercial_quotes where id = old.quote_id) then
+      return old;
+    end if;
     insert into public.commercial_quote_line_audit
       (quote_id, quote_line_id, change_set_id, action, field, previous_value, new_value, line_snapshot, actor_id, actor_label)
     values
