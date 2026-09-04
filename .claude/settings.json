@@ -98,6 +98,9 @@
       "/Users/arnaudmazon/Documents/Claude/BMAD/Magrit/.design-handoff"
     ]
   },
+  "worktree": {
+    "baseRef": "head"
+  },
   "hooks": {
     "PostToolUse": [
       {

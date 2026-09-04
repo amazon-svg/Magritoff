@@ -19,7 +19,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { X, Upload, Palette, Save, Trash2, Star } from 'lucide-react';
-import type { QuoteTemplate } from '@/modules/quotes/ui/helpers';
+import type { QuoteTemplate } from '@/modules/quote-templates/ui/helpers';
 import { useQuoteTemplates } from '@/modules/quote-templates/ui/runtime/QuoteTemplatesContext';
 
 interface QuoteTemplateEditorProps {

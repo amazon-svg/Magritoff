@@ -2,7 +2,7 @@ import { useStorefrontApi, useStorefrontUiRuntime } from '@/platform/runtime/sto
 import { OrdersApiClient } from '@/modules/orders';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { lineTotal, round2 } from '@/modules/quotes/ui/helpers';
+import { lineTotal, round2 } from '@/modules/orders/ui/helpers';
 import type { OrderUI } from '@/modules/orders/ui/storefront/PortalOrders.helpers';
 
 interface EditableLine {

@@ -24,7 +24,7 @@ import { useState } from 'react';
 import { Plus, Star, Copy, Pencil, Info } from 'lucide-react';
 import { useQuoteTemplates } from '@/modules/quote-templates/ui/runtime/QuoteTemplatesContext';
 import { QuoteTemplateEditor } from '@/modules/quote-templates/ui/components/QuoteTemplateEditor';
-import type { QuoteTemplate } from '@/modules/quotes/ui/helpers';
+import type { QuoteTemplate } from '@/modules/quote-templates/ui/helpers';
 
 export function DashboardQuoteTemplates() {
   const {

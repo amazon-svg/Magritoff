@@ -25,6 +25,7 @@ const GESCOM_ADAPTERS = [
   'src/adapters/supabase/projects-repository.ts',
   'src/adapters/supabase/project-tags-repository.ts',
   'src/adapters/supabase/commercial-quotes-repository.ts',
+  'src/adapters/supabase/price-rules-repository.ts',
 ] as const;
 
 function read(path: string): string {

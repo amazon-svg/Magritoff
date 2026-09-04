@@ -2,7 +2,7 @@ import { Navigate, NavLink, Outlet, useLocation } from 'react-router';
 import {
   User, Settings, MessageSquare, FileText, ShoppingBag, Users,
   CreditCard, Package, Store, Shield, LayoutTemplate, Building, Layers, Workflow,
-  FileClock, BadgePercent, Factory, Image as ImageIcon, FolderKanban, type LucideIcon,
+  FileClock, BadgePercent, Percent, Factory, Image as ImageIcon, FolderKanban, type LucideIcon,
 } from 'lucide-react';
 import { useAuth } from '@/modules/account/ui/runtime';
 import { usePlan } from '@/modules/plans/ui/hooks';
@@ -31,6 +31,7 @@ const WORKSPACE_ICONS: Readonly<Record<string, LucideIcon>> = Object.freeze({
   workflow: Workflow,
   'file-clock': FileClock,
   'badge-percent': BadgePercent,
+  percent: Percent,
   factory: Factory,
   image: ImageIcon,
   'folder-kanban': FolderKanban,

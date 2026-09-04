@@ -4,13 +4,17 @@
  * Fonctions portail relocalisées (spec UX Custom Component n°8) :
  *  - Mes commandes : PortalOrders 4 tabs role-driven (les validations
  *    workflow S-ORDER-ROLES sont ces tabs) ;
- *  - Mes devis : lecture seule via QuotesContext (scope mine) ;
  *  - Mon profil : infos réelles + déconnexion.
  * Sidebar desktop / tabs scrollables mobile. Budget mock NON repris (pas de
  * section sans donnée réelle).
+ *
+ * L onglet « Mes devis » (texte statique, aucun backend reel) a ete retire
+ * au chantier d unification des devis (post Sprint 5 : voir
+ * docs/api/CONVENTIONS.md §8.10) : le point d entree boutique reste a
+ * concevoir sur `commercial_quotes` par une story future.
  */
 
-import { FileText, LogOut, Package, User } from 'lucide-react';
+import { LogOut, Package, User } from 'lucide-react';
 import type { StorefrontSession } from '@/modules/shop-customers';
 import type { Shop } from '@/modules/shops';
 import { StorefrontLoginForm } from '@/modules/shop-customers/ui/storefront';
@@ -20,7 +24,6 @@ import { TEST_IDS } from '@/shared/presentation/testIds';
 
 const SECTIONS: Array<{ key: AccountSection; label: string; icon: typeof Package }> = [
   { key: 'orders', label: 'Mes commandes', icon: Package },
-  { key: 'quotes', label: 'Mes devis', icon: FileText },
   { key: 'profile', label: 'Mon profil', icon: User },
 ];
 
@@ -103,7 +106,6 @@ export function AccountHub({
         {section === 'orders' && (
           <PortalOrders shopId={shop.id} hasStorefrontSession={hasStorefrontSession} onRenewOrder={onRenewOrder} />
         )}
-        {section === 'quotes' && <AccountQuotes />}
         {section === 'profile' && (
           <AccountProfile
             session={storefrontSession}
@@ -115,12 +117,6 @@ export function AccountHub({
       </div>
     </div>
   );
-}
-
-function AccountQuotes() {
-  // Les anciens devis du workspace sont volontairement exclus : ils sont
-  // rattachés aux utilisateurs Magrit, pas au compte client de la boutique.
-  return <EmptyCard text="Aucun devis boutique pour l’instant. Créez-en un depuis votre panier." />;
 }
 
 function AccountProfile({

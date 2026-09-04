@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { accountModuleManifest } from '@/modules/account';
 import { ordersModuleManifest } from '@/modules/orders';
 import { shopsModuleManifest } from '@/modules/shops';
-import { quotesModuleManifest } from '@/modules/quotes';
+import { commercialQuotesModuleManifest } from '@/modules/commercial-quotes';
 import { quoteTemplatesModuleManifest } from '@/modules/quote-templates';
 import { librariesModuleManifest } from '@/modules/libraries';
 import { catalogModuleManifest } from '@/modules/catalog';
@@ -29,7 +29,7 @@ describe('registre des contributions de surfaces', () => {
     ordersModuleManifest,
     shopsModuleManifest,
     shopCustomersModuleManifest,
-    quotesModuleManifest,
+    commercialQuotesModuleManifest,
     quoteTemplatesModuleManifest,
     librariesModuleManifest,
     catalogModuleManifest,
@@ -102,21 +102,20 @@ describe('registre des contributions de surfaces', () => {
     expect(applicationContributionRegistry.forSurface('backoffice').plannedRoutes).toContainEqual(expect.objectContaining({ id: 'shops.backoffice.list', availability: 'planned', requiredCapabilities: ['shops.govern'] }));
   });
 
-  it('compose Quotes sur les quatre surfaces', () => {
-    expect(quotesModuleManifest.surfaces).toEqual(['storefront', 'customer-portal', 'workspace', 'backoffice']);
-    expect(applicationContributionRegistry.forSurface('customer-portal').routes).toContainEqual(expect.objectContaining({ id: 'quotes.customer-portal.list', path: 'account/quotes' }));
-    expect(applicationContributionRegistry.forSurface('storefront').routes).not.toContainEqual(expect.objectContaining({ id: 'quotes.storefront.create' }));
-    expect(applicationContributionRegistry.forSurface('storefront').plannedRoutes).toContainEqual(expect.objectContaining({ id: 'quotes.storefront.create', path: 'quote', availability: 'planned' }));
+  it('limite les Devis commerciaux au workspace, une seule route de liste + editeur', () => {
+    // Chantier d unification des devis (post Sprint 5) : l ancien module
+    // `quotes` (storefront/customer-portal/backoffice) a ete supprime.
+    // `commercial-quotes` est desormais l UNIQUE systeme de devis, limite au
+    // workspace (le point d entree boutique reste a concevoir plus tard, cf.
+    // docs/api/CONVENTIONS.md §8.10).
+    expect(commercialQuotesModuleManifest.surfaces).toEqual(['workspace']);
     expect(applicationContributionRegistry.forSurface('workspace').routes).toEqual(expect.arrayContaining([
-      expect.objectContaining({ id: 'quotes.workspace.list', path: 'quotes' }),
-      expect.objectContaining({ id: 'quotes.workspace.pending', path: 'quotes/pending' }),
-      expect.objectContaining({ id: 'quotes.workspace.edit', path: 'quotes/:id/edit' }),
+      expect.objectContaining({ id: 'commercial-quotes.workspace.list', path: 'quotes' }),
+      expect.objectContaining({ id: 'commercial-quotes.workspace.editor', path: 'commercial-quotes/:quoteId' }),
     ]));
-    expect(applicationContributionRegistry.forSurface('workspace').navigation).toEqual(expect.arrayContaining([
-      expect.objectContaining({ id: 'quotes.workspace.navigation', exact: true }),
-      expect.objectContaining({ id: 'quotes.workspace.pending-navigation', nested: true }),
-    ]));
-    expect(applicationContributionRegistry.forSurface('backoffice').plannedRoutes).toContainEqual(expect.objectContaining({ id: 'quotes.backoffice.pending', availability: 'planned', requiredCapabilities: ['quotes.validate'] }));
+    expect(applicationContributionRegistry.forSurface('workspace').navigation).toContainEqual(
+      expect.objectContaining({ id: 'commercial-quotes.workspace.navigation', label: 'Devis', exact: true }),
+    );
   });
 
   it('n expose aucune route ou navigation backoffice avant son composition root', () => {
@@ -128,10 +127,8 @@ describe('registre des contributions de surfaces', () => {
       'orders.backoffice.production',
       'shops.backoffice.list',
       'shop-customers.backoffice.accounts',
-      'quotes.backoffice.pending',
     ]);
     expect(backoffice.plannedNavigation.map(({ routeId }) => routeId)).toEqual([
-      'quotes.backoffice.pending',
       'orders.backoffice.production',
       'shops.backoffice.list',
       'shop-customers.backoffice.accounts',

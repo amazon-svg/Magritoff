@@ -18,8 +18,15 @@ export type PortalView =
   // S7.12 — checkout ≤ 2 écrans /shop/:slug/checkout (Epic 7, ADR §4.20)
   | 'checkout';
 
-/** S7.10 — sections du hub Mon compte. */
-export type AccountSection = 'orders' | 'quotes' | 'profile';
+/**
+ * S7.10 — sections du hub Mon compte.
+ *
+ * `quotes` retiree au chantier d unification des devis (post Sprint 5 :
+ * docs/api/CONVENTIONS.md §8.10) : l onglet « Mes devis » n affichait qu un
+ * texte statique, sans backend reel — son point d entree boutique reste a
+ * concevoir sur `commercial_quotes` par une story future.
+ */
+export type AccountSection = 'orders' | 'profile';
 
 export interface CartLine {
   product: ShopProduct;

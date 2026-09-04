@@ -20,8 +20,6 @@ import { SupabaseConversationsRepository } from '../../../src/adapters/supabase/
 import { DiagnosticsService } from '../../../src/modules/diagnostics/application/diagnostics-service.ts';
 import { ConfiguredAiDiagnosticsGateway, aiProviderConfigurationFromEnvironment } from '../../../src/adapters/ai/configured-ai-diagnostics-gateway.ts';
 import { HttpClariprintDiagnosticsGateway } from '../../../src/adapters/clariprint/clariprint-diagnostics-gateway.ts';
-import { QuotesService } from '../../../src/modules/quotes/application/quotes-service.ts';
-import { SupabaseQuotesRepository } from '../../../src/adapters/supabase/quotes-repository.ts';
 import { QuoteTemplatesService } from '../../../src/modules/quote-templates/application/quote-templates-service.ts';
 import { SupabaseQuoteTemplatesRepository } from '../../../src/adapters/supabase/quote-templates-repository.ts';
 import { LibrariesService } from '../../../src/modules/libraries/application/libraries-service.ts';
@@ -65,6 +63,9 @@ import { ProjectTagsService } from '../../../src/modules/project-tags/applicatio
 import { SupabaseProjectTagsRepository } from '../../../src/adapters/supabase/project-tags-repository.ts';
 import { CommercialQuotesService } from '../../../src/modules/commercial-quotes/application/commercial-quotes-service.ts';
 import { SupabaseCommercialQuotesRepository } from '../../../src/adapters/supabase/commercial-quotes-repository.ts';
+import { PriceRulesService } from '../../../src/modules/pricing/application/price-rules-service.ts';
+import { SupabasePriceRulesRepository } from '../../../src/adapters/supabase/price-rules-repository.ts';
+import { createPricingEngine } from '../../../src/modules/pricing/application/pricing-engine-provider.ts';
 import { SupabaseApiPrincipalVerifier } from '../../../src/adapters/supabase/api-principal-verifier.ts';
 import { InMemoryIdempotencyStore, OutboxPublisher } from '../../../src/modules/_shared/application/index.ts';
 import { TENANT_SELECTION_HEADER } from '../../../src/modules/_shared/api/index.ts';
@@ -192,7 +193,6 @@ export async function handleRequest(request: Request): Promise<Response> {
     Deno.env.get('CLARIPRINT_LOGIN') ?? null,
     Deno.env.get('CLARIPRINT_PASSWORD') ?? null,
   ));
-  const quotesService = new QuotesService(new SupabaseQuotesRepository(client));
   const quoteTemplatesService = new QuoteTemplatesService(new SupabaseQuoteTemplatesRepository(client));
   const librariesService = new LibrariesService(new SupabaseLibrariesRepository(client));
   const libraryProductsService = new LibraryProductsService(new SupabaseLibraryProductsRepository(client));
@@ -269,11 +269,14 @@ export async function handleRequest(request: Request): Promise<Response> {
     }),
   });
 
-  // E10.3 — creation d un devis depuis un projet (selection multi-produits).
-  // L outbox publie quote.created via le meme mecanisme best-effort que
-  // project.created ci-dessus (dette M2 partagee, docs/api/CONVENTIONS.md).
-  const commercialQuotesService = new CommercialQuotesService({
-    repository: new SupabaseCommercialQuotesRepository(client),
+  // E10.6 — referentiel des regles de prix et marge publique standard par
+  // gamme. Reutilise le referentiel Clients (E10.4) deja instancie pour
+  // verifier l existence d un `customer_id` (CA1), sans dupliquer cette
+  // logique. Construite AVANT `commercialQuotesService` (E10.9) : ce dernier
+  // en depend pour resoudre la regle de prix applicable a une ligne.
+  const priceRulesService = new PriceRulesService({
+    repository: new SupabasePriceRulesRepository(client),
+    customers: customersRepository,
     outbox: new OutboxPublisher({
       repository: bestEffortOutbox(outboxRepository, (error, events) => {
         console.error(
@@ -287,6 +290,33 @@ export async function handleRequest(request: Request): Promise<Response> {
     }),
   });
 
+  // E10.3 — creation d un devis depuis un projet (selection multi-produits).
+  // E10.9 — remises granulaires par ligne, ajout/suppression/reordonnancement
+  // et journal d audit : le service resout desormais le prix de chaque ligne
+  // via `PriceRulesService.resolve()` + `PricingEngine.price()`
+  // (`createPricingEngine()`, seul endroit qui nomme l implementation
+  // concrete, E10.21), et valide `project_item_id` contre le referentiel
+  // Projets (E10.1) deja instancie. L outbox publie quote.created via le
+  // meme mecanisme best-effort que project.created ci-dessus (dette M2
+  // partagee, docs/api/CONVENTIONS.md).
+  const commercialQuotesService = new CommercialQuotesService({
+    repository: new SupabaseCommercialQuotesRepository(client),
+    outbox: new OutboxPublisher({
+      repository: bestEffortOutbox(outboxRepository, (error, events) => {
+        console.error(
+          '[magrit-api] publication outbox echouee',
+          events.map((event) => event.name),
+          error,
+        );
+      }),
+      now: () => new Date(),
+      newEventId: () => crypto.randomUUID(),
+    }),
+    projects: new SupabaseProjectsRepository(client),
+    priceRules: priceRulesService,
+    pricingEngine: createPricingEngine(),
+  });
+
   const handler = createMagritApiApplication({
     gescomServices: {
       customers: customersService,
@@ -294,6 +324,7 @@ export async function handleRequest(request: Request): Promise<Response> {
       projects: projectsService,
       projectTags: projectTagsService,
       commercialQuotes: commercialQuotesService,
+      priceRules: priceRulesService,
     },
     principalVerifier: new SupabaseApiPrincipalVerifier(client, {
       requestedTenantId: request.headers.get(TENANT_SELECTION_HEADER),
@@ -327,7 +358,6 @@ export async function handleRequest(request: Request): Promise<Response> {
       diagnostics: diagnosticsService,
       assistant: assistantService,
       clariprint: clariprintService,
-      quotes: quotesService,
       quoteTemplates: quoteTemplatesService,
       libraries: librariesService,
       libraryProducts: libraryProductsService,

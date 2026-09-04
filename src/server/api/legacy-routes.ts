@@ -33,7 +33,6 @@ import type { LibraryProductsService } from '../../modules/libraries/application
 import type { MembersService } from '../../modules/members/application/members-service.ts';
 import type { OrdersService } from '../../modules/orders/application/orders-service.ts';
 import type { QuoteTemplatesService } from '../../modules/quote-templates/application/quote-templates-service.ts';
-import type { QuotesService } from '../../modules/quotes/application/quotes-service.ts';
 import type { RolesService } from '../../modules/roles/application/roles-service.ts';
 import type { SessionService } from '../../modules/session/application/session-service.ts';
 import type { ShopCustomerDelegationService } from '../../modules/shop-customers/application/shop-customer-delegation-service.ts';
@@ -63,7 +62,6 @@ import { createLibraryProductsRoutes } from './library-products-routes.ts';
 import { createMembersRoutes } from './members-routes.ts';
 import { createOrdersRoutes } from './orders-routes.ts';
 import { createQuoteTemplatesRoutes } from './quote-templates-routes.ts';
-import { createQuotesRoutes } from './quotes-routes.ts';
 import { createRolesRoutes } from './roles-routes.ts';
 import { createSessionRoutes } from './session-routes.ts';
 import { createShopCustomerDelegationRoutes } from './shop-customer-delegation-routes.ts';
@@ -96,7 +94,6 @@ export type LegacyApiServices = Readonly<{
   diagnostics: DiagnosticsService;
   assistant: AssistantService;
   clariprint: ClariprintService;
-  quotes: QuotesService;
   quoteTemplates: QuoteTemplatesService;
   libraries: LibrariesService;
   libraryProducts: LibraryProductsService;
@@ -134,7 +131,6 @@ export function createLegacyApiRoutes(services: LegacyApiServices): readonly Api
     ...createDiagnosticsRoutes(services.diagnostics),
     ...createAssistantRoutes(services.assistant, services.authorizeStorefrontEditorial),
     ...createClariprintRoutes(services.clariprint),
-    ...createQuotesRoutes(services.quotes),
     ...createQuoteTemplatesRoutes(services.quoteTemplates),
     ...createLibrariesRoutes(services.libraries),
     ...createLibraryProductsRoutes(services.libraryProducts),

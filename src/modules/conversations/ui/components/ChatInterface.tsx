@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from "react-router";
 import {
   Send, History, X, CheckSquare, Square, BookmarkPlus,
   MessageSquare, SquarePen, Paperclip, Mic, Sparkles,
+  FolderKanban, FileText,
 } from "lucide-react";
 import { MagritLogo } from "@/shared/presentation/MagritLogo";
 import { ProductCard } from '@/modules/catalog/ui/components';
@@ -17,6 +18,7 @@ import { useAuth } from '@/modules/account/ui/runtime';
 import { useLibrary } from '@/modules/libraries/ui/runtime';
 import { usePlan } from '@/modules/plans/ui/hooks';
 import { useTenant } from '@/modules/tenants/ui/runtime';
+import { useTenantPath } from '@/modules/tenants/ui/hooks';
 import { ENABLE_STREAMING_CHAT } from "@/shared/config/featureFlags";
 import { TEST_IDS } from "@/shared/presentation/testIds";
 import {
@@ -53,6 +55,7 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
   const { canUse } = usePlan();
   const location = useLocation();
   const navigate = useNavigate();
+  const tp = useTenantPath();
 
   // E10.1 CA5 — reprise de l iteration conversationnelle sur un chiffrage
   // deja associe a un projet (ProjectDetailPage, bouton « Reprendre »). Le
@@ -409,6 +412,23 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
           label="Historique (⌘K)"
           onClick={() => setShowHistory(true)}
           badge={conversationHistory.length > 0 ? conversationHistory.length : undefined}
+        />
+
+        {/* Raccourcis rail lateral (Sprint 5) : acces rapide aux listes
+            Projets / Devis depuis la home chat, sans remplacer les entrees
+            de la sidebar dashboard (DashboardLayout) qui restent la
+            navigation principale. */}
+        <RailIcon
+          icon={FolderKanban}
+          label="Projets"
+          onClick={() => navigate(tp('/dashboard/projects'))}
+          testId={TEST_IDS.marguerite.railProjectsLink}
+        />
+        <RailIcon
+          icon={FileText}
+          label="Devis"
+          onClick={() => navigate(tp('/dashboard/quotes'))}
+          testId={TEST_IDS.marguerite.railQuotesLink}
         />
 
         {/* E10.1 (qa-review B1) : le rail Panier a disparu (decision RP
@@ -948,16 +968,19 @@ function RailIcon({
   onClick,
   active,
   badge,
+  testId,
 }: {
   icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
   label: string;
   onClick?: () => void;
   active?: boolean;
   badge?: number | undefined;
+  testId?: string;
 }) {
   return (
     <button
       type="button"
+      data-testid={testId}
       onClick={onClick}
       aria-label={label}
       title={label}

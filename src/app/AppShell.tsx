@@ -20,7 +20,6 @@ import { LibraryProvider } from '@/modules/libraries/ui/runtime';
 import { ShopsProvider } from '@/modules/shops/ui/runtime';
 import { QuoteTemplatesProvider } from '@/modules/quote-templates/ui/runtime';
 import { CartProvider } from '@/modules/orders/ui/runtime';
-import { QuotesProvider } from '@/modules/quotes/ui/runtime';
 import { AccessProfileProvider } from '@/modules/roles/ui/runtime';
 import { WorkspaceModuleUiBridge } from '@/app/surfaces/WorkspaceModuleUiBridge';
 import { browserRuntime } from '@/platform/runtime';
@@ -47,9 +46,7 @@ export function AppShell() {
                       <ShopsProvider>
                         <QuoteTemplatesProvider>
                           <CartProvider>
-                            <QuotesProvider>
-                              <Outlet />
-                            </QuotesProvider>
+                            <Outlet />
                           </CartProvider>
                         </QuoteTemplatesProvider>
                       </ShopsProvider>

@@ -1,5 +1,5 @@
 /**
- * Faux repository Devis commerciaux (E10.3), sur le meme principe que
+ * Faux repository Devis commerciaux (E10.3, E10.9), sur le meme principe que
  * `projects-repository.fake.ts` (E10.1) : partage entre les tests de
  * contrat, jamais reecrit a la main deux fois (leçon du sprint —
  * docs/api/CONVENTIONS.md, un faux non teste qui diverge de l adaptateur
@@ -15,18 +15,47 @@
  * fonction Postgres evite par le verrou de ligne de l UPSERT — et le test de
  * contrat qui exerce des creations concurrentes (voir
  * commercial-quotes.contract.test.ts) cesserait de passer.
+ *
+ * ── E10.9 — ce que ce faux reimplemente fidelement, pas seulement type ────
+ * - La garde "devis brouillon" (`quote_line.quote_not_draft`) sur TOUTE
+ *   ecriture de ligne, meme discipline que le trigger BEFORE de la migration
+ *   `20260904000100_gescom_e10_9_quote_line_discounts.sql`.
+ * - Le journal d audit APPEND-ONLY, une entree PAR CHAMP PERSISTE change,
+ *   regroupees par `change_set_id` PAR APPEL (une resequence issue d un
+ *   retrait ou d un reordonnancement partage un seul `change_set_id`, comme
+ *   le fait le trigger via `magrit.change_set_id` positionne par les
+ *   fonctions `api_delete_commercial_quote_line`/
+ *   `api_reorder_commercial_quote_lines`).
+ * - Les alertes (`warnings`) calculees par `computeQuoteLineWarnings()`, LA
+ *   MEME fonction que l adaptateur Supabase (aucune reimplementation
+ *   divergente possible).
+ * - B1 (qa-review, BLOQUANT) — TOUTE ecriture de ligne (ajout, modification,
+ *   retrait, reordonnancement) avance `updated_at` du devis PARENT, meme
+ *   discipline que le trigger AFTER `commercial_quote_lines_touch_quote_
+ *   updated_at_trigger` (migration 20260904000100) : sans quoi la
+ *   concurrence optimiste de `reorderQuoteLines` (`If-Match` sur LE DEVIS)
+ *   resterait inerte dans ce faux, exactement le defaut demontre cote base.
  */
 import type { TenantId, UserId } from '@/kernel';
 import type { ProjectDto, ProjectItemDto } from '@/modules/projects/api/contracts';
 import type { ProjectsRepository } from '@/modules/projects/application/projects-repository';
+import { computeQuoteLineWarnings } from '@/modules/commercial-quotes/application/quote-line-pricing';
 import {
   QuoteCommandRejectedError,
   QuoteDeleteRequiresDraftError,
+  QuoteLineNotFoundError,
+  QuoteLinePositionsMismatchError,
+  QuoteLineQuoteNotDraftError,
   QuoteNotFoundError,
   QuoteProjectNotFoundError,
   type CommercialQuotesRepository,
+  type ListQuoteLineAuditParams,
+  type ListQuoteLineAuditResult,
   type ListQuotesParams,
   type ListQuotesResult,
+  type PricedQuoteLineWrite,
+  type QuoteLineAuditRow,
+  type QuoteLineWriteUpdate,
 } from '@/modules/commercial-quotes/application/commercial-quotes-repository';
 import type {
   CreateQuoteFromProjectCommand,
@@ -56,21 +85,53 @@ function compareCreatedAtThenIdDesc(a: QuoteDto, b: QuoteDto): number {
 }
 
 function isStrictlyAfterCursor(
-  row: QuoteDto,
+  row: Readonly<{ sort: string; id: string }>,
   cursor: Readonly<{ sort: string; id: string }>,
 ): boolean {
-  if (row.created_at < cursor.sort) return true;
-  if (row.created_at > cursor.sort) return false;
+  if (row.sort < cursor.sort) return true;
+  if (row.sort > cursor.sort) return false;
   return row.id < cursor.id;
+}
+
+/**
+ * Ligne stockee : superset de `QuoteLineDto` avec `chiffrage_quantity`
+ * (colonne interne, jamais publiee au contrat — sert uniquement a calculer
+ * l alerte `production_cost_stale`, meme discipline que la colonne reelle).
+ */
+type StoredQuoteLine = QuoteLineDto & { chiffrage_quantity: number | null };
+
+/**
+ * Horodatage STRICTEMENT croissant, partage par l audit (`occurred_at`) et
+ * par `touchQuoteUpdatedAt()` (B1) : deux ecritures nees dans la meme
+ * milliseconde de test doivent quand meme se departager.
+ */
+let lastAuditTimestampMs = 0;
+function monotonicIsoTimestamp(): string {
+  lastAuditTimestampMs = Math.max(Date.now(), lastAuditTimestampMs + 1);
+  return new Date(lastAuditTimestampMs).toISOString();
 }
 
 export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepository {
   private readonly quotes = new Map<string, QuoteDto>();
-  private readonly lines = new Map<string, QuoteLineDto>();
+  private readonly lines = new Map<string, StoredQuoteLine>();
+  private readonly auditEntries: QuoteLineAuditRow[] = [];
   /** Compteur par `${tenantId}:${year}`, meme portee que commercial_quote_number_counters. */
   private readonly counters = new Map<string, number>();
+  /** Role de l acteur par tenant, pour `findActorTenantRole` (E10.9 CA garde admin). `admin` par defaut. */
+  private readonly actorRoles = new Map<string, 'admin' | 'member'>();
 
   constructor(private readonly projects: ProjectsRepository) {}
+
+  /** TEST UNIQUEMENT — force le role d un acteur pour exercer la garde 403 `identity.role_required`. */
+  setActorRoleForTest(tenantId: string, actorId: string, role: 'admin' | 'member' | null): void {
+    const key = `${tenantId}:${actorId}`;
+    if (role === null) this.actorRoles.delete(key);
+    else this.actorRoles.set(key, role);
+  }
+
+  async findActorTenantRole(tenantId: TenantId, actorId: UserId): Promise<'admin' | 'member' | null> {
+    return this.actorRoles.get(`${tenantId}:${actorId}`) ?? 'admin';
+  }
 
   async list(tenantId: TenantId, params: ListQuotesParams): Promise<ListQuotesResult> {
     let rows = [...this.quotes.values()]
@@ -82,7 +143,7 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
 
     if (params.cursor) {
       const cursor = params.cursor;
-      rows = rows.filter((q) => isStrictlyAfterCursor(q, cursor));
+      rows = rows.filter((q) => isStrictlyAfterCursor({ sort: q.created_at, id: q.id }, cursor));
     }
     return { rows: rows.slice(0, params.size + 1) };
   }
@@ -95,10 +156,50 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
   async findDetailById(tenantId: TenantId, quoteId: string): Promise<QuoteDetailDto | null> {
     const quote = await this.findById(tenantId, quoteId);
     if (!quote) return null;
-    const lines = [...this.lines.values()]
-      .filter((line) => line.quote_id === quoteId)
-      .sort((a, b) => a.position - b.position);
+    const lines = this.linesOf(quoteId);
     return { ...quote, lines };
+  }
+
+  private linesOf(quoteId: string): QuoteLineDto[] {
+    return [...this.lines.values()]
+      .filter((line) => line.quote_id === quoteId)
+      .sort((a, b) => a.position - b.position)
+      .map((line) => toDto(line));
+  }
+
+  private assertDraft(quoteId: string): QuoteDto {
+    const quote = this.quotes.get(quoteId);
+    if (!quote) throw new QuoteNotFoundError();
+    if (quote.status !== 'draft') throw new QuoteLineQuoteNotDraftError();
+    return quote;
+  }
+
+  /**
+   * B1 (qa-review, BLOQUANT) — avance `updated_at` du devis PARENT, appele
+   * par TOUTE methode qui ecrit une ligne (`addLine`/`updateLine`/
+   * `removeLine`/`reorderLines`), meme quand la mutation en elle-meme ne
+   * change aucun champ visible de la ligne (le trigger SQL reel n a pas de
+   * `when` non plus, cf. migration 20260904000100).
+   */
+  private touchQuoteUpdatedAt(quoteId: string): void {
+    const quote = this.quotes.get(quoteId);
+    if (!quote) return;
+    // `monotonicIsoTimestamp()` (deja utilise par l audit) : garantit que
+    // deux ecritures rapides (meme milliseconde) produisent malgre tout des
+    // ETag DIFFERENTS, comme le ferait `now()` cote Postgres (resolution
+    // microseconde) — un `new Date().toISOString()` simple pourrait rendre
+    // deux appels tres rapproches indiscernables dans ce faux.
+    this.quotes.set(quoteId, { ...quote, updated_at: monotonicIsoTimestamp() });
+  }
+
+  private pushAudit(
+    entry: Omit<QuoteLineAuditRow, 'id' | 'occurred_at'>,
+  ): void {
+    this.auditEntries.push({
+      ...entry,
+      id: fakeQuoteUuid(),
+      occurred_at: monotonicIsoTimestamp(),
+    });
   }
 
   async createFromProjectItems(
@@ -151,23 +252,49 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
       const amounts = (payload['amounts'] ?? {}) as Readonly<Record<string, unknown>>;
       const production = toMoneyString(amounts['clariprint_price_ht'] ?? amounts['price'] ?? 0);
       const quantity = Math.max(Math.trunc(Number(payload['quantity'] ?? 1)) || 1, 1);
-      const line: QuoteLineDto = {
+      // E10.3 (avant E10.9) ne valorisait aucun prix de vente. Depuis E10.9,
+      // le contrat l exige : cette voie de creation historique (par
+      // `createQuoteFromProject`) est SANS marge/regle (pas de PriceRulesService
+      // injecte ici, hors perimetre de ce chemin) — memes bornes que le
+      // backfill SQL de la migration 20260904000100 (marge/regle absentes ->
+      // 0.0000, customer_price = production_price). `addLine`, lui, appelle
+      // reellement PriceRulesService + PricingEngine (voir plus bas).
+      const stored: StoredQuoteLine = {
         id: fakeQuoteUuid(),
         quote_id: quote.id,
+        origin: 'project_item',
         project_item_id: item.id,
         label: item.label,
         product_config: payload,
         quantity,
         position: index,
         production_price: production,
-        public_price: null,
-        customer_price: null,
-        applied_margin_rate: null,
+        public_price: production,
+        customer_price: production,
+        applied_margin_rate: '0.0000',
         applied_rule_id: null,
-        breakdown: [],
+        sale_price: production,
+        sale_margin_rate: production === '0.00' ? null : '0.0000',
+        discount_rate: production === '0.00' ? null : '0.0000',
+        margin_variation: production === '0.00' ? null : '0.0000',
+        breakdown: [{ post: 'total', cost: production, margin_rate: '0.0000', price: production, source: 'clariprint' }],
+        warnings: [],
         created_at: now,
+        chiffrage_quantity: quantity,
       };
-      this.lines.set(line.id, line);
+      this.lines.set(stored.id, stored);
+      this.pushAudit({
+        quote_id: quote.id,
+        quote_line_id: stored.id,
+        change_set_id: fakeQuoteUuid(),
+        action: 'added',
+        field: null,
+        previous_value: null,
+        new_value: null,
+        line_snapshot: stored as unknown as Readonly<Record<string, unknown>>,
+        actor_id: actor,
+        actor_label: null,
+      });
     });
 
     const detailResult = await this.findDetailById(tenantId, quote.id);
@@ -215,6 +342,277 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
       if (line.quote_id === quoteId) this.lines.delete(id);
     }
   }
+
+  // ---------------------------------------------------------------------------
+  // E10.9 — lignes de devis.
+  // ---------------------------------------------------------------------------
+
+  async findLineById(tenantId: TenantId, quoteId: string, lineId: string): Promise<QuoteLineDto | null> {
+    void tenantId;
+    const found = this.lines.get(lineId);
+    return found && found.quote_id === quoteId ? toDto(found) : null;
+  }
+
+  async addLine(tenantId: TenantId, quoteId: string, line: PricedQuoteLineWrite): Promise<QuoteLineDto> {
+    void tenantId;
+    this.assertDraft(quoteId);
+    const position = this.linesOf(quoteId).length;
+    const now = new Date().toISOString();
+    const stored: StoredQuoteLine = {
+      id: fakeQuoteUuid(),
+      quote_id: quoteId,
+      origin: line.origin,
+      project_item_id: line.projectItemId,
+      label: line.label,
+      product_config: line.productConfig,
+      quantity: line.quantity,
+      position,
+      production_price: line.productionPrice,
+      public_price: line.publicPrice,
+      customer_price: line.customerPrice,
+      applied_margin_rate: line.appliedMarginRate,
+      applied_rule_id: line.appliedRuleId,
+      sale_price: line.salePrice,
+      sale_margin_rate: line.saleMarginRate,
+      discount_rate: line.discountRate,
+      margin_variation: line.marginVariation,
+      breakdown: [...line.breakdown],
+      warnings: [],
+      created_at: now,
+      chiffrage_quantity: line.chiffrageQuantity,
+    };
+    this.lines.set(stored.id, stored);
+    this.pushAudit({
+      quote_id: quoteId,
+      quote_line_id: stored.id,
+      change_set_id: fakeQuoteUuid(),
+      action: 'added',
+      field: null,
+      previous_value: null,
+      new_value: null,
+      line_snapshot: stored as unknown as Readonly<Record<string, unknown>>,
+      actor_id: null,
+      actor_label: null,
+    });
+    this.touchQuoteUpdatedAt(quoteId);
+    return toDto(stored);
+  }
+
+  async updateLine(
+    tenantId: TenantId,
+    quoteId: string,
+    lineId: string,
+    update: QuoteLineWriteUpdate,
+  ): Promise<QuoteLineDto> {
+    void tenantId;
+    this.assertDraft(quoteId);
+    const current = this.lines.get(lineId);
+    if (!current || current.quote_id !== quoteId) throw new QuoteLineNotFoundError();
+
+    const next: StoredQuoteLine = { ...current };
+    const changeSetId = fakeQuoteUuid();
+
+    if (update.quantity !== undefined && update.quantity !== current.quantity) {
+      this.pushAudit({
+        quote_id: quoteId,
+        quote_line_id: lineId,
+        change_set_id: changeSetId,
+        action: 'updated',
+        field: 'quantity',
+        previous_value: String(current.quantity),
+        new_value: String(update.quantity),
+        line_snapshot: null,
+        actor_id: null,
+        actor_label: null,
+      });
+      next.quantity = update.quantity;
+    }
+    if (update.salePrice !== undefined && update.salePrice !== current.sale_price) {
+      this.pushAudit({
+        quote_id: quoteId,
+        quote_line_id: lineId,
+        change_set_id: changeSetId,
+        action: 'updated',
+        field: 'sale_price',
+        previous_value: current.sale_price,
+        new_value: update.salePrice,
+        line_snapshot: null,
+        actor_id: null,
+        actor_label: null,
+      });
+      next.sale_price = update.salePrice;
+    }
+    if (update.saleMarginRate !== undefined) next.sale_margin_rate = update.saleMarginRate;
+    if (update.discountRate !== undefined && update.discountRate !== current.discount_rate) {
+      this.pushAudit({
+        quote_id: quoteId,
+        quote_line_id: lineId,
+        change_set_id: changeSetId,
+        action: 'updated',
+        field: 'discount_rate',
+        previous_value: current.discount_rate,
+        new_value: update.discountRate,
+        line_snapshot: null,
+        actor_id: null,
+        actor_label: null,
+      });
+      next.discount_rate = update.discountRate;
+    }
+    if (
+      update.marginVariation !== undefined &&
+      update.marginVariation !== current.margin_variation
+    ) {
+      this.pushAudit({
+        quote_id: quoteId,
+        quote_line_id: lineId,
+        change_set_id: changeSetId,
+        action: 'updated',
+        field: 'margin_variation',
+        previous_value: current.margin_variation,
+        new_value: update.marginVariation,
+        line_snapshot: null,
+        actor_id: null,
+        actor_label: null,
+      });
+      next.margin_variation = update.marginVariation;
+    }
+
+    this.lines.set(lineId, next);
+    this.touchQuoteUpdatedAt(quoteId);
+    return toDto(next);
+  }
+
+  async removeLine(tenantId: TenantId, quoteId: string, lineId: string): Promise<void> {
+    void tenantId;
+    this.assertDraft(quoteId);
+    const current = this.lines.get(lineId);
+    if (!current || current.quote_id !== quoteId) throw new QuoteLineNotFoundError();
+
+    const changeSetId = fakeQuoteUuid();
+    this.lines.delete(lineId);
+    this.pushAudit({
+      quote_id: quoteId,
+      quote_line_id: lineId,
+      change_set_id: changeSetId,
+      action: 'removed',
+      field: null,
+      previous_value: null,
+      new_value: null,
+      line_snapshot: current as unknown as Readonly<Record<string, unknown>>,
+      actor_id: null,
+      actor_label: null,
+    });
+
+    // Resserre les positions des lignes restantes, MEME change_set_id que le
+    // retrait (une seule requete logique) — meme discipline que
+    // `api_delete_commercial_quote_line`.
+    const remaining = [...this.lines.values()]
+      .filter((line) => line.quote_id === quoteId)
+      .sort((a, b) => a.position - b.position);
+    remaining.forEach((line, index) => {
+      if (line.position !== index) {
+        this.pushAudit({
+          quote_id: quoteId,
+          quote_line_id: line.id,
+          change_set_id: changeSetId,
+          action: 'reordered',
+          field: 'position',
+          previous_value: String(line.position),
+          new_value: String(index),
+          line_snapshot: null,
+          actor_id: null,
+          actor_label: null,
+        });
+        this.lines.set(line.id, { ...line, position: index });
+      }
+    });
+    this.touchQuoteUpdatedAt(quoteId);
+  }
+
+  async reorderLines(
+    tenantId: TenantId,
+    quoteId: string,
+    lineIds: readonly string[],
+  ): Promise<QuoteDetailDto> {
+    this.assertDraft(quoteId);
+    const existing = [...this.lines.values()].filter((line) => line.quote_id === quoteId);
+    const existingIds = new Set(existing.map((line) => line.id));
+    const requestedIds = new Set(lineIds);
+    if (
+      lineIds.length !== existing.length ||
+      requestedIds.size !== lineIds.length ||
+      [...requestedIds].some((id) => !existingIds.has(id))
+    ) {
+      throw new QuoteLinePositionsMismatchError();
+    }
+
+    const changeSetId = fakeQuoteUuid();
+    // B1 — comme le trigger SQL reel (`where l.position <> ranked.new_position`,
+    // qui ne s execute QUE sur les lignes reellement mises a jour), `updated_at`
+    // n avance que si AU MOINS une ligne a effectivement change de position :
+    // un reordonnancement demande qui reproduit l ordre courant n ecrit rien.
+    let anyPositionChanged = false;
+    lineIds.forEach((id, index) => {
+      const line = this.lines.get(id)!;
+      if (line.position !== index) {
+        anyPositionChanged = true;
+        this.pushAudit({
+          quote_id: quoteId,
+          quote_line_id: id,
+          change_set_id: changeSetId,
+          action: 'reordered',
+          field: 'position',
+          previous_value: String(line.position),
+          new_value: String(index),
+          line_snapshot: null,
+          actor_id: null,
+          actor_label: null,
+        });
+        this.lines.set(id, { ...line, position: index });
+      }
+    });
+    if (anyPositionChanged) this.touchQuoteUpdatedAt(quoteId);
+
+    const detail = await this.findDetailById(tenantId, quoteId);
+    if (!detail) throw new QuoteNotFoundError();
+    return detail;
+  }
+
+  async listLineAuditEntries(
+    tenantId: TenantId,
+    params: ListQuoteLineAuditParams,
+  ): Promise<ListQuoteLineAuditResult> {
+    void tenantId;
+    let rows = this.auditEntries
+      .filter((entry) => entry.quote_id === params.quoteId)
+      .filter((entry) => !params.lineId || entry.quote_line_id === params.lineId)
+      .sort((a, b) => {
+        if (a.occurred_at !== b.occurred_at) return a.occurred_at < b.occurred_at ? 1 : -1;
+        if (a.id === b.id) return 0;
+        return a.id < b.id ? 1 : -1;
+      });
+
+    if (params.cursor) {
+      const cursor = params.cursor;
+      rows = rows.filter((entry) => isStrictlyAfterCursor({ sort: entry.occurred_at, id: entry.id }, cursor));
+    }
+    return { rows: rows.slice(0, params.size + 1) };
+  }
+}
+
+/** `StoredQuoteLine` -> `QuoteLineDto` : recalcule `warnings` a chaque lecture, jamais stocke. */
+function toDto(line: StoredQuoteLine): QuoteLineDto {
+  const { chiffrage_quantity, ...rest } = line;
+  return {
+    ...rest,
+    warnings: computeQuoteLineWarnings({
+      origin: line.origin,
+      quantity: line.quantity,
+      chiffrageQuantity: chiffrage_quantity,
+      salePrice: line.sale_price,
+      productionPrice: line.production_price,
+    }),
+  };
 }
 
 function itemsInvalidError(): QuoteCommandRejectedError {
@@ -228,6 +626,9 @@ function itemsInvalidError(): QuoteCommandRejectedError {
 export {
   QuoteCommandRejectedError,
   QuoteDeleteRequiresDraftError,
+  QuoteLineNotFoundError,
+  QuoteLinePositionsMismatchError,
+  QuoteLineQuoteNotDraftError,
   QuoteNotFoundError,
   QuoteProjectNotFoundError,
 };

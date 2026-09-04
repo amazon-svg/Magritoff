@@ -23,7 +23,7 @@ import { TEST_IDS } from "@/shared/presentation/testIds";
 // bundle initial de ProductCard. Suspense fallback = null (les modales sont
 // rendues conditionnellement par activeTab/overlayOpen, le delay est masque
 // par la transition d'ouverture).
-const QuoteModal = lazy(() => import('@/modules/quotes/ui/components').then((m) => ({ default: m.QuoteModal })));
+const QuoteModal = lazy(() => import('./QuoteModal').then((m) => ({ default: m.QuoteModal })));
 const LibraryPickerModal = lazy(() =>
   import('@/modules/libraries/ui/components').then((m) => ({ default: m.LibraryPickerModal })),
 );

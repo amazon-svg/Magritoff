@@ -41,7 +41,6 @@ export { createDiagnosticsRoutes } from './diagnostics-routes';
 export { createAssistantRoutes } from './assistant-routes';
 export { createClariprintRoutes } from './clariprint-routes';
 export { isAssistantChatRequest, proxyAssistantChat } from './assistant-stream-proxy';
-export { createQuotesRoutes } from './quotes-routes';
 export { createQuoteTemplatesRoutes } from './quote-templates-routes';
 export { createLibrariesRoutes } from './libraries-routes';
 export { createLibraryProductsRoutes } from './library-products-routes';

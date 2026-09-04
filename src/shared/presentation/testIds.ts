@@ -57,10 +57,10 @@ export const TEST_IDS = {
   },
   dashboard: {
     welcomeCard: 'dashboard-welcome-card',
-    // S2.16 — Page "Devis en attente" (sous-menu de Devis, option C)
-    pendingQuotes: 'dashboard-pending-quotes',
-    pendingQuoteRow: 'dashboard-pending-quote-row',
-    pendingQuoteResumeBtn: 'dashboard-pending-quote-resume-btn',
+    // S2.16 — Page "Devis en attente" (sous-menu de Devis, option C).
+    // Retire au chantier d unification des devis (docs/api/CONVENTIONS.md
+    // §8.10) : le nouveau systeme (commercial_quotes) n a pas d equivalent au
+    // concept "en attente de validation" — pas de composant a re-tagger.
   },
 
   // ─── P02 — Gestion utilisateurs ───────────────────────────────────────
@@ -129,6 +129,9 @@ export const TEST_IDS = {
     contextTruncatedIndicator: 'marguerite-context-truncated-indicator',
     /** R2 (refacto 2026-05-11) - fix bug E4 : banner billing explicite au lieu de bascule demo silencieuse. */
     billingErrorBanner: 'marguerite-billing-error-banner',
+    /** Sprint 5 (raccourcis rail lateral) - acces rapides Projets / Devis depuis la home chat. */
+    railProjectsLink: 'marguerite-rail-projects-link',
+    railQuotesLink: 'marguerite-rail-quotes-link',
   },
 
   // ─── P07 — Tracking conso IA ──────────────────────────────────────────
@@ -148,41 +151,6 @@ export const TEST_IDS = {
     priceErrorBanner: 'quote-price-error-banner',
     anomalyBanner: 'quote-anomaly-banner',
     refreshBtn: 'quote-refresh-btn',
-  },
-
-  // ─── S-QUOTES — Bibliotheque de devis editables ───────────────────────
-  quoteLib: {
-    page: 'quote-lib-page',
-    scopeToggleMine: 'quote-lib-scope-mine',
-    scopeToggleAll: 'quote-lib-scope-all',
-    row: 'quote-lib-row',
-    rowMenuBtn: 'quote-lib-row-menu-btn',
-    rowMenuEdit: 'quote-lib-row-menu-edit',
-    rowMenuDuplicate: 'quote-lib-row-menu-duplicate',
-    rowMenuDelete: 'quote-lib-row-menu-delete',
-    deleteDialog: 'quote-lib-delete-dialog',
-    deleteConfirmBtn: 'quote-lib-delete-confirm-btn',
-    // Editeur de devis (page dediee)
-    // Renomme en E10.3 (qa-review Lot 2) : collisionnait avec
-    // commercialQuote.editorPage, testid retenu par le cahier de test
-    // Notion TF-163 pour la nouvelle page d edition E10.3. Ce testid-ci
-    // n est actuellement rendu par aucun composant.
-    editorPage: 'quote-lib-editor-page',
-    editorClientNameInput: 'quote-editor-client-name-input',
-    editorLineRow: 'quote-editor-line-row',
-    editorLineQuantityInput: 'quote-editor-line-quantity-input',
-    editorLinePriceInput: 'quote-editor-line-price-input',
-    editorLineMarginInput: 'quote-editor-line-margin-input',
-    editorLineMoveUp: 'quote-editor-line-move-up',
-    editorLineMoveDown: 'quote-editor-line-move-down',
-    editorLineDeleteBtn: 'quote-editor-line-delete-btn',
-    editorTemplateSelect: 'quote-editor-template-select',
-    editorStatusSelect: 'quote-editor-status-select',
-    editorTotalTtc: 'quote-editor-total-ttc',
-    editorPrintBtn: 'quote-editor-print-btn',
-    editorSaveBtn: 'quote-editor-save-btn',
-    // Entree "Creer un devis" depuis le panier
-    cartCreateQuoteBtn: 'shop-cart-create-quote-btn',
   },
 
   // ─── P09 — Boutique portail B2B ───────────────────────────────────────
@@ -296,7 +264,6 @@ export const TEST_IDS = {
     // S7.10 — AccountHub « Mon compte » /account/*
     accountHub: 'shop-account-hub',
     accountTab: 'shop-account-tab',
-    accountQuotesList: 'shop-account-quotes-list',
     accountProfile: 'shop-account-profile',
     accountLogoutBtn: 'shop-account-logout-btn',
     // S7.9 — Bandeau Reprendre riche (home) + compact (pages gammes)
@@ -480,6 +447,11 @@ export const TEST_IDS = {
     page: 'customers-page',
     table: 'customers-table',
     row: 'customer-row',
+    // Correctif qa-review B1 (2026-09-03) : badge de la LISTE (distinct de
+    // `siretVerifyBtn`, dans la modale) — permet aux tests de verifier que
+    // la ligne reflete bien `siret_verified` sans attendre un rechargement
+    // manuel de page.
+    siretVerifiedBadge: 'customer-siret-verified-badge',
     createBtn: 'customer-create-btn',
     formModal: 'customer-form-modal',
     typeRadio: 'customer-type-radio',
@@ -551,6 +523,77 @@ export const TEST_IDS = {
     editorPage: 'quote-editor-page',
     numberDisplay: 'quote-number-display',
     lineRow: 'quote-line-row',
+    // Ecran de liste (chantier d unification des devis, une seule IHM
+    // "Devis" sur commercial_quotes — docs/api/CONVENTIONS.md §8.10).
+    listPage: 'quote-list-page',
+    listRow: 'quote-list-row',
+    listStatusFilter: 'quote-list-status-filter',
+    listSearchInput: 'quote-list-search-input',
+    listDeleteBtn: 'quote-list-delete-btn',
+    listDeleteConfirmBtn: 'quote-list-delete-confirm-btn',
+    listDeleteDialog: 'quote-list-delete-dialog',
+
+    // ─── E10.9 — remises granulaires, tracabilite d audit et capacites
+    // reprises de l ancien editeur de devis (ajout/suppression/
+    // requantification/reordonnancement, decision d Arnaud du 01/09) ──────
+    // `data-line-id` deja pose sur `lineRow` (ci-dessus) sert de cle pour
+    // toutes les lignes ci-dessous, une seule fois pour toute la table.
+    lineSalePriceInput: 'quote-line-sale-price-input',
+    lineMarginInput: 'quote-line-margin-input',
+    lineQuantityInput: 'quote-line-quantity-input',
+    // `data-sign="positive"|"negative"` selon le signe de discount_rate.
+    lineDiscountDisplay: 'quote-line-discount-display',
+    lineImmutableCols: 'quote-line-immutable-cols',
+    lineNegativeMarginWarning: 'quote-line-negative-margin-warning',
+    lineMoveUpBtn: 'quote-line-move-up-btn',
+    lineMoveDownBtn: 'quote-line-move-down-btn',
+    lineDeleteBtn: 'quote-line-delete-btn',
+    addLineBtn: 'quote-add-line-btn',
+    addLineDrawer: 'quote-add-line-drawer',
+    addLineProjectItemOption: 'quote-add-line-project-item-option',
+    addLineFreeOption: 'quote-add-line-free-option',
+    addLineFreeLabelInput: 'quote-add-line-free-label-input',
+    addLineFreeQuantityInput: 'quote-add-line-free-quantity-input',
+    addLineFreePriceInput: 'quote-add-line-free-price-input',
+    addLineSubmitBtn: 'quote-add-line-submit-btn',
+    // Panneau d audit (lecture seule), accessible depuis le devis (CA5, CA6).
+    auditPanel: 'quote-audit-panel',
+    auditRow: 'quote-audit-row', // `data-audit-id` sur chaque ligne.
+  },
+
+  // ─── E10.6 — Referentiel des regles de prix (P13) ──────────────────────
+  pricing: {
+    page: 'pricing-rules-page',
+    row: 'pricing-rule-row',
+    createBtn: 'pricing-rule-create-btn',
+    modal: 'pricing-rule-modal',
+    scopeSelect: 'pricing-rule-scope-select',
+    rangeSelect: 'pricing-rule-range-select',
+    customerSelect: 'pricing-rule-customer-select',
+    valueInput: 'pricing-rule-value-input',
+    validFromInput: 'pricing-rule-valid-from-input',
+    validToInput: 'pricing-rule-valid-to-input',
+    saveBtn: 'pricing-rule-save-btn',
+    statusPill: 'pricing-rule-status-pill',
+    toggleActiveBtn: 'pricing-rule-toggle-active-btn',
+    // CA5 (qa-review B1) — filtres client/gamme de la liste, distincts des
+    // selects de portee du formulaire.
+    customerFilterSelect: 'pricing-rules-customer-filter-select',
+    rangeFilterSelect: 'pricing-rules-range-filter-select',
+    // E10.7 CA7 — filtre par statut, recherche par nom et tri (creation /
+    // debut de validite), poses sur les elements deja existants depuis
+    // E10.6 qui n avaient pas encore de testid.
+    statusFilterSelect: 'pricing-rules-status-filter',
+    searchInput: 'pricing-rules-search-input',
+    sortSelect: 'pricing-rules-sort-select',
+    // CA5 (qa-review B1.5) — pagination explicite, jamais de troncature
+    // silencieuse au-dela de la premiere page.
+    loadMoreBtn: 'pricing-rules-load-more-btn',
+    // CA4 (qa-review R2) — marge publique standard par gamme.
+    defaultMarginSection: 'pricing-default-margin-section',
+    defaultMarginRangeSelect: 'pricing-default-margin-range-select',
+    defaultMarginInput: 'pricing-default-margin-input',
+    defaultMarginSaveBtn: 'pricing-default-margin-save-btn',
   },
 } as const;
 
