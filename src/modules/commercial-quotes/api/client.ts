@@ -9,20 +9,41 @@ import { successEnvelopeSchema } from '../../_shared/api/index.ts';
 import { API_V1_BASE_PATH, type ApiResponseWithEtag, FetchApiClient } from '../../../platform/api/index.ts';
 import {
   createQuoteFromProjectCommandSchema,
+  createQuoteLineCommandSchema,
   deleteQuoteResultSchema,
   quoteDetailSchema,
+  quoteLineAuditEntriesListSchema,
+  quoteLineSchema,
   quoteSchema,
   quotesListSchema,
+  reorderQuoteLinesCommandSchema,
   updateQuoteCommandSchema,
+  updateQuoteLineCommandSchema,
+  type CreateFreeQuoteLineCommand,
   type CreateQuoteFromProjectCommand,
+  type CreateQuoteLineFromProjectItemCommand,
   type DeleteQuoteResultDto,
   type QuoteDetailDto,
   type QuoteDto,
+  type QuoteLineAuditEntryDto,
+  type QuoteLineDto,
   type QuoteStatus,
   type UpdateQuoteCommand,
+  type UpdateQuoteLineCommand,
 } from './contracts.ts';
 
 const BASE_PATH = `${API_V1_BASE_PATH}/quotes`;
+
+export type ListQuoteAuditEntriesQuery = Readonly<{
+  lineId?: string;
+  pageSize?: number;
+  pageCursor?: string;
+}>;
+
+export type ListQuoteAuditEntriesResponse = Readonly<{
+  items: readonly QuoteLineAuditEntryDto[];
+  nextCursor: string | null;
+}>;
 
 export type ListQuotesQuery = Readonly<{
   customerId?: string;
@@ -107,6 +128,106 @@ export class CommercialQuotesApiClient {
       responseSchema: successEnvelopeSchema(deleteQuoteResultSchema),
     });
     return envelope.data;
+  }
+
+  // ---------------------------------------------------------------------------
+  // E10.9 — lignes de devis.
+  // ---------------------------------------------------------------------------
+
+  /** Ajoute une ligne LIEE a un chiffrage du projet source (CA1, decision d Arnaud du 01/09). */
+  async addLineFromProjectItem(
+    quoteId: string,
+    command: CreateQuoteLineFromProjectItemCommand,
+  ): Promise<QuoteLineDto> {
+    const envelope = await this.client.request({
+      method: 'POST',
+      path: `${BASE_PATH}/${quoteId}/lines`,
+      body: createQuoteLineCommandSchema.parse(command),
+      headers: { 'Idempotency-Key': newIdempotencyKey() },
+      responseSchema: successEnvelopeSchema(quoteLineSchema),
+    });
+    return envelope.data;
+  }
+
+  /** Ajoute une ligne LIBRE, saisie a la main (capacite de l ancien editeur de devis). */
+  async addFreeLine(quoteId: string, command: CreateFreeQuoteLineCommand): Promise<QuoteLineDto> {
+    const envelope = await this.client.request({
+      method: 'POST',
+      path: `${BASE_PATH}/${quoteId}/lines`,
+      body: createQuoteLineCommandSchema.parse(command),
+      headers: { 'Idempotency-Key': newIdempotencyKey() },
+      responseSchema: successEnvelopeSchema(quoteLineSchema),
+    });
+    return envelope.data;
+  }
+
+  /** Rend aussi l ETag de la LIGNE : necessaire pour enchainer `updateLine()` (If-Match). */
+  async getLineForEdit(quoteId: string, lineId: string): Promise<ApiResponseWithEtag<QuoteLineDto>> {
+    const result = await this.client.requestWithEtag({
+      path: `${BASE_PATH}/${quoteId}/lines/${lineId}`,
+      responseSchema: successEnvelopeSchema(quoteLineSchema),
+    });
+    return unwrapEnvelopeWithEtag(result);
+  }
+
+  async updateLine(
+    quoteId: string,
+    lineId: string,
+    command: UpdateQuoteLineCommand,
+    ifMatch: string,
+  ): Promise<ApiResponseWithEtag<QuoteLineDto>> {
+    const result = await this.client.requestWithEtag({
+      method: 'PATCH',
+      path: `${BASE_PATH}/${quoteId}/lines/${lineId}`,
+      body: updateQuoteLineCommandSchema.parse(command),
+      headers: { 'If-Match': ifMatch },
+      responseSchema: successEnvelopeSchema(quoteLineSchema),
+    });
+    return unwrapEnvelopeWithEtag(result);
+  }
+
+  async removeLine(quoteId: string, lineId: string): Promise<DeleteQuoteResultDto> {
+    const envelope = await this.client.request({
+      method: 'DELETE',
+      path: `${BASE_PATH}/${quoteId}/lines/${lineId}`,
+      responseSchema: successEnvelopeSchema(deleteQuoteResultSchema),
+    });
+    return envelope.data;
+  }
+
+  /** `If-Match` porte sur LE DEVIS (contrat), jamais sur une ligne. */
+  async reorderLines(
+    quoteId: string,
+    lineIds: readonly string[],
+    ifMatch: string,
+  ): Promise<ApiResponseWithEtag<QuoteDetailDto>> {
+    const result = await this.client.requestWithEtag({
+      method: 'PUT',
+      path: `${BASE_PATH}/${quoteId}/line-positions`,
+      body: reorderQuoteLinesCommandSchema.parse({ line_ids: lineIds }),
+      headers: { 'If-Match': ifMatch },
+      responseSchema: successEnvelopeSchema(quoteDetailSchema),
+    });
+    return unwrapEnvelopeWithEtag(result);
+  }
+
+  async listAuditEntries(
+    quoteId: string,
+    query: ListQuoteAuditEntriesQuery = {},
+  ): Promise<ListQuoteAuditEntriesResponse> {
+    const params = new URLSearchParams();
+    if (query.lineId) params.set('line_id', query.lineId);
+    if (query.pageSize) params.set('page[size]', String(query.pageSize));
+    if (query.pageCursor) params.set('page[cursor]', query.pageCursor);
+    const suffix = params.toString();
+
+    const envelope = await this.client.request({
+      path: suffix
+        ? `${BASE_PATH}/${quoteId}/audit-entries?${suffix}`
+        : `${BASE_PATH}/${quoteId}/audit-entries`,
+      responseSchema: successEnvelopeSchema(quoteLineAuditEntriesListSchema),
+    });
+    return { items: envelope.data, nextCursor: envelope.meta.next_cursor ?? null };
   }
 }
 

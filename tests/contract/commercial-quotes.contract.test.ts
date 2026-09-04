@@ -19,8 +19,15 @@ import {
   type PrincipalVerifier,
 } from '@/modules/_shared/application';
 import { ProjectsService } from '@/modules/projects/application/projects-service';
+import { PriceRulesService } from '@/modules/pricing/application/price-rules-service';
+import { SingleCostPricingEngine } from '@/modules/pricing/application/single-cost-pricing-engine';
 import { CommercialQuotesService } from '@/modules/commercial-quotes/application/commercial-quotes-service';
-import type { QuoteDetailDto, QuoteDto } from '@/modules/commercial-quotes/api/contracts';
+import type {
+  QuoteDetailDto,
+  QuoteDto,
+  QuoteLineAuditEntryDto,
+  QuoteLineDto,
+} from '@/modules/commercial-quotes/api/contracts';
 import type { ProjectDto } from '@/modules/projects/api/contracts';
 import { createProjectsRoutes } from '@/server/api/projects-routes';
 import { createCommercialQuotesRoutes } from '@/server/api/commercial-quotes-routes';
@@ -29,6 +36,7 @@ import { checkResponseAgainstContract } from './_harness.ts';
 import { InMemoryProjectsRepository } from './_fakes/projects-repository.fake.ts';
 import { InMemoryCustomersRepository } from './_fakes/customers-repository.fake.ts';
 import { InMemoryCommercialQuotesRepository } from './_fakes/commercial-quotes-repository.fake.ts';
+import { InMemoryPriceRulesRepository } from './_fakes/price-rules-repository.fake.ts';
 
 const TENANT = brand<TenantId>('7f0d2a1e-1c4b-4f8a-9c3d-5b6e7a8f9012');
 const USER = brand<UserId>('a1b2c3d4-e5f6-4708-8910-1a2b3c4d5e6f');
@@ -81,13 +89,16 @@ class InMemoryOutboxRepository implements OutboxRepository {
 let projectsRepository: InMemoryProjectsRepository;
 let customersRepository: InMemoryCustomersRepository;
 let quotesRepository: InMemoryCommercialQuotesRepository;
+let priceRulesRepository: InMemoryPriceRulesRepository;
 let outboxRepository: InMemoryOutboxRepository;
+let quotesService: CommercialQuotesService;
 let handler: (request: Request) => Promise<Response>;
 
 beforeEach(() => {
   projectsRepository = new InMemoryProjectsRepository();
   customersRepository = new InMemoryCustomersRepository();
   quotesRepository = new InMemoryCommercialQuotesRepository(projectsRepository);
+  priceRulesRepository = new InMemoryPriceRulesRepository();
   outboxRepository = new InMemoryOutboxRepository();
   const outbox = new OutboxPublisher({
     repository: outboxRepository,
@@ -99,7 +110,19 @@ beforeEach(() => {
     customers: customersRepository,
     outbox,
   });
-  const quotesService = new CommercialQuotesService({ repository: quotesRepository, outbox });
+  const priceRulesService = new PriceRulesService({
+    repository: priceRulesRepository,
+    customers: customersRepository,
+    outbox,
+  });
+  quotesService = new CommercialQuotesService({
+    repository: quotesRepository,
+    outbox,
+    projects: projectsRepository,
+    priceRules: priceRulesService,
+    pricingEngine: new SingleCostPricingEngine(),
+    now: () => new Date('2026-09-01T10:00:00.000Z'),
+  });
   handler = createGescomApiHandler({
     routes: [...createProjectsRoutes(projectsService), ...createCommercialQuotesRoutes(quotesService)],
     principalVerifier: verifier,
@@ -201,13 +224,20 @@ describe('module Devis commerciaux (E10.3) contre le contrat', () => {
     expect(cardLine.quantity).toBe(500);
     expect(cardLine.production_price).toBe('12.30'); // repli sur price
 
-    // Point critique E10.21 (pas encore livree) : aucun prix de vente invente.
+    // E10.9 (E10.21 desormais livree) : la creation groupee valorise chaque
+    // ligne (aucune regle de prix active dans ce test -> marge 0.0000,
+    // sale_price demarre sur customer_price, remise et ecart de marge nuls).
+    // `origin`/`project_item_id` : ce chemin ne cree que des lignes LIEES a
+    // un chiffrage, jamais de ligne libre.
     for (const line of data.lines) {
-      expect(line.public_price).toBeNull();
-      expect(line.customer_price).toBeNull();
-      expect(line.applied_margin_rate).toBeNull();
+      expect(line.origin).toBe('project_item');
+      expect(line.public_price).toBe(line.production_price);
+      expect(line.customer_price).toBe(line.production_price);
+      expect(line.applied_margin_rate).toBe('0.0000');
       expect(line.applied_rule_id).toBeNull();
-      expect(line.breakdown).toEqual([]);
+      expect(line.sale_price).toBe(line.production_price);
+      expect(line.breakdown.length).toBeGreaterThan(0);
+      expect(line.warnings).toEqual([]);
     }
 
     // `createProject`/`addItem` publient aussi leurs propres evenements sur
@@ -452,5 +482,296 @@ describe('module Devis commerciaux (E10.3) contre le contrat', () => {
     await expectContract(response, { status: 403 });
     const body = (await response.json()) as { code: string };
     expect(body.code).toBe('identity.scope_required');
+  });
+});
+
+describe('module Devis commerciaux (E10.9) contre le contrat — lignes et audit', () => {
+  async function createDraftQuote() {
+    const customer = await createCustomer({ company_name: `Client ${uuid()}` });
+    const { data: project } = await createProject(customer.id);
+    const item = await addItem(project.id, 'Flyer A5', {
+      quantity: 1000,
+      amounts: { clariprint_price_ht: '100.00' },
+    });
+    const created = await createQuote(project.id, [item]);
+    const { data: quote } = (await created.json()) as { data: QuoteDetailDto };
+    return { customer, project, item, quote };
+  }
+
+  async function addFreeLine(quoteId: string, overrides: Partial<Record<string, unknown>> = {}) {
+    return call(`/api/v1/quotes/${quoteId}/lines`, {
+      method: 'POST',
+      headers: { ...jsonHeaders, 'Idempotency-Key': `line-${uuid()}` },
+      body: JSON.stringify({
+        label: 'Ligne libre',
+        quantity: 10,
+        production_price: '50.00',
+        ...overrides,
+      }),
+    });
+  }
+
+  it('CA1, addLine elargi — ligne LIBRE : sale_price demarre sur customer_price, aucune remise', async () => {
+    const { quote } = await createDraftQuote();
+    const response = await addFreeLine(quote.id);
+    await expectContract(response, { status: 201, dataSchema: 'QuoteLine' });
+    expect(response.headers.get('etag')).toBeTruthy();
+    const { data: line } = (await response.json()) as { data: QuoteLineDto };
+
+    expect(line.origin).toBe('free');
+    expect(line.project_item_id).toBeNull();
+    expect(line.production_price).toBe('50.00');
+    expect(line.public_price).toBe('50.00'); // aucune regle/marge active -> 0.0000
+    expect(line.customer_price).toBe('50.00');
+    expect(line.sale_price).toBe('50.00');
+    expect(line.discount_rate).toBe('0.0000');
+    expect(line.margin_variation).toBe('0.0000');
+    expect(line.warnings).toEqual([]);
+  });
+
+  it('addLine elargi — ligne LIEE a un chiffrage : reprend label/production_price, quantite differente alerte production_cost_stale', async () => {
+    const { quote, item } = await createDraftQuote();
+    const response = await call(`/api/v1/quotes/${quote.id}/lines`, {
+      method: 'POST',
+      headers: { ...jsonHeaders, 'Idempotency-Key': `line-${uuid()}` },
+      body: JSON.stringify({ project_item_id: item, quantity: 2000 }),
+    });
+    await expectContract(response, { status: 201, dataSchema: 'QuoteLine' });
+    const { data: line } = (await response.json()) as { data: QuoteLineDto };
+
+    expect(line.origin).toBe('project_item');
+    expect(line.project_item_id).toBe(item);
+    expect(line.label).toBe('Flyer A5');
+    expect(line.production_price).toBe('100.00'); // repris du chiffrage, jamais recalcule
+    expect(line.quantity).toBe(2000);
+    expect(line.warnings.map((w) => w.code)).toContain('production_cost_stale');
+  });
+
+  it('addLine — project_item_id hors du projet source est refuse en 422 quote_line.project_item_invalid', async () => {
+    const { quote } = await createDraftQuote();
+    const otherCustomer = await createCustomer({ company_name: `Autre ${uuid()}` });
+    const { data: otherProject } = await createProject(otherCustomer.id);
+    const otherItem = await addItem(otherProject.id, 'Hors projet', { quantity: 1 });
+
+    const response = await call(`/api/v1/quotes/${quote.id}/lines`, {
+      method: 'POST',
+      headers: { ...jsonHeaders, 'Idempotency-Key': `line-${uuid()}` },
+      body: JSON.stringify({ project_item_id: otherItem }),
+    });
+    await expectContract(response, { status: 422 });
+    const body = (await response.json()) as { code: string };
+    expect(body.code).toBe('quote_line.project_item_invalid');
+  });
+
+  it('addLine sur un devis non brouillon est refuse en 409 quote_line.quote_not_draft', async () => {
+    const { quote } = await createDraftQuote();
+    quotesRepository.forceStatusForTest(quote.id, 'sent');
+    const response = await addFreeLine(quote.id);
+    await expectContract(response, { status: 409 });
+    const body = (await response.json()) as { code: string };
+    expect(body.code).toBe('quote_line.quote_not_draft');
+  });
+
+  it('getQuoteLine rend l ETag de la ligne ; une ligne d un autre devis rend 404', async () => {
+    const { quote } = await createDraftQuote();
+    const added = await addFreeLine(quote.id);
+    const { data: line } = (await added.json()) as { data: QuoteLineDto };
+
+    const fetched = await call(`/api/v1/quotes/${quote.id}/lines/${line.id}`, { headers: asUser });
+    await expectContract(fetched, { status: 200, dataSchema: 'QuoteLine' });
+    expect(fetched.headers.get('etag')).toBeTruthy();
+
+    const { quote: otherQuote } = await createDraftQuote();
+    const notFound = await call(`/api/v1/quotes/${otherQuote.id}/lines/${line.id}`, { headers: asUser });
+    await expectContract(notFound, { status: 404 });
+    expect(((await notFound.json()) as { code: string }).code).toBe('quote_line.not_found');
+  });
+
+  it('CA1-CA4, CA9 — updateQuoteLine : sale_price OU margin_rate, mutuellement exclusifs, If-Match protege', async () => {
+    const { quote } = await createDraftQuote();
+    const added = await addFreeLine(quote.id, { production_price: '100.00' });
+    const { data: line } = (await added.json()) as { data: QuoteLineDto };
+    const etag = (await call(`/api/v1/quotes/${quote.id}/lines/${line.id}`, { headers: asUser })).headers.get(
+      'etag',
+    )!;
+
+    const withoutIfMatch = await call(`/api/v1/quotes/${quote.id}/lines/${line.id}`, {
+      method: 'PATCH',
+      headers: jsonHeaders,
+      body: JSON.stringify({ sale_price: '90.00' }),
+    });
+    await expectContract(withoutIfMatch, { status: 428 });
+
+    const both = await call(`/api/v1/quotes/${quote.id}/lines/${line.id}`, {
+      method: 'PATCH',
+      headers: { ...jsonHeaders, 'If-Match': etag },
+      body: JSON.stringify({ sale_price: '90.00', margin_rate: '0.1000' }),
+    });
+    await expectContract(both, { status: 422 });
+
+    // CA2/CA3 — sale_price a 90.00 sur customer_price 100.00 -> remise 10 %.
+    const patched = await call(`/api/v1/quotes/${quote.id}/lines/${line.id}`, {
+      method: 'PATCH',
+      headers: { ...jsonHeaders, 'If-Match': etag },
+      body: JSON.stringify({ sale_price: '90.00' }),
+    });
+    await expectContract(patched, { status: 200, dataSchema: 'QuoteLine' });
+    const { data: updated } = (await patched.json()) as { data: QuoteLineDto };
+    expect(updated.sale_price).toBe('90.00');
+    expect(updated.discount_rate).toBe('0.1000');
+    expect(updated.production_price).toBe('100.00'); // colonne immuable (CA4)
+
+    // If-Match perime (celui d avant le PATCH precedent) -> 409.
+    const stale = await call(`/api/v1/quotes/${quote.id}/lines/${line.id}`, {
+      method: 'PATCH',
+      headers: { ...jsonHeaders, 'If-Match': etag },
+      body: JSON.stringify({ quantity: 5 }),
+    });
+    await expectContract(stale, { status: 409 });
+    expect(((await stale.json()) as { code: string }).code).toBe('api.resource_conflict');
+  });
+
+  it('CA7 amende — vente sous le cout : warning negative_margin, 200 jamais un refus', async () => {
+    const { quote } = await createDraftQuote();
+    const added = await addFreeLine(quote.id, { production_price: '100.00' });
+    const { data: line } = (await added.json()) as { data: QuoteLineDto };
+    const etag = (await call(`/api/v1/quotes/${quote.id}/lines/${line.id}`, { headers: asUser })).headers.get(
+      'etag',
+    )!;
+
+    const patched = await call(`/api/v1/quotes/${quote.id}/lines/${line.id}`, {
+      method: 'PATCH',
+      headers: { ...jsonHeaders, 'If-Match': etag },
+      body: JSON.stringify({ sale_price: '40.00' }),
+    });
+    await expectContract(patched, { status: 200, dataSchema: 'QuoteLine' });
+    const { data: updated } = (await patched.json()) as { data: QuoteLineDto };
+    expect(updated.warnings.map((w) => w.code)).toContain('negative_margin');
+  });
+
+  it('updateQuoteLine — margin_rate sur une ligne dont production_price vaut 0.00 est refuse (quote_line.margin_not_derivable)', async () => {
+    const { quote } = await createDraftQuote();
+    const added = await addFreeLine(quote.id, { production_price: '0.00' });
+    const { data: line } = (await added.json()) as { data: QuoteLineDto };
+    const etag = (await call(`/api/v1/quotes/${quote.id}/lines/${line.id}`, { headers: asUser })).headers.get(
+      'etag',
+    )!;
+
+    const response = await call(`/api/v1/quotes/${quote.id}/lines/${line.id}`, {
+      method: 'PATCH',
+      headers: { ...jsonHeaders, 'If-Match': etag },
+      body: JSON.stringify({ margin_rate: '0.2000' }),
+    });
+    await expectContract(response, { status: 422 });
+    expect(((await response.json()) as { code: string }).code).toBe('quote_line.margin_not_derivable');
+  });
+
+  it('CA6 elargi — deleteQuoteLine retire la ligne et resserre les positions restantes', async () => {
+    const { quote } = await createDraftQuote();
+    const first = (await (await addFreeLine(quote.id, { label: 'Un' })).json()) as { data: QuoteLineDto };
+    const second = (await (await addFreeLine(quote.id, { label: 'Deux' })).json()) as { data: QuoteLineDto };
+    const third = (await (await addFreeLine(quote.id, { label: 'Trois' })).json()) as { data: QuoteLineDto };
+    void first;
+
+    const removed = await call(`/api/v1/quotes/${quote.id}/lines/${second.data.id}`, {
+      method: 'DELETE',
+      headers: asUser,
+    });
+    await expectContract(removed, { status: 200 });
+    expect(((await removed.json()) as { data: { deleted: boolean } }).data.deleted).toBe(true);
+
+    const detail = await call(`/api/v1/quotes/${quote.id}`, { headers: asUser });
+    const { data } = (await detail.json()) as { data: QuoteDetailDto };
+    // 4 lignes au depart (le chiffrage initial + 3 libres), 3 restantes,
+    // positions contigues 0..2.
+    expect(data.lines).toHaveLength(3);
+    expect(data.lines.map((l) => l.position)).toEqual([0, 1, 2]);
+    expect(data.lines.some((l) => l.id === third.data.id)).toBe(true);
+
+    const gone = await call(`/api/v1/quotes/${quote.id}/lines/${second.data.id}`, { headers: asUser });
+    await expectContract(gone, { status: 404 });
+  });
+
+  it('deleteQuoteLine sur un devis non brouillon est refuse en 409', async () => {
+    const { quote } = await createDraftQuote();
+    const line = (await (await addFreeLine(quote.id)).json()) as { data: QuoteLineDto };
+    quotesRepository.forceStatusForTest(quote.id, 'accepted');
+    const response = await call(`/api/v1/quotes/${quote.id}/lines/${line.data.id}`, {
+      method: 'DELETE',
+      headers: asUser,
+    });
+    await expectContract(response, { status: 409 });
+    expect(((await response.json()) as { code: string }).code).toBe('quote_line.quote_not_draft');
+  });
+
+  it('reorderQuoteLines — reordonne integralement les lignes, If-Match sur LE DEVIS', async () => {
+    const { quote } = await createDraftQuote();
+    const second = (await (await addFreeLine(quote.id, { label: 'Deux' })).json()) as { data: QuoteLineDto };
+    const detailBefore = await call(`/api/v1/quotes/${quote.id}`, { headers: asUser });
+    const quoteEtag = detailBefore.headers.get('etag')!;
+    const { data: before } = (await detailBefore.json()) as { data: QuoteDetailDto };
+    const firstId = before.lines.find((l) => l.id !== second.data.id)!.id;
+
+    const withoutIfMatch = await call(`/api/v1/quotes/${quote.id}/line-positions`, {
+      method: 'PUT',
+      headers: jsonHeaders,
+      body: JSON.stringify({ line_ids: [second.data.id, firstId] }),
+    });
+    await expectContract(withoutIfMatch, { status: 428 });
+
+    const reordered = await call(`/api/v1/quotes/${quote.id}/line-positions`, {
+      method: 'PUT',
+      headers: { ...jsonHeaders, 'If-Match': quoteEtag },
+      body: JSON.stringify({ line_ids: [second.data.id, firstId] }),
+    });
+    await expectContract(reordered, { status: 200, dataSchema: 'QuoteDetail' });
+    const { data: after } = (await reordered.json()) as { data: QuoteDetailDto };
+    expect(after.lines.find((l) => l.id === second.data.id)!.position).toBe(0);
+    expect(after.lines.find((l) => l.id === firstId)!.position).toBe(1);
+
+    // Ensemble incomplet -> 422 quote_line.positions_mismatch, aucun effet.
+    const mismatchEtag = reordered.headers.get('etag')!;
+    const mismatch = await call(`/api/v1/quotes/${quote.id}/line-positions`, {
+      method: 'PUT',
+      headers: { ...jsonHeaders, 'If-Match': mismatchEtag },
+      body: JSON.stringify({ line_ids: [firstId] }),
+    });
+    await expectContract(mismatch, { status: 422 });
+    expect(((await mismatch.json()) as { code: string }).code).toBe('quote_line.positions_mismatch');
+  });
+
+  it('CA5/CA6 — listQuoteAuditEntries : une entree par champ change, garde admin, ligne supprimee reste interrogeable', async () => {
+    const { quote } = await createDraftQuote();
+    const added = await addFreeLine(quote.id, { production_price: '100.00' });
+    const { data: line } = (await added.json()) as { data: QuoteLineDto };
+    const etag = (await call(`/api/v1/quotes/${quote.id}/lines/${line.id}`, { headers: asUser })).headers.get(
+      'etag',
+    )!;
+    await call(`/api/v1/quotes/${quote.id}/lines/${line.id}`, {
+      method: 'PATCH',
+      headers: { ...jsonHeaders, 'If-Match': etag },
+      body: JSON.stringify({ sale_price: '80.00' }),
+    });
+    await call(`/api/v1/quotes/${quote.id}/lines/${line.id}`, { method: 'DELETE', headers: asUser });
+
+    const entries = await call(`/api/v1/quotes/${quote.id}/audit-entries?line_id=${line.id}`, {
+      headers: asUser,
+    });
+    await expectContract(entries, { status: 200 });
+    const { data } = (await entries.json()) as { data: QuoteLineAuditEntryDto[] };
+    // added (creation) + updated/sale_price + updated/discount_rate + removed
+    // — au moins ces 4 entrees, plus recentes en tete (removed en premier).
+    expect(data[0]!.action).toBe('removed');
+    expect(data.some((entry) => entry.action === 'added')).toBe(true);
+    expect(data.some((entry) => entry.action === 'updated' && entry.field === 'sale_price')).toBe(true);
+    expect(data.every((entry) => entry.field !== ('sale_margin_rate' as unknown))).toBe(true);
+
+    // Garde d acces admin (403 identity.role_required) — meme mecanisme que
+    // E10.6 CA7, en attendant E10.11.
+    quotesRepository.setActorRoleForTest(TENANT, USER, 'member');
+    const denied = await call(`/api/v1/quotes/${quote.id}/audit-entries`, { headers: asUser });
+    await expectContract(denied, { status: 403 });
+    expect(((await denied.json()) as { code: string }).code).toBe('identity.role_required');
+    quotesRepository.setActorRoleForTest(TENANT, USER, 'admin');
   });
 });

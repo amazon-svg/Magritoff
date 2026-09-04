@@ -532,6 +532,33 @@ export const TEST_IDS = {
     listDeleteBtn: 'quote-list-delete-btn',
     listDeleteConfirmBtn: 'quote-list-delete-confirm-btn',
     listDeleteDialog: 'quote-list-delete-dialog',
+
+    // ─── E10.9 — remises granulaires, tracabilite d audit et capacites
+    // reprises de l ancien editeur de devis (ajout/suppression/
+    // requantification/reordonnancement, decision d Arnaud du 01/09) ──────
+    // `data-line-id` deja pose sur `lineRow` (ci-dessus) sert de cle pour
+    // toutes les lignes ci-dessous, une seule fois pour toute la table.
+    lineSalePriceInput: 'quote-line-sale-price-input',
+    lineMarginInput: 'quote-line-margin-input',
+    lineQuantityInput: 'quote-line-quantity-input',
+    // `data-sign="positive"|"negative"` selon le signe de discount_rate.
+    lineDiscountDisplay: 'quote-line-discount-display',
+    lineImmutableCols: 'quote-line-immutable-cols',
+    lineNegativeMarginWarning: 'quote-line-negative-margin-warning',
+    lineMoveUpBtn: 'quote-line-move-up-btn',
+    lineMoveDownBtn: 'quote-line-move-down-btn',
+    lineDeleteBtn: 'quote-line-delete-btn',
+    addLineBtn: 'quote-add-line-btn',
+    addLineDrawer: 'quote-add-line-drawer',
+    addLineProjectItemOption: 'quote-add-line-project-item-option',
+    addLineFreeOption: 'quote-add-line-free-option',
+    addLineFreeLabelInput: 'quote-add-line-free-label-input',
+    addLineFreeQuantityInput: 'quote-add-line-free-quantity-input',
+    addLineFreePriceInput: 'quote-add-line-free-price-input',
+    addLineSubmitBtn: 'quote-add-line-submit-btn',
+    // Panneau d audit (lecture seule), accessible depuis le devis (CA5, CA6).
+    auditPanel: 'quote-audit-panel',
+    auditRow: 'quote-audit-row', // `data-audit-id` sur chaque ligne.
   },
 
   // ─── E10.6 — Referentiel des regles de prix (P13) ──────────────────────

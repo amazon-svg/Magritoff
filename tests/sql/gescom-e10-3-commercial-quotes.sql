@@ -263,17 +263,22 @@ begin
     raise exception 'production_price de l element sans prix Clariprint (repli price) est % (12.30 attendu)', v_production_2;
   end if;
 
-  -- Point critique E10.21 (pas encore livree) : les colonnes de prix de
-  -- vente restent NULL, breakdown reste vide. Une valeur non nulle ici
-  -- signalerait un calcul de prix invente hors PricingEngine.
+  -- Mise a jour E10.9 (la note d origine visait E10.21, livree depuis) :
+  -- E10.21 est desormais livree et le contrat interdit les colonnes de prix
+  -- NULL sur une ligne (QuoteLine.public_price/customer_price/
+  -- applied_margin_rate non nullables, breakdown jamais vide). La creation
+  -- groupee (cette fonction) valorise donc chaque ligne via
+  -- `commercial_quote_line_default_pricing` (migration 20260904000100) :
+  -- verifie ici que RIEN ne reste NULL/vide, l inverse exact de l assertion
+  -- d origine.
   if exists (
     select 1 from public.commercial_quote_lines
      where quote_id = v_quote_1
-       and (public_price is not null or customer_price is not null
-            or applied_margin_rate is not null or applied_rule_id is not null
-            or breakdown <> '[]'::jsonb)
+       and (public_price is null or customer_price is null
+            or applied_margin_rate is null or sale_price is null
+            or breakdown = '[]'::jsonb)
   ) then
-    raise exception 'Une colonne de prix de vente E10.21 a ete renseignee alors qu E10.21 n est pas livree';
+    raise exception 'Une ligne du premier devis n a pas ete valorisee par commercial_quote_line_default_pricing (E10.9)';
   end if;
 
   -- ── 2. Second devis sur le MEME projet et le MEME premier element ────────

@@ -65,6 +65,7 @@ import { CommercialQuotesService } from '../../../src/modules/commercial-quotes/
 import { SupabaseCommercialQuotesRepository } from '../../../src/adapters/supabase/commercial-quotes-repository.ts';
 import { PriceRulesService } from '../../../src/modules/pricing/application/price-rules-service.ts';
 import { SupabasePriceRulesRepository } from '../../../src/adapters/supabase/price-rules-repository.ts';
+import { createPricingEngine } from '../../../src/modules/pricing/application/pricing-engine-provider.ts';
 import { SupabaseApiPrincipalVerifier } from '../../../src/adapters/supabase/api-principal-verifier.ts';
 import { InMemoryIdempotencyStore, OutboxPublisher } from '../../../src/modules/_shared/application/index.ts';
 import { TENANT_SELECTION_HEADER } from '../../../src/modules/_shared/api/index.ts';
@@ -268,28 +269,11 @@ export async function handleRequest(request: Request): Promise<Response> {
     }),
   });
 
-  // E10.3 — creation d un devis depuis un projet (selection multi-produits).
-  // L outbox publie quote.created via le meme mecanisme best-effort que
-  // project.created ci-dessus (dette M2 partagee, docs/api/CONVENTIONS.md).
-  const commercialQuotesService = new CommercialQuotesService({
-    repository: new SupabaseCommercialQuotesRepository(client),
-    outbox: new OutboxPublisher({
-      repository: bestEffortOutbox(outboxRepository, (error, events) => {
-        console.error(
-          '[magrit-api] publication outbox echouee',
-          events.map((event) => event.name),
-          error,
-        );
-      }),
-      now: () => new Date(),
-      newEventId: () => crypto.randomUUID(),
-    }),
-  });
-
   // E10.6 — referentiel des regles de prix et marge publique standard par
   // gamme. Reutilise le referentiel Clients (E10.4) deja instancie pour
   // verifier l existence d un `customer_id` (CA1), sans dupliquer cette
-  // logique.
+  // logique. Construite AVANT `commercialQuotesService` (E10.9) : ce dernier
+  // en depend pour resoudre la regle de prix applicable a une ligne.
   const priceRulesService = new PriceRulesService({
     repository: new SupabasePriceRulesRepository(client),
     customers: customersRepository,
@@ -304,6 +288,33 @@ export async function handleRequest(request: Request): Promise<Response> {
       now: () => new Date(),
       newEventId: () => crypto.randomUUID(),
     }),
+  });
+
+  // E10.3 — creation d un devis depuis un projet (selection multi-produits).
+  // E10.9 — remises granulaires par ligne, ajout/suppression/reordonnancement
+  // et journal d audit : le service resout desormais le prix de chaque ligne
+  // via `PriceRulesService.resolve()` + `PricingEngine.price()`
+  // (`createPricingEngine()`, seul endroit qui nomme l implementation
+  // concrete, E10.21), et valide `project_item_id` contre le referentiel
+  // Projets (E10.1) deja instancie. L outbox publie quote.created via le
+  // meme mecanisme best-effort que project.created ci-dessus (dette M2
+  // partagee, docs/api/CONVENTIONS.md).
+  const commercialQuotesService = new CommercialQuotesService({
+    repository: new SupabaseCommercialQuotesRepository(client),
+    outbox: new OutboxPublisher({
+      repository: bestEffortOutbox(outboxRepository, (error, events) => {
+        console.error(
+          '[magrit-api] publication outbox echouee',
+          events.map((event) => event.name),
+          error,
+        );
+      }),
+      now: () => new Date(),
+      newEventId: () => crypto.randomUUID(),
+    }),
+    projects: new SupabaseProjectsRepository(client),
+    priceRules: priceRulesService,
+    pricingEngine: createPricingEngine(),
   });
 
   const handler = createMagritApiApplication({
