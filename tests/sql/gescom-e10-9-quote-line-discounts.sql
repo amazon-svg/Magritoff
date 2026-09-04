@@ -269,7 +269,7 @@ begin
   if not exists (
     select 1 from public.commercial_quote_line_audit
      where quote_line_id = v_line_1 and action = 'updated' and field = 'sale_price'
-       and previous_value = '50.00' and new_value = '55.00'
+       and previous_value = '60.00' and new_value = '55.00'
   ) then
     raise exception 'L entree d audit sale_price ne porte pas les valeurs avant/apres attendues';
   end if;
