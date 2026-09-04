@@ -591,7 +591,7 @@ export interface paths {
          *
          *     Ordre par defaut : du plus recent au plus ancien. Pagination par curseur comme toutes les collections de la facade.
          *
-         *     RESERVE au droit `can_manage_pricing` (E10.11). Ce journal dit qui a consenti quelle remise et de combien il a bouge une marge : c est une piece de SUPERVISION, opposable a un commercial, pas une donnee de travail. Le refus est EXPLICITE (403) et jamais une page vide : rendre une page vide a un acteur non habilite lui ferait croire qu aucune trace n existe. Une habilitation manquante et un journal vide ne se disent pas de la meme facon.
+         *     RESERVE au droit `can_manage_pricing` (E10.11), aujourd hui detenu par les seuls `admin` de l espace. Ce journal dit qui a consenti quelle remise et de combien il a bouge une marge : c est une piece de SUPERVISION, opposable a un commercial, pas une donnee de travail. Le refus est EXPLICITE (403) et jamais une page vide : rendre une page vide a un acteur non habilite lui ferait croire qu aucune trace n existe. Une habilitation manquante et un journal vide ne se disent pas de la meme facon.
          */
         get: operations["listQuoteAuditEntries"];
         put?: never;
@@ -630,7 +630,7 @@ export interface paths {
         /**
          * Cree une regle de prix. Ne modifie, ne decoupe et ne duplique JAMAIS une regle existante (E10.7) : deux regles applicables a la meme date sont un etat normal du referentiel, tranche a la resolution.
          *
-         *     Exige le droit `can_manage_pricing` (E10.11).
+         *     Exige le droit `can_manage_pricing` (E10.11), aujourd hui detenu par les seuls `admin` de l espace : ce droit n est pas delegable a un membre ordinaire en l etat (bloc E10.11 au-dessus de `securitySchemes`).
          */
         post: operations["createPriceRule"];
         delete?: never;
@@ -695,7 +695,7 @@ export interface paths {
         /**
          * Modifie le nom, la valeur, la periode ou l etat actif d une regle. La PORTEE, la CIBLE et le TYPE DE VALEUR ne sont pas modifiables : les changer reviendrait a reecrire l historique d arbitrage d une regle deja appliquee a des devis. Creer une nouvelle regle a la place — c est justement ce que l arbitrage par la recence rend indolore (E10.7).
          *
-         *     Exige le droit `can_manage_pricing` (E10.11). Desactiver une regle (`is_active: false`) passe par ce meme PATCH : c est donc le meme droit qui gouverne l extinction d une regle et sa creation, ce qui est la seule combinaison coherente — pouvoir eteindre sans pouvoir creer laisserait un acteur demanteler une politique tarifaire sans pouvoir la retablir.
+         *     Exige le droit `can_manage_pricing` (E10.11), aujourd hui detenu par les seuls `admin` de l espace. Desactiver une regle (`is_active: false`) passe par ce meme PATCH : c est donc le meme droit qui gouverne l extinction d une regle et sa creation, ce qui est la seule combinaison coherente — pouvoir eteindre sans pouvoir creer laisserait un acteur demanteler une politique tarifaire sans pouvoir la retablir.
          */
         patch: operations["updatePriceRule"];
         trace?: never;
@@ -723,7 +723,7 @@ export interface paths {
         /**
          * Definit la marge publique standard du tenant sur cette gamme. `PUT` et non `POST` : la ressource est un singleton, l appel est idempotent par nature et son identite est celle du chemin — c est `If-Match`, pas une cle d idempotence, qui protege deux redacteurs concurrents.
          *
-         *     Exige le droit `can_manage_pricing` (E10.11). Cette marge est le DEFAUT sur lequel retombe tout chiffrage d une gamme quand aucune regle ne s applique : la deplacer d un point deplace silencieusement le prix de toutes les affaires futures de cette gamme, sans qu aucun devis ne porte la trace de la decision. Elle merite au moins la garde des regles de prix, qui sont, elles, nommees et datees.
+         *     Exige le droit `can_manage_pricing` (E10.11), aujourd hui detenu par les seuls `admin` de l espace. Cette marge est le DEFAUT sur lequel retombe tout chiffrage d une gamme quand aucune regle ne s applique : la deplacer d un point deplace silencieusement le prix de toutes les affaires futures de cette gamme, sans qu aucun devis ne porte la trace de la decision. Elle merite au moins la garde des regles de prix, qui sont, elles, nommees et datees.
          */
         put: operations["setProductRangeDefaultMargin"];
         post?: never;
@@ -1942,7 +1942,9 @@ export interface components {
          *
          *     Le code metier reste `identity.role_required`, deja publie en v1 : il signifie « habilitation utilisateur insuffisante » et c est toujours exactement le cas. Seul CHANGE ce qui etablit l habilitation — un droit nomme, la ou E10.6/E10.9 se contentaient de l appartenance `admin`. Le renommer en `identity.capability_required` serait un changement cassant au sens du CA13 (docs/api/CONVENTIONS.md §7), pour un gain purement lexical : un client qui branche son comportement sur ce code n aurait rien a en faire de different.
          *
-         *     `detail` nomme le droit manquant, pour que l appelant sache quoi demander a son administrateur ; il reste du texte, jamais une donnee sur laquelle brancher un comportement.
+         *     `detail` nomme le droit manquant ; il reste du texte, jamais une donnee sur laquelle brancher un comportement.
+         *
+         *     Ce refus ne se leve PAS toujours par une demande a l administrateur. Pour `can_manage_pricing`, il n existe aujourd hui aucun mecanisme de delegation a un membre ordinaire : le geste doit etre porte par un acteur `admin` de l espace. Le detail de ce verrou, et le fait qu il soit un ecart assume et non un oubli, est expose dans le bloc E10.11 au-dessus de `securitySchemes`.
          *
          *     Non atteignable par une cle de service : les operations gardees par un droit metier sont toutes reservees aux jetons utilisateur. Une cle de service n a pas d identite a qui un role serait affecte.
          */

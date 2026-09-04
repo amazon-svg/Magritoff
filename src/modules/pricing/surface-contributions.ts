@@ -12,9 +12,11 @@ export const pricingWorkspaceContribution = defineSurfaceContribution({
       path: 'pricing-rules',
       mount: 'router',
       // CA7 (E10.11) — reserve aux porteurs du droit `can_manage_pricing`.
-      // Un `admin`/`owner` du tenant le recoit par derivation
-      // (`public.user_has_capability`), donc ne perd rien par rapport a l
-      // ancienne garde `requiredTenantRole: 'admin'` qu elle remplace ;
+      // Un `admin` du tenant le recoit par derivation
+      // (`public.user_has_capability`, 20260814000200_admin_unique.sql —
+      // `owner` n existe plus comme valeur de `tenant_members.role`), donc
+      // ne perd rien par rapport a l ancienne garde `requiredTenantRole:
+      // 'admin'` qu elle remplace ;
       // seule change la faculte de deleguer l acces a un membre porteur d
       // un role qui accorde ce droit. Rappel (§3.5, regle 5 des
       // CONVENTIONS) : cette garde est de l ERGONOMIE (ne pas presenter un

@@ -168,11 +168,24 @@ export class PriceRulesService {
 
   /**
    * Garde d ecriture E10.11 (403 `identity.role_required` si refuse),
-   * verifiee AVANT toute autre validation — un membre sans le droit ne doit
-   * pas apprendre par la forme du refus (422 de coherence, 404 de gamme) que
-   * sa commande aurait ete par ailleurs acceptee.
+   * verifiee AVANT toute autre validation par `create()`/`update()`/
+   * `setDefaultMargin()` — un membre sans le droit ne doit pas apprendre par
+   * la forme du refus (422 de coherence, 404 de gamme) que sa commande aurait
+   * ete par ailleurs acceptee.
+   *
+   * PUBLIQUE (qa-review round 2, R3) : cette promesse ne tient qu au niveau
+   * du SERVICE. Au niveau HTTP, `updatePriceRule`/`setProductRangeDefaultMargin`
+   * (`price-rules-routes.ts`) doivent lire la ressource courante AVANT d
+   * appeler `update()`/`setDefaultMargin()`, pour calculer l `ETag` et
+   * verifier `If-Match` — un acteur sans le droit peut donc y recevoir un 404
+   * (`getById`/`getDefaultMargin`) ou un 409 (`assertPrecondition`) avant le
+   * 403 attendu. Exposer cette garde permet aux routes de l appeler
+   * EXPLICITEMENT avant cette lecture, pour retablir l ordre promis sans
+   * toucher au flux `ETag`/`If-Match` existant (l appel reste ensuite present
+   * DANS `update()`/`setDefaultMargin()` egalement, en defense en profondeur
+   * pour tout appelant direct du service, ex. les tests unitaires).
    */
-  private async assertCanManagePricing(tenantId: TenantId, actor: UserId): Promise<void> {
+  async assertCanManagePricing(tenantId: TenantId, actor: UserId): Promise<void> {
     const authorized = await this.repository.actorHasCapability(tenantId, actor, CAN_MANAGE_PRICING);
     if (!authorized) throw new PriceRuleAccessDeniedError();
   }

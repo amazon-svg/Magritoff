@@ -159,11 +159,19 @@ export function createPriceRulesRoutes(service: PriceRulesService): readonly Ges
       async handle(context, input) {
         return withDomainErrors(async () => {
           const priceRuleId = context.params['priceRuleId']!;
+          const actor = requireUserId(context);
+          // qa-review round 2 (R3) : la garde can_manage_pricing est posee
+          // AVANT toute lecture de la ressource, pour que le refus 403 sorte
+          // toujours avant un eventuel 404 (`getById`) ou 409
+          // (`assertPrecondition`) — l ordre promis par
+          // `PriceRulesService.assertCanManagePricing()`.
+          await service.assertCanManagePricing(context.tenantId, actor);
+
           const current = await service.getById(context.tenantId, priceRuleId);
           const currentTag = await computeEntityTag(current);
           assertPrecondition(context.ifMatch, currentTag, current);
 
-          const updated = await service.update(context.tenantId, priceRuleId, requireUserId(context), input);
+          const updated = await service.update(context.tenantId, priceRuleId, actor, input);
           return { status: 200, data: updated, etag: await computeEntityTag(updated) };
         });
       },
@@ -197,6 +205,11 @@ export function createPriceRulesRoutes(service: PriceRulesService): readonly Ges
       async handle(context, input) {
         return withDomainErrors(async () => {
           const productRangeId = context.params['productRangeId']!;
+          const actor = requireUserId(context);
+          // qa-review round 2 (R3) : meme raison que updatePriceRule
+          // ci-dessus — la garde precede la lecture qui alimente l ETag.
+          await service.assertCanManagePricing(context.tenantId, actor);
+
           const current = await service.getDefaultMargin(context.tenantId, productRangeId);
           const currentTag = await computeEntityTag(current);
           assertPrecondition(context.ifMatch, currentTag, current);
@@ -204,7 +217,7 @@ export function createPriceRulesRoutes(service: PriceRulesService): readonly Ges
           const updated = await service.setDefaultMargin(
             context.tenantId,
             productRangeId,
-            requireUserId(context),
+            actor,
             input.margin_rate,
           );
           return { status: 200, data: updated, etag: await computeEntityTag(updated) };

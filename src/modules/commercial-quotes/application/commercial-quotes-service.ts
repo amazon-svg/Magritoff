@@ -66,9 +66,11 @@ import {
 /**
  * L acteur n a pas le droit metier `can_manage_pricing` (E10.11) requis pour
  * lire le journal d audit des lignes (`identity.role_required`, contrat
- * `listQuoteAuditEntries`). Un `admin`/`owner` du tenant recoit ce droit par
- * derivation (`public.user_has_capability`) : il ne perd donc jamais l acces
- * qu il avait deja sous l ancienne garde « role `admin` » (E10.9).
+ * `listQuoteAuditEntries`). Un `admin` du tenant recoit ce droit par
+ * derivation (`public.user_has_capability`, 20260814000200_admin_unique.sql
+ * :130-157 — `owner` n existe plus comme valeur de `tenant_members.role`
+ * depuis cette meme migration) : il ne perd donc jamais l acces qu il avait
+ * deja sous l ancienne garde « role `admin` » (E10.9).
  */
 export class QuoteAuditAccessDeniedError extends Error {
   constructor(message = "Le droit can_manage_pricing est requis pour consulter le journal d audit.") {

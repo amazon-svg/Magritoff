@@ -2068,7 +2068,8 @@ paths:
         curseur comme toutes les collections de la facade.
 
 
-        RESERVE au droit `can_manage_pricing` (E10.11). Ce journal dit qui a
+        RESERVE au droit `can_manage_pricing` (E10.11), aujourd hui detenu par
+        les seuls `admin` de l espace. Ce journal dit qui a
         consenti quelle remise et de combien il a bouge une marge : c est une
         piece de SUPERVISION, opposable a un commercial, pas une donnee de
         travail. Le refus est EXPLICITE (403) et jamais une page vide : rendre
@@ -2079,10 +2080,14 @@ paths:
       security:
         - bearerAuth: []
       # E10.11 — remplace la garde grossiere « role `admin` du tenant » posee
-      # par E10.9 en attendant cette story. Aucun acteur ne perd l acces : un
-      # admin conserve le droit par derivation d appartenance (voir le bloc
-      # E10.11 au-dessus de `securitySchemes`), un membre porteur d un role qui
-      # accorde `can_manage_pricing` l acquiert.
+      # par E10.9 en attendant cette story. La POPULATION autorisee ne change
+      # pas : `can_manage_pricing` est detenu par derivation d appartenance
+      # `admin`, et par elle seule aujourd hui — aucun membre ordinaire ne peut
+      # se le voir deleguer (bloc E10.11 au-dessus de `securitySchemes`). Ce qui
+      # change est ce que la garde NOMME (un droit metier, pas un nom de role)
+      # et ou elle se tient : la RLS des journaux d audit, jusqu ici filtree par
+      # le seul tenant, exige desormais le droit — le chemin PostgREST direct
+      # cesse de contourner la facade.
       x-required-capabilities: [can_manage_pricing]
       parameters:
         - $ref: '#/components/parameters/QuoteId'
@@ -2167,6 +2172,11 @@ paths:
 # Margin` plus bas) : droit `can_manage_pricing` exige. C est la politique
 # tarifaire du tenant — ce qu on facture, a qui, et avec quelle marge. La
 # poser n est pas un geste d affaire, c est un geste de direction commerciale.
+# Concretement, et tant qu aucune delegation n existe (bloc E10.11 au-dessus de
+# `securitySchemes`) : reserve a l `admin` du tenant. Ces trois ecritures se
+# RESSERRENT donc — elles etaient ouvertes a tout membre par une RLS trop large
+# (voir « DERIVE A NE PAS FAIRE » ci-dessous). C est l objet meme de la story,
+# assume comme tel.
 #
 # LECTURE (`listPriceRules`, `getPriceRule`, `resolvePriceRule`,
 # `getProductRangeDefaultMargin`) : AUCUN droit metier exige — appartenance a
@@ -2328,7 +2338,10 @@ paths:
         sont un etat normal du referentiel, tranche a la resolution.
 
 
-        Exige le droit `can_manage_pricing` (E10.11).
+        Exige le droit `can_manage_pricing` (E10.11), aujourd hui detenu par
+        les seuls `admin` de l espace : ce droit n est pas delegable a un
+        membre ordinaire en l etat (bloc E10.11 au-dessus de
+        `securitySchemes`).
       tags: [gestion-commerciale]
       security:
         - bearerAuth: []
@@ -2501,7 +2514,8 @@ paths:
         (E10.7).
 
 
-        Exige le droit `can_manage_pricing` (E10.11). Desactiver une regle
+        Exige le droit `can_manage_pricing` (E10.11), aujourd hui detenu par
+        les seuls `admin` de l espace. Desactiver une regle
         (`is_active: false`) passe par ce meme PATCH : c est donc le meme
         droit qui gouverne l extinction d une regle et sa creation, ce qui est
         la seule combinaison coherente — pouvoir eteindre sans pouvoir creer
@@ -2640,7 +2654,8 @@ paths:
         cle d idempotence, qui protege deux redacteurs concurrents.
 
 
-        Exige le droit `can_manage_pricing` (E10.11). Cette marge est le
+        Exige le droit `can_manage_pricing` (E10.11), aujourd hui detenu par
+        les seuls `admin` de l espace. Cette marge est le
         DEFAUT sur lequel retombe tout chiffrage d une gamme quand aucune regle
         ne s applique : la deplacer d un point deplace silencieusement le prix
         de toutes les affaires futures de cette gamme, sans qu aucun devis ne
@@ -2945,19 +2960,59 @@ components:
   #
   # Consequence de forme : ce contrat DECLARE le droit exige par une operation
   # (`x-required-capabilities`, symetrique de `x-required-scopes`), il n expose
-  # aucune operation pour ACCORDER un droit. Un administrateur accorde
-  # `can_manage_pricing` en posant `{"can_manage_pricing": true}` sur une
-  # definition de role du tenant puis en l affectant — les endpoints qui le
-  # permettent existent deja et n ont pas besoin d evoluer, `capabilities` y
-  # etant une carte libre `<nom> -> booleen`. Ouvrir ici un doublon de gestion
+  # aucune operation pour ACCORDER un droit. Ouvrir ici un doublon de gestion
   # des droits creerait deux verites sur la meme table.
   #
   # Regle de derivation, portee par `user_has_capability` et non par la facade :
-  # l appartenance `admin` d un espace CONFERE tous les droits metier (sauf
-  # `can_manage_roles`). Le remplacement de la garde grossiere « role admin »
-  # par `can_manage_pricing` n enleve donc l acces a PERSONNE : il l ELARGIT
-  # aux membres a qui un role portant ce droit a ete affecte. C est ce qui rend
-  # E10.11 additive au sens du CA13 sur les operations deja gardees.
+  # l appartenance `admin` d un espace CONFERE tous les droits metier. C est par
+  # elle, et par elle SEULE aujourd hui, que `can_manage_pricing` est detenu
+  # (avec le super-admin de plateforme). Voir le paragraphe suivant.
+  #
+  # ---- E10.11 : qui detient `can_manage_pricing`, et pourquoi pas plus -------
+  #
+  # Etat REEL du produit, a lire avant de promettre une delegation a un client :
+  # `can_manage_pricing` est reserve a l `admin` du tenant. Il n existe AUCUN
+  # mecanisme operationnel pour le deleguer a un membre ordinaire, et E10.11
+  # n en livre pas. C est un ECART ASSUME, pas un oubli.
+  #
+  # La raison est structurelle, en base et non dans cette facade. Une version
+  # anterieure de ce contrat annoncait qu un administrateur accorderait le droit
+  # en posant `{"can_manage_pricing": true}` sur une definition de role puis en
+  # l affectant. La premiere moitie est vraie (`capabilities` est bien une carte
+  # libre `<nom> -> booleen`), la SECONDE est fausse : le trigger UM1
+  # `restrict_magrit_assignments_to_options`
+  # (`20260824000200_um1_admin_shop_guards.sql`) rejette
+  # (`magrit_option_required`, 23514) toute affectation faite a un membre dont
+  # l `access_scope` vaut `magrit_full` — la valeur par DEFAUT de tout membre
+  # Magrit — lorsque la definition visee ne porte pas l un des deux `system_key`
+  # `option_shops` ou `option_orders`. Nuance a garder exacte : l affectation
+  # n est pas impossible dans l absolu, elle est impossible pour un role qui
+  # n est pas l une de ces deux options produit ; et aucune de ces deux options
+  # ne porte ni ne doit porter une capability tarifaire. Autrement dit, la voie
+  # d octroi existe dans la facade des roles mais n aboutit sur aucun membre
+  # Magrit reel.
+  #
+  # Ce comportement n est pas un defaut a contourner : il applique la decision
+  # « admin unique » du chantier UM (14/08), qui a fusionne `owner` dans `admin`
+  # et ferme le modele d affectation aux seules options produit. Ni une option
+  # systeme `option_pricing`, ni un elargissement du trigger UM1 ne sont
+  # retenus. Rouvrir la delegation est une decision produit a part entiere, hors
+  # E10.11.
+  #
+  # Ce que E10.11 livre donc REELLEMENT, et qui n est pas rien : un DURCISSEMENT
+  # de la RLS. Les ecritures du referentiel de prix passaient par une garde
+  # `tm.role in ('admin','member')` — donc ouvertes a TOUT membre, plus large
+  # que ce que E10.6 CA7 voulait deja — et les journaux d audit n etaient
+  # filtres que par isolation tenant. Elles exigent desormais
+  # `user_has_capability(tenant_id, 'can_manage_pricing')`. Le mouvement va donc
+  # dans le sens du RESSERREMENT (un membre simple perd une ecriture qu il
+  # n aurait jamais du avoir et une lecture de supervision), pas de
+  # l elargissement. Sur les operations DEJA gardees par « role admin »
+  # (`listQuoteAuditEntries`), l ensemble des acteurs autorises est INCHANGE :
+  # meme population, exprimee par un droit nomme au lieu d un nom de role. Rien
+  # de tout cela n est cassant au sens du CA13, qui protege le contrat publie et
+  # non une permissivite de RLS reconnue comme un trou (docs/api/CONVENTIONS.md
+  # §8.11).
   securitySchemes:
     bearerAuth:
       type: http
@@ -2987,6 +3042,14 @@ components:
           devis : arbitrer un prix sur une affaire est le geste commercial
           ordinaire, fixer la politique qui l encadre et auditer celui des
           autres ne l est pas.
+
+
+          DETENTION, etat au sprint 5 : ce droit est detenu par l `admin` de
+          l espace (par derivation d appartenance) et par le super-admin de
+          plateforme. Il n est PAS delegable a un membre ordinaire aujourd hui —
+          voir le bloc E10.11 au-dessus de `securitySchemes` pour le detail du
+          verrou et son statut d ecart assume. Un integrateur qui construit un
+          parcours sur ce droit doit donc supposer un acteur `admin`.
 
     serviceKey:
       type: apiKey
@@ -3276,9 +3339,16 @@ components:
         rien a en faire de different.
 
 
-        `detail` nomme le droit manquant, pour que l appelant sache quoi
-        demander a son administrateur ; il reste du texte, jamais une donnee
+        `detail` nomme le droit manquant ; il reste du texte, jamais une donnee
         sur laquelle brancher un comportement.
+
+
+        Ce refus ne se leve PAS toujours par une demande a l administrateur.
+        Pour `can_manage_pricing`, il n existe aujourd hui aucun mecanisme de
+        delegation a un membre ordinaire : le geste doit etre porte par un
+        acteur `admin` de l espace. Le detail de ce verrou, et le fait qu il
+        soit un ecart assume et non un oubli, est expose dans le bloc E10.11
+        au-dessus de `securitySchemes`.
 
 
         Non atteignable par une cle de service : les operations gardees par un
