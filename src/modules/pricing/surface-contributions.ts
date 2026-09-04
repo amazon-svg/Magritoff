@@ -16,9 +16,12 @@ export const pricingWorkspaceContribution = defineSurfaceContribution({
       // (`public.user_has_capability`, 20260814000200_admin_unique.sql —
       // `owner` n existe plus comme valeur de `tenant_members.role`), donc
       // ne perd rien par rapport a l ancienne garde `requiredTenantRole:
-      // 'admin'` qu elle remplace ;
-      // seule change la faculte de deleguer l acces a un membre porteur d
-      // un role qui accorde ce droit. Rappel (§3.5, regle 5 des
+      // 'admin'` qu elle remplace. Aucune delegation a un membre ordinaire
+      // n est possible aujourd hui (trigger UM1
+      // restrict_magrit_assignments_to_options, decision "admin unique"
+      // du 14/08) — ce que change cette story, c est ce que la garde NOMME
+      // (un droit metier plutot qu un role), pas qui la detient. Rappel
+      // (§3.5, regle 5 des
       // CONVENTIONS) : cette garde est de l ERGONOMIE (ne pas presenter un
       // ecran inutilisable), pas une garde d autorisation — celle-ci est
       // tenue par la RLS (migration 20260904142026).

@@ -278,7 +278,7 @@ export interface CommercialQuotesRepository {
    * exploite par `SupabaseRolesRepository.userCapability()` — pas duplique,
    * juste appele depuis cet adaptateur pour eviter une dependance croisee
    * entre modules). Garde d acces de `listQuoteAuditEntries` (403
-   * `identity.role_required` si `false`). Un `admin`/`owner` du tenant
+   * `identity.role_required` si `false`). Un `admin` du tenant
    * recoit `true` par derivation (regle portee par `user_has_capability`,
    * pas par ce port) : aucun acteur qui avait acces avant E10.11 ne le perd.
    */
