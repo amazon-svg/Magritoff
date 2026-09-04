@@ -1,0 +1,47 @@
+#!/bin/sh
+# Magrit managed hook — installé avec `pnpm hooks:install`.
+
+# Arguments fournis par Git : ancien HEAD, nouveau HEAD, changement de branche.
+old_head="$1"
+new_head="$2"
+is_branch_checkout="$3"
+
+[ "$is_branch_checkout" = "1" ] || exit 0
+
+repository_root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+cd "$repository_root" || exit 0
+
+changed_files=$(git diff --name-only "$old_head" "$new_head" 2>/dev/null || true)
+
+if printf '%s\n' "$changed_files" | grep -qx 'pnpm-lock.yaml'; then
+  echo "ℹ️  pnpm-lock.yaml a changé : exécutez 'pnpm install'."
+fi
+
+if printf '%s\n' "$changed_files" | grep -q '^supabase/migrations/'; then
+  echo "ℹ️  Les migrations Supabase ont changé : vérifiez si 'pnpm db:local:push' est nécessaire."
+fi
+
+# Ne redémarrer que si le dépôt utilise actuellement Supabase local.
+if ! grep -Eq '^VITE_SUPABASE_URL=https?://(127\.0\.0\.1|localhost):' .env.local 2>/dev/null; then
+  exit 0
+fi
+
+project_id=$(sed -n 's/^project_id = "\([^"]*\)"/\1/p' supabase/config.toml | head -1)
+[ -n "$project_id" ] || exit 0
+
+edge_runtime="supabase_edge_runtime_${project_id}"
+if ! command -v docker >/dev/null 2>&1 ||
+   [ "$(docker inspect --format '{{.State.Running}}' "$edge_runtime" 2>/dev/null)" != "true" ]; then
+  exit 0
+fi
+
+echo "↻ Changement de branche : remontage automatique de Supabase local…"
+if pnpm db:local:stop && pnpm db:local:start; then
+  echo "✅ Supabase local est prêt pour la nouvelle branche."
+else
+  echo "⚠️  Redémarrage automatique incomplet. Exécutez 'pnpm db:local:stop', puis 'pnpm db:local:start'." >&2
+fi
+
+# Le changement de branche reste valide même si le service local n'a pas pu
+# redémarrer ; le message précédent fournit alors la procédure de récupération.
+exit 0
