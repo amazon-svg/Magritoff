@@ -1311,11 +1311,13 @@ paths:
 #
 # Les colonnes de prix de `QuoteLine` suivent le format `PricedLine` d E10.21
 # (interface PricingEngine), PAS E10.8 (gelee au WM du 01/09, specification
-# seule). E10.21 n est pas encore livree : seul `production_price` (cout de
-# production issu du chiffrage source, CA3) est renseigne par cette story.
-# `public_price`, `customer_price`, `applied_margin_rate`, `applied_rule_id`
-# sont `null` et `breakdown` est vide jusqu a l arrivee d E10.21 — voir
-# docs/api/CONVENTIONS.md pour la tracabilite de cette dependance.
+# seule). E10.21 est LIVREE et E10.9 la cable enfin sur cette ressource : les
+# colonnes que cette story-ci laissait `null` (`public_price`,
+# `customer_price`, `applied_margin_rate`) et le `breakdown` qu elle laissait
+# vide sont desormais TOUJOURS renseignes, par `PricingEngine.price()` et
+# jamais autrement. La dette datee en docs/api/CONVENTIONS.md §8.6/§8.9 est
+# close par E10.9, y compris pour les lignes creees avant elle, qui doivent
+# etre valorisees a la livraison.
 #
 # Ecriture (creation, modification, suppression) reservee aux jetons
 # utilisateur, comme E10.1/E10.4. Lecture ouverte a Studio via `quotes:read`
@@ -1579,6 +1581,532 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
+
+# ----------------------------------------------------------------------------
+# story E10.9 — Edition des lignes d un devis : prix de vente OU taux de marge
+# par ligne, remise deduite, tracabilite d audit integrale.
+#
+# Perimetre ELARGI au-dela du texte de la story, par decision d Arnaud du
+# 01/09 : le chantier d unification des devis a retire l ancien editeur, qui
+# permettait aussi d AJOUTER, de SUPPRIMER, de REQUANTIFIER et de REORDONNER
+# des lignes. Ces quatre capacites sont reprises ici plutot que dans une story
+# separee — meme ressource, meme garde d etat, meme journal d audit.
+#
+# Ce que le SERVEUR calcule, et que le client ne refait jamais :
+#  - tout prix vient de `PricingEngine.price()` (E10.21), alimente par la regle
+#    resolue par `PriceRulesService.resolve()` (E10.6/E10.7) et par la marge de
+#    gamme par defaut (E10.6). Le client PROPOSE un prix de vente ou un taux de
+#    marge ; le serveur derive tout le reste (remise, ecart de marge,
+#    decomposition) et rend la ligne complete. Un client qui recalculerait un
+#    prix pour l afficher serait en faute — le contrat ne lui donne aucune
+#    formule a rejouer, il lui donne le resultat.
+#  - une remise excessive ou une marge negative est ALERTANTE, JAMAIS bloquante
+#    (CA7 amende au WM du 01/09) : la reponse reste 200/201 et porte
+#    `warnings[]`. Aucun statut 4xx n existe pour ce motif, et l autorisation
+#    hierarchique est hors perimetre V1.
+#
+# Toutes les ecritures exigent un devis a l etat `draft`, meme garde que
+# `deleteQuote` : un devis envoye ou accepte est un engagement, ses lignes ne
+# se retouchent plus (`quote_line.quote_not_draft`).
+#
+# Ecriture reservee aux jetons utilisateur. Lecture d une ligne ouverte a
+# Studio via `quotes:read`, comme le devis lui-meme. Le journal d audit n est
+# PAS ouvert aux cles de service : c est une piece de controle interne, opposee
+# a un commercial, pas une donnee d integration.
+#
+# Nommage des codes d erreur : `quote_line.*`, jamais `commercial_quote_line.*`
+# — `commercial_quotes`/`commercial_quote_lines` sont des noms de TABLES,
+# imposes par la coexistence avec le modele legacy (docs/api/CONVENTIONS.md
+# p3) ; la facade, elle, expose `/quotes` et emet deja `quote.*`. Un code
+# metier stable ne publie pas un nom de table interne.
+# ----------------------------------------------------------------------------
+  /quotes/{quoteId}/lines:
+    parameters:
+      - $ref: '#/components/parameters/MagritTenant'
+    post:
+      operationId: addQuoteLine
+      summary: >-
+        Ajoute une ligne a un devis brouillon, sous DEUX formes exclusives
+        (decision d Arnaud du 01/09, capacite de l ancien editeur) :
+
+
+        - ligne LIEE a un chiffrage du projet source (`project_item_id`
+          fourni) : `label`, `product_config`, `quantity` et `production_price`
+          sont repris de l element, exactement comme le fait deja
+          `createQuoteFromProject` (E10.3 CA2-CA3) — jamais ressaisis, jamais
+          recalcules cote client ;
+
+        - ligne LIBRE (`project_item_id` absent) : `label`, `quantity` et
+          `production_price` sont saisis a la main, sans element de projet
+          derriere. Elle porte `origin: free`.
+
+
+        Dans les DEUX cas le prix est resolu par le serveur
+        (`PriceRulesService.resolve()` puis `PricingEngine.price()`) : une
+        ligne n est jamais creee avec une marge nulle « en attendant », et
+        `sale_price` demarre sur le `customer_price` calcule, donc avec une
+        remise nulle et un ecart de marge nul.
+
+
+        La ligne est ajoutee EN FIN de devis (`position` = derniere + 1). Un
+        placement precis se fait ensuite par `reorderQuoteLines` : `position`
+        n est pas un champ de creation, car il engage aussi les lignes voisines.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/QuoteId'
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: >-
+            Cle d idempotence de la creation (CA8, voir
+            components/parameters/IdempotencyKey pour la description
+            complete). Sans elle, un double clic ou un rejeu reseau ajouterait
+            deux fois la meme ligne a un devis.
+          schema:
+            type: string
+            minLength: 8
+            maxLength: 255
+            pattern: '^[A-Za-z0-9_.:-]{8,255}$'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateQuoteLineCommand'
+      responses:
+        '201':
+          description: >-
+            Ligne ajoutee, prix resolu par le moteur. L `ETag` est celui de la
+            LIGNE : il permet d enchainer un `updateQuoteLine` sans relire.
+            `warnings` peut deja etre non vide — une regle de prix peut mener
+            sous le cout de production sans qu aucun geste commercial n ait
+            eu lieu.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/QuoteLine'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: >-
+            Soit la cle d idempotence a deja servi pour une requete differente
+            (`api.idempotency_key_reused`), soit le devis n est plus a l etat
+            brouillon (`quote_line.quote_not_draft`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          description: >-
+            `project_item_id` ne designe aucun element DU PROJET SOURCE de ce
+            devis (`quote_line.project_item_invalid`), ou `quantity` est
+            inferieure a 1 (`quote_line.invalid_quantity`), ou le corps ne
+            correspond a aucune des deux formes admises
+            (`api.validation_failed`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  /quotes/{quoteId}/lines/{lineId}:
+    parameters:
+      - $ref: '#/components/parameters/MagritTenant'
+    get:
+      operationId: getQuoteLine
+      summary: >-
+        Recupere une ligne et son `ETag` courant — necessaire pour enchainer un
+        `PATCH` protege par `If-Match` (CA9). `getQuote` n emet aucun `ETag` de
+        ligne : son `ETag` porte sur l en-tete du devis, pas sur chacune de ses
+        lignes ; c est cet endpoint, pas la fiche du devis, qui fait foi pour
+        la concurrence optimiste d une ligne donnee (meme regle que
+        `getCustomerContact` vis-a-vis de `listCustomerContacts`).
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+        - serviceKey: []
+      x-required-scopes: [quotes:read]
+      parameters:
+        - $ref: '#/components/parameters/QuoteId'
+        - $ref: '#/components/parameters/QuoteLineId'
+      responses:
+        '200':
+          description: Ligne de devis.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/QuoteLine'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: >-
+            Le devis ou la ligne n existe pas dans le tenant du jeton, ou la
+            ligne appartient a un autre devis (`quote_line.not_found`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+    patch:
+      operationId: updateQuoteLine
+      summary: >-
+        Modifie une ligne d un devis brouillon : prix de vente OU taux de
+        marge (CA1), et quantite (capacite reprise de l ancien editeur).
+
+
+        `sale_price` et `margin_rate` sont MUTUELLEMENT EXCLUSIFS dans un meme
+        corps : ils decrivent la meme grandeur par deux entrees, et les
+        envoyer ensemble ne dirait pas laquelle fait foi. Le serveur derive
+        systematiquement l autre, plus `discount_rate` et `margin_variation`
+        (CA2, CA3), et rend la ligne COMPLETE — le client affiche, il ne
+        recalcule pas.
+
+
+        Ce que ce PATCH ne touche JAMAIS : `production_price`, `public_price`,
+        `customer_price`, `applied_margin_rate`, `applied_rule_id`. Colonnes
+        immuables et informatives (CA4) — ce sont les references contre
+        lesquelles le geste commercial se mesure ; les rendre modifiables
+        effacerait la mesure. `position` non plus : voir `reorderQuoteLines`.
+
+
+        Toute modification effective ecrit une entree d audit par champ
+        persiste change (CA5), consultable par `listQuoteAuditEntries`.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/QuoteId'
+        - $ref: '#/components/parameters/QuoteLineId'
+        - name: If-Match
+          in: header
+          required: true
+          description: >-
+            Precondition de concurrence optimiste sur LA LIGNE (CA9, voir
+            components/parameters/IfMatch pour la description complete). La
+            valeur est celle rendue par `getQuoteLine`, `addQuoteLine` ou le
+            precedent `updateQuoteLine` — jamais l `ETag` du devis, qui porte
+            sur son en-tete.
+          schema:
+            type: string
+            minLength: 3
+            maxLength: 255
+            pattern: '^(W/)?"[^"]+"$'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateQuoteLineCommand'
+      responses:
+        '200':
+          description: >-
+            Ligne modifiee, TOUJOURS 200 meme quand `warnings` signale une
+            marge negative ou une remise au-dela du seuil (CA7 amende) : le
+            serveur alerte, il ne refuse pas.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/QuoteLine'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Ligne inconnue dans ce devis (`quote_line.not_found`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: >-
+            Soit l `If-Match` ne correspond plus a l etat courant de la ligne
+            (`api.resource_conflict`, etat courant dans `current_state`), soit
+            le devis n est plus a l etat brouillon
+            (`quote_line.quote_not_draft`). JAMAIS pour une remise ou une marge
+            hors norme.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          description: >-
+            `sale_price` et `margin_rate` fournis ensemble
+            (`api.validation_failed`), `quantity` inferieure a 1
+            (`quote_line.invalid_quantity`), ou `margin_rate` envoye sur une
+            ligne dont le `production_price` vaut `"0.00"`
+            (`quote_line.margin_not_derivable` : aucun taux applique a zero ne
+            produit un prix, la saisie serait perdue en silence — passer par
+            `sale_price`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+
+    delete:
+      operationId: deleteQuoteLine
+      summary: >-
+        Retire une ligne d un devis A L ETAT BROUILLON UNIQUEMENT, meme garde
+        que `deleteQuote`. Les positions des lignes suivantes sont resserrees
+        par le serveur pour rester contigues.
+
+
+        Le retrait ne touche jamais l element de projet source (E10.3 CA7) : il
+        reste disponible pour ce devis ou pour un autre. L audit conserve une
+        entree `removed` portant l etat de la ligne au moment du retrait — une
+        ligne supprimee reste opposable (CA6).
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/QuoteId'
+        - $ref: '#/components/parameters/QuoteLineId'
+      responses:
+        '200':
+          description: Ligne retiree du devis.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: false
+                        required: [deleted]
+                        properties:
+                          deleted:
+                            type: boolean
+                            enum: [true]
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Ligne inconnue dans ce devis (`quote_line.not_found`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: >-
+            Le devis n est plus a l etat brouillon
+            (`quote_line.quote_not_draft`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  /quotes/{quoteId}/line-positions:
+    parameters:
+      - $ref: '#/components/parameters/MagritTenant'
+    put:
+      operationId: reorderQuoteLines
+      summary: >-
+        Reordonne les lignes d un devis brouillon. `line_ids` porte la liste
+        COMPLETE des lignes du devis dans l ordre voulu ; le serveur reaffecte
+        `position` de 0 a n-1 dans cet ordre.
+
+
+        Pourquoi un endpoint dedie plutot qu un champ `position` dans
+        `updateQuoteLine` : deplacer UNE ligne renumerote ses voisines, donc
+        modifie des ressources que l `If-Match` de la ligne deplacee ne couvre
+        pas. Le reordonnancement est un etat de la COLLECTION, pas un attribut
+        d une ligne isolee — meme raisonnement et meme forme que
+        `replaceProjectTags` (E10.2). Un `position` dans le PATCH aurait
+        offert deux facons divergentes de faire la meme chose, dont une
+        silencieusement non transactionnelle.
+
+
+        `If-Match` porte donc sur LE DEVIS (`ETag` de `getQuote`), pas sur une
+        ligne.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/QuoteId'
+        - name: If-Match
+          in: header
+          required: true
+          description: >-
+            Precondition de concurrence optimiste sur LE DEVIS (CA9, meme
+            garantie qu un PATCH — voir components/parameters/IfMatch). Toute
+            ecriture de ligne (ajout, modification, retrait, reordonnancement)
+            avance `updated_at` du devis, donc son `ETag` : deux commerciaux
+            qui reordonnent le meme devis en parallele ne s ecrasent pas en
+            silence.
+          schema:
+            type: string
+            minLength: 3
+            maxLength: 255
+            pattern: '^(W/)?"[^"]+"$'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReorderQuoteLinesCommand'
+      responses:
+        '200':
+          description: >-
+            Devis complet, lignes dans le nouvel ordre. L `ETag` rendu est
+            celui du DEVIS, recalcule.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/QuoteDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: >-
+            Soit l `If-Match` ne correspond plus a l etat courant du devis
+            (`api.resource_conflict`), soit le devis n est plus a l etat
+            brouillon (`quote_line.quote_not_draft`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          description: >-
+            `line_ids` ne recouvre pas EXACTEMENT les lignes du devis — element
+            inconnu, doublon, ou ligne manquante
+            (`quote_line.positions_mismatch`). Un ordre partiel est refuse :
+            il laisserait les lignes omises a une position indeterminee.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+
+  /quotes/{quoteId}/audit-entries:
+    parameters:
+      - $ref: '#/components/parameters/MagritTenant'
+    get:
+      operationId: listQuoteAuditEntries
+      summary: >-
+        Journal d audit des lignes d un devis (CA5, CA6) : qui a change quoi,
+        quand, de quelle valeur a quelle valeur. LECTURE SEULE et
+        APPEND-ONLY — aucune operation d ecriture, de correction ou de purge
+        n existe sur ce chemin, ni ici ni ailleurs dans le contrat. C est la
+        piece qui rend un prix opposable a son auteur.
+
+
+        Chemin `audit-entries` et non `audit` : la regle de nommage du socle
+        (CA3, `checkResourcePath`) impose le pluriel sur tout segment de
+        ressource, et elle est verifiee par le lint du contrat.
+
+
+        Ordre par defaut : du plus recent au plus ancien. Pagination par
+        curseur comme toutes les collections de la facade.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/QuoteId'
+        - name: line_id
+          in: query
+          required: false
+          description: >-
+            Restreint le journal a une ligne. Une ligne SUPPRIMEE reste
+            interrogeable par son identifiant : son historique ne disparait
+            pas avec elle.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/PageCursor'
+      responses:
+        '200':
+          description: Page d entrees d audit, de la plus recente a la plus ancienne.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/QuoteLineAuditEntry'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: >-
+            L utilisateur n a pas l habilitation requise
+            (`identity.role_required`). Garde grossiere aujourd hui — role
+            `admin` du tenant, meme mecanisme que l ecran des regles de prix
+            (E10.6 CA7) — remplacee par le droit dedie `can_manage_pricing`
+            quand E10.11 sera livree.
+
+
+            Le refus est EXPLICITE : rendre une page vide a un acteur non
+            habilite lui ferait croire qu aucune trace n existe. Une
+            habilitation manquante et un journal vide ne se disent pas de la
+            meme facon.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
 # ----------------------------------------------------------------------------
 # stories E10.6 (referentiel des regles de prix) et E10.7 (arbitrage des regles
@@ -2226,6 +2754,50 @@ webhooks:
         '204':
           description: Evenement accepte par le consommateur.
 
+  quote_line.changed:
+    post:
+      operationId: onQuoteLineChanged
+      summary: >-
+        Une ligne de devis a ete ajoutee, modifiee, retiree ou deplacee
+        (E10.9). Un evenement par ligne reellement changee : un
+        reordonnancement de trois lignes en emet trois, aucun pour les lignes
+        restees en place.
+
+
+        Distinct de `quote.created` (E10.3) et de `quote.converted` (E10.12) :
+        ceux-la portent le cycle de vie du DEVIS, celui-ci le contenu de ses
+        lignes. Un consommateur qui cache un total de devis doit ecouter les
+        trois.
+      description: >-
+        `payload` est fige par `QuoteLineChangedPayload` (`event_version: 1`).
+        Il ne porte que les identifiants et l action : les montants
+        commerciaux (prix de vente, remise, ecart de marge) ne transitent PAS
+        par le bus — un abonne habilite les relit par `getQuoteLine`.
+      tags: [gestion-commerciale]
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/MagritSignature'
+        - $ref: '#/components/parameters/MagritEventName'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            # Enveloppe commune RESTREINTE a la charge utile de cet evenement,
+            # meme construction que `price_rule.changed` (voir le commentaire
+            # detaille qui l accompagne : le second membre du `allOf` ne porte
+            # pas `additionalProperties: false`, sans quoi il rejetterait les
+            # champs de l enveloppe).
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/EventEnvelope'
+                - type: object
+                  properties:
+                    payload:
+                      $ref: '#/components/schemas/QuoteLineChangedPayload'
+      responses:
+        '204':
+          description: Evenement accepte par le consommateur.
+
   price_rule.changed:
     post:
       operationId: onPriceRuleChanged
@@ -2465,6 +3037,17 @@ components:
       schema:
         $ref: '#/components/schemas/Uuid'
 
+    QuoteLineId:
+      name: lineId
+      in: path
+      required: true
+      description: >-
+        Identifiant technique de la ligne de devis. Toujours resolu DANS le
+        devis du chemin : une ligne d un autre devis rend 404
+        `quote_line.not_found`, jamais la ligne de l autre devis.
+      schema:
+        $ref: '#/components/schemas/Uuid'
+
     PriceRuleId:
       name: priceRuleId
       in: path
@@ -2611,6 +3194,23 @@ components:
         - '1234.50'
         - '0.00'
         - '-89.90'
+
+    MoneyNonNegative:
+      title: MoneyNonNegative
+      description: >-
+        Montant monetaire POSITIF OU NUL, meme serialisation que `Money`. Plus
+        strict que lui, jamais en contradiction avec lui — meme rapport que
+        `nonNegativeRateSchema` a `Rate` cote Zod (E10.6).
+
+
+        Sert la ou un montant negatif n a pas de sens metier : un cout de
+        production, un prix public, un prix client, un prix de vente. La marge
+        et la remise, elles, peuvent etre negatives et restent des `Rate`.
+      type: string
+      pattern: '^[0-9]{1,10}\.[0-9]{2}$'
+      examples:
+        - '1234.50'
+        - '0.00'
 
     Rate:
       title: Rate
@@ -2764,6 +3364,7 @@ components:
         - api.resource_conflict
         - identity.authentication_required
         - identity.scope_required
+        - identity.role_required
         - identity.tenant_not_resolved
         - identity.tenant_selection_required
 
@@ -2841,6 +3442,7 @@ components:
       enum:
         - quote.converted
         - quote.created
+        - quote_line.changed
         - order.step_changed
         - order.files_submitted
         - customer.created
@@ -2889,6 +3491,7 @@ components:
           pattern: '^[a-z][a-z0-9_]*$'
           examples:
             - quote
+            - quote_line
             - order
             - customer
             - project
@@ -3759,18 +4362,43 @@ components:
     QuoteLine:
       title: QuoteLine
       description: >-
-        Ligne de devis au format `PricedLine` de l interface PricingEngine
-        (E10.21, pas encore livree — E10.8 est gelee, specification seule).
-        `production_price` (cout de production issu du chiffrage source, CA3)
-        est le seul prix renseigne par cette story : `public_price`,
-        `customer_price`, `applied_margin_rate` et `applied_rule_id` sont
-        `null` et `breakdown` est vide tant qu E10.21 n est pas livree. Voir
-        docs/api/CONVENTIONS.md pour la tracabilite de cette dependance.
+        Ligne de devis au format `PricedLine` de l interface `PricingEngine`
+        (E10.21), enrichie par E10.9 du geste commercial (`sale_price`,
+        `discount_rate`, `margin_variation`) et de ses alertes (`warnings`).
+
+
+        TOUS LES MONTANTS SONT DES TOTAUX DE LIGNE pour `quantity`, jamais des
+        prix unitaires. C est la forme dans laquelle un chiffrage Clariprint
+        remonte (un tirage de 1000 exemplaires a un prix, pas un prix par
+        exemplaire) et celle qu E10.3 a deja ecrite en base. Un client qui
+        multiplierait un de ces montants par `quantity` doublerait le devis.
+
+
+        Ce que le SERVEUR calcule, et que personne d autre ne recalcule :
+        `public_price`, `customer_price`, `applied_margin_rate`,
+        `applied_rule_id` et `breakdown` viennent de `PricingEngine.price()`
+        (E10.21) sur la regle resolue par `PriceRulesService.resolve()`
+        (E10.6/E10.7) ; `sale_margin_rate`, `discount_rate` et
+        `margin_variation` sont derives de `sale_price` par les formules
+        ci-dessous. Aucune de ces valeurs n est une proposition du client.
+
+
+        Durcissement assume par E10.9 (E10.3 les publiait `null` / vide en
+        attendant E10.21, desormais livree) : `public_price`, `customer_price`
+        et `applied_margin_rate` ne sont plus nullables, et `breakdown` porte
+        au moins un element (`post: total`), invariant central d E10.21. Cela
+        RESTREINT ce que la facade peut rendre, jamais ce qu un appelant peut
+        demander : aucun consommateur ne dependait de l absence de prix, qui
+        n a jamais ete un etat cible mais une dette datee
+        (docs/api/CONVENTIONS.md §8.6, §8.9). En contrepartie, les lignes
+        creees par E10.3 avant cette story doivent etre valorisees a la
+        livraison, sans quoi la facade violerait son propre contrat.
       type: object
       additionalProperties: false
       required:
         - id
         - quote_id
+        - origin
         - project_item_id
         - label
         - product_config
@@ -3781,19 +4409,41 @@ components:
         - customer_price
         - applied_margin_rate
         - applied_rule_id
+        - sale_price
+        - sale_margin_rate
+        - discount_rate
+        - margin_variation
         - breakdown
+        - warnings
         - created_at
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
         quote_id:
           $ref: '#/components/schemas/Uuid'
+        origin:
+          description: >-
+            Provenance de la ligne. Signal POSITIF, prefere a un test sur la
+            nullite de `project_item_id` : un consommateur branche son
+            affichage dessus sans avoir a deviner ce que `null` veut dire.
+          $ref: '#/components/schemas/QuoteLineOrigin'
         project_item_id:
           description: >-
-            Element de chiffrage source (CA3). Le retrait de ce devis ne
-            supprime ni ne marque exclusivement l element : il reste
-            disponible pour d autres devis (CA7).
-          $ref: '#/components/schemas/Uuid'
+            Element de chiffrage source (E10.3 CA3), `null` pour une ligne
+            LIBRE saisie a la main (E10.9 elargie, decision d Arnaud du 01/09 :
+            capacite de l ancien editeur de devis). Le retrait de la ligne ne
+            supprime ni ne marque exclusivement l element : il reste disponible
+            pour d autres devis (E10.3 CA7).
+
+
+            Elargissement assume de ce champ, deja publie non nullable par
+            E10.3 : une ligne libre n a par construction aucun element de
+            projet derriere elle, et un identifiant invente serait pire qu un
+            `null` explicite. `origin` donne au consommateur le discriminant
+            franc que la seule nullite ne donnait pas.
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
         label:
           type: string
           minLength: 1
@@ -3801,48 +4451,165 @@ components:
         product_config:
           description: >-
             Configuration produit reprise telle quelle du chiffrage source
-            (CA3), forme libre — miroir de `ProjectItem.quote_payload`.
+            (E10.3 CA3), forme libre — miroir de `ProjectItem.quote_payload`.
+            Objet vide sur une ligne libre : il n y a pas de configuration
+            produit derriere une saisie manuelle.
           type: object
           additionalProperties: true
         quantity:
+          description: >-
+            Quantite annoncee sur le devis. Modifiable par `updateQuoteLine`.
+            ATTENTION : elle ne re-chiffre PAS `production_price`, qui reste la
+            valeur figee du chiffrage source (aucun appel Clariprint n est
+            declenche par cette facade) — d ou l alerte
+            `production_cost_stale` sur une ligne liee dont la quantite change.
           type: integer
           format: int32
           minimum: 1
         position:
+          description: >-
+            Rang de la ligne dans le devis, contigu et commencant a 0. Fixe par
+            le serveur : ajout en fin, resserrement au retrait,
+            reaffectation complete par `reorderQuoteLines`. Jamais propose par
+            le client ligne par ligne.
           type: integer
           format: int32
           minimum: 0
         production_price:
-          description: Cout de production issu du chiffrage source (CA3).
-          $ref: '#/components/schemas/Money'
+          description: >-
+            Cout de production, total pour `quantity`. Issu du chiffrage source
+            (E10.3 CA3) ou saisi a la main sur une ligne libre. Colonne
+            IMMUABLE et informative (E10.9 CA4) : elle est la reference contre
+            laquelle la marge et la remise se mesurent, aucune operation de
+            cette facade ne la modifie.
+          $ref: '#/components/schemas/MoneyNonNegative'
         public_price:
-          description: 'Point d extension E10.21 : `null` tant que le moteur de prix n est pas livre.'
-          oneOf:
-            - $ref: '#/components/schemas/Money'
-            - type: 'null'
+          description: >-
+            Prix public, total pour `quantity` : `production_price` majore du
+            taux de marge retenu par le moteur (E10.21). Colonne immuable et
+            informative (CA4).
+          $ref: '#/components/schemas/MoneyNonNegative'
         customer_price:
-          description: 'Point d extension E10.21 : `null` tant que le moteur de prix n est pas livre.'
-          oneOf:
-            - $ref: '#/components/schemas/Money'
-            - type: 'null'
+          description: >-
+            Prix client, total pour `quantity` : `public_price` diminue de la
+            remise portee par la regle de prix resolue, s il y en a une
+            (E10.21). C est le prix AVANT tout geste commercial de cette
+            story — la reference de calcul de `discount_rate`. Colonne
+            immuable et informative (CA4).
+
+
+            Positif ou nul, toujours : un prix client negatif serait une
+            facture a l envers. E10.6 ne plafonne PAS aujourd hui une regle de
+            type `discount_rate` a 100 % ; une regle mal saisie a 150 %
+            produirait un montant negatif que ce contrat refuse de publier.
+            C est une borne a poser sur la REGLE (E10.6), pas un signe a
+            tolerer ici.
+          $ref: '#/components/schemas/MoneyNonNegative'
         applied_margin_rate:
-          description: 'Point d extension E10.21 : `null` tant que le moteur de prix n est pas livre.'
-          oneOf:
-            - $ref: '#/components/schemas/Rate'
-            - type: 'null'
+          description: >-
+            Taux de marge resolu par la regle de prix (etape production ->
+            public, E10.21), INDEPENDANT de toute remise client. C est le taux
+            « initialement resolu » auquel `margin_variation` se compare
+            (E10.9 CA3). Colonne immuable et informative (CA4).
+          $ref: '#/components/schemas/Rate'
         applied_rule_id:
-          description: 'Point d extension E10.21 : `null` tant que le moteur de prix n est pas livre.'
+          description: >-
+            Regle de prix qui a effectivement fixe le prix de cette ligne
+            (E10.6/E10.7). `null` est une valeur NORMALE : aucune regle active
+            ne couvrait le couple client/gamme a la date de calcul — le moteur
+            a alors applique la marge de gamme par defaut. Ce n est pas une
+            absence de valorisation.
           oneOf:
             - $ref: '#/components/schemas/Uuid'
             - type: 'null'
+        sale_price:
+          description: >-
+            Prix de vente effectivement porte au devis, total pour `quantity`
+            (E10.9 CA1). Seule grandeur monetaire que le commercial pilote,
+            directement ou via `margin_rate`. A la creation de la ligne, il
+            vaut `customer_price` : aucune remise, aucun ecart de marge.
+          $ref: '#/components/schemas/MoneyNonNegative'
+        sale_margin_rate:
+          description: >-
+            Taux de marge REELLEMENT obtenu par `sale_price` sur le cout de
+            production :
+            `(sale_price - production_price) / production_price`, arrondi a
+            quatre decimales. Publie par le serveur pour que l affichage
+            simultane prix/marge du CA1 ne repose sur aucun calcul cote
+            navigateur.
+
+
+            Negatif quand la ligne se vend sous son cout — situation permise et
+            signalee par `warnings`, jamais refusee (CA7 amende).
+
+
+            `null` dans deux cas seulement, et le contrat les nomme plutot que
+            de rendre un zero trompeur : `production_price` vaut `"0.00"` (une
+            marge sur zero n existe pas), ou le rapport sort de l intervalle
+            representable par un `numeric(6,4)`. `sale_price` reste alors la
+            valeur qui fait foi.
+          oneOf:
+            - $ref: '#/components/schemas/Rate'
+            - type: 'null'
+        discount_rate:
+          description: >-
+            Remise DEDUITE, jamais saisie (E10.9 CA2) :
+            `(customer_price - sale_price) / customer_price`, arrondie a quatre
+            decimales. Positive quand le commercial descend sous le prix
+            client, NEGATIVE quand il le majore — les deux sont legitimes.
+
+
+            `null` quand `customer_price` vaut `"0.00"` (aucune base de
+            remise) ou quand le rapport sort de l intervalle representable par
+            un `numeric(6,4)`.
+          oneOf:
+            - $ref: '#/components/schemas/Rate'
+            - type: 'null'
+        margin_variation:
+          description: >-
+            Ecart entre le taux de marge obtenu et celui qu avait resolu la
+            regle de prix (E10.9 CA3) :
+            `sale_margin_rate - applied_margin_rate`. Nul tant que le
+            commercial n a rien touche — c est la mesure exacte de son geste,
+            et c est ce que l audit rend opposable.
+
+
+            `null` exactement quand `sale_margin_rate` l est.
+          oneOf:
+            - $ref: '#/components/schemas/Rate'
+            - type: 'null'
         breakdown:
           description: >-
-            Detail du calcul de prix (E10.21). Toujours vide tant que cette
-            story n est pas livree — pas de donnee inventee.
+            Detail du calcul de prix rendu par `PricingEngine` (E10.21).
+            JAMAIS vide : au minimum l element agrege `post: total` produit par
+            l implementation provisoire `SingleCostPricingEngine`. Le jour ou
+            E10.8 est degelee, la decomposition Clariprint reelle ENRICHIT ce
+            tableau — elle n en change pas la forme, et aucun consommateur n a
+            a etre repris.
+
+
+            `sum(breakdown[].price)` vaut `customer_price` (le prix AVANT
+            geste commercial), pas `sale_price` : le moteur ne connait pas la
+            remise manuelle de cette story.
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/PricedLineBreakdownItem'
+        warnings:
+          description: >-
+            Alertes calculees par le serveur sur l etat courant de la ligne
+            (E10.9 CA7 amende au WM du 01/09). Tableau vide quand tout est
+            normal. Porte par TOUTE representation d une ligne — creation,
+            lecture, modification, fiche du devis — pour qu une ligne
+            problematique ne puisse pas etre affichee sans son alerte selon le
+            chemin par lequel on l a obtenue.
+
+
+            Jamais bloquant : leur presence n empeche ni l enregistrement, ni
+            l envoi du devis. Une alerte n est pas un refus.
           type: array
           items:
-            type: object
-            additionalProperties: true
+            $ref: '#/components/schemas/QuoteLineWarning'
         created_at:
           $ref: '#/components/schemas/Timestamp'
 
@@ -4001,6 +4768,456 @@ components:
             - type: 'null'
         show_discounts:
           type: boolean
+
+    # --------------------------------------------------------------------------
+    # Story E10.9 — Edition des lignes d un devis (remises granulaires, marge
+    # par ligne, quantite, ajout/retrait/reordonnancement, audit)
+    # --------------------------------------------------------------------------
+    CostPost:
+      title: CostPost
+      description: >-
+        Poste de cout d une ligne (E10.21, `CostPost`). `total` est le poste
+        UNIQUE rendu par l implementation provisoire `SingleCostPricingEngine`
+        tant qu E10.8 (decomposition Clariprint reelle) reste gelee. Les quatre
+        autres valeurs sont deja publiees : elles apparaitront dans
+        `breakdown[]` sans changement de forme le jour ou E10.8 est degelee.
+      type: string
+      enum: [printing, finishing, packaging, shipping, total]
+
+    CostSource:
+      title: CostSource
+      description: >-
+        Provenance du cout d un poste (E10.21, resolution de la derogation p7 —
+        docs/api/CONVENTIONS.md §8.6/§8.9) : `clariprint` pour un chiffrage
+        reel, `prix_marche` pour une estimation heuristique
+        (`estimateMarketPriceHT()`). Sous-ensemble volontaire de la hierarchie
+        de `resolvePrice()` : `library_cached` et `zero` qualifient la
+        resolution d un prix affiche, jamais un cout de production deja arrete.
+      type: string
+      enum: [clariprint, prix_marche]
+
+    PricedLineBreakdownItem:
+      title: PricedLineBreakdownItem
+      description: >-
+        Detail du calcul pour un poste (E10.21, `PricedLineBreakdownItem`).
+
+
+        `price` est le montant FINAL du pour ce poste, remise de la regle de
+        prix DEJA incluse — c est `customer_price` reparti sur les postes, ni
+        le prix public, ni le cout. `margin_rate` ne porte que l etape
+        production -> public : `cost * (1 + margin_rate)` ne redonne pas
+        `price` des qu une remise s applique. Ces deux points ont deja ete
+        re-derives a tort une fois (qa-review E10.21, B3) ; ils sont ici pour
+        ne plus l etre.
+
+
+        Typage de `breakdown[]` par E10.9 : E10.3 le publiait comme un objet
+        libre faute d E10.21. Restreindre ce que la facade RETOURNE n ouvre
+        aucun cas nouveau au client et ferme une forme que le moteur ne produit
+        pas.
+      type: object
+      additionalProperties: false
+      required: [post, cost, margin_rate, price, source]
+      properties:
+        post:
+          $ref: '#/components/schemas/CostPost'
+        cost:
+          description: Cout de production de ce poste, total pour la quantite de la ligne.
+          $ref: '#/components/schemas/MoneyNonNegative'
+        margin_rate:
+          description: Taux applique a l etape production -> public pour ce poste.
+          $ref: '#/components/schemas/Rate'
+        price:
+          description: Montant final du pour ce poste, remise de la regle incluse.
+          $ref: '#/components/schemas/MoneyNonNegative'
+        source:
+          $ref: '#/components/schemas/CostSource'
+
+    QuoteLineOrigin:
+      title: QuoteLineOrigin
+      description: >-
+        Provenance d une ligne de devis. `project_item` : issue d un chiffrage
+        du projet source (E10.3 CA2-CA3), `project_item_id` renseigne.
+        `free` : ligne libre saisie a la main (E10.9 elargie, decision d Arnaud
+        du 01/09), sans element de projet derriere elle.
+      type: string
+      enum: [project_item, free]
+
+    QuoteLineWarningCode:
+      title: QuoteLineWarningCode
+      description: >-
+        Motif d alerte sur une ligne. Liste ADDITIVE : un consommateur doit
+        ignorer un code qu il ne connait pas, jamais echouer dessus — une
+        alerte inconnue reste une alerte, et le tenir pour une erreur
+        transformerait un avertissement en panne.
+
+
+        Aucun de ces codes ne produit de statut 4xx (CA7 amende au WM du
+        01/09) : ils ne decrivent pas un refus, ils decrivent une situation que
+        le commercial doit voir.
+      type: string
+      enum: [negative_margin, discount_threshold_exceeded, production_cost_stale]
+
+    QuoteLineWarning:
+      title: QuoteLineWarning
+      description: >-
+        Alerte portee par une ligne (E10.9 CA7 amende).
+
+
+        - `negative_margin` : `sale_price` est inferieur a `production_price` —
+          la ligne se vend a perte.
+
+        - `discount_threshold_exceeded` : `discount_rate` depasse le seuil
+          d alerte du tenant, rappele dans `threshold`.
+
+        - `production_cost_stale` : la quantite de la ligne a ete modifiee
+          alors que son `production_price` vient d un chiffrage fait pour une
+          AUTRE quantite. Le cout affiche ne correspond plus a ce qui est
+          vendu ; il faut re-chiffrer l element dans le projet source. Cette
+          facade ne rappelle jamais Clariprint d elle-meme.
+      type: object
+      additionalProperties: false
+      required: [code, message]
+      properties:
+        code:
+          $ref: '#/components/schemas/QuoteLineWarningCode'
+        message:
+          description: >-
+            Phrase courte destinee a l affichage, en francais. Non
+            contractuelle : brancher un comportement sur `code`, jamais sur ce
+            texte.
+          type: string
+          minLength: 1
+          maxLength: 300
+        threshold:
+          description: >-
+            Seuil qui a declenche l alerte, quand elle en a un
+            (`discount_threshold_exceeded`) ; `null` sinon. Publie pour que
+            l interface explique le declenchement sans coder le seuil de son
+            cote.
+
+
+            Le seuil n est PAS encore configurable : E10.11 (droits et reglages
+            commerciaux) n est pas livree. Sa valeur de depart est un reglage
+            de tenant a arbitrer par le metier, pas une constante inventee par
+            l implementation.
+          oneOf:
+            - $ref: '#/components/schemas/Rate'
+            - type: 'null'
+
+    CreateQuoteLineFromProjectItemCommand:
+      title: CreateQuoteLineFromProjectItemCommand
+      description: >-
+        Ajout d une ligne LIEE a un chiffrage du projet source. `label`,
+        `product_config` et `production_price` sont repris de l element, jamais
+        transmis par l appelant : les accepter ici ouvrirait une porte pour
+        poser un cout de production arbitraire sur une ligne reputee tracable.
+
+
+        L element doit appartenir AU PROJET SOURCE du devis, sinon 422
+        `quote_line.project_item_invalid`. Un meme element peut alimenter
+        plusieurs lignes et plusieurs devis (E10.3 CA7) : aucune unicite n est
+        exigee.
+      type: object
+      additionalProperties: false
+      required: [project_item_id]
+      properties:
+        project_item_id:
+          $ref: '#/components/schemas/Uuid'
+        quantity:
+          description: >-
+            Quantite de la ligne. Absente, elle est reprise du chiffrage source
+            comme le fait `createQuoteFromProject`. Fournie et differente de
+            celle du chiffrage, elle vaut declaration explicite : la ligne
+            portera l alerte `production_cost_stale`, le cout n ayant pas ete
+            rejoue pour cette quantite.
+          type: integer
+          format: int32
+          minimum: 1
+
+    CreateFreeQuoteLineCommand:
+      title: CreateFreeQuoteLineCommand
+      description: >-
+        Ajout d une ligne LIBRE : intitule, quantite et cout de production
+        saisis a la main, sans element de projet (capacite de l ancien editeur
+        de devis, reprise sur decision d Arnaud du 01/09).
+
+
+        `production_price` est une ENTREE du moteur de prix, pas un prix
+        calcule : le fournir ici ne contrevient pas a l interdit du sprint. Le
+        prix de vente, lui, reste resolu par `PriceRulesService.resolve()` puis
+        `PricingEngine.price()` — l appelant ne propose jamais ni marge ni prix
+        a la creation.
+      type: object
+      additionalProperties: false
+      required: [label, quantity, production_price]
+      properties:
+        label:
+          type: string
+          minLength: 1
+          maxLength: 300
+        quantity:
+          type: integer
+          format: int32
+          minimum: 1
+        production_price:
+          description: Cout de production, TOTAL pour `quantity`, jamais un prix unitaire.
+          $ref: '#/components/schemas/MoneyNonNegative'
+
+    CreateQuoteLineCommand:
+      title: CreateQuoteLineCommand
+      description: >-
+        Corps de `addQuoteLine` : l une OU l autre des deux formes, jamais un
+        melange. Les deux schemas etant fermes (`additionalProperties: false`),
+        la seule presence de `project_item_id` suffit a les departager — pas
+        besoin d un champ de discrimination redondant que l appelant pourrait
+        contredire.
+      oneOf:
+        - $ref: '#/components/schemas/CreateQuoteLineFromProjectItemCommand'
+        - $ref: '#/components/schemas/CreateFreeQuoteLineCommand'
+
+    UpdateQuoteLineCommand:
+      title: UpdateQuoteLineCommand
+      description: >-
+        Modification d une ligne (E10.9 CA1, elargi a la quantite).
+
+
+        `sale_price` et `margin_rate` sont deux ENTREES de la meme grandeur :
+        le commercial agit sur le prix ou sur la marge, l action sur l un
+        determine l autre. Les envoyer ensemble est refuse en 422
+        `api.validation_failed` — le serveur n a pas a arbitrer laquelle des
+        deux l appelant voulait vraiment.
+
+
+        Ce que ce corps n admet PAS, volontairement :
+
+        - `discount_rate` et `margin_variation` : DEDUITS (CA2, CA3), les
+          accepter en entree creerait un troisieme point de verite
+          contradictoire ;
+
+        - `production_price`, `public_price`, `customer_price`,
+          `applied_margin_rate`, `applied_rule_id` : colonnes immuables et
+          informatives (CA4) ;
+
+        - `position` : etat de la collection, voir `reorderQuoteLines` ;
+
+        - `label` et `product_config` : hors du geste decrit par la story. Sur
+          une ligne liee, l intitule appartient au chiffrage source ; sur une
+          ligne libre, une correction passe aujourd hui par un retrait suivi
+          d un ajout, qui laisse deux traces d audit franches.
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      not:
+        required: [sale_price, margin_rate]
+      properties:
+        sale_price:
+          description: >-
+            Prix de vente propose, TOTAL pour la quantite de la ligne. Le
+            serveur en derive `sale_margin_rate`, `discount_rate` et
+            `margin_variation`.
+          $ref: '#/components/schemas/MoneyNonNegative'
+        margin_rate:
+          description: >-
+            Taux de marge vise sur le cout de production. Le serveur en derive
+            `sale_price = production_price * (1 + margin_rate)`, arrondi au
+            centime, puis la remise et l ecart de marge.
+
+
+            Signe : un taux NEGATIF est accepte (vente sous le cout, alertee
+            par `warnings`, jamais refusee — CA7 amende). Refuse en 422
+            `quote_line.margin_not_derivable` sur une ligne dont le
+            `production_price` vaut `"0.00"`, ou aucun taux ne produit de prix.
+          $ref: '#/components/schemas/Rate'
+        quantity:
+          description: >-
+            Nouvelle quantite. Ne re-chiffre pas `production_price` : sur une
+            ligne liee a un chiffrage, la ligne porte alors l alerte
+            `production_cost_stale`.
+          type: integer
+          format: int32
+          minimum: 1
+
+    ReorderQuoteLinesCommand:
+      title: ReorderQuoteLinesCommand
+      description: >-
+        Nouvel ordre COMPLET des lignes du devis. `line_ids` doit recouvrir
+        exactement l ensemble des lignes existantes, sans doublon ni omission
+        (sinon 422 `quote_line.positions_mismatch`) : un ordre partiel
+        laisserait les lignes omises a une position indeterminee, ce qu aucune
+        regle de repli ne peut deviner honnetement. Le serveur reaffecte
+        `position` de 0 a n-1 dans l ordre fourni.
+      type: object
+      additionalProperties: false
+      required: [line_ids]
+      properties:
+        line_ids:
+          type: array
+          minItems: 1
+          maxItems: 500
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/Uuid'
+
+    QuoteLineAuditAction:
+      title: QuoteLineAuditAction
+      description: >-
+        Nature de l evenement journalise. `updated` porte le geste commercial
+        et la requantification (une entree PAR CHAMP change) ; `added` et
+        `removed` portent l etat de la ligne dans `line_snapshot` ; `reordered`
+        porte le seul deplacement de `position`.
+      type: string
+      enum: [added, updated, removed, reordered]
+
+    QuoteLineAuditField:
+      title: QuoteLineAuditField
+      description: >-
+        Champ PERSISTE dont la valeur a change. Liste fermee et volontairement
+        courte : elle ne contient que des champs stockes, jamais une valeur
+        derivee d eux (`sale_margin_rate` se recalcule a tout instant depuis
+        `sale_price` et `production_price` — l auditer produirait une seconde
+        version de la meme information, qui pourrait un jour la contredire).
+      type: string
+      enum: [sale_price, discount_rate, margin_variation, quantity, position]
+
+    QuoteLineAuditEntry:
+      title: QuoteLineAuditEntry
+      description: >-
+        Entree du journal d audit d une ligne de devis (E10.9 CA5, CA6).
+        APPEND-ONLY : jamais modifiee, jamais supprimee, y compris quand la
+        ligne qu elle decrit est retiree du devis. Aucune operation d ecriture
+        n existe sur ce journal dans le contrat.
+
+
+        GRANULARITE : une entree par CHAMP PERSISTE effectivement change. Une
+        seule action d un commercial (poser un prix de vente) en produit donc
+        plusieurs — `sale_price`, `discount_rate`, `margin_variation` — reliees
+        par un meme `change_set_id`. C est ce qui permet de repondre a la fois
+        a « qui a change la remise » (par champ) et a « qu a fait ce
+        commercial a 14h32 » (par lot), sans stocker deux fois la meme trace.
+        Un champ envoye avec sa valeur courante ne cree AUCUNE entree : le
+        journal enregistre des changements, pas des requetes.
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - quote_id
+        - quote_line_id
+        - change_set_id
+        - action
+        - field
+        - previous_value
+        - new_value
+        - line_snapshot
+        - actor_id
+        - actor_label
+        - occurred_at
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        quote_id:
+          $ref: '#/components/schemas/Uuid'
+        quote_line_id:
+          description: >-
+            Ligne concernee. L identifiant est CONSERVE apres suppression de la
+            ligne : sans lui, l historique d une ligne retiree deviendrait
+            inexploitable.
+          $ref: '#/components/schemas/Uuid'
+        change_set_id:
+          description: >-
+            Regroupe les entrees nees d une MEME requete. Deux gestes distincts
+            ne partagent jamais un `change_set_id`.
+          $ref: '#/components/schemas/Uuid'
+        action:
+          $ref: '#/components/schemas/QuoteLineAuditAction'
+        field:
+          description: >-
+            Champ modifie, pour `updated` et `reordered`. `null` sur `added` et
+            `removed`, qui concernent la ligne entiere et portent
+            `line_snapshot`.
+          oneOf:
+            - $ref: '#/components/schemas/QuoteLineAuditField'
+            - type: 'null'
+        previous_value:
+          description: >-
+            Valeur AVANT, rendue en chaine avec la serialisation du champ
+            concerne (`Money` pour un prix, `Rate` pour un taux, entier decimal
+            pour une quantite ou une position). `null` quand le champ n avait
+            pas de valeur, et sur `added`.
+          oneOf:
+            - type: string
+              maxLength: 64
+            - type: 'null'
+        new_value:
+          description: >-
+            Valeur APRES, meme serialisation que `previous_value`. `null` sur
+            `removed`.
+          oneOf:
+            - type: string
+              maxLength: 64
+            - type: 'null'
+        line_snapshot:
+          description: >-
+            Etat complet de la ligne au moment de l evenement, pour `added`
+            (etat cree) et `removed` (etat retire) ; `null` pour `updated` et
+            `reordered`, ou le couple avant/apres suffit et ou un instantane
+            ferait doublon. Forme libre volontairement : c est une PHOTO, pas
+            une ressource — la figer sur `QuoteLine` obligerait a reecrire
+            l histoire a chaque evolution du schema.
+          type:
+            - object
+            - 'null'
+          additionalProperties: true
+        actor_id:
+          description: >-
+            Auteur du changement. `null` uniquement pour une action systeme (il
+            n en existe aucune aujourd hui : toutes les ecritures de ligne
+            exigent un jeton utilisateur).
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        actor_label:
+          description: >-
+            Libelle de l auteur FIGE au moment de l action (nom ou courriel).
+            Denormalise volontairement : un commercial qui quitte le tenant ne
+            doit pas rendre son historique anonyme, et l identifiant seul
+            n est pas une reponse lisible a « qui a accorde cette remise ».
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 320
+            - type: 'null'
+        occurred_at:
+          $ref: '#/components/schemas/Timestamp'
+
+    QuoteLineChangedPayload:
+      title: QuoteLineChangedPayload
+      description: >-
+        Charge utile de l evenement sortant `quote_line.changed`
+        (`event_version: 1`). Volontairement minimale, meme parti que
+        `PriceRuleChangedPayload` : les identifiants et l action. Un
+        consommateur qui a besoin de l etat de la ligne la relit par
+        `getQuoteLine` — transporter une copie de `QuoteLine` obligerait a
+        versionner l evenement a chaque evolution de son schema, et diffuserait
+        des prix commerciaux a tout abonne du bus.
+
+
+        `aggregate_type` vaut `quote_line`, `aggregate_id` la ligne concernee ;
+        sur un reordonnancement, un evenement par ligne deplacee.
+      type: object
+      additionalProperties: false
+      required: [quote_id, quote_line_id, action]
+      properties:
+        quote_id:
+          $ref: '#/components/schemas/Uuid'
+        quote_line_id:
+          $ref: '#/components/schemas/Uuid'
+        action:
+          description: >-
+            Meme vocabulaire que `QuoteLineAuditAction` : ce que le journal
+            interne enregistre et ce que le bus annonce ne doivent pas se dire
+            avec deux mots differents.
+          $ref: '#/components/schemas/QuoteLineAuditAction'
 
     # --------------------------------------------------------------------------
     # Stories E10.6 (referentiel des regles de prix) et E10.7 (arbitrage par la

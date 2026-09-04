@@ -445,6 +445,161 @@ export interface paths {
         patch: operations["updateQuote"];
         trace?: never;
     };
+    "/quotes/{quoteId}/lines": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ajoute une ligne a un devis brouillon, sous DEUX formes exclusives (decision d Arnaud du 01/09, capacite de l ancien editeur) :
+         *
+         *     - ligne LIEE a un chiffrage du projet source (`project_item_id`
+         *       fourni) : `label`, `product_config`, `quantity` et `production_price`
+         *       sont repris de l element, exactement comme le fait deja
+         *       `createQuoteFromProject` (E10.3 CA2-CA3) — jamais ressaisis, jamais
+         *       recalcules cote client ;
+         *
+         *     - ligne LIBRE (`project_item_id` absent) : `label`, `quantity` et
+         *       `production_price` sont saisis a la main, sans element de projet
+         *       derriere. Elle porte `origin: free`.
+         *
+         *
+         *     Dans les DEUX cas le prix est resolu par le serveur (`PriceRulesService.resolve()` puis `PricingEngine.price()`) : une ligne n est jamais creee avec une marge nulle « en attendant », et `sale_price` demarre sur le `customer_price` calcule, donc avec une remise nulle et un ecart de marge nul.
+         *
+         *     La ligne est ajoutee EN FIN de devis (`position` = derniere + 1). Un placement precis se fait ensuite par `reorderQuoteLines` : `position` n est pas un champ de creation, car il engage aussi les lignes voisines.
+         */
+        post: operations["addQuoteLine"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/quotes/{quoteId}/lines/{lineId}": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /** Recupere une ligne et son `ETag` courant — necessaire pour enchainer un `PATCH` protege par `If-Match` (CA9). `getQuote` n emet aucun `ETag` de ligne : son `ETag` porte sur l en-tete du devis, pas sur chacune de ses lignes ; c est cet endpoint, pas la fiche du devis, qui fait foi pour la concurrence optimiste d une ligne donnee (meme regle que `getCustomerContact` vis-a-vis de `listCustomerContacts`). */
+        get: operations["getQuoteLine"];
+        put?: never;
+        post?: never;
+        /**
+         * Retire une ligne d un devis A L ETAT BROUILLON UNIQUEMENT, meme garde que `deleteQuote`. Les positions des lignes suivantes sont resserrees par le serveur pour rester contigues.
+         *
+         *     Le retrait ne touche jamais l element de projet source (E10.3 CA7) : il reste disponible pour ce devis ou pour un autre. L audit conserve une entree `removed` portant l etat de la ligne au moment du retrait — une ligne supprimee reste opposable (CA6).
+         */
+        delete: operations["deleteQuoteLine"];
+        options?: never;
+        head?: never;
+        /**
+         * Modifie une ligne d un devis brouillon : prix de vente OU taux de marge (CA1), et quantite (capacite reprise de l ancien editeur).
+         *
+         *     `sale_price` et `margin_rate` sont MUTUELLEMENT EXCLUSIFS dans un meme corps : ils decrivent la meme grandeur par deux entrees, et les envoyer ensemble ne dirait pas laquelle fait foi. Le serveur derive systematiquement l autre, plus `discount_rate` et `margin_variation` (CA2, CA3), et rend la ligne COMPLETE — le client affiche, il ne recalcule pas.
+         *
+         *     Ce que ce PATCH ne touche JAMAIS : `production_price`, `public_price`, `customer_price`, `applied_margin_rate`, `applied_rule_id`. Colonnes immuables et informatives (CA4) — ce sont les references contre lesquelles le geste commercial se mesure ; les rendre modifiables effacerait la mesure. `position` non plus : voir `reorderQuoteLines`.
+         *
+         *     Toute modification effective ecrit une entree d audit par champ persiste change (CA5), consultable par `listQuoteAuditEntries`.
+         */
+        patch: operations["updateQuoteLine"];
+        trace?: never;
+    };
+    "/quotes/{quoteId}/line-positions": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Reordonne les lignes d un devis brouillon. `line_ids` porte la liste COMPLETE des lignes du devis dans l ordre voulu ; le serveur reaffecte `position` de 0 a n-1 dans cet ordre.
+         *
+         *     Pourquoi un endpoint dedie plutot qu un champ `position` dans `updateQuoteLine` : deplacer UNE ligne renumerote ses voisines, donc modifie des ressources que l `If-Match` de la ligne deplacee ne couvre pas. Le reordonnancement est un etat de la COLLECTION, pas un attribut d une ligne isolee — meme raisonnement et meme forme que `replaceProjectTags` (E10.2). Un `position` dans le PATCH aurait offert deux facons divergentes de faire la meme chose, dont une silencieusement non transactionnelle.
+         *
+         *     `If-Match` porte donc sur LE DEVIS (`ETag` de `getQuote`), pas sur une ligne.
+         */
+        put: operations["reorderQuoteLines"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/quotes/{quoteId}/audit-entries": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Journal d audit des lignes d un devis (CA5, CA6) : qui a change quoi, quand, de quelle valeur a quelle valeur. LECTURE SEULE et APPEND-ONLY — aucune operation d ecriture, de correction ou de purge n existe sur ce chemin, ni ici ni ailleurs dans le contrat. C est la piece qui rend un prix opposable a son auteur.
+         *
+         *     Chemin `audit-entries` et non `audit` : la regle de nommage du socle (CA3, `checkResourcePath`) impose le pluriel sur tout segment de ressource, et elle est verifiee par le lint du contrat.
+         *
+         *     Ordre par defaut : du plus recent au plus ancien. Pagination par curseur comme toutes les collections de la facade.
+         */
+        get: operations["listQuoteAuditEntries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/price-rules": {
         parameters: {
             query?: never;
@@ -668,6 +823,28 @@ export interface webhooks {
         patch?: never;
         trace?: never;
     };
+    "quote_line.changed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Une ligne de devis a ete ajoutee, modifiee, retiree ou deplacee (E10.9). Un evenement par ligne reellement changee : un reordonnancement de trois lignes en emet trois, aucun pour les lignes restees en place.
+         *
+         *     Distinct de `quote.created` (E10.3) et de `quote.converted` (E10.12) : ceux-la portent le cycle de vie du DEVIS, celui-ci le contenu de ses lignes. Un consommateur qui cache un total de devis doit ecouter les trois.
+         * @description `payload` est fige par `QuoteLineChangedPayload` (`event_version: 1`). Il ne porte que les identifiants et l action : les montants commerciaux (prix de vente, remise, ecart de marge) ne transitent PAS par le bus — un abonne habilite les relit par `getQuoteLine`.
+         */
+        post: operations["onQuoteLineChanged"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "price_rule.changed": {
         parameters: {
             query?: never;
@@ -699,6 +876,15 @@ export interface components {
          * @example -89.90
          */
         Money: string;
+        /**
+         * MoneyNonNegative
+         * @description Montant monetaire POSITIF OU NUL, meme serialisation que `Money`. Plus strict que lui, jamais en contradiction avec lui — meme rapport que `nonNegativeRateSchema` a `Rate` cote Zod (E10.6).
+         *
+         *     Sert la ou un montant negatif n a pas de sens metier : un cout de production, un prix public, un prix client, un prix de vente. La marge et la remise, elles, peuvent etre negatives et restent des `Rate`.
+         * @example 1234.50
+         * @example 0.00
+         */
+        MoneyNonNegative: string;
         /**
          * Rate
          * @description Taux (marge, remise, TVA). Stocke en `numeric(6,4)`, serialise en CHAINE a quatre decimales. `"0.5000"` vaut 50 %.
@@ -785,6 +971,7 @@ export interface components {
          * @example api.resource_conflict
          * @example identity.authentication_required
          * @example identity.scope_required
+         * @example identity.role_required
          * @example identity.tenant_not_resolved
          * @example identity.tenant_selection_required
          */
@@ -827,7 +1014,7 @@ export interface components {
          * @description Nom d evenement sortant, `agregat.action` en snake_case. Liste additive : une story ulterieure peut en ajouter, jamais en retirer.
          * @enum {string}
          */
-        EventName: "quote.converted" | "quote.created" | "order.step_changed" | "order.files_submitted" | "customer.created" | "project.created" | "price_rule.changed";
+        EventName: "quote.converted" | "quote.created" | "quote_line.changed" | "order.step_changed" | "order.files_submitted" | "customer.created" | "project.created" | "price_rule.changed";
         /**
          * EventEnvelope
          * @description Enveloppe versionnee d un evenement sortant (CA10). Le corps signe par `X-Magrit-Signature` est exactement la serialisation JSON de cette enveloppe, octet pour octet.
@@ -847,6 +1034,7 @@ export interface components {
             /**
              * @description Type de l agregat porteur, en snake_case.
              * @example quote
+             * @example quote_line
              * @example order
              * @example customer
              * @example project
@@ -1181,36 +1369,88 @@ export interface components {
         QuoteStatus: "draft" | "sent" | "accepted" | "rejected" | "converted";
         /**
          * QuoteLine
-         * @description Ligne de devis au format `PricedLine` de l interface PricingEngine (E10.21, pas encore livree — E10.8 est gelee, specification seule). `production_price` (cout de production issu du chiffrage source, CA3) est le seul prix renseigne par cette story : `public_price`, `customer_price`, `applied_margin_rate` et `applied_rule_id` sont `null` et `breakdown` est vide tant qu E10.21 n est pas livree. Voir docs/api/CONVENTIONS.md pour la tracabilite de cette dependance.
+         * @description Ligne de devis au format `PricedLine` de l interface `PricingEngine` (E10.21), enrichie par E10.9 du geste commercial (`sale_price`, `discount_rate`, `margin_variation`) et de ses alertes (`warnings`).
+         *
+         *     TOUS LES MONTANTS SONT DES TOTAUX DE LIGNE pour `quantity`, jamais des prix unitaires. C est la forme dans laquelle un chiffrage Clariprint remonte (un tirage de 1000 exemplaires a un prix, pas un prix par exemplaire) et celle qu E10.3 a deja ecrite en base. Un client qui multiplierait un de ces montants par `quantity` doublerait le devis.
+         *
+         *     Ce que le SERVEUR calcule, et que personne d autre ne recalcule : `public_price`, `customer_price`, `applied_margin_rate`, `applied_rule_id` et `breakdown` viennent de `PricingEngine.price()` (E10.21) sur la regle resolue par `PriceRulesService.resolve()` (E10.6/E10.7) ; `sale_margin_rate`, `discount_rate` et `margin_variation` sont derives de `sale_price` par les formules ci-dessous. Aucune de ces valeurs n est une proposition du client.
+         *
+         *     Durcissement assume par E10.9 (E10.3 les publiait `null` / vide en attendant E10.21, desormais livree) : `public_price`, `customer_price` et `applied_margin_rate` ne sont plus nullables, et `breakdown` porte au moins un element (`post: total`), invariant central d E10.21. Cela RESTREINT ce que la facade peut rendre, jamais ce qu un appelant peut demander : aucun consommateur ne dependait de l absence de prix, qui n a jamais ete un etat cible mais une dette datee (docs/api/CONVENTIONS.md §8.6, §8.9). En contrepartie, les lignes creees par E10.3 avant cette story doivent etre valorisees a la livraison, sans quoi la facade violerait son propre contrat.
          */
         QuoteLine: {
             id: components["schemas"]["Uuid"];
             quote_id: components["schemas"]["Uuid"];
-            /** @description Element de chiffrage source (CA3). Le retrait de ce devis ne supprime ni ne marque exclusivement l element : il reste disponible pour d autres devis (CA7). */
-            project_item_id: components["schemas"]["Uuid"];
+            /** @description Provenance de la ligne. Signal POSITIF, prefere a un test sur la nullite de `project_item_id` : un consommateur branche son affichage dessus sans avoir a deviner ce que `null` veut dire. */
+            origin: components["schemas"]["QuoteLineOrigin"];
+            /**
+             * @description Element de chiffrage source (E10.3 CA3), `null` pour une ligne LIBRE saisie a la main (E10.9 elargie, decision d Arnaud du 01/09 : capacite de l ancien editeur de devis). Le retrait de la ligne ne supprime ni ne marque exclusivement l element : il reste disponible pour d autres devis (E10.3 CA7).
+             *
+             *     Elargissement assume de ce champ, deja publie non nullable par E10.3 : une ligne libre n a par construction aucun element de projet derriere elle, et un identifiant invente serait pire qu un `null` explicite. `origin` donne au consommateur le discriminant franc que la seule nullite ne donnait pas.
+             */
+            project_item_id: components["schemas"]["Uuid"] | null;
             label: string;
-            /** @description Configuration produit reprise telle quelle du chiffrage source (CA3), forme libre — miroir de `ProjectItem.quote_payload`. */
+            /** @description Configuration produit reprise telle quelle du chiffrage source (E10.3 CA3), forme libre — miroir de `ProjectItem.quote_payload`. Objet vide sur une ligne libre : il n y a pas de configuration produit derriere une saisie manuelle. */
             product_config: {
                 [key: string]: unknown;
             };
-            /** Format: int32 */
+            /**
+             * Format: int32
+             * @description Quantite annoncee sur le devis. Modifiable par `updateQuoteLine`. ATTENTION : elle ne re-chiffre PAS `production_price`, qui reste la valeur figee du chiffrage source (aucun appel Clariprint n est declenche par cette facade) — d ou l alerte `production_cost_stale` sur une ligne liee dont la quantite change.
+             */
             quantity: number;
-            /** Format: int32 */
+            /**
+             * Format: int32
+             * @description Rang de la ligne dans le devis, contigu et commencant a 0. Fixe par le serveur : ajout en fin, resserrement au retrait, reaffectation complete par `reorderQuoteLines`. Jamais propose par le client ligne par ligne.
+             */
             position: number;
-            /** @description Cout de production issu du chiffrage source (CA3). */
-            production_price: components["schemas"]["Money"];
-            /** @description Point d extension E10.21 : `null` tant que le moteur de prix n est pas livre. */
-            public_price: components["schemas"]["Money"] | null;
-            /** @description Point d extension E10.21 : `null` tant que le moteur de prix n est pas livre. */
-            customer_price: components["schemas"]["Money"] | null;
-            /** @description Point d extension E10.21 : `null` tant que le moteur de prix n est pas livre. */
-            applied_margin_rate: components["schemas"]["Rate"] | null;
-            /** @description Point d extension E10.21 : `null` tant que le moteur de prix n est pas livre. */
+            /** @description Cout de production, total pour `quantity`. Issu du chiffrage source (E10.3 CA3) ou saisi a la main sur une ligne libre. Colonne IMMUABLE et informative (E10.9 CA4) : elle est la reference contre laquelle la marge et la remise se mesurent, aucune operation de cette facade ne la modifie. */
+            production_price: components["schemas"]["MoneyNonNegative"];
+            /** @description Prix public, total pour `quantity` : `production_price` majore du taux de marge retenu par le moteur (E10.21). Colonne immuable et informative (CA4). */
+            public_price: components["schemas"]["MoneyNonNegative"];
+            /**
+             * @description Prix client, total pour `quantity` : `public_price` diminue de la remise portee par la regle de prix resolue, s il y en a une (E10.21). C est le prix AVANT tout geste commercial de cette story — la reference de calcul de `discount_rate`. Colonne immuable et informative (CA4).
+             *
+             *     Positif ou nul, toujours : un prix client negatif serait une facture a l envers. E10.6 ne plafonne PAS aujourd hui une regle de type `discount_rate` a 100 % ; une regle mal saisie a 150 % produirait un montant negatif que ce contrat refuse de publier. C est une borne a poser sur la REGLE (E10.6), pas un signe a tolerer ici.
+             */
+            customer_price: components["schemas"]["MoneyNonNegative"];
+            /** @description Taux de marge resolu par la regle de prix (etape production -> public, E10.21), INDEPENDANT de toute remise client. C est le taux « initialement resolu » auquel `margin_variation` se compare (E10.9 CA3). Colonne immuable et informative (CA4). */
+            applied_margin_rate: components["schemas"]["Rate"];
+            /** @description Regle de prix qui a effectivement fixe le prix de cette ligne (E10.6/E10.7). `null` est une valeur NORMALE : aucune regle active ne couvrait le couple client/gamme a la date de calcul — le moteur a alors applique la marge de gamme par defaut. Ce n est pas une absence de valorisation. */
             applied_rule_id: components["schemas"]["Uuid"] | null;
-            /** @description Detail du calcul de prix (E10.21). Toujours vide tant que cette story n est pas livree — pas de donnee inventee. */
-            breakdown: {
-                [key: string]: unknown;
-            }[];
+            /** @description Prix de vente effectivement porte au devis, total pour `quantity` (E10.9 CA1). Seule grandeur monetaire que le commercial pilote, directement ou via `margin_rate`. A la creation de la ligne, il vaut `customer_price` : aucune remise, aucun ecart de marge. */
+            sale_price: components["schemas"]["MoneyNonNegative"];
+            /**
+             * @description Taux de marge REELLEMENT obtenu par `sale_price` sur le cout de production : `(sale_price - production_price) / production_price`, arrondi a quatre decimales. Publie par le serveur pour que l affichage simultane prix/marge du CA1 ne repose sur aucun calcul cote navigateur.
+             *
+             *     Negatif quand la ligne se vend sous son cout — situation permise et signalee par `warnings`, jamais refusee (CA7 amende).
+             *
+             *     `null` dans deux cas seulement, et le contrat les nomme plutot que de rendre un zero trompeur : `production_price` vaut `"0.00"` (une marge sur zero n existe pas), ou le rapport sort de l intervalle representable par un `numeric(6,4)`. `sale_price` reste alors la valeur qui fait foi.
+             */
+            sale_margin_rate: components["schemas"]["Rate"] | null;
+            /**
+             * @description Remise DEDUITE, jamais saisie (E10.9 CA2) : `(customer_price - sale_price) / customer_price`, arrondie a quatre decimales. Positive quand le commercial descend sous le prix client, NEGATIVE quand il le majore — les deux sont legitimes.
+             *
+             *     `null` quand `customer_price` vaut `"0.00"` (aucune base de remise) ou quand le rapport sort de l intervalle representable par un `numeric(6,4)`.
+             */
+            discount_rate: components["schemas"]["Rate"] | null;
+            /**
+             * @description Ecart entre le taux de marge obtenu et celui qu avait resolu la regle de prix (E10.9 CA3) : `sale_margin_rate - applied_margin_rate`. Nul tant que le commercial n a rien touche — c est la mesure exacte de son geste, et c est ce que l audit rend opposable.
+             *
+             *     `null` exactement quand `sale_margin_rate` l est.
+             */
+            margin_variation: components["schemas"]["Rate"] | null;
+            /**
+             * @description Detail du calcul de prix rendu par `PricingEngine` (E10.21). JAMAIS vide : au minimum l element agrege `post: total` produit par l implementation provisoire `SingleCostPricingEngine`. Le jour ou E10.8 est degelee, la decomposition Clariprint reelle ENRICHIT ce tableau — elle n en change pas la forme, et aucun consommateur n a a etre repris.
+             *
+             *     `sum(breakdown[].price)` vaut `customer_price` (le prix AVANT geste commercial), pas `sale_price` : le moteur ne connait pas la remise manuelle de cette story.
+             */
+            breakdown: components["schemas"]["PricedLineBreakdownItem"][];
+            /**
+             * @description Alertes calculees par le serveur sur l etat courant de la ligne (E10.9 CA7 amende au WM du 01/09). Tableau vide quand tout est normal. Porte par TOUTE representation d une ligne — creation, lecture, modification, fiche du devis — pour qu une ligne problematique ne puisse pas etre affichee sans son alerte selon le chemin par lequel on l a obtenue.
+             *
+             *     Jamais bloquant : leur presence n empeche ni l enregistrement, ni l envoi du devis. Une alerte n est pas un refus.
+             */
+            warnings: components["schemas"]["QuoteLineWarning"][];
             created_at: components["schemas"]["Timestamp"];
         };
         /**
@@ -1270,6 +1510,206 @@ export interface components {
         UpdateQuoteCommand: {
             valid_until?: string | null;
             show_discounts?: boolean;
+        };
+        /**
+         * CostPost
+         * @description Poste de cout d une ligne (E10.21, `CostPost`). `total` est le poste UNIQUE rendu par l implementation provisoire `SingleCostPricingEngine` tant qu E10.8 (decomposition Clariprint reelle) reste gelee. Les quatre autres valeurs sont deja publiees : elles apparaitront dans `breakdown[]` sans changement de forme le jour ou E10.8 est degelee.
+         * @enum {string}
+         */
+        CostPost: "printing" | "finishing" | "packaging" | "shipping" | "total";
+        /**
+         * CostSource
+         * @description Provenance du cout d un poste (E10.21, resolution de la derogation p7 — docs/api/CONVENTIONS.md §8.6/§8.9) : `clariprint` pour un chiffrage reel, `prix_marche` pour une estimation heuristique (`estimateMarketPriceHT()`). Sous-ensemble volontaire de la hierarchie de `resolvePrice()` : `library_cached` et `zero` qualifient la resolution d un prix affiche, jamais un cout de production deja arrete.
+         * @enum {string}
+         */
+        CostSource: "clariprint" | "prix_marche";
+        /**
+         * PricedLineBreakdownItem
+         * @description Detail du calcul pour un poste (E10.21, `PricedLineBreakdownItem`).
+         *
+         *     `price` est le montant FINAL du pour ce poste, remise de la regle de prix DEJA incluse — c est `customer_price` reparti sur les postes, ni le prix public, ni le cout. `margin_rate` ne porte que l etape production -> public : `cost * (1 + margin_rate)` ne redonne pas `price` des qu une remise s applique. Ces deux points ont deja ete re-derives a tort une fois (qa-review E10.21, B3) ; ils sont ici pour ne plus l etre.
+         *
+         *     Typage de `breakdown[]` par E10.9 : E10.3 le publiait comme un objet libre faute d E10.21. Restreindre ce que la facade RETOURNE n ouvre aucun cas nouveau au client et ferme une forme que le moteur ne produit pas.
+         */
+        PricedLineBreakdownItem: {
+            post: components["schemas"]["CostPost"];
+            /** @description Cout de production de ce poste, total pour la quantite de la ligne. */
+            cost: components["schemas"]["MoneyNonNegative"];
+            /** @description Taux applique a l etape production -> public pour ce poste. */
+            margin_rate: components["schemas"]["Rate"];
+            /** @description Montant final du pour ce poste, remise de la regle incluse. */
+            price: components["schemas"]["MoneyNonNegative"];
+            source: components["schemas"]["CostSource"];
+        };
+        /**
+         * QuoteLineOrigin
+         * @description Provenance d une ligne de devis. `project_item` : issue d un chiffrage du projet source (E10.3 CA2-CA3), `project_item_id` renseigne. `free` : ligne libre saisie a la main (E10.9 elargie, decision d Arnaud du 01/09), sans element de projet derriere elle.
+         * @enum {string}
+         */
+        QuoteLineOrigin: "project_item" | "free";
+        /**
+         * QuoteLineWarningCode
+         * @description Motif d alerte sur une ligne. Liste ADDITIVE : un consommateur doit ignorer un code qu il ne connait pas, jamais echouer dessus — une alerte inconnue reste une alerte, et le tenir pour une erreur transformerait un avertissement en panne.
+         *
+         *     Aucun de ces codes ne produit de statut 4xx (CA7 amende au WM du 01/09) : ils ne decrivent pas un refus, ils decrivent une situation que le commercial doit voir.
+         * @enum {string}
+         */
+        QuoteLineWarningCode: "negative_margin" | "discount_threshold_exceeded" | "production_cost_stale";
+        /**
+         * QuoteLineWarning
+         * @description Alerte portee par une ligne (E10.9 CA7 amende).
+         *
+         *     - `negative_margin` : `sale_price` est inferieur a `production_price` —
+         *       la ligne se vend a perte.
+         *
+         *     - `discount_threshold_exceeded` : `discount_rate` depasse le seuil
+         *       d alerte du tenant, rappele dans `threshold`.
+         *
+         *     - `production_cost_stale` : la quantite de la ligne a ete modifiee
+         *       alors que son `production_price` vient d un chiffrage fait pour une
+         *       AUTRE quantite. Le cout affiche ne correspond plus a ce qui est
+         *       vendu ; il faut re-chiffrer l element dans le projet source. Cette
+         *       facade ne rappelle jamais Clariprint d elle-meme.
+         */
+        QuoteLineWarning: {
+            code: components["schemas"]["QuoteLineWarningCode"];
+            /** @description Phrase courte destinee a l affichage, en francais. Non contractuelle : brancher un comportement sur `code`, jamais sur ce texte. */
+            message: string;
+            /**
+             * @description Seuil qui a declenche l alerte, quand elle en a un (`discount_threshold_exceeded`) ; `null` sinon. Publie pour que l interface explique le declenchement sans coder le seuil de son cote.
+             *
+             *     Le seuil n est PAS encore configurable : E10.11 (droits et reglages commerciaux) n est pas livree. Sa valeur de depart est un reglage de tenant a arbitrer par le metier, pas une constante inventee par l implementation.
+             */
+            threshold?: components["schemas"]["Rate"] | null;
+        };
+        /**
+         * CreateQuoteLineFromProjectItemCommand
+         * @description Ajout d une ligne LIEE a un chiffrage du projet source. `label`, `product_config` et `production_price` sont repris de l element, jamais transmis par l appelant : les accepter ici ouvrirait une porte pour poser un cout de production arbitraire sur une ligne reputee tracable.
+         *
+         *     L element doit appartenir AU PROJET SOURCE du devis, sinon 422 `quote_line.project_item_invalid`. Un meme element peut alimenter plusieurs lignes et plusieurs devis (E10.3 CA7) : aucune unicite n est exigee.
+         */
+        CreateQuoteLineFromProjectItemCommand: {
+            project_item_id: components["schemas"]["Uuid"];
+            /**
+             * Format: int32
+             * @description Quantite de la ligne. Absente, elle est reprise du chiffrage source comme le fait `createQuoteFromProject`. Fournie et differente de celle du chiffrage, elle vaut declaration explicite : la ligne portera l alerte `production_cost_stale`, le cout n ayant pas ete rejoue pour cette quantite.
+             */
+            quantity?: number;
+        };
+        /**
+         * CreateFreeQuoteLineCommand
+         * @description Ajout d une ligne LIBRE : intitule, quantite et cout de production saisis a la main, sans element de projet (capacite de l ancien editeur de devis, reprise sur decision d Arnaud du 01/09).
+         *
+         *     `production_price` est une ENTREE du moteur de prix, pas un prix calcule : le fournir ici ne contrevient pas a l interdit du sprint. Le prix de vente, lui, reste resolu par `PriceRulesService.resolve()` puis `PricingEngine.price()` — l appelant ne propose jamais ni marge ni prix a la creation.
+         */
+        CreateFreeQuoteLineCommand: {
+            label: string;
+            /** Format: int32 */
+            quantity: number;
+            /** @description Cout de production, TOTAL pour `quantity`, jamais un prix unitaire. */
+            production_price: components["schemas"]["MoneyNonNegative"];
+        };
+        /**
+         * CreateQuoteLineCommand
+         * @description Corps de `addQuoteLine` : l une OU l autre des deux formes, jamais un melange. Les deux schemas etant fermes (`additionalProperties: false`), la seule presence de `project_item_id` suffit a les departager — pas besoin d un champ de discrimination redondant que l appelant pourrait contredire.
+         */
+        CreateQuoteLineCommand: components["schemas"]["CreateQuoteLineFromProjectItemCommand"] | components["schemas"]["CreateFreeQuoteLineCommand"];
+        /**
+         * UpdateQuoteLineCommand
+         * @description Modification d une ligne (E10.9 CA1, elargi a la quantite).
+         *
+         *     `sale_price` et `margin_rate` sont deux ENTREES de la meme grandeur : le commercial agit sur le prix ou sur la marge, l action sur l un determine l autre. Les envoyer ensemble est refuse en 422 `api.validation_failed` — le serveur n a pas a arbitrer laquelle des deux l appelant voulait vraiment.
+         *
+         *     Ce que ce corps n admet PAS, volontairement :
+         *     - `discount_rate` et `margin_variation` : DEDUITS (CA2, CA3), les
+         *       accepter en entree creerait un troisieme point de verite
+         *       contradictoire ;
+         *
+         *     - `production_price`, `public_price`, `customer_price`,
+         *       `applied_margin_rate`, `applied_rule_id` : colonnes immuables et
+         *       informatives (CA4) ;
+         *
+         *     - `position` : etat de la collection, voir `reorderQuoteLines` ;
+         *     - `label` et `product_config` : hors du geste decrit par la story. Sur
+         *       une ligne liee, l intitule appartient au chiffrage source ; sur une
+         *       ligne libre, une correction passe aujourd hui par un retrait suivi
+         *       d un ajout, qui laisse deux traces d audit franches.
+         */
+        UpdateQuoteLineCommand: {
+            /** @description Prix de vente propose, TOTAL pour la quantite de la ligne. Le serveur en derive `sale_margin_rate`, `discount_rate` et `margin_variation`. */
+            sale_price?: components["schemas"]["MoneyNonNegative"];
+            /**
+             * @description Taux de marge vise sur le cout de production. Le serveur en derive `sale_price = production_price * (1 + margin_rate)`, arrondi au centime, puis la remise et l ecart de marge.
+             *
+             *     Signe : un taux NEGATIF est accepte (vente sous le cout, alertee par `warnings`, jamais refusee — CA7 amende). Refuse en 422 `quote_line.margin_not_derivable` sur une ligne dont le `production_price` vaut `"0.00"`, ou aucun taux ne produit de prix.
+             */
+            margin_rate?: components["schemas"]["Rate"];
+            /**
+             * Format: int32
+             * @description Nouvelle quantite. Ne re-chiffre pas `production_price` : sur une ligne liee a un chiffrage, la ligne porte alors l alerte `production_cost_stale`.
+             */
+            quantity?: number;
+        };
+        /**
+         * ReorderQuoteLinesCommand
+         * @description Nouvel ordre COMPLET des lignes du devis. `line_ids` doit recouvrir exactement l ensemble des lignes existantes, sans doublon ni omission (sinon 422 `quote_line.positions_mismatch`) : un ordre partiel laisserait les lignes omises a une position indeterminee, ce qu aucune regle de repli ne peut deviner honnetement. Le serveur reaffecte `position` de 0 a n-1 dans l ordre fourni.
+         */
+        ReorderQuoteLinesCommand: {
+            line_ids: components["schemas"]["Uuid"][];
+        };
+        /**
+         * QuoteLineAuditAction
+         * @description Nature de l evenement journalise. `updated` porte le geste commercial et la requantification (une entree PAR CHAMP change) ; `added` et `removed` portent l etat de la ligne dans `line_snapshot` ; `reordered` porte le seul deplacement de `position`.
+         * @enum {string}
+         */
+        QuoteLineAuditAction: "added" | "updated" | "removed" | "reordered";
+        /**
+         * QuoteLineAuditField
+         * @description Champ PERSISTE dont la valeur a change. Liste fermee et volontairement courte : elle ne contient que des champs stockes, jamais une valeur derivee d eux (`sale_margin_rate` se recalcule a tout instant depuis `sale_price` et `production_price` — l auditer produirait une seconde version de la meme information, qui pourrait un jour la contredire).
+         * @enum {string}
+         */
+        QuoteLineAuditField: "sale_price" | "discount_rate" | "margin_variation" | "quantity" | "position";
+        /**
+         * QuoteLineAuditEntry
+         * @description Entree du journal d audit d une ligne de devis (E10.9 CA5, CA6). APPEND-ONLY : jamais modifiee, jamais supprimee, y compris quand la ligne qu elle decrit est retiree du devis. Aucune operation d ecriture n existe sur ce journal dans le contrat.
+         *
+         *     GRANULARITE : une entree par CHAMP PERSISTE effectivement change. Une seule action d un commercial (poser un prix de vente) en produit donc plusieurs — `sale_price`, `discount_rate`, `margin_variation` — reliees par un meme `change_set_id`. C est ce qui permet de repondre a la fois a « qui a change la remise » (par champ) et a « qu a fait ce commercial a 14h32 » (par lot), sans stocker deux fois la meme trace. Un champ envoye avec sa valeur courante ne cree AUCUNE entree : le journal enregistre des changements, pas des requetes.
+         */
+        QuoteLineAuditEntry: {
+            id: components["schemas"]["Uuid"];
+            quote_id: components["schemas"]["Uuid"];
+            /** @description Ligne concernee. L identifiant est CONSERVE apres suppression de la ligne : sans lui, l historique d une ligne retiree deviendrait inexploitable. */
+            quote_line_id: components["schemas"]["Uuid"];
+            /** @description Regroupe les entrees nees d une MEME requete. Deux gestes distincts ne partagent jamais un `change_set_id`. */
+            change_set_id: components["schemas"]["Uuid"];
+            action: components["schemas"]["QuoteLineAuditAction"];
+            /** @description Champ modifie, pour `updated` et `reordered`. `null` sur `added` et `removed`, qui concernent la ligne entiere et portent `line_snapshot`. */
+            field: components["schemas"]["QuoteLineAuditField"] | null;
+            /** @description Valeur AVANT, rendue en chaine avec la serialisation du champ concerne (`Money` pour un prix, `Rate` pour un taux, entier decimal pour une quantite ou une position). `null` quand le champ n avait pas de valeur, et sur `added`. */
+            previous_value: string | null;
+            /** @description Valeur APRES, meme serialisation que `previous_value`. `null` sur `removed`. */
+            new_value: string | null;
+            /** @description Etat complet de la ligne au moment de l evenement, pour `added` (etat cree) et `removed` (etat retire) ; `null` pour `updated` et `reordered`, ou le couple avant/apres suffit et ou un instantane ferait doublon. Forme libre volontairement : c est une PHOTO, pas une ressource — la figer sur `QuoteLine` obligerait a reecrire l histoire a chaque evolution du schema. */
+            line_snapshot: {
+                [key: string]: unknown;
+            } | null;
+            /** @description Auteur du changement. `null` uniquement pour une action systeme (il n en existe aucune aujourd hui : toutes les ecritures de ligne exigent un jeton utilisateur). */
+            actor_id: components["schemas"]["Uuid"] | null;
+            /** @description Libelle de l auteur FIGE au moment de l action (nom ou courriel). Denormalise volontairement : un commercial qui quitte le tenant ne doit pas rendre son historique anonyme, et l identifiant seul n est pas une reponse lisible a « qui a accorde cette remise ». */
+            actor_label: string | null;
+            occurred_at: components["schemas"]["Timestamp"];
+        };
+        /**
+         * QuoteLineChangedPayload
+         * @description Charge utile de l evenement sortant `quote_line.changed` (`event_version: 1`). Volontairement minimale, meme parti que `PriceRuleChangedPayload` : les identifiants et l action. Un consommateur qui a besoin de l etat de la ligne la relit par `getQuoteLine` — transporter une copie de `QuoteLine` obligerait a versionner l evenement a chaque evolution de son schema, et diffuserait des prix commerciaux a tout abonne du bus.
+         *
+         *     `aggregate_type` vaut `quote_line`, `aggregate_id` la ligne concernee ; sur un reordonnancement, un evenement par ligne deplacee.
+         */
+        QuoteLineChangedPayload: {
+            quote_id: components["schemas"]["Uuid"];
+            quote_line_id: components["schemas"]["Uuid"];
+            /** @description Meme vocabulaire que `QuoteLineAuditAction` : ce que le journal interne enregistre et ce que le bus annonce ne doivent pas se dire avec deux mots differents. */
+            action: components["schemas"]["QuoteLineAuditAction"];
         };
         /**
          * PriceRuleScope
@@ -1585,6 +2025,8 @@ export interface components {
         ProjectId: components["schemas"]["Uuid"];
         /** @description Identifiant technique du devis, dans le tenant du jeton. */
         QuoteId: components["schemas"]["Uuid"];
+        /** @description Identifiant technique de la ligne de devis. Toujours resolu DANS le devis du chemin : une ligne d un autre devis rend 404 `quote_line.not_found`, jamais la ligne de l autre devis. */
+        QuoteLineId: components["schemas"]["Uuid"];
         /** @description Identifiant technique de la regle de prix, dans le tenant du jeton. */
         PriceRuleId: components["schemas"]["Uuid"];
         /** @description Identifiant technique de la gamme de produits (`public.product_gammes`, catalogue PIM partage). Le `slug` de la gamme (`depliant`, `affiche`) en est un attribut metier, pas une cle : il n adresse pas cette ressource (schema `Uuid`). */
@@ -1604,6 +2046,7 @@ export interface components {
     pathItems: never;
 }
 export type Money = components['schemas']['Money'];
+export type MoneyNonNegative = components['schemas']['MoneyNonNegative'];
 export type Rate = components['schemas']['Rate'];
 export type Currency = components['schemas']['Currency'];
 export type Timestamp = components['schemas']['Timestamp'];
@@ -1648,6 +2091,21 @@ export type Quote = components['schemas']['Quote'];
 export type QuoteDetail = components['schemas']['QuoteDetail'];
 export type CreateQuoteFromProjectCommand = components['schemas']['CreateQuoteFromProjectCommand'];
 export type UpdateQuoteCommand = components['schemas']['UpdateQuoteCommand'];
+export type CostPost = components['schemas']['CostPost'];
+export type CostSource = components['schemas']['CostSource'];
+export type PricedLineBreakdownItem = components['schemas']['PricedLineBreakdownItem'];
+export type QuoteLineOrigin = components['schemas']['QuoteLineOrigin'];
+export type QuoteLineWarningCode = components['schemas']['QuoteLineWarningCode'];
+export type QuoteLineWarning = components['schemas']['QuoteLineWarning'];
+export type CreateQuoteLineFromProjectItemCommand = components['schemas']['CreateQuoteLineFromProjectItemCommand'];
+export type CreateFreeQuoteLineCommand = components['schemas']['CreateFreeQuoteLineCommand'];
+export type CreateQuoteLineCommand = components['schemas']['CreateQuoteLineCommand'];
+export type UpdateQuoteLineCommand = components['schemas']['UpdateQuoteLineCommand'];
+export type ReorderQuoteLinesCommand = components['schemas']['ReorderQuoteLinesCommand'];
+export type QuoteLineAuditAction = components['schemas']['QuoteLineAuditAction'];
+export type QuoteLineAuditField = components['schemas']['QuoteLineAuditField'];
+export type QuoteLineAuditEntry = components['schemas']['QuoteLineAuditEntry'];
+export type QuoteLineChangedPayload = components['schemas']['QuoteLineChangedPayload'];
 export type PriceRuleScope = components['schemas']['PriceRuleScope'];
 export type PriceRuleValueType = components['schemas']['PriceRuleValueType'];
 export type PriceRuleStatusFilter = components['schemas']['PriceRuleStatusFilter'];
@@ -1681,6 +2139,7 @@ export type ParameterMagritEventName = components['parameters']['MagritEventName
 export type ParameterCustomerId = components['parameters']['CustomerId'];
 export type ParameterProjectId = components['parameters']['ProjectId'];
 export type ParameterQuoteId = components['parameters']['QuoteId'];
+export type ParameterQuoteLineId = components['parameters']['QuoteLineId'];
 export type ParameterPriceRuleId = components['parameters']['PriceRuleId'];
 export type ParameterProductRangeId = components['parameters']['ProductRangeId'];
 export type HeaderETag = components['headers']['ETag'];
@@ -2981,6 +3440,385 @@ export interface operations {
             428: components["responses"]["PreconditionRequired"];
         };
     };
+    addQuoteLine: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+                /** @description Cle d idempotence de la creation (CA8, voir components/parameters/IdempotencyKey pour la description complete). Sans elle, un double clic ou un rejeu reseau ajouterait deux fois la meme ligne a un devis. */
+                "Idempotency-Key": string;
+            };
+            path: {
+                /** @description Identifiant technique du devis, dans le tenant du jeton. */
+                quoteId: components["parameters"]["QuoteId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateQuoteLineCommand"];
+            };
+        };
+        responses: {
+            /** @description Ligne ajoutee, prix resolu par le moteur. L `ETag` est celui de la LIGNE : il permet d enchainer un `updateQuoteLine` sans relire. `warnings` peut deja etre non vide — une regle de prix peut mener sous le cout de production sans qu aucun geste commercial n ait eu lieu. */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["QuoteLine"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description Soit la cle d idempotence a deja servi pour une requete differente (`api.idempotency_key_reused`), soit le devis n est plus a l etat brouillon (`quote_line.quote_not_draft`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `project_item_id` ne designe aucun element DU PROJET SOURCE de ce devis (`quote_line.project_item_invalid`), ou `quantity` est inferieure a 1 (`quote_line.invalid_quantity`), ou le corps ne correspond a aucune des deux formes admises (`api.validation_failed`). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getQuoteLine: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path: {
+                /** @description Identifiant technique du devis, dans le tenant du jeton. */
+                quoteId: components["parameters"]["QuoteId"];
+                /** @description Identifiant technique de la ligne de devis. Toujours resolu DANS le devis du chemin : une ligne d un autre devis rend 404 `quote_line.not_found`, jamais la ligne de l autre devis. */
+                lineId: components["parameters"]["QuoteLineId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Ligne de devis. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["QuoteLine"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description Le devis ou la ligne n existe pas dans le tenant du jeton, ou la ligne appartient a un autre devis (`quote_line.not_found`). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    deleteQuoteLine: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path: {
+                /** @description Identifiant technique du devis, dans le tenant du jeton. */
+                quoteId: components["parameters"]["QuoteId"];
+                /** @description Identifiant technique de la ligne de devis. Toujours resolu DANS le devis du chemin : une ligne d un autre devis rend 404 `quote_line.not_found`, jamais la ligne de l autre devis. */
+                lineId: components["parameters"]["QuoteLineId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Ligne retiree du devis. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: {
+                            /** @enum {boolean} */
+                            deleted: true;
+                        };
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description Ligne inconnue dans ce devis (`quote_line.not_found`). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Le devis n est plus a l etat brouillon (`quote_line.quote_not_draft`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    updateQuoteLine: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+                /** @description Precondition de concurrence optimiste sur LA LIGNE (CA9, voir components/parameters/IfMatch pour la description complete). La valeur est celle rendue par `getQuoteLine`, `addQuoteLine` ou le precedent `updateQuoteLine` — jamais l `ETag` du devis, qui porte sur son en-tete. */
+                "If-Match": string;
+            };
+            path: {
+                /** @description Identifiant technique du devis, dans le tenant du jeton. */
+                quoteId: components["parameters"]["QuoteId"];
+                /** @description Identifiant technique de la ligne de devis. Toujours resolu DANS le devis du chemin : une ligne d un autre devis rend 404 `quote_line.not_found`, jamais la ligne de l autre devis. */
+                lineId: components["parameters"]["QuoteLineId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateQuoteLineCommand"];
+            };
+        };
+        responses: {
+            /** @description Ligne modifiee, TOUJOURS 200 meme quand `warnings` signale une marge negative ou une remise au-dela du seuil (CA7 amende) : le serveur alerte, il ne refuse pas. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["QuoteLine"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description Ligne inconnue dans ce devis (`quote_line.not_found`). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Soit l `If-Match` ne correspond plus a l etat courant de la ligne (`api.resource_conflict`, etat courant dans `current_state`), soit le devis n est plus a l etat brouillon (`quote_line.quote_not_draft`). JAMAIS pour une remise ou une marge hors norme. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `sale_price` et `margin_rate` fournis ensemble (`api.validation_failed`), `quantity` inferieure a 1 (`quote_line.invalid_quantity`), ou `margin_rate` envoye sur une ligne dont le `production_price` vaut `"0.00"` (`quote_line.margin_not_derivable` : aucun taux applique a zero ne produit un prix, la saisie serait perdue en silence — passer par `sale_price`). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            428: components["responses"]["PreconditionRequired"];
+        };
+    };
+    reorderQuoteLines: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+                /** @description Precondition de concurrence optimiste sur LE DEVIS (CA9, meme garantie qu un PATCH — voir components/parameters/IfMatch). Toute ecriture de ligne (ajout, modification, retrait, reordonnancement) avance `updated_at` du devis, donc son `ETag` : deux commerciaux qui reordonnent le meme devis en parallele ne s ecrasent pas en silence. */
+                "If-Match": string;
+            };
+            path: {
+                /** @description Identifiant technique du devis, dans le tenant du jeton. */
+                quoteId: components["parameters"]["QuoteId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReorderQuoteLinesCommand"];
+            };
+        };
+        responses: {
+            /** @description Devis complet, lignes dans le nouvel ordre. L `ETag` rendu est celui du DEVIS, recalcule. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["QuoteDetail"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description Soit l `If-Match` ne correspond plus a l etat courant du devis (`api.resource_conflict`), soit le devis n est plus a l etat brouillon (`quote_line.quote_not_draft`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `line_ids` ne recouvre pas EXACTEMENT les lignes du devis — element inconnu, doublon, ou ligne manquante (`quote_line.positions_mismatch`). Un ordre partiel est refuse : il laisserait les lignes omises a une position indeterminee. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            428: components["responses"]["PreconditionRequired"];
+        };
+    };
+    listQuoteAuditEntries: {
+        parameters: {
+            query?: {
+                /** @description Restreint le journal a une ligne. Une ligne SUPPRIMEE reste interrogeable par son identifiant : son historique ne disparait pas avec elle. */
+                line_id?: components["schemas"]["Uuid"];
+                /** @description Nombre d elements par page. Defaut 50, maximum 200. */
+                "page[size]"?: components["parameters"]["PageSize"];
+                /** @description Curseur opaque renvoye par `meta.next_cursor` de la page precedente. Absent sur la premiere page. Ne jamais construire un curseur cote client : sa structure interne n est pas contractuelle. */
+                "page[cursor]"?: components["parameters"]["PageCursor"];
+            };
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path: {
+                /** @description Identifiant technique du devis, dans le tenant du jeton. */
+                quoteId: components["parameters"]["QuoteId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Page d entrees d audit, de la plus recente a la plus ancienne. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["QuoteLineAuditEntry"][];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /**
+             * @description L utilisateur n a pas l habilitation requise (`identity.role_required`). Garde grossiere aujourd hui — role `admin` du tenant, meme mecanisme que l ecran des regles de prix (E10.6 CA7) — remplacee par le droit dedie `can_manage_pricing` quand E10.11 sera livree.
+             *
+             *     Le refus est EXPLICITE : rendre une page vide a un acteur non habilite lui ferait croire qu aucune trace n existe. Une habilitation manquante et un journal vide ne se disent pas de la meme facon.
+             */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
     listPriceRules: {
         parameters: {
             query?: {
@@ -3520,6 +4358,35 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["EventEnvelope"];
+            };
+        };
+        responses: {
+            /** @description Evenement accepte par le consommateur. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    onQuoteLineChanged: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Signature HMAC-SHA256 du corps brut de l evenement, au format `sha256=<hex minuscule>`. A verifier en comparaison a temps constant. */
+                "X-Magrit-Signature": components["parameters"]["MagritSignature"];
+                /** @description Nom de l evenement livre, identique a `EventEnvelope.event_name`. */
+                "X-Magrit-Event": components["parameters"]["MagritEventName"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EventEnvelope"] & {
+                    payload?: components["schemas"]["QuoteLineChangedPayload"];
+                };
             };
         };
         responses: {
