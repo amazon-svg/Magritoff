@@ -3682,7 +3682,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `sale_price` et `margin_rate` fournis ensemble (`api.validation_failed`), `quantity` inferieure a 1 (`quote_line.invalid_quantity`), ou `margin_rate` envoye sur une ligne dont le `production_price` vaut `"0.00"` (`quote_line.margin_not_derivable` : aucun taux applique a zero ne produit un prix, la saisie serait perdue en silence — passer par `sale_price`). */
+            /** @description `sale_price` et `margin_rate` fournis ensemble (`api.validation_failed`), `quantity` inferieure a 1 (`quote_line.invalid_quantity`), `margin_rate` envoye sur une ligne dont le `production_price` vaut `"0.00"` (`quote_line.margin_not_derivable` : aucun taux applique a zero ne produit un prix, la saisie serait perdue en silence — passer par `sale_price`), ou `margin_rate` produirait un `sale_price` NEGATIF (`quote_line.invalid_margin_rate` : une marge/remise negative reste acceptee, CA7 amende, mais jamais au point de rendre le prix de vente lui-meme negatif, non representable). */
             422: {
                 headers: {
                     [name: string]: unknown;
