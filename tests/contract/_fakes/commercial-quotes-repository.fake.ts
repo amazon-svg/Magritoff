@@ -117,20 +117,25 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
   private readonly auditEntries: QuoteLineAuditRow[] = [];
   /** Compteur par `${tenantId}:${year}`, meme portee que commercial_quote_number_counters. */
   private readonly counters = new Map<string, number>();
-  /** Role de l acteur par tenant, pour `findActorTenantRole` (E10.9 CA garde admin). `admin` par defaut. */
-  private readonly actorRoles = new Map<string, 'admin' | 'member'>();
+  /**
+   * Droits metier de l acteur, par tenant (E10.11, `can_manage_pricing`).
+   * `true` par defaut (equivalent d un `admin`, qui recoit toute capability
+   * par derivation en production) : un test doit forcer `false` explicitement
+   * pour exercer la garde 403 `identity.role_required`.
+   */
+  private readonly actorCapabilities = new Map<string, boolean>();
 
   constructor(private readonly projects: ProjectsRepository) {}
 
-  /** TEST UNIQUEMENT — force le role d un acteur pour exercer la garde 403 `identity.role_required`. */
-  setActorRoleForTest(tenantId: string, actorId: string, role: 'admin' | 'member' | null): void {
-    const key = `${tenantId}:${actorId}`;
-    if (role === null) this.actorRoles.delete(key);
-    else this.actorRoles.set(key, role);
+  /** TEST UNIQUEMENT — force le droit d un acteur pour exercer la garde 403 `identity.role_required`. */
+  setActorCapabilityForTest(tenantId: string, actorId: string, capability: string, granted: boolean | null): void {
+    const key = `${tenantId}:${actorId}:${capability}`;
+    if (granted === null) this.actorCapabilities.delete(key);
+    else this.actorCapabilities.set(key, granted);
   }
 
-  async findActorTenantRole(tenantId: TenantId, actorId: UserId): Promise<'admin' | 'member' | null> {
-    return this.actorRoles.get(`${tenantId}:${actorId}`) ?? 'admin';
+  async actorHasCapability(tenantId: TenantId, actorId: UserId, capability: string): Promise<boolean> {
+    return this.actorCapabilities.get(`${tenantId}:${actorId}:${capability}`) ?? true;
   }
 
   async list(tenantId: TenantId, params: ListQuotesParams): Promise<ListQuotesResult> {

@@ -23,6 +23,7 @@ import {
   lintPagination,
   lintOperationCoverage,
   lintPathNaming,
+  lintRequiredCapabilities,
   lintRequiredScopes,
   lintResponseShapes,
   lintSecuritySchemes,
@@ -149,6 +150,48 @@ describe('contrat OpenAPI magrit-core v1', () => {
       },
     });
     expect(lintRequiredScopes(compliant)).toEqual([]);
+  });
+
+  it('E10.11 — une operation gardee par un droit metier le declare dans x-magrit-capabilities et n est pas joignable par cle de service', () => {
+    expect(lintRequiredCapabilities(contract)).toEqual([]);
+
+    const unknownCapability = withPath('/price-rules', {
+      post: {
+        security: [{ bearerAuth: [] }],
+        'x-required-capabilities': ['can_destroy_everything'],
+        responses: {},
+      },
+    });
+    expect(lintRequiredCapabilities(unknownCapability)).toEqual([
+      'E10.11 : POST /price-rules exige le droit "can_destroy_everything", absent de x-magrit-capabilities.',
+    ]);
+
+    const serviceReachable = withPath('/price-rules', {
+      post: {
+        security: [{ serviceKey: [] }],
+        'x-required-capabilities': ['can_manage_pricing'],
+        responses: {},
+      },
+    });
+    expect(lintRequiredCapabilities(serviceReachable)).toEqual([
+      'E10.11 : POST /price-rules exige un droit metier (x-required-capabilities) mais reste joignable par cle de service.',
+    ]);
+
+    const compliant = withPath('/price-rules', {
+      post: {
+        security: [{ bearerAuth: [] }],
+        'x-required-capabilities': ['can_manage_pricing'],
+        responses: {},
+      },
+    });
+    expect(lintRequiredCapabilities(compliant)).toEqual([]);
+
+    // Sans `x-required-capabilities`, l operation n est pas concernee — meme
+    // regime que §3.5 regle 1 (l absence de declaration n est pas une ouverture).
+    const undeclared = withPath('/price-rules', {
+      post: { security: [{ serviceKey: [] }], responses: {} },
+    });
+    expect(lintRequiredCapabilities(undeclared)).toEqual([]);
   });
 
   it('CA4/CA6/CA8 — toute operation declare MagritTenant et ses statuts atteignables', () => {

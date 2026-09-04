@@ -64,14 +64,14 @@ import {
 } from './commercial-quotes-repository.ts';
 
 /**
- * L acteur n a pas le role requis pour lire le journal d audit des lignes
- * (`identity.role_required`, contrat `listQuoteAuditEntries`). Garde
- * grossiere — role `admin` du tenant — en attendant le droit dedie
- * `can_manage_pricing` (E10.11), meme mecanisme que l ecran des regles de
- * prix (E10.6 CA7).
+ * L acteur n a pas le droit metier `can_manage_pricing` (E10.11) requis pour
+ * lire le journal d audit des lignes (`identity.role_required`, contrat
+ * `listQuoteAuditEntries`). Un `admin`/`owner` du tenant recoit ce droit par
+ * derivation (`public.user_has_capability`) : il ne perd donc jamais l acces
+ * qu il avait deja sous l ancienne garde « role `admin` » (E10.9).
  */
 export class QuoteAuditAccessDeniedError extends Error {
-  constructor(message = "Role admin du tenant requis pour consulter le journal d audit.") {
+  constructor(message = "Le droit can_manage_pricing est requis pour consulter le journal d audit.") {
     super(message);
     this.name = 'QuoteAuditAccessDeniedError';
   }
@@ -381,10 +381,10 @@ export class CommercialQuotesService {
   }
 
   /**
-   * CA5, CA6 — journal d audit des lignes, lecture seule. Garde d acces
-   * admin (403 `identity.role_required`) verifiee ICI, avant toute lecture :
-   * un refus explicite ne doit jamais se confondre avec une page vide
-   * (contrat `listQuoteAuditEntries`).
+   * CA5, CA6 — journal d audit des lignes, lecture seule. Garde d acces au
+   * droit `can_manage_pricing` (403 `identity.role_required`, E10.11)
+   * verifiee ICI, avant toute lecture : un refus explicite ne doit jamais se
+   * confondre avec une page vide (contrat `listQuoteAuditEntries`).
    */
   async listAuditEntries(
     tenantId: TenantId,
@@ -392,8 +392,8 @@ export class CommercialQuotesService {
     quoteId: string,
     params: Omit<ListQuoteLineAuditParams, 'quoteId'>,
   ): Promise<ListQuoteLineAuditResultDto> {
-    const role = await this.repository.findActorTenantRole(tenantId, actor);
-    if (role !== 'admin') throw new QuoteAuditAccessDeniedError();
+    const authorized = await this.repository.actorHasCapability(tenantId, actor, 'can_manage_pricing');
+    if (!authorized) throw new QuoteAuditAccessDeniedError();
 
     const quote = await this.repository.findById(tenantId, quoteId);
     if (!quote) throw new QuoteNotFoundError();

@@ -168,7 +168,7 @@ describe('PriceRulesService — modification (CA1)', () => {
     const created = await service.create(TENANT, USER, { ...baseCommand, scope: 'global' });
     outboxRepository.events.length = 0;
 
-    const updated = await service.update(TENANT, created.id, { name: 'Renommee', value: '0.6000' });
+    const updated = await service.update(TENANT, created.id, USER, { name: 'Renommee', value: '0.6000' });
     expect(updated.name).toBe('Renommee');
     expect(updated.value).toBe('0.6000');
     expect(outboxRepository.events[0]?.payload).toMatchObject({ action: 'updated' });
@@ -178,11 +178,11 @@ describe('PriceRulesService — modification (CA1)', () => {
     const created = await service.create(TENANT, USER, { ...baseCommand, scope: 'global' });
     outboxRepository.events.length = 0;
 
-    await service.update(TENANT, created.id, { is_active: false });
+    await service.update(TENANT, created.id, USER, { is_active: false });
     expect(outboxRepository.events[0]?.payload).toMatchObject({ action: 'deactivated' });
 
     outboxRepository.events.length = 0;
-    await service.update(TENANT, created.id, { is_active: true });
+    await service.update(TENANT, created.id, USER, { is_active: true });
     expect(outboxRepository.events[0]?.payload).toMatchObject({ action: 'activated' });
   });
 
@@ -190,7 +190,7 @@ describe('PriceRulesService — modification (CA1)', () => {
     const created = await service.create(TENANT, USER, { ...baseCommand, scope: 'global' });
     outboxRepository.events.length = 0;
 
-    await service.update(TENANT, created.id, { is_active: false, name: 'Autre nom' });
+    await service.update(TENANT, created.id, USER, { is_active: false, name: 'Autre nom' });
     expect(outboxRepository.events[0]?.payload).toMatchObject({ action: 'updated' });
   });
 
@@ -201,13 +201,13 @@ describe('PriceRulesService — modification (CA1)', () => {
       starts_on: '2026-09-05',
     });
     // ends_on seul, anterieur au starts_on COURANT (non fourni dans ce PATCH).
-    await expect(service.update(TENANT, created.id, { ends_on: '2026-09-01' })).rejects.toMatchObject({
+    await expect(service.update(TENANT, created.id, USER, { ends_on: '2026-09-01' })).rejects.toMatchObject({
       code: 'price_rule.invalid_period',
     });
   });
 
   it('leve PriceRuleNotFoundError sur un identifiant inconnu du tenant', async () => {
-    await expect(service.update(TENANT, '00000000-0000-4000-9000-000000000042', { name: 'X' })).rejects.toBeInstanceOf(
+    await expect(service.update(TENANT, '00000000-0000-4000-9000-000000000042', USER, { name: 'X' })).rejects.toBeInstanceOf(
       PriceRuleNotFoundError,
     );
     await expect(service.getById(TENANT, '00000000-0000-4000-9000-000000000042')).rejects.toBeInstanceOf(
@@ -273,6 +273,40 @@ describe('PriceRulesService — nature des erreurs', () => {
     await expect(
       service.create(TENANT, USER, { ...baseCommand, scope: 'customer', customer_id: null, product_range_id: null }),
     ).rejects.toBeInstanceOf(PriceRuleCommandRejectedError);
+  });
+});
+
+/**
+ * Garde d ecriture E10.11 (`can_manage_pricing`) : verifiee AVANT toute
+ * autre validation de commande. Le fake accorde le droit par defaut (`true`,
+ * equivalent d un admin par derivation) — un test doit le retirer
+ * explicitement pour exercer le refus, exactement comme
+ * `InMemoryCommercialQuotesRepository.setActorCapabilityForTest()`. Point de
+ * vigilance §8.11 (s3) : ce test exerce un acteur NON-ADMIN (le fake ne
+ * distingue plus role/derivation, seule la capability compte) qui PERD son
+ * droit — la seule facon de prouver que la garde mord reellement, pas
+ * seulement pour un admin qui passerait de toute facon.
+ */
+describe('PriceRulesService — garde can_manage_pricing (E10.11)', () => {
+  it('refuse create/update/setDefaultMargin quand le droit est retire, les rend quand il est restitue', async () => {
+    const created = await service.create(TENANT, USER, { ...baseCommand, scope: 'global' });
+
+    repository.setActorCapabilityForTest(TENANT, USER, 'can_manage_pricing', false);
+
+    await expect(
+      service.create(TENANT, USER, { ...baseCommand, scope: 'global', name: 'Sans droit' }),
+    ).rejects.toMatchObject({ name: 'PriceRuleAccessDeniedError' });
+    await expect(
+      service.update(TENANT, created.id, USER, { name: 'Sans droit' }),
+    ).rejects.toMatchObject({ name: 'PriceRuleAccessDeniedError' });
+    await expect(
+      service.setDefaultMargin(TENANT, RANGE_ID, USER, '0.1000'),
+    ).rejects.toMatchObject({ name: 'PriceRuleAccessDeniedError' });
+
+    repository.setActorCapabilityForTest(TENANT, USER, 'can_manage_pricing', true);
+    await expect(service.update(TENANT, created.id, USER, { name: 'Avec droit' })).resolves.toMatchObject({
+      name: 'Avec droit',
+    });
   });
 });
 

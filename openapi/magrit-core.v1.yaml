@@ -1614,6 +1614,15 @@ paths:
 # PAS ouvert aux cles de service : c est une piece de controle interne, opposee
 # a un commercial, pas une donnee d integration.
 #
+# E10.11 : le journal d audit exige en outre le droit `can_manage_pricing`.
+# EDITER une ligne n exige AUCUN droit metier — c est le geste commercial
+# ordinaire, et « l autorisation hierarchique est hors perimetre V1 » (CA7
+# amende, ci-dessus). LIRE ce que les autres ont consenti est une position de
+# supervision, pas la meme chose. Les deux gardes ne se rejoignent pas, et
+# etendre `can_manage_pricing` a `updateQuoteLine` reintroduirait par la bande
+# l autorisation hierarchique que le WM du 01/09 a explicitement sortie de la
+# V1.
+#
 # Nommage des codes d erreur : `quote_line.*`, jamais `commercial_quote_line.*`
 # — `commercial_quotes`/`commercial_quote_lines` sont des noms de TABLES,
 # imposes par la coexistence avec le modele legacy (docs/api/CONVENTIONS.md
@@ -2057,9 +2066,24 @@ paths:
 
         Ordre par defaut : du plus recent au plus ancien. Pagination par
         curseur comme toutes les collections de la facade.
+
+
+        RESERVE au droit `can_manage_pricing` (E10.11). Ce journal dit qui a
+        consenti quelle remise et de combien il a bouge une marge : c est une
+        piece de SUPERVISION, opposable a un commercial, pas une donnee de
+        travail. Le refus est EXPLICITE (403) et jamais une page vide : rendre
+        une page vide a un acteur non habilite lui ferait croire qu aucune
+        trace n existe. Une habilitation manquante et un journal vide ne se
+        disent pas de la meme facon.
       tags: [gestion-commerciale]
       security:
         - bearerAuth: []
+      # E10.11 — remplace la garde grossiere « role `admin` du tenant » posee
+      # par E10.9 en attendant cette story. Aucun acteur ne perd l acces : un
+      # admin conserve le droit par derivation d appartenance (voir le bloc
+      # E10.11 au-dessus de `securitySchemes`), un membre porteur d un role qui
+      # accorde `can_manage_pricing` l acquiert.
+      x-required-capabilities: [can_manage_pricing]
       parameters:
         - $ref: '#/components/parameters/QuoteId'
         - name: line_id
@@ -2092,22 +2116,7 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
-          description: >-
-            L utilisateur n a pas l habilitation requise
-            (`identity.role_required`). Garde grossiere aujourd hui — role
-            `admin` du tenant, meme mecanisme que l ecran des regles de prix
-            (E10.6 CA7) — remplacee par le droit dedie `can_manage_pricing`
-            quand E10.11 sera livree.
-
-
-            Le refus est EXPLICITE : rendre une page vide a un acteur non
-            habilite lui ferait croire qu aucune trace n existe. Une
-            habilitation manquante et un journal vide ne se disent pas de la
-            meme facon.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/Problem'
+          $ref: '#/components/responses/ForbiddenCapability'
         '404':
           $ref: '#/components/responses/NotFound'
 
@@ -2151,6 +2160,41 @@ paths:
 # `resolvePriceRule` que Clariprint et Studio obtiennent la regle applicable
 # sans rejouer la hierarchie de prix, sans jeton utilisateur. Ecriture
 # reservee aux jetons utilisateur, comme E10.1/E10.3/E10.4.
+#
+# ---- story E10.11 — qui a le droit d ecrire ici ----------------------------
+#
+# ECRITURE (`createPriceRule`, `updatePriceRule`, et `setProductRangeDefault-
+# Margin` plus bas) : droit `can_manage_pricing` exige. C est la politique
+# tarifaire du tenant — ce qu on facture, a qui, et avec quelle marge. La
+# poser n est pas un geste d affaire, c est un geste de direction commerciale.
+#
+# LECTURE (`listPriceRules`, `getPriceRule`, `resolvePriceRule`,
+# `getProductRangeDefaultMargin`) : AUCUN droit metier exige — appartenance a
+# l espace et RLS, inchange. Deux raisons, dans cet ordre :
+#  1. `resolvePriceRule` et `getProductRangeDefaultMargin` sont les entrees du
+#     PricingEngine (E10.21). Les garder derriere `can_manage_pricing`
+#     empecherait un commercial ordinaire de chiffrer une affaire, et il
+#     n existe aucune definition de « droit de chiffrer » dans ce sprint. Un
+#     commercial doit pouvoir voir QUELLE regle s applique a son devis ; c est
+#     ce qui rend le prix explicable au client.
+#  2. Restreindre une lecture deja publiee en v1 serait un durcissement, que
+#     le CA13 n autorise pas (docs/api/CONVENTIONS.md §7).
+#
+# Ecart connu et ASSUME, a ne pas prendre pour un oubli : l ecran des regles
+# de prix (`src/modules/pricing/`, E10.6 CA7) est gouverne en entier par
+# `can_manage_pricing` — un membre sans ce droit ne le voit pas — alors que
+# les lectures qu il consomme restent ouvertes a tout membre par l API. C est
+# la separation normale entre une garde d ERGONOMIE (ne pas proposer un ecran
+# qu on ne peut pas utiliser) et une garde d AUTORISATION (refuser un geste).
+# Seule la seconde est une barriere ; la premiere ne prouve rien et ne protege
+# rien, conformement a `.claude/rules/frontend.md`.
+#
+# DERIVE A NE PAS FAIRE : la RLS d E10.6 ouvre aujourd hui l ecriture de
+# `price_rules` et `product_range_default_margins` a `tm.role in ('admin',
+# 'member')` — donc a TOUT membre, plus large que ce que CA7 voulait deja.
+# E10.11 ne fait pas que remplacer une garde, elle FERME ce trou : la garde
+# doit exister en base (policy sur `user_has_capability`) et pas seulement
+# dans la facade, sans quoi un appel PostgREST direct la contournerait.
 # ----------------------------------------------------------------------------
   /price-rules:
     # Selection de l espace de travail : commune a toutes les operations de ce
@@ -2282,9 +2326,13 @@ paths:
         Cree une regle de prix. Ne modifie, ne decoupe et ne duplique JAMAIS
         une regle existante (E10.7) : deux regles applicables a la meme date
         sont un etat normal du referentiel, tranche a la resolution.
+
+
+        Exige le droit `can_manage_pricing` (E10.11).
       tags: [gestion-commerciale]
       security:
         - bearerAuth: []
+      x-required-capabilities: [can_manage_pricing]
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -2313,7 +2361,7 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          $ref: '#/components/responses/ForbiddenCapability'
         '409':
           $ref: '#/components/responses/Conflict'
         '422':
@@ -2451,9 +2499,18 @@ paths:
         deja appliquee a des devis. Creer une nouvelle regle a la place —
         c est justement ce que l arbitrage par la recence rend indolore
         (E10.7).
+
+
+        Exige le droit `can_manage_pricing` (E10.11). Desactiver une regle
+        (`is_active: false`) passe par ce meme PATCH : c est donc le meme
+        droit qui gouverne l extinction d une regle et sa creation, ce qui est
+        la seule combinaison coherente — pouvoir eteindre sans pouvoir creer
+        laisserait un acteur demanteler une politique tarifaire sans pouvoir
+        la retablir.
       tags: [gestion-commerciale]
       security:
         - bearerAuth: []
+      x-required-capabilities: [can_manage_pricing]
       parameters:
         - $ref: '#/components/parameters/PriceRuleId'
         - $ref: '#/components/parameters/IfMatch'
@@ -2486,7 +2543,7 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          $ref: '#/components/responses/ForbiddenCapability'
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
@@ -2581,9 +2638,18 @@ paths:
         non `POST` : la ressource est un singleton, l appel est idempotent par
         nature et son identite est celle du chemin — c est `If-Match`, pas une
         cle d idempotence, qui protege deux redacteurs concurrents.
+
+
+        Exige le droit `can_manage_pricing` (E10.11). Cette marge est le
+        DEFAUT sur lequel retombe tout chiffrage d une gamme quand aucune regle
+        ne s applique : la deplacer d un point deplace silencieusement le prix
+        de toutes les affaires futures de cette gamme, sans qu aucun devis ne
+        porte la trace de la decision. Elle merite au moins la garde des regles
+        de prix, qui sont, elles, nommees et datees.
       tags: [gestion-commerciale]
       security:
         - bearerAuth: []
+      x-required-capabilities: [can_manage_pricing]
       parameters:
         - $ref: '#/components/parameters/ProductRangeId'
         - $ref: '#/components/parameters/IfMatch'
@@ -2613,7 +2679,7 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          $ref: '#/components/responses/ForbiddenCapability'
         '404':
           description: >-
             Gamme de produits inconnue
@@ -2858,6 +2924,40 @@ components:
   #                    liste de scopes. Une cle sans le scope requis par l
   #                    operation recoit 403 `identity.scope_required`.
   # Dans les deux cas le tenant vient du jeton — jamais d un parametre.
+  #
+  # ---- story E10.11 — droits metier des jetons utilisateur -------------------
+  #
+  # Les deux modes ne se gouvernent pas de la meme facon, et c est voulu :
+  #  - une CLE DE SERVICE porte ses droits AVEC elle (scopes), parce qu elle
+  #    represente un systeme tiers auquel on a concede une portee fixe ;
+  #  - un JETON UTILISATEUR ne porte AUCUN droit metier. Il prouve une identite ;
+  #    ses droits dans l espace resolu sont lus EN BASE a chaque appel. Les
+  #    graver dans le jeton ferait survivre un droit a son retrait le temps de
+  #    la validite du JWT.
+  #
+  # Le mecanisme de droits utilisateur n est pas invente par E10 : il existe
+  # dans le produit depuis S-ORDER-ROLES (`public.tenant_role_definitions`,
+  # colonne jsonb `capabilities`, affectations `public.tenant_role_assignments`,
+  # fonction `public.user_has_capability(tenant_id, capability)`), et il est
+  # ADMINISTRE par la facade historique (`/api/v1/tenants/{tenantId}/roles*`,
+  # `/access-profile`, `/capabilities/{capability}`), hors de ce contrat.
+  # E10.11 y ajoute UN droit, `can_manage_pricing` — pas un second systeme.
+  #
+  # Consequence de forme : ce contrat DECLARE le droit exige par une operation
+  # (`x-required-capabilities`, symetrique de `x-required-scopes`), il n expose
+  # aucune operation pour ACCORDER un droit. Un administrateur accorde
+  # `can_manage_pricing` en posant `{"can_manage_pricing": true}` sur une
+  # definition de role du tenant puis en l affectant — les endpoints qui le
+  # permettent existent deja et n ont pas besoin d evoluer, `capabilities` y
+  # etant une carte libre `<nom> -> booleen`. Ouvrir ici un doublon de gestion
+  # des droits creerait deux verites sur la meme table.
+  #
+  # Regle de derivation, portee par `user_has_capability` et non par la facade :
+  # l appartenance `admin` d un espace CONFERE tous les droits metier (sauf
+  # `can_manage_roles`). Le remplacement de la garde grossiere « role admin »
+  # par `can_manage_pricing` n enleve donc l acces a PERSONNE : il l ELARGIT
+  # aux membres a qui un role portant ce droit a ete affecte. C est ce qui rend
+  # E10.11 additive au sens du CA13 sur les operations deja gardees.
   securitySchemes:
     bearerAuth:
       type: http
@@ -2866,6 +2966,27 @@ components:
       description: >-
         Jeton utilisateur Supabase. Le tenant courant est resolu depuis les
         claims du jeton, jamais depuis l URL.
+
+
+        Le jeton ne porte AUCUN droit metier : il porte une identite. Les
+        droits de cette identite dans l espace resolu sont evalues a chaque
+        appel contre le referentiel de roles du tenant. Les droits disponibles
+        sont enumeres dans `x-magrit-capabilities` ; une operation qui en exige
+        un le declare dans `x-required-capabilities`.
+
+
+        Une operation SANS `x-required-capabilities` n exige que l appartenance
+        a l espace — l isolation restant tenue par la RLS. L absence de
+        declaration n est donc pas une ouverture : c est le regime normal.
+      x-magrit-capabilities:
+        can_manage_pricing: >-
+          Administrer la politique tarifaire commerciale du tenant (regles de
+          prix E10.6/E10.7, marge publique standard par gamme) et consulter le
+          journal d audit des prix des lignes de devis (E10.9). Ne conditionne
+          NI la lecture du referentiel de prix, NI l edition d une ligne de
+          devis : arbitrer un prix sur une affaire est le geste commercial
+          ordinaire, fixer la politique qui l encadre et auditer celui des
+          autres ne l est pas.
 
     serviceKey:
       type: apiKey
@@ -3129,6 +3250,40 @@ components:
             $ref: '#/components/schemas/Problem'
     Forbidden:
       description: Acteur authentifie mais non habilite, ou scope de service manquant.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    ForbiddenCapability:
+      # story E10.11 — refus d une operation faute du DROIT METIER qu elle
+      # declare dans `x-required-capabilities`, par opposition au refus faute
+      # d appartenance (`identity.tenant_not_resolved`) ou faute de scope de
+      # cle de service (`identity.scope_required`).
+      description: >-
+        Acteur authentifie et membre de l espace, mais DEPOURVU du droit metier
+        exige par l operation (`identity.role_required`). Le droit exige est
+        celui declare par `x-required-capabilities` sur l operation ; sa
+        definition est dans `x-magrit-capabilities` (schema `bearerAuth`).
+
+
+        Le code metier reste `identity.role_required`, deja publie en v1 : il
+        signifie « habilitation utilisateur insuffisante » et c est toujours
+        exactement le cas. Seul CHANGE ce qui etablit l habilitation — un droit
+        nomme, la ou E10.6/E10.9 se contentaient de l appartenance `admin`. Le
+        renommer en `identity.capability_required` serait un changement cassant
+        au sens du CA13 (docs/api/CONVENTIONS.md §7), pour un gain purement
+        lexical : un client qui branche son comportement sur ce code n aurait
+        rien a en faire de different.
+
+
+        `detail` nomme le droit manquant, pour que l appelant sache quoi
+        demander a son administrateur ; il reste du texte, jamais une donnee
+        sur laquelle brancher un comportement.
+
+
+        Non atteignable par une cle de service : les operations gardees par un
+        droit metier sont toutes reservees aux jetons utilisateur. Une cle de
+        service n a pas d identite a qui un role serait affecte.
       content:
         application/problem+json:
           schema:
@@ -4900,9 +5055,18 @@ components:
             cote.
 
 
-            Le seuil n est PAS encore configurable : E10.11 (droits et reglages
-            commerciaux) n est pas livree. Sa valeur de depart est un reglage
-            de tenant a arbitrer par le metier, pas une constante inventee par
+            Le seuil n est PAS encore configurable, et E10.11 ne le rend pas
+            configurable : cette story livre QUI a le droit de fixer la
+            politique tarifaire (`can_manage_pricing`), pas les reglages que ce
+            droit permettra de fixer. Ce champ renvoyait auparavant a « E10.11
+            (droits et reglages commerciaux) » — les deux ne viennent pas
+            ensemble, la mention est corrigee ici.
+
+
+            Rendre le seuil configurable reste a faire, et ce sera l usage
+            naturel de `can_manage_pricing` : l ecriture de ce reglage de
+            tenant portera ce droit, sa lecture non. La valeur de depart reste
+            un arbitrage metier, pas une constante inventee par
             l implementation.
           oneOf:
             - $ref: '#/components/schemas/Rate'

@@ -820,7 +820,7 @@ describe('module Devis commerciaux (E10.9) contre le contrat — lignes et audit
     expect(((await mismatch.json()) as { code: string }).code).toBe('quote_line.positions_mismatch');
   });
 
-  it('CA5/CA6 — listQuoteAuditEntries : une entree par champ change, garde admin, ligne supprimee reste interrogeable', async () => {
+  it('CA5/CA6 — listQuoteAuditEntries : une entree par champ change, garde can_manage_pricing, ligne supprimee reste interrogeable', async () => {
     const { quote } = await createDraftQuote();
     const added = await addFreeLine(quote.id, { production_price: '100.00' });
     const { data: line } = (await added.json()) as { data: QuoteLineDto };
@@ -846,12 +846,11 @@ describe('module Devis commerciaux (E10.9) contre le contrat — lignes et audit
     expect(data.some((entry) => entry.action === 'updated' && entry.field === 'sale_price')).toBe(true);
     expect(data.every((entry) => entry.field !== ('sale_margin_rate' as unknown))).toBe(true);
 
-    // Garde d acces admin (403 identity.role_required) — meme mecanisme que
-    // E10.6 CA7, en attendant E10.11.
-    quotesRepository.setActorRoleForTest(TENANT, USER, 'member');
+    // Garde d acces au droit dedie `can_manage_pricing` (403 identity.role_required, E10.11).
+    quotesRepository.setActorCapabilityForTest(TENANT, USER, 'can_manage_pricing', false);
     const denied = await call(`/api/v1/quotes/${quote.id}/audit-entries`, { headers: asUser });
     await expectContract(denied, { status: 403 });
     expect(((await denied.json()) as { code: string }).code).toBe('identity.role_required');
-    quotesRepository.setActorRoleForTest(TENANT, USER, 'admin');
+    quotesRepository.setActorCapabilityForTest(TENANT, USER, 'can_manage_pricing', true);
   });
 });

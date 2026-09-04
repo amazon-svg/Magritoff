@@ -52,6 +52,7 @@ import {
   computeEntityTag,
   decodeCursor,
   problem,
+  roleRequired,
   SHARED_PROBLEM_CODES,
 } from '../../modules/_shared/application/index.ts';
 import { defineGescomRoute, type GescomRoute, type GescomRequestContext } from './gescom-middleware.ts';
@@ -430,12 +431,10 @@ async function withDomainErrors<T>(operation: () => Promise<T>): Promise<T> {
       });
     }
     if (error instanceof QuoteAuditAccessDeniedError) {
-      throw problem({
-        status: 403,
-        title: 'Habilitation insuffisante',
-        code: 'identity.role_required',
-        detail: error.message,
-      });
+      // E10.11 — meme code deja publie en v1 (§3.5, regle 3 de docs/api/
+      // CONVENTIONS.md), etabli desormais par `can_manage_pricing` plutot
+      // que par la garde grossiere « role admin » d E10.9.
+      throw roleRequired(['can_manage_pricing']);
     }
     if (error instanceof QuoteCommandRejectedError) {
       // `permission_denied`/`authentication_required` : defense en profondeur

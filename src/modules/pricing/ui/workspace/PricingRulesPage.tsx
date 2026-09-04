@@ -1,10 +1,10 @@
 /**
  * PricingRulesPage — liste, filtre et bascule des regles de prix (E10.6,
  * CA5, CA6), plus le panneau de marge publique standard par gamme (CA4).
- * L ecran n est monte que sous une route `requiredTenantRole: 'admin'` (voir
- * `../../surface-contributions.ts`) : E10.11 (droits Admin/Commercial
- * dedies) n est pas encore livree, ce garde grossier sera raffine par cette
- * story future.
+ * L ecran n est monte que sous une route `requiredCapabilities:
+ * ['can_manage_pricing']` (E10.11, voir `../../surface-contributions.ts`) :
+ * une garde d ergonomie, pas d autorisation — celle-ci est tenue par la RLS
+ * de `price_rules`/`product_range_default_margins`.
  *
  * Creation/modification passent par `PriceRuleFormModal` ; aucun calcul de
  * prix ni de marge n a lieu ici (E10.21 hors perimetre).

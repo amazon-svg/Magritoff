@@ -32,6 +32,16 @@ export const SHARED_PROBLEM_CODES = Object.freeze({
   scopeRequired: 'identity.scope_required',
   actorKindRequired: 'identity.actor_kind_required',
   /**
+   * E10.11 — jeton utilisateur authentifie mais depourvu, dans l espace
+   * resolu, d un droit metier exige par `x-required-capabilities`
+   * (`public.user_has_capability`, docs/api/CONVENTIONS.md §3.5). Code deja
+   * publie en v1 (garde grossiere « role admin » d E10.6/E10.9) : E10.11 ne le
+   * renomme pas, elle ne fait que changer ce qui ETABLIT l habilitation
+   * (§3.5, regle 3 — un renommage en `identity.capability_required` serait
+   * cassant pour un gain purement lexical).
+   */
+  roleRequired: 'identity.role_required',
+  /**
    * E10.5 CA4 — un compte `shop_customer` (client boutique) appelle une route
    * reservee au back-office. Distinct de `tenantNotResolved` : celui-ci
    * couvre AUSSI un utilisateur Magrit legitime qui n a pas encore d espace,
@@ -103,6 +113,20 @@ export function scopeRequired(scopes: readonly string[]): ProblemError {
     title: 'Portee de cle de service insuffisante',
     code: SHARED_PROBLEM_CODES.scopeRequired,
     detail: `La cle de service doit porter le scope : ${scopes.join(', ')}.`,
+  });
+}
+
+/**
+ * E10.11 — jeton utilisateur sans le droit metier exige par l operation
+ * (`x-required-capabilities`). Symetrique de `scopeRequired()` sur l autre
+ * axe d authentification (docs/api/CONVENTIONS.md §3.5).
+ */
+export function roleRequired(capabilities: readonly string[]): ProblemError {
+  return problem({
+    status: 403,
+    title: 'Habilitation insuffisante',
+    code: SHARED_PROBLEM_CODES.roleRequired,
+    detail: `Cette operation exige le droit : ${capabilities.join(', ')}.`,
   });
 }
 

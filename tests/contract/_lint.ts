@@ -162,6 +162,59 @@ export function lintRequiredScopes(document: Doc): string[] {
 }
 
 /**
+ * E10.11 (§3.5, regles 1 et 2 de docs/api/CONVENTIONS.md) : une operation
+ * gardee par un droit metier utilisateur (`x-required-capabilities`) doit
+ * declarer un droit REELLEMENT enumere dans `x-magrit-capabilities`
+ * (schema `bearerAuth`), et ne doit JAMAIS etre joignable par une cle de
+ * service — une cle de service n a pas d identite a qui un role serait
+ * affecte, l y rendre joignable serait un contresens.
+ *
+ * Symetrique de `lintRequiredScopes` sur l autre axe d authentification : le
+ * contrat PROMET ces deux regles (§3.5) ; sans ce lint, la promesse n etait
+ * tenue nulle part et une operation aurait pu exiger un droit jamais
+ * declare, ou rester joignable par cle de service malgre sa garde.
+ */
+export function lintRequiredCapabilities(document: Doc): string[] {
+  const violations: string[] = [];
+  const components = document['components'];
+  const schemes = isRecord(components) ? components['securitySchemes'] : undefined;
+  const bearerAuth = isRecord(schemes) ? schemes['bearerAuth'] : undefined;
+  const declaredCapabilities = isRecord(bearerAuth) && isRecord(bearerAuth['x-magrit-capabilities'])
+    ? Object.keys(bearerAuth['x-magrit-capabilities'] as Record<string, unknown>)
+    : [];
+
+  const rootSecurity = Array.isArray(document['security']) ? document['security'] : [];
+
+  for (const [path, item] of Object.entries(pathsOf(document))) {
+    for (const [method, operation] of operationsOf(item)) {
+      const required = operation['x-required-capabilities'];
+      if (!Array.isArray(required) || required.length === 0) continue;
+
+      const label = `${method.toUpperCase()} ${path}`;
+
+      for (const capability of required) {
+        if (typeof capability !== 'string' || !declaredCapabilities.includes(capability)) {
+          violations.push(
+            `E10.11 : ${label} exige le droit "${String(capability)}", absent de x-magrit-capabilities.`,
+          );
+        }
+      }
+
+      const security = Array.isArray(operation['security']) ? operation['security'] : rootSecurity;
+      const serviceReachable = security.some(
+        (requirement) => isRecord(requirement) && 'serviceKey' in requirement,
+      );
+      if (serviceReachable) {
+        violations.push(
+          `E10.11 : ${label} exige un droit metier (x-required-capabilities) mais reste joignable par cle de service.`,
+        );
+      }
+    }
+  }
+  return violations;
+}
+
+/**
  * CA4, CA8, CA9 : les parametres partages sont EPINGLES sur leur emplacement
  * et leur nom.
  *
@@ -560,6 +613,7 @@ export function lintContract(document: Doc): string[] {
     ...lintTenantNeverAddressed(document),
     ...lintSecuritySchemes(document),
     ...lintRequiredScopes(document),
+    ...lintRequiredCapabilities(document),
     ...lintSharedParameterDefinitions(document),
     ...lintOperationCoverage(document),
     ...lintResponseShapes(document),

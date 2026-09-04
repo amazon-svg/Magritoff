@@ -11,12 +11,16 @@ export const pricingWorkspaceContribution = defineSurfaceContribution({
       surface: 'workspace',
       path: 'pricing-rules',
       mount: 'router',
-      // CA7 — reserve aux administrateurs du tenant, meme mecanisme de garde
-      // que le module Plans (`plans.workspace.selection`). E10.11 (droits
-      // Admin/Commercial dedies) n est pas encore livree : ce garde grossier
-      // (admin uniquement, pas de role Commercial distinct) sera raffine par
-      // cette story future, pas par celle-ci.
-      requiredTenantRole: 'admin',
+      // CA7 (E10.11) — reserve aux porteurs du droit `can_manage_pricing`.
+      // Un `admin`/`owner` du tenant le recoit par derivation
+      // (`public.user_has_capability`), donc ne perd rien par rapport a l
+      // ancienne garde `requiredTenantRole: 'admin'` qu elle remplace ;
+      // seule change la faculte de deleguer l acces a un membre porteur d
+      // un role qui accorde ce droit. Rappel (§3.5, regle 5 des
+      // CONVENTIONS) : cette garde est de l ERGONOMIE (ne pas presenter un
+      // ecran inutilisable), pas une garde d autorisation — celle-ci est
+      // tenue par la RLS (migration 20260904142026).
+      requiredCapabilities: ['can_manage_pricing'],
     },
   ],
   navigation: [

@@ -84,6 +84,23 @@ export class PriceRuleCommandRejectedError extends Error {
 }
 
 /**
+ * L acteur n a pas le droit metier `can_manage_pricing` (E10.11) requis pour
+ * ecrire le referentiel de prix (`identity.role_required`, contrat
+ * `createPriceRule`/`updatePriceRule`/`setProductRangeDefaultMargin`). Un
+ * `admin`/`owner` du tenant recoit ce droit par derivation
+ * (`public.user_has_capability`) : il ne perd donc jamais l acces qu il
+ * avait deja sous l ancienne garde RLS `tm.role in ('admin', 'member')`
+ * (E10.6) — seul un membre simple sans affectation dediee le perd, ce qu il
+ * n aurait jamais du avoir (docs/api/CONVENTIONS.md §8.11).
+ */
+export class PriceRuleAccessDeniedError extends Error {
+  constructor(message = 'Le droit can_manage_pricing est requis pour administrer le referentiel de prix.') {
+    super(message);
+    this.name = 'PriceRuleAccessDeniedError';
+  }
+}
+
+/**
  * `product_range_id` inconnu du catalogue partage (`public.product_gammes`).
  * Distincte de `PriceRuleCommandRejectedError` : les endpoints
  * `default-margins` la traduisent en 404, quand `createPriceRule` /
@@ -152,4 +169,16 @@ export interface PriceRulesRepository {
     actor: UserId,
     marginRate: string,
   ): Promise<ProductRangeDefaultMarginDto>;
+
+  /**
+   * Evalue le droit metier `can_manage_pricing` (E10.11) de l acteur dans le
+   * tenant, via `public.user_has_capability` — meme mecanisme et meme
+   * signature que `CommercialQuotesRepository.actorHasCapability()`
+   * (`src/modules/commercial-quotes/application/commercial-quotes-repository.ts`),
+   * appele depuis cet adaptateur pour eviter une dependance croisee entre
+   * modules. Garde d ecriture de `createPriceRule`/`updatePriceRule`/
+   * `setProductRangeDefaultMargin`. Un `admin`/`owner` du tenant recoit `true`
+   * par derivation (regle portee par `user_has_capability`, pas par ce port).
+   */
+  actorHasCapability(tenantId: TenantId, actorId: UserId, capability: string): Promise<boolean>;
 }

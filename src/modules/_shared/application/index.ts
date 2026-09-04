@@ -34,6 +34,7 @@ export {
   problem,
   ProblemError,
   resourceConflict,
+  roleRequired,
   scopeRequired,
   SHARED_PROBLEM_CODES,
   validationFailed,

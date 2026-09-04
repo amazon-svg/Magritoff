@@ -30,6 +30,7 @@ import {
 } from '../../modules/pricing/api/contracts.ts';
 import type { PriceRulesService } from '../../modules/pricing/application/price-rules-service.ts';
 import {
+  PriceRuleAccessDeniedError,
   PriceRuleCommandRejectedError,
   PriceRuleNotFoundError,
   ProductRangeNotFoundError,
@@ -42,6 +43,7 @@ import {
   computeEntityTag,
   decodeCursor,
   problem,
+  roleRequired,
   SHARED_PROBLEM_CODES,
   validationFailed,
 } from '../../modules/_shared/application/index.ts';
@@ -161,7 +163,7 @@ export function createPriceRulesRoutes(service: PriceRulesService): readonly Ges
           const currentTag = await computeEntityTag(current);
           assertPrecondition(context.ifMatch, currentTag, current);
 
-          const updated = await service.update(context.tenantId, priceRuleId, input);
+          const updated = await service.update(context.tenantId, priceRuleId, requireUserId(context), input);
           return { status: 200, data: updated, etag: await computeEntityTag(updated) };
         });
       },
@@ -345,6 +347,9 @@ async function withDomainErrors<T>(operation: () => Promise<T>): Promise<T> {
         title: 'Gamme de produits introuvable',
         code: 'price_rule.product_range_unknown',
       });
+    }
+    if (error instanceof PriceRuleAccessDeniedError) {
+      throw roleRequired(['can_manage_pricing']);
     }
     if (error instanceof PriceRuleCommandRejectedError) {
       throw problem({

@@ -590,6 +590,8 @@ export interface paths {
          *     Chemin `audit-entries` et non `audit` : la regle de nommage du socle (CA3, `checkResourcePath`) impose le pluriel sur tout segment de ressource, et elle est verifiee par le lint du contrat.
          *
          *     Ordre par defaut : du plus recent au plus ancien. Pagination par curseur comme toutes les collections de la facade.
+         *
+         *     RESERVE au droit `can_manage_pricing` (E10.11). Ce journal dit qui a consenti quelle remise et de combien il a bouge une marge : c est une piece de SUPERVISION, opposable a un commercial, pas une donnee de travail. Le refus est EXPLICITE (403) et jamais une page vide : rendre une page vide a un acteur non habilite lui ferait croire qu aucune trace n existe. Une habilitation manquante et un journal vide ne se disent pas de la meme facon.
          */
         get: operations["listQuoteAuditEntries"];
         put?: never;
@@ -625,7 +627,11 @@ export interface paths {
          */
         get: operations["listPriceRules"];
         put?: never;
-        /** Cree une regle de prix. Ne modifie, ne decoupe et ne duplique JAMAIS une regle existante (E10.7) : deux regles applicables a la meme date sont un etat normal du referentiel, tranche a la resolution. */
+        /**
+         * Cree une regle de prix. Ne modifie, ne decoupe et ne duplique JAMAIS une regle existante (E10.7) : deux regles applicables a la meme date sont un etat normal du referentiel, tranche a la resolution.
+         *
+         *     Exige le droit `can_manage_pricing` (E10.11).
+         */
         post: operations["createPriceRule"];
         delete?: never;
         options?: never;
@@ -686,7 +692,11 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Modifie le nom, la valeur, la periode ou l etat actif d une regle. La PORTEE, la CIBLE et le TYPE DE VALEUR ne sont pas modifiables : les changer reviendrait a reecrire l historique d arbitrage d une regle deja appliquee a des devis. Creer une nouvelle regle a la place — c est justement ce que l arbitrage par la recence rend indolore (E10.7). */
+        /**
+         * Modifie le nom, la valeur, la periode ou l etat actif d une regle. La PORTEE, la CIBLE et le TYPE DE VALEUR ne sont pas modifiables : les changer reviendrait a reecrire l historique d arbitrage d une regle deja appliquee a des devis. Creer une nouvelle regle a la place — c est justement ce que l arbitrage par la recence rend indolore (E10.7).
+         *
+         *     Exige le droit `can_manage_pricing` (E10.11). Desactiver une regle (`is_active: false`) passe par ce meme PATCH : c est donc le meme droit qui gouverne l extinction d une regle et sa creation, ce qui est la seule combinaison coherente — pouvoir eteindre sans pouvoir creer laisserait un acteur demanteler une politique tarifaire sans pouvoir la retablir.
+         */
         patch: operations["updatePriceRule"];
         trace?: never;
     };
@@ -710,7 +720,11 @@ export interface paths {
         };
         /** Lit la marge publique standard que le tenant applique a cette gamme, et son `ETag` courant. */
         get: operations["getProductRangeDefaultMargin"];
-        /** Definit la marge publique standard du tenant sur cette gamme. `PUT` et non `POST` : la ressource est un singleton, l appel est idempotent par nature et son identite est celle du chemin — c est `If-Match`, pas une cle d idempotence, qui protege deux redacteurs concurrents. */
+        /**
+         * Definit la marge publique standard du tenant sur cette gamme. `PUT` et non `POST` : la ressource est un singleton, l appel est idempotent par nature et son identite est celle du chemin — c est `If-Match`, pas une cle d idempotence, qui protege deux redacteurs concurrents.
+         *
+         *     Exige le droit `can_manage_pricing` (E10.11). Cette marge est le DEFAUT sur lequel retombe tout chiffrage d une gamme quand aucune regle ne s applique : la deplacer d un point deplace silencieusement le prix de toutes les affaires futures de cette gamme, sans qu aucun devis ne porte la trace de la decision. Elle merite au moins la garde des regles de prix, qui sont, elles, nommees et datees.
+         */
         put: operations["setProductRangeDefaultMargin"];
         post?: never;
         delete?: never;
@@ -1578,7 +1592,9 @@ export interface components {
             /**
              * @description Seuil qui a declenche l alerte, quand elle en a un (`discount_threshold_exceeded`) ; `null` sinon. Publie pour que l interface explique le declenchement sans coder le seuil de son cote.
              *
-             *     Le seuil n est PAS encore configurable : E10.11 (droits et reglages commerciaux) n est pas livree. Sa valeur de depart est un reglage de tenant a arbitrer par le metier, pas une constante inventee par l implementation.
+             *     Le seuil n est PAS encore configurable, et E10.11 ne le rend pas configurable : cette story livre QUI a le droit de fixer la politique tarifaire (`can_manage_pricing`), pas les reglages que ce droit permettra de fixer. Ce champ renvoyait auparavant a « E10.11 (droits et reglages commerciaux) » — les deux ne viennent pas ensemble, la mention est corrigee ici.
+             *
+             *     Rendre le seuil configurable reste a faire, et ce sera l usage naturel de `can_manage_pricing` : l ecriture de ce reglage de tenant portera ce droit, sa lecture non. La valeur de depart reste un arbitrage metier, pas une constante inventee par l implementation.
              */
             threshold?: components["schemas"]["Rate"] | null;
         };
@@ -1921,6 +1937,23 @@ export interface components {
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
+        /**
+         * @description Acteur authentifie et membre de l espace, mais DEPOURVU du droit metier exige par l operation (`identity.role_required`). Le droit exige est celui declare par `x-required-capabilities` sur l operation ; sa definition est dans `x-magrit-capabilities` (schema `bearerAuth`).
+         *
+         *     Le code metier reste `identity.role_required`, deja publie en v1 : il signifie « habilitation utilisateur insuffisante » et c est toujours exactement le cas. Seul CHANGE ce qui etablit l habilitation — un droit nomme, la ou E10.6/E10.9 se contentaient de l appartenance `admin`. Le renommer en `identity.capability_required` serait un changement cassant au sens du CA13 (docs/api/CONVENTIONS.md §7), pour un gain purement lexical : un client qui branche son comportement sur ce code n aurait rien a en faire de different.
+         *
+         *     `detail` nomme le droit manquant, pour que l appelant sache quoi demander a son administrateur ; il reste du texte, jamais une donnee sur laquelle brancher un comportement.
+         *
+         *     Non atteignable par une cle de service : les operations gardees par un droit metier sont toutes reservees aux jetons utilisateur. Une cle de service n a pas d identite a qui un role serait affecte.
+         */
+        ForbiddenCapability: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
         /** @description Ressource inexistante dans le tenant du jeton. */
         NotFound: {
             headers: {
@@ -2122,6 +2155,7 @@ export type SetProductRangeDefaultMarginCommand = components['schemas']['SetProd
 export type ResponseBadRequest = components['responses']['BadRequest'];
 export type ResponseUnauthorized = components['responses']['Unauthorized'];
 export type ResponseForbidden = components['responses']['Forbidden'];
+export type ResponseForbiddenCapability = components['responses']['ForbiddenCapability'];
 export type ResponseNotFound = components['responses']['NotFound'];
 export type ResponseConflict = components['responses']['Conflict'];
 export type ResponsePreconditionFailed = components['responses']['PreconditionFailed'];
@@ -3803,19 +3837,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
-            /**
-             * @description L utilisateur n a pas l habilitation requise (`identity.role_required`). Garde grossiere aujourd hui — role `admin` du tenant, meme mecanisme que l ecran des regles de prix (E10.6 CA7) — remplacee par le droit dedie `can_manage_pricing` quand E10.11 sera livree.
-             *
-             *     Le refus est EXPLICITE : rendre une page vide a un acteur non habilite lui ferait croire qu aucune trace n existe. Une habilitation manquante et un journal vide ne se disent pas de la meme facon.
-             */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            403: components["responses"]["ForbiddenCapability"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -3924,7 +3946,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
+            403: components["responses"]["ForbiddenCapability"];
             409: components["responses"]["Conflict"];
             /** @description Cible incoherente avec la portee — `customer_id` requis par `customer`/`customer_range`, `product_range_id` requis par `range`/`customer_range`, l un ou l autre fourni hors de sa portee (`price_rule.invalid_scope`) ; `ends_on` anterieure a `starts_on` (`price_rule.invalid_period`) ; client ou gamme inconnus du tenant (`price_rule.customer_unknown`, `price_rule.product_range_unknown`) ; nom vide ou taux hors format (`api.validation_failed`). */
             422: {
@@ -4082,7 +4104,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
+            403: components["responses"]["ForbiddenCapability"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             /** @description `ends_on` anterieure a `starts_on` (`price_rule.invalid_period`), nom vide ou taux hors format (`api.validation_failed`). */
@@ -4193,7 +4215,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
+            403: components["responses"]["ForbiddenCapability"];
             /** @description Gamme de produits inconnue (`price_rule.product_range_unknown`). */
             404: {
                 headers: {

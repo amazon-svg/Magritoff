@@ -138,6 +138,42 @@ Côté front, `WorkspaceModuleUiBridge` attache l'en-tête depuis le tenant cour
 
 Une **clé de service** ignore cet en-tête : elle est émise **pour** un espace, qu'elle porte déjà.
 
+### 3.5 Droits métier d'un jeton utilisateur — `x-required-capabilities` (E10.11)
+
+> Posé par **E10.11**. Symétrique de §3.1 (scopes de clé de service) sur l'autre axe d'authentification.
+
+Une clé de service porte ses droits **avec elle** (scopes). Un jeton utilisateur n'en porte **aucun** : il prouve une identité, et ses droits dans l'espace résolu sont lus **en base à chaque appel**. Les graver dans le JWT ferait survivre un droit à son retrait pendant toute la validité du jeton.
+
+**Le mécanisme n'appartient pas à E10 et n'est pas dupliqué par lui.** Il existe depuis S-ORDER-ROLES :
+
+| Élément | Où |
+|---|---|
+| Définitions de rôles du tenant, colonne jsonb `capabilities` | `public.tenant_role_definitions` |
+| Affectations à un utilisateur | `public.tenant_role_assignments` |
+| Évaluation d'un droit | `public.user_has_capability(p_tenant_id, p_capability)` |
+| Administration (créer un rôle, l'affecter, lire le profil) | **façade historique** — `/api/v1/tenants/{tenantId}/roles*`, `/access-profile`, `/capabilities/{capability}` |
+| Résolution côté UI | `resolveCapability()` — `src/modules/roles/ui/runtime/accessProfile.helpers.ts` |
+
+**Nommage** : le nom canonique d'un droit est celui écrit en base, forme `can_*` en snake_case (`can_manage_roles`, `can_manage_shops`, `can_manage_pricing`). C'est ce nom, et lui seul, qui apparaît dans le contrat.
+
+**Règle de dérivation, portée par `user_has_capability` et non par la façade** : l'appartenance `admin` d'un espace confère **tous** les droits métier sauf `can_manage_roles`. Conséquence directe : remplacer une garde « rôle `admin` » par un droit dédié n'enlève l'accès à **personne**, il l'élargit aux membres porteurs d'un rôle qui accorde ce droit. C'est ce qui rend ce type de substitution **additive** au sens du CA13 (§7).
+
+**Ce que le contrat déclare :**
+
+- `components.securitySchemes.bearerAuth.x-magrit-capabilities` — le vocabulaire, une entrée par droit, avec sa définition ; symétrique de `x-magrit-scopes` ;
+- `x-required-capabilities: [...]` au niveau d'une **opération** — le droit qu'elle exige ; symétrique de `x-required-scopes` ;
+- réponse partagée `ForbiddenCapability` (403) sur ces opérations.
+
+**Ce que le contrat ne déclare pas, et ne déclarera pas** : aucune opération pour **accorder** un droit. L'administration des rôles est servie par la façade historique et `capabilities` y est une carte libre `<nom> → booléen` : accorder `can_manage_pricing` ne demande **aucune évolution d'endpoint**. Ouvrir un doublon dans la façade E10 créerait deux vérités sur la même table.
+
+**Règles opposables :**
+
+1. Une opération sans `x-required-capabilities` n'exige que l'**appartenance** à l'espace. L'absence de déclaration n'est pas une ouverture, c'est le régime normal.
+2. Une opération gardée par un droit métier est **réservée aux jetons utilisateur** (`security: [bearerAuth]`). Une clé de service n'a pas d'identité à qui un rôle serait affecté ; l'y rendre joignable serait un contresens.
+3. Le code d'erreur reste **`identity.role_required`**, déjà publié en v1. Il signifie « habilitation utilisateur insuffisante », ce qui reste exact ; seul change **ce qui établit** l'habilitation. Le renommer en `identity.capability_required` serait cassant (§7) pour un gain purement lexical.
+4. **La garde doit exister en base**, pas seulement dans la façade. Une garde applicative seule est contournée par un appel PostgREST direct. Policy RLS sur `user_has_capability`, testée par un cas SQL — pas seulement déclarée (`.claude/rules/db.md`).
+5. **Une garde d'UI n'est pas une garde d'autorisation.** `requiredCapabilities` sur une route de surface est de l'ergonomie (ne pas proposer un écran inutilisable) ; elle ne protège rien et ne dispense d'aucune vérification serveur (`.claude/rules/frontend.md`).
+
 ---
 
 ## 4. Forme des réponses
@@ -376,6 +412,46 @@ Choisi plutôt qu'un nouveau report car c'est un ajout de champ optionnel (aucun
 **Point de vigilance signalé par qa-review — numérotation `makeQuoteReference()` non tranchée.** `src/modules/quote-templates/ui/helpers/quote-rendering.ts` (`makeQuoteReference()`) génère côté navigateur un numéro `DEV-AAAA-xxxxxx` (à partir de `Date.now()`) au même FORMAT VISUEL que la numérotation transactionnelle serveur `commercial_quotes.number` (`DEV-AAAA-NNNNN`, générée par `api_create_commercial_quote_from_project_items`, E10.3). Cette fonction sert au rendu HTML imprimable d'un devis ad hoc (`QuoteModal`, `CartButton`) qui n'historise plus rien depuis ce chantier — le numéro qu'elle produit n'est donc jamais écrit dans `commercial_quotes`, mais un document imprimé portant ce numéro est visuellement indiscernable d'un vrai numéro de devis engageant, avec un risque de confusion pour le destinataire (support, comptabilité du client) et de collision de format si les deux se retrouvent un jour dans le même classeur. Décision produit à trancher par Arnaud (préfixe distinct, ex. `EST-` pour une estimation non contractuelle ; mention explicite « document non contractuel » sur le rendu HTML ; ou suppression pure et simple de cette fonction si l'impression ad hoc doit elle aussi passer par `commercial_quotes`) — non traité ici, aucune correction de code appliquée par ce chantier.
 
 **Point d'entrée boutique — à concevoir dans une story future.** Le point 4 de la décision d'Arnaud (« nous détaillerons plus avant celui issu des boutiques plus tard ») n'a PAS été construit ici : l'ancienne route `quotes.storefront.create` (`availability: 'planned'`, jamais implémentée) a simplement été retirée avec le reste du module, sans être recréée sur `commercial_quotes`. **Obstacle de schéma réel à lever pour cette story future :** `commercial_quotes.project_id` est `NOT NULL` (contrainte posée par la migration `20260901000600_gescom_e10_3_commercial_quotes.sql`, cohérente avec CA4 d'E10.3 — un devis hérite du client et du projet source). Un devis initié depuis une boutique par un client n'a, par construction, pas d'Espace Projets (E10.1) associé à ce moment-là : soit cette story future crée un projet implicite au moment de la demande boutique, soit elle assouplit la contrainte (`project_id` nullable + logique de rattachement a posteriori). Les deux options ont un impact sur la fonction `api_create_commercial_quote_from_project_items` et sur le contrat `createQuoteFromProjectCommand` (`project_id` actuellement requis) — à trancher par l'agent `architecte` avant tout code, pas par un contournement applicatif.
+
+### 8.11 E10.11 (droit dédié `can_manage_pricing`) — contrat et implémentation livrés
+
+**Ce que la story solde.** E10.6 (CA7) et E10.9 avaient posé une garde grossière **documentée comme dette** : « rôle `admin` du tenant », en attendant un droit métier dédié. Le contrat annonçait explicitement son remplacement. C'est fait : `can_manage_pricing` est déclaré dans `x-magrit-capabilities` et exigé par `x-required-capabilities` sur les quatre opérations concernées (mécanisme complet en §3.5).
+
+| Opération | Chemin | Avant | Après |
+|---|---|---|---|
+| `listQuoteAuditEntries` | `GET /quotes/{quoteId}/audit-entries` | garde applicative « rôle `admin` » (E10.9) | `can_manage_pricing` |
+| `createPriceRule` | `POST /price-rules` | **aucune garde d'habilitation** — RLS `role in ('admin','member')` | `can_manage_pricing` |
+| `updatePriceRule` | `PATCH /price-rules/{priceRuleId}` | idem | `can_manage_pricing` |
+| `setProductRangeDefaultMargin` | `PUT /product-ranges/{productRangeId}/default-margins` | idem | `can_manage_pricing` |
+
+**Deux natures de changement dans ce tableau, à ne pas confondre.** Sur `listQuoteAuditEntries`, c'est une **substitution additive** : la dérivation `admin → tous les droits` (§3.5) garantit que personne ne perd l'accès. Sur les trois écritures du référentiel de prix, c'est une **fermeture** : la RLS d'E10.6 les ouvre aujourd'hui à *tout membre*, plus largement que ce que le CA7 d'E10.6 exigeait déjà pour son écran. L'API y était plus permissive que l'intention produit ; E10.11 aligne l'API sur l'intention, ce n'est pas un durcissement gratuit — mais un membre simple qui écrivait des règles de prix par appel direct recevra désormais 403.
+
+**Lectures volontairement non gardées** (`listPriceRules`, `getPriceRule`, `resolvePriceRule`, `getProductRangeDefaultMargin`) : `resolvePriceRule` et `getProductRangeDefaultMargin` sont les entrées du `PricingEngine` (E10.21). Les fermer empêcherait un commercial ordinaire de chiffrer une affaire, et il n'existe aucune notion de « droit de chiffrer » dans ce sprint. Un commercial doit pouvoir voir **quelle** règle s'applique à son devis — c'est ce qui rend le prix explicable au client. S'y ajoute §7 : restreindre une lecture déjà publiée en v1 n'est pas autorisé.
+
+**Frontière avec E10.9, à ne pas franchir.** `can_manage_pricing` ne conditionne **pas** `updateQuoteLine` : arbitrer un prix sur une affaire est le geste commercial ordinaire, et « l'autorisation hiérarchique est hors périmètre V1 » (CA7 d'E10.9, amendé au WM du 01/09). Seule la **lecture du journal** est gardée, parce que lire ce que les autres ont consenti est une position de supervision. Étendre le droit à l'édition réintroduirait par la bande l'autorisation hiérarchique explicitement sortie de la V1.
+
+**Ce que l'implémentation a livré (dev-story), au-delà du câblage de la façade :**
+
+| Réf. | Point | Statut |
+|---|---|---|
+| **s1** | **Policy RLS** sur `price_rules` et `product_range_default_margins` fondée sur `public.user_has_capability(tenant_id, 'can_manage_pricing')`, en remplacement de `tm.role in ('admin','member')`. | Fait — `supabase/migrations/20260904142026_gescom_e10_11_can_manage_pricing.sql`, cas SQL `tests/sql/gescom-e10-11-can-manage-pricing.sql` (voir dette **t1** ci-dessous : jamais exécuté, Docker absent du poste). |
+| **s2** | **Seed du droit** : aucune définition de rôle existante ne porte `can_manage_pricing`. | Non traité, **assumé** — hors du périmètre délimité par l'architecte pour cette story (aucun nouvel endpoint d'attribution ; l'octroi passe par l'éditeur de rôles existant, `capabilities` y étant déjà une carte libre `<nom> → booléen`). Seuls les `admin`/`owner` (dérivation) ont le droit tant qu'aucun rôle ne le porte explicitement — comportement inchangé par cette story, décision produit (rôle système `option_pricing` ou non) à trancher séparément. |
+| **s3** | **Nom de la capability côté UI** : `can_manage_pricing` utilisé **directement** comme identifiant de capability dans `pricing/manifest.ts`/`surface-contributions.ts`, sans passer par `WORKSPACE_CAPABILITY_ALIASES` (aucune entrée requise, le nom est déjà celui de la base). | Fait. |
+| **s4** | `requiredTenantRole: 'admin'` sur `pricing.workspace.rules` → `requiredCapabilities: ['can_manage_pricing']`, et `capabilities` de `pricing/manifest.ts` déclare désormais le droit. | Fait — `src/modules/pricing/surface-contributions.ts`, `src/modules/pricing/manifest.ts`. |
+| **s5** | Retiré `findActorTenantRole()` du port `CommercialQuotesRepository`, remplacé par `actorHasCapability(tenantId, actorId, capability)` ; `role !== 'admin'` de `commercial-quotes-service.ts` remplacé par l'évaluation du droit. Le faux repository de test (`tests/contract/_fakes/commercial-quotes-repository.fake.ts`) et le test de contrat (`listQuoteAuditEntries`) suivent la nouvelle signature. **Étendu au même titre à `PriceRulesRepository`** : `actorHasCapability()` ajouté au port (`src/modules/pricing/application/price-rules-repository.ts`), implémenté dans `SupabasePriceRulesRepository` (même appel RPC `user_has_capability`) et le faux de test. `PriceRulesService.create()/update()/setDefaultMargin()` appellent une garde privée `assertCanManagePricing()` AVANT toute autre validation, et lèvent `PriceRuleAccessDeniedError` (nouveau, `price-rules-repository.ts`) — traduite en 403 `identity.role_required` par `price-rules-routes.ts` via `roleRequired(['can_manage_pricing'])`. Cette garde applicative n'était **pas optionnelle** : sans elle, un refus RLS sur `price_rules`/`product_range_default_margins` (s1) remonterait comme une erreur Postgres non reconnue par `toDomainError()`, donc un 500 `api.internal_error` — pas le 403 `ForbiddenCapability` promis par le contrat. `update()` a dû gagner un paramètre `actor: UserId` (absent jusqu'ici, aucun appelant HTTP hors `price-rules-routes.ts` ne l'invoquait) ; les 6 appels de `tests/modules/pricing/price-rules-service.test.ts` suivent. Test dédié : `tests/contract/price-rules.contract.test.ts` (« E10.11 — droit dédié can_manage_pricing sur les écritures du référentiel »), cycle refus→lecture toujours ouverte→octroi sur les trois écritures, plus `tests/modules/pricing/price-rules-service.test.ts` (« garde can_manage_pricing (E10.11) ») au niveau service. | Fait. |
+| **s6** | **Lint `lintRequiredCapabilities()`** dans `tests/contract/_lint.ts`, symétrique de `lintRequiredScopes()` : refuse un `x-required-capabilities` absent de `x-magrit-capabilities`, et refuse qu'une opération gardée par un droit soit joignable par `serviceKey`. | Fait pour les deux règles document-level, testé dans les deux sens (`openapi-document.contract.test.ts`). **Non fait** : l'alignement code ↔ contrat dans `lintRoutesAgainstContract()` — contrairement aux scopes (`requiredScopes` sur `GescomRoute`, appliqué par `assertScopes()`), il n'existe aujourd'hui **aucun champ déclaratif générique `requiredCapabilities` sur une route de la façade** : l'application du droit est portée par une vérification explicite dans le service, pour les QUATRE opérations (`listQuoteAuditEntries`, `createPriceRule`, `updatePriceRule`, `setProductRangeDefaultMargin`), jamais par le middleware `gescom-middleware.ts`. Ajouter ce champ aurait exigé de faire porter au middleware une notion d'autorisation qu'il ne connaît pas aujourd'hui (il ne connaît que des scopes de clé de service), un changement plus large que cette story — la RLS (s1) reste la barrière de dernier recours en cas d'oubli d'un appel à la garde applicative, mais un tel oubli ne serait plus détecté qu'en 500 (voir remarque s5 ci-dessus), pas en 403. **Chemin de mise en conformité** : si une future story ajoute une garde de capability supplémentaire, introduire `requiredCapabilities?: readonly string[]` sur `GescomRoute`/`defineGescomRoute()`, l'y faire évaluer (même schéma que `assertScopes`, mais contre `user_has_capability`), puis étendre `lintRoutesAgainstContract()` en symétrie de son traitement des scopes. |
+
+**Écart assumé, à ne pas prendre pour un oubli** : l'écran des règles de prix est gouverné *en entier* par `can_manage_pricing` (s4) alors que les lectures qu'il consomme restent ouvertes à tout membre par l'API. C'est la séparation normale entre garde d'ergonomie et garde d'autorisation (§3.5, règle 5).
+
+**Tranché par défaut faute de décision produit explicite, repris tel quel de la spécification de l'architecte** : (a) le code d'erreur reste `identity.role_required` plutôt qu'un `identity.capability_required` plus juste lexicalement mais cassant (§3.5, règle 3) ; (b) les lectures du référentiel de prix restent ouvertes à tout membre ; (c) `can_manage_pricing` couvre à la fois la politique tarifaire **et** le journal d'audit des prix, plutôt que deux droits séparés.
+
+**Dette introduite par cette story :**
+
+| Réf. | Trou | Pourquoi c'est un risque | Chemin de mise en conformité |
+|---|---|---|---|
+| **t1** | `tests/sql/gescom-e10-11-can-manage-pricing.sql` (cycle refus → octroi → révocation du droit sur `price_rules`/`product_range_default_margins`, acteur `role = 'member'` sans dérivation admin) n'a **jamais été exécuté** — même contrainte que B3/n1/o1/p1 (§8.1/§8.4/§8.5/§8.6), Docker absent (`docker: command not found`) du poste de rédaction. | Un cas SQL écrit mais jamais lancé peut échouer sur une broutille et donner l'illusion d'une garantie prouvée — en particulier ici, où la garantie est un **resserrement de sécurité réel** (un appel PostgREST direct par un membre simple est désormais censé être refusé). | Lancer `pnpm db:local:start && pnpm test:storefront:sql` sur un poste équipé. Le fichier est déjà enregistré dans `SQL_CASES` (`scripts/test-storefront-sql.sh`). |
+| **t2** | Le déploiement de la migration `20260904142026_gescom_e10_11_can_manage_pricing.sql` sur le projet Supabase partagé n'a pas pu être effectué dans cette session : le PAT Supabase (Keychain macOS) n'était pas accessible depuis l'environnement d'exécution de cette story. | Le code applicatif (routes, service, port, lint) compile et passe `pnpm typecheck`/`pnpm test:contract`/`pnpm test:architecture`, mais la RLS durcie n'est pas encore active sur le projet `ightkxebexuzfjdbpsdg` — jusqu'au déploiement, l'ancienne policy `role in ('admin','member')` reste en vigueur en production. | Exporter `SUPABASE_ACCESS_TOKEN` (cf. `docs/SUPABASE_MIGRATIONS_WORKFLOW.md`) et lancer `supabase db push --linked --dry-run` puis `supabase db push --linked`, comme pour E10.1/E10.3/E10.4/E10.5. |
+| **t3** | Voir s6 ci-dessus : `lintRoutesAgainstContract()` n'aligne pas encore le code sur `x-required-capabilities`, faute d'un champ déclaratif de capability sur `GescomRoute`. | Une route qui retirerait sa garde applicative (le check `actorHasCapability` dans le service, ou une future garde de ce type sur une autre route) sans que le contrat ne change ne serait détectée par aucun test de contrat — seulement, le cas échéant, par un test comportemental dédié (ceux déjà écrits pour `listQuoteAuditEntries` et pour les trois écritures du référentiel de prix). | Décrit dans la cellule s6 ci-dessus. |
 
 ## 9. Commandes
 

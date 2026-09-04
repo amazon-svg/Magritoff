@@ -345,16 +345,20 @@ export class SupabaseCommercialQuotesRepository implements CommercialQuotesRepos
     };
   }
 
-  async findActorTenantRole(tenantId: TenantId, actorId: UserId): Promise<'admin' | 'member' | null> {
-    const { data, error } = await this.client
-      .from('tenant_members')
-      .select('role')
-      .eq('tenant_id', tenantId)
-      .eq('user_id', actorId)
-      .maybeSingle();
+  /**
+   * E10.11 — meme fonction SQL que `SupabaseRolesRepository.userCapability()`
+   * (`src/adapters/supabase/roles-repository.ts`), appelee directement ici
+   * plutot que par une dependance croisee vers le module Roles (convention
+   * du depot : un adaptateur reste autonome, cf. `sanitizeSearchTerm` dans
+   * `price-rules-repository.ts`).
+   */
+  async actorHasCapability(tenantId: TenantId, actorId: UserId, capability: string): Promise<boolean> {
+    const { data, error } = await this.client.rpc('user_has_capability', {
+      p_tenant_id: tenantId,
+      p_capability: capability,
+    });
     if (error) throw new Error(error.message);
-    const role = data?.role;
-    return role === 'admin' || role === 'member' ? role : null;
+    return Boolean(data);
   }
 }
 

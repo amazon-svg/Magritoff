@@ -63,6 +63,25 @@ export class InMemoryPriceRulesRepository implements PriceRulesRepository {
   private readonly defaultMargins = new Map<string, ProductRangeDefaultMarginDto>();
   /** Simule `public.product_gammes` : identifiants connus du catalogue partage. */
   readonly knownProductRanges = new Set<string>();
+  /**
+   * Droits metier de l acteur, par tenant (E10.11, `can_manage_pricing`).
+   * `true` par defaut (equivalent d un `admin`, qui recoit toute capability
+   * par derivation en production) : un test doit forcer `false` explicitement
+   * pour exercer la garde 403 `identity.role_required` — meme pattern que
+   * `InMemoryCommercialQuotesRepository.setActorCapabilityForTest()`.
+   */
+  private readonly actorCapabilities = new Map<string, boolean>();
+
+  /** TEST UNIQUEMENT — force le droit d un acteur pour exercer la garde 403 `identity.role_required`. */
+  setActorCapabilityForTest(tenantId: string, actorId: string, capability: string, granted: boolean | null): void {
+    const key = `${tenantId}:${actorId}:${capability}`;
+    if (granted === null) this.actorCapabilities.delete(key);
+    else this.actorCapabilities.set(key, granted);
+  }
+
+  async actorHasCapability(tenantId: TenantId, actorId: UserId, capability: string): Promise<boolean> {
+    return this.actorCapabilities.get(`${tenantId}:${actorId}:${capability}`) ?? true;
+  }
 
   async list(tenantId: TenantId, params: ListPriceRulesParams): Promise<ListPriceRulesResult> {
     let rows = [...this.rules.values()].filter((rule) => rule.tenant_id === tenantId);

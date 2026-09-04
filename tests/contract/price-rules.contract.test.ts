@@ -599,6 +599,72 @@ describe('module Pricing — referentiel des regles de prix (E10.6) contre le co
     await expectContract(response, { status: 404 });
   });
 
+  describe('E10.11 — droit dedie can_manage_pricing sur les ecritures du referentiel', () => {
+    it('refuse createPriceRule/updatePriceRule/setProductRangeDefaultMargin a un acteur SANS le droit (403 identity.role_required), lecture toujours ouverte', async () => {
+      const { data: rule } = await createGlobalRule();
+      const etag = (await call(`/api/v1/price-rules/${rule.id}`, { headers: asUser })).headers.get('etag')!;
+
+      // Acteur NON-ADMIN dans le fake (le mecanisme de droit ne distingue
+      // plus le role : seule la capability compte) qui PERD explicitement
+      // can_manage_pricing — seule facon de prouver que la garde mord
+      // reellement plutot que de passer par derivation admin (§8.11, s3).
+      priceRules.setActorCapabilityForTest(TENANT, USER, 'can_manage_pricing', false);
+
+      const createDenied = await call('/api/v1/price-rules', {
+        method: 'POST',
+        headers: { ...jsonHeaders, 'Idempotency-Key': `create-${uuid()}` },
+        body: JSON.stringify({
+          name: 'Sans droit',
+          scope: 'global',
+          value_type: 'margin_rate',
+          value: '0.1000',
+          starts_on: '2026-09-01',
+        }),
+      });
+      await expectContract(createDenied, { status: 403 });
+      expect(((await createDenied.json()) as { code: string }).code).toBe('identity.role_required');
+
+      const updateDenied = await call(`/api/v1/price-rules/${rule.id}`, {
+        method: 'PATCH',
+        headers: { ...jsonHeaders, 'If-Match': etag },
+        body: JSON.stringify({ value: '0.6000' }),
+      });
+      await expectContract(updateDenied, { status: 403 });
+      expect(((await updateDenied.json()) as { code: string }).code).toBe('identity.role_required');
+
+      const marginEtag = (
+        await call(`/api/v1/product-ranges/${RANGE_ID}/default-margins`, { headers: asUser })
+      ).headers.get('etag')!;
+      const marginDenied = await call(`/api/v1/product-ranges/${RANGE_ID}/default-margins`, {
+        method: 'PUT',
+        headers: { ...jsonHeaders, 'If-Match': marginEtag },
+        body: JSON.stringify({ margin_rate: '0.4000' }),
+      });
+      await expectContract(marginDenied, { status: 403 });
+      expect(((await marginDenied.json()) as { code: string }).code).toBe('identity.role_required');
+
+      // Ecart assume documente (§8.11) : les LECTURES restent ouvertes a
+      // tout membre, capability ou pas — jamais fermees par E10.11.
+      const stillReadable = await call(`/api/v1/price-rules/${rule.id}`, { headers: asUser });
+      await expectContract(stillReadable, { status: 200, dataSchema: 'PriceRule' });
+
+      // Restitution du droit : les trois ecritures reussissent de nouveau.
+      priceRules.setActorCapabilityForTest(TENANT, USER, 'can_manage_pricing', true);
+      const createAllowed = await call('/api/v1/price-rules', {
+        method: 'POST',
+        headers: { ...jsonHeaders, 'Idempotency-Key': `create-${uuid()}` },
+        body: JSON.stringify({
+          name: 'Avec droit',
+          scope: 'global',
+          value_type: 'margin_rate',
+          value: '0.1000',
+          starts_on: '2026-09-01',
+        }),
+      });
+      await expectContract(createAllowed, { status: 201, dataSchema: 'PriceRule' });
+    });
+  });
+
   describe('E10.7 — resolvePriceRule (arbitrage specificite puis recence)', () => {
     async function resolve(body: Record<string, unknown>): Promise<Response> {
       return call('/api/v1/price-rules/resolve', {

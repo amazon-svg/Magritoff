@@ -26,6 +26,7 @@ import type {
   UpdatePriceRuleCommand,
 } from '../api/contracts.ts';
 import {
+  PriceRuleAccessDeniedError,
   PriceRuleCommandRejectedError,
   PriceRuleNotFoundError,
   ProductRangeNotFoundError,
@@ -34,6 +35,9 @@ import {
   type PriceRulesRepository,
   type ResolvePriceRuleParams,
 } from './price-rules-repository.ts';
+
+/** Droit metier exige par toute ecriture du referentiel de prix (E10.11). */
+const CAN_MANAGE_PRICING = 'can_manage_pricing';
 
 /** Codes metier stables (CA3, contrat `createPriceRule`/`updatePriceRule`). */
 const INVALID_SCOPE_CODE = 'price_rule.invalid_scope';
@@ -86,6 +90,7 @@ export class PriceRulesService {
     actor: UserId,
     command: CreatePriceRuleCommand,
   ): Promise<PriceRuleDto> {
+    await this.assertCanManagePricing(tenantId, actor);
     await this.assertScopeTargets(tenantId, command.scope, command.customer_id ?? null, command.product_range_id ?? null);
     assertPeriodOrder(command.starts_on, command.ends_on ?? null);
 
@@ -104,8 +109,10 @@ export class PriceRulesService {
   async update(
     tenantId: TenantId,
     priceRuleId: string,
+    actor: UserId,
     command: UpdatePriceRuleCommand,
   ): Promise<PriceRuleDto> {
+    await this.assertCanManagePricing(tenantId, actor);
     const current = await this.repository.findById(tenantId, priceRuleId);
     if (!current) throw new PriceRuleNotFoundError();
 
@@ -154,8 +161,20 @@ export class PriceRulesService {
     actor: UserId,
     marginRate: string,
   ): Promise<ProductRangeDefaultMarginDto> {
+    await this.assertCanManagePricing(tenantId, actor);
     await this.requireExistingProductRange(productRangeId);
     return this.repository.setDefaultMargin(tenantId, productRangeId, actor, marginRate);
+  }
+
+  /**
+   * Garde d ecriture E10.11 (403 `identity.role_required` si refuse),
+   * verifiee AVANT toute autre validation — un membre sans le droit ne doit
+   * pas apprendre par la forme du refus (422 de coherence, 404 de gamme) que
+   * sa commande aurait ete par ailleurs acceptee.
+   */
+  private async assertCanManagePricing(tenantId: TenantId, actor: UserId): Promise<void> {
+    const authorized = await this.repository.actorHasCapability(tenantId, actor, CAN_MANAGE_PRICING);
+    if (!authorized) throw new PriceRuleAccessDeniedError();
   }
 
   private async requireExistingProductRange(productRangeId: string): Promise<void> {

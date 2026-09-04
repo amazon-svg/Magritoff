@@ -273,10 +273,14 @@ export interface CommercialQuotesRepository {
   ): Promise<ListQuoteLineAuditResult>;
 
   /**
-   * Role de l acteur dans le tenant (`admin`/`member`), `null` si non membre.
-   * Garde d acces de `listQuoteAuditEntries` (403 `identity.role_required`
-   * hors `admin`) en attendant le droit dedie `can_manage_pricing` (E10.11) —
-   * meme mecanisme que l ecran des regles de prix (E10.6 CA7).
+   * Evalue le droit metier `can_manage_pricing` (E10.11) de l acteur dans le
+   * tenant, via `public.user_has_capability` (le meme mecanisme, deja
+   * exploite par `SupabaseRolesRepository.userCapability()` — pas duplique,
+   * juste appele depuis cet adaptateur pour eviter une dependance croisee
+   * entre modules). Garde d acces de `listQuoteAuditEntries` (403
+   * `identity.role_required` si `false`). Un `admin`/`owner` du tenant
+   * recoit `true` par derivation (regle portee par `user_has_capability`,
+   * pas par ce port) : aucun acteur qui avait acces avant E10.11 ne le perd.
    */
-  findActorTenantRole(tenantId: TenantId, actorId: UserId): Promise<'admin' | 'member' | null>;
+  actorHasCapability(tenantId: TenantId, actorId: UserId, capability: string): Promise<boolean>;
 }
