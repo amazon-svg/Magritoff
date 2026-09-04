@@ -22,6 +22,7 @@
     "db:local:reset": "./scripts/supabase-local.sh reset",
     "db:local:push": "./scripts/supabase-local.sh push",
     "db:local:env": "./scripts/supabase-local-env.sh",
+    "db:seed:ux": "./scripts/seed-ux-volume.sh",
     "supabase:use:local": "./scripts/supabase-env.sh local",
     "supabase:use:official": "./scripts/supabase-env.sh official",
     "supabase:env:status": "./scripts/supabase-env.sh status",
