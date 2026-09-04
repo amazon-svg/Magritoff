@@ -129,6 +129,9 @@ export const TEST_IDS = {
     contextTruncatedIndicator: 'marguerite-context-truncated-indicator',
     /** R2 (refacto 2026-05-11) - fix bug E4 : banner billing explicite au lieu de bascule demo silencieuse. */
     billingErrorBanner: 'marguerite-billing-error-banner',
+    /** Sprint 5 (raccourcis rail lateral) - acces rapides Projets / Devis depuis la home chat. */
+    railProjectsLink: 'marguerite-rail-projects-link',
+    railQuotesLink: 'marguerite-rail-quotes-link',
   },
 
   // ─── P07 — Tracking conso IA ──────────────────────────────────────────
