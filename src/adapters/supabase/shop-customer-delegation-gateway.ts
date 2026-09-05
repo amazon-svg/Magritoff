@@ -38,6 +38,10 @@ export class SupabaseShopCustomerDelegationGateway implements ShopCustomerDelega
           authSubjectId: row.auth_subject_id,
           status: row.account_status,
           createdByMagritUserId: row.created_by_magrit_user_id,
+          // Une delegation "Se connecter a la boutique" (UM2) ouvre un compte
+          // miroir pour l acteur Magrit lui-meme, jamais pour un interlocuteur
+          // E10.4 : valeur exacte, pas un defaut de convenance.
+          customerContactId: null,
           createdAt: row.account_created_at,
           activatedAt: row.activated_at,
           suspendedAt: row.suspended_at,

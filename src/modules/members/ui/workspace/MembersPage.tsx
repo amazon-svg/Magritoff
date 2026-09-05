@@ -216,7 +216,15 @@ export function MembersPage() {
         </p>
       </div>
 
-      <MagritUsersSection />
+      {/*
+        E10.5 CA1 — cet ecran ne liste que les membres internes du tenant
+        (tenant_members) ; aucun interlocuteur client (customer_contacts,
+        E10.4) n y apparait. `sectionInternal` enveloppe la meme section que
+        `sectionMagrit` (dual-tag) : c est le testid cible du parcours P12.
+      */}
+      <div data-testid={TEST_IDS.user.sectionInternal}>
+        <MagritUsersSection />
+      </div>
 
       <LegacyShopCustomerMigrationSection />
 

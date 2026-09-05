@@ -1,12 +1,13 @@
 import { useWorkspaceUiRuntime } from '@/platform/runtime/workspace-ui-runtime';
 import { lazy, Suspense, useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router";
 import {
   Send, History, X, CheckSquare, Square, BookmarkPlus,
   MessageSquare, SquarePen, Paperclip, Mic, Sparkles,
+  FolderKanban, FileText,
 } from "lucide-react";
 import { MagritLogo } from "@/shared/presentation/MagritLogo";
 import { ProductCard } from '@/modules/catalog/ui/components';
-import { CartButton } from '@/modules/orders/ui/components';
 // R7 (refacto 2026-05-11) : lazy-load la modale library picker (modale lourde,
 // pas necessaire au shell initial du chat).
 const LibraryPickerModal = lazy(() =>
@@ -17,6 +18,7 @@ import { useAuth } from '@/modules/account/ui/runtime';
 import { useLibrary } from '@/modules/libraries/ui/runtime';
 import { usePlan } from '@/modules/plans/ui/hooks';
 import { useTenant } from '@/modules/tenants/ui/runtime';
+import { useTenantPath } from '@/modules/tenants/ui/hooks';
 import { ENABLE_STREAMING_CHAT } from "@/shared/config/featureFlags";
 import { TEST_IDS } from "@/shared/presentation/testIds";
 import {
@@ -51,6 +53,38 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
   const { user, session } = useAuth();
   const { currentTenant } = useTenant();
   const { canUse } = usePlan();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const tp = useTenantPath();
+
+  // E10.1 CA5 — reprise de l iteration conversationnelle sur un chiffrage
+  // deja associe a un projet (ProjectDetailPage, bouton « Reprendre »). Le
+  // payload restitue est celui deja calcule (`project_items.quote_payload`) :
+  // aucun appel Clariprint n est rejoue ici.
+  useEffect(() => {
+    const state = location.state as
+      | { resumeProject?: { item?: { label?: string; quote_payload?: unknown } } }
+      | null;
+    const resumeItem = state?.resumeProject?.item;
+    if (!resumeItem) return;
+
+    const payload: Record<string, unknown> =
+      resumeItem.quote_payload && typeof resumeItem.quote_payload === 'object'
+        ? { ...(resumeItem.quote_payload as Record<string, unknown>) }
+        : {};
+    resetConversation();
+    setProducts([{ id: `resume-${Date.now()}`, ...payload } as any]);
+    setMessages([
+      {
+        role: 'assistant',
+        content: `Reprise du chiffrage « ${resumeItem.label ?? 'produit'} » depuis le projet. Vous pouvez continuer à l’ajuster.`,
+      },
+    ]);
+    // Nettoie le state de navigation : sans ca, un remount du composant lazy
+    // (retour arriere, changement d onglet) rejouerait la reprise en boucle.
+    navigate(location.pathname, { replace: true, state: null });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state]);
   const { addProductsBulk } = useLibrary();
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -380,9 +414,26 @@ export function ChatInterface({ onShowResults }: ChatInterfaceProps) {
           badge={conversationHistory.length > 0 ? conversationHistory.length : undefined}
         />
 
-        {/* Panier — permet d'agreger plusieurs productcards pour imprimer
-            un devis groupe par client. Le composant gere lui-meme le badge. */}
-        <CartButton variant="rail" />
+        {/* Raccourcis rail lateral (Sprint 5) : acces rapide aux listes
+            Projets / Devis depuis la home chat, sans remplacer les entrees
+            de la sidebar dashboard (DashboardLayout) qui restent la
+            navigation principale. */}
+        <RailIcon
+          icon={FolderKanban}
+          label="Projets"
+          onClick={() => navigate(tp('/dashboard/projects'))}
+          testId={TEST_IDS.marguerite.railProjectsLink}
+        />
+        <RailIcon
+          icon={FileText}
+          label="Devis"
+          onClick={() => navigate(tp('/dashboard/quotes'))}
+          testId={TEST_IDS.marguerite.railQuotesLink}
+        />
+
+        {/* E10.1 (qa-review B1) : le rail Panier a disparu (decision RP
+            28/08/2026, CA1) — remplace par le conteneur Projet (« Ajouter au
+            projet » depuis QuoteModal, entree « Projets » de la sidebar). */}
 
         {/* Avatar user en bas (placeholder) */}
         <div
@@ -917,16 +968,19 @@ function RailIcon({
   onClick,
   active,
   badge,
+  testId,
 }: {
   icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
   label: string;
   onClick?: () => void;
   active?: boolean;
   badge?: number | undefined;
+  testId?: string;
 }) {
   return (
     <button
       type="button"
+      data-testid={testId}
       onClick={onClick}
       aria-label={label}
       title={label}

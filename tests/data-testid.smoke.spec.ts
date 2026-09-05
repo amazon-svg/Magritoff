@@ -21,7 +21,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { TEST_IDS } from '@/shared/presentation/testIds';
+import { TEST_IDS, getAllTestIds } from '@/shared/presentation/testIds';
 
 const SRC_ROOTS = [
   resolve(__dirname, '..', 'src', 'app'),
@@ -122,6 +122,20 @@ describe('E7.7 smoke — data-testid presence par parcours', () => {
         }
         seen.set(id, parcours);
       }
+    }
+    expect(all.length).toBeGreaterThan(0);
+  });
+
+  it('aucune valeur de TEST_IDS n est dupliquee (qa-review Lot 2, collision quote-editor-page)', () => {
+    const all = getAllTestIds();
+    const seen = new Set<string>();
+    const duplicates = new Set<string>();
+    for (const id of all) {
+      if (seen.has(id)) duplicates.add(id);
+      seen.add(id);
+    }
+    if (duplicates.size > 0) {
+      throw new Error(`Valeurs de testid dupliquees dans TEST_IDS : ${[...duplicates].join(', ')}`);
     }
     expect(all.length).toBeGreaterThan(0);
   });

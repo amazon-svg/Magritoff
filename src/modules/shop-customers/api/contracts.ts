@@ -41,6 +41,15 @@ export const shopCustomerAccountSchema = z.object({
   authSubjectId: z.string().uuid().nullable(),
   status: shopCustomerAccountStatusSchema,
   createdByMagritUserId: z.string().uuid().nullable(),
+  /**
+   * E10.5 CA3 — interlocuteur (`customer_contacts`, E10.4) a l origine de
+   * l ouverture explicite de cet acces. `null`/absent pour un compte
+   * auto-inscrit ou legacy sans lien de gestion (cas deja existant du
+   * storefront public, delegation UM2, compte miroir `ensureSelf`).
+   * Optionnel plutot que requis : v1 additive (docs/api/CONVENTIONS.md §7),
+   * champ ajoute apres coup a une ressource deja publiee.
+   */
+  customerContactId: z.string().uuid().nullable().optional(),
   createdAt: z.iso.datetime({ offset: true }),
   activatedAt: z.iso.datetime({ offset: true }).nullable(),
   suspendedAt: z.iso.datetime({ offset: true }).nullable(),
@@ -71,6 +80,8 @@ export const createShopCustomerCommandSchema = z.object({
   email: shopCustomerEmailSchema,
   fullName: z.string().trim().min(1).max(200).optional(),
   initialStatus: z.enum(['delegated_only', 'invited']).default('invited'),
+  /** E10.5 CA3 — interlocuteur (customer_contacts) a l origine de l ouverture. */
+  customerContactId: z.string().uuid().nullable().optional(),
 }).strict();
 
 export const inviteShopCustomerCommandSchema = z.object({

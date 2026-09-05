@@ -12,7 +12,8 @@
  *      • detail des couts (papier/print/calage/conditionnement/livraison)
  *      • infos complementaires (delais, poids, fournisseur)
  *      • bouton recalculer
- *  - Bouton final "Imprimer le devis / Ajouter au panier" (ouvre QuoteModal).
+ *  - Bouton final "Imprimer le devis / Ajouter au projet" (ouvre QuoteModal,
+ *    E10.1 — remplace « Ajouter au panier » sur les surfaces internes).
  *
  * Note : le state `showDebug` est gere localement (specifique a ce panneau).
  */
@@ -29,6 +30,7 @@ import {
 } from 'lucide-react';
 import { TEST_IDS } from '@/shared/presentation/testIds';
 import { applyTax, extractTaxAmount, formatTaxLabel } from '@/modules/orders/ui/helpers';
+import { formatClariprintAmount } from './clariprintAmount';
 import type { ClariprintQuoteResult } from '@/modules/clariprint';
 
 interface ProductCardPrixProps {
@@ -241,14 +243,14 @@ export function ProductCardPrix({
                       <div key={String(label)} className="flex justify-between text-ink-muted">
                         <span>{label}</span>
                         <span className={!user ? 'blur-sm select-none' : ''}>
-                          {(val as number).toFixed(2)} €
+                          {formatClariprintAmount(val)} €
                         </span>
                       </div>
                     ))}
                   <div className="flex justify-between font-semibold text-green-800 border-t border-green-200 pt-1 mt-1">
                     <span>Total HT</span>
                     <span className={!user ? 'blur-sm select-none' : ''}>
-                      {(clariprintQuote.costs.total || clariprintQuote.priceHT || 0).toFixed(2)} €
+                      {formatClariprintAmount(clariprintQuote.costs.total || clariprintQuote.priceHT || 0)} €
                     </span>
                   </div>
                 </div>
@@ -344,12 +346,15 @@ export function ProductCardPrix({
         </div>
       )}
 
-      {/* Bouton devis/panier */}
+      {/* Bouton devis/projet — E10.1 (2026-09-01) : « Ajouter au panier »
+          disparait des surfaces internes Magrit (decision RP 28/08/2026),
+          remplace par « Ajouter au projet » (ouvre QuoteModal, qui porte les
+          deux actions). */}
       <button
         onClick={onOpenQuoteModal}
         className="w-full mt-4 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-colors"
       >
-        Imprimer le devis / Ajouter au panier
+        Imprimer le devis / Ajouter au projet
       </button>
     </div>
   );

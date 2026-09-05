@@ -65,10 +65,45 @@ export class ShopCustomersService {
       fullName: command.fullName ?? inferShopCustomerNameFromEmail(command.email),
       status: command.initialStatus,
       createdByMagritUserId: actor,
+      customerContactId: command.customerContactId ?? null,
     });
   }
 
   ensureSelf(actor: UserId, tenantId: string, shopId: string): Promise<EnsureSelfShopCustomerResult> {
     return this.repository.ensureSelf(actor, tenantId, shopId);
+  }
+
+  /** E10.5 — l acces boutique deja ouvert pour cet interlocuteur, dans CETTE boutique. */
+  findForContact(
+    actor: UserId,
+    tenantId: string,
+    shopId: string,
+    customerContactId: string,
+  ): Promise<ShopCustomerAccount | null> {
+    return this.repository.findByCustomerContactId(actor, tenantId, shopId, customerContactId);
+  }
+
+  /** E10.5 — tous les acces boutique ouverts pour cet interlocuteur, toutes boutiques confondues. */
+  listForContact(actor: UserId, customerContactId: string): Promise<ShopCustomerAccount[]> {
+    return this.repository.listByCustomerContactId(actor, customerContactId);
+  }
+
+  /** E10.5 — relie un compte boutique existant (trouve par email, non lie) a l interlocuteur. */
+  linkContact(
+    actor: UserId,
+    accountId: string,
+    customerContactId: string,
+  ): Promise<ShopCustomerAccount> {
+    return this.repository.linkCustomerContact(actor, accountId, customerContactId);
+  }
+
+  /** E10.5 — revoque l acces : delie l interlocuteur et suspend le compte. */
+  revokeForContact(
+    actor: UserId,
+    tenantId: string,
+    shopId: string,
+    customerContactId: string,
+  ): Promise<void> {
+    return this.repository.revokeCustomerContactAccess(actor, tenantId, shopId, customerContactId);
   }
 }

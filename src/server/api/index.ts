@@ -1,7 +1,27 @@
-export { createApiV1Handler } from './api-v1-handler';
+export { compilePathTemplate, createApiV1Handler } from './api-v1-handler';
 export type { ActorResolver, ApiV1HandlerOptions, ResolvedActor } from './api-v1-handler';
-export { createApiV1Application } from './composition';
-export type { ApiV1ApplicationDependencies } from './composition';
+export { buildEnvelope, createGescomApiHandler, defineGescomRoute } from './gescom-middleware';
+export { GESCOM_ROUTES, gescomRoutes } from './gescom-routes';
+export type { GescomServices } from './gescom-routes';
+export type {
+  GescomApiHandlerOptions,
+  GescomAuthentication,
+  GescomRequestContext,
+  GescomRoute,
+  GescomRouteDefinition,
+  GescomRouteResult,
+} from './gescom-middleware';
+export { createApiV1Application, createMagritApiApplication } from './composition';
+export type {
+  ApiV1ApplicationDependencies,
+  MagritApiApplicationDependencies,
+} from './composition';
+export {
+  assertNoFacadeCollision,
+  createApiFacadeRouter,
+  pathTemplatesOverlap,
+} from './api-facade-router';
+export type { ApiFacadeHandler, ApiFacadeRouterOptions } from './api-facade-router';
 export { ApiHttpError } from './errors';
 export { createSessionRoutes } from './session-routes';
 export { createOrdersRoutes } from './orders-routes';
@@ -21,11 +41,11 @@ export { createDiagnosticsRoutes } from './diagnostics-routes';
 export { createAssistantRoutes } from './assistant-routes';
 export { createClariprintRoutes } from './clariprint-routes';
 export { isAssistantChatRequest, proxyAssistantChat } from './assistant-stream-proxy';
-export { createQuotesRoutes } from './quotes-routes';
 export { createQuoteTemplatesRoutes } from './quote-templates-routes';
 export { createLibrariesRoutes } from './libraries-routes';
 export { createLibraryProductsRoutes } from './library-products-routes';
 export { createCommercialRoutes } from './commercial-routes';
+export { createProjectsRoutes } from './projects-routes';
 export { createHealthRoute, defineJsonRoute, defineMultipartRoute } from './routes';
 export type {
   ApiRequestContext,

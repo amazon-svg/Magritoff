@@ -828,6 +828,7 @@ export type Database = {
           auth_subject_id: string | null
           created_at: string
           created_by_magrit_user_id: string | null
+          customer_contact_id: string | null
           email: string
           full_name: string
           id: string
@@ -841,6 +842,7 @@ export type Database = {
           auth_subject_id?: string | null
           created_at?: string
           created_by_magrit_user_id?: string | null
+          customer_contact_id?: string | null
           email: string
           full_name: string
           id?: string
@@ -854,6 +856,7 @@ export type Database = {
           auth_subject_id?: string | null
           created_at?: string
           created_by_magrit_user_id?: string | null
+          customer_contact_id?: string | null
           email?: string
           full_name?: string
           id?: string
@@ -868,6 +871,13 @@ export type Database = {
             columns: ["shop_id"]
             isOneToOne: false
             referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_customer_accounts_customer_contact_id_fkey"
+            columns: ["customer_contact_id"]
+            isOneToOne: false
+            referencedRelation: "customer_contacts"
             referencedColumns: ["id"]
           },
         ]
@@ -2198,6 +2208,7 @@ export type Database = {
         Args: { p_shop_id: string }
         Returns: boolean
       }
+      current_user_is_shop_customer: { Args: never; Returns: boolean }
       current_user_tenant_ids: { Args: never; Returns: string[] }
       get_order_audit_trail: {
         Args: { p_order_id: string }

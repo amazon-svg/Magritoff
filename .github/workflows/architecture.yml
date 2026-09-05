@@ -38,3 +38,17 @@ jobs:
 
       - name: Check architecture boundaries
         run: pnpm test:architecture
+
+      # Sprint 5 — story E10.0 (CA2, CA12). Les deux etapes sont BLOQUANTES.
+      #
+      # gen:api:check echoue si src/platform/api/generated/ a derive de
+      # openapi/magrit-core.v1.yaml : les types sont un artefact du contrat, pas
+      # une source parallele qu on pourrait retoucher a la main.
+      - name: Check generated API types match the OpenAPI contract
+        run: pnpm gen:api:check
+
+      # test:contract valide le contrat lui-meme (nommage, securite, enveloppe,
+      # pagination, idempotence, ETag, bus d evenements) ET les payloads
+      # reellement produits par le code contre ce contrat.
+      - name: Run API contract tests
+        run: pnpm test:contract

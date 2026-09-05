@@ -51,6 +51,18 @@ Le repo `amazon-svg/Magritoff` est cloné **deux fois** en local. Les deux clone
 - **Toute interaction Clariprint** passe par `ClariprintAdapter` ([src/server/clariprint/](src/server/clariprint/)) + `validateClariprintResponse()`.
 - **Hiérarchie de prix** : `clariprint > library_cached > prix_marche > zero` via `resolvePrice()` ([src/app/utils/priceResolver.ts](src/app/utils/priceResolver.ts)).
 
+## Sprint 5 — Gestion commerciale (Epic E10, API-first)
+
+Chantier actif depuis le 2026-09-01 (WM Xavier Péchoultres). Détail complet des règles dans `.claude/rules/api.md`, `db.md`, `frontend.md` (chargés automatiquement selon les fichiers touchés) et `docs/api/CONVENTIONS.md`. Rappel condensé :
+
+- **API-first strict** : `openapi/magrit-core.v1.yaml` fait foi, écrit avant tout endpoint. Seul l'agent `architecte` le modifie. Préfixe `/api/v1`, tenant résolu du jeton, réponses `{data, meta}`, erreurs RFC 7807, pagination par curseur, `Idempotency-Key` sur POST, `ETag`/`If-Match` sur PATCH.
+- **Interdit absolu** : aucun composant React n'interroge Supabase en direct, aucun contrôle métier (seuil, quota, total, numérotation) posé uniquement côté navigateur.
+- **Données** : montants `numeric(12,2)`, taux `numeric(6,4)`, jamais de flottant sur un prix. Tables d'audit append-only. RLS testée, pas seulement déclarée.
+- **Modularité** : un module = `api/` + `application/` (pattern déjà en place dans le dépôt — ne pas réintroduire une convention de dossiers différente).
+- **Prix** : tout calcul passe par l'interface `PricingEngine` (E10.21) une fois livrée ; `E10.8` reste gelée (spécification seule, pas de code).
+- Agents dédiés : `architecte` (opus, seul habilité à toucher `openapi/`), `dev-story` (sonnet, implémente une story), `qa-review` (opus, revue adversariale distincte de l'auteur), `scribe` (haiku, met à jour Notion — n'écrit jamais de code).
+- Une story = une branche `feat/gescom-<id-story>-<slug>` depuis `main`, une PR vers `main`, jamais de merge sans `qa-review` distinct.
+
 ## Identifiants techniques essentiels
 
 - **Projet Supabase** : `ightkxebexuzfjdbpsdg` (B4 + B5 partagés, RLS isole).

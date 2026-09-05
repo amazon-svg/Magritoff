@@ -50,19 +50,28 @@ export const TEST_IDS = {
     sidebarConfigLink: 'nav-sidebar-config-link',
     sidebarProfileLink: 'nav-sidebar-profile-link',
     tenantSwitcher: 'nav-tenant-switcher',
+    // E10.4 (Sprint 5, TF-165, parcours P13) — module Clients.
+    sidebarCustomersLink: 'nav-sidebar-customers-link',
+    // E10.1 (Sprint 5, parcours P13) — module Projets.
+    sidebarProjectsLink: 'nav-sidebar-projects-link',
   },
   dashboard: {
     welcomeCard: 'dashboard-welcome-card',
-    // S2.16 — Page "Devis en attente" (sous-menu de Devis, option C)
-    pendingQuotes: 'dashboard-pending-quotes',
-    pendingQuoteRow: 'dashboard-pending-quote-row',
-    pendingQuoteResumeBtn: 'dashboard-pending-quote-resume-btn',
+    // S2.16 — Page "Devis en attente" (sous-menu de Devis, option C).
+    // Retire au chantier d unification des devis (docs/api/CONVENTIONS.md
+    // §8.10) : le nouveau systeme (commercial_quotes) n a pas d equivalent au
+    // concept "en attente de validation" — pas de composant a re-tagger.
   },
 
   // ─── P02 — Gestion utilisateurs ───────────────────────────────────────
   user: {
     page: 'users-page',
     sectionMagrit: 'users-section-magrit',
+    // E10.5 (Sprint 5, parcours P12) — l ecran Utilisateurs ne liste que les
+    // membres internes du tenant (CA1), jamais un interlocuteur client
+    // (customer_contacts, E10.4). Pose sur le meme conteneur que
+    // `sectionMagrit`, cible du cahier de test Notion.
+    sectionInternal: 'users-section-internal',
     sectionCrm: 'users-section-crm',
     table: 'users-table',
     row: 'user-row',
@@ -120,6 +129,9 @@ export const TEST_IDS = {
     contextTruncatedIndicator: 'marguerite-context-truncated-indicator',
     /** R2 (refacto 2026-05-11) - fix bug E4 : banner billing explicite au lieu de bascule demo silencieuse. */
     billingErrorBanner: 'marguerite-billing-error-banner',
+    /** Sprint 5 (raccourcis rail lateral) - acces rapides Projets / Devis depuis la home chat. */
+    railProjectsLink: 'marguerite-rail-projects-link',
+    railQuotesLink: 'marguerite-rail-quotes-link',
   },
 
   // ─── P07 — Tracking conso IA ──────────────────────────────────────────
@@ -139,37 +151,6 @@ export const TEST_IDS = {
     priceErrorBanner: 'quote-price-error-banner',
     anomalyBanner: 'quote-anomaly-banner',
     refreshBtn: 'quote-refresh-btn',
-  },
-
-  // ─── S-QUOTES — Bibliotheque de devis editables ───────────────────────
-  quoteLib: {
-    page: 'quote-lib-page',
-    scopeToggleMine: 'quote-lib-scope-mine',
-    scopeToggleAll: 'quote-lib-scope-all',
-    row: 'quote-lib-row',
-    rowMenuBtn: 'quote-lib-row-menu-btn',
-    rowMenuEdit: 'quote-lib-row-menu-edit',
-    rowMenuDuplicate: 'quote-lib-row-menu-duplicate',
-    rowMenuDelete: 'quote-lib-row-menu-delete',
-    deleteDialog: 'quote-lib-delete-dialog',
-    deleteConfirmBtn: 'quote-lib-delete-confirm-btn',
-    // Editeur de devis (page dediee)
-    editorPage: 'quote-editor-page',
-    editorClientNameInput: 'quote-editor-client-name-input',
-    editorLineRow: 'quote-editor-line-row',
-    editorLineQuantityInput: 'quote-editor-line-quantity-input',
-    editorLinePriceInput: 'quote-editor-line-price-input',
-    editorLineMarginInput: 'quote-editor-line-margin-input',
-    editorLineMoveUp: 'quote-editor-line-move-up',
-    editorLineMoveDown: 'quote-editor-line-move-down',
-    editorLineDeleteBtn: 'quote-editor-line-delete-btn',
-    editorTemplateSelect: 'quote-editor-template-select',
-    editorStatusSelect: 'quote-editor-status-select',
-    editorTotalTtc: 'quote-editor-total-ttc',
-    editorPrintBtn: 'quote-editor-print-btn',
-    editorSaveBtn: 'quote-editor-save-btn',
-    // Entree "Creer un devis" depuis le panier
-    cartCreateQuoteBtn: 'shop-cart-create-quote-btn',
   },
 
   // ─── P09 — Boutique portail B2B ───────────────────────────────────────
@@ -283,7 +264,6 @@ export const TEST_IDS = {
     // S7.10 — AccountHub « Mon compte » /account/*
     accountHub: 'shop-account-hub',
     accountTab: 'shop-account-tab',
-    accountQuotesList: 'shop-account-quotes-list',
     accountProfile: 'shop-account-profile',
     accountLogoutBtn: 'shop-account-logout-btn',
     // S7.9 — Bandeau Reprendre riche (home) + compact (pages gammes)
@@ -460,6 +440,160 @@ export const TEST_IDS = {
     productImageSkeleton: 'mockup-product-image-skeleton',
     productImageImg: 'mockup-product-image-img',
     productImageFallback: 'mockup-product-image-fallback',
+  },
+
+  // ─── E10.4 — Module Clients (Sprint 5 Gestion commerciale, TF-165, P13) ──
+  customer: {
+    page: 'customers-page',
+    table: 'customers-table',
+    row: 'customer-row',
+    // Correctif qa-review B1 (2026-09-03) : badge de la LISTE (distinct de
+    // `siretVerifyBtn`, dans la modale) — permet aux tests de verifier que
+    // la ligne reflete bien `siret_verified` sans attendre un rechargement
+    // manuel de page.
+    siretVerifiedBadge: 'customer-siret-verified-badge',
+    createBtn: 'customer-create-btn',
+    formModal: 'customer-form-modal',
+    typeRadio: 'customer-type-radio',
+    companyNameInput: 'customer-company-name-input',
+    siretInput: 'customer-siret-input',
+    siretVerifyBtn: 'customer-siret-verify-btn',
+    saveBtn: 'customer-save-btn',
+    detailPage: 'customer-detail-page',
+    contactRow: 'customer-contact-row',
+    contactAddBtn: 'customer-contact-add-btn',
+    contactPrimaryToggle: 'customer-contact-primary-toggle',
+    // E10.5 (Sprint 5, parcours P12) — ouverture/revocation explicite d un
+    // acces boutique depuis la fiche client. `data-status` sur le badge vaut
+    // "none" | "invited" | "active" (jamais "suspended" : un acces revoque
+    // disparait de `shop_accesses`, cf. contrat OpenAPI).
+    contactOpenShopAccessBtn: 'customer-contact-open-shop-access-btn',
+    contactRevokeShopAccessBtn: 'customer-contact-revoke-shop-access-btn',
+    contactShopAccessBadge: 'customer-contact-shop-access-badge',
+  },
+
+  // ─── E10.1 — Module Projets (Sprint 5 Gestion commerciale, parcours P13) ──
+  // Le projet remplace le panier comme conteneur de travail sur les
+  // surfaces internes Magrit (atelier, resultats de chiffrage). Structure de
+  // page/detail prevue pour accueillir sans refonte les testid E10.3
+  // (project-item-checkbox, project-create-quote-btn — hors perimetre E10.1).
+  project: {
+    page: 'projects-page',
+    table: 'projects-table',
+    row: 'project-row',
+    createBtn: 'project-create-btn',
+    createModal: 'project-create-modal',
+    nameInput: 'project-name-input',
+    customerSelect: 'project-customer-select',
+    createSubmitBtn: 'project-create-submit-btn',
+    detailPage: 'project-detail-page',
+    itemRow: 'project-item-row',
+    itemRemoveBtn: 'project-item-remove-btn',
+    // CA1/CA4 — remplace le CTA "Ajouter au panier" sur les surfaces
+    // internes (atelier, resultats de chiffrage, cf. QuoteDialog.tsx).
+    addToProjectBtn: 'project-add-to-project-btn',
+    addToProjectModal: 'project-add-to-project-modal',
+    addToProjectExistingOption: 'project-add-to-project-existing-option',
+    addToProjectCreateOption: 'project-add-to-project-create-option',
+    addToProjectSubmitBtn: 'project-add-to-project-submit-btn',
+    // ─── E10.2 — Tags libres colores sur les projets (Sprint 5) ─────────────
+    // `tagInput`/`tagOption` : champ de saisie + autocompletion, cree a la
+    // volee (CA2), pose dans l en-tete de la fiche projet (ProjectDetailPage).
+    // `tagBadge`/`tagRemoveBtn` : affiche sur la ligne de la liste (lecture
+    // seule) ET dans l en-tete du projet (CA6), avec un bouton de retrait
+    // uniquement dans l en-tete (retrait du LIEN, jamais du tag du tenant,
+    // CA5). `data-tag-id` pose sur chaque option/badge.
+    tagInput: 'project-tag-input',
+    tagOption: 'project-tag-option',
+    tagBadge: 'project-tag-badge',
+    tagRemoveBtn: 'project-tag-remove-btn',
+    // Recherche et filtre de la liste des projets (CA4), sur ProjectsPage.
+    searchInput: 'projects-search-input',
+    tagFilter: 'projects-tag-filter',
+    tagFilterOption: 'projects-tag-filter-option',
+    // E10.3 — creation d un devis depuis un projet (CA1, CA2).
+    createQuoteBtn: 'project-create-quote-btn',
+    itemCheckbox: 'project-item-checkbox',
+  },
+
+  // ─── E10.3 — Creation d un devis depuis un projet (P13, TF-163) ────────
+  commercialQuote: {
+    createDrawer: 'quote-create-drawer',
+    createSubmitBtn: 'quote-create-submit-btn',
+    editorPage: 'quote-editor-page',
+    numberDisplay: 'quote-number-display',
+    lineRow: 'quote-line-row',
+    // Ecran de liste (chantier d unification des devis, une seule IHM
+    // "Devis" sur commercial_quotes — docs/api/CONVENTIONS.md §8.10).
+    listPage: 'quote-list-page',
+    listRow: 'quote-list-row',
+    listStatusFilter: 'quote-list-status-filter',
+    listSearchInput: 'quote-list-search-input',
+    listDeleteBtn: 'quote-list-delete-btn',
+    listDeleteConfirmBtn: 'quote-list-delete-confirm-btn',
+    listDeleteDialog: 'quote-list-delete-dialog',
+
+    // ─── E10.9 — remises granulaires, tracabilite d audit et capacites
+    // reprises de l ancien editeur de devis (ajout/suppression/
+    // requantification/reordonnancement, decision d Arnaud du 01/09) ──────
+    // `data-line-id` deja pose sur `lineRow` (ci-dessus) sert de cle pour
+    // toutes les lignes ci-dessous, une seule fois pour toute la table.
+    lineSalePriceInput: 'quote-line-sale-price-input',
+    lineMarginInput: 'quote-line-margin-input',
+    lineQuantityInput: 'quote-line-quantity-input',
+    // `data-sign="positive"|"negative"` selon le signe de discount_rate.
+    lineDiscountDisplay: 'quote-line-discount-display',
+    lineImmutableCols: 'quote-line-immutable-cols',
+    lineNegativeMarginWarning: 'quote-line-negative-margin-warning',
+    lineMoveUpBtn: 'quote-line-move-up-btn',
+    lineMoveDownBtn: 'quote-line-move-down-btn',
+    lineDeleteBtn: 'quote-line-delete-btn',
+    addLineBtn: 'quote-add-line-btn',
+    addLineDrawer: 'quote-add-line-drawer',
+    addLineProjectItemOption: 'quote-add-line-project-item-option',
+    addLineFreeOption: 'quote-add-line-free-option',
+    addLineFreeLabelInput: 'quote-add-line-free-label-input',
+    addLineFreeQuantityInput: 'quote-add-line-free-quantity-input',
+    addLineFreePriceInput: 'quote-add-line-free-price-input',
+    addLineSubmitBtn: 'quote-add-line-submit-btn',
+    // Panneau d audit (lecture seule), accessible depuis le devis (CA5, CA6).
+    auditPanel: 'quote-audit-panel',
+    auditRow: 'quote-audit-row', // `data-audit-id` sur chaque ligne.
+  },
+
+  // ─── E10.6 — Referentiel des regles de prix (P13) ──────────────────────
+  pricing: {
+    page: 'pricing-rules-page',
+    row: 'pricing-rule-row',
+    createBtn: 'pricing-rule-create-btn',
+    modal: 'pricing-rule-modal',
+    scopeSelect: 'pricing-rule-scope-select',
+    rangeSelect: 'pricing-rule-range-select',
+    customerSelect: 'pricing-rule-customer-select',
+    valueInput: 'pricing-rule-value-input',
+    validFromInput: 'pricing-rule-valid-from-input',
+    validToInput: 'pricing-rule-valid-to-input',
+    saveBtn: 'pricing-rule-save-btn',
+    statusPill: 'pricing-rule-status-pill',
+    toggleActiveBtn: 'pricing-rule-toggle-active-btn',
+    // CA5 (qa-review B1) — filtres client/gamme de la liste, distincts des
+    // selects de portee du formulaire.
+    customerFilterSelect: 'pricing-rules-customer-filter-select',
+    rangeFilterSelect: 'pricing-rules-range-filter-select',
+    // E10.7 CA7 — filtre par statut, recherche par nom et tri (creation /
+    // debut de validite), poses sur les elements deja existants depuis
+    // E10.6 qui n avaient pas encore de testid.
+    statusFilterSelect: 'pricing-rules-status-filter',
+    searchInput: 'pricing-rules-search-input',
+    sortSelect: 'pricing-rules-sort-select',
+    // CA5 (qa-review B1.5) — pagination explicite, jamais de troncature
+    // silencieuse au-dela de la premiere page.
+    loadMoreBtn: 'pricing-rules-load-more-btn',
+    // CA4 (qa-review R2) — marge publique standard par gamme.
+    defaultMarginSection: 'pricing-default-margin-section',
+    defaultMarginRangeSelect: 'pricing-default-margin-range-select',
+    defaultMarginInput: 'pricing-default-margin-input',
+    defaultMarginSaveBtn: 'pricing-default-margin-save-btn',
   },
 } as const;
 

@@ -60,7 +60,6 @@ interface Candidate {
   id: string;
   source_tenant_id: string | null;
   source_user_id: string | null;
-  source_quote_id: string | null;
   raw_config: Record<string, unknown>;
   suggested_kind: string | null;
   suggested_gamme: string | null;

@@ -1,0 +1,817 @@
+/**
+ * Module Pricing — referentiel des regles de prix contre le contrat (story
+ * E10.6).
+ *
+ * Exerce reellement `createPriceRulesRoutes()` via `createGescomApiHandler`,
+ * avec un `PriceRulesRepository` et un `CustomersRepository` en memoire
+ * (aucune dependance a Supabase) et un `OutboxRepository` en memoire pour
+ * verifier `price_rule.changed` (CA10). Chaque reponse est confrontee au
+ * contrat via `checkResponseAgainstContract`.
+ *
+ * E10.7 : `resolvePriceRule` (arbitrage specificite puis recence) est teste
+ * en fin de fichier.
+ */
+import { describe, expect, it, beforeEach } from 'vitest';
+import { parseId, type TenantId, type UserId } from '@/kernel';
+import {
+  InMemoryIdempotencyStore,
+  OutboxPublisher,
+  type ApiPrincipal,
+  type OutboxEvent,
+  type OutboxRepository,
+  type PrincipalVerifier,
+} from '@/modules/_shared/application';
+import { PriceRulesService } from '@/modules/pricing/application/price-rules-service';
+import type { PriceRuleDto } from '@/modules/pricing/api/contracts';
+import { createPriceRulesRoutes } from '@/server/api/price-rules-routes';
+import { createGescomApiHandler } from '@/server/api';
+import { InMemoryCustomersRepository } from './_fakes/customers-repository.fake.ts';
+import { InMemoryPriceRulesRepository } from './_fakes/price-rules-repository.fake.ts';
+import { checkResponseAgainstContract } from './_harness.ts';
+
+const TENANT = brand<TenantId>('7f0d2a1e-1c4b-4f8a-9c3d-5b6e7a8f9012');
+const USER = brand<UserId>('a1b2c3d4-e5f6-4708-8910-1a2b3c4d5e6f');
+const RANGE_ID = '11111111-1111-4111-8111-111111111100';
+const RANGE_ID_2 = '11111111-1111-4111-8111-111111111200';
+const UNKNOWN_RANGE_ID = '11111111-1111-4111-8111-111111119999';
+
+function brand<T extends string>(value: string): T {
+  const parsed = parseId(value);
+  if (!parsed.ok) throw new Error('identifiant de test invalide');
+  return parsed.value as T;
+}
+
+const userPrincipal: ApiPrincipal = Object.freeze({ kind: 'user', userId: USER, tenantId: TENANT });
+const studioPrincipal: ApiPrincipal = Object.freeze({
+  kind: 'service',
+  serviceId: 'studio',
+  tenantId: TENANT,
+  scopes: Object.freeze(['price-rules:read']),
+});
+
+const verifier: PrincipalVerifier = {
+  async verify(credential) {
+    if (credential.kind === 'bearer') {
+      return credential.token === 'jeton-valide' ? userPrincipal : null;
+    }
+    return credential.key === 'cle-studio' ? studioPrincipal : null;
+  },
+};
+
+let sequence = 0;
+function uuid(): string {
+  sequence += 1;
+  return `00000000-0000-4000-8200-${String(sequence).padStart(12, '0')}`;
+}
+
+class InMemoryOutboxRepository implements OutboxRepository {
+  readonly events: OutboxEvent[] = [];
+  async append(events: readonly OutboxEvent[]): Promise<void> {
+    this.events.push(...events);
+  }
+}
+
+let priceRules: InMemoryPriceRulesRepository;
+let customers: InMemoryCustomersRepository;
+let outboxRepository: InMemoryOutboxRepository;
+let handler: (request: Request) => Promise<Response>;
+let customerId: string;
+
+beforeEach(async () => {
+  priceRules = new InMemoryPriceRulesRepository();
+  priceRules.knownProductRanges.add(RANGE_ID);
+  priceRules.knownProductRanges.add(RANGE_ID_2);
+  customers = new InMemoryCustomersRepository();
+  outboxRepository = new InMemoryOutboxRepository();
+  const outbox = new OutboxPublisher({
+    repository: outboxRepository,
+    now: () => new Date('2026-09-02T10:00:00.000Z'),
+    newEventId: () => uuid(),
+  });
+  const service = new PriceRulesService({ repository: priceRules, customers, outbox });
+  handler = createGescomApiHandler({
+    routes: createPriceRulesRoutes(service),
+    principalVerifier: verifier,
+    idempotencyStore: new InMemoryIdempotencyStore(),
+    requestIdFactory: () => 'req-e10-6',
+  });
+
+  const created = await customers.create(TENANT, USER, { type: 'individual', civility: 'mr', first_name: 'Jean', last_name: 'Dupont' });
+  customerId = created.id;
+});
+
+function call(path: string, init: RequestInit = {}): Promise<Response> {
+  return handler(new Request(`https://magrit.test${path}`, init));
+}
+
+const asUser = { Authorization: 'Bearer jeton-valide' };
+const jsonHeaders = { ...asUser, 'Content-Type': 'application/json' };
+
+async function expectContract(
+  response: Response,
+  expectation: Readonly<{ status: number; dataSchema?: string }>,
+): Promise<void> {
+  const check = await checkResponseAgainstContract(response, expectation);
+  expect(check.errors, check.errors.join(' | ')).toEqual([]);
+}
+
+async function createGlobalRule(overrides: Partial<Record<string, unknown>> = {}) {
+  const response = await call('/api/v1/price-rules', {
+    method: 'POST',
+    headers: { ...jsonHeaders, 'Idempotency-Key': `create-${uuid()}` },
+    body: JSON.stringify({
+      name: 'Marge minimale standard',
+      scope: 'global',
+      value_type: 'margin_rate',
+      value: '0.5000',
+      starts_on: '2026-09-01',
+      ...overrides,
+    }),
+  });
+  await expectContract(response, { status: 201, dataSchema: 'PriceRule' });
+  return (await response.json()) as { data: PriceRuleDto };
+}
+
+describe('module Pricing — referentiel des regles de prix (E10.6) contre le contrat', () => {
+  it('CA1/CA10 — cree une regle globale et publie price_rule.changed(created)', async () => {
+    const { data } = await createGlobalRule();
+    expect(data.scope).toBe('global');
+    expect(data.customer_id).toBeNull();
+    expect(data.product_range_id).toBeNull();
+    expect(data.is_active).toBe(true);
+    expect(outboxRepository.events).toHaveLength(1);
+    expect(outboxRepository.events[0]).toMatchObject({
+      name: 'price_rule.changed',
+      tenantId: TENANT,
+      aggregateType: 'price_rule',
+      aggregateId: data.id,
+      payload: { rule_id: data.id, action: 'created' },
+    });
+  });
+
+  it('CA2 — scope=customer sans customer_id est refuse en 422 price_rule.invalid_scope', async () => {
+    const response = await call('/api/v1/price-rules', {
+      method: 'POST',
+      headers: { ...jsonHeaders, 'Idempotency-Key': `create-${uuid()}` },
+      body: JSON.stringify({
+        name: 'Regle client',
+        scope: 'customer',
+        value_type: 'margin_rate',
+        value: '0.1000',
+        starts_on: '2026-09-01',
+      }),
+    });
+    await expectContract(response, { status: 422 });
+    const body = (await response.json()) as { code: string };
+    expect(body.code).toBe('price_rule.invalid_scope');
+  });
+
+  it('CA2 — scope=global avec un customer_id fourni est refuse en 422 price_rule.invalid_scope', async () => {
+    const response = await call('/api/v1/price-rules', {
+      method: 'POST',
+      headers: { ...jsonHeaders, 'Idempotency-Key': `create-${uuid()}` },
+      body: JSON.stringify({
+        name: 'Globale avec client',
+        scope: 'global',
+        customer_id: customerId,
+        value_type: 'margin_rate',
+        value: '0.1000',
+        starts_on: '2026-09-01',
+      }),
+    });
+    await expectContract(response, { status: 422 });
+    const body = (await response.json()) as { code: string };
+    expect(body.code).toBe('price_rule.invalid_scope');
+  });
+
+  it('CA2 — un customer_id inconnu du tenant est refuse en 422 price_rule.customer_unknown', async () => {
+    const response = await call('/api/v1/price-rules', {
+      method: 'POST',
+      headers: { ...jsonHeaders, 'Idempotency-Key': `create-${uuid()}` },
+      body: JSON.stringify({
+        name: 'Client inconnu',
+        scope: 'customer',
+        customer_id: uuid(),
+        value_type: 'margin_rate',
+        value: '0.1000',
+        starts_on: '2026-09-01',
+      }),
+    });
+    await expectContract(response, { status: 422 });
+    const body = (await response.json()) as { code: string };
+    expect(body.code).toBe('price_rule.customer_unknown');
+  });
+
+  it('CA2 — un product_range_id inconnu du catalogue est refuse en 422 price_rule.product_range_unknown', async () => {
+    const response = await call('/api/v1/price-rules', {
+      method: 'POST',
+      headers: { ...jsonHeaders, 'Idempotency-Key': `create-${uuid()}` },
+      body: JSON.stringify({
+        name: 'Gamme inconnue',
+        scope: 'range',
+        product_range_id: UNKNOWN_RANGE_ID,
+        value_type: 'discount_rate',
+        value: '0.1000',
+        starts_on: '2026-09-01',
+      }),
+    });
+    await expectContract(response, { status: 422 });
+    const body = (await response.json()) as { code: string };
+    expect(body.code).toBe('price_rule.product_range_unknown');
+  });
+
+  it('CA2 — scope=customer_range coherent avec des cibles connues est accepte', async () => {
+    const response = await call('/api/v1/price-rules', {
+      method: 'POST',
+      headers: { ...jsonHeaders, 'Idempotency-Key': `create-${uuid()}` },
+      body: JSON.stringify({
+        name: 'Client + gamme',
+        scope: 'customer_range',
+        customer_id: customerId,
+        product_range_id: RANGE_ID,
+        value_type: 'margin_rate',
+        value: '0.5000',
+        starts_on: '2026-09-01',
+      }),
+    });
+    await expectContract(response, { status: 201, dataSchema: 'PriceRule' });
+  });
+
+  it('CA1 — ends_on anterieure a starts_on est refuse en 422 price_rule.invalid_period', async () => {
+    const response = await call('/api/v1/price-rules', {
+      method: 'POST',
+      headers: { ...jsonHeaders, 'Idempotency-Key': `create-${uuid()}` },
+      body: JSON.stringify({
+        name: 'Periode inversee',
+        scope: 'global',
+        value_type: 'margin_rate',
+        value: '0.5000',
+        starts_on: '2026-09-10',
+        ends_on: '2026-09-01',
+      }),
+    });
+    await expectContract(response, { status: 422 });
+    const body = (await response.json()) as { code: string };
+    expect(body.code).toBe('price_rule.invalid_period');
+  });
+
+  it('CA1 — ends_on egale a starts_on est accepte (regle d un seul jour, ends_on INCLUS)', async () => {
+    const response = await call('/api/v1/price-rules', {
+      method: 'POST',
+      headers: { ...jsonHeaders, 'Idempotency-Key': `create-${uuid()}` },
+      body: JSON.stringify({
+        name: 'Regle d un seul jour',
+        scope: 'global',
+        value_type: 'margin_rate',
+        value: '0.5000',
+        starts_on: '2026-09-10',
+        ends_on: '2026-09-10',
+      }),
+    });
+    await expectContract(response, { status: 201, dataSchema: 'PriceRule' });
+    const body = (await response.json()) as { data: PriceRuleDto };
+    expect(body.data.starts_on).toBe('2026-09-10');
+    expect(body.data.ends_on).toBe('2026-09-10');
+  });
+
+  it('CA1 — un nom vide est refuse en 422 api.validation_failed', async () => {
+    const response = await call('/api/v1/price-rules', {
+      method: 'POST',
+      headers: { ...jsonHeaders, 'Idempotency-Key': `create-${uuid()}` },
+      body: JSON.stringify({
+        name: '   ',
+        scope: 'global',
+        value_type: 'margin_rate',
+        value: '0.5000',
+        starts_on: '2026-09-01',
+      }),
+    });
+    await expectContract(response, { status: 422 });
+    const body = (await response.json()) as { code: string };
+    expect(body.code).toBe('api.validation_failed');
+  });
+
+  it('CA1 — un taux negatif est refuse en 422 api.validation_failed (le signe n est jamais dans value)', async () => {
+    const response = await call('/api/v1/price-rules', {
+      method: 'POST',
+      headers: { ...jsonHeaders, 'Idempotency-Key': `create-${uuid()}` },
+      body: JSON.stringify({
+        name: 'Taux negatif',
+        scope: 'global',
+        value_type: 'margin_rate',
+        value: '-0.5000',
+        starts_on: '2026-09-01',
+      }),
+    });
+    await expectContract(response, { status: 422 });
+  });
+
+  it('M2 — GET /price-rules/{id} emet un ETag exploitable par le PATCH', async () => {
+    const { data: rule } = await createGlobalRule();
+    const detail = await call(`/api/v1/price-rules/${rule.id}`, { headers: asUser });
+    await expectContract(detail, { status: 200, dataSchema: 'PriceRule' });
+    const etag = detail.headers.get('etag');
+    expect(etag).toBeTruthy();
+
+    const patched = await call(`/api/v1/price-rules/${rule.id}`, {
+      method: 'PATCH',
+      headers: { ...jsonHeaders, 'If-Match': etag! },
+      body: JSON.stringify({ value: '0.6000' }),
+    });
+    await expectContract(patched, { status: 200, dataSchema: 'PriceRule' });
+  });
+
+  it('CA9 — un PATCH sans If-Match est refuse en 428, un If-Match perime en 409', async () => {
+    const { data: rule } = await createGlobalRule();
+
+    const withoutIfMatch = await call(`/api/v1/price-rules/${rule.id}`, {
+      method: 'PATCH',
+      headers: jsonHeaders,
+      body: JSON.stringify({ value: '0.6000' }),
+    });
+    await expectContract(withoutIfMatch, { status: 428 });
+
+    const stale = await call(`/api/v1/price-rules/${rule.id}`, {
+      method: 'PATCH',
+      headers: { ...jsonHeaders, 'If-Match': '"stale-etag"' },
+      body: JSON.stringify({ value: '0.6000' }),
+    });
+    await expectContract(stale, { status: 409 });
+  });
+
+  it('CA — scope/customer_id/product_range_id/value_type sont immuables : un PATCH qui les porte est refuse', async () => {
+    const { data: rule } = await createGlobalRule();
+    const etag = (await call(`/api/v1/price-rules/${rule.id}`, { headers: asUser })).headers.get('etag')!;
+
+    const response = await call(`/api/v1/price-rules/${rule.id}`, {
+      method: 'PATCH',
+      headers: { ...jsonHeaders, 'If-Match': etag },
+      body: JSON.stringify({ scope: 'range' }),
+    });
+    await expectContract(response, { status: 422 });
+    const body = (await response.json()) as { code: string };
+    expect(body.code).toBe('api.validation_failed');
+  });
+
+  it('CA — un PATCH ne portant QUE is_active publie activated/deactivated ; toute autre modification publie updated', async () => {
+    const { data: rule } = await createGlobalRule();
+    outboxRepository.events.length = 0;
+
+    const etag1 = (await call(`/api/v1/price-rules/${rule.id}`, { headers: asUser })).headers.get('etag')!;
+    await call(`/api/v1/price-rules/${rule.id}`, {
+      method: 'PATCH',
+      headers: { ...jsonHeaders, 'If-Match': etag1 },
+      body: JSON.stringify({ is_active: false }),
+    });
+    expect(outboxRepository.events.at(-1)).toMatchObject({ payload: { action: 'deactivated' } });
+
+    const etag2 = (await call(`/api/v1/price-rules/${rule.id}`, { headers: asUser })).headers.get('etag')!;
+    await call(`/api/v1/price-rules/${rule.id}`, {
+      method: 'PATCH',
+      headers: { ...jsonHeaders, 'If-Match': etag2 },
+      body: JSON.stringify({ is_active: true }),
+    });
+    expect(outboxRepository.events.at(-1)).toMatchObject({ payload: { action: 'activated' } });
+
+    const etag3 = (await call(`/api/v1/price-rules/${rule.id}`, { headers: asUser })).headers.get('etag')!;
+    await call(`/api/v1/price-rules/${rule.id}`, {
+      method: 'PATCH',
+      headers: { ...jsonHeaders, 'If-Match': etag3 },
+      body: JSON.stringify({ name: 'Renommee' }),
+    });
+    expect(outboxRepository.events.at(-1)).toMatchObject({ payload: { action: 'updated' } });
+  });
+
+  it('CA5 — liste, filtre par statut et par nom', async () => {
+    await createGlobalRule({ name: 'Marge carterie' });
+    const { data: disabled } = await createGlobalRule({ name: 'Marge affiches' });
+    const etag = (await call(`/api/v1/price-rules/${disabled.id}`, { headers: asUser })).headers.get('etag')!;
+    await call(`/api/v1/price-rules/${disabled.id}`, {
+      method: 'PATCH',
+      headers: { ...jsonHeaders, 'If-Match': etag },
+      body: JSON.stringify({ is_active: false }),
+    });
+
+    const all = await call('/api/v1/price-rules', { headers: asUser });
+    await expectContract(all, { status: 200 });
+    expect(((await all.json()) as { data: PriceRuleDto[] }).data).toHaveLength(2);
+
+    const activeOnly = await call('/api/v1/price-rules?status=active', { headers: asUser });
+    await expectContract(activeOnly, { status: 200 });
+    const activeBody = (await activeOnly.json()) as { data: PriceRuleDto[] };
+    expect(activeBody.data).toHaveLength(1);
+    expect(activeBody.data[0]?.name).toBe('Marge carterie');
+
+    const searched = await call('/api/v1/price-rules?q=affiches', { headers: asUser });
+    await expectContract(searched, { status: 200 });
+    expect(((await searched.json()) as { data: PriceRuleDto[] }).data).toHaveLength(1);
+  });
+
+  it('CA5 — filtre par customer_id et product_range_id (egalite stricte sur la cible declaree, seuls, combines, absents)', async () => {
+    const { data: global } = await createGlobalRule({ name: 'Globale' });
+    const { data: customerOnly } = await createGlobalRule({
+      name: 'Client seul',
+      scope: 'customer',
+      customer_id: customerId,
+    });
+    const { data: rangeOnly } = await createGlobalRule({
+      name: 'Gamme seule',
+      scope: 'range',
+      product_range_id: RANGE_ID,
+    });
+    const { data: customerAndRange } = await createGlobalRule({
+      name: 'Client + gamme',
+      scope: 'customer_range',
+      customer_id: customerId,
+      product_range_id: RANGE_ID,
+    });
+    // Portee customer_range visant une AUTRE gamme : satisfait le filtre
+    // customer_id=customerId seul, mais jamais le filtre combine avec
+    // RANGE_ID.
+    const { data: customerAndOtherRange } = await createGlobalRule({
+      name: 'Client + autre gamme',
+      scope: 'customer_range',
+      customer_id: customerId,
+      product_range_id: RANGE_ID_2,
+    });
+
+    // Absent : les 5 regles creees dans ce test (le seuil de page par defaut n
+    // est jamais atteint ici).
+    const noFilter = await call('/api/v1/price-rules', { headers: asUser });
+    await expectContract(noFilter, { status: 200 });
+    expect(((await noFilter.json()) as { data: PriceRuleDto[] }).data).toHaveLength(5);
+
+    // customer_id seul : les deux portees NOMMANT ce client, quelle que soit
+    // la gamme — jamais la regle `global` ni la regle `range` seule.
+    const byCustomer = await call(`/api/v1/price-rules?customer_id=${customerId}`, { headers: asUser });
+    await expectContract(byCustomer, { status: 200 });
+    const byCustomerIds = ((await byCustomer.json()) as { data: PriceRuleDto[] }).data.map((r) => r.id).sort();
+    expect(byCustomerIds).toEqual(
+      [customerOnly.id, customerAndRange.id, customerAndOtherRange.id].sort(),
+    );
+    expect(byCustomerIds).not.toContain(global.id);
+    expect(byCustomerIds).not.toContain(rangeOnly.id);
+
+    // product_range_id seul : symetrique, les deux portees NOMMANT cette
+    // gamme.
+    const byRange = await call(`/api/v1/price-rules?product_range_id=${RANGE_ID}`, { headers: asUser });
+    await expectContract(byRange, { status: 200 });
+    const byRangeIds = ((await byRange.json()) as { data: PriceRuleDto[] }).data.map((r) => r.id).sort();
+    expect(byRangeIds).toEqual([rangeOnly.id, customerAndRange.id].sort());
+    expect(byRangeIds).not.toContain(global.id);
+    expect(byRangeIds).not.toContain(customerOnly.id);
+
+    // Les deux combines : SEULE la regle customer_range visant exactement ce
+    // couple — ni `customer` seule, ni `range` seule, ni `customer_range`
+    // visant une autre gamme (contrat, ET logique strict).
+    const combined = await call(
+      `/api/v1/price-rules?customer_id=${customerId}&product_range_id=${RANGE_ID}`,
+      { headers: asUser },
+    );
+    await expectContract(combined, { status: 200 });
+    const combinedBody = (await combined.json()) as { data: PriceRuleDto[] };
+    expect(combinedBody.data).toHaveLength(1);
+    expect(combinedBody.data[0]?.id).toBe(customerAndRange.id);
+  });
+
+  it('CA5 — customer_id/product_range_id invalides (non-UUID) sont refuses en 422 api.validation_failed', async () => {
+    const response = await call('/api/v1/price-rules?customer_id=not-a-uuid', { headers: asUser });
+    await expectContract(response, { status: 422 });
+    expect(((await response.json()) as { code: string }).code).toBe('api.validation_failed');
+
+    const responseRange = await call('/api/v1/price-rules?product_range_id=not-a-uuid', { headers: asUser });
+    await expectContract(responseRange, { status: 422 });
+    expect(((await responseRange.json()) as { code: string }).code).toBe('api.validation_failed');
+  });
+
+  it('CA5 — un changement de filtre invalide le curseur d une pagination en cours (meme regle que sort)', async () => {
+    await createGlobalRule({ name: 'Filtre 1' });
+    await createGlobalRule({ name: 'Filtre 2' });
+
+    const firstPage = await call('/api/v1/price-rules?page[size]=1', { headers: asUser });
+    const firstBody = (await firstPage.json()) as { meta: { next_cursor: string | null } };
+    expect(firstBody.meta.next_cursor).toBeTruthy();
+
+    const mismatchedFilter = await call(
+      `/api/v1/price-rules?status=active&page[cursor]=${encodeURIComponent(firstBody.meta.next_cursor!)}`,
+      { headers: asUser },
+    );
+    await expectContract(mismatchedFilter, { status: 422 });
+    expect(((await mismatchedFilter.json()) as { code: string }).code).toBe('api.validation_failed');
+
+    // Reprendre le MEME jeu de filtres (aucun) fonctionne toujours.
+    const samefilters = await call(
+      `/api/v1/price-rules?page[size]=1&page[cursor]=${encodeURIComponent(firstBody.meta.next_cursor!)}`,
+      { headers: asUser },
+    );
+    await expectContract(samefilters, { status: 200 });
+  });
+
+  it('CA5 — pagine par curseur et refuse un sort different de celui du curseur en cours', async () => {
+    await createGlobalRule({ name: 'Regle 1' });
+    await createGlobalRule({ name: 'Regle 2' });
+
+    const firstPage = await call('/api/v1/price-rules?page[size]=1', { headers: asUser });
+    await expectContract(firstPage, { status: 200 });
+    const firstBody = (await firstPage.json()) as { data: PriceRuleDto[]; meta: { next_cursor: string | null } };
+    expect(firstBody.data).toHaveLength(1);
+    expect(firstBody.meta.next_cursor).toBeTruthy();
+
+    const nextPage = await call(
+      `/api/v1/price-rules?page[size]=1&page[cursor]=${encodeURIComponent(firstBody.meta.next_cursor!)}`,
+      { headers: asUser },
+    );
+    await expectContract(nextPage, { status: 200 });
+    expect(((await nextPage.json()) as { data: PriceRuleDto[] }).data).toHaveLength(1);
+
+    const mismatchedSort = await call(
+      `/api/v1/price-rules?sort=-starts_on&page[cursor]=${encodeURIComponent(firstBody.meta.next_cursor!)}`,
+      { headers: asUser },
+    );
+    await expectContract(mismatchedSort, { status: 422 });
+    const mismatchedBody = (await mismatchedSort.json()) as { code: string };
+    expect(mismatchedBody.code).toBe('api.validation_failed');
+  });
+
+  it('CA8 — Studio (cle de service, scope price-rules:read) peut lire mais pas ecrire', async () => {
+    const { data: rule } = await createGlobalRule();
+
+    const readable = await call(`/api/v1/price-rules/${rule.id}`, {
+      headers: { 'X-Magrit-Service-Key': 'cle-studio' },
+    });
+    await expectContract(readable, { status: 200, dataSchema: 'PriceRule' });
+
+    const writeAttempt = await call('/api/v1/price-rules', {
+      method: 'POST',
+      headers: {
+        'X-Magrit-Service-Key': 'cle-studio',
+        'Content-Type': 'application/json',
+        'Idempotency-Key': `create-${uuid()}`,
+      },
+      body: JSON.stringify({
+        name: 'Ecriture Studio',
+        scope: 'global',
+        value_type: 'margin_rate',
+        value: '0.1000',
+        starts_on: '2026-09-01',
+      }),
+    });
+    await expectContract(writeAttempt, { status: 403 });
+  });
+
+  it('CA4 — marge publique standard : null tant que non definie, ETag exploitable pour le premier PUT', async () => {
+    const initial = await call(`/api/v1/product-ranges/${RANGE_ID}/default-margins`, { headers: asUser });
+    await expectContract(initial, { status: 200, dataSchema: 'ProductRangeDefaultMargin' });
+    const initialBody = (await initial.json()) as { data: { margin_rate: string | null } };
+    expect(initialBody.data.margin_rate).toBeNull();
+    const etag = initial.headers.get('etag');
+    expect(etag).toBeTruthy();
+
+    const set = await call(`/api/v1/product-ranges/${RANGE_ID}/default-margins`, {
+      method: 'PUT',
+      headers: { ...jsonHeaders, 'If-Match': etag! },
+      body: JSON.stringify({ margin_rate: '0.4000' }),
+    });
+    await expectContract(set, { status: 200, dataSchema: 'ProductRangeDefaultMargin' });
+    const setBody = (await set.json()) as { data: { margin_rate: string | null } };
+    expect(setBody.data.margin_rate).toBe('0.4000');
+
+    const reread = await call(`/api/v1/product-ranges/${RANGE_ID}/default-margins`, { headers: asUser });
+    const rereadBody = (await reread.json()) as { data: { margin_rate: string | null } };
+    expect(rereadBody.data.margin_rate).toBe('0.4000');
+  });
+
+  it('CA4 — une gamme inconnue rend 404 price_rule.product_range_unknown, en GET comme en PUT', async () => {
+    const get = await call(`/api/v1/product-ranges/${UNKNOWN_RANGE_ID}/default-margins`, { headers: asUser });
+    await expectContract(get, { status: 404 });
+    expect(((await get.json()) as { code: string }).code).toBe('price_rule.product_range_unknown');
+
+    const put = await call(`/api/v1/product-ranges/${UNKNOWN_RANGE_ID}/default-margins`, {
+      method: 'PUT',
+      headers: { ...jsonHeaders, 'If-Match': '"whatever"' },
+      body: JSON.stringify({ margin_rate: '0.1000' }),
+    });
+    await expectContract(put, { status: 404 });
+  });
+
+  it('CA7 — une regle inconnue du tenant rend 404, jamais une autre reponse', async () => {
+    const response = await call(`/api/v1/price-rules/${uuid()}`, { headers: asUser });
+    await expectContract(response, { status: 404 });
+  });
+
+  describe('E10.11 — droit dedie can_manage_pricing sur les ecritures du referentiel', () => {
+    it('refuse createPriceRule/updatePriceRule/setProductRangeDefaultMargin a un acteur SANS le droit (403 identity.role_required), lecture toujours ouverte', async () => {
+      const { data: rule } = await createGlobalRule();
+      const etag = (await call(`/api/v1/price-rules/${rule.id}`, { headers: asUser })).headers.get('etag')!;
+
+      // Acteur NON-ADMIN dans le fake (le mecanisme de droit ne distingue
+      // plus le role : seule la capability compte) qui PERD explicitement
+      // can_manage_pricing — seule facon de prouver que la garde mord
+      // reellement plutot que de passer par derivation admin (§8.11, s3).
+      priceRules.setActorCapabilityForTest(TENANT, USER, 'can_manage_pricing', false);
+
+      const createDenied = await call('/api/v1/price-rules', {
+        method: 'POST',
+        headers: { ...jsonHeaders, 'Idempotency-Key': `create-${uuid()}` },
+        body: JSON.stringify({
+          name: 'Sans droit',
+          scope: 'global',
+          value_type: 'margin_rate',
+          value: '0.1000',
+          starts_on: '2026-09-01',
+        }),
+      });
+      await expectContract(createDenied, { status: 403 });
+      expect(((await createDenied.json()) as { code: string }).code).toBe('identity.role_required');
+
+      const updateDenied = await call(`/api/v1/price-rules/${rule.id}`, {
+        method: 'PATCH',
+        headers: { ...jsonHeaders, 'If-Match': etag },
+        body: JSON.stringify({ value: '0.6000' }),
+      });
+      await expectContract(updateDenied, { status: 403 });
+      expect(((await updateDenied.json()) as { code: string }).code).toBe('identity.role_required');
+
+      const marginEtag = (
+        await call(`/api/v1/product-ranges/${RANGE_ID}/default-margins`, { headers: asUser })
+      ).headers.get('etag')!;
+      const marginDenied = await call(`/api/v1/product-ranges/${RANGE_ID}/default-margins`, {
+        method: 'PUT',
+        headers: { ...jsonHeaders, 'If-Match': marginEtag },
+        body: JSON.stringify({ margin_rate: '0.4000' }),
+      });
+      await expectContract(marginDenied, { status: 403 });
+      expect(((await marginDenied.json()) as { code: string }).code).toBe('identity.role_required');
+
+      // Ecart assume documente (§8.11) : les LECTURES restent ouvertes a
+      // tout membre, capability ou pas — jamais fermees par E10.11.
+      const stillReadable = await call(`/api/v1/price-rules/${rule.id}`, { headers: asUser });
+      await expectContract(stillReadable, { status: 200, dataSchema: 'PriceRule' });
+
+      // Restitution du droit : les trois ecritures reussissent de nouveau.
+      priceRules.setActorCapabilityForTest(TENANT, USER, 'can_manage_pricing', true);
+      const createAllowed = await call('/api/v1/price-rules', {
+        method: 'POST',
+        headers: { ...jsonHeaders, 'Idempotency-Key': `create-${uuid()}` },
+        body: JSON.stringify({
+          name: 'Avec droit',
+          scope: 'global',
+          value_type: 'margin_rate',
+          value: '0.1000',
+          starts_on: '2026-09-01',
+        }),
+      });
+      await expectContract(createAllowed, { status: 201, dataSchema: 'PriceRule' });
+    });
+  });
+
+  describe('E10.7 — resolvePriceRule (arbitrage specificite puis recence)', () => {
+    async function resolve(body: Record<string, unknown>): Promise<Response> {
+      return call('/api/v1/price-rules/resolve', {
+        method: 'POST',
+        headers: jsonHeaders,
+        body: JSON.stringify(body),
+      });
+    }
+
+    it('CA3d — rend rule: null et reason: null quand aucune regle active ne couvre le contexte', async () => {
+      const response = await resolve({ at: '2026-09-01' });
+      await expectContract(response, { status: 200, dataSchema: 'PriceRuleResolveResult' });
+      const body = (await response.json()) as { data: { rule: unknown; reason: unknown } };
+      expect(body.data.rule).toBeNull();
+      expect(body.data.reason).toBeNull();
+    });
+
+    it('CA4 — une regle de portee differente ne concourt jamais : la specificite prime toujours sur la recence', async () => {
+      // Globale (rang 0), creee en PREMIER (donc la moins recente des trois).
+      await createGlobalRule({ name: 'Marge annuelle', starts_on: '2026-01-01' });
+      // customer_range (rang 3, LE PLUS SPECIFIQUE), creee en second — doit
+      // gagner malgre la troisieme regle ci-dessous, creee APRES elle.
+      const { data: specific } = await createGlobalRule({
+        name: 'Marge septembre client+gamme',
+        scope: 'customer_range',
+        customer_id: customerId,
+        product_range_id: RANGE_ID,
+        starts_on: '2026-09-01',
+        ends_on: '2026-09-30',
+      });
+      // range (rang 1), sur la MEME gamme, creee EN DERNIER (donc la plus
+      // recente des trois) : si l arbitrage departageait par recence sur
+      // TOUTES les candidates au lieu des seules candidates du rang maximal,
+      // c est CETTE regle qui gagnerait a tort — elle doit perdre face a la
+      // customer_range malgre sa recence, seule la specificite compte ici.
+      await createGlobalRule({
+        name: 'Marge gamme seule, plus recente mais moins specifique',
+        scope: 'range',
+        product_range_id: RANGE_ID,
+        starts_on: '2026-09-01',
+      });
+
+      const response = await resolve({
+        customer_id: customerId,
+        product_range_id: RANGE_ID,
+        at: '2026-09-15',
+      });
+      await expectContract(response, { status: 200, dataSchema: 'PriceRuleResolveResult' });
+      const body = (await response.json()) as { data: { rule: { id: string } | null; reason: string | null } };
+      expect(body.data.rule?.id).toBe(specific.id);
+      expect(body.data.reason).toBe('specificity');
+    });
+
+    it('CA2/CA3 — plusieurs regles de meme portee et meme cible : la plus recente (created_at) l emporte, motif recency', async () => {
+      const { data: older } = await createGlobalRule({ name: 'Marge annuelle 2026', starts_on: '2026-01-01' });
+      const { data: newer } = await createGlobalRule({ name: 'Marge septembre 2026', starts_on: '2026-09-01', ends_on: '2026-09-30' });
+      expect(newer.created_at >= older.created_at).toBe(true);
+
+      const response = await resolve({ at: '2026-09-15' });
+      await expectContract(response, { status: 200, dataSchema: 'PriceRuleResolveResult' });
+      const body = (await response.json()) as { data: { rule: { id: string; name: string } | null; reason: string | null } };
+      expect(body.data.rule?.id).toBe(newer.id);
+      expect(body.data.reason).toBe('recency');
+
+      // En dehors de la periode de la regle de septembre, la regle annuelle
+      // reprend IMMEDIATEMENT — aucune ecriture n a modifie son etat.
+      const outside = await resolve({ at: '2026-10-01' });
+      const outsideBody = (await outside.json()) as { data: { rule: { id: string } | null; reason: string | null } };
+      expect(outsideBody.data.rule?.id).toBe(older.id);
+      expect(outsideBody.data.reason).toBe('specificity');
+    });
+
+    it('CA1 — desactiver la regle la plus recente fait immediatement reprendre la regle annuelle, sans aucune ecriture sur celle-ci', async () => {
+      const { data: annual } = await createGlobalRule({ name: 'Marge annuelle', starts_on: '2026-01-01' });
+      const { data: september } = await createGlobalRule({
+        name: 'Marge septembre',
+        starts_on: '2026-09-01',
+        ends_on: '2026-09-30',
+      });
+
+      const beforeToggle = await resolve({ at: '2026-09-15' });
+      expect(((await beforeToggle.json()) as { data: { rule: { id: string } | null } }).data.rule?.id).toBe(
+        september.id,
+      );
+
+      const etag = (await call(`/api/v1/price-rules/${september.id}`, { headers: asUser })).headers.get('etag')!;
+      await call(`/api/v1/price-rules/${september.id}`, {
+        method: 'PATCH',
+        headers: { ...jsonHeaders, 'If-Match': etag },
+        body: JSON.stringify({ is_active: false }),
+      });
+
+      const afterToggle = await resolve({ at: '2026-09-15' });
+      const afterBody = (await afterToggle.json()) as { data: { rule: { id: string } | null; reason: string | null } };
+      expect(afterBody.data.rule?.id).toBe(annual.id);
+      expect(afterBody.data.reason).toBe('specificity');
+
+      // L annuelle elle-meme n a jamais ete touchee (meme created_at/updated_at).
+      const annualReread = await call(`/api/v1/price-rules/${annual.id}`, { headers: asUser });
+      const annualBody = (await annualReread.json()) as { data: { updated_at: string } };
+      expect(annualBody.data.updated_at).toBe(annual.updated_at);
+    });
+
+    it('CA — customer_id/product_range_id inconnus du tenant rendent 422 avec le code metier dedie', async () => {
+      const unknownCustomer = await resolve({ customer_id: uuid(), at: '2026-09-01' });
+      await expectContract(unknownCustomer, { status: 422 });
+      expect(((await unknownCustomer.json()) as { code: string }).code).toBe('price_rule.customer_unknown');
+
+      const unknownRange = await resolve({ product_range_id: UNKNOWN_RANGE_ID, at: '2026-09-01' });
+      await expectContract(unknownRange, { status: 422 });
+      expect(((await unknownRange.json()) as { code: string }).code).toBe('price_rule.product_range_unknown');
+    });
+
+    it('CA — sans customer_id ni product_range_id, seule une regle globale peut etre retenue', async () => {
+      await createGlobalRule({
+        name: 'Regle client seule',
+        scope: 'customer',
+        customer_id: customerId,
+        starts_on: '2026-09-01',
+      });
+      const { data: global } = await createGlobalRule({ name: 'Regle globale', starts_on: '2026-09-01' });
+
+      const response = await resolve({ at: '2026-09-15' });
+      const body = (await response.json()) as { data: { rule: { id: string } | null } };
+      expect(body.data.rule?.id).toBe(global.id);
+    });
+
+    it('CA8 — Studio (cle de service, scope price-rules:read) peut resoudre une regle', async () => {
+      const { data: rule } = await createGlobalRule();
+      const response = await call('/api/v1/price-rules/resolve', {
+        method: 'POST',
+        headers: { 'X-Magrit-Service-Key': 'cle-studio', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ at: '2026-09-01' }),
+      });
+      await expectContract(response, { status: 200, dataSchema: 'PriceRuleResolveResult' });
+      const body = (await response.json()) as { data: { rule: { id: string } | null } };
+      expect(body.data.rule?.id).toBe(rule.id);
+    });
+
+    it('deterministe : deux appels identiques rendent la meme regle', async () => {
+      const { data: rule } = await createGlobalRule();
+      const first = await resolve({ at: '2026-09-01' });
+      const second = await resolve({ at: '2026-09-01' });
+      const firstBody = (await first.json()) as { data: { rule: { id: string } | null } };
+      const secondBody = (await second.json()) as { data: { rule: { id: string } | null } };
+      expect(firstBody.data.rule?.id).toBe(rule.id);
+      expect(secondBody.data.rule?.id).toBe(rule.id);
+    });
+  });
+});

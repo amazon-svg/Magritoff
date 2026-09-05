@@ -1,17 +1,76 @@
 # Contrôle d’accès des boutiques
 
-> Source de vérité fonctionnelle depuis UM8.1 (2026-08-17).
+> Source de vérité fonctionnelle depuis UM8.1 (2026-08-17). Complétée par
+> E10.5 (2026-09-01) : le type `shop_customer` et son lien optionnel avec un
+> interlocuteur de gestion (`customer_contacts`, E10.4).
+
+## Trois types de compte, jamais superposables
+
+Le modèle de droits Magrit distingue **trois types de compte**, jamais deux à
+la fois pour la même identité `auth.users` (garanti en base par des triggers
+d’exclusivité symétriques, pas seulement déclaré applicativement) :
+
+| Type | Table porteuse | Périmètre | Création |
+|---|---|---|---|
+| `magrit_full` | `tenant_members.access_scope` | Dashboard, production, validation, administration | Invitation depuis « Utilisateurs et rôles » |
+| `shop_only` (legacy, gelé UM8) | `tenant_members.access_scope` | Ancien accès boutique porté par un membre interne — plus jamais créé, en transition vers `shop_customer` | Aucune (UM8.1 interdit toute nouvelle attribution) |
+| `shop_customer` | `shop_customer_accounts` + credentials privés storefront | Une seule boutique | Éditeur de la boutique, auto-inscription `self_signup`, **ou ouverture explicite depuis un interlocuteur (E10.5)** |
+
+`magrit_full`/`shop_only` sont l’axe **UM1** (deux profils de membres
+*internes* du tenant, `tenant_members`). `shop_customer` est un axe
+**différent** : un compte de *client final* d’une boutique, qui n’est jamais
+un membre du tenant. Les deux axes ne se confondent pas et ne se convertissent
+jamais l’un en l’autre par une route applicative — voir « Exclusivité en
+base » ci-dessous.
 
 ## Deux populations strictement séparées
 
 | Population | Identité | Périmètre | Création |
 |---|---|---|---|
-| Utilisateur Magrit | `auth.users` + `tenant_members` | Dashboard, production, validation, administration | Invitation depuis « Utilisateurs et rôles » |
-| Client boutique | `shop_customer_accounts` + credentials privés storefront | Une seule boutique | Éditeur de la boutique, puis lien d’activation |
+| Utilisateur Magrit (`magrit_full`/`shop_only`) | `auth.users` + `tenant_members` | Dashboard, production, validation, administration | Invitation depuis « Utilisateurs et rôles » |
+| Client boutique (`shop_customer`) | `shop_customer_accounts` + credentials privés storefront | Une seule boutique | Éditeur de la boutique, puis lien d’activation |
 
 Un email identique dans deux boutiques correspond à deux comptes clients
 distincts. Un utilisateur Magrit n’est jamais automatiquement un client
 boutique.
+
+## E10.5 — lien optionnel avec un interlocuteur de gestion
+
+`shop_customer_accounts.customer_contact_id` (nullable) relie, quand il est
+renseigné, un compte client boutique à l’interlocuteur (`customer_contacts`,
+E10.4) qui en a demandé l’ouverture depuis la fiche client. Deux origines
+distinctes pour un compte `shop_customer`, jamais confondues :
+
+- **sans lien de gestion** : auto-inscription `self_signup`, migration
+  legacy `shop_only` (UM7), délégation « Se connecter à la boutique » (UM2) —
+  `customer_contact_id` reste `null` ;
+- **avec lien de gestion** : ouverture explicite depuis la fiche d’un
+  interlocuteur, action **distincte** de sa création (CA2 : un interlocuteur
+  E10.4 ne porte, par défaut, aucun compte).
+
+Contraintes posées EN BASE (migration `20260901000400`), pas seulement
+vérifiées côté service :
+
+1. Un interlocuteur n’a qu’un seul compte `shop_customer` par boutique
+   (index unique partiel `(shop_id, customer_contact_id)`) — il peut en avoir
+   un par boutique si le tenant en possède plusieurs.
+2. L’interlocuteur et la boutique liée appartiennent obligatoirement au même
+   tenant (trigger `enforce_shop_customer_contact_tenant_match`).
+3. Révoquer l’accès délie l’interlocuteur du compte (`customer_contact_id`
+   repasse à `null`) et suspend ce dernier — l’historique de commandes du
+   compte n’est jamais supprimé.
+
+### Exclusivité en base (`tenant_members` ⟺ `shop_customer_accounts`)
+
+Aucune route ne convertit un compte d’un type vers l’autre, dans un sens ou
+l’autre. La garantie n’est pas qu’applicative : deux triggers symétriques
+refusent l’écriture qui ferait qu’un même `auth.users.id` apparaisse à la
+fois comme `tenant_members.user_id` ET comme
+`shop_customer_accounts.auth_subject_id` renseigné. Un compte `shop_customer`
+qui atteindrait malgré tout `/api/v1/` reçoit `403 auth.scope_forbidden`
+(`current_user_is_shop_customer()`, même primitive que celle utilisée par la
+RLS) — la vraie barrière reste la RLS, ce code n’est qu’un diagnostic plus
+précis que le refus générique « aucun espace accessible ».
 
 ## Accès délégué depuis Magrit
 

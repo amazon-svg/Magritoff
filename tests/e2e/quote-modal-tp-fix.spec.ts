@@ -162,13 +162,16 @@ test.describe.serial('QuoteModal — fix tp ReferenceError', () => {
     await totalTtc.click();
     await page.waitForTimeout(1_500);
 
-    // 6. QuoteModal monté → boutons Imprimer / Ajouter au panier visibles
+    // 6. QuoteModal monté → boutons Imprimer / Ajouter au projet visibles
     //    (scopés au dialog z-50 pour éviter de capter ProductCardPrix sous l overlay)
+    //    E10.1 (2026-09-01) : « Ajouter au panier » a disparu des surfaces
+    //    internes Magrit (décision RP 28/08/2026), remplacé par « Ajouter au
+    //    projet » — le projet devient le conteneur de travail.
     const modal = page.locator('div.fixed.inset-0.z-50');
     const printBtn = modal.getByRole('button', { name: /imprimer le devis/i }).first();
-    const cartBtn = modal.getByRole('button', { name: 'Ajouter au panier', exact: true }).first();
+    const addToProjectBtn = modal.getByRole('button', { name: 'Ajouter au projet', exact: true }).first();
     await expect(printBtn).toBeVisible({ timeout: 5_000 });
-    await expect(cartBtn).toBeVisible({ timeout: 5_000 });
+    await expect(addToProjectBtn).toBeVisible({ timeout: 5_000 });
 
     // 7. Aucune ReferenceError tp / "Can't find variable: tp"
     const all = [...consoleErrors, ...pageErrors];
@@ -191,25 +194,15 @@ test.describe.serial('QuoteModal — fix tp ReferenceError', () => {
       expect(href).toMatch(new RegExp(`/t/${fx.tenantSlug}/dashboard/quote-templates`));
     }
 
-    // 9. Clic Ajouter au panier → ferme le QuoteModal, puis clic icône Panier
-    //    dans le Header. CartButton ne doit pas crasher (uniqueClientCount
-    //    supprimé Sprint 10 Phase B mais référencé encore dans le JSX).
-    await cartBtn.click();
+    // 9. Clic Ajouter au projet → ouvre AddToProjectModal sans crash (E10.1).
+    //    Le CartButton du Header (rail « Panier ») reste inchangé par E10.1 :
+    //    aucun appel `addToCart()` ne subsiste depuis QuoteModal, seul ce
+    //    nouveau flux est exercé ici.
+    await addToProjectBtn.click();
     await page.waitForTimeout(500);
 
-    const headerCart = page
-      .getByRole('button', { name: /panier/i })
-      .first();
-    await expect(headerCart).toBeVisible({ timeout: 5_000 });
-    await headerCart.click();
-    await page.waitForTimeout(800);
-
-    // Le bouton "Imprimer le devis" du drawer panier doit apparaître sans
-    // ReferenceError uniqueClientCount.
-    const drawerPrintBtn = page
-      .getByRole('button', { name: /imprimer le devis/i })
-      .first();
-    await expect(drawerPrintBtn).toBeVisible({ timeout: 5_000 });
+    const addToProjectModal = page.getByTestId('project-add-to-project-modal');
+    await expect(addToProjectModal).toBeVisible({ timeout: 5_000 });
 
     const allErrs2 = [...consoleErrors, ...pageErrors];
     const refErrors = allErrs2.filter((m) =>
