@@ -115,6 +115,11 @@ nécessaires à tout commercial pour chiffrer une affaire.
     + lecture), tentative d'affectation explicitement rejetée par le trigger
     UM1 (documentée comme comportement protégé, pas contournée).
 
+**Verdict qa-review round 2 : Approved.** Deux réserves résiduelles d'une
+ligne (owner périmé dans `commercial-quotes-repository.ts:281`, promesse de
+délégation survivante dans `surface-contributions.ts:20-21`) corrigées sans
+nouveau tour de revue complet (`c8d6c43`).
+
 ## Vérifications
 
 `pnpm typecheck`, `pnpm gen:api:check`, `pnpm test:contract`,
@@ -131,10 +136,11 @@ round précédent.
 - **t1** — `tests/sql/gescom-e10-11-can-manage-pricing.sql` jamais exécuté
   (Docker absent). Chemin : `pnpm db:local:start && pnpm test:storefront:sql`
   sur un poste équipé.
-- **t2** — `20260904142026_gescom_e10_11_can_manage_pricing.sql` et
-  `20260904150000_gescom_e10_11_audit_select_capability.sql` non déployées
-  sur le projet Supabase partagé (`ightkxebexuzfjdbpsdg`). Chemin :
-  `supabase db push --linked --dry-run` puis `--linked`, PAT Supabase requis.
+- ~~**t2**~~ — **Levée le 2026-09-05.** Les deux migrations sont déployées sur
+  `ightkxebexuzfjdbpsdg` (`supabase db push --linked`, PAT fourni par Arnaud) ;
+  `supabase migration list --linked` confirme `local = remote` sur les deux
+  entrées et tout l'historique antérieur. La RLS durcie est active en
+  production.
 - **t3** — `lintRoutesAgainstContract()` n'aligne pas encore le code sur
   `x-required-capabilities` (pas de champ déclaratif de capability sur
   `GescomRoute`) ; la garde applicative des 4 opérations reste vérifiée par
