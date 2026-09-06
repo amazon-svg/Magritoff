@@ -3284,6 +3284,17 @@ paths:
   #    cohabiter demanderait a chaque story future de se souvenir de la moitie
   #    invisible du contrat.
   #
+  # CLOISONNEMENT DES DEUX REPRESENTATIONS, DANS LES DEUX SENS. Le refus d un
+  # jeton utilisateur ou d une cle de service sur ces deux operations (403
+  # `identity.actor_kind_required`) a un jumeau exact, opposable au socle : une
+  # session boutique n atteint JAMAIS une operation qui ne declare pas
+  # `storefrontSession`, meme si cette operation est ouverte a tous les modes.
+  # Sans ce second sens, une future operation ouverte a la fois aux jetons et
+  # aux cles, exigeant des `x-required-scopes`, serait joignable par un porteur
+  # de cookie sans qu aucun scope soit evalue — un compte client boutique n en
+  # portant aucun. La regle complete, et la precedence des credentials qui va
+  # avec, sont decrites dans `securitySchemes.storefrontSession`.
+  #
   # CE QUE CE LOT NE FAIT PAS : accepter ou refuser un devis (E10.10b-2),
   # notifier le client par courriel a l envoi (E10.10b-3), servir un PDF stocke
   # et horodate (E10.10b-4). Le decoupage et sa justification sont dans
@@ -3370,9 +3381,14 @@ paths:
         '400':
           description: >-
             Parametres de page invalides (`api.invalid_page_params`,
-            `api.invalid_cursor`), ou en-tete `X-Magrit-Tenant` fourni sur une
-            session boutique (`api.tenant_not_addressable`) — voir la
-            description de `storefrontSession`.
+            `api.invalid_cursor`), en-tete `X-Magrit-Tenant` fourni sur une
+            session boutique (`api.tenant_not_addressable`), ou credential
+            EXPLICITE (`Authorization` / `X-Magrit-Service-Key`) presentee en
+            meme temps que le cookie sur cette operation
+            (`identity.actor_kind_required`). Ce dernier refus ne vaut QUE
+            sur les operations servies par `storefrontSession`, ou le cumul
+            est forcement delibere : ailleurs le cookie est simplement ignore.
+            Voir la description de `storefrontSession`.
           content:
             application/problem+json:
               schema:
@@ -3438,7 +3454,10 @@ paths:
         '400':
           description: >-
             En-tete `X-Magrit-Tenant` fourni sur une session boutique
-            (`api.tenant_not_addressable`), ou `quoteId` mal forme.
+            (`api.tenant_not_addressable`), `quoteId` mal forme, ou credential
+            EXPLICITE presentee en meme temps que le cookie sur cette
+            operation (`identity.actor_kind_required`) — regle de precedence
+            decrite avec `storefrontSession`.
           content:
             application/problem+json:
               schema:
@@ -3830,6 +3849,17 @@ components:
         claims du jeton, jamais depuis l URL.
 
 
+        COOKIE DE SESSION BOUTIQUE EVENTUELLEMENT PRESENT : IGNORE. L atelier
+        et la boutique sont servis par la meme application sur la meme
+        origine, et le navigateur attache le cookie `storefrontSession`
+        (`Path=/`, impose par son prefixe `__Host-`) a toute requete de cette
+        origine — celle-ci comprise. Sur une operation servie par
+        `bearerAuth`, la credential EXPLICITE l emporte et le cookie n est pas
+        lu ; il n y a pas de cumul a refuser, puisque l appelant n a pas
+        choisi de l envoyer. Voir la description de `storefrontSession` pour
+        la regle de precedence complete et ses deux autres branches.
+
+
         Le jeton ne porte AUCUN droit metier : il porte une identite. Les
         droits de cette identite dans l espace resolu sont evalues a chaque
         appel contre le referentiel de roles du tenant. Les droits disponibles
@@ -3869,6 +3899,15 @@ components:
         porte le tenant et la liste des scopes accordes. Les scopes disponibles
         sont enumeres dans `x-magrit-scopes` ; chaque operation declare les
         siens dans `x-required-scopes`.
+
+
+        COOKIE DE SESSION BOUTIQUE EVENTUELLEMENT PRESENT : IGNORE, meme regle
+        que pour `bearerAuth`. Un module tiers appelant depuis un navigateur
+        de meme origine que la boutique n a rien a purger : la credential
+        explicite l emporte. Reste refuse en 400
+        `identity.actor_kind_required`, partout, le cumul de cette cle avec un
+        `Authorization: Bearer` — deux credentials explicites, deux identites
+        proposees au serveur.
       x-magrit-scopes:
         quotes:read: Lecture des devis du tenant.
         quotes:write: Creation et modification des devis du tenant.
@@ -3930,12 +3969,55 @@ components:
         le lisant, la faille serait deja installee dans les clients.
 
 
-        AUCUN CUMUL. Un `Authorization: Bearer` ou un `X-Magrit-Service-Key`
-        presente en meme temps que ce cookie rend 400
-        `identity.actor_kind_required` : la meme regle que celle qui interdit
-        deja de combiner un jeton utilisateur et une cle de service. Une
-        requete doit dire QUI elle est, pas proposer plusieurs identites au
-        serveur pour qu il choisisse la plus permissive.
+        PRECEDENCE, ET NON SYMETRIE DE NON-CUMUL (corrige la regle publiee
+        au premier jet de E10.10b-1). Cette credential n est PAS posee par
+        l appelant : le navigateur l attache PASSIVEMENT a toute requete de
+        meme origine, et le prefixe `__Host-` lui impose `Path=/` — elle part
+        donc aussi sur les operations d atelier, que l appelant le veuille ou
+        non. `Authorization` et `X-Magrit-Service-Key` sont a l inverse poses
+        EXPLICITEMENT a chaque requete. Les traiter symetriquement etait une
+        faute de fait : atelier et boutique sont servis par la MEME
+        application sur la MEME origine, si bien qu un membre ayant ouvert
+        une session boutique — parcours de delegation
+        `POST /api/v1/tenants/{tenantId}/shops/{shopId}/customers/self-delegation`,
+        ou simple essai de sa propre boutique — porterait les deux
+        credentials sur CHACUN de ses appels d atelier, et les verrait tous
+        refuses jusqu a expiration du cookie. La regle est donc une
+        precedence, en trois points opposables :
+
+
+        - operation NON servie par ce mode (tout ce qui est `bearerAuth` ou
+          `serviceKey`) : la credential EXPLICITE l emporte, le cookie est
+          IGNORE, aucune erreur. Il n y a rien d ambigu a ignorer une
+          credential que l appelant n a pas choisi d envoyer. Le principal
+          resolu est celui du jeton, exactement comme avant E10.10b-1 ;
+
+        - operation servie par ce mode : un `Authorization` ou un
+          `X-Magrit-Service-Key` presente en meme temps que le cookie est
+          REFUSE en 400 `identity.actor_kind_required`. Ici le cumul ne peut
+          etre que DELIBERE — aucune surface du produit n envoie de jeton sur
+          ces operations, la boutique appelle sans jeton par construction. Le
+          refuser ferme la confusion d identite avant qu elle existe : un
+          traitement qui relirait le cookie a la main pendant que la facade a
+          resolu un jeton verrait deux identites vivantes dans la meme
+          requete ;
+
+        - `Authorization` ET `X-Magrit-Service-Key` ensemble restent refuses
+          en 400 `identity.actor_kind_required` PARTOUT, sans changement :
+          deux credentials explicites sont deux identites proposees au
+          serveur pour qu il choisisse la plus permissive.
+
+
+        CLOISONNEMENT DES MODES, DANS LES DEUX SENS. Une session boutique n
+        atteint JAMAIS une operation qui ne declare pas `storefrontSession`
+        (403 `identity.actor_kind_required`), symetriquement au refus deja
+        oppose a un jeton utilisateur ou a une cle de service sur une
+        operation qui le declare. Ce cloisonnement est FERME PAR DEFAUT : il
+        ne depend ni de ce que l operation exige par ailleurs, ni du soin mis
+        a declarer une operation. Sans lui, une operation ouverte aux deux
+        autres modes et exigeant des `x-required-scopes` serait atteignable
+        par un porteur de cookie — pour qui la notion de scope n existe pas,
+        donc sans qu aucun scope soit jamais evalue.
 
 
         SESSION DELEGUEE. Le produit sait ouvrir une session boutique AU NOM

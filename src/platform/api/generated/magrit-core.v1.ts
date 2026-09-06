@@ -5256,7 +5256,7 @@ export interface operations {
                     };
                 };
             };
-            /** @description Parametres de page invalides (`api.invalid_page_params`, `api.invalid_cursor`), ou en-tete `X-Magrit-Tenant` fourni sur une session boutique (`api.tenant_not_addressable`) — voir la description de `storefrontSession`. */
+            /** @description Parametres de page invalides (`api.invalid_page_params`, `api.invalid_cursor`), en-tete `X-Magrit-Tenant` fourni sur une session boutique (`api.tenant_not_addressable`), ou credential EXPLICITE (`Authorization` / `X-Magrit-Service-Key`) presentee en meme temps que le cookie sur cette operation (`identity.actor_kind_required`). Ce dernier refus ne vaut QUE sur les operations servies par `storefrontSession`, ou le cumul est forcement delibere : ailleurs le cookie est simplement ignore. Voir la description de `storefrontSession`. */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -5309,7 +5309,7 @@ export interface operations {
                     };
                 };
             };
-            /** @description En-tete `X-Magrit-Tenant` fourni sur une session boutique (`api.tenant_not_addressable`), ou `quoteId` mal forme. */
+            /** @description En-tete `X-Magrit-Tenant` fourni sur une session boutique (`api.tenant_not_addressable`), `quoteId` mal forme, ou credential EXPLICITE presentee en meme temps que le cookie sur cette operation (`identity.actor_kind_required`) — regle de precedence decrite avec `storefrontSession`. */
             400: {
                 headers: {
                     [name: string]: unknown;

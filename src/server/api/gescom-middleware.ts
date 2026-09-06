@@ -245,7 +245,25 @@ export function createGescomApiHandler(options: GescomApiHandlerOptions) {
     let idempotency: IdempotencyRequest | null = null;
 
     try {
-      const principal = await resolvePrincipal(request, options.principalVerifier, params);
+      const principal = await resolvePrincipal(request, options.principalVerifier, params, {
+        isShopCustomerOperation: route.authentication === 'shop_customer',
+      });
+      // E10.10b-1 round 2 (B2, docs/api/CONVENTIONS.md §3.6/§8.13ter) —
+      // CLOISONNEMENT DES MODES, DANS LES DEUX SENS. Symetrique exact du
+      // refus pose plus bas pour un UserPrincipal/ServicePrincipal sur une
+      // route `shop_customer` : une session boutique n atteint JAMAIS une
+      // route qui ne la declare pas, quels que soient les scopes requis par
+      // ailleurs. C est la couche 2 (routage) des trois couches du correctif ;
+      // `defineGescomRoute` est la couche 1 (declaration), `assertScopes` la
+      // couche 3 (defense en profondeur, tenant-resolution.ts).
+      if (principal.kind === 'shop_customer' && route.authentication !== 'shop_customer') {
+        throw problem({
+          status: 403,
+          title: 'Session boutique refusee sur cette operation',
+          code: SHARED_PROBLEM_CODES.actorKindRequired,
+          detail: 'Cette operation n est pas accessible a une session de compte client boutique.',
+        });
+      }
       if (route.authentication === 'user') assertUserPrincipal(principal);
       if (route.authentication === 'service' && principal.kind !== 'service') {
         throw problem({

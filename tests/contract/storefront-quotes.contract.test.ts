@@ -236,6 +236,18 @@ describe('GET /storefront-quotes (listStorefrontQuotes)', () => {
     expect(body.code).toBe('identity.actor_kind_required');
   });
 
+  it('400 identity.actor_kind_required — cookie ET cle de service presentees ensemble sont un cumul ambigu, refuse (CA9, reserve non bloquante)', async () => {
+    // Meme regle que cookie+Bearer ci-dessus (§3.6 branche 2), mais avec la
+    // credential explicite qui n avait pas encore de cas de test dedie sur
+    // une operation storefrontSession.
+    const response = await call('/api/v1/storefront-quotes', {
+      headers: { ...asShopCustomer(VALID_TOKEN), 'X-Magrit-Service-Key': 'cle-studio' },
+    });
+    await expectContract(response, { status: 400 });
+    const body = (await response.json()) as { code: string };
+    expect(body.code).toBe('identity.actor_kind_required');
+  });
+
   it('filtre status : une valeur hors enumeration (dont "draft") est traitee comme absente de filtre, jamais une erreur', async () => {
     const draft = await call('/api/v1/storefront-quotes?status=draft', {
       headers: asShopCustomer(VALID_TOKEN),
