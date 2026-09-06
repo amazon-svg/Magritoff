@@ -36,7 +36,7 @@
  * jamais recalcules deux fois de facons differentes. `sendQuote`/
  * `duplicateQuote` reimplementent ici, en memoire, ce que
  * `api_send_commercial_quote`/`api_duplicate_commercial_quote` (migration
- * `20260906000100`) font en une seule transaction Postgres.
+ * `20260906160000`) font en une seule transaction Postgres.
  */
 import type { TenantId, UserId } from '@/kernel';
 import type { ProjectDto, ProjectItemDto } from '@/modules/projects/api/contracts';
@@ -480,6 +480,16 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
     for (const [id, line] of this.lines) {
       if (line.quote_id === quoteId) this.lines.delete(id);
     }
+    // qa-review round 2, B4 — `source_quote_id` porte `on delete set null`
+    // (migration 20260906160000) : une copie ne doit jamais rester pointee
+    // vers un devis original disparu (filiation informative, aucune
+    // synchronisation). Reproduit ici le meme comportement pour que ce fake
+    // ne diverge pas de la contrainte reelle.
+    for (const [id, quote] of this.quotes) {
+      if (quote.source_quote_id === quoteId) {
+        this.quotes.set(id, { ...quote, source_quote_id: null });
+      }
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -488,7 +498,7 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
 
   /**
    * Reimplemente en memoire ce que `api_send_commercial_quote` fait en une
-   * seule transaction Postgres (migration `20260906000100`) : distinction
+   * seule transaction Postgres (migration `20260906160000`) : distinction
    * premier envoi (`draft`) / renvoi (`sent`), calcul de `valid_until` depuis
    * `commercial_settings.default_validity_days` UNIQUEMENT si elle est encore
    * `null`, entree d audit `sent` (snapshot complet) ou `resent` (rien),

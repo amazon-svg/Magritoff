@@ -53,12 +53,23 @@
 --      force malgre tout une trace exploitable ; (c) non-regression :
 --      l envoi (scenario 2) ET le renvoi (scenario 3) normaux ne produisent
 --      JAMAIS `status_forced`, seulement `sent`/`resent`.
+--   3quater. IMMUABILITE d un devis `sent` — DELETE DIRECT (qa-review round
+--      2, B5) : un DELETE PostgREST direct par un MEMBRE ORDINAIRE sur un
+--      devis `sent` est REJETE par la meme fonction que 3bis/3ter, desormais
+--      `BEFORE UPDATE OR DELETE`, sans emporter ses lignes ni SES DEUX
+--      journaux d audit append-only (compte de lignes et d entrees d audit
+--      INCHANGE avant/apres la tentative rejetee).
 --   4. Gardes : devis SANS ligne rejete (`quote.send_requires_lines`) ;
 --      statut hors {`draft`,`sent`} rejete (`quote.send_forbidden_status`).
 --   5. `api_duplicate_commercial_quote` : nouveau devis `draft`, nouveau
 --      numero, `source_quote_id`, lignes recopiees a l IDENTIQUE (aucun
 --      recalcul), `valid_until` REMISE a `null` meme si le source en portait
 --      une, entree `duplicated` sur l ORIGINAL.
+--   5bis. B4 (qa-review round 2) : dupliquer un devis A `draft` puis
+--      supprimer A (chemin ENTIEREMENT nominal, A reste `draft`) reussit
+--      desormais (`source_quote_id` porte `on delete set null`) ; la copie
+--      perd sa filiation (`source_quote_id` devient `null`) sans que le reste
+--      de son contenu ne bouge.
 --   6. Contraintes `commercial_quotes_global_discount_exclusive` /
 --      `_global_discount_rate_max` / `_vat_rate_non_negative` (qa-review
 --      round 1, B1).
@@ -72,6 +83,11 @@
 --      agregation correcte, et isolation inter-tenant — un admin d un AUTRE
 --      tenant ne lit aucune ligne, meme en fournissant un `p_tenant_id`
 --      usurpe (RLS `security invoker`, independante du parametre fourni).
+--   10. B5(b) (qa-review round 2) : suppression d un TENANT ENTIER portant un
+--      devis `sent` reste possible malgre la garde du scenario 3quater — la
+--      branche DELETE distingue la cascade (tenant parent deja disparu) d un
+--      DELETE direct, meme modele que `commercial_quote_lines_require_draft_
+--      quote` (E10.9, correctif N1).
 --
 -- Lancer : pnpm test:storefront:sql (necessite Supabase local demarre).
 -- ============================================================================
@@ -589,6 +605,70 @@ begin
 end;
 $$;
 
+-- ── 3quater. IMMUABILITE d un devis sent — DELETE DIRECT (qa-review round 2,
+--      B5). La meme fonction que 3bis/3ter (`commercial_quotes_require_
+--      draft_before_write`) porte desormais aussi un `BEFORE DELETE` : un
+--      DELETE PostgREST direct par un MEMBRE ORDINAIRE (pas un admin, pas
+--      une session privilegiee) sur un devis `sent` est refuse EN BASE, sans
+--      emporter ni ses lignes ni SES DEUX journaux d audit append-only —
+--      avant ce correctif, la RLS (`for all`, sans condition de statut)
+--      laissait passer ce DELETE, et la cascade FK effacait tout sans
+--      laisser de trace. ────────────────────────────────────────────────────
+set local role authenticated;
+select set_config('request.jwt.claim.sub', (select actor_member_a::text from e10_10a_context), true);
+
+do $$
+declare
+  v_quote uuid;
+  v_status_before text;
+  v_line_count_before integer;
+  v_line_count_after integer;
+  v_header_audit_count_before integer;
+  v_header_audit_count_after integer;
+  v_rejected boolean := false;
+begin
+  select quote_with_lines into v_quote from e10_10a_context;
+  select status into v_status_before from public.commercial_quotes where id = v_quote;
+  if v_status_before <> 'sent' then
+    raise exception 'Precondition scenario 3quater : devis attendu sent, obtenu %', v_status_before;
+  end if;
+
+  select count(*) into v_line_count_before from public.commercial_quote_lines where quote_id = v_quote;
+  select count(*) into v_header_audit_count_before from public.commercial_quote_header_audit where quote_id = v_quote;
+
+  begin
+    delete from public.commercial_quotes where id = v_quote;
+  exception
+    when others then
+      if sqlerrm like 'quote.delete_requires_draft%' then v_rejected := true;
+      else raise;
+      end if;
+  end;
+  if not v_rejected then
+    raise exception 'Un DELETE direct a pu supprimer un devis sent (immuabilite non respectee, B5)';
+  end if;
+
+  perform 1 from public.commercial_quotes where id = v_quote and status = 'sent';
+  if not found then
+    raise exception 'Le devis a disparu (ou change de statut) apres la tentative de DELETE rejetee';
+  end if;
+
+  select count(*) into v_line_count_after from public.commercial_quote_lines where quote_id = v_quote;
+  if v_line_count_after <> v_line_count_before then
+    raise exception 'B5 : % ligne(s) restante(s) apres le DELETE rejete, % attendue(s) (cascade non prevenue)',
+      v_line_count_after, v_line_count_before;
+  end if;
+
+  select count(*) into v_header_audit_count_after from public.commercial_quote_header_audit where quote_id = v_quote;
+  if v_header_audit_count_after <> v_header_audit_count_before then
+    raise exception 'B5 : % entree(s) d audit d entete restante(s) apres le DELETE rejete, % attendue(s)',
+      v_header_audit_count_after, v_header_audit_count_before;
+  end if;
+end;
+$$;
+
+reset role;
+
 -- Restaure l etat pre-3ter (role authenticated, admin_a) pour les scenarios
 -- suivants, qui l attendent tel quel (aucun `set local role` n intervient
 -- entre la fin du scenario 3bis et le debut du scenario 4 dans la version
@@ -703,6 +783,54 @@ begin
     from public.commercial_quote_header_audit where quote_id = v_source and action = 'duplicated';
   if v_duplicated_new_value <> v_copy::text then
     raise exception 'Duplication : new_value attendu %, obtenu %', v_copy, v_duplicated_new_value;
+  end if;
+end;
+$$;
+
+-- ── 5bis. B4 (qa-review round 2) — dupliquer un devis A DRAFT puis
+--      supprimer A : chemin ENTIEREMENT nominal (A reste draft, la
+--      duplication n ecrit jamais sur l original hors l entree d audit
+--      'duplicated'). Avant le correctif (`source_quote_id` sans `on delete
+--      set null`), ce DELETE levait 23503 (FK violee par la copie B, dont
+--      `source_quote_id = A.id`) et rendait A indefiniment indelebile par
+--      toute API. ───────────────────────────────────────────────────────────
+do $$
+declare
+  v_tenant_a uuid;
+  v_customer_a uuid;
+  v_project_a uuid;
+  v_source uuid;
+  v_copy uuid;
+  v_copy_source_after uuid;
+begin
+  select tenant_a, customer_a, project_a into v_tenant_a, v_customer_a, v_project_a from e10_10a_context;
+
+  insert into public.commercial_quotes (tenant_id, customer_id, project_id, number, status, created_by)
+  values (v_tenant_a, v_customer_a, v_project_a, 'DEV-9999-00205', 'draft',
+          (select actor_admin_a from e10_10a_context))
+  returning id into v_source;
+
+  select public.api_duplicate_commercial_quote(v_tenant_a, v_source) into v_copy;
+
+  -- A est toujours draft : la garde CA6 (application) ET la garde d etat en
+  -- base (`commercial_quotes_require_draft_before_write`, branche DELETE,
+  -- qa-review B5) laissent passer ce DELETE DIRECT sans aucune echappatoire.
+  delete from public.commercial_quotes where id = v_source;
+
+  perform 1 from public.commercial_quotes where id = v_source;
+  if found then
+    raise exception 'B4 : le devis original existe encore apres sa suppression';
+  end if;
+
+  select source_quote_id into v_copy_source_after from public.commercial_quotes where id = v_copy;
+  if v_copy_source_after is not null then
+    raise exception 'B4 : source_quote_id de la copie attendu NULL apres suppression de l original, obtenu %', v_copy_source_after;
+  end if;
+
+  -- La copie elle-meme n a pas ete touchee au-dela de source_quote_id.
+  perform 1 from public.commercial_quotes where id = v_copy and status = 'draft';
+  if not found then
+    raise exception 'B4 : la copie n est plus draft apres la suppression de son original (effet de bord inattendu)';
   end if;
 end;
 $$;
@@ -931,5 +1059,64 @@ end;
 $$;
 
 reset role;
+
+-- ── 10. B5(b) qa-review round 2 — suppression d un TENANT ENTIER portant un
+--      devis sent doit RESTER POSSIBLE malgre la garde DELETE posee au
+--      scenario 3quater : piege deja rencontre sur E10.9 (correctif N1,
+--      `commercial_quote_lines_require_draft_quote`, pris ici comme modele).
+--      Un tenant DEDIE (Tenant C), cree et detruit dans ce seul scenario, pour
+--      ne pas perturber le reste de la suite. Phase privilegiee (role de
+--      connexion par defaut, meme raisonnement que la creation du contexte en
+--      tete de fichier) : aucune RLS n intervient dans cette verification, qui
+--      porte sur la garde D ETAT en base, pas sur les droits d acces. ────────
+do $$
+declare
+  v_tenant_c uuid;
+  v_customer_c uuid;
+  v_project_c uuid;
+  v_quote_c uuid;
+  v_admin_c uuid;
+begin
+  select actor_admin_a into v_admin_c from e10_10a_context;
+
+  insert into public.tenants (slug, name)
+  values ('e10-10a-send-c-cascade', 'E10.10a Tenant C (cascade)')
+  returning id into v_tenant_c;
+
+  insert into public.tenant_members (tenant_id, user_id, role, access_scope, allowed_shop_ids)
+  values (v_tenant_c, v_admin_c, 'admin', 'magrit_full', '{}');
+
+  insert into public.customers (tenant_id, type, company_name, siret)
+  values (v_tenant_c, 'company', 'Tenant C Cascade E10.10a', '73282932000074')
+  returning id into v_customer_c;
+
+  insert into public.projects (tenant_id, customer_id, name)
+  values (v_tenant_c, v_customer_c, 'Projet cascade E10.10a')
+  returning id into v_project_c;
+
+  -- Cree DIRECTEMENT `sent` (pas de garde BEFORE INSERT sur commercial_
+  -- quotes, seulement UPDATE/DELETE) : c est exactement l etat que la garde
+  -- de la branche DELETE (scenario 3quater) refuserait de laisser supprimer
+  -- si elle ne distinguait pas la cascade d un DELETE direct.
+  insert into public.commercial_quotes (tenant_id, customer_id, project_id, number, status, created_by)
+  values (v_tenant_c, v_customer_c, v_project_c, 'DEV-9999-00300', 'sent', v_admin_c)
+  returning id into v_quote_c;
+
+  -- Suppression du TENANT, pas du devis : doit reussir SANS lever
+  -- `quote.delete_requires_draft`, malgre le devis sent qu il porte
+  -- (`commercial_quotes.tenant_id` porte `on delete cascade`).
+  delete from public.tenants where id = v_tenant_c;
+
+  perform 1 from public.tenants where id = v_tenant_c;
+  if found then
+    raise exception 'B5(b) : le tenant existe encore apres sa suppression';
+  end if;
+
+  perform 1 from public.commercial_quotes where id = v_quote_c;
+  if found then
+    raise exception 'B5(b) : le devis sent existe encore alors que son tenant a ete supprime (cascade non appliquee)';
+  end if;
+end;
+$$;
 
 rollback;

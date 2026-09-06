@@ -72,16 +72,51 @@
 --      correctif. Aucune operation de ce contrat ne la produit en usage
 --      normal.
 --
+--   8. (qa-review round 2, B4/B5, docs/api/CONVENTIONS.md §8.12/§8.12bis/
+--      §8.12ter) Deux bloquants introduits par le lot round 1 :
+--      - **B4** : `source_quote_id` ne portait AUCUNE clause `on delete`
+--        (donc `no action`) — dupliquer un devis A puis supprimer l original
+--        (chemin nominal, A `draft`) levait `23503` (FK violee) et rendait A
+--        indefiniment indelebile. Corrige en `on delete set null`, cohérent
+--        avec le commentaire de colonne (filiation informative, aucune
+--        synchronisation) : la copie garde son contenu, perd seulement la
+--        trace de son origine.
+--      - **B5** : le trigger d immuabilite (section 2ter) etait `BEFORE
+--        UPDATE` seulement — un `DELETE` PostgREST direct sur un devis
+--        `sent` par un membre ordinaire n etait bloque nulle part en base,
+--        et emportait par cascade ses lignes ET les deux journaux
+--        append-only (dont le `quote_snapshot` de l envoi). La meme fonction
+--        (`commercial_quotes_require_draft_before_write`) porte desormais
+--        aussi un `BEFORE DELETE`, meme condition (`old.status <> 'draft'`
+--        refuse, aucune echappatoire necessaire), en laissant passer la
+--        cascade de suppression d un tenant (meme modele que `commercial_
+--        quote_lines_require_draft_quote`, E10.9 correctif N1 : le parent —
+--        ici `tenants`, pas `commercial_quotes` — a deja physiquement
+--        disparu quand la cascade declenche ce trigger sur le devis).
+--
 -- Nommage des codes d erreur, cote application (pas en base) :
--- `quote.update_requires_draft`, `quote.send_forbidden_status`, `quote.
--- send_requires_lines`, `quote.resend_immutable`. Ce fichier ne fait que
--- lever des `raise exception '<code>: <detail>'`, traduits par l adaptateur
--- Supabase (`mapQuoteSendError()`).
+-- `quote.update_requires_draft`, `quote.delete_requires_draft`, `quote.
+-- send_forbidden_status`, `quote.send_requires_lines`, `quote.
+-- resend_immutable`. Ce fichier ne fait que lever des `raise exception
+-- '<code>: <detail>'`, traduits par l adaptateur Supabase
+-- (`mapQuoteSendError()`) — `quote.delete_requires_draft` en base n est
+-- atteint que par un appel PostgREST direct (defense en profondeur) : `remove()`
+-- filtre deja `status = 'draft'` cote application (CA6, code `quote.
+-- delete_requires_draft` deja existant, `QuoteDeleteRequiresDraftError`),
+-- aucun chemin d API n atteint donc cette exception en usage normal.
 -- ============================================================================
 
 -- ── 1. Nouvelles colonnes d entete (E10.10a) ────────────────────────────────
 alter table public.commercial_quotes
-  add column if not exists source_quote_id     uuid references public.commercial_quotes(id),
+  -- qa-review round 2, B4 : SANS `on delete set null`, supprimer un devis A
+  -- deja duplique (B = copie, `B.source_quote_id = A.id`) levait 23503 (FK
+  -- violee) des que `remove()` (CA6, filtre `status = 'draft'`) atteignait la
+  -- base — A restait alors indefiniment bloque, aucune API ne pouvant plus le
+  -- supprimer. La filiation est INFORMATIVE (commentaire de colonne
+  -- ci-dessous, inchange) : rien ne synchronise B sur A, `set null` est donc
+  -- la seule option cohérente avec ce contrat — la copie garde son contenu et
+  -- son identite propres, elle perd seulement la trace de son origine.
+  add column if not exists source_quote_id     uuid references public.commercial_quotes(id) on delete set null,
   add column if not exists global_discount_rate numeric(6,4),
   add column if not exists target_net_total     numeric(12,2),
   add column if not exists vat_rate             numeric(6,4),
@@ -338,6 +373,35 @@ create trigger commercial_quotes_audit_update
 -- devis 'draft' reste modifiable librement tant que son `status` ne change
 -- pas (cas ordinaire), mais un changement de `status` — DEPUIS 'draft' comme
 -- depuis tout autre etat — exige desormais systematiquement l echappatoire.
+--
+-- (qa-review round 2, B5) Le trou laisse par les deux versions precedentes,
+-- toutes deux `BEFORE UPDATE` seulement : `commercial_quotes_write` (RLS)
+-- est un `for all` qui couvre AUSSI le `DELETE`, sans condition de statut —
+-- un `DELETE .../commercial_quotes?id=eq.X` direct sur un devis `sent`
+-- n etait bloque NULLE PART en base, et emportait par cascade ses lignes
+-- (`commercial_quote_lines`) ET LES DEUX journaux append-only
+-- (`commercial_quote_line_audit`, `commercial_quote_header_audit` — donc l
+-- entree 'sent' et son `quote_snapshot`, seule preuve de ce qui a ete
+-- transmis). Cette meme fonction porte donc desormais aussi le `BEFORE
+-- DELETE` : un `DELETE` direct sur un devis dont le statut n est pas
+-- 'draft' est refuse, EXACTEMENT comme un `UPDATE` le serait, sans
+-- echappatoire (aucune fonction de ce contrat n a besoin de supprimer un
+-- devis non-brouillon).
+--
+-- Piege a ne pas repeter (deja coute un round entier a E10.9, correctif N1,
+-- `commercial_quote_lines_require_draft_quote()`, pris ici comme modele) :
+-- `commercial_quotes.tenant_id` porte `on delete cascade` — un `BEFORE
+-- DELETE` naif qui leve inconditionnellement sur `old.status <> 'draft'`
+-- rendrait IMPOSSIBLE la suppression d un tenant entier des qu il contient
+-- un devis `sent`. La branche DELETE ci-dessous laisse donc passer la
+-- suppression quand elle est le fruit d une cascade — reconnue de la MEME
+-- facon que le modele cite : le tenant parent (`old.tenant_id`) a DEJA
+-- disparu au moment ou ce trigger BEFORE DELETE se declenche sur CETTE
+-- ligne (la suppression physique de `tenants` precede, dans la meme
+-- transaction, le declenchement de son action `on delete cascade` sur
+-- chaque devis qui le referencait) — un `DELETE` DIRECT sur `commercial_
+-- quotes`, lui, laisse toujours son tenant intact. Si le tenant n existe
+-- plus, ce n est donc pas un appel direct : on laisse faire.
 create or replace function public.commercial_quotes_require_draft_before_write()
 returns trigger
 language plpgsql
@@ -345,6 +409,20 @@ as $$
 declare
   v_transition boolean;
 begin
+  if tg_op = 'DELETE' then
+    if old.status = 'draft' then
+      return old;
+    end if;
+
+    if not exists (select 1 from public.tenants t where t.id = old.tenant_id) then
+      -- Cascade depuis la suppression du tenant parent : legitime, pas un
+      -- DELETE direct sur ce devis.
+      return old;
+    end if;
+
+    raise exception 'quote.delete_requires_draft: devis % a l etat % (draft requis)', old.id, old.status;
+  end if;
+
   if new.status is not distinct from old.status and old.status = 'draft' then
     return new;
   end if;
@@ -365,7 +443,7 @@ $$;
 
 drop trigger if exists commercial_quotes_require_draft_before_write on public.commercial_quotes;
 create trigger commercial_quotes_require_draft_before_write
-  before update on public.commercial_quotes
+  before update or delete on public.commercial_quotes
   for each row execute function public.commercial_quotes_require_draft_before_write();
 
 -- ── 3. Reglages commerciaux (E10.10a, point 9) — ressource SINGLETON ───────

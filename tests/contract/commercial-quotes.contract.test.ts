@@ -1169,6 +1169,32 @@ describe('module Devis commerciaux (E10.10a) contre le contrat — envoi, duplic
     await expectContract(response, { status: 201, dataSchema: 'QuoteDetail' });
   });
 
+  it('qa-review round 2, B4 — supprimer un devis A DEJA duplique reussit, la copie perd son source_quote_id', async () => {
+    const { quote: original } = await createDraftQuoteWithLine();
+
+    const duplicated = await call(`/api/v1/quotes/${original.id}/duplicates`, {
+      method: 'POST',
+      headers: { ...jsonHeaders, 'Idempotency-Key': `dup-${uuid()}` },
+    });
+    await expectContract(duplicated, { status: 201, dataSchema: 'QuoteDetail' });
+    const { data: copy } = (await duplicated.json()) as { data: QuoteDetailDto };
+    expect(copy.source_quote_id).toBe(original.id);
+
+    // A est reste `draft` (la duplication n a jamais ecrit sur l original) :
+    // sa suppression, chemin nominal CA6, ne doit JAMAIS lever de 500 —
+    // avant ce correctif, `source_quote_id` sans `on delete set null` levait
+    // 23503 (FK violee) et rendait A indefiniment indelebile.
+    const removed = await call(`/api/v1/quotes/${original.id}`, { method: 'DELETE', headers: asUser });
+    await expectContract(removed, { status: 200 });
+    const removedBody = (await removed.json()) as { data: { deleted: boolean } };
+    expect(removedBody.data.deleted).toBe(true);
+
+    const afterDelete = await call(`/api/v1/quotes/${copy.id}`, { headers: asUser });
+    await expectContract(afterDelete, { status: 200, dataSchema: 'QuoteDetail' });
+    const { data: copyAfterDelete } = (await afterDelete.json()) as { data: QuoteDetailDto };
+    expect(copyAfterDelete.source_quote_id).toBeNull();
+  });
+
   it('listQuoteHeaderAuditEntries — journal distinct des lignes, une entree par champ change, garde can_manage_pricing', async () => {
     const { quote } = await createDraftQuoteWithLine();
     const etag = await getEtag(quote.id);
