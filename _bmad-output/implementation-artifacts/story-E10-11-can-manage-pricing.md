@@ -133,9 +133,15 @@ round précédent.
 
 ## Dette restante
 
-- **t1** — `tests/sql/gescom-e10-11-can-manage-pricing.sql` jamais exécuté
-  (Docker absent). Chemin : `pnpm db:local:start && pnpm test:storefront:sql`
-  sur un poste équipé.
+- ~~**t1**~~ — **Levée le 2026-09-06.** Colima installé (runtime Docker léger,
+  pas de Docker Desktop) pour lever ce blocage définitivement sur ce poste.
+  `docker exec -i supabase_db_magritoff-v5 psql ... < tests/sql/gescom-e10-11-can-manage-pricing.sql`
+  exécuté réellement, à deux reprises indépendantes (dev-story puis
+  qa-review round 5 d'E10.10a) : `EXIT=0`, `ROLLBACK` final, aucune erreur.
+  Les 3 scénarios (garde d'écriture + appartenance, garde de lecture des
+  journaux d'audit, dérivation admin sans affectation, rejet de la
+  délégation par le trigger UM1) sont désormais prouvés par exécution, pas
+  seulement relus.
 - ~~**t2**~~ — **Levée le 2026-09-05.** Les deux migrations sont déployées sur
   `ightkxebexuzfjdbpsdg` (`supabase db push --linked`, PAT fourni par Arnaud) ;
   `supabase migration list --linked` confirme `local = remote` sur les deux
