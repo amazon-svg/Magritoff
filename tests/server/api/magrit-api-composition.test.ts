@@ -73,11 +73,15 @@ function buildApplication() {
       // qa-review E10.10b-1 round 1 (B3) — `commercialSettings` a ete oublie
       // au cablage REEL de l edge function (supabase/functions/magrit-api/
       // index.ts), un manque invisible en local puisque ce fichier est hors
-      // tsconfig et jamais execute ici (§8.2 M1). Cablee ICI pour que la
-      // composition reelle prouve que le service repond, plutot que de ne
-      // dependre que d une relecture manuelle du fichier deploye la
-      // prochaine fois qu un service est ajoute a `GescomServices` sans etre
-      // cable dans l edge function.
+      // tsconfig et jamais execute ici (§8.2 M1). Cablee ICI pour que CETTE
+      // composition (bouchonnee) prouve que le service repond une fois
+      // branche. Ce test NE PROUVE PAS que index.ts est lui-meme cable —
+      // il recompose sa propre `gescomServices`, il resterait vert meme si
+      // le cablage reel etait a nouveau oublie (qa-review round 2, reserve
+      // R2). La garde contre cet oubli precis est
+      // tests/architecture/local-supabase-runtime.test.ts (« cable chaque
+      // service GescomServices dans l edge function reelle »), qui lit le
+      // fichier deploye.
       commercialSettings: new CommercialSettingsService({
         repository: new InMemoryCommercialSettingsRepository(),
       }),
