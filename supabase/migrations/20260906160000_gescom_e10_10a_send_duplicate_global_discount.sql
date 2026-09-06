@@ -35,10 +35,13 @@
 --      (`sent` -> `sent`) un devis, EN UNE SEULE TRANSACTION : garde de
 --      statut, garde "au moins une ligne", calcul de `valid_until` (SEULEMENT
 --      si elle est encore `null`, depuis `commercial_settings.default_
---      validity_days`), ecriture d audit. `security invoker` : aucune table
---      touchee ici n a de RLS plus stricte que ce qu un membre du tenant
---      peut deja voir/ecrire (contrairement a `commercial_quote_number_
---      counters`, qui n intervient pas ici).
+--      validity_days`), ecriture d audit. `security definer` (qa-review
+--      round 1, R7 — cet en-tete disait a tort `invoker`) : la fonction
+--      ecrit DIRECTEMENT dans `commercial_quote_header_audit`, fermee en
+--      INSERT a `authenticated` (append-only, section 2) — en `invoker`,
+--      cette ecriture aurait echoue pour l appelant reel. Verifie donc
+--      ELLE-MEME l appartenance au tenant, comme `api_duplicate_commercial_
+--      quote` (voir le detail au point 4 du corps de la migration).
 --
 --   5. `api_duplicate_commercial_quote` — DUPLIQUE un devis : nouveau devis
 --      `draft`, MEME compteur de numerotation que la creation depuis un
@@ -47,6 +50,12 @@
 --      gelee), `valid_until` REMISE a `null`. `security definer`, comme
 --      `api_create_commercial_quote_from_project_items` : seule voie
 --      d ecriture du compteur, ferme par ailleurs (aucune policy RLS dessus).
+--
+--   6. (qa-review round 1) `vat_rate` gagne un CHECK non-negatif (B1),
+--      `commercial_quotes` gagne un trigger BEFORE UPDATE d immuabilite hors
+--      brouillon (B3, section 2ter), et `api_commercial_quote_line_
+--      subtotals` remplace en base l ancien calcul de sous-total fait ligne
+--      par ligne cote TypeScript (B2, section 6 du corps).
 --
 -- Nommage des codes d erreur, cote application (pas en base) :
 -- `quote.update_requires_draft`, `quote.send_forbidden_status`, `quote.
@@ -91,6 +100,14 @@ alter table public.commercial_quotes
   ),
   add constraint commercial_quotes_target_net_total_non_negative check (
     target_net_total is null or target_net_total >= 0
+  ),
+  -- qa-review E10.10a round 1, B1 : un taux de TVA negatif n a pas plus de
+  -- sens qu un prix client negatif (meme motif que MoneyNonNegative). Sans ce
+  -- CHECK, un PATCH posant `vat_rate: "-0.2000"` etait accepte en ecriture et
+  -- rendait la lecture du devis (et de toute liste paginee qui l inclut) 500
+  -- (computeQuoteTotals -> formatCentsToMoneyNonNegative sur vat_amount).
+  add constraint commercial_quotes_vat_rate_non_negative check (
+    vat_rate is null or vat_rate >= 0
   );
 
 create index if not exists commercial_quotes_source_quote_idx
@@ -236,6 +253,57 @@ create trigger commercial_quotes_audit_update
   for each row
   when (old.* is distinct from new.*)
   execute function public.commercial_quotes_write_header_audit();
+
+-- ── 2ter. IMMUABILITE d un devis `sent` — garde EN BASE, pas seulement en
+--    application (qa-review E10.10a round 1, B3) ───────────────────────────
+-- `commercial_quotes_write` (RLS, 20260901000600_gescom_e10_3_commercial_
+-- quotes.sql:197-214) autorise tout admin/member du tenant a UPDATE N IMPORTE
+-- QUELLE colonne de commercial_quotes SANS condition de statut — contrairement
+-- aux LIGNES, deja gardees par `commercial_quote_lines_require_draft_quote`
+-- (20260904000100_gescom_e10_9_quote_line_discounts.sql:269-309, pris comme
+-- modele). Un appel PostgREST direct (`PATCH .../commercial_quotes?id=eq.X`
+-- avec `{"status":"draft"}`) pouvait donc redonner silencieusement l etat
+-- brouillon a un devis envoye — ses lignes redevenant modifiables (le trigger
+-- de lignes ne regarde que le statut COURANT), sa remise globale aussi.
+--
+-- Ce trigger BEFORE UPDATE bloque toute modification d un devis dont le
+-- statut COURANT (`old.status`) n est pas 'draft', SAUF la transition posee
+-- EXPLICITEMENT par `api_send_commercial_quote` (draft -> sent au premier
+-- envoi, ou renvoi sent -> sent) via l echappatoire `magrit.quote_transition`
+-- — meme mecanisme que `magrit.change_set_id` ci-dessus (`set_config(...,
+-- true)`, porte a la transaction). `api_duplicate_commercial_quote` n a besoin
+-- d aucune echappatoire : elle n UPDATE JAMAIS le devis ORIGINAL (seule une
+-- ligne d audit 'duplicated' y est INSEREE), elle se contente de creer une
+-- copie fraiche a l etat 'draft'.
+create or replace function public.commercial_quotes_require_draft_before_write()
+returns trigger
+language plpgsql
+as $$
+declare
+  v_transition boolean;
+begin
+  if old.status = 'draft' then
+    return new;
+  end if;
+
+  begin
+    v_transition := nullif(current_setting('magrit.quote_transition', true), '')::boolean;
+  exception when others then
+    v_transition := false;
+  end;
+
+  if coalesce(v_transition, false) then
+    return new;
+  end if;
+
+  raise exception 'quote.update_requires_draft: devis % a l etat % (draft requis)', old.id, old.status;
+end;
+$$;
+
+drop trigger if exists commercial_quotes_require_draft_before_write on public.commercial_quotes;
+create trigger commercial_quotes_require_draft_before_write
+  before update on public.commercial_quotes
+  for each row execute function public.commercial_quotes_require_draft_before_write();
 
 -- ── 3. Reglages commerciaux (E10.10a, point 9) — ressource SINGLETON ───────
 create table if not exists public.commercial_settings (
@@ -394,6 +462,11 @@ begin
   -- generique 'updated' ET l entree explicite 'sent'/'resent' ci-dessous)
   -- partagent CE change_set_id.
   perform set_config('magrit.change_set_id', v_change_set::text, true);
+  -- Echappatoire de l immuabilite (qa-review B3, section 2ter) : SEULE
+  -- transition legitime posee sur un devis dont le statut courant n est pas
+  -- 'draft' (le renvoi, ci-dessous, part de 'sent'). Portee a la transaction
+  -- (`true`), comme `magrit.change_set_id`.
+  perform set_config('magrit.quote_transition', 'true', true);
 
   if v_quote.status = 'draft' then
     select count(*) into v_line_count from public.commercial_quote_lines where quote_id = p_quote_id;
@@ -412,7 +485,15 @@ begin
 
     update public.commercial_quotes
        set status = 'sent',
-           sent_at = now(),
+           -- Defense en profondeur (qa-review B3) : cette branche ne s
+           -- execute qu au statut 'draft', ou `sent_at` est deja NULL en
+           -- temps normal — l invariant "fige au premier envoi" ne tenait
+           -- jusqu ici que parce qu aucun chemin d API ne permettait de
+           -- repasser un devis en 'draft'. Le trigger d immuabilite
+           -- (section 2ter) ferme desormais ce chemin ; ce `coalesce` est la
+           -- seconde ligne de defense si une valeur non NULL s y trouvait
+           -- malgre tout.
+           sent_at = coalesce(v_quote.sent_at, now()),
            last_sent_at = now(),
            sent_by = v_actor,
            valid_until = v_new_valid_until,
@@ -565,12 +646,52 @@ $$;
 revoke all on function public.api_duplicate_commercial_quote(uuid, uuid) from public, anon;
 grant execute on function public.api_duplicate_commercial_quote(uuid, uuid) to authenticated;
 
+-- ── 6. Sous-totaux de lignes AGREGES EN BASE — api_commercial_quote_line_
+--    subtotals (qa-review E10.10a round 1, B2) ───────────────────────────────
+-- Avant ce correctif, `subtotalsByQuoteId()` (adaptateur Supabase) faisait un
+-- `select quote_id, sale_price ... in (quoteIds)` SANS `limit` ni `order` :
+-- au-dela de `max_rows` (1000, config PostgREST), les lignes des devis les
+-- plus charges etaient tronquees SANS ERREUR, et sans `order by` le
+-- sous-ensemble retourne n etait meme pas deterministe d un appel a l autre —
+-- `lines_subtotal`/`net_total`/`global_discount`/`vat_amount`/`total_incl_tax`
+-- devenaient FAUX ET INSTABLES, sans aucun signal. Cette fonction AGREGE EN
+-- BASE (group by) : le nombre de lignes retournees a l appelant est borne par
+-- le nombre de DEVIS demandes (une page = quelques dizaines), jamais par leur
+-- nombre de lignes — la troncature `max_rows` ne peut plus se produire dans
+-- la plage de pagination du contrat. `security invoker` (comme `api_swap_
+-- tenant_role_order`) : aucun bypass de RLS necessaire, `commercial_quote_
+-- lines`/`commercial_quotes` restent visibles au perimetre normal de l
+-- appelant ; `p_tenant_id` est un filtre de defense en profondeur, pas une
+-- delegation de privilege.
+create or replace function public.api_commercial_quote_line_subtotals(
+  p_tenant_id uuid,
+  p_quote_ids uuid[]
+)
+returns table (quote_id uuid, subtotal numeric)
+language sql
+stable
+security invoker
+set search_path = public
+as $$
+  select l.quote_id, sum(l.sale_price)::numeric(12,2) as subtotal
+    from public.commercial_quote_lines l
+    join public.commercial_quotes q on q.id = l.quote_id
+   where q.tenant_id = p_tenant_id
+     and l.quote_id = any(p_quote_ids)
+   group by l.quote_id;
+$$;
+
+revoke all on function public.api_commercial_quote_line_subtotals(uuid, uuid[]) from public, anon;
+grant execute on function public.api_commercial_quote_line_subtotals(uuid, uuid[]) to authenticated;
+
 notify pgrst, 'reload schema';
 
 -- ============================================================================
 -- REVERSIBILITE — le CLI Supabase ne gere pas de bloc `down`. SQL de retrait,
 -- a jouer tel quel dans une migration inverse si la story est annulee :
 --
+--   revoke execute on function public.api_commercial_quote_line_subtotals(uuid, uuid[]) from authenticated;
+--   drop function if exists public.api_commercial_quote_line_subtotals(uuid, uuid[]);
 --   revoke execute on function public.api_duplicate_commercial_quote(uuid, uuid) from authenticated;
 --   drop function if exists public.api_duplicate_commercial_quote(uuid, uuid);
 --   revoke execute on function public.api_send_commercial_quote(uuid, uuid, boolean, boolean) from authenticated;
@@ -582,11 +703,14 @@ notify pgrst, 'reload schema';
 --   drop trigger if exists commercial_settings_set_updated_at on public.commercial_settings;
 --   drop function if exists public.commercial_settings_set_updated_at();
 --   drop table if exists public.commercial_settings;
+--   drop trigger if exists commercial_quotes_require_draft_before_write on public.commercial_quotes;
+--   drop function if exists public.commercial_quotes_require_draft_before_write();
 --   drop trigger if exists commercial_quotes_audit_update on public.commercial_quotes;
 --   drop function if exists public.commercial_quotes_write_header_audit();
 --   drop policy if exists "commercial_quote_header_audit_select" on public.commercial_quote_header_audit;
 --   drop table if exists public.commercial_quote_header_audit;
 --   alter table public.commercial_quotes
+--     drop constraint if exists commercial_quotes_vat_rate_non_negative,
 --     drop constraint if exists commercial_quotes_target_net_total_non_negative,
 --     drop constraint if exists commercial_quotes_global_discount_rate_max,
 --     drop constraint if exists commercial_quotes_global_discount_exclusive,

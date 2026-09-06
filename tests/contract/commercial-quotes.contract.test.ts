@@ -942,6 +942,28 @@ describe('module Devis commerciaux (E10.10a) contre le contrat — envoi, duplic
     await expectContract(response, { status: 422 });
   });
 
+  it('vat_rate NEGATIF est refuse en 422 (qa-review E10.10a round 1, B1 — nonNegativeRateSchema, meme motif que MoneyNonNegative)', async () => {
+    const { quote } = await createDraftQuoteWithLine();
+    const etag = await getEtag(quote.id);
+    const response = await call(`/api/v1/quotes/${quote.id}`, {
+      method: 'PATCH',
+      headers: { ...jsonHeaders, 'If-Match': etag },
+      body: JSON.stringify({ vat_rate: '-0.2000' }),
+    });
+    await expectContract(response, { status: 422 });
+
+    // Defense en profondeur : la lecture du devis reste possible et normale,
+    // vat_rate n a jamais ete ecrit (refuse en amont par le contrat).
+    const detail = await call(`/api/v1/quotes/${quote.id}`, { headers: asUser });
+    await expectContract(detail, { status: 200, dataSchema: 'QuoteDetail' });
+    const { data: unchanged } = (await detail.json()) as { data: QuoteDetailDto };
+    expect(unchanged.vat_rate).toBeNull();
+
+    // La liste paginee du tenant reste egalement lisible.
+    const list = await call('/api/v1/quotes', { headers: asUser });
+    await expectContract(list, { status: 200 });
+  });
+
   it('updateQuote sur un devis non brouillon est refuse en 409 quote.update_requires_draft (E10.10a, dette p4)', async () => {
     const { quote } = await createDraftQuoteWithLine();
     quotesRepository.forceStatusForTest(quote.id, 'sent');
@@ -998,6 +1020,35 @@ describe('module Devis commerciaux (E10.10a) contre le contrat — envoi, duplic
       aggregateId: sent.id,
       payload: { is_resend: false },
     });
+  });
+
+  it('sendQuote — valid_until posee manuellement n est JAMAIS recalculee, meme si default_validity_days est regle (qa-review E10.10a round 1, R2)', async () => {
+    const { quote } = await createDraftQuoteWithLine();
+    quotesRepository.setDefaultValidityDaysForTest(TENANT, 30);
+
+    const etagBeforePatch = await getEtag(quote.id);
+    const patched = await call(`/api/v1/quotes/${quote.id}`, {
+      method: 'PATCH',
+      headers: { ...jsonHeaders, 'If-Match': etagBeforePatch },
+      body: JSON.stringify({ valid_until: '2026-10-15' }),
+    });
+    await expectContract(patched, { status: 200, dataSchema: 'Quote' });
+    const patchedBody = (await patched.json()) as { data: QuoteDto };
+    expect(patchedBody.data.valid_until).toBe('2026-10-15');
+
+    const etagBeforeSend = await getEtag(quote.id);
+    const response = await call(`/api/v1/quotes/${quote.id}/transmissions`, {
+      method: 'POST',
+      headers: { ...jsonHeaders, 'If-Match': etagBeforeSend, 'Idempotency-Key': `send-${uuid()}` },
+      body: JSON.stringify({}),
+    });
+    await expectContract(response, { status: 201, dataSchema: 'QuoteDetail' });
+    const { data: sent } = (await response.json()) as { data: QuoteDetailDto };
+    expect(sent.status).toBe('sent');
+    // La valeur MANUELLE reste, malgre un default_validity_days regle a 30
+    // jours : seul un valid_until encore NULL au moment de l envoi declenche
+    // le calcul depuis le reglage tenant (contrat, point 9).
+    expect(sent.valid_until).toBe('2026-10-15');
   });
 
   it('sendQuote — devis sans ligne est refuse en 422 quote.send_requires_lines', async () => {

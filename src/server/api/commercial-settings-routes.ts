@@ -51,11 +51,19 @@ export function createCommercialSettingsRoutes(
       dataSchema: commercialSettingsSchema,
       async handle(context, input) {
         return withDomainErrors(async () => {
+          const actor = requireUserId(context);
+          // qa-review E10.10a round 1 (R1), meme correctif que price-rules-
+          // routes.ts (round 2, R3) : la garde can_manage_pricing est posee
+          // AVANT toute lecture de la ressource, pour que le refus 403 sorte
+          // toujours avant un eventuel 409 (`assertPrecondition`) — l ordre
+          // promis par `CommercialSettingsService.assertCanManagePricing()`.
+          await service.assertCanManagePricing(context.tenantId, actor);
+
           const current = await service.get(context.tenantId);
           const currentTag = await computeEntityTag(current);
           assertPrecondition(context.ifMatch, currentTag, current);
 
-          const updated = await service.update(context.tenantId, requireUserId(context), input);
+          const updated = await service.update(context.tenantId, actor, input);
           return { status: 200, data: updated, etag: await computeEntityTag(updated) };
         });
       },

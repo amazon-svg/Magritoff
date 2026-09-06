@@ -34,6 +34,13 @@
 --      `sent` existe jamais (jamais dupliquee), une entree `resent`
 --      apparait ; un `show_discounts` DIVERGENT est rejete
 --      (`quote.resend_immutable`), sans creer d entree.
+--   3bis. IMMUABILITE d un devis `sent` (qa-review round 1, B3) : un UPDATE
+--      DIRECT (hors `api_send_commercial_quote`/`api_duplicate_commercial_
+--      quote`) sur un devis dont le statut COURANT n est pas `draft` est
+--      REJETE par le trigger `commercial_quotes_require_draft_before_write`
+--      — y compris pour redonner `draft` a un devis `sent` (le "degel" que la
+--      RLS seule laissait passer avant ce trigger), et y compris pour une
+--      colonne ordinaire (`global_discount_rate`) sans toucher au statut.
 --   4. Gardes : devis SANS ligne rejete (`quote.send_requires_lines`) ;
 --      statut hors {`draft`,`sent`} rejete (`quote.send_forbidden_status`).
 --   5. `api_duplicate_commercial_quote` : nouveau devis `draft`, nouveau
@@ -41,13 +48,18 @@
 --      recalcul), `valid_until` REMISE a `null` meme si le source en portait
 --      une, entree `duplicated` sur l ORIGINAL.
 --   6. Contraintes `commercial_quotes_global_discount_exclusive` /
---      `_global_discount_rate_max`.
+--      `_global_discount_rate_max` / `_vat_rate_non_negative` (qa-review
+--      round 1, B1).
 --   7. RLS — isolation inter-tenant de `commercial_quote_header_audit`
 --      (lecture, garde can_manage_pricing comme le journal des lignes) et
 --      append-only (UPDATE/DELETE directs rejetes pour `authenticated`).
 --   8. Isolation inter-tenant des DEUX fonctions (`api_send_commercial_quote`/
 --      `api_duplicate_commercial_quote`) : un acteur d un AUTRE tenant ne
 --      peut ni envoyer ni dupliquer le devis du tenant A.
+--   9. `api_commercial_quote_line_subtotals` (qa-review round 1, B2) :
+--      agregation correcte, et isolation inter-tenant — un admin d un AUTRE
+--      tenant ne lit aucune ligne, meme en fournissant un `p_tenant_id`
+--      usurpe (RLS `security invoker`, independante du parametre fourni).
 --
 -- Lancer : pnpm test:storefront:sql (necessite Supabase local demarre).
 -- ============================================================================
@@ -381,6 +393,64 @@ begin
 end;
 $$;
 
+-- ── 3bis. IMMUABILITE d un devis sent — trigger BEFORE UPDATE, pas
+--      seulement en application (qa-review E10.10a round 1, B3). ──────────
+do $$
+declare
+  v_quote uuid;
+  v_status_before text;
+  v_global_discount_before numeric;
+  v_rejected boolean := false;
+begin
+  select quote_with_lines into v_quote from e10_10a_context;
+  select status, global_discount_rate into v_status_before, v_global_discount_before
+    from public.commercial_quotes where id = v_quote;
+  if v_status_before <> 'sent' then
+    raise exception 'Precondition scenario 3bis : devis attendu sent, obtenu %', v_status_before;
+  end if;
+
+  -- Tentative de DEGEL direct (redonner draft a un devis envoye) : c est
+  -- EXACTEMENT le scenario du bloquant (`PATCH .../commercial_quotes?id=eq.X`
+  -- avec `{"status":"draft"}`).
+  begin
+    update public.commercial_quotes set status = 'draft' where id = v_quote;
+  exception
+    when others then
+      if sqlerrm like 'quote.update_requires_draft%' then v_rejected := true;
+      else raise;
+      end if;
+  end;
+  if not v_rejected then
+    raise exception 'Un UPDATE direct a pu redonner l etat draft a un devis sent (immuabilite non respectee)';
+  end if;
+  perform 1 from public.commercial_quotes where id = v_quote and status = 'sent';
+  if not found then
+    raise exception 'Le devis n est plus a l etat sent apres la tentative de degel rejetee';
+  end if;
+
+  -- Tentative de modification d une AUTRE colonne (remise globale), SANS
+  -- toucher au statut : refusee de la meme maniere — le trigger regarde le
+  -- statut COURANT (`old.status`), pas la colonne visee par l UPDATE.
+  v_rejected := false;
+  begin
+    update public.commercial_quotes set global_discount_rate = 0.5000 where id = v_quote;
+  exception
+    when others then
+      if sqlerrm like 'quote.update_requires_draft%' then v_rejected := true;
+      else raise;
+      end if;
+  end;
+  if not v_rejected then
+    raise exception 'Un UPDATE direct a pu modifier global_discount_rate sur un devis sent';
+  end if;
+  perform 1 from public.commercial_quotes
+   where id = v_quote and global_discount_rate is not distinct from v_global_discount_before;
+  if not found then
+    raise exception 'global_discount_rate a change malgre le rejet attendu';
+  end if;
+end;
+$$;
+
 -- ── 4. Gardes — devis sans ligne, statut hors {draft,sent}. ─────────────────
 do $$
 declare
@@ -528,6 +598,21 @@ begin
   if not v_rejected then
     raise exception 'global_discount_rate > 1.0000 aurait du etre rejete (CHECK)';
   end if;
+
+  -- qa-review round 1, B1 : vat_rate NEGATIF rejete en base (defense en
+  -- profondeur du CHECK, en plus du contrat/nonNegativeRateSchema cote API).
+  v_rejected := false;
+  begin
+    insert into public.commercial_quotes
+      (tenant_id, customer_id, project_id, number, status, vat_rate)
+    values
+      (v_tenant_a, v_customer_a, v_project_a, 'DEV-9999-00297', 'draft', -0.2000);
+  exception
+    when check_violation then v_rejected := true;
+  end;
+  if not v_rejected then
+    raise exception 'vat_rate NEGATIF aurait du etre rejete (CHECK commercial_quotes_vat_rate_non_negative)';
+  end if;
 end;
 $$;
 
@@ -646,6 +731,56 @@ begin
   end;
   if not v_rejected then
     raise exception 'Un admin d un AUTRE tenant a pu dupliquer un devis du tenant A';
+  end if;
+end;
+$$;
+
+reset role;
+
+-- ── 9. api_commercial_quote_line_subtotals — agregation EN BASE, isolation
+--      inter-tenant (qa-review E10.10a round 1, B2). ───────────────────────
+set local role authenticated;
+select set_config('request.jwt.claim.sub', (select actor_admin_b::text from e10_10a_context), true);
+
+do $$
+declare
+  v_tenant_a uuid;
+  v_quote uuid;
+  v_rows integer;
+begin
+  select tenant_a, quote_with_lines into v_tenant_a, v_quote from e10_10a_context;
+
+  -- Admin B, en fournissant le tenant_id ET l id de devis du tenant A : la
+  -- RLS (`security invoker`) bloque la visibilite des lignes independamment
+  -- du parametre fourni — `p_tenant_id` est une defense en profondeur, pas
+  -- une delegation de privilege (meme si un appelant mentait dessus).
+  select count(*) into v_rows
+    from public.api_commercial_quote_line_subtotals(v_tenant_a, array[v_quote]);
+  if v_rows <> 0 then
+    raise exception 'api_commercial_quote_line_subtotals : un admin d un AUTRE tenant a pu lire % ligne(s)', v_rows;
+  end if;
+end;
+$$;
+
+reset role;
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub', (select actor_admin_a::text from e10_10a_context), true);
+
+do $$
+declare
+  v_tenant_a uuid;
+  v_quote uuid;
+  v_subtotal numeric;
+begin
+  select tenant_a, quote_with_lines into v_tenant_a, v_quote from e10_10a_context;
+
+  -- Une seule ligne a 150.00 (precondition, section privilegiee) : le
+  -- sous-total AGREGE EN BASE doit valoir exactement 150.00.
+  select subtotal into v_subtotal
+    from public.api_commercial_quote_line_subtotals(v_tenant_a, array[v_quote]);
+  if v_subtotal is distinct from 150.00 then
+    raise exception 'api_commercial_quote_line_subtotals : sous-total attendu 150.00, obtenu %', v_subtotal;
   end if;
 end;
 $$;

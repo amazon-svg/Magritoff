@@ -45,6 +45,14 @@
  */
 import { z } from 'zod';
 import { moneySchema, rateSchema, timestampSchema, uuidSchema } from '../../_shared/api/index.ts';
+// `nonNegativeRateSchema` (E10.6) reutilise TEL QUEL pour `vat_rate` : un
+// taux de TVA negatif n a pas plus de sens qu un prix client negatif
+// (qa-review E10.10a round 1, B1). Meme rapport a `rateSchema` que celui deja
+// documente pour `MoneyNonNegative`/`Money` (openapi, schema `Rate`) : le
+// contrat garde `Rate` (signe) par $ref, cette borne est appliquee cote Zod
+// par le schema le plus strict, precedent deja etabli par `PriceRule.value`
+// (`src/modules/pricing/api/contracts.ts`).
+import { nonNegativeRateSchema } from '../../pricing/api/contracts.ts';
 
 export const quoteStatusSchema = z.enum(['draft', 'sent', 'accepted', 'rejected', 'converted']);
 
@@ -152,7 +160,7 @@ export const quoteTotalsSchema = z
     global_discount: moneySchema,
     effective_discount_rate: rateSchema.nullable(),
     net_total: moneyNonNegativeSchema,
-    vat_rate: rateSchema,
+    vat_rate: nonNegativeRateSchema,
     vat_regime: taxRegimeSchema.nullable(),
     vat_amount: moneyNonNegativeSchema,
     total_incl_tax: moneyNonNegativeSchema,
@@ -181,7 +189,7 @@ export const quoteSchema = z
     show_discounts: z.boolean(),
     global_discount_rate: globalDiscountRateSchema.nullable(),
     target_net_total: moneyNonNegativeSchema.nullable(),
-    vat_rate: rateSchema.nullable(),
+    vat_rate: nonNegativeRateSchema.nullable(),
     totals: quoteTotalsSchema,
     warnings: z.array(quoteWarningSchema),
     sent_at: timestampSchema.nullable(),
@@ -206,7 +214,7 @@ export const quoteDetailSchema = z
     show_discounts: z.boolean(),
     global_discount_rate: globalDiscountRateSchema.nullable(),
     target_net_total: moneyNonNegativeSchema.nullable(),
-    vat_rate: rateSchema.nullable(),
+    vat_rate: nonNegativeRateSchema.nullable(),
     totals: quoteTotalsSchema,
     warnings: z.array(quoteWarningSchema),
     sent_at: timestampSchema.nullable(),
@@ -232,7 +240,7 @@ export const updateQuoteCommandSchema = z
     show_discounts: z.boolean().optional(),
     global_discount_rate: globalDiscountRateSchema.nullable().optional(),
     target_net_total: moneyNonNegativeSchema.nullable().optional(),
-    vat_rate: rateSchema.nullable().optional(),
+    vat_rate: nonNegativeRateSchema.nullable().optional(),
   })
   .strict()
   .refine((value) => Object.keys(value).length > 0, {

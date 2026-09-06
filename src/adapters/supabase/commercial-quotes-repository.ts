@@ -98,7 +98,7 @@ export class SupabaseCommercialQuotesRepository implements CommercialQuotesRepos
     if (error) throw new Error(error.message);
     const rows = data ?? [];
     const [subtotals, taxRegime] = await Promise.all([
-      this.subtotalsByQuoteId(rows.map((row: Record<string, any>) => row.id as string)),
+      this.subtotalsByQuoteId(tenantId, rows.map((row: Record<string, any>) => row.id as string)),
       this.getTenantTaxRegime(tenantId),
     ]);
     return {
@@ -118,7 +118,7 @@ export class SupabaseCommercialQuotesRepository implements CommercialQuotesRepos
     if (error) throw new Error(error.message);
     if (!data) return null;
     const [subtotals, taxRegime] = await Promise.all([
-      this.subtotalsByQuoteId([quoteId]),
+      this.subtotalsByQuoteId(tenantId, [quoteId]),
       this.getTenantTaxRegime(tenantId),
     ]);
     return toQuoteDto(data, subtotals.get(quoteId) ?? '0.00', taxRegime);
@@ -136,21 +136,36 @@ export class SupabaseCommercialQuotesRepository implements CommercialQuotesRepos
     return { ...quote, lines: (data ?? []).map(toQuoteLineDto) };
   }
 
-  /** Somme des `sale_price` des lignes, PAR devis (`QuoteTotals.lines_subtotal`). Une requete groupee, jamais N+1. */
-  private async subtotalsByQuoteId(quoteIds: readonly string[]): Promise<Map<string, string>> {
+  /**
+   * Somme des `sale_price` des lignes, PAR devis (`QuoteTotals.lines_subtotal`).
+   *
+   * AGREGEE EN BASE (`api_commercial_quote_line_subtotals`, migration
+   * 20260906160000), jamais un `select` brut des lignes individuelles cote
+   * TypeScript (qa-review E10.10a round 1, B2) : un `select quote_id,
+   * sale_price ... in (quoteIds)` SANS `limit`/`order` se faisait tronquer
+   * SANS ERREUR par PostgREST au-dela de `max_rows` (1000) — une page de 50
+   * devis a 20 lignes chacun suffit a l atteindre — et sans `order by` le
+   * sous-ensemble retourne n etait meme pas deterministe d un appel a l
+   * autre. La fonction SQL fait le `group by` : le nombre de lignes qu elle
+   * retourne est borne par le nombre de DEVIS demandes (une page), jamais par
+   * leur nombre de lignes, donc jamais par `max_rows` dans la plage de
+   * pagination du contrat.
+   */
+  private async subtotalsByQuoteId(
+    tenantId: TenantId,
+    quoteIds: readonly string[],
+  ): Promise<Map<string, string>> {
     if (quoteIds.length === 0) return new Map();
-    const { data, error } = await this.client
-      .from('commercial_quote_lines')
-      .select('quote_id, sale_price')
-      .in('quote_id', quoteIds);
+    const { data, error } = await this.client.rpc('api_commercial_quote_line_subtotals', {
+      p_tenant_id: tenantId,
+      p_quote_ids: quoteIds,
+    });
     if (error) throw new Error(error.message);
-    const centsByQuoteId = new Map<string, bigint>();
-    for (const row of data ?? []) {
-      const cents = parseMoneyNonNegativeToCents(toMoneyString(row.sale_price));
-      centsByQuoteId.set(row.quote_id, (centsByQuoteId.get(row.quote_id) ?? 0n) + cents);
-    }
     return new Map(
-      [...centsByQuoteId.entries()].map(([id, cents]) => [id, formatCentsToMoneyNonNegative(cents)]),
+      (data ?? []).map((row: Record<string, any>) => [
+        row.quote_id as string,
+        formatCentsToMoneyNonNegative(parseMoneyNonNegativeToCents(toMoneyString(row.subtotal))),
+      ]),
     );
   }
 
@@ -231,7 +246,7 @@ export class SupabaseCommercialQuotesRepository implements CommercialQuotesRepos
     if (!data) throw new QuoteUpdateRequiresDraftError();
 
     const [subtotals, taxRegime] = await Promise.all([
-      this.subtotalsByQuoteId([quoteId]),
+      this.subtotalsByQuoteId(tenantId, [quoteId]),
       this.getTenantTaxRegime(tenantId),
     ]);
     return toQuoteDto(data, subtotals.get(quoteId) ?? '0.00', taxRegime);
@@ -260,7 +275,7 @@ export class SupabaseCommercialQuotesRepository implements CommercialQuotesRepos
 
   /**
    * Delegue ENTIEREMENT a `api_send_commercial_quote` (`security definer`,
-   * migration 20260906000100) : transition de statut, calcul de
+   * migration 20260906160000) : transition de statut, calcul de
    * `valid_until`, ecriture d audit (`sent`/`resent` + `updated` par champ
    * change, meme `change_set_id`) sont FAITS DANS LA MEME TRANSACTION cote
    * base — meme raisonnement que `api_create_commercial_quote_from_project_items`.

@@ -70,7 +70,13 @@ export type QuoteTotalsInput = Readonly<{
   globalDiscountRate: string | null;
   /** `Quote.target_net_total`. Exclusif de `globalDiscountRate`. */
   targetNetTotal: string | null;
-  /** `Quote.vat_rate` : surcharge explicite par devis. `null` = regime du tenant. */
+  /**
+   * `Quote.vat_rate` : surcharge explicite par devis. `null` = regime du
+   * tenant. Contractuellement non negative (`nonNegativeRateSchema`,
+   * qa-review E10.10a round 1, B1) ; une valeur negative rencontree ici
+   * (donnee corrompue par un autre biais que l API) est CLAMPEE a zero, jamais
+   * levee — voir le commentaire au point d usage.
+   */
   quoteVatRateOverride: string | null;
   /** `tenants.tax_regime`, toujours renseigne (colonne NOT NULL, defaut `metropole_fr`). */
   tenantTaxRegime: TaxRegimeDto;
@@ -106,9 +112,22 @@ export function computeQuoteTotals(input: QuoteTotalsInput): QuoteTotalsDto {
     effectiveDiscountRate = isRateRepresentable(basisPoints) ? formatBasisPointsToRate(basisPoints) : null;
   }
 
-  const vatRate = input.quoteVatRateOverride ?? TAX_REGIME_RATES[input.tenantTaxRegime];
+  const rawVatRate = input.quoteVatRateOverride ?? TAX_REGIME_RATES[input.tenantTaxRegime];
   const vatRegime = input.quoteVatRateOverride !== null ? null : input.tenantTaxRegime;
-  const vatRateBasisPoints = parseRateToBasisPoints(vatRate);
+  const rawVatRateBasisPoints = parseRateToBasisPoints(rawVatRate);
+  // Defense en profondeur (qa-review E10.10a round 1, B1) : le contrat
+  // (`nonNegativeRateSchema`) et le CHECK `commercial_quotes_vat_rate_non_
+  // negative` (migration 20260906160000) empechent desormais toute ECRITURE
+  // d un `vat_rate` negatif — mais cette fonction est sur le chemin de TOUTE
+  // LECTURE (`findById`, `findDetailById`, `list()`) : elle ne doit JAMAIS
+  // lever, meme si une valeur negative se retrouvait en base par un autre
+  // biais (migration future bogguee, ecriture hors API). Un taux negatif est
+  // CLAMPE a zero plutot que de faire planter la lecture : c est la valeur la
+  // moins arbitraire (aucun regime reel n a de taux negatif), pas une
+  // tentative de deviner un taux legal a la place de la donnee corrompue.
+  const vatRateBasisPoints = rawVatRateBasisPoints < 0n ? 0n : rawVatRateBasisPoints;
+  const vatRate =
+    vatRateBasisPoints === rawVatRateBasisPoints ? rawVatRate : formatBasisPointsToRate(vatRateBasisPoints);
   const vatAmountCents = roundDivHalfAwayFromZero(netTotalCents * vatRateBasisPoints, RATE_SCALE);
   const totalInclTaxCents = netTotalCents + vatAmountCents;
 

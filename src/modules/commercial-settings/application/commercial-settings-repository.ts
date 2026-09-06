@@ -41,7 +41,7 @@ export interface CommercialSettingsRepository {
 /**
  * `default_validity_days` du tenant (E10.10a, point 9) est LU DIRECTEMENT en
  * SQL par `api_send_commercial_quote` (meme transaction que la transition de
- * statut et l ecriture d audit, migration `20260906000100_gescom_e10_10a_...`)
+ * statut et l ecriture d audit, migration `20260906160000_gescom_e10_10a_...`)
  * plutot que par un aller-retour TS depuis `CommercialQuotesService` : ce
  * module N EXPOSE donc AUCUN port de lecture etroit vers `commercial-quotes`
  * — la seule dependance croisee reelle entre les deux domaines est la table

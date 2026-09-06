@@ -2,7 +2,7 @@
  * Implementation Supabase du referentiel Reglages commerciaux (E10.10a).
  *
  * `get()` delegue a `api_get_commercial_settings` (`security definer`,
- * migration 20260906000100) : ressource SINGLETON creee IMPLICITEMENT a sa
+ * migration 20260906160000) : ressource SINGLETON creee IMPLICITEMENT a sa
  * premiere lecture (contrat, `CommercialSettings`). La fonction verifie
  * elle-meme l appartenance de l acteur au tenant (elle bypasserait sinon la
  * RLS qu elle doit respecter en tant que `security definer`).
