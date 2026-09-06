@@ -186,7 +186,20 @@ begin
      '[{"post":"total","cost":"10.00","margin_rate":"0.0000","price":"10.00","source":"clariprint"}]'::jsonb)
   returning id into v_line_state_test;
 
+  -- (Trouvaille de session, decouverte par la premiere execution reelle
+  -- combinee de ce fichier avec la migration E10.10a, qui pose un trigger
+  -- d immuabilite `commercial_quotes_require_draft_before_write` inexistant
+  -- au moment ou ce fichier a ete ecrit) : ce basculement direct en `sent`,
+  -- pur artefact de scaffolding de test (simuler un devis non-brouillon SANS
+  -- passer par `api_send_commercial_quote`), est desormais bloque par ce
+  -- trigger comme n importe quel autre UPDATE de statut hors facade. Meme
+  -- echappatoire que la fonction reelle, refermee IMMEDIATEMENT apres cette
+  -- seule instruction — sans quoi les rejets attendus juste en dessous
+  -- (UPDATE/DELETE sur v_line_state_test) ne se produiraient plus, exactement
+  -- la fuite documentee comme bloquant B7 (docs/api/CONVENTIONS.md §8.12bis).
+  perform set_config('magrit.quote_transition', 'true', true);
   update public.commercial_quotes set status = 'sent' where id = v_quote_state_test;
+  perform set_config('magrit.quote_transition', '', true);
 
   v_rejected := false;
   begin

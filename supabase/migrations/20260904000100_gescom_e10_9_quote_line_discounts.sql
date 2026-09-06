@@ -802,6 +802,14 @@ begin
     from ranked
    where l.id = ranked.id
      and l.position <> ranked.new_position;
+
+  -- (qa-review round 5, B7 — meme correctif que api_send_commercial_quote,
+  -- 20260906160000, section 4) `set_config(..., true)` est porte a la
+  -- TRANSACTION, pas a cette fonction : sans cette remise a vide, un appel
+  -- futur de cette fonction en sous-etape d une transaction plus large
+  -- laisserait un `change_set_id` residuel grouper a tort une ecriture SANS
+  -- RAPPORT survenant plus tard dans la meme transaction.
+  perform set_config('magrit.change_set_id', '', true);
 end;
 $$;
 
@@ -862,6 +870,11 @@ begin
    where l.id = wanted.id
      and l.quote_id = p_quote_id
      and l.position <> wanted.new_position;
+
+  -- (qa-review round 5, B7 — meme correctif que api_delete_commercial_quote_
+  -- line ci-dessus) remise a vide du GUC de correlation, porte a la
+  -- transaction et non a cette fonction.
+  perform set_config('magrit.change_set_id', '', true);
 end;
 $$;
 

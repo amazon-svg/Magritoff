@@ -110,6 +110,35 @@
 --      l original est supprime, ce que cette filiation purement informative
 --      admet deja par construction.
 --
+--   10. (qa-review round 5, B7, docs/api/CONVENTIONS.md §8.12bis — trouve par
+--       la PREMIERE execution reelle de tests/sql/gescom-e10-10a-quote-send-
+--       duplicate.sql, apres 4 rounds jamais joues faute de Docker) `api_send_
+--       commercial_quote` posait l echappatoire `magrit.quote_transition`
+--       (`set_config(..., true)`, section 4) mais ne la remettait JAMAIS a
+--       vide avant son retour. `set_config(nom, valeur, true)` a la semantique
+--       de `SET LOCAL` : porte par la TRANSACTION englobante, pas par la
+--       fonction — contrairement a ce que le round 1 affirmait a tort
+--       (« `set search_path = public` restaure tout GUC pose pendant l
+--       execution via `AtEOXact_GUC()` ») : cette clause ne restaure QUE le
+--       parametre qu elle nomme). Reproduit isolement en session psql : apres
+--       un appel reussi, `current_setting('magrit.quote_transition', true)`
+--       retournait encore `'true'`, et un `UPDATE ... set status = 'draft'`
+--       dans la MEME transaction passait sans etre bloque par le trigger d
+--       immuabilite (section 2ter) — exactement le trou que B3 visait a
+--       fermer, rouvert par une autre porte. Sans impact pour un appel
+--       PostgREST ordinaire (une requete = une transaction, close avec elle),
+--       mais un piege reel pour tout futur enchainement (envoi groupe, script
+--       privilegie multi-operations). Corrige : remise a vide explicite de
+--       `magrit.quote_transition` ET `magrit.change_set_id` juste avant l
+--       unique `return` de la fonction, sur les deux branches. Meme correctif
+--       applique par coherence aux deux seules autres occurrences du meme
+--       motif dans le depot (`api_delete_commercial_quote_line`, `api_
+--       reorder_commercial_quote_lines`, migration 20260904000100, E10.9) —
+--       `magrit.change_set_id` n y est pas un echappatoire de securite (pas de
+--       garde a contourner), mais la meme fuite de GUC transactionnel y
+--       faussait potentiellement le groupement d entrees d audit sans rapport
+--       dans un scenario multi-instructions identique.
+--
 -- Nommage des codes d erreur, cote application (pas en base) :
 -- `quote.update_requires_draft`, `quote.delete_requires_draft`, `quote.
 -- send_forbidden_status`, `quote.send_requires_lines`, `quote.
@@ -706,6 +735,45 @@ begin
       (p_quote_id, v_change_set, 'resent', null, null, null, null, v_actor,
        (select email from auth.users where id = v_actor));
   end if;
+
+  -- (qa-review round 5, B7, docs/api/CONVENTIONS.md §8.12bis) `set_config(nom,
+  -- valeur, true)` a la semantique de `SET LOCAL` : porte par la TRANSACTION
+  -- englobante, pas par cette fonction — il survit donc a la sortie de la
+  -- fonction et reste actif pour tout le reste de la transaction. `set
+  -- search_path = public` sur l en-tete de la fonction ne change rien a ce
+  -- fait : cette clause ne restaure que le parametre qu elle nomme
+  -- explicitement (`search_path`), aucun autre GUC pose dans le corps.
+  -- Remise a vide EXPLICITE, sur les DEUX branches, juste avant l unique point
+  -- de sortie : `nullif(current_setting(..., true), '')::boolean` (logique
+  -- deja en place dans le trigger d immuabilite et dans le trigger d audit)
+  -- traite une chaine vide exactement comme NULL -> `coalesce(v_transition,
+  -- false)` -> `false`. Sans cette remise a zero, un `UPDATE ... set status =
+  -- 'draft'` execute dans la MEME transaction PostgreSQL (pas la meme requete
+  -- HTTP : hors du cas nominal ou PostgREST cloture la transaction avec la
+  -- requete, mais reel pour tout futur appel de cette fonction en boucle ou en
+  -- sous-etape d une transaction plus large, ou pour une session privilegiee
+  -- qui enchaine plusieurs operations) passait le trigger d immuabilite
+  -- (section 2ter) SANS lever d exception : l echappatoire posee ligne ~639
+  -- restait active bien au-dela du geste qu elle etait censee couvrir,
+  -- rouvrant exactement le trou que le bloquant B3 visait a fermer. Confirme
+  -- par execution reelle (premiere fois que ce fichier tourne sous Docker/
+  -- Colima) : `tests/sql/gescom-e10-10a-quote-send-duplicate.sql`, scenario
+  -- 3bis, qui a leve l erreur applicative attendue avant ce correctif.
+  --
+  -- `magrit.change_set_id` (posee ligne ~634, MEME semantique `set_config(...,
+  -- true)`) n est PAS un echappatoire de securite — elle ne fait que grouper
+  -- des entrees d audit sous un identifiant commun (consommee par
+  -- `commercial_quotes_write_header_audit()`, qui retombe sur un
+  -- `gen_random_uuid()` frais si elle est absente/vide). Une valeur residuelle
+  -- ne permet donc de contourner aucune garde, mais fausserait, dans le meme
+  -- scenario multi-instructions que ci-dessus, le groupement d une ecriture
+  -- SANS RAPPORT survenant plus tard dans la meme transaction (elle
+  -- heriterait a tort du `change_set_id` de cet envoi/renvoi) — un defaut
+  -- d integrite du journal d audit, pas une brute de securite, mais du meme
+  -- ordre technique : remise a vide ici aussi, par coherence et defense en
+  -- profondeur.
+  perform set_config('magrit.quote_transition', '', true);
+  perform set_config('magrit.change_set_id', '', true);
 
   return p_quote_id;
 end;

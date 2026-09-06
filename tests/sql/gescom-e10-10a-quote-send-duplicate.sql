@@ -34,6 +34,11 @@
 --      `sent` existe jamais (jamais dupliquee), une entree `resent`
 --      apparait ; un `show_discounts` DIVERGENT est rejete
 --      (`quote.resend_immutable`), sans creer d entree.
+--   2bis. B7 (qa-review round 5) : la fuite elle-meme, pas seulement son
+--      symptome — `magrit.quote_transition`/`magrit.change_set_id` doivent
+--      etre vides/NULL immediatement apres le retour de `api_send_commercial_
+--      quote` (semantique `SET LOCAL`, portee a la transaction, jamais
+--      restauree automatiquement a la sortie de la fonction).
 --   3bis. IMMUABILITE d un devis `sent` (qa-review round 1, B3) : un UPDATE
 --      DIRECT (hors `api_send_commercial_quote`/`api_duplicate_commercial_
 --      quote`) sur un devis dont le statut COURANT n est pas `draft` est
@@ -384,6 +389,32 @@ begin
      and quote_snapshot ? 'quote' and quote_snapshot ? 'lines';
   if not found then
     raise exception 'Premier envoi : quote_snapshot doit porter quote ET lines';
+  end if;
+end;
+$$;
+
+-- ── 2bis. B7 (qa-review round 5) : la fuite elle-meme, pas seulement son
+--    symptome. `api_send_commercial_quote` pose `magrit.quote_transition`
+--    (echappatoire de l immuabilite) et `magrit.change_set_id` (correlation
+--    d audit) via `set_config(..., true)` — semantique `SET LOCAL`, portee a
+--    la TRANSACTION englobante, pas a la fonction. Sans le correctif B7, les
+--    DEUX restaient visibles ICI, dans le MEME `do $$ ... $$` bloc que celui
+--    qui vient d appeler la fonction (donc DANS LA MEME transaction que ce
+--    fichier tout entier) : la preuve la plus directe possible de la fuite,
+--    avant meme de tenter l UPDATE direct du scenario 3bis qui l exploite.
+do $$
+declare
+  v_transition text;
+  v_change_set text;
+begin
+  v_transition := current_setting('magrit.quote_transition', true);
+  v_change_set := current_setting('magrit.change_set_id', true);
+
+  if v_transition is not null and v_transition <> '' then
+    raise exception 'B7 : magrit.quote_transition encore % apres le retour de api_send_commercial_quote (attendu vide/NULL)', v_transition;
+  end if;
+  if v_change_set is not null and v_change_set <> '' then
+    raise exception 'B7 : magrit.change_set_id encore % apres le retour de api_send_commercial_quote (attendu vide/NULL)', v_change_set;
   end if;
 end;
 $$;
