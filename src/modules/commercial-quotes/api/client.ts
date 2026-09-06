@@ -11,23 +11,27 @@ import {
   createQuoteFromProjectCommandSchema,
   createQuoteLineCommandSchema,
   deleteQuoteResultSchema,
+  quoteAuditEntriesListSchema,
   quoteDetailSchema,
   quoteLineAuditEntriesListSchema,
   quoteLineSchema,
   quoteSchema,
   quotesListSchema,
   reorderQuoteLinesCommandSchema,
+  sendQuoteCommandSchema,
   updateQuoteCommandSchema,
   updateQuoteLineCommandSchema,
   type CreateFreeQuoteLineCommand,
   type CreateQuoteFromProjectCommand,
   type CreateQuoteLineFromProjectItemCommand,
   type DeleteQuoteResultDto,
+  type QuoteAuditEntryDto,
   type QuoteDetailDto,
   type QuoteDto,
   type QuoteLineAuditEntryDto,
   type QuoteLineDto,
   type QuoteStatus,
+  type SendQuoteCommand,
   type UpdateQuoteCommand,
   type UpdateQuoteLineCommand,
 } from './contracts.ts';
@@ -55,6 +59,16 @@ export type ListQuotesQuery = Readonly<{
 
 export type ListQuotesResponse = Readonly<{
   items: readonly QuoteDto[];
+  nextCursor: string | null;
+}>;
+
+export type ListQuoteHeaderAuditEntriesQuery = Readonly<{
+  pageSize?: number;
+  pageCursor?: string;
+}>;
+
+export type ListQuoteHeaderAuditEntriesResponse = Readonly<{
+  items: readonly QuoteAuditEntryDto[];
   nextCursor: string | null;
 }>;
 
@@ -226,6 +240,71 @@ export class CommercialQuotesApiClient {
         ? `${BASE_PATH}/${quoteId}/audit-entries?${suffix}`
         : `${BASE_PATH}/${quoteId}/audit-entries`,
       responseSchema: successEnvelopeSchema(quoteLineAuditEntriesListSchema),
+    });
+    return { items: envelope.data, nextCursor: envelope.meta.next_cursor ?? null };
+  }
+
+  // ---------------------------------------------------------------------------
+  // E10.10a — statut, envoi/renvoi, duplication, journal d entete.
+  // ---------------------------------------------------------------------------
+
+  /**
+   * ENVOIE ou RENVOIE un devis (contrat `sendQuote`). `If-Match` EXIGE — seul
+   * cas du contrat (docs/api/CONVENTIONS.md §8.12, ecart de forme n°1) : la
+   * precondition doit reprendre l `ETag` deja lu sur `getQuote`/`getForEdit`.
+   * `Idempotency-Key` est generee ici, jamais laissee a l appelant : un rejeu
+   * apres coupure reseau doit rendre la reponse memorisee, jamais un second
+   * envoi (CA8).
+   */
+  async send(
+    quoteId: string,
+    command: SendQuoteCommand,
+    ifMatch: string,
+  ): Promise<ApiResponseWithEtag<QuoteDetailDto>> {
+    const result = await this.client.requestWithEtag({
+      method: 'POST',
+      path: `${BASE_PATH}/${quoteId}/transmissions`,
+      body: sendQuoteCommandSchema.parse(command),
+      headers: { 'Idempotency-Key': newIdempotencyKey(), 'If-Match': ifMatch },
+      responseSchema: successEnvelopeSchema(quoteDetailSchema),
+    });
+    return unwrapEnvelopeWithEtag(result);
+  }
+
+  /**
+   * DUPLIQUE un devis, quel que soit son statut (contrat `duplicateQuote`) :
+   * aucun `If-Match` ici, la duplication ne modifie jamais le devis source.
+   */
+  async duplicate(quoteId: string): Promise<ApiResponseWithEtag<QuoteDetailDto>> {
+    const result = await this.client.requestWithEtag({
+      method: 'POST',
+      path: `${BASE_PATH}/${quoteId}/duplicates`,
+      headers: { 'Idempotency-Key': newIdempotencyKey() },
+      responseSchema: successEnvelopeSchema(quoteDetailSchema),
+    });
+    return unwrapEnvelopeWithEtag(result);
+  }
+
+  /**
+   * Journal d audit de l ENTETE d un devis (contrat `listQuoteHeaderAuditEntries`),
+   * DISTINCT du journal des lignes ci-dessus. Reserve au droit
+   * `can_manage_pricing` cote serveur : un appelant sans ce droit recoit un
+   * 403 explicite, jamais une page vide.
+   */
+  async listHeaderAuditEntries(
+    quoteId: string,
+    query: ListQuoteHeaderAuditEntriesQuery = {},
+  ): Promise<ListQuoteHeaderAuditEntriesResponse> {
+    const params = new URLSearchParams();
+    if (query.pageSize) params.set('page[size]', String(query.pageSize));
+    if (query.pageCursor) params.set('page[cursor]', query.pageCursor);
+    const suffix = params.toString();
+
+    const envelope = await this.client.request({
+      path: suffix
+        ? `${BASE_PATH}/${quoteId}/header-audit-entries?${suffix}`
+        : `${BASE_PATH}/${quoteId}/header-audit-entries`,
+      responseSchema: successEnvelopeSchema(quoteAuditEntriesListSchema),
     });
     return { items: envelope.data, nextCursor: envelope.meta.next_cursor ?? null };
   }

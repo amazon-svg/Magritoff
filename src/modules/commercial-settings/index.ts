@@ -4,6 +4,7 @@ export {
   type CommercialSettingsDto,
   type UpdateCommercialSettingsCommand,
 } from './api/contracts';
+export { CommercialSettingsApiClient } from './api/client';
 export { CommercialSettingsService } from './application/commercial-settings-service';
 export {
   CommercialSettingsAccessDeniedError,
