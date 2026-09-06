@@ -480,16 +480,15 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
     for (const [id, line] of this.lines) {
       if (line.quote_id === quoteId) this.lines.delete(id);
     }
-    // qa-review round 2, B4 — `source_quote_id` porte `on delete set null`
-    // (migration 20260906160000) : une copie ne doit jamais rester pointee
-    // vers un devis original disparu (filiation informative, aucune
-    // synchronisation). Reproduit ici le meme comportement pour que ce fake
-    // ne diverge pas de la contrainte reelle.
-    for (const [id, quote] of this.quotes) {
-      if (quote.source_quote_id === quoteId) {
-        this.quotes.set(id, { ...quote, source_quote_id: null });
-      }
-    }
+    // qa-review round 3, B6 — `source_quote_id` N EST PLUS une cle etrangere
+    // (migration 20260906160000, correctif B6) : le `on delete set null` pose
+    // au round 2 (B4) n etait pas silencieux, il declenchait un UPDATE donc
+    // les triggers utilisateur de la copie, ce qui pouvait la rendre non-
+    // draft-immuable et lever une exception non mappee (500 permanent, meme
+    // symptome que B4 par une autre porte). Sans FK, plus rien ne nulle
+    // `source_quote_id` en base : ce fake ne doit donc PLUS le faire non plus
+    // — une copie garde son `source_quote_id` intact, y compris orphelin,
+    // apres suppression de l original.
   }
 
   // ---------------------------------------------------------------------------

@@ -77,10 +77,7 @@
 --      - **B4** : `source_quote_id` ne portait AUCUNE clause `on delete`
 --        (donc `no action`) — dupliquer un devis A puis supprimer l original
 --        (chemin nominal, A `draft`) levait `23503` (FK violee) et rendait A
---        indefiniment indelebile. Corrige en `on delete set null`, cohérent
---        avec le commentaire de colonne (filiation informative, aucune
---        synchronisation) : la copie garde son contenu, perd seulement la
---        trace de son origine.
+--        indefiniment indelebile.
 --      - **B5** : le trigger d immuabilite (section 2ter) etait `BEFORE
 --        UPDATE` seulement — un `DELETE` PostgREST direct sur un devis
 --        `sent` par un membre ordinaire n etait bloque nulle part en base,
@@ -93,6 +90,25 @@
 --        quote_lines_require_draft_quote`, E10.9 correctif N1 : le parent —
 --        ici `tenants`, pas `commercial_quotes` — a deja physiquement
 --        disparu quand la cascade declenche ce trigger sur le devis).
+--
+--   9. (qa-review round 3, B6, docs/api/CONVENTIONS.md §8.12bis) Le correctif
+--      B4 ci-dessus (`on delete set null` sur `source_quote_id`) N ETAIT PAS
+--      silencieux : Postgres l implemente par un vrai `UPDATE ... SET
+--      source_quote_id = null` sur la copie, qui declenche donc SES triggers
+--      utilisateur. Scenario 100% API publique : A `draft` duplique en B ; B
+--      ENVOYE (`sent`) ; DELETE de A (toujours `draft`, la garde CA6 et la
+--      branche DELETE du point 8 laissent passer) -> l action RI `UPDATE`
+--      la copie B -> B n est PLUS `draft` -> le trigger d immuabilite
+--      (branche UPDATE) leve `quote.update_requires_draft`, jamais mappee
+--      par `remove()` -> 500 permanent, A de nouveau indelebile, par une
+--      autre porte que B4 (`P0001` au lieu de `23503`). Corrige en RETIRANT
+--      la contrainte de cle etrangere elle-meme (option la plus economique) :
+--      `source_quote_id` reste un `uuid` nu, sans `references`. Plus
+--      d action RI, plus de trigger declenche par cette voie. Coherent avec
+--      le commentaire de colonne (filiation informative, aucune
+--      synchronisation) : la copie garde alors un identifiant ORPHELIN si
+--      l original est supprime, ce que cette filiation purement informative
+--      admet deja par construction.
 --
 -- Nommage des codes d erreur, cote application (pas en base) :
 -- `quote.update_requires_draft`, `quote.delete_requires_draft`, `quote.
@@ -108,15 +124,28 @@
 
 -- ── 1. Nouvelles colonnes d entete (E10.10a) ────────────────────────────────
 alter table public.commercial_quotes
-  -- qa-review round 2, B4 : SANS `on delete set null`, supprimer un devis A
-  -- deja duplique (B = copie, `B.source_quote_id = A.id`) levait 23503 (FK
-  -- violee) des que `remove()` (CA6, filtre `status = 'draft'`) atteignait la
-  -- base — A restait alors indefiniment bloque, aucune API ne pouvant plus le
-  -- supprimer. La filiation est INFORMATIVE (commentaire de colonne
-  -- ci-dessous, inchange) : rien ne synchronise B sur A, `set null` est donc
-  -- la seule option cohérente avec ce contrat — la copie garde son contenu et
-  -- son identite propres, elle perd seulement la trace de son origine.
-  add column if not exists source_quote_id     uuid references public.commercial_quotes(id) on delete set null,
+  -- qa-review round 3, B6 : `on delete set null` (correctif B4, round 2)
+  -- N EST PAS silencieux — Postgres l implemente par un vrai `UPDATE ...
+  -- SET source_quote_id = null WHERE source_quote_id = <A>` sur la table
+  -- REFERENCANTE, qui declenche donc SES triggers utilisateur exactement
+  -- comme n importe quel autre UPDATE. Scenario 100% API publique : devis A
+  -- `draft` duplique en B ; B ENVOYE (`sent`) ; DELETE de A (A toujours
+  -- `draft`, la garde CA6 et la branche DELETE du trigger d immuabilite
+  -- laissent passer) -> l action RI declenche un UPDATE sur B pour lui
+  -- mettre `source_quote_id = null` -> B n est PLUS `draft` -> le trigger
+  -- d immuabilite (branche UPDATE, section 2ter) leve `quote.update_requires_
+  -- draft` -> `remove()` ne mappe pas cette exception SQL -> 500 `api.
+  -- internal_error`, A indelebile pour toujours. Meme symptome que B4, une
+  -- autre porte (`P0001` au lieu de `23503`).
+  --
+  -- Correction retenue (option la plus economique) : RETIRER la contrainte
+  -- de cle etrangere. Plus d action RI, plus de trigger declenche par cette
+  -- voie, plus de 500 possible. Coherent avec le commentaire de colonne
+  -- ci-dessous (« filiation informative, aucune synchronisation ») : cette
+  -- filiation n a jamais pretendu garantir que l original existe encore ; la
+  -- copie garde alors un identifiant ORPHELIN si l original est supprime, ce
+  -- que cette semantique purement informative admet deja par construction.
+  add column if not exists source_quote_id     uuid,
   add column if not exists global_discount_rate numeric(6,4),
   add column if not exists target_net_total     numeric(12,2),
   add column if not exists vat_rate             numeric(6,4),
@@ -125,7 +154,7 @@ alter table public.commercial_quotes
   add column if not exists sent_by              uuid references auth.users(id);
 
 comment on column public.commercial_quotes.source_quote_id is
-  'E10.10a — devis dont celui-ci est une COPIE (duplicateQuote). NULL pour un devis cree depuis un projet. Filiation informative, aucune synchronisation.';
+  'E10.10a — devis dont celui-ci est une COPIE (duplicateQuote). NULL pour un devis cree depuis un projet. Filiation informative, aucune synchronisation. VOLONTAIREMENT SANS cle etrangere (qa-review round 3, B6) : un `on delete set null` aurait declenche un UPDATE, donc les triggers utilisateur, sur la copie a chaque suppression de l original — pouvant la rendre non-draft-immuable et lever une exception non mappee. Peut donc pointer vers un devis qui n existe plus (orphelin assumé) ; aucun code ne doit supposer que cette valeur, si non NULL, designe une ligne existante.';
 comment on column public.commercial_quotes.global_discount_rate is
   'E10.10a — remise globale exprimee en TAUX, appliquee APRES les remises de ligne. Exclusif de target_net_total (contrainte ci-dessous). Negatif = majoration, plafonne a 1.0000.';
 comment on column public.commercial_quotes.target_net_total is

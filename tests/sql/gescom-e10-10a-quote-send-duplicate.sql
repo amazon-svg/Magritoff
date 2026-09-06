@@ -65,11 +65,21 @@
 --      numero, `source_quote_id`, lignes recopiees a l IDENTIQUE (aucun
 --      recalcul), `valid_until` REMISE a `null` meme si le source en portait
 --      une, entree `duplicated` sur l ORIGINAL.
---   5bis. B4 (qa-review round 2) : dupliquer un devis A `draft` puis
---      supprimer A (chemin ENTIEREMENT nominal, A reste `draft`) reussit
---      desormais (`source_quote_id` porte `on delete set null`) ; la copie
---      perd sa filiation (`source_quote_id` devient `null`) sans que le reste
---      de son contenu ne bouge.
+--   5bis. B4 (qa-review round 2, REVISE round 3 par B6 — voir 5bis-b) :
+--      dupliquer un devis A `draft` puis supprimer A (chemin ENTIEREMENT
+--      nominal, A reste `draft`) reussit sans exception ; la copie GARDE son
+--      `source_quote_id` intact (orphelin assume, plus de FK depuis le
+--      correctif B6 — `source_quote_id` n a plus de clause `on delete` du
+--      tout, la colonne n est plus une cle etrangere).
+--   5bis-b. B6 (qa-review round 3) : le correctif B4 (`on delete set null`)
+--      n etait PAS silencieux — l action RI est un vrai UPDATE sur la copie,
+--      qui declenche donc SES triggers. Des que la copie n est plus `draft`
+--      (ex. ENVOYEE), ce UPDATE heurtait le trigger d immuabilite et
+--      rouvrait le meme 500 permanent par une autre porte (`P0001` au lieu
+--      de `23503`). Scenario : dupliquer A `draft` en B, ENVOYER B (`draft`
+--      -> `sent`), puis supprimer A — doit reussir SANS exception, B reste
+--      `sent` et garde son `source_quote_id = A` intact (rien ne le touche
+--      plus, la colonne n etant plus une FK).
 --   6. Contraintes `commercial_quotes_global_discount_exclusive` /
 --      `_global_discount_rate_max` / `_vat_rate_non_negative` (qa-review
 --      round 1, B1).
@@ -787,13 +797,16 @@ begin
 end;
 $$;
 
--- ── 5bis. B4 (qa-review round 2) — dupliquer un devis A DRAFT puis
---      supprimer A : chemin ENTIEREMENT nominal (A reste draft, la
---      duplication n ecrit jamais sur l original hors l entree d audit
---      'duplicated'). Avant le correctif (`source_quote_id` sans `on delete
---      set null`), ce DELETE levait 23503 (FK violee par la copie B, dont
---      `source_quote_id = A.id`) et rendait A indefiniment indelebile par
---      toute API. ───────────────────────────────────────────────────────────
+-- ── 5bis. B4 (qa-review round 2, REVISE round 3 par B6) — dupliquer un devis
+--      A DRAFT puis supprimer A : chemin ENTIEREMENT nominal (A reste draft,
+--      la duplication n ecrit jamais sur l original hors l entree d audit
+--      'duplicated'). Avant le correctif B4, ce DELETE levait 23503 (FK
+--      violee par la copie B, dont `source_quote_id = A.id`) et rendait A
+--      indefiniment indelebile par toute API. Depuis le correctif B6,
+--      `source_quote_id` n est plus une cle etrangere DU TOUT (le `on delete
+--      set null` du correctif B4 rouvrait le meme 500 par une autre porte,
+--      voir 5bis-b) : la copie garde donc son `source_quote_id` INTACT,
+--      orphelin assume. ──────────────────────────────────────────────────────
 do $$
 declare
   v_tenant_a uuid;
@@ -822,15 +835,94 @@ begin
     raise exception 'B4 : le devis original existe encore apres sa suppression';
   end if;
 
+  -- B6 : sans clause `on delete` du tout, rien ne touche plus la copie a la
+  -- suppression de l original — `source_quote_id` reste egal a l id de A,
+  -- meme si cet id ne resout plus aucune ligne (orphelin assume, cf.
+  -- commentaire de colonne dans la migration).
   select source_quote_id into v_copy_source_after from public.commercial_quotes where id = v_copy;
-  if v_copy_source_after is not null then
-    raise exception 'B4 : source_quote_id de la copie attendu NULL apres suppression de l original, obtenu %', v_copy_source_after;
+  if v_copy_source_after is distinct from v_source then
+    raise exception 'B6 : source_quote_id de la copie attendu % (intact, orphelin), obtenu %', v_source, v_copy_source_after;
   end if;
 
-  -- La copie elle-meme n a pas ete touchee au-dela de source_quote_id.
+  -- La copie elle-meme n a pas ete touchee au-dela de la suppression de A.
   perform 1 from public.commercial_quotes where id = v_copy and status = 'draft';
   if not found then
-    raise exception 'B4 : la copie n est plus draft apres la suppression de son original (effet de bord inattendu)';
+    raise exception 'B4/B6 : la copie n est plus draft apres la suppression de son original (effet de bord inattendu)';
+  end if;
+end;
+$$;
+
+-- ── 5bis-b. B6 (qa-review round 3) — dupliquer un devis A DRAFT, ENVOYER la
+--      copie B (`draft` -> `sent`, le geste que cette story livre), puis
+--      supprimer A : doit reussir SANS exception. Avant ce correctif, `on
+--      delete set null` (correctif B4) declenchait un UPDATE direct sur B au
+--      moment de la suppression de A — un vrai UPDATE, qui declenche donc
+--      les triggers utilisateur de B exactement comme n importe quel autre
+--      UPDATE. B n etant plus `draft` (elle vient d etre envoyee), ce UPDATE
+--      heurtait le trigger d immuabilite (`commercial_quotes_require_draft_
+--      before_write`, branche UPDATE) et levait `quote.update_requires_
+--      draft` — exception non mappee par `remove()`, 500 permanent, A de
+--      nouveau indelebile (meme symptome que B4, `P0001` au lieu de `23503`).
+--      Le correctif retenu (retrait pur et simple de la contrainte de cle
+--      etrangere) ferme cette porte : plus d action RI, plus de trigger
+--      declenche sur B par la suppression de A. ─────────────────────────────
+do $$
+declare
+  v_tenant_a uuid;
+  v_customer_a uuid;
+  v_project_a uuid;
+  v_source uuid;
+  v_copy uuid;
+  v_copy_status_after text;
+  v_copy_source_after uuid;
+begin
+  select tenant_a, customer_a, project_a into v_tenant_a, v_customer_a, v_project_a from e10_10a_context;
+
+  insert into public.commercial_quotes (tenant_id, customer_id, project_id, number, status, created_by)
+  values (v_tenant_a, v_customer_a, v_project_a, 'DEV-9999-00206', 'draft',
+          (select actor_admin_a from e10_10a_context))
+  returning id into v_source;
+
+  select public.api_duplicate_commercial_quote(v_tenant_a, v_source) into v_copy;
+
+  -- La copie a besoin d au moins une ligne pour etre envoyable
+  -- (`quote.send_requires_lines`) : la duplication n en recopie aucune ici
+  -- puisque A elle-meme n en porte pas — on en ajoute une DIRECTEMENT sur B.
+  insert into public.commercial_quote_lines
+    (quote_id, origin, project_item_id, label, quantity, production_price, public_price,
+     customer_price, applied_margin_rate, sale_price, breakdown)
+  values
+    (v_copy, 'free', null, 'Ligne B6', 1, 100.00, 150.00, 150.00, 0.5000, 150.00,
+     '[{"post":"total","cost":"100.00","margin_rate":"0.5000","price":"150.00","source":"clariprint"}]'::jsonb);
+
+  -- ENVOI de la copie B : draft -> sent. C est le geste qui, combine a la
+  -- suppression de A ci-dessous, demasquait B6.
+  perform public.api_send_commercial_quote(v_tenant_a, v_copy, null, false);
+
+  perform 1 from public.commercial_quotes where id = v_copy and status = 'sent';
+  if not found then
+    raise exception 'B6 : precondition — la copie B devrait etre sent avant la suppression de A';
+  end if;
+
+  -- A est toujours draft (ni la duplication ni l envoi de B n ecrivent sur
+  -- A) : sa suppression, chemin nominal, ne doit PAS lever d exception, meme
+  -- maintenant que sa copie B n est plus draft.
+  delete from public.commercial_quotes where id = v_source;
+
+  perform 1 from public.commercial_quotes where id = v_source;
+  if found then
+    raise exception 'B6 : le devis original existe encore apres sa suppression';
+  end if;
+
+  -- B reste intacte : toujours sent, source_quote_id toujours egal a A
+  -- (orphelin assume), rien ne l a touchee.
+  select status, source_quote_id into v_copy_status_after, v_copy_source_after
+    from public.commercial_quotes where id = v_copy;
+  if v_copy_status_after <> 'sent' then
+    raise exception 'B6 : la copie B devrait rester sent apres la suppression de A, obtenu %', v_copy_status_after;
+  end if;
+  if v_copy_source_after is distinct from v_source then
+    raise exception 'B6 : source_quote_id de la copie attendu % (intact, orphelin), obtenu %', v_source, v_copy_source_after;
   end if;
 end;
 $$;
