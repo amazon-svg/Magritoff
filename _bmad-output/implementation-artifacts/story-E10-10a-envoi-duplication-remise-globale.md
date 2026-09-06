@@ -100,11 +100,20 @@ affecté, passe également en exécution réelle.
 
 Développée directement sur `feat/gescom-e10-4-entite-client`, comme E10.11 et
 le reste du chantier E10. Migration `20260906160000_gescom_e10_10a_send_duplicate_global_discount.sql`
-et migration modifiée `20260904000100_gescom_e10_9_quote_line_discounts.sql`
-(round 5, correctif GUC) — aucune des deux n'a jamais été remontée sur `main`
-avant ce lot (vérifié par `qa-review` round 5 via `git ls-tree origin/main`),
-donc leur modifier le contenu en place est légitime, pas une violation de la
-règle « une migration déployée ne change jamais ».
+(jamais déployée avant ce lot, modification en place légitime).
+
+**Erreur de process détectée après le verdict qa-review round 5, corrigée
+avant déploiement** : le correctif GUC d'E10.9 avait d'abord été écrit
+directement dans `20260904000100_gescom_e10_9_quote_line_discounts.sql`, sur
+la foi d'une vérification par `git ls-tree origin/main` (qui confirmait
+« jamais remontée sur `main` ») prise à tort pour une preuve de non-
+déploiement. `supabase migration list --linked` a révélé que cette migration
+**était déjà appliquée** sur le projet Supabase partagé (poussée depuis cette
+branche avant ce round, indépendamment de tout merge Git). Corrigé : le
+fichier restauré à son contenu d'origine, le correctif porté par une
+migration additive séparée `20260906185313_gescom_e10_9_fix_change_set_id_guc_leak.sql`.
+Revérifié par `pnpm db:local:reset` complet + réexécution des deux fichiers
+SQL de la story (E10.10a et E10.11), tous deux verts.
 
 **Point de vigilance signalé par qa-review round 5** : la branche `wip/E10.11-handoff`
 (créée le 2026-09-04 pour une tentative de reprise en dispatch cloud, jamais
