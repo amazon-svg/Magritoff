@@ -932,6 +932,56 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/storefront-quotes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * LISTE les devis mis a disposition du client authentifie sur la boutique, du plus recemment envoye au plus ancien.
+         *
+         *     PERIMETRE, et c est le coeur de l operation : les devis du CLIENT (`customers`, E10.4) dont depend l interlocuteur (`customer_contacts`) rattache au compte boutique de la session (`shop_customer_accounts.customer_contact_id`, E10.5 CA3). Ni la boutique, ni le compte, ni l espace ne sont des parametres : ils sont tous les trois portes par le cookie de session.
+         *
+         *     UN DEVIS `draft` N APPARAIT JAMAIS. La visibilite commence a l envoi (`sendQuote`, E10.10a) et ne se retire plus : `sent`, `accepted`, `rejected` et `converted` restent lisibles. C est la raison d etre de l enumeration reduite `StorefrontQuoteStatus` — un brouillon n est pas une offre, et le client n a pas a savoir qu il existe.
+         *
+         *     COMPTE SANS INTERLOCUTEUR RATTACHE -> LISTE VIDE, PAS 403. Un compte boutique auto-inscrit ou issu de la migration legacy n a aucun `customer_contact_id` (le champ est nullable par construction, E10.5 CA3) : il n a donc aucun devis, ce qui est un fait, pas un refus. Repondre 403 apprendrait au client qu il existe un referentiel de gestion auquel il n est pas relie — une information d organisation interne — et casserait l onglet du portail pour un motif qui n est pas une erreur. Le geste qui ouvre la liste est cote atelier : `openCustomerContactShopAccess` (E10.5).
+         *
+         *     SESSION DELEGUEE (`session_kind = 'delegated'`, un membre Magrit qui depanne le client depuis son compte) : LECTURE AUTORISEE, meme representation exactement. Rien a masquer — l atelier voit deja plus que cela sur `/quotes`, et une vue degradee empecherait justement le support de constater ce que le client voit. La question se posera autrement pour l ACCEPTATION (E10.10b-2), ou engager le client sans lui n est pas la meme chose que regarder a sa place.
+         */
+        get: operations["listStorefrontQuotes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/storefront-quotes/{quoteId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * LIT un devis mis a disposition du client, avec ses lignes, dans la representation reduite destinee a l acheteur.
+         *
+         *     404 INDISCERNABLE, et c est delibere : identifiant inconnu, devis d un autre client, devis d un autre espace, devis encore `draft` — les quatre rendent la meme reponse. Distinguer « ce devis existe mais n est pas a vous » de « ce devis n existe pas » offrirait a n importe quel compte boutique un oracle d existence sur les devis de toute la plateforme, a raison d un UUID essaye par requete.
+         *
+         *     L `ETag` de cette representation est publie des maintenant : c est lui que portera le `If-Match` de l acceptation ou du refus (E10.10b-2). Publier l entete a la lecture avant que l ecriture existe evite au client d avoir a relire la ressource le jour ou elle arrive.
+         */
+        get: operations["getStorefrontQuote"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export interface webhooks {
     "quote.converted": {
@@ -2074,6 +2124,117 @@ export interface components {
             is_resend: boolean;
         };
         /**
+         * StorefrontQuoteStatus
+         * @description Etat d un devis TEL QUE LE CLIENT PEUT LE VOIR. Sous-ensemble strict de `QuoteStatus`, ampute de `draft`.
+         *
+         *     Enumeration separee plutot que reutilisation de `QuoteStatus` : elle sert aussi de valeur de FILTRE (`GET /storefront-quotes?status=`), et un filtre qui accepte une valeur que le serveur refuse toujours est un contrat qui ment. Elle rend en outre l invariant lisible sans lire une description — un brouillon n existe pas de ce cote de la facade.
+         *
+         *     `converted` reste visible : un devis transforme en commande a bel et bien ete adresse au client, le retirer de sa liste ferait disparaitre de son historique la piece qui justifie sa commande.
+         * @enum {string}
+         */
+        StorefrontQuoteStatus: "sent" | "accepted" | "rejected" | "converted";
+        /**
+         * StorefrontQuoteTotals
+         * @description Totaux du devis, calcules par le SERVEUR, filtres par `show_discounts`. Meme arithmetique exactement que `QuoteTotals` (E10.10a) : ce schema n arrondit rien autrement, ne recompose rien, il MASQUE.
+         *
+         *     `show_discounts = true` : tous les champs sont renseignes, le document peut annoncer « sous-total 5 000 €, remise 5 %, net 4 750 € ».
+         *
+         *     `show_discounts = false` : `lines_subtotal`, `global_discount` et `effective_discount_rate` valent `null`. Seuls subsistent le net, la TVA et le total TTC — c est-a-dire ce que le client doit payer, sans la mecanique commerciale qui y conduit.
+         *
+         *     POINT OUVERT, honnetement signale plutot que masque : quand `show_discounts` est `false` ET qu une remise GLOBALE existe, la somme des `price` des lignes ne fait pas `net_total`. L ecart reste arithmetiquement visible a qui additionne. Aucun montant n est faux, et la seule facon de le faire disparaitre serait de ventiler la remise globale sur les lignes — c est-a-dire de reecrire des prix que le commercial a poses. Le contrat refuse de le faire ici : c est une decision de DOCUMENT, a trancher avec le PDF (E10.10b-4), pas un effet de bord a improviser dans un lecteur de liste.
+         */
+        StorefrontQuoteTotals: {
+            /** @description Somme des `price` des lignes, hors taxes. `null` quand le devis masque ses remises. */
+            lines_subtotal: components["schemas"]["MoneyNonNegative"] | null;
+            /** @description Remise globale appliquee a l ensemble du devis, en euros. SIGNEE : negative quand le devis majore le total de ses lignes — la majoration est un geste commercial legitime (E10.10a), et un client a le droit de la voir aussi clairement qu une remise. `null` quand le devis masque ses remises. */
+            global_discount: components["schemas"]["Money"] | null;
+            /** @description `global_discount` rapporte a `lines_subtotal`. `null` quand le devis masque ses remises, quand le sous-total est nul, ou quand le rapport sort de l intervalle representable — les trois cas rendent `null`, et l interface n a pas a les distinguer pour dessiner. */
+            effective_discount_rate: components["schemas"]["Rate"] | null;
+            /** @description Prix final HORS TAXES du devis. TOUJOURS present, quel que soit `show_discounts` : c est le montant sur lequel le client s engage. */
+            net_total: components["schemas"]["MoneyNonNegative"];
+            /** @description Taux de TVA reellement applique au devis. */
+            vat_rate: components["schemas"]["Rate"];
+            /** @description Regime fiscal ayant fourni le taux, `null` si le devis porte une surcharge explicite. Publie parce qu il commande la MENTION LEGALE du document (« TVA non applicable, art. 293 B du CGI », autoliquidation) : le taux seul ne permet pas de la choisir. */
+            vat_regime: components["schemas"]["TaxRegime"] | null;
+            vat_amount: components["schemas"]["MoneyNonNegative"];
+            /** @description Total toutes taxes comprises, porte en bas du devis. */
+            total_incl_tax: components["schemas"]["MoneyNonNegative"];
+        };
+        /**
+         * StorefrontQuoteLine
+         * @description Ligne de devis vue par le client. Cinq champs de description, trois de prix — a comparer aux vingt de `QuoteLine`.
+         *
+         *     Aucun identifiant autre que le sien : ni `quote_id` (le client l a deja dans l URL), ni `project_item_id`, ni la provenance de la ligne. D ou vient une ligne est une information d atelier.
+         */
+        StorefrontQuoteLine: {
+            id: components["schemas"]["Uuid"];
+            label: string;
+            /** @description Configuration produit telle qu elle figure sur le devis (format, papier, faconnage). Reprise sans transformation de `QuoteLine` : c est la description de ce que le client achete, elle lui est destinee par nature. */
+            product_config: {
+                [key: string]: unknown;
+            };
+            /** Format: int32 */
+            quantity: number;
+            /**
+             * Format: int32
+             * @description Rang de la ligne sur le document, contigu et commencant a 0. Publie pour que l affichage respecte l ordre voulu par le commercial sans avoir a le deviner.
+             */
+            position: number;
+            /**
+             * @description Prix de cette ligne AVANT le geste commercial, total pour `quantity` — le montant a afficher barre. C est `customer_price` cote atelier (prix issu des regles de prix), jamais `production_price` ni `public_price`.
+             *
+             *     `null` quand le devis masque ses remises : il n y a alors rien a barrer.
+             */
+            price_before_discount: components["schemas"]["MoneyNonNegative"] | null;
+            /** @description Remise consentie sur cette ligne, deduite du rapport entre `price_before_discount` et `price`. SIGNEE, comme partout dans ce contrat. `null` quand le devis masque ses remises, ou quand le rapport n a pas de sens (base nulle). */
+            discount_rate: components["schemas"]["Rate"] | null;
+            /** @description Prix porte au devis pour cette ligne, total pour `quantity`, hors taxes. TOUJOURS present : c est le seul montant que le client a a payer, et le seul dont l absence rendrait le document illisible. */
+            price: components["schemas"]["MoneyNonNegative"];
+        };
+        /**
+         * StorefrontQuote
+         * @description Devis en forme abregee, tel qu il apparait dans « Mes devis ». Porte ses totaux : une liste sans montant obligerait le portail a ouvrir chaque devis, ou pire a additionner des lignes lui-meme.
+         */
+        StorefrontQuote: {
+            id: components["schemas"]["Uuid"];
+            /**
+             * @description Numero du devis, la reference par laquelle le client et son commercial designent la meme affaire au telephone.
+             * @example DEV-2026-00042
+             */
+            number: string;
+            status: components["schemas"]["StorefrontQuoteStatus"];
+            /**
+             * @description Date a laquelle le devis a ete emis, c est-a-dire `sent_at` cote atelier — l instant du PREMIER envoi, jamais deplace par un renvoi (E10.10a).
+             *
+             *     NON NULLABLE, contrairement a `Quote.sent_at`, et c est l invariant de toute cette ressource ecrit en une ligne : un devis qu on n a pas envoye n apparait pas ici. Un consommateur peut trier dessus sans traiter de cas nul.
+             */
+            issued_at: components["schemas"]["Timestamp"];
+            /** @description Derniere date de validite de l offre. `null` quand le commercial n en a pas fixe et que l espace n a pas de duree par defaut (`default_validity_days`, E10.10a) : l offre n a alors pas de terme annonce, ce qui n est pas la meme chose qu une offre expiree. */
+            valid_until: string | null;
+            /**
+             * @description `valid_until` est-elle depassee a l instant de la reponse ? `false` quand `valid_until` est `null`.
+             *
+             *     CALCULE PAR LE SERVEUR, et pas laisse a l interface, pour deux raisons qui n en font qu une : c est l horloge du serveur qui devra arbitrer l acceptation (E10.10b-2), et un portail qui afficherait « encore valable » sur la foi d une horloge de poste mal reglee inviterait le client a un geste que la facade refusera ensuite. L affichage et la garde doivent partir de la meme mesure.
+             */
+            expired: boolean;
+            totals: components["schemas"]["StorefrontQuoteTotals"];
+        };
+        /**
+         * StorefrontQuoteDetail
+         * @description Devis client complet, avec ses lignes. Schema APLATI plutot que compose par `allOf`, meme raison que `QuoteDetail` et `ProjectDetail` : combine a `additionalProperties: false`, un `allOf` ferait rejeter `lines` par le membre `StorefrontQuote`, ferme sur ses seuls champs.
+         */
+        StorefrontQuoteDetail: {
+            id: components["schemas"]["Uuid"];
+            number: string;
+            status: components["schemas"]["StorefrontQuoteStatus"];
+            issued_at: components["schemas"]["Timestamp"];
+            valid_until: string | null;
+            expired: boolean;
+            totals: components["schemas"]["StorefrontQuoteTotals"];
+            /** @description Lignes du devis, triees par `position` croissante. Peut etre vide en theorie seulement : `sendQuote` refuse d envoyer un devis sans ligne (422 `quote.send_requires_lines`, E10.10a), et un devis non envoye n est pas visible ici. */
+            lines: components["schemas"]["StorefrontQuoteLine"][];
+        };
+        /**
          * CostPost
          * @description Poste de cout d une ligne (E10.21, `CostPost`). `total` est le poste UNIQUE rendu par l implementation provisoire `SingleCostPricingEngine` tant qu E10.8 (decomposition Clariprint reelle) reste gelee. Les quatre autres valeurs sont deja publiees : elles apparaitront dans `breakdown[]` sans changement de forme le jour ou E10.8 est degelee.
          * @enum {string}
@@ -2608,6 +2769,12 @@ export interface components {
         ProjectId: components["schemas"]["Uuid"];
         /** @description Identifiant technique du devis, dans le tenant du jeton. */
         QuoteId: components["schemas"]["Uuid"];
+        /**
+         * @description Identifiant technique du devis, resolu DANS le perimetre du compte client de la session boutique — pas dans un tenant choisi par l appelant (story E10.10b-1).
+         *
+         *     Parametre distinct de `QuoteId` alors qu il porte le meme nom et le meme type : ce n est pas la meme resolution. `QuoteId` cherche dans l espace du jeton, celui-ci cherche parmi les devis ENVOYES du client rattache au compte. Un contrat qui les confondrait laisserait croire qu un devis lisible d un cote l est de l autre.
+         */
+        StorefrontQuoteId: components["schemas"]["Uuid"];
         /** @description Identifiant technique de la ligne de devis. Toujours resolu DANS le devis du chemin : une ligne d un autre devis rend 404 `quote_line.not_found`, jamais la ligne de l autre devis. */
         QuoteLineId: components["schemas"]["Uuid"];
         /** @description Identifiant technique de la regle de prix, dans le tenant du jeton. */
@@ -2685,6 +2852,11 @@ export type QuoteAuditEntry = components['schemas']['QuoteAuditEntry'];
 export type CommercialSettings = components['schemas']['CommercialSettings'];
 export type UpdateCommercialSettingsCommand = components['schemas']['UpdateCommercialSettingsCommand'];
 export type QuoteSentPayload = components['schemas']['QuoteSentPayload'];
+export type StorefrontQuoteStatus = components['schemas']['StorefrontQuoteStatus'];
+export type StorefrontQuoteTotals = components['schemas']['StorefrontQuoteTotals'];
+export type StorefrontQuoteLine = components['schemas']['StorefrontQuoteLine'];
+export type StorefrontQuote = components['schemas']['StorefrontQuote'];
+export type StorefrontQuoteDetail = components['schemas']['StorefrontQuoteDetail'];
 export type CostPost = components['schemas']['CostPost'];
 export type CostSource = components['schemas']['CostSource'];
 export type PricedLineBreakdownItem = components['schemas']['PricedLineBreakdownItem'];
@@ -2734,6 +2906,7 @@ export type ParameterMagritEventName = components['parameters']['MagritEventName
 export type ParameterCustomerId = components['parameters']['CustomerId'];
 export type ParameterProjectId = components['parameters']['ProjectId'];
 export type ParameterQuoteId = components['parameters']['QuoteId'];
+export type ParameterStorefrontQuoteId = components['parameters']['StorefrontQuoteId'];
 export type ParameterQuoteLineId = components['parameters']['QuoteLineId'];
 export type ParameterPriceRuleId = components['parameters']['PriceRuleId'];
 export type ParameterProductRangeId = components['parameters']['ProductRangeId'];
@@ -5050,6 +5223,120 @@ export interface operations {
             409: components["responses"]["Conflict"];
             422: components["responses"]["UnprocessableEntity"];
             428: components["responses"]["PreconditionRequired"];
+        };
+    };
+    listStorefrontQuotes: {
+        parameters: {
+            query?: {
+                /** @description Nombre d elements par page. Defaut 50, maximum 200. */
+                "page[size]"?: components["parameters"]["PageSize"];
+                /** @description Curseur opaque renvoye par `meta.next_cursor` de la page precedente. Absent sur la premiere page. Ne jamais construire un curseur cote client : sa structure interne n est pas contractuelle. */
+                "page[cursor]"?: components["parameters"]["PageCursor"];
+                /** @description Restreint la liste a un etat. Absent : tous les devis visibles. `draft` n est pas une valeur acceptee — il n est pas filtre, il n existe pas de ce cote du contrat. */
+                status?: components["schemas"]["StorefrontQuoteStatus"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /**
+             * @description Page de devis, triee par `issued_at` decroissant puis `id` — l ordre du curseur, stable parce que `issued_at` ne bouge plus une fois le devis envoye (`sent_at` est fige au PREMIER envoi, un renvoi ne le deplace pas, E10.10a).
+             *
+             *     Aucun tri n est propose : un document remis se lit du plus recent au plus ancien, et ouvrir un `sort` ici obligerait a stabiliser autant de curseurs qu il y a de tris.
+             */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["StorefrontQuote"][];
+                    };
+                };
+            };
+            /** @description Parametres de page invalides (`api.invalid_page_params`, `api.invalid_cursor`), ou en-tete `X-Magrit-Tenant` fourni sur une session boutique (`api.tenant_not_addressable`) — voir la description de `storefrontSession`. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /**
+             * @description Acteur du mauvais type (`identity.actor_kind_required`) : un jeton utilisateur Magrit ou une cle de service atteignant cette operation. Ils ont `/quotes`, qui leur montre le devis complet.
+             *
+             *     Ce n est PAS le code d un compte boutique sans interlocuteur rattache : celui-la recoit 200 et une liste vide.
+             */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getStorefrontQuote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /**
+                 * @description Identifiant technique du devis, resolu DANS le perimetre du compte client de la session boutique — pas dans un tenant choisi par l appelant (story E10.10b-1).
+                 *
+                 *     Parametre distinct de `QuoteId` alors qu il porte le meme nom et le meme type : ce n est pas la meme resolution. `QuoteId` cherche dans l espace du jeton, celui-ci cherche parmi les devis ENVOYES du client rattache au compte. Un contrat qui les confondrait laisserait croire qu un devis lisible d un cote l est de l autre.
+                 */
+                quoteId: components["parameters"]["StorefrontQuoteId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Devis dans sa representation client, lignes comprises, triees par `position` croissante. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["StorefrontQuoteDetail"];
+                    };
+                };
+            };
+            /** @description En-tete `X-Magrit-Tenant` fourni sur une session boutique (`api.tenant_not_addressable`), ou `quoteId` mal forme. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Acteur du mauvais type (`identity.actor_kind_required`). Un devis qui ne serait pas visible par ce compte rend 404, jamais 403 — voir le sommaire de l operation. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Devis non visible par ce compte, pour l une des quatre raisons du sommaire (`quote.not_found`). La reponse ne dit pas laquelle. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
         };
     };
     onQuoteConverted: {

@@ -66,6 +66,8 @@ import { SupabaseCommercialQuotesRepository } from '../../../src/adapters/supaba
 import { PriceRulesService } from '../../../src/modules/pricing/application/price-rules-service.ts';
 import { SupabasePriceRulesRepository } from '../../../src/adapters/supabase/price-rules-repository.ts';
 import { createPricingEngine } from '../../../src/modules/pricing/application/pricing-engine-provider.ts';
+import { StorefrontQuotesService } from '../../../src/modules/storefront-quotes/application/storefront-quotes-service.ts';
+import { SupabaseStorefrontQuotesRepository } from '../../../src/adapters/supabase/storefront-quotes-repository.ts';
 import { SupabaseApiPrincipalVerifier } from '../../../src/adapters/supabase/api-principal-verifier.ts';
 import { InMemoryIdempotencyStore, OutboxPublisher } from '../../../src/modules/_shared/application/index.ts';
 import { TENANT_SELECTION_HEADER } from '../../../src/modules/_shared/api/index.ts';
@@ -317,6 +319,15 @@ export async function handleRequest(request: Request): Promise<Response> {
     pricingEngine: createPricingEngine(),
   });
 
+  // E10.10b-1 — lecture des devis dans le portail client. Le repository est
+  // construit sur `storefrontClient` (SANS le JWT Magrit eventuellement
+  // present), jamais sur `client` : les deux fonctions SQL qu il appelle sont
+  // GRANT EXECUTE a `anon` uniquement, meme regle que les primitives
+  // storefront existantes plus haut dans ce fichier.
+  const storefrontQuotesService = new StorefrontQuotesService(
+    new SupabaseStorefrontQuotesRepository(storefrontClient),
+  );
+
   const handler = createMagritApiApplication({
     gescomServices: {
       customers: customersService,
@@ -325,9 +336,14 @@ export async function handleRequest(request: Request): Promise<Response> {
       projectTags: projectTagsService,
       commercialQuotes: commercialQuotesService,
       priceRules: priceRulesService,
+      storefrontQuotes: storefrontQuotesService,
     },
     principalVerifier: new SupabaseApiPrincipalVerifier(client, {
       requestedTenantId: request.headers.get(TENANT_SELECTION_HEADER),
+      // E10.10b-1 — resolution d une session boutique sous `anon`, jamais
+      // sous le JWT Magrit eventuellement present (meme raisonnement que
+      // `storefrontClient` plus haut).
+      storefrontClient,
     }),
     // Store en memoire : il ne survit pas au recyclage de l isolat, donc la
     // garantie d idempotence ne couvre qu une fenetre courte. L adaptateur

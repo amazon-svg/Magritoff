@@ -266,6 +266,11 @@ export const TEST_IDS = {
     accountTab: 'shop-account-tab',
     accountProfile: 'shop-account-profile',
     accountLogoutBtn: 'shop-account-logout-btn',
+    // E10.10b-1 — onglet « Mes devis » /account/quotes (PortalQuotes)
+    accountQuotesList: 'shop-account-quotes-list',
+    accountQuotesEmpty: 'shop-account-quotes-empty',
+    accountQuoteRow: 'shop-account-quote-row',
+    accountQuoteDetail: 'shop-account-quote-detail',
     // S7.9 — Bandeau Reprendre riche (home) + compact (pages gammes)
     resumeBanner: 'shop-resume-banner',
     resumeChipCart: 'shop-resume-chip-cart',

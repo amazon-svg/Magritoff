@@ -2131,6 +2131,45 @@ export type Database = {
         Args: { p_opaque_token: string; p_shop_id: string }
         Returns: Json
       }
+      api_resolve_shop_customer_principal: {
+        Args: { p_opaque_token: string }
+        Returns: {
+          account_id: string
+          shop_id: string
+          tenant_id: string
+          customer_id: string | null
+          session_kind: string
+        }[]
+      }
+      api_list_storefront_quotes: {
+        Args: {
+          p_opaque_token: string
+          p_status?: string | null
+          p_limit?: number
+          p_cursor_issued_at?: string | null
+          p_cursor_id?: string | null
+        }
+        Returns: {
+          id: string
+          number: string
+          status: string
+          issued_at: string
+          valid_until: string | null
+          expired: boolean
+          lines_subtotal: number | string | null
+          global_discount: number | string | null
+          effective_discount_rate: number | string | null
+          net_total: number | string
+          vat_rate: number | string
+          vat_regime: string | null
+          vat_amount: number | string
+          total_incl_tax: number | string
+        }[]
+      }
+      api_get_storefront_quote: {
+        Args: { p_opaque_token: string; p_quote_id: string }
+        Returns: Json
+      }
       api_get_order_draft_for_identity: {
         Args: { p_opaque_token: string | null; p_order_id: string }
         Returns: Json

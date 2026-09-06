@@ -53,7 +53,12 @@ import {
 import { compilePathTemplate } from './api-v1-handler.ts';
 import type { HttpMethod } from './routes.ts';
 
-export type GescomAuthentication = 'user' | 'service' | 'any';
+/**
+ * `'shop_customer'` (E10.10b-1) restreint une operation a une session
+ * boutique (`ShopCustomerPrincipal`). Ce mode n a NI scope NI capability : la
+ * route ne doit jamais declarer `requiredScopes` (voir `defineGescomRoute`).
+ */
+export type GescomAuthentication = 'user' | 'service' | 'shop_customer' | 'any';
 
 export type GescomRequestContext = Readonly<{
   request: Request;
@@ -123,12 +128,25 @@ export function defineGescomRoute<TInput, TData>(
   const authentication = definition.authentication ?? 'any';
   const requiredScopes = Object.freeze([...(definition.requiredScopes ?? [])]);
 
+  // E10.10b-1 — symetrique de la garde CA5 ci-dessous : un ShopCustomerPrincipal
+  // n a NI scope NI capability (il n y a personne a qui les accorder), donc
+  // une route `shop_customer` qui declarerait `requiredScopes` promettrait un
+  // controle qu aucun acteur de ce type ne peut jamais satisfaire.
+  if (authentication === 'shop_customer' && requiredScopes.length > 0) {
+    throw new TypeError(
+      `${definition.operationId} : une route 'shop_customer' ne peut declarer aucun requiredScopes ` +
+        '(E10.10b-1) — ce type d acteur n a ni scope ni capability.',
+    );
+  }
+
   // CA5 — portee FERMEE par defaut. Une route joignable par une cle de service
   // sans scope declare serait ouverte a n importe quelle cle du tenant : le
   // module Studio pourrait ecrire la ou il n a que la lecture. Une route
-  // reservee aux utilisateurs (`authentication: 'user'`) n a pas de scope :
-  // ses droits viennent des roles du tenant, verifies par la RLS.
-  if (authentication !== 'user' && requiredScopes.length === 0) {
+  // reservee aux utilisateurs (`authentication: 'user'`) ou a une session
+  // boutique (`authentication: 'shop_customer'`) n a pas de scope : ses
+  // droits viennent respectivement des roles du tenant (RLS) ou de son
+  // identite propre (fonctions security definer, E10.10b-1).
+  if (authentication !== 'user' && authentication !== 'shop_customer' && requiredScopes.length === 0) {
     throw new TypeError(
       `${definition.operationId} : une route joignable par cle de service doit declarer requiredScopes (CA5). ` +
         `Sinon, la restreindre explicitement avec authentication: 'user'.`,
@@ -234,6 +252,18 @@ export function createGescomApiHandler(options: GescomApiHandlerOptions) {
           status: 403,
           title: 'Cle de service requise',
           code: SHARED_PROBLEM_CODES.actorKindRequired,
+        });
+      }
+      // E10.10b-1 — un jeton utilisateur Magrit ou une cle de service qui
+      // atteint une operation `shop_customer` recoit 403
+      // `identity.actor_kind_required` (contrat : "Ils ont /quotes, qui leur
+      // montre le devis complet"), jamais un 404 ou un comportement degrade.
+      if (route.authentication === 'shop_customer' && principal.kind !== 'shop_customer') {
+        throw problem({
+          status: 403,
+          title: 'Session boutique requise',
+          code: SHARED_PROBLEM_CODES.actorKindRequired,
+          detail: 'Cette operation est reservee a une session de compte client boutique.',
         });
       }
       assertScopes(principal, route.requiredScopes);
