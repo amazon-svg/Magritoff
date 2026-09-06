@@ -275,7 +275,12 @@ export const sendQuoteCommandSchema = z
 // type de reponse SEPARE (contrat, `listQuoteHeaderAuditEntries`).
 // ---------------------------------------------------------------------------
 
-export const quoteAuditActionSchema = z.enum(['updated', 'sent', 'resent', 'duplicated']);
+// `status_forced` (qa-review E10.10a round 2, B3 volet 3, docs/api/
+// CONVENTIONS.md §8.12ter) : un changement de `status` pose HORS de cette
+// facade (PATCH direct, correctif en base). Aucune operation du contrat ne
+// la produit ; `previous_value`/`new_value` portent alors les deux
+// `QuoteStatus`, `field`/`quote_snapshot` restent `null`.
+export const quoteAuditActionSchema = z.enum(['updated', 'sent', 'resent', 'duplicated', 'status_forced']);
 
 export const quoteAuditFieldSchema = z.enum([
   'global_discount_rate',

@@ -41,6 +41,18 @@
 --      — y compris pour redonner `draft` a un devis `sent` (le "degel" que la
 --      RLS seule laissait passer avant ce trigger), et y compris pour une
 --      colonne ordinaire (`global_discount_rate`) sans toucher au statut.
+--   3ter. `status_forced` (qa-review round 2, B3 volet 3, docs/api/
+--      CONVENTIONS.md §8.12ter) : (a) un PATCH direct `{"status":"accepted"}`
+--      sur un devis encore `draft` (le trou precis laisse par le round 1, qui
+--      ne regardait que le statut deja non-`draft`) est desormais REJETE EN
+--      AMONT par la garde de prevention etendue, et ne produit AUCUNE entree
+--      `status_forced` — bloquer vaut mieux que constater, la garde couvre ce
+--      cas completement ; (b) le scenario RESIDUEL que `status_forced` vise
+--      reellement : une session privilegiee qui desactive EXPLICITEMENT le
+--      seul trigger de prevention (le journal d audit, lui, restant actif)
+--      force malgre tout une trace exploitable ; (c) non-regression :
+--      l envoi (scenario 2) ET le renvoi (scenario 3) normaux ne produisent
+--      JAMAIS `status_forced`, seulement `sent`/`resent`.
 --   4. Gardes : devis SANS ligne rejete (`quote.send_requires_lines`) ;
 --      statut hors {`draft`,`sent`} rejete (`quote.send_forbidden_status`).
 --   5. `api_duplicate_commercial_quote` : nouveau devis `draft`, nouveau
@@ -74,9 +86,10 @@ create temporary table e10_10a_context (
   tenant_b        uuid not null,
   customer_a      uuid not null,
   project_a       uuid not null,
-  quote_with_lines   uuid not null,
-  quote_no_lines     uuid not null,
-  quote_wrong_status uuid not null,
+  quote_with_lines     uuid not null,
+  quote_no_lines       uuid not null,
+  quote_wrong_status   uuid not null,
+  quote_status_forced  uuid not null,
   line_1          uuid not null
 );
 
@@ -95,6 +108,7 @@ declare
   v_quote_with_lines uuid;
   v_quote_no_lines uuid;
   v_quote_wrong_status uuid;
+  v_quote_status_forced uuid;
   v_line_1 uuid;
 begin
   select u.id into v_actor_admin_a
@@ -176,12 +190,18 @@ begin
   values (v_tenant_a, v_customer_a, v_project_a, 'DEV-9999-00203', 'accepted', v_actor_admin_a)
   returning id into v_quote_wrong_status;
 
+  -- Devis DRAFT dedie au scenario 3ter (status_forced) : independant de
+  -- quote_with_lines, deja `sent` au moment ou 3ter s execute.
+  insert into public.commercial_quotes (tenant_id, customer_id, project_id, number, status, created_by)
+  values (v_tenant_a, v_customer_a, v_project_a, 'DEV-9999-00204', 'draft', v_actor_admin_a)
+  returning id into v_quote_status_forced;
+
   insert into e10_10a_context
     (actor_admin_a, actor_member_a, actor_admin_b, tenant_a, tenant_b, customer_a, project_a,
-     quote_with_lines, quote_no_lines, quote_wrong_status, line_1)
+     quote_with_lines, quote_no_lines, quote_wrong_status, quote_status_forced, line_1)
   values
     (v_actor_admin_a, v_actor_member_a, v_actor_admin_b, v_tenant_a, v_tenant_b, v_customer_a, v_project_a,
-     v_quote_with_lines, v_quote_no_lines, v_quote_wrong_status, v_line_1);
+     v_quote_with_lines, v_quote_no_lines, v_quote_wrong_status, v_quote_status_forced, v_line_1);
 end;
 $$;
 
@@ -450,6 +470,131 @@ begin
   end if;
 end;
 $$;
+
+-- ── 3ter. `status_forced` — qa-review round 2, B3 volet 3 (docs/api/
+--      CONVENTIONS.md §8.12ter). Deux couches DISTINCTES, a ne pas confondre :
+--      la garde de prevention (BEFORE UPDATE, bloque) et le journal de
+--      detection (AFTER UPDATE, constate) ne protegent PAS la meme chose. La
+--      garde, une fois etendue, couvre a elle seule le cas ordinaire (PATCH
+--      direct depuis un jeton de membre) : AUCUNE entree n en resulte, par
+--      construction (l ecriture n atteint jamais la ligne). Le journal ne
+--      produit reellement une entree QUE dans le cas RESIDUEL ou la garde
+--      elle-meme serait contournee (ici : une session privilegiee qui
+--      desactive explicitement le trigger de prevention). ────────────────────
+do $$
+declare
+  v_quote uuid;
+  v_status_before text;
+  v_rejected boolean := false;
+begin
+  select quote_status_forced into v_quote from e10_10a_context;
+
+  select status into v_status_before from public.commercial_quotes where id = v_quote;
+  if v_status_before <> 'draft' then
+    raise exception 'Precondition scenario 3ter : devis attendu draft, obtenu %', v_status_before;
+  end if;
+
+  -- (a) PATCH direct {"status":"accepted"} sur un devis ENCORE DRAFT, hors
+  -- api_send_commercial_quote : EXACTEMENT le trou laisse par le round 1 (qui
+  -- ne bloquait qu un devis DEJA non-draft). La garde etendue
+  -- (commercial_quotes_require_draft_before_write) le rejette EN AMONT, avant
+  -- meme que le trigger d audit (AFTER UPDATE, meme instruction) n ait la
+  -- moindre occasion de s executer : ce scenario NE PEUT PAS et NE DOIT PAS
+  -- produire d entree status_forced, la garde a deja tout arrete.
+  begin
+    update public.commercial_quotes set status = 'accepted' where id = v_quote;
+  exception
+    when others then
+      if sqlerrm like 'quote.update_requires_draft%' then v_rejected := true;
+      else raise;
+      end if;
+  end;
+  if not v_rejected then
+    raise exception 'Un PATCH direct depuis draft a pu forcer le statut (garde round 2 non respectee)';
+  end if;
+
+  perform 1 from public.commercial_quotes where id = v_quote and status = 'draft';
+  if not found then
+    raise exception 'Le devis n est plus draft apres la tentative de forcage rejetee';
+  end if;
+
+  perform 1 from public.commercial_quote_header_audit
+   where quote_id = v_quote and action = 'status_forced';
+  if found then
+    raise exception 'Une entree status_forced existe alors que l ecriture a ete BLOQUEE en amont (3ter/a)';
+  end if;
+end;
+$$;
+
+-- (b) Scenario RESIDUEL : la garde de prevention est CELLE QUI EST
+-- DESACTIVEE ici (pas la RLS, pas une autre policy) pour simuler la seule
+-- situation ou `status_forced` a une raison d exister une fois le point 1 en
+-- place — une session privilegiee qui contournerait AUSSI le trigger de
+-- prevention (correctif manuel en base, script de service avec role
+-- proprietaire). Le trigger d audit (AFTER UPDATE, commercial_quotes_audit_
+-- update), lui, N EST JAMAIS TOUCHE : c est lui, seul, qui produit l entree.
+reset role;
+
+alter table public.commercial_quotes disable trigger commercial_quotes_require_draft_before_write;
+
+do $$
+declare
+  v_quote uuid;
+  v_status_forced_count integer;
+  v_previous text;
+  v_new text;
+begin
+  select quote_status_forced into v_quote from e10_10a_context;
+
+  update public.commercial_quotes set status = 'accepted' where id = v_quote;
+
+  select count(*) into v_status_forced_count
+    from public.commercial_quote_header_audit where quote_id = v_quote and action = 'status_forced';
+  if v_status_forced_count <> 1 then
+    raise exception '3ter/b : % entree(s) status_forced, 1 attendue (garde de prevention contournee)', v_status_forced_count;
+  end if;
+
+  select previous_value, new_value into v_previous, v_new
+    from public.commercial_quote_header_audit where quote_id = v_quote and action = 'status_forced';
+  if v_previous is distinct from 'draft' or v_new is distinct from 'accepted' then
+    raise exception '3ter/b : previous_value/new_value attendus draft/accepted, obtenus %/%', v_previous, v_new;
+  end if;
+
+  perform 1 from public.commercial_quote_header_audit
+   where quote_id = v_quote and action = 'status_forced' and field is null and quote_snapshot is null;
+  if not found then
+    raise exception '3ter/b : field et quote_snapshot doivent etre NULL sur status_forced';
+  end if;
+end;
+$$;
+
+alter table public.commercial_quotes enable trigger commercial_quotes_require_draft_before_write;
+
+-- (c) Non-regression : l envoi normal (scenario 2, premier envoi) ET le
+-- renvoi normal (scenario 3) ne produisent JAMAIS status_forced, seulement
+-- sent/resent — l echappatoire magrit.quote_transition, posee par
+-- api_send_commercial_quote AVANT ses deux branches, evite tout doublon.
+do $$
+declare
+  v_quote uuid;
+  v_status_forced_count integer;
+begin
+  select quote_with_lines into v_quote from e10_10a_context;
+
+  select count(*) into v_status_forced_count
+    from public.commercial_quote_header_audit where quote_id = v_quote and action = 'status_forced';
+  if v_status_forced_count <> 0 then
+    raise exception '3ter/c : envoi/renvoi normal a produit % entree(s) status_forced (non-regression)', v_status_forced_count;
+  end if;
+end;
+$$;
+
+-- Restaure l etat pre-3ter (role authenticated, admin_a) pour les scenarios
+-- suivants, qui l attendent tel quel (aucun `set local role` n intervient
+-- entre la fin du scenario 3bis et le debut du scenario 4 dans la version
+-- avant ce lot).
+set local role authenticated;
+select set_config('request.jwt.claim.sub', (select actor_admin_a::text from e10_10a_context), true);
 
 -- ── 4. Gardes — devis sans ligne, statut hors {draft,sent}. ─────────────────
 do $$

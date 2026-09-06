@@ -57,6 +57,21 @@
 --      subtotals` remplace en base l ancien calcul de sous-total fait ligne
 --      par ligne cote TypeScript (B2, section 6 du corps).
 --
+--   7. (qa-review round 2, B3 volet 3, arbitrage architecte docs/api/
+--      CONVENTIONS.md §8.12ter) Le trigger d immuabilite (section 2ter) ne
+--      regardait que `old.status` : un PATCH direct posant `status` DEPUIS
+--      `draft` (par ex. {"status":"accepted"}) passait sans etre ni bloque
+--      ni trace, un jeton de membre ordinaire suffisant. Il refuse desormais
+--      aussi tout changement de `status`, y compris DEPUIS `draft`, hors
+--      echappatoire `magrit.quote_transition`. Le journal d entete (section
+--      2bis) gagne une sixieme action, `status_forced` (contrat,
+--      QuoteAuditAction) : ecrite quand `status` change sans passer par
+--      cette echappatoire — desormais un cas RESIDUEL (trigger desactive,
+--      correctif pose par une session privilegiee qui contourne aussi la
+--      garde ci-dessus), plus le cas ordinaire qu elle visait avant ce
+--      correctif. Aucune operation de ce contrat ne la produit en usage
+--      normal.
+--
 -- Nommage des codes d erreur, cote application (pas en base) :
 -- `quote.update_requires_draft`, `quote.send_forbidden_status`, `quote.
 -- send_requires_lines`, `quote.resend_immutable`. Ce fichier ne fait que
@@ -118,7 +133,7 @@ create table if not exists public.commercial_quote_header_audit (
   id             uuid primary key default gen_random_uuid(),
   quote_id       uuid not null references public.commercial_quotes(id) on delete cascade,
   change_set_id  uuid not null,
-  action         text not null check (action in ('updated', 'sent', 'resent', 'duplicated')),
+  action         text not null check (action in ('updated', 'sent', 'resent', 'duplicated', 'status_forced')),
   field          text check (field in ('global_discount_rate', 'target_net_total', 'vat_rate', 'show_discounts', 'valid_until')),
   previous_value text,
   new_value      text,
@@ -129,12 +144,14 @@ create table if not exists public.commercial_quote_header_audit (
 
   -- Forme par action (contrat QuoteAuditEntry) : 'updated' porte `field`,
   -- jamais `quote_snapshot` ; 'sent' porte `quote_snapshot`, jamais `field` ;
-  -- 'resent'/'duplicated' ne portent ni l un ni l autre (le contenu n a pas
-  -- change ; le lien vers la copie est dans `new_value`, pas un snapshot).
+  -- 'resent'/'duplicated'/'status_forced' ne portent ni l un ni l autre (le
+  -- contenu n a pas change ; 'duplicated' porte le lien vers la copie dans
+  -- `new_value`, 'status_forced' porte les deux statuts dans previous_value/
+  -- new_value — aucun des deux n a besoin d un snapshot ou d un champ).
   constraint commercial_quote_header_audit_shape check (
     (action = 'updated' and field is not null and quote_snapshot is null)
     or (action = 'sent' and field is null and quote_snapshot is not null)
-    or (action in ('resent', 'duplicated') and field is null and quote_snapshot is null)
+    or (action in ('resent', 'duplicated', 'status_forced') and field is null and quote_snapshot is null)
   )
 );
 
@@ -182,6 +199,14 @@ revoke insert, update, delete on table public.commercial_quote_header_audit from
 --    sont PAS des champs tracables : une transition a sa propre action
 --    ('sent'/'resent'), pas une entree "champ change" qui perdrait le
 --    contexte de l envoi (contrat, QuoteAuditField).
+--
+--    Sixieme branche (qa-review round 2, B3 volet 3) : `status_forced`,
+--    quand `status` change SANS que l echappatoire de transition
+--    (`magrit.quote_transition`) ne soit posee. Condition explicitement
+--    exclusive des chemins legitimes ('sent'/'resent', qui posent toujours
+--    cette echappatoire AVANT leur UPDATE) : aucun doublon d entree possible
+--    sur un envoi/renvoi normal. `field`/`quote_snapshot` restent `null`
+--    (contrat) ; `previous_value`/`new_value` portent les deux `QuoteStatus`.
 create or replace function public.commercial_quotes_write_header_audit()
 returns trigger
 language plpgsql
@@ -192,6 +217,7 @@ declare
   v_change_set uuid;
   v_actor uuid := auth.uid();
   v_actor_label text;
+  v_transition boolean;
 begin
   select email into v_actor_label from auth.users where id = v_actor;
 
@@ -243,6 +269,29 @@ begin
        old.valid_until::text, new.valid_until::text, v_actor, v_actor_label);
   end if;
 
+  -- qa-review round 2, B3 volet 3 (docs/api/CONVENTIONS.md §8.12ter) :
+  -- `status_forced`. Un changement de `status` porte TOUJOURS l une de ses
+  -- deux actions de transition legitimes ('sent'/'resent', ecrites
+  -- explicitement par api_send_commercial_quote, qui pose l echappatoire
+  -- AVANT ses deux branches) ; s il n en porte AUCUNE, c est qu il a ete pose
+  -- hors facade, et cette branche le journalise au lieu de le laisser filer
+  -- silencieusement. `actor_id`/`actor_label` peuvent etre `null` ici (session
+  -- sans utilisateur) : le contrat l autorise explicitement pour cette action.
+  if new.status is distinct from old.status then
+    begin
+      v_transition := nullif(current_setting('magrit.quote_transition', true), '')::boolean;
+    exception when others then
+      v_transition := false;
+    end;
+
+    if not coalesce(v_transition, false) then
+      insert into public.commercial_quote_header_audit
+        (quote_id, change_set_id, action, field, previous_value, new_value, actor_id, actor_label)
+      values
+        (new.id, v_change_set, 'status_forced', null, old.status, new.status, v_actor, v_actor_label);
+    end if;
+  end if;
+
   return new;
 end;
 $$;
@@ -275,6 +324,20 @@ create trigger commercial_quotes_audit_update
 -- d aucune echappatoire : elle n UPDATE JAMAIS le devis ORIGINAL (seule une
 -- ligne d audit 'duplicated' y est INSEREE), elle se contente de creer une
 -- copie fraiche a l etat 'draft'.
+--
+-- (qa-review round 2, B3 volet 3, docs/api/CONVENTIONS.md §8.12ter) Le trou
+-- laisse par la version round 1 : la condition ne regardait QUE `old.status`
+-- — un devis encore 'draft' restait donc modifiable EN BLOC, y compris sur sa
+-- propre colonne `status`. Un `PATCH .../commercial_quotes?id=eq.X` avec
+-- `{"status":"accepted"}` sur un devis 'draft' passait ainsi sans etre ni
+-- bloque ni trace (le trigger d audit ne journalisait pas `status`) : le
+-- devis atterrissait dans un etat que personne n avait decide, SANS
+-- `sent_at`, SANS instantane, SANS auteur — puis restait fige par ce meme
+-- trigger, qui ne le considere plus 'draft'. La garde ne regarde donc plus
+-- seulement le statut COURANT, mais aussi si `status` LUI-MEME change : un
+-- devis 'draft' reste modifiable librement tant que son `status` ne change
+-- pas (cas ordinaire), mais un changement de `status` — DEPUIS 'draft' comme
+-- depuis tout autre etat — exige desormais systematiquement l echappatoire.
 create or replace function public.commercial_quotes_require_draft_before_write()
 returns trigger
 language plpgsql
@@ -282,7 +345,7 @@ as $$
 declare
   v_transition boolean;
 begin
-  if old.status = 'draft' then
+  if new.status is not distinct from old.status and old.status = 'draft' then
     return new;
   end if;
 

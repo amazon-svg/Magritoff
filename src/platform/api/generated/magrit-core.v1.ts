@@ -789,6 +789,8 @@ export interface paths {
          *     RESERVE au droit `can_manage_pricing` (E10.11), meme garde et meme motif que le journal des lignes : une remise globale est un geste tarifaire, et lire ce que les autres ont consenti est une position de supervision. Refus EXPLICITE (403), jamais une page vide.
          *
          *     Ce que ce journal N EST PAS : la source de « quand ce devis a-t-il ete envoye ». Cette information est portee par `sent_at` / `sent_by` sur le devis lui-meme, lisible par tout membre de l espace — un commercial n a pas besoin d une habilitation de supervision pour savoir si son propre devis est parti.
+         *
+         *     UNE ENTREE A LIRE COMME UNE ALERTE : `status_forced`. Elle signale un changement d etat pose HORS de cette facade. Son apparition ne se traite pas comme le reste du journal (relire ce qui a ete consenti), mais comme un incident a instruire : qui a ecrit en base, et pourquoi.
          */
         get: operations["listQuoteHeaderAuditEntries"];
         put?: never;
@@ -1750,6 +1752,8 @@ export interface components {
              * @description Taux de TVA de CE devis, en surcharge explicite du regime fiscal du tenant. `null` — le cas normal — signifie « appliquer le regime du tenant » (`tenants.tax_regime`), et c est cette resolution que `totals.vat_rate` publie.
              *
              *     Existe pour le cas reel qu un regime de tenant ne couvre pas : un client a l export ou exonere alors que le tenant est en `metropole_fr`. Poser un taux par CLIENT (regime fiscal sur `customers`) serait la modelisation complete ; elle n a pas ete demandee et engagerait des mentions legales par regime. La surcharge par devis couvre le besoin sans ouvrir ce chantier.
+             *
+             *     TOUJOURS POSITIF OU NUL, comme `PriceRule.value` : un taux de TVA negatif n a pas de sens fiscal et rendrait `totals.vat_amount` negatif, donc incompatible avec `MoneyNonNegative`. Le `$ref` reste `Rate` (signe, partage avec les remises qui, elles, peuvent majorer) ; la borne est portee par la validation d ecriture (422) et par un `check` en base — voir `UpdateQuoteCommand.vat_rate`.
              */
             vat_rate: components["schemas"]["Rate"] | null;
             totals: components["schemas"]["QuoteTotals"];
@@ -1789,6 +1793,7 @@ export interface components {
             show_discounts: boolean;
             global_discount_rate: components["schemas"]["Rate"] | null;
             target_net_total: components["schemas"]["MoneyNonNegative"] | null;
+            /** @description Surcharge du taux de TVA de ce devis, meme valeur et memes regles que `Quote.vat_rate` — dont TOUJOURS POSITIF OU NUL. */
             vat_rate: components["schemas"]["Rate"] | null;
             totals: components["schemas"]["QuoteTotals"];
             warnings: components["schemas"]["QuoteWarning"][];
@@ -1832,7 +1837,11 @@ export interface components {
              *     Peut etre superieur au sous-total des lignes (majoration) comme inferieur (remise). La remise correspondante est DEDUITE et publiee dans `totals`, jamais saisie.
              */
             target_net_total?: components["schemas"]["MoneyNonNegative"] | null;
-            /** @description Surcharge du taux de TVA pour ce devis ; `null` rend le devis au regime fiscal du tenant. */
+            /**
+             * @description Surcharge du taux de TVA pour ce devis ; `null` rend le devis au regime fiscal du tenant.
+             *
+             *     TOUJOURS POSITIF OU NUL. Une valeur negative est refusee en 422 (validation d ecriture) et par un `check` sur `commercial_quotes.vat_rate` : elle produirait une TVA negative, que `QuoteTotals.vat_amount` (`MoneyNonNegative`) ne peut pas rendre — toute LECTURE du devis echouerait alors, y compris celle de la page qui le contient. Le `$ref` reste `Rate`, signe, partage avec les taux de remise qui peuvent legitimement majorer.
+             */
             vat_rate?: components["schemas"]["Rate"] | null;
         };
         /**
@@ -1956,14 +1965,22 @@ export interface components {
          *     - `duplicated` : le devis a servi d original a une copie. Ecrit sur le
          *       journal de l ORIGINAL ; `new_value` porte l identifiant de la copie,
          *       qui elle porte `source_quote_id`.
+         *
+         *     - `status_forced` : le `status` du devis a change SANS passer par une
+         *       transition sanctionnee. `previous_value` et `new_value` portent les
+         *       deux statuts (`QuoteStatus`) ; `field` et `quote_snapshot` sont
+         *       `null`. AUCUNE operation de ce contrat ne produit cette entree — et
+         *       c est precisement sa raison d etre : elle n existe que pour qu un
+         *       statut pose HORS de la facade laisse une trace au lieu de ne rien
+         *       laisser. Voir le bloc E10.10a ci-dessous.
          * @enum {string}
          */
-        QuoteAuditAction: "updated" | "sent" | "resent" | "duplicated";
+        QuoteAuditAction: "updated" | "sent" | "resent" | "duplicated" | "status_forced";
         /**
          * QuoteAuditField
          * @description Champ d entete PERSISTE dont la valeur a change. Liste fermee, meme principe que `QuoteLineAuditField` : uniquement des champs stockes, jamais une valeur derivee d eux — les totaux se recalculent a tout instant depuis les lignes et la remise globale, les auditer produirait une seconde version de la meme information.
          *
-         *     `status` n y figure PAS : une transition a son action propre (`sent`) et son instantane, pas une entree « champ change » qui perdrait le contexte de l envoi.
+         *     `status` n y figure PAS, et n y entrera pas : un changement d etat a toujours son ACTION propre, jamais une entree « champ change » qui perdrait le contexte du changement. Sanctionne, il porte l action de la transition (`sent`, son instantane, `resent`) ; pose hors facade, il porte `status_forced` (E10.10a, qa-review B3 volet 3). Le principe est donc etendu, pas amende : la liste des champs reste fermee sur des champs COMMERCIAUX, la vie du document se lit dans les actions.
          *
          *     `valid_until` y figure, y compris quand elle est calculee par le serveur au premier envoi depuis `default_validity_days` : une date de validite posee par un reglage doit se relire dans le journal comme une date posee a la main, sinon personne ne peut expliquer d ou elle vient.
          * @enum {string}
@@ -1981,17 +1998,17 @@ export interface components {
             /** @description Regroupe les entrees nees d une MEME requete : un `updateQuote` qui change la validite ET la remise globale en produit deux, reliees. */
             change_set_id: components["schemas"]["Uuid"];
             action: components["schemas"]["QuoteAuditAction"];
-            /** @description Champ modifie, pour `updated` uniquement. `null` sur `sent`, `resent` et `duplicated`, qui concernent le devis entier. */
+            /** @description Champ modifie, pour `updated` uniquement. `null` sur `sent`, `resent`, `duplicated` et `status_forced`, qui concernent le devis entier. */
             field: components["schemas"]["QuoteAuditField"] | null;
-            /** @description Valeur AVANT, en chaine, avec la serialisation du champ concerne (`Money` pour un montant, `Rate` pour un taux, `true`/`false` pour un booleen, `YYYY-MM-DD` pour une date). `null` quand le champ n avait pas de valeur, et sur `sent` / `resent` / `duplicated`. */
+            /** @description Valeur AVANT, en chaine, avec la serialisation du champ concerne (`Money` pour un montant, `Rate` pour un taux, `true`/`false` pour un booleen, `YYYY-MM-DD` pour une date). `null` quand le champ n avait pas de valeur, et sur `sent` / `resent` / `duplicated`. Sur `status_forced`, le statut AVANT (valeur de `QuoteStatus`) — seule action ou ce champ est renseigne sans que `field` le soit. */
             previous_value: string | null;
-            /** @description Valeur APRES, meme serialisation. Sur `duplicated`, l identifiant de la COPIE. `null` sur `sent` (dont l etat est porte par `quote_snapshot`) et sur `resent`. */
+            /** @description Valeur APRES, meme serialisation. Sur `duplicated`, l identifiant de la COPIE. Sur `status_forced`, le statut APRES (valeur de `QuoteStatus`). `null` sur `sent` (dont l etat est porte par `quote_snapshot`) et sur `resent`. */
             new_value: string | null;
-            /** @description Etat complet du devis (entete ET lignes) au moment du PREMIER envoi, pour `sent` ; `null` pour `updated`, `resent` et `duplicated`. Forme libre volontairement : c est une PHOTO, pas une ressource — la figer sur `QuoteDetail` obligerait a reecrire l histoire a chaque evolution du schema. */
+            /** @description Etat complet du devis (entete ET lignes) au moment du PREMIER envoi, pour `sent` ; `null` pour `updated`, `resent`, `duplicated` et `status_forced` — ce dernier constate un ecart, il ne fige pas un document (personne n a decide de remettre quoi que ce soit a un client). Forme libre volontairement : c est une PHOTO, pas une ressource — la figer sur `QuoteDetail` obligerait a reecrire l histoire a chaque evolution du schema. */
             quote_snapshot: {
                 [key: string]: unknown;
             } | null;
-            /** @description Auteur de l action. `null` pour une action systeme ; il n en existe aucune aujourd hui, toutes les ecritures d entete exigent un jeton utilisateur. */
+            /** @description Auteur de l action. `null` pour une action systeme : aucune operation de la facade n en produit, toutes les ecritures d entete qu elle expose exigent un jeton utilisateur. Le seul cas reellement attendu est `status_forced`, ou l ecriture peut venir d une session sans utilisateur (script de service, correctif en base) — et l absence d auteur y est justement une information a lire, pas un trou dans la donnee. */
             actor_id: components["schemas"]["Uuid"] | null;
             /** @description Libelle de l auteur FIGE au moment de l action (nom ou courriel). Denormalise volontairement, meme motif qu en E10.9 : un commercial qui quitte le tenant ne doit pas rendre son historique anonyme. */
             actor_label: string | null;

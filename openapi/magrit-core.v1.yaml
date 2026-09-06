@@ -2631,6 +2631,12 @@ paths:
         devis lui-meme, lisible par tout membre de l espace — un commercial
         n a pas besoin d une habilitation de supervision pour savoir si son
         propre devis est parti.
+
+
+        UNE ENTREE A LIRE COMME UNE ALERTE : `status_forced`. Elle signale un
+        changement d etat pose HORS de cette facade. Son apparition ne se
+        traite pas comme le reste du journal (relire ce qui a ete consenti),
+        mais comme un incident a instruire : qui a ecrit en base, et pourquoi.
       tags: [gestion-commerciale]
       security:
         - bearerAuth: []
@@ -5612,6 +5618,14 @@ components:
             `customers`) serait la modelisation complete ; elle n a pas ete
             demandee et engagerait des mentions legales par regime. La
             surcharge par devis couvre le besoin sans ouvrir ce chantier.
+
+
+            TOUJOURS POSITIF OU NUL, comme `PriceRule.value` : un taux de TVA
+            negatif n a pas de sens fiscal et rendrait `totals.vat_amount`
+            negatif, donc incompatible avec `MoneyNonNegative`. Le `$ref`
+            reste `Rate` (signe, partage avec les remises qui, elles, peuvent
+            majorer) ; la borne est portee par la validation d ecriture (422)
+            et par un `check` en base — voir `UpdateQuoteCommand.vat_rate`.
           oneOf:
             - $ref: '#/components/schemas/Rate'
             - type: 'null'
@@ -5736,6 +5750,9 @@ components:
             - $ref: '#/components/schemas/MoneyNonNegative'
             - type: 'null'
         vat_rate:
+          description: >-
+            Surcharge du taux de TVA de ce devis, meme valeur et memes regles
+            que `Quote.vat_rate` — dont TOUJOURS POSITIF OU NUL.
           oneOf:
             - $ref: '#/components/schemas/Rate'
             - type: 'null'
@@ -5860,6 +5877,15 @@ components:
           description: >-
             Surcharge du taux de TVA pour ce devis ; `null` rend le devis au
             regime fiscal du tenant.
+
+
+            TOUJOURS POSITIF OU NUL. Une valeur negative est refusee en 422
+            (validation d ecriture) et par un `check` sur
+            `commercial_quotes.vat_rate` : elle produirait une TVA negative,
+            que `QuoteTotals.vat_amount` (`MoneyNonNegative`) ne peut pas
+            rendre — toute LECTURE du devis echouerait alors, y compris celle
+            de la page qui le contient. Le `$ref` reste `Rate`, signe, partage
+            avec les taux de remise qui peuvent legitimement majorer.
           oneOf:
             - $ref: '#/components/schemas/Rate'
             - type: 'null'
@@ -6101,8 +6127,49 @@ components:
         - `duplicated` : le devis a servi d original a une copie. Ecrit sur le
           journal de l ORIGINAL ; `new_value` porte l identifiant de la copie,
           qui elle porte `source_quote_id`.
+
+        - `status_forced` : le `status` du devis a change SANS passer par une
+          transition sanctionnee. `previous_value` et `new_value` portent les
+          deux statuts (`QuoteStatus`) ; `field` et `quote_snapshot` sont
+          `null`. AUCUNE operation de ce contrat ne produit cette entree — et
+          c est precisement sa raison d etre : elle n existe que pour qu un
+          statut pose HORS de la facade laisse une trace au lieu de ne rien
+          laisser. Voir le bloc E10.10a ci-dessous.
       type: string
-      enum: [updated, sent, resent, duplicated]
+      enum: [updated, sent, resent, duplicated, status_forced]
+
+    # ── Pourquoi une action que la facade ne produit jamais (E10.10a) ────────
+    # `status` etait, jusqu ici, le seul champ d entete dont un changement ne
+    # laissait AUCUNE trace : il n est pas dans `QuoteAuditField` (a raison,
+    # voir ce schema), et les actions publiees ne couvraient que les deux
+    # transitions que la facade sait faire (`sent`, `resent`). Une ecriture
+    # directe (PostgREST avec un jeton de membre ordinaire, correctif manuel
+    # en base, script de service) qui posait `status` sortait donc du journal
+    # entierement — le devis changeait d etat sans auteur, sans horodatage,
+    # sans valeur precedente.
+    #
+    # La garde d immuabilite en base (trigger BEFORE UPDATE, migration
+    # 20260906160000) ferme la voie qui motivait ce constat : un devis dont le
+    # statut courant n est pas `draft` n est plus modifiable hors transition
+    # sanctionnee, l ecriture est REJETEE, rien n est persiste. Une action
+    # d audit ne remplace pas cette garde et ne la double pas : bloquer vaut
+    # toujours mieux que constater.
+    #
+    # Elle reste neanmoins au contrat, pour trois situations que la garde ne
+    # couvre pas, ou plus :
+    #  1. un statut pose depuis `draft` — la garde laisse passer, puisqu elle
+    #     ne regarde que `old.status` (a corriger cote base, voir la note de
+    #     docs/api/CONVENTIONS.md §8.12ter ; le contrat n en depend pas) ;
+    #  2. une migration future qui affaiblirait ou retirerait la garde par
+    #     inadvertance — le journal, lui, est append-only et vit ailleurs ;
+    #  3. une transition future (`accepted`, `rejected`, `converted`, qu aucune
+    #     operation ne produit aujourd hui) posee a la main avant que la story
+    #     qui l introduira ne lui donne son action propre.
+    #
+    # Ce n est donc pas une action « morte » : c est le cas PAR DEFAUT du
+    # journal d entete sur le statut. Tant qu elle n apparait jamais, elle
+    # prouve que tout changement d etat est passe par la facade — et le jour
+    # ou elle apparait, elle est en soi l information a lire.
 
     QuoteAuditField:
       title: QuoteAuditField
@@ -6114,9 +6181,13 @@ components:
         une seconde version de la meme information.
 
 
-        `status` n y figure PAS : une transition a son action propre (`sent`)
-        et son instantane, pas une entree « champ change » qui perdrait le
-        contexte de l envoi.
+        `status` n y figure PAS, et n y entrera pas : un changement d etat a
+        toujours son ACTION propre, jamais une entree « champ change » qui
+        perdrait le contexte du changement. Sanctionne, il porte l action de
+        la transition (`sent`, son instantane, `resent`) ; pose hors facade,
+        il porte `status_forced` (E10.10a, qa-review B3 volet 3). Le principe
+        est donc etendu, pas amende : la liste des champs reste fermee sur des
+        champs COMMERCIAUX, la vie du document se lit dans les actions.
 
 
         `valid_until` y figure, y compris quand elle est calculee par le
@@ -6168,7 +6239,8 @@ components:
         field:
           description: >-
             Champ modifie, pour `updated` uniquement. `null` sur `sent`,
-            `resent` et `duplicated`, qui concernent le devis entier.
+            `resent`, `duplicated` et `status_forced`, qui concernent le devis
+            entier.
           oneOf:
             - $ref: '#/components/schemas/QuoteAuditField'
             - type: 'null'
@@ -6178,6 +6250,8 @@ components:
             (`Money` pour un montant, `Rate` pour un taux, `true`/`false` pour
             un booleen, `YYYY-MM-DD` pour une date). `null` quand le champ
             n avait pas de valeur, et sur `sent` / `resent` / `duplicated`.
+            Sur `status_forced`, le statut AVANT (valeur de `QuoteStatus`) —
+            seule action ou ce champ est renseigne sans que `field` le soit.
           oneOf:
             - type: string
               maxLength: 64
@@ -6185,7 +6259,8 @@ components:
         new_value:
           description: >-
             Valeur APRES, meme serialisation. Sur `duplicated`, l identifiant
-            de la COPIE. `null` sur `sent` (dont l etat est porte par
+            de la COPIE. Sur `status_forced`, le statut APRES (valeur de
+            `QuoteStatus`). `null` sur `sent` (dont l etat est porte par
             `quote_snapshot`) et sur `resent`.
           oneOf:
             - type: string
@@ -6194,8 +6269,11 @@ components:
         quote_snapshot:
           description: >-
             Etat complet du devis (entete ET lignes) au moment du PREMIER
-            envoi, pour `sent` ; `null` pour `updated`, `resent` et
-            `duplicated`. Forme libre volontairement : c est une PHOTO, pas une
+            envoi, pour `sent` ; `null` pour `updated`, `resent`,
+            `duplicated` et `status_forced` — ce dernier constate un ecart,
+            il ne fige pas un document (personne n a decide de remettre quoi
+            que ce soit a un client).
+            Forme libre volontairement : c est une PHOTO, pas une
             ressource — la figer sur `QuoteDetail` obligerait a reecrire
             l histoire a chaque evolution du schema.
           type:
@@ -6204,9 +6282,13 @@ components:
           additionalProperties: true
         actor_id:
           description: >-
-            Auteur de l action. `null` pour une action systeme ; il n en existe
-            aucune aujourd hui, toutes les ecritures d entete exigent un jeton
-            utilisateur.
+            Auteur de l action. `null` pour une action systeme : aucune
+            operation de la facade n en produit, toutes les ecritures d entete
+            qu elle expose exigent un jeton utilisateur. Le seul cas reellement
+            attendu est `status_forced`, ou l ecriture peut venir d une session
+            sans utilisateur (script de service, correctif en base) — et
+            l absence d auteur y est justement une information a lire, pas un
+            trou dans la donnee.
           oneOf:
             - $ref: '#/components/schemas/Uuid'
             - type: 'null'
