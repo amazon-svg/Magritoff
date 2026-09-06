@@ -1485,8 +1485,18 @@ paths:
     patch:
       operationId: updateQuote
       summary: >-
-        Modifie l entete d un devis brouillon : validite, affichage des
-        remises (CA6). Jamais le numero ni le client.
+        Modifie l entete d un devis BROUILLON : validite, affichage des
+        remises (CA6), remise globale (E10.10a). Jamais le numero ni le
+        client.
+
+
+        GARDE D ETAT (E10.10a) : refuse en 409 `quote.update_requires_draft`
+        des que `status` vaut autre chose que `draft`. Jusqu a cette story,
+        aucune operation ne produisait un autre statut et la garde manquait
+        sans consequence — dette datee et tracee
+        (docs/api/CONVENTIONS.md §8.6, p4), soldee ici, en meme temps
+        qu apparait le premier statut qui la rend necessaire. Pour modifier un
+        devis envoye : le dupliquer (`duplicateQuote`).
       tags: [gestion-commerciale]
       security:
         - bearerAuth: []
@@ -1533,7 +1543,24 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
-          $ref: '#/components/responses/Conflict'
+          description: >-
+            Soit la precondition `If-Match` est perimee
+            (`api.resource_conflict`), soit le devis n est plus a l etat
+            brouillon et n est donc plus modifiable (E10.10a,
+            `quote.update_requires_draft`). Les deux portent `current_state`.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          description: >-
+            Corps refuse a la validation, notamment `global_discount_rate` et
+            `target_net_total` envoyes ENSEMBLE, ou un taux de remise globale
+            superieur a `"1.0000"` (`api.validation_failed`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
         '428':
           $ref: '#/components/responses/PreconditionRequired'
 
@@ -2116,6 +2143,516 @@ paths:
                         type: array
                         items:
                           $ref: '#/components/schemas/QuoteLineAuditEntry'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ForbiddenCapability'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+# ----------------------------------------------------------------------------
+# story E10.10a — Remise globale de devis, envoi (`draft` -> `sent`),
+# duplication. PREMIERE story a faire porter au devis un statut autre que
+# `draft`, et par la a rendre opposable la garde d etat que E10.3 avait laissee
+# en dette (docs/api/CONVENTIONS.md §8.6, p4).
+#
+# Cadrage produit (Arnaud, 04/09 puis arbitrage du 06/09), tel quel :
+#  1. un commercial declenche EXPLICITEMENT l envoi d un devis ; l envoi fait
+#     trois choses : transition `draft` -> `sent`, impression, mise a
+#     disposition dans la boutique du client ;
+#  2. `show_discounts` est un CHOIX du commercial, jamais une consequence
+#     automatique de l envoi ;
+#  3. un devis `sent` ne se modifie plus ; pour le modifier on le DUPLIQUE.
+#     Mais on doit pouvoir le RENVOYER tel quel — l action de transmission est
+#     rejouable, le contenu ne l est pas ;
+#  4. une remise complementaire s applique a l ENSEMBLE du devis, en plus des
+#     remises par ligne d E10.9 : « soit appliquer un taux, soit formaliser un
+#     prix », et elle peut etre NEGATIVE (vendre au-dessus du prix public) ;
+#  5. une duree de validite par defaut au niveau du tenant, surchargeable
+#     devis par devis ;
+#  6. la TVA s applique EN BAS du devis (total TTC).
+#
+# Le point 4 est le miroir exact d E10.9 au niveau du devis : le commercial
+# pose un PRIX (`target_net_total`) ou un TAUX (`global_discount_rate`), et le
+# montant de remise est DEDUIT (`totals.global_discount`), jamais saisi. Une
+# premiere redaction de ce contrat proposait un `global_discount_amount`
+# saisissable : c etait reintroduire au niveau devis le troisieme point de
+# verite que le CA2 d E10.9 interdit au niveau ligne.
+#
+# Ce que ce lot livre : 1(a) la transition et le renvoi, 2, 3, 4, 5 et 6. Ce
+# qu il ne livre PAS, et pourquoi — a lire avant de croire a un oubli :
+#
+#  - 1(b) IMPRESSION. Aucun mecanisme de generation de document cote SERVEUR
+#    n existe dans le depot ; l existant est un rendu HTML imprime par le
+#    navigateur (`openQuotePrint()` /
+#    `src/modules/quote-templates/ui/helpers/quote-rendering.ts`, gabarits
+#    `quote_templates`), jamais branche sur `commercial_quotes`. Le brancher
+#    est un travail d INTERFACE qui n appelle aucun endpoint nouveau : ce dont
+#    il manquait pour l ecrire proprement, ce sont les TOTAUX calcules par le
+#    serveur (`Quote.totals`) et le choix d affichage (`show_discounts`) — que
+#    ce lot publie precisement. Un vrai document (PDF stocke, horodate,
+#    empreinte, joint au devis) devient NECESSAIRE avec 1(c) et releve d une
+#    story dediee : un portail client doit montrer le document ENVOYE, pas un
+#    re-rendu de donnees vivantes. Tant que le devis `sent` est immuable (point
+#    3), le re-rendu est fidele — c est ce qui rend le report tenable, pas une
+#    approximation.
+#
+#  - 1(c) MISE A DISPOSITION DANS LA BOUTIQUE DU CLIENT -> E10.10b. Contexte
+#    borne different : acteur `shop_customer_account` (E10.5) et non membre du
+#    tenant, surface `customer-portal` dont la contribution devis a ete retiree
+#    au chantier d unification (docs/api/CONVENTIONS.md §8.10), RLS a ecrire
+#    depuis zero (aujourd hui les policies de `commercial_quotes` ne parlent
+#    que de `current_user_tenant_ids()`). Aucun de ces trois chantiers n a de
+#    recouvrement avec ce lot-ci. `sent_at` et l evenement `quote.sent` sont le
+#    point d accroche laisse pour elle.
+#
+# Nommage des chemins : CA3 impose un segment de RESSOURCE au pluriel a chaque
+# position paire — `/quotes/{id}/send` serait refuse par `checkResourcePath()`,
+# a la definition de la route comme au lint du contrat. L action est donc
+# nommee par ce qu elle CREE, exactement comme
+# `/customers/{id}/siret-verifications` (E10.4) : un envoi est une
+# `transmission`, une duplication un `duplicate`. Ce n est pas un contournement
+# de la regle, c est la forme que la regle impose et que le depot pratique
+# deja. Le pluriel de `transmissions` n est d ailleurs pas de forme : un devis
+# en a bel et bien plusieurs, depuis que le renvoi est legitime.
+#
+# TVA (point 6) : AUCUN nouveau reglage fiscal n est cree. `tenants.tax_regime`
+# existe depuis la migration `20260511_02_R0` et sert deja les commandes ; ce
+# module le LIT (voir le schema `TaxRegime`) au lieu d en ouvrir un second, qui
+# aurait produit deux verites sur la fiscalite du meme tenant. Ce que ce lot
+# ajoute est une SURCHARGE par devis (`Quote.vat_rate`), pour le cas qu un
+# regime de tenant ne couvre pas — un client a l export chez un tenant en
+# metropole. Aucune gestion de regimes par client n est introduite : elle
+# engagerait des mentions legales par regime que personne n a demandees.
+# ----------------------------------------------------------------------------
+  /quotes/{quoteId}/transmissions:
+    parameters:
+      - $ref: '#/components/parameters/MagritTenant'
+    post:
+      operationId: sendQuote
+      summary: >-
+        ENVOIE un devis au client. Geste explicite du commercial (point 1 du
+        cadrage), jamais un effet de bord d une autre operation.
+
+
+        DEUX CAS, une seule operation :
+
+        - devis `draft` -> PREMIER ENVOI. Transition vers `sent`, horodatage
+          (`sent_at`, `sent_by`, `last_sent_at`), calcul de `valid_until` si
+          elle n a pas ete fixee (voir plus bas), entree d audit `sent` avec
+          instantane complet, evenement `quote.sent`.
+
+        - devis `sent` -> RENVOI (relance, courriel perdu, second
+          destinataire). AUCUNE donnee du devis ne change : ni statut, ni
+          lignes, ni remise, ni `sent_at`, ni `valid_until`. Seul
+          `last_sent_at` avance. Entree d audit `resent`, evenement
+          `quote.sent` a nouveau, avec `is_resend: true`.
+
+        Distinguer les deux dans le CONTENU et les confondre dans l ACTION est
+        exactement ce que demande le cadrage : « on doit pouvoir renvoyer un
+        devis deja envoye » sans qu il redevienne modifiable. Un renvoi n est
+        pas une regression de statut, c est une seconde remise du meme
+        document.
+
+
+        CE QUE L ENVOI FIGE, et c est le coeur de la story : a partir de
+        `sent`, le devis n est plus modifiable — ni son entete
+        (`updateQuote` -> 409 `quote.update_requires_draft`), ni ses lignes
+        (E10.9, deja garde en base par
+        `commercial_quote_lines_require_draft_quote()`), ni sa remise globale.
+        Il n existe AUCUNE operation de retour a `draft` : la seule facon de
+        MODIFIER un devis envoye est de le DUPLIQUER (point 3 du cadrage,
+        `duplicateQuote`). Le renvoi ne fait pas exception a cette regle, il
+        s exerce a contenu constant.
+
+
+        `show_discounts` DANS LE CORPS : accepte au premier envoi, ou il fixe
+        une derniere fois l affichage des remises. Sur un RENVOI, une valeur
+        DIFFERENTE de celle enregistree est refusee en 422
+        `quote.resend_immutable` — deux clients detiendraient sinon deux
+        documents differents portant le meme numero. Absent : la valeur
+        enregistree est conservee, dans les deux cas.
+
+
+        `valid_until` : si elle est encore `null` au PREMIER envoi, le serveur
+        la calcule depuis `default_validity_days` du tenant
+        (`getCommercialSettings`) — date d envoi + N jours. Le calcul se fait a
+        l ENVOI et non a la creation : une validite qui courrait depuis la
+        redaction ferait partir un brouillon vieux de trois semaines a moitie
+        perime. Une valeur posee explicitement par le commercial n est JAMAIS
+        recalculee, ni au premier envoi, ni au renvoi — le reglage est un
+        defaut, pas une regle.
+
+
+        `If-Match` EXIGE, sur un POST — seul cas du contrat, et il est
+        delibere. C est l operation qui remet un document a un tiers :
+        transmettre la version qu un collegue vient de modifier sous les yeux
+        de l appelant ne se rattrape pas, alors qu un PATCH ecrase se refait.
+        La precondition porte sur l `ETag` de `getQuote`, qui bouge deja quand
+        une ligne change (E10.9 met a jour `commercial_quotes.updated_at` par
+        trigger) : l appelant envoie donc exactement ce qu il a relu.
+
+
+        `Idempotency-Key` EXIGE : elle seule distingue un RENVOI voulu d un
+        rejeu de la meme requete apres coupure reseau. Depuis que le renvoi
+        est legitime, aucune garde d etat ne peut plus jouer ce role — deux
+        POST identiques sans cle produiraient deux envois reels. Meme parti que
+        `verifyCustomerSiret` (E10.4), qui « cree » lui aussi un acte plutot
+        qu une ligne.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/QuoteId'
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: >-
+            Cle d idempotence de l envoi (CA8, voir
+            components/parameters/IdempotencyKey). Un rejeu de la meme cle rend
+            la reponse memorisee, jamais un second envoi.
+          schema:
+            type: string
+            minLength: 8
+            maxLength: 255
+            pattern: '^[A-Za-z0-9_.:-]{8,255}$'
+        - name: If-Match
+          in: header
+          required: true
+          description: >-
+            Precondition de concurrence (CA9), reprise de l `ETag` de
+            `getQuote`. Absente -> 428 ; perimee -> 409 avec l etat courant.
+          schema:
+            type: string
+            minLength: 3
+            maxLength: 255
+            pattern: '^(W/)?"[^"]+"$'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendQuoteCommand'
+      responses:
+        '201':
+          description: >-
+            Devis envoye (ou renvoye). La representation rendue porte
+            `status: sent`, `sent_at`, `sent_by`, `last_sent_at`, et l `ETag`
+            de son etat courant.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/QuoteDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: >-
+            Soit la precondition `If-Match` est perimee
+            (`api.resource_conflict`), soit le statut du devis n autorise pas
+            l envoi (`quote.send_forbidden_status`). Les deux portent
+            `current_state`.
+
+
+            Seuls `draft` (premier envoi) et `sent` (renvoi) sont acceptes.
+            `accepted`, `rejected` et `converted` sont refuses : aucune
+            operation ne les produit aujourd hui, et laisser la porte ouverte
+            reviendrait a leguer a la story qui les introduira une decision
+            qu elle n aurait pas prise.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          description: >-
+            Devis sans aucune ligne (`quote.send_requires_lines`) — un devis
+            vide n est pas une offre, l envoyer ne serait pas une alerte a
+            afficher mais un document sans objet ; ou tentative de changer
+            `show_discounts` sur un RENVOI
+            (`quote.resend_immutable`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+
+  /quotes/{quoteId}/duplicates:
+    parameters:
+      - $ref: '#/components/parameters/MagritTenant'
+    post:
+      operationId: duplicateQuote
+      summary: >-
+        DUPLIQUE un devis : cree un NOUVEAU devis `draft`, meme client et meme
+        projet source, lignes recopiees. C est la reponse au point 3 du
+        cadrage — un devis envoye ne se modifie pas, il se reprend.
+
+
+        Autorise depuis N IMPORTE QUEL statut, y compris `draft` (variante
+        d une offre en cours) : la duplication ne consomme ni ne modifie le
+        devis source, aucune garde d etat n aurait de sens ici.
+
+
+        CE QUI EST REPRIS, et pourquoi :
+
+        - toutes les LIGNES avec leur geste commercial complet — `sale_price`,
+          `discount_rate`, `margin_variation`, `quantity`, `position`,
+          `production_price`, et les colonnes de prix resolues. Une copie qui
+          reinitialiserait les prix negocies rendrait la duplication
+          dangereuse : le commercial croirait reprendre son offre et
+          repartirait du tarif public sans le voir. Les prix ne sont donc PAS
+          re-resolus contre les regles du jour ;
+
+        - l entete commercial : `show_discounts`, la surcharge de TVA
+          (`vat_rate`) et la remise globale sous la forme ou elle a ete saisie
+          (`global_discount_rate` OU `target_net_total`).
+
+        CE QUI NE L EST PAS :
+
+        - le NUMERO — le nouveau devis en recoit un frais du compteur
+          (`DEV-AAAA-NNNNN`, E10.3 CA5). Reprendre le numero du source
+          creerait deux devis du meme nom dans l historique commercial ;
+
+        - le STATUT — toujours `draft`, quel que soit celui du source ;
+
+        - `sent_at` / `last_sent_at` / `sent_by` — la copie n a jamais ete
+          envoyee ;
+
+        - `valid_until` — REMISE A `null`, meme quand le devis source en
+          portait une. Une copie faite six mois plus tard heriterait sinon
+          d une date deja passee, et partirait perimee sans que personne ne
+          l ait decide. A `null`, elle sera calculee a son envoi depuis
+          `default_validity_days` — ce qui est le comportement attendu d une
+          offre reprise. Le commercial reste libre d en poser une autre avant
+          d envoyer.
+
+        TRACABILITE : le nouveau devis porte `source_quote_id`, et le journal
+        d entete du devis SOURCE recoit une entree `duplicated`. Les deux sens
+        sont couverts sans stocker deux fois la meme information : « d ou
+        vient ce devis » se lit sur la copie, « ce devis a-t-il ete repris »
+        se lit sur le journal de l original.
+
+
+        Le journal des LIGNES de la copie est alimente automatiquement par le
+        trigger d E10.9 (une entree `added` par ligne, avec son instantane) :
+        les prix de la copie ne sont donc jamais orphelins d explication.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/QuoteId'
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: >-
+            Cle d idempotence de la creation (CA8). Un rejeu rend le devis deja
+            cree, jamais un second — sans quoi une coupure reseau laisserait
+            deux copies indiscernables dans l historique.
+          schema:
+            type: string
+            minLength: 8
+            maxLength: 255
+            pattern: '^[A-Za-z0-9_.:-]{8,255}$'
+      responses:
+        '201':
+          description: Nouveau devis brouillon, avec ses lignes recopiees.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/QuoteDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /commercial-settings:
+    # Ressource SINGLETON du tenant courant : pas d identifiant au chemin, le
+    # tenant venant du jeton (CA4). Le pluriel du segment est impose par CA3,
+    # pas par une collection sous-jacente.
+    parameters:
+      - $ref: '#/components/parameters/MagritTenant'
+    get:
+      operationId: getCommercialSettings
+      summary: >-
+        Reglages commerciaux du tenant courant. Aujourd hui : la duree de
+        validite appliquee par defaut aux devis.
+
+
+        Lecture OUVERTE a tout membre de l espace, sans droit metier : c est un
+        reglage que l editeur de devis doit pouvoir afficher (« validite par
+        defaut : 30 jours ») pour que le commercial sache ce qui s appliquera
+        s il ne pose rien. Seule l ECRITURE est gardee.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: >-
+            Reglages du tenant. L `ETag` porte sur cette representation et
+            alimente le `If-Match` de `updateCommercialSettings` (CA9).
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CommercialSettings'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    patch:
+      operationId: updateCommercialSettings
+      summary: >-
+        Modifie les reglages commerciaux du tenant.
+
+
+        RESERVE au droit `can_manage_pricing` (E10.11), aujourd hui detenu par
+        les seuls `admin` de l espace. Ce n est pas un reglage d affichage :
+        fixer la duree de validite des devis d un tenant, c est fixer une
+        politique commerciale qui s applique a tout le monde. Le droit qui
+        gouverne les regles de prix gouverne aussi les regles qui encadrent les
+        devis — en ouvrir un second pour une famille voisine multiplierait les
+        habilitations sans rien clarifier.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      x-required-capabilities: [can_manage_pricing]
+      parameters:
+        - name: If-Match
+          in: header
+          required: true
+          description: >-
+            Precondition de concurrence optimiste (CA9, voir
+            components/parameters/IfMatch pour la description complete).
+          schema:
+            type: string
+            minLength: 3
+            maxLength: 255
+            pattern: '^(W/)?"[^"]+"$'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCommercialSettingsCommand'
+      responses:
+        '200':
+          description: Reglages modifies.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CommercialSettings'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ForbiddenCapability'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+
+  /quotes/{quoteId}/header-audit-entries:
+    parameters:
+      - $ref: '#/components/parameters/MagritTenant'
+    get:
+      operationId: listQuoteHeaderAuditEntries
+      summary: >-
+        Journal d audit de l ENTETE d un devis : remise globale, affichage des
+        remises, validite, envoi, duplication. LECTURE SEULE et APPEND-ONLY,
+        comme le journal des lignes (E10.9).
+
+
+        Chemin distinct de `/quotes/{quoteId}/audit-entries`, qui porte le
+        journal des LIGNES et rend des `QuoteLineAuditEntry`. Elargir ce
+        dernier a une union de deux formes changerait le type de sa reponse
+        deja publiee — interdit en v1 (§7). Le nom `header-audit-entries` dit
+        ce qu il journalise ; renommer l existant en `line-audit-entries`, plus
+        symetrique, serait cassant et n est donc pas fait.
+
+
+        RESERVE au droit `can_manage_pricing` (E10.11), meme garde et meme
+        motif que le journal des lignes : une remise globale est un geste
+        tarifaire, et lire ce que les autres ont consenti est une position de
+        supervision. Refus EXPLICITE (403), jamais une page vide.
+
+
+        Ce que ce journal N EST PAS : la source de « quand ce devis a-t-il ete
+        envoye ». Cette information est portee par `sent_at` / `sent_by` sur le
+        devis lui-meme, lisible par tout membre de l espace — un commercial
+        n a pas besoin d une habilitation de supervision pour savoir si son
+        propre devis est parti.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      x-required-capabilities: [can_manage_pricing]
+      parameters:
+        - $ref: '#/components/parameters/QuoteId'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/PageCursor'
+      responses:
+        '200':
+          description: Page d entrees d audit, de la plus recente a la plus ancienne.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/QuoteAuditEntry'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -2838,6 +3375,60 @@ webhooks:
         '204':
           description: Evenement accepte par le consommateur.
 
+  quote.sent:
+    post:
+      operationId: onQuoteSent
+      summary: >-
+        Un devis a ete envoye au client (E10.10a) : il vient de passer de
+        `draft` a `sent` et n est plus modifiable.
+
+
+        C est l evenement d accroche de la mise a disposition du devis dans la
+        boutique du client (point 1(c) du cadrage, story E10.10b) et de toute
+        notification future.
+
+
+        Emis a CHAQUE remise au client, premier envoi comme renvoi — un renvoi
+        doit re-notifier, sans quoi il ne servirait a rien. `payload.is_resend`
+        les distingue : un consommateur qui materialise le devis (portail
+        client) rafraichit son entree, un consommateur qui notifie renvoie son
+        message. Ce n est PAS une livraison en double au sens de la
+        deduplication : chaque remise a son propre `event_id`, et la regle
+        « etre idempotent sur `event_id` » reste la seule qui protege des
+        doublons de transport.
+
+
+        Distinct de `quote.created` (E10.3 / duplication) et de
+        `quote.converted` (E10.12) : ceux-la portent l apparition et la
+        transformation du devis, celui-ci sa REMISE AU CLIENT.
+      description: >-
+        `payload` est fige par `QuoteSentPayload` (`event_version: 1`) :
+        identifiants et numero, aucun montant.
+      tags: [gestion-commerciale]
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/MagritSignature'
+        - $ref: '#/components/parameters/MagritEventName'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            # Enveloppe commune RESTREINTE a la charge utile de cet evenement,
+            # meme construction que `price_rule.changed` et
+            # `quote_line.changed` : le second membre du `allOf` ne porte pas
+            # `additionalProperties: false`, sans quoi il rejetterait les
+            # champs de l enveloppe.
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/EventEnvelope'
+                - type: object
+                  properties:
+                    payload:
+                      $ref: '#/components/schemas/QuoteSentPayload'
+      responses:
+        '204':
+          description: Evenement accepte par le consommateur.
+
   quote_line.changed:
     post:
       operationId: onQuoteLineChanged
@@ -3036,12 +3627,14 @@ components:
       x-magrit-capabilities:
         can_manage_pricing: >-
           Administrer la politique tarifaire commerciale du tenant (regles de
-          prix E10.6/E10.7, marge publique standard par gamme) et consulter le
-          journal d audit des prix des lignes de devis (E10.9). Ne conditionne
+          prix E10.6/E10.7, marge publique standard par gamme) et consulter les
+          journaux d audit tarifaires d un devis : celui de ses LIGNES (E10.9)
+          comme celui de son ENTETE (E10.10a, remise globale). Ne conditionne
           NI la lecture du referentiel de prix, NI l edition d une ligne de
-          devis : arbitrer un prix sur une affaire est le geste commercial
-          ordinaire, fixer la politique qui l encadre et auditer celui des
-          autres ne l est pas.
+          devis, NI la pose d une remise globale, NI l envoi d un devis :
+          arbitrer un prix sur une affaire est le geste commercial ordinaire,
+          fixer la politique qui l encadre et auditer celui des autres ne
+          l est pas.
 
 
           DETENTION, etat au sprint 5 : ce droit est detenu par l `admin` de
@@ -3670,6 +4263,7 @@ components:
       enum:
         - quote.converted
         - quote.created
+        - quote.sent
         - quote_line.changed
         - order.step_changed
         - order.files_submitted
@@ -4580,10 +5174,24 @@ components:
     QuoteStatus:
       title: QuoteStatus
       description: >-
-        Cycle de vie du devis. Cette story ne cree et ne fait transiter que
-        `draft` : les autres valeurs existent au schema pour les stories
-        futures (E10.10 remises, E10.12 conversion en commande) et ne sont
-        jamais produites ici.
+        Cycle de vie du devis.
+
+
+        TRANSITIONS REELLEMENT SERVIES a ce jour, et par quelle operation :
+
+        - creation -> `draft` (`createQuoteFromProject` E10.3,
+          `duplicateQuote` E10.10a) ;
+
+        - `draft` -> `sent` (`sendQuote`, E10.10a). IRREVERSIBLE : aucune
+          operation ne ramene un devis a `draft`, la reprise passe par
+          `duplicateQuote`.
+
+        `accepted`, `rejected` et `converted` restent declares mais ne sont
+        produits par AUCUNE operation : `converted` viendra d E10.12
+        (conversion en commande), les deux autres d une story de suivi de
+        reponse client. Un consommateur doit les accepter en lecture — ils
+        apparaitront sans changement de forme — sans supposer qu il existe
+        aujourd hui un chemin pour les atteindre.
       type: string
       enum: [draft, sent, accepted, rejected, converted]
 
@@ -4847,6 +5455,17 @@ components:
         Devis (CA1-CA7), cree depuis un ou plusieurs elements d un projet. Le
         client est herite du projet (CA4), jamais ressaisi. Un projet peut
         donner lieu a plusieurs devis successifs (CA7).
+
+
+        E10.10a ajoute a cette entete le cycle d envoi (`sent_at`,
+        `last_sent_at`, `sent_by`), la filiation de duplication
+        (`source_quote_id`), la remise GLOBALE sous la forme ou elle a ete
+        saisie (`global_discount_rate` OU `target_net_total`), la surcharge de
+        TVA (`vat_rate`) et les TOTAUX calcules par le serveur (`totals`,
+        TVA comprise). Ces champs sont portes par la forme abregee comme par
+        `QuoteDetail` : une liste de devis sans montant obligerait l interface
+        a additionner les lignes elle-meme, exactement le calcul metier que ce
+        sprint interdit au navigateur.
       type: object
       additionalProperties: false
       required:
@@ -4854,10 +5473,19 @@ components:
         - tenant_id
         - customer_id
         - project_id
+        - source_quote_id
         - number
         - status
         - valid_until
         - show_discounts
+        - global_discount_rate
+        - target_net_total
+        - vat_rate
+        - totals
+        - warnings
+        - sent_at
+        - last_sent_at
+        - sent_by
         - created_by
         - created_at
         - updated_at
@@ -4871,10 +5499,21 @@ components:
           $ref: '#/components/schemas/Uuid'
         project_id:
           $ref: '#/components/schemas/Uuid'
+        source_quote_id:
+          description: >-
+            Devis dont celui-ci est une COPIE (`duplicateQuote`, E10.10a).
+            `null` pour un devis cree depuis un projet. Filiation informative :
+            elle n emporte aucune synchronisation — les deux devis vivent leur
+            vie separement des la copie faite, et supprimer l original ne
+            supprime pas la copie.
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
         number:
           description: >-
             Numero metier unique et sequentiel par tenant et par annee (CA5),
-            attribue en base a la creation — jamais calcule cote client.
+            attribue en base a la creation — jamais calcule cote client. Une
+            copie recoit un numero FRAIS, jamais celui de son original.
           type: string
           pattern: '^DEV-[0-9]{4}-[0-9]{5}$'
           examples:
@@ -4890,9 +5529,138 @@ components:
             - type: 'null'
         show_discounts:
           description: >-
-            Affichage des remises sur le devis. Point d extension E10.10 :
-            `false` par defaut tant que cette story n est pas livree.
+            Le devis remis au client DETAILLE-T-IL les remises accordees ?
+            Choix EXPLICITE du commercial (point 2 du cadrage E10.10a),
+            jamais une consequence automatique de l envoi : il se pose par
+            `updateQuote` tant que le devis est brouillon, et se confirme ou
+            se corrige une derniere fois dans le corps de `sendQuote`.
+
+
+            Ce champ ne change AUCUN montant. Il ne pilote que ce que le
+            document imprime montre : le prix client d origine barre et la
+            remise consentie, ou seulement le prix de vente. Un integrateur
+            qui l ignorerait afficherait des remises que le commercial avait
+            choisi de taire.
           type: boolean
+        global_discount_rate:
+          description: >-
+            Remise GLOBALE exprimee en TAUX, appliquee au sous-total des lignes
+            APRES leurs propres remises (point 4 du cadrage E10.10a).
+            `"0.0500"` retranche 5 % du sous-total. `null` quand la remise
+            globale est absente ou exprimee par un prix cible.
+
+
+            SIGNE : positif quand le commercial descend sous le total des
+            lignes, NEGATIF quand il le MAJORE — les deux sont legitimes, et
+            c est la meme regle qu au niveau ligne (`QuoteLine.discount_rate`,
+            E10.9 CA2). Vendre au-dessus du prix public est un geste
+            commercial, pas une anomalie a interdire. Aucune borne du cote de
+            la majoration.
+
+
+            Une seule borne, du cote de la remise : le taux ne depasse pas
+            `"1.0000"` (100 %, devis offert). Au-dela, le devis paierait le
+            client. Meme motif que `MoneyNonNegative` sur un prix client
+            (E10.9) : ce n est pas une borne de prudence, c est le point ou la
+            grandeur cesse d avoir un sens. Depassement -> 422
+            `api.validation_failed`.
+          oneOf:
+            - $ref: '#/components/schemas/Rate'
+            - type: 'null'
+        target_net_total:
+          description: >-
+            PRIX FINAL hors taxes vise pour l ENSEMBLE du devis, formalise par
+            le commercial (« ce devis, ce sera 4 500 € »). `null` quand la
+            remise globale est absente ou exprimee en taux. Exclusif de
+            `global_discount_rate`.
+
+
+            MIROIR EXACT du niveau ligne (E10.9 CA1/CA2) : le commercial pose
+            un PRIX ou un TAUX, jamais un montant de remise. La remise, elle,
+            est DEDUITE (`totals.global_discount`,
+            `totals.effective_discount_rate`) — la saisir directement creerait
+            un troisieme point de verite, exactement ce que CA2 interdit sur
+            une ligne. C est la raison pour laquelle ce champ n est PAS un
+            `global_discount_amount`.
+
+
+            Peut DEPASSER le sous-total des lignes : c est alors une
+            majoration, et `totals.global_discount` devient negatif. Aucune
+            borne haute.
+
+
+            DIFFERENCE DE COMPORTEMENT avec la forme TAUX, qui doit guider le
+            choix du commercial et que le contrat preserve en conservant
+            l ecriture d origine plutot qu une valeur normalisee : un TAUX suit
+            le devis (si une ligne change ensuite, la remise en euros suit
+            mecaniquement), un PRIX CIBLE reste fixe (le total ne bouge pas,
+            c est la remise implicite qui absorbe la variation).
+          oneOf:
+            - $ref: '#/components/schemas/MoneyNonNegative'
+            - type: 'null'
+        vat_rate:
+          description: >-
+            Taux de TVA de CE devis, en surcharge explicite du regime fiscal du
+            tenant. `null` — le cas normal — signifie « appliquer le regime du
+            tenant » (`tenants.tax_regime`), et c est cette resolution que
+            `totals.vat_rate` publie.
+
+
+            Existe pour le cas reel qu un regime de tenant ne couvre pas : un
+            client a l export ou exonere alors que le tenant est en
+            `metropole_fr`. Poser un taux par CLIENT (regime fiscal sur
+            `customers`) serait la modelisation complete ; elle n a pas ete
+            demandee et engagerait des mentions legales par regime. La
+            surcharge par devis couvre le besoin sans ouvrir ce chantier.
+          oneOf:
+            - $ref: '#/components/schemas/Rate'
+            - type: 'null'
+        totals:
+          $ref: '#/components/schemas/QuoteTotals'
+        warnings:
+          description: >-
+            Alertes calculees par le serveur sur l ETAT DU DEVIS (distinctes de
+            `QuoteLine.warnings`, qui portent sur une ligne). Tableau vide
+            quand tout est normal, jamais bloquantes.
+          type: array
+          items:
+            $ref: '#/components/schemas/QuoteWarning'
+        sent_at:
+          description: >-
+            Instant du PREMIER envoi au client (`sendQuote`, E10.10a). `null`
+            tant que le devis n a pas ete envoye. Ne bouge JAMAIS ensuite, y
+            compris sur un renvoi : c est la date qui fait foi
+            commercialement, celle qui figure sur le document et depuis
+            laquelle court la validite.
+
+
+            Lisible par tout membre de l espace : savoir si un devis est parti
+            n est pas une information de supervision.
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+        last_sent_at:
+          description: >-
+            Instant de la DERNIERE remise au client : egal a `sent_at` apres le
+            premier envoi, puis avance a chaque renvoi. `null` avant tout
+            envoi.
+
+
+            Deux champs plutot qu un compteur de renvois : le detail des
+            transmissions (qui, quand, combien) est deja porte par le journal
+            d entete (`resent`), et le dupliquer en colonnes creerait une
+            seconde version de la meme histoire.
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+        sent_by:
+          description: >-
+            Commercial qui a declenche le PREMIER envoi. `null` avant envoi,
+            inchange par un renvoi — l auteur de chaque renvoi est dans le
+            journal d entete.
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
         created_by:
           oneOf:
             - $ref: '#/components/schemas/Uuid'
@@ -4916,10 +5684,19 @@ components:
         - tenant_id
         - customer_id
         - project_id
+        - source_quote_id
         - number
         - status
         - valid_until
         - show_discounts
+        - global_discount_rate
+        - target_net_total
+        - vat_rate
+        - totals
+        - warnings
+        - sent_at
+        - last_sent_at
+        - sent_by
         - created_by
         - created_at
         - updated_at
@@ -4933,6 +5710,10 @@ components:
           $ref: '#/components/schemas/Uuid'
         project_id:
           $ref: '#/components/schemas/Uuid'
+        source_quote_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
         number:
           type: string
           pattern: '^DEV-[0-9]{4}-[0-9]{5}$'
@@ -4946,6 +5727,36 @@ components:
             - type: 'null'
         show_discounts:
           type: boolean
+        global_discount_rate:
+          oneOf:
+            - $ref: '#/components/schemas/Rate'
+            - type: 'null'
+        target_net_total:
+          oneOf:
+            - $ref: '#/components/schemas/MoneyNonNegative'
+            - type: 'null'
+        vat_rate:
+          oneOf:
+            - $ref: '#/components/schemas/Rate'
+            - type: 'null'
+        totals:
+          $ref: '#/components/schemas/QuoteTotals'
+        warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuoteWarning'
+        sent_at:
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+        last_sent_at:
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+        sent_by:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
         created_by:
           oneOf:
             - $ref: '#/components/schemas/Uuid'
@@ -4982,19 +5793,567 @@ components:
     UpdateQuoteCommand:
       title: UpdateQuoteCommand
       description: >-
-        Modification partielle de l entete d un devis : validite, affichage
-        des remises (CA6). Jamais le numero, le client ou le projet source.
+        Modification partielle de l entete d un devis BROUILLON : validite,
+        affichage des remises (CA6), remise globale (E10.10a). Jamais le
+        numero, le client, le projet source, le statut ni les totaux.
+
+
+        Le STATUT n est pas un champ de cette commande, et ne le sera pas : une
+        transition a des effets propres (horodatage, evenement, figeage) qui ne
+        sont pas ceux d une mise a jour de champ. Elle a donc son operation —
+        `sendQuote`. Accepter `status: sent` ici rendrait l envoi invisible
+        dans les journaux d appel et contournerait ses propres verifications.
+
+
+        Les TOTAUX ne s ecrivent pas davantage : ils sont derives des lignes et
+        de la remise globale (`QuoteTotals`).
       type: object
       additionalProperties: false
       minProperties: 1
+      # Les deux ecritures de la remise globale sont exclusives : le serveur n a
+      # pas a arbitrer laquelle l appelant voulait vraiment. Meme construction
+      # que `UpdateQuoteLineCommand` (`sale_price` / `margin_rate`) — et meme
+      # doctrine : on saisit un PRIX ou un TAUX, jamais un montant de remise,
+      # qui est deduit.
+      not:
+        required: [global_discount_rate, target_net_total]
       properties:
         valid_until:
+          description: >-
+            Date de validite posee EXPLICITEMENT par le commercial. Une valeur
+            posee ici n est plus jamais recalculee : elle prend le pas sur
+            `default_validity_days` du tenant, que `sendQuote` n applique qu a
+            un devis dont la validite est encore `null`. La remettre a `null`
+            rend donc le devis au reglage par defaut.
           oneOf:
             - type: string
               format: date
               pattern: '^\d{4}-\d{2}-\d{2}$'
             - type: 'null'
         show_discounts:
+          type: boolean
+        global_discount_rate:
+          description: >-
+            Pose la remise globale sous forme de TAUX ; `null` la retire. Poser
+            ce champ met `target_net_total` a `null` cote serveur — il n y a
+            jamais deux remises globales sur un devis.
+
+
+            Negatif accepte (majoration) ; plafonne a `"1.0000"`.
+          oneOf:
+            - $ref: '#/components/schemas/Rate'
+            - type: 'null'
+        target_net_total:
+          description: >-
+            Pose la remise globale en FORMALISANT le prix final hors taxes du
+            devis ; `null` la retire. Poser ce champ met
+            `global_discount_rate` a `null`.
+
+
+            Peut etre superieur au sous-total des lignes (majoration) comme
+            inferieur (remise). La remise correspondante est DEDUITE et publiee
+            dans `totals`, jamais saisie.
+          oneOf:
+            - $ref: '#/components/schemas/MoneyNonNegative'
+            - type: 'null'
+        vat_rate:
+          description: >-
+            Surcharge du taux de TVA pour ce devis ; `null` rend le devis au
+            regime fiscal du tenant.
+          oneOf:
+            - $ref: '#/components/schemas/Rate'
+            - type: 'null'
+
+    # --------------------------------------------------------------------------
+    # Story E10.10a — remise globale de devis, envoi, duplication
+    # --------------------------------------------------------------------------
+    QuoteTotals:
+      title: QuoteTotals
+      description: >-
+        Totaux du devis, calcules par le SERVEUR et par lui seul. Publies sur
+        toute representation d un devis (liste comprise) pour qu aucune
+        interface n ait a additionner des lignes, appliquer une remise ou
+        deriver une TVA : un total calcule dans un navigateur est un total
+        qu aucun test de la facade ne protege.
+
+
+        Ordre de calcul, contractuel :
+
+        1. chaque ligne porte deja `sale_price`, remise de LIGNE comprise
+           (E10.9) ;
+
+        2. `lines_subtotal` = somme de ces `sale_price` ;
+
+        3. `net_total` = le prix final hors taxes. Il vaut `target_net_total`
+           si le commercial l a formalise, sinon
+           `lines_subtotal * (1 - global_discount_rate)`, sinon
+           `lines_subtotal` ;
+
+        4. `global_discount` = `lines_subtotal` - `net_total`, et
+           `effective_discount_rate` = ce montant rapporte au sous-total. Les
+           deux sont DEDUITS, jamais saisis (miroir d E10.9 CA2) ;
+
+        5. `vat_amount` = `net_total * vat_rate`, `total_incl_tax` = la somme
+           des deux.
+
+        La remise globale s applique donc APRES les remises de ligne, jamais a
+        leur place (point 4 du cadrage E10.10a) : elle porte sur ce que les
+        premieres ont deja produit, sans cumul multiplicatif.
+
+
+        LA TVA S APPLIQUE EN BAS DU DEVIS, sur le net global apres remise
+        globale — pas ligne par ligne. Un taux unique par devis suffit tant
+        qu il n existe pas de produits a taux differencies dans le catalogue ;
+        le jour ou il en existera, la decomposition par taux enrichira cet
+        objet sans en changer la forme (`vat_rate` restant le taux dominant).
+      type: object
+      additionalProperties: false
+      required:
+        - lines_subtotal
+        - global_discount
+        - effective_discount_rate
+        - net_total
+        - vat_rate
+        - vat_regime
+        - vat_amount
+        - total_incl_tax
+      properties:
+        lines_subtotal:
+          description: >-
+            Somme des `sale_price` des lignes du devis, hors taxes. `"0.00"`
+            sur un devis sans ligne.
+          $ref: '#/components/schemas/MoneyNonNegative'
+        global_discount:
+          description: >-
+            Remise globale EFFECTIVEMENT appliquee, en euros :
+            `lines_subtotal` - `net_total`. `"0.00"` en l absence de remise
+            globale.
+
+
+            SIGNE, comme `QuoteLine.discount_rate` (E10.9) : positif quand le
+            devis descend sous le total de ses lignes, NEGATIF quand il le
+            majore. Une majoration n est pas une anomalie a plafonner, c est un
+            geste commercial que le cadrage demande explicitement de rendre
+            possible.
+          $ref: '#/components/schemas/Money'
+        effective_discount_rate:
+          description: >-
+            `global_discount` rapporte a `lines_subtotal`, arrondi a quatre
+            decimales. Egal a `global_discount_rate` quand c est cette forme
+            qui a ete saisie ; DEDUIT quand le commercial a formalise un prix
+            cible. Publie pour que le document imprime puisse annoncer « remise
+            5 % » sans qu aucune interface ne refasse la division.
+
+
+            `null` quand `lines_subtotal` vaut `"0.00"` (aucune base de remise)
+            ou quand le rapport sort de l intervalle representable par un
+            `numeric(6,4)` — memes deux cas nommes que sur une ligne, plutot
+            qu un zero trompeur.
+          oneOf:
+            - $ref: '#/components/schemas/Rate'
+            - type: 'null'
+        net_total:
+          description: >-
+            Prix final HORS TAXES du devis, remises de ligne et remise globale
+            comprises. C est le montant que le commercial pilote, directement
+            (`target_net_total`) ou par un taux.
+          $ref: '#/components/schemas/MoneyNonNegative'
+        vat_rate:
+          description: >-
+            Taux de TVA REELLEMENT applique. Resolu dans cet ordre : surcharge
+            du devis (`Quote.vat_rate`) si elle existe, sinon taux du regime
+            fiscal du tenant (`tenants.tax_regime`).
+          $ref: '#/components/schemas/Rate'
+        vat_regime:
+          description: >-
+            Regime fiscal qui a fourni le taux, quand il vient du tenant.
+            `null` quand le devis porte une surcharge explicite : aucun regime
+            ne serait alors exact, et en nommer un serait une mention legale
+            fausse sur un document.
+
+
+            Publie parce qu un devis imprime ne porte pas qu un taux : un
+            tenant en `franchise_tva` doit afficher « TVA non applicable, art.
+            293 B du CGI », un export « autoliquidation ». Le taux seul
+            (`"0.0000"`) ne permet pas de choisir la mention.
+          oneOf:
+            - $ref: '#/components/schemas/TaxRegime'
+            - type: 'null'
+        vat_amount:
+          description: '`net_total` * `vat_rate`, arrondi au centime.'
+          $ref: '#/components/schemas/MoneyNonNegative'
+        total_incl_tax:
+          description: >-
+            `net_total` + `vat_amount`. Total toutes taxes comprises porte en
+            bas du devis.
+          $ref: '#/components/schemas/MoneyNonNegative'
+
+    TaxRegime:
+      title: TaxRegime
+      description: >-
+        Regime fiscal du tenant. REPRIS TEL QUEL de l existant, jamais
+        redefini : la colonne `tenants.tax_regime` (migration
+        `20260511_02_R0`) et la table de taux
+        `src/modules/orders/ui/helpers/tax.ts` portent deja cette notion pour
+        les commandes boutique. Introduire un second reglage de TVA propre au
+        module Gestion commerciale aurait cree deux verites sur la fiscalite du
+        MEME tenant.
+
+
+        Taux associes, tels qu ils existent dans le produit : `metropole_fr`
+        20 %, `dom_tom` 8,5 %, `franchise_tva` / `export_eu` / `export_world`
+        0 %. Cette correspondance est une donnee LEGALE, pas un reglage : elle
+        vit cote serveur pour ce module, et non dans le helper d interface
+        historique — un taux de TVA resolu dans un navigateur est exactement ce
+        que ce sprint interdit.
+      type: string
+      enum: [metropole_fr, dom_tom, franchise_tva, export_eu, export_world]
+
+    QuoteWarningCode:
+      title: QuoteWarningCode
+      description: >-
+        Motif d alerte sur le DEVIS (par opposition a `QuoteLineWarningCode`,
+        qui porte sur une ligne). Liste ADDITIVE : un consommateur ignore un
+        code qu il ne connait pas, il n echoue jamais dessus.
+
+
+        - `validity_expired` : `valid_until` est passee. Le devis reste lisible
+          et renvoyable — rien n est bloque, et aucune transition automatique
+          n existe vers un statut « expire ». L alerte evite seulement qu un
+          devis perime soit relance sans que personne ne le voie.
+      type: string
+      enum: [validity_expired]
+
+    QuoteWarning:
+      title: QuoteWarning
+      description: >-
+        Alerte portee par un devis. Jamais bloquante : sa presence n empeche ni
+        l enregistrement, ni l envoi.
+      type: object
+      additionalProperties: false
+      required: [code, message]
+      properties:
+        code:
+          $ref: '#/components/schemas/QuoteWarningCode'
+        message:
+          description: >-
+            Phrase courte destinee a l affichage, en francais. Non
+            contractuelle : brancher un comportement sur `code`, jamais sur ce
+            texte.
+          type: string
+          minLength: 1
+          maxLength: 300
+
+    SendQuoteCommand:
+      title: SendQuoteCommand
+      description: >-
+        Corps de `sendQuote`. Volontairement minimal : l envoi n est pas une
+        mise a jour deguisee du devis, et tout ce qui peut se poser avant lui
+        se pose par `updateQuote`.
+
+
+        Un corps VIDE (`{}`) est legal et signifie « envoyer tel quel » : la
+        valeur de `show_discounts` deja enregistree est conservee. C est la
+        raison pour laquelle ce champ est optionnel ici sans que le point 2 du
+        cadrage en souffre — le choix reste explicite, il a seulement pu etre
+        fait plus tot.
+      type: object
+      additionalProperties: false
+      properties:
+        show_discounts:
+          description: >-
+            Derniere occasion de fixer l affichage des remises sur le document
+            remis au client, au moment meme ou il part. Absent : la valeur
+            enregistree est conservee. Present sur un PREMIER envoi : elle est
+            ecrite AVANT la transition, et le journal d entete en garde la
+            trace comme de toute autre modification.
+
+
+            Sur un RENVOI, une valeur differente de celle enregistree est
+            refusee en 422 `quote.resend_immutable` : le document a deja ete
+            remis, et deux versions du meme numero ne peuvent pas circuler.
+            Pour changer ce qu il montre, il faut dupliquer.
+          type: boolean
+
+    QuoteAuditAction:
+      title: QuoteAuditAction
+      description: >-
+        Nature de l evenement journalise sur l ENTETE d un devis.
+
+
+        - `updated` : un champ d entete a change (remise globale, affichage
+          des remises, validite, taux de TVA). Une entree PAR CHAMP change,
+          comme le journal des lignes ; `field` est renseigne,
+          `quote_snapshot` est `null`.
+
+        - `sent` : PREMIER envoi. `field` est `null`, et `quote_snapshot`
+          porte l etat COMPLET du devis au moment de l envoi. C est l element
+          le plus proche d un document fige que ce lot produit : tant qu aucun
+          PDF n est stocke (hors perimetre, voir le bloc E10.10a des chemins),
+          cet instantane est la seule preuve de ce qui a ete transmis.
+
+        - `resent` : remise SUIVANTE du meme document. `field` et
+          `quote_snapshot` sont `null` : le contenu n a pas pu changer depuis
+          `sent` (le devis est fige), et en refaire une photo identique
+          laisserait croire a un second document. C est l horodatage de
+          l entree, et lui seul, qui porte l information.
+
+        - `duplicated` : le devis a servi d original a une copie. Ecrit sur le
+          journal de l ORIGINAL ; `new_value` porte l identifiant de la copie,
+          qui elle porte `source_quote_id`.
+      type: string
+      enum: [updated, sent, resent, duplicated]
+
+    QuoteAuditField:
+      title: QuoteAuditField
+      description: >-
+        Champ d entete PERSISTE dont la valeur a change. Liste fermee, meme
+        principe que `QuoteLineAuditField` : uniquement des champs stockes,
+        jamais une valeur derivee d eux — les totaux se recalculent a tout
+        instant depuis les lignes et la remise globale, les auditer produirait
+        une seconde version de la meme information.
+
+
+        `status` n y figure PAS : une transition a son action propre (`sent`)
+        et son instantane, pas une entree « champ change » qui perdrait le
+        contexte de l envoi.
+
+
+        `valid_until` y figure, y compris quand elle est calculee par le
+        serveur au premier envoi depuis `default_validity_days` : une date de
+        validite posee par un reglage doit se relire dans le journal comme une
+        date posee a la main, sinon personne ne peut expliquer d ou elle vient.
+      type: string
+      enum: [global_discount_rate, target_net_total, vat_rate, show_discounts, valid_until]
+
+    QuoteAuditEntry:
+      title: QuoteAuditEntry
+      description: >-
+        Entree du journal d audit de l ENTETE d un devis (E10.10a).
+        APPEND-ONLY : jamais modifiee, jamais supprimee. Aucune operation
+        d ecriture n existe sur ce journal dans le contrat.
+
+
+        Journal DISTINCT de `QuoteLineAuditEntry` (E10.9), qui porte les
+        lignes. Deux ressources plutot qu une union de formes sur le chemin
+        deja publie : elargir le type de reponse de `listQuoteAuditEntries`
+        serait cassant en v1 (§7), et un consommateur qui lit un journal de
+        lignes n a pas a savoir departager deux formes.
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - quote_id
+        - change_set_id
+        - action
+        - field
+        - previous_value
+        - new_value
+        - quote_snapshot
+        - actor_id
+        - actor_label
+        - occurred_at
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        quote_id:
+          $ref: '#/components/schemas/Uuid'
+        change_set_id:
+          description: >-
+            Regroupe les entrees nees d une MEME requete : un `updateQuote` qui
+            change la validite ET la remise globale en produit deux, reliees.
+          $ref: '#/components/schemas/Uuid'
+        action:
+          $ref: '#/components/schemas/QuoteAuditAction'
+        field:
+          description: >-
+            Champ modifie, pour `updated` uniquement. `null` sur `sent`,
+            `resent` et `duplicated`, qui concernent le devis entier.
+          oneOf:
+            - $ref: '#/components/schemas/QuoteAuditField'
+            - type: 'null'
+        previous_value:
+          description: >-
+            Valeur AVANT, en chaine, avec la serialisation du champ concerne
+            (`Money` pour un montant, `Rate` pour un taux, `true`/`false` pour
+            un booleen, `YYYY-MM-DD` pour une date). `null` quand le champ
+            n avait pas de valeur, et sur `sent` / `resent` / `duplicated`.
+          oneOf:
+            - type: string
+              maxLength: 64
+            - type: 'null'
+        new_value:
+          description: >-
+            Valeur APRES, meme serialisation. Sur `duplicated`, l identifiant
+            de la COPIE. `null` sur `sent` (dont l etat est porte par
+            `quote_snapshot`) et sur `resent`.
+          oneOf:
+            - type: string
+              maxLength: 64
+            - type: 'null'
+        quote_snapshot:
+          description: >-
+            Etat complet du devis (entete ET lignes) au moment du PREMIER
+            envoi, pour `sent` ; `null` pour `updated`, `resent` et
+            `duplicated`. Forme libre volontairement : c est une PHOTO, pas une
+            ressource — la figer sur `QuoteDetail` obligerait a reecrire
+            l histoire a chaque evolution du schema.
+          type:
+            - object
+            - 'null'
+          additionalProperties: true
+        actor_id:
+          description: >-
+            Auteur de l action. `null` pour une action systeme ; il n en existe
+            aucune aujourd hui, toutes les ecritures d entete exigent un jeton
+            utilisateur.
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        actor_label:
+          description: >-
+            Libelle de l auteur FIGE au moment de l action (nom ou courriel).
+            Denormalise volontairement, meme motif qu en E10.9 : un commercial
+            qui quitte le tenant ne doit pas rendre son historique anonyme.
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 320
+            - type: 'null'
+        occurred_at:
+          $ref: '#/components/schemas/Timestamp'
+
+    CommercialSettings:
+      title: CommercialSettings
+      description: >-
+        Reglages commerciaux du tenant (E10.10a). Ressource SINGLETON : un
+        tenant en a exactement un, cree implicitement a sa premiere lecture
+        avec les valeurs par defaut ci-dessous — un 404 sur un reglage qui n a
+        jamais ete ouvert obligerait chaque appelant a traiter un cas
+        d initialisation qui ne l interesse pas.
+
+
+        POURQUOI UNE RESSOURCE E10 ET PAS UN REGLAGE EXISTANT — les trois
+        candidats ont ete regardes avant d en creer une :
+
+        - `userPreferences.default_delivery_zone` (module `session`) est une
+          preference d UTILISATEUR, pas un reglage de tenant : deux commerciaux
+          du meme espace y auraient deux politiques de validite differentes ;
+
+        - `updateTenantSettings` (facade HISTORIQUE, `/api/v1/tenants/...`)
+          gouverne l identite du tenant (nom, slug, plan). Aucun NOUVEL
+          endpoint n est admis sur cette facade (derogation R5,
+          docs/api/CONVENTIONS.md §8), et elle n a ni enveloppe `{data, meta}`,
+          ni `ETag`, ni journal ;
+
+        - `tenants.settings` (jsonb) est un sac libre, sans type ni garde : y
+          loger une politique commerciale la rendrait inauditable et
+          inverifiable.
+
+        A l inverse, cette ressource-ci est le domicile naturel d un reglage
+        que le sprint attend deja : le SEUIL D ALERTE DE REMISE, que E10.9 a
+        laisse en constante avec la mention « rendre le seuil configurable
+        reste a faire, et ce sera l usage naturel de `can_manage_pricing` »
+        (voir `QuoteLineWarning.threshold`). Il n est PAS livre ici — mais la
+        forme est posee pour l accueillir sans creer une seconde ressource de
+        reglages.
+
+
+        CE QU ELLE NE PORTE PAS, volontairement : le TAUX DE TVA. Le regime
+        fiscal du tenant existe deja (`tenants.tax_regime`, voir `TaxRegime`)
+        et sert les commandes ; en ajouter un second ici creerait deux verites
+        sur la fiscalite du meme tenant. La surcharge par devis
+        (`Quote.vat_rate`) couvre les cas que le regime ne couvre pas.
+      type: object
+      additionalProperties: false
+      required: [tenant_id, default_validity_days, updated_at]
+      properties:
+        tenant_id:
+          $ref: '#/components/schemas/Uuid'
+        default_validity_days:
+          description: >-
+            Nombre de jours de validite appliques a un devis dont
+            `valid_until` n a pas ete fixee, comptes A PARTIR DE SON PREMIER
+            ENVOI (`sendQuote`), jamais de sa creation.
+
+
+            `null` signifie « aucune validite par defaut » : les devis partent
+            alors sans date d expiration, ce qui est un choix legitime et
+            l etat initial d un tenant. La facade n invente pas 30 jours a la
+            place d une decision commerciale que personne n a prise.
+
+
+            Un reglage MODIFIE ne change aucun devis existant : les devis deja
+            envoyes portent leur date, les brouillons prendront la nouvelle
+            valeur a leur envoi. Recalculer l existant reecrirait des
+            engagements pris.
+          oneOf:
+            - type: integer
+              format: int32
+              minimum: 1
+              maximum: 3650
+            - type: 'null'
+        updated_at:
+          $ref: '#/components/schemas/Timestamp'
+
+    UpdateCommercialSettingsCommand:
+      title: UpdateCommercialSettingsCommand
+      description: Modification partielle des reglages commerciaux du tenant.
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        default_validity_days:
+          description: '`null` retire la validite par defaut.'
+          oneOf:
+            - type: integer
+              format: int32
+              minimum: 1
+              maximum: 3650
+            - type: 'null'
+
+    QuoteSentPayload:
+      title: QuoteSentPayload
+      description: >-
+        Charge utile de l evenement sortant `quote.sent` (`event_version: 1`).
+        Volontairement minimale, meme parti que `QuoteLineChangedPayload` : les
+        identifiants et le numero, aucun montant. Les prix commerciaux ne
+        transitent pas par le bus ; un abonne habilite relit le devis par
+        `getQuote`.
+
+
+        `customer_id` est present bien qu il soit relisible : c est lui qui
+        permet a un consommateur — au premier rang desquels le portail client
+        d E10.10b — de router l evenement vers le bon destinataire sans un
+        aller-retour de lecture, et ce n est pas une donnee tarifaire.
+
+
+        `aggregate_type` vaut `quote`, `aggregate_id` le devis envoye.
+      type: object
+      additionalProperties: false
+      required: [quote_id, customer_id, number, is_resend]
+      properties:
+        quote_id:
+          $ref: '#/components/schemas/Uuid'
+        customer_id:
+          $ref: '#/components/schemas/Uuid'
+        number:
+          description: >-
+            Numero metier du devis. Transporte parce qu il est la reference que
+            le client et le commercial s echangent : un consommateur qui
+            notifie doit pouvoir le citer sans relire le devis.
+          type: string
+          pattern: '^DEV-[0-9]{4}-[0-9]{5}$'
+        is_resend:
+          description: >-
+            `false` au premier envoi, `true` a chaque remise suivante du meme
+            document. Un consommateur en a besoin pour ne pas creer deux fois
+            la meme entree — le portail client d E10.10b doit RAFRAICHIR une
+            mise a disposition existante, pas en empiler une seconde, alors
+            qu un service de notification doit bel et bien renvoyer un
+            courriel. Deduire ce fait d un doublon d `aggregate_id` obligerait
+            chaque consommateur a tenir un etat pour repondre a une question
+            que l emetteur connait deja.
           type: boolean
 
     # --------------------------------------------------------------------------

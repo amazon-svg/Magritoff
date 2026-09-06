@@ -43,6 +43,8 @@ export type { EventEnvelopeDto, EventNameDto };
 export const OUTBOX_EVENT_VERSIONS: Readonly<Record<EventNameDto, number>> = Object.freeze({
   'quote.converted': 1,
   'quote.created': 1,
+  'quote.sent': 1,
+  'quote_line.changed': 1,
   'order.step_changed': 1,
   'order.files_submitted': 1,
   'customer.created': 1,

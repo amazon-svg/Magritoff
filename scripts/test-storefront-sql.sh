@@ -40,6 +40,7 @@ SQL_CASES=(
   tests/sql/gescom-devis-unification-pim-triggers.sql
   tests/sql/gescom-e10-9-quote-line-discounts.sql
   tests/sql/gescom-e10-11-can-manage-pricing.sql
+  tests/sql/gescom-e10-10a-quote-send-duplicate.sql
 )
 
 for sql_case in "${SQL_CASES[@]}"; do
