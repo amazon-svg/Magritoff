@@ -1,16 +1,23 @@
 /**
- * Implementation Supabase du module Devis du portail client (E10.10b-1).
+ * Implementation Supabase du module Devis du portail client (stories
+ * E10.10b-1, E10.10b-2).
  *
  * Pur relai vers `api_list_storefront_quotes`/`api_get_storefront_quote`
- * (migration 20260906170000) : ce fichier ne fait AUCUN calcul et n applique
- * AUCUN filtrage de securite — l un et l autre sont deja faits par la
- * fonction SQL avant que la ligne n atteigne ce mapping. Il normalise
- * seulement la forme des valeurs (numeric -> Money/Rate string, timestamptz
- * -> Timestamp ISO, cf. `.claude/rules/api.md`).
+ * (migration 20260906170000, renforcee 20260907000000) et
+ * `api_decide_storefront_quote` (migration 20260907000000) : ce fichier ne
+ * fait AUCUN calcul et n applique AUCUN filtrage de securite ni AUCUNE garde
+ * de decision — tout est deja fait par la fonction SQL avant que la ligne
+ * n atteigne ce mapping. Il normalise seulement la forme des valeurs
+ * (numeric -> Money/Rate string, timestamptz -> Timestamp ISO, cf.
+ * `.claude/rules/api.md`) et traduit les exceptions PL/pgSQL prefixees en
+ * erreurs de domaine (meme patron que
+ * `src/adapters/supabase/commercial-quotes-repository.ts`,
+ * `mapQuoteSendError`).
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { toIsoTimestamp } from '../../modules/_shared/application/timestamps.ts';
 import type {
+  StorefrontQuoteDecision,
   StorefrontQuoteDetailDto,
   StorefrontQuoteDto,
   StorefrontQuoteLineDto,
@@ -18,9 +25,13 @@ import type {
   StorefrontQuoteTotalsDto,
   StorefrontTaxRegime,
 } from '../../modules/storefront-quotes/api/contracts.ts';
-import type {
-  ListStorefrontQuotesCriteria,
-  StorefrontQuotesRepository,
+import {
+  StorefrontQuoteDecisionExpiredError,
+  StorefrontQuoteDecisionForbiddenDelegatedError,
+  StorefrontQuoteDecisionForbiddenStatusError,
+  type ListStorefrontQuotesCriteria,
+  type StorefrontQuoteDecisionResult,
+  type StorefrontQuotesRepository,
 } from '../../modules/storefront-quotes/application/storefront-quotes-repository.ts';
 import type { Database } from '../../types/database.types.ts';
 
@@ -53,6 +64,58 @@ export class SupabaseStorefrontQuotesRepository implements StorefrontQuotesRepos
 
     return toStorefrontQuoteDetailDto(data as Record<string, unknown>);
   }
+
+  /**
+   * E10.10b-2 — delegue ENTIEREMENT a `api_decide_storefront_quote`
+   * (`security definer`, migration 20260907000000) : visibilite, session
+   * deleguee, statut, peremption et transition ATOMIQUE (`update ... where
+   * status = 'sent'`) sont tous verifies EN BASE. Rend `null` sur les quatre
+   * causes indiscernables (comme `findById`), jamais une exception — c est la
+   * fonction elle-meme qui distingue ce cas des trois erreurs de domaine.
+   *
+   * La fonction rend `(id, customer_id)`, PAS la representation complete :
+   * `customer_id` n entre dans AUCUN schema client (liste blanche) mais le
+   * SERVICE en a besoin pour l evenement sortant. Re-lecture via
+   * `api_get_storefront_quote` (meme session) pour construire la
+   * representation CLIENT a jour — meme patron que `sendQuote()`/
+   * `duplicateQuote()` (commercial-quotes-repository.ts), qui re-lisent eux
+   * aussi apres l ecriture plutot que de dupliquer sa construction.
+   */
+  async decide(
+    sessionToken: string,
+    quoteId: string,
+    decision: StorefrontQuoteDecision,
+  ): Promise<StorefrontQuoteDecisionResult | null> {
+    const { data, error } = await this.client.rpc('api_decide_storefront_quote', {
+      p_opaque_token: sessionToken,
+      p_quote_id: quoteId,
+      p_decision: decision,
+    });
+    if (error) throw mapStorefrontQuoteDecisionError(error.message);
+
+    const row = (data ?? [])[0] as Readonly<{ id: string; customer_id: string }> | undefined;
+    if (!row) return null;
+
+    const detail = await this.findById(sessionToken, row.id);
+    if (!detail) {
+      throw new Error('Le devis decide est introuvable juste apres sa decision (defense en profondeur).');
+    }
+    return { detail, customerId: row.customer_id };
+  }
+}
+
+/** Traduit le message d exception de `api_decide_storefront_quote` en erreur de domaine (E10.10b-2). */
+function mapStorefrontQuoteDecisionError(message: string): Error {
+  if (message.includes('quote.decision_forbidden_delegated')) {
+    return new StorefrontQuoteDecisionForbiddenDelegatedError(message);
+  }
+  if (message.includes('quote.decision_forbidden_status')) {
+    return new StorefrontQuoteDecisionForbiddenStatusError(message);
+  }
+  if (message.includes('quote.decision_expired')) {
+    return new StorefrontQuoteDecisionExpiredError(message);
+  }
+  return new Error(`Decision sur le devis impossible: ${message}`);
 }
 
 function toStorefrontQuoteDto(row: Record<string, unknown>): StorefrontQuoteDto {

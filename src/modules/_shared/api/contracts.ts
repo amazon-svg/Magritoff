@@ -194,6 +194,8 @@ export const OUTBOX_EVENT_NAMES = [
   'quote.converted',
   'quote.created',
   'quote.sent',
+  'quote.accepted',
+  'quote.rejected',
   'quote_line.changed',
   'order.step_changed',
   'order.files_submitted',

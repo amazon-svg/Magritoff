@@ -6,6 +6,7 @@ export {
 } from './concurrency.ts';
 
 export {
+  deriveShopCustomerIdempotencyStorageKey,
   fingerprintRequest,
   idempotencyInProgress,
   idempotencyKeyReused,

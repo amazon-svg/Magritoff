@@ -115,6 +115,37 @@ function canonicalTarget(target: string | URL): string {
   return query.length === 0 ? target.pathname : `${target.pathname}?${query}`;
 }
 
+/**
+ * E10.10b-2 — derive la cle STOCKEE pour un `ShopCustomerPrincipal`
+ * (docs/api/CONVENTIONS.md §8.13quinquies, "trois points que dev-story ne
+ * doit pas decouvrir en route", point 1).
+ *
+ * Defaut de socle trouve par b-2 : `api_idempotency_keys` est unique sur
+ * `(tenant_id, idempotency_key)`, et jusqu a b-1 tous les porteurs de cle
+ * etaient des MEMBRES du meme espace — donc du meme cote de la confiance.
+ * Une session boutique introduit un SECOND acheteur potentiel dans le meme
+ * tenant : si deux clients differents du meme imprimeur choisissaient par
+ * hasard la MEME valeur de `Idempotency-Key` sur deux devis differents, le
+ * second aurait recu 409 `api.idempotency_key_reused` — un client empechant
+ * un AUTRE de repondre a son devis, alors que rien de leur cote ne les a mis
+ * en conflit.
+ *
+ * Correction : pour ce mode, la cle REELLEMENT stockee derive du COMPTE,
+ * jamais de l espace seul — `sca.<accountId>.<sha256(cle) hex>` (105
+ * caracteres pour un `accountId` UUID, sous la borne 255 du `check` existant,
+ * dans le meme jeu `[A-Za-z0-9_.:-]`). Deux invariants tenus par construction :
+ * la cle PRESENTEE par l appelant (celle qui apparait dans `detail` d un 409)
+ * n est jamais modifiee — seule la valeur stockee derive — et aucun autre
+ * mode d authentification n est affecte (fonction jamais appelee pour eux).
+ */
+export async function deriveShopCustomerIdempotencyStorageKey(
+  accountId: string,
+  presentedKey: string,
+): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(presentedKey));
+  return `sca.${accountId}.${toHex(digest)}`;
+}
+
 export function idempotencyKeyReused(key: string) {
   return problem({
     status: 409,

@@ -2170,6 +2170,10 @@ export type Database = {
         Args: { p_opaque_token: string; p_quote_id: string }
         Returns: Json
       }
+      api_decide_storefront_quote: {
+        Args: { p_opaque_token: string; p_quote_id: string; p_decision: string }
+        Returns: { id: string; customer_id: string }[]
+      }
       api_get_order_draft_for_identity: {
         Args: { p_opaque_token: string | null; p_order_id: string }
         Returns: Json

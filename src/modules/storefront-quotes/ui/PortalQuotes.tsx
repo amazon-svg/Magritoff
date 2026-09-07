@@ -1,19 +1,29 @@
 /**
- * E10.10b-1 — onglet « Mes devis » du portail client.
+ * E10.10b-1/E10.10b-2 — onglet « Mes devis » du portail client.
  *
- * LECTURE SEULE : liste les devis mis a disposition du client (statuts
+ * LECTURE : liste les devis mis a disposition du client (statuts
  * sent/accepted/rejected/converted, jamais draft), et permet de deplier le
  * detail d un devis (lignes, totaux). Aucun calcul ici — chaque montant
  * affiche est celui rendu par l API (`GET /storefront-quotes`,
  * `GET /storefront-quotes/{quoteId}`), filtrage `show_discounts` deja
  * applique cote serveur.
  *
- * Accepter/refuser un devis n est PAS de ce lot (E10.10b-2, à cadrer) : cette
- * page ne montre que la lecture.
+ * DECISION (E10.10b-2) : un devis `sent` NON perime peut etre accepte ou
+ * refuse — bouton visible seulement dans ce cas (`quote.status === 'sent' &&
+ * !quote.expired`), AUCUN controle de statut/peremption fait ici au-dela de
+ * cet affichage : la garde reelle est posee par la facade
+ * (`POST /storefront-quotes/{quoteId}/decisions`), qui refuse deja tout le
+ * reste (session deleguee, devis deja decide, devis perime, precondition).
+ * `If-Match` reprend l `ETag` de la DERNIERE lecture reelle du devis, jamais
+ * reconstruit ici.
  */
 import { useCallback, useState } from 'react';
 import { TEST_IDS } from '@/shared/presentation/testIds';
 import { useStorefrontQuotesList } from '@/modules/storefront-quotes/ui/hooks/useStorefrontQuotesList';
+import {
+  StorefrontQuoteDecisionConfirmDialog,
+  type PendingStorefrontQuoteDecision,
+} from '@/modules/storefront-quotes/ui/StorefrontQuoteDecisionConfirmDialog';
 import type { StorefrontQuoteDetailDto, StorefrontQuoteDto } from '@/modules/storefront-quotes';
 
 interface Props {
@@ -28,25 +38,24 @@ const STATUS_LABELS: Readonly<Record<StorefrontQuoteDto['status'], string>> = {
 };
 
 export function PortalQuotes({ hasStorefrontSession = false }: Props) {
-  const { quotes, loading, error, getDetail } = useStorefrontQuotesList(hasStorefrontSession);
+  const { quotes, loading, error, reload, getDetail, decide } = useStorefrontQuotesList(hasStorefrontSession);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<StorefrontQuoteDetailDto | null>(null);
+  const [detailEtag, setDetailEtag] = useState<string | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [pendingDecision, setPendingDecision] = useState<PendingStorefrontQuoteDecision | null>(null);
 
-  const toggle = useCallback(
+  const loadDetail = useCallback(
     async (quoteId: string) => {
-      if (expandedId === quoteId) {
-        setExpandedId(null);
-        setDetail(null);
-        return;
-      }
-      setExpandedId(quoteId);
       setDetail(null);
+      setDetailEtag(null);
       setDetailError(null);
       setDetailLoading(true);
       try {
-        setDetail(await getDetail(quoteId));
+        const { detail: loaded, etag } = await getDetail(quoteId);
+        setDetail(loaded);
+        setDetailEtag(etag);
       } catch (cause) {
         console.warn('[PortalQuotes] lecture du devis impossible:', cause);
         setDetailError(cause instanceof Error ? cause.message : 'Erreur de chargement');
@@ -54,8 +63,38 @@ export function PortalQuotes({ hasStorefrontSession = false }: Props) {
         setDetailLoading(false);
       }
     },
-    [expandedId, getDetail],
+    [getDetail],
   );
+
+  const toggle = useCallback(
+    async (quoteId: string) => {
+      if (expandedId === quoteId) {
+        setExpandedId(null);
+        setDetail(null);
+        setDetailEtag(null);
+        return;
+      }
+      setExpandedId(quoteId);
+      await loadDetail(quoteId);
+    },
+    [expandedId, loadDetail],
+  );
+
+  const confirmDecision = useCallback(async (): Promise<string | null> => {
+    if (!pendingDecision || !detailEtag) {
+      return 'Le devis doit être relu avant de confirmer votre choix.';
+    }
+    try {
+      const { detail: updated, etag } = await decide(pendingDecision.quoteId, pendingDecision.decision, detailEtag);
+      setDetail(updated);
+      setDetailEtag(etag);
+      await reload();
+      return null;
+    } catch (cause) {
+      console.warn('[PortalQuotes] decision impossible:', cause);
+      return cause instanceof Error ? cause.message : 'Votre réponse n’a pas pu être enregistrée.';
+    }
+  }, [decide, detailEtag, pendingDecision, reload]);
 
   return (
     <div className="max-w-5xl mx-auto px-9 py-12" style={{ fontFamily: 'var(--font-ui)' }}>
@@ -154,12 +193,45 @@ export function PortalQuotes({ hasStorefrontSession = false }: Props) {
                       </tbody>
                     </table>
                   ) : null}
+
+                  {/* E10.10b-2 — visible seulement pour un devis sent NON perime :
+                      simple affichage, la garde reelle est posee par la facade. */}
+                  {detail && detail.status === 'sent' && !detail.expired && (
+                    <div className="flex items-center gap-2 mt-4 pt-4 border-t border-line-2">
+                      <button
+                        type="button"
+                        data-testid={TEST_IDS.shop.accountQuoteAcceptBtn}
+                        data-quote-id={quote.id}
+                        onClick={() => setPendingDecision({ quoteId: quote.id, number: quote.number, decision: 'accepted' })}
+                        className="px-3.5 py-2 rounded border border-line bg-ink text-paper hover:bg-ink/90"
+                        style={{ fontSize: '13px', fontWeight: 500 }}
+                      >
+                        Accepter le devis
+                      </button>
+                      <button
+                        type="button"
+                        data-testid={TEST_IDS.shop.accountQuoteRejectBtn}
+                        data-quote-id={quote.id}
+                        onClick={() => setPendingDecision({ quoteId: quote.id, number: quote.number, decision: 'rejected' })}
+                        className="px-3.5 py-2 rounded border border-line bg-paper text-ink-muted hover:text-ink hover:border-ink-mute-2"
+                        style={{ fontSize: '13px' }}
+                      >
+                        Refuser
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </li>
           ))}
         </ul>
       )}
+
+      <StorefrontQuoteDecisionConfirmDialog
+        pending={pendingDecision}
+        onConfirm={confirmDecision}
+        onClose={() => setPendingDecision(null)}
+      />
     </div>
   );
 }

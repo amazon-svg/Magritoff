@@ -31,6 +31,7 @@ import {
 import {
   assertScopes,
   assertUserPrincipal,
+  deriveShopCustomerIdempotencyStorageKey,
   fingerprintRequest,
   idempotencyInProgress,
   idempotencyKeyReused,
@@ -293,9 +294,22 @@ export function createGescomApiHandler(options: GescomApiHandlerOptions) {
       if (route.createsResource) {
         const key = readIdempotencyKey(request, true);
         if (key === null) throw internalError();
+        // E10.10b-2 — pour une session boutique, la cle STOCKEE derive du
+        // COMPTE, jamais de l espace seul (docs/api/CONVENTIONS.md
+        // §8.13quinquies, defaut de socle trouve a l ouverture de l ecriture
+        // a un acteur non-membre) : deux acheteurs distincts du meme
+        // imprimeur ne se bloquent plus mutuellement en choisissant par
+        // hasard la meme valeur de cle sur deux devis differents. La cle
+        // PRESENTEE par l appelant (`key`, ci-dessous dans `idempotencyKeyReused`)
+        // reste inchangee ; seule la cle stockee derive. Aucun autre mode
+        // d authentification n est affecte.
+        const storageKey =
+          principal.kind === 'shop_customer'
+            ? await deriveShopCustomerIdempotencyStorageKey(principal.accountId, key)
+            : key;
         idempotency = {
           tenantId: principal.tenantId,
-          key,
+          key: storageKey,
           // L empreinte couvre la query : deux POST au meme chemin avec des
           // query differentes ne sont pas la meme requete.
           fingerprint: await fingerprintRequest(request.method, url, input),

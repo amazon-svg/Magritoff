@@ -271,6 +271,13 @@ export const TEST_IDS = {
     accountQuotesEmpty: 'shop-account-quotes-empty',
     accountQuoteRow: 'shop-account-quote-row',
     accountQuoteDetail: 'shop-account-quote-detail',
+    // E10.10b-2 — decision du client (accepter/refuser un devis, PortalQuotes)
+    accountQuoteAcceptBtn: 'shop-account-quote-accept-btn',
+    accountQuoteRejectBtn: 'shop-account-quote-reject-btn',
+    accountQuoteDecisionConfirmModal: 'shop-account-quote-decision-confirm-modal',
+    accountQuoteDecisionConfirmBtn: 'shop-account-quote-decision-confirm-btn',
+    accountQuoteDecisionCancelBtn: 'shop-account-quote-decision-cancel-btn',
+    accountQuoteDecisionError: 'shop-account-quote-decision-error',
     // S7.9 — Bandeau Reprendre riche (home) + compact (pages gammes)
     resumeBanner: 'shop-resume-banner',
     resumeChipCart: 'shop-resume-chip-cart',

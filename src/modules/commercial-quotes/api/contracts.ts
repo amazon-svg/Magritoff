@@ -195,6 +195,8 @@ export const quoteSchema = z
     sent_at: timestampSchema.nullable(),
     last_sent_at: timestampSchema.nullable(),
     sent_by: uuidSchema.nullable(),
+    decided_at: timestampSchema.nullable(),
+    decided_by_account_id: uuidSchema.nullable(),
     created_by: uuidSchema.nullable(),
     created_at: timestampSchema,
     updated_at: timestampSchema,
@@ -220,6 +222,8 @@ export const quoteDetailSchema = z
     sent_at: timestampSchema.nullable(),
     last_sent_at: timestampSchema.nullable(),
     sent_by: uuidSchema.nullable(),
+    decided_at: timestampSchema.nullable(),
+    decided_by_account_id: uuidSchema.nullable(),
     created_by: uuidSchema.nullable(),
     created_at: timestampSchema,
     updated_at: timestampSchema,
@@ -280,7 +284,15 @@ export const sendQuoteCommandSchema = z
 // facade (PATCH direct, correctif en base). Aucune operation du contrat ne
 // la produit ; `previous_value`/`new_value` portent alors les deux
 // `QuoteStatus`, `field`/`quote_snapshot` restent `null`.
-export const quoteAuditActionSchema = z.enum(['updated', 'sent', 'resent', 'duplicated', 'status_forced']);
+export const quoteAuditActionSchema = z.enum([
+  'updated',
+  'sent',
+  'resent',
+  'duplicated',
+  'status_forced',
+  'accepted',
+  'rejected',
+]);
 
 export const quoteAuditFieldSchema = z.enum([
   'global_discount_rate',

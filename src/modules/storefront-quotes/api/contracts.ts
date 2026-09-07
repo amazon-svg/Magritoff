@@ -115,12 +115,35 @@ export const storefrontQuoteDetailSchema = z
 
 export const storefrontQuotesListSchema = z.array(storefrontQuoteSchema);
 
+/**
+ * Story E10.10b-2 — reponse du CLIENT a un devis qui lui a ete remis.
+ * Enumeration a DEUX valeurs, volontairement DISJOINTE de
+ * `storefrontQuoteStatusSchema` bien qu elle en reprenne les mots : celle-ci
+ * est une ENTREE, l autre une SORTIE. `sent`/`converted` n y figurent pas —
+ * pas parce qu ils seraient refuses par une garde d etat, ils n ont aucun
+ * sens comme decision de client (contrat, schema `StorefrontQuoteDecision`).
+ */
+export const storefrontQuoteDecisionSchema = z.enum(['accepted', 'rejected']);
+
+/**
+ * Corps de `POST /storefront-quotes/{quoteId}/decisions`. Un objet plutot
+ * qu une valeur nue (contrat, decision #2) : la place est laissee a un motif
+ * de refus futur sans changer ni le chemin ni la forme.
+ */
+export const storefrontQuoteDecisionCommandSchema = z
+  .object({
+    decision: storefrontQuoteDecisionSchema,
+  })
+  .strict();
+
 export type StorefrontQuoteStatus = z.infer<typeof storefrontQuoteStatusSchema>;
 export type StorefrontTaxRegime = z.infer<typeof storefrontTaxRegimeSchema>;
 export type StorefrontQuoteTotalsDto = z.infer<typeof storefrontQuoteTotalsSchema>;
 export type StorefrontQuoteLineDto = z.infer<typeof storefrontQuoteLineSchema>;
 export type StorefrontQuoteDto = z.infer<typeof storefrontQuoteSchema>;
 export type StorefrontQuoteDetailDto = z.infer<typeof storefrontQuoteDetailSchema>;
+export type StorefrontQuoteDecision = z.infer<typeof storefrontQuoteDecisionSchema>;
+export type StorefrontQuoteDecisionCommand = z.infer<typeof storefrontQuoteDecisionCommandSchema>;
 
 // ---------------------------------------------------------------------------
 // Alignement de compilation contrat <-> schemas (meme garde-fou que les
@@ -128,6 +151,8 @@ export type StorefrontQuoteDetailDto = z.infer<typeof storefrontQuoteDetailSchem
 // ---------------------------------------------------------------------------
 import type {
   StorefrontQuote as StorefrontQuoteContract,
+  StorefrontQuoteDecision as StorefrontQuoteDecisionContract,
+  StorefrontQuoteDecisionCommand as StorefrontQuoteDecisionCommandContract,
   StorefrontQuoteDetail as StorefrontQuoteDetailContract,
   StorefrontQuoteLine as StorefrontQuoteLineContract,
   StorefrontQuoteStatus as StorefrontQuoteStatusContract,
@@ -142,4 +167,9 @@ export const STOREFRONT_QUOTES_CONTRACT_ALIGNMENT = Object.freeze({
   line: true as AssertAssignable<StorefrontQuoteLineDto, StorefrontQuoteLineContract>,
   quote: true as AssertAssignable<StorefrontQuoteDto, StorefrontQuoteContract>,
   detail: true as AssertAssignable<StorefrontQuoteDetailDto, StorefrontQuoteDetailContract>,
+  decision: true as AssertAssignable<StorefrontQuoteDecision, StorefrontQuoteDecisionContract>,
+  decisionCommand: true as AssertAssignable<
+    StorefrontQuoteDecisionCommand,
+    StorefrontQuoteDecisionCommandContract
+  >,
 });

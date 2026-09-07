@@ -332,14 +332,28 @@ export async function handleRequest(request: Request): Promise<Response> {
     repository: new SupabaseCommercialSettingsRepository(client),
   });
 
-  // E10.10b-1 — lecture des devis dans le portail client. Le repository est
-  // construit sur `storefrontClient` (SANS le JWT Magrit eventuellement
-  // present), jamais sur `client` : les deux fonctions SQL qu il appelle sont
-  // GRANT EXECUTE a `anon` uniquement, meme regle que les primitives
-  // storefront existantes plus haut dans ce fichier.
-  const storefrontQuotesService = new StorefrontQuotesService(
-    new SupabaseStorefrontQuotesRepository(storefrontClient),
-  );
+  // E10.10b-1/E10.10b-2 — lecture ET decision des devis dans le portail
+  // client. Le repository est construit sur `storefrontClient` (SANS le JWT
+  // Magrit eventuellement present), jamais sur `client` : les trois
+  // fonctions SQL qu il appelle sont GRANT EXECUTE a `anon` uniquement, meme
+  // regle que les primitives storefront existantes plus haut dans ce
+  // fichier. L outbox publie `quote.accepted`/`quote.rejected` (E10.10b-2)
+  // hors de la transaction SQL, meme limite deja acceptee pour
+  // `quote.created`/`quote.sent`.
+  const storefrontQuotesService = new StorefrontQuotesService({
+    repository: new SupabaseStorefrontQuotesRepository(storefrontClient),
+    outbox: new OutboxPublisher({
+      repository: bestEffortOutbox(outboxRepository, (error, events) => {
+        console.error(
+          '[magrit-api] publication outbox echouee',
+          events.map((event) => event.name),
+          error,
+        );
+      }),
+      now: () => new Date(),
+      newEventId: () => crypto.randomUUID(),
+    }),
+  });
 
   const handler = createMagritApiApplication({
     gescomServices: {

@@ -1,5 +1,6 @@
 /**
- * Client HTTP type du module Devis du portail client (story E10.10b-1).
+ * Client HTTP type du module Devis du portail client (stories E10.10b-1,
+ * E10.10b-2).
  *
  * Le compte client boutique est porte par le cookie de session
  * (`storefrontSession`) : aucun jeton ni en-tete de tenant a fournir ici, le
@@ -7,10 +8,12 @@
  * du portail, `OrdersApiClient.listPortalOrders`).
  */
 import { successEnvelopeSchema } from '../../_shared/api/index.ts';
-import { API_V1_BASE_PATH, FetchApiClient } from '../../../platform/api/index.ts';
+import { API_V1_BASE_PATH, type ApiResponseWithEtag, FetchApiClient } from '../../../platform/api/index.ts';
 import {
+  storefrontQuoteDecisionCommandSchema,
   storefrontQuoteDetailSchema,
   storefrontQuotesListSchema,
+  type StorefrontQuoteDecision,
   type StorefrontQuoteDetailDto,
   type StorefrontQuoteDto,
   type StorefrontQuoteStatus,
@@ -46,12 +49,43 @@ export class StorefrontQuotesApiClient {
     return { items: envelope.data, nextCursor: envelope.meta.next_cursor ?? null };
   }
 
-  async get(quoteId: string, signal?: AbortSignal): Promise<StorefrontQuoteDetailDto> {
-    const envelope = await this.client.request({
+  /**
+   * Rend aussi l `ETag` (E10.10b-1, publie « en prevision du If-Match de
+   * b-2 ») : necessaire pour enchainer `decide()` sans une seconde lecture.
+   */
+  async get(quoteId: string, signal?: AbortSignal): Promise<ApiResponseWithEtag<StorefrontQuoteDetailDto>> {
+    const result = await this.client.requestWithEtag({
       path: `${BASE_PATH}/${quoteId}`,
       responseSchema: successEnvelopeSchema(storefrontQuoteDetailSchema),
       ...(signal === undefined ? {} : { signal }),
     });
-    return envelope.data;
+    return { data: result.data.data, etag: result.etag };
   }
+
+  /**
+   * E10.10b-2 — ACCEPTE ou REFUSE un devis (`POST .../decisions`). `If-Match`
+   * EXIGE, reprend l `ETag` deja lu sur `get()` : accepter un devis engage une
+   * commande, la precondition garantit que le client engage EXACTEMENT le
+   * document qu il vient de lire. `Idempotency-Key` est generee ICI, jamais
+   * laissee a l appelant — un rejeu apres coupure reseau doit rendre la
+   * reponse memorisee, jamais une seconde decision.
+   */
+  async decide(
+    quoteId: string,
+    decision: StorefrontQuoteDecision,
+    ifMatch: string,
+  ): Promise<ApiResponseWithEtag<StorefrontQuoteDetailDto>> {
+    const result = await this.client.requestWithEtag({
+      method: 'POST',
+      path: `${BASE_PATH}/${quoteId}/decisions`,
+      body: storefrontQuoteDecisionCommandSchema.parse({ decision }),
+      headers: { 'Idempotency-Key': newIdempotencyKey(), 'If-Match': ifMatch },
+      responseSchema: successEnvelopeSchema(storefrontQuoteDetailSchema),
+    });
+    return { data: result.data.data, etag: result.etag };
+  }
+}
+
+function newIdempotencyKey(): string {
+  return crypto.randomUUID();
 }

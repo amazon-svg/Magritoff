@@ -135,6 +135,9 @@ type StoredQuote = Readonly<{
   sent_at: string | null;
   last_sent_at: string | null;
   sent_by: string | null;
+  /** E10.10b-2 — reponse du CLIENT. Ce faux ne represente que le cote ATELIER : aucune operation d ici ne pose jamais ces deux champs, toujours NULL. */
+  decided_at: string | null;
+  decided_by_account_id: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -343,6 +346,8 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
       sent_at: null,
       last_sent_at: null,
       sent_by: null,
+      decided_at: null,
+      decided_by_account_id: null,
       created_by: actor,
       created_at: now,
       updated_at: now,
@@ -643,6 +648,8 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
       sent_at: null,
       last_sent_at: null,
       sent_by: null,
+      decided_at: null,
+      decided_by_account_id: null,
       created_by: actor,
       created_at: now,
       updated_at: now,

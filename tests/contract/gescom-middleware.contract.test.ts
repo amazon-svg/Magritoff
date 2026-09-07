@@ -63,19 +63,40 @@ const shopCustomerPrincipal: ApiPrincipal = Object.freeze({
   sessionToken: STOREFRONT_TOKEN,
 });
 
+/**
+ * E10.10b-2 (docs/api/CONVENTIONS.md §8.13quinquies, "trois points que
+ * dev-story ne doit pas decouvrir en route", point 1) — SECOND compte, MEME
+ * tenant, necessaire au test de la reserve d idempotence : deux acheteurs
+ * distincts du meme imprimeur, chacun choisissant par hasard la MEME valeur
+ * d Idempotency-Key sur une operation differente.
+ */
+const STOREFRONT_TOKEN_2 = 'y'.repeat(40);
+const shopCustomerPrincipal2: ApiPrincipal = Object.freeze({
+  kind: 'shop_customer',
+  accountId: 'account-2',
+  shopId: 'shop-1',
+  tenantId: TENANT,
+  customerId: 'customer-2',
+  sessionKind: 'direct',
+  sessionToken: STOREFRONT_TOKEN_2,
+});
+
 const verifier: PrincipalVerifier = {
   async verify(credential) {
     if (credential.kind === 'bearer') {
       return credential.token === 'jeton-valide' ? userPrincipal : null;
     }
     if (credential.kind === 'cookie') {
-      return credential.token === STOREFRONT_TOKEN ? shopCustomerPrincipal : null;
+      if (credential.token === STOREFRONT_TOKEN) return shopCustomerPrincipal;
+      if (credential.token === STOREFRONT_TOKEN_2) return shopCustomerPrincipal2;
+      return null;
     }
     return credential.key === 'cle-studio' ? servicePrincipal : null;
   },
 };
 
 const asShopCustomer = { Cookie: `magrit-storefront=${STOREFRONT_TOKEN}` };
+const asShopCustomer2 = { Cookie: `magrit-storefront=${STOREFRONT_TOKEN_2}` };
 
 const ruleSchema = z.object({ id: z.string(), name: z.string(), value: z.string() });
 const rule = { id: RULE_ID, name: 'Fidelite', value: '0.0500' };
@@ -125,6 +146,29 @@ function buildHandler() {
         assertPrecondition(context.ifMatch, currentTag, storedRule);
         const updated = { ...storedRule, name: input.name };
         return { status: 200, data: updated, etag: await computeEntityTag(updated) };
+      },
+    }),
+    // E10.10b-2 (docs/api/CONVENTIONS.md §8.13quinquies, point 1) — route
+    // FIXTURE `shop_customer` + `createsResource`, seule combinaison qui
+    // exerce la derivation de la cle d idempotence STOCKEE par COMPTE.
+    // `decideStorefrontQuote` (storefront-quotes-routes.ts) est la premiere
+    // route reelle a cumuler les deux ; ce fixture isole le comportement du
+    // SOCLE, independamment de ce module applicatif.
+    defineGescomRoute({
+      method: 'POST',
+      path: '/price-rules/{ruleId}/fixture-decisions',
+      operationId: 'fixtureDecideAsShopCustomer',
+      authentication: 'shop_customer',
+      createsResource: true,
+      inputSchema: z.object({ decision: z.string() }),
+      dataSchema: z.object({ ruleId: z.string(), decision: z.string(), accountId: z.string() }),
+      async handle(context, input) {
+        const principal = context.principal;
+        if (principal.kind !== 'shop_customer') throw new Error('principal shop_customer attendu (fixture)');
+        return {
+          status: 201,
+          data: { ruleId: context.params['ruleId']!, decision: input.decision, accountId: principal.accountId },
+        };
       },
     }),
   ];
@@ -302,6 +346,58 @@ describe('facade Gestion commerciale : reponses contre contrat', () => {
     const body = (await response.json()) as { code: string };
     expect(body.code).toBe('identity.actor_kind_required');
   });
+
+  it(
+    'E10.10b-2 (§8.13quinquies, defaut de socle) — DEUX comptes clients distincts choisissant la MEME ' +
+      'valeur d Idempotency-Key sur DEUX ressources differentes ne se bloquent plus mutuellement',
+    async () => {
+      const key = 'meme-cle-deux-comptes-distincts-fixture';
+
+      const first = await call(`/api/v1/price-rules/${RULE_ID}/fixture-decisions`, {
+        method: 'POST',
+        headers: { ...asShopCustomer, 'Content-Type': 'application/json', 'Idempotency-Key': key },
+        body: JSON.stringify({ decision: 'accepted' }),
+      });
+      expect(first.status).toBe(201);
+
+      const second = await call(`/api/v1/price-rules/${RULE_ID}/fixture-decisions`, {
+        method: 'POST',
+        headers: { ...asShopCustomer2, 'Content-Type': 'application/json', 'Idempotency-Key': key },
+        body: JSON.stringify({ decision: 'rejected' }),
+      });
+      // AVANT le correctif (portee de la cle STOCKEE = espace seul), le
+      // second appel aurait recu 409 api.idempotency_key_reused : deux
+      // acheteurs distincts DU MEME TENANT partageaient la meme entree
+      // (tenantId, idempotency_key) — un client aurait pu en bloquer un
+      // autre par pure coincidence de valeur de cle.
+      expect(second.status).toBe(201);
+      const secondBody = (await second.json()) as { data: { accountId: string; decision: string } };
+      expect(secondBody.data.accountId).toBe('account-2');
+      expect(secondBody.data.decision).toBe('rejected');
+    },
+  );
+
+  it(
+    'E10.10b-2 — la MEME cle, pour le MEME compte, reste rejouee (pas une seconde ecriture) — ' +
+      'la derivation ne casse pas l idempotence intra-compte',
+    async () => {
+      const key = 'meme-compte-rejeu-fixture';
+      const first = await call(`/api/v1/price-rules/${RULE_ID}/fixture-decisions`, {
+        method: 'POST',
+        headers: { ...asShopCustomer, 'Content-Type': 'application/json', 'Idempotency-Key': key },
+        body: JSON.stringify({ decision: 'accepted' }),
+      });
+      expect(first.status).toBe(201);
+
+      const replay = await call(`/api/v1/price-rules/${RULE_ID}/fixture-decisions`, {
+        method: 'POST',
+        headers: { ...asShopCustomer, 'Content-Type': 'application/json', 'Idempotency-Key': key },
+        body: JSON.stringify({ decision: 'accepted' }),
+      });
+      expect(replay.status).toBe(201);
+      expect(replay.headers.get('idempotency-replayed')).toBe('true');
+    },
+  );
 
   it('CA7 — la taille de page est reportee dans meta, un curseur illisible est refuse', async () => {
     const paged = await call('/api/v1/price-rules?page[size]=10', { headers: asUser });
