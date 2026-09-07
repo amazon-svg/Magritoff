@@ -982,6 +982,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/storefront-quotes/{quoteId}/decisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * ACCEPTE ou REFUSE un devis, geste du CLIENT depuis sa boutique. Produit les statuts `accepted` et `rejected`, reserves au schema depuis E10.3 et qu aucune operation n atteignait jusqu ici.
+         *
+         *     TERMINAL, ET DANS UN SEUL SENS. Un devis `sent` va vers `accepted` ou `rejected` ; aucune operation ne revient en arriere, ne corrige une decision ni ne la retire. Un client qui se ravise ne « change pas son devis » : il en demande un nouveau, que l atelier produit par `duplicateQuote` (E10.10a) — meme regle exactement que pour un devis envoye qu on voudrait modifier.
+         *
+         *     ORDRE DES REFUS, normatif, parce qu il decide du message rendu quand plusieurs causes sont reunies :
+         *     1. devis non visible par ce compte -> 404 `quote.not_found`,
+         *        indiscernable sur les memes quatre causes que `getStorefrontQuote` ;
+         *
+         *     2. session DELEGUEE -> 403 `quote.decision_forbidden_delegated` ;
+         *     3. statut autre que `sent` -> 409 `quote.decision_forbidden_status` ;
+         *     4. devis PERIME -> 409 `quote.decision_expired` ;
+         *     5. precondition `If-Match` absente (428), trop permissive (400) ou
+         *        perimee (409 `api.resource_conflict`).
+         *
+         *     La precondition vient EN DERNIER, a l inverse de `sendQuote` qui la verifie en tete. Le motif est le message : les refus 2 a 4 portent sur l etat courant du serveur et ne se rattrapent PAS par une relecture — rendre `api.resource_conflict` inviterait le client a relire puis a reessayer un geste qui ne reussira jamais. `api.resource_conflict` ne doit etre rendu que quand relire et rejouer a une chance d aboutir.
+         *
+         *     PEREMPTION : c est l horloge du SERVEUR qui arbitre, avec l expression exacte qui calcule deja `StorefrontQuote.expired` (borne haute `valid_until` + 1 jour, exclusive, UTC — un devis valable « jusqu au » jour J le reste toute la journee J). Un `valid_until` a `null` ne perime jamais : une offre sans terme annonce n est pas une offre expiree. La verification a lieu DANS la transaction qui pose le statut, pas dans une lecture prealable : entre les deux, une seconde peut passer.
+         *
+         *     `Idempotency-Key` EXIGE. Sans elle, un rejeu apres coupure reseau recevrait 409 `quote.decision_forbidden_status` — un refus alors que la decision du client a bel et bien abouti, exactement le message qui pousse un acheteur a rappeler son commercial. Avec elle, le rejeu rend la reponse memorisee et `Idempotency-Replayed: true`. Meme parti que `sendQuote` et `verifyCustomerSiret`, qui « creent » eux aussi un acte plutot qu une ligne.
+         *
+         *     PORTEE DE LA CLE D IDEMPOTENCE, propre a ce mode : elle est nommee par le COMPTE CLIENT, pas seulement par l espace. Le magasin de cles est unique sur (espace, cle) ; deux acheteurs distincts du meme imprimeur choisissant la meme valeur de cle sur deux devis differents auraient vu le second refuse en 409 `api.idempotency_key_reused` — un client empechant un autre de repondre. Premiere operation ouverte a un acteur non membre, donc premiere fois que ce partage compte : la cle reellement stockee derive du compte de la session, la cle presentee par l appelant restant celle qui apparait dans `detail`. Aucun changement pour l appelant.
+         *
+         *     `If-Match` EXIGE, sur un POST — second cas du contrat apres `sendQuote`, meme motif porte a son terme : accepter un devis engage une commande. La precondition porte sur l `ETag` de `getStorefrontQuote`, publie par E10.10b-1 en prevision de cette operation. Elle garantit que le client engage EXACTEMENT le document qu il vient de lire, montants compris.
+         *
+         *     SESSION DELEGUEE (`session_kind = 'delegated'`) : REFUSEE, 403 `quote.decision_forbidden_delegated`. La lecture reste ouverte a ce mode (E10.10b-1) parce que regarder a la place du client aide le support ; decider a sa place l engage sur une commande qu il n a pas passee, et le journal porterait « le client a accepte » alors qu un membre de l atelier a clique. Ce n est pas une restriction d ergonomie : c est la difference entre une trace et une preuve. Si l atelier doit pouvoir enregistrer une reponse recue par telephone, cela demande une operation d ATELIER, ou l auteur est le membre et se lit comme tel — pas l assouplissement de celle-ci.
+         */
+        post: operations["decideStorefrontQuote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export interface webhooks {
     "quote.converted": {
@@ -1106,6 +1149,56 @@ export interface webhooks {
          * @description `payload` est fige par `QuoteSentPayload` (`event_version: 1`) : identifiants et numero, aucun montant.
          */
         post: operations["onQuoteSent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "quote.accepted": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Le CLIENT a accepte un devis depuis sa boutique (E10.10b-2) : il vient de passer de `sent` a `accepted`.
+         *
+         *     DEUX EVENEMENTS PLUTOT QU UN SEUL `quote.decided` porteur d un champ. Un consommateur qui n a d interet que pour les acceptations — une chaine de production qui prepare une commande — doit pouvoir s abonner sans filtrer des charges utiles ; et l abonnement est la seule granularite dont dispose un abonne du bus. Meme raison qui separe deja `quote.created`, `quote.sent` et `quote.converted`.
+         *
+         *     Emis UNE FOIS par devis : la decision est terminale, aucune operation ne la corrige ni ne la rejoue. Un `Idempotency-Key` rejoue ne reproduit AUCUN evenement, la reponse memorisee etant rendue sans seconde execution. La regle « etre idempotent sur `event_id` » reste neanmoins la seule qui protege des doublons de TRANSPORT.
+         *
+         *     Distinct de `quote.converted` (E10.12) : accepter n est pas commander. Un devis accepte reste un devis tant que l atelier n a pas cree la commande.
+         * @description `payload` est fige par `QuoteDecisionPayload` (`event_version: 1`). `aggregate_type` vaut `quote`, `aggregate_id` le devis decide.
+         */
+        post: operations["onQuoteAccepted"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "quote.rejected": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Le CLIENT a refuse un devis depuis sa boutique (E10.10b-2) : il vient de passer de `sent` a `rejected`.
+         *
+         *     Jumeau exact de `quote.accepted` — memes garanties, meme charge utile, meme unicite. Voir ce dernier pour le motif de deux noms plutot qu un evenement unique porteur d un champ.
+         *
+         *     Le MOTIF du refus ne transite pas : il n est pas collecte par E10.10b-2 (voir docs/api/CONVENTIONS.md §8.13quinquies, point ouvert). Le jour ou il le sera, il s ajoutera a `QuoteDecisionPayload` sans changement de forme.
+         * @description `payload` est fige par `QuoteDecisionPayload` (`event_version: 1`). `aggregate_type` vaut `quote`, `aggregate_id` le devis decide.
+         */
+        post: operations["onQuoteRejected"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1303,7 +1396,7 @@ export interface components {
          * @description Nom d evenement sortant, `agregat.action` en snake_case. Liste additive : une story ulterieure peut en ajouter, jamais en retirer.
          * @enum {string}
          */
-        EventName: "quote.converted" | "quote.created" | "quote.sent" | "quote_line.changed" | "order.step_changed" | "order.files_submitted" | "customer.created" | "project.created" | "price_rule.changed";
+        EventName: "quote.converted" | "quote.created" | "quote.sent" | "quote.accepted" | "quote.rejected" | "quote_line.changed" | "order.step_changed" | "order.files_submitted" | "customer.created" | "project.created" | "price_rule.changed";
         /**
          * EventEnvelope
          * @description Enveloppe versionnee d un evenement sortant (CA10). Le corps signe par `X-Magrit-Signature` est exactement la serialisation JSON de cette enveloppe, octet pour octet.
@@ -1660,9 +1753,19 @@ export interface components {
          *
          *     - `draft` -> `sent` (`sendQuote`, E10.10a). IRREVERSIBLE : aucune
          *       operation ne ramene un devis a `draft`, la reprise passe par
-         *       `duplicateQuote`.
+         *       `duplicateQuote` ;
          *
-         *     `accepted`, `rejected` et `converted` restent declares mais ne sont produits par AUCUNE operation : `converted` viendra d E10.12 (conversion en commande), les deux autres d une story de suivi de reponse client. Un consommateur doit les accepter en lecture — ils apparaitront sans changement de forme — sans supposer qu il existe aujourd hui un chemin pour les atteindre.
+         *     - `sent` -> `accepted` et `sent` -> `rejected`
+         *       (`decideStorefrontQuote`, E10.10b-2). Seules transitions de tout ce
+         *       contrat declenchees par le CLIENT et non par l atelier. TERMINALES :
+         *       aucune operation ne revient sur une decision, ne la corrige ni ne la
+         *       retire — un client qui se ravise obtient un NOUVEAU devis, par
+         *       `duplicateQuote` cote atelier, exactement comme pour un devis envoye
+         *       qu on voudrait modifier.
+         *
+         *     `converted` reste declare mais n est produit par AUCUNE operation : il viendra d E10.12 (conversion en commande). Un consommateur doit l accepter en lecture — il apparaitra sans changement de forme — sans supposer qu il existe aujourd hui un chemin pour l atteindre.
+         *
+         *     AUCUN CHEMIN de `accepted`/`rejected` vers quoi que ce soit aujourd hui, `converted` compris : E10.12 dira depuis quel(s) etat(s) une commande se cree, et ce sera sa decision, pas un heritage de celle-ci.
          * @enum {string}
          */
         QuoteStatus: "draft" | "sent" | "accepted" | "rejected" | "converted";
@@ -1757,6 +1860,8 @@ export interface components {
          * @description Devis (CA1-CA7), cree depuis un ou plusieurs elements d un projet. Le client est herite du projet (CA4), jamais ressaisi. Un projet peut donner lieu a plusieurs devis successifs (CA7).
          *
          *     E10.10a ajoute a cette entete le cycle d envoi (`sent_at`, `last_sent_at`, `sent_by`), la filiation de duplication (`source_quote_id`), la remise GLOBALE sous la forme ou elle a ete saisie (`global_discount_rate` OU `target_net_total`), la surcharge de TVA (`vat_rate`) et les TOTAUX calcules par le serveur (`totals`, TVA comprise). Ces champs sont portes par la forme abregee comme par `QuoteDetail` : une liste de devis sans montant obligerait l interface a additionner les lignes elle-meme, exactement le calcul metier que ce sprint interdit au navigateur.
+         *
+         *     E10.10b-2 y ajoute la REPONSE DU CLIENT (`decided_at`, `decided_by_account_id`) : le devis est la seule ressource de ce contrat dont l entete porte l empreinte de deux acteurs qui ne vivent pas dans la meme table d identite — un membre de l espace l envoie, un compte client boutique y repond.
          */
         Quote: {
             id: components["schemas"]["Uuid"];
@@ -1823,6 +1928,20 @@ export interface components {
             last_sent_at: components["schemas"]["Timestamp"] | null;
             /** @description Commercial qui a declenche le PREMIER envoi. `null` avant envoi, inchange par un renvoi — l auteur de chaque renvoi est dans le journal d entete. */
             sent_by: components["schemas"]["Uuid"] | null;
+            /**
+             * @description Instant ou le CLIENT a repondu au devis (`decideStorefrontQuote`, E10.10b-2). `null` tant qu il n a pas repondu ; ne bouge jamais ensuite, la decision etant terminale.
+             *
+             *     Une COLONNE et pas seulement une entree de journal, contrairement au detail des renvois : le journal d entete est reserve aux membres portant `can_manage_pricing` (E10.11), et savoir si un client a repondu n est pas une information de supervision tarifaire — c est l information la plus ordinaire du suivi commercial. Meme raisonnement exactement que `sent_at`.
+             */
+            decided_at: components["schemas"]["Timestamp"] | null;
+            /**
+             * @description COMPTE CLIENT BOUTIQUE (`shop_customer_accounts`, UM1.1 / E10.5) qui a repondu. `null` tant que le devis n a pas ete decide.
+             *
+             *     NOMME D APRES SON ESPACE DE NOMS, et non `decided_by` : ce n est PAS un utilisateur Magrit, contrairement a `sent_by` et `created_by` juste au-dessus. Trois champs d identite cote a cote dont l un ne se resout pas dans la meme table sont un piege ; le suffixe `_account_id` le desamorce a la lecture.
+             *
+             *     Aucune operation de cette facade ne resout cet identifiant en un nom aujourd hui. Le libelle FIGE du decideur se lit dans le journal d entete (`QuoteAuditEntry.actor_label` sur les actions `accepted` / `rejected`) ; ecart connu, expose dans docs/api/CONVENTIONS.md §8.13quinquies plutot que masque par un second champ denormalise qui ferait deux versions de la meme information.
+             */
+            decided_by_account_id: components["schemas"]["Uuid"] | null;
             created_by: components["schemas"]["Uuid"] | null;
             created_at: components["schemas"]["Timestamp"];
             updated_at: components["schemas"]["Timestamp"];
@@ -1850,6 +1969,8 @@ export interface components {
             sent_at: components["schemas"]["Timestamp"] | null;
             last_sent_at: components["schemas"]["Timestamp"] | null;
             sent_by: components["schemas"]["Uuid"] | null;
+            decided_at: components["schemas"]["Timestamp"] | null;
+            decided_by_account_id: components["schemas"]["Uuid"] | null;
             created_by: components["schemas"]["Uuid"] | null;
             created_at: components["schemas"]["Timestamp"];
             updated_at: components["schemas"]["Timestamp"];
@@ -2016,6 +2137,15 @@ export interface components {
          *       journal de l ORIGINAL ; `new_value` porte l identifiant de la copie,
          *       qui elle porte `source_quote_id`.
          *
+         *     - `accepted` / `rejected` : le CLIENT a repondu depuis sa boutique
+         *       (`decideStorefrontQuote`, E10.10b-2). `field` et `quote_snapshot`
+         *       sont `null` ; `previous_value` vaut `sent`, `new_value` la decision.
+         *       Ce sont les DEUX SEULES actions de ce journal dont l auteur n est pas
+         *       un membre de l espace : `actor_id` y est `null` et `actor_label`
+         *       porte le libelle FIGE du compte boutique. Voir `actor_id` pour le
+         *       detail, et `quote_snapshot` pour la raison de n en pas prendre un
+         *       second.
+         *
          *     - `status_forced` : le `status` du devis a change SANS passer par une
          *       transition sanctionnee. `previous_value` et `new_value` portent les
          *       deux statuts (`QuoteStatus`) ; `field` et `quote_snapshot` sont
@@ -2025,7 +2155,7 @@ export interface components {
          *       laisser. Voir le bloc E10.10a ci-dessous.
          * @enum {string}
          */
-        QuoteAuditAction: "updated" | "sent" | "resent" | "duplicated" | "status_forced";
+        QuoteAuditAction: "updated" | "sent" | "resent" | "duplicated" | "status_forced" | "accepted" | "rejected";
         /**
          * QuoteAuditField
          * @description Champ d entete PERSISTE dont la valeur a change. Liste fermee, meme principe que `QuoteLineAuditField` : uniquement des champs stockes, jamais une valeur derivee d eux — les totaux se recalculent a tout instant depuis les lignes et la remise globale, les auditer produirait une seconde version de la meme information.
@@ -2048,19 +2178,46 @@ export interface components {
             /** @description Regroupe les entrees nees d une MEME requete : un `updateQuote` qui change la validite ET la remise globale en produit deux, reliees. */
             change_set_id: components["schemas"]["Uuid"];
             action: components["schemas"]["QuoteAuditAction"];
-            /** @description Champ modifie, pour `updated` uniquement. `null` sur `sent`, `resent`, `duplicated` et `status_forced`, qui concernent le devis entier. */
+            /** @description Champ modifie, pour `updated` uniquement. `null` sur `sent`, `resent`, `duplicated`, `status_forced`, `accepted` et `rejected`, qui concernent le devis entier. */
             field: components["schemas"]["QuoteAuditField"] | null;
-            /** @description Valeur AVANT, en chaine, avec la serialisation du champ concerne (`Money` pour un montant, `Rate` pour un taux, `true`/`false` pour un booleen, `YYYY-MM-DD` pour une date). `null` quand le champ n avait pas de valeur, et sur `sent` / `resent` / `duplicated`. Sur `status_forced`, le statut AVANT (valeur de `QuoteStatus`) — seule action ou ce champ est renseigne sans que `field` le soit. */
+            /** @description Valeur AVANT, en chaine, avec la serialisation du champ concerne (`Money` pour un montant, `Rate` pour un taux, `true`/`false` pour un booleen, `YYYY-MM-DD` pour une date). `null` quand le champ n avait pas de valeur, et sur `sent` / `resent` / `duplicated`. Sur `status_forced`, le statut AVANT (valeur de `QuoteStatus`) ; sur `accepted` / `rejected`, toujours `sent` — ce sont les seules actions ou ce champ est renseigne sans que `field` le soit. */
             previous_value: string | null;
-            /** @description Valeur APRES, meme serialisation. Sur `duplicated`, l identifiant de la COPIE. Sur `status_forced`, le statut APRES (valeur de `QuoteStatus`). `null` sur `sent` (dont l etat est porte par `quote_snapshot`) et sur `resent`. */
+            /** @description Valeur APRES, meme serialisation. Sur `duplicated`, l identifiant de la COPIE. Sur `status_forced`, le statut APRES (valeur de `QuoteStatus`). Sur `accepted` / `rejected`, la decision du client (`accepted` ou `rejected`). `null` sur `sent` (dont l etat est porte par `quote_snapshot`) et sur `resent`. */
             new_value: string | null;
-            /** @description Etat complet du devis (entete ET lignes) au moment du PREMIER envoi, pour `sent` ; `null` pour `updated`, `resent`, `duplicated` et `status_forced` — ce dernier constate un ecart, il ne fige pas un document (personne n a decide de remettre quoi que ce soit a un client). Forme libre volontairement : c est une PHOTO, pas une ressource — la figer sur `QuoteDetail` obligerait a reecrire l histoire a chaque evolution du schema. */
+            /**
+             * @description Etat complet du devis (entete ET lignes) au moment du PREMIER envoi, pour `sent` ; `null` pour toutes les autres actions.
+             *
+             *     `status_forced` constate un ecart, il ne fige pas un document (personne n a decide de remettre quoi que ce soit a un client). `accepted` et `rejected` n en prennent pas non plus, et c est l invariant d immuabilite qui le permet : un devis `sent` ne change plus, l instantane pris a l envoi EST donc le document sur lequel le client s est prononce. En reprendre une photo identique laisserait croire a un second document, exactement le motif qui vaut deja pour `resent`. Corollaire a ne pas perdre : toute story future qui rouvrirait la modification d un devis envoye briserait ce raisonnement et devrait, le jour meme, faire prendre un instantane a la decision. Forme libre volontairement : c est une PHOTO, pas une ressource — la figer sur `QuoteDetail` obligerait a reecrire l histoire a chaque evolution du schema.
+             */
             quote_snapshot: {
                 [key: string]: unknown;
             } | null;
-            /** @description Auteur de l action. `null` pour une action systeme : aucune operation de la facade n en produit, toutes les ecritures d entete qu elle expose exigent un jeton utilisateur. Le seul cas reellement attendu est `status_forced`, ou l ecriture peut venir d une session sans utilisateur (script de service, correctif en base) — et l absence d auteur y est justement une information a lire, pas un trou dans la donnee. */
+            /**
+             * @description Auteur de l action, UTILISATEUR MAGRIT. `null` dans deux situations, qui ne se confondent pas :
+             *
+             *     - `status_forced` : ecriture venue d une session sans utilisateur
+             *       (script de service, correctif en base). L absence d auteur y est
+             *       une information a lire, pas un trou dans la donnee ;
+             *
+             *     - `accepted` / `rejected` (E10.10b-2) : l auteur est un COMPTE
+             *       CLIENT BOUTIQUE, qui n est pas un utilisateur Magrit. Ce champ
+             *       designe un utilisateur de l espace ; y ecrire l identifiant d un
+             *       compte boutique melangerait deux espaces de noms d identite et
+             *       ferait passer un acheteur pour un membre aux yeux de tout code
+             *       qui joint sur cette valeur. Le decideur se lit dans
+             *       `actor_label` (libelle fige, ci-dessous) et, sous forme
+             *       d identifiant, sur l entete du devis
+             *       (`Quote.decided_by_account_id`) — dans son espace de noms a lui.
+             *
+             *
+             *     `null` ne signifie donc PAS « pas d auteur » : il signifie « pas d auteur UTILISATEUR ». C est l `action` qui dit laquelle des deux situations s applique.
+             */
             actor_id: components["schemas"]["Uuid"] | null;
-            /** @description Libelle de l auteur FIGE au moment de l action (nom ou courriel). Denormalise volontairement, meme motif qu en E10.9 : un commercial qui quitte le tenant ne doit pas rendre son historique anonyme. */
+            /**
+             * @description Libelle de l auteur FIGE au moment de l action (nom ou courriel). Denormalise volontairement, meme motif qu en E10.9 : un commercial qui quitte le tenant ne doit pas rendre son historique anonyme.
+             *
+             *     Sur `accepted` / `rejected`, c est le libelle du COMPTE CLIENT BOUTIQUE, et il devient le seul endroit du journal ou se lit l identite du decideur. Meme motif de figeage, porte plus loin : un compte boutique peut etre supprime, renomme ou rattache a un autre interlocuteur, et la reponse contractuelle d un client ne doit pas en devenir anonyme.
+             */
             actor_label: string | null;
             occurred_at: components["schemas"]["Timestamp"];
         };
@@ -2233,6 +2390,37 @@ export interface components {
             totals: components["schemas"]["StorefrontQuoteTotals"];
             /** @description Lignes du devis, triees par `position` croissante. Peut etre vide en theorie seulement : `sendQuote` refuse d envoyer un devis sans ligne (422 `quote.send_requires_lines`, E10.10a), et un devis non envoye n est pas visible ici. */
             lines: components["schemas"]["StorefrontQuoteLine"][];
+        };
+        /**
+         * StorefrontQuoteDecision
+         * @description Reponse du client a un devis qui lui a ete remis. Enumeration a DEUX valeurs, volontairement disjointe de `StorefrontQuoteStatus` bien qu elle en reprenne les mots : celle-ci est une ENTREE, l autre une SORTIE.
+         *
+         *     `sent` et `converted` n y figurent donc pas, et pas parce qu ils seraient refuses par une garde d etat — ils n ont aucun sens comme decision de client. `sent` est un geste d atelier, `converted` la transformation en commande (E10.12). Les melanger dans une enumeration unique aurait produit un contrat ou le serveur refuse toujours deux des quatre valeurs qu il annonce accepter.
+         * @enum {string}
+         */
+        StorefrontQuoteDecision: "accepted" | "rejected";
+        /**
+         * StorefrontQuoteDecisionCommand
+         * @description Corps de `decideStorefrontQuote`. Un seul champ aujourd hui, et un objet plutot qu une valeur nue ou deux chemins distincts : c est ce qui permettra d y ajouter un MOTIF de refus, ou une signature d engagement, sans changer ni le chemin ni la forme (§7, v1 additive).
+         */
+        StorefrontQuoteDecisionCommand: {
+            decision: components["schemas"]["StorefrontQuoteDecision"];
+        };
+        /**
+         * QuoteDecisionPayload
+         * @description Charge utile des evenements sortants `quote.accepted` et `quote.rejected` (`event_version: 1`). Charge COMMUNE aux deux : ce qui les distingue est leur NOM, porte par `EventEnvelope.event_name`, et le republier dans le corps creerait deux verites sur le meme fait.
+         *
+         *     Volontairement minimale, meme parti que `QuoteSentPayload` : les identifiants et le numero, aucun montant. `customer_id` permet a un consommateur de router l evenement sans un aller-retour de lecture.
+         *
+         *     CE QU ELLE NE PORTE PAS, et c est delibere : l identite du compte boutique qui a decide. Un abonne du bus est un systeme TIERS (Studio, Clariprint) ; le nom et le courriel d une personne physique n ont pas a traverser cette frontiere pour un besoin que personne n a exprime. L atelier, lui, la lit sur le devis (`Quote.decided_by_account_id`) et dans le journal d entete (`QuoteAuditEntry.actor_label`), tous deux derriere une authentification de membre.
+         *
+         *     `aggregate_type` vaut `quote`, `aggregate_id` le devis decide.
+         */
+        QuoteDecisionPayload: {
+            quote_id: components["schemas"]["Uuid"];
+            customer_id: components["schemas"]["Uuid"];
+            /** @description Numero metier du devis, transporte pour la meme raison que dans `QuoteSentPayload` : c est la reference que le client et le commercial s echangent, un consommateur qui notifie doit pouvoir la citer sans relire le devis. */
+            number: string;
         };
         /**
          * CostPost
@@ -2857,6 +3045,9 @@ export type StorefrontQuoteTotals = components['schemas']['StorefrontQuoteTotals
 export type StorefrontQuoteLine = components['schemas']['StorefrontQuoteLine'];
 export type StorefrontQuote = components['schemas']['StorefrontQuote'];
 export type StorefrontQuoteDetail = components['schemas']['StorefrontQuoteDetail'];
+export type StorefrontQuoteDecision = components['schemas']['StorefrontQuoteDecision'];
+export type StorefrontQuoteDecisionCommand = components['schemas']['StorefrontQuoteDecisionCommand'];
+export type QuoteDecisionPayload = components['schemas']['QuoteDecisionPayload'];
 export type CostPost = components['schemas']['CostPost'];
 export type CostSource = components['schemas']['CostSource'];
 export type PricedLineBreakdownItem = components['schemas']['PricedLineBreakdownItem'];
@@ -4642,7 +4833,9 @@ export interface operations {
             /**
              * @description Soit la precondition `If-Match` est perimee (`api.resource_conflict`), soit le statut du devis n autorise pas l envoi (`quote.send_forbidden_status`). Les deux portent `current_state`.
              *
-             *     Seuls `draft` (premier envoi) et `sent` (renvoi) sont acceptes. `accepted`, `rejected` et `converted` sont refuses : aucune operation ne les produit aujourd hui, et laisser la porte ouverte reviendrait a leguer a la story qui les introduira une decision qu elle n aurait pas prise.
+             *     Seuls `draft` (premier envoi) et `sent` (renvoi) sont acceptes. `accepted`, `rejected` et `converted` sont refuses.
+             *
+             *     Le motif a change avec E10.10b-2 sans que la regle bouge. Il etait « aucune operation ne les produit aujourd hui » ; `accepted` et `rejected` sont desormais produits par `decideStorefrontQuote`, et le refus TIENT : renvoyer a un client le document sur lequel il vient de se prononcer laisserait croire que sa reponse n a pas ete enregistree, ou pire l inviterait a repondre une seconde fois — ce que la facade refuserait alors en 409. Si le besoin de re-remettre un devis decide se presente (le client a perdu le document qu il a accepte), il se sert par b-4 (PDF stocke, telechargeable a tout moment), pas en rouvrant une transmission.
              */
             409: {
                 headers: {
@@ -5339,6 +5532,129 @@ export interface operations {
             };
         };
     };
+    decideStorefrontQuote: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Cle d idempotence de la decision (CA8, voir components/parameters/IdempotencyKey). Un rejeu de la meme cle rend la reponse memorisee, jamais une seconde decision. Sa portee est le COMPTE CLIENT de la session, pas l espace — voir le sommaire. */
+                "Idempotency-Key": string;
+                /** @description Precondition de concurrence (CA9), reprise de l `ETag` de `getStorefrontQuote`. Absente -> 428 ; `*` -> 400 ; perimee -> 409 `api.resource_conflict` avec l etat courant. */
+                "If-Match": string;
+            };
+            path: {
+                /**
+                 * @description Identifiant technique du devis, resolu DANS le perimetre du compte client de la session boutique — pas dans un tenant choisi par l appelant (story E10.10b-1).
+                 *
+                 *     Parametre distinct de `QuoteId` alors qu il porte le meme nom et le meme type : ce n est pas la meme resolution. `QuoteId` cherche dans l espace du jeton, celui-ci cherche parmi les devis ENVOYES du client rattache au compte. Un contrat qui les confondrait laisserait croire qu un devis lisible d un cote l est de l autre.
+                 */
+                quoteId: components["parameters"]["StorefrontQuoteId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StorefrontQuoteDecisionCommand"];
+            };
+        };
+        responses: {
+            /**
+             * @description Decision enregistree. La representation rendue est celle du CLIENT (`StorefrontQuoteDetail`), portant desormais `status: accepted` ou `status: rejected`, accompagnee de l `ETag` de son nouvel etat.
+             *
+             *     La representation d ATELIER n est pas rendue ici et ne le sera jamais : c est la meme frontiere qu en lecture (E10.10b-1), et une reponse d ecriture n est pas une exception a une regle de confidentialite.
+             */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    "Idempotency-Replayed": components["headers"]["IdempotencyReplayed"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["StorefrontQuoteDetail"];
+                    };
+                };
+            };
+            /** @description En-tete `X-Magrit-Tenant` fourni sur une session boutique (`api.tenant_not_addressable`), `quoteId` mal forme, `If-Match: *` (`api.if_match_invalid`), ou credential EXPLICITE presentee en meme temps que le cookie sur cette operation (`identity.actor_kind_required`) — regle de precedence decrite avec `storefrontSession`. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /**
+             * @description Deux causes, distinguees par leur code :
+             *
+             *     - `identity.actor_kind_required` : acteur du mauvais type (jeton
+             *       utilisateur Magrit ou cle de service). Le cloisonnement des
+             *       modes vaut ici comme en lecture ;
+             *
+             *     - `quote.decision_forbidden_delegated` : session boutique
+             *       DELEGUEE. L acteur est du bon type et le devis lui est visible ;
+             *       c est l acte, et lui seul, qui lui est ferme. Voir le sommaire.
+             *
+             *
+             *     Un devis non visible par ce compte rend 404, jamais 403.
+             */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Devis non visible par ce compte (`quote.not_found`), sur les memes quatre causes indiscernables que `getStorefrontQuote` — auxquelles cette operation n en ajoute aucune : un devis `draft` reste invisible, et un devis d un autre client aussi. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /**
+             * @description Quatre causes, toutes portant `current_state` avec la representation CLIENT courante du devis :
+             *
+             *     - `quote.decision_forbidden_status` : le devis n est pas `sent`.
+             *       Deja `accepted` ou `rejected` (le client a repondu, ici ou dans
+             *       un autre onglet), ou `converted` (l atelier en a fait une
+             *       commande). UN SEUL code plutot que deux, la nuance se lisant
+             *       dans `current_state.status` : nommer le code d apres l etat
+             *       obligerait a en publier un de plus a chaque etat futur, et le
+             *       client doit de toute facon rafraichir sa vue ;
+             *
+             *     - `quote.decision_expired` : `valid_until` est depassee a
+             *       l horloge du serveur. Le devis reste lisible, il n est plus
+             *       engageable — reouvrir l offre est un geste d atelier
+             *       (`duplicateQuote`), pas un droit du client ;
+             *
+             *     - `api.resource_conflict` : precondition `If-Match` perimee ;
+             *     - `api.idempotency_key_reused` : la meme cle a deja servi pour une
+             *       requete DIFFERENTE.
+             */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Corps invalide (`api.validation_failed`) : `decision` absente ou hors de `accepted` / `rejected`. `draft`, `sent` et `converted` ne sont pas des decisions de client et sont refuses ici par le SCHEMA, pas par une garde d etat — un contrat qui les accepterait en entree laisserait croire qu ils ont un sens de ce cote. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            428: components["responses"]["PreconditionRequired"];
+        };
+    };
     onQuoteConverted: {
         parameters: {
             query?: never;
@@ -5517,6 +5833,64 @@ export interface operations {
             content: {
                 "application/json": components["schemas"]["EventEnvelope"] & {
                     payload?: components["schemas"]["QuoteSentPayload"];
+                };
+            };
+        };
+        responses: {
+            /** @description Evenement accepte par le consommateur. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    onQuoteAccepted: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Signature HMAC-SHA256 du corps brut de l evenement, au format `sha256=<hex minuscule>`. A verifier en comparaison a temps constant. */
+                "X-Magrit-Signature": components["parameters"]["MagritSignature"];
+                /** @description Nom de l evenement livre, identique a `EventEnvelope.event_name`. */
+                "X-Magrit-Event": components["parameters"]["MagritEventName"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EventEnvelope"] & {
+                    payload?: components["schemas"]["QuoteDecisionPayload"];
+                };
+            };
+        };
+        responses: {
+            /** @description Evenement accepte par le consommateur. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    onQuoteRejected: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Signature HMAC-SHA256 du corps brut de l evenement, au format `sha256=<hex minuscule>`. A verifier en comparaison a temps constant. */
+                "X-Magrit-Signature": components["parameters"]["MagritSignature"];
+                /** @description Nom de l evenement livre, identique a `EventEnvelope.event_name`. */
+                "X-Magrit-Event": components["parameters"]["MagritEventName"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EventEnvelope"] & {
+                    payload?: components["schemas"]["QuoteDecisionPayload"];
                 };
             };
         };
