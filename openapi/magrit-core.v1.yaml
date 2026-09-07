@@ -49,6 +49,21 @@ info:
 
     - Tout PATCH est protege par `ETag` / `If-Match` ; conflit -> 409 avec l
       etat courant dans `current_state`.
+
+    - Les evenements sortants decrits sous `webhooks` sont ecrits dans une
+      file (`outbox_events`) puis draines par un relais periodique. Livraison
+      AU MOINS UNE FOIS, avec reprise et abandon apres un nombre borne de
+      tentatives : un consommateur DOIT etre idempotent sur `event_id`.
+
+
+    ETAT DE LA LIVRAISON, a lire avant d integrer le bus (E10.10b-3) : le
+    relais existe et alimente aujourd hui des consommateurs INTERNES a Magrit
+    (notification courriel du client sur `quote.sent`). La livraison HTTP vers
+    l URL d un abonne TIERS n est pas encore ouverte : aucun endpoint
+    d abonnement n est publie, et le scope `events:subscribe` n en gouverne
+    donc encore aucun. Les schemas de charge utile decrits ici sont neanmoins
+    fermes et opposables — ils ne changeront pas quand le transport
+    s ouvrira ; c est precisement pourquoi ils sont publies d avance.
   contact:
     name: AGE Developpement — equipe Magrit
   license:
@@ -3784,6 +3799,21 @@ paths:
 #
 # Le consommateur DOIT verifier la signature avant de traiter l evenement, et
 # DOIT etre idempotent sur `event_id` (livraison au moins une fois).
+#
+# ---- RELAIS (E10.10b-3) : ce qui existe et ce qui n existe pas encore -------
+# Le relais est un DRAIN PERIODIQUE de la file, pas une poussee a l ecriture :
+# un evenement reste `published_at is null` tant qu il n a pas ete remis, il
+# est repris au tour suivant, et abandonne (mis au rebut) apres un nombre borne
+# de tentatives ou passe un delai de fraicheur. Le declencheur du tour est
+# externe et interchangeable — ni la file, ni le contrat, ni un consommateur
+# n en dependent. Detail et justification : docs/api/CONVENTIONS.md §8.13sexies.
+#
+# Ce relais alimente aujourd hui des consommateurs INTERNES a Magrit. Il
+# n existe PAS encore de registre d abonnements, donc pas de livraison HTTP
+# vers un tiers : ni endpoint d inscription d une URL, ni secret de signature
+# par abonne. Les entrees ci-dessous decrivent donc un CONTRAT DE CHARGE UTILE
+# ferme, dont le transport tiers reste a ouvrir par une story dediee. Elles ne
+# decrivent pas un flux qu un integrateur peut brancher aujourd hui.
 webhooks:
   quote.converted:
     post:
@@ -4305,7 +4335,14 @@ components:
         project-tags:read: Lecture des tags de projet du tenant.
         price-rules:read: Lecture des regles de prix commerciales.
         price-rules:write: Creation et modification des regles de prix.
-        events:subscribe: Abonnement au bus d evenements sortants.
+        events:subscribe: >-
+          Abonnement au bus d evenements sortants. RESERVE : ce scope ne
+          gouverne encore AUCUNE operation. Le relais de la file existe depuis
+          E10.10b-3 mais ne sert que des consommateurs internes ; le registre
+          d abonnements (inscription d une URL, secret de signature par abonne,
+          rejeu) n est pas ouvert. Le scope est publie d avance pour que son
+          nom n ait pas a changer le jour ou il le sera — un scope se retire de
+          `x-magrit-scopes` aussi mal qu un champ se retire d une reponse (§7).
 
     # ---- story E10.10b-1 — troisieme mode, le CLIENT de la boutique ---------
     storefrontSession:
