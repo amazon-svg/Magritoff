@@ -6,3 +6,5 @@ export {
   statusLabel,
 } from './quoteStatus';
 export type { QuoteStatusGroup, QuoteStatusGroupDef } from './quoteStatus';
+export { percentToRate, rateToPercent } from './rate-format';
+export { vatLegalMention } from './vatMention';

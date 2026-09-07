@@ -1,0 +1,969 @@
+-- ============================================================================
+-- Sprint 5 Gestion commerciale — story E10.10a : statut + envoi (`draft` ->
+-- `sent`), garde d etat sur `updateQuote` (dette p4, docs/api/CONVENTIONS.md
+-- §8.6), duplication, remise globale, reglages commerciaux (validite par
+-- defaut). Contrat : openapi/magrit-core.v1.yaml, section E10.10a.
+-- ----------------------------------------------------------------------------
+-- Ce que cette migration fait :
+--
+--   1. Nouvelles colonnes sur `commercial_quotes` : filiation de duplication
+--      (`source_quote_id`), remise GLOBALE sous la forme ou elle a ete saisie
+--      (`global_discount_rate` XOR `target_net_total`, miroir exact du geste
+--      LIGNE d E10.9 — CHECK d exclusion mutuelle, comme
+--      `commercial_quote_lines_origin_project_item_coherence`), surcharge de
+--      TVA (`vat_rate`), cycle d envoi (`sent_at`/`last_sent_at`/`sent_by`).
+--      AUCUN total n est persiste : `QuoteTotals` est DERIVE a chaque lecture
+--      (cote application, `computeQuoteTotals()`) a partir des lignes et de
+--      ces colonnes — memes lignes, meme total, jamais une seconde verite qui
+--      pourrait diverger d un total recalcule.
+--
+--   2. Journal d audit append-only de l ENTETE, `commercial_quote_header_
+--      audit` — DISTINCT du journal des LIGNES (`commercial_quote_line_
+--      audit`, E10.9). Meme mecanisme pour les modifications de champ
+--      ('updated', une entree par champ REELLEMENT change, trigger AFTER
+--      UPDATE generique) ; les transitions ('sent', 'resent', 'duplicated')
+--      sont ecrites EXPLICITEMENT par les fonctions ci-dessous, dans la MEME
+--      transaction que l ecriture qu elles journalisent.
+--
+--   3. `commercial_settings` — ressource SINGLETON par tenant, porte
+--      aujourd hui `default_validity_days` (E10.10a point 9). Lecture
+--      OUVERTE a tout membre (via `api_get_commercial_settings`, qui cree la
+--      ligne implicitement a la premiere lecture), ecriture GARDEE par
+--      `can_manage_pricing` (E10.11).
+--
+--   4. `api_send_commercial_quote` — ENVOIE (`draft` -> `sent`) ou RENVOIE
+--      (`sent` -> `sent`) un devis, EN UNE SEULE TRANSACTION : garde de
+--      statut, garde "au moins une ligne", calcul de `valid_until` (SEULEMENT
+--      si elle est encore `null`, depuis `commercial_settings.default_
+--      validity_days`), ecriture d audit. `security definer` (qa-review
+--      round 1, R7 — cet en-tete disait a tort `invoker`) : la fonction
+--      ecrit DIRECTEMENT dans `commercial_quote_header_audit`, fermee en
+--      INSERT a `authenticated` (append-only, section 2) — en `invoker`,
+--      cette ecriture aurait echoue pour l appelant reel. Verifie donc
+--      ELLE-MEME l appartenance au tenant, comme `api_duplicate_commercial_
+--      quote` (voir le detail au point 4 du corps de la migration).
+--
+--   5. `api_duplicate_commercial_quote` — DUPLIQUE un devis : nouveau devis
+--      `draft`, MEME compteur de numerotation que la creation depuis un
+--      projet (`commercial_quote_number_counters`), lignes recopiees avec
+--      leur geste commercial DEJA FIGE (aucun recalcul de prix — E10.8
+--      gelee), `valid_until` REMISE a `null`. `security definer`, comme
+--      `api_create_commercial_quote_from_project_items` : seule voie
+--      d ecriture du compteur, ferme par ailleurs (aucune policy RLS dessus).
+--
+--   6. (qa-review round 1) `vat_rate` gagne un CHECK non-negatif (B1),
+--      `commercial_quotes` gagne un trigger BEFORE UPDATE d immuabilite hors
+--      brouillon (B3, section 2ter), et `api_commercial_quote_line_
+--      subtotals` remplace en base l ancien calcul de sous-total fait ligne
+--      par ligne cote TypeScript (B2, section 6 du corps).
+--
+--   7. (qa-review round 2, B3 volet 3, arbitrage architecte docs/api/
+--      CONVENTIONS.md §8.12ter) Le trigger d immuabilite (section 2ter) ne
+--      regardait que `old.status` : un PATCH direct posant `status` DEPUIS
+--      `draft` (par ex. {"status":"accepted"}) passait sans etre ni bloque
+--      ni trace, un jeton de membre ordinaire suffisant. Il refuse desormais
+--      aussi tout changement de `status`, y compris DEPUIS `draft`, hors
+--      echappatoire `magrit.quote_transition`. Le journal d entete (section
+--      2bis) gagne une sixieme action, `status_forced` (contrat,
+--      QuoteAuditAction) : ecrite quand `status` change sans passer par
+--      cette echappatoire — desormais un cas RESIDUEL (trigger desactive,
+--      correctif pose par une session privilegiee qui contourne aussi la
+--      garde ci-dessus), plus le cas ordinaire qu elle visait avant ce
+--      correctif. Aucune operation de ce contrat ne la produit en usage
+--      normal.
+--
+--   8. (qa-review round 2, B4/B5, docs/api/CONVENTIONS.md §8.12/§8.12bis/
+--      §8.12ter) Deux bloquants introduits par le lot round 1 :
+--      - **B4** : `source_quote_id` ne portait AUCUNE clause `on delete`
+--        (donc `no action`) — dupliquer un devis A puis supprimer l original
+--        (chemin nominal, A `draft`) levait `23503` (FK violee) et rendait A
+--        indefiniment indelebile.
+--      - **B5** : le trigger d immuabilite (section 2ter) etait `BEFORE
+--        UPDATE` seulement — un `DELETE` PostgREST direct sur un devis
+--        `sent` par un membre ordinaire n etait bloque nulle part en base,
+--        et emportait par cascade ses lignes ET les deux journaux
+--        append-only (dont le `quote_snapshot` de l envoi). La meme fonction
+--        (`commercial_quotes_require_draft_before_write`) porte desormais
+--        aussi un `BEFORE DELETE`, meme condition (`old.status <> 'draft'`
+--        refuse, aucune echappatoire necessaire), en laissant passer la
+--        cascade de suppression d un tenant (meme modele que `commercial_
+--        quote_lines_require_draft_quote`, E10.9 correctif N1 : le parent —
+--        ici `tenants`, pas `commercial_quotes` — a deja physiquement
+--        disparu quand la cascade declenche ce trigger sur le devis).
+--
+--   9. (qa-review round 3, B6, docs/api/CONVENTIONS.md §8.12bis) Le correctif
+--      B4 ci-dessus (`on delete set null` sur `source_quote_id`) N ETAIT PAS
+--      silencieux : Postgres l implemente par un vrai `UPDATE ... SET
+--      source_quote_id = null` sur la copie, qui declenche donc SES triggers
+--      utilisateur. Scenario 100% API publique : A `draft` duplique en B ; B
+--      ENVOYE (`sent`) ; DELETE de A (toujours `draft`, la garde CA6 et la
+--      branche DELETE du point 8 laissent passer) -> l action RI `UPDATE`
+--      la copie B -> B n est PLUS `draft` -> le trigger d immuabilite
+--      (branche UPDATE) leve `quote.update_requires_draft`, jamais mappee
+--      par `remove()` -> 500 permanent, A de nouveau indelebile, par une
+--      autre porte que B4 (`P0001` au lieu de `23503`). Corrige en RETIRANT
+--      la contrainte de cle etrangere elle-meme (option la plus economique) :
+--      `source_quote_id` reste un `uuid` nu, sans `references`. Plus
+--      d action RI, plus de trigger declenche par cette voie. Coherent avec
+--      le commentaire de colonne (filiation informative, aucune
+--      synchronisation) : la copie garde alors un identifiant ORPHELIN si
+--      l original est supprime, ce que cette filiation purement informative
+--      admet deja par construction.
+--
+--   10. (qa-review round 5, B7, docs/api/CONVENTIONS.md §8.12bis — trouve par
+--       la PREMIERE execution reelle de tests/sql/gescom-e10-10a-quote-send-
+--       duplicate.sql, apres 4 rounds jamais joues faute de Docker) `api_send_
+--       commercial_quote` posait l echappatoire `magrit.quote_transition`
+--       (`set_config(..., true)`, section 4) mais ne la remettait JAMAIS a
+--       vide avant son retour. `set_config(nom, valeur, true)` a la semantique
+--       de `SET LOCAL` : porte par la TRANSACTION englobante, pas par la
+--       fonction — contrairement a ce que le round 1 affirmait a tort
+--       (« `set search_path = public` restaure tout GUC pose pendant l
+--       execution via `AtEOXact_GUC()` ») : cette clause ne restaure QUE le
+--       parametre qu elle nomme). Reproduit isolement en session psql : apres
+--       un appel reussi, `current_setting('magrit.quote_transition', true)`
+--       retournait encore `'true'`, et un `UPDATE ... set status = 'draft'`
+--       dans la MEME transaction passait sans etre bloque par le trigger d
+--       immuabilite (section 2ter) — exactement le trou que B3 visait a
+--       fermer, rouvert par une autre porte. Sans impact pour un appel
+--       PostgREST ordinaire (une requete = une transaction, close avec elle),
+--       mais un piege reel pour tout futur enchainement (envoi groupe, script
+--       privilegie multi-operations). Corrige : remise a vide explicite de
+--       `magrit.quote_transition` ET `magrit.change_set_id` juste avant l
+--       unique `return` de la fonction, sur les deux branches. Meme correctif
+--       applique par coherence aux deux seules autres occurrences du meme
+--       motif dans le depot (`api_delete_commercial_quote_line`, `api_
+--       reorder_commercial_quote_lines`, migration 20260904000100, E10.9) —
+--       `magrit.change_set_id` n y est pas un echappatoire de securite (pas de
+--       garde a contourner), mais la meme fuite de GUC transactionnel y
+--       faussait potentiellement le groupement d entrees d audit sans rapport
+--       dans un scenario multi-instructions identique.
+--
+-- Nommage des codes d erreur, cote application (pas en base) :
+-- `quote.update_requires_draft`, `quote.delete_requires_draft`, `quote.
+-- send_forbidden_status`, `quote.send_requires_lines`, `quote.
+-- resend_immutable`. Ce fichier ne fait que lever des `raise exception
+-- '<code>: <detail>'`, traduits par l adaptateur Supabase
+-- (`mapQuoteSendError()`) — `quote.delete_requires_draft` en base n est
+-- atteint que par un appel PostgREST direct (defense en profondeur) : `remove()`
+-- filtre deja `status = 'draft'` cote application (CA6, code `quote.
+-- delete_requires_draft` deja existant, `QuoteDeleteRequiresDraftError`),
+-- aucun chemin d API n atteint donc cette exception en usage normal.
+-- ============================================================================
+
+-- ── 1. Nouvelles colonnes d entete (E10.10a) ────────────────────────────────
+alter table public.commercial_quotes
+  -- qa-review round 3, B6 : `on delete set null` (correctif B4, round 2)
+  -- N EST PAS silencieux — Postgres l implemente par un vrai `UPDATE ...
+  -- SET source_quote_id = null WHERE source_quote_id = <A>` sur la table
+  -- REFERENCANTE, qui declenche donc SES triggers utilisateur exactement
+  -- comme n importe quel autre UPDATE. Scenario 100% API publique : devis A
+  -- `draft` duplique en B ; B ENVOYE (`sent`) ; DELETE de A (A toujours
+  -- `draft`, la garde CA6 et la branche DELETE du trigger d immuabilite
+  -- laissent passer) -> l action RI declenche un UPDATE sur B pour lui
+  -- mettre `source_quote_id = null` -> B n est PLUS `draft` -> le trigger
+  -- d immuabilite (branche UPDATE, section 2ter) leve `quote.update_requires_
+  -- draft` -> `remove()` ne mappe pas cette exception SQL -> 500 `api.
+  -- internal_error`, A indelebile pour toujours. Meme symptome que B4, une
+  -- autre porte (`P0001` au lieu de `23503`).
+  --
+  -- Correction retenue (option la plus economique) : RETIRER la contrainte
+  -- de cle etrangere. Plus d action RI, plus de trigger declenche par cette
+  -- voie, plus de 500 possible. Coherent avec le commentaire de colonne
+  -- ci-dessous (« filiation informative, aucune synchronisation ») : cette
+  -- filiation n a jamais pretendu garantir que l original existe encore ; la
+  -- copie garde alors un identifiant ORPHELIN si l original est supprime, ce
+  -- que cette semantique purement informative admet deja par construction.
+  add column if not exists source_quote_id     uuid,
+  add column if not exists global_discount_rate numeric(6,4),
+  add column if not exists target_net_total     numeric(12,2),
+  add column if not exists vat_rate             numeric(6,4),
+  add column if not exists sent_at              timestamptz,
+  add column if not exists last_sent_at         timestamptz,
+  add column if not exists sent_by              uuid references auth.users(id);
+
+comment on column public.commercial_quotes.source_quote_id is
+  'E10.10a — devis dont celui-ci est une COPIE (duplicateQuote). NULL pour un devis cree depuis un projet. Filiation informative, aucune synchronisation. VOLONTAIREMENT SANS cle etrangere (qa-review round 3, B6) : un `on delete set null` aurait declenche un UPDATE, donc les triggers utilisateur, sur la copie a chaque suppression de l original — pouvant la rendre non-draft-immuable et lever une exception non mappee. Peut donc pointer vers un devis qui n existe plus (orphelin assumé) ; aucun code ne doit supposer que cette valeur, si non NULL, designe une ligne existante.';
+comment on column public.commercial_quotes.global_discount_rate is
+  'E10.10a — remise globale exprimee en TAUX, appliquee APRES les remises de ligne. Exclusif de target_net_total (contrainte ci-dessous). Negatif = majoration, plafonne a 1.0000.';
+comment on column public.commercial_quotes.target_net_total is
+  'E10.10a — remise globale FORMALISEE en prix final HT. Exclusif de global_discount_rate. La remise correspondante est DEDUITE (QuoteTotals), jamais stockee.';
+comment on column public.commercial_quotes.vat_rate is
+  'E10.10a — surcharge de TVA par devis. NULL = regime fiscal du tenant (tenants.tax_regime).';
+comment on column public.commercial_quotes.sent_at is
+  'E10.10a — instant du PREMIER envoi (sendQuote). NULL tant que jamais envoye. Ne bouge jamais ensuite, y compris sur un renvoi.';
+comment on column public.commercial_quotes.last_sent_at is
+  'E10.10a — instant de la DERNIERE remise au client. Egal a sent_at au premier envoi, avance a chaque renvoi.';
+comment on column public.commercial_quotes.sent_by is
+  'E10.10a — commercial qui a declenche le PREMIER envoi. Inchange par un renvoi (voir le journal d entete pour l auteur de chaque renvoi).';
+
+alter table public.commercial_quotes
+  add constraint commercial_quotes_global_discount_exclusive check (
+    not (global_discount_rate is not null and target_net_total is not null)
+  ),
+  -- Seule borne cote remise (100 %, devis offert) : aucune borne du cote de
+  -- la majoration (Rate signe, meme regle qu au niveau ligne, E10.9 CA2).
+  add constraint commercial_quotes_global_discount_rate_max check (
+    global_discount_rate is null or global_discount_rate <= 1.0000
+  ),
+  add constraint commercial_quotes_target_net_total_non_negative check (
+    target_net_total is null or target_net_total >= 0
+  ),
+  -- qa-review E10.10a round 1, B1 : un taux de TVA negatif n a pas plus de
+  -- sens qu un prix client negatif (meme motif que MoneyNonNegative). Sans ce
+  -- CHECK, un PATCH posant `vat_rate: "-0.2000"` etait accepte en ecriture et
+  -- rendait la lecture du devis (et de toute liste paginee qui l inclut) 500
+  -- (computeQuoteTotals -> formatCentsToMoneyNonNegative sur vat_amount).
+  add constraint commercial_quotes_vat_rate_non_negative check (
+    vat_rate is null or vat_rate >= 0
+  );
+
+create index if not exists commercial_quotes_source_quote_idx
+  on public.commercial_quotes (source_quote_id) where source_quote_id is not null;
+
+-- ── 2. Journal d audit de l ENTETE, append-only, DISTINCT des lignes ───────
+create table if not exists public.commercial_quote_header_audit (
+  id             uuid primary key default gen_random_uuid(),
+  quote_id       uuid not null references public.commercial_quotes(id) on delete cascade,
+  change_set_id  uuid not null,
+  action         text not null check (action in ('updated', 'sent', 'resent', 'duplicated', 'status_forced')),
+  field          text check (field in ('global_discount_rate', 'target_net_total', 'vat_rate', 'show_discounts', 'valid_until')),
+  previous_value text,
+  new_value      text,
+  quote_snapshot jsonb,
+  actor_id       uuid references auth.users(id),
+  actor_label    text,
+  occurred_at    timestamptz not null default now(),
+
+  -- Forme par action (contrat QuoteAuditEntry) : 'updated' porte `field`,
+  -- jamais `quote_snapshot` ; 'sent' porte `quote_snapshot`, jamais `field` ;
+  -- 'resent'/'duplicated'/'status_forced' ne portent ni l un ni l autre (le
+  -- contenu n a pas change ; 'duplicated' porte le lien vers la copie dans
+  -- `new_value`, 'status_forced' porte les deux statuts dans previous_value/
+  -- new_value — aucun des deux n a besoin d un snapshot ou d un champ).
+  constraint commercial_quote_header_audit_shape check (
+    (action = 'updated' and field is not null and quote_snapshot is null)
+    or (action = 'sent' and field is null and quote_snapshot is not null)
+    or (action in ('resent', 'duplicated', 'status_forced') and field is null and quote_snapshot is null)
+  )
+);
+
+comment on table public.commercial_quote_header_audit is
+  'E10.10a — journal append-only de l ENTETE d un devis (remise globale, affichage des remises, validite, TVA, envoi, renvoi, duplication). DISTINCT de commercial_quote_line_audit (E10.9), qui porte les lignes. Jamais edite ni supprime par l application.';
+
+create index if not exists commercial_quote_header_audit_quote_idx
+  on public.commercial_quote_header_audit (quote_id, occurred_at desc);
+
+alter table public.commercial_quote_header_audit enable row level security;
+
+-- Meme garde que commercial_quote_line_audit depuis E10.11
+-- (20260904150000_gescom_e10_11_audit_select_capability.sql) : isolation
+-- TENANT + droit metier can_manage_pricing, des la creation de cette table —
+-- pas de fenetre ou elle serait seulement isolee par tenant.
+drop policy if exists "commercial_quote_header_audit_select" on public.commercial_quote_header_audit;
+create policy "commercial_quote_header_audit_select" on public.commercial_quote_header_audit for select using (
+  is_super_admin()
+  or exists (
+    select 1 from public.commercial_quotes q
+    where q.id = commercial_quote_header_audit.quote_id
+      and q.tenant_id in (select public.current_user_tenant_ids())
+      and public.user_has_capability(q.tenant_id, 'can_manage_pricing')
+  )
+);
+
+comment on policy "commercial_quote_header_audit_select" on public.commercial_quote_header_audit is
+  'RLS = isolation TENANT + droit metier can_manage_pricing (E10.11), garde applicative repetee ici en defense en profondeur contre un appel PostgREST direct — meme raisonnement que commercial_quote_line_audit_select.';
+
+-- Append-only : ecriture reservee aux fonctions SECURITY DEFINER ci-dessous
+-- (elles s executent avec les privileges du proprietaire de la table, ce
+-- revoke ne les affecte pas).
+revoke insert, update, delete on table public.commercial_quote_header_audit from authenticated, anon;
+
+-- ── 2bis. Trigger generique 'updated' — une entree PAR CHAMP REELLEMENT
+--    change, sur les CINQ champs tracables (contrat QuoteAuditField). Couvre
+--    `updateQuote` (UPDATE ordinaire) ET les champs que `api_send_commercial_
+--    quote` modifie en meme temps que la transition (show_discounts fige a
+--    l envoi, valid_until calculee) : LA MEME transaction ecrit alors le
+--    'updated' (ce trigger) ET le 'sent' (insertion explicite de la
+--    fonction), partageant le meme change_set_id via `magrit.change_set_id`
+--    (meme mecanisme que `commercial_quote_lines_write_audit`, E10.9).
+--
+--    `status`/`sent_at`/`last_sent_at`/`sent_by`/`created_by`/`updated_at` ne
+--    sont PAS des champs tracables : une transition a sa propre action
+--    ('sent'/'resent'), pas une entree "champ change" qui perdrait le
+--    contexte de l envoi (contrat, QuoteAuditField).
+--
+--    Sixieme branche (qa-review round 2, B3 volet 3) : `status_forced`,
+--    quand `status` change SANS que l echappatoire de transition
+--    (`magrit.quote_transition`) ne soit posee. Condition explicitement
+--    exclusive des chemins legitimes ('sent'/'resent', qui posent toujours
+--    cette echappatoire AVANT leur UPDATE) : aucun doublon d entree possible
+--    sur un envoi/renvoi normal. `field`/`quote_snapshot` restent `null`
+--    (contrat) ; `previous_value`/`new_value` portent les deux `QuoteStatus`.
+create or replace function public.commercial_quotes_write_header_audit()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_change_set uuid;
+  v_actor uuid := auth.uid();
+  v_actor_label text;
+  v_transition boolean;
+begin
+  select email into v_actor_label from auth.users where id = v_actor;
+
+  begin
+    v_change_set := nullif(current_setting('magrit.change_set_id', true), '')::uuid;
+  exception when others then
+    v_change_set := null;
+  end;
+  if v_change_set is null then
+    v_change_set := gen_random_uuid();
+  end if;
+
+  if new.global_discount_rate is distinct from old.global_discount_rate then
+    insert into public.commercial_quote_header_audit
+      (quote_id, change_set_id, action, field, previous_value, new_value, actor_id, actor_label)
+    values
+      (new.id, v_change_set, 'updated', 'global_discount_rate',
+       old.global_discount_rate::text, new.global_discount_rate::text, v_actor, v_actor_label);
+  end if;
+
+  if new.target_net_total is distinct from old.target_net_total then
+    insert into public.commercial_quote_header_audit
+      (quote_id, change_set_id, action, field, previous_value, new_value, actor_id, actor_label)
+    values
+      (new.id, v_change_set, 'updated', 'target_net_total',
+       old.target_net_total::text, new.target_net_total::text, v_actor, v_actor_label);
+  end if;
+
+  if new.vat_rate is distinct from old.vat_rate then
+    insert into public.commercial_quote_header_audit
+      (quote_id, change_set_id, action, field, previous_value, new_value, actor_id, actor_label)
+    values
+      (new.id, v_change_set, 'updated', 'vat_rate', old.vat_rate::text, new.vat_rate::text, v_actor, v_actor_label);
+  end if;
+
+  if new.show_discounts is distinct from old.show_discounts then
+    insert into public.commercial_quote_header_audit
+      (quote_id, change_set_id, action, field, previous_value, new_value, actor_id, actor_label)
+    values
+      (new.id, v_change_set, 'updated', 'show_discounts',
+       old.show_discounts::text, new.show_discounts::text, v_actor, v_actor_label);
+  end if;
+
+  if new.valid_until is distinct from old.valid_until then
+    insert into public.commercial_quote_header_audit
+      (quote_id, change_set_id, action, field, previous_value, new_value, actor_id, actor_label)
+    values
+      (new.id, v_change_set, 'updated', 'valid_until',
+       old.valid_until::text, new.valid_until::text, v_actor, v_actor_label);
+  end if;
+
+  -- qa-review round 2, B3 volet 3 (docs/api/CONVENTIONS.md §8.12ter) :
+  -- `status_forced`. Un changement de `status` porte TOUJOURS l une de ses
+  -- deux actions de transition legitimes ('sent'/'resent', ecrites
+  -- explicitement par api_send_commercial_quote, qui pose l echappatoire
+  -- AVANT ses deux branches) ; s il n en porte AUCUNE, c est qu il a ete pose
+  -- hors facade, et cette branche le journalise au lieu de le laisser filer
+  -- silencieusement. `actor_id`/`actor_label` peuvent etre `null` ici (session
+  -- sans utilisateur) : le contrat l autorise explicitement pour cette action.
+  if new.status is distinct from old.status then
+    begin
+      v_transition := nullif(current_setting('magrit.quote_transition', true), '')::boolean;
+    exception when others then
+      v_transition := false;
+    end;
+
+    if not coalesce(v_transition, false) then
+      insert into public.commercial_quote_header_audit
+        (quote_id, change_set_id, action, field, previous_value, new_value, actor_id, actor_label)
+      values
+        (new.id, v_change_set, 'status_forced', null, old.status, new.status, v_actor, v_actor_label);
+    end if;
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists commercial_quotes_audit_update on public.commercial_quotes;
+create trigger commercial_quotes_audit_update
+  after update on public.commercial_quotes
+  for each row
+  when (old.* is distinct from new.*)
+  execute function public.commercial_quotes_write_header_audit();
+
+-- ── 2ter. IMMUABILITE d un devis `sent` — garde EN BASE, pas seulement en
+--    application (qa-review E10.10a round 1, B3) ───────────────────────────
+-- `commercial_quotes_write` (RLS, 20260901000600_gescom_e10_3_commercial_
+-- quotes.sql:197-214) autorise tout admin/member du tenant a UPDATE N IMPORTE
+-- QUELLE colonne de commercial_quotes SANS condition de statut — contrairement
+-- aux LIGNES, deja gardees par `commercial_quote_lines_require_draft_quote`
+-- (20260904000100_gescom_e10_9_quote_line_discounts.sql:269-309, pris comme
+-- modele). Un appel PostgREST direct (`PATCH .../commercial_quotes?id=eq.X`
+-- avec `{"status":"draft"}`) pouvait donc redonner silencieusement l etat
+-- brouillon a un devis envoye — ses lignes redevenant modifiables (le trigger
+-- de lignes ne regarde que le statut COURANT), sa remise globale aussi.
+--
+-- Ce trigger BEFORE UPDATE bloque toute modification d un devis dont le
+-- statut COURANT (`old.status`) n est pas 'draft', SAUF la transition posee
+-- EXPLICITEMENT par `api_send_commercial_quote` (draft -> sent au premier
+-- envoi, ou renvoi sent -> sent) via l echappatoire `magrit.quote_transition`
+-- — meme mecanisme que `magrit.change_set_id` ci-dessus (`set_config(...,
+-- true)`, porte a la transaction). `api_duplicate_commercial_quote` n a besoin
+-- d aucune echappatoire : elle n UPDATE JAMAIS le devis ORIGINAL (seule une
+-- ligne d audit 'duplicated' y est INSEREE), elle se contente de creer une
+-- copie fraiche a l etat 'draft'.
+--
+-- (qa-review round 2, B3 volet 3, docs/api/CONVENTIONS.md §8.12ter) Le trou
+-- laisse par la version round 1 : la condition ne regardait QUE `old.status`
+-- — un devis encore 'draft' restait donc modifiable EN BLOC, y compris sur sa
+-- propre colonne `status`. Un `PATCH .../commercial_quotes?id=eq.X` avec
+-- `{"status":"accepted"}` sur un devis 'draft' passait ainsi sans etre ni
+-- bloque ni trace (le trigger d audit ne journalisait pas `status`) : le
+-- devis atterrissait dans un etat que personne n avait decide, SANS
+-- `sent_at`, SANS instantane, SANS auteur — puis restait fige par ce meme
+-- trigger, qui ne le considere plus 'draft'. La garde ne regarde donc plus
+-- seulement le statut COURANT, mais aussi si `status` LUI-MEME change : un
+-- devis 'draft' reste modifiable librement tant que son `status` ne change
+-- pas (cas ordinaire), mais un changement de `status` — DEPUIS 'draft' comme
+-- depuis tout autre etat — exige desormais systematiquement l echappatoire.
+--
+-- (qa-review round 2, B5) Le trou laisse par les deux versions precedentes,
+-- toutes deux `BEFORE UPDATE` seulement : `commercial_quotes_write` (RLS)
+-- est un `for all` qui couvre AUSSI le `DELETE`, sans condition de statut —
+-- un `DELETE .../commercial_quotes?id=eq.X` direct sur un devis `sent`
+-- n etait bloque NULLE PART en base, et emportait par cascade ses lignes
+-- (`commercial_quote_lines`) ET LES DEUX journaux append-only
+-- (`commercial_quote_line_audit`, `commercial_quote_header_audit` — donc l
+-- entree 'sent' et son `quote_snapshot`, seule preuve de ce qui a ete
+-- transmis). Cette meme fonction porte donc desormais aussi le `BEFORE
+-- DELETE` : un `DELETE` direct sur un devis dont le statut n est pas
+-- 'draft' est refuse, EXACTEMENT comme un `UPDATE` le serait, sans
+-- echappatoire (aucune fonction de ce contrat n a besoin de supprimer un
+-- devis non-brouillon).
+--
+-- Piege a ne pas repeter (deja coute un round entier a E10.9, correctif N1,
+-- `commercial_quote_lines_require_draft_quote()`, pris ici comme modele) :
+-- `commercial_quotes.tenant_id` porte `on delete cascade` — un `BEFORE
+-- DELETE` naif qui leve inconditionnellement sur `old.status <> 'draft'`
+-- rendrait IMPOSSIBLE la suppression d un tenant entier des qu il contient
+-- un devis `sent`. La branche DELETE ci-dessous laisse donc passer la
+-- suppression quand elle est le fruit d une cascade — reconnue de la MEME
+-- facon que le modele cite : le tenant parent (`old.tenant_id`) a DEJA
+-- disparu au moment ou ce trigger BEFORE DELETE se declenche sur CETTE
+-- ligne (la suppression physique de `tenants` precede, dans la meme
+-- transaction, le declenchement de son action `on delete cascade` sur
+-- chaque devis qui le referencait) — un `DELETE` DIRECT sur `commercial_
+-- quotes`, lui, laisse toujours son tenant intact. Si le tenant n existe
+-- plus, ce n est donc pas un appel direct : on laisse faire.
+create or replace function public.commercial_quotes_require_draft_before_write()
+returns trigger
+language plpgsql
+as $$
+declare
+  v_transition boolean;
+begin
+  if tg_op = 'DELETE' then
+    if old.status = 'draft' then
+      return old;
+    end if;
+
+    if not exists (select 1 from public.tenants t where t.id = old.tenant_id) then
+      -- Cascade depuis la suppression du tenant parent : legitime, pas un
+      -- DELETE direct sur ce devis.
+      return old;
+    end if;
+
+    raise exception 'quote.delete_requires_draft: devis % a l etat % (draft requis)', old.id, old.status;
+  end if;
+
+  if new.status is not distinct from old.status and old.status = 'draft' then
+    return new;
+  end if;
+
+  begin
+    v_transition := nullif(current_setting('magrit.quote_transition', true), '')::boolean;
+  exception when others then
+    v_transition := false;
+  end;
+
+  if coalesce(v_transition, false) then
+    return new;
+  end if;
+
+  raise exception 'quote.update_requires_draft: devis % a l etat % (draft requis)', old.id, old.status;
+end;
+$$;
+
+drop trigger if exists commercial_quotes_require_draft_before_write on public.commercial_quotes;
+create trigger commercial_quotes_require_draft_before_write
+  before update or delete on public.commercial_quotes
+  for each row execute function public.commercial_quotes_require_draft_before_write();
+
+-- ── 3. Reglages commerciaux (E10.10a, point 9) — ressource SINGLETON ───────
+create table if not exists public.commercial_settings (
+  tenant_id              uuid primary key references public.tenants(id) on delete cascade,
+  default_validity_days  integer check (default_validity_days is null or default_validity_days between 1 and 3650),
+  updated_at             timestamptz not null default now()
+);
+
+comment on table public.commercial_settings is
+  'E10.10a — reglages commerciaux du tenant, ressource SINGLETON. Porte aujourd hui default_validity_days (validite par defaut des devis, appliquee A L ENVOI). NULL = aucune validite par defaut (etat initial, decision explicite plutot qu une valeur inventee).';
+comment on column public.commercial_settings.default_validity_days is
+  'Nombre de jours de validite appliques a un devis dont valid_until est encore NULL, comptes depuis sendQuote (jamais depuis la creation). Modifier ce reglage ne recalcule AUCUN devis existant.';
+
+drop trigger if exists commercial_settings_set_updated_at on public.commercial_settings;
+create or replace function public.commercial_settings_set_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at := now();
+  return new;
+end;
+$$;
+create trigger commercial_settings_set_updated_at
+  before update on public.commercial_settings
+  for each row execute function public.commercial_settings_set_updated_at();
+
+alter table public.commercial_settings enable row level security;
+
+-- Lecture OUVERTE a tout membre du tenant (contrat, getCommercialSettings :
+-- « l editeur de devis doit pouvoir afficher la validite par defaut »).
+drop policy if exists "commercial_settings_select" on public.commercial_settings;
+create policy "commercial_settings_select" on public.commercial_settings for select using (
+  is_super_admin()
+  or tenant_id in (select public.current_user_tenant_ids())
+);
+
+-- Ecriture GARDEE par can_manage_pricing (E10.11) : fixer la duree de
+-- validite des devis d un tenant est une politique commerciale, pas un
+-- reglage d affichage.
+drop policy if exists "commercial_settings_write" on public.commercial_settings;
+create policy "commercial_settings_write" on public.commercial_settings for all using (
+  is_super_admin()
+  or (
+    tenant_id in (select public.current_user_tenant_ids())
+    and public.user_has_capability(commercial_settings.tenant_id, 'can_manage_pricing')
+  )
+) with check (
+  is_super_admin()
+  or (
+    tenant_id in (select public.current_user_tenant_ids())
+    and public.user_has_capability(commercial_settings.tenant_id, 'can_manage_pricing')
+  )
+);
+
+-- `api_get_commercial_settings` — CREE IMPLICITEMENT la ligne a la premiere
+-- lecture (contrat : « un tenant en a exactement un »). `security definer` :
+-- un membre SANS can_manage_pricing doit pouvoir declencher cette creation
+-- (lecture ouverte a tout membre), ce que la policy d ECRITURE lui interdit
+-- normalement — la fonction verifie donc ELLE-MEME l appartenance au tenant,
+-- plutot que de compter sur la RLS qu elle bypasse.
+create or replace function public.api_get_commercial_settings(p_tenant_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_actor uuid := auth.uid();
+  v_row public.commercial_settings;
+begin
+  if v_actor is null then
+    raise exception 'authentication_required';
+  end if;
+
+  if not (
+    public.is_super_admin()
+    or exists (
+      select 1 from public.tenant_members tm
+      where tm.tenant_id = p_tenant_id and tm.user_id = v_actor
+    )
+  ) then
+    raise exception 'permission_denied: commercial settings forbidden';
+  end if;
+
+  insert into public.commercial_settings (tenant_id)
+  values (p_tenant_id)
+  on conflict (tenant_id) do nothing;
+
+  select * into v_row from public.commercial_settings where tenant_id = p_tenant_id;
+  return to_jsonb(v_row);
+end;
+$$;
+
+revoke all on function public.api_get_commercial_settings(uuid) from public, anon;
+grant execute on function public.api_get_commercial_settings(uuid) to authenticated;
+
+-- ── 4. ENVOI / RENVOI — api_send_commercial_quote ──────────────────────────
+-- `security definer` : la fonction ecrit DIRECTEMENT dans `commercial_quote_
+-- header_audit` (entree 'sent'/'resent'), fermee en INSERT a `authenticated`
+-- (append-only, section 2). En SECURITY INVOKER, cette insertion serait
+-- refusee pour l appelant reel — seul le trigger 'updated' (lui-meme
+-- SECURITY DEFINER) y echapperait, laissant le 'sent'/'resent' introuvable.
+-- Verifie donc ELLE-MEME l appartenance au tenant (comme `api_duplicate_
+-- commercial_quote`) plutot que de compter sur la RLS qu elle bypasse.
+create or replace function public.api_send_commercial_quote(
+  p_tenant_id uuid,
+  p_quote_id uuid,
+  p_show_discounts boolean,
+  p_show_discounts_provided boolean
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_actor uuid := auth.uid();
+  v_quote public.commercial_quotes;
+  v_line_count integer;
+  v_default_validity integer;
+  v_new_valid_until date;
+  v_change_set uuid := gen_random_uuid();
+  v_snapshot jsonb;
+begin
+  if v_actor is null then
+    raise exception 'authentication_required';
+  end if;
+
+  if not (
+    public.is_super_admin()
+    or exists (
+      select 1 from public.tenant_members tm
+      where tm.tenant_id = p_tenant_id
+        and tm.user_id = v_actor
+        and tm.role in ('admin', 'member')
+    )
+  ) then
+    raise exception 'permission_denied: quote send forbidden';
+  end if;
+
+  select * into v_quote
+    from public.commercial_quotes
+   where id = p_quote_id
+     and tenant_id = p_tenant_id
+   for update;
+  if v_quote.id is null then
+    raise exception 'quote.not_found: devis % introuvable', p_quote_id;
+  end if;
+
+  if v_quote.status not in ('draft', 'sent') then
+    raise exception 'quote.send_forbidden_status: devis % a l etat % (draft ou sent requis)', p_quote_id, v_quote.status;
+  end if;
+
+  -- Toutes les entrees d audit nees de cette transaction (le trigger
+  -- generique 'updated' ET l entree explicite 'sent'/'resent' ci-dessous)
+  -- partagent CE change_set_id.
+  perform set_config('magrit.change_set_id', v_change_set::text, true);
+  -- Echappatoire de l immuabilite (qa-review B3, section 2ter) : SEULE
+  -- transition legitime posee sur un devis dont le statut courant n est pas
+  -- 'draft' (le renvoi, ci-dessous, part de 'sent'). Portee a la transaction
+  -- (`true`), comme `magrit.change_set_id`.
+  perform set_config('magrit.quote_transition', 'true', true);
+
+  if v_quote.status = 'draft' then
+    select count(*) into v_line_count from public.commercial_quote_lines where quote_id = p_quote_id;
+    if v_line_count = 0 then
+      raise exception 'quote.send_requires_lines: devis % sans ligne', p_quote_id;
+    end if;
+
+    v_new_valid_until := v_quote.valid_until;
+    if v_new_valid_until is null then
+      select default_validity_days into v_default_validity
+        from public.commercial_settings where tenant_id = p_tenant_id;
+      if v_default_validity is not null then
+        v_new_valid_until := (now() at time zone 'utc')::date + v_default_validity;
+      end if;
+    end if;
+
+    update public.commercial_quotes
+       set status = 'sent',
+           -- Defense en profondeur (qa-review B3) : cette branche ne s
+           -- execute qu au statut 'draft', ou `sent_at` est deja NULL en
+           -- temps normal — l invariant "fige au premier envoi" ne tenait
+           -- jusqu ici que parce qu aucun chemin d API ne permettait de
+           -- repasser un devis en 'draft'. Le trigger d immuabilite
+           -- (section 2ter) ferme desormais ce chemin ; ce `coalesce` est la
+           -- seconde ligne de defense si une valeur non NULL s y trouvait
+           -- malgre tout.
+           sent_at = coalesce(v_quote.sent_at, now()),
+           last_sent_at = now(),
+           sent_by = v_actor,
+           valid_until = v_new_valid_until,
+           show_discounts = case when p_show_discounts_provided then p_show_discounts else show_discounts end
+     where id = p_quote_id;
+
+    select jsonb_build_object(
+             'quote', to_jsonb(q),
+             'lines', coalesce(
+               (select jsonb_agg(to_jsonb(l) order by l.position)
+                  from public.commercial_quote_lines l
+                 where l.quote_id = q.id),
+               '[]'::jsonb
+             )
+           )
+      into v_snapshot
+      from public.commercial_quotes q
+     where q.id = p_quote_id;
+
+    insert into public.commercial_quote_header_audit
+      (quote_id, change_set_id, action, field, previous_value, new_value, quote_snapshot, actor_id, actor_label)
+    values
+      (p_quote_id, v_change_set, 'sent', null, null, null, v_snapshot, v_actor,
+       (select email from auth.users where id = v_actor));
+  else
+    -- RENVOI : le contenu ne bouge pas. Une divergence de show_discounts est
+    -- un refus, jamais une modification silencieuse (deux clients
+    -- detiendraient sinon deux documents differents portant le meme numero).
+    if p_show_discounts_provided and p_show_discounts is distinct from v_quote.show_discounts then
+      raise exception 'quote.resend_immutable: show_discounts ne peut pas changer sur un renvoi';
+    end if;
+
+    update public.commercial_quotes
+       set last_sent_at = now()
+     where id = p_quote_id;
+
+    insert into public.commercial_quote_header_audit
+      (quote_id, change_set_id, action, field, previous_value, new_value, quote_snapshot, actor_id, actor_label)
+    values
+      (p_quote_id, v_change_set, 'resent', null, null, null, null, v_actor,
+       (select email from auth.users where id = v_actor));
+  end if;
+
+  -- (qa-review round 5, B7, docs/api/CONVENTIONS.md §8.12bis) `set_config(nom,
+  -- valeur, true)` a la semantique de `SET LOCAL` : porte par la TRANSACTION
+  -- englobante, pas par cette fonction — il survit donc a la sortie de la
+  -- fonction et reste actif pour tout le reste de la transaction. `set
+  -- search_path = public` sur l en-tete de la fonction ne change rien a ce
+  -- fait : cette clause ne restaure que le parametre qu elle nomme
+  -- explicitement (`search_path`), aucun autre GUC pose dans le corps.
+  -- Remise a vide EXPLICITE, sur les DEUX branches, juste avant l unique point
+  -- de sortie : `nullif(current_setting(..., true), '')::boolean` (logique
+  -- deja en place dans le trigger d immuabilite et dans le trigger d audit)
+  -- traite une chaine vide exactement comme NULL -> `coalesce(v_transition,
+  -- false)` -> `false`. Sans cette remise a zero, un `UPDATE ... set status =
+  -- 'draft'` execute dans la MEME transaction PostgreSQL (pas la meme requete
+  -- HTTP : hors du cas nominal ou PostgREST cloture la transaction avec la
+  -- requete, mais reel pour tout futur appel de cette fonction en boucle ou en
+  -- sous-etape d une transaction plus large, ou pour une session privilegiee
+  -- qui enchaine plusieurs operations) passait le trigger d immuabilite
+  -- (section 2ter) SANS lever d exception : l echappatoire posee ligne ~639
+  -- restait active bien au-dela du geste qu elle etait censee couvrir,
+  -- rouvrant exactement le trou que le bloquant B3 visait a fermer. Confirme
+  -- par execution reelle (premiere fois que ce fichier tourne sous Docker/
+  -- Colima) : `tests/sql/gescom-e10-10a-quote-send-duplicate.sql`, scenario
+  -- 3bis, qui a leve l erreur applicative attendue avant ce correctif.
+  --
+  -- `magrit.change_set_id` (posee ligne ~634, MEME semantique `set_config(...,
+  -- true)`) n est PAS un echappatoire de securite — elle ne fait que grouper
+  -- des entrees d audit sous un identifiant commun (consommee par
+  -- `commercial_quotes_write_header_audit()`, qui retombe sur un
+  -- `gen_random_uuid()` frais si elle est absente/vide). Une valeur residuelle
+  -- ne permet donc de contourner aucune garde, mais fausserait, dans le meme
+  -- scenario multi-instructions que ci-dessus, le groupement d une ecriture
+  -- SANS RAPPORT survenant plus tard dans la meme transaction (elle
+  -- heriterait a tort du `change_set_id` de cet envoi/renvoi) — un defaut
+  -- d integrite du journal d audit, pas une brute de securite, mais du meme
+  -- ordre technique : remise a vide ici aussi, par coherence et defense en
+  -- profondeur.
+  perform set_config('magrit.quote_transition', '', true);
+  perform set_config('magrit.change_set_id', '', true);
+
+  return p_quote_id;
+end;
+$$;
+
+revoke all on function public.api_send_commercial_quote(uuid, uuid, boolean, boolean) from public, anon;
+grant execute on function public.api_send_commercial_quote(uuid, uuid, boolean, boolean) to authenticated;
+
+-- ── 5. DUPLICATION — api_duplicate_commercial_quote ────────────────────────
+-- `security definer` : seule voie d ecriture de `commercial_quote_number_
+-- counters` (aucune policy RLS dessus, deni total), meme raisonnement que
+-- `api_create_commercial_quote_from_project_items` (E10.3). Verifie donc
+-- ELLE-MEME l appartenance au tenant, comme cette derniere.
+create or replace function public.api_duplicate_commercial_quote(
+  p_tenant_id uuid,
+  p_source_quote_id uuid
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_actor uuid := auth.uid();
+  v_source public.commercial_quotes;
+  v_year integer;
+  v_next integer;
+  v_number text;
+  v_new_quote_id uuid;
+begin
+  if v_actor is null then
+    raise exception 'authentication_required';
+  end if;
+
+  if not (
+    public.is_super_admin()
+    or exists (
+      select 1 from public.tenant_members tm
+      where tm.tenant_id = p_tenant_id
+        and tm.user_id = v_actor
+        and tm.role in ('admin', 'member')
+    )
+  ) then
+    raise exception 'permission_denied: quote duplication forbidden';
+  end if;
+
+  select * into v_source
+    from public.commercial_quotes
+   where id = p_source_quote_id
+     and tenant_id = p_tenant_id;
+  if v_source.id is null then
+    raise exception 'quote.not_found: devis % introuvable', p_source_quote_id;
+  end if;
+
+  v_year := extract(year from (now() at time zone 'utc'))::integer;
+
+  insert into public.commercial_quote_number_counters (tenant_id, year, last_value)
+  values (p_tenant_id, v_year, 1)
+  on conflict (tenant_id, year)
+  do update set last_value = public.commercial_quote_number_counters.last_value + 1
+  returning last_value into v_next;
+
+  v_number := 'DEV-' || v_year::text || '-' || lpad(v_next::text, 5, '0');
+
+  -- `valid_until` REMISE a NULL (jamais recopiee) : une copie faite six mois
+  -- plus tard heriterait sinon d une date deja passee. `status` toujours
+  -- 'draft' ; `sent_at`/`last_sent_at`/`sent_by` restent NULL (defauts de
+  -- colonne) ; `source_quote_id` trace la filiation.
+  insert into public.commercial_quotes
+    (tenant_id, customer_id, project_id, source_quote_id, number, status,
+     show_discounts, global_discount_rate, target_net_total, vat_rate, created_by)
+  values
+    (p_tenant_id, v_source.customer_id, v_source.project_id, v_source.id, v_number, 'draft',
+     v_source.show_discounts, v_source.global_discount_rate, v_source.target_net_total, v_source.vat_rate, v_actor)
+  returning id into v_new_quote_id;
+
+  -- Lignes recopiees avec leur geste commercial DEJA FIGE (sale_price,
+  -- discount_rate, margin_variation, breakdown compris) : AUCUN recalcul de
+  -- prix (E10.8 gelee). Le trigger d audit d E10.9 (AFTER INSERT) alimente
+  -- automatiquement le journal des LIGNES de la copie, une entree 'added' par
+  -- ligne — la garde d etat "devis brouillon" (BEFORE INSERT) laisse passer
+  -- ces insertions puisque la copie est fraichement creee en 'draft'.
+  insert into public.commercial_quote_lines
+    (quote_id, origin, project_item_id, label, product_config, quantity, chiffrage_quantity, position,
+     production_price, public_price, customer_price, applied_margin_rate, applied_rule_id,
+     sale_price, sale_margin_rate, discount_rate, margin_variation, breakdown)
+  select
+    v_new_quote_id, l.origin, l.project_item_id, l.label, l.product_config, l.quantity, l.chiffrage_quantity, l.position,
+    l.production_price, l.public_price, l.customer_price, l.applied_margin_rate, l.applied_rule_id,
+    l.sale_price, l.sale_margin_rate, l.discount_rate, l.margin_variation, l.breakdown
+  from public.commercial_quote_lines l
+  where l.quote_id = p_source_quote_id
+  order by l.position;
+
+  -- Tracabilite DANS LES DEUX SENS, sans doublon : la copie porte
+  -- `source_quote_id` (deja ecrit ci-dessus), le journal d entete de l
+  -- ORIGINAL recoit cette entree 'duplicated'.
+  insert into public.commercial_quote_header_audit
+    (quote_id, change_set_id, action, field, previous_value, new_value, quote_snapshot, actor_id, actor_label)
+  values
+    (p_source_quote_id, gen_random_uuid(), 'duplicated', null, null, v_new_quote_id::text, null, v_actor,
+     (select email from auth.users where id = v_actor));
+
+  return v_new_quote_id;
+end;
+$$;
+
+revoke all on function public.api_duplicate_commercial_quote(uuid, uuid) from public, anon;
+grant execute on function public.api_duplicate_commercial_quote(uuid, uuid) to authenticated;
+
+-- ── 6. Sous-totaux de lignes AGREGES EN BASE — api_commercial_quote_line_
+--    subtotals (qa-review E10.10a round 1, B2) ───────────────────────────────
+-- Avant ce correctif, `subtotalsByQuoteId()` (adaptateur Supabase) faisait un
+-- `select quote_id, sale_price ... in (quoteIds)` SANS `limit` ni `order` :
+-- au-dela de `max_rows` (1000, config PostgREST), les lignes des devis les
+-- plus charges etaient tronquees SANS ERREUR, et sans `order by` le
+-- sous-ensemble retourne n etait meme pas deterministe d un appel a l autre —
+-- `lines_subtotal`/`net_total`/`global_discount`/`vat_amount`/`total_incl_tax`
+-- devenaient FAUX ET INSTABLES, sans aucun signal. Cette fonction AGREGE EN
+-- BASE (group by) : le nombre de lignes retournees a l appelant est borne par
+-- le nombre de DEVIS demandes (une page = quelques dizaines), jamais par leur
+-- nombre de lignes — la troncature `max_rows` ne peut plus se produire dans
+-- la plage de pagination du contrat. `security invoker` (comme `api_swap_
+-- tenant_role_order`) : aucun bypass de RLS necessaire, `commercial_quote_
+-- lines`/`commercial_quotes` restent visibles au perimetre normal de l
+-- appelant ; `p_tenant_id` est un filtre de defense en profondeur, pas une
+-- delegation de privilege.
+create or replace function public.api_commercial_quote_line_subtotals(
+  p_tenant_id uuid,
+  p_quote_ids uuid[]
+)
+returns table (quote_id uuid, subtotal numeric)
+language sql
+stable
+security invoker
+set search_path = public
+as $$
+  select l.quote_id, sum(l.sale_price)::numeric(12,2) as subtotal
+    from public.commercial_quote_lines l
+    join public.commercial_quotes q on q.id = l.quote_id
+   where q.tenant_id = p_tenant_id
+     and l.quote_id = any(p_quote_ids)
+   group by l.quote_id;
+$$;
+
+revoke all on function public.api_commercial_quote_line_subtotals(uuid, uuid[]) from public, anon;
+grant execute on function public.api_commercial_quote_line_subtotals(uuid, uuid[]) to authenticated;
+
+notify pgrst, 'reload schema';
+
+-- ============================================================================
+-- REVERSIBILITE — le CLI Supabase ne gere pas de bloc `down`. SQL de retrait,
+-- a jouer tel quel dans une migration inverse si la story est annulee :
+--
+--   revoke execute on function public.api_commercial_quote_line_subtotals(uuid, uuid[]) from authenticated;
+--   drop function if exists public.api_commercial_quote_line_subtotals(uuid, uuid[]);
+--   revoke execute on function public.api_duplicate_commercial_quote(uuid, uuid) from authenticated;
+--   drop function if exists public.api_duplicate_commercial_quote(uuid, uuid);
+--   revoke execute on function public.api_send_commercial_quote(uuid, uuid, boolean, boolean) from authenticated;
+--   drop function if exists public.api_send_commercial_quote(uuid, uuid, boolean, boolean);
+--   revoke execute on function public.api_get_commercial_settings(uuid) from authenticated;
+--   drop function if exists public.api_get_commercial_settings(uuid);
+--   drop policy if exists "commercial_settings_write" on public.commercial_settings;
+--   drop policy if exists "commercial_settings_select" on public.commercial_settings;
+--   drop trigger if exists commercial_settings_set_updated_at on public.commercial_settings;
+--   drop function if exists public.commercial_settings_set_updated_at();
+--   drop table if exists public.commercial_settings;
+--   drop trigger if exists commercial_quotes_require_draft_before_write on public.commercial_quotes;
+--   drop function if exists public.commercial_quotes_require_draft_before_write();
+--   drop trigger if exists commercial_quotes_audit_update on public.commercial_quotes;
+--   drop function if exists public.commercial_quotes_write_header_audit();
+--   drop policy if exists "commercial_quote_header_audit_select" on public.commercial_quote_header_audit;
+--   drop table if exists public.commercial_quote_header_audit;
+--   alter table public.commercial_quotes
+--     drop constraint if exists commercial_quotes_vat_rate_non_negative,
+--     drop constraint if exists commercial_quotes_target_net_total_non_negative,
+--     drop constraint if exists commercial_quotes_global_discount_rate_max,
+--     drop constraint if exists commercial_quotes_global_discount_exclusive,
+--     drop column if exists sent_by,
+--     drop column if exists last_sent_at,
+--     drop column if exists sent_at,
+--     drop column if exists vat_rate,
+--     drop column if exists target_net_total,
+--     drop column if exists global_discount_rate,
+--     drop column if exists source_quote_id;
+--   notify pgrst, 'reload schema';
+--
+-- Aucune autre table ne reference commercial_settings/commercial_quote_
+-- header_audit : le retrait est sans effet de bord au-dela de la perte du
+-- reglage et du journal eux-memes. Le retrait des colonnes de
+-- commercial_quotes est sans effet sur commercial_quote_lines (aucune FK
+-- dans ce sens).
+-- ============================================================================

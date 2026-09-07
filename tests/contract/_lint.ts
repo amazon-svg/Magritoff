@@ -162,6 +162,59 @@ export function lintRequiredScopes(document: Doc): string[] {
 }
 
 /**
+ * E10.11 (§3.5, regles 1 et 2 de docs/api/CONVENTIONS.md) : une operation
+ * gardee par un droit metier utilisateur (`x-required-capabilities`) doit
+ * declarer un droit REELLEMENT enumere dans `x-magrit-capabilities`
+ * (schema `bearerAuth`), et ne doit JAMAIS etre joignable par une cle de
+ * service — une cle de service n a pas d identite a qui un role serait
+ * affecte, l y rendre joignable serait un contresens.
+ *
+ * Symetrique de `lintRequiredScopes` sur l autre axe d authentification : le
+ * contrat PROMET ces deux regles (§3.5) ; sans ce lint, la promesse n etait
+ * tenue nulle part et une operation aurait pu exiger un droit jamais
+ * declare, ou rester joignable par cle de service malgre sa garde.
+ */
+export function lintRequiredCapabilities(document: Doc): string[] {
+  const violations: string[] = [];
+  const components = document['components'];
+  const schemes = isRecord(components) ? components['securitySchemes'] : undefined;
+  const bearerAuth = isRecord(schemes) ? schemes['bearerAuth'] : undefined;
+  const declaredCapabilities = isRecord(bearerAuth) && isRecord(bearerAuth['x-magrit-capabilities'])
+    ? Object.keys(bearerAuth['x-magrit-capabilities'] as Record<string, unknown>)
+    : [];
+
+  const rootSecurity = Array.isArray(document['security']) ? document['security'] : [];
+
+  for (const [path, item] of Object.entries(pathsOf(document))) {
+    for (const [method, operation] of operationsOf(item)) {
+      const required = operation['x-required-capabilities'];
+      if (!Array.isArray(required) || required.length === 0) continue;
+
+      const label = `${method.toUpperCase()} ${path}`;
+
+      for (const capability of required) {
+        if (typeof capability !== 'string' || !declaredCapabilities.includes(capability)) {
+          violations.push(
+            `E10.11 : ${label} exige le droit "${String(capability)}", absent de x-magrit-capabilities.`,
+          );
+        }
+      }
+
+      const security = Array.isArray(operation['security']) ? operation['security'] : rootSecurity;
+      const serviceReachable = security.some(
+        (requirement) => isRecord(requirement) && 'serviceKey' in requirement,
+      );
+      if (serviceReachable) {
+        violations.push(
+          `E10.11 : ${label} exige un droit metier (x-required-capabilities) mais reste joignable par cle de service.`,
+        );
+      }
+    }
+  }
+  return violations;
+}
+
+/**
  * CA4, CA8, CA9 : les parametres partages sont EPINGLES sur leur emplacement
  * et leur nom.
  *
@@ -218,7 +271,9 @@ export function lintSharedParameterDefinitions(document: Doc): string[] {
  *
  * Ce que toute operation doit declarer :
  *  - `MagritTenant`, en clair ou herite du chemin : c est ainsi qu un client
- *    pilote par le contrat apprend qu il doit choisir son espace ;
+ *    pilote par le contrat apprend qu il doit choisir son espace. SEULE
+ *    exception, tracee dans le corps : une operation servie exclusivement a
+ *    une session boutique, dont la credential porte deja le tenant ;
  *  - `400`, que `resolvePrincipal` peut lever sur n importe quelle operation
  *    (espace a preciser, credentials ambigues, tenant adresse par l URL) ;
  *  - `401` et `403`, que la resolution d acteur et les scopes peuvent lever ;
@@ -241,7 +296,29 @@ export function lintOperationCoverage(document: Doc): string[] {
       const security = operation['security'];
       if (Array.isArray(security) && security.length === 0) continue;
 
-      if (!declaresParameter(parameters, { name: 'X-Magrit-Tenant' }, document)) {
+      // Dispense de `MagritTenant` — et d elle SEULE — pour une operation
+      // servie exclusivement a une SESSION BOUTIQUE (`storefrontSession`,
+      // E10.10b-1). Le cookie designe une boutique, la boutique appartient a
+      // un tenant : l acteur n a aucun espace a choisir, et le contrat REFUSE
+      // l en-tete en 400 `api.tenant_not_addressable` plutot que de l ignorer.
+      // Le declarer serait donc annoncer un parametre dont l usage est une
+      // erreur — l inverse exact de ce que cette regle protege.
+      //
+      // Volontairement restreint aux operations dont TOUTES les exigences de
+      // securite sont `storefrontSession` : une operation servie a la fois a
+      // ce mode et a `bearerAuth` garde son obligation, l acteur Magrit ayant
+      // toujours un espace a choisir.
+      const storefrontOnly = Array.isArray(security)
+        && security.length > 0
+        && security.every((requirement) =>
+          isRecord(requirement)
+          && Object.keys(requirement).length === 1
+          && 'storefrontSession' in requirement);
+
+      if (
+        !storefrontOnly
+        && !declaresParameter(parameters, { name: 'X-Magrit-Tenant' }, document)
+      ) {
         violations.push(
           `CA4 : ${label} ne declare pas MagritTenant — un client pilote par le contrat ignorerait qu il doit choisir son espace.`,
         );
@@ -560,6 +637,7 @@ export function lintContract(document: Doc): string[] {
     ...lintTenantNeverAddressed(document),
     ...lintSecuritySchemes(document),
     ...lintRequiredScopes(document),
+    ...lintRequiredCapabilities(document),
     ...lintSharedParameterDefinitions(document),
     ...lintOperationCoverage(document),
     ...lintResponseShapes(document),

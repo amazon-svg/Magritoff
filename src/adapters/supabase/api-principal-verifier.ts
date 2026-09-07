@@ -61,6 +61,17 @@ export type SupabaseApiPrincipalVerifierOptions = Readonly<{
    * jetons utilisateur.
    */
   serviceKeys?: ReadonlyMap<string, ServiceKeyRegistration>;
+  /**
+   * E10.10b-1 — client Supabase SANS le JWT Magrit eventuellement present
+   * dans la requete, pour resoudre une session boutique. Meme raisonnement
+   * que l edge function pour les primitives storefront existantes
+   * (`supabase/functions/magrit-api/index.ts`) : une session boutique
+   * s execute toujours sous le role `anon`, y compris pendant une delegation
+   * depuis le back-office — jamais sous le JWT d un membre Magrit qui aurait
+   * initie l appel. Absent, `client` est reutilise (suffisant pour les tests
+   * qui n exercent pas ce chemin).
+   */
+  storefrontClient?: SupabaseClient<Database>;
 }>;
 
 export class SupabaseApiPrincipalVerifier implements PrincipalVerifier {
@@ -70,9 +81,9 @@ export class SupabaseApiPrincipalVerifier implements PrincipalVerifier {
   ) {}
 
   async verify(credential: ApiCredential): Promise<ApiPrincipal | null> {
-    return credential.kind === 'bearer'
-      ? this.verifyUser()
-      : this.verifyServiceKey(credential.key);
+    if (credential.kind === 'bearer') return this.verifyUser();
+    if (credential.kind === 'service_key') return this.verifyServiceKey(credential.key);
+    return this.verifyShopCustomer(credential.token);
   }
 
   /** Bearer JWT utilisateur Supabase. */
@@ -129,6 +140,51 @@ export class SupabaseApiPrincipalVerifier implements PrincipalVerifier {
       serviceId: registration.serviceId,
       tenantId: tenantId.value as TenantId,
       scopes: Object.freeze([...registration.scopes]),
+    });
+  }
+
+  /**
+   * E10.10b-1 — session boutique (cookie `storefrontSession`). Appelle
+   * `api_resolve_shop_customer_principal` (migration
+   * 20260906170000_gescom_e10_10b_1_storefront_quotes.sql), qui reutilise
+   * `api_resolve_shop_customer_session` (mecanisme deja en place, UM2.6/E10.5)
+   * SANS le modifier, et l enrichit de `tenant_id`/`customer_id` pour ce que
+   * la facade E10 a besoin de connaitre. Le `sessionToken` est porte par le
+   * principal : les fonctions de lecture des devis (`api_list_storefront_
+   * quotes`, `api_get_storefront_quote`) re-verifient elles-memes ce jeton,
+   * elles ne recoivent jamais un `accountId` transmis en clair (voir l en-tete
+   * de la migration pour le raisonnement de securite).
+   */
+  private async verifyShopCustomer(token: string): Promise<ApiPrincipal | null> {
+    const client = this.options.storefrontClient ?? this.client;
+    const { data, error } = await client.rpc('api_resolve_shop_customer_principal', {
+      p_opaque_token: token,
+    });
+    if (error) return null;
+
+    const row = (Array.isArray(data) ? data[0] : data) as
+      | Readonly<{
+          account_id: string | null;
+          shop_id: string | null;
+          tenant_id: string | null;
+          customer_id: string | null;
+          session_kind: string | null;
+        }>
+      | null
+      | undefined;
+    if (!row?.account_id || !row.shop_id || !row.tenant_id) return null;
+
+    const tenantId = parseId<'TenantId'>(row.tenant_id);
+    if (!tenantId.ok) return null;
+
+    return Object.freeze({
+      kind: 'shop_customer' as const,
+      accountId: row.account_id,
+      shopId: row.shop_id,
+      tenantId: tenantId.value as TenantId,
+      customerId: row.customer_id ?? null,
+      sessionKind: row.session_kind === 'delegated' ? ('delegated' as const) : ('direct' as const),
+      sessionToken: token,
     });
   }
 

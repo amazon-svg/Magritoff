@@ -266,6 +266,11 @@ export const TEST_IDS = {
     accountTab: 'shop-account-tab',
     accountProfile: 'shop-account-profile',
     accountLogoutBtn: 'shop-account-logout-btn',
+    // E10.10b-1 — onglet « Mes devis » /account/quotes (PortalQuotes)
+    accountQuotesList: 'shop-account-quotes-list',
+    accountQuotesEmpty: 'shop-account-quotes-empty',
+    accountQuoteRow: 'shop-account-quote-row',
+    accountQuoteDetail: 'shop-account-quote-detail',
     // S7.9 — Bandeau Reprendre riche (home) + compact (pages gammes)
     resumeBanner: 'shop-resume-banner',
     resumeChipCart: 'shop-resume-chip-cart',
@@ -559,6 +564,58 @@ export const TEST_IDS = {
     // Panneau d audit (lecture seule), accessible depuis le devis (CA5, CA6).
     auditPanel: 'quote-audit-panel',
     auditRow: 'quote-audit-row', // `data-audit-id` sur chaque ligne.
+
+    // ─── E10.10a — statut, envoi/renvoi, duplication, remise globale,
+    // totaux serveur, TVA, validite par defaut, journal d entete ──────────
+    statusBadge: 'quote-status-badge',
+    readOnlyBanner: 'quote-read-only-banner',
+    validityExpiredBanner: 'quote-validity-expired-banner',
+    sourceQuoteBadge: 'quote-source-badge', // `data-source-quote-id` pose dessus.
+    // Envoi / renvoi (`sendQuote`).
+    sendBtn: 'quote-send-btn',
+    sendDialog: 'quote-send-dialog',
+    sendShowDiscountsCheckbox: 'quote-send-show-discounts-checkbox',
+    sendConfirmBtn: 'quote-send-confirm-btn',
+    sendCancelBtn: 'quote-send-cancel-btn',
+    sendSuccessBanner: 'quote-send-success-banner',
+    // Duplication (`duplicateQuote`).
+    duplicateBtn: 'quote-duplicate-btn',
+    // Entete (show_discounts/valid_until) — formulaire E10.3, sans testid
+    // jusqu ici.
+    showDiscountsCheckbox: 'quote-show-discounts-checkbox',
+    validUntilInput: 'quote-valid-until-input',
+    headerSaveBtn: 'quote-header-save-btn',
+    // Remise globale (`global_discount_rate` XOR `target_net_total`), miroir
+    // du geste ligne (E10.9) : deux champs visibles, mutuellement exclusifs,
+    // remise DEDUITE affichee a cote en lecture seule.
+    globalDiscountRateInput: 'quote-global-discount-rate-input',
+    globalDiscountTargetInput: 'quote-global-discount-target-input',
+    globalDiscountClearBtn: 'quote-global-discount-clear-btn',
+    globalDiscountDisplay: 'quote-global-discount-display',
+    // TVA — surcharge par devis et taux/mention effectivement appliques.
+    vatRateInput: 'quote-vat-rate-input',
+    vatRateDisplay: 'quote-vat-rate-display',
+    vatLegalMention: 'quote-vat-legal-mention',
+    // Totaux serveur (`QuoteTotals`), jamais recalcules cote client.
+    totalsPanel: 'quote-totals-panel',
+    totalsLinesSubtotal: 'quote-totals-lines-subtotal',
+    totalsGlobalDiscount: 'quote-totals-global-discount',
+    totalsNetTotal: 'quote-totals-net-total',
+    totalsVatAmount: 'quote-totals-vat-amount',
+    totalsInclTax: 'quote-totals-incl-tax',
+    // Journal d entete (`listQuoteHeaderAuditEntries`), garde par
+    // `can_manage_pricing` — l onglet n est meme pas rendu sans ce droit.
+    auditTabLines: 'quote-audit-tab-lines',
+    auditTabHeader: 'quote-audit-tab-header',
+    headerAuditPanel: 'quote-header-audit-panel',
+    headerAuditRow: 'quote-header-audit-row', // `data-audit-id` sur chaque ligne.
+  },
+
+  // ─── E10.10a — Reglages commerciaux (validite par defaut des devis) ────
+  commercialSettings: {
+    defaultValiditySection: 'commercial-settings-default-validity-section',
+    defaultValidityInput: 'commercial-settings-default-validity-input',
+    defaultValiditySaveBtn: 'commercial-settings-default-validity-save-btn',
   },
 
   // ─── E10.6 — Referentiel des regles de prix (P13) ──────────────────────

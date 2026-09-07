@@ -22,6 +22,8 @@ import { InMemoryIdempotencyStore, OutboxPublisher } from '@/modules/_shared/app
 import type { ApiPrincipal, PrincipalVerifier } from '@/modules/_shared/application';
 import { CustomersService } from '@/modules/customers/application/customers-service';
 import type { CustomersRepository } from '@/modules/customers/application/customers-repository';
+import { CommercialSettingsService } from '@/modules/commercial-settings/application/commercial-settings-service';
+import { InMemoryCommercialSettingsRepository } from '../../contract/_fakes/commercial-settings-repository.fake';
 import {
   GESCOM_ROUTES,
   assertNoFacadeCollision,
@@ -68,6 +70,21 @@ function buildApplication() {
           newEventId: () => 'c3d4e5f6-0718-4293-8a4b-5c6d7e8f9a0b',
         }),
       }),
+      // qa-review E10.10b-1 round 1 (B3) — `commercialSettings` a ete oublie
+      // au cablage REEL de l edge function (supabase/functions/magrit-api/
+      // index.ts), un manque invisible en local puisque ce fichier est hors
+      // tsconfig et jamais execute ici (§8.2 M1). Cablee ICI pour que CETTE
+      // composition (bouchonnee) prouve que le service repond une fois
+      // branche. Ce test NE PROUVE PAS que index.ts est lui-meme cable —
+      // il recompose sa propre `gescomServices`, il resterait vert meme si
+      // le cablage reel etait a nouveau oublie (qa-review round 2, reserve
+      // R2). La garde contre cet oubli precis est
+      // tests/architecture/local-supabase-runtime.test.ts (« cable chaque
+      // service GescomServices dans l edge function reelle »), qui lit le
+      // fichier deploye.
+      commercialSettings: new CommercialSettingsService({
+        repository: new InMemoryCommercialSettingsRepository(),
+      }),
     },
     principalVerifier: verifier,
     idempotencyStore: new InMemoryIdempotencyStore(),
@@ -99,6 +116,25 @@ describe('composition reelle des deux facades', () => {
     // Le tenant vient du jeton, jamais de l URL.
     expect(list).toHaveBeenCalledOnce();
     expect(list.mock.calls[0]?.[0]).toBe(TENANT);
+  });
+
+  it('sert /api/v1/commercial-settings par la facade E10 (qa-review B3, service manquant au cablage reel)', async () => {
+    const { handler } = buildApplication();
+
+    const response = await handler(
+      new Request('https://magrit.test/api/v1/commercial-settings', {
+        headers: { Authorization: 'Bearer jeton-valide' },
+      }),
+    );
+
+    // Avant B3, ce service n etait jamais construit dans l edge function :
+    // `service.get(context.tenantId)` levait un TypeError sur `undefined`,
+    // rendu 500 `api.internal_error`. Une composition qui repond 200 avec la
+    // ressource attendue est la preuve que le cablage tient.
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { data: { tenant_id: string; default_validity_days: unknown } };
+    expect(body.data.tenant_id).toBe(TENANT);
+    expect(body.data.default_validity_days).toBeNull();
   });
 
   it('refuse /api/v1/customers sans jeton, au format Problem E10', async () => {

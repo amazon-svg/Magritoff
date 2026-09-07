@@ -44,14 +44,38 @@ const servicePrincipal: ApiPrincipal = Object.freeze({
   scopes: Object.freeze(['price-rules:read']),
 });
 
+/** Jeton de session storefront valide (`^[A-Za-z0-9_-]{32,512}$`). */
+const STOREFRONT_TOKEN = 'z'.repeat(40);
+
+/**
+ * E10.10b-1 round 2 (§3.6/§8.13ter) — necessaire aux tests B1/B2 : un membre
+ * Magrit qui porte AUSSI une session boutique (cookie) doit continuer a
+ * atteindre l atelier ; une session boutique seule ne doit jamais atteindre
+ * une route qui ne la declare pas.
+ */
+const shopCustomerPrincipal: ApiPrincipal = Object.freeze({
+  kind: 'shop_customer',
+  accountId: 'account-1',
+  shopId: 'shop-1',
+  tenantId: TENANT,
+  customerId: 'customer-1',
+  sessionKind: 'direct',
+  sessionToken: STOREFRONT_TOKEN,
+});
+
 const verifier: PrincipalVerifier = {
   async verify(credential) {
     if (credential.kind === 'bearer') {
       return credential.token === 'jeton-valide' ? userPrincipal : null;
     }
+    if (credential.kind === 'cookie') {
+      return credential.token === STOREFRONT_TOKEN ? shopCustomerPrincipal : null;
+    }
     return credential.key === 'cle-studio' ? servicePrincipal : null;
   },
 };
+
+const asShopCustomer = { Cookie: `magrit-storefront=${STOREFRONT_TOKEN}` };
 
 const ruleSchema = z.object({ id: z.string(), name: z.string(), value: z.string() });
 const rule = { id: RULE_ID, name: 'Fidelite', value: '0.0500' };
@@ -239,6 +263,44 @@ describe('facade Gestion commerciale : reponses contre contrat', () => {
       headers: { ...asUser, 'X-Magrit-Service-Key': 'cle-studio' },
     });
     await expectContract(response, { status: 400 });
+  });
+
+  it('B1 (§3.6, §8.13ter) — Bearer + cookie storefront sur une route atelier : le cookie est ignore, 200', async () => {
+    // Scenario de production reel : un membre Magrit qui a genere un lien de
+    // delegation (ou teste sa propre boutique) porte passivement le cookie
+    // storefront sur CHAQUE appel d atelier. Avant le correctif, ceci rendait
+    // 400 identity.actor_kind_required — regression du non-cumul introduit
+    // par E10.10b-1 (§8.13 point 2, revoque).
+    const response = await call('/api/v1/price-rules', {
+      headers: { ...asUser, ...asShopCustomer },
+    });
+    await expectContract(response, { status: 200 });
+    const body = (await response.json()) as { data: unknown[] };
+    expect(body.data).toEqual([rule]);
+  });
+
+  it('B1 — Bearer + cookie + X-Magrit-Tenant sur une route atelier : 200, le cookie ignore ne bloque plus la selection de tenant', async () => {
+    // Second blocage de la meme famille (§8.13ter) : `assertNoTenantSelectionOnCookieSession`
+    // ne doit se declencher QUE si la credential RETENUE est le cookie. Ici
+    // la credential retenue est le Bearer (precedence de l explicite) ; poser
+    // X-Magrit-Tenant reste un usage legitime (§3.4) qui ne doit pas se
+    // heurter au cookie storefront porte passivement.
+    const response = await call('/api/v1/price-rules', {
+      headers: { ...asUser, ...asShopCustomer, 'X-Magrit-Tenant': TENANT },
+    });
+    await expectContract(response, { status: 200 });
+  });
+
+  it('B2 (§3.6, §8.13ter) — une session boutique seule sur une route `any` avec des scopes requis recoit 403, jamais 200', async () => {
+    // `fixtureListPriceRules` est `authentication: 'any'` (par defaut) AVEC
+    // `requiredScopes` non vide : exactement le cas synthetique demande par
+    // l architecte, aucune route `any` reelle n existant aujourd hui dans
+    // gescom-routes.ts. Preuve que la couche 2 (createGescomApiHandler)
+    // ferme bien ce mode par defaut, pas seulement 'user'/'service'.
+    const response = await call('/api/v1/price-rules', { headers: asShopCustomer });
+    await expectContract(response, { status: 403 });
+    const body = (await response.json()) as { code: string };
+    expect(body.code).toBe('identity.actor_kind_required');
   });
 
   it('CA7 — la taille de page est reportee dans meta, un curseur illisible est refuse', async () => {

@@ -23,6 +23,7 @@ import { PriceRulesService } from '@/modules/pricing/application/price-rules-ser
 import { SingleCostPricingEngine } from '@/modules/pricing/application/single-cost-pricing-engine';
 import { CommercialQuotesService } from '@/modules/commercial-quotes/application/commercial-quotes-service';
 import type {
+  QuoteAuditEntryDto,
   QuoteDetailDto,
   QuoteDto,
   QuoteLineAuditEntryDto,
@@ -820,7 +821,7 @@ describe('module Devis commerciaux (E10.9) contre le contrat — lignes et audit
     expect(((await mismatch.json()) as { code: string }).code).toBe('quote_line.positions_mismatch');
   });
 
-  it('CA5/CA6 — listQuoteAuditEntries : une entree par champ change, garde admin, ligne supprimee reste interrogeable', async () => {
+  it('CA5/CA6 — listQuoteAuditEntries : une entree par champ change, garde can_manage_pricing, ligne supprimee reste interrogeable', async () => {
     const { quote } = await createDraftQuote();
     const added = await addFreeLine(quote.id, { production_price: '100.00' });
     const { data: line } = (await added.json()) as { data: QuoteLineDto };
@@ -846,12 +847,424 @@ describe('module Devis commerciaux (E10.9) contre le contrat — lignes et audit
     expect(data.some((entry) => entry.action === 'updated' && entry.field === 'sale_price')).toBe(true);
     expect(data.every((entry) => entry.field !== ('sale_margin_rate' as unknown))).toBe(true);
 
-    // Garde d acces admin (403 identity.role_required) — meme mecanisme que
-    // E10.6 CA7, en attendant E10.11.
-    quotesRepository.setActorRoleForTest(TENANT, USER, 'member');
+    // Garde d acces au droit dedie `can_manage_pricing` (403 identity.role_required, E10.11).
+    quotesRepository.setActorCapabilityForTest(TENANT, USER, 'can_manage_pricing', false);
     const denied = await call(`/api/v1/quotes/${quote.id}/audit-entries`, { headers: asUser });
     await expectContract(denied, { status: 403 });
     expect(((await denied.json()) as { code: string }).code).toBe('identity.role_required');
-    quotesRepository.setActorRoleForTest(TENANT, USER, 'admin');
+    quotesRepository.setActorCapabilityForTest(TENANT, USER, 'can_manage_pricing', true);
+  });
+});
+
+describe('module Devis commerciaux (E10.10a) contre le contrat — envoi, duplication, remise globale', () => {
+  async function createDraftQuoteWithLine(overrides: Partial<Record<string, unknown>> = {}) {
+    const customer = await createCustomer({ company_name: `Client ${uuid()}` });
+    const { data: project } = await createProject(customer.id);
+    const item = await addItem(project.id, 'Flyer A5', {
+      quantity: 1000,
+      amounts: { clariprint_price_ht: '100.00' },
+    });
+    const created = await createQuote(project.id, [item]);
+    const { data: quote } = (await created.json()) as { data: QuoteDetailDto };
+    void overrides;
+    return { customer, project, item, quote };
+  }
+
+  async function getEtag(quoteId: string): Promise<string> {
+    const detail = await call(`/api/v1/quotes/${quoteId}`, { headers: asUser });
+    return detail.headers.get('etag')!;
+  }
+
+  it('Quote/QuoteDetail portent des totaux calcules par le serveur, meme sans remise ni surcharge', async () => {
+    const { quote } = await createDraftQuoteWithLine();
+    expect(quote.totals.lines_subtotal).toBe('100.00');
+    expect(quote.totals.net_total).toBe('100.00');
+    expect(quote.totals.global_discount).toBe('0.00');
+    expect(quote.totals.vat_rate).toBe('0.2000'); // metropole_fr par defaut
+    expect(quote.totals.vat_regime).toBe('metropole_fr');
+    expect(quote.totals.vat_amount).toBe('20.00');
+    expect(quote.totals.total_incl_tax).toBe('120.00');
+    expect(quote.source_quote_id).toBeNull();
+    expect(quote.sent_at).toBeNull();
+    expect(quote.last_sent_at).toBeNull();
+    expect(quote.sent_by).toBeNull();
+  });
+
+  it('updateQuote pose une remise globale en TAUX, deduite dans totals ; XOR avec target_net_total', async () => {
+    const { quote } = await createDraftQuoteWithLine();
+    const etag = await getEtag(quote.id);
+
+    const patched = await call(`/api/v1/quotes/${quote.id}`, {
+      method: 'PATCH',
+      headers: { ...jsonHeaders, 'If-Match': etag },
+      body: JSON.stringify({ global_discount_rate: '0.1000' }),
+    });
+    await expectContract(patched, { status: 200, dataSchema: 'Quote' });
+    const { data: updated } = (await patched.json()) as { data: QuoteDto };
+    expect(updated.global_discount_rate).toBe('0.1000');
+    expect(updated.target_net_total).toBeNull();
+    expect(updated.totals.net_total).toBe('90.00');
+    expect(updated.totals.global_discount).toBe('10.00');
+    expect(updated.totals.effective_discount_rate).toBe('0.1000');
+
+    // target_net_total ET global_discount_rate ENSEMBLE -> 422.
+    const bothEtag = await getEtag(quote.id);
+    const both = await call(`/api/v1/quotes/${quote.id}`, {
+      method: 'PATCH',
+      headers: { ...jsonHeaders, 'If-Match': bothEtag },
+      body: JSON.stringify({ global_discount_rate: '0.1000', target_net_total: '50.00' }),
+    });
+    await expectContract(both, { status: 422 });
+
+    // Poser target_net_total efface global_discount_rate cote serveur.
+    const targetEtag = await getEtag(quote.id);
+    const target = await call(`/api/v1/quotes/${quote.id}`, {
+      method: 'PATCH',
+      headers: { ...jsonHeaders, 'If-Match': targetEtag },
+      body: JSON.stringify({ target_net_total: '50.00' }),
+    });
+    await expectContract(target, { status: 200, dataSchema: 'Quote' });
+    const { data: targeted } = (await target.json()) as { data: QuoteDto };
+    expect(targeted.global_discount_rate).toBeNull();
+    expect(targeted.target_net_total).toBe('50.00');
+    expect(targeted.totals.net_total).toBe('50.00');
+    expect(targeted.totals.global_discount).toBe('50.00');
+  });
+
+  it('global_discount_rate au-dela de 1.0000 est refuse en 422 (api.validation_failed)', async () => {
+    const { quote } = await createDraftQuoteWithLine();
+    const etag = await getEtag(quote.id);
+    const response = await call(`/api/v1/quotes/${quote.id}`, {
+      method: 'PATCH',
+      headers: { ...jsonHeaders, 'If-Match': etag },
+      body: JSON.stringify({ global_discount_rate: '1.5000' }),
+    });
+    await expectContract(response, { status: 422 });
+  });
+
+  it('vat_rate NEGATIF est refuse en 422 (qa-review E10.10a round 1, B1 — nonNegativeRateSchema, meme motif que MoneyNonNegative)', async () => {
+    const { quote } = await createDraftQuoteWithLine();
+    const etag = await getEtag(quote.id);
+    const response = await call(`/api/v1/quotes/${quote.id}`, {
+      method: 'PATCH',
+      headers: { ...jsonHeaders, 'If-Match': etag },
+      body: JSON.stringify({ vat_rate: '-0.2000' }),
+    });
+    await expectContract(response, { status: 422 });
+
+    // Defense en profondeur : la lecture du devis reste possible et normale,
+    // vat_rate n a jamais ete ecrit (refuse en amont par le contrat).
+    const detail = await call(`/api/v1/quotes/${quote.id}`, { headers: asUser });
+    await expectContract(detail, { status: 200, dataSchema: 'QuoteDetail' });
+    const { data: unchanged } = (await detail.json()) as { data: QuoteDetailDto };
+    expect(unchanged.vat_rate).toBeNull();
+
+    // La liste paginee du tenant reste egalement lisible.
+    const list = await call('/api/v1/quotes', { headers: asUser });
+    await expectContract(list, { status: 200 });
+  });
+
+  it('updateQuote sur un devis non brouillon est refuse en 409 quote.update_requires_draft (E10.10a, dette p4)', async () => {
+    const { quote } = await createDraftQuoteWithLine();
+    quotesRepository.forceStatusForTest(quote.id, 'sent');
+    const etag = await getEtag(quote.id);
+    const response = await call(`/api/v1/quotes/${quote.id}`, {
+      method: 'PATCH',
+      headers: { ...jsonHeaders, 'If-Match': etag },
+      body: JSON.stringify({ show_discounts: true }),
+    });
+    await expectContract(response, { status: 409 });
+    expect(((await response.json()) as { code: string }).code).toBe('quote.update_requires_draft');
+  });
+
+  it('sendQuote — premier envoi : transition draft -> sent, valid_until calculee depuis default_validity_days, evenement quote.sent', async () => {
+    const { quote } = await createDraftQuoteWithLine();
+    quotesRepository.setDefaultValidityDaysForTest(TENANT, 30);
+    const etag = await getEtag(quote.id);
+
+    const withoutIfMatch = await call(`/api/v1/quotes/${quote.id}/transmissions`, {
+      method: 'POST',
+      headers: { ...jsonHeaders, 'Idempotency-Key': `send-${uuid()}` },
+      body: JSON.stringify({}),
+    });
+    await expectContract(withoutIfMatch, { status: 428 });
+
+    const withoutIdempotency = await call(`/api/v1/quotes/${quote.id}/transmissions`, {
+      method: 'POST',
+      headers: { ...jsonHeaders, 'If-Match': etag },
+      body: JSON.stringify({}),
+    });
+    expect(withoutIdempotency.status).toBe(400);
+
+    const response = await call(`/api/v1/quotes/${quote.id}/transmissions`, {
+      method: 'POST',
+      headers: { ...jsonHeaders, 'If-Match': etag, 'Idempotency-Key': `send-${uuid()}` },
+      body: JSON.stringify({ show_discounts: true }),
+    });
+    await expectContract(response, { status: 201, dataSchema: 'QuoteDetail' });
+    expect(response.headers.get('etag')).toBeTruthy();
+    const { data: sent } = (await response.json()) as { data: QuoteDetailDto };
+    expect(sent.status).toBe('sent');
+    expect(sent.show_discounts).toBe(true);
+    expect(sent.sent_at).toBeTruthy();
+    expect(sent.last_sent_at).toBe(sent.sent_at);
+    expect(sent.sent_by).toBe(USER);
+    expect(sent.valid_until).toBeTruthy();
+
+    const quoteSentEvents = outboxRepository.events.filter((event) => event.name === 'quote.sent');
+    expect(quoteSentEvents).toHaveLength(1);
+    expect(quoteSentEvents[0]).toMatchObject({
+      name: 'quote.sent',
+      tenantId: TENANT,
+      aggregateType: 'quote',
+      aggregateId: sent.id,
+      payload: { is_resend: false },
+    });
+  });
+
+  it('sendQuote — valid_until posee manuellement n est JAMAIS recalculee, meme si default_validity_days est regle (qa-review E10.10a round 1, R2)', async () => {
+    const { quote } = await createDraftQuoteWithLine();
+    quotesRepository.setDefaultValidityDaysForTest(TENANT, 30);
+
+    const etagBeforePatch = await getEtag(quote.id);
+    const patched = await call(`/api/v1/quotes/${quote.id}`, {
+      method: 'PATCH',
+      headers: { ...jsonHeaders, 'If-Match': etagBeforePatch },
+      body: JSON.stringify({ valid_until: '2026-10-15' }),
+    });
+    await expectContract(patched, { status: 200, dataSchema: 'Quote' });
+    const patchedBody = (await patched.json()) as { data: QuoteDto };
+    expect(patchedBody.data.valid_until).toBe('2026-10-15');
+
+    const etagBeforeSend = await getEtag(quote.id);
+    const response = await call(`/api/v1/quotes/${quote.id}/transmissions`, {
+      method: 'POST',
+      headers: { ...jsonHeaders, 'If-Match': etagBeforeSend, 'Idempotency-Key': `send-${uuid()}` },
+      body: JSON.stringify({}),
+    });
+    await expectContract(response, { status: 201, dataSchema: 'QuoteDetail' });
+    const { data: sent } = (await response.json()) as { data: QuoteDetailDto };
+    expect(sent.status).toBe('sent');
+    // La valeur MANUELLE reste, malgre un default_validity_days regle a 30
+    // jours : seul un valid_until encore NULL au moment de l envoi declenche
+    // le calcul depuis le reglage tenant (contrat, point 9).
+    expect(sent.valid_until).toBe('2026-10-15');
+  });
+
+  it('sendQuote — devis sans ligne est refuse en 422 quote.send_requires_lines', async () => {
+    const customer = await createCustomer({ company_name: `Client ${uuid()}` });
+    const { data: project } = await createProject(customer.id);
+    const item = await addItem(project.id, 'A retirer', { quantity: 1 });
+    const created = await createQuote(project.id, [item]);
+    const { data: quote } = (await created.json()) as { data: QuoteDetailDto };
+    await call(`/api/v1/quotes/${quote.id}/lines/${quote.lines[0]!.id}`, {
+      method: 'DELETE',
+      headers: asUser,
+    });
+    const etag = await getEtag(quote.id);
+
+    const response = await call(`/api/v1/quotes/${quote.id}/transmissions`, {
+      method: 'POST',
+      headers: { ...jsonHeaders, 'If-Match': etag, 'Idempotency-Key': `send-${uuid()}` },
+      body: JSON.stringify({}),
+    });
+    await expectContract(response, { status: 422 });
+    expect(((await response.json()) as { code: string }).code).toBe('quote.send_requires_lines');
+  });
+
+  it('sendQuote — statut accepted/rejected/converted est refuse en 409 quote.send_forbidden_status', async () => {
+    const { quote } = await createDraftQuoteWithLine();
+    quotesRepository.forceStatusForTest(quote.id, 'accepted');
+    const etag = await getEtag(quote.id);
+    const response = await call(`/api/v1/quotes/${quote.id}/transmissions`, {
+      method: 'POST',
+      headers: { ...jsonHeaders, 'If-Match': etag, 'Idempotency-Key': `send-${uuid()}` },
+      body: JSON.stringify({}),
+    });
+    await expectContract(response, { status: 409 });
+    expect(((await response.json()) as { code: string }).code).toBe('quote.send_forbidden_status');
+  });
+
+  it('sendQuote — RENVOI : sent_at inchange, last_sent_at avance, is_resend true, show_discounts divergent refuse', async () => {
+    const { quote } = await createDraftQuoteWithLine();
+    const firstEtag = await getEtag(quote.id);
+    const firstSend = await call(`/api/v1/quotes/${quote.id}/transmissions`, {
+      method: 'POST',
+      headers: { ...jsonHeaders, 'If-Match': firstEtag, 'Idempotency-Key': `send-${uuid()}` },
+      body: JSON.stringify({ show_discounts: false }),
+    });
+    await expectContract(firstSend, { status: 201, dataSchema: 'QuoteDetail' });
+    const { data: firstBody } = (await firstSend.json()) as { data: QuoteDetailDto };
+
+    // Renvoi avec un show_discounts DIVERGENT -> refuse.
+    const staleEtag = await getEtag(quote.id);
+    const divergent = await call(`/api/v1/quotes/${quote.id}/transmissions`, {
+      method: 'POST',
+      headers: { ...jsonHeaders, 'If-Match': staleEtag, 'Idempotency-Key': `send-${uuid()}` },
+      body: JSON.stringify({ show_discounts: true }),
+    });
+    await expectContract(divergent, { status: 422 });
+    expect(((await divergent.json()) as { code: string }).code).toBe('quote.resend_immutable');
+
+    // Renvoi tel quel (corps vide) -> accepte, sent_at inchange, last_sent_at avance.
+    const resendEtag = await getEtag(quote.id);
+    const resend = await call(`/api/v1/quotes/${quote.id}/transmissions`, {
+      method: 'POST',
+      headers: { ...jsonHeaders, 'If-Match': resendEtag, 'Idempotency-Key': `send-${uuid()}` },
+      body: JSON.stringify({}),
+    });
+    await expectContract(resend, { status: 201, dataSchema: 'QuoteDetail' });
+    const { data: resendBody } = (await resend.json()) as { data: QuoteDetailDto };
+    expect(resendBody.sent_at).toBe(firstBody.sent_at);
+    expect(resendBody.last_sent_at).not.toBe(firstBody.last_sent_at);
+    expect(resendBody.status).toBe('sent');
+
+    const resendEvents = outboxRepository.events.filter(
+      (event) => event.name === 'quote.sent' && (event.payload as { is_resend?: boolean }).is_resend === true,
+    );
+    expect(resendEvents.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('duplicateQuote — nouveau devis draft, nouveau numero, source_quote_id, valid_until remise a null, lignes recopiees, audit duplicated sur l original', async () => {
+    const { quote } = await createDraftQuoteWithLine();
+    const etag = await getEtag(quote.id);
+    await call(`/api/v1/quotes/${quote.id}`, {
+      method: 'PATCH',
+      headers: { ...jsonHeaders, 'If-Match': etag },
+      body: JSON.stringify({ valid_until: '2026-12-31', global_discount_rate: '0.2000' }),
+    });
+
+    const response = await call(`/api/v1/quotes/${quote.id}/duplicates`, {
+      method: 'POST',
+      headers: { ...jsonHeaders, 'Idempotency-Key': `dup-${uuid()}` },
+    });
+    await expectContract(response, { status: 201, dataSchema: 'QuoteDetail' });
+    const { data: copy } = (await response.json()) as { data: QuoteDetailDto };
+
+    expect(copy.id).not.toBe(quote.id);
+    expect(copy.number).not.toBe(quote.number);
+    expect(copy.status).toBe('draft');
+    expect(copy.source_quote_id).toBe(quote.id);
+    expect(copy.valid_until).toBeNull(); // JAMAIS recopiee
+    expect(copy.global_discount_rate).toBe('0.2000'); // remise globale reprise
+    expect(copy.lines).toHaveLength(1);
+    expect(copy.lines[0]!.sale_price).toBe(quote.lines[0]!.sale_price);
+
+    quotesRepository.setActorCapabilityForTest(TENANT, USER, 'can_manage_pricing', true);
+    const originalAudit = await call(`/api/v1/quotes/${quote.id}/header-audit-entries`, { headers: asUser });
+    await expectContract(originalAudit, { status: 200 });
+    const { data: entries } = (await originalAudit.json()) as { data: QuoteAuditEntryDto[] };
+    const duplicatedEntry = entries.find((entry) => entry.action === 'duplicated');
+    expect(duplicatedEntry).toBeTruthy();
+    expect(duplicatedEntry!.new_value).toBe(copy.id);
+  });
+
+  it('duplicateQuote est autorise depuis N IMPORTE QUEL statut (aucune garde d etat)', async () => {
+    const { quote } = await createDraftQuoteWithLine();
+    quotesRepository.forceStatusForTest(quote.id, 'sent');
+    const response = await call(`/api/v1/quotes/${quote.id}/duplicates`, {
+      method: 'POST',
+      headers: { ...jsonHeaders, 'Idempotency-Key': `dup-${uuid()}` },
+    });
+    await expectContract(response, { status: 201, dataSchema: 'QuoteDetail' });
+  });
+
+  it('qa-review round 2, B4 (revise round 3, B6) — supprimer un devis A DEJA duplique reussit, la copie garde son source_quote_id (orphelin assume, plus de FK)', async () => {
+    const { quote: original } = await createDraftQuoteWithLine();
+
+    const duplicated = await call(`/api/v1/quotes/${original.id}/duplicates`, {
+      method: 'POST',
+      headers: { ...jsonHeaders, 'Idempotency-Key': `dup-${uuid()}` },
+    });
+    await expectContract(duplicated, { status: 201, dataSchema: 'QuoteDetail' });
+    const { data: copy } = (await duplicated.json()) as { data: QuoteDetailDto };
+    expect(copy.source_quote_id).toBe(original.id);
+
+    // A est reste `draft` (la duplication n a jamais ecrit sur l original) :
+    // sa suppression, chemin nominal CA6, ne doit JAMAIS lever de 500 —
+    // avant le correctif B4, `source_quote_id` sans clause `on delete` levait
+    // 23503 (FK violee) et rendait A indefiniment indelebile.
+    const removed = await call(`/api/v1/quotes/${original.id}`, { method: 'DELETE', headers: asUser });
+    await expectContract(removed, { status: 200 });
+    const removedBody = (await removed.json()) as { data: { deleted: boolean } };
+    expect(removedBody.data.deleted).toBe(true);
+
+    // qa-review round 3, B6 — `source_quote_id` n est PLUS une cle etrangere
+    // (le correctif B4, `on delete set null`, rouvrait le meme 500 par une
+    // autre porte des que la copie n etait plus `draft` : voir le test
+    // suivant). Sans FK, rien ne touche la copie a la suppression de
+    // l original : `source_quote_id` reste intact, meme si l id qu il porte
+    // ne resout plus rien (orphelin assume, cf. commentaire de colonne).
+    const afterDelete = await call(`/api/v1/quotes/${copy.id}`, { headers: asUser });
+    await expectContract(afterDelete, { status: 200, dataSchema: 'QuoteDetail' });
+    const { data: copyAfterDelete } = (await afterDelete.json()) as { data: QuoteDetailDto };
+    expect(copyAfterDelete.source_quote_id).toBe(original.id);
+  });
+
+  it('qa-review round 3, B6 — supprimer A dont la copie B a ete ENVOYEE reussit (500 permanent avant correctif), B garde source_quote_id intact', async () => {
+    const { quote: original } = await createDraftQuoteWithLine();
+
+    const duplicated = await call(`/api/v1/quotes/${original.id}/duplicates`, {
+      method: 'POST',
+      headers: { ...jsonHeaders, 'Idempotency-Key': `dup-${uuid()}` },
+    });
+    await expectContract(duplicated, { status: 201, dataSchema: 'QuoteDetail' });
+    const { data: copy } = (await duplicated.json()) as { data: QuoteDetailDto };
+    expect(copy.source_quote_id).toBe(original.id);
+
+    // La copie B est ENVOYEE (draft -> sent) : c est le geste que cette
+    // story livre, et c est precisement ce qui demasquait B6 — avant ce
+    // correctif, `on delete set null` sur `source_quote_id` declenchait un
+    // UPDATE sur B (donc ses triggers) au moment de la suppression de A,
+    // ce qui heurtait le trigger d immuabilite puisque B n etait plus
+    // `draft`, et produisait un 500 `api.internal_error` non mappe (A
+    // redevenait indelebile, meme symptome que B4 par une autre porte).
+    const copyEtag = await getEtag(copy.id);
+    const sent = await call(`/api/v1/quotes/${copy.id}/transmissions`, {
+      method: 'POST',
+      headers: { ...jsonHeaders, 'If-Match': copyEtag, 'Idempotency-Key': `send-${uuid()}` },
+      body: JSON.stringify({}),
+    });
+    await expectContract(sent, { status: 201, dataSchema: 'QuoteDetail' });
+    const { data: sentCopy } = (await sent.json()) as { data: QuoteDetailDto };
+    expect(sentCopy.status).toBe('sent');
+
+    // A est reste `draft` (ni la duplication ni l envoi de B n ecrivent sur
+    // A) : sa suppression, chemin nominal CA6, doit reussir sans jamais
+    // lever de 500, meme maintenant que sa copie n est plus `draft`.
+    const removed = await call(`/api/v1/quotes/${original.id}`, { method: 'DELETE', headers: asUser });
+    await expectContract(removed, { status: 200 });
+    const removedBody = (await removed.json()) as { data: { deleted: boolean } };
+    expect(removedBody.data.deleted).toBe(true);
+
+    // B garde son statut `sent` ET son `source_quote_id` intact (orphelin
+    // assume) : rien, sans FK, n a pu la toucher a la suppression de A.
+    const afterDelete = await call(`/api/v1/quotes/${copy.id}`, { headers: asUser });
+    await expectContract(afterDelete, { status: 200, dataSchema: 'QuoteDetail' });
+    const { data: copyAfterDelete } = (await afterDelete.json()) as { data: QuoteDetailDto };
+    expect(copyAfterDelete.status).toBe('sent');
+    expect(copyAfterDelete.source_quote_id).toBe(original.id);
+  });
+
+  it('listQuoteHeaderAuditEntries — journal distinct des lignes, une entree par champ change, garde can_manage_pricing', async () => {
+    const { quote } = await createDraftQuoteWithLine();
+    const etag = await getEtag(quote.id);
+    await call(`/api/v1/quotes/${quote.id}`, {
+      method: 'PATCH',
+      headers: { ...jsonHeaders, 'If-Match': etag },
+      body: JSON.stringify({ show_discounts: true, valid_until: '2026-12-31' }),
+    });
+
+    const entries = await call(`/api/v1/quotes/${quote.id}/header-audit-entries`, { headers: asUser });
+    await expectContract(entries, { status: 200 });
+    const { data } = (await entries.json()) as { data: QuoteAuditEntryDto[] };
+    expect(data.some((entry) => entry.action === 'updated' && entry.field === 'show_discounts')).toBe(true);
+    expect(data.some((entry) => entry.action === 'updated' && entry.field === 'valid_until')).toBe(true);
+
+    quotesRepository.setActorCapabilityForTest(TENANT, USER, 'can_manage_pricing', false);
+    const denied = await call(`/api/v1/quotes/${quote.id}/header-audit-entries`, { headers: asUser });
+    await expectContract(denied, { status: 403 });
+    expect(((await denied.json()) as { code: string }).code).toBe('identity.role_required');
+    quotesRepository.setActorCapabilityForTest(TENANT, USER, 'can_manage_pricing', true);
   });
 });

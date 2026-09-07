@@ -242,6 +242,22 @@ export class SupabasePriceRulesRepository implements PriceRulesRepository {
     }
     return toDefaultMarginDto(data);
   }
+
+  /**
+   * E10.11 — meme fonction SQL que `SupabaseRolesRepository.userCapability()`
+   * / `SupabaseCommercialQuotesRepository.actorHasCapability()`, appelee
+   * directement ici plutot que par une dependance croisee entre modules
+   * (convention du depot : un adaptateur reste autonome).
+   */
+  async actorHasCapability(tenantId: TenantId, actorId: UserId, capability: string): Promise<boolean> {
+    void actorId; // trace : `user_has_capability` lit `auth.uid()` de la session, pas ce parametre.
+    const { data, error } = await this.client.rpc('user_has_capability', {
+      p_tenant_id: tenantId,
+      p_capability: capability,
+    });
+    if (error) throw new Error(error.message);
+    return Boolean(data);
+  }
 }
 
 function sortColumn(field: 'created_at' | 'starts_on'): 'created_at' | 'valid_from' {

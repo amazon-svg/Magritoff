@@ -29,6 +29,40 @@ describe('runtime Supabase local', () => {
     expect(read('scripts/test-storefront-sql.sh')).toContain('storefront-order-identity.sql');
   });
 
+  it('cable chaque service GescomServices dans l edge function reelle', () => {
+    // qa-review E10.10b-1 round 2, reserve R2 : le commentaire de
+    // tests/server/api/magrit-api-composition.test.ts pretendait remplacer
+    // la relecture manuelle du fichier deploye, mais ce test recompose sa
+    // PROPRE gescomServices — il resterait vert meme si le cablage reel
+    // d index.ts oubliait un service (c est exactement ce qui s est produit
+    // pour `commercialSettings` apres E10.10a, qa-review E10.10b-1 round 1,
+    // B3). Cette liste doit rester synchronisee avec les cles de
+    // `GescomServices` (src/server/api/gescom-routes.ts) a chaque nouveau
+    // service : un oubli ici, comme un oubli dans index.ts, doit faire
+    // echouer CE test, pas un test qui recompose son propre objet.
+    const edgeRuntime = read('supabase/functions/magrit-api/index.ts');
+    const gescomServiceKeys = [
+      'customers',
+      'customerShopAccess',
+      'projects',
+      'projectTags',
+      'commercialQuotes',
+      'priceRules',
+      'commercialSettings',
+      'storefrontQuotes',
+    ];
+
+    const blockStart = edgeRuntime.indexOf('gescomServices: {');
+    expect(blockStart).toBeGreaterThan(-1);
+    const blockEnd = edgeRuntime.indexOf('},', blockStart);
+    expect(blockEnd).toBeGreaterThan(blockStart);
+    const block = edgeRuntime.slice(blockStart, blockEnd);
+
+    for (const key of gescomServiceKeys) {
+      expect(block).toMatch(new RegExp(`\\b${key}\\s*:`));
+    }
+  });
+
   it('permet au front et au proxy API de cibler la stack locale', () => {
     const edgeRuntime = read('supabase/functions/magrit-api/index.ts');
 

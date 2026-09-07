@@ -2,10 +2,13 @@ import type { TenantId, UserId } from '../../../kernel/ids/index.ts';
 import type { PricedLineBreakdownItem } from '../../pricing/application/pricing-engine.ts';
 import type {
   CreateQuoteFromProjectCommand,
+  QuoteAuditEntryDto,
   QuoteDetailDto,
   QuoteDto,
   QuoteLineDto,
   QuoteStatus,
+  SendQuoteCommand,
+  TaxRegimeDto,
   UpdateQuoteCommand,
 } from '../api/contracts.ts';
 
@@ -63,6 +66,56 @@ export class QuoteDeleteRequiresDraftError extends Error {
   constructor(message = 'Seul un devis a l etat brouillon peut etre supprime.') {
     super(message);
     this.name = 'QuoteDeleteRequiresDraftError';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// E10.10a — erreurs de domaine de l envoi, du renvoi, de la duplication et de
+// la garde de statut sur updateQuote.
+// ---------------------------------------------------------------------------
+
+/**
+ * `updateQuote` sur un devis qui n est plus `draft` (`quote.update_requires_draft`).
+ * Solde la dette p4 de docs/api/CONVENTIONS.md §8.6 : premiere story a
+ * produire un statut != draft, donc premiere a rendre cette garde opposable.
+ */
+export class QuoteUpdateRequiresDraftError extends Error {
+  constructor(message = "Seul un devis a l etat brouillon peut etre modifie : le dupliquer pour le reprendre.") {
+    super(message);
+    this.name = 'QuoteUpdateRequiresDraftError';
+  }
+}
+
+/**
+ * `sendQuote` sur un devis dont le statut n autorise ni un premier envoi
+ * (`draft`) ni un renvoi (`sent`) — `quote.send_forbidden_status` (409).
+ */
+export class QuoteSendForbiddenStatusError extends Error {
+  constructor(message = "Seuls les devis 'draft' (premier envoi) et 'sent' (renvoi) peuvent etre envoyes.") {
+    super(message);
+    this.name = 'QuoteSendForbiddenStatusError';
+  }
+}
+
+/** Premier envoi d un devis sans aucune ligne — `quote.send_requires_lines` (422). */
+export class QuoteSendRequiresLinesError extends Error {
+  constructor(message = "Un devis sans ligne n est pas une offre : ajouter au moins une ligne avant l envoi.") {
+    super(message);
+    this.name = 'QuoteSendRequiresLinesError';
+  }
+}
+
+/**
+ * Renvoi (`sent` -> `sent`) avec un `show_discounts` different de la valeur
+ * deja enregistree — `quote.resend_immutable` (422). Le contenu d un devis
+ * deja envoye ne se retouche pas ; il se duplique.
+ */
+export class QuoteResendImmutableError extends Error {
+  constructor(
+    message = "Un renvoi ne peut pas changer show_discounts : dupliquer le devis pour en changer le contenu.",
+  ) {
+    super(message);
+    this.name = 'QuoteResendImmutableError';
   }
 }
 
@@ -194,6 +247,20 @@ export type QuoteLineAuditRow = Readonly<{
 
 export type ListQuoteLineAuditResult = Readonly<{ rows: readonly QuoteLineAuditRow[] }>;
 
+// ---------------------------------------------------------------------------
+// E10.10a — journal d audit de l ENTETE (distinct du journal des lignes).
+// ---------------------------------------------------------------------------
+
+export type ListQuoteHeaderAuditParams = Readonly<{
+  quoteId: string;
+  size: number;
+  cursor: Readonly<{ sort: string; id: string }> | null;
+}>;
+
+export type QuoteHeaderAuditRow = QuoteAuditEntryDto;
+
+export type ListQuoteHeaderAuditResult = Readonly<{ rows: readonly QuoteHeaderAuditRow[] }>;
+
 /**
  * Port (interface) du referentiel Devis commerciaux. L implementation
  * Supabase vit dans src/adapters/supabase/commercial-quotes-repository.ts ;
@@ -220,10 +287,70 @@ export interface CommercialQuotesRepository {
     command: CreateQuoteFromProjectCommand,
   ): Promise<QuoteDetailDto>;
 
+  /**
+   * E10.10a — garde d etat (409 `quote.update_requires_draft`) : leve
+   * `QuoteUpdateRequiresDraftError` des que le devis n est plus `draft`,
+   * MEME condition d ecriture que `remove()` (le filtre par statut fait
+   * partie de l operation elle-meme).
+   */
   update(tenantId: TenantId, quoteId: string, command: UpdateQuoteCommand): Promise<QuoteDto>;
 
   /** Leve `QuoteDeleteRequiresDraftError` si le devis n est pas a l etat brouillon. */
   remove(tenantId: TenantId, quoteId: string): Promise<void>;
+
+  // -------------------------------------------------------------------------
+  // E10.10a — statut, envoi/renvoi, duplication, remise globale, TVA.
+  // -------------------------------------------------------------------------
+
+  /**
+   * ENVOIE (premier envoi, devis `draft`) ou RENVOIE (devis `sent`) un devis.
+   * Transition atomique : statut, horodatage, calcul de `valid_until` si
+   * necessaire, ecriture d audit (`sent`/`resent`, + `updated` par champ
+   * change) sont portes par UNE SEULE fonction Postgres
+   * (`api_send_commercial_quote`, meme raisonnement que
+   * `api_create_commercial_quote_from_project_items`, PostgREST n offrant pas
+   * de transaction multi-requetes).
+   *
+   * Leve `QuoteSendForbiddenStatusError` (statut ni `draft` ni `sent`),
+   * `QuoteSendRequiresLinesError` (premier envoi d un devis sans ligne) ou
+   * `QuoteResendImmutableError` (renvoi avec `show_discounts` divergent).
+   */
+  sendQuote(
+    tenantId: TenantId,
+    actor: UserId,
+    quoteId: string,
+    command: SendQuoteCommand,
+  ): Promise<QuoteDetailDto>;
+
+  /**
+   * DUPLIQUE un devis : nouveau devis `draft`, nouveau numero,
+   * `source_quote_id` renseigne, lignes recopiees avec leur geste commercial
+   * DEJA FIGE (aucun recalcul de prix — E10.8 gelee, et une copie doit
+   * refleter l offre telle qu elle a ete faite). `valid_until` REMISE a
+   * `null` (jamais recopiee). Entree d audit `duplicated` sur le devis
+   * ORIGINAL. Autorise depuis N IMPORTE QUEL statut (aucune garde d etat :
+   * dupliquer ne modifie jamais le devis source).
+   */
+  duplicateQuote(tenantId: TenantId, actor: UserId, quoteId: string): Promise<QuoteDetailDto>;
+
+  /**
+   * Journal d audit de l ENTETE d un devis (E10.10a), distinct du journal des
+   * LIGNES (E10.9, `listLineAuditEntries`). Garde `can_manage_pricing`
+   * verifiee par le SERVICE avant cet appel, meme discipline que
+   * `listAuditEntries`.
+   */
+  listHeaderAuditEntries(
+    tenantId: TenantId,
+    params: ListQuoteHeaderAuditParams,
+  ): Promise<ListQuoteHeaderAuditResult>;
+
+  /**
+   * Regime fiscal du tenant (`tenants.tax_regime`), toujours renseigne
+   * (colonne NOT NULL, defaut `metropole_fr`). Sert a resoudre
+   * `QuoteTotals.vat_rate`/`vat_regime` quand le devis ne porte pas de
+   * surcharge (`Quote.vat_rate`).
+   */
+  getTenantTaxRegime(tenantId: TenantId): Promise<TaxRegimeDto>;
 
   // -------------------------------------------------------------------------
   // E10.9 — lignes de devis.
@@ -273,10 +400,14 @@ export interface CommercialQuotesRepository {
   ): Promise<ListQuoteLineAuditResult>;
 
   /**
-   * Role de l acteur dans le tenant (`admin`/`member`), `null` si non membre.
-   * Garde d acces de `listQuoteAuditEntries` (403 `identity.role_required`
-   * hors `admin`) en attendant le droit dedie `can_manage_pricing` (E10.11) —
-   * meme mecanisme que l ecran des regles de prix (E10.6 CA7).
+   * Evalue le droit metier `can_manage_pricing` (E10.11) de l acteur dans le
+   * tenant, via `public.user_has_capability` (le meme mecanisme, deja
+   * exploite par `SupabaseRolesRepository.userCapability()` — pas duplique,
+   * juste appele depuis cet adaptateur pour eviter une dependance croisee
+   * entre modules). Garde d acces de `listQuoteAuditEntries` (403
+   * `identity.role_required` si `false`). Un `admin` du tenant
+   * recoit `true` par derivation (regle portee par `user_has_capability`,
+   * pas par ce port) : aucun acteur qui avait acces avant E10.11 ne le perd.
    */
-  findActorTenantRole(tenantId: TenantId, actorId: UserId): Promise<'admin' | 'member' | null>;
+  actorHasCapability(tenantId: TenantId, actorId: UserId, capability: string): Promise<boolean>;
 }

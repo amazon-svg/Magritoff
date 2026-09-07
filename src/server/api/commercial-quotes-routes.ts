@@ -16,6 +16,7 @@ import {
   createQuoteFromProjectCommandSchema,
   createQuoteLineCommandSchema,
   deleteQuoteResultSchema,
+  quoteAuditEntriesListSchema,
   quoteDetailSchema,
   quoteLineAuditEntriesListSchema,
   quoteLineSchema,
@@ -23,6 +24,7 @@ import {
   quoteStatusSchema,
   quotesListSchema,
   reorderQuoteLinesCommandSchema,
+  sendQuoteCommandSchema,
   updateQuoteCommandSchema,
   updateQuoteLineCommandSchema,
   type QuoteDetailDto,
@@ -44,6 +46,10 @@ import {
   QuoteLineQuoteNotDraftError,
   QuoteNotFoundError,
   QuoteProjectNotFoundError,
+  QuoteResendImmutableError,
+  QuoteSendForbiddenStatusError,
+  QuoteSendRequiresLinesError,
+  QuoteUpdateRequiresDraftError,
 } from '../../modules/commercial-quotes/application/commercial-quotes-repository.ts';
 import { uuidSchema } from '../../modules/_shared/api/index.ts';
 import {
@@ -52,6 +58,8 @@ import {
   computeEntityTag,
   decodeCursor,
   problem,
+  readIfMatch,
+  roleRequired,
   SHARED_PROBLEM_CODES,
 } from '../../modules/_shared/application/index.ts';
 import { defineGescomRoute, type GescomRoute, type GescomRequestContext } from './gescom-middleware.ts';
@@ -155,15 +163,16 @@ export function createCommercialQuotesRoutes(
       inputSchema: updateQuoteCommandSchema,
       dataSchema: quoteSchema,
       async handle(context, input) {
+        const quoteId = context.params['quoteId']!;
+        let current: QuoteDto | undefined;
         return withDomainErrors(async () => {
-          const quoteId = context.params['quoteId']!;
-          const current = await service.getSummary(context.tenantId, quoteId);
+          current = await service.getSummary(context.tenantId, quoteId);
           const currentTag = await computeEntityTag(current);
           assertPrecondition(context.ifMatch, currentTag, current);
 
           const updated = await service.update(context.tenantId, quoteId, input);
           return { status: 200, data: updated, etag: await computeEntityTag(updated) };
-        });
+        }, () => current);
       },
     }),
 
@@ -178,6 +187,87 @@ export function createCommercialQuotesRoutes(
         return withDomainErrors(async () => {
           await service.remove(context.tenantId, context.params['quoteId']!);
           return { status: 200, data: { deleted: true as const } };
+        });
+      },
+    }),
+
+    // -------------------------------------------------------------------------
+    // E10.10a — envoi/renvoi, duplication, remise globale, journal d entete.
+    // -------------------------------------------------------------------------
+
+    defineGescomRoute({
+      method: 'POST',
+      path: '/quotes/{quoteId}/transmissions',
+      operationId: 'sendQuote',
+      authentication: 'user',
+      createsResource: true,
+      inputSchema: sendQuoteCommandSchema,
+      dataSchema: quoteDetailSchema,
+      async handle(context, input) {
+        const quoteId = context.params['quoteId']!;
+        let current: QuoteDto | undefined;
+        return withDomainErrors(async () => {
+          current = await service.getSummary(context.tenantId, quoteId);
+          const currentTag = await computeEntityTag(current);
+          // `If-Match` EXIGE sur ce POST — seul cas du contrat (ecart de forme
+          // assume n°1, docs/api/CONVENTIONS.md §8.12). Le socle ne rend la
+          // precondition obligatoire que sur PATCH/PUT (`concurrencyGuarded`,
+          // gescom-middleware.ts) ; `readIfMatch(_, true)` la rend obligatoire
+          // ICI, avec les MEMES codes 428/400 partages que toute autre route.
+          const ifMatch = readIfMatch(context.request, true);
+          assertPrecondition(ifMatch, currentTag, current);
+
+          const sent = await service.send(context.tenantId, requireUserId(context), quoteId, input);
+          return { status: 201, data: sent, etag: await computeEntityTag(quoteSummaryOf(sent)) };
+        }, () => current);
+      },
+    }),
+
+    defineGescomRoute({
+      method: 'POST',
+      path: '/quotes/{quoteId}/duplicates',
+      operationId: 'duplicateQuote',
+      authentication: 'user',
+      createsResource: true,
+      inputSchema: null,
+      dataSchema: quoteDetailSchema,
+      async handle(context) {
+        return withDomainErrors(async () => {
+          const copy = await service.duplicate(
+            context.tenantId,
+            requireUserId(context),
+            context.params['quoteId']!,
+          );
+          return { status: 201, data: copy, etag: await computeEntityTag(quoteSummaryOf(copy)) };
+        });
+      },
+    }),
+
+    defineGescomRoute({
+      method: 'GET',
+      path: '/quotes/{quoteId}/header-audit-entries',
+      operationId: 'listQuoteHeaderAuditEntries',
+      authentication: 'user',
+      inputSchema: null,
+      dataSchema: quoteAuditEntriesListSchema,
+      async handle(context) {
+        return withDomainErrors(async () => {
+          const cursor = context.page.cursor ? decodeCursor(context.page.cursor) : null;
+          const result = await service.listHeaderAuditEntries(
+            context.tenantId,
+            requireUserId(context),
+            context.params['quoteId']!,
+            { size: context.page.size, cursor },
+          );
+          const page = buildPage(result.rows, context.page, (row) => ({
+            sort: row.occurred_at,
+            id: row.id,
+          }));
+          return {
+            status: 200,
+            data: page.items,
+            meta: { next_cursor: page.nextCursor, page_size: context.page.size },
+          };
         });
       },
     }),
@@ -344,8 +434,17 @@ function requireUserId(context: GescomRequestContext): import('../../kernel/ids/
   return context.principal.userId;
 }
 
-/** Traduit les erreurs de domaine du module Devis commerciaux en Problem RFC 7807. */
-async function withDomainErrors<T>(operation: () => Promise<T>): Promise<T> {
+/**
+ * Traduit les erreurs de domaine du module Devis commerciaux en Problem RFC
+ * 7807. `getCurrentState`, optionnel, fournit `current_state` (E10.10a) pour
+ * les 409 qui le promettent au contrat (`quote.update_requires_draft`,
+ * `quote.send_forbidden_status`) — capture par le CALLER, qui seul connait
+ * l etat lu avant l operation qui a echoue.
+ */
+async function withDomainErrors<T>(
+  operation: () => Promise<T>,
+  getCurrentState?: () => Readonly<Record<string, unknown>> | undefined,
+): Promise<T> {
   try {
     return await operation();
   } catch (error) {
@@ -373,6 +472,42 @@ async function withDomainErrors<T>(operation: () => Promise<T>): Promise<T> {
         status: 409,
         title: 'Suppression impossible',
         code: 'quote.delete_requires_draft',
+        detail: error.message,
+      });
+    }
+    if (error instanceof QuoteUpdateRequiresDraftError) {
+      const currentState = getCurrentState?.();
+      throw problem({
+        status: 409,
+        title: 'Devis non modifiable',
+        code: 'quote.update_requires_draft',
+        detail: error.message,
+        ...(currentState ? { currentState } : {}),
+      });
+    }
+    if (error instanceof QuoteSendForbiddenStatusError) {
+      const currentState = getCurrentState?.();
+      throw problem({
+        status: 409,
+        title: 'Envoi impossible',
+        code: 'quote.send_forbidden_status',
+        detail: error.message,
+        ...(currentState ? { currentState } : {}),
+      });
+    }
+    if (error instanceof QuoteSendRequiresLinesError) {
+      throw problem({
+        status: 422,
+        title: 'Devis sans ligne',
+        code: 'quote.send_requires_lines',
+        detail: error.message,
+      });
+    }
+    if (error instanceof QuoteResendImmutableError) {
+      throw problem({
+        status: 422,
+        title: 'Renvoi refuse',
+        code: 'quote.resend_immutable',
         detail: error.message,
       });
     }
@@ -430,12 +565,10 @@ async function withDomainErrors<T>(operation: () => Promise<T>): Promise<T> {
       });
     }
     if (error instanceof QuoteAuditAccessDeniedError) {
-      throw problem({
-        status: 403,
-        title: 'Habilitation insuffisante',
-        code: 'identity.role_required',
-        detail: error.message,
-      });
+      // E10.11 — meme code deja publie en v1 (§3.5, regle 3 de docs/api/
+      // CONVENTIONS.md), etabli desormais par `can_manage_pricing` plutot
+      // que par la garde grossiere « role admin » d E10.9.
+      throw roleRequired(['can_manage_pricing']);
     }
     if (error instanceof QuoteCommandRejectedError) {
       // `permission_denied`/`authentication_required` : defense en profondeur

@@ -35,12 +35,16 @@ import type { ProjectsService } from '../../modules/projects/application/project
 import type { ProjectTagsService } from '../../modules/project-tags/application/project-tags-service.ts';
 import type { CommercialQuotesService } from '../../modules/commercial-quotes/application/commercial-quotes-service.ts';
 import type { PriceRulesService } from '../../modules/pricing/application/price-rules-service.ts';
+import type { CommercialSettingsService } from '../../modules/commercial-settings/application/commercial-settings-service.ts';
+import type { StorefrontQuotesService } from '../../modules/storefront-quotes/application/storefront-quotes-service.ts';
 import { createCustomersRoutes } from './customers-routes.ts';
 import { createCustomerShopAccessRoutes } from './customer-shop-access-routes.ts';
 import { createProjectsRoutes } from './projects-routes.ts';
 import { createProjectTagsRoutes } from './project-tags-routes.ts';
 import { createCommercialQuotesRoutes } from './commercial-quotes-routes.ts';
 import { createPriceRulesRoutes } from './price-rules-routes.ts';
+import { createCommercialSettingsRoutes } from './commercial-settings-routes.ts';
+import { createStorefrontQuotesRoutes } from './storefront-quotes-routes.ts';
 import type { GescomRoute } from './gescom-middleware.ts';
 
 /**
@@ -59,6 +63,13 @@ export type GescomServices = Readonly<{
   commercialQuotes: CommercialQuotesService;
   /** E10.6 — referentiel des regles de prix et marge publique standard par gamme. */
   priceRules: PriceRulesService;
+  /** E10.10a — reglages commerciaux du tenant (validite par defaut des devis). */
+  commercialSettings: CommercialSettingsService;
+  /**
+   * E10.10b-1 — lecture des devis mis a disposition du client dans sa
+   * boutique (`ShopCustomerPrincipal`, troisieme mode d authentification).
+   */
+  storefrontQuotes: StorefrontQuotesService;
 }>;
 
 /**
@@ -75,6 +86,8 @@ export function gescomRoutes(services: GescomServices): readonly GescomRoute[] {
     ...createProjectTagsRoutes(services.projectTags),
     ...createCommercialQuotesRoutes(services.commercialQuotes),
     ...createPriceRulesRoutes(services.priceRules),
+    ...createCommercialSettingsRoutes(services.commercialSettings),
+    ...createStorefrontQuotesRoutes(services.storefrontQuotes),
   ];
 }
 
@@ -94,6 +107,8 @@ export const GESCOM_ROUTES: readonly GescomRoute[] = Object.freeze(
     projectTags: createNullService('ProjectTagsService'),
     commercialQuotes: createNullService('CommercialQuotesService'),
     priceRules: createNullService('PriceRulesService'),
+    commercialSettings: createNullService('CommercialSettingsService'),
+    storefrontQuotes: createNullService('StorefrontQuotesService'),
   }),
 );
 

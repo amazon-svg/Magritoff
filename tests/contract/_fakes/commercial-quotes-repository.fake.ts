@@ -1,45 +1,52 @@
 /**
- * Faux repository Devis commerciaux (E10.3, E10.9), sur le meme principe que
- * `projects-repository.fake.ts` (E10.1) : partage entre les tests de
- * contrat, jamais reecrit a la main deux fois (leçon du sprint —
+ * Faux repository Devis commerciaux (E10.3, E10.9, E10.10a), sur le meme
+ * principe que `projects-repository.fake.ts` (E10.1) : partage entre les
+ * tests de contrat, jamais reecrit a la main deux fois (leçon du sprint —
  * docs/api/CONVENTIONS.md, un faux non teste qui diverge de l adaptateur
  * reel passe le typecheck sans etre detecte).
  *
  * ── Point critique : la numerotation DOIT etre atomique, meme en memoire ──
- * `createFromProjectItems()` lit puis ecrit le compteur SANS aucun `await`
- * entre les deux : sous Node/JS (boucle d evenements a un seul thread), deux
- * appels lances via `Promise.all` s executent en fait en SERIE tant qu aucun
- * point de suspension (`await`) ne coupe la section critique. Introduire un
- * `await` entre la lecture et l ecriture du compteur (ex. pour "simuler" un
- * appel reseau) reintroduirait exactement le risque de doublon que la vraie
- * fonction Postgres evite par le verrou de ligne de l UPSERT — et le test de
- * contrat qui exerce des creations concurrentes (voir
- * commercial-quotes.contract.test.ts) cesserait de passer.
+ * `createFromProjectItems()`/`duplicateQuote()` lisent puis ecrivent le
+ * compteur SANS aucun `await` entre les deux : sous Node/JS (boucle d
+ * evenements a un seul thread), deux appels lances via `Promise.all`
+ * s executent en fait en SERIE tant qu aucun point de suspension (`await`) ne
+ * coupe la section critique. Introduire un `await` entre la lecture et l
+ * ecriture du compteur (ex. pour "simuler" un appel reseau) reintroduirait
+ * exactement le risque de doublon que la vraie fonction Postgres evite par le
+ * verrou de ligne de l UPSERT.
  *
  * ── E10.9 — ce que ce faux reimplemente fidelement, pas seulement type ────
  * - La garde "devis brouillon" (`quote_line.quote_not_draft`) sur TOUTE
  *   ecriture de ligne, meme discipline que le trigger BEFORE de la migration
  *   `20260904000100_gescom_e10_9_quote_line_discounts.sql`.
  * - Le journal d audit APPEND-ONLY, une entree PAR CHAMP PERSISTE change,
- *   regroupees par `change_set_id` PAR APPEL (une resequence issue d un
- *   retrait ou d un reordonnancement partage un seul `change_set_id`, comme
- *   le fait le trigger via `magrit.change_set_id` positionne par les
- *   fonctions `api_delete_commercial_quote_line`/
- *   `api_reorder_commercial_quote_lines`).
+ *   regroupees par `change_set_id` PAR APPEL.
  * - Les alertes (`warnings`) calculees par `computeQuoteLineWarnings()`, LA
  *   MEME fonction que l adaptateur Supabase (aucune reimplementation
  *   divergente possible).
- * - B1 (qa-review, BLOQUANT) — TOUTE ecriture de ligne (ajout, modification,
- *   retrait, reordonnancement) avance `updated_at` du devis PARENT, meme
- *   discipline que le trigger AFTER `commercial_quote_lines_touch_quote_
- *   updated_at_trigger` (migration 20260904000100) : sans quoi la
- *   concurrence optimiste de `reorderQuoteLines` (`If-Match` sur LE DEVIS)
- *   resterait inerte dans ce faux, exactement le defaut demontre cote base.
+ * - B1 (qa-review, BLOQUANT) — TOUTE ecriture de ligne avance `updated_at` du
+ *   devis PARENT, meme discipline que le trigger AFTER `commercial_quote_
+ *   lines_touch_quote_updated_at_trigger`.
+ *
+ * ── E10.10a — statut, envoi/renvoi, duplication, remise globale, totaux ────
+ * Un devis est stocke sous une forme INTERNE (`StoredQuote`, colonnes DB) qui
+ * ne porte NI `totals` NI `warnings` : ces deux champs sont DERIVES a chaque
+ * LECTURE par `toQuoteDto()`, exactement comme l adaptateur Supabase le fait
+ * (`computeQuoteTotals`/`computeQuoteWarnings`, memes fonctions PURES) —
+ * jamais recalcules deux fois de facons differentes. `sendQuote`/
+ * `duplicateQuote` reimplementent ici, en memoire, ce que
+ * `api_send_commercial_quote`/`api_duplicate_commercial_quote` (migration
+ * `20260906160000`) font en une seule transaction Postgres.
  */
 import type { TenantId, UserId } from '@/kernel';
 import type { ProjectDto, ProjectItemDto } from '@/modules/projects/api/contracts';
 import type { ProjectsRepository } from '@/modules/projects/application/projects-repository';
-import { computeQuoteLineWarnings } from '@/modules/commercial-quotes/application/quote-line-pricing';
+import {
+  computeQuoteLineWarnings,
+  formatCentsToMoneyNonNegative,
+  parseMoneyNonNegativeToCents,
+} from '@/modules/commercial-quotes/application/quote-line-pricing';
+import { computeQuoteTotals, computeQuoteWarnings } from '@/modules/commercial-quotes/application/quote-totals';
 import {
   QuoteCommandRejectedError,
   QuoteDeleteRequiresDraftError,
@@ -48,7 +55,13 @@ import {
   QuoteLineQuoteNotDraftError,
   QuoteNotFoundError,
   QuoteProjectNotFoundError,
+  QuoteResendImmutableError,
+  QuoteSendForbiddenStatusError,
+  QuoteSendRequiresLinesError,
+  QuoteUpdateRequiresDraftError,
   type CommercialQuotesRepository,
+  type ListQuoteHeaderAuditParams,
+  type ListQuoteHeaderAuditResult,
   type ListQuoteLineAuditParams,
   type ListQuoteLineAuditResult,
   type ListQuotesParams,
@@ -59,9 +72,14 @@ import {
 } from '@/modules/commercial-quotes/application/commercial-quotes-repository';
 import type {
   CreateQuoteFromProjectCommand,
+  QuoteAuditEntryDto,
+  QuoteAuditField,
   QuoteDetailDto,
   QuoteDto,
   QuoteLineDto,
+  QuoteStatus,
+  SendQuoteCommand,
+  TaxRegimeDto,
   UpdateQuoteCommand,
 } from '@/modules/commercial-quotes/api/contracts';
 
@@ -78,7 +96,10 @@ function toMoneyString(raw: unknown): string {
 }
 
 /** Meme ordre que `.order('created_at', {ascending:false}).order('id', {ascending:false})`. */
-function compareCreatedAtThenIdDesc(a: QuoteDto, b: QuoteDto): number {
+function compareCreatedAtThenIdDesc(
+  a: Readonly<{ created_at: string; id: string }>,
+  b: Readonly<{ created_at: string; id: string }>,
+): number {
   if (a.created_at !== b.created_at) return a.created_at < b.created_at ? 1 : -1;
   if (a.id === b.id) return 0;
   return a.id < b.id ? 1 : -1;
@@ -92,6 +113,34 @@ function isStrictlyAfterCursor(
   if (row.sort > cursor.sort) return false;
   return row.id < cursor.id;
 }
+
+/**
+ * Devis stocke SOUS FORME DE COLONNES, sans `totals` ni `warnings` (DERIVES a
+ * chaque lecture par `toQuoteDto()`, jamais mis en cache dans la Map — un
+ * devis dont les lignes changent ne doit jamais rendre un total perime).
+ */
+type StoredQuote = Readonly<{
+  id: string;
+  tenant_id: string;
+  customer_id: string;
+  project_id: string;
+  source_quote_id: string | null;
+  number: string;
+  status: QuoteStatus;
+  valid_until: string | null;
+  show_discounts: boolean;
+  global_discount_rate: string | null;
+  target_net_total: string | null;
+  vat_rate: string | null;
+  sent_at: string | null;
+  last_sent_at: string | null;
+  sent_by: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}>;
+
+type MutableStoredQuote = { -readonly [K in keyof StoredQuote]: StoredQuote[K] };
 
 /**
  * Ligne stockee : superset de `QuoteLineDto` avec `chiffrage_quantity`
@@ -112,25 +161,49 @@ function monotonicIsoTimestamp(): string {
 }
 
 export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepository {
-  private readonly quotes = new Map<string, QuoteDto>();
+  private readonly quotes = new Map<string, StoredQuote>();
   private readonly lines = new Map<string, StoredQuoteLine>();
   private readonly auditEntries: QuoteLineAuditRow[] = [];
+  private readonly headerAuditEntries: QuoteAuditEntryDto[] = [];
   /** Compteur par `${tenantId}:${year}`, meme portee que commercial_quote_number_counters. */
   private readonly counters = new Map<string, number>();
-  /** Role de l acteur par tenant, pour `findActorTenantRole` (E10.9 CA garde admin). `admin` par defaut. */
-  private readonly actorRoles = new Map<string, 'admin' | 'member'>();
+  /**
+   * Droits metier de l acteur, par tenant (E10.11, `can_manage_pricing`).
+   * `true` par defaut (equivalent d un `admin`, qui recoit toute capability
+   * par derivation en production) : un test doit forcer `false` explicitement
+   * pour exercer la garde 403 `identity.role_required`.
+   */
+  private readonly actorCapabilities = new Map<string, boolean>();
+  /** `commercial_settings.default_validity_days` par tenant (E10.10a). `undefined` = jamais ouvert -> `null`. */
+  private readonly defaultValidityDays = new Map<string, number | null>();
+  /** `tenants.tax_regime` par tenant. Absent = `metropole_fr` (defaut reel de la colonne). */
+  private readonly tenantTaxRegimes = new Map<string, TaxRegimeDto>();
 
   constructor(private readonly projects: ProjectsRepository) {}
 
-  /** TEST UNIQUEMENT — force le role d un acteur pour exercer la garde 403 `identity.role_required`. */
-  setActorRoleForTest(tenantId: string, actorId: string, role: 'admin' | 'member' | null): void {
-    const key = `${tenantId}:${actorId}`;
-    if (role === null) this.actorRoles.delete(key);
-    else this.actorRoles.set(key, role);
+  /** TEST UNIQUEMENT — force le droit d un acteur pour exercer la garde 403 `identity.role_required`. */
+  setActorCapabilityForTest(tenantId: string, actorId: string, capability: string, granted: boolean | null): void {
+    const key = `${tenantId}:${actorId}:${capability}`;
+    if (granted === null) this.actorCapabilities.delete(key);
+    else this.actorCapabilities.set(key, granted);
   }
 
-  async findActorTenantRole(tenantId: TenantId, actorId: UserId): Promise<'admin' | 'member' | null> {
-    return this.actorRoles.get(`${tenantId}:${actorId}`) ?? 'admin';
+  /** TEST UNIQUEMENT — equivalent de `updateCommercialSettings({default_validity_days})` sans passer par HTTP. */
+  setDefaultValidityDaysForTest(tenantId: string, days: number | null): void {
+    this.defaultValidityDays.set(tenantId, days);
+  }
+
+  /** TEST UNIQUEMENT — equivalent de `tenants.tax_regime` sans passer par une table `tenants` en memoire. */
+  setTenantTaxRegimeForTest(tenantId: string, regime: TaxRegimeDto): void {
+    this.tenantTaxRegimes.set(tenantId, regime);
+  }
+
+  async actorHasCapability(tenantId: TenantId, actorId: UserId, capability: string): Promise<boolean> {
+    return this.actorCapabilities.get(`${tenantId}:${actorId}:${capability}`) ?? true;
+  }
+
+  async getTenantTaxRegime(tenantId: TenantId): Promise<TaxRegimeDto> {
+    return this.tenantTaxRegimes.get(tenantId) ?? 'metropole_fr';
   }
 
   async list(tenantId: TenantId, params: ListQuotesParams): Promise<ListQuotesResult> {
@@ -145,12 +218,12 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
       const cursor = params.cursor;
       rows = rows.filter((q) => isStrictlyAfterCursor({ sort: q.created_at, id: q.id }, cursor));
     }
-    return { rows: rows.slice(0, params.size + 1) };
+    return { rows: rows.slice(0, params.size + 1).map((row) => this.toQuoteDto(row)) };
   }
 
   async findById(tenantId: TenantId, quoteId: string): Promise<QuoteDto | null> {
     const found = this.quotes.get(quoteId);
-    return found && found.tenant_id === tenantId ? found : null;
+    return found && found.tenant_id === tenantId ? this.toQuoteDto(found) : null;
   }
 
   async findDetailById(tenantId: TenantId, quoteId: string): Promise<QuoteDetailDto | null> {
@@ -160,6 +233,27 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
     return { ...quote, lines };
   }
 
+  /** `QuoteTotals.lines_subtotal` : somme des `sale_price` des lignes REELLES du devis, jamais mise en cache. */
+  private subtotalOf(quoteId: string): string {
+    const cents = [...this.lines.values()]
+      .filter((line) => line.quote_id === quoteId)
+      .reduce((sum, line) => sum + parseMoneyNonNegativeToCents(line.sale_price), 0n);
+    return formatCentsToMoneyNonNegative(cents);
+  }
+
+  /** `StoredQuote` -> `QuoteDto` : (re)calcule `totals`/`warnings` a chaque lecture, jamais stocke. */
+  private toQuoteDto(stored: StoredQuote): QuoteDto {
+    const totals = computeQuoteTotals({
+      linesSubtotal: this.subtotalOf(stored.id),
+      globalDiscountRate: stored.global_discount_rate,
+      targetNetTotal: stored.target_net_total,
+      quoteVatRateOverride: stored.vat_rate,
+      tenantTaxRegime: this.tenantTaxRegimes.get(stored.tenant_id) ?? 'metropole_fr',
+    });
+    const warnings = computeQuoteWarnings({ validUntil: stored.valid_until, now: new Date() });
+    return { ...stored, totals, warnings: [...warnings] };
+  }
+
   private linesOf(quoteId: string): QuoteLineDto[] {
     return [...this.lines.values()]
       .filter((line) => line.quote_id === quoteId)
@@ -167,7 +261,7 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
       .map((line) => toDto(line));
   }
 
-  private assertDraft(quoteId: string): QuoteDto {
+  private assertDraft(quoteId: string): StoredQuote {
     const quote = this.quotes.get(quoteId);
     if (!quote) throw new QuoteNotFoundError();
     if (quote.status !== 'draft') throw new QuoteLineQuoteNotDraftError();
@@ -184,18 +278,20 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
   private touchQuoteUpdatedAt(quoteId: string): void {
     const quote = this.quotes.get(quoteId);
     if (!quote) return;
-    // `monotonicIsoTimestamp()` (deja utilise par l audit) : garantit que
-    // deux ecritures rapides (meme milliseconde) produisent malgre tout des
-    // ETag DIFFERENTS, comme le ferait `now()` cote Postgres (resolution
-    // microseconde) — un `new Date().toISOString()` simple pourrait rendre
-    // deux appels tres rapproches indiscernables dans ce faux.
     this.quotes.set(quoteId, { ...quote, updated_at: monotonicIsoTimestamp() });
   }
 
-  private pushAudit(
-    entry: Omit<QuoteLineAuditRow, 'id' | 'occurred_at'>,
-  ): void {
+  private pushAudit(entry: Omit<QuoteLineAuditRow, 'id' | 'occurred_at'>): void {
     this.auditEntries.push({
+      ...entry,
+      id: fakeQuoteUuid(),
+      occurred_at: monotonicIsoTimestamp(),
+    });
+  }
+
+  /** E10.10a — journal d audit de l ENTETE, distinct du journal des lignes. */
+  private pushHeaderAudit(entry: Omit<QuoteAuditEntryDto, 'id' | 'occurred_at'>): void {
+    this.headerAuditEntries.push({
       ...entry,
       id: fakeQuoteUuid(),
       occurred_at: monotonicIsoTimestamp(),
@@ -231,15 +327,22 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
     const number = `DEV-${year}-${String(next).padStart(5, '0')}`;
 
     const now = new Date().toISOString();
-    const quote: QuoteDto = {
+    const quote: StoredQuote = {
       id: fakeQuoteUuid(),
       tenant_id: tenantId,
       customer_id: project.customer_id,
       project_id: command.project_id,
+      source_quote_id: null,
       number,
       status: 'draft',
       valid_until: null,
       show_discounts: false,
+      global_discount_rate: null,
+      target_net_total: null,
+      vat_rate: null,
+      sent_at: null,
+      last_sent_at: null,
+      sent_by: null,
       created_by: actor,
       created_at: now,
       updated_at: now,
@@ -252,13 +355,6 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
       const amounts = (payload['amounts'] ?? {}) as Readonly<Record<string, unknown>>;
       const production = toMoneyString(amounts['clariprint_price_ht'] ?? amounts['price'] ?? 0);
       const quantity = Math.max(Math.trunc(Number(payload['quantity'] ?? 1)) || 1, 1);
-      // E10.3 (avant E10.9) ne valorisait aucun prix de vente. Depuis E10.9,
-      // le contrat l exige : cette voie de creation historique (par
-      // `createQuoteFromProject`) est SANS marge/regle (pas de PriceRulesService
-      // injecte ici, hors perimetre de ce chemin) — memes bornes que le
-      // backfill SQL de la migration 20260904000100 (marge/regle absentes ->
-      // 0.0000, customer_price = production_price). `addLine`, lui, appelle
-      // reellement PriceRulesService + PricingEngine (voir plus bas).
       const stored: StoredQuoteLine = {
         id: fakeQuoteUuid(),
         quote_id: quote.id,
@@ -303,26 +399,69 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
   }
 
   async update(tenantId: TenantId, quoteId: string, command: UpdateQuoteCommand): Promise<QuoteDto> {
-    const current = await this.findById(tenantId, quoteId);
-    if (!current) throw new QuoteNotFoundError();
-    const updated: QuoteDto = {
-      ...current,
-      ...('valid_until' in command && command.valid_until !== undefined
-        ? { valid_until: command.valid_until }
-        : {}),
-      ...('show_discounts' in command && command.show_discounts !== undefined
-        ? { show_discounts: command.show_discounts }
-        : {}),
-      updated_at: new Date().toISOString(),
+    const current = this.quotes.get(quoteId);
+    if (!current || current.tenant_id !== tenantId) throw new QuoteNotFoundError();
+    // E10.10a — GARDE D ETAT (409 `quote.update_requires_draft`), meme
+    // condition d ecriture que `remove()` (CA6).
+    if (current.status !== 'draft') throw new QuoteUpdateRequiresDraftError();
+
+    const changeSetId = fakeQuoteUuid();
+    const next: MutableStoredQuote = { ...current };
+
+    const auditField = (field: QuoteAuditField, previousValue: string | null, newValue: string | null): void => {
+      if (previousValue === newValue) return;
+      this.pushHeaderAudit({
+        quote_id: quoteId,
+        change_set_id: changeSetId,
+        action: 'updated',
+        field,
+        previous_value: previousValue,
+        new_value: newValue,
+        quote_snapshot: null,
+        actor_id: null,
+        actor_label: null,
+      });
     };
-    this.quotes.set(quoteId, updated);
-    return updated;
+
+    if ('valid_until' in command && command.valid_until !== undefined) {
+      auditField('valid_until', current.valid_until, command.valid_until);
+      next.valid_until = command.valid_until;
+    }
+    if ('show_discounts' in command && command.show_discounts !== undefined) {
+      auditField('show_discounts', String(current.show_discounts), String(command.show_discounts));
+      next.show_discounts = command.show_discounts;
+    }
+    // Remise globale : prix cible XOR taux (deja garanti par le schema Zod).
+    // Poser l un des deux met l AUTRE a `null`, meme non mentionne.
+    if ('global_discount_rate' in command) {
+      const value = command.global_discount_rate ?? null;
+      auditField('global_discount_rate', current.global_discount_rate, value);
+      if (current.target_net_total !== null) auditField('target_net_total', current.target_net_total, null);
+      next.global_discount_rate = value;
+      next.target_net_total = null;
+    }
+    if ('target_net_total' in command) {
+      const value = command.target_net_total ?? null;
+      auditField('target_net_total', current.target_net_total, value);
+      if (current.global_discount_rate !== null) auditField('global_discount_rate', current.global_discount_rate, null);
+      next.target_net_total = value;
+      next.global_discount_rate = null;
+    }
+    if ('vat_rate' in command) {
+      const value = command.vat_rate ?? null;
+      auditField('vat_rate', current.vat_rate, value);
+      next.vat_rate = value;
+    }
+
+    next.updated_at = new Date().toISOString();
+    this.quotes.set(quoteId, next);
+    return this.toQuoteDto(next);
   }
 
   /**
-   * TEST UNIQUEMENT — aucune route n expose de transition de statut dans
-   * cette story (E10.12, future). Permet d exercer le refus CA6 de
-   * `remove()` sur un devis non brouillon sans attendre cette story future.
+   * TEST UNIQUEMENT — permet d exercer un statut sans passer par `sendQuote`
+   * (utile pour les scenarios herites d E10.3/E10.9, ex. `quote.delete_
+   * requires_draft` sur un devis force a `sent`).
    */
   forceStatusForTest(quoteId: string, status: QuoteDto['status']): void {
     const current = this.quotes.get(quoteId);
@@ -331,8 +470,8 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
   }
 
   async remove(tenantId: TenantId, quoteId: string): Promise<void> {
-    const current = await this.findById(tenantId, quoteId);
-    if (!current) throw new QuoteNotFoundError();
+    const current = this.quotes.get(quoteId);
+    if (!current || current.tenant_id !== tenantId) throw new QuoteNotFoundError();
     // CA6 — meme condition d ecriture que l adaptateur reel : le filtre par
     // statut fait partie de l operation elle-meme, pas d une verification
     // separee qui pourrait courir avec une autre modification.
@@ -341,6 +480,234 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
     for (const [id, line] of this.lines) {
       if (line.quote_id === quoteId) this.lines.delete(id);
     }
+    // qa-review round 3, B6 — `source_quote_id` N EST PLUS une cle etrangere
+    // (migration 20260906160000, correctif B6) : le `on delete set null` pose
+    // au round 2 (B4) n etait pas silencieux, il declenchait un UPDATE donc
+    // les triggers utilisateur de la copie, ce qui pouvait la rendre non-
+    // draft-immuable et lever une exception non mappee (500 permanent, meme
+    // symptome que B4 par une autre porte). Sans FK, plus rien ne nulle
+    // `source_quote_id` en base : ce fake ne doit donc PLUS le faire non plus
+    // — une copie garde son `source_quote_id` intact, y compris orphelin,
+    // apres suppression de l original.
+  }
+
+  // ---------------------------------------------------------------------------
+  // E10.10a — envoi/renvoi, duplication, journal d audit d entete.
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Reimplemente en memoire ce que `api_send_commercial_quote` fait en une
+   * seule transaction Postgres (migration `20260906160000`) : distinction
+   * premier envoi (`draft`) / renvoi (`sent`), calcul de `valid_until` depuis
+   * `commercial_settings.default_validity_days` UNIQUEMENT si elle est encore
+   * `null`, entree d audit `sent` (snapshot complet) ou `resent` (rien),
+   * `show_discounts` fige sur un renvoi divergent (`quote.resend_immutable`).
+   */
+  async sendQuote(
+    tenantId: TenantId,
+    actor: UserId,
+    quoteId: string,
+    command: SendQuoteCommand,
+  ): Promise<QuoteDetailDto> {
+    const current = this.quotes.get(quoteId);
+    if (!current || current.tenant_id !== tenantId) throw new QuoteNotFoundError();
+    if (current.status !== 'draft' && current.status !== 'sent') {
+      throw new QuoteSendForbiddenStatusError();
+    }
+
+    const changeSetId = fakeQuoteUuid();
+    const next: MutableStoredQuote = { ...current };
+
+    if (current.status === 'draft') {
+      if (this.linesOf(quoteId).length === 0) throw new QuoteSendRequiresLinesError();
+
+      if (command.show_discounts !== undefined && command.show_discounts !== current.show_discounts) {
+        this.pushHeaderAudit({
+          quote_id: quoteId,
+          change_set_id: changeSetId,
+          action: 'updated',
+          field: 'show_discounts',
+          previous_value: String(current.show_discounts),
+          new_value: String(command.show_discounts),
+          quote_snapshot: null,
+          actor_id: actor,
+          actor_label: null,
+        });
+        next.show_discounts = command.show_discounts;
+      }
+
+      if (current.valid_until === null) {
+        const defaultDays = this.defaultValidityDays.get(tenantId) ?? null;
+        if (defaultDays !== null) {
+          const boundary = new Date();
+          boundary.setUTCDate(boundary.getUTCDate() + defaultDays);
+          const computed = boundary.toISOString().slice(0, 10);
+          this.pushHeaderAudit({
+            quote_id: quoteId,
+            change_set_id: changeSetId,
+            action: 'updated',
+            field: 'valid_until',
+            previous_value: null,
+            new_value: computed,
+            quote_snapshot: null,
+            actor_id: actor,
+            actor_label: null,
+          });
+          next.valid_until = computed;
+        }
+      }
+
+      const now = monotonicIsoTimestamp();
+      next.status = 'sent';
+      next.sent_at = now;
+      next.last_sent_at = now;
+      next.sent_by = actor;
+      next.updated_at = now;
+      this.quotes.set(quoteId, next);
+
+      this.pushHeaderAudit({
+        quote_id: quoteId,
+        change_set_id: changeSetId,
+        action: 'sent',
+        field: null,
+        previous_value: null,
+        new_value: null,
+        quote_snapshot: {
+          quote: this.toQuoteDto(next),
+          lines: this.linesOf(quoteId),
+        } as unknown as Readonly<Record<string, unknown>>,
+        actor_id: actor,
+        actor_label: null,
+      });
+    } else {
+      // Renvoi : le contenu ne bouge pas. Une divergence de show_discounts
+      // est un refus, jamais une modification silencieuse.
+      if (command.show_discounts !== undefined && command.show_discounts !== current.show_discounts) {
+        throw new QuoteResendImmutableError();
+      }
+      const now = monotonicIsoTimestamp();
+      next.last_sent_at = now;
+      next.updated_at = now;
+      this.quotes.set(quoteId, next);
+
+      this.pushHeaderAudit({
+        quote_id: quoteId,
+        change_set_id: changeSetId,
+        action: 'resent',
+        field: null,
+        previous_value: null,
+        new_value: null,
+        quote_snapshot: null,
+        actor_id: actor,
+        actor_label: null,
+      });
+    }
+
+    const detail = await this.findDetailById(tenantId, quoteId);
+    if (!detail) throw new QuoteNotFoundError();
+    return detail;
+  }
+
+  /**
+   * Reimplemente en memoire ce que `api_duplicate_commercial_quote` fait en
+   * une seule transaction : nouveau devis `draft`, nouveau numero (MEME
+   * compteur que la creation depuis un projet), lignes recopiees avec leur
+   * geste commercial fige, `valid_until` remise a `null`, entree d audit
+   * `duplicated` sur l ORIGINAL.
+   */
+  async duplicateQuote(tenantId: TenantId, actor: UserId, quoteId: string): Promise<QuoteDetailDto> {
+    const source = this.quotes.get(quoteId);
+    if (!source || source.tenant_id !== tenantId) throw new QuoteNotFoundError();
+
+    // ── Section critique NON interrompue par un await (voir en-tete) ──────
+    const year = new Date().getUTCFullYear();
+    const counterKey = `${tenantId}:${year}`;
+    const nextCounter = (this.counters.get(counterKey) ?? 0) + 1;
+    this.counters.set(counterKey, nextCounter);
+    const number = `DEV-${year}-${String(nextCounter).padStart(5, '0')}`;
+
+    const now = monotonicIsoTimestamp();
+    const copy: StoredQuote = {
+      id: fakeQuoteUuid(),
+      tenant_id: tenantId,
+      customer_id: source.customer_id,
+      project_id: source.project_id,
+      source_quote_id: source.id,
+      number,
+      status: 'draft',
+      valid_until: null,
+      show_discounts: source.show_discounts,
+      global_discount_rate: source.global_discount_rate,
+      target_net_total: source.target_net_total,
+      vat_rate: source.vat_rate,
+      sent_at: null,
+      last_sent_at: null,
+      sent_by: null,
+      created_by: actor,
+      created_at: now,
+      updated_at: now,
+    };
+    this.quotes.set(copy.id, copy);
+    // ── Fin de section critique ────────────────────────────────────────────
+
+    const sourceLines = [...this.lines.values()]
+      .filter((line) => line.quote_id === quoteId)
+      .sort((a, b) => a.position - b.position);
+    sourceLines.forEach((line) => {
+      const newLineId = fakeQuoteUuid();
+      const copiedLine: StoredQuoteLine = { ...line, id: newLineId, quote_id: copy.id, created_at: now };
+      this.lines.set(newLineId, copiedLine);
+      // Le journal des LIGNES de la copie est alimente comme celui de tout
+      // ajout (meme mecanisme que le trigger SQL reel, E10.9).
+      this.pushAudit({
+        quote_id: copy.id,
+        quote_line_id: newLineId,
+        change_set_id: fakeQuoteUuid(),
+        action: 'added',
+        field: null,
+        previous_value: null,
+        new_value: null,
+        line_snapshot: copiedLine as unknown as Readonly<Record<string, unknown>>,
+        actor_id: actor,
+        actor_label: null,
+      });
+    });
+
+    this.pushHeaderAudit({
+      quote_id: quoteId,
+      change_set_id: fakeQuoteUuid(),
+      action: 'duplicated',
+      field: null,
+      previous_value: null,
+      new_value: copy.id,
+      quote_snapshot: null,
+      actor_id: actor,
+      actor_label: null,
+    });
+
+    const detail = await this.findDetailById(tenantId, copy.id);
+    if (!detail) throw new Error('le devis duplique est introuvable juste apres sa creation (faux repository)');
+    return detail;
+  }
+
+  async listHeaderAuditEntries(
+    tenantId: TenantId,
+    params: ListQuoteHeaderAuditParams,
+  ): Promise<ListQuoteHeaderAuditResult> {
+    void tenantId;
+    let rows = this.headerAuditEntries
+      .filter((entry) => entry.quote_id === params.quoteId)
+      .sort((a, b) => {
+        if (a.occurred_at !== b.occurred_at) return a.occurred_at < b.occurred_at ? 1 : -1;
+        if (a.id === b.id) return 0;
+        return a.id < b.id ? 1 : -1;
+      });
+
+    if (params.cursor) {
+      const cursor = params.cursor;
+      rows = rows.filter((entry) => isStrictlyAfterCursor({ sort: entry.occurred_at, id: entry.id }, cursor));
+    }
+    return { rows: rows.slice(0, params.size + 1) };
   }
 
   // ---------------------------------------------------------------------------
@@ -631,4 +998,8 @@ export {
   QuoteLineQuoteNotDraftError,
   QuoteNotFoundError,
   QuoteProjectNotFoundError,
+  QuoteResendImmutableError,
+  QuoteSendForbiddenStatusError,
+  QuoteSendRequiresLinesError,
+  QuoteUpdateRequiresDraftError,
 };

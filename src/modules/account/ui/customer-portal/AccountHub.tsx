@@ -4,26 +4,31 @@
  * Fonctions portail relocalisées (spec UX Custom Component n°8) :
  *  - Mes commandes : PortalOrders 4 tabs role-driven (les validations
  *    workflow S-ORDER-ROLES sont ces tabs) ;
+ *  - Mes devis : PortalQuotes, LECTURE SEULE (E10.10b-1) ;
  *  - Mon profil : infos réelles + déconnexion.
  * Sidebar desktop / tabs scrollables mobile. Budget mock NON repris (pas de
  * section sans donnée réelle).
  *
- * L onglet « Mes devis » (texte statique, aucun backend reel) a ete retire
- * au chantier d unification des devis (post Sprint 5 : voir
- * docs/api/CONVENTIONS.md §8.10) : le point d entree boutique reste a
- * concevoir sur `commercial_quotes` par une story future.
+ * L ancien onglet « Mes devis » (texte statique, aucun backend reel) a ete
+ * retire au chantier d unification des devis (post Sprint 5 : voir
+ * docs/api/CONVENTIONS.md §8.10). Celui-ci est NEUF : il lit le systeme de
+ * devis actuel (`commercial_quotes`) via la facade Gestion commerciale,
+ * troisieme mode d authentification `storefrontSession` (E10.10b-1).
+ * Accepter/refuser un devis n est pas encore possible (E10.10b-2, a cadrer).
  */
 
-import { LogOut, Package, User } from 'lucide-react';
+import { FileText, LogOut, Package, User } from 'lucide-react';
 import type { StorefrontSession } from '@/modules/shop-customers';
 import type { Shop } from '@/modules/shops';
 import { StorefrontLoginForm } from '@/modules/shop-customers/ui/storefront';
 import type { AccountSection } from '@/modules/orders/ui/storefront';
 import { PortalOrders } from '@/modules/orders/ui/storefront';
+import { PortalQuotes } from '@/modules/storefront-quotes/ui';
 import { TEST_IDS } from '@/shared/presentation/testIds';
 
 const SECTIONS: Array<{ key: AccountSection; label: string; icon: typeof Package }> = [
   { key: 'orders', label: 'Mes commandes', icon: Package },
+  { key: 'quotes', label: 'Mes devis', icon: FileText },
   { key: 'profile', label: 'Mon profil', icon: User },
 ];
 
@@ -106,6 +111,7 @@ export function AccountHub({
         {section === 'orders' && (
           <PortalOrders shopId={shop.id} hasStorefrontSession={hasStorefrontSession} onRenewOrder={onRenewOrder} />
         )}
+        {section === 'quotes' && <PortalQuotes hasStorefrontSession={hasStorefrontSession} />}
         {section === 'profile' && (
           <AccountProfile
             session={storefrontSession}

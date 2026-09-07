@@ -40,11 +40,13 @@ import {
   moneyNonNegativeSchema,
   type CreateQuoteFromProjectCommand,
   type CreateQuoteLineCommand,
+  type QuoteAuditEntryDto,
   type QuoteDetailDto,
   type QuoteDto,
   type QuoteLineAuditEntryDto,
   type QuoteLineDto,
   type QuoteLineWarningDto,
+  type SendQuoteCommand,
   type UpdateQuoteCommand,
   type UpdateQuoteLineCommand,
 } from '../api/contracts.ts';
@@ -56,6 +58,7 @@ import {
   QuoteLineProjectItemInvalidError,
   QuoteNotFoundError,
   type CommercialQuotesRepository,
+  type ListQuoteHeaderAuditParams,
   type ListQuoteLineAuditParams,
   type ListQuotesParams,
   type ListQuotesResult,
@@ -64,20 +67,23 @@ import {
 } from './commercial-quotes-repository.ts';
 
 /**
- * L acteur n a pas le role requis pour lire le journal d audit des lignes
- * (`identity.role_required`, contrat `listQuoteAuditEntries`). Garde
- * grossiere — role `admin` du tenant — en attendant le droit dedie
- * `can_manage_pricing` (E10.11), meme mecanisme que l ecran des regles de
- * prix (E10.6 CA7).
+ * L acteur n a pas le droit metier `can_manage_pricing` (E10.11) requis pour
+ * lire le journal d audit des lignes (`identity.role_required`, contrat
+ * `listQuoteAuditEntries`). Un `admin` du tenant recoit ce droit par
+ * derivation (`public.user_has_capability`, 20260814000200_admin_unique.sql
+ * :130-157 — `owner` n existe plus comme valeur de `tenant_members.role`
+ * depuis cette meme migration) : il ne perd donc jamais l acces qu il avait
+ * deja sous l ancienne garde « role `admin` » (E10.9).
  */
 export class QuoteAuditAccessDeniedError extends Error {
-  constructor(message = "Role admin du tenant requis pour consulter le journal d audit.") {
+  constructor(message = "Le droit can_manage_pricing est requis pour consulter le journal d audit.") {
     super(message);
     this.name = 'QuoteAuditAccessDeniedError';
   }
 }
 
 export type ListQuoteLineAuditResultDto = Readonly<{ rows: readonly QuoteLineAuditEntryDto[] }>;
+export type ListQuoteHeaderAuditResultDto = Readonly<{ rows: readonly QuoteAuditEntryDto[] }>;
 
 /**
  * Entree resolue et VALIDEE d `addLine` (E10.9) : pour une ligne liee, porte
@@ -187,6 +193,77 @@ export class CommercialQuotesService {
     const exists = await this.repository.findById(tenantId, quoteId);
     if (!exists) throw new QuoteNotFoundError();
     return this.repository.remove(tenantId, quoteId);
+  }
+
+  // ---------------------------------------------------------------------------
+  // E10.10a — envoi/renvoi, duplication, journal d audit d entete.
+  // ---------------------------------------------------------------------------
+
+  /**
+   * ENVOIE (`draft` -> `sent`) ou RENVOIE (`sent` -> `sent`) un devis. La
+   * concurrence optimiste (`If-Match`, CA9) est verifiee par la ROUTE avant
+   * cet appel — meme discipline que `updateQuote`/`reorderLines`. Le reste de
+   * la transition (calcul de `valid_until`, audit, distinction premier envoi/
+   * renvoi) est porte ATOMIQUEMENT par le repository (fonction Postgres,
+   * PostgREST n offrant pas de transaction multi-requetes). `quote.sent` est
+   * publie APRES, hors de cette transaction (meme limite deja acceptee pour
+   * `quote.created`) : `is_resend` distingue les deux cas pour le seul
+   * consommateur qui en a besoin aujourd hui (E10.10b, portail client).
+   */
+  async send(
+    tenantId: TenantId,
+    actor: UserId,
+    quoteId: string,
+    command: SendQuoteCommand,
+  ): Promise<QuoteDetailDto> {
+    const exists = await this.repository.findById(tenantId, quoteId);
+    if (!exists) throw new QuoteNotFoundError();
+    const isResend = exists.status === 'sent';
+
+    const sent = await this.repository.sendQuote(tenantId, actor, quoteId, command);
+    await this.outbox.publish({
+      name: 'quote.sent',
+      tenantId,
+      aggregateType: 'quote',
+      aggregateId: sent.id,
+      payload: {
+        quote_id: sent.id,
+        customer_id: sent.customer_id,
+        number: sent.number,
+        is_resend: isResend,
+      },
+    });
+    return sent;
+  }
+
+  /**
+   * DUPLIQUE un devis, quel que soit son statut (aucune garde d etat : la
+   * duplication ne modifie jamais le devis source).
+   */
+  async duplicate(tenantId: TenantId, actor: UserId, quoteId: string): Promise<QuoteDetailDto> {
+    const exists = await this.repository.findById(tenantId, quoteId);
+    if (!exists) throw new QuoteNotFoundError();
+    return this.repository.duplicateQuote(tenantId, actor, quoteId);
+  }
+
+  /**
+   * Journal d audit de l ENTETE d un devis (E10.10a), distinct du journal des
+   * LIGNES. Meme garde d acces `can_manage_pricing` que `listAuditEntries`,
+   * verifiee ICI avant toute lecture (403 explicite, jamais une page vide).
+   */
+  async listHeaderAuditEntries(
+    tenantId: TenantId,
+    actor: UserId,
+    quoteId: string,
+    params: Omit<ListQuoteHeaderAuditParams, 'quoteId'>,
+  ): Promise<ListQuoteHeaderAuditResultDto> {
+    const authorized = await this.repository.actorHasCapability(tenantId, actor, 'can_manage_pricing');
+    if (!authorized) throw new QuoteAuditAccessDeniedError();
+
+    const quote = await this.repository.findById(tenantId, quoteId);
+    if (!quote) throw new QuoteNotFoundError();
+
+    return this.repository.listHeaderAuditEntries(tenantId, { ...params, quoteId });
   }
 
   // ---------------------------------------------------------------------------
@@ -381,10 +458,10 @@ export class CommercialQuotesService {
   }
 
   /**
-   * CA5, CA6 — journal d audit des lignes, lecture seule. Garde d acces
-   * admin (403 `identity.role_required`) verifiee ICI, avant toute lecture :
-   * un refus explicite ne doit jamais se confondre avec une page vide
-   * (contrat `listQuoteAuditEntries`).
+   * CA5, CA6 — journal d audit des lignes, lecture seule. Garde d acces au
+   * droit `can_manage_pricing` (403 `identity.role_required`, E10.11)
+   * verifiee ICI, avant toute lecture : un refus explicite ne doit jamais se
+   * confondre avec une page vide (contrat `listQuoteAuditEntries`).
    */
   async listAuditEntries(
     tenantId: TenantId,
@@ -392,8 +469,8 @@ export class CommercialQuotesService {
     quoteId: string,
     params: Omit<ListQuoteLineAuditParams, 'quoteId'>,
   ): Promise<ListQuoteLineAuditResultDto> {
-    const role = await this.repository.findActorTenantRole(tenantId, actor);
-    if (role !== 'admin') throw new QuoteAuditAccessDeniedError();
+    const authorized = await this.repository.actorHasCapability(tenantId, actor, 'can_manage_pricing');
+    if (!authorized) throw new QuoteAuditAccessDeniedError();
 
     const quote = await this.repository.findById(tenantId, quoteId);
     if (!quote) throw new QuoteNotFoundError();

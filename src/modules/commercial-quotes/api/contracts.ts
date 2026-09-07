@@ -33,9 +33,26 @@
  * devis) : c est `getQuoteLine` qui fait foi pour la concurrence optimiste
  * d une ligne donnee. `QuoteLine` ne porte donc aucun champ `etag` — en
  * ajouter un violerait `additionalProperties: false` du contrat.
+ *
+ * ── E10.10a — statut, envoi/renvoi, duplication, remise globale, TVA ───────
+ * Ajoute a l entete : `source_quote_id` (filiation de copie), le cycle
+ * d envoi (`sent_at`/`last_sent_at`/`sent_by`), la remise globale sous la
+ * forme ou elle a ete saisie (`global_discount_rate` XOR `target_net_total`,
+ * miroir exact du geste ligne d E10.9), la surcharge de TVA (`vat_rate`) et
+ * les totaux calcules par le serveur (`totals`, TVA comprise). Garde d etat
+ * sur `updateQuote` (409 `quote.update_requires_draft`) : solde la dette p4
+ * de docs/api/CONVENTIONS.md §8.6.
  */
 import { z } from 'zod';
 import { moneySchema, rateSchema, timestampSchema, uuidSchema } from '../../_shared/api/index.ts';
+// `nonNegativeRateSchema` (E10.6) reutilise TEL QUEL pour `vat_rate` : un
+// taux de TVA negatif n a pas plus de sens qu un prix client negatif
+// (qa-review E10.10a round 1, B1). Meme rapport a `rateSchema` que celui deja
+// documente pour `MoneyNonNegative`/`Money` (openapi, schema `Rate`) : le
+// contrat garde `Rate` (signe) par $ref, cette borne est appliquee cote Zod
+// par le schema le plus strict, precedent deja etabli par `PriceRule.value`
+// (`src/modules/pricing/api/contracts.ts`).
+import { nonNegativeRateSchema } from '../../pricing/api/contracts.ts';
 
 export const quoteStatusSchema = z.enum(['draft', 'sent', 'accepted', 'rejected', 'converted']);
 
@@ -114,16 +131,70 @@ export const quoteLineSchema = z
   })
   .strict();
 
+// ---------------------------------------------------------------------------
+// E10.10a — statut/envoi, remise globale, TVA, totaux.
+// ---------------------------------------------------------------------------
+
+/**
+ * Remise globale exprimee en taux (`Quote.global_discount_rate`,
+ * `UpdateQuoteCommand.global_discount_rate`). Reprend `Rate` (signe, aucune
+ * borne basse : une valeur negative est une majoration legitime, meme regle
+ * qu au niveau ligne, E10.9 CA2) et ajoute la SEULE borne du contrat : au-dela
+ * de `"1.0000"` (100 %), le devis paierait le client.
+ */
+export const globalDiscountRateSchema = rateSchema.refine((value) => Number(value) <= 1, {
+  message: 'Le taux de remise globale ne depasse pas "1.0000" (100 %).',
+});
+
+export const taxRegimeSchema = z.enum([
+  'metropole_fr',
+  'dom_tom',
+  'franchise_tva',
+  'export_eu',
+  'export_world',
+]);
+
+export const quoteTotalsSchema = z
+  .object({
+    lines_subtotal: moneyNonNegativeSchema,
+    global_discount: moneySchema,
+    effective_discount_rate: rateSchema.nullable(),
+    net_total: moneyNonNegativeSchema,
+    vat_rate: nonNegativeRateSchema,
+    vat_regime: taxRegimeSchema.nullable(),
+    vat_amount: moneyNonNegativeSchema,
+    total_incl_tax: moneyNonNegativeSchema,
+  })
+  .strict();
+
+export const quoteWarningCodeSchema = z.enum(['validity_expired']);
+
+export const quoteWarningSchema = z
+  .object({
+    code: quoteWarningCodeSchema,
+    message: z.string().min(1).max(300),
+  })
+  .strict();
+
 export const quoteSchema = z
   .object({
     id: uuidSchema,
     tenant_id: uuidSchema,
     customer_id: uuidSchema,
     project_id: uuidSchema,
+    source_quote_id: uuidSchema.nullable(),
     number: quoteNumberSchema,
     status: quoteStatusSchema,
     valid_until: dateOnlySchema.nullable(),
     show_discounts: z.boolean(),
+    global_discount_rate: globalDiscountRateSchema.nullable(),
+    target_net_total: moneyNonNegativeSchema.nullable(),
+    vat_rate: nonNegativeRateSchema.nullable(),
+    totals: quoteTotalsSchema,
+    warnings: z.array(quoteWarningSchema),
+    sent_at: timestampSchema.nullable(),
+    last_sent_at: timestampSchema.nullable(),
+    sent_by: uuidSchema.nullable(),
     created_by: uuidSchema.nullable(),
     created_at: timestampSchema,
     updated_at: timestampSchema,
@@ -136,10 +207,19 @@ export const quoteDetailSchema = z
     tenant_id: uuidSchema,
     customer_id: uuidSchema,
     project_id: uuidSchema,
+    source_quote_id: uuidSchema.nullable(),
     number: quoteNumberSchema,
     status: quoteStatusSchema,
     valid_until: dateOnlySchema.nullable(),
     show_discounts: z.boolean(),
+    global_discount_rate: globalDiscountRateSchema.nullable(),
+    target_net_total: moneyNonNegativeSchema.nullable(),
+    vat_rate: nonNegativeRateSchema.nullable(),
+    totals: quoteTotalsSchema,
+    warnings: z.array(quoteWarningSchema),
+    sent_at: timestampSchema.nullable(),
+    last_sent_at: timestampSchema.nullable(),
+    sent_by: uuidSchema.nullable(),
     created_by: uuidSchema.nullable(),
     created_at: timestampSchema,
     updated_at: timestampSchema,
@@ -158,15 +238,75 @@ export const updateQuoteCommandSchema = z
   .object({
     valid_until: dateOnlySchema.nullable().optional(),
     show_discounts: z.boolean().optional(),
+    global_discount_rate: globalDiscountRateSchema.nullable().optional(),
+    target_net_total: moneyNonNegativeSchema.nullable().optional(),
+    vat_rate: nonNegativeRateSchema.nullable().optional(),
   })
   .strict()
   .refine((value) => Object.keys(value).length > 0, {
     message: 'La modification doit porter au moins un champ.',
-  });
+  })
+  .refine(
+    (value) =>
+      !(
+        Object.prototype.hasOwnProperty.call(value, 'global_discount_rate') &&
+        Object.prototype.hasOwnProperty.call(value, 'target_net_total')
+      ),
+    {
+      message: 'global_discount_rate et target_net_total sont mutuellement exclusifs.',
+      path: ['target_net_total'],
+    },
+  );
 
 export const deleteQuoteResultSchema = z.object({ deleted: z.literal(true) }).strict();
 
 export const quotesListSchema = z.array(quoteSchema);
+
+/** Corps de `sendQuote` (E10.10a). Corps vide legal : envoie le devis tel quel. */
+export const sendQuoteCommandSchema = z
+  .object({
+    show_discounts: z.boolean().optional(),
+  })
+  .strict();
+
+// ---------------------------------------------------------------------------
+// E10.10a — journal d audit de l ENTETE d un devis, distinct du journal des
+// lignes (E10.9). Meme mecanisme (append-only, une entree par champ change),
+// type de reponse SEPARE (contrat, `listQuoteHeaderAuditEntries`).
+// ---------------------------------------------------------------------------
+
+// `status_forced` (qa-review E10.10a round 2, B3 volet 3, docs/api/
+// CONVENTIONS.md §8.12ter) : un changement de `status` pose HORS de cette
+// facade (PATCH direct, correctif en base). Aucune operation du contrat ne
+// la produit ; `previous_value`/`new_value` portent alors les deux
+// `QuoteStatus`, `field`/`quote_snapshot` restent `null`.
+export const quoteAuditActionSchema = z.enum(['updated', 'sent', 'resent', 'duplicated', 'status_forced']);
+
+export const quoteAuditFieldSchema = z.enum([
+  'global_discount_rate',
+  'target_net_total',
+  'vat_rate',
+  'show_discounts',
+  'valid_until',
+]);
+
+export const quoteAuditEntrySchema = z
+  .object({
+    id: uuidSchema,
+    quote_id: uuidSchema,
+    change_set_id: uuidSchema,
+    action: quoteAuditActionSchema,
+    field: quoteAuditFieldSchema.nullable(),
+    previous_value: z.string().max(64).nullable(),
+    new_value: z.string().max(64).nullable(),
+    quote_snapshot: z.record(z.string(), z.unknown()).nullable(),
+    actor_id: uuidSchema.nullable(),
+    actor_label: z.string().min(1).max(320).nullable(),
+    occurred_at: timestampSchema,
+  })
+  .strict();
+
+export const quoteAuditEntriesListSchema = z.array(quoteAuditEntrySchema);
 
 // ---------------------------------------------------------------------------
 // E10.9 — ajout/modification/retrait/reordonnancement de lignes, audit.
@@ -270,6 +410,10 @@ export const quoteLineAuditEntrySchema = z
 export const quoteLineAuditEntriesListSchema = z.array(quoteLineAuditEntrySchema);
 
 export type QuoteStatus = z.infer<typeof quoteStatusSchema>;
+export type TaxRegimeDto = z.infer<typeof taxRegimeSchema>;
+export type QuoteTotalsDto = z.infer<typeof quoteTotalsSchema>;
+export type QuoteWarningCode = z.infer<typeof quoteWarningCodeSchema>;
+export type QuoteWarningDto = z.infer<typeof quoteWarningSchema>;
 export type QuoteDto = z.infer<typeof quoteSchema>;
 export type QuoteLineOrigin = z.infer<typeof quoteLineOriginSchema>;
 export type QuoteLineWarningCode = z.infer<typeof quoteLineWarningCodeSchema>;
@@ -280,6 +424,7 @@ export type QuoteDetailDto = z.infer<typeof quoteDetailSchema>;
 export type CreateQuoteFromProjectCommand = z.infer<typeof createQuoteFromProjectCommandSchema>;
 export type UpdateQuoteCommand = z.infer<typeof updateQuoteCommandSchema>;
 export type DeleteQuoteResultDto = z.infer<typeof deleteQuoteResultSchema>;
+export type SendQuoteCommand = z.infer<typeof sendQuoteCommandSchema>;
 export type CreateQuoteLineFromProjectItemCommand = z.infer<
   typeof createQuoteLineFromProjectItemCommandSchema
 >;
@@ -290,6 +435,9 @@ export type ReorderQuoteLinesCommand = z.infer<typeof reorderQuoteLinesCommandSc
 export type QuoteLineAuditAction = z.infer<typeof quoteLineAuditActionSchema>;
 export type QuoteLineAuditField = z.infer<typeof quoteLineAuditFieldSchema>;
 export type QuoteLineAuditEntryDto = z.infer<typeof quoteLineAuditEntrySchema>;
+export type QuoteAuditAction = z.infer<typeof quoteAuditActionSchema>;
+export type QuoteAuditField = z.infer<typeof quoteAuditFieldSchema>;
+export type QuoteAuditEntryDto = z.infer<typeof quoteAuditEntrySchema>;
 
 // ---------------------------------------------------------------------------
 // Alignement de compilation contrat <-> schemas (meme garde-fou que les
@@ -298,10 +446,13 @@ export type QuoteLineAuditEntryDto = z.infer<typeof quoteLineAuditEntrySchema>;
 // ---------------------------------------------------------------------------
 import type {
   Quote as QuoteContract,
+  QuoteAuditEntry as QuoteAuditEntryContract,
   QuoteLine as QuoteLineContract,
   QuoteLineAuditEntry as QuoteLineAuditEntryContract,
   QuoteLineOrigin as QuoteLineOriginContract,
   QuoteStatus as QuoteStatusContract,
+  QuoteTotals as QuoteTotalsContract,
+  TaxRegime as TaxRegimeContract,
 } from '../../../platform/api/generated/magrit-core.v1.ts';
 
 type AssertAssignable<TSource, TTarget> = TSource extends TTarget ? true : never;
@@ -311,6 +462,18 @@ export const COMMERCIAL_QUOTES_CONTRACT_ALIGNMENT = Object.freeze({
   quoteId: true as AssertAssignable<QuoteDto['id'], QuoteContract['id']>,
   quoteCustomerId: true as AssertAssignable<QuoteDto['customer_id'], QuoteContract['customer_id']>,
   quoteNumber: true as AssertAssignable<QuoteDto['number'], QuoteContract['number']>,
+  quoteSourceQuoteId: true as AssertAssignable<QuoteDto['source_quote_id'], QuoteContract['source_quote_id']>,
+  quoteGlobalDiscountRate: true as AssertAssignable<
+    QuoteDto['global_discount_rate'],
+    QuoteContract['global_discount_rate']
+  >,
+  quoteTargetNetTotal: true as AssertAssignable<
+    QuoteDto['target_net_total'],
+    QuoteContract['target_net_total']
+  >,
+  quoteTotals: true as AssertAssignable<QuoteTotalsDto, QuoteTotalsContract>,
+  quoteSentAt: true as AssertAssignable<QuoteDto['sent_at'], QuoteContract['sent_at']>,
+  taxRegime: true as AssertAssignable<TaxRegimeDto, TaxRegimeContract>,
   quoteLineOrigin: true as AssertAssignable<QuoteLineOrigin, QuoteLineOriginContract>,
   quoteLineProjectItemId: true as AssertAssignable<
     QuoteLineDto['project_item_id'],
@@ -325,4 +488,5 @@ export const COMMERCIAL_QUOTES_CONTRACT_ALIGNMENT = Object.freeze({
     QuoteLineAuditEntryDto['id'],
     QuoteLineAuditEntryContract['id']
   >,
+  quoteAuditEntryId: true as AssertAssignable<QuoteAuditEntryDto['id'], QuoteAuditEntryContract['id']>,
 });

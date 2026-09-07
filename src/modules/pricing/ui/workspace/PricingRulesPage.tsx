@@ -1,10 +1,10 @@
 /**
  * PricingRulesPage — liste, filtre et bascule des regles de prix (E10.6,
  * CA5, CA6), plus le panneau de marge publique standard par gamme (CA4).
- * L ecran n est monte que sous une route `requiredTenantRole: 'admin'` (voir
- * `../../surface-contributions.ts`) : E10.11 (droits Admin/Commercial
- * dedies) n est pas encore livree, ce garde grossier sera raffine par cette
- * story future.
+ * L ecran n est monte que sous une route `requiredCapabilities:
+ * ['can_manage_pricing']` (E10.11, voir `../../surface-contributions.ts`) :
+ * une garde d ergonomie, pas d autorisation — celle-ci est tenue par la RLS
+ * de `price_rules`/`product_range_default_margins`.
  *
  * Creation/modification passent par `PriceRuleFormModal` ; aucun calcul de
  * prix ni de marge n a lieu ici (E10.21 hors perimetre).
@@ -17,6 +17,7 @@ import { useWorkspaceApi } from '@/platform/runtime/workspace-ui-runtime';
 import { TEST_IDS } from '@/shared/presentation/testIds';
 import { CustomersApiClient, type CustomerDto } from '@/modules/customers';
 import { CatalogApiClient } from '@/modules/catalog';
+import { CommercialSettingsApiClient } from '@/modules/commercial-settings';
 import { PriceRulesApiClient } from '@/modules/pricing/api/client';
 import type { PriceRuleDto, PriceRuleSort, PriceRuleStatusFilter } from '@/modules/pricing/api/contracts';
 import { usePriceRulesManagement } from '@/modules/pricing/ui/hooks';
@@ -305,6 +306,8 @@ export function DashboardPricingRules() {
 
       <DefaultMarginPanel ranges={ranges} />
 
+      <DefaultValidityDaysPanel />
+
       {showCreate && (
         <PriceRuleFormModal
           onClose={() => setShowCreate(false)}
@@ -449,6 +452,113 @@ function DefaultMarginPanel({ ranges }: { ranges: readonly RangeOption[] }) {
       </div>
       {error && <p className="text-sm text-err-fg">{error}</p>}
       {savedAt !== null && !error && <p className="text-sm text-green-700">Marge standard enregistrée.</p>}
+    </div>
+  );
+}
+
+/**
+ * Duree de validite par defaut des devis (E10.10a, point 9 du cadrage,
+ * docs/api/CONVENTIONS.md §8.12) — ressource singleton `/commercial-settings`
+ * du tenant, PATCH garde par `can_manage_pricing` cote serveur (meme droit
+ * que cet ecran). Applique UNIQUEMENT a l ENVOI d un devis (`sendQuote`) et
+ * seulement si `valid_until` est encore `null` — jamais retroactif sur un
+ * devis existant, jamais a la creation.
+ */
+function DefaultValidityDaysPanel() {
+  const api = useWorkspaceApi(CommercialSettingsApiClient);
+  const [days, setDays] = useState('');
+  const [etag, setEtag] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    api
+      .get()
+      .then(({ data, etag: nextEtag }) => {
+        if (cancelled) return;
+        setDays(data.default_validity_days !== null ? String(data.default_validity_days) : '');
+        setEtag(nextEtag ?? null);
+      })
+      .catch((cause) => {
+        if (!cancelled) {
+          setError(cause instanceof Error ? cause.message : 'Lecture de la validite par defaut impossible.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [api]);
+
+  const handleSave = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!etag) return;
+    const trimmed = days.trim();
+    const parsed = trimmed === '' ? null : Number(trimmed);
+    if (parsed !== null && (!Number.isInteger(parsed) || parsed < 1)) {
+      setError('La duree de validite doit etre un nombre entier de jours, ou vide (aucune validite par defaut).');
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    setSavedAt(null);
+    try {
+      const result = await api.update({ default_validity_days: parsed }, etag);
+      setEtag(result.etag ?? null);
+      setSavedAt(Date.now());
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Enregistrement de la validite par defaut impossible.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div
+      className="border border-line-2 rounded-lg p-4 space-y-3"
+      data-testid={TEST_IDS.commercialSettings.defaultValiditySection}
+    >
+      <div>
+        <h2 className="text-sm font-semibold text-ink">Validité par défaut des devis</h2>
+        <p className="text-xs text-ink-muted mt-0.5">
+          Nombre de jours appliqué à l’envoi d’un devis qui ne porte pas déjà une date de validité manuelle.
+          Vide = aucune validité par défaut. Ne modifie aucun devis déjà créé.
+        </p>
+      </div>
+      <form onSubmit={handleSave} className="flex items-center gap-2">
+        <input
+          type="number"
+          min={1}
+          max={3650}
+          step={1}
+          value={days}
+          onChange={(event) => setDays(event.target.value)}
+          disabled={loading}
+          placeholder="Ex. 30"
+          className={inputCls}
+          style={{ maxWidth: 120 }}
+          data-testid={TEST_IDS.commercialSettings.defaultValidityInput}
+        />
+        <span className="text-sm text-ink-muted">jours</span>
+        <button
+          type="submit"
+          disabled={saving || loading || !etag}
+          className={btnPrimary}
+          data-testid={TEST_IDS.commercialSettings.defaultValiditySaveBtn}
+        >
+          {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+          Enregistrer
+        </button>
+      </form>
+      {error && <p className="text-sm text-err-fg">{error}</p>}
+      {savedAt !== null && !error && <p className="text-sm text-green-700">Validité par défaut enregistrée.</p>}
     </div>
   );
 }

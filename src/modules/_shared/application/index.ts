@@ -34,6 +34,7 @@ export {
   problem,
   ProblemError,
   resourceConflict,
+  roleRequired,
   scopeRequired,
   SHARED_PROBLEM_CODES,
   validationFailed,
@@ -42,6 +43,7 @@ export type { ProblemInit, SharedProblemCode } from './problem.ts';
 
 export {
   assertScopes,
+  assertShopCustomerPrincipal,
   assertTenantNotAddressed,
   assertUserPrincipal,
   readCredential,
@@ -50,9 +52,12 @@ export {
 export type {
   ApiCredential,
   ApiPrincipal,
+  CookieCredential,
   PrincipalVerifier,
   ServicePrincipal,
   ServiceScope,
+  ShopCustomerPrincipal,
+  ShopCustomerSessionKind,
   UserPrincipal,
 } from './tenant-resolution.ts';
 

@@ -23,10 +23,11 @@ export type PortalView =
  *
  * `quotes` retiree au chantier d unification des devis (post Sprint 5 :
  * docs/api/CONVENTIONS.md §8.10) : l onglet « Mes devis » n affichait qu un
- * texte statique, sans backend reel — son point d entree boutique reste a
- * concevoir sur `commercial_quotes` par une story future.
+ * texte statique, sans backend reel. REINTRODUITE par E10.10b-1 sur le NOUVEAU
+ * systeme de devis (`commercial_quotes`, module `storefront-quotes`,
+ * `PortalQuotes`) — lecture seule, pas le texte statique d avant.
  */
-export type AccountSection = 'orders' | 'profile';
+export type AccountSection = 'orders' | 'quotes' | 'profile';
 
 export interface CartLine {
   product: ShopProduct;

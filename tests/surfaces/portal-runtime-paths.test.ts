@@ -13,6 +13,7 @@ describe('chemins runtime du portail', () => {
       gamme: 'g/:gammeSlug',
       product: 'p/:productId',
       accountOrders: 'account/orders',
+      accountQuotes: 'account/quotes',
       accountProfile: 'account/profile',
     });
   });
