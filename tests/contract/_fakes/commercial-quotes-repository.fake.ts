@@ -138,6 +138,8 @@ type StoredQuote = Readonly<{
   /** E10.10b-2 — reponse du CLIENT. Ce faux ne represente que le cote ATELIER : aucune operation d ici ne pose jamais ces deux champs, toujours NULL. */
   decided_at: string | null;
   decided_by_account_id: string | null;
+  /** E10.12 — pose UNIQUEMENT par `applyConversionForTest()`, consomme par le faux `CommercialOrdersRepository`. */
+  converted_at: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -348,6 +350,7 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
       sent_by: null,
       decided_at: null,
       decided_by_account_id: null,
+      converted_at: null,
       created_by: actor,
       created_at: now,
       updated_at: now,
@@ -464,6 +467,54 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
   }
 
   /**
+   * TEST UNIQUEMENT — cree un devis `draft` SANS ligne, directement (pas de
+   * chiffrage de projet a coter dans les fichiers qui l utilisent). Sert de
+   * fixture pour les scenarios qui n ont besoin que d un devis existant a
+   * l etat `draft` (ex. E10.12, `convertQuote` refuse depuis `draft`).
+   */
+  async seedDraftQuoteForTest(
+    tenantId: TenantId,
+    actor: UserId,
+    params: Readonly<{ customerId: string; projectId: string }>,
+  ): Promise<QuoteDetailDto> {
+    const year = new Date().getUTCFullYear();
+    const counterKey = `${tenantId}:${year}`;
+    const next = (this.counters.get(counterKey) ?? 0) + 1;
+    this.counters.set(counterKey, next);
+    const number = `DEV-${year}-${String(next).padStart(5, '0')}`;
+
+    const now = monotonicIsoTimestamp();
+    const quote: StoredQuote = {
+      id: fakeQuoteUuid(),
+      tenant_id: tenantId,
+      customer_id: params.customerId,
+      project_id: params.projectId,
+      source_quote_id: null,
+      number,
+      status: 'draft',
+      valid_until: null,
+      show_discounts: false,
+      global_discount_rate: null,
+      target_net_total: null,
+      vat_rate: null,
+      sent_at: null,
+      last_sent_at: null,
+      sent_by: null,
+      decided_at: null,
+      decided_by_account_id: null,
+      converted_at: null,
+      created_by: actor,
+      created_at: now,
+      updated_at: now,
+    };
+    this.quotes.set(quote.id, quote);
+
+    const detail = await this.findDetailById(tenantId, quote.id);
+    if (!detail) throw new Error('devis introuvable juste apres seedDraftQuoteForTest');
+    return detail;
+  }
+
+  /**
    * TEST UNIQUEMENT — permet d exercer un statut sans passer par `sendQuote`
    * (utile pour les scenarios herites d E10.3/E10.9, ex. `quote.delete_
    * requires_draft` sur un devis force a `sent`).
@@ -472,6 +523,46 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
     const current = this.quotes.get(quoteId);
     if (!current) throw new Error(`devis ${quoteId} introuvable (forceStatusForTest)`);
     this.quotes.set(quoteId, { ...current, status });
+  }
+
+  /**
+   * E10.12 — reimplemente en memoire la TRANSITION ATOMIQUE d
+   * `api_convert_commercial_quote` (migration `20260908010000`) : garde de
+   * statut (`sent`/`accepted` uniquement) et ecriture dans le MEME appel,
+   * consomme par `InMemoryCommercialOrdersRepository.convertQuote()` — ce
+   * dernier ne connait PAS la forme interne de `StoredQuote`, il delegue ici
+   * l ecriture du devis SOURCE, exactement comme l adaptateur reel delegue a
+   * la fonction Postgres. Rend `null` si le devis n existe pas dans ce
+   * tenant OU si son statut n autorise pas la conversion — a l APPELANT de
+   * distinguer les deux (il a deja lu le devis avant, comme le fait la route
+   * reelle via `CommercialQuotesService.getSummary()`).
+   */
+  applyConversionForTest(
+    tenantId: string,
+    quoteId: string,
+    actor: string,
+  ): Readonly<{ quote: QuoteDto; sourceStatus: 'sent' | 'accepted' }> | null {
+    const current = this.quotes.get(quoteId);
+    if (!current || current.tenant_id !== tenantId) return null;
+    if (current.status !== 'sent' && current.status !== 'accepted') return null;
+
+    const sourceStatus = current.status;
+    const changeSetId = fakeQuoteUuid();
+    const convertedAt = monotonicIsoTimestamp();
+    const next: MutableStoredQuote = { ...current, status: 'converted', converted_at: convertedAt };
+    this.quotes.set(quoteId, next);
+    this.pushHeaderAudit({
+      quote_id: quoteId,
+      change_set_id: changeSetId,
+      action: 'converted',
+      field: null,
+      previous_value: sourceStatus,
+      new_value: 'converted',
+      quote_snapshot: null,
+      actor_id: actor,
+      actor_label: null,
+    });
+    return { quote: this.toQuoteDto(next), sourceStatus };
   }
 
   async remove(tenantId: TenantId, quoteId: string): Promise<void> {
@@ -650,6 +741,7 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
       sent_by: null,
       decided_at: null,
       decided_by_account_id: null,
+      converted_at: null,
       created_by: actor,
       created_at: now,
       updated_at: now,

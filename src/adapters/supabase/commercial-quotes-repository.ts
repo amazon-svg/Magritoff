@@ -613,6 +613,7 @@ function toQuoteDto(row: Record<string, any>, linesSubtotal: string, tenantTaxRe
     sent_by: row.sent_by ?? null,
     decided_at: toIsoTimestampOrNull(row.decided_at),
     decided_by_account_id: row.decided_by_account_id ?? null,
+    converted_at: toIsoTimestampOrNull(row.converted_at),
     created_by: row.created_by ?? null,
     created_at: toIsoTimestamp(row.created_at),
     updated_at: toIsoTimestamp(row.updated_at),

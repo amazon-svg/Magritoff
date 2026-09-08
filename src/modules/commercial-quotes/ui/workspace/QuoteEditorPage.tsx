@@ -26,6 +26,7 @@ import { CustomersApiClient, type CustomerDto } from '@/modules/customers';
 import { customerDisplayName } from '@/modules/projects/ui';
 import { ProjectsApiClient, type ProjectItemDto } from '@/modules/projects';
 import { TEST_IDS } from '@/shared/presentation/testIds';
+import { CommercialOrdersApiClient } from '@/modules/commercial-orders';
 import { CommercialQuotesApiClient } from '../../api/client';
 import type {
   QuoteAuditEntryDto,
@@ -75,6 +76,7 @@ export function QuoteEditorPage() {
   const quotesApi = useWorkspaceApi(CommercialQuotesApiClient);
   const customersApi = useWorkspaceApi(CustomersApiClient);
   const projectsApi = useWorkspaceApi(ProjectsApiClient);
+  const ordersApi = useWorkspaceApi(CommercialOrdersApiClient);
   // Journal d entete (E10.10a) reserve `can_manage_pricing` cote serveur —
   // meme mecanisme applicatif que `PricingRulesPage` (E10.11) : l onglet n
   // est meme pas rendu sans ce droit (ergonomie, pas la garde d autorisation
@@ -125,6 +127,12 @@ export function QuoteEditorPage() {
 
   // ── E10.10a — duplication (`duplicateQuote`) ──────────────────────────────
   const [duplicating, setDuplicating] = useState(false);
+
+  // ── E10.12 — « bouton Valider » (`convertQuote`) ──────────────────────────
+  const [convertDialogOpen, setConvertDialogOpen] = useState(false);
+  const [converting, setConverting] = useState(false);
+  const [convertError, setConvertError] = useState<string | null>(null);
+  const [convertedOrderNumber, setConvertedOrderNumber] = useState<string | null>(null);
 
   // ── E10.10a — remise globale (XOR taux/prix cible) et surcharge de TVA,
   // meme discipline « deux champs visibles, commit AU BLUR » que sale_price/
@@ -407,6 +415,36 @@ export function QuoteEditorPage() {
   }
 
   // ---------------------------------------------------------------------------
+  // E10.12 — « bouton Valider » (`convertQuote`). Visible pour un devis `sent`
+  // ou `accepted` (le SERVEUR tranche : aucun autre controle n empeche l appel
+  // si l etat a change entre-temps, il rendrait alors 409). La confirmation
+  // demandee quand la source est `sent` est une COURTOISIE D INTERFACE
+  // (contrat, §8.14 #5ter, point (ii)) — elle ne remplace aucune garde.
+  // ---------------------------------------------------------------------------
+
+  function openConvertDialog(): void {
+    if (!detail) return;
+    setConvertError(null);
+    setConvertDialogOpen(true);
+  }
+
+  async function confirmConvert(): Promise<void> {
+    if (!detail) return;
+    setConverting(true);
+    setConvertError(null);
+    try {
+      const { data: order } = await ordersApi.convertQuote(detail.id);
+      setConvertedOrderNumber(order.number);
+      setConvertDialogOpen(false);
+      await load();
+    } catch (cause) {
+      setConvertError(cause instanceof Error ? cause.message : 'Validation du devis impossible.');
+    } finally {
+      setConverting(false);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // E10.10a — remise globale (XOR taux/prix cible) et surcharge de TVA.
   // Meme discipline que les champs de ligne (E10.9) : commit AU BLUR, jamais
   // a la frappe ; JAMAIS de calcul local (remise deduite, TVA) — toujours ce
@@ -491,6 +529,11 @@ export function QuoteEditorPage() {
   const vatMention = vatLegalMention(detail.totals.vat_regime);
   const validityExpiredWarning = detail.warnings.find((w) => w.code === 'validity_expired') ?? null;
   const canSendOrResend = detail.status === 'draft' || detail.status === 'sent';
+  // E10.12 — visible pour un devis `sent` OU `accepted` (arbitrage Arnaud,
+  // 2026-09-08 : le bouton doit fonctionner meme sans acceptation en ligne du
+  // client). Purement une commodite d affichage : le SERVEUR reste la seule
+  // garde reelle (409 `quote.conversion_forbidden_status` sinon).
+  const canConvert = detail.status === 'sent' || detail.status === 'accepted';
 
   return (
     <div className="space-y-6" data-testid={TEST_IDS.commercialQuote.editorPage}>
@@ -550,6 +593,16 @@ export function QuoteEditorPage() {
         </p>
       )}
 
+      {convertedOrderNumber && (
+        <p
+          data-testid={TEST_IDS.commercialQuote.convertSuccessBanner}
+          className="text-sm text-ok-fg bg-ok-bg border border-ok-fg/30 rounded-lg px-3 py-2"
+        >
+          Devis validé : commande <span className="font-mono font-semibold">{convertedOrderNumber}</span>{' '}
+          créée.
+        </p>
+      )}
+
       {!isDraft && (
         <p
           data-testid={TEST_IDS.commercialQuote.readOnlyBanner}
@@ -590,7 +643,63 @@ export function QuoteEditorPage() {
           {duplicating && <Loader2 className="w-4 h-4 animate-spin" />}
           Dupliquer
         </button>
+        {canConvert && (
+          <button
+            type="button"
+            data-testid={TEST_IDS.commercialQuote.convertBtn}
+            onClick={openConvertDialog}
+            className="px-4 py-2 bg-ok-fg text-white rounded-lg hover:opacity-90 text-sm font-medium"
+          >
+            Valider (créer la commande)
+          </button>
+        )}
       </div>
+
+      {convertDialogOpen && (
+        <div
+          data-testid={TEST_IDS.commercialQuote.convertDialog}
+          className="border border-ok-fg/40 bg-ok-bg rounded-xl p-4 space-y-3"
+        >
+          <h2 className="text-sm font-bold text-ink-2 uppercase tracking-wider">
+            Confirmer la validation
+          </h2>
+          <p className="text-sm text-ink-2">
+            Cette action transforme le devis en commande. Elle est irréversible : les prix sont figés,
+            aucun écran ne permet de les modifier ensuite.
+          </p>
+          {isSent && (
+            <p className="text-sm text-warn-fg">
+              Le client ne s’est pas encore prononcé sur ce devis. Valider maintenant ferme sa possibilité
+              d’accepter ou de refuser depuis son espace client.
+            </p>
+          )}
+          {convertError && <p className="text-sm text-err-fg">{convertError}</p>}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              data-testid={TEST_IDS.commercialQuote.convertConfirmBtn}
+              onClick={() => void confirmConvert()}
+              disabled={converting}
+              className="px-4 py-2 bg-ok-fg text-white rounded-lg hover:opacity-90 disabled:opacity-50 text-sm font-medium flex items-center gap-2"
+            >
+              {converting && <Loader2 className="w-4 h-4 animate-spin" />}
+              Confirmer la validation
+            </button>
+            <button
+              type="button"
+              data-testid={TEST_IDS.commercialQuote.convertCancelBtn}
+              onClick={() => {
+                setConvertDialogOpen(false);
+                setConvertError(null);
+              }}
+              disabled={converting}
+              className="px-4 py-2 text-sm text-ink-muted hover:text-ink"
+            >
+              Annuler
+            </button>
+          </div>
+        </div>
+      )}
 
       {sendDialogOpen && (
         <div

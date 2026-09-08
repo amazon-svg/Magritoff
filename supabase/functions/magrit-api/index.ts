@@ -70,6 +70,8 @@ import { CommercialSettingsService } from '../../../src/modules/commercial-setti
 import { SupabaseCommercialSettingsRepository } from '../../../src/adapters/supabase/commercial-settings-repository.ts';
 import { StorefrontQuotesService } from '../../../src/modules/storefront-quotes/application/storefront-quotes-service.ts';
 import { SupabaseStorefrontQuotesRepository } from '../../../src/adapters/supabase/storefront-quotes-repository.ts';
+import { CommercialOrdersService } from '../../../src/modules/commercial-orders/application/commercial-orders-service.ts';
+import { SupabaseCommercialOrdersRepository } from '../../../src/adapters/supabase/commercial-orders-repository.ts';
 import { SupabaseApiPrincipalVerifier } from '../../../src/adapters/supabase/api-principal-verifier.ts';
 import { InMemoryIdempotencyStore, OutboxPublisher } from '../../../src/modules/_shared/application/index.ts';
 import { TENANT_SELECTION_HEADER } from '../../../src/modules/_shared/api/index.ts';
@@ -355,6 +357,30 @@ export async function handleRequest(request: Request): Promise<Response> {
     }),
   });
 
+  // E10.12 — « bouton Valider » : transformation d un devis en commande.
+  // Repository construit sur `client` (jamais `storefrontClient`) : les
+  // trois operations (`convertQuote`, `listCommercialOrders`,
+  // `getCommercialOrder`) exigent un jeton utilisateur ou une cle de service,
+  // jamais une session boutique. Depend de `commercialQuotesService` deja
+  // instancie (lecture du devis a convertir, `getSummary()`). L outbox
+  // publie `quote.converted` hors de la transaction SQL, meme limite deja
+  // acceptee pour `quote.created`/`quote.sent`/`quote.accepted`.
+  const commercialOrdersService = new CommercialOrdersService({
+    repository: new SupabaseCommercialOrdersRepository(client),
+    outbox: new OutboxPublisher({
+      repository: bestEffortOutbox(outboxRepository, (error, events) => {
+        console.error(
+          '[magrit-api] publication outbox echouee',
+          events.map((event) => event.name),
+          error,
+        );
+      }),
+      now: () => new Date(),
+      newEventId: () => crypto.randomUUID(),
+    }),
+    quotes: commercialQuotesService,
+  });
+
   const handler = createMagritApiApplication({
     gescomServices: {
       customers: customersService,
@@ -365,6 +391,7 @@ export async function handleRequest(request: Request): Promise<Response> {
       priceRules: priceRulesService,
       commercialSettings: commercialSettingsService,
       storefrontQuotes: storefrontQuotesService,
+      commercialOrders: commercialOrdersService,
     },
     principalVerifier: new SupabaseApiPrincipalVerifier(client, {
       requestedTenantId: request.headers.get(TENANT_SELECTION_HEADER),

@@ -587,6 +587,15 @@ export const TEST_IDS = {
     sendSuccessBanner: 'quote-send-success-banner',
     // Duplication (`duplicateQuote`).
     duplicateBtn: 'quote-duplicate-btn',
+    // E10.12 — « bouton Valider » (`convertQuote`), visible pour un devis
+    // `sent` ou `accepted` uniquement. Aucun controle metier ici (le serveur
+    // tranche) : la confirmation demandee quand la source est `sent` est une
+    // courtoisie d interface, pas une garde.
+    convertBtn: 'quote-convert-btn',
+    convertDialog: 'quote-convert-dialog',
+    convertConfirmBtn: 'quote-convert-confirm-btn',
+    convertCancelBtn: 'quote-convert-cancel-btn',
+    convertSuccessBanner: 'quote-convert-success-banner',
     // Entete (show_discounts/valid_until) — formulaire E10.3, sans testid
     // jusqu ici.
     showDiscountsCheckbox: 'quote-show-discounts-checkbox',

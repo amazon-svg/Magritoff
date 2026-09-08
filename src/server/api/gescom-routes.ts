@@ -37,6 +37,7 @@ import type { CommercialQuotesService } from '../../modules/commercial-quotes/ap
 import type { PriceRulesService } from '../../modules/pricing/application/price-rules-service.ts';
 import type { CommercialSettingsService } from '../../modules/commercial-settings/application/commercial-settings-service.ts';
 import type { StorefrontQuotesService } from '../../modules/storefront-quotes/application/storefront-quotes-service.ts';
+import type { CommercialOrdersService } from '../../modules/commercial-orders/application/commercial-orders-service.ts';
 import { createCustomersRoutes } from './customers-routes.ts';
 import { createCustomerShopAccessRoutes } from './customer-shop-access-routes.ts';
 import { createProjectsRoutes } from './projects-routes.ts';
@@ -45,6 +46,7 @@ import { createCommercialQuotesRoutes } from './commercial-quotes-routes.ts';
 import { createPriceRulesRoutes } from './price-rules-routes.ts';
 import { createCommercialSettingsRoutes } from './commercial-settings-routes.ts';
 import { createStorefrontQuotesRoutes } from './storefront-quotes-routes.ts';
+import { createCommercialOrdersRoutes } from './commercial-orders-routes.ts';
 import type { GescomRoute } from './gescom-middleware.ts';
 
 /**
@@ -70,6 +72,8 @@ export type GescomServices = Readonly<{
    * boutique (`ShopCustomerPrincipal`, troisieme mode d authentification).
    */
   storefrontQuotes: StorefrontQuotesService;
+  /** E10.12 — « bouton Valider » : transformation d un devis en commande, lecture des commandes. */
+  commercialOrders: CommercialOrdersService;
 }>;
 
 /**
@@ -88,6 +92,7 @@ export function gescomRoutes(services: GescomServices): readonly GescomRoute[] {
     ...createPriceRulesRoutes(services.priceRules),
     ...createCommercialSettingsRoutes(services.commercialSettings),
     ...createStorefrontQuotesRoutes(services.storefrontQuotes),
+    ...createCommercialOrdersRoutes(services.commercialOrders, services.commercialQuotes),
   ];
 }
 
@@ -109,6 +114,7 @@ export const GESCOM_ROUTES: readonly GescomRoute[] = Object.freeze(
     priceRules: createNullService('PriceRulesService'),
     commercialSettings: createNullService('CommercialSettingsService'),
     storefrontQuotes: createNullService('StorefrontQuotesService'),
+    commercialOrders: createNullService('CommercialOrdersService'),
   }),
 );
 

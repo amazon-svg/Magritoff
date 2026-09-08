@@ -11,6 +11,14 @@ if ! docker inspect "$DATABASE_CONTAINER" >/dev/null 2>&1; then
   exit 1
 fi
 
+# `gescom-e10-12-quote-conversion.sql` (scenario 11, qa-review round 1
+# correctif B1) a besoin de DEUX connexions Postgres reellement separees
+# (extension dblink) pour reproduire une course entre deux transactions —
+# impossible depuis une seule session psql. Adresse IP et mot de passe du
+# conteneur local, lus DYNAMIQUEMENT (jamais en dur : aucun secret commis).
+DBLINK_HOST="$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$DATABASE_CONTAINER")"
+DBLINK_PASSWORD="$(docker exec "$DATABASE_CONTAINER" printenv POSTGRES_PASSWORD)"
+
 # Cas SQL executes contre la base locale. Historiquement storefront ; le
 # Sprint 5 y ajoute les cas Gestion commerciale, qui exigent le meme runtime
 # (triggers et RLS reels, ce qu une lecture du fichier de migration ne teste
@@ -44,10 +52,12 @@ SQL_CASES=(
   tests/sql/gescom-e10-10b-1-storefront-quotes.sql
   tests/sql/gescom-e10-10b-2-storefront-quote-decision.sql
   tests/sql/gescom-e10-10b-3-outbox-dispatcher.sql
+  tests/sql/gescom-e10-12-quote-conversion.sql
 )
 
 for sql_case in "${SQL_CASES[@]}"; do
   echo "SQL: $sql_case"
   docker exec -i "$DATABASE_CONTAINER" \
-    psql -v ON_ERROR_STOP=1 -U postgres -d postgres < "$sql_case"
+    psql -v ON_ERROR_STOP=1 -v dblink_host="$DBLINK_HOST" -v dblink_password="$DBLINK_PASSWORD" \
+    -U postgres -d postgres < "$sql_case"
 done

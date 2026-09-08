@@ -197,6 +197,10 @@ export const quoteSchema = z
     sent_by: uuidSchema.nullable(),
     decided_at: timestampSchema.nullable(),
     decided_by_account_id: uuidSchema.nullable(),
+    // E10.12 — instant de la transformation en commande (convertQuote). NULL
+    // tant que le devis n a pas ete converti. Pas de order_id ici (decision
+    // #8 du contrat) : voir GET /commercial-orders?quote_id=.
+    converted_at: timestampSchema.nullable(),
     created_by: uuidSchema.nullable(),
     created_at: timestampSchema,
     updated_at: timestampSchema,
@@ -224,6 +228,7 @@ export const quoteDetailSchema = z
     sent_by: uuidSchema.nullable(),
     decided_at: timestampSchema.nullable(),
     decided_by_account_id: uuidSchema.nullable(),
+    converted_at: timestampSchema.nullable(),
     created_by: uuidSchema.nullable(),
     created_at: timestampSchema,
     updated_at: timestampSchema,
@@ -284,6 +289,12 @@ export const sendQuoteCommandSchema = z
 // facade (PATCH direct, correctif en base). Aucune operation du contrat ne
 // la produit ; `previous_value`/`new_value` portent alors les deux
 // `QuoteStatus`, `field`/`quote_snapshot` restent `null`.
+// `converted` (E10.12) : le devis a ete transforme en COMMANDE par un membre
+// de l atelier (`convertQuote`). Meme forme que `resent`/`duplicated`/
+// `status_forced` (ni `field` ni `quote_snapshot`) : le devis est fige depuis
+// `sent`, l instantane pris a l envoi EST le document commande. Contrairement
+// a `accepted`/`rejected`, `actor_id`/`actor_label` designent toujours un
+// MEMBRE Magrit (jamais un compte client boutique).
 export const quoteAuditActionSchema = z.enum([
   'updated',
   'sent',
@@ -292,6 +303,7 @@ export const quoteAuditActionSchema = z.enum([
   'status_forced',
   'accepted',
   'rejected',
+  'converted',
 ]);
 
 export const quoteAuditFieldSchema = z.enum([
