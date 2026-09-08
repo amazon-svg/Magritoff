@@ -45,3 +45,17 @@ export type {
 } from './application/commercial-quotes-repository';
 export { commercialQuotesModuleManifest } from './manifest';
 export { commercialQuotesWorkspaceContribution } from './surface-contributions';
+export {
+  buildAccountQuotesLink,
+  formatFrenchDate,
+  QuoteSentNotificationConsumer,
+} from './application/quote-sent-notification-consumer';
+export type {
+  QuoteNotificationGateway,
+  QuoteNotificationQuoteContext,
+  QuoteNotificationRecipient,
+  QuoteSentEmail,
+  QuoteSentEmailDelivery,
+  QuoteSentEmailSender,
+  QuoteSentNotificationConsumerDependencies,
+} from './application/quote-sent-notification-consumer';

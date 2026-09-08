@@ -11,6 +11,9 @@
 --   1. Un evenement s insere normalement.
 --   2. UPDATE du payload -> refuse (42501), le contenu metier est immuable.
 --   3. UPDATE du suivi de livraison -> accepte, c est la seule mutation prevue.
+--      Couvre les QUATRE colonnes mutables (E10.10b-3, migration
+--      20260908000000 : `next_attempt_at` rejoint published_at/
+--      delivery_attempts/last_error).
 --   4. DELETE d une ligne NON publiee -> refuse (42501), on perdrait l evenement.
 --   5. DELETE d une ligne publiee -> accepte, la purge reste possible.
 --   6. Un membre du tenant B ne lit aucune ligne du tenant A (policy RLS).
@@ -69,8 +72,16 @@ begin
 
   -- L acteur n est membre QUE du tenant B : il ne doit rien voir du tenant A.
   -- Tenant A n a pas de parent, donc aucun acces descendant ne le rattrape.
+  -- role='admin' (pas 'owner', devenu inecrivable depuis la migration
+  -- 20260814000200 "un seul profil d administration" — decouvert hors
+  -- perimetre pendant E10.10b-3 lors d un `db reset` complet ; corrige ici
+  -- car ce fichier est deja un livrable de cette story, `current_user_
+  -- tenant_ids()` n exploite de toute facon aucun filtre sur `role`, donc le
+  -- comportement RLS teste plus bas est inchange. tests/sql/legacy-shop-
+  -- only-write-freeze.sql porte la MEME derive et reste, lui, hors
+  -- perimetre : signale au rapport de fin de story plutot que corrige ici).
   insert into public.tenant_members (tenant_id, user_id, role, access_scope, allowed_shop_ids)
-  values (v_tenant_b, v_actor, 'owner', 'magrit_full', '{}');
+  values (v_tenant_b, v_actor, 'admin', 'magrit_full', '{}');
 
   insert into public.outbox_events (
     tenant_id, event_name, event_version, aggregate_type, aggregate_id, payload
@@ -168,14 +179,20 @@ begin
     raise exception 'Le tenant d un evenement a pu etre reecrit';
   end if;
 
-  -- 3. UPDATE du suivi de livraison -> accepte.
+  -- 3. UPDATE du suivi de livraison -> accepte. QUATRE colonnes (E10.10b-3) :
+  -- published_at (implicitement, via le scenario 5 plus bas), delivery_attempts,
+  -- last_error, next_attempt_at.
   update public.outbox_events
      set delivery_attempts = delivery_attempts + 1,
-         last_error = 'timeout consommateur'
+         last_error = 'timeout consommateur',
+         next_attempt_at = now() + interval '5 minutes'
    where id = v_pending;
 
   if (select delivery_attempts from public.outbox_events where id = v_pending) <> 1 then
     raise exception 'Le suivi de livraison n a pas pu etre mis a jour';
+  end if;
+  if (select next_attempt_at from public.outbox_events where id = v_pending) <= now() then
+    raise exception 'next_attempt_at (E10.10b-3) n a pas pu etre mis a jour';
   end if;
 
   -- 4. DELETE d une ligne non publiee -> refuse.

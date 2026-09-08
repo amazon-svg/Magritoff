@@ -182,7 +182,13 @@ export async function buildDeliveryHeaders(
   });
 }
 
-function timingSafeEqual(left: string, right: string): boolean {
+/**
+ * Comparaison a temps constant. Exportee (E10.10b-3) : c est CETTE fonction
+ * que l Edge Function `magrit-outbox-dispatcher` doit reutiliser pour
+ * comparer `X-Magrit-Outbox-Secret`, plutot que d en reimplementer une copie
+ * (§8.13sexies point 4, "deja dans outbox.ts").
+ */
+export function timingSafeEqual(left: string, right: string): boolean {
   if (left.length !== right.length) return false;
   let difference = 0;
   for (let index = 0; index < left.length; index += 1) {

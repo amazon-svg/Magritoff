@@ -68,6 +68,7 @@ export {
   OutboxPublisher,
   serializeEventEnvelope,
   signEventBody,
+  timingSafeEqual,
   toEventEnvelope,
   verifyEventSignature,
 } from './outbox.ts';
@@ -80,3 +81,15 @@ export type {
   OutboxPublisherDependencies,
   OutboxRepository,
 } from './outbox.ts';
+
+export { DEFAULT_OUTBOX_DISPATCH_SETTINGS, OutboxDispatcher } from './outbox-dispatcher.ts';
+export type {
+  ClaimedOutboxEvent,
+  DispatchReport,
+  OutboxConsumeResult,
+  OutboxConsumerRegistry,
+  OutboxDispatchRepository,
+  OutboxDispatchSettings,
+  OutboxDispatcherDependencies,
+  OutboxEventConsumer,
+} from './outbox-dispatcher.ts';

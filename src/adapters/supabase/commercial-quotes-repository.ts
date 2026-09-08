@@ -67,6 +67,11 @@ import {
   type QuoteLineWriteUpdate,
 } from '../../modules/commercial-quotes/application/commercial-quotes-repository.ts';
 import { toIsoTimestamp, toIsoTimestampOrNull } from '../../modules/_shared/application/index.ts';
+import type {
+  QuoteNotificationGateway,
+  QuoteNotificationQuoteContext,
+  QuoteNotificationRecipient,
+} from '../../modules/commercial-quotes/application/quote-sent-notification-consumer.ts';
 
 const CHECK_VIOLATION = '23514';
 /** `commercial_quote_lines_quote_position_unique` (qa-review, point mineur 2) : retente `addLine` une fois. */
@@ -740,4 +745,84 @@ function toDomainError(
     return new QuoteCommandRejectedError('api.validation_failed', error.message ?? fallback);
   }
   return new Error(error?.message ?? fallback);
+}
+
+// ============================================================================
+// E10.10b-3 — resolution des destinataires de la notification `quote.sent`.
+// ----------------------------------------------------------------------------
+// Port DEDIE (`QuoteNotificationGateway`), pas une extension de
+// `CommercialQuotesRepository` : meme raisonnement que
+// `StorefrontActivationEmailSender` (shop-customers), une petite interface
+// colocalisee avec son consommateur plutot que noyee dans le repository
+// principal. `client` DOIT etre `service_role` (compose par le drain, PAS le
+// client tenant-scope des routes /api/v1) : ce gateway bypass la RLS par
+// construction, la protection tient donc ENTIEREMENT aux jointures
+// EXPLICITES ci-dessous, pas a une policy.
+// ============================================================================
+
+const NOTIFIABLE_ACCOUNT_STATUSES = ['active', 'invited'] as const;
+
+export class SupabaseQuoteNotificationGateway implements QuoteNotificationGateway {
+  /** @param client Client `service_role` — voir en-tete de section. */
+  constructor(private readonly client: SupabaseClient<any>) {}
+
+  async getQuoteContext(tenantId: TenantId, quoteId: string): Promise<QuoteNotificationQuoteContext | null> {
+    const { data, error } = await this.client
+      .from('commercial_quotes')
+      .select('valid_until')
+      .eq('id', quoteId)
+      .eq('tenant_id', tenantId)
+      .maybeSingle();
+    if (error) {
+      throw new Error(`Lecture du devis pour notification impossible: ${error.message}`);
+    }
+    if (!data) return null;
+    return { validUntil: (data as { valid_until: string | null }).valid_until };
+  }
+
+  async resolveRecipients(
+    tenantId: TenantId,
+    customerId: string,
+  ): Promise<readonly QuoteNotificationRecipient[]> {
+    // Jointure EXPLICITE shops.tenant_id = tenantId (le tenant de l EVENEMENT,
+    // pas une deduction) EN PLUS de la chaine customer_id -> customer_contacts
+    // -> shop_customer_accounts : ici, une jointure ecrite de travers
+    // enverrait un devis dans la boite d un tiers (§8.13sexies, "Isolation"),
+    // pas juste sur le mauvais ecran. Meme patron PostgREST que
+    // `listContacts`/`findContactById` plus haut dans ce fichier
+    // (`.eq('customers.tenant_id', tenantId)` sur une ressource embarquee
+    // `!inner`), verifie ici contre `shops`/`customer_contacts`.
+    const { data, error } = await this.client
+      .from('shop_customer_accounts')
+      .select('email, full_name, status, customer_contacts!inner(customer_id), shops!inner(slug, name, tenant_id)')
+      .eq('customer_contacts.customer_id', customerId)
+      .eq('shops.tenant_id', tenantId)
+      .in('status', NOTIFIABLE_ACCOUNT_STATUSES);
+    if (error) {
+      throw new Error(`Resolution des destinataires de notification impossible: ${error.message}`);
+    }
+
+    return ((data ?? []) as Record<string, any>[]).map(toNotificationRecipient);
+  }
+}
+
+/**
+ * `row: Record<string, any>` — meme idiome que `toContactDto()` plus haut
+ * dans ce fichier : le client generique `SupabaseClient<any>` type une
+ * ressource embarquee `!inner` VERS UNE colonne FK comme un tableau (schema
+ * `any`, cardinalite reelle non connue a la compilation), alors que
+ * PostgREST rend en realite un OBJET pour `shops` (verifie en local, requete
+ * reelle : `"shops":{"name":...,"slug":...}`).
+ */
+function toNotificationRecipient(row: Record<string, any>): QuoteNotificationRecipient {
+  const shop = row['shops'] as { slug: string; name: string | null };
+  const fullName = (row['full_name'] as string | null)?.trim();
+  const email = row['email'] as string;
+  const shopName = shop.name?.trim();
+  return {
+    email,
+    customerName: fullName || email,
+    shopSlug: shop.slug,
+    shopName: shopName || shop.slug,
+  };
 }

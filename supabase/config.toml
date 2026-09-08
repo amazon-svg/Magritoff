@@ -389,6 +389,15 @@ deno_version = 2
 [functions.magrit-api]
 verify_jwt = false
 
+# E10.10b-3 — drain périodique de l'outbox, déclenché par pg_net (migration
+# 20260908000000), qui ne présente aucun JWT. L'authentification est
+# ENTIÈREMENT portée par le secret partagé `MAGRIT_OUTBOX_DISPATCH_SECRET`
+# (en-tête `X-Magrit-Outbox-Secret`, comparé en temps constant côté fonction) :
+# sans `verify_jwt = false` ici, la passerelle Edge Runtime rejetterait
+# l'appel avant même que ce contrôle ne s'exécute.
+[functions.magrit-outbox-dispatcher]
+verify_jwt = false
+
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 

@@ -16,6 +16,8 @@ export type {
   ApiV1ApplicationDependencies,
   MagritApiApplicationDependencies,
 } from './composition';
+export { createOutboxDispatchApplication } from './outbox-dispatch-composition';
+export type { OutboxDispatchApplicationDependencies } from './outbox-dispatch-composition';
 export {
   assertNoFacadeCollision,
   createApiFacadeRouter,
