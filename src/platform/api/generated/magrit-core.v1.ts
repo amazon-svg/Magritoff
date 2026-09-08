@@ -61,7 +61,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Recupere la fiche detaillee d un client : coordonnees, interlocuteurs, et points d extension projets/devis/commandes (vides tant que E10.1/E10.3/E10.12 ne sont pas livrees). */
+        /** Recupere la fiche detaillee d un client : coordonnees, interlocuteurs, et trois points d extension projets/devis/commandes, TOUJOURS VIDES — voir `CustomerDetail` pour la raison, qui n est plus « la story n est pas livree » depuis qu E10.1, E10.3 et E10.12 le sont. */
         get: operations["getCustomer"];
         put?: never;
         post?: never;
@@ -1025,6 +1025,129 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/quotes/{quoteId}/conversions": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * VALIDE un devis et le transforme en COMMANDE. Geste d atelier explicite — le « bouton Valider » du back-office — jamais un effet de bord de la decision du client.
+         *
+         *     RESSOURCE D ACTE, comme `/quotes/{id}/transmissions` et `/quotes/{id}/duplicates` : c est la convention deja en place pour toute transition de devis cote atelier. Un `PATCH` portant `{"status": "converted"}` aurait ouvert `status` en ecriture, alors qu une transition a des effets propres — numerotation, copie figee des lignes, entree d audit, evenement sortant — qui ne sont pas ceux d une mise a jour de champ.
+         *
+         *     CE QUE LA CONVERSION FAIT, en une seule transaction :
+         *     - le devis passe a `converted` et porte `converted_at`. La transition
+         *       est IRREVERSIBLE et TERMINALE : aucune operation ne revient dessus ;
+         *
+         *     - une commande est creee, avec un numero `CDE-AAAA-NNNNN` propre,
+         *       sequentiel par tenant et par annee. Le numero du devis n est pas
+         *       repris : un atelier cite « la commande CDE-2026-00012, issue du
+         *       devis DEV-2026-00042 », deux references distinctes pour deux pieces
+         *       distinctes ;
+         *
+         *     - chaque ligne du devis devient une ligne de commande, prix COPIES tels
+         *       quels ;
+         *
+         *     - les totaux du devis (sous-total, remise globale, net, TVA, TTC) sont
+         *       COPIES sur l entete de la commande.
+         *
+         *
+         *     LES PRIX SONT FIGES, ET C EST LE COEUR DE LA STORY. La conversion ne RECALCULE rien : elle recopie. Aucun appel a `PricingEngine` (E10.21) n a lieu ici, et ce n est pas un manque — les colonnes de prix des lignes de devis ont deja ete produites par le moteur (E10.9), et les recalculer a la conversion produirait un prix different de celui que le client a sous les yeux des qu une regle de prix aurait change entre temps. Un devis accepte a 4 500 EUR devient une commande a 4 500 EUR, quelle que soit la grille tarifaire du jour.
+         *
+         *     AUCUNE OPERATION NE MODIFIE ENSUITE LES PRIX D UNE COMMANDE : ce contrat ne publie ni `PATCH /commercial-orders/{id}`, ni operation sur ses lignes, et la garde correspondante est posee EN BASE (trigger d immuabilite sur les colonnes figees), pas seulement ici — une garde de facade seule serait contournee par un appel PostgREST direct.
+         *
+         *     DEPUIS QUEL STATUT — `sent` OU `accepted`. `accepted` est le cas nominal : le client a repondu depuis son portail (E10.10b-2). `sent` est accepte AUSSI, parce que la reponse d un client arrive tres souvent par telephone ou par courriel, et parce que l acceptation en ligne suppose qu un acces boutique ait ete ouvert a l interlocuteur — ce qui n est le cas d aucun client par defaut (E10.10b-3 : « envoyer un devis ne notifie personne tant que l acces boutique de l interlocuteur n a pas ete ouvert »). N accepter que `accepted` rendrait ce bouton inerte chez tout tenant sans portail client. La commande GARDE LA TRACE de la difference : `source_quote_status` dit si le client s etait formellement prononce.
+         *
+         *     REFUSES : `draft` (un devis que le client n a jamais vu n est pas une offre — le convertir creerait une commande sur un document jamais remis), `rejected` (le client a dit non ; reprendre l affaire se fait par `duplicateQuote`), `converted` (deja fait — un rejeu de la MEME requete est traite par `Idempotency-Key`, pas par un second passage).
+         *
+         *     LA PEREMPTION NE BLOQUE PAS. Un devis dont `valid_until` est passee reste convertible. Le contrat le dit deja pour l atelier (`QuoteWarningCode.validity_expired` : « le devis reste lisible et renvoyable — rien n est bloque ») : honorer sa propre offre au-dela du terme annonce est un geste commercial ordinaire. La garde de peremption d E10.10b-2 est opposee au CLIENT, qui ne peut pas s engager seul sur une offre echue ; elle n a pas de sens contre l atelier qui l a emise.
+         *
+         *     PAS DE `If-Match`, ET C EST DELIBERE — divergence assumee avec `sendQuote`, qui l exige. Trois raisons : un devis `sent` ou `accepted` est DEJA IMMUABLE (E10.10a), la precondition n a donc plus d objet ici, alors qu un brouillon bouge sous les yeux du commercial jusqu a l envoi ; la seule chose qui puisse encore changer est la reponse du client, et la garde de statut la lit mieux qu une precondition ; enfin, les deux statuts sources etant convertibles, un client qui accepte pendant que le commercial valide est une course INOFFENSIVE qu un `If-Match` transformerait en 409 sans aucun gain de surete. Precedent exact : `duplicateQuote`, POST creant une ressource depuis un devis, n exige aucune precondition non plus.
+         *
+         *     `Idempotency-Key` EXIGE, en revanche : l operation consomme un numero de sequence, cree une commande et publie un evenement. Sans elle, un double clic ou un rejeu apres coupure produirait deux commandes numerotees pour un seul devis.
+         */
+        post: operations["convertQuote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/commercial-orders": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Liste les commandes du tenant courant, de la plus recente a la plus ancienne.
+         *
+         *     Le filtre `quote_id` est la contrepartie d une decision de normalisation : un devis converti ne porte PAS l identifiant de sa commande (l arete 1-1 est portee une seule fois, par `CommercialOrder.quote_id`, unique). C est par ce filtre qu un ecran de devis affiche « voir la commande », pas par un champ duplique des deux cotes qu il faudrait tenir synchrone.
+         */
+        get: operations["listCommercialOrders"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/commercial-orders/{orderId}": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /** Fiche complete d une commande : entete, totaux figes et lignes. */
+        get: operations["getCommercialOrder"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export interface webhooks {
     "quote.converted": {
@@ -1036,7 +1159,11 @@ export interface webhooks {
         };
         get?: never;
         put?: never;
-        /** Un devis a ete converti en commande. */
+        /**
+         * Un devis a ete converti en COMMANDE par l atelier (`convertQuote`, E10.12). Charge utile : `QuoteConversionPayload` (`event_version: 1`), qui porte l identifiant et le numero de la commande creee — la seule information que la conversion produit et qu un consommateur ne peut pas deduire.
+         *
+         *     SEUL evenement emis par la conversion : il n existe pas d `order.created` en doublon pour le meme instant. Distinct de `quote.accepted` (E10.10b-2) : accepter est un geste du CLIENT, valider est un geste de l ATELIER, et l un ne suit pas toujours l autre.
+         */
         post: operations["onQuoteConverted"];
         delete?: never;
         options?: never;
@@ -1121,7 +1248,7 @@ export interface webhooks {
         };
         get?: never;
         put?: never;
-        /** Un devis a ete cree depuis un projet (E10.3). Distinct de `quote.converted` (E10.12, story future), qui signale la conversion en commande. */
+        /** Un devis a ete cree depuis un projet (E10.3). Distinct de `quote.converted` (E10.12), qui signale la conversion en commande. */
         post: operations["onQuoteCreated"];
         delete?: never;
         options?: never;
@@ -1516,7 +1643,11 @@ export interface components {
         };
         /**
          * CustomerDetail
-         * @description Fiche client complete : coordonnees, interlocuteurs, et points d extension projets/devis/commandes. Ces trois listes sont TOUJOURS vides tant que E10.1 (projets), E10.3 (devis) et E10.12 (commandes) ne sont pas livrees — ce ne sont pas des donnees inventees, c est un point d extension prevu par le contrat.
+         * @description Fiche client complete : coordonnees, interlocuteurs, et points d extension projets/devis/commandes. Ces trois listes sont TOUJOURS vides.
+         *
+         *     LE MOTIF A CHANGE, ET IL FAUT LE DIRE PLUTOT QUE DE LAISSER LA PHRASE D ORIGINE. Le contrat annoncait « vides tant qu E10.1, E10.3 et E10.12 ne sont pas livrees » ; les trois le sont desormais, et les listes restent vides — parce que chacune de ces stories a publie une operation de LISTE filtrable par client (`GET /projects?customer_id=`, `GET /quotes?customer_id=`, `GET /commercial-orders?customer_id=`), qui sert le besoin avec pagination, filtres et tri, ce qu une liste imbriquee dans une fiche ne fait pas. Les remplir imposerait en outre de choisir une borne arbitraire (« les 10 derniers devis ») dans une reponse qui n en porte aucune ailleurs.
+         *
+         *     Les trois champs restent publies : les retirer serait cassant (§7 de docs/api/CONVENTIONS.md). Ils sont a lire comme un point d extension toujours ouvert, pas comme une promesse en attente.
          */
         CustomerDetail: {
             id: components["schemas"]["Uuid"];
@@ -1540,7 +1671,7 @@ export interface components {
             projects: unknown[];
             /** @description Point d extension E10.3. Toujours vide pour l instant. */
             quotes: unknown[];
-            /** @description Point d extension E10.12. Toujours vide pour l instant. */
+            /** @description Point d extension E10.12. TOUJOURS vide, y compris depuis que E10.12 est livree : les commandes d un client se lisent par `GET /commercial-orders?customer_id=...`. Voir la description du schema. */
             orders: unknown[];
         };
         /**
@@ -1763,9 +1894,22 @@ export interface components {
          *       `duplicateQuote` cote atelier, exactement comme pour un devis envoye
          *       qu on voudrait modifier.
          *
-         *     `converted` reste declare mais n est produit par AUCUNE operation : il viendra d E10.12 (conversion en commande). Un consommateur doit l accepter en lecture — il apparaitra sans changement de forme — sans supposer qu il existe aujourd hui un chemin pour l atteindre.
+         *     - `sent` -> `converted` ET `accepted` -> `converted` (`convertQuote`,
+         *       E10.12). DEUX statuts sources, un seul aboutissement. `accepted` est
+         *       le cas nominal ; `sent` est accepte parce qu une reponse de client
+         *       arrive tres souvent hors du portail (telephone, courriel) et que
+         *       l acceptation en ligne suppose un acces boutique ouvert, ce qui n est
+         *       le cas d aucun client par defaut. La difference n est pas perdue :
+         *       elle est enregistree sur la commande
+         *       (`CommercialOrder.source_quote_status`) et dans le journal d entete
+         *       du devis (`previous_value` de l entree `converted`). TERMINAL :
+         *       aucune operation ne sort de `converted`, ni n annule une commande en
+         *       rendant son devis a l etat anterieur.
          *
-         *     AUCUN CHEMIN de `accepted`/`rejected` vers quoi que ce soit aujourd hui, `converted` compris : E10.12 dira depuis quel(s) etat(s) une commande se cree, et ce sera sa decision, pas un heritage de celle-ci.
+         *
+         *     `draft` et `rejected` ne sont PAS convertibles : un brouillon n a jamais ete remis au client, et un devis refuse se reprend par `duplicateQuote`, jamais en passant outre la reponse recue.
+         *
+         *     TOUS les statuts declares ont desormais un producteur : plus aucune valeur de cette enumeration n est en attente d une story.
          * @enum {string}
          */
         QuoteStatus: "draft" | "sent" | "accepted" | "rejected" | "converted";
@@ -1942,6 +2086,14 @@ export interface components {
              *     Aucune operation de cette facade ne resout cet identifiant en un nom aujourd hui. Le libelle FIGE du decideur se lit dans le journal d entete (`QuoteAuditEntry.actor_label` sur les actions `accepted` / `rejected`) ; ecart connu, expose dans docs/api/CONVENTIONS.md §8.13quinquies plutot que masque par un second champ denormalise qui ferait deux versions de la meme information.
              */
             decided_by_account_id: components["schemas"]["Uuid"] | null;
+            /**
+             * @description Instant de la transformation en commande (`convertQuote`, E10.12). `null` tant que le devis n a pas ete converti.
+             *
+             *     COLONNE, comme `sent_at` et `decided_at`, et pour la meme raison : le journal d entete est reserve aux membres portant `can_manage_pricing` (E10.11), et savoir si une affaire est commandee est l information la plus ordinaire du suivi commercial.
+             *
+             *     CE CHAMP N EST PAS DOUBLE D UN `order_id`, et c est delibere. La relation devis <-> commande est 1-1 et elle est portee UNE SEULE fois, par `CommercialOrder.quote_id` (unique). La publier des deux cotes creerait deux aretes a tenir synchrones pour epargner un appel. Une interface qui veut la commande d un devis appelle `GET /commercial-orders?quote_id=...`, filtre publie pour cela.
+             */
+            converted_at: components["schemas"]["Timestamp"] | null;
             created_by: components["schemas"]["Uuid"] | null;
             created_at: components["schemas"]["Timestamp"];
             updated_at: components["schemas"]["Timestamp"];
@@ -1971,6 +2123,8 @@ export interface components {
             sent_by: components["schemas"]["Uuid"] | null;
             decided_at: components["schemas"]["Timestamp"] | null;
             decided_by_account_id: components["schemas"]["Uuid"] | null;
+            /** @description Meme champ et memes regles que `Quote.converted_at`, dont la transformation en commande (E10.12). */
+            converted_at: components["schemas"]["Timestamp"] | null;
             created_by: components["schemas"]["Uuid"] | null;
             created_at: components["schemas"]["Timestamp"];
             updated_at: components["schemas"]["Timestamp"];
@@ -2146,6 +2300,19 @@ export interface components {
          *       detail, et `quote_snapshot` pour la raison de n en pas prendre un
          *       second.
          *
+         *     - `converted` : le devis a ete transforme en COMMANDE par un membre de
+         *       l atelier (`convertQuote`, E10.12). `field` et `quote_snapshot` sont
+         *       `null` — le devis etant fige depuis `sent`, l instantane pris a
+         *       l envoi EST le document commande, et en reprendre une photo identique
+         *       laisserait croire a une seconde piece. `previous_value` porte le
+         *       statut source (`sent` ou `accepted`, ce qui rend lisible dans le
+         *       journal si le client s etait formellement prononce), `new_value` vaut
+         *       `converted`, et `new_value` seul ne suffit donc pas a raconter
+         *       l evenement. `actor_id` et `actor_label` designent le MEMBRE qui a
+         *       valide : contrairement a `accepted`/`rejected`, cette action a
+         *       toujours un auteur Magrit.
+         *
+         *
          *     - `status_forced` : le `status` du devis a change SANS passer par une
          *       transition sanctionnee. `previous_value` et `new_value` portent les
          *       deux statuts (`QuoteStatus`) ; `field` et `quote_snapshot` sont
@@ -2155,7 +2322,7 @@ export interface components {
          *       laisser. Voir le bloc E10.10a ci-dessous.
          * @enum {string}
          */
-        QuoteAuditAction: "updated" | "sent" | "resent" | "duplicated" | "status_forced" | "accepted" | "rejected";
+        QuoteAuditAction: "updated" | "sent" | "resent" | "duplicated" | "status_forced" | "accepted" | "rejected" | "converted";
         /**
          * QuoteAuditField
          * @description Champ d entete PERSISTE dont la valeur a change. Liste fermee, meme principe que `QuoteLineAuditField` : uniquement des champs stockes, jamais une valeur derivee d eux — les totaux se recalculent a tout instant depuis les lignes et la remise globale, les auditer produirait une seconde version de la meme information.
@@ -2421,6 +2588,173 @@ export interface components {
             customer_id: components["schemas"]["Uuid"];
             /** @description Numero metier du devis, transporte pour la meme raison que dans `QuoteSentPayload` : c est la reference que le client et le commercial s echangent, un consommateur qui notifie doit pouvoir la citer sans relire le devis. */
             number: string;
+        };
+        /**
+         * CommercialOrderStatus
+         * @description Etat d une commande. UNE SEULE valeur aujourd hui, et c est un choix plutot qu un oubli.
+         *
+         *     E10.12 cree la commande et s arrete la : le cycle de vie (mise en production, expedition, annulation, facturation) est le sujet d E10.13, qui le concevra pour la gestion commerciale. Declarer d avance les etapes de l enumeration `tenant_order_status` de la boutique (`validated`, `in_production`, `shipped`, `delivered`, `invoiced`, `cancelled`, migration `20260509000100`) aurait publie un cycle de vie que personne n a concu pour ce module — cette enumeration-la porte la mention « Vision V2+ » sur cinq de ses sept valeurs et aucune n a jamais ete atteinte.
+         *
+         *     `validated` est en revanche repris TEL QUEL de ce vocabulaire existant : c est deja le nom de « commande engagee commercialement » dans ce produit, et le bouton du back-office s appelle « Valider ». Inventer un synonyme aurait cree deux noms pour la meme notion.
+         *
+         *     Liste ADDITIVE : E10.13 y ajoutera ses etats, un consommateur ignore une valeur qu il ne connait pas.
+         * @enum {string}
+         */
+        CommercialOrderStatus: "validated";
+        /**
+         * ConvertedFromStatus
+         * @description Statut du DEVIS au moment ou il a ete converti. Sous-ensemble strict de `QuoteStatus`, reduit aux deux seuls statuts convertibles.
+         *
+         *     Enumeration separee plutot que reutilisation de `QuoteStatus`, meme raison que `StorefrontQuoteStatus` : publier ici les cinq valeurs laisserait croire qu une commande peut naitre d un brouillon ou d un devis refuse.
+         *
+         *     CE QUE CE CHAMP SERT A LIRE, et c est sa seule raison d exister : `accepted` signifie que le client s est FORMELLEMENT prononce depuis son portail (E10.10b-2, engagement horodate et journalise a son nom) ; `sent` signifie que l atelier a valide sur une reponse recue hors systeme — telephone, courriel, bon de commande papier. Les deux produisent la meme commande ; elles ne se valent pas comme PREUVE, et un litige se tranche sur cette difference.
+         * @enum {string}
+         */
+        ConvertedFromStatus: "sent" | "accepted";
+        /**
+         * ConvertQuoteCommand
+         * @description Corps de `convertQuote`. AUCUN champ aujourd hui : la conversion ne prend aucun parametre, tout ce qui compose la commande etant deja fige sur le devis. Le corps est donc facultatif.
+         *
+         *     Schema NOMME et objet ferme malgre tout, plutot qu une absence de corps, pour la meme raison qu en E10.10b-2 : le jour ou un champ s impose — la reference de commande du client (son « bon de commande n° 4712 ») en est le candidat le plus probable, et il n est PAS introduit ici — il s ajoute sans toucher au chemin, au verbe, ni a l ordre des gardes.
+         */
+        ConvertQuoteCommand: Record<string, never>;
+        /**
+         * CommercialOrderTotals
+         * @description Totaux de la commande. Memes huit grandeurs que `QuoteTotals`, meme signification, meme ordre de calcul — mais un REGIME DE VERITE oppose, et c est pourquoi ce n est pas le meme schema.
+         *
+         *     `QuoteTotals` est DERIVE a chaque lecture, decision d E10.10a : les lignes d un brouillon bougent, et un total persiste divergerait du recalcul. `CommercialOrderTotals` est FIGE, ecrit une fois a la conversion et jamais recalcule. Un total derive dependrait du code de calcul du jour ; une correction d arrondi ou un changement de regime fiscal du tenant modifierait retroactivement le montant d une commande deja passee, sur laquelle une facture sera emise. Cette relecture-la n est pas acceptable sur une piece qui engage.
+         *
+         *     `vat_rate` et `vat_regime` sont figes pour la meme raison, et c est le cas le plus concret : un tenant qui bascule de `metropole_fr` a `franchise_tva` ne doit pas voir la TVA de ses commandes passees disparaitre.
+         *
+         *     Consequence a connaitre : ces montants peuvent differer de ceux que `QuoteTotals` rendrait aujourd hui sur le devis source si la regle de calcul a evolue depuis. Ce n est pas une incoherence a corriger, c est exactement ce que « fige » veut dire.
+         */
+        CommercialOrderTotals: {
+            /** @description Somme des `sale_price` des lignes, hors taxes, figee. */
+            lines_subtotal: components["schemas"]["MoneyNonNegative"];
+            /** @description Remise globale du devis source, en euros, figee. SIGNEE comme sur le devis : negative quand la commande majore le total de ses lignes. */
+            global_discount: components["schemas"]["Money"];
+            /** @description `global_discount` rapporte a `lines_subtotal`, fige. `null` dans les deux memes cas que sur le devis (sous-total nul, ou rapport hors de l intervalle `numeric(6,4)`). */
+            effective_discount_rate: components["schemas"]["Rate"] | null;
+            /** @description Prix hors taxes de la commande. C est le montant commande. */
+            net_total: components["schemas"]["MoneyNonNegative"];
+            /** @description Taux de TVA applique a la conversion, fige. */
+            vat_rate: components["schemas"]["Rate"];
+            /** @description Regime fiscal qui a fourni le taux, fige. `null` quand le devis portait une surcharge explicite — aucun regime ne serait alors exact, et en nommer un serait une mention legale fausse. */
+            vat_regime: components["schemas"]["TaxRegime"] | null;
+            vat_amount: components["schemas"]["MoneyNonNegative"];
+            total_incl_tax: components["schemas"]["MoneyNonNegative"];
+        };
+        /**
+         * CommercialOrderLine
+         * @description Ligne de commande : COPIE FIGEE d une ligne de devis. Tous les montants sont des TOTAUX DE LIGNE pour `quantity`, jamais des prix unitaires — meme regle que `QuoteLine`, et le meme piege a doubler la facture si on les multiplie.
+         *
+         *     Le bloc `PricedLine` complet (`production_price`, `public_price`, `customer_price`, `applied_margin_rate`, `applied_rule_id`, `breakdown`) est copie, pas seulement le prix vendu. Deux raisons : une commande se facture et s analyse en marge sans avoir le devis en main ; et « fige » n est litteralement vrai que si les valeurs vivent ici — une valeur lue au travers d un pointeur n est figee que tant que personne ne degele la source, hypothese que le contrat s interdit de faire (voir le corollaire d E10.10b-2 sur la modification d un devis envoye).
+         *
+         *     Aucun de ces montants n est recalcule a la conversion : ils viennent de `PricingEngine` (E10.21) via la ligne de devis, une seule fois, au moment ou le commercial a chiffre.
+         */
+        CommercialOrderLine: {
+            id: components["schemas"]["Uuid"];
+            order_id: components["schemas"]["Uuid"];
+            /** @description Ligne de devis dont celle-ci est la copie. Jamais `null` : une ligne de commande ne nait pas ailleurs que d un devis dans ce lot. Le devis source etant immuable puis `converted`, il ne peut plus etre supprime (garde d E10.10a) — cette reference ne peut donc pas devenir orpheline par un chemin nominal. */
+            source_quote_line_id: components["schemas"]["Uuid"];
+            /** @description Provenance de la ligne de devis d origine, recopiee. Conservee parce qu elle dit a la production si une configuration produit reelle existe derriere la ligne ou s il s agit d une saisie libre. */
+            origin: components["schemas"]["QuoteLineOrigin"];
+            label: string;
+            /** @description Configuration produit recopiee telle quelle. Objet vide pour une ligne libre. */
+            product_config: {
+                [key: string]: unknown;
+            };
+            /** Format: int32 */
+            quantity: number;
+            /**
+             * Format: int32
+             * @description Rang de la ligne, repris du devis. Contigu, commencant a 0.
+             */
+            position: number;
+            production_price: components["schemas"]["MoneyNonNegative"];
+            public_price: components["schemas"]["MoneyNonNegative"];
+            customer_price: components["schemas"]["MoneyNonNegative"];
+            applied_margin_rate: components["schemas"]["Rate"];
+            /** @description Regle de prix qui avait fixe le prix de la ligne de devis. `null` est une valeur normale (aucune regle ne couvrait le contexte). Cette reference est INFORMATIVE et ne suit pas la regle : une regle modifiee ou desactivee apres coup ne change rien au prix commande. */
+            applied_rule_id: components["schemas"]["Uuid"] | null;
+            /** @description Prix effectivement commande pour cette ligne, hors taxes, total pour `quantity`. C est la grandeur que la facture reprendra. */
+            sale_price: components["schemas"]["MoneyNonNegative"];
+            sale_margin_rate: components["schemas"]["Rate"] | null;
+            /** @description Remise de ligne consentie sur le devis, recopiee. Signee : negative quand la ligne a ete majoree. */
+            discount_rate: components["schemas"]["Rate"] | null;
+            margin_variation: components["schemas"]["Rate"] | null;
+            /** @description Detail du calcul de prix recopie du devis. JAMAIS vide, meme invariant qu en E10.21 : au minimum l element agrege `post: total`. */
+            breakdown: components["schemas"]["PricedLineBreakdownItem"][];
+            created_at: components["schemas"]["Timestamp"];
+        };
+        /**
+         * CommercialOrder
+         * @description Commande de gestion commerciale, nee de la validation d un devis (E10.12). Forme abregee, sans ses lignes.
+         *
+         *     Comme `Quote`, elle porte ses TOTAUX des la forme de liste : une liste de commandes sans montant obligerait l interface a additionner des lignes, ce que ce sprint interdit au navigateur.
+         */
+        CommercialOrder: {
+            id: components["schemas"]["Uuid"];
+            tenant_id: components["schemas"]["Uuid"];
+            /** @description Client destinataire, herite du devis (donc du projet, E10.3 CA4). Recopie et non lu au travers de `quote_id` : c est un attribut constitutif du document — une commande est passee POUR quelqu un — et le filtre `customer_id` de la liste ne doit pas dependre d une jointure sur un autre agregat. */
+            customer_id: components["schemas"]["Uuid"];
+            /** @description Devis source. UNIQUE dans la table : un devis ne donne qu une commande. C est cette arete, et elle seule, qui porte la relation 1-1 — le devis ne porte PAS l identifiant de sa commande, pour qu il n y ait pas deux cotes a tenir synchrones. */
+            quote_id: components["schemas"]["Uuid"];
+            /**
+             * @description Numero metier unique et sequentiel par tenant et par annee, attribue en base a la conversion — jamais calcule cote client. Sequence PROPRE, distincte de celle des devis : deux compteurs, deux prefixes, deux pieces.
+             * @example CDE-2026-00012
+             */
+            number: string;
+            status: components["schemas"]["CommercialOrderStatus"];
+            source_quote_status: components["schemas"]["ConvertedFromStatus"];
+            totals: components["schemas"]["CommercialOrderTotals"];
+            /** @description Membre de l espace qui a valide le devis. `null` seulement si ce compte a disparu depuis. C est l auteur de l ENGAGEMENT : contrairement au devis, dont la decision peut venir d un compte boutique, une commande de ce contrat est toujours creee par un membre. */
+            created_by: components["schemas"]["Uuid"] | null;
+            /** @description Instant de la conversion. Meme instant que `Quote.converted_at`. */
+            created_at: components["schemas"]["Timestamp"];
+            /** @description Egal a `created_at` tant qu aucune operation ne modifie une commande — c est le cas dans ce lot. Publie des maintenant parce que c est lui qui fondera l `ETag` quand E10.13 ouvrira une transition. */
+            updated_at: components["schemas"]["Timestamp"];
+        };
+        /**
+         * CommercialOrderDetail
+         * @description Commande complete avec ses lignes. Schema APLATI plutot que compose par `allOf`, meme raison que `QuoteDetail` : combine a `additionalProperties: false`, un `allOf` ferait rejeter `lines` par le membre `CommercialOrder`.
+         */
+        CommercialOrderDetail: {
+            id: components["schemas"]["Uuid"];
+            tenant_id: components["schemas"]["Uuid"];
+            customer_id: components["schemas"]["Uuid"];
+            quote_id: components["schemas"]["Uuid"];
+            number: string;
+            status: components["schemas"]["CommercialOrderStatus"];
+            source_quote_status: components["schemas"]["ConvertedFromStatus"];
+            totals: components["schemas"]["CommercialOrderTotals"];
+            created_by: components["schemas"]["Uuid"] | null;
+            created_at: components["schemas"]["Timestamp"];
+            updated_at: components["schemas"]["Timestamp"];
+            /** @description Lignes de la commande, dans l ordre de `position`. JAMAIS vide : un devis sans ligne ne peut pas etre envoye (E10.10a `quote.send_requires_lines`), donc pas atteindre un statut convertible. L invariant est structurel, pas defendu par une garde propre a cette operation. */
+            lines: components["schemas"]["CommercialOrderLine"][];
+        };
+        /**
+         * QuoteConversionPayload
+         * @description Charge utile de l evenement sortant `quote.converted` (`event_version: 1`).
+         *
+         *     UN SEUL EVENEMENT POUR CE FAIT, et pas un second `order.created` : la conversion est un fait unique, et deux evenements emis au meme instant pour le meme fait obligeraient chaque consommateur a dedupliquer. `quote.converted` est en outre publie en v1 depuis le socle, un abonne a pu s y preparer. `order.created` reste ajoutable plus tard, additif, le jour ou une commande naitrait SANS devis — ce que ce lot ne permet pas.
+         *
+         *     Volontairement minimale, meme parti que `QuoteSentPayload` et `QuoteDecisionPayload` : des identifiants et des numeros, AUCUN montant. Les prix commerciaux ne transitent pas par le bus ; un abonne habilite relit la commande par `getCommercialOrder`.
+         *
+         *     `order_id` et `order_number` sont la seule information NEUVE que la conversion produit et qu aucun consommateur ne peut deduire : c est sa sortie. `source_quote_status` voyage aussi, parce qu un consommateur qui declenche une production a le droit de savoir si le client s etait formellement engage.
+         *
+         *     `aggregate_type` vaut `quote`, `aggregate_id` le devis converti — le nom de l evenement porte sur le devis, l agregat le suit.
+         */
+        QuoteConversionPayload: {
+            quote_id: components["schemas"]["Uuid"];
+            customer_id: components["schemas"]["Uuid"];
+            /** @description Numero metier du DEVIS converti. */
+            number: string;
+            order_id: components["schemas"]["Uuid"];
+            /** @description Numero metier de la COMMANDE creee. */
+            order_number: string;
+            source_quote_status: components["schemas"]["ConvertedFromStatus"];
         };
         /**
          * CostPost
@@ -2963,6 +3297,8 @@ export interface components {
          *     Parametre distinct de `QuoteId` alors qu il porte le meme nom et le meme type : ce n est pas la meme resolution. `QuoteId` cherche dans l espace du jeton, celui-ci cherche parmi les devis ENVOYES du client rattache au compte. Un contrat qui les confondrait laisserait croire qu un devis lisible d un cote l est de l autre.
          */
         StorefrontQuoteId: components["schemas"]["Uuid"];
+        /** @description Identifiant technique de la commande de gestion commerciale (`commercial_orders`, E10.12), dans le tenant du jeton. SANS RAPPORT avec l `orderId` des routes historiques `/api/v1/orders/...`, qui adresse une commande BOUTIQUE (`tenant_orders`) : deux tables, deux cycles de vie, deux facades. Un identifiant valide d un cote rend 404 de l autre. */
+        CommercialOrderId: components["schemas"]["Uuid"];
         /** @description Identifiant technique de la ligne de devis. Toujours resolu DANS le devis du chemin : une ligne d un autre devis rend 404 `quote_line.not_found`, jamais la ligne de l autre devis. */
         QuoteLineId: components["schemas"]["Uuid"];
         /** @description Identifiant technique de la regle de prix, dans le tenant du jeton. */
@@ -3048,6 +3384,14 @@ export type StorefrontQuoteDetail = components['schemas']['StorefrontQuoteDetail
 export type StorefrontQuoteDecision = components['schemas']['StorefrontQuoteDecision'];
 export type StorefrontQuoteDecisionCommand = components['schemas']['StorefrontQuoteDecisionCommand'];
 export type QuoteDecisionPayload = components['schemas']['QuoteDecisionPayload'];
+export type CommercialOrderStatus = components['schemas']['CommercialOrderStatus'];
+export type ConvertedFromStatus = components['schemas']['ConvertedFromStatus'];
+export type ConvertQuoteCommand = components['schemas']['ConvertQuoteCommand'];
+export type CommercialOrderTotals = components['schemas']['CommercialOrderTotals'];
+export type CommercialOrderLine = components['schemas']['CommercialOrderLine'];
+export type CommercialOrder = components['schemas']['CommercialOrder'];
+export type CommercialOrderDetail = components['schemas']['CommercialOrderDetail'];
+export type QuoteConversionPayload = components['schemas']['QuoteConversionPayload'];
 export type CostPost = components['schemas']['CostPost'];
 export type CostSource = components['schemas']['CostSource'];
 export type PricedLineBreakdownItem = components['schemas']['PricedLineBreakdownItem'];
@@ -3098,6 +3442,7 @@ export type ParameterCustomerId = components['parameters']['CustomerId'];
 export type ParameterProjectId = components['parameters']['ProjectId'];
 export type ParameterQuoteId = components['parameters']['QuoteId'];
 export type ParameterStorefrontQuoteId = components['parameters']['StorefrontQuoteId'];
+export type ParameterCommercialOrderId = components['parameters']['CommercialOrderId'];
 export type ParameterQuoteLineId = components['parameters']['QuoteLineId'];
 export type ParameterPriceRuleId = components['parameters']['PriceRuleId'];
 export type ParameterProductRangeId = components['parameters']['ProductRangeId'];
@@ -5653,6 +5998,157 @@ export interface operations {
                 };
             };
             428: components["responses"]["PreconditionRequired"];
+        };
+    };
+    convertQuote: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+                /** @description Cle d idempotence de la conversion (CA8). Un rejeu de la meme cle rend la commande deja creee, jamais une seconde. */
+                "Idempotency-Key": string;
+            };
+            path: {
+                /** @description Identifiant technique du devis, dans le tenant du jeton. */
+                quoteId: components["parameters"]["QuoteId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ConvertQuoteCommand"];
+            };
+        };
+        responses: {
+            /** @description Commande creee, avec ses lignes et ses totaux figes. L `ETag` est celui de la commande — publie des maintenant bien qu aucune operation ne la modifie, pour que la premiere story qui en introduira une (E10.13) trouve la precondition deja servie. */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["CommercialOrderDetail"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /**
+             * @description Le statut du devis n autorise pas la conversion (`quote.conversion_forbidden_status`), avec `current_state`.
+             *
+             *     Un seul code pour les quatre statuts refuses, nomme d apres l OPERATION et non d apres l etat rencontre — meme parti que `quote.send_forbidden_status` (E10.10a) et `quote.decision_forbidden_status` (E10.10b-2). La nuance « deja converti » / « refuse par le client » / « encore brouillon » se lit dans `current_state.status`, toujours present.
+             *
+             *     Ce code couvre aussi la course entre deux conversions concurrentes : la transition est atomique, la seconde requete ne trouve plus le devis dans un statut convertible.
+             */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    listCommercialOrders: {
+        parameters: {
+            query?: {
+                /** @description Filtre sur le client de la commande. */
+                customer_id?: components["schemas"]["Uuid"];
+                /** @description Filtre sur le devis source. Rend zero ou UNE commande : un devis ne se convertit qu une fois. */
+                quote_id?: components["schemas"]["Uuid"];
+                /** @description Filtre sur le statut de la commande. Absent -> tous statuts. Sans effet utile aujourd hui, `validated` etant le seul statut existant (voir `CommercialOrderStatus`) ; publie des maintenant pour que E10.13 n ait pas a ajouter un parametre a une operation deja servie. */
+                status?: components["schemas"]["CommercialOrderStatus"];
+                /** @description Nombre d elements par page. Defaut 50, maximum 200. */
+                "page[size]"?: components["parameters"]["PageSize"];
+                /** @description Curseur opaque renvoye par `meta.next_cursor` de la page precedente. Absent sur la premiere page. Ne jamais construire un curseur cote client : sa structure interne n est pas contractuelle. */
+                "page[cursor]"?: components["parameters"]["PageCursor"];
+            };
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Page de commandes du tenant. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["CommercialOrder"][];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    getCommercialOrder: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path: {
+                /** @description Identifiant technique de la commande de gestion commerciale (`commercial_orders`, E10.12), dans le tenant du jeton. SANS RAPPORT avec l `orderId` des routes historiques `/api/v1/orders/...`, qui adresse une commande BOUTIQUE (`tenant_orders`) : deux tables, deux cycles de vie, deux facades. Un identifiant valide d un cote rend 404 de l autre. */
+                orderId: components["parameters"]["CommercialOrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Commande et ses lignes. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["CommercialOrderDetail"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     onQuoteConverted: {

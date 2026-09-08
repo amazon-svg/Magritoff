@@ -707,7 +707,7 @@ Ce chemin est aujourd'hui **pire qu'avant le volet 1**, pas meilleur : le devis 
 | **E10.10b-1** | **Lecture.** Troisième mode d'authentification de la façade (`storefrontSession`), `GET /storefront-quotes`, `GET /storefront-quotes/{quoteId}`, représentation réduite `StorefrontQuote*`, chaîne d'autorisation en base, onglet « Mes devis » rendu au portail. | **Contrat écrit (ce paragraphe)** |
 | **E10.10b-2** | **Décision du client.** `sent → accepted` / `sent → rejected`, première écriture jamais servie à un acteur non-membre du tenant, actions d'audit d'entête dédiées, événement sortant, garde de péremption. | **Contrat écrit (§8.13quinquies)** |
 | **E10.10b-3** | **Notification.** Relais réel de l'outbox (`outbox_events` n'a **aucun** dispatcher à ce jour, dérogation R5 §8) + courriel Resend au client sur `quote.sent`, premier envoi comme renvoi. | **Cadrage écrit (§8.13sexies)** |
-| **E10.10b-4** | **Document.** PDF réellement généré, stocké, horodaté, joint au devis et servi au client comme à l'atelier. | À cadrer — décision technique préparée ci-dessous |
+| **E10.10b-4** | **Document.** PDF réellement généré, stocké, horodaté, joint au devis et servi au client comme à l'atelier. | **Cadrage écrit (§8.13septies)**, preuve d'exécution faite ; écriture du YAML suspendue à la réserve d'hébergement |
 
 **Ce qui fonde la coupure.** Ce ne sont pas quatre tranches d'un même travail, ce sont quatre chantiers dont **trois partent de zéro techniquement** dans ce dépôt, chacun sur un axe différent :
 
@@ -736,7 +736,7 @@ Ce chemin est aujourd'hui **pire qu'avant le volet 1**, pas meilleur : le devis 
 
 > **Ce que je n'affirme pas.** Le choix du prestataire (Gotenberg auto-hébergé, ou un service managé type Browserless/PDFShift/DocRaptor) n'est **pas** tranché ici, et je ne me prononce ni sur leurs API ni sur leurs limites de version : le serveur de documentation Context7 n'est pas joignable depuis cet agent, et une affirmation de mémoire d'entraînement sur une API tierce n'a pas de valeur. b-4 doit **commencer** par un appel réel au candidat retenu depuis une Edge Function déployée, avant que la moindre ligne de contrat ne soit écrite sur `GET /storefront-quotes/{id}/document`. Trois points sont à instruire dans cette preuve : le coût récurrent (le premier appel payant à la requête du sprint), la **confidentialité** (les prix d'un client transitent par un tiers — arbitrage à porter à Arnaud, pas une décision d'architecte), et le comportement en échec.
 >
-> **Corollaire de calendrier, à ne pas perdre.** Tant que b-4 n'est pas livrée, ce qui fait foi de ce qui a été transmis reste l'entrée d'audit `sent` et son `quote_snapshot` (§8.12). Le re-rendu à la volée reste **fidèle** parce qu'un devis `sent` est immuable — c'est cet invariant, et lui seul, qui rend le report tenable. Toute story qui rouvrirait la modification d'un devis envoyé rendrait b-4 **urgente** le jour même.
+> **Corollaire de calendrier, à ne pas perdre.** Tant que b-4 n'est pas livrée, ce qui fait foi de ce qui a été transmis reste l'entrée d'audit `sent` et son `quote_snapshot` (§8.12). ~~Le re-rendu à la volée reste **fidèle** parce qu'un devis `sent` est immuable — c'est cet invariant, et lui seul, qui rend le report tenable.~~ ❌ **AFFIRMATION FAUSSE, CORRIGÉE PAR LA PREUVE D'EXÉCUTION DE b-4 — voir §8.13septies constat (e).** L'immuabilité vaut pour la **ligne de devis**, pas pour le **document** : `renderQuoteHtml()` lit l'horloge (`new Date()`) et le gabarit (`quote_templates`, librement modifiable) n'est **pas** dans `quote_snapshot`. Un re-rendu imprime donc la date du jour, le papier à en-tête du jour et la validité du jour. Le report restait tenable, mais parce que ce qui fait foi est **l'instantané de données**, jamais un document reconstituable. Toute story qui rouvrirait la modification d'un devis envoyé rendrait b-4 **urgente** le jour même.
 
 #### Contrat de E10.10b-1 — ce qui est ajouté
 
@@ -1116,6 +1116,252 @@ Un compte en `invited` **est** notifié : il n'a pas encore de mot de passe, mai
 | `pnpm test:architecture` | **vert**, inchangé | Aucune frontière modulaire touchée. |
 
 Aucun écart attendu, pour la même raison qu'en b-1 et pour la raison inverse de b-2 : ce lot ne modifie **aucune représentation déjà servie**. L'implémentation, elle, en produira — `tests/sql/gescom-outbox-append-only.sql` doit évoluer avec la quatrième colonne mutable, et ce cas fait partie de ceux qui n'ont **jamais tourné** (§8.1 B3, §8.13bis v1). b-3 est la première story pour laquelle ce trou n'est plus théorique : elle écrit dans les colonnes que ce cas est le seul à surveiller.
+
+### 8.13septies E10.10b-4 (le document) — preuve d'exécution, puis cadrage
+
+**Nature de ce paragraphe.** §8.13 avait posé une condition suspensive à ce lot : « b-4 doit **commencer** par un appel réel au candidat retenu […] avant que la moindre ligne de contrat ne soit écrite ». Arnaud a tranché le candidat — **Gotenberg auto-hébergé**, pour un motif de confidentialité : les prix d'un client ne doivent pas transiter par un tiers managé. La preuve a été faite, elle **tient**, et elle a produit **cinq constats mesurés** dont deux invalident une hypothèse écrite en §8.13 et dans le contrat lui-même. Aucun code applicatif n'est écrit ici.
+
+#### 1. La preuve — ce qui a réellement tourné, et ce que ça mesure
+
+`docker run --rm -d -p 3000:3000 gotenberg/gotenberg:8` sur le poste de rédaction. Version rendue par le conteneur : **8.36.0**, `/health` → `{"status":"up"}` avec `chromium: up` et `libreoffice: up`. Le HTML soumis n'est pas un bouchon : il est produit par **le gabarit réel du dépôt**, `buildQuoteDocumentHtml()` + `renderQuoteHtml()` (`src/modules/quote-templates/ui/helpers/quote-rendering.ts`), exécutés via vitest pour bénéficier de la résolution d'alias réelle, sur un devis à cinq lignes (dépliants, affiches, cartes, chemises, façonnage), gabarit `builtin-corporate` renseigné d'une identité d'émetteur complète et d'un client réaliste. HTML de **4 764 octets**.
+
+| Mesure | Valeur observée |
+|---|---|
+| Forme de l'appel | `POST /forms/chromium/convert/html`, `multipart/form-data`, champ **`files`**, nom de fichier **obligatoirement `index.html`** |
+| Conversion à froid (1er appel, Chromium non démarré) | **1,459 s** |
+| Conversions à chaud (4 appels suivants) | **117, 91, 82, 76 ms** |
+| Sortie | **35 204 octets**, `file` → `PDF document, version 1.4, 1 pages` |
+| En-têtes de réponse | `Content-Type: application/pdf`, `Content-Disposition: attachment`, `Gotenberg-Trace: <uuid>` |
+| Empreinte du conteneur | image **2,45 Go**, **245,9 Mio** de mémoire résidente après conversions |
+
+**Fidélité du rendu : vérifiée visuellement, pas seulement par un code 200.** Le PDF a été relu page à page. Sont rendus correctement : le filet d'accent en tête, la couleur de marque sur les titres et l'en-tête de tableau, le bloc logo de repli (badge coloré quand `logo_url` est absent), les deux cartouches Émetteur / Client avec bordures et coins arrondis (donc `flex` et `border-radius` honorés), le tableau des cinq lignes avec ses colonnes Qté/Format/Support, le bloc de totaux aligné à droite avec son filet de séparation, et le pied de page du gabarit. L'arithmétique est juste : 4 298,45 € HT, 859,69 € de TVA à 20 %, 5 158,14 € TTC. **Ce que le moteur produit est le document du dépôt, pas une approximation.**
+
+**Limite honnête de cette preuve.** Elle n'a **pas** été faite depuis une Edge Function Supabase déployée. Elle établit que Gotenberg convertit fidèlement le gabarit Magrit et à quel coût de latence ; elle **n'établit pas** qu'un isolat Deno du runtime Supabase peut l'atteindre en réseau — cela dépend entièrement de l'endroit où Gotenberg sera hébergé, question ouverte au point 5. La condition de §8.13 est donc satisfaite sur le fond (le candidat est prouvé) et **partiellement** sur la forme (le maillon réseau reste à valider le jour où l'hébergement est choisi).
+
+#### 2. Les cinq constats, dont deux qui changent la conception
+
+**(a) Un HTML malformé ne produit pas une erreur, il produit un PDF.** Envoyé `<html><body><div><p>Devis <b>non ferme &amp<table><tr><td>ligne` : réponse **200**, PDF valide de 12 752 octets. Chromium répare le DOM en silence. **Conséquence opposable : le succès de Gotenberg n'est pas un signal de fidélité.** Il n'existe aucun contrôle en aval qui dirait « ce PDF est le bon » ; la justesse du document se garantit **en amont**, par le fait que le HTML est bâti par une fonction pure à partir de données typées. Toute tentative de « valider le PDF produit » serait du théâtre.
+
+**(b) Le moteur va chercher les ressources distantes — et c'est là que la fuite se réintroduit.** Vérifié en tendant un écouteur : un `<img src="http://…/logo-du-tenant.png">` déclenche un **vrai GET sortant** depuis le conteneur, `User-Agent: HeadlessChrome/151.0.0.0`. Or `quote_templates.logo_url` est exactement ce champ, il est renseigné par l'utilisateur (`quote_templates.user_id` → `auth.users`, table par utilisateur), et son commentaire de migration dit « data-url **ou url publique** ». Deux risques distincts : l'hôte visé apprend, à chaque rendu, qu'un devis est édité ; et une URL pointant vers une adresse interne fait exécuter la requête **par le moteur, depuis le réseau d'hébergement** (SSRF). **Auto-héberger Gotenberg ne ferme pas cette fuite, ça la déplace.**
+
+Parade **vérifiée, pas supposée** : `--chromium-deny-private-ips` + `--chromium-allow-list`. Piège trouvé en la testant — l'allow-list s'applique **aussi au document principal**, servi en `file:///tmp/…` par Gotenberg lui-même ; une liste ne visant que le domaine de stockage rejette **tout** en 403 (`filter URL: 'file:///tmp/…' does not match any expression from the allowed list`). Forme qui fonctionne, mesurée : `--chromium-allow-list='^file:///tmp/.*|^https://<projet>.supabase.co/storage/v1/object/public/.*'` → devis nominal **200 / 35 204 octets**, identique au rendu sans garde-fou ; logo hors liste → **aucune requête sortante reçue par l'écouteur**. À retenir : le document sort quand même en 200, **logo manquant**, 12 263 octets. Même famille que (a) : la parade dégrade le document en silence.
+
+**(c) Le conteneur appelle Google de lui-même.** Les journaux montrent `CONNECT blocked for 'www.google.com:443'`, `'accounts.google.com:443'`, `'android.clients.google.com:443'` (`logger: chromium.browser.pinning-proxy`). **Précision qui compte : ce sont les services propres de Chromium, pas le contenu des devis** — je n'affirme pas que des prix partent chez Google, et rien dans la preuve ne le montre. Mais l'argument « auto-hébergé donc confidentiel » n'est complet que s'il inclut une **politique d'egress réseau** sur l'hôte, pas seulement l'absence de prestataire tiers.
+
+**(d) Le PDF n'est pas déterministe à l'octet.** Il embarque `/CreationDate (D:20260908174950+00'00')` et `/ModDate` (producteur `Skia/PDF m151`). Deux rendus du **même** HTML à quelques minutes d'écart : taille identique (35 204), empreintes différentes. **Conséquence : une empreinte enregistrée à l'envoi ne pourra jamais être revérifiée par un re-rendu.** Toute idée de « on regénère et on compare » est morte-née.
+
+**(e) L'hypothèse « le re-rendu reste fidèle » est FAUSSE. C'est le constat structurant du lot.** §8.13 l'écrivait — « le re-rendu à la volée reste fidèle parce qu'un devis `sent` est immuable » — et `openapi/magrit-core.v1.yaml` la répète dans le commentaire d'en-tête de `/quotes/{quoteId}/transmissions` (« Tant que le devis `sent` est immuable (point 3), le re-rendu est fidele »). Elle est vraie de la **ligne de devis**, fausse du **document**, pour deux causes indépendantes, l'une et l'autre vérifiées :
+
+1. **Le gabarit lit l'horloge.** `renderQuoteHtml()` écrit `Date : ${new Date().toLocaleDateString('fr-FR')}`. Le PDF de la preuve, pour une référence `DEV-2026-004182`, porte « Date : 08/09/2026 » — la date du **rendu**, jamais celle de l'envoi. Un devis envoyé il y a trois semaines et re-rendu aujourd'hui s'imprime daté d'aujourd'hui.
+2. **Le gabarit n'est pas dans l'instantané.** `quote_snapshot` vaut `jsonb_build_object('quote', to_jsonb(q), 'lines', …)` et rien d'autre (migration `20260906160000`). L'identité de l'émetteur, le logo, les couleurs, le pied de page et `validity_days` vivent dans `quote_templates`, table **librement modifiable** et indépendante du devis. Le PDF imprime d'ailleurs « Validite : 30 jours » depuis le **gabarit**, pas depuis le `valid_until` du devis.
+
+Autrement dit : un re-rendu produit un document au papier à en-tête d'aujourd'hui, daté d'aujourd'hui, avec la validité d'aujourd'hui, sur un devis par ailleurs figé. **Le report de b-4 était donc tenable, mais pas pour la raison écrite** : ce qui faisait foi restait l'entrée d'audit `sent` et son instantané de données — jamais un document reconstituable.
+
+#### 3. Horodatage : généré **une fois à l'envoi**, stocké, jamais regénéré
+
+C'est la question que le lot devait trancher, et (d) + (e) la tranchent sans marge.
+
+- **Génération synchrone dans `sendQuote`**, au premier envoi. « Horodaté » signifie donc **date de la transmission**, et la date de génération coïncide avec elle **par construction** — c'est précisément pourquoi les deux doivent être liées dans la même opération plutôt que rapprochées après coup. Le `new Date()` du gabarit devient exact au lieu d'être trompeur, sans qu'on ait à le corriger pour ce cas.
+- **Aucune regénération, jamais.** Ni à la lecture côté client, ni à la lecture côté atelier.
+- **Un renvoi (`resent`) ne regénère pas** et re-sert le même objet. `quote.resend_immutable` interdit déjà de changer `show_discounts` à un renvoi, au motif exact que « deux clients détiendraient sinon deux documents différents portant le même numéro » : stocker une fois rend cette promesse **structurelle** au lieu de la laisser reposer sur une garde.
+- **Dette à corriger dans le même lot, sous peine de reconduire (e) :** `renderQuoteHtml()` doit recevoir la date en **paramètre** (`issuedAt`) au lieu de lire l'horloge. Une fonction pure qui lit `Date.now()` n'est pas pure, et c'est ce défaut, pas Gotenberg, qui rendait le re-rendu infidèle. Le travail d'extraction annoncé en §8.13 (sortir `buildQuoteDocumentHtml`/`renderQuoteHtml` de `ui/helpers/` vers un module isomorphe atteignable depuis l'Edge Function, `ui/helpers` continuant à ré-exporter pour ne pas casser `QuoteModal.tsx` et `CartButton.tsx`) reste **le vrai travail du lot**, davantage que l'appel HTTP.
+- **Ce qui n'est PAS snapshoté, et pourquoi :** le gabarit. Le PDF stocké **est** le document de référence ; en archiver une seconde description en JSON créerait deux vérités sur la même pièce — le motif déjà retenu contre un second `quote_snapshot` en §8.13quinquies. Seul l'identifiant du gabarit employé est enregistré, pour la traçabilité.
+
+#### 4. Contrat visé — forme arrêtée, écriture dans le YAML **suspendue**
+
+| Élément | Décision |
+|---|---|
+| Atelier | `GET /quotes/{quoteId}/documents` — **rien à ne pas dupliquer** : vérifié, `openQuotePrint()` n'est appelé que par `QuoteModal.tsx` (catalogue) et `CartButton.tsx` (panier), jamais branché sur `commercial_quotes`. Le contrat le dit déjà lui-même (« jamais branche sur `commercial_quotes` »). |
+| Client | `GET /storefront-quotes/{quoteId}/documents`, mode `storefrontSession`, mêmes règles qu'en b-1. |
+| Pluriel | Imposé par `checkResourcePath()` : l'index 2 est une position de ressource, `document` serait refusé. **Contrairement à `transmissions`, ce pluriel est purement formel** — un devis n'a qu'un document. Le dire plutôt que de laisser croire à une collection. |
+| Corps | `{ data: QuoteDocument, meta }`. `QuoteDocument` = `generated_at`, `byte_size`, `sha256`, `content_type`, `download_url`, `download_url_expires_at`. |
+| Les octets | **Ne transitent pas par la façade.** L'endpoint rend une URL signée de courte durée (`createSignedUrl(path, expiresIn)` — présence et forme vérifiées dans `@supabase/supabase-js` **2.104.1** installé, qui appelle `POST /object/sign/<path>` avec `{expiresIn}`). Motif : servir `application/pdf` depuis `/api/v1` casserait l'enveloppe `{data, meta}` du CA6 et exigerait une dérogation R5 ; ici il n'y en a **aucune**. L'URL n'est émise qu'après que la chaîne d'autorisation a statué. |
+| Stockage | Bucket **privé** dédié (`public = false`), **aucune policy** sur `storage.objects` → seul `service_role` l'atteint, patron déjà documenté dans `20260510000100`. Chemin `<tenant_id>/<quote_id>.pdf`, tenant en tête, miroir du scoping par `shopId` de `shops-repository.ts`. |
+| Absence de document | Côté atelier (acteur membre, aucun risque d'oracle) : 404 `quote.document_not_generated` — cas nominal d'un `draft`. Côté client : **404 indiscernable**, règle de b-1 décision 5, sans code distinct. |
+
+> **Pourquoi le YAML n'est pas écrit dans ce passage.** La forme ci-dessus ne dépend pas de l'hébergement, mais **v1 est additive seulement** (CA13) : un endpoint publié ne se retire pas. Publier `getQuoteDocument` avant de savoir si Magrit peut héberger un moteur de rendu joignable depuis Supabase reviendrait à figer pour toujours une opération qu'on pourrait ne jamais servir. Le contrat s'écrit dès que la réserve du point 5 est levée ; il n'y a alors **aucune décision de forme restante** à prendre, tout est arrêté ici.
+
+#### 5. Réserve d'hébergement — à trancher par Arnaud, pas par l'architecte
+
+**Le fait technique contraignant.** L'Edge Function Supabase est un isolat Deno : `fetch` uniquement, pas de sous-processus. Gotenberg **ne peut pas** tourner dans l'isolat — c'est la différence pratique avec un service managé, qui n'aurait posé aucune question d'hébergement. Auto-héberger implique donc une machine, joignable en HTTP depuis le runtime Supabase, avec un **coût récurrent**. C'est une décision d'infrastructure, hors du périmètre d'un choix d'architecte de code.
+
+**Ce que la preuve donne pour dimensionner, sans inventer :** image **2,45 Go**, **245,9 Mio** de mémoire résidente Chromium compris, **76–117 ms** par conversion à chaud, **1,46 s** au premier appel après démarrage à froid (donc un hébergement qui met le conteneur en veille paie cette seconde et demie à chaque réveil).
+
+**Pistes plausibles, aucune retenue ici :** VPS dédié, Fly.io, Cloudflare Containers, ou un service de conteneurs adossé au même fournisseur que la base. **Sur Cloudflare, une vérification s'impose contre une idée reçue :** le dépôt Magrit n'a **aucune empreinte Cloudflare** — pas de `wrangler.toml`, aucune dépendance `wrangler` ou `cloudflare` dans `package.json`. La seule occurrence du mot dans le dépôt est `.claude/agents/test-engineer.md` ligne 38, sous la rubrique **« AGE Services site »**, c'est-à-dire un **autre projet**. AGE Dvt. dispose donc vraisemblablement d'un compte Cloudflare par ailleurs, mais rien ne permet de présenter Cloudflare Containers comme « déjà en place pour Magrit ».
+
+**Le coût récurrent : je ne le connais pas et je ne l'invente pas.** Aucun chiffre de tarification n'est avancé ici ; les grilles des quatre pistes n'ont pas été consultées depuis ce poste (Context7 n'a pas de surface d'outil dans cet agent, et une tarification citée de mémoire d'entraînement n'a aucune valeur). Ce qui est **certain** est la forme de la dépense : un conteneur qui doit rester résident pour éviter le démarrage à froid, dimensionné autour de 250 Mio à 512 Mio, ce qui situe le besoin dans la plus petite classe d'instance de n'importe lequel de ces fournisseurs.
+
+**Exigence non négociable quel que soit le choix.** Si l'instance est publiquement routable, elle **doit** être authentifiée — le conteneur expose `--api-enable-basic-auth` et `--api-enable-oidc-auth` — **et** son egress restreint. Un Gotenberg ouvert est deux choses à la fois : un service de rendu gratuit pour n'importe qui, et un relais SSRF vers le réseau qui l'héberge. La configuration de production doit également porter les garde-fous du constat (b), dans la forme exacte qui a été mesurée.
+
+#### 6. Échec de Gotenberg : pas de repli silencieux
+
+Même règle qu'en §8.13sexies pour Resend et `MAGRIT_PUBLIC_APP_URL`.
+
+- **Signature réelle de l'indisponibilité, mesurée conteneur arrêté :** connexion refusée, **aucun statut HTTP** (`http_code=000`, code de sortie curl 7), en **0,2 ms**. En Deno, `fetch` **lève** dans ce cas au lieu de rendre une réponse. À écrire noir sur blanc parce que c'est l'erreur qui sera commise : tester `response.ok` ne verra jamais cette panne, il faut **capturer une exception**.
+- **Conséquence sur `sendQuote` : l'envoi échoue**, 502 `quote.document_generation_failed`, et le devis **ne passe pas** à `sent`. Motif : `sent` est irréversible (aucun retour à `draft`, seule la duplication permet de reprendre). Un devis marqué envoyé sans document serait un devis que le client ne peut ni lire ni télécharger, et cet état ne se répare pas. Un envoi qui échoue, lui, se rejoue.
+- **Idempotence :** un échec de génération ne doit **pas** enregistrer une entrée d'idempotence « terminée », sans quoi le rejeu légitime de la même requête rendrait le premier échec pour l'éternité.
+- **Délais :** `--api-timeout` du conteneur vaut **30 s** par défaut. L'appelant doit poser une échéance **plus courte** que le budget de son propre isolat, pour rendre une erreur franche plutôt que d'être tué en cours de route.
+- **Configuration absente** (URL du service non renseignée) : échec à la composition, jamais un rendu dégradé.
+- **Corrélation :** la réponse porte `Gotenberg-Trace` (nom réglable par `--api-correlation-id-header`) ; à journaliser avec l'identifiant de requête de la façade, c'est le seul fil qui relie un PDF douteux à sa conversion.
+
+#### 7. Réserves à porter à Arnaud
+
+- **(a)** **L'hébergement** (point 5) — bloquant pour l'implémentation, non pour la forme du contrat.
+- **(b)** **Les devis déjà envoyés n'ont pas de document** et ne peuvent pas en recevoir un honnêtement : le regénérer aujourd'hui produirait, par (e), une pièce au papier à en-tête et à la date d'aujourd'hui pour un envoi antérieur. Position posée ici : **aucune reprise rétroactive**, `GET …/documents` rend 404 sur ces devis. Une reprise serait une falsification douce.
+- **(c)** **`logo_url` en `data:` plutôt qu'en URL distante** fermerait le constat (b) à la source plutôt que par configuration réseau. C'est une décision produit (poids du gabarit, ergonomie de l'écran de gabarits), pas d'architecte.
+- **(d)** **Durée de validité de l'URL signée** : non fixée ici, elle arbitre entre confort (relancer un téléchargement) et exposition (une URL signée est une capacité au porteur). À confirmer comme les valeurs de réglage de b-3.
+
+#### 8. État des gates
+
+Aucun fichier de `src/`, aucune migration, **aucun schéma ni chemin de contrat** touchés par ce passage. La seule modification de `openapi/magrit-core.v1.yaml` est un **commentaire YAML** (`#`), celui de `/quotes/{quoteId}/transmissions`, qui portait l'affirmation fausse du constat (e) et la corrige : un commentaire n'est ni une `description` ni un schéma, il n'est pas émis dans les types générés, `pnpm gen:api:check` ne peut donc pas bouger. `pnpm typecheck`, `pnpm test:contract`, `pnpm test:architecture` sont **inchangés**.
+
+> **Anomalie d'arbre de travail constatée pendant ce lot, à ne pas confondre avec lui.** Au moment de la vérification, `pnpm gen:api:check` **échoue**, et l'arbre porte dans `openapi/magrit-core.v1.yaml` un contrat **E10.12** complet (`/quotes/{quoteId}/conversions`, `/commercial-orders`, `/commercial-orders/{orderId}`, plus neuf schémas `CommercialOrder*` / `ConvertQuoteCommand` / `QuoteConversionPayload`) qui **n'a pas été écrit par ce lot** — b-4 n'ajoute aucun endpoint, par décision explicite du point 4. Ce contenu est apparu dans le fichier pendant la session, hors des modifications de b-4, et le fichier a continué de croître entre deux vérifications successives : une **écriture concurrente** est en cours sur la même copie de travail. Attribution vérifiée plutôt que supposée : l'écart relevé par `gen:api:check` ne porte **que** sur des symboles E10.12, et **aucune** ligne sur la correction de commentaire ci-dessus — cohérent avec le fait qu'un commentaire YAML n'est pas émis dans les types générés. **Rien n'a été révoqué** : annuler ces lignes détruirait un travail en cours qui n'est pas le mien. Conséquence opérationnelle : le commit de b-4 ne doit retenir de `openapi/magrit-core.v1.yaml` **que** le bloc de commentaire corrigé de `/quotes/{quoteId}/transmissions`, et E10.12 doit être commité, complété (`pnpm gen:api`) et revu séparément. Le fichier de test temporaire utilisé pour produire le HTML de la preuve a été **supprimé** ; l'arbre de travail est propre. Le conteneur de preuve a été arrêté.
+
+### 8.14 E10.12 (« bouton Valider » : le devis devient une commande) — contrat
+
+> **Attribution.** Le contenu E10.12 signalé comme « écriture concurrente » dans l'encadré de §8.13septies ci-dessus **est ce lot**. Les deux ont été cadrés dans la même session, sur la même copie de travail. Rien n'a été écrasé de part et d'autre ; les deux se commitent séparément, comme l'encadré le demande.
+
+#### 0. Ce qui a été vérifié dans le dépôt, et ce qui n'a pas pu l'être
+
+**Limite d'accès, dite plutôt que masquée.** Cet agent **n'a pas d'accès Notion** (aucun outil MCP Notion dans son jeu d'outils). Le texte intégral de la page E10.12 — histoire utilisateur, critères d'acceptation numérotés, formulation exacte de « bloquée par E10.3, E10.8, E10.9 » — **n'a pas pu être relu à la source**. Ce cadrage est bâti sur les deux extraits fournis par l'agent appelant (« le prix des lignes de commande provient de `PricingEngine` (E10.21), E10.8 étant gelée » ; « aucun écran ne permet de modifier les prix d'une commande : ils sont figés à la conversion ») et sur l'état **réel du dépôt**, vérifié fichier par fichier. **Conséquence à traiter avant que `dev-story` commence** : quelqu'un ayant accès à la page doit confronter ce cadrage aux critères d'acceptation numérotés. Une exigence de la page qui ne serait citée nulle part ci-dessous n'a pas été écartée — elle n'a pas été lue.
+
+**Dépendances déclarées, contrôlées une par une** (le statut Notion n'a pas fait foi, cf. la leçon E10.10) :
+
+| Dépendance | État réel constaté | Effet sur ce lot |
+|---|---|---|
+| **E10.3** — création d'un devis | **Livrée.** Module `src/modules/commercial-quotes/` (`api/`, `application/`), adaptateur `src/adapters/supabase/commercial-quotes-repository.ts`, routes `src/server/api/commercial-quotes-routes.ts`, migration `20260901000600` (`commercial_quotes`, `commercial_quote_lines`, `commercial_quote_number_counters`, `api_create_commercial_quote_from_project_items`). | Satisfaite. C'est la source de la conversion et le **patron** de tout ce lot (numérotation transactionnelle, RLS, fonction `security definer`). |
+| **E10.8** — décomposition Clariprint | **Gelée, et aucun code.** Confirmé par l'en-tête de `src/modules/pricing/application/pricing-engine.ts` (« E10.8 est GELÉE : Xavier Péchoultres doit d'abord arbitrer côté Clariprint »). | **La dépendance formelle est caduque, pas contournée.** E10.12 **ne calcule aucun prix** : elle recopie des montants déjà arrêtés. Une story qui ne calcule rien ne dépend d'aucun moteur de calcul. C'est la lecture que la note de la page Notion annonçait, et le dépôt la confirme. |
+| **E10.9** — remises granulaires + audit | **Livrée** (migration `20260904000100`, correctif `20260906185313`). `commercial_quote_lines` porte `sale_price`, `sale_margin_rate`, `discount_rate`, `margin_variation`, `origin`, et le journal `commercial_quote_line_audit`. E10.9 a en outre **durci** `public_price` / `customer_price` / `applied_margin_rate` en `NOT NULL` et valorisé les lignes existantes. | Satisfaite, et c'est **elle** qui rend E10.12 possible : sans un `sale_price` renseigné sur chaque ligne, il n'y aurait rien à figer. |
+| **E10.21** — interface `PricingEngine` | **Livrée et solide.** `pricing-engine.ts` (contrat), `single-cost-pricing-engine.ts` (implémentation provisoire), `pricing-engine-provider.ts` (point de substitution). `PricedLine.breakdown` est typé **tuple non vide**, donc vérifié par le compilateur et non par convention. | Satisfaite — **mais E10.12 ne l'appelle pas**, et c'est précisément pourquoi la dépendance n'est pas bloquante (voir décision #4). |
+
+**Dépendances non déclarées par la page, mais réelles** — E10.12 a été rédigée avant E10.10 : `sendQuote` (E10.10a), `decideStorefrontQuote` (E10.10b-2) et l'immuabilité en base sont **postérieurs** à son énoncé. Ils changent la lecture de la story sur deux points : les statuts `sent` et `accepted` existent **réellement** aujourd'hui (ils étaient théoriques quand la page a été écrite), et un devis non-brouillon est **déjà** immuable, ce qui dispense E10.12 de reposer la question au niveau du devis.
+
+**Trois faits d'infrastructure vérifiés, qui contraignent le contrat plus que n'importe quelle préférence :**
+
+1. **`/api/v1/orders` n'est pas un nom disponible.** `src/server/api/orders-routes.ts` sert déjà `POST /orders`, `GET|PUT /orders/{orderId}/draft`, `/orders/{orderId}/roles`, `/orders/{orderId}/audit`, `POST /orders/{orderId}/transitions` — et ce fichier est monté dans `LEGACY_ROUTE_DEFINITIONS` (`legacy-routes.ts:110`). `assertNoFacadeCollision()` fait **échouer le démarrage à froid** sur un recouvrement (§2.3). Déclarer `/orders` côté E10 casserait l'edge function, pas seulement l'esthétique.
+2. **Il n'existe aucune entité « commande » côté gestion commerciale.** Trois tables portent le mot : `public.orders` (`20260418000003`, `user_id`-scopée, antérieure au multi-tenant, de démonstration), `public.shop_orders` (`20260418000002`, mini-checkout public), et `public.tenant_orders` (`20260509000100`, commande boutique v1.1). Cette dernière est la seule vivante — et elle est **structurellement boutique** : `shop_id uuid not null references shops`, identité client portée par `shop_customer_account_id` (`20260820000100`), aucun `customer_id` (E10.4), aucun numéro métier garanti unique, aucune colonne au format `PricedLine`, et un enum de statut dont cinq valeurs sur sept portent la mention « Vision V2+ » et n'ont jamais été atteintes. La réutiliser exigerait de rendre `shop_id` nullable, d'y greffer `customer_id`, une numérotation, six colonnes de prix et un autre cycle de vie : **exactement la démonstration qu'E10.3 avait faite pour les devis**, et elle se conclut de la même façon.
+3. **Les scopes `orders:read` / `orders:write` sont déjà publiés** dans `serviceKey.x-magrit-scopes` et ne gouvernent **aucune** opération. E10.12 donne à `orders:read` ses trois premières.
+
+**Vérification négative, à signaler :** la capability **`can_discount` n'existe nulle part** — ni en base, ni au contrat, ni dans le code. Le seul droit métier E10 est `can_manage_pricing` (E10.11). Toute discussion sur « qui peut valider » se joue donc entre *appartenance à l'espace* et *`can_manage_pricing`*, pas entre trois droits.
+
+#### 1. Ce que le contrat ajoute
+
+| Élément | Ajout |
+|---|---|
+| `POST /quotes/{quoteId}/conversions` | `convertQuote` — 201, `Idempotency-Key` **exigée**, **pas** de `If-Match` (décision #6), rend `CommercialOrderDetail` + `ETag`. `bearerAuth` seul. |
+| `GET /commercial-orders` | `listCommercialOrders` — pagination par curseur, filtres `customer_id`, `quote_id`, `status`. `bearerAuth` + `serviceKey`, `x-required-scopes: [orders:read]`. |
+| `GET /commercial-orders/{orderId}` | `getCommercialOrder` — fiche complète + `ETag`. Mêmes credentials et même scope. |
+| Paramètre | `CommercialOrderId` (`orderId`), **distinct** de l'`orderId` des routes historiques, et sa description le dit. |
+| Schémas | `CommercialOrderStatus`, `ConvertedFromStatus`, `ConvertQuoteCommand`, `CommercialOrderTotals`, `CommercialOrderLine`, `CommercialOrder`, `CommercialOrderDetail`, `QuoteConversionPayload`. |
+| `QuoteAuditAction` | Une valeur : `converted`. |
+| `Quote` / `QuoteDetail` | Un champ : `converted_at`. |
+| Codes d'erreur **nouveaux** | **Un seul** : `quote.conversion_forbidden_status` (409). Tout le reste se dit avec des codes déjà publiés. |
+| Événement | **Aucun nom nouveau.** `quote.converted` est publié en v1 depuis le socle et n'avait jamais eu de producteur ; il en a un. Charge utile `QuoteConversionPayload` (`event_version: 1`). |
+| Descriptions révisées | `QuoteStatus` (deux transitions réelles de plus, et plus aucune valeur orpheline), le commentaire `status_forced`, le webhook `quote.converted`, le webhook `quote.created` (« story future » devenu faux), `CustomerDetail` et son point d'extension `orders`, le résumé de `getCustomer`. |
+
+**Aucun scope nouveau, aucune capability nouvelle.**
+
+#### 2. Les huit décisions de contrat, et ce qui les fonde
+
+| # | Point | Décision et raison |
+|---|---|---|
+| 1 | Réutiliser `tenant_orders` ou créer une entité ? | **Nouvelles tables `commercial_orders` / `commercial_order_lines`.** Le fait 2 du §0 en porte la démonstration. À retenir surtout : ce n'est **pas** une duplication de notion sous un autre nom — c'est la même frontière que `quotes` / `commercial_quotes`, entre un document **boutique** (rattaché à une boutique et à un compte d'acheteur) et un document **de gestion commerciale** (rattaché à un client du référentiel, sans boutique obligatoire). Les deux mondes coexistent depuis E10.3 ; les fondre ici les fondrait à moitié. |
+| 2 | Chemin `/orders` ou autre ? | **`/commercial-orders`.** Contrainte technique dure (fait 1 du §0), pas un choix de style : `/orders` fait échouer le boot. L'asymétrie avec `/quotes` — dont le segment court était libre parce que le devis legacy vivait sous `/tenants/{tenantId}/quotes` — est **subie et documentée dans le contrat**, pour que personne ne la lise comme une incohérence. Le **domaine de code d'erreur** reste `order.*`, lui, conformément à §4 qui le nomme déjà. |
+| 3 | `PATCH {status}` ou ressource d'acte ? | **Ressource d'acte**, `POST /quotes/{id}/conversions`, comme `/transmissions` et `/duplicates`. Même argument qu'en E10.10b-2 : un `PATCH` ouvrirait `status` en écriture, et le socle ne branche `Idempotency-Key` que sur un POST `createsResource` (`gescom-middleware.ts`) — or cette opération consomme un numéro de séquence et publie un événement. |
+| 4 | Le prix est-il **recalculé** ou **copié** à la conversion ? | **Copié. Jamais recalculé.** C'est le point que `dev-story` risque le plus de comprendre de travers, l'extrait Notion disant « le prix des lignes de commande provient de `PricingEngine` ». Il en provient **transitivement** : E10.9 a fait passer chaque ligne de devis par le moteur, une fois, au moment du chiffrage. Rappeler `PricingEngine.price()` à la conversion produirait un montant **différent de celui que le client a accepté** dès qu'une règle de prix ou une marge de gamme aurait changé entre-temps — un devis accepté à 4 500 € deviendrait une commande à 4 620 €. La règle du sprint (« aucun calcul de prix hors `PricingEngine` ») est respectée **par construction** : ce lot ne calcule rien. |
+| 5 | Depuis quel(s) statut(s) ? | **`sent` ET `accepted`.** Voir la réserve (a) : c'est la seule décision de ce cadrage que je **ne prends pas seul**. Le raisonnement est en #5bis ci-dessous. |
+| 6 | `If-Match` sur la conversion ? | **Non**, et c'est une divergence assumée avec `sendQuote`, qui l'exige. Trois raisons : (i) un devis `sent`/`accepted` est **déjà immuable** (deux triggers d'E10.10a) — la précondition n'a plus d'objet, alors qu'un brouillon bouge sous les yeux du commercial jusqu'à l'envoi ; (ii) la seule chose qui puisse encore changer est la réponse du client, et la garde de statut la lit mieux qu'une précondition, avec un message actionnable ; (iii) **les deux statuts sources étant convertibles**, un client qui accepte pendant que le commercial valide est une course **inoffensive** qu'un `If-Match` transformerait en 409 sans aucun gain de sûreté. Précédent exact dans le contrat : `duplicateQuote`, POST créant une ressource depuis un devis, n'exige aucune précondition. Le contrôle porteur reste la **transition atomique** (§3 ci-dessous). |
+| 7 | Un ou deux événements (`quote.converted` **et** `order.created`) ? | **Un seul, `quote.converted`.** Deux événements émis au même instant pour le même fait obligeraient chaque abonné à dédupliquer, et `quote.converted` est publié en v1 depuis le socle — un abonné a pu s'y préparer. `order.created` **reste ajoutable**, additif, le jour où une commande naîtrait sans devis ; ce lot ne le permet pas. La charge utile porte `order_id` + `order_number` parce que c'est la seule information neuve que la conversion produit. |
+| 8 | Le devis porte-t-il l'identifiant de sa commande ? | **Non.** La relation est 1-1 et elle est portée **une seule fois**, par `commercial_orders.quote_id` (contrainte `unique`). Publier `converted_order_id` sur le devis créerait deux arêtes à tenir synchrones pour épargner un appel. `GET /commercial-orders?quote_id=` est publié pour ce besoin, et sa description le dit. En revanche `converted_at` **est** une colonne du devis, pour la raison exacte qui avait fait de `decided_at` une colonne en b-2 : le journal d'entête est réservé à `can_manage_pricing`, et savoir qu'une affaire est commandée est l'information la plus ordinaire du suivi commercial. |
+
+##### #5bis — pourquoi `sent` autant que `accepted`, et pourquoi c'est la décision à faire trancher
+
+`accepted` est le cas nominal : le client s'est prononcé depuis son portail (E10.10b-2), l'engagement est horodaté, journalisé à son nom, opposable.
+
+**N'accepter que `accepted` rendrait pourtant le bouton inerte chez la plupart des tenants**, et ce n'est pas une supposition : b-3 l'a écrit noir sur blanc (§8.13sexies, « conséquence opérationnelle franche ») — *envoyer un devis ne notifie personne tant que l'accès boutique de l'interlocuteur n'a pas été ouvert*, et un client sans compte boutique est le cas **nominal** décrit par §8.13 point 4. Sans compte boutique, pas d'acceptation en ligne ; sans acceptation en ligne, aucune commande. Un « bouton Valider » qui ne fonctionne que pour les clients déjà équipés d'un portail n'est pas la story demandée.
+
+**La différence n'est pas perdue pour autant** : la commande porte `source_quote_status` (`sent` | `accepted`), et le journal d'entête du devis porte le statut source en `previous_value`. Un litige se tranche sur cette distinction, et elle est lisible sans reconstitution.
+
+**Ce qui rend cette décision différente des autres** : elle n'est pas symétriquement réversible. Ouvrir `sent` maintenant et le refermer plus tard serait **cassant** (§7 : retirer une valeur acceptée est interdit en v1) ; l'inverse — n'ouvrir que `accepted` puis élargir — est **additif**. La décision doit donc tomber **avant** que `dev-story` commence, tant qu'aucun client n'a été livré : après, elle est acquise pour la durée de v1. Réserve (a).
+
+#### 3. Ce que `dev-story` doit écrire en base — les points à ne pas découvrir en route
+
+**Tables.** Patron E10.3, sans invention.
+
+| Table | Contenu |
+|---|---|
+| `commercial_orders` | `id`, `tenant_id` (→ `tenants`, `on delete cascade`), `customer_id` (→ `customers`), `quote_id` (→ `commercial_quotes`, **`unique`**), `number text` (`CDE-AAAA-NNNNN`, `unique (tenant_id, number)`), `status text default 'validated' check (status in ('validated'))`, `source_quote_status text not null check (... in ('sent','accepted'))`, les **huit** colonnes de totaux figés (`lines_subtotal`, `global_discount`, `effective_discount_rate`, `net_total`, `vat_rate`, `vat_regime`, `vat_amount`, `total_incl_tax`), `created_by uuid references auth.users(id)`, `created_at`, `updated_at`. |
+| `commercial_order_lines` | `order_id` (→ `commercial_orders`, `on delete cascade`), `source_quote_line_id` (→ `commercial_quote_lines`), `origin`, `label`, `product_config jsonb`, `quantity`, `position`, le bloc `PricedLine` complet (`production_price`, `public_price`, `customer_price`, `applied_margin_rate`, `applied_rule_id`, `breakdown jsonb` non vide) **plus** le geste commercial (`sale_price`, `sale_margin_rate`, `discount_rate`, `margin_variation`), `created_at`. |
+| `commercial_order_number_counters` | `(tenant_id, year, last_value)`, clé primaire `(tenant_id, year)`. **Aucune policy RLS** — RLS activée + zéro policy = déni total, exactement comme `commercial_quote_number_counters`. |
+
+**Types** : montants `numeric(12,2)`, taux `numeric(6,4)`. Aucun flottant.
+
+**Clés étrangères — pourquoi de vraies références ici, alors qu'E10.10a a fini par en retirer une.** Les bloquants B4 et B6 d'E10.10a (§8.12bis) ont mordu parce que la ligne **référencée** — un devis `draft` — était supprimable par un chemin **nominal**, et que l'action référentielle (`no action`, puis `set null`) déclenchait soit une violation, soit un `UPDATE` qui réveillait un trigger d'immuabilité. Ici, la ligne référencée est un devis **converti**, donc non-`draft` : le trigger `commercial_quotes_require_draft_before_write()` (branche `BEFORE DELETE`, correctif B5) **refuse déjà** sa suppression. Aucun chemin nominal ne peut la supprimer, donc aucune action référentielle ne se déclenche jamais. Reste la cascade de suppression d'un **tenant** : `no action` (le défaut, différé en fin d'instruction) la laisse passer, là où `restrict` (immédiat) l'aurait cassée. **Donc : `references` nu, sans clause `on delete`, jamais `restrict`, jamais `set null`.**
+
+**Immuabilité — la même mécanique qu'E10.10a, avec une différence de portée.**
+
+| Cible | Garde |
+|---|---|
+| `commercial_order_lines` | Trigger `BEFORE UPDATE OR DELETE` : **tout** est refusé. Une ligne de commande ne se modifie ni ne se supprime. Exception unique, même modèle que `commercial_quote_lines_require_draft_quote` (correctif N1) : laisser passer la cascade de suppression d'un tenant, dont le parent a déjà physiquement disparu quand le trigger se déclenche. |
+| `commercial_orders` | Trigger `BEFORE UPDATE` **par colonne**, pas par ligne : refuse tout changement de `customer_id`, `quote_id`, `number`, `source_quote_status`, `created_by`, `created_at` et des **huit** colonnes de totaux. `status` et `updated_at` restent mutables — sinon E10.13 devrait démonter ce trigger pour poser sa première transition, ce qui est le meilleur moyen de le faire disparaître. Trigger `BEFORE DELETE` : refuse, même exception de cascade tenant. |
+
+C'est ce couple de triggers, **et lui seul**, qui rend vraie la phrase « aucun écran ne permet de modifier les prix d'une commande ». Une garde de façade serait contournée par un appel PostgREST direct avec un jeton de membre ordinaire — c'est très exactement le bloquant B5 d'E10.10a, découvert après quatre rounds.
+
+**Pas de second instantané.** La commande ne stocke **pas** de `quote_snapshot`. Le raisonnement est celui de b-2 (§8.13quinquies) et il tient mot pour mot : un devis `sent` est immuable, l'instantané pris à l'envoi **est** le document commandé, et en reprendre une photo identique laisserait croire à une seconde pièce. **Même corollaire, à ne pas perdre** : toute story future qui rouvrirait la modification d'un devis envoyé briserait ce raisonnement et devrait, le jour même, faire prendre un instantané à la conversion.
+
+**Une seule fonction, une seule transaction.** `api_convert_commercial_quote(p_quote_id uuid)`, `security definer`, sur le patron d'`api_send_commercial_quote` et d'`api_decide_storefront_quote` :
+
+1. **Transition atomique** — `update commercial_quotes set status='converted', converted_at=now() where id=? and status in ('sent','accepted') returning status_avant` ; `found` testé dans **la même instruction** que la garde. Deux conversions concurrentes portant deux clés d'idempotence différentes franchiraient sinon le contrôle toutes les deux, et produiraient deux commandes numérotées pour un devis. Le `unique` sur `quote_id` est le filet structurel, pas le contrôle.
+2. **Échappatoire d'immuabilité posée PUIS REMISE À VIDE avant chaque retour**, échecs compris : `magrit.quote_transition` et `magrit.change_set_id`. C'est le bloquant **B7** d'E10.10a, qui a coûté un round entier — `set_config(..., true)` a la sémantique de `SET LOCAL`, portée par la **transaction** englobante, pas par la fonction.
+3. **Numérotation** — `insert ... on conflict do update ... returning` sur `commercial_order_number_counters`, qui verrouille la ligne du compteur le temps de la transaction. Même mécanique qu'E10.3, jamais un `max(number)+1`.
+4. **Insertion** de l'entête puis des lignes, dans l'ordre de `position`, montants **recopiés**.
+5. **Audit d'entête** sur le devis : `commercial_quote_header_audit`, `action = 'converted'`, `field` et `quote_snapshot` à `null`, `previous_value` = le statut source, `new_value` = `'converted'`, `actor_id` = le membre, `actor_label` = son libellé. La contrainte `commercial_quote_header_audit_shape` est à **étendre** : `converted` rejoint la branche `resent`/`duplicated`/`status_forced` (ni `field` ni `quote_snapshot`), et le `check (action in (...))` gagne la valeur.
+
+**Forme imposée** : migration **nouvelle**, `create or replace function` pour tout ce qui existe déjà, **jamais** d'édition de `20260906160000` ni de `20260901000600`. Règle de process posée en §8.13quinquies, payée par E10.10a.
+
+**RLS.** `select` : `is_super_admin() or tenant_id in (select public.current_user_tenant_ids())`, sur les deux tables — même expression que `commercial_quotes`, jamais une variante. **Aucune policy d'écriture** pour `authenticated` sur `commercial_orders` / `commercial_order_lines` : la seule voie d'insertion est la fonction `security definer`. À ne pas oublier, parce que c'est silencieux : `20260811000100_api_role_table_grants.sql` pose un `alter default privileges ... grant select, insert, update, delete on tables to anon, authenticated` — **une table neuve est donc ouverte en écriture par défaut au niveau des grants**, et la RLS est la seule barrière. Un `enable row level security` oublié laisserait la table écrivable depuis un navigateur.
+
+**Pas de journal d'audit de commande dans ce lot.** La création est déjà tracée sur le journal du devis ; ouvrir une table `commercial_order_audit` pour y écrire une entrée unique qui redit la même chose créerait une seconde version du même fait. E10.13 l'ouvrira quand elle aura des transitions à journaliser — c'est le bon moment, pas celui-ci.
+
+**Publication de l'événement : best-effort, inchangé.** L'écriture dans `outbox_events` reste hors transaction (dette **M2**, §8.2). Ce lot ne la corrige pas et ne prétend pas le contraire. Le drain de b-3 le prendra en charge ; `quote.converted` n'a **aucun consommateur** aujourd'hui, il sera donc marqué **livré** sans erreur (§8.13sexies, « un événement sans consommateur est *livré*, pas en échec »).
+
+#### 4. Effets de bord vérifiés sur l'existant — ce qui n'a rien à changer, et pourquoi
+
+- **`updateQuote` / `deleteQuote` sur un devis converti** : déjà refusés. Le trigger d'E10.10a garde tout statut `<> 'draft'`, `converted` compris. **Rien à écrire.** La dette **p4** (§8.6), qui désignait E10.10 *ou* E10.12 comme échéance, est close depuis E10.10a.
+- **`sendQuote` sur un devis converti** : déjà 409, `converted` n'est pas dans les statuts d'envoi. Inchangé.
+- **`decideStorefrontQuote` sur un devis converti** : déjà 409 `quote.decision_forbidden_status`, et la description de b-2 nommait déjà le cas (« ou `converted` — l'atelier en a fait une commande »). Inchangé.
+- **Portail client** : `StorefrontQuoteStatus` porte `converted` depuis b-1, avec la justification « un devis transformé en commande a bel et bien été adressé au client ». Ce statut devient **atteignable pour de vrai** — jusqu'ici aucun devis ne pouvait l'afficher. `dev-story` doit vérifier que `PortalQuotes` (livré par b-1) rend un libellé pour cette valeur et ne tombe pas sur un défaut vide. **Aucune modification de contrat**, mais un point d'implémentation à ne pas manquer.
+- **`CustomerDetail.projects` / `.quotes` / `.orders`** : restent **vides**, les trois. Le contrat portait « vides tant que E10.1 / E10.3 / E10.12 ne sont pas livrées » ; les trois le sont désormais et la phrase serait devenue fausse. Elle est **corrigée** : ces listes ne se rempliront pas, parce que chacune de ces stories a publié une opération de liste filtrable par client, avec pagination et filtres, ce qu'une liste imbriquée dans une fiche ne fait pas. Remplir `orders` seule aurait rendu `CustomerDetail` incohérente avec elle-même.
+
+#### 5. Réserves à porter à Arnaud avant que `dev-story` commence
+
+- **(a) — la seule décision irréversible du lot. Depuis quel statut convertit-on ?** Cadrage écrit avec **`sent` + `accepted`** (motif en #5bis : sans cela le bouton est inerte pour tout tenant sans portail client). **Asymétrie à connaître avant d'arbitrer** : ouvrir `sent` maintenant et le refermer plus tard est **cassant** (§7) ; ouvrir `accepted` seul puis élargir est **additif**. Si Arnaud veut la position stricte, elle coûte aujourd'hui deux lignes de contrat et une clause `in (...)`; après livraison, elle coûte une v2.
+- **(b) — qui peut valider ?** Cadrage écrit **sans garde de capability** : appartenance à l'espace, régime normal de §3.5 règle 1. Trois raisons : le prix est déjà figé et le geste commercial a déjà été audité en amont (E10.9 / E10.10a) ; `can_manage_pricing` est aujourd'hui détenu **par les seuls `admin`** (verrou UM1, §3.5), donc l'y accrocher ferait passer **chaque commande de l'atelier par le patron**, ce que personne n'a demandé ; et un droit dédié neuf (`can_convert_quotes`) serait tout aussi admin-only tant que le chantier UM ne rouvre pas la délégation — donc cosmétique. **Même asymétrie qu'en (a)** : ajouter une garde plus tard est une **restriction**, donc cassante. À confirmer maintenant.
+- **(c) — conséquence non évidente de (a), à dire avant qu'elle surprenne quelqu'un.** Convertir depuis `sent` **ferme définitivement la possibilité pour le client de répondre** dans son portail : le devis passe à `converted`, et `decideStorefrontQuote` le refuse alors en 409. Un client qui s'apprêtait à cliquer « Accepter » verra son devis basculer en « commandé » sans avoir rien fait. Ce n'est pas un défaut à corriger — c'est la conséquence normale d'une validation par l'atelier — mais c'est un choix produit, pas une conséquence technique.
+- **(d) — aucune annulation, aucun retour en arrière.** Une conversion faite par erreur est **définitive** : le devis reste `converted` pour toujours, la commande existe pour toujours, aucune opération ne la supprime ni ne l'annule, et son numéro est consommé. E10.13 apportera probablement un statut d'annulation ; d'ici là, la seule issue est une correction en base par un administrateur — qui laissera une entrée `status_forced` au journal du devis, et rien du tout côté commande. À arbitrer : est-ce acceptable pour la mise en service, ou faut-il une confirmation explicite côté UI (qui, elle, n'est pas une garde et ne remplace rien) ?
+- **(e) — vocabulaire.** Préfixe de numérotation **`CDE`** et statut initial **`validated`** (repris du vocabulaire existant `tenant_order_status` plutôt qu'inventé). À confirmer : ce sont des chaînes qui apparaîtront sur des documents clients et qu'on ne renomme plus après coup.
+- **(f) — relecture Notion.** Voir §0 : le texte intégral de la page E10.12 n'a pas pu être lu par cet agent. Les critères d'acceptation numérotés doivent être confrontés à ce cadrage par quelqu'un qui y a accès.
+
+#### 6. Ce que ce lot ne fait pas, explicitement
+
+- **Aucune implémentation applicative** : ni module, ni adaptateur, ni route, ni migration, ni UI. Contrat et documentation uniquement, comme tous les cadrages précédents.
+- **Aucun cycle de vie de commande.** `CommercialOrderStatus` porte **une** valeur. Les étapes de production, l'expédition, la facturation et l'annulation sont E10.13 — qui les concevra pour ce module plutôt que de recopier un enum boutique dont cinq valeurs sur sept n'ont jamais été atteintes. **E10.13 et E10.16 ne sont pas touchées ici**, elles sont débloquées.
+- **Aucun dépôt de fichier d'exécution.** `order.files_submitted` reste sans producteur (E10.16).
+- **Aucune modification d'une commande, ni de ses prix.** Pas de `PATCH /commercial-orders/{id}`, pas d'opération sur ses lignes, et deux triggers en base pour que ce ne soit pas qu'une abstention de façade.
+- **Aucun `order.created`.** Un seul événement pour un seul fait.
+- **Aucun appel à `PricingEngine`.** Voir décision #4 — c'est une propriété du lot, pas un oubli.
+- **Aucune facture, aucun PDF de commande.** b-4 traite le PDF du **devis** ; le document de commande n'est cadré nulle part.
+
+#### 7. État des gates à la remise du contrat
+
+| Commande | Résultat | Lecture |
+|---|---|---|
+| `pnpm gen:api` puis `pnpm gen:api:check` | **vert** | Types régénérés dans le même lot que le contrat. |
+| `pnpm typecheck` | **vert**, 0 erreur | Aucun fichier de `src/` écrit à la main. |
+| `pnpm test:architecture` | **vert**, 33 fichiers / 144 tests | Aucune frontière modulaire touchée. |
+| `pnpm test:contract` | **16 échecs attendus**, tous dans `tests/contract/commercial-quotes.contract.test.ts` | **Une seule cause**, vérifiée : `Quote`/`QuoteDetail must have required property 'converted_at'`. Les faux de test d'E10.3/E10.9/E10.10a ne produisent pas le champ neuf de la représentation d'atelier. |
+
+Écart **identique en nature et en volume** à celui de b-2, et pour la même raison : ce lot modifie une représentation déjà servie. Il se ferme du côté de l'implémentation (adaptateur + faux de test rendant `converted_at`), jamais en affaiblissant une assertion. Un lint du contrat a par ailleurs été corrigé au passage (`getCommercialOrder` doit déclarer sa réponse 400, `X-Magrit-Tenant` la rendant atteignable) — trouvé par `lintContract()`, pas par relecture.
 
 ## 9. Commandes
 
