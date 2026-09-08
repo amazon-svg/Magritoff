@@ -84,6 +84,21 @@ Le script peut être appelé sans passer par pnpm :
 - Atelier (multi-tenant) : http://localhost:5177/tenants → choisir un tenant
 - Login : http://localhost:5177/login
 
+### Données volumiques pour les tests UX
+
+Le générateur crée par défaut 100 clients et 200 commandes dans le tenant
+`pressetout`. Les identifiants sont déterministes : la commande peut être
+relancée sans dupliquer les fixtures.
+
+```bash
+pnpm db:seed:ux
+pnpm db:seed:ux <tenant-slug> <nombre-clients> <nombre-commandes>
+```
+
+Le tenant doit déjà posséder au moins un administrateur et une boutique. Les
+fixtures couvrent plusieurs types de clients, statuts, boutiques et dates afin
+d'exercer recherche, filtres, pagination et listes denses.
+
 ## Ports utilisés sur les autres branches
 
 | Branche | Port | Script |
