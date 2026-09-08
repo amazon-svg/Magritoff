@@ -3771,10 +3771,15 @@ paths:
             - `quote.decision_forbidden_status` : le devis n est pas `sent`.
               Deja `accepted` ou `rejected` (le client a repondu, ici ou dans
               un autre onglet), ou `converted` (l atelier en a fait une
-              commande). UN SEUL code plutot que deux, la nuance se lisant
-              dans `current_state.status` : nommer le code d apres l etat
-              obligerait a en publier un de plus a chaque etat futur, et le
-              client doit de toute facon rafraichir sa vue ;
+              commande). Ce dernier cas n est PAS marginal : `convertQuote`
+              (E10.12) convertit aussi depuis `sent`, un devis peut donc cesser
+              d etre decidable sans que le client ait rien fait. C est assume
+              (arbitrage du 2026-09-08) et sans perte pour lui : la commande
+              existe, le devis reste lisible dans son portail. UN SEUL code
+              plutot que deux, la nuance se lisant dans `current_state.status` :
+              nommer le code d apres l etat obligerait a en publier un de plus a
+              chaque etat futur, et le client doit de toute facon rafraichir sa
+              vue ;
 
             - `quote.decision_expired` : `valid_until` est depassee a
               l horloge du serveur. Le devis reste lisible, il n est plus
@@ -3833,6 +3838,19 @@ paths:
 # annulation, `order.step_changed`) — c est E10.13 ; recevoir les fichiers
 # d execution (`order.files_submitted`) — c est E10.16 ; facturer. La commande
 # nait `validated` et aucune operation de ce contrat ne la fait changer d etat.
+#
+# DEUX POINTS ARBITRES PAR ARNAUD LE 2026-09-08, et non des choix par defaut de
+# l architecte (reserves (a) et (b), docs/api/CONVENTIONS.md §8.14) : la
+# conversion part de `sent` ET de `accepted`, et elle n est gardee par AUCUNE
+# capability — tout membre du tenant valide. Les deux sont ACQUIS pour la duree
+# de v1 : restreindre l un ou l autre plus tard serait cassant (§7). Le
+# corollaire — un devis converti depuis `sent` n est plus decidable par le
+# client dans son portail — est documente sur `convertQuote` et assume.
+#
+# CE QUI RESTE OUVERT, a ne pas lire comme tranche : aucune annulation ni
+# retour arriere n existe (reserve (d), dette tracee, echeance E10.13), et le
+# vocabulaire `CDE-AAAA-NNNNN` / `validated` reste a confirmer (reserve (e)) —
+# ce sont des chaines qui paraitront sur des documents clients.
   /quotes/{quoteId}/conversions:
     parameters:
       - $ref: '#/components/parameters/MagritTenant'
@@ -3888,17 +3906,37 @@ paths:
         de facade seule serait contournee par un appel PostgREST direct.
 
 
-        DEPUIS QUEL STATUT — `sent` OU `accepted`. `accepted` est le cas
-        nominal : le client a repondu depuis son portail (E10.10b-2). `sent`
-        est accepte AUSSI, parce que la reponse d un client arrive tres
-        souvent par telephone ou par courriel, et parce que l acceptation en
-        ligne suppose qu un acces boutique ait ete ouvert a l interlocuteur —
-        ce qui n est le cas d aucun client par defaut (E10.10b-3 : « envoyer un
-        devis ne notifie personne tant que l acces boutique de l interlocuteur
-        n a pas ete ouvert »). N accepter que `accepted` rendrait ce bouton
-        inerte chez tout tenant sans portail client. La commande GARDE LA TRACE
-        de la difference : `source_quote_status` dit si le client s etait
-        formellement prononce.
+        DEPUIS QUEL STATUT — `sent` OU `accepted`. ARBITRE (Arnaud, 2026-09-08,
+        reserve (a) de docs/api/CONVENTIONS.md §8.14) : ce n est pas une
+        hypothese de cadrage, c est une decision prise, et elle est ACQUISE POUR
+        LA DUREE DE v1 — retirer `sent` de cette garde apres coup serait un
+        changement CASSANT au sens du §7 des conventions, donc une v2.
+
+        `accepted` est le cas nominal : le client a repondu depuis son portail
+        (E10.10b-2). `sent` est accepte AUSSI, parce que la reponse d un client
+        arrive tres souvent par telephone ou par courriel, et parce que
+        l acceptation en ligne suppose qu un acces boutique ait ete ouvert a
+        l interlocuteur — ce qui n est le cas d aucun client par defaut
+        (E10.10b-3 : « envoyer un devis ne notifie personne tant que l acces
+        boutique de l interlocuteur n a pas ete ouvert »). N accepter que
+        `accepted` rendrait ce bouton inerte chez tout tenant sans portail
+        client. La commande GARDE LA TRACE de la difference :
+        `source_quote_status` dit si le client s etait formellement prononce.
+
+
+        CONSEQUENCE ASSUMEE DE CE CHOIX, a connaitre avant de l observer en
+        production : convertir depuis `sent` FERME la possibilite pour le client
+        de repondre a ce devis depuis son portail. La mecanique est exacte et
+        sans zone grise — le devis passe a `converted`, or
+        `decideStorefrontQuote` (E10.10b-2) n accepte QUE `sent` et repond
+        des lors 409 `quote.decision_forbidden_status` ; cote interface,
+        `PortalQuotes` (E10.10b-1) ne rend les actions Accepter / Refuser que
+        pour `status === 'sent'`, elles DISPARAISSENT donc de la vue du client
+        sans autre notification. Le devis lui reste visible et lisible
+        (`StorefrontQuoteStatus` porte `converted` precisement pour cela), mais
+        il n est plus actionnable. Ce n est pas un defaut a corriger : c est la
+        contrepartie normale d une validation par l atelier, qui prend la
+        responsabilite de la commande sur une reponse recue hors systeme.
 
 
         REFUSES : `draft` (un devis que le client n a jamais vu n est pas une
@@ -3906,6 +3944,22 @@ paths:
         remis), `rejected` (le client a dit non ; reprendre l affaire se fait
         par `duplicateQuote`), `converted` (deja fait — un rejeu de la MEME
         requete est traite par `Idempotency-Key`, pas par un second passage).
+
+
+        QUI PEUT VALIDER — TOUT MEMBRE DU TENANT, aucune garde de capability.
+        ARBITRE (Arnaud, 2026-09-08, reserve (b) de §8.14), et rendu EXPLICITE
+        ici parce que le silence d un contrat ne se distingue pas d un oubli.
+        Regime normal du §3.5 regle 1 : appartenance a l espace, resolue depuis
+        le jeton. Cette operation ne declare donc PAS
+        `x-required-capabilities`, et n en declarera pas : ajouter une garde
+        apres coup serait une RESTRICTION, donc cassante. Trois raisons :
+        le prix est deja fige et le geste commercial deja audite en amont
+        (E10.9 / E10.10a) — il n y a plus rien a arbitrer sur l argent au moment
+        de valider ; `can_manage_pricing` (E10.11) est aujourd hui detenu par
+        les SEULS `admin` du tenant (verrou UM1), l y accrocher ferait passer
+        chaque commande de l atelier par le patron ; un droit dedie neuf
+        (`can_convert_quotes`) serait tout aussi admin-only tant que le chantier
+        UM ne rouvre pas la delegation, donc cosmetique.
 
 
         LA PEREMPTION NE BLOQUE PAS. Un devis dont `valid_until` est passee
@@ -6380,16 +6434,20 @@ components:
           qu on voudrait modifier.
 
         - `sent` -> `converted` ET `accepted` -> `converted` (`convertQuote`,
-          E10.12). DEUX statuts sources, un seul aboutissement. `accepted` est
-          le cas nominal ; `sent` est accepte parce qu une reponse de client
-          arrive tres souvent hors du portail (telephone, courriel) et que
-          l acceptation en ligne suppose un acces boutique ouvert, ce qui n est
-          le cas d aucun client par defaut. La difference n est pas perdue :
-          elle est enregistree sur la commande
-          (`CommercialOrder.source_quote_status`) et dans le journal d entete
-          du devis (`previous_value` de l entree `converted`). TERMINAL :
-          aucune operation ne sort de `converted`, ni n annule une commande en
-          rendant son devis a l etat anterieur.
+          E10.12). DEUX statuts sources, un seul aboutissement, ARBITRE
+          (Arnaud, 2026-09-08). `accepted` est le cas nominal ; `sent` est
+          accepte parce qu une reponse de client arrive tres souvent hors du
+          portail (telephone, courriel) et que l acceptation en ligne suppose
+          un acces boutique ouvert, ce qui n est le cas d aucun client par
+          defaut. La difference n est pas perdue : elle est enregistree sur la
+          commande (`CommercialOrder.source_quote_status`) et dans le journal
+          d entete du devis (`previous_value` de l entree `converted`).
+          CONSEQUENCE : `sent` -> `converted` EVINCE les transitions
+          `sent` -> `accepted` / `sent` -> `rejected` ci-dessus, qui exigent
+          `sent` — le client perd la main sur ce devis a l instant de la
+          conversion. Assume, voir `convertQuote`. TERMINAL : aucune operation
+          ne sort de `converted`, ni n annule une commande en rendant son devis
+          a l etat anterieur.
 
 
         `draft` et `rejected` ne sont PAS convertibles : un brouillon n a jamais
@@ -8237,7 +8295,9 @@ components:
       title: ConvertedFromStatus
       description: >-
         Statut du DEVIS au moment ou il a ete converti. Sous-ensemble strict de
-        `QuoteStatus`, reduit aux deux seuls statuts convertibles.
+        `QuoteStatus`, reduit aux deux seuls statuts convertibles. Ces DEUX
+        valeurs sont arbitrees (Arnaud, 2026-09-08, reserve (a) de
+        docs/api/CONVENTIONS.md §8.14) ; en retirer une serait cassant.
 
 
         Enumeration separee plutot que reutilisation de `QuoteStatus`, meme
