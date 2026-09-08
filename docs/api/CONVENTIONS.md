@@ -1223,6 +1223,8 @@ Aucun fichier de `src/`, aucune migration, **aucun schéma ni chemin de contrat*
 
 > **Mise à jour du 2026-09-08 — arbitrage d'Arnaud sur (a) et (b), cadrage finalisé.** Deux des six réserves du §5 sont **tranchées**, la troisième est une conséquence **acceptée** : la conversion part de **`sent` ET `accepted`** (a), elle n'est gardée par **aucune capability** (b), et convertir depuis `sent` **retire au client la main sur son devis dans le portail** (c). Les trois sont désormais portées **par le contrat lui-même**, marquées comme arbitrages et non comme hypothèses de cadrage, pour qu'aucune relecture ne les rouvre. (d) et (e) restent **ouvertes** ; (f) est sans objet pour cet agent. Détail en §5 et en #5ter. **`dev-story` peut commencer.**
 
+> **Renvoi — la conversion est complétée par E10.13, et ce qui suit ne la décrit plus entièrement.** Arbitrage d'Arnaud du 2026-09-08 (§8.15 réserve (a), close) : `api_convert_commercial_quote` pose désormais **l'étape de production initiale** sur la commande créée — l'étape active de position la plus basse du tenant, `null` si le tenant n'en a aucune, sans jamais faire échouer la conversion. **Ce câblage appartient à `dev-story` d'E10.13**, par `create or replace function` dans une migration nouvelle. **E10.12 n'est pas rouverte** : ni son périmètre, ni sa surface d'API (`convertQuote` ne gagne ni paramètre, ni code d'erreur, ni événement), ni son fichier de migration `20260908010000`, qui ne s'édite pas. Ce qui suit reste la description de ce qu'E10.12 a livré ; la sixième chose que la fonction fait est décrite en **§8.15 #2ter** et prescrite en **§8.15 §3**.
+
 #### 0. Ce qui a été vérifié dans le dépôt, et ce qui n'a pas pu l'être
 
 **Limite d'accès, dite plutôt que masquée.** Cet agent **n'a pas d'accès Notion** (aucun outil MCP Notion dans son jeu d'outils). Le texte intégral de la page E10.12 — histoire utilisateur, critères d'acceptation numérotés, formulation exacte de « bloquée par E10.3, E10.8, E10.9 » — **n'a pas pu être relu à la source**. Ce cadrage est bâti sur les deux extraits fournis par l'agent appelant (« le prix des lignes de commande provient de `PricingEngine` (E10.21), E10.8 étant gelée » ; « aucun écran ne permet de modifier les prix d'une commande : ils sont figés à la conversion ») et sur l'état **réel du dépôt**, vérifié fichier par fichier. **Conséquence à traiter avant que `dev-story` commence** : quelqu'un ayant accès à la page doit confronter ce cadrage aux critères d'acceptation numérotés. Une exigence de la page qui ne serait citée nulle part ci-dessous n'a pas été écartée — elle n'a pas été lue.
@@ -1401,6 +1403,293 @@ C'est ce couple de triggers, **et lui seul**, qui rend vraie la phrase « aucun 
 | `pnpm test:contract` | **16 échecs, inchangés** — 1 fichier sur 12, 226 tests passants | **Même cause unique**, toujours `Quote`/`QuoteDetail must have required property 'converted_at'`, dans `tests/contract/commercial-quotes.contract.test.ts`. Pas un échec de plus, pas un de moins : la vérification confirme que ce passage n'a rien ajouté à la dette d'implémentation laissée à `dev-story`. Le lint du contrat (`lintContract()`) passe. |
 
 Autrement dit : **les deux arbitrages se sont payés en descriptions, pas en surface d'API.** C'est la propriété qu'on attendait — le cadrage initial avait écrit la bonne garde, l'arbitrage lui retire son statut d'hypothèse.
+
+### 8.15 E10.13 (étapes de production configurables et ordonnançables) — contrat
+
+> **Périmètre.** Contrat + documentation seulement. Aucun module, aucun adaptateur, aucune route, **aucune migration SQL** n'est écrit par ce lot : la migration est *esquissée* au §3 pour `dev-story`, elle n'est pas posée. E10.14 (suivi/changement d'étape), E10.15 (modèles de notification) et E10.16 ne sont **pas** cadrées ici — elles sont débloquées.
+
+> **Mise à jour du 2026-09-08 — arbitrage d'Arnaud sur (a) et (b), cadrage finalisé.** Deux des réserves du §5 sont **tranchées**, la troisième est **confirmée** comme donnée d'entrée et non comme question ouverte :
+>
+> - **(a) OUI** — la conversion d'un devis (E10.12) pose **automatiquement** la première étape de production active sur la commande créée. Le **comment** est tranché ici aussi, pour que `dev-story` n'ait pas à re-trancher : **par le code de `api_convert_commercial_quote`** (`create or replace` dans la migration d'E10.13), **jamais par un trigger** sur `commercial_orders`. Motif complet en **#2ter**, prescription en §3.
+> - **(b) SANS LE CA8** — E10.13 est livrée sur les **CA1 à CA7**. Le CA8 (modèles de notification rattachés à une étape) est **hors périmètre de cette livraison** et **reporté à E10.15**. Il ne doit être compté ni comme fait, ni comme dette d'implémentation d'E10.13. Voir **#8bis**.
+> - **(c) confirmée, jamais une réserve.** Le jeu standard de six étapes vient de la **séance produit du 28/08/2026** (Arnaud) : c'est la donnée d'entrée de la story. Il est seedé **tel quel**, dans cet ordre, avec « Livré » seule étape terminale (§3, tableau de seed). Rien à arbitrer.
+>
+> **`dev-story` peut commencer.** Le périmètre reste contrat + documentation : ce passage ne pose toujours aucune ligne de SQL.
+
+#### 0. Dépendances vérifiées dans le dépôt, et deux découvertes qui changent le cadrage
+
+**Limite d'accès, dite plutôt que masquée** (même limite qu'en §8.14) : cet agent **n'a pas d'accès Notion**. Le texte de la story lui a été transmis intégralement par l'agent appelant — histoire, contexte produit, 8 critères d'acceptation, contrat esquissé, contraintes techniques, dépendances. Ce cadrage traite ce texte comme le périmètre opposable. Il n'a pas relu la page à la source ; une exigence qui n'y figurerait pas n'a pas été écartée, elle n'a pas été lue.
+
+| Dépendance | État réel constaté | Effet |
+|---|---|---|
+| **E10.12** — conversion devis → commande | **Livrée.** Migration `20260908010000_gescom_e10_12_quote_conversion.sql` : `commercial_orders` (avec `status text default 'validated' check (status in ('validated'))`), `commercial_order_lines`, `commercial_order_number_counters`, `api_convert_commercial_quote`. Contrat : `/commercial-orders`, `/commercial-orders/{orderId}`, `POST /quotes/{quoteId}/conversions`. | Satisfaite. C'est **l'entité à laquelle une étape se rattache**, et son trigger d'immuabilité a été écrit en pensant à cette story (voir le point suivant). |
+| **E10.14 / E10.15** — suivi, notifications | **Non livrées, aucun code, aucun contrat.** | Ce lot ne s'appuie sur aucune des deux et n'en préempte aucune décision. Ce qu'il leur transmet est listé au §5. |
+
+**Découverte n° 1 — le trigger d'immuabilité d'E10.12 n'a pas à être démonté.** `commercial_orders_immutable()` est un trigger **par colonne** : il énumère les colonnes gelées (`customer_id`, `quote_id`, `number`, `source_quote_status`, `created_by`, `created_at`, les huit totaux) et laisse passer tout le reste. Une colonne **neuve** n'est donc pas refusée — `current_production_step_id` est mutable dès sa création, sans toucher au trigger. C'est exactement ce que §8.14 avait prévu (« sinon E10.13 devrait démonter ce trigger pour poser sa première transition, ce qui est le meilleur moyen de le faire disparaître »). **`dev-story` ne doit ni éditer, ni recréer ce trigger.** S'il le recrée « pour ajouter la colonne à la liste », il gèle l'étape courante et E10.14 devient impossible.
+
+**Découverte n° 2 — une table du même genre existe déjà, et elle ne convient pas.** `public.tenant_order_status_definitions` (S-ORDER-ROLES, migration `20260601000100`) porte **exactement** les quatre attributs demandés par le CA4 : `label`, `color`, `ordering_index`, `is_terminal`, scopée `tenant_id`, **et elle est seedée à la création du tenant** par le trigger `tenants_seed_catalogs` (`20260601000200`). La règle « ne jamais dupliquer une notion existante sous un autre nom » impose de dire pourquoi on ne la réutilise pas :
+
+1. **Elle est verrouillée par un enum SQL.** Son propre commentaire de migration le dit : « la colonne `tenant_orders.status` reste enum SQL strict, cette table est le **miroir éditable** […] En MVP, l'admin peut désactiver/réordonner/relabéliser **mais pas créer un code custom** ». Elle a une colonne `code` contrainte aux sept valeurs de `public.tenant_order_status`. Le CA2 d'E10.13 exige précisément de **créer** des étapes. La réutiliser demanderait la migration `enum → text` que S-ORDER-ROLES a elle-même tracée « Sprint 8+ audit dette » — sur une table qui gouverne les commandes **boutique** en production.
+2. **Elle gouverne un autre document.** Elle décrit le cycle de `tenant_orders` (boutique), pas de `commercial_orders` (gestion commerciale). C'est **la même frontière** qu'entre `quotes` et `commercial_quotes` (E10.3), puis entre `tenant_orders` et `commercial_orders` (E10.12, décision #1). Les fondre ici les fondrait à moitié.
+3. **Ce n'est pas la même notion, même en apparence.** Un statut de commande boutique est un **état commercial** fermé, identique chez tous les tenants ; une étape de production est un **avancement d'atelier** ouvert, propre à chaque tenant. Le CA5 (« passer à une étape avancée ne valide pas les précédentes ») décrit un objet qu'aucune machine à états ne décrit.
+
+**Ce qui est donc réutilisé plutôt que réinventé** : le **patron de seed** (trigger `AFTER INSERT ON public.tenants`, `on conflict do nothing`, rejouable), la **palette fermée** d'E10.2, la **forme du filtre** `status=active|disabled` d'E10.6, la **forme du réordonnancement** d'E10.9, le **mécanisme de droits** de S-ORDER-ROLES (`user_has_capability`). Aucun mécanisme neuf n'est introduit par ce lot.
+
+**Vérifications négatives, à signaler** : aucune table, aucun type, aucun symbole `production_step*` n'existe dans le dépôt ; `/production-steps` et `/production-step-positions` ne collisionnent avec aucun chemin de la façade historique (`assertNoFacadeCollision`, §2.3) ; il n'existe **aucune** capability de gestion d'atelier — `can_manage_production_steps` est créée par ce lot.
+
+#### 1. Ce que le contrat ajoute
+
+| Élément | Ajout |
+|---|---|
+| `GET /production-steps` | `listProductionSteps` — liste ordonnée, filtre `status`, **sans pagination**, avec un `ETag` **de collection**. `bearerAuth` + `serviceKey`, `x-required-scopes: [orders:read]`. |
+| `POST /production-steps` | `createProductionStep` — 201, `Idempotency-Key` exigée, position affectée par le serveur (fin de flux). |
+| `GET /production-steps/{stepId}` | `getProductionStep` — fiche + `ETag` de l'étape. Existe pour donner au PATCH sa précondition. |
+| `PATCH /production-steps/{stepId}` | `updateProductionStep` — `If-Match` (ETag de l'étape). Libellé, couleur, `is_terminal`, `is_active`. **Pas** de `position`. |
+| `DELETE /production-steps/{stepId}` | `deleteProductionStep` — 409 `production_step.in_use`, réindexation des positions restantes. |
+| `PUT /production-step-positions` | `reorderProductionSteps` — `If-Match` (ETag du **catalogue**), corps `{ step_ids }` exhaustif, réindexation 0..n-1, rend le catalogue complet. |
+| Paramètre | `ProductionStepId` (`stepId`). |
+| Schémas | `ProductionStep`, `ProductionStepColor`, `ProductionStepStatusFilter`, `CreateProductionStepCommand`, `UpdateProductionStepCommand`, `ReorderProductionStepsCommand`, `CommercialOrderSort`. |
+| `CommercialOrder` / `CommercialOrderDetail` | Un champ **requis, nullable** : `current_production_step_id`. |
+| `listCommercialOrders` | Deux paramètres : `current_production_step_id` (filtre) et `sort` (CA6). |
+| Capability **nouvelle** | `can_manage_production_steps`, déclarée dans `x-magrit-capabilities` et exigée par les quatre opérations d'écriture. |
+| Codes d'erreur **nouveaux** | `production_step.in_use` (409), `production_step.label_conflict` (409), `production_step.positions_mismatch` (422), `production_step.limit_reached` (422), `production_step.not_found` (404 / 422 sur le filtre de liste). |
+| Descriptions révisées | `CommercialOrderStatus` (E10.13 **n'y ajoute rien**, et c'est une décision), `listCommercialOrders`, son paramètre `status`. |
+| Descriptions révisées **par l'arbitrage (a)** | `convertQuote` (nouveau paragraphe « ÉTAPE DE PRODUCTION INITIALE » + une puce de plus dans « ce que la conversion fait »), `CommercialOrder.current_production_step_id` (qui pose la valeur, quand elle vaut encore `null`), le filtre `current_production_step_id` de `listCommercialOrders`, `ProductionStep.position` et `ProductionStep.is_active` (l'étape de tête est le point d'entrée des commandes à venir), `deleteProductionStep` (l'étape de tête devient vite insupprimable — c'est le CA3 qui joue). |
+| Descriptions révisées **par l'arbitrage (b)** | `ProductionStep` (« aucun champ de notification ici », et pourquoi — le rattachement est porté par le modèle, E10.15). |
+
+**Aucun scope nouveau. Aucun événement nouveau** — `order.step_changed` existe dans `EventName` depuis le socle et reste **sans producteur** : E10.13 ne change aucune étape, elle les définit, et **poser l'étape initiale à la conversion n'est pas un changement d'étape** (#2ter). C'est E10.14 qui l'émettra.
+
+**L'arbitrage (a) ne change aucune surface d'API** : pas d'opération, pas de champ, pas de code d'erreur, pas d'événement. Il se paie **en descriptions et en SQL** — exactement comme les arbitrages d'E10.12 (§8.14 §7). Ce qu'il change vraiment est en base, et c'est prescrit au §3.
+
+#### 2. Les onze décisions de contrat, et ce qui les fonde
+
+| # | Point | Décision et raison |
+|---|---|---|
+| 1 | Réutiliser `tenant_order_status_definitions` ? | **Non, table neuve `production_steps`.** Trois raisons développées au §0, découverte n° 2. La première est dirimante : cette table ne peut pas recevoir de code neuf, or le CA2 exige de créer des étapes. |
+| 2 | L'étape courante : colonne sur la commande, ou journal ? | **Colonne `commercial_orders.current_production_step_id`, nullable.** Le CA6 exige de **filtrer et trier** le tableau de bord par étape courante, avec pagination par curseur : servir cela depuis « la dernière ligne d'un journal » impose une sous-requête corrélée par commande et un curseur bâti sur une valeur dérivée — coûteux et fragile. Le journal horodaté **existera** (E10.14, et le CA8 le suppose), et la colonne en deviendra la **projection**, maintenue dans la même transaction que l'insertion de l'entrée. Ce n'est pas une duplication concurrente : c'est un pointeur « où en est-on », le journal restant seul à dire « par où est-on passé ». |
+| 3 | Étape = statut ? | **Non. Deux axes, jamais fondus.** `CommercialOrderStatus` reste à `validated` : E10.13 **n'ajoute aucune valeur**. Verser les étapes dans le statut obligerait chaque tenant à publier son organisation d'atelier dans une énumération commune à tous, et rendrait tout consommateur dépendant d'une liste qui change d'un tenant à l'autre — exactement ce que la contrainte « pas d'enum applicatif » interdit. L'annulation et la facturation, elles, restent de futurs **statuts**. |
+| 4 | Chemin du réordonnancement | **`PUT /production-step-positions`**, et non `PUT /production-steps/order` esquissé au cadrage produit. Deux raisons : le contrat nomme déjà ce geste `<entité>-positions` (`/quotes/{quoteId}/line-positions`, E10.9), et un segment littéral sous `/production-steps/` cohabiterait avec `/production-steps/{stepId}` dans un routeur qui **apparie par ordre de déclaration** (`api-v1-handler.ts`), sans priorité du littéral sur le paramètre. Ici la sécurité vient aujourd'hui de la seule méthode HTTP ; un chemin de premier niveau la rend structurelle. Le chemin est de premier niveau parce que la collection l'est : le catalogue appartient au **tenant**, qui vient du jeton et jamais d'un segment d'URL (CA4). |
+| 5 | Nom du champ de la commande de réordonnancement | **`step_ids`**, pas `ordered_ids`. Le contrat nomme ces listes d'après ce qu'elles contiennent (`line_ids`, `tag_ids`), jamais d'après ce qu'on en fait. |
+| 6 | `If-Match` sur le réordonnancement, et sur quoi ? | **Exigé, et il porte sur le CATALOGUE.** Le cadrage avait d'abord conclu l'inverse — pas de précondition, faute de ressource dont l'`ETag` couvre l'ensemble. **`lintConcurrency()` (`tests/contract/_lint.ts`, CI bloquante) a tranché contre cette position** : il exige `If-Match` + 409 sur **tout PUT**, sans exception, et la bonne réponse était de corriger le contrat, jamais d'assouplir une gate. La conséquence est une **exception assumée à la règle « aucun `ETag` sur une collection »** (§8.15 point 7) — et elle est meilleure que la position initiale : deux administrateurs qui réordonnent le même jeu ne s'écrasent plus en silence. |
+| 7 | Un `ETag` sur une collection ? | **Oui, ici et ici seulement.** La règle publiée par E10.6 (« une collection n'a pas de version unique opposable à un `If-Match` portant sur **un de ses éléments** ») vise la concurrence **élément par élément** ; elle n'a jamais dit qu'une collection réécrite **en tant que tout** ne pouvait pas être validée. `reorderProductionSteps` réécrit le catalogue en une transaction : le catalogue **est** la ressource écrite, il lui faut un validateur. Deux `ETag` coexistent donc, avec des portées explicitement distinctes dans le contrat — celui du **catalogue** (`listProductionSteps` → `reorderProductionSteps`) et celui d'une **étape** (`getProductionStep` → `updateProductionStep`). L'`ETag` du catalogue porte **toujours sur le catalogue complet**, même quand `status` a filtré la réponse : le filtre est une projection, pas une autre ressource. |
+| 8 | Pagination de la liste ? | **Non, et un plafond la rend honnête.** Une configuration bornée (le jeu standard en compte six) ; une page partielle rendrait `reorderProductionSteps` **inconstructible**, puisqu'il exige la liste complète. `createProductionStep` refuse au-delà de **50 étapes** par tenant (`production_step.limit_reached`) — sans ce plafond, « pas de pagination » serait une promesse que rien ne tient. Précédent : `listProjectTags`. |
+| 9 | Qui configure ? | **Nouvelle capability `can_manage_production_steps`**, exigée par POST / PATCH / PUT / DELETE. La story dit « en tant qu'**administrateur d'espace** » : il faut donc restreindre, et une restriction se **nomme** plutôt qu'elle ne se code en dur en `tm.role = 'admin'`. Par la règle de dérivation de `user_has_capability` (§3.5), ce droit est **déjà détenu** par tout `admin` sans qu'aucune affectation soit à créer : la population autorisée est exactement celle que la story demande, dès le premier jour. Et le jour où le chantier UM rouvrira la délégation, un chef d'atelier le recevra sans qu'une ligne du contrat ne bouge. Ce n'est **pas** le cas symétrique d'E10.12 décision #9, qui refusait un droit dédié : là, la story voulait **ouvrir** à tout membre, et nommer une garde qu'on ne veut pas poser est cosmétique. Ici la garde est voulue. **Le contrat ne promet aucune délégation** (§3.5, dernière règle) : la description dit que le droit est admin-only aujourd'hui. |
+| 10 | Suppression d'une étape | **Publiée, alors que le PM n'esquissait que quatre opérations.** Le CA3 (« une étape utilisée par au moins une commande **ne peut pas être supprimée** ») serait vide de sens s'il n'existait aucune suppression. Sans elle, une étape créée par erreur — faute de frappe, doublon — resterait à jamais dans le paramétrage. Refus en 409 `production_step.in_use`, **tenu en base** par une clé étrangère `on delete restrict`, jamais par une vérification préalable de façade (une lecture suivie d'une suppression laisse une fenêtre où une commande arrive sur l'étape). Symétrique exact de `deleteProjectTag`. |
+| 11 | Création idempotente sur le libellé ? | **Non — 409 `production_step.label_conflict`**, contrairement à `createProjectTag` qui rend le tag existant en 200. Un tag se crée **à la volée en cours de frappe**, où renvoyer l'existant est le service attendu ; une étape se crée dans un **écran de paramétrage**, où réutiliser silencieusement une étape existante — et peut-être désactivée — masquerait à l'administrateur ce qu'il vient de faire. L'unicité porte sur le libellé normalisé (trim, casse insensible), **étapes désactivées comprises** : leur libellé reste réservé, puisqu'elles restent affichées dans l'historique. |
+
+##### #2bis — ce que « pas de validation automatique des étapes antérieures » impose au modèle (CA5)
+
+C'est le point que `dev-story` risque le plus de contredire par réflexe. Le modèle **ne porte aucune progression** : pas de tableau d'étapes franchies, pas de booléen « validée » par étape, pas de contrainte d'ordre entre l'étape courante et la précédente. Un seul **pointeur**, `current_production_step_id`, qui dit *où en est cette commande maintenant*, et rien d'autre.
+
+Conséquences opposables, écrites dans le contrat lui-même :
+
+- **le franchissement est libre** — passer de « Fichier reçu » à « Livré » est un mouvement légal, et le restera quand E10.14 ouvrira la transition. Toutes les commandes ne passent pas par toutes les étapes : c'est le fait métier qui fonde le CA5 ;
+- **`is_terminal` ne verrouille rien** dans ce lot : il ne clôt pas la commande, n'interdit aucun passage ultérieur, ne conditionne aucune garde. C'est un indicateur d'affichage et de lecture. **Plusieurs** étapes terminales sont permises (un flux réel en compte souvent deux : livrée, abandonnée), et rien n'exige qu'une étape terminale soit la dernière du flux ;
+- **ne jamais reconstituer un parcours** à partir du pointeur. L'historique est le sujet d'E10.14 ; jusque-là, il n'existe pas, et l'absence de donnée ne s'invente pas.
+
+##### #2ter — l'étape initiale posée à la conversion (arbitrage (a), tranché le 2026-09-08)
+
+**La décision.** Convertir un devis en commande (E10.12, `convertQuote`) pose désormais `commercial_orders.current_production_step_id` sur **l'étape active de position la plus basse** du tenant. Avec le jeu standard, c'est « Fichier reçu » — très exactement l'état d'une commande qui vient d'être validée. Le champ **cesse d'être `null` par défaut**.
+
+**Qui porte ce câblage : `dev-story` d'E10.13, pas E10.12.** E10.12 est livrée (migration `20260908010000`, contrat, adaptateur, routes) et **rien n'y est repris** : ni son fichier de migration, ni sa story, ni son périmètre. E10.13 y touche par le seul chemin autorisé par la règle de process de §8.13quinquies — **une migration nouvelle, un `create or replace function`**. C'est cohérent avec l'ordre des dépendances : `production_steps` n'existe pas avant E10.13, donc E10.12 ne *pouvait pas* poser cette valeur au moment où elle a été écrite.
+
+**Trigger SQL ou appel explicite dans la fonction de conversion ? — Appel explicite. Tranché, à ne pas re-trancher.**
+
+Le dépôt a déjà une doctrine sur ce partage, et elle est constante sur les dix modules E10 :
+
+| Ce qui est fait par **trigger** dans E10 | Ce qui est fait par **code applicatif** (fonction `api_*`) |
+|---|---|
+| Des **invariants** : `*_set_updated_at`, immuabilité (`commercial_orders_immutable`, `commercial_quote_lines_require_draft_quote`), append-only (`outbox_events_reject_mutation`), cohérence de tenant (`project_tag_links_assert_same_tenant`), exclusivité d'identité (E10.5), journalisation d'audit (`price_rules_write_audit`). Tous **refusent** ou **enregistrent** ; aucun n'invente une valeur métier. | Des **valeurs métier produites à la création** : le numéro (`CDE-AAAA-NNNNN`, compteur verrouillé), le statut initial, la copie figée des lignes et des totaux, l'instantané, l'entrée d'audit d'entête. Tout cela est écrit **explicitement**, ligne à ligne, dans `api_create_commercial_quote_from_project_items`, `api_send_commercial_quote`, `api_convert_commercial_quote`. |
+
+L'étape initiale appartient sans ambiguïté à la colonne de droite. Quatre raisons, dans l'ordre de force :
+
+1. **Un trigger ne garderait rien de plus.** `commercial_orders` n'a **aucune policy RLS d'écriture** pour `authenticated` (§8.14) : la seule voie d'insertion est `api_convert_commercial_quote`, `security definer`. L'argument habituel du trigger — « vrai quel que soit le chemin d'écriture » — est **vide ici**, faute de second chemin. Les chemins futurs (E10.16) seront eux aussi des fonctions `api_*`, écrites en connaissance de cause.
+2. **Un trigger serait une écriture invisible sur une colonne dont E10.14 va prendre la propriété.** Un `BEFORE INSERT` qui remplit un champ **écrase silencieusement** toute valeur fournie par un appelant : une reprise de données, un correctif, une story future qui voudrait créer une commande déjà engagée dans le flux se heurteraient à un écrivain qu'on ne voit pas dans le code appelant. Deux écrivains sur une colonne, dont un caché, est exactement le genre de dette que ce sprint a payée cher (le GUC fantôme B7 d'E10.10a, le trigger d'immuabilité B5).
+3. **La conversion se lit aujourd'hui comme une liste énumérable d'effets** — numéro, statut, lignes, totaux, audit, événement — et le contrat la publie sous cette forme. L'étape initiale doit figurer **dans cette liste**, pas dans un fichier qu'il faudrait penser à ouvrir.
+4. **Hygiène de risque sur une table déjà bien pourvue en triggers.** `commercial_orders` en porte deux (`commercial_orders_set_updated_at`, `commercial_orders_immutable_before_write`). En ajouter un troisième augmente la probabilité qu'une story ultérieure les recrée en bloc et **regèle la colonne** — l'accident précis contre lequel §0 découverte n° 1 met en garde.
+
+**Le contre-argument entendu, et pourquoi il ne tient pas** : « le trigger garantit que toute commande naît sur une étape, même celles créées par une story qu'on n'a pas encore écrite ». C'est vrai, mais la garantie est **fausse en pratique** — un tenant sans étape active fait naître la commande avec `null` de toute façon, donc l'invariant « toute commande a une étape » n'existe pas et **ne doit pas exister** (voir ci-dessous). Un trigger poserait un semblant d'invariant que la base ne peut pas tenir. Une colonne `not null` avec défaut serait pire encore : elle ferait échouer une conversion pour un motif de paramétrage d'atelier.
+
+**Le cas « aucune étape active » : la conversion aboutit, avec `null`.** C'est une règle, pas une tolérance. Un défaut de paramétrage de production **ne doit jamais empêcher un engagement commercial** — le seed garantit six étapes à la création du tenant, mais un administrateur peut toutes les désactiver ou les supprimer, et le refus de conversion serait alors une panne incompréhensible côté commerce. Le contrat le dit dans `convertQuote` et dans `CommercialOrder.current_production_step_id`.
+
+**Ce que ce câblage n'émet pas** : aucun `order.step_changed` (le nom reste sans producteur jusqu'à E10.14), aucune entrée de journal de passage (il n'y a pas de journal), aucune entrée d'audit supplémentaire. **Poser une valeur initiale n'est pas franchir une étape** : l'étape initiale fait partie de la ressource créée, au même titre que son numéro. Le jour où E10.14 ouvrira le changement d'étape, c'est *elle* qui décidera si l'entrée « posée à la conversion » ouvre le journal — et elle pourra la reconstituer depuis `commercial_orders.created_at`, sans que rien n'ait été perdu.
+
+**Effet de bord à connaître, porté au contrat** : l'étape de tête devient **insupprimable dès la première conversion** (`production_step.in_use`, CA3, `on delete restrict`). C'est le CA3 qui joue exactement comme prévu, pas un défaut ; l'issue normale sur cette étape-là est la **désactivation** ou le **réordonnancement**. `deleteProductionStep`, `ProductionStep.position` et `ProductionStep.is_active` le disent désormais, pour que l'écran de paramétrage l'annonce avant le 409.
+
+##### #8bis — CA8 (modèles de notification rattachés à une étape) : HORS PÉRIMÈTRE, reporté à E10.15
+
+> **Arbitrage d'Arnaud du 2026-09-08 (réserve (b), close).** **E10.13 est livrée sans le CA8.** Le lot tient les **CA1 à CA7** ; le CA8 est **retiré de la liste des critères tenus par cette livraison** et devient un **point d'ouverture d'E10.15**. Conséquences opposables :
+>
+> - **ne pas le compter comme fait**, ni dans le story document, ni au cahier de tests, ni à la revue `qa-review` — un CA hors périmètre n'est pas un CA en dette ;
+> - **ne rien préparer maintenant** : ni section vide dans l'écran de paramétrage, ni bloc « notifications » grisé, ni champ, ni point d'extension dans le contrat. Une section vide est une promesse d'interface que rien ne tient et que E10.15 devrait démonter ;
+> - **`dev-story` n'a rien à écrire à ce titre.** Le sujet ne réapparaît qu'avec E10.15, qui publiera sa propre collection de modèles filtrable par `production_step_id`.
+>
+> La suite de cette sous-section explique **pourquoi le contrat n'a rien à dire du CA8** — elle reste valable telle quelle, et fixe la forme que prendra le rattachement le jour où E10.15 sera écrite.
+
+Le CA8 (ajout WM du 01/09, Xavier Péchoultres) demande que l'écran de paramétrage **affiche** les modèles de notification rattachés à chaque étape et permette d'en créer un. Il dépend d'E10.15, non livrée. Ce qui est tranché ici, et qui suffit pour ne pas bloquer :
+
+**Le rattachement est porté par le modèle, jamais par l'étape** — c'est la position du PM, et le contrat la respecte à la lettre : `ProductionStep` **ne porte aucun champ** de notification. Ce n'est pas un oubli à combler plus tard, c'est la propriété qui garde l'étape « donnée de référence pure ».
+
+**Aucun point d'extension vide n'est publié**, et c'est un changement de doctrine par rapport à `CustomerDetail`. §8.14 a corrigé ce précédent : les listes `projects` / `quotes` / `orders` de `CustomerDetail` **ne se rempliront jamais**, parce que chaque story a publié à la place une **opération de liste filtrable**, avec pagination et filtres — ce qu'une liste imbriquée dans une fiche ne fait pas. Même conclusion ici : publier `notification_templates: []` sur `ProductionStep` créerait un champ que E10.15 devrait soit remplir (donc dupliquer sa propre collection), soit contredire (donc casser). **Le point d'extension d'E10.13 est donc un filtre sur une collection future** — de la forme `listNotificationTemplates?production_step_id=` — que E10.15 publiera. Le contrat de E10.13 n'a rien à en dire, et c'est pour cela qu'il n'en dit rien.
+
+**Conséquence, désormais arbitrée** : livré seul, E10.13 satisfait les CA1 à CA7 et **le CA8 est hors périmètre** — l'écran de paramétrage n'affichera aucun bloc « notifications », et n'en affichera pas un vide. Ce n'est ni une CA partiellement servie, ni un manquement de `dev-story` : c'est un **périmètre réduit et assumé**, et le reste est le sujet d'E10.15.
+
+#### 3. Migration à écrire par `dev-story` — esquisse, points à ne pas découvrir en route
+
+> Aucune ligne de SQL n'est écrite par ce lot. Ce qui suit est la spécification de la migration, pas la migration.
+
+**Table `production_steps`** — patron E10.2 / E10.6, sans invention.
+
+| Colonne | Forme |
+|---|---|
+| `id` | `uuid primary key default gen_random_uuid()` |
+| `tenant_id` | `uuid not null references public.tenants(id) on delete cascade` |
+| `label` | `text not null check (btrim(label) <> '')`, longueur ≤ 60 côté contrat |
+| `position` | `integer not null check (position >= 0)` |
+| `color` | `text not null check (color in ('slate','blue','green','amber','red','violet'))` — **jeton fermé, jamais un hexadécimal** (E10.2 : la charte doit pouvoir évoluer sans migration) |
+| `is_terminal` | `boolean not null default false` |
+| `is_active` | `boolean not null default true` |
+| `created_at`, `updated_at` | `timestamptz not null default now()`, `updated_at` avancée par un trigger, sur le patron `commercial_orders_set_updated_at` |
+
+**Contraintes.**
+
+- `unique (tenant_id, lower(btrim(label)))` — index unique fonctionnel, sans filtre sur `is_active` : une étape désactivée garde son libellé réservé (décision #11).
+- `unique (tenant_id, position) deferrable initially immediate` — **le mot `deferrable` est le piège de cette story.** PostgreSQL vérifie une contrainte unique **ligne par ligne**, pas en fin d'instruction : un `UPDATE ... FROM unnest(...)` qui permute deux positions échoue sur une contrainte immédiate, alors même que l'état final est valide. La fonction de réordonnancement doit donc poser `set constraints production_steps_position_unique deferred;` en début de transaction. Sans cela, le glisser-déposer échoue de façon intermittente, à un round de `qa-review` près.
+- Pas de colonne `code`, **délibérément** : l'étape est une donnée de tenant, renommable, adressée par son seul `uuid`. Une colonne `code` recréerait l'enum applicatif que la story interdit, et donnerait à un intégrateur l'illusion d'une clé stable à coder en dur.
+
+**Index** : `(tenant_id, position)` sert la liste ordonnée ; l'index unique fonctionnel sur le libellé sert la garde d'unicité.
+
+**Rattachement à la commande.**
+
+```
+alter table public.commercial_orders
+  add column if not exists current_production_step_id uuid
+    references public.production_steps(id) on delete restrict;
+create index ... on public.commercial_orders (tenant_id, current_production_step_id);
+```
+
+- **`on delete restrict` est ici la bonne action, alors qu'E10.12 a proscrit `restrict` sur ses propres FK** — et la nuance mérite d'être comprise plutôt que recopiée. En E10.12, `restrict` (immédiat) aurait cassé la **cascade de suppression d'un tenant**, seul chemin capable d'atteindre les lignes référencées (§8.14). Ici, `production_steps.tenant_id` est lui-même `on delete cascade` **depuis le même tenant** : la suppression d'un tenant supprime *et* les commandes *et* les étapes, et une contrainte `restrict` entre deux tables du même tenant qui disparaissent ensemble n'est franchie par personne. Ce que `restrict` protège, c'est le chemin **nominal** : `deleteProductionStep`. C'est lui qui doit échouer, et c'est le CA3.
+- **Le trigger `commercial_orders_immutable()` n'est ni édité ni recréé** (§0, découverte n° 1). Il est par colonne ; une colonne neuve n'y figure pas, donc elle est mutable.
+- **Une seule écriture de cette colonne dans ce lot, et elle est prescrite ci-dessous** : la conversion la pose à la création (arbitrage (a), #2ter). Aucune **opération d'API** ne la change — le changement d'étape est E10.14.
+
+**Seed du jeu standard (CA1)** — patron **existant**, à étendre, pas à réinventer : `public.seed_tenant_catalogs()`, trigger `tenants_seed_catalogs` `AFTER INSERT ON public.tenants` (`20260601000200_s_order_roles_1_seed_trigger.sql`). Il seede déjà deux catalogues avec `on conflict do nothing`, donc **rejouable**. `dev-story` le remplace par `create or replace function` (jamais une édition de la migration d'origine, règle de process §8.13quinquies) en y ajoutant un troisième bloc :
+
+| `position` | `label` | `is_terminal` |
+|---|---|---|
+| 0 | Fichier reçu | `false` |
+| 1 | PAO | `false` |
+| 2 | Fichier validé | `false` |
+| 3 | En cours de production | `false` |
+| 4 | En cours d'expédition | `false` |
+| 5 | Livré | **`true`** |
+
+Couleurs : à choisir dans la palette fermée, une par étape, sans reprendre les hexadécimaux de `tenant_order_status_definitions`. **Et un rattrapage des tenants existants dans la même migration** — un `insert ... select` sur les tenants dépourvus d'étapes, avec `on conflict do nothing` : le trigger ne vaut que pour les créations à venir, et tous les tenants de production sont antérieurs. C'est exactement ce que la migration `20260601000200` avait dû faire (« complétion Phase A qui ne seedait que les tenants existants à l'apply »).
+
+Ces six libellés sont ceux de la **séance produit du 28/08/2026**, confirmés par Arnaud le 2026-09-08 : ils se seedent **tels quels**, dans cet ordre, « Livré » seule étape terminale. Ce n'est pas une proposition de l'architecte.
+
+**Câblage de la conversion (arbitrage (a)) — `create or replace function public.api_convert_commercial_quote(uuid, uuid)`.** Troisième et dernier geste SQL du lot, après la table et le seed. Il est **prescrit ici pour n'être re-tranché par personne** (motif complet en #2ter) :
+
+- **Même signature, même corps, une seule différence.** La fonction existante (`20260908010000`, lignes 446-592) est **recopiée verbatim** dans la migration nouvelle, avec `create or replace`. On ajoute `current_production_step_id` à la liste de colonnes de l'`insert into public.commercial_orders` et sa valeur au `values`, **rien d'autre**.
+- **La valeur est une sous-requête scalaire dans le `values`, jamais un `update` après coup** :
+
+  ```sql
+  (select ps.id
+     from public.production_steps ps
+    where ps.tenant_id = p_tenant_id
+      and ps.is_active
+    order by ps.position
+    limit 1)
+  ```
+
+  `unique (tenant_id, position)` rend ce `limit 1` **déterministe** sans départage supplémentaire. Un `insert` suivi d'un `update` réveillerait `commercial_orders_set_updated_at` et ferait passer une ligne toute neuve par le trigger d'immuabilité pour rien.
+- **Aucune exception si la sous-requête ne rend rien.** `current_production_step_id` vaut `null`, la commande est créée, la conversion réussit. Ne pas ajouter de `if not found then raise`. C'est la règle de #2ter : un défaut de paramétrage d'atelier ne bloque pas un engagement commercial.
+- **Piège de recopie, à traiter comme tel.** Ce corps contient l'échappatoire d'immuabilité **B7** (`set_config('magrit.quote_transition', ...)` et `magrit.change_set_id`) **remise à vide sur chaque branche de sortie, échecs compris** — trois branches aujourd'hui. Retaper la fonction de mémoire en perdrait une, et le symptôme n'apparaîtrait qu'à la transaction suivante, sur un autre appel. **Copier le fichier, appliquer la seule différence, puis diffuser les deux versions côte à côte avant de committer.**
+- **Le trigger `commercial_orders_immutable()` reste intouché**, et `current_production_step_id` **ne rejoint pas** sa liste de colonnes gelées : E10.14 doit pouvoir la faire évoluer (§0, découverte n° 1).
+- **Aucun événement, aucune entrée d'audit supplémentaire** dans cette fonction : ni `order.step_changed`, ni ligne de journal de passage. #2ter en donne la raison.
+- **Le commentaire de fonction (`comment on function`) est réécrit** pour mentionner l'étape initiale — sinon le commentaire en base décrit une fonction qui n'existe plus.
+
+**Rattrapage des commandes existantes** — un `update` **unique**, dans la même migration, **après** le seed et le rattrapage des tenants :
+
+```sql
+update public.commercial_orders o
+   set current_production_step_id = (
+         select ps.id from public.production_steps ps
+          where ps.tenant_id = o.tenant_id and ps.is_active
+          order by ps.position limit 1)
+ where o.current_production_step_id is null;
+```
+
+Pourquoi c'est sûr, et pourquoi c'est le bon moment : **aucun mécanisme de changement d'étape n'existe** (E10.14 n'est pas livrée), donc **toute** commande antérieure est, par construction, au tout début de son flux — ce rattrapage ne peut mal étiqueter aucune commande. Sans lui, le tableau de bord du CA6 servirait deux populations qui se ressemblent sans se ressembler. Deux points à ne pas manquer : le trigger d'immuabilité **laisse passer** cet `update` (il est *par colonne*, et celle-ci n'est pas gelée) ; `commercial_orders_set_updated_at` fera **avancer `updated_at`** sur les lignes reprises, ce qui est accepté — une migration de données est une modification, et le prétendre autrement demanderait de désarmer un trigger pour de l'esthétique.
+
+**Fonctions.** Trois gestes ne sont pas de simples `insert`/`update` et doivent être des fonctions `security definer` préfixées `api_*`, chacune **une transaction** :
+
+1. `api_reorder_production_steps(p_tenant_id, p_step_ids uuid[])` — `set constraints ... deferred`, vérification d'exhaustivité (cardinalité **et** appartenance, dans les deux sens), réaffectation 0..n-1 par `unnest ... with ordinality`. Refus → `production_step.positions_mismatch`.
+2. `api_delete_production_step(p_tenant_id, p_step_id)` — suppression puis réindexation des restantes dans la **même** transaction ; la violation de FK remonte en `production_step.in_use`.
+3. `api_create_production_step(...)` — plafond de 50 vérifié **sous verrou** (`count(*)` dans la même transaction que l'insertion), position `= n`.
+
+`updateProductionStep` n'a besoin d'aucune fonction : un `UPDATE` gardé par la RLS suffit.
+
+**RLS** — `enable row level security` sur `production_steps`, **obligatoire et silencieux si oublié** : `20260811000100_api_role_table_grants.sql` pose un `alter default privileges ... grant select, insert, update, delete on tables to anon, authenticated`. Une table neuve est donc **écrivable par défaut** au niveau des grants ; la RLS est la seule barrière.
+
+- `production_steps_select` : `is_super_admin() or tenant_id in (select public.current_user_tenant_ids())` — expression exacte des autres tables E10, jamais une variante.
+- `production_steps_write` : `is_super_admin() or public.user_has_capability(tenant_id, 'can_manage_production_steps')`, en `using` **et** `with check`. C'est la règle 4 du §3.5 : la garde doit exister **en base**, pas seulement dans la façade — une garde de façade seule est contournée par un appel PostgREST direct avec un jeton de membre ordinaire (bloquant B5 d'E10.10a).
+- **Test RLS obligatoire** (`.claude/rules/db.md`) : un tenant A ne lit ni n'écrit jamais les étapes d'un tenant B, et un membre **non-admin** de A se voit refuser l'écriture. Vérifié par un cas SQL, pas par la lecture de la migration.
+
+**Pas de table d'audit.** Un référentiel de configuration n'en a pas dans ce sprint — `project_tags` et `production_steps` sont du même genre, et `price_rules` n'a un journal que parce qu'il porte des montants. Le jour où E10.14 journalisera les **passages** d'étape, ce sera un journal de commande, pas d'étape.
+
+**Forme imposée** : migration **nouvelle**, `create or replace function` pour `seed_tenant_catalogs()` **et pour `api_convert_commercial_quote()`**, **jamais** d'édition de `20260601000200` ni de `20260908010000`.
+
+**Cas SQL attendus en plus des cas RLS** (`tests/sql/`, `pnpm test:storefront:sql`, Docker requis) : (i) une conversion dans un tenant seedé pose bien la commande sur l'étape de position 0 ; (ii) la même conversion dans un tenant dont **toutes** les étapes sont désactivées **réussit** avec `current_production_step_id: null` ; (iii) `deleteProductionStep` sur l'étape portée par cette commande échoue en violation de clé étrangère (CA3). Ces trois-là ne se vérifient pas en relisant la migration.
+
+#### 4. Effets de bord vérifiés — ce qui ne change pas, et pourquoi
+
+- **`tenant_order_status_definitions` et la boutique** : **intouchées**. Aucune migration, aucune donnée, aucun écran. Les deux catalogues coexistent, comme coexistent `tenant_orders` et `commercial_orders`.
+- **`api_convert_commercial_quote`** : **modifiée par ce lot**, par `create or replace` dans la migration d'E10.13 (arbitrage (a), prescription au §3). C'est le **seul** effet d'E10.13 sur du code livré par une autre story, et il ne rouvre pas E10.12 : ni son fichier de migration, ni son périmètre, ni sa surface d'API. Son adaptateur, ses routes et ses tests de contrat sont **inchangés** — l'appelant TypeScript ne voit qu'un champ déjà publié qui cesse d'être toujours `null`.
+- **`CommercialOrderStatus`** : aucune valeur ajoutée — décision #3, et sa description le dit désormais pour qu'une relecture n'y voie pas un oubli.
+- **Types générés** : `pnpm gen:api` a régénéré `src/platform/api/generated/magrit-core.v1.ts` (7078 lignes) dans le même passage. `pnpm gen:api:check` et `pnpm typecheck` sont verts.
+- **`pnpm test:contract`** : **3 échecs attendus**, tous dans `tests/contract/commercial-orders.contract.test.ts`, **une seule cause** — `CommercialOrderDetail must have required property 'current_production_step_id'`. Les faux de test d'E10.12 ne produisent pas le champ neuf. **Écart identique en nature à celui d'E10.12** (`converted_at`, 16 échecs) et il se ferme du côté de l'implémentation — adaptateur `commercial-orders-repository.ts` et faux de test rendant `current_production_step_id: null` — **jamais** en affaiblissant une assertion.
+
+#### 5. Réserves — deux closes par arbitrage du 2026-09-08, une confirmée, une ouverte
+
+**Closes. Arnaud a tranché le 2026-09-08 ; le contrat et le §3 ont été mis à jour dans le même passage.**
+
+- **(a) — la conversion pose-t-elle la première étape ? TRANCHÉE : OUI.** `api_convert_commercial_quote` positionne la commande sur l'étape **active de position la plus basse** du tenant. Le **comment** est tranché avec : **appel explicite dans la fonction de conversion**, `create or replace` dans la migration d'E10.13, **jamais un trigger** sur `commercial_orders` — motif complet en **#2ter**, prescription SQL au **§3** (sous-requête scalaire dans le `values`, piège de recopie B7, rattrapage des commandes existantes). Le câblage est porté par **`dev-story` d'E10.13**, pas par E10.12 : celle-ci reste livrée et intacte, et ne *pouvait pas* poser cette valeur — `production_steps` n'existait pas quand elle a été écrite. Trois conséquences documentées au contrat : `current_production_step_id` cesse d'être toujours `null` ; un tenant sans étape active fait naître la commande avec `null` **sans erreur** ; l'étape de tête devient insupprimable dès la première conversion (CA3, l'issue est la désactivation).
+- **(b) — CA8. TRANCHÉE : HORS PÉRIMÈTRE, reporté à E10.15.** E10.13 est livrée sur les **CA1 à CA7**. Le CA8 (afficher les modèles de notification d'une étape et en créer un depuis cet écran) **ne fait pas partie de ce lot** et **ne doit pas être compté comme fait**. Rien n'est préparé maintenant : ni section vide, ni champ, ni point d'extension au contrat (motif en **#8bis**). Le sujet réapparaît avec E10.15, qui publiera sa propre collection filtrable par `production_step_id`.
+
+**Confirmée — ce n'était pas une réserve ouverte.**
+
+- **(c) — jeu standard des six étapes.** « Fichier reçu → PAO → Fichier validé → En cours de production → En cours d'expédition → Livré » est la **donnée d'entrée de la story**, arrêtée en **séance produit du 28/08/2026** par Arnaud, et confirmée le 2026-09-08. Ce jeu exact est seedé, dans cet ordre, « Livré » seule étape terminale (§3). Rien à arbitrer, rien à proposer : la seule chose que `dev-story` choisit encore est la **couleur** de chaque étape, dans la palette fermée.
+
+**Ouverte.**
+
+- **(d) — relecture Notion.** Voir §0 : cet agent n'a pas d'accès à la page. Le texte de la story lui a été transmis intégralement, mais quelqu'un ayant l'accès doit confronter les CA à ce cadrage — en tenant compte du fait que le **CA8 est désormais hors périmètre**.
+
+#### 6. Ce que ce lot ne fait pas, explicitement
+
+- **Aucune implémentation applicative** : ni module `production-steps`, ni adaptateur, ni route, ni migration, ni UI.
+- **Aucun changement d'étape.** Aucune opération d'API ne modifie `current_production_step_id` — c'est E10.14, avec son journal horodaté et l'émission d'`order.step_changed` (nom déjà publié, toujours sans producteur). La **valeur initiale** posée à la conversion (arbitrage (a), #2ter) n'est pas un changement d'étape : c'est un attribut de la ressource créée, au même titre que son numéro.
+- **Aucun modèle de notification, et le CA8 est hors périmètre** (arbitrage (b) du 2026-09-08). E10.15. Voir #8bis pour la forme que prendra le rattachement — et pour ce qu'il ne faut surtout pas préparer d'avance.
+- **Aucune règle de transition.** Ni séquence imposée, ni interdiction de reculer, ni fermeture sur une étape terminale — CA5, et #2bis.
+- **Aucun statut de commande nouveau.** Décision #3.
+- **Aucune modification de la boutique** ni de son catalogue de statuts.
+
+#### 7. État des gates à la remise du contrat
+
+| Commande | Résultat | Lecture |
+|---|---|---|
+| `pnpm gen:api` puis `pnpm gen:api:check` | **vert** | Types régénérés (7078 lignes) dans le même lot que le contrat. |
+| `pnpm typecheck` | **vert**, 0 erreur | Aucun fichier de `src/` écrit à la main. |
+| `pnpm test:architecture` | **vert**, 33 fichiers / 144 tests | Aucune frontière modulaire touchée. |
+| `pnpm test:contract` | **3 échecs attendus** — 1 fichier sur 13, 249 tests passants | **Une seule cause** : `CommercialOrderDetail must have required property 'current_production_step_id'`. `lintContract()` passe, **après correction** : le premier jet publiait `PUT /production-step-positions` **sans** `If-Match`, la gate CA9 l'a refusé, et c'est le contrat qui a cédé (décision #6). |
+
+**Passage du 2026-09-08 (arbitrages (a)/(b), (c) confirmée) — gates rejoués, résultats identiques.**
+
+| Commande | Résultat | Lecture |
+|---|---|---|
+| `pnpm gen:api` puis `pnpm gen:api:check` | **vert** | Types régénérés (7132 lignes) dans le même passage. Les modifications ne portent que sur des `description` : **aucun symbole généré ne bouge** — ni chemin, ni champ, ni valeur d'énumération, ni code d'erreur. L'arbitrage (a) se paie en SQL, pas en surface d'API. |
+| `pnpm typecheck` | **vert**, 0 erreur | Corollaire du point précédent. Aucun fichier de `src/` écrit à la main. |
+| `pnpm test:architecture` | **vert**, 33 fichiers / 144 tests | Aucune frontière modulaire touchée. |
+| `pnpm test:contract` | **3 échecs, inchangés** — 1 fichier sur 13, 249 tests passants | **Même cause unique**, toujours `CommercialOrderDetail must have required property 'current_production_step_id'`, dans `tests/contract/commercial-orders.contract.test.ts`. Pas un échec de plus, pas un de moins : ce passage n'ajoute rien à la dette d'implémentation laissée à `dev-story` (adaptateur `commercial-orders-repository.ts` + faux de test). `lintContract()` passe. |
 
 ## 9. Commandes
 

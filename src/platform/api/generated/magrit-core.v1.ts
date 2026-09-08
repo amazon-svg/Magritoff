@@ -1064,8 +1064,17 @@ export interface paths {
          *       quels ;
          *
          *     - les totaux du devis (sous-total, remise globale, net, TVA, TTC) sont
-         *       COPIES sur l entete de la commande.
+         *       COPIES sur l entete de la commande ;
          *
+         *     - la commande nait sur la PREMIERE ETAPE DE PRODUCTION ACTIVE du tenant
+         *       (`current_production_step_id`), voir le paragraphe dedie ci-dessous.
+         *
+         *
+         *     ETAPE DE PRODUCTION INITIALE — LA COMMANDE NAIT ENGAGEE DANS LE FLUX D ATELIER. ARBITRE (Arnaud, 2026-09-08, reserve (a) de docs/api/CONVENTIONS.md §8.15) : la conversion positionne `current_production_step_id` sur l etape ACTIVE de POSITION LA PLUS BASSE du tenant — avec le jeu standard, « Fichier recu », qui est tres exactement l etat d une commande qui vient d etre validee. Le champ n est donc plus `null` par defaut : il l est seulement pour les commandes anterieures a la livraison d E10.13 et pour un tenant qui n a plus aucune etape active.
+         *
+         *     UN TENANT SANS AUCUNE ETAPE ACTIVE NE BLOQUE PAS LA CONVERSION : la commande est creee avec `current_production_step_id: null`, sans erreur. Un defaut de parametrage d atelier ne doit jamais empecher un engagement commercial ; l etape se posera par le suivi de production (E10.14).
+         *
+         *     CE N EST PAS UN CHANGEMENT D ETAPE, C EST UNE VALEUR INITIALE : aucun evenement `order.step_changed` n est emis ici (ce nom reste sans producteur jusqu a E10.14), aucune entree de journal de passage n est ecrite. L etape initiale fait partie de la ressource creee, au meme titre que son `number`.
          *
          *     LES PRIX SONT FIGES, ET C EST LE COEUR DE LA STORY. La conversion ne RECALCULE rien : elle recopie. Aucun appel a `PricingEngine` (E10.21) n a lieu ici, et ce n est pas un manque — les colonnes de prix des lignes de devis ont deja ete produites par le moteur (E10.9), et les recalculer a la conversion produirait un prix different de celui que le client a sous les yeux des qu une regle de prix aurait change entre temps. Un devis accepte a 4 500 EUR devient une commande a 4 500 EUR, quelle que soit la grille tarifaire du jour.
          *
@@ -1115,6 +1124,8 @@ export interface paths {
          * Liste les commandes du tenant courant, de la plus recente a la plus ancienne.
          *
          *     Le filtre `quote_id` est la contrepartie d une decision de normalisation : un devis converti ne porte PAS l identifiant de sa commande (l arete 1-1 est portee une seule fois, par `CommercialOrder.quote_id`, unique). C est par ce filtre qu un ecran de devis affiche « voir la commande », pas par un champ duplique des deux cotes qu il faudrait tenir synchrone.
+         *
+         *     E10.13 y ajoute le filtre `current_production_step_id` et le tri `sort`, qui servent le tableau de bord des commandes (CA6) : filtrer et trier par etape courante. Le libelle et la couleur de l etape ne sont pas joints a la reponse — le catalogue se lit une fois par `listProductionSteps`.
          */
         get: operations["listCommercialOrders"];
         put?: never;
@@ -1146,6 +1157,144 @@ export interface paths {
         /** Fiche complete d une commande : entete, totaux figes et lignes. */
         get: operations["getCommercialOrder"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/production-steps": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Liste les etapes de production du tenant courant, DANS L ORDRE du flux d atelier (`position` croissante), actives et desactivees confondues sauf filtre `status` (CA1, CA2, CA7).
+         *
+         *     PAS DE PAGINATION, et c est un choix motive plutot qu un oubli. Le catalogue est une CONFIGURATION bornee — le jeu standard en compte six, et `createProductionStep` refuse au-dela de 50 par tenant (`production_step.limit_reached`), precisement pour que cette phrase reste vraie. Une page partielle rendrait en outre `reorderProductionSteps` inconstructible : cette commande exige la liste COMPLETE, un appelant qui n aurait vu qu une page ne pourrait jamais la former. Meme parti que `listProjectTags`.
+         *
+         *     UN `ETag` EST EMIS ICI, et c est la SEULE collection de ce contrat dans ce cas — l exception se justifie, elle ne s etend pas. Ailleurs (`listPriceRules`, `listCustomerContacts`) aucune collection n en emet, parce qu aucune operation ne modifie la collection EN TANT QUE TOUT : la concurrence s y joue element par element, et un `ETag` de collection n aurait rien a valider. Ici `reorderProductionSteps` reecrit l ensemble en une transaction ; le catalogue EST la ressource ecrite, il lui faut donc un validateur.
+         *
+         *     PORTEE DE CET `ETag`, a ne pas confondre :
+         *     - il valide le CATALOGUE COMPLET du tenant, TOUJOURS, meme quand
+         *       `status` a filtre la reponse : le filtre est une projection, pas une
+         *       autre ressource. Un appelant qui a filtre peut donc s en servir pour
+         *       un reordonnancement, qui porte lui aussi sur l ensemble ;
+         *
+         *     - il ne vaut PAS pour un `PATCH` d une etape donnee. Celui-la exige
+         *       l `ETag` de `getProductionStep`, qui valide cette etape et elle
+         *       seule. Opposer l `ETag` du catalogue a un PATCH ferait echouer une
+         *       modification de libelle parce qu une AUTRE etape a bouge.
+         */
+        get: operations["listProductionSteps"];
+        put?: never;
+        /**
+         * Cree une etape de production dans le tenant courant (CA2).
+         *
+         *     POSITION NON CHOISIE PAR L APPELANT : l etape est ajoutee EN FIN de flux, le serveur lui affecte `position = n`. Deplacer se fait ensuite par `reorderProductionSteps`, seule operation qui touche a l ordre — accepter une position ici offrirait deux facons divergentes de faire la meme chose, dont une incapable de renumeroter les voisines dans la meme transaction. Meme raisonnement que `reorderQuoteLines` (E10.9).
+         *
+         *     Le libelle est UNIQUE dans le tenant, sur sa forme normalisee (trim, casse insensible), etapes desactivees COMPRISES : deux « PAO » dans le meme espace rendraient le filtre du tableau de bord ambigu, et une etape desactivee reste affichee dans l historique.
+         */
+        post: operations["createProductionStep"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/production-steps/{stepId}": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fiche d une etape de production, avec son `ETag`.
+         *
+         *     Cette operation existe pour UNE raison : donner a `updateProductionStep` la precondition qu il exige. L `ETag` emis par `listProductionSteps` valide le CATALOGUE et sert au reordonnancement ; il ne vaut PAS pour le PATCH d une etape, qu il ferait echouer des qu une AUTRE etape bouge. Un ecran qui ouvre le formulaire d edition relit donc l etape ici. Meme construction que `getPriceRule` (E10.6).
+         */
+        get: operations["getProductionStep"];
+        put?: never;
+        post?: never;
+        /**
+         * Supprime une etape du tenant. REFUSEE (409 `production_step.in_use`) des qu au moins une commande la porte comme etape courante — ou l a portee, quand E10.14 aura ouvert le journal des passages (CA3). L issue est alors la DESACTIVATION, qui conserve l historique.
+         *
+         *     La suppression REINDEXE les etapes restantes de 0 a n-1, cote serveur, dans la meme transaction : aucun trou ne subsiste dans les positions. C est la meme reindexation que `reorderProductionSteps`, pas une variante — une position fractionnaire ou trouee finit toujours par deriver.
+         *
+         *     Operation conservee alors que la desactivation existe : sans elle, une etape creee par erreur — faute de frappe dans le libelle, doublon d un flux mal compris — resterait a jamais dans le parametrage de l espace. Symetrique exact de `deleteProjectTag` (`project_tag.in_use`).
+         *
+         *     EN PRATIQUE, L ETAPE DE TETE DEVIENT VITE INSUPPRIMABLE : toute commande creee par `convertQuote` est posee sur l etape active de position la plus basse, qui porte donc des commandes des la premiere conversion. Ce n est pas un defaut — c est le CA3 qui joue exactement comme prevu. L interface de parametrage gagne a le dire avant le 409 : sur cette etape-la, l issue normale est la desactivation, ou le reordonnancement si l administrateur veut simplement changer le point d entree.
+         */
+        delete: operations["deleteProductionStep"];
+        options?: never;
+        head?: never;
+        /**
+         * Renomme une etape, change sa couleur, la marque terminale, l active ou la desactive (CA2, CA3, CA4). Modification PARTIELLE : seuls les champs presents sont appliques.
+         *
+         *     `position` N EST PAS MODIFIABLE ICI, et son absence du corps est le point le plus important de cette operation. Deplacer UNE etape renumerote ses voisines, donc modifie des ressources que l `If-Match` de l etape deplacee ne couvre pas. L ordre est un etat de la COLLECTION, pas un attribut d un de ses elements : il se change par `reorderProductionSteps`, en une seule transaction. Meme raisonnement, meme forme qu en E10.9 (`line-positions`) et E10.2 (`replaceProjectTags`).
+         *
+         *     DESACTIVER UNE ETAPE PORTEE PAR DES COMMANDES EST AUTORISE, sans garde et sans avertissement de la facade (CA3) : les commandes concernees gardent leur `current_production_step_id`, l etape reste lisible dans leur historique, elle cesse seulement d etre proposee. C est exactement le service que la desactivation rend — un atelier qui abandonne une etape ne recrit pas son passe.
+         */
+        patch: operations["updateProductionStep"];
+        trace?: never;
+    };
+    "/production-step-positions": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Reordonne le flux d atelier du tenant (CA2, glisser-deposer). `step_ids` porte la liste COMPLETE des etapes du tenant dans l ordre voulu ; le serveur reaffecte `position` de 0 a n-1 dans cet ordre, en une seule transaction.
+         *
+         *     LISTE EXHAUSTIVE, etapes DESACTIVEES COMPRISES. Un ordre partiel est refuse en 422 `production_step.positions_mismatch` : il laisserait les etapes omises a une position indeterminee. Les etapes desactivees conservent une position parce qu elles restent listees et reactivables — les exclure obligerait a leur en recalculer une au moment de la reactivation, sans que personne ne l ait choisie.
+         *
+         *     CHEMIN DEDIE plutot qu un `position` dans le PATCH : meme argument qu en E10.9 (`/quotes/{quoteId}/line-positions`), l ordre est un etat de la collection. Le chemin est ici de PREMIER NIVEAU parce que la collection l est — le catalogue appartient au tenant, et le tenant vient du jeton, jamais d un segment d URL (CA4).
+         *
+         *     `If-Match` EXIGE, et il porte sur le CATALOGUE — l `ETag` rendu par `listProductionSteps`, pas celui d une etape prise isolement (`getProductionStep`). C est la meme construction qu en E10.9, ou `reorderQuoteLines` oppose l `ETag` du DEVIS et non celui d une ligne : l ordre est un etat de la collection, la precondition doit porter sur ce qui est reellement reecrit.
+         *
+         *     Deux gardes distinctes, qui n attrapent pas la meme chose. L exhaustivite (422) attrape un catalogue dont la COMPOSITION a change — etape creee ou supprimee pendant le glisser-deposer : la liste envoyee ne le recouvre plus. L `If-Match` (409) attrape tout le reste, y compris deux administrateurs qui reordonnent le MEME jeu : sans lui, le second ecraserait le premier en silence, ce que le CA9 interdit.
+         */
+        put: operations["reorderProductionSteps"];
         post?: never;
         delete?: never;
         options?: never;
@@ -2602,11 +2751,13 @@ export interface components {
          * CommercialOrderStatus
          * @description Etat d une commande. UNE SEULE valeur aujourd hui, et c est un choix plutot qu un oubli.
          *
-         *     E10.12 cree la commande et s arrete la : le cycle de vie (mise en production, expedition, annulation, facturation) est le sujet d E10.13, qui le concevra pour la gestion commerciale. Declarer d avance les etapes de l enumeration `tenant_order_status` de la boutique (`validated`, `in_production`, `shipped`, `delivered`, `invoiced`, `cancelled`, migration `20260509000100`) aurait publie un cycle de vie que personne n a concu pour ce module — cette enumeration-la porte la mention « Vision V2+ » sur cinq de ses sept valeurs et aucune n a jamais ete atteinte.
+         *     E10.12 cree la commande et s arrete la : le cycle de vie (mise en production, expedition, annulation, facturation) est le sujet des stories de suivi, qui le concoivent pour la gestion commerciale. Declarer d avance les etapes de l enumeration `tenant_order_status` de la boutique (`validated`, `in_production`, `shipped`, `delivered`, `invoiced`, `cancelled`, migration `20260509000100`) aurait publie un cycle de vie que personne n a concu pour ce module — cette enumeration-la porte la mention « Vision V2+ » sur cinq de ses sept valeurs et aucune n a jamais ete atteinte.
          *
          *     `validated` est en revanche repris TEL QUEL de ce vocabulaire existant : c est deja le nom de « commande engagee commercialement » dans ce produit, et le bouton du back-office s appelle « Valider ». Inventer un synonyme aurait cree deux noms pour la meme notion.
          *
-         *     Liste ADDITIVE : E10.13 y ajoutera ses etats, un consommateur ignore une valeur qu il ne connait pas.
+         *     E10.13 N Y A RIEN AJOUTE, et il faut le lire comme une decision. Les etapes de production qu elle apporte ne sont PAS des statuts : elles sont configurees par chaque tenant et vivent sur un autre axe (`CommercialOrder.current_production_step_id`, `ProductionStep`). Les verser ici aurait oblige chaque tenant a publier son organisation d atelier dans une enumeration commune. L annulation et la facturation restent, elles, de futurs statuts.
+         *
+         *     Liste ADDITIVE : une story ulterieure peut y ajouter un etat, un consommateur ignore une valeur qu il ne connait pas.
          * @enum {string}
          */
         CommercialOrderStatus: "validated";
@@ -2716,6 +2867,20 @@ export interface components {
             number: string;
             status: components["schemas"]["CommercialOrderStatus"];
             source_quote_status: components["schemas"]["ConvertedFromStatus"];
+            /**
+             * @description Etape de production COURANTE (`ProductionStep`, E10.13), ou `null` quand la commande n est pas encore engagee dans le flux d atelier.
+             *
+             *     UN POINTEUR, PAS UNE PROGRESSION. Il ne dit que « ou en est cette commande maintenant » : passer a une etape avancee ne valide AUCUNE etape anterieure, le franchissement est autorise et assume (CA5 de la story) — toutes les commandes ne passent pas par toutes les etapes. Ne jamais reconstituer un parcours a partir de ce champ.
+             *
+             *     UN SEUL AXE, ET IL N EST PAS `status`. `status` porte l etat COMMERCIAL du document (engagement) ; ce champ porte l avancement en ATELIER, configure par le tenant. Les deux bougent independamment.
+             *
+             *     Le LIBELLE et la COULEUR ne sont pas recopies ici : le catalogue se lit une fois par `listProductionSteps` et se joint cote appelant. Les dupliquer sur chaque commande creerait une seconde verite a tenir synchrone a chaque renommage.
+             *
+             *     QUI POSE CETTE VALEUR. La CONVERSION d un devis (`convertQuote`, E10.12) la pose a la creation, sur l etape ACTIVE de POSITION LA PLUS BASSE du tenant — arbitrage Arnaud du 2026-09-08, cable par E10.13. Ensuite, PLUS AUCUNE operation de ce contrat ne la change : E10.13 rend l etape filtrable et triable (CA6) mais n ouvre aucun changement d etape, qui est le sujet d E10.14 (suivi de production, journal horodate des passages, emission d `order.step_changed`).
+             *
+             *     QUAND VAUT-IL `null` ? Deux cas, tous deux normaux : une commande creee AVANT la livraison d E10.13 et non reprise par le rattrapage de sa migration ; un tenant qui n a plus AUCUNE etape active au moment de la conversion — un defaut de parametrage d atelier n empeche jamais un engagement commercial. Un appelant traite donc `null` comme « hors flux d atelier », jamais comme une anomalie.
+             */
+            current_production_step_id: components["schemas"]["Uuid"] | null;
             totals: components["schemas"]["CommercialOrderTotals"];
             /** @description Membre de l espace qui a valide le devis. `null` seulement si ce compte a disparu depuis. C est l auteur de l ENGAGEMENT : contrairement au devis, dont la decision peut venir d un compte boutique, une commande de ce contrat est toujours creee par un membre. */
             created_by: components["schemas"]["Uuid"] | null;
@@ -2736,6 +2901,8 @@ export interface components {
             number: string;
             status: components["schemas"]["CommercialOrderStatus"];
             source_quote_status: components["schemas"]["ConvertedFromStatus"];
+            /** @description Etape de production courante, ou `null`. Voir `CommercialOrder` pour la regle complete — pointeur, jamais une progression. */
+            current_production_step_id: components["schemas"]["Uuid"] | null;
             totals: components["schemas"]["CommercialOrderTotals"];
             created_by: components["schemas"]["Uuid"] | null;
             created_at: components["schemas"]["Timestamp"];
@@ -3148,6 +3315,108 @@ export interface components {
             /** @description Taux positif ou nul, en chaine a quatre decimales. */
             margin_rate: components["schemas"]["Rate"];
         };
+        /**
+         * ProductionStepColor
+         * @description JETON de couleur d une palette FERMEE, alignee sur les tokens shadcn/Tailwind du design system. Jamais un code hexadecimal : la charte doit pouvoir evoluer sans migration.
+         *
+         *     Memes valeurs que `ProjectTagColor` (E10.2), schema NEANMOINS DISTINCT. Deux catalogues sans rapport — le colorisme d un tag de projet et celui d un flux d atelier — n ont pas a etre lies par un type commun : le jour ou l un gagne une teinte, l autre n a pas a la recevoir, et un type partage rendrait cet ajout impossible sans effet de bord. Meme parti que `ConvertedFromStatus` face a `QuoteStatus` (E10.12).
+         *
+         *     A NOTER pour qui compare avec l existant : `tenant_order_status_ definitions.color` (boutique, S-ORDER-ROLES) stocke un hexadecimal (`#10b981`). Ce contrat ne le reprend pas — E10.2 avait deja tranche contre l hexadecimal, et une charte ne se migre pas.
+         * @enum {string}
+         */
+        ProductionStepColor: "slate" | "blue" | "green" | "amber" | "red" | "violet";
+        /**
+         * ProductionStepStatusFilter
+         * @description Filtre de liste sur l etat de l etape : `active` vaut `is_active: true`, `disabled` vaut `is_active: false`. Forme reprise de `PriceRuleStatusFilter` (E10.6) — ce contrat n a aucun parametre de requete booleen.
+         * @enum {string}
+         */
+        ProductionStepStatusFilter: "active" | "disabled";
+        /**
+         * ProductionStep
+         * @description Etape du flux de production d un tenant (E10.13). DONNEE DE TENANT, pas valeur d enumeration applicative : rien dans le code Magrit ne connait « PAO » ni « Livre », et aucun consommateur ne doit les coder en dur.
+         *
+         *     Un jeu standard est provisionne a la creation de l espace (CA1), dans cet ordre : Fichier recu, PAO, Fichier valide, En cours de production, En cours d expedition, Livre — les six libelles arretes en seance produit du 28/08/2026, confirmes le 2026-09-08. Il est un POINT DE DEPART, entierement renommable, reordonnable et supprimable — sa presence ne fait de ces six libelles ni un contrat, ni un vocabulaire partage entre tenants.
+         *
+         *     AUCUN CHAMP DE NOTIFICATION ICI, et c est delibere : le rattachement d un modele de notification a une etape est porte par le MODELE (E10.15), qui exposera un filtre `production_step_id` sur sa propre collection. Publier une liste vide sur cette ressource creerait un champ qu E10.15 devrait soit dupliquer, soit contredire.
+         */
+        ProductionStep: {
+            id: components["schemas"]["Uuid"];
+            tenant_id: components["schemas"]["Uuid"];
+            /** @description Libelle affiche TEL QUE SAISI. Unique dans le tenant sur sa forme normalisee (trim, casse insensible), etapes desactivees comprises. */
+            label: string;
+            /**
+             * Format: int32
+             * @description Rang dans le flux, ENTIER, contigu de 0 a n-1 sur l ensemble des etapes du tenant (actives et desactivees confondues). Jamais fractionnaire : une position fractionnaire derive a l usage et finit par exiger une reindexation qu aucune story n a prevue. Reaffectee par le SERVEUR a chaque creation, suppression et reordonnancement ; un appelant ne la choisit jamais.
+             *
+             *     LA POSITION A UN EFFET DE BORD A CONNAITRE : l etape ACTIVE de position la plus basse est celle sur laquelle TOUTE NOUVELLE COMMANDE est posee a la conversion d un devis (`convertQuote`). Reordonner le flux ou desactiver l etape de tete change donc le point d entree des commandes A VENIR — jamais celui des commandes deja creees, qui gardent l etape qu elles portent.
+             */
+            position: number;
+            color: components["schemas"]["ProductionStepColor"];
+            /**
+             * @description L etape marque-t-elle une fin de parcours (« Livre ») ? INDICATEUR D AFFICHAGE ET DE LECTURE, sans aucun effet de garde dans ce lot : il ne cloture pas la commande, n interdit aucun passage ulterieur et ne verrouille rien. Il dit « une commande arrivee la n est plus attendue en atelier », ce dont un tableau de bord et, plus tard, une notification (E10.15) ont besoin.
+             *
+             *     PLUSIEURS etapes terminales sont permises : un flux reel en compte souvent deux (livree, abandonnee). Aucune contrainte n en impose ni n en limite le nombre, et aucune n exige qu une etape terminale soit la derniere du flux — l ordre est celui de l atelier, pas une machine a etats.
+             */
+            is_terminal: boolean;
+            /**
+             * @description Etape proposee au suivi. `false` n est PAS un effacement logique : l etape reste listee, garde sa position, reste lisible sur les commandes qui la portent, et se reactive (CA3). C est la seule issue offerte quand la suppression est refusee faute d etre inutilisee.
+             *
+             *     UN SEUL EFFET DE BORD : une etape desactivee n est plus candidate au point d entree des nouvelles commandes (voir `position`). Desactiver l etape de tete deplace donc ce point d entree sur l etape active suivante ; les desactiver TOUTES fait naitre les commandes sans etape (`current_production_step_id: null`), sans jamais faire echouer une conversion.
+             */
+            is_active: boolean;
+            created_at: components["schemas"]["Timestamp"];
+            /** @description Derniere modification de l etape. C est cette valeur qui fonde son `ETag` — un reordonnancement la fait donc avancer sur chaque etape reellement deplacee. */
+            updated_at: components["schemas"]["Timestamp"];
+        };
+        /**
+         * CreateProductionStepCommand
+         * @description Commande de creation d une etape (CA2). AUCUN champ `position` : la nouvelle etape est ajoutee en FIN de flux, l ordre se change ensuite par `reorderProductionSteps` — seule operation transactionnelle sur les positions.
+         */
+        CreateProductionStepCommand: {
+            label: string;
+            /** @description Couleur de la pastille. Absente -> le serveur en affecte une de la palette fermee, de facon deterministe pour un meme libelle normalise (meme mecanique que `createProjectTag`). Le choix reste offert ici, contrairement aux tags, parce qu une etape se cree dans un ecran de parametrage ou l administrateur compose une signaletique d atelier, pas a la volee au fil de la frappe. */
+            color?: components["schemas"]["ProductionStepColor"];
+            /**
+             * @description Defaut `false`.
+             * @default false
+             */
+            is_terminal: boolean;
+        };
+        /**
+         * UpdateProductionStepCommand
+         * @description Modification PARTIELLE d une etape : seuls les champs presents sont appliques. Un corps vide est accepte et sans effet — il ne rend pas 422, pour la meme raison qu en E10.6 : rejouer une requete sans changement n est pas une erreur d appelant.
+         *
+         *     NI `position`, NI `tenant_id`. La position se change par `reorderProductionSteps` (etat de la collection) ; le tenant vient du jeton et une etape ne demenage pas (CA7).
+         */
+        UpdateProductionStepCommand: {
+            label?: string;
+            color?: components["schemas"]["ProductionStepColor"];
+            is_terminal?: boolean;
+            /** @description Desactivation (`false`) ou reactivation (`true`). Autorisee meme si des commandes portent l etape : elles la conservent, l historique reste lisible (CA3). */
+            is_active?: boolean;
+        };
+        /**
+         * ReorderProductionStepsCommand
+         * @description Nouvel ordre du flux d atelier. `step_ids` porte la liste COMPLETE des etapes du tenant — actives ET desactivees — dans l ordre voulu ; le serveur reaffecte `position` de 0 a n-1. Tout recouvrement inexact (element inconnu, doublon, etape manquante) rend 422 `production_step.positions_mismatch`.
+         *
+         *     Champ nomme `step_ids` et non `ordered_ids` : ce contrat nomme ce genre de liste d apres ce qu elle contient, jamais d apres ce qu on en fait (`line_ids`, `tag_ids`).
+         */
+        ReorderProductionStepsCommand: {
+            step_ids: components["schemas"]["Uuid"][];
+        };
+        /**
+         * CommercialOrderSort
+         * @description Ordre de tri de `listCommercialOrders`, prefixe `-` pour decroissant. Defaut `-created_at` : l ordre de suivi ordinaire, la commande la plus recente en tete.
+         *
+         *     `production_step` trie sur la POSITION de l etape courante — l ordre du flux d atelier — jamais sur son libelle : un tri alphabetique placerait « En cours d expedition » avant « PAO », ce qui n a aucun sens operationnel et changerait a chaque renommage.
+         *
+         *     LES COMMANDES SANS ETAPE COURANTE SONT TOUJOURS RENDUES EN DERNIER, dans les deux sens. `null` n y est pas traite comme une valeur extreme mais comme « pas encore engagee dans le flux » : la placer en tete d un tri descendant ferait passer une commande non demarree pour la plus avancee. A egalite d etape, le departage est `created_at` decroissant puis `id`, pour que le curseur de pagination reste stable.
+         *
+         *     Le curseur encode l ordre demande : reprendre le MEME `sort` sur les pages suivantes ; un `sort` different d un curseur en cours rend 400 `api.validation_failed`, jamais une page silencieusement incoherente (meme regle qu en E10.6).
+         * @default -created_at
+         * @enum {string}
+         */
+        CommercialOrderSort: "-created_at" | "created_at" | "production_step" | "-production_step";
     };
     responses: {
         /** @description Requete malformee. */
@@ -3308,6 +3577,8 @@ export interface components {
         StorefrontQuoteId: components["schemas"]["Uuid"];
         /** @description Identifiant technique de la commande de gestion commerciale (`commercial_orders`, E10.12), dans le tenant du jeton. SANS RAPPORT avec l `orderId` des routes historiques `/api/v1/orders/...`, qui adresse une commande BOUTIQUE (`tenant_orders`) : deux tables, deux cycles de vie, deux facades. Un identifiant valide d un cote rend 404 de l autre. */
         CommercialOrderId: components["schemas"]["Uuid"];
+        /** @description Identifiant technique de l etape de production (`production_steps`, E10.13), dans le tenant du jeton. L etape n a PAS de code metier stable : elle est une donnee de tenant, renommable a tout moment, et seul cet identifiant l adresse. Un consommateur qui cherche « l etape PAO » lit le catalogue, il ne devine pas une cle. */
+        ProductionStepId: components["schemas"]["Uuid"];
         /** @description Identifiant technique de la ligne de devis. Toujours resolu DANS le devis du chemin : une ligne d un autre devis rend 404 `quote_line.not_found`, jamais la ligne de l autre devis. */
         QuoteLineId: components["schemas"]["Uuid"];
         /** @description Identifiant technique de la regle de prix, dans le tenant du jeton. */
@@ -3429,6 +3700,13 @@ export type PriceRuleResolveResult = components['schemas']['PriceRuleResolveResu
 export type PriceRuleChangedPayload = components['schemas']['PriceRuleChangedPayload'];
 export type ProductRangeDefaultMargin = components['schemas']['ProductRangeDefaultMargin'];
 export type SetProductRangeDefaultMarginCommand = components['schemas']['SetProductRangeDefaultMarginCommand'];
+export type ProductionStepColor = components['schemas']['ProductionStepColor'];
+export type ProductionStepStatusFilter = components['schemas']['ProductionStepStatusFilter'];
+export type ProductionStep = components['schemas']['ProductionStep'];
+export type CreateProductionStepCommand = components['schemas']['CreateProductionStepCommand'];
+export type UpdateProductionStepCommand = components['schemas']['UpdateProductionStepCommand'];
+export type ReorderProductionStepsCommand = components['schemas']['ReorderProductionStepsCommand'];
+export type CommercialOrderSort = components['schemas']['CommercialOrderSort'];
 export type ResponseBadRequest = components['responses']['BadRequest'];
 export type ResponseUnauthorized = components['responses']['Unauthorized'];
 export type ResponseForbidden = components['responses']['Forbidden'];
@@ -3452,6 +3730,7 @@ export type ParameterProjectId = components['parameters']['ProjectId'];
 export type ParameterQuoteId = components['parameters']['QuoteId'];
 export type ParameterStorefrontQuoteId = components['parameters']['StorefrontQuoteId'];
 export type ParameterCommercialOrderId = components['parameters']['CommercialOrderId'];
+export type ParameterProductionStepId = components['parameters']['ProductionStepId'];
 export type ParameterQuoteLineId = components['parameters']['QuoteLineId'];
 export type ParameterPriceRuleId = components['parameters']['PriceRuleId'];
 export type ParameterProductRangeId = components['parameters']['ProductRangeId'];
@@ -6083,8 +6362,22 @@ export interface operations {
                 customer_id?: components["schemas"]["Uuid"];
                 /** @description Filtre sur le devis source. Rend zero ou UNE commande : un devis ne se convertit qu une fois. */
                 quote_id?: components["schemas"]["Uuid"];
-                /** @description Filtre sur le statut de la commande. Absent -> tous statuts. Sans effet utile aujourd hui, `validated` etant le seul statut existant (voir `CommercialOrderStatus`) ; publie des maintenant pour que E10.13 n ait pas a ajouter un parametre a une operation deja servie. */
+                /** @description Filtre sur le statut COMMERCIAL de la commande. Absent -> tous statuts. Sans effet utile aujourd hui, `validated` etant le seul statut existant (voir `CommercialOrderStatus`) ; publie des maintenant pour qu une story de cycle de vie n ait pas a ajouter un parametre a une operation deja servie. Ne pas le confondre avec `current_production_step_id` : deux axes distincts, l engagement commercial et l avancement en atelier. */
                 status?: components["schemas"]["CommercialOrderStatus"];
+                /**
+                 * @description Filtre sur l ETAPE DE PRODUCTION COURANTE (E10.13 CA6) : ne retient que les commandes dont `current_production_step_id` vaut exactement cette valeur. L etape doit appartenir au tenant du jeton ; sinon 422 `production_step.not_found` — jamais une page vide, qui laisserait croire a une absence de commandes plutot qu a un identifiant errone.
+                 *
+                 *     Aucun filtre « sans etape » aujourd hui. Il s ajoutera de facon additive le jour ou il servira ; d ici la, toute commande convertie depuis la livraison d E10.13 porte une etape (`convertQuote` la pose a la creation), et le cas `null` se limite aux commandes anterieures non reprises par le rattrapage et aux tenants sans aucune etape active.
+                 *
+                 *     E10.14 n ayant pas encore ouvert le CHANGEMENT d etape, ce filtre ne rend aujourd hui que des commandes posees sur la PREMIERE etape active. C est un tableau de bord exact, pas encore un tableau de bord vivant.
+                 */
+                current_production_step_id?: components["schemas"]["Uuid"];
+                /**
+                 * @description Ordre de tri, prefixe `-` pour l ordre decroissant. Defaut `-created_at`, qui est l ordre servi avant E10.13 : ajouter ce parametre ne change donc le comportement d aucun appelant existant.
+                 *
+                 *     `production_step` trie sur la POSITION de l etape courante, pas sur son libelle, et range toujours les commandes sans etape en dernier. Detail et motif dans `CommercialOrderSort`.
+                 */
+                sort?: components["schemas"]["CommercialOrderSort"];
                 /** @description Nombre d elements par page. Defaut 50, maximum 200. */
                 "page[size]"?: components["parameters"]["PageSize"];
                 /** @description Curseur opaque renvoye par `meta.next_cursor` de la page precedente. Absent sur la premiere page. Ne jamais construire un curseur cote client : sa structure interne n est pas contractuelle. */
@@ -6163,6 +6456,370 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    listProductionSteps: {
+        parameters: {
+            query?: {
+                /**
+                 * @description Filtre sur l etat de l etape : `active` vaut `is_active: true`, `disabled` vaut `is_active: false`. Absent -> les deux.
+                 *
+                 *     Forme reprise de `listPriceRules` (`PriceRuleStatusFilter`) plutot que le `?is_active=` esquisse au cadrage produit : ce contrat n a AUCUN parametre de requete booleen, et en introduire un ici aurait cree deux conventions pour la meme question. Le sens est identique.
+                 *
+                 *     `is_active: false` n est PAS un effacement logique : une etape desactivee reste listee, reste lisible dans l historique des commandes qui l ont portee, conserve sa position et se reactive (CA3).
+                 */
+                status?: components["schemas"]["ProductionStepStatusFilter"];
+            };
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /**
+             * @description Etapes du tenant, triees par `position` croissante. Jamais vide sur un tenant provisionne : le jeu standard est pose a la creation de l espace (CA1). Peut le devenir si l administrateur supprime tout — aucune garde ne l en empeche, une etape inutilisee etant supprimable.
+             *
+             *     L `ETag` rendu valide le catalogue COMPLET du tenant et se repasse dans l `If-Match` de `reorderProductionSteps`.
+             */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["ProductionStep"][];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    createProductionStep: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+                /**
+                 * @description Cle d idempotence fournie par l appelant sur tout POST creant une ressource metier (CA8). Rejouer la meme cle avec la meme requete renvoie la reponse initiale, accompagnee de l en-tete `Idempotency-Replayed: true` ; la rejouer avec une requete differente renvoie 409 `api.idempotency_key_reused`.
+                 *
+                 *     L identite d une requete couvre la methode, le chemin, LA QUERY et le corps : deux POST au meme chemin avec des query differentes ne sont pas la meme requete.
+                 *
+                 *     Sur un rejeu, seul `meta.request_id` est recale sur la requete courante ; `data` est rendu inchange.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateProductionStepCommand"];
+            };
+        };
+        responses: {
+            /** @description Etape creee, en fin de flux. L `ETag` rendu est celui de l ETAPE — utilisable tel quel dans un `PATCH` ulterieur — et non celui du catalogue, que cette creation vient par ailleurs de faire avancer : un ecran qui enchaine sur un reordonnancement relit `listProductionSteps`. */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    "Idempotency-Replayed": components["headers"]["IdempotencyReplayed"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["ProductionStep"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["ForbiddenCapability"];
+            /**
+             * @description Soit une etape porte deja ce libelle normalise dans le tenant (`production_step.label_conflict`) — y compris une etape DESACTIVEE, dont le libelle reste reserve ; soit la cle d idempotence a ete rejouee avec une requete differente (`api.idempotency_key_reused`).
+             *
+             *     Volontairement un CONFLIT et non une creation idempotente sur le libelle, contrairement a `createProjectTag` : un tag se cree a la volee en cours de frappe, ou renvoyer l existant est le service attendu ; une etape de production se cree dans un ecran de parametrage, ou reutiliser silencieusement une etape existante — et peut-etre desactivee — masquerait a l administrateur ce qu il vient reellement de faire.
+             */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Soit le libelle est vide ou trop long (`api.validation_failed`), soit le tenant a deja 50 etapes (`production_step.limit_reached`). Ce plafond n est pas decoratif : c est lui qui autorise `listProductionSteps` a ne pas paginer. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getProductionStep: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path: {
+                /** @description Identifiant technique de l etape de production (`production_steps`, E10.13), dans le tenant du jeton. L etape n a PAS de code metier stable : elle est une donnee de tenant, renommable a tout moment, et seul cet identifiant l adresse. Un consommateur qui cherche « l etape PAO » lit le catalogue, il ne devine pas une cle. */
+                stepId: components["parameters"]["ProductionStepId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Etape de production du tenant. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["ProductionStep"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description Aucune etape de cet identifiant dans le tenant du jeton (`production_step.not_found`). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    deleteProductionStep: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path: {
+                /** @description Identifiant technique de l etape de production (`production_steps`, E10.13), dans le tenant du jeton. L etape n a PAS de code metier stable : elle est une donnee de tenant, renommable a tout moment, et seul cet identifiant l adresse. Un consommateur qui cherche « l etape PAO » lit le catalogue, il ne devine pas une cle. */
+                stepId: components["parameters"]["ProductionStepId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Etape supprimee, positions restantes reindexees. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: {
+                            /** @enum {boolean} */
+                            deleted: true;
+                        };
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["ForbiddenCapability"];
+            /** @description Aucune etape de cet identifiant dans le tenant du jeton (`production_step.not_found`). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description L etape est utilisee par au moins une commande (`production_step.in_use`). Le refus est tenu EN BASE par une cle etrangere `on delete restrict`, pas par une verification prealable de la facade : une lecture suivie d une suppression laisse une fenetre ou une commande peut arriver sur l etape entre les deux. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    updateProductionStep: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+                /**
+                 * @description Valeur d `ETag` de la representation lue, exigee sur tout PATCH (CA9). Absente -> 428 `api.if_match_required`. Differente de l etat courant -> 409 avec l etat courant dans `current_state`.
+                 *
+                 *     `If-Match: *` est REFUSE en 400 `api.if_match_invalid`, contrairement a la semantique RFC 7232 ou il signifie « pourvu que la ressource existe ». Ici il reviendrait a desactiver le controle de concurrence : deux modifications concurrentes s ecraseraient en silence, ce que le CA9 interdit. Le `pattern` ci-dessous n admet qu un ETag, faible ou fort.
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description Identifiant technique de l etape de production (`production_steps`, E10.13), dans le tenant du jeton. L etape n a PAS de code metier stable : elle est une donnee de tenant, renommable a tout moment, et seul cet identifiant l adresse. Un consommateur qui cherche « l etape PAO » lit le catalogue, il ne devine pas une cle. */
+                stepId: components["parameters"]["ProductionStepId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateProductionStepCommand"];
+            };
+        };
+        responses: {
+            /** @description Etape modifiee, `ETag` recalcule. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["ProductionStep"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["ForbiddenCapability"];
+            /** @description Aucune etape de cet identifiant dans le tenant du jeton (`production_step.not_found`). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Soit l `If-Match` ne correspond plus a l etat courant (`api.resource_conflict`, avec `current_state`), soit le libelle demande est deja porte par une autre etape du tenant (`production_step.label_conflict`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            422: components["responses"]["UnprocessableEntity"];
+            428: components["responses"]["PreconditionRequired"];
+        };
+    };
+    reorderProductionSteps: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+                /** @description Precondition de concurrence optimiste sur LE CATALOGUE du tenant (CA9, meme garantie qu un PATCH — voir components/parameters/IfMatch). Valeur rendue par `listProductionSteps`. Toute ecriture du referentiel — creation, modification, desactivation, suppression, reordonnancement — fait avancer cet `ETag`. */
+                "If-Match": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReorderProductionStepsCommand"];
+            };
+        };
+        responses: {
+            /** @description Catalogue complet du tenant, dans le nouvel ordre. La reponse rend la liste entiere plutot que le seul accuse de reception : c est elle qui fait foi sur les positions effectivement appliquees, et l ecran de parametrage n a pas a les recalculer. L `ETag` rendu est celui du catalogue, recalcule. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["ProductionStep"][];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["ForbiddenCapability"];
+            /** @description L `If-Match` ne correspond plus a l etat courant du catalogue (`api.resource_conflict`), avec le catalogue courant dans `current_state` pour que l appelant rejoue sans relire. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `step_ids` ne recouvre pas EXACTEMENT les etapes du tenant — element inconnu, hors tenant, doublon, ou etape manquante (`production_step.positions_mismatch`). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            428: components["responses"]["PreconditionRequired"];
         };
     };
     onQuoteConverted: {
