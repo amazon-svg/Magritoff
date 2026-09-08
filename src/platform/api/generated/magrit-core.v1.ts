@@ -1243,7 +1243,9 @@ export interface paths {
         put?: never;
         post?: never;
         /**
-         * Supprime une etape du tenant. REFUSEE (409 `production_step.in_use`) des qu au moins une commande la porte comme etape courante — ou l a portee, quand E10.14 aura ouvert le journal des passages (CA3). L issue est alors la DESACTIVATION, qui conserve l historique.
+         * Supprime une etape du tenant. REFUSEE (409 `production_step.in_use`) des qu au moins une commande la porte comme etape courante, OU l a seulement TRAVERSEE — le journal des passages (`listOrderStepChanges`, E10.14) la cite alors, et cette citation suffit (CA3). L issue est la DESACTIVATION, qui conserve l historique.
+         *
+         *     CITER UNE ETAPE DANS LE JOURNAL LA REND DONC DEFINITIVEMENT INDELEBILE, meme quand plus aucune commande ne s y trouve. C est voulu : un historique append-only dont on peut effacer le vocabulaire n est plus non modifiable, il devient illisible a retardement. La suppression garde le cas qui la justifie — une etape creee par erreur et jamais utilisee.
          *
          *     La suppression REINDEXE les etapes restantes de 0 a n-1, cote serveur, dans la meme transaction : aucun trou ne subsiste dans les positions. C est la meme reindexation que `reorderProductionSteps`, pas une variante — une position fractionnaire ou trouee finit toujours par deriver.
          *
@@ -1302,6 +1304,68 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/commercial-orders/{orderId}/step-changes": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Journal horodate des changements d etape de production d une commande (CA5, CA6), du PLUS RECENT au plus ancien.
+         *
+         *     APPEND-ONLY ET LECTURE SEULE. Aucune operation de ce contrat ne modifie ni ne supprime une entree — la garantie est tenue EN BASE (`revoke update, delete`), pas par l absence d un endpoint. Une correction se fait en posant une NOUVELLE transition vers l etape voulue, qui laisse les deux mouvements lisibles : c est le propre d un journal, et c est ce que la story demande en exigeant qu il ne soit pas modifiable.
+         *
+         *     ORDRE ANTICHRONOLOGIQUE, jamais configurable : la question posee devant cet ecran est « ou en est-on, et qui vient de la bouger », pas « par ou a-t-on commence ». Meme parti que `listQuoteAuditEntries` et `listQuoteHeaderAuditEntries` (E10.9 / E10.10a), qui n exposent pas davantage de parametre de tri.
+         *
+         *     LISIBLE PAR TOUT MEMBRE DE L ESPACE, et par une cle de service portant `orders:read`. AUCUN droit metier exige, contrairement aux journaux d audit TARIFAIRES d un devis (`can_manage_pricing`) : ceux-la exposent ce que les autres ont consenti sur un prix, celui-ci expose l avancement d un travail d atelier. Savoir qu une commande est passee en expedition n est pas une position de supervision, c est le travail courant.
+         *
+         *     PAS DE JOINTURE SUR LE CATALOGUE : les entrees portent des identifiants d etape, jamais leur libelle ni leur couleur. Le catalogue se lit UNE FOIS par `listProductionSteps` — qui rend aussi les etapes DESACTIVEES, precisement pour que ce journal reste lisible quand une etape sort du flux — et se joint cote appelant. Recopier le libelle sur chaque entree creerait une seconde verite a tenir synchrone a chaque renommage.
+         *
+         *     JOURNAL DES PASSAGES, PAS DE LA CREATION. L etape INITIALE posee par `convertQuote` (E10.13, arbitrage du 2026-09-08) n ouvre AUCUNE entree : poser une valeur a la creation n est pas franchir une etape, au meme titre que le numero de la commande. Une commande jamais deplacee a donc un journal VIDE tout en portant une etape courante — ce n est ni une anomalie, ni une donnee perdue : l instant de son entree dans le flux est `CommercialOrder.created_at`.
+         */
+        get: operations["listOrderStepChanges"];
+        put?: never;
+        /**
+         * Deplace une commande sur une etape de production du tenant, et JOURNALISE le passage dans le meme geste (CA4, CA5).
+         *
+         *     UNE SEULE TRANSACTION, DEUX ECRITURES INDISSOCIABLES : l entree de journal est inseree ET `commercial_orders.current_production_step_id` est mis a jour. La colonne est la PROJECTION du journal, pas une seconde verite : elle repond a « ou en est-on » (ce que le tableau de bord filtre et trie, E10.13 CA6), le journal repond a « par ou est-on passe, quand, et par qui ». Il ne peut exister ni entree sans deplacement, ni deplacement sans entree.
+         *
+         *     LE FRANCHISSEMENT EST AUTORISE ET ASSUME (CA4). Passer directement de « Fichier recu » a « Livre » est un mouvement LEGAL, pas une tolerance : aucune etape intermediaire n est validee au passage, aucune ne le sera jamais retroactivement, et le journal ne portera que le saut reellement effectue. Toutes les commandes ne passent pas par toutes les etapes — c est le fait metier qui fonde ce contrat, deja acte en E10.13 (#2bis).
+         *
+         *     LE RECUL EST AUTORISE AUSSI, et pour la meme raison : rien dans ce modele n ordonne les transitions. Une commande renvoyee en PAO parce que le fichier etait mauvais recule ; une erreur de saisie se corrige en reposant l etape juste. Le journal garde les deux mouvements. Ne JAMAIS ajouter de garde d ordre : ce serait la machine a etats que la story refuse.
+         *
+         *     `is_terminal` NE VERROUILLE RIEN : une commande posee sur une etape terminale peut etre deplacee de nouveau. L indicateur reste ce qu E10.13 en a fait, un signal d affichage et de lecture.
+         *
+         *     DEUX POINTS D APPEL, UNE SEULE OPERATION : le bouton « Statut » de la ligne de grille et celui de la fiche appellent CECI. Aucune edition « en ligne » dans la grille n existe (CA1) — et le contrat ne peut pas l interdire, faute d avoir jamais publie d autre voie : le respect du CA1 se joue dans l ecran, pas ici. Ce que le contrat garantit, lui, c est qu il n existe AUCUN autre chemin d API pour changer une etape.
+         *
+         *     JOIGNABLE PAR CLE DE SERVICE (`orders:write`, scope publie par le socle E10.0 et jamais consomme jusqu ici) : un module tiers qui pilote l atelier — Studio, un poste de production — doit pouvoir avancer une commande sans jeton utilisateur. L auteur est alors la CLE, et le journal le dit (`OrderStepChange.actor_label`). ARBITRE PAR ARNAUD LE 2026-09-09 (cadrage E10.14, reserve (b), close) : c est la PREMIERE operation d ECRITURE du contrat E10 joignable autrement que par un jeton utilisateur — les cles de service ne faisaient jusqu ici que lire. Le franchissement est voulu, pas subi.
+         *
+         *     AUCUN DROIT METIER EXIGE pour un jeton utilisateur : tout membre de l espace peut deplacer une commande. Meme parti que `convertQuote` (E10.12 decision #9, arbitrage Arnaud du 2026-09-08) et raisonnement symetrique de `can_manage_production_steps` : DEFINIR le flux d atelier est un geste d administration, y faire AVANCER une commande est le geste d atelier ordinaire, celui de l operateur devant sa grille. Nommer une garde qu on ne veut pas poser serait cosmetique.
+         *
+         *     `Idempotency-Key` EXIGEE, et elle sert ici plus qu ailleurs : le geste part d une grille dense, ou le double-clic et le re-envoi apres timeout sont la norme. Rejouee a l identique, elle rend la reponse initiale sans creer de seconde entree au journal.
+         *
+         *     AUCUNE PRECONDITION DE CONCURRENCE. `If-Match` n est ni exige, ni honore : le dernier ecrivain gagne, et deux operateurs qui deplacent la meme commande produisent DEUX entrees de journal, dans l ordre, avec leurs auteurs — ce qui est plus informatif qu un 409. Le contrat le dit plutot que de se taire, parce qu un silence ne se distingue pas d un oubli. ARBITRE PAR ARNAUD LE 2026-09-09 (cadrage E10.14, reserve (a), close) : le choix est acquis pour la duree de v1, l exiger plus tard serait cassant (428 sur un appelant existant).
+         * @description Publie `order.step_changed` dans `outbox_events` — et RIEN d autre au titre des notifications (CA7). Ce lot ne fait que DEPOSER l evenement ; son evaluation (a qui notifier, avec quel modele) est E10.15, non livree. Aucun appel direct a un moteur de notification, jamais, meme patron que `quote.sent` / `quote.accepted` / `quote.converted`.
+         */
+        post: operations["changeOrderProductionStep"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export interface webhooks {
     "quote.converted": {
@@ -1334,7 +1398,17 @@ export interface webhooks {
         };
         get?: never;
         put?: never;
-        /** Une commande a change d etape de production. */
+        /**
+         * Une commande a change d etape de production (`changeOrderProductionStep`, E10.14). Charge utile : `OrderStepChangedPayload` (`event_version: 1`).
+         *
+         *     NOM CONSERVE TEL QUEL. `order.step_changed` est publie dans `EventName` DEPUIS LE SOCLE E10.0, sans producteur jusqu ici ; E10.14 lui en donne un. Le renommer en `commercial_order.step_changed`, plus proche de `commercial_orders` et du chemin `/commercial-orders`, aurait ete un changement CASSANT au sens du CA13 — un nom d evenement se retire aussi mal qu un champ (§7 de docs/api/CONVENTIONS.md) — et aurait laisse deux noms pour un seul fait, dont un mort. La coherence de nommage se paie ici en DESCRIPTION, pas en surface.
+         *
+         *     `aggregate_type` vaut `order`, `aggregate_id` la COMMANDE deplacee (pas l entree de journal) : l agregat est le document dont l etat change, l entree en est le compte-rendu. `order` designe sur ce bus la commande de GESTION COMMERCIALE (`commercial_orders`) et elle seule — la commande BOUTIQUE (`tenant_orders`) ne publie rien sur ce bus.
+         *
+         *     EMIS A CHAQUE PASSAGE, sauts et reculs compris, et JAMAIS a la creation de la commande : l etape initiale posee par `convertQuote` n est pas un changement d etape (E10.13 #2ter). La conversion emet `quote.converted`, et elle seule.
+         *
+         *     PREMIER CONSOMMATEUR ATTENDU : l evaluation des notifications (E10.15, non livree). E10.14 ne fait que DEPOSER l evenement dans `outbox_events` — aucun appel direct a un moteur de notification (CA7).
+         */
         post: operations["onOrderStepChanged"];
         delete?: never;
         options?: never;
@@ -2876,7 +2950,9 @@ export interface components {
              *
              *     Le LIBELLE et la COULEUR ne sont pas recopies ici : le catalogue se lit une fois par `listProductionSteps` et se joint cote appelant. Les dupliquer sur chaque commande creerait une seconde verite a tenir synchrone a chaque renommage.
              *
-             *     QUI POSE CETTE VALEUR. La CONVERSION d un devis (`convertQuote`, E10.12) la pose a la creation, sur l etape ACTIVE de POSITION LA PLUS BASSE du tenant — arbitrage Arnaud du 2026-09-08, cable par E10.13. Ensuite, PLUS AUCUNE operation de ce contrat ne la change : E10.13 rend l etape filtrable et triable (CA6) mais n ouvre aucun changement d etape, qui est le sujet d E10.14 (suivi de production, journal horodate des passages, emission d `order.step_changed`).
+             *     QUI POSE CETTE VALEUR. La CONVERSION d un devis (`convertQuote`, E10.12) la pose a la creation, sur l etape ACTIVE de POSITION LA PLUS BASSE du tenant — arbitrage Arnaud du 2026-09-08, cable par E10.13. Ensuite, UNE SEULE operation de ce contrat la change : `changeOrderProductionStep` (E10.14), qui journalise le passage dans la MEME transaction. Il n existe aucun autre chemin — ni PATCH sur la commande, ni effet de bord d une autre operation.
+             *
+             *     CE CHAMP EST UNE PROJECTION, le journal est la source du parcours. `listOrderStepChanges` dit par ou la commande est passee, quand et par qui ; ce champ ne dit que le point d arrivee du dernier mouvement, parce que c est lui que le tableau de bord filtre et trie (CA6 d E10.13) et qu une sous-requete « derniere entree du journal » ne se pagine pas par curseur a un cout raisonnable.
              *
              *     QUAND VAUT-IL `null` ? Deux cas, tous deux normaux : une commande creee AVANT la livraison d E10.13 et non reprise par le rattrapage de sa migration ; un tenant qui n a plus AUCUNE etape active au moment de la conversion — un defaut de parametrage d atelier n empeche jamais un engagement commercial. Un appelant traite donc `null` comme « hors flux d atelier », jamais comme une anomalie.
              */
@@ -2886,7 +2962,7 @@ export interface components {
             created_by: components["schemas"]["Uuid"] | null;
             /** @description Instant de la conversion. Meme instant que `Quote.converted_at`. */
             created_at: components["schemas"]["Timestamp"];
-            /** @description Egal a `created_at` tant qu aucune operation ne modifie une commande — c est le cas dans ce lot. Publie des maintenant parce que c est lui qui fondera l `ETag` quand E10.13 ouvrira une transition. */
+            /** @description Egal a `created_at` tant que la commande n a jamais bouge. AVANCE des le premier `changeOrderProductionStep` (E10.14) : c est la seule operation de ce contrat qui modifie une commande, et elle ne touche que `current_production_step_id`. C est cette valeur qui fonde l `ETag` de `getCommercialOrder` — un changement d etape INVALIDE donc l `ETag` detenu par un appelant, qui doit relire avant tout usage en precondition. */
             updated_at: components["schemas"]["Timestamp"];
         };
         /**
@@ -3361,7 +3437,24 @@ export interface components {
             /**
              * @description Etape proposee au suivi. `false` n est PAS un effacement logique : l etape reste listee, garde sa position, reste lisible sur les commandes qui la portent, et se reactive (CA3). C est la seule issue offerte quand la suppression est refusee faute d etre inutilisee.
              *
-             *     UN SEUL EFFET DE BORD : une etape desactivee n est plus candidate au point d entree des nouvelles commandes (voir `position`). Desactiver l etape de tete deplace donc ce point d entree sur l etape active suivante ; les desactiver TOUTES fait naitre les commandes sans etape (`current_production_step_id: null`), sans jamais faire echouer une conversion.
+             *     DEUX EFFETS DE BORD, ET AUCUN AUTRE.
+             *
+             *     1. Une etape desactivee n est plus candidate au point d entree des
+             *        nouvelles commandes (voir `position`). Desactiver l etape de tete
+             *        deplace donc ce point d entree sur l etape active suivante ; les
+             *        desactiver TOUTES fait naitre les commandes sans etape
+             *        (`current_production_step_id: null`), sans jamais faire echouer
+             *        une conversion.
+             *
+             *     2. Une etape desactivee n est plus une CIBLE valide d un changement
+             *        d etape (`changeOrderProductionStep`, E10.14) : la transition est
+             *        refusee en 422 `production_step.inactive`. Sans cela, une etape
+             *        retiree du flux y reviendrait par la bande et redeviendrait
+             *        indelebile. Cet effet est ajoute par E10.14 — E10.13 ne pouvait
+             *        pas le trancher, faute de transition a regir.
+             *
+             *
+             *     NI L UN NI L AUTRE NE TOUCHE L EXISTANT : une commande DEJA posee sur une etape desactivee y reste, reste lisible dans le tableau de bord comme dans le journal, et se deplace normalement vers une etape active. Seule l ARRIVEE est refusee, jamais le depart.
              */
             is_active: boolean;
             created_at: components["schemas"]["Timestamp"];
@@ -3417,6 +3510,100 @@ export interface components {
          * @enum {string}
          */
         CommercialOrderSort: "-created_at" | "created_at" | "production_step" | "-production_step";
+        /**
+         * OrderStepChange
+         * @description Entree du journal des changements d etape d une commande (CA5). IMMUABLE : ecrite une fois, jamais modifiee ni supprimee, ni par ce contrat ni par l application. La table qui la porte est fermee en UPDATE et DELETE, meme patron que `commercial_quote_header_audit` (E10.10a).
+         *
+         *     Le journal DIT LE MOUVEMENT, pas l etat : il porte l etape quittee et l etape atteinte, jamais une notion de « validee » ni de progression. Reconstituer un parcours complet a partir de ces entrees est legitime ; en deduire que les etapes intermediaires ont ete franchies ne l est jamais (CA4, le saut est autorise et assume).
+         */
+        OrderStepChange: {
+            id: components["schemas"]["Uuid"];
+            /** @description Commande deplacee (`commercial_orders`, E10.12). */
+            order_id: components["schemas"]["Uuid"];
+            /**
+             * @description Etape QUITTEE, telle qu elle etait au moment du passage. `null` quand la commande n en portait aucune — cas d une commande nee sans etape (tenant sans etape active a la conversion) ou anterieure a E10.13. `null` signifie « venait de nulle part dans le flux », pas « debut du flux » : l etape de tete a un identifiant, elle.
+             *
+             *     L etape designee peut avoir ete DESACTIVEE ou RENOMMEE depuis, et reste lisible : `listProductionSteps` rend les etapes desactivees precisement pour que ce journal ne devienne pas illisible. Elle ne peut PAS avoir ete SUPPRIMEE — citer une etape dans ce journal la rend definitivement indelebile (`production_step.in_use`, 409, meme code et meme mecanisme de cle etrangere qu en E10.13). C est ce qui rend le CA6 tenable : un historique dont on peut effacer le vocabulaire n est pas un historique non modifiable. L issue offerte a l administrateur reste la DESACTIVATION, comme le dit deja E10.13.
+             */
+            from_step_id: components["schemas"]["Uuid"] | null;
+            /** @description Etape ATTEINTE. Toujours renseignee : il n existe pas de transition « vers rien » — retirer une commande du flux d atelier n est pas un geste que ce contrat publie. C est aussi la valeur que porte desormais `CommercialOrder.current_production_step_id`. */
+            to_step_id: components["schemas"]["Uuid"];
+            /** @description Commentaire libre saisi au moment du passage, ou `null`. Une PHRASE de contexte (« fichier repasse en PAO, fond perdu manquant »), jamais une donnee sur laquelle brancher un comportement : rien dans Magrit ne la lit, ne l indexe ni ne la valide au-dela de sa longueur. */
+            note: string | null;
+            /**
+             * @description Auteur du passage, UTILISATEUR MAGRIT. `null` quand l auteur n en est pas un — aujourd hui une CLE DE SERVICE (module tiers pilotant l atelier). Comme en E10.9 / E10.10b-2, `null` ne signifie donc pas « pas d auteur » mais « pas d auteur utilisateur » ; c est `actor_label` qui dit alors qui a agi.
+             *
+             *     Ce champ designe un utilisateur de l espace : y ecrire l identifiant d une cle de service melangerait deux espaces de noms d identite et ferait passer un module pour un membre aux yeux de tout code qui joint sur cette valeur.
+             */
+            actor_id: components["schemas"]["Uuid"] | null;
+            /**
+             * @description Libelle de l auteur FIGE au moment du passage — le SEUL endroit ou l identite se lit dans tous les cas. Denormalise volontairement, meme motif qu en E10.9 : un operateur qui quitte le tenant ne doit pas rendre l historique de production anonyme.
+             *
+             *     Deux formes aujourd hui : le NOM OU COURRIEL du membre pour un jeton utilisateur ; un libelle PREFIXE `module:` pour une cle de service (ex. `module:studio`). Le prefixe est ce qui rend les deux espaces de noms distinguables a l oeil dans un journal.
+             *
+             *     NE JAMAIS ANALYSER CETTE CHAINE POUR EN DEDUIRE LE TYPE D AUTEUR. C est un libelle d affichage. Un consommateur qui aurait besoin de brancher un comportement sur la NATURE de l auteur devra attendre un champ dedie, ajoute de facon additive — le contrat n en publie pas aujourd hui, faute d un besoin exprime, et un champ d enumeration invente d avance se remplit mal.
+             *
+             *     POINT D EXTENSION, ET RIEN DE PLUS : la forme `actor_id` nullable + `actor_label` accueillera sans changement de schema un auteur SYSTEME (E10.20, non livree, non cadree ici) — `actor_id: null` et un libelle prefixe. Ce contrat ne cree AUCUN acteur systeme, n en decrit aucun comportement et n en promet aucun ; il constate seulement que le modele ne l exclut pas structurellement.
+             *
+             *     `null` reste possible et se lit comme une identite perdue, jamais comme un acteur d un troisieme genre.
+             */
+            actor_label: string | null;
+            /** @description Instant du passage. C est la cle de tri du journal (decroissante) et elle est posee EN BASE, dans la transaction qui ecrit l entree — jamais fournie par l appelant, qui pourrait antidater un mouvement. */
+            occurred_at: components["schemas"]["Timestamp"];
+        };
+        /**
+         * ChangeOrderProductionStepCommand
+         * @description Corps de `changeOrderProductionStep`. Un objet plutot qu une valeur nue, pour qu un champ puisse s y ajouter sans changer ni le chemin ni la forme (§7, v1 additive) — meme parti que `StorefrontQuoteDecisionCommand`.
+         *
+         *     AUCUN CHAMP D AUTEUR, ET C EST UNE GARDE : l auteur est resolu du jeton ou de la cle de service, jamais declare par l appelant. Un journal dont on peut choisir la signature ne prouve rien.
+         *
+         *     AUCUN CHAMP D HORODATAGE non plus : `occurred_at` est pose en base.
+         */
+        ChangeOrderProductionStepCommand: {
+            /**
+             * @description Etape VISEE, dans le tenant du jeton. Doit exister (`production_step.not_found`, 422), etre ACTIVE (`production_step.inactive`, 422) et differer de l etape courante (`order.step_unchanged`, 409).
+             *
+             *     Aucune contrainte d ORDRE : une etape situee plus loin, ou plus tot, dans le flux est acceptee telle quelle (CA4). Le contrat ne connait pas de « prochaine » etape et n en proposera pas.
+             */
+            step_id: components["schemas"]["Uuid"];
+            /** @description Commentaire libre du passage, facultatif. Repris tel quel dans `OrderStepChange.note`. Une chaine vide est refusee (`api.validation_failed`) plutot que silencieusement convertie en `null` : « pas de note » se dit en OMETTANT le champ. */
+            note?: string;
+        };
+        /**
+         * OrderStepChangedPayload
+         * @description Charge utile de l evenement sortant `order.step_changed` (`event_version: 1`).
+         *
+         *     Volontairement minimale, meme parti que `QuoteSentPayload`, `QuoteDecisionPayload` et `QuoteConversionPayload` : des identifiants et un numero, AUCUN montant. Les prix commerciaux ne transitent pas par le bus ; un abonne habilite relit la commande par `getCommercialOrder`.
+         *
+         *     CE QU ELLE NE PORTE PAS, et c est delibere :
+         *     - le LIBELLE des etapes. Un consommateur lit le catalogue une fois
+         *       (`listProductionSteps`, scope `orders:read`) ; l embarquer figerait
+         *       dans le bus une valeur renommable a tout moment ;
+         *
+         *     - la NOTE du passage et l IDENTITE de l auteur. Un abonne du bus est un
+         *       systeme tiers ; le commentaire interne d un operateur et son nom n ont
+         *       pas a traverser cette frontiere pour un besoin que personne n a
+         *       exprime. L atelier les lit dans le journal
+         *       (`listOrderStepChanges`), derriere une authentification.
+         *
+         *
+         *     `step_change_id` permet a un consommateur de retrouver l entree exacte et de dedupliquer sur le FAIT METIER, en plus de `event_id` qui le protege des doublons de TRANSPORT (livraison au moins une fois).
+         *
+         *     `aggregate_type` vaut `order`, `aggregate_id` la commande deplacee.
+         */
+        OrderStepChangedPayload: {
+            /** @description Entree de journal creee par ce passage (`OrderStepChange.id`). */
+            step_change_id: components["schemas"]["Uuid"];
+            order_id: components["schemas"]["Uuid"];
+            /** @description Numero metier de la commande deplacee. */
+            order_number: string;
+            /** @description Client de la commande. Permet a un consommateur de router l evenement sans un aller-retour de lecture — c est ce dont E10.15 aura besoin pour savoir QUI notifier. */
+            customer_id: components["schemas"]["Uuid"];
+            /** @description Etape quittee, ou `null` si la commande n en portait aucune. */
+            from_step_id: components["schemas"]["Uuid"] | null;
+            /** @description Etape atteinte. C est la cle de selection attendue par E10.15 : un modele de notification se rattache a une etape, et ce champ dit laquelle vient d etre atteinte. */
+            to_step_id: components["schemas"]["Uuid"];
+        };
     };
     responses: {
         /** @description Requete malformee. */
@@ -3707,6 +3894,9 @@ export type CreateProductionStepCommand = components['schemas']['CreateProductio
 export type UpdateProductionStepCommand = components['schemas']['UpdateProductionStepCommand'];
 export type ReorderProductionStepsCommand = components['schemas']['ReorderProductionStepsCommand'];
 export type CommercialOrderSort = components['schemas']['CommercialOrderSort'];
+export type OrderStepChange = components['schemas']['OrderStepChange'];
+export type ChangeOrderProductionStepCommand = components['schemas']['ChangeOrderProductionStepCommand'];
+export type OrderStepChangedPayload = components['schemas']['OrderStepChangedPayload'];
 export type ResponseBadRequest = components['responses']['BadRequest'];
 export type ResponseUnauthorized = components['responses']['Unauthorized'];
 export type ResponseForbidden = components['responses']['Forbidden'];
@@ -6369,7 +6559,7 @@ export interface operations {
                  *
                  *     Aucun filtre « sans etape » aujourd hui. Il s ajoutera de facon additive le jour ou il servira ; d ici la, toute commande convertie depuis la livraison d E10.13 porte une etape (`convertQuote` la pose a la creation), et le cas `null` se limite aux commandes anterieures non reprises par le rattrapage et aux tenants sans aucune etape active.
                  *
-                 *     E10.14 n ayant pas encore ouvert le CHANGEMENT d etape, ce filtre ne rend aujourd hui que des commandes posees sur la PREMIERE etape active. C est un tableau de bord exact, pas encore un tableau de bord vivant.
+                 *     E10.14 ayant ouvert le CHANGEMENT d etape (`changeOrderProductionStep`), ce filtre rend desormais l etat REEL de l atelier et plus seulement les commandes posees sur l etape d entree. Il porte sur l etape COURANTE, jamais sur les etapes traversees : filtrer sur « Livre » ne rend pas les commandes passees par « Livre » puis reculees. Cette question-la se pose au journal (`listOrderStepChanges`), commande par commande.
                  */
                 current_production_step_id?: components["schemas"]["Uuid"];
                 /**
@@ -6679,7 +6869,11 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description L etape est utilisee par au moins une commande (`production_step.in_use`). Le refus est tenu EN BASE par une cle etrangere `on delete restrict`, pas par une verification prealable de la facade : une lecture suivie d une suppression laisse une fenetre ou une commande peut arriver sur l etape entre les deux. */
+            /**
+             * @description L etape est utilisee par au moins une commande (`production_step.in_use`) : soit comme etape COURANTE (`commercial_orders.current_production_step_id`), soit comme etape citee par une entree du JOURNAL des passages (E10.14). Un seul code pour les deux cas — la question posee par l administrateur est « puis-je supprimer ? », et la reponse est non pour la meme raison de fond.
+             *
+             *     Le refus est tenu EN BASE par des cles etrangeres `on delete restrict`, pas par une verification prealable de la facade : une lecture suivie d une suppression laisse une fenetre ou une commande peut arriver sur l etape entre les deux.
+             */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -6822,6 +7016,140 @@ export interface operations {
             428: components["responses"]["PreconditionRequired"];
         };
     };
+    listOrderStepChanges: {
+        parameters: {
+            query?: {
+                /** @description Nombre d elements par page. Defaut 50, maximum 200. */
+                "page[size]"?: components["parameters"]["PageSize"];
+                /** @description Curseur opaque renvoye par `meta.next_cursor` de la page precedente. Absent sur la premiere page. Ne jamais construire un curseur cote client : sa structure interne n est pas contractuelle. */
+                "page[cursor]"?: components["parameters"]["PageCursor"];
+            };
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path: {
+                /** @description Identifiant technique de la commande de gestion commerciale (`commercial_orders`, E10.12), dans le tenant du jeton. SANS RAPPORT avec l `orderId` des routes historiques `/api/v1/orders/...`, qui adresse une commande BOUTIQUE (`tenant_orders`) : deux tables, deux cycles de vie, deux facades. Un identifiant valide d un cote rend 404 de l autre. */
+                orderId: components["parameters"]["CommercialOrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Page d entrees, de la plus recente a la plus ancienne. VIDE tant que la commande n a jamais ete deplacee (voir le summary). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["OrderStepChange"][];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    changeOrderProductionStep: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+                /**
+                 * @description Cle d idempotence fournie par l appelant sur tout POST creant une ressource metier (CA8). Rejouer la meme cle avec la meme requete renvoie la reponse initiale, accompagnee de l en-tete `Idempotency-Replayed: true` ; la rejouer avec une requete differente renvoie 409 `api.idempotency_key_reused`.
+                 *
+                 *     L identite d une requete couvre la methode, le chemin, LA QUERY et le corps : deux POST au meme chemin avec des query differentes ne sont pas la meme requete.
+                 *
+                 *     Sur un rejeu, seul `meta.request_id` est recale sur la requete courante ; `data` est rendu inchange.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description Identifiant technique de la commande de gestion commerciale (`commercial_orders`, E10.12), dans le tenant du jeton. SANS RAPPORT avec l `orderId` des routes historiques `/api/v1/orders/...`, qui adresse une commande BOUTIQUE (`tenant_orders`) : deux tables, deux cycles de vie, deux facades. Un identifiant valide d un cote rend 404 de l autre. */
+                orderId: components["parameters"]["CommercialOrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeOrderProductionStepCommand"];
+            };
+        };
+        responses: {
+            /**
+             * @description Entree de journal creee ; la commande porte desormais `to_step_id` comme etape courante.
+             *
+             *     LA RESSOURCE RENDUE EST L ENTREE, pas la commande. Le seul champ de la commande que ce geste modifie est `current_production_step_id`, et il vaut exactement `to_step_id` : renvoyer une `CommercialOrderDetail` complete — totaux, lignes figees — pour transporter cette unique valeur ferait payer une fiche entiere a chaque clic dans une grille. Un ecran qui a besoin du reste relit `getCommercialOrder`.
+             *
+             *     AUCUN `ETag` N EST EMIS ICI. Celui de la commande est rendu par `getCommercialOrder`, et ce geste vient de l INVALIDER : un appelant qui detient encore l ancien doit relire avant tout `PATCH` futur. En emettre un ici laisserait croire qu il valide la commande, alors qu il ne porterait que l entree de journal — laquelle est immuable, donc n a aucune precondition a offrir.
+             */
+            201: {
+                headers: {
+                    "Idempotency-Replayed": components["headers"]["IdempotencyReplayed"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["OrderStepChange"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /**
+             * @description Soit la commande est DEJA sur cette etape (`order.step_unchanged`), soit la cle d idempotence a ete rejouee avec une requete differente (`api.idempotency_key_reused`).
+             *
+             *     `order.step_unchanged` est un REFUS, pas un succes silencieux, et ce choix se defend : accepter le no-op ecrirait au journal append-only une entree « X -> X » que plus rien ne pourrait retirer, et ferait de l historique le compte-rendu des clics plutot que celui des mouvements. Le corps porte `current_state` (l etape courante) pour que l appelant se resynchronise sans relire — c est en general le signe qu un collegue vient de faire le meme geste.
+             *
+             *     A NE PAS CONFONDRE avec le rejeu d idempotence : rejouer la MEME cle avec la MEME requete rend 201 et `Idempotency-Replayed: true`, jamais ce 409. Le double-clic ordinaire ne produit donc pas ce conflit.
+             */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /**
+             * @description Soit `step_id` ne designe aucune etape du tenant du jeton (`production_step.not_found` — code DEJA publie par E10.13 pour exactement cette question, jamais un code neuf), soit l etape existe mais est DESACTIVEE (`production_step.inactive`), soit le corps est invalide (`api.validation_failed`).
+             *
+             *     POURQUOI DEUX CODES ET NON UN SEUL : « cette etape n existe pas chez vous » et « cette etape a ete retiree du flux » appellent deux reponses d ecran opposees — corriger un identifiant errone, ou demander a l administrateur de reactiver l etape. Les fondre derriere `production_step.not_found` reviendrait a mentir sur une etape que `listProductionSteps` rend pourtant.
+             *
+             *     UNE ETAPE DESACTIVEE N EST PAS UNE CIBLE VALIDE, et c est une precision qu E10.13 ne pouvait pas apporter, faute de transition a regir. `is_active: false` signifie « retiree du flux » : y poser une commande la remettrait en service par la bande, et la rendrait de nouveau indelebile (`production_step.in_use`, CA3 d E10.13) — l inverse exact de ce que la desactivation sert a obtenir. Une commande DEJA posee sur une etape desactivee y reste, reste lisible et se deplace normalement : seule l ARRIVEE est refusee.
+             */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     onQuoteConverted: {
         parameters: {
             query?: never;
@@ -6863,7 +7191,9 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["EventEnvelope"];
+                "application/json": components["schemas"]["EventEnvelope"] & {
+                    payload?: components["schemas"]["OrderStepChangedPayload"];
+                };
             };
         };
         responses: {
