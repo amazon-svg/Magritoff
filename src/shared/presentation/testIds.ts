@@ -668,6 +668,31 @@ export const TEST_IDS = {
     defaultMarginInput: 'pricing-default-margin-input',
     defaultMarginSaveBtn: 'pricing-default-margin-save-btn',
   },
+
+  // ─── E10.13 — Etapes de production configurables et ordonnancables (P13) ──
+  // Ecran de parametrage atelier : creation, renommage, couleur, terminale,
+  // activation/desactivation, glisser-deposer pour reordonner (CA1-CA7).
+  // `data-step-id` pose sur `row` (meme convention que `pricing.row`/
+  // `data-rule-id`). Testid mandates par la story Notion (Hints DOM) :
+  // production-steps-page, production-step-row (+data-step-id),
+  // production-step-add-btn, production-step-label-input,
+  // production-step-drag-handle, production-step-deactivate-btn,
+  // production-step-save-btn.
+  productionStep: {
+    page: 'production-steps-page',
+    row: 'production-step-row',
+    dragHandle: 'production-step-drag-handle',
+    labelInput: 'production-step-label-input',
+    colorSelect: 'production-step-color-select',
+    terminalCheckbox: 'production-step-terminal-checkbox',
+    saveBtn: 'production-step-save-btn',
+    deactivateBtn: 'production-step-deactivate-btn',
+    deleteBtn: 'production-step-delete-btn',
+    addBtn: 'production-step-add-btn',
+    addLabelInput: 'production-step-add-label-input',
+    addSubmitBtn: 'production-step-add-submit-btn',
+    errorBanner: 'production-step-error-banner',
+  },
 } as const;
 
 /**

@@ -18,8 +18,10 @@
 import {
   commercialOrderDetailSchema,
   commercialOrdersListSchema,
+  commercialOrderSortSchema,
   commercialOrderStatusSchema,
 } from '../../modules/commercial-orders/api/contracts.ts';
+import type { CommercialOrderSort } from '../../modules/commercial-orders/api/contracts.ts';
 import type { CommercialOrdersService } from '../../modules/commercial-orders/application/commercial-orders-service.ts';
 import {
   CommercialOrderNotFoundError,
@@ -27,6 +29,7 @@ import {
 } from '../../modules/commercial-orders/application/commercial-orders-repository.ts';
 import type { CommercialQuotesService } from '../../modules/commercial-quotes/application/commercial-quotes-service.ts';
 import { QuoteNotFoundError } from '../../modules/commercial-quotes/application/commercial-quotes-repository.ts';
+import type { ProductionStepsService } from '../../modules/production-steps/application/production-steps-service.ts';
 import { uuidSchema } from '../../modules/_shared/api/index.ts';
 import {
   buildPage,
@@ -34,12 +37,14 @@ import {
   decodeCursor,
   problem,
   SHARED_PROBLEM_CODES,
+  validationFailed,
 } from '../../modules/_shared/application/index.ts';
 import { defineGescomRoute, type GescomRoute, type GescomRequestContext } from './gescom-middleware.ts';
 
 export function createCommercialOrdersRoutes(
   orders: CommercialOrdersService,
   quotes: CommercialQuotesService,
+  productionSteps: ProductionStepsService,
 ): readonly GescomRoute[] {
   return [
     defineGescomRoute({
@@ -108,17 +113,46 @@ export function createCommercialOrdersRoutes(
         }
         const statusParam = context.url.searchParams.get('status');
         const status = commercialOrderStatusSchema.safeParse(statusParam ?? undefined);
-        const cursor = context.page.cursor ? decodeCursor(context.page.cursor) : null;
+
+        // E10.13 CA6 — `current_production_step_id` doit appartenir au tenant
+        // du jeton, SINON 422 `production_step.not_found` — jamais une page
+        // silencieusement vide, qui laisserait croire a une absence de
+        // commandes plutot qu a un identifiant errone (contrat).
+        const stepIdParam = context.url.searchParams.get('current_production_step_id');
+        if (stepIdParam !== null) {
+          if (!uuidSchema.safeParse(stepIdParam).success) {
+            throw problem({
+              status: 400,
+              title: 'Parametre invalide',
+              code: SHARED_PROBLEM_CODES.validationFailed,
+              detail: 'current_production_step_id doit etre un UUID valide.',
+              errors: [{ field: 'current_production_step_id', message: 'UUID invalide.' }],
+            });
+          }
+          if (!(await productionSteps.exists(context.tenantId, stepIdParam))) {
+            throw problem({
+              status: 422,
+              title: 'Étape de production introuvable',
+              code: 'production_step.not_found',
+              detail: 'current_production_step_id ne correspond a aucune etape de ce tenant.',
+            });
+          }
+        }
+
+        const sort = parseSort(context.url.searchParams.get('sort'));
+        const cursor = context.page.cursor ? decodeOrderCursor(context.page.cursor, sort) : null;
 
         const result = await orders.list(context.tenantId, {
           customerId: customerIdParam,
           quoteId: quoteIdParam,
           status: status.success ? status.data : null,
+          currentProductionStepId: stepIdParam,
+          sort,
           size: context.page.size,
           cursor,
         });
         const page = buildPage(result.rows, context.page, (row) => ({
-          sort: row.created_at,
+          sort: encodeOrderCursorToken(sort, row),
           id: row.id,
         }));
 
@@ -145,6 +179,58 @@ export function createCommercialOrdersRoutes(
       },
     }),
   ];
+}
+
+/** Defaut `-created_at` : ordre servi avant E10.13, ajouter `sort` ne change donc le comportement d aucun appelant existant. */
+function parseSort(raw: string | null): CommercialOrderSort {
+  const parsed = commercialOrderSortSchema.safeParse(raw ?? '-created_at');
+  if (!parsed.success) {
+    throw validationFailed([
+      { field: 'sort', message: 'Valeurs attendues : -created_at, created_at, production_step, -production_step.' },
+    ]);
+  }
+  return parsed.data;
+}
+
+/**
+ * Encode le curseur opaque avec le TOKEN DE TRI en tete (`decodeOrderCursor`
+ * verifie qu un curseur repris porte le MEME `sort` que la requete courante,
+ * meme regle que `listPriceRules`) suivi de la valeur de positionnement :
+ * `created_at` ISO pour `-created_at`/`created_at`, ou
+ * `${current_production_step_id ?? ''}|${created_at}` pour
+ * `production_step`/`-production_step` — DECODE PAR L ADAPTATEUR
+ * (`SupabaseCommercialOrdersRepository.listByProductionStep`), jamais ici :
+ * cette route reste agnostique du mecanisme de lecture choisi pour ce tri.
+ */
+function encodeOrderCursorToken(
+  sort: CommercialOrderSort,
+  row: Readonly<{ created_at: string; current_production_step_id: string | null }>,
+): string {
+  if (sort === 'production_step' || sort === '-production_step') {
+    return `${sort}|${row.current_production_step_id ?? ''}|${row.created_at}`;
+  }
+  return `${sort}|${row.created_at}`;
+}
+
+function decodeOrderCursor(
+  raw: string,
+  requestedSort: CommercialOrderSort,
+): Readonly<{ sort: string; id: string }> {
+  const decoded = decodeCursor(raw);
+  const separator = decoded.sort.indexOf('|');
+  if (separator === -1) {
+    throw validationFailed([{ field: 'page[cursor]', message: 'Curseur illisible pour ce tri.' }]);
+  }
+  const cursorSort = decoded.sort.slice(0, separator);
+  if (cursorSort !== requestedSort) {
+    throw validationFailed([
+      {
+        field: 'page[cursor]',
+        message: 'Le tri demande ne correspond pas a celui encode dans ce curseur. Reprendre le meme sort.',
+      },
+    ]);
+  }
+  return { sort: decoded.sort.slice(separator + 1), id: decoded.id };
 }
 
 /** L identifiant utilisateur qui valide la conversion (audit `created_by`). */

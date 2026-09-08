@@ -72,6 +72,8 @@ import { StorefrontQuotesService } from '../../../src/modules/storefront-quotes/
 import { SupabaseStorefrontQuotesRepository } from '../../../src/adapters/supabase/storefront-quotes-repository.ts';
 import { CommercialOrdersService } from '../../../src/modules/commercial-orders/application/commercial-orders-service.ts';
 import { SupabaseCommercialOrdersRepository } from '../../../src/adapters/supabase/commercial-orders-repository.ts';
+import { ProductionStepsService } from '../../../src/modules/production-steps/application/production-steps-service.ts';
+import { SupabaseProductionStepsRepository } from '../../../src/adapters/supabase/production-steps-repository.ts';
 import { SupabaseApiPrincipalVerifier } from '../../../src/adapters/supabase/api-principal-verifier.ts';
 import { InMemoryIdempotencyStore, OutboxPublisher } from '../../../src/modules/_shared/application/index.ts';
 import { TENANT_SELECTION_HEADER } from '../../../src/modules/_shared/api/index.ts';
@@ -381,6 +383,16 @@ export async function handleRequest(request: Request): Promise<Response> {
     quotes: commercialQuotesService,
   });
 
+  // E10.13 — referentiel des etapes de production du tenant, configurable et
+  // ordonnancable. Repository construit sur `client` (jamais
+  // `storefrontClient`) : lecture ouverte aux jetons utilisateur et aux cles
+  // de service `orders:read` (deja publie), ecriture reservee aux jetons
+  // utilisateur et gardee par `can_manage_production_steps` (RLS EN BASE,
+  // migration 20260908020000).
+  const productionStepsService = new ProductionStepsService({
+    repository: new SupabaseProductionStepsRepository(client),
+  });
+
   const handler = createMagritApiApplication({
     gescomServices: {
       customers: customersService,
@@ -392,6 +404,7 @@ export async function handleRequest(request: Request): Promise<Response> {
       commercialSettings: commercialSettingsService,
       storefrontQuotes: storefrontQuotesService,
       commercialOrders: commercialOrdersService,
+      productionSteps: productionStepsService,
     },
     principalVerifier: new SupabaseApiPrincipalVerifier(client, {
       requestedTenantId: request.headers.get(TENANT_SELECTION_HEADER),

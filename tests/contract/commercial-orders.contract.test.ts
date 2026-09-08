@@ -25,6 +25,7 @@ import { PriceRulesService } from '@/modules/pricing/application/price-rules-ser
 import { SingleCostPricingEngine } from '@/modules/pricing/application/single-cost-pricing-engine';
 import { CommercialQuotesService } from '@/modules/commercial-quotes/application/commercial-quotes-service';
 import { CommercialOrdersService } from '@/modules/commercial-orders/application/commercial-orders-service';
+import { ProductionStepsService } from '@/modules/production-steps/application/production-steps-service';
 import type { QuoteAuditEntryDto, QuoteDetailDto } from '@/modules/commercial-quotes/api/contracts';
 import type {
   CommercialOrderDetailDto,
@@ -41,6 +42,7 @@ import { InMemoryCustomersRepository } from './_fakes/customers-repository.fake.
 import { InMemoryCommercialQuotesRepository } from './_fakes/commercial-quotes-repository.fake.ts';
 import { InMemoryPriceRulesRepository } from './_fakes/price-rules-repository.fake.ts';
 import { InMemoryCommercialOrdersRepository } from './_fakes/commercial-orders-repository.fake.ts';
+import { InMemoryProductionStepsRepository } from './_fakes/production-steps-repository.fake.ts';
 
 const TENANT = brand<TenantId>('7f0d2a1e-1c4b-4f8a-9c3d-5b6e7a8f9012');
 const USER = brand<UserId>('a1b2c3d4-e5f6-4708-8910-1a2b3c4d5e6f');
@@ -96,8 +98,10 @@ let quotesRepository: InMemoryCommercialQuotesRepository;
 let ordersRepository: InMemoryCommercialOrdersRepository;
 let priceRulesRepository: InMemoryPriceRulesRepository;
 let outboxRepository: InMemoryOutboxRepository;
+let productionStepsRepository: InMemoryProductionStepsRepository;
 let quotesService: CommercialQuotesService;
 let ordersService: CommercialOrdersService;
+let productionStepsService: ProductionStepsService;
 let handler: (request: Request) => Promise<Response>;
 
 beforeEach(() => {
@@ -135,11 +139,13 @@ beforeEach(() => {
     outbox,
     quotes: quotesService,
   });
+  productionStepsRepository = new InMemoryProductionStepsRepository();
+  productionStepsService = new ProductionStepsService({ repository: productionStepsRepository });
   handler = createGescomApiHandler({
     routes: [
       ...createProjectsRoutes(projectsService),
       ...createCommercialQuotesRoutes(quotesService),
-      ...createCommercialOrdersRoutes(ordersService, quotesService),
+      ...createCommercialOrdersRoutes(ordersService, quotesService, productionStepsService),
     ],
     principalVerifier: verifier,
     idempotencyStore: new InMemoryIdempotencyStore(),
@@ -311,6 +317,8 @@ describe('Commandes de gestion commerciale (E10.12)', () => {
       customerId: null,
       quoteId: quote.id,
       status: null,
+      currentProductionStepId: null,
+      sort: '-created_at',
       size: 10,
       cursor: null,
     });
@@ -363,6 +371,8 @@ describe('Commandes de gestion commerciale (E10.12)', () => {
       customerId: null,
       quoteId: quote.id,
       status: null,
+      currentProductionStepId: null,
+      sort: '-created_at',
       size: 10,
       cursor: null,
     });

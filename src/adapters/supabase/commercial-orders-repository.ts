@@ -36,26 +36,81 @@ export class SupabaseCommercialOrdersRepository implements CommercialOrdersRepos
   constructor(private readonly client: SupabaseClient<any>) {}
 
   async list(tenantId: TenantId, params: ListCommercialOrdersParams): Promise<ListCommercialOrdersResult> {
+    if (params.sort === 'production_step' || params.sort === '-production_step') {
+      return this.listByProductionStep(tenantId, params);
+    }
+
+    const ascending = params.sort === 'created_at';
     let query = this.client
       .from('commercial_orders')
       .select('*')
       .eq('tenant_id', tenantId)
-      .order('created_at', { ascending: false })
-      .order('id', { ascending: false })
+      .order('created_at', { ascending })
+      .order('id', { ascending })
       .limit(params.size + 1);
 
     if (params.customerId) query = query.eq('customer_id', params.customerId);
     if (params.quoteId) query = query.eq('quote_id', params.quoteId);
     if (params.status) query = query.eq('status', params.status);
+    if (params.currentProductionStepId) query = query.eq('current_production_step_id', params.currentProductionStepId);
     if (params.cursor) {
+      const op = ascending ? 'gt' : 'lt';
       query = query.or(
-        `created_at.lt.${params.cursor.sort},and(created_at.eq.${params.cursor.sort},id.lt.${params.cursor.id})`,
+        `created_at.${op}.${params.cursor.sort},and(created_at.eq.${params.cursor.sort},id.${op}.${params.cursor.id})`,
       );
     }
 
     const { data, error } = await query;
     if (error) throw new Error(error.message);
     return { rows: (data ?? []).map(toCommercialOrderDto) };
+  }
+
+  /**
+   * E10.13 CA6 — `sort=production_step|-production_step` : delegue a
+   * `list_commercial_orders_by_production_step` (`security invoker`, migration
+   * `20260908020000`), seule lecture capable d ordonner sur la POSITION d une
+   * table jointe en LEFT JOIN avec les commandes SANS etape toujours en
+   * dernier (PostgREST ne sait pas l exprimer, voir le commentaire de la
+   * fonction SQL). `params.cursor.sort` porte
+   * `${current_production_step_id ?? ''}|${created_at}` — DECODE ICI, jamais
+   * par le port ni par la route (elles restent agnostiques du mecanisme de
+   * lecture choisi pour ce tri).
+   */
+  private async listByProductionStep(
+    tenantId: TenantId,
+    params: ListCommercialOrdersParams,
+  ): Promise<ListCommercialOrdersResult> {
+    const descending = params.sort === '-production_step';
+    let hasCursor = false;
+    let cursorStepId: string | null = null;
+    let cursorCreatedAt: string | null = null;
+    let cursorId: string | null = null;
+
+    if (params.cursor) {
+      const separatorIndex = params.cursor.sort.lastIndexOf('|');
+      if (separatorIndex === -1) throw new Error('Curseur production_step illisible.');
+      const rawStepId = params.cursor.sort.slice(0, separatorIndex);
+      cursorCreatedAt = params.cursor.sort.slice(separatorIndex + 1);
+      cursorStepId = rawStepId.length > 0 ? rawStepId : null;
+      cursorId = params.cursor.id;
+      hasCursor = true;
+    }
+
+    const { data, error } = await this.client.rpc('list_commercial_orders_by_production_step', {
+      p_tenant_id: tenantId,
+      p_customer_id: params.customerId,
+      p_quote_id: params.quoteId,
+      p_status: params.status,
+      p_current_production_step_id: params.currentProductionStepId,
+      p_descending: descending,
+      p_limit: params.size + 1,
+      p_has_cursor: hasCursor,
+      p_cursor_step_id: cursorStepId,
+      p_cursor_created_at: cursorCreatedAt,
+      p_cursor_id: cursorId,
+    });
+    if (error) throw new Error(error.message);
+    return { rows: ((data ?? []) as Record<string, any>[]).map(toCommercialOrderDto) };
   }
 
   async findById(tenantId: TenantId, orderId: string): Promise<CommercialOrderDto | null> {
@@ -147,6 +202,7 @@ function toCommercialOrderDto(row: Record<string, any>): CommercialOrderDto {
     number: row.number,
     status: row.status as CommercialOrderStatus,
     source_quote_status: row.source_quote_status as ConvertedFromStatus,
+    current_production_step_id: row.current_production_step_id ?? null,
     totals: toCommercialOrderTotalsDto(row),
     created_by: row.created_by ?? null,
     created_at: toIsoTimestamp(row.created_at),

@@ -39,6 +39,7 @@ const routeLoaders: Readonly<Record<string, LazyPageLoader>> = Object.freeze({
   'mockups.workspace.reference': () => import('@/modules/mockups/ui').then((module) => ({ default: module.DashboardAdminMockups })),
   'plans.workspace.selection': () => import('@/modules/plans/ui').then((module) => ({ default: module.DashboardPlan })),
   'pricing.workspace.rules': () => import('@/modules/pricing/ui').then((module) => ({ default: module.DashboardPricingRules })),
+  'production-steps.workspace.list': () => import('@/modules/production-steps/ui').then((module) => ({ default: module.DashboardProductionSteps })),
 });
 
 export type WorkspaceRuntimeRoute = Readonly<{

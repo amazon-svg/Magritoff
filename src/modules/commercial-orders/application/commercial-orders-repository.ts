@@ -1,5 +1,10 @@
 import type { TenantId, UserId } from '../../../kernel/ids/index.ts';
-import type { CommercialOrderDetailDto, CommercialOrderDto, CommercialOrderStatus } from '../api/contracts.ts';
+import type {
+  CommercialOrderDetailDto,
+  CommercialOrderDto,
+  CommercialOrderSort,
+  CommercialOrderStatus,
+} from '../api/contracts.ts';
 
 /**
  * La commande n existe pas dans le tenant du jeton (404 `order.not_found`).
@@ -31,10 +36,28 @@ export class QuoteConversionForbiddenStatusError extends Error {
   }
 }
 
+/**
+ * E10.13 CA6 — `sort` porte le TOKEN COMPLET du contrat (`CommercialOrderSort`),
+ * pas seulement un champ : `production_step` et `-production_step` exigent un
+ * comportement de tri distinct (lecture par
+ * `list_commercial_orders_by_production_step`, migration `20260908020000`),
+ * pas seulement une direction inversee sur la meme colonne.
+ *
+ * `cursor.sort` reste une chaine OPAQUE cote route (meme discipline que le
+ * reste du contrat) : pour `-created_at`/`created_at` c est directement
+ * l ISO `created_at` de la derniere ligne (INCHANGE, retro-compatible) ; pour
+ * `production_step`/`-production_step` c est la paire
+ * `${current_production_step_id ?? ''}|${created_at}`, decodee par
+ * l ADAPTATEUR (jamais par ce port) puisque seul lui sait quelle lecture
+ * appeler.
+ */
 export type ListCommercialOrdersParams = Readonly<{
   customerId: string | null;
   quoteId: string | null;
   status: CommercialOrderStatus | null;
+  /** E10.13 CA6 — egalite stricte sur l etape de production COURANTE. */
+  currentProductionStepId: string | null;
+  sort: CommercialOrderSort;
   size: number;
   cursor: Readonly<{ sort: string; id: string }> | null;
 }>;

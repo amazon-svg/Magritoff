@@ -44,6 +44,19 @@ import { nonNegativeRateSchema } from '../../pricing/api/contracts.ts';
 export const commercialOrderStatusSchema = z.enum(['validated']);
 
 /**
+ * Tri de `listCommercialOrders` (E10.13 CA6). `production_step` trie sur la
+ * POSITION de l etape courante (`ProductionStep.position`), jamais son
+ * libelle ; les commandes SANS etape courante sont toujours rendues en
+ * dernier, dans les deux sens (contrat `CommercialOrderSort`).
+ */
+export const commercialOrderSortSchema = z.enum([
+  '-created_at',
+  'created_at',
+  'production_step',
+  '-production_step',
+]);
+
+/**
  * `ConvertedFromStatus` : sous-ensemble STRICT de `QuoteStatus`, reduit aux
  * deux seuls statuts convertibles (arbitrage Arnaud, 2026-09-08, reserve (a)
  * de docs/api/CONVENTIONS.md §8.14). `accepted` = le client s est FORMELLEMENT
@@ -127,6 +140,11 @@ export const commercialOrderSchema = z
     number: commercialOrderNumberSchema,
     status: commercialOrderStatusSchema,
     source_quote_status: convertedFromStatusSchema,
+    // E10.13 — etape de production COURANTE, ou null (pointeur, jamais une
+    // progression). Posee UNE SEULE FOIS a la conversion (etape active de
+    // position la plus basse du tenant) ; aucune operation de ce contrat ne
+    // la change ensuite (E10.14).
+    current_production_step_id: uuidSchema.nullable(),
     totals: commercialOrderTotalsSchema,
     created_by: uuidSchema.nullable(),
     created_at: timestampSchema,
@@ -144,6 +162,7 @@ export const commercialOrderDetailSchema = z
     number: commercialOrderNumberSchema,
     status: commercialOrderStatusSchema,
     source_quote_status: convertedFromStatusSchema,
+    current_production_step_id: uuidSchema.nullable(),
     totals: commercialOrderTotalsSchema,
     created_by: uuidSchema.nullable(),
     created_at: timestampSchema,
@@ -167,6 +186,7 @@ export const quoteConversionPayloadSchema = z
   .strict();
 
 export type CommercialOrderStatus = z.infer<typeof commercialOrderStatusSchema>;
+export type CommercialOrderSort = z.infer<typeof commercialOrderSortSchema>;
 export type ConvertedFromStatus = z.infer<typeof convertedFromStatusSchema>;
 export type ConvertQuoteCommand = z.infer<typeof convertQuoteCommandSchema>;
 export type CommercialOrderTotalsDto = z.infer<typeof commercialOrderTotalsSchema>;
@@ -182,6 +202,7 @@ export type QuoteConversionPayloadDto = z.infer<typeof quoteConversionPayloadSch
 import type {
   CommercialOrder as CommercialOrderContract,
   CommercialOrderDetail as CommercialOrderDetailContract,
+  CommercialOrderSort as CommercialOrderSortContract,
   CommercialOrderStatus as CommercialOrderStatusContract,
   CommercialOrderTotals as CommercialOrderTotalsContract,
   ConvertedFromStatus as ConvertedFromStatusContract,
@@ -192,6 +213,7 @@ type AssertAssignable<TSource, TTarget> = TSource extends TTarget ? true : never
 
 export const COMMERCIAL_ORDERS_CONTRACT_ALIGNMENT = Object.freeze({
   orderStatus: true as AssertAssignable<CommercialOrderStatus, CommercialOrderStatusContract>,
+  orderSort: true as AssertAssignable<CommercialOrderSort, CommercialOrderSortContract>,
   convertedFromStatus: true as AssertAssignable<ConvertedFromStatus, ConvertedFromStatusContract>,
   orderId: true as AssertAssignable<CommercialOrderDto['id'], CommercialOrderContract['id']>,
   orderQuoteId: true as AssertAssignable<CommercialOrderDto['quote_id'], CommercialOrderContract['quote_id']>,
@@ -202,4 +224,13 @@ export const COMMERCIAL_ORDERS_CONTRACT_ALIGNMENT = Object.freeze({
     CommercialOrderDetailContract['lines']
   >,
   conversionPayload: true as AssertAssignable<QuoteConversionPayloadDto, QuoteConversionPayloadContract>,
+  // E10.13 — current_production_step_id, ajoute par ce lot sur CommercialOrder/CommercialOrderDetail.
+  orderCurrentProductionStepId: true as AssertAssignable<
+    CommercialOrderDto['current_production_step_id'],
+    CommercialOrderContract['current_production_step_id']
+  >,
+  orderDetailCurrentProductionStepId: true as AssertAssignable<
+    CommercialOrderDetailDto['current_production_step_id'],
+    CommercialOrderDetailContract['current_production_step_id']
+  >,
 });

@@ -38,6 +38,7 @@ import type { PriceRulesService } from '../../modules/pricing/application/price-
 import type { CommercialSettingsService } from '../../modules/commercial-settings/application/commercial-settings-service.ts';
 import type { StorefrontQuotesService } from '../../modules/storefront-quotes/application/storefront-quotes-service.ts';
 import type { CommercialOrdersService } from '../../modules/commercial-orders/application/commercial-orders-service.ts';
+import type { ProductionStepsService } from '../../modules/production-steps/application/production-steps-service.ts';
 import { createCustomersRoutes } from './customers-routes.ts';
 import { createCustomerShopAccessRoutes } from './customer-shop-access-routes.ts';
 import { createProjectsRoutes } from './projects-routes.ts';
@@ -47,6 +48,7 @@ import { createPriceRulesRoutes } from './price-rules-routes.ts';
 import { createCommercialSettingsRoutes } from './commercial-settings-routes.ts';
 import { createStorefrontQuotesRoutes } from './storefront-quotes-routes.ts';
 import { createCommercialOrdersRoutes } from './commercial-orders-routes.ts';
+import { createProductionStepsRoutes } from './production-steps-routes.ts';
 import type { GescomRoute } from './gescom-middleware.ts';
 
 /**
@@ -74,6 +76,8 @@ export type GescomServices = Readonly<{
   storefrontQuotes: StorefrontQuotesService;
   /** E10.12 — « bouton Valider » : transformation d un devis en commande, lecture des commandes. */
   commercialOrders: CommercialOrdersService;
+  /** E10.13 — referentiel des etapes de production du tenant, configurable et ordonnancable. */
+  productionSteps: ProductionStepsService;
 }>;
 
 /**
@@ -92,7 +96,8 @@ export function gescomRoutes(services: GescomServices): readonly GescomRoute[] {
     ...createPriceRulesRoutes(services.priceRules),
     ...createCommercialSettingsRoutes(services.commercialSettings),
     ...createStorefrontQuotesRoutes(services.storefrontQuotes),
-    ...createCommercialOrdersRoutes(services.commercialOrders, services.commercialQuotes),
+    ...createCommercialOrdersRoutes(services.commercialOrders, services.commercialQuotes, services.productionSteps),
+    ...createProductionStepsRoutes(services.productionSteps),
   ];
 }
 
@@ -115,6 +120,7 @@ export const GESCOM_ROUTES: readonly GescomRoute[] = Object.freeze(
     commercialSettings: createNullService('CommercialSettingsService'),
     storefrontQuotes: createNullService('StorefrontQuotesService'),
     commercialOrders: createNullService('CommercialOrdersService'),
+    productionSteps: createNullService('ProductionStepsService'),
   }),
 );
 

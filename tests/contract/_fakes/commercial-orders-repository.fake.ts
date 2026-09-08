@@ -49,7 +49,13 @@ function compareCreatedAtThenIdDesc(
 function isStrictlyAfterCursor(
   row: Readonly<{ sort: string; id: string }>,
   cursor: Readonly<{ sort: string; id: string }>,
+  ascending: boolean,
 ): boolean {
+  if (ascending) {
+    if (row.sort > cursor.sort) return true;
+    if (row.sort < cursor.sort) return false;
+    return row.id > cursor.id;
+  }
   if (row.sort < cursor.sort) return true;
   if (row.sort > cursor.sort) return false;
   return row.id < cursor.id;
@@ -61,6 +67,14 @@ export class InMemoryCommercialOrdersRepository implements CommercialOrdersRepos
   private readonly counters = new Map<string, number>();
   /** `tenants.tax_regime` par tenant. Absent = `metropole_fr` (meme defaut que le faux Devis). */
   private readonly tenantTaxRegimes = new Map<string, TaxRegimeDto>();
+  /**
+   * E10.13 CA6 — position d une etape de production, TEST UNIQUEMENT : ce
+   * faux ne connait pas `production_steps`, un scenario qui exerce
+   * `sort=production_step` doit la poser explicitement. Absente -> traitee
+   * comme « sans etape », toujours en dernier (meme regle que la fonction SQL
+   * `list_commercial_orders_by_production_step`).
+   */
+  private readonly stepPositions = new Map<string, number>();
 
   constructor(private readonly quotes: InMemoryCommercialQuotesRepository) {}
 
@@ -69,17 +83,69 @@ export class InMemoryCommercialOrdersRepository implements CommercialOrdersRepos
     this.tenantTaxRegimes.set(tenantId, regime);
   }
 
+  /** TEST UNIQUEMENT — position d une etape, pour exercer `sort=production_step`. */
+  setStepPositionForTest(stepId: string, position: number): void {
+    this.stepPositions.set(stepId, position);
+  }
+
+  /** TEST UNIQUEMENT — pose l etape courante d une commande deja creee (ce faux ne la pose jamais a la conversion). */
+  setCurrentProductionStepIdForTest(orderId: string, stepId: string | null): void {
+    const current = this.orders.get(orderId);
+    if (!current) return;
+    this.orders.set(orderId, { ...current, current_production_step_id: stepId });
+  }
+
   async list(tenantId: TenantId, params: ListCommercialOrdersParams): Promise<ListCommercialOrdersResult> {
     let rows = [...this.orders.values()]
       .filter((o) => o.tenant_id === tenantId)
       .filter((o) => !params.customerId || o.customer_id === params.customerId)
       .filter((o) => !params.quoteId || o.quote_id === params.quoteId)
       .filter((o) => !params.status || o.status === params.status)
-      .sort(compareCreatedAtThenIdDesc);
+      .filter((o) => !params.currentProductionStepId || o.current_production_step_id === params.currentProductionStepId);
+
+    if (params.sort === 'production_step' || params.sort === '-production_step') {
+      const descending = params.sort === '-production_step';
+      const positionOf = (o: StoredOrder): number | null =>
+        o.current_production_step_id === null ? null : (this.stepPositions.get(o.current_production_step_id) ?? null);
+      rows = rows.sort((a, b) => {
+        const pa = positionOf(a);
+        const pb = positionOf(b);
+        // Nulls TOUJOURS en dernier, dans les DEUX sens (meme regle que la
+        // fonction SQL).
+        if (pa === null && pb === null) return compareCreatedAtThenIdDesc(a, b);
+        if (pa === null) return 1;
+        if (pb === null) return -1;
+        if (pa !== pb) return descending ? pb - pa : pa - pb;
+        return compareCreatedAtThenIdDesc(a, b);
+      });
+      if (params.cursor) {
+        const cursor = params.cursor;
+        const separator = cursor.sort.lastIndexOf('|');
+        const cursorStepId = separator === -1 ? null : cursor.sort.slice(0, separator) || null;
+        const cursorCreatedAt = separator === -1 ? cursor.sort : cursor.sort.slice(separator + 1);
+        const cursorPosition = cursorStepId === null ? null : (this.stepPositions.get(cursorStepId) ?? null);
+        rows = rows.filter((o) => {
+          const position = positionOf(o);
+          if (cursorPosition === null) {
+            return (
+              position === null &&
+              isStrictlyAfterCursor({ sort: o.created_at, id: o.id }, { sort: cursorCreatedAt, id: cursor.id }, false)
+            );
+          }
+          if (position === null) return false;
+          if (position !== cursorPosition) return descending ? position < cursorPosition : position > cursorPosition;
+          return isStrictlyAfterCursor({ sort: o.created_at, id: o.id }, { sort: cursorCreatedAt, id: cursor.id }, false);
+        });
+      }
+      return { rows: rows.slice(0, params.size + 1) };
+    }
+
+    const ascending = params.sort === 'created_at';
+    rows = rows.sort((a, b) => (ascending ? -compareCreatedAtThenIdDesc(a, b) : compareCreatedAtThenIdDesc(a, b)));
 
     if (params.cursor) {
       const cursor = params.cursor;
-      rows = rows.filter((o) => isStrictlyAfterCursor({ sort: o.created_at, id: o.id }, cursor));
+      rows = rows.filter((o) => isStrictlyAfterCursor({ sort: o.created_at, id: o.id }, cursor, ascending));
     }
     return { rows: rows.slice(0, params.size + 1) };
   }
@@ -126,6 +192,13 @@ export class InMemoryCommercialOrdersRepository implements CommercialOrdersRepos
       number,
       status: 'validated',
       source_quote_status: applied.sourceStatus,
+      // E10.13 — ce faux ne modelise pas `production_steps` : `null` est un
+      // etat CONTRACTUELLEMENT valide (tenant sans etape active). Un
+      // scenario qui exerce la pose de l etape initiale passe par
+      // `setCurrentProductionStepIdForTest()` ci-dessus ; le comportement
+      // REEL (etape active de position la plus basse, cote SQL) est verifie
+      // par tests/sql/gescom-e10-13-production-steps.sql, pas ici.
+      current_production_step_id: null,
       totals,
       created_by: actor,
       created_at: now,
