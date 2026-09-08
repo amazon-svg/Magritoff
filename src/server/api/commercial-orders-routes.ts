@@ -16,20 +16,26 @@
  * Enregistrement obligatoire dans `gescom-routes.ts` (CA1).
  */
 import {
+  changeOrderProductionStepCommandSchema,
   commercialOrderDetailSchema,
   commercialOrdersListSchema,
   commercialOrderSortSchema,
   commercialOrderStatusSchema,
+  orderStepChangeSchema,
+  orderStepChangesListSchema,
 } from '../../modules/commercial-orders/api/contracts.ts';
 import type { CommercialOrderSort } from '../../modules/commercial-orders/api/contracts.ts';
 import type { CommercialOrdersService } from '../../modules/commercial-orders/application/commercial-orders-service.ts';
 import {
   CommercialOrderNotFoundError,
+  OrderStepUnchangedError,
+  ProductionStepInactiveError,
   QuoteConversionForbiddenStatusError,
 } from '../../modules/commercial-orders/application/commercial-orders-repository.ts';
 import type { CommercialQuotesService } from '../../modules/commercial-quotes/application/commercial-quotes-service.ts';
 import { QuoteNotFoundError } from '../../modules/commercial-quotes/application/commercial-quotes-repository.ts';
 import type { ProductionStepsService } from '../../modules/production-steps/application/production-steps-service.ts';
+import { ProductionStepNotFoundError } from '../../modules/production-steps/application/production-steps-repository.ts';
 import { uuidSchema } from '../../modules/_shared/api/index.ts';
 import {
   buildPage,
@@ -178,6 +184,74 @@ export function createCommercialOrdersRoutes(
         });
       },
     }),
+
+    // ── E10.14 — journal des changements d etape, GET + POST sur la MEME
+    // ressource (contrat, decision #1 : le POST y CREE l entree, le GET LIT
+    // la suite). Colonne gauche de la modale unique (historique) / colonne
+    // droite (etapes du tenant, servie par listProductionSteps, deja montee).
+    defineGescomRoute({
+      method: 'GET',
+      path: '/commercial-orders/{orderId}/step-changes',
+      operationId: 'listOrderStepChanges',
+      requiredScopes: ['orders:read'],
+      inputSchema: null,
+      dataSchema: orderStepChangesListSchema,
+      async handle(context) {
+        return withCommercialOrderErrors(async () => {
+          const orderId = context.params['orderId']!;
+          const cursor = context.page.cursor ? decodeCursor(context.page.cursor) : null;
+          const result = await orders.listStepChanges(context.tenantId, orderId, {
+            size: context.page.size,
+            cursor,
+          });
+          const page = buildPage(result.rows, context.page, (row) => ({
+            sort: row.occurred_at,
+            id: row.id,
+          }));
+          return {
+            status: 200,
+            data: page.items,
+            meta: { next_cursor: page.nextCursor, page_size: context.page.size },
+          };
+        });
+      },
+    }),
+
+    defineGescomRoute({
+      method: 'POST',
+      path: '/commercial-orders/{orderId}/step-changes',
+      operationId: 'changeOrderProductionStep',
+      requiredScopes: ['orders:write'],
+      createsResource: true,
+      inputSchema: changeOrderProductionStepCommandSchema,
+      dataSchema: orderStepChangeSchema,
+      async handle(context, input) {
+        const orderId = context.params['orderId']!;
+        // Auteur resolu du PRINCIPAL, jamais du corps (contrat,
+        // `ChangeOrderProductionStepCommand` n a aucun champ d auteur).
+        // `null` pour un jeton utilisateur (la fonction SQL resout l e-mail
+        // elle-meme depuis `auth.uid()`) ; `module:<serviceId>` pour une cle
+        // de service (decision #10 / #12, premiere ecriture E10 joignable
+        // par cle de service, arbitrage Arnaud 2026-09-09).
+        const serviceActorLabel = context.principal.kind === 'service' ? `module:${context.principal.serviceId}` : null;
+        const actor = context.principal.kind === 'user' ? context.principal.userId : null;
+        return withCommercialOrderErrors(
+          async () => {
+            const entry = await orders.changeProductionStep(context.tenantId, orderId, actor, input, serviceActorLabel);
+            // AUCUN ETag ici (contrat) : celui de la commande vient de
+            // s invalider, un appelant qui le detient encore doit relire
+            // getCommercialOrder avant tout PATCH futur.
+            return { status: 201, data: entry };
+          },
+          // `current_state` sur 409 `order.step_unchanged` — RELU APRES
+          // l echec, jamais avant (meme discipline B2 qu E10.12).
+          async () => {
+            const order = await orders.getSummary(context.tenantId, orderId);
+            return { current_production_step_id: order.current_production_step_id };
+          },
+        );
+      },
+    }),
   ];
 }
 
@@ -274,6 +348,38 @@ async function withCommercialOrderErrors<T>(
         code: 'quote.conversion_forbidden_status',
         detail: error.message,
         ...(currentState ? { currentState } : {}),
+      });
+    }
+    // E10.14 — decision #7 du contrat : reposer l etape courante est un
+    // REFUS, pas un succes silencieux. `current_state` releve APRES l echec
+    // (meme discipline B2), jamais avant.
+    if (error instanceof OrderStepUnchangedError) {
+      const currentState = await readCurrentStateSafely(getCurrentState);
+      throw problem({
+        status: 409,
+        title: 'Étape déjà atteinte',
+        code: 'order.step_unchanged',
+        detail: error.message,
+        ...(currentState ? { currentState } : {}),
+      });
+    }
+    // E10.14 — decision #8 : code NEUF, distinct de production_step.not_found
+    // (E10.13, branche generique ci-dessous via CommercialOrderNotFoundError/
+    // ProductionStepNotFoundError).
+    if (error instanceof ProductionStepInactiveError) {
+      throw problem({
+        status: 422,
+        title: 'Étape de production désactivée',
+        code: 'production_step.inactive',
+        detail: error.message,
+      });
+    }
+    if (error instanceof ProductionStepNotFoundError) {
+      throw problem({
+        status: 422,
+        title: 'Étape de production introuvable',
+        code: 'production_step.not_found',
+        detail: error.message,
       });
     }
     throw error;

@@ -16,16 +16,24 @@ import type { TenantId, UserId } from '@/kernel';
 import { computeQuoteTotals } from '@/modules/commercial-quotes/application/quote-totals';
 import type { TaxRegimeDto } from '@/modules/commercial-quotes/api/contracts';
 import type {
+  ChangeOrderProductionStepCommand,
   CommercialOrderDetailDto,
   CommercialOrderDto,
   CommercialOrderLineDto,
+  OrderStepChangeDto,
 } from '@/modules/commercial-orders/api/contracts';
 import {
+  CommercialOrderNotFoundError,
+  OrderStepUnchangedError,
+  ProductionStepInactiveError,
   QuoteConversionForbiddenStatusError,
   type CommercialOrdersRepository,
   type ListCommercialOrdersParams,
   type ListCommercialOrdersResult,
+  type ListOrderStepChangesParams,
+  type ListOrderStepChangesResult,
 } from '@/modules/commercial-orders/application/commercial-orders-repository';
+import { ProductionStepNotFoundError } from '@/modules/production-steps/application/production-steps-repository';
 import type { InMemoryCommercialQuotesRepository } from './commercial-quotes-repository.fake.ts';
 
 let sequence = 0;
@@ -75,8 +83,22 @@ export class InMemoryCommercialOrdersRepository implements CommercialOrdersRepos
    * `list_commercial_orders_by_production_step`).
    */
   private readonly stepPositions = new Map<string, number>();
+  /**
+   * E10.14 — referentiel minimal des etapes, TEST UNIQUEMENT : ce faux ne
+   * partage pas `InMemoryProductionStepsRepository` (deux fakes distincts,
+   * meme discipline que `stepPositions` ci-dessus, jamais partagee entre
+   * modules), un scenario qui exerce `changeProductionStep` doit enregistrer
+   * ses etapes ici.
+   */
+  private readonly steps = new Map<string, Readonly<{ tenantId: string; isActive: boolean }>>();
+  private readonly stepChanges = new Map<string, OrderStepChangeDto[]>();
 
   constructor(private readonly quotes: InMemoryCommercialQuotesRepository) {}
+
+  /** TEST UNIQUEMENT — enregistre une etape (tenant + statut actif) pour `changeProductionStep`. */
+  registerProductionStepForTest(stepId: string, tenantId: string, isActive = true): void {
+    this.steps.set(stepId, { tenantId, isActive });
+  }
 
   /** TEST UNIQUEMENT — meme regime fiscal que celui pose sur le faux Devis (`setTenantTaxRegimeForTest`). */
   setTenantTaxRegimeForTest(tenantId: string, regime: TaxRegimeDto): void {
@@ -230,5 +252,77 @@ export class InMemoryCommercialOrdersRepository implements CommercialOrdersRepos
     this.lines.set(orderId, orderLines);
 
     return { ...order, lines: orderLines };
+  }
+
+  /**
+   * E10.14 — journal ANTICHRONOLOGIQUE (`occurred_at desc, id desc`, seul
+   * ordre publie par le contrat). REIMPLEMENTE FIDELEMENT la pagination de
+   * `list()` ci-dessus, sur le seul ordre possible ici.
+   */
+  async listStepChanges(
+    tenantId: TenantId,
+    orderId: string,
+    params: ListOrderStepChangesParams,
+  ): Promise<ListOrderStepChangesResult> {
+    void tenantId;
+    let rows = [...(this.stepChanges.get(orderId) ?? [])].sort((a, b) =>
+      compareCreatedAtThenIdDesc(
+        { created_at: a.occurred_at, id: a.id },
+        { created_at: b.occurred_at, id: b.id },
+      ),
+    );
+    if (params.cursor) {
+      const cursor = params.cursor;
+      rows = rows.filter((row) =>
+        isStrictlyAfterCursor({ sort: row.occurred_at, id: row.id }, cursor, false),
+      );
+    }
+    return { rows: rows.slice(0, params.size + 1) };
+  }
+
+  /**
+   * REIMPLEMENTE FIDELEMENT le patron verrou -> validations -> transition de
+   * `api_change_commercial_order_production_step` (migration 20260909000000) :
+   * meme ORDRE d exceptions (not_found -> production_step.not_found ->
+   * production_step.inactive -> order.step_unchanged), meme ecriture
+   * INDISSOCIABLE de la colonne et de l entree.
+   */
+  async changeProductionStep(
+    tenantId: TenantId,
+    orderId: string,
+    actor: UserId | null,
+    command: ChangeOrderProductionStepCommand,
+    serviceActorLabel: string | null,
+  ): Promise<OrderStepChangeDto> {
+    const order = await this.findById(tenantId, orderId);
+    if (!order) throw new CommercialOrderNotFoundError();
+
+    const step = this.steps.get(command.step_id);
+    if (!step || step.tenantId !== tenantId) throw new ProductionStepNotFoundError();
+    if (!step.isActive) throw new ProductionStepInactiveError();
+
+    const fromStepId = order.current_production_step_id;
+    if (fromStepId === command.step_id) throw new OrderStepUnchangedError();
+
+    this.orders.set(orderId, { ...order, current_production_step_id: command.step_id });
+
+    const entry: OrderStepChangeDto = {
+      id: fakeOrderUuid(),
+      order_id: orderId,
+      from_step_id: fromStepId,
+      to_step_id: command.step_id,
+      note: command.note ?? null,
+      // Patron E10.10a/E10.10b-2 : actor_id NULL pour une cle de service
+      // (`actor` alors null, `serviceActorLabel` porte le libelle) ; l acteur
+      // UTILISATEUR est repris TEL QUEL (contrairement a l implementation
+      // Supabase, ce faux n a pas de session Postgres pour le retrouver).
+      actor_id: actor,
+      actor_label: serviceActorLabel ?? 'utilisateur de test',
+      occurred_at: new Date().toISOString(),
+    };
+    const existing = this.stepChanges.get(orderId) ?? [];
+    this.stepChanges.set(orderId, [...existing, entry]);
+
+    return entry;
   }
 }

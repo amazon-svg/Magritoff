@@ -8,16 +8,31 @@
 import { successEnvelopeSchema } from '../../_shared/api/index.ts';
 import { API_V1_BASE_PATH, type ApiResponseWithEtag, FetchApiClient } from '../../../platform/api/index.ts';
 import {
+  changeOrderProductionStepCommandSchema,
   commercialOrderDetailSchema,
   commercialOrdersListSchema,
   convertQuoteCommandSchema,
+  orderStepChangeSchema,
+  orderStepChangesListSchema,
+  type ChangeOrderProductionStepCommand,
   type CommercialOrderDetailDto,
   type CommercialOrderDto,
   type CommercialOrderStatus,
+  type OrderStepChangeDto,
 } from './contracts.ts';
 
 const ORDERS_BASE_PATH = `${API_V1_BASE_PATH}/commercial-orders`;
 const QUOTES_BASE_PATH = `${API_V1_BASE_PATH}/quotes`;
+
+export type ListOrderStepChangesQuery = Readonly<{
+  pageSize?: number;
+  pageCursor?: string;
+}>;
+
+export type ListOrderStepChangesResponse = Readonly<{
+  items: readonly OrderStepChangeDto[];
+  nextCursor: string | null;
+}>;
 
 export type ListCommercialOrdersQuery = Readonly<{
   customerId?: string;
@@ -74,6 +89,47 @@ export class CommercialOrdersApiClient {
     const envelope = await this.client.request({
       path: `${ORDERS_BASE_PATH}/${orderId}`,
       responseSchema: successEnvelopeSchema(commercialOrderDetailSchema),
+    });
+    return envelope.data;
+  }
+
+  /**
+   * E10.14 — journal antichronologique, colonne gauche de la modale unique
+   * (`OrderStatusDialog`). Lecture seule, aucun `Idempotency-Key`.
+   */
+  async listStepChanges(
+    orderId: string,
+    query: ListOrderStepChangesQuery = {},
+  ): Promise<ListOrderStepChangesResponse> {
+    const params = new URLSearchParams();
+    if (query.pageSize) params.set('page[size]', String(query.pageSize));
+    if (query.pageCursor) params.set('page[cursor]', query.pageCursor);
+    const suffix = params.toString();
+    const path = `${ORDERS_BASE_PATH}/${orderId}/step-changes`;
+
+    const envelope = await this.client.request({
+      path: suffix ? `${path}?${suffix}` : path,
+      responseSchema: successEnvelopeSchema(orderStepChangesListSchema),
+    });
+    return { items: envelope.data, nextCursor: envelope.meta.next_cursor ?? null };
+  }
+
+  /**
+   * E10.14 — deplace la commande sur une etape de production, colonne droite
+   * de la modale unique. AUCUN `If-Match` (decision #6 du contrat) : jamais
+   * de precondition de concurrence sur ce geste. `Idempotency-Key` generee
+   * ici (double-clic depuis une grille dense).
+   */
+  async changeProductionStep(
+    orderId: string,
+    command: ChangeOrderProductionStepCommand,
+  ): Promise<OrderStepChangeDto> {
+    const envelope = await this.client.request({
+      method: 'POST',
+      path: `${ORDERS_BASE_PATH}/${orderId}/step-changes`,
+      body: changeOrderProductionStepCommandSchema.parse(command),
+      headers: { 'Idempotency-Key': newIdempotencyKey() },
+      responseSchema: successEnvelopeSchema(orderStepChangeSchema),
     });
     return envelope.data;
   }

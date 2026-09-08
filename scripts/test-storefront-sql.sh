@@ -54,6 +54,7 @@ SQL_CASES=(
   tests/sql/gescom-e10-10b-3-outbox-dispatcher.sql
   tests/sql/gescom-e10-12-quote-conversion.sql
   tests/sql/gescom-e10-13-production-steps.sql
+  tests/sql/gescom-e10-14-order-step-changes.sql
 )
 
 for sql_case in "${SQL_CASES[@]}"; do

@@ -10,12 +10,19 @@
 import type { TenantId, UserId } from '../../../kernel/ids/index.ts';
 import type { OutboxPublisher } from '../../_shared/application/index.ts';
 import type { CommercialQuotesService } from '../../commercial-quotes/application/commercial-quotes-service.ts';
-import type { CommercialOrderDetailDto } from '../api/contracts.ts';
+import type {
+  ChangeOrderProductionStepCommand,
+  CommercialOrderDetailDto,
+  CommercialOrderDto,
+  OrderStepChangeDto,
+} from '../api/contracts.ts';
 import {
   CommercialOrderNotFoundError,
   type CommercialOrdersRepository,
   type ListCommercialOrdersParams,
   type ListCommercialOrdersResult,
+  type ListOrderStepChangesParams,
+  type ListOrderStepChangesResult,
 } from './commercial-orders-repository.ts';
 
 export type CommercialOrdersServiceDependencies = Readonly<{
@@ -44,6 +51,76 @@ export class CommercialOrdersService {
     const detail = await this.repository.findDetailById(tenantId, orderId);
     if (!detail) throw new CommercialOrderNotFoundError();
     return detail;
+  }
+
+  /**
+   * Lit le RESUME (sans lignes) d une commande — utilise par les operations
+   * qui n ont besoin que de verifier son existence/etat courant (E10.14,
+   * journal des changements d etape), sans payer le cout de charger les
+   * lignes (contrairement a `getDetail`).
+   */
+  async getSummary(tenantId: TenantId, orderId: string): Promise<CommercialOrderDto> {
+    const order = await this.repository.findById(tenantId, orderId);
+    if (!order) throw new CommercialOrderNotFoundError();
+    return order;
+  }
+
+  /** E10.14 — journal antichronologique. 404 `CommercialOrderNotFoundError` si la commande est absente/hors tenant, verifie AVANT la lecture du journal. */
+  async listStepChanges(
+    tenantId: TenantId,
+    orderId: string,
+    params: ListOrderStepChangesParams,
+  ): Promise<ListOrderStepChangesResult> {
+    await this.getSummary(tenantId, orderId);
+    return this.repository.listStepChanges(tenantId, orderId, params);
+  }
+
+  /**
+   * Deplace une commande sur une etape de production et JOURNALISE le
+   * passage dans le meme geste (contrat, decision #4 : une seule transaction
+   * cote base, deux ecritures indissociables). Publie `order.step_changed`
+   * APRES le commit SQL, meme limite deja acceptee pour les evenements de
+   * devis/conversion (dette M2, docs/api/CONVENTIONS.md §8.2 — pas traitee
+   * par ce lot, decision explicite du cadrage E10.14 §5 reserve (c)).
+   *
+   * Relit la commande APRES la transition (jamais avant, meme discipline B2
+   * qu E10.12) pour composer `OrderStepChangedPayload` (`order_number`,
+   * `customer_id`) : le seul champ que la fonction SQL rend est l entree de
+   * journal elle-meme (decision #5 du contrat, la ressource creee est
+   * l entree, pas la commande).
+   */
+  async changeProductionStep(
+    tenantId: TenantId,
+    orderId: string,
+    actor: UserId | null,
+    command: ChangeOrderProductionStepCommand,
+    serviceActorLabel: string | null,
+  ): Promise<OrderStepChangeDto> {
+    const entry = await this.repository.changeProductionStep(tenantId, orderId, actor, command, serviceActorLabel);
+
+    const order = await this.repository.findById(tenantId, orderId);
+    if (!order) {
+      // Ne devrait jamais arriver : la transition vient de committer sur
+      // cette meme commande (meme discipline defensive que `convertQuote`).
+      throw new CommercialOrderNotFoundError();
+    }
+
+    await this.outbox.publish({
+      name: 'order.step_changed',
+      tenantId,
+      aggregateType: 'order',
+      aggregateId: orderId,
+      payload: {
+        step_change_id: entry.id,
+        order_id: orderId,
+        order_number: order.number,
+        customer_id: order.customer_id,
+        from_step_id: entry.from_step_id,
+        to_step_id: entry.to_step_id,
+      },
+    });
+
+    return entry;
   }
 
   /**

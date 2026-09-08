@@ -185,6 +185,60 @@ export const quoteConversionPayloadSchema = z
   })
   .strict();
 
+/**
+ * `OrderStepChange` (E10.14) : entree du journal des changements d etape,
+ * IMMUABLE (patron `commercial_quote_header_audit`, E10.10a). Le journal DIT
+ * LE MOUVEMENT (`from_step_id` -> `to_step_id`), jamais une progression — le
+ * saut est autorise et assume (CA4, docs/api/CONVENTIONS.md §8.16 decision #9).
+ */
+export const orderStepChangeSchema = z
+  .object({
+    id: uuidSchema,
+    order_id: uuidSchema,
+    from_step_id: uuidSchema.nullable(),
+    to_step_id: uuidSchema,
+    note: z.string().min(1).max(1000).nullable(),
+    // actor_id nullable (utilisateur Magrit) + actor_label toujours present :
+    // meme patron d auteur qu E10.10b-2, point d extension pour un futur
+    // auteur systeme (E10.20, non cadre ici, decision #12).
+    actor_id: uuidSchema.nullable(),
+    actor_label: z.string().min(1).max(320).nullable(),
+    occurred_at: timestampSchema,
+  })
+  .strict();
+
+export const orderStepChangesListSchema = z.array(orderStepChangeSchema);
+
+/**
+ * Corps de `changeOrderProductionStep`. AUCUN champ d auteur (resolu du jeton
+ * ou de la cle de service, jamais declare par l appelant) ni d horodatage
+ * (pose en base). `step_id` seul champ requis ; `note` facultative, chaine
+ * vide refusee (« pas de note » se dit en OMETTANT le champ).
+ */
+export const changeOrderProductionStepCommandSchema = z
+  .object({
+    step_id: uuidSchema,
+    note: z.string().min(1).max(1000).optional(),
+  })
+  .strict();
+
+/**
+ * Charge utile de l evenement sortant `order.step_changed` (`event_version:
+ * 1`). Volontairement minimale : ni libelle d etape, ni note, ni identite de
+ * l auteur — un abonne relit `listProductionSteps`/`listOrderStepChanges`
+ * derriere une authentification si besoin.
+ */
+export const orderStepChangedPayloadSchema = z
+  .object({
+    step_change_id: uuidSchema,
+    order_id: uuidSchema,
+    order_number: commercialOrderNumberSchema,
+    customer_id: uuidSchema,
+    from_step_id: uuidSchema.nullable(),
+    to_step_id: uuidSchema,
+  })
+  .strict();
+
 export type CommercialOrderStatus = z.infer<typeof commercialOrderStatusSchema>;
 export type CommercialOrderSort = z.infer<typeof commercialOrderSortSchema>;
 export type ConvertedFromStatus = z.infer<typeof convertedFromStatusSchema>;
@@ -194,18 +248,24 @@ export type CommercialOrderLineDto = z.infer<typeof commercialOrderLineSchema>;
 export type CommercialOrderDto = z.infer<typeof commercialOrderSchema>;
 export type CommercialOrderDetailDto = z.infer<typeof commercialOrderDetailSchema>;
 export type QuoteConversionPayloadDto = z.infer<typeof quoteConversionPayloadSchema>;
+export type OrderStepChangeDto = z.infer<typeof orderStepChangeSchema>;
+export type ChangeOrderProductionStepCommand = z.infer<typeof changeOrderProductionStepCommandSchema>;
+export type OrderStepChangedPayloadDto = z.infer<typeof orderStepChangedPayloadSchema>;
 
 // ---------------------------------------------------------------------------
 // Alignement de compilation contrat <-> schemas (meme garde-fou que les
 // autres modules E10.x, voir src/modules/_shared/api/contracts.ts).
 // ---------------------------------------------------------------------------
 import type {
+  ChangeOrderProductionStepCommand as ChangeOrderProductionStepCommandContract,
   CommercialOrder as CommercialOrderContract,
   CommercialOrderDetail as CommercialOrderDetailContract,
   CommercialOrderSort as CommercialOrderSortContract,
   CommercialOrderStatus as CommercialOrderStatusContract,
   CommercialOrderTotals as CommercialOrderTotalsContract,
   ConvertedFromStatus as ConvertedFromStatusContract,
+  OrderStepChange as OrderStepChangeContract,
+  OrderStepChangedPayload as OrderStepChangedPayloadContract,
   QuoteConversionPayload as QuoteConversionPayloadContract,
 } from '../../../platform/api/generated/magrit-core.v1.ts';
 
@@ -233,4 +293,13 @@ export const COMMERCIAL_ORDERS_CONTRACT_ALIGNMENT = Object.freeze({
     CommercialOrderDetailDto['current_production_step_id'],
     CommercialOrderDetailContract['current_production_step_id']
   >,
+  // E10.14 — journal des changements d etape (`OrderStepChange`), corps de la
+  // transition (`ChangeOrderProductionStepCommand`) et charge utile de
+  // l evenement sortant (`OrderStepChangedPayload`).
+  orderStepChange: true as AssertAssignable<OrderStepChangeDto, OrderStepChangeContract>,
+  changeOrderProductionStepCommand: true as AssertAssignable<
+    ChangeOrderProductionStepCommand,
+    ChangeOrderProductionStepCommandContract
+  >,
+  orderStepChangedPayload: true as AssertAssignable<OrderStepChangedPayloadDto, OrderStepChangedPayloadContract>,
 });

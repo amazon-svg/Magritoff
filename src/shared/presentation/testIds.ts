@@ -693,6 +693,27 @@ export const TEST_IDS = {
     addSubmitBtn: 'production-step-add-submit-btn',
     errorBanner: 'production-step-error-banner',
   },
+
+  // ─── E10.14 — Modale unifiee de changement de statut et historique ────────
+  // UN SEUL composant (`OrderStatusDialog`), DEUX points d appel (bouton en
+  // ligne de grille ET en fiche commande, CA1/CA2 : jamais deux
+  // implementations, jamais d edition inline dans la grille). Ecran a DEUX
+  // colonnes : historique horodate (gauche) / etapes du tenant (droite),
+  // etape courante mise en evidence, etapes deja franchies distinguees
+  // (`data-state`). Testid mandates par la story Notion (Hints DOM) :
+  // order-status-btn, order-status-dialog, order-status-option
+  // (+data-step-id, +data-state), order-status-confirm-btn,
+  // order-status-history-panel, order-status-history-row (+data-history-id).
+  orderStatus: {
+    btn: 'order-status-btn',
+    dialog: 'order-status-dialog',
+    option: 'order-status-option',
+    confirmBtn: 'order-status-confirm-btn',
+    historyPanel: 'order-status-history-panel',
+    historyRow: 'order-status-history-row',
+    errorBanner: 'order-status-error-banner',
+    closeBtn: 'order-status-close-btn',
+  },
 } as const;
 
 /**

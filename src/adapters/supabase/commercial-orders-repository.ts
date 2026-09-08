@@ -16,21 +16,29 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { TenantId, UserId } from '../../kernel/ids/index.ts';
 import { QuoteNotFoundError } from '../../modules/commercial-quotes/application/commercial-quotes-repository.ts';
 import type { TaxRegimeDto } from '../../modules/commercial-quotes/api/contracts.ts';
+import { ProductionStepNotFoundError } from '../../modules/production-steps/application/production-steps-repository.ts';
 import type {
+  ChangeOrderProductionStepCommand,
   CommercialOrderDetailDto,
   CommercialOrderDto,
   CommercialOrderLineDto,
   CommercialOrderStatus,
   CommercialOrderTotalsDto,
   ConvertedFromStatus,
+  OrderStepChangeDto,
 } from '../../modules/commercial-orders/api/contracts.ts';
 import {
+  CommercialOrderNotFoundError,
+  OrderStepUnchangedError,
+  ProductionStepInactiveError,
   QuoteConversionForbiddenStatusError,
   type CommercialOrdersRepository,
   type ListCommercialOrdersParams,
   type ListCommercialOrdersResult,
+  type ListOrderStepChangesParams,
+  type ListOrderStepChangesResult,
 } from '../../modules/commercial-orders/application/commercial-orders-repository.ts';
-import { toIsoTimestamp } from '../../modules/_shared/application/index.ts';
+import { toIsoTimestamp, toIsoTimestampOrNull } from '../../modules/_shared/application/index.ts';
 
 export class SupabaseCommercialOrdersRepository implements CommercialOrdersRepository {
   constructor(private readonly client: SupabaseClient<any>) {}
@@ -153,6 +161,70 @@ export class SupabaseCommercialOrdersRepository implements CommercialOrdersRepos
     }
     return detail;
   }
+
+  /**
+   * E10.14 — journal ANTICHRONOLOGIQUE (`occurred_at desc, id desc`, seul
+   * ordre publie par le contrat). La RLS de `commercial_order_step_changes`
+   * (jointure sur `commercial_orders.tenant_id`) isole deja le tenant ; ce
+   * filtre reste explicite sur `order_id` uniquement — l existence de la
+   * commande dans le tenant est verifiee EN AMONT par le SERVICE
+   * (`getSummary()`), avant d atteindre cette lecture.
+   */
+  async listStepChanges(
+    tenantId: TenantId,
+    orderId: string,
+    params: ListOrderStepChangesParams,
+  ): Promise<ListOrderStepChangesResult> {
+    void tenantId;
+    let query = this.client
+      .from('commercial_order_step_changes')
+      .select('*')
+      .eq('order_id', orderId)
+      .order('occurred_at', { ascending: false })
+      .order('id', { ascending: false })
+      .limit(params.size + 1);
+
+    if (params.cursor) {
+      query = query.or(
+        `occurred_at.lt.${params.cursor.sort},and(occurred_at.eq.${params.cursor.sort},id.lt.${params.cursor.id})`,
+      );
+    }
+
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+    return { rows: (data ?? []).map(toOrderStepChangeDto) };
+  }
+
+  /**
+   * `security definer` (`api_change_commercial_order_production_step`,
+   * migration 20260909000000) : verrouille la commande, valide l etape
+   * cible, met a jour `current_production_step_id` ET insere l entree de
+   * journal, dans la MEME transaction (contrat, decision #4). `p_actor_label`
+   * n est fourni QUE pour une cle de service (`serviceActorLabel`) — pour un
+   * jeton utilisateur, la fonction resout l e-mail elle-meme depuis
+   * `auth.uid()` (contrat §3 point 1).
+   */
+  async changeProductionStep(
+    tenantId: TenantId,
+    orderId: string,
+    actor: UserId | null,
+    command: ChangeOrderProductionStepCommand,
+    serviceActorLabel: string | null,
+  ): Promise<OrderStepChangeDto> {
+    void actor; // trace : l auteur est porte par la fonction (auth.uid()), pas par ce parametre — meme discipline que convertQuote.
+    const { data, error } = await this.client.rpc('api_change_commercial_order_production_step', {
+      p_tenant_id: tenantId,
+      p_order_id: orderId,
+      p_step_id: command.step_id,
+      p_note: command.note ?? null,
+      p_actor_label: serviceActorLabel,
+    });
+    if (error) throw mapChangeProductionStepError(error.message);
+
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row) throw new Error('La transition n a rendu aucune entree de journal.');
+    return toOrderStepChangeDto(row as Record<string, any>);
+  }
 }
 
 function isTaxRegime(value: unknown): value is TaxRegimeDto {
@@ -249,4 +321,47 @@ function mapQuoteConversionError(message: string): Error {
     return new Error(`authentication_required: ${message}`);
   }
   return new Error(`Conversion du devis impossible: ${message}`);
+}
+
+function toOrderStepChangeDto(row: Record<string, any>): OrderStepChangeDto {
+  return {
+    id: row.id,
+    order_id: row.order_id,
+    from_step_id: row.from_step_id ?? null,
+    to_step_id: row.to_step_id,
+    note: row.note ?? null,
+    actor_id: row.actor_id ?? null,
+    actor_label: row.actor_label ?? null,
+    occurred_at: toIsoTimestampOrNull(row.occurred_at) ?? toIsoTimestamp(row.occurred_at),
+  };
+}
+
+/**
+ * Traduit le message d exception de
+ * `api_change_commercial_order_production_step` en erreur de domaine.
+ * L ORDRE des branches suit celui de la fonction SQL (verrou -> validations
+ * -> transition) : `order.not_found` d abord (aucune commande a valider
+ * derriere), les deux causes de `production_step.*` ensuite (jamais
+ * confondues, decision #8 du contrat), `order.step_unchanged` enfin.
+ */
+function mapChangeProductionStepError(message: string): Error {
+  if (message.includes('order.not_found')) {
+    return new CommercialOrderNotFoundError(message);
+  }
+  if (message.includes('production_step.not_found')) {
+    return new ProductionStepNotFoundError(message);
+  }
+  if (message.includes('production_step.inactive')) {
+    return new ProductionStepInactiveError(message);
+  }
+  if (message.includes('order.step_unchanged')) {
+    return new OrderStepUnchangedError(message);
+  }
+  if (message.includes('permission_denied')) {
+    return new Error(`permission_denied: ${message}`);
+  }
+  if (message.includes('authentication_required')) {
+    return new Error(`authentication_required: ${message}`);
+  }
+  return new Error(`Changement d etape de production impossible: ${message}`);
 }
