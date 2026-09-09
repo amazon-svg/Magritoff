@@ -1154,7 +1154,21 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Fiche complete d une commande : entete, totaux figes et lignes. */
+        /**
+         * Fiche complete d une commande : entete, totaux figes et lignes. C est la lecture PRINCIPALE de l ecran de detail d une commande (E10.16), celle qui porte le document lui-meme.
+         *
+         *     CETTE OPERATION NE SE SUFFIT PAS A ELLE-MEME, ET C EST VOULU. Elle rend des IDENTIFIANTS la ou l ecran affiche des NOMS — `customer_id`, `quote_id`, `current_production_step_id`, `created_by`. La jointure est a la charge de l appelant, conformement a la doctrine deja posee pour l etape de production (« le catalogue se lit une fois par `listProductionSteps` et se joint cote appelant »). Recopier ici un nom de client ou un numero de devis creerait une SECONDE VERITE dans une reponse dont toute la valeur est d etre figee — et obligerait a trancher si cette copie est un instantane du jour de la conversion ou une lecture du jour de l affichage, deux reponses incompatibles qu il vaut mieux ne pas melanger dans un meme document. Le sujet reste ouvert (reserve (d) de docs/api/CONVENTIONS.md §8.17) ; l ajouter plus tard serait additif.
+         *
+         *     LES QUATRE LECTURES DE L ECRAN DE DETAIL, toutes deja publiees, aucune neuve : cette operation (entete, totaux, lignes) ; `getCustomer` (E10.4) pour le client ET la liste de ses interlocuteurs, dans laquelle se resout `customer_contact_id` ; `listProductionSteps` (E10.13) pour traduire `current_production_step_id` en libelle et couleur ; `listOrderStepChanges` (E10.14) pour le journal.
+         *
+         *     LA DATE DE « DERNIERE TRANSITION » SE LIT AU JOURNAL, PAS SUR `updated_at`. La premiere entree de `listOrderStepChanges` (antichronologique, `page[size]=1` suffit) porte l instant, l auteur et la note du dernier mouvement. `updated_at` vaut aujourd hui le meme instant — `changeOrderProductionStep` est la seule operation qui modifie une commande — mais cette egalite est un ACCIDENT de l etat courant du contrat, pas une garantie : la premiere autre mutation la romprait sans prevenir. `updated_at` sert l `ETag` et la fraicheur, pas la chronologie metier. Une commande jamais deplacee a un journal VIDE tout en portant une etape courante (E10.13/E10.14) — l instant de son entree dans le flux est alors `created_at`, et son auteur `created_by`.
+         *
+         *     AUCUN PRIX N EST MODIFIABLE, ET CE N EST PAS UNE CONTRAINTE D AFFICHAGE. Ce contrat ne publie ni `PATCH /commercial-orders/{id}`, ni aucune operation sur une ligne de commande : il n existe donc AUCUN chemin d ecriture sur `sale_price`, `discount_rate` ou l un des huit totaux. La garde est en outre posee EN BASE (trigger d immuabilite par colonne, E10.12), pas seulement ici — une garde de facade seule serait contournee par un appel PostgREST direct. La seule ecriture qui touche une commande est `changeOrderProductionStep`, qui ne change que `current_production_step_id`.
+         *
+         *     L INTERLOCUTEUR ET LA DATE DE LIVRAISON PREVUE (CA1) SONT SERVIS, ET SOUVENT `null`. `customer_contact_id` et `expected_delivery_date` sont les deux champs que ce lot ajoute. Aucun des deux n a de valeur garantie : le premier n est renseigne que quand le devis d origine a ete decide DEPUIS LE PORTAIL CLIENT, le second n a aujourd hui AUCUN chemin d ecriture publie. Un ecran les affiche donc avec un etat « non renseigne » de plein droit, jamais comme une anomalie ni comme une donnee en attente de chargement. Voir la description de chacun sur `CommercialOrderDetail`.
+         *
+         *     CE QUE LA REPONSE NE PORTE PAS, ET QU IL NE FAUT PAS ATTENDRE D UNE VERSION PROCHE : aucune reference de FICHIER (E10.17), aucun lien public de depot (E10.20), aucun lien vers un bon de commande PDF (E10.19), aucune GAMME DE FABRICATION ni donnee technique issue de Clariprint. Cette derniere est une capacite qui N EXISTE PAS — ni dans ce depot ni dans la passerelle Clariprint telle qu elle est integree (voir le commentaire de section ci-dessus) ; le CA3 a ete DIFFERE et rapproche d E10.8, gelee (arbitrage Arnaud du 2026-09-09). Les trois premieres sont des stories NON LIVREES ; la quatrieme n est pas planifiee du tout. Aucune n est une omission de contrat.
+         */
         get: operations["getCommercialOrder"];
         put?: never;
         post?: never;
@@ -2894,7 +2908,15 @@ export interface components {
             /** @description Provenance de la ligne de devis d origine, recopiee. Conservee parce qu elle dit a la production si une configuration produit reelle existe derriere la ligne ou s il s agit d une saisie libre. */
             origin: components["schemas"]["QuoteLineOrigin"];
             label: string;
-            /** @description Configuration produit recopiee telle quelle. Objet vide pour une ligne libre. */
+            /**
+             * @description Configuration produit recopiee telle quelle du devis, lui-meme miroir de `ProjectItem.quote_payload`. Forme LIBRE. Objet vide pour une ligne libre : il n y a pas de configuration produit derriere une saisie manuelle.
+             *
+             *     C EST LA « CONFIGURATION TECHNIQUE » DU CA2 D E10.16, ET C EST LA SEULE DONNEE TECHNIQUE QUE PORTE UNE LIGNE DE COMMANDE. Elle est figee avec le reste de la ligne, ce qui est la bonne propriete pour un document qui engage — mais elle n a AUCUN SCHEMA : ce contrat ne peut donc ni garantir la presence d une cle, ni promettre un libelle lisible. Un ecran qui la rend affiche ce qu il y trouve ; il ne doit pas brancher de comportement metier sur une cle particuliere.
+             *
+             *     CE QU ELLE N EST PAS : la CONFIGURATION CLARIPRINT BRUTE. Celle-ci vit sur `ProjectItem.clariprint_config` et n a jamais ete recopiee sur la ligne de devis (E10.3), donc pas davantage ici. Elle reste atteignable par la chaine `source_quote_line_id` -> `QuoteLine.project_item_id` -> `ProjectItem.clariprint_config`, au prix de deux lectures et SANS GARANTIE : l element de projet n est pas fige et peut avoir ete supprime ou modifie depuis la conversion. Ne jamais presenter cette valeur comme une donnee de la commande.
+             *
+             *     CE QU ELLE N EST PAS NON PLUS : une GAMME DE FABRICATION. Aucune donnee de fabrication n existe dans ce produit — voir le commentaire de section E10.16 au-dessus de `getCommercialOrder`.
+             */
             product_config: {
                 [key: string]: unknown;
             };
@@ -2968,6 +2990,18 @@ export interface components {
         /**
          * CommercialOrderDetail
          * @description Commande complete avec ses lignes. Schema APLATI plutot que compose par `allOf`, meme raison que `QuoteDetail` : combine a `additionalProperties: false`, un `allOf` ferait rejeter `lines` par le membre `CommercialOrder`.
+         *
+         *     C EST LA CHARGE UTILE DE L ECRAN DE DETAIL D UNE COMMANDE (E10.16). L essentiel etait deja la avant cette story : numero, statut, client (par `customer_id`), devis d origine (par `quote_id`), etape courante, dates, lignes avec configuration technique, quantite, prix de vente et remise appliquee.
+         *
+         *     E10.16 N Y A AJOUTE QUE DEUX CHAMPS, `customer_contact_id` et `expected_delivery_date`, tous deux NULLABLES et tous deux dus au CA1. Ils ne sont pas la par symetrie ni par anticipation : sans eux, le CA1 — « voir le client, l interlocuteur et les dates » — n avait aucune donnee derriere lui, aucune table du module ne portant ces deux faits. Arbitrage Arnaud du 2026-09-09 : les poser MAINTENANT plutot que les differer. Les deux exigent une migration livree dans le meme lot que cette description.
+         *
+         *     POURQUOI `required` ET NULLABLES PLUTOT QU OPTIONNELS. Meme parti que `current_production_step_id` et `created_by` : l ABSENCE de valeur est un fait metier a rendre explicitement (« pas d interlocuteur identifie », « pas de date promise »), pas une permission donnee au serveur d omettre la cle. Un appelant sait donc que ces cles sont TOUJOURS presentes, et n a jamais a distinguer « absente » de « nulle » — distinction qui, en pratique, finit toujours par etre traitee differemment par deux appelants.
+         *
+         *     LES LIGNES SONT ICI, IL N Y A PAS DE COLLECTION SEPAREE. Aucun `GET /commercial-orders/{orderId}/lines` n existe et il n en existera pas : les lignes d une commande sont bornees, ordonnees par `position`, et n ont aucun sens hors de l entete dont elles composent les totaux figes. Meme convention que `QuoteDetail`, dont les lignes se lisent aussi par le detail — `/quotes/{quoteId}/lines` n existe qu en ECRITURE.
+         *
+         *     CE QUE CE SCHEMA NE PORTE PAS, faute de donnee et non faute de place : aucun bloc FICHIERS (E10.17), aucun lien de BON DE COMMANDE (E10.19), aucun lien public de depot (E10.20), aucune GAMME DE FABRICATION (capacite inexistante, CA3 differe et rapproche d E10.8 gelee). Contrairement a `CustomerDetail`, qui publie trois points d extension toujours vides, AUCUN champ vide n est ouvert ici d avance pour eux : la forme que prendront ces blocs n est pas connue, et un champ publie se retire mal (§7 de docs/api/CONVENTIONS.md). Un ecran qui doit montrer un emplacement pour ces blocs le fait sans donnee et sans appel, jamais en inventant une reponse.
+         *
+         *     LA DIFFERENCE AVEC LES DEUX CHAMPS AJOUTES CI-DESSUS EST LA REGLE, PAS UNE EXCEPTION : `customer_contact_id` et `expected_delivery_date` ont une FORME CONNUE (un identifiant, une date) et une COLONNE POSEE dans le meme lot ; les quatre blocs ci-dessus n ont ni l une ni l autre. Un champ se publie quand on sait ce qu il contiendra, pas quand on sait qu il manquera.
          */
         CommercialOrderDetail: {
             id: components["schemas"]["Uuid"];
@@ -2977,6 +3011,28 @@ export interface components {
             number: string;
             status: components["schemas"]["CommercialOrderStatus"];
             source_quote_status: components["schemas"]["ConvertedFromStatus"];
+            /**
+             * @description INTERLOCUTEUR de cette commande (`customer_contacts`, E10.4), ou `null`. Ajoute par E10.16 pour le CA1 — c est la reponse a « qui suit ce dossier chez le client ».
+             *
+             *     MEME NOM QUE `shop_customer_accounts.customer_contact_id` (E10.5), ET C EST DELIBERE : c est le MEME referent, une ligne de `customer_contacts`. L appeler `contact_id` ici aurait cree un second nom pour une notion deja nommee dans ce produit, et le suffixe nu aurait laisse croire a un espace de noms distinct — la meme raison qui avait fait nommer la colonne d E10.5 par son espace de noms.
+             *
+             *     IL NE SE SAISIT PAS, IL SE DEDUIT — et une seule voie le pose. La CONVERSION (`convertQuote`, E10.12) le recopie du devis d origine par la chaine `commercial_quotes.decided_by_account_id` -> `shop_customer_accounts.customer_contact_id`. Autrement dit : c est la PERSONNE QUI A ACCEPTE LE DEVIS DEPUIS SON PORTAIL. Aucune autre operation de ce contrat ne l ecrit — il n existe ni `PATCH` sur la commande, ni champ d entree nulle part. Le rendre modifiable serait une story a part entiere, pas un effet de bord de celle-ci.
+             *
+             *     QUAND VAUT-IL `null` ? TROIS CAS, TOUS NORMAUX, et ils sont frequents : (i) `source_quote_status = 'sent'` — l atelier a valide sur une reponse recue hors systeme (telephone, courriel), personne n a rien decide dans le portail, il n y a donc rien a recopier ; (ii) le compte boutique qui a decide est un compte AUTO-INSCRIT ou LEGACY, dont `customer_contact_id` est lui-meme `null` (E10.5 : « NULL pour un compte auto-inscrit ou legacy, sans lien de gestion ») ; (iii) le compte boutique a ete supprime depuis (`on delete set null` sur `decided_by_account_id`). Un appelant traite `null` comme « interlocuteur non identifie », JAMAIS comme une anomalie ni comme une donnee manquante a reclamer.
+             *
+             *     C EST UN POINTEUR, PAS UNE COPIE FIGEE. Comme `customer_id`, il rend un identifiant ; le nom, le courriel et le telephone se lisent VIVANTS par `getCustomer`. Le document reste fige, la fiche d identite de la personne ne l est pas — un interlocuteur qui change de numero doit apparaitre avec le bon. Corollaire a ne pas manquer : si ce contact est SUPPRIME chez le client, cet identifiant designe une ligne disparue et `getCustomer` ne le rendra plus dans `contacts`. L ecran affiche alors le meme etat que `null`. Ce n est pas une incoherence a corriger, c est le prix assume du pointeur — figer un nom aurait cree la seconde verite que la decision #3 du cadrage refuse.
+             */
+            customer_contact_id: components["schemas"]["Uuid"] | null;
+            /**
+             * @description DATE DE LIVRAISON PREVUE, ou `null`. Ajoutee par E10.16 pour le CA1. Un JOUR calendaire, pas un instant : une livraison se promet pour une date, et un `timestamptz` aurait force une heure inventee plus une question de fuseau sur un engagement purement commercial. Meme forme et meme raison que `valid_until` sur `Quote` — d ou le suffixe `_date` et non `_at`, reserve dans ce produit aux `timestamptz` (`created_at`, `decided_at`, `converted_at`).
+             *
+             *     AUCUN CHEMIN D ECRITURE N EXISTE AUJOURD HUI, et c est un fait a connaitre avant de construire un ecran dessus. La conversion ne la pose pas (le devis n en porte pas), aucune operation de ce contrat ne l ecrit. Elle vaudra donc `null` sur 100 % des commandes tant qu une story n aura pas tranche QUI la saisit et QUAND — la story E10.16 ne le dit pas, et ce contrat ne l invente pas. Voir la reserve (h) de docs/api/CONVENTIONS.md §8.17.
+             *
+             *     CE QU ELLE N EST PAS : le `delais` renvoye par la passerelle Clariprint au chiffrage. Celui-ci est un NOMBRE DE JOURS, par LIGNE, enfoui dans le jsonb libre `product_config`, sans date de depart — ce n est pas une date de livraison et ne doit jamais etre presente comme telle. Ce n est pas non plus une date CALCULEE : rien ne la derive de l etape de production courante ni du journal.
+             *
+             *     ELLE EST PORTEE PAR LA COMMANDE, PAS PAR LA LIGNE. Une commande multi-lignes dont les postes sortent a des dates differentes n a qu une seule date ici : celle de l engagement pris envers le client. Une eventuelle date par ligne serait une autre donnee, avec un autre nom.
+             */
+            expected_delivery_date: string | null;
             /** @description Etape de production courante, ou `null`. Voir `CommercialOrder` pour la regle complete — pointeur, jamais une progression. */
             current_production_step_id: components["schemas"]["Uuid"] | null;
             totals: components["schemas"]["CommercialOrderTotals"];
