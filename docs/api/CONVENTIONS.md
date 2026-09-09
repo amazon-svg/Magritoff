@@ -2552,6 +2552,243 @@ L'estimation dépasse trois jours (DoD qualité-first, principe #7) : migration 
 
 **Aucune dérogation R5 introduite.** Le point qui aurait pu en produire une — faire transiter un fichier par la façade, ou ajouter un endpoint multipart sur la façade historique — est précisément ce que le billet de dépôt évite. L'enveloppe `{data, meta}` du CA6 n'est pliée nulle part, dans aucun des deux sens.
 
+### 8.20 E10.19 (bon de commande PDF) — CADRAGE, contrat NON écrit : quatre arbitrages produit préalables
+
+> **Périmètre de ce paragraphe : cadrage seul.** `openapi/magrit-core.v1.yaml` **n'est pas touché**, et ce n'est pas une précaution de style — c'est la conséquence directe du §8 ci-dessous. **Quatre questions ouvertes décident chacune de la FORME du contrat**, pas de son détail : ce que le document est censé être, sur quel gabarit il s'imprime, quand il est produit, et ce qu'il montre des prix. Écrire le YAML aujourd'hui reviendrait à trancher quatre décisions produit à la place d'Arnaud, puis à les défaire — c'est exactement ce que §8.13septies avait refusé de faire pour l'hébergement de Gotenberg, et le lot suivant a montré que l'attente était le bon choix.
+>
+> **Limite d'accès, dite plutôt que masquée** (même limite qu'en §8.14 à §8.19) : cet agent **n'a pas d'accès Notion**. Le périmètre opposable est le titre de backlog transmis par l'agent appelant — « PDF du bon de commande » — croisé avec les deux seules autres traces écrites dans le dépôt : la réserve **(b)** de §8.18 (« un second document produit à la conversion — accusé de commande — reste possible : ce serait E10.19, une valeur de plus dans `DocumentType` ») et la décision **#12** de §8.19 (« un bon de commande est un document **produit**, pas un fichier **déposé** : les deux ne se rangent pas dans la même table »). Réserve **(f)** de §8.19, reconduite ici.
+
+#### 0. Ce qui a été vérifié dans le dépôt, et ce que la vérification a changé
+
+| Dépendance | État réel constaté | Effet sur le cadrage |
+|---|---|---|
+| **`DocumentType`** | `enum: [quote]`, décrite ADDITIVE, et le contrat **nomme déjà E10.19** comme l'ajout de `order`. Le `check` SQL (`20260909020000`) a été posé extensible exprès. | **Rien à concevoir de ce côté : la place est faite.** Un `alter … drop constraint / add constraint` sur le `check`, et c'est tout. |
+| **Index unique partiel `(tenant_id, document_type) where is_default`** | En place depuis 4a. | **La base sait DÉJÀ porter un gabarit par défaut PAR TYPE.** L'option « gabarit distinct pour le bon de commande » ne coûte donc **aucune** migration de structure — fait qui pèse sur l'arbitrage (A) ci-dessous, et qu'il faut connaître avant de le rendre. |
+| **`listDocumentPdfTemplates`** | Publie déjà `?document_type`, avec une description qui dit mot pour mot « pour que l'écran de paramétrage n'ait pas à changer d'appel le jour où E10.19 ajoutera le bon de commande ». | L'écran de 4a absorbe un second type **sans changement d'appel**. |
+| **Le moteur de rendu** (`quote-document-renderer.ts`) | **Déjà générique, et c'est la découverte la plus utile de cette instruction.** `renderQuoteDocument({ backgroundBytes, pages, placements, linesBlock, fieldValues, lineValues })` ne connaît **aucune** notion de devis : il reçoit des valeurs déjà résolues et les dessine. Seuls son **nom** et son **module d'accueil** sont spécifiques. | E10.19 **ne réécrit pas de moteur**. Elle le renomme/déplace (`document-rendering`, ou un `_shared` de documents) et le rappelle. Refactoring, pas fabrication. |
+| **Ce qui EST spécifique au devis** | `document-field-value-resolver.ts` (correspondance `DocumentFieldId` → valeur) et `quote-documents-service.ts` (orchestration + persistance). | C'est **là**, et uniquement là, qu'E10.19 écrit du code neuf : un résolveur de valeurs de **commande**. |
+| **`findEligibleTemplateForGeneration(tenantId)`** | Signature **sans type de document**, et l'adaptateur filtre `.eq('document_type', 'quote')` **en dur** (`document-templates-repository.ts:283`). | **Point de reprise le plus concret du lot** : la signature passe à `(tenantId, documentType)`. Changement **interne**, aucun effet de contrat. À faire **avant** de brancher quoi que ce soit, sinon un gabarit de commande serait résolu comme un gabarit de devis. |
+| **`DocumentFieldId` / `DocumentLineFieldId`** | Énumérations **fermées**, familles `quote.` / `customer.` / `totals.` / `page.` et `line.`. **Aucun `order.`**. | Voir §4 : c'est le vrai coût de conception du lot, et il porte un piège d'ordonnancement. |
+| **`commercial_orders`** | `number` `CDE-AAAA-NNNNN` attribué **dans** `api_convert_commercial_quote` par un compteur séquentiel dédié (`commercial_order_number_counters`, aucune policy, accessible par cette seule RPC) ; `customer_contact_id` et `expected_delivery_date` ajoutés par E10.16 ; totaux figés à la conversion. | **Le numéro n'existe pas avant la transaction de conversion.** Fait décisif pour §5 — il interdit de transposer telle quelle la mécanique de §8.18. |
+| **`commercial_orders.show_discounts`** | **N'EXISTE PAS.** La conversion calcule les totaux « **SANS** filtre `show_discounts` », avec ce motif écrit dans la migration : « document **atelier**, pas une vue client » (`20260908010000`, commentaire de `commercial_order_totals`). | **Rouvre une question que la conversion croyait close** : si le bon de commande est destiné au CLIENT, il faut décider ce qu'il montre des remises, et la donnée n'est **pas** sur la commande (elle est sur `commercial_quotes.show_discounts`, joignable par `quote_id`). Arbitrage (D). |
+| **`quote.converted`** | Émis par la conversion. **Aucun consommateur, aucun relais de courriel** — le seul relais en service est celui de `quote.sent` (b-3). | Rien n'envoie de courriel à la conversion aujourd'hui. Un bon de commande produit là serait, en l'état, **téléchargeable à l'atelier et remis à personne**. Arbitrage (C). |
+| **`commercial_order_files` (E10.17a)** | Livrée. | **Le bon de commande n'y entre pas** — §8.19 décision #12, close et non rouverte : une table dont les lignes se suppriment ne peut pas héberger une pièce qui ne doit jamais l'être. |
+
+#### 1. La question préalable — « bon de commande » désigne DEUX documents opposés, et le backlog ne dit pas lequel
+
+C'est la première chose à trancher, avant le gabarit et avant la date de production, parce qu'elle décide du **catalogue de champs**, du **destinataire**, et de la réponse à (D) :
+
+| Lecture | Ce que c'est | Ce qu'il porte | Qui le reçoit |
+|---|---|---|---|
+| **(i) Accusé / confirmation de commande** | La contrepartie commerciale du devis : « nous avons enregistré votre commande, voici ce qui est engagé » | Numéro `CDE-…`, référence client, interlocuteur, adresse de facturation, **lignes et prix**, totaux, date de livraison prévue | Le **client** |
+| **(ii) Bon de fabrication / ordre de travail** | La feuille de route de l'atelier | Numéro, lignes, **quantités et données techniques**, étape de production, délai — **jamais un prix** | L'**atelier**, l'imprimeur, un sous-traitant |
+
+**Les deux sont légitimes chez un imprimeur, et ce ne sont pas deux variantes du même PDF** : l'un porte des prix et se remet au client, l'autre les cache et reste en interne. Le vocabulaire du métier ne départage pas — « bon de commande » désigne couramment le document que le client **signe** (lecture i), mais tout aussi couramment la fiche qui descend en production (lecture ii).
+
+**Position de l'architecte, à confirmer : (i), l'accusé de commande.** Trois motifs, dans cet ordre : la story est rangée dans l'épic **Gestion commerciale** et non dans le suivi de production ; §8.18 réserve (b) l'a déjà nommée « accusé de commande » sans être contredite ; et la lecture (ii) exigerait des **données techniques de fabrication** qui n'existent nulle part sous forme exploitable — `product_config` est un `jsonb` au schéma variable par produit, sans mapping métier dans le dépôt (constat déjà fait et signalé par 4c pour `line.product_config_summary`). **Cadrer (ii) aujourd'hui reviendrait à cadrer une story de PIM déguisée.** Si Arnaud veut (ii), c'est une story distincte, avec son propre prérequis de normalisation produit — et elle n'est pas E10.19.
+
+Tout le reste de ce cadrage suppose **(i)**. Si l'arbitrage tombe sur (ii), §4 et §5 sont à réécrire.
+
+#### 2. Périmètre proposé (sous la lecture (i))
+
+Ce que le lot fait : le tenant importe un gabarit PDF de **type `order`** (même écran, même mécanique que 4a/4b) ; une commande produit **un** bon de commande, **une seule fois**, **jamais regénéré** ; l'atelier le télécharge depuis la fiche commande.
+
+Ce qu'il ne fait pas : aucun envoi de courriel (arbitrage (C)), aucune signature électronique, aucun accusé de réception, aucune surface client (il n'existe toujours pas de `/storefront-orders` — §8.19 vérification n° 2, inchangée).
+
+#### 3. Schéma de données
+
+**Une table neuve, un bucket neuf, aucune table modifiée.** Reprise **littérale** de `quote_documents` (`20260909040000`), qui est le patron :
+
+`order_documents` — `id`, `order_id` **unique** (`on delete cascade` — une commande a **un** document), `tenant_id`, `template_id` **non nul** `on delete restrict`, `storage_path`, `byte_size`, `sha256`, `content_type`, `page_count`, `generated_at`, `generated_by`. **Append-only** : `revoke update, delete … from authenticated, anon`. Bucket privé `order_documents`, sans policy, chemin `<tenant_id>/<order_id>.pdf`.
+
+**Pourquoi une table et non une colonne `document_type` sur `quote_documents`.** La contrainte porteuse de `quote_documents` est `quote_id unique` avec une clé étrangère vers `commercial_quotes` ; une commande n'est pas un devis, et fondre les deux imposerait deux colonnes de rattachement nullables plus un `check` d'exclusion mutuelle — la forme classique qui laisse passer, un jour, une ligne rattachée à rien. Deux tables jumelles coûtent une duplication de **structure** ; une table polymorphe coûte une classe de bugs. Le choix est le même que celui déjà fait entre `commercial_quote_lines` et `commercial_order_lines`, qui sont jumelles pour la même raison.
+
+**Ce qui EST partagé, et qui est le point de ce lot : `document_pdf_templates`.** Aucune seconde table de gabarits. Le `check` sur `document_type` passe à `in ('quote','order')`, et tout le reste — carte de champs, géométrie, défaut par type, capability — vaut déjà.
+
+#### 4. Le catalogue de champs — le vrai coût de conception, et son piège d'ordonnancement
+
+`DocumentFieldId` est **fermée**. La commande a besoin d'identifiants qui n'y sont pas : `order.number`, `order.created_at` (date de commande), `order.expected_delivery_date`, `order.customer_reference`, `order.quote_number` (le devis d'origine — un client rapproche sa commande de son devis). Les familles `customer.`, `totals.` et `page.` valent **telles quelles**, et `DocumentLineFieldId` (`line.*`) aussi : une ligne de commande porte les mêmes attributs qu'une ligne de devis.
+
+**Trois formes possibles, et une seule tient :**
+
+| Forme | Verdict |
+|---|---|
+| **(A) Une énumération unique, élargie avec les `order.*`, plus une garde serveur par type** | **Retenue.** Additif au sens du CA13 (aucune valeur retirée), l'éditeur de 4b filtre sa palette sur `document_type`, et le `PUT …/fields` **refuse en 422** un identifiant hors du sous-ensemble du type. |
+| **(B) Une seconde énumération `OrderDocumentFieldId`, `field` polymorphe selon `document_type`** | Écartée. Rend `DocumentFieldPlacement` dépendant du type du gabarit parent, donc invalidable seulement en connaissant le parent — la complexité migre du serveur vers **chaque** consommateur du schéma. |
+| **(C) Renommer par rôle documentaire (`document.number`, `document.issued_at`…)** | Écartée, et pas par préférence : ce serait un **changement cassant** sur une énumération déjà servie et déjà stockée dans des cartes de tenants. `/api/v2`, jamais dans v1 (CA13). |
+
+> **PIÈGE D'ORDONNANCEMENT, à ne surtout pas manquer : la garde de (A) doit être posée DANS LE MÊME LOT que l'ajout des valeurs.** Aujourd'hui, `PUT /document-pdf-templates/{id}/fields` accepte **n'importe quel** `DocumentFieldId` sur **n'importe quel** gabarit ; aucune carte existante ne peut contenir un `order.*` puisque la valeur n'existe pas. **C'est la seule fenêtre où la garde n'est pas un durcissement** : posée plus tard, elle invaliderait des cartes déjà enregistrées, ce que le CA13 interdit. Livrer les valeurs sans la garde installerait donc, en une ligne d'énumération, une restriction devenue impossible à poser.
+
+**Trois cas qui n'ont pas de réponse évidente, et qu'il faut décider en écrivant le YAML** (pas des arbitrages produit, des choix d'architecte à instruire au moment du contrat) : le devis converti garde-t-il ses `quote.*` disponibles sur un gabarit `order` (position : **non** — un seul champ `order.quote_number` suffit à faire le lien, ouvrir les deux familles ferait croire qu'un bon de commande peut réimprimer un devis) ; `order.expected_delivery_date` doit-il être publié alors qu'**aucun chemin d'écriture n'existe** et qu'il vaut `null` sur 100 % des commandes (position : **oui** — la règle « valeur absente = rien d'imprimé » le rend inoffensif, et le champ deviendra utile sans changement de carte le jour où la réserve (h) de §8.17 sera traitée) ; `order.status` a-t-il un sens sur un document figé (position : **non** — un statut imprimé est faux le lendemain).
+
+#### 5. Quand la génération tourne — et l'écart STRUCTUREL avec §8.18 qu'il faut nommer avant de coder
+
+**Le devis : rendu en mémoire d'abord, envoi ensuite, persistance après succès** (§8.18 #11, correctif B4-bis). Ce qui rend cette séquence possible, c'est que **toutes** les valeurs à imprimer existent **avant** la transition — y compris `valid_until`, que le correctif B4 a précisément appris à résoudre en amont sans l'écrire (« résoudre une fois, en SQL, et transmettre »).
+
+**La commande ne le permet pas, et ce n'est pas un détail d'implémentation.** Le numéro `CDE-AAAA-NNNNN` est attribué **par** `api_convert_commercial_quote`, depuis un compteur séquentiel par tenant et par année. Il n'existe donc **rien à imprimer** avant que la conversion ait réussi. Deux issues, deux seulement :
+
+- **pré-réserver un numéro hors transaction** pour pouvoir rendre en amont — **refusé**, et pour le motif exact qui a fait écarter l'option (b) de §8.18 #10 : chaque conversion ratée laisserait un **trou définitif dans une numérotation commerciale**, sans que personne sache d'où il vient ;
+- **générer APRÈS la conversion** — retenu par élimination.
+
+**Conséquence à écrire au contrat plutôt qu'à découvrir dans le code : pour le bon de commande, le troisième mode d'échec de §8.18 #11 n'est plus un cas de bord, c'est le SEUL mode d'échec possible.** La production est **nécessairement** post-transition, donc **best-effort** : une commande créée dont le PDF échoue reste une commande créée. La règle asymétrique de la réserve (j) — « échouer tant qu'échouer est encore gratuit » — **ne se transpose pas** : ici, échouer n'est jamais gratuit, puisqu'un numéro a déjà été consommé et des lignes figées.
+
+**Cela rend l'arbitrage (C) plus lourd qu'il n'en a l'air.** Si le document est produit à la conversion et perdu en cas d'échec, il l'est **définitivement** (règle « jamais regénéré »). Si l'on veut qu'un échec soit **rattrapable**, il faut une opération de production explicite — et ouvrir une opération de production, c'est ce que §8.18 avait refusé pour le devis. Les deux branches sont défendables ; elles ne se choisissent pas par symétrie mais par usage.
+
+#### 6. Ce que le contrat ajouterait — esquisse, non écrite
+
+| Élément | Ajout envisagé | Dépend de l'arbitrage |
+|---|---|---|
+| `DocumentType` | `enum: [quote, order]` | — (acquis) |
+| `DocumentFieldId` | 5 valeurs `order.*` + garde 422 par type sur `PUT …/fields` | (A) forme du gabarit |
+| `GET /commercial-orders/{orderId}/documents` | `getOrderDocument` → `OrderDocument` (URL signée **300 s**, patron `QuoteDocument`). 404 `order.document_not_generated`, **cas fréquent, à afficher « aucun document »** | — |
+| `POST /commercial-orders/{orderId}/documents` | `generateOrderDocument`, 201, `Idempotency-Key`, **409 si déjà produit** | **(C)** — n'existe que si la production est explicite |
+| `OrderDocument` | Schéma jumeau de `QuoteDocument` | — |
+| `convertQuote` | **Aucun champ ajouté** à `CommercialOrderDetail`. Le document se lit sur son propre chemin, comme les fichiers d'E10.17 (§8.19 §4) | — |
+| Capability / scopes | **Aucune capability neuve** (`can_manage_document_templates` couvre déjà le gabarit) ; `orders:read` sur la lecture ; **aucune écriture par clé de service** si (C) crée une opération de production | (C) |
+| Événements | **Aucun.** `quote.converted` porte déjà le fait métier ; un `order.document_generated` serait un fait technique, et le contrat n'en publie pas | — |
+
+#### 7. Découpage proposé — deux sous-stories, et un préalable qui n'en est pas une
+
+**Préalable, à faire dans 19a et non en amont** : élargir `findEligibleTemplateForGeneration` à `(tenantId, documentType)` et retirer le `.eq('document_type','quote')` codé en dur. Sans lui, un tenant qui importe un gabarit `order` verrait ses **devis** partir dessus si l'ordre de tri le désignait — régression silencieuse sur une fonctionnalité en production.
+
+| Story | Périmètre | Dépend de |
+|---|---|---|
+| **E10.19a** — Le gabarit de bon de commande | Élargissement du `check` `document_type`, valeurs `order.*` **et leur garde 422 par type** (§4, fenêtre unique), palette de l'éditeur 4b filtrée par type, `findEligibleTemplateForGeneration` généralisée, jeu d'exemple de commande pour l'aperçu. **Aucun document produit.** | 4a, 4b |
+| **E10.19b** — La production et la remise | Table `order_documents` + bucket, résolveur de valeurs de commande, réutilisation du moteur (renommé/déplacé), branchement selon (C), `getOrderDocument`, bouton de téléchargement sur `OrderDetailPage`. | 19a |
+
+**Ordre imposé** : 19b ne peut rien produire sans une carte de champs de type `order`, et seule 19a permet d'en poser une. Symétrie exacte avec 4b → 4c (§8.18 §6). Une branche, une PR, une `qa-review` distincte par sous-story.
+
+#### 8. LES QUATRE ARBITRAGES À RENDRE PAR ARNAUD — aucun n'est technique
+
+- **(A) MÊME GABARIT QUE LE DEVIS, OU GABARIT DISTINCT ?** — *la question posée, et celle qui commande le reste.* **Position de l'architecte : gabarit DISTINCT**, `document_type = 'order'`, avec son propre défaut par tenant. Trois faits pèsent : la base le supporte **déjà** sans migration de structure (§0) ; les catalogues de champs diffèrent réellement (`order.number` n'est pas `quote.number`) ; et un imprimeur qui n'a qu'un seul papier peut **importer deux fois le même fond** — dix secondes, une fois pour toutes. L'inverse ne serait pas vrai : partager le gabarit rendrait **impossible** un fond distinct, alors que beaucoup d'imprimeurs veulent une mention « BON DE COMMANDE » pré-imprimée. **À écarter explicitement dans tous les cas : un repli du type `order` sur le gabarit `quote`** — il imprimerait un document intitulé « DEVIS » sur une commande, ce qui est pire qu'une absence de PDF. **Variante possible si Arnaud veut minimiser la saisie** : un gabarit multi-types (`document_types` multivalué + une carte par type). Elle est la plus coûteuse — le `PUT …/fields` devient indexé par type, l'`ETag` de carte aussi — et n'est proposée que si le double import est jugé rédhibitoire.
+- **(B) QUEL DOCUMENT, (i) ACCUSÉ CLIENT OU (ii) BON DE FABRICATION ATELIER ?** — §1. **Position : (i)**. Si (ii), §4 et §5 sont à réécrire et la story a un prérequis de normalisation produit qui n'existe pas.
+- **(C) QUAND EST-IL PRODUIT, ET QUE SE PASSE-T-IL S'IL ÉCHOUE ?** — deux branches, à choisir en connaissant §5 :
+  - **(C1) automatiquement à la conversion** (« bouton Valider ») — symétrique du devis à l'envoi, aucun geste de plus pour le commercial, mais **best-effort et définitivement perdu** en cas d'échec (une commande ne se re-convertit pas) ;
+  - **(C2) sur une action explicite** — « Produire le bon de commande », une seule fois, **rejouable tant qu'elle n'a pas réussi**, au prix d'un geste de plus et d'une opération de production que §8.18 avait refusée pour le devis.
+  
+  **Position de l'architecte : (C2)**, parce que la contrainte de numérotation (§5) retire à (C1) la garantie qui faisait la valeur du modèle du devis. Sous-question **qui ne se pose que si (C1) est choisi et qu'on veut le remettre au client** : faut-il un **courriel de confirmation de commande** ? Ce serait un relais de `quote.converted` sur le patron de b-3, soit une **story distincte** — E10.19 ne l'inclut pas.
+- **(D) LE BON DE COMMANDE MONTRE-T-IL LES REMISES ?** — question **rouverte** par le §0 : la conversion a délibérément figé les totaux **sans** filtre `show_discounts`, au motif écrit qu'une commande est un « document atelier, pas une vue client ». Sous la lecture (i), ce document **redevient** une vue client, et la donnée n'est pas sur la commande. Trois réponses possibles : reprendre `show_discounts` du devis source par `quote_id` (cohérent avec ce que le client a déjà vu, au prix d'une jointure et d'une seconde source de vérité) ; toujours montrer le détail (une commande engage un prix, le client a le droit de voir comment il est construit) ; ne jamais montrer les remises sur ce document. **Aucune position d'architecte : c'est une décision commerciale.**
+
+#### 9. Ce que ce lot ne fait pas, explicitement
+
+- **Aucune ligne de `openapi/magrit-core.v1.yaml`**, aucune migration, aucun code. Ce paragraphe est un cadrage suspendu à (A), (B), (C) et (D).
+- **Aucune entrée dans `commercial_order_files`** — §8.19 décision #12, close.
+- **Aucun envoi de courriel**, aucun relais de `quote.converted`.
+- **Aucune surface client** : il n'existe toujours pas de `/storefront-orders`.
+- **Aucune régénération, jamais** — la règle de §8.13septies point 3 vaut pour ce document comme pour l'autre, et la règle B4 (« la valeur imprimée et la valeur engagée sont une seule valeur, résolue une seule fois ») lui est explicitement étendue par §8.18 #10.
+
+### 8.21 E10.20 (lien public de dépôt du fichier de production) — CADRAGE, contrat NON écrit : un mode d'authentification neuf et une décision d'hébergement
+
+> **Périmètre de ce paragraphe : cadrage seul.** `openapi/magrit-core.v1.yaml` **n'est pas touché**. Deux raisons distinctes, et il faut les séparer parce qu'elles ne se lèvent pas de la même façon : (1) **cinq questions de sécurité** sont ouvertes, et chacune change la forme du contrat ; (2) **le besoin central de la story — le fichier de production haute résolution — se heurte à un plafond d'infrastructure de 50 Mo qui est une décision de COÛT, pas de conception.** Écrire un contrat qui promet un canal pour un fichier de 800 Mo avant que quelqu'un ait décidé de payer pour le stocker serait le « mensonge outillé » que §8.17 décision #1 interdit.
+>
+> **Limite d'accès** : pas d'accès Notion (réserve (f) de §8.19, reconduite). Le périmètre opposable est le titre de backlog transmis — « lien public de dépôt côté client » — et le renvoi **explicite** que §8.19 lui a fait : réserve (a), « le fichier de production haute résolution est un besoin **DISTINCT**, renvoyé à E10.20 », avec cette précision qui vaut instruction : « ces deux questions ne sont pas des dettes d'E10.17 : **elles sont son périmètre à elle** ».
+
+#### 0. Ce qui a été vérifié dans le dépôt
+
+| Dépendance | État réel constaté | Effet |
+|---|---|---|
+| **E10.17a/b** — fichiers d'une commande | **Livrées.** Table `commercial_order_files`, bucket privé, billet + confirmation, panneau sur la fiche commande. | **Toute la mécanique de dépôt existe.** E10.20 ajoute une **porte d'entrée**, elle ne refait pas le dépôt. |
+| **`OrderFile.deposited_by` nullable + `deposited_by_label` figé** | Publié, avec cette justification au contrat : « le champ n'est pas nullable par symétrie, il l'est parce qu'**E10.20 fera déposer un fichier par un client** qui n'est pas un `auth.users` ». | **La forme accueille déjà le déposant non-utilisateur, sans changement de schéma.** Acquis. |
+| **`api_confirm_order_file_upload`** | **NE PEUT PAS être réutilisée telle quelle.** Trois verrous : `if v_actor is null then raise 'authentication_required'`, appartenance à `tenant_members` exigée, `deposited_by_label` **lu de `auth.users`** — et la qa-review B1 round 2 a **retiré** le paramètre de libellé exprès, « aucun appelant légitime **de ce lot** n'a besoin d'un libellé de repli ». | **Écart le plus concret du lot** : E10.20 a besoin d'une **seconde fonction** `api_confirm_order_file_upload_by_link(...)`, qui prend son libellé du **lien** et non de l'utilisateur. Ne pas rouvrir la première : sa garde est correcte pour son appelant. |
+| **`OrderFileVisibility.customer`** | Publié, **inerte** : « aucun client ne peut lire aucun fichier de commande ». Consommateur annoncé : E10.20. | Voir arbitrage (E) — ce lot peut le rendre opérant **en lecture**, ou rester un canal de dépôt pur. |
+| **`order.files_submitted`** | Déclaré par le socle E10.0 (`EventName`, `webhooks`, `REQUIRED_EVENT_NAMES`), **sans émetteur**, réservé à E10.20 par la décision #10 de §8.19 — avec ce motif : il nomme « le **client** a remis ses fichiers », pas « un membre a joint une pièce ». | **E10.20 est son émetteur, et c'est sa raison d'être.** Premier fait métier du sprint produit par un acteur qui n'est ni membre, ni compte boutique. |
+| **Les trois modes d'authentification** | `bearerAuth`, `serviceKey`, `storefrontSession`. Middleware : `authentication` à quatre valeurs (`any`, `user`, `service`, `shop_customer`) ; `ApiPrincipal` = union de `UserPrincipal`, `ServicePrincipal` et `ShopCustomerPrincipal` (`tenant-resolution.ts`). | **Il n'existe AUCUN mode non authentifié**, et aucune opération du contrat n'est ouverte sans credential. Un **quatrième** mode est donc à créer — travail de **socle**, pas de story métier. Voir §2. |
+| **Plafond de poids** | `supabase/config.toml` : `[storage] file_size_limit = "50MiB"` — plafond **du projet**, qu'aucun bucket ne peut excéder. | **Le mur de la story.** Arbitrage (A). *Non vérifié par cet agent : la valeur réellement configurée sur le projet de production `ightkxebexuzfjdbpsdg` — le fichier lu est la configuration locale.* |
+| **Plafond de 30 fichiers vivants par commande** | En dur dans `api_confirm_order_file_upload` (`if v_count >= 30`). | Un dépôt client consomme le **même** budget que les pièces de l'atelier. À réexaminer si un lien autorise plusieurs fichiers (arbitrage (D)). |
+| **Précédents de jeton dans le dépôt** | `api_resolve_shop_customer_session(p_opaque_token)` (session boutique, cookie opaque) et `accept_tenant_invitation(p_token)` (invitation à échéance). **Le second stocke le jeton EN CLAIR** en base. | Le patron de session est bon à reprendre ; **le stockage en clair ne l'est pas** — voir §3. |
+| **Surfaces d'application** | Quatre sorties : `storefront`, `customer-portal`, `workspace`, `backoffice` (`src/surfaces/application-registry.ts`). La boutique publique est servie par `storefront`. | Une page de dépôt sans compte se monte vraisemblablement sur `storefront`. *À confirmer par `dev-story` : cet agent n'a pas vérifié qu'une route `storefront` est atteignable sans session.* |
+
+#### 1. Périmètre proposé
+
+Un membre de l'atelier **émet un lien** depuis la fiche commande. Le lien est transmis au client par le canal de son choix (courriel, téléphone, message) — **Magrit ne l'envoie pas**. Le client ouvre une page **sans compte et sans mot de passe**, voit **de quoi il s'agit** (imprimeur, numéro de commande, ce qu'on attend de lui), dépose un ou plusieurs fichiers, et repart. L'atelier voit les fichiers apparaître dans le panneau d'E10.17b, avec un déposant qui n'est **pas** un utilisateur. L'événement `order.files_submitted` est publié — enfin.
+
+**Ce que le lot ne fait pas** : il ne devient pas un portail de commande (pas de statut, pas de prix, pas de lignes, pas de facture), et il ne remplace pas E10.5 (un client qui **a** un compte boutique reste servi par sa session).
+
+#### 2. Le quatrième mode d'authentification — c'est le vrai coût du lot, et il touche le socle
+
+Un lien public est, littéralement, **une credential**. Le contrat n'en connaît que trois, toutes attachées à une identité durable. Il faut donc un `securityScheme` neuf, et le faire proprement coûte plus cher que l'écran :
+
+- **`orderUploadLink`**, `type: apiKey`, `in: header`, `name: X-Magrit-Upload-Link`. **En-tête et non paramètre de requête**, délibérément : un jeton en `?token=` finit dans les journaux d'accès du serveur, dans le `Referer` de toute ressource tierce chargée par la page, et dans l'historique du navigateur. **Le jeton est bien dans l'URL de la PAGE** (`/depot/<jeton>`, servie par la SPA) — c'est inévitable, un lien est une URL — mais il ne doit jamais être dans une URL **d'API**. La SPA le lit du chemin et le repose en en-tête. Compromis réel, écrit plutôt que masqué.
+- **Le jeton porte le tenant et la commande.** Aucun `X-Magrit-Tenant`, aucun identifiant de commande dans le chemin : lecture la plus stricte du CA4, exactement comme `storefrontSession` (§7.472 du contrat). Corollaire repris tel quel : `X-Magrit-Tenant` fourni sur ces opérations est **refusé** en 400, jamais ignoré.
+- **Cloisonnement fermé par défaut, dans les deux sens.** Un principal de lien n'atteint **que** les opérations qui déclarent `orderUploadLink` (403 `identity.actor_kind_required`), et ces opérations n'acceptent **aucune** autre credential. Reprise littérale de la règle de `storefrontSession` — sans elle, une opération ouverte à `any` deviendrait atteignable par un porteur de lien.
+- **Un principal de lien n'a NI capability, NI scope.** Comme le compte boutique : ce n'est pas une portée concédée, c'est une capacité **bornée à un objet**.
+
+**Travail de socle induit, à ne pas sous-estimer** : `ApiPrincipal` (une quatrième variante), `resolvePrincipal` et la lecture des credentials, `authentication` du middleware, la précédence (un membre de l'atelier qui ouvre le lien de son propre client porte **aussi** son `Authorization` — la règle de §3.6 doit dire laquelle l'emporte), le lint de contrat (`tests/contract/_lint.ts` vérifie la couverture 401/403 par mode), et l'idempotence (aujourd'hui indexée sur `principal.tenantId` et, pour la boutique, dérivée du compte — un lien a besoin de sa propre dérivation).
+
+#### 3. Schéma de données proposé
+
+**`commercial_order_upload_links`** — le lien **est une ressource**, pas un jeton dérivé d'un secret : c'est ce qui le rend listable, révocable et auditable.
+
+| Colonne | Rôle |
+|---|---|
+| `id` uuid pk | |
+| `order_id` `not null` `on delete cascade` | Le lien n'existe pas hors de sa commande. Tenant lu par jointure — patron d'E10.17a, pas de `tenant_id` local |
+| `token_hash` `text not null unique` | **`sha256` du jeton, JAMAIS le jeton en clair.** Écart **délibéré** avec `tenant_invitations`, qui stocke son jeton en clair : une fuite de sauvegarde y donnerait tous les liens vivants. Le jeton clair est rendu **une seule fois**, à la création, et n'est plus jamais relisible — y compris par l'atelier, qui devra en émettre un nouveau s'il l'a perdu |
+| `expires_at` `timestamptz not null` | **Obligatoire.** Voir (B) |
+| `revoked_at`, `revoked_by`, `revoked_by_label` | Voir (C) |
+| `max_files` `integer not null` | Voir (D) |
+| `label` `text` | Ce que l'atelier attend (« votre fichier prêt-à-imprimer pour les 5000 flyers ») — affiché au client, c'est ce qui évite le dépôt du mauvais fichier |
+| `created_by`, `created_by_label`, `created_at` | Modèle d'auteur d'E10.14, repris tel quel |
+| `first_used_at`, `last_used_at`, `use_count` | Trace d'usage. Un lien jamais ouvert et un lien ouvert dix fois ne se traitent pas pareil |
+
+**Sur `commercial_order_files`, aucune colonne ajoutée** — et c'est le dividende de la décision #9 de §8.19 : `deposited_by` reste `null`, `deposited_by_label` porte le libellé issu du **lien** (à décider : le `label` du lien, l'adresse à qui l'atelier l'a envoyé, ou un libellé fixe « dépôt client par lien »). **Interdiction reprise telle quelle : ne jamais analyser `deposited_by_label` pour en déduire le type d'auteur.** Si un consommateur a besoin de distinguer, il recevra un champ dédié — `deposited_via: 'workspace' | 'upload_link'`, ajout **additif** à `OrderFile`, à publier dans ce lot puisque c'est ce lot qui crée la distinction.
+
+**Fonctions `api_*` neuves** : `api_create_order_upload_link`, `api_revoke_order_upload_link`, `api_resolve_order_upload_link(p_token)` (`stable`, rend commande + tenant + validité — patron `api_resolve_shop_customer_session`), et `api_confirm_order_file_upload_by_link(...)`. Cette dernière **duplique délibérément** la logique de plafond et de chemin de la fonction membre plutôt que de l'appeler : leurs gardes d'entrée sont opposées (l'une exige `auth.uid()`, l'autre l'interdit), et les factoriser produirait une fonction à deux régimes d'autorisation — la forme dont personne ne relit correctement les branches.
+
+#### 4. Ce que le contrat ajouterait — esquisse, non écrite
+
+| Élément | Ajout envisagé | Mode |
+|---|---|---|
+| `POST /commercial-orders/{orderId}/upload-links` | `createOrderUploadLink` — 201, `Idempotency-Key`. **Seule réponse où le jeton clair apparaît** | `bearerAuth` |
+| `GET /commercial-orders/{orderId}/upload-links` | `listOrderUploadLinks` — bornée, non paginée. **Ne rend jamais le jeton**, seulement son état | `bearerAuth` |
+| `DELETE /commercial-orders/{orderId}/upload-links/{linkId}` | `revokeOrderUploadLink` — 204. Pose `revoked_at`, la ligne survit | `bearerAuth` |
+| `GET /order-upload-links/current` | `getOrderUploadLinkContext` — ce que le client voit. **Chemin sans identifiant, la ressource est désignée par la credential** (patron `storefrontSession`). Rend : nom de l'imprimeur, numéro de commande, `label`, échéance, ce qui a déjà été déposé **par ce lien**, `max_byte_size`, `accepted_content_types` | `orderUploadLink` |
+| `POST /order-upload-links/current/file-upload-urls` | `issueOrderUploadLinkFileUrl` — 200, sans `Idempotency-Key`, patron exact d'`issueOrderFileUploadUrl` | `orderUploadLink` |
+| `POST /order-upload-links/current/files` | `confirmOrderUploadLinkFile` — 201, `Idempotency-Key`. **Émet `order.files_submitted`** | `orderUploadLink` |
+| Schémas | `OrderUploadLink`, `OrderUploadLinkCreated` (le seul porteur du jeton clair), `OrderUploadLinkContext`, `CreateOrderUploadLinkCommand` ; `OrderFile.deposited_via` (additif) | |
+| `securitySchemes` | **`orderUploadLink`** — quatrième mode | |
+| Codes d'erreur | `upload_link.not_found`, `upload_link.expired`, `upload_link.revoked`, `upload_link.file_limit_reached`. **Aucune distinction lisible côté client entre « inexistant », « expiré » et « révoqué » n'est acquise** — voir (F) |
+| Capability | **Aucune** — émettre un lien est un geste d'atelier ordinaire, cohérent avec la décision #4 de §8.19. **À rouvrir si (E) ouvre la lecture** : exposer devient alors un geste plus lourd qu'attacher |
+| Événements | **`order.files_submitted`, enfin émis.** Charge utile : commande, tenant, nombre de fichiers, instant. **Une émission par dépôt, ou une par lien « terminé » ?** Voir (G) |
+
+#### 5. Découpage proposé — trois sous-stories, dont une CONDITIONNELLE
+
+**Le découpage est fait pour qu'une décision de budget ne bloque pas toute la story.** 20a et 20b livrent un lien public **utile même sous 50 Mo** (un BAT validé, un logo vectoriel, un visuel : c'est déjà tout ce que l'atelier réclame aujourd'hui par courriel) ; 20c est la seule partie qui dépend de l'arbitrage (A).
+
+| Story | Périmètre | Dépend de | Point de vigilance |
+|---|---|---|---|
+| **E10.20a** — Le lien et le quatrième mode d'authentification | Migration (table + fonctions `api_*`), **`securityScheme` `orderUploadLink` et son cloisonnement dans le middleware**, `ApiPrincipal` élargi, les trois opérations d'atelier + `getOrderUploadLinkContext`. Panneau « liens de dépôt » sur la fiche commande. **Aucun dépôt possible.** | E10.17a | **C'est un lot de SOCLE.** La revue doit porter sur le cloisonnement des modes autant que sur la fonctionnalité : un mode mal cloisonné est une faille, pas un défaut |
+| **E10.20b** — Le dépôt par le lien | `api_confirm_order_file_upload_by_link`, les deux opérations de dépôt, **émission de `order.files_submitted`**, `deposited_via` sur `OrderFile`, **page publique de dépôt** (surface `storefront`), affichage à l'atelier de l'origine du fichier | 20a | **Passage Sally UX** : page vue par un non-utilisateur, sans repère, souvent sur mobile. Une seule chance de faire comprendre quoi déposer |
+| **E10.20c** — Le fichier de production haute résolution | **CONDITIONNELLE.** Relèvement du plafond du projet et/ou dépôt reprenable et/ou canal de stockage distinct | (A) tranché | **Ne pas démarrer sans arbitrage.** Voir (A) |
+
+#### 6. LES SEPT POINTS À ARBITRER — les deux premiers sont bloquants
+
+- **(A) LE PLAFOND DE 50 Mo — DÉCISION D'HÉBERGEMENT ET DE COÛT, PAS DE CONCEPTION. BLOQUANTE POUR 20c UNIQUEMENT.** C'est le besoin même que §8.19 a renvoyé ici : « un fichier prêt-à-imprimer réel dépasse très souvent 50 Mo ». Trois voies, aucune gratuite :
+  1. **relever `file_size_limit` du projet Supabase** — le plus simple à coder, **le plus engageant à payer** : c'est un plafond de plan, et le stockage se facture au volume. *Cet agent n'a mesuré ni le plafond réellement atteignable sur le plan en cours, ni le coût au Go : à constater avant l'arbitrage, et à ne pas citer de mémoire.*
+  2. **déporter les gros fichiers vers un stockage tiers** (S3, R2) — sort du patron d'URL signée Supabase, ajoute une dépendance et un jeu de credentials, et fait vivre **deux** canaux de fichiers en parallèle.
+  3. **dépôt reprenable** (protocole de téléversement par morceaux). *Supabase Storage expose une voie reprenable ; cet agent ne l'a ni vérifiée dans le SDK installé, ni mesurée — à constater avant tout engagement de contrat.*
+  
+  > **CE QUI N'EST PAS DIT ASSEZ SOUVENT, ET QUI COMPTE AUTANT QUE LE PLAFOND : au-delà de ~200 Mo, le problème n'est plus le stockage, c'est le TRANSFERT.** Un fichier de 800 Mo depuis une liaison d'entreprise ordinaire prend des dizaines de minutes, et un `PUT` simple qui échoue à 95 % **recommence à zéro**. Un billet de 600 s n'y suffit plus. **Relever le plafond sans dépôt reprenable produirait une fonctionnalité qui marche en démonstration et échoue chez le client** — c'est-à-dire le pire des deux mondes. Si (A) est tranché en faveur du gros fichier, la voie 3 n'est pas une option parmi trois : elle est un **prérequis** des voies 1 et 2.
+- **(B) DURÉE DE VIE DU LIEN — position : ÉCHÉANCE OBLIGATOIRE, défaut 30 jours, réglable à la création (7 / 30 / 90).** Un lien de dépôt sans échéance est une porte ouverte sur une commande **pour toujours**, transmise par courriel, archivée chez le client, potentiellement transférée. L'échéance n'est pas une gêne : un lien expiré se réémet en un clic. **À confirmer**, avec la valeur par défaut.
+- **(C) RÉVOCABLE ? — position : OUI, sans hésitation.** Coût de développement quasi nul (`revoked_at` + une vérification), et c'est le **seul recours** quand un lien fuite ou qu'un client se trompe de destinataire. Un lien non révocable ferait de l'expiration la seule issue, donc de l'attente le seul remède. **À confirmer.**
+- **(D) UN SEUL FICHIER OU PLUSIEURS ? — position : PLUSIEURS, avec un plafond propre au lien (`max_files`, défaut 10).** C'est le motif même qui a fait accepter le ZIP en §8.19 (c) : un travail réel arrive en plusieurs fichiers. Un lien à usage unique obligerait l'atelier à en émettre un par fichier, donc à en émettre au jugé — et le client déposerait quand même tout dans un ZIP pour s'en sortir. **Sous-question à trancher avec elle : ce plafond de 10 s'impute-t-il sur le plafond de 30 fichiers vivants par commande ?** Position : **oui** — deux budgets indépendants finiraient par se contredire, et 30 reste large. **À confirmer.**
+- **(E) LE LIEN DONNE-T-IL ACCÈS EN LECTURE ? — trois niveaux, et ils ne s'équivalent pas :**
+  1. **dépôt pur** (position de l'architecte) — le client dépose, ne voit rien d'autre que ce qu'il a lui-même déposé pendant sa session. **`visibility: customer` reste inerte**, comme aujourd'hui ;
+  2. **dépôt + relecture de ses propres dépôts** (retélécharger pour vérifier qu'il n'a pas envoyé le mauvais fichier) — coût faible, service réel ;
+  3. **dépôt + retrait des fichiers marqués `customer` par l'atelier** (récupérer un BAT) — c'est le niveau qui **rend enfin opérante** la visibilité posée par E10.17, et c'est aussi celui qui transforme le lien en **mini-portail de commande**, avec tout ce que cela implique : le risque de contenu du ZIP décrit en §8.19 (c)(i) devient **réel** (Magrit distribue à un client une archive qu'il n'a jamais ouverte), et la capability écartée en §8.19 décision #4 mérite d'être **rouverte** — exposer un fichier à un tiers n'est plus le même geste que l'attacher à un dossier.
+  
+  **Position : (1) pour ce lot, (2) acceptable, (3) à instruire séparément.** Mais c'est un arbitrage produit : si l'usage réel est « le client dépose ET récupère son BAT », dire non ici pousse l'échange vers le courriel, c'est-à-dire hors de la traçabilité que la story existe pour offrir — exactement l'argument qui avait emporté (c) en §8.19.
+- **(F) LE LIEN EST-IL NOMINATIF, ET QUE RÉPOND-ON À UN JETON INVALIDE ?** Deux volets. **Nominatif** : position **non** — lien porteur, quiconque l'a peut déposer, comme tout service d'échange de fichiers du marché. Un code à usage unique envoyé par un second canal doublerait le dispositif pour un risque **borné** (l'atelier voit quoi, quand, par quel lien ; il peut supprimer ; le fichier n'est jamais exécuté par Magrit). **Réponse à un jeton invalide** : un message **unique et indistinct** pour « inexistant », « expiré » et « révoqué » — distinguer confirmerait à qui essaie des jetons au hasard qu'il en a trouvé un vrai. *Contrepartie assumée et à trancher : un client de bonne foi dont le lien a expiré ne saura pas pourquoi ça ne marche pas, et rappellera l'atelier. Améliorer ce message serait affaiblir la garde ; le choix appartient à Arnaud.*
+- **(G) GRANULARITÉ DE `order.files_submitted` — une émission par FICHIER, ou une par « j'ai terminé » ?** Le nom de l'événement (« les fichiers ont été **soumis** », pluriel) et le motif de §8.19 décision #10 (ne pas noyer E10.15 sous le bruit) plaident pour **une émission par lot**, déclenchée par un geste explicite du client (« j'ai terminé »). Mais un client qui ferme son onglet sans cliquer n'émettrait **rien**, et l'atelier attendrait un signal qui ne vient pas. **Position : émission par FICHIER**, quitte à ce qu'E10.15 regroupe à la notification — mieux vaut un signal bruyant qu'un signal manquant, et le regroupement est un problème de consommateur, pas de producteur. **À confirmer**, car c'est E10.15 qui en portera la conséquence.
+
+#### 7. Ce que ce lot ne fait pas, explicitement
+
+- **Aucune ligne de `openapi/magrit-core.v1.yaml`**, aucune migration, aucun code. Ce paragraphe est un cadrage suspendu à (B) à (G) — et 20c, à (A).
+- **Magrit n'envoie pas le lien.** Aucun courriel, aucun modèle, aucun relais. L'atelier copie l'URL et la transmet comme il veut. Un envoi automatique serait une story distincte, sur le patron de b-3.
+- **Aucun portail de commande.** Le lien ne montre ni statut, ni prix, ni lignes, ni facture. `/storefront-orders` n'existe toujours pas, et ce lot ne le crée pas.
+- **Aucune inspection de contenu, aucun antivirus, aucune décompression** — §8.19 décisions #6 et #7, inchangées. **Mention à ne pas perdre de vue** : ce lot fait entrer du contenu déposé par un tiers **non authentifié**, ce qui déplace le risque décrit en §8.19 (c) sans le changer de nature. Si (E)(3) est retenu, il faudra le réexaminer.
+- **Aucun relèvement de plafond tant que (A) n'est pas tranché.** 20a et 20b se livrent **sous** les 50 Mo actuels, et l'interface le dit **avant** le téléversement — `max_byte_size` est déjà publié par le billet d'E10.17 pour cette raison exacte.
+
 ## 9. Commandes
 
 ```bash
