@@ -104,6 +104,15 @@
 --      DELETE direct, meme modele que `commercial_quote_lines_require_draft_
 --      quote` (E10.9, correctif N1).
 --
+-- MISE A JOUR (E10.10b-4c, qa-review round 2, B4) : `api_send_commercial_quote`
+-- est passee a CINQ arguments (`p_resolved_valid_until date` ajoute,
+-- migration 20260909050000) — l ANCIENNE signature a QUATRE arguments est
+-- SUPPRIMEE (`drop function`), les deux ne coexistent jamais. Tous les appels
+-- de ce fichier passent desormais `null` en 5e argument : la RPC retombe
+-- alors sur `resolve_quote_default_valid_until()` en interne, EXACTEMENT le
+-- comportement de l ancienne signature — aucune assertion de ce fichier n a
+-- change de sens, seul l appel de la fonction s adapte a sa nouvelle forme.
+--
 -- Lancer : pnpm test:storefront:sql (necessite Supabase local demarre).
 -- ============================================================================
 
@@ -345,7 +354,7 @@ declare
 begin
   select tenant_a, quote_with_lines, actor_admin_a into v_tenant_a, v_quote, v_actor_admin_a from e10_10a_context;
 
-  perform public.api_send_commercial_quote(v_tenant_a, v_quote, null, false);
+  perform public.api_send_commercial_quote(v_tenant_a, v_quote, null, false, null);
 
   select status, sent_at, last_sent_at, sent_by, valid_until
     into v_status, v_sent_at, v_last_sent_at, v_sent_by, v_valid_until
@@ -437,7 +446,7 @@ begin
 
   -- show_discounts DIVERGENT (le devis vaut false par defaut) -> refuse.
   begin
-    perform public.api_send_commercial_quote(v_tenant_a, v_quote, true, true);
+    perform public.api_send_commercial_quote(v_tenant_a, v_quote, true, true, null);
   exception
     when others then
       if sqlerrm like 'quote.resend_immutable%' then v_rejected := true;
@@ -449,7 +458,7 @@ begin
   end if;
 
   -- Renvoi tel quel (non fourni) -> accepte.
-  perform public.api_send_commercial_quote(v_tenant_a, v_quote, null, false);
+  perform public.api_send_commercial_quote(v_tenant_a, v_quote, null, false, null);
 
   select sent_at into v_sent_at_after from public.commercial_quotes where id = v_quote;
   if v_sent_at_after is distinct from v_sent_at_before then
@@ -730,7 +739,7 @@ begin
     from e10_10a_context;
 
   begin
-    perform public.api_send_commercial_quote(v_tenant_a, v_quote_no_lines, null, false);
+    perform public.api_send_commercial_quote(v_tenant_a, v_quote_no_lines, null, false, null);
   exception
     when others then
       if sqlerrm like 'quote.send_requires_lines%' then v_rejected := true;
@@ -743,7 +752,7 @@ begin
 
   v_rejected := false;
   begin
-    perform public.api_send_commercial_quote(v_tenant_a, v_quote_wrong_status, null, false);
+    perform public.api_send_commercial_quote(v_tenant_a, v_quote_wrong_status, null, false, null);
   exception
     when others then
       if sqlerrm like 'quote.send_forbidden_status%' then v_rejected := true;
@@ -928,7 +937,7 @@ begin
 
   -- ENVOI de la copie B : draft -> sent. C est le geste qui, combine a la
   -- suppression de A ci-dessous, demasquait B6.
-  perform public.api_send_commercial_quote(v_tenant_a, v_copy, null, false);
+  perform public.api_send_commercial_quote(v_tenant_a, v_copy, null, false, null);
 
   perform 1 from public.commercial_quotes where id = v_copy and status = 'sent';
   if not found then
@@ -1105,7 +1114,7 @@ begin
   select tenant_a, quote_with_lines into v_tenant_a, v_quote from e10_10a_context;
 
   begin
-    perform public.api_send_commercial_quote(v_tenant_a, v_quote, null, false);
+    perform public.api_send_commercial_quote(v_tenant_a, v_quote, null, false, null);
   exception
     when others then
       if sqlerrm like 'quote.not_found%' or sqlerrm like 'permission_denied%' then v_rejected := true;

@@ -27,6 +27,8 @@ function buildFakeServiceRoleClient(options: {
   claimedRows: readonly Record<string, unknown>[];
   quoteRow: FakeQuoteRow;
   recipientRows: readonly FakeRecipientRow[];
+  /** E10.10b-4c — `null` = cas NOMINAL (aucun gabarit configure), la piece jointe de `SupabaseQuoteDocumentAttachmentGateway` reste absente. */
+  documentRow?: Readonly<{ storage_path: string }> | null;
 }) {
   const outboxUpdates: Array<{ patch: Record<string, unknown>; id: string }> = [];
   const rpcCalls: Array<{ fn: string; args: unknown }> = [];
@@ -68,7 +70,27 @@ function buildFakeServiceRoleClient(options: {
         };
         return builder;
       }
+      if (table === 'quote_documents') {
+        const builder = {
+          select: () => builder,
+          eq: () => builder,
+          maybeSingle: async () => ({ data: options.documentRow ?? null, error: null }),
+        };
+        return builder;
+      }
       throw new Error(`table inattendue dans ce faux: ${table}`);
+    },
+    storage: {
+      from(bucket: string) {
+        return {
+          async download(path: string) {
+            if (bucket !== 'quote_documents' || !options.documentRow || path !== options.documentRow.storage_path) {
+              return { data: null, error: { message: 'objet absent (faux de test)' } };
+            }
+            return { data: new Blob([new Uint8Array([0x25, 0x50, 0x44, 0x46])]), error: null }; // "%PDF"
+          },
+        };
+      },
     },
   };
 
@@ -193,6 +215,53 @@ describe('createOutboxDispatchApplication — composition réelle', () => {
     expect(report.errors[0]?.reason).toContain('MAGRIT_PUBLIC_APP_URL');
     expect(fetchMock).not.toHaveBeenCalled();
     expect(client.outboxUpdates).toEqual([{ patch: { last_error: expect.stringContaining('MAGRIT_PUBLIC_APP_URL') }, id: 'event-3' }]);
+  });
+
+  it("E10.10b-4c — un devis avec document produit joint le PDF a l e-mail, corps distinct du cas sans document", async () => {
+    const client = buildFakeServiceRoleClient({
+      claimedRows: [
+        {
+          id: 'event-4',
+          tenant_id: 'tenant-1',
+          event_name: 'quote.sent',
+          event_version: 1,
+          aggregate_type: 'quote',
+          aggregate_id: 'quote-4',
+          payload: { quote_id: 'quote-4', customer_id: 'customer-1', number: 'DEV-2026-00044', is_resend: false },
+          occurred_at: '2026-09-09T10:00:00.000Z',
+          delivery_attempts: 1,
+        },
+      ],
+      quoteRow: { valid_until: '2026-09-12' },
+      recipientRows: [
+        {
+          email: 'client@example.com',
+          full_name: 'Jean Dupont',
+          status: 'active',
+          shops: { slug: 'atelier-test', name: 'Atelier Test', tenant_id: 'tenant-1' },
+        },
+      ],
+      documentRow: { storage_path: 'tenant-1/quote-4.pdf' },
+    });
+
+    const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }));
+
+    const app = createOutboxDispatchApplication({
+      serviceRoleClient: client as any,
+      resendApiKey: 'secret',
+      fromEmail: 'Magrit <devis@magritapp.com>',
+      publicAppUrl: 'https://magritapp.com',
+      fetchImplementation: fetchMock as unknown as typeof fetch,
+    });
+
+    const report = await app.runOnce();
+
+    expect(report).toEqual({ claimed: 1, delivered: 1, failed: 0, errors: [] });
+    const emailPayload = JSON.parse(String((fetchMock.mock.calls[0]?.[1] as RequestInit).body));
+    expect(emailPayload.attachments).toEqual([
+      { filename: 'DEV-2026-00044.pdf', content: 'JVBERg==', content_type: 'application/pdf' },
+    ]);
+    expect(emailPayload.subject).toBe('Atelier Test vous a transmis votre devis, en pièce jointe');
   });
 
   it('rend un rapport vide sans effet de bord quand rien n est réclamé', async () => {
