@@ -20,14 +20,31 @@
  *  - CA3, gamme de fabrication Clariprint — capacite absente du depot,
  *    differee et rapprochee d E10.8 (gelee). Aucune section, aucun lien
  *    mort, aucun testid.
- *  - CA5, fichiers par item (E10.17) — non livree, aucun bloc.
  *  - CA8, bon de commande PDF (E10.19) — non livree, aucun bouton.
+ *
+ * CA5 (fichiers, E10.17) — PANNEAU A L ECHELLE DE LA COMMANDE LIVRE PAR CE
+ * LOT (E10.17b), qa-review N1 (round 1) : le CA5 amende d E10.16 parlait
+ * d un panneau GROUPE PAR ITEM (`order_line_id`) ; le wireframe VALIDE par
+ * Arnaud le 09/09/2026 (`.design-handoff/wireframes/E10.17b-panneau-
+ * fichiers-commande.md`, valide sans demander ce groupement) ne le demande
+ * PAS — ce n est donc pas un ecart de design, mais il faut le dire
+ * explicitement plutot que de laisser un commentaire affirmer a tort qu un
+ * CA plus large est integralement couvert. `OrderFilesBlock` liste tous les
+ * fichiers de la commande dans une seule liste plate (troisieme section,
+ * meme gabarit visuel que les deux sections ci-dessus) ; le groupement par
+ * item (`order_line_id`) N EST PAS RENDU — l information existe dans
+ * `OrderFile.order_line_id` (E10.17a) mais n est pas exploitee ici. Point a
+ * tracer cote Notion par le scribe : le CA5 amende d E10.16 n est couvert
+ * qu en partie par ce lot. `OrderFilesBlock` est importe par l ENTREE
+ * PUBLIQUE du module `order-files` (`@/modules/order-files/ui`), jamais un
+ * chemin profond — regle MUX.
  */
 import { Link, useParams } from 'react-router';
 import { ArrowLeft } from 'lucide-react';
 import { useTenantPath } from '@/modules/tenants/ui/hooks';
 import { TEST_IDS } from '@/shared/presentation/testIds';
 import type { ProductionStepDto } from '@/modules/production-steps';
+import { OrderFilesBlock } from '@/modules/order-files/ui';
 import { OrderStatusButton } from '../components';
 import { useOrderDetail } from '../hooks/useOrderDetail';
 import { contactDisplayName, customerDisplayName, formatOrderDate, sourceQuoteStatusLabel } from './order-detail.helpers';
@@ -211,6 +228,10 @@ export function DashboardOrderDetail() {
           Total TTC : <span className="font-bold">{order.totals.total_incl_tax} €</span>
         </div>
       </section>
+
+      {/* CA5 — panneau de fichiers (E10.17b), troisieme section, meme gabarit
+          visuel que les deux sections ci-dessus (arbitrage Q1 du 09/09/2026). */}
+      <OrderFilesBlock orderId={order.id} />
     </div>
   );
 }

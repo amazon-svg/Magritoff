@@ -808,6 +808,44 @@ export const TEST_IDS = {
     tableAnchorHandle: 'document-template-fields-table-anchor-handle',
     tableSpacingHandle: 'document-template-fields-table-spacing-handle',
   },
+
+  // ─── E10.17b — Panneau de fichiers sur la fiche commande ───────────────────
+  // Troisieme section de `OrderDetailPage.tsx` (arbitrage Arnaud 09/09/2026),
+  // meme gabarit visuel que `commercialOrder.customerBlock`/`linesTable`.
+  // `block` EXIGE tel quel par le contrat (docs/api/CONVENTIONS.md §8.19 §5) —
+  // volontairement NON pose par E10.16 ("pas de lien mort") : c est ce lot qui
+  // le declare. Wireframe : .design-handoff/wireframes/E10.17b-panneau-
+  // fichiers-commande.md. Aucun cas de test Notion publie a la remise de ce
+  // lot (sous-story nouvelle) : testid poses selon la convention documentee
+  // en tete de ce fichier, a faire confirmer par le scribe des que le cahier
+  // TF existera.
+  orderFiles: {
+    block: 'order-files-block',
+    counter: 'order-files-counter',
+    errorBanner: 'order-files-error-banner',
+    retryLoadBtn: 'order-files-retry-load-btn',
+    dropzone: 'order-files-dropzone',
+    browseBtn: 'order-files-browse-btn',
+    fileInput: 'order-files-file-input',
+    emptyState: 'order-files-empty-state',
+    // `row` porte `data-file-id`, meme convention que `documentTemplate.row`.
+    row: 'order-files-row',
+    rowError: 'order-files-row-error',
+    retryUploadBtn: 'order-files-retry-upload-btn',
+    // qa-review N3 (round 1) — ferme une carte d envoi en erreur (retirable
+    // du plafond client sans attendre un rechargement de page).
+    dismissUploadBtn: 'order-files-dismiss-upload-btn',
+    progressBar: 'order-files-progress-bar',
+    missingObjectIcon: 'order-files-missing-object-icon',
+    visibilityToggle: 'order-files-visibility-toggle',
+    visibilityOption: 'order-files-visibility-option',
+    visibilityWarning: 'order-files-visibility-warning',
+    downloadBtn: 'order-files-download-btn',
+    deleteBtn: 'order-files-delete-btn',
+    deleteDialog: 'order-files-delete-dialog',
+    deleteConfirmBtn: 'order-files-delete-confirm-btn',
+    deleteCancelBtn: 'order-files-delete-cancel-btn',
+  },
 } as const;
 
 /**
