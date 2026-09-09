@@ -1464,7 +1464,9 @@ export interface paths {
          *
          *     `Idempotency-Key` EXIGEE : c est la seule operation de ce lot qui cree une ressource metier. Rejouee a l identique — le double-clic sur « Valider le depot » est la norme apres un televersement long — elle rend la reponse initiale sans creer de seconde ligne sur les memes octets.
          *
-         *     AUCUN EVENEMENT N EST PUBLIE. `order.files_submitted` est declare par le socle E10.0 et reste SANS EMETTEUR : il nomme le fait « le client a remis ses fichiers », pas « un membre de l atelier a joint une piece ». L emettre a chaque depot interne noierait l evaluation d E10.15 sous le bruit du travail ordinaire. Il reste reserve a E10.20.
+         *     AUCUN EVENEMENT N EST PUBLIE PAR CETTE OPERATION, et ce n est plus « faute d emetteur » mais par DISTINCTION DE FAIT. `order.files_submitted` nomme « le CLIENT a remis ses fichiers », pas « un membre de l atelier a joint une piece » : son emetteur est `confirmOrderUploadLinkFile` (E10.20). L emettre a chaque depot interne noierait l evaluation d E10.15 sous le bruit du travail ordinaire.
+         *
+         *     `deposited_via` VAUT `workspace` sur tout fichier cree ici.
          */
         post: operations["confirmOrderFileUpload"];
         delete?: never;
@@ -1605,7 +1607,7 @@ export interface paths {
         /**
          * SUPPRIME un gabarit, sa carte de champs et son fichier de fond.
          *
-         *     REFUSE des qu un document a ete genere avec lui (`document_pdf_template.in_use`). Motif : `quote_documents.template_id` est la SEULE trace de ce avec quoi une piece remise a un client a ete produite (§8.13septies point 3). Effacer le gabarit ferait de cette colonne un identifiant qui ne designe plus rien, sur des documents que le contrat promet par ailleurs de ne jamais regenerer. La voie normale, dans ce cas, est la desactivation (`PATCH { "is_active": false }`) : le gabarit disparait des choix sans effacer l historique.
+         *     REFUSE des qu un document a ete genere avec lui (`document_pdf_template.in_use`), qu il s agisse d un devis (`quote_documents`) ou d un BON DE COMMANDE (`order_documents`, E10.19). Motif : `template_id` est la SEULE trace de ce avec quoi une piece remise a un client a ete produite (§8.13septies point 3). Effacer le gabarit ferait de cette colonne un identifiant qui ne designe plus rien, sur des documents que le contrat promet par ailleurs de ne jamais regenerer. La voie normale, dans ce cas, est la desactivation (`PATCH { "is_active": false }`) : le gabarit disparait des choix sans effacer l historique.
          *
          *     Conservee malgre la desactivation, pour la meme raison que `deleteProductionStep` : sans elle, un gabarit importe par erreur — mauvais fichier, essai — resterait a jamais dans le parametrage.
          */
@@ -1735,7 +1737,9 @@ export interface paths {
          *
          *     REMPLACEMENT INTEGRAL, PAS DE CRUD PAR CHAMP, et c est un choix motive. L editeur est un plan : l imprimeur deplace huit etiquettes puis enregistre. Un `POST`/`PATCH`/`DELETE` par champ multiplierait les allers-retours au rythme de la souris, autoriserait des etats intermediaires ou un total est place et un sous-total ne l est plus, et rendrait la garde de concurrence inoperante — deux commerciaux editant le meme gabarit se seraient ecrases champ par champ sans qu aucun `If-Match` ne le voie. Meme parti que `replaceProjectTags` et `reorderProductionSteps`.
          *
-         *     VALIDATION, ET CE QU ELLE REFUSE : une page qui n existe pas dans le fond, une coordonnee hors de la page declaree, un champ place deux fois, une colonne de lignes citant un champ qui n appartient pas a la famille `line.`, un bloc de lignes sans aucune colonne. Toutes en 422 : ce sont des cartes que la generation ne saurait pas dessiner, et l imprimeur doit l apprendre dans son editeur, pas six semaines plus tard sur le devis d un client.
+         *     VALIDATION, ET CE QU ELLE REFUSE : une page qui n existe pas dans le fond, une coordonnee hors de la page declaree, un champ place deux fois, un champ HORS DU SOUS-ENSEMBLE DU TYPE DE DOCUMENT DU GABARIT, une colonne de lignes citant un champ qui n appartient pas a la famille `line.`, un bloc de lignes sans aucune colonne. Toutes en 422 : ce sont des cartes que la generation ne saurait pas dessiner, et l imprimeur doit l apprendre dans son editeur, pas six semaines plus tard sur le devis d un client.
+         *
+         *     LA GARDE PAR TYPE EST POSEE PAR E10.19, EN MEME TEMPS QUE LES VALEURS QU ELLE ENCADRE, et ce n est pas un hasard de planning. Avant ce lot, cette operation acceptait n importe quel `DocumentFieldId` sur n importe quel gabarit — sans consequence, aucune carte ne pouvant contenir un `order.` puisque la valeur n existait pas. C etait la SEULE fenetre ou cette garde n est pas un durcissement : posee plus tard, elle invaliderait des cartes deja enregistrees, ce que le CA13 interdit. Concretement : un `quote.` sur un gabarit `order`, ou un `order.` sur un gabarit `quote`, est refuse — les familles `customer.`, `totals.`, `page.` et `line.` valent pour les deux types.
          *
          *     UNE CARTE VIDE EST ACCEPTEE. Elle signifie « ce fond n imprime encore rien », etat de depart legitime. Ce qui n est pas accepte, c est une carte a moitie fausse.
          */
@@ -1808,6 +1812,225 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/commercial-orders/{orderId}/documents": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Rend le BON DE COMMANDE PDF d une commande : son horodatage, son poids, son empreinte, qui l a produit, et une URL de telechargement signee de courte duree.
+         *
+         *     LES OCTETS NE TRANSITENT PAS PAR CETTE FACADE, meme doctrine que `getQuoteDocument` : servir `application/pdf` depuis `/api/v1` casserait l enveloppe `{data, meta}` du CA6. L URL signee n est emise qu apres que la chaine d autorisation a statue, et elle vaut **300 secondes**.
+         *
+         *     PLURIEL PUREMENT FORMEL : `checkResourcePath` impose le pluriel en position de ressource, mais une commande n a qu UN bon de commande (`order_documents.order_id` est unique).
+         *
+         *     AUCUNE GENERATION ICI. Cette operation ne produit rien : elle rend une piece qui existe deja, ou 404. La production a son operation propre.
+         */
+        get: operations["getOrderDocument"];
+        put?: never;
+        /**
+         * PRODUIT le bon de commande d une commande, une fois pour toutes.
+         *
+         *     POURQUOI UNE OPERATION DE PRODUCTION, ALORS QUE LE DEVIS N EN A PAS. Le devis est rendu DANS l envoi, parce que toutes ses valeurs existent avant la transition. La commande ne le permet pas : son numero est attribue par la transaction de conversion, donc rien n est imprimable avant qu elle ait reussi. Produire a la conversion aurait rendu l echec DEFINITIF — une commande ne se re-convertit pas — la ou la regle « jamais regenere » interdit tout rattrapage. Cette operation deplace l echec la ou il est encore gratuit : tant qu elle n a pas reussi, elle se rejoue (docs/api/CONVENTIONS.md §8.20 §5, arbitrage (C2)).
+         *
+         *     CE QUE LE DOCUMENT PORTE (arbitrage (B) : c est un ACCUSE DE COMMANDE, destine au CLIENT) : le numero de commande, sa date, la reference du devis d origine, la reference du client, l interlocuteur et l adresse de facturation, les lignes avec leur quantite et leur prix, les totaux FIGES a la conversion, et la date de livraison prevue si elle est connue. Ce n est PAS un bon de fabrication : aucune donnee technique de production n existe sous forme exploitable dans ce produit, et en inventer une serait une story de PIM deguisee.
+         *
+         *     LES REMISES Y FIGURENT (arbitrage (D)), et la regle de visibilite est celle que le commercial a posee sur le DEVIS D ORIGINE, recopiee sur la commande a la conversion — jamais relue au travers du devis au moment du rendu. Le filtre est applique par le SERVEUR, exactement comme en E10.10b-1 decision 3 : quand il est ferme, les champs de remise ne rendent AUCUNE valeur et rien n est imprime a leur place.
+         *
+         *     `Idempotency-Key` EXIGEE : le double-clic sur « Produire le bon de commande » est la norme, la production dure quelques secondes. Rejouee a l identique, elle rend la reponse initiale sans produire un second PDF.
+         *
+         *     UNE SEULE FOIS. Une commande qui porte deja son document rend 409 : ni remplacement, ni seconde version, ni « regenerer avec le nouveau papier ». Le fond et la carte de champs appartiennent au tenant et changent quand il veut ; les lignes de la commande sont figees. Un re-rendu produirait un papier a en-tete d aujourd hui sur une piece remise il y a trois semaines.
+         *
+         *     AUCUN ENVOI. Cette operation ne notifie personne, n envoie aucun courriel et ne cree aucune surface client : il n existe pas de `/storefront-orders`. L atelier telecharge la piece et la transmet comme il l entend.
+         *
+         *     AUCUN EVENEMENT. `quote.converted` porte deja le fait metier de la commande ; « un PDF a ete produit » est un fait technique, et ce contrat n en publie pas.
+         */
+        post: operations["generateOrderDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/commercial-orders/{orderId}/upload-links": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Liste les liens de depot VIVANTS d une commande, du plus recent au plus ancien.
+         *
+         *     VIVANT = ni expire, ni revoque. Un lien expire ou revoque n apparait pas, jamais, sous aucun parametre : sa ligne survit en base comme trace d audit, le contrat ne la publie pas. Meme doctrine que `listOrderFiles` pour un fichier supprime — et meme consequence d ecran : quand il n y a plus de lien, on en emet un nouveau, on ne « reactive » rien.
+         *
+         *     COLLECTION BORNEE, DONC NON PAGINEE : 10 liens vivants au maximum par commande, plafond tenu en base.
+         *
+         *     LE JETON N Y EST JAMAIS. Ce que cette liste rend, c est l ETAT d un lien : ce qu on attend du client, jusqu a quand, combien de fichiers il a deja deposes, et s il l a seulement ouvert. Un lien jamais ouvert et un lien ouvert dix fois n appellent pas la meme relance.
+         */
+        get: operations["listOrderUploadLinks"];
+        put?: never;
+        /**
+         * EMET un lien public de depot pour une commande, et rend le jeton EN CLAIR — la seule et unique fois.
+         *
+         *     CE QUE L ATELIER EN FAIT. Il compose l URL publique en prefixant le jeton de l origine de l application (`<origine>/depot/<jeton>`) et la transmet au client comme il veut. Le serveur ne compose pas cette URL lui-meme : la meme application est servie sous plusieurs origines (atelier, boutiques a domaine propre), et fabriquer une URL a partir d une origine devinee produirait un lien mort une fois sur deux.
+         *
+         *     LE JETON EST UNE CREDENTIAL AU PORTEUR. Quiconque le detient peut deposer sur cette commande, et c est assume (arbitrage (F) : lien NON nominatif, comme tout service d echange de fichiers du marche). Il n est pas relisible : la base n en conserve que l empreinte `sha256`. Ne pas le journaliser, ne pas le republier, ne pas le mettre dans une URL d API — il voyage en en-tete, jamais en query.
+         *
+         *     ECHEANCE OBLIGATOIRE (arbitrage (B)) : 7, 30 ou 90 jours, defaut 30. Un lien de depot sans echeance est une porte ouverte sur une commande pour toujours, transmise par courriel puis archivee chez le client. Un lien expire se reemet en un clic.
+         *
+         *     PLUSIEURS FICHIERS PAR LIEN (arbitrage (D)) : `max_files`, defaut 10. Ce plafond s IMPUTE sur le plafond de 30 fichiers vivants par commande — deux budgets independants finiraient par se contredire.
+         *
+         *     AUCUN DROIT METIER EXIGE. Emettre un lien de depot est un geste d atelier ordinaire, coherent avec E10.17 : attacher un fichier a une commande n en exige pas davantage. Ce lien n EXPOSE rien (arbitrage (E)), il ne fait qu ouvrir une porte d entree — c est ce qui rend cette ouverture defendable.
+         */
+        post: operations["createOrderUploadLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/commercial-orders/{orderId}/upload-links/{linkId}": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * REVOQUE un lien de depot : il cesse immediatement de servir, sa ligne survit.
+         *
+         *     C EST LE SEUL RECOURS QUAND UN LIEN FUITE (arbitrage (C)). Transmis au mauvais destinataire, publie par erreur, transfere par le client a un tiers : sans revocation, l expiration serait le seul remede, donc l attente le seul geste possible. Le cout est nul, l interet evident.
+         *
+         *     `DELETE` ET NON `PATCH`, alors que la ligne survit : du point de vue de l appelant, le lien cesse d exister — il quitte `listOrderUploadLinks` et ne sert plus. La ligne conservee est une TRACE d audit, pas une ressource desactivee qu on pourrait reactiver ; aucune operation ne rend un lien revoque a la vie.
+         *
+         *     LES FICHIERS DEJA DEPOSES PAR CE LIEN NE BOUGENT PAS. Revoquer ferme une porte, cela n efface rien de ce qui est entre.
+         *
+         *     RESERVE AU JETON UTILISATEUR, comme `deleteOrderFile` : une integration fautive ne doit pas pouvoir fermer les canaux de depot d une commande au nom d un module.
+         */
+        delete: operations["revokeOrderUploadLink"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/order-upload-links/current": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Rend au CLIENT ce qu il a besoin de savoir pour deposer : qui lui demande, pour quelle commande, quoi, jusqu a quand, et dans quelles limites.
+         *
+         *     C EST LA PREMIERE CHOSE QUE VOIT UN INCONNU. La page de depot s ouvre sans compte et sans mot de passe, souvent depuis un telephone, chez quelqu un qui ne connait pas Magrit. Sans ce contexte, il ne sait ni si le lien est le bon, ni quel fichier envoyer — et il envoie le mauvais.
+         *
+         *     CE QU ELLE NE PORTE PAS, ET NE PORTERA PAS (arbitrage (E), depot seul) : aucun prix, aucune ligne, aucun statut de production, aucune facture, aucun nom de client, AUCUNE LISTE DE FICHIERS. Le porteur du lien voit un COMPTEUR de ce qu il a deja depose, pas ce qu il a depose. Ce n est pas un portail de commande, et le contrat ne s en approche pas.
+         *
+         *     JETON INVALIDE : UNE SEULE REPONSE (arbitrage (F)). Inexistant, expire, revoque, ou portant sur une commande disparue rendent tous 401 `upload_link.invalid`, sans distinction. Distinguer confirmerait a qui essaie des jetons au hasard qu il en a trouve un vrai. CONTREPARTIE ASSUMEE ET DITE : un client de bonne foi dont le lien a expire ne saura pas pourquoi ; l interface doit donc l inviter a recontacter l imprimeur, qui reemettra un lien en un clic.
+         */
+        get: operations["getOrderUploadLinkContext"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/order-upload-links/current/file-upload-urls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * EMET un billet de depot pour le porteur du lien, et ALLOUE l identifiant sous lequel le fichier existera.
+         *
+         *     PATRON EXACT D `issueOrderFileUploadUrl`, y compris ses motifs : 200 et non 201, aucune `Idempotency-Key` (un billet n est pas une ressource metier, rejouer DOIT rendre un billet neuf), aucun chemin choisi par l appelant, aucune ligne creee ici. Le chemin vaut toujours `<tenant_id>/<order_id>/<file_id>`, forme par le serveur depuis le JETON — l appelant ne designe ni son tenant, ni sa commande.
+         *
+         *     LE PLAFOND EST VERIFIE ICI PAR COURTOISIE, ET A LA CONFIRMATION PAR DEVOIR : deux plafonds se cumulent, celui du lien (`max_files`) et celui de la commande (30 fichiers vivants). Le second inclut les pieces deposees par l atelier : un client peut donc se voir refuser un depot sans que « son » compteur soit plein.
+         */
+        post: operations["issueOrderUploadLinkFileUrl"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/order-upload-links/current/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * CONFIRME un depot fait par le porteur du lien : le serveur constate les octets au chemin qu il a impose, en releve la taille et le type, cree la ligne du fichier et publie `order.files_submitted`.
+         *
+         *     C EST ICI QUE LE FAIT METIER DU LOT SE PRODUIT. `order.files_submitted` est declare par le socle E10.0 depuis le debut du sprint et n avait AUCUN emetteur : il nomme « le CLIENT a remis ses fichiers », pas « un membre a joint une piece ». Cette operation en est l emetteur, et c est sa raison d etre.
+         *
+         *     UNE EMISSION PAR FICHIER (arbitrage (G)), pas une par « j ai termine ». Un client qui ferme son onglet sans cliquer un bouton de fin n emettrait rien, et l atelier attendrait un signal qui ne vient pas. Mieux vaut un signal bruyant qu un signal manquant : le regroupement est un probleme de consommateur (E10.15), pas de producteur.
+         *
+         *     LE DEPOSANT N EST PAS UN UTILISATEUR. `OrderFile.deposited_by` reste `null` — la forme l accueillait deja, c est le dividende de la decision #9 d E10.17 — et `deposited_by_label` porte un libelle issu du LIEN, jamais d un compte. `deposited_via` vaut `upload_link` : c est le champ DEDIE par lequel un consommateur distingue l origine, et la regle « ne jamais analyser `deposited_by_label` » reste entiere.
+         *
+         *     LE FICHIER EST `internal`, TOUJOURS. Le porteur du lien ne choisit ni la visibilite, ni la ligne de commande concernee : il ne connait pas les lignes, et lui laisser marquer une piece « destinee au client » n aurait aucun sens. L atelier reclasse ensuite s il le souhaite (`updateOrderFile`).
+         *
+         *     MEMES CONTROLES QU EN E10.17, NI PLUS NI MOINS : type DECLARE et non prouve, aucune inspection de contenu, aucune decompression d archive, plafond de 50 Mo. Le contenu entre ici par un tiers NON AUTHENTIFIE, ce qui deplace le risque sans en changer la nature — la contrepartie reste la meme : Magrit n ouvre jamais l archive, donc rien ne s amplifie cote serveur, et toute URL de telechargement force le telechargement.
+         *
+         *     `Idempotency-Key` EXIGEE : elle cree une ressource metier, et le double-clic sur « Valider mon depot » apres un televersement long est la norme. Rejouee a l identique, elle rend la reponse initiale — et n emet PAS un second evenement.
+         */
+        post: operations["confirmOrderUploadLinkFile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export interface webhooks {
     "quote.converted": {
@@ -1868,11 +2091,11 @@ export interface webhooks {
         get?: never;
         put?: never;
         /**
-         * Les fichiers d une commande ont ete deposes PAR LE CLIENT.
+         * Un fichier a ete depose PAR LE CLIENT sur une commande, via un lien public de depot (`confirmOrderUploadLinkFile`, E10.20). Charge utile : `OrderFilesSubmittedPayload` (`event_version: 1`).
          *
-         *     DECLARE PAR LE SOCLE E10.0, TOUJOURS SANS EMETTEUR. E10.17 a livre le depot de fichiers cote ATELIER et ne publie deliberement PAS cet evenement : il nomme le fait « le client a remis ce qu on attendait de lui », celui qui debloque la production, pas « un membre a joint une piece a un dossier ». L emettre a chaque depot interne noierait l evaluation des notifications (E10.15) sous le bruit du travail ordinaire, et rendrait le signal inexploitable le jour ou il compterait vraiment.
+         *     DECLARE PAR LE SOCLE E10.0, EMETTEUR ENFIN LIVRE PAR E10.20. Il nomme le fait « le client a remis ce qu on attendait de lui », celui qui debloque la production — pas « un membre a joint une piece a un dossier ». `confirmOrderFileUpload` (E10.17, depot d ATELIER) ne l emet donc PAS et ne l emettra pas : le bruit du travail ordinaire rendrait le signal inexploitable le jour ou il compterait vraiment.
          *
-         *     Son emetteur sera E10.20 (lien public de depot), NON CADREE. Un consommateur ne doit donc rien attendre de cet evenement aujourd hui : il n en recevra aucun.
+         *     UNE EMISSION PAR FICHIER, PAS UNE PAR « J AI TERMINE » (arbitrage Arnaud du 2026-09-10). Le nom pluriel de l evenement plaidait pour un lot, mais un client qui ferme son onglet sans cliquer un bouton de fin n emettrait rien du tout, et l atelier attendrait un signal qui ne vient pas. Mieux vaut un signal bruyant qu un signal manquant. CONSEQUENCE OPPOSABLE POUR UN CONSOMMATEUR (E10.15 au premier chef) : trois fichiers deposes coup sur coup produisent TROIS evenements, et c est a lui de les grouper avant de notifier — sans quoi l atelier recevra trois courriels.
          */
         post: operations["onOrderFilesSubmitted"];
         delete?: never;
@@ -3433,7 +3656,11 @@ export interface components {
          *
          *     LES LIGNES SONT ICI, IL N Y A PAS DE COLLECTION SEPAREE. Aucun `GET /commercial-orders/{orderId}/lines` n existe et il n en existera pas : les lignes d une commande sont bornees, ordonnees par `position`, et n ont aucun sens hors de l entete dont elles composent les totaux figes. Meme convention que `QuoteDetail`, dont les lignes se lisent aussi par le detail — `/quotes/{quoteId}/lines` n existe qu en ECRITURE.
          *
-         *     CE QUE CE SCHEMA NE PORTE PAS, faute de donnee et non faute de place : aucun bloc FICHIERS (E10.17), aucun lien de BON DE COMMANDE (E10.19), aucun lien public de depot (E10.20), aucune GAMME DE FABRICATION (capacite inexistante, CA3 differe et rapproche d E10.8 gelee). Contrairement a `CustomerDetail`, qui publie trois points d extension toujours vides, AUCUN champ vide n est ouvert ici d avance pour eux : la forme que prendront ces blocs n est pas connue, et un champ publie se retire mal (§7 de docs/api/CONVENTIONS.md). Un ecran qui doit montrer un emplacement pour ces blocs le fait sans donnee et sans appel, jamais en inventant une reponse.
+         *     CE QUE CE SCHEMA NE PORTE PAS, faute de donnee et non faute de place : aucun bloc FICHIERS (E10.17), aucun bloc BON DE COMMANDE (E10.19), aucun bloc LIENS DE DEPOT (E10.20), aucune GAMME DE FABRICATION (capacite inexistante, CA3 differe et rapproche d E10.8 gelee).
+         *
+         *     LES TROIS PREMIERS ONT DESORMAIS LEUR CHEMIN PROPRE — `/files`, `/documents`, `/upload-links` sous cette commande — et AUCUN champ ne leur a ete ouvert ici : un ecran qui veut les montrer les appelle, il ne les lit pas dans le detail. C est la meme doctrine qu au premier jour, et elle a tenu : deux stories livrees sans qu une seule cle de ce schema change.
+         *
+         *     DEUX COLONNES AJOUTEES EN BASE PAR E10.19 NE SONT PAS PUBLIEES ICI, et c est delibere : `show_discounts` et `customer_reference`, recopiees du devis a la conversion et figees avec les totaux. La premiere est une regle d IMPRESSION appliquee par le serveur — la publier inviterait une interface a filtrer elle-meme un affichage d atelier qui, lui, montre toujours tout. La seconde est lisible sur le devis d origine (`quote_id`), et rien ne la reclame a l ecran a ce jour. Les ouvrir reste ADDITIF le jour ou un besoin apparaitra ; les avoir ouvertes « au cas ou » ne se defait pas (§7 de docs/api/CONVENTIONS.md). Contrairement a `CustomerDetail`, qui publie trois points d extension toujours vides, AUCUN champ vide n est ouvert ici d avance pour eux : la forme que prendront ces blocs n est pas connue, et un champ publie se retire mal (§7 de docs/api/CONVENTIONS.md). Un ecran qui doit montrer un emplacement pour ces blocs le fait sans donnee et sans appel, jamais en inventant une reponse.
          *
          *     LA DIFFERENCE AVEC LES DEUX CHAMPS AJOUTES CI-DESSUS EST LA REGLE, PAS UNE EXCEPTION : `customer_contact_id` et `expected_delivery_date` ont une FORME CONNUE (un identifiant, une date) et une COLONNE POSEE dans le meme lot ; les quatre blocs ci-dessus n ont ni l une ni l autre. Un champ se publie quand on sait ce qu il contiendra, pas quand on sait qu il manquera.
          */
@@ -4096,10 +4323,18 @@ export interface components {
         };
         /**
          * DocumentType
-         * @description Type de document commercial qu un gabarit sait servir. Enumeration ADDITIVE : `order` viendra avec le bon de commande (E10.19), sans qu un gabarit existant change de sens.
+         * @description Type de document commercial qu un gabarit sait servir. Enumeration ADDITIVE : `order` a ete ajoute par E10.19 sans qu aucun gabarit existant change de sens.
+         *
+         *     `quote` — le DEVIS, produit a l envoi (E10.10b-4).
+         *
+         *     `order` — le BON DE COMMANDE, un accuse de commande produit sur demande explicite apres la conversion (E10.19).
+         *
+         *     DEUX GABARITS DISTINCTS, PAS DEUX USAGES D UN SEUL (arbitrage Arnaud du 2026-09-10). Chaque type a son gabarit par defaut par tenant — l index unique partiel `(tenant_id, document_type) where is_default` le portait deja — et son propre catalogue de champs. Un imprimeur qui n a qu un seul papier importe deux fois le meme fond : dix secondes, une fois pour toutes. L inverse ne serait pas rattrapable, beaucoup d imprimeurs voulant une mention « BON DE COMMANDE » pre-imprimee.
+         *
+         *     AUCUN REPLI D UN TYPE SUR L AUTRE, JAMAIS. Une generation de bon de commande sur un tenant depourvu de gabarit `order` ECHOUE (`order.document_template_missing`) ; elle n emprunte pas le gabarit `quote`. Imprimer un fond intitule « DEVIS » sur une commande serait pire qu une absence de document.
          * @enum {string}
          */
-        DocumentType: "quote";
+        DocumentType: "quote" | "order";
         /**
          * DocumentPdfTemplateStatus
          * @description Etat de l import du fond.
@@ -4147,12 +4382,23 @@ export interface components {
         DocumentColor: string;
         /**
          * DocumentFieldId
-         * @description Identifiant d une donnee du devis positionnable UNE fois sur le fond. Enumeration FERMEE et ADDITIVE : c est le contrat entre l editeur de coordonnees (qui propose la liste a l imprimeur) et le moteur de generation (qui sait produire la valeur). Un identifiant inconnu est refuse en 422 plutot qu ignore — une etiquette placee qui n imprime jamais rien est le pire des retours.
+         * @description Identifiant d une donnee positionnable UNE fois sur le fond. Enumeration FERMEE et ADDITIVE : c est le contrat entre l editeur de coordonnees (qui propose la liste a l imprimeur) et le moteur de generation (qui sait produire la valeur). Un identifiant inconnu est refuse en 422 plutot qu ignore — une etiquette placee qui n imprime jamais rien est le pire des retours.
+         *
+         *     UNE SEULE ENUMERATION POUR LES DEUX TYPES DE DOCUMENT, AVEC UN SOUS-ENSEMBLE PAR TYPE (E10.19). Les valeurs `order.` ont ete ajoutees a cette liste plutot que rangees dans une enumeration parallele : une enumeration `OrderDocumentFieldId` aurait rendu `DocumentFieldPlacement` dependant du type de son gabarit PARENT, donc invalidable seulement en connaissant ce parent — la complexite aurait migre du serveur vers CHAQUE consommateur du schema. Renommer par role documentaire (`document.number`) aurait ete un changement CASSANT sur une enumeration deja servie et deja stockee dans des cartes de tenants : `/api/v2`, jamais en v1 (CA13).
+         *
+         *     SOUS-ENSEMBLE OPPOSABLE, TENU PAR LE SERVEUR :
+         *     - gabarit `document_type: quote` — familles `quote.`, `customer.`,
+         *       `totals.`, `page.` ;
+         *
+         *     - gabarit `document_type: order` — familles `order.`, `customer.`,
+         *       `totals.`, `page.`.
+         *
+         *     Un champ hors du sous-ensemble de son type est refuse en 422 par `replaceDocumentPdfTemplateFields`, et l editeur ne le propose pas. LES DEUX FAMILLES NE SE MELANGENT PAS : un gabarit de commande n a pas acces aux `quote.` — `order.quote_number` suffit a faire le lien avec le devis d origine, et ouvrir les deux ferait croire qu un bon de commande peut reimprimer un devis.
          *
          *     QUATRE FAMILLES, AUX REGLES DE DESSIN DIFFERENTES :
          *
-         *     - `quote.` et `customer.` — dessinees UNE fois, sur la page declaree par
-         *       le placement.
+         *     - `quote.`, `order.` et `customer.` — dessinees UNE fois, sur la page
+         *       declaree par le placement.
          *
          *     - `totals.` — dessinees UNE fois, sur la DERNIERE page rendue, quelle que
          *       soit la page declaree. Un total imprime page 1 alors que les lignes
@@ -4162,15 +4408,49 @@ export interface components {
          *
          *     AUCUN CHAMP `emitter.` : l identite de l imprimeur est dans le FOND, c est precisement ce que l import de gabarit sert a obtenir. La reintroduire ici creerait deux sources pour la meme information, dont une modifiable sans que le fond bouge.
          *
+         *     LES CINQ CHAMPS `order.`, ET CE QU IL FAUT SAVOIR DE CHACUN :
+         *     - `order.number` — le numero `CDE-AAAA-NNNNN`. Il n existe qu APRES la
+         *       transaction de conversion : c est ce fait, et lui seul, qui a impose
+         *       une operation de production explicite ;
+         *
+         *     - `order.created_at` — la DATE DE COMMANDE. Nommee d apres la colonne et
+         *       non `issued_at` par symetrie avec le devis : une commande n est pas
+         *       « emise », elle est enregistree, et sa date est celle de la
+         *       conversion ;
+         *
+         *     - `order.quote_number` — le numero du devis d origine. Un client
+         *       rapproche sa commande de son devis, et c est le seul pont que ce
+         *       document offre entre les deux ;
+         *
+         *     - `order.customer_reference` — la reference du CLIENT (son propre bon de
+         *       commande, son numero de dossier). RECOPIEE DU DEVIS a la conversion,
+         *       comme `show_discounts` : la lire au travers du devis au moment du
+         *       rendu ferait dependre une piece figee d une valeur vivante ;
+         *
+         *     - `order.expected_delivery_date` — la date de livraison prevue. `null`
+         *       sur 100 % des commandes a ce jour, AUCUN chemin d ecriture n existant
+         *       encore (§8.17 reserve (h)). Publie quand meme : la regle « valeur
+         *       absente = rien d imprime » le rend inoffensif, et le champ deviendra
+         *       utile sans qu aucune carte de tenant n ait a changer.
+         *
+         *
+         *     AUCUN `order.status`, ET C EST DEFINITIF : un statut de production imprime sur une piece figee est faux des le lendemain. Un document ne porte pas d etat mouvant.
+         *
          *     VALEUR ABSENTE = RIEN D IMPRIME. Jamais de tiret, jamais de zero, jamais d espace reserve : un fond bien dessine ne montre pas ses trous. Cela vaut aussi pour les champs masques par `show_discounts: false` (`totals.global_discount`, `totals.lines_subtotal`, `line.discount_rate`, `line.price_before_discount`) — la regle de filtrage est appliquee par le SERVEUR, comme en E10.10b-1 decision 3, jamais par la carte.
+         *
+         *     SUR UN BON DE COMMANDE, LA MEME REGLE S APPLIQUE, AVEC UNE SOURCE DIFFERENTE (arbitrage (D) du 2026-09-10 : le bon de commande MONTRE les remises). Le filtre est lu sur `commercial_orders.show_discounts`, valeur RECOPIEE DU DEVIS a la conversion et figee avec les totaux — jamais relue au travers du devis d origine au moment du rendu. Motif : « la valeur imprimee et la valeur engagee sont une seule valeur, resolue une seule fois » (§8.18 #10). Les totaux de la commande, eux, sont figes SANS filtre : tout ce qu il faut pour afficher les remises est deja sur la commande, seule manquait la regle de visibilite.
          * @enum {string}
          */
-        DocumentFieldId: "quote.number" | "quote.issued_at" | "quote.valid_until" | "quote.customer_reference" | "customer.company_name" | "customer.contact_name" | "customer.billing_address_block" | "customer.billing_line1" | "customer.billing_line2" | "customer.billing_postal_code" | "customer.billing_city" | "customer.billing_country" | "customer.email" | "customer.phone" | "customer.siret" | "customer.vat_number" | "totals.lines_subtotal" | "totals.global_discount" | "totals.net_total" | "totals.vat_rate" | "totals.vat_amount" | "totals.total_incl_tax" | "page.number" | "page.count" | "page.number_of_count";
+        DocumentFieldId: "quote.number" | "quote.issued_at" | "quote.valid_until" | "quote.customer_reference" | "order.number" | "order.created_at" | "order.quote_number" | "order.customer_reference" | "order.expected_delivery_date" | "customer.company_name" | "customer.contact_name" | "customer.billing_address_block" | "customer.billing_line1" | "customer.billing_line2" | "customer.billing_postal_code" | "customer.billing_city" | "customer.billing_country" | "customer.email" | "customer.phone" | "customer.siret" | "customer.vat_number" | "totals.lines_subtotal" | "totals.global_discount" | "totals.net_total" | "totals.vat_rate" | "totals.vat_amount" | "totals.total_incl_tax" | "page.number" | "page.count" | "page.number_of_count";
         /**
          * DocumentLineFieldId
          * @description Identifiant d une donnee de LIGNE de devis, positionnable en COLONNE du bloc de lignes. Distincte de `DocumentFieldId` par nature, pas par commodite : une valeur de ligne n a pas de position propre, elle a une colonne, et la meme colonne sert autant de fois qu il y a de lignes.
          *
          *     Noms repris tels quels de `StorefrontQuoteLine`, deja publie : le document imprime ce que le client lit a l ecran, aux memes noms, sans traduction intermediaire ou une divergence pourrait s installer.
+         *
+         *     VALIDE POUR LES DEUX TYPES DE DOCUMENT, sans sous-ensemble ni renommage : une ligne de commande est la COPIE FIGEE d une ligne de devis et porte exactement les memes attributs. C est la raison pour laquelle E10.19 n a ajoute aucune valeur ici — la famille `line.` est deja la bonne, et lui donner un jumeau `order_line.` aurait duplique une enumeration pour n en changer aucune valeur.
+         *
+         *     `line.price_before_discount` et `line.discount_rate` sont soumis au meme filtre `show_discounts` que sur un devis ; sur un bon de commande, la valeur du filtre est celle recopiee sur la COMMANDE a la conversion.
          * @enum {string}
          */
         DocumentLineFieldId: "line.position" | "line.label" | "line.product_config_summary" | "line.quantity" | "line.price_before_discount" | "line.discount_rate" | "line.price";
@@ -4445,17 +4725,35 @@ export interface components {
          *
          *     `internal` — atelier seulement. C est le DEFAUT, et la seule valeur qu on obtienne sans la demander : ferme par defaut, comme les scopes de cle de service (§3.1). Exposer un document doit etre un geste, jamais un oubli.
          *
-         *     `customer` — destine au client. INTENTION ENREGISTREE, CAPACITE INEXISTANTE, et il faut le lire litteralement : au jour ou ce schema est publie, aucun client ne peut lire aucun fichier de commande, quelle que soit cette valeur. Il n existe ni ressource `/storefront-orders`, ni vue portail sur `commercial_orders`. Le consommateur de cette intention sera E10.20 (lien public de depot), NON CADREE, ou une future surface boutique. Un integrateur ne doit RIEN inferer de ce champ quant a ce qu un client voit : la reponse est « rien ».
+         *     `customer` — destine au client. INTENTION ENREGISTREE, CAPACITE INEXISTANTE, et il faut le lire litteralement : aucun client ne peut lire aucun fichier de commande, quelle que soit cette valeur. Il n existe ni ressource `/storefront-orders`, ni vue portail sur `commercial_orders`. Un integrateur ne doit RIEN inferer de ce champ quant a ce qu un client voit : la reponse est « rien ».
+         *
+         *     CORRECTION D UNE PROMESSE FAITE PAR E10.17, ET IL FAUT LA DIRE PLUTOT QUE LA LAISSER SE PERIMER : ce champ annoncait E10.20 (lien public de depot) comme son futur consommateur. E10.20 est cadree et contractee, et elle ne l est PAS : l arbitrage Arnaud du 2026-09-10 a tranche le lien public en DEPOT SEUL — le porteur d un lien depose des fichiers et n en lit aucun, pas meme les siens. `customer` reste donc inerte, SANS consommateur connu ni story ouverte. Le rendre operant (retrait d un BAT par le client) est une decision produit distincte, qui rouvrirait aussi la question d un droit metier dedie : exposer un fichier a un tiers n est pas le meme geste que l attacher a un dossier.
          *
          *     Liste ADDITIVE : une story ulterieure peut ajouter une valeur (par exemple une visibilite limitee a un sous-traitant), jamais en retirer.
          * @enum {string}
          */
         OrderFileVisibility: "internal" | "customer";
         /**
+         * OrderFileDepositChannel
+         * @description PAR OU un fichier est entre. Ajoute par E10.20, qui cree la distinction en faisant deposer un fichier par quelqu un qui n est pas un utilisateur Magrit.
+         *
+         *     `workspace` — depose par un membre de l atelier, depuis la fiche commande (E10.17). `deposited_by` porte alors son identifiant.
+         *
+         *     `upload_link` — depose par un CLIENT via un lien public (E10.20). `deposited_by` vaut `null` : le deposant n est pas un `auth.users`, et il ne l a jamais ete. `deposited_by_label` porte un libelle issu du LIEN, jamais d un compte.
+         *
+         *     POURQUOI CE CHAMP EXISTE PLUTOT QU UNE DEDUCTION. Deduire l origine de `deposited_by is null` serait faux des le premier compte supprime : un fichier depose par un membre parti de l entreprise a lui aussi un deposant nul. Deduire du LIBELLE serait pire — E10.17 l interdit explicitement, et un libelle est du texte que rien ne contraint.
+         *
+         *     Liste ADDITIVE : une story ulterieure peut ajouter un canal (une integration, une reprise automatique), jamais en retirer.
+         * @enum {string}
+         */
+        OrderFileDepositChannel: "workspace" | "upload_link";
+        /**
          * OrderFile
          * @description Un fichier rattache a une commande : sa metadonnee, son rattachement facultatif a une ligne, sa visibilite et son deposant. PAS ses octets, PAS d URL — voir `OrderFileDetail`.
          *
          *     LE FICHIER APPARTIENT A LA COMMANDE. `order_id` porte la propriete, la portee de securite et le chemin de stockage. `order_line_id` n est qu un rattachement d AFFICHAGE, nullable : il permet a la fiche commande de grouper par item (E10.16, CA5 amende) sans rendre irrepresentable la piece qui concerne la commande entiere.
+         *
+         *     DEUX ORIGINES DEPUIS E10.20, UN SEUL SCHEMA. Un fichier entre soit par l atelier (`deposited_via: workspace`), soit par un lien public de depot (`upload_link`). Rien d autre ne change : meme table, meme plafond, meme cycle de vie, meme suppression.
          *
          *     UNE LIGNE VIVANTE, TOUJOURS. Ce schema ne decrit jamais un fichier supprime : aucune operation n en rend, et `deleted_at` n est pas publie. La trace de suppression existe en base et sert l audit, elle n est pas une donnee d ecran.
          */
@@ -4500,9 +4798,17 @@ export interface components {
             /**
              * @description Libelle FIGE de l auteur au moment du depot (nom ou courriel du membre). Il survit a la suppression du compte, ce qui est sa raison d etre.
              *
-             *     NE JAMAIS L ANALYSER pour en deduire le type d auteur. Un consommateur qui aurait besoin de distinguer un membre d un client recevra un champ dedie, ajoute de facon additive — meme regle qu `OrderStepChange.actor_label`.
+             *     NE JAMAIS L ANALYSER pour en deduire le type d auteur — la regle est INCHANGEE et elle compte davantage depuis E10.20, qui pose ici un libelle issu du LIEN et non d un compte. Le champ dedie promis par E10.17 existe : c est `deposited_via`.
              */
             deposited_by_label: string | null;
+            /**
+             * @description Par ou le fichier est entre. C est LE champ sur lequel un consommateur branche un comportement quand il doit distinguer un depot d atelier d un depot client — jamais `deposited_by_label`, ni la nullite de `deposited_by`.
+             *
+             *     AJOUT E10.20, ET AJOUTE PAR LE LOT QUI CREE LA DISTINCTION : avant lui, tout fichier venait de l atelier et le champ n aurait rien distingue.
+             *
+             *     OPTIONNEL DANS CET INCREMENT DE CONTRAT, ET LA RAISON EST DE METHODE, PAS DE GOUT : le declarer `required` aujourd hui rendrait NON CONFORME l implementation d E10.17 deja en service, qui ne le sert pas. Un contrat ne decrit jamais un serveur qui n existe pas. E10.20b, qui livre l emetteur, le sert sur TOUS les fichiers — y compris `workspace` — et le fait alors passer `required` : une promotion optionnel -> requis est compatible au sens du CA13, un consommateur qui tolerait l absence continue de fonctionner. JUSQUE-LA, ABSENT SIGNIFIE `workspace` : aucun fichier ne peut etre entre autrement, faute de lien public.
+             */
+            deposited_via?: components["schemas"]["OrderFileDepositChannel"];
             /** @description Derniere modification de la LIGNE, jamais du fichier — les octets ne changent pas. Aujourd hui, seule la visibilite peut la faire bouger. Source de l `ETag` exige par `updateOrderFile`. */
             updated_at: components["schemas"]["Timestamp"];
         };
@@ -4524,6 +4830,7 @@ export interface components {
             deposited_at: components["schemas"]["Timestamp"];
             deposited_by: components["schemas"]["Uuid"] | null;
             deposited_by_label: string | null;
+            deposited_via?: components["schemas"]["OrderFileDepositChannel"];
             updated_at: components["schemas"]["Timestamp"];
             /**
              * Format: uri
@@ -4599,6 +4906,261 @@ export interface components {
          */
         UpdateOrderFileCommand: {
             visibility: components["schemas"]["OrderFileVisibility"];
+        };
+        /**
+         * OrderDocument
+         * @description Le BON DE COMMANDE PDF d une commande — un accuse de commande destine au client (arbitrage (B) du 2026-09-10) : une piece produite UNE FOIS, sur demande explicite, stockee, et jamais reproduite.
+         *
+         *     SCHEMA JUMEAU DE `QuoteDocument`, PAS UN `allOf` : les deux portent la meme metadonnee de production mais se rattachent a deux agregats differents, et un `allOf` combine a `additionalProperties: false` ferait rejeter le champ propre par le membre ferme (meme ecueil que `CommercialOrderDetail`).
+         *
+         *     DEUX DIFFERENCES AVEC LE DOCUMENT DU DEVIS, et elles decoulent toutes deux de la production par ACTION EXPLICITE :
+         *     - `generated_at` ne coincide avec AUCUNE transmission. Le devis est
+         *       rendu dans l operation d envoi, donc son horodatage est celui de
+         *       l envoi. Ici, la piece est produite quand un membre le decide, et
+         *       transmise — ou non — par un canal que Magrit ignore ;
+         *
+         *     - `generated_by` / `generated_by_label` existent, la ou le devis n en a
+         *       pas : produire est un geste d une personne, et « qui a produit le bon
+         *       de commande, et quand » est une question qu une fiche commande doit
+         *       savoir rendre.
+         *
+         *
+         *     POURQUOI PAS DE RE-RENDU, redit ici parce que c est la propriete la plus contre-intuitive du contrat : le fond et la carte de champs appartiennent au tenant et changent quand il veut ; les lignes et les totaux de la commande sont figes depuis la conversion. Un re-rendu produirait un papier a en-tete d aujourd hui pour une piece remise il y a trois semaines. Le PDF stocke EST le document de reference.
+         *
+         *     `sha256` sert a constater qu il s agit du meme fichier d une lecture a l autre. Il ne se REVERIFIE pas par un nouveau rendu : deux generations du meme document ne donnent pas le meme octet (horodatages internes au format PDF).
+         */
+        OrderDocument: {
+            order_id: components["schemas"]["Uuid"];
+            /** @description Gabarit `document_type: order` employe. JAMAIS `null` : un document n existe que s il a ete produit sur un gabarit du tenant, il n y a pas de gabarit de repli fourni par Magrit, et AUCUN repli sur un gabarit `quote` n est tente. Le gabarit ne peut pas disparaitre sous le document — `deleteDocumentPdfTemplate` refuse en 409 des qu une piece a ete produite. Trace de production, jamais un pointeur a suivre pour reconstituer la piece. */
+            template_id: components["schemas"]["Uuid"];
+            generated_at: components["schemas"]["Timestamp"];
+            /** @description Membre qui a demande la production, ou `null` si son compte a ete supprime depuis. Meme modele d auteur qu `OrderStepChange` et `OrderFile` : `null` ne signifie pas « pas d auteur », mais « pas d auteur retrouvable ». Aucun acteur non-utilisateur ne peut produire ce document — l operation est reservee au jeton utilisateur. */
+            generated_by: components["schemas"]["Uuid"] | null;
+            /** @description Libelle FIGE de l auteur au moment de la production. Il survit a la suppression du compte, ce qui est sa raison d etre. NE JAMAIS L ANALYSER pour en deduire quoi que ce soit. */
+            generated_by_label: string | null;
+            /** Format: int64 */
+            byte_size: number;
+            sha256: string;
+            /** @enum {string} */
+            content_type: "application/pdf";
+            /**
+             * Format: int32
+             * @description Nombre de pages REELLEMENT produites, pages de continuation comprises. Peut donc depasser le nombre de pages du fond.
+             */
+            page_count: number;
+            /**
+             * Format: uri
+             * @description URL signee de courte duree, servie par le stockage. Capacite au porteur : ne pas la journaliser, ne pas la republier.
+             */
+            download_url: string;
+            /** @description **300 secondes** apres l emission, meme valeur et meme motif que `QuoteDocument.download_url_expires_at` : un telechargement est un CLIC, pas une session. Aucune duree neuve n est inventee pour ce lot. */
+            download_url_expires_at: components["schemas"]["Timestamp"];
+        };
+        /**
+         * OrderUploadLink
+         * @description Un lien public de depot, vu par l ATELIER. Une ressource a part entiere — pas un jeton derive d un secret — et c est ce qui le rend listable, revocable et auditable.
+         *
+         *     LE JETON N Y EST PAS, ET N Y SERA JAMAIS. Il n est rendu qu une fois, par `OrderUploadLinkCreated` ; la base n en garde que l empreinte `sha256`. Un lien perdu ne se relit pas : il se revoque et se reemet. Ecart DELIBERE avec `tenant_invitations`, qui stocke son jeton en clair — une fuite de sauvegarde y donnerait tous les liens vivants.
+         *
+         *     UNE LIGNE VIVANTE, TOUJOURS. Ce schema ne decrit jamais un lien expire ni revoque : aucune operation n en rend. La trace existe en base et sert l audit, elle n est pas une donnee d ecran.
+         */
+        OrderUploadLink: {
+            id: components["schemas"]["Uuid"];
+            order_id: components["schemas"]["Uuid"];
+            /** @description Ce que l atelier attend du client (« votre fichier pret-a-imprimer pour les 5000 flyers »), ou `null`. AFFICHE AU CLIENT sur la page de depot : c est le seul moyen qu il ait d envoyer le bon fichier, et c est ce qui evite le depot du mauvais. A ecrire pour un lecteur qui ne connait pas Magrit. */
+            label: string | null;
+            /** @description Echeance du lien, TOUJOURS renseignee. Passee, le lien cesse de servir et quitte cette liste. */
+            expires_at: components["schemas"]["Timestamp"];
+            /**
+             * Format: int32
+             * @description Nombre de fichiers que ce lien autorise. S IMPUTE sur le plafond de 30 fichiers vivants de la commande : les deux barrieres se cumulent, elles ne s additionnent pas.
+             */
+            max_files: number;
+            /**
+             * Format: int32
+             * @description Fichiers deja deposes PAR CE LIEN et toujours vivants. Un fichier supprime par l atelier ne compte plus — il libere une place ici comme sur la commande.
+             */
+            deposited_count: number;
+            /**
+             * Format: int32
+             * @description Nombre de fois que le contexte du lien a ete lu. Un lien jamais ouvert et un lien ouvert dix fois n appellent pas la meme relance : dans le premier cas le courriel n est peut-etre pas arrive, dans le second le client bute sur autre chose.
+             */
+            use_count: number;
+            /** @description Premiere ouverture, ou `null` si le lien n a jamais servi. */
+            first_used_at: components["schemas"]["Timestamp"] | null;
+            /** @description Derniere ouverture, ou `null`. */
+            last_used_at: components["schemas"]["Timestamp"] | null;
+            created_at: components["schemas"]["Timestamp"];
+            /** @description Membre qui a emis le lien, ou `null` si son compte a ete supprime depuis. Meme modele d auteur qu `OrderStepChange`. */
+            created_by: components["schemas"]["Uuid"] | null;
+            /** @description Libelle FIGE de l emetteur au moment de l emission. */
+            created_by_label: string | null;
+        };
+        /**
+         * OrderUploadLinkCreated
+         * @description `OrderUploadLink` PLUS le jeton en clair. Schema APLATI plutot que compose par `allOf`, meme raison que `OrderFileDetail`.
+         *
+         *     LE SEUL PORTEUR DU JETON DE TOUT LE CONTRAT, et il ne le porte qu une fois. L interface DOIT l afficher immediatement et proposer de le copier : une seconde lecture ne le rendra pas.
+         */
+        OrderUploadLinkCreated: {
+            id: components["schemas"]["Uuid"];
+            order_id: components["schemas"]["Uuid"];
+            label: string | null;
+            expires_at: components["schemas"]["Timestamp"];
+            /** Format: int32 */
+            max_files: number;
+            /** Format: int32 */
+            deposited_count: number;
+            /** Format: int32 */
+            use_count: number;
+            first_used_at: components["schemas"]["Timestamp"] | null;
+            last_used_at: components["schemas"]["Timestamp"] | null;
+            created_at: components["schemas"]["Timestamp"];
+            created_by: components["schemas"]["Uuid"] | null;
+            created_by_label: string | null;
+            /**
+             * @description Jeton opaque du lien, en clair, RENDU UNE SEULE FOIS. Il se repose en en-tete `X-Magrit-Upload-Link` par la page de depot ; l URL publique se compose en le prefixant de l origine de l application (`<origine>/depot/<jeton>`).
+             *
+             *     LE SERVEUR NE COMPOSE PAS CETTE URL. La meme application est servie sous plusieurs origines (atelier, boutiques a domaine propre) : une URL fabriquee a partir d une origine devinee serait morte une fois sur deux. C est l interface, qui connait la sienne, qui l assemble.
+             *
+             *     CAPACITE AU PORTEUR : ne pas le journaliser, ne pas le republier, ne jamais le mettre dans une URL d API ni dans un `Referer`.
+             */
+            token: string;
+        };
+        /**
+         * CreateOrderUploadLinkCommand
+         * @description Emission d un lien de depot. TROIS CHAMPS, TOUS FACULTATIFS : un lien par defaut — 30 jours, 10 fichiers, sans consigne — est un lien utilisable, et l atelier qui presse doit pouvoir l emettre d un clic.
+         */
+        CreateOrderUploadLinkCommand: {
+            /** @description Consigne AFFICHEE AU CLIENT. Absent ou `null` -> la page de depot n affiche que le numero de commande et le nom de l imprimeur. */
+            label?: string | null;
+            /**
+             * Format: int32
+             * @description Duree de vie, en jours. Absent -> **30**. TROIS VALEURS ADMISES ET NON UN ENTIER LIBRE : une echeance est une decision de securite, pas un reglage fin, et une liste fermee evite autant le lien d un jour (inutilisable) que celui de dix ans (une porte ouverte pour toujours).
+             * @default 30
+             * @enum {integer}
+             */
+            expires_in_days: 7 | 30 | 90;
+            /**
+             * Format: int32
+             * @description Nombre de fichiers autorises par ce lien. Absent -> **10**. Un travail reel arrive en plusieurs fichiers ; un lien a usage unique obligerait l atelier a en emettre au juge, et le client deposerait tout dans une archive pour s en sortir. Ce plafond s impute sur les 30 fichiers vivants de la commande.
+             * @default 10
+             */
+            max_files: number;
+        };
+        /**
+         * OrderUploadLinkContext
+         * @description Ce que voit le CLIENT en ouvrant le lien. Le strict necessaire pour deposer le bon fichier, et rien de plus.
+         *
+         *     CE QU IL NE PORTE PAS, ET NE PORTERA PAS SANS UNE NOUVELLE DECISION PRODUIT (arbitrage (E) du 2026-09-10, depot seul) : aucun prix, aucune ligne, aucun statut de production, aucune date de livraison, aucun nom de client, AUCUNE LISTE DE FICHIERS et aucune URL de telechargement. Le porteur du lien sait COMBIEN il a deja depose, jamais QUOI. Ce n est pas une precaution de style : ce lien est ouvert par un inconnu, et tout champ ajoute ici est un champ qu un inconnu lit.
+         *
+         *     `deposited_count` EST LA POUR EVITER LE DOUBLON, pas pour informer. Sans lui, un client qui doute d avoir reussi son envoi recommence, et l atelier recoit deux fois le meme fichier sous deux noms.
+         */
+        OrderUploadLinkContext: {
+            /** @description Nom de l imprimeur (le tenant). QUI DEMANDE : sans lui, la page est un formulaire anonyme demandant des fichiers, ce que personne ne devrait remplir. */
+            printer_name: string;
+            /** @description Numero de la commande concernee. Le client le retrouve sur son accuse de commande. */
+            order_number: string;
+            /** @description Consigne posee par l atelier, ou `null`. */
+            label: string | null;
+            /** @description Echeance du lien. AFFICHEE AU CLIENT : « ce lien est valable jusqu au … » evite l appel du lendemain, et c est la seule facon de rendre supportable l indistinction du 401. */
+            expires_at: components["schemas"]["Timestamp"];
+            /** Format: int32 */
+            max_files: number;
+            /**
+             * Format: int32
+             * @description Fichiers deja deposes par CE lien, et toujours vivants.
+             */
+            deposited_count: number;
+            /**
+             * Format: int64
+             * @description Plafond de poids par fichier, en octets — **50 Mo**, plafond du projet de stockage, INCHANGE par ce lot (arbitrage (A) du 2026-09-10 : ni relevement de plan, ni stockage tiers, ni depot reprenable).
+             *
+             *     A AFFICHER AVANT LE CHOIX DU FICHIER, pas apres l echec du televersement. Un client qui envoie 400 Mo par une liaison d entreprise attend un quart d heure pour apprendre que ce n etait pas possible — c est le pire des parcours, et il est evitable par une phrase.
+             */
+            max_byte_size: number;
+            /**
+             * @description Types MIME acceptes par le bucket, MEME LISTE qu en E10.17. Rendue a l execution et non figee au schema, pour qu un elargissement ne soit pas un changement de contrat.
+             *
+             *     MEME CONSIGNE OPPOSABLE A L INTERFACE qu en E10.17 : ne pas se fier a `File.type`, poser explicitement le `Content-Type` du `PUT` depuis l extension du nom de fichier, via une correspondance fermee. Elle compte davantage ici : le deposant est un inconnu, sur un poste inconnu, et il n a personne a qui demander pourquoi son depot est refuse.
+             */
+            accepted_content_types: string[];
+        };
+        /**
+         * ConfirmOrderUploadLinkFileCommand
+         * @description Confirmation d un depot par le porteur du lien. DEUX CHAMPS, et c est deliberement moins que `ConfirmOrderFileUploadCommand` : le client ne choisit ni la VISIBILITE (le fichier est toujours `internal` — lui laisser marquer une piece « destinee au client » n aurait aucun sens), ni la LIGNE de commande concernee (il ne connait pas les lignes, et le contexte du lien ne les lui montre pas). L atelier reclasse ensuite s il le souhaite.
+         */
+        ConfirmOrderUploadLinkFileCommand: {
+            /** @description Identifiant alloue par `issueOrderUploadLinkFileUrl`. Il determine le chemin ou le serveur va chercher les octets. Un identifiant alloue par un AUTRE lien, ou par l atelier, ne se confirme pas ici : le chemin est reforme depuis le jeton. */
+            file_id: components["schemas"]["Uuid"];
+            /**
+             * @description Nom d origine a conserver et a reposer au telechargement. Le seul renseignement que le serveur ne peut pas relever tout seul.
+             *
+             *     TEXTE FOURNI PAR UN TIERS NON AUTHENTIFIE : il est stocke et rendu tel quel a l atelier, jamais interprete, jamais employe pour former un chemin de stockage, et il ne traverse pas le bus d evenements.
+             */
+            filename: string;
+        };
+        /**
+         * OrderUploadLinkDeposit
+         * @description RECU rendu au client apres un depot reussi. Ce n est pas `OrderFile` : c est la confirmation de ce qu il vient d envoyer, pas la representation d atelier du fichier.
+         *
+         *     POURQUOI UN SCHEMA DEDIE PLUTOT QUE `OrderFile`. Ce dernier porte la visibilite, le deposant, le libelle du deposant et le rattachement de ligne — quatre donnees d atelier qu un tiers non authentifie n a aucune raison de lire. Servir le schema d atelier « parce qu il existe » aurait ouvert quatre champs pour n en vouloir aucun.
+         *
+         *     AUCUNE URL. Le porteur du lien ne retelecharge pas ce qu il a depose (arbitrage (E), depot seul) : ce recu est la trace de son geste, pas un acces au fichier.
+         */
+        OrderUploadLinkDeposit: {
+            file_id: components["schemas"]["Uuid"];
+            filename: string;
+            /** @description Type MIME tel que le stockage l a enregistre. */
+            content_type: string;
+            /**
+             * Format: int64
+             * @description Taille reelle de l objet, relevee au stockage. La rendre permet a la page de depot de confirmer « 12,4 Mo recus », seule preuve tangible que le transfert est alle a son terme.
+             */
+            byte_size: number;
+            deposited_at: components["schemas"]["Timestamp"];
+            /**
+             * Format: int32
+             * @description Fichiers deposes par ce lien apres ce depot.
+             */
+            deposited_count: number;
+            /**
+             * Format: int32
+             * @description Rappele ici pour que la page sache annoncer « 2 sur 10 » sans relire le contexte.
+             */
+            max_files: number;
+        };
+        /**
+         * OrderFilesSubmittedPayload
+         * @description Charge utile de l evenement sortant `order.files_submitted` (`event_version: 1`), emis par E10.20 a CHAQUE fichier confirme par le porteur d un lien de depot.
+         *
+         *     UNE EMISSION PAR FICHIER, PAS PAR « J AI TERMINE » (arbitrage (G)). Un client qui ferme son onglet sans cliquer un bouton de fin n emettrait rien, et l atelier attendrait un signal qui ne vient jamais. Le regroupement est un probleme de consommateur — E10.15 groupera a la notification — pas de producteur.
+         *
+         *     CE QU ELLE NE PORTE PAS, et c est delibere :
+         *     - le NOM du fichier et son type. Ce sont des chaines fournies par un
+         *       tiers NON AUTHENTIFIE ; les faire traverser le bus les livrerait a des
+         *       consommateurs dont ce contrat ignore la robustesse. Un abonne habilite
+         *       relit la commande (`listOrderFiles`, scope `orders:read`) ;
+         *
+         *     - le JETON du lien, evidemment, et tout ce qui permettrait de le
+         *       reconstituer. `upload_link_id` est l identifiant d ATELIER du lien, il
+         *       n ouvre rien.
+         *
+         *
+         *     Volontairement minimale par ailleurs, meme parti que `OrderStepChangedPayload` : des identifiants et un numero, AUCUN montant.
+         *
+         *     `aggregate_type` vaut `order`, `aggregate_id` la commande sur laquelle le fichier a ete depose.
+         */
+        OrderFilesSubmittedPayload: {
+            /** @description Fichier cree par ce depot (`OrderFile.id`). */
+            file_id: components["schemas"]["Uuid"];
+            /** @description Lien par lequel le depot est entre. Permet a un consommateur de dedupliquer sur le FAIT METIER et de rapprocher plusieurs depots d une meme sollicitation. */
+            upload_link_id: components["schemas"]["Uuid"];
+            order_id: components["schemas"]["Uuid"];
+            /** @description Numero metier de la commande. */
+            order_number: string;
+            /** @description Client de la commande. Permet a un consommateur de router l evenement sans un aller-retour de lecture — c est ce dont E10.15 aura besoin pour savoir QUI prevenir. */
+            customer_id: components["schemas"]["Uuid"];
         };
     };
     responses: {
@@ -4766,6 +5328,12 @@ export interface components {
          *     ALLOUE PAR LE SERVEUR A L EMISSION DU BILLET DE DEPOT (`issueOrderFileUploadUrl`), jamais choisi par l appelant : c est lui qui forme le chemin de stockage `<tenant_id>/<order_id>/<file_id>`. Il existe donc AVANT la ligne du fichier, et pendant tout le temps du televersement il ne designe encore rien — `getOrderFile` rend 404 sur un identifiant alloue mais non confirme.
          */
         OrderFileId: components["schemas"]["Uuid"];
+        /**
+         * @description Identifiant technique du lien public de depot (`commercial_order_upload_links`, E10.20), dans le tenant du jeton et SUR LA COMMANDE DU CHEMIN. Les deux conditions sont verifiees.
+         *
+         *     CE N EST PAS LE JETON DU LIEN, et la distinction est de securite, pas de vocabulaire : cet identifiant sert a l ATELIER pour revoquer, il circule dans les URL d atelier et n ouvre rien ; le jeton, lui, est la credential, il n est rendu qu une fois et ne reparait dans aucun chemin.
+         */
+        OrderUploadLinkId: components["schemas"]["Uuid"];
         /** @description Identifiant technique de l etape de production (`production_steps`, E10.13), dans le tenant du jeton. L etape n a PAS de code metier stable : elle est une donnee de tenant, renommable a tout moment, et seul cet identifiant l adresse. Un consommateur qui cherche « l etape PAO » lit le catalogue, il ne devine pas une cle. */
         ProductionStepId: components["schemas"]["Uuid"];
         /** @description Identifiant technique du gabarit PDF (`document_pdf_templates`, E10.10b-4a), dans le tenant du jeton. Le gabarit n a pas de code metier stable : son `name` est libre et renommable, seul cet identifiant l adresse. Le meme identifiant forme le chemin de stockage du fond (`<tenant_id>/<template_id>.pdf`) — il n est jamais choisi par l appelant. */
@@ -4924,11 +5492,20 @@ export type UpdateDocumentPdfTemplateCommand = components['schemas']['UpdateDocu
 export type ConfirmDocumentPdfTemplateUploadCommand = components['schemas']['ConfirmDocumentPdfTemplateUploadCommand'];
 export type QuoteDocument = components['schemas']['QuoteDocument'];
 export type OrderFileVisibility = components['schemas']['OrderFileVisibility'];
+export type OrderFileDepositChannel = components['schemas']['OrderFileDepositChannel'];
 export type OrderFile = components['schemas']['OrderFile'];
 export type OrderFileDetail = components['schemas']['OrderFileDetail'];
 export type OrderFileUploadTicket = components['schemas']['OrderFileUploadTicket'];
 export type ConfirmOrderFileUploadCommand = components['schemas']['ConfirmOrderFileUploadCommand'];
 export type UpdateOrderFileCommand = components['schemas']['UpdateOrderFileCommand'];
+export type OrderDocument = components['schemas']['OrderDocument'];
+export type OrderUploadLink = components['schemas']['OrderUploadLink'];
+export type OrderUploadLinkCreated = components['schemas']['OrderUploadLinkCreated'];
+export type CreateOrderUploadLinkCommand = components['schemas']['CreateOrderUploadLinkCommand'];
+export type OrderUploadLinkContext = components['schemas']['OrderUploadLinkContext'];
+export type ConfirmOrderUploadLinkFileCommand = components['schemas']['ConfirmOrderUploadLinkFileCommand'];
+export type OrderUploadLinkDeposit = components['schemas']['OrderUploadLinkDeposit'];
+export type OrderFilesSubmittedPayload = components['schemas']['OrderFilesSubmittedPayload'];
 export type ResponseBadRequest = components['responses']['BadRequest'];
 export type ResponseUnauthorized = components['responses']['Unauthorized'];
 export type ResponseForbidden = components['responses']['Forbidden'];
@@ -4953,6 +5530,7 @@ export type ParameterQuoteId = components['parameters']['QuoteId'];
 export type ParameterStorefrontQuoteId = components['parameters']['StorefrontQuoteId'];
 export type ParameterCommercialOrderId = components['parameters']['CommercialOrderId'];
 export type ParameterOrderFileId = components['parameters']['OrderFileId'];
+export type ParameterOrderUploadLinkId = components['parameters']['OrderUploadLinkId'];
 export type ParameterProductionStepId = components['parameters']['ProductionStepId'];
 export type ParameterDocumentPdfTemplateId = components['parameters']['DocumentPdfTemplateId'];
 export type ParameterQuoteLineId = components['parameters']['QuoteLineId'];
@@ -8566,7 +9144,7 @@ export interface operations {
     listDocumentPdfTemplates: {
         parameters: {
             query?: {
-                /** @description Filtre sur le type de document servi par le gabarit. Absent -> tous les types. Un seul type existe aujourd hui (`quote`) ; le parametre est publie des maintenant pour que l ecran de parametrage n ait pas a changer d appel le jour ou E10.19 ajoutera le bon de commande. */
+                /** @description Filtre sur le type de document servi par le gabarit. Absent -> tous les types. DEUX TYPES depuis E10.19 : `quote` (devis) et `order` (bon de commande). Le parametre avait ete publie d avance pour que l ecran de parametrage n ait pas a changer d appel le jour venu — il n a effectivement pas eu a changer. */
                 document_type?: components["schemas"]["DocumentType"];
                 /** @description Filtre sur l etat de l import. `ready` seul rend les gabarits utilisables par une generation. */
                 status?: components["schemas"]["DocumentPdfTemplateStatus"];
@@ -8775,7 +9353,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description Au moins un document a ete genere avec ce gabarit (`document_pdf_template.in_use`). Le refus est tenu EN BASE par une cle etrangere `on delete restrict` depuis `quote_documents`, pas par une verification prealable de la facade : une lecture suivie d une suppression laisse une fenetre ou un devis peut etre envoye entre les deux. */
+            /** @description Au moins un document a ete genere avec ce gabarit (`document_pdf_template.in_use`). Le refus est tenu EN BASE par une cle etrangere `on delete restrict` depuis `quote_documents` ET depuis `order_documents`, pas par une verification prealable de la facade : une lecture suivie d une suppression laisse une fenetre ou un devis peut etre envoye — ou un bon de commande produit — entre les deux. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -9103,7 +9681,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description Carte invalide (`document_pdf_template.invalid_field_map`) : page inexistante, coordonnee hors page, champ place deux fois, colonne hors de la famille `line.`, bloc de lignes sans colonne, ou `rows_per_page` incompatible avec la hauteur de la page. Le detail par champ est porte par `Problem.errors`. */
+            /** @description Carte invalide (`document_pdf_template.invalid_field_map`) : page inexistante, coordonnee hors page, champ place deux fois, champ hors du sous-ensemble du `document_type` du gabarit, colonne hors de la famille `line.`, bloc de lignes sans colonne, ou `rows_per_page` incompatible avec la hauteur de la page. Le detail par champ est porte par `Problem.errors`. */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -9214,6 +9792,509 @@ export interface operations {
             };
         };
     };
+    getOrderDocument: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path: {
+                /** @description Identifiant technique de la commande de gestion commerciale (`commercial_orders`, E10.12), dans le tenant du jeton. SANS RAPPORT avec l `orderId` des routes historiques `/api/v1/orders/...`, qui adresse une commande BOUTIQUE (`tenant_orders`) : deux tables, deux cycles de vie, deux facades. Un identifiant valide d un cote rend 404 de l autre. */
+                orderId: components["parameters"]["CommercialOrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Bon de commande de la commande. `download_url` expire ; la relancer se fait en rappelant cette operation, jamais en conservant l URL. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["OrderDocument"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /**
+             * @description Soit la commande n existe pas dans le tenant du jeton (`order.not_found`), soit elle n a pas de bon de commande (`order.document_not_generated`).
+             *
+             *     DEUX CODES DISTINCTS, comme cote atelier pour le devis : l appelant est un membre de l espace, il n y a aucun oracle d existence a lui refuser.
+             *
+             *     `order.document_not_generated` EST LE CAS NOMINAL, et il l est davantage encore que son equivalent devis : la production etant un GESTE, toute commande dont personne n a clique « Produire le bon de commande » rend ce code, indefiniment et sans anomalie. L ecran affiche « aucun bon de commande » et propose de le produire — jamais une erreur. Il couvre aussi, pour toujours, les commandes creees AVANT la livraison d E10.19 : aucune reprise retroactive n est prevue, mais rien n empeche de produire le document a la demande sur une commande ancienne, la piece portant alors la date de sa production reelle.
+             */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    generateOrderDocument: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+                /**
+                 * @description Cle d idempotence fournie par l appelant sur tout POST creant une ressource metier (CA8). Rejouer la meme cle avec la meme requete renvoie la reponse initiale, accompagnee de l en-tete `Idempotency-Replayed: true` ; la rejouer avec une requete differente renvoie 409 `api.idempotency_key_reused`.
+                 *
+                 *     L identite d une requete couvre la methode, le chemin, LA QUERY et le corps : deux POST au meme chemin avec des query differentes ne sont pas la meme requete.
+                 *
+                 *     Sur un rejeu, seul `meta.request_id` est recale sur la requete courante ; `data` est rendu inchange.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description Identifiant technique de la commande de gestion commerciale (`commercial_orders`, E10.12), dans le tenant du jeton. SANS RAPPORT avec l `orderId` des routes historiques `/api/v1/orders/...`, qui adresse une commande BOUTIQUE (`tenant_orders`) : deux tables, deux cycles de vie, deux facades. Un identifiant valide d un cote rend 404 de l autre. */
+                orderId: components["parameters"]["CommercialOrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Bon de commande produit. La reponse porte l URL de telechargement, signee pour **300 secondes** : celui qui vient de le produire veut le lire tout de suite. */
+            201: {
+                headers: {
+                    "Idempotency-Replayed": components["headers"]["IdempotencyReplayed"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["OrderDocument"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description Aucune commande de cet identifiant dans le tenant du jeton (`order.not_found`). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /**
+             * @description TROIS CAUSES, TROIS CODES, et elles n appellent pas la meme reponse d ecran :
+             *
+             *     - `order.document_already_generated` — la commande porte deja son
+             *       bon de commande. Le lire, ne pas le reproduire. A NE PAS
+             *       CONFONDRE avec le rejeu d idempotence : rejouer la MEME cle avec
+             *       la MEME requete rend 201 et `Idempotency-Replayed: true` ;
+             *
+             *     - `order.document_template_missing` — le tenant n a aucun gabarit
+             *       `document_type: order` importe, `ready` et actif. C est un defaut
+             *       de PARAMETRAGE, pas une erreur d appel : l ecran renvoie vers
+             *       l import d un gabarit, et l operation se rejoue telle quelle une
+             *       fois le gabarit en place. AUCUN REPLI sur le gabarit `quote`
+             *       n est tente, jamais ;
+             *
+             *     - `api.idempotency_key_reused` — la cle a ete rejouee avec une
+             *       requete differente.
+             */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    listOrderUploadLinks: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path: {
+                /** @description Identifiant technique de la commande de gestion commerciale (`commercial_orders`, E10.12), dans le tenant du jeton. SANS RAPPORT avec l `orderId` des routes historiques `/api/v1/orders/...`, qui adresse une commande BOUTIQUE (`tenant_orders`) : deux tables, deux cycles de vie, deux facades. Un identifiant valide d un cote rend 404 de l autre. */
+                orderId: components["parameters"]["CommercialOrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Liens vivants de la commande. VIDE est le cas le plus frequent et n est pas une anomalie. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["OrderUploadLink"][];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createOrderUploadLink: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+                /**
+                 * @description Cle d idempotence fournie par l appelant sur tout POST creant une ressource metier (CA8). Rejouer la meme cle avec la meme requete renvoie la reponse initiale, accompagnee de l en-tete `Idempotency-Replayed: true` ; la rejouer avec une requete differente renvoie 409 `api.idempotency_key_reused`.
+                 *
+                 *     L identite d une requete couvre la methode, le chemin, LA QUERY et le corps : deux POST au meme chemin avec des query differentes ne sont pas la meme requete.
+                 *
+                 *     Sur un rejeu, seul `meta.request_id` est recale sur la requete courante ; `data` est rendu inchange.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description Identifiant technique de la commande de gestion commerciale (`commercial_orders`, E10.12), dans le tenant du jeton. SANS RAPPORT avec l `orderId` des routes historiques `/api/v1/orders/...`, qui adresse une commande BOUTIQUE (`tenant_orders`) : deux tables, deux cycles de vie, deux facades. Un identifiant valide d un cote rend 404 de l autre. */
+                orderId: components["parameters"]["CommercialOrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateOrderUploadLinkCommand"];
+            };
+        };
+        responses: {
+            /** @description Lien emis. SEULE REPONSE DE TOUT LE CONTRAT QUI PORTE LE JETON EN CLAIR. L interface doit l afficher immediatement et proposer de le copier : il ne sera plus jamais servi. */
+            201: {
+                headers: {
+                    "Idempotency-Replayed": components["headers"]["IdempotencyReplayed"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["OrderUploadLinkCreated"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description Aucune commande de cet identifiant dans le tenant du jeton (`order.not_found`). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Soit la commande porte deja le nombre maximal de liens VIVANTS (`upload_link.limit_reached`, **10**) — revoquer un lien libere une place, un lien expire ne compte plus —, soit la cle d idempotence a ete rejouee avec une requete differente (`api.idempotency_key_reused`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Corps invalide (`api.validation_failed`) : `expires_in_days` hors des trois valeurs admises, `max_files` hors bornes, `label` trop long. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    revokeOrderUploadLink: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path: {
+                /** @description Identifiant technique de la commande de gestion commerciale (`commercial_orders`, E10.12), dans le tenant du jeton. SANS RAPPORT avec l `orderId` des routes historiques `/api/v1/orders/...`, qui adresse une commande BOUTIQUE (`tenant_orders`) : deux tables, deux cycles de vie, deux facades. Un identifiant valide d un cote rend 404 de l autre. */
+                orderId: components["parameters"]["CommercialOrderId"];
+                /**
+                 * @description Identifiant technique du lien public de depot (`commercial_order_upload_links`, E10.20), dans le tenant du jeton et SUR LA COMMANDE DU CHEMIN. Les deux conditions sont verifiees.
+                 *
+                 *     CE N EST PAS LE JETON DU LIEN, et la distinction est de securite, pas de vocabulaire : cet identifiant sert a l ATELIER pour revoquer, il circule dans les URL d atelier et n ouvre rien ; le jeton, lui, est la credential, il n est rendu qu une fois et ne reparait dans aucun chemin.
+                 */
+                linkId: components["parameters"]["OrderUploadLinkId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Lien revoque. Rejouer la meme revocation rend 404 : un lien deja revoque est indiscernable d un lien inconnu, et c est voulu. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description Aucun lien VIVANT de cet identifiant sur cette commande (`upload_link.not_found`). Ce code n est jamais servi au porteur d un lien — voir la regle d indistinction de `getOrderUploadLinkContext`. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getOrderUploadLinkContext: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Contexte du depot. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["OrderUploadLinkContext"];
+                    };
+                };
+            };
+            /** @description Soit `X-Magrit-Tenant` a ete fourni sur une operation dont la credential porte deja le tenant (`api.tenant_not_addressable`), soit un `Authorization` ou une cle de service accompagnent le lien (`identity.actor_kind_required`) — deux identites proposees au serveur. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description En-tete `X-Magrit-Upload-Link` absent, ou lien inexploitable (`upload_link.invalid`) — inexistant, expire ou revoque, sans distinction. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Acteur d un AUTRE mode sur une operation servie au seul lien de depot (`identity.actor_kind_required`). Un membre de l atelier qui appellerait cette operation avec son jeton est refuse ici, pas servi : le cloisonnement des modes est ferme par defaut, dans les deux sens. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    issueOrderUploadLinkFileUrl: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Billet de depot. Le televersement se fait par un `PUT` nu sur `url`. Il DOIT etre suivi de `confirmOrderUploadLinkFile` : sans confirmation, les octets deposes sont ignores de bout en bout — et personne, cote atelier, ne saura qu ils existent. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["OrderFileUploadTicket"];
+                    };
+                };
+            };
+            /** @description `X-Magrit-Tenant` fourni (`api.tenant_not_addressable`), ou credentials cumulees (`identity.actor_kind_required`). */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Lien absent ou inexploitable (`upload_link.invalid`), sans distinction de cause. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Acteur d un autre mode (`identity.actor_kind_required`). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Plus de place (`upload_link.file_limit_reached`) : le lien a atteint son `max_files`, ou la commande ses 30 fichiers vivants. UN SEUL CODE POUR LES DEUX CAUSES — le porteur du lien ne peut agir sur ni l une ni l autre, et lui dire combien de pieces l atelier a deja attachees ne le regarde pas. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    confirmOrderUploadLinkFile: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Cle d idempotence fournie par l appelant sur tout POST creant une ressource metier (CA8). Rejouer la meme cle avec la meme requete renvoie la reponse initiale, accompagnee de l en-tete `Idempotency-Replayed: true` ; la rejouer avec une requete differente renvoie 409 `api.idempotency_key_reused`.
+                 *
+                 *     L identite d une requete couvre la methode, le chemin, LA QUERY et le corps : deux POST au meme chemin avec des query differentes ne sont pas la meme requete.
+                 *
+                 *     Sur un rejeu, seul `meta.request_id` est recale sur la requete courante ; `data` est rendu inchange.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmOrderUploadLinkFileCommand"];
+            };
+        };
+        responses: {
+            /** @description Depot enregistre. RECU MINIMAL, ET C EST DELIBERE : le porteur du lien recoit la confirmation de ce qu il vient d envoyer, pas la representation d atelier du fichier (ni visibilite, ni deposant, ni rattachement, ni URL). Il ne peut pas relire ce qu il a depose (arbitrage (E)). */
+            201: {
+                headers: {
+                    "Idempotency-Replayed": components["headers"]["IdempotencyReplayed"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["OrderUploadLinkDeposit"];
+                    };
+                };
+            };
+            /** @description `X-Magrit-Tenant` fourni (`api.tenant_not_addressable`), ou credentials cumulees (`identity.actor_kind_required`). */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Lien absent ou inexploitable (`upload_link.invalid`), sans distinction de cause. UN LIEN QUI EXPIRE ENTRE LE BILLET ET LA CONFIRMATION rend donc 401, et les octets deja deposes restent inertes dans un bucket prive — ils ne comptent pas. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Acteur d un autre mode (`identity.actor_kind_required`). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Aucun objet n a ete depose au chemin attendu (`order_file.upload_missing`) : la confirmation arrive sans que le televersement ait abouti. Se corrige en redemandant un billet. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Soit ce `file_id` porte deja une ligne (`order_file.already_confirmed`), soit plus aucune place n est disponible (`upload_link.file_limit_reached`, verifie ICI sous verrou), soit la cle d idempotence a ete rejouee avec une requete differente (`api.idempotency_key_reused`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Soit l objet depose depasse le plafond de poids ou porte un type hors de la liste acceptee (`order_file.rejected`), soit le corps est invalide (`api.validation_failed`). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     onQuoteConverted: {
         parameters: {
             query?: never;
@@ -9284,7 +10365,9 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["EventEnvelope"];
+                "application/json": components["schemas"]["EventEnvelope"] & {
+                    payload?: components["schemas"]["OrderFilesSubmittedPayload"];
+                };
             };
         };
         responses: {

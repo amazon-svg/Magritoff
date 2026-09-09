@@ -5354,21 +5354,27 @@ paths:
   # 2bis. CE SONT DES FICHIERS LEGERS, ET LA FRONTIERE EST TRANCHEE, PAS
   #    SUBIE. Arbitrage Arnaud du 2026-09-09 : E10.17 sert les ECHANGES
   #    COURANTS d une commande — bon a tirer, justificatif, visuel de
-  #    reference — sous le plafond de 50 Mo du projet de stockage. Le FICHIER
-  #    DE PRODUCTION haute resolution, qui depasse regulierement ce plafond,
-  #    est un besoin DISTINCT, explicitement renvoye a E10.20 (lien public de
-  #    depot, non cadree). Ce n est pas une limite decouverte en chemin dont
-  #    on espererait se defaire : c est le perimetre du lot. Ne pas le rouvrir
-  #    comme s il etait ambigu.
+  #    reference — sous le plafond de 50 Mo du projet de stockage.
   #
-  # 3. AUCUN CLIENT NE LIT AUCUN FICHIER AUJOURD HUI, PUBLIC OU NON. La
-  #    visibilite `customer` enregistre une INTENTION de l atelier ; il
-  #    n existe a ce jour aucune surface boutique sur `commercial_orders` —
-  #    ni ressource `/storefront-orders`, ni contribution `customer-portal`
-  #    du module `commercial-orders`. Le consommateur de cette intention est
-  #    E10.20 (lien public de depot), NON CADREE. Un integrateur ne doit RIEN
-  #    deduire de ce champ quant a une capacite de lecture cote client : elle
-  #    n existe pas, et ce contrat ne la promet pas.
+  #    MISE A JOUR DU 2026-09-10 : le plafond NE BOUGE PAS. E10.20 avait ete
+  #    designee comme le lieu ou serait tranche le sort du fichier de
+  #    production haute resolution ; l arbitrage rendu est « meme plafond de
+  #    50 Mo, aucun depot reprenable, aucun stockage tiers ». Le canal de
+  #    depot client d E10.20 vit donc sous exactement la meme limite que
+  #    celui-ci. Consequence a ne pas masquer : les travaux plus lourds
+  #    continuent de passer par le canal que l imprimeur employait deja, hors
+  #    de Magrit. Aucune story n est ouverte pour le changer.
+  #
+  # 3. AUCUN CLIENT NE LIT AUCUN FICHIER, PUBLIC OU NON, ET E10.20 N Y CHANGE
+  #    RIEN. La visibilite `customer` enregistre une INTENTION de l atelier ;
+  #    il n existe aucune surface boutique sur `commercial_orders` — ni
+  #    ressource `/storefront-orders`, ni contribution `customer-portal` du
+  #    module `commercial-orders`. E10.17 annoncait E10.20 comme le futur
+  #    consommateur de cette intention : l arbitrage du 2026-09-10 a tranche
+  #    le lien public en DEPOT SEUL, si bien que `customer` reste inerte et
+  #    SANS consommateur connu. Un integrateur ne doit RIEN deduire de ce champ
+  #    quant a une capacite de lecture cote client : elle n existe pas, et ce
+  #    contrat ne la promet pas.
   # ==========================================================================
   /commercial-orders/{orderId}/file-upload-urls:
     parameters:
@@ -5591,11 +5597,15 @@ paths:
         octets.
 
 
-        AUCUN EVENEMENT N EST PUBLIE. `order.files_submitted` est declare par
-        le socle E10.0 et reste SANS EMETTEUR : il nomme le fait « le client a
-        remis ses fichiers », pas « un membre de l atelier a joint une piece ».
-        L emettre a chaque depot interne noierait l evaluation d E10.15 sous
-        le bruit du travail ordinaire. Il reste reserve a E10.20.
+        AUCUN EVENEMENT N EST PUBLIE PAR CETTE OPERATION, et ce n est plus
+        « faute d emetteur » mais par DISTINCTION DE FAIT.
+        `order.files_submitted` nomme « le CLIENT a remis ses fichiers », pas
+        « un membre de l atelier a joint une piece » : son emetteur est
+        `confirmOrderUploadLinkFile` (E10.20). L emettre a chaque depot interne
+        noierait l evaluation d E10.15 sous le bruit du travail ordinaire.
+
+
+        `deposited_via` VAUT `workspace` sur tout fichier cree ici.
       tags: [gestion-commerciale]
       security:
         - bearerAuth: []
@@ -5934,9 +5944,10 @@ paths:
           required: false
           description: >-
             Filtre sur le type de document servi par le gabarit. Absent -> tous
-            les types. Un seul type existe aujourd hui (`quote`) ; le parametre
-            est publie des maintenant pour que l ecran de parametrage n ait pas
-            a changer d appel le jour ou E10.19 ajoutera le bon de commande.
+            les types. DEUX TYPES depuis E10.19 : `quote` (devis) et `order`
+            (bon de commande). Le parametre avait ete publie d avance pour que
+            l ecran de parametrage n ait pas a changer d appel le jour venu — il
+            n a effectivement pas eu a changer.
           schema:
             $ref: '#/components/schemas/DocumentType'
         - name: status
@@ -6227,11 +6238,12 @@ paths:
 
 
         REFUSE des qu un document a ete genere avec lui
-        (`document_pdf_template.in_use`). Motif : `quote_documents.template_id`
-        est la SEULE trace de ce avec quoi une piece remise a un client a ete
-        produite (§8.13septies point 3). Effacer le gabarit ferait de cette
-        colonne un identifiant qui ne designe plus rien, sur des documents que
-        le contrat promet par ailleurs de ne jamais regenerer. La voie normale,
+        (`document_pdf_template.in_use`), qu il s agisse d un devis
+        (`quote_documents`) ou d un BON DE COMMANDE (`order_documents`, E10.19).
+        Motif : `template_id` est la SEULE trace de ce avec quoi une piece remise
+        a un client a ete produite (§8.13septies point 3). Effacer le gabarit
+        ferait de cette colonne un identifiant qui ne designe plus rien, sur des
+        documents que le contrat promet par ailleurs de ne jamais regenerer. La voie normale,
         dans ce cas, est la desactivation (`PATCH { "is_active": false }`) : le
         gabarit disparait des choix sans effacer l historique.
 
@@ -6283,9 +6295,10 @@ paths:
           description: >-
             Au moins un document a ete genere avec ce gabarit
             (`document_pdf_template.in_use`). Le refus est tenu EN BASE par une
-            cle etrangere `on delete restrict` depuis `quote_documents`, pas par
-            une verification prealable de la facade : une lecture suivie d une
-            suppression laisse une fenetre ou un devis peut etre envoye entre
+            cle etrangere `on delete restrict` depuis `quote_documents` ET
+            depuis `order_documents`, pas par une verification prealable de la
+            facade : une lecture suivie d une suppression laisse une fenetre ou
+            un devis peut etre envoye — ou un bon de commande produit — entre
             les deux.
           content:
             application/problem+json:
@@ -6548,11 +6561,24 @@ paths:
 
         VALIDATION, ET CE QU ELLE REFUSE : une page qui n existe pas dans le
         fond, une coordonnee hors de la page declaree, un champ place deux fois,
-        une colonne de lignes citant un champ qui n appartient pas a la famille
+        un champ HORS DU SOUS-ENSEMBLE DU TYPE DE DOCUMENT DU GABARIT, une
+        colonne de lignes citant un champ qui n appartient pas a la famille
         `line.`, un bloc de lignes sans aucune colonne. Toutes en 422 : ce sont
         des cartes que la generation ne saurait pas dessiner, et l imprimeur
         doit l apprendre dans son editeur, pas six semaines plus tard sur le
         devis d un client.
+
+
+        LA GARDE PAR TYPE EST POSEE PAR E10.19, EN MEME TEMPS QUE LES VALEURS
+        QU ELLE ENCADRE, et ce n est pas un hasard de planning. Avant ce lot,
+        cette operation acceptait n importe quel `DocumentFieldId` sur n importe
+        quel gabarit — sans consequence, aucune carte ne pouvant contenir un
+        `order.` puisque la valeur n existait pas. C etait la SEULE fenetre ou
+        cette garde n est pas un durcissement : posee plus tard, elle
+        invaliderait des cartes deja enregistrees, ce que le CA13 interdit.
+        Concretement : un `quote.` sur un gabarit `order`, ou un `order.` sur un
+        gabarit `quote`, est refuse — les familles `customer.`, `totals.`,
+        `page.` et `line.` valent pour les deux types.
 
 
         UNE CARTE VIDE EST ACCEPTEE. Elle signifie « ce fond n imprime encore
@@ -6614,10 +6640,11 @@ paths:
         '422':
           description: >-
             Carte invalide (`document_pdf_template.invalid_field_map`) : page
-            inexistante, coordonnee hors page, champ place deux fois, colonne
-            hors de la famille `line.`, bloc de lignes sans colonne, ou
-            `rows_per_page` incompatible avec la hauteur de la page. Le detail
-            par champ est porte par `Problem.errors`.
+            inexistante, coordonnee hors page, champ place deux fois, champ hors
+            du sous-ensemble du `document_type` du gabarit, colonne hors de la
+            famille `line.`, bloc de lignes sans colonne, ou `rows_per_page`
+            incompatible avec la hauteur de la page. Le detail par champ est
+            porte par `Problem.errors`.
           content:
             application/problem+json:
               schema:
@@ -6791,6 +6818,794 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
 
+  # ==========================================================================
+  # E10.19 — LE BON DE COMMANDE (ACCUSE DE COMMANDE) PDF
+  #
+  # Detail et motifs : docs/api/CONVENTIONS.md §8.20. Arbitrages Arnaud du
+  # 2026-09-10 : (A) gabarit DISTINCT `document_type: order` ; (B) ACCUSE DE
+  # COMMANDE destine au CLIENT, pas bon de fabrication d atelier ; (C2)
+  # production sur ACTION EXPLICITE, rejouable tant qu elle n a pas reussi ;
+  # (D) le document MONTRE les remises.
+  #
+  # QUATRE FAITS A CONNAITRE AVANT DE LIRE CE BLOC :
+  #
+  # 1. CE DOCUMENT N EST PAS UN FICHIER DE COMMANDE. Il ne vit pas dans
+  #    `commercial_order_files` (E10.17) et n apparait JAMAIS dans
+  #    `listOrderFiles`. Un fichier depose se supprime ; une piece produite et
+  #    remise ne se supprime jamais. Deux cycles de vie opposes, deux tables
+  #    (§8.19 decision #12, close).
+  #
+  # 2. LE GABARIT EST DISTINCT DE CELUI DU DEVIS, avec son propre defaut par
+  #    tenant. AUCUN REPLI sur un gabarit `quote` : imprimer un fond intitule
+  #    « DEVIS » sur une commande serait pire qu une absence de document. Un
+  #    imprimeur qui n a qu un seul papier importe deux fois le meme fond.
+  #
+  # 3. LA PRODUCTION EST UN GESTE, PAS UN EFFET DE BORD DE LA CONVERSION, et
+  #    la raison est une contrainte de fait, non une preference : le numero
+  #    `CDE-AAAA-NNNNN` est attribue DANS la transaction de conversion, il n
+  #    existe donc RIEN a imprimer avant qu elle ait reussi. Produire a la
+  #    conversion aurait ete « best-effort », et un echec aurait perdu le
+  #    document POUR TOUJOURS (regle « jamais regenere »). L action explicite
+  #    est ce qui rend l echec rattrapable — c est tout ce qui la justifie.
+  #
+  # 4. UNE FOIS PRODUIT, JAMAIS REPRODUIT. `generateOrderDocument` rend 409 sur
+  #    une commande qui porte deja son document. Rejouable tant qu elle n a pas
+  #    REUSSI, jamais apres.
+  # ==========================================================================
+  /commercial-orders/{orderId}/documents:
+    parameters:
+      - $ref: '#/components/parameters/MagritTenant'
+    get:
+      operationId: getOrderDocument
+      summary: >-
+        Rend le BON DE COMMANDE PDF d une commande : son horodatage, son poids,
+        son empreinte, qui l a produit, et une URL de telechargement signee de
+        courte duree.
+
+
+        LES OCTETS NE TRANSITENT PAS PAR CETTE FACADE, meme doctrine que
+        `getQuoteDocument` : servir `application/pdf` depuis `/api/v1` casserait
+        l enveloppe `{data, meta}` du CA6. L URL signee n est emise qu apres que
+        la chaine d autorisation a statue, et elle vaut **300 secondes**.
+
+
+        PLURIEL PUREMENT FORMEL : `checkResourcePath` impose le pluriel en
+        position de ressource, mais une commande n a qu UN bon de commande
+        (`order_documents.order_id` est unique).
+
+
+        AUCUNE GENERATION ICI. Cette operation ne produit rien : elle rend une
+        piece qui existe deja, ou 404. La production a son operation propre.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+        - serviceKey: []
+      x-required-scopes: [orders:read]
+      parameters:
+        - $ref: '#/components/parameters/CommercialOrderId'
+      responses:
+        '200':
+          description: >-
+            Bon de commande de la commande. `download_url` expire ; la relancer
+            se fait en rappelant cette operation, jamais en conservant l URL.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/OrderDocument'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: >-
+            Soit la commande n existe pas dans le tenant du jeton
+            (`order.not_found`), soit elle n a pas de bon de commande
+            (`order.document_not_generated`).
+
+
+            DEUX CODES DISTINCTS, comme cote atelier pour le devis : l appelant
+            est un membre de l espace, il n y a aucun oracle d existence a lui
+            refuser.
+
+
+            `order.document_not_generated` EST LE CAS NOMINAL, et il l est
+            davantage encore que son equivalent devis : la production etant un
+            GESTE, toute commande dont personne n a clique « Produire le bon de
+            commande » rend ce code, indefiniment et sans anomalie. L ecran
+            affiche « aucun bon de commande » et propose de le produire — jamais
+            une erreur. Il couvre aussi, pour toujours, les commandes creees
+            AVANT la livraison d E10.19 : aucune reprise retroactive n est
+            prevue, mais rien n empeche de produire le document a la demande sur
+            une commande ancienne, la piece portant alors la date de sa
+            production reelle.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+    post:
+      operationId: generateOrderDocument
+      summary: >-
+        PRODUIT le bon de commande d une commande, une fois pour toutes.
+
+
+        POURQUOI UNE OPERATION DE PRODUCTION, ALORS QUE LE DEVIS N EN A PAS.
+        Le devis est rendu DANS l envoi, parce que toutes ses valeurs existent
+        avant la transition. La commande ne le permet pas : son numero est
+        attribue par la transaction de conversion, donc rien n est imprimable
+        avant qu elle ait reussi. Produire a la conversion aurait rendu l echec
+        DEFINITIF — une commande ne se re-convertit pas — la ou la regle
+        « jamais regenere » interdit tout rattrapage. Cette operation deplace
+        l echec la ou il est encore gratuit : tant qu elle n a pas reussi, elle
+        se rejoue (docs/api/CONVENTIONS.md §8.20 §5, arbitrage (C2)).
+
+
+        CE QUE LE DOCUMENT PORTE (arbitrage (B) : c est un ACCUSE DE COMMANDE,
+        destine au CLIENT) : le numero de commande, sa date, la reference du
+        devis d origine, la reference du client, l interlocuteur et l adresse de
+        facturation, les lignes avec leur quantite et leur prix, les totaux
+        FIGES a la conversion, et la date de livraison prevue si elle est
+        connue. Ce n est PAS un bon de fabrication : aucune donnee technique de
+        production n existe sous forme exploitable dans ce produit, et en
+        inventer une serait une story de PIM deguisee.
+
+
+        LES REMISES Y FIGURENT (arbitrage (D)), et la regle de visibilite est
+        celle que le commercial a posee sur le DEVIS D ORIGINE, recopiee sur la
+        commande a la conversion — jamais relue au travers du devis au moment
+        du rendu. Le filtre est applique par le SERVEUR, exactement comme en
+        E10.10b-1 decision 3 : quand il est ferme, les champs de remise ne
+        rendent AUCUNE valeur et rien n est imprime a leur place.
+
+
+        `Idempotency-Key` EXIGEE : le double-clic sur « Produire le bon de
+        commande » est la norme, la production dure quelques secondes. Rejouee
+        a l identique, elle rend la reponse initiale sans produire un second
+        PDF.
+
+
+        UNE SEULE FOIS. Une commande qui porte deja son document rend 409 : ni
+        remplacement, ni seconde version, ni « regenerer avec le nouveau
+        papier ». Le fond et la carte de champs appartiennent au tenant et
+        changent quand il veut ; les lignes de la commande sont figees. Un
+        re-rendu produirait un papier a en-tete d aujourd hui sur une piece
+        remise il y a trois semaines.
+
+
+        AUCUN ENVOI. Cette operation ne notifie personne, n envoie aucun
+        courriel et ne cree aucune surface client : il n existe pas de
+        `/storefront-orders`. L atelier telecharge la piece et la transmet comme
+        il l entend.
+
+
+        AUCUN EVENEMENT. `quote.converted` porte deja le fait metier de la
+        commande ; « un PDF a ete produit » est un fait technique, et ce contrat
+        n en publie pas.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CommercialOrderId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '201':
+          description: >-
+            Bon de commande produit. La reponse porte l URL de telechargement,
+            signee pour **300 secondes** : celui qui vient de le produire veut
+            le lire tout de suite.
+          headers:
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/OrderDocument'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: >-
+            Aucune commande de cet identifiant dans le tenant du jeton
+            (`order.not_found`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: >-
+            TROIS CAUSES, TROIS CODES, et elles n appellent pas la meme reponse
+            d ecran :
+
+
+            - `order.document_already_generated` — la commande porte deja son
+              bon de commande. Le lire, ne pas le reproduire. A NE PAS
+              CONFONDRE avec le rejeu d idempotence : rejouer la MEME cle avec
+              la MEME requete rend 201 et `Idempotency-Replayed: true` ;
+
+            - `order.document_template_missing` — le tenant n a aucun gabarit
+              `document_type: order` importe, `ready` et actif. C est un defaut
+              de PARAMETRAGE, pas une erreur d appel : l ecran renvoie vers
+              l import d un gabarit, et l operation se rejoue telle quelle une
+              fois le gabarit en place. AUCUN REPLI sur le gabarit `quote`
+              n est tente, jamais ;
+
+            - `api.idempotency_key_reused` — la cle a ete rejouee avec une
+              requete differente.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  # ==========================================================================
+  # E10.20 — LE LIEN PUBLIC DE DEPOT
+  #
+  # Detail et motifs : docs/api/CONVENTIONS.md §8.21. Arbitrages Arnaud du
+  # 2026-09-10 : (A) plafond de poids INCHANGE a 50 Mo, aucun depot reprenable,
+  # aucun stockage tiers ; (E) DEPOT SEUL — le client depose, il ne lit rien.
+  #
+  # CINQ FAITS A CONNAITRE AVANT DE LIRE CE BLOC :
+  #
+  # 1. QUATRIEME MODE D AUTHENTIFICATION. `orderUploadLink` (`X-Magrit-Upload-
+  #    Link`) est une credential a part entiere, bornee a UNE commande. Elle n a
+  #    ni role, ni capability, ni scope, et elle porte le tenant et la commande
+  #    elle-meme : aucune de ces operations n accepte `X-Magrit-Tenant`, ni un
+  #    identifiant de commande dans le chemin. Cloisonnement ferme dans les deux
+  #    sens, comme `storefrontSession`.
+  #
+  # 2. DEPOT SEUL, ET LITTERALEMENT (arbitrage (E)). Le porteur du lien depose
+  #    des fichiers et ne lit RIEN d autre : ni la liste de ses propres depots,
+  #    ni un fichier qu il aurait deja envoye, ni un BAT que l atelier aurait
+  #    marque `customer`. Il obtient un COMPTEUR (« 2 fichiers deposes sur 10 »)
+  #    pour ne pas deposer deux fois, jamais un nom de fichier ni une URL.
+  #    CONSEQUENCE OPPOSABLE : `OrderFileVisibility.customer` RESTE INERTE, et
+  #    E10.20 n en est PAS le consommateur, contrairement a ce qu annoncait le
+  #    contrat d E10.17 — la promesse est corrigee ici et dans le schema.
+  #
+  # 3. LE PLAFOND DE POIDS EST LE MEME QU EN E10.17 : 50 Mo, plafond du projet
+  #    de stockage. Arbitrage (A), tranche a « on ne bouge pas » : ni relevement
+  #    de plan, ni stockage tiers, ni televersement par morceaux. CE QUE CELA
+  #    SIGNIFIE, DIT PLUTOT QUE MASQUE : un fichier pret-a-imprimer reel depasse
+  #    souvent ce plafond, et ce canal ne le portera pas. L interface DOIT
+  #    annoncer la limite AVANT le televersement (`max_byte_size` est publie sur
+  #    le billet pour cette raison exacte) ; les travaux plus lourds continuent
+  #    de passer par le canal que l imprimeur employait deja.
+  #
+  # 4. MAGRIT N ENVOIE PAS LE LIEN. Aucun courriel, aucun modele, aucun relais.
+  #    L atelier compose l URL publique a partir du jeton rendu UNE FOIS a la
+  #    creation et la transmet par le canal de son choix.
+  #
+  # 5. LE JETON N EST RENDU QU UNE FOIS. Il n est pas stocke en clair (seul son
+  #    `sha256` l est) : ni `listOrderUploadLinks`, ni aucune autre operation ne
+  #    le rend une seconde fois. Un lien perdu se revoque et se reemet.
+  # ==========================================================================
+  /commercial-orders/{orderId}/upload-links:
+    parameters:
+      - $ref: '#/components/parameters/MagritTenant'
+    post:
+      operationId: createOrderUploadLink
+      summary: >-
+        EMET un lien public de depot pour une commande, et rend le jeton EN
+        CLAIR — la seule et unique fois.
+
+
+        CE QUE L ATELIER EN FAIT. Il compose l URL publique en prefixant le
+        jeton de l origine de l application (`<origine>/depot/<jeton>`) et la
+        transmet au client comme il veut. Le serveur ne compose pas cette URL
+        lui-meme : la meme application est servie sous plusieurs origines
+        (atelier, boutiques a domaine propre), et fabriquer une URL a partir
+        d une origine devinee produirait un lien mort une fois sur deux.
+
+
+        LE JETON EST UNE CREDENTIAL AU PORTEUR. Quiconque le detient peut
+        deposer sur cette commande, et c est assume (arbitrage (F) : lien NON
+        nominatif, comme tout service d echange de fichiers du marche). Il n est
+        pas relisible : la base n en conserve que l empreinte `sha256`. Ne pas
+        le journaliser, ne pas le republier, ne pas le mettre dans une URL
+        d API — il voyage en en-tete, jamais en query.
+
+
+        ECHEANCE OBLIGATOIRE (arbitrage (B)) : 7, 30 ou 90 jours, defaut 30. Un
+        lien de depot sans echeance est une porte ouverte sur une commande pour
+        toujours, transmise par courriel puis archivee chez le client. Un lien
+        expire se reemet en un clic.
+
+
+        PLUSIEURS FICHIERS PAR LIEN (arbitrage (D)) : `max_files`, defaut 10.
+        Ce plafond s IMPUTE sur le plafond de 30 fichiers vivants par commande
+        — deux budgets independants finiraient par se contredire.
+
+
+        AUCUN DROIT METIER EXIGE. Emettre un lien de depot est un geste
+        d atelier ordinaire, coherent avec E10.17 : attacher un fichier a une
+        commande n en exige pas davantage. Ce lien n EXPOSE rien (arbitrage
+        (E)), il ne fait qu ouvrir une porte d entree — c est ce qui rend cette
+        ouverture defendable.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CommercialOrderId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderUploadLinkCommand'
+      responses:
+        '201':
+          description: >-
+            Lien emis. SEULE REPONSE DE TOUT LE CONTRAT QUI PORTE LE JETON EN
+            CLAIR. L interface doit l afficher immediatement et proposer de le
+            copier : il ne sera plus jamais servi.
+          headers:
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/OrderUploadLinkCreated'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: >-
+            Aucune commande de cet identifiant dans le tenant du jeton
+            (`order.not_found`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: >-
+            Soit la commande porte deja le nombre maximal de liens VIVANTS
+            (`upload_link.limit_reached`, **10**) — revoquer un lien libere une
+            place, un lien expire ne compte plus —, soit la cle d idempotence a
+            ete rejouee avec une requete differente
+            (`api.idempotency_key_reused`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          description: >-
+            Corps invalide (`api.validation_failed`) : `expires_in_days` hors
+            des trois valeurs admises, `max_files` hors bornes, `label` trop
+            long.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+    get:
+      operationId: listOrderUploadLinks
+      summary: >-
+        Liste les liens de depot VIVANTS d une commande, du plus recent au plus
+        ancien.
+
+
+        VIVANT = ni expire, ni revoque. Un lien expire ou revoque n apparait
+        pas, jamais, sous aucun parametre : sa ligne survit en base comme trace
+        d audit, le contrat ne la publie pas. Meme doctrine que `listOrderFiles`
+        pour un fichier supprime — et meme consequence d ecran : quand il n y a
+        plus de lien, on en emet un nouveau, on ne « reactive » rien.
+
+
+        COLLECTION BORNEE, DONC NON PAGINEE : 10 liens vivants au maximum par
+        commande, plafond tenu en base.
+
+
+        LE JETON N Y EST JAMAIS. Ce que cette liste rend, c est l ETAT d un
+        lien : ce qu on attend du client, jusqu a quand, combien de fichiers il
+        a deja deposes, et s il l a seulement ouvert. Un lien jamais ouvert et
+        un lien ouvert dix fois n appellent pas la meme relance.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CommercialOrderId'
+      responses:
+        '200':
+          description: >-
+            Liens vivants de la commande. VIDE est le cas le plus frequent et
+            n est pas une anomalie.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/OrderUploadLink'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /commercial-orders/{orderId}/upload-links/{linkId}:
+    parameters:
+      - $ref: '#/components/parameters/MagritTenant'
+    delete:
+      operationId: revokeOrderUploadLink
+      summary: >-
+        REVOQUE un lien de depot : il cesse immediatement de servir, sa ligne
+        survit.
+
+
+        C EST LE SEUL RECOURS QUAND UN LIEN FUITE (arbitrage (C)). Transmis au
+        mauvais destinataire, publie par erreur, transfere par le client a un
+        tiers : sans revocation, l expiration serait le seul remede, donc
+        l attente le seul geste possible. Le cout est nul, l interet evident.
+
+
+        `DELETE` ET NON `PATCH`, alors que la ligne survit : du point de vue de
+        l appelant, le lien cesse d exister — il quitte `listOrderUploadLinks`
+        et ne sert plus. La ligne conservee est une TRACE d audit, pas une
+        ressource desactivee qu on pourrait reactiver ; aucune operation ne
+        rend un lien revoque a la vie.
+
+
+        LES FICHIERS DEJA DEPOSES PAR CE LIEN NE BOUGENT PAS. Revoquer ferme
+        une porte, cela n efface rien de ce qui est entre.
+
+
+        RESERVE AU JETON UTILISATEUR, comme `deleteOrderFile` : une integration
+        fautive ne doit pas pouvoir fermer les canaux de depot d une commande au
+        nom d un module.
+      tags: [gestion-commerciale]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CommercialOrderId'
+        - $ref: '#/components/parameters/OrderUploadLinkId'
+      responses:
+        '204':
+          description: >-
+            Lien revoque. Rejouer la meme revocation rend 404 : un lien deja
+            revoque est indiscernable d un lien inconnu, et c est voulu.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: >-
+            Aucun lien VIVANT de cet identifiant sur cette commande
+            (`upload_link.not_found`). Ce code n est jamais servi au porteur
+            d un lien — voir la regle d indistinction de
+            `getOrderUploadLinkContext`.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  # ---- Cote CLIENT : trois operations, un seul mode, aucune autre --------
+  #
+  # La ressource est designee par la CREDENTIAL, pas par le chemin : le jeton
+  # porte le tenant et la commande. `current` n est donc pas un raccourci de
+  # confort, c est la seule designation possible — meme parti que la boutique,
+  # ou le cookie designe le compte client (voir `storefrontSession`).
+  #
+  # `X-Magrit-Tenant` sur ces operations est REFUSE en 400
+  # `api.tenant_not_addressable`, jamais ignore.
+  /order-upload-links/current:
+    get:
+      operationId: getOrderUploadLinkContext
+      summary: >-
+        Rend au CLIENT ce qu il a besoin de savoir pour deposer : qui lui
+        demande, pour quelle commande, quoi, jusqu a quand, et dans quelles
+        limites.
+
+
+        C EST LA PREMIERE CHOSE QUE VOIT UN INCONNU. La page de depot s ouvre
+        sans compte et sans mot de passe, souvent depuis un telephone, chez
+        quelqu un qui ne connait pas Magrit. Sans ce contexte, il ne sait ni si
+        le lien est le bon, ni quel fichier envoyer — et il envoie le mauvais.
+
+
+        CE QU ELLE NE PORTE PAS, ET NE PORTERA PAS (arbitrage (E), depot seul) :
+        aucun prix, aucune ligne, aucun statut de production, aucune facture,
+        aucun nom de client, AUCUNE LISTE DE FICHIERS. Le porteur du lien voit
+        un COMPTEUR de ce qu il a deja depose, pas ce qu il a depose. Ce n est
+        pas un portail de commande, et le contrat ne s en approche pas.
+
+
+        JETON INVALIDE : UNE SEULE REPONSE (arbitrage (F)). Inexistant, expire,
+        revoque, ou portant sur une commande disparue rendent tous 401
+        `upload_link.invalid`, sans distinction. Distinguer confirmerait a qui
+        essaie des jetons au hasard qu il en a trouve un vrai. CONTREPARTIE
+        ASSUMEE ET DITE : un client de bonne foi dont le lien a expire ne saura
+        pas pourquoi ; l interface doit donc l inviter a recontacter l imprimeur,
+        qui reemettra un lien en un clic.
+      tags: [gestion-commerciale]
+      security:
+        - orderUploadLink: []
+      responses:
+        '200':
+          description: Contexte du depot.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/OrderUploadLinkContext'
+        '400':
+          description: >-
+            Soit `X-Magrit-Tenant` a ete fourni sur une operation dont la
+            credential porte deja le tenant (`api.tenant_not_addressable`),
+            soit un `Authorization` ou une cle de service accompagnent le lien
+            (`identity.actor_kind_required`) — deux identites proposees au
+            serveur.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '401':
+          description: >-
+            En-tete `X-Magrit-Upload-Link` absent, ou lien inexploitable
+            (`upload_link.invalid`) — inexistant, expire ou revoque, sans
+            distinction.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '403':
+          description: >-
+            Acteur d un AUTRE mode sur une operation servie au seul lien de
+            depot (`identity.actor_kind_required`). Un membre de l atelier qui
+            appellerait cette operation avec son jeton est refuse ici, pas
+            servi : le cloisonnement des modes est ferme par defaut, dans les
+            deux sens.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  /order-upload-links/current/file-upload-urls:
+    post:
+      operationId: issueOrderUploadLinkFileUrl
+      summary: >-
+        EMET un billet de depot pour le porteur du lien, et ALLOUE
+        l identifiant sous lequel le fichier existera.
+
+
+        PATRON EXACT D `issueOrderFileUploadUrl`, y compris ses motifs : 200 et
+        non 201, aucune `Idempotency-Key` (un billet n est pas une ressource
+        metier, rejouer DOIT rendre un billet neuf), aucun chemin choisi par
+        l appelant, aucune ligne creee ici. Le chemin vaut toujours
+        `<tenant_id>/<order_id>/<file_id>`, forme par le serveur depuis le
+        JETON — l appelant ne designe ni son tenant, ni sa commande.
+
+
+        LE PLAFOND EST VERIFIE ICI PAR COURTOISIE, ET A LA CONFIRMATION PAR
+        DEVOIR : deux plafonds se cumulent, celui du lien (`max_files`) et
+        celui de la commande (30 fichiers vivants). Le second inclut les pieces
+        deposees par l atelier : un client peut donc se voir refuser un depot
+        sans que « son » compteur soit plein.
+      tags: [gestion-commerciale]
+      security:
+        - orderUploadLink: []
+      responses:
+        '200':
+          description: >-
+            Billet de depot. Le televersement se fait par un `PUT` nu sur `url`.
+            Il DOIT etre suivi de `confirmOrderUploadLinkFile` : sans
+            confirmation, les octets deposes sont ignores de bout en bout — et
+            personne, cote atelier, ne saura qu ils existent.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/OrderFileUploadTicket'
+        '400':
+          description: >-
+            `X-Magrit-Tenant` fourni (`api.tenant_not_addressable`), ou
+            credentials cumulees (`identity.actor_kind_required`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '401':
+          description: >-
+            Lien absent ou inexploitable (`upload_link.invalid`), sans
+            distinction de cause.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '403':
+          description: >-
+            Acteur d un autre mode (`identity.actor_kind_required`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: >-
+            Plus de place (`upload_link.file_limit_reached`) : le lien a atteint
+            son `max_files`, ou la commande ses 30 fichiers vivants. UN SEUL
+            CODE POUR LES DEUX CAUSES — le porteur du lien ne peut agir sur ni
+            l une ni l autre, et lui dire combien de pieces l atelier a deja
+            attachees ne le regarde pas.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  /order-upload-links/current/files:
+    post:
+      operationId: confirmOrderUploadLinkFile
+      summary: >-
+        CONFIRME un depot fait par le porteur du lien : le serveur constate les
+        octets au chemin qu il a impose, en releve la taille et le type, cree la
+        ligne du fichier et publie `order.files_submitted`.
+
+
+        C EST ICI QUE LE FAIT METIER DU LOT SE PRODUIT. `order.files_submitted`
+        est declare par le socle E10.0 depuis le debut du sprint et n avait
+        AUCUN emetteur : il nomme « le CLIENT a remis ses fichiers », pas « un
+        membre a joint une piece ». Cette operation en est l emetteur, et c est
+        sa raison d etre.
+
+
+        UNE EMISSION PAR FICHIER (arbitrage (G)), pas une par « j ai termine ».
+        Un client qui ferme son onglet sans cliquer un bouton de fin n emettrait
+        rien, et l atelier attendrait un signal qui ne vient pas. Mieux vaut un
+        signal bruyant qu un signal manquant : le regroupement est un probleme
+        de consommateur (E10.15), pas de producteur.
+
+
+        LE DEPOSANT N EST PAS UN UTILISATEUR. `OrderFile.deposited_by` reste
+        `null` — la forme l accueillait deja, c est le dividende de la decision
+        #9 d E10.17 — et `deposited_by_label` porte un libelle issu du LIEN,
+        jamais d un compte. `deposited_via` vaut `upload_link` : c est le champ
+        DEDIE par lequel un consommateur distingue l origine, et la regle « ne
+        jamais analyser `deposited_by_label` » reste entiere.
+
+
+        LE FICHIER EST `internal`, TOUJOURS. Le porteur du lien ne choisit ni la
+        visibilite, ni la ligne de commande concernee : il ne connait pas les
+        lignes, et lui laisser marquer une piece « destinee au client » n aurait
+        aucun sens. L atelier reclasse ensuite s il le souhaite
+        (`updateOrderFile`).
+
+
+        MEMES CONTROLES QU EN E10.17, NI PLUS NI MOINS : type DECLARE et non
+        prouve, aucune inspection de contenu, aucune decompression d archive,
+        plafond de 50 Mo. Le contenu entre ici par un tiers NON AUTHENTIFIE, ce
+        qui deplace le risque sans en changer la nature — la contrepartie reste
+        la meme : Magrit n ouvre jamais l archive, donc rien ne s amplifie cote
+        serveur, et toute URL de telechargement force le telechargement.
+
+
+        `Idempotency-Key` EXIGEE : elle cree une ressource metier, et le
+        double-clic sur « Valider mon depot » apres un televersement long est la
+        norme. Rejouee a l identique, elle rend la reponse initiale — et
+        n emet PAS un second evenement.
+      tags: [gestion-commerciale]
+      security:
+        - orderUploadLink: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmOrderUploadLinkFileCommand'
+      responses:
+        '201':
+          description: >-
+            Depot enregistre. RECU MINIMAL, ET C EST DELIBERE : le porteur du
+            lien recoit la confirmation de ce qu il vient d envoyer, pas la
+            representation d atelier du fichier (ni visibilite, ni deposant, ni
+            rattachement, ni URL). Il ne peut pas relire ce qu il a depose
+            (arbitrage (E)).
+          headers:
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/OrderUploadLinkDeposit'
+        '400':
+          description: >-
+            `X-Magrit-Tenant` fourni (`api.tenant_not_addressable`), ou
+            credentials cumulees (`identity.actor_kind_required`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '401':
+          description: >-
+            Lien absent ou inexploitable (`upload_link.invalid`), sans
+            distinction de cause. UN LIEN QUI EXPIRE ENTRE LE BILLET ET LA
+            CONFIRMATION rend donc 401, et les octets deja deposes restent
+            inertes dans un bucket prive — ils ne comptent pas.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '403':
+          description: >-
+            Acteur d un autre mode (`identity.actor_kind_required`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          description: >-
+            Aucun objet n a ete depose au chemin attendu
+            (`order_file.upload_missing`) : la confirmation arrive sans que le
+            televersement ait abouti. Se corrige en redemandant un billet.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: >-
+            Soit ce `file_id` porte deja une ligne
+            (`order_file.already_confirmed`), soit plus aucune place n est
+            disponible (`upload_link.file_limit_reached`, verifie ICI sous
+            verrou), soit la cle d idempotence a ete rejouee avec une requete
+            differente (`api.idempotency_key_reused`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          description: >-
+            Soit l objet depose depasse le plafond de poids ou porte un type
+            hors de la liste acceptee (`order_file.rejected`), soit le corps est
+            invalide (`api.validation_failed`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
 
 # ----------------------------------------------------------------------------
 # Bus d evenements sortants (CA10)
@@ -6908,22 +7723,27 @@ webhooks:
     post:
       operationId: onOrderFilesSubmitted
       summary: >-
-        Les fichiers d une commande ont ete deposes PAR LE CLIENT.
+        Un fichier a ete depose PAR LE CLIENT sur une commande, via un lien
+        public de depot (`confirmOrderUploadLinkFile`, E10.20). Charge utile :
+        `OrderFilesSubmittedPayload` (`event_version: 1`).
 
 
-        DECLARE PAR LE SOCLE E10.0, TOUJOURS SANS EMETTEUR. E10.17 a livre le
-        depot de fichiers cote ATELIER et ne publie deliberement PAS cet
-        evenement : il nomme le fait « le client a remis ce qu on attendait de
-        lui », celui qui debloque la production, pas « un membre a joint une
-        piece a un dossier ». L emettre a chaque depot interne noierait
-        l evaluation des notifications (E10.15) sous le bruit du travail
-        ordinaire, et rendrait le signal inexploitable le jour ou il compterait
-        vraiment.
+        DECLARE PAR LE SOCLE E10.0, EMETTEUR ENFIN LIVRE PAR E10.20. Il nomme le
+        fait « le client a remis ce qu on attendait de lui », celui qui debloque
+        la production — pas « un membre a joint une piece a un dossier ».
+        `confirmOrderFileUpload` (E10.17, depot d ATELIER) ne l emet donc PAS et
+        ne l emettra pas : le bruit du travail ordinaire rendrait le signal
+        inexploitable le jour ou il compterait vraiment.
 
 
-        Son emetteur sera E10.20 (lien public de depot), NON CADREE. Un
-        consommateur ne doit donc rien attendre de cet evenement aujourd hui :
-        il n en recevra aucun.
+        UNE EMISSION PAR FICHIER, PAS UNE PAR « J AI TERMINE » (arbitrage Arnaud
+        du 2026-09-10). Le nom pluriel de l evenement plaidait pour un lot, mais
+        un client qui ferme son onglet sans cliquer un bouton de fin n emettrait
+        rien du tout, et l atelier attendrait un signal qui ne vient pas. Mieux
+        vaut un signal bruyant qu un signal manquant. CONSEQUENCE OPPOSABLE POUR
+        UN CONSOMMATEUR (E10.15 au premier chef) : trois fichiers deposes coup
+        sur coup produisent TROIS evenements, et c est a lui de les grouper
+        avant de notifier — sans quoi l atelier recevra trois courriels.
       tags: [gestion-commerciale]
       security: []
       parameters:
@@ -6933,8 +7753,15 @@ webhooks:
         required: true
         content:
           application/json:
+            # `allOf` : enveloppe commune + charge utile typee de cet evenement,
+            # meme construction que `quote.converted` et `order.step_changed`.
             schema:
-              $ref: '#/components/schemas/EventEnvelope'
+              allOf:
+                - $ref: '#/components/schemas/EventEnvelope'
+                - type: object
+                  properties:
+                    payload:
+                      $ref: '#/components/schemas/OrderFilesSubmittedPayload'
       responses:
         '204':
           description: Evenement accepte par le consommateur.
@@ -7587,6 +8414,77 @@ components:
         une operation d ATELIER, dont l auteur est le membre et se lit comme
         tel, jamais en assouplissant ce refus.
 
+    # ---- story E10.20 — quatrieme mode, le LIEN PUBLIC DE DEPOT -------------
+    orderUploadLink:
+      type: apiKey
+      in: header
+      name: X-Magrit-Upload-Link
+      description: >-
+        Lien public de depot de fichiers sur UNE commande
+        (`commercial_order_upload_links`, E10.20). Jeton opaque emis par
+        `createOrderUploadLink`, transmis au client par l atelier, et rendu UNE
+        SEULE FOIS — la base n en conserve que l empreinte `sha256`.
+
+
+        EN-TETE ET NON PARAMETRE DE REQUETE, DELIBEREMENT. Un jeton en
+        `?token=` finit dans les journaux d acces du serveur, dans le `Referer`
+        de toute ressource tierce chargee par la page, et dans l historique du
+        navigateur. Le jeton EST dans l URL de la PAGE (`<origine>/depot/<jeton>`,
+        servie par la SPA) — c est inevitable, un lien est une URL — mais il
+        n est JAMAIS dans une URL d API : l interface le lit du chemin et le
+        repose en en-tete. Compromis reel, ecrit plutot que masque.
+
+
+        QUATRIEME MODE, PAS UNE VARIANTE DES TROIS AUTRES. Le porteur d un lien
+        n est ni un membre du tenant, ni un systeme tiers, ni un compte client
+        boutique :
+
+        - il n a AUCUN role, donc aucune capability. Une operation servie a ce
+          mode ne declare jamais `x-required-capabilities` ;
+
+        - il n a AUCUN scope. Une operation servie a ce mode ne declare jamais
+          `x-required-scopes` : ce n est pas une portee concedee, c est une
+          capacite BORNEE A UN OBJET — une commande, et rien d autre ;
+
+        - il ne CHOISIT pas son espace. Le jeton designe un lien, le lien
+          designe une commande, la commande appartient a un tenant : le tenant
+          est porte par la credential elle-meme. Meme lecture du CA4 que
+          `storefrontSession`, et meme corollaire opposable — `X-Magrit-Tenant`
+          fourni sur une operation servie par ce mode est REFUSE en 400
+          `api.tenant_not_addressable`, il n est pas ignore.
+
+
+        CLOISONNEMENT FERME PAR DEFAUT, DANS LES DEUX SENS. Un principal de
+        lien n atteint JAMAIS une operation qui ne declare pas
+        `orderUploadLink` (403 `identity.actor_kind_required`), et ces
+        operations n acceptent AUCUNE autre credential. Sans cette seconde
+        moitie, une operation ouverte a `any` deviendrait atteignable par un
+        porteur de lien — c est-a-dire par un inconnu.
+
+
+        PRECEDENCE. Un membre de l atelier qui ouvre le lien de son propre
+        client depuis le navigateur ou il travaille porte AUSSI son
+        `Authorization`. Sur une operation servie a ce mode, la presence
+        simultanee d une credential explicite est REFUSEE en 400
+        `identity.actor_kind_required` : le cumul ne peut etre que delibere, la
+        page de depot appelant sans jeton par construction. Sur toute autre
+        operation, l en-tete de lien est simplement IGNORE. Meme regle qu au
+        §3.6 de docs/api/CONVENTIONS.md, quatrieme ligne.
+
+
+        CE QUE CE MODE PERMET, EXHAUSTIVEMENT : lire le contexte du depot,
+        demander un billet, confirmer un depot. TROIS operations, aucune autre,
+        aucune lecture d aucun fichier (arbitrage (E) du 2026-09-10 : depot
+        seul). Un porteur de lien ne telecharge RIEN, pas meme ce qu il a
+        lui-meme depose.
+
+
+        DUREE DE VIE. Le lien porte une echeance OBLIGATOIRE (7, 30 ou 90
+        jours) et se revoque a tout moment. Inexistant, expire ou revoque
+        rendent la MEME reponse : 401 `upload_link.invalid`, sans distinction —
+        distinguer confirmerait a qui essaie des jetons au hasard qu il en a
+        trouve un vrai.
+
   # --------------------------------------------------------------------------
   # Parametres partages
   # --------------------------------------------------------------------------
@@ -7787,6 +8685,23 @@ components:
         Il existe donc AVANT la ligne du fichier, et pendant tout le temps du
         televersement il ne designe encore rien — `getOrderFile` rend 404 sur
         un identifiant alloue mais non confirme.
+      schema:
+        $ref: '#/components/schemas/Uuid'
+
+    OrderUploadLinkId:
+      name: linkId
+      in: path
+      required: true
+      description: >-
+        Identifiant technique du lien public de depot
+        (`commercial_order_upload_links`, E10.20), dans le tenant du jeton et
+        SUR LA COMMANDE DU CHEMIN. Les deux conditions sont verifiees.
+
+
+        CE N EST PAS LE JETON DU LIEN, et la distinction est de securite, pas de
+        vocabulaire : cet identifiant sert a l ATELIER pour revoquer, il circule
+        dans les URL d atelier et n ouvre rien ; le jeton, lui, est la
+        credential, il n est rendu qu une fois et ne reparait dans aucun chemin.
       schema:
         $ref: '#/components/schemas/Uuid'
 
@@ -11539,9 +12454,28 @@ components:
 
 
         CE QUE CE SCHEMA NE PORTE PAS, faute de donnee et non faute de place :
-        aucun bloc FICHIERS (E10.17), aucun lien de BON DE COMMANDE (E10.19),
-        aucun lien public de depot (E10.20), aucune GAMME DE FABRICATION
+        aucun bloc FICHIERS (E10.17), aucun bloc BON DE COMMANDE (E10.19),
+        aucun bloc LIENS DE DEPOT (E10.20), aucune GAMME DE FABRICATION
         (capacite inexistante, CA3 differe et rapproche d E10.8 gelee).
+
+
+        LES TROIS PREMIERS ONT DESORMAIS LEUR CHEMIN PROPRE — `/files`,
+        `/documents`, `/upload-links` sous cette commande — et AUCUN champ ne
+        leur a ete ouvert ici : un ecran qui veut les montrer les appelle, il ne
+        les lit pas dans le detail. C est la meme doctrine qu au premier jour,
+        et elle a tenu : deux stories livrees sans qu une seule cle de ce schema
+        change.
+
+
+        DEUX COLONNES AJOUTEES EN BASE PAR E10.19 NE SONT PAS PUBLIEES ICI, et
+        c est delibere : `show_discounts` et `customer_reference`, recopiees du
+        devis a la conversion et figees avec les totaux. La premiere est une
+        regle d IMPRESSION appliquee par le serveur — la publier inviterait une
+        interface a filtrer elle-meme un affichage d atelier qui, lui, montre
+        toujours tout. La seconde est lisible sur le devis d origine
+        (`quote_id`), et rien ne la reclame a l ecran a ce jour. Les ouvrir
+        reste ADDITIF le jour ou un besoin apparaitra ; les avoir ouvertes « au
+        cas ou » ne se defait pas (§7 de docs/api/CONVENTIONS.md).
         Contrairement a `CustomerDetail`, qui publie trois points d extension
         toujours vides, AUCUN champ vide n est ouvert ici d avance pour eux :
         la forme que prendront ces blocs n est pas connue, et un champ publie
@@ -13167,10 +14101,33 @@ components:
       title: DocumentType
       description: >-
         Type de document commercial qu un gabarit sait servir. Enumeration
-        ADDITIVE : `order` viendra avec le bon de commande (E10.19), sans qu un
-        gabarit existant change de sens.
+        ADDITIVE : `order` a ete ajoute par E10.19 sans qu aucun gabarit
+        existant change de sens.
+
+
+        `quote` — le DEVIS, produit a l envoi (E10.10b-4).
+
+
+        `order` — le BON DE COMMANDE, un accuse de commande produit sur demande
+        explicite apres la conversion (E10.19).
+
+
+        DEUX GABARITS DISTINCTS, PAS DEUX USAGES D UN SEUL (arbitrage Arnaud du
+        2026-09-10). Chaque type a son gabarit par defaut par tenant — l index
+        unique partiel `(tenant_id, document_type) where is_default` le portait
+        deja — et son propre catalogue de champs. Un imprimeur qui n a qu un
+        seul papier importe deux fois le meme fond : dix secondes, une fois pour
+        toutes. L inverse ne serait pas rattrapable, beaucoup d imprimeurs
+        voulant une mention « BON DE COMMANDE » pre-imprimee.
+
+
+        AUCUN REPLI D UN TYPE SUR L AUTRE, JAMAIS. Une generation de bon de
+        commande sur un tenant depourvu de gabarit `order` ECHOUE
+        (`order.document_template_missing`) ; elle n emprunte pas le gabarit
+        `quote`. Imprimer un fond intitule « DEVIS » sur une commande serait
+        pire qu une absence de document.
       type: string
-      enum: [quote]
+      enum: [quote, order]
 
     DocumentPdfTemplateStatus:
       title: DocumentPdfTemplateStatus
@@ -13281,7 +14238,7 @@ components:
     DocumentFieldId:
       title: DocumentFieldId
       description: >-
-        Identifiant d une donnee du devis positionnable UNE fois sur le fond.
+        Identifiant d une donnee positionnable UNE fois sur le fond.
         Enumeration FERMEE et ADDITIVE : c est le contrat entre l editeur de
         coordonnees (qui propose la liste a l imprimeur) et le moteur de
         generation (qui sait produire la valeur). Un identifiant inconnu est
@@ -13289,11 +14246,39 @@ components:
         jamais rien est le pire des retours.
 
 
+        UNE SEULE ENUMERATION POUR LES DEUX TYPES DE DOCUMENT, AVEC UN
+        SOUS-ENSEMBLE PAR TYPE (E10.19). Les valeurs `order.` ont ete ajoutees a
+        cette liste plutot que rangees dans une enumeration parallele : une
+        enumeration `OrderDocumentFieldId` aurait rendu `DocumentFieldPlacement`
+        dependant du type de son gabarit PARENT, donc invalidable seulement en
+        connaissant ce parent — la complexite aurait migre du serveur vers
+        CHAQUE consommateur du schema. Renommer par role documentaire
+        (`document.number`) aurait ete un changement CASSANT sur une enumeration
+        deja servie et deja stockee dans des cartes de tenants : `/api/v2`,
+        jamais en v1 (CA13).
+
+
+        SOUS-ENSEMBLE OPPOSABLE, TENU PAR LE SERVEUR :
+
+        - gabarit `document_type: quote` — familles `quote.`, `customer.`,
+          `totals.`, `page.` ;
+
+        - gabarit `document_type: order` — familles `order.`, `customer.`,
+          `totals.`, `page.`.
+
+        Un champ hors du sous-ensemble de son type est refuse en 422 par
+        `replaceDocumentPdfTemplateFields`, et l editeur ne le propose pas.
+        LES DEUX FAMILLES NE SE MELANGENT PAS : un gabarit de commande n a pas
+        acces aux `quote.` — `order.quote_number` suffit a faire le lien avec le
+        devis d origine, et ouvrir les deux ferait croire qu un bon de commande
+        peut reimprimer un devis.
+
+
         QUATRE FAMILLES, AUX REGLES DE DESSIN DIFFERENTES :
 
 
-        - `quote.` et `customer.` — dessinees UNE fois, sur la page declaree par
-          le placement.
+        - `quote.`, `order.` et `customer.` — dessinees UNE fois, sur la page
+          declaree par le placement.
 
         - `totals.` — dessinees UNE fois, sur la DERNIERE page rendue, quelle que
           soit la page declaree. Un total imprime page 1 alors que les lignes
@@ -13308,18 +14293,66 @@ components:
         une modifiable sans que le fond bouge.
 
 
+        LES CINQ CHAMPS `order.`, ET CE QU IL FAUT SAVOIR DE CHACUN :
+
+        - `order.number` — le numero `CDE-AAAA-NNNNN`. Il n existe qu APRES la
+          transaction de conversion : c est ce fait, et lui seul, qui a impose
+          une operation de production explicite ;
+
+        - `order.created_at` — la DATE DE COMMANDE. Nommee d apres la colonne et
+          non `issued_at` par symetrie avec le devis : une commande n est pas
+          « emise », elle est enregistree, et sa date est celle de la
+          conversion ;
+
+        - `order.quote_number` — le numero du devis d origine. Un client
+          rapproche sa commande de son devis, et c est le seul pont que ce
+          document offre entre les deux ;
+
+        - `order.customer_reference` — la reference du CLIENT (son propre bon de
+          commande, son numero de dossier). RECOPIEE DU DEVIS a la conversion,
+          comme `show_discounts` : la lire au travers du devis au moment du
+          rendu ferait dependre une piece figee d une valeur vivante ;
+
+        - `order.expected_delivery_date` — la date de livraison prevue. `null`
+          sur 100 % des commandes a ce jour, AUCUN chemin d ecriture n existant
+          encore (§8.17 reserve (h)). Publie quand meme : la regle « valeur
+          absente = rien d imprime » le rend inoffensif, et le champ deviendra
+          utile sans qu aucune carte de tenant n ait a changer.
+
+
+        AUCUN `order.status`, ET C EST DEFINITIF : un statut de production
+        imprime sur une piece figee est faux des le lendemain. Un document ne
+        porte pas d etat mouvant.
+
+
         VALEUR ABSENTE = RIEN D IMPRIME. Jamais de tiret, jamais de zero, jamais
         d espace reserve : un fond bien dessine ne montre pas ses trous. Cela
         vaut aussi pour les champs masques par `show_discounts: false`
         (`totals.global_discount`, `totals.lines_subtotal`, `line.discount_rate`,
         `line.price_before_discount`) — la regle de filtrage est appliquee par le
         SERVEUR, comme en E10.10b-1 decision 3, jamais par la carte.
+
+
+        SUR UN BON DE COMMANDE, LA MEME REGLE S APPLIQUE, AVEC UNE SOURCE
+        DIFFERENTE (arbitrage (D) du 2026-09-10 : le bon de commande MONTRE les
+        remises). Le filtre est lu sur `commercial_orders.show_discounts`, valeur
+        RECOPIEE DU DEVIS a la conversion et figee avec les totaux — jamais relue
+        au travers du devis d origine au moment du rendu. Motif : « la valeur
+        imprimee et la valeur engagee sont une seule valeur, resolue une seule
+        fois » (§8.18 #10). Les totaux de la commande, eux, sont figes SANS
+        filtre : tout ce qu il faut pour afficher les remises est deja sur la
+        commande, seule manquait la regle de visibilite.
       type: string
       enum:
         - quote.number
         - quote.issued_at
         - quote.valid_until
         - quote.customer_reference
+        - order.number
+        - order.created_at
+        - order.quote_number
+        - order.customer_reference
+        - order.expected_delivery_date
         - customer.company_name
         - customer.contact_name
         - customer.billing_address_block
@@ -13354,6 +14387,19 @@ components:
         Noms repris tels quels de `StorefrontQuoteLine`, deja publie : le
         document imprime ce que le client lit a l ecran, aux memes noms, sans
         traduction intermediaire ou une divergence pourrait s installer.
+
+
+        VALIDE POUR LES DEUX TYPES DE DOCUMENT, sans sous-ensemble ni
+        renommage : une ligne de commande est la COPIE FIGEE d une ligne de
+        devis et porte exactement les memes attributs. C est la raison pour
+        laquelle E10.19 n a ajoute aucune valeur ici — la famille `line.` est
+        deja la bonne, et lui donner un jumeau `order_line.` aurait duplique une
+        enumeration pour n en changer aucune valeur.
+
+
+        `line.price_before_discount` et `line.discount_rate` sont soumis au
+        meme filtre `show_discounts` que sur un devis ; sur un bon de commande,
+        la valeur du filtre est celle recopiee sur la COMMANDE a la conversion.
       type: string
       enum:
         - line.position
@@ -14064,13 +15110,23 @@ components:
 
 
         `customer` — destine au client. INTENTION ENREGISTREE, CAPACITE
-        INEXISTANTE, et il faut le lire litteralement : au jour ou ce schema est
-        publie, aucun client ne peut lire aucun fichier de commande, quelle que
-        soit cette valeur. Il n existe ni ressource `/storefront-orders`, ni
-        vue portail sur `commercial_orders`. Le consommateur de cette intention
-        sera E10.20 (lien public de depot), NON CADREE, ou une future surface
-        boutique. Un integrateur ne doit RIEN inferer de ce champ quant a ce
-        qu un client voit : la reponse est « rien ».
+        INEXISTANTE, et il faut le lire litteralement : aucun client ne peut lire
+        aucun fichier de commande, quelle que soit cette valeur. Il n existe ni
+        ressource `/storefront-orders`, ni vue portail sur `commercial_orders`.
+        Un integrateur ne doit RIEN inferer de ce champ quant a ce qu un client
+        voit : la reponse est « rien ».
+
+
+        CORRECTION D UNE PROMESSE FAITE PAR E10.17, ET IL FAUT LA DIRE PLUTOT
+        QUE LA LAISSER SE PERIMER : ce champ annoncait E10.20 (lien public de
+        depot) comme son futur consommateur. E10.20 est cadree et contractee, et
+        elle ne l est PAS : l arbitrage Arnaud du 2026-09-10 a tranche le lien
+        public en DEPOT SEUL — le porteur d un lien depose des fichiers et n en
+        lit aucun, pas meme les siens. `customer` reste donc inerte, SANS
+        consommateur connu ni story ouverte. Le rendre operant (retrait d un BAT
+        par le client) est une decision produit distincte, qui rouvrirait aussi
+        la question d un droit metier dedie : exposer un fichier a un tiers n est
+        pas le meme geste que l attacher a un dossier.
 
 
         Liste ADDITIVE : une story ulterieure peut ajouter une valeur (par
@@ -14079,6 +15135,38 @@ components:
       enum:
         - internal
         - customer
+
+    OrderFileDepositChannel:
+      title: OrderFileDepositChannel
+      description: >-
+        PAR OU un fichier est entre. Ajoute par E10.20, qui cree la distinction
+        en faisant deposer un fichier par quelqu un qui n est pas un utilisateur
+        Magrit.
+
+
+        `workspace` — depose par un membre de l atelier, depuis la fiche
+        commande (E10.17). `deposited_by` porte alors son identifiant.
+
+
+        `upload_link` — depose par un CLIENT via un lien public
+        (E10.20). `deposited_by` vaut `null` : le deposant n est pas un
+        `auth.users`, et il ne l a jamais ete. `deposited_by_label` porte un
+        libelle issu du LIEN, jamais d un compte.
+
+
+        POURQUOI CE CHAMP EXISTE PLUTOT QU UNE DEDUCTION. Deduire l origine de
+        `deposited_by is null` serait faux des le premier compte supprime : un
+        fichier depose par un membre parti de l entreprise a lui aussi un
+        deposant nul. Deduire du LIBELLE serait pire — E10.17 l interdit
+        explicitement, et un libelle est du texte que rien ne contraint.
+
+
+        Liste ADDITIVE : une story ulterieure peut ajouter un canal (une
+        integration, une reprise automatique), jamais en retirer.
+      type: string
+      enum:
+        - workspace
+        - upload_link
 
     OrderFile:
       title: OrderFile
@@ -14093,6 +15181,12 @@ components:
         qu un rattachement d AFFICHAGE, nullable : il permet a la fiche
         commande de grouper par item (E10.16, CA5 amende) sans rendre
         irrepresentable la piece qui concerne la commande entiere.
+
+
+        DEUX ORIGINES DEPUIS E10.20, UN SEUL SCHEMA. Un fichier entre soit par
+        l atelier (`deposited_via: workspace`), soit par un lien public de depot
+        (`upload_link`). Rien d autre ne change : meme table, meme plafond, meme
+        cycle de vie, meme suppression.
 
 
         UNE LIGNE VIVANTE, TOUJOURS. Ce schema ne decrit jamais un fichier
@@ -14214,15 +15308,39 @@ components:
             d etre.
 
 
-            NE JAMAIS L ANALYSER pour en deduire le type d auteur. Un
-            consommateur qui aurait besoin de distinguer un membre d un client
-            recevra un champ dedie, ajoute de facon additive — meme regle
-            qu `OrderStepChange.actor_label`.
+            NE JAMAIS L ANALYSER pour en deduire le type d auteur — la regle
+            est INCHANGEE et elle compte davantage depuis E10.20, qui pose ici
+            un libelle issu du LIEN et non d un compte. Le champ dedie promis
+            par E10.17 existe : c est `deposited_via`.
           oneOf:
             - type: string
               minLength: 1
               maxLength: 320
             - type: 'null'
+        deposited_via:
+          description: >-
+            Par ou le fichier est entre. C est LE champ sur lequel un
+            consommateur branche un comportement quand il doit distinguer un
+            depot d atelier d un depot client — jamais `deposited_by_label`, ni
+            la nullite de `deposited_by`.
+
+
+            AJOUT E10.20, ET AJOUTE PAR LE LOT QUI CREE LA DISTINCTION : avant
+            lui, tout fichier venait de l atelier et le champ n aurait rien
+            distingue.
+
+
+            OPTIONNEL DANS CET INCREMENT DE CONTRAT, ET LA RAISON EST DE
+            METHODE, PAS DE GOUT : le declarer `required` aujourd hui rendrait
+            NON CONFORME l implementation d E10.17 deja en service, qui ne le
+            sert pas. Un contrat ne decrit jamais un serveur qui n existe pas.
+            E10.20b, qui livre l emetteur, le sert sur TOUS les fichiers — y
+            compris `workspace` — et le fait alors passer `required` : une
+            promotion optionnel -> requis est compatible au sens du CA13, un
+            consommateur qui tolerait l absence continue de fonctionner.
+            JUSQUE-LA, ABSENT SIGNIFIE `workspace` : aucun fichier ne peut etre
+            entre autrement, faute de lien public.
+          $ref: '#/components/schemas/OrderFileDepositChannel'
         updated_at:
           description: >-
             Derniere modification de la LIGNE, jamais du fichier — les octets
@@ -14294,6 +15412,8 @@ components:
               minLength: 1
               maxLength: 320
             - type: 'null'
+        deposited_via:
+          $ref: '#/components/schemas/OrderFileDepositChannel'
         updated_at:
           $ref: '#/components/schemas/Timestamp'
         download_url:
@@ -14495,3 +15615,636 @@ components:
       properties:
         visibility:
           $ref: '#/components/schemas/OrderFileVisibility'
+
+    # ---- story E10.19 — le bon de commande PDF ------------------------------
+
+    OrderDocument:
+      title: OrderDocument
+      description: >-
+        Le BON DE COMMANDE PDF d une commande — un accuse de commande destine au
+        client (arbitrage (B) du 2026-09-10) : une piece produite UNE FOIS, sur
+        demande explicite, stockee, et jamais reproduite.
+
+
+        SCHEMA JUMEAU DE `QuoteDocument`, PAS UN `allOf` : les deux portent la
+        meme metadonnee de production mais se rattachent a deux agregats
+        differents, et un `allOf` combine a `additionalProperties: false` ferait
+        rejeter le champ propre par le membre ferme (meme ecueil que
+        `CommercialOrderDetail`).
+
+
+        DEUX DIFFERENCES AVEC LE DOCUMENT DU DEVIS, et elles decoulent toutes
+        deux de la production par ACTION EXPLICITE :
+
+        - `generated_at` ne coincide avec AUCUNE transmission. Le devis est
+          rendu dans l operation d envoi, donc son horodatage est celui de
+          l envoi. Ici, la piece est produite quand un membre le decide, et
+          transmise — ou non — par un canal que Magrit ignore ;
+
+        - `generated_by` / `generated_by_label` existent, la ou le devis n en a
+          pas : produire est un geste d une personne, et « qui a produit le bon
+          de commande, et quand » est une question qu une fiche commande doit
+          savoir rendre.
+
+
+        POURQUOI PAS DE RE-RENDU, redit ici parce que c est la propriete la plus
+        contre-intuitive du contrat : le fond et la carte de champs appartiennent
+        au tenant et changent quand il veut ; les lignes et les totaux de la
+        commande sont figes depuis la conversion. Un re-rendu produirait un
+        papier a en-tete d aujourd hui pour une piece remise il y a trois
+        semaines. Le PDF stocke EST le document de reference.
+
+
+        `sha256` sert a constater qu il s agit du meme fichier d une lecture a
+        l autre. Il ne se REVERIFIE pas par un nouveau rendu : deux generations
+        du meme document ne donnent pas le meme octet (horodatages internes au
+        format PDF).
+      type: object
+      additionalProperties: false
+      required:
+        - order_id
+        - template_id
+        - generated_at
+        - generated_by
+        - generated_by_label
+        - byte_size
+        - sha256
+        - content_type
+        - page_count
+        - download_url
+        - download_url_expires_at
+      properties:
+        order_id:
+          $ref: '#/components/schemas/Uuid'
+        template_id:
+          description: >-
+            Gabarit `document_type: order` employe. JAMAIS `null` : un document
+            n existe que s il a ete produit sur un gabarit du tenant, il n y a
+            pas de gabarit de repli fourni par Magrit, et AUCUN repli sur un
+            gabarit `quote` n est tente. Le gabarit ne peut pas disparaitre sous
+            le document — `deleteDocumentPdfTemplate` refuse en 409 des qu une
+            piece a ete produite. Trace de production, jamais un pointeur a
+            suivre pour reconstituer la piece.
+          $ref: '#/components/schemas/Uuid'
+        generated_at:
+          $ref: '#/components/schemas/Timestamp'
+        generated_by:
+          description: >-
+            Membre qui a demande la production, ou `null` si son compte a ete
+            supprime depuis. Meme modele d auteur qu `OrderStepChange` et
+            `OrderFile` : `null` ne signifie pas « pas d auteur », mais « pas
+            d auteur retrouvable ». Aucun acteur non-utilisateur ne peut
+            produire ce document — l operation est reservee au jeton
+            utilisateur.
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        generated_by_label:
+          description: >-
+            Libelle FIGE de l auteur au moment de la production. Il survit a la
+            suppression du compte, ce qui est sa raison d etre. NE JAMAIS
+            L ANALYSER pour en deduire quoi que ce soit.
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 320
+            - type: 'null'
+        byte_size:
+          type: integer
+          format: int64
+          minimum: 1
+        sha256:
+          type: string
+          pattern: '^[0-9a-f]{64}$'
+        content_type:
+          type: string
+          enum: [application/pdf]
+        page_count:
+          description: >-
+            Nombre de pages REELLEMENT produites, pages de continuation
+            comprises. Peut donc depasser le nombre de pages du fond.
+          type: integer
+          format: int32
+          minimum: 1
+        download_url:
+          description: >-
+            URL signee de courte duree, servie par le stockage. Capacite au
+            porteur : ne pas la journaliser, ne pas la republier.
+          type: string
+          format: uri
+        download_url_expires_at:
+          description: >-
+            **300 secondes** apres l emission, meme valeur et meme motif que
+            `QuoteDocument.download_url_expires_at` : un telechargement est un
+            CLIC, pas une session. Aucune duree neuve n est inventee pour ce
+            lot.
+          $ref: '#/components/schemas/Timestamp'
+
+    # ---- story E10.20 — le lien public de depot -----------------------------
+
+    OrderUploadLink:
+      title: OrderUploadLink
+      description: >-
+        Un lien public de depot, vu par l ATELIER. Une ressource a part entiere
+        — pas un jeton derive d un secret — et c est ce qui le rend listable,
+        revocable et auditable.
+
+
+        LE JETON N Y EST PAS, ET N Y SERA JAMAIS. Il n est rendu qu une fois,
+        par `OrderUploadLinkCreated` ; la base n en garde que l empreinte
+        `sha256`. Un lien perdu ne se relit pas : il se revoque et se reemet.
+        Ecart DELIBERE avec `tenant_invitations`, qui stocke son jeton en clair
+        — une fuite de sauvegarde y donnerait tous les liens vivants.
+
+
+        UNE LIGNE VIVANTE, TOUJOURS. Ce schema ne decrit jamais un lien expire
+        ni revoque : aucune operation n en rend. La trace existe en base et sert
+        l audit, elle n est pas une donnee d ecran.
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - order_id
+        - label
+        - expires_at
+        - max_files
+        - deposited_count
+        - use_count
+        - first_used_at
+        - last_used_at
+        - created_at
+        - created_by
+        - created_by_label
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        order_id:
+          $ref: '#/components/schemas/Uuid'
+        label:
+          description: >-
+            Ce que l atelier attend du client (« votre fichier pret-a-imprimer
+            pour les 5000 flyers »), ou `null`. AFFICHE AU CLIENT sur la page de
+            depot : c est le seul moyen qu il ait d envoyer le bon fichier, et
+            c est ce qui evite le depot du mauvais. A ecrire pour un lecteur qui
+            ne connait pas Magrit.
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 200
+            - type: 'null'
+        expires_at:
+          description: >-
+            Echeance du lien, TOUJOURS renseignee. Passee, le lien cesse de
+            servir et quitte cette liste.
+          $ref: '#/components/schemas/Timestamp'
+        max_files:
+          description: >-
+            Nombre de fichiers que ce lien autorise. S IMPUTE sur le plafond de
+            30 fichiers vivants de la commande : les deux barrieres se cumulent,
+            elles ne s additionnent pas.
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 30
+        deposited_count:
+          description: >-
+            Fichiers deja deposes PAR CE LIEN et toujours vivants. Un fichier
+            supprime par l atelier ne compte plus — il libere une place ici
+            comme sur la commande.
+          type: integer
+          format: int32
+          minimum: 0
+        use_count:
+          description: >-
+            Nombre de fois que le contexte du lien a ete lu. Un lien jamais
+            ouvert et un lien ouvert dix fois n appellent pas la meme relance :
+            dans le premier cas le courriel n est peut-etre pas arrive, dans le
+            second le client bute sur autre chose.
+          type: integer
+          format: int32
+          minimum: 0
+        first_used_at:
+          description: Premiere ouverture, ou `null` si le lien n a jamais servi.
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+        last_used_at:
+          description: Derniere ouverture, ou `null`.
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+        created_at:
+          $ref: '#/components/schemas/Timestamp'
+        created_by:
+          description: >-
+            Membre qui a emis le lien, ou `null` si son compte a ete supprime
+            depuis. Meme modele d auteur qu `OrderStepChange`.
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        created_by_label:
+          description: Libelle FIGE de l emetteur au moment de l emission.
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 320
+            - type: 'null'
+
+    OrderUploadLinkCreated:
+      title: OrderUploadLinkCreated
+      description: >-
+        `OrderUploadLink` PLUS le jeton en clair. Schema APLATI plutot que
+        compose par `allOf`, meme raison que `OrderFileDetail`.
+
+
+        LE SEUL PORTEUR DU JETON DE TOUT LE CONTRAT, et il ne le porte qu une
+        fois. L interface DOIT l afficher immediatement et proposer de le
+        copier : une seconde lecture ne le rendra pas.
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - order_id
+        - label
+        - expires_at
+        - max_files
+        - deposited_count
+        - use_count
+        - first_used_at
+        - last_used_at
+        - created_at
+        - created_by
+        - created_by_label
+        - token
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        order_id:
+          $ref: '#/components/schemas/Uuid'
+        label:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 200
+            - type: 'null'
+        expires_at:
+          $ref: '#/components/schemas/Timestamp'
+        max_files:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 30
+        deposited_count:
+          type: integer
+          format: int32
+          minimum: 0
+        use_count:
+          type: integer
+          format: int32
+          minimum: 0
+        first_used_at:
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+        last_used_at:
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+        created_at:
+          $ref: '#/components/schemas/Timestamp'
+        created_by:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        created_by_label:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 320
+            - type: 'null'
+        token:
+          description: >-
+            Jeton opaque du lien, en clair, RENDU UNE SEULE FOIS. Il se repose
+            en en-tete `X-Magrit-Upload-Link` par la page de depot ; l URL
+            publique se compose en le prefixant de l origine de l application
+            (`<origine>/depot/<jeton>`).
+
+
+            LE SERVEUR NE COMPOSE PAS CETTE URL. La meme application est servie
+            sous plusieurs origines (atelier, boutiques a domaine propre) : une
+            URL fabriquee a partir d une origine devinee serait morte une fois
+            sur deux. C est l interface, qui connait la sienne, qui l assemble.
+
+
+            CAPACITE AU PORTEUR : ne pas le journaliser, ne pas le republier,
+            ne jamais le mettre dans une URL d API ni dans un `Referer`.
+          type: string
+          pattern: '^[A-Za-z0-9_-]{32,128}$'
+
+    CreateOrderUploadLinkCommand:
+      title: CreateOrderUploadLinkCommand
+      description: >-
+        Emission d un lien de depot. TROIS CHAMPS, TOUS FACULTATIFS : un lien
+        par defaut — 30 jours, 10 fichiers, sans consigne — est un lien
+        utilisable, et l atelier qui presse doit pouvoir l emettre d un clic.
+      type: object
+      additionalProperties: false
+      properties:
+        label:
+          description: >-
+            Consigne AFFICHEE AU CLIENT. Absent ou `null` -> la page de depot
+            n affiche que le numero de commande et le nom de l imprimeur.
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 200
+            - type: 'null'
+        expires_in_days:
+          description: >-
+            Duree de vie, en jours. Absent -> **30**. TROIS VALEURS ADMISES ET
+            NON UN ENTIER LIBRE : une echeance est une decision de securite,
+            pas un reglage fin, et une liste fermee evite autant le lien d un
+            jour (inutilisable) que celui de dix ans (une porte ouverte pour
+            toujours).
+          type: integer
+          format: int32
+          enum: [7, 30, 90]
+          default: 30
+        max_files:
+          description: >-
+            Nombre de fichiers autorises par ce lien. Absent -> **10**. Un
+            travail reel arrive en plusieurs fichiers ; un lien a usage unique
+            obligerait l atelier a en emettre au juge, et le client deposerait
+            tout dans une archive pour s en sortir. Ce plafond s impute sur les
+            30 fichiers vivants de la commande.
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 30
+          default: 10
+
+    OrderUploadLinkContext:
+      title: OrderUploadLinkContext
+      description: >-
+        Ce que voit le CLIENT en ouvrant le lien. Le strict necessaire pour
+        deposer le bon fichier, et rien de plus.
+
+
+        CE QU IL NE PORTE PAS, ET NE PORTERA PAS SANS UNE NOUVELLE DECISION
+        PRODUIT (arbitrage (E) du 2026-09-10, depot seul) : aucun prix, aucune
+        ligne, aucun statut de production, aucune date de livraison, aucun nom
+        de client, AUCUNE LISTE DE FICHIERS et aucune URL de telechargement. Le
+        porteur du lien sait COMBIEN il a deja depose, jamais QUOI. Ce n est pas
+        une precaution de style : ce lien est ouvert par un inconnu, et tout
+        champ ajoute ici est un champ qu un inconnu lit.
+
+
+        `deposited_count` EST LA POUR EVITER LE DOUBLON, pas pour informer.
+        Sans lui, un client qui doute d avoir reussi son envoi recommence, et
+        l atelier recoit deux fois le meme fichier sous deux noms.
+      type: object
+      additionalProperties: false
+      required:
+        - printer_name
+        - order_number
+        - label
+        - expires_at
+        - max_files
+        - deposited_count
+        - max_byte_size
+        - accepted_content_types
+      properties:
+        printer_name:
+          description: >-
+            Nom de l imprimeur (le tenant). QUI DEMANDE : sans lui, la page est
+            un formulaire anonyme demandant des fichiers, ce que personne ne
+            devrait remplir.
+          type: string
+          minLength: 1
+          maxLength: 200
+        order_number:
+          description: >-
+            Numero de la commande concernee. Le client le retrouve sur son
+            accuse de commande.
+          type: string
+          pattern: '^CDE-[0-9]{4}-[0-9]{5}$'
+        label:
+          description: Consigne posee par l atelier, ou `null`.
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 200
+            - type: 'null'
+        expires_at:
+          description: >-
+            Echeance du lien. AFFICHEE AU CLIENT : « ce lien est valable jusqu
+            au … » evite l appel du lendemain, et c est la seule facon de rendre
+            supportable l indistinction du 401.
+          $ref: '#/components/schemas/Timestamp'
+        max_files:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 30
+        deposited_count:
+          description: Fichiers deja deposes par CE lien, et toujours vivants.
+          type: integer
+          format: int32
+          minimum: 0
+        max_byte_size:
+          description: >-
+            Plafond de poids par fichier, en octets — **50 Mo**, plafond du
+            projet de stockage, INCHANGE par ce lot (arbitrage (A) du
+            2026-09-10 : ni relevement de plan, ni stockage tiers, ni depot
+            reprenable).
+
+
+            A AFFICHER AVANT LE CHOIX DU FICHIER, pas apres l echec du
+            televersement. Un client qui envoie 400 Mo par une liaison
+            d entreprise attend un quart d heure pour apprendre que ce n etait
+            pas possible — c est le pire des parcours, et il est evitable par
+            une phrase.
+          type: integer
+          format: int64
+          minimum: 1
+        accepted_content_types:
+          description: >-
+            Types MIME acceptes par le bucket, MEME LISTE qu en E10.17. Rendue a
+            l execution et non figee au schema, pour qu un elargissement ne soit
+            pas un changement de contrat.
+
+
+            MEME CONSIGNE OPPOSABLE A L INTERFACE qu en E10.17 : ne pas se fier
+            a `File.type`, poser explicitement le `Content-Type` du `PUT` depuis
+            l extension du nom de fichier, via une correspondance fermee. Elle
+            compte davantage ici : le deposant est un inconnu, sur un poste
+            inconnu, et il n a personne a qui demander pourquoi son depot est
+            refuse.
+          type: array
+          minItems: 1
+          items:
+            type: string
+            minLength: 1
+
+    ConfirmOrderUploadLinkFileCommand:
+      title: ConfirmOrderUploadLinkFileCommand
+      description: >-
+        Confirmation d un depot par le porteur du lien. DEUX CHAMPS, et c est
+        deliberement moins que `ConfirmOrderFileUploadCommand` : le client ne
+        choisit ni la VISIBILITE (le fichier est toujours `internal` — lui
+        laisser marquer une piece « destinee au client » n aurait aucun sens),
+        ni la LIGNE de commande concernee (il ne connait pas les lignes, et le
+        contexte du lien ne les lui montre pas). L atelier reclasse ensuite s il
+        le souhaite.
+      type: object
+      additionalProperties: false
+      required: [file_id, filename]
+      properties:
+        file_id:
+          description: >-
+            Identifiant alloue par `issueOrderUploadLinkFileUrl`. Il determine
+            le chemin ou le serveur va chercher les octets. Un identifiant
+            alloue par un AUTRE lien, ou par l atelier, ne se confirme pas ici :
+            le chemin est reforme depuis le jeton.
+          $ref: '#/components/schemas/Uuid'
+        filename:
+          description: >-
+            Nom d origine a conserver et a reposer au telechargement. Le seul
+            renseignement que le serveur ne peut pas relever tout seul.
+
+
+            TEXTE FOURNI PAR UN TIERS NON AUTHENTIFIE : il est stocke et rendu
+            tel quel a l atelier, jamais interprete, jamais employe pour former
+            un chemin de stockage, et il ne traverse pas le bus d evenements.
+          type: string
+          minLength: 1
+          maxLength: 255
+
+    OrderUploadLinkDeposit:
+      title: OrderUploadLinkDeposit
+      description: >-
+        RECU rendu au client apres un depot reussi. Ce n est pas `OrderFile` :
+        c est la confirmation de ce qu il vient d envoyer, pas la
+        representation d atelier du fichier.
+
+
+        POURQUOI UN SCHEMA DEDIE PLUTOT QUE `OrderFile`. Ce dernier porte la
+        visibilite, le deposant, le libelle du deposant et le rattachement de
+        ligne — quatre donnees d atelier qu un tiers non authentifie n a aucune
+        raison de lire. Servir le schema d atelier « parce qu il existe » aurait
+        ouvert quatre champs pour n en vouloir aucun.
+
+
+        AUCUNE URL. Le porteur du lien ne retelecharge pas ce qu il a depose
+        (arbitrage (E), depot seul) : ce recu est la trace de son geste, pas un
+        acces au fichier.
+      type: object
+      additionalProperties: false
+      required:
+        - file_id
+        - filename
+        - content_type
+        - byte_size
+        - deposited_at
+        - deposited_count
+        - max_files
+      properties:
+        file_id:
+          $ref: '#/components/schemas/Uuid'
+        filename:
+          type: string
+          minLength: 1
+          maxLength: 255
+        content_type:
+          description: Type MIME tel que le stockage l a enregistre.
+          type: string
+          minLength: 1
+          maxLength: 255
+        byte_size:
+          description: >-
+            Taille reelle de l objet, relevee au stockage. La rendre permet a la
+            page de depot de confirmer « 12,4 Mo recus », seule preuve tangible
+            que le transfert est alle a son terme.
+          type: integer
+          format: int64
+          minimum: 1
+        deposited_at:
+          $ref: '#/components/schemas/Timestamp'
+        deposited_count:
+          description: Fichiers deposes par ce lien apres ce depot.
+          type: integer
+          format: int32
+          minimum: 1
+        max_files:
+          description: >-
+            Rappele ici pour que la page sache annoncer « 2 sur 10 » sans
+            relire le contexte.
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 30
+
+    OrderFilesSubmittedPayload:
+      title: OrderFilesSubmittedPayload
+      description: >-
+        Charge utile de l evenement sortant `order.files_submitted`
+        (`event_version: 1`), emis par E10.20 a CHAQUE fichier confirme par le
+        porteur d un lien de depot.
+
+
+        UNE EMISSION PAR FICHIER, PAS PAR « J AI TERMINE » (arbitrage (G)). Un
+        client qui ferme son onglet sans cliquer un bouton de fin n emettrait
+        rien, et l atelier attendrait un signal qui ne vient jamais. Le
+        regroupement est un probleme de consommateur — E10.15 groupera a la
+        notification — pas de producteur.
+
+
+        CE QU ELLE NE PORTE PAS, et c est delibere :
+
+        - le NOM du fichier et son type. Ce sont des chaines fournies par un
+          tiers NON AUTHENTIFIE ; les faire traverser le bus les livrerait a des
+          consommateurs dont ce contrat ignore la robustesse. Un abonne habilite
+          relit la commande (`listOrderFiles`, scope `orders:read`) ;
+
+        - le JETON du lien, evidemment, et tout ce qui permettrait de le
+          reconstituer. `upload_link_id` est l identifiant d ATELIER du lien, il
+          n ouvre rien.
+
+
+        Volontairement minimale par ailleurs, meme parti que
+        `OrderStepChangedPayload` : des identifiants et un numero, AUCUN
+        montant.
+
+
+        `aggregate_type` vaut `order`, `aggregate_id` la commande sur laquelle
+        le fichier a ete depose.
+      type: object
+      additionalProperties: false
+      required:
+        - file_id
+        - upload_link_id
+        - order_id
+        - order_number
+        - customer_id
+      properties:
+        file_id:
+          description: Fichier cree par ce depot (`OrderFile.id`).
+          $ref: '#/components/schemas/Uuid'
+        upload_link_id:
+          description: >-
+            Lien par lequel le depot est entre. Permet a un consommateur de
+            dedupliquer sur le FAIT METIER et de rapprocher plusieurs depots
+            d une meme sollicitation.
+          $ref: '#/components/schemas/Uuid'
+        order_id:
+          $ref: '#/components/schemas/Uuid'
+        order_number:
+          description: Numero metier de la commande.
+          type: string
+          pattern: '^CDE-[0-9]{4}-[0-9]{5}$'
+        customer_id:
+          description: >-
+            Client de la commande. Permet a un consommateur de router
+            l evenement sans un aller-retour de lecture — c est ce dont E10.15
+            aura besoin pour savoir QUI prevenir.
+          $ref: '#/components/schemas/Uuid'

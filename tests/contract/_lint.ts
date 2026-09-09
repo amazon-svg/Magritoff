@@ -17,6 +17,17 @@ export const API_BASE_PATH = '/api/v1';
 const HTTP_METHODS = ['get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace'];
 const TENANT_TOKENS = TENANT_ADDRESSING_TOKENS;
 
+/**
+ * Modes d authentification dont la CREDENTIAL PORTE DEJA LE TENANT : l acteur
+ * n a aucun espace a choisir, et `X-Magrit-Tenant` est refuse en 400
+ * `api.tenant_not_addressable` sur les operations qui n admettent qu eux.
+ *
+ * Liste plutot qu un nom en dur : `storefrontSession` etait seule jusqu a
+ * E10.20, qui ajoute `orderUploadLink` sur la meme regle exactement. Une
+ * seconde copie de la condition aurait diverge a la premiere retouche.
+ */
+export const TENANT_BEARING_SCHEMES = ['storefrontSession', 'orderUploadLink'] as const;
+
 export const REQUIRED_EVENT_NAMES = [
   'quote.converted',
   'order.step_changed',
@@ -297,26 +308,29 @@ export function lintOperationCoverage(document: Doc): string[] {
       if (Array.isArray(security) && security.length === 0) continue;
 
       // Dispense de `MagritTenant` — et d elle SEULE — pour une operation
-      // servie exclusivement a une SESSION BOUTIQUE (`storefrontSession`,
-      // E10.10b-1). Le cookie designe une boutique, la boutique appartient a
-      // un tenant : l acteur n a aucun espace a choisir, et le contrat REFUSE
-      // l en-tete en 400 `api.tenant_not_addressable` plutot que de l ignorer.
-      // Le declarer serait donc annoncer un parametre dont l usage est une
-      // erreur — l inverse exact de ce que cette regle protege.
+      // servie exclusivement par une credential qui PORTE DEJA LE TENANT.
+      // Deux modes sont dans ce cas : `storefrontSession` (E10.10b-1, le
+      // cookie designe une boutique, la boutique appartient a un tenant) et
+      // `orderUploadLink` (E10.20, le jeton designe un lien, le lien designe
+      // une commande, la commande appartient a un tenant). Dans les deux cas
+      // l acteur n a aucun espace a choisir, et le contrat REFUSE l en-tete en
+      // 400 `api.tenant_not_addressable` plutot que de l ignorer. Le declarer
+      // serait donc annoncer un parametre dont l usage est une erreur —
+      // l inverse exact de ce que cette regle protege.
       //
       // Volontairement restreint aux operations dont TOUTES les exigences de
-      // securite sont `storefrontSession` : une operation servie a la fois a
-      // ce mode et a `bearerAuth` garde son obligation, l acteur Magrit ayant
-      // toujours un espace a choisir.
-      const storefrontOnly = Array.isArray(security)
+      // securite sont d un de ces modes : une operation servie a la fois a un
+      // de ces modes et a `bearerAuth` garde son obligation, l acteur Magrit
+      // ayant toujours un espace a choisir.
+      const tenantBearingOnly = Array.isArray(security)
         && security.length > 0
         && security.every((requirement) =>
           isRecord(requirement)
           && Object.keys(requirement).length === 1
-          && 'storefrontSession' in requirement);
+          && TENANT_BEARING_SCHEMES.some((scheme) => scheme in requirement));
 
       if (
-        !storefrontOnly
+        !tenantBearingOnly
         && !declaresParameter(parameters, { name: 'X-Magrit-Tenant' }, document)
       ) {
         violations.push(
