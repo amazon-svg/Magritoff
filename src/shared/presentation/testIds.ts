@@ -729,6 +729,31 @@ export const TEST_IDS = {
     linesTable: 'order-lines-table',
     lineRow: 'order-line-row',
   },
+
+  // ─── E10.10b-4a — Gabarits PDF de documents (import et stockage) ───────────
+  // Ecran de parametrage minimal : lister, importer, nommer, defaut, activer,
+  // supprimer (CA de la sous-story 4a, docs/api/CONVENTIONS.md §8.18). PAS
+  // d editeur de coordonnees (E10.10b-4b, hors perimetre). `data-template-id`
+  // pose sur `row` (meme convention que `productionStep.row`/`data-step-id`).
+  // Aucun cas de test Notion publie a la remise de ce lot (story nouvelle) :
+  // testids poses selon la convention documentee en tete de ce fichier,
+  // a faire confirmer par le scribe des que le cahier TF existera.
+  documentTemplate: {
+    page: 'document-template-page',
+    row: 'document-template-row',
+    nameInput: 'document-template-name-input',
+    addNameInput: 'document-template-add-name-input',
+    addDefaultCheckbox: 'document-template-add-default-checkbox',
+    addBtn: 'document-template-add-btn',
+    saveBtn: 'document-template-save-btn',
+    fileInput: 'document-template-file-input',
+    importBtn: 'document-template-import-btn',
+    defaultBtn: 'document-template-default-btn',
+    deactivateBtn: 'document-template-deactivate-btn',
+    deleteBtn: 'document-template-delete-btn',
+    statusBadge: 'document-template-status-badge',
+    errorBanner: 'document-template-error-banner',
+  },
 } as const;
 
 /**

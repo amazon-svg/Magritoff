@@ -39,6 +39,7 @@ import type { CommercialSettingsService } from '../../modules/commercial-setting
 import type { StorefrontQuotesService } from '../../modules/storefront-quotes/application/storefront-quotes-service.ts';
 import type { CommercialOrdersService } from '../../modules/commercial-orders/application/commercial-orders-service.ts';
 import type { ProductionStepsService } from '../../modules/production-steps/application/production-steps-service.ts';
+import type { DocumentTemplatesService } from '../../modules/document-templates/application/document-templates-service.ts';
 import { createCustomersRoutes } from './customers-routes.ts';
 import { createCustomerShopAccessRoutes } from './customer-shop-access-routes.ts';
 import { createProjectsRoutes } from './projects-routes.ts';
@@ -49,6 +50,7 @@ import { createCommercialSettingsRoutes } from './commercial-settings-routes.ts'
 import { createStorefrontQuotesRoutes } from './storefront-quotes-routes.ts';
 import { createCommercialOrdersRoutes } from './commercial-orders-routes.ts';
 import { createProductionStepsRoutes } from './production-steps-routes.ts';
+import { createDocumentTemplatesRoutes } from './document-templates-routes.ts';
 import type { GescomRoute } from './gescom-middleware.ts';
 
 /**
@@ -78,6 +80,8 @@ export type GescomServices = Readonly<{
   commercialOrders: CommercialOrdersService;
   /** E10.13 — referentiel des etapes de production du tenant, configurable et ordonnancable. */
   productionSteps: ProductionStepsService;
+  /** E10.10b-4a — import et stockage du gabarit PDF par tenant (fond apporte par l imprimeur). */
+  documentTemplates: DocumentTemplatesService;
 }>;
 
 /**
@@ -98,6 +102,7 @@ export function gescomRoutes(services: GescomServices): readonly GescomRoute[] {
     ...createStorefrontQuotesRoutes(services.storefrontQuotes),
     ...createCommercialOrdersRoutes(services.commercialOrders, services.commercialQuotes, services.productionSteps),
     ...createProductionStepsRoutes(services.productionSteps),
+    ...createDocumentTemplatesRoutes(services.documentTemplates),
   ];
 }
 
@@ -121,6 +126,7 @@ export const GESCOM_ROUTES: readonly GescomRoute[] = Object.freeze(
     storefrontQuotes: createNullService('StorefrontQuotesService'),
     commercialOrders: createNullService('CommercialOrdersService'),
     productionSteps: createNullService('ProductionStepsService'),
+    documentTemplates: createNullService('DocumentTemplatesService'),
   }),
 );
 

@@ -1,0 +1,75 @@
+export { DocumentTemplatesApiClient } from './api/client';
+export type { ListDocumentPdfTemplatesQuery } from './api/client';
+export {
+  confirmDocumentPdfTemplateUploadCommandSchema,
+  createDocumentPdfTemplateCommandSchema,
+  deleteDocumentPdfTemplateResultSchema,
+  documentColorSchema,
+  documentCoordinateSchema,
+  documentFieldIdSchema,
+  documentFieldPlacementSchema,
+  documentFontSchema,
+  documentLineFieldIdSchema,
+  documentLinesBlockSchema,
+  documentLinesColumnSchema,
+  documentPdfTemplateCreatedSchema,
+  documentPdfTemplateDetailSchema,
+  documentPdfTemplateFieldMapSchema,
+  documentPdfTemplatePageSchema,
+  documentPdfTemplateSchema,
+  documentPdfTemplatesListSchema,
+  documentPdfTemplateStatusSchema,
+  documentPdfTemplateUploadTicketSchema,
+  documentTextAlignSchema,
+  documentTypeSchema,
+  replaceDocumentPdfTemplateFieldsCommandSchema,
+  updateDocumentPdfTemplateCommandSchema,
+  type ConfirmDocumentPdfTemplateUploadCommand,
+  type CreateDocumentPdfTemplateCommand,
+  type DocumentColor,
+  type DocumentFieldId,
+  type DocumentFieldPlacementDto,
+  type DocumentFont,
+  type DocumentLineFieldId,
+  type DocumentLinesBlockDto,
+  type DocumentLinesColumnDto,
+  type DocumentPdfTemplateCreatedDto,
+  type DocumentPdfTemplateDetailDto,
+  type DocumentPdfTemplateDto,
+  type DocumentPdfTemplateFieldMapDto,
+  type DocumentPdfTemplatePageDto,
+  type DocumentPdfTemplateStatus,
+  type DocumentPdfTemplateUploadTicketDto,
+  type DocumentTextAlign,
+  type DocumentType,
+  type ReplaceDocumentPdfTemplateFieldsCommand,
+  type UpdateDocumentPdfTemplateCommand,
+} from './api/contracts';
+export {
+  DocumentTemplatesService,
+  type ListDocumentPdfTemplatesQuery as ListDocumentPdfTemplatesServiceQuery,
+} from './application/document-templates-service';
+export {
+  DocumentPdfTemplateAccessDeniedError,
+  DocumentPdfTemplateDefaultRequiresReadyError,
+  DocumentPdfTemplateGeometryChangedError,
+  DocumentPdfTemplateInUseError,
+  DocumentPdfTemplateInvalidFieldMapError,
+  DocumentPdfTemplateInvalidPdfError,
+  DocumentPdfTemplateLimitReachedError,
+  DocumentPdfTemplateNameConflictError,
+  DocumentPdfTemplateNotFoundError,
+  DocumentPdfTemplateUploadMissingError,
+  DocumentPdfTemplateUploadRequiredError,
+} from './application/document-templates-repository';
+export type {
+  DocumentTemplatesRepository,
+  ListDocumentPdfTemplatesFilters,
+} from './application/document-templates-repository';
+export {
+  maxRowsPerPage,
+  validateDocumentFieldMap,
+  type FieldMapValidationError,
+} from './application/document-field-map-validator';
+export { documentTemplatesModuleManifest } from './manifest';
+export { documentTemplatesWorkspaceContribution } from './surface-contributions';
