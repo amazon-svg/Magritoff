@@ -59,6 +59,7 @@ SQL_CASES=(
   tests/sql/gescom-e10-10b-4a-document-pdf-templates.sql
   tests/sql/gescom-e10-10b-4b-document-pdf-template-fields.sql
   tests/sql/gescom-e10-10b-4c-quote-documents.sql
+  tests/sql/gescom-e10-17a-order-files.sql
 )
 
 for sql_case in "${SQL_CASES[@]}"; do

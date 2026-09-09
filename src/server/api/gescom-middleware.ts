@@ -399,6 +399,17 @@ function rewriteEnvelopeRequestId(body: unknown, requestId: string): unknown {
   };
 }
 
+/**
+ * `deleteOrderFile` (E10.17a) est le premier operationId de cette facade a
+ * rendre reellement un 204 (les 204 anterieurs du contrat ne decrivaient que
+ * des `webhooks`, consommes par un tiers, jamais servis par ce handler). La
+ * spec Fetch REFUSE tout corps sur un statut a corps nul (204/205/304) — le
+ * constructeur `Response` leve une `TypeError` si on le tente (verifie par
+ * execution reelle, Node 20/Deno). Cette fonction doit donc distinguer ce cas
+ * plutot que de serialiser systematiquement `body`.
+ */
+const NULL_BODY_STATUSES: ReadonlySet<number> = new Set([204, 205, 304]);
+
 function renderSuccess(
   status: number,
   body: unknown,
@@ -406,8 +417,11 @@ function renderSuccess(
   additionalHeaders: Readonly<Record<string, string>>,
 ): Response {
   const headers = new Headers(additionalHeaders);
-  headers.set('Content-Type', JSON_MEDIA_TYPE);
   headers.set(REQUEST_ID_HEADER, requestId);
+  if (NULL_BODY_STATUSES.has(status)) {
+    return new Response(null, { status, headers });
+  }
+  headers.set('Content-Type', JSON_MEDIA_TYPE);
   return new Response(JSON.stringify(body), { status, headers });
 }
 

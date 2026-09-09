@@ -41,6 +41,7 @@ import type { CommercialOrdersService } from '../../modules/commercial-orders/ap
 import type { ProductionStepsService } from '../../modules/production-steps/application/production-steps-service.ts';
 import type { DocumentTemplatesService } from '../../modules/document-templates/application/document-templates-service.ts';
 import type { QuoteDocumentsService } from '../../modules/quote-documents/application/quote-documents-service.ts';
+import type { OrderFilesService } from '../../modules/order-files/application/order-files-service.ts';
 import { createCustomersRoutes } from './customers-routes.ts';
 import { createCustomerShopAccessRoutes } from './customer-shop-access-routes.ts';
 import { createProjectsRoutes } from './projects-routes.ts';
@@ -53,6 +54,7 @@ import { createCommercialOrdersRoutes } from './commercial-orders-routes.ts';
 import { createProductionStepsRoutes } from './production-steps-routes.ts';
 import { createDocumentTemplatesRoutes } from './document-templates-routes.ts';
 import { createQuoteDocumentsRoutes } from './quote-documents-routes.ts';
+import { createOrderFilesRoutes } from './order-files-routes.ts';
 import type { GescomRoute } from './gescom-middleware.ts';
 
 /**
@@ -86,6 +88,8 @@ export type GescomServices = Readonly<{
   documentTemplates: DocumentTemplatesService;
   /** E10.10b-4c — document PDF produit a l envoi (moteur de generation + lecture atelier/portail). */
   quoteDocuments: QuoteDocumentsService;
+  /** E10.17a — fichiers de commande (depot, visibilite, suppression). */
+  orderFiles: OrderFilesService;
 }>;
 
 /**
@@ -108,6 +112,7 @@ export function gescomRoutes(services: GescomServices): readonly GescomRoute[] {
     ...createProductionStepsRoutes(services.productionSteps),
     ...createDocumentTemplatesRoutes(services.documentTemplates),
     ...createQuoteDocumentsRoutes(services.quoteDocuments, services.commercialQuotes),
+    ...createOrderFilesRoutes(services.orderFiles),
   ];
 }
 
@@ -133,6 +138,7 @@ export const GESCOM_ROUTES: readonly GescomRoute[] = Object.freeze(
     productionSteps: createNullService('ProductionStepsService'),
     documentTemplates: createNullService('DocumentTemplatesService'),
     quoteDocuments: createNullService('QuoteDocumentsService'),
+    orderFiles: createNullService('OrderFilesService'),
   }),
 );
 

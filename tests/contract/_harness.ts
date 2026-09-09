@@ -78,12 +78,26 @@ export async function checkResponseAgainstContract(
   expectation: Readonly<{ status: number; dataSchema?: string }>,
 ): Promise<ContractCheck> {
   const errors: string[] = [];
-  const contentType = response.headers.get('content-type') ?? '';
-  const body = (await response.clone().json()) as unknown;
 
   if (response.status !== expectation.status) {
     errors.push(`statut ${response.status} au lieu de ${expectation.status}`);
   }
+
+  // 204 (E10.17a, `deleteOrderFile`) : RFC 7231 §6.3.5 interdit tout corps.
+  // La spec Fetch elle-meme refuse de construire une Response 204 porteuse
+  // d un corps (`Response constructor: Invalid response status code 204`
+  // pour tout body non nul) : `.json()` planterait sur un corps vide plutot
+  // que de rendre une erreur de contrat lisible. Aucune enveloppe a valider.
+  if (response.status === 204) {
+    const bodyText = await response.clone().text();
+    if (bodyText.length > 0) {
+      errors.push(`une reponse 204 ne doit porter aucun corps (recu ${bodyText.length} octet(s))`);
+    }
+    return { valid: errors.length === 0, errors };
+  }
+
+  const contentType = response.headers.get('content-type') ?? '';
+  const body = (await response.clone().json()) as unknown;
 
   if (response.status >= 400) {
     if (!contentType.startsWith('application/problem+json')) {
