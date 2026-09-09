@@ -42,6 +42,10 @@ const routeLoaders: Readonly<Record<string, LazyPageLoader>> = Object.freeze({
   'pricing.workspace.rules': () => import('@/modules/pricing/ui').then((module) => ({ default: module.DashboardPricingRules })),
   'production-steps.workspace.list': () => import('@/modules/production-steps/ui').then((module) => ({ default: module.DashboardProductionSteps })),
   'document-templates.workspace.list': () => import('@/modules/document-templates/ui').then((module) => ({ default: module.DashboardDocumentTemplates })),
+  // E10.10b-4b — PDF.js (`pdfjs-dist`) n est importe QUE par ce module, lui
+  // meme charge ici en IMPORT DYNAMIQUE (`lazy()`) : aucun effet sur le
+  // bundle de la boutique publique (contrat §8.18 reserve (g)).
+  'document-templates.workspace.fields': () => import('@/modules/document-templates/ui').then((module) => ({ default: module.DashboardDocumentTemplateFields })),
 });
 
 export type WorkspaceRuntimeRoute = Readonly<{

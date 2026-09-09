@@ -753,6 +753,60 @@ export const TEST_IDS = {
     deleteBtn: 'document-template-delete-btn',
     statusBadge: 'document-template-status-badge',
     errorBanner: 'document-template-error-banner',
+    // E10.10b-4b — editeur de coordonnees (wireframe
+    // .design-handoff/wireframes/E10.10b-4b-editeur-coordonnees.md).
+    fieldsEditBtn: 'document-template-fields-edit-btn',
+  },
+  // E10.10b-4b — editeur de correspondance coordonnees du gabarit PDF.
+  // Aucun cas de test Notion publie a la remise de ce lot (story nouvelle) :
+  // testids poses selon la convention documentee en tete de ce fichier et
+  // les "Hints DOM" du wireframe §2, a faire confirmer par le scribe des que
+  // le cahier TF existera.
+  documentTemplateFields: {
+    page: 'document-template-fields-page',
+    backLink: 'document-template-fields-back-link',
+    saveIndicator: 'document-template-fields-save-indicator',
+    saveBtn: 'document-template-fields-save-btn',
+    previewBtn: 'document-template-fields-preview-btn',
+    exitPreviewBtn: 'document-template-fields-exit-preview-btn',
+    previewLongCheckbox: 'document-template-fields-preview-long-checkbox',
+    errorBanner: 'document-template-fields-error-banner',
+    conflictDialog: 'document-template-fields-conflict-dialog',
+    conflictReloadBtn: 'document-template-fields-conflict-reload-btn',
+    discardDialog: 'document-template-fields-discard-dialog',
+    discardConfirmBtn: 'document-template-fields-discard-confirm-btn',
+    discardCancelBtn: 'document-template-fields-discard-cancel-btn',
+    tabFields: 'document-template-fields-tab-fields',
+    tabTable: 'document-template-fields-tab-table',
+    pageTab: 'document-template-fields-page-tab',
+    canvas: 'document-template-fields-canvas',
+    paletteItem: 'document-template-fields-palette-item',
+    placementLabel: 'document-template-fields-placement-label',
+    settingsPanel: 'document-template-fields-settings-panel',
+    fontFamilySelect: 'document-template-fields-font-family-select',
+    fontStyleSelect: 'document-template-fields-font-style-select',
+    fontSizeInput: 'document-template-fields-font-size-input',
+    alignInput: 'document-template-fields-align-input',
+    colorInput: 'document-template-fields-color-input',
+    widthToggle: 'document-template-fields-width-toggle',
+    widthInput: 'document-template-fields-width-input',
+    maxLinesInput: 'document-template-fields-max-lines-input',
+    removeFieldBtn: 'document-template-fields-remove-field-btn',
+    insertTableBtn: 'document-template-fields-insert-table-btn',
+    removeTableBtn: 'document-template-fields-remove-table-btn',
+    rowHeightInput: 'document-template-fields-row-height-input',
+    rowsPerPageInput: 'document-template-fields-rows-per-page-input',
+    continuationPageSelect: 'document-template-fields-continuation-page-select',
+    columnRow: 'document-template-fields-column-row',
+    addColumnSelect: 'document-template-fields-add-column-select',
+    removeColumnBtn: 'document-template-fields-remove-column-btn',
+    previewOverlay: 'document-template-fields-preview-overlay',
+    // qa-review R5 — rendu du tableau des lignes SUR LE CANVAS (ligne reelle
+    // + ligne fictive + poignees de glisse), distinct de `columnRow` (ligne
+    // du panneau de reglages `LinesTablePanel`, un DOM different).
+    tableRowOnCanvas: 'document-template-fields-table-row-on-canvas',
+    tableAnchorHandle: 'document-template-fields-table-anchor-handle',
+    tableSpacingHandle: 'document-template-fields-table-spacing-handle',
   },
 } as const;
 
