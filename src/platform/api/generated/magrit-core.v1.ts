@@ -1380,6 +1380,434 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/commercial-orders/{orderId}/file-upload-urls": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * EMET un billet de depot pour un fichier a rattacher a une commande, et ALLOUE l identifiant sous lequel ce fichier existera.
+         *
+         *     REPOND 200 ET NON 201, ET NE PREND PAS D `Idempotency-Key`, meme parti et meme motif qu `issueDocumentPdfTemplateUploadUrl` : un billet n est pas une ressource metier, c est une capacite a duree de vie courte. Rejouer la demande DOIT rendre un billet neuf ; servir un billet memorise rendrait une capacite peut-etre deja expiree.
+         *
+         *     AUCUNE LIGNE N EST CREEE ICI, et c est la difference avec le gabarit PDF — dont la ressource existait avant son fond. Ce billet alloue un `file_id` et le chemin qui en decoule ; la LIGNE n apparait qu a la confirmation. Un billet abandonne ne laisse donc aucune ressource « en attente de fichier » a nettoyer. Contrepartie assumee et dite : des octets deposes sans confirmation restent dans un bucket PRIVE et SANS policy, ou rien ne les lit et aucune operation ne les atteint — inertes, pas fuites (meme dette bornee que §8.18 #11).
+         *
+         *     LE CHEMIN N EST JAMAIS CHOISI PAR L APPELANT. Il vaut toujours `<tenant_id>/<order_id>/<file_id>`, forme par le serveur depuis le jeton, la route et l identifiant qu il vient d allouer. Sans extension : le nom d origine est une donnee de la ligne, pas du chemin, et l URL de telechargement le repose elle-meme. Un chemin propose par le client serait une traversee de tenant offerte a la premiere faute de frappe (faille reellement exploitee en qa-review sur E10.10b-4a).
+         *
+         *     LE PLAFOND EST VERIFIE ICI PAR COURTOISIE, ET A LA CONFIRMATION PAR DEVOIR. **30 fichiers vivants par commande** ; un fichier supprime ne compte plus. Refuser tot evite de faire televerser 50 Mo pour rien ; la barriere qui compte est celle de `confirmOrderFileUpload`, prise sous verrou.
+         *
+         *     POURQUOI 30 ET NON 20, le plafond des gabarits PDF : les deux nombres ne gouvernent pas la meme chose. Un gabarit est un objet de CONFIGURATION rare — un imprimeur en aura deux ou trois. Une commande ACCUMULE des pieces sur toute sa vie et sur tous ses postes : une commande a dix items avec un bon a tirer et un fichier client par item atteint 20 sans rien d anormal. Le mecanisme, lui, est identique.
+         */
+        post: operations["issueOrderFileUploadUrl"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/commercial-orders/{orderId}/files": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Liste les fichiers VIVANTS d une commande, du plus recent au plus ancien.
+         *
+         *     COLLECTION BORNEE, DONC NON PAGINEE. Le nombre de fichiers vivants par commande est plafonne EN BASE a **30** : il n y a ni curseur, ni `page[size]` a offrir, exactement comme `listProductionSteps` et `listDocumentPdfTemplates`. Paginer une collection que la base empeche de croitre serait promettre une seconde page qui n arrivera jamais.
+         *
+         *     AUCUN FILTRE, ET C EST DELIBERE. Ni par ligne, ni par visibilite : l ecran regroupe par item ce qu il a deja recu, et un filtre `visibility=customer` laisserait croire qu il existe une lecture CLIENT servie par ce contrat — il n en existe aucune (voir le bloc d en-tete, fait n° 3).
+         *
+         *     UN FICHIER SUPPRIME N APPARAIT PAS ICI, jamais, sous aucun parametre. Sa ligne survit en base comme TRACE (`deleted_at`, `deleted_by`), le contrat ne la publie pas : « qui a retire ce BAT » est une question d audit, pas une donnee d ecran, et lui ouvrir un parametre d affichage ferait de cette liste deux listes.
+         *
+         *     AUCUNE URL DE TELECHARGEMENT ICI. Signer N URL pour une liste, c est emettre N capacites au porteur dont l ecran n en utilisera qu une. L URL s obtient par `getOrderFile`, un fichier a la fois, au moment du clic. Meme doctrine que `getQuoteDocument`.
+         */
+        get: operations["listOrderFiles"];
+        put?: never;
+        /**
+         * CONFIRME un depot : le serveur constate les octets au chemin qu il a impose, en releve la taille et le type, et cree la ligne du fichier.
+         *
+         *     C EST ICI, ET NULLE PART AILLEURS, QU UN FICHIER EXISTE. Avant cette operation il n y a que des octets anonymes dans un bucket prive. Le serveur lit la METADONNEE de l objet (`info(path)` du client de stockage : taille et type reels, sans transferer les octets) — il ne telecharge pas le fichier, et ne le lit pas.
+         *
+         *     LE TYPE EST DECLARE, PAS PROUVE, ET LE CONTRAT LE DIT PLUTOT QUE DE LAISSER CROIRE LE CONTRAIRE. Le bucket refuse tout type hors de sa liste, mais ce type est celui que le deposant a annonce au moment du `PUT`. Aucune inspection de contenu n est faite — la faire sur 50 Mo, pour six formats, couterait davantage que ce qu elle rapporterait. DEUX CONSEQUENCES OPPOSABLES, tenues par le contrat et non par l implementation : l URL de telechargement force TOUJOURS le telechargement (`download=<filename>`), jamais un rendu en ligne ; et aucune interface ne doit encadrer ce fichier dans une balise qui l executerait ou le rendrait dans l origine de l application.
+         *
+         *     L ARCHIVE ZIP EST ACCEPTEE, ET C EST UN ARBITRAGE PRODUIT ASSUME (Arnaud, 2026-09-09), pas un oubli de durcissement. Le cadrage proposait de l exclure au motif de son opacite ; la decision retenue est de coller a l usage reel — le ZIP est le format par lequel un client livre en pratique un travail a plusieurs fichiers, et l exclure aurait rejete le cas le plus courant hors de l outil. **Ce que Magrit ne fait donc PAS, et ne pretend pas faire : ouvrir l archive, la decompresser, en lister le contenu, en verifier quoi que ce soit.** La validation s arrete au type declare et au poids. Contrepartie favorable, et il faut la connaitre parce qu elle borne le risque : ne JAMAIS decompresser signifie qu aucune bombe de decompression ne peut amplifier quoi que ce soit COTE SERVEUR — le risque residuel porte sur le poste de celui qui ouvrira l archive, et il est identique a celui d une piece jointe de courriel. Risque connu, ecrit et accepte : docs/api/CONVENTIONS.md §8.19 reserve (c).
+         *
+         *     `application/octet-stream` EST REFUSE, et cette exclusion-la n a pas ete rouverte : l accepter reviendrait a n avoir aucune liste, tout fichier pouvant se declarer ainsi. Un client qui obtiendrait ce type de son systeme d exploitation doit poser lui-meme le type juste sur son `PUT` — voir `OrderFileUploadTicket.accepted_content_types`.
+         *
+         *     `Idempotency-Key` EXIGEE : c est la seule operation de ce lot qui cree une ressource metier. Rejouee a l identique — le double-clic sur « Valider le depot » est la norme apres un televersement long — elle rend la reponse initiale sans creer de seconde ligne sur les memes octets.
+         *
+         *     AUCUN EVENEMENT N EST PUBLIE. `order.files_submitted` est declare par le socle E10.0 et reste SANS EMETTEUR : il nomme le fait « le client a remis ses fichiers », pas « un membre de l atelier a joint une piece ». L emettre a chaque depot interne noierait l evaluation d E10.15 sous le bruit du travail ordinaire. Il reste reserve a E10.20.
+         */
+        post: operations["confirmOrderFileUpload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/commercial-orders/{orderId}/files/{fileId}": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Rend un fichier de commande et son URL de telechargement signee.
+         *
+         *     UNE LECTURE, UNE URL, UN CLIC. L URL vaut **300 secondes**, meme valeur et meme motif que `QuoteDocument.download_url` (arbitrage Arnaud du 2026-09-09) : un telechargement est un clic, pas une session. Aucune valeur neuve n est inventee ici. L URL expiree se remplace en rappelant cette operation.
+         *
+         *     ELLE FORCE LE TELECHARGEMENT. Le parametre `download` du stockage est pose avec le nom d origine du fichier : le navigateur enregistre, il ne rend pas. C est ce qui rend acceptable le fait que le type MIME soit declare par le deposant et non prouve par le serveur (voir `confirmOrderFileUpload`).
+         *
+         *     LA VISIBILITE NE GOUVERNE RIEN ICI. Un membre de l espace lit `internal` comme `customer` : le cloisonnement que porte ce champ est celui de l ATELIER contre le CLIENT, et aucun client n atteint cette operation. Un jour ou une surface boutique existera, elle aura sa propre operation et sa propre chaine d autorisation — jamais un parametre sur celle-ci.
+         *
+         *     UN FICHIER SUPPRIME REND 404, definitivement. Sa ligne survit comme trace, ses octets ont ete detruits : il n y a plus rien a signer.
+         */
+        get: operations["getOrderFile"];
+        put?: never;
+        post?: never;
+        /**
+         * Supprime un fichier depose : les OCTETS sont detruits, la LIGNE survit comme trace.
+         *
+         *     LA SUPPRESSION EST REELLE COTE STOCKAGE, ET C EST LE POINT QUI COMPTE. « Je supprime ce fichier » ne peut pas vouloir dire « je le cache » : un BAT errone montre au client, un devis d un autre client depose par megarde, une piece d identite jointe par erreur — dans les trois cas, ce qui est attendu est que les octets cessent d exister, pas qu ils deviennent moins visibles. L objet de stockage est donc retire.
+         *
+         *     LA TRACE, ELLE, N EST PAS DETRUITE. La ligne reste en base avec `deleted_at`, `deleted_by` et tout ce que le fichier etait (nom, poids, type, deposant, visibilite au moment du retrait) : sur un document commercial, « quelqu un a retire le BAT que le client avait valide » est exactement le genre de fait auquel il faut pouvoir repondre. Ce contrat ne PUBLIE pas cette trace — aucune operation ne la rend — il garantit seulement qu elle n est pas perdue.
+         *
+         *     CE N EST DONC NI UN SOFT DELETE, NI UN HARD DELETE, et il faut le dire parce que les deux mots induiraient en erreur : c est une destruction du contenu doublee d une conservation de l enregistrement. Un fichier supprime ne compte plus dans le plafond de la commande.
+         *
+         *     IRREVERSIBLE, ET SANS RATTRAPAGE. Aucune operation ne restaure un fichier supprime, aucune n est prevue : les octets ne sont plus la. L interface DOIT donc confirmer avant d appeler.
+         *
+         *     RESERVE AU JETON UTILISATEUR, jamais joignable par cle de service. Creer est additif et reparable, detruire ne l est pas — une integration fautive ne doit pas pouvoir vider les fichiers d une commande au nom d un module.
+         */
+        delete: operations["deleteOrderFile"];
+        options?: never;
+        head?: never;
+        /**
+         * Change la VISIBILITE d un fichier deja depose, et rien d autre.
+         *
+         *     UN SEUL CHAMP EST MODIFIABLE, ET IL EST LE SEUL QUI LE MERITE. Le nom, le poids, le type et les octets sont ce qui a ete depose : les rendre editables ferait mentir la ligne sur le fichier. La visibilite, elle, est un JUGEMENT, et un jugement se corrige — « ce document ne devait pas etre montre au client » est l erreur la plus probable et la plus consequente de tout ce lot. Obliger a supprimer puis redeposer pour la reparer detruirait le fichier et sa trace de depot pour corriger une case a cocher.
+         *
+         *     `If-Match` EXIGEE (CA9). L `ETag` se lit sur `getOrderFile` ou sur la reponse de `confirmOrderFileUpload`. Le conflit rend 409 avec l etat courant : deux personnes qui basculent la meme case en meme temps ne doivent pas se croire d accord.
+         *
+         *     RESERVE AU JETON UTILISATEUR. Exposer un document a un client est un acte de divulgation ; l attribuer a `module:studio` ne laisserait personne pour en repondre. Voir la meme regle sur `confirmOrderFileUpload` et `deleteOrderFile`.
+         */
+        patch: operations["updateOrderFile"];
+        trace?: never;
+    };
+    "/document-pdf-templates": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Liste les gabarits PDF du tenant courant, `awaiting_upload` compris.
+         *
+         *     PAS DE PAGINATION, meme motif que `listProductionSteps` : c est une CONFIGURATION bornee, et `createDocumentPdfTemplate` refuse au-dela de 20 gabarits par tenant et par type de document (`document_pdf_template.limit_reached`) precisement pour que cette phrase reste vraie. Aucun `ETag` de collection non plus : aucune operation ne reecrit la collection en tant que TOUT — la concurrence se joue gabarit par gabarit, contrairement au catalogue d etapes de production que `reorderProductionSteps` reecrit d un bloc.
+         *
+         *     UN GABARIT `awaiting_upload` EST LISTE, et ce n est pas une fuite d etat interne : c est la seule facon pour l ecran de parametrage de proposer de REPRENDRE un import interrompu plutot que d en creer un doublon.
+         */
+        get: operations["listDocumentPdfTemplates"];
+        put?: never;
+        /**
+         * CREE un gabarit PDF et rend le BILLET D IMPORT qui permet de televerser le fond. Le gabarit nait `awaiting_upload` : il porte un nom, un type de document, et RIEN d autre — ni fichier, ni pages, ni carte de champs.
+         *
+         *     POURQUOI LES OCTETS NE PASSENT PAS PAR CETTE OPERATION. Le corps est du JSON, il ne contient pas le PDF. La facade rend une URL d import signee (`upload`), le navigateur y depose le fichier DIRECTEMENT, puis `confirmDocumentPdfTemplateUpload` fait valider le resultat par le serveur. Trois raisons, dans cet ordre : l enveloppe `{data, meta}` du CA6 ne sait pas transporter un binaire, la faire flechir pour ce seul cas couterait une derogation R5 permanente ; un PDF de plusieurs Mo traverserait un isolat Deno dont la memoire est bornee, alors qu il n a rien a y faire ; et un import en base64 dans du JSON gonfle la charge d un tiers pour rien. C est la symetrie exacte de la decision deja prise a la LECTURE (§8.13septies point 4, maintenue) : les octets ne transitent pas par la facade, ni dans un sens ni dans l autre.
+         *
+         *     CE QUI GARANTIT QUE LE DEPOT DIRECT N EST PAS UN TROU. Le bucket est PRIVE et n a AUCUNE policy `storage.objects` : seul le `service_role` de la facade y ecrit, l URL signee est donc la seule capacite emise, sur un CHEMIN impose par le serveur (`<tenant_id>/<template_id>.pdf`), avec une duree de vie courte. Le bucket porte lui-meme `allowed_mime_types: [application/pdf]` et un `file_size_limit`, donc le type et le poids sont tenus par le stockage, pas par le navigateur. Et surtout : tant que `confirmDocumentPdfTemplateUpload` n a pas RELU le fichier cote serveur, le gabarit reste `awaiting_upload` et AUCUNE generation ne peut l employer. Un octet depose n est jamais un octet accepte.
+         */
+        post: operations["createDocumentPdfTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/document-pdf-templates/{templateId}": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fiche d un gabarit : etat de l import, GEOMETRIE des pages, et URL signee du fond a afficher dans l editeur de coordonnees.
+         *
+         *     LA GEOMETRIE EST LA PIECE MAITRESSE de cette reponse. `pages` donne, page par page, la largeur et la hauteur en POINTS PDF telles que le serveur les a lues dans le fichier. C est ce referentiel — et lui seul — dans lequel les coordonnees de la carte des champs sont exprimees. L editeur affiche le fond a l echelle qui l arrange et convertit ; ce qu il ENREGISTRE est toujours en points, origine EN BAS A GAUCHE.
+         *
+         *     `background_url` est une URL SIGNEE de courte duree, servie par le stockage et non par la facade. Elle est emise APRES que l appartenance au tenant a ete etablie, jamais avant. Elle est absente tant que le gabarit est `awaiting_upload` : il n y a rien a montrer.
+         */
+        get: operations["getDocumentPdfTemplate"];
+        put?: never;
+        post?: never;
+        /**
+         * SUPPRIME un gabarit, sa carte de champs et son fichier de fond.
+         *
+         *     REFUSE des qu un document a ete genere avec lui (`document_pdf_template.in_use`). Motif : `quote_documents.template_id` est la SEULE trace de ce avec quoi une piece remise a un client a ete produite (§8.13septies point 3). Effacer le gabarit ferait de cette colonne un identifiant qui ne designe plus rien, sur des documents que le contrat promet par ailleurs de ne jamais regenerer. La voie normale, dans ce cas, est la desactivation (`PATCH { "is_active": false }`) : le gabarit disparait des choix sans effacer l historique.
+         *
+         *     Conservee malgre la desactivation, pour la meme raison que `deleteProductionStep` : sans elle, un gabarit importe par erreur — mauvais fichier, essai — resterait a jamais dans le parametrage.
+         */
+        delete: operations["deleteDocumentPdfTemplate"];
+        options?: never;
+        head?: never;
+        /**
+         * Modifie le nom d un gabarit, son etat d activation, ou le designe comme gabarit PAR DEFAUT de son type de document.
+         *
+         *     NE TOUCHE JAMAIS AU FICHIER. Remplacer le fond passe par un nouveau billet d import puis une confirmation — un `PATCH` qui accepterait un fichier ferait de cette operation deux choses differentes selon son corps, dont une capable d invalider silencieusement toute la carte des champs.
+         *
+         *     `is_default` : un seul gabarit par defaut par tenant ET par type de document ; le poser sur un gabarit en retire le drapeau au precedent dans la MEME transaction. Un gabarit `awaiting_upload` ou inactif ne peut pas devenir le defaut (409) — il serait choisi par la generation et n aurait rien a dessiner.
+         *
+         *     SYMETRIQUEMENT, `is_active: false` SUR LE GABARIT PAR DEFAUT lui retire ce role sans erreur — la desactivation n a pas de precondition, et surtout pas celle d avoir designe un remplacant. Voir `UpdateDocumentPdfTemplateCommand.is_active` pour le motif, qui tient a l echappatoire de la regle d echec de `sendQuote`.
+         */
+        patch: operations["updateDocumentPdfTemplate"];
+        trace?: never;
+    };
+    "/document-pdf-templates/{templateId}/upload-urls": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * EMET un nouveau billet d import pour un gabarit existant : reprise d un import interrompu, ou REMPLACEMENT du fond d un gabarit deja `ready`.
+         *
+         *     REPOND 200 ET NON 201, ET NE PREND PAS D `Idempotency-Key`. Un billet d import n est pas une ressource metier : c est une capacite a duree de vie courte, revocable par expiration. La rejouer DOIT rendre un billet NEUF — servir le billet memorise d une requete precedente reviendrait a rendre une capacite peut-etre deja expiree ou deja consommee, c est-a-dire exactement le contraire du service attendu. L idempotence protege ici contre rien : deux billets emis coup sur coup pointent le meme chemin, le second ecrase le premier, et aucun etat metier n a bouge.
+         *
+         *     LE CHEMIN N EST JAMAIS CHOISI PAR L APPELANT. Il vaut toujours `<tenant_id>/<template_id>.pdf`, forme par le serveur depuis le jeton et l identifiant de la ressource. Un chemin propose par le client serait une traversee de tenant offerte a la premiere faute de frappe.
+         */
+        post: operations["issueDocumentPdfTemplateUploadUrl"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/document-pdf-templates/{templateId}/uploads": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * CONFIRME un import : le serveur RELIT le fichier depose, le valide, en extrait la geometrie et fait passer le gabarit a `ready`.
+         *
+         *     C EST ICI, ET NULLE PART AILLEURS, QUE LE PDF EST ACCEPTE. Le serveur charge les octets avec sa propre credential, ouvre le document, compte les pages et releve la taille de chacune. Un fichier qui ne s ouvre pas, qui est chiffre, ou qui depasse le nombre de pages admis est REFUSE et l objet est retire du stockage : aucun etat intermediaire « importe mais illisible » n existe. Un controle de type ou de poids fait dans le navigateur n aurait aucune valeur ici — c est la regle generale du sprint, appliquee au seul endroit ou elle compte.
+         *
+         *     REMPLACER LE FOND D UN GABARIT DEJA `ready` : accepte, mais la GEOMETRIE fait loi. Si le nouveau fichier n a pas exactement le meme nombre de pages et les memes dimensions (a 1 point pres), la confirmation est refusee en 409 `document_pdf_template.geometry_changed`, SAUF si l appelant a pose `reset_fields: true` — auquel cas la carte des champs est effacee dans la meme transaction. Motif : une coordonnee est un point sur une page donnee ; changer la page sous les coordonnees deplace silencieusement chaque valeur imprimee, et personne ne s en apercoit avant qu un client recoive un devis dont le total chevauche le pied de page. Le contrat oblige donc l imprimeur a dire qu il accepte de tout repositionner.
+         */
+        post: operations["confirmDocumentPdfTemplateUpload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/document-pdf-templates/{templateId}/fields": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * LIT la carte de correspondance d un gabarit : ou chaque donnee du devis est imprimee sur le fond.
+         *
+         *     Trois familles, aux regles de dessin DIFFERENTES, et c est la seule chose que l editeur doit comprendre avant d afficher quoi que ce soit :
+         *     - `placements` — un champ, une position, une page. Dessine UNE fois. Les
+         *       champs de la famille `totals.` font exception : ils sont dessines sur
+         *       la DERNIERE page rendue, un total imprime page 1 pendant que les
+         *       lignes continuent page 2 etant simplement faux. Les champs de la
+         *       famille `page.` sont dessines sur TOUTES les pages rendues.
+         *
+         *     - `lines_block` — le tableau des lignes : une ancre, une hauteur de
+         *       ligne, un nombre de lignes par page, et des COLONNES. Il n est pas
+         *       representable comme un placement : son nombre de valeurs n est connu
+         *       qu au moment de la generation.
+         *
+         *     - rien d autre. Il n existe ni texte libre, ni image, ni trait : tout
+         *       ce qui est decoratif appartient au FOND, que l imprimeur maitrise
+         *       entierement dans son propre outil de creation.
+         */
+        get: operations["getDocumentPdfTemplateFields"];
+        /**
+         * REMPLACE la carte de correspondance ENTIERE d un gabarit.
+         *
+         *     REMPLACEMENT INTEGRAL, PAS DE CRUD PAR CHAMP, et c est un choix motive. L editeur est un plan : l imprimeur deplace huit etiquettes puis enregistre. Un `POST`/`PATCH`/`DELETE` par champ multiplierait les allers-retours au rythme de la souris, autoriserait des etats intermediaires ou un total est place et un sous-total ne l est plus, et rendrait la garde de concurrence inoperante — deux commerciaux editant le meme gabarit se seraient ecrases champ par champ sans qu aucun `If-Match` ne le voie. Meme parti que `replaceProjectTags` et `reorderProductionSteps`.
+         *
+         *     VALIDATION, ET CE QU ELLE REFUSE : une page qui n existe pas dans le fond, une coordonnee hors de la page declaree, un champ place deux fois, une colonne de lignes citant un champ qui n appartient pas a la famille `line.`, un bloc de lignes sans aucune colonne. Toutes en 422 : ce sont des cartes que la generation ne saurait pas dessiner, et l imprimeur doit l apprendre dans son editeur, pas six semaines plus tard sur le devis d un client.
+         *
+         *     UNE CARTE VIDE EST ACCEPTEE. Elle signifie « ce fond n imprime encore rien », etat de depart legitime. Ce qui n est pas accepte, c est une carte a moitie fausse.
+         */
+        put: operations["replaceDocumentPdfTemplateFields"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/quotes/{quoteId}/documents": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Rend le DOCUMENT PDF d un devis, cote atelier : son horodatage, son poids, son empreinte, et une URL de telechargement signee de courte duree.
+         *
+         *     LES OCTETS NE TRANSITENT PAS PAR LA FACADE. Servir `application/pdf` depuis `/api/v1` casserait l enveloppe `{data, meta}` du CA6 et exigerait une derogation R5 permanente ; ici il n y en a AUCUNE. L URL signee n est emise qu apres que la chaine d autorisation a statue.
+         *
+         *     PLURIEL PUREMENT FORMEL : `checkResourcePath` impose le pluriel en position de ressource, mais un devis n a qu UN document. Le dire plutot que de laisser croire a une collection.
+         *
+         *     AUCUNE GENERATION ICI. Le document est produit par `sendQuote`, une seule fois, et jamais recalcule : le gabarit du tenant est librement modifiable, un re-rendu produirait donc un papier a en-tete d aujourd hui sur un devis envoye il y a trois semaines. C est le constat (e) de §8.13septies, que le changement de moteur n a pas adouci — il l a aggrave, le fond etant desormais un fichier que l imprimeur remplace quand il veut.
+         */
+        get: operations["getQuoteDocument"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/storefront-quotes/{quoteId}/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Rend le DOCUMENT PDF d un devis au CLIENT, dans sa boutique.
+         *
+         *     Meme piece, meme octets, meme empreinte que cote atelier : c est le document unique, pas une seconde composition. Le client telecharge exactement ce que l atelier voit, ce qui est la seule facon qu une discussion sur « le devis que vous m avez envoye » ait un objet.
+         *
+         *     404 INDISCERNABLE sur toutes les causes — devis inconnu, devis d un autre client, devis d un autre espace, devis encore `draft`, devis sans document. Regle de b-1 decision 5, sans code distinct : la reponse ne doit rien apprendre a qui essaie des identifiants.
+         *
+         *     SESSION DELEGUEE : lecture autorisee, comme toute lecture du portail. Telecharger n engage pas le client.
+         */
+        get: operations["getStorefrontQuoteDocument"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export interface webhooks {
     "quote.converted": {
@@ -1439,7 +1867,13 @@ export interface webhooks {
         };
         get?: never;
         put?: never;
-        /** Les fichiers d une commande ont ete deposes. */
+        /**
+         * Les fichiers d une commande ont ete deposes PAR LE CLIENT.
+         *
+         *     DECLARE PAR LE SOCLE E10.0, TOUJOURS SANS EMETTEUR. E10.17 a livre le depot de fichiers cote ATELIER et ne publie deliberement PAS cet evenement : il nomme le fait « le client a remis ce qu on attendait de lui », celui qui debloque la production, pas « un membre a joint une piece a un dossier ». L emettre a chaque depot interne noierait l evaluation des notifications (E10.15) sous le bruit du travail ordinaire, et rendrait le signal inexploitable le jour ou il compterait vraiment.
+         *
+         *     Son emetteur sera E10.20 (lien public de depot), NON CADREE. Un consommateur ne doit donc rien attendre de cet evenement aujourd hui : il n en recevra aucun.
+         */
         post: operations["onOrderFilesSubmitted"];
         delete?: never;
         options?: never;
@@ -3660,6 +4094,512 @@ export interface components {
             /** @description Etape atteinte. C est la cle de selection attendue par E10.15 : un modele de notification se rattache a une etape, et ce champ dit laquelle vient d etre atteinte. */
             to_step_id: components["schemas"]["Uuid"];
         };
+        /**
+         * DocumentType
+         * @description Type de document commercial qu un gabarit sait servir. Enumeration ADDITIVE : `order` viendra avec le bon de commande (E10.19), sans qu un gabarit existant change de sens.
+         * @enum {string}
+         */
+        DocumentType: "quote";
+        /**
+         * DocumentPdfTemplateStatus
+         * @description Etat de l import du fond.
+         *
+         *     `awaiting_upload` — le gabarit existe, le fichier n a pas encore ete RELU et accepte par le serveur. Il peut deja y avoir des octets deposes au chemin d import : ils ne comptent pas tant que `confirmDocumentPdfTemplateUpload` ne les a pas valides. Un gabarit dans cet etat n est jamais employe par une generation et ne peut pas etre le gabarit par defaut.
+         *
+         *     `ready` — fichier lu, geometrie connue, gabarit utilisable.
+         *
+         *     AUCUN ETAT `rejected` : un fichier refuse ne laisse pas de trace, il est retire du stockage et le gabarit reste `awaiting_upload`. Un troisieme etat aurait oblige chaque ecran a distinguer « pas encore importe » de « importe et refuse » pour une seule et meme action de reparation — recommencer l import.
+         * @enum {string}
+         */
+        DocumentPdfTemplateStatus: "awaiting_upload" | "ready";
+        /**
+         * DocumentCoordinate
+         * @description Coordonnee ou dimension en POINTS PDF (1/72 pouce), le referentiel du fichier lui-meme. Origine EN BAS A GAUCHE de la page, `x` vers la droite, `y` vers le haut.
+         *
+         *     POURQUOI CE REFERENTIEL ET PAS CELUI DE L ECRAN. C est celui dans lequel le moteur DESSINE. Stocker des pixels CSS obligerait a convertir au moment de la generation, c est-a-dire a l endroit ou une erreur est irrattrapable — le document est deja parti chez le client. L editeur convertit UNE fois, au moment ou l imprimeur peut encore voir le resultat et corriger.
+         *
+         *     Arrondie a 2 decimales par le serveur (stockage `numeric(8,2)`) : un centieme de point est deja cent fois plus fin que ce que l oeil distingue, et une precision flottante non bornee rendrait deux cartes identiques comparables comme differentes.
+         */
+        DocumentCoordinate: number;
+        /**
+         * DocumentTextAlign
+         * @description Alignement du texte par rapport a l ancre. `left` — l ancre est le debut du texte. `right` — l ancre est sa fin : c est l alignement des MONTANTS, sans lequel une colonne de prix se decale a chaque chiffre de plus. `center` — l ancre est le milieu.
+         *
+         *     `right` et `center` exigent que la place disponible soit connue : ils ne sont acceptes que sur un placement portant `width`, ou sur une colonne de lignes (qui en porte une par construction).
+         * @enum {string}
+         */
+        DocumentTextAlign: "left" | "center" | "right";
+        /**
+         * DocumentFont
+         * @description Police de rendu, choisie dans une liste FERMEE.
+         *
+         *     CES NOMS DESIGNENT UN ROLE TYPOGRAPHIQUE, PAS UN FICHIER DE FONTE, et la nuance est ce qui rend cette enumeration stable. `helvetica` veut dire « lineale, graisse normale », `times-bold` « a empattements, grasse ». Le moteur les lie a de vraies polices au moment du rendu : les polices standard du format PDF si elles portent le repertoire francais, sinon une police libre EMBARQUEE de meme role (arbitrage Arnaud du 2026-09-09 — voir docs/api/CONVENTIONS.md §8.18 reserves (d)/(e)). Une carte enregistree aujourd hui reste donc valide quelle que soit l issue de cette mesure : c est le moteur qui change de fonte, jamais le contrat.
+         *
+         *     POURQUOI UNE LISTE FERMEE, ALORS QUE L IMPRIMEUR A SA CHARTE. Parce que sa charte est DEJA dans le fond qu il a dessine : titres, filets, logo, mentions legales en sont partie. Ce que Magrit ecrit par-dessus, ce sont des VALEURS — un nom, une quantite, un total. Televerser une fonte de marque est ECARTE et ne fait l objet d aucune story ouverte : il faudrait verifier une licence de diffusion par tenant et par fichier, sujet sans rapport avec la mise en page d un devis.
+         * @enum {string}
+         */
+        DocumentFont: "helvetica" | "helvetica-bold" | "helvetica-oblique" | "times-roman" | "times-bold" | "times-italic" | "courier" | "courier-bold";
+        /**
+         * DocumentColor
+         * @description Couleur du texte, en hexadecimal RVB.
+         * @example #111111
+         */
+        DocumentColor: string;
+        /**
+         * DocumentFieldId
+         * @description Identifiant d une donnee du devis positionnable UNE fois sur le fond. Enumeration FERMEE et ADDITIVE : c est le contrat entre l editeur de coordonnees (qui propose la liste a l imprimeur) et le moteur de generation (qui sait produire la valeur). Un identifiant inconnu est refuse en 422 plutot qu ignore — une etiquette placee qui n imprime jamais rien est le pire des retours.
+         *
+         *     QUATRE FAMILLES, AUX REGLES DE DESSIN DIFFERENTES :
+         *
+         *     - `quote.` et `customer.` — dessinees UNE fois, sur la page declaree par
+         *       le placement.
+         *
+         *     - `totals.` — dessinees UNE fois, sur la DERNIERE page rendue, quelle que
+         *       soit la page declaree. Un total imprime page 1 alors que les lignes
+         *       debordent page 2 serait faux.
+         *
+         *     - `page.` — dessinees sur TOUTES les pages rendues.
+         *
+         *     AUCUN CHAMP `emitter.` : l identite de l imprimeur est dans le FOND, c est precisement ce que l import de gabarit sert a obtenir. La reintroduire ici creerait deux sources pour la meme information, dont une modifiable sans que le fond bouge.
+         *
+         *     VALEUR ABSENTE = RIEN D IMPRIME. Jamais de tiret, jamais de zero, jamais d espace reserve : un fond bien dessine ne montre pas ses trous. Cela vaut aussi pour les champs masques par `show_discounts: false` (`totals.global_discount`, `totals.lines_subtotal`, `line.discount_rate`, `line.price_before_discount`) — la regle de filtrage est appliquee par le SERVEUR, comme en E10.10b-1 decision 3, jamais par la carte.
+         * @enum {string}
+         */
+        DocumentFieldId: "quote.number" | "quote.issued_at" | "quote.valid_until" | "quote.customer_reference" | "customer.company_name" | "customer.contact_name" | "customer.billing_address_block" | "customer.billing_line1" | "customer.billing_line2" | "customer.billing_postal_code" | "customer.billing_city" | "customer.billing_country" | "customer.email" | "customer.phone" | "customer.siret" | "customer.vat_number" | "totals.lines_subtotal" | "totals.global_discount" | "totals.net_total" | "totals.vat_rate" | "totals.vat_amount" | "totals.total_incl_tax" | "page.number" | "page.count" | "page.number_of_count";
+        /**
+         * DocumentLineFieldId
+         * @description Identifiant d une donnee de LIGNE de devis, positionnable en COLONNE du bloc de lignes. Distincte de `DocumentFieldId` par nature, pas par commodite : une valeur de ligne n a pas de position propre, elle a une colonne, et la meme colonne sert autant de fois qu il y a de lignes.
+         *
+         *     Noms repris tels quels de `StorefrontQuoteLine`, deja publie : le document imprime ce que le client lit a l ecran, aux memes noms, sans traduction intermediaire ou une divergence pourrait s installer.
+         * @enum {string}
+         */
+        DocumentLineFieldId: "line.position" | "line.label" | "line.product_config_summary" | "line.quantity" | "line.price_before_discount" | "line.discount_rate" | "line.price";
+        /**
+         * DocumentFieldPlacement
+         * @description Position d une donnee sur le fond : « le total va ici ». C est l unite de travail de l editeur de coordonnees.
+         */
+        DocumentFieldPlacement: {
+            field: components["schemas"]["DocumentFieldId"];
+            /**
+             * Format: int32
+             * @description Page du FOND, indexee a partir de 0. Doit exister dans `DocumentPdfTemplateDetail.pages`, sans quoi la carte est refusee en 422. Sans effet pour les familles `totals.` et `page.`, dont la page de rendu est imposee par la regle de dessin — il reste exige pour que l editeur sache ou afficher l etiquette.
+             */
+            page_index: number;
+            x: components["schemas"]["DocumentCoordinate"];
+            /** @description Ordonnee de la LIGNE DE BASE du texte (le bas des lettres sans jambage), pas du haut de la boite. C est ce que le moteur de dessin attend ; l editeur doit faire la conversion, faute de quoi tout le document sera decale de la hauteur d une police. */
+            y: components["schemas"]["DocumentCoordinate"];
+            /** @description Largeur disponible en points. Un texte plus long est coupe a cette largeur (ou replie sur `max_lines` lignes si elle vaut plus de 1). EXIGE des que `align` vaut `center` ou `right` : sans largeur, il n y a rien par rapport a quoi aligner. Absente = pas de limite, texte ecrit tel quel a partir de `x`. */
+            width?: components["schemas"]["DocumentCoordinate"] | null;
+            /**
+             * Format: int32
+             * @description Nombre maximal de lignes du repli. 1 = pas de repli, coupe net. Au-dela, le texte est replie dans `width` et les lignes suivantes descendent de `font_size * 1.2`. Utile pour `customer.billing_address_block`, inutile ailleurs.
+             * @default 1
+             */
+            max_lines: number;
+            align: components["schemas"]["DocumentTextAlign"];
+            font: components["schemas"]["DocumentFont"];
+            /** @description Corps en points. */
+            font_size: number;
+            color: components["schemas"]["DocumentColor"];
+        };
+        /**
+         * DocumentLinesColumn
+         * @description Colonne du tableau des lignes. Sa `width` est obligatoire, contrairement a celle d un placement : une colonne sans largeur laisserait un libelle long deborder sur le prix voisin, et personne ne le verrait avant qu un client recoive le document.
+         */
+        DocumentLinesColumn: {
+            field: components["schemas"]["DocumentLineFieldId"];
+            x: components["schemas"]["DocumentCoordinate"];
+            width: components["schemas"]["DocumentCoordinate"];
+            align: components["schemas"]["DocumentTextAlign"];
+            font: components["schemas"]["DocumentFont"];
+            font_size: number;
+            color: components["schemas"]["DocumentColor"];
+        };
+        /**
+         * DocumentLinesBlock
+         * @description Le tableau des lignes du devis : la seule zone dont la HAUTEUR n est pas connue a l avance.
+         *
+         *     DEBORDEMENT — la question que ce lot devait trancher. Un fond est un fichier plat : il ne s allonge pas. Quand un devis a plus de lignes que `rows_per_page`, le moteur AJOUTE une page en RECOPIANT la page `continuation_page_index` du fond, et continue d y ecrire des lignes au meme endroit. Autant de fois que necessaire. Les champs `totals.` sont alors dessines sur la derniere page ainsi produite, et les champs `page.` sur chacune.
+         *
+         *     Les deux autres issues ont ete ecartees : REFUSER l envoi d un devis trop long ferait dependre une operation commerciale de la mise en page d un fond, et TRONQUER produirait un document contractuel incomplet sans que personne ne le sache. Recopier une page est la seule qui ne perd rien.
+         */
+        DocumentLinesBlock: {
+            /**
+             * Format: int32
+             * @description Page du fond ou commence le tableau.
+             */
+            page_index: number;
+            /** @description Ordonnee de la ligne de base de la PREMIERE ligne. Les suivantes descendent de `row_height`. */
+            first_row_baseline_y: components["schemas"]["DocumentCoordinate"];
+            /** @description Pas vertical entre deux lignes, en points. */
+            row_height: number;
+            /**
+             * Format: int32
+             * @description Nombre de lignes ecrites avant de passer a une page de continuation. Refuse en 422 si `first_row_baseline_y - (rows_per_page - 1) * row_height` sort de la page : la carte promettrait alors d ecrire sous le bord du papier.
+             */
+            rows_per_page: number;
+            /** @description Page du fond recopiee en cas de debordement. `null` = la page `page_index` elle-meme. Un fond a deux pages dont la seconde est une page de suite sans en-tete la designe ici. */
+            continuation_page_index?: number | null;
+            /** @description Colonnes du tableau, au moins une. Un meme champ n apparait qu une fois. */
+            columns: components["schemas"]["DocumentLinesColumn"][];
+        };
+        /**
+         * DocumentPdfTemplateFieldMap
+         * @description Carte de correspondance complete d un gabarit. C est l objet que l editeur charge, modifie et renvoie EN ENTIER.
+         */
+        DocumentPdfTemplateFieldMap: {
+            template_id: components["schemas"]["Uuid"];
+            placements: components["schemas"]["DocumentFieldPlacement"][];
+            /** @description `null` sur un gabarit qui n imprime pas de tableau de lignes — un accuse de reception, une page de garde. La generation d un devis sans bloc de lignes produit un document sans lignes : c est un choix de l imprimeur, pas une erreur. */
+            lines_block: components["schemas"]["DocumentLinesBlock"] | null;
+        };
+        /**
+         * ReplaceDocumentPdfTemplateFieldsCommand
+         * @description Carte a substituer a la carte courante. Ce qui n y figure pas est SUPPRIME : c est un remplacement, pas une fusion.
+         */
+        ReplaceDocumentPdfTemplateFieldsCommand: {
+            placements: components["schemas"]["DocumentFieldPlacement"][];
+            lines_block: components["schemas"]["DocumentLinesBlock"] | null;
+        };
+        /**
+         * DocumentPdfTemplatePage
+         * @description Geometrie d une page du fond, telle que le SERVEUR l a lue dans le fichier — jamais telle que le navigateur l a estimee.
+         */
+        DocumentPdfTemplatePage: {
+            /** Format: int32 */
+            index: number;
+            width_pt: components["schemas"]["DocumentCoordinate"];
+            height_pt: components["schemas"]["DocumentCoordinate"];
+        };
+        /**
+         * DocumentPdfTemplate
+         * @description Gabarit PDF d un tenant : un fond apporte par l imprimeur, sur lequel Magrit ecrit les valeurs du devis.
+         *
+         *     NE PAS CONFONDRE AVEC `quote_templates` (facade historique, `/api/v1/tenants/{tenantId}/quote-templates`), qui decrit un gabarit HTML imprimable PAR UTILISATEUR — identite d emetteur, couleurs, police CSS. Les deux notions ne se recouvrent pas : l une compose une page web, l autre habille un fichier fourni. Le nom, le porteur (tenant contre utilisateur) et la facade different pour cette raison. §8.18 dit ce qu il advient de l ancienne.
+         */
+        DocumentPdfTemplate: {
+            id: components["schemas"]["Uuid"];
+            document_type: components["schemas"]["DocumentType"];
+            /** @description Nom donne par l imprimeur, unique dans le tenant pour ce type. */
+            name: string;
+            status: components["schemas"]["DocumentPdfTemplateStatus"];
+            /** @description Gabarit employe par la generation quand rien d autre n est designe. Un seul par tenant et par type de document. */
+            is_default: boolean;
+            /** @description `false` retire le gabarit des choix SANS effacer l historique des documents produits avec lui. Ce n est pas un effacement logique : le gabarit reste liste, reste lisible, se reactive. */
+            is_active: boolean;
+            /** @description Nombre de pages du fond. `null` tant que le fichier n a pas ete valide. */
+            page_count: number | null;
+            /** @description Poids du fichier accepte, en octets. `null` avant validation. */
+            byte_size: number | null;
+            created_at: components["schemas"]["Timestamp"];
+            updated_at: components["schemas"]["Timestamp"];
+        };
+        /**
+         * DocumentPdfTemplateDetail
+         * @description Gabarit complet : geometrie page par page et acces au fond, ce dont l editeur de coordonnees a besoin pour afficher quoi que ce soit.
+         */
+        DocumentPdfTemplateDetail: {
+            id: components["schemas"]["Uuid"];
+            document_type: components["schemas"]["DocumentType"];
+            name: string;
+            status: components["schemas"]["DocumentPdfTemplateStatus"];
+            is_default: boolean;
+            is_active: boolean;
+            page_count: number | null;
+            byte_size: number | null;
+            created_at: components["schemas"]["Timestamp"];
+            updated_at: components["schemas"]["Timestamp"];
+            /** @description Vide tant que le gabarit est `awaiting_upload`. C est le referentiel des coordonnees de la carte : toute coordonnee est validee contre CES dimensions. */
+            pages: components["schemas"]["DocumentPdfTemplatePage"][];
+            /** @description Empreinte du fichier accepte, en hexadecimal minuscule. Sert a constater qu un fond a change, jamais a autoriser quoi que ce soit. */
+            sha256: string | null;
+            /** @description Vrai des qu au moins un placement ou un bloc de lignes est enregistre. Evite a l ecran de parametrage de charger la carte entiere pour savoir s il doit afficher « a configurer ». */
+            has_field_map: boolean;
+            /** @description URL SIGNEE et de courte duree du fond, servie par le stockage. `null` tant que le gabarit est `awaiting_upload`. Elle est une capacite au porteur : ne pas la journaliser, ne pas la mettre en cache au-dela de son expiration. */
+            background_url: string | null;
+            /** @description Instant d expiration de `background_url` : **900 secondes** apres l emission (arbitrage Arnaud du 2026-09-09). Trois fois la duree d une URL de telechargement, pour une raison precise — poser quinze champs a la souris est une SESSION D EDITION, pas un clic, et un fond qui disparait au milieu du travail ferait perdre le placement en cours. L editeur doit neanmoins savoir la renouveler (relecture de `getDocumentPdfTemplate`) plutot que supposer qu elle tiendra. */
+            background_url_expires_at: components["schemas"]["Timestamp"] | null;
+        };
+        /**
+         * DocumentPdfTemplateUploadTicket
+         * @description Billet d import : la capacite, bornee dans le temps et dans le chemin, de deposer UN fichier de fond. Ce n est pas une ressource metier — elle n est ni listee, ni relisible, ni revocable autrement que par expiration.
+         */
+        DocumentPdfTemplateUploadTicket: {
+            /**
+             * Format: uri
+             * @description URL de depot signee.
+             */
+            url: string;
+            /** @description Jeton du depot, pour les clients qui passent par le SDK de stockage (`uploadToSignedUrl(path, token, file)`) plutot que par un `PUT` direct sur `url`. */
+            token: string;
+            /** @description Chemin impose par le serveur, `<tenant_id>/<template_id>.pdf`. Rendu pour que le client puisse le passer au SDK, jamais pour qu il le choisisse. */
+            path: string;
+            /**
+             * @description Type a poser sur le depot. Le bucket n en accepte aucun autre : le controle est tenu par le stockage, pas par le navigateur.
+             * @enum {string}
+             */
+            content_type: "application/pdf";
+            /**
+             * Format: int64
+             * @description Plafond de poids accepte par le bucket, en octets. Rendu pour que l interface puisse le dire AVANT le depot — c est du confort, la barriere reste cote serveur.
+             */
+            max_byte_size: number;
+            /**
+             * @description Echeance REELLE du billet, telle que le stockage l a emise.
+             *
+             *     SEULE DES TROIS DUREES SIGNEES DU CONTRAT A NE PAS ETRE CHOISIE PAR MAGRIT, et il faut le dire plutot que d annoncer une valeur qu on ne tient pas : `createSignedUploadUrl(path, { upsert })` n accepte AUCUN parametre d expiration dans le `@supabase/storage-js` 2.104.1 installe (verifie sur sa signature). La plateforme emet aujourd hui 7200 s ; ce champ rend ce qu elle a emis, pas un voeu.
+             *
+             *     POURQUOI CE N EST PAS LA FRONTIERE DE SECURITE, et pourquoi ces 7200 s sont neanmoins acceptables : un billet ne donne que le droit de DEPOSER des octets a un chemin impose, dans un bucket prive, sur un gabarit qui reste `awaiting_upload`. Des octets deposes ne comptent QUE si `confirmDocumentPdfTemplateUpload` les relit — et cette operation re-verifie l authentification ET la capability `can_manage_document_templates`. Un billet perime ou egare ne peut donc modifier aucun etat que Magrit lise.
+             *
+             *     REGLE DE CLIENT, elle opposable : ne pas conserver un billet au-dela de **600 secondes**. C est la duree produit retenue (choisir un fichier, puis transferer jusqu a 10 Mo sur une liaison mediocre), entre les 300 s d un telechargement et les 900 s d une session d edition ; au-dela, en redemander un par `issueDocumentPdfTemplateUploadUrl`, qui ne coute rien. Le jour ou le SDK acceptera une expiration, c est cette valeur que la facade demandera — elle est fixee ici pour n avoir pas a etre rearbitree.
+             */
+            expires_at: components["schemas"]["Timestamp"];
+        };
+        /**
+         * DocumentPdfTemplateCreated
+         * @description Reponse de creation : le gabarit et son premier billet d import, rendus ensemble pour qu un ecran n ait pas a enchainer deux appels avant de pouvoir proposer un fichier.
+         */
+        DocumentPdfTemplateCreated: {
+            template: components["schemas"]["DocumentPdfTemplateDetail"];
+            upload: components["schemas"]["DocumentPdfTemplateUploadTicket"];
+        };
+        /**
+         * CreateDocumentPdfTemplateCommand
+         * @description Creation d un gabarit. Ne porte NI fichier, NI coordonnee : le fond arrive par le billet d import, les coordonnees par l editeur.
+         */
+        CreateDocumentPdfTemplateCommand: {
+            name: string;
+            /** @description Absent -> `quote`, seul type servi aujourd hui. */
+            document_type?: components["schemas"]["DocumentType"];
+            /**
+             * @description Demande a faire de ce gabarit le defaut de son type DES qu il sera `ready`. Le drapeau n est pose qu a la validation de l import : un gabarit `awaiting_upload` par defaut serait choisi par la generation et n aurait rien a dessiner.
+             * @default false
+             */
+            is_default: boolean;
+        };
+        /**
+         * UpdateDocumentPdfTemplateCommand
+         * @description Modification partielle. Au moins un champ. Ne touche jamais au fichier ni a la carte de champs.
+         */
+        UpdateDocumentPdfTemplateCommand: {
+            name?: string;
+            /** @description `true` designe ce gabarit comme defaut de son type et retire le drapeau au precedent dans la meme transaction. `false` le retire sans en designer un autre : le tenant se retrouve alors SANS gabarit par defaut, et ses devis repartent sans piece jointe jusqu a ce qu il en designe un. C est un geste reversible et sans perte — les documents deja produits restent intacts —, mais il n est pas neutre, et l interface gagne a le dire avant de l appliquer. */
+            is_default?: boolean;
+            /**
+             * @description `false` retire le gabarit des choix sans effacer l historique des documents deja produits avec lui.
+             *
+             *     DESACTIVER LE GABARIT PAR DEFAUT LUI RETIRE AUSSI CE ROLE, dans la meme transaction et sans erreur : le tenant se retrouve sans defaut, ses devis repartent sans piece jointe, et rien d autre ne bouge. L invariant « un gabarit par defaut est pret ET actif » ne peut pas etre satisfait autrement.
+             *
+             *     L ISSUE INVERSE — refuser la desactivation tant qu un autre gabarit n a pas ete designe — a ete EXAMINEE ET ECARTEE. Elle mettrait un tenant qui n a qu UN gabarit dans l impossibilite de le desactiver, et surtout elle detruirait l echappatoire sur laquelle repose la regle d echec de `sendQuote` (reponse 500) : si la production echoue sur le seul gabarit du tenant, `is_active: false` est ce qui lui permet de continuer a envoyer ses devis sans attendre un correctif. Une precondition ici transformerait une panne de rendu en blocage complet de l envoi.
+             */
+            is_active?: boolean;
+        };
+        /**
+         * ConfirmDocumentPdfTemplateUploadCommand
+         * @description Confirmation d un depot. Le corps ne porte pas le fichier : le serveur va le lire lui-meme au chemin qu il a impose.
+         */
+        ConfirmDocumentPdfTemplateUploadCommand: {
+            /**
+             * @description Autorise l effacement de la carte de champs si le nouveau fond n a pas la geometrie de l ancien. Sans ce drapeau, un changement de geometrie est refuse en 409 plutot que d appliquer des coordonnees a une page qui n est plus la meme.
+             * @default false
+             */
+            reset_fields: boolean;
+        };
+        /**
+         * QuoteDocument
+         * @description Le PDF d un devis : une piece produite UNE FOIS, a l envoi, stockee et jamais regeneree.
+         *
+         *     POURQUOI PAS DE RE-RENDU, redit ici parce que c est la propriete la plus contre-intuitive du contrat : le fond et la carte de champs appartiennent au tenant et changent quand il veut ; les lignes du devis, elles, sont figees des `sent`. Un re-rendu produirait donc un document au papier a en-tete d aujourd hui pour un envoi d il y a trois semaines. Le PDF stocke EST le document de reference — il n en existe pas de seconde description.
+         *
+         *     `sha256` sert a constater qu il s agit du meme fichier d une lecture a l autre. Il ne se REVERIFIE pas par un nouveau rendu : deux generations du meme devis ne donnent pas le meme octet (horodatages internes au format PDF).
+         */
+        QuoteDocument: {
+            quote_id: components["schemas"]["Uuid"];
+            /** @description Gabarit employe. JAMAIS `null` : un document n existe que s il a ete produit sur un gabarit du tenant, il n y a pas de gabarit de repli fourni par Magrit (arbitrage Arnaud du 2026-09-09). Le gabarit ne peut pas non plus disparaitre sous le document — `deleteDocumentPdfTemplate` refuse en 409 des qu une piece a ete produite. Trace de production, jamais un pointeur a suivre pour reconstituer la piece. */
+            template_id: components["schemas"]["Uuid"];
+            /** @description Instant de la generation. Il COINCIDE avec la date de premiere transmission par construction, la generation etant faite dans l operation d envoi et nulle part ailleurs. */
+            generated_at: components["schemas"]["Timestamp"];
+            /** Format: int64 */
+            byte_size: number;
+            sha256: string;
+            /** @enum {string} */
+            content_type: "application/pdf";
+            /**
+             * Format: int32
+             * @description Nombre de pages REELLEMENT produites, pages de continuation comprises. Peut donc depasser le nombre de pages du fond.
+             */
+            page_count: number;
+            /**
+             * Format: uri
+             * @description URL signee de courte duree, servie par le stockage. Capacite au porteur : ne pas la journaliser, ne pas la republier.
+             */
+            download_url: string;
+            /** @description `generated_at` n a rien a voir ici : cette echeance est celle de l URL, pas du document. **300 secondes** apres l emission (arbitrage Arnaud du 2026-09-09) — un telechargement est un CLIC, pas une session. Une URL expiree se remplace en rappelant l operation ; la conserver plus longtemps ne rendrait service qu a qui l aurait recopiee ailleurs. */
+            download_url_expires_at: components["schemas"]["Timestamp"];
+        };
+        /**
+         * OrderFileVisibility
+         * @description A qui ce fichier est destine. DEUX VALEURS, ET LE MOT « PUBLIC » N EN EST PAS UNE — c est une decision de vocabulaire, pas de style.
+         *
+         *     Dans ce depot, `public` a deja un sens PRECIS ET DIFFERENT : c est l attribut d un bucket de stockage lisible par un navigateur ANONYME via CDN (`shop_backgrounds`, `product_mockups`). Aucun fichier de commande n est dans ce cas, et aucun ne le sera : le bucket est prive, sans policy, et chaque lecture passe par une URL signee de courte duree emise apres une verification d autorisation. Reprendre le mot du backlog aurait installe deux sens contradictoires du meme terme dans un seul schema.
+         *
+         *     `internal` — atelier seulement. C est le DEFAUT, et la seule valeur qu on obtienne sans la demander : ferme par defaut, comme les scopes de cle de service (§3.1). Exposer un document doit etre un geste, jamais un oubli.
+         *
+         *     `customer` — destine au client. INTENTION ENREGISTREE, CAPACITE INEXISTANTE, et il faut le lire litteralement : au jour ou ce schema est publie, aucun client ne peut lire aucun fichier de commande, quelle que soit cette valeur. Il n existe ni ressource `/storefront-orders`, ni vue portail sur `commercial_orders`. Le consommateur de cette intention sera E10.20 (lien public de depot), NON CADREE, ou une future surface boutique. Un integrateur ne doit RIEN inferer de ce champ quant a ce qu un client voit : la reponse est « rien ».
+         *
+         *     Liste ADDITIVE : une story ulterieure peut ajouter une valeur (par exemple une visibilite limitee a un sous-traitant), jamais en retirer.
+         * @enum {string}
+         */
+        OrderFileVisibility: "internal" | "customer";
+        /**
+         * OrderFile
+         * @description Un fichier rattache a une commande : sa metadonnee, son rattachement facultatif a une ligne, sa visibilite et son deposant. PAS ses octets, PAS d URL — voir `OrderFileDetail`.
+         *
+         *     LE FICHIER APPARTIENT A LA COMMANDE. `order_id` porte la propriete, la portee de securite et le chemin de stockage. `order_line_id` n est qu un rattachement d AFFICHAGE, nullable : il permet a la fiche commande de grouper par item (E10.16, CA5 amende) sans rendre irrepresentable la piece qui concerne la commande entiere.
+         *
+         *     UNE LIGNE VIVANTE, TOUJOURS. Ce schema ne decrit jamais un fichier supprime : aucune operation n en rend, et `deleted_at` n est pas publie. La trace de suppression existe en base et sert l audit, elle n est pas une donnee d ecran.
+         */
+        OrderFile: {
+            id: components["schemas"]["Uuid"];
+            /** @description Commande porteuse. Recopie dans la reponse alors qu il est deja dans le chemin : une collection dont les elements ne portent pas leur parent oblige l appelant a le reconstituer de memoire des qu il en agrege deux. */
+            order_id: components["schemas"]["Uuid"];
+            /**
+             * @description Ligne de commande concernee, ou `null` quand le fichier concerne la commande entiere (bon de livraison, echange de courriel, bon a tirer global).
+             *
+             *     GARANTI SUR LA MEME COMMANDE. Une ligne d une autre commande est refusee en 422 `order_file.line_not_found`, et la base porte la meme garde par cle etrangere composite `(order_id, order_line_id)` — pas seulement la facade. Un appelant peut donc grouper sans verifier.
+             *
+             *     `required` et nullable, pas optionnel : « ce fichier ne vise aucun poste en particulier » est un fait a rendre, pas une permission d omettre la cle.
+             */
+            order_line_id: components["schemas"]["Uuid"] | null;
+            /**
+             * @description Nom d origine, fourni par le deposant a la confirmation. SEUL nom du fichier : il ne figure PAS dans le chemin de stockage, qui n est forme que d identifiants. C est lui que l URL de telechargement repose (`download=<filename>`), donc lui que l utilisateur retrouvera sur son disque.
+             *
+             *     Ce n est pas une cle : deux fichiers d une meme commande peuvent porter le meme nom, et c est normal — « BAT.pdf » depose deux fois a deux semaines d intervalle est deux fichiers, pas une collision.
+             */
+            filename: string;
+            /**
+             * @description Type MIME tel que le STOCKAGE l a enregistre au depot. DECLARE PAR LE DEPOSANT, PAS PROUVE PAR LE SERVEUR : aucune inspection de contenu n est faite. Un consommateur ne doit donc jamais s en servir pour decider d un rendu en ligne — le contrat force le telechargement precisement pour cette raison.
+             *
+             *     UNE ARCHIVE PEUT SE PRESENTER SOUS DEUX TYPES, `application/zip` ou `application/x-zip-compressed`, selon le systeme du deposant. Une interface qui choisit une icone ou un libelle doit traiter les DEUX comme « archive » ; n en reconnaitre qu un afficherait « fichier inconnu » a une moitie des utilisateurs.
+             */
+            content_type: string;
+            /**
+             * Format: int64
+             * @description Taille reelle de l objet, relevee au stockage. Plafonnee a 50 Mo : ce lot porte les ECHANGES COURANTS d une commande, pas le fichier de production haute resolution, renvoye a E10.20 (arbitrage Arnaud du 2026-09-09).
+             */
+            byte_size: number;
+            visibility: components["schemas"]["OrderFileVisibility"];
+            /** @description Instant de la CONFIRMATION, pas du televersement : ce sont deux gestes distincts, et seul le second fait exister le fichier. */
+            deposited_at: components["schemas"]["Timestamp"];
+            /**
+             * @description Utilisateur Magrit qui a confirme le depot, ou `null`. Meme modele d auteur qu `OrderStepChange` (E10.14) : `null` ne signifie PAS « pas d auteur », mais « pas d auteur UTILISATEUR ».
+             *
+             *     AUJOURD HUI TOUJOURS RENSEIGNE, parce que le depot est reserve au jeton utilisateur. Le champ est nullable pour une raison precise et non pour la symetrie : E10.20 fera deposer un fichier par un CLIENT via un lien public, qui n est pas un `auth.users` — la forme l accueillera sans changement de schema. Et un compte supprime depuis ramene la valeur a `null` sans effacer le libelle.
+             */
+            deposited_by: components["schemas"]["Uuid"] | null;
+            /**
+             * @description Libelle FIGE de l auteur au moment du depot (nom ou courriel du membre). Il survit a la suppression du compte, ce qui est sa raison d etre.
+             *
+             *     NE JAMAIS L ANALYSER pour en deduire le type d auteur. Un consommateur qui aurait besoin de distinguer un membre d un client recevra un champ dedie, ajoute de facon additive — meme regle qu `OrderStepChange.actor_label`.
+             */
+            deposited_by_label: string | null;
+            /** @description Derniere modification de la LIGNE, jamais du fichier — les octets ne changent pas. Aujourd hui, seule la visibilite peut la faire bouger. Source de l `ETag` exige par `updateOrderFile`. */
+            updated_at: components["schemas"]["Timestamp"];
+        };
+        /**
+         * OrderFileDetail
+         * @description `OrderFile` plus l URL de telechargement signee. Schema APLATI plutot que compose par `allOf`, meme raison que `CommercialOrderDetail` : combine a `additionalProperties: false`, un `allOf` ferait rejeter les deux champs propres par le membre `OrderFile`.
+         *
+         *     RENDU PAR `getOrderFile` SEULEMENT. La liste ne le rend pas : signer une URL par element reviendrait a emettre autant de capacites au porteur que la commande compte de fichiers, pour un ecran qui n en utilisera qu une.
+         */
+        OrderFileDetail: {
+            id: components["schemas"]["Uuid"];
+            order_id: components["schemas"]["Uuid"];
+            order_line_id: components["schemas"]["Uuid"] | null;
+            filename: string;
+            content_type: string;
+            /** Format: int64 */
+            byte_size: number;
+            visibility: components["schemas"]["OrderFileVisibility"];
+            deposited_at: components["schemas"]["Timestamp"];
+            deposited_by: components["schemas"]["Uuid"] | null;
+            deposited_by_label: string | null;
+            updated_at: components["schemas"]["Timestamp"];
+            /**
+             * Format: uri
+             * @description URL signee de courte duree. CAPACITE AU PORTEUR : quiconque la detient telecharge le fichier, sans jeton et sans appartenance a l espace. Ne pas la journaliser, ne pas la republier, ne pas la mettre dans une URL de page.
+             *
+             *     ELLE FORCE LE TELECHARGEMENT (`download=<filename>`), jamais un rendu en ligne. C est la contrepartie du fait que le type MIME est declare par le deposant et non verifie : le navigateur enregistre le fichier, il ne l interprete pas dans l origine de l application.
+             */
+            download_url: string;
+            /**
+             * @description **300 secondes** apres l emission. MEME VALEUR ET MEME MOTIF que `QuoteDocument.download_url_expires_at` (arbitrage Arnaud du 2026-09-09) : un telechargement est un CLIC, pas une session. Aucune duree neuve n a ete inventee pour ce lot — les trois durees signees du contrat restent 300 s (telechargement), 900 s (fond dans l editeur de gabarit) et le billet d import, subi, dont la regle de client est 600 s.
+             *
+             *     Une URL expiree se remplace en rappelant `getOrderFile`, jamais en la conservant plus longtemps.
+             */
+            download_url_expires_at: components["schemas"]["Timestamp"];
+        };
+        /**
+         * OrderFileUploadTicket
+         * @description Billet de depot : la capacite, bornee dans le temps et dans le chemin, de deposer UN fichier sur UNE commande. Ce n est pas une ressource metier — il n est ni liste, ni relisible, ni revocable autrement que par expiration.
+         *
+         *     IL ALLOUE UN IDENTIFIANT SANS CREER DE LIGNE. `file_id` designe, apres confirmation, le fichier ; avant, il ne designe rien et `getOrderFile` rend 404 dessus. C est ce qui evite les ressources fantomes « en attente de fichier » qu aurait produites une creation prealable.
+         */
+        OrderFileUploadTicket: {
+            /** @description Identifiant alloue par le SERVEUR pour ce depot. A repasser tel quel a `confirmOrderFileUpload`. Un identifiant que l appelant aurait choisi serait un chemin de stockage qu il choisit. */
+            file_id: components["schemas"]["Uuid"];
+            /**
+             * Format: uri
+             * @description URL de depot signee. Un `PUT` nu suffit.
+             */
+            url: string;
+            /** @description Jeton du depot, pour les clients qui passent par le SDK de stockage (`uploadToSignedUrl(path, token, file)`) plutot que par un `PUT` direct sur `url`. La SPA n emprunte PAS ce chemin : importer le SDK Supabase dans une UI de module fait echouer `modular-ui-boundaries.test.ts`, et a juste titre. */
+            token: string;
+            /** @description Chemin impose par le serveur, `<tenant_id>/<order_id>/<file_id>`, SANS extension. Rendu pour que le client puisse le passer au SDK, jamais pour qu il le choisisse. Le nom d origine du fichier n est pas dans le chemin : il est une donnee de la ligne, et l URL de telechargement le repose elle-meme. */
+            path: string;
+            /**
+             * Format: int64
+             * @description Plafond de poids accepte par le bucket, en octets. Rendu pour que l interface puisse le dire AVANT le televersement — c est du confort, la barriere reste cote stockage et cote serveur.
+             */
+            max_byte_size: number;
+            /**
+             * @description Types MIME que le bucket accepte. Rendu pour la meme raison que `max_byte_size` : permettre a l interface de filtrer le selecteur de fichiers, pas pour deplacer le controle dans le navigateur.
+             *
+             *     LISTE SERVIE A CE JOUR : `application/pdf`, `image/jpeg`, `image/png`, `image/webp`, `image/tiff`, `application/zip` et `application/x-zip-compressed`. Elle est RENDUE A L EXECUTION et non figee au schema, precisement pour qu un elargissement ne soit pas un changement de contrat.
+             *
+             *     POURQUOI DEUX TYPES POUR UNE SEULE ARCHIVE, ET CE QU IL FAUT EN FAIRE. Le type qu un navigateur pose sur un fichier `.zip` depend du SYSTEME D EXPLOITATION, pas du navigateur : `application/zip` d un cote, `application/x-zip-compressed` de l autre, et parfois rien du tout. Les deux sont donc acceptes, pour qu un depot ne echoue pas selon le poste du deposant. **CONSIGNE OPPOSABLE A L INTERFACE : ne pas se fier a `File.type`, poser explicitement le `Content-Type` du `PUT` depuis l extension du nom de fichier, via une correspondance fermee.** C est la seule facon de rendre le depot deterministe. `application/x-zip-compressed` reste publie pour les clients hors navigateur qui l enverraient tel quel. *Comportement non mesure par l architecte : a constater lors de l implementation de l ecran, sur au moins deux systemes.*
+             *
+             *     RAPPEL OPPOSABLE : ce controle porte sur le type DECLARE au depot, pas sur le contenu reel. Il ecarte les erreurs, pas les intentions — et sur une archive, il n ecarte rien de ce qu elle contient, que Magrit n ouvre jamais.
+             */
+            accepted_content_types: string[];
+            /**
+             * @description Echeance REELLE du billet, telle que le stockage l a emise, et non une valeur choisie par Magrit — `createSignedUploadUrl(path, { upsert })` n accepte aucun parametre d expiration dans le `@supabase/storage-js` 2.104.1 installe. Meme situation, meme franchise et meme regle de client que `DocumentPdfTemplateUploadTicket.expires_at` : ne pas conserver un billet au-dela de **600 secondes**, en redemander un sinon.
+             *
+             *     POURQUOI CE N EST PAS LA FRONTIERE DE SECURITE : un billet ne donne que le droit de DEPOSER des octets a un chemin impose, dans un bucket prive. Des octets deposes ne comptent QUE si `confirmOrderFileUpload` les constate, et cette operation re-verifie l authentification et l appartenance a l espace. Un billet egare ne peut modifier aucun etat que Magrit lise.
+             */
+            expires_at: components["schemas"]["Timestamp"];
+        };
+        /**
+         * ConfirmOrderFileUploadCommand
+         * @description Confirmation d un depot. Le corps ne porte PAS le fichier — la facade ne sait lire que du JSON — et ne porte PAS non plus sa taille ni son type : le serveur va les relever lui-meme au stockage. Un appelant qui les annoncerait pourrait mentir, et le contrat n a aucune raison de lui demander ce qu il sait deja.
+         */
+        ConfirmOrderFileUploadCommand: {
+            /** @description Identifiant alloue par `issueOrderFileUploadUrl`. Il determine le chemin ou le serveur va chercher les octets. */
+            file_id: components["schemas"]["Uuid"];
+            /** @description Nom d origine a conserver et a reposer au telechargement. Le seul renseignement que le serveur ne peut pas relever tout seul : le chemin de stockage n en porte pas. */
+            filename: string;
+            /** @description Ligne de commande concernee. Absent ou `null` -> le fichier concerne la commande entiere. Une ligne d une AUTRE commande est refusee en 422 `order_file.line_not_found`. */
+            order_line_id?: components["schemas"]["Uuid"] | null;
+            /** @description Absent -> `internal`. Ferme par defaut : un fichier n est jamais destine au client par omission. */
+            visibility?: components["schemas"]["OrderFileVisibility"];
+        };
+        /**
+         * UpdateOrderFileCommand
+         * @description Modification d un fichier deja depose. UN SEUL CHAMP, et ce n est pas une etape vers une edition plus large : le nom, le poids, le type et les octets sont ce qui a ete depose, les rendre editables ferait mentir la ligne sur le fichier.
+         */
+        UpdateOrderFileCommand: {
+            visibility: components["schemas"]["OrderFileVisibility"];
+        };
     };
     responses: {
         /** @description Requete malformee. */
@@ -3820,8 +4760,16 @@ export interface components {
         StorefrontQuoteId: components["schemas"]["Uuid"];
         /** @description Identifiant technique de la commande de gestion commerciale (`commercial_orders`, E10.12), dans le tenant du jeton. SANS RAPPORT avec l `orderId` des routes historiques `/api/v1/orders/...`, qui adresse une commande BOUTIQUE (`tenant_orders`) : deux tables, deux cycles de vie, deux facades. Un identifiant valide d un cote rend 404 de l autre. */
         CommercialOrderId: components["schemas"]["Uuid"];
+        /**
+         * @description Identifiant technique du fichier de commande (`commercial_order_files`, E10.17), dans le tenant du jeton et SUR LA COMMANDE DU CHEMIN. Les deux conditions sont verifiees : un identifiant de fichier valide sur une autre commande rend 404, il n est pas servi au motif que le tenant est le bon.
+         *
+         *     ALLOUE PAR LE SERVEUR A L EMISSION DU BILLET DE DEPOT (`issueOrderFileUploadUrl`), jamais choisi par l appelant : c est lui qui forme le chemin de stockage `<tenant_id>/<order_id>/<file_id>`. Il existe donc AVANT la ligne du fichier, et pendant tout le temps du televersement il ne designe encore rien — `getOrderFile` rend 404 sur un identifiant alloue mais non confirme.
+         */
+        OrderFileId: components["schemas"]["Uuid"];
         /** @description Identifiant technique de l etape de production (`production_steps`, E10.13), dans le tenant du jeton. L etape n a PAS de code metier stable : elle est une donnee de tenant, renommable a tout moment, et seul cet identifiant l adresse. Un consommateur qui cherche « l etape PAO » lit le catalogue, il ne devine pas une cle. */
         ProductionStepId: components["schemas"]["Uuid"];
+        /** @description Identifiant technique du gabarit PDF (`document_pdf_templates`, E10.10b-4a), dans le tenant du jeton. Le gabarit n a pas de code metier stable : son `name` est libre et renommable, seul cet identifiant l adresse. Le meme identifiant forme le chemin de stockage du fond (`<tenant_id>/<template_id>.pdf`) — il n est jamais choisi par l appelant. */
+        DocumentPdfTemplateId: components["schemas"]["Uuid"];
         /** @description Identifiant technique de la ligne de devis. Toujours resolu DANS le devis du chemin : une ligne d un autre devis rend 404 `quote_line.not_found`, jamais la ligne de l autre devis. */
         QuoteLineId: components["schemas"]["Uuid"];
         /** @description Identifiant technique de la regle de prix, dans le tenant du jeton. */
@@ -3953,6 +4901,34 @@ export type CommercialOrderSort = components['schemas']['CommercialOrderSort'];
 export type OrderStepChange = components['schemas']['OrderStepChange'];
 export type ChangeOrderProductionStepCommand = components['schemas']['ChangeOrderProductionStepCommand'];
 export type OrderStepChangedPayload = components['schemas']['OrderStepChangedPayload'];
+export type DocumentType = components['schemas']['DocumentType'];
+export type DocumentPdfTemplateStatus = components['schemas']['DocumentPdfTemplateStatus'];
+export type DocumentCoordinate = components['schemas']['DocumentCoordinate'];
+export type DocumentTextAlign = components['schemas']['DocumentTextAlign'];
+export type DocumentFont = components['schemas']['DocumentFont'];
+export type DocumentColor = components['schemas']['DocumentColor'];
+export type DocumentFieldId = components['schemas']['DocumentFieldId'];
+export type DocumentLineFieldId = components['schemas']['DocumentLineFieldId'];
+export type DocumentFieldPlacement = components['schemas']['DocumentFieldPlacement'];
+export type DocumentLinesColumn = components['schemas']['DocumentLinesColumn'];
+export type DocumentLinesBlock = components['schemas']['DocumentLinesBlock'];
+export type DocumentPdfTemplateFieldMap = components['schemas']['DocumentPdfTemplateFieldMap'];
+export type ReplaceDocumentPdfTemplateFieldsCommand = components['schemas']['ReplaceDocumentPdfTemplateFieldsCommand'];
+export type DocumentPdfTemplatePage = components['schemas']['DocumentPdfTemplatePage'];
+export type DocumentPdfTemplate = components['schemas']['DocumentPdfTemplate'];
+export type DocumentPdfTemplateDetail = components['schemas']['DocumentPdfTemplateDetail'];
+export type DocumentPdfTemplateUploadTicket = components['schemas']['DocumentPdfTemplateUploadTicket'];
+export type DocumentPdfTemplateCreated = components['schemas']['DocumentPdfTemplateCreated'];
+export type CreateDocumentPdfTemplateCommand = components['schemas']['CreateDocumentPdfTemplateCommand'];
+export type UpdateDocumentPdfTemplateCommand = components['schemas']['UpdateDocumentPdfTemplateCommand'];
+export type ConfirmDocumentPdfTemplateUploadCommand = components['schemas']['ConfirmDocumentPdfTemplateUploadCommand'];
+export type QuoteDocument = components['schemas']['QuoteDocument'];
+export type OrderFileVisibility = components['schemas']['OrderFileVisibility'];
+export type OrderFile = components['schemas']['OrderFile'];
+export type OrderFileDetail = components['schemas']['OrderFileDetail'];
+export type OrderFileUploadTicket = components['schemas']['OrderFileUploadTicket'];
+export type ConfirmOrderFileUploadCommand = components['schemas']['ConfirmOrderFileUploadCommand'];
+export type UpdateOrderFileCommand = components['schemas']['UpdateOrderFileCommand'];
 export type ResponseBadRequest = components['responses']['BadRequest'];
 export type ResponseUnauthorized = components['responses']['Unauthorized'];
 export type ResponseForbidden = components['responses']['Forbidden'];
@@ -3976,7 +4952,9 @@ export type ParameterProjectId = components['parameters']['ProjectId'];
 export type ParameterQuoteId = components['parameters']['QuoteId'];
 export type ParameterStorefrontQuoteId = components['parameters']['StorefrontQuoteId'];
 export type ParameterCommercialOrderId = components['parameters']['CommercialOrderId'];
+export type ParameterOrderFileId = components['parameters']['OrderFileId'];
 export type ParameterProductionStepId = components['parameters']['ProductionStepId'];
+export type ParameterDocumentPdfTemplateId = components['parameters']['DocumentPdfTemplateId'];
 export type ParameterQuoteLineId = components['parameters']['QuoteLineId'];
 export type ParameterPriceRuleId = components['parameters']['PriceRuleId'];
 export type ParameterProductRangeId = components['parameters']['ProductRangeId'];
@@ -5734,6 +6712,35 @@ export interface operations {
                 };
             };
             428: components["responses"]["PreconditionRequired"];
+            /**
+             * @description La production du document a echoue alors que le tenant a un gabarit configure (`quote.document_generation_failed`). Le devis N EST PAS passe a `sent` : il reste `draft` et l envoi se rejoue.
+             *
+             *     REGLE ASYMETRIQUE, et c est le point a comprendre avant d integrer (arbitrage Arnaud du 2026-09-09 sur l ABSENCE de gabarit, position d architecte sur l ECHEC — docs/api/CONVENTIONS.md §8.18 reserve (j)) :
+             *
+             *     - le tenant n a AUCUN gabarit par defaut pret, actif et cartographie
+             *       -> l envoi REUSSIT, sans piece jointe. Le courriel renvoie le client
+             *       vers son portail. Aucune erreur, aucun code : personne n a demande
+             *       de document.
+             *
+             *     - le tenant EN A un et la production echoue -> l envoi ECHOUE ici.
+             *       Le commercial a choisi un papier ; laisser partir le devis sans lui
+             *       en le laissant croire l inverse serait le repli silencieux que ce
+             *       contrat refuse partout ailleurs. Echappatoire s il faut envoyer
+             *       malgre tout : desactiver le gabarit
+             *       (`PATCH /document-pdf-templates/{templateId}` `is_active: false`),
+             *       ce qui ramene au premier cas.
+             *
+             *
+             *     L echec N ENREGISTRE PAS d entree d idempotence « terminee » : le rejeu legitime de la meme cle doit pouvoir reussir, pas re-servir l echec pour l eternite.
+             */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
         };
     };
     duplicateQuote: {
@@ -7197,6 +8204,1007 @@ export interface operations {
              *     UNE ETAPE DESACTIVEE N EST PAS UNE CIBLE VALIDE, et c est une precision qu E10.13 ne pouvait pas apporter, faute de transition a regir. `is_active: false` signifie « retiree du flux » : y poser une commande la remettrait en service par la bande, et la rendrait de nouveau indelebile (`production_step.in_use`, CA3 d E10.13) — l inverse exact de ce que la desactivation sert a obtenir. Une commande DEJA posee sur une etape desactivee y reste, reste lisible et se deplace normalement : seule l ARRIVEE est refusee.
              */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    issueOrderFileUploadUrl: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path: {
+                /** @description Identifiant technique de la commande de gestion commerciale (`commercial_orders`, E10.12), dans le tenant du jeton. SANS RAPPORT avec l `orderId` des routes historiques `/api/v1/orders/...`, qui adresse une commande BOUTIQUE (`tenant_orders`) : deux tables, deux cycles de vie, deux facades. Un identifiant valide d un cote rend 404 de l autre. */
+                orderId: components["parameters"]["CommercialOrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Billet de depot. Le televersement se fait par un `PUT` nu sur `url` (chemin de la SPA, impose par `modular-ui-boundaries.test.ts` qui interdit le SDK Supabase dans une UI de module) ou par `uploadToSignedUrl(path, token, file)` pour un client hors navigateur. Il DOIT etre suivi de `confirmOrderFileUpload` : sans confirmation, les octets deposes sont ignores de bout en bout. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["OrderFileUploadTicket"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description Aucune commande de cet identifiant dans le tenant du jeton (`order.not_found`). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description La commande porte deja le nombre maximal de fichiers vivants (`order_file.limit_reached`). Supprimer un fichier libere une place ; un fichier supprime ne compte plus. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    listOrderFiles: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path: {
+                /** @description Identifiant technique de la commande de gestion commerciale (`commercial_orders`, E10.12), dans le tenant du jeton. SANS RAPPORT avec l `orderId` des routes historiques `/api/v1/orders/...`, qui adresse une commande BOUTIQUE (`tenant_orders`) : deux tables, deux cycles de vie, deux facades. Un identifiant valide d un cote rend 404 de l autre. */
+                orderId: components["parameters"]["CommercialOrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Fichiers vivants de la commande. VIDE est le cas le plus frequent et n est pas une anomalie : une commande sans fichier est une commande ordinaire. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["OrderFile"][];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    confirmOrderFileUpload: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+                /**
+                 * @description Cle d idempotence fournie par l appelant sur tout POST creant une ressource metier (CA8). Rejouer la meme cle avec la meme requete renvoie la reponse initiale, accompagnee de l en-tete `Idempotency-Replayed: true` ; la rejouer avec une requete differente renvoie 409 `api.idempotency_key_reused`.
+                 *
+                 *     L identite d une requete couvre la methode, le chemin, LA QUERY et le corps : deux POST au meme chemin avec des query differentes ne sont pas la meme requete.
+                 *
+                 *     Sur un rejeu, seul `meta.request_id` est recale sur la requete courante ; `data` est rendu inchange.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description Identifiant technique de la commande de gestion commerciale (`commercial_orders`, E10.12), dans le tenant du jeton. SANS RAPPORT avec l `orderId` des routes historiques `/api/v1/orders/...`, qui adresse une commande BOUTIQUE (`tenant_orders`) : deux tables, deux cycles de vie, deux facades. Un identifiant valide d un cote rend 404 de l autre. */
+                orderId: components["parameters"]["CommercialOrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmOrderFileUploadCommand"];
+            };
+        };
+        responses: {
+            /** @description Fichier enregistre. La reponse ne porte PAS d URL de telechargement : celui qui vient de deposer le fichier l a deja. L `ETag` est emis pour qu un changement de visibilite immediat ne demande pas une relecture. */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    "Idempotency-Replayed": components["headers"]["IdempotencyReplayed"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["OrderFile"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description Soit la commande n existe pas dans le tenant du jeton (`order.not_found`), soit aucun objet n a ete depose au chemin attendu (`order_file.upload_missing`) — le second cas se produit quand la confirmation arrive sans que le televersement ait abouti, et il se corrige en redemandant un billet. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Soit ce `file_id` porte deja une ligne (`order_file.already_confirmed`) — deposer deux fois les memes octets ne cree pas deux fichiers —, soit la commande a atteint son plafond (`order_file.limit_reached`, verifie ICI sous verrou), soit la cle d idempotence a ete rejouee avec une requete differente (`api.idempotency_key_reused`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Soit `order_line_id` ne designe aucune ligne DE CETTE COMMANDE (`order_file.line_not_found`) — une ligne d une autre commande, y compris du meme tenant, est refusee, et la base porte la meme garde par cle etrangere composite —, soit l objet depose depasse le plafond de poids ou porte un type hors de la liste acceptee (`order_file.rejected`), soit le corps est invalide (`api.validation_failed`). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getOrderFile: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path: {
+                /** @description Identifiant technique de la commande de gestion commerciale (`commercial_orders`, E10.12), dans le tenant du jeton. SANS RAPPORT avec l `orderId` des routes historiques `/api/v1/orders/...`, qui adresse une commande BOUTIQUE (`tenant_orders`) : deux tables, deux cycles de vie, deux facades. Un identifiant valide d un cote rend 404 de l autre. */
+                orderId: components["parameters"]["CommercialOrderId"];
+                /**
+                 * @description Identifiant technique du fichier de commande (`commercial_order_files`, E10.17), dans le tenant du jeton et SUR LA COMMANDE DU CHEMIN. Les deux conditions sont verifiees : un identifiant de fichier valide sur une autre commande rend 404, il n est pas servi au motif que le tenant est le bon.
+                 *
+                 *     ALLOUE PAR LE SERVEUR A L EMISSION DU BILLET DE DEPOT (`issueOrderFileUploadUrl`), jamais choisi par l appelant : c est lui qui forme le chemin de stockage `<tenant_id>/<order_id>/<file_id>`. Il existe donc AVANT la ligne du fichier, et pendant tout le temps du televersement il ne designe encore rien — `getOrderFile` rend 404 sur un identifiant alloue mais non confirme.
+                 */
+                fileId: components["parameters"]["OrderFileId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Fichier et son URL signee. Capacite au porteur : ne pas la journaliser, ne pas la republier. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["OrderFileDetail"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description Aucun fichier vivant de cet identifiant sur cette commande dans le tenant du jeton (`order_file.not_found`) — fichier inconnu, commande inconnue, ou fichier supprime, indistinctement. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    deleteOrderFile: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path: {
+                /** @description Identifiant technique de la commande de gestion commerciale (`commercial_orders`, E10.12), dans le tenant du jeton. SANS RAPPORT avec l `orderId` des routes historiques `/api/v1/orders/...`, qui adresse une commande BOUTIQUE (`tenant_orders`) : deux tables, deux cycles de vie, deux facades. Un identifiant valide d un cote rend 404 de l autre. */
+                orderId: components["parameters"]["CommercialOrderId"];
+                /**
+                 * @description Identifiant technique du fichier de commande (`commercial_order_files`, E10.17), dans le tenant du jeton et SUR LA COMMANDE DU CHEMIN. Les deux conditions sont verifiees : un identifiant de fichier valide sur une autre commande rend 404, il n est pas servi au motif que le tenant est le bon.
+                 *
+                 *     ALLOUE PAR LE SERVEUR A L EMISSION DU BILLET DE DEPOT (`issueOrderFileUploadUrl`), jamais choisi par l appelant : c est lui qui forme le chemin de stockage `<tenant_id>/<order_id>/<file_id>`. Il existe donc AVANT la ligne du fichier, et pendant tout le temps du televersement il ne designe encore rien — `getOrderFile` rend 404 sur un identifiant alloue mais non confirme.
+                 */
+                fileId: components["parameters"]["OrderFileId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Fichier supprime. Rejouer la meme suppression rend 404 : un fichier deja supprime est indiscernable d un fichier inconnu, et c est voulu — repondre 204 une seconde fois laisserait croire qu il y avait encore quelque chose a detruire. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description Aucun fichier vivant de cet identifiant sur cette commande (`order_file.not_found`). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    updateOrderFile: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+                /**
+                 * @description Valeur d `ETag` de la representation lue, exigee sur tout PATCH (CA9). Absente -> 428 `api.if_match_required`. Differente de l etat courant -> 409 avec l etat courant dans `current_state`.
+                 *
+                 *     `If-Match: *` est REFUSE en 400 `api.if_match_invalid`, contrairement a la semantique RFC 7232 ou il signifie « pourvu que la ressource existe ». Ici il reviendrait a desactiver le controle de concurrence : deux modifications concurrentes s ecraseraient en silence, ce que le CA9 interdit. Le `pattern` ci-dessous n admet qu un ETag, faible ou fort.
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description Identifiant technique de la commande de gestion commerciale (`commercial_orders`, E10.12), dans le tenant du jeton. SANS RAPPORT avec l `orderId` des routes historiques `/api/v1/orders/...`, qui adresse une commande BOUTIQUE (`tenant_orders`) : deux tables, deux cycles de vie, deux facades. Un identifiant valide d un cote rend 404 de l autre. */
+                orderId: components["parameters"]["CommercialOrderId"];
+                /**
+                 * @description Identifiant technique du fichier de commande (`commercial_order_files`, E10.17), dans le tenant du jeton et SUR LA COMMANDE DU CHEMIN. Les deux conditions sont verifiees : un identifiant de fichier valide sur une autre commande rend 404, il n est pas servi au motif que le tenant est le bon.
+                 *
+                 *     ALLOUE PAR LE SERVEUR A L EMISSION DU BILLET DE DEPOT (`issueOrderFileUploadUrl`), jamais choisi par l appelant : c est lui qui forme le chemin de stockage `<tenant_id>/<order_id>/<file_id>`. Il existe donc AVANT la ligne du fichier, et pendant tout le temps du televersement il ne designe encore rien — `getOrderFile` rend 404 sur un identifiant alloue mais non confirme.
+                 */
+                fileId: components["parameters"]["OrderFileId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateOrderFileCommand"];
+            };
+        };
+        responses: {
+            /** @description Visibilite mise a jour. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["OrderFile"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description Aucun fichier vivant de cet identifiant sur cette commande (`order_file.not_found`). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+            428: components["responses"]["PreconditionRequired"];
+        };
+    };
+    listDocumentPdfTemplates: {
+        parameters: {
+            query?: {
+                /** @description Filtre sur le type de document servi par le gabarit. Absent -> tous les types. Un seul type existe aujourd hui (`quote`) ; le parametre est publie des maintenant pour que l ecran de parametrage n ait pas a changer d appel le jour ou E10.19 ajoutera le bon de commande. */
+                document_type?: components["schemas"]["DocumentType"];
+                /** @description Filtre sur l etat de l import. `ready` seul rend les gabarits utilisables par une generation. */
+                status?: components["schemas"]["DocumentPdfTemplateStatus"];
+            };
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /**
+             * @description Gabarits du tenant, tries par `name` croissant. Vide sur un tenant qui n a jamais importe de fond — cas NORMAL et non erreur.
+             *
+             *     CE QUE SIGNIFIE UNE LISTE VIDE, cote metier (arbitrage Arnaud du 2026-09-09) : les devis de ce tenant partent SANS piece jointe, et le courriel d envoi renvoie le client vers son portail, ou il lit son devis. L envoi n est ni bloque, ni degrade sur un papier generique : il n existe AUCUN gabarit de repli fourni par Magrit. Le PDF est un supplement que l imprimeur active en important son propre papier, jamais une condition de l envoi.
+             */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["DocumentPdfTemplate"][];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    createDocumentPdfTemplate: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+                /**
+                 * @description Cle d idempotence fournie par l appelant sur tout POST creant une ressource metier (CA8). Rejouer la meme cle avec la meme requete renvoie la reponse initiale, accompagnee de l en-tete `Idempotency-Replayed: true` ; la rejouer avec une requete differente renvoie 409 `api.idempotency_key_reused`.
+                 *
+                 *     L identite d une requete couvre la methode, le chemin, LA QUERY et le corps : deux POST au meme chemin avec des query differentes ne sont pas la meme requete.
+                 *
+                 *     Sur un rejeu, seul `meta.request_id` est recale sur la requete courante ; `data` est rendu inchange.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateDocumentPdfTemplateCommand"];
+            };
+        };
+        responses: {
+            /** @description Gabarit cree en `awaiting_upload`, accompagne de son billet d import a usage unique. */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    "Idempotency-Replayed": components["headers"]["IdempotencyReplayed"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["DocumentPdfTemplateCreated"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["ForbiddenCapability"];
+            /** @description Soit un gabarit porte deja ce nom normalise dans le tenant pour ce type de document (`document_pdf_template.name_conflict`), soit la cle d idempotence a ete rejouee avec une requete differente (`api.idempotency_key_reused`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Nom vide ou trop long (`api.validation_failed`), ou plafond de 20 gabarits atteint pour ce type de document dans le tenant (`document_pdf_template.limit_reached`) — plafond qui n est pas decoratif, c est lui qui autorise `listDocumentPdfTemplates` a ne pas paginer. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getDocumentPdfTemplate: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path: {
+                /** @description Identifiant technique du gabarit PDF (`document_pdf_templates`, E10.10b-4a), dans le tenant du jeton. Le gabarit n a pas de code metier stable : son `name` est libre et renommable, seul cet identifiant l adresse. Le meme identifiant forme le chemin de stockage du fond (`<tenant_id>/<template_id>.pdf`) — il n est jamais choisi par l appelant. */
+                templateId: components["parameters"]["DocumentPdfTemplateId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Gabarit du tenant courant. L `ETag` valide LE GABARIT (nom, defaut, fichier importe), pas sa carte de champs : celle-ci a le sien, rendu par `getDocumentPdfTemplateFields`. Opposer l un a l autre ferait echouer une sauvegarde de coordonnees parce que quelqu un a renomme le gabarit. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["DocumentPdfTemplateDetail"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description Aucun gabarit de cet identifiant dans le tenant du jeton (`document_pdf_template.not_found`). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    deleteDocumentPdfTemplate: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path: {
+                /** @description Identifiant technique du gabarit PDF (`document_pdf_templates`, E10.10b-4a), dans le tenant du jeton. Le gabarit n a pas de code metier stable : son `name` est libre et renommable, seul cet identifiant l adresse. Le meme identifiant forme le chemin de stockage du fond (`<tenant_id>/<template_id>.pdf`) — il n est jamais choisi par l appelant. */
+                templateId: components["parameters"]["DocumentPdfTemplateId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Gabarit supprime, carte de champs supprimee, objet de stockage retire. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: {
+                            /** @enum {boolean} */
+                            deleted: true;
+                        };
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["ForbiddenCapability"];
+            /** @description Aucun gabarit de cet identifiant dans le tenant du jeton (`document_pdf_template.not_found`). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Au moins un document a ete genere avec ce gabarit (`document_pdf_template.in_use`). Le refus est tenu EN BASE par une cle etrangere `on delete restrict` depuis `quote_documents`, pas par une verification prealable de la facade : une lecture suivie d une suppression laisse une fenetre ou un devis peut etre envoye entre les deux. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    updateDocumentPdfTemplate: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+                /**
+                 * @description Valeur d `ETag` de la representation lue, exigee sur tout PATCH (CA9). Absente -> 428 `api.if_match_required`. Differente de l etat courant -> 409 avec l etat courant dans `current_state`.
+                 *
+                 *     `If-Match: *` est REFUSE en 400 `api.if_match_invalid`, contrairement a la semantique RFC 7232 ou il signifie « pourvu que la ressource existe ». Ici il reviendrait a desactiver le controle de concurrence : deux modifications concurrentes s ecraseraient en silence, ce que le CA9 interdit. Le `pattern` ci-dessous n admet qu un ETag, faible ou fort.
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description Identifiant technique du gabarit PDF (`document_pdf_templates`, E10.10b-4a), dans le tenant du jeton. Le gabarit n a pas de code metier stable : son `name` est libre et renommable, seul cet identifiant l adresse. Le meme identifiant forme le chemin de stockage du fond (`<tenant_id>/<template_id>.pdf`) — il n est jamais choisi par l appelant. */
+                templateId: components["parameters"]["DocumentPdfTemplateId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateDocumentPdfTemplateCommand"];
+            };
+        };
+        responses: {
+            /** @description Gabarit modifie, avec son `ETag` a jour. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["DocumentPdfTemplateDetail"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["ForbiddenCapability"];
+            /** @description Aucun gabarit de cet identifiant dans le tenant du jeton (`document_pdf_template.not_found`). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Soit la precondition `If-Match` est perimee (`api.resource_conflict`), soit un autre gabarit du tenant porte deja ce nom (`document_pdf_template.name_conflict`), soit le gabarit ne peut pas devenir le defaut parce qu il n est pas `ready` ou parce qu il est inactif (`document_pdf_template.default_requires_ready`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            422: components["responses"]["UnprocessableEntity"];
+            428: components["responses"]["PreconditionRequired"];
+        };
+    };
+    issueDocumentPdfTemplateUploadUrl: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path: {
+                /** @description Identifiant technique du gabarit PDF (`document_pdf_templates`, E10.10b-4a), dans le tenant du jeton. Le gabarit n a pas de code metier stable : son `name` est libre et renommable, seul cet identifiant l adresse. Le meme identifiant forme le chemin de stockage du fond (`<tenant_id>/<template_id>.pdf`) — il n est jamais choisi par l appelant. */
+                templateId: components["parameters"]["DocumentPdfTemplateId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Billet d import. Le depot se fait par le client de stockage (`uploadToSignedUrl`) ou par un `PUT` sur `url`, jamais par la facade. Il DOIT etre suivi de `confirmDocumentPdfTemplateUpload` : sans cette confirmation, le fichier depose est ignore de bout en bout. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["DocumentPdfTemplateUploadTicket"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["ForbiddenCapability"];
+            /** @description Aucun gabarit de cet identifiant dans le tenant du jeton (`document_pdf_template.not_found`). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    confirmDocumentPdfTemplateUpload: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+                /**
+                 * @description Cle d idempotence fournie par l appelant sur tout POST creant une ressource metier (CA8). Rejouer la meme cle avec la meme requete renvoie la reponse initiale, accompagnee de l en-tete `Idempotency-Replayed: true` ; la rejouer avec une requete differente renvoie 409 `api.idempotency_key_reused`.
+                 *
+                 *     L identite d une requete couvre la methode, le chemin, LA QUERY et le corps : deux POST au meme chemin avec des query differentes ne sont pas la meme requete.
+                 *
+                 *     Sur un rejeu, seul `meta.request_id` est recale sur la requete courante ; `data` est rendu inchange.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description Identifiant technique du gabarit PDF (`document_pdf_templates`, E10.10b-4a), dans le tenant du jeton. Le gabarit n a pas de code metier stable : son `name` est libre et renommable, seul cet identifiant l adresse. Le meme identifiant forme le chemin de stockage du fond (`<tenant_id>/<template_id>.pdf`) — il n est jamais choisi par l appelant. */
+                templateId: components["parameters"]["DocumentPdfTemplateId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmDocumentPdfTemplateUploadCommand"];
+            };
+        };
+        responses: {
+            /** @description Import accepte. Le gabarit est `ready`, porte sa geometrie, son poids et l empreinte SHA-256 du fichier retenu. */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    "Idempotency-Replayed": components["headers"]["IdempotencyReplayed"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["DocumentPdfTemplateDetail"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["ForbiddenCapability"];
+            /** @description Aucun gabarit de cet identifiant dans le tenant du jeton (`document_pdf_template.not_found`), ou aucun fichier depose au chemin attendu (`document_pdf_template.upload_missing`) — le second cas se produit quand la confirmation arrive sans que le depot ait reussi, et il se corrige en redemandant un billet. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Soit le nouveau fond n a pas la geometrie de l ancien alors que la carte des champs n est pas vide et que `reset_fields` n a pas ete pose (`document_pdf_template.geometry_changed`), soit la cle d idempotence a ete rejouee avec une requete differente (`api.idempotency_key_reused`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Le fichier depose n est pas un PDF exploitable (`document_pdf_template.invalid_pdf`) : illisible, chiffre, ou au-dela de 10 pages. L objet est retire du stockage avant que cette reponse ne soit rendue — un fichier refuse ne reste pas. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getDocumentPdfTemplateFields: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path: {
+                /** @description Identifiant technique du gabarit PDF (`document_pdf_templates`, E10.10b-4a), dans le tenant du jeton. Le gabarit n a pas de code metier stable : son `name` est libre et renommable, seul cet identifiant l adresse. Le meme identifiant forme le chemin de stockage du fond (`<tenant_id>/<template_id>.pdf`) — il n est jamais choisi par l appelant. */
+                templateId: components["parameters"]["DocumentPdfTemplateId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /**
+             * @description Carte du gabarit. Vide (`placements: []`, `lines_block: null`) sur un gabarit fraichement importe — un fond sans carte n imprime aucune valeur, ce qui est un etat legitime tant que l imprimeur n a pas ouvert l editeur.
+             *
+             *     L `ETag` rendu valide LA CARTE COMPLETE et se repasse dans le `If-Match` de `replaceDocumentPdfTemplateFields`. Meme parti que l `ETag` de collection de `listProductionSteps` : la carte est reecrite d un bloc, c est donc l ensemble qui est la ressource ecrite, et c est a l ensemble qu il faut un validateur.
+             */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["DocumentPdfTemplateFieldMap"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description Aucun gabarit de cet identifiant dans le tenant du jeton (`document_pdf_template.not_found`). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    replaceDocumentPdfTemplateFields: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+                /**
+                 * @description Valeur d `ETag` de la representation lue, exigee sur tout PATCH (CA9). Absente -> 428 `api.if_match_required`. Differente de l etat courant -> 409 avec l etat courant dans `current_state`.
+                 *
+                 *     `If-Match: *` est REFUSE en 400 `api.if_match_invalid`, contrairement a la semantique RFC 7232 ou il signifie « pourvu que la ressource existe ». Ici il reviendrait a desactiver le controle de concurrence : deux modifications concurrentes s ecraseraient en silence, ce que le CA9 interdit. Le `pattern` ci-dessous n admet qu un ETag, faible ou fort.
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description Identifiant technique du gabarit PDF (`document_pdf_templates`, E10.10b-4a), dans le tenant du jeton. Le gabarit n a pas de code metier stable : son `name` est libre et renommable, seul cet identifiant l adresse. Le meme identifiant forme le chemin de stockage du fond (`<tenant_id>/<template_id>.pdf`) — il n est jamais choisi par l appelant. */
+                templateId: components["parameters"]["DocumentPdfTemplateId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplaceDocumentPdfTemplateFieldsCommand"];
+            };
+        };
+        responses: {
+            /** @description Carte remplacee, avec son `ETag` a jour. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["DocumentPdfTemplateFieldMap"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["ForbiddenCapability"];
+            /** @description Aucun gabarit de cet identifiant dans le tenant du jeton (`document_pdf_template.not_found`). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Soit la precondition `If-Match` est perimee (`api.resource_conflict`), soit le gabarit n est pas `ready` (`document_pdf_template.upload_required`) : placer des champs sur un fond dont on ignore la geometrie reviendrait a valider des coordonnees contre rien. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Carte invalide (`document_pdf_template.invalid_field_map`) : page inexistante, coordonnee hors page, champ place deux fois, colonne hors de la famille `line.`, bloc de lignes sans colonne, ou `rows_per_page` incompatible avec la hauteur de la page. Le detail par champ est porte par `Problem.errors`. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            428: components["responses"]["PreconditionRequired"];
+        };
+    };
+    getQuoteDocument: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description SELECTION de l espace de travail, parmi ceux que le jeton autorise deja. N est PAS une derogation au principe « le tenant vient du jeton » : cet en-tete ne peut jamais elargir les droits, il choisit seulement dans ce que le jeton permet, et l habilitation reelle reste tenue par la RLS.
+                 *
+                 *     Il existe parce qu un utilisateur Magrit appartient souvent a plusieurs espaces (tenant parent et sous-tenants) et qu aucun claim du JWT ne dit lequel il consulte.
+                 *
+                 *     Absent et un seul espace accessible -> cet espace. Absent et plusieurs espaces -> 400 `identity.tenant_selection_required` : l API ne devine pas. Present mais inaccessible -> 403 `identity.tenant_not_resolved`, reponse identique a celle d un espace inexistant.
+                 *
+                 *     Ignore avec une cle de service, qui est emise POUR un espace donne.
+                 */
+                "X-Magrit-Tenant"?: components["parameters"]["MagritTenant"];
+            };
+            path: {
+                /** @description Identifiant technique du devis, dans le tenant du jeton. */
+                quoteId: components["parameters"]["QuoteId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Document du devis. `download_url` expire ; la relancer se fait en rappelant cette operation, jamais en conservant l URL. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["QuoteDocument"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /**
+             * @description Soit le devis n existe pas dans le tenant du jeton (`quote.not_found`), soit il n a pas de document (`quote.document_not_generated`).
+             *
+             *     DEUX CODES DISTINCTS, ici et pas cote client : l appelant est un membre de l espace, il n y a aucun oracle d existence a lui refuser, et « ce devis est encore un brouillon » est le cas NOMINAL qu un ecran doit savoir distinguer d un identifiant errone.
+             *
+             *     `quote.document_not_generated` EST LE CAS LE PLUS FREQUENT, et une interface qui le traiterait comme une anomalie se tromperait : un tenant qui n a importe aucun gabarit envoie ses devis sans piece jointe (arbitrage Arnaud du 2026-09-09), et TOUS ses devis rendent donc ce code, indefiniment. L ecran affiche « aucun document » et, s il veut etre utile, renvoie vers l import d un gabarit — jamais une erreur.
+             *
+             *     TROISIEME CAUSE, RARE MAIS DEFINITIVE : le document a pu ECHOUER A SE STOCKER apres un envoi par ailleurs reussi. Le devis est alors `sent`, son courriel est parti sans piece jointe, et il n aura JAMAIS de document — aucun rattrapage n existe ni n est prevu (« generation unique, jamais regeneree »). CONSEQUENCE OPPOSABLE pour un integrateur : ne JAMAIS inferer la presence d un document de l existence d un gabarit configure. Les quatre conditions d attachement sont necessaires, elles ne sont pas suffisantes ; la seule facon de savoir est d appeler cette operation. docs/api/CONVENTIONS.md §8.18 #11.
+             *
+             *     `quote.document_not_generated` couvre aussi, et pour toujours, les devis envoyes AVANT la livraison d E10.10b-4 : aucune reprise retroactive n est prevue, en produire une aujourd hui daterait d aujourd hui une piece remise il y a des semaines.
+             */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getStorefrontQuoteDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /**
+                 * @description Identifiant technique du devis, resolu DANS le perimetre du compte client de la session boutique — pas dans un tenant choisi par l appelant (story E10.10b-1).
+                 *
+                 *     Parametre distinct de `QuoteId` alors qu il porte le meme nom et le meme type : ce n est pas la meme resolution. `QuoteId` cherche dans l espace du jeton, celui-ci cherche parmi les devis ENVOYES du client rattache au compte. Un contrat qui les confondrait laisserait croire qu un devis lisible d un cote l est de l autre.
+                 */
+                quoteId: components["parameters"]["StorefrontQuoteId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Document du devis. `download_url` est signee et de courte duree ; elle est emise apres que la chaine d autorisation du compte client a statue, jamais avant. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["QuoteDocument"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description Aucun document accessible sous cette session pour cet identifiant (`quote.not_found`), toutes causes confondues — dont la plus frequente de toutes : l imprimeur n a importe aucun gabarit, ses devis partent donc sans piece jointe. Le portail affiche le devis lui-meme, qui reste lisible a l ecran ; il n annonce pas un telechargement qu il ne peut pas servir. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
