@@ -526,6 +526,22 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
   }
 
   /**
+   * TEST UNIQUEMENT (E10.16) — simule `api_decide_storefront_quote`
+   * (E10.10b-2, migration `20260907000000`) SANS monter la facade
+   * storefront : pose `decided_by_account_id` (et `decided_at`) directement,
+   * pour exercer la chaine de derivation de l interlocuteur
+   * (`InMemoryCommercialOrdersRepository.convertQuote()`) sans reimplementer
+   * tout le module comptes boutique. Reste `null` par defaut sur tout devis
+   * non decide depuis le portail (le cas le plus frequent, §0 verification
+   * n°2 du contrat, docs/api/CONVENTIONS.md §8.17).
+   */
+  setDecidedByAccountIdForTest(quoteId: string, accountId: string): void {
+    const current = this.quotes.get(quoteId);
+    if (!current) throw new Error(`devis ${quoteId} introuvable (setDecidedByAccountIdForTest)`);
+    this.quotes.set(quoteId, { ...current, decided_by_account_id: accountId, decided_at: monotonicIsoTimestamp() });
+  }
+
+  /**
    * E10.12 — reimplemente en memoire la TRANSITION ATOMIQUE d
    * `api_convert_commercial_quote` (migration `20260908010000`) : garde de
    * statut (`sent`/`accepted` uniquement) et ecriture dans le MEME appel,

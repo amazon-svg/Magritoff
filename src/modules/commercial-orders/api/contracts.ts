@@ -27,6 +27,7 @@
 import { z } from 'zod';
 import { moneySchema, rateSchema, timestampSchema, uuidSchema } from '../../_shared/api/index.ts';
 import {
+  dateOnlySchema,
   moneyNonNegativeSchema,
   quoteLineBreakdownItemSchema,
   quoteLineOriginSchema,
@@ -152,7 +153,19 @@ export const commercialOrderSchema = z
   })
   .strict();
 
-/** `CommercialOrderDetail` : forme complete, APLATIE (meme raison que `QuoteDetail` : `additionalProperties:false` + `allOf` rejetterait `lines`). */
+/**
+ * `CommercialOrderDetail` : forme complete, APLATIE (meme raison que
+ * `QuoteDetail` : `additionalProperties:false` + `allOf` rejetterait
+ * `lines`).
+ *
+ * E10.16 — `customer_contact_id` (interlocuteur, recopie A LA CONVERSION
+ * depuis `commercial_quotes.decided_by_account_id` ->
+ * `shop_customer_accounts.customer_contact_id`) et `expected_delivery_date`
+ * (date de livraison promise, AUCUN ECRIVAIN dans ce lot — reserve (h),
+ * docs/api/CONVENTIONS.md §8.17). `required` + nullables, jamais optionnels
+ * (meme parti que `current_production_step_id`/`created_by`) : l absence de
+ * valeur est un fait metier a rendre, pas une permission d omettre la cle.
+ */
 export const commercialOrderDetailSchema = z
   .object({
     id: uuidSchema,
@@ -162,6 +175,8 @@ export const commercialOrderDetailSchema = z
     number: commercialOrderNumberSchema,
     status: commercialOrderStatusSchema,
     source_quote_status: convertedFromStatusSchema,
+    customer_contact_id: uuidSchema.nullable(),
+    expected_delivery_date: dateOnlySchema.nullable(),
     current_production_step_id: uuidSchema.nullable(),
     totals: commercialOrderTotalsSchema,
     created_by: uuidSchema.nullable(),
@@ -302,4 +317,14 @@ export const COMMERCIAL_ORDERS_CONTRACT_ALIGNMENT = Object.freeze({
     ChangeOrderProductionStepCommandContract
   >,
   orderStepChangedPayload: true as AssertAssignable<OrderStepChangedPayloadDto, OrderStepChangedPayloadContract>,
+  // E10.16 — customer_contact_id/expected_delivery_date, ajoutes uniquement
+  // sur CommercialOrderDetail (pas sur CommercialOrder, forme de liste).
+  orderDetailCustomerContactId: true as AssertAssignable<
+    CommercialOrderDetailDto['customer_contact_id'],
+    CommercialOrderDetailContract['customer_contact_id']
+  >,
+  orderDetailExpectedDeliveryDate: true as AssertAssignable<
+    CommercialOrderDetailDto['expected_delivery_date'],
+    CommercialOrderDetailContract['expected_delivery_date']
+  >,
 });

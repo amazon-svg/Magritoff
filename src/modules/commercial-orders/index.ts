@@ -47,3 +47,5 @@ export type {
   ListOrderStepChangesParams,
   ListOrderStepChangesResult,
 } from './application/commercial-orders-repository';
+export { commercialOrdersModuleManifest } from './manifest';
+export { commercialOrdersWorkspaceContribution } from './surface-contributions';

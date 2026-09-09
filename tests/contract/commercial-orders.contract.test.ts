@@ -255,6 +255,14 @@ describe('Commandes de gestion commerciale (E10.12)', () => {
     expect(order.quote_id).toBe(quote.id);
     expect(order.customer_id).toBe(quote.customer_id);
     expect(order.number).toMatch(/^CDE-\d{4}-\d{5}$/);
+    // E10.16 — devis converti depuis `sent` (jamais decide au portail) :
+    // AUCUN compte boutique n a rien decide, donc RIEN a recopier. C est le
+    // cas le plus frequent (§0 verification n°2, docs/api/CONVENTIONS.md
+    // §8.17), a ne surtout pas confondre avec une anomalie.
+    expect(order.customer_contact_id).toBeNull();
+    // Aucun ecrivain dans ce lot (reserve (h) du contrat) : NULL sur 100%
+    // des commandes tant qu une story n aura pas tranche qui la saisit.
+    expect(order.expected_delivery_date).toBeNull();
     expect(order.lines).toHaveLength(1);
     expect(order.lines[0]!.label).toBe('Flyers A5');
     expect(order.lines[0]!.sale_price).toBe(quote.lines[0]!.sale_price);
@@ -325,16 +333,28 @@ describe('Commandes de gestion commerciale (E10.12)', () => {
     expect(list.rows).toHaveLength(1);
   });
 
-  it('convertQuote — devis ACCEPTED (le client a repondu) : source_quote_status=accepted', async () => {
+  it('convertQuote — devis ACCEPTED (le client a repondu) : source_quote_status=accepted, interlocuteur RESOLU (E10.16)', async () => {
     const quote = await createSentQuote();
     // Simule l acceptation cote client (E10.10b-2) directement en base de
     // test : ce fichier ne monte pas la facade storefront.
     quotesRepository.forceStatusForTest(quote.id, 'accepted');
 
+    // E10.16 — DIFFERENCIE du scenario `sent` ci-dessus (consigne opposable
+    // du contrat, docs/api/CONVENTIONS.md §8.17 §7) : ici la chaine de
+    // derivation `commercial_quotes.decided_by_account_id` ->
+    // `shop_customer_accounts.customer_contact_id` -> `customer_contacts`
+    // EST reellement exercee, pas seulement rendue null par defaut.
+    const accountId = uuid();
+    const contactId = uuid();
+    quotesRepository.setDecidedByAccountIdForTest(quote.id, accountId);
+    ordersRepository.registerShopAccountContactForTest(accountId, contactId);
+
     const response = await convert(quote.id);
     await expectContract(response, { status: 201, dataSchema: 'CommercialOrderDetail' });
     const { data: order } = (await response.json()) as { data: CommercialOrderDetailDto };
     expect(order.source_quote_status).toBe('accepted');
+    expect(order.customer_contact_id).toBe(contactId);
+    expect(order.expected_delivery_date).toBeNull();
   });
 
   it('convertQuote — devis DRAFT : refuse en 409 quote.conversion_forbidden_status avec current_state.status=draft', async () => {
@@ -443,6 +463,10 @@ describe('Commandes de gestion commerciale (E10.12)', () => {
     expect(response.headers.get('etag')).toBeTruthy();
     const { data: detail } = (await response.json()) as { data: CommercialOrderDetailDto };
     expect(detail.lines).toHaveLength(1);
+    // E10.16 — devis converti depuis `sent` : mêmes valeurs NULL que celles
+    // rendues par `convertQuote()`, la lecture ne recalcule rien.
+    expect(detail.customer_contact_id).toBeNull();
+    expect(detail.expected_delivery_date).toBeNull();
 
     const missing = await call(`/api/v1/commercial-orders/${uuid()}`, { headers: asStudio });
     expect(missing.status).toBe(404);

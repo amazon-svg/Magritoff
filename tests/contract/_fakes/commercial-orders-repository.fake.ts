@@ -92,8 +92,29 @@ export class InMemoryCommercialOrdersRepository implements CommercialOrdersRepos
    */
   private readonly steps = new Map<string, Readonly<{ tenantId: string; isActive: boolean }>>();
   private readonly stepChanges = new Map<string, OrderStepChangeDto[]>();
+  /**
+   * E10.16 — `customer_contact_id` (interlocuteur), TEST UNIQUEMENT : vit en
+   * dehors de `StoredOrder`/`CommercialOrderDto` (la forme de liste ne porte
+   * PAS ce champ, decision du contrat — il n existe que sur
+   * `CommercialOrderDetail`), pose a la conversion, jamais ailleurs.
+   */
+  private readonly customerContactIds = new Map<string, string | null>();
+  /**
+   * E10.16 — reimplemente la chaine de derivation reelle
+   * (`shop_customer_accounts.customer_contact_id`, E10.5) sans modeliser
+   * tout le module comptes boutique : un scenario qui exerce la recopie
+   * enregistre ici le couple (accountId -> contactId) AVANT de forcer
+   * `decided_by_account_id` sur le devis via
+   * `InMemoryCommercialQuotesRepository.setDecidedByAccountIdForTest()`.
+   */
+  private readonly shopAccountContacts = new Map<string, string | null>();
 
   constructor(private readonly quotes: InMemoryCommercialQuotesRepository) {}
+
+  /** TEST UNIQUEMENT — enregistre la resolution compte boutique -> interlocuteur (E10.5), consommee par `convertQuote()`. */
+  registerShopAccountContactForTest(accountId: string, contactId: string | null): void {
+    this.shopAccountContacts.set(accountId, contactId);
+  }
 
   /** TEST UNIQUEMENT — enregistre une etape (tenant + statut actif) pour `changeProductionStep`. */
   registerProductionStepForTest(stepId: string, tenantId: string, isActive = true): void {
@@ -180,7 +201,14 @@ export class InMemoryCommercialOrdersRepository implements CommercialOrdersRepos
   async findDetailById(tenantId: TenantId, orderId: string): Promise<CommercialOrderDetailDto | null> {
     const order = await this.findById(tenantId, orderId);
     if (!order) return null;
-    return { ...order, lines: this.lines.get(orderId) ?? [] };
+    return {
+      ...order,
+      // E10.16 — pointeurs propres au detail, absents de la forme abregee.
+      customer_contact_id: this.customerContactIds.get(orderId) ?? null,
+      // Aucun ecrivain dans ce lot (reserve (h) du contrat) : NULL partout.
+      expected_delivery_date: null,
+      lines: this.lines.get(orderId) ?? [],
+    };
   }
 
   async convertQuote(tenantId: TenantId, actor: UserId, quoteId: string): Promise<CommercialOrderDetailDto> {
@@ -228,6 +256,21 @@ export class InMemoryCommercialOrdersRepository implements CommercialOrdersRepos
     };
     this.orders.set(orderId, order);
 
+    // E10.16 — MEME chaine de derivation que `api_convert_commercial_quote`
+    // (migration 20260909010000) : `decided_by_account_id` (posee UNIQUEMENT
+    // par une decision portail, E10.10b-2) resolue en `customer_contact_id`
+    // via `shopAccountContacts` (E10.5, enregistre par
+    // `registerShopAccountContactForTest()`). `null` sans branche
+    // conditionnelle si `decided_by_account_id` est `null` (devis converti
+    // depuis `sent`, cas le plus frequent) ou si le compte n a pas ete
+    // enregistre ici (compte auto-inscrit/legacy, `customer_contact_id`
+    // lui-meme `null` en base).
+    const decidedByAccountId = applied.quote.decided_by_account_id;
+    const customerContactId = decidedByAccountId
+      ? (this.shopAccountContacts.get(decidedByAccountId) ?? null)
+      : null;
+    this.customerContactIds.set(orderId, customerContactId);
+
     const orderLines: CommercialOrderLineDto[] = detail.lines.map((line) => ({
       id: fakeOrderUuid(),
       order_id: orderId,
@@ -251,7 +294,13 @@ export class InMemoryCommercialOrdersRepository implements CommercialOrdersRepos
     }));
     this.lines.set(orderId, orderLines);
 
-    return { ...order, lines: orderLines };
+    return {
+      ...order,
+      customer_contact_id: customerContactId,
+      // Aucun ecrivain dans ce lot (reserve (h) du contrat) : NULL partout.
+      expected_delivery_date: null,
+      lines: orderLines,
+    };
   }
 
   /**

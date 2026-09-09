@@ -132,16 +132,37 @@ export class SupabaseCommercialOrdersRepository implements CommercialOrdersRepos
     return data ? toCommercialOrderDto(data) : null;
   }
 
+  /**
+   * E10.16 — relit la ligne `commercial_orders` DIRECTEMENT (plutot que de
+   * deleguer a `findById()`) : `CommercialOrderDto` (forme de liste) ne
+   * porte pas `customer_contact_id`/`expected_delivery_date` (decision du
+   * contrat : ces deux champs ne vivent QUE sur `CommercialOrderDetail`),
+   * il faut donc la ligne brute pour les lire.
+   */
   async findDetailById(tenantId: TenantId, orderId: string): Promise<CommercialOrderDetailDto | null> {
-    const order = await this.findById(tenantId, orderId);
-    if (!order) return null;
+    const { data: orderRow, error: orderError } = await this.client
+      .from('commercial_orders')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .eq('id', orderId)
+      .maybeSingle();
+    if (orderError) throw new Error(orderError.message);
+    if (!orderRow) return null;
+
     const { data, error } = await this.client
       .from('commercial_order_lines')
       .select('*')
       .eq('order_id', orderId)
       .order('position', { ascending: true });
     if (error) throw new Error(error.message);
-    return { ...order, lines: (data ?? []).map(toCommercialOrderLineDto) };
+
+    return {
+      ...toCommercialOrderDto(orderRow),
+      // E10.16 — pointeurs propres au detail, absents de la forme abregee.
+      customer_contact_id: orderRow.customer_contact_id ?? null,
+      expected_delivery_date: orderRow.expected_delivery_date ?? null,
+      lines: (data ?? []).map(toCommercialOrderLineDto),
+    };
   }
 
   async convertQuote(tenantId: TenantId, actor: UserId, quoteId: string): Promise<CommercialOrderDetailDto> {

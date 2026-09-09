@@ -714,6 +714,21 @@ export const TEST_IDS = {
     errorBanner: 'order-status-error-banner',
     closeBtn: 'order-status-close-btn',
   },
+
+  // ─── E10.16 — Ecran de detail d une commande ───────────────────────────────
+  // Fiche accessible par URL directe uniquement (aucune grille de commandes
+  // dans ce lot, decision #7/reserve (f) du contrat, docs/api/CONVENTIONS.md
+  // §8.17). CA1/CA2/CA4/CA6/CA7 ; CA3 (gamme de fabrication Clariprint), CA5
+  // (fichiers, E10.17) et CA8 (PDF, E10.19) HORS PERIMETRE — aucun testid
+  // n est pose pour eux (pas de lien mort). `order-line-row` porte
+  // `data-line-id`. Le bouton Statut reutilise `TEST_IDS.orderStatus.btn`
+  // (E10.14, cable ici pour la premiere fois).
+  commercialOrder: {
+    detailPage: 'order-detail-page',
+    customerBlock: 'order-customer-block',
+    linesTable: 'order-lines-table',
+    lineRow: 'order-line-row',
+  },
 } as const;
 
 /**

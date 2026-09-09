@@ -16,6 +16,10 @@ import {
   commercialQuotesModuleManifest,
   commercialQuotesWorkspaceContribution,
 } from '../modules/commercial-quotes';
+import {
+  commercialOrdersModuleManifest,
+  commercialOrdersWorkspaceContribution,
+} from '../modules/commercial-orders';
 import { membersModuleManifest, membersWorkspaceContribution } from '../modules/members';
 import { tenantsModuleManifest, tenantsWorkspaceContribution } from '../modules/tenants';
 import { rolesModuleManifest, rolesWorkspaceContribution } from '../modules/roles';
@@ -38,6 +42,6 @@ import {
 } from '../modules/storefront-quotes';
 
 export const applicationContributionRegistry = createContributionRegistry({
-  manifests: [accountModuleManifest, ordersModuleManifest, shopsModuleManifest, shopCustomersModuleManifest, quoteTemplatesModuleManifest, librariesModuleManifest, catalogModuleManifest, commercialModuleManifest, customersModuleManifest, projectsModuleManifest, commercialQuotesModuleManifest, membersModuleManifest, tenantsModuleManifest, rolesModuleManifest, conversationsModuleManifest, machineParksModuleManifest, mockupsModuleManifest, plansModuleManifest, pricingModuleManifest, storefrontQuotesModuleManifest, productionStepsModuleManifest],
-  contributions: [accountWorkspaceContribution, accountCustomerPortalContribution, ordersStorefrontContribution, ordersCustomerPortalContribution, ordersWorkspaceContribution, ordersBackofficeContribution, shopsStorefrontContribution, shopsWorkspaceContribution, shopsBackofficeContribution, shopCustomersStorefrontContribution, shopCustomersCustomerPortalContribution, shopCustomersWorkspaceContribution, shopCustomersBackofficeContribution, quoteTemplatesWorkspaceContribution, librariesWorkspaceContribution, catalogStorefrontContribution, catalogWorkspaceContribution, commercialWorkspaceContribution, customersWorkspaceContribution, projectsWorkspaceContribution, commercialQuotesWorkspaceContribution, membersWorkspaceContribution, tenantsWorkspaceContribution, rolesWorkspaceContribution, conversationsWorkspaceContribution, machineParksWorkspaceContribution, mockupsWorkspaceContribution, plansWorkspaceContribution, pricingWorkspaceContribution, storefrontQuotesCustomerPortalContribution, productionStepsWorkspaceContribution],
+  manifests: [accountModuleManifest, ordersModuleManifest, shopsModuleManifest, shopCustomersModuleManifest, quoteTemplatesModuleManifest, librariesModuleManifest, catalogModuleManifest, commercialModuleManifest, customersModuleManifest, projectsModuleManifest, commercialQuotesModuleManifest, commercialOrdersModuleManifest, membersModuleManifest, tenantsModuleManifest, rolesModuleManifest, conversationsModuleManifest, machineParksModuleManifest, mockupsModuleManifest, plansModuleManifest, pricingModuleManifest, storefrontQuotesModuleManifest, productionStepsModuleManifest],
+  contributions: [accountWorkspaceContribution, accountCustomerPortalContribution, ordersStorefrontContribution, ordersCustomerPortalContribution, ordersWorkspaceContribution, ordersBackofficeContribution, shopsStorefrontContribution, shopsWorkspaceContribution, shopsBackofficeContribution, shopCustomersStorefrontContribution, shopCustomersCustomerPortalContribution, shopCustomersWorkspaceContribution, shopCustomersBackofficeContribution, quoteTemplatesWorkspaceContribution, librariesWorkspaceContribution, catalogStorefrontContribution, catalogWorkspaceContribution, commercialWorkspaceContribution, customersWorkspaceContribution, projectsWorkspaceContribution, commercialQuotesWorkspaceContribution, commercialOrdersWorkspaceContribution, membersWorkspaceContribution, tenantsWorkspaceContribution, rolesWorkspaceContribution, conversationsWorkspaceContribution, machineParksWorkspaceContribution, mockupsWorkspaceContribution, plansWorkspaceContribution, pricingWorkspaceContribution, storefrontQuotesCustomerPortalContribution, productionStepsWorkspaceContribution],
 });
