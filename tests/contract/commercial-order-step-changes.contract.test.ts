@@ -38,6 +38,7 @@ import { InMemoryProjectsRepository } from './_fakes/projects-repository.fake.ts
 import { InMemoryCustomersRepository } from './_fakes/customers-repository.fake.ts';
 import { InMemoryCommercialQuotesRepository } from './_fakes/commercial-quotes-repository.fake.ts';
 import { InMemoryPriceRulesRepository } from './_fakes/price-rules-repository.fake.ts';
+import { createNullQuoteDocumentsService } from './_fakes/quote-documents-service.fake.ts';
 import { InMemoryCommercialOrdersRepository } from './_fakes/commercial-orders-repository.fake.ts';
 import { InMemoryProductionStepsRepository } from './_fakes/production-steps-repository.fake.ts';
 
@@ -139,6 +140,7 @@ beforeEach(() => {
     projects: projectsRepository,
     priceRules: priceRulesService,
     pricingEngine: new SingleCostPricingEngine(),
+    documents: createNullQuoteDocumentsService(),
     now: () => new Date('2026-09-09T10:00:00.000Z'),
   });
   ordersService = new CommercialOrdersService({

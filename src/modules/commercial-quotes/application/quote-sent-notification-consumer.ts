@@ -29,6 +29,20 @@ import type { TenantId } from '../../../kernel/ids/index.ts';
 // noyee dans CommercialQuotesRepository.
 // ---------------------------------------------------------------------------
 
+/**
+ * E10.10b-4c — piece jointe du courriel `quote.sent`. `base64Content` est
+ * DEJA ENCODEE (le port ne porte plus d octets bruts) : c est la forme que
+ * l API HTTP de Resend attend (`Attachment.content`, verifie sur
+ * `https://resend.com/openapi.json` le 2026-09-09, cf. rapport de fin de
+ * story — Context7 indisponible dans cet environnement, verification faite
+ * par lecture directe de la documentation ET du schema OpenAPI publies par
+ * Resend, pas de memoire d entrainement).
+ */
+export type QuoteSentEmailDocument = Readonly<{
+  filename: string;
+  base64Content: string;
+}>;
+
 export type QuoteSentEmail = Readonly<{
   to: string;
   customerName: string;
@@ -38,12 +52,45 @@ export type QuoteSentEmail = Readonly<{
   validUntilLabel: string | null;
   isResend: boolean;
   link: string;
+  /**
+   * E10.10b-4c — `null` = cas NOMINAL (aucun gabarit eligible au moment de
+   * l envoi, arbitrage Arnaud du 2026-09-09) : le corps « sans piece jointe »
+   * DEJA EN PRODUCTION (`ResendQuoteSentEmailSender`) reste inchange pour ce
+   * cas. Present = corps « avec piece jointe », 2eme jeu de textes ajoute par
+   * ce lot.
+   */
+  document: QuoteSentEmailDocument | null;
 }>;
 
 export type QuoteSentEmailDelivery = Readonly<{ sent: boolean; reason?: string }>;
 
 export interface QuoteSentEmailSender {
   send(message: QuoteSentEmail): Promise<QuoteSentEmailDelivery>;
+}
+
+// ---------------------------------------------------------------------------
+// Port de la piece jointe — implemente par un adaptateur Supabase (bucket
+// prive `quote_documents`, service_role). Colocalise ici plutot que dans le
+// module `quote-documents` : c est CE consommateur qui a besoin d une
+// REPRESENTATION DIFFERENTE (octets base64 prets pour Resend) de celle que
+// rend `QuoteDocumentsRepository` (URL signee, pour un ecran) — meme
+// raisonnement que `QuoteNotificationGateway` ci-dessus, qui ne reutilise pas
+// `StorefrontQuotesRepository` bien que les deux lisent le meme devis.
+// ---------------------------------------------------------------------------
+
+export type QuoteDocumentAttachmentBytes = Readonly<{ base64Content: string }>;
+
+export interface QuoteDocumentAttachmentGateway {
+  /**
+   * `null` si le devis n a pas de document — CAS NOMINAL (aucun gabarit
+   * configure pour ce tenant), jamais un echec. Telecharge les octets et les
+   * encode UNE SEULE FOIS par appel : c est a l APPELANT (`consume()`
+   * ci-dessous) de n appeler cette methode qu UNE fois par evenement, jamais
+   * une fois par destinataire (contrat §8.18 §4, prescription d execution).
+   * Ne rend PAS de nom de fichier : c est `consume()`, qui connait
+   * `payload.number`, qui construit le nom lisible remis au client.
+   */
+  findAttachment(tenantId: TenantId, quoteId: string): Promise<QuoteDocumentAttachmentBytes | null>;
 }
 
 // ---------------------------------------------------------------------------
@@ -159,6 +206,8 @@ function parseQuoteSentPayload(payload: ClaimedOutboxEvent['payload']): QuoteSen
 export type QuoteSentNotificationConsumerDependencies = Readonly<{
   gateway: QuoteNotificationGateway;
   emailSender: QuoteSentEmailSender;
+  /** E10.10b-4c — piece jointe eventuelle, resolue UNE FOIS par evenement. */
+  documents: QuoteDocumentAttachmentGateway;
   /** `MAGRIT_PUBLIC_APP_URL`. `null` -> aucun envoi possible (§8.13sexies point 4, "Le lien"). */
   baseUrl: string | null;
 }>;
@@ -194,6 +243,13 @@ export class QuoteSentNotificationConsumer implements OutboxEventConsumer {
 
     const validUntilLabel = context.validUntil ? formatFrenchDate(context.validUntil) : null;
 
+    // E10.10b-4c — telecharge UNE SEULE FOIS PAR EVENEMENT (pas une fois par
+    // destinataire, contrat §8.18 §4) : le MEME objet `document` est reutilise
+    // pour chaque envoi ci-dessous. `null` est le cas NOMINAL (aucun gabarit
+    // configure), jamais un echec de l evenement.
+    const attachment = await this.dependencies.documents.findAttachment(event.tenantId, payload.quote_id);
+    const document = attachment ? { filename: `${payload.number}.pdf`, base64Content: attachment.base64Content } : null;
+
     const deliveries = await Promise.all(
       recipients.map((recipient) =>
         this.dependencies.emailSender.send({
@@ -204,6 +260,7 @@ export class QuoteSentNotificationConsumer implements OutboxEventConsumer {
           validUntilLabel,
           isResend: payload.is_resend,
           link: buildAccountQuotesLink(this.dependencies.baseUrl as string, recipient.shopSlug),
+          document,
         }),
       ),
     );

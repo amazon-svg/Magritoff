@@ -615,11 +615,34 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
    * `null`, entree d audit `sent` (snapshot complet) ou `resent` (rien),
    * `show_discounts` fige sur un renvoi divergent (`quote.resend_immutable`).
    */
+  /**
+   * qa-review B4 — MEME calcul que `resolveDefaultValidUntilFor()` (prive,
+   * ci-dessous), reutilise par `sendQuote()` : rend la date qui SERA posee,
+   * SANS AUCUNE ECRITURE — reproduit fidelement
+   * `api_resolve_commercial_quote_valid_until` (migration 20260909050000).
+   */
+  async resolveValidUntilForSend(tenantId: TenantId, quoteId: string): Promise<string | null> {
+    const current = this.quotes.get(quoteId);
+    if (!current || current.tenant_id !== tenantId) throw new QuoteNotFoundError();
+    return this.resolveDefaultValidUntilFor(tenantId, current.valid_until);
+  }
+
+  /** Reproduit `resolve_quote_default_valid_until` (SQL, migration 20260909050000) : `p_current` s il n est pas nul, sinon la date derivee de `default_validity_days`, sinon `null`. */
+  private resolveDefaultValidUntilFor(tenantId: TenantId, currentValidUntil: string | null): string | null {
+    if (currentValidUntil !== null) return currentValidUntil;
+    const defaultDays = this.defaultValidityDays.get(tenantId) ?? null;
+    if (defaultDays === null) return null;
+    const boundary = new Date();
+    boundary.setUTCDate(boundary.getUTCDate() + defaultDays);
+    return boundary.toISOString().slice(0, 10);
+  }
+
   async sendQuote(
     tenantId: TenantId,
     actor: UserId,
     quoteId: string,
     command: SendQuoteCommand,
+    resolvedValidUntil: string | null,
   ): Promise<QuoteDetailDto> {
     const current = this.quotes.get(quoteId);
     if (!current || current.tenant_id !== tenantId) throw new QuoteNotFoundError();
@@ -648,25 +671,26 @@ export class InMemoryCommercialQuotesRepository implements CommercialQuotesRepos
         next.show_discounts = command.show_discounts;
       }
 
-      if (current.valid_until === null) {
-        const defaultDays = this.defaultValidityDays.get(tenantId) ?? null;
-        if (defaultDays !== null) {
-          const boundary = new Date();
-          boundary.setUTCDate(boundary.getUTCDate() + defaultDays);
-          const computed = boundary.toISOString().slice(0, 10);
-          this.pushHeaderAudit({
-            quote_id: quoteId,
-            change_set_id: changeSetId,
-            action: 'updated',
-            field: 'valid_until',
-            previous_value: null,
-            new_value: computed,
-            quote_snapshot: null,
-            actor_id: actor,
-            actor_label: null,
-          });
-          next.valid_until = computed;
-        }
+      // qa-review B4 — `resolvedValidUntil` (deja calcule par
+      // `resolveValidUntilForSend()`, AVANT la generation du document) est
+      // applique TEL QUEL des qu il est fourni, jamais recalcule ici. Ne
+      // recalcule via `resolveDefaultValidUntilFor()` QUE si `null` (chemin
+      // de defense en profondeur, pas le chemin nominal), meme discipline
+      // que `api_send_commercial_quote` (migration 20260909050000).
+      const nextValidUntil = resolvedValidUntil ?? this.resolveDefaultValidUntilFor(tenantId, current.valid_until);
+      if (current.valid_until === null && nextValidUntil !== null) {
+        this.pushHeaderAudit({
+          quote_id: quoteId,
+          change_set_id: changeSetId,
+          action: 'updated',
+          field: 'valid_until',
+          previous_value: null,
+          new_value: nextValidUntil,
+          quote_snapshot: null,
+          actor_id: actor,
+          actor_label: null,
+        });
+        next.valid_until = nextValidUntil;
       }
 
       const now = monotonicIsoTimestamp();

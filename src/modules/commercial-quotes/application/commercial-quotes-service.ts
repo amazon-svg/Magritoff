@@ -29,6 +29,11 @@ import type { OutboxPublisher } from '../../_shared/application/index.ts';
 import type { ProjectsRepository } from '../../projects/application/projects-repository.ts';
 import type { PriceRulesService } from '../../pricing/application/price-rules-service.ts';
 import type { PricingEngine } from '../../pricing/application/pricing-engine.ts';
+import type {
+  QuoteDocumentsService,
+  QuoteForDocumentGeneration,
+  RenderedDocumentForSend,
+} from '../../quote-documents/application/quote-documents-service.ts';
 import {
   computeQuoteLineWarnings,
   deriveLineCommercials,
@@ -117,7 +122,16 @@ export type CommercialQuotesServiceDependencies = Readonly<{
   priceRules: PriceRulesService;
   /** E10.21 — seul point d entree du calcul de prix. */
   pricingEngine: PricingEngine;
-  /** Injectable pour les tests : date de resolution des regles de prix (`YYYY-MM-DD`). */
+  /**
+   * E10.10b-4c — generation du PDF joint a l e-mail d envoi. Appelee UNE
+   * SEULE FOIS, au PREMIER envoi (jamais sur un renvoi), AVANT
+   * `repository.sendQuote()` : c est cet ORDRE, et lui seul, qui garantit
+   * qu un devis reste `draft` en cas d echec de production (contrat §8.18
+   * §5/§7 reserve (j)) sans transaction distribuee — si la generation
+   * echoue, la transition d etat n est simplement jamais appelee.
+   */
+  documents: QuoteDocumentsService;
+  /** Injectable pour les tests : date de resolution des regles de prix (`YYYY-MM-DD`) ET instant d envoi/generation. */
   now?: () => Date;
 }>;
 
@@ -127,6 +141,7 @@ export class CommercialQuotesService {
   private readonly projects: ProjectsRepository;
   private readonly priceRules: PriceRulesService;
   private readonly pricingEngine: PricingEngine;
+  private readonly documents: QuoteDocumentsService;
   private readonly now: () => Date;
 
   constructor(dependencies: CommercialQuotesServiceDependencies) {
@@ -135,6 +150,7 @@ export class CommercialQuotesService {
     this.projects = dependencies.projects;
     this.priceRules = dependencies.priceRules;
     this.pricingEngine = dependencies.pricingEngine;
+    this.documents = dependencies.documents;
     this.now = dependencies.now ?? (() => new Date());
   }
 
@@ -203,12 +219,52 @@ export class CommercialQuotesService {
    * ENVOIE (`draft` -> `sent`) ou RENVOIE (`sent` -> `sent`) un devis. La
    * concurrence optimiste (`If-Match`, CA9) est verifiee par la ROUTE avant
    * cet appel — meme discipline que `updateQuote`/`reorderLines`. Le reste de
-   * la transition (calcul de `valid_until`, audit, distinction premier envoi/
-   * renvoi) est porte ATOMIQUEMENT par le repository (fonction Postgres,
-   * PostgREST n offrant pas de transaction multi-requetes). `quote.sent` est
-   * publie APRES, hors de cette transaction (meme limite deja acceptee pour
-   * `quote.created`) : `is_resend` distingue les deux cas pour le seul
-   * consommateur qui en a besoin aujourd hui (E10.10b, portail client).
+   * la transition (statut, horodatage, audit) est porte ATOMIQUEMENT par le
+   * repository (fonction Postgres, PostgREST n offrant pas de transaction
+   * multi-requetes). `quote.sent` est publie APRES, hors de cette transaction
+   * (meme limite deja acceptee pour `quote.created`) : `is_resend` distingue
+   * les deux cas pour le seul consommateur qui en a besoin aujourd hui
+   * (E10.10b, portail client).
+   *
+   * qa-review B2 (BLOQUANT, corrige) — la branche de generation n est prise
+   * QUE si `exists.status === 'draft'` (premier envoi STRICT), plus jamais
+   * sur `!isResend` (qui incluait a tort `accepted`/`rejected`/`converted` :
+   * un rejeu de `sendQuote` sur un devis deja ACCEPTE aurait REGENERE le
+   * document — sur les donnees et le fond D AUJOURD HUI — et
+   * `store()`/`upsert:true` l aurait ECRASE avant que l unicite EN BASE
+   * n ait la moindre chance de refuser quoi que ce soit).
+   *
+   * qa-review B4 (arbitrage architecte) — `valid_until` est RESOLUE, au
+   * PREMIER envoi, via `repository.resolveValidUntilForSend()` (lecteur SQL,
+   * AUCUNE ECRITURE) AVANT la generation, et la MEME valeur est transmise a
+   * la fois au moteur de generation (le PDF l imprime) et a
+   * `repository.sendQuote()` (qui l applique TELLE QUELLE, sans la
+   * recalculer) : document et ligne portent alors la meme date par
+   * construction, jamais par coincidence.
+   *
+   * qa-review B4-bis (BLOQUANT, corrige) — LA GENERATION NE PERSISTE PLUS
+   * RIEN AVANT LE SUCCES DE L ENVOI. `documents.renderForFirstSend()` produit
+   * le PDF EN MEMOIRE ; `repository.sendQuote()` est appele ENSUITE ; le
+   * document n est stocke (`documents.persistRendered()`) QU APRES que
+   * l envoi a REELEMENT reussi. Avant ce correctif, le document etait stocke
+   * AVANT l envoi : un echec ulterieur (`If-Match` perimee, garde de statut,
+   * transition concurrente) laissait un document ORPHELIN sur un devis
+   * RESTE `draft` — donc modifiable — et un rejeu sur une ligne corrigee
+   * pouvait faire recevoir au client le PDF de la version PERIMEE (la
+   * contrainte d unicite `quote_id` aurait reutilise la ligne existante).
+   * Produire en memoire puis persister seulement apres succes rend ce
+   * scenario STRUCTURELLEMENT impossible.
+   *
+   * Regle d echec asymetrique du contrat (§8.18 §5/§7 reserve (j)),
+   * INCHANGEE par ce qui precede :
+   *  - aucun gabarit eligible (`renderForFirstSend` rend `null`) -> l envoi
+   *    continue SANS piece jointe, cas NOMINAL de tout tenant sans gabarit ;
+   *  - un gabarit ETAIT eligible et la production echoue
+   *    (`QuoteDocumentGenerationFailedError`) -> cette methode se termine EN
+   *    ERREUR ICI, `repository.sendQuote()` n est JAMAIS appele, le devis
+   *    reste `draft` PAR CONSTRUCTION.
+   * Un RENVOI ne regenere jamais (contrat : "generation unique, jamais
+   * regeneree") — la branche de generation n est prise qu au PREMIER envoi.
    */
   async send(
     tenantId: TenantId,
@@ -218,9 +274,87 @@ export class CommercialQuotesService {
   ): Promise<QuoteDetailDto> {
     const exists = await this.repository.findById(tenantId, quoteId);
     if (!exists) throw new QuoteNotFoundError();
+    const isFirstSend = exists.status === 'draft';
     const isResend = exists.status === 'sent';
 
-    const sent = await this.repository.sendQuote(tenantId, actor, quoteId, command);
+    let resolvedValidUntil: string | null = null;
+    let rendered: RenderedDocumentForSend | null = null;
+
+    if (isFirstSend) {
+      const detail = await this.repository.findDetailById(tenantId, quoteId);
+      // Devis introuvable entre les deux lectures : course rarissime, laissee
+      // a `repository.sendQuote()` ci-dessous, qui la retraduira fidelement.
+      if (detail && detail.lines.length > 0) {
+        // qa-review B4 — resolu AVANT la generation : le PDF et la ligne
+        // `commercial_quotes` doivent imprimer/porter la MEME date.
+        resolvedValidUntil = await this.repository.resolveValidUntilForSend(tenantId, quoteId);
+
+        const issuedAt = this.now().toISOString();
+        const showDiscounts = command.show_discounts ?? detail.show_discounts;
+        const generationInput: QuoteForDocumentGeneration = {
+          id: detail.id,
+          customerId: detail.customer_id,
+          number: detail.number,
+          validUntil: resolvedValidUntil,
+          totals: {
+            linesSubtotal: showDiscounts ? detail.totals.lines_subtotal : null,
+            globalDiscount: showDiscounts ? detail.totals.global_discount : null,
+            netTotal: detail.totals.net_total,
+            vatRate: detail.totals.vat_rate,
+            vatAmount: detail.totals.vat_amount,
+            totalInclTax: detail.totals.total_incl_tax,
+          },
+          lines: detail.lines.map((line) => ({
+            position: line.position,
+            label: line.label,
+            productConfig: line.product_config,
+            quantity: line.quantity,
+            priceBeforeDiscount: showDiscounts ? line.customer_price : null,
+            discountRate: showDiscounts ? line.discount_rate : null,
+            price: line.sale_price,
+          })),
+        };
+        // Une erreur ici (QuoteDocumentGenerationFailedError) REMONTE telle
+        // quelle : elle empeche l appel a `repository.sendQuote()` juste en
+        // dessous, ce qui EST la garantie "le devis reste draft" — aucun
+        // rattrapage necessaire. RIEN N EST ENCORE PERSISTE (B4-bis) : ce
+        // seul appel produit des octets en memoire, aucun acces bucket ni
+        // table `quote_documents`.
+        rendered = await this.documents.renderForFirstSend(tenantId, generationInput, issuedAt);
+      }
+    }
+
+    const sent = await this.repository.sendQuote(tenantId, actor, quoteId, command, resolvedValidUntil);
+
+    if (rendered) {
+      // qa-review B4-bis — PERSISTANCE APRES SUCCES CONFIRME uniquement. Le
+      // devis est ICI deja irrevocablement `sent` : un echec de PERSISTANCE
+      // a ce stade ne doit plus jamais declencher une regeneration (contrat :
+      // "generation unique, jamais regeneree"). Degrade au silence — le
+      // devis part alors sans document, exactement comme si aucun gabarit
+      // n avait ete configure — plutot que de faire echouer une operation
+      // qui, en base, a deja reellement reussi.
+      try {
+        await this.documents.persistRendered(tenantId, actor, sent.id, rendered);
+      } catch (cause) {
+        // Best-effort assume et documente : voir le paragraphe ci-dessus.
+        // qa-review (non bloquant, corrige) : le commentaire precedent
+        // affirmait a tort qu aucune information n etait perdue — c est
+        // FAUX, le document EST perdu, definitivement (generation unique,
+        // jamais regeneree : ce devis n aura plus jamais de piece jointe,
+        // GET .../documents rendra 404 pour toujours). Journalise donc cet
+        // echec (meme patron que `bestEffortOutbox(..., console.error ...)`
+        // cable dans le fichier de composition, `magrit-outbox-dispatcher`)
+        // pour qu il reste au moins visible operationnellement, meme si
+        // l appelant HTTP, lui, ne doit pas voir echouer un envoi qui a
+        // reellement reussi.
+        console.error(
+          `[CommercialQuotesService] document perdu (persistance echouee apres envoi reussi, quote=${sent.id}):`,
+          cause,
+        );
+      }
+    }
+
     await this.outbox.publish({
       name: 'quote.sent',
       tenantId,

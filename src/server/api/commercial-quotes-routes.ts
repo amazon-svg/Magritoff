@@ -51,6 +51,7 @@ import {
   QuoteSendRequiresLinesError,
   QuoteUpdateRequiresDraftError,
 } from '../../modules/commercial-quotes/application/commercial-quotes-repository.ts';
+import { QuoteDocumentGenerationFailedError } from '../../modules/quote-documents/application/quote-documents-repository.ts';
 import { uuidSchema } from '../../modules/_shared/api/index.ts';
 import {
   assertPrecondition,
@@ -508,6 +509,24 @@ async function withDomainErrors<T>(
         status: 422,
         title: 'Renvoi refuse',
         code: 'quote.resend_immutable',
+        detail: error.message,
+      });
+    }
+    if (error instanceof QuoteDocumentGenerationFailedError) {
+      // E10.10b-4c — contrat §8.18 §5/§7 reserve (j) : REGLE ASYMETRIQUE, un
+      // gabarit ETAIT eligible mais la production a echoue techniquement.
+      // 500, PAS 502 (il n y a plus d amont depuis l abandon de Gotenberg) :
+      // le devis reste `draft` (repository.sendQuote() n a jamais ete
+      // appele, voir CommercialQuotesService.send()). Aucune entree
+      // d idempotence "terminee" n est enregistree pour cette reponse : le
+      // catch de gescom-middleware.ts appelle `safeRelease`, jamais
+      // `complete`, sur toute erreur qui remonte jusqu ici — le rejeu
+      // legitime de la meme cle peut donc reussir plus tard, sans repli
+      // silencieux vers l envoi sans piece jointe.
+      throw problem({
+        status: 500,
+        title: 'Generation du document impossible',
+        code: 'quote.document_generation_failed',
         detail: error.message,
       });
     }

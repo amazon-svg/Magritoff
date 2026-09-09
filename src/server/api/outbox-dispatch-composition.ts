@@ -20,6 +20,7 @@ import {
 } from '../../modules/_shared/application/index.ts';
 import { SupabaseOutboxDispatchRepository } from '../../adapters/supabase/outbox-dispatch-repository.ts';
 import { SupabaseQuoteNotificationGateway } from '../../adapters/supabase/commercial-quotes-repository.ts';
+import { SupabaseQuoteDocumentAttachmentGateway } from '../../adapters/supabase/quote-document-attachment-gateway.ts';
 import { ResendQuoteSentEmailSender } from '../../adapters/resend/quote-sent-email-sender.ts';
 import { QuoteSentNotificationConsumer } from '../../modules/commercial-quotes/application/quote-sent-notification-consumer.ts';
 
@@ -50,6 +51,9 @@ export function createOutboxDispatchApplication(
 ): Readonly<{ runOnce: () => Promise<DispatchReport> }> {
   const repository = new SupabaseOutboxDispatchRepository(dependencies.serviceRoleClient);
   const gateway = new SupabaseQuoteNotificationGateway(dependencies.serviceRoleClient);
+  // E10.10b-4c — MEME client service_role : le bucket prive `quote_documents`
+  // n a, comme `document_pdf_templates`, aucune policy `storage.objects`.
+  const documents = new SupabaseQuoteDocumentAttachmentGateway(dependencies.serviceRoleClient);
   const emailSender = new ResendQuoteSentEmailSender(
     dependencies.resendApiKey,
     dependencies.fromEmail,
@@ -59,6 +63,7 @@ export function createOutboxDispatchApplication(
   const quoteSentConsumer = new QuoteSentNotificationConsumer({
     gateway,
     emailSender,
+    documents,
     baseUrl: dependencies.publicAppUrl,
   });
 

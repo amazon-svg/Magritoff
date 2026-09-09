@@ -3,6 +3,7 @@ import {
   buildAccountQuotesLink,
   formatFrenchDate,
   QuoteSentNotificationConsumer,
+  type QuoteDocumentAttachmentGateway,
   type QuoteNotificationGateway,
   type QuoteSentEmailSender,
 } from '@/modules/commercial-quotes/application/quote-sent-notification-consumer';
@@ -51,6 +52,23 @@ function buildGateway(overrides: Partial<QuoteNotificationGateway> = {}): QuoteN
   };
 }
 
+/**
+ * Faux "aucun document" (cas NOMINAL, contrat §8.18 §7 reserve (a)) : la
+ * plupart des cas de ce fichier ne portent pas sur E10.10b-4c, ils verifient
+ * que le comportement de b-3 (deja en production) n a pas regresse. Le seul
+ * test dedie a la piece jointe fournit son PROPRE faux.
+ */
+function buildNoDocumentGateway(
+  overrides: Partial<QuoteDocumentAttachmentGateway> = {},
+): QuoteDocumentAttachmentGateway {
+  return {
+    async findAttachment() {
+      return null;
+    },
+    ...overrides,
+  };
+}
+
 describe('buildAccountQuotesLink — parité avec portalRuntimePaths (piège explicitement signalé)', () => {
   it('produit EXACTEMENT le chemin décrit par le registre de surfaces côté navigateur', () => {
     const slug = 'atelier-test';
@@ -89,6 +107,7 @@ describe('QuoteSentNotificationConsumer', () => {
     const consumer = new QuoteSentNotificationConsumer({
       gateway,
       emailSender: { send },
+      documents: buildNoDocumentGateway(),
       baseUrl: 'https://magritapp.com',
     });
 
@@ -102,6 +121,7 @@ describe('QuoteSentNotificationConsumer', () => {
     const consumer = new QuoteSentNotificationConsumer({
       gateway,
       emailSender: { send },
+      documents: buildNoDocumentGateway(),
       baseUrl: 'https://magritapp.com',
     });
 
@@ -114,6 +134,7 @@ describe('QuoteSentNotificationConsumer', () => {
     const consumer = new QuoteSentNotificationConsumer({
       gateway: buildGateway(),
       emailSender: { send },
+      documents: buildNoDocumentGateway(),
       baseUrl: null,
     });
 
@@ -127,6 +148,7 @@ describe('QuoteSentNotificationConsumer', () => {
     const consumer = new QuoteSentNotificationConsumer({
       gateway: buildGateway(),
       emailSender: { send: vi.fn() },
+      documents: buildNoDocumentGateway(),
       baseUrl: 'https://magritapp.com',
     });
 
@@ -141,6 +163,7 @@ describe('QuoteSentNotificationConsumer', () => {
     const consumer = new QuoteSentNotificationConsumer({
       gateway,
       emailSender: { send },
+      documents: buildNoDocumentGateway(),
       baseUrl: 'https://magritapp.com',
     });
 
@@ -155,6 +178,7 @@ describe('QuoteSentNotificationConsumer', () => {
       validUntilLabel: '12 septembre 2026',
       isResend: false,
       link: 'https://magritapp.com/shop/atelier-test/account/quotes',
+      document: null,
     });
   });
 
@@ -163,6 +187,7 @@ describe('QuoteSentNotificationConsumer', () => {
     const consumer = new QuoteSentNotificationConsumer({
       gateway: buildGateway(),
       emailSender: { send },
+      documents: buildNoDocumentGateway(),
       baseUrl: 'https://magritapp.com',
     });
 
@@ -177,6 +202,7 @@ describe('QuoteSentNotificationConsumer', () => {
     const consumer = new QuoteSentNotificationConsumer({
       gateway,
       emailSender: { send },
+      documents: buildNoDocumentGateway(),
       baseUrl: 'https://magritapp.com',
     });
 
@@ -195,7 +221,7 @@ describe('QuoteSentNotificationConsumer', () => {
         ];
       },
     });
-    const consumer = new QuoteSentNotificationConsumer({ gateway, emailSender: { send }, baseUrl: 'https://magritapp.com' });
+    const consumer = new QuoteSentNotificationConsumer({ gateway, emailSender: { send }, documents: buildNoDocumentGateway(), baseUrl: 'https://magritapp.com' });
 
     await consumer.consume(baseEvent());
 
@@ -220,11 +246,56 @@ describe('QuoteSentNotificationConsumer', () => {
         ];
       },
     });
-    const consumer = new QuoteSentNotificationConsumer({ gateway, emailSender: { send }, baseUrl: 'https://magritapp.com' });
+    const consumer = new QuoteSentNotificationConsumer({ gateway, emailSender: { send }, documents: buildNoDocumentGateway(), baseUrl: 'https://magritapp.com' });
 
     const result = await consumer.consume(baseEvent());
 
     expect(result.delivered).toBe(false);
     expect((result as { reason: string }).reason).toContain('Resend 500');
+  });
+
+  // ── E10.10b-4c — piece jointe ──────────────────────────────────────────
+  describe('piece jointe (E10.10b-4c)', () => {
+    it('telecharge le document UNE SEULE FOIS par evenement, pas une fois par destinataire (contrat §8.18 §4)', async () => {
+      const send = vi.fn(async () => ({ sent: true }));
+      const findAttachment = vi.fn(async () => ({ base64Content: 'JVBERi0=' }));
+      const gateway = buildGateway({
+        async resolveRecipients() {
+          return [
+            recipient,
+            { email: 'autre@example.com', customerName: 'Autre', shopSlug: 'autre-boutique', shopName: 'Autre Boutique' },
+          ];
+        },
+      });
+      const consumer = new QuoteSentNotificationConsumer({
+        gateway,
+        emailSender: { send },
+        documents: { findAttachment },
+        baseUrl: 'https://magritapp.com',
+      });
+
+      await consumer.consume(baseEvent());
+
+      expect(findAttachment).toHaveBeenCalledTimes(1);
+      expect(send).toHaveBeenCalledTimes(2);
+      for (const call of send.mock.calls) {
+        expect(call[0].document).toEqual({ filename: 'DEV-2026-00042.pdf', base64Content: 'JVBERi0=' });
+      }
+    });
+
+    it("n a pas de document = cas NOMINAL, jamais un echec (aucun gabarit configure)", async () => {
+      const send = vi.fn(async () => ({ sent: true }));
+      const consumer = new QuoteSentNotificationConsumer({
+        gateway: buildGateway(),
+        emailSender: { send },
+        documents: buildNoDocumentGateway(),
+        baseUrl: 'https://magritapp.com',
+      });
+
+      const result = await consumer.consume(baseEvent());
+
+      expect(result).toEqual({ delivered: true });
+      expect(send).toHaveBeenCalledWith(expect.objectContaining({ document: null }));
+    });
   });
 });

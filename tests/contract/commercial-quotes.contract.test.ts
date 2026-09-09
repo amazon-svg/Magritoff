@@ -38,6 +38,7 @@ import { InMemoryProjectsRepository } from './_fakes/projects-repository.fake.ts
 import { InMemoryCustomersRepository } from './_fakes/customers-repository.fake.ts';
 import { InMemoryCommercialQuotesRepository } from './_fakes/commercial-quotes-repository.fake.ts';
 import { InMemoryPriceRulesRepository } from './_fakes/price-rules-repository.fake.ts';
+import { createNullQuoteDocumentsService } from './_fakes/quote-documents-service.fake.ts';
 
 const TENANT = brand<TenantId>('7f0d2a1e-1c4b-4f8a-9c3d-5b6e7a8f9012');
 const USER = brand<UserId>('a1b2c3d4-e5f6-4708-8910-1a2b3c4d5e6f');
@@ -122,6 +123,7 @@ beforeEach(() => {
     projects: projectsRepository,
     priceRules: priceRulesService,
     pricingEngine: new SingleCostPricingEngine(),
+    documents: createNullQuoteDocumentsService(),
     now: () => new Date('2026-09-01T10:00:00.000Z'),
   });
   handler = createGescomApiHandler({

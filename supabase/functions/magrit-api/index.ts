@@ -74,6 +74,13 @@ import { CommercialOrdersService } from '../../../src/modules/commercial-orders/
 import { SupabaseCommercialOrdersRepository } from '../../../src/adapters/supabase/commercial-orders-repository.ts';
 import { ProductionStepsService } from '../../../src/modules/production-steps/application/production-steps-service.ts';
 import { SupabaseProductionStepsRepository } from '../../../src/adapters/supabase/production-steps-repository.ts';
+import { DocumentTemplatesService } from '../../../src/modules/document-templates/application/document-templates-service.ts';
+import { SupabaseDocumentTemplatesRepository } from '../../../src/adapters/supabase/document-templates-repository.ts';
+import { QuoteDocumentsService } from '../../../src/modules/quote-documents/application/quote-documents-service.ts';
+import { CustomersRepositoryDocumentDataGateway } from '../../../src/modules/quote-documents/application/customer-document-data-gateway.ts';
+import { SupabaseQuoteDocumentsRepository } from '../../../src/adapters/supabase/quote-documents-repository.ts';
+import { OrderFilesService } from '../../../src/modules/order-files/application/order-files-service.ts';
+import { SupabaseOrderFilesRepository } from '../../../src/adapters/supabase/order-files-repository.ts';
 import { SupabaseApiPrincipalVerifier } from '../../../src/adapters/supabase/api-principal-verifier.ts';
 import { InMemoryIdempotencyStore, OutboxPublisher } from '../../../src/modules/_shared/application/index.ts';
 import { TENANT_SELECTION_HEADER } from '../../../src/modules/_shared/api/index.ts';
@@ -298,6 +305,44 @@ export async function handleRequest(request: Request): Promise<Response> {
     }),
   });
 
+  // E10.10b-4a/4c — referentiel des gabarits PDF, INSTANCIE ICI (avant
+  // `commercialQuotesService`) parce que ce dernier en depend desormais pour
+  // la generation du document a l envoi (E10.10b-4c). Le bucket prive
+  // `document_pdf_templates` ne porte AUCUNE policy `storage.objects`
+  // (migration 20260909020000, contrat §8.18 §2) : seul le `service_role`
+  // l atteint. `documentTemplatesStorageClient` est donc DISTINCT de `client`
+  // (cle publique + JWT de l appelant), meme discipline que
+  // `outboxRepository` ci-dessus. Repli sur `anonKey` si la cle de service
+  // est absente : les operations de stockage echoueront alors AU MOMENT de
+  // leur appel (permission refusee), jamais au demarrage de la facade — un
+  // tenant qui n utilise pas encore les gabarits PDF ne doit pas voir toute
+  // la facade E10 s arreter pour une variable d environnement qu il ne
+  // consomme pas.
+  const documentTemplatesStorageClient = createClient(supabaseUrl, serviceRoleKey ?? anonKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const documentTemplatesRepository = new SupabaseDocumentTemplatesRepository(client, documentTemplatesStorageClient);
+  const documentTemplatesService = new DocumentTemplatesService({ repository: documentTemplatesRepository });
+
+  // E10.10b-4c — document PDF produit a l envoi. `SupabaseQuoteDocumentsRepository`
+  // recoit DEUX clients : `documentTemplatesStorageClient` (`service_role`,
+  // REUTILISE tel quel — DEUX raisons, pas seulement le bucket : la migration
+  // 20260909040000 REVOQUE `insert` sur `quote_documents` pour `authenticated`,
+  // donc `store()` EXIGE `service_role` ; qa-review B1 (bloquant, corrige) a
+  // prouve par execution reelle que passer le client `authenticated` ici
+  // rendait `sendQuote` non fonctionnel a 100% des qu un gabarit etait
+  // eligible — voir l en-tete de `quote-documents-repository.ts`), et
+  // `storefrontClient` (cle publique SANS JWT Magrit, pour
+  // `api_get_storefront_quote_document`, meme raisonnement que
+  // `storefrontQuotesService` plus bas). `CustomersRepositoryDocumentDataGateway`
+  // REUTILISE `customersRepository` (E10.4) deja instancie : aucune requete
+  // Supabase nouvelle, un ASSEMBLAGE de donnees deja lues (regle R5).
+  const quoteDocumentsService = new QuoteDocumentsService({
+    templates: documentTemplatesRepository,
+    customers: new CustomersRepositoryDocumentDataGateway(customersRepository),
+    repository: new SupabaseQuoteDocumentsRepository(documentTemplatesStorageClient, storefrontClient),
+  });
+
   // E10.3 — creation d un devis depuis un projet (selection multi-produits).
   // E10.9 — remises granulaires par ligne, ajout/suppression/reordonnancement
   // et journal d audit : le service resout desormais le prix de chaque ligne
@@ -307,6 +352,9 @@ export async function handleRequest(request: Request): Promise<Response> {
   // Projets (E10.1) deja instancie. L outbox publie quote.created via le
   // meme mecanisme best-effort que project.created ci-dessus (dette M2
   // partagee, docs/api/CONVENTIONS.md).
+  // E10.10b-4c — `documents: quoteDocumentsService` : genere et joint le PDF
+  // au PREMIER envoi, AVANT la transition d etat (voir
+  // `CommercialQuotesService.send()`).
   const commercialQuotesService = new CommercialQuotesService({
     repository: new SupabaseCommercialQuotesRepository(client),
     outbox: new OutboxPublisher({
@@ -323,6 +371,7 @@ export async function handleRequest(request: Request): Promise<Response> {
     projects: new SupabaseProjectsRepository(client),
     priceRules: priceRulesService,
     pricingEngine: createPricingEngine(),
+    documents: quoteDocumentsService,
   });
 
   // E10.10a — reglages commerciaux du tenant (validite par defaut des
@@ -393,6 +442,19 @@ export async function handleRequest(request: Request): Promise<Response> {
     repository: new SupabaseProductionStepsRepository(client),
   });
 
+  // E10.17a — fichiers de commande (depot, visibilite, suppression).
+  // Repository construit sur `client` (jamais `storefrontClient`, decision
+  // #5 : aucune ecriture joignable par cle de service, encore moins par une
+  // session boutique) et `documentTemplatesStorageClient` REUTILISE tel quel
+  // pour le bucket prive `commercial_order_files` — meme raisonnement que
+  // `SupabaseQuoteDocumentsRepository` plus haut : ce client `service_role`
+  // n a aucune specificite de bucket, le reconstruire serait une ressource de
+  // plus sans aucun gain. Toutes les six operations d ecriture/lecture
+  // exigent un tenant deja resolu du jeton (`client`), jamais `storefrontClient`.
+  const orderFilesService = new OrderFilesService({
+    repository: new SupabaseOrderFilesRepository(client, documentTemplatesStorageClient),
+  });
+
   const handler = createMagritApiApplication({
     gescomServices: {
       customers: customersService,
@@ -405,6 +467,9 @@ export async function handleRequest(request: Request): Promise<Response> {
       storefrontQuotes: storefrontQuotesService,
       commercialOrders: commercialOrdersService,
       productionSteps: productionStepsService,
+      documentTemplates: documentTemplatesService,
+      quoteDocuments: quoteDocumentsService,
+      orderFiles: orderFilesService,
     },
     principalVerifier: new SupabaseApiPrincipalVerifier(client, {
       requestedTenantId: request.headers.get(TENANT_SELECTION_HEADER),

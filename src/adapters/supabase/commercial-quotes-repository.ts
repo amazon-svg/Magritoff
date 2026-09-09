@@ -279,17 +279,39 @@ export class SupabaseCommercialQuotesRepository implements CommercialQuotesRepos
   // ---------------------------------------------------------------------------
 
   /**
+   * qa-review B4 (E10.10b-4c) — LECTEUR, `security definer` ET `stable`,
+   * AUCUNE ECRITURE (migration 20260909050000) : rend la date de validite
+   * qui SERA posee au premier envoi, appele par le service AVANT de generer
+   * le document — le PDF et la ligne `commercial_quotes` portent alors la
+   * MEME valeur par construction, jamais par coincidence. Un envoi qui
+   * echoue ensuite ne laisse aucune trace (rien n est jamais ecrit ici).
+   */
+  async resolveValidUntilForSend(tenantId: TenantId, quoteId: string): Promise<string | null> {
+    const { data, error } = await this.client.rpc('api_resolve_commercial_quote_valid_until', {
+      p_tenant_id: tenantId,
+      p_quote_id: quoteId,
+    });
+    if (error) throw mapQuoteSendError(error.message);
+    return (data as string | null) ?? null;
+  }
+
+  /**
    * Delegue ENTIEREMENT a `api_send_commercial_quote` (`security definer`,
-   * migration 20260906160000) : transition de statut, calcul de
-   * `valid_until`, ecriture d audit (`sent`/`resent` + `updated` par champ
-   * change, meme `change_set_id`) sont FAITS DANS LA MEME TRANSACTION cote
-   * base — meme raisonnement que `api_create_commercial_quote_from_project_items`.
+   * CINQ arguments depuis qa-review B4, migration 20260909050000) :
+   * transition de statut, ecriture d audit (`sent`/`resent` + `updated` par
+   * champ change, meme `change_set_id`) sont FAITS DANS LA MEME TRANSACTION
+   * cote base — meme raisonnement que
+   * `api_create_commercial_quote_from_project_items`. `resolvedValidUntil`
+   * (deja calcule par `resolveValidUntilForSend`, AVANT la generation du
+   * document) est applique TEL QUEL par la RPC, jamais recalcule ici ni
+   * cote base quand il est fourni.
    */
   async sendQuote(
     tenantId: TenantId,
     actor: UserId,
     quoteId: string,
     command: SendQuoteCommand,
+    resolvedValidUntil: string | null,
   ): Promise<QuoteDetailDto> {
     void actor; // trace : l auteur est porte par la fonction (auth.uid()), pas par ce parametre.
     const { error } = await this.client.rpc('api_send_commercial_quote', {
@@ -297,6 +319,7 @@ export class SupabaseCommercialQuotesRepository implements CommercialQuotesRepos
       p_quote_id: quoteId,
       p_show_discounts: command.show_discounts ?? null,
       p_show_discounts_provided: command.show_discounts !== undefined,
+      p_resolved_valid_until: resolvedValidUntil,
     });
     if (error) throw mapQuoteSendError(error.message);
 

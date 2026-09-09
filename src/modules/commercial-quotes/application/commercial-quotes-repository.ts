@@ -303,13 +303,28 @@ export interface CommercialQuotesRepository {
   // -------------------------------------------------------------------------
 
   /**
+   * qa-review B4 (E10.10b-4c) — LECTEUR pur, AUCUNE ECRITURE : rend la date
+   * de validite qui SERA posee si `quoteId` est envoye maintenant (valeur
+   * deja fixee si non nulle, sinon derivee de `default_validity_days` du
+   * tenant, sinon `null`). Appele par le SERVICE avant de generer le
+   * document, pour que le PDF et `sendQuote()` appliquent la MEME valeur —
+   * jamais une seconde implementation de ce calcul cote TypeScript.
+   */
+  resolveValidUntilForSend(tenantId: TenantId, quoteId: string): Promise<string | null>;
+
+  /**
    * ENVOIE (premier envoi, devis `draft`) ou RENVOIE (devis `sent`) un devis.
-   * Transition atomique : statut, horodatage, calcul de `valid_until` si
-   * necessaire, ecriture d audit (`sent`/`resent`, + `updated` par champ
-   * change) sont portes par UNE SEULE fonction Postgres
-   * (`api_send_commercial_quote`, meme raisonnement que
+   * Transition atomique : statut, horodatage, ecriture d audit (`sent`/
+   * `resent`, + `updated` par champ change) sont portes par UNE SEULE
+   * fonction Postgres (`api_send_commercial_quote`, meme raisonnement que
    * `api_create_commercial_quote_from_project_items`, PostgREST n offrant pas
    * de transaction multi-requetes).
+   *
+   * `resolvedValidUntil` — qa-review B4 : valeur DEJA RESOLUE par
+   * `resolveValidUntilForSend()`, appliquee TELLE QUELLE par la RPC sur un
+   * premier envoi (`null` accepte, la RPC recalcule alors elle-meme — chemin
+   * de defense en profondeur, pas le chemin nominal). Sans effet sur un
+   * renvoi (la validite ne change jamais a un renvoi).
    *
    * Leve `QuoteSendForbiddenStatusError` (statut ni `draft` ni `sent`),
    * `QuoteSendRequiresLinesError` (premier envoi d un devis sans ligne) ou
@@ -320,6 +335,7 @@ export interface CommercialQuotesRepository {
     actor: UserId,
     quoteId: string,
     command: SendQuoteCommand,
+    resolvedValidUntil: string | null,
   ): Promise<QuoteDetailDto>;
 
   /**
