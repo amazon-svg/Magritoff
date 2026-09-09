@@ -615,6 +615,65 @@ describe('module Gabarits PDF de documents (E10.10b-4a) contre le contrat', () =
     expect(body.code).toBe('document_pdf_template.invalid_field_map');
   });
 
+  it('replaceDocumentPdfTemplateFields : un champ order.* sur un gabarit quote -> 422 invalid_field_map (E10.19a, sous-ensemble par type)', async () => {
+    const id = seedTemplate({ document_type: 'quote', status: 'ready', page_count: 1, pages: PAGE_A4 });
+    const fresh = await call(`/api/v1/document-pdf-templates/${id}/fields`, { headers: asUser });
+    const etag = fresh.headers.get('etag')!;
+
+    const response = await call(`/api/v1/document-pdf-templates/${id}/fields`, {
+      method: 'PUT',
+      headers: { ...jsonHeaders, 'If-Match': etag },
+      body: JSON.stringify({
+        placements: [
+          { field: 'order.number', page_index: 0, x: 10, y: 10, align: 'left', font: 'helvetica', font_size: 10, color: '#111111' },
+        ],
+        lines_block: null,
+      }),
+    });
+    expect(response.status).toBe(422);
+    const body = (await response.json()) as { code: string; errors?: Array<{ field: string }> };
+    expect(body.code).toBe('document_pdf_template.invalid_field_map');
+    expect(body.errors?.length).toBeGreaterThan(0);
+  });
+
+  it('replaceDocumentPdfTemplateFields : un champ order.* sur un gabarit order -> accepte (E10.19a)', async () => {
+    const id = seedTemplate({ document_type: 'order', status: 'ready', page_count: 1, pages: PAGE_A4 });
+    const fresh = await call(`/api/v1/document-pdf-templates/${id}/fields`, { headers: asUser });
+    const etag = fresh.headers.get('etag')!;
+
+    const response = await call(`/api/v1/document-pdf-templates/${id}/fields`, {
+      method: 'PUT',
+      headers: { ...jsonHeaders, 'If-Match': etag },
+      body: JSON.stringify({
+        placements: [
+          { field: 'order.number', page_index: 0, x: 10, y: 10, align: 'left', font: 'helvetica', font_size: 10, color: '#111111' },
+        ],
+        lines_block: null,
+      }),
+    });
+    await expectContract(response, { status: 200, dataSchema: 'DocumentPdfTemplateFieldMap' });
+  });
+
+  it('replaceDocumentPdfTemplateFields : un champ quote.* sur un gabarit order -> 422 invalid_field_map (E10.19a)', async () => {
+    const id = seedTemplate({ document_type: 'order', status: 'ready', page_count: 1, pages: PAGE_A4 });
+    const fresh = await call(`/api/v1/document-pdf-templates/${id}/fields`, { headers: asUser });
+    const etag = fresh.headers.get('etag')!;
+
+    const response = await call(`/api/v1/document-pdf-templates/${id}/fields`, {
+      method: 'PUT',
+      headers: { ...jsonHeaders, 'If-Match': etag },
+      body: JSON.stringify({
+        placements: [
+          { field: 'quote.number', page_index: 0, x: 10, y: 10, align: 'left', font: 'helvetica', font_size: 10, color: '#111111' },
+        ],
+        lines_block: null,
+      }),
+    });
+    expect(response.status).toBe(422);
+    const body = (await response.json()) as { code: string };
+    expect(body.code).toBe('document_pdf_template.invalid_field_map');
+  });
+
   it('replaceDocumentPdfTemplateFields : alignement centre sans largeur -> 422 invalid_field_map', async () => {
     const id = seedTemplate({ status: 'ready', page_count: 1, pages: PAGE_A4 });
     const fresh = await call(`/api/v1/document-pdf-templates/${id}/fields`, { headers: asUser });

@@ -146,7 +146,7 @@ export class DocumentTemplatesService {
     if (!template) throw new DocumentPdfTemplateNotFoundError();
     if (template.status !== 'ready') throw new DocumentPdfTemplateUploadRequiredError();
 
-    const errors = validateDocumentFieldMap(template.pages, command);
+    const errors = validateDocumentFieldMap(template.pages, command, template.document_type);
     if (errors.length > 0) throw new DocumentPdfTemplateInvalidFieldMapError(errors);
 
     return this.repository.replaceFields(tenantId, templateId, command);

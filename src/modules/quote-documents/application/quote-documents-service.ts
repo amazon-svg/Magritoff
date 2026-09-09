@@ -39,9 +39,19 @@ import {
   type QuoteDocumentsRepository,
 } from './quote-documents-repository.ts';
 
-/** Dependance NARROW sur le referentiel des gabarits (module `document-templates`) : une seule methode utilisee ici. */
+/**
+ * Dependance NARROW sur le referentiel des gabarits (module
+ * `document-templates`) : une seule methode utilisee ici. E10.19a — la
+ * methode est desormais generalisee par TYPE DE DOCUMENT
+ * (`findEligibleTemplateForGeneration(tenantId, documentType)`, contrat §0 :
+ * "point de reprise le plus concret du lot") ; ce module de devis appelle
+ * toujours `'quote'`, jamais `'order'` (E10.19b, module `commercial-orders`).
+ */
 export interface DocumentTemplateForGenerationPort {
-  findEligibleTemplateForGeneration(tenantId: TenantId): Promise<EligibleDocumentPdfTemplate | null>;
+  findEligibleTemplateForGeneration(
+    tenantId: TenantId,
+    documentType: 'quote',
+  ): Promise<EligibleDocumentPdfTemplate | null>;
 }
 
 /** Donnees CLIENT necessaires au document (`customer.*`), resolues dans le tenant du devis. */
@@ -169,7 +179,7 @@ export class QuoteDocumentsService {
       // reseau) y remontait alors en `Error` nue, jamais traduite en
       // `QuoteDocumentGenerationFailedError` comme le contrat le declare
       // pour ce 500. Desormais a l interieur, comme le reste de la chaine.
-      const eligible = await this.templates.findEligibleTemplateForGeneration(tenantId);
+      const eligible = await this.templates.findEligibleTemplateForGeneration(tenantId, 'quote');
       if (!eligible) return null;
 
       const customer = (await this.customers.findCustomerForDocument(tenantId, quote.customerId)) ?? EMPTY_CUSTOMER;

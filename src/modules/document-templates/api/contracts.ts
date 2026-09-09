@@ -25,7 +25,13 @@
 import { z } from 'zod';
 import { timestampSchema, uuidSchema } from '../../_shared/api/index.ts';
 
-export const documentTypeSchema = z.enum(['quote']);
+/**
+ * E10.19a — enumeration ADDITIVE (`order` ajoute sans qu aucun gabarit
+ * `quote` existant change de sens, contrat `DocumentType`). DEUX GABARITS
+ * DISTINCTS, chacun avec son propre defaut par tenant (arbitrage (A) du
+ * 2026-09-10) : AUCUN repli d un type sur l autre, jamais.
+ */
+export const documentTypeSchema = z.enum(['quote', 'order']);
 
 export const documentPdfTemplateStatusSchema = z.enum(['awaiting_upload', 'ready']);
 
@@ -164,6 +170,14 @@ export const documentFieldIdSchema = z.enum([
   'quote.issued_at',
   'quote.valid_until',
   'quote.customer_reference',
+  // E10.19a — cinq valeurs `order.*` (contrat DocumentFieldId). SOUS-ENSEMBLE
+  // OPPOSABLE PAR TYPE tenu par `document-field-map-validator.ts` : jamais
+  // melangees aux `quote.*` sur un meme gabarit (422 `invalid_field_map`).
+  'order.number',
+  'order.created_at',
+  'order.quote_number',
+  'order.customer_reference',
+  'order.expected_delivery_date',
   'customer.company_name',
   'customer.contact_name',
   'customer.billing_address_block',

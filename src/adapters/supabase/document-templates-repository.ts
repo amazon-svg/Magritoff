@@ -34,6 +34,7 @@ import type {
   DocumentPdfTemplateFieldMapDto,
   DocumentPdfTemplatePageDto,
   DocumentPdfTemplateUploadTicketDto,
+  DocumentType,
   ReplaceDocumentPdfTemplateFieldsCommand,
   UpdateDocumentPdfTemplateCommand,
 } from '../../modules/document-templates/api/contracts.ts';
@@ -268,19 +269,24 @@ export class SupabaseDocumentTemplatesRepository implements DocumentTemplatesRep
   }
 
   /**
-   * E10.10b-4c — resout le gabarit qu utiliserait `sendQuote` (condition
-   * d attachement a QUATRE termes, contrat §8.18 §5) : `document_type =
-   * 'quote'`, `status = 'ready'`, `is_active`, `is_default`, carte non vide.
-   * `is_default` etant unique par `(tenant_id, document_type)` (index
-   * partiel, migration 20260909020000), au plus UNE ligne peut jamais
-   * correspondre — `maybeSingle()` est donc exact, pas une simplification.
+   * E10.10b-4c/E10.19a — resout le gabarit qu utiliserait une generation
+   * (condition d attachement a QUATRE termes, contrat §8.18 §5) :
+   * `document_type = documentType`, `status = 'ready'`, `is_active`,
+   * `is_default`, carte non vide. `is_default` etant unique par
+   * `(tenant_id, document_type)` (index partiel, migration 20260909020000),
+   * au plus UNE ligne peut jamais correspondre — `maybeSingle()` est donc
+   * exact, pas une simplification. `documentType` est desormais un PARAMETRE
+   * (E10.19a §0) : plus de `.eq('document_type', 'quote')` code en dur.
    */
-  async findEligibleTemplateForGeneration(tenantId: TenantId): Promise<EligibleDocumentPdfTemplate | null> {
+  async findEligibleTemplateForGeneration(
+    tenantId: TenantId,
+    documentType: DocumentType,
+  ): Promise<EligibleDocumentPdfTemplate | null> {
     const { data, error } = await this.client
       .from('document_pdf_templates')
       .select(TEMPLATE_COLUMNS)
       .eq('tenant_id', tenantId)
-      .eq('document_type', 'quote')
+      .eq('document_type', documentType)
       .eq('status', 'ready')
       .eq('is_active', true)
       .eq('is_default', true)

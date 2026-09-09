@@ -274,7 +274,7 @@ function parseDocumentType(raw: string | null): DocumentType | null {
   if (raw === null) return null;
   const parsed = documentTypeSchema.safeParse(raw);
   if (!parsed.success) {
-    throw validationFailed([{ field: 'document_type', message: 'Valeur attendue : quote.' }]);
+    throw validationFailed([{ field: 'document_type', message: 'Valeur attendue : quote ou order.' }]);
   }
   return parsed.data;
 }

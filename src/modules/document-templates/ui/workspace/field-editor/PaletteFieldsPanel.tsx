@@ -6,18 +6,25 @@
  */
 import { GripVertical } from 'lucide-react';
 import { TEST_IDS } from '@/shared/presentation/testIds';
-import type { DocumentFieldId, DocumentFieldPlacementDto } from '@/modules/document-templates/api/contracts';
+import type {
+  DocumentFieldId,
+  DocumentFieldPlacementDto,
+  DocumentType,
+} from '@/modules/document-templates/api/contracts';
 import {
   FIELD_CATALOG,
   FIELD_FAMILY_HINTS,
   FIELD_FAMILY_LABELS,
-  type FieldFamilyId,
+  FIELD_FAMILY_ORDER_BY_DOCUMENT_TYPE,
 } from './field-catalog';
-
-const FAMILY_ORDER: readonly FieldFamilyId[] = ['quote', 'customer', 'totals', 'page'];
 
 export type PaletteFieldsPanelProps = Readonly<{
   placements: readonly DocumentFieldPlacementDto[];
+  /**
+   * E10.19a — palette FILTREE par type de gabarit (contrat §4 : "l editeur ne
+   * le propose pas" pour un champ hors du sous-ensemble opposable du type).
+   */
+  documentType: DocumentType;
   /** qa-review R7 : le compteur du wireframe (§2, "0/26") compte le tableau EN PLUS des 25 champs. */
   hasTable: boolean;
   armedField: DocumentFieldId | null;
@@ -28,6 +35,7 @@ export type PaletteFieldsPanelProps = Readonly<{
 
 export function PaletteFieldsPanel({
   placements,
+  documentType,
   hasTable,
   armedField,
   onArm,
@@ -35,11 +43,15 @@ export function PaletteFieldsPanel({
   onDragStart,
 }: PaletteFieldsPanelProps) {
   const placedFields = new Set(placements.map((placement) => placement.field));
+  const familyOrder = FIELD_FAMILY_ORDER_BY_DOCUMENT_TYPE[documentType];
+  const catalogForType = FIELD_CATALOG.filter((entry) => (familyOrder as readonly string[]).includes(entry.family));
   // qa-review R7 : "0/26" au wireframe = 25 champs + le tableau des lignes
   // compte A PART (contrat §2, note de l ecran A : "Le compteur 0/26 (25
-  // champs + le tableau)").
-  const totalCount = FIELD_CATALOG.length + 1;
-  const positionedCount = FIELD_CATALOG.filter((entry) => placedFields.has(entry.id)).length + (hasTable ? 1 : 0);
+  // champs + le tableau)"). E10.19a : le denominateur suit desormais le
+  // CATALOGUE FILTRE par type (un gabarit de commande ne propose jamais les
+  // 4 champs `quote.*`, ils ne doivent pas compter dans son total).
+  const totalCount = catalogForType.length + 1;
+  const positionedCount = catalogForType.filter((entry) => placedFields.has(entry.id)).length + (hasTable ? 1 : 0);
 
   return (
     <div className="space-y-4">
@@ -51,8 +63,8 @@ export function PaletteFieldsPanel({
         {positionedCount > 1 ? 's' : ''}
       </p>
 
-      {FAMILY_ORDER.map((family) => {
-        const entries = FIELD_CATALOG.filter((entry) => entry.family === family && !placedFields.has(entry.id));
+      {familyOrder.map((family) => {
+        const entries = catalogForType.filter((entry) => entry.family === family && !placedFields.has(entry.id));
         return (
           <section key={family} className="space-y-1.5">
             <h3 className="text-xs font-bold text-ink-2 uppercase tracking-wider">

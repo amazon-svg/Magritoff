@@ -196,6 +196,46 @@ describe('validateDocumentFieldMap', () => {
     expect(errors).toEqual([]);
   });
 
+  // ── E10.19a — sous-ensemble opposable PAR TYPE DE DOCUMENT ────────────────
+  it('un champ order.* sur un gabarit quote (defaut) -> erreur', () => {
+    const errors = validateDocumentFieldMap(PAGE_A4, command({ placements: [placement({ field: 'order.number' })] }));
+    expect(errors.some((error) => error.field === 'placements[0].field')).toBe(true);
+  });
+
+  it('un champ quote.* sur un gabarit order -> erreur', () => {
+    const errors = validateDocumentFieldMap(
+      PAGE_A4,
+      command({ placements: [placement({ field: 'quote.number' })] }),
+      'order',
+    );
+    expect(errors.some((error) => error.field === 'placements[0].field')).toBe(true);
+  });
+
+  it('un champ order.* sur un gabarit order : aucune erreur de sous-ensemble', () => {
+    const errors = validateDocumentFieldMap(
+      PAGE_A4,
+      command({ placements: [placement({ field: 'order.number' })] }),
+      'order',
+    );
+    expect(errors).toEqual([]);
+  });
+
+  it('les familles communes (customer./totals./page.) valent pour les DEUX types', () => {
+    const onOrder = validateDocumentFieldMap(
+      PAGE_A4,
+      command({ placements: [placement({ field: 'customer.company_name' })] }),
+      'order',
+    );
+    expect(onOrder).toEqual([]);
+
+    const onQuote = validateDocumentFieldMap(
+      PAGE_A4,
+      command({ placements: [placement({ field: 'totals.net_total' })] }),
+      'quote',
+    );
+    expect(onQuote).toEqual([]);
+  });
+
   it('une colonne de lignes utilisee deux fois -> erreur', () => {
     const errors = validateDocumentFieldMap(
       PAGE_A4,

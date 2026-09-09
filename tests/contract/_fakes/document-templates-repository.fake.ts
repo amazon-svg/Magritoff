@@ -27,6 +27,7 @@ import {
   DocumentPdfTemplateUploadMissingError,
   DocumentPdfTemplateUploadRequiredError,
   type DocumentTemplatesRepository,
+  type EligibleDocumentPdfTemplate,
   type ListDocumentPdfTemplatesFilters,
 } from '@/modules/document-templates/application/document-templates-repository';
 import type {
@@ -39,6 +40,7 @@ import type {
   DocumentPdfTemplateFieldMapDto,
   DocumentPdfTemplatePageDto,
   DocumentPdfTemplateUploadTicketDto,
+  DocumentType,
   ReplaceDocumentPdfTemplateFieldsCommand,
   UpdateDocumentPdfTemplateCommand,
 } from '@/modules/document-templates/api/contracts';
@@ -56,7 +58,7 @@ function normalizeName(name: string): string {
 type StoredTemplate = {
   id: string;
   tenant_id: string;
-  document_type: 'quote';
+  document_type: DocumentType;
   name: string;
   status: 'awaiting_upload' | 'ready';
   storage_path: string | null;
@@ -127,6 +129,20 @@ export class InMemoryDocumentTemplatesRepository implements DocumentTemplatesRep
 
   async actorHasCapability(tenantId: TenantId, actorId: UserId, capability: string): Promise<boolean> {
     return this.actorCapabilities.get(`${tenantId}:${actorId}:${capability}`) ?? true;
+  }
+
+  /**
+   * E10.19a — non exercee par ce test de contrat (module `document-templates`
+   * seul, la generation vit dans `quote-documents`/E10.19b) : implementee
+   * pour la conformite de l interface, jamais appelee ici.
+   */
+  async findEligibleTemplateForGeneration(
+    tenantId: TenantId,
+    documentType: DocumentType,
+  ): Promise<EligibleDocumentPdfTemplate | null> {
+    void tenantId;
+    void documentType;
+    return null;
   }
 
   async list(

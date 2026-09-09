@@ -16,6 +16,15 @@
  * verifie par execution reelle contre Supabase Storage local) d une AUTRE
  * panne (reseau, 5xx) qui doit etre LEVEE, jamais avalee comme "pas de
  * gabarit".
+ *
+ * E10.19a (qa-review B2, bloquant, corrige) — `findEligibleTemplateForGeneration`
+ * a gagne un second parametre `documentType` (contrat §8.20 §0 : plus de
+ * `.eq('document_type', 'quote')` code en dur cote adaptateur). `fakeClient()`
+ * enregistre desormais chaque appel `eq(colonne, valeur)` sur
+ * `document_pdf_templates` dans `eqCalls`, pour PROUVER que la valeur passee
+ * en parametre est bien celle transmise au filtre PostgREST — sans cette
+ * preuve, un devis aurait pu partir sur le gabarit d une commande (et
+ * reciproquement) sans qu aucun test ne le detecte.
  */
 import { describe, expect, it } from 'vitest';
 import { SupabaseDocumentTemplatesRepository } from '@/adapters/supabase/document-templates-repository';
@@ -73,12 +82,23 @@ function fakeClient(options: {
     error: null,
   };
 
+  /**
+   * E10.19a (qa-review B2) — chaque appel `eq(colonne, valeur)` sur
+   * `document_pdf_templates` est enregistre ICI, dans l ORDRE d appel. Sans
+   * cet enregistrement, un `eq: () => builder` muet ne prouve rien de la
+   * valeur reellement transmise au filtre PostgREST.
+   */
+  const eqCalls: Array<readonly [string, unknown]> = [];
+
   const client = {
     from(table: string) {
       if (table === 'document_pdf_templates') {
         const builder = {
           select: () => builder,
-          eq: () => builder,
+          eq: (column: string, value: unknown) => {
+            eqCalls.push([column, value]);
+            return builder;
+          },
           maybeSingle: async () => ({ data: options.templateRow, error: null }),
         };
         return builder;
@@ -109,7 +129,7 @@ function fakeClient(options: {
     },
   };
 
-  return { client, storageClient };
+  return { client, storageClient, eqCalls };
 }
 
 describe('findEligibleTemplateForGeneration — 4e terme (has_field_map), qa-review non bloquant', () => {
@@ -120,7 +140,7 @@ describe('findEligibleTemplateForGeneration — 4e terme (has_field_map), qa-rev
     });
     const repository = new SupabaseDocumentTemplatesRepository(client as any, storageClient as any);
 
-    const result = await repository.findEligibleTemplateForGeneration(TENANT);
+    const result = await repository.findEligibleTemplateForGeneration(TENANT, 'quote');
 
     expect(result).toBeNull();
   });
@@ -145,7 +165,7 @@ describe('findEligibleTemplateForGeneration — 4e terme (has_field_map), qa-rev
     });
     const repository = new SupabaseDocumentTemplatesRepository(client as any, storageClient as any);
 
-    const result = await repository.findEligibleTemplateForGeneration(TENANT);
+    const result = await repository.findEligibleTemplateForGeneration(TENANT, 'quote');
 
     expect(result).not.toBeNull();
     expect(result?.templateId).toBe(TEMPLATE_ID);
@@ -159,7 +179,7 @@ describe('findEligibleTemplateForGeneration — 4e terme (has_field_map), qa-rev
     });
     const repository = new SupabaseDocumentTemplatesRepository(client as any, storageClient as any);
 
-    const result = await repository.findEligibleTemplateForGeneration(TENANT);
+    const result = await repository.findEligibleTemplateForGeneration(TENANT, 'quote');
 
     expect(result).not.toBeNull();
     expect(result?.linesBlock).not.toBeNull();
@@ -169,7 +189,7 @@ describe('findEligibleTemplateForGeneration — 4e terme (has_field_map), qa-rev
     const { client, storageClient } = fakeClient({ templateRow: null });
     const repository = new SupabaseDocumentTemplatesRepository(client as any, storageClient as any);
 
-    await expect(repository.findEligibleTemplateForGeneration(TENANT)).resolves.toBeNull();
+    await expect(repository.findEligibleTemplateForGeneration(TENANT, 'quote')).resolves.toBeNull();
   });
 
   it('qa-review B3 — rend null sur un 404 Storage EXPLICITE (objet reellement absent, defense en profondeur)', async () => {
@@ -179,7 +199,7 @@ describe('findEligibleTemplateForGeneration — 4e terme (has_field_map), qa-rev
     });
     const repository = new SupabaseDocumentTemplatesRepository(client as any, storageClient as any);
 
-    await expect(repository.findEligibleTemplateForGeneration(TENANT)).resolves.toBeNull();
+    await expect(repository.findEligibleTemplateForGeneration(TENANT, 'quote')).resolves.toBeNull();
   });
 
   it("qa-review B3 (BLOQUANT, corrige) — LEVE une erreur sur toute AUTRE panne Storage (reseau, 5xx), jamais un repli silencieux vers 'pas de gabarit'", async () => {
@@ -189,6 +209,34 @@ describe('findEligibleTemplateForGeneration — 4e terme (has_field_map), qa-rev
     });
     const repository = new SupabaseDocumentTemplatesRepository(client as any, storageClient as any);
 
-    await expect(repository.findEligibleTemplateForGeneration(TENANT)).rejects.toThrow();
+    await expect(repository.findEligibleTemplateForGeneration(TENANT, 'quote')).rejects.toThrow();
+  });
+});
+
+describe('findEligibleTemplateForGeneration — E10.19a (qa-review B2, bloquant) : documentType transmis au filtre reel', () => {
+  it("appelle .eq('document_type', 'quote') quand documentType='quote', jamais 'order'", async () => {
+    const { client, storageClient, eqCalls } = fakeClient({
+      templateRow: eligibleTemplateRow({ document_type: 'quote' }),
+      fieldRows: [{ field: 'quote.number', page_index: 0, x: 50, y: 700, width: null, max_lines: 1, align: 'left', font: 'helvetica', font_size: 12, color: '#111111' }],
+    });
+    const repository = new SupabaseDocumentTemplatesRepository(client as any, storageClient as any);
+
+    await repository.findEligibleTemplateForGeneration(TENANT, 'quote');
+
+    expect(eqCalls).toContainEqual(['document_type', 'quote']);
+    expect(eqCalls.some(([column, value]) => column === 'document_type' && value === 'order')).toBe(false);
+  });
+
+  it("appelle .eq('document_type', 'order') quand documentType='order', jamais 'quote' — sans cette preuve, un devis pourrait partir sur le gabarit d une commande", async () => {
+    const { client, storageClient, eqCalls } = fakeClient({
+      templateRow: eligibleTemplateRow({ document_type: 'order' }),
+      fieldRows: [{ field: 'order.number', page_index: 0, x: 50, y: 700, width: null, max_lines: 1, align: 'left', font: 'helvetica', font_size: 12, color: '#111111' }],
+    });
+    const repository = new SupabaseDocumentTemplatesRepository(client as any, storageClient as any);
+
+    await repository.findEligibleTemplateForGeneration(TENANT, 'order');
+
+    expect(eqCalls).toContainEqual(['document_type', 'order']);
+    expect(eqCalls.some(([column, value]) => column === 'document_type' && value === 'quote')).toBe(false);
   });
 });

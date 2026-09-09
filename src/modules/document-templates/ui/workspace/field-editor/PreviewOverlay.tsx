@@ -30,6 +30,8 @@ export type PreviewOverlayProps = Readonly<{
   pages: readonly DocumentPdfTemplatePageDto[];
   fieldMap: DocumentPdfTemplateFieldMapDto;
   sample: SampleQuote;
+  /** E10.19a — copie generique ("devis"/"commande") selon `document_type` du gabarit apercu. */
+  documentTypeLabel: 'devis' | 'commande';
   simulateLong: boolean;
   onToggleLong(value: boolean): void;
   onExit(): void;
@@ -40,7 +42,16 @@ function isPageDependentFamily(field: DocumentFieldId): boolean {
   return field.startsWith('totals.') || field.startsWith('page.');
 }
 
-export function PreviewOverlay({ backgroundUrl, pages, fieldMap, sample, simulateLong, onToggleLong, onExit }: PreviewOverlayProps) {
+export function PreviewOverlay({
+  backgroundUrl,
+  pages,
+  fieldMap,
+  sample,
+  documentTypeLabel,
+  simulateLong,
+  onToggleLong,
+  onExit,
+}: PreviewOverlayProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const render = usePdfPageCanvas(canvasRef, backgroundUrl, 0, CANVAS_WIDTH_PX);
   const page = pages[0];
@@ -75,7 +86,7 @@ export function PreviewOverlay({ backgroundUrl, pages, fieldMap, sample, simulat
         >
           ◂ Quitter l’aperçu
         </button>
-        <h2 className="text-sm font-bold text-ink">Aperçu — devis d’exemple</h2>
+        <h2 className="text-sm font-bold text-ink">Aperçu — {documentTypeLabel} d’exemple</h2>
         <label className="flex items-center gap-2 text-xs text-ink-2">
           <input
             type="checkbox"
@@ -83,7 +94,7 @@ export function PreviewOverlay({ backgroundUrl, pages, fieldMap, sample, simulat
             data-testid={TEST_IDS.documentTemplateFields.previewLongCheckbox}
             onChange={(event) => onToggleLong(event.target.checked)}
           />
-          Simuler un devis long (2 pages)
+          {documentTypeLabel === 'commande' ? 'Simuler une commande longue (2 pages)' : 'Simuler un devis long (2 pages)'}
         </label>
       </div>
 
@@ -165,8 +176,8 @@ export function PreviewOverlay({ backgroundUrl, pages, fieldMap, sample, simulat
 
         <div className="text-xs text-ink-muted text-center max-w-md px-4 space-y-1">
           <p>
-            Ceci est un aperçu avec des données fictives. Le document réel sera généré à l’envoi du devis, avec les
-            vraies données du client.
+            Ceci est un aperçu avec des données fictives. Le document réel sera généré avec les vraies données du
+            client.
           </p>
           {showsMultiPageNotice && (
             <p className="text-amber-700">

@@ -46,7 +46,7 @@ import { LinesTablePanel } from './LinesTablePanel';
 import { PreviewOverlay } from './PreviewOverlay';
 import { pdfPointToScreenPixel, scaleToFitWidth, screenPixelToPdfPoint } from './pdf-coordinates';
 import { usePdfPageCanvas } from './usePdfPageCanvas';
-import { SAMPLE_QUOTE, SAMPLE_QUOTE_LONG } from './sample-quote';
+import { SAMPLE_ORDER, SAMPLE_ORDER_LONG, SAMPLE_QUOTE, SAMPLE_QUOTE_LONG } from './sample-quote';
 import { NO_SELECTION, type FieldSelection } from './types';
 
 const ARROW_STEP_PT = 1;
@@ -169,7 +169,14 @@ export function DashboardDocumentTemplateFields() {
   );
 
   const clientErrors = useMemo(
-    () => (template ? validateDocumentFieldMap(template.pages, { placements: [...placements], lines_block: linesBlock }) : []),
+    () =>
+      template
+        ? validateDocumentFieldMap(
+            template.pages,
+            { placements: [...placements], lines_block: linesBlock },
+            template.document_type,
+          )
+        : [],
     [template, placements, linesBlock],
   );
   const totalInclTaxMissing = !placements.some((placement) => placement.field === 'totals.total_incl_tax');
@@ -410,12 +417,24 @@ export function DashboardDocumentTemplateFields() {
   if (!template) return null;
 
   if (previewOpen) {
+    // E10.19a — jeu d exemple SELON LE TYPE DU GABARIT : un gabarit `order`
+    // s apercoit avec une commande d exemple, jamais avec le devis (les
+    // familles `quote.`/`order.` ne se melangent pas, meme dans l apercu).
+    const isOrderTemplate = template.document_type === 'order';
+    const sample = previewLong
+      ? isOrderTemplate
+        ? SAMPLE_ORDER_LONG
+        : SAMPLE_QUOTE_LONG
+      : isOrderTemplate
+        ? SAMPLE_ORDER
+        : SAMPLE_QUOTE;
     return (
       <PreviewOverlay
         backgroundUrl={template.background_url}
         pages={template.pages}
         fieldMap={{ template_id: template.id, placements: [...placements], lines_block: linesBlock }}
-        sample={previewLong ? SAMPLE_QUOTE_LONG : SAMPLE_QUOTE}
+        sample={sample}
+        documentTypeLabel={isOrderTemplate ? 'commande' : 'devis'}
         simulateLong={previewLong}
         onToggleLong={setPreviewLong}
         onExit={() => setPreviewOpen(false)}
@@ -706,6 +725,7 @@ export function DashboardDocumentTemplateFields() {
               {activeTab === 'fields' ? (
                 <PaletteFieldsPanel
                   placements={placements}
+                  documentType={template.document_type}
                   hasTable={linesBlock !== null}
                   armedField={selection.kind === 'armed' ? selection.field : null}
                   onArm={(field) => setSelection({ kind: 'armed', field })}

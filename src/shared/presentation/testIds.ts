@@ -744,6 +744,11 @@ export const TEST_IDS = {
     nameInput: 'document-template-name-input',
     addNameInput: 'document-template-add-name-input',
     addDefaultCheckbox: 'document-template-add-default-checkbox',
+    // E10.19a (qa-review B1) — choix du document_type a la creation, et
+    // affichage du type dans la liste. Sans ces deux testids, aucun chemin
+    // produit ne cree/ne distingue un gabarit `order`.
+    addTypeSelect: 'document-template-add-type-select',
+    typeBadge: 'document-template-type-badge',
     addBtn: 'document-template-add-btn',
     saveBtn: 'document-template-save-btn',
     fileInput: 'document-template-file-input',

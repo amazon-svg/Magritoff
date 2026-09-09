@@ -11,13 +11,31 @@
  * s ils sont positionnes — l imprimeur voit ce que SA carte dessine, pas ce
  * qu un tenant particulier configurerait a l envoi (regle serveur, hors
  * portee de cet apercu client, E10.10b-4c).
+ *
+ * E10.19a — jeu d exemple de COMMANDE (`SAMPLE_ORDER`/`SAMPLE_ORDER_LONG`),
+ * meme discipline que le devis : donnees FICTIVES, y compris pour
+ * `order.customer_reference`/`order.expected_delivery_date`, deux champs
+ * dont la SOURCE REELLE n existe pas encore cote serveur (`commercial_orders.
+ * customer_reference` documente le meme ecart que `quote.customer_reference`
+ * ci-dessus, `expected_delivery_date` n a AUCUN chemin d ecriture, §8.17
+ * reserve (h)) — l apercu reste un outil de POSITIONNEMENT, il montre a
+ * l imprimeur ou la valeur s ecrirait LE JOUR OU elle existera, pas ce que
+ * le moteur sait produire aujourd hui (meme parti que `quote.customer_reference`).
  */
 import type { DocumentFieldId, DocumentLineFieldId } from '@/modules/document-templates/api/contracts';
 
 export type SampleQuoteLine = Readonly<Record<DocumentLineFieldId, string>>;
 
+/**
+ * Carte de valeurs d exemple : `Partial`, PAS `Record` exhaustif — un jeu de
+ * donnees de devis n a aucune raison de porter les cinq cles `order.*`
+ * (E10.19a), et reciproquement. Une cle absente se comporte comme en
+ * production (contrat : "valeur absente = rien imprime").
+ */
+export type SampleDocumentFields = Readonly<Partial<Record<DocumentFieldId, string>>>;
+
 export type SampleQuote = Readonly<{
-  fields: Readonly<Record<DocumentFieldId, string>>;
+  fields: SampleDocumentFields;
   lines: readonly SampleQuoteLine[];
 }>;
 
@@ -34,11 +52,15 @@ function line(overrides: Partial<Record<DocumentLineFieldId, string>>): SampleQu
   } as SampleQuoteLine;
 }
 
-const BASE_FIELDS: Record<DocumentFieldId, string> = {
-  'quote.number': 'DEV-2026-00042',
-  'quote.issued_at': '09/09/2026',
-  'quote.valid_until': '09/10/2026',
-  'quote.customer_reference': 'CMD-INT-2451',
+/**
+ * Familles COMMUNES aux deux types de document (`customer.`/`totals.`/
+ * `page.`, contrat §4) — un SEUL endroit ou elles sont ecrites, reprises
+ * TELLES QUELLES par `BASE_FIELDS` (devis) et `ORDER_BASE_FIELDS` (commande,
+ * E10.19a) plutot que dupliquees ou indexees depuis un objet `Partial`
+ * (`exactOptionalPropertyTypes` refuse une valeur `string | undefined`
+ * copiee vers une cle optionnelle).
+ */
+const COMMON_FIELDS = {
   'customer.company_name': 'Établissements Dupont & Fils',
   'customer.contact_name': 'Marie Dupont',
   'customer.billing_address_block': 'Établissements Dupont & Fils\n12 rue des Imprimeurs\n75011 Paris',
@@ -51,6 +73,10 @@ const BASE_FIELDS: Record<DocumentFieldId, string> = {
   'customer.phone': '01 23 45 67 89',
   'customer.siret': '123 456 789 00012',
   'customer.vat_number': 'FR12 345678900',
+  // Contrat §10 (decision D, E10.19a) : le bon de commande MONTRE les
+  // remises, comme le devis — le jeu d exemple les simule donc toujours pour
+  // les deux types (l apercu montre ce que LA CARTE dessine, pas ce qu un
+  // tenant particulier configurerait a la production).
   'totals.lines_subtotal': '183,00 €',
   'totals.global_discount': '18,00 €',
   'totals.net_total': '165,00 €',
@@ -69,6 +95,14 @@ const BASE_FIELDS: Record<DocumentFieldId, string> = {
   'page.number': '—',
   'page.count': '—',
   'page.number_of_count': '—',
+} as const;
+
+const BASE_FIELDS: SampleDocumentFields = {
+  'quote.number': 'DEV-2026-00042',
+  'quote.issued_at': '09/09/2026',
+  'quote.valid_until': '09/10/2026',
+  'quote.customer_reference': 'CMD-INT-2451',
+  ...COMMON_FIELDS,
 };
 
 const SHORT_LINES: readonly SampleQuoteLine[] = [
@@ -125,4 +159,40 @@ export const SAMPLE_QUOTE_LONG: SampleQuote = Object.freeze({
       }),
     ),
   ),
+});
+
+// ---------------------------------------------------------------------------
+// E10.19a — jeu d exemple de COMMANDE, pour l apercu d un gabarit
+// `document_type: 'order'`. Memes familles communes (`customer.`/`totals.`/
+// `page.`) que le devis, reprises TELLES QUELLES ; seule la famille de tete
+// change (`order.*` au lieu de `quote.*` — contrat §4, les deux ne se
+// melangent jamais sur un meme gabarit).
+// ---------------------------------------------------------------------------
+
+const ORDER_BASE_FIELDS: SampleDocumentFields = {
+  'order.number': 'CDE-2026-00017',
+  'order.created_at': '10/09/2026',
+  'order.quote_number': 'DEV-2026-00042',
+  'order.customer_reference': 'CMD-INT-2451',
+  'order.expected_delivery_date': '24/10/2026',
+  ...COMMON_FIELDS,
+};
+
+/** Commande d exemple STANDARD, 1 page (memes deux lignes que `SAMPLE_QUOTE`). */
+export const SAMPLE_ORDER: SampleQuote = Object.freeze({
+  fields: ORDER_BASE_FIELDS,
+  lines: SHORT_LINES,
+});
+
+/** Variante "longue" (22 lignes), meme usage que `SAMPLE_QUOTE_LONG`. */
+export const SAMPLE_ORDER_LONG: SampleQuote = Object.freeze({
+  fields: {
+    ...ORDER_BASE_FIELDS,
+    'totals.lines_subtotal': '2 015,00 €',
+    'totals.global_discount': '113,50 €',
+    'totals.net_total': '1 901,50 €',
+    'totals.vat_amount': '380,30 €',
+    'totals.total_incl_tax': '2 281,80 €',
+  },
+  lines: SAMPLE_QUOTE_LONG.lines,
 });

@@ -28,7 +28,7 @@ import { useTenantPath } from '@/modules/tenants/ui/hooks';
 import { useWorkspaceApi } from '@/platform/runtime/workspace-ui-runtime';
 import { TEST_IDS } from '@/shared/presentation/testIds';
 import { DocumentTemplatesApiClient } from '@/modules/document-templates/api/client';
-import type { DocumentPdfTemplateDto } from '@/modules/document-templates/api/contracts';
+import type { DocumentPdfTemplateDto, DocumentType } from '@/modules/document-templates/api/contracts';
 
 const inputCls =
   'w-full px-3 py-2 border border-line-2 rounded-lg bg-paper text-ink text-sm focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand';
@@ -47,6 +47,15 @@ function statusLabel(status: DocumentPdfTemplateDto['status']): string {
   return status === 'ready' ? 'Prêt' : 'En attente d’import';
 }
 
+/**
+ * E10.19a (qa-review B1) — libelle FR du type de document, affiche en
+ * creation (select) et dans la liste (badge). Deux gabarits DISTINCTS
+ * (arbitrage (A) du contrat §8.20), jamais un repli de l un sur l autre.
+ */
+function documentTypeLabel(documentType: DocumentType): string {
+  return documentType === 'order' ? 'Bon de commande' : 'Devis';
+}
+
 export function DashboardDocumentTemplates() {
   const { user } = useAuth();
   const { currentTenant } = useTenant();
@@ -60,6 +69,7 @@ export function DashboardDocumentTemplates() {
   const [drafts, setDrafts] = useState<Readonly<Record<string, string>>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
   const [newName, setNewName] = useState('');
+  const [newDocumentType, setNewDocumentType] = useState<DocumentType>('quote');
   const [newIsDefault, setNewIsDefault] = useState(false);
   const [creating, setCreating] = useState(false);
   const fileInputs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -91,8 +101,9 @@ export function DashboardDocumentTemplates() {
     setCreating(true);
     setError(null);
     try {
-      await api.create({ name, is_default: newIsDefault });
+      await api.create({ name, document_type: newDocumentType, is_default: newIsDefault });
       setNewName('');
+      setNewDocumentType('quote');
       setNewIsDefault(false);
       await refresh();
     } catch (cause) {
@@ -193,8 +204,8 @@ export function DashboardDocumentTemplates() {
         <h1 className="text-xl font-bold text-ink">Gabarits PDF</h1>
         <p className="text-sm text-ink-muted mt-1">
           Fonds PDF apportés par l’imprimeur (export InDesign, Illustrator ou Canva), sur lesquels Magrit
-          écrit les valeurs d’un devis. Une fois un fond importé, positionnez les champs depuis « Positionner
-          les champs ».
+          écrit les valeurs d’un devis ou d’un bon de commande — deux gabarits distincts, chacun avec son
+          propre défaut. Une fois un fond importé, positionnez les champs depuis « Positionner les champs ».
         </p>
       </div>
 
@@ -214,6 +225,16 @@ export function DashboardDocumentTemplates() {
           className={`${inputCls} max-w-sm`}
           data-testid={TEST_IDS.documentTemplate.addNameInput}
         />
+        <select
+          value={newDocumentType}
+          onChange={(event) => setNewDocumentType(event.target.value as DocumentType)}
+          className={`${inputCls} w-auto`}
+          data-testid={TEST_IDS.documentTemplate.addTypeSelect}
+          aria-label="Type de document"
+        >
+          <option value="quote">Devis</option>
+          <option value="order">Bon de commande</option>
+        </select>
         <label className="flex items-center gap-1.5 text-xs text-ink-2 whitespace-nowrap">
           <input
             type="checkbox"
@@ -253,6 +274,14 @@ export function DashboardDocumentTemplates() {
                   template.is_active ? '' : 'opacity-60'
                 }`}
               >
+                <span
+                  className="text-xs px-2 py-0.5 rounded-full border border-line-2 text-ink-2 whitespace-nowrap"
+                  data-testid={TEST_IDS.documentTemplate.typeBadge}
+                  data-document-type={template.document_type}
+                >
+                  {documentTypeLabel(template.document_type)}
+                </span>
+
                 <span
                   className="text-xs px-2 py-0.5 rounded-full border border-line-2 text-ink-2 whitespace-nowrap"
                   data-testid={TEST_IDS.documentTemplate.statusBadge}

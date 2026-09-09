@@ -17,9 +17,20 @@
  * libelles du wireframe ("Taux de TVA"/"Montant de TVA") sont conserves tels
  * quels, aucune divergence a arbitrer sur ces deux-la.
  */
-import type { DocumentFieldId, DocumentFont, DocumentLineFieldId } from '@/modules/document-templates/api/contracts';
+import type {
+  DocumentFieldId,
+  DocumentFont,
+  DocumentLineFieldId,
+  DocumentType,
+} from '@/modules/document-templates/api/contracts';
 
-export type FieldFamilyId = 'quote' | 'customer' | 'totals' | 'page';
+/**
+ * E10.19a — `order` ajoutee (contrat DocumentFieldId §4) : familles `quote`
+ * et `order` NE SE MELANGENT JAMAIS sur un meme gabarit (garde 422 tenue par
+ * `document-field-map-validator.ts`) ; `customer`/`totals`/`page` sont
+ * communes aux deux types.
+ */
+export type FieldFamilyId = 'quote' | 'order' | 'customer' | 'totals' | 'page';
 
 export type FieldCatalogEntry = Readonly<{
   id: DocumentFieldId;
@@ -29,10 +40,22 @@ export type FieldCatalogEntry = Readonly<{
 
 export const FIELD_FAMILY_LABELS: Readonly<Record<FieldFamilyId, string>> = Object.freeze({
   quote: 'Informations du devis',
+  order: 'Informations de la commande',
   customer: 'Coordonnées client',
   totals: 'Totaux',
   page: 'Pagination',
 });
+
+/**
+ * Ordre d affichage des familles dans la palette, PAR TYPE DE GABARIT
+ * (E10.19a) : `quote`/`order` ne coexistent jamais, chacun affiche SA seule
+ * famille de tete plus les trois familles communes.
+ */
+export const FIELD_FAMILY_ORDER_BY_DOCUMENT_TYPE: Readonly<Record<DocumentType, readonly FieldFamilyId[]>> =
+  Object.freeze({
+    quote: ['quote', 'customer', 'totals', 'page'],
+    order: ['order', 'customer', 'totals', 'page'],
+  });
 
 /** Aide contextuelle A5/A6 du wireframe §4.3, affichee en tete de section. */
 export const FIELD_FAMILY_HINTS: Readonly<Partial<Record<FieldFamilyId, string>>> = Object.freeze({
@@ -46,6 +69,13 @@ export const FIELD_CATALOG: readonly FieldCatalogEntry[] = Object.freeze([
   { id: 'quote.issued_at', label: 'Date d’émission', family: 'quote' },
   { id: 'quote.valid_until', label: 'Date de validité', family: 'quote' },
   { id: 'quote.customer_reference', label: 'Référence client', family: 'quote' },
+
+  // E10.19a — cinq valeurs `order.*` (contrat §4).
+  { id: 'order.number', label: 'Numéro de commande', family: 'order' },
+  { id: 'order.created_at', label: 'Date de commande', family: 'order' },
+  { id: 'order.quote_number', label: 'Numéro du devis d’origine', family: 'order' },
+  { id: 'order.customer_reference', label: 'Référence client', family: 'order' },
+  { id: 'order.expected_delivery_date', label: 'Date de livraison prévue', family: 'order' },
 
   { id: 'customer.company_name', label: 'Raison sociale', family: 'customer' },
   { id: 'customer.contact_name', label: 'Nom du contact', family: 'customer' },

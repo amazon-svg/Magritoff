@@ -27,9 +27,24 @@
  * `center`/`right` sans `width` sur un PLACEMENT (les colonnes de lignes
  * portent toujours une largeur, par construction du schema). Signale
  * explicitement au rapport de fin de story plutot que passe sous silence.
+ *
+ * E10.19a — SOUS-ENSEMBLE OPPOSABLE PAR TYPE DE DOCUMENT (contrat §4, "piege
+ * d ordonnancement" : la garde est posee EN MEME TEMPS que les valeurs
+ * `order.*`, dans le MEME lot, precisement parce que c est la seule fenetre
+ * ou elle n est pas un durcissement retroactif d une carte deja enregistree
+ * — voir `openapi/magrit-core.v1.yaml`, description de
+ * `replaceDocumentPdfTemplateFields`). Un `quote.*` sur un gabarit `order`,
+ * ou un `order.*` sur un gabarit `quote`, est refuse en 422
+ * (`document_pdf_template.invalid_field_map`) ; `customer.*`/`totals.*`/
+ * `page.*` valent pour les deux types. `DocumentLineFieldId` (`line.*`,
+ * colonnes du bloc de lignes) n est PAS concerne : le contrat dit
+ * explicitement qu une ligne de commande porte les memes attributs qu une
+ * ligne de devis, donc AUCUN sous-ensemble par type ne s applique a
+ * `lines_block.columns`.
  */
 import type {
   DocumentPdfTemplatePageDto,
+  DocumentType,
   ReplaceDocumentPdfTemplateFieldsCommand,
 } from '../api/contracts.ts';
 
@@ -38,12 +53,37 @@ export type FieldMapValidationError = Readonly<{
   message: string;
 }>;
 
+/**
+ * Familles de `DocumentFieldId` (le PREFIXE avant le premier point) admises
+ * sur un gabarit du `document_type` donne (contrat §4, tableau "sous-ensemble
+ * opposable, tenu par le serveur"). `customer.`/`totals.`/`page.` sont
+ * communes aux deux types ; `quote.` et `order.` ne se melangent JAMAIS —
+ * un gabarit de commande n a pas acces aux `quote.` : `order.quote_number`
+ * suffit a faire le lien avec le devis d origine.
+ */
+const ALLOWED_FIELD_FAMILIES_BY_DOCUMENT_TYPE: Readonly<Record<DocumentType, ReadonlySet<string>>> = {
+  quote: new Set(['quote.', 'customer.', 'totals.', 'page.']),
+  order: new Set(['order.', 'customer.', 'totals.', 'page.']),
+};
+
+function fieldFamily(field: string): string {
+  const separatorIndex = field.indexOf('.');
+  return separatorIndex === -1 ? field : field.slice(0, separatorIndex + 1);
+}
+
 export function validateDocumentFieldMap(
   pages: readonly DocumentPdfTemplatePageDto[],
   command: ReplaceDocumentPdfTemplateFieldsCommand,
+  /**
+   * Type du gabarit CIBLE (jamais celui de la commande) — defaut `'quote'`
+   * pour ne pas casser les appelants anterieurs a E10.19a (le service passe
+   * toujours la valeur reelle du gabarit, `template.document_type`).
+   */
+  documentType: DocumentType = 'quote',
 ): readonly FieldMapValidationError[] {
   const errors: FieldMapValidationError[] = [];
   const pageByIndex = new Map(pages.map((page) => [page.index, page]));
+  const allowedFamilies = ALLOWED_FIELD_FAMILIES_BY_DOCUMENT_TYPE[documentType];
 
   const seenPlacementFields = new Set<string>();
   command.placements.forEach((placement, index) => {
@@ -56,6 +96,13 @@ export function validateDocumentFieldMap(
       });
     }
     seenPlacementFields.add(placement.field);
+
+    if (!allowedFamilies.has(fieldFamily(placement.field))) {
+      errors.push({
+        field: `${prefix}.field`,
+        message: `Le champ ${placement.field} n’est pas disponible sur un gabarit de type ${documentType}.`,
+      });
+    }
 
     const page = pageByIndex.get(placement.page_index);
     if (!page) {

@@ -251,16 +251,27 @@ export interface DocumentTemplatesRepository {
   ): Promise<DocumentPdfTemplateFieldMapDto>;
 
   /**
-   * E10.10b-4c — resout le gabarit qu utiliserait `sendQuote` pour joindre un
-   * document, SANS jamais generer ni stocker quoi que ce soit : condition
-   * d attachement a QUATRE termes (contrat §8.18 §5), tous necessaires —
-   * `document_type = 'quote'`, `status = 'ready'`, `is_active`, `is_default`,
-   * ET une carte non vide (`has_field_map`). Rend `null` des que l un des
-   * quatre manque (cas NOMINAL "aucun gabarit", arbitrage (a)) — jamais une
-   * exception. Quand un gabarit eligible existe, TELECHARGE son fond
-   * (service_role) et relit sa carte de champs : le moteur pur en aval
-   * (`quote-documents/application/quote-document-renderer.ts`) n a plus rien
-   * a demander a Supabase.
+   * E10.10b-4c — resout le gabarit qu utiliserait une generation de document
+   * pour joindre/produire une piece, SANS jamais generer ni stocker quoi que
+   * ce soit : condition d attachement a QUATRE termes (contrat §8.18 §5),
+   * tous necessaires — `document_type = documentType`, `status = 'ready'`,
+   * `is_active`, `is_default`, ET une carte non vide (`has_field_map`). Rend
+   * `null` des que l un des quatre manque (cas NOMINAL "aucun gabarit",
+   * arbitrage (a)) — jamais une exception. Quand un gabarit eligible existe,
+   * TELECHARGE son fond (service_role) et relit sa carte de champs : le
+   * moteur pur en aval (`quote-documents/application/quote-document-renderer.ts`)
+   * n a plus rien a demander a Supabase.
+   *
+   * E10.19a — `documentType` est desormais un PARAMETRE explicite (contrat
+   * §0 : "le point de reprise le plus concret du lot"). Avant ce lot, la
+   * valeur `'quote'` etait codee EN DUR dans l adaptateur Supabase : un
+   * tenant qui aurait importe un gabarit `order` avant que ce parametre
+   * n existe aurait pu voir ses DEVIS partir dessus si l ordre de tri
+   * l avait designe — regression silencieuse sur une fonctionnalite deja en
+   * production. Signature elargie AVANT tout branchement d E10.19b.
    */
-  findEligibleTemplateForGeneration(tenantId: TenantId): Promise<EligibleDocumentPdfTemplate | null>;
+  findEligibleTemplateForGeneration(
+    tenantId: TenantId,
+    documentType: DocumentType,
+  ): Promise<EligibleDocumentPdfTemplate | null>;
 }
