@@ -48,6 +48,18 @@ export const SHARED_PROBLEM_CODES = Object.freeze({
    * ce qui n est pas la meme situation a diagnostiquer.
    */
   scopeForbidden: 'auth.scope_forbidden',
+  /**
+   * E10.20 — porteur d un lien public de depot (`orderUploadLink`) dont le
+   * jeton est absent, inexistant, expire ou revoque. UN SEUL code pour les
+   * quatre causes (arbitrage (F), contrat §"story E10.20") : les distinguer
+   * confirmerait a qui essaie des jetons au hasard qu il en a trouve un vrai.
+   * Defini ICI, dans le socle transverse, plutot que sous un domaine `order_
+   * upload_link.*` propre au module : ce code est leve par `resolvePrincipal`
+   * lui-meme (tenant-resolution.ts), avant qu aucun module applicatif ne soit
+   * atteint — meme raison que `scopeForbidden` (E10.5), deja loge ici pour un
+   * motif identique.
+   */
+  uploadLinkInvalid: 'upload_link.invalid',
 } as const);
 
 export type SharedProblemCode =
@@ -104,6 +116,16 @@ export function authenticationRequired(detail?: string): ProblemError {
     title: 'Authentification requise',
     code: SHARED_PROBLEM_CODES.authenticationRequired,
     ...(detail === undefined ? {} : { detail }),
+  });
+}
+
+/** E10.20 — jeton de lien de depot absent, inexistant, expire ou revoque (401, cause unique et indistincte). */
+export function uploadLinkInvalid(): ProblemError {
+  return problem({
+    status: 401,
+    title: 'Lien de depot invalide',
+    code: SHARED_PROBLEM_CODES.uploadLinkInvalid,
+    detail: 'Ce lien de depot est inexistant, expire ou revoque.',
   });
 }
 

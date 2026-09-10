@@ -51,6 +51,7 @@ import { useTenantPath } from '@/modules/tenants/ui/hooks';
 import { TEST_IDS } from '@/shared/presentation/testIds';
 import type { ProductionStepDto } from '@/modules/production-steps';
 import { OrderFilesBlock } from '@/modules/order-files/ui';
+import { OrderUploadLinksPanel } from '@/modules/order-upload-links/ui';
 import { OrderDocumentPanel, OrderStatusButton } from '../components';
 import { useOrderDetail } from '../hooks/useOrderDetail';
 import { contactDisplayName, customerDisplayName, formatOrderDate, sourceQuoteStatusLabel } from './order-detail.helpers';
@@ -242,6 +243,12 @@ export function DashboardOrderDetail() {
       {/* CA8 — panneau du bon de commande PDF (E10.19b), quatrieme section,
           meme gabarit visuel. */}
       <OrderDocumentPanel orderId={order.id} />
+
+      {/* E10.20a — panneau "liens de depot", cinquieme section, meme gabarit
+          visuel. SOCLE UNIQUEMENT (contrat §8.21 §5) : cree/liste/revoque des
+          liens, AUCUN depot possible dans ce lot (E10.20b livrera la page
+          publique de depot elle-meme). */}
+      <OrderUploadLinksPanel orderId={order.id} />
     </div>
   );
 }

@@ -83,6 +83,7 @@ export class SupabaseApiPrincipalVerifier implements PrincipalVerifier {
   async verify(credential: ApiCredential): Promise<ApiPrincipal | null> {
     if (credential.kind === 'bearer') return this.verifyUser();
     if (credential.kind === 'service_key') return this.verifyServiceKey(credential.key);
+    if (credential.kind === 'upload_link') return this.verifyUploadLink(credential.token);
     return this.verifyShopCustomer(credential.token);
   }
 
@@ -185,6 +186,41 @@ export class SupabaseApiPrincipalVerifier implements PrincipalVerifier {
       customerId: row.customer_id ?? null,
       sessionKind: row.session_kind === 'delegated' ? ('delegated' as const) : ('direct' as const),
       sessionToken: token,
+    });
+  }
+
+  /**
+   * E10.20a — porteur d un lien public de depot. Appelle
+   * `api_resolve_order_upload_link_principal` (migration
+   * `20260910000300_gescom_e10_20a_order_upload_links.sql`), `stable` et
+   * GRANT EXECUTE `anon` : le porteur du lien n a par construction AUCUNE
+   * credential Magrit, la resolution doit donc rester joignable sans JWT
+   * (meme raison que `verifyShopCustomer`/`storefrontClient`, reutilise ICI
+   * tel quel — une session boutique ET un lien de depot appellent tous deux
+   * SANS le JWT Magrit eventuellement present dans le navigateur).
+   */
+  private async verifyUploadLink(token: string): Promise<ApiPrincipal | null> {
+    const client = this.options.storefrontClient ?? this.client;
+    const { data, error } = await client.rpc('api_resolve_order_upload_link_principal', {
+      p_token: token,
+    });
+    if (error) return null;
+
+    const row = (Array.isArray(data) ? data[0] : data) as
+      | Readonly<{ link_id: string | null; order_id: string | null; tenant_id: string | null }>
+      | null
+      | undefined;
+    if (!row?.link_id || !row.order_id || !row.tenant_id) return null;
+
+    const tenantId = parseId<'TenantId'>(row.tenant_id);
+    if (!tenantId.ok) return null;
+
+    return Object.freeze({
+      kind: 'upload_link' as const,
+      linkId: row.link_id,
+      orderId: row.order_id,
+      tenantId: tenantId.value as TenantId,
+      token,
     });
   }
 

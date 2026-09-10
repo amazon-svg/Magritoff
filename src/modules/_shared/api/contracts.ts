@@ -175,6 +175,16 @@ export const SERVICE_KEY_HEADER = 'X-Magrit-Service-Key' as const;
 export const TENANT_SELECTION_HEADER = 'X-Magrit-Tenant' as const;
 export const EVENT_SIGNATURE_HEADER = 'X-Magrit-Signature' as const;
 export const EVENT_NAME_HEADER = 'X-Magrit-Event' as const;
+/**
+ * E10.20 — quatrieme mode d authentification, le LIEN PUBLIC DE DEPOT
+ * (`securityScheme` `orderUploadLink`, openapi §"story E10.20"). En-tete et
+ * non parametre de requete, DELIBEREMENT (contrat) : un jeton en `?token=`
+ * finirait dans les journaux d acces, le `Referer` d une ressource tierce et
+ * l historique du navigateur. Le jeton est bien dans l URL de la PAGE
+ * (`/depot/<jeton>`), jamais dans une URL d API : la page le lit du chemin et
+ * le repose ici.
+ */
+export const UPLOAD_LINK_HEADER = 'X-Magrit-Upload-Link' as const;
 
 export const idempotencyKeySchema = z.string().regex(/^[A-Za-z0-9_.:-]{8,255}$/, {
   message: 'Une cle d idempotence fait 8 a 255 caracteres alphanumeriques, _ . : ou -.',

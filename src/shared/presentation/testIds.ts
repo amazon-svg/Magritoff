@@ -868,6 +868,44 @@ export const TEST_IDS = {
     generatedLabel: 'order-document-generated-label',
     errorBanner: 'order-document-error-banner',
   },
+
+  // ─── E10.20a — Panneau "Liens de depot" sur la fiche commande ──────────────
+  // SOCLE uniquement (contrat §8.21 §5, ligne E10.20a : "Panneau «liens de
+  // depot» sur la fiche commande. Aucun depot possible.") : ce panneau
+  // cree/liste/revoque des liens, il ne depose jamais de fichier (E10.20b).
+  // Meme gabarit visuel que `orderFiles`/`orderDocument`. Aucun wireframe
+  // Sally publie a la redaction de ce lot : testids poses selon la
+  // convention documentee en tete de ce fichier, a faire confirmer par le
+  // scribe des que le cahier TF existera.
+  orderUploadLinks: {
+    block: 'order-upload-links-block',
+    emptyState: 'order-upload-links-empty-state',
+    createBtn: 'order-upload-links-create-btn',
+    createDialog: 'order-upload-links-create-dialog',
+    labelInput: 'order-upload-links-label-input',
+    expiresSelect: 'order-upload-links-expires-select',
+    maxFilesSelect: 'order-upload-links-max-files-select',
+    createSubmitBtn: 'order-upload-links-create-submit-btn',
+    createCancelBtn: 'order-upload-links-create-cancel-btn',
+    createErrorBanner: 'order-upload-links-create-error-banner',
+    // Panneau de reception du jeton en clair, rendu UNE SEULE FOIS (contrat :
+    // "L interface DOIT l afficher immediatement et proposer de le copier").
+    createdTokenPanel: 'order-upload-links-created-token-panel',
+    createdUrlField: 'order-upload-links-created-url-field',
+    // N4 (qa-review E10.20a round 1) — la page publique /depot/:jeton n
+    // existe pas encore (E10.20b) : ce panneau le dit explicitement plutot
+    // que de laisser croire que l URL copiee est deja fonctionnelle.
+    depotPageNotReadyNotice: 'order-upload-links-depot-page-not-ready-notice',
+    copyUrlBtn: 'order-upload-links-copy-url-btn',
+    closeCreatedPanelBtn: 'order-upload-links-close-created-panel-btn',
+    // `row` porte `data-link-id`, meme convention que `orderFiles.row`.
+    row: 'order-upload-links-row',
+    revokeBtn: 'order-upload-links-revoke-btn',
+    revokeDialog: 'order-upload-links-revoke-dialog',
+    revokeConfirmBtn: 'order-upload-links-revoke-confirm-btn',
+    revokeCancelBtn: 'order-upload-links-revoke-cancel-btn',
+    listErrorBanner: 'order-upload-links-list-error-banner',
+  },
 } as const;
 
 /**

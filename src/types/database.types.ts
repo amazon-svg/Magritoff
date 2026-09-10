@@ -2141,6 +2141,14 @@ export type Database = {
           session_kind: string
         }[]
       }
+      api_resolve_order_upload_link_principal: {
+        Args: { p_token: string }
+        Returns: {
+          link_id: string
+          order_id: string
+          tenant_id: string
+        }[]
+      }
       api_list_storefront_quotes: {
         Args: {
           p_opaque_token: string

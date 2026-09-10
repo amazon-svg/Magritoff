@@ -35,6 +35,7 @@ export {
   successEnvelopeSchema,
   TENANT_SELECTION_HEADER,
   timestampSchema,
+  UPLOAD_LINK_HEADER,
   uuidSchema,
 } from './contracts.ts';
 

@@ -45,10 +45,21 @@ import {
 } from '../../modules/order-files/application/order-files-repository.ts';
 
 const BUCKET = 'commercial_order_files';
-/** Contrat §8.19 §3 : 50 Mo, plafond du PROJET (`supabase/config.toml`), PERIMETRE du lot (decision (a)). */
-const MAX_UPLOAD_BYTE_SIZE = 50 * 1024 * 1024;
-/** Contrat §8.19 : sept types, DEUX pour l archive ZIP (le systeme du deposant determine celui pose par le navigateur). */
-const ACCEPTED_CONTENT_TYPES: readonly string[] = Object.freeze([
+/**
+ * Contrat §8.19 §3 : 50 Mo, plafond du PROJET (`supabase/config.toml`),
+ * PERIMETRE du lot (decision (a)). EXPORTEE : E10.20a (`order-upload-links-
+ * repository.ts`) annonce la MEME limite dans `OrderUploadLinkContext.
+ * max_byte_size` — arbitrage (A) du 2026-09-10, contrat §"story E10.20" —
+ * une seconde constante aurait pu diverger silencieusement de celle-ci.
+ */
+export const MAX_UPLOAD_BYTE_SIZE = 50 * 1024 * 1024;
+/**
+ * Contrat §8.19 : sept types, DEUX pour l archive ZIP (le systeme du
+ * deposant determine celui pose par le navigateur). EXPORTEE pour la meme
+ * raison que `MAX_UPLOAD_BYTE_SIZE` : E10.20a annonce la MEME liste dans
+ * `OrderUploadLinkContext.accepted_content_types`.
+ */
+export const ACCEPTED_CONTENT_TYPES: readonly string[] = Object.freeze([
   'application/pdf',
   'image/jpeg',
   'image/png',

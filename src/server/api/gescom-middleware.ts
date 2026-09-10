@@ -32,6 +32,7 @@ import {
   assertScopes,
   assertUserPrincipal,
   deriveShopCustomerIdempotencyStorageKey,
+  deriveUploadLinkIdempotencyStorageKey,
   fingerprintRequest,
   idempotencyInProgress,
   idempotencyKeyReused,
@@ -56,10 +57,12 @@ import type { HttpMethod } from './routes.ts';
 
 /**
  * `'shop_customer'` (E10.10b-1) restreint une operation a une session
- * boutique (`ShopCustomerPrincipal`). Ce mode n a NI scope NI capability : la
- * route ne doit jamais declarer `requiredScopes` (voir `defineGescomRoute`).
+ * boutique (`ShopCustomerPrincipal`). `'upload_link'` (E10.20a) restreint une
+ * operation au porteur d un lien public de depot (`UploadLinkPrincipal`).
+ * Ces deux modes n ont NI scope NI capability : la route ne doit jamais
+ * declarer `requiredScopes` (voir `defineGescomRoute`).
  */
-export type GescomAuthentication = 'user' | 'service' | 'shop_customer' | 'any';
+export type GescomAuthentication = 'user' | 'service' | 'shop_customer' | 'upload_link' | 'any';
 
 export type GescomRequestContext = Readonly<{
   request: Request;
@@ -132,22 +135,34 @@ export function defineGescomRoute<TInput, TData>(
   // E10.10b-1 — symetrique de la garde CA5 ci-dessous : un ShopCustomerPrincipal
   // n a NI scope NI capability (il n y a personne a qui les accorder), donc
   // une route `shop_customer` qui declarerait `requiredScopes` promettrait un
-  // controle qu aucun acteur de ce type ne peut jamais satisfaire.
-  if (authentication === 'shop_customer' && requiredScopes.length > 0) {
+  // controle qu aucun acteur de ce type ne peut jamais satisfaire. E10.20a
+  // etend la MEME garde a `upload_link` : un UploadLinkPrincipal n a pas plus
+  // de scope qu un ShopCustomerPrincipal.
+  if (
+    (authentication === 'shop_customer' || authentication === 'upload_link') &&
+    requiredScopes.length > 0
+  ) {
     throw new TypeError(
-      `${definition.operationId} : une route 'shop_customer' ne peut declarer aucun requiredScopes ` +
-        '(E10.10b-1) — ce type d acteur n a ni scope ni capability.',
+      `${definition.operationId} : une route '${authentication}' ne peut declarer aucun requiredScopes ` +
+        '(E10.10b-1/E10.20a) — ce type d acteur n a ni scope ni capability.',
     );
   }
 
   // CA5 — portee FERMEE par defaut. Une route joignable par une cle de service
   // sans scope declare serait ouverte a n importe quelle cle du tenant : le
   // module Studio pourrait ecrire la ou il n a que la lecture. Une route
-  // reservee aux utilisateurs (`authentication: 'user'`) ou a une session
-  // boutique (`authentication: 'shop_customer'`) n a pas de scope : ses
-  // droits viennent respectivement des roles du tenant (RLS) ou de son
-  // identite propre (fonctions security definer, E10.10b-1).
-  if (authentication !== 'user' && authentication !== 'shop_customer' && requiredScopes.length === 0) {
+  // reservee aux utilisateurs (`authentication: 'user'`), a une session
+  // boutique (`authentication: 'shop_customer'`) ou a un lien de depot
+  // (`authentication: 'upload_link'`) n a pas de scope : ses droits viennent
+  // respectivement des roles du tenant (RLS), de son identite propre
+  // (fonctions security definer, E10.10b-1) ou de l objet auquel le lien est
+  // borne (E10.20a).
+  if (
+    authentication !== 'user' &&
+    authentication !== 'shop_customer' &&
+    authentication !== 'upload_link' &&
+    requiredScopes.length === 0
+  ) {
     throw new TypeError(
       `${definition.operationId} : une route joignable par cle de service doit declarer requiredScopes (CA5). ` +
         `Sinon, la restreindre explicitement avec authentication: 'user'.`,
@@ -248,6 +263,7 @@ export function createGescomApiHandler(options: GescomApiHandlerOptions) {
     try {
       const principal = await resolvePrincipal(request, options.principalVerifier, params, {
         isShopCustomerOperation: route.authentication === 'shop_customer',
+        isUploadLinkOperation: route.authentication === 'upload_link',
       });
       // E10.10b-1 round 2 (B2, docs/api/CONVENTIONS.md §3.6/§8.13ter) —
       // CLOISONNEMENT DES MODES, DANS LES DEUX SENS. Symetrique exact du
@@ -263,6 +279,18 @@ export function createGescomApiHandler(options: GescomApiHandlerOptions) {
           title: 'Session boutique refusee sur cette operation',
           code: SHARED_PROBLEM_CODES.actorKindRequired,
           detail: 'Cette operation n est pas accessible a une session de compte client boutique.',
+        });
+      }
+      // E10.20a — MEME regle de cloisonnement, cote lien de depot : un
+      // UploadLinkPrincipal n atteint JAMAIS une operation qui ne le declare
+      // pas (contrat §"story E10.20", `orderUploadLink`, "cloisonnement ferme
+      // par defaut, dans les deux sens").
+      if (principal.kind === 'upload_link' && route.authentication !== 'upload_link') {
+        throw problem({
+          status: 403,
+          title: 'Lien de depot refuse sur cette operation',
+          code: SHARED_PROBLEM_CODES.actorKindRequired,
+          detail: 'Cette operation n est pas accessible a un porteur de lien de depot.',
         });
       }
       if (route.authentication === 'user') assertUserPrincipal(principal);
@@ -285,6 +313,17 @@ export function createGescomApiHandler(options: GescomApiHandlerOptions) {
           detail: 'Cette operation est reservee a une session de compte client boutique.',
         });
       }
+      // E10.20a — symetrique : un acteur d un AUTRE mode sur une operation
+      // reservee au lien de depot recoit 403, jamais un 401/404 qui laisserait
+      // croire a une erreur de son cote.
+      if (route.authentication === 'upload_link' && principal.kind !== 'upload_link') {
+        throw problem({
+          status: 403,
+          title: 'Lien de depot requis',
+          code: SHARED_PROBLEM_CODES.actorKindRequired,
+          detail: 'Cette operation est reservee au porteur d un lien public de depot.',
+        });
+      }
       assertScopes(principal, route.requiredScopes);
 
       const page = parsePageParams(url);
@@ -301,12 +340,24 @@ export function createGescomApiHandler(options: GescomApiHandlerOptions) {
         // imprimeur ne se bloquent plus mutuellement en choisissant par
         // hasard la meme valeur de cle sur deux devis differents. La cle
         // PRESENTEE par l appelant (`key`, ci-dessous dans `idempotencyKeyReused`)
-        // reste inchangee ; seule la cle stockee derive. Aucun autre mode
-        // d authentification n est affecte.
+        // reste inchangee ; seule la cle stockee derive.
+        //
+        // E10.20a (docs/api/CONVENTIONS.md §8.21 §5, assignee EXPLICITEMENT a
+        // cette sous-story, pas a E10.20b — qa-review round 1, B2, BLOQUANT,
+        // corrige) — MEME DEFAUT DE SOCLE pour un porteur de lien : la cle
+        // STOCKEE derive du LIEN (`linkId`), jamais du tenant seul, pour que
+        // deux porteurs de liens DISTINCTS du meme imprimeur ne se bloquent
+        // pas mutuellement en choisissant par hasard la meme valeur de cle.
+        // Aucune route de ce lot n a `createsResource: true` sous ce
+        // principal — cette branche n a donc pas ENCORE d appelant reel, mais
+        // elle doit exister AVANT qu E10.20b n enregistre
+        // `confirmOrderUploadLinkFile`, pas apres coup en incident.
         const storageKey =
           principal.kind === 'shop_customer'
             ? await deriveShopCustomerIdempotencyStorageKey(principal.accountId, key)
-            : key;
+            : principal.kind === 'upload_link'
+              ? await deriveUploadLinkIdempotencyStorageKey(principal.linkId, key)
+              : key;
         idempotency = {
           tenantId: principal.tenantId,
           key: storageKey,

@@ -81,6 +81,34 @@ const shopCustomerPrincipal2: ApiPrincipal = Object.freeze({
   sessionToken: STOREFRONT_TOKEN_2,
 });
 
+/**
+ * E10.20a — quatrieme mode, le porteur d un lien public de depot. Jeton
+ * opaque valide `^[A-Za-z0-9_-]{32,128}$` (contrat, schema `OrderUploadLink
+ * Created.token`).
+ */
+const UPLOAD_LINK_TOKEN = 'w'.repeat(40);
+const uploadLinkPrincipal: ApiPrincipal = Object.freeze({
+  kind: 'upload_link',
+  linkId: 'link-1',
+  orderId: 'order-1',
+  tenantId: TENANT,
+  token: UPLOAD_LINK_TOKEN,
+});
+
+/**
+ * qa-review round 1 (B2) — SECOND lien, MEME tenant, necessaire au test de
+ * la derivation d idempotence : deux porteurs de liens DISTINCTS du meme
+ * imprimeur, chacun choisissant par hasard la MEME valeur d Idempotency-Key.
+ */
+const UPLOAD_LINK_TOKEN_2 = 'v'.repeat(40);
+const uploadLinkPrincipal2: ApiPrincipal = Object.freeze({
+  kind: 'upload_link',
+  linkId: 'link-2',
+  orderId: 'order-2',
+  tenantId: TENANT,
+  token: UPLOAD_LINK_TOKEN_2,
+});
+
 const verifier: PrincipalVerifier = {
   async verify(credential) {
     if (credential.kind === 'bearer') {
@@ -91,12 +119,19 @@ const verifier: PrincipalVerifier = {
       if (credential.token === STOREFRONT_TOKEN_2) return shopCustomerPrincipal2;
       return null;
     }
+    if (credential.kind === 'upload_link') {
+      if (credential.token === UPLOAD_LINK_TOKEN) return uploadLinkPrincipal;
+      if (credential.token === UPLOAD_LINK_TOKEN_2) return uploadLinkPrincipal2;
+      return null;
+    }
     return credential.key === 'cle-studio' ? servicePrincipal : null;
   },
 };
 
 const asShopCustomer = { Cookie: `magrit-storefront=${STOREFRONT_TOKEN}` };
 const asShopCustomer2 = { Cookie: `magrit-storefront=${STOREFRONT_TOKEN_2}` };
+const asUploadLink = { 'X-Magrit-Upload-Link': UPLOAD_LINK_TOKEN };
+const asUploadLink2 = { 'X-Magrit-Upload-Link': UPLOAD_LINK_TOKEN_2 };
 
 const ruleSchema = z.object({ id: z.string(), name: z.string(), value: z.string() });
 const rule = { id: RULE_ID, name: 'Fidelite', value: '0.0500' };
@@ -168,6 +203,47 @@ function buildHandler() {
         return {
           status: 201,
           data: { ruleId: context.params['ruleId']!, decision: input.decision, accountId: principal.accountId },
+        };
+      },
+    }),
+    // E10.20a — route FIXTURE `upload_link`, isole le cloisonnement du
+    // QUATRIEME mode au niveau du SOCLE, independamment du module applicatif
+    // `order-upload-links`.
+    defineGescomRoute({
+      method: 'GET',
+      path: '/price-rules/{ruleId}/fixture-upload-link-contexts',
+      operationId: 'fixtureUploadLinkContext',
+      authentication: 'upload_link',
+      inputSchema: null,
+      dataSchema: z.object({ ruleId: z.string(), linkId: z.string() }),
+      async handle(context) {
+        const principal = context.principal;
+        if (principal.kind !== 'upload_link') throw new Error('principal upload_link attendu (fixture)');
+        return { status: 200, data: { ruleId: context.params['ruleId']!, linkId: principal.linkId } };
+      },
+    }),
+    // E10.20a, qa-review round 1 (B2, BLOQUANT) — route FIXTURE `upload_link`
+    // + `createsResource: true`, seule combinaison qui exerce la derivation
+    // de la cle d idempotence STOCKEE par LIEN
+    // (`deriveUploadLinkIdempotencyStorageKey`). Meme role que
+    // `fixtureDecideAsShopCustomer` pour `shop_customer` : isole le
+    // comportement du SOCLE, independamment de tout module applicatif —
+    // aucune route reelle de ce lot n a encore `createsResource: true` sous
+    // ce principal (E10.20b enregistrera la premiere, `confirmOrderUploadLinkFile`).
+    defineGescomRoute({
+      method: 'POST',
+      path: '/price-rules/{ruleId}/fixture-upload-link-confirmations',
+      operationId: 'fixtureConfirmAsUploadLink',
+      authentication: 'upload_link',
+      createsResource: true,
+      inputSchema: z.object({ filename: z.string() }),
+      dataSchema: z.object({ ruleId: z.string(), filename: z.string(), linkId: z.string() }),
+      async handle(context, input) {
+        const principal = context.principal;
+        if (principal.kind !== 'upload_link') throw new Error('principal upload_link attendu (fixture)');
+        return {
+          status: 201,
+          data: { ruleId: context.params['ruleId']!, filename: input.filename, linkId: principal.linkId },
         };
       },
     }),
@@ -563,4 +639,172 @@ describe('facade Gestion commerciale : reponses contre contrat', () => {
       { status: 405 },
     );
   });
+
+  // ── E10.20a — QUATRIEME MODE, cloisonnement au niveau du SOCLE ───────────
+  // (docs/api/CONVENTIONS.md §3.6 branche 4, §8.21). Meme structure que les
+  // tests B1/B2 ci-dessus pour `shop_customer`, avec le meme objectif :
+  // prouver le cloisonnement au niveau du SOCLE (gescom-middleware.ts /
+  // tenant-resolution.ts), independamment de tout module applicatif.
+
+  it('E10.20a — un porteur de lien atteint une route `upload_link`, et SEULEMENT elle', async () => {
+    const response = await call(`/api/v1/price-rules/${RULE_ID}/fixture-upload-link-contexts`, {
+      headers: asUploadLink,
+    });
+    await expectContract(response, { status: 200 });
+    const body = (await response.json()) as { data: { linkId: string } };
+    expect(body.data.linkId).toBe('link-1');
+  });
+
+  it('E10.20a — un jeton de lien absent ou invalide recoit 401 upload_link.invalid sur une route `upload_link`, CAUSE UNIQUE ET INDISTINCTE (arbitrage (F))', async () => {
+    const missingHeader = await call(`/api/v1/price-rules/${RULE_ID}/fixture-upload-link-contexts`);
+    expect(missingHeader.status).toBe(401);
+    expect(((await missingHeader.json()) as { code: string }).code).toBe('upload_link.invalid');
+
+    const wrongToken = await call(`/api/v1/price-rules/${RULE_ID}/fixture-upload-link-contexts`, {
+      headers: { 'X-Magrit-Upload-Link': 'u'.repeat(40) },
+    });
+    expect(wrongToken.status).toBe(401);
+    expect(((await wrongToken.json()) as { code: string }).code).toBe('upload_link.invalid');
+  });
+
+  it(
+    'E10.20a — CLOISONNEMENT, sens 1 : un en-tete de lien SEUL (sans autre credential) sur une route qui ' +
+      'ne declare pas `upload_link` est traite EXACTEMENT comme une requete non authentifiee (401), jamais ' +
+      'resolu en principal puis refuse (qa-review round 1, B1 — correctif : l en-tete "ignore" hors de son ' +
+      'mode signifie litteralement absent, pas "present mais refuse")',
+    async () => {
+      const response = await call('/api/v1/price-rules', { headers: asUploadLink });
+      await expectContract(response, { status: 401 });
+      const body = (await response.json()) as { code: string };
+      // MEME code qu une requete totalement nue (aucun en-tete) : la preuve
+      // que l en-tete n a eu AUCUN effet, pas meme celui de designer un
+      // acteur refuse.
+      expect(body.code).toBe('identity.authentication_required');
+    },
+  );
+
+  it('E10.20a — CLOISONNEMENT, sens 2 : un jeton utilisateur/une cle de service/une session boutique n atteint JAMAIS une route `upload_link` (403)', async () => {
+    const asUserResponse = await call(`/api/v1/price-rules/${RULE_ID}/fixture-upload-link-contexts`, {
+      headers: asUser,
+    });
+    expect(asUserResponse.status).toBe(403);
+
+    const asStudioResponse = await call(`/api/v1/price-rules/${RULE_ID}/fixture-upload-link-contexts`, {
+      headers: { 'X-Magrit-Service-Key': 'cle-studio' },
+    });
+    expect(asStudioResponse.status).toBe(403);
+
+    const asShopCustomerResponse = await call(`/api/v1/price-rules/${RULE_ID}/fixture-upload-link-contexts`, {
+      headers: asShopCustomer,
+    });
+    expect(asShopCustomerResponse.status).toBe(403);
+  });
+
+  it('E10.20a (§3.6 branche 4) — cumuler X-Magrit-Upload-Link avec un Bearer sur une route `upload_link` est refuse en 400, le cumul ne peut etre que delibere', async () => {
+    const response = await call(`/api/v1/price-rules/${RULE_ID}/fixture-upload-link-contexts`, {
+      headers: { ...asUser, ...asUploadLink },
+    });
+    await expectContract(response, { status: 400 });
+    const body = (await response.json()) as { code: string };
+    expect(body.code).toBe('identity.actor_kind_required');
+  });
+
+  it('E10.20a (§3.6 branche 4) — sur une route qui ne declare PAS `upload_link`, l en-tete X-Magrit-Upload-Link porte passivement est IGNORE (200 normal, pas d erreur)', async () => {
+    // Symetrique exact du test B1 (cookie storefront ignore sur une route
+    // atelier) : un membre qui aurait par ailleurs ouvert un lien de depot
+    // dans le meme navigateur ne doit jamais voir ses appels d atelier
+    // bloques par cet en-tete.
+    const response = await call('/api/v1/price-rules', { headers: { ...asUser, ...asUploadLink } });
+    await expectContract(response, { status: 200 });
+  });
+
+  it('E10.20a — X-Magrit-Tenant sur une route `upload_link` est REFUSE en 400, jamais ignore (le lien porte deja le tenant)', async () => {
+    const response = await call(`/api/v1/price-rules/${RULE_ID}/fixture-upload-link-contexts`, {
+      headers: { ...asUploadLink, 'X-Magrit-Tenant': TENANT },
+    });
+    await expectContract(response, { status: 400 });
+    const body = (await response.json()) as { code: string };
+    expect(body.code).toBe('api.tenant_not_addressable');
+  });
+
+  it(
+    'E10.20a (§8.21 §5, qa-review round 1 B2, BLOQUANT, corrige) — DEUX porteurs de liens DISTINCTS choisissant ' +
+      'la MEME valeur d Idempotency-Key sur DEUX ressources differentes ne se bloquent plus mutuellement ' +
+      '(`deriveUploadLinkIdempotencyStorageKey`, meme defaut de socle que celui corrige pour shop_customer en E10.10b-2)',
+    async () => {
+      const key = 'meme-cle-deux-liens-distincts-fixture';
+
+      const first = await call(`/api/v1/price-rules/${RULE_ID}/fixture-upload-link-confirmations`, {
+        method: 'POST',
+        headers: { ...asUploadLink, 'Content-Type': 'application/json', 'Idempotency-Key': key },
+        body: JSON.stringify({ filename: 'a.pdf' }),
+      });
+      expect(first.status).toBe(201);
+
+      const second = await call(`/api/v1/price-rules/${RULE_ID}/fixture-upload-link-confirmations`, {
+        method: 'POST',
+        headers: { ...asUploadLink2, 'Content-Type': 'application/json', 'Idempotency-Key': key },
+        body: JSON.stringify({ filename: 'b.pdf' }),
+      });
+      // AVANT le correctif (cle STOCKEE indexee sur le seul tenantId), le
+      // second appel aurait recu 409 api.idempotency_key_reused : deux
+      // porteurs de liens DISTINCTS du MEME imprimeur partageaient la meme
+      // entree (tenantId, idempotency_key).
+      expect(second.status).toBe(201);
+      const secondBody = (await second.json()) as { data: { linkId: string; filename: string } };
+      expect(secondBody.data.linkId).toBe('link-2');
+      expect(secondBody.data.filename).toBe('b.pdf');
+    },
+  );
+
+  it(
+    'E10.20a (§8.21 §5, qa-review round 1 B2) — la MEME cle, pour le MEME lien, reste rejouee (pas une ' +
+      'seconde ecriture) — la derivation ne casse pas l idempotence intra-lien',
+    async () => {
+      const key = 'meme-lien-rejeu-fixture';
+      const first = await call(`/api/v1/price-rules/${RULE_ID}/fixture-upload-link-confirmations`, {
+        method: 'POST',
+        headers: { ...asUploadLink, 'Content-Type': 'application/json', 'Idempotency-Key': key },
+        body: JSON.stringify({ filename: 'c.pdf' }),
+      });
+      expect(first.status).toBe(201);
+
+      const replay = await call(`/api/v1/price-rules/${RULE_ID}/fixture-upload-link-confirmations`, {
+        method: 'POST',
+        headers: { ...asUploadLink, 'Content-Type': 'application/json', 'Idempotency-Key': key },
+        body: JSON.stringify({ filename: 'c.pdf' }),
+      });
+      expect(replay.status).toBe(201);
+      expect(replay.headers.get('idempotency-replayed')).toBe('true');
+    },
+  );
+
+  it(
+    'qa-review round 1 (B1, BLOQUANT, corrige) — SYMETRIQUE du test B1 shop_customer : un cookie de ' +
+      'session boutique VALIDE + un en-tete X-Magrit-Upload-Link SANS RAPPORT sur une route `shop_customer` ' +
+      "doit resoudre le cookie, PAS le lien — E10.20b sert la page de depot sur la MEME ORIGINE que la " +
+      'boutique, le cookie et l en-tete peuvent donc s attacher ENSEMBLE a une requete boutique legitime',
+    async () => {
+      const response = await call(`/api/v1/price-rules/${RULE_ID}/fixture-decisions`, {
+        method: 'POST',
+        headers: {
+          ...asShopCustomer,
+          ...asUploadLink,
+          'Content-Type': 'application/json',
+          'Idempotency-Key': 'b1-symmetric-cookie-plus-upload-link',
+        },
+        body: JSON.stringify({ decision: 'accepted' }),
+      });
+      // AVANT le correctif : l en-tete de lien gagnait INCONDITIONNELLEMENT
+      // sur le cookie (meme hors de son propre mode) — `credential`
+      // resolvait `upload_link`, `cookiePresentWithExplicit` devenait donc
+      // `false` (le refus 400 attendu ne se declenchait pas non plus), et le
+      // principal resolu (`upload_link`) etait refuse en 403
+      // `identity.actor_kind_required` sur cette route `shop_customer` — un
+      // acheteur pourtant legitimement connecte se voyait refuser l acces.
+      await expectContract(response, { status: 201 });
+      const body = (await response.json()) as { data: { accountId: string; decision: string } };
+      expect(body.data.accountId).toBe('account-1');
+    },
+  );
 });

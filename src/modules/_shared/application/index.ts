@@ -7,6 +7,7 @@ export {
 
 export {
   deriveShopCustomerIdempotencyStorageKey,
+  deriveUploadLinkIdempotencyStorageKey,
   fingerprintRequest,
   idempotencyInProgress,
   idempotencyKeyReused,
@@ -38,6 +39,7 @@ export {
   roleRequired,
   scopeRequired,
   SHARED_PROBLEM_CODES,
+  uploadLinkInvalid,
   validationFailed,
 } from './problem.ts';
 export type { ProblemInit, SharedProblemCode } from './problem.ts';
@@ -46,6 +48,7 @@ export {
   assertScopes,
   assertShopCustomerPrincipal,
   assertTenantNotAddressed,
+  assertUploadLinkPrincipal,
   assertUserPrincipal,
   readCredential,
   resolvePrincipal,
@@ -59,6 +62,8 @@ export type {
   ServiceScope,
   ShopCustomerPrincipal,
   ShopCustomerSessionKind,
+  UploadLinkCredential,
+  UploadLinkPrincipal,
   UserPrincipal,
 } from './tenant-resolution.ts';
 

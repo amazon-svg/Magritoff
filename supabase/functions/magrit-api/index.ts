@@ -83,6 +83,8 @@ import { OrderDocumentsService } from '../../../src/modules/order-documents/appl
 import { SupabaseOrderDocumentsRepository } from '../../../src/adapters/supabase/order-documents-repository.ts';
 import { OrderFilesService } from '../../../src/modules/order-files/application/order-files-service.ts';
 import { SupabaseOrderFilesRepository } from '../../../src/adapters/supabase/order-files-repository.ts';
+import { OrderUploadLinksService } from '../../../src/modules/order-upload-links/application/order-upload-links-service.ts';
+import { SupabaseOrderUploadLinksRepository } from '../../../src/adapters/supabase/order-upload-links-repository.ts';
 import { SupabaseApiPrincipalVerifier } from '../../../src/adapters/supabase/api-principal-verifier.ts';
 import { InMemoryIdempotencyStore, OutboxPublisher } from '../../../src/modules/_shared/application/index.ts';
 import { TENANT_SELECTION_HEADER } from '../../../src/modules/_shared/api/index.ts';
@@ -91,13 +93,14 @@ import type { OutboxRepository } from '../../../src/modules/_shared/application/
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  // Les quatre derniers en-tetes sont exiges par la facade E10 (socle E10.0) :
+  // Les cinq derniers en-tetes sont exiges par la facade E10 (socle E10.0) :
   // `idempotency-key` sur toute creation (CA8), `if-match` sur tout PATCH
   // (CA9), `x-magrit-tenant` pour selectionner l espace parmi ceux du jeton,
-  // `x-magrit-service-key` pour les modules tiers (CA5). Sans eux, le
+  // `x-magrit-service-key` pour les modules tiers (CA5), `x-magrit-upload-
+  // link` pour le quatrieme mode d authentification (E10.20a). Sans eux, le
   // prevol navigateur rejette la requete avant qu elle parte.
   'Access-Control-Allow-Headers':
-    'authorization, content-type, x-request-id, idempotency-key, if-match, x-magrit-tenant, x-magrit-service-key',
+    'authorization, content-type, x-request-id, idempotency-key, if-match, x-magrit-tenant, x-magrit-service-key, x-magrit-upload-link',
   'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
   // Sans cette ligne, `response.headers.get('etag')` rend `null` dans un
   // navigateur : seuls quelques en-tetes sont lisibles par defaut en CORS.
@@ -475,6 +478,16 @@ export async function handleRequest(request: Request): Promise<Response> {
     repository: new SupabaseOrderFilesRepository(client, documentTemplatesStorageClient),
   });
 
+  // E10.20a — liens publics de depot, SOCLE uniquement (quatrieme mode
+  // d authentification, `getOrderUploadLinkContext`, aucun depot possible
+  // dans ce lot). `client` (JWT de l appelant) pour les trois operations
+  // d atelier, `storefrontClient` (SANS JWT Magrit) pour `getContext` — le
+  // porteur d un lien n a par construction aucune credential Magrit, meme
+  // raisonnement que la resolution d une session boutique.
+  const orderUploadLinksService = new OrderUploadLinksService({
+    repository: new SupabaseOrderUploadLinksRepository(client, storefrontClient),
+  });
+
   const handler = createMagritApiApplication({
     gescomServices: {
       customers: customersService,
@@ -490,6 +503,7 @@ export async function handleRequest(request: Request): Promise<Response> {
       documentTemplates: documentTemplatesService,
       quoteDocuments: quoteDocumentsService,
       orderFiles: orderFilesService,
+      orderUploadLinks: orderUploadLinksService,
     },
     principalVerifier: new SupabaseApiPrincipalVerifier(client, {
       requestedTenantId: request.headers.get(TENANT_SELECTION_HEADER),

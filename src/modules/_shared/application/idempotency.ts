@@ -146,6 +146,45 @@ export async function deriveShopCustomerIdempotencyStorageKey(
   return `sca.${accountId}.${toHex(digest)}`;
 }
 
+/**
+ * E10.20a — derive la cle STOCKEE pour un `UploadLinkPrincipal`
+ * (docs/api/CONVENTIONS.md §8.21 §5, assignee EXPLICITEMENT a cette
+ * sous-story : "ApiPrincipal elargi, derivation d idempotence pour ce
+ * principal, les trois operations d atelier").
+ *
+ * MEME DEFAUT DE SOCLE QUE `deriveShopCustomerIdempotencyStorageKey`
+ * (E10.10b-2), transporte tel quel plutot que reintroduit sans y penser :
+ * `api_idempotency_keys` est unique sur `(tenant_id, idempotency_key)`, et
+ * DEUX LIENS DISTINCTS emis pour DEUX COMMANDES DIFFERENTES du MEME tenant
+ * partagent ce meme tenant — si deux porteurs de liens distincts
+ * choisissaient par hasard la MEME valeur d `Idempotency-Key` (ex. "1", un
+ * choix naif frequent), le second recevrait 409
+ * `api.idempotency_key_reused`, ou pire, un REJEU qui lui rendrait le recu
+ * de depot de l autre. Aucune route de ce lot n a `createsResource: true`
+ * sous ce principal (`getOrderUploadLinkContext` est un GET) : cette
+ * fonction n a donc PAS ENCORE d appelant reel, mais le contrat assigne
+ * explicitement sa livraison a CETTE sous-story, pas a E10.20b (qui
+ * enregistrera `confirmOrderUploadLinkFile`, la premiere route a en avoir
+ * besoin) — brancher cette fonction sera alors un CABLAGE, pas une
+ * conception nouvelle.
+ *
+ * Cle derivee du LIEN (`linkId`), jamais de la commande ni du tenant seuls :
+ * deux liens DIFFERENTS emis pour la MEME commande restent deux porteurs
+ * potentiellement distincts, et ne doivent donc pas partager d espace de
+ * cles non plus. `ulk.<linkId>.<sha256(cle) hex>` (109 caracteres pour un
+ * `linkId` UUID, sous la borne 255 du `check` existant, meme jeu
+ * `[A-Za-z0-9_.:-]` que `sca.*`). Memes deux invariants tenus par
+ * construction que la fonction jumelle : la cle PRESENTEE par l appelant
+ * n est jamais modifiee, et aucun autre mode n est affecte.
+ */
+export async function deriveUploadLinkIdempotencyStorageKey(
+  linkId: string,
+  presentedKey: string,
+): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(presentedKey));
+  return `ulk.${linkId}.${toHex(digest)}`;
+}
+
 export function idempotencyKeyReused(key: string) {
   return problem({
     status: 409,
